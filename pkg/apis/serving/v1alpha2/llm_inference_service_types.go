@@ -146,6 +146,21 @@ type WorkloadSpec struct {
 	Worker *corev1.PodSpec `json:"worker,omitempty"`
 }
 
+// ConfidentialSpec enables confidential model serving with encrypted model artifacts.
+// When enabled, the storage initializer will decrypt model files using keys obtained
+// from a Key Broker Service (KBS) via TEE attestation.
+type ConfidentialSpec struct {
+	// Enabled controls whether confidential model serving is active.
+	// When true, the confidential storage initializer image is used and
+	// encrypted model artifacts are decrypted after download.
+	Enabled bool `json:"enabled"`
+	// ResourceId is the KBS resource identifier for the decryption key,
+	// in the format kbs:///<repo>/<type>/<tag>.
+	// If omitted, the storage initializer will attempt auto-discovery.
+	// +optional
+	ResourceId *string `json:"resourceId,omitempty"`
+}
+
 // LLMModelSpec defines the model source and its characteristics.
 type LLMModelSpec struct {
 	// URI of the model, specifying its location, e.g., hf://meta-llama/Llama-4-Scout-17B-16E-Instruct
@@ -161,6 +176,12 @@ type LLMModelSpec struct {
 	// Allows for specifying one or more LoRA adapters to be applied to the base model.
 	// +optional
 	LoRA *LoRASpec `json:"lora,omitempty"`
+
+	// Confidential enables confidential model serving with encrypted model artifacts.
+	// When enabled, the storage initializer decrypts model files using keys obtained
+	// from a Key Broker Service (KBS) via TEE attestation.
+	// +optional
+	Confidential *ConfidentialSpec `json:"confidential,omitempty"`
 }
 
 // LoRASpec defines the configuration for LoRA adapters.

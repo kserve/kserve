@@ -76,9 +76,10 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 		return nil
 	}
 
+	var err error
 	switch schema + "://" {
 	case constants.PvcURIPrefix:
-		return r.attachPVCModelArtifact(modelUri, podSpec, containerName, modelPath)
+		err = r.attachPVCModelArtifact(modelUri, podSpec, containerName, modelPath)
 
 	case constants.OciURIPrefix:
 		// Check of OCI is enabled
@@ -86,16 +87,26 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 			return errors.New("OCI modelcars is not enabled")
 		}
 
-		return r.attachOciModelArtifact(modelUri, podSpec, config.StorageConfig, containerName, modelPath)
+		err = r.attachOciModelArtifact(modelUri, podSpec, config.StorageConfig, containerName, modelPath)
 
 	case constants.HfURIPrefix:
-		return r.attachHfModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, modelPath)
+		err = r.attachHfModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, modelPath)
 
 	case constants.S3URIPrefix:
-		return r.attachS3ModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, modelPath)
+		err = r.attachS3ModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, modelPath)
+
+	default:
+		return fmt.Errorf("unsupported schema in model URI: %s", modelUri)
 	}
 
-	return fmt.Errorf("unsupported schema in model URI: %s", modelUri)
+	if err != nil {
+		return err
+	}
+
+	// Apply confidential model serving configuration if enabled
+	applyLLMConfidentialConfig(llmSvc, podSpec, config.StorageConfig)
+
+	return nil
 }
 
 // attachOciModelArtifact configures a PodSpec to use a model stored in an OCI registry.
@@ -407,4 +418,39 @@ func needCaBundleMount(caBundleConfigMapName string, initContainer *corev1.Conta
 		}
 	}
 	return result
+}
+
+// applyLLMConfidentialConfig swaps the storage-initializer init container image and injects
+// environment variables for confidential model serving when enabled in the LLMInferenceService spec.
+func applyLLMConfidentialConfig(llmSvc *v1alpha2.LLMInferenceService, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig) {
+	confidential := llmSvc.Spec.Model.Confidential
+	if confidential == nil || !confidential.Enabled {
+		return
+	}
+
+	// Find the storage-initializer init container
+	for i := range podSpec.InitContainers {
+		if podSpec.InitContainers[i].Name != constants.StorageInitializerContainerName {
+			continue
+		}
+
+		// Swap image to confidential image if configured
+		if storageConfig.ConfidentialImage != "" {
+			podSpec.InitContainers[i].Image = storageConfig.ConfidentialImage
+		}
+
+		podSpec.InitContainers[i].Env = append(podSpec.InitContainers[i].Env, corev1.EnvVar{
+			Name:  constants.ConfidentialEnabledEnvVar,
+			Value: "true",
+		})
+
+		if confidential.ResourceId != nil && *confidential.ResourceId != "" {
+			podSpec.InitContainers[i].Env = append(podSpec.InitContainers[i].Env, corev1.EnvVar{
+				Name:  constants.ConfidentialResourceIdEnvVar,
+				Value: *confidential.ResourceId,
+			})
+		}
+
+		break
+	}
 }

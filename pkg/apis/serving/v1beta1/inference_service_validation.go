@@ -40,6 +40,9 @@ import (
 	"github.com/kserve/kserve/pkg/validation"
 )
 
+// KBS resource ID format: kbs:///<repo>/<type>/<tag>
+var kbsResourceIdRegexp = regexp.MustCompile(`^kbs:///[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+/[a-zA-Z0-9_.-]+$`)
+
 // regular expressions for validation of isvc name
 const (
 	IsvcNameFmt                         string = "[a-z]([-a-z0-9]*[a-z0-9])?"
@@ -139,6 +142,12 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 	}
 
 	if err := validateMultipleStorageURIs(isvc); err != nil {
+		return allWarnings, err
+	}
+
+	confidentialWarnings, err := validateConfidential(isvc)
+	allWarnings = append(allWarnings, confidentialWarnings...)
+	if err != nil {
 		return allWarnings, err
 	}
 
@@ -718,4 +727,71 @@ func validateMultipleStorageURIs(isvc *InferenceService) error {
 	}
 
 	return nil
+}
+
+// validateConfidential validates the confidential spec on the predictor's implementation.
+func validateConfidential(isvc *InferenceService) (admission.Warnings, error) {
+	var warnings admission.Warnings
+
+	// Find the confidential spec from whichever predictor implementation is set
+	confidential := GetConfidentialSpecFromPredictor(&isvc.Spec.Predictor)
+	if confidential == nil || !confidential.Enabled {
+		return warnings, nil
+	}
+
+	// Confidential requires a storageUri to be set
+	implementations := isvc.Spec.Predictor.GetImplementations()
+	if len(implementations) == 0 {
+		return warnings, fmt.Errorf("confidential model serving requires storageUri to be set")
+	}
+	storageUri := implementations[0].GetStorageUri()
+	if storageUri == nil || *storageUri == "" {
+		return warnings, fmt.Errorf("confidential model serving requires storageUri to be set")
+	}
+
+	// Warn if OCI URI is used with confidential — OCI decryption is handled by the container runtime
+	if strings.HasPrefix(*storageUri, constants.OciURIPrefix) {
+		warnings = append(warnings,
+			"confidential has no effect with OCI URIs; OCI image decryption is handled by the container runtime via runtimeClassName")
+	}
+
+	// Validate resourceId format if provided
+	if confidential.ResourceId != nil && *confidential.ResourceId != "" {
+		if !kbsResourceIdRegexp.MatchString(*confidential.ResourceId) {
+			return warnings, fmt.Errorf("invalid confidential resourceId format %q, expected kbs:///<repo>/<type>/<tag>", *confidential.ResourceId)
+		}
+	}
+
+	return warnings, nil
+}
+
+// GetConfidentialSpecFromPredictor extracts the ConfidentialSpec from any predictor implementation
+// that embeds PredictorExtensionSpec.
+func GetConfidentialSpecFromPredictor(predictor *PredictorSpec) *ConfidentialSpec {
+	switch {
+	case predictor.SKLearn != nil:
+		return predictor.SKLearn.Confidential
+	case predictor.XGBoost != nil:
+		return predictor.XGBoost.Confidential
+	case predictor.Tensorflow != nil:
+		return predictor.Tensorflow.Confidential
+	case predictor.PyTorch != nil:
+		return predictor.PyTorch.Confidential
+	case predictor.Triton != nil:
+		return predictor.Triton.Confidential
+	case predictor.ONNX != nil:
+		return predictor.ONNX.Confidential
+	case predictor.HuggingFace != nil:
+		return predictor.HuggingFace.Confidential
+	case predictor.PMML != nil:
+		return predictor.PMML.Confidential
+	case predictor.LightGBM != nil:
+		return predictor.LightGBM.Confidential
+	case predictor.Paddle != nil:
+		return predictor.Paddle.Confidential
+	case predictor.Model != nil:
+		return predictor.Model.Confidential
+	default:
+		return nil
+	}
 }

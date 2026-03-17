@@ -129,6 +129,9 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		}
 	}
 
+	// Add confidential annotations if enabled on the predictor
+	addConfidentialAnnotations(&isvc.Spec.Predictor, annotations)
+
 	// If Model is specified, prioritize using that. Otherwise, we will assume a framework object was specified.
 	if isvc.Spec.Predictor.Model != nil {
 		var err error
@@ -275,6 +278,20 @@ func (p *Predictor) addStorageInitializerAnnotations(ctx context.Context, predic
 		}
 	}
 	return nil
+}
+
+// addConfidentialAnnotations sets confidential annotations on the service/deployment if
+// the predictor's ConfidentialSpec is enabled. These annotations are read by the webhook
+// mutator to swap the init container image and inject environment variables.
+func addConfidentialAnnotations(predictor *v1beta1.PredictorSpec, annotations map[string]string) {
+	confidential := v1beta1.GetConfidentialSpecFromPredictor(predictor)
+	if confidential == nil || !confidential.Enabled {
+		return
+	}
+	annotations[constants.ConfidentialEnabledAnnotationKey] = "true"
+	if confidential.ResourceId != nil && *confidential.ResourceId != "" {
+		annotations[constants.ConfidentialResourceIdAnnotationKey] = *confidential.ResourceId
+	}
 }
 
 func (p *Predictor) reconcileModel(ctx context.Context, isvc *v1beta1.InferenceService, multiNodeEnabled bool) (v1alpha1.ServingRuntimeSpec, error) {

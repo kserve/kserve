@@ -169,6 +169,8 @@ var (
 	LocalModelNamespaceLabel                         = InferenceServiceInternalAnnotationsPrefix + "/localmodel-namespace"
 	LocalModelSourceUriAnnotationKey                 = InferenceServiceInternalAnnotationsPrefix + "/localmodel-sourceuri"
 	LocalModelPVCNameAnnotationKey                   = InferenceServiceInternalAnnotationsPrefix + "/localmodel-pvc-name"
+	ConfidentialEnabledAnnotationKey                 = InferenceServiceInternalAnnotationsPrefix + "/confidential-enabled"
+	ConfidentialResourceIdAnnotationKey              = InferenceServiceInternalAnnotationsPrefix + "/confidential-resource-id"
 )
 
 // kserve networking constants
@@ -309,6 +311,12 @@ var DefaultGPUResourceTypeList = []string{
 	IntelGPUResourceType,
 	GaudiGPUResourceType,
 }
+
+// Confidential model serving environment variables
+const (
+	ConfidentialEnabledEnvVar    = "CONFIDENTIAL_ENABLED"
+	ConfidentialResourceIdEnvVar = "CONFIDENTIAL_RESOURCE_ID"
+)
 
 // InferenceService Environment Variables
 const (
