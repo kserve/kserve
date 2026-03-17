@@ -58,7 +58,7 @@ jobs:
                 chmod +x $GOPATH/bin/yq
                 make test
                 ./coverage.sh
-                echo ::set-output name=coverage::$(./coverage.sh | tr -s '\t' | cut -d$'\t' -f 3)
+                echo "coverage=$(./coverage.sh | tr -s '\t' | cut -d$'\t' -f 3)" >> $GITHUB_OUTPUT
             
             - name: Print coverage
               run: |
@@ -170,8 +170,7 @@ jobs:
                 echo "Current Coverage ${{ steps.current-coverage.outputs.coverage }}"
 
             - name: post coverage report
-              # this has evalated permission to post back the coverage, only restricted to this step.
-              if: github.event_name == 'pull_request_target'
+              if: github.event_name == 'pull_request'
               uses: thollander/actions-comment-pull-request@65f9e5c9a1f2cd378bd74b2e057c9736982a8e74 # v3
               with:
                 github-token: ${{ secrets.GITHUB_TOKEN }}
