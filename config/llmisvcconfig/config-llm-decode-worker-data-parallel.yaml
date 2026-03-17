@@ -7,7 +7,7 @@ spec:
     initContainers:
       - name: llm-d-routing-sidecar
         imagePullPolicy: IfNotPresent
-        image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.4.0
+        image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.6.0
         restartPolicy: Always
         ports:
           - containerPort: 8000
@@ -27,7 +27,7 @@ spec:
           httpGet:
             path: /health
             port: 8000
-            scheme: HTTPS
+            scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
           initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 10
@@ -36,21 +36,22 @@ spec:
           httpGet:
             path: /health
             port: 8000
-            scheme: HTTPS
+            scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
           initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 5
           failureThreshold: 10
-        args:
+        command:
+          - "/app/pd-sidecar"
           - "--port=8000"
           - "--vllm-port=8001"
           - "--connector=nixlv2"
-          - "--secure-proxy=true"
-          - "--cert-path=/var/run/kserve/tls"
-          - "--decoder-use-tls=true"
-          - "--prefiller-use-tls=true"
           - "--enable-ssrf-protection=true"
           - "--pool-group=inference.networking.x-k8s.io"
+          - '{{ if .GlobalConfig.EnableTLS }}--secure-proxy=true{{else}}--secure-proxy=false{{- end }}'
+          - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
+          - '{{ if .GlobalConfig.EnableTLS }}--decoder-use-tls=true{{- end }}'
+          - '{{ if .GlobalConfig.EnableTLS }}--prefiller-use-tls=true{{- end }}'
         volumeMounts:
           - mountPath: /var/run/kserve/tls
             name: tls-certs
@@ -63,7 +64,7 @@ spec:
           - name: SSL_CERT_DIR
             value: "/var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs"
     containers:
-      - image: ghcr.io/llm-d/llm-d-cuda:v0.4.0
+      - image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
         imagePullPolicy: IfNotPresent
         name: main
         ports:
@@ -74,17 +75,31 @@ spec:
           - "-c"
           - |-
             # In some versions, ZMQ bind doesn't resolve the address through DNS
-            DP_ADDRESS=$(getent hosts "${LWS_LEADER_ADDRESS}" | cut -d' ' -f1)
-            if [ -z "${DP_ADDRESS}" ]; then
-              echo "ERROR: Failed to resolve LWS_LEADER_ADDRESS='${LWS_LEADER_ADDRESS}'" >&2
-              exit 1
+            # Retry DP_ADDRESS resolution (configurable attempts, default 30)
+            RESOLVE_ATTEMPTS=${DP_ADDRESS_RESOLVE_ATTEMPTS:-30}
+            for ((i=1; i<=RESOLVE_ATTEMPTS; i++)); do
+              DP_ADDRESS=$(getent hosts ${LWS_LEADER_ADDRESS} | cut -d' ' -f1)
+              if [ -n "$DP_ADDRESS" ]; then
+                echo "DP_ADDRESS=${DP_ADDRESS} (resolved on attempt $i)"
+                break
+              else
+                echo "DP_ADDRESS resolution failed on attempt $i, retrying..."
+                sleep 1
+              fi
+            done
+
+            if [ -z "$DP_ADDRESS" ]; then
+              echo "WARNING: Failed to resolve DP_ADDRESS after ${RESOLVE_ATTEMPTS} attempts, falling back to LWS_LEADER_ADDRESS"
+              DP_ADDRESS=${LWS_LEADER_ADDRESS}
+              echo "DP_ADDRESS=${DP_ADDRESS} (fallback)"
             fi
-            echo "DP_ADDRESS=${DP_ADDRESS}"
 
             if [ "$KSERVE_INFER_ROCE" = "true" ]; then
               echo "Trying to infer RoCE configs ... "
               grep -H . /sys/class/infiniband/*/ports/*/gids/* 2>/dev/null
               grep -H . /sys/class/infiniband/*/ports/*/gid_attrs/types/* 2>/dev/null
+
+              cat /proc/driver/nvidia/params
 
               KSERVE_INFER_IB_GID_INDEX_GREP=${KSERVE_INFER_IB_GID_INDEX_GREP:-"RoCE v2"}
 
@@ -119,7 +134,7 @@ spec:
                   hcas=$(IFS=,; echo "${active_hcas[*]}")
                   echo "[Infer RoCE] Setting active HCAs: ${hcas}"
                   export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-                  export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hcas}}
+                  export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
                   export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
 
                   echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
@@ -212,14 +227,12 @@ spec:
               --data-parallel-address ${DP_ADDRESS} \
               --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
               --data-parallel-start-rank $START_RANK \
+              --disable-uvicorn-access-log \
+              {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
+              {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
+              {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
               ${VLLM_ADDITIONAL_ARGS} \
-              $@ \
-              --trust-remote-code \
-              --enable-ssl-refresh \
-              --ssl-certfile \
-              /var/run/kserve/tls/tls.crt \
-              --ssl-keyfile \
-              /var/run/kserve/tls/tls.key"
+              $@"
           # "--" ends bash options; subsequent args become positional params ($@) forwarded to vllm serve
           - "--"
 
@@ -249,7 +262,7 @@ spec:
           httpGet:
             path: /health
             port: 8001
-            scheme: HTTPS
+            scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
           periodSeconds: 10
           timeoutSeconds: 10
           failureThreshold: 3
@@ -257,7 +270,7 @@ spec:
           httpGet:
             path: /health
             port: 8001
-            scheme: HTTPS
+            scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
           periodSeconds: 30
           timeoutSeconds: 5
           failureThreshold: 60
@@ -265,7 +278,7 @@ spec:
           httpGet:
             path: /health
             port: 8001
-            scheme: HTTPS
+            scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
           failureThreshold: 60
           periodSeconds: 10
         volumeMounts:
@@ -293,7 +306,7 @@ spec:
           secretName: "{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}"
   worker:
     containers:
-      - image: ghcr.io/llm-d/llm-d-cuda:v0.4.0
+      - image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
         imagePullPolicy: IfNotPresent
         name: main
         ports:
@@ -304,17 +317,31 @@ spec:
           - "-c"
           - |-
             # In some versions, ZMQ bind doesn't resolve the address through DNS
-            DP_ADDRESS=$(getent hosts "${LWS_LEADER_ADDRESS}" | cut -d' ' -f1)
-            if [ -z "${DP_ADDRESS}" ]; then
-              echo "ERROR: Failed to resolve LWS_LEADER_ADDRESS='${LWS_LEADER_ADDRESS}'" >&2
-              exit 1
+            # Retry DP_ADDRESS resolution (configurable attempts, default 30)
+            RESOLVE_ATTEMPTS=${DP_ADDRESS_RESOLVE_ATTEMPTS:-30}
+            for ((i=1; i<=RESOLVE_ATTEMPTS; i++)); do
+              DP_ADDRESS=$(getent hosts ${LWS_LEADER_ADDRESS} | cut -d' ' -f1)
+              if [ -n "$DP_ADDRESS" ]; then
+                echo "DP_ADDRESS=${DP_ADDRESS} (resolved on attempt $i)"
+                break
+              else
+                echo "DP_ADDRESS resolution failed on attempt $i, retrying..."
+                sleep 1
+              fi
+            done
+
+            if [ -z "$DP_ADDRESS" ]; then
+              echo "WARNING: Failed to resolve DP_ADDRESS after ${RESOLVE_ATTEMPTS} attempts, falling back to LWS_LEADER_ADDRESS"
+              DP_ADDRESS=${LWS_LEADER_ADDRESS}
+              echo "DP_ADDRESS=${DP_ADDRESS} (fallback)"
             fi
-            echo "DP_ADDRESS=${DP_ADDRESS}"
 
             if [ "$KSERVE_INFER_ROCE" = "true" ]; then
               echo "Trying to infer RoCE configs ... "
               grep -H . /sys/class/infiniband/*/ports/*/gids/* 2>/dev/null
               grep -H . /sys/class/infiniband/*/ports/*/gid_attrs/types/* 2>/dev/null
+
+              cat /proc/driver/nvidia/params
 
               KSERVE_INFER_IB_GID_INDEX_GREP=${KSERVE_INFER_IB_GID_INDEX_GREP:-"RoCE v2"}
 
@@ -349,7 +376,7 @@ spec:
                   hcas=$(IFS=,; echo "${active_hcas[*]}")
                   echo "[Infer RoCE] Setting active HCAs: ${hcas}"
                   export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-                  export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hcas}}
+                  export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
                   export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
 
                   echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
@@ -441,15 +468,13 @@ spec:
               --data-parallel-address ${DP_ADDRESS} \
               --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
               --data-parallel-start-rank $START_RANK \
-              ${VLLM_ADDITIONAL_ARGS} \
-              $@ \
-              --trust-remote-code \
               --headless \
-              --enable-ssl-refresh \
-              --ssl-certfile \
-              /var/run/kserve/tls/tls.crt \
-              --ssl-keyfile \
-              /var/run/kserve/tls/tls.key"
+              --disable-uvicorn-access-log \
+              {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
+              {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
+              {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+              ${VLLM_ADDITIONAL_ARGS} \
+              $@"
           # "--" ends bash options; subsequent args become positional params ($@) forwarded to vllm serve
           - "--"
 

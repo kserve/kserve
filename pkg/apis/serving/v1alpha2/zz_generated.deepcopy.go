@@ -537,11 +537,6 @@ func (in *ScalingSpec) DeepCopyInto(out *ScalingSpec) {
 		*out = new(int32)
 		**out = **in
 	}
-	if in.MaxReplicas != nil {
-		in, out := &in.MaxReplicas, &out.MaxReplicas
-		*out = new(int32)
-		**out = **in
-	}
 	if in.WVA != nil {
 		in, out := &in.WVA, &out.WVA
 		*out = new(WVASpec)

@@ -30,9 +30,24 @@ KSERVE_CONTROLLER_MEMORY_LIMIT ?= 300Mi
 $(shell perl -pi -e 's/cpu:.*/cpu: $(KSERVE_CONTROLLER_CPU_LIMIT)/' config/default/manager_resources_patch.yaml)
 $(shell perl -pi -e 's/memory:.*/memory: $(KSERVE_CONTROLLER_MEMORY_LIMIT)/' config/default/manager_resources_patch.yaml)
 
+# Force the Go toolchain defined in go.mod.
+# When GOTOOLCHAIN=auto, the Go command may download a minimal toolchain to the
+# module cache that is missing tools such as covdata, which breaks
+# "go test -cover" (see https://go.dev/issue/75031).
+# Setting GOTOOLCHAIN to the exact version from go.mod makes Go use a
+# fully-installed toolchain instead.
+GOTOOLCHAIN ?= auto
+ifeq (auto,$(GOTOOLCHAIN))
+ifeq (,$(FORCE_HOST_GO))
+export GOTOOLCHAIN := $(shell grep '^toolchain go' go.mod | cut -d' ' -f2)
+else
+export GOTOOLCHAIN := local
+endif
+endif
+
 export GOFLAGS=-mod=mod
 
-# Go build tags (e.g. "distro" for midstream).
+# Go build tags (e.g. "distro" for distribution-specific code).
 # Passed to Docker image builds via --build-arg and to all go commands via GOFLAGS.
 GOTAGS ?=
 ifdef GOTAGS
@@ -190,6 +205,9 @@ manifests: controller-gen yq
 	kubectl kustomize config/crd/full/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceservices.serving.kserve.io")' > charts/kserve-llmisvc-crd/templates/serving.kserve.io_llminferenceservices.yaml
 	kubectl kustomize config/crd/full/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceserviceconfigs.serving.kserve.io")' > charts/kserve-llmisvc-crd/templates/serving.kserve.io_llminferenceserviceconfigs.yaml
 	
+	# Copy the WVA VariantAutoscaling CRD for envtest
+	kubectl kustomize https://github.com/llm-d/llm-d-workload-variant-autoscaler.git/config/crd?ref=$(WVA_VERSION) > test/crds/wva_variantautoscalings.yaml
+
 	# Copy the full crd to the test folder
 	kubectl kustomize config/crd/full > test/crds/serving.kserve.io_all_crds.yaml
 	echo "---" >> test/crds/serving.kserve.io_all_crds.yaml
@@ -302,7 +320,7 @@ clean:
 TEST_PKGS ?= $$(go list ./pkg/...) ./cmd/...
 TEST_TIMEOUT ?= 30m
 test: fmt vet manifests envtest test-qpext
-	KUBEBUILDER_ASSETS="$$($(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test --timeout $(TEST_TIMEOUT) $(TEST_PKGS) -coverprofile coverage.out -coverpkg ./pkg/... ./cmd...
+	KUBEBUILDER_ASSETS="$$($(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test --timeout 30m $$(go list ./pkg/...) ./cmd/... -coverprofile coverage.out -coverpkg ./pkg/... ./cmd...
 
 test-qpext:
 	cd qpext && go test -v ./... -cover
@@ -353,6 +371,7 @@ deploy: manifests
 
 
 deploy-dev: manifests
+	kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml
 	# Given that llmisvc CRs and CRDs are packaged together, when using kustomize build a race condition will occur.
 	# This is because before the CRD is registered to the api server, kustomize will attempt to create the CR.
 	# The below kubectl apply and kubectl wait commands are necessary to avoid this race condition.
@@ -364,6 +383,7 @@ deploy-dev: manifests
 	
 	@echo "Deploy KServe,LocalModel and LLMInferenceService"
 	hack/setup/infra/manage.cert-manager-helm.sh
+	hack/setup/infra/manage.lws-operator.sh
 	KSERVE_OVERLAY_DIR=development hack/setup/infra/manage.kserve-kustomize.sh
 	
 	@echo "Create ClusterServingRuntimes as part of default deployment"

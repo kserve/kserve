@@ -28,8 +28,6 @@ spec:
                   kvBlockIndexConfig:
                     enableMetrics: true                   # Enable Prometheus metrics for KV cache index
                     metricsLoggingInterval: 60000000000   # Log metrics every 60 seconds (in nanoseconds)
-                  tokenizersPoolConfig:
-                    tokenizersCacheDir: /mnt/tokenizers
             - type: queue-scorer
             - type: kv-cache-utilization-scorer
             - type: max-score-picker

@@ -644,13 +644,14 @@ ENVOY_AI_GATEWAY_VERSION=v0.5.0
 KNATIVE_OPERATOR_VERSION=v1.21.1
 KNATIVE_SERVING_VERSION=1.21.1
 KEDA_OTEL_ADDON_VERSION=v0.0.6
-KSERVE_VERSION=v0.17.0-rc1
+KSERVE_VERSION=v0.17.0
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.17.3
 OPENTELEMETRY_OPERATOR_VERSION=0.74.3
 LWS_VERSION=v0.7.0
 GATEWAY_API_VERSION=v1.4.1
 GIE_VERSION=v1.3.0
+WVA_VERSION=v0.5.1
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -1148,6 +1149,7 @@ install_istio() {
         --namespace "${ISTIO_NAMESPACE}" \
         --version "${ISTIO_VERSION}" \
         --set proxy.autoInject=disabled \
+        --set pilot.env.ENABLE_GATEWAY_API_INFERENCE_EXTENSION=true \
         --set-string pilot.podAnnotations."cluster-autoscaler\.kubernetes\.io/safe-to-evict"=true \
         --wait \
         ${ISTIOD_EXTRA_ARGS:-}

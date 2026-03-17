@@ -321,9 +321,8 @@ type InferencePoolSpec struct {
 // ScalingSpec configures autoscaling for the LLM inference deployment.
 // When scaling is configured, the controller creates and manages autoscaling resources
 // (VariantAutoscaling CR, ServiceMonitor, and the selected actuator — HPA or KEDA ScaledObject).
-// +kubebuilder:validation:XValidation:rule="has(self.maxReplicas)",message="maxReplicas is required when scaling is configured"
 // +kubebuilder:validation:XValidation:rule="has(self.wva)",message="wva is required when scaling is configured; it provides the autoscaling mechanism"
-// +kubebuilder:validation:XValidation:rule="!has(self.minReplicas) || !has(self.maxReplicas) || self.minReplicas <= self.maxReplicas",message="minReplicas cannot exceed maxReplicas"
+// +kubebuilder:validation:XValidation:rule="!has(self.minReplicas) || self.minReplicas <= self.maxReplicas",message="minReplicas cannot exceed maxReplicas"
 // +kubebuilder:validation:XValidation:rule="!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || has(self.minReplicas)",message="minReplicas is required when idleReplicaCount is set; idleReplicaCount must be less than minReplicas"
 // +kubebuilder:validation:XValidation:rule="!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || !has(self.minReplicas) || self.wva.keda.idleReplicaCount < self.minReplicas",message="idleReplicaCount must be less than minReplicas; idleReplicaCount defines the replica floor when no triggers are active"
 type ScalingSpec struct {
@@ -332,13 +331,13 @@ type ScalingSpec struct {
 	// For idle scale-down, use KEDA's idleReplicaCount instead.
 	// Defaults to 1 if not specified.
 	// +optional
+	// +kubebuilder:default=1
 	// +kubebuilder:validation:Minimum=1
 	MinReplicas *int32 `json:"minReplicas,omitempty"`
 
 	// MaxReplicas is the maximum number of replicas for the deployment.
-	// +optional
 	// +kubebuilder:validation:Minimum=1
-	MaxReplicas *int32 `json:"maxReplicas,omitempty"`
+	MaxReplicas int32 `json:"maxReplicas"`
 
 	// WVA configures the Workload Variant Autoscaler (WVA) for scaling.
 	// WVA scales based on a variety of inference metrics (KV cache utilization, queue depth, etc.)
@@ -368,15 +367,20 @@ type WVASpec struct {
 // +kubebuilder:validation:XValidation:rule="has(self.hpa) || has(self.keda)",message="either hpa or keda must be specified as the actuator backend"
 type ActuatorSpec struct {
 	// HPA configures the HorizontalPodAutoscaler as the actuator backend.
-	// When specified, HPA reads the wva_desired_replicas metric via the Kubernetes Metrics API
-	// (requires Prometheus Adapter) and scales the deployment accordingly.
+	// When specified, HPA reads the wva_desired_replicas metric via the Kubernetes external
+	// metrics API (external.metrics.k8s.io) and scales the deployment accordingly.
+	// Prerequisite: a Prometheus Adapter must be installed and configured in the cluster to
+	// bridge wva_desired_replicas from Prometheus into the Kubernetes external metrics API.
+	// Without it, the HPA will fail to read the metric and stop scaling silently.
 	// Mutually exclusive with KEDA.
 	// +optional
 	HPA *HPAScalingSpec `json:"hpa,omitempty"`
 
 	// KEDA configures a KEDA ScaledObject as the actuator backend.
 	// When specified, KEDA queries Prometheus directly for the wva_desired_replicas metric
-	// and scales the deployment accordingly. KEDA does not require a Prometheus Adapter.
+	// and scales the deployment accordingly. Unlike HPA, KEDA does not require a Prometheus
+	// Adapter — it connects to Prometheus directly using the URL configured in the
+	// autoscaling-wva-controller-config key of the inferenceservice-config ConfigMap.
 	// Mutually exclusive with HPA.
 	// +optional
 	KEDA *KEDAScalingSpec `json:"keda,omitempty"`
@@ -384,6 +388,13 @@ type ActuatorSpec struct {
 
 // HPAScalingSpec configures the HorizontalPodAutoscaler behavior.
 // The fields are directly from the upstream Kubernetes autoscaling/v2 API.
+//
+// Note: HPA-based autoscaling requires a Prometheus Adapter to be pre-installed and
+// configured in the cluster. The Prometheus Adapter exposes the wva_desired_replicas
+// metric published by WVA into the Kubernetes external metrics API (external.metrics.k8s.io),
+// which the HPA reads to make scaling decisions. If the Prometheus Adapter is absent or
+// misconfigured, the HPA will enter an Unknown state and scaling will silently stop.
+// Consider using KEDA instead, which queries Prometheus directly without an adapter.
 type HPAScalingSpec struct {
 	// Behavior configures the scaling behavior of the target in both Up and Down directions
 	// (scaleUp and scaleDown fields respectively).

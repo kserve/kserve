@@ -2,8 +2,8 @@ apiVersion: v2
 name: kserve-runtime-configs
 description: KServe Runtime Configurations - ClusterServingRuntimes and LLM Inference Configs
 type: application
-version: v0.17.0-rc1
-appVersion: v0.17.0-rc1
+version: v0.17.0
+appVersion: v0.17.0
 keywords:
   - kserve
   - clusterservingruntime

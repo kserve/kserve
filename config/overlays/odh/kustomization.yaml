@@ -113,6 +113,16 @@ replacements:
       name: kserve-config-llm-scheduler
     fieldPaths:
     - spec.router.scheduler.template.containers.[name=main].image
+- source:
+    kind: ConfigMap
+    name: kserve-parameters
+    fieldPath: data.kserve-llm-d-uds-tokenizer
+  targets:
+    - select:
+        kind: LLMInferenceServiceConfig
+        name: kserve-config-llm-scheduler
+      fieldPaths:
+        - spec.router.scheduler.template.containers.[name=tokenizer].image
 # Replace routing sidecar init container images with ODH image
 - source:
     kind: ConfigMap

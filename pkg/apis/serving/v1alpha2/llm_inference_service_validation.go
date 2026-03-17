@@ -504,23 +504,13 @@ func ValidateWorkloadScaling(basePath *field.Path, workload *WorkloadSpec) field
 		))
 	}
 
-	// MaxReplicas is required when scaling is configured
-	if scaling.MaxReplicas == nil {
-		allErrs = append(allErrs, field.Required(
-			scalingPath.Child("maxReplicas"),
-			"maxReplicas is required when scaling is configured",
-		))
-	}
-
 	// Validate replica bounds
-	if scaling.MinReplicas != nil && scaling.MaxReplicas != nil {
-		if *scaling.MinReplicas > *scaling.MaxReplicas {
-			allErrs = append(allErrs, field.Invalid(
-				scalingPath.Child("minReplicas"),
-				*scaling.MinReplicas,
-				fmt.Sprintf("minReplicas (%d) cannot exceed maxReplicas (%d)", *scaling.MinReplicas, *scaling.MaxReplicas),
-			))
-		}
+	if scaling.MinReplicas != nil && *scaling.MinReplicas > scaling.MaxReplicas {
+		allErrs = append(allErrs, field.Invalid(
+			scalingPath.Child("minReplicas"),
+			*scaling.MinReplicas,
+			fmt.Sprintf("minReplicas (%d) cannot exceed maxReplicas (%d)", *scaling.MinReplicas, scaling.MaxReplicas),
+		))
 	}
 
 	// WVA is required when scaling is configured — it provides the scaling mechanism

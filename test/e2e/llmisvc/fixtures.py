@@ -44,19 +44,6 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "limits": {"cpu": "2", "memory": "7Gi"},
                         "requests": {"cpu": "200m", "memory": "2Gi"},
                     },
-                    "livenessProbe": {
-                        "initialDelaySeconds": 180,
-                        "periodSeconds": 30,
-                        "timeoutSeconds": 30,
-                        "failureThreshold": 8,
-                    },
-                    "readinessProbe": {
-                        "httpGet": {"path": "/health", "port": 8000},
-                        "initialDelaySeconds": 30,
-                        "periodSeconds": 10,
-                        "timeoutSeconds": 5,
-                        "failureThreshold": 3,
-                    },
                     "securityContext": {
                         "runAsNonRoot": False,
                         "runAsUser": 0,
@@ -346,20 +333,6 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "limits": {"cpu": "2", "memory": "7Gi"},
                         "requests": {"cpu": "200m", "memory": "2Gi"},
                     },
-                    "livenessProbe": {
-                        "httpGet": {"path": "/health", "port": 8000, "scheme": "HTTPS"},
-                        "initialDelaySeconds": 180,
-                        "periodSeconds": 30,
-                        "timeoutSeconds": 30,
-                        "failureThreshold": 8,
-                    },
-                    "readinessProbe": {
-                        "httpGet": {"path": "/health", "port": 8000, "scheme": "HTTPS"},
-                        "initialDelaySeconds": 30,
-                        "periodSeconds": 10,
-                        "timeoutSeconds": 5,
-                        "failureThreshold": 3,
-                    },
                     "securityContext": {
                         "runAsNonRoot": False,
                         "runAsUser": 0,
@@ -387,20 +360,6 @@ LLMINFERENCESERVICE_CONFIGS = {
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
                         "requests": {"cpu": "200m", "memory": "2Gi"},
-                    },
-                    "livenessProbe": {
-                        "httpGet": {"path": "/health", "port": 8000, "scheme": "HTTPS"},
-                        "initialDelaySeconds": 180,
-                        "periodSeconds": 30,
-                        "timeoutSeconds": 30,
-                        "failureThreshold": 8,
-                    },
-                    "readinessProbe": {
-                        "httpGet": {"path": "/health", "port": 8000, "scheme": "HTTPS"},
-                        "initialDelaySeconds": 30,
-                        "periodSeconds": 10,
-                        "timeoutSeconds": 5,
-                        "failureThreshold": 3,
                     },
                     "securityContext": {
                         "runAsNonRoot": False,
@@ -707,6 +666,59 @@ LLMINFERENCESERVICE_CONFIGS = {
             },
         },
     },
+    "scheduler-with-precise-prefix-cache-inline-config": {
+        "router": {
+            "scheduler": {
+                "config": {
+                    "inline": {
+                        "apiVersion": "inference.networking.x-k8s.io/v1alpha1",
+                        "kind": "EndpointPickerConfig",
+                        "plugins": [
+                            {"type": "single-profile-handler"},
+                            {
+                                "type": "precise-prefix-cache-scorer",
+                                "parameters": {
+                                    "kvEventsConfig": {
+                                        "zmqEndpoint": "tcp://*:5557",
+                                    },
+                                    "indexerConfig": {
+                                        "tokenProcessorConfig": {
+                                            "blockSize": 16,
+                                            "hashSeed": "42",
+                                        },
+                                        "kvBlockIndexConfig": {
+                                            "enableMetrics": True,
+                                            "metricsLoggingInterval": 60000000000,
+                                        },
+                                    },
+                                },
+                            },
+                            {"type": "queue-scorer"},
+                            {"type": "kv-cache-utilization-scorer"},
+                            {"type": "max-score-picker"},
+                        ],
+                        "schedulingProfiles": [
+                            {
+                                "name": "default",
+                                "plugins": [
+                                    {"pluginRef": "queue-scorer", "weight": 2},
+                                    {
+                                        "pluginRef": "kv-cache-utilization-scorer",
+                                        "weight": 2,
+                                    },
+                                    {
+                                        "pluginRef": "precise-prefix-cache-scorer",
+                                        "weight": 3,
+                                    },
+                                    {"pluginRef": "max-score-picker"},
+                                ],
+                            },
+                        ],
+                    },
+                },
+            },
+        },
+    },
     "scheduler-with-configmap-ref": {
         "router": {
             "scheduler": {
@@ -762,6 +774,55 @@ LLMINFERENCESERVICE_CONFIGS = {
                     "resources": {
                         "limits": {"cpu": "1", "memory": "2Gi"},
                         "requests": {"cpu": "200m", "memory": "2Gi"},
+                    },
+                }
+            ]
+        },
+    },
+    "workload-llmd-simulator-kvcache": {
+        "replicas": 2,
+        "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},
+        "template": {
+            "containers": [
+                {
+                    "name": "main",
+                    "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.5.1",
+                    "command": ["/app/llm-d-inference-sim"],
+                    "args": [
+                        "--port",
+                        "8000",
+                        "--model",
+                        "{{ .Spec.Model.Name }}",
+                        "--mode",
+                        "random",
+                        "--enable-kvcache",
+                        "--block-size",
+                        "16",
+                        "--zmq-endpoint",
+                        "tcp://{{ ChildName .ObjectMeta.Name `-epp-service` }}:5557",
+                        "--hash-seed",
+                        "42",
+                        "--event-batch-size",
+                        "1",
+                        "--ssl-certfile",
+                        "/var/run/kserve/tls/tls.crt",
+                        "--ssl-keyfile",
+                        "/var/run/kserve/tls/tls.key",
+                    ],
+                    "env": [
+                        {
+                            "name": "POD_IP",
+                            "valueFrom": {
+                                "fieldRef": {
+                                    "apiVersion": "v1",
+                                    "fieldPath": "status.podIP",
+                                },
+                            },
+                        },
+                    ],
+                    "resources": {
+                        "limits": {"cpu": "1", "memory": "2Gi"},
+                        "requests": {"cpu": "20m", "memory": "20Mi"},
                     },
                 }
             ]

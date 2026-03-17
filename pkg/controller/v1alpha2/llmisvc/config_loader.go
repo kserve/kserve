@@ -97,13 +97,18 @@ func NewSchedulerConfig(isvcConfigMap *corev1.ConfigMap) (*SchedulerConfig, erro
 	return cfg, nil
 }
 
-// Config holds configuration needed for LLM inference services
-// It aggregates ingress, storage, and credential settings from the KServe configmap
+// Config holds configuration needed for LLM inference services.
+// It aggregates ingress, storage, credential, and autoscaling settings from the KServe configmap.
 type Config struct {
 	SystemNamespace         string `json:"systemNamespace,omitempty"`
 	IngressGatewayName      string `json:"ingressGatewayName,omitempty"`
 	IngressGatewayNamespace string `json:"ingressGatewayNamespace,omitempty"`
 	UrlScheme               string `json:"urlScheme,omitempty"`
+	EnableTLS               bool   `json:"enableTLS,omitempty"`
+
+	// WVAAutoscalingConfig holds Prometheus and monitoring settings for WVA autoscaling.
+	// nil when the "autoscaling-wva-controller-config" key is not present in inferenceservice-config.
+	WVAAutoscalingConfig *WVAAutoscalingConfig `json:"-"`
 
 	// Storage and credential configs are excluded from JSON serialization
 	// as they contain sensitive information
@@ -111,6 +116,43 @@ type Config struct {
 	CredentialConfig *credentials.CredentialConfig   `json:"-"`
 	SchedulerConfig  *SchedulerConfig                `json:"-"`
 }
+
+// PrometheusConfig holds Prometheus connection and authentication settings used by KEDA
+// to query the wva_desired_replicas metric.
+type PrometheusConfig struct {
+	// URL is the URL of the Prometheus server (used by KEDA to query wva_desired_replicas).
+	URL string `json:"url"`
+	// TLSInsecureSkipVerify disables TLS certificate verification for the Prometheus connection.
+	TLSInsecureSkipVerify bool `json:"tlsInsecureSkipVerify"`
+	// AuthModes is the KEDA authModes value for the Prometheus trigger
+	// (e.g. "bearer", "basic", "tls"). Empty means no authentication.
+	// See: https://keda.sh/docs/latest/scalers/prometheus/#authentication-parameters
+	// +optional
+	AuthModes string `json:"authModes,omitempty"`
+	// TriggerAuthName is the name of a pre-existing TriggerAuthentication or
+	// ClusterTriggerAuthentication CR that KEDA should use when querying Prometheus.
+	// The CR must be created by the cluster admin before enabling KEDA autoscaling.
+	// +optional
+	TriggerAuthName string `json:"triggerAuthName,omitempty"`
+	// TriggerAuthKind specifies the kind of the authentication CR referenced by
+	// TriggerAuthName. Accepted values are "TriggerAuthentication" (namespaced)
+	// and "ClusterTriggerAuthentication" (cluster-scoped). Defaults to "TriggerAuthentication"
+	// when empty. ClusterTriggerAuthentication is recommended for multi-namespace deployments.
+	// +optional
+	TriggerAuthKind string `json:"triggerAuthKind,omitempty"`
+}
+
+// WVAAutoscalingConfig holds cluster-wide WVA autoscaling settings loaded from the
+// "autoscaling-wva-controller-config" key in the inferenceservice-config ConfigMap.
+// These are shared across all LLMISVC instances.
+type WVAAutoscalingConfig struct {
+	// Prometheus holds Prometheus connection and authentication settings.
+	Prometheus PrometheusConfig `json:"prometheus"`
+}
+
+// autoscalingConfigName is the key in the inferenceservice-config ConfigMap
+// that holds WVA-specific autoscaling controller configuration.
+const autoscalingConfigName = "autoscaling-wva-controller-config"
 
 // NewConfig creates an instance of llm-specific config based on predefined values
 // in IngressConfig struct
@@ -130,6 +172,7 @@ func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.Storag
 		IngressGatewayNamespace: igwNs,
 		IngressGatewayName:      igwName,
 		UrlScheme:               ingressConfig.UrlScheme,
+		EnableTLS:               ingressConfig.EnableLLMInferenceServiceTLS,
 		StorageConfig:           storageConfig,
 		CredentialConfig:        credentialConfig,
 		SchedulerConfig:         schedulerConfig,
@@ -165,5 +208,15 @@ func LoadConfig(ctx context.Context, clientset kubernetes.Interface) (*Config, e
 		return nil, fmt.Errorf("failed to parse scheduler config: %w", errConvert)
 	}
 
-	return NewConfig(ingressConfig, storageInitializerConfig, &credentialConfig, schedulerConfig), nil
+	config := NewConfig(ingressConfig, storageInitializerConfig, &credentialConfig, schedulerConfig)
+
+	if autoscalingData, ok := isvcConfigMap.Data[autoscalingConfigName]; ok {
+		asCfg := &WVAAutoscalingConfig{}
+		if err := json.Unmarshal([]byte(autoscalingData), asCfg); err != nil {
+			return nil, fmt.Errorf("failed to parse %s config json: %w", autoscalingConfigName, err)
+		}
+		config.WVAAutoscalingConfig = asCfg
+	}
+
+	return config, nil
 }

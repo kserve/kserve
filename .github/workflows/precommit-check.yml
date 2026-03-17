@@ -16,6 +16,17 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v4
 
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:

@@ -644,13 +644,14 @@ ENVOY_AI_GATEWAY_VERSION=v0.5.0
 KNATIVE_OPERATOR_VERSION=v1.21.1
 KNATIVE_SERVING_VERSION=1.21.1
 KEDA_OTEL_ADDON_VERSION=v0.0.6
-KSERVE_VERSION=v0.17.0-rc1
+KSERVE_VERSION=v0.17.0
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.17.3
 OPENTELEMETRY_OPERATOR_VERSION=0.74.3
 LWS_VERSION=v0.7.0
 GATEWAY_API_VERSION=v1.4.1
 GIE_VERSION=v1.3.0
+WVA_VERSION=v0.5.1
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -1032,12 +1033,6 @@ install_kserve_kustomize() {
                 done
             fi
         done
-
-        # Cleanup temporary overlay
-        if [ "${KSERVE_OVERLAY_DIR}" = "temp" ]; then
-            rm -rf "${REPO_ROOT}/config/overlays/temp"
-            log_info "Temporary overlay directory cleaned up"
-        fi
     fi
 
     if ! is_positive "${USE_LOCAL_CONFIGMAP}"; then
@@ -1119,6 +1114,12 @@ install_kserve_kustomize() {
         else
             retry_command 3 5 kubectl apply --server-side=true -k "${REPO_ROOT}/config/llmisvcconfig"
         fi
+    fi
+
+    # Cleanup temporary overlay after all resources are installed
+    if [ "${KSERVE_OVERLAY_DIR}" = "temp" ]; then
+        rm -rf "${REPO_ROOT}/config/overlays/temp"
+        log_info "Temporary overlay directory cleaned up"
     fi
 
 }
@@ -2048,18 +2049,139 @@ spec:
   template:
     containers:
     - command:
-      - vllm
-      - serve
-      - /mnt/models
-      - --served-model-name
-      - '{{ .Spec.Model.Name }}'
-      - --port
-      - "8001"
-      - --enable-ssl-refresh
-      - --ssl-certfile
-      - /var/run/kserve/tls/tls.crt
-      - --ssl-keyfile
-      - /var/run/kserve/tls/tls.key
+      - /bin/bash
+      - -c
+      - |-
+        if [ "$KSERVE_INFER_ROCE" = "true" ]; then
+          echo "Trying to infer RoCE configs ... "
+          grep -H . /sys/class/infiniband/*/ports/*/gids/* 2>/dev/null
+          grep -H . /sys/class/infiniband/*/ports/*/gid_attrs/types/* 2>/dev/null
+
+          cat /proc/driver/nvidia/params
+
+          KSERVE_INFER_IB_GID_INDEX_GREP=${KSERVE_INFER_IB_GID_INDEX_GREP:-"RoCE v2"}
+
+          echo "[Infer RoCE] Discovering active HCAs ..."
+          active_hcas=()
+          # Loop through all mlx5 devices found in sysfs
+          for hca_dir in /sys/class/infiniband/mlx5_*; do
+              # Ensure it's a directory before proceeding
+              if [ -d "$hca_dir" ]; then
+                  hca_name=$(basename "$hca_dir")
+                  port_state_file="$hca_dir/ports/1/state" # Assume port 1
+                  type_file="$hca_dir/ports/1/gid_attrs/types/*"
+
+                  echo "[Infer RoCE] Check if the port state file ${port_state_file} exists and contains 'ACTIVE'"
+                  if [ -f "$port_state_file" ] && grep -q "ACTIVE" "$port_state_file" && grep -q "${KSERVE_INFER_IB_GID_INDEX_GREP}" ${type_file} 2>/dev/null; then
+                      echo "[Infer RoCE] Found active HCA: $hca_name"
+                      active_hcas+=("$hca_name")
+                  else
+                      echo "[Infer RoCE] Skipping inactive or down HCA: $hca_name"
+                  fi
+              fi
+          done
+
+          ucx_hcas=()
+          for hca in "${active_hcas[@]}"; do
+            ucx_hcas+=("${hca}:1")
+          done
+
+          # Check if we found any active HCAs
+          if [ ${#active_hcas[@]} -gt 0 ]; then
+              # Join the array elements with a comma
+              hcas=$(IFS=,; echo "${active_hcas[*]}")
+              echo "[Infer RoCE] Setting active HCAs: ${hcas}"
+              export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
+              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
+              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
+
+              echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
+              echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+          else
+              echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
+          fi
+
+          if [ ${#active_hcas[@]} -gt 0 ]; then
+              echo "[Infer RoCE] Finding GID_INDEX for each active HCA (SR-IOV compatible)..."
+
+              # For SR-IOV environments, find the most common IPv4 RoCE v2 GID index across all HCAs
+              declare -A gid_index_count
+              declare -A hca_gid_index
+
+              for hca_name in "${active_hcas[@]}"; do
+                  echo "[Infer RoCE] Processing HCA: ${hca_name}"
+
+                  # Find all RoCE v2 IPv4 GIDs for this HCA and count by index
+                  for tpath in /sys/class/infiniband/${hca_name}/ports/1/gid_attrs/types/*; do
+                      if grep -q "${KSERVE_INFER_IB_GID_INDEX_GREP}" "$tpath" 2>/dev/null; then
+                          idx=$(basename "$tpath")
+                          gid_file="/sys/class/infiniband/${hca_name}/ports/1/gids/${idx}"
+                          # Check for IPv4 GID (contains ffff:)
+                          if [ -f "$gid_file" ] && grep -q "ffff:" "$gid_file"; then
+                              gid_value=$(cat "$gid_file" 2>/dev/null || echo "")
+                              echo "[Infer RoCE] Found IPv4 RoCE v2 GID for ${hca_name}: index=${idx}, gid=${gid_value}"
+                              hca_gid_index["${hca_name}"]="${idx}"
+                              gid_index_count["${idx}"]=$((${gid_index_count["${idx}"]} + 1))
+                              break  # Use first found IPv4 GID per HCA
+                          fi
+                      fi
+                  done
+              done
+
+              # Find the most common GID index (most likely to be consistent across nodes)
+              best_gid_index=""
+              max_count=0
+              for idx in "${!gid_index_count[@]}"; do
+                  count=${gid_index_count["${idx}"]}
+                  echo "[Infer RoCE] GID_INDEX ${idx} found on ${count} HCAs"
+                  if [ $count -gt $max_count ]; then
+                      max_count=$count
+                      best_gid_index="$idx"
+                  fi
+              done
+
+              # Use deterministic fallback if counts are equal - prefer lower index number
+              if [ ${#gid_index_count[@]} -gt 1 ]; then
+                  echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
+                  # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
+                  if [ -n "${gid_index_count['3']}" ] && [ "${gid_index_count['3']}" -eq "$max_count" ]; then
+                      best_gid_index="3"
+                      echo "[Infer RoCE] Using deterministic fallback: GID_INDEX=3 (SR-IOV standard)"
+                  fi
+              fi
+
+              # Check if GID_INDEX is already set via environment variables
+              if [ -n "${NCCL_IB_GID_INDEX}" ]; then
+                  echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
+                  export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
+                  export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
+                  echo "[Infer RoCE] Using hardcoded GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+              elif [ -n "$best_gid_index" ]; then
+                  echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
+
+                  export NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX:-$best_gid_index}
+                  export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$best_gid_index}
+                  export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$best_gid_index}
+
+                  echo "[Infer RoCE] Exported GID_INDEX=${best_gid_index} for NCCL, NVSHMEM, and UCX"
+              else
+                  echo "[Infer RoCE] ERROR: No valid IPv4 ${KSERVE_INFER_IB_GID_INDEX_GREP} GID_INDEX found on any HCA."
+              fi
+          else
+              echo "[Infer RoCE] No active HCAs found, skipping GID_INDEX inference."
+          fi
+        fi
+
+        eval "vllm serve /mnt/models \
+          --served-model-name "{{ .Spec.Model.Name }}" \
+          --port 8001 \
+          --disable-uvicorn-access-log \
+          {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
+          {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
+          {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+          ${VLLM_ADDITIONAL_ARGS} \
+          $@"
+      - --
       env:
       - name: HOME
         value: /home
@@ -2067,14 +2189,14 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.4.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
         httpGet:
           path: /health
           port: 8001
-          scheme: HTTPS
+          scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 10
         timeoutSeconds: 10
       name: main
@@ -2103,7 +2225,7 @@ spec:
         httpGet:
           path: /health
           port: 8001
-          scheme: HTTPS
+          scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 10
       terminationMessagePath: /dev/termination-log
       terminationMessagePolicy: FallbackToLogsOnError
@@ -2118,16 +2240,18 @@ spec:
         name: tls-certs
         readOnly: true
     initContainers:
-    - args:
+    - command:
+      - /app/pd-sidecar
       - --port=8000
       - --vllm-port=8001
       - --connector=nixlv2
-      - --secure-proxy=true
-      - --cert-path=/var/run/kserve/tls
-      - --decoder-use-tls=true
-      - --prefiller-use-tls=true
       - --enable-ssrf-protection=true
       - --pool-group=inference.networking.x-k8s.io
+      - '{{ if .GlobalConfig.EnableTLS }}--secure-proxy=true{{else}}--secure-proxy=false{{-
+        end }}'
+      - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
+      - '{{ if .GlobalConfig.EnableTLS }}--decoder-use-tls=true{{- end }}'
+      - '{{ if .GlobalConfig.EnableTLS }}--prefiller-use-tls=true{{- end }}'
       env:
       - name: INFERENCE_POOL_NAMESPACE
         valueFrom:
@@ -2135,14 +2259,14 @@ spec:
             fieldPath: metadata.namespace
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.4.0
+      image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.6.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
         httpGet:
           path: /health
           port: 8000
-          scheme: HTTPS
+          scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         initialDelaySeconds: 10
         periodSeconds: 10
         timeoutSeconds: 10
@@ -2155,7 +2279,7 @@ spec:
         httpGet:
           path: /health
           port: 8000
-          scheme: HTTPS
+          scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         initialDelaySeconds: 10
         periodSeconds: 10
         timeoutSeconds: 5
@@ -2201,17 +2325,31 @@ spec:
       - -c
       - |-
         # In some versions, ZMQ bind doesn't resolve the address through DNS
-        DP_ADDRESS=$(getent hosts "${LWS_LEADER_ADDRESS}" | cut -d' ' -f1)
-        if [ -z "${DP_ADDRESS}" ]; then
-          echo "ERROR: Failed to resolve LWS_LEADER_ADDRESS='${LWS_LEADER_ADDRESS}'" >&2
-          exit 1
+        # Retry DP_ADDRESS resolution (configurable attempts, default 30)
+        RESOLVE_ATTEMPTS=${DP_ADDRESS_RESOLVE_ATTEMPTS:-30}
+        for ((i=1; i<=RESOLVE_ATTEMPTS; i++)); do
+          DP_ADDRESS=$(getent hosts ${LWS_LEADER_ADDRESS} | cut -d' ' -f1)
+          if [ -n "$DP_ADDRESS" ]; then
+            echo "DP_ADDRESS=${DP_ADDRESS} (resolved on attempt $i)"
+            break
+          else
+            echo "DP_ADDRESS resolution failed on attempt $i, retrying..."
+            sleep 1
+          fi
+        done
+
+        if [ -z "$DP_ADDRESS" ]; then
+          echo "WARNING: Failed to resolve DP_ADDRESS after ${RESOLVE_ATTEMPTS} attempts, falling back to LWS_LEADER_ADDRESS"
+          DP_ADDRESS=${LWS_LEADER_ADDRESS}
+          echo "DP_ADDRESS=${DP_ADDRESS} (fallback)"
         fi
-        echo "DP_ADDRESS=${DP_ADDRESS}"
 
         if [ "$KSERVE_INFER_ROCE" = "true" ]; then
           echo "Trying to infer RoCE configs ... "
           grep -H . /sys/class/infiniband/*/ports/*/gids/* 2>/dev/null
           grep -H . /sys/class/infiniband/*/ports/*/gid_attrs/types/* 2>/dev/null
+
+          cat /proc/driver/nvidia/params
 
           KSERVE_INFER_IB_GID_INDEX_GREP=${KSERVE_INFER_IB_GID_INDEX_GREP:-"RoCE v2"}
 
@@ -2246,7 +2384,7 @@ spec:
               hcas=$(IFS=,; echo "${active_hcas[*]}")
               echo "[Infer RoCE] Setting active HCAs: ${hcas}"
               export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hcas}}
+              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
               export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
 
               echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
@@ -2339,14 +2477,12 @@ spec:
           --data-parallel-address ${DP_ADDRESS} \
           --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
           --data-parallel-start-rank $START_RANK \
+          --disable-uvicorn-access-log \
+          {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
+          {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
+          {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
           ${VLLM_ADDITIONAL_ARGS} \
-          $@ \
-          --trust-remote-code \
-          --enable-ssl-refresh \
-          --ssl-certfile \
-          /var/run/kserve/tls/tls.crt \
-          --ssl-keyfile \
-          /var/run/kserve/tls/tls.key"
+          $@"
       - --
       env:
       - name: HOME
@@ -2355,14 +2491,14 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.4.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
         httpGet:
           path: /health
           port: 8001
-          scheme: HTTPS
+          scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 10
         timeoutSeconds: 10
       name: main
@@ -2374,7 +2510,7 @@ spec:
         httpGet:
           path: /health
           port: 8001
-          scheme: HTTPS
+          scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 30
         timeoutSeconds: 5
       securityContext:
@@ -2395,7 +2531,7 @@ spec:
         httpGet:
           path: /health
           port: 8001
-          scheme: HTTPS
+          scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 10
       terminationMessagePath: /dev/termination-log
       terminationMessagePolicy: FallbackToLogsOnError
@@ -2410,16 +2546,18 @@ spec:
         name: tls-certs
         readOnly: true
     initContainers:
-    - args:
+    - command:
+      - /app/pd-sidecar
       - --port=8000
       - --vllm-port=8001
       - --connector=nixlv2
-      - --secure-proxy=true
-      - --cert-path=/var/run/kserve/tls
-      - --decoder-use-tls=true
-      - --prefiller-use-tls=true
       - --enable-ssrf-protection=true
       - --pool-group=inference.networking.x-k8s.io
+      - '{{ if .GlobalConfig.EnableTLS }}--secure-proxy=true{{else}}--secure-proxy=false{{-
+        end }}'
+      - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
+      - '{{ if .GlobalConfig.EnableTLS }}--decoder-use-tls=true{{- end }}'
+      - '{{ if .GlobalConfig.EnableTLS }}--prefiller-use-tls=true{{- end }}'
       env:
       - name: INFERENCE_POOL_NAMESPACE
         valueFrom:
@@ -2427,14 +2565,14 @@ spec:
             fieldPath: metadata.namespace
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.4.0
+      image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.6.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
         httpGet:
           path: /health
           port: 8000
-          scheme: HTTPS
+          scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         initialDelaySeconds: 10
         periodSeconds: 10
         timeoutSeconds: 10
@@ -2447,7 +2585,7 @@ spec:
         httpGet:
           path: /health
           port: 8000
-          scheme: HTTPS
+          scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         initialDelaySeconds: 10
         periodSeconds: 10
         timeoutSeconds: 5
@@ -2487,17 +2625,31 @@ spec:
       - -c
       - |-
         # In some versions, ZMQ bind doesn't resolve the address through DNS
-        DP_ADDRESS=$(getent hosts "${LWS_LEADER_ADDRESS}" | cut -d' ' -f1)
-        if [ -z "${DP_ADDRESS}" ]; then
-          echo "ERROR: Failed to resolve LWS_LEADER_ADDRESS='${LWS_LEADER_ADDRESS}'" >&2
-          exit 1
+        # Retry DP_ADDRESS resolution (configurable attempts, default 30)
+        RESOLVE_ATTEMPTS=${DP_ADDRESS_RESOLVE_ATTEMPTS:-30}
+        for ((i=1; i<=RESOLVE_ATTEMPTS; i++)); do
+          DP_ADDRESS=$(getent hosts ${LWS_LEADER_ADDRESS} | cut -d' ' -f1)
+          if [ -n "$DP_ADDRESS" ]; then
+            echo "DP_ADDRESS=${DP_ADDRESS} (resolved on attempt $i)"
+            break
+          else
+            echo "DP_ADDRESS resolution failed on attempt $i, retrying..."
+            sleep 1
+          fi
+        done
+
+        if [ -z "$DP_ADDRESS" ]; then
+          echo "WARNING: Failed to resolve DP_ADDRESS after ${RESOLVE_ATTEMPTS} attempts, falling back to LWS_LEADER_ADDRESS"
+          DP_ADDRESS=${LWS_LEADER_ADDRESS}
+          echo "DP_ADDRESS=${DP_ADDRESS} (fallback)"
         fi
-        echo "DP_ADDRESS=${DP_ADDRESS}"
 
         if [ "$KSERVE_INFER_ROCE" = "true" ]; then
           echo "Trying to infer RoCE configs ... "
           grep -H . /sys/class/infiniband/*/ports/*/gids/* 2>/dev/null
           grep -H . /sys/class/infiniband/*/ports/*/gid_attrs/types/* 2>/dev/null
+
+          cat /proc/driver/nvidia/params
 
           KSERVE_INFER_IB_GID_INDEX_GREP=${KSERVE_INFER_IB_GID_INDEX_GREP:-"RoCE v2"}
 
@@ -2532,7 +2684,7 @@ spec:
               hcas=$(IFS=,; echo "${active_hcas[*]}")
               echo "[Infer RoCE] Setting active HCAs: ${hcas}"
               export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hcas}}
+              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
               export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
 
               echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
@@ -2624,15 +2776,13 @@ spec:
           --data-parallel-address ${DP_ADDRESS} \
           --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
           --data-parallel-start-rank $START_RANK \
-          ${VLLM_ADDITIONAL_ARGS} \
-          $@ \
-          --trust-remote-code \
           --headless \
-          --enable-ssl-refresh \
-          --ssl-certfile \
-          /var/run/kserve/tls/tls.crt \
-          --ssl-keyfile \
-          /var/run/kserve/tls/tls.key"
+          --disable-uvicorn-access-log \
+          {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
+          {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
+          {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+          ${VLLM_ADDITIONAL_ARGS} \
+          $@"
       - --
       env:
       - name: HOME
@@ -2643,7 +2793,7 @@ spec:
         value: /models
       - name: VLLM_RANDOMIZE_DP_DUMMY_INPUTS
         value: "1"
-      image: ghcr.io/llm-d/llm-d-cuda:v0.4.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
       imagePullPolicy: IfNotPresent
       name: main
       ports:
@@ -2698,18 +2848,139 @@ spec:
     template:
       containers:
       - command:
-        - vllm
-        - serve
-        - /mnt/models
-        - --served-model-name
-        - '{{ .Spec.Model.Name }}'
-        - --port
-        - "8000"
-        - --enable-ssl-refresh
-        - --ssl-certfile
-        - /var/run/kserve/tls/tls.crt
-        - --ssl-keyfile
-        - /var/run/kserve/tls/tls.key
+        - /bin/bash
+        - -c
+        - |-
+          if [ "$KSERVE_INFER_ROCE" = "true" ]; then
+            echo "Trying to infer RoCE configs ... "
+            grep -H . /sys/class/infiniband/*/ports/*/gids/* 2>/dev/null
+            grep -H . /sys/class/infiniband/*/ports/*/gid_attrs/types/* 2>/dev/null
+
+            cat /proc/driver/nvidia/params
+
+            KSERVE_INFER_IB_GID_INDEX_GREP=${KSERVE_INFER_IB_GID_INDEX_GREP:-"RoCE v2"}
+
+            echo "[Infer RoCE] Discovering active HCAs ..."
+            active_hcas=()
+            # Loop through all mlx5 devices found in sysfs
+            for hca_dir in /sys/class/infiniband/mlx5_*; do
+                # Ensure it's a directory before proceeding
+                if [ -d "$hca_dir" ]; then
+                    hca_name=$(basename "$hca_dir")
+                    port_state_file="$hca_dir/ports/1/state" # Assume port 1
+                    type_file="$hca_dir/ports/1/gid_attrs/types/*"
+
+                    echo "[Infer RoCE] Check if the port state file ${port_state_file} exists and contains 'ACTIVE'"
+                    if [ -f "$port_state_file" ] && grep -q "ACTIVE" "$port_state_file" && grep -q "${KSERVE_INFER_IB_GID_INDEX_GREP}" ${type_file} 2>/dev/null; then
+                        echo "[Infer RoCE] Found active HCA: $hca_name"
+                        active_hcas+=("$hca_name")
+                    else
+                        echo "[Infer RoCE] Skipping inactive or down HCA: $hca_name"
+                    fi
+                fi
+            done
+
+            ucx_hcas=()
+            for hca in "${active_hcas[@]}"; do
+              ucx_hcas+=("${hca}:1")
+            done
+
+            # Check if we found any active HCAs
+            if [ ${#active_hcas[@]} -gt 0 ]; then
+                # Join the array elements with a comma
+                hcas=$(IFS=,; echo "${active_hcas[*]}")
+                echo "[Infer RoCE] Setting active HCAs: ${hcas}"
+                export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
+                export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
+                export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
+
+                echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
+                echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+            else
+                echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
+            fi
+
+            if [ ${#active_hcas[@]} -gt 0 ]; then
+                echo "[Infer RoCE] Finding GID_INDEX for each active HCA (SR-IOV compatible)..."
+
+                # For SR-IOV environments, find the most common IPv4 RoCE v2 GID index across all HCAs
+                declare -A gid_index_count
+                declare -A hca_gid_index
+
+                for hca_name in "${active_hcas[@]}"; do
+                    echo "[Infer RoCE] Processing HCA: ${hca_name}"
+
+                    # Find all RoCE v2 IPv4 GIDs for this HCA and count by index
+                    for tpath in /sys/class/infiniband/${hca_name}/ports/1/gid_attrs/types/*; do
+                        if grep -q "${KSERVE_INFER_IB_GID_INDEX_GREP}" "$tpath" 2>/dev/null; then
+                            idx=$(basename "$tpath")
+                            gid_file="/sys/class/infiniband/${hca_name}/ports/1/gids/${idx}"
+                            # Check for IPv4 GID (contains ffff:)
+                            if [ -f "$gid_file" ] && grep -q "ffff:" "$gid_file"; then
+                                gid_value=$(cat "$gid_file" 2>/dev/null || echo "")
+                                echo "[Infer RoCE] Found IPv4 RoCE v2 GID for ${hca_name}: index=${idx}, gid=${gid_value}"
+                                hca_gid_index["${hca_name}"]="${idx}"
+                                gid_index_count["${idx}"]=$((${gid_index_count["${idx}"]} + 1))
+                                break  # Use first found IPv4 GID per HCA
+                            fi
+                        fi
+                    done
+                done
+
+                # Find the most common GID index (most likely to be consistent across nodes)
+                best_gid_index=""
+                max_count=0
+                for idx in "${!gid_index_count[@]}"; do
+                    count=${gid_index_count["${idx}"]}
+                    echo "[Infer RoCE] GID_INDEX ${idx} found on ${count} HCAs"
+                    if [ $count -gt $max_count ]; then
+                        max_count=$count
+                        best_gid_index="$idx"
+                    fi
+                done
+
+                # Use deterministic fallback if counts are equal - prefer lower index number
+                if [ ${#gid_index_count[@]} -gt 1 ]; then
+                    echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
+                    # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
+                    if [ -n "${gid_index_count['3']}" ] && [ "${gid_index_count['3']}" -eq "$max_count" ]; then
+                        best_gid_index="3"
+                        echo "[Infer RoCE] Using deterministic fallback: GID_INDEX=3 (SR-IOV standard)"
+                    fi
+                fi
+
+                # Check if GID_INDEX is already set via environment variables
+                if [ -n "${NCCL_IB_GID_INDEX}" ]; then
+                    echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
+                    export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
+                    export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
+                    echo "[Infer RoCE] Using hardcoded GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+                elif [ -n "$best_gid_index" ]; then
+                    echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
+
+                    export NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX:-$best_gid_index}
+                    export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$best_gid_index}
+                    export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$best_gid_index}
+
+                    echo "[Infer RoCE] Exported GID_INDEX=${best_gid_index} for NCCL, NVSHMEM, and UCX"
+                else
+                    echo "[Infer RoCE] ERROR: No valid IPv4 ${KSERVE_INFER_IB_GID_INDEX_GREP} GID_INDEX found on any HCA."
+                fi
+            else
+                echo "[Infer RoCE] No active HCAs found, skipping GID_INDEX inference."
+            fi
+          fi
+
+          eval "vllm serve /mnt/models \
+            --served-model-name "{{ .Spec.Model.Name }}" \
+            --port 8000 \
+            --disable-uvicorn-access-log \
+            {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
+            {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
+            {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+            ${VLLM_ADDITIONAL_ARGS} \
+            $@"
+        - --
         env:
         - name: HOME
           value: /home
@@ -2717,14 +2988,14 @@ spec:
           value: INFO
         - name: HF_HUB_CACHE
           value: /models
-        image: ghcr.io/llm-d/llm-d-cuda:v0.4.0
+        image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 3
           httpGet:
             path: /health
             port: 8000
-            scheme: HTTPS
+            scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
           periodSeconds: 10
           timeoutSeconds: 10
         name: main
@@ -2736,7 +3007,7 @@ spec:
           httpGet:
             path: /health
             port: 8000
-            scheme: HTTPS
+            scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
           periodSeconds: 10
           timeoutSeconds: 5
         securityContext:
@@ -2753,7 +3024,7 @@ spec:
           httpGet:
             path: /health
             port: 8000
-            scheme: HTTPS
+            scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
           periodSeconds: 10
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
@@ -2795,17 +3066,31 @@ spec:
         - -c
         - |-
           # In some versions, ZMQ bind doesn't resolve the address through DNS
-          DP_ADDRESS=$(getent hosts "${LWS_LEADER_ADDRESS}" | cut -d' ' -f1)
-          if [ -z "${DP_ADDRESS}" ]; then
-            echo "ERROR: Failed to resolve LWS_LEADER_ADDRESS='${LWS_LEADER_ADDRESS}'" >&2
-            exit 1
+          # Retry DP_ADDRESS resolution (configurable attempts, default 30)
+          RESOLVE_ATTEMPTS=${DP_ADDRESS_RESOLVE_ATTEMPTS:-30}
+          for ((i=1; i<=RESOLVE_ATTEMPTS; i++)); do
+            DP_ADDRESS=$(getent hosts ${LWS_LEADER_ADDRESS} | cut -d' ' -f1)
+            if [ -n "$DP_ADDRESS" ]; then
+              echo "DP_ADDRESS=${DP_ADDRESS} (resolved on attempt $i)"
+              break
+            else
+              echo "DP_ADDRESS resolution failed on attempt $i, retrying..."
+              sleep 1
+            fi
+          done
+
+          if [ -z "$DP_ADDRESS" ]; then
+            echo "WARNING: Failed to resolve DP_ADDRESS after ${RESOLVE_ATTEMPTS} attempts, falling back to LWS_LEADER_ADDRESS"
+            DP_ADDRESS=${LWS_LEADER_ADDRESS}
+            echo "DP_ADDRESS=${DP_ADDRESS} (fallback)"
           fi
-          echo "DP_ADDRESS=${DP_ADDRESS}"
 
           if [ "$KSERVE_INFER_ROCE" = "true" ]; then
             echo "Trying to infer RoCE configs ... "
             grep -H . /sys/class/infiniband/*/ports/*/gids/* 2>/dev/null
             grep -H . /sys/class/infiniband/*/ports/*/gid_attrs/types/* 2>/dev/null
+
+            cat /proc/driver/nvidia/params
 
             KSERVE_INFER_IB_GID_INDEX_GREP=${KSERVE_INFER_IB_GID_INDEX_GREP:-"RoCE v2"}
 
@@ -2840,7 +3125,7 @@ spec:
                 hcas=$(IFS=,; echo "${active_hcas[*]}")
                 echo "[Infer RoCE] Setting active HCAs: ${hcas}"
                 export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-                export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hcas}}
+                export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
                 export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
 
                 echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
@@ -2933,14 +3218,12 @@ spec:
             --data-parallel-address ${DP_ADDRESS} \
             --data-parallel-rpc-port {{ if .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
             --data-parallel-start-rank $START_RANK \
+            --disable-uvicorn-access-log \
+            {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
+            {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
+            {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
             ${VLLM_ADDITIONAL_ARGS} \
-            $@ \
-            --trust-remote-code \
-            --enable-ssl-refresh \
-            --ssl-certfile \
-            /var/run/kserve/tls/tls.crt \
-            --ssl-keyfile \
-            /var/run/kserve/tls/tls.key"
+            $@"
         - --
         env:
         - name: HOME
@@ -2949,14 +3232,14 @@ spec:
           value: INFO
         - name: HF_HUB_CACHE
           value: /models
-        image: ghcr.io/llm-d/llm-d-cuda:v0.4.0
+        image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 3
           httpGet:
             path: /health
             port: 8000
-            scheme: HTTPS
+            scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
           periodSeconds: 10
           timeoutSeconds: 10
         name: main
@@ -2968,7 +3251,7 @@ spec:
           httpGet:
             path: /health
             port: 8000
-            scheme: HTTPS
+            scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
           periodSeconds: 30
           timeoutSeconds: 5
         securityContext:
@@ -2989,7 +3272,7 @@ spec:
           httpGet:
             path: /health
             port: 8000
-            scheme: HTTPS
+            scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
           periodSeconds: 10
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: FallbackToLogsOnError
@@ -3023,17 +3306,31 @@ spec:
         - -c
         - |-
           # In some versions, ZMQ bind doesn't resolve the address through DNS
-          DP_ADDRESS=$(getent hosts "${LWS_LEADER_ADDRESS}" | cut -d' ' -f1)
-          if [ -z "${DP_ADDRESS}" ]; then
-            echo "ERROR: Failed to resolve LWS_LEADER_ADDRESS='${LWS_LEADER_ADDRESS}'" >&2
-            exit 1
+          # Retry DP_ADDRESS resolution (configurable attempts, default 30)
+          RESOLVE_ATTEMPTS=${DP_ADDRESS_RESOLVE_ATTEMPTS:-30}
+          for ((i=1; i<=RESOLVE_ATTEMPTS; i++)); do
+            DP_ADDRESS=$(getent hosts ${LWS_LEADER_ADDRESS} | cut -d' ' -f1)
+            if [ -n "$DP_ADDRESS" ]; then
+              echo "DP_ADDRESS=${DP_ADDRESS} (resolved on attempt $i)"
+              break
+            else
+              echo "DP_ADDRESS resolution failed on attempt $i, retrying..."
+              sleep 1
+            fi
+          done
+
+          if [ -z "$DP_ADDRESS" ]; then
+            echo "WARNING: Failed to resolve DP_ADDRESS after ${RESOLVE_ATTEMPTS} attempts, falling back to LWS_LEADER_ADDRESS"
+            DP_ADDRESS=${LWS_LEADER_ADDRESS}
+            echo "DP_ADDRESS=${DP_ADDRESS} (fallback)"
           fi
-          echo "DP_ADDRESS=${DP_ADDRESS}"
 
           if [ "$KSERVE_INFER_ROCE" = "true" ]; then
             echo "Trying to infer RoCE configs ... "
             grep -H . /sys/class/infiniband/*/ports/*/gids/* 2>/dev/null
             grep -H . /sys/class/infiniband/*/ports/*/gid_attrs/types/* 2>/dev/null
+
+            cat /proc/driver/nvidia/params
 
             KSERVE_INFER_IB_GID_INDEX_GREP=${KSERVE_INFER_IB_GID_INDEX_GREP:-"RoCE v2"}
 
@@ -3068,7 +3365,7 @@ spec:
                 hcas=$(IFS=,; echo "${active_hcas[*]}")
                 echo "[Infer RoCE] Setting active HCAs: ${hcas}"
                 export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-                export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hcas}}
+                export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
                 export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
 
                 echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
@@ -3160,15 +3457,13 @@ spec:
             --data-parallel-address ${DP_ADDRESS} \
             --data-parallel-rpc-port {{ if .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
             --data-parallel-start-rank $START_RANK \
-            ${VLLM_ADDITIONAL_ARGS} \
-            $@ \
-            --trust-remote-code \
             --headless \
-            --enable-ssl-refresh \
-            --ssl-certfile \
-            /var/run/kserve/tls/tls.crt \
-            --ssl-keyfile \
-            /var/run/kserve/tls/tls.key"
+            --disable-uvicorn-access-log \
+            {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
+            {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
+            {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+            ${VLLM_ADDITIONAL_ARGS} \
+            $@"
         - --
         env:
         - name: HOME
@@ -3177,7 +3472,7 @@ spec:
           value: INFO
         - name: HF_HUB_CACHE
           value: /models
-        image: ghcr.io/llm-d/llm-d-cuda:v0.4.0
+        image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
         imagePullPolicy: IfNotPresent
         name: main
         ports:
@@ -3320,7 +3615,8 @@ spec:
           - number: 8000
       template:
         containers:
-        - args:
+        - command:
+          - /app/epp
           - --pool-name
           - '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
           - --pool-namespace
@@ -3333,15 +3629,15 @@ spec:
           - "9003"
           - --kv-cache-usage-percentage-metric
           - vllm:kv_cache_usage_perc
-          - --secure-serving
-          - --model-server-metrics-scheme
-          - https
-          - --cert-path
-          - /var/run/kserve/tls
+          - '{{ if .GlobalConfig.EnableTLS }}--secure-serving=true{{- end }}'
+          - '{{ if .GlobalConfig.EnableTLS }}--model-server-metrics-scheme=https{{-
+            end }}'
+          - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end
+            }}'
           env:
           - name: SSL_CERT_DIR
             value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-          image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.4.0
+          image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.6.0
           imagePullPolicy: IfNotPresent
           livenessProbe:
             failureThreshold: 3
@@ -3394,6 +3690,59 @@ spec:
           - mountPath: /var/run/kserve/tls
             name: tls-certs
             readOnly: true
+          - mountPath: /tmp/tokenizer
+            name: tokenizer-uds
+        - env:
+          - name: TOKENIZERS_DIR
+            value: /mnt/models
+          image: ghcr.io/llm-d/llm-d-uds-tokenizer:v0.6.0
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /health
+              port: 8082
+            periodSeconds: 15
+            timeoutSeconds: 5
+          name: tokenizer
+          ports:
+          - containerPort: 8082
+            name: health
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /health
+              port: 8082
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 256m
+              memory: 500Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          startupProbe:
+            failureThreshold: 60
+            httpGet:
+              path: /health
+              port: 8082
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: FallbackToLogsOnError
+          volumeMounts:
+          - mountPath: /tmp/tokenizer
+            name: tokenizer-uds
+          workingDir: /mnt/models
         dnsPolicy: ClusterFirst
         restartPolicy: Always
         terminationGracePeriodSeconds: 30
@@ -3402,6 +3751,8 @@ spec:
           secret:
             secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs`
               }}'
+        - emptyDir: {}
+          name: tokenizer-uds
 ---
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
@@ -3414,17 +3765,136 @@ spec:
     - command:
       - /bin/bash
       - -c
-      - |
-        exec vllm serve \
-          /mnt/models \
+      - |-
+        if [ "$KSERVE_INFER_ROCE" = "true" ]; then
+          echo "Trying to infer RoCE configs ... "
+          grep -H . /sys/class/infiniband/*/ports/*/gids/* 2>/dev/null
+          grep -H . /sys/class/infiniband/*/ports/*/gid_attrs/types/* 2>/dev/null
+
+          cat /proc/driver/nvidia/params
+
+          KSERVE_INFER_IB_GID_INDEX_GREP=${KSERVE_INFER_IB_GID_INDEX_GREP:-"RoCE v2"}
+
+          echo "[Infer RoCE] Discovering active HCAs ..."
+          active_hcas=()
+          # Loop through all mlx5 devices found in sysfs
+          for hca_dir in /sys/class/infiniband/mlx5_*; do
+              # Ensure it's a directory before proceeding
+              if [ -d "$hca_dir" ]; then
+                  hca_name=$(basename "$hca_dir")
+                  port_state_file="$hca_dir/ports/1/state" # Assume port 1
+                  type_file="$hca_dir/ports/1/gid_attrs/types/*"
+
+                  echo "[Infer RoCE] Check if the port state file ${port_state_file} exists and contains 'ACTIVE'"
+                  if [ -f "$port_state_file" ] && grep -q "ACTIVE" "$port_state_file" && grep -q "${KSERVE_INFER_IB_GID_INDEX_GREP}" ${type_file} 2>/dev/null; then
+                      echo "[Infer RoCE] Found active HCA: $hca_name"
+                      active_hcas+=("$hca_name")
+                  else
+                      echo "[Infer RoCE] Skipping inactive or down HCA: $hca_name"
+                  fi
+              fi
+          done
+
+          ucx_hcas=()
+          for hca in "${active_hcas[@]}"; do
+            ucx_hcas+=("${hca}:1")
+          done
+
+          # Check if we found any active HCAs
+          if [ ${#active_hcas[@]} -gt 0 ]; then
+              # Join the array elements with a comma
+              hcas=$(IFS=,; echo "${active_hcas[*]}")
+              echo "[Infer RoCE] Setting active HCAs: ${hcas}"
+              export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
+              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
+              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
+
+              echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
+              echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+          else
+              echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
+          fi
+
+          if [ ${#active_hcas[@]} -gt 0 ]; then
+              echo "[Infer RoCE] Finding GID_INDEX for each active HCA (SR-IOV compatible)..."
+
+              # For SR-IOV environments, find the most common IPv4 RoCE v2 GID index across all HCAs
+              declare -A gid_index_count
+              declare -A hca_gid_index
+
+              for hca_name in "${active_hcas[@]}"; do
+                  echo "[Infer RoCE] Processing HCA: ${hca_name}"
+
+                  # Find all RoCE v2 IPv4 GIDs for this HCA and count by index
+                  for tpath in /sys/class/infiniband/${hca_name}/ports/1/gid_attrs/types/*; do
+                      if grep -q "${KSERVE_INFER_IB_GID_INDEX_GREP}" "$tpath" 2>/dev/null; then
+                          idx=$(basename "$tpath")
+                          gid_file="/sys/class/infiniband/${hca_name}/ports/1/gids/${idx}"
+                          # Check for IPv4 GID (contains ffff:)
+                          if [ -f "$gid_file" ] && grep -q "ffff:" "$gid_file"; then
+                              gid_value=$(cat "$gid_file" 2>/dev/null || echo "")
+                              echo "[Infer RoCE] Found IPv4 RoCE v2 GID for ${hca_name}: index=${idx}, gid=${gid_value}"
+                              hca_gid_index["${hca_name}"]="${idx}"
+                              gid_index_count["${idx}"]=$((${gid_index_count["${idx}"]} + 1))
+                              break  # Use first found IPv4 GID per HCA
+                          fi
+                      fi
+                  done
+              done
+
+              # Find the most common GID index (most likely to be consistent across nodes)
+              best_gid_index=""
+              max_count=0
+              for idx in "${!gid_index_count[@]}"; do
+                  count=${gid_index_count["${idx}"]}
+                  echo "[Infer RoCE] GID_INDEX ${idx} found on ${count} HCAs"
+                  if [ $count -gt $max_count ]; then
+                      max_count=$count
+                      best_gid_index="$idx"
+                  fi
+              done
+
+              # Use deterministic fallback if counts are equal - prefer lower index number
+              if [ ${#gid_index_count[@]} -gt 1 ]; then
+                  echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
+                  # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
+                  if [ -n "${gid_index_count['3']}" ] && [ "${gid_index_count['3']}" -eq "$max_count" ]; then
+                      best_gid_index="3"
+                      echo "[Infer RoCE] Using deterministic fallback: GID_INDEX=3 (SR-IOV standard)"
+                  fi
+              fi
+
+              # Check if GID_INDEX is already set via environment variables
+              if [ -n "${NCCL_IB_GID_INDEX}" ]; then
+                  echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
+                  export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
+                  export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
+                  echo "[Infer RoCE] Using hardcoded GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+              elif [ -n "$best_gid_index" ]; then
+                  echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
+
+                  export NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX:-$best_gid_index}
+                  export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$best_gid_index}
+                  export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$best_gid_index}
+
+                  echo "[Infer RoCE] Exported GID_INDEX=${best_gid_index} for NCCL, NVSHMEM, and UCX"
+              else
+                  echo "[Infer RoCE] ERROR: No valid IPv4 ${KSERVE_INFER_IB_GID_INDEX_GREP} GID_INDEX found on any HCA."
+              fi
+          else
+              echo "[Infer RoCE] No active HCAs found, skipping GID_INDEX inference."
+          fi
+        fi
+
+        eval "vllm serve /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" \
-          --enable-ssl-refresh \
-          --ssl-certfile \
-          /var/run/kserve/tls/tls.crt \
-          --ssl-keyfile \
-          /var/run/kserve/tls/tls.key \
           --port 8000 \
-          "$@"
+          --disable-uvicorn-access-log \
+          {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
+          {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
+          {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+          ${VLLM_ADDITIONAL_ARGS} \
+          $@"
       - --
       env:
       - name: HOME
@@ -3433,14 +3903,14 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.4.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
         httpGet:
           path: /health
           port: 8000
-          scheme: HTTPS
+          scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 10
         timeoutSeconds: 10
       name: main
@@ -3452,7 +3922,7 @@ spec:
         httpGet:
           path: /health
           port: 8000
-          scheme: HTTPS
+          scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 10
         timeoutSeconds: 5
       securityContext:
@@ -3469,7 +3939,7 @@ spec:
         httpGet:
           path: /health
           port: 8000
-          scheme: HTTPS
+          scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 10
       terminationMessagePath: /dev/termination-log
       terminationMessagePolicy: FallbackToLogsOnError
@@ -3510,17 +3980,31 @@ spec:
       - -c
       - |-
         # In some versions, ZMQ bind doesn't resolve the address through DNS
-        DP_ADDRESS=$(getent hosts "${LWS_LEADER_ADDRESS}" | cut -d' ' -f1)
-        if [ -z "${DP_ADDRESS}" ]; then
-          echo "ERROR: Failed to resolve LWS_LEADER_ADDRESS='${LWS_LEADER_ADDRESS}'" >&2
-          exit 1
+        # Retry DP_ADDRESS resolution (configurable attempts, default 30)
+        RESOLVE_ATTEMPTS=${DP_ADDRESS_RESOLVE_ATTEMPTS:-30}
+        for ((i=1; i<=RESOLVE_ATTEMPTS; i++)); do
+          DP_ADDRESS=$(getent hosts ${LWS_LEADER_ADDRESS} | cut -d' ' -f1)
+          if [ -n "$DP_ADDRESS" ]; then
+            echo "DP_ADDRESS=${DP_ADDRESS} (resolved on attempt $i)"
+            break
+          else
+            echo "DP_ADDRESS resolution failed on attempt $i, retrying..."
+            sleep 1
+          fi
+        done
+
+        if [ -z "$DP_ADDRESS" ]; then
+          echo "WARNING: Failed to resolve DP_ADDRESS after ${RESOLVE_ATTEMPTS} attempts, falling back to LWS_LEADER_ADDRESS"
+          DP_ADDRESS=${LWS_LEADER_ADDRESS}
+          echo "DP_ADDRESS=${DP_ADDRESS} (fallback)"
         fi
-        echo "DP_ADDRESS=${DP_ADDRESS}"
 
         if [ "$KSERVE_INFER_ROCE" = "true" ]; then
           echo "Trying to infer RoCE configs ... "
           grep -H . /sys/class/infiniband/*/ports/*/gids/* 2>/dev/null
           grep -H . /sys/class/infiniband/*/ports/*/gid_attrs/types/* 2>/dev/null
+
+          cat /proc/driver/nvidia/params
 
           KSERVE_INFER_IB_GID_INDEX_GREP=${KSERVE_INFER_IB_GID_INDEX_GREP:-"RoCE v2"}
 
@@ -3555,7 +4039,7 @@ spec:
               hcas=$(IFS=,; echo "${active_hcas[*]}")
               echo "[Infer RoCE] Setting active HCAs: ${hcas}"
               export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hcas}}
+              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
               export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
 
               echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
@@ -3648,14 +4132,12 @@ spec:
           --data-parallel-address ${DP_ADDRESS} \
           --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
           --data-parallel-start-rank $START_RANK \
+          --disable-uvicorn-access-log \
+          {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
+          {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
+          {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
           ${VLLM_ADDITIONAL_ARGS} \
-          $@ \
-          --trust-remote-code \
-          --enable-ssl-refresh \
-          --ssl-certfile \
-          /var/run/kserve/tls/tls.crt \
-          --ssl-keyfile \
-          /var/run/kserve/tls/tls.key"
+          $@"
       - --
       env:
       - name: HOME
@@ -3664,14 +4146,14 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.4.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
         httpGet:
           path: /health
           port: 8000
-          scheme: HTTPS
+          scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 10
         timeoutSeconds: 10
       name: main
@@ -3683,7 +4165,7 @@ spec:
         httpGet:
           path: /health
           port: 8000
-          scheme: HTTPS
+          scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 30
         timeoutSeconds: 5
       securityContext:
@@ -3704,7 +4186,7 @@ spec:
         httpGet:
           path: /health
           port: 8000
-          scheme: HTTPS
+          scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 10
       terminationMessagePath: /dev/termination-log
       terminationMessagePolicy: FallbackToLogsOnError
@@ -3738,17 +4220,31 @@ spec:
       - -c
       - |-
         # In some versions, ZMQ bind doesn't resolve the address through DNS
-        DP_ADDRESS=$(getent hosts "${LWS_LEADER_ADDRESS}" | cut -d' ' -f1)
-        if [ -z "${DP_ADDRESS}" ]; then
-          echo "ERROR: Failed to resolve LWS_LEADER_ADDRESS='${LWS_LEADER_ADDRESS}'" >&2
-          exit 1
+        # Retry DP_ADDRESS resolution (configurable attempts, default 30)
+        RESOLVE_ATTEMPTS=${DP_ADDRESS_RESOLVE_ATTEMPTS:-30}
+        for ((i=1; i<=RESOLVE_ATTEMPTS; i++)); do
+          DP_ADDRESS=$(getent hosts ${LWS_LEADER_ADDRESS} | cut -d' ' -f1)
+          if [ -n "$DP_ADDRESS" ]; then
+            echo "DP_ADDRESS=${DP_ADDRESS} (resolved on attempt $i)"
+            break
+          else
+            echo "DP_ADDRESS resolution failed on attempt $i, retrying..."
+            sleep 1
+          fi
+        done
+
+        if [ -z "$DP_ADDRESS" ]; then
+          echo "WARNING: Failed to resolve DP_ADDRESS after ${RESOLVE_ATTEMPTS} attempts, falling back to LWS_LEADER_ADDRESS"
+          DP_ADDRESS=${LWS_LEADER_ADDRESS}
+          echo "DP_ADDRESS=${DP_ADDRESS} (fallback)"
         fi
-        echo "DP_ADDRESS=${DP_ADDRESS}"
 
         if [ "$KSERVE_INFER_ROCE" = "true" ]; then
           echo "Trying to infer RoCE configs ... "
           grep -H . /sys/class/infiniband/*/ports/*/gids/* 2>/dev/null
           grep -H . /sys/class/infiniband/*/ports/*/gid_attrs/types/* 2>/dev/null
+
+          cat /proc/driver/nvidia/params
 
           KSERVE_INFER_IB_GID_INDEX_GREP=${KSERVE_INFER_IB_GID_INDEX_GREP:-"RoCE v2"}
 
@@ -3783,7 +4279,7 @@ spec:
               hcas=$(IFS=,; echo "${active_hcas[*]}")
               echo "[Infer RoCE] Setting active HCAs: ${hcas}"
               export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hcas}}
+              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
               export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
 
               echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
@@ -3875,15 +4371,13 @@ spec:
           --data-parallel-address ${DP_ADDRESS} \
           --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
           --data-parallel-start-rank $START_RANK \
-          ${VLLM_ADDITIONAL_ARGS} \
-          $@ \
-          --trust-remote-code \
           --headless \
-          --enable-ssl-refresh \
-          --ssl-certfile \
-          /var/run/kserve/tls/tls.crt \
-          --ssl-keyfile \
-          /var/run/kserve/tls/tls.key"
+          --disable-uvicorn-access-log \
+          {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
+          {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
+          {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+          ${VLLM_ADDITIONAL_ARGS} \
+          $@"
       - --
       env:
       - name: HOME
@@ -3892,7 +4386,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.4.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
       imagePullPolicy: IfNotPresent
       name: main
       ports:

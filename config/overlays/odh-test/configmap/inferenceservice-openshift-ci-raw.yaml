@@ -10,6 +10,8 @@ data:
     }
   ingress: |-
     {
+      "kserveIngressGateway": "openshift-ingress/openshift-ai-inference",
+      "enableLLMInferenceServiceTLS": true,
       "ingressGateway" : "knative-serving/knative-ingress-gateway",
       "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
       "localGateway" : "knative-serving/knative-local-gateway",
