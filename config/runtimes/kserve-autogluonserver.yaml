@@ -1,5 +1,5 @@
 apiVersion: serving.kserve.io/v1alpha1
-kind: ServingRuntime
+kind: ClusterServingRuntime
 metadata:
   name: kserve-autogluonserver
 spec:

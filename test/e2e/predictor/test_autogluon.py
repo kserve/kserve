@@ -42,12 +42,16 @@ def _create_isvc(service_name: str, predictor: V1beta1PredictorSpec):
     return V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(name=service_name, namespace=KSERVE_TEST_NAMESPACE),
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
 
-def _create_predictor(service_name: str, protocol_version: str = None, storage_uri: str = None):
+def _create_predictor(
+    service_name: str, protocol_version: str = None, storage_uri: str = None
+):
     model = V1beta1ModelSpec(
         model_format=V1beta1ModelFormat(name="autogluon"),
         runtime="kserve-autogluonserver",
@@ -57,7 +61,9 @@ def _create_predictor(service_name: str, protocol_version: str = None, storage_u
     if protocol_version:
         model.protocol_version = protocol_version
         model.readiness_probe = client.V1Probe(
-            http_get=client.V1HTTPGetAction(path=f"/v2/models/{service_name}/ready", port=8080),
+            http_get=client.V1HTTPGetAction(
+                path=f"/v2/models/{service_name}/ready", port=8080
+            ),
             initial_delay_seconds=30,
         )
     return V1beta1PredictorSpec(min_replicas=1, model=model)
@@ -69,7 +75,9 @@ async def _deploy_and_predict(
     rest_client,
     input_path: str,
 ):
-    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     isvc = _create_isvc(service_name, predictor)
     kserve_client.create(isvc)
     try:
@@ -114,7 +122,9 @@ async def test_autogluon_runtime_kserve_v2(rest_v2_client):
 async def test_autogluon_runtime_kserve_v2_input_variants(rest_v2_client):
     service_name = "isvc-autogluon-v2-variants"
     predictor = _create_predictor(service_name, protocol_version="v2")
-    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(_create_isvc(service_name, predictor))
     try:
         kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
@@ -132,7 +142,9 @@ async def test_autogluon_runtime_kserve_v2_input_variants(rest_v2_client):
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_autogluon_runtime_kserve_v2_storage_uri_without_trailing_slash(rest_v2_client):
+async def test_autogluon_runtime_kserve_v2_storage_uri_without_trailing_slash(
+    rest_v2_client,
+):
     service_name = "isvc-autogluon-v2-noslash"
     storage_uri = AUTOGLOUON_STORAGE_URI.rstrip("/")
     predictor = _create_predictor(

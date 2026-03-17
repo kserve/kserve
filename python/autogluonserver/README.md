@@ -86,19 +86,4 @@ Push the image to your registry:
 docker push docker_user_name/autogluonserver:latest
 ```
 
-> The image can be pushed into other repositiories, such as `quay.io`, here are a helpful command examples how to do so: 
-
-```shell
-export TAG_VERSION=<TAG version, example: v0.0.1>
-export YOUR_QUAY_ORG=<QUAY ORG NAME>
-nerdctl -n k8s.io push quay.io/$YOUR_QUAY_ORG/kserve-autogluonserver:$TAG_VERSION
-
-
-# Log in
-nerdctl login quay.io 
-
-# Push Image
-nerdctl -n k8s.io push quay.io/$YOUR_QUAY_ORG/kserve-autogluonserver:$TAG_VERSION
-```
-
 Update the InferenceService or KServe API configuration to use your image if needed.
