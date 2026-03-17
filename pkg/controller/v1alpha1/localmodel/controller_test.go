@@ -607,9 +607,10 @@ var _ = Describe("CachedModel controller", func() {
 
 var _ = Describe("LocalModelNamespaceCache controller", func() {
 	const (
-		timeout        = time.Second * 10
-		interval       = time.Millisecond * 250
-		sourceModelUri = "s3://mybucket/mymodel"
+		timeout             = time.Second * 10
+		interval            = time.Millisecond * 250
+		sourceModelUri      = "s3://mybucket/mymodel"
+		modelCacheNamespace = "kserve-localmodel-jobs"
 	)
 	var (
 		localModelNamespaceSpec = v1alpha1.LocalModelNamespaceCacheSpec{
@@ -685,7 +686,7 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 
 			modelLookupKey := types.NamespacedName{Name: modelName, Namespace: testNamespace}
 			pvLookupKey1 := types.NamespacedName{Name: modelName + "-gpu1-" + testNamespace + "-download"}
-			pvcLookupKey1 := types.NamespacedName{Name: modelName + "-gpu1-download", Namespace: testNamespace}
+			pvcLookupKey1 := types.NamespacedName{Name: modelName + "-gpu1-" + testNamespace + "-download", Namespace: modelCacheNamespace}
 
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, modelLookupKey, cachedModel)
@@ -707,7 +708,7 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, pvcLookupKey1, persistentVolumeClaim1)
 				return err == nil && persistentVolumeClaim1 != nil
-			}, timeout, interval).Should(BeTrue(), "Download PVC should be created in the same namespace as the cache")
+			}, timeout, interval).Should(BeTrue(), "Download PVC should be created in jobNamespace")
 
 			nodeName1 := "ns-node-1"
 			node1 := &corev1.Node{
@@ -910,7 +911,7 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 			Expect(k8sClient.Create(ctx, cachedModel)).Should(Succeed())
 
 			modelLookupKey := types.NamespacedName{Name: modelName, Namespace: testNamespace}
-			pvcLookupKey := types.NamespacedName{Name: modelName + "-gpu1-download", Namespace: testNamespace}
+			pvcLookupKey := types.NamespacedName{Name: modelName + "-gpu1-" + testNamespace + "-download", Namespace: modelCacheNamespace}
 
 			// Wait for the model to be created with finalizer
 			Eventually(func() bool {
