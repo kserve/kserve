@@ -449,7 +449,11 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 	// when certificates are renewed the pod template changes and the scheduler
 	// is restarted to pick up the new certificate.
 	// Skip if the main container supports automatic cert reload.
-	if mainIdx >= 0 && !slices.Contains(d.Spec.Template.Spec.Containers[mainIdx].Args, "--enable-cert-reload") {
+	if mainIdx >= 0 &&
+		!slices.Contains(d.Spec.Template.Spec.Containers[mainIdx].Command, "--enable-cert-reload") &&
+		!slices.Contains(d.Spec.Template.Spec.Containers[mainIdx].Command, "-enable-cert-reload") &&
+		!slices.Contains(d.Spec.Template.Spec.Containers[mainIdx].Args, "--enable-cert-reload") &&
+		!slices.Contains(d.Spec.Template.Spec.Containers[mainIdx].Args, "-enable-cert-reload") {
 		if h := r.getSelfSignedCertHash(ctx, llmSvc); h != "" {
 			if d.Spec.Template.Annotations == nil {
 				d.Spec.Template.Annotations = map[string]string{}

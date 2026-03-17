@@ -1587,6 +1587,7 @@ spec:
           - "9003"
           - --kv-cache-usage-percentage-metric
           - vllm:kv_cache_usage_perc
+          - '{{ if .GlobalConfig.EnableTLS }}--enable-cert-reload=true{{- end }}'
           - '{{ if .GlobalConfig.EnableTLS }}--secure-serving=true{{- end }}'
           - '{{ if .GlobalConfig.EnableTLS }}--model-server-metrics-scheme=https{{-
             end }}'
