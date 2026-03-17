@@ -54,12 +54,6 @@ HELM_REPOS = {
     "open-telemetry": "https://open-telemetry.github.io/opentelemetry-helm-charts",
 }
 
-# Manual version overrides for security patches where Helm charts lag behind go.mod
-# These take precedence over auto-generated versions from Helm chart lookups
-VERSION_OVERRIDES = {
-    "KEDA_VERSION": "2.17.3",  # CVE-2025-68476 fix (CVSS 8.2, HIGH) - Helm chart only has 2.17.1
-}
-
 
 def run(cmd):
     return subprocess.run(
@@ -210,13 +204,14 @@ def ensure_helm_repo(name, url):
 
 
 def parse_existing_versions(env_file):
-    """Parse existing VAR=value pairs from kserve-deps.env"""
+    """Parse existing VAR=value pairs from kserve-deps.env. Strips trailing # comments."""
     existing = {}
     if env_file.exists():
         for line in env_file.read_text().splitlines():
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 key, value = line.split("=", 1)
+                value = value.split("#")[0].strip()
                 existing[key] = value
     return existing
 
@@ -238,9 +233,12 @@ def main():
 
     versions = {}
     for var_name, dependency_info in DEPENDENCIES.items():
-        if var_name in VERSION_OVERRIDES:
-            versions[var_name] = VERSION_OVERRIDES[var_name]
-            print(f"🔒 {var_name}: {VERSION_OVERRIDES[var_name]} (overridden)")
+        override_key = f"OVERRIDE_{var_name}"
+        if override_key in existing_versions:
+            versions[var_name] = existing_versions[override_key]
+            print(
+                f"🔒 {var_name}: {existing_versions[override_key]} (override from {override_key})"
+            )
             continue
 
         package = dependency_info[0]

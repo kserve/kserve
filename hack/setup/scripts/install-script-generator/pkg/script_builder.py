@@ -271,10 +271,14 @@ def generate_script_content(
     )
     uninstall_calls = build_uninstall_calls(components, config["embed_manifests"])
 
-    # Read env files
-    kserve_deps_content = "\n".join(
-        file_reader.read_env_file(repo_root / "kserve-deps.env")
-    )
+    # Read env files (exclude OVERRIDE_* vars - they are only for generate-versions-from-gomod.py)
+    kserve_deps_lines = file_reader.read_env_file(repo_root / "kserve-deps.env")
+    kserve_deps_lines = [
+        line
+        for line in kserve_deps_lines
+        if "=" in line and not line.split("=", 1)[0].strip().startswith("OVERRIDE_")
+    ]
+    kserve_deps_content = "\n".join(kserve_deps_lines)
     global_vars_content = "\n".join(
         file_reader.read_env_file(
             repo_root / "hack/setup/global-vars.env", require_assignment=True
