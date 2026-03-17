@@ -24,6 +24,7 @@ patches:
 - path: patches/inferenceservice-config-patch.yaml
 - path: patches/set-resources-manager-patch.yaml
 - path: patches/remove-auth-proxy-patch.yaml
+- path: patches/config-scheduler-patch.yaml
 - target:
     kind: ValidatingWebhookConfiguration
     annotationSelector: cert-manager.io/inject-ca-from
