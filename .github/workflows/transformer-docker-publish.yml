@@ -52,7 +52,7 @@ jobs:
           cache-binary: true
 
       - name: Run tests
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           platforms: linux/amd64
           context: python
@@ -143,7 +143,7 @@ jobs:
           cache-binary: true
 
       - name: Run tests
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           platforms: linux/amd64
           context: python
