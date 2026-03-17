@@ -34,6 +34,11 @@ spec:
         image: docker.io/chrislusf/seaweedfs:4.07@sha256:10fa7df90911dd83439f4d3d792a1c5c6c630121cb2094ba209f42d4b0ca975d
         imagePullPolicy: Always
         name: seaweedfs
+        readinessProbe:
+          tcpSocket:
+            port: 8333
+          initialDelaySeconds: 3
+          periodSeconds: 5
         ports:
         - containerPort: 8333
           name: s3
