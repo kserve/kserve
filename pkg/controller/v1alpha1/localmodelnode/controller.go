@@ -64,6 +64,7 @@ type LocalModelNodeReconciler struct {
 	Log               logr.Logger
 	Scheme            *runtime.Scheme
 	CredentialBuilder *credentials.CredentialBuilder
+	IsvcConfigMap     *corev1.ConfigMap
 }
 
 const (
@@ -523,34 +524,13 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	c.Log.Info("Agent reconciling LocalModelNode", "name", req.Name, "node", nodeName)
 
-	// fsHelper is a global variable to allow mocking in tests
-	if fsHelper == nil {
-		fsHelper = NewFileSystemHelper(modelsRootFolder)
-		if err := fsHelper.ensureModelRootFolderExists(); err != nil {
-			return reconcile.Result{}, fmt.Errorf("failed to ensure model root folder: %w", err)
-		}
-	}
-
-	// Create Jobs to download models if the model is not present locally.
-	// 1. Check if LocalModelNode CR is for current node
-	localModelNode := v1alpha1.LocalModelNode{}
-	if err := c.Get(ctx, req.NamespacedName, &localModelNode); err != nil {
-		c.Log.Error(err, "Error getting LocalModelNode", "name", req.Name)
-		return reconcile.Result{}, client.IgnoreNotFound(err)
-	}
-
-	// 2. Cleanup jobs for models that are not in the spec
-	if err := c.cleanupJobs(ctx, localModelNode); err != nil {
-		c.Log.Error(err, "Job cleanup err")
-		return reconcile.Result{}, err
-	}
-
-	// 3. Kick off download jobs for all models in spec
+	// 1. Load config
 	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, c.Clientset)
 	if err != nil {
 		c.Log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
 		return reconcile.Result{}, err
 	}
+	c.IsvcConfigMap = isvcConfigMap
 	localModelConfig, err := v1beta1.NewLocalModelConfig(isvcConfigMap)
 	if err != nil {
 		c.Log.Error(err, "Failed to get local model config")
@@ -568,29 +548,47 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	storageInitializerConfig, err = v1beta1.GetStorageInitializerConfigs(isvcConfigMap)
 	if err != nil {
 		c.Log.Error(err, "Failed to get storage initializer config, using defaults")
-		// Don't fail, just use defaults
 	}
 
 	if c.CredentialBuilder == nil {
 		c.CredentialBuilder = credentials.NewCredentialBuilder(c.Client, c.Clientset, isvcConfigMap)
 	}
 
-	result, cont, err := ensureVolumePermissions(ctx, c, localModelConfig)
+	// 2. Init fsHelper and ensure model root folder exists and is writable
+	if fsHelper == nil {
+		fsHelper = NewFileSystemHelper(modelsRootFolder)
+	}
+
+	result, cont, err := ensureModelRootFolderExistsAndIsWritable(ctx, c, localModelConfig)
 	if !cont || err != nil {
 		return result, err
 	}
 
+	// 3. Get LocalModelNode CR
+	localModelNode := v1alpha1.LocalModelNode{}
+	if err := c.Get(ctx, req.NamespacedName, &localModelNode); err != nil {
+		c.Log.Error(err, "Error getting LocalModelNode", "name", req.Name)
+		return reconcile.Result{}, client.IgnoreNotFound(err)
+	}
+
+	// 4. Cleanup jobs for models that are not in the spec
+	if err := c.cleanupJobs(ctx, localModelNode); err != nil {
+		c.Log.Error(err, "Job cleanup err")
+		return reconcile.Result{}, err
+	}
+
+	// 5. Download models
 	if err := c.downloadModels(ctx, &localModelNode); err != nil {
 		c.Log.Error(err, "Model download err")
 		return reconcile.Result{}, err
 	}
 
-	// 4. Delete models that are not in the spec. This function does not modify the resource.
+	// 6. Delete models that are not in the spec
 	if err := c.deleteModels(localModelNode); err != nil {
 		c.Log.Error(err, "Model deletion err")
 		return reconcile.Result{}, err
 	}
-	// Requeue to check local folders periodically
+
 	return reconcile.Result{RequeueAfter: reconcilationFreqency}, nil
 }
 

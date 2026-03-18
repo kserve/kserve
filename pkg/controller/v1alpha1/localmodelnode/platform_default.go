@@ -20,6 +20,7 @@ package localmodelnode
 
 import (
 	"context"
+	"fmt"
 
 	batchv1 "k8s.io/api/batch/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -31,12 +32,12 @@ const MountPath = "/mnt/models"
 
 func enhanceDownloadJob(_ *batchv1.Job, _ string) {}
 
-func ensureVolumePermissions(_ context.Context, _ *LocalModelNodeReconciler,
+//nolint:unparam // signature must match distro variant which returns non-zero Result
+func ensureModelRootFolderExistsAndIsWritable(_ context.Context, _ *LocalModelNodeReconciler,
 	_ *v1beta1.LocalModelConfig,
 ) (ctrl.Result, bool, error) {
+	if err := fsHelper.ensureModelRootFolderExists(); err != nil {
+		return ctrl.Result{}, false, fmt.Errorf("failed to ensure model root folder: %w", err)
+	}
 	return ctrl.Result{}, true, nil
-}
-
-func (c *LocalModelNodeReconciler) EnsurePermissions(_ context.Context) error {
-	return nil
 }

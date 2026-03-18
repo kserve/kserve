@@ -87,8 +87,7 @@ func (f *FileSystemHelper) isWritable() bool {
 	if err != nil {
 		return false
 	}
-	name := file.Name()
-	_ = file.Close()
-	_ = os.Remove(name)
+	defer os.Remove(file.Name())
+	defer file.Close()
 	return true
 }
