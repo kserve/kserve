@@ -52,7 +52,7 @@ WORKDIR ${WORKSPACE_DIR}
 FROM base AS build
 
 ARG WORKSPACE_DIR
-ARG VLLM_VERSION=0.9.2
+ARG VLLM_VERSION=0.10.1
 ARG LMCACHE_VERSION=0.3.0
 ARG FLASHINFER_VERSION=0.2.6.post1
 # Need a separate CUDA arch list for flashinfer because '7.0' is not supported by flashinfer
@@ -70,7 +70,7 @@ ENV PATH="${WORKSPACE_DIR}/${VENV_PATH}/bin:$PATH"
 
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
 RUN --mount=type=cache,target=/root/.cache/uv cd kserve && uv sync --active --no-cache
-COPY kserve kserve  
+COPY kserve kserve
 RUN --mount=type=cache,target=/root/.cache/uv cd kserve && uv sync --active --no-cache
 
 COPY huggingfaceserver/pyproject.toml huggingfaceserver/uv.lock huggingfaceserver/health_check.py huggingfaceserver/
