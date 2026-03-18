@@ -1457,6 +1457,20 @@ var _ = Describe("Inference Graph controller test", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, inferenceGraph)).Should(Succeed())
+
+			// Wait for the deployment to be created, then set its status to Available.
+			// Without this, the controller enters a requeue loop with exponential backoff
+			// (deployment never becomes available in envtest), and the rate limiter delays
+			// can exceed the test timeout, causing flaky failures in deletion tests.
+			deployment := &appsv1.Deployment{}
+			deployKey := types.NamespacedName{Namespace: inferenceGraph.GetNamespace(), Name: inferenceGraph.GetName()}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, deployKey, deployment)
+			}, timeout, interval).Should(Succeed())
+			deployment.Status.Conditions = []appsv1.DeploymentCondition{
+				{Type: appsv1.DeploymentAvailable},
+			}
+			Expect(k8sClient.Status().Update(ctx, deployment)).Should(Succeed())
 		})
 		AfterEach(func() {
 			_ = k8sClient.Delete(ctx, inferenceGraph)
