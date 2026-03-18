@@ -451,7 +451,7 @@ docker-push:
 	docker push ${KO_DOCKER_REPO}/${CONTROLLER_IMG}
 
 docker-build-llmisvc:
-	${ENGINE} buildx build ${ARCH} --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG} -f llmisvc-controller.Dockerfile .
+	${ENGINE} buildx build ${ARCH} --load --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG} -f llmisvc-controller.Dockerfile .
 
 docker-push-llmisvc: docker-build-llmisvc
 	${ENGINE} push ${KO_DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}
