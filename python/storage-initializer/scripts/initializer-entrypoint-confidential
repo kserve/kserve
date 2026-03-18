@@ -1,0 +1,55 @@
+#!/usr/bin/env python3
+import os
+import sys
+
+from kserve_storage import Storage
+from kserve_storage.logging import configure_logging, logger
+
+configure_logging()
+
+if len(sys.argv) < 3 or len(sys.argv) % 2 != 1:
+    print("Usage: initializer-entrypoint-confidential src_uri_0 dest_path_0 ... src_uri_n dest_path_n")
+    sys.exit(1)
+
+src_uris = sys.argv[1::2]
+dest_paths = sys.argv[2::2]
+
+logger.info("Initializing, args: (src_uri, dest_path): %s", list(zip(src_uris, dest_paths)))
+
+try:
+    Storage.download_files(src_uris, dest_paths)
+except RuntimeError as e:
+    logger.error("Storage initialization failed: %s", e)
+    sys.exit(1)
+except Exception as e:
+    logger.error("Unexpected error during storage initialization: %s", e)
+    sys.exit(1)
+
+# Post-download decryption for confidential model serving
+if os.environ.get("CONFIDENTIAL_ENABLED", "").lower() == "true":
+    from kserve_storage.confidential import JWEDecryptor, CDHSecretResolver, SecretResolutionError
+
+    resource_id = os.environ.get("CONFIDENTIAL_RESOURCE_ID", "")
+    logger.info("Confidential mode enabled, resource_id=%s", resource_id or "(auto-discovery)")
+
+    try:
+        # Select the appropriate SecretResolver based on available configuration.
+        # CDHSecretResolver talks to the Confidential Data Hub (CDH) running
+        # inside the TEE guest.  CDH handles attestation and key retrieval
+        # regardless of the underlying KBS/RATS implementation.
+        # Future alternatives for non-CoCo environments:
+        # - File-based resolver: read key from a mounted Kubernetes Secret
+        # - Environment variable resolver: key passed directly via env var
+        # - Cloud KMS resolver: retrieve key from a cloud provider KMS
+        resolver = CDHSecretResolver()
+        decryptor = JWEDecryptor(resolver, resource_id=resource_id or None)
+
+        total_decrypted = 0
+        for dest_path in dest_paths:
+            decrypted = decryptor.decrypt_directory(dest_path, resource_id=resource_id or None)
+            total_decrypted += len(decrypted)
+
+        logger.info("Confidential decryption complete: %d files decrypted", total_decrypted)
+    except Exception as e:
+        logger.error("Confidential decryption failed: %s", e)
+        sys.exit(1)
