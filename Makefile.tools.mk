@@ -11,6 +11,7 @@ CONTROLLER_GEN = $(LOCALBIN)/controller-gen
 ENVTEST = $(LOCALBIN)/setup-envtest
 KUSTOMIZE = $(LOCALBIN)/kustomize
 YQ = $(LOCALBIN)/yq
+KUSTOMIZE = $(LOCALBIN)/kustomize
 HELM_DOCS = $(LOCALBIN)/helm-docs
 PINACT = $(LOCALBIN)/pinact
 UV = $(PYTHON_BIN)/uv
@@ -54,6 +55,22 @@ $(YQ): $(LOCALBIN) $(DEPS_ENV)
 	mv $(LOCALBIN)/yq $(YQ)-$(YQ_VERSION) ; \
 	} ; \
 	ln -sf "$$(basename $(YQ)-$(YQ_VERSION))" "$(YQ)"
+
+## Download kustomize locally if necessary.
+.PHONY: kustomize
+kustomize: $(KUSTOMIZE)
+$(KUSTOMIZE): $(LOCALBIN)
+	@[ -f "$(KUSTOMIZE)-$(KUSTOMIZE_VERSION)" ] || { \
+	BIN_DIR=$(LOCALBIN) hack/setup/cli/install-kustomize.sh; \
+	if [ -f "$(LOCALBIN)/kustomize" ]; then \
+	  mv "$(LOCALBIN)/kustomize" "$(KUSTOMIZE)-$(KUSTOMIZE_VERSION)"; \
+	elif command -v kustomize >/dev/null 2>&1; then \
+	  ln -sf "$$(command -v kustomize)" "$(KUSTOMIZE)-$(KUSTOMIZE_VERSION)"; \
+	else \
+	  echo "ERROR: kustomize not found after install"; exit 1; \
+	fi; \
+	} ; \
+	ln -sf "$$(basename $(KUSTOMIZE)-$(KUSTOMIZE_VERSION))" "$(KUSTOMIZE)"
 
 ## Download helm-docs locally if necessary.
 .PHONY: helm-docs

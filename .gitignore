@@ -75,6 +75,10 @@ docker-compose.yml
 # Istio installer downloaded by quick install
 istio-*
 
+# Precommit cache (version sentinels for external CRDs)
+test/crds/.*-version
+
+
 # Claude code
 .claude/
 
