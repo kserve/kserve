@@ -125,7 +125,7 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 
 	pvcName := modelInfo.ModelName + "-" + nodeGroupName
 	if modelInfo.Namespace != "" {
-		pvcName += "-download"
+		pvcName += "-" + modelInfo.Namespace + "-download"
 	}
 	c.Log.Info("Using PVC name to create download job", "current node", nodeName, "node group", nodeGroupName, "PVC name", pvcName)
 
@@ -163,11 +163,7 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 		},
 	}
 
-	// Determine job namespace: use CR's namespace for LocalModelNamespaceCache, otherwise use configured jobNamespace
 	jobNs := jobNamespace
-	if modelInfo.Namespace != "" {
-		jobNs = modelInfo.Namespace
-	}
 
 	// Only inject if credentials are explicitly configured in LocalModelCache
 	if modelInfo.ServiceAccountName != "" || modelInfo.Storage != nil {
@@ -306,12 +302,7 @@ func (c *LocalModelNodeReconciler) getLatestJob(ctx context.Context, modelInfo v
 		labelSelector["modelNamespace"] = modelInfo.Namespace
 	}
 
-	jobNs := jobNamespace
-	if modelInfo.Namespace != "" {
-		jobNs = modelInfo.Namespace
-	}
-
-	if err := c.List(ctx, jobList, client.InNamespace(jobNs), client.MatchingLabels(labelSelector)); err != nil {
+	if err := c.List(ctx, jobList, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector)); err != nil {
 		if errors.IsNotFound(err) {
 			c.Log.Info("Job not found", "model", modelInfo.ModelName, "namespace", modelInfo.Namespace)
 			return nil, 0, nil
@@ -485,15 +476,11 @@ func (c *LocalModelNodeReconciler) deleteModels(localModelNode v1alpha1.LocalMod
 func (c *LocalModelNodeReconciler) cleanupJobs(ctx context.Context, localModelNode v1alpha1.LocalModelNode) error {
 	// Build a set of status keys that are in the spec
 	statusKeysInSpec := map[string]struct{}{}
-	namespacesInSpec := map[string]struct{}{jobNamespace: {}} // Always include default job namespace
 	for _, modelInfo := range localModelNode.Spec.LocalModels {
 		statusKeysInSpec[modelInfo.GetStatusKey()] = struct{}{}
-		if modelInfo.Namespace != "" {
-			namespacesInSpec[modelInfo.Namespace] = struct{}{}
-		}
 	}
 
-	for ns := range namespacesInSpec {
+	for _, ns := range []string{jobNamespace} {
 		jobs := &batchv1.JobList{}
 		labelSelector := map[string]string{"node": localModelNode.Name}
 		if err := c.List(ctx, jobs, client.InNamespace(ns), client.MatchingLabels(labelSelector)); err != nil {
