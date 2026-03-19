@@ -19,15 +19,19 @@ from http import HTTPStatus
 import torch
 from fastapi import Request
 from vllm import AsyncEngineArgs
+from vllm.config import ModelConfig
 from vllm.entrypoints.logger import RequestLogger
 from vllm.engine.protocol import EngineClient
-from vllm.entrypoints.openai.completion.serving import OpenAIServingCompletion
-from vllm.entrypoints.openai.chat_completion.serving import OpenAIServingChat
-from vllm.entrypoints.pooling.embed.serving import OpenAIServingEmbedding
-from vllm.entrypoints.pooling.score.serving import ServingScores
+from vllm.entrypoints.openai.serving_completion import OpenAIServingCompletion
+from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
+from vllm.entrypoints.openai.serving_embedding import OpenAIServingEmbedding
+from vllm.entrypoints.openai.serving_score import ServingScores
+from vllm.entrypoints.openai.models.serving import OpenAIServingModels, OpenAIModelRegistry
+from vllm.entrypoints.serve.render.serving import OpenAIServingRender
+from vllm.renderers.base import BaseRenderer
+from vllm.plugins.io_processors import get_io_processor
 from vllm.tool_parsers import ToolParserManager
 from vllm.entrypoints.openai.models.protocol import BaseModelPath
-from vllm.entrypoints.openai.models.serving import OpenAIServingModels
 from vllm.entrypoints.openai.cli_args import validate_parsed_serve_args
 from vllm.entrypoints.chat_utils import load_chat_template
 from vllm.entrypoints.openai.engine.protocol import ErrorResponse as engineError
@@ -58,6 +62,7 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
     args: Namespace = None
     ready: bool = False
     openai_serving_models: Optional[OpenAIServingModels] = None
+    openai_serving_render: Optional[OpenAIServingRender] = None
     openai_serving_completion: Optional[OpenAIServingCompletion] = None
     openai_serving_chat: Optional[OpenAIServingChat] = None
     openai_serving_embedding: Optional[OpenAIServingEmbedding] = None
@@ -132,16 +137,37 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
 
             self.openai_serving_models = OpenAIServingModels(
                 engine_client=self.engine_client,
+                model_config=self.model_config,
                 base_model_paths=self.base_model_paths,
                 lora_modules=self.args.lora_modules,
             )
             await self.openai_serving_models.init_static_loras()
+
+            renderer = BaseRenderer.from_config(vllm_config, tokenizer_kwargs={})
+            io_processor = get_io_processor(vllm_config)
+            model_registry = OpenAIModelRegistry(self.model_config, self.base_model_paths)
+            self.openai_serving_render = OpenAIServingRender(
+                model_config=self.model_config,
+                renderer=renderer,
+                io_processor=io_processor,
+                model_registry=model_registry,
+                request_logger=self.request_logger,
+                chat_template=resolved_chat_template,
+                chat_template_content_format=self.args.chat_template_content_format,
+                trust_request_chat_template=self.args.trust_request_chat_template,
+                enable_auto_tools=self.args.enable_auto_tool_choice,
+                exclude_tools_when_tool_choice_none=self.args.exclude_tools_when_tool_choice_none,
+                tool_parser=self.args.tool_call_parser,
+                default_chat_template_kwargs=self.args.chat_template_kwargs,
+                log_error_stack=self.args.log_error_stack,
+            )
 
             self.openai_serving_chat = (
                 OpenAIServingChat(
                     self.engine_client,
                     self.openai_serving_models,
                     self.args.response_role,
+                    openai_serving_render=self.openai_serving_render,
                     request_logger=self.request_logger,
                     chat_template=resolved_chat_template,
                     chat_template_content_format=self.args.chat_template_content_format,
@@ -164,6 +190,7 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
                 OpenAIServingCompletion(
                     self.engine_client,
                     self.openai_serving_models,
+                    openai_serving_render=self.openai_serving_render,
                     request_logger=self.request_logger,
                     return_tokens_as_token_ids=self.args.return_tokens_as_token_ids,
                     enable_prompt_tokens_details=self.args.enable_prompt_tokens_details,
@@ -177,6 +204,7 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
             self.openai_serving_embedding = (
                 OpenAIServingEmbedding(
                     self.engine_client,
+                    self.model_config,
                     self.openai_serving_models,
                     request_logger=self.request_logger,
                     chat_template=resolved_chat_template,
