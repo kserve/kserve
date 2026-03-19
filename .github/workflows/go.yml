@@ -13,6 +13,8 @@ on:
           - "!docs/**"
           - "!**.md"
           - ".github/workflows/go.yml"
+    merge_group:
+      types: [ checks_requested ]
     workflow_dispatch:
 
 concurrency:

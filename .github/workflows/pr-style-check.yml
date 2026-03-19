@@ -6,6 +6,9 @@ on:
       - opened
       - edited
       - synchronize
+  # This check is not applicable to merge queue
+  # merge_group:
+  #   types: [ checks_requested ]
 
 permissions:
   contents: read

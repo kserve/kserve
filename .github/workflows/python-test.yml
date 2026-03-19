@@ -13,6 +13,8 @@ on:
       - "!**.md"
       - ".github/workflows/python-test.yml"
       - ".github/actions/free-up-disk-space/**"
+  merge_group:
+    types: [ checks_requested ]
   workflow_dispatch:
 
 concurrency:

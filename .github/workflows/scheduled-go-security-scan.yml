@@ -2,6 +2,11 @@ name: "Go Security Scan"
 
 on:
   pull_request:
+
+  # Don't do security scan on merge queue. For now, we assume scheduled and PR checks are enough.
+  # merge_group:
+  #   types: [ checks_requested ]
+
   schedule:
     # The scheduled workflow runs every Sunday at 00:00 UTC time.
     - cron: '0 0 * * 0'

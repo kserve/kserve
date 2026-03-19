@@ -15,6 +15,8 @@ on:
       - ".github/workflows/e2e-test-llmisvc.yaml"
       - ".github/actions/**"
       - "hack/setup/quick-install/llmisvc-dependency-install.sh"
+  merge_group:
+    types: [ checks_requested ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
