@@ -4,7 +4,8 @@ metadata:
   name: kserve-config-llm-template-ibm-spyre-s390x
   annotations:
     openshift.io/display-name: vLLM IBM Spyre s390x LLMInferenceServiceConfig
-    description: vLLM IBM Spyre s390x LLMInferenceServiceConfig for LLMInferenceService.
+    openshift.io/description: vLLM IBM Spyre s390x LLMInferenceServiceConfig for LLMInferenceService.
+    opendatahub.io/recommended-accelerators: '["ibm.com/spyre_vf"]'
 spec:
   template:
     schedulerName: spyre-scheduler

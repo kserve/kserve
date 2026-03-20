@@ -4,7 +4,8 @@ metadata:
   name: kserve-config-llm-template-amd-rocm
   annotations:
     openshift.io/display-name: vLLM AMD ROCm GPU LLMInferenceServiceConfig
-    description: vLLM AMD ROCm GPU LLMInferenceServiceConfig for LLMInferenceService.
+    openshift.io/description: vLLM AMD ROCm GPU LLMInferenceServiceConfig for LLMInferenceService.
+    opendatahub.io/recommended-accelerators: '["amd.com/gpu"]'
 spec:
   template:
     containers:

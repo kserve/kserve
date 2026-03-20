@@ -4,7 +4,8 @@ metadata:
   name: kserve-config-llm-template-ibm-spyre-x86
   annotations:
     openshift.io/display-name: vLLM IBM Spyre x86 LLMInferenceServiceConfig
-    description: vLLM IBM Spyre x86 LLMInferenceServiceConfig for LLMInferenceService.
+    openshift.io/description: vLLM IBM Spyre x86 LLMInferenceServiceConfig for LLMInferenceService.
+    opendatahub.io/recommended-accelerators: '["ibm.com/spyre_pf"]'
 spec:
   template:
     containers:
