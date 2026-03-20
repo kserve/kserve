@@ -12,7 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .model import AutoGluonModel
+from .model import AutoGluonModel, AutoGluonTabularModel
 from .autogluon_model_repository import AutoGluonModelRepository
+from .predictor_factory import create_autogluon_model
+from .timeseries_model import AutoGluonTimeSeriesModel
 
-__all__ = ["AutoGluonModel", "AutoGluonModelRepository"]
+__all__ = [
+    "AutoGluonModel",
+    "AutoGluonTabularModel",
+    "AutoGluonTimeSeriesModel",
+    "AutoGluonModelRepository",
+    "create_autogluon_model",
+]

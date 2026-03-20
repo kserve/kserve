@@ -15,7 +15,7 @@
 import os
 from kserve.model_repository import ModelRepository, MODEL_MOUNT_DIRS
 
-from autogluonserver.model import AutoGluonModel
+from autogluonserver.predictor_factory import create_autogluon_model
 
 
 class AutoGluonModelRepository(ModelRepository):
@@ -27,7 +27,7 @@ class AutoGluonModelRepository(ModelRepository):
         return self.load_model(name)
 
     def load_model(self, name: str) -> bool:
-        model = AutoGluonModel(name, os.path.join(self.models_dir, name))
+        model = create_autogluon_model(name, os.path.join(self.models_dir, name))
         if model.load():
             self.update(model)
         return model.ready

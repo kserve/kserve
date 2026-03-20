@@ -32,14 +32,18 @@ async def test_load_updates_repository_with_ready_model(monkeypatch, tmp_path):
             self.ready = True
             return True
 
+        async def healthy(self):
+            return self.ready
+
     monkeypatch.setattr(
-        "autogluonserver.autogluon_model_repository.AutoGluonModel", FakeAutoGluonModel
+        "autogluonserver.autogluon_model_repository.create_autogluon_model",
+        lambda n, d: FakeAutoGluonModel(n, d),
     )
 
     repo = AutoGluonModelRepository(str(tmp_path))
     await repo.load(model_name)
     assert repo.get_model(model_name) is not None
-    assert repo.is_model_ready(model_name)
+    assert await repo.is_model_ready(model_name)
 
 
 @pytest.mark.asyncio
@@ -55,8 +59,12 @@ async def test_load_failure_does_not_register_model(monkeypatch, tmp_path):
         def load(self):
             raise FileNotFoundError("model directory not found")
 
+        async def healthy(self):
+            return self.ready
+
     monkeypatch.setattr(
-        "autogluonserver.autogluon_model_repository.AutoGluonModel", FakeAutoGluonModel
+        "autogluonserver.autogluon_model_repository.create_autogluon_model",
+        lambda n, d: FakeAutoGluonModel(n, d),
     )
 
     repo = AutoGluonModelRepository(str(tmp_path))
@@ -64,4 +72,4 @@ async def test_load_failure_does_not_register_model(monkeypatch, tmp_path):
         await repo.load(model_name)
 
     assert repo.get_model(model_name) is None
-    assert not repo.is_model_ready(model_name)
+    assert not await repo.is_model_ready(model_name)

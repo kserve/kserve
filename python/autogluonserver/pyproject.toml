@@ -14,10 +14,11 @@ dependencies = [
     "torch==2.9.1",
     "fastai==2.8.5",
     "autogluon.tabular==1.5.0",
+    "autogluon.timeseries==1.5.0",
 ]
 name = "autogluonserver"
 version = "0.1.0"
-description = "Model Server implementation for AutoGluon TabularPredictor. Not intended for use outside KServe Frameworks Images."
+description = "Model Server implementation for AutoGluon TabularPredictor and TimeSeriesPredictor. Not intended for use outside KServe Frameworks Images."
 readme = "README.md"
 
 [dependency-groups]

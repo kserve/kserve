@@ -82,10 +82,10 @@ def test_load_success_sets_ready_and_output_datatype(monkeypatch, tmp_path):
         features=["f1"], class_labels=[0, 1], problem_type="binary"
     )
     monkeypatch.setattr(
-        "autogluonserver.model.Storage.download", lambda _: str(tmp_path)
+        "autogluonserver.tabular_model.Storage.download", lambda _: str(tmp_path)
     )
     monkeypatch.setattr(
-        "autogluonserver.model.TabularPredictor.load", lambda _: predictor
+        "autogluonserver.tabular_model.TabularPredictor.load", lambda _: predictor
     )
 
     model = AutoGluonModel("model", "s3://bucket/path")
@@ -97,7 +97,7 @@ def test_load_success_sets_ready_and_output_datatype(monkeypatch, tmp_path):
 def test_load_raises_model_missing_error(monkeypatch, tmp_path):
     missing_dir = tmp_path / "missing"
     monkeypatch.setattr(
-        "autogluonserver.model.Storage.download", lambda _: str(missing_dir)
+        "autogluonserver.tabular_model.Storage.download", lambda _: str(missing_dir)
     )
 
     model = AutoGluonModel("model", "s3://bucket/path")
