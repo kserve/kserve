@@ -45,7 +45,7 @@ jobs:
         with:
           platforms: linux/ppc64le
           context: python
-          file: python/storage-initializer-ppc64le.Dockerfile
+          file: python/storage-initializer.Dockerfile
           push: false
           # https://github.com/docker/buildx/issues/1533
           provenance: false
@@ -106,7 +106,7 @@ jobs:
         with:
           platforms: linux/ppc64le
           context: python
-          file: python/storage-initializer-ppc64le.Dockerfile
+          file: python/storage-initializer.Dockerfile
           push: true
           tags: ${{ env.IMAGE_ID }}:${{ env.VERSION }}
           # https://github.com/docker/buildx/issues/1533
