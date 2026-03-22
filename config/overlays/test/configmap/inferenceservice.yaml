@@ -365,11 +365,11 @@ data:
            # NOTE: This configuration only applicable for raw deployment.
            "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
 
-           # ingressPathTemplate to expose all InferenceServices in a cluster behind a single domain by combining the following variables:
+           # ingressPathTemplate specifies the template for generating the path of url's for each inference service by combining variables from:
            # Name of the inference service  ( {{ .Name}} )
            # Namespace of the inference service ( {{ .Namespace }} )
-           # If not set or empty: the root path is used
-           # NOTE: This configuration only applicable for raw deployment.
+           # If not set or empty: the root path is used.
+           # NOTE: This configuration only applicable for raw deployment with Gateway API disabled.
            "ingressPathTemplate": "/namespaces/{{ .Namespace }}/endpoints/{{ .Name }}",
 
            # urlScheme specifies the url scheme to use for inference service and inference graph.
