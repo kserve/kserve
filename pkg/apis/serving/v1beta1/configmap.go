@@ -127,10 +127,10 @@ type IngressConfig struct {
 	// This field has been added to prevent enabling path based routing by default in RawDeployment without GatewayAPI
 	//
 	// If using any other mode, use IngressConfig.PathTemplate
-	IngressPathTemplate     string `json:"ingressPathTemplate,omitempty"`
-	UrlScheme               string `json:"urlScheme,omitempty"`
-	EnableLLMInferenceServiceTLS bool      `json:"enableLLMInferenceServiceTLS,omitempty"`
-	DisableIstioVirtualHost bool   `json:"disableIstioVirtualHost,omitempty"`
+	IngressPathTemplate          string `json:"ingressPathTemplate,omitempty"`
+	UrlScheme                    string `json:"urlScheme,omitempty"`
+	EnableLLMInferenceServiceTLS bool   `json:"enableLLMInferenceServiceTLS,omitempty"`
+	DisableIstioVirtualHost      bool   `json:"disableIstioVirtualHost,omitempty"`
 	// Specifies the template for generating path based url's for InferenceServices in Serverless and GatewayAPI modes.
 	//
 	// If using RawDeployment without GatewayAPI, use IngressConfig.IngressPathTemplate
