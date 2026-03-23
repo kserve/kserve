@@ -38,3 +38,6 @@ kserve-storage = { path = "../storage", editable = false }
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

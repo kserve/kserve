@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.10, <3.13"
 resolution-markers = [
     "python_full_version >= '3.12'",
@@ -262,7 +262,7 @@ requires-dist = [
     { name = "catboost", specifier = "==1.2.8" },
     { name = "fastai", specifier = "==2.8.5" },
     { name = "kserve", directory = "../kserve" },
-    { name = "kserve-storage", virtual = "../storage" },
+    { name = "kserve-storage", directory = "../storage" },
     { name = "lightgbm", specifier = "==4.6.0" },
     { name = "torch", specifier = "==2.9.1" },
     { name = "xgboost", specifier = "==3.1.3" },
@@ -1706,7 +1706,7 @@ test = [
 [[package]]
 name = "kserve-storage"
 version = "0.17.0"
-source = { virtual = "../storage" }
+source = { directory = "../storage" }
 dependencies = [
     { name = "aiohttp" },
     { name = "azure-identity" },

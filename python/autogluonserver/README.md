@@ -12,7 +12,7 @@ Install the [kserve](../kserve) package first, then from this directory:
 uv sync --group test
 ```
 
-**Note:** The dependency `autogluon.tabular[all]` pulls in CatBoost, which in the current lock file only has wheels for **Python 3.10** on some platforms. If you see an error like *"Distribution \`catboost\` can't be installed because it doesn't have a source distribution or wheel for the current platform"*, use Python 3.10 for this project (e.g. `uv venv .venv --python 3.10` then `uv sync --group test`). To install into an already-active virtualenv elsewhere (e.g. the repo root), use `uv sync --active --group test`.
+**Note:** The dependency `autogluon.tabular[all]` pulls in CatBoost, which in the current lock file only has wheels for **Python 3.10** on some platforms. If you see an error like *"Distribution catboost can't be installed because it doesn't have a source distribution or wheel for the current platform"*, use Python 3.10 for this project (e.g. `uv venv .venv --python 3.10` then `uv sync --group test`). To install into an already-active virtualenv elsewhere (e.g. the repo root), use `uv sync --active --group test`.
 
 Check that the server is available:
 
@@ -46,7 +46,7 @@ spec:
 
 ## Environment
 
-- **`PREDICT_PROBA`**: set to `"true"` to use `predict_proba()` instead of `predict()` when the predictor supports it (e.g. for classification).
+- `**PREDICT_PROBA**`: set to `"true"` to use `predict_proba()` instead of `predict()` when the predictor supports it (e.g. for classification).
 
 ## Development
 
@@ -56,7 +56,7 @@ Install development dependencies from this directory:
 uv sync --group test
 ```
 
-Run tests:
+Run tests from this directory (discovery is limited to `tests/` via `pyproject.toml`):
 
 ```shell
 pytest -W ignore
