@@ -59,15 +59,13 @@ func GenerateDomainName(name string, obj metav1.ObjectMeta, ingressConfig *v1bet
 	}
 
 	domainName := buf.String()
-	if ingressConfig.DisableIngressCreation {
-		return domainName, nil
+	if !ingressConfig.DisableIngressCreation {
+		urlErrs := validation.IsFullyQualifiedDomainName(field.NewPath("url"), domainName)
+		if urlErrs != nil {
+			return "", fmt.Errorf("invalid domain name %q: %w", domainName, urlErrs.ToAggregate())
+		}
 	}
-
-	urlErrs := validation.IsFullyQualifiedDomainName(field.NewPath("url"), domainName)
-	if urlErrs != nil {
-		return "", fmt.Errorf("invalid domain name %q: %w", domainName, urlErrs.ToAggregate())
-	}
-
+	
 	return domainName, nil
 }
 
@@ -91,13 +89,11 @@ func GenerateInternalDomainName(name string, obj metav1.ObjectMeta, ingressConfi
 	}
 
 	domainName := buf.String()
-	if ingressConfig.DisableIngressCreation {
-		return domainName, nil
-	}
-
-	urlErrs := validation.IsFullyQualifiedDomainName(field.NewPath("url"), domainName)
-	if urlErrs != nil {
-		return "", fmt.Errorf("invalid domain name %q: %w", domainName, urlErrs.ToAggregate())
+	if !ingressConfig.DisableIngressCreation {
+		urlErrs := validation.IsFullyQualifiedDomainName(field.NewPath("url"), domainName)
+		if urlErrs != nil {
+			return "", fmt.Errorf("invalid domain name %q: %w", domainName, urlErrs.ToAggregate())
+		}
 	}
 
 	return domainName, nil
