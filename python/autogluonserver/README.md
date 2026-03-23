@@ -148,7 +148,7 @@ Install development dependencies from this directory:
 uv sync --group test
 ```
 
-Run tests:
+Run tests from this directory (discovery is limited to `tests/` via `pyproject.toml`):
 
 ```shell
 pytest -W ignore
