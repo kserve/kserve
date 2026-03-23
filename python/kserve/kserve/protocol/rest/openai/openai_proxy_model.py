@@ -39,7 +39,6 @@ from .types import (
 
 COMPLETIONS_ENDPOINT = "/v1/completions"
 CHAT_COMPLETIONS_ENDPOINT = "/v1/chat/completions"
-RESPONSES_ENDPOINT = "/v1/responses"
 
 
 def error_handler(f):
@@ -144,9 +143,6 @@ class OpenAIProxyModel(OpenAIGenerativeModel):
         )
         self._chat_completions_endpoint = (
             f"{self.predictor_url.rstrip('/')}{CHAT_COMPLETIONS_ENDPOINT}"
-        )
-        self._responses_endpoint = (
-            f"{self.predictor_url.rstrip('/')}{RESPONSES_ENDPOINT}"
         )
         if health_endpoint:
             self._health_endpoint = f"{self.predictor_url.rstrip('/')}{health_endpoint}"
