@@ -58,6 +58,11 @@ import (
 	pkgtypes "github.com/kserve/kserve/pkg/types"
 )
 
+type ensureModelRootFolderResult struct {
+	Result   ctrl.Result
+	Continue bool
+}
+
 type LocalModelNodeReconciler struct {
 	client.Client
 	Clientset         *kubernetes.Clientset
@@ -204,7 +209,10 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 			},
 		},
 	}
-	enhanceDownloadJob(job, storageKey)
+	if err := enhanceDownloadJob(job, storageKey); err != nil {
+		c.Log.Error(err, "Failed to enhance download job", "name", modelInfo.ModelName)
+		return nil, err
+	}
 	if err := controllerutil.SetControllerReference(&localModelNode, job, c.Scheme); err != nil {
 		c.Log.Error(err, "Failed to set controller reference", "name", modelInfo.ModelName)
 		return nil, err
@@ -548,6 +556,7 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	storageInitializerConfig, err = v1beta1.GetStorageInitializerConfigs(isvcConfigMap)
 	if err != nil {
 		c.Log.Error(err, "Failed to get storage initializer config, using defaults")
+		// Don't fail, just use defaults
 	}
 
 	if c.CredentialBuilder == nil {
@@ -559,9 +568,12 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		fsHelper = NewFileSystemHelper(modelsRootFolder)
 	}
 
-	result, cont, err := ensureModelRootFolderExistsAndIsWritable(ctx, c, localModelConfig)
-	if !cont || err != nil {
-		return result, err
+	folderResult, err := ensureModelRootFolderExistsAndIsWritable(ctx, c, localModelConfig)
+	if err != nil || !folderResult.Continue {
+		if folderResult != nil {
+			return folderResult.Result, err
+		}
+		return ctrl.Result{}, err
 	}
 
 	// 3. Get LocalModelNode CR
@@ -577,7 +589,7 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return reconcile.Result{}, err
 	}
 
-	// 5. Download models
+	// 5. Download models not present locally
 	if err := c.downloadModels(ctx, &localModelNode); err != nil {
 		c.Log.Error(err, "Model download err")
 		return reconcile.Result{}, err
@@ -589,6 +601,7 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return reconcile.Result{}, err
 	}
 
+	// Requeue to check local folders periodically
 	return reconcile.Result{RequeueAfter: reconcilationFreqency}, nil
 }
 

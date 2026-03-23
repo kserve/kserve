@@ -23,21 +23,20 @@ import (
 	"fmt"
 
 	batchv1 "k8s.io/api/batch/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )
 
 const MountPath = "/mnt/models"
 
-func enhanceDownloadJob(_ *batchv1.Job, _ string) {}
+func enhanceDownloadJob(_ *batchv1.Job, _ string) error { return nil }
 
-//nolint:unparam // signature must match distro variant which returns non-zero Result
+// TODO we need a way to ensure that the local path on persistent volume is the same as the local path of the node agent DaemonSet.
 func ensureModelRootFolderExistsAndIsWritable(_ context.Context, _ *LocalModelNodeReconciler,
 	_ *v1beta1.LocalModelConfig,
-) (ctrl.Result, bool, error) {
+) (*ensureModelRootFolderResult, error) {
 	if err := fsHelper.ensureModelRootFolderExists(); err != nil {
-		return ctrl.Result{}, false, fmt.Errorf("failed to ensure model root folder: %w", err)
+		return nil, fmt.Errorf("failed to ensure model root folder: %w", err)
 	}
-	return ctrl.Result{}, true, nil
+	return &ensureModelRootFolderResult{Continue: true}, nil
 }

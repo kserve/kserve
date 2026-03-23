@@ -28,7 +28,6 @@ type FileSystemInterface interface {
 	hasModelFolder(modelName string) (bool, error)
 	getModelFolders() ([]os.DirEntry, error)
 	ensureModelRootFolderExists() error
-	isWritable() bool
 }
 
 type FileSystemHelper struct {
@@ -80,14 +79,4 @@ func (f *FileSystemHelper) ensureModelRootFolderExists() error {
 		return err
 	}
 	return nil
-}
-
-func (f *FileSystemHelper) isWritable() bool {
-	file, err := os.CreateTemp(f.modelsRootFolder, ".write-test-*")
-	if err != nil {
-		return false
-	}
-	defer os.Remove(file.Name())
-	defer file.Close()
-	return true
 }

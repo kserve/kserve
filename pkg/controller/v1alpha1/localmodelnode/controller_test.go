@@ -52,8 +52,7 @@ func (m *MockFileInfo) Info() (fs.FileInfo, error) { return nil, nil }
 type mockFileSystem struct {
 	FileSystemInterface
 	// represents the dirs under models root
-	subDirs  []os.DirEntry
-	writable bool
+	subDirs []os.DirEntry
 }
 
 func (f *mockFileSystem) removeModel(model string) error {
@@ -93,18 +92,13 @@ func (f *mockFileSystem) ensureModelRootFolderExists() error {
 	return nil
 }
 
-func (f *mockFileSystem) isWritable() bool {
-	return f.writable
-}
-
 func (f *mockFileSystem) clear() {
 	f.subDirs = []os.DirEntry{}
 }
 
 func newMockFileSystem() *mockFileSystem {
 	return &mockFileSystem{
-		subDirs:  []os.DirEntry{},
-		writable: true,
+		subDirs: []os.DirEntry{},
 	}
 }
 
