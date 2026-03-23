@@ -66,8 +66,9 @@ jobs:
 
       - name: Install kustomize
         run: |
-          curl -LO "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.7.1/kustomize_v5.7.1_linux_amd64.tar.gz"
-          tar xzf kustomize_v5.7.1_linux_amd64.tar.gz
+          source kserve-deps.env
+          curl -LO "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz"
+          tar xzf "kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz"
           chmod +x kustomize
           sudo mv kustomize /usr/local/bin/
           kustomize version
