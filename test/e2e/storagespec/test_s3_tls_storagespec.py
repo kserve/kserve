@@ -146,33 +146,33 @@ ODH_TRUSTED_CA_BUNDLE_CONFIGMAP_NAME = "odh-trusted-ca-bundle"
 
 @pytest.fixture(scope="module")
 def odh_trusted_ca_bundle_configmap(kserve_client):
-    """Create empty odh-trusted-ca-bundle configmap at module level."""
-    odh_trusted_ca_configmap = client.V1ConfigMap(
-        api_version="v1",
-        kind="ConfigMap",
-        metadata=client.V1ObjectMeta(name=ODH_TRUSTED_CA_BUNDLE_CONFIGMAP_NAME),
-        data={},
-    )
+    """Ensure the odh-trusted-ca-bundle configmap exists.
+
+    The configmap is pre-created by setup-ci-namespace.sh to avoid race
+    conditions when pytest-xdist distributes tests across multiple workers.
+    Namespace teardown handles cleanup.
+    """
     try:
-        kserve_client.core_api.create_namespaced_config_map(
-            namespace=KSERVE_TEST_NAMESPACE, body=odh_trusted_ca_configmap
-        )
-    except client.ApiException as e:
-        if e.status != 409:  # 409 = already exists (another worker created it)
-            raise
-    yield ODH_TRUSTED_CA_BUNDLE_CONFIGMAP_NAME
-    try:
-        kserve_client.core_api.delete_namespaced_config_map(
+        kserve_client.core_api.read_namespaced_config_map(
             name=ODH_TRUSTED_CA_BUNDLE_CONFIGMAP_NAME, namespace=KSERVE_TEST_NAMESPACE
         )
-        wait_for_resource_deletion(
-            read_func=lambda: kserve_client.core_api.read_namespaced_config_map(
-                name=ODH_TRUSTED_CA_BUNDLE_CONFIGMAP_NAME, namespace=KSERVE_TEST_NAMESPACE
-            ),
-        )
     except client.ApiException as e:
-        if e.status != 404:  # 404 = already deleted (another worker cleaned it up)
+        if e.status == 404:
+            # Fallback: create the configmap if the setup script didn't
+            kserve_client.core_api.create_namespaced_config_map(
+                namespace=KSERVE_TEST_NAMESPACE,
+                body=client.V1ConfigMap(
+                    api_version="v1",
+                    kind="ConfigMap",
+                    metadata=client.V1ObjectMeta(
+                        name=ODH_TRUSTED_CA_BUNDLE_CONFIGMAP_NAME
+                    ),
+                    data={},
+                ),
+            )
+        else:
             raise
+    yield ODH_TRUSTED_CA_BUNDLE_CONFIGMAP_NAME
 
 
 @contextmanager
@@ -200,62 +200,114 @@ def managed_ca_bundle_key(kserve_client: KServeClient, data_key: str):
 
 
 @pytest.mark.kserve_on_openshift
-def test_s3_tls_global_custom_cert_storagespec_kserve(kserve_client, odh_trusted_ca_bundle_configmap):
+def test_s3_tls_global_custom_cert_storagespec_kserve(
+    kserve_client, odh_trusted_ca_bundle_configmap
+):
     # Validate that the model is successfully loaded when the global custom cert is valid
-    pass_storage_config = create_storage_config_json("seaweedfs-tls-custom-service", "odh-kserve-custom-ca-bundle")
+    pass_storage_config = create_storage_config_json(
+        "seaweedfs-tls-custom-service", "odh-kserve-custom-ca-bundle"
+    )
     pass_service_name = "isvc-sklearn-s3-tls-global-pass"
     pass_isvc = create_isvc_resource(pass_service_name, "localTLSS3Global")
     with managed_ca_bundle_key(kserve_client, "ca-bundle.crt"):
-        with managed_storage_config_key(kserve_client, "localTLSS3Global", pass_storage_config):
+        with managed_storage_config_key(
+            kserve_client, "localTLSS3Global", pass_storage_config
+        ):
             with managed_isvc(kserve_client, pass_isvc):
-                check_model_status(kserve_client, pass_service_name, KSERVE_TEST_NAMESPACE, "UpToDate")
+                check_model_status(
+                    kserve_client, pass_service_name, KSERVE_TEST_NAMESPACE, "UpToDate"
+                )
 
     # Validate that the model fails to load when the cabundle_configmap is not referenced in the storage config
-    fail_storage_config = create_storage_config_json("seaweedfs-tls-custom-service", None)
+    fail_storage_config = create_storage_config_json(
+        "seaweedfs-tls-custom-service", None
+    )
     fail_service_name = "isvc-sklearn-s3-tls-global-fail"
     fail_isvc = create_isvc_resource(fail_service_name, "localTLSS3Global")
-    with managed_storage_config_key(kserve_client, "localTLSS3Global", fail_storage_config):
+    with managed_storage_config_key(
+        kserve_client, "localTLSS3Global", fail_storage_config
+    ):
         with managed_isvc(kserve_client, fail_isvc):
-            check_model_status(kserve_client, fail_service_name, KSERVE_TEST_NAMESPACE, "BlockedByFailedLoad", ssl_error)
+            check_model_status(
+                kserve_client,
+                fail_service_name,
+                KSERVE_TEST_NAMESPACE,
+                "BlockedByFailedLoad",
+                ssl_error,
+            )
 
 
 @pytest.mark.kserve_on_openshift
-def test_s3_tls_custom_cert_storagespec_kserve(kserve_client, odh_trusted_ca_bundle_configmap):
+def test_s3_tls_custom_cert_storagespec_kserve(
+    kserve_client, odh_trusted_ca_bundle_configmap
+):
     # Validate that the model is successfully loaded when the custom cert is valid
-    pass_storage_config = create_storage_config_json("seaweedfs-tls-custom-service", "odh-kserve-custom-ca-bundle")
+    pass_storage_config = create_storage_config_json(
+        "seaweedfs-tls-custom-service", "odh-kserve-custom-ca-bundle"
+    )
     pass_service_name = "isvc-sklearn-s3-tls-custom-pass"
     pass_isvc = create_isvc_resource(pass_service_name, "localTLSS3Custom")
     with managed_ca_bundle_key(kserve_client, "odh-ca-bundle.crt"):
-        with managed_storage_config_key(kserve_client, "localTLSS3Custom", pass_storage_config):
+        with managed_storage_config_key(
+            kserve_client, "localTLSS3Custom", pass_storage_config
+        ):
             with managed_isvc(kserve_client, pass_isvc):
-                check_model_status(kserve_client, pass_service_name, KSERVE_TEST_NAMESPACE, "UpToDate")
+                check_model_status(
+                    kserve_client, pass_service_name, KSERVE_TEST_NAMESPACE, "UpToDate"
+                )
 
     # Validate that the model fails to load when the cabundle_configmap is not referenced in the storage config
-    fail_storage_config = create_storage_config_json("seaweedfs-tls-custom-service", None)
+    fail_storage_config = create_storage_config_json(
+        "seaweedfs-tls-custom-service", None
+    )
     fail_service_name = "isvc-sklearn-s3-tls-custom-fail"
     fail_isvc = create_isvc_resource(fail_service_name, "localTLSS3Custom")
-    with managed_storage_config_key(kserve_client, "localTLSS3Custom", fail_storage_config):
+    with managed_storage_config_key(
+        kserve_client, "localTLSS3Custom", fail_storage_config
+    ):
         with managed_isvc(kserve_client, fail_isvc):
-            check_model_status(kserve_client, fail_service_name, KSERVE_TEST_NAMESPACE, "BlockedByFailedLoad", ssl_error)
+            check_model_status(
+                kserve_client,
+                fail_service_name,
+                KSERVE_TEST_NAMESPACE,
+                "BlockedByFailedLoad",
+                ssl_error,
+            )
 
 
 @pytest.mark.kserve_on_openshift
 def test_s3_tls_serving_cert_storagespec_kserve(kserve_client):
     # Validate that the model is successfully loaded when the serving cert is valid
-    pass_storage_config = create_storage_config_json("seaweedfs-tls-serving-service", "odh-kserve-custom-ca-bundle")
+    pass_storage_config = create_storage_config_json(
+        "seaweedfs-tls-serving-service", "odh-kserve-custom-ca-bundle"
+    )
     pass_service_name = "isvc-sklearn-s3-tls-serving-pass"
     pass_isvc = create_isvc_resource(pass_service_name, storage_key="localTLSS3Serving")
-    with managed_storage_config_key(kserve_client, "localTLSS3Serving", pass_storage_config):
+    with managed_storage_config_key(
+        kserve_client, "localTLSS3Serving", pass_storage_config
+    ):
         with managed_isvc(kserve_client, pass_isvc):
-            check_model_status(kserve_client, pass_service_name, KSERVE_TEST_NAMESPACE, "UpToDate")
+            check_model_status(
+                kserve_client, pass_service_name, KSERVE_TEST_NAMESPACE, "UpToDate"
+            )
 
     # Validate that the model fails to load when the serving cert is not referenced in the storage config
-    fail_storage_config = create_storage_config_json("seaweedfs-tls-serving-service", None)
+    fail_storage_config = create_storage_config_json(
+        "seaweedfs-tls-serving-service", None
+    )
     fail_service_name = "isvc-sklearn-s3-tls-serving-fail"
     fail_isvc = create_isvc_resource(fail_service_name, storage_key="localTLSS3Serving")
-    with managed_storage_config_key(kserve_client, "localTLSS3Serving", fail_storage_config):
+    with managed_storage_config_key(
+        kserve_client, "localTLSS3Serving", fail_storage_config
+    ):
         with managed_isvc(kserve_client, fail_isvc):
-            check_model_status(kserve_client, fail_service_name, KSERVE_TEST_NAMESPACE, "BlockedByFailedLoad", ssl_error)
+            check_model_status(
+                kserve_client,
+                fail_service_name,
+                KSERVE_TEST_NAMESPACE,
+                "BlockedByFailedLoad",
+                ssl_error,
+            )
 
 
 def check_model_status(
@@ -279,7 +331,9 @@ def check_model_status(
 
         failure_message_match = True
         if expected_failure_message is not None:
-            failure_message_match = expected_failure_message in model_status.get("lastFailureInfo", {}).get("message", "")
+            failure_message_match = expected_failure_message in model_status.get(
+                "lastFailureInfo", {}
+            ).get("message", "")
 
         if (
             model_status.get("transitionStatus") == expected_status
@@ -289,8 +343,8 @@ def check_model_status(
 
     actual_status = model_status.get("transitionStatus", "")
     if expected_failure_message is not None:
-        actual_failure_message = (
-            model_status.get("lastFailureInfo", {}).get("message", "")
+        actual_failure_message = model_status.get("lastFailureInfo", {}).get(
+            "message", ""
         )
         raise RuntimeError(
             f"Expected inferenceservice {isvc_name} to have model transition status '{expected_status}' "

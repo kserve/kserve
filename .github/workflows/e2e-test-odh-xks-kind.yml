@@ -105,8 +105,10 @@ jobs:
           SKIP_DELETION_ON_FAILURE: "true"
           TOKEN_AUDIENCES: "https://kubernetes.default.svc"
           GATEWAY_CLASS_NAME: "istio"
+          RUN_AS_NON_ROOT: "false"
+          INFERENCE_POOL_GROUP: ${{ matrix.istio-version == '1.27.5' && 'inference.networking.x-k8s.io' || 'inference.networking.k8s.io' }}
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and cluster_cpu and not auth and not custom_gateway" 1 "istio-gatewayapi-ext"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and cluster_cpu and not auth and not custom_gateway" 0 "istio-gatewayapi-ext"
 
       - name: Check system status
         if: always()

@@ -28,6 +28,10 @@ from .logging import logger
 KSERVE_PLURAL_LLMINFERENCESERVICECONFIG = "llminferenceserviceconfigs"
 KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
 
+INFERENCE_POOL_GROUP = os.environ.get("INFERENCE_POOL_GROUP", "inference.networking.k8s.io")
+GATEWAY_CLASS_NAME = os.environ.get("GATEWAY_CLASS_NAME", "envoy")
+RUN_AS_NON_ROOT = os.environ.get("RUN_AS_NON_ROOT", "false").lower() in ("true", "1", "yes")
+
 # Scheduler config constants
 SCHEDULER_CONFIGMAP_NAME = "scheduler-config-e2e"
 SCHEDULER_CONFIGMAP_KEY = "epp"
@@ -38,15 +42,17 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "quay.io/pierdipi/vllm-cpu:latest",
-                    "env": [{"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"}],
+                    "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1",
+                    "env": [
+                        {"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"},
+                        {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
+                    ],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
                         "requests": {"cpu": "200m", "memory": "2Gi"},
                     },
                     "securityContext": {
-                        "runAsNonRoot": False,
-                        "runAsUser": 0,
+                        "runAsNonRoot": RUN_AS_NON_ROOT,
                     },
                 }
             ]
@@ -57,8 +63,11 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "quay.io/pierdipi/vllm-cpu:latest",
-                    "env": [{"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"}],
+                    "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1",
+                    "env": [
+                        {"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"},
+                        {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
+                    ],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
                         "requests": {"cpu": "200m", "memory": "2Gi"},
@@ -78,8 +87,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "failureThreshold": 3,
                     },
                     "securityContext": {
-                        "runAsNonRoot": False,
-                        "runAsUser": 0,
+                        "runAsNonRoot": RUN_AS_NON_ROOT,
                     },
                 }
             ]
@@ -89,8 +97,11 @@ LLMINFERENCESERVICE_CONFIGS = {
                 "containers": [
                     {
                         "name": "main",
-                        "image": "quay.io/pierdipi/vllm-cpu:latest",
-                        "env": [{"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"}],
+                        "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1",
+                        "env": [
+                            {"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"},
+                            {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
+                        ],
                         "resources": {
                             "limits": {"cpu": "2", "memory": "7Gi"},
                             "requests": {"cpu": "200m", "memory": "2Gi"},
@@ -110,8 +121,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                             "failureThreshold": 3,
                         },
                         "securityContext": {
-                            "runAsNonRoot": False,
-                            "runAsUser": 0,
+                            "runAsNonRoot": RUN_AS_NON_ROOT,
                         },
                     }
                 ]
@@ -316,7 +326,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "quay.io/pierdipi/vllm-cpu:latest",
+                    "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1",
                     "command": ["vllm", "serve", "/mnt/models"],
                     "args": [
                         "--served-model-name",
@@ -329,13 +339,15 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "--ssl-keyfile",
                         "/var/run/kserve/tls/tls.key",
                     ],
+                    "env": [
+                        {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
+                    ],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
                         "requests": {"cpu": "200m", "memory": "2Gi"},
                     },
                     "securityContext": {
-                        "runAsNonRoot": False,
-                        "runAsUser": 0,
+                        "runAsNonRoot": RUN_AS_NON_ROOT,
                     },
                 }
             ]
@@ -344,7 +356,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "quay.io/pierdipi/vllm-cpu:latest",
+                    "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1",
                     "command": ["vllm", "serve", "/mnt/models"],
                     "args": [
                         "--served-model-name",
@@ -357,13 +369,15 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "--ssl-keyfile",
                         "/var/run/kserve/tls/tls.key",
                     ],
+                    "env": [
+                        {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
+                    ],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
                         "requests": {"cpu": "200m", "memory": "2Gi"},
                     },
                     "securityContext": {
-                        "runAsNonRoot": False,
-                        "runAsUser": 0,
+                        "runAsNonRoot": RUN_AS_NON_ROOT,
                     },
                 }
             ]
@@ -401,7 +415,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                                 ],
                                 "backendRefs": [
                                     {
-                                        "group": "inference.networking.k8s.io",
+                                        "group": INFERENCE_POOL_GROUP,
                                         "kind": "InferencePool",
                                         "name": "custom-route-timeout-test-inference-pool",
                                         "namespace": KSERVE_TEST_NAMESPACE,
@@ -435,7 +449,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                                 ],
                                 "backendRefs": [
                                     {
-                                        "group": "inference.networking.k8s.io",
+                                        "group": INFERENCE_POOL_GROUP,
                                         "kind": "InferencePool",
                                         "name": "custom-route-timeout-test-inference-pool",
                                         "namespace": KSERVE_TEST_NAMESPACE,
@@ -516,7 +530,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                                 ],
                                 "backendRefs": [
                                     {
-                                        "group": "inference.networking.k8s.io",
+                                        "group": INFERENCE_POOL_GROUP,
                                         "kind": "InferencePool",
                                         "name": "custom-route-timeout-pd-test-inference-pool",
                                         "namespace": KSERVE_TEST_NAMESPACE,
@@ -550,7 +564,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                                 ],
                                 "backendRefs": [
                                     {
-                                        "group": "inference.networking.k8s.io",
+                                        "group": INFERENCE_POOL_GROUP,
                                         "kind": "InferencePool",
                                         "name": "custom-route-timeout-pd-test-inference-pool",
                                         "namespace": KSERVE_TEST_NAMESPACE,

@@ -70,6 +70,18 @@ oc apply -f "$PROJECT_ROOT/config/overlays/test/s3-local-backend/mlpipeline-s3-a
 echo "Applying storage-config secret"
 oc apply -f "$PROJECT_ROOT/config/overlays/test/s3-local-backend/storage-config-secret.yaml" -n "$NAMESPACE"
 
+# Create empty odh-trusted-ca-bundle configmap (used by S3 TLS tests).
+# Created here rather than in a pytest fixture to avoid race conditions
+# when pytest-xdist distributes tests across multiple workers.
+echo "Creating odh-trusted-ca-bundle configmap"
+cat <<EOF | oc apply -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: odh-trusted-ca-bundle
+  namespace: $NAMESPACE
+EOF
+
 # Build and apply ServingRuntimes
 echo "Installing ServingRuntimes"
 kustomize build "$PROJECT_ROOT/config/overlays/test/clusterresources" |

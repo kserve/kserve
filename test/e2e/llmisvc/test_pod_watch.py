@@ -365,7 +365,7 @@ async def test_event_storm_prevention_init_container_isolation():
                     "containers": [
                         {
                             "name": "main",
-                            "image": "quay.io/pierdipi/vllm-cpu:latest",
+                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1",
                             "resources": {
                                 "limits": {"cpu": "2", "memory": "7Gi"},
                                 "requests": {"cpu": "200m", "memory": "2Gi"},
@@ -462,7 +462,9 @@ async def test_event_storm_prevention_init_container_isolation():
                     timeout_seconds=180,
                 )
                 if failure_condition:
-                    logger.info("Secondary LLMISVC failure detected: %s", failure_condition)
+                    logger.info(
+                        "Secondary LLMISVC failure detected: %s", failure_condition
+                    )
 
                 # Give time for any potential event storms to propagate
                 await asyncio.sleep(10)
@@ -494,7 +496,9 @@ async def test_event_storm_prevention_init_container_isolation():
         delete_service_account(KSERVE_TEST_NAMESPACE, invalid_sa_name)
         delete_secret(KSERVE_TEST_NAMESPACE, invalid_secret_name)
         delete_llmisvc_config(kserve_client, model_config_name, KSERVE_TEST_NAMESPACE)
-        delete_llmisvc_config(kserve_client, workload_config_name, KSERVE_TEST_NAMESPACE)
+        delete_llmisvc_config(
+            kserve_client, workload_config_name, KSERVE_TEST_NAMESPACE
+        )
         delete_llmisvc_config(kserve_client, router_config_name, KSERVE_TEST_NAMESPACE)
         delete_llmisvc_config(
             kserve_client, invalid_model_config_name, KSERVE_TEST_NAMESPACE
@@ -561,7 +565,7 @@ async def test_quick_reconciliation_on_init_container_failure():
                     "containers": [
                         {
                             "name": "main",
-                            "image": "quay.io/pierdipi/vllm-cpu:latest",
+                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1",
                             "resources": {
                                 "limits": {"cpu": "2", "memory": "7Gi"},
                                 "requests": {"cpu": "200m", "memory": "2Gi"},
@@ -655,5 +659,7 @@ async def test_quick_reconciliation_on_init_container_failure():
         delete_llmisvc_config(
             kserve_client, invalid_model_config_name, KSERVE_TEST_NAMESPACE
         )
-        delete_llmisvc_config(kserve_client, workload_config_name, KSERVE_TEST_NAMESPACE)
+        delete_llmisvc_config(
+            kserve_client, workload_config_name, KSERVE_TEST_NAMESPACE
+        )
         delete_llmisvc_config(kserve_client, router_config_name, KSERVE_TEST_NAMESPACE)

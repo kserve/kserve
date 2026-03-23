@@ -42,6 +42,7 @@ LLMISVC_CRD_NAME = "llminferenceservices.serving.kserve.io"
 LLMISVC_CONFIG_CRD_NAME = "llminferenceserviceconfigs.serving.kserve.io"
 CONTROLLER_NAMESPACE = os.environ.get("KSERVE_NAMESPACE", "opendatahub")
 CONTROLLER_DEPLOYMENT = "llmisvc-controller-manager"
+KUBE_CLI_COMMAND = os.environ.get("KUBE_CLI", "kubectl")
 
 
 def wait_for(assertion_fn, timeout: float = 60.0, interval: float = 1.0):
@@ -181,7 +182,7 @@ class TestStorageVersionMigration:
         logger.info(f"Restarting {CONTROLLER_DEPLOYMENT} in {CONTROLLER_NAMESPACE}")
         subprocess.run(
             [
-                "kubectl",
+                KUBE_CLI_COMMAND,
                 "rollout",
                 "restart",
                 f"deployment/{CONTROLLER_DEPLOYMENT}",
@@ -192,7 +193,7 @@ class TestStorageVersionMigration:
         )
         subprocess.run(
             [
-                "kubectl",
+                KUBE_CLI_COMMAND,
                 "rollout",
                 "status",
                 f"deployment/{CONTROLLER_DEPLOYMENT}",

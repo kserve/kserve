@@ -26,6 +26,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 source "$SCRIPT_DIR/common.sh"
+source "$SCRIPT_DIR/version.sh"
 
 # Parse command line options
 : "${INSTALL_ODH_OPERATOR:=false}"
@@ -39,15 +40,30 @@ else
 fi
 
 echo "Using namespace: $KSERVE_NAMESPACE for KServe components"
+PARAMS_ENV="$PROJECT_ROOT/config/overlays/odh/params.env"
 : "${SKLEARN_IMAGE:=kserve/sklearnserver:latest}"
-: "${KSERVE_CONTROLLER_IMAGE:=quay.io/opendatahub/kserve-controller:latest}"
-: "${KSERVE_AGENT_IMAGE:=quay.io/opendatahub/kserve-agent:latest}"
-: "${KSERVE_ROUTER_IMAGE:=quay.io/opendatahub/kserve-router:latest}"
-: "${STORAGE_INITIALIZER_IMAGE:=quay.io/opendatahub/kserve-storage-initializer:latest}"
+: "${KSERVE_CONTROLLER_IMAGE:=$(grep '^kserve-controller=' "$PARAMS_ENV" | cut -d= -f2-)}"
+: "${KSERVE_AGENT_IMAGE:=$(grep '^kserve-agent=' "$PARAMS_ENV" | cut -d= -f2-)}"
+: "${KSERVE_ROUTER_IMAGE:=$(grep '^kserve-router=' "$PARAMS_ENV" | cut -d= -f2-)}"
+: "${STORAGE_INITIALIZER_IMAGE:=$(grep '^kserve-storage-initializer=' "$PARAMS_ENV" | cut -d= -f2-)}"
 : "${ODH_MODEL_CONTROLLER_IMAGE:=quay.io/opendatahub/odh-model-controller:fast}"
 : "${ERROR_404_ISVC_IMAGE:=error-404-isvc:latest}"
 : "${SUCCESS_200_ISVC_IMAGE:=success-200-isvc:latest}"
-: "${LLMISVC_CONTROLLER_IMAGE:=quay.io/opendatahub/llmisvc-controller:latest}"
+: "${LLMISVC_CONTROLLER_IMAGE:=$(grep '^llmisvc-controller=' "$PARAMS_ENV" | cut -d= -f2-)}"
+
+# On OCP 4.20 and earlier, InferencePool lives in the x-k8s.io API group.
+# OCP 4.21+ ships the GA API group (inference.networking.k8s.io).
+if [[ -z "${INFERENCE_POOL_GROUP:-}" ]]; then
+  server_version=$(get_openshift_server_version)
+  # Extract major.minor for comparison (handles nightly versions like 4.20.0-0.nightly-...)
+  ocp_major_minor=$(echo "$server_version" | awk -F. '{print $1"."$2}')
+  if awk "BEGIN{exit !($ocp_major_minor <= 4.20)}"; then
+    export INFERENCE_POOL_GROUP="inference.networking.x-k8s.io"
+    echo "OCP $server_version (${ocp_major_minor}): using INFERENCE_POOL_GROUP=$INFERENCE_POOL_GROUP"
+  else
+    echo "OCP $server_version (${ocp_major_minor}): skipping setting INFERENCE_POOL_GROUP env variable."
+  fi
+fi
 
 echo "SKLEARN_IMAGE=$SKLEARN_IMAGE"
 echo "KSERVE_CONTROLLER_IMAGE=$KSERVE_CONTROLLER_IMAGE"
@@ -116,12 +132,17 @@ oc new-project ${KSERVE_NAMESPACE} || true
 if [[ "$INSTALL_ODH_OPERATOR" == "false" ]]; then
   # Manual installation: Install KServe directly with PR images
   echo "⏳ Installing KServe with SeaweedFS"
-  ODH_MANIFESTS=$(kustomize build "$PROJECT_ROOT/config/overlays/odh-test" |
-    sed "s|kserve/storage-initializer:latest|${STORAGE_INITIALIZER_IMAGE}|" |
-    sed "s|kserve/agent:latest|${KSERVE_AGENT_IMAGE}|" |
-    sed "s|kserve/router:latest|${KSERVE_ROUTER_IMAGE}|" |
-    sed "s|kserve/kserve-controller:latest|${KSERVE_CONTROLLER_IMAGE}|" |
-    sed "s|kserve/llmisvc-controller:latest|${LLMISVC_CONTROLLER_IMAGE}|")
+
+  # Update params.env with CI-injected images so kustomize build produces the right output
+  cp "$PARAMS_ENV" "$PARAMS_ENV.bak"
+  trap "mv '$PARAMS_ENV.bak' '$PARAMS_ENV'" EXIT
+  sed -i "s|kserve-controller=.*|kserve-controller=${KSERVE_CONTROLLER_IMAGE}|" "$PARAMS_ENV"
+  sed -i "s|llmisvc-controller=.*|llmisvc-controller=${LLMISVC_CONTROLLER_IMAGE}|" "$PARAMS_ENV"
+  sed -i "s|kserve-agent=.*|kserve-agent=${KSERVE_AGENT_IMAGE}|" "$PARAMS_ENV"
+  sed -i "s|kserve-router=.*|kserve-router=${KSERVE_ROUTER_IMAGE}|" "$PARAMS_ENV"
+  sed -i "s|kserve-storage-initializer=.*|kserve-storage-initializer=${STORAGE_INITIALIZER_IMAGE}|" "$PARAMS_ENV"
+
+  ODH_MANIFESTS=$(kustomize build "$PROJECT_ROOT/config/overlays/odh-test")
 
   # Apply CRDs first and wait for them to be established before applying the rest
   echo "$ODH_MANIFESTS" | awk '/^apiVersion: apiextensions\.k8s\.io/{found=1} found{print} /^---/{if(found) found=0}' |
@@ -133,8 +154,24 @@ if [[ "$INSTALL_ODH_OPERATOR" == "false" ]]; then
   wait_for_crd clusterstoragecontainers.serving.kserve.io 90s
   wait_for_crd datascienceclusters.datasciencecluster.opendatahub.io 90s
 
-  # Apply all resources now that CRDs are established
-  echo "$ODH_MANIFESTS" | oc apply --server-side=true --force-conflicts -f -
+  # Apply all resources (LLMInferenceServiceConfig may fail webhook validation initially, will retry after)
+  echo "⏳ Applying all resources..."
+  echo "$ODH_MANIFESTS" | oc apply --server-side=true --force-conflicts -f - || true
+
+  # Wait for llmisvc-controller-manager to be ready before applying webhook-validated resources
+  echo "⏳ Waiting for llmisvc-controller-manager to be ready..."
+  wait_for_pod_ready "${KSERVE_NAMESPACE}" "control-plane=llmisvc-controller-manager" 600s
+
+  # Re-apply LLMInferenceServiceConfig resources now that webhook is ready
+  echo "⏳ Re-applying LLMInferenceServiceConfig resources with webhook validation..."
+  kustomize build "$PROJECT_ROOT/config/llmisvcconfig" | oc apply --server-side=true --force-conflicts -f -
+
+  # Patch inferenceservice-config for llminferenceservice tests
+  if [[ "$1" =~ "llm-d" ]]; then
+    echo "⏳ Restarting llmisvc-controller to apply configuration changes"
+    oc delete pod -n ${KSERVE_NAMESPACE} -l control-plane=llmisvc-controller-manager
+    wait_for_pod_ready "${KSERVE_NAMESPACE}" "control-plane=llmisvc-controller-manager" 300s
+  fi
 
   # Install DSC/DSCI for manual installation
   echo "Installing DSC/DSCI resources..."
@@ -243,10 +280,14 @@ else
   echo "ODH Model Controller deployed with image: $ACTUAL_IMAGE"
 fi
 
-# Configure certs for the python requests by getting the CA cert from the kserve controller pod
-export CA_CERT_PATH="/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+# Configure certs for the python requests
 # The run-e2e-tests script expects the CA cert to be in /tmp/ca.crt
-oc exec deploy/kserve-controller-manager -n ${KSERVE_NAMESPACE} -- cat $CA_CERT_PATH > /tmp/ca.crt
+# Combine both the cluster root CA and OpenShift service CA
+{
+  oc get configmap kube-root-ca.crt -n "${KSERVE_NAMESPACE}" -o jsonpath='{.data.ca\.crt}'
+  echo ""
+  oc get configmap openshift-service-ca.crt -n "${KSERVE_NAMESPACE}" -o jsonpath='{.data.service-ca\.crt}' 2>/dev/null || true
+} > /tmp/ca.crt
 
 echo "Add testing models to SeaweedFS S3 storage ..."
 

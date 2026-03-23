@@ -61,7 +61,7 @@ RUN microdnf install -y --setopt=ubi-9-appstream-rpms.module_hotfixes=1 --disabl
     --enablerepo=ubi-9-baseos-rpms --enablerepo=ubi-9-appstream-rpms shadow-utils python3.11 python3.11-devel \
     && microdnf clean all \
     &&  alternatives --install /usr/bin/python python3 /usr/bin/python3.11 1
-RUN useradd kserve -m -u 1000 -d /home/kserve
+RUN useradd kserve -m -u 1000 -d /home/kserve && chgrp -R 0 /home/kserve && chmod -R g+rwx /home/kserve
 
 COPY --from=builder --chown=kserve:kserve third_party third_party
 COPY --from=builder --chown=kserve:kserve $VIRTUAL_ENV $VIRTUAL_ENV
@@ -74,5 +74,7 @@ WORKDIR /work
 
 # Set a writable /mnt folder to avoid permission issue on Huggingface download. See https://huggingface.co/docs/hub/spaces-sdks-docker#permissions
 RUN chown -R kserve:kserve /mnt
+ENV HOME=/home/kserve
+ENV HF_HOME=/home/kserve
 USER 1000
 ENTRYPOINT ["/storage-initializer/scripts/initializer-entrypoint"]
