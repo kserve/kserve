@@ -21,7 +21,7 @@ COMPONENTS:
   - name: envoy-ai-gateway
   - name: gateway-api-gwclass
   - name: gateway-api-gw
-  - name: knative-serving
+  - name: knative-operator
   - name: lws-operator
   - name: kserve
     env:
