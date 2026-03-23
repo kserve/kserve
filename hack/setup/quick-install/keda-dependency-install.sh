@@ -767,7 +767,7 @@ install_kustomize() {
     log_info "Installing Kustomize ${KUSTOMIZE_VERSION} for ${os}/${arch}..."
 
     if [[ -x "${BIN_DIR}/kustomize" ]]; then
-        local current_version=$("${BIN_DIR}/kustomize" version --short 2>/dev/null | grep -oP 'v[0-9.]+')
+        local current_version=$("${BIN_DIR}/kustomize" version --short 2>/dev/null | awk 'match($0, /v[0-9.]+/) {print substr($0, RSTART, RLENGTH)}')
         if [[ -n "$current_version" ]] && version_gte "$current_version" "$KUSTOMIZE_VERSION"; then
             log_info "Kustomize ${current_version} is already installed in ${BIN_DIR} (>= ${KUSTOMIZE_VERSION})"
             return 0
@@ -827,7 +827,7 @@ install_yq() {
     log_info "Installing yq ${YQ_VERSION} for ${os}/${arch}..."
 
     if [[ -x "${BIN_DIR}/yq" ]]; then
-        local current_version=$("${BIN_DIR}/yq" --version 2>&1 | grep -oP 'version \K[v0-9.]+')
+        local current_version=$("${BIN_DIR}/yq" --version 2>&1 | awk '/version [v0-9]/ {print $NF}')
         # Normalize version format (add 'v' prefix if missing)
         [[ -n "$current_version" && "$current_version" != v* ]] && current_version="v${current_version}"
         if [[ -n "$current_version" ]] && version_gte "$current_version" "$YQ_VERSION"; then
