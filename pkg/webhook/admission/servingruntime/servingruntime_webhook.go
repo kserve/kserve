@@ -37,12 +37,12 @@ import (
 var log = logf.Log.WithName(constants.ServingRuntimeValidatorWebhookName)
 
 const (
-	InvalidPriorityError                                = "same priority assigned for the model format %s"
-	InvalidPriorityServingRuntimeError                  = "%s in the servingruntimes %s and %s in namespace %s"
-	InvalidPriorityClusterServingRuntimeError           = "%s in the clusterservingruntimes %s and %s"
-	ProrityIsNotSameError                               = "different priorities assigned for the model format %s"
-	ProrityIsNotSameServingRuntimeError                 = "%s under the servingruntime %s"
-	ProrityIsNotSameClusterServingRuntimeError          = "%s under the clusterservingruntime %s"
+	InvalidPriorityError                      = "same priority assigned for the model format %s"
+	InvalidPriorityServingRuntimeError        = "%s in the servingruntimes %s and %s in namespace %s"
+	InvalidPriorityClusterServingRuntimeError = "%s in the clusterservingruntimes %s and %s"
+	ProrityIsNotSameError                     = "different priorities assigned for the model format %s"
+	ProrityIsNotSameServingRuntimeError       = "%s under the servingruntime %s"
+	// ProrityIsNotSameClusterServingRuntimeError          = "%s under the clusterservingruntime %s"
 	InvalidUnknownGPUTypeError                          = "unknown GPU resource type in a container(%s)"
 	InvalidWorkerSpecPipelineParallelSizeValueError     = "the WorkerSpec.PipelineParallelSize cannot be less than 1(%s)"
 	InvalidWorkerSpecTensorParallelSizeValueError       = "the WorkerSpec.TensorParallelSize cannot be less than 1(%s)"
@@ -53,12 +53,12 @@ const (
 	DisallowedWorkerSpecTensorParallelSizeEnvError      = "setting TENSOR_PARALLEL_SIZE in environment variables is not allowed"
 )
 
-// +kubebuilder:webhook:verbs=create;update,path=/validate-serving-kserve-io-v1alpha1-clusterservingruntime,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=clusterservingruntimes,versions=v1alpha1,name=clusterservingruntime.kserve-webhook-server.validator
-
-type ClusterServingRuntimeValidator struct {
-	Client  client.Client
-	Decoder admission.Decoder
-}
+// // kubebuilder:webhook:verbs=create;update,path=/validate-serving-kserve-io-v1alpha1-clusterservingruntime,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=clusterservingruntimes,versions=v1alpha1,name=clusterservingruntime.kserve-webhook-server.validator
+//
+// type ClusterServingRuntimeValidator struct {
+//	 Client  client.Client
+//	 Decoder admission.Decoder
+// }
 
 // +kubebuilder:webhook:verbs=create;update,path=/validate-serving-kserve-io-v1alpha1-servingruntime,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=servingruntimes,versions=v1alpha1,name=servingruntime.kserve-webhook-server.validator
 
@@ -105,42 +105,42 @@ func (sr *ServingRuntimeValidator) Handle(ctx context.Context, req admission.Req
 	return admission.Allowed("")
 }
 
-// Handle validates the incoming request
-func (csr *ClusterServingRuntimeValidator) Handle(ctx context.Context, req admission.Request) admission.Response {
-	clusterServingRuntime := &v1alpha1.ClusterServingRuntime{}
-	if err := csr.Decoder.Decode(req, clusterServingRuntime); err != nil {
-		log.Error(err, "Failed to decode cluster serving runtime", "name", clusterServingRuntime.Name)
-		return admission.Errored(http.StatusBadRequest, err)
-	}
+// // Handle validates the incoming request
+// func (csr *ClusterServingRuntimeValidator) Handle(ctx context.Context, req admission.Request) admission.Response {
+// 	clusterServingRuntime := &v1alpha1.ClusterServingRuntime{}
+// 	if err := csr.Decoder.Decode(req, clusterServingRuntime); err != nil {
+// 		log.Error(err, "Failed to decode cluster serving runtime", "name", clusterServingRuntime.Name)
+// 		return admission.Errored(http.StatusBadRequest, err)
+// 	}
 
-	ExistingRuntimes := &v1alpha1.ClusterServingRuntimeList{}
-	if err := csr.Client.List(ctx, ExistingRuntimes); err != nil {
-		log.Error(err, "Failed to get cluster serving runtime list")
-		return admission.Errored(http.StatusInternalServerError, err)
-	}
+// ExistingRuntimes := &v1alpha1.ClusterServingRuntimeList{}
+// if err := csr.Client.List(ctx, ExistingRuntimes); err != nil {
+//	log.Error(err, "Failed to get cluster serving runtime list")
+//	return admission.Errored(http.StatusInternalServerError, err)
+//}
 
-	// Only validate for priority if the new cluster serving runtime is not disabled
-	if clusterServingRuntime.Spec.IsDisabled() {
-		return admission.Allowed("")
-	}
-	existingRuntimeSpec := v1alpha1.ServingRuntimeSpec{}
-	for i := range ExistingRuntimes.Items {
-		if err := validateModelFormatPrioritySame(&clusterServingRuntime.Spec); err != nil {
-			return admission.Denied(fmt.Sprintf(ProrityIsNotSameClusterServingRuntimeError, err.Error(), clusterServingRuntime.Name))
-		}
-		if err := validateServingRuntimePriority(&clusterServingRuntime.Spec, &ExistingRuntimes.Items[i].Spec, clusterServingRuntime.Name, ExistingRuntimes.Items[i].Name); err != nil {
-			return admission.Denied(fmt.Sprintf(InvalidPriorityClusterServingRuntimeError, err.Error(), ExistingRuntimes.Items[i].Name, clusterServingRuntime.Name))
-		}
-		if clusterServingRuntime.Name == ExistingRuntimes.Items[i].Name {
-			existingRuntimeSpec = ExistingRuntimes.Items[i].Spec
-		}
-	}
+// 	// Only validate for priority if the new cluster serving runtime is not disabled
+// 	if clusterServingRuntime.Spec.IsDisabled() {
+// 		return admission.Allowed("")
+// 	}
+// 	existingRuntimeSpec := v1alpha1.ServingRuntimeSpec{}
+// 	for i := range ExistingRuntimes.Items {
+// 		if err := validateModelFormatPrioritySame(&clusterServingRuntime.Spec); err != nil {
+// 			return admission.Denied(fmt.Sprintf(ProrityIsNotSameClusterServingRuntimeError, err.Error(), clusterServingRuntime.Name))
+// 		}
+// 		if err := validateServingRuntimePriority(&clusterServingRuntime.Spec, &ExistingRuntimes.Items[i].Spec, clusterServingRuntime.Name, ExistingRuntimes.Items[i].Name); err != nil {
+// 			return admission.Denied(fmt.Sprintf(InvalidPriorityClusterServingRuntimeError, err.Error(), ExistingRuntimes.Items[i].Name, clusterServingRuntime.Name))
+// 		}
+// 		if clusterServingRuntime.Name == ExistingRuntimes.Items[i].Name {
+// 			existingRuntimeSpec = ExistingRuntimes.Items[i].Spec
+// 		}
+// 	}
 
-	if err := validateMultiNodeSpec(&clusterServingRuntime.Spec, &existingRuntimeSpec); err != nil {
-		return admission.Denied(fmt.Sprintf(InvalidMultiNodeSpecError, clusterServingRuntime.Kind, clusterServingRuntime.Name, err.Error()))
-	}
-	return admission.Allowed("")
-}
+// 	if err := validateMultiNodeSpec(&clusterServingRuntime.Spec, &existingRuntimeSpec); err != nil {
+// 		return admission.Denied(fmt.Sprintf(InvalidMultiNodeSpecError, clusterServingRuntime.Kind, clusterServingRuntime.Name, err.Error()))
+// 	}
+// 	return admission.Allowed("")
+// }
 
 func areSupportedModelFormatsEqual(m1 v1alpha1.SupportedModelFormat, m2 v1alpha1.SupportedModelFormat) bool {
 	if strings.EqualFold(m1.Name, m2.Name) && ((m1.Version == nil && m2.Version == nil) ||

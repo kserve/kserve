@@ -1,0 +1,11 @@
+$patch: delete
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: openshift-ai-llminferenceservice-scc
+---
+$patch: delete
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: openshift-ai-llminferenceservice-scc

@@ -1,0 +1,19 @@
+# Configuration for var substitution paths
+varReference:
+  # Allow substitution in ConfigMap data (for JSON config values)
+  - path: data
+    kind: ConfigMap
+  # Allow substitution in Certificate spec fields
+  - path: spec/commonName
+    kind: Certificate
+  - path: spec/dnsNames
+    kind: Certificate
+  - path: spec/issuerRef/name
+    kind: Certificate
+  - path: spec/issuerRef/kind
+    kind: Certificate
+  - path: spec/issuerRef/group
+    kind: Certificate
+  # Allow substitution in Deployment container env values
+  - path: spec/template/spec/containers/env/value
+    kind: Deployment

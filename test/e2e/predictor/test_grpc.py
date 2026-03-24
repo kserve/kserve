@@ -31,6 +31,8 @@ from kubernetes import client
 from kubernetes.client import V1Container, V1ContainerPort
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict_grpc
 
+pytest.skip("Not testable in ODH at the moment", allow_module_level=True)
+
 
 @pytest.mark.grpc
 @pytest.mark.predictor

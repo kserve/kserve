@@ -89,6 +89,7 @@ import (
 // +kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
+// +kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=httproutes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=keda.sh,resources=scaledobjects,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=keda.sh,resources=scaledobjects/finalizers,verbs=get;list;watch;create;update;patch;delete
@@ -226,6 +227,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	// Abort early if the resolved deployment mode is Knative, but Knative Services are not available
+	var allowZeroInitialScale bool
 	if deploymentMode == constants.Knative {
 		ksvcAvailable, checkKsvcErr := utils.IsCrdAvailable(r.ClientConfig, knservingv1.SchemeGroupVersion.String(), constants.KnativeServiceKind)
 		if checkKsvcErr != nil {
@@ -245,15 +247,13 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 
 		// Retrieve the allow-zero-initial-scale value from the knative autoscaler configuration.
-		allowZeroInitialScale, err := knutils.CheckZeroInitialScaleAllowed(ctx, r.Clientset)
+		allowZeroInitialScale, err = knutils.CheckZeroInitialScaleAllowed(ctx, r.Clientset)
 		if err != nil {
 			if updateErr := r.updateStatus(ctx, isvc, deploymentMode); updateErr != nil {
 				r.Log.Error(updateErr, "Error updating status after zero-initial-scale check failure")
 			}
 			return ctrl.Result{}, errors.Wrapf(err, "failed to retrieve the knative autoscaler configuration")
 		}
-
-		knutils.ValidateInitialScaleAnnotation(isvc.Annotations, allowZeroInitialScale, r.Log)
 	}
 
 	// Setup reconcilers
@@ -270,13 +270,13 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	componentReconcilers := []components.Component{}
 	if deploymentMode != constants.ModelMeshDeployment {
-		componentReconcilers = append(componentReconcilers, components.NewPredictor(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode))
+		componentReconcilers = append(componentReconcilers, components.NewPredictor(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode, allowZeroInitialScale))
 	}
 	if isvc.Spec.Transformer != nil {
-		componentReconcilers = append(componentReconcilers, components.NewTransformer(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode))
+		componentReconcilers = append(componentReconcilers, components.NewTransformer(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode, allowZeroInitialScale))
 	}
 	if isvc.Spec.Explainer != nil {
-		componentReconcilers = append(componentReconcilers, components.NewExplainer(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode))
+		componentReconcilers = append(componentReconcilers, components.NewExplainer(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode, allowZeroInitialScale))
 	}
 	for _, reconciler := range componentReconcilers {
 		result, err := reconciler.Reconcile(ctx, isvc)
@@ -412,8 +412,8 @@ func (r *InferenceServiceReconciler) updateStatus(ctx context.Context, desiredSe
 ) error {
 	// set the DeploymentMode used for the InferenceService in the status
 	desiredService.Status.DeploymentMode = string(deploymentMode)
-
 	existingService := &v1beta1.InferenceService{}
+
 	namespacedName := types.NamespacedName{Name: desiredService.Name, Namespace: desiredService.Namespace}
 	if err := r.Get(ctx, namespacedName, existingService); err != nil {
 		return err
@@ -503,39 +503,39 @@ func (r *InferenceServiceReconciler) servingRuntimeFunc(ctx context.Context, obj
 	return requests
 }
 
-func (r *InferenceServiceReconciler) clusterServingRuntimeFunc(ctx context.Context, obj client.Object) []reconcile.Request {
-	clusterServingRuntimeObj, ok := obj.(*v1alpha1.ClusterServingRuntime)
-
-	if !ok || clusterServingRuntimeObj == nil {
-		return nil
-	}
-
-	var isvcList v1beta1.InferenceServiceList
-	if err := r.List(ctx, &isvcList, client.InNamespace(clusterServingRuntimeObj.Namespace)); err != nil {
-		r.Log.Error(err, "unable to list InferenceServices", "clusterServingRuntime", clusterServingRuntimeObj.Name)
-		return nil
-	}
-
-	requests := make([]reconcile.Request, 0, len(isvcList.Items))
-	for _, isvc := range isvcList.Items {
-		annotations := isvc.GetAnnotations()
-		if annotations != nil {
-			if disableAutoUpdate, found := annotations[constants.DisableAutoUpdateAnnotationKey]; found && disableAutoUpdate == "true" && isvc.Status.IsReady() {
-				r.Log.Info("Auto-update is disabled for InferenceService", "InferenceService", isvc.Name)
-				continue
-			}
-		}
-		if isvc.Status.ClusterServingRuntimeName == clusterServingRuntimeObj.Name {
-			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Namespace: isvc.Namespace,
-					Name:      isvc.Name,
-				},
-			})
-		}
-	}
-	return requests
-}
+// func (r *InferenceServiceReconciler) clusterServingRuntimeFunc(ctx context.Context, obj client.Object) []reconcile.Request {
+//	clusterServingRuntimeObj, ok := obj.(*v1alpha1.ClusterServingRuntime)
+//
+//	if !ok || clusterServingRuntimeObj == nil {
+//		return nil
+//	}
+//
+//	var isvcList v1beta1.InferenceServiceList
+//	if err := r.List(ctx, &isvcList, client.InNamespace(clusterServingRuntimeObj.Namespace)); err != nil {
+//		r.Log.Error(err, "unable to list InferenceServices", "clusterServingRuntime", clusterServingRuntimeObj.Name)
+//		return nil
+//	}
+//
+//	requests := make([]reconcile.Request, 0, len(isvcList.Items))
+//	for _, isvc := range isvcList.Items {
+//		annotations := isvc.GetAnnotations()
+//		if annotations != nil {
+//			if disableAutoUpdate, found := annotations[constants.DisableAutoUpdateAnnotationKey]; found && disableAutoUpdate == "true" && isvc.Status.IsReady() {
+//				r.Log.Info("Auto-update is disabled for InferenceService", "InferenceService", isvc.Name)
+//				continue
+//			}
+//		}
+//		if isvc.Status.ClusterServingRuntimeName == clusterServingRuntimeObj.Name {
+//			requests = append(requests, reconcile.Request{
+//				NamespacedName: types.NamespacedName{
+//					Namespace: isvc.Namespace,
+//					Name:      isvc.Name,
+//				},
+//			})
+//		}
+//	}
+//	return requests
+//}
 
 func (r *InferenceServiceReconciler) podInitContainersFunc(ctx context.Context, obj client.Object) []reconcile.Request {
 	pod, ok := obj.(*corev1.Pod)
@@ -630,12 +630,14 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		return err
 	}
 
-	vsFound, err := utils.IsCrdAvailable(r.ClientConfig, istioclientv1beta1.SchemeGroupVersion.String(), constants.IstioVirtualServiceKind)
-	if err != nil {
-		return err
+	if !ingressConfig.DisableIstioVirtualHost {
+		vsFound, err := utils.IsCrdAvailable(r.ClientConfig, istioclientv1beta1.SchemeGroupVersion.String(), constants.IstioVirtualServiceKind)
+		if err != nil {
+			return err
+		}
+		// Store the availability so Reconcile can pass it to the IngressReconciler.
+		r.VirtualServiceAvailable = vsFound
 	}
-	// Store the availability so Reconcile can pass it to the IngressReconciler.
-	r.VirtualServiceAvailable = vsFound
 
 	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1beta1.InferenceService{}, "spec.predictor.model.runtime", func(rawObj client.Object) []string {
 		isvc, ok := rawObj.(*v1beta1.InferenceService)
@@ -645,13 +647,36 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		if isvc.Status.ServingRuntimeName != "" {
 			return []string{isvc.Status.ServingRuntimeName}
 		}
-		if isvc.Status.ClusterServingRuntimeName != "" {
-			return []string{isvc.Status.ClusterServingRuntimeName}
-		}
+		// if isvc.Status.ClusterServingRuntimeName != "" {
+		//	return []string{isvc.Status.ClusterServingRuntimeName}
+		// }
 		return nil
 	}); err != nil {
 		return err
 	}
+
+	servingRuntimesPredicate := predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldServingRuntime := e.ObjectOld.(*v1alpha1.ServingRuntime)
+			newServingRuntime := e.ObjectNew.(*v1alpha1.ServingRuntime)
+			return !reflect.DeepEqual(oldServingRuntime.Spec, newServingRuntime.Spec)
+		},
+		CreateFunc:  func(e event.CreateEvent) bool { return false },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
+		GenericFunc: func(e event.GenericEvent) bool { return false },
+	}
+
+	// TODO: Find a way to distinguish if the ServingRuntime is a ClusterServingRuntime or not
+	// clusterServingRuntimesPredicate := predicate.Funcs{
+	//	UpdateFunc: func(e event.UpdateEvent) bool {
+	//		oldClusterServingRuntime := e.ObjectOld.(*v1alpha1.ClusterServingRuntime)
+	//		newClusterServingRuntime := e.ObjectNew.(*v1alpha1.ClusterServingRuntime)
+	//		return !reflect.DeepEqual(oldClusterServingRuntime.Spec, newClusterServingRuntime.Spec)
+	//	},
+	//	CreateFunc:  func(e event.CreateEvent) bool { return false },
+	//	DeleteFunc:  func(e event.DeleteEvent) bool { return false },
+	//	GenericFunc: func(e event.GenericEvent) bool { return false },
+	// }
 
 	ctrlBuilder := ctrl.NewControllerManagedBy(mgr).
 		For(&v1beta1.InferenceService{}).
@@ -687,7 +712,7 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		r.Log.Info("The InferenceService controller won't watch opentelemetry-collector resources because the CRD is not available.")
 	}
 
-	if vsFound && !ingressConfig.DisableIstioVirtualHost {
+	if r.VirtualServiceAvailable && !ingressConfig.DisableIstioVirtualHost {
 		ctrlBuilder = ctrlBuilder.Owns(&istioclientv1beta1.VirtualService{})
 	} else {
 		r.Log.Info("The InferenceService controller won't watch networking.istio.io/v1beta1/VirtualService resources because the CRD is not available.")
@@ -709,8 +734,8 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		ctrlBuilder = ctrlBuilder.Owns(&netv1.Ingress{})
 	}
 
-	return ctrlBuilder.Watches(&v1alpha1.ServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.servingRuntimeFunc), builder.WithPredicates(servingRuntimesPredicate())).
-		Watches(&v1alpha1.ClusterServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.clusterServingRuntimeFunc), builder.WithPredicates(clusterServingRuntimesPredicate())).
+	return ctrlBuilder.Watches(&v1alpha1.ServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.servingRuntimeFunc), builder.WithPredicates(servingRuntimesPredicate)).
+		// Watches(&v1alpha1.ClusterServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.clusterServingRuntimeFunc), builder.WithPredicates(clusterServingRuntimesPredicate())).
 		Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(r.podInitContainersFunc), builder.WithPredicates(podInitContainersPredicate())).
 		Complete(r)
 }

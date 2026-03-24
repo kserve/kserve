@@ -1,0 +1,21 @@
+# This is the OpenDataHub CA certificate.
+# It is issued by the selfsigned ClusterIssuer and used to sign workload certificates.
+# The secret created (opendatahub-ca) contains tls.crt and tls.key.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: opendatahub-ca
+  namespace: cert-manager
+spec:
+  secretName: opendatahub-ca
+  isCA: true
+  commonName: opendatahub-ca
+  duration: 87600h  # 10 years
+  renewBefore: 2160h  # 90 days
+  privateKey:
+    algorithm: RSA
+    size: 4096
+  issuerRef:
+    name: opendatahub-selfsigned-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io

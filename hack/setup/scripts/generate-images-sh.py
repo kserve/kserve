@@ -28,6 +28,8 @@ with open(OUTPUT, "w") as f:
         if match:
             var_name, var_value = match.groups()
             var_names.append(var_name)
+            # Make inner variable references nounset-safe by adding :- default
+            var_value = re.sub(r"\$\{([A-Z_][A-Z0-9_]*)\}", r"${\1:-}", var_value)
             f.write(f'export {var_name}="${{{var_name}:-{var_value}}}"\n')
 
     # Add CI mode section

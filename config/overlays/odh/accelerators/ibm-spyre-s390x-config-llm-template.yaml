@@ -1,0 +1,31 @@
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-template-ibm-spyre-s390x
+  annotations:
+    openshift.io/display-name: vLLM IBM Spyre s390x LLMInferenceServiceConfig
+    openshift.io/description: vLLM IBM Spyre s390x LLMInferenceServiceConfig for LLMInferenceService.
+    opendatahub.io/recommended-accelerators: '["ibm.com/spyre_vf"]'
+spec:
+  template:
+    schedulerName: spyre-scheduler
+    containers:
+      - name: main
+        image: placeholder
+        env:
+          - name: HF_HOME
+            value: /tmp/hf_home
+          - name: FLEX_DEVICE
+            value: VF
+          - name: TOKENIZERS_PARALLELISM
+            value: "false"
+          - name: DTLOG_LEVEL
+            value: error
+          - name: TORCH_SENDNN_LOG
+            value: CRITICAL
+          - name: VLLM_SPYRE_USE_CB
+            value: "1"
+          - name: VLLM_SPYRE_REQUIRE_PRECOMPILED_DECODERS
+            value: "1"
+          - name: TORCH_SENDNN_CACHE_ENABLE
+            value: "1"

@@ -1,4 +1,4 @@
-FROM golang:1.25
+FROM registry.access.redhat.com/ubi9/go-toolset:1.25 as builder
 
 RUN apt-get update && apt-get -y upgrade && apt-get -y install git
 

@@ -1,0 +1,11 @@
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-scheduler
+spec:
+  router:
+    scheduler:
+      annotations:
+        # This annotation is kept for compatibility with previous versions when we needed to restart the scheduler
+        # to pick the TLS certs changes. (see https://github.com/opendatahub-io/kserve/commit/3c96712ad0a28b6c89c0997475fd0fac8deb3857)
+        "certificates.kserve.io/expiration-v2": "true"

@@ -5,6 +5,7 @@ on:
     # Publish `master` as Docker `latest` image.
     branches:
       - master
+      - release-*
 
     # Publish `v1.2.3` tags as releases.
     tags:
@@ -25,7 +26,7 @@ on:
   #   types: [ checks_requested ]
 
 env:
-  IMAGE_NAME: router
+  IMAGE_NAME: kserve-router
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -88,15 +89,17 @@ jobs:
         with:
           cache-binary: true
 
-      - name: Login to DockerHub
+      - name: Login to Quay
         uses: docker/login-action@v3
+
         with:
-          username: ${{ secrets.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: quay.io
+          username: ${{ secrets.QUAY_USER }}
+          password: ${{ secrets.QUAY_PASSWORD }}
 
       - name: export version variable
         run: |
-          IMAGE_ID=kserve/$IMAGE_NAME
+          IMAGE_ID=quay.io/${{ vars.QUAY_OWNER }}/$IMAGE_NAME
 
           # Change all uppercase to lowercase
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
@@ -109,16 +112,21 @@ jobs:
 
           # Use Docker `latest` tag convention
           [ "$VERSION" == "master" ] && VERSION=latest
-
-          echo VERSION=$VERSION >> $GITHUB_ENV
-          echo IMAGE_ID=$IMAGE_ID >> $GITHUB_ENV
+          [[ "$VERSION" =~ ^release- ]] && VERSION=$(echo $VERSION | sed 's/^release-//')-latest
+          
+          TAGS=$IMAGE_ID:$VERSION
+          
+          # If a vX.Y.Z release is being built, also update the vX.Y tag.
+          [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] && TAGS=$TAGS,$IMAGE_ID:$(echo $VERSION | sed 's/\(.*\)\.[[:digit:]]\+$/\1/')
+          
+          echo CONTAINER_TAGS=$TAGS >> $GITHUB_ENV
 
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          platforms: linux/amd64,linux/arm/v7,linux/arm64/v8,linux/ppc64le,linux/s390x
+          platforms: linux/amd64,linux/arm64/v8,linux/ppc64le,linux/s390x
           context: .
           file: router.Dockerfile
           push: true
-          tags: ${{ env.IMAGE_ID }}:${{ env.VERSION }}
+          tags: ${{ env.CONTAINER_TAGS }}
           sbom: true

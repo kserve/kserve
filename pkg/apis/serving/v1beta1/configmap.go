@@ -129,6 +129,16 @@ type IngressConfig struct {
 }
 
 // +kubebuilder:object:generate=false
+type OauthConfig struct {
+	Image                  string `json:"image"`
+	CpuLimit               string `json:"cpuLimit"`
+	CpuRequest             string `json:"cpuRequest"`
+	MemoryLimit            string `json:"memoryLimit"`
+	MemoryRequest          string `json:"memoryRequest"`
+	UpstreamTimeoutSeconds string `json:"upstreamTimeoutSeconds,omitempty"`
+}
+
+// +kubebuilder:object:generate=false
 type DeployConfig struct {
 	DefaultDeploymentMode     string                     `json:"defaultDeploymentMode,omitempty"`
 	DeploymentRolloutStrategy *DeploymentRolloutStrategy `json:"deploymentRolloutStrategy,omitempty"`
@@ -401,7 +411,7 @@ func NewSecurityConfig(isvcConfigMap *corev1.ConfigMap) (*SecurityConfig, error)
 }
 
 func NewServiceConfig(isvcConfigMap *corev1.ConfigMap) (*ServiceConfig, error) {
-	serviceConfig := &ServiceConfig{}
+	serviceConfig := &ServiceConfig{ServiceClusterIPNone: true}
 	if service, ok := isvcConfigMap.Data[ServiceConfigName]; ok {
 		err := json.Unmarshal([]byte(service), &serviceConfig)
 		if err != nil {

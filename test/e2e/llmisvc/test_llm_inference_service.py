@@ -148,6 +148,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 pytest.mark.cluster_cpu,
                 pytest.mark.cluster_single_node,
                 pytest.mark.llmd_simulator,
+                pytest.mark.custom_gateway,
             ],
         ),
         pytest.param(
@@ -193,7 +194,11 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                     )
                 ],
             ),
-            marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
+            marks=[
+                pytest.mark.cluster_cpu,
+                pytest.mark.cluster_single_node,
+                pytest.mark.custom_gateway,
+            ],
         ),
         pytest.param(
             TestCase(
@@ -241,7 +246,11 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                     )
                 ],
             ),
-            marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
+            marks=[
+                pytest.mark.cluster_cpu,
+                pytest.mark.cluster_single_node,
+                pytest.mark.custom_gateway,
+            ],
         ),
         pytest.param(
             TestCase(
@@ -389,6 +398,12 @@ def test_llm_inference_service(test_case: TestCase):  # noqa: F811
     )
 
     service_name = test_case.llm_service.metadata.name
+    if not test_case.llm_service.metadata.annotations:
+        test_case.llm_service.metadata.annotations = {}
+
+    test_case.llm_service.metadata.annotations[
+        "security.opendatahub.io/enable-auth"
+    ] = "false"
 
     try:
         create_llmisvc(kserve_client, test_case.llm_service)

@@ -1,0 +1,18 @@
+# Certificate for the LLMInferenceService webhook server.
+# Issued by the OpenDataHub CA ClusterIssuer.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: llmisvc-webhook-server
+spec:
+  commonName: llmisvc-webhook-server-service.$(NAMESPACE).svc
+  dnsNames:
+    - llmisvc-webhook-server-service.$(NAMESPACE).svc
+    - llmisvc-webhook-server-service.$(NAMESPACE).svc.cluster.local
+  duration: 8760h  # 1 year
+  renewBefore: 720h  # 30 days
+  issuerRef:
+    name: $(ISSUER_REF_NAME)
+    kind: $(ISSUER_REF_KIND)
+    group: $(ISSUER_REF_GROUP)
+  secretName: llmisvc-webhook-server-cert

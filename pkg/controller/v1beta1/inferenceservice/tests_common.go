@@ -19,6 +19,7 @@ package inferenceservice
 import (
 	"fmt"
 	"maps"
+	"strings"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -43,7 +44,7 @@ const (
 	GRACE_PERIOD                int64 = 30
 
 	fastTimeout = time.Second * 3
-	timeout     = time.Second * 60
+	timeout     = time.Second * 6
 	interval    = time.Millisecond * 250
 	domain      = "example.com"
 )
@@ -146,19 +147,15 @@ func getExectedService(predictorServiceKey types.NamespacedName, serviceName str
 	}
 }
 
-func getExpectedIsvcStatus(serviceKey types.NamespacedName) v1beta1.InferenceServiceStatus {
-	return getExpectedIsvcStatusWithPort(serviceKey, "")
-}
-
-// getExpectedIsvcStatusWithPort returns the expected status with an optional port suffix for the address host.
-// Use this when testing headless services where the port must be included in the address URL.
-func getExpectedIsvcStatusWithPort(serviceKey types.NamespacedName, port string) v1beta1.InferenceServiceStatus {
-	addressHost := fmt.Sprintf("%s-predictor.%s.svc.cluster.local", serviceKey.Name, serviceKey.Namespace)
-	if port != "" {
-		addressHost = addressHost + ":" + port
+func getExpectedIsvcStatus(serviceKey types.NamespacedName, protocol, host, componentHost, port string) v1beta1.InferenceServiceStatus {
+	predTrans := "predictor"
+	if strings.Contains(componentHost, "trans") {
+		predTrans = "transformer"
 	}
-	urlHost := fmt.Sprintf("%s-%s.%s", serviceKey.Name, serviceKey.Namespace, domain)
-	predictorURLHost := fmt.Sprintf("%s-predictor-%s.%s", serviceKey.Name, serviceKey.Namespace, domain)
+	if len(port) > 0 {
+		port = ":" + port
+	}
+
 	return v1beta1.InferenceServiceStatus{
 		Status: duckv1.Status{
 			Conditions: duckv1.Conditions{
@@ -182,21 +179,23 @@ func getExpectedIsvcStatusWithPort(serviceKey types.NamespacedName, port string)
 			},
 		},
 		URL: &apis.URL{
-			Scheme: "http",
-			Host:   urlHost,
+			Scheme: protocol,
+			Host:   host,
 		},
 		Address: &duckv1.Addressable{
 			URL: &apis.URL{
-				Scheme: "http",
-				Host:   addressHost,
+				Scheme: protocol,
+				Host:   fmt.Sprintf("%s-%s.%s.svc.cluster.local%s", serviceKey.Name, predTrans, serviceKey.Namespace, port),
 			},
 		},
 		Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
 			v1beta1.PredictorComponent: {
 				LatestCreatedRevision: "",
+				// Status improvement from upstream is now synced
+				// Component URLs always use http scheme (internal service communication)
 				URL: &apis.URL{
 					Scheme: "http",
-					Host:   predictorURLHost,
+					Host:   componentHost,
 				},
 			},
 		},

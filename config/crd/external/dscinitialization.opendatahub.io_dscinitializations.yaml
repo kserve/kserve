@@ -1,0 +1,311 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.1
+  name: dscinitializations.dscinitialization.opendatahub.io
+spec:
+  group: dscinitialization.opendatahub.io
+  names:
+    kind: DSCInitialization
+    listKind: DSCInitializationList
+    plural: dscinitializations
+    shortNames:
+    - dsci
+    singular: dscinitialization
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - description: Current Phase
+      jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Created At
+      type: string
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: DSCInitialization is the Schema for the dscinitializations API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: DSCInitializationSpec defines the desired state of DSCInitialization.
+            properties:
+              applicationsNamespace:
+                default: opendatahub
+                description: Namespace for applications to be installed, non-configurable,
+                  default to "opendatahub"
+                maxLength: 63
+                pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?)?$
+                type: string
+                x-kubernetes-validations:
+                - message: ApplicationsNamespace is immutable
+                  rule: self == oldSelf
+              devFlags:
+                description: |-
+                  Internal development useful field to test customizations.
+                  This is not recommended to be used in production environment.
+                properties:
+                  logLevel:
+                    description: Override Zap log level. Can be "debug", "info", "error"
+                      or a number (more verbose).
+                    type: string
+                  logmode:
+                    default: production
+                    description: '## DEPRECATED ##: Ignored, use LogLevel instead'
+                    enum:
+                    - devel
+                    - development
+                    - prod
+                    - production
+                    - default
+                    type: string
+                  manifestsUri:
+                    description: Custom manifests uri for odh-manifests
+                    type: string
+                type: object
+              monitoring:
+                description: Enable monitoring on specified namespace
+                properties:
+                  managementState:
+                    description: |-
+                      Set to one of the following values:
+                      - "Managed" : the operator is actively managing the component and trying to keep it active.
+                                    It will only upgrade the component if it is safe to do so.
+                      - "Removed" : the operator is actively managing the component and will not install it,
+                                    or if it is installed, the operator will try to remove it.
+                    enum:
+                    - Managed
+                    - Removed
+                    pattern: ^(Managed|Unmanaged|Force|Removed)$
+                    type: string
+                  namespace:
+                    default: opendatahub
+                    description: Namespace for monitoring if it is enabled
+                    maxLength: 63
+                    pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?)?$
+                    type: string
+                type: object
+              serviceMesh:
+                description: |-
+                  Configures Service Mesh as networking layer for Data Science Clusters components.
+                  The Service Mesh is a mandatory prerequisite for single model serving (KServe) and
+                  you should review this configuration if you are planning to use KServe.
+                  For other components, it enhances user experience; e.g. it provides unified
+                  authentication giving a Single Sign On experience.
+                properties:
+                  auth:
+                    description: |-
+                      Auth holds configuration of authentication and authorization services
+                      used by Service Mesh in Opendatahub.
+                    properties:
+                      audiences:
+                        default:
+                        - https://kubernetes.default.svc
+                        description: |-
+                          Audiences is a list of the identifiers that the resource server presented
+                          with the token identifies as. Audience-aware token authenticators will verify
+                          that the token was intended for at least one of the audiences in this list.
+                          If no audiences are provided, the audience will default to the audience of the
+                          Kubernetes apiserver (kubernetes.default.svc).
+                        items:
+                          type: string
+                        type: array
+                      namespace:
+                        description: |-
+                          Namespace where it is deployed. If not provided, the default is to
+                          use '-auth-provider' suffix on the ApplicationsNamespace of the DSCI.
+                        maxLength: 63
+                        pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?)?$
+                        type: string
+                    type: object
+                  controlPlane:
+                    description: ControlPlane holds configuration of Service Mesh
+                      used by Opendatahub.
+                    properties:
+                      metricsCollection:
+                        default: Istio
+                        description: |-
+                          MetricsCollection specifies if metrics from components on the Mesh namespace
+                          should be collected. Setting the value to "Istio" will collect metrics from the
+                          control plane and any proxies on the Mesh namespace (like gateway pods). Setting
+                          to "None" will disable metrics collection.
+                        enum:
+                        - Istio
+                        - None
+                        type: string
+                      name:
+                        default: data-science-smcp
+                        description: Name is a name Service Mesh Control Plane. Defaults
+                          to "data-science-smcp".
+                        type: string
+                      namespace:
+                        default: istio-system
+                        description: Namespace is a namespace where Service Mesh is
+                          deployed. Defaults to "istio-system".
+                        maxLength: 63
+                        pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?)?$
+                        type: string
+                    type: object
+                  managementState:
+                    default: Removed
+                    enum:
+                    - Managed
+                    - Unmanaged
+                    - Removed
+                    pattern: ^(Managed|Unmanaged|Force|Removed)$
+                    type: string
+                type: object
+              trustedCABundle:
+                description: |-
+                  When set to `Managed`, adds odh-trusted-ca-bundle Configmap to all namespaces that includes
+                  cluster-wide Trusted CA Bundle in .data["ca-bundle.crt"].
+                  Additionally, this fields allows admins to add custom CA bundles to the configmap using the .CustomCABundle field.
+                properties:
+                  customCABundle:
+                    default: ""
+                    description: |-
+                      A custom CA bundle that will be available for  all  components in the
+                      Data Science Cluster(DSC). This bundle will be stored in odh-trusted-ca-bundle
+                      ConfigMap .data.odh-ca-bundle.crt .
+                    type: string
+                  managementState:
+                    default: Removed
+                    description: managementState indicates whether and how the operator
+                      should manage customized CA bundle
+                    enum:
+                    - Managed
+                    - Removed
+                    - Unmanaged
+                    pattern: ^(Managed|Unmanaged|Force|Removed)$
+                    type: string
+                required:
+                - customCABundle
+                - managementState
+                type: object
+            required:
+            - applicationsNamespace
+            type: object
+          status:
+            description: DSCInitializationStatus defines the observed state of DSCInitialization.
+            properties:
+              conditions:
+                description: Conditions describes the state of the DSCInitializationStatus
+                  resource
+                items:
+                  description: |-
+                    Condition represents the state of the operator's
+                    reconciliation functionality.
+                  properties:
+                    lastHeartbeatTime:
+                      format: date-time
+                      type: string
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                    message:
+                      type: string
+                    reason:
+                      type: string
+                    status:
+                      type: string
+                    type:
+                      description: ConditionType is the state of the operator's reconciliation
+                        functionality.
+                      type: string
+                  required:
+                  - status
+                  - type
+                  type: object
+                type: array
+              errorMessage:
+                type: string
+              phase:
+                description: |-
+                  Phase describes the Phase of DSCInitializationStatus
+                  This is used by OLM UI to provide status information to the user
+                type: string
+              relatedObjects:
+                description: |-
+                  RelatedObjects is a list of objects created and maintained by this operator.
+                  Object references will be added to this list after they have been created AND found in the cluster
+                items:
+                  description: ObjectReference contains enough information to let
+                    you inspect or modify the referred object.
+                  properties:
+                    apiVersion:
+                      description: API version of the referent.
+                      type: string
+                    fieldPath:
+                      description: |-
+                        If referring to a piece of an object instead of an entire object, this string
+                        should contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2].
+                        For example, if the object reference is to a container within a pod, this would take on a value like:
+                        "spec.containers{name}" (where "name" refers to the name of the container that triggered
+                        the event) or if no container name is specified "spec.containers[2]" (container with
+                        index 2 in this pod). This syntax is chosen only to have some well-defined way of
+                        referencing a part of an object.
+                      type: string
+                    kind:
+                      description: |-
+                        Kind of the referent.
+                        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+                      type: string
+                    name:
+                      description: |-
+                        Name of the referent.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                      type: string
+                    namespace:
+                      description: |-
+                        Namespace of the referent.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
+                      type: string
+                    resourceVersion:
+                      description: |-
+                        Specific resourceVersion to which this reference is made, if any.
+                        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency
+                      type: string
+                    uid:
+                      description: |-
+                        UID of the referent.
+                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids
+                      type: string
+                  type: object
+                  x-kubernetes-map-type: atomic
+                type: array
+              release:
+                description: Version and release type
+                properties:
+                  name:
+                    type: string
+                  version:
+                    type: string
+                type: object
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

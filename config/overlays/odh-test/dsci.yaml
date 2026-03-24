@@ -1,0 +1,25 @@
+apiVersion: dscinitialization.opendatahub.io/v1
+kind: DSCInitialization
+metadata:
+  name: test-dsci
+  namespace: kserve
+  labels:
+    app.kubernetes.io/created-by: rhods-operator
+    app.kubernetes.io/instance: default-dsci
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: dscinitialization
+    app.kubernetes.io/part-of: rhods-operator
+spec:
+  applicationsNamespace:  kserve
+  monitoring:
+    namespace:  redhat-ods-applications
+    managementState: Removed
+  serviceMesh:
+    controlPlane:
+      metricsCollection: Istio
+      name: basic
+      namespace: istio-system
+    managementState: Removed
+  trustedCABundle:
+    managementState: Removed
+    customCABundle: ""

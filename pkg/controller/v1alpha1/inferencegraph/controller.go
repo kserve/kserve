@@ -16,17 +16,25 @@ limitations under the License.
 
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=inferencegraphs;inferencegraphs/finalizers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=inferencegraphs/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=create;patch;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,verbs=create;get;update;patch,resourceNames=kserve-inferencegraph-auth-verifiers
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=services/finalizers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=services/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=create;get;update;patch;watch;delete
+// +kubebuilder:rbac:groups=route.openshift.io,resources=routes/status,verbs=get
 package inferencegraph
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
+
+	osv1 "github.com/openshift/api/route/v1"
+
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -45,6 +53,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -68,8 +77,9 @@ type InferenceGraphReconciler struct {
 type InferenceGraphState string
 
 const (
-	InferenceGraphNotReadyState InferenceGraphState = "InferenceGraphNotReady"
-	InferenceGraphReadyState    InferenceGraphState = "InferenceGraphReady"
+	InferenceGraphControllerName string              = "inferencegraph-controller"
+	InferenceGraphNotReadyState  InferenceGraphState = "InferenceGraphNotReady"
+	InferenceGraphReadyState     InferenceGraphState = "InferenceGraphReady"
 )
 
 type RouterConfig struct {
@@ -151,6 +161,42 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		r.Log.Error(err, "Failed to find config map", "name", constants.InferenceServiceConfigMapName)
 		return reconcile.Result{}, err
 	}
+
+	// examine DeletionTimestamp to determine if object is under deletion
+	if graph.DeletionTimestamp.IsZero() {
+		// The object is not being deleted, so if it does not have our finalizer,
+		// then lets add the finalizer.
+		if !utils.Includes(graph.Finalizers, constants.InferenceGraphFinalizerName) {
+			graph.Finalizers = append(graph.Finalizers, constants.InferenceGraphFinalizerName)
+			patchYaml := "metadata:\n  finalizers: [" + strings.Join(graph.Finalizers, ",") + "]"
+			patchJson, _ := yaml.YAMLToJSON([]byte(patchYaml))
+			if err = r.Patch(ctx, graph, client.RawPatch(types.MergePatchType, patchJson)); err != nil {
+				return reconcile.Result{}, err
+			}
+		}
+	} else {
+		// The object is being deleted
+		if utils.Includes(graph.Finalizers, constants.InferenceGraphFinalizerName) {
+			// our finalizer is present, so lets cleanup resources
+			if err = r.onDeleteCleanup(ctx, graph); err != nil {
+				// if fail to delete the external dependency here, return with error
+				// so that it can be retried
+				return ctrl.Result{}, err
+			}
+
+			// remove our finalizer from the list and update it.
+			graph.Finalizers = utils.RemoveString(graph.Finalizers, constants.InferenceGraphFinalizerName)
+			patchYaml := "metadata:\n  finalizers: [" + strings.Join(graph.Finalizers, ",") + "]"
+			patchJson, _ := yaml.YAMLToJSON([]byte(patchYaml))
+			if err = r.Patch(ctx, graph, client.RawPatch(types.MergePatchType, patchJson)); err != nil {
+				return reconcile.Result{}, err
+			}
+		}
+
+		// Stop reconciliation as the item is being deleted
+		return ctrl.Result{}, nil
+	}
+
 	routerConfig, err := getRouterConfigs(configMap)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -184,8 +230,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, r.Clientset)
 	if err != nil {
-		r.Log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
-		return reconcile.Result{}, err
+		return reconcile.Result{}, errors.Wrapf(err, "fails to get InferenceService config map")
 	}
 	deployConfig, err := v1beta1.NewDeployConfig(isvcConfigMap)
 	if err != nil {
@@ -195,6 +240,12 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	deploymentMode := isvcutils.GetDeploymentMode(graph.Status.DeploymentMode, graph.Annotations, deployConfig)
 	r.Log.Info("Inference graph deployment ", "deployment mode ", deploymentMode)
 	if deploymentMode == constants.Standard {
+		// If the inference graph has auth enabled, create the supporting resources
+		err = handleInferenceGraphRawAuthResources(ctx, r.Clientset, r.Scheme, graph)
+		if err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile resources for auth verification")
+		}
+
 		// Create inference graph resources such as deployment, service, hpa in raw deployment mode
 		deployment, url, err := handleInferenceGraphRawDeployment(ctx, r.Client, r.Clientset, r.Scheme, graph, routerConfig)
 		if err != nil {
@@ -218,6 +269,17 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			}
 		}
 
+		routeReconciler := OpenShiftRouteReconciler{
+			Scheme: r.Scheme,
+			Client: r.Client,
+		}
+		hostname, err := routeReconciler.Reconcile(ctx, graph)
+		url.Host = hostname
+		url.Scheme = "https"
+		if err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile Route for InferenceGraph")
+		}
+
 		logger.Info("Inference graph raw before propagate status")
 		PropagateRawStatus(&graph.Status, deployment, url)
 	} else {
@@ -239,7 +301,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			return ctrl.Result{}, errors.Wrapf(err, "failed to retrieve the knative autoscaler configuration")
 		}
 
-		knutils.ValidateInitialScaleAnnotation(graph.Annotations, allowZeroInitialScale, r.Log)
+		knutils.ValidateInitialScaleAnnotation(graph.Annotations, allowZeroInitialScale, graph.Spec.MinReplicas, r.Log)
 
 		desired := createKnativeService(graph.ObjectMeta, graph, routerConfig)
 
@@ -247,6 +309,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+
 		knativeReconciler := NewGraphKnativeServiceReconciler(r.Client, r.Scheme, desired)
 		ksvcStatus, err := knativeReconciler.Reconcile(ctx)
 		if err != nil {
@@ -361,6 +424,16 @@ func inferenceGraphReadiness(status v1alpha1.InferenceGraphStatus) bool {
 		status.GetCondition(apis.ConditionReady).Status == corev1.ConditionTrue
 }
 
+func (r *InferenceGraphReconciler) onDeleteCleanup(ctx context.Context, graph *v1alpha1.InferenceGraph) error {
+	if err := removeAuthPrivilegesFromGraphServiceAccount(ctx, r.Clientset, graph); err != nil {
+		return err
+	}
+	if err := deleteGraphServiceAccount(ctx, r.Clientset, graph); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (r *InferenceGraphReconciler) SetupWithManager(mgr ctrl.Manager, deployConfig *v1beta1.DeployConfig) error {
 	r.ClientConfig = mgr.GetConfig()
 
@@ -371,7 +444,8 @@ func (r *InferenceGraphReconciler) SetupWithManager(mgr ctrl.Manager, deployConf
 
 	ctrlBuilder := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.InferenceGraph{}).
-		Owns(&appsv1.Deployment{})
+		Owns(&appsv1.Deployment{}).
+		Owns(&osv1.Route{})
 
 	if ksvcFound {
 		ctrlBuilder = ctrlBuilder.Owns(&knservingv1.Service{})

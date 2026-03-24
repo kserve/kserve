@@ -25,12 +25,20 @@ import (
 	"google.golang.org/protobuf/proto"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	corev1cfg "k8s.io/client-go/applyconfigurations/core/v1"
+	metav1cfg "k8s.io/client-go/applyconfigurations/meta/v1"
+	rbacv1cfg "k8s.io/client-go/applyconfigurations/rbac/v1"
 	"k8s.io/client-go/kubernetes"
 	"knative.dev/pkg/apis"
 	knapis "knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -61,6 +69,7 @@ func createInferenceGraphPodSpec(graph *v1alpha1.InferenceGraph, config *RouterC
 				Image:           config.Image,
 				ImagePullPolicy: corev1.PullPolicy(config.ImagePullPolicy),
 				Args: []string{
+					"--enable-tls",
 					"--graph-json",
 					string(bytes),
 				},
@@ -75,27 +84,77 @@ func createInferenceGraphPodSpec(graph *v1alpha1.InferenceGraph, config *RouterC
 						Drop: []corev1.Capability{corev1.Capability("ALL")},
 					},
 				},
+				VolumeMounts: []corev1.VolumeMount{
+					{
+						Name:      "openshift-service-ca-bundle",
+						MountPath: "/etc/odh/openshift-service-ca-bundle",
+					},
+				},
+				Env: []corev1.EnvVar{
+					{
+						Name:  "SSL_CERT_FILE",
+						Value: "/etc/odh/openshift-service-ca-bundle/service-ca.crt",
+					},
+				},
+			},
+		},
+		Volumes: []corev1.Volume{
+			{
+				Name: "openshift-service-ca-bundle",
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: constants.OpenShiftServiceCaConfigMapName,
+						},
+					},
+				},
 			},
 		},
 		Affinity:                     graph.Spec.Affinity,
+		ServiceAccountName:           "default",
 		AutomountServiceAccountToken: proto.Bool(false), // Inference graph does not need access to api server
 		Tolerations:                  graph.Spec.Tolerations,
 		ImagePullSecrets:             config.GetImagePullSecrets(),
 		NodeSelector:                 graph.Spec.NodeSelector,
 		NodeName:                     graph.Spec.NodeName,
-		ServiceAccountName:           graph.Spec.ServiceAccountName,
+		// ServiceAccountName:           graph.Spec.ServiceAccountName,
 	}
 
 	// Only adding this env variable "PROPAGATE_HEADERS" if router's headers config has the key "propagate"
 	value, exists := config.Headers["propagate"]
 	if exists {
-		podSpec.Containers[0].Env = []corev1.EnvVar{
-			{
-				Name:  constants.RouterHeadersPropagateEnvVar,
-				Value: strings.Join(value, ","),
-			},
+		propagateEnv := corev1.EnvVar{
+			Name:  constants.RouterHeadersPropagateEnvVar,
+			Value: strings.Join(value, ","),
 		}
+
+		podSpec.Containers[0].Env = append(podSpec.Containers[0].Env, propagateEnv)
 	}
+
+	// If auth is enabled for the InferenceGraph:
+	// * Add --enable-auth argument, to properly secure kserve-router
+	// * Add the --inferencegraph-name argument, so that the router is aware of its name
+	// * Enable auto-mount of the ServiceAccount, because it is required for validating tokens
+	// * Set a non-default ServiceAccount with enough privileges to verify auth
+	if graph.GetAnnotations()[constants.ODHKserveRawAuth] == "true" {
+		podSpec.Containers[0].Args = append(podSpec.Containers[0].Args, "--enable-auth")
+
+		podSpec.Containers[0].Args = append(podSpec.Containers[0].Args, "--inferencegraph-name")
+		podSpec.Containers[0].Args = append(podSpec.Containers[0].Args, graph.GetName())
+
+		podSpec.AutomountServiceAccountToken = proto.Bool(true)
+
+		// In ODH, when auth is enabled, it is required to have the InferenceGraph running
+		// with a ServiceAccount that can query the Kubernetes API to validate tokens
+		// and privileges.
+		// In KServe v0.14 there is no way for users to set the ServiceAccount for an
+		// InferenceGraph. In ODH this is used at our advantage to set a non-default SA
+		// and bind needed privileges for the auth verification.
+		podSpec.ServiceAccountName = graph.GetName() + "-auth-verifier"
+	}
+
+	// In ODH, the readiness probe is using HTTPS
+	podSpec.Containers[0].ReadinessProbe.HTTPGet.Scheme = corev1.URISchemeHTTPS
 
 	return podSpec
 }
@@ -153,7 +212,7 @@ func handleInferenceGraphRawDeployment(ctx context.Context, cl client.Client, cl
 	objectMeta, componentExtSpec := constructForRawDeployment(graph)
 
 	// create the reconciler
-	reconciler, err := raw.NewRawKubeReconciler(ctx, cl, clientset, scheme, objectMeta, metav1.ObjectMeta{}, &componentExtSpec, desiredSvc, nil, nil, nil, nil, nil, nil)
+	reconciler, err := raw.NewRawKubeReconciler(ctx, cl, clientset, scheme, constants.InferenceGraphResource, objectMeta, metav1.ObjectMeta{}, &componentExtSpec, desiredSvc, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "fails to create NewRawKubeReconciler for inference graph")
 	}
@@ -162,6 +221,9 @@ func handleInferenceGraphRawDeployment(ctx context.Context, cl client.Client, cl
 		return nil, reconciler.URL, errors.Wrapf(err, "fails to set deployment owner reference for inference graph")
 	}
 	// set Service Controller
+	for _, svc := range reconciler.Service.GetServiceList() {
+		svc.Annotations[constants.OpenshiftServingCertAnnotation] = graph.Name + constants.ServingCertSecretSuffix
+	}
 	if err := reconciler.Service.SetControllerReferences(graph, scheme); err != nil {
 		return nil, reconciler.URL, errors.Wrapf(err, "fails to set service owner reference for inference graph")
 	}
@@ -181,6 +243,144 @@ func handleInferenceGraphRawDeployment(ctx context.Context, cl client.Client, cl
 	}
 
 	return deployment[0], reconciler.URL, nil
+}
+
+func handleInferenceGraphRawAuthResources(ctx context.Context, clientset kubernetes.Interface, scheme *runtime.Scheme, graph *v1alpha1.InferenceGraph) error {
+	saName := getServiceAccountNameForGraph(graph)
+
+	if graph.GetAnnotations()[constants.ODHKserveRawAuth] == "true" {
+		graphGVK, err := apiutil.GVKForObject(graph, scheme)
+		if err != nil {
+			return errors.Wrapf(err, "fails get GVK for inference graph")
+		}
+		ownerReference := metav1cfg.OwnerReference().
+			WithKind(graphGVK.Kind).
+			WithAPIVersion(graphGVK.GroupVersion().String()).
+			WithName(graph.GetName()).
+			WithUID(graph.UID).
+			WithBlockOwnerDeletion(true).
+			WithController(true)
+
+		// Create a Service Account that can be used to check auth
+		saAuthVerifier := corev1cfg.ServiceAccount(saName, graph.GetNamespace()).
+			WithOwnerReferences(ownerReference)
+		_, err = clientset.CoreV1().ServiceAccounts(graph.GetNamespace()).Apply(ctx, saAuthVerifier, metav1.ApplyOptions{FieldManager: InferenceGraphControllerName})
+		if err != nil {
+			return errors.Wrapf(err, "fails to apply auth-verifier service account for inference graph")
+		}
+
+		// Bind the required privileges to the Service Account
+		err = addAuthPrivilegesToGraphServiceAccount(ctx, clientset, graph)
+		if err != nil {
+			return err
+		}
+	} else {
+		err := removeAuthPrivilegesFromGraphServiceAccount(ctx, clientset, graph)
+		if err != nil {
+			return err
+		}
+
+		err = deleteGraphServiceAccount(ctx, clientset, graph)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func addAuthPrivilegesToGraphServiceAccount(ctx context.Context, clientset kubernetes.Interface, graph *v1alpha1.InferenceGraph) error {
+	clusterRoleBinding, err := clientset.RbacV1().ClusterRoleBindings().Get(ctx, constants.InferenceGraphAuthCRBName, metav1.GetOptions{})
+	if client.IgnoreNotFound(err) != nil {
+		return errors.Wrapf(err, "fails to get cluster role binding kserve-inferencegraph-auth-verifiers while configuring inference graph auth")
+	}
+
+	saName := getServiceAccountNameForGraph(graph)
+	if apierrors.IsNotFound(err) {
+		clusterRoleAuxiliary := rbacv1.ClusterRole{}
+		rbRoleRef := rbacv1cfg.RoleRef().
+			WithKind("ClusterRole").
+			WithName("system:auth-delegator").
+			WithAPIGroup(clusterRoleAuxiliary.GroupVersionKind().Group)
+		rbSubject := rbacv1cfg.Subject().
+			WithKind("ServiceAccount").
+			WithNamespace(graph.GetNamespace()).
+			WithName(saName)
+		crbApply := rbacv1cfg.ClusterRoleBinding(constants.InferenceGraphAuthCRBName).
+			WithRoleRef(rbRoleRef).
+			WithSubjects(rbSubject)
+
+		_, err = clientset.RbacV1().ClusterRoleBindings().Apply(ctx, crbApply, metav1.ApplyOptions{FieldManager: InferenceGraphControllerName})
+		if err != nil {
+			return errors.Wrapf(err, "fails to apply kserve-inferencegraph-auth-verifiers ClusterRoleBinding for inference graph")
+		}
+	} else {
+		isPresent := false
+		for _, subject := range clusterRoleBinding.Subjects {
+			if subject.Kind == "ServiceAccount" && subject.Name == saName && subject.Namespace == graph.GetNamespace() {
+				isPresent = true
+				break
+			}
+		}
+		if !isPresent {
+			clusterRoleBinding.Subjects = append(clusterRoleBinding.Subjects, rbacv1.Subject{
+				Kind:      "ServiceAccount",
+				Name:      saName,
+				Namespace: graph.GetNamespace(),
+			})
+			_, err = clientset.RbacV1().ClusterRoleBindings().Update(ctx, clusterRoleBinding, metav1.UpdateOptions{FieldManager: InferenceGraphControllerName})
+			if err != nil {
+				return errors.Wrapf(err, "fails to bind privileges for auth verification to inference graph")
+			}
+		}
+	}
+
+	return nil
+}
+
+func removeAuthPrivilegesFromGraphServiceAccount(ctx context.Context, clientset kubernetes.Interface, graph *v1alpha1.InferenceGraph) error {
+	clusterRole, err := clientset.RbacV1().ClusterRoleBindings().Get(ctx, constants.InferenceGraphAuthCRBName, metav1.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return errors.Wrapf(err, "fails to get cluster role binding kserve-inferencegraph-auth-verifiers while deconfiguring inference graph auth")
+	}
+
+	isPresent := false
+	saName := getServiceAccountNameForGraph(graph)
+	for idx, subject := range clusterRole.Subjects {
+		if subject.Kind == "ServiceAccount" && subject.Name == saName && subject.Namespace == graph.GetNamespace() {
+			isPresent = true
+
+			// Remove the no longer needed entry
+			clusterRole.Subjects[idx] = clusterRole.Subjects[len(clusterRole.Subjects)-1]
+			clusterRole.Subjects = clusterRole.Subjects[:len(clusterRole.Subjects)-1]
+			break
+		}
+	}
+
+	if isPresent {
+		_, err = clientset.RbacV1().ClusterRoleBindings().Update(ctx, clusterRole, metav1.UpdateOptions{FieldManager: InferenceGraphControllerName})
+		if err != nil {
+			return errors.Wrapf(err, "fails to remove privileges for auth verification from inference graph")
+		}
+	}
+
+	return nil
+}
+
+func deleteGraphServiceAccount(ctx context.Context, clientset kubernetes.Interface, graph *v1alpha1.InferenceGraph) error {
+	saName := getServiceAccountNameForGraph(graph)
+	err := clientset.CoreV1().ServiceAccounts(graph.GetNamespace()).Delete(ctx, saName, metav1.DeleteOptions{})
+	if client.IgnoreNotFound(err) != nil {
+		return errors.Wrapf(err, "fails to delete service account for inference graph while deconfiguring auth")
+	}
+	return nil
+}
+
+func getServiceAccountNameForGraph(graph *v1alpha1.InferenceGraph) string {
+	return graph.GetName() + "-auth-verifier"
 }
 
 /*

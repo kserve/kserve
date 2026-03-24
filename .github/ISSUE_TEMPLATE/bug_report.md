@@ -1,6 +1,9 @@
 ---
 name: Bug report
 about: Tell us about a problem you are experiencing
+title: ''
+labels: kind/bug
+assignees: ''
 
 ---
 
@@ -26,7 +29,7 @@ about: Tell us about a problem you are experiencing
 - Knative Version:
 - KServe Version:
 - Kubeflow version:
-- Cloud Environment:[k8s_istio/istio_dex/gcp_basic_auth/gcp_iap/aws/aws_cognito/ibm]
-- Minikube/Kind version:
-- Kubernetes version: (use `kubectl version`):
+- Open Data Hub version:
+- Deployment Environment:[cloud (aws|gcp|ibm|azure), on prem, edge ]
+- OpenShift version: (use `kubectl version`):
 - OS (e.g. from `/etc/os-release`):

@@ -32,6 +32,5 @@ if [ -n "${GITHUB_PATH:-}" ]; then
 fi
 
 echo "Creating virtual environment..."
-uv venv
+uv venv --clear
 source .venv/bin/activate
-

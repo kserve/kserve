@@ -199,6 +199,11 @@ jobs:
           ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
           ./test/scripts/gh-actions/setup-kserve.sh
 
+      - name: Disable SCC for non-OpenShift clusters
+        run: |
+          kubectl set env deployment/llmisvc-controller-manager -n kserve LLMISVC_SCC_DISABLED=true
+          kubectl rollout status deployment/llmisvc-controller-manager -n kserve --timeout=120s
+
       - name: Verify LLMISvc setup
         run: |
           echo "🔍 Verifying LLMISvc controller setup..."

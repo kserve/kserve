@@ -28,6 +28,16 @@ from .logging import logger
 KSERVE_PLURAL_LLMINFERENCESERVICECONFIG = "llminferenceserviceconfigs"
 KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
 
+INFERENCE_POOL_GROUP = os.environ.get(
+    "INFERENCE_POOL_GROUP", "inference.networking.k8s.io"
+)
+GATEWAY_CLASS_NAME = os.environ.get("GATEWAY_CLASS_NAME", "envoy")
+RUN_AS_NON_ROOT = os.environ.get("RUN_AS_NON_ROOT", "false").lower() in (
+    "true",
+    "1",
+    "yes",
+)
+
 # Scheduler config constants
 SCHEDULER_CONFIGMAP_NAME = "scheduler-config-e2e"
 SCHEDULER_CONFIGMAP_KEY = "epp"
@@ -46,6 +56,9 @@ LLMINFERENCESERVICE_CONFIGS = {
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
                         "requests": {"cpu": "200m", "memory": "2Gi"},
+                    },
+                    "securityContext": {
+                        "runAsNonRoot": RUN_AS_NON_ROOT,
                     },
                 }
             ]
@@ -79,6 +92,9 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "timeoutSeconds": 5,
                         "failureThreshold": 3,
                     },
+                    "securityContext": {
+                        "runAsNonRoot": RUN_AS_NON_ROOT,
+                    },
                 }
             ]
         },
@@ -111,8 +127,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                             "failureThreshold": 3,
                         },
                         "securityContext": {
-                            "runAsNonRoot": False,
-                            "runAsUser": 0,
+                            "runAsNonRoot": RUN_AS_NON_ROOT,
                         },
                     }
                 ]
@@ -324,6 +339,11 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "{{ .Spec.Model.Name }}",
                         "--port",
                         "8000",
+                        "--enable-ssl-refresh",
+                        "--ssl-certfile",
+                        "/var/run/kserve/tls/tls.crt",
+                        "--ssl-keyfile",
+                        "/var/run/kserve/tls/tls.key",
                     ],
                     "env": [
                         {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
@@ -333,8 +353,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "requests": {"cpu": "200m", "memory": "2Gi"},
                     },
                     "securityContext": {
-                        "runAsNonRoot": False,
-                        "runAsUser": 0,
+                        "runAsNonRoot": RUN_AS_NON_ROOT,
                     },
                 }
             ]
@@ -350,6 +369,11 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "{{ .Spec.Model.Name }}",
                         "--port",
                         "8000",
+                        "--enable-ssl-refresh",
+                        "--ssl-certfile",
+                        "/var/run/kserve/tls/tls.crt",
+                        "--ssl-keyfile",
+                        "/var/run/kserve/tls/tls.key",
                     ],
                     "env": [
                         {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
@@ -359,8 +383,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "requests": {"cpu": "200m", "memory": "2Gi"},
                     },
                     "securityContext": {
-                        "runAsNonRoot": False,
-                        "runAsUser": 0,
+                        "runAsNonRoot": RUN_AS_NON_ROOT,
                     },
                 }
             ]
@@ -398,7 +421,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                                 ],
                                 "backendRefs": [
                                     {
-                                        "group": "inference.networking.k8s.io",
+                                        "group": INFERENCE_POOL_GROUP,
                                         "kind": "InferencePool",
                                         "name": "custom-route-timeout-test-inference-pool",
                                         "namespace": KSERVE_TEST_NAMESPACE,
@@ -432,7 +455,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                                 ],
                                 "backendRefs": [
                                     {
-                                        "group": "inference.networking.k8s.io",
+                                        "group": INFERENCE_POOL_GROUP,
                                         "kind": "InferencePool",
                                         "name": "custom-route-timeout-test-inference-pool",
                                         "namespace": KSERVE_TEST_NAMESPACE,
@@ -513,7 +536,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                                 ],
                                 "backendRefs": [
                                     {
-                                        "group": "inference.networking.k8s.io",
+                                        "group": INFERENCE_POOL_GROUP,
                                         "kind": "InferencePool",
                                         "name": "custom-route-timeout-pd-test-inference-pool",
                                         "namespace": KSERVE_TEST_NAMESPACE,
@@ -547,7 +570,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                                 ],
                                 "backendRefs": [
                                     {
-                                        "group": "inference.networking.k8s.io",
+                                        "group": INFERENCE_POOL_GROUP,
                                         "kind": "InferencePool",
                                         "name": "custom-route-timeout-pd-test-inference-pool",
                                         "namespace": KSERVE_TEST_NAMESPACE,
@@ -763,6 +786,10 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "{{ .Spec.Model.Name }}",
                         "--mode",
                         "random",
+                        "--ssl-certfile",
+                        "/var/run/kserve/tls/tls.crt",
+                        "--ssl-keyfile",
+                        "/var/run/kserve/tls/tls.key",
                     ],
                     "resources": {
                         "limits": {"cpu": "1", "memory": "2Gi"},
@@ -797,6 +824,10 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "42",
                         "--event-batch-size",
                         "1",
+                        "--ssl-certfile",
+                        "/var/run/kserve/tls/tls.crt",
+                        "--ssl-keyfile",
+                        "/var/run/kserve/tls/tls.key",
                     ],
                     "env": [
                         {

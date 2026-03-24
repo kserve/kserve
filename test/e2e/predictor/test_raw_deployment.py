@@ -47,6 +47,8 @@ async def test_raw_deployment_kserve(rest_v1_client, network_layer):
     service_name = "raw-sklearn-" + suffix
     annotations = dict()
     annotations["serving.kserve.io/deploymentMode"] = "Standard"
+    labels = dict()
+    labels["networking.kserve.io/visibility"] = "exposed"
 
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -66,6 +68,7 @@ async def test_raw_deployment_kserve(rest_v1_client, network_layer):
             name=service_name,
             namespace=KSERVE_TEST_NAMESPACE,
             annotations=annotations,
+            labels=labels,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -92,6 +95,8 @@ async def test_raw_deployment_runtime_kserve(rest_v1_client, network_layer):
     service_name = "raw-sklearn-runtime-" + suffix
     annotations = dict()
     annotations["serving.kserve.io/deploymentMode"] = "Standard"
+    labels = dict()
+    labels["networking.kserve.io/visibility"] = "exposed"
 
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -114,6 +119,7 @@ async def test_raw_deployment_runtime_kserve(rest_v1_client, network_layer):
             name=service_name,
             namespace=KSERVE_TEST_NAMESPACE,
             annotations=annotations,
+            labels=labels,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -136,9 +142,11 @@ async def test_raw_deployment_runtime_kserve(rest_v1_client, network_layer):
 @pytest.mark.grpc
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
+@pytest.mark.skip(
+    "The custom-model-grpc image fails in OpenShift with a permission denied error"
+)
 async def test_isvc_with_multiple_container_port(network_layer):
-    suffix = str(uuid.uuid4())[1:6]
-    service_name = "raw-multiport-custom-model-" + suffix
+    service_name = "raw-multiport-custom-model"
     model_name = "custom-model"
 
     predictor = V1beta1PredictorSpec(

@@ -1,0 +1,86 @@
+version: v2beta1
+name: kserve
+
+pipelines:
+  dev:
+    run: |-
+      run_dependencies --all
+      ensure_pull_secrets --all
+      create_deployments --all
+      start_dev app
+  deploy:
+    run: |-
+      run_dependencies --all
+      ensure_pull_secrets --all
+      build_images --all -t $(git describe --always)
+      create_deployments --all
+  debug:
+    run: |-
+      run_pipelines dev
+      code --folder-uri vscode-remote://ssh-remote+app.kserve.devspace/app
+
+images:
+  app:
+    image: quay.io/vedantm/kserve-controller:latest-0.0.1
+    dockerfile: ./Containerfile
+
+deployments:
+  app:
+    kubectl:
+      manifests:
+        - ../config/manager
+      kustomize: true
+
+vars:
+  GOCACHE:
+    source: env
+    default: /tmp/.cache
+  GOPROXY:
+    source: env
+    default: https://proxy.golang.org,direct
+
+dev:
+  app:
+    namespace: opendatahub
+    workingDir: /app
+    labelSelector:
+      control-plane: kserve-controller-manager
+    devImage: quay.io/vedantm/golang:1.24-odh-kserve-dev
+    sync:
+      - path: ../:/app
+    terminal:
+      command: dev_tools/devspace_start.sh
+    ssh:
+      enabled: true
+    proxyCommands:
+      - command: devspace
+      - command: kubectl
+      - command: helm
+      - command: git
+    ports:
+      - port: "2345"
+    resources:
+      requests:
+        cpu: "1.5"
+        memory: 2Gi
+      limits:
+        cpu: "2.5"
+        memory: 4Gi
+    patches:
+      - op: replace
+        path: spec.securityContext.runAsNonRoot
+        value: false
+
+commands:
+  migrate-db:
+    command: |-
+      echo 'This is a cross-platform, shared command that can be used to codify any kind of dev task.'
+      echo 'Anyone using this project can invoke it via "devspace run migrate-db"'
+
+profiles:
+  - name: go1.22 
+    patches: # Use patches to modify the base configuration
+      - op: replace
+        path: dev.app.devImage
+        value: quay.io/vedantm/golang:1.22-odh-kserve-debug 
+

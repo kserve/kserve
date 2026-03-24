@@ -21,6 +21,7 @@ import (
 	wvav1alpha1 "github.com/llm-d/llm-d-workload-variant-autoscaler/api/v1alpha1"
 	otelv1beta1 "github.com/open-telemetry/opentelemetry-operator/apis/v1beta1"
 	"github.com/pkg/errors"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
@@ -105,6 +106,12 @@ func AddOpenTelemetryAPIs(s *runtime.Scheme) error {
 	return addAll(s, otelv1beta1.AddToScheme)
 }
 
+// AddMonitoringAPIs registers Prometheus Operator monitoring APIs (PodMonitor, ServiceMonitor).
+// The scheme registration is unconditional; actual CRD availability is checked at watch setup time.
+func AddMonitoringAPIs(s *runtime.Scheme) error {
+	return addAll(s, monitoringv1.AddToScheme)
+}
+
 // AddControllerAPIs registers the baseline controller APIs used by production and tests.
 func AddControllerAPIs(s *runtime.Scheme) error {
 	return addAll(s,
@@ -119,6 +126,7 @@ func AddLLMISVCAPIs(s *runtime.Scheme) error {
 		AddControllerAPIs,
 		AddGatewayAPIs,
 		AddLeaderWorkerSetAPIs,
+		AddMonitoringAPIs,
 		AddKedaAPIs,
 		AddWVAAPIs,
 	)
@@ -135,6 +143,7 @@ func AddAll(s *runtime.Scheme) error {
 		AddKedaAPIs,
 		AddWVAAPIs,
 		AddOpenTelemetryAPIs,
+		AddMonitoringAPIs,
 	)
 }
 

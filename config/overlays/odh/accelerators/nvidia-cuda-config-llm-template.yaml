@@ -1,0 +1,13 @@
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-template-nvidia-cuda
+  annotations:
+    openshift.io/display-name: vLLM NVIDIA CUDA GPU LLMInferenceServiceConfig
+    openshift.io/description: vLLM NVIDIA CUDA GPU LLMInferenceServiceConfig for LLMInferenceService.
+    opendatahub.io/recommended-accelerators: '["nvidia.com/gpu"]'
+spec:
+  template:
+    containers:
+      - name: main
+        image: placeholder

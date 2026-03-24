@@ -1,20 +1,29 @@
-project-leads:
-  - terrytangyuan
-  - yuzisun
-
 approvers:
-  - Jooho
-  - lizzzcai
-  - sivanantha321
-
-reviewers:
-  - andyi2it
-  - cjohannsen-cloudera
-  - cmaddalozzo
-  - Datta0
-  - gavrissh
-  - greenmoon55
+  - andresllh
+  - bartoszmajsak
+  - brettmthompson
+  - danielezonca
   - israel-hdez
-  - johnugeorge
+  - jlost
+  - Jooho
+  - mholder6
+  - mwaykole
   - pierDipi
   - spolti
+  - terrytangyuan
+  - VedantMahabaleshwarkar
+  - vivekk16
+reviewers:
+  - andresllh
+  - bartoszmajsak
+  - brettmthompson
+  - israel-hdez
+  - jlost
+  - Jooho
+  - mholder6
+  - mwaykole
+  - pierDipi
+  - spolti
+  - terrytangyuan
+  - VedantMahabaleshwarkar
+  - vivekk16

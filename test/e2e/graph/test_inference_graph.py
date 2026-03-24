@@ -25,11 +25,14 @@ from httpx import HTTPStatusError
 
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict_ig
 
-img_version = os.environ.get("GITHUB_SHA", "latest")
-
-SUCCESS_ISVC_IMAGE = f"kserve/success-200-isvc:{img_version}"
-ERROR_ISVC_IMAGE = f"kserve/error-404-isvc:{img_version}"
-
+if os.environ.get("SUCCESS_200_ISVC_IMAGE") is not None:
+    SUCCESS_ISVC_IMAGE = os.environ.get("SUCCESS_200_ISVC_IMAGE")
+else:
+    SUCCESS_ISVC_IMAGE = "kserve/success-200-isvc:" + os.environ.get("GITHUB_SHA")
+if os.environ.get("ERROR_404_ISVC_IMAGE") is not None:
+    ERROR_ISVC_IMAGE = os.environ.get("ERROR_404_ISVC_IMAGE")
+else:
+    ERROR_ISVC_IMAGE = "kserve/error-404-isvc:" + os.environ.get("GITHUB_SHA")
 IG_TEST_RESOURCES_BASE_LOCATION = "graph/test-resources"
 
 
@@ -936,6 +939,8 @@ async def test_inference_graph_raw_mode(rest_v1_client, network_layer):
 
     annotations = dict()
     annotations["serving.kserve.io/deploymentMode"] = "Standard"
+    labels = dict()
+    labels["networking.kserve.io/visibility"] = "exposed"
 
     sklearn_predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -954,6 +959,7 @@ async def test_inference_graph_raw_mode(rest_v1_client, network_layer):
             name=sklearn_name,
             namespace=KSERVE_TEST_NAMESPACE,
             annotations=annotations,
+            labels=labels,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=sklearn_predictor),
     )
@@ -975,6 +981,7 @@ async def test_inference_graph_raw_mode(rest_v1_client, network_layer):
             name=xgb_name,
             namespace=KSERVE_TEST_NAMESPACE,
             annotations=annotations,
+            labels=labels,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=xgb_predictor),
     )
@@ -1096,6 +1103,8 @@ async def test_inference_graph_raw_mode_with_hpa(rest_v1_client, network_layer):
     # annotations["serving.kserve.io/metric"] = 'rps'
     # annotations["serving.kserve.io/min-scale"] = '2'
     # annotations["serving.kserve.io/target"] = '30'
+    labels = dict()
+    labels["networking.kserve.io/visibility"] = "exposed"
 
     sklearn_predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -1114,6 +1123,7 @@ async def test_inference_graph_raw_mode_with_hpa(rest_v1_client, network_layer):
             name=sklearn_name,
             namespace=KSERVE_TEST_NAMESPACE,
             annotations=annotations,
+            labels=labels,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=sklearn_predictor),
     )
@@ -1135,6 +1145,7 @@ async def test_inference_graph_raw_mode_with_hpa(rest_v1_client, network_layer):
             name=xgb_name,
             namespace=KSERVE_TEST_NAMESPACE,
             annotations=annotations,
+            labels=labels,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=xgb_predictor),
     )

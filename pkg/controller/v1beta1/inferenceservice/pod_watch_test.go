@@ -652,139 +652,139 @@ var _ = Describe("ServingRuntime Watch", func() {
 		}
 	})
 
-	Describe("clusterServingRuntimeFunc", func() {
-		It("should only reconcile ISVCs that use the specific ClusterServingRuntime", func() {
-			// Create ISVC using clusterRuntime1
-			isvc1 := &v1beta1.InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "isvc-cluster-runtime-1",
-					Namespace: testNamespace,
-				},
-				Spec: v1beta1.InferenceServiceSpec{
-					Predictor: v1beta1.PredictorSpec{
-						SKLearn: &v1beta1.SKLearnSpec{},
-					},
-				},
-			}
-			Expect(k8sClient.Create(context.Background(), isvc1)).To(Succeed())
-
-			// Set the ClusterServingRuntimeName in status
-			isvc1.Status.ClusterServingRuntimeName = "cluster-runtime-1"
-			Expect(k8sClient.Status().Update(context.Background(), isvc1)).To(Succeed())
-
-			// Create ISVC using clusterRuntime2
-			isvc2 := &v1beta1.InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "isvc-cluster-runtime-2",
-					Namespace: testNamespace,
-				},
-				Spec: v1beta1.InferenceServiceSpec{
-					Predictor: v1beta1.PredictorSpec{
-						SKLearn: &v1beta1.SKLearnSpec{},
-					},
-				},
-			}
-			Expect(k8sClient.Create(context.Background(), isvc2)).To(Succeed())
-
-			// Set the ClusterServingRuntimeName in status
-			isvc2.Status.ClusterServingRuntimeName = "cluster-runtime-2"
-			Expect(k8sClient.Status().Update(context.Background(), isvc2)).To(Succeed())
-
-			// Create a ClusterServingRuntime object (only need metadata for the mapper)
-			csr := &v1alpha1.ClusterServingRuntime{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "cluster-runtime-1",
-				},
-			}
-
-			// Wait for the cache to sync and verify the mapper returns the correct request.
-			// The cached client may not immediately reflect status updates.
-			Eventually(func() []reconcile.Request {
-				return reconciler.clusterServingRuntimeFunc(context.Background(), csr)
-			}).Should(HaveLen(1))
-
-			requests := reconciler.clusterServingRuntimeFunc(context.Background(), csr)
-			Expect(requests[0].Name).To(Equal("isvc-cluster-runtime-1"))
-			Expect(requests[0].Namespace).To(Equal(testNamespace))
-		})
-
-		It("should not reconcile ISVCs that use a different ClusterServingRuntime", func() {
-			// Create ISVC using a different runtime
-			isvc := &v1beta1.InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "isvc-different-runtime",
-					Namespace: testNamespace,
-				},
-				Spec: v1beta1.InferenceServiceSpec{
-					Predictor: v1beta1.PredictorSpec{
-						SKLearn: &v1beta1.SKLearnSpec{},
-					},
-				},
-			}
-			Expect(k8sClient.Create(context.Background(), isvc)).To(Succeed())
-
-			// Set the ClusterServingRuntimeName in status to a different runtime
-			isvc.Status.ClusterServingRuntimeName = "cluster-runtime-other"
-			Expect(k8sClient.Status().Update(context.Background(), isvc)).To(Succeed())
-
-			// Create a ClusterServingRuntime object with a unique name not used by any ISVC
-			csr := &v1alpha1.ClusterServingRuntime{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "cluster-runtime-unused",
-				},
-			}
-
-			// Call the mapper function
-			requests := reconciler.clusterServingRuntimeFunc(context.Background(), csr)
-
-			// Should return empty since no ISVC uses cluster-runtime-unused
-			Expect(requests).To(BeEmpty())
-		})
-
-		It("should not reconcile ISVCs with auto-update disabled when ready", func() {
-			// Create ISVC with auto-update disabled
-			isvc := &v1beta1.InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "isvc-auto-update-disabled",
-					Namespace: testNamespace,
-					Annotations: map[string]string{
-						constants.DisableAutoUpdateAnnotationKey: "true",
-					},
-				},
-				Spec: v1beta1.InferenceServiceSpec{
-					Predictor: v1beta1.PredictorSpec{
-						SKLearn: &v1beta1.SKLearnSpec{},
-					},
-				},
-			}
-			Expect(k8sClient.Create(context.Background(), isvc)).To(Succeed())
-
-			// Set the ClusterServingRuntimeName and make it ready
-			isvc.Status.ClusterServingRuntimeName = "cluster-runtime-auto-update"
-			isvc.Status.SetCondition(v1beta1.PredictorReady, &knativeapis.Condition{
-				Type:   v1beta1.PredictorReady,
-				Status: corev1.ConditionTrue,
-			})
-			isvc.Status.SetCondition(v1beta1.IngressReady, &knativeapis.Condition{
-				Type:   v1beta1.IngressReady,
-				Status: corev1.ConditionTrue,
-			})
-			Expect(k8sClient.Status().Update(context.Background(), isvc)).To(Succeed())
-
-			// Create a ClusterServingRuntime object
-			csr := &v1alpha1.ClusterServingRuntime{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "cluster-runtime-auto-update",
-				},
-			}
-
-			// Call the mapper function
-			requests := reconciler.clusterServingRuntimeFunc(context.Background(), csr)
-
-			// Should not reconcile the ISVC because auto-update is disabled and it's ready
-			Expect(requests).To(BeEmpty())
-		})
-	})
+	// Describe("clusterServingRuntimeFunc", func() {
+	//	It("should only reconcile ISVCs that use the specific ClusterServingRuntime", func() {
+	//		// Create ISVC using clusterRuntime1
+	//		isvc1 := &v1beta1.InferenceService{
+	//			ObjectMeta: metav1.ObjectMeta{
+	//				Name:      "isvc-cluster-runtime-1",
+	//				Namespace: testNamespace,
+	//			},
+	//			Spec: v1beta1.InferenceServiceSpec{
+	//				Predictor: v1beta1.PredictorSpec{
+	//					SKLearn: &v1beta1.SKLearnSpec{},
+	//				},
+	//			},
+	//		}
+	//		Expect(k8sClient.Create(context.Background(), isvc1)).To(Succeed())
+	//
+	//		// Set the ClusterServingRuntimeName in status
+	//		isvc1.Status.ClusterServingRuntimeName = "cluster-runtime-1"
+	//		Expect(k8sClient.Status().Update(context.Background(), isvc1)).To(Succeed())
+	//
+	//		// Create ISVC using clusterRuntime2
+	//		isvc2 := &v1beta1.InferenceService{
+	//			ObjectMeta: metav1.ObjectMeta{
+	//				Name:      "isvc-cluster-runtime-2",
+	//				Namespace: testNamespace,
+	//			},
+	//			Spec: v1beta1.InferenceServiceSpec{
+	//				Predictor: v1beta1.PredictorSpec{
+	//					SKLearn: &v1beta1.SKLearnSpec{},
+	//				},
+	//			},
+	//		}
+	//		Expect(k8sClient.Create(context.Background(), isvc2)).To(Succeed())
+	//
+	//		// Set the ClusterServingRuntimeName in status
+	//		isvc2.Status.ClusterServingRuntimeName = "cluster-runtime-2"
+	//		Expect(k8sClient.Status().Update(context.Background(), isvc2)).To(Succeed())
+	//
+	//		// Create a ClusterServingRuntime object (only need metadata for the mapper)
+	//		csr := &v1alpha1.ClusterServingRuntime{
+	//			ObjectMeta: metav1.ObjectMeta{
+	//				Name: "cluster-runtime-1",
+	//			},
+	//		}
+	//
+	//		// Wait for the cache to sync and verify the mapper returns the correct request.
+	//		// The cached client may not immediately reflect status updates.
+	//		Eventually(func() []reconcile.Request {
+	//			return reconciler.clusterServingRuntimeFunc(context.Background(), csr)
+	//		}).Should(HaveLen(1))
+	//
+	//		requests := reconciler.clusterServingRuntimeFunc(context.Background(), csr)
+	//		Expect(requests[0].Name).To(Equal("isvc-cluster-runtime-1"))
+	//		Expect(requests[0].Namespace).To(Equal(testNamespace))
+	//	})
+	//
+	//	It("should not reconcile ISVCs that use a different ClusterServingRuntime", func() {
+	//		// Create ISVC using a different runtime
+	//		isvc := &v1beta1.InferenceService{
+	//			ObjectMeta: metav1.ObjectMeta{
+	//				Name:      "isvc-different-runtime",
+	//				Namespace: testNamespace,
+	//			},
+	//			Spec: v1beta1.InferenceServiceSpec{
+	//				Predictor: v1beta1.PredictorSpec{
+	//					SKLearn: &v1beta1.SKLearnSpec{},
+	//				},
+	//			},
+	//		}
+	//		Expect(k8sClient.Create(context.Background(), isvc)).To(Succeed())
+	//
+	//		// Set the ClusterServingRuntimeName in status to a different runtime
+	//		isvc.Status.ClusterServingRuntimeName = "cluster-runtime-other"
+	//		Expect(k8sClient.Status().Update(context.Background(), isvc)).To(Succeed())
+	//
+	//		// Create a ClusterServingRuntime object with a unique name not used by any ISVC
+	//		csr := &v1alpha1.ClusterServingRuntime{
+	//			ObjectMeta: metav1.ObjectMeta{
+	//				Name: "cluster-runtime-unused",
+	//			},
+	//		}
+	//
+	//		// Call the mapper function
+	//		requests := reconciler.clusterServingRuntimeFunc(context.Background(), csr)
+	//
+	//		// Should return empty since no ISVC uses cluster-runtime-unused
+	//		Expect(requests).To(BeEmpty())
+	//	})
+	//
+	//	It("should not reconcile ISVCs with auto-update disabled when ready", func() {
+	//		// Create ISVC with auto-update disabled
+	//		isvc := &v1beta1.InferenceService{
+	//			ObjectMeta: metav1.ObjectMeta{
+	//				Name:      "isvc-auto-update-disabled",
+	//				Namespace: testNamespace,
+	//				Annotations: map[string]string{
+	//					constants.DisableAutoUpdateAnnotationKey: "true",
+	//				},
+	//			},
+	//			Spec: v1beta1.InferenceServiceSpec{
+	//				Predictor: v1beta1.PredictorSpec{
+	//					SKLearn: &v1beta1.SKLearnSpec{},
+	//				},
+	//			},
+	//		}
+	//		Expect(k8sClient.Create(context.Background(), isvc)).To(Succeed())
+	//
+	//		// Set the ClusterServingRuntimeName and make it ready
+	//		isvc.Status.ClusterServingRuntimeName = "cluster-runtime-auto-update"
+	//		isvc.Status.SetCondition(v1beta1.PredictorReady, &knativeapis.Condition{
+	//			Type:   v1beta1.PredictorReady,
+	//			Status: corev1.ConditionTrue,
+	//		})
+	//		isvc.Status.SetCondition(v1beta1.IngressReady, &knativeapis.Condition{
+	//			Type:   v1beta1.IngressReady,
+	//			Status: corev1.ConditionTrue,
+	//		})
+	//		Expect(k8sClient.Status().Update(context.Background(), isvc)).To(Succeed())
+	//
+	//		// Create a ClusterServingRuntime object
+	//		csr := &v1alpha1.ClusterServingRuntime{
+	//			ObjectMeta: metav1.ObjectMeta{
+	//				Name: "cluster-runtime-auto-update",
+	//			},
+	//		}
+	//
+	//		// Call the mapper function
+	//		requests := reconciler.clusterServingRuntimeFunc(context.Background(), csr)
+	//
+	//		// Should not reconcile the ISVC because auto-update is disabled and it's ready
+	//		Expect(requests).To(BeEmpty())
+	//	})
+	// })
 
 	Describe("servingRuntimeFunc", func() {
 		It("should only reconcile ISVCs that use the specific ServingRuntime", func() {

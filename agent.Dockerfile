@@ -1,5 +1,5 @@
 # Build the inference-agent binary
-FROM golang:1.25 AS builder
+FROM registry.access.redhat.com/ubi9/go-toolset:1.25 AS builder
 
 # Copy in the go src
 WORKDIR /go/src/github.com/kserve/kserve
@@ -24,8 +24,18 @@ RUN go-licenses check ./cmd/${CMD} ./pkg/... --disallowed_types="forbidden,unkno
 RUN CGO_ENABLED=0 GOOS=linux GOFLAGS=-mod=readonly go build -a -o agent ./cmd/${CMD}
 
 # Copy the inference-agent into a thin image
-FROM gcr.io/distroless/static:nonroot
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
+
+RUN microdnf install -y --disablerepo=* --enablerepo=ubi-9-baseos-rpms shadow-utils && \
+    microdnf clean all && \
+    useradd kserve -m -u 1000
+RUN microdnf remove -y shadow-utils
+
 COPY --from=builder /go/src/github.com/kserve/kserve/third_party /third_party
+
 WORKDIR /ko-app
+
 COPY --from=builder /go/src/github.com/kserve/kserve/agent /ko-app/
+USER 1000:1000
+
 ENTRYPOINT ["/ko-app/agent"]

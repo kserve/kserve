@@ -120,7 +120,8 @@ func TestCreateDefaultDeployment(t *testing.T) {
 						constants.DeploymentMode:  string(constants.Standard),
 					},
 					Annotations: map[string]string{
-						"annotation": "annotation-value",
+						"annotation":                             "annotation-value",
+						constants.OpenshiftServingCertAnnotation: "default-predictor-serving-cert",
 					},
 				},
 				Spec: corev1.ServiceSpec{
@@ -151,7 +152,8 @@ func TestCreateDefaultDeployment(t *testing.T) {
 						constants.InferenceServiceGenerationPodLabelKey: "1",
 					},
 					Annotations: map[string]string{
-						"annotation": "annotation-value",
+						"annotation":                             "annotation-value",
+						constants.OpenshiftServingCertAnnotation: "default-predictor-serving-cert",
 					},
 				},
 				Spec: corev1.ServiceSpec{
@@ -180,7 +182,8 @@ func TestCreateDefaultDeployment(t *testing.T) {
 						constants.MultiNodeRoleLabelKey:                 constants.MultiNodeHead,
 					},
 					Annotations: map[string]string{
-						"annotation": "annotation-value",
+						"annotation":                             "annotation-value",
+						constants.OpenshiftServingCertAnnotation: "default-predictor-serving-cert",
 					},
 				},
 				Spec: corev1.ServiceSpec{
@@ -188,7 +191,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 						constants.RawDeploymentAppLabel:                 "isvc.default-predictor",
 						constants.InferenceServiceGenerationPodLabelKey: "1",
 					},
-					ClusterIP:                "None",
+					ClusterIP:                corev1.ClusterIPNone,
 					PublishNotReadyAddresses: true,
 				},
 			},
@@ -223,7 +226,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := createService(tt.args.componentMeta, tt.args.componentExt, tt.args.podSpec, tt.args.multiNodeEnabled, emptyServiceConfig)
+			got := createService(constants.InferenceServiceResource, tt.args.componentMeta, tt.args.componentExt, tt.args.podSpec, tt.args.multiNodeEnabled, emptyServiceConfig)
 			for i, service := range got {
 				if diff := cmp.Diff(tt.expected[i], service); diff != "" {
 					t.Errorf("Test %q unexpected service (-want +got): %v", tt.name, diff)
@@ -268,14 +271,18 @@ func TestCreateServiceRawTrueAndConfigNil(t *testing.T) {
 }
 
 func runTestServiceCreate(serviceConfig *v1beta1.ServiceConfig, expectedClusterIP string, t *testing.T) {
+	// Adding the annotation here as the test it is expected that this annotation is injected automatically for all services
 	componentMeta := metav1.ObjectMeta{
 		Name:      "test-service",
 		Namespace: "default",
+		Annotations: map[string]string{
+			constants.OpenshiftServingCertAnnotation: "default-predictor-serving-cert",
+		},
 	}
 	componentExt := &v1beta1.ComponentExtensionSpec{}
 	podSpec := &corev1.PodSpec{}
 
-	service := createService(componentMeta, componentExt, podSpec, false, serviceConfig)
+	service := createService(constants.InferenceServiceResource, componentMeta, componentExt, podSpec, false, serviceConfig)
 	assert.Equal(t, componentMeta, service[0].ObjectMeta, "Expected ObjectMeta to be equal")
 	assert.Equal(t, map[string]string{"app": "isvc.test-service"}, service[0].Spec.Selector, "Expected Selector to be equal")
 	assert.Equal(t, expectedClusterIP, service[0].Spec.ClusterIP, "Expected ClusterIP to be equal")

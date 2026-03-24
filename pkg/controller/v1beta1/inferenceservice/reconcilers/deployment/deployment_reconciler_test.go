@@ -31,7 +31,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
+
+	"k8s.io/client-go/kubernetes"
+
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+
+	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -39,8 +44,11 @@ import (
 	"github.com/kserve/kserve/pkg/utils"
 )
 
+const oauthProxyISVCConfigKey = "oauthProxy"
+
 func TestCreateDefaultDeployment(t *testing.T) {
 	type args struct {
+		clientset        kubernetes.Interface
 		objectMeta       metav1.ObjectMeta
 		workerObjectMeta metav1.ObjectMeta
 		componentExt     *v1beta1.ComponentExtensionSpec
@@ -53,7 +61,8 @@ func TestCreateDefaultDeployment(t *testing.T) {
 				Name:      "default-predictor",
 				Namespace: "default-predictor-namespace",
 				Annotations: map[string]string{
-					"annotation": "annotation-value",
+					"annotation":                             "annotation-value",
+					constants.OpenshiftServingCertAnnotation: "default-predictor-serving-cert",
 				},
 				Labels: map[string]string{
 					constants.DeploymentMode:  string(constants.Standard),
@@ -85,7 +94,8 @@ func TestCreateDefaultDeployment(t *testing.T) {
 				Name:      "default-predictor",
 				Namespace: "default-predictor-namespace",
 				Annotations: map[string]string{
-					"annotation": "annotation-value",
+					"annotation":                             "annotation-value",
+					constants.OpenshiftServingCertAnnotation: "default-predictor-serving-cert",
 				},
 				Labels: map[string]string{
 					constants.DeploymentMode:  string(constants.Standard),
@@ -96,7 +106,8 @@ func TestCreateDefaultDeployment(t *testing.T) {
 				Name:      "worker-predictor",
 				Namespace: "worker-predictor-namespace",
 				Annotations: map[string]string{
-					"annotation": "annotation-value",
+					"annotation":                             "annotation-value",
+					constants.OpenshiftServingCertAnnotation: "worker-predictor-serving-cert",
 				},
 				Labels: map[string]string{
 					constants.DeploymentMode:  string(constants.Standard),
@@ -169,7 +180,8 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					Name:      "default-predictor",
 					Namespace: "default-predictor-namespace",
 					Annotations: map[string]string{
-						"annotation": "annotation-value",
+						"annotation":                             "annotation-value",
+						constants.OpenshiftServingCertAnnotation: "default-predictor-serving-cert",
 					},
 					Labels: map[string]string{
 						constants.RawDeploymentAppLabel: "isvc.default-predictor",
@@ -195,7 +207,8 @@ func TestCreateDefaultDeployment(t *testing.T) {
 							Name:      "default-predictor",
 							Namespace: "default-predictor-namespace",
 							Annotations: map[string]string{
-								"annotation": "annotation-value",
+								"annotation":                             "annotation-value",
+								constants.OpenshiftServingCertAnnotation: "default-predictor-serving-cert",
 							},
 							Labels: map[string]string{
 								constants.RawDeploymentAppLabel: "isvc.default-predictor",
@@ -242,7 +255,8 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					Name:      "default-predictor",
 					Namespace: "default-predictor-namespace",
 					Annotations: map[string]string{
-						"annotation": "annotation-value",
+						"annotation":                             "annotation-value",
+						constants.OpenshiftServingCertAnnotation: "default-predictor-serving-cert",
 					},
 					Labels: map[string]string{
 						"app":                               "isvc.default-predictor",
@@ -268,7 +282,8 @@ func TestCreateDefaultDeployment(t *testing.T) {
 							Name:      "default-predictor",
 							Namespace: "default-predictor-namespace",
 							Annotations: map[string]string{
-								"annotation": "annotation-value",
+								"annotation":                             "annotation-value",
+								constants.OpenshiftServingCertAnnotation: "default-predictor-serving-cert",
 							},
 							Labels: map[string]string{
 								"app":                               "isvc.default-predictor",
@@ -324,7 +339,8 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					Name:      "worker-predictor",
 					Namespace: "worker-predictor-namespace",
 					Annotations: map[string]string{
-						"annotation": "annotation-value",
+						"annotation":                             "annotation-value",
+						constants.OpenshiftServingCertAnnotation: "worker-predictor-serving-cert",
 					},
 					Labels: map[string]string{
 						constants.RawDeploymentAppLabel: "isvc.default-predictor-worker",
@@ -351,7 +367,8 @@ func TestCreateDefaultDeployment(t *testing.T) {
 							Name:      "worker-predictor",
 							Namespace: "worker-predictor-namespace",
 							Annotations: map[string]string{
-								"annotation": "annotation-value",
+								"annotation":                             "annotation-value",
+								constants.OpenshiftServingCertAnnotation: "worker-predictor-serving-cert",
 							},
 							Labels: map[string]string{
 								constants.RawDeploymentAppLabel: "isvc.default-predictor-worker",
@@ -427,6 +444,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := createRawDeployment(tt.args.objectMeta, tt.args.workerObjectMeta, tt.args.componentExt, tt.args.podSpec, tt.args.workerPodSpec, nil)
 			assert.Equal(t, tt.expectedErr, err)
+
 			for i, deploy := range got {
 				if diff := cmp.Diff(tt.expected[i], deploy, cmpopts.IgnoreFields(appsv1.Deployment{}, "Spec.Template.Spec.SecurityContext"),
 					cmpopts.IgnoreFields(appsv1.Deployment{}, "Spec.Template.Spec.RestartPolicy"),
@@ -837,6 +855,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 			// update objectMeta using modify func
 			got, err := createRawDeployment(tt.modifyObjectMetaArgs(ttArgs).objectMeta, tt.modifyWorkerObjectMetaArgs(ttArgs).workerObjectMeta, ttArgs.componentExt, tt.modifyPodSpecArgs(ttArgs).podSpec, tt.modifyWorkerPodSpecArgs(ttArgs).workerPodSpec, nil)
 			assert.Equal(t, tt.expectedErr, err)
+
 			// update expected value using modifyExpected func
 			expected := tt.modifyExpected(ttExpected)
 
@@ -852,6 +871,146 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					t.Errorf("Test %q unexpected deployment (-want +got): %v", tt.name, diff)
 				}
 			}
+		})
+	}
+}
+
+func TestOauthProxyUpstreamTimeout(t *testing.T) {
+	type args struct {
+		client           kclient.Client
+		clientset        kubernetes.Interface
+		objectMeta       metav1.ObjectMeta
+		workerObjectMeta metav1.ObjectMeta
+		componentExt     *v1beta1.ComponentExtensionSpec
+		podSpec          *corev1.PodSpec
+		workerPodSpec    *corev1.PodSpec
+		expectedTimeout  string
+	}
+
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "default deployment",
+			args: args{
+				client: &mockClientForCheckDeploymentExist{},
+				clientset: fake.NewSimpleClientset(&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+					Data: map[string]string{
+						oauthProxyISVCConfigKey: `{"image": "quay.io/opendatahub/odh-kube-auth-proxy@sha256:dcb09fbabd8811f0956ef612a0c9ddd5236804b9bd6548a0647d2b531c9d01b3", "memoryRequest": "64Mi", "memoryLimit": "128Mi", "cpuRequest": "100m", "cpuLimit": "200m"}`,
+					},
+				}),
+				objectMeta: metav1.ObjectMeta{
+					Name:      "default-predictor",
+					Namespace: "default-predictor-namespace",
+					Annotations: map[string]string{
+						constants.ODHKserveRawAuth: "true",
+					},
+					Labels: map[string]string{
+						constants.DeploymentMode:  string(constants.Standard),
+						constants.AutoscalerClass: string(constants.DefaultAutoscalerClass),
+					},
+				},
+				workerObjectMeta: metav1.ObjectMeta{},
+				componentExt:     &v1beta1.ComponentExtensionSpec{},
+				podSpec:          &corev1.PodSpec{},
+				workerPodSpec:    nil,
+				expectedTimeout:  "",
+			},
+		},
+		{
+			name: "deployment with oauth proxy upstream timeout defined in oauth proxy config",
+			args: args{
+				client: &mockClientForCheckDeploymentExist{},
+				clientset: fake.NewSimpleClientset(&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+					Data: map[string]string{
+						oauthProxyISVCConfigKey: `{"image": "quay.io/opendatahub/odh-kube-auth-proxy@sha256:dcb09fbabd8811f0956ef612a0c9ddd5236804b9bd6548a0647d2b531c9d01b3", "memoryRequest": "64Mi", "memoryLimit": "128Mi", "cpuRequest": "100m", "cpuLimit": "200m", "upstreamTimeoutSeconds": "20"}`,
+					},
+				}),
+				objectMeta: metav1.ObjectMeta{
+					Name:      "config-timeout-predictor",
+					Namespace: "config-timeout-predictor-namespace",
+					Annotations: map[string]string{
+						constants.ODHKserveRawAuth: "true",
+					},
+					Labels: map[string]string{
+						constants.DeploymentMode:  string(constants.Standard),
+						constants.AutoscalerClass: string(constants.DefaultAutoscalerClass),
+					},
+				},
+				workerObjectMeta: metav1.ObjectMeta{},
+				componentExt:     &v1beta1.ComponentExtensionSpec{},
+				podSpec:          &corev1.PodSpec{},
+				workerPodSpec:    nil,
+				expectedTimeout:  "20s",
+			},
+		},
+		{
+			name: "deployment with oauth proxy upstream timeout defined in component spec",
+			args: args{
+				client: &mockClientForCheckDeploymentExist{},
+				clientset: fake.NewSimpleClientset(&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+					Data: map[string]string{
+						oauthProxyISVCConfigKey: `{"image": "quay.io/opendatahub/odh-kube-auth-proxy@sha256:dcb09fbabd8811f0956ef612a0c9ddd5236804b9bd6548a0647d2b531c9d01b3", "memoryRequest": "64Mi", "memoryLimit": "128Mi", "cpuRequest": "100m", "cpuLimit": "200m", "upstreamTimeoutSeconds": "20"}`,
+					},
+				}),
+				objectMeta: metav1.ObjectMeta{
+					Name:      "config-timeout-predictor",
+					Namespace: "config-timeout-predictor-namespace",
+					Annotations: map[string]string{
+						constants.ODHKserveRawAuth: "true",
+					},
+					Labels: map[string]string{
+						constants.DeploymentMode:  string(constants.Standard),
+						constants.AutoscalerClass: string(constants.DefaultAutoscalerClass),
+					},
+				},
+				workerObjectMeta: metav1.ObjectMeta{},
+				componentExt: &v1beta1.ComponentExtensionSpec{
+					TimeoutSeconds: func(i int64) *int64 { return &i }(40),
+				},
+				podSpec:         &corev1.PodSpec{},
+				workerPodSpec:   nil,
+				expectedTimeout: "40s",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			deployments, err := createRawDeploymentODH(
+				t.Context(),
+				tt.args.client,
+				tt.args.clientset,
+				constants.InferenceServiceResource,
+				tt.args.objectMeta,
+				tt.args.workerObjectMeta,
+				tt.args.componentExt,
+				tt.args.podSpec,
+				tt.args.workerPodSpec,
+				nil, // deployConfig
+			)
+			require.NoError(t, err)
+			require.NotEmpty(t, deployments)
+
+			oauthProxyContainerFound := false
+			containers := deployments[0].Spec.Template.Spec.Containers
+			for _, container := range containers {
+				if container.Name == "kube-rbac-proxy" {
+					oauthProxyContainerFound = true
+					if tt.args.expectedTimeout == "" {
+						for _, arg := range container.Args {
+							assert.NotContains(t, arg, "upstream-timeout")
+						}
+					} else {
+						require.Contains(t, container.Args, "--upstream-timeout="+tt.args.expectedTimeout)
+					}
+				}
+			}
+			require.True(t, oauthProxyContainerFound)
 		})
 	}
 }
@@ -989,6 +1148,9 @@ func TestCheckDeploymentExist(t *testing.T) {
 			r := &DeploymentReconciler{
 				client: mockClient,
 			}
+
+			fmt.Printf("test: %+v\n", mockClient)
+
 			ctx := t.Context()
 			gotResult, gotExisting, err := r.checkDeploymentExist(ctx, mockClient, tt.args.deployment)
 			if (err != nil) != tt.wantErr {
@@ -1202,6 +1364,8 @@ func TestDeploymentReconciler_Reconcile(t *testing.T) {
 func TestNewDeploymentReconciler(t *testing.T) {
 	type fields struct {
 		client       kclient.Client
+		clientset    kubernetes.Interface
+		resourceType constants.ResourceType
 		scheme       *runtime.Scheme
 		objectMeta   metav1.ObjectMeta
 		workerMeta   metav1.ObjectMeta
@@ -1218,8 +1382,9 @@ func TestNewDeploymentReconciler(t *testing.T) {
 		{
 			name: "default deployment",
 			fields: fields{
-				client: nil,
-				scheme: nil,
+				client:       nil,
+				resourceType: constants.InferenceServiceResource,
+				scheme:       nil,
 				objectMeta: metav1.ObjectMeta{
 					Name:      "test-predictor",
 					Namespace: "test-ns",
@@ -1247,8 +1412,9 @@ func TestNewDeploymentReconciler(t *testing.T) {
 		{
 			name: "multi-node deployment",
 			fields: fields{
-				client: nil,
-				scheme: nil,
+				client:       nil,
+				resourceType: constants.InferenceServiceResource,
+				scheme:       nil,
 				objectMeta: metav1.ObjectMeta{
 					Name:      "test-predictor",
 					Namespace: "test-ns",
@@ -1299,8 +1465,11 @@ func TestNewDeploymentReconciler(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := NewDeploymentReconciler(
+				t.Context(),
 				tt.fields.client,
+				tt.fields.clientset,
 				tt.fields.scheme,
+				tt.fields.resourceType,
 				tt.fields.objectMeta,
 				tt.fields.workerMeta,
 				tt.fields.componentExt,
@@ -1308,6 +1477,7 @@ func TestNewDeploymentReconciler(t *testing.T) {
 				tt.fields.workerPod,
 				nil, // deployConfig
 			)
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewDeploymentReconciler() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -1396,9 +1566,24 @@ func (m *mockClientForCheckDeploymentExist) Get(ctx context.Context, key kclient
 	if m.getErr != nil {
 		return m.getErr
 	}
-	if m.getDeployment != nil {
-		d := obj.(*appsv1.Deployment)
-		*d = *m.getDeployment.DeepCopy()
+
+	// Handle different object types
+	switch o := obj.(type) {
+	case *appsv1.Deployment:
+		if m.getDeployment != nil {
+			*o = *m.getDeployment.DeepCopy()
+		}
+	case *v1beta1.InferenceService:
+		// For InferenceService, create a minimal mock object with required fields
+		o.ObjectMeta = metav1.ObjectMeta{
+			Name:      key.Name,
+			Namespace: key.Namespace,
+			UID:       "test-uid-12345",
+		}
+		o.TypeMeta = metav1.TypeMeta{
+			APIVersion: "serving.kserve.io/v1beta1",
+			Kind:       "InferenceService",
+		}
 	}
 	return nil
 }

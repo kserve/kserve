@@ -176,7 +176,7 @@ spec:
           httpGet:
             path: /health
             port: 8001
-            scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
+            scheme: HTTPS
           periodSeconds: 10
           timeoutSeconds: 5
           failureThreshold: 60

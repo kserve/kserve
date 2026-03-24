@@ -218,9 +218,11 @@ async def test_transformer_collocation_runtime(rest_v1_client):
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
+@pytest.mark.skip(
+    "The torchserve container fails in OpenShift with permission denied errors"
+)
 async def test_raw_transformer_collocation(rest_v1_client, network_layer):
-    suffix = str(uuid.uuid4())[1:6]
-    service_name = "raw-custom-model-collocation-" + suffix
+    service_name = "raw-custom-model-collocation"
     model_name = "mnist"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -322,6 +324,9 @@ async def test_raw_transformer_collocation(rest_v1_client, network_layer):
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
+@pytest.mark.skip(
+    "The torchserve container fails in OpenShift with permission denied errors and needs the policy add-scc-to-user anyuid to run (RHOAIENG-28459)"
+)
 async def test_raw_transformer_collocation_runtime(rest_v1_client, network_layer):
     suffix = str(uuid.uuid4())[1:5]
     service_name = "raw-custom-pred-collocation-" + suffix

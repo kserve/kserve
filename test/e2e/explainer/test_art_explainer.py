@@ -35,6 +35,8 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
+pytest.skip("ODH does not support art explainer at the moment", allow_module_level=True)
+
 
 @pytest.mark.explainer
 @pytest.mark.asyncio(scope="session")
@@ -121,6 +123,7 @@ async def test_raw_tabular_explainer(rest_v1_client, network_layer):
             name=service_name,
             namespace=KSERVE_TEST_NAMESPACE,
             annotations={"serving.kserve.io/deploymentMode": "Standard"},
+            labels={"networking.kserve.io/visibility": "exposed"},
         ),
         spec=V1beta1InferenceServiceSpec(
             predictor=V1beta1PredictorSpec(

@@ -31,6 +31,8 @@ from kubernetes.client import V1ResourceRequirements, V1ContainerPort
 
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc, predict_grpc
 
+pytest.skip("ODH does not support torchserve at the moment", allow_module_level=True)
+
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
@@ -111,6 +113,7 @@ async def test_torchserve_v2_kserve(rest_v2_client):
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
+@pytest.mark.skip(reason="Not testable in ODH at the moment")
 @pytest.mark.grpc
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")

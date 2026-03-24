@@ -1,0 +1,137 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: inferenceservice-config
+  namespace: kserve
+data:
+  explainers: "{}"
+  oauthProxy: |- 
+    {
+      "image" : "$(kube-rbac-proxy)",
+      "memoryRequest": "64Mi",
+      "memoryLimit": "128Mi",
+      "cpuRequest": "100m",
+      "cpuLimit": "200m"
+    }
+  storageInitializer: |-
+    {
+        "image" : "$(kserve-storage-initializer)",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "24Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1",
+        "cpuModelcar": "10m",
+        "memoryModelcar": "15Mi",
+        "enableModelcar": true
+    }
+  ingress: |-
+    {
+        "enableGatewayApi": false,
+        "kserveIngressGateway": "openshift-ingress/openshift-ai-inference",
+        "enableLLMInferenceServiceTLS": true,
+        "ingressGateway" : "knative-serving/knative-ingress-gateway",
+        "knativeLocalGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
+        "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
+        "localGateway" : "istio-system/kserve-local-gateway",
+        "localGatewayService" : "kserve-local-gateway.istio-system.svc.cluster.local",
+        "ingressDomain"  : "example.com",
+        "ingressClassName" : "istio",
+        "domainTemplate": "example.com",
+        "urlScheme": "https",
+        "disableIstioVirtualHost": false, 
+        "disableIngressCreation": true
+    }
+  logger: |-
+    {
+        "image" : "$(kserve-agent)",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1",
+        "defaultUrl": "http://default-broker"
+    }
+  batcher: |-
+    {
+        "image" : "$(kserve-agent)",
+        "memoryRequest": "1Gi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "1",
+        "cpuLimit": "1"
+    }
+  agent: |-
+    {
+        "image" : "$(kserve-agent)",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1"
+    }
+  router: |-
+    {
+        "image" : "$(kserve-router)",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1",
+        "headers": {
+          "propagate": [
+            "Authorization"
+          ]
+        }
+    }
+  deploy: |-
+    {
+      "defaultDeploymentMode": "RawDeployment"
+    }
+  metricsAggregator: |-
+    {
+      "enableMetricAggregation": "false",
+      "enablePrometheusScraping" : "false"
+    }
+
+  service: |-
+    {
+        "serviceClusterIPNone": false
+    }
+
+  inferenceService: |-
+    {
+      "serviceAnnotationDisallowedList": [
+        "autoscaling.knative.dev/min-scale",
+        "autoscaling.knative.dev/max-scale",
+        "internal.serving.kserve.io/storage-initializer-sourceuri",
+        "kubectl.kubernetes.io/last-applied-configuration",
+        "security.opendatahub.io/enable-auth",
+        "networking.knative.dev/visibility",
+        "haproxy.router.openshift.io/timeout",
+        "opendatahub.io/hardware-profile-name",
+        "opendatahub.io/hardware-profile-namespace"
+      ]
+     }
+
+  security: |-
+    {
+      "autoMountServiceAccountToken": false
+    }
+
+  credentials: |-
+    {
+       "storageSpecSecretName": "storage-config",
+       "storageSecretNameAnnotation": "serving.kserve.io/storageSecretName",
+       "gcs": {
+           "gcsCredentialFileName": "gcloud-application-credentials.json"
+       },
+       "s3": {
+           "s3AccessKeyIDName": "AWS_ACCESS_KEY_ID",
+           "s3SecretAccessKeyName": "AWS_SECRET_ACCESS_KEY",
+           "s3Endpoint": "",
+           "s3UseHttps": "",
+           "s3Region": "",
+           "s3VerifySSL": "",
+           "s3UseVirtualBucket": "",
+           "s3UseAccelerate": "",
+           "s3UseAnonymousCredential": "",
+           "s3CABundleConfigMap": "odh-kserve-custom-ca-bundle",
+           "s3CABundle": "/etc/ssl/custom-certs/cabundle.crt"
+       }
+    }

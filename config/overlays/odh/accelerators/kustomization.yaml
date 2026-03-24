@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+commonLabels:
+  opendatahub.io/config-type: accelerator
+
+resources:
+- nvidia-cuda-config-llm-template.yaml
+- amd-rocm-config-llm-template.yaml
+- ibm-spyre-s390x-config-llm-template.yaml
+- ibm-spyre-x86-config-llm-template.yaml
+- ibm-spyre-ppc64le-config-llm-template.yaml

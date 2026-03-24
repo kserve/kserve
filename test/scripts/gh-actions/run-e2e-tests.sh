@@ -36,6 +36,7 @@ NETWORK_LAYER="${3:-'istio'}"
 echo "Parallelism requested for pytest is ${PARALLELISM}"
 
 source python/kserve/.venv/bin/activate
+
 pushd test/e2e >/dev/null
   if [[ $MARKER == "raw" && $NETWORK_LAYER == "istio-ingress" ]]; then
     echo "Skipping explainer tests for raw deployment with ingress"

@@ -95,16 +95,17 @@ func (m *ModelSpec) GetSupportingRuntimes(ctx context.Context, cl client.Client,
 	// Sort namespace-scoped runtimes by created timestamp desc and name asc.
 	sortServingRuntimeList(runtimes)
 
-	// List all cluster-scoped runtimes.
-	clusterRuntimes := &v1alpha1.ClusterServingRuntimeList{}
-	if err := cl.List(ctx, clusterRuntimes); err != nil {
-		return nil, err
-	}
-	// Sort cluster-scoped runtimes by created timestamp desc and name asc.
-	sortClusterServingRuntimeList(clusterRuntimes)
+	// ODH does not support ClusterServingRuntimes
+	// // List all cluster-scoped runtimes.
+	// clusterRuntimes := &v1alpha1.ClusterServingRuntimeList{}
+	// if err := cl.List(context.TODO(), clusterRuntimes); err != nil {
+	//	return nil, err
+	// }
+	// // Sort cluster-scoped runtimes by created timestamp desc and name asc.
+	// sortClusterServingRuntimeList(clusterRuntimes)
 
 	srSpecs := []v1alpha1.SupportedRuntime{}
-	var clusterSrSpecs []v1alpha1.SupportedRuntime
+	// var clusterSrSpecs []v1alpha1.SupportedRuntime
 	for i := range runtimes.Items {
 		rt := &runtimes.Items[i]
 		if !rt.Spec.IsDisabled() && rt.Spec.IsMultiModelRuntime() == isMMS &&
@@ -113,15 +114,15 @@ func (m *ModelSpec) GetSupportingRuntimes(ctx context.Context, cl client.Client,
 		}
 	}
 	sortSupportedRuntimeByPriority(srSpecs, m.ModelFormat)
-	for i := range clusterRuntimes.Items {
-		crt := &clusterRuntimes.Items[i]
-		if !crt.Spec.IsDisabled() && crt.Spec.IsMultiModelRuntime() == isMMS &&
-			m.RuntimeSupportsModel(&crt.Spec) && crt.Spec.IsProtocolVersionSupported(modelProtocolVersion) && crt.Spec.IsMultiNodeRuntime() == isMultinode {
-			clusterSrSpecs = append(clusterSrSpecs, v1alpha1.SupportedRuntime{Name: crt.GetName(), Spec: crt.Spec})
-		}
-	}
-	sortSupportedRuntimeByPriority(clusterSrSpecs, m.ModelFormat)
-	srSpecs = append(srSpecs, clusterSrSpecs...)
+	// for i := range clusterRuntimes.Items {
+	// 	crt := &clusterRuntimes.Items[i]
+	// 	if !crt.Spec.IsDisabled() && crt.Spec.IsMultiModelRuntime() == isMMS &&
+	// 		m.RuntimeSupportsModel(&crt.Spec) && crt.Spec.IsProtocolVersionSupported(modelProtocolVersion) && crt.Spec.IsMultiNodeRuntime() == isMultinode {
+	// 		clusterSrSpecs = append(clusterSrSpecs, v1alpha1.SupportedRuntime{Name: crt.GetName(), Spec: crt.Spec})
+	// 	}
+	// }
+	// sortSupportedRuntimeByPriority(clusterSrSpecs, m.ModelFormat)
+	// srSpecs = append(srSpecs, clusterSrSpecs...)
 	return srSpecs, nil
 }
 
@@ -178,25 +179,25 @@ func sortServingRuntimeList(runtimes *v1alpha1.ServingRuntimeList) {
 	})
 }
 
-func sortClusterServingRuntimeList(runtimes *v1alpha1.ClusterServingRuntimeList) {
-	sort.Slice(runtimes.Items, func(i, j int) bool {
-		if GetProtocolVersionPriority(runtimes.Items[i].Spec.ProtocolVersions) <
-			GetProtocolVersionPriority(runtimes.Items[j].Spec.ProtocolVersions) {
-			return true
-		}
-		if GetProtocolVersionPriority(runtimes.Items[i].Spec.ProtocolVersions) >
-			GetProtocolVersionPriority(runtimes.Items[j].Spec.ProtocolVersions) {
-			return false
-		}
-		if runtimes.Items[i].CreationTimestamp.Before(&runtimes.Items[j].CreationTimestamp) {
-			return false
-		}
-		if runtimes.Items[j].CreationTimestamp.Before(&runtimes.Items[i].CreationTimestamp) {
-			return true
-		}
-		return runtimes.Items[i].Name < runtimes.Items[j].Name
-	})
-}
+// func sortClusterServingRuntimeList(runtimes *v1alpha1.ClusterServingRuntimeList) {
+//	sort.Slice(runtimes.Items, func(i, j int) bool {
+//		if GetProtocolVersionPriority(runtimes.Items[i].Spec.ProtocolVersions) <
+//			GetProtocolVersionPriority(runtimes.Items[j].Spec.ProtocolVersions) {
+//			return true
+//		}
+//		if GetProtocolVersionPriority(runtimes.Items[i].Spec.ProtocolVersions) >
+//			GetProtocolVersionPriority(runtimes.Items[j].Spec.ProtocolVersions) {
+//			return false
+//		}
+//		if runtimes.Items[i].CreationTimestamp.Before(&runtimes.Items[j].CreationTimestamp) {
+//			return false
+//		}
+//		if runtimes.Items[j].CreationTimestamp.Before(&runtimes.Items[i].CreationTimestamp) {
+//			return true
+//		}
+//		return runtimes.Items[i].Name < runtimes.Items[j].Name
+//	})
+// }
 
 func sortSupportedRuntimeByPriority(runtimes []v1alpha1.SupportedRuntime, modelFormat ModelFormat) {
 	sort.Slice(runtimes, func(i, j int) bool {

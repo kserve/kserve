@@ -18,6 +18,7 @@ package testing
 
 import (
 	"google.golang.org/protobuf/proto"
+	istioclientv1 "istio.io/client-go/pkg/apis/networking/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -36,6 +37,9 @@ func SetupEnvTest(crdDirectoryPaths []string) *envtest.Environment {
 
 	if err := kservescheme.AddAll(scheme.Scheme); err != nil {
 		log.Error(err, "Failed to register envtest schemes")
+	}
+	if err := istioclientv1.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {
+		log.Error(err, "Failed to add istio v1 scheme")
 	}
 	return t
 }

@@ -993,16 +993,16 @@ func TestGetServingRuntime(t *testing.T) {
 		},
 	}
 
-	clusterRuntimes := &v1alpha1.ClusterServingRuntimeList{
-		Items: []v1alpha1.ClusterServingRuntime{
-			{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: sklearnRuntime,
-				},
-				Spec: servingRuntimeSpecs[sklearnRuntime],
-			},
-		},
-	}
+	// clusterRuntimes := &v1alpha1.ClusterServingRuntimeList{
+	//	Items: []v1alpha1.ClusterServingRuntime{
+	//		{
+	//			ObjectMeta: metav1.ObjectMeta{
+	//				Name: sklearnRuntime,
+	//			},
+	//			Spec: servingRuntimeSpecs[sklearnRuntime],
+	//		},
+	//	},
+	//}
 
 	scenarios := map[string]struct {
 		runtimeName string
@@ -1012,27 +1012,21 @@ func TestGetServingRuntime(t *testing.T) {
 			runtimeName: tfRuntime,
 			expected:    servingRuntimeSpecs[tfRuntime],
 		},
-		"ClusterServingRuntime": {
-			runtimeName: sklearnRuntime,
-			expected:    servingRuntimeSpecs[sklearnRuntime],
-		},
+		// "ClusterServingRuntime": {
+		//	runtimeName: sklearnRuntime,
+		//	expected:    servingRuntimeSpecs[sklearnRuntime],
+		// },
 	}
 
 	s := runtime.NewScheme()
 	_ = v1alpha1.AddToScheme(s)
 
-	mockClient := fake.NewClientBuilder().WithLists(runtimes, clusterRuntimes).WithScheme(s).Build()
+	mockClient := fake.NewClientBuilder().WithLists(runtimes /*, clusterRuntimes*/).WithScheme(s).Build()
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			res, _, _, isClusterServingRuntime := GetServingRuntime(t.Context(), mockClient, scenario.runtimeName, namespace)
+			res, _, _, _ := GetServingRuntime(t.Context(), mockClient, scenario.runtimeName, namespace)
 			if !g.Expect(res).To(gomega.Equal(&scenario.expected)) {
 				t.Errorf("got %v, want %v", res, &scenario.expected)
-			}
-			// Check if the returned runtime is a cluster serving runtime
-			if name == "ClusterServingRuntime" {
-				g.Expect(isClusterServingRuntime).To(gomega.BeTrue())
-			} else {
-				g.Expect(isClusterServingRuntime).To(gomega.BeFalse())
 			}
 		})
 	}
@@ -1043,7 +1037,7 @@ func TestGetServingRuntime(t *testing.T) {
 		if !g.Expect(res).To(gomega.BeNil()) {
 			t.Errorf("got %v, want %v", res, nil)
 		}
-		g.Expect(err.Error()).To(gomega.ContainSubstring("No ServingRuntimes or ClusterServingRuntimes with the name"))
+		g.Expect(err.Error()).To(gomega.ContainSubstring("No ServingRuntimes with the name"))
 	})
 }
 

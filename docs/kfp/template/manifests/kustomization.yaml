@@ -1,0 +1,5 @@
+resources:
+  - runtime.yaml
+  - dspa.yaml
+  - role.yaml
+  - role-binding.yaml

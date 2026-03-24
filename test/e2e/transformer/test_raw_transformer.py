@@ -12,7 +12,6 @@
 # limitations under the License.
 
 import os
-import uuid
 
 from kubernetes import client
 from kubernetes.client import V1ResourceRequirements
@@ -34,9 +33,11 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
+@pytest.mark.skip(
+    "The torchserve container fails in OpenShift with permission denied errors"
+)
 async def test_transformer(rest_v1_client, network_layer):
-    suffix = str(uuid.uuid4())[1:6]
-    service_name = "raw-transformer-" + suffix
+    service_name = "raw-transformer"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         pytorch=V1beta1TorchServeSpec(
