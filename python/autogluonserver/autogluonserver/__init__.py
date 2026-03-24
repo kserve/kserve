@@ -14,13 +14,14 @@
 
 from .model import AutoGluonModel, AutoGluonTabularModel
 from .autogluon_model_repository import AutoGluonModelRepository
-from .predictor_factory import create_autogluon_model
+from .predictor_factory import AutoGluonDetectedModel, create_autogluon_model
 from .timeseries_model import AutoGluonTimeSeriesModel
 
 __all__ = [
     "AutoGluonModel",
     "AutoGluonTabularModel",
     "AutoGluonTimeSeriesModel",
+    "AutoGluonDetectedModel",
     "AutoGluonModelRepository",
     "create_autogluon_model",
 ]

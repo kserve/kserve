@@ -14,7 +14,6 @@
 
 from __future__ import annotations
 
-import json
 import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
@@ -29,8 +28,6 @@ from kserve.protocol.infer_type import InferRequest, InferResponse
 from kserve.utils.utils import get_predict_response
 from kserve_storage import Storage
 
-from autogluonserver.artifact_layout import resolve_timeseries_artifact_paths
-
 
 @dataclass
 class TimeSeriesInferenceMetadata:
@@ -41,28 +38,12 @@ class TimeSeriesInferenceMetadata:
     known_covariates_names: List[str]
 
 
-def _load_ts_metadata(
-    meta_path: Optional[str], predictor: TimeSeriesPredictor
-) -> TimeSeriesInferenceMetadata:
+def _load_ts_metadata(predictor: TimeSeriesPredictor) -> TimeSeriesInferenceMetadata:
     known_raw = getattr(predictor, "known_covariates_names", None) or []
     if isinstance(known_raw, (list, tuple)):
         known_list = [str(x) for x in known_raw]
     else:
         known_list = []
-
-    if meta_path:
-        with open(meta_path, "r", encoding="utf-8") as f:
-            d = json.load(f)
-        pl = d.get("prediction_length", getattr(predictor, "prediction_length", 1))
-        return TimeSeriesInferenceMetadata(
-            target=str(d["target"]),
-            id_column=str(d["id_column"]),
-            timestamp_column=str(d["timestamp_column"]),
-            prediction_length=int(pl),
-            known_covariates_names=[
-                str(x) for x in (d.get("known_covariates_names") or known_list)
-            ],
-        )
 
     target = getattr(predictor, "target", None) or os.environ.get(
         "AUTOGLUON_TS_TARGET", "target"
@@ -168,9 +149,8 @@ class AutoGluonTimeSeriesModel(Model):
         local = Storage.download(self.model_dir)
         if not os.path.isdir(local):
             raise ModelMissingError(local)
-        predictor_path, meta_path = resolve_timeseries_artifact_paths(local)
-        self._predictor = TimeSeriesPredictor.load(predictor_path)
-        self._metadata = _load_ts_metadata(meta_path, self._predictor)
+        self._predictor = TimeSeriesPredictor.load(local)
+        self._metadata = _load_ts_metadata(self._predictor)
         self.ready = True
         return self.ready
 

@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
-
 import pandas as pd
 import pytest
 from kserve.errors import InferenceError
@@ -23,9 +21,12 @@ from autogluonserver.timeseries_model import AutoGluonTimeSeriesModel
 
 
 class FakeTimeSeriesPredictor:
-    def __init__(self):
+    def __init__(self, known_covariates_names=None):
         self.last_data = None
         self.last_known_covariates = None
+        self.target = "y"
+        self.prediction_length = 1
+        self.known_covariates_names = known_covariates_names or []
 
     def predict(self, data, known_covariates=None):
         self.last_data = data
@@ -37,25 +38,8 @@ class FakeTimeSeriesPredictor:
         return pd.DataFrame({"mean": [3.14], "0.1": [2.0]}, index=idx)
 
 
-def _write_ts_artifact(tmp_path, metadata, with_predictor_dir=True):
-    (tmp_path / "predictor_metadata.json").write_text(
-        json.dumps(metadata), encoding="utf-8"
-    )
-    if with_predictor_dir:
-        (tmp_path / "predictor").mkdir()
-
-
 def test_timeseries_load_and_predict_v1(monkeypatch, tmp_path):
-    _write_ts_artifact(
-        tmp_path,
-        {
-            "target": "y",
-            "id_column": "item_id",
-            "timestamp_column": "ts",
-            "prediction_length": 1,
-            "known_covariates_names": [],
-        },
-    )
+    monkeypatch.setenv("AUTOGLUON_TS_TIMESTAMP_COLUMN", "ts")
     fake = FakeTimeSeriesPredictor()
     monkeypatch.setattr(
         "autogluonserver.timeseries_model.Storage.download", lambda _: str(tmp_path)
@@ -85,17 +69,8 @@ def test_timeseries_load_and_predict_v1(monkeypatch, tmp_path):
 
 
 def test_timeseries_known_covariates_passed(monkeypatch, tmp_path):
-    _write_ts_artifact(
-        tmp_path,
-        {
-            "target": "y",
-            "id_column": "item_id",
-            "timestamp_column": "ts",
-            "prediction_length": 1,
-            "known_covariates_names": ["promo"],
-        },
-    )
-    fake = FakeTimeSeriesPredictor()
+    monkeypatch.setenv("AUTOGLUON_TS_TIMESTAMP_COLUMN", "ts")
+    fake = FakeTimeSeriesPredictor(known_covariates_names=["promo"])
     monkeypatch.setattr(
         "autogluonserver.timeseries_model.Storage.download", lambda _: str(tmp_path)
     )
@@ -117,22 +92,13 @@ def test_timeseries_known_covariates_passed(monkeypatch, tmp_path):
 
 
 def test_timeseries_missing_known_covariates_raises(monkeypatch, tmp_path):
-    _write_ts_artifact(
-        tmp_path,
-        {
-            "target": "y",
-            "id_column": "item_id",
-            "timestamp_column": "ts",
-            "prediction_length": 1,
-            "known_covariates_names": ["promo"],
-        },
-    )
+    monkeypatch.setenv("AUTOGLUON_TS_TIMESTAMP_COLUMN", "ts")
     monkeypatch.setattr(
         "autogluonserver.timeseries_model.Storage.download", lambda _: str(tmp_path)
     )
     monkeypatch.setattr(
         "autogluonserver.timeseries_model.TimeSeriesPredictor.load",
-        lambda path: FakeTimeSeriesPredictor(),
+        lambda path: FakeTimeSeriesPredictor(known_covariates_names=["promo"]),
     )
     model = AutoGluonTimeSeriesModel("forecast", "s3://bucket/artifact")
     model.load()
@@ -141,16 +107,7 @@ def test_timeseries_missing_known_covariates_raises(monkeypatch, tmp_path):
 
 
 def test_timeseries_v2_request_raises(monkeypatch, tmp_path):
-    _write_ts_artifact(
-        tmp_path,
-        {
-            "target": "y",
-            "id_column": "item_id",
-            "timestamp_column": "ts",
-            "prediction_length": 1,
-            "known_covariates_names": [],
-        },
-    )
+    monkeypatch.setenv("AUTOGLUON_TS_TIMESTAMP_COLUMN", "ts")
     monkeypatch.setattr(
         "autogluonserver.timeseries_model.Storage.download", lambda _: str(tmp_path)
     )
@@ -168,15 +125,3 @@ def test_timeseries_v2_request_raises(monkeypatch, tmp_path):
     )
     with pytest.raises(InferenceError, match="REST v1 JSON"):
         model.predict(req)
-
-
-def test_artifact_layout_model_full(tmp_path):
-    from autogluonserver.artifact_layout import resolve_timeseries_artifact_paths
-
-    full = tmp_path / "MODEL_FULL"
-    full.mkdir()
-    (full / "predictor").mkdir()
-    (full / "predictor_metadata.json").write_text("{}", encoding="utf-8")
-    pred, meta = resolve_timeseries_artifact_paths(str(full))
-    assert pred.endswith("predictor")
-    assert meta is not None and meta.endswith("predictor_metadata.json")

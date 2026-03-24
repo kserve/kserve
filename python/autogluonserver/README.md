@@ -5,6 +5,8 @@
 - **Tabular**: KServe inference protocol **v1 and v2**, optional `predict_proba` for classification.
 - **Time series**: **REST v1 JSON only** (`POST /v1/models/{name}:predict`). v2 tensor payloads are not supported for time series in this release.
 
+The server **auto-detects** whether the artifact is tabular or time series: it tries `TimeSeriesPredictor.load` on the model directory first, then `TabularPredictor.load`. Point `storageUri` at the **AutoGluon save directory** (the folder passed to `TabularPredictor.save(path)` or `TimeSeriesPredictor.save(path)`).
+
 ## Tabular models
 
 Models must be saved with `TabularPredictor.save(path)` (a directory). The server loads that directory and converts request instances (list of dicts or list of lists) to a pandas `DataFrame` for `predict()` or `predict_proba()`.
@@ -13,44 +15,17 @@ Models must be saved with `TabularPredictor.save(path)` (a directory). The serve
 
 ## Time series models
 
-Models must be saved with `TimeSeriesPredictor.save()` (a directory). Typical Kubeflow / pipeline layout:
+Models must be saved with `TimeSeriesPredictor.save()` (a directory). Point `storageUri` at that **predictor directory** (the same path you would pass to `TimeSeriesPredictor.load`).
 
-```text
-<MODEL>_FULL/
-  predictor/                 # AutoGluon save directory (load path)
-  predictor_metadata.json    # Inference contract (see below)
-  metrics/
-  notebooks/
-```
-
-Point `storageUri` at **either**:
-
-- `<MODEL>_FULL/` (recommended), or  
-- the inner `predictor/` directory only.
-
-If you use the inner path only, place `predictor_metadata.json` next to that directory (sibling) or inside it.
-
-### `predictor_metadata.json`
-
-Required fields for robust serving (your pipeline should emit this file):
-
-| Field | Description |
-| ----- | ----------- |
-| `target` | Target column name in history rows |
-| `id_column` | Series identifier column (e.g. `item_id`) |
-| `timestamp_column` | Timestamp column |
-| `prediction_length` | (optional) Horizon; defaults to loaded predictor |
-| `known_covariates_names` | (optional) List of known covariate column names for the horizon |
-
-If this file is **missing**, set `AUTOGLUON_PREDICTOR_TYPE=timeseries` and optional `AUTOGLUON_TS_ID_COLUMN`, `AUTOGLUON_TS_TIMESTAMP_COLUMN`, `AUTOGLUON_TS_TARGET` for column defaults.
+Column names for request JSON are taken from the loaded `TimeSeriesPredictor` where available. You can override id, timestamp, and target column names with environment variables (see below) if they are not sufficient.
 
 ### Time series JSON request (`:predict`)
 
 **History** — top-level `instances`: array of row objects (long format), one row per time step, including `target` and any covariates present in training history.
 
-**Known covariates on the horizon** (only if `known_covariates_names` is non-empty): top-level `known_covariates`, same column names as training for those features, plus `id_column` and `timestamp_column`, covering the forecast horizon steps per series.
+**Known covariates on the horizon** (only if the model was trained with known covariates): top-level `known_covariates`, same column names as training for those features, plus the configured id and timestamp columns, covering the forecast horizon steps per series.
 
-Example (names must match your metadata):
+Example (names must match your schema and env overrides):
 
 ```json
 {
@@ -64,17 +39,9 @@ Example (names must match your metadata):
 }
 ```
 
-**Response**: `{"predictions": [ ... ]}` — list of objects with forecast index columns (`item_id`, `timestamp`) plus `mean`, quantile columns (e.g. `"0.1"`), matching the trained predictor.
+**Response**: `{"predictions": [ ... ]}` — list of objects with forecast index columns (e.g. `item_id`, `timestamp`) plus `mean`, quantile columns (e.g. `"0.1"`), matching the trained predictor.
 
-## Predictor selection (`AUTOGLUON_PREDICTOR_TYPE`)
-
-| Value | Behavior |
-| ----- | -------- |
-| `tabular` | Always `TabularPredictor` |
-| `timeseries` | Always `TimeSeriesPredictor` |
-| `auto` (default) | If `predictor_metadata.json` is found next to the artifact (see layout above), time series; otherwise tabular |
-
-Use `autogluon` or `autogluon-timeseries` as `modelFormat.name` in `InferenceService` to pick a runtime; the **same** `ClusterServingRuntime` image supports both formats. When in doubt, set `AUTOGLUON_PREDICTOR_TYPE` explicitly on the predictor container.
+Use `autogluon` or `autogluon-timeseries` as `modelFormat.name` in `InferenceService`; the **same** `ClusterServingRuntime` image supports both. The format name does not change auto-detection — it still loads the directory with the try-load sequence above.
 
 ## Run AutoGluon Server Locally
 
@@ -126,19 +93,13 @@ spec:
     model:
       modelFormat:
         name: autogluon-timeseries
-      storageUri: "gs://your-bucket/run-123/MODEL_FULL/"
-      env:
-        - name: AUTOGLUON_PREDICTOR_TYPE
-          value: "timeseries"
+      storageUri: "gs://your-bucket/path/to/timeseries-predictor-save/"
 ```
-
-Omit `AUTOGLUON_PREDICTOR_TYPE` if `predictor_metadata.json` is present at the artifact root (auto mode).
 
 ## Environment
 
 - **`PREDICT_PROBA`** (tabular): set to `"true"` to use `predict_proba()` instead of `predict()` when supported.
-- **`AUTOGLUON_PREDICTOR_TYPE`**: `tabular` | `timeseries` | `auto`.
-- **`AUTOGLUON_TS_ID_COLUMN`**, **`AUTOGLUON_TS_TIMESTAMP_COLUMN`**, **`AUTOGLUON_TS_TARGET`**: fallbacks when `predictor_metadata.json` is absent (time series only).
+- **`AUTOGLUON_TS_ID_COLUMN`**, **`AUTOGLUON_TS_TIMESTAMP_COLUMN`**, **`AUTOGLUON_TS_TARGET`**: override series id, timestamp, and target column names for time series JSON (defaults: `item_id`, `timestamp`, and predictor `target` or `target`).
 
 ## Development
 

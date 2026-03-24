@@ -14,8 +14,8 @@
 
 """E2E tests for AutoGluon TimeSeriesPredictor on kserve-autogluonserver.
 
-Requires a bucket layout with ``predictor_metadata.json`` at the artifact root
-(or set AUTOGLUON_PREDICTOR_TYPE=timeseries on the predictor).
+``storage_uri`` must point at the AutoGluon TimeSeries predictor save directory
+(the path passed to ``TimeSeriesPredictor.load``).
 
 Set ``AUTOGLUON_TIMESERIES_STORAGE_URI`` to enable; otherwise tests are skipped.
 """
@@ -24,7 +24,7 @@ import os
 
 import pytest
 from kubernetes import client
-from kubernetes.client import V1EnvVar, V1ResourceRequirements
+from kubernetes.client import V1ResourceRequirements
 
 from kserve import (
     KServeClient,
@@ -67,9 +67,6 @@ def _create_ts_predictor(service_name: str):
         runtime="kserve-autogluonserver",
         storage_uri=AUTOGLUON_TS_STORAGE_URI,
         resources=AUTOGLUON_TS_RESOURCES,
-        env=[
-            V1EnvVar(name="AUTOGLUON_PREDICTOR_TYPE", value="timeseries"),
-        ],
     )
     return V1beta1PredictorSpec(min_replicas=1, model=model)
 
