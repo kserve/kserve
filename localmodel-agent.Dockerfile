@@ -21,7 +21,8 @@ RUN go-licenses check ./cmd/${CMD} ./pkg/... --disallowed_types="forbidden,unkno
     go-licenses save --save_path third_party/library ./cmd/${CMD}
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOFLAGS=-mod=readonly go build -a -o localmodelnode-agent ./cmd/${CMD}
+ARG GOTAGS=""
+RUN CGO_ENABLED=0 GOOS=linux GOFLAGS=-mod=readonly go build -tags "${GOTAGS}" -a -o localmodelnode-agent ./cmd/${CMD}
 
 # Copy the controller-manager into a thin image
 FROM gcr.io/distroless/static:nonroot

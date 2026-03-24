@@ -58,16 +58,21 @@ import (
 	pkgtypes "github.com/kserve/kserve/pkg/types"
 )
 
+type ensureModelRootFolderResult struct {
+	Result   ctrl.Result
+	Continue bool
+}
+
 type LocalModelNodeReconciler struct {
 	client.Client
 	Clientset         *kubernetes.Clientset
 	Log               logr.Logger
 	Scheme            *runtime.Scheme
 	CredentialBuilder *credentials.CredentialBuilder
+	IsvcConfigMap     *corev1.ConfigMap
 }
 
 const (
-	MountPath             = "/mnt/models" // Volume mount path for models, must be the same as the value in the DaemonSet spec
 	DownloadContainerName = "kserve-localmodel-download"
 	PvcSourceMountName    = "kserve-pvc-source"
 )
@@ -203,6 +208,10 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 				},
 			},
 		},
+	}
+	if err := enhanceDownloadJob(job, storageKey); err != nil {
+		c.Log.Error(err, "Failed to enhance download job", "name", modelInfo.ModelName)
+		return nil, err
 	}
 	if err := controllerutil.SetControllerReference(&localModelNode, job, c.Scheme); err != nil {
 		c.Log.Error(err, "Failed to set controller reference", "name", modelInfo.ModelName)
@@ -523,36 +532,13 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	c.Log.Info("Agent reconciling LocalModelNode", "name", req.Name, "node", nodeName)
 
-	// fsHelper is a global variable to allow mocking in tests
-	if fsHelper == nil {
-		fsHelper = NewFileSystemHelper(modelsRootFolder)
-		// TODO we need a way to ensure that the local path on persistent volume is the same as the local path of the node agent DaemonSet.
-		err := fsHelper.ensureModelRootFolderExists()
-		if err != nil {
-			panic("Failed to ensure model root folder exists: " + err.Error())
-		}
-	}
-
-	// Create Jobs to download models if the model is not present locally.
-	// 1. Check if LocalModelNode CR is for current node
-	localModelNode := v1alpha1.LocalModelNode{}
-	if err := c.Get(ctx, req.NamespacedName, &localModelNode); err != nil {
-		c.Log.Error(err, "Error getting LocalModelNode", "name", req.Name)
-		return reconcile.Result{}, client.IgnoreNotFound(err)
-	}
-
-	// 2. Cleanup jobs for models that are not in the spec
-	if err := c.cleanupJobs(ctx, localModelNode); err != nil {
-		c.Log.Error(err, "Job cleanup err")
-		return reconcile.Result{}, err
-	}
-
-	// 3. Kick off download jobs for all models in spec
+	// 1. Load config
 	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, c.Clientset)
 	if err != nil {
 		c.Log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
 		return reconcile.Result{}, err
 	}
+	c.IsvcConfigMap = isvcConfigMap
 	localModelConfig, err := v1beta1.NewLocalModelConfig(isvcConfigMap)
 	if err != nil {
 		c.Log.Error(err, "Failed to get local model config")
@@ -577,16 +563,44 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		c.CredentialBuilder = credentials.NewCredentialBuilder(c.Client, c.Clientset, isvcConfigMap)
 	}
 
+	// 2. Init fsHelper and ensure model root folder exists and is writable
+	if fsHelper == nil {
+		fsHelper = NewFileSystemHelper(modelsRootFolder)
+	}
+
+	folderResult, err := ensureModelRootFolderExistsAndIsWritable(ctx, c, localModelConfig)
+	if err != nil || !folderResult.Continue {
+		if folderResult != nil {
+			return folderResult.Result, err
+		}
+		return ctrl.Result{}, err
+	}
+
+	// 3. Get LocalModelNode CR
+	localModelNode := v1alpha1.LocalModelNode{}
+	if err := c.Get(ctx, req.NamespacedName, &localModelNode); err != nil {
+		c.Log.Error(err, "Error getting LocalModelNode", "name", req.Name)
+		return reconcile.Result{}, client.IgnoreNotFound(err)
+	}
+
+	// 4. Cleanup jobs for models that are not in the spec
+	if err := c.cleanupJobs(ctx, localModelNode); err != nil {
+		c.Log.Error(err, "Job cleanup err")
+		return reconcile.Result{}, err
+	}
+
+	// 5. Download models not present locally
 	if err := c.downloadModels(ctx, &localModelNode); err != nil {
 		c.Log.Error(err, "Model download err")
 		return reconcile.Result{}, err
 	}
 
-	// 4. Delete models that are not in the spec. This function does not modify the resource.
+	// 6. Delete models that are not in the spec
 	if err := c.deleteModels(localModelNode); err != nil {
 		c.Log.Error(err, "Model deletion err")
 		return reconcile.Result{}, err
 	}
+
 	// Requeue to check local folders periodically
 	return reconcile.Result{RequeueAfter: reconcilationFreqency}, nil
 }

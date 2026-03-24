@@ -51,7 +51,7 @@ func (m *MockFileInfo) Info() (fs.FileInfo, error) { return nil, nil }
 
 type mockFileSystem struct {
 	FileSystemInterface
-	// represents the dirs under /mnt/models/models
+	// represents the dirs under models root
 	subDirs []os.DirEntry
 }
 
