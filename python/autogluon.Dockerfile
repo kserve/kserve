@@ -1,5 +1,7 @@
 ARG PYTHON_VERSION=3.12
-ARG BASE_IMAGE=python:${PYTHON_VERSION}-slim
+#ARG BASE_IMAGE=python:${PYTHON_VERSION}-slim
+ARG BASE_IMAGE=public.ecr.aws/docker/library/python:${PYTHON_VERSION}-slim
+
 ARG VENV_PATH=/prod_venv
 
 FROM ${BASE_IMAGE} AS builder
