@@ -20,7 +20,8 @@ ENV VIRTUAL_ENV=${VENV_PATH}
 RUN uv venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-# ========== Install kserve dependencies ==========
+COPY storage/pyproject.toml storage/uv.lock storage/README.md storage/
+COPY storage/kserve_storage storage/kserve_storage
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
 RUN cd kserve && uv sync --active --no-cache
 
