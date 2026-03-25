@@ -216,7 +216,7 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 		return fmt.Errorf("failed to reconcile workload: %w", err)
 	}
 
-	if err := r.reconcileRouter(ctx, llmSvc, config); err != nil {
+	if err := r.reconcileRouter(ctx, llmSvc); err != nil {
 		return fmt.Errorf("failed to reconcile networking: %w", err)
 	}
 
