@@ -21,8 +21,8 @@ COPY pkg/    pkg/
 USER root
 
 # Check and generate third-party licenses (fast, fail-fast on violations)
-RUN go-licenses check ./cmd/${CMD} ./pkg/... --disallowed_types="forbidden,unknown" && \
-    go-licenses save --save_path third_party/library ./cmd/${CMD}
+RUN /opt/app-root/src/go/bin/go-licenses check ./cmd/${CMD} ./pkg/... --disallowed_types="forbidden,unknown" && \
+    /opt/app-root/src/go/bin/go-licenses save --save_path third_party/library ./cmd/${CMD}
 
 # Build
 RUN CGO_ENABLED=0 GOOS=linux GOFLAGS=-mod=readonly go build -a -o manager ./cmd/${CMD}

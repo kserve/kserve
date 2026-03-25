@@ -724,7 +724,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			Expect(job.Spec.Template.Spec.Containers).To(HaveLen(1))
 			container := job.Spec.Template.Spec.Containers[0]
 			Expect(container.Image).To(Equal("kserve/storage-initializer:latest"))
-			Expect(container.Args).To(Equal([]string{"hf://meta-llama/Meta-Llama-3-8B", "/mnt/models"}))
+			Expect(container.Args).To(Equal([]string{"hf://meta-llama/Meta-Llama-3-8B", MountPath}))
 		})
 
 		It("Should use storage key credentials when specified in LocalModelInfo", func() {
