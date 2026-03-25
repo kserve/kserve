@@ -12,6 +12,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+
+
+def _bootstrap_autogluon_runtime_paths() -> None:
+    """Writable cwd + matplotlib cache.
+
+    AutoGluon time series predict may mkdir ./AutogluonModels when RecursiveTabular falls back to
+    SeasonalNaive (short history). Default container cwd is often / and non-root cannot create that.
+    """
+    if not os.environ.get("MPLCONFIGDIR"):
+        os.environ["MPLCONFIGDIR"] = "/tmp/matplotlib"
+    for d in (
+        os.environ.get("HOME"),
+        "/home/kserve",
+        os.environ.get("TMPDIR", "/tmp"),
+    ):
+        if not d:
+            continue
+        if os.path.isdir(d) and os.access(d, os.W_OK):
+            try:
+                os.chdir(d)
+                return
+            except OSError:
+                continue
+
+
 import argparse
 
 import kserve
@@ -29,6 +55,7 @@ parser.add_argument(
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
+    _bootstrap_autogluon_runtime_paths()
     if args.configure_logging:
         logging.configure_logging(args.log_config_file)
     model = create_autogluon_model(args.model_name, args.model_dir)
