@@ -1,5 +1,7 @@
 # Build the manager binary
 FROM registry.access.redhat.com/ubi9/go-toolset:1.25 as builder
+# distro: UBI go-toolset does not add GOPATH/bin to PATH
+ENV PATH="$PATH:/opt/app-root/src/go/bin"
 
 # Copy in the go src
 WORKDIR /go/src/github.com/kserve/kserve
@@ -16,24 +18,14 @@ ARG CMD=manager
 COPY cmd/${CMD}/ cmd/${CMD}/
 COPY pkg/    pkg/
 
-<<<<<<< HEAD
+USER root
+
 # Check and generate third-party licenses (fast, fail-fast on violations)
 RUN go-licenses check ./cmd/${CMD} ./pkg/... --disallowed_types="forbidden,unknown" && \
     go-licenses save --save_path third_party/library ./cmd/${CMD}
 
 # Build
 RUN CGO_ENABLED=0 GOOS=linux GOFLAGS=-mod=readonly go build -a -o manager ./cmd/${CMD}
-=======
-# Build
-USER root
-RUN CGO_ENABLED=0 GOOS=linux GOFLAGS=-mod=mod go build -a -o manager ./cmd/manager
-
-# Generate third-party licenses
-COPY LICENSE LICENSE
-RUN go install github.com/google/go-licenses@latest
-# Forbidden Licenses: https://github.com/google/licenseclassifier/blob/e6a9bb99b5a6f71d5a34336b8245e305f5430f99/license_type.go#L341
-RUN /opt/app-root/src/go/bin/go-licenses check ./cmd/... ./pkg/... --disallowed_types="forbidden,unknown"
-RUN /opt/app-root/src/go/bin/go-licenses save --save_path third_party/library ./cmd/manager
 
 # Runtime image - Copy the controller-manager into a thin image
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
@@ -42,7 +34,6 @@ RUN microdnf install -y --disablerepo=* --enablerepo=ubi-9-baseos-rpms shadow-ut
     microdnf clean all && \
     useradd kserve -m -u 1000
 RUN microdnf remove -y shadow-utils
->>>>>>> odh-master
 
 COPY --from=builder /go/src/github.com/kserve/kserve/third_party /third_party
 COPY --from=builder /go/src/github.com/kserve/kserve/manager /
