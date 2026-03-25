@@ -28,7 +28,7 @@ class FakeTimeSeriesPredictor:
         self.prediction_length = 1
         self.known_covariates_names = known_covariates_names or []
 
-    def predict(self, data, known_covariates=None):
+    def predict(self, data, known_covariates=None, **kwargs):
         self.last_data = data
         self.last_known_covariates = known_covariates
         idx = pd.MultiIndex.from_tuples(
