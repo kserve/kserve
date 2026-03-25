@@ -69,9 +69,6 @@ COPY --from=builder kserve kserve
 COPY --from=builder storage storage
 COPY --from=builder autogluonserver autogluonserver
 
-# AutoGluon creates relative paths like ./AutogluonModels during predict (e.g. RecursiveTabular
-# fallback to SeasonalNaive). Default cwd is / and non-root cannot mkdir there.
-# Matplotlib also needs a writable config/cache dir (see MPLCONFIGDIR).
 WORKDIR /home/kserve
 ENV MPLCONFIGDIR=/tmp/matplotlib
 
