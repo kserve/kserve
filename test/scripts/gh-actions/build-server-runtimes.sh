@@ -89,6 +89,8 @@ pushd python >/dev/null
         df -hT
     echo "Building Huggingface CPU image"
     docker buildx build -t "${HUGGINGFACE_CPU_IMG_TAG}" -f huggingface_server_cpu.Dockerfile \
+      --cache-from type=gha,scope=hf-cpu \
+      --cache-to type=gha,mode=max,scope=hf-cpu \
       -o type=docker,dest="${DOCKER_IMAGES_PATH}/${HUGGINGFACE_IMG}-${TAG}",compression-level=0 .
     echo "Disk usage after Building Huggingface CPU image:"
         df -hT
