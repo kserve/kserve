@@ -155,8 +155,8 @@ spec:
             value: /models
         securityContext:
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: false
-          runAsNonRoot: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
           capabilities:
             drop:
               - ALL
@@ -190,6 +190,8 @@ spec:
         volumeMounts:
           - mountPath: /home
             name: home
+          - mountPath: /tmp
+            name: tmp-dir
           - mountPath: /dev/shm
             name: dshm
           - mountPath: /models
@@ -208,8 +210,8 @@ spec:
         resources: { }
         securityContext:
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: false
-          runAsNonRoot: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
           capabilities:
             drop:
               - ALL
@@ -259,6 +261,8 @@ spec:
     volumes:
       - emptyDir: { }
         name: home
+      - emptyDir: { }
+        name: tmp-dir
       - emptyDir:
           medium: Memory
           sizeLimit: 1Gi
