@@ -23,6 +23,7 @@ import (
 	"path"
 	"slices"
 	"sort"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -449,11 +450,15 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 	// when certificates are renewed the pod template changes and the scheduler
 	// is restarted to pick up the new certificate.
 	// Skip if the main container supports automatic cert reload.
+	certReloadEnabled := func(args []string) bool {
+		return slices.ContainsFunc(args, func(s string) bool {
+			return strings.HasPrefix(s, "--enable-cert-reload") ||
+				strings.HasPrefix(s, "-enable-cert-reload")
+		})
+	}
 	if mainIdx >= 0 &&
-		!slices.Contains(d.Spec.Template.Spec.Containers[mainIdx].Command, "--enable-cert-reload") &&
-		!slices.Contains(d.Spec.Template.Spec.Containers[mainIdx].Command, "-enable-cert-reload") &&
-		!slices.Contains(d.Spec.Template.Spec.Containers[mainIdx].Args, "--enable-cert-reload") &&
-		!slices.Contains(d.Spec.Template.Spec.Containers[mainIdx].Args, "-enable-cert-reload") {
+		!certReloadEnabled(d.Spec.Template.Spec.Containers[mainIdx].Command) &&
+		!certReloadEnabled(d.Spec.Template.Spec.Containers[mainIdx].Args) {
 		if h := r.getSelfSignedCertHash(ctx, llmSvc); h != "" {
 			if d.Spec.Template.Annotations == nil {
 				d.Spec.Template.Annotations = map[string]string{}
