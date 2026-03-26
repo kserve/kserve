@@ -37,11 +37,9 @@ from kserve import (
 )
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc
 
-AUTOGLUON_TS_STORAGE_URI = os.getenv("AUTOGLUON_TIMESERIES_STORAGE_URI", "")
-
-pytestmark = pytest.mark.skipif(
-    not AUTOGLUON_TS_STORAGE_URI,
-    reason="AUTOGLUON_TIMESERIES_STORAGE_URI not set (time series e2e)",
+AUTOGLUON_TS_STORAGE_URI = os.getenv(
+    "AUTOGLUON_TIMESERIES_STORAGE_URI",
+    "gs://test-project-frog-ml-artifacts/timeseries-artifacts/predictor/",
 )
 
 AUTOGLUON_TS_RESOURCES = V1ResourceRequirements(
@@ -61,21 +59,23 @@ def _create_isvc(service_name: str, predictor: V1beta1PredictorSpec):
     )
 
 
-def _create_ts_predictor(service_name: str):
+def _create_ts_predictor(service_name: str, storage_uri: str = None):
     model = V1beta1ModelSpec(
         model_format=V1beta1ModelFormat(name="autogluon-timeseries"),
         runtime="kserve-autogluonserver",
-        storage_uri=AUTOGLUON_TS_STORAGE_URI,
+        storage_uri=storage_uri or AUTOGLUON_TS_STORAGE_URI,
         resources=AUTOGLUON_TS_RESOURCES,
     )
     return V1beta1PredictorSpec(min_replicas=1, model=model)
 
 
-async def _deploy_and_predict_v1(service_name: str, rest_v1_client, input_path: str):
+async def _deploy_and_predict_v1(
+    service_name: str, rest_v1_client, input_path: str, storage_uri: str = None
+):
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
-    predictor = _create_ts_predictor(service_name)
+    predictor = _create_ts_predictor(service_name, storage_uri=storage_uri)
     isvc = _create_isvc(service_name, predictor)
     kserve_client.create(isvc)
     try:
@@ -93,6 +93,22 @@ async def test_autogluon_timeseries_runtime_kserve_v1(rest_v1_client):
         service_name,
         rest_v1_client,
         "./data/autogluon_timeseries_input.json",
+    )
+    assert "predictions" in response
+    assert len(response["predictions"]) > 0
+
+
+@pytest.mark.predictor
+@pytest.mark.asyncio(scope="session")
+async def test_autogluon_timeseries_runtime_kserve_v1_storage_uri_without_trailing_slash(
+    rest_v1_client,
+):
+    service_name = "isvc-autogluon-ts-v1-noslash"
+    response = await _deploy_and_predict_v1(
+        service_name,
+        rest_v1_client,
+        "./data/autogluon_timeseries_input_long.json",
+        storage_uri=AUTOGLUON_TS_STORAGE_URI.rstrip("/"),
     )
     assert "predictions" in response
     assert len(response["predictions"]) > 0

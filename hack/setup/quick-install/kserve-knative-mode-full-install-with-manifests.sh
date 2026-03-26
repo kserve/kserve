@@ -1783,8 +1783,6 @@ spec:
   supportedModelFormats:
   - name: autogluon
     version: "1"
-  - name: autogluon-timeseries
-    version: "1"
 ---
 apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
