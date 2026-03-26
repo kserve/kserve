@@ -951,77 +951,81 @@ schedulingProfiles:
 			}).WithContext(ctx).Should(Succeed())
 		})
 
-		It("should skip cert-hash annotation when scheduler supports --enable-cert-reload", func(ctx SpecContext) {
-			// given
-			svcName := "test-llm-cert-reload-skip"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+		DescribeTable("should skip cert-hash annotation when scheduler supports cert reload",
+			func(ctx SpecContext, certReloadArg string) {
+				// given
+				svcName := "test-llm-cert-reload-skip"
+				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
-			modelConfig := LLMInferenceServiceConfig("model-cert-reload",
-				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
-				WithConfigModelName("facebook/opt-125m"),
-				WithConfigModelURI("hf://facebook/opt-125m"),
-			)
+				modelConfig := LLMInferenceServiceConfig("model-cert-reload",
+					InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+					WithConfigModelName("facebook/opt-125m"),
+					WithConfigModelURI("hf://facebook/opt-125m"),
+				)
 
-			routerConfig := LLMInferenceServiceConfig("router-cert-reload",
-				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
-			)
-			routerConfig.Spec.Router = &v1alpha2.RouterSpec{
-				Gateway: &v1alpha2.GatewaySpec{},
-				Route:   &v1alpha2.GatewayRoutesSpec{},
-				Scheduler: &v1alpha2.SchedulerSpec{
-					Template: &corev1.PodSpec{
-						Containers: []corev1.Container{
-							{
-								Name:  "main",
-								Image: "ghcr.io/llm-d/llm-d-inference-scheduler:v0.3.0",
-								Args: []string{
-									"--enable-cert-reload",
-									"--poolName",
-									"test-pool",
-								},
-								Ports: []corev1.ContainerPort{
-									{Name: "grpc", ContainerPort: 9002, Protocol: corev1.ProtocolTCP},
-									{Name: "grpc-health", ContainerPort: 9003, Protocol: corev1.ProtocolTCP},
-									{Name: "metrics", ContainerPort: 9090, Protocol: corev1.ProtocolTCP},
+				routerConfig := LLMInferenceServiceConfig("router-cert-reload",
+					InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+				)
+				routerConfig.Spec.Router = &v1alpha2.RouterSpec{
+					Gateway: &v1alpha2.GatewaySpec{},
+					Route:   &v1alpha2.GatewayRoutesSpec{},
+					Scheduler: &v1alpha2.SchedulerSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "main",
+									Image: "ghcr.io/llm-d/llm-d-inference-scheduler:v0.6.0",
+									Args: []string{
+										certReloadArg,
+										"--poolName",
+										"test-pool",
+									},
+									Ports: []corev1.ContainerPort{
+										{Name: "grpc", ContainerPort: 9002, Protocol: corev1.ProtocolTCP},
+										{Name: "grpc-health", ContainerPort: 9003, Protocol: corev1.ProtocolTCP},
+										{Name: "metrics", ContainerPort: 9090, Protocol: corev1.ProtocolTCP},
+									},
 								},
 							},
 						},
+						Pool: &v1alpha2.InferencePoolSpec{},
 					},
-					Pool: &v1alpha2.InferencePoolSpec{},
-				},
-			}
+				}
 
-			Expect(envTest.Client.Create(ctx, modelConfig)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, routerConfig)).To(Succeed())
+				Expect(envTest.Client.Create(ctx, modelConfig)).To(Succeed())
+				Expect(envTest.Client.Create(ctx, routerConfig)).To(Succeed())
 
-			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
-				WithBaseRefs(
-					corev1.LocalObjectReference{Name: "model-cert-reload"},
-					corev1.LocalObjectReference{Name: "router-cert-reload"},
-				),
-			)
+				llmSvc := LLMInferenceService(svcName,
+					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+					WithBaseRefs(
+						corev1.LocalObjectReference{Name: "model-cert-reload"},
+						corev1.LocalObjectReference{Name: "router-cert-reload"},
+					),
+				)
 
-			// when
-			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
-			defer func() {
-				testNs.DeleteAndWait(ctx, llmSvc)
-			}()
+				// when
+				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+				defer func() {
+					testNs.DeleteAndWait(ctx, llmSvc)
+				}()
 
-			// then - the scheduler deployment must NOT have cert-hash annotation
-			schedulerDeployment := &appsv1.Deployment{}
-			Eventually(func(g Gomega, ctx context.Context) error {
-				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
-					Namespace: testNs.Name,
-				}, schedulerDeployment)
-			}).WithContext(ctx).Should(Succeed())
+				// then - the scheduler deployment must NOT have cert-hash annotation
+				schedulerDeployment := &appsv1.Deployment{}
+				Eventually(func(g Gomega, ctx context.Context) error {
+					return envTest.Get(ctx, types.NamespacedName{
+						Name:      svcName + "-kserve-router-scheduler",
+						Namespace: testNs.Name,
+					}, schedulerDeployment)
+				}).WithContext(ctx).Should(Succeed())
 
-			Expect(schedulerDeployment.Spec.Template.Annotations).NotTo(
-				HaveKey(llmisvc.DefaultRestartAnnotation),
-				"Scheduler with --enable-cert-reload should not have cert-hash annotation",
-			)
-		})
+				Expect(schedulerDeployment.Spec.Template.Annotations).NotTo(
+					HaveKey(llmisvc.DefaultRestartAnnotation),
+					"Scheduler with cert reload enabled should not have cert-hash annotation",
+				)
+			},
+			Entry("bare flag", "--enable-cert-reload"),
+			Entry("flag with =true", "--enable-cert-reload=true"),
+		)
 	})
 
 	Context("Scheduler RBAC", func() {
