@@ -50,8 +50,9 @@ import (
 const (
 	tokenizerContainerName = "tokenizer"
 
-	udsTokenizerBaseModelName = "base"
-	udsTokenizerSocketFile    = "/tmp/tokenizer/tokenizer-uds.socket" //nolint:gosec // G101: not a credential, UDS socket path
+	precisePrefixCacheScorerPlugin = "precise-prefix-cache-scorer"
+	udsTokenizerBaseModelName      = "base"
+	udsTokenizerSocketFile         = "/tmp/tokenizer/tokenizer-uds.socket" //nolint:gosec // G101: not a credential, UDS socket path
 )
 
 // reconcileScheduler manages the scheduler component and its related resources
@@ -437,7 +438,9 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 				return d, fmt.Errorf("failed to attach model artifacts to scheduler deployment: %w", err)
 			}
 
-			if err := mutateSchedulerConfig(d, WithUdsTokenizerConfig); err != nil {
+			// Migrate tokenProcessorConfig from indexerConfig to top-level parameters
+			// for the precise-prefix-cache-scorer plugin (schema change in v0.6.0).
+			if err := mutateSchedulerConfig(d, WithUdsTokenizerConfig, WithMigrateTokenProcessorConfig); err != nil {
 				return d, fmt.Errorf("failed to mutate scheduler config for tokenizer: %w", err)
 			}
 		}
@@ -790,9 +793,8 @@ func mutateSchedulerConfig(d *appsv1.Deployment, opts ...mutateSchedulerConfigFu
 
 func WithUdsTokenizerConfig(u *unstructured.Unstructured) error {
 	var (
-		precisePrefixCacheScorerPlugin = "precise-prefix-cache-scorer"
-		modelNameField                 = []string{"parameters", "indexerConfig", "tokenizersPoolConfig", "modelName"}
-		udsSocketFileField             = []string{"parameters", "indexerConfig", "tokenizersPoolConfig", "uds", "socketFile"}
+		modelNameField     = []string{"parameters", "indexerConfig", "tokenizersPoolConfig", "modelName"}
+		udsSocketFileField = []string{"parameters", "indexerConfig", "tokenizersPoolConfig", "uds", "socketFile"}
 	)
 
 	val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
@@ -814,6 +816,47 @@ func WithUdsTokenizerConfig(u *unstructured.Unstructured) error {
 			return err
 		}
 		if err := unstructured.SetNestedField(pluginMap, udsTokenizerSocketFile, udsSocketFileField...); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// WithMigrateTokenProcessorConfig migrates tokenProcessorConfig from inside
+// indexerConfig to the top level of the plugin parameters for the
+// precise-prefix-cache-scorer plugin. This handles the schema change in
+// llm-d-inference-scheduler v0.6.0 where tokenProcessorConfig was promoted
+// from indexerConfig to a top-level plugin parameter.
+func WithMigrateTokenProcessorConfig(u *unstructured.Unstructured) error {
+	val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
+	if err != nil || !found {
+		return err
+	}
+	plugins, ok := val.([]interface{})
+	if !ok {
+		return nil
+	}
+
+	for _, plugin := range plugins {
+		pluginMap, ok := plugin.(map[string]interface{})
+		if !ok || pluginMap["type"] != precisePrefixCacheScorerPlugin {
+			continue
+		}
+
+		// Skip if tokenProcessorConfig already exists at the top level
+		if _, exists, _ := unstructured.NestedFieldNoCopy(pluginMap, "parameters", "tokenProcessorConfig"); exists {
+			continue
+		}
+
+		// Check if tokenProcessorConfig exists inside indexerConfig (old location)
+		tpc, found, err := unstructured.NestedFieldCopy(pluginMap, "parameters", "indexerConfig", "tokenProcessorConfig")
+		if err != nil || !found {
+			continue
+		}
+
+		// Move to top-level parameters
+		if err := unstructured.SetNestedField(pluginMap, tpc, "parameters", "tokenProcessorConfig"); err != nil {
 			return err
 		}
 	}
