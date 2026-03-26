@@ -174,8 +174,8 @@ spec:
         capabilities:
           drop:
           - ALL
-        readOnlyRootFilesystem: false
-        runAsNonRoot: false
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       startupProbe:
@@ -248,8 +248,8 @@ spec:
         capabilities:
           drop:
           - ALL
-        readOnlyRootFilesystem: false
-        runAsNonRoot: false
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
       terminationMessagePath: /dev/termination-log
       terminationMessagePolicy: FallbackToLogsOnError
       volumeMounts:
@@ -480,8 +480,8 @@ spec:
           - NET_RAW
           drop:
           - ALL
-        readOnlyRootFilesystem: false
-        runAsNonRoot: false
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       startupProbe:
@@ -554,7 +554,7 @@ spec:
           drop:
           - ALL
         readOnlyRootFilesystem: true
-        runAsNonRoot: false
+        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       terminationMessagePath: /dev/termination-log
@@ -766,8 +766,8 @@ spec:
           - NET_RAW
           drop:
           - ALL
-        readOnlyRootFilesystem: false
-        runAsNonRoot: false
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       terminationMessagePath: /dev/termination-log
@@ -973,8 +973,8 @@ spec:
           capabilities:
             drop:
             - ALL
-          readOnlyRootFilesystem: false
-          runAsNonRoot: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
           seccompProfile:
             type: RuntimeDefault
         startupProbe:
@@ -1221,8 +1221,8 @@ spec:
             - NET_RAW
             drop:
             - ALL
-          readOnlyRootFilesystem: false
-          runAsNonRoot: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
           seccompProfile:
             type: RuntimeDefault
         startupProbe:
@@ -1445,8 +1445,8 @@ spec:
             - NET_RAW
             drop:
             - ALL
-          readOnlyRootFilesystem: false
-          runAsNonRoot: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
           seccompProfile:
             type: RuntimeDefault
         terminationMessagePath: /dev/termination-log
@@ -1914,8 +1914,8 @@ spec:
         capabilities:
           drop:
           - ALL
-        readOnlyRootFilesystem: false
-        runAsNonRoot: false
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       startupProbe:
@@ -2161,8 +2161,8 @@ spec:
           - NET_RAW
           drop:
           - ALL
-        readOnlyRootFilesystem: false
-        runAsNonRoot: false
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       startupProbe:
@@ -2385,8 +2385,8 @@ spec:
           - NET_RAW
           drop:
           - ALL
-        readOnlyRootFilesystem: false
-        runAsNonRoot: false
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       terminationMessagePath: /dev/termination-log
