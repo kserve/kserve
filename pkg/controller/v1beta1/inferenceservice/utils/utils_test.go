@@ -782,10 +782,12 @@ func TestMergeRuntimeContainers(t *testing.T) {
 		"containerOverrideArgs": []string{
 			"--model_name=kserve-container-in-args",
 			"--model_id=dummy",
+			"--enable_some_feature",
 		},
 		"expectedArgs": []string{
 			"--model_name=kserve-container-in-args",
 			"--model_id=dummy",
+			"--enable_some_feature",
 		},
 	}
 
@@ -795,10 +797,12 @@ func TestMergeRuntimeContainers(t *testing.T) {
 		},
 		"containerOverrideArgs": []string{
 			"--model_id=dummy",
+			"--enable_some_feature",
 		},
 		"expectedArgs": []string{
 			"--model_name=kserve-container",
 			"--model_id=dummy",
+			"--enable_some_feature",
 		},
 	}
 
