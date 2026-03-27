@@ -52,9 +52,9 @@ WORKDIR ${WORKSPACE_DIR}
 FROM base AS build
 
 ARG WORKSPACE_DIR
-ARG VLLM_VERSION=0.15.1
-ARG LMCACHE_VERSION=0.3.9
-ARG FLASHINFER_VERSION=0.6.1
+ARG VLLM_VERSION=0.18.0
+ARG LMCACHE_VERSION=0.4.2
+ARG FLASHINFER_VERSION=0.6.6
 
 WORKDIR ${WORKSPACE_DIR}
 
@@ -161,6 +161,10 @@ ENV VLLM_NCCL_SO_PATH="/lib/x86_64-linux-gnu/libnccl.so.2"
 # https://github.com/vllm-project/vllm/issues/6152
 # Set the multiprocess method to spawn to avoid issues with cuda initialization for `mp` executor backend.
 ENV VLLM_WORKER_MULTIPROC_METHOD="spawn"
+
+ENV LD_LIBRARY_PATH=/usr/local/nvidia/lib64:/usr/local/cuda/lib64:/usr/local/cuda/targets/x86_64-linux/lib:$(LD_LIBRARY_PATH)
+# Default AWS region when using runai to download from S3 bucket. TODO: pass this at runtime.
+ENV AWS_REGION=eu-west-1
 
 USER 1000
 ENV PYTHONPATH=${WORKSPACE_DIR}/huggingfaceserver

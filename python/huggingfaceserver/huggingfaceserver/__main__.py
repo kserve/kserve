@@ -50,22 +50,37 @@ def list_of_strings(arg):
     return arg.split(",")
 
 
+_REMOTE_URI_PREFIXES = (
+    "s3://", "gs://", "az://", "azure://",
+    "http://", "https://", "ftp://", "hdfs://",
+)
+
+
 def get_model_id_or_path(args: argparse.Namespace) -> Union[str, Path]:
     # If --model_id is specified then pass model_id to HF API, otherwise load the model from /mnt/models
     if args.model_id:
         return cast(str, args.model_id)
+    # For remote URIs (s3://, gs://, etc.), pass directly to vLLM which handles
+    # streaming via load format (e.g., runai_streamer). Skip Storage.download
+    # to avoid attempting a full local download.
+    if isinstance(args.model_dir, str) and args.model_dir.startswith(_REMOTE_URI_PREFIXES):
+        return args.model_dir
     return Path(Storage.download(args.model_dir))
 
 
 def is_vllm_backend_enabled(
     args: argparse.Namespace, model_id_or_path: Union[str, Path]
 ) -> bool:
+    # When backend is explicitly set to vllm, skip architecture validation.
+    # This allows using custom load formats (like runai_streamer) with remote URIs.
+    force_vllm = args.backend == Backend.vllm
     return (
         (args.backend == Backend.vllm or args.backend == Backend.auto)
         and vllm_available()
         and infer_vllm_supported_from_model_architecture(
             model_id_or_path,
             trust_remote_code=args.trust_remote_code,
+            force_vllm=force_vllm,
         )
     )
 

@@ -41,18 +41,47 @@ def vllm_available() -> bool:
 def infer_vllm_supported_from_model_architecture(
     model_config_path: Union[Path, str],
     trust_remote_code: bool = False,
+    force_vllm: bool = False,
 ) -> bool:
     if not _vllm:
         return False
 
-    model_config = AutoConfig.from_pretrained(
-        model_config_path, trust_remote_code=trust_remote_code
-    )
-    for architecture in model_config.architectures:
-        if architecture not in ModelRegistry.get_supported_archs():
-            logger.info("not a supported model by vLLM")
-            return False
-    return True
+    model_path_str = str(model_config_path)
+
+    # Skip architecture validation for remote URIs (S3, GCS, Azure, HTTP).
+    # These are used with custom load formats like runai_streamer that bypass
+    # standard HuggingFace model loading.
+    is_remote_uri = model_path_str.startswith((
+        "s3://", "gs://", "az://", "azure://",
+        "http://", "https://", "ftp://", "hdfs://",
+    ))
+
+    if is_remote_uri:
+        logger.info(
+            f"Skipping architecture validation for remote URI: {model_path_str}. "
+            "Assuming vLLM can handle this with appropriate load-format settings."
+        )
+        return True
+
+    if force_vllm:
+        logger.info("vLLM backend explicitly requested, skipping architecture validation.")
+        return True
+
+    try:
+        model_config = AutoConfig.from_pretrained(
+            model_config_path, trust_remote_code=trust_remote_code
+        )
+        for architecture in model_config.architectures:
+            if architecture not in ModelRegistry.get_supported_archs():
+                logger.info("not a supported model by vLLM")
+                return False
+        return True
+    except Exception as e:
+        logger.warning(
+            f"Failed to load model config from {model_path_str}: {e}. "
+            "If using a remote URI with custom load format, consider setting --backend=vllm explicitly."
+        )
+        return False
 
 
 def maybe_add_vllm_cli_parser(parser: ArgumentParser) -> ArgumentParser:

@@ -23,7 +23,7 @@ from vllm.entrypoints.logger import RequestLogger
 from vllm.engine.protocol import EngineClient
 from vllm.entrypoints.openai.completion.serving import OpenAIServingCompletion
 from vllm.entrypoints.openai.chat_completion.serving import OpenAIServingChat
-from vllm.entrypoints.pooling.embed.serving import OpenAIServingEmbedding
+from vllm.entrypoints.pooling.embed.serving import ServingEmbedding
 from vllm.entrypoints.pooling.score.serving import ServingScores
 from vllm.tool_parsers import ToolParserManager
 from vllm.entrypoints.openai.models.protocol import BaseModelPath
@@ -60,7 +60,7 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
     openai_serving_models: Optional[OpenAIServingModels] = None
     openai_serving_completion: Optional[OpenAIServingCompletion] = None
     openai_serving_chat: Optional[OpenAIServingChat] = None
-    openai_serving_embedding: Optional[OpenAIServingEmbedding] = None
+    openai_serving_embedding: Optional[ServingEmbedding] = None
     serving_reranking: Optional[ServingScores] = None
 
     def __init__(
@@ -175,7 +175,7 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
             )
 
             self.openai_serving_embedding = (
-                OpenAIServingEmbedding(
+                ServingEmbedding(
                     self.engine_client,
                     self.openai_serving_models,
                     request_logger=self.request_logger,
