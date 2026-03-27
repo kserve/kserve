@@ -32,6 +32,10 @@ export KSERVE_NAMESPACE=${KSERVE_NAMESPACE:-"kserve"}
 MY_PATH=$(dirname "$0")
 PROJECT_ROOT=$MY_PATH/../../../
 export CI_USE_ISVC_HOST="1"
+
+# Export the controller namespace so that E2E tests
+# (e.g. storage version migration) can find the controller.
+export KSERVE_NAMESPACE="${KSERVE_NAMESPACE:-opendatahub}"
 export GITHUB_SHA=stable # Need to use stable as this is what the CI tags the images to for success-200 and error-404
 : "${BUILD_GRAPH_IMAGES:=true}"
 : "${BUILD_KSERVE_IMAGES:=true}"

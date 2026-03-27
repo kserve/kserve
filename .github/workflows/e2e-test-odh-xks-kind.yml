@@ -102,6 +102,7 @@ jobs:
       - name: Run E2E tests
         timeout-minutes: 40
         env:
+          KSERVE_NAMESPACE: "opendatahub"
           SKIP_DELETION_ON_FAILURE: "true"
           TOKEN_AUDIENCES: "https://kubernetes.default.svc"
           GATEWAY_CLASS_NAME: "istio"

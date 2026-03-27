@@ -31,6 +31,7 @@ import pytest
 from kserve import KServeClient, constants
 from kubernetes import client
 
+from ..common.utils import KSERVE_NAMESPACE
 from .fixtures import (
     inject_k8s_proxy,
     KSERVE_TEST_NAMESPACE,
@@ -40,7 +41,7 @@ from .logging import logger
 
 LLMISVC_CRD_NAME = "llminferenceservices.serving.kserve.io"
 LLMISVC_CONFIG_CRD_NAME = "llminferenceserviceconfigs.serving.kserve.io"
-CONTROLLER_NAMESPACE = os.environ.get("KSERVE_NAMESPACE", "opendatahub")
+CONTROLLER_NAMESPACE = KSERVE_NAMESPACE
 CONTROLLER_DEPLOYMENT = "llmisvc-controller-manager"
 KUBE_CLI_COMMAND = os.environ.get("KUBE_CLI", "kubectl")
 
