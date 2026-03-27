@@ -71,7 +71,10 @@ class RESTServerProcess:
             )
         # Configure logging for every child
         logging.configure_logging(self._log_config_file)
+        # Start pong daemon thread and signal parent when ready
         threading.Thread(target=self.always_pong, daemon=True).start()
+        # Signal to parent that the pong thread is ready to receive messages
+        self._child_conn.send(b"ready")
         try:
             return self._real_target(sockets=sockets)
         except KeyboardInterrupt:
@@ -88,6 +91,8 @@ class RESTServerProcess:
 
     def start(self) -> None:
         self._process.start()
+        # Wait for child process to signal it's ready for pings (pong thread started)
+        self._parent_conn.recv()  # Blocking call, waits for "ready" signal
 
     def terminate(self) -> None:
         if self._process.exitcode is None:  # Process is still running

@@ -489,14 +489,31 @@ class InferenceRESTClient:
         if self._config.verbose:
             logger.info("url: %s", url)
             logger.info("request data: %s", data)
+        # Initialize headers as dict to ensure proper mutation
+        if headers is None:
+            headers = {}
+        else:
+            # Create a copy to avoid mutating the input parameter
+            headers = dict(headers)
         if isinstance(data, InferRequest):
             data, json_length = data.to_rest()
             if json_length:
-                headers = headers or {}
+                # Hybrid format: JSON + binary data
                 headers[INFERENCE_CONTENT_LENGTH_HEADER] = str(json_length)
                 headers["content-type"] = "application/octet-stream"
-        if isinstance(data, dict):
-            data = orjson.dumps(data)
+            else:
+                # Pure JSON format: set header for pure JSON data
+                if isinstance(data, dict):
+                    data_bytes = orjson.dumps(data)
+                    headers[INFERENCE_CONTENT_LENGTH_HEADER] = str(len(data_bytes))
+                    headers["content-type"] = "application/octet-stream"
+                    data = data_bytes
+        elif isinstance(data, dict):
+            # Regular dict input: convert to JSON
+            data_bytes = orjson.dumps(data)
+            headers[INFERENCE_CONTENT_LENGTH_HEADER] = str(len(data_bytes))
+            headers["content-type"] = "application/octet-stream"
+            data = data_bytes
         response = await self._client.post(
             url, content=data, headers=headers, timeout=timeout
         )
