@@ -30,6 +30,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 // sccDisabled indicates whether SCC role binding reconciliation is disabled at runtime.
@@ -53,7 +54,7 @@ func (r *LLMISVCReconciler) reconcileMultiNodeSCCRoleBinding(ctx context.Context
 	if err != nil {
 		return fmt.Errorf("failed to create expected multi node scc role binding: %w", err)
 	}
-	if llmSvc.Spec.Worker == nil && (llmSvc.Spec.Prefill == nil || llmSvc.Spec.Prefill.Worker == nil) {
+	if utils.GetForceStopRuntime(llmSvc) || (llmSvc.Spec.Worker == nil && (llmSvc.Spec.Prefill == nil || llmSvc.Spec.Prefill.Worker == nil)) {
 		return Delete(ctx, r, llmSvc, expected)
 	}
 	return Reconcile(ctx, r, llmSvc, &rbacv1.RoleBinding{}, expected, semanticRoleBindingIsEqual)

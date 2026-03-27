@@ -214,6 +214,58 @@ var _ = Describe("LLMInferenceService OCP SCC Controller", func() {
 			}).WithContext(ctx).Should(BeTrue())
 		})
 
+		It("should delete SCC RoleBinding when stop annotation is set", func(ctx SpecContext) {
+			// given
+			svcName := "test-scc-stop"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithParallelism(ParallelismSpec(
+					WithDataParallelism(2),
+					WithDataLocalParallelism(1),
+				)),
+				WithWorker(&corev1.PodSpec{}),
+				WithManagedRoute(),
+				WithManagedGateway(),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			sccRBName := types.NamespacedName{
+				Name:      kmeta.ChildName(svcName, "-kserve-mn-scc"),
+				Namespace: testNs.Name,
+			}
+
+			// Verify SCC RoleBinding is created
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, sccRBName, &rbacv1.RoleBinding{})
+			}).WithContext(ctx).Should(Succeed())
+
+			// when - Set the stop annotation
+			errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				_, errUpdate := ctrl.CreateOrUpdate(ctx, envTest.Client, llmSvc, func() error {
+					if llmSvc.Annotations == nil {
+						llmSvc.Annotations = make(map[string]string)
+					}
+					llmSvc.Annotations[constants.StopAnnotationKey] = "true"
+					return nil
+				})
+				return errUpdate
+			})
+			Expect(errRetry).ToNot(HaveOccurred())
+
+			// then - SCC RoleBinding should be deleted
+			Eventually(func(g Gomega, ctx context.Context) bool {
+				err := envTest.Get(ctx, sccRBName, &rbacv1.RoleBinding{})
+				return apierrors.IsNotFound(err)
+			}).WithContext(ctx).Should(BeTrue())
+		})
+
 		It("should have correct labels on SCC RoleBinding", func(ctx SpecContext) {
 			// given
 			svcName := "test-scc-labels"
