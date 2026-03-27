@@ -18,7 +18,7 @@ import pytest
 from kserve.errors import InferenceError, ModelMissingError
 from kserve.protocol.infer_type import InferInput, InferRequest
 
-from autogluonserver.model import (
+from autogluonserver.tabular_model import (
     AutoGluonTabularModel,
     _determine_prediction_datatype,
 )
