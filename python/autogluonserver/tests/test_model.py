@@ -19,7 +19,7 @@ from kserve.errors import InferenceError, ModelMissingError
 from kserve.protocol.infer_type import InferInput, InferRequest
 
 from autogluonserver.model import (
-    AutoGluonModel,
+    AutoGluonTabularModel,
     _determine_prediction_datatype,
 )
 
@@ -88,7 +88,7 @@ def test_load_success_sets_ready_and_output_datatype(monkeypatch, tmp_path):
         "autogluonserver.tabular_model.TabularPredictor.load", lambda _: predictor
     )
 
-    model = AutoGluonModel("model", "s3://bucket/path")
+    model = AutoGluonTabularModel("model", "s3://bucket/path")
     assert model.load()
     assert model.ready
     assert model._prediction_datatype == "INT64"
@@ -100,7 +100,7 @@ def test_load_raises_model_missing_error(monkeypatch, tmp_path):
         "autogluonserver.tabular_model.Storage.download", lambda _: str(missing_dir)
     )
 
-    model = AutoGluonModel("model", "s3://bucket/path")
+    model = AutoGluonTabularModel("model", "s3://bucket/path")
     with pytest.raises(ModelMissingError):
         model.load()
 
@@ -109,7 +109,7 @@ def test_predict_v1_instances(monkeypatch):
     predictor = DummyPredictor(
         features=["a", "b"], predict_result=pd.Series(["yes", "no"])
     )
-    model = AutoGluonModel("model", "/tmp/model")
+    model = AutoGluonTabularModel("model", "/tmp/model")
     model._predictor = predictor
     model.ready = True
 
@@ -125,7 +125,7 @@ def test_predict_v2_success_decodes_bytes_and_returns_int64():
         problem_type="binary",
         predict_result=pd.Series([1, 0]),
     )
-    model = AutoGluonModel("model", "/tmp/model")
+    model = AutoGluonTabularModel("model", "/tmp/model")
     model._predictor = predictor
     model._prediction_datatype = "INT64"
     model.ready = True
@@ -148,7 +148,7 @@ def test_predict_v2_uses_predict_proba_when_enabled(monkeypatch):
         predict_result=pd.Series(["yes", "no"]),
         predict_proba_result=pd.DataFrame({"yes": [0.7, 0.2], "no": [0.3, 0.8]}),
     )
-    model = AutoGluonModel("model", "/tmp/model")
+    model = AutoGluonTabularModel("model", "/tmp/model")
     model._predictor = predictor
     model._prediction_datatype = "BYTES"
     model.ready = True
@@ -176,7 +176,7 @@ def test_predict_v1_uses_predict_proba_when_enabled(monkeypatch):
         predict_result=pd.Series(["yes", "no"]),
         predict_proba_result=pd.DataFrame({"yes": [0.61, 0.42], "no": [0.39, 0.58]}),
     )
-    model = AutoGluonModel("model", "/tmp/model")
+    model = AutoGluonTabularModel("model", "/tmp/model")
     model._predictor = predictor
     model.ready = True
 
@@ -194,7 +194,7 @@ def test_predict_v2_missing_feature_raises_inference_error():
     predictor = DummyPredictor(
         features=["f1", "f2"], class_labels=[0, 1], predict_result=pd.Series([1])
     )
-    model = AutoGluonModel("model", "/tmp/model")
+    model = AutoGluonTabularModel("model", "/tmp/model")
     model._predictor = predictor
     model._prediction_datatype = "INT64"
 
@@ -205,7 +205,7 @@ def test_predict_v2_missing_feature_raises_inference_error():
 
 def test_predict_v2_invalid_shape_raises_inference_error():
     predictor = DummyPredictor(features=["f1", "f2"], predict_result=pd.Series([1, 0]))
-    model = AutoGluonModel("model", "/tmp/model")
+    model = AutoGluonTabularModel("model", "/tmp/model")
     model._predictor = predictor
 
     request = InferRequest(
@@ -226,7 +226,7 @@ def test_predict_v2_invalid_shape_raises_inference_error():
 
 def test_predict_v2_inconsistent_batch_raises_inference_error():
     predictor = DummyPredictor(features=["f1", "f2"], predict_result=pd.Series([1, 0]))
-    model = AutoGluonModel("model", "/tmp/model")
+    model = AutoGluonTabularModel("model", "/tmp/model")
     model._predictor = predictor
 
     request = _make_v2_request({"f1": [1.0, 2.0], "f2": [5.0]})
@@ -240,7 +240,7 @@ def test_get_input_and_output_types_for_regression():
         problem_type="regression",
         type_map_raw={"age": "int64", "city": "object"},
     )
-    model = AutoGluonModel("model", "/tmp/model")
+    model = AutoGluonTabularModel("model", "/tmp/model")
     model._predictor = predictor
 
     assert model.get_input_types() == [
@@ -258,7 +258,7 @@ def test_get_output_types_for_predict_proba(monkeypatch):
         class_labels=["A", "A", "1 B"],
         problem_type="multiclass",
     )
-    model = AutoGluonModel("model", "/tmp/model")
+    model = AutoGluonTabularModel("model", "/tmp/model")
     model._predictor = predictor
 
     monkeypatch.setenv("PREDICT_PROBA", "true")

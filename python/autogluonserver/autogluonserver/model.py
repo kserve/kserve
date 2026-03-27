@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Backward-compatible re-exports for tabular AutoGluon model helpers."""
+"""Re-exports for tabular AutoGluon model helpers."""
 
 from .tabular_model import (
     AutoGluonTabularModel,
@@ -24,11 +24,7 @@ from .tabular_model import (
     _tensor_to_dataframe,
 )
 
-# Historical name used by tests and callers
-AutoGluonModel = AutoGluonTabularModel
-
 __all__ = [
-    "AutoGluonModel",
     "AutoGluonTabularModel",
     "_build_v2_outputs",
     "_determine_prediction_datatype",
