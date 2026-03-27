@@ -19,7 +19,9 @@ from kserve import logging
 from kserve.errors import ModelMissingError
 from kserve.logging import logger
 
-from autogluonserver import AutoGluonModel, AutoGluonModelRepository
+from autogluonserver import AutoGluonModelRepository
+from autogluonserver.predictor_factory import create_autogluon_model
+from autogluonserver.runtime_paths import ensure_autogluon_runtime_paths
 
 parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
 parser.add_argument(
@@ -28,9 +30,10 @@ parser.add_argument(
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
+    ensure_autogluon_runtime_paths()
     if args.configure_logging:
         logging.configure_logging(args.log_config_file)
-    model = AutoGluonModel(args.model_name, args.model_dir)
+    model = create_autogluon_model(args.model_name, args.model_dir)
     try:
         model.load()
         kserve.ModelServer().start([model])
