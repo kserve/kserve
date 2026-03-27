@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .model import AutoGluonTabularModel
+from .tabular_model import AutoGluonTabularModel
 from .autogluon_model_repository import AutoGluonModelRepository
 from .predictor_factory import AutoGluonDetectedModel, create_autogluon_model
 from .timeseries_model import AutoGluonTimeSeriesModel
