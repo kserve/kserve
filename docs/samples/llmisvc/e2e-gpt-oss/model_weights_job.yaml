@@ -8,7 +8,6 @@ spec:
   completions: 1
   template:
     spec:
-      serviceAccountName: hfserviceacc
       restartPolicy: Never
       volumes:
         - name: pvc
@@ -16,7 +15,7 @@ spec:
             claimName: gpt-oss-20b-pvc
             readOnly: false
       containers:
-        - image: quay.io/opendatahub/kserve-storage-initializer:latest
+        - image: kserve/kserve-storage-initializer:v0.17.0
           name: storage-initializer
           args:
             - hf://RedHatAI/gpt-oss-20b
@@ -30,6 +29,11 @@ spec:
               value: "True"
             - name: HF_HUB_DISABLE_TELEMETRY
               value: "1"
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hf-token
+                  key: HF_TOKEN
           resources:
             requests:
               cpu: "2"

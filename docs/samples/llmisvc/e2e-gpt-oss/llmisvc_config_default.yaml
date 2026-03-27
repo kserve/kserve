@@ -23,7 +23,7 @@ spec:
           runAsNonRoot: true
         # Override liveness probe initial delay
         livenessProbe:
-          initialDelaySeconds: 4800
+          initialDelaySeconds: 1200
         # Override readiness probe settings
         readinessProbe:
           initialDelaySeconds: 10

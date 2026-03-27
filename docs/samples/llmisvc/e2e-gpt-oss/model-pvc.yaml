@@ -9,5 +9,5 @@ spec:
   resources:
     requests:
       storage: 256Gi
-  storageClassName: local-path
+#  storageClassName: local-path # Only possible with rancher's local-path storage class
   volumeMode: Filesystem

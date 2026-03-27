@@ -5,8 +5,8 @@ This guide walks through deploying **RedHatAI/gpt-oss-20b** on Kubernetes using 
 There are 3 alternate deployments detailed here:
 
 1. default - a deployment of intelligent inference scheduling with vLLM and the llm-d scheduler
-1. precise prefix cache aware routing - an advanced configuration that takes advantage of vLLM KV-Events
-1. prefill-decode disaggregation - an advanced configuration that seperate vLLM pods for the prefill and the decode stages of inference.
+2. precise prefix cache aware routing - an advanced configuration that takes advantage of vLLM KV-Events
+3. prefill-decode disaggregation - an advanced configuration that uses separate vLLM pods for the prefill and the decode stages of inference.
 
 ---
 
@@ -50,7 +50,9 @@ Model weights are stored on a PersistentVolumeClaim so they can be reused by inf
 
 **Option A: Use the provided PVC**
 
-The sample [model-pvc.yaml](./model-pvc.yaml) requests 256Gi with `ReadWriteMany` and `storageClassName: local-path`. Ensure your cluster has a default or matching StorageClass, or that a suitable PersistentVolume is bound to this claim.
+The sample [model-pvc.yaml](./model-pvc.yaml) requests 256Gi with `ReadWriteMany`.
+
+> Ensure your cluster has a default `StorageClass`, or define a `storageClass` in this file. If a default storageClass is not set or your storageClass does not support `ReadWriteMany` then the  initialization job dependent on this PVC will stay in pending state.
 
 ```bash
 kubectl apply -f model-pvc.yaml -n kserve-lab
@@ -84,25 +86,12 @@ kubectl create secret generic hf-token \
   -n kserve-lab
 ```
 
-Or apply [hf-token-secret.yaml](./hf-token-secret.yaml) after replacing the placeholder: set `data.HF_TOKEN` to the base64 of your token (`echo -n "$YOUR_HF_TOKEN" | base64`).
-
+Or apply [hf-token-secret.yaml](./hf-token-secret.yaml) after replacing the placeholder: set `stringData.HF_TOKEN` to your token.
 ---
 
-## 4. Service Account
+## 4. Job to download model weights
 
-Create a ServiceAccount that references the HF token secret so the model download job can pull from Hugging Face:
-
-```bash
-kubectl apply -f service_account.yaml -n kserve-lab
-```
-
-[service_account.yaml](./service_account.yaml) defines `hfserviceacc` with `secrets: - name: hf-token`.
-
----
-
-## 5. Job to download model weights
-
-Run a one-off Job that uses the PVC and ServiceAccount to download **RedHatAI/gpt-oss-20b** into the shared volume:
+Run a one-off Job that uses the PVC and a job to download **RedHatAI/gpt-oss-20b** into the shared volume:
 
 ```bash
 kubectl apply -f model_weights_job.yaml -n kserve-lab
@@ -120,7 +109,7 @@ The Job uses [kserve-storage-initializer](https://github.com/kserve/kserve/tree/
 
 ---
 
-## 6. LLMInferenceServiceConfig (template)
+## 5. LLMInferenceServiceConfig (template)
 
 LLMInferenceServiceConfig defines the **pod and router template** (containers, volumes, scheduler, probes). The actual inference service will reference this by name.
 
@@ -143,7 +132,7 @@ The Inference Service (next step) references this config via `baseRefs` (e.g. `l
 
 ---
 
-## 7. LLMInferenceService (inference service)
+## 6. LLMInferenceService (inference service)
 
 Create the LLMInferenceService that uses the downloaded model and the config template.
 
@@ -169,11 +158,11 @@ kubectl get pods -n kserve-lab -l app.kubernetes.io/name=gpt-oss-20b
 
 ---
 
-## 8. AI Gateway and Route
+## 7. AI Gateway and Route
 
 To expose the model behind an AI gateway and route by model name (e.g. for OpenAI-compatible clients), create a Gateway and an AIGatewayRoute.
 
-### 8.1 Gateway
+### 7.1 Gateway
 
 ```bash
 kubectl apply -f gateway.yaml -n kserve-lab
@@ -181,7 +170,7 @@ kubectl apply -f gateway.yaml -n kserve-lab
 
 [gateway.yaml](./gateway.yaml) defines an Envoy-based `Gateway` `ai-gateway` with an HTTP listener on port 80. Ensure the cluster has a Gateway controller that implements `gatewayClassName: envoy` (e.g. Envoy Gateway with AIGatewayRoute support).
 
-### 8.2 AIGatewayRoute
+### 7.2 AIGatewayRoute
 
 ```bash
 kubectl apply -f ai-gateway-route.yaml -n kserve-lab
@@ -198,11 +187,11 @@ Clients should send the header `x-ai-eg-model: RedHatAI/gpt-oss-20b` when callin
 
 ---
 
-## 9. Alternate configuration: Precise Prefix Cache Aware Routing
+## 8. Alternate configuration: Precise Prefix Cache Aware Routing
 
 For **precise prefix cache aware routing** (vLLM + EPP prefix indexer), use the dedicated config and inference service that enable KV cache events and the precise-prefix-cache-scorer. See [llm-d guide](https://llm-d.ai/docs/guide/Installation/precise-prefix-cache-aware) for an in-depth description.
 
-### 9.1 LLMInferenceServiceConfig with precise prefix cache aware routing
+### 8.1 LLMInferenceServiceConfig with precise prefix cache aware routing
 
 ```bash
 kubectl apply -f llmisvc_config_prefix_cache.yaml -n kserve-lab
@@ -214,7 +203,7 @@ This creates `llmisvc-prefix-caching`. It adds:
 - Router scheduler with `precise-prefix-cache-scorer`, `queue-scorer`, `kv-cache-utilization-scorer`, and tokenizers (HF) for the indexer
 - Scheduler needs `hf-token` secret for tokenizer download (already created above)
 
-### 9.2 Switch Inference Service to precise prefix cache aware routing
+### 8.2 Switch Inference Service to precise prefix cache aware routing
 
 Either:
 
@@ -226,17 +215,21 @@ Either:
 
 - Or in [kustomization.yaml](./kustomization.yaml), comment out `inference_default.yaml` and uncomment `inference_prefix_cache.yaml`, then run `kubectl apply -k . -n kserve-lab`.
 
-The Gateway and Route from step 8 still apply; they reference the same `InferencePool` name.
+The Gateway and Route from step 7 still apply; they reference the same `InferencePool` name.
 
 ---
 
-## 10. Alternative configuration: Prefill/Decode Disaggregation
+## 9. Alternative configuration: Prefill/Decode Disaggregation
 
 For **prefill/decode disaggregation** (Prefill vLLM + Decode vLLM + EPP), use the alternative inference service that enables
 Prefill and Decode to be performed on separate GPUs. See [llm-d guide](https://llm-d.ai/docs/guide/Installation/pd-disaggregation)
 for an in depth description.
 
-### 10.1 LLMInferenceServiceConfig with prefill/decode disaggregation
+### 9.1 LLMInferenceServiceConfig with prefill/decode disaggregation
+
+```bash
+  kubectl apply -f llmisvc_config_pd_disagg.yaml -n kserve-lab
+```
 
 This creates `llmisvc-config-pd-disagg`. It adds:
 
@@ -244,7 +237,7 @@ This creates `llmisvc-config-pd-disagg`. It adds:
 - Prefill container with 2 replicas and same vLLM args 
 - Scheduler needs `hf-token` secret for tokenizer download (already created above)
 
-### 10.2 Switch Inference to prefill/decode disaggregation
+### 9.2 Switch Inference to prefill/decode disaggregation
 
 > Requires 3 Nvidia GPUs. Reduce replica count or change to MIG partitions (see customization notes below) to run on less hardware.
 
@@ -258,12 +251,12 @@ Either:
 
 - Or in [kustomization.yaml](./kustomization.yaml), comment out `inference_default.yaml` and uncomment `inference_pd_disaggregation.yaml`, then run `kubectl apply -k . -n kserve-lab`.
 
-The Gateway and Route from step 8 still apply; they reference the same `InferencePool` name.
+The Gateway and Route from step 7 still apply; they reference the same `InferencePool` name.
 
 ---
 
 
-## 11. ServiceMonitor for Prometheus
+## 10. ServiceMonitor for Prometheus
 
 To scrape vLLM and EPP metrics, apply the ServiceMonitor in the same namespace (or adjust `namespaceSelector` to your Prometheus setup):
 
@@ -276,11 +269,11 @@ kubectl apply -f service_monitor.yaml -n kserve-lab
 
 ---
 
-## 12. Grafana dashboards and example screenshots
+## 11. Grafana dashboards and example screenshots
 
 KServe EPP metrics and llm-d observability are documented in the [grafana/](./grafana/) folder. Use these dashboards to monitor routing, prefix caching, and P/D disaggregation.
 
-### 12.1 Dashboard files and links
+### 11.1 Dashboard files and links
 
 | Dashboard | File | Description |
 |-----------|------|-------------|
@@ -298,7 +291,6 @@ Import in Grafana: **Dashboards** → **New** → **Import** → upload the JSON
 1. `kubectl create namespace kserve-lab`
 1. `kubectl apply -f model-pvc.yaml -n kserve-lab`
 1. `kubectl create secret generic hf-token --from-literal=HF_TOKEN="$YOUR_HF_TOKEN" -n kserve-lab`
-1. `kubectl apply -f service_account.yaml -n kserve-lab`
 1. `kubectl apply -f model_weights_job.yaml -n kserve-lab` → wait for completion
 1. `kubectl apply -f llmisvc_config_default.yaml -n kserve-lab`
 1. `kubectl apply -f inference_default.yaml -n kserve-lab`

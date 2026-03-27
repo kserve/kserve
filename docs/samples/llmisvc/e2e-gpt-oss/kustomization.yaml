@@ -3,14 +3,15 @@ namespace: kserve-lab
 
 resources:
   - hf-token-secret.yaml
-  - service_account.yaml
   - model-pvc.yaml
   - model_weights_job.yaml
   - llmisvc_config_default.yaml
   - llmisvc_config_prefix_cache.yaml
-  # Include one of the two below (same resource name)
+  - llmisvc_config_pd_disagg.yaml
+  # Include one of the three below (same resource name)
   - inference_default.yaml
   # - inference_prefix_cache.yaml
+  # - inference_pd_disaggregation.yaml
   - service_monitor.yaml
   - gateway.yaml
   - ai-gateway-route.yaml
