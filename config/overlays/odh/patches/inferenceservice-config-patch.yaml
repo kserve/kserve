@@ -35,9 +35,9 @@ data:
         "localGateway" : "istio-system/kserve-local-gateway",
         "localGatewayService" : "kserve-local-gateway.istio-system.svc.cluster.local",
         "ingressDomain"  : "example.com",
-        "ingressClassName" : "istio",
-        "domainTemplate": "example.com",
-        "urlScheme": "https",
+        "ingressClassName" : "openshift-default",
+        "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
+        "urlScheme": "http",
         "disableIstioVirtualHost": false, 
         "disableIngressCreation": true
     }

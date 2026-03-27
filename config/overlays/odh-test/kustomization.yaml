@@ -7,9 +7,3 @@ resources:
 - ../../crd/external
 - ../odh
 - ../test/s3-local-backend
-
-patches:
-# - path: configmap/inferenceservice.yaml  # Removed - conflicts with odh overlay patch
-- path: manager_image_patch.yaml
-# - path: localmodel_manager_image_patch.yaml
-# - path: localmodelnode_agent_image_patch.yaml

@@ -46,22 +46,6 @@ metadata:
   name: $NAMESPACE
 EOF
 
-# Add ServiceMeshMember if not skipping serverless
-if ! skip_serverless "$DEPLOYMENT_TYPE"; then
-  echo "Adding ServiceMeshMember to namespace"
-  cat <<EOF | oc apply -f -
-apiVersion: maistra.io/v1
-kind: ServiceMeshMember
-metadata:
-  name: default
-  namespace: $NAMESPACE
-spec:
-  controlPlaneRef:
-    namespace: istio-system
-    name: basic
-EOF
-fi
-
 # Apply S3 artifact secret
 echo "Applying S3 artifact secret"
 oc apply -f "$PROJECT_ROOT/config/overlays/test/s3-local-backend/mlpipeline-s3-artifact-secret.yaml" -n "$NAMESPACE"
@@ -90,18 +74,6 @@ kustomize build "$PROJECT_ROOT/config/overlays/test/clusterresources" |
   sed "s|kserve/sklearnserver:latest|${SKLEARN_IMAGE}|" |
   sed "s|kserve/storage-initializer:latest|${STORAGE_INITIALIZER_IMAGE}|" |
   oc apply -n "$NAMESPACE" -f -
-
-# Add the enablePassthrough annotation to the ServingRuntimes, to let Knative to
-# generate passthrough routes.
-if ! skip_serverless "$DEPLOYMENT_TYPE"; then
-  echo "Annotating ServingRuntimes with enablePassthrough"
-  # Check if any servingruntimes exist before annotating
-  if oc get servingruntimes -n "$NAMESPACE" --no-headers 2>/dev/null | grep -q .; then
-    oc annotate servingruntimes -n "$NAMESPACE" --all serving.knative.openshift.io/enablePassthrough=true --overwrite
-  else
-    echo "Warning: No ServingRuntimes found to annotate"
-  fi
-fi
 
 echo "CI namespace setup complete"
 

@@ -143,17 +143,3 @@ wait_for_csv_ready() {
     return 1
   fi
 }
-
-# Define deployment types that skip serverless installation
-MARKERS_SKIP_SERVERLESS=("raw" "graph" "predictor" "path_based_routing" "kserve_on_openshift" "llminferenceservice")
-
-# Helper function to check if deployment type should skip serverless
-skip_serverless() {
-  local deployment_type="$1"
-  for type in "${MARKERS_SKIP_SERVERLESS[@]}"; do
-    if [[ "$deployment_type" =~ $type ]]; then
-      return 0
-    fi
-  done
-  return 1
-}
