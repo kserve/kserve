@@ -553,12 +553,12 @@ func TestValidateAutoscalingConfig(t *testing.T) {
 		{
 			name:    "nil config returns error",
 			cfg:     nil,
-			wantErr: "autoscaling.prometheus.url is required",
+			wantErr: "autoscaling-wva-controller-config.prometheus.url is required",
 		},
 		{
 			name:    "missing prometheus.url returns error",
 			cfg:     &WVAAutoscalingConfig{},
-			wantErr: "autoscaling.prometheus.url is required",
+			wantErr: "autoscaling-wva-controller-config.prometheus.url is required",
 		},
 		{
 			name: "no auth fields is valid",
@@ -582,7 +582,7 @@ func TestValidateAutoscalingConfig(t *testing.T) {
 					AuthModes: "bearer",
 				},
 			},
-			wantErr: "autoscaling.prometheus.authModes and autoscaling.prometheus.triggerAuthName must both be set or both be empty",
+			wantErr: "autoscaling-wva-controller-config.prometheus.authModes and autoscaling-wva-controller-config.prometheus.triggerAuthName must both be set or both be empty",
 		},
 		{
 			name: "triggerAuthName set without authModes returns error",
@@ -592,7 +592,7 @@ func TestValidateAutoscalingConfig(t *testing.T) {
 					TriggerAuthName: "prom-auth",
 				},
 			},
-			wantErr: "autoscaling.prometheus.authModes and autoscaling.prometheus.triggerAuthName must both be set or both be empty",
+			wantErr: "autoscaling-wva-controller-config.prometheus.authModes and autoscaling-wva-controller-config.prometheus.triggerAuthName must both be set or both be empty",
 		},
 		{
 			name: "ClusterTriggerAuthentication kind with both auth fields is valid",
