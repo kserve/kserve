@@ -476,13 +476,13 @@ var _ = Describe("LLMInferenceService Controller", func() {
 					eppSvc := &corev1.Service{}
 					g.Expect(envTest.Client.Get(ctx, client.ObjectKey{Name: svcName + "-epp-service", Namespace: llmSvc.GetNamespace()}, eppSvc)).To(Succeed())
 
-					// Verify all expected ports are present (grpc, grpc-health, metrics, zmq)
+					// Verify all expected ports are present (tcp-ext-proc, grpc-health, metrics, zmq)
 					portNames := make(map[string]int32)
 					for _, port := range eppSvc.Spec.Ports {
 						portNames[port.Name] = port.Port
 					}
 
-					g.Expect(portNames).To(HaveKeyWithValue("grpc", int32(9002)))
+					g.Expect(portNames).To(HaveKeyWithValue("tcp-ext-proc", int32(9002)))
 					g.Expect(portNames).To(HaveKeyWithValue("grpc-health", int32(9003)))
 					g.Expect(portNames).To(HaveKeyWithValue("metrics", int32(9090)))
 					g.Expect(portNames).To(HaveKeyWithValue("zmq", int32(5557)))

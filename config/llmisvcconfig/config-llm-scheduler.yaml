@@ -27,7 +27,7 @@ spec:
           - name: main
             ports:
               - containerPort: 9002
-                name: grpc
+                name: tcp-ext-proc
                 protocol: TCP
               - containerPort: 9003
                 name: grpc-health
