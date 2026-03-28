@@ -637,9 +637,9 @@ async def test_quick_reconciliation_on_init_container_failure():
             if ready_condition:
                 logger.info("Ready condition: %s", ready_condition)
                 # The service should not be ready due to workload failure
-                assert (
-                    ready_condition.get("status") != "True"
-                ), "LLMISVC should not be Ready when init container fails"
+                assert ready_condition.get("status") != "True", (
+                    "LLMISVC should not be Ready when init container fails"
+                )
 
             # Validate reasonable time to failure detection
             assert time_to_failure < 180, (

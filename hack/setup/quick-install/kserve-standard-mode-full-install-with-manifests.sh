@@ -633,7 +633,6 @@ YQ_VERSION=v4.52.1
 HELM_VERSION=v3.16.3
 KUSTOMIZE_VERSION=v5.8.0
 HELM_DOCS_VERSION=v1.12.0
-BLACK_FMT_VERSION=24.3
 POETRY_VERSION=1.8.3
 UV_VERSION=0.7.8
 RUFF_VERSION=0.14.13
@@ -3629,6 +3628,7 @@ spec:
           - "9003"
           - --kv-cache-usage-percentage-metric
           - vllm:kv_cache_usage_perc
+          - '{{ if .GlobalConfig.EnableTLS }}--enable-cert-reload=true{{- end }}'
           - '{{ if .GlobalConfig.EnableTLS }}--secure-serving=true{{- end }}'
           - '{{ if .GlobalConfig.EnableTLS }}--model-server-metrics-scheme=https{{-
             end }}'

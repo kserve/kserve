@@ -71,7 +71,9 @@ async def test_kserve_logger(rest_v1_client):
         min_replicas=1,
         logger=V1beta1LoggerSpec(
             mode="all",
-            url=f"http://{msg_dumper}-predictor." + KSERVE_TEST_NAMESPACE + ".svc.cluster.local",
+            url=f"http://{msg_dumper}-predictor."
+            + KSERVE_TEST_NAMESPACE
+            + ".svc.cluster.local",
         ),
         sklearn=V1beta1SKLearnSpec(
             storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",

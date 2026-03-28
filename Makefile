@@ -68,8 +68,8 @@ setup-envtest: envtest
 fmt:
 	go fmt ./pkg/... ./cmd/... && cd qpext && go fmt ./...
 
-py-fmt: $(BLACK_FMT)
-	$(BLACK_FMT) --config python/pyproject.toml ./python ./docs
+py-fmt: $(RUFF)
+	$(RUFF) format --config ruff.toml ./python ./docs ./test ./hack
 
 # Run go vet against code
 vet:
@@ -457,10 +457,10 @@ docker-push:
 	docker push ${KO_DOCKER_REPO}/${CONTROLLER_IMG}
 
 docker-build-llmisvc:
-	${ENGINE} buildx build ${ARCH} --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG} -f llmisvc-controller.Dockerfile .
+	${ENGINE} buildx build ${ARCH} --load --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG} -f llmisvc-controller.Dockerfile .
 
 docker-push-llmisvc: docker-build-llmisvc
-	${ENGINE} buildx build ${ARCH} --build-arg GOTAGS=${GOTAGS} --push -t ${KO_DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG} -f llmisvc-controller.Dockerfile .
+	${ENGINE} push ${KO_DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}
 
 docker-build-localmodel:
 	${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG} -f localmodel.Dockerfile .

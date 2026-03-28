@@ -33,7 +33,9 @@ kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/c
 
 @pytest.mark.predictor
 @pytest.mark.path_based_routing
-@pytest.mark.skip(reason="Canary rollouts require Knative Serving and are not supported in RawDeployment mode")
+@pytest.mark.skip(
+    reason="Canary rollouts require Knative Serving and are not supported in RawDeployment mode"
+)
 def test_canary_rollout():
     service_name = "isvc-canary"
     default_endpoint_spec = V1beta1InferenceServiceSpec(
@@ -104,7 +106,9 @@ def test_canary_rollout():
 
 @pytest.mark.predictor
 @pytest.mark.path_based_routing
-@pytest.mark.skip(reason="Canary rollouts require Knative Serving and are not supported in RawDeployment mode")
+@pytest.mark.skip(
+    reason="Canary rollouts require Knative Serving and are not supported in RawDeployment mode"
+)
 def test_canary_rollout_runtime():
     service_name = "isvc-canary-runtime"
     default_endpoint_spec = V1beta1InferenceServiceSpec(

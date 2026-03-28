@@ -83,6 +83,4 @@ def cleanup_s3_prefix(s3_client, bucket: str, prefix: str):
     objects = response.get("Contents", [])
     if objects:
         delete_keys = [{"Key": obj["Key"]} for obj in objects]
-        s3_client.delete_objects(
-            Bucket=bucket, Delete={"Objects": delete_keys}
-        )
+        s3_client.delete_objects(Bucket=bucket, Delete={"Objects": delete_keys})

@@ -46,7 +46,9 @@ logger = logging.getLogger(__name__)
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
-def get_deployment(k8s_client: client.AppsV1Api, service_name: str) -> client.V1Deployment:
+def get_deployment(
+    k8s_client: client.AppsV1Api, service_name: str
+) -> client.V1Deployment:
     """Get the Kubernetes Deployment for RawDeployment mode."""
     return k8s_client.read_namespaced_deployment(
         name=service_name + "-predictor",
@@ -151,7 +153,10 @@ async def test_multi_container_probing(rest_v1_client):
             func=lambda: get_deployment(k8s_client, service_name),
         ):
             # Wait for Deployment to be ready
-            if deployment.status.ready_replicas and deployment.status.ready_replicas > 0:
+            if (
+                deployment.status.ready_replicas
+                and deployment.status.ready_replicas > 0
+            ):
                 break
 
         # Get latest deployment state after ready condition is met
@@ -159,9 +164,7 @@ async def test_multi_container_probing(rest_v1_client):
         containers = ready_deployment.spec.template.spec.containers
 
         # Find containers by name
-        kserve_container = next(
-            c for c in containers if c.name == "kserve-container"
-        )
+        kserve_container = next(c for c in containers if c.name == "kserve-container")
         kserve_agent = next(c for c in containers if c.name == "kserve-agent")
 
         # Verify kserve-container probes

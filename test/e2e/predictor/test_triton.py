@@ -76,8 +76,7 @@ async def test_triton(rest_v2_client):
             print(svc)
         deployments = kserve_client.app_api.list_namespaced_deployment(
             KSERVE_TEST_NAMESPACE,
-            label_selector="serving.kserve.io/"
-            "inferenceservice={}".format(service_name),
+            label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
         )
         for deployment in deployments.items:
             print(deployment)
@@ -125,7 +124,9 @@ async def test_triton_runtime_with_transformer(rest_v1_client):
             V1Container(
                 image=transformer_image,
                 name="kserve-container",
-                ports=[V1ContainerPort(container_port=8080, name="http1", protocol="TCP")],
+                ports=[
+                    V1ContainerPort(container_port=8080, name="http1", protocol="TCP")
+                ],
                 resources=V1ResourceRequirements(
                     requests={"cpu": "10m", "memory": "128Mi"},
                     limits={"cpu": "100m", "memory": "512Mi"},
@@ -165,8 +166,7 @@ async def test_triton_runtime_with_transformer(rest_v1_client):
             print(svc)
         deployments = kserve_client.app_api.list_namespaced_deployment(
             KSERVE_TEST_NAMESPACE,
-            label_selector="serving.kserve.io/"
-            "inferenceservice={}".format(service_name),
+            label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
         )
         for deployment in deployments.items:
             print(deployment)

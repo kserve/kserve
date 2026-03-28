@@ -79,9 +79,9 @@ async def test_scheduler_name(rest_v1_client):
     kserve_client.create(isvc)
     isvc = kserve_client.get(service_name, KSERVE_TEST_NAMESPACE)
 
-    assert (
-        isvc["spec"]["predictor"]["schedulerName"] == scheduler_name
-    ), f"Expected scheduler name '{scheduler_name}', got {isvc['spec']['predictor'].get('schedulerName')}"
+    assert isvc["spec"]["predictor"]["schedulerName"] == scheduler_name, (
+        f"Expected scheduler name '{scheduler_name}', got {isvc['spec']['predictor'].get('schedulerName')}"
+    )
 
     try:
         for pods in TimeoutSampler(

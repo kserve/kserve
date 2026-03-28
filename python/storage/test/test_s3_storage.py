@@ -82,7 +82,7 @@ def get_call_args(call_args_list):
 
 
 def expected_call_args_list_single_obj(dest, path):
-    return [(f"{path}".strip("/"), f'{dest}/{path.rsplit("/", 1)[-1]}'.strip("/"))]
+    return [(f"{path}".strip("/"), f"{dest}/{path.rsplit('/', 1)[-1]}".strip("/"))]
 
 
 def expected_call_args_list(parent_key, dest, paths):
@@ -222,7 +222,6 @@ def test_multikey(mock_storage):
 
 @mock.patch("boto3.resource")
 def test_files_with_no_extension(mock_storage):
-
     # given
     bucket_name = "foo"
     paths = ["churn-pickle", "churn-pickle-logs", "churn-pickle-report"]
@@ -407,14 +406,14 @@ def test_file_name_preservation(mock_storage):
     downloaded_source, downloaded_target = arg_list[0]
 
     # Check if the source S3 key matches the original object key
-    assert (
-        downloaded_source == object_paths[0]
-    ), f"Expected {object_paths[0]}, got {downloaded_source}"
+    assert downloaded_source == object_paths[0], (
+        f"Expected {object_paths[0]}, got {downloaded_source}"
+    )
 
     # Check if the target file path ends with the expected file name
-    assert downloaded_target.endswith(
-        expected_file_name
-    ), f"Expected file name to end with {expected_file_name}, got {downloaded_target}"
+    assert downloaded_target.endswith(expected_file_name), (
+        f"Expected file name to end with {expected_file_name}, got {downloaded_target}"
+    )
 
     mock_boto3_bucket.objects.filter.assert_called_with(Prefix="model")
 

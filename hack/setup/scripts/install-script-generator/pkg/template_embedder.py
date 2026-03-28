@@ -38,10 +38,10 @@ def find_component_template_dir(component_name: str, infra_dir: Path) -> Optiona
         Path to templates directory or None if not found
     """
     # Generate folder candidates: knative-operator-helm → knative-operator → knative → ""
-    parts = component_name.split('-')
+    parts = component_name.split("-")
     folder_candidates = []
     for i in range(len(parts), 0, -1):
-        folder_candidates.append('-'.join(parts[:i]))
+        folder_candidates.append("-".join(parts[:i]))
     folder_candidates.append("")  # root directory
 
     # Search for templates/ subdirectory in each candidate
@@ -54,7 +54,9 @@ def find_component_template_dir(component_name: str, infra_dir: Path) -> Optiona
     return None
 
 
-def discover_component_templates(component_name: str, infra_dir: Path) -> dict[str, str]:
+def discover_component_templates(
+    component_name: str, infra_dir: Path
+) -> dict[str, str]:
     """Discover and read template files from component's templates/ directory.
 
     Searches for .yaml, .yml, and .tmpl files in the templates/ subdirectory.
@@ -75,15 +77,19 @@ def discover_component_templates(component_name: str, infra_dir: Path) -> dict[s
 
     templates = {}
     # Search for template files (.yaml, .yml, .tmpl)
-    for pattern in ['*.yaml', '*.yml', '*.tmpl']:
+    for pattern in ["*.yaml", "*.yml", "*.tmpl"]:
         for template_file in templates_dir.glob(pattern):
             if template_file.is_file():
                 # Remove extensions to get template name
                 template_name = template_file.name
-                template_name = template_name.replace('.yaml', '').replace('.yml', '').replace('.tmpl', '')
+                template_name = (
+                    template_name.replace(".yaml", "")
+                    .replace(".yml", "")
+                    .replace(".tmpl", "")
+                )
 
                 # Read file content
-                with open(template_file, 'r', encoding='utf-8') as f:
+                with open(template_file, "r", encoding="utf-8") as f:
                     templates[template_name] = f.read()
 
     return templates
@@ -105,7 +111,7 @@ def template_name_to_function_name(template_name: str) -> str:
         "metallb-config" → "get_metallb_config"
     """
     # Replace hyphens with underscores (bash function naming requirement)
-    safe_name = template_name.replace('-', '_')
+    safe_name = template_name.replace("-", "_")
     return f"get_{safe_name}"
 
 
@@ -138,7 +144,7 @@ def generate_template_functions(component_name: str, templates: dict[str, str]) 
     for template_name, content in sorted(templates.items()):
         func_name = template_name_to_function_name(template_name)
         # Create heredoc delimiter: convert template name to uppercase with underscores
-        eof_marker = template_name.replace('-', '_').upper() + '_EOF'
+        eof_marker = template_name.replace("-", "_").upper() + "_EOF"
 
         # Generate function using quoted heredoc to preserve content as-is
         function_code = f"""{func_name}() {{

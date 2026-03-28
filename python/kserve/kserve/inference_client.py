@@ -110,7 +110,6 @@ class InferenceGRPCClient:
         timeout: Optional[float] = 60,
         retries: Optional[int] = 3,
     ):
-
         # requires appending the port to the predictor host for gRPC to work
         if ":" not in url:
             port = 443 if use_ssl else 80

@@ -10,6 +10,8 @@ on:
       - "!**.md"
       - ".github/workflows/e2e-test.yml"
       - ".github/actions/**"
+  merge_group:
+    types: [ checks_requested ]
   workflow_dispatch:
 
 env:

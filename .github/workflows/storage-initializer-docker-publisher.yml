@@ -20,6 +20,9 @@ on:
       - "!**.md"
       - ".github/workflows/storage-initializer-docker-publisher.yml"
       - ".github/actions/free-up-disk-space/**"
+  # To save some compute time, rely on PR check and don't run for merge queues
+  # merge_group:
+  #   types: [ checks_requested ]
 
 env:
   IMAGE_NAME: kserve-storage-initializer
@@ -61,7 +64,7 @@ jobs:
           cache-binary: true
 
       - name: Run tests
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           platforms: linux/amd64,linux/arm64/v8
           context: python

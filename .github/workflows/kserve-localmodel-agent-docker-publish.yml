@@ -20,6 +20,9 @@ on:
       - "!**.md"
       - ".github/workflows/kserve-localmodel-agent-docker-publish.yml"
       - ".github/actions/free-up-disk-space/**"
+  # To save some compute time, rely on PR check and don't run for merge queues
+  # merge_group:
+  #   types: [ checks_requested ]
 
 env:
   IMAGE_NAME: kserve-localmodelnode-agent

@@ -13,6 +13,8 @@ on:
       - "!**.md"
       - ".github/workflows/python-test.yml"
       - ".github/actions/free-up-disk-space/**"
+  merge_group:
+    types: [ checks_requested ]
   workflow_dispatch:
 
 concurrency:
@@ -111,7 +113,7 @@ jobs:
           uv pip install "numpy<2.0"
       - name: Load cached kserve numpy 1-x venv
         id: cached-kserve-numpy-1-x-dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: python/kserve-numpy-1-x/.venv
           key: kserve-numpy-1-x-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve-numpy-1-x/uv.lock') }}

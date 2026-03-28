@@ -18,8 +18,11 @@ on:
       - "!.github/**"
       - "!docs/**"
       - "!**.md"
-      - ".github/workflows/kserve--llmisvccontroller-docker-publish.yml"
+      - ".github/workflows/kserve-llmisvc-controller-docker-publish.yml"
       - ".github/actions/free-up-disk-space/**"
+  # To save some compute time, rely on PR check and don't run for merge queues
+  # merge_group:
+  #   types: [ checks_requested ]
 
 env:
   IMAGE_NAME: llmisvc-controller

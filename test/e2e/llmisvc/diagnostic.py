@@ -86,7 +86,9 @@ def kinds_matching_by_labels(namespace: str, labels, skip_api_kinds=None):
             if not rsrc.namespaced or "list" not in rsrc.verbs:
                 continue
         except Exception as e:
-            print(f"failed to check resource properties for {getattr(rsrc, 'kind', 'unknown')}, skipping: {e}")
+            print(
+                f"failed to check resource properties for {getattr(rsrc, 'kind', 'unknown')}, skipping: {e}"
+            )
             continue
 
         try:

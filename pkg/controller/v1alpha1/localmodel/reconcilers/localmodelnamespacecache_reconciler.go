@@ -107,9 +107,7 @@ func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req 
 		c.Log.Error(err, "failed to reconcile LocalModelNode for namespace cache")
 	}
 
-	// Step 3 - Creates PV & PVC for model download (in the CR's namespace)
-	// Note: The download PVC name includes "-download" suffix to avoid conflict with serving PVCs
-	// since for namespace-scoped caches, both download and serving happen in the same namespace
+	// Step 3 - Creates PV & PVC for model download (in jobNamespace, same as cluster-scoped)
 	for _, nodeGroup := range nodeGroups {
 		pvSpec := nodeGroup.Spec.PersistentVolumeSpec
 		pv := corev1.PersistentVolume{Spec: pvSpec, ObjectMeta: metav1.ObjectMeta{
@@ -121,14 +119,13 @@ func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req 
 
 		pvc := corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: localModel.Name + "-" + nodeGroup.Name + "-download",
+				Name: localModel.Name + "-" + nodeGroup.Name + "-" + localModel.Namespace + "-download",
 			},
 			Spec: nodeGroup.Spec.PersistentVolumeClaimSpec,
 		}
 		pvc.Spec.VolumeName = pv.Name
 
-		// Download jobs run in the same namespace as the LocalModelNamespaceCache
-		if err := CreatePVC(ctx, c.Clientset, c.Scheme, c.Log, pvc, localModel.Namespace, nil, localModel); err != nil {
+		if err := CreatePVC(ctx, c.Clientset, c.Scheme, c.Log, pvc, localModelConfig.JobNamespace, nil, localModel); err != nil {
 			c.Log.Error(err, "Create PVC err", "name", pvc.Name)
 		}
 	}

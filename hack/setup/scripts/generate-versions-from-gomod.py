@@ -56,7 +56,9 @@ HELM_REPOS = {
 
 
 def run(cmd):
-    return subprocess.run(cmd, shell=True, capture_output=True, text=True, check=True).stdout
+    return subprocess.run(
+        cmd, shell=True, capture_output=True, text=True, check=True
+    ).stdout
 
 
 def extract_all_versions_from_gomod(go_mod_path, packages):
@@ -92,7 +94,7 @@ def get_helm_versions(repo, chart):
 
 def strip_pseudo_version(version):
     """Strip pseudo-version to base version (v1.3.1-0.xxx -> v1.3.1)"""
-    match = re.match(r'^(v[0-9]+\.[0-9]+\.[0-9]+)-0\.[0-9]{14}-', version)
+    match = re.match(r"^(v[0-9]+\.[0-9]+\.[0-9]+)-0\.[0-9]{14}-", version)
     if match:
         return match.group(1)
     return version
@@ -101,7 +103,7 @@ def strip_pseudo_version(version):
 def check_url_exists(url, timeout=5):
     """Check if URL exists via HEAD request"""
     try:
-        req = Request(url, method='HEAD')
+        req = Request(url, method="HEAD")
         with urllib.request.urlopen(req, timeout=timeout) as response:
             return 200 <= response.status < 400
     except Exception:
@@ -185,7 +187,9 @@ def find_best_chart_version(versions, requested_app_version):
                 return float("inf")
 
         closest = min(valid, key=version_distance)
-        print(f"⚠️  Using {closest['version']} (app: {closest['app_version']}) for requested {requested_app_version}")
+        print(
+            f"⚠️  Using {closest['version']} (app: {closest['app_version']}) for requested {requested_app_version}"
+        )
         return closest["version"]
     except Exception:
         return valid[0]["version"]
@@ -200,13 +204,14 @@ def ensure_helm_repo(name, url):
 
 
 def parse_existing_versions(env_file):
-    """Parse existing VAR=value pairs from kserve-deps.env"""
+    """Parse existing VAR=value pairs from kserve-deps.env. Strips trailing # comments."""
     existing = {}
     if env_file.exists():
         for line in env_file.read_text().splitlines():
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 key, value = line.split("=", 1)
+                value = value.split("#")[0].strip()
                 existing[key] = value
     return existing
 
@@ -228,6 +233,14 @@ def main():
 
     versions = {}
     for var_name, dependency_info in DEPENDENCIES.items():
+        override_key = f"OVERRIDE_{var_name}"
+        if override_key in existing_versions:
+            versions[var_name] = existing_versions[override_key]
+            print(
+                f"🔒 {var_name}: {existing_versions[override_key]} (override from {override_key})"
+            )
+            continue
+
         package = dependency_info[0]
         helm_repo = dependency_info[1] if len(dependency_info) > 1 else None
         helm_chart = dependency_info[2] if len(dependency_info) > 2 else None
@@ -252,14 +265,20 @@ def main():
                     if final_version == base_version:
                         print(f"✅ {var_name}: {final_version} (URL verified)")
                     else:
-                        print(f"⚠️  {var_name}: Using {final_version} for requested {base_version}")
+                        print(
+                            f"⚠️  {var_name}: Using {final_version} for requested {base_version}"
+                        )
                 else:
                     fallback = existing_versions.get(var_name)
                     if fallback:
                         final_version = fallback
-                        print(f"⚠️  {var_name}: No available URL found for {base_version}, keeping existing {fallback}")
+                        print(
+                            f"⚠️  {var_name}: No available URL found for {base_version}, keeping existing {fallback}"
+                        )
                     else:
-                        print(f"⚠️  {var_name}: No available URL found, using {base_version}")
+                        print(
+                            f"⚠️  {var_name}: No available URL found, using {base_version}"
+                        )
                 versions[var_name] = final_version
             else:
                 versions[var_name] = base_version
@@ -288,9 +307,15 @@ def main():
     output_file.write_text("".join(lines[:start] + new_section + lines[end + 1 :]))
 
     print(f"\n✅ Updated {output_file.name}\n")
-    for var in ["ISTIO_VERSION", "KEDA_VERSION", "GATEWAY_API_VERSION",
-                "GIE_VERSION", "LWS_VERSION", "OPENTELEMETRY_OPERATOR_VERSION",
-                "WVA_VERSION"]:
+    for var in [
+        "ISTIO_VERSION",
+        "KEDA_VERSION",
+        "GATEWAY_API_VERSION",
+        "GIE_VERSION",
+        "LWS_VERSION",
+        "OPENTELEMETRY_OPERATOR_VERSION",
+        "WVA_VERSION",
+    ]:
         print(f"  {var}={versions[var]}")
 
 

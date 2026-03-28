@@ -4,6 +4,8 @@ on:
   pull_request:
     paths-ignore:
       - "**.md"
+  merge_group:
+    types: [ checks_requested ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

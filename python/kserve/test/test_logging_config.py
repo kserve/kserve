@@ -77,9 +77,9 @@ def test_respect_existing_logging(monkeypatch):
 
     log = logging.getLogger("kserve")
     # Should still have the same direct handler and not be overridden
-    assert (
-        log.handlers and log.handlers[0] is h
-    ), "existing user handler should be preserved"
+    assert log.handlers and log.handlers[0] is h, (
+        "existing user handler should be preserved"
+    )
     log.info("RESPECT_TEST")
     contents = buf.getvalue()
     assert "USERFMT|INFO|kserve|RESPECT_TEST" in contents
@@ -98,9 +98,9 @@ def test_apply_default_when_not_configured(monkeypatch):
 
     log = logging.getLogger("kserve")
     # After configuration, kserve logger should have a StreamHandler bound to sys.stderr
-    assert (
-        log.handlers
-    ), "kserve logger should have handlers after default configuration"
+    assert log.handlers, (
+        "kserve logger should have handlers after default configuration"
+    )
     log.info("DEFAULT_TEST")
     contents = buf.getvalue()
     # Default goes to stderr per handler config

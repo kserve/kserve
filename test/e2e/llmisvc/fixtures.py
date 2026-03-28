@@ -28,9 +28,15 @@ from .logging import logger
 KSERVE_PLURAL_LLMINFERENCESERVICECONFIG = "llminferenceserviceconfigs"
 KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
 
-INFERENCE_POOL_GROUP = os.environ.get("INFERENCE_POOL_GROUP", "inference.networking.k8s.io")
+INFERENCE_POOL_GROUP = os.environ.get(
+    "INFERENCE_POOL_GROUP", "inference.networking.k8s.io"
+)
 GATEWAY_CLASS_NAME = os.environ.get("GATEWAY_CLASS_NAME", "envoy")
-RUN_AS_NON_ROOT = os.environ.get("RUN_AS_NON_ROOT", "false").lower() in ("true", "1", "yes")
+RUN_AS_NON_ROOT = os.environ.get("RUN_AS_NON_ROOT", "false").lower() in (
+    "true",
+    "1",
+    "yes",
+)
 
 # Scheduler config constants
 SCHEDULER_CONFIGMAP_NAME = "scheduler-config-e2e"
