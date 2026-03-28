@@ -157,7 +157,7 @@ data:
     \"additional-example-1.com\"],\n       \"ingressClassName\" : \"istio\",\n       \"domainTemplate\":
     \"{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}\",\n       \"urlScheme\":
     \"http\",\n       \"disableIstioVirtualHost\": false,\n       \"disableIngressCreation\":
-    false\n   }\n ingress: |-\n   {   \n       # enableGatewayApi specifies whether
+    false,\n       \"disableHTTPRouteTimeout\": false\n   }\n ingress: |-\n   {   \n       # enableGatewayApi specifies whether
     to use Gateway API instead of Ingress to serve external traffic.\n       \"enableGatewayApi\":
     false,\n\n       # KServe implements [Gateway API](https://gateway-api.sigs.k8s.io/)
     to serve external traffic. \n       # By default, KServe configures a default
@@ -219,6 +219,9 @@ data:
     \      # NOTE: This configuration is only applicable to serverless deployment.\n
     \      \"disableIstioVirtualHost\": false,\n\n       # disableIngressCreation
     controls whether to disable ingress creation for raw deployment mode.\n       \"disableIngressCreation\":
+    false,\n\n       # disableHTTPRouteTimeout controls whether to omit the timeout
+    field from HTTPRoute rules. Set to true for Gateway controllers (e.g. GKE Gateway)
+    that do not support the optional timeouts field.\n       \"disableHTTPRouteTimeout\":
     false,\n \n       # pathTemplate specifies the template for generating path based
     url for each inference service.\n       # The following variables can be used
     in the template for generating url.\n       # Name of the inference service  (
@@ -406,7 +409,7 @@ data:
     : \"knative-local-gateway.istio-system.svc.cluster.local\",\n    \"ingressDomain\"
     \ : \"example.com\",\n    \"ingressClassName\" : \"istio\",\n    \"domainTemplate\":
     \"{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}\",\n    \"urlScheme\": \"http\",\n
-    \   \"disableIstioVirtualHost\": false,\n    \"disableIngressCreation\": false\n}"
+    \   \"disableIstioVirtualHost\": false,\n    \"disableIngressCreation\": false,\n    \"disableHTTPRouteTimeout\": false\n}"
   localModel: |-
     {
       "enabled": false,
