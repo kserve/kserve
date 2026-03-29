@@ -1249,6 +1249,11 @@ func (in *PredictorSpec) DeepCopyInto(out *PredictorSpec) {
 		*out = make([]StorageUri, len(*in))
 		copy(*out, *in)
 	}
+	if in.StorageContainerName != nil {
+		in, out := &in.StorageContainerName, &out.StorageContainerName
+		*out = new(string)
+		**out = **in
+	}
 	if in.WorkerSpec != nil {
 		in, out := &in.WorkerSpec, &out.WorkerSpec
 		*out = new(WorkerSpec)

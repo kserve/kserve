@@ -5805,6 +5805,10 @@
           "description": "Spec for SKLearn model server",
           "$ref": "#/definitions/v1beta1.SKLearnSpec"
         },
+        "storageContainerName": {
+          "description": "StorageContainerName specifies the name of the ClusterStorageContainer to use for downloading model artifacts. When set, this ClusterStorageContainer is used instead of auto-matching based on the storage URI scheme. This is similar to storageClassName on PersistentVolumeClaims.",
+          "type": "string"
+        },
         "storageUris": {
           "description": "Spec for multiple storage uris.",
           "type": "array",
