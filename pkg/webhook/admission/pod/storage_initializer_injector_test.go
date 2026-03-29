@@ -2759,6 +2759,119 @@ func TestGetStorageContainerSpec(t *testing.T) {
 	}
 }
 
+func TestExplicitStorageContainerName(t *testing.T) {
+	// Create two CSCs that both match "hf://" - "default" and "hf-custom"
+	// Without explicit selection, "default" wins alphabetically (the bug in #5299)
+	defaultCSC := &v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "default",
+		},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: corev1.Container{
+				Name:  "storage-initializer",
+				Image: "kserve/storage-initializer:latest",
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("100Mi"),
+						corev1.ResourceCPU:    resource.MustParse("100m"),
+					},
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("1Gi"),
+						corev1.ResourceCPU:    resource.MustParse("1"),
+					},
+				},
+			},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{
+				{Prefix: "gs://"},
+				{Prefix: "s3://"},
+				{Prefix: "hf://"},
+			},
+		},
+	}
+	hfCustomCSC := &v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "hf-custom",
+		},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: corev1.Container{
+				Name:  "storage-initializer",
+				Image: "kserve/hf-custom:latest",
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("2Gi"),
+					},
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("4Gi"),
+					},
+				},
+				Env: []corev1.EnvVar{
+					{Name: "HF_TOKEN", Value: "test-token"},
+				},
+			},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{
+				{Prefix: "hf://"},
+			},
+		},
+	}
+	disabledCSC := &v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "disabled-csc",
+		},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: corev1.Container{
+				Name:  "storage-initializer",
+				Image: "kserve/disabled:latest",
+			},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{
+				{Prefix: "hf://"},
+			},
+		},
+		Disabled: ptr.Bool(true),
+	}
+
+	require.NoError(t, c.Create(t.Context(), defaultCSC))
+	require.NoError(t, c.Create(t.Context(), hfCustomCSC))
+	require.NoError(t, c.Create(t.Context(), disabledCSC))
+	defer func() {
+		_ = c.Delete(t.Context(), defaultCSC)
+		_ = c.Delete(t.Context(), hfCustomCSC)
+		_ = c.Delete(t.Context(), disabledCSC)
+	}()
+
+	t.Run("auto-match returns first alphabetical CSC when name not specified", func(t *testing.T) {
+		spec, err := GetStorageContainerSpec(t.Context(), "hf://my-model", nil, c)
+		require.NoError(t, err)
+		require.NotNil(t, spec)
+		// "default" sorts before "hf-custom", so auto-match returns default
+		assert.Equal(t, "kserve/storage-initializer:latest", spec.Container.Image)
+	})
+
+	t.Run("explicit name returns the correct CSC", func(t *testing.T) {
+		name := "hf-custom"
+		spec, err := GetStorageContainerSpec(t.Context(), "hf://my-model", &name, c)
+		require.NoError(t, err)
+		require.NotNil(t, spec)
+		assert.Equal(t, "kserve/hf-custom:latest", spec.Container.Image)
+		assert.Equal(t, resource.MustParse("2Gi"), spec.Container.Resources.Requests[corev1.ResourceMemory])
+	})
+
+	t.Run("explicit name for non-existent CSC returns error", func(t *testing.T) {
+		name := "does-not-exist"
+		spec, err := GetStorageContainerSpec(t.Context(), "hf://my-model", &name, c)
+		assert.Error(t, err)
+		assert.Nil(t, spec)
+		assert.Contains(t, err.Error(), "does-not-exist")
+	})
+
+	t.Run("explicit name for disabled CSC returns error", func(t *testing.T) {
+		name := "disabled-csc"
+		spec, err := GetStorageContainerSpec(t.Context(), "hf://my-model", &name, c)
+		assert.Error(t, err)
+		assert.Nil(t, spec)
+		assert.Contains(t, err.Error(), "disabled")
+	})
+}
+
 func TestStorageContainerCRDInjection(t *testing.T) {
 	customSpec := v1alpha1.ClusterStorageContainer{
 		ObjectMeta: metav1.ObjectMeta{

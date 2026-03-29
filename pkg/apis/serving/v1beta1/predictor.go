@@ -59,6 +59,13 @@ type PredictorSpec struct {
 	// +kubebuilder:validation:MinItems=1
 	StorageUris []StorageUri `json:"storageUris,omitempty"`
 
+	// StorageContainerName specifies the name of the ClusterStorageContainer to use
+	// for downloading model artifacts. When set, this ClusterStorageContainer is used
+	// instead of auto-matching based on the storage URI scheme.
+	// This is similar to storageClassName on PersistentVolumeClaims.
+	// +optional
+	StorageContainerName *string `json:"storageContainerName,omitempty"`
+
 	// WorkerSpec for enabling multi-node/multi-gpu
 	WorkerSpec *WorkerSpec `json:"workerSpec,omitempty"`
 

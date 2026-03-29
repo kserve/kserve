@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
 	corev1 "k8s.io/api/core/v1"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -115,7 +116,13 @@ type StorageInitializerParams struct {
 //
 // The function iterates through ClusterStorageContainer resources and uses their
 // IsStorageUriSupported method to determine compatibility with the provided URI.
-func GetStorageContainerSpec(ctx context.Context, storageUri string, client client.Client) (*v1alpha1.StorageContainerSpec, error) {
+func GetStorageContainerSpec(ctx context.Context, storageUri string, storageContainerName *string, client client.Client) (*v1alpha1.StorageContainerSpec, error) {
+	// If a specific ClusterStorageContainer is requested by name, fetch it directly
+	if storageContainerName != nil && *storageContainerName != "" {
+		return GetStorageContainerSpecByName(ctx, *storageContainerName, client)
+	}
+
+	// Otherwise, auto-match by URI scheme
 	storageContainers := &v1alpha1.ClusterStorageContainerList{}
 	if err := client.List(ctx, storageContainers); err != nil {
 		return nil, err
@@ -140,8 +147,21 @@ func GetStorageContainerSpec(ctx context.Context, storageUri string, client clie
 	return nil, nil
 }
 
+// GetStorageContainerSpecByName fetches a ClusterStorageContainer by name directly,
+// bypassing URI-based auto-matching. Returns an error if the named CSC does not exist or is disabled.
+func GetStorageContainerSpecByName(ctx context.Context, name string, client client.Client) (*v1alpha1.StorageContainerSpec, error) {
+	sc := &v1alpha1.ClusterStorageContainer{}
+	if err := client.Get(ctx, k8stypes.NamespacedName{Name: name}, sc); err != nil {
+		return nil, fmt.Errorf("failed to get ClusterStorageContainer %q: %w", name, err)
+	}
+	if sc.IsDisabled() {
+		return nil, fmt.Errorf("ClusterStorageContainer %q is disabled", name)
+	}
+	return &sc.Spec, nil
+}
+
 func GetContainerSpecForStorageUri(ctx context.Context, storageUri string, client client.Client) (*corev1.Container, error) {
-	supported, err := GetStorageContainerSpec(ctx, storageUri, client)
+	supported, err := GetStorageContainerSpec(ctx, storageUri, nil, client)
 	if err != nil {
 		return nil, fmt.Errorf("error checking storage container %s: %w", supported.Container.Name, err)
 	}
@@ -590,7 +610,11 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(ctx context.Conte
 	storageURIs := []v1beta1.StorageUri{{Uri: srcURI, MountPath: constants.DefaultModelLocalMountPath}}
 
 	// Get storage container spec for the URI
-	storageContainerSpec, err := GetStorageContainerSpec(ctx, srcURI, mi.client)
+	var storageContainerName *string
+	if name, ok := pod.Annotations[constants.StorageContainerNameAnnotationKey]; ok {
+		storageContainerName = &name
+	}
+	storageContainerSpec, err := GetStorageContainerSpec(ctx, srcURI, storageContainerName, mi.client)
 	if err != nil {
 		return err
 	}
