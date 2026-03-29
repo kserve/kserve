@@ -72,6 +72,12 @@ func TestPresetFiles(t *testing.T) {
 									},
 								},
 								{
+									Name: "tmp-dir",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
 									Name: "dshm",
 									VolumeSource: corev1.VolumeSource{
 										EmptyDir: &corev1.EmptyDirVolumeSource{
@@ -102,7 +108,7 @@ func TestPresetFiles(t *testing.T) {
 										"--connector=nixlv2",
 										"--enable-ssrf-protection=true",
 										"--pool-group=inference.networking.x-k8s.io",
-										"",
+										"--secure-proxy=false",
 										"",
 										"",
 										"",
@@ -207,6 +213,10 @@ func TestPresetFiles(t *testing.T) {
 											MountPath: "/home",
 										},
 										{
+											Name:      "tmp-dir",
+											MountPath: "/tmp",
+										},
+										{
 											Name:      "dshm",
 											MountPath: "/dev/shm",
 										},
@@ -289,6 +299,12 @@ func TestPresetFiles(t *testing.T) {
 									},
 								},
 								{
+									Name: "tmp-dir",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
 									Name: "dshm",
 									VolumeSource: corev1.VolumeSource{
 										EmptyDir: &corev1.EmptyDirVolumeSource{
@@ -323,6 +339,10 @@ func TestPresetFiles(t *testing.T) {
 										{
 											Name:      "home",
 											MountPath: "/home",
+										},
+										{
+											Name:      "tmp-dir",
+											MountPath: "/tmp",
 										},
 										{
 											Name:      "dshm",
@@ -417,6 +437,12 @@ func TestPresetFiles(t *testing.T) {
 									},
 								},
 								{
+									Name: "tmp-dir",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
 									Name:         "tls-certs",
 									VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: "test-llm-preset-kserve-self-signed-certs"}},
 								},
@@ -449,6 +475,10 @@ func TestPresetFiles(t *testing.T) {
 										{
 											Name:      "home",
 											MountPath: "/home",
+										},
+										{
+											Name:      "tmp-dir",
+											MountPath: "/tmp",
 										},
 										{
 											Name:      "dshm",
