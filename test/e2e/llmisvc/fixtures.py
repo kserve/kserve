@@ -922,7 +922,7 @@ def generate_k8s_safe_suffix(
 
     full_name = full_name.lower().replace("_", "-")
 
-    name_hash = hashlib.md5(full_name.encode()).hexdigest()[:8]
+    name_hash = hashlib.sha256(full_name.encode()).hexdigest()[:8]
 
     # TODO: we can't use the real maximum (63), LWS and STS add additional suffixes (ie `-0`) and don't handle that case.
     max_total = 40
