@@ -91,7 +91,7 @@ async def test_multi_container_probing(rest_v1_client):
             V1Container(
                 name="kserve-agent",
                 image="quay.io/opendatahub/kserve-agent:latest",
-                ports=[V1ContainerPort(container_port=8080, protocol="TCP")],
+                ports=[V1ContainerPort(container_port=9081, protocol="TCP")],
                 env=[
                     V1EnvVar(name="AGENT_TARGET_PORT", value="8080"),
                     V1EnvVar(name="AGENT_TARGET_HOST", value="localhost"),
@@ -106,14 +106,14 @@ async def test_multi_container_probing(rest_v1_client):
                 ),
                 liveness_probe=V1Probe(
                     tcp_socket=V1TCPSocketAction(
-                        port=8080,
+                        port=9081,
                     ),
                     initial_delay_seconds=60,
                     period_seconds=10,
                 ),
                 readiness_probe=V1Probe(
                     tcp_socket=V1TCPSocketAction(
-                        port=8080,
+                        port=9081,
                     ),
                     initial_delay_seconds=60,
                     period_seconds=10,
