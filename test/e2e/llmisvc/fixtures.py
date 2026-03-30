@@ -698,14 +698,14 @@ LLMINFERENCESERVICE_CONFIGS = {
                             {
                                 "type": "precise-prefix-cache-scorer",
                                 "parameters": {
+                                    "tokenProcessorConfig": {
+                                        "blockSize": 16,
+                                        "hashSeed": "42",
+                                    },
                                     "kvEventsConfig": {
                                         "zmqEndpoint": "tcp://*:5557",
                                     },
                                     "indexerConfig": {
-                                        "tokenProcessorConfig": {
-                                            "blockSize": 16,
-                                            "hashSeed": "42",
-                                        },
                                         "kvBlockIndexConfig": {
                                             "enableMetrics": True,
                                             "metricsLoggingInterval": 60000000000,
