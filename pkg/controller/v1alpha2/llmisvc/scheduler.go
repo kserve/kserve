@@ -239,6 +239,8 @@ func (r *LLMISVCReconciler) expectedSchedulerService(ctx context.Context, llmSvc
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Template != nil {
 		podSpec := llmSvc.Spec.Router.Scheduler.Template.DeepCopy()
 
+		// "tcp-" prefix prevents Istio from applying HTTP/2 L7 parsing to the ext-proc port.
+		// The port still uses gRPC; this only affects Istio protocol classification.
 		desiredPorts := sets.New("tcp-ext-proc", "grpc-health", "metrics", "zmq")
 
 		actualPorts := make(map[string]*corev1.ContainerPort)

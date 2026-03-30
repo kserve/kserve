@@ -27,6 +27,8 @@ spec:
           - name: main
             ports:
               - containerPort: 9002
+                # "tcp-" prefix prevents Istio from applying HTTP/2 L7 parsing to the ext-proc port.
+                # The port still uses gRPC; this only affects Istio protocol classification.
                 name: tcp-ext-proc
                 protocol: TCP
               - containerPort: 9003
