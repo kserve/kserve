@@ -132,18 +132,6 @@ jobs:
                   echo "coverage=0" >> $GITHUB_OUTPUT
                 fi
 
-            - name: Generate full coverage breakdown
-              id: full_coverage_report
-              run: |
-                if [ -f coverage.out ]; then
-                  REPORT_CONTENT=$(go tool cover -func=coverage.out) # This command outputs function-level coverage [5]
-                  echo "report<<EOF" >> $GITHUB_OUTPUT # Start HERE-doc for multi-line output [3]
-                  echo "$REPORT_CONTENT" >> $GITHUB_OUTPUT
-                  echo "EOF" >> $GITHUB_OUTPUT # End HERE-doc
-                else
-                  echo "report=No coverage report found." >> $GITHUB_OUTPUT
-                fi
-
             - name: check test coverage
               id: coverage
               uses: vladopajic/go-test-coverage@f190f667e23b4441202d0bab0f8c2e7bce8925b6 # v2.18.4
@@ -191,14 +179,7 @@ jobs:
                   - **Pull Request Coverage:** `${{ steps.current-coverage.outputs.coverage }}%`
                   - **Main Branch Coverage:** `${{ steps.master-coverage.outputs.coverage }}%`
 
-                  <details>
-                  <summary>📄 Click to expand full coverage breakdown</summary>
-
-                  ```
-                  ${{ steps.full_coverage_report.outputs.report }}
-                  ```
-
-                  </details>
+                  > 📎 Full function-level report is available in the `coverage.out` build artifact.
 
             - name: Rename and upload master coverage
               if: github.ref_name == 'master'
