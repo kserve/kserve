@@ -29,6 +29,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
@@ -74,6 +75,25 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 	if storageInitializerDisabled {
 		// Skip storage-initializer when explicitly disabled
 		return nil
+	}
+
+	// Rewrite model URI to use cached PVC when local model cache is active
+	if _, ok := llmSvc.Labels[constants.LocalModelLabel]; ok {
+		sourceUri, ok := llmSvc.Annotations[constants.LocalModelSourceUriAnnotationKey]
+		if !ok {
+			return fmt.Errorf("annotation %s not found", constants.LocalModelSourceUriAnnotationKey)
+		}
+		pvcName, ok := llmSvc.Annotations[constants.LocalModelPVCNameAnnotationKey]
+		if !ok {
+			return fmt.Errorf("annotation %s not found", constants.LocalModelPVCNameAnnotationKey)
+		}
+		subPath, _ := strings.CutPrefix(modelUri, sourceUri)
+		if !strings.HasPrefix(subPath, "/") {
+			subPath = "/" + subPath
+		}
+		storageKey := v1alpha1.GetStorageKey(sourceUri)
+		modelUri = "pvc://" + pvcName + "/models/" + storageKey + subPath
+		schema = "pvc"
 	}
 
 	switch schema + "://" {

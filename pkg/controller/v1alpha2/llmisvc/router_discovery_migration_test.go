@@ -17,12 +17,10 @@ limitations under the License.
 package llmisvc_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
@@ -123,7 +121,7 @@ func TestIsInferencePoolV1Supported(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
-			result := llmisvc.IsInferencePoolV1Supported(context.Background(), fake.NewClientBuilder().Build(), tt.route)
+			result := llmisvc.IsInferencePoolV1Supported(tt.route)
 			g.Expect(result).To(Equal(tt.expected))
 		})
 	}
@@ -187,7 +185,7 @@ func TestIsInferencePoolSupportedWithMultipleParents(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
-			result := llmisvc.IsInferencePoolV1Supported(context.Background(), fake.NewClientBuilder().Build(), tt.route)
+			result := llmisvc.IsInferencePoolV1Supported(tt.route)
 			g.Expect(result).To(Equal(tt.expected))
 		})
 	}

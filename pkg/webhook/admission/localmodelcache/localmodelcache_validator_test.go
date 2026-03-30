@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 )
@@ -108,6 +109,46 @@ func TestUnableToDeleteLocalModelCacheWithActiveIsvc(t *testing.T) {
 	warnings, err := validator.ValidateDelete(t.Context(), &lmc)
 	g.Expect(warnings).NotTo(gomega.BeNil())
 	g.Expect(err).To(gomega.MatchError(fmt.Errorf("LocalModelCache %s is being used by InferenceService %s", lmc.Name, isvc.Name)))
+}
+
+func makeTestLLMInferenceService() v1alpha2.LLMInferenceService {
+	return v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "llm-iris",
+			Namespace: "default",
+			Labels: map[string]string{
+				constants.LocalModelLabel: "iris",
+			},
+		},
+	}
+}
+
+func makeTestLocalModelCacheWithLLMIsvc() v1alpha1.LocalModelCache {
+	lmc := makeTestLocalModelCache()
+	lmc.Status.InferenceServices = nil
+	lmc.Status.LLMInferenceServices = []v1alpha1.NamespacedName{
+		{
+			Namespace: "default",
+			Name:      "llm-iris",
+		},
+	}
+	return lmc
+}
+
+func TestUnableToDeleteLocalModelCacheWithActiveLLMIsvc(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	lmc := makeTestLocalModelCacheWithLLMIsvc()
+	llmIsvc := makeTestLLMInferenceService()
+	s := runtime.NewScheme()
+	err := v1alpha2.AddToScheme(s)
+	if err != nil {
+		t.Errorf("unable to add scheme : %v", err)
+	}
+	fakeClient := fake.NewClientBuilder().WithObjects(&llmIsvc).WithScheme(s).Build()
+	validator := LocalModelCacheValidator{fakeClient}
+	warnings, err := validator.ValidateDelete(t.Context(), &lmc)
+	g.Expect(warnings).NotTo(gomega.BeNil())
+	g.Expect(err).To(gomega.MatchError(fmt.Errorf("LocalModelCache %s is being used by LLMInferenceService %s", lmc.Name, llmIsvc.Name)))
 }
 
 func TestUnableToCreateLocalModelCacheWithSameStorageURI(t *testing.T) {
