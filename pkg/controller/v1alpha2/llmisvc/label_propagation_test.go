@@ -164,6 +164,33 @@ func TestPropagateDeploymentMetadata(t *testing.T) {
 			},
 		},
 		{
+			name: "should propagate localmodel labels and annotations from top-level metadata",
+			objectMetaLabels: map[string]string{
+				"internal.serving.kserve.io/localmodel":           "my-cache",
+				"internal.serving.kserve.io/localmodel-namespace": "test-ns",
+			},
+			objectMetaAnnotations: map[string]string{
+				"internal.serving.kserve.io/localmodel-sourceuri": "s3://bucket/model",
+				"internal.serving.kserve.io/localmodel-pvc-name":  "my-cache-gpu1",
+			},
+			expectedDeploymentLabels: map[string]string{
+				"internal.serving.kserve.io/localmodel":           "my-cache",
+				"internal.serving.kserve.io/localmodel-namespace": "test-ns",
+			},
+			expectedDeploymentAnnotations: map[string]string{
+				"internal.serving.kserve.io/localmodel-sourceuri": "s3://bucket/model",
+				"internal.serving.kserve.io/localmodel-pvc-name":  "my-cache-gpu1",
+			},
+			expectedPodLabels: map[string]string{
+				"internal.serving.kserve.io/localmodel":           "my-cache",
+				"internal.serving.kserve.io/localmodel-namespace": "test-ns",
+			},
+			expectedPodAnnotations: map[string]string{
+				"internal.serving.kserve.io/localmodel-sourceuri": "s3://bucket/model",
+				"internal.serving.kserve.io/localmodel-pvc-name":  "my-cache-gpu1",
+			},
+		},
+		{
 			name:             "should propagate nothing when no matching prefixes and no WorkloadSpec",
 			objectMetaLabels: map[string]string{"random.label/foo": "bar"},
 			objectMetaAnnotations: map[string]string{
