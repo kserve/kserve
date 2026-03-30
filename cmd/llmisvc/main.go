@@ -55,6 +55,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 	kservescheme "github.com/kserve/kserve/pkg/scheme"
+	llmisvcwebhook "github.com/kserve/kserve/pkg/webhook/admission/llminferenceservice"
 )
 
 var (
@@ -259,6 +260,24 @@ func main() {
 		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "LLMInferenceService")
+		os.Exit(1)
+	}
+
+	// Register conversion and defaulting webhooks for Hub types (v1alpha2)
+	// This enables automatic API version conversion between v1alpha1 and v1alpha2,
+	// and sets local model cache labels when a matching cache exists.
+	if err = ctrl.NewWebhookManagedBy(mgr).
+		For(&v1alpha2.LLMInferenceService{}).
+		WithDefaulter(&llmisvcwebhook.LLMInferenceServiceDefaulter{Scheme: scheme}).
+		Complete(); err != nil {
+		setupLog.Error(err, "unable to create conversion webhook", "webhook", "llminferenceservice")
+		os.Exit(1)
+	}
+
+	if err = ctrl.NewWebhookManagedBy(mgr).
+		For(&v1alpha2.LLMInferenceServiceConfig{}).
+		Complete(); err != nil {
+		setupLog.Error(err, "unable to create conversion webhook", "webhook", "llminferenceserviceconfig")
 		os.Exit(1)
 	}
 

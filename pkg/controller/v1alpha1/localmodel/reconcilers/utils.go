@@ -33,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	controllerutils "github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
@@ -475,27 +476,71 @@ func ReconcileForIsvcs(
 		}
 	}
 
-	// Get the previous list of namespaces from status to detect removed ISVCs
+	// List LLMInferenceServices using this cached model
+	llmSvcs := &v1alpha2.LLMInferenceServiceList{}
+	if params.IsNamespaceScoped {
+		if err := c.List(ctx, llmSvcs,
+			client.InNamespace(params.Namespace),
+			client.MatchingFields{LocalModelNamespaceKey: params.Name}); err != nil {
+			log.Error(err, "List llm inference service error")
+			return err
+		}
+	} else {
+		if err := c.List(ctx, llmSvcs, client.MatchingFields{LocalModelKey: params.Name}); err != nil {
+			log.Error(err, "List llm inference service error")
+			return err
+		}
+	}
+
+	llmSvcNames := []v1alpha1.NamespacedName{}
+	for _, llmSvc := range llmSvcs.Items {
+		llmSvcNames = append(llmSvcNames, v1alpha1.NamespacedName{Name: llmSvc.Name, Namespace: llmSvc.Namespace})
+		if llmSvcNodeGroup, ok := llmSvc.Annotations[constants.NodeGroupAnnotationKey]; ok {
+			if nodeGroup, ok := localModelNodeGroups[llmSvcNodeGroup]; ok {
+				if _, ok := namespaceToNodeGroups[llmSvc.Namespace]; !ok {
+					namespaceToNodeGroups[llmSvc.Namespace] = map[string]*v1alpha1.LocalModelNodeGroup{}
+				}
+				namespaceToNodeGroups[llmSvc.Namespace][nodeGroup.Name] = nodeGroup
+			} else {
+				log.Info("Didn't find llmisvc node group in model cache node groups", "llmisvc name", llmSvc.Name, "llmisvc node group", llmSvcNodeGroup, "model cache node groups", slices.Collect(maps.Keys(localModelNodeGroups)))
+			}
+		} else if _, ok := namespaceToNodeGroups[llmSvc.Namespace]; !ok {
+			log.Info("LLMIsvc does not have node group annotation", "llmisvc name", llmSvc.Name, "nodegroup annotation", constants.NodeGroupAnnotationKey)
+			namespaceToNodeGroups[llmSvc.Namespace] = map[string]*v1alpha1.LocalModelNodeGroup{defaultNodeGroup.Name: defaultNodeGroup}
+		} else {
+			namespaceToNodeGroups[llmSvc.Namespace][defaultNodeGroup.Name] = defaultNodeGroup
+		}
+	}
+
+	// Get the previous list of namespaces from status to detect removed ISVCs/LLMIsvcs
 	var previousNamespaces map[string]bool
-	if localModelCache != nil && localModelCache.Status.InferenceServices != nil {
+	if localModelCache != nil {
 		previousNamespaces = make(map[string]bool)
 		for _, isvc := range localModelCache.Status.InferenceServices {
 			previousNamespaces[isvc.Namespace] = true
 		}
-	} else if localModelNamespaceCache != nil && localModelNamespaceCache.Status.InferenceServices != nil {
+		for _, llmSvc := range localModelCache.Status.LLMInferenceServices {
+			previousNamespaces[llmSvc.Namespace] = true
+		}
+	} else if localModelNamespaceCache != nil {
 		previousNamespaces = make(map[string]bool)
 		for _, isvc := range localModelNamespaceCache.Status.InferenceServices {
 			previousNamespaces[isvc.Namespace] = true
+		}
+		for _, llmSvc := range localModelNamespaceCache.Status.LLMInferenceServices {
+			previousNamespaces[llmSvc.Namespace] = true
 		}
 	}
 
 	if localModelCache != nil {
 		localModelCache.Status.InferenceServices = isvcNames
+		localModelCache.Status.LLMInferenceServices = llmSvcNames
 		if err := c.Status().Update(ctx, localModelCache); err != nil {
 			log.Error(err, "cannot update status", "name", params.Name)
 		}
 	} else if localModelNamespaceCache != nil {
 		localModelNamespaceCache.Status.InferenceServices = isvcNames
+		localModelNamespaceCache.Status.LLMInferenceServices = llmSvcNames
 		if err := c.Status().Update(ctx, localModelNamespaceCache); err != nil {
 			log.Error(err, "cannot update status", "name", params.Name)
 		}

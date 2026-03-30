@@ -604,9 +604,11 @@ func (r *LLMISVCReconciler) propagateLeaderWorkerSetMetadata(llmSvc *v1alpha2.LL
 		"k8s.v1.cni.cncf.io",
 		constants.KueueAPIGroupName,
 		"prometheus.io",
+		constants.LocalModelLabel,
 	}
 	approvedLabelPrefixes := []string{
 		constants.KueueAPIGroupName,
+		constants.LocalModelLabel,
 	}
 
 	// Propagate approved annotations to the LeaderWorkerSet's top-level metadata
