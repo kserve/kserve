@@ -7,12 +7,11 @@ ARG VENV_PATH=/prod_venv
 FROM ${BASE_IMAGE} AS builder
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends python3-dev curl build-essential && apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+RUN --mount=type=cache,sharing=locked,target=/var/cache/apt --mount=type=cache,sharing=locked,target=/var/lib/apt/lists \
+    apt-get update && apt-get install -y --no-install-recommends python3-dev build-essential
 
 # Install uv and ensure it's in PATH
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
-    ln -s /root/.local/bin/uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.7 /uv /usr/local/bin/uv
 
 # Activate virtual env
 ARG VENV_PATH
@@ -25,27 +24,28 @@ COPY storage/pyproject.toml storage/uv.lock storage/
 
 # Install kserve dependencies using uv
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
-RUN cd kserve && uv sync --active --no-cache
+RUN --mount=type=cache,target=/root/.cache/uv cd kserve && uv sync --active
 
 COPY kserve kserve
-RUN cd kserve && uv sync --active --no-cache
+RUN --mount=type=cache,target=/root/.cache/uv cd kserve && uv sync --active
 
-# Install kserve-storage
+# Copy and install dependencies for kserve-storage using uv
+COPY storage/pyproject.toml storage/uv.lock storage/
+RUN --mount=type=cache,target=/root/.cache/uv cd storage && uv sync --active
+
 COPY storage storage
-RUN cd storage && uv pip install . --no-cache
+RUN --mount=type=cache,target=/root/.cache/uv cd storage && uv pip install .
 
 # Install paddleserver dependencies using uv
 COPY paddleserver/pyproject.toml paddleserver/uv.lock paddleserver/
-RUN cd paddleserver && uv sync --active --no-cache
+RUN --mount=type=cache,target=/root/.cache/uv cd paddleserver && uv sync --active
 
 COPY paddleserver paddleserver
-RUN cd paddleserver && uv sync --active --no-cache
+RUN --mount=type=cache,target=/root/.cache/uv cd paddleserver && uv sync --active
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
 COPY third_party/pip-licenses.py pip-licenses.py
-# TODO: Remove this when upgrading to python 3.11+
-RUN pip install --no-cache-dir tomli
 RUN mkdir -p third_party/library && python3 pip-licenses.py
 
 # ---------- Production image ----------

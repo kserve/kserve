@@ -5,12 +5,11 @@ ARG VENV_PATH=/prod_venv
 FROM ${BASE_IMAGE} AS builder
 
 # Required for building packages for arm64 arch
-RUN apt-get update && apt-get install -y --no-install-recommends curl python3-dev build-essential && apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+RUN --mount=type=cache,sharing=locked,target=/var/cache/apt --mount=type=cache,sharing=locked,target=/var/lib/apt/lists \
+    apt-get update && apt-get install -y --no-install-recommends python3-dev build-essential
 
 # Install uv
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
-    ln -s /root/.local/bin/uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.7 /uv /usr/local/bin/uv
 
 # Setup virtual environment
 ARG VENV_PATH
@@ -18,28 +17,26 @@ ENV VIRTUAL_ENV=${VENV_PATH}
 RUN uv venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-# Copy storage metadata for editable dependency resolution
+# Copy only storage metadata for kserve's editable path dep resolution
 COPY storage/pyproject.toml storage/uv.lock storage/
 
 # ------------------ kserve deps ------------------
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
-RUN cd kserve && uv sync --active --no-cache
+RUN --mount=type=cache,target=/root/.cache/uv cd kserve && uv sync --active
 
 COPY kserve kserve
-RUN cd kserve && uv sync --active --no-cache
+RUN --mount=type=cache,target=/root/.cache/uv cd kserve && uv sync --active
 
 # ------------------ artexplainer deps ------------------
 COPY artexplainer/pyproject.toml artexplainer/uv.lock artexplainer/
-RUN cd artexplainer && uv sync --active --no-cache
+RUN --mount=type=cache,target=/root/.cache/uv cd artexplainer && uv sync --active
 
 COPY artexplainer artexplainer
-RUN cd artexplainer && uv sync --active --no-cache
+RUN --mount=type=cache,target=/root/.cache/uv cd artexplainer && uv sync --active
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
 COPY third_party/pip-licenses.py pip-licenses.py
-# TODO: Remove this when upgrading to python 3.11+
-RUN pip install --no-cache-dir tomli
 RUN mkdir -p third_party/library && python3 pip-licenses.py
 
 

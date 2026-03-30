@@ -12,8 +12,7 @@ RUN dnf install -y python3.11-devel gcc gcc-c++ make && \
     dnf clean all
 
 # Install uv
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
-    ln -s /root/.local/bin/uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.7 /uv /usr/local/bin/uv
 
 # Create virtual environment with Python 3.11
 ARG VENV_PATH
@@ -31,13 +30,11 @@ COPY predictiveserver predictiveserver
 
 # ========== Install everything through predictiveserver ==========
 # predictiveserver depends on all other packages, so installing it will install everything
-RUN cd predictiveserver && uv pip install --no-cache .
+RUN --mount=type=cache,target=/root/.cache/uv cd predictiveserver && uv pip install .
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
 COPY third_party third_party
-# TODO: Remove this when upgrading to python 3.11+
-RUN pip install --no-cache-dir tomli
 RUN mkdir -p third_party/library && python3 third_party/pip-licenses.py
 
 
