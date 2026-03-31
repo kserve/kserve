@@ -24,9 +24,9 @@ To trigger an actual migration, we simulate an upgrade scenario by patching the
 CRD status to include a stale stored version, then restarting the controller.
 """
 
+import datetime
 import os
 import time
-import subprocess
 import pytest
 from kserve import KServeClient, constants
 from kubernetes import client
@@ -75,6 +75,7 @@ class TestStorageVersionMigration:
             client_configuration=client.Configuration(),
         )
         self.apix_client = client.ApiextensionsV1Api()
+        self.apps_client = client.AppsV1Api()
         self.namespace = KSERVE_TEST_NAMESPACE
         self.created_resources = []
         yield
@@ -180,29 +181,38 @@ class TestStorageVersionMigration:
         # The controller runs migration as a manager Runnable that executes
         # after the webhook server is ready.
         logger.info(f"Restarting {CONTROLLER_DEPLOYMENT} in {CONTROLLER_NAMESPACE}")
-        subprocess.run(
-            [
-                "kubectl",
-                "rollout",
-                "restart",
-                f"deployment/{CONTROLLER_DEPLOYMENT}",
-                "-n",
-                CONTROLLER_NAMESPACE,
-            ],
-            check=True,
+        restart_time = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        self.apps_client.patch_namespaced_deployment(
+            name=CONTROLLER_DEPLOYMENT,
+            namespace=CONTROLLER_NAMESPACE,
+            body={
+                "spec": {
+                    "template": {
+                        "metadata": {
+                            "annotations": {
+                                "kubectl.kubernetes.io/restartedAt": restart_time,
+                            }
+                        }
+                    }
+                }
+            },
         )
-        subprocess.run(
-            [
-                "kubectl",
-                "rollout",
-                "status",
-                f"deployment/{CONTROLLER_DEPLOYMENT}",
-                "-n",
-                CONTROLLER_NAMESPACE,
-                "--timeout=120s",
-            ],
-            check=True,
-        )
+
+        def assert_deployment_ready():
+            dep = self.apps_client.read_namespaced_deployment(
+                CONTROLLER_DEPLOYMENT, CONTROLLER_NAMESPACE
+            )
+            desired = dep.spec.replicas or 1
+            assert dep.status.ready_replicas == desired, (
+                f"ready_replicas={dep.status.ready_replicas}, want {desired}"
+            )
+            assert dep.status.updated_replicas == desired, (
+                f"updated_replicas={dep.status.updated_replicas}, want {desired}"
+            )
+            unavailable = dep.status.unavailable_replicas or 0
+            assert unavailable == 0, f"unavailable_replicas={unavailable}"
+
+        wait_for(assert_deployment_ready, timeout=120.0, interval=5.0)
         logger.info("Controller restarted successfully")
 
         # 4. Verify storedVersions has been cleaned up by the migrator.
@@ -216,7 +226,13 @@ class TestStorageVersionMigration:
                     f"got {crd.status.stored_versions} for {crd_name}"
                 )
 
-        wait_for(assert_stored_versions_migrated, timeout=180.0, interval=5.0)
+        # Allow enough time for the controller's exponential backoff to exhaust
+        # on slow clusters: 10 steps at 2s*1.5^n gives ~150s per resource group,
+        # two groups sequential = ~300s worst case. Default 360s adds buffer.
+        migration_timeout = float(os.getenv("STORAGE_MIGRATION_TIMEOUT", "360"))
+        wait_for(
+            assert_stored_versions_migrated, timeout=migration_timeout, interval=5.0
+        )
         logger.info("Storage version migration completed - storedVersions cleaned up")
 
         # 5. Verify the resource is still accessible via both API versions
