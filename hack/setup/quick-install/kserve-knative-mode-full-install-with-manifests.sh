@@ -631,7 +631,7 @@ CONTROLLER_TOOLS_VERSION=v0.19.0
 ENVTEST_VERSION=latest
 YQ_VERSION=v4.52.1
 HELM_VERSION=v3.16.3
-KUSTOMIZE_VERSION=v5.8.0
+KUSTOMIZE_VERSION=v5.8.1
 HELM_DOCS_VERSION=v1.12.0
 POETRY_VERSION=1.8.3
 UV_VERSION=0.7.8
@@ -985,10 +985,10 @@ install_kustomize() {
 
     log_info "Installing Kustomize ${KUSTOMIZE_VERSION} for ${os}/${arch}..."
 
-    if command -v kustomize &>/dev/null; then
-        local current_version=$(kustomize version --short 2>/dev/null | grep -oP 'v[0-9.]+')
+    if [[ -x "${BIN_DIR}/kustomize" ]]; then
+        local current_version=$("${BIN_DIR}/kustomize" version 2>/dev/null | awk 'match($0, /v[0-9.]+/) {print substr($0, RSTART, RLENGTH)}')
         if [[ -n "$current_version" ]] && version_gte "$current_version" "$KUSTOMIZE_VERSION"; then
-            log_info "Kustomize ${current_version} is already installed (>= ${KUSTOMIZE_VERSION})"
+            log_info "Kustomize ${current_version} is already installed in ${BIN_DIR} (>= ${KUSTOMIZE_VERSION})"
             return 0
         fi
         [[ -n "$current_version" ]] && log_info "Upgrading Kustomize from ${current_version} to ${KUSTOMIZE_VERSION}..."
@@ -1046,7 +1046,7 @@ install_yq() {
     log_info "Installing yq ${YQ_VERSION} for ${os}/${arch}..."
 
     if [[ -x "${BIN_DIR}/yq" ]]; then
-        local current_version=$("${BIN_DIR}/yq" --version 2>&1 | grep -oP 'version \K[v0-9.]+')
+        local current_version=$("${BIN_DIR}/yq" --version 2>&1 | awk '/version [v0-9]/ {print $NF}')
         # Normalize version format (add 'v' prefix if missing)
         [[ -n "$current_version" && "$current_version" != v* ]] && current_version="v${current_version}"
         if [[ -n "$current_version" ]] && version_gte "$current_version" "$YQ_VERSION"; then
