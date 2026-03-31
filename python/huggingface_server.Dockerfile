@@ -116,7 +116,7 @@ COPY huggingfaceserver huggingfaceserver
 # --no-deps: deps are already correct from the sync above; this just makes the
 # package importable from source without reinstalling (and re-CPU-ifying) torch.
 RUN --mount=type=cache,target=/root/.cache/uv cd huggingfaceserver && \
-    uv pip install --active --no-deps -e .
+    uv pip install --no-deps -e .
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
