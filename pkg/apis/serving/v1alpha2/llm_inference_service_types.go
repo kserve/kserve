@@ -168,6 +168,8 @@ type LLMModelSpec struct {
 // LoRASpec defines the configuration for LoRA adapters.
 type LoRASpec struct {
 	// Adapters is the static specification for one or more LoRA adapters.
+	// The LLMInferenceService controller reconciles these into vLLM (LoRA CLI flags on main container Args,
+	// storage-initializer for hf:// and s3://, PVC mounts for pvc://).
 	// Each adapter is defined by its own ModelSpec.
 	// +optional
 	// This type is recursive https://github.com/kubernetes-sigs/controller-tools/issues/585
