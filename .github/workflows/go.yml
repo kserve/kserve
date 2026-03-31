@@ -47,7 +47,6 @@ jobs:
               uses: actions/setup-go@v5
               with:
                go-version-file: go.mod
-               cache: true
               id: go
 
             - name: Test

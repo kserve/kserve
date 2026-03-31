@@ -76,29 +76,47 @@ jobs:
               - 'cmd/manager/**'
               - 'config/**'
               - '!config/llmisvc/**'
+              - 'Dockerfile'
+              - 'agent.Dockerfile'
+              - 'go.mod'
+              - 'go.sum'
+              - 'kserve-images.sh'
+              - 'python/storage-initializer.Dockerfile'
+              - 'python/storage/**'
+              - 'python/storage-initializer'
+              - 'test/scripts/gh-actions/**'
+              - 'test/e2e/conftest.py'
             # Component-specific paths
             graph:
               - 'pkg/apis/**/inference_graph*'
               - 'pkg/controller/**/inference_graph*'
               - 'test/e2e/graph/**'
+              - 'python/success_200_isvc.Dockerfile'
+              - 'python/error_404_isvc.Dockerfile'
             qpext:
               - 'qpext/**'
               - 'test/e2e/qpext/**'
             router:
               - 'cmd/router/**'
               - 'pkg/router/**'
+              - 'router.Dockerfile'
             localmodel:
               - 'pkg/controller/**/localmodel*'
               - 'pkg/apis/**/localmodel*'
               - 'cmd/localmodel*/**'
               - 'test/e2e/modelcache/**'
+              - 'localmodel.Dockerfile'
+              - 'localmodel-agent.Dockerfile'
             python_runtimes:
               - 'python/**'
             explainer:
               - 'python/artexplainer/**'
+              - 'python/artexplainer.Dockerfile'
               - 'test/e2e/explainer/**'
             huggingface:
               - 'python/huggingfaceserver/**'
+              - 'python/huggingface_server.Dockerfile'
+              - 'python/huggingface_server_cpu.Dockerfile'
               - 'test/e2e/predictor/test_huggingface*'
             raw_deploy:
               - 'pkg/controller/**/rawkube*'
@@ -204,10 +222,6 @@ jobs:
           if-no-files-found: error
 
   predictor-runtime-build:
-    needs: [detect-changes]
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      needs.detect-changes.outputs.non_charts == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
@@ -322,15 +336,6 @@ jobs:
           if-no-files-found: error
 
   explainer-runtime-build:
-    needs: [detect-changes]
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      needs.detect-changes.outputs.core == 'true' ||
-      needs.detect-changes.outputs.explainer == 'true' ||
-      needs.detect-changes.outputs.python_runtimes == 'true' ||
-      needs.detect-changes.outputs.networking == 'true' ||
-      needs.detect-changes.outputs.router == 'true' ||
-      needs.detect-changes.outputs.raw_deploy == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
@@ -370,12 +375,6 @@ jobs:
           if-no-files-found: error
 
   graph-tests-images-build:
-    needs: [detect-changes]
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      needs.detect-changes.outputs.core == 'true' ||
-      needs.detect-changes.outputs.graph == 'true' ||
-      needs.detect-changes.outputs.networking == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
@@ -459,7 +458,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -545,7 +543,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -631,7 +628,8 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       needs.detect-changes.outputs.core == 'true' ||
-      needs.detect-changes.outputs.graph == 'true'
+      needs.detect-changes.outputs.graph == 'true' ||
+      needs.detect-changes.outputs.router == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -656,7 +654,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -760,7 +757,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -887,7 +883,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -977,7 +972,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -1056,7 +1050,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -1205,7 +1198,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -1313,7 +1305,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -1426,7 +1417,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -1508,7 +1498,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -1590,7 +1579,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
 
       - name: Setup Python
         uses: actions/setup-python@v5
