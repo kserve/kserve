@@ -52,9 +52,10 @@ const (
 )
 
 const (
-	DefaultDomainTemplate = "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"
-	DefaultIngressDomain  = "example.com"
-	DefaultUrlScheme      = "http"
+	DefaultDomainTemplate      = "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"
+	DefaultIngressPathTemplate = ""
+	DefaultIngressDomain       = "example.com"
+	DefaultUrlScheme           = "http"
 )
 
 // Error messages
@@ -111,21 +112,30 @@ type MultiNodeConfig struct {
 
 // +kubebuilder:object:generate=false
 type IngressConfig struct {
-	EnableGatewayAPI             bool      `json:"enableGatewayApi,omitempty"`
-	KserveIngressGateway         string    `json:"kserveIngressGateway,omitempty"`
-	IngressGateway               string    `json:"ingressGateway,omitempty"`
-	KnativeLocalGatewayService   string    `json:"knativeLocalGatewayService,omitempty"`
-	LocalGateway                 string    `json:"localGateway,omitempty"`
-	LocalGatewayServiceName      string    `json:"localGatewayService,omitempty"`
-	IngressDomain                string    `json:"ingressDomain,omitempty"`
-	IngressClassName             *string   `json:"ingressClassName,omitempty"`
-	AdditionalIngressDomains     *[]string `json:"additionalIngressDomains,omitempty"`
-	DomainTemplate               string    `json:"domainTemplate,omitempty"`
-	UrlScheme                    string    `json:"urlScheme,omitempty"`
-	EnableLLMInferenceServiceTLS bool      `json:"enableLLMInferenceServiceTLS,omitempty"`
-	DisableIstioVirtualHost      bool      `json:"disableIstioVirtualHost,omitempty"`
-	PathTemplate                 string    `json:"pathTemplate,omitempty"`
-	DisableIngressCreation       bool      `json:"disableIngressCreation,omitempty"`
+	EnableGatewayAPI           bool      `json:"enableGatewayApi,omitempty"`
+	KserveIngressGateway       string    `json:"kserveIngressGateway,omitempty"`
+	IngressGateway             string    `json:"ingressGateway,omitempty"`
+	KnativeLocalGatewayService string    `json:"knativeLocalGatewayService,omitempty"`
+	LocalGateway               string    `json:"localGateway,omitempty"`
+	LocalGatewayServiceName    string    `json:"localGatewayService,omitempty"`
+	IngressDomain              string    `json:"ingressDomain,omitempty"`
+	IngressClassName           *string   `json:"ingressClassName,omitempty"`
+	AdditionalIngressDomains   *[]string `json:"additionalIngressDomains,omitempty"`
+	DomainTemplate             string    `json:"domainTemplate,omitempty"`
+	// Specifies the template for generating path based url's in the RawDeployment mode with GatewayAPI disabled.
+	//
+	// This field has been added to prevent enabling path based routing by default in RawDeployment without GatewayAPI
+	//
+	// If using any other mode, use IngressConfig.PathTemplate
+	IngressPathTemplate          string `json:"ingressPathTemplate,omitempty"`
+	UrlScheme                    string `json:"urlScheme,omitempty"`
+	EnableLLMInferenceServiceTLS bool   `json:"enableLLMInferenceServiceTLS,omitempty"`
+	DisableIstioVirtualHost      bool   `json:"disableIstioVirtualHost,omitempty"`
+	// Specifies the template for generating path based url's for InferenceServices in Serverless and GatewayAPI modes.
+	//
+	// If using RawDeployment without GatewayAPI, use IngressConfig.IngressPathTemplate
+	PathTemplate           string `json:"pathTemplate,omitempty"`
+	DisableIngressCreation bool   `json:"disableIngressCreation,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
