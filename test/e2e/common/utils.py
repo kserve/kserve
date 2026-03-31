@@ -32,7 +32,7 @@ from kserve.protocol.grpc import grpc_predict_v2_pb2 as pb
 from kserve.logging import trace_logger as logger
 from .http_retry import post_with_retry
 
-KSERVE_NAMESPACE = "kserve"
+KSERVE_NAMESPACE = os.environ.get("KSERVE_NAMESPACE", "kserve")
 KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
 MODEL_CLASS_NAME = "modelClass"
 INFERENCESERVICE_CONTAINER = "kserve-container"

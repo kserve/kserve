@@ -216,7 +216,7 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 		return fmt.Errorf("failed to reconcile workload: %w", err)
 	}
 
-	if err := r.reconcileRouter(ctx, llmSvc, config); err != nil {
+	if err := r.reconcileRouter(ctx, llmSvc); err != nil {
 		return fmt.Errorf("failed to reconcile networking: %w", err)
 	}
 
@@ -239,7 +239,7 @@ func (r *LLMISVCReconciler) updateStatus(ctx context.Context, desired *v1alpha2.
 		// Always fetch the latest version to avoid conflicts
 		latest := &v1alpha2.LLMInferenceService{}
 		if err := r.Get(ctx, client.ObjectKeyFromObject(desired), latest); err != nil {
-			return err
+			return client.IgnoreNotFound(err)
 		}
 
 		// Skip update if status hasn't changed

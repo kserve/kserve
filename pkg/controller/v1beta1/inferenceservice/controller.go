@@ -416,7 +416,7 @@ func (r *InferenceServiceReconciler) updateStatus(ctx context.Context, desiredSe
 	existingService := &v1beta1.InferenceService{}
 	namespacedName := types.NamespacedName{Name: desiredService.Name, Namespace: desiredService.Namespace}
 	if err := r.Get(ctx, namespacedName, existingService); err != nil {
-		return err
+		return client.IgnoreNotFound(err)
 	}
 	wasReady := inferenceServiceReadiness(existingService.Status)
 	if inferenceServiceStatusEqual(existingService.Status, desiredService.Status, deploymentMode) {
