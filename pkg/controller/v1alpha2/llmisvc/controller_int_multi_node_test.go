@@ -283,6 +283,56 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 			))
 		})
 
+		It("should propagate imagePullSecrets from default SA to the created multi-node prefill SA", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-mn-ips-prefill"
+			testNs := NewTestNamespace(ctx, envTest,
+				WithIstioShadowService(svcName),
+				WithDefaultServiceAccountImagePullSecrets(
+					corev1.LocalObjectReference{Name: "my-registry-secret"},
+				),
+			)
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithReplicas(1),
+				WithParallelism(ParallelismSpec(
+					WithDataParallelism(2),
+					WithDataLocalParallelism(1),
+				)),
+				WithWorker(&corev1.PodSpec{}),
+				WithPrefillParallelism(ParallelismSpec(
+					WithDataParallelism(2),
+					WithDataLocalParallelism(1),
+				)),
+				WithPrefillWorker(&corev1.PodSpec{}),
+				WithPrefillReplicas(1),
+				WithManagedRoute(),
+				WithManagedGateway(),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - prefill SA should have the imagePullSecrets from the default SA
+			prefillSA := &corev1.ServiceAccount{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      kmeta.ChildName(svcName, "-kserve-mn-prefill"),
+					Namespace: testNs.Name,
+				}, prefillSA)
+			}).WithContext(ctx).Should(Succeed())
+
+			Expect(prefillSA).To(BeOwnedBy(llmSvc))
+			Expect(prefillSA.ImagePullSecrets).To(ConsistOf(
+				corev1.LocalObjectReference{Name: "my-registry-secret"},
+			))
+		})
+
 		It("should create multi-node SA with empty imagePullSecrets when default SA has none", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-mn-ips-empty"

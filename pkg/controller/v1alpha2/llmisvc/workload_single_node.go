@@ -405,11 +405,6 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainServiceAccount(ctx context.Con
 		return existingServiceAccount, useExistingServiceAccount, nil
 	}
 
-	defaultSa := &corev1.ServiceAccount{}
-	if err := r.Get(ctx, types.NamespacedName{Name: defaultServiceAccountName, Namespace: llmSvc.Namespace}, defaultSa); err != nil {
-		log.FromContext(ctx).Error(err, "Warning: failed to retrieve 'default' service account, continuing ...")
-	}
-
 	expectedServiceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      expectedServiceAccountName,
@@ -418,9 +413,9 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainServiceAccount(ctx context.Con
 				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
 			},
 		},
-		ImagePullSecrets: defaultSa.ImagePullSecrets,
-		Secrets:          defaultSa.Secrets,
 	}
+
+	r.injectSecretsFromDefaultServiceAccount(ctx, expectedServiceAccount)
 
 	if expectedServiceAccount.Labels == nil {
 		expectedServiceAccount.Labels = make(map[string]string)

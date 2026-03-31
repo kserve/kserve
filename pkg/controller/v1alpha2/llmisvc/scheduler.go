@@ -637,6 +637,9 @@ func (r *LLMISVCReconciler) expectedSchedulerServiceAccount(ctx context.Context,
 			sa.Secrets = mainSA.Secrets
 			sa.ImagePullSecrets = mainSA.ImagePullSecrets
 		}
+	} else {
+		// No explicit main workload SA — fall back to the default SA for registry credentials.
+		r.injectSecretsFromDefaultServiceAccount(ctx, sa)
 	}
 
 	return sa, useExistingServiceAccount, nil

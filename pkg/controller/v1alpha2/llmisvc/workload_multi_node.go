@@ -482,11 +482,6 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainServiceAccount(ctx context.Cont
 		return existingServiceAccount, useExistingServiceAccount, nil
 	}
 
-	defaultSa := &corev1.ServiceAccount{}
-	if err := r.Get(ctx, types.NamespacedName{Name: defaultServiceAccountName, Namespace: llmSvc.Namespace}, defaultSa); err != nil {
-		log.FromContext(ctx).Error(err, "Warning: failed to retrieve 'default' service account, continuing ...")
-	}
-
 	expectedServiceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      expectedServiceAccountName,
@@ -495,9 +490,9 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainServiceAccount(ctx context.Cont
 				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
 			},
 		},
-		ImagePullSecrets: defaultSa.ImagePullSecrets,
-		Secrets:          defaultSa.Secrets,
 	}
+
+	r.injectSecretsFromDefaultServiceAccount(ctx, expectedServiceAccount)
 
 	// Add required labels to the created service account
 	if expectedServiceAccount.Labels == nil {
@@ -541,6 +536,8 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillServiceAccount(ctx context.C
 			},
 		},
 	}
+
+	r.injectSecretsFromDefaultServiceAccount(ctx, expectedServiceAccount)
 
 	// Add required labels to the created service account
 	if expectedServiceAccount.Labels == nil {
