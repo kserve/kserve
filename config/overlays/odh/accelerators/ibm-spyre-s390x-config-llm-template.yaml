@@ -29,3 +29,5 @@ spec:
             value: "1"
           - name: TORCH_SENDNN_CACHE_ENABLE
             value: "1"
+          - name: VLLM_DT_CHUNK_LEN
+            value: "512"

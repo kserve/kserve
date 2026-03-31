@@ -24,11 +24,5 @@ spec:
             value: error
           - name: TORCH_SENDNN_LOG
             value: CRITICAL
-          - name: VLLM_SPYRE_WARMUP_BATCH_SIZES
-            value: "4"
-          - name: VLLM_SPYRE_WARMUP_PROMPT_LENS
-            value: "1024"
-          - name: VLLM_SPYRE_WARMUP_NEW_TOKENS
-            value: "256"
-          - name: VLLM_SPYRE_REQUIRE_PRECOMPILED_DECODERS
-            value: "0"
+          - name: VLLM_SPYRE_USE_CB
+            value: "1"
