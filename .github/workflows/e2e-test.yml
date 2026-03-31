@@ -86,6 +86,8 @@ jobs:
               - 'python/storage-initializer/**'
               - 'test/scripts/gh-actions/**'
               - 'test/e2e/conftest.py'
+              - '.github/workflows/e2e-test.yml'
+              - '.github/actions/**'
             # Component-specific paths
             graph:
               - 'pkg/apis/**/inference_graph*'
