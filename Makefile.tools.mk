@@ -11,6 +11,7 @@ CONTROLLER_GEN = $(LOCALBIN)/controller-gen
 ENVTEST = $(LOCALBIN)/setup-envtest
 YQ = $(LOCALBIN)/yq
 HELM_DOCS = $(LOCALBIN)/helm-docs
+PINACT = $(LOCALBIN)/pinact
 UV = $(PYTHON_BIN)/uv
 RUFF = $(PYTHON_BIN)/ruff
 
@@ -48,6 +49,12 @@ $(YQ): $(LOCALBIN)
 helm-docs: $(HELM_DOCS)
 $(HELM_DOCS): $(LOCALBIN)
 	$(call go-install-tool,$(HELM_DOCS),github.com/norwoodj/helm-docs/cmd/helm-docs,$(HELM_DOCS_VERSION))
+
+## Download pinact locally if necessary.
+.PHONY: pinact
+pinact: $(PINACT)
+$(PINACT): $(LOCALBIN)
+	$(call go-install-tool,$(PINACT),github.com/suzuki-shunsuke/pinact/v3/cmd/pinact,$(PINACT_VERSION))
 
 $(PYTHON_VENV): | $(LOCALBIN)
 	python3 -m venv $(PYTHON_VENV)
