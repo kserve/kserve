@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 import time
 
 import os
@@ -43,8 +42,6 @@ from .logging import log_execution, logger
 from ..common.http_retry import get_with_retry, post_with_retry
 
 KSERVE_PLURAL_LLMINFERENCESERVICE = "llminferenceservices"
-
-logger = logging.getLogger(__name__)
 
 
 def assert_200(response: requests.Response) -> None:
@@ -500,12 +497,16 @@ def maybe_delete_llmisvc(
     """
     service_name = llm_isvc.metadata.name
     try:
-        skip_all = os.getenv(
-            "SKIP_RESOURCE_DELETION", "False"
-        ).lower() in ("true", "1", "t")
-        skip_on_failure = os.getenv(
-            "SKIP_DELETION_ON_FAILURE", "False"
-        ).lower() in ("true", "1", "t")
+        skip_all = os.getenv("SKIP_RESOURCE_DELETION", "False").lower() in (
+            "true",
+            "1",
+            "t",
+        )
+        skip_on_failure = os.getenv("SKIP_DELETION_ON_FAILURE", "False").lower() in (
+            "true",
+            "1",
+            "t",
+        )
 
         should_skip = skip_all or (skip_on_failure and test_failed)
 
