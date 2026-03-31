@@ -30,7 +30,7 @@ jobs:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Merge target branch
         if: github.event_name == 'pull_request'
@@ -46,7 +46,7 @@ jobs:
 
       - name: Set up Python ${{ matrix.python-version }}
         id: setup-python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -60,7 +60,7 @@ jobs:
           # pip install --upgrade pip
         
       - name: Load uv cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         id: cached-uv
         with:
           path: .venv
@@ -78,7 +78,7 @@ jobs:
       # load cached kserve venv if cache exists
       - name: Load cached kserve venv
         id: cached-kserve-dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: python/kserve/.venv
           key: kserve-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock') }}
@@ -113,7 +113,7 @@ jobs:
           uv pip install "numpy<2.0"
       - name: Load cached kserve numpy 1-x venv
         id: cached-kserve-numpy-1-x-dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: python/kserve-numpy-1-x/.venv
           key: kserve-numpy-1-x-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve-numpy-1-x/uv.lock') }}
@@ -141,7 +141,7 @@ jobs:
       # load cached sklearn venv if cache exists
       - name: Load cached sklearn venv
         id: cached-sklearn-dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: python/sklearnserver/.venv
           key: sklearn-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock', '**/sklearnserver/uv.lock') }}
@@ -165,7 +165,7 @@ jobs:
       # load cached xgb venv if cache exists
       - name: Load cached xgb venv
         id: cached-xgb-dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: python/xgbserver/.venv
           key: xgb-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock', '**/xgbserver/uv.lock') }}
@@ -189,7 +189,7 @@ jobs:
       # load cached pmml venv if cache exists
       - name: Load cached pmml venv
         id: cached-pmml-dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: python/pmmlserver/.venv
           key: pmml-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock', '**/pmmlserver/uv.lock') }}
@@ -213,7 +213,7 @@ jobs:
       # load cached lgb venv if cache exists
       - name: Load cached lgb venv
         id: cached-lgb-dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: python/lgbserver/.venv
           key: lgb-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock', '**/lgbserver/uv.lock') }}
@@ -237,7 +237,7 @@ jobs:
       # load cached paddle venv if cache exists
       - name: Load cached paddle venv
         id: cached-paddle-dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: python/paddleserver/.venv
           key: paddle-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock', '**/paddleserver/uv.lock') }}
@@ -262,7 +262,7 @@ jobs:
       # load cached huggingface cpu venv if cache exists
       - name: Load cached huggingface cpu venv
         id: huggingface-cpu-dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: /mnt/python/huggingfaceserver-cpu-venv
           key: huggingface-cpu-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock', '**/huggingfaceserver/uv.lock') }}
