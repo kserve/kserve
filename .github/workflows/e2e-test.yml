@@ -429,6 +429,7 @@ jobs:
     needs: [detect-changes, kserve-image-build, predictor-runtime-build]
     if: >-
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'merge_group' ||
       needs.detect-changes.outputs.core == 'true' ||
       needs.detect-changes.outputs.python_runtimes == 'true'
     strategy:
@@ -513,6 +514,7 @@ jobs:
       [detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     if: >-
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'merge_group' ||
       needs.detect-changes.outputs.core == 'true' ||
       needs.detect-changes.outputs.explainer == 'true' ||
       needs.detect-changes.outputs.python_runtimes == 'true'
@@ -627,6 +629,7 @@ jobs:
       [detect-changes, kserve-image-build, predictor-runtime-build, graph-tests-images-build]
     if: >-
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'merge_group' ||
       needs.detect-changes.outputs.core == 'true' ||
       needs.detect-changes.outputs.graph == 'true' ||
       needs.detect-changes.outputs.router == 'true'
@@ -730,6 +733,7 @@ jobs:
       [detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     if: >-
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'merge_group' ||
       needs.detect-changes.outputs.core == 'true' ||
       needs.detect-changes.outputs.networking == 'true' ||
       needs.detect-changes.outputs.router == 'true'
@@ -854,6 +858,7 @@ jobs:
     needs: [detect-changes, kserve-image-build, predictor-runtime-build]
     if: >-
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'merge_group' ||
       needs.detect-changes.outputs.core == 'true' ||
       needs.detect-changes.outputs.qpext == 'true'
     strategy:
@@ -951,6 +956,7 @@ jobs:
     needs: [detect-changes, kserve-image-build]
     if: >-
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'merge_group' ||
       needs.detect-changes.outputs.charts == 'true'
     steps:
       - name: Checkout source
@@ -1017,6 +1023,7 @@ jobs:
       [detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     if: >-
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'merge_group' ||
       needs.detect-changes.outputs.core == 'true' ||
       needs.detect-changes.outputs.raw_deploy == 'true' ||
       needs.detect-changes.outputs.networking == 'true'
@@ -1169,6 +1176,7 @@ jobs:
       [detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     if: >-
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'merge_group' ||
       needs.detect-changes.outputs.core == 'true' ||
       needs.detect-changes.outputs.raw_deploy == 'true'
     strategy:
@@ -1276,6 +1284,7 @@ jobs:
       [detect-changes, kserve-image-build, predictor-runtime-build, graph-tests-images-build]
     if: >-
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'merge_group' ||
       needs.detect-changes.outputs.core == 'true' ||
       needs.detect-changes.outputs.networking == 'true'
     strategy:
@@ -1388,6 +1397,7 @@ jobs:
     needs: [detect-changes, kserve-image-build, predictor-runtime-build]
     if: >-
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'merge_group' ||
       needs.detect-changes.outputs.core == 'true' ||
       needs.detect-changes.outputs.huggingface == 'true'
     strategy:
@@ -1469,6 +1479,7 @@ jobs:
     needs: [detect-changes, kserve-image-build, predictor-runtime-build]
     if: >-
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'merge_group' ||
       needs.detect-changes.outputs.core == 'true' ||
       needs.detect-changes.outputs.huggingface == 'true'
     strategy:
@@ -1550,6 +1561,7 @@ jobs:
     needs: [detect-changes, kserve-image-build, predictor-runtime-build]
     if: >-
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'merge_group' ||
       needs.detect-changes.outputs.core == 'true' ||
       needs.detect-changes.outputs.localmodel == 'true'
     strategy:
