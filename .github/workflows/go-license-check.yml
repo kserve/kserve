@@ -31,7 +31,7 @@ jobs:
         run: go install github.com/google/go-licenses@v1.6.0
 
       - name: Check main module licenses
-        run: go-licenses check ./cmd/... ./pkg/... ./qpext/... --disallowed_types="forbidden,unknown"
+        run: go-licenses check ./cmd/... ./pkg/... --disallowed_types="forbidden,unknown"
 
       - name: Check qpext licenses
         working-directory: qpext
