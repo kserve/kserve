@@ -418,7 +418,7 @@ func TestLoggerCloudEventTimestamps(t *testing.T) {
 	r := httptest.NewRequest(http.MethodPost, "http://a", reader)
 	w := httptest.NewRecorder()
 	logger, _ := pkglogging.NewLogger("", "INFO")
-	logf.SetLogger(zap.New())
+	pkgtest.SetupTestLogger()
 	logSvcUrl, err := url.Parse(logSvc.URL)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	sourceUri, err := url.Parse("http://localhost:9081/")
