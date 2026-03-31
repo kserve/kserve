@@ -105,7 +105,7 @@ func TestEPPServiceName(t *testing.T) {
 			router: &RouterSpec{
 				Scheduler: &SchedulerSpec{
 					Pool: &InferencePoolSpec{
-						Ref:  &corev1.LocalObjectReference{Name: "external-pool"},
+						Ref: &corev1.LocalObjectReference{Name: "external-pool"},
 						Spec: &igwapi.InferencePoolSpec{
 							EndpointPickerRef: igwapi.EndpointPickerRef{
 								Name: "should-be-ignored",
