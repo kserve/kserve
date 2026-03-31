@@ -9,6 +9,7 @@ ARG PYTHON=python3
 RUN apt-get update && \
     apt-get upgrade -y && \
     apt-get install --no-install-recommends --fix-missing -y \
+        google-perftools \
         libgl1 \
         libglib2.0-0 \
         libjemalloc2 \
@@ -134,10 +135,9 @@ COPY --from=builder --chown=kserve:kserve storage storage
 ENV HF_HOME="/tmp/huggingface"
 ENV HF_HUB_DISABLE_TELEMETRY="1"
 
-# Use jemalloc for better memory management (matches the GPU image).
-# The original Dockerfile loaded both tcmalloc and jemalloc, but LD_PRELOAD
-# resolves left-to-right so only the first allocator is used - the second is dead weight.
-ENV LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libjemalloc.so.2
+# Use TCMalloc for CPU inference performance - it significantly reduces memory allocation
+# overhead for vllm's CPU-bound workloads. Jemalloc is retained as secondary allocator.
+ENV LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libtcmalloc.so.4:/usr/lib/x86_64-linux-gnu/libjemalloc.so.2
 
 USER 1000
 ENV PYTHONPATH=/huggingfaceserver
