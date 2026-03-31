@@ -66,7 +66,7 @@ install() {
     rm -rf "${temp_dir}"
 
     log_success "Successfully installed Kind ${KIND_VERSION} to ${BIN_DIR}/kind"
-    kind version
+    "${BIN_DIR}/kind" version
 }
 
 install

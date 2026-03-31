@@ -89,7 +89,7 @@ install() {
     rm -rf "${temp_dir}"
 
     log_success "Successfully installed uv ${UV_VERSION} to ${BIN_DIR}/uv"
-    uv version
+    "${BIN_DIR}/uv" version
 }
 
 install
