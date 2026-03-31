@@ -40,6 +40,8 @@ const (
 	// routingSidecarContainerName is the name of the routing sidecar container
 	// that handles prefill disaggregation routing.
 	routingSidecarContainerName = "llm-d-routing-sidecar"
+
+	defaultServiceAccountName = "default"
 )
 
 // sidecarSSRFProtectionRules defines RBAC rules for the routing sidecar
