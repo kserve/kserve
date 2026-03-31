@@ -140,8 +140,10 @@ helm-docs-gen: helm-docs
 ## Precommit orchestration
 
 # Selective targets for precommit-fast, stripped so empty list produces empty string.
-_FAST_GENERATE := $(strip $(call run-if-changed,generate,$(GENERATE_TRIGGERS)))
-_FAST_MANIFESTS_UVLOCK := $(strip $(call run-if-changed,manifests,$(MANIFESTS_TRIGGERS)) \
+# Use = (lazy expansion) so git commands only run when precommit-fast is actually invoked,
+# not at Makefile parse time on every make call.
+_FAST_GENERATE = $(strip $(call run-if-changed,generate,$(GENERATE_TRIGGERS)))
+_FAST_MANIFESTS_UVLOCK = $(strip $(call run-if-changed,manifests,$(MANIFESTS_TRIGGERS)) \
   $(call run-if-changed,uv-lock,$(UVLOCK_TRIGGERS)))
 
 # Common steps shared by precommit and precommit-fast.
@@ -191,7 +193,8 @@ precommit-lint:
 check: precommit
 	@if [ -n "$$(git status -s)" ]; then \
 		echo "The following differences will fail CI until committed:"; \
-		git diff --exit-code; \
+		git diff; \
+		git diff --cached; \
 		echo "Please ensure that you have run 'make precommit' and committed the changes."; \
 		exit 1; \
 	fi
