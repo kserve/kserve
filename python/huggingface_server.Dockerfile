@@ -100,14 +100,23 @@ RUN --mount=type=cache,target=/root/.cache/uv cd storage && uv pip install .
 
 COPY huggingfaceserver/pyproject.toml huggingfaceserver/uv.lock huggingfaceserver/health_check.py huggingfaceserver/
 RUN --mount=type=cache,target=/root/.cache/uv cd huggingfaceserver && uv sync --active --inexact
-COPY huggingfaceserver huggingfaceserver
-RUN --mount=type=cache,target=/root/.cache/uv cd huggingfaceserver && uv sync --active --inexact
 
-# Restore GPU torch via pip - uv sync resolves torch to CPU wheels from the lockfile
-# (evaluated on CPU CI runners). Unlike uv, pip's wheel resolver selects CUDA-compiled
-# torch when running inside a CUDA container, overriding whatever uv installed.
+# Restore GPU torch - uv sync resolves torch to CPU wheels from the lockfile since it's
+# evaluated on CPU CI runners. pip's wheel resolver picks CUDA-compiled wheels inside a
+# CUDA container. Placed after metadata-only sync so this layer stays cached on hfserver
+# source changes (only lockfile/pyproject changes bust this layer).
+# Only torch is reinstalled - much lighter than reinstalling vllm.
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --no-cache-dir vllm[runai,tensorizer,fastsafetensors]==${VLLM_VERSION}
+    TORCH_VER=$(python -c "import torch; print(torch.__version__.split('+')[0])") && \
+    CUDA_SHORT=$(echo ${CUDA_VERSION} | cut -d. -f1,2 | tr -d '.') && \
+    pip install --no-cache-dir "torch==${TORCH_VER}" \
+        --index-url "https://download.pytorch.org/whl/cu${CUDA_SHORT}"
+
+COPY huggingfaceserver huggingfaceserver
+# --no-deps: deps are already correct from the sync above; this just makes the
+# package importable from source without reinstalling (and re-CPU-ifying) torch.
+RUN --mount=type=cache,target=/root/.cache/uv cd huggingfaceserver && \
+    uv pip install --active --no-deps -e .
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
