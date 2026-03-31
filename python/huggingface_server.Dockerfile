@@ -103,6 +103,12 @@ RUN --mount=type=cache,target=/root/.cache/uv cd huggingfaceserver && uv sync --
 COPY huggingfaceserver huggingfaceserver
 RUN --mount=type=cache,target=/root/.cache/uv cd huggingfaceserver && uv sync --active --inexact
 
+# Restore GPU torch - uv sync resolves torch to CPU wheels on CPU CI runners since the
+# lockfile is platform-evaluated at build time. Reinstalling vllm pins GPU torch back.
+# This layer is fast: wheels are already in the uv cache from the install above.
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install vllm[runai,tensorizer,fastsafetensors]==${VLLM_VERSION}
+
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
 COPY third_party/pip-licenses.py pip-licenses.py
