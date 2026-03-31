@@ -372,7 +372,7 @@ def get_predictions(
         )
 
     prelim_predictions = sorted(
-        prelim_predictions, key=lambda x: (x.start_logit + x.end_logit), reverse=True
+        prelim_predictions, key=lambda x: x.start_logit + x.end_logit, reverse=True
     )
 
     _NbestPrediction = collections.namedtuple(  # pylint: disable=invalid-name

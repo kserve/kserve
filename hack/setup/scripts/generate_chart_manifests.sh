@@ -7,7 +7,8 @@ declare -a MODIFIED_FOLDERS=()
 
 # Cleanup function - restore all modified kustomization files
 cleanup() {
-    for folder in "${MODIFIED_FOLDERS[@]}"; do
+
+    for folder in "${MODIFIED_FOLDERS[@]:-}"; do
         if [ -f "${folder}/kustomization.yaml.bak" ]; then
             mv "${folder}/kustomization.yaml.bak" "${folder}/kustomization.yaml"
         fi

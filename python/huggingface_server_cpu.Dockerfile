@@ -84,6 +84,8 @@ RUN cd huggingfaceserver && \
     uv sync --active --no-cache && \
     uv cache clean && \
     rm -rf ~/.cache/uv
+RUN pip install --no-cache --extra-index-url ${TORCH_EXTRA_INDEX_URL} \
+    intel-openmp
 
 COPY huggingfaceserver huggingfaceserver
 RUN cd huggingfaceserver && \

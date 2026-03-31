@@ -10,7 +10,20 @@ INCLUDE_DEFINITIONS:
   - ./kserve-standard-mode-dependency-install.definition
     
 COMPONENTS:
-  - name: kserve-kustomize
+  - name: cert-manager
+  - name: keda
+  - name: keda-otel-addon
+  - name: opentelemetry
+  # LLMISVC
+  - name: external-lb
+  - name: gateway-api-extension-crd
+  - name: envoy-gateway
+  - name: envoy-ai-gateway
+  - name: gateway-api-gwclass
+  - name: gateway-api-gw
+  - name: knative-operator
+  - name: lws-operator
+  - name: kserve
     env:
       DEPLOYMENT_MODE: Standard
       ENABLE_LLMISVC: false
