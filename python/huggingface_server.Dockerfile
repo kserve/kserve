@@ -124,7 +124,7 @@ WORKDIR ${WORKSPACE_DIR}
 RUN apt-get update -y \
     && apt-get upgrade -y \
     && apt-get install -y software-properties-common curl \
-    && apt-get install -y ffmpeg libsm6 libxext6 libgl1 gcc libibverbs1 \
+    && apt-get install -y ffmpeg libsm6 libxext6 libgl1 gcc libibverbs-dev \
     && add-apt-repository ppa:deadsnakes/ppa \
     && apt-get update -y \
     && apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-venv \
