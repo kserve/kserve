@@ -83,7 +83,7 @@ jobs:
               - 'kserve-images.sh'
               - 'python/storage-initializer.Dockerfile'
               - 'python/storage/**'
-              - 'python/storage-initializer'
+              - 'python/storage-initializer/**'
               - 'test/scripts/gh-actions/**'
               - 'test/e2e/conftest.py'
             # Component-specific paths

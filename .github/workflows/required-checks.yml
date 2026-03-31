@@ -3,8 +3,6 @@ on:
   pull_request:
   merge_group:
     types: [ checks_requested ]
-  issue_comment:
-    types: [created]
 jobs:
   enforce-all-checks:
     runs-on: ubuntu-latest
