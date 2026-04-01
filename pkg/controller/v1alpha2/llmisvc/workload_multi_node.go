@@ -492,6 +492,8 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainServiceAccount(ctx context.Cont
 		},
 	}
 
+	r.injectSecretsFromDefaultServiceAccount(ctx, expectedServiceAccount)
+
 	// Add required labels to the created service account
 	if expectedServiceAccount.Labels == nil {
 		expectedServiceAccount.Labels = make(map[string]string)
@@ -534,6 +536,8 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillServiceAccount(ctx context.C
 			},
 		},
 	}
+
+	r.injectSecretsFromDefaultServiceAccount(ctx, expectedServiceAccount)
 
 	// Add required labels to the created service account
 	if expectedServiceAccount.Labels == nil {
