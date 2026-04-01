@@ -14,6 +14,8 @@
 
 import hashlib
 import os
+import re
+
 import pytest
 from ..common.gw_api import (
     create_or_update_gateway,
@@ -917,16 +919,20 @@ def _get_model_name_from_configs(config_names):
     return "default/model"
 
 
+_NON_DNS_CHARS = re.compile(r"[^a-z0-9]+")
+
+
+def _sanitize_for_dns(s: str) -> str:
+    """Replace non-DNS characters with hyphens, mirrors sanitizeForDNS in test_namespace.go."""
+    return _NON_DNS_CHARS.sub("-", s.lower()).strip("-")
+
+
 def generate_k8s_safe_suffix(
     base_name: str, extra_parts: Optional[List[str]] = None
 ) -> str:
     """Generate a Kubernetes-safe name suffix with hash."""
-    if extra_parts:
-        full_name = f"{base_name}-{'-'.join(sorted(extra_parts))}"
-    else:
-        full_name = base_name
-
-    full_name = full_name.lower().replace("_", "-")
+    raw = f"{base_name}-{'-'.join(sorted(extra_parts))}" if extra_parts else base_name
+    full_name = _sanitize_for_dns(raw)
 
     name_hash = hashlib.sha256(full_name.encode()).hexdigest()[:8]
 
