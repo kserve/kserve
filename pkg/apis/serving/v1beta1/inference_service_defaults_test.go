@@ -779,6 +779,36 @@ func TestMlServerDefaults(t *testing.T) {
 				"labels":          gomega.HaveKeyWithValue(constants.ModelClassLabel, constants.MLServerModelClassLightGBM),
 			},
 		},
+		"ONNX model": {
+			config: &InferenceServicesConfig{},
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: constants.SupportedModelONNX,
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("gs://testbucket/testmodel"),
+							},
+						},
+					},
+				},
+			},
+			matcher: map[string]types.GomegaMatcher{
+				"env": gomega.ContainElement(
+					corev1.EnvVar{
+						Name:  constants.MLServerModelURIEnv,
+						Value: constants.DefaultModelLocalMountPath,
+					}),
+				"protocolVersion": gomega.Equal(constants.ProtocolV2),
+				"labels":          gomega.HaveKeyWithValue(constants.ModelClassLabel, constants.MLServerModelClassONNX),
+			},
+		},
 		"LightGBM model with labels": {
 			config: &InferenceServicesConfig{},
 			isvc: InferenceService{

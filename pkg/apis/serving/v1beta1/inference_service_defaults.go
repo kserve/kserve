@@ -443,6 +443,8 @@ func (isvc *InferenceService) SetMlServerDefaults() {
 		modelClass = constants.MLServerModelClassLightGBM
 	case constants.SupportedModelMLFlow:
 		modelClass = constants.MLServerModelClassMLFlow
+	case constants.SupportedModelONNX:
+		modelClass = constants.MLServerModelClassONNX
 	}
 	if isvc.Labels == nil {
 		isvc.Labels = map[string]string{constants.ModelClassLabel: modelClass}

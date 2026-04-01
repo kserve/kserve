@@ -610,6 +610,7 @@ const (
 	MLServerModelClassXGBoost  = "mlserver_xgboost.XGBoostModel"
 	MLServerModelClassLightGBM = "mlserver_lightgbm.LightGBMModel"
 	MLServerModelClassMLFlow   = "mlserver_mlflow.MLflowRuntime"
+	MLServerModelClassONNX     = "mlserver_onnx.OnnxModel"
 )
 
 // torchserve service envelope label allowed values
