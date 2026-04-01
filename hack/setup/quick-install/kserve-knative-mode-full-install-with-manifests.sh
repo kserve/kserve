@@ -3410,7 +3410,6 @@ spec:
           --nnodes {{ or .Spec.Parallelism.Pipeline 1 }} \
           --node-rank ${LWS_WORKER_INDEX:-0} \
           --master-addr ${MASTER_ADDR} \
-          --master-port ${PP_MASTER_PORT:-29500} \
           {{- if .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
           --disable-uvicorn-access-log \
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
@@ -3706,7 +3705,6 @@ spec:
           --nnodes {{ or .Spec.Parallelism.Pipeline 1 }} \
           --node-rank ${LWS_WORKER_INDEX} \
           --master-addr ${MASTER_ADDR} \
-          --master-port ${PP_MASTER_PORT:-29500} \
           {{- if .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
           --headless \
           --disable-uvicorn-access-log \
@@ -4607,7 +4605,6 @@ spec:
             --nnodes {{ or .Spec.Prefill.Parallelism.Pipeline 1 }} \
             --node-rank ${LWS_WORKER_INDEX:-0} \
             --master-addr ${MASTER_ADDR} \
-            --master-port ${PP_MASTER_PORT:-29500} \
             {{- if .Spec.Prefill.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }} \
             --disable-uvicorn-access-log \
             {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
@@ -4843,7 +4840,6 @@ spec:
             --nnodes {{ or .Spec.Prefill.Parallelism.Pipeline 1 }} \
             --node-rank ${LWS_WORKER_INDEX} \
             --master-addr ${MASTER_ADDR} \
-            --master-port ${PP_MASTER_PORT:-29500} \
             {{- if .Spec.Prefill.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }} \
             --headless \
             --disable-uvicorn-access-log \
@@ -5979,7 +5975,6 @@ spec:
           --nnodes {{ or .Spec.Parallelism.Pipeline 1 }} \
           --node-rank ${LWS_WORKER_INDEX:-0} \
           --master-addr ${MASTER_ADDR} \
-          --master-port ${PP_MASTER_PORT:-29500} \
           {{- if .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
           --disable-uvicorn-access-log \
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
@@ -6215,7 +6210,6 @@ spec:
           --nnodes {{ or .Spec.Parallelism.Pipeline 1 }} \
           --node-rank ${LWS_WORKER_INDEX} \
           --master-addr ${MASTER_ADDR} \
-          --master-port ${PP_MASTER_PORT:-29500} \
           {{- if .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
           --headless \
           --disable-uvicorn-access-log \
