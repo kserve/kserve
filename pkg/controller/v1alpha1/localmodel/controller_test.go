@@ -28,12 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/utils/ptr"
-	ctrl "sigs.k8s.io/controller-runtime"
-	crconfig "sigs.k8s.io/controller-runtime/pkg/config"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -1267,67 +1262,4 @@ func createTestPVC(ctx context.Context, pvcName, namespace, pvName string, cache
 	}
 	Expect(k8sClient.Create(ctx, pvc)).Should(Succeed())
 	return pvc
-}
-
-func genericSetup(ctx context.Context, configs map[string]string, clusterStorageContainerSpec v1alpha1.StorageContainerSpec) (*corev1.ConfigMap,
-	*v1alpha1.ClusterStorageContainer,
-) {
-	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.InferenceServiceConfigMapName,
-			Namespace: constants.KServeNamespace,
-		},
-		Data: configs,
-	}
-	Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
-
-	clusterStorageContainer := &v1alpha1.ClusterStorageContainer{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test",
-		},
-		Spec: clusterStorageContainerSpec,
-	}
-	Expect(k8sClient.Create(ctx, clusterStorageContainer)).Should(Succeed())
-
-	return configMap, clusterStorageContainer
-}
-
-func initializeManager(ctx context.Context, cfg *rest.Config) {
-	clientset, err := kubernetes.NewForConfig(cfg)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(clientset).ToNot(BeNil())
-	Expect(testScheme).ToNot(BeNil())
-
-	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: testScheme,
-		Metrics: metricsserver.Options{
-			BindAddress: "0",
-		},
-		Controller: crconfig.Controller{
-			SkipNameValidation: ptr.To(true),
-		},
-	})
-	Expect(err).ToNot(HaveOccurred())
-
-	k8sClient = k8sManager.GetClient()
-	Expect(k8sClient).ToNot(BeNil())
-	//nolint: contextcheck
-	err = (&LocalModelReconciler{
-		Client:    k8sClient,
-		Clientset: clientset,
-		Scheme:    testScheme,
-		Log:       ctrl.Log.WithName("v1alpha1LocalModelController"),
-	}).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
-
-	go func() {
-		defer GinkgoRecover()
-		err = k8sManager.Start(ctx)
-		Expect(err).ToNot(HaveOccurred())
-	}()
-	// Wait for cache to start
-	// Ping the ConfigMap to ensure the cache is started
-	Eventually(func() bool {
-		return k8sClient.Get(ctx, types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, &corev1.ConfigMap{}) == nil
-	}).Should(BeTrue())
 }
