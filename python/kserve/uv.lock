@@ -626,6 +626,18 @@ wheels = [
 ]
 
 [[package]]
+name = "colorlog"
+version = "6.10.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a2/61/f083b5ac52e505dfc1c624eafbf8c7589a0d7f32daa398d2e7590efa5fda/colorlog-6.10.1.tar.gz", hash = "sha256:eb4ae5cb65fe7fec7773c2306061a8e63e02efc2c72eba9d27b0fa23c94f1321", size = 17162, upload-time = "2025-10-16T16:14:11.978Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6d/c1/e419ef3723a074172b68aaa89c9f3de486ed4c2399e2dbd8113a4fdcaf9e/colorlog-6.10.1-py3-none-any.whl", hash = "sha256:2d7e8348291948af66122cff006c9f8da6255d224e7cf8e37d8de2df3bad8c9c", size = 11743, upload-time = "2025-10-16T16:14:10.512Z" },
+]
+
+[[package]]
 name = "compressed-tensors"
 version = "0.13.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1869,6 +1881,7 @@ test = [
     { name = "pytest-cov" },
     { name = "pytest-httpx" },
     { name = "pytest-xdist" },
+    { name = "timeout-sampler" },
     { name = "tomlkit" },
 ]
 
@@ -1878,7 +1891,7 @@ requires-dist = [
     { name = "asgi-logger", marker = "extra == 'logging'", specifier = ">=0.1.0,<1.0.0" },
     { name = "cloudevents", specifier = ">=1.6.2,<2.0.0" },
     { name = "cryptography", specifier = ">=46.0.5" },
-    { name = "fastapi", specifier = ">=0.115.3" },
+    { name = "fastapi", specifier = ">=0.115.3,!=1.0" },
     { name = "grpc-interceptor", specifier = ">=0.15.4,<1.0.0" },
     { name = "grpcio", specifier = ">=1.73.0,<2.0.0" },
     { name = "grpcio-tools", specifier = ">=1.73.0,<2.0.0" },
@@ -1924,6 +1937,7 @@ test = [
     { name = "pytest-cov", specifier = ">=5.0.0,<6.0.0" },
     { name = "pytest-httpx", specifier = ">=0.30.0,<1.0.0" },
     { name = "pytest-xdist", specifier = ">=3.0.2,<4.0.0" },
+    { name = "timeout-sampler", specifier = ">=1.0.0,<2.0.0" },
     { name = "tomlkit", specifier = ">=0.12.0,<1.0.0" },
 ]
 
@@ -3656,6 +3670,15 @@ wheels = [
 ]
 
 [[package]]
+name = "python-simple-logger"
+version = "2.0.19"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorlog" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f1/5b/e97b2209a7de9763c50ef073620630aff8ffc546206e519f1d4330293f9c/python_simple_logger-2.0.19.tar.gz", hash = "sha256:1a26cf71da4bea84ac3093a90a2476555a8dde5cce69c8271143eea7675ca9e1", size = 9953, upload-time = "2026-02-26T09:36:04.764Z" }
+
+[[package]]
 name = "pytz"
 version = "2025.2"
 source = { registry = "https://pypi.org/simple" }
@@ -4361,6 +4384,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/5c/41/1e59dddaae270ba20187ceb8aa52c75b24ffc09f547233991d5fd822838b/tiktoken-0.9.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:badb947c32739fb6ddde173e14885fb3de4d32ab9d8c591cbd013c22b4c31dd2", size = 1259283, upload-time = "2025-02-14T06:02:33.838Z" },
     { url = "https://files.pythonhosted.org/packages/5b/64/b16003419a1d7728d0d8c0d56a4c24325e7b10a21a9dd1fc0f7115c02f0a/tiktoken-0.9.0-cp312-cp312-win_amd64.whl", hash = "sha256:5a62d7a25225bafed786a524c1b9f0910a1128f4232615bf3f8257a73aaa3b16", size = 894897, upload-time = "2025-02-14T06:02:36.265Z" },
 ]
+
+[[package]]
+name = "timeout-sampler"
+version = "1.0.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "python-simple-logger" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e6/40/666561ffecb9b50adae217919875c39f2de73b36245a60f0e16a6e5526e6/timeout_sampler-1.0.3.tar.gz", hash = "sha256:e07826c346fc591422fc94664c776c139341198edefde69d25732893c4f09188", size = 3658, upload-time = "2024-12-15T12:49:47.667Z" }
 
 [[package]]
 name = "timing-asgi"
