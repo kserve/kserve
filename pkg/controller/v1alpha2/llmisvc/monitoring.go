@@ -115,6 +115,17 @@ func (r *LLMISVCReconciler) reconcileVLLMEngineMonitor(ctx context.Context, llmS
 	if err := Reconcile[*v1alpha2.LLMInferenceService](ctx, r, nil, &monitoringv1.PodMonitor{}, monitor, semanticPodMonitorIsEqual); err != nil {
 		return fmt.Errorf("failed to reconcile vLLM engine monitor %s/%s: %w", monitor.GetNamespace(), monitor.GetName(), err)
 	}
+
+	// This is kept for backward compatibility, do not remove.
+	relabeledMonitor := r.expectedVLLMEngineMonitor(llmSvc, monitoringv1.RelabelConfig{
+		SourceLabels: []monitoringv1.LabelName{"__name__"},
+		Action:       "replace",
+		Replacement:  ptr.To("kserve_$1"),
+		TargetLabel:  "__name__",
+	})
+	if err := Reconcile[*v1alpha2.LLMInferenceService](ctx, r, nil, &monitoringv1.PodMonitor{}, relabeledMonitor, semanticPodMonitorIsEqual); err != nil {
+		return fmt.Errorf("failed to reconcile vLLM engine monitor %s/%s: %w", relabeledMonitor.GetNamespace(), relabeledMonitor.GetName(), err)
+	}
 	return nil
 }
 
@@ -133,6 +144,17 @@ func (r *LLMISVCReconciler) reconcileSchedulerMonitor(ctx context.Context, llmSv
 	monitor := r.expectedSchedulerMonitor(llmSvc)
 	if err := Reconcile[*v1alpha2.LLMInferenceService](ctx, r, nil, &monitoringv1.ServiceMonitor{}, monitor, semanticServiceMonitorIsEqual); err != nil {
 		return fmt.Errorf("failed to reconcile scheduler monitor %s/%s: %w", monitor.GetNamespace(), monitor.GetName(), err)
+	}
+
+	// This is kept for backward compatibility, do not remove.
+	relabeledMonitor := r.expectedSchedulerMonitor(llmSvc, monitoringv1.RelabelConfig{
+		SourceLabels: []monitoringv1.LabelName{"__name__"},
+		Action:       "replace",
+		Replacement:  ptr.To("kserve_$1"),
+		TargetLabel:  "__name__",
+	})
+	if err := Reconcile[*v1alpha2.LLMInferenceService](ctx, r, nil, &monitoringv1.ServiceMonitor{}, relabeledMonitor, semanticServiceMonitorIsEqual); err != nil {
+		return fmt.Errorf("failed to reconcile scheduler monitor %s/%s: %w", relabeledMonitor.GetNamespace(), relabeledMonitor.GetName(), err)
 	}
 	return nil
 }
@@ -201,12 +223,16 @@ func (r *LLMISVCReconciler) expectedMetricsReaderClusterRoleBinding(llmSvc *v1al
 
 // expectedVLLMEngineMonitor returns the expected PodMonitor configuration for scraping
 // metrics from vLLM engine pods.
-func (r *LLMISVCReconciler) expectedVLLMEngineMonitor(llmSvc *v1alpha2.LLMInferenceService) *monitoringv1.PodMonitor {
+func (r *LLMISVCReconciler) expectedVLLMEngineMonitor(llmSvc *v1alpha2.LLMInferenceService, relabelConfigs ...monitoringv1.RelabelConfig) *monitoringv1.PodMonitor {
 	metricsPort := intstr.FromInt32(8000)
+	name := "kserve-llm-isvc-vllm-engine"
+	if len(relabelConfigs) == 0 {
+		name += "-default"
+	}
 
 	return &monitoringv1.PodMonitor{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "kserve-llm-isvc-vllm-engine",
+			Name:      name,
 			Namespace: llmSvc.GetNamespace(),
 			Labels: map[string]string{
 				"app.kubernetes.io/component":      "llm-monitoring",
@@ -241,14 +267,7 @@ func (r *LLMISVCReconciler) expectedVLLMEngineMonitor(llmSvc *v1alpha2.LLMInfere
 					TLSConfig: &monitoringv1.SafeTLSConfig{
 						InsecureSkipVerify: ptr.To(true),
 					},
-					MetricRelabelConfigs: []monitoringv1.RelabelConfig{
-						{
-							SourceLabels: []monitoringv1.LabelName{"__name__"},
-							Action:       "replace",
-							Replacement:  ptr.To("kserve_$1"),
-							TargetLabel:  "__name__",
-						},
-					},
+					MetricRelabelConfigs: relabelConfigs,
 					RelabelConfigs: []monitoringv1.RelabelConfig{
 						{
 							SourceLabels: []monitoringv1.LabelName{"__meta_kubernetes_pod_label_app_kubernetes_io_name"},
@@ -276,10 +295,14 @@ func (r *LLMISVCReconciler) expectedVLLMEngineMonitor(llmSvc *v1alpha2.LLMInfere
 
 // expectedSchedulerMonitor returns the expected ServiceMonitor configuration for scraping
 // metrics from the llm-d scheduler. The scheduler requires authorization.
-func (r *LLMISVCReconciler) expectedSchedulerMonitor(llmSvc *v1alpha2.LLMInferenceService) *monitoringv1.ServiceMonitor {
+func (r *LLMISVCReconciler) expectedSchedulerMonitor(llmSvc *v1alpha2.LLMInferenceService, relabelConfigs ...monitoringv1.RelabelConfig) *monitoringv1.ServiceMonitor {
+	name := "kserve-llm-isvc-scheduler"
+	if len(relabelConfigs) == 0 {
+		name += "-default"
+	}
 	return &monitoringv1.ServiceMonitor{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "kserve-llm-isvc-scheduler",
+			Name:      name,
 			Namespace: llmSvc.GetNamespace(),
 			Labels: map[string]string{
 				"app.kubernetes.io/component":      "llm-monitoring",
@@ -305,14 +328,7 @@ func (r *LLMISVCReconciler) expectedSchedulerMonitor(llmSvc *v1alpha2.LLMInferen
 							Key: "token",
 						},
 					},
-					MetricRelabelConfigs: []monitoringv1.RelabelConfig{
-						{
-							SourceLabels: []monitoringv1.LabelName{"__name__"},
-							Action:       "replace",
-							Replacement:  ptr.To("kserve_$1"),
-							TargetLabel:  "__name__",
-						},
-					},
+					MetricRelabelConfigs: relabelConfigs,
 					RelabelConfigs: []monitoringv1.RelabelConfig{
 						{
 							SourceLabels: []monitoringv1.LabelName{"__meta_kubernetes_pod_label_app_kubernetes_io_name"},
@@ -366,13 +382,17 @@ func (r *LLMISVCReconciler) cleanupMonitoringResources(ctx context.Context, llmS
 	logger.Info("Cleaning up monitoring resources - last LLMInferenceService in namespace",
 		"namespace", llmSvc.GetNamespace())
 
-	vllmMonitor := r.expectedVLLMEngineMonitor(llmSvc)
-	if err := Delete[*v1alpha2.LLMInferenceService](ctx, r, nil, vllmMonitor); err != nil {
+	if err := Delete[*v1alpha2.LLMInferenceService](ctx, r, nil, r.expectedVLLMEngineMonitor(llmSvc)); err != nil {
+		return fmt.Errorf("failed to delete VLLM engine monitor: %w", err)
+	}
+	if err := Delete[*v1alpha2.LLMInferenceService](ctx, r, nil, r.expectedVLLMEngineMonitor(llmSvc, monitoringv1.RelabelConfig{})); err != nil {
 		return fmt.Errorf("failed to delete VLLM engine monitor: %w", err)
 	}
 
-	schedulerMonitor := r.expectedSchedulerMonitor(llmSvc)
-	if err := Delete[*v1alpha2.LLMInferenceService](ctx, r, nil, schedulerMonitor); err != nil {
+	if err := Delete[*v1alpha2.LLMInferenceService](ctx, r, nil, r.expectedSchedulerMonitor(llmSvc)); err != nil {
+		return fmt.Errorf("failed to delete scheduler monitor: %w", err)
+	}
+	if err := Delete[*v1alpha2.LLMInferenceService](ctx, r, nil, r.expectedSchedulerMonitor(llmSvc, monitoringv1.RelabelConfig{})); err != nil {
 		return fmt.Errorf("failed to delete scheduler monitor: %w", err)
 	}
 
