@@ -23,7 +23,6 @@ import (
 	wvav1alpha1 "github.com/llm-d/llm-d-workload-variant-autoscaler/api/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -427,7 +426,7 @@ func TestExpectedVA(t *testing.T) {
 			deploymentName: "my-model-kserve",
 			vaName:         "my-model-kserve-va",
 			validate: func(t *testing.T, va *wvav1alpha1.VariantAutoscaling) {
-				assert.Equal(t, autoscalingv1.CrossVersionObjectReference{
+				assert.Equal(t, autoscalingv2.CrossVersionObjectReference{
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",
 					Name:       "my-model-kserve",
@@ -715,8 +714,10 @@ func TestSemanticVAIsEqual(t *testing.T) {
 		return &wvav1alpha1.VariantAutoscaling{
 			ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "test"}},
 			Spec: wvav1alpha1.VariantAutoscalingSpec{
-				ModelID:     "meta-llama/Llama-3.1-8B",
-				VariantCost: "10.0",
+				ModelID: "meta-llama/Llama-3.1-8B",
+				VariantAutoscalingConfigSpec: wvav1alpha1.VariantAutoscalingConfigSpec{
+					VariantCost: "10.0",
+				},
 			},
 		}
 	}

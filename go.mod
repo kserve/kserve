@@ -20,13 +20,13 @@ require (
 	github.com/json-iterator/go v1.1.12
 	github.com/kedacore/keda/v2 v2.17.3
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/llm-d/llm-d-workload-variant-autoscaler v0.5.1
-	github.com/onsi/ginkgo/v2 v2.27.3
-	github.com/onsi/gomega v1.38.3
+	github.com/llm-d/llm-d-workload-variant-autoscaler v0.6.0-rc3
+	github.com/onsi/ginkgo/v2 v2.28.1
+	github.com/onsi/gomega v1.39.0
 	github.com/open-telemetry/opentelemetry-operator v0.113.0
 	github.com/parquet-go/parquet-go v0.27.0
 	github.com/pkg/errors v0.9.1
-	github.com/spf13/cobra v1.9.1
+	github.com/spf13/cobra v1.10.0
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/gjson v1.18.0
@@ -38,10 +38,10 @@ require (
 	gopkg.in/go-playground/validator.v9 v9.31.0
 	istio.io/api v1.27.1
 	istio.io/client-go v1.27.1
-	k8s.io/api v0.34.3
+	k8s.io/api v0.34.5
 	k8s.io/apiextensions-apiserver v0.34.3
-	k8s.io/apimachinery v0.34.3
-	k8s.io/client-go v0.34.3
+	k8s.io/apimachinery v0.34.5
+	k8s.io/client-go v0.34.5
 	k8s.io/code-generator v0.34.3
 	k8s.io/component-helpers v0.34.0
 	k8s.io/klog/v2 v2.130.1
@@ -50,7 +50,7 @@ require (
 	knative.dev/networking v0.0.0-20260120131110-a7cdca238a0d
 	knative.dev/pkg v0.0.0-20260120122510-4a022ed9999a
 	knative.dev/serving v0.48.1
-	sigs.k8s.io/controller-runtime v0.22.4
+	sigs.k8s.io/controller-runtime v0.22.5
 	sigs.k8s.io/gateway-api v1.4.2-0.20260116062110-0d0ca872766e
 	sigs.k8s.io/gateway-api-inference-extension v1.3.0
 	sigs.k8s.io/lws v0.7.0
@@ -116,7 +116,7 @@ require (
 	github.com/google/cel-go v0.26.0 // indirect
 	github.com/google/gnostic-models v0.7.0 // indirect
 	github.com/google/go-containerregistry v0.20.3 // indirect
-	github.com/google/pprof v0.0.0-20250923004556-9e5a51aed1e8 // indirect
+	github.com/google/pprof v0.0.0-20260115054156-294ebfa9ad83 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.6 // indirect
 	github.com/googleapis/gax-go/v2 v2.15.0 // indirect
@@ -210,7 +210,7 @@ require (
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.2 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
-	sigs.k8s.io/structured-merge-diff/v6 v6.3.1 // indirect
+	sigs.k8s.io/structured-merge-diff/v6 v6.3.2-0.20260122202528-d9cc6641c482 // indirect
 )
 
 // google.golang.org/grpc/stats/opentelemetry is used by the keda package.

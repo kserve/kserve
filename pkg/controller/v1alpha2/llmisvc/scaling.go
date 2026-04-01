@@ -23,7 +23,6 @@ import (
 
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	wvav1alpha1 "github.com/llm-d/llm-d-workload-variant-autoscaler/api/v1alpha1"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -375,6 +374,11 @@ func expectedVA(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingS
 		modelID = *llmSvc.Spec.Model.Name
 	}
 
+	minReplicas := ptr.To(int32(1))
+	if scaling.MinReplicas != nil {
+		minReplicas = scaling.MinReplicas
+	}
+
 	va := &wvav1alpha1.VariantAutoscaling{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      vaName,
@@ -385,13 +389,17 @@ func expectedVA(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingS
 			},
 		},
 		Spec: wvav1alpha1.VariantAutoscalingSpec{
-			ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
+			ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
 				Name:       deploymentName,
 			},
 			ModelID:     modelID,
-			VariantCost: scaling.WVA.VariantCost,
+			MinReplicas: minReplicas,
+			MaxReplicas: scaling.MaxReplicas,
+			VariantAutoscalingConfigSpec: wvav1alpha1.VariantAutoscalingConfigSpec{
+				VariantCost: scaling.WVA.VariantCost,
+			},
 		},
 	}
 
