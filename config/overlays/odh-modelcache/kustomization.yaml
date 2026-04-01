@@ -1,0 +1,102 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- localmodel-scc.yaml
+- localmodel-permissions-scc.yaml
+- localmodel-permfix-sa.yaml
+- rbac/
+# This will be created by the operator
+# - localmodelnode-pv-pvc.yaml
+
+namespace: opendatahub
+
+components:
+- ../../components/localmodel
+
+patches:
+# Delete localmodel cert-manager cert (replaced by OpenShift serving cert)
+- path: patches/remove-localmodel-cert-manager.yaml
+# OpenShift CA injection for localmodel webhooks/CRDs
+- target:
+    kind: ValidatingWebhookConfiguration
+    annotationSelector: cert-manager.io/inject-ca-from
+  path: patches/openshift-ca-patch.yaml
+- target:
+    kind: MutatingWebhookConfiguration
+    annotationSelector: cert-manager.io/inject-ca-from
+  path: patches/openshift-ca-patch.yaml
+- target:
+    kind: CustomResourceDefinition
+    annotationSelector: cert-manager.io/inject-ca-from
+  path: patches/openshift-ca-patch.yaml
+# OpenShift serving cert for localmodel webhook service
+- target:
+    kind: Service
+    name: localmodel-webhook-server-service
+  path: patches/openshift-serving-cert-localmodel-patch.yaml
+# DaemonSet customizations (mount path, PVC, security context)
+- patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/volumeMounts/0/mountPath
+      value: /var/lib/kserve
+    - op: replace
+      path: /spec/template/spec/volumes/0
+      value:
+        name: models
+        persistentVolumeClaim:
+          claimName: kserve-localmodelnode-pvc
+    - op: add
+      path: /spec/template/spec/securityContext/runAsUser
+      value: 1000
+    - op: add
+      path: /spec/template/spec/securityContext/runAsGroup
+      value: 1000
+    - op: add
+      path: /spec/template/spec/securityContext/fsGroup
+      value: 1000
+  target:
+    kind: DaemonSet
+    name: kserve-localmodelnode-agent
+# ClusterRole SCC use for agent
+- target:
+    kind: ClusterRole
+    name: kserve-localmodelnode-agent-role
+  patch: |
+    - op: add
+      path: /rules/-
+      value:
+        apiGroups: ["security.openshift.io"]
+        resources: ["securitycontextconstraints"]
+        resourceNames: ["openshift-ai-localmodel-scc"]
+        verbs: ["use"]
+
+replacements:
+- source:
+    kind: ConfigMap
+    name: kserve-modelcache-parameters
+    fieldpath: data.kserve-localmodel-controller
+  targets:
+  - select:
+      kind: Deployment
+      name: kserve-localmodel-controller-manager
+    fieldPaths:
+    - spec.template.spec.containers.[name=manager].image
+- source:
+    kind: ConfigMap
+    name: kserve-modelcache-parameters
+    fieldpath: data.kserve-localmodelnode-agent
+  targets:
+  - select:
+      kind: DaemonSet
+      name: kserve-localmodelnode-agent
+    fieldPaths:
+    - spec.template.spec.containers.[name=manager].image
+
+configMapGenerator:
+- envs:
+  - params.env
+  name: kserve-modelcache-parameters
+
+generatorOptions:
+  disableNameSuffixHash: true

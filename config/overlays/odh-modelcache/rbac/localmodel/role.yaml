@@ -1,0 +1,13 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kserve-localmodel-distro-role
+rules:
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - localmodelcaches/finalizers
+  - localmodelnamespacecaches/finalizers
+  verbs:
+  - update

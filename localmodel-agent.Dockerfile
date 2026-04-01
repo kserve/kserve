@@ -1,7 +1,8 @@
 # Build the manager binary
-FROM registry.access.redhat.com/ubi9/go-toolset:1.25 as builder
-# distro: UBI go-toolset does not add GOPATH/bin to PATH
-ENV PATH="$PATH:/opt/app-root/src/go/bin"
+FROM registry.access.redhat.com/ubi9/go-toolset:1.25 AS builder
+
+# Run as root during build (final image uses nonroot)
+USER 0
 
 # Copy in the go src
 WORKDIR /go/src/github.com/kserve/kserve
@@ -27,7 +28,14 @@ ARG GOTAGS=""
 RUN CGO_ENABLED=0 GOOS=linux GOFLAGS=-mod=readonly go build -tags "${GOTAGS}" -a -o localmodelnode-agent ./cmd/${CMD}
 
 # Copy the controller-manager into a thin image
-FROM gcr.io/distroless/static:nonroot
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
+
+RUN microdnf install -y --disablerepo=* --enablerepo=ubi-9-baseos-rpms shadow-utils && \
+    microdnf clean all && \
+    useradd kserve -m -u 1000
+RUN microdnf remove -y shadow-utils
+
 COPY --from=builder /go/src/github.com/kserve/kserve/third_party /third_party
 COPY --from=builder /go/src/github.com/kserve/kserve/localmodelnode-agent /manager
+USER 1000:1000
 ENTRYPOINT ["/manager"]

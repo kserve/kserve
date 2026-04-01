@@ -144,3 +144,19 @@ data:
         "triggerAuthKind": "ClusterTriggerAuthentication"
       }
     }
+  localModel: |-
+    {
+      "enabled": false,
+      "jobNamespace": "opendatahub",
+      "defaultJobImage" : "REPLACE_IMAGE",
+      "fsGroup": 1000,
+      "localModelAgentImage": "REPLACE_IMAGE",
+      "localModelAgentCpuRequest": "100m",
+      "localModelAgentMemoryRequest": "200Mi",
+      "localModelAgentCpuLimit": "100m",
+      "localModelAgentMemoryLimit": "300Mi"
+    }
+  openshiftConfig: |-
+    {
+      "modelcachePermissionFixImage": "REPLACE_IMAGE"
+    }

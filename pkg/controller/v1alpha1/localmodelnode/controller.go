@@ -209,7 +209,7 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 			},
 		},
 	}
-	if err := enhanceDownloadJob(job, storageKey); err != nil {
+	if err := enhanceDownloadJob(ctx, c, job, storageKey); err != nil {
 		c.Log.Error(err, "Failed to enhance download job", "name", modelInfo.ModelName)
 		return nil, err
 	}

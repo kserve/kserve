@@ -1,0 +1,5 @@
+- op: remove
+  path: /metadata/annotations/cert-manager.io~1inject-ca-from
+- op: add
+  path: /metadata/annotations/service.beta.openshift.io~1inject-cabundle
+  value: "true"

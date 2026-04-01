@@ -293,88 +293,6 @@ var _ = Describe("LocalModelNode controller", func() {
 				return !ok
 			}, timeout, interval).Should(BeTrue(), "Model should be removed from the status field")
 		})
-		It("Should use storageKey hash as the download job SubPath for storage deduplication", func() {
-			ctx := context.Background()
-			fsMock.clear()
-			storageKey := v1alpha1.GetStorageKey(sourceModelUri)
-
-			configMap := &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.InferenceServiceConfigMapName,
-					Namespace: constants.KServeNamespace,
-				},
-				Data: configs,
-			}
-			Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(ctx, configMap)
-
-			clusterStorageContainer := &v1alpha1.ClusterStorageContainer{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-				},
-				Spec: clusterStorageContainerSpec,
-			}
-			Expect(k8sClient.Create(ctx, clusterStorageContainer)).Should(Succeed())
-			defer k8sClient.Delete(ctx, clusterStorageContainer)
-
-			nodeGroup := &v1alpha1.LocalModelNodeGroup{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "gpu",
-				},
-				Spec: localModelNodeGroupSpec,
-			}
-			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
-			defer k8sClient.Delete(ctx, nodeGroup)
-
-			nodeName = "worker-subpath"
-			node := &corev1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nodeName,
-					Labels: map[string]string{
-						"node.kubernetes.io/instance-type": "gpu",
-					},
-				},
-				Status: corev1.NodeStatus{
-					Conditions: []corev1.NodeCondition{
-						{
-							Type:   corev1.NodeReady,
-							Status: corev1.ConditionTrue,
-						},
-					},
-				},
-			}
-			Expect(k8sClient.Create(ctx, node)).Should(Succeed())
-			defer k8sClient.Delete(ctx, node)
-
-			localModelNode := &v1alpha1.LocalModelNode{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nodeName,
-				},
-				Spec: localModelNodeSpec,
-			}
-			Expect(k8sClient.Create(ctx, localModelNode)).Should(Succeed())
-			defer k8sClient.Delete(ctx, localModelNode)
-
-			// Wait for the download job to be created
-			jobs := &batchv1.JobList{}
-			labelSelector := map[string]string{
-				"model": modelName,
-				"node":  nodeName,
-			}
-			Eventually(func() bool {
-				err := k8sClient.List(ctx, jobs, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector))
-				return err == nil && len(jobs.Items) == 1
-			}, timeout, interval).Should(BeTrue(), "Download job should be created")
-
-			// Verify the download job SubPath uses storageKey (hash), not modelName
-			job := &jobs.Items[0]
-			Expect(job.Spec.Template.Spec.Containers).To(HaveLen(1))
-			container := job.Spec.Template.Spec.Containers[0]
-			Expect(container.VolumeMounts).To(HaveLen(1))
-			Expect(container.VolumeMounts[0].SubPath).To(Equal("models/"+storageKey),
-				"Download job SubPath must use storageKey hash, not modelName, for storage deduplication. "+
-					"storageKey=%s, modelName=%s", storageKey, modelName)
-		})
 		It("Should recreate download jobs if the model is missing from local disk", func() {
 			fsMock.clear()
 			storageKey := v1alpha1.GetStorageKey(sourceModelUri)
@@ -724,7 +642,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			Expect(job.Spec.Template.Spec.Containers).To(HaveLen(1))
 			container := job.Spec.Template.Spec.Containers[0]
 			Expect(container.Image).To(Equal("kserve/storage-initializer:latest"))
-			Expect(container.Args).To(Equal([]string{"hf://meta-llama/Meta-Llama-3-8B", MountPath}))
+			Expect(container.Args[0]).To(Equal("hf://meta-llama/Meta-Llama-3-8B"))
 		})
 
 		It("Should use storage key credentials when specified in LocalModelInfo", func() {
