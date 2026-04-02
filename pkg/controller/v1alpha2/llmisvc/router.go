@@ -317,7 +317,15 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 	externalURLs := FilterExternalURLs(urls)
 	if len(externalURLs) == 0 {
 		logger.Info("no public URL discovered")
-		llmSvc.Status.URL = nil
+		if len(urls) > 0 {
+			// Promote first address to top-level status.URL as some "cluster external" addresses are technically within
+			// "virtual private networks" and we cannot detect that from just IPs. Even if it's a cluster-local URL, the
+			// status URL is just for discovery and easy access, and it's not a problem to have here while we prioritize
+			// external addresses.
+			llmSvc.Status.URL = urls[0]
+		} else {
+			llmSvc.Status.URL = nil
+		}
 	} else {
 		llmSvc.Status.URL = externalURLs[0]
 	}
