@@ -77,4 +77,6 @@ istio-*
 
 # Claude code
 .claude/
+.worktrees/
 
+CLAUDE.local.md
