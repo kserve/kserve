@@ -490,7 +490,10 @@ type UntypedObjectReference struct {
 
 // LLMInferenceServiceStatus defines the observed state of LLMInferenceService.
 type LLMInferenceServiceStatus struct {
-	// URL of the publicly exposed service.
+	// URL is the primary address for accessing the service.
+	// It is set to an external (public) address when available, otherwise
+	// it is promoted from the first discovered address (which may be
+	// cluster-local or private) for easy discovery.
 	// +optional
 	URL *apis.URL `json:"url,omitempty"`
 
