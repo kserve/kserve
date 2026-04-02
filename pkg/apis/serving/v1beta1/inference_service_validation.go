@@ -366,7 +366,7 @@ func validateScalingHPACompExtension(compExtSpec *ComponentExtensionSpec) error 
 			default:
 				return fmt.Errorf("invalid HPA metric source type with value [%s], "+
 					"valid metric source types are Resource. "+
-					"For External or PodMetric types, set the annotation serving.kserve.io/autoscalerClass to keda", metricType)
+					"For External or PodMetric types, set the annotation %s to keda", metricType, constants.AutoscalerClass)
 			}
 		}
 	}
