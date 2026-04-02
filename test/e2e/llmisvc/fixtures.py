@@ -715,6 +715,9 @@ LLMINFERENCESERVICE_CONFIGS = {
                                         "zmqEndpoint": "tcp://*:5557",
                                     },
                                     "indexerConfig": {
+                                        "tokenizersPoolConfig": {
+                                            "modelName": "facebook/opt-125m",
+                                        },
                                         "kvBlockIndexConfig": {
                                             "enableMetrics": True,
                                             "metricsLoggingInterval": 60000000000,
