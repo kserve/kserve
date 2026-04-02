@@ -150,15 +150,17 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 		}
 	}
 
+	// Handle model artifact downloads based on URI scheme
 	switch schema + "://" {
 	case constants.PvcURIPrefix:
 		if err := r.attachPVCModelArtifact(modelUri, podSpec, containerName, modelPath); err != nil {
 			return err
 		}
 		if len(loraPairs) > 0 {
-			return r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, loraPairs)
+			if err := r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, loraPairs); err != nil {
+				return err
+			}
 		}
-		return nil
 
 	case constants.OciURIPrefix:
 		// Check of OCI is enabled
@@ -170,26 +172,47 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 			return err
 		}
 		if len(loraPairs) > 0 {
-			return r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, loraPairs)
+			if err := r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, loraPairs); err != nil {
+				return err
+			}
 		}
-		return nil
 
 	case constants.HfURIPrefix:
 		if len(loraPairs) == 0 {
-			return r.attachHfModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, modelPath)
+			if err := r.attachHfModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, modelPath); err != nil {
+				return err
+			}
+		} else {
+			pairs := append([]storageDownloadPair{{uri: modelUri, path: constants.DefaultModelLocalMountPath}}, loraPairs...)
+			if err := r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, pairs); err != nil {
+				return err
+			}
 		}
-		pairs := append([]storageDownloadPair{{uri: modelUri, path: constants.DefaultModelLocalMountPath}}, loraPairs...)
-		return r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, pairs)
 
 	case constants.S3URIPrefix:
 		if len(loraPairs) == 0 {
-			return r.attachS3ModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, modelPath)
+			if err := r.attachS3ModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, modelPath); err != nil {
+				return err
+			}
+		} else {
+			pairs := append([]storageDownloadPair{{uri: modelUri, path: constants.DefaultModelLocalMountPath}}, loraPairs...)
+			if err := r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, pairs); err != nil {
+				return err
+			}
 		}
-		pairs := append([]storageDownloadPair{{uri: modelUri, path: constants.DefaultModelLocalMountPath}}, loraPairs...)
-		return r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, pairs)
+
+	default:
+		return fmt.Errorf("unsupported schema in model URI: %s", modelUri)
 	}
 
-	return fmt.Errorf("unsupported schema in model URI: %s", modelUri)
+	// Attach LoRA adapters (PVC mounts + vLLM flag injection) after model downloads
+	if containerName == "main" {
+		if err := r.attachLoRAAdapters(ctx, serviceAccount, llmSvc, curr, podSpec, config); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // attachOciModelArtifact configures a PodSpec to use a model stored in an OCI registry.
