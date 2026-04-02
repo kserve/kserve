@@ -6,7 +6,7 @@ metadata:
 spec:
   template:
     containers:
-      - image: ghcr.io/llm-d/llm-d-cuda:v0.5.1-rc.4
+      - image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
         name: main
         command: ["/bin/sh", "-c"]
         args:
@@ -39,7 +39,7 @@ spec:
         securityContext:
           runAsNonRoot: true
         livenessProbe:
-          initialDelaySeconds: 4800
+          initialDelaySeconds: 1200
         readinessProbe:
           initialDelaySeconds: 10
           periodSeconds: 10

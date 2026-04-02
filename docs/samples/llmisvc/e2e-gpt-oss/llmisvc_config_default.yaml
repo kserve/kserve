@@ -7,7 +7,7 @@ spec:
   template:
     containers:
       # Override image version and command from base config
-      - image: ghcr.io/llm-d/llm-d-cuda:v0.5.1-rc.4
+      - image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
         name: main
         command: ["/bin/sh", "-c"]
         args:
