@@ -1810,3 +1810,171 @@ func TestValidateStorageUri(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateBlockedEnvVars(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	scenarios := map[string]struct {
+		isvc      *InferenceService
+		expectErr bool
+	}{
+		"PYTHONPATH in predictor model env should be rejected": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-isvc"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{Name: "sklearn"},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								Container: corev1.Container{
+									Env: []corev1.EnvVar{
+										{Name: "PYTHONPATH", Value: "/custom"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectErr: true,
+		},
+		"PYTHONPATH in predictor custom container should be rejected": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-isvc"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						PodSpec: PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "kserve-container",
+									Env: []corev1.EnvVar{
+										{Name: "PYTHONPATH", Value: "/injected"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectErr: true,
+		},
+		"PYTHONPATH in workerSpec container should be rejected": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-isvc"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{Name: "huggingface"},
+						},
+						WorkerSpec: &WorkerSpec{
+							PodSpec: PodSpec{
+								Containers: []corev1.Container{
+									{
+										Name: "worker",
+										Env: []corev1.EnvVar{
+											{Name: "PYTHONPATH", Value: "/bad"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectErr: true,
+		},
+		"PYTHONPATH in transformer container should be rejected": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-isvc"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{Name: "sklearn"},
+						},
+					},
+					Transformer: &TransformerSpec{
+						PodSpec: PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "transformer",
+									Env: []corev1.EnvVar{
+										{Name: "PYTHONPATH", Value: "/evil"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectErr: true,
+		},
+		"allowed env vars should pass": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-isvc"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{Name: "sklearn"},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								Container: corev1.Container{
+									Env: []corev1.EnvVar{
+										{Name: "MODEL_NAME", Value: "my-model"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectErr: false,
+		},
+		"PYTHONPATH in explainer ART container should be rejected": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-isvc"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{Name: "sklearn"},
+						},
+					},
+					Explainer: &ExplainerSpec{
+						ART: &ARTExplainerSpec{
+							ExplainerExtensionSpec: ExplainerExtensionSpec{
+								Container: corev1.Container{
+									Env: []corev1.EnvVar{
+										{Name: "PYTHONPATH", Value: "/injected"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectErr: true,
+		},
+		"no env vars should pass": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-isvc"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{Name: "sklearn"},
+						},
+					},
+				},
+			},
+			expectErr: false,
+		},
+	}
+
+	for name, tc := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			err := validateBlockedEnvVars(tc.isvc)
+			if tc.expectErr {
+				g.Expect(err).To(gomega.HaveOccurred())
+				g.Expect(err.Error()).To(gomega.ContainSubstring("PYTHONPATH"))
+			} else {
+				g.Expect(err).ToNot(gomega.HaveOccurred())
+			}
+		})
+	}
+}
