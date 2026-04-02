@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/llmisvc-serving-cert
+    cert-manager.io/inject-ca-from: '{{ .Release.Namespace }}/llmisvc-serving-cert'
     controller-gen.kubebuilder.io/version: v0.19.0
   name: llminferenceserviceconfigs.serving.kserve.io
 spec:
@@ -12,7 +12,7 @@ spec:
       clientConfig:
         service:
           name: llmisvc-webhook-server-service
-          namespace: {{ .Release.Namespace }}
+          namespace: '{{ .Release.Namespace }}'
           path: /convert
           port: 443
       conversionReviewVersions:

@@ -5,7 +5,7 @@ kind: CustomResourceDefinition
 metadata:
   name: llminferenceservices.serving.kserve.io
   annotations:
-    cert-manager.io/inject-ca-from: kserve/llmisvc-serving-cert
+    cert-manager.io/inject-ca-from: "{{ .Release.Namespace }}/llmisvc-serving-cert"
 spec:
   conversion:
     strategy: Webhook
@@ -13,7 +13,7 @@ spec:
       clientConfig:
         service:
           name: llmisvc-webhook-server-service
-          namespace: kserve
+          namespace: "{{ .Release.Namespace }}"
           path: /convert
           port: 443
       conversionReviewVersions:
