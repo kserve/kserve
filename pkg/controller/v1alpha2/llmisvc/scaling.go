@@ -141,10 +141,7 @@ func (r *LLMISVCReconciler) deleteHPAIfExists(ctx context.Context, llmSvc *v1alp
 func expectedHPA(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, deploymentName, vaName, hpaName string) *autoscalingv2.HorizontalPodAutoscaler {
 	labels := scalingLabels(llmSvc)
 
-	minReplicas := ptr.To(int32(1))
-	if scaling.MinReplicas != nil {
-		minReplicas = scaling.MinReplicas
-	}
+	minReplicas := ptr.To(ptr.Deref(scaling.MinReplicas, 1))
 
 	hpa := &autoscalingv2.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
@@ -255,10 +252,7 @@ func expectedScaledObject(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha
 	labels := scalingLabels(llmSvc)
 	keda := scaling.WVA.KEDA
 
-	minReplicas := ptr.To(int32(1))
-	if scaling.MinReplicas != nil {
-		minReplicas = scaling.MinReplicas
-	}
+	minReplicas := ptr.To(ptr.Deref(scaling.MinReplicas, 1))
 
 	// variant_name matches the VariantAutoscaling CR name, which WVA uses as a label when emitting wva_desired_replicas.
 	// exported_namespace is used instead of namespace because Prometheus renames the namespace label emitted by WVA
@@ -374,10 +368,7 @@ func expectedVA(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingS
 		modelID = *llmSvc.Spec.Model.Name
 	}
 
-	minReplicas := ptr.To(int32(1))
-	if scaling.MinReplicas != nil {
-		minReplicas = scaling.MinReplicas
-	}
+	minReplicas := ptr.To(ptr.Deref(scaling.MinReplicas, 1))
 
 	va := &wvav1alpha1.VariantAutoscaling{
 		ObjectMeta: metav1.ObjectMeta{
