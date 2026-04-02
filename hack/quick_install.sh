@@ -1,0 +1,163 @@
+#!/bin/bash
+
+set -eo pipefail
+############################################################
+# Help                                                     #
+############################################################
+Help() {
+   # Display Help
+   echo "KServe quick install script."
+   echo
+   echo "Syntax: [-s|-r]"
+   echo "options:"
+   echo "s Serverless Mode."
+   echo "r RawDeployment Mode."
+   echo "u Uninstall."
+   echo "d Install only dependencies."
+   echo "k Install KEDA."
+   echo
+}
+
+SCRIPT_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
+export SCRIPT_DIR
+
+source "${SCRIPT_DIR}/setup/common.sh"
+REPO_ROOT="$(find_repo_root "${SCRIPT_DIR}")"
+
+source "${REPO_ROOT}/kserve-deps.env"
+installKserve=true
+
+uninstall() {
+   helm uninstall --ignore-not-found istio-ingressgateway -n istio-system
+   helm uninstall --ignore-not-found istiod -n istio-system
+   helm uninstall --ignore-not-found istio-base -n istio-system
+   echo "😀 Successfully uninstalled Istio"
+
+   helm uninstall --ignore-not-found cert-manager -n cert-manager
+   echo "😀 Successfully uninstalled Cert Manager"
+
+   helm uninstall --ignore-not-found keda -n keda
+   echo "😀 Successfully uninstalled KEDA"
+   
+   kubectl delete --ignore-not-found=true KnativeServing knative-serving -n knative-serving --wait=True --timeout=300s
+   helm uninstall --ignore-not-found knative-operator -n knative-serving
+   echo "😀 Successfully uninstalled Knative"
+
+   helm uninstall --ignore-not-found kserve -n kserve
+   helm uninstall --ignore-not-found kserve-crd -n kserve
+   echo "😀 Successfully uninstalled KServe"
+
+   kubectl delete --ignore-not-found=true namespace istio-system
+   kubectl delete --ignore-not-found=true namespace cert-manager
+   kubectl delete --ignore-not-found=true namespace kserve
+}
+
+# Check if helm command is available
+if ! command -v helm &>/dev/null; then
+   echo "😱 Helm command not found. Please install Helm."
+   exit 1
+fi
+
+deploymentMode="Serverless"
+installKeda=false
+while getopts ":hsrudk" option; do
+   case $option in
+   h) # display Help
+      Help
+      exit
+      ;;
+   r) # skip knative install
+      deploymentMode="RawDeployment" ;;
+   s) # install knative
+      deploymentMode="Serverless" ;;
+   u) # uninstall
+      uninstall
+      exit
+      ;;
+   d) # install only dependencies
+      installKserve=false ;;
+   k) # install KEDA
+      installKeda=true ;;
+   \?) # Invalid option
+      echo "Error: Invalid option"
+      exit
+      ;;
+   esac
+done
+
+get_kube_version() {
+   kubectl version --short=true 2>/dev/null || kubectl version | awk -F '.' '/Server Version/ {print $2}'
+}
+
+if [ "$(get_kube_version)" -lt 24 ]; then
+   echo "😱 install requires at least Kubernetes 1.24"
+   exit 1
+fi
+
+echo "Installing Gateway API CRDs ..."
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml
+
+helm repo add istio https://istio-release.storage.googleapis.com/charts --force-update
+helm install istio-base istio/base -n istio-system --wait --set defaultRevision=default --create-namespace --version ${ISTIO_VERSION}
+helm install istiod istio/istiod -n istio-system --wait --version ${ISTIO_VERSION} \
+   --set proxy.autoInject=disabled \
+   --set-string pilot.podAnnotations."cluster-autoscaler\.kubernetes\.io/safe-to-evict"=true
+helm install istio-ingressgateway istio/gateway -n istio-system --version ${ISTIO_VERSION} \
+   --set-string podAnnotations."cluster-autoscaler\.kubernetes\.io/safe-to-evict"=true
+
+# Wait for the istio ingressgateway pod to be created
+sleep 10
+# Wait for istio ingressgateway to be ready
+kubectl wait --for=condition=Ready pod -l app=istio-ingressgateway -n istio-system --timeout=600s
+echo "😀 Successfully installed Istio"
+
+# Install Cert Manager
+helm repo add jetstack https://charts.jetstack.io --force-update
+helm install \
+   cert-manager jetstack/cert-manager \
+   --namespace cert-manager \
+   --create-namespace \
+   --version ${CERT_MANAGER_VERSION} \
+   --set crds.enabled=true
+echo "😀 Successfully installed Cert Manager"
+
+if [ $installKeda = true ]; then
+   #Install KEDA
+   helm repo add kedacore https://kedacore.github.io/charts
+   helm install keda kedacore/keda --version ${KEDA_VERSION} --namespace keda --create-namespace --wait
+   echo "😀 Successfully installed KEDA"
+
+   helm install my-opentelemetry-operator open-telemetry/opentelemetry-operator -n opentelemetry-operator --create-namespace\
+  --set "manager.collectorImage.repository=otel/opentelemetry-collector-contrib"
+
+   
+   helm upgrade -i kedify-otel oci://ghcr.io/kedify/charts/otel-add-on --version=v0.0.6 --namespace keda --wait --set validatingAdmissionPolicy.enabled=false
+   echo "😀 Successfully installed KEDA"
+fi
+
+
+# Install Knative
+if [ "${deploymentMode}" = "Serverless" ]; then
+   helm install knative-operator --namespace knative-serving --create-namespace --wait \
+      https://github.com/knative/operator/releases/download/knative-${KNATIVE_OPERATOR_VERSION}/knative-operator-${KNATIVE_OPERATOR_VERSION}.tgz
+   kubectl apply -f - <<EOF
+   apiVersion: operator.knative.dev/v1beta1
+   kind: KnativeServing
+   metadata:
+     name: knative-serving
+     namespace: knative-serving
+   spec:
+     version: "${KNATIVE_SERVING_VERSION}"
+     config:
+       domain:
+         # Patch the external domain as the default domain svc.cluster.local is not exposed on ingress (from knative 1.8)
+         example.com: ""
+EOF
+   echo "😀 Successfully installed Knative"
+fi
+
+if [ "${installKserve}" = false ]; then
+   exit
+fi
+# Install KServe
+DEPLOYMENT_MODE=${deploymentMode} ${SCRIPT_DIR}/setup/infra/manage.kserve-helm.sh
