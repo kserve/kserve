@@ -21,15 +21,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
-      - name: Merge target branch
-        if: github.event_name == 'pull_request'
-        run: |
-          git fetch --unshallow origin
-          git fetch origin ${{ github.event.pull_request.base.ref }}
-          git config user.email "ci@kserve.io"
-          git config user.name "CI Bot"
-          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
-
       - name: Run Gosec Security Scanner
         uses: securego/gosec@6fbd381238e97e1d1f3358f0d6d65de78dcf9245 # v2.20.0
         with:
