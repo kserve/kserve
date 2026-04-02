@@ -26,6 +26,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 10 --slave /usr/bin/g++ g++ /usr/bin/g++-12
+ENV CC=/usr/bin/gcc-12 CXX=/usr/bin/g++-12
 
 RUN ln -sf "$(which ${PYTHON})" /usr/bin/python
 
