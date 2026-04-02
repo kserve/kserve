@@ -121,7 +121,6 @@ var _ = Describe("CachedModel controller", func() {
 
 	Context("When creating a local model", func() {
 		It("Should create pv, pvc, localmodelnode, and update status from localmodelnode", func() {
-			defer GinkgoRecover()
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 
@@ -273,7 +272,6 @@ var _ = Describe("CachedModel controller", func() {
 		})
 
 		It("Should create pvs and pvcs for inference services", func() {
-			defer GinkgoRecover()
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 			nodeGroup1 := &v1alpha1.LocalModelNodeGroup{
@@ -425,7 +423,6 @@ var _ = Describe("CachedModel controller", func() {
 
 	Context("When DisableVolumeManagement is set to true", func() {
 		It("Should NOT create/delete pvs and pvcs if localmodel config value DisableVolumeManagement is true", func() {
-			defer GinkgoRecover()
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 
@@ -488,7 +485,6 @@ var _ = Describe("CachedModel controller", func() {
 	Context("When creating multiple localModels", func() {
 		// With two nodes and two local models, each node should have both local models
 		It("Should create localModelNode correctly", func() {
-			defer GinkgoRecover()
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 			nodeGroup1 := &v1alpha1.LocalModelNodeGroup{
@@ -656,7 +652,6 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 
 	Context("When creating a namespace-scoped local model", func() {
 		It("Should create pv, pvc, localmodelnode, and update status from localmodelnode", func() {
-			defer GinkgoRecover()
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 
@@ -767,7 +762,6 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 		})
 
 		It("Should create pvs and pvcs for inference services in the same namespace only", func() {
-			defer GinkgoRecover()
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 
@@ -883,7 +877,6 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 		})
 
 		It("Should delete LocalModelNamespaceCache and run finalizer cleanup", func() {
-			defer GinkgoRecover()
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 
@@ -948,7 +941,6 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 		})
 
 		It("Should track both cluster-scoped and namespace-scoped models on LocalModelNode", func() {
-			defer GinkgoRecover()
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 
@@ -1037,7 +1029,6 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 		})
 
 		It("Should create download PV for LocalModelNamespaceCache and verify finalizer is set", func() {
-			defer GinkgoRecover()
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 
@@ -1100,7 +1091,6 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 		})
 
 		It("Should create serving PV/PVC for ISVC and update status when ISVC is removed", func() {
-			defer GinkgoRecover()
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 
