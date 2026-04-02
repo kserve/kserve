@@ -258,9 +258,9 @@ func validateAutoScalingCompExtension(annotations map[string]string, compExtSpec
 	autoscalerClass := annotations[constants.AutoscalerClass]
 
 	switch deploymentMode {
-	case string(constants.Standard):
+	case string(constants.Standard), string(constants.LegacyRawDeployment):
 		switch autoscalerClass {
-		case string(constants.AutoscalerClassHPA):
+		case string(constants.AutoscalerClassHPA), "":
 			return validateScalingHPACompExtension(compExtSpec)
 		case string(constants.AutoscalerClassKeda):
 			return validateScalingKedaCompExtension(compExtSpec)
@@ -364,8 +364,9 @@ func validateScalingHPACompExtension(compExtSpec *ComponentExtensionSpec) error 
 					return errors.New("metricSpec.Resource is not set for resource metric source type")
 				}
 			default:
-				return fmt.Errorf("invalid HPA metric source type with value [%s],"+
-					"valid metric source types are Resource", metricType)
+				return fmt.Errorf("invalid HPA metric source type with value [%s], "+
+					"valid metric source types are Resource. "+
+					"For External or PodMetric types, set the annotation serving.kserve.io/autoscalerClass to keda", metricType)
 			}
 		}
 	}
