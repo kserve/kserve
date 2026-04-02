@@ -51,10 +51,8 @@ import (
 const (
 	tokenizerContainerName = "tokenizer"
 
-	precisePrefixCacheScorerPlugin = "precise-prefix-cache-scorer"
-	prefixCacheScorerPlugin        = "prefix-cache-scorer"
-	udsTokenizerBaseModelName      = "base"
-	udsTokenizerSocketFile         = "/tmp/tokenizer/tokenizer-uds.socket" //nolint:gosec // G101: not a credential, UDS socket path
+	udsTokenizerBaseModelName = "base"
+	udsTokenizerSocketFile    = "/tmp/tokenizer/tokenizer-uds.socket" //nolint:gosec // G101: not a credential, UDS socket path
 )
 
 // reconcileScheduler manages the scheduler component and its related resources
@@ -440,11 +438,8 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 				return d, fmt.Errorf("failed to attach model artifacts to scheduler deployment: %w", err)
 			}
 
-			// Mutate scheduler config: inject UDS tokenizer settings, migrate
-			// tokenProcessorConfig from indexerConfig to top-level parameters, and
-			// rename deprecated blockSize to blockSizeTokens (schema changes in v0.6.0).
-			if err := mutateSchedulerConfig(ctx, d, WithUdsTokenizerConfig, WithMigrateTokenProcessorConfig, WithMigrateBlockSizeToBlockSizeTokens); err != nil {
-				return d, fmt.Errorf("failed to mutate scheduler config: %w", err)
+			if err := mutateSchedulerConfig(d, WithUdsTokenizerConfig); err != nil {
+				return d, fmt.Errorf("failed to mutate scheduler config for tokenizer: %w", err)
 			}
 		}
 	}
@@ -767,9 +762,9 @@ func (r *LLMISVCReconciler) propagateSchedulerDeploymentStatus(ctx context.Conte
 	return nil
 }
 
-type mutateSchedulerConfigFunc func(ctx context.Context, u *unstructured.Unstructured) error
+type mutateSchedulerConfigFunc func(u *unstructured.Unstructured) error
 
-func mutateSchedulerConfig(ctx context.Context, d *appsv1.Deployment, opts ...mutateSchedulerConfigFunc) error {
+func mutateSchedulerConfig(d *appsv1.Deployment, opts ...mutateSchedulerConfigFunc) error {
 	schedulerContainer := utils.GetContainerWithName(&d.Spec.Template.Spec, "main")
 	if schedulerContainer == nil {
 		return nil
@@ -784,7 +779,7 @@ func mutateSchedulerConfig(ctx context.Context, d *appsv1.Deployment, opts ...mu
 				return nil //nolint:nilerr // unmarshal error is intentionally discarded for non-YAML config values
 			}
 			for _, opt := range opts {
-				if err := opt(ctx, &u); err != nil {
+				if err := opt(&u); err != nil {
 					return fmt.Errorf("failed to mutate config for scheduler deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
 				}
 			}
@@ -798,10 +793,11 @@ func mutateSchedulerConfig(ctx context.Context, d *appsv1.Deployment, opts ...mu
 	return nil
 }
 
-func WithUdsTokenizerConfig(_ context.Context, u *unstructured.Unstructured) error {
+func WithUdsTokenizerConfig(u *unstructured.Unstructured) error {
 	var (
-		modelNameField     = []string{"parameters", "indexerConfig", "tokenizersPoolConfig", "modelName"}
-		udsSocketFileField = []string{"parameters", "indexerConfig", "tokenizersPoolConfig", "uds", "socketFile"}
+		precisePrefixCacheScorerPlugin = "precise-prefix-cache-scorer"
+		modelNameField                 = []string{"parameters", "indexerConfig", "tokenizersPoolConfig", "modelName"}
+		udsSocketFileField             = []string{"parameters", "indexerConfig", "tokenizersPoolConfig", "uds", "socketFile"}
 	)
 
 	val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
@@ -823,101 +819,6 @@ func WithUdsTokenizerConfig(_ context.Context, u *unstructured.Unstructured) err
 			return err
 		}
 		if err := unstructured.SetNestedField(pluginMap, udsTokenizerSocketFile, udsSocketFileField...); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// WithMigrateTokenProcessorConfig migrates tokenProcessorConfig from inside
-// indexerConfig to the top level of the plugin parameters for the
-// precise-prefix-cache-scorer plugin. This handles the schema change in
-// llm-d-inference-scheduler v0.6.0 where tokenProcessorConfig was promoted
-// from indexerConfig to a top-level plugin parameter.
-func WithMigrateTokenProcessorConfig(ctx context.Context, u *unstructured.Unstructured) error {
-	val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
-	if err != nil || !found {
-		return err
-	}
-	plugins, ok := val.([]interface{})
-	if !ok {
-		return nil
-	}
-
-	for _, plugin := range plugins {
-		pluginMap, ok := plugin.(map[string]interface{})
-		if !ok || pluginMap["type"] != precisePrefixCacheScorerPlugin {
-			continue
-		}
-
-		// Skip if tokenProcessorConfig already exists at the top level
-		if _, exists, _ := unstructured.NestedFieldNoCopy(pluginMap, "parameters", "tokenProcessorConfig"); exists {
-			log.FromContext(ctx).V(2).Info("tokenProcessorConfig already at top-level parameters, skipping migration")
-			continue
-		}
-
-		// Check if tokenProcessorConfig exists inside indexerConfig (old location)
-		tpc, found, err := unstructured.NestedFieldCopy(pluginMap, "parameters", "indexerConfig", "tokenProcessorConfig")
-		if err != nil {
-			log.FromContext(ctx).Error(err, "Failed to read tokenProcessorConfig from indexerConfig")
-			continue
-		}
-		if !found {
-			continue
-		}
-
-		log.FromContext(ctx).Info("Migrating tokenProcessorConfig from indexerConfig to top-level plugin parameters")
-		// Move to top-level parameters
-		if err := unstructured.SetNestedField(pluginMap, tpc, "parameters", "tokenProcessorConfig"); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// WithMigrateBlockSizeToBlockSizeTokens migrates the deprecated blockSize
-// field to blockSizeTokens in the prefix-cache-scorer plugin parameters.
-// In llm-d-inference-scheduler v0.6.0 the prefix-cache-scorer plugin renamed
-// blockSize (characters) to blockSizeTokens (tokens). If only blockSize is
-// set the plugin refuses to start. This migration copies blockSize to
-// blockSizeTokens when blockSizeTokens is not already present.
-func WithMigrateBlockSizeToBlockSizeTokens(ctx context.Context, u *unstructured.Unstructured) error {
-	val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
-	if err != nil || !found {
-		return err
-	}
-	plugins, ok := val.([]interface{})
-	if !ok {
-		return nil
-	}
-
-	for _, plugin := range plugins {
-		pluginMap, ok := plugin.(map[string]interface{})
-		if !ok || pluginMap["type"] != prefixCacheScorerPlugin {
-			continue
-		}
-
-		// Skip if blockSizeTokens already exists
-		if _, exists, _ := unstructured.NestedFieldNoCopy(pluginMap, "parameters", "blockSizeTokens"); exists {
-			log.FromContext(ctx).V(2).Info("blockSizeTokens already set, skipping migration from deprecated blockSize")
-			continue
-		}
-
-		// Check if deprecated blockSize exists
-		bs, found, err := unstructured.NestedFieldNoCopy(pluginMap, "parameters", "blockSize")
-		if err != nil {
-			log.FromContext(ctx).Error(err, "Failed to read blockSize from plugin parameters")
-			continue
-		}
-		if !found {
-			continue
-		}
-
-		log.FromContext(ctx).Info("Migrating deprecated blockSize to blockSizeTokens for prefix-cache-scorer plugin", "blockSize", bs)
-		// Copy blockSize value to blockSizeTokens
-		if err := unstructured.SetNestedField(pluginMap, bs, "parameters", "blockSizeTokens"); err != nil {
 			return err
 		}
 	}

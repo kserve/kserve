@@ -18,8 +18,8 @@ ENV VIRTUAL_ENV=${VENV_PATH}
 RUN uv venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-# Copy storage metadata for editable dependency resolution
-COPY storage/pyproject.toml storage/uv.lock storage/
+# Copy storage directory for editable install
+COPY storage storage
 
 # Install dependencies for kserve using uv
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
@@ -28,7 +28,10 @@ RUN cd kserve && uv sync --active --no-cache
 COPY kserve kserve
 RUN cd kserve && uv sync --active --no-cache
 
-# Install kserve-storage
+# Copy and install dependencies for kserve-storage using uv
+COPY storage/pyproject.toml storage/uv.lock storage/
+RUN cd storage && uv sync --active --no-cache
+
 COPY storage storage
 RUN cd storage && uv pip install . --no-cache
 
@@ -53,6 +56,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgomp1 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+COPY third_party third_party
 
 # Activate virtual env
 ARG VENV_PATH
