@@ -229,7 +229,7 @@ class TestLLMInferenceServiceConversion:
                     "containers": [
                         {
                             "name": "main",
-                            "image": "quay.io/pierdipi/vllm-cpu:latest",
+                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1",
                             "resources": {
                                 "limits": {"cpu": "2", "memory": "7Gi"},
                                 "requests": {"cpu": "200m", "memory": "2Gi"},
@@ -318,7 +318,7 @@ class TestLLMInferenceServiceConversion:
                     "containers": [
                         {
                             "name": "main",
-                            "image": "quay.io/pierdipi/vllm-cpu:latest",
+                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1",
                             "resources": {
                                 "limits": {"cpu": "2", "memory": "7Gi"},
                                 "requests": {"cpu": "200m", "memory": "2Gi"},
@@ -416,7 +416,7 @@ class TestLLMInferenceServiceConversion:
                     "containers": [
                         {
                             "name": "main",
-                            "image": "quay.io/pierdipi/vllm-cpu:latest",
+                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1",
                             "resources": {
                                 "limits": {"cpu": "2", "memory": "7Gi"},
                                 "requests": {"cpu": "200m", "memory": "2Gi"},
@@ -545,7 +545,7 @@ class TestLLMInferenceServiceConversion:
                     "containers": [
                         {
                             "name": "main",
-                            "image": "quay.io/pierdipi/vllm-cpu:latest",
+                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1",
                             "resources": {
                                 "limits": {"cpu": "2", "memory": "7Gi"},
                                 "requests": {"cpu": "200m", "memory": "2Gi"},
@@ -688,7 +688,7 @@ class TestLLMInferenceServiceConversion:
                     "containers": [
                         {
                             "name": "main",
-                            "image": "quay.io/pierdipi/vllm-cpu:latest",
+                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1",
                             "resources": {
                                 "limits": {"cpu": "2", "memory": "7Gi"},
                                 "requests": {"cpu": "200m", "memory": "2Gi"},

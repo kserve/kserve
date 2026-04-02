@@ -38,15 +38,14 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "quay.io/pierdipi/vllm-cpu:latest",
-                    "env": [{"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"}],
+                    "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1",
+                    "env": [
+                        {"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"},
+                        {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
+                    ],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
                         "requests": {"cpu": "200m", "memory": "2Gi"},
-                    },
-                    "securityContext": {
-                        "runAsNonRoot": False,
-                        "runAsUser": 0,
                     },
                 }
             ]
@@ -57,8 +56,11 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "quay.io/pierdipi/vllm-cpu:latest",
-                    "env": [{"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"}],
+                    "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1",
+                    "env": [
+                        {"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"},
+                        {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
+                    ],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
                         "requests": {"cpu": "200m", "memory": "2Gi"},
@@ -77,10 +79,6 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "timeoutSeconds": 5,
                         "failureThreshold": 3,
                     },
-                    "securityContext": {
-                        "runAsNonRoot": False,
-                        "runAsUser": 0,
-                    },
                 }
             ]
         },
@@ -89,8 +87,11 @@ LLMINFERENCESERVICE_CONFIGS = {
                 "containers": [
                     {
                         "name": "main",
-                        "image": "quay.io/pierdipi/vllm-cpu:latest",
-                        "env": [{"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"}],
+                        "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1",
+                        "env": [
+                            {"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"},
+                            {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
+                        ],
                         "resources": {
                             "limits": {"cpu": "2", "memory": "7Gi"},
                             "requests": {"cpu": "200m", "memory": "2Gi"},
@@ -316,13 +317,16 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "quay.io/pierdipi/vllm-cpu:latest",
+                    "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1",
                     "command": ["vllm", "serve", "/mnt/models"],
                     "args": [
                         "--served-model-name",
                         "{{ .Spec.Model.Name }}",
                         "--port",
                         "8000",
+                    ],
+                    "env": [
+                        {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
                     ],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
@@ -339,13 +343,16 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "quay.io/pierdipi/vllm-cpu:latest",
+                    "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1",
                     "command": ["vllm", "serve", "/mnt/models"],
                     "args": [
                         "--served-model-name",
                         "{{ .Spec.Model.Name }}",
                         "--port",
                         "8000",
+                    ],
+                    "env": [
+                        {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
                     ],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
@@ -668,14 +675,14 @@ LLMINFERENCESERVICE_CONFIGS = {
                             {
                                 "type": "precise-prefix-cache-scorer",
                                 "parameters": {
+                                    "tokenProcessorConfig": {
+                                        "blockSize": 16,
+                                        "hashSeed": "42",
+                                    },
                                     "kvEventsConfig": {
                                         "zmqEndpoint": "tcp://*:5557",
                                     },
                                     "indexerConfig": {
-                                        "tokenProcessorConfig": {
-                                            "blockSize": 16,
-                                            "hashSeed": "42",
-                                        },
                                         "kvBlockIndexConfig": {
                                             "enableMetrics": True,
                                             "metricsLoggingInterval": 60000000000,
@@ -915,7 +922,7 @@ def generate_k8s_safe_suffix(
 
     full_name = full_name.lower().replace("_", "-")
 
-    name_hash = hashlib.md5(full_name.encode()).hexdigest()[:8]
+    name_hash = hashlib.sha256(full_name.encode()).hexdigest()[:8]
 
     # TODO: we can't use the real maximum (63), LWS and STS add additional suffixes (ie `-0`) and don't handle that case.
     max_total = 40

@@ -204,13 +204,14 @@ def ensure_helm_repo(name, url):
 
 
 def parse_existing_versions(env_file):
-    """Parse existing VAR=value pairs from kserve-deps.env"""
+    """Parse existing VAR=value pairs from kserve-deps.env. Strips trailing # comments."""
     existing = {}
     if env_file.exists():
         for line in env_file.read_text().splitlines():
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 key, value = line.split("=", 1)
+                value = value.split("#")[0].strip()
                 existing[key] = value
     return existing
 
@@ -232,6 +233,14 @@ def main():
 
     versions = {}
     for var_name, dependency_info in DEPENDENCIES.items():
+        override_key = f"OVERRIDE_{var_name}"
+        if override_key in existing_versions:
+            versions[var_name] = existing_versions[override_key]
+            print(
+                f"🔒 {var_name}: {existing_versions[override_key]} (override from {override_key})"
+            )
+            continue
+
         package = dependency_info[0]
         helm_repo = dependency_info[1] if len(dependency_info) > 1 else None
         helm_chart = dependency_info[2] if len(dependency_info) > 2 else None

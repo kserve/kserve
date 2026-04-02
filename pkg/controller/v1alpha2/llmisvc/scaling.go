@@ -18,7 +18,6 @@ package llmisvc
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strconv"
 
@@ -216,10 +215,10 @@ func (r *LLMISVCReconciler) reconcileActuator(ctx context.Context, llmSvc *v1alp
 // must be set together or both left empty).
 func validateAutoscalingConfig(cfg *WVAAutoscalingConfig) error {
 	if cfg == nil || cfg.Prometheus.URL == "" {
-		return errors.New("autoscaling.prometheus.url is required in inferenceservice-config when using KEDA")
+		return fmt.Errorf("%s.prometheus.url is required in inferenceservice-config when using KEDA", autoscalingConfigName)
 	}
 	if (cfg.Prometheus.TriggerAuthName == "") != (cfg.Prometheus.AuthModes == "") {
-		return errors.New("autoscaling.prometheus.authModes and autoscaling.prometheus.triggerAuthName must both be set or both be empty")
+		return fmt.Errorf("%s.prometheus.authModes and %s.prometheus.triggerAuthName must both be set or both be empty", autoscalingConfigName, autoscalingConfigName)
 	}
 	return nil
 }

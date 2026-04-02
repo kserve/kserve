@@ -415,6 +415,8 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainServiceAccount(ctx context.Con
 		},
 	}
 
+	r.injectSecretsFromDefaultServiceAccount(ctx, expectedServiceAccount)
+
 	if expectedServiceAccount.Labels == nil {
 		expectedServiceAccount.Labels = make(map[string]string)
 	}

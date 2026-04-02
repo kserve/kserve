@@ -419,6 +419,98 @@ var _ = Describe("LLMInferenceService Controller", func() {
 		})
 	})
 
+	Context("ImagePullSecrets propagation", func() {
+		It("should propagate imagePullSecrets from default SA to the created single-node SA", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-ips-singlenode"
+			testNs := NewTestNamespace(ctx, envTest,
+				WithIstioShadowService(svcName),
+				WithDefaultServiceAccountImagePullSecrets(
+					corev1.LocalObjectReference{Name: "my-registry-secret"},
+					corev1.LocalObjectReference{Name: "other-pull-secret"},
+				),
+			)
+
+			// Use a template with the routing sidecar so the controller creates a ServiceAccount
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithTemplate(&corev1.PodSpec{
+					Containers: []corev1.Container{
+						{Name: "main", Image: "test-vllm:latest"},
+					},
+					InitContainers: []corev1.Container{
+						{Name: "llm-d-routing-sidecar", Image: "test-sidecar:latest"},
+					},
+				}),
+				WithPrefill(SimpleWorkerPodSpec()),
+				WithManagedRoute(),
+				WithManagedGateway(),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - created SA should have the imagePullSecrets from the default SA
+			expectedSA := &corev1.ServiceAccount{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve",
+					Namespace: testNs.Name,
+				}, expectedSA)
+			}).WithContext(ctx).Should(Succeed())
+
+			Expect(expectedSA).To(BeOwnedBy(llmSvc))
+			Expect(expectedSA.ImagePullSecrets).To(ConsistOf(
+				corev1.LocalObjectReference{Name: "my-registry-secret"},
+				corev1.LocalObjectReference{Name: "other-pull-secret"},
+			))
+		})
+
+		It("should create single-node SA with empty imagePullSecrets when default SA has none", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-ips-sn-empty"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithTemplate(&corev1.PodSpec{
+					Containers: []corev1.Container{
+						{Name: "main", Image: "test-vllm:latest"},
+					},
+					InitContainers: []corev1.Container{
+						{Name: "llm-d-routing-sidecar", Image: "test-sidecar:latest"},
+					},
+				}),
+				WithPrefill(SimpleWorkerPodSpec()),
+				WithManagedRoute(),
+				WithManagedGateway(),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then
+			expectedSA := &corev1.ServiceAccount{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve",
+					Namespace: testNs.Name,
+				}, expectedSA)
+			}).WithContext(ctx).Should(Succeed())
+
+			Expect(expectedSA).To(BeOwnedBy(llmSvc))
+			Expect(expectedSA.ImagePullSecrets).To(BeEmpty())
+		})
+	})
+
 	Context("Routing reconciliation ", func() {
 		When("HTTP route is managed", func() {
 			It("should create routes pointing to the default gateway when both are managed", func(ctx SpecContext) {
