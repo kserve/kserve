@@ -120,6 +120,14 @@ RUN cd vllm && \
 # Install built vLLM wheel
 RUN uv pip install --no-cache vllm/dist/vllm-${VLLM_VERSION}*.whl
 
+# Ensure CPU-only torch, torchvision, and torchaudio are installed.
+# Previous uv sync / pip install steps may have pulled CUDA wheels from PyPI;
+# this final reinstall from the CPU index guarantees CPU-only builds.
+RUN uv pip install --no-cache-dir --index-url ${TORCH_EXTRA_INDEX_URL} --reinstall \
+    torch==${TORCH_VERSION} \
+    torchvision \
+    torchaudio
+
 # Cleanup vllm source code and caches
 RUN rm -rf /vllm /root/.cache/uv /root/.cache/pip /tmp/*
 
