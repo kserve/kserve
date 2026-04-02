@@ -19,12 +19,12 @@ spec:
             - type: single-profile-handler
             - type: precise-prefix-cache-scorer
               parameters:
+                tokenProcessorConfig:
+                  blockSize: 64       # Must match vLLM --block-size (default is 16)
+                  hashSeed: "42"      # Must match PYTHONHASHSEED in vLLM pods
                 kvEventsConfig:
                   zmqEndpoint: "tcp://*:5557"
                 indexerConfig:
-                  tokenProcessorConfig:
-                    blockSize: 64       # Must match vLLM --block-size (default is 16)
-                    hashSeed: "42"      # Must match PYTHONHASHSEED in vLLM pods
                   kvBlockIndexConfig:
                     enableMetrics: true                   # Enable Prometheus metrics for KV cache index
                     metricsLoggingInterval: 60000000000   # Log metrics every 60 seconds (in nanoseconds)

@@ -27,12 +27,12 @@ spec:
             - type: single-profile-handler
             - type: precise-prefix-cache-scorer
               parameters:
+                tokenProcessorConfig:
+                  blockSize: 16
+                  hashSeed: "42"
                 kvEventsConfig:
                   zmqEndpoint: "tcp://*:5557"
                 indexerConfig:
-                  tokenProcessorConfig:
-                    blockSize: 16
-                    hashSeed: "42"
                   kvBlockIndexConfig:
                     enableMetrics: true
                     metricsLoggingInterval: 60000000000
