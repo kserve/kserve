@@ -1,0 +1,68 @@
+---
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  annotations:
+    build.appstudio.openshift.io/repo: https://github.com/opendatahub-io/kserve?rev={{revision}}
+    build.appstudio.redhat.com/commit_sha: '{{revision}}'
+    build.appstudio.redhat.com/target_branch: '{{target_branch}}'
+    build.appstudio.redhat.com/pull_request_number: '{{pull_request_number}}'
+    pipelinesascode.tekton.dev/cancel-in-progress: "false"
+    pipelinesascode.tekton.dev/max-keep-runs: "3"
+    pipelinesascode.tekton.dev/on-cel-expression: event == "group-test"
+    pipelinesascode.tekton.dev/on-comment: "^/group-test"
+  name: kserve-group-test
+  namespace: open-data-hub-tenant
+  labels:
+    appstudio.openshift.io/application: group-testing
+    appstudio.openshift.io/component: kserve-group
+    pipelines.appstudio.openshift.io/type: test
+spec:
+  params:
+  - name: group-components
+    value: '{ "kserve-agent-ci": "opendatahub/kserve-agent", "kserve-controller-ci": "opendatahub/kserve-controller", "kserve-router-ci": "opendatahub/kserve-router", "kserve-storage-initializer-ci": "opendatahub/kserve-storage-initializer", "odh-kserve-llmisvc-controller-ci": "opendatahub/odh-kserve-llmisvc-controller" }'
+  - name: git-url
+    value: '{{source_url}}'
+  - name: revision
+    value: '{{revision}}'
+  pipelineRef:
+    resolver: git
+    params:
+    - name: url
+      value: https://github.com/opendatahub-io/odh-konflux-central.git
+    - name: revision
+      value: main
+    - name: pathInRepo
+      value: integration-tests/kserve/pr-group-testing-pipeline.yaml
+  taskRunTemplate:
+    podTemplate:
+      nodeSelector:
+        konflux-ci.dev/workload: konflux-tenants
+      tolerations:
+      - effect: NoSchedule
+        key: konflux-ci.dev/workload
+        operator: Equal
+        value: konflux-tenants
+    serviceAccountName: konflux-integration-runner
+  timeouts:
+    pipeline: 4h0m0s
+    tasks: 3h
+  taskRunSpecs:
+    - pipelineTaskName: clone-repository
+      serviceAccountName: build-pipeline-kserve-group
+#    - pipelineTaskName: build-odh-kserve-llmisvc-controller
+#      serviceAccountName: build-pipeline-kserve-group
+    - pipelineTaskName: build-sklearn-serving-runtime
+      serviceAccountName: build-pipeline-kserve-group
+    - pipelineTaskName: build-custom-transformer
+      serviceAccountName: build-pipeline-kserve-group
+    - pipelineTaskName: build-custom-model-grpc
+      serviceAccountName: build-pipeline-kserve-group
+    - pipelineTaskName: build-success-200-isvc
+      serviceAccountName: build-pipeline-kserve-group
+    - pipelineTaskName: build-error-404-isvc
+      serviceAccountName: build-pipeline-kserve-group
+  workspaces:
+  - name: git-auth
+    secret:
+      secretName: '{{ git_auth_secret }}'
