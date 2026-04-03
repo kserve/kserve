@@ -202,6 +202,10 @@ func validateBlockedEnvVars(isvc *InferenceService) error {
 		return fmt.Errorf("the InferenceService %q is invalid: %w", isvc.Name, err)
 	}
 
+	if err := validation.ValidateBlockedEnvVars(isvc.Spec.Predictor.InitContainers, validation.DefaultBlockedEnvVars); err != nil {
+		return fmt.Errorf("the InferenceService %q is invalid: %w", isvc.Name, err)
+	}
+
 	if c := predictorFrameworkContainer(&isvc.Spec.Predictor); c != nil {
 		if err := validation.ValidateBlockedEnvVars([]corev1.Container{*c}, validation.DefaultBlockedEnvVars); err != nil {
 			return fmt.Errorf("the InferenceService %q is invalid: %w", isvc.Name, err)
@@ -212,16 +216,28 @@ func validateBlockedEnvVars(isvc *InferenceService) error {
 		if err := validation.ValidateBlockedEnvVars(isvc.Spec.Predictor.WorkerSpec.Containers, validation.DefaultBlockedEnvVars); err != nil {
 			return fmt.Errorf("the InferenceService %q is invalid: %w", isvc.Name, err)
 		}
+
+		if err := validation.ValidateBlockedEnvVars(isvc.Spec.Predictor.WorkerSpec.InitContainers, validation.DefaultBlockedEnvVars); err != nil {
+			return fmt.Errorf("the InferenceService %q is invalid: %w", isvc.Name, err)
+		}
 	}
 
 	if isvc.Spec.Transformer != nil {
 		if err := validation.ValidateBlockedEnvVars(isvc.Spec.Transformer.Containers, validation.DefaultBlockedEnvVars); err != nil {
 			return fmt.Errorf("the InferenceService %q is invalid: %w", isvc.Name, err)
 		}
+
+		if err := validation.ValidateBlockedEnvVars(isvc.Spec.Transformer.InitContainers, validation.DefaultBlockedEnvVars); err != nil {
+			return fmt.Errorf("the InferenceService %q is invalid: %w", isvc.Name, err)
+		}
 	}
 
 	if isvc.Spec.Explainer != nil {
 		if err := validation.ValidateBlockedEnvVars(isvc.Spec.Explainer.Containers, validation.DefaultBlockedEnvVars); err != nil {
+			return fmt.Errorf("the InferenceService %q is invalid: %w", isvc.Name, err)
+		}
+
+		if err := validation.ValidateBlockedEnvVars(isvc.Spec.Explainer.InitContainers, validation.DefaultBlockedEnvVars); err != nil {
 			return fmt.Errorf("the InferenceService %q is invalid: %w", isvc.Name, err)
 		}
 

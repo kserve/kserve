@@ -104,7 +104,7 @@ func (sr *ServingRuntimeValidator) Handle(ctx context.Context, req admission.Req
 	}
 
 	if err := validateBlockedEnvVars(&servingRuntime.Spec); err != nil {
-		return admission.Denied(err.Error())
+		return admission.Denied(fmt.Sprintf("the %s %q is invalid: %s", servingRuntime.Kind, servingRuntime.Name, err.Error()))
 	}
 
 	return admission.Allowed("")
@@ -146,7 +146,7 @@ func (csr *ClusterServingRuntimeValidator) Handle(ctx context.Context, req admis
 	}
 
 	if err := validateBlockedEnvVars(&clusterServingRuntime.Spec); err != nil {
-		return admission.Denied(err.Error())
+		return admission.Denied(fmt.Sprintf("the %s %q is invalid: %s", clusterServingRuntime.Kind, clusterServingRuntime.Name, err.Error()))
 	}
 	return admission.Allowed("")
 }

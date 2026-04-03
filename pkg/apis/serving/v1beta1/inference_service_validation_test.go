@@ -1951,6 +1951,104 @@ func TestValidateBlockedEnvVars(t *testing.T) {
 			},
 			expectErr: true,
 		},
+		"PYTHONPATH in predictor initContainer should be rejected": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-isvc"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{Name: "sklearn"},
+						},
+						PodSpec: PodSpec{
+							InitContainers: []corev1.Container{
+								{
+									Name: "init-setup",
+									Env: []corev1.EnvVar{
+										{Name: "PYTHONPATH", Value: "/injected"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectErr: true,
+		},
+		"PYTHONPATH in workerSpec initContainer should be rejected": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-isvc"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{Name: "huggingface"},
+						},
+						WorkerSpec: &WorkerSpec{
+							PodSpec: PodSpec{
+								InitContainers: []corev1.Container{
+									{
+										Name: "init-worker",
+										Env: []corev1.EnvVar{
+											{Name: "PYTHONPATH", Value: "/injected"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectErr: true,
+		},
+		"PYTHONPATH in explainer initContainer should be rejected": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-isvc"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{Name: "sklearn"},
+						},
+					},
+					Explainer: &ExplainerSpec{
+						PodSpec: PodSpec{
+							InitContainers: []corev1.Container{
+								{
+									Name: "init-explainer",
+									Env: []corev1.EnvVar{
+										{Name: "PYTHONPATH", Value: "/evil"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectErr: true,
+		},
+		"PYTHONPATH in transformer initContainer should be rejected": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-isvc"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{Name: "sklearn"},
+						},
+					},
+					Transformer: &TransformerSpec{
+						PodSpec: PodSpec{
+							InitContainers: []corev1.Container{
+								{
+									Name: "init-transform",
+									Env: []corev1.EnvVar{
+										{Name: "PYTHONPATH", Value: "/evil"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectErr: true,
+		},
 		"no env vars should pass": {
 			isvc: &InferenceService{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-isvc"},
