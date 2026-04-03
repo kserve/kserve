@@ -189,6 +189,16 @@ replacements:
 - source:
     kind: ConfigMap
     name: kserve-parameters
+    fieldPath: data.kserve-llm-d-intel-gaudi
+  targets:
+  - select:
+      kind: LLMInferenceServiceConfig
+      name: kserve-config-llm-template-intel-gaudi
+    fieldPaths:
+    - spec.template.containers.[name=main].image
+- source:
+    kind: ConfigMap
+    name: kserve-parameters
     fieldPath: data.kserve-llm-d-ibm-spyre
   targets:
   - select:

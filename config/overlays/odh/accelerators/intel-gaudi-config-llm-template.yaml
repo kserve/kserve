@@ -1,0 +1,13 @@
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-template-intel-gaudi
+  annotations:
+    openshift.io/display-name: vLLM Intel Gaudi LLMInferenceServiceConfig
+    openshift.io/description: vLLM Intel Gaudi LLMInferenceServiceConfig for LLMInferenceService.
+    opendatahub.io/recommended-accelerators: '["habana.ai/gaudi"]'
+spec:
+  template:
+    containers:
+      - name: main
+        image: placeholder
