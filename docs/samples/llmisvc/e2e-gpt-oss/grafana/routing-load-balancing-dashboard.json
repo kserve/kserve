@@ -1,0 +1,206 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": true,
+      "title": "Kserve – Intelligent Routing & Load Balancing",
+      "tooltip": "",
+      "type": "link",
+      "url": "https://github.com/llm-d/llm-d/blob/main/docs/monitoring/example-promQL-queries.md#path-b-intelligent-routing--load-balancing"
+    }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "gridPos": { "h": 2, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "options": {
+        "content": "## Intelligent Routing & Load Balancing\n\nRequest and token distribution, idle GPU time, and routing decision latency. Reference: [Kserve – Intelligent Routing & Load Balancing](https://github.com/llm-d/llm-d/blob/main/docs/monitoring/example-promQL-queries.md#path-b-intelligent-routing--load-balancing).",
+        "mode": "markdown"
+      },
+      "title": "Reference",
+      "type": "text"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "Request distribution (QPS per instance). Uses inference_objective_request_total without a label filter so it works when target_model/target_model_name is missing or named differently. If you see no data, check Prometheus for inference_objective_request_total or inference_model_request_total (older deployments).",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "reqps"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 2 },
+      "id": 2,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "sortBy": "Max",
+          "sortDesc": true
+        }
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum by(pod) (rate(inference_objective_request_total[5m]))",
+          "legendFormat": "{{pod}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Request distribution (QPS per instance)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "Token distribution by pod.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 2 },
+      "id": 3,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "sortBy": "Max",
+          "sortDesc": true
+        }
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "sum by(pod) (rate(vllm:prompt_tokens_total[5m]) + rate(vllm:generation_tokens_total[5m]))",
+          "legendFormat": "{{pod}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Token distribution by pod",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "Idle GPU time by pod.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "mappings": [],
+          "max": 1,
+          "min": 0,
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "percentunit"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 10 },
+      "id": 4,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "sortBy": "Max",
+          "sortDesc": true
+        }
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "1 - avg by(pod) (rate(vllm:iteration_tokens_total_count[5m]) > 0)",
+          "legendFormat": "{{pod}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Idle GPU time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "Routing decision latency P99. Tries inference_extension_scheduler_plugin_duration_seconds first; if empty, uses inference_extension_plugin_duration_seconds (some EPP versions expose only the latter).",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "s"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
+      "id": 5,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "sortBy": "Max",
+          "sortDesc": true
+        }
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "histogram_quantile(0.99, sum by(le) (rate(inference_extension_scheduler_plugin_duration_seconds_bucket[5m])))",
+          "legendFormat": "P99 (scheduler plugin)",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "histogram_quantile(0.99, sum by(le) (rate(inference_extension_plugin_duration_seconds_bucket[5m])))",
+          "legendFormat": "P99 (plugin)",
+          "refId": "B"
+        }
+      ],
+      "title": "Routing decision latency P99",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["llm-d", "routing", "load-balancing", "epp", "kserve"],
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": false, "text": "Prometheus", "value": "Prometheus" },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Datasource",
+        "multi": false,
+        "name": "datasource",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Kserve EPP metrics – Intelligent Routing & Load Balancing",
+  "uid": "kserve-epp-routing-load-balancing",
+  "version": 1,
+  "weekStart": ""
+}
