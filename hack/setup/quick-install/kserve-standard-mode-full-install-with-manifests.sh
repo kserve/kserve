@@ -1234,6 +1234,12 @@ main() {
                 TARGET_DEPLOYMENT_NAMES+=("kserve-controller-manager")
                 TARGET_DEPLOYMENT_NAMES+=("kserve-localmodel-controller-manager")
             elif [ "${KSERVE_OVERLAY_DIR}" == "test-llmisvc" ]; then
+                # Update test-llmisvc overlay image tags if version is set
+                if [ -n "${SET_KSERVE_VERSION}" ]; then
+                    log_info "Updating test-llmisvc overlay image tags to ${SET_KSERVE_VERSION}..."
+                    sed -i -e "s/latest/${SET_KSERVE_VERSION}/g" config/overlays/test-llmisvc/llmisvc_image_patch.yaml
+                    sed -i -e "s/latest/${SET_KSERVE_VERSION}/g" config/configmap/inferenceservice.yaml
+                fi
                 TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/llmisvc")
                 TARGET_CRDS_TO_VERIFY+=("${LLMISVC_CRDS}")
                 TARGET_DEPLOYMENT_NAMES+=("llmisvc-controller-manager")
