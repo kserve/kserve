@@ -140,6 +140,12 @@ parser.add_argument(
 parser.add_argument(
     "--return_token_type_ids", action="store_true", help="Return token type ids"
 )
+parser.add_argument(
+    "--return_offsets_mapping",
+    action="store_true",
+    default=False,
+    help="Return start/end character offsets for each token (token_classification only).",
+)
 
 # Create a mutually exclusive group for output format options
 # This group allows the user to choose between returning probabilities or disabling postprocessing.
@@ -312,6 +318,7 @@ def load_model():
                 tensor_input_names=kwargs.get("tensor_input_names", None),
                 return_token_type_ids=kwargs.get("return_token_type_ids", None),
                 request_logger=request_logger,
+                return_offsets_mapping=kwargs.get("return_offsets_mapping", False),
                 return_probabilities=kwargs.get("return_probabilities", False),
                 return_raw_logits=kwargs.get("return_raw_logits", False),
             )
