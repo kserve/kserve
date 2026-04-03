@@ -643,6 +643,9 @@ class Storage(object):
                 kwargs["allow_patterns"] = allow_patterns
             if ignore_patterns:
                 kwargs["ignore_patterns"] = ignore_patterns
+            token = os.environ.get("MS_TOKEN")
+            if token:
+                kwargs["token"] = token
             snapshot_download(**kwargs)
         except (
             NotExistError,
