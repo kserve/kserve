@@ -37872,7 +37872,8 @@ data:
            "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
            "urlScheme": "http",
            "disableIstioVirtualHost": false,
-           "disableIngressCreation": false
+           "disableIngressCreation": false,
+           "disableHTTPRouteTimeout": false
        }
      ingress: |-
        {
@@ -37947,6 +37948,10 @@ data:
 
            # disableIngressCreation controls whether to disable ingress creation for raw deployment mode.
            "disableIngressCreation": false,
+
+           # disableHTTPRouteTimeout controls whether to omit the timeout field from HTTPRoute rules.
+           # Set to true for Gateway controllers (e.g. GKE Gateway) that do not support the optional timeouts field.
+           "disableHTTPRouteTimeout": false,
 
            # pathTemplate specifies the template for generating path based url for each inference service.
            # The following variables can be used in the template for generating url.
@@ -38267,7 +38272,8 @@ data:
         "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
         "urlScheme": "http",
         "disableIstioVirtualHost": false,
-        "disableIngressCreation": false
+        "disableIngressCreation": false,
+        "disableHTTPRouteTimeout": false
     }
   localModel: |-
     {
