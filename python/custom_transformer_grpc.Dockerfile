@@ -23,8 +23,8 @@ ENV VIRTUAL_ENV=${VENV_PATH}
 RUN uv venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-# Copy storage directory for editable install
-COPY storage storage
+# Copy storage metadata for editable dependency resolution
+COPY storage/pyproject.toml storage/uv.lock storage/
 
 # ------------------ Install kserve ------------------
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
@@ -54,8 +54,6 @@ FROM ${BASE_IMAGE} AS prod
 ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
-
-COPY third_party third_party
 
 # Create non-root user
 RUN useradd kserve -m -u 1000 -d /home/kserve

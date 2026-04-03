@@ -54,9 +54,15 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 ARG TORCH_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu"
 ARG TORCH_VERSION=2.10.0
 
-# Install kserve using UV
-# Copy storage directory for editable install
-COPY storage storage
+# Copy storage metadata for editable dependency resolution
+COPY storage/pyproject.toml storage/uv.lock storage/
+
+# Install kserve dependencies (metadata-first for cache)
+COPY kserve/pyproject.toml kserve/uv.lock kserve/
+RUN cd kserve && \
+    uv sync --active --no-cache && \
+    uv cache clean && \
+    rm -rf ~/.cache/uv
 
 COPY kserve kserve
 RUN cd kserve && \
@@ -64,20 +70,23 @@ RUN cd kserve && \
     uv cache clean && \
     rm -rf ~/.cache/uv
 
- # Copy and install dependencies for kserve-storage using uv
-COPY storage/pyproject.toml storage/uv.lock storage/
-RUN cd storage && uv sync --active --no-cache
-
+# Install kserve-storage
 COPY storage storage
-RUN cd storage && uv pip install . --no-cache  
+RUN cd storage && uv pip install . --no-cache
 
-# Install huggingfaceserver using UV
-COPY huggingfaceserver huggingfaceserver
+# Install huggingfaceserver dependencies (metadata-first for cache)
+COPY huggingfaceserver/pyproject.toml huggingfaceserver/uv.lock huggingfaceserver/health_check.py huggingfaceserver/
 RUN cd huggingfaceserver && \
     uv pip install --no-cache-dir --index-url ${TORCH_EXTRA_INDEX_URL} \
         torch==${TORCH_VERSION} \
         torchvision \
         torchaudio && \
+    uv sync --active --no-cache && \
+    uv cache clean && \
+    rm -rf ~/.cache/uv
+
+COPY huggingfaceserver huggingfaceserver
+RUN cd huggingfaceserver && \
     uv sync --active --no-cache && \
     uv cache clean && \
     rm -rf ~/.cache/uv
