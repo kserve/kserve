@@ -12,6 +12,7 @@ dependencies = [
     "bitsandbytes>=0.45.3",
     "modelscope<2.0.0,>=1.16.0",
     "setuptools>=70.0.0",
+    "ray>=2.54.0", # CVE-2025-62593 DNS Rebinding Attack 
 ]
 name = "huggingfaceserver"
 version = "0.18.0rc0"
