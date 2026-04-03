@@ -72,7 +72,7 @@ ray = [
     "ray[serve]>=2.43.0",
 ]
 llm = [
-    "vllm==0.15.1",
+    "vllm==0.17.1",
 ]
 
 [dependency-groups]

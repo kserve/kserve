@@ -26,6 +26,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 10 --slave /usr/bin/g++ g++ /usr/bin/g++-12
+ENV CC=/usr/bin/gcc-12 CXX=/usr/bin/g++-12
 
 RUN ln -sf "$(which ${PYTHON})" /usr/bin/python
 
@@ -92,7 +93,7 @@ RUN cd huggingfaceserver && \
     rm -rf ~/.cache/uv
 
 # install vllm
-ARG VLLM_VERSION=0.15.1
+ARG VLLM_VERSION=0.17.1
 ARG VLLM_CPU_DISABLE_AVX512=true
 ENV VLLM_CPU_DISABLE_AVX512=${VLLM_CPU_DISABLE_AVX512}
 ARG VLLM_CPU_AVX512BF16=1
@@ -118,6 +119,14 @@ RUN cd vllm && \
 
 # Install built vLLM wheel
 RUN uv pip install --no-cache vllm/dist/vllm-${VLLM_VERSION}*.whl
+
+# Ensure CPU-only torch, torchvision, and torchaudio are installed.
+# Previous uv sync / pip install steps may have pulled CUDA wheels from PyPI;
+# this final reinstall from the CPU index guarantees CPU-only builds.
+RUN uv pip install --no-cache-dir --index-url ${TORCH_EXTRA_INDEX_URL} --reinstall \
+    torch==${TORCH_VERSION} \
+    torchvision \
+    torchaudio
 
 # Cleanup vllm source code and caches
 RUN rm -rf /vllm /root/.cache/uv /root/.cache/pip /tmp/*
