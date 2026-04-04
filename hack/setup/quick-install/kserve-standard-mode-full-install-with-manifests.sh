@@ -3758,12 +3758,8 @@ spec:
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: FallbackToLogsOnError
           volumeMounts:
-          # The tokenizer image imports torch/dill which requires a writable
-          # /tmp at import time (tempfile.gettempdir()). Without this mount,
-          # readOnlyRootFilesystem causes the container to crash on startup.
           - mountPath: /tmp
             name: tokenizer-tmp
-          # vllm writes model info cache to /.cache/vllm/modelinfos.
           - mountPath: /.cache
             name: tokenizer-cache
           - mountPath: /tmp/tokenizer
@@ -3779,10 +3775,8 @@ spec:
               }}'
         - emptyDir: {}
           name: tokenizer-uds
-        # Writable /tmp for the tokenizer container (see volumeMounts comment above).
         - emptyDir: {}
           name: tokenizer-tmp
-        # Writable /.cache for vllm model info cache.
         - emptyDir: {}
           name: tokenizer-cache
 ---
