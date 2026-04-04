@@ -628,14 +628,15 @@ export RELEASE
 
 GOLANGCI_LINT_VERSION=v2.9.0
 CONTROLLER_TOOLS_VERSION=v0.19.0
-ENVTEST_VERSION=latest
+ENVTEST_VERSION=release-0.19
 YQ_VERSION=v4.52.1
 HELM_VERSION=v3.16.3
-KUSTOMIZE_VERSION=v5.8.0
+KUSTOMIZE_VERSION=v5.8.1
 HELM_DOCS_VERSION=v1.12.0
 POETRY_VERSION=1.8.3
 UV_VERSION=0.7.8
 RUFF_VERSION=0.14.13
+PINACT_VERSION=v3.9.0
 KIND_VERSION=v0.30.0
 CERT_MANAGER_VERSION=v1.17.0
 ENVOY_GATEWAY_VERSION=v1.6.3
@@ -647,10 +648,10 @@ KSERVE_VERSION=v0.17.0
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.17.3
 OPENTELEMETRY_OPERATOR_VERSION=0.74.3
-LWS_VERSION=v0.7.0
+LWS_VERSION=v0.8.0
 GATEWAY_API_VERSION=v1.4.1
-GIE_VERSION=v1.3.0
-WVA_VERSION=v0.5.1
+GIE_VERSION=v1.3.1
+WVA_VERSION=v0.6.0
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -967,7 +968,7 @@ install_helm() {
     rm -rf "${temp_dir}"
 
     log_success "Successfully installed Helm ${HELM_VERSION} to ${BIN_DIR}/helm"
-    helm version
+    "${BIN_DIR}/helm" version
 }
 
 # ----------------------------------------
@@ -984,10 +985,10 @@ install_kustomize() {
 
     log_info "Installing Kustomize ${KUSTOMIZE_VERSION} for ${os}/${arch}..."
 
-    if command -v kustomize &>/dev/null; then
-        local current_version=$(kustomize version --short 2>/dev/null | grep -oP 'v[0-9.]+')
+    if [[ -x "${BIN_DIR}/kustomize" ]]; then
+        local current_version=$("${BIN_DIR}/kustomize" version 2>/dev/null | awk 'match($0, /v[0-9.]+/) {print substr($0, RSTART, RLENGTH)}')
         if [[ -n "$current_version" ]] && version_gte "$current_version" "$KUSTOMIZE_VERSION"; then
-            log_info "Kustomize ${current_version} is already installed (>= ${KUSTOMIZE_VERSION})"
+            log_info "Kustomize ${current_version} is already installed in ${BIN_DIR} (>= ${KUSTOMIZE_VERSION})"
             return 0
         fi
         [[ -n "$current_version" ]] && log_info "Upgrading Kustomize from ${current_version} to ${KUSTOMIZE_VERSION}..."
@@ -1027,7 +1028,7 @@ install_kustomize() {
     rm -rf "${temp_dir}"
 
     log_success "Successfully installed Kustomize ${KUSTOMIZE_VERSION} to ${BIN_DIR}/kustomize"
-    kustomize version
+    "${BIN_DIR}/kustomize" version
 }
 
 # ----------------------------------------
@@ -1045,7 +1046,7 @@ install_yq() {
     log_info "Installing yq ${YQ_VERSION} for ${os}/${arch}..."
 
     if [[ -x "${BIN_DIR}/yq" ]]; then
-        local current_version=$("${BIN_DIR}/yq" --version 2>&1 | grep -oP 'version \K[v0-9.]+')
+        local current_version=$("${BIN_DIR}/yq" --version 2>&1 | awk 'match($0, /v[0-9.]+/) {print substr($0, RSTART, RLENGTH)}')
         # Normalize version format (add 'v' prefix if missing)
         [[ -n "$current_version" && "$current_version" != v* ]] && current_version="v${current_version}"
         if [[ -n "$current_version" ]] && version_gte "$current_version" "$YQ_VERSION"; then

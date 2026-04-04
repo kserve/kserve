@@ -66,16 +66,15 @@ ENV PATH="${WORKSPACE_DIR}/${VENV_PATH}/bin:$PATH"
 
 # From this point, all Python packages will be installed in the virtual environment and copied to the final image
 
-# Copy storage directory for editable install
-COPY storage storage
+# Copy storage metadata for editable dependency resolution
+COPY storage/pyproject.toml storage/uv.lock storage/
 
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
 RUN --mount=type=cache,target=/root/.cache/uv cd kserve && uv sync --active --no-cache
 COPY kserve kserve  
 RUN --mount=type=cache,target=/root/.cache/uv cd kserve && uv sync --active --no-cache
 
-COPY storage/pyproject.toml storage/uv.lock storage/
-RUN --mount=type=cache,target=/root/.cache/uv cd storage && uv sync --active --no-cache
+# Install kserve-storage
 COPY storage storage
 RUN --mount=type=cache,target=/root/.cache/uv cd storage && uv pip install . --no-cache
 

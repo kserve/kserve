@@ -1,0 +1,13 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: gpt-oss-20b-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 256Gi
+#  storageClassName: local-path # Only possible with rancher's local-path storage class
+  volumeMode: Filesystem

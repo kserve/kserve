@@ -35,7 +35,6 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 	. "github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/fixture"
 )
 
@@ -911,119 +910,6 @@ schedulingProfiles:
 		})
 	})
 
-	Context("Certificate hash annotation", func() {
-		It("should set cert-hash annotation on the scheduler pod template", func(ctx SpecContext) {
-			// given
-			svcName := "test-llm-scheduler-cert-hash"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
-
-			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
-				WithModelURI("hf://facebook/opt-125m"),
-				WithManagedRoute(),
-				WithManagedGateway(),
-				WithManagedScheduler(),
-			)
-
-			// when
-			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
-			defer func() {
-				testNs.DeleteAndWait(ctx, llmSvc)
-			}()
-
-			// then - verify the scheduler deployment has the cert-hash annotation
-			Eventually(func(g Gomega, ctx context.Context) error {
-				schedulerDeployment := &appsv1.Deployment{}
-				g.Expect(envTest.Get(ctx, types.NamespacedName{
-					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
-					Namespace: testNs.Name,
-				}, schedulerDeployment)).To(Succeed())
-
-				g.Expect(schedulerDeployment.Spec.Template.Annotations).To(
-					HaveKey(llmisvc.DefaultRestartAnnotation),
-					"Scheduler pod template should have cert-hash annotation to trigger restart on cert renewal",
-				)
-				g.Expect(schedulerDeployment.Spec.Template.Annotations[llmisvc.DefaultRestartAnnotation]).To(
-					MatchRegexp("^[0-9a-f]{64}$"), "cert-hash should be a SHA-256 hex string",
-				)
-
-				return nil
-			}).WithContext(ctx).Should(Succeed())
-		})
-
-		It("should skip cert-hash annotation when scheduler supports --enable-cert-reload", func(ctx SpecContext) {
-			// given
-			svcName := "test-llm-cert-reload-skip"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
-
-			modelConfig := LLMInferenceServiceConfig("model-cert-reload",
-				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
-				WithConfigModelName("facebook/opt-125m"),
-				WithConfigModelURI("hf://facebook/opt-125m"),
-			)
-
-			routerConfig := LLMInferenceServiceConfig("router-cert-reload",
-				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
-			)
-			routerConfig.Spec.Router = &v1alpha2.RouterSpec{
-				Gateway: &v1alpha2.GatewaySpec{},
-				Route:   &v1alpha2.GatewayRoutesSpec{},
-				Scheduler: &v1alpha2.SchedulerSpec{
-					Template: &corev1.PodSpec{
-						Containers: []corev1.Container{
-							{
-								Name:  "main",
-								Image: "ghcr.io/llm-d/llm-d-inference-scheduler:v0.3.0",
-								Args: []string{
-									"--enable-cert-reload",
-									"--poolName",
-									"test-pool",
-								},
-								Ports: []corev1.ContainerPort{
-									{Name: "grpc", ContainerPort: 9002, Protocol: corev1.ProtocolTCP},
-									{Name: "grpc-health", ContainerPort: 9003, Protocol: corev1.ProtocolTCP},
-									{Name: "metrics", ContainerPort: 9090, Protocol: corev1.ProtocolTCP},
-								},
-							},
-						},
-					},
-					Pool: &v1alpha2.InferencePoolSpec{},
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, modelConfig)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, routerConfig)).To(Succeed())
-
-			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
-				WithBaseRefs(
-					corev1.LocalObjectReference{Name: "model-cert-reload"},
-					corev1.LocalObjectReference{Name: "router-cert-reload"},
-				),
-			)
-
-			// when
-			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
-			defer func() {
-				testNs.DeleteAndWait(ctx, llmSvc)
-			}()
-
-			// then - the scheduler deployment must NOT have cert-hash annotation
-			schedulerDeployment := &appsv1.Deployment{}
-			Eventually(func(g Gomega, ctx context.Context) error {
-				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
-					Namespace: testNs.Name,
-				}, schedulerDeployment)
-			}).WithContext(ctx).Should(Succeed())
-
-			Expect(schedulerDeployment.Spec.Template.Annotations).NotTo(
-				HaveKey(llmisvc.DefaultRestartAnnotation),
-				"Scheduler with --enable-cert-reload should not have cert-hash annotation",
-			)
-		})
-	})
-
 	Context("Scheduler RBAC", func() {
 		It("should create scheduler role with leases permission for leader election", func(ctx SpecContext) {
 			// given
@@ -1141,6 +1027,9 @@ schedulingProfiles:
 				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
 				g.Expect(configText).To(ContainSubstring("modelName: base"))
 				g.Expect(configText).To(ContainSubstring("socketFile: /tmp/tokenizer/tokenizer-uds.socket"))
+				// Verify tokenProcessorConfig was migrated from indexerConfig to top-level parameters
+				g.Expect(configText).To(ContainSubstring("tokenProcessorConfig"))
+				g.Expect(configText).To(ContainSubstring("blockSize: 16"))
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})
@@ -1206,6 +1095,9 @@ schedulingProfiles:
 				g.Expect(configText).To(ContainSubstring("socketFile: /tmp/tokenizer/tokenizer-uds.socket"))
 				g.Expect(configText).NotTo(ContainSubstring("wrong-model-name"))
 				g.Expect(configText).NotTo(ContainSubstring("/wrong/path"))
+				// Verify tokenProcessorConfig was migrated from indexerConfig to top-level parameters
+				g.Expect(configText).To(ContainSubstring("tokenProcessorConfig"))
+				g.Expect(configText).To(ContainSubstring("blockSize: 16"))
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})
@@ -1262,6 +1154,134 @@ schedulingProfiles:
 				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
 				g.Expect(configText).NotTo(ContainSubstring("tokenizersPoolConfig"))
 				g.Expect(configText).NotTo(ContainSubstring("modelName: base"))
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+		})
+	})
+
+	Context("tokenProcessorConfig migration from indexerConfig to top-level parameters", func() {
+		It("should migrate tokenProcessorConfig from indexerConfig to top-level plugin parameters", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-tpc-migrate"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			oldFormatConfig := `
+apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+- type: precise-prefix-cache-scorer
+  parameters:
+    indexerConfig:
+      tokenProcessorConfig:
+        blockSize: 64
+        hashSeed: "42"
+      kvBlockIndexConfig:
+        enableMetrics: true
+- type: max-score-picker
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: precise-prefix-cache-scorer
+    weight: 3
+  - pluginRef: max-score-picker
+`
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithSchedulerConfigInline(oldFormatConfig),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - verify tokenProcessorConfig was migrated to top-level parameters
+			expectedDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				if err := envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve-router-scheduler",
+					Namespace: testNs.Name,
+				}, expectedDeployment); err != nil {
+					return err
+				}
+
+				configText, found := getSchedulerConfigText(expectedDeployment)
+				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
+				// tokenProcessorConfig should be at top-level parameters (sibling of indexerConfig)
+				g.Expect(configText).To(ContainSubstring("blockSize: 64"))
+				g.Expect(configText).To(ContainSubstring("hashSeed: \"42\""))
+				// indexerConfig should still have kvBlockIndexConfig but not tokenProcessorConfig
+				g.Expect(configText).To(ContainSubstring("kvBlockIndexConfig"))
+				g.Expect(configText).To(ContainSubstring("enableMetrics: true"))
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should not overwrite top-level tokenProcessorConfig if already present", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-tpc-no-overwrite"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			newFormatConfig := `
+apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+- type: precise-prefix-cache-scorer
+  parameters:
+    tokenProcessorConfig:
+      blockSize: 128
+      hashSeed: "99"
+    indexerConfig:
+      tokenProcessorConfig:
+        blockSize: 64
+        hashSeed: "42"
+- type: max-score-picker
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: precise-prefix-cache-scorer
+    weight: 3
+  - pluginRef: max-score-picker
+`
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithSchedulerConfigInline(newFormatConfig),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - verify top-level tokenProcessorConfig is preserved, not overwritten
+			expectedDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				if err := envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve-router-scheduler",
+					Namespace: testNs.Name,
+				}, expectedDeployment); err != nil {
+					return err
+				}
+
+				configText, found := getSchedulerConfigText(expectedDeployment)
+				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
+				// Top-level values should be preserved
+				g.Expect(configText).To(ContainSubstring("blockSize: 128"))
+				g.Expect(configText).To(ContainSubstring("hashSeed: \"99\""))
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})

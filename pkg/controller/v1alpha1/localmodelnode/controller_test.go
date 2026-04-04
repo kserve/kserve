@@ -51,7 +51,7 @@ func (m *MockFileInfo) Info() (fs.FileInfo, error) { return nil, nil }
 
 type mockFileSystem struct {
 	FileSystemInterface
-	// represents the dirs under /mnt/models/models
+	// represents the dirs under models root
 	subDirs []os.DirEntry
 }
 
@@ -814,7 +814,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			}, timeout, interval).Should(BeTrue(), "Download job should be created with storage key")
 		})
 
-		It("Should create download job in model namespace for namespace-scoped LocalModelNamespaceCache", func() {
+		It("Should create download job in jobNamespace for namespace-scoped LocalModelNamespaceCache", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 			fsMock.clear()
@@ -905,9 +905,9 @@ var _ = Describe("LocalModelNode controller", func() {
 				"modelNamespace": modelNamespace,
 			}
 			Eventually(func() bool {
-				err := k8sClient.List(ctx, jobs, client.InNamespace(modelNamespace), client.MatchingLabels(labelSelector))
+				err := k8sClient.List(ctx, jobs, client.InNamespace(modelCacheNamespace), client.MatchingLabels(labelSelector))
 				return err == nil && len(jobs.Items) == 1
-			}, timeout, interval).Should(BeTrue(), "Download job should be created in the model's namespace")
+			}, timeout, interval).Should(BeTrue(), "Download job should be created in jobNamespace")
 
 			job := &jobs.Items[0]
 			Expect(job.Labels["modelNamespace"]).To(Equal(modelNamespace))
@@ -1007,9 +1007,9 @@ var _ = Describe("LocalModelNode controller", func() {
 				"node":  nodeName,
 			}
 			Eventually(func() bool {
-				err := k8sClient.List(ctx, jobs, client.InNamespace(modelNamespace), client.MatchingLabels(labelSelector))
+				err := k8sClient.List(ctx, jobs, client.InNamespace(modelCacheNamespace), client.MatchingLabels(labelSelector))
 				return err == nil && len(jobs.Items) == 1
-			}, timeout, interval).Should(BeTrue(), "Download job should be created")
+			}, timeout, interval).Should(BeTrue(), "Download job should be created in jobNamespace")
 
 			// Update job status to succeeded
 			job := &jobs.Items[0]
@@ -1282,16 +1282,16 @@ var _ = Describe("LocalModelNode controller", func() {
 				"modelNamespace": nsModelNamespace,
 			}
 			Eventually(func() bool {
-				err := k8sClient.List(ctx, jobs, client.InNamespace(nsModelNamespace), client.MatchingLabels(labelSelector))
+				err := k8sClient.List(ctx, jobs, client.InNamespace(modelCacheNamespace), client.MatchingLabels(labelSelector))
 				return err == nil && len(jobs.Items) == 1
-			}, timeout, interval).Should(BeTrue(), "Download job should be created in the model's namespace")
+			}, timeout, interval).Should(BeTrue(), "Download job should be created in jobNamespace")
 
 			job := &jobs.Items[0]
 			Expect(job.Spec.Template.Spec.Volumes).To(HaveLen(1))
 			pvcVolume := job.Spec.Template.Spec.Volumes[0]
 			Expect(pvcVolume.PersistentVolumeClaim).NotTo(BeNil())
-			Expect(pvcVolume.PersistentVolumeClaim.ClaimName).To(Equal(sklearnModelName+"-"+sklearnNodeGroupName+"-download"),
-				"PVC name for namespace-scoped models must include -download suffix to match the PVC created by the namespace cache reconciler")
+			Expect(pvcVolume.PersistentVolumeClaim.ClaimName).To(Equal(sklearnModelName+"-"+sklearnNodeGroupName+"-"+nsModelNamespace+"-download"),
+				"PVC name for namespace-scoped models must include source namespace and -download suffix")
 		})
 
 		It("Should track both cluster-scoped and namespace-scoped models with separate status entries", func() {
@@ -1408,9 +1408,9 @@ var _ = Describe("LocalModelNode controller", func() {
 				"node":  nodeName,
 			}
 			Eventually(func() bool {
-				err := k8sClient.List(ctx, nsJobs, client.InNamespace(modelNamespace), client.MatchingLabels(nsLabelSelector))
+				err := k8sClient.List(ctx, nsJobs, client.InNamespace(modelCacheNamespace), client.MatchingLabels(nsLabelSelector))
 				return err == nil && len(nsJobs.Items) == 1
-			}, timeout, interval).Should(BeTrue(), "Namespace-scoped job should be in model's namespace")
+			}, timeout, interval).Should(BeTrue(), "Namespace-scoped job should be in jobNamespace")
 
 			// Update both jobs to succeeded
 			clusterJob := &clusterJobs.Items[0]

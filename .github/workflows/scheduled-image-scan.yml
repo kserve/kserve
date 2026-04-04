@@ -28,10 +28,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Security scan on docker image
-        uses: snyk/actions/docker@master
+        uses: snyk/actions/docker@9adf32b1121593767fc3c057af55b55db032dc04
         id: docker-image-scan
         continue-on-error: true
         env:
@@ -54,7 +54,7 @@ jobs:
 
       - name: Upload sarif file to Github Code Scanning
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@5c8a8a642e79153f5d047b10ec1cba1d1cc65699 # v3.35.1
         with:
           sarif_file: application/${{ matrix.image.name }}/docker.snyk.sarif
           category: ${{ matrix.image.name }}
@@ -77,10 +77,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Security scan on docker image
-        uses: snyk/actions/docker@master
+        uses: snyk/actions/docker@9adf32b1121593767fc3c057af55b55db032dc04
         id: docker-image-scan
         continue-on-error: true
         env:
@@ -103,7 +103,7 @@ jobs:
 
       - name: Upload sarif file to Github Code Scanning
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@5c8a8a642e79153f5d047b10ec1cba1d1cc65699 # v3.35.1
         with:
           sarif_file: application/${{ matrix.image.name }}/docker.snyk.sarif
           category: ${{ matrix.image.name }}
@@ -118,10 +118,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Security scan on docker image
-        uses: snyk/actions/docker@master
+        uses: snyk/actions/docker@9adf32b1121593767fc3c057af55b55db032dc04
         id: docker-image-scan
         continue-on-error: true
         env:
@@ -144,7 +144,7 @@ jobs:
 
       - name: Upload sarif file to Github Code Scanning
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@5c8a8a642e79153f5d047b10ec1cba1d1cc65699 # v3.35.1
         with:
           sarif_file: application/${{ matrix.image.name }}/docker.snyk.sarif
           category: ${{ matrix.image.name }}

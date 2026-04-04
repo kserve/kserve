@@ -477,6 +477,7 @@ def wait_for_model_response(
     kserve_client: KServeClient,
     test_case: TestCase,  # noqa: F811
     timeout_seconds: int = 900,
+    extra_headers: Optional[Dict[str, str]] = None,
 ) -> str:
     def assert_model_responds():
         try:
@@ -485,6 +486,10 @@ def wait_for_model_response(
             raise AssertionError(f"❌ Failed to get service URL: {e}") from e
 
         model_url = service_url + test_case.endpoint
+
+        headers = {"Content-Type": "application/json"}
+        if extra_headers:
+            headers.update(extra_headers)
 
         if test_case.payload_formatter is not None:
             test_payload = test_case.payload_formatter(test_case)
@@ -499,7 +504,7 @@ def wait_for_model_response(
         try:
             response = post_with_retry(
                 model_url,
-                headers={"Content-Type": "application/json"},
+                headers=headers,
                 json_data=test_payload,
                 timeout=test_case.response_timeout,
             )

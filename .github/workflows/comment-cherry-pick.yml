@@ -35,7 +35,7 @@ jobs:
 
     steps:
       - name: Checkout the latest code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
@@ -47,6 +47,6 @@ jobs:
           git fetch origin "pull/$PR_NUMBER/head:pr-$PR_NUMBER"
 
       - name: Automatic Cherry Pick
-        uses: hianhianhian/gha-cherry-pick@master
+        uses: hianhianhian/gha-cherry-pick@c88f57e55a9eabd96f94edba6d584b37633836d1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
