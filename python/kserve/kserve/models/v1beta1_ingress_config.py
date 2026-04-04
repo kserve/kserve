@@ -61,6 +61,7 @@ class V1beta1IngressConfig(object):
         'kserve_ingress_gateway': 'str',
         'local_gateway': 'str',
         'local_gateway_service': 'str',
+        'path_match_type': 'str',
         'path_template': 'str',
         'url_scheme': 'str'
     }
@@ -80,11 +81,12 @@ class V1beta1IngressConfig(object):
         'kserve_ingress_gateway': 'kserveIngressGateway',
         'local_gateway': 'localGateway',
         'local_gateway_service': 'localGatewayService',
+        'path_match_type': 'pathMatchType',
         'path_template': 'pathTemplate',
         'url_scheme': 'urlScheme'
     }
 
-    def __init__(self, additional_ingress_domains=None, disable_http_route_timeout=None, disable_ingress_creation=None, disable_istio_virtual_host=None, domain_template=None, enable_gateway_api=None, enable_llm_inference_service_tls=None, ingress_class_name=None, ingress_domain=None, ingress_gateway=None, knative_local_gateway_service=None, kserve_ingress_gateway=None, local_gateway=None, local_gateway_service=None, path_template=None, url_scheme=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, additional_ingress_domains=None, disable_http_route_timeout=None, disable_ingress_creation=None, disable_istio_virtual_host=None, domain_template=None, enable_gateway_api=None, enable_llm_inference_service_tls=None, ingress_class_name=None, ingress_domain=None, ingress_gateway=None, knative_local_gateway_service=None, kserve_ingress_gateway=None, local_gateway=None, local_gateway_service=None, path_match_type=None, path_template=None, url_scheme=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1IngressConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -104,6 +106,7 @@ class V1beta1IngressConfig(object):
         self._kserve_ingress_gateway = None
         self._local_gateway = None
         self._local_gateway_service = None
+        self._path_match_type = None
         self._path_template = None
         self._url_scheme = None
         self.discriminator = None
@@ -136,6 +139,8 @@ class V1beta1IngressConfig(object):
             self.local_gateway = local_gateway
         if local_gateway_service is not None:
             self.local_gateway_service = local_gateway_service
+        if path_match_type is not None:
+            self.path_match_type = path_match_type
         if path_template is not None:
             self.path_template = path_template
         if url_scheme is not None:
@@ -434,6 +439,27 @@ class V1beta1IngressConfig(object):
         """
 
         self._local_gateway_service = local_gateway_service
+
+    @property
+    def path_match_type(self):
+        """Gets the path_match_type of this V1beta1IngressConfig.  # noqa: E501
+
+
+        :return: The path_match_type of this V1beta1IngressConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._path_match_type
+
+    @path_match_type.setter
+    def path_match_type(self, path_match_type):
+        """Sets the path_match_type of this V1beta1IngressConfig.
+
+
+        :param path_match_type: The path_match_type of this V1beta1IngressConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._path_match_type = path_match_type
 
     @property
     def path_template(self):

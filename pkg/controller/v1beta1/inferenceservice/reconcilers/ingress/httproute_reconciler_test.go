@@ -3420,3 +3420,106 @@ func TestCreateRawPredictorHTTPRouteDisableTimeout(t *testing.T) {
 		}
 	})
 }
+
+func TestResolvePathMatch(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	t.Run("default (empty) uses RegularExpression", func(t *testing.T) {
+		match := resolvePathMatch("", constants.FallbackPrefix(), "/")
+		g.Expect(*match.Path.Type).To(Equal(gwapiv1.PathMatchRegularExpression))
+		g.Expect(*match.Path.Value).To(Equal(constants.FallbackPrefix()))
+	})
+
+	t.Run("PathPrefix uses PathPrefix type with equivalent path", func(t *testing.T) {
+		match := resolvePathMatch("PathPrefix", constants.FallbackPrefix(), "/")
+		g.Expect(*match.Path.Type).To(Equal(gwapiv1.PathMatchPathPrefix))
+		g.Expect(*match.Path.Value).To(Equal("/"))
+	})
+
+	t.Run("PathPrefix with ExplainPrefix", func(t *testing.T) {
+		match := resolvePathMatch("PathPrefix", constants.ExplainPrefix(), "/v1/models/")
+		g.Expect(*match.Path.Type).To(Equal(gwapiv1.PathMatchPathPrefix))
+		g.Expect(*match.Path.Value).To(Equal("/v1/models/"))
+	})
+
+	t.Run("PathPrefix with path-based routing", func(t *testing.T) {
+		match := resolvePathMatch("PathPrefix", "/serving/default/test-isvc/", "/serving/default/test-isvc/")
+		g.Expect(*match.Path.Type).To(Equal(gwapiv1.PathMatchPathPrefix))
+		g.Expect(*match.Path.Value).To(Equal("/serving/default/test-isvc/"))
+	})
+
+	t.Run("RegularExpression explicitly set", func(t *testing.T) {
+		match := resolvePathMatch("RegularExpression", constants.FallbackPrefix(), "/")
+		g.Expect(*match.Path.Type).To(Equal(gwapiv1.PathMatchRegularExpression))
+		g.Expect(*match.Path.Value).To(Equal(constants.FallbackPrefix()))
+	})
+}
+
+func TestCreateRawPredictorHTTPRoutePathMatchType(t *testing.T) {
+	g := NewGomegaWithT(t)
+	isvc := &v1beta1.InferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-isvc",
+			Namespace: "default",
+		},
+		Spec: v1beta1.InferenceServiceSpec{
+			Predictor: v1beta1.PredictorSpec{
+				ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{},
+			},
+		},
+		Status: v1beta1.InferenceServiceStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{
+					{
+						Type:   v1beta1.PredictorReady,
+						Status: corev1.ConditionTrue,
+					},
+				},
+			},
+		},
+	}
+
+	isvcConfig := &v1beta1.InferenceServicesConfig{
+		ServiceAnnotationDisallowedList: []string{},
+		ServiceLabelDisallowedList:      []string{},
+	}
+
+	t.Run("PathPrefix produces PathPrefix match type", func(t *testing.T) {
+		ingressConfig := &v1beta1.IngressConfig{
+			IngressDomain:        "example.com",
+			UrlScheme:            "http",
+			DomainTemplate:       "{{.Name}}-{{.Namespace}}.{{.IngressDomain}}",
+			KserveIngressGateway: "kserve/kserve-gateway",
+			EnableGatewayAPI:     true,
+			PathMatchType:        "PathPrefix",
+		}
+		httpRoute, err := createRawPredictorHTTPRoute(isvc, ingressConfig, isvcConfig)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(httpRoute).ToNot(BeNil())
+		for _, rule := range httpRoute.Spec.Rules {
+			for _, match := range rule.Matches {
+				g.Expect(*match.Path.Type).To(Equal(gwapiv1.PathMatchPathPrefix),
+					"expected PathPrefix match type when pathMatchType is PathPrefix")
+			}
+		}
+	})
+
+	t.Run("default produces RegularExpression match type", func(t *testing.T) {
+		ingressConfig := &v1beta1.IngressConfig{
+			IngressDomain:        "example.com",
+			UrlScheme:            "http",
+			DomainTemplate:       "{{.Name}}-{{.Namespace}}.{{.IngressDomain}}",
+			KserveIngressGateway: "kserve/kserve-gateway",
+			EnableGatewayAPI:     true,
+		}
+		httpRoute, err := createRawPredictorHTTPRoute(isvc, ingressConfig, isvcConfig)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(httpRoute).ToNot(BeNil())
+		for _, rule := range httpRoute.Spec.Rules {
+			for _, match := range rule.Matches {
+				g.Expect(*match.Path.Type).To(Equal(gwapiv1.PathMatchRegularExpression),
+					"expected RegularExpression match type when pathMatchType is not set")
+			}
+		}
+	})
+}

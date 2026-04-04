@@ -127,6 +127,7 @@ type IngressConfig struct {
 	PathTemplate                 string    `json:"pathTemplate,omitempty"`
 	DisableIngressCreation       bool      `json:"disableIngressCreation,omitempty"`
 	DisableHTTPRouteTimeout      bool      `json:"disableHTTPRouteTimeout,omitempty"`
+	PathMatchType                string    `json:"pathMatchType,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
