@@ -30,4 +30,6 @@ RUN CGO_ENABLED=0 GOOS=linux GOFLAGS=-mod=readonly go build -tags "${GOTAGS}" -a
 FROM gcr.io/distroless/static:nonroot
 COPY --from=builder /go/src/github.com/kserve/kserve/third_party /third_party
 COPY --from=builder /go/src/github.com/kserve/kserve/manager /
+USER 1000:1000
+
 ENTRYPOINT ["/manager"]
