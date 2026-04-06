@@ -2630,8 +2630,8 @@ spec:
         capabilities:
           drop:
           - ALL
-        readOnlyRootFilesystem: false
-        runAsNonRoot: false
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       startupProbe:
@@ -2646,6 +2646,8 @@ spec:
       volumeMounts:
       - mountPath: /home
         name: home
+      - mountPath: /tmp
+        name: tmp-dir
       - mountPath: /dev/shm
         name: dshm
       - mountPath: /models
@@ -2704,8 +2706,8 @@ spec:
         capabilities:
           drop:
           - ALL
-        readOnlyRootFilesystem: false
-        runAsNonRoot: false
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
       terminationMessagePath: /dev/termination-log
       terminationMessagePolicy: FallbackToLogsOnError
       volumeMounts:
@@ -2716,6 +2718,8 @@ spec:
     volumes:
     - emptyDir: {}
       name: home
+    - emptyDir: {}
+      name: tmp-dir
     - emptyDir:
         medium: Memory
         sizeLimit: 1Gi
@@ -2936,8 +2940,8 @@ spec:
           - NET_RAW
           drop:
           - ALL
-        readOnlyRootFilesystem: false
-        runAsNonRoot: false
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       startupProbe:
@@ -2952,6 +2956,8 @@ spec:
       volumeMounts:
       - mountPath: /home
         name: home
+      - mountPath: /tmp
+        name: tmp-dir
       - mountPath: /dev/shm
         name: dshm
       - mountPath: /models
@@ -3010,7 +3016,7 @@ spec:
           drop:
           - ALL
         readOnlyRootFilesystem: true
-        runAsNonRoot: false
+        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       terminationMessagePath: /dev/termination-log
@@ -3023,6 +3029,8 @@ spec:
     volumes:
     - emptyDir: {}
       name: home
+    - emptyDir: {}
+      name: tmp-dir
     - emptyDir:
         medium: Memory
         sizeLimit: 8Gi
@@ -3222,8 +3230,8 @@ spec:
           - NET_RAW
           drop:
           - ALL
-        readOnlyRootFilesystem: false
-        runAsNonRoot: false
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       terminationMessagePath: /dev/termination-log
@@ -3231,6 +3239,8 @@ spec:
       volumeMounts:
       - mountPath: /home
         name: home
+      - mountPath: /tmp
+        name: tmp-dir
       - mountPath: /dev/shm
         name: dshm
       - mountPath: /models
@@ -3242,6 +3252,8 @@ spec:
     volumes:
     - emptyDir: {}
       name: home
+    - emptyDir: {}
+      name: tmp-dir
     - emptyDir:
         medium: Memory
         sizeLimit: 8Gi
@@ -3429,8 +3441,8 @@ spec:
           capabilities:
             drop:
             - ALL
-          readOnlyRootFilesystem: false
-          runAsNonRoot: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
           seccompProfile:
             type: RuntimeDefault
         startupProbe:
@@ -3445,6 +3457,8 @@ spec:
         volumeMounts:
         - mountPath: /home
           name: home
+        - mountPath: /tmp
+          name: tmp-dir
         - mountPath: /dev/shm
           name: dshm
         - mountPath: /models
@@ -3456,6 +3470,8 @@ spec:
       volumes:
       - emptyDir: {}
         name: home
+      - emptyDir: {}
+        name: tmp-dir
       - emptyDir:
           medium: Memory
           sizeLimit: 1Gi
@@ -3677,8 +3693,8 @@ spec:
             - NET_RAW
             drop:
             - ALL
-          readOnlyRootFilesystem: false
-          runAsNonRoot: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
           seccompProfile:
             type: RuntimeDefault
         startupProbe:
@@ -3693,6 +3709,8 @@ spec:
         volumeMounts:
         - mountPath: /home
           name: home
+        - mountPath: /tmp
+          name: tmp-dir
         - mountPath: /dev/shm
           name: dshm
         - mountPath: /models
@@ -3704,6 +3722,8 @@ spec:
       volumes:
       - emptyDir: {}
         name: home
+      - emptyDir: {}
+        name: tmp-dir
       - emptyDir:
           medium: Memory
           sizeLimit: 8Gi
@@ -3901,8 +3921,8 @@ spec:
             - NET_RAW
             drop:
             - ALL
-          readOnlyRootFilesystem: false
-          runAsNonRoot: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
           seccompProfile:
             type: RuntimeDefault
         terminationMessagePath: /dev/termination-log
@@ -3910,6 +3930,8 @@ spec:
         volumeMounts:
         - mountPath: /home
           name: home
+        - mountPath: /tmp
+          name: tmp-dir
         - mountPath: /dev/shm
           name: dshm
         - mountPath: /models
@@ -3921,6 +3943,8 @@ spec:
       volumes:
       - emptyDir: {}
         name: home
+      - emptyDir: {}
+        name: tmp-dir
       - emptyDir:
           medium: Memory
           sizeLimit: 8Gi
@@ -4370,8 +4394,8 @@ spec:
         capabilities:
           drop:
           - ALL
-        readOnlyRootFilesystem: false
-        runAsNonRoot: false
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       startupProbe:
@@ -4386,6 +4410,8 @@ spec:
       volumeMounts:
       - mountPath: /home
         name: home
+      - mountPath: /tmp
+        name: tmp-dir
       - mountPath: /dev/shm
         name: dshm
       - mountPath: /models
@@ -4403,6 +4429,8 @@ spec:
       name: dshm
     - emptyDir: {}
       name: model-cache
+    - emptyDir: {}
+      name: tmp-dir
     - name: tls-certs
       secret:
         secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}'
@@ -4617,8 +4645,8 @@ spec:
           - NET_RAW
           drop:
           - ALL
-        readOnlyRootFilesystem: false
-        runAsNonRoot: false
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       startupProbe:
@@ -4633,6 +4661,8 @@ spec:
       volumeMounts:
       - mountPath: /home
         name: home
+      - mountPath: /tmp
+        name: tmp-dir
       - mountPath: /dev/shm
         name: dshm
       - mountPath: /models
@@ -4644,6 +4674,8 @@ spec:
     volumes:
     - emptyDir: {}
       name: home
+    - emptyDir: {}
+      name: tmp-dir
     - emptyDir:
         medium: Memory
         sizeLimit: 8Gi
@@ -4841,8 +4873,8 @@ spec:
           - NET_RAW
           drop:
           - ALL
-        readOnlyRootFilesystem: false
-        runAsNonRoot: false
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       terminationMessagePath: /dev/termination-log
@@ -4850,6 +4882,8 @@ spec:
       volumeMounts:
       - mountPath: /home
         name: home
+      - mountPath: /tmp
+        name: tmp-dir
       - mountPath: /dev/shm
         name: dshm
       - mountPath: /models
@@ -4861,6 +4895,8 @@ spec:
     volumes:
     - emptyDir: {}
       name: home
+    - emptyDir: {}
+      name: tmp-dir
     - emptyDir:
         medium: Memory
         sizeLimit: 8Gi

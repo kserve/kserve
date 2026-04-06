@@ -1967,14 +1967,14 @@ spec:
     volumes:
     - emptyDir: {}
       name: home
-    - emptyDir: {}
-      name: tmp-dir
     - emptyDir:
         medium: Memory
         sizeLimit: 1Gi
       name: dshm
     - emptyDir: {}
       name: model-cache
+    - emptyDir: {}
+      name: tmp-dir
     - name: tls-certs
       secret:
         secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}'
