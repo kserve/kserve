@@ -133,10 +133,25 @@ rules:
   - watch
 - apiGroups:
   - inference.networking.k8s.io
-  - inference.networking.x-k8s.io
   resources:
   - inferencemodels
   - inferenceobjectives
+  - inferencepools
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - inference.networking.x-k8s.io
+  resources:
+  - inferencemodelrewrites
+  - inferencemodels
+  - inferenceobjectives
+  - inferencepoolimports
   - inferencepools
   verbs:
   - create
