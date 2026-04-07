@@ -19,7 +19,7 @@ import pytest
 from kserve_storage import Storage
 
 
-@mock.patch("modelscope.hub.snapshot_download.snapshot_download")
+@mock.patch("kserve_storage.kserve_storage.ms_snapshot_download")
 def test_download_model(mock_snapshot_download):
     uri = "ms://example.com/model:hash_value"
     repo = "example.com"
@@ -35,7 +35,7 @@ def test_download_model(mock_snapshot_download):
     )
 
 
-@mock.patch("modelscope.hub.snapshot_download.snapshot_download")
+@mock.patch("kserve_storage.kserve_storage.ms_snapshot_download")
 def test_download_model_with_allow_patterns(mock_snapshot_download):
     uri = "ms://example.com/model"
 
@@ -49,7 +49,7 @@ def test_download_model_with_allow_patterns(mock_snapshot_download):
     )
 
 
-@mock.patch("modelscope.hub.snapshot_download.snapshot_download")
+@mock.patch("kserve_storage.kserve_storage.ms_snapshot_download")
 def test_download_model_with_ignore_patterns(mock_snapshot_download):
     uri = "ms://example.com/model"
 
@@ -63,7 +63,7 @@ def test_download_model_with_ignore_patterns(mock_snapshot_download):
     )
 
 
-@mock.patch("modelscope.hub.snapshot_download.snapshot_download")
+@mock.patch("kserve_storage.kserve_storage.ms_snapshot_download")
 def test_download_model_with_both_patterns(mock_snapshot_download):
     uri = "ms://example.com/model"
 
@@ -83,7 +83,7 @@ def test_download_model_with_both_patterns(mock_snapshot_download):
     )
 
 
-@mock.patch("modelscope.hub.snapshot_download.snapshot_download")
+@mock.patch("kserve_storage.kserve_storage.ms_snapshot_download")
 def test_download_model_no_patterns_omits_kwargs(mock_snapshot_download):
     uri = "ms://example.com/model"
 
@@ -96,7 +96,7 @@ def test_download_model_no_patterns_omits_kwargs(mock_snapshot_download):
     )
 
 
-@mock.patch("modelscope.hub.snapshot_download.snapshot_download")
+@mock.patch("kserve_storage.kserve_storage.ms_snapshot_download")
 def test_download_reads_env_patterns(mock_snapshot_download):
     uri = "ms://example.com/model"
 
@@ -115,7 +115,7 @@ def test_download_reads_env_patterns(mock_snapshot_download):
     assert call_kwargs.get("ignore_patterns") == ["*.bin", "*.gguf"]
 
 
-@mock.patch("modelscope.hub.snapshot_download.snapshot_download")
+@mock.patch("kserve_storage.kserve_storage.ms_snapshot_download")
 def test_explicit_patterns_override_env(mock_snapshot_download):
     uri = "ms://example.com/model"
 
@@ -129,7 +129,7 @@ def test_explicit_patterns_override_env(mock_snapshot_download):
     assert call_kwargs.get("allow_patterns") == ["*.safetensors"]
 
 
-@mock.patch("modelscope.hub.snapshot_download.snapshot_download")
+@mock.patch("kserve_storage.kserve_storage.ms_snapshot_download")
 @pytest.mark.parametrize(
     "invalid_uri, error_message",
     [

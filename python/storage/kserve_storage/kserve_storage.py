@@ -41,6 +41,24 @@ from kserve_storage.storage_errors import (
     check_http_response,
 )
 
+# ModelScope imports - module level for testability
+try:
+    from modelscope.hub.snapshot_download import (
+        snapshot_download as ms_snapshot_download,
+    )
+    from modelscope.hub.errors import (
+        NotExistError as MsNotExistError,
+        NoValidRevisionError as MsNoValidRevisionError,
+        NotLoginException as MsNotLoginException,
+        RequestError as MsRequestError,
+    )
+except ImportError:
+    ms_snapshot_download = None
+    MsNotExistError = None
+    MsNoValidRevisionError = None
+    MsNotLoginException = None
+    MsRequestError = None
+
 MODEL_MOUNT_DIRS = "/mnt/models"
 
 _GCS_PREFIX = "gs://"
@@ -602,13 +620,10 @@ class Storage(object):
         allow_patterns: Optional[List[str]] = None,
         ignore_patterns: Optional[List[str]] = None,
     ) -> str:
-        from modelscope.hub.snapshot_download import snapshot_download
-        from modelscope.hub.errors import (
-            NotExistError,
-            NoValidRevisionError,
-            NotLoginException,
-            RequestError,
-        )
+        if ms_snapshot_download is None:
+            raise RuntimeError(
+                "ModelScope is not installed. Please install it with: pip install modelscope"
+            )
 
         components = uri[len(_MS_PREFIX) :].split("/")
 
@@ -646,12 +661,12 @@ class Storage(object):
             token = os.environ.get("MS_TOKEN")
             if token:
                 kwargs["token"] = token
-            snapshot_download(**kwargs)
+            ms_snapshot_download(**kwargs)
         except (
-            NotExistError,
-            NoValidRevisionError,
-            NotLoginException,
-            RequestError,
+            MsNotExistError,
+            MsNoValidRevisionError,
+            MsNotLoginException,
+            MsRequestError,
         ) as e:
             raise_storage_error("ModelScope", uri, e, repo_id)
 
