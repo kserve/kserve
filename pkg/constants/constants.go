@@ -137,6 +137,10 @@ var (
 	DisableAutoUpdateAnnotationKey              = KServeAPIGroupName + "/disable-auto-update"
 	ModelFormatAnnotationKey                    = "modelFormat"
 	InferencePoolMigratedAnnotationKey          = KServeAPIGroupName + "/inferencepool-migrated"
+	ManagedDRADeviceClassAnnotationKey          = KServeAPIGroupName + "/dra-device-class"
+	ManagedDRACelSelectorAnnotationKey          = KServeAPIGroupName + "/dra-cel-selector"
+	ManagedDRASharingAnnotationKey              = KServeAPIGroupName + "/dra-sharing"
+	ManagedDRAGpuCountAnnotationKey             = KServeAPIGroupName + "/dra-gpu-count"
 )
 
 // ServingRuntime Server Type Annotations

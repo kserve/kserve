@@ -42,6 +42,10 @@ import (
 func (r *LLMISVCReconciler) reconcileSingleNodeWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
 	log.FromContext(ctx).Info("Reconciling single-node workload")
 
+	if err := r.reconcileManagedDRA(ctx, llmSvc); err != nil {
+		return fmt.Errorf("failed to reconcile managed DRA: %w", err)
+	}
+
 	if err := r.reconcileSingleNodeMainServiceAccount(ctx, llmSvc, config); err != nil {
 		return fmt.Errorf("failed to reconcile service account: %w", err)
 	}
@@ -124,6 +128,8 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 
 	if llmSvc.Spec.Template != nil {
 		d.Spec.Template.Spec = *llmSvc.Spec.Template.DeepCopy()
+
+		injectManagedDRA(llmSvc, &d.Spec.Template.Spec)
 
 		var serviceAccount *corev1.ServiceAccount = nil
 		if hasRoutingSidecar(d.Spec.Template.Spec) {
@@ -226,6 +232,8 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 
 	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Template != nil {
 		d.Spec.Template.Spec = *llmSvc.Spec.Prefill.Template.DeepCopy()
+
+		injectManagedDRA(llmSvc, &d.Spec.Template.Spec)
 
 		var existingServiceAccount *corev1.ServiceAccount = nil
 		if llmSvc.Spec.Prefill.Template.ServiceAccountName != "" {
