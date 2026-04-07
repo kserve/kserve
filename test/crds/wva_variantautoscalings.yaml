@@ -200,9 +200,9 @@ spec:
                   allocation based on autoscaling logic.
                 properties:
                   accelerator:
-                    description: Accelerator is the type of accelerator for the optimized
-                      allocation.
-                    minLength: 2
+                    description: |-
+                      Accelerator is the type of accelerator for the optimized allocation.
+                      Deprecated: This field is deprecated and will be removed in a future version. Use node selector or node affinity from scale target instead.
                     type: string
                   lastRunTime:
                     description: LastRunTime is the timestamp of the last optimization
@@ -216,8 +216,6 @@ spec:
                     format: int32
                     minimum: 0
                     type: integer
-                required:
-                - accelerator
                 type: object
             type: object
         type: object

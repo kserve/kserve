@@ -648,10 +648,10 @@ KSERVE_VERSION=v0.17.0
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.17.3
 OPENTELEMETRY_OPERATOR_VERSION=0.74.3
-LWS_VERSION=v0.7.0
+LWS_VERSION=v0.8.0
 GATEWAY_API_VERSION=v1.4.1
-GIE_VERSION=v1.3.0
-WVA_VERSION=v0.6.0-rc3
+GIE_VERSION=v1.3.1
+WVA_VERSION=v0.6.0
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -3568,6 +3568,25 @@ spec:
             - path:
                 type: PathPrefix
                 value: /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }}/v1/chat/completions
+            timeouts:
+              backendRequest: 0s
+              request: 0s
+          - backendRefs:
+            - group: inference.networking.k8s.io
+              kind: InferencePool
+              name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
+              port: 8000
+              weight: 1
+            filters:
+            - type: URLRewrite
+              urlRewrite:
+                path:
+                  replacePrefixMatch: /v1/responses
+                  type: ReplacePrefixMatch
+            matches:
+            - path:
+                type: PathPrefix
+                value: /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }}/v1/responses
             timeouts:
               backendRequest: 0s
               request: 0s
@@ -37872,7 +37891,8 @@ data:
            "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
            "urlScheme": "http",
            "disableIstioVirtualHost": false,
-           "disableIngressCreation": false
+           "disableIngressCreation": false,
+           "disableHTTPRouteTimeout": false
        }
      ingress: |-
        {
@@ -37947,6 +37967,10 @@ data:
 
            # disableIngressCreation controls whether to disable ingress creation for raw deployment mode.
            "disableIngressCreation": false,
+
+           # disableHTTPRouteTimeout controls whether to omit the timeout field from HTTPRoute rules.
+           # Set to true for Gateway controllers (e.g. GKE Gateway) that do not support the optional timeouts field.
+           "disableHTTPRouteTimeout": false,
 
            # pathTemplate specifies the template for generating path based url for each inference service.
            # The following variables can be used in the template for generating url.
@@ -38267,7 +38291,8 @@ data:
         "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
         "urlScheme": "http",
         "disableIstioVirtualHost": false,
-        "disableIngressCreation": false
+        "disableIngressCreation": false,
+        "disableHTTPRouteTimeout": false
     }
   localModel: |-
     {
