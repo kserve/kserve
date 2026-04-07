@@ -5,7 +5,7 @@ metadata:
 spec:
   template:
     containers:
-      - image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
+      - image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
         imagePullPolicy: IfNotPresent
         name: main
         ports:
@@ -200,7 +200,7 @@ spec:
     initContainers:
       - name: llm-d-routing-sidecar
         imagePullPolicy: IfNotPresent
-        image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.6.0
+        image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.7.1
         restartPolicy: Always
         ports:
           - containerPort: 8000

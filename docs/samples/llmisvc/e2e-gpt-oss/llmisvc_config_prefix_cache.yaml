@@ -6,7 +6,7 @@ metadata:
 spec:
   template:
     containers:
-      - image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
+      - image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
         name: main
         command: ["/bin/sh", "-c"]
         args:
@@ -96,7 +96,7 @@ spec:
             emptyDir: {}
         containers:
           - name: main
-            image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.5.0
+            image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.7.1
             ports:
               - containerPort: 5557
                 name: zmq
@@ -122,8 +122,6 @@ spec:
               - "9002"
               - --grpc-health-port
               - "9003"
-              - --kv-cache-usage-percentage-metric
-              - "vllm:kv_cache_usage_perc"
               - --metrics-endpoint-auth=false
               - --secure-serving
               - --cert-path
