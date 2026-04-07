@@ -23,4 +23,3 @@ spec:
   - regex: https://(.+?).blob.core.windows.net/(.+)
   - regex: https://(.+?).file.core.windows.net/(.+)
   - regex: https?://(.+)/(.+)
-  workloadType: initContainer
