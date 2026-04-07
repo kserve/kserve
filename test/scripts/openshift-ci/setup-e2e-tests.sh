@@ -28,6 +28,9 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 source "$SCRIPT_DIR/common.sh"
 source "$SCRIPT_DIR/version.sh"
 
+# Always print cluster / operator snapshot on exit (success or failure) for CI triage.
+trap print_e2e_environment_summary EXIT
+
 # Parse command line options
 : "${INSTALL_ODH_OPERATOR:=false}"
 
@@ -136,7 +139,7 @@ if [[ "$INSTALL_ODH_OPERATOR" == "false" ]]; then
 
   # Update params.env with CI-injected images so kustomize build produces the right output
   cp "$PARAMS_ENV" "$PARAMS_ENV.bak"
-  trap "mv '$PARAMS_ENV.bak' '$PARAMS_ENV'" EXIT
+  trap "mv '$PARAMS_ENV.bak' '$PARAMS_ENV' 2>/dev/null || true; print_e2e_environment_summary" EXIT
   sed -i "s|kserve-controller=.*|kserve-controller=${KSERVE_CONTROLLER_IMAGE}|" "$PARAMS_ENV"
   sed -i "s|llmisvc-controller=.*|llmisvc-controller=${LLMISVC_CONTROLLER_IMAGE}|" "$PARAMS_ENV"
   sed -i "s|kserve-agent=.*|kserve-agent=${KSERVE_AGENT_IMAGE}|" "$PARAMS_ENV"

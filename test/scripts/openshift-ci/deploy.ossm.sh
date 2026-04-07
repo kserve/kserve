@@ -34,6 +34,7 @@ spec:
   sourceNamespace: openshift-marketplace
 EOF
 
+wait_for_subscription_csv "servicemeshoperator" "openshift-operators" 300
 wait_for_pod_ready "openshift-operators" "name=istio-operator"
 
 # Create istio-system namespace if it doesn't exist

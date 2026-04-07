@@ -43,6 +43,7 @@ spec:
 EOF
 } || true
 
+wait_for_subscription_csv "openshift-cert-manager-operator" "cert-manager-operator" 300
 wait_for_crd certificates.cert-manager.io 90s
 
 echo "✅ Cert-manager installed"

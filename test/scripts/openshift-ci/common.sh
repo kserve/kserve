@@ -83,6 +83,37 @@ wait_for_crd() {
   oc wait --for=condition=Established --timeout="$timeout" "crd/$crd"
 }
 
+# Poll until GET /apis/<group>/<version> lists the given resource (apiserver discovery).
+# Stronger than CRD Established alone for admission paths that resolve owner GVK via REST mapping.
+# Usage: wait_for_api_discovery <group/version> <resource-name> [timeout_seconds]
+#   <group/version>   e.g. kuadrant.io/v1beta1
+#   <resource-name>   plural list name from discovery, e.g. kuadrants
+#   [timeout_seconds] default 120
+wait_for_api_discovery() {
+  local gv=${1:?group/version is required}
+  local resource_name=${2:?resource name is required}
+  local timeout_sec=${3:-120}
+
+  echo "Waiting for apiserver discovery /apis/${gv} to list ${resource_name} (timeout: ${timeout_sec}s)…"
+  local counter=0
+  local raw=""
+  # Match discovery JSON without jq (Prow e2e image may not ship jq; Konflux often does).
+  local name_pattern
+  name_pattern="\"name\":\"${resource_name}\""
+  while [ "$counter" -lt "$timeout_sec" ]; do
+    if raw=$(oc get --raw "/apis/${gv}" 2>/dev/null) && echo "$raw" | grep -Fq "$name_pattern"; then
+      echo "Discovery for ${gv} includes ${resource_name}."
+      return 0
+    fi
+    sleep 2
+    counter=$((counter + 2))
+  done
+
+  echo "ERROR: Timed out after ${timeout_sec}s waiting for /apis/${gv} to list ${resource_name}."
+  oc get --raw "/apis/${gv}" 2>/dev/null || echo "(GET /apis/${gv} failed)"
+  return 1
+}
+
 # Helper function to wait for and approve an operator install plan
 # Usage: wait_for_installplan_and_approve <namespace> <operator-name> [timeout]
 #   <namespace>     : namespace where the operator is being installed
@@ -114,32 +145,46 @@ wait_for_installplan_and_approve() {
   fi
 }
 
-# Helper function to wait for a CSV to reach "Succeeded" status
-# Usage: wait_for_csv_ready <namespace> <csv-name-pattern> [timeout]
-#   <namespace>        : namespace where the CSV exists
-#   <csv-name-pattern> : pattern to match CSV name (e.g., "opendatahub-operator" matches "opendatahub-operator.v1.2.3")
-#   [timeout]          : timeout in seconds (default: 300)
-wait_for_csv_ready() {
-  local namespace=${1:?namespace is required}
-  local csv_name_pattern=${2:?CSV name pattern is required}
-  local timeout=${3:-300}
+# Wait for an OLM Subscription's CSV to reach "Succeeded" status.
+# Discovers the CSV name from the Subscription's status.installedCSV field,
+# which is the authoritative source regardless of the CSV naming convention.
+# Usage: wait_for_subscription_csv <subscription-name> <namespace> [timeout]
+#   <subscription-name> : name of the OLM Subscription resource
+#   <namespace>         : namespace where the Subscription exists
+#   [timeout]           : timeout in seconds (default: 600)
+wait_for_subscription_csv() {
+  local sub_name=${1:?subscription name is required}
+  local namespace=${2:?namespace is required}
+  local timeout=${3:-600}
 
-  echo "Waiting for ${csv_name_pattern} CSV to be installed..."
+  echo "Waiting for ${sub_name} CSV to become ready..."
   local counter=0
-  local csv_status=""
+  local csv_name=""
   while [ "$counter" -lt "$timeout" ]; do
-    csv_status=$(oc get csv -n "${namespace}" -o json | jq -r ".items[] | select(.metadata.name | startswith(\"${csv_name_pattern}\")) | .status.phase" 2>/dev/null || echo "")
-    if [ "$csv_status" = "Succeeded" ]; then
-      echo "${csv_name_pattern} CSV is ready"
-      break
+    csv_name=$(oc get subscription "$sub_name" -n "$namespace" \
+      -o=jsonpath='{.status.installedCSV}' 2>/dev/null || true)
+    if [ -n "$csv_name" ]; then
+      local csv_phase
+      csv_phase=$(oc get csv "$csv_name" -n "$namespace" \
+        -o=jsonpath='{.status.phase}' 2>/dev/null || true)
+      if [ "$csv_phase" = "Succeeded" ]; then
+        echo "CSV $csv_name is ready (Phase: Succeeded)."
+        return 0
+      fi
+      echo "CSV $csv_name found, but not yet Succeeded (Phase: ${csv_phase:-Unknown}). Waiting... ($counter/$timeout)"
+    else
+      echo "Waiting for CSV to be installed for subscription $sub_name... ($counter/$timeout)"
     fi
-    echo "Waiting for CSV to be ready... (current status: ${csv_status:-NotFound}, $counter/$timeout)"
     sleep 5
     counter=$((counter + 5))
   done
 
-  if [ "$counter" -ge "$timeout" ]; then
-    echo "Timeout waiting for ${csv_name_pattern} CSV to be ready"
-    return 1
-  fi
+  echo "ERROR: Timeout waiting for ${sub_name} CSV to be ready after ${timeout}s"
+  echo "Subscription status:"
+  oc get subscription "$sub_name" -n "$namespace" -o yaml 2>/dev/null || true
+  echo "CatalogSource status:"
+  oc get catalogsource -n openshift-marketplace 2>/dev/null || true
+  echo "CSVs in namespace ${namespace}:"
+  oc get csv -n "$namespace" 2>/dev/null || true
+  return 1
 }

@@ -53,6 +53,7 @@ spec:
   sourceNamespace: openshift-marketplace
 EOF
 
+wait_for_subscription_csv "serverless-operator" "openshift-serverless" 300
 wait_for_pod_ready "openshift-serverless" "name=knative-openshift"
 wait_for_pod_ready "openshift-serverless" "name=knative-openshift-ingress"
 wait_for_pod_ready "openshift-serverless" "name=knative-operator"

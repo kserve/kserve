@@ -69,34 +69,7 @@ EOF
 echo "Subscription ${SUBSCRIPTION_NAME} created/ensured."
 echo "---"
 
-echo "Waiting for Custom Metrics Autoscaler Operator CSV to be ready..."
-CSV_NAME=""
-# Wait for the CSV to be installed and report success (typically up to 5-10 minutes for operator installs)
-for i in $(seq 1 120); do # Wait up to 10 minutes (120 * 5s = 600s)
-  CSV_NAME=$(oc get subscriptions "$SUBSCRIPTION_NAME" -n "$KEDA_NAMESPACE" -o=jsonpath='{.status.installedCSV}' 2>/dev/null || true)
-  if [ -n "$CSV_NAME" ]; then
-    CSV_PHASE=$(oc get csv "$CSV_NAME" -n "$KEDA_NAMESPACE" -o=jsonpath='{.status.phase}' 2>/dev/null || true)
-    if [ "$CSV_PHASE" == "Succeeded" ]; then
-      echo "CSV $CSV_NAME is ready (Phase: $CSV_PHASE)."
-      break
-    else
-      echo "CSV $CSV_NAME found, but not yet Succeeded (Phase: $CSV_PHASE). Waiting... (Attempt $i/120)"
-    fi
-  else
-    echo "Waiting for CSV to be installed for subscription $SUBSCRIPTION_NAME... (Attempt $i/120)"
-  fi
-  sleep 5
-  CSV_NAME="" # Reset for next loop iteration if not found or not ready
-done
-
-if [ -z "$CSV_NAME" ]; then
-  echo "ERROR: Could not find installed CSV for $SUBSCRIPTION_NAME in namespace $KEDA_NAMESPACE after waiting."
-  echo "Status of subscription:"
-  oc get subscription "$SUBSCRIPTION_NAME" -n "$KEDA_NAMESPACE" -o yaml
-  exit 1
-fi
-
-echo "Custom Metrics Autoscaler Operator is ready."
+wait_for_subscription_csv "${SUBSCRIPTION_NAME}" "${KEDA_NAMESPACE}" 600
 echo "---"
 
 # 5. Apply KedaController Custom Resource

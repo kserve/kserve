@@ -46,6 +46,7 @@ spec:
 EOF
 } || true
 
+wait_for_subscription_csv "leader-worker-set" "openshift-lws-operator" 300
 wait_for_crd leaderworkersetoperators.operator.openshift.io 90s
 
 {

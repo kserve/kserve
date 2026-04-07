@@ -34,11 +34,16 @@ echo "  Namespace: ${ODH_OPERATOR_NAMESPACE}"
 echo "  Channel: ${ODH_OPERATOR_CHANNEL}"
 echo "  Source: ${ODH_OPERATOR_SOURCE}"
 
-# Step 1: Check if ODH operator is already installed
-csv_status=$(oc get csv -n ${ODH_OPERATOR_NAMESPACE} -o json 2>/dev/null | jq -r '.items[] | select(.metadata.name | startswith("opendatahub-operator")) | .status.phase' 2>/dev/null || echo "")
+# Step 1: Check if ODH operator is already installed via its Subscription
+existing_csv=$(oc get subscription opendatahub-operator -n "${ODH_OPERATOR_NAMESPACE}" \
+  -o=jsonpath='{.status.installedCSV}' 2>/dev/null || true)
+if [ -n "$existing_csv" ]; then
+  csv_status=$(oc get csv "$existing_csv" -n "${ODH_OPERATOR_NAMESPACE}" \
+    -o=jsonpath='{.status.phase}' 2>/dev/null || true)
+fi
 
-if [ "$csv_status" = "Succeeded" ]; then
-  echo "ODH operator already installed and ready, skipping installation"
+if [ "${csv_status:-}" = "Succeeded" ]; then
+  echo "ODH operator already installed and ready ($existing_csv), skipping installation"
 else
   # Install ODH operator subscription in openshift-operators (cluster-wide)
   echo "Installing ODH operator..."
@@ -63,7 +68,7 @@ EOF
   wait_for_installplan_and_approve "${ODH_OPERATOR_NAMESPACE}" "opendatahub-operator" 60
 
   # Step 3: Wait for ODH operator CSV to be ready
-  wait_for_csv_ready "${ODH_OPERATOR_NAMESPACE}" "opendatahub-operator" 300
+  wait_for_subscription_csv "opendatahub-operator" "${ODH_OPERATOR_NAMESPACE}" 300
 fi
 
 # Step 4: Wait for ODH operator pod to be ready
