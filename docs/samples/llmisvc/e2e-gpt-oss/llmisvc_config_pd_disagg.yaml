@@ -15,7 +15,7 @@ spec:
   template:
     containers:
       - name: main
-        image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
+        image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
         env:
           # Enable RDMA for KV cache transfer
           - name: KSERVE_INFER_ROCE
@@ -57,7 +57,7 @@ spec:
     template:
       containers:
         - name: main
-          image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
+          image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
           env:
             - name: KSERVE_INFER_ROCE
               value: "false"

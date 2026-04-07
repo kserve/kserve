@@ -2603,7 +2603,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
+      image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -2673,7 +2673,7 @@ spec:
             fieldPath: metadata.namespace
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.6.0
+      image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.7.1
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -2905,7 +2905,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
+      image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -2979,7 +2979,7 @@ spec:
             fieldPath: metadata.namespace
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.6.0
+      image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.7.1
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -3207,7 +3207,7 @@ spec:
         value: /models
       - name: VLLM_RANDOMIZE_DP_DUMMY_INPUTS
         value: "1"
-      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
+      image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
       imagePullPolicy: IfNotPresent
       name: main
       ports:
@@ -3402,7 +3402,7 @@ spec:
           value: INFO
         - name: HF_HUB_CACHE
           value: /models
-        image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
+        image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 3
@@ -3646,7 +3646,7 @@ spec:
           value: INFO
         - name: HF_HUB_CACHE
           value: /models
-        image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
+        image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 3
@@ -3886,7 +3886,7 @@ spec:
           value: INFO
         - name: HF_HUB_CACHE
           value: /models
-        image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
+        image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
         imagePullPolicy: IfNotPresent
         name: main
         ports:
@@ -4060,8 +4060,6 @@ spec:
           - "9002"
           - --grpc-health-port
           - "9003"
-          - --kv-cache-usage-percentage-metric
-          - vllm:kv_cache_usage_perc
           - '{{ if .GlobalConfig.EnableTLS }}--enable-cert-reload=true{{- end }}'
           - '{{ if .GlobalConfig.EnableTLS }}--secure-serving=true{{- end }}'
           - '{{ if .GlobalConfig.EnableTLS }}--model-server-metrics-scheme=https{{-
@@ -4071,7 +4069,7 @@ spec:
           env:
           - name: SSL_CERT_DIR
             value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-          image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.6.0
+          image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.7.1
           imagePullPolicy: IfNotPresent
           livenessProbe:
             failureThreshold: 3
@@ -4129,12 +4127,12 @@ spec:
         - env:
           - name: TOKENIZERS_DIR
             value: /mnt/models
-          image: ghcr.io/llm-d/llm-d-uds-tokenizer:v0.6.0
+          image: ghcr.io/llm-d/llm-d-uds-tokenizer:v0.7.1
           imagePullPolicy: IfNotPresent
           livenessProbe:
             failureThreshold: 3
             httpGet:
-              path: /health
+              path: /healthz
               port: 8082
             periodSeconds: 15
             timeoutSeconds: 5
@@ -4146,7 +4144,7 @@ spec:
           readinessProbe:
             failureThreshold: 3
             httpGet:
-              path: /health
+              path: /healthz
               port: 8082
             periodSeconds: 10
             timeoutSeconds: 5
@@ -4166,7 +4164,7 @@ spec:
           startupProbe:
             failureThreshold: 60
             httpGet:
-              path: /health
+              path: /healthz
               port: 8082
             initialDelaySeconds: 5
             periodSeconds: 10
@@ -4174,6 +4172,10 @@ spec:
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: FallbackToLogsOnError
           volumeMounts:
+          - mountPath: /tmp
+            name: tokenizer-tmp
+          - mountPath: /.cache
+            name: tokenizer-cache
           - mountPath: /tmp/tokenizer
             name: tokenizer-uds
           workingDir: /mnt/models
@@ -4187,6 +4189,10 @@ spec:
               }}'
         - emptyDir: {}
           name: tokenizer-uds
+        - emptyDir: {}
+          name: tokenizer-tmp
+        - emptyDir: {}
+          name: tokenizer-cache
 ---
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
@@ -4337,7 +4343,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
+      image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -4580,7 +4586,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
+      image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -4820,7 +4826,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
+      image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
       imagePullPolicy: IfNotPresent
       name: main
       ports:

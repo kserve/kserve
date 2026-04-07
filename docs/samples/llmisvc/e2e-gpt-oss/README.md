@@ -282,7 +282,7 @@ KServe EPP metrics and llm-d observability are documented in the [grafana/](./gr
 | **Prefix Caching** | [prefix-caching-dashboard.json](./grafana/prefix-caching-dashboard.json) | vLLM prefix cache and EPP prefix indexer |
 | **P/D Disaggregation** | [pd-disaggregation-dashboard.json](./grafana/pd-disaggregation-dashboard.json) | Prefill/decode workers, queue length, P/D decision rates |
 
-Import in Grafana: **Dashboards** → **New** → **Import** → upload the JSON and select your Prometheus datasource. See [grafana/README.md](./grafana/README.md) for details and metric names (e.g. `vllm:kv_cache_usage_perc`, `--kv-cache-usage-percentage-metric`).
+Import in Grafana: **Dashboards** → **New** → **Import** → upload the JSON and select your Prometheus datasource. See [grafana/README.md](./grafana/README.md) for details and metric names (e.g. `vllm:kv_cache_usage_perc`).
 
 ---
 
