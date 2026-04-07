@@ -38,6 +38,7 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	resourcev1 "k8s.io/api/resource/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -212,6 +213,149 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
 				g.Expect(current.Status.Workloads).To(Equal(firstSnapshot))
 				g.Expect(current.ResourceVersion).To(Equal(afterTriggerRV))
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should create a single node deployment with managed DRA", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-dra"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			modelConfig := LLMInferenceServiceConfig("model-fb-opt-125m",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+				WithConfigModelName("facebook/opt-125m"),
+				WithConfigModelURI("hf://facebook/opt-125m"),
+			)
+
+			routerConfig := LLMInferenceServiceConfig("router-managed",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+				WithConfigManagedRouter(),
+			)
+
+			workloadConfig := LLMInferenceServiceConfig("workload-single-cpu",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+				WithConfigWorkloadTemplate(&corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "main",
+							Image: "quay.io/pierdipi/vllm-cpu:latest",
+						},
+					},
+				}),
+			)
+
+			Expect(envTest.Client.Create(ctx, modelConfig)).To(Succeed())
+			Expect(envTest.Client.Create(ctx, routerConfig)).To(Succeed())
+			Expect(envTest.Client.Create(ctx, workloadConfig)).To(Succeed())
+
+			// Create LLMInferenceService using baseRefs only
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithAnnotations(map[string]string{
+					constants.ManagedDRADeviceClassAnnotationKey: "gpu.nvidia.com",
+					constants.ManagedDRAGpuCountAnnotationKey:    "2",
+				}),
+				WithBaseRefs(
+					corev1.LocalObjectReference{Name: "model-fb-opt-125m"},
+					corev1.LocalObjectReference{Name: "router-managed"},
+					corev1.LocalObjectReference{Name: "workload-single-cpu"},
+				),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then
+			expectedDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve",
+					Namespace: testNs.Name,
+				}, expectedDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			// Verify the ResourceClaimTemplate was created with correct values
+			expectedTemplate := &resourcev1.ResourceClaimTemplate{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-managed-dra",
+					Namespace: testNs.Name,
+				}, expectedTemplate)
+			}).WithContext(ctx).Should(Succeed())
+
+			// Check that it parsed the annotations correctly
+			Expect(expectedTemplate.Spec.Spec.Devices.Requests).To(HaveLen(2))
+			Expect(expectedTemplate.Spec.Spec.Devices.Requests[0].Name).To(Equal("gpu-1"))
+			Expect(expectedTemplate.Spec.Spec.Devices.Requests[0].Exactly.DeviceClassName).To(Equal("gpu.nvidia.com"))
+
+			Expect(expectedDeployment.Spec.Template.Spec.ResourceClaims).To(HaveLen(1))
+			Expect(expectedDeployment.Spec.Template.Spec.ResourceClaims[0].Name).To(Equal("managed-gpu"))
+			Expect(expectedDeployment.Spec.Template.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Not(BeNil()))
+			Expect(*expectedDeployment.Spec.Template.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Equal(svcName + "-managed-dra"))
+
+			Expect(expectedDeployment.Spec.Template.Spec.Containers[0].Resources.Claims).To(HaveLen(1))
+			Expect(expectedDeployment.Spec.Template.Spec.Containers[0].Resources.Claims[0].Name).To(Equal("managed-gpu"))
+		})
+		It("should preserve pinned config annotations across reconciliations", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-pinning-stable"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithModelName("facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - wait for initial reconciliation to populate Status.Annotations.
+			// We check for PresetsCombined=True which indicates config merging completed,
+			// without requiring the full router readiness flow.
+			var pinnedAnnotations map[string]string
+			Eventually(func(g Gomega, ctx context.Context) error {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.PresetsCombined), "True"))
+				g.Expect(current.Status.Annotations).NotTo(BeNil())
+				pinnedAnnotations = make(map[string]string, len(current.Status.Annotations))
+				for k, v := range current.Status.Annotations {
+					pinnedAnnotations[k] = v
+				}
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+
+			// Trigger a new reconciliation by changing a spec field.
+			errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				_, errUpdate := ctrl.CreateOrUpdate(ctx, envTest.Client, llmSvc, func() error {
+					llmSvc.Spec.Model.Name = ptr.To(*llmSvc.Spec.Model.Name + "-v2")
+					return nil
+				})
+				return errUpdate
+			})
+			Expect(errRetry).ToNot(HaveOccurred())
+
+			// Verify annotations are stable after re-reconciliation.
+			// Use Consistently to confirm they remain unchanged over a short observation window.
+			Consistently(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Status.Annotations).NotTo(BeNil())
+				for key, wantValue := range pinnedAnnotations {
+					g.Expect(current.Status.Annotations).To(
+						HaveKeyWithValue(key, wantValue),
+						fmt.Sprintf("pinned annotation %q should be stable across reconciliations", key),
+					)
+				}
 			}).WithContext(ctx).Should(Succeed())
 		})
 
