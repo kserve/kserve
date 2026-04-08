@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -40,6 +41,10 @@ const (
 	loraAdaptersMountRoot = "/mnt/lora"
 )
 
+// loraPathInvalidCharsRe matches characters that are invalid in filesystem paths.
+// Replaces anything that is not alphanumeric, dash, underscore, or dot.
+var loraPathInvalidCharsRe = regexp.MustCompile(`[^a-zA-Z0-9._-]`)
+
 // resolvedLoRAAdapter is one adapter after URI validation (hf/s3 downloads are handled in attachModelArtifacts).
 type resolvedLoRAAdapter struct {
 	name      string
@@ -48,7 +53,8 @@ type resolvedLoRAAdapter struct {
 	scheme    string
 }
 
-// enumerateLoRAAdapters validates spec.model.lora.adapters and returns mount paths and schemes in order.
+// enumerateLoRAAdapters validates spec.model.lora.adapters and returns mount paths and schemes.
+// Returns adapters in the same order as spec.model.lora.adapters.
 func enumerateLoRAAdapters(llmSvc *v1alpha2.LLMInferenceService) ([]resolvedLoRAAdapter, error) {
 	if llmSvc.Spec.Model.LoRA == nil || len(llmSvc.Spec.Model.LoRA.Adapters) == 0 {
 		return nil, nil
@@ -88,9 +94,13 @@ func enumerateLoRAAdapters(llmSvc *v1alpha2.LLMInferenceService) ([]resolvedLoRA
 			if storageInitializerDisabled {
 				return nil, errors.New("LoRA adapter with pvc:// URI requires a mounted volume (do not set storageInitializer.enabled to false)")
 			}
-		case constants.OciURIPrefix:
-			return nil, fmt.Errorf("LoRA adapter %q: oci:// adapter URIs are not supported yet; use hf://, s3://, or pvc://", adapterName)
 		default:
+			// Note: oci:// is intentionally not supported for LoRA adapters.
+			// OCI models run as sidecar containers ("modelcars") with shared process namespaces,
+			// but only one modelcar per pod is currently supported. Supporting multiple OCI
+			// adapters would require architectural changes (multiple sidecars, complex path
+			// management). Most LoRA adapters are distributed via HuggingFace (hf://), so the
+			// limitation has minimal real-world impact. Workaround: package in PVC and use pvc://.
 			return nil, fmt.Errorf("LoRA adapter %q: unsupported URI scheme in %q (supported: hf://, s3://, pvc://)", adapterName, uri)
 		}
 
@@ -205,16 +215,7 @@ func appendLoRAVLLMWorkloadArgs(main *corev1.Container, n int, loraModules []str
 }
 
 func sanitizeLoRAPathSegment(s string) string {
-	var b strings.Builder
-	for _, r := range s {
-		switch {
-		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '-', r == '_', r == '.':
-			b.WriteRune(r)
-		default:
-			b.WriteRune('-')
-		}
-	}
-	out := b.String()
+	out := loraPathInvalidCharsRe.ReplaceAllString(s, "-")
 	if out == "" {
 		return "adapter"
 	}
