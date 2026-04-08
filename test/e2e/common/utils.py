@@ -15,12 +15,14 @@
 import asyncio
 import json
 import os
+import time
 from concurrent import futures
 from typing import Union, List, Dict
 from urllib.parse import urlparse
 
 import portforward
 from kubernetes import client as k8s_client
+from kubernetes.stream import stream as k8s_stream
 from orjson import orjson
 
 from httpx import HTTPStatusError
@@ -521,11 +523,49 @@ def is_model_ready(
     return rest_client.is_model_ready(base_url, model_name, headers=headers)
 
 
-def extract_process_ids_from_logs(logs: str) -> set[int]:
-    process_ids = set()
-    for line in logs.splitlines():
-        tokens = line.strip().split()
-        if len(tokens) >= 5 and tokens[3] == "kserve.trace":
-            process_ids.add(int(tokens[2]))
-    logger.info("Extracted process ids: %s", process_ids)
-    return process_ids
+_WORKER_COUNT_SCRIPT = (
+    "import glob\n"
+    "print(sum(1 for f in glob.glob('/proc/[0-9]*/cmdline')"
+    " if b'spawn_main' in open(f,'rb').read()))"
+)
+
+
+def get_container_worker_count(
+    core_api: k8s_client.CoreV1Api,
+    pod_name: str,
+    namespace: str,
+    container: str = INFERENCESERVICE_CONTAINER,
+    timeout: int = 30,
+    interval: int = 2,
+) -> int:
+    """Count multiprocessing REST worker processes inside a running container.
+
+    Scans ``/proc/*/cmdline`` for ``spawn_main`` via a Python one-liner
+    (the runtime images are slim Debian and may lack ``pgrep``).
+    Retries until *timeout* to allow workers to finish starting.
+    """
+    cmd = ["python", "-c", _WORKER_COUNT_SCRIPT]
+    deadline = time.monotonic() + timeout
+    last_count = 0
+    while True:
+        resp = k8s_stream(
+            core_api.connect_get_namespaced_pod_exec,
+            pod_name,
+            namespace,
+            container=container,
+            command=cmd,
+            stderr=True,
+            stdout=True,
+            stdin=False,
+            tty=False,
+        )
+        try:
+            last_count = int(resp.strip())
+        except ValueError:
+            logger.warning("Unexpected worker-count output: %r", resp)
+            last_count = 0
+        if last_count > 0 or time.monotonic() >= deadline:
+            break
+        time.sleep(interval)
+    logger.info("Worker process count in %s/%s: %d", namespace, pod_name, last_count)
+    return last_count
