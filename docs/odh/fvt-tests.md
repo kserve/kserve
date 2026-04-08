@@ -107,9 +107,14 @@ Then rerun the command from the previous step.
 
 ### Debugging Individual Tests
 
-You can run an individual test by changing the pytest call in _test/scripts/gh-actions/run-e2e-tests.sh_ to something like:
+You can run an individual test using the `PYTEST_ARGS` environment variable:
+```bash
+PYTEST_ARGS="predictor/test_canary.py::test_canary_rollout" ./test/scripts/openshift-ci/run-e2e-tests.sh ""
 ```
-$ pytest predictor/test_canary.py::test_canary_rollout --ignore=qpext --log-cli-level=DEBUG -n $PARALLELISM --dist worksteal
+
+To filter by keyword expression:
+```bash
+PYTEST_ARGS="-k test_sklearn_v2" ./test/scripts/openshift-ci/run-e2e-tests.sh predictor
 ```
 
 ### Debugging CI

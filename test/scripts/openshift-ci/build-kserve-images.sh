@@ -76,12 +76,25 @@ make docker-build
 check_status "KServe Controller image build"
 
 KSERVE_CONTROLLER_DOCKER_IMAGE=$QUAY_REPO/kserve-controller:$GITHUB_SHA
-$BUILDER tag localhost/kserve-controller:latest $KSERVE_CONTROLLER_DOCKER_IMAGE
+$BUILDER tag $KO_DOCKER_REPO/kserve-controller $KSERVE_CONTROLLER_DOCKER_IMAGE
 check_status "KServe Controller image tag"
 
 $BUILDER push $KSERVE_CONTROLLER_DOCKER_IMAGE
 check_status "KServe Controller image push"
 export KSERVE_CONTROLLER_IMAGE=$KSERVE_CONTROLLER_DOCKER_IMAGE
+
+# Build and push LLMISvc Controller image
+echo "Building LLMISvc Controller image..."
+make docker-build-llmisvc
+check_status "LLMISvc Controller image build"
+
+LLMISVC_CONTROLLER_DOCKER_IMAGE=$KO_DOCKER_REPO/llmisvc-controller:$GITHUB_SHA
+$BUILDER tag $KO_DOCKER_REPO/llmisvc-controller $LLMISVC_CONTROLLER_DOCKER_IMAGE
+check_status "LLMISvc Controller image tag"
+
+$BUILDER push $LLMISVC_CONTROLLER_DOCKER_IMAGE
+check_status "LLMISvc Controller image push"
+export LLMISVC_CONTROLLER_IMAGE=$LLMISVC_CONTROLLER_DOCKER_IMAGE
 
 echo "All images built and pushed successfully!"
 

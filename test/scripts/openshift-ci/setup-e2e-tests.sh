@@ -31,6 +31,29 @@ source "$SCRIPT_DIR/version.sh"
 # Always print cluster / operator snapshot on exit (success or failure) for CI triage.
 trap print_e2e_environment_summary EXIT
 
+# When running locally (not in CI), build test images before cluster setup
+: "${RUNNING_LOCAL:=false}"
+: "${BUILD_KSERVE_IMAGES:=true}"
+: "${BUILD_GRAPH_IMAGES:=true}"
+
+if [[ "$RUNNING_LOCAL" == "true" ]]; then
+  export CUSTOM_MODEL_GRPC_IMG_TAG=kserve/custom-model-grpc:latest
+  export IMAGE_TRANSFORMER_IMG_TAG=kserve/image-transformer:latest
+  export GITHUB_SHA=master
+
+  if [[ "$BUILD_KSERVE_IMAGES" == "true" ]]; then
+    echo "Building KServe test images..."
+    source "$PROJECT_ROOT/test/scripts/openshift-ci/build-kserve-images.sh" \
+      > >(tee "$PROJECT_ROOT/test/scripts/openshift-ci/build-kserve-images.log") 2>&1
+  fi
+
+  if [[ "$1" == "graph" ]] && [[ "$BUILD_GRAPH_IMAGES" == "true" ]]; then
+    echo "Building graph test images..."
+    "$PROJECT_ROOT/test/scripts/gh-actions/build-graph-tests-images.sh" \
+      > >(tee "$PROJECT_ROOT/test/scripts/openshift-ci/build-graph-tests-images.log") 2>&1
+  fi
+fi
+
 # Parse command line options
 : "${INSTALL_ODH_OPERATOR:=false}"
 

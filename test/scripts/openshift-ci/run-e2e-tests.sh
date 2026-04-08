@@ -36,30 +36,17 @@ export CI_USE_ISVC_HOST="1"
 # Export the controller namespace so that E2E tests
 # (e.g. storage version migration) can find the controller.
 export KSERVE_NAMESPACE="${KSERVE_NAMESPACE:-opendatahub}"
-export GITHUB_SHA=stable # Need to use stable as this is what the CI tags the images to for success-200 and error-404
-: "${BUILD_GRAPH_IMAGES:=true}"
-: "${BUILD_KSERVE_IMAGES:=true}"
 : "${RUNNING_LOCAL:=false}"
-cp ./test/e2e/conftest.py ./test/e2e/conftest.py.bak
+export GITHUB_SHA=stable # CI tags images to "stable" for success-200 and error-404
 
-if $RUNNING_LOCAL; then
+if [[ "$RUNNING_LOCAL" == "true" ]]; then
   export CUSTOM_MODEL_GRPC_IMG_TAG=kserve/custom-model-grpc:latest
   export IMAGE_TRANSFORMER_IMG_TAG=kserve/image-transformer:latest
   export GITHUB_SHA=master
-
-  if [ "$BUILD_KSERVE_IMAGES" = "true" ]; then
-    echo "asd"
-    pushd $PROJECT_ROOT >/dev/null
-    ./test/scripts/openshift-ci/build-kserve-images.sh | tee 2>&1 ./test/scripts/openshift-ci/build-kserve-images.log
-    popd
-  fi
-
-  if [ "$1" = "graph" ] && [ "$BUILD_GRAPH_IMAGES" = "true" ]; then
-    pushd $PROJECT_ROOT >/dev/null
-    ./test/scripts/gh-actions/build-graph-tests-images.sh | tee 2>&1 ./test/scripts/openshift-ci/build-graph-tests-images.log
-    popd
-  fi
 fi
+
+cp ./test/e2e/conftest.py ./test/e2e/conftest.py.bak
+trap 'mv ./test/e2e/conftest.py.bak ./test/e2e/conftest.py 2>/dev/null || true' EXIT
 
 : "${SETUP_E2E:=true}"
 
@@ -85,4 +72,3 @@ echo "Run E2E tests: $1"
 pushd $PROJECT_ROOT >/dev/null
 ./test/scripts/gh-actions/run-e2e-tests.sh "$1" $PARALLELISM | tee 2>&1 "./test/scripts/openshift-ci/run-e2e-tests-${1// /-}.log"
 popd
-cp ./test/e2e/conftest.py.bak ./test/e2e/conftest.py
