@@ -352,7 +352,8 @@ func TestReplaceVariables_PartialParallelism(t *testing.T) {
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Name: "main",
-								Command: []string{"/bin/bash", "-c",
+								Command: []string{
+									"/bin/bash", "-c",
 									`vllm serve ` +
 										`{{- with .Spec.Parallelism }}{{- if .Expert -}}--enable-expert-parallel{{- end }}{{- end }} ` +
 										`{{- with .Spec.Parallelism }}{{- if .Tensor -}}--tensor-parallel-size {{ .Tensor }}{{- end }}{{- end }} ` +
@@ -456,7 +457,8 @@ func TestReplaceVariables_PrefillParallelism_ContentValidation(t *testing.T) {
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{{
 								Name: "main",
-								Command: []string{"/bin/bash", "-c",
+								Command: []string{
+									"/bin/bash", "-c",
 									`vllm serve ` +
 										`{{- with .Spec.Prefill }}{{- with .Parallelism }}{{- if .Expert -}}--enable-expert-parallel{{- end }}{{- end }}{{- end }} ` +
 										`{{- with .Spec.Prefill }}{{- with .Parallelism }}{{- if .Tensor -}}--tensor-parallel-size {{ .Tensor }}{{- end }}{{- end }}{{- end }} ` +
