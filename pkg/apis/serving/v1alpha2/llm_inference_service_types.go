@@ -100,8 +100,6 @@ type LLMInferenceServiceSpec struct {
 
 // WorkloadSpec defines the configuration for a deployment workload, such as replicas and pod specifications.
 // +kubebuilder:validation:XValidation:rule="!(has(self.replicas) && has(self.scaling))",message="replicas and scaling are mutually exclusive; use scaling for autoscaled deployments or replicas for static deployments"
-// +kubebuilder:validation:XValidation:rule="!(has(self.worker) && has(self.scaling))",message="autoscaling (scaling) is not supported for multi-node deployments (worker is set); remove scaling and use replicas instead to set a fixed replica count"
-// TODO: remove the worker+scaling restriction above once WVA supports LeaderWorkerSet as a scaling target.
 type WorkloadSpec struct {
 	// Number of replicas for the deployment.
 	// +optional
