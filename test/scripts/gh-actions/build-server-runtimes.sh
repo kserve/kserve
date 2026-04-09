@@ -40,6 +40,7 @@ XGB_IMG_TAG=${KO_DOCKER_REPO}/${XGB_IMG}:${TAG}
 LGB_IMG_TAG=${KO_DOCKER_REPO}/${LGB_IMG}:${TAG}
 PMML_IMG_TAG=${KO_DOCKER_REPO}/${PMML_IMG}:${TAG}
 PADDLE_IMG_TAG=${KO_DOCKER_REPO}/${PADDLE_IMG}:${TAG}
+AUTOGLUON_IMG_TAG=${KO_DOCKER_REPO}/${AUTOGLUON_IMG}:${TAG}
 CUSTOM_MODEL_GRPC_IMG_TAG=${KO_DOCKER_REPO}/${CUSTOM_MODEL_GRPC_IMG}:${TAG}
 CUSTOM_TRANSFORMER_GRPC_IMG_TAG=${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_GRPC_IMG}:${TAG}
 HUGGINGFACE_CPU_IMG_TAG=${KO_DOCKER_REPO}/${HUGGINGFACE_IMG}:${TAG}
@@ -96,6 +97,11 @@ pushd python >/dev/null
     docker buildx build -t "${PREDICTIVE_IMG_TAG}" -f predictiveserver.Dockerfile \
       -o type=docker,dest="${DOCKER_IMAGES_PATH}/${PREDICTIVE_IMG}-${TAG}",compression-level=0 .
     echo "Disk usage after Building Predictive server image:"
+        df -hT
+    echo "Building AutoGluon server image"
+    docker buildx build -t "${AUTOGLUON_IMG_TAG}" -f autogluon.Dockerfile \
+      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${AUTOGLUON_IMG}-${TAG}",compression-level=0 .
+    echo "Disk usage after Building AutoGluon server image:"
         df -hT
   fi
 

@@ -61,7 +61,7 @@ def _create_isvc(service_name: str, predictor: V1beta1PredictorSpec):
 
 def _create_ts_predictor(service_name: str, storage_uri: str = None):
     model = V1beta1ModelSpec(
-        model_format=V1beta1ModelFormat(name="autogluon-timeseries"),
+        model_format=V1beta1ModelFormat(name="autogluon"),
         runtime="kserve-autogluonserver",
         storage_uri=storage_uri or AUTOGLUON_TS_STORAGE_URI,
         resources=AUTOGLUON_TS_RESOURCES,
