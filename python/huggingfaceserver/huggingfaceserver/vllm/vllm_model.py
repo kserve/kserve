@@ -212,7 +212,7 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
                     request_logger=self.request_logger,
                     log_error_stack=self.args.log_error_stack,
                 )
-                if ("embed" in supported_tasks or "score" in supported_tasks)
+                if ("embed" in supported_tasks or "classify" in supported_tasks)
                 else None
             )
 
