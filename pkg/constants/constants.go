@@ -343,7 +343,10 @@ var (
 	IstioMeshGateway = "mesh"
 )
 
-const WorkerNodeSuffix = "worker"
+const (
+	WorkerNodeSuffix       = "worker"
+	WorkerNodeSuffixPlural = "workers"
+)
 
 // InferenceService Component enums
 const (
@@ -683,10 +686,18 @@ const (
 	DefaultPipelineParallelSize = 1
 )
 
+// MultiNode executor backend annotation
+// If not set, defaults to ray
+const (
+	MultiNodeExecutorBackendAnnotationKey = "multinode/executor-backend"
+	MultiNodeExecutorBackendMp            = "mp"
+)
+
 // Multi Node Labels
 var (
 	MultiNodeRoleLabelKey = "multinode/role"
 	MultiNodeHead         = "head"
+	MultiNodeWorker       = "worker"
 )
 
 // GetRawServiceLabel generate native service label
@@ -703,6 +714,12 @@ func GetRawWorkerServiceLabel(service string) string {
 func GetHeadServiceName(service string, isvcGeneration string) string {
 	isvcName := strings.TrimSuffix(service, "-predictor")
 	return isvcName + "-" + MultiNodeHead + "-" + isvcGeneration
+}
+
+// GetWorkerServiceName generate worker headless service name
+func GetWorkerServiceName(service string, isvcGeneration string) string {
+	isvcName := strings.TrimSuffix(service, "-predictor")
+	return isvcName + "-" + WorkerNodeSuffixPlural + "-" + isvcGeneration
 }
 
 func (e InferenceServiceComponent) String() string {
