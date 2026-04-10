@@ -45,7 +45,7 @@
 #   INSTALL_LLMISVC_CONFIGS - Install LLMISVC configs (default: same as ENABLE_LLMISVC)
 #
 # This script installs KServe directly from the local config directories
-# using kubectl kustomize. 
+# using kustomize build.
 #
 # Examples:
 #   # Install KServe only (default)
@@ -270,13 +270,13 @@ uninstall() {
         # Uninstall overlay resources in reverse order
         for ((i=${#TARGET_OVERLAY_DIRS[@]}-1; i>=0; i--)); do
             log_info "Uninstalling resources from ${TARGET_OVERLAY_DIRS[$i]}..."
-            kubectl kustomize "${TARGET_OVERLAY_DIRS[$i]}" | kubectl delete -f - --force --grace-period=0 2>/dev/null || true
+            kustomize build "${TARGET_OVERLAY_DIRS[$i]}" | kubectl delete -f - --force --grace-period=0 2>/dev/null || true
         done
 
         # Uninstall CRDs in reverse order
         for ((i=${#TARGET_CRD_DIRS[@]}-1; i>=0; i--)); do
             log_info "Uninstalling CRDs from ${TARGET_CRD_DIRS[$i]}..."
-            kubectl kustomize "${TARGET_CRD_DIRS[$i]}" | kubectl delete -f - --force --grace-period=0 2>/dev/null || true
+            kustomize build "${TARGET_CRD_DIRS[$i]}" | kubectl delete -f - --force --grace-period=0 2>/dev/null || true
         done
     fi
 

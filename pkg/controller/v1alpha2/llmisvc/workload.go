@@ -25,6 +25,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmeta"
@@ -40,6 +41,8 @@ const (
 	// routingSidecarContainerName is the name of the routing sidecar container
 	// that handles prefill disaggregation routing.
 	routingSidecarContainerName = "llm-d-routing-sidecar"
+
+	defaultServiceAccountName = "default"
 )
 
 // sidecarSSRFProtectionRules defines RBAC rules for the routing sidecar
@@ -171,6 +174,21 @@ func GetWorkloadLabelSelector(meta metav1.ObjectMeta, _ *v1alpha2.LLMInferenceSe
 	// TODO https://github.com/llm-d/llm-d-inference-scheduler/issues/220 and DP template
 
 	return s
+}
+
+// injectSecretsFromDefaultServiceAccount copies ImagePullSecrets and Secrets from the
+// namespace's default ServiceAccount onto the target ServiceAccount. This ensures that
+// controller-created ServiceAccounts inherit private registry credentials configured on
+// the default SA. If the default SA cannot be retrieved, a warning is logged and the
+// target SA is left unchanged.
+func (r *LLMISVCReconciler) injectSecretsFromDefaultServiceAccount(ctx context.Context, target *corev1.ServiceAccount) {
+	defaultSa := &corev1.ServiceAccount{}
+	if err := r.Get(ctx, types.NamespacedName{Name: defaultServiceAccountName, Namespace: target.Namespace}, defaultSa); err != nil {
+		log.FromContext(ctx).Error(err, "Warning: failed to retrieve 'default' service account, continuing ...")
+		return
+	}
+	target.ImagePullSecrets = defaultSa.ImagePullSecrets
+	target.Secrets = defaultSa.Secrets
 }
 
 func hasRoutingSidecar(pod corev1.PodSpec) bool {

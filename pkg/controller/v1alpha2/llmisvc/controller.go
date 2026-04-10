@@ -97,7 +97,7 @@ type LLMISVCReconciler struct {
 //+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=httproutes;gateways;gatewayclasses,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=inference.networking.x-k8s.io,resources=inferencepools;inferenceobjectives;inferencemodels,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=inference.networking.x-k8s.io,resources=inferencepools;inferenceobjectives;inferencemodels;inferencemodelrewrites;inferencepoolimports,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=inference.networking.k8s.io,resources=inferencepools;inferenceobjectives;inferencemodels,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
 //+kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
@@ -216,7 +216,7 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 		return fmt.Errorf("failed to reconcile workload: %w", err)
 	}
 
-	if err := r.reconcileRouter(ctx, llmSvc, config); err != nil {
+	if err := r.reconcileRouter(ctx, llmSvc); err != nil {
 		return fmt.Errorf("failed to reconcile networking: %w", err)
 	}
 
@@ -239,7 +239,7 @@ func (r *LLMISVCReconciler) updateStatus(ctx context.Context, desired *v1alpha2.
 		// Always fetch the latest version to avoid conflicts
 		latest := &v1alpha2.LLMInferenceService{}
 		if err := r.Get(ctx, client.ObjectKeyFromObject(desired), latest); err != nil {
-			return err
+			return client.IgnoreNotFound(err)
 		}
 
 		// Skip update if status hasn't changed
@@ -275,6 +275,10 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&corev1.Pod{},
 			handler.EnqueueRequestsFromMapFunc(r.EnqueueOnLLMInferenceServicePods),
 			builder.WithPredicates(PodStatusPredicate()))
+
+	if err := extendControllerSetup(mgr, b); err != nil {
+		return fmt.Errorf("failed to extend controller setup: %w", err)
+	}
 
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), gwapiv1.GroupVersion.String(), "HTTPRoute"); ok && err == nil {
 		b = b.Owns(&gwapiv1.HTTPRoute{}, builder.WithPredicates(childResourcesPredicate)).

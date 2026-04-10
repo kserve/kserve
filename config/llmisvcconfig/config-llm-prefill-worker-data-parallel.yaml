@@ -6,7 +6,7 @@ spec:
   prefill:
     template:
       containers:
-        - image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
+        - image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
           imagePullPolicy: IfNotPresent
           name: main
           ports:
@@ -248,7 +248,7 @@ spec:
             secretName: "{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}"
     worker:
       containers:
-        - image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
+        - image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
           imagePullPolicy: IfNotPresent
           name: main
           ports:

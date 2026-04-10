@@ -33,6 +33,9 @@ dependencies = [
     "h11>=0.16.0", # CVE-2025-43859 h11 accepts some malformed Chunked-Encoding bodies
     "cryptography>=46.0.5", # CVE-2026-26007 cryptography Subgroup Attack Due to Missing Subgroup Validation for SECT Curves
     "python-multipart>=0.0.22", # CVE-2026-24486 Python-Multipart has Arbitrary File Write via Non-Default Configuration
+    # CVE-2026-32597 PyJWT accepts unknown `crit` header extensions (RFC 7515 §4.1.11 MUST violation)
+    # Pinning because it is a transitive dependency.
+    "pyjwt>=2.12.0",
 ]
 name = "kserve"
 version = "0.17.0"
@@ -69,7 +72,7 @@ ray = [
     "ray[serve]>=2.43.0",
 ]
 llm = [
-    "vllm==0.15.1",
+    "vllm==0.17.1",
 ]
 
 [dependency-groups]

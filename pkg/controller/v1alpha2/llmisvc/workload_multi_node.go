@@ -152,7 +152,7 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 
 	expected := &lwsapi.LeaderWorkerSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve-mn"),
+			Name:      mainLWSName(llmSvc),
 			Namespace: llmSvc.GetNamespace(),
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
@@ -272,7 +272,7 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 
 	expected := &lwsapi.LeaderWorkerSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve-mn-prefill"),
+			Name:      prefillLWSName(llmSvc),
 			Namespace: llmSvc.GetNamespace(),
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
@@ -461,7 +461,7 @@ func (r *LLMISVCReconciler) reconcileMultiNodeMainRoleBinding(ctx context.Contex
 
 func (r *LLMISVCReconciler) expectedMultiNodeMainServiceAccount(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*corev1.ServiceAccount, bool, error) {
 	useExistingServiceAccount := false
-	expectedServiceAccountName := kmeta.ChildName(llmSvc.GetName(), "-kserve-mn")
+	expectedServiceAccountName := mainLWSName(llmSvc)
 
 	// An existing service account attached to the main leader template takes precedence over any attached to the prefill worker template.
 	var existingServiceAccountName string
@@ -492,6 +492,8 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainServiceAccount(ctx context.Cont
 		},
 	}
 
+	r.injectSecretsFromDefaultServiceAccount(ctx, expectedServiceAccount)
+
 	// Add required labels to the created service account
 	if expectedServiceAccount.Labels == nil {
 		expectedServiceAccount.Labels = make(map[string]string)
@@ -504,7 +506,7 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainServiceAccount(ctx context.Cont
 
 func (r *LLMISVCReconciler) expectedMultiNodePrefillServiceAccount(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*corev1.ServiceAccount, bool, error) {
 	useExistingServiceAccount := false
-	expectedServiceAccountName := kmeta.ChildName(llmSvc.GetName(), "-kserve-mn-prefill")
+	expectedServiceAccountName := prefillLWSName(llmSvc)
 
 	// An existing service account attached to the prefill leader template takes precedence over any attached to the prefill worker template.
 	var existingServiceAccountName string
@@ -534,6 +536,8 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillServiceAccount(ctx context.C
 			},
 		},
 	}
+
+	r.injectSecretsFromDefaultServiceAccount(ctx, expectedServiceAccount)
 
 	// Add required labels to the created service account
 	if expectedServiceAccount.Labels == nil {
@@ -668,6 +672,14 @@ func (r *LLMISVCReconciler) propagateLeaderWorkerSetMetadata(llmSvc *v1alpha2.LL
 			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations[k] = v
 		}
 	}
+}
+
+func mainLWSName(llmSvc *v1alpha2.LLMInferenceService) string {
+	return kmeta.ChildName(llmSvc.GetName(), "-kserve-mn")
+}
+
+func prefillLWSName(llmSvc *v1alpha2.LLMInferenceService) string {
+	return kmeta.ChildName(llmSvc.GetName(), "-kserve-mn-prefill")
 }
 
 func semanticLWSIsEqual(expected *lwsapi.LeaderWorkerSet, curr *lwsapi.LeaderWorkerSet) bool {

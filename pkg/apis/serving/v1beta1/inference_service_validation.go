@@ -28,6 +28,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -36,6 +37,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
+	"github.com/kserve/kserve/pkg/validation"
 )
 
 // regular expressions for validation of isvc name
@@ -120,6 +122,10 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 		return allWarnings, err
 	}
 
+	if err := validateBlockedEnvVars(isvc); err != nil {
+		return allWarnings, err
+	}
+
 	if err := validateMultiNodeVariables(isvc); err != nil {
 		return allWarnings, err
 	}
@@ -189,6 +195,89 @@ func validatePredictor(isvc *InferenceService) error {
 		return errors.New("the 'name' field is not allowed in standard predictor")
 	}
 	return nil
+}
+
+func validateBlockedEnvVars(isvc *InferenceService) error {
+	if err := validation.ValidateBlockedEnvVars(isvc.Spec.Predictor.Containers, validation.DefaultBlockedEnvVars); err != nil {
+		return fmt.Errorf("the InferenceService %q is invalid: %w", isvc.Name, err)
+	}
+
+	if err := validation.ValidateBlockedEnvVars(isvc.Spec.Predictor.InitContainers, validation.DefaultBlockedEnvVars); err != nil {
+		return fmt.Errorf("the InferenceService %q is invalid: %w", isvc.Name, err)
+	}
+
+	if c := predictorFrameworkContainer(&isvc.Spec.Predictor); c != nil {
+		if err := validation.ValidateBlockedEnvVars([]corev1.Container{*c}, validation.DefaultBlockedEnvVars); err != nil {
+			return fmt.Errorf("the InferenceService %q is invalid: %w", isvc.Name, err)
+		}
+	}
+
+	if isvc.Spec.Predictor.WorkerSpec != nil {
+		if err := validation.ValidateBlockedEnvVars(isvc.Spec.Predictor.WorkerSpec.Containers, validation.DefaultBlockedEnvVars); err != nil {
+			return fmt.Errorf("the InferenceService %q is invalid: %w", isvc.Name, err)
+		}
+
+		if err := validation.ValidateBlockedEnvVars(isvc.Spec.Predictor.WorkerSpec.InitContainers, validation.DefaultBlockedEnvVars); err != nil {
+			return fmt.Errorf("the InferenceService %q is invalid: %w", isvc.Name, err)
+		}
+	}
+
+	if isvc.Spec.Transformer != nil {
+		if err := validation.ValidateBlockedEnvVars(isvc.Spec.Transformer.Containers, validation.DefaultBlockedEnvVars); err != nil {
+			return fmt.Errorf("the InferenceService %q is invalid: %w", isvc.Name, err)
+		}
+
+		if err := validation.ValidateBlockedEnvVars(isvc.Spec.Transformer.InitContainers, validation.DefaultBlockedEnvVars); err != nil {
+			return fmt.Errorf("the InferenceService %q is invalid: %w", isvc.Name, err)
+		}
+	}
+
+	if isvc.Spec.Explainer != nil {
+		if err := validation.ValidateBlockedEnvVars(isvc.Spec.Explainer.Containers, validation.DefaultBlockedEnvVars); err != nil {
+			return fmt.Errorf("the InferenceService %q is invalid: %w", isvc.Name, err)
+		}
+
+		if err := validation.ValidateBlockedEnvVars(isvc.Spec.Explainer.InitContainers, validation.DefaultBlockedEnvVars); err != nil {
+			return fmt.Errorf("the InferenceService %q is invalid: %w", isvc.Name, err)
+		}
+
+		if isvc.Spec.Explainer.ART != nil {
+			if err := validation.ValidateBlockedEnvVars([]corev1.Container{isvc.Spec.Explainer.ART.Container}, validation.DefaultBlockedEnvVars); err != nil {
+				return fmt.Errorf("the InferenceService %q is invalid: %w", isvc.Name, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func predictorFrameworkContainer(p *PredictorSpec) *corev1.Container {
+	switch {
+	case p.Model != nil:
+		return &p.Model.Container
+	case p.SKLearn != nil:
+		return &p.SKLearn.Container
+	case p.XGBoost != nil:
+		return &p.XGBoost.Container
+	case p.Tensorflow != nil:
+		return &p.Tensorflow.Container
+	case p.PyTorch != nil:
+		return &p.PyTorch.Container
+	case p.Triton != nil:
+		return &p.Triton.Container
+	case p.ONNX != nil:
+		return &p.ONNX.Container
+	case p.HuggingFace != nil:
+		return &p.HuggingFace.Container
+	case p.PMML != nil:
+		return &p.PMML.Container
+	case p.LightGBM != nil:
+		return &p.LightGBM.Container
+	case p.Paddle != nil:
+		return &p.Paddle.Container
+	default:
+		return nil
+	}
 }
 
 // validateMultiNodeVariables validates when there is workerSpec set in isvc

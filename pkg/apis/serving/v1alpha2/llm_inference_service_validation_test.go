@@ -624,7 +624,7 @@ func TestValidateWorkloadScaling(t *testing.T) {
 			wantErrStrings: []string{"idleReplicaCount (2) must be less than minReplicas (2)"},
 		},
 		{
-			name: "error: scaling and worker both set (multi-node + autoscaling not supported)",
+			name: "valid: scaling and worker both set with HPA (multi-node autoscaling)",
 			workload: &WorkloadSpec{
 				Worker: &corev1.PodSpec{},
 				Scaling: &ScalingSpec{
@@ -636,11 +636,10 @@ func TestValidateWorkloadScaling(t *testing.T) {
 					},
 				},
 			},
-			wantErrCount:   1,
-			wantErrStrings: []string{"autoscaling (scaling) is not supported for multi-node deployments"},
+			wantErrCount: 0,
 		},
 		{
-			name: "error: scaling and worker both set with KEDA",
+			name: "valid: scaling and worker both set with KEDA (multi-node autoscaling)",
 			workload: &WorkloadSpec{
 				Worker: &corev1.PodSpec{},
 				Scaling: &ScalingSpec{
@@ -652,8 +651,7 @@ func TestValidateWorkloadScaling(t *testing.T) {
 					},
 				},
 			},
-			wantErrCount:   1,
-			wantErrStrings: []string{"autoscaling (scaling) is not supported for multi-node deployments"},
+			wantErrCount: 0,
 		},
 		{
 			name: "valid: worker set with replicas (no scaling) - multi-node with static replicas",
@@ -980,7 +978,7 @@ func TestValidateActuatorConsistency(t *testing.T) {
 		assert.Contains(t, errs[0].Detail, "decode uses keda but prefill uses hpa")
 	})
 
-	t.Run("error: scaling+worker on decode workload", func(t *testing.T) {
+	t.Run("valid: scaling+worker on decode workload (multi-node autoscaling)", func(t *testing.T) {
 		svc := newBaseLLMInferenceServiceV1Alpha2()
 		svc.Spec.WorkloadSpec = WorkloadSpec{
 			Worker: &corev1.PodSpec{},
@@ -991,12 +989,10 @@ func TestValidateActuatorConsistency(t *testing.T) {
 		}
 
 		errs := validator.validateScaling(svc)
-		require.Len(t, errs, 1)
-		assert.Contains(t, errs[0].Field, "spec.scaling")
-		assert.Contains(t, errs[0].Detail, "autoscaling (scaling) is not supported for multi-node deployments")
+		require.Empty(t, errs)
 	})
 
-	t.Run("error: scaling+worker on prefill workload", func(t *testing.T) {
+	t.Run("valid: scaling+worker on prefill workload (multi-node autoscaling)", func(t *testing.T) {
 		svc := newBaseLLMInferenceServiceV1Alpha2()
 		svc.Spec.WorkloadSpec = WorkloadSpec{Replicas: ptr.To(int32(2))}
 		svc.Spec.Prefill = &WorkloadSpec{
@@ -1008,8 +1004,6 @@ func TestValidateActuatorConsistency(t *testing.T) {
 		}
 
 		errs := validator.validateScaling(svc)
-		require.Len(t, errs, 1)
-		assert.Contains(t, errs[0].Field, "spec.prefill.scaling")
-		assert.Contains(t, errs[0].Detail, "autoscaling (scaling) is not supported for multi-node deployments")
+		require.Empty(t, errs)
 	})
 }

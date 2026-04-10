@@ -22,6 +22,12 @@ spec:
     - jsonPath: .spec.modelID
       name: Model
       type: string
+    - jsonPath: .spec.minReplicas
+      name: Min
+      type: integer
+    - jsonPath: .spec.maxReplicas
+      name: Max
+      type: integer
     - jsonPath: .status.desiredOptimizedAlloc.numReplicas
       name: Optimized
       type: string
@@ -59,6 +65,23 @@ spec:
             description: Spec defines the desired state for autoscaling the model
               variant.
             properties:
+              maxReplicas:
+                default: 2
+                description: |-
+                  MaxReplicas is the upper bound on the number of replicas for this variant.
+                  The autoscaler will never scale beyond this value regardless of load.
+                format: int32
+                minimum: 1
+                type: integer
+              minReplicas:
+                default: 1
+                description: |-
+                  MinReplicas is the lower bound on the number of replicas for this variant.
+                  A value of 0 enables scale-to-zero when the model is idle.
+                  Defaults to 1, preserving existing behavior for VAs that omit this field.
+                format: int32
+                minimum: 0
+                type: integer
               modelID:
                 description: ModelID specifies the unique identifier of the model
                   to be autoscaled.
@@ -82,7 +105,6 @@ spec:
                 - kind
                 - name
                 type: object
-                x-kubernetes-map-type: atomic
               variantCost:
                 default: "10.0"
                 description: VariantCost specifies the cost per replica for this variant
@@ -90,9 +112,13 @@ spec:
                 pattern: ^\d+(\.\d+)?$
                 type: string
             required:
+            - maxReplicas
             - modelID
             - scaleTargetRef
             type: object
+            x-kubernetes-validations:
+            - message: minReplicas must be less than or equal to maxReplicas
+              rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
           status:
             description: Status represents the current status of autoscaling for the
               model variant.
@@ -174,9 +200,9 @@ spec:
                   allocation based on autoscaling logic.
                 properties:
                   accelerator:
-                    description: Accelerator is the type of accelerator for the optimized
-                      allocation.
-                    minLength: 2
+                    description: |-
+                      Accelerator is the type of accelerator for the optimized allocation.
+                      Deprecated: This field is deprecated and will be removed in a future version. Use node selector or node affinity from scale target instead.
                     type: string
                   lastRunTime:
                     description: LastRunTime is the timestamp of the last optimization
@@ -184,13 +210,12 @@ spec:
                     format: date-time
                     type: string
                   numReplicas:
-                    description: NumReplicas is the number of replicas for the optimized
-                      allocation.
+                    description: |-
+                      NumReplicas is the number of replicas for the optimized allocation.
+                      nil means no optimization decision has been made yet.
+                    format: int32
                     minimum: 0
                     type: integer
-                required:
-                - accelerator
-                - numReplicas
                 type: object
             type: object
         type: object
