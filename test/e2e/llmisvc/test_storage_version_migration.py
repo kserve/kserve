@@ -137,7 +137,7 @@ class TestStorageVersionMigration:
                     "containers": [
                         {
                             "name": "main",
-                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1",
+                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
                             "resources": {
                                 "limits": {"cpu": "1", "memory": "2Gi"},
                                 "requests": {"cpu": "100m", "memory": "512Mi"},
