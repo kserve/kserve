@@ -19,7 +19,7 @@ from ..common.gw_api import (
     create_or_update_gateway,
     create_or_update_route,
 )
-from kserve import KServeClient, constants, V1alpha1LLMInferenceService
+from kserve import KServeClient, constants, V1alpha2LLMInferenceService
 from kubernetes import client, config
 from typing import List, Optional
 
@@ -31,6 +31,9 @@ KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
 # Scheduler config constants
 SCHEDULER_CONFIGMAP_NAME = "scheduler-config-e2e"
 SCHEDULER_CONFIGMAP_KEY = "epp"
+
+# Hub version for LLMInferenceService & LLMInferenceServiceConfig conversions
+HUB_VERSION = constants.KSERVE_V1ALPHA2
 
 LLMINFERENCESERVICE_CONFIGS = {
     "workload-single-cpu": {
@@ -863,7 +866,7 @@ def test_case(request):
             original_spec = LLMINFERENCESERVICE_CONFIGS[base_ref]
 
             unique_config_body = {
-                "apiVersion": "serving.kserve.io/v1alpha1",
+                "apiVersion": HUB_VERSION,
                 "kind": "LLMInferenceServiceConfig",
                 "metadata": {
                     "name": unique_config_name,
@@ -877,8 +880,8 @@ def test_case(request):
             )
             created_configs.append(unique_config_name)
 
-        tc.llm_service = V1alpha1LLMInferenceService(
-            api_version="serving.kserve.io/v1alpha1",
+        tc.llm_service = V1alpha2LLMInferenceService(
+            api_version=HUB_VERSION,
             kind="LLMInferenceService",
             metadata=client.V1ObjectMeta(
                 name=tc.service_name, namespace=KSERVE_TEST_NAMESPACE
@@ -1113,3 +1116,5 @@ def delete_scheduler_configmap():
     except client.rest.ApiException as e:
         if e.status != 404:  # Ignore not found
             raise
+
+
