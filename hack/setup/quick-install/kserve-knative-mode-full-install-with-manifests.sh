@@ -39008,6 +39008,7 @@ spec:
   - regex: https://(.+?).blob.core.windows.net/(.+)
   - regex: https://(.+?).file.core.windows.net/(.+)
   - regex: https?://(.+)/(.+)
+  supportsMultiModelDownload: true
   workloadType: initContainer
 ---
 apiVersion: admissionregistration.k8s.io/v1
