@@ -1,14 +1,16 @@
-# Exclude dev artifacts from Python image builds (context: python/)
-**/.venv/
+# Exclude test/doc/build artifacts from all allowed directories
 **/__pycache__/
 **/*.pyc
 **/*.pyo
-**/.pytest_cache/
-**/.ruff_cache/
-**/.mypy_cache/
 **/*.egg-info/
+**/.pytest_cache/
+**/tests/
+**/test/
+**/docs/
+**/.openapi-generator/
+**/.venv/
+**/build/
 **/dist/
-kserve/test/
-kserve/docs/
-**/.idea/
-**/.vscode/
+**/.mypy_cache/
+**/.ruff_cache/
+**/third_party/library/

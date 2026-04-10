@@ -25,8 +25,7 @@ RUN apt-get update -y \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install uv and ensure it's in PATH
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
-    ln -s /root/.local/bin/uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.7 /uv /usr/local/bin/uv
 
 # Workaround for https://github.com/openai/triton/issues/2507 and
 # https://github.com/pytorch/pytorch/issues/107960 -- hopefully
@@ -66,42 +65,54 @@ ENV PATH="${WORKSPACE_DIR}/${VENV_PATH}/bin:$PATH"
 
 # From this point, all Python packages will be installed in the virtual environment and copied to the final image
 
-# Copy storage metadata for editable dependency resolution
-COPY storage/pyproject.toml storage/uv.lock storage/
-
-COPY kserve/pyproject.toml kserve/uv.lock kserve/
-RUN --mount=type=cache,target=/root/.cache/uv cd kserve && uv sync --active --no-cache
-COPY kserve kserve  
-RUN --mount=type=cache,target=/root/.cache/uv cd kserve && uv sync --active --no-cache
-
-# Install kserve-storage
-COPY storage storage
-RUN --mount=type=cache,target=/root/.cache/uv cd storage && uv pip install . --no-cache
-
-COPY huggingfaceserver/pyproject.toml huggingfaceserver/uv.lock huggingfaceserver/health_check.py huggingfaceserver/
-RUN --mount=type=cache,target=/root/.cache/uv cd huggingfaceserver && uv sync --active --no-cache
-COPY huggingfaceserver huggingfaceserver
-RUN --mount=type=cache,target=/root/.cache/uv cd huggingfaceserver && uv sync --active --no-cache
+# ---- ML dependencies FIRST (change rarely, expensive to download) ----
 
 # Install vllm
 # https://docs.vllm.ai/en/latest/models/extensions/runai_model_streamer.html, https://docs.vllm.ai/en/latest/models/extensions/tensorizer.html
 # https://docs.vllm.ai/en/latest/models/extensions/fastsafetensor.html
-RUN --mount=type=cache,target=/root/.cache/pip pip install vllm[runai,tensorizer,fastsafetensors]==${VLLM_VERSION}
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install vllm[runai,tensorizer,fastsafetensors]==${VLLM_VERSION}
 
 # Install lmcache
-RUN --mount=type=cache,target=/root/.cache/pip pip install lmcache==${LMCACHE_VERSION}
-
-# Use Bash with `-o pipefail` so we can leverage Bash-specific features (like `[[ … ]]` for glob tests)
-# and ensure that failures in any part of a piped command cause the build to fail immediately.
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install lmcache==${LMCACHE_VERSION}
 
 # Install flashinfer
 # https://docs.flashinfer.ai/installation.html
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install flashinfer-cubin==${FLASHINFER_VERSION} && \
-    pip install flashinfer-jit-cache==${FLASHINFER_VERSION} \
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install flashinfer-cubin==${FLASHINFER_VERSION} && \
+    uv pip install flashinfer-jit-cache==${FLASHINFER_VERSION} \
         --extra-index-url https://flashinfer.ai/whl/cu$(echo ${CUDA_VERSION} | cut -d. -f1,2 | tr -d '.') && \
     flashinfer show-config
+
+# ---- kserve packages (change often, fast to reinstall) ----
+
+# Copy only storage metadata for kserve's editable path dep resolution
+COPY storage/pyproject.toml storage/uv.lock storage/
+
+COPY kserve/pyproject.toml kserve/uv.lock kserve/
+RUN --mount=type=cache,target=/root/.cache/uv cd kserve && uv sync --active --inexact
+COPY kserve kserve
+RUN --mount=type=cache,target=/root/.cache/uv cd kserve && uv sync --active --inexact
+
+COPY storage storage
+RUN --mount=type=cache,target=/root/.cache/uv cd storage && uv pip install .
+
+COPY huggingfaceserver/pyproject.toml huggingfaceserver/uv.lock huggingfaceserver/health_check.py huggingfaceserver/
+RUN --mount=type=cache,target=/root/.cache/uv cd huggingfaceserver && uv sync --active --inexact
+
+# Restore GPU torch via pip - uv sync resolves torch to CPU wheels from the lockfile
+# (evaluated on CPU CI runners). pip's CUDA-aware wheel resolver overrides this.
+# Positioned after metadata-only sync so this layer stays cached on hfserver source
+# changes - only lockfile/pyproject changes bust it.
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --no-cache-dir vllm[runai,tensorizer,fastsafetensors]==${VLLM_VERSION}
+
+COPY huggingfaceserver huggingfaceserver
+# --no-deps: vllm and GPU torch are already pinned above; this just makes hfserver
+# importable from source without touching deps (avoids re-CPU-ifying torch).
+RUN --mount=type=cache,target=/root/.cache/uv cd huggingfaceserver && \
+    uv pip install --no-deps -e .
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml

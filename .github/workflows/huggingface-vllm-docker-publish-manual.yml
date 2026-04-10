@@ -19,11 +19,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: 
+        image:
           - version: ${{ inputs.version }}
             path: 'python/huggingface_server_cpu.Dockerfile'
+            cache-scope: hf-cpu
           - version: ${{ inputs.version }}-gpu
             path: 'python/huggingface_server.Dockerfile'
+            cache-scope: hf-gpu
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
@@ -67,7 +69,9 @@ jobs:
           context: python
           file: ${{ matrix.image.path }}
           push: true
-          tags: ${{ env.IMAGE_ID }}:${{ env.VERSION }} 
+          tags: ${{ env.IMAGE_ID }}:${{ env.VERSION }}
           # https://github.com/docker/buildx/issues/1533
           provenance: false
           sbom: true
+          cache-from: type=gha,scope=${{ matrix.image.cache-scope }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image.cache-scope }}

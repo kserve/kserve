@@ -5,17 +5,11 @@ ARG VENV_PATH=/prod_venv
 FROM ${BASE_IMAGE} AS builder
 
 # Install system dependencies
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    curl \
-    build-essential \
-    python3-dev && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+RUN --mount=type=cache,sharing=locked,target=/var/cache/apt --mount=type=cache,sharing=locked,target=/var/lib/apt/lists \
+    apt-get update && apt-get install -y --no-install-recommends build-essential python3-dev
 
 # Install uv and ensure it's in PATH
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
-    ln -s /root/.local/bin/uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.7 /uv /usr/local/bin/uv
 
 # Set up Python virtual environment
 ARG VENV_PATH
@@ -23,28 +17,26 @@ ENV VIRTUAL_ENV=${VENV_PATH}
 RUN uv venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-# Copy storage metadata for editable dependency resolution
+# Copy only storage metadata for kserve's editable path dep resolution
 COPY storage/pyproject.toml storage/uv.lock storage/
 
 # ------------------ Install kserve ------------------
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
-RUN cd kserve && uv sync --active --no-cache
+RUN --mount=type=cache,target=/root/.cache/uv cd kserve && uv sync --active
 
 COPY kserve kserve
-RUN cd kserve && uv sync --active --no-cache
+RUN --mount=type=cache,target=/root/.cache/uv cd kserve && uv sync --active
 
 # ------------------ Install custom_model ------------------
 COPY custom_model/pyproject.toml custom_model/uv.lock custom_model/
-RUN cd custom_model && uv sync --active --no-cache
+RUN --mount=type=cache,target=/root/.cache/uv cd custom_model && uv sync --active
 
 COPY custom_model custom_model
-RUN cd custom_model && uv sync --active --no-cache
+RUN --mount=type=cache,target=/root/.cache/uv cd custom_model && uv sync --active
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
 COPY third_party/pip-licenses.py pip-licenses.py
-# TODO: Remove this when upgrading to python 3.11+
-RUN pip install --no-cache-dir tomli
 RUN mkdir -p third_party/library && python3 pip-licenses.py
 
 # ------------------ Final production image ------------------
