@@ -18,6 +18,7 @@ package llmisvc
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -29,7 +30,6 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
@@ -40,32 +40,9 @@ import (
 
 const CaBundleVolumeName = "cabundle-cert"
 
-// storageDownloadPair is one uri→path pair for the storage-initializer (multi-arg entrypoint).
-type storageDownloadPair struct {
-	uri  string
-	path string
-}
-
 var tokenizerOnlyDownload = corev1.EnvVar{
 	Name:  "STORAGE_ALLOW_PATTERNS",
 	Value: `["tokenizer.json", "tokenizer_config.json", "special_tokens_map.json", "vocab.json", "merges.txt", "config.json", "generation_config.json"]`,
-}
-
-// stripPriorControllerStorageInitializer removes the storage-initializer init container that would
-// duplicate the one the controller is about to add: merged/user templates often already
-// define "storage-initializer".
-func stripPriorControllerStorageInitializer(podSpec *corev1.PodSpec) {
-	if podSpec == nil {
-		return
-	}
-	keptInit := podSpec.InitContainers[:0]
-	for _, ic := range podSpec.InitContainers {
-		if ic.Name == constants.StorageInitializerContainerName {
-			continue
-		}
-		keptInit = append(keptInit, ic)
-	}
-	podSpec.InitContainers = keptInit
 }
 
 // attachModelArtifacts configures a PodSpec to fetch and use a model from a provided URI in the LLMInferenceService.
@@ -83,7 +60,7 @@ func stripPriorControllerStorageInitializer(podSpec *corev1.PodSpec) {
 // Returns:
 //
 //	An error if the configuration fails, otherwise nil.
-func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, curr corev1.PodSpec, podSpec *corev1.PodSpec, config *Config, containerName string, modelPath string, attachLoRA bool) error {
+func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, curr corev1.PodSpec, podSpec *corev1.PodSpec, config *Config, containerName string, modelPath string) error {
 	modelUri := llmSvc.Spec.Model.URI.String()
 	schema, _, sepFound := strings.Cut(modelUri, "://")
 
@@ -100,41 +77,9 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 		return nil
 	}
 
-	// Rewrite model URI to use cached PVC when local model cache is active
-	if _, ok := llmSvc.Labels[constants.LocalModelLabel]; ok {
-		sourceUri, ok := llmSvc.Annotations[constants.LocalModelSourceUriAnnotationKey]
-		if !ok {
-			return fmt.Errorf("LLMInferenceService %s/%s: annotation %s not found", llmSvc.Namespace, llmSvc.Name, constants.LocalModelSourceUriAnnotationKey)
-		}
-		pvcName, ok := llmSvc.Annotations[constants.LocalModelPVCNameAnnotationKey]
-		if !ok {
-			return fmt.Errorf("LLMInferenceService %s/%s: annotation %s not found", llmSvc.Namespace, llmSvc.Name, constants.LocalModelPVCNameAnnotationKey)
-		}
-		subPath, _ := strings.CutPrefix(modelUri, sourceUri)
-		if !strings.HasPrefix(subPath, "/") {
-			subPath = "/" + subPath
-		}
-		storageKey := v1alpha1.GetStorageKey(sourceUri)
-		modelUri = "pvc://" + pvcName + "/models/" + storageKey + subPath
-		schema = "pvc"
-	}
-
-	var loraPairs []storageDownloadPair
-	if attachLoRA {
-		loraPairs = collectLoRADownloadPairs(config.ResolvedLoRAAdapters)
-	}
-
-	// Handle model artifact downloads based on URI scheme
 	switch schema + "://" {
 	case constants.PvcURIPrefix:
-		if err := r.attachPVCModelArtifact(modelUri, podSpec, containerName, modelPath); err != nil {
-			return err
-		}
-		if len(loraPairs) > 0 {
-			if err := r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, loraPairs); err != nil {
-				return err
-			}
-		}
+		return r.attachPVCModelArtifact(modelUri, podSpec, containerName, modelPath)
 
 	case constants.OciURIPrefix:
 		// Check of OCI is enabled
@@ -142,51 +87,16 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 			return errors.New("OCI modelcars is not enabled")
 		}
 
-		if err := r.attachOciModelArtifact(modelUri, podSpec, config.StorageConfig, containerName, modelPath); err != nil {
-			return err
-		}
-		if len(loraPairs) > 0 {
-			if err := r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, loraPairs); err != nil {
-				return err
-			}
-		}
+		return r.attachOciModelArtifact(modelUri, podSpec, config.StorageConfig, containerName, modelPath)
 
 	case constants.HfURIPrefix:
-		if len(loraPairs) == 0 {
-			if err := r.attachHfModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, modelPath); err != nil {
-				return err
-			}
-		} else {
-			pairs := append([]storageDownloadPair{{uri: modelUri, path: constants.DefaultModelLocalMountPath}}, loraPairs...)
-			if err := r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, pairs); err != nil {
-				return err
-			}
-		}
+		return r.attachHfModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, modelPath)
 
 	case constants.S3URIPrefix:
-		if len(loraPairs) == 0 {
-			if err := r.attachS3ModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, modelPath); err != nil {
-				return err
-			}
-		} else {
-			pairs := append([]storageDownloadPair{{uri: modelUri, path: constants.DefaultModelLocalMountPath}}, loraPairs...)
-			if err := r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, pairs); err != nil {
-				return err
-			}
-		}
-
-	default:
-		return fmt.Errorf("unsupported schema in model URI: %s", modelUri)
+		return r.attachS3ModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, modelPath)
 	}
 
-	// Attach LoRA adapters (PVC mounts + vLLM flag injection) after model downloads
-	if attachLoRA {
-		if err := r.attachLoRAAdapters(ctx, llmSvc, podSpec, config.ResolvedLoRAAdapters); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return fmt.Errorf("unsupported schema in model URI: %s", modelUri)
 }
 
 // attachOciModelArtifact configures a PodSpec to use a model stored in an OCI registry.
@@ -266,7 +176,7 @@ func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAc
 		// If service account is nil, fetch the default service account
 		if serviceAccount == nil {
 			serviceAccount = &corev1.ServiceAccount{}
-			err := r.Get(ctx, types.NamespacedName{Name: constants.LLMISVCDefaultServiceAccountName, Namespace: llmSvc.Namespace}, serviceAccount)
+			err := r.Get(ctx, types.NamespacedName{Name: defaultServiceAccountName, Namespace: llmSvc.Namespace}, serviceAccount)
 			if err != nil {
 				log.FromContext(ctx).Error(err, "Failed to find default service account", "namespace", llmSvc.Namespace)
 				injectCaBundle(llmSvc.Namespace, podSpec, initContainer, storageConfig)
@@ -317,7 +227,7 @@ func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAc
 		// If service account is nil, fetch the default service account
 		if serviceAccount == nil {
 			serviceAccount = &corev1.ServiceAccount{}
-			err := r.Get(ctx, types.NamespacedName{Name: constants.LLMISVCDefaultServiceAccountName, Namespace: llmSvc.Namespace}, serviceAccount)
+			err := r.Get(ctx, types.NamespacedName{Name: defaultServiceAccountName, Namespace: llmSvc.Namespace}, serviceAccount)
 			if err != nil {
 				log.FromContext(ctx).Error(err, "Failed to find default service account", "namespace", llmSvc.Namespace)
 				return nil
@@ -366,8 +276,6 @@ func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAc
 //
 //	An error if the configuration fails, otherwise nil.
 func (r *LLMISVCReconciler) attachStorageInitializer(modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, containerName string, modelPath string) error {
-	stripPriorControllerStorageInitializer(podSpec)
-
 	containerArgs := []string{
 		modelUri,
 		constants.DefaultModelLocalMountPath,
@@ -404,107 +312,190 @@ func (r *LLMISVCReconciler) attachStorageInitializer(modelUri string, curr corev
 	return nil
 }
 
-// attachMultiStorageDownloads adds one storage-initializer init container with multiple
-// src_uri dest_path pairs (see storage-initializer entrypoint) and mounts the shared
-// emptyDir at the common parent of all destination paths.
-func (r *LLMISVCReconciler) attachMultiStorageDownloads(
-	ctx context.Context,
-	serviceAccount *corev1.ServiceAccount,
-	llmSvc *v1alpha2.LLMInferenceService,
-	curr corev1.PodSpec,
-	podSpec *corev1.PodSpec,
-	storageConfig *kserveTypes.StorageInitializerConfig,
-	credentialConfig *credentials.CredentialConfig,
-	containerName string,
-	pairs []storageDownloadPair,
-) error {
-	if len(pairs) == 0 {
+// attachSpeculatorModelArtifacts configures a PodSpec to fetch a speculator/draft model for speculative decoding.
+// It creates a second storage-initializer init container to download the speculator model, mounts it
+// into the inference container at the speculator mount path, and injects the --speculative-config
+// arguments into VLLM_ADDITIONAL_ARGS.
+func (r *LLMISVCReconciler) attachSpeculatorModelArtifacts(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, curr corev1.PodSpec, podSpec *corev1.PodSpec, config *Config, containerName string) error {
+	specDecoding := llmSvc.Spec.SpeculativeDecoding
+	if specDecoding == nil {
 		return nil
 	}
-	stripPriorControllerStorageInitializer(podSpec)
 
-	paths := make([]string, len(pairs))
-	for i, p := range pairs {
-		paths[i] = p.path
-	}
-	parent := utils.FindCommonParentPath(paths)
-	if parent == "" {
-		parent = "/"
+	// If no speculator is configured (e.g., ngram method), just inject the args
+	if specDecoding.Speculator == nil {
+		return injectSpeculativeDecodingArgs(specDecoding, podSpec, containerName)
 	}
 
-	args := make([]string, 0, len(pairs)*2)
-	for _, p := range pairs {
-		args = append(args, p.uri, p.path)
+	speculatorUri := specDecoding.Speculator.Model.URI.String()
+	schema, _, sepFound := strings.Cut(speculatorUri, "://")
+	if !sepFound {
+		return fmt.Errorf("invalid speculator model URI: %s", speculatorUri)
 	}
 
-	copied := *storageConfig
-	for _, ic := range curr.InitContainers {
-		if ic.Name == constants.StorageInitializerContainerName {
-			copied.Image = ic.Image
-			break
+	// Attach the speculator model storage
+	switch schema + "://" {
+	case constants.PvcURIPrefix:
+		if err := r.attachPVCModelArtifact(speculatorUri, podSpec, containerName, constants.DefaultSpeculatorLocalMountPath); err != nil {
+			return err
+		}
+
+	case constants.OciURIPrefix:
+		if !config.StorageConfig.EnableOciImageSource {
+			return errors.New("OCI modelcars is not enabled")
+		}
+		if err := r.attachOciModelArtifact(speculatorUri, podSpec, config.StorageConfig, containerName, constants.DefaultSpeculatorLocalMountPath); err != nil {
+			return err
+		}
+
+	case constants.HfURIPrefix, constants.S3URIPrefix:
+		if err := r.attachSpeculatorStorageInitializer(ctx, serviceAccount, llmSvc, speculatorUri, schema+"://", curr, podSpec, config, containerName); err != nil {
+			return err
+		}
+
+	default:
+		return fmt.Errorf("unsupported schema in speculator model URI: %s", speculatorUri)
+	}
+
+	// Inject the --speculative-config into VLLM_ADDITIONAL_ARGS on the main container
+	return injectSpeculativeDecodingArgs(specDecoding, podSpec, containerName)
+}
+
+// attachSpeculatorStorageInitializer creates a second storage-initializer init container for the speculator model.
+func (r *LLMISVCReconciler) attachSpeculatorStorageInitializer(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, speculatorUri string, uriPrefix string, curr corev1.PodSpec, podSpec *corev1.PodSpec, config *Config, containerName string) error {
+	containerArgs := []string{
+		speculatorUri,
+		constants.DefaultSpeculatorLocalMountPath,
+	}
+
+	// Preserve the existing speculator-initializer image from the current deployment
+	copied := *config.StorageConfig
+	for _, initContainer := range curr.InitContainers {
+		if initContainer.Name == constants.SpeculatorInitializerContainerName {
+			copied.Image = initContainer.Image
 		}
 	}
 
-	initC := utils.CreateInitContainerWithConfig(&copied, args)
-	podSpec.InitContainers = append(podSpec.InitContainers, *initC)
-	iname := initC.Name
+	// Create the init container using the same image as the storage-initializer but with a different name
+	initContainer := utils.CreateInitContainerWithConfig(&copied, containerArgs)
+	initContainer.Name = constants.SpeculatorInitializerContainerName
+	podSpec.InitContainers = append(podSpec.InitContainers, *initContainer)
 
-	if err := utils.AddModelMount(utils.StorageMountParams{
-		MountPath:  parent,
-		VolumeName: constants.StorageInitializerVolumeName,
+	// Mount the speculator volume to the init container (read-write for download)
+	speculatorMountParams := utils.StorageMountParams{
+		MountPath:  constants.DefaultSpeculatorLocalMountPath,
+		VolumeName: constants.SpeculatorVolumeName,
 		ReadOnly:   false,
-	}, iname, podSpec); err != nil {
-		return err
 	}
-	if err := utils.AddModelMount(utils.StorageMountParams{
-		MountPath:  parent,
-		VolumeName: constants.StorageInitializerVolumeName,
-		ReadOnly:   true,
-	}, containerName, podSpec); err != nil {
+	if err := utils.AddModelMount(speculatorMountParams, initContainer.Name, podSpec); err != nil {
 		return err
 	}
 
-	initPtr := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName)
-	if initPtr == nil {
-		return errors.New("storage-initializer init container not found after attachMultiStorageDownloads")
+	// Mount the speculator volume to the main container (read-only)
+	speculatorMountParams.ReadOnly = true
+	if err := utils.AddModelMount(speculatorMountParams, containerName, podSpec); err != nil {
+		return err
 	}
 
+	// Inject credentials for HF downloads
 	if serviceAccount == nil {
 		serviceAccount = &corev1.ServiceAccount{}
-		err := r.Get(ctx, types.NamespacedName{Name: constants.LLMISVCDefaultServiceAccountName, Namespace: llmSvc.Namespace}, serviceAccount)
+		err := r.Get(ctx, types.NamespacedName{Name: defaultServiceAccountName, Namespace: llmSvc.Namespace}, serviceAccount)
 		if err != nil {
-			log.FromContext(ctx).Error(err, "Failed to find default service account", "namespace", llmSvc.Namespace)
-			injectCaBundle(llmSvc.Namespace, podSpec, initPtr, storageConfig)
+			log.FromContext(ctx).Error(err, "Failed to find default service account for speculator", "namespace", llmSvc.Namespace)
+			if uriPrefix == constants.S3URIPrefix {
+				injectCaBundle(llmSvc.Namespace, podSpec, initContainer, config.StorageConfig)
+			}
 			return nil
 		}
 	}
 
-	credentialBuilder := credentials.NewCredentialBuilderFromConfig(r.Client, r.Clientset, *credentialConfig)
-	if err := credentialBuilder.CreateSecretVolumeAndEnvFromServiceAccount(
-		ctx,
-		serviceAccount,
-		llmSvc.Annotations,
-		initPtr,
-		&podSpec.Volumes,
-	); err != nil {
-		return err
+	speculatorInitContainer := utils.GetInitContainerWithName(podSpec, constants.SpeculatorInitializerContainerName)
+	if speculatorInitContainer != nil {
+		credentialBuilder := credentials.NewCredentialBuilderFromConfig(r.Client, r.Clientset, *config.CredentialConfig)
+		if err := credentialBuilder.CreateSecretVolumeAndEnvFromServiceAccount(
+			ctx,
+			serviceAccount,
+			llmSvc.Annotations,
+			speculatorInitContainer,
+			&podSpec.Volumes,
+		); err != nil {
+			return err
+		}
+
+		if uriPrefix == constants.HfURIPrefix {
+			currentInitContainer := utils.GetInitContainerWithName(&curr, constants.SpeculatorInitializerContainerName)
+			if currentInitContainer == nil || slices.ContainsFunc(currentInitContainer.Env, func(e corev1.EnvVar) bool {
+				return strings.HasPrefix(e.Name, "HF_")
+			}) {
+				utils.AddDefaultHuggingFaceEnvVars(speculatorInitContainer)
+			}
+		} else if uriPrefix == constants.S3URIPrefix {
+			injectCaBundle(llmSvc.Namespace, podSpec, speculatorInitContainer, config.StorageConfig)
+		}
 	}
 
-	needHF := slices.ContainsFunc(pairs, func(p storageDownloadPair) bool {
-		return strings.HasPrefix(p.uri, constants.HfURIPrefix)
-	})
-	currentInit := utils.GetInitContainerWithName(&curr, constants.StorageInitializerContainerName)
-	if needHF && (currentInit == nil || slices.ContainsFunc(currentInit.Env, func(e corev1.EnvVar) bool {
-		return strings.HasPrefix(e.Name, "HF_")
-	})) {
-		utils.AddDefaultHuggingFaceEnvVars(initPtr)
+	return nil
+}
+
+// injectSpeculativeDecodingArgs adds the --speculative-config argument to VLLM_ADDITIONAL_ARGS
+// on the specified container. The speculative config JSON points the model to the local mount path
+// where the speculator/draft model was downloaded by the speculator-initializer init container.
+func injectSpeculativeDecodingArgs(specDecoding *v1alpha2.SpeculativeDecodingSpec, podSpec *corev1.PodSpec, containerName string) error {
+	// Start with additionalConfig as the base (first-class fields override)
+	specConfig := map[string]interface{}{}
+	for k, v := range specDecoding.AdditionalConfig {
+		specConfig[k] = v
 	}
 
-	if containerName == tokenizerContainerName {
-		utils.AddEnvVars(initPtr, []corev1.EnvVar{*tokenizerOnlyDownload.DeepCopy()})
+	// Set first-class fields (these take precedence over additionalConfig)
+	specConfig["num_speculative_tokens"] = specDecoding.NumSpeculativeTokens
+	specConfig["method"] = specDecoding.Method
+
+	if specDecoding.Speculator != nil {
+		specConfig["model"] = constants.DefaultSpeculatorLocalMountPath
+		if specDecoding.Speculator.TensorParallelSize != nil {
+			specConfig["draft_tensor_parallel_size"] = *specDecoding.Speculator.TensorParallelSize
+		}
+		if specDecoding.Speculator.MaxModelLen != nil {
+			specConfig["max_model_len"] = *specDecoding.Speculator.MaxModelLen
+		}
 	}
 
-	injectCaBundle(llmSvc.Namespace, podSpec, initPtr, storageConfig)
+	specConfigJSON, err := json.Marshal(specConfig)
+	if err != nil {
+		return fmt.Errorf("failed to marshal speculative config: %w", err)
+	}
+
+	specArg := fmt.Sprintf("--speculative-config '%s'", string(specConfigJSON))
+
+	// Find the main container and append to VLLM_ADDITIONAL_ARGS
+	for i := range podSpec.Containers {
+		if podSpec.Containers[i].Name != containerName {
+			continue
+		}
+		found := false
+		for j := range podSpec.Containers[i].Env {
+			if podSpec.Containers[i].Env[j].Name == "VLLM_ADDITIONAL_ARGS" {
+				// Append to existing value
+				if podSpec.Containers[i].Env[j].Value != "" {
+					podSpec.Containers[i].Env[j].Value += " " + specArg
+				} else {
+					podSpec.Containers[i].Env[j].Value = specArg
+				}
+				found = true
+				break
+			}
+		}
+		if !found {
+			podSpec.Containers[i].Env = append(podSpec.Containers[i].Env, corev1.EnvVar{
+				Name:  "VLLM_ADDITIONAL_ARGS",
+				Value: specArg,
+			})
+		}
+		break
+	}
+
 	return nil
 }
 

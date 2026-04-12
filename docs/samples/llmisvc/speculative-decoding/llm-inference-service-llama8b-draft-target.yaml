@@ -58,6 +58,36 @@ spec:
     route: {}
     gateway: {}
   template:
+    # Workaround: the storage-initializer only downloads spec.model.uri.
+    # Until LLMInferenceService supports a first-class speculatorModel field,
+    # we add a second init container to pre-download the draft model so vLLM
+    # can load it from a local path in offline mode.
+    initContainers:
+      - name: draft-model-initializer
+        image: kserve/storage-initializer:latest
+        args:
+          - "hf://meta-llama/Llama-3.2-1B-Instruct"
+          - "/mnt/draft-model"
+        env:
+          - name: HF_HOME
+            value: /tmp
+          - name: HF_HUB_ENABLE_HF_TRANSFER
+            value: "1"
+          - name: HF_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: llm-d-hf-token
+                key: HF_TOKEN
+        volumeMounts:
+          - name: draft-model-location
+            mountPath: /mnt/draft-model
+        resources:
+          requests:
+            cpu: "100m"
+            memory: 256Mi
+          limits:
+            cpu: "1"
+            memory: 1Gi
     containers:
       - name: main
         env:
@@ -70,7 +100,11 @@ spec:
             value: "1"
           - name: VLLM_ADDITIONAL_ARGS
             value: >-
-              --speculative-config '{"model": "meta-llama/Llama-3.2-1B-Instruct", "num_speculative_tokens": 5, "method": "draft_model"}'
+              --speculative-config '{"model": "/mnt/draft-model", "num_speculative_tokens": 5, "method": "draft_model"}'
+        volumeMounts:
+          - name: draft-model-location
+            mountPath: /mnt/draft-model
+            readOnly: true
         resources:
           requests:
             cpu: "2"
@@ -80,3 +114,6 @@ spec:
             cpu: "4"
             memory: 32Gi
             nvidia.com/gpu: "1"
+    volumes:
+      - name: draft-model-location
+        emptyDir: {}

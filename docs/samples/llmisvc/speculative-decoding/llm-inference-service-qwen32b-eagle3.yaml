@@ -52,6 +52,38 @@ spec:
     route: {}
     gateway: {}
   template:
+    ############################### BEGIN WORKAROUND ###############################
+    # Workaround: the storage-initializer only downloads spec.model.uri.
+    # Until LLMInferenceService supports a first-class speculatorModel field,
+    # we add a second init container to pre-download the speculator so vLLM
+    # can load it from a local path in offline mode.
+    initContainers:
+      - name: speculator-initializer
+        image: kserve/storage-initializer:latest
+        args:
+          - "hf://RedHatAI/Qwen3-32B-speculator.eagle3"
+          - "/mnt/speculator"
+        env:
+          - name: HF_HOME
+            value: /tmp
+          - name: HF_HUB_ENABLE_HF_TRANSFER
+            value: "1"
+          - name: HF_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: llm-d-hf-token
+                key: HF_TOKEN
+        volumeMounts:
+          - name: speculator-location
+            mountPath: /mnt/speculator
+        resources:
+          requests:
+            cpu: "100m"
+            memory: 1Gi
+          limits:
+            cpu: "1"
+            memory: 4Gi
+    ################################ END WORKAROUND ################################
     containers:
       - name: main
         env:
@@ -65,7 +97,13 @@ spec:
           - name: VLLM_ADDITIONAL_ARGS
             value: >-
               --tensor-parallel-size 2
-              --speculative-config '{"model": "RedHatAI/Qwen3-32B-speculator.eagle3", "num_speculative_tokens": 3, "method": "eagle3", "draft_tensor_parallel_size": 1}'
+              --speculative-config '{"model": "/mnt/speculator", "num_speculative_tokens": 3, "method": "eagle3", "draft_tensor_parallel_size": 1}'
+        ############################### BEGIN WORKAROUND ###############################
+        volumeMounts:
+          - name: speculator-location
+            mountPath: /mnt/speculator
+            readOnly: true
+        ################################ END WORKAROUND ################################
         resources:
           requests:
             cpu: "4"
@@ -75,3 +113,8 @@ spec:
             cpu: "8"
             memory: 64Gi
             nvidia.com/gpu: "2"
+    ############################### BEGIN WORKAROUND ###############################
+    volumes:
+      - name: speculator-location
+        emptyDir: {}
+    ################################ END WORKAROUND ################################
