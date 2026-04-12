@@ -13326,7 +13326,9 @@ spec:
                       enum:
                         - eagle3
                         - draft_model
+                        - medusa
                         - ngram
+                        - mtp
                       type: string
                     numSpeculativeTokens:
                       format: int32
@@ -34202,7 +34204,9 @@ spec:
                       enum:
                         - eagle3
                         - draft_model
+                        - medusa
                         - ngram
+                        - mtp
                       type: string
                     numSpeculativeTokens:
                       format: int32

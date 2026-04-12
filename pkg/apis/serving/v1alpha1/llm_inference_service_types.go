@@ -222,7 +222,7 @@ type StorageInitializerSpec struct {
 // SpeculativeDecodingSpec configures speculative decoding for the inference server.
 type SpeculativeDecodingSpec struct {
 	// Method specifies the speculative decoding algorithm to use.
-	// +kubebuilder:validation:Enum=eagle3;draft_model;ngram
+	// +kubebuilder:validation:Enum=eagle3;draft_model;medusa;ngram;mtp
 	Method string `json:"method"`
 
 	// NumSpeculativeTokens is the number of candidate tokens the draft mechanism proposes per step.

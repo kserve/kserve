@@ -234,9 +234,13 @@ type StorageInitializerSpec struct {
 //	    tensorParallelSize: 1
 type SpeculativeDecodingSpec struct {
 	// Method specifies the speculative decoding algorithm to use.
-	// Supported values: "eagle3" (purpose-trained speculator heads), "draft_model" (independent draft model),
-	// "ngram" (prompt-based n-gram proposer, no speculator model required).
-	// +kubebuilder:validation:Enum=eagle3;draft_model;ngram
+	// Supported values:
+	//   - "eagle3": purpose-trained speculator heads (requires speculator model)
+	//   - "draft_model": independent draft model (requires speculator model)
+	//   - "medusa": purpose-trained Medusa heads for parallel token prediction (requires speculator model)
+	//   - "ngram": prompt-based n-gram proposer (no speculator model required)
+	//   - "mtp": multi-token prediction using the target model's own MTP heads (no speculator model required)
+	// +kubebuilder:validation:Enum=eagle3;draft_model;medusa;ngram;mtp
 	Method string `json:"method"`
 
 	// NumSpeculativeTokens is the number of candidate tokens the draft mechanism proposes per step.

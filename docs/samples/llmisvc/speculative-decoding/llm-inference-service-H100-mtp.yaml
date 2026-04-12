@@ -1,0 +1,57 @@
+# Qwen3-Next-80B-A3B with MTP Speculative Decoding — 2 replicas × TP4 × H100
+#
+# Native MTP (Multi-Token Prediction). The model's own built-in prediction heads
+# speculate future tokens — no separate model needed. Qwen3-Next models natively
+# support MTP, but Qwen3-Next requires the runtime-specific method "qwen3_next_mtp"
+# which is passed via additionalConfig to refine the generic CRD "mtp" method.
+#
+# Hardware sizing (H100 80GB GPUs, 8 total):
+#   - Qwen3-Next-80B-A3B FP8: ~80 GB total weights, MoE with ~3B active params
+#   - TP=4: ~20 GB weights per GPU, leaving ~50 GB for KV cache per GPU
+#   - max-model-len 32768 for long-context workloads
+#   - 2 replicas × 4 GPUs = 8 GPUs total
+#
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceService
+metadata:
+  name: qwen3next-mtp-speculative
+  namespace: grpereir-dev
+spec:
+  model:
+    uri: hf://Qwen/Qwen3-Next-80B-A3B-Instruct-FP8
+    name: Qwen/Qwen3-Next-80B-A3B-Instruct-FP8
+  replicas: 2
+  speculativeDecoding:
+    method: mtp
+    numSpeculativeTokens: 2
+    additionalConfig:
+      method: "qwen3_next_mtp"  # runtime-specific variant for Qwen3-Next models
+  router:
+    scheduler: {}
+    route: {}
+    gateway:
+      refs:
+        - name: spec-decoding-gateway
+          namespace: grpereir-dev
+  template:
+    containers:
+      - name: main
+        env:
+          - name: HF_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: llm-d-hf-token
+                key: HF_TOKEN
+          - name: VLLM_USE_V1
+            value: "1"
+          - name: VLLM_ADDITIONAL_ARGS
+            value: "--tensor-parallel-size 4 --max-model-len 32768 --gpu-memory-utilization 0.90"
+        resources:
+          requests:
+            cpu: "8"
+            memory: 64Gi
+            nvidia.com/gpu: "4"
+          limits:
+            cpu: "16"
+            memory: 128Gi
+            nvidia.com/gpu: "4"

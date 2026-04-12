@@ -124,8 +124,9 @@ func TestInjectSpeculativeDecodingArgs_AdditionalConfigOverriddenByFirstClass(t 
 			TensorParallelSize: ptr.To(int32(2)),
 		},
 		AdditionalConfig: map[string]string{
-			// These should be overridden by first-class fields
-			"method":               "draft_model",
+			// method in additionalConfig refines the CRD method (e.g. mtp → qwen3_next_mtp)
+			"method": "draft_model",
+			// num_speculative_tokens is overridden by the first-class field
 			"num_speculative_tokens": "10",
 			// This should survive since it's not a first-class field
 			"enforce_eager": "true",
@@ -147,8 +148,8 @@ func TestInjectSpeculativeDecodingArgs_AdditionalConfigOverriddenByFirstClass(t 
 	err = json.Unmarshal([]byte(jsonStr), &specConfig)
 	require.NoError(t, err)
 
-	// First-class fields take precedence
-	assert.Equal(t, "eagle3", specConfig["method"])
+	// additionalConfig method refines the CRD method
+	assert.Equal(t, "draft_model", specConfig["method"])
 	assert.Equal(t, float64(3), specConfig["num_speculative_tokens"])
 	assert.Equal(t, float64(2), specConfig["draft_tensor_parallel_size"])
 	// additionalConfig passthrough
@@ -179,6 +180,94 @@ func TestInjectSpeculativeDecodingArgs_AppendsToExistingVLLMArgs(t *testing.T) {
 	vllmArgs := podSpec.Containers[0].Env[0].Value
 	assert.Contains(t, vllmArgs, "--existing-flag")
 	assert.Contains(t, vllmArgs, "--speculative-config")
+}
+
+func TestInjectSpeculativeDecodingArgs_MTP(t *testing.T) {
+	specDecoding := &v1alpha2.SpeculativeDecodingSpec{
+		Method:               "mtp",
+		NumSpeculativeTokens: 3,
+		// No speculator — MTP uses the target model's own heads
+	}
+
+	podSpec := &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{Name: "main"},
+		},
+	}
+
+	err := injectSpeculativeDecodingArgs(specDecoding, podSpec, "main")
+	require.NoError(t, err)
+
+	jsonStr := extractSpecConfigJSON(t, podSpec.Containers[0].Env[0].Value)
+
+	var specConfig map[string]interface{}
+	err = json.Unmarshal([]byte(jsonStr), &specConfig)
+	require.NoError(t, err)
+
+	assert.Equal(t, "mtp", specConfig["method"])
+	assert.Equal(t, float64(3), specConfig["num_speculative_tokens"])
+	_, hasModel := specConfig["model"]
+	assert.False(t, hasModel, "mtp should not have a model field")
+}
+
+func TestInjectSpeculativeDecodingArgs_Medusa(t *testing.T) {
+	specDecoding := &v1alpha2.SpeculativeDecodingSpec{
+		Method:               "medusa",
+		NumSpeculativeTokens: 5,
+		Speculator: &v1alpha2.SpeculatorSpec{
+			TensorParallelSize: ptr.To(int32(1)),
+		},
+	}
+
+	podSpec := &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{Name: "main"},
+		},
+	}
+
+	err := injectSpeculativeDecodingArgs(specDecoding, podSpec, "main")
+	require.NoError(t, err)
+
+	jsonStr := extractSpecConfigJSON(t, podSpec.Containers[0].Env[0].Value)
+
+	var specConfig map[string]interface{}
+	err = json.Unmarshal([]byte(jsonStr), &specConfig)
+	require.NoError(t, err)
+
+	assert.Equal(t, "medusa", specConfig["method"])
+	assert.Equal(t, float64(5), specConfig["num_speculative_tokens"])
+	assert.Equal(t, constants.DefaultSpeculatorLocalMountPath, specConfig["model"])
+	assert.Equal(t, float64(1), specConfig["draft_tensor_parallel_size"])
+}
+
+func TestInjectSpeculativeDecodingArgs_MTPMethodRefinedByAdditionalConfig(t *testing.T) {
+	specDecoding := &v1alpha2.SpeculativeDecodingSpec{
+		Method:               "mtp",
+		NumSpeculativeTokens: 2,
+		AdditionalConfig: map[string]string{
+			// Refine generic "mtp" to the Qwen3-Next-specific variant
+			"method": "qwen3_next_mtp",
+		},
+	}
+
+	podSpec := &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{Name: "main"},
+		},
+	}
+
+	err := injectSpeculativeDecodingArgs(specDecoding, podSpec, "main")
+	require.NoError(t, err)
+
+	jsonStr := extractSpecConfigJSON(t, podSpec.Containers[0].Env[0].Value)
+
+	var specConfig map[string]any
+	err = json.Unmarshal([]byte(jsonStr), &specConfig)
+	require.NoError(t, err)
+
+	// additionalConfig refines the method to the runtime-specific variant
+	assert.Equal(t, "qwen3_next_mtp", specConfig["method"])
+	assert.Equal(t, float64(2), specConfig["num_speculative_tokens"])
 }
 
 // extractSpecConfigJSON extracts the JSON string from a --speculative-config '...' argument.
