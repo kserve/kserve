@@ -1,0 +1,57 @@
+# Gemma 3 4B with N-gram Prompt Lookup Speculative Decoding — 4 replicas × TP1 × A10G
+#
+# Low-cost speculative decoding. N-gram requires NO separate model — it proposes
+# draft tokens by matching n-gram patterns from the input prompt itself. Zero overhead
+# to enable, effective for input-grounded tasks (summarization, QA, code completion).
+#
+# Hardware sizing (A10G 24GB GPUs):
+#   - Gemma 3 4B BF16: ~8 GB
+#   - No draft model overhead
+#   - Remaining: 24 × 0.90 - 8 - 2 (CUDA) ≈ 11.6 GB for KV cache
+#   - max-model-len capped at 4096 to fit on 24 GB cards
+#
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceService
+metadata:
+  name: gemma3-ngram-speculative
+  namespace: grpereir-dev
+spec:
+  model:
+    uri: hf://google/gemma-3-4b-it
+    name: google/gemma-3-4b-it
+  replicas: 4
+  speculativeDecoding:
+    method: ngram
+    numSpeculativeTokens: 4
+    additionalConfig:
+      prompt_lookup_max: "5"
+      prompt_lookup_min: "2"
+  router:
+    scheduler: {}
+    route: {}
+    gateway:
+      refs:
+        - name: spec-decoding-gateway
+          namespace: grpereir-dev
+  template:
+    containers:
+      - name: main
+        env:
+          - name: HF_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: llm-d-hf-token
+                key: HF_TOKEN
+          - name: VLLM_USE_V1
+            value: "1"
+          - name: VLLM_ADDITIONAL_ARGS
+            value: "--max-model-len 4096 --gpu-memory-utilization 0.90"
+        resources:
+          requests:
+            cpu: "2"
+            memory: 16Gi
+            nvidia.com/gpu: "1"
+          limits:
+            cpu: "4"
+            memory: 32Gi
+            nvidia.com/gpu: "1"

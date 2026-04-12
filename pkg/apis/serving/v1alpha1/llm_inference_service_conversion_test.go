@@ -941,6 +941,100 @@ func TestLLMInferenceServiceConversion_SpeculativeDecodingWithoutSpeculator(t *t
 	assert.Equal(t, "4", restored.Spec.SpeculativeDecoding.AdditionalConfig["prompt_lookup_max"])
 }
 
+func TestLLMInferenceServiceConversion_SpeculativeDecodingMTP(t *testing.T) {
+	modelName := "test-model"
+
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-isvc-mtp",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI:  apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"},
+				Name: &modelName,
+			},
+			SpeculativeDecoding: &SpeculativeDecodingSpec{
+				Method:               "mtp",
+				NumSpeculativeTokens: 3,
+			},
+		},
+	}
+
+	// Convert to v1alpha2 (hub)
+	dst := &v1alpha2.LLMInferenceService{}
+	err := src.ConvertTo(dst)
+	require.NoError(t, err)
+
+	require.NotNil(t, dst.Spec.SpeculativeDecoding)
+	assert.Equal(t, "mtp", dst.Spec.SpeculativeDecoding.Method)
+	assert.Equal(t, int32(3), dst.Spec.SpeculativeDecoding.NumSpeculativeTokens)
+	assert.Nil(t, dst.Spec.SpeculativeDecoding.Speculator)
+
+	// Convert back to v1alpha1
+	restored := &LLMInferenceService{}
+	err = restored.ConvertFrom(dst)
+	require.NoError(t, err)
+
+	require.NotNil(t, restored.Spec.SpeculativeDecoding)
+	assert.Equal(t, "mtp", restored.Spec.SpeculativeDecoding.Method)
+	assert.Equal(t, int32(3), restored.Spec.SpeculativeDecoding.NumSpeculativeTokens)
+	assert.Nil(t, restored.Spec.SpeculativeDecoding.Speculator)
+}
+
+func TestLLMInferenceServiceConversion_SpeculativeDecodingMedusa(t *testing.T) {
+	modelName := "test-model"
+
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-isvc-medusa",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI:  apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"},
+				Name: &modelName,
+			},
+			SpeculativeDecoding: &SpeculativeDecodingSpec{
+				Method:               "medusa",
+				NumSpeculativeTokens: 5,
+				Speculator: &SpeculatorSpec{
+					Model: LLMModelSpec{
+						URI: apis.URL{Scheme: "hf", Host: "medusa-heads/llama-2-7b-medusa"},
+					},
+					TensorParallelSize: ptr.To(int32(1)),
+				},
+			},
+		},
+	}
+
+	// Convert to v1alpha2 (hub)
+	dst := &v1alpha2.LLMInferenceService{}
+	err := src.ConvertTo(dst)
+	require.NoError(t, err)
+
+	require.NotNil(t, dst.Spec.SpeculativeDecoding)
+	assert.Equal(t, "medusa", dst.Spec.SpeculativeDecoding.Method)
+	assert.Equal(t, int32(5), dst.Spec.SpeculativeDecoding.NumSpeculativeTokens)
+	require.NotNil(t, dst.Spec.SpeculativeDecoding.Speculator)
+	assert.Equal(t, "hf", dst.Spec.SpeculativeDecoding.Speculator.Model.URI.Scheme)
+	assert.Equal(t, "medusa-heads/llama-2-7b-medusa", dst.Spec.SpeculativeDecoding.Speculator.Model.URI.Host)
+	assert.Equal(t, int32(1), *dst.Spec.SpeculativeDecoding.Speculator.TensorParallelSize)
+
+	// Convert back to v1alpha1
+	restored := &LLMInferenceService{}
+	err = restored.ConvertFrom(dst)
+	require.NoError(t, err)
+
+	require.NotNil(t, restored.Spec.SpeculativeDecoding)
+	assert.Equal(t, "medusa", restored.Spec.SpeculativeDecoding.Method)
+	assert.Equal(t, int32(5), restored.Spec.SpeculativeDecoding.NumSpeculativeTokens)
+	require.NotNil(t, restored.Spec.SpeculativeDecoding.Speculator)
+	assert.Equal(t, "hf", restored.Spec.SpeculativeDecoding.Speculator.Model.URI.Scheme)
+	assert.Equal(t, "medusa-heads/llama-2-7b-medusa", restored.Spec.SpeculativeDecoding.Speculator.Model.URI.Host)
+	assert.Equal(t, int32(1), *restored.Spec.SpeculativeDecoding.Speculator.TensorParallelSize)
+}
+
 func TestLLMInferenceServiceConversion_NilSpeculativeDecoding(t *testing.T) {
 	modelName := "test-model"
 

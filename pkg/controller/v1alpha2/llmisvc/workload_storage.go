@@ -423,14 +423,15 @@ func (r *LLMISVCReconciler) attachSpeculatorStorageInitializer(ctx context.Conte
 			return err
 		}
 
-		if uriPrefix == constants.HfURIPrefix {
+		switch uriPrefix {
+		case constants.HfURIPrefix:
 			currentInitContainer := utils.GetInitContainerWithName(&curr, constants.SpeculatorInitializerContainerName)
 			if currentInitContainer == nil || slices.ContainsFunc(currentInitContainer.Env, func(e corev1.EnvVar) bool {
 				return strings.HasPrefix(e.Name, "HF_")
 			}) {
 				utils.AddDefaultHuggingFaceEnvVars(speculatorInitContainer)
 			}
-		} else if uriPrefix == constants.S3URIPrefix {
+		case constants.S3URIPrefix:
 			injectCaBundle(llmSvc.Namespace, podSpec, speculatorInitContainer, config.StorageConfig)
 		}
 	}
@@ -450,7 +451,12 @@ func injectSpeculativeDecodingArgs(specDecoding *v1alpha2.SpeculativeDecodingSpe
 
 	// Set first-class fields (these take precedence over additionalConfig)
 	specConfig["num_speculative_tokens"] = specDecoding.NumSpeculativeTokens
-	specConfig["method"] = specDecoding.Method
+
+	// Allow additionalConfig to refine the method (e.g. "mtp" → "qwen3_next_mtp")
+	// for runtime-specific variants. Only set from the CRD field if not already provided.
+	if _, ok := specDecoding.AdditionalConfig["method"]; !ok {
+		specConfig["method"] = specDecoding.Method
+	}
 
 	if specDecoding.Speculator != nil {
 		specConfig["model"] = constants.DefaultSpeculatorLocalMountPath

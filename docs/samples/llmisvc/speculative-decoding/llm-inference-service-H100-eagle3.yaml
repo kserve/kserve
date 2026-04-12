@@ -1,0 +1,108 @@
+# Qwen3-32B FP8 with Eagle3 Speculative Decoding + Prefill-Decode Disaggregation
+#
+# Combines two optimizations:
+#   1. Eagle3 speculative decoding on the decode side (reduces sequential decode steps)
+#   2. Prefill-decode disaggregation (independent scaling of prefill and decode pools)
+#
+# Speculative decoding is a decode-phase optimization — it does NOT apply to prefill.
+# Disaggregation lets us scale prefill independently (e.g. more prefill replicas for
+# prompt-heavy workloads) while decode replicas benefit from speculative decoding.
+#
+# Hardware sizing (H100 80GB GPUs):
+#   - Qwen3-32B FP8: ~33 GB + Eagle3 head: ~4 GB = ~37 GB per replica
+#   - TP=2: ~18.5 GB per GPU, ~59 GB free for KV cache
+#   - Decode: 2 replicas × 2 GPUs = 4 GPUs
+#   - Prefill: 2 replicas × 2 GPUs = 4 GPUs
+#   - Total: 8 H100s
+#
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceService
+metadata:
+  name: qwen32b-eagle3-speculative
+  namespace: grpereir-dev
+  annotations:
+    # RoCE network required for KV cache transfer via RDMA
+    k8s.v1.cni.cncf.io/networks: roce-p2
+spec:
+  model:
+    uri: hf://RedHatAI/Qwen3-32B-FP8-dynamic
+    name: RedHatAI/Qwen3-32B-FP8-dynamic
+  # Decode pool replicas
+  replicas: 2
+  speculativeDecoding:
+    method: eagle3
+    numSpeculativeTokens: 6
+    speculator:
+      model:
+        uri: hf://RedHatAI/Qwen3-32B-speculator.eagle3
+      tensorParallelSize: 1
+  router:
+    scheduler: {}
+    route: {}
+    gateway:
+      refs:
+        - name: spec-decoding-gateway
+          namespace: grpereir-dev
+  template:
+    containers:
+      - name: main
+        env:
+          - name: HF_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: llm-d-hf-token
+                key: HF_TOKEN
+          - name: VLLM_USE_V1
+            value: "1"
+          - name: VLLM_ADDITIONAL_ARGS
+            value: "--tensor-parallel-size 2"
+          - name: KSERVE_INFER_ROCE
+            value: "true"
+          - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+          - name: UCX_TLS
+            value: "rc,sm,self,cuda_copy,cuda_ipc"
+        resources:
+          requests:
+            cpu: "4"
+            memory: 32Gi
+            nvidia.com/gpu: "2"
+          limits:
+            cpu: "8"
+            memory: 64Gi
+            nvidia.com/gpu: "2"
+  prefill:
+    # Prefill pool — no speculative decoding here (it's a decode-phase optimization)
+    replicas: 2
+    template:
+      containers:
+        - name: main
+          env:
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: llm-d-hf-token
+                  key: HF_TOKEN
+            - name: VLLM_USE_V1
+              value: "1"
+            - name: VLLM_ADDITIONAL_ARGS
+              value: "--tensor-parallel-size 2"
+            - name: KSERVE_INFER_ROCE
+              value: "true"
+            - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: UCX_TLS
+              value: "rc,sm,self,cuda_copy,cuda_ipc"
+          resources:
+            requests:
+              cpu: "4"
+              memory: 32Gi
+              nvidia.com/gpu: "2"
+            limits:
+              cpu: "8"
+              memory: 64Gi
+              nvidia.com/gpu: "2"
