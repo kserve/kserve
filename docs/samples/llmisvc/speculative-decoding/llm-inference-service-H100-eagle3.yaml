@@ -15,14 +15,17 @@
 #   - Prefill: 2 replicas × 2 GPUs = 4 GPUs
 #   - Total: 8 H100s
 #
+# Networking: InfiniBand for RDMA-based KV cache transfer between prefill/decode pools
+#
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceService
 metadata:
   name: qwen32b-eagle3-speculative
   namespace: grpereir-dev
   annotations:
-    # RoCE network required for KV cache transfer via RDMA
-    k8s.v1.cni.cncf.io/networks: roce-p2
+    serving.kserve.io/secretName: llm-d-hf-token
+    # InfiniBand network required for KV cache transfer via RDMA
+    k8s.v1.cni.cncf.io/networks: ib-net
 spec:
   model:
     uri: hf://RedHatAI/Qwen3-32B-FP8-dynamic
@@ -64,6 +67,8 @@ spec:
                 fieldPath: status.podIP
           - name: UCX_TLS
             value: "rc,sm,self,cuda_copy,cuda_ipc"
+          - name: NCCL_SOCKET_IFNAME
+            value: "ib0"
         resources:
           requests:
             cpu: "4"
@@ -97,6 +102,8 @@ spec:
                   fieldPath: status.podIP
             - name: UCX_TLS
               value: "rc,sm,self,cuda_copy,cuda_ipc"
+            - name: NCCL_SOCKET_IFNAME
+              value: "ib0"
           resources:
             requests:
               cpu: "4"
