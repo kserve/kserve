@@ -13567,6 +13567,53 @@ spec:
                   rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                     || !has(self.minReplicas) || self.wva.keda.idleReplicaCount <
                     self.minReplicas'
+              speculativeDecoding:
+                properties:
+                  additionalConfig:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  method:
+                    enum:
+                    - eagle3
+                    - draft_model
+                    - ngram
+                    type: string
+                  numSpeculativeTokens:
+                    format: int32
+                    minimum: 1
+                    type: integer
+                  speculator:
+                    properties:
+                      maxModelLen:
+                        format: int32
+                        minimum: 1
+                        type: integer
+                      model:
+                        properties:
+                          lora:
+                            properties:
+                              adapters:
+                                x-kubernetes-preserve-unknown-fields: true
+                            type: object
+                          name:
+                            type: string
+                          uri:
+                            type: string
+                        required:
+                        - uri
+                        type: object
+                      tensorParallelSize:
+                        format: int32
+                        minimum: 1
+                        type: integer
+                    required:
+                    - model
+                    type: object
+                required:
+                - method
+                - numSpeculativeTokens
+                type: object
               storageInitializer:
                 properties:
                   enabled:

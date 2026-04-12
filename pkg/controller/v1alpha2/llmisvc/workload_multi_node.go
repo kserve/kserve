@@ -205,6 +205,9 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLeaderSpec, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, config, "main", constants.DefaultModelLocalMountPath); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to leader template: %w", err)
 		}
+		if err := r.attachSpeculatorModelArtifacts(ctx, serviceAccount, llmSvc, currLeaderSpec, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, config, "main"); err != nil {
+			return nil, fmt.Errorf("failed to attach speculator model artifacts to leader template: %w", err)
+		}
 
 		if hasRoutingSidecar(expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec) {
 			log.FromContext(ctx).V(2).Info("Main container has a routing sidecar")

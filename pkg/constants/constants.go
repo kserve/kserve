@@ -465,6 +465,16 @@ const (
 // DefaultModelLocalMountPath is where models will be mounted by the storage-initializer
 const DefaultModelLocalMountPath = "/mnt/models"
 
+// Speculative decoding constants
+const (
+	// SpeculatorInitializerContainerName is the name of the init container that downloads the speculator/draft model
+	SpeculatorInitializerContainerName = "speculator-initializer"
+	// SpeculatorVolumeName is the volume name for the speculator model artifacts
+	SpeculatorVolumeName = "kserve-speculator-location"
+	// DefaultSpeculatorLocalMountPath is where the speculator/draft model will be mounted
+	DefaultSpeculatorLocalMountPath = "/mnt/speculator"
+)
+
 // DefaultCaBundleVolumeMountPath Default path to mount CA bundle configmap volume
 const DefaultCaBundleVolumeMountPath = "/etc/ssl/custom-certs"
 
