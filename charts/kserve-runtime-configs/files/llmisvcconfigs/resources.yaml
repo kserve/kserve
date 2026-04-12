@@ -2,7 +2,7 @@ apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
   name: kserve-config-llm-decode-template
-  namespace: kserve
+  namespace: {{ .Release.Namespace | default kserve }}
 spec:
   template:
     containers:
@@ -278,7 +278,7 @@ apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
   name: kserve-config-llm-decode-worker-data-parallel
-  namespace: kserve
+  namespace: {{ .Release.Namespace | default kserve }}
 spec:
   template:
     containers:
@@ -812,7 +812,7 @@ apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
   name: kserve-config-llm-prefill-template
-  namespace: kserve
+  namespace: {{ .Release.Namespace | default kserve }}
 spec:
   prefill:
     template:
@@ -1030,7 +1030,7 @@ apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
   name: kserve-config-llm-prefill-worker-data-parallel
-  namespace: kserve
+  namespace: {{ .Release.Namespace | default kserve }}
 spec:
   prefill:
     template:
@@ -1503,7 +1503,7 @@ apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
   name: kserve-config-llm-router-route
-  namespace: kserve
+  namespace: {{ .Release.Namespace | default kserve }}
 spec:
   router:
     route:
@@ -1595,7 +1595,7 @@ apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
   name: kserve-config-llm-scheduler
-  namespace: kserve
+  namespace: {{ .Release.Namespace | default kserve }}
 spec:
   router:
     scheduler:
@@ -1766,7 +1766,7 @@ apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
   name: kserve-config-llm-template
-  namespace: kserve
+  namespace: {{ .Release.Namespace | default kserve }}
 spec:
   template:
     containers:
@@ -1983,7 +1983,7 @@ apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
   name: kserve-config-llm-worker-data-parallel
-  namespace: kserve
+  namespace: {{ .Release.Namespace | default kserve }}
 spec:
   template:
     containers:
