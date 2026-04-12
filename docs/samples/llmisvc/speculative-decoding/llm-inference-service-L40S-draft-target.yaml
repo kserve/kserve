@@ -16,6 +16,9 @@ kind: LLMInferenceService
 metadata:
   name: llama8b-draft-target-l40s
   namespace: grpereir-dev
+  annotations:
+    # ADD YOUR HF TOKEN HERE - Llama-3.1-8B-Instruct is a gated model
+    serving.kserve.io/secretName: llm-d-hf-token
 spec:
   model:
     uri: hf://meta-llama/Llama-3.1-8B-Instruct

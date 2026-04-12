@@ -77,8 +77,12 @@ speculativeDecoding:
 ### Medusa
 
 Multi-head decoder trained on top of the target model. Similar to Eagle3 but uses
-tree-based attention for candidate verification. Available Medusa heads for vLLM are
-currently limited.
+tree-based attention for candidate verification.
+
+> **Note:** Medusa is supported at the CRD level but practical adoption is limited.
+> Pre-trained Medusa heads compatible with vLLM are scarce, and the technique has been
+> largely superseded by Eagle3 (better acceptance rates, wider model coverage). We include
+> it for completeness but recommend Eagle3 or draft-target for new deployments.
 
 - Requires trained Medusa heads per target model
 - `speculator` field required (model download needed)
@@ -89,11 +93,9 @@ speculativeDecoding:
   numSpeculativeTokens: 5
   speculator:
     model:
-      uri: hf://abhigoyal/vllm-medusa-vicuna-7b-v1.3
+      uri: hf://FasterDecoding/vllm-medusa-vicuna-7b-v1.3
     tensorParallelSize: 1
 ```
-
-**Example:** [`llm-inference-service-vicuna7b-medusa.yaml`](llm-inference-service-vicuna7b-medusa.yaml)
 
 ### N-gram
 
@@ -157,6 +159,8 @@ speculativeDecoding:
 
 **Example:** [`llm-inference-service-qwen3-mtp.yaml`](llm-inference-service-qwen3-mtp.yaml) — Qwen3-Next on H100
 
+This design was chosen to maximize support for MTP but not bind the Kserve CRDs to vLLM / llm-d as the server provider.
+
 ## Examples summary
 
 | Example | Method | Target model | Draft/Speculator | GPU | Replicas |
@@ -166,20 +170,14 @@ speculativeDecoding:
 | [Draft-target (L40S)](llm-inference-service-llama8b-draft-target-l40s.yaml) | draft_model | Llama-3.1-8B | Llama-3.2-1B | L40S 48GB | 8 × TP1 |
 | [N-gram](llm-inference-service-gemma3-ngram.yaml) | ngram | Gemma 3 4B | None | A10G 24GB | 4 × TP1 |
 | [MTP](llm-inference-service-qwen3-mtp.yaml) | mtp | Qwen3-Next-80B FP8 | None (built-in heads) | H100 | 2 × TP4 |
-| [Medusa](llm-inference-service-vicuna7b-medusa.yaml) | medusa | Vicuna 7B | Medusa heads | H100 | 8 × TP1 |
+| Medusa | medusa | — | Medusa heads | — | See note above |
 
 ## Prerequisites
 
 - GPU nodes on the target cluster
-- A HuggingFace token secret:
+- A HuggingFace token secret (for some examples):
   ```bash
   kubectl create secret generic llm-d-hf-token \
     --from-literal=HF_TOKEN=<your-token> -n <namespace>
   ```
-- A Gateway resource (see [`build-and-deploy/`](build-and-deploy/) for examples)
-- Access to gated models (Llama requires Meta approval, Qwen3-Next requires Qwen approval)
-
-## Build and deploy
-
-See [`build-and-deploy/BUILD.md`](build-and-deploy/BUILD.md) for instructions on building
-a custom llmisvc-controller image and deploying to a cluster.
+  - Access to gated models (Llama requires Meta approval, Gemma3 requires Google approval)

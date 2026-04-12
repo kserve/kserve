@@ -15,6 +15,9 @@ kind: LLMInferenceService
 metadata:
   name: gemma3-ngram-speculative
   namespace: grpereir-dev
+  annotations:
+    # ADD YOUR HF TOKEN HERE - google/gemma-3-4b-it is a gated model
+    serving.kserve.io/secretName: llm-d-hf-token
 spec:
   model:
     uri: hf://google/gemma-3-4b-it
