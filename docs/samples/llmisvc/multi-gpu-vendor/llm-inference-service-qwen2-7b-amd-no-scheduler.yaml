@@ -1,0 +1,29 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceService
+metadata:
+  name: qwen2-7b-instruct-amd
+spec:
+  model:
+    uri: hf://Qwen/Qwen2.5-7B-Instruct
+    name: Qwen/Qwen2.5-7B-Instruct
+  replicas: 2
+  # Same shared label as the NVIDIA instance so that the InferencePool
+  # selector (llm-pool: qwen2-7b) matches these pods too.
+  labels:
+    llm-pool: qwen2-7b
+  # No router — no scheduler, no route, no gateway.
+  # Traffic reaches these pods through the shared InferencePool
+  # managed by the NVIDIA LLMInferenceService's scheduler/EPP.
+  template:
+    containers:
+      - name: main
+        image: ghcr.io/llm-d/llm-d-rocm:v0.6.0
+        resources:
+          limits:
+            cpu: '4'
+            memory: 32Gi
+            amd.com/gpu: "1"
+          requests:
+            cpu: '2'
+            memory: 16Gi
+            amd.com/gpu: "1"
