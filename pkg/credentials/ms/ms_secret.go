@@ -28,19 +28,17 @@ func BuildSecretEnvs(secret *corev1.Secret) []corev1.EnvVar {
 	envs := make([]corev1.EnvVar, 0)
 
 	if _, ok := secret.Data[MSTokenKey]; ok {
-		envs = append(envs, []corev1.EnvVar{
-			{
-				Name: MSTokenKey,
-				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: &corev1.SecretKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: secret.Name,
-						},
-						Key: MSTokenKey,
+		envs = append(envs, corev1.EnvVar{
+			Name: MSTokenKey,
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: secret.Name,
 					},
+					Key: MSTokenKey,
 				},
 			},
-		}...)
+		})
 	}
 	return envs
 }
