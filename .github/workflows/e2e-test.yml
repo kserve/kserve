@@ -431,6 +431,16 @@ jobs:
         run: |
           ./test/scripts/gh-actions/status-check.sh
 
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: test-results-predictor-${{ matrix.install-method }}
+          path: |
+            /tmp/junit_e2e.xml
+            /tmp/e2e_results.json
+          if-no-files-found: ignore
+
   test-transformer-explainer-mms:
     runs-on: ubuntu-latest
     needs:
@@ -540,6 +550,16 @@ jobs:
         run: |
           ./test/scripts/gh-actions/status-check.sh
 
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: test-results-transformer-explainer-mms-${{ matrix.install-method }}
+          path: |
+            /tmp/junit_e2e.xml
+            /tmp/e2e_results.json
+          if-no-files-found: ignore
+
   test-graph:
     runs-on: ubuntu-latest
     needs:
@@ -637,6 +657,16 @@ jobs:
         if: always()
         run: |
           ./test/scripts/gh-actions/status-check.sh
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: test-results-graph-${{ matrix.install-method }}
+          path: |
+            /tmp/junit_e2e.xml
+            /tmp/e2e_results.json
+          if-no-files-found: ignore
 
   test-path-based-routing:
     runs-on: ubuntu-latest
@@ -757,6 +787,16 @@ jobs:
         if: always()
         run: |
           ./test/scripts/gh-actions/status-check.sh
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: test-results-path-based-routing-${{ matrix.install-method }}
+          path: |
+            /tmp/junit_e2e.xml
+            /tmp/e2e_results.json
+          if-no-files-found: ignore
 
   test-qpext:
     runs-on: ubuntu-latest
@@ -913,6 +953,16 @@ jobs:
         run: |
           ./test/scripts/gh-actions/status-check.sh
 
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: test-results-helm
+          path: |
+            /tmp/junit_e2e.xml
+            /tmp/e2e_results.json
+          if-no-files-found: ignore
+
   test-raw:
     runs-on: ubuntu-latest
     strategy:
@@ -1067,6 +1117,16 @@ jobs:
         run: |
           ./test/scripts/gh-actions/status-check.sh
 
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: test-results-raw-${{ matrix.network-layer }}-${{ matrix.install-method }}
+          path: |
+            /tmp/junit_e2e.xml
+            /tmp/e2e_results.json
+          if-no-files-found: ignore
+
   test-autoscaling:
     runs-on: ubuntu-latest
     needs:
@@ -1169,6 +1229,16 @@ jobs:
         if: always()
         run: |
           ./test/scripts/gh-actions/status-check.sh
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: test-results-autoscaling-${{ matrix.install-method }}
+          path: |
+            /tmp/junit_e2e.xml
+            /tmp/e2e_results.json
+          if-no-files-found: ignore
 
   test-kourier:
     runs-on: ubuntu-latest
@@ -1279,6 +1349,16 @@ jobs:
         run: |
           ./test/scripts/gh-actions/status-check.sh "kourier"
 
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: test-results-kourier-${{ matrix.install-method }}
+          path: |
+            /tmp/junit_e2e.xml
+            /tmp/e2e_results.json
+          if-no-files-found: ignore
+
   test-llm:
     runs-on: ubuntu-latest
     needs: [detect-changes, kserve-image-build, predictor-runtime-build]
@@ -1355,6 +1435,16 @@ jobs:
         if: always()
         run: |
           ./test/scripts/gh-actions/status-check.sh
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: test-results-llm-${{ matrix.install-method }}
+          path: |
+            /tmp/junit_e2e.xml
+            /tmp/e2e_results.json
+          if-no-files-found: ignore
 
   test-huggingface-server-vllm:
     runs-on: ubuntu-latest
@@ -1433,3 +1523,13 @@ jobs:
         if: always()
         run: |
           ./test/scripts/gh-actions/status-check.sh
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: test-results-vllm-${{ matrix.install-method }}
+          path: |
+            /tmp/junit_e2e.xml
+            /tmp/e2e_results.json
+          if-no-files-found: ignore

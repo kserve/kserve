@@ -396,3 +396,13 @@ jobs:
           cat minikube-tunnel.log
           echo "::endgroup::"
           ./test/scripts/gh-actions/status-check.sh
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: test-results-modelcache-${{ matrix.install-method }}
+          path: |
+            /tmp/junit_e2e.xml
+            /tmp/e2e_results.json
+          if-no-files-found: ignore
