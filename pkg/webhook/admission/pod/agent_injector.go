@@ -348,6 +348,7 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 	}
 	args = append(args, constants.AgentComponentPortArgName, componentPort)
 
+	agentReadinessProbePath := "/"
 	if !queueProxyAvailable {
 		readinessProbe := pod.Spec.Containers[0].ReadinessProbe
 		// If the transformer container is present, use its readiness probe
@@ -370,6 +371,13 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 
 				// Append the marshaled readiness probe as an environment variable for the agent container
 				agentEnvs = append(agentEnvs, corev1.EnvVar{Name: "SERVING_READINESS_PROBE", Value: string(readinessProbeJson)})
+
+				// Mirror the user-defined httpGet path onto the agent's Kubernetes readiness probe.
+				// The agent serves on this path via SERVING_READINESS_PROBE; leaving the probe
+				// hardcoded to "/" causes 404s when a custom path is set.
+				if readinessProbe.HTTPGet != nil && readinessProbe.HTTPGet.Path != "" {
+					agentReadinessProbePath = readinessProbe.HTTPGet.Path
+				}
 			} else if readinessProbe.Exec != nil {
 				// Log the skipping of ExecAction readiness probes
 				klog.Infof("Exec readiness probe skipped for pod %s/%s", pod.Namespace, pod.Name)
@@ -422,7 +430,7 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 						},
 					},
 					Port:   intstr.FromInt(constants.InferenceServiceDefaultAgentPort),
-					Path:   "/",
+					Path:   agentReadinessProbePath,
 					Scheme: "HTTP",
 				},
 			},
