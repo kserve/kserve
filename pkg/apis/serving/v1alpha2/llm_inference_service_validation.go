@@ -476,25 +476,6 @@ func ValidateWorkloadScaling(basePath *field.Path, workload *WorkloadSpec) field
 
 	scalingPath := basePath.Child("scaling")
 
-	// Autoscaling is not supported for multi-node deployments (worker is set).
-	// When worker is set, the controller creates a LeaderWorkerSet which does not
-	// integrate with WVA/HPA/KEDA — the scaling block would be silently ignored.
-	//
-	// Note: LWS itself can be targeted by an HPA, so the hardware capability exists.
-	// This is a current limitation of WVA, which only knows how to reconcile against
-	// a Deployment. When WVA gains LWS support, this validation should be revisited.
-	// TODO: remove this restriction once WVA supports LeaderWorkerSet as a scaling target.
-	if workload.Worker != nil {
-		allErrs = append(allErrs, field.Invalid(
-			scalingPath,
-			scaling,
-			"autoscaling (scaling) is not supported for multi-node deployments; "+
-				"worker is set, which uses a LeaderWorkerSet that does not integrate with WVA/HPA/KEDA — "+
-				"remove scaling and use replicas instead to set a fixed replica count",
-		))
-		return allErrs
-	}
-
 	// Replicas and scaling are mutually exclusive
 	if workload.Replicas != nil {
 		allErrs = append(allErrs, field.Invalid(

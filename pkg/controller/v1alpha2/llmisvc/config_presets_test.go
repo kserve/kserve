@@ -72,6 +72,12 @@ func TestPresetFiles(t *testing.T) {
 									},
 								},
 								{
+									Name: "tmp-dir",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
 									Name: "dshm",
 									VolumeSource: corev1.VolumeSource{
 										EmptyDir: &corev1.EmptyDirVolumeSource{
@@ -94,7 +100,7 @@ func TestPresetFiles(t *testing.T) {
 							InitContainers: []corev1.Container{
 								{
 									Name:  "llm-d-routing-sidecar",
-									Image: "ghcr.io/llm-d/llm-d-routing-sidecar:v0.6.0",
+									Image: "ghcr.io/llm-d/llm-d-routing-sidecar:v0.7.1",
 									Command: []string{
 										"/app/pd-sidecar",
 										"--port=8000",
@@ -102,7 +108,7 @@ func TestPresetFiles(t *testing.T) {
 										"--connector=nixlv2",
 										"--enable-ssrf-protection=true",
 										"--pool-group=inference.networking.x-k8s.io",
-										"",
+										"--secure-proxy=false",
 										"",
 										"",
 										"",
@@ -129,7 +135,7 @@ func TestPresetFiles(t *testing.T) {
 									},
 									SecurityContext: &corev1.SecurityContext{
 										AllowPrivilegeEscalation: ptr.To(false),
-										RunAsNonRoot:             ptr.To(false),
+										RunAsNonRoot:             ptr.To(true),
 										Capabilities: &corev1.Capabilities{
 											Drop: []corev1.Capability{"ALL"},
 										},
@@ -180,7 +186,7 @@ func TestPresetFiles(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:  "main",
-									Image: "ghcr.io/llm-d/llm-d-cuda:v0.5.1",
+									Image: "ghcr.io/llm-d/llm-d-cuda:v0.6.0",
 									Ports: []corev1.ContainerPort{
 										{
 											ContainerPort: 8001,
@@ -205,6 +211,10 @@ func TestPresetFiles(t *testing.T) {
 										{
 											Name:      "home",
 											MountPath: "/home",
+										},
+										{
+											Name:      "tmp-dir",
+											MountPath: "/tmp",
 										},
 										{
 											Name:      "dshm",
@@ -270,8 +280,8 @@ func TestPresetFiles(t *testing.T) {
 											Drop: []corev1.Capability{"ALL"},
 										},
 										AllowPrivilegeEscalation: ptr.To(false),
-										RunAsNonRoot:             ptr.To(false),
-										ReadOnlyRootFilesystem:   ptr.To(false),
+										RunAsNonRoot:             ptr.To(true),
+										ReadOnlyRootFilesystem:   ptr.To(true),
 										SeccompProfile: &corev1.SeccompProfile{
 											Type: corev1.SeccompProfileTypeRuntimeDefault,
 										},
@@ -284,6 +294,12 @@ func TestPresetFiles(t *testing.T) {
 							Volumes: []corev1.Volume{
 								{
 									Name: "home",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "tmp-dir",
 									VolumeSource: corev1.VolumeSource{
 										EmptyDir: &corev1.EmptyDirVolumeSource{},
 									},
@@ -312,7 +328,7 @@ func TestPresetFiles(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:  "main",
-									Image: "ghcr.io/llm-d/llm-d-cuda:v0.5.1",
+									Image: "ghcr.io/llm-d/llm-d-cuda:v0.6.0",
 									Ports: []corev1.ContainerPort{
 										{
 											ContainerPort: 8001,
@@ -323,6 +339,10 @@ func TestPresetFiles(t *testing.T) {
 										{
 											Name:      "home",
 											MountPath: "/home",
+										},
+										{
+											Name:      "tmp-dir",
+											MountPath: "/tmp",
 										},
 										{
 											Name:      "dshm",
@@ -348,8 +368,8 @@ func TestPresetFiles(t *testing.T) {
 											Drop: []corev1.Capability{"ALL"},
 										},
 										AllowPrivilegeEscalation: ptr.To(false),
-										RunAsNonRoot:             ptr.To(false),
-										ReadOnlyRootFilesystem:   ptr.To(false),
+										RunAsNonRoot:             ptr.To(true),
+										ReadOnlyRootFilesystem:   ptr.To(true),
 										SeccompProfile: &corev1.SeccompProfile{
 											Type: corev1.SeccompProfileTypeRuntimeDefault,
 										},
@@ -417,6 +437,12 @@ func TestPresetFiles(t *testing.T) {
 									},
 								},
 								{
+									Name: "tmp-dir",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
 									Name:         "tls-certs",
 									VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: "test-llm-preset-kserve-self-signed-certs"}},
 								},
@@ -424,7 +450,7 @@ func TestPresetFiles(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:  "main",
-									Image: "ghcr.io/llm-d/llm-d-cuda:v0.5.1",
+									Image: "ghcr.io/llm-d/llm-d-cuda:v0.6.0",
 									Ports: []corev1.ContainerPort{
 										{
 											ContainerPort: 8000,
@@ -449,6 +475,10 @@ func TestPresetFiles(t *testing.T) {
 										{
 											Name:      "home",
 											MountPath: "/home",
+										},
+										{
+											Name:      "tmp-dir",
+											MountPath: "/tmp",
 										},
 										{
 											Name:      "dshm",
@@ -509,8 +539,8 @@ func TestPresetFiles(t *testing.T) {
 											Drop: []corev1.Capability{"ALL"},
 										},
 										AllowPrivilegeEscalation: ptr.To(false),
-										RunAsNonRoot:             ptr.To(false),
-										ReadOnlyRootFilesystem:   ptr.To(false),
+										RunAsNonRoot:             ptr.To(true),
+										ReadOnlyRootFilesystem:   ptr.To(true),
 										SeccompProfile: &corev1.SeccompProfile{
 											Type: corev1.SeccompProfileTypeRuntimeDefault,
 										},

@@ -7,7 +7,7 @@ spec:
   template:
     containers:
       # Override image version and command from base config
-      - image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
+      - image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
         name: main
         command: ["/bin/sh", "-c"]
         args:
@@ -38,7 +38,7 @@ spec:
         containers:
           - name: main
             # Override scheduler image version
-            image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.5.0
+            image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.7.1
             # Override args to enable secure serving
             args:
               - --pool-name
@@ -51,8 +51,6 @@ spec:
               - "9002"
               - --grpc-health-port
               - "9003"
-              - --kv-cache-usage-percentage-metric
-              - "vllm:kv_cache_usage_perc"
               - --metrics-endpoint-auth=false
               - --secure-serving
               - --cert-path

@@ -35,6 +35,8 @@ from kserve import KServeClient, V1alpha1LLMInferenceService, constants
 
 from .fixtures import (
     KSERVE_TEST_NAMESPACE,
+    UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT,
+    UPSTREAM_K8S_VLLM_ENV_OVERRIDES,
     inject_k8s_proxy,
 )
 from .logging import logger
@@ -365,11 +367,13 @@ async def test_event_storm_prevention_init_container_isolation():
                     "containers": [
                         {
                             "name": "main",
-                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1",
+                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
+                            "env": [*UPSTREAM_K8S_VLLM_ENV_OVERRIDES],
                             "resources": {
                                 "limits": {"cpu": "2", "memory": "7Gi"},
                                 "requests": {"cpu": "200m", "memory": "2Gi"},
                             },
+                            "securityContext": UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT.copy(),
                         }
                     ]
                 }
@@ -565,11 +569,13 @@ async def test_quick_reconciliation_on_init_container_failure():
                     "containers": [
                         {
                             "name": "main",
-                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1",
+                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
+                            "env": [*UPSTREAM_K8S_VLLM_ENV_OVERRIDES],
                             "resources": {
                                 "limits": {"cpu": "2", "memory": "7Gi"},
                                 "requests": {"cpu": "200m", "memory": "2Gi"},
                             },
+                            "securityContext": UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT.copy(),
                         }
                     ]
                 }

@@ -38,7 +38,7 @@ spec:
               - containerPort: 5557
                 name: zmq
                 protocol: TCP
-            image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.6.0
+            image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.7.1
             imagePullPolicy: IfNotPresent
             livenessProbe:
               failureThreshold: 3
@@ -70,8 +70,6 @@ spec:
               - "9002"
               - --grpc-health-port
               - "9003"
-              - --kv-cache-usage-percentage-metric
-              - "vllm:kv_cache_usage_perc"
               - '{{ if .GlobalConfig.EnableTLS }}--enable-cert-reload=true{{- end }}'
               - '{{ if .GlobalConfig.EnableTLS }}--secure-serving=true{{- end }}'
               - '{{ if .GlobalConfig.EnableTLS }}--model-server-metrics-scheme=https{{- end }}'
@@ -105,7 +103,7 @@ spec:
               - containerPort: 8082
                 name: health
                 protocol: TCP
-            image: ghcr.io/llm-d/llm-d-uds-tokenizer:v0.6.0
+            image: ghcr.io/llm-d/llm-d-uds-tokenizer:v0.7.1
             imagePullPolicy: IfNotPresent
             workingDir: /mnt/models
             env:
@@ -113,21 +111,21 @@ spec:
                 value: /mnt/models
             livenessProbe:
               httpGet:
-                path: /health
+                path: /healthz
                 port: 8082
               periodSeconds: 15
               timeoutSeconds: 5
               failureThreshold: 3
             readinessProbe:
               httpGet:
-                path: /health
+                path: /healthz
                 port: 8082
               periodSeconds: 10
               timeoutSeconds: 5
               failureThreshold: 3
             startupProbe:
               httpGet:
-                path: /health
+                path: /healthz
                 port: 8082
               periodSeconds: 10
               initialDelaySeconds: 5
@@ -149,6 +147,14 @@ spec:
               seccompProfile:
                 type: RuntimeDefault
             volumeMounts:
+              # The tokenizer image imports torch/dill which requires a writable
+              # /tmp at import time (tempfile.gettempdir()). Without this mount,
+              # readOnlyRootFilesystem causes the container to crash on startup.
+              - mountPath: /tmp
+                name: tokenizer-tmp
+              # vllm writes model info cache to /.cache/vllm/modelinfos.
+              - mountPath: /.cache
+                name: tokenizer-cache
               - mountPath: /tmp/tokenizer
                 name: tokenizer-uds
         volumes:
@@ -156,6 +162,12 @@ spec:
             secret:
               secretName: "{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}"
           - name: tokenizer-uds
+            emptyDir: {}
+          # Writable /tmp for the tokenizer container (see volumeMounts comment above).
+          - name: tokenizer-tmp
+            emptyDir: {}
+          # Writable /.cache for vllm model info cache.
+          - name: tokenizer-cache
             emptyDir: {}
         dnsPolicy: ClusterFirst
         restartPolicy: Always
