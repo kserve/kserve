@@ -19,6 +19,7 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"path/filepath"
 	"strings"
 
@@ -486,4 +487,20 @@ func GetParentDirectory(path string) string {
 	}
 
 	return parentDir
+}
+
+// ComputePodSpecHash computes a FNV-32a hash of the given PodSpec.
+// Used for multinode headless service selectors so that rolling updates
+// correctly isolate old and new pods when the pod template changes
+// (e.g., ServingRuntime image updates that don't bump ISVC generation).
+func ComputePodSpecHash(podSpec *corev1.PodSpec) (string, error) {
+	data, err := json.Marshal(podSpec)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal PodSpec: %w", err)
+	}
+	hasher := fnv.New32a()
+	if _, err = hasher.Write(data); err != nil {
+		return "", fmt.Errorf("failed to hash PodSpec: %w", err)
+	}
+	return fmt.Sprintf("%08x", hasher.Sum32()), nil
 }

@@ -1161,3 +1161,42 @@ func TestGetGPUResourceQtyByType(t *testing.T) {
 		})
 	}
 }
+
+func TestComputePodSpecHash(t *testing.T) {
+	spec1 := &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{Name: "kserve-container", Image: "image:v1"},
+		},
+	}
+	spec2 := &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{Name: "kserve-container", Image: "image:v2"},
+		},
+	}
+
+	hash1, err1 := ComputePodSpecHash(spec1)
+	if err1 != nil {
+		t.Fatalf("unexpected error: %v", err1)
+	}
+	hash2, err2 := ComputePodSpecHash(spec2)
+	if err2 != nil {
+		t.Fatalf("unexpected error: %v", err2)
+	}
+
+	// Same input produces same hash
+	hash1Again, err := ComputePodSpecHash(spec1)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if hash1Again != hash1 {
+		t.Errorf("expected deterministic hash, got different values")
+	}
+	// Different input produces different hash
+	if hash1 == hash2 {
+		t.Errorf("expected different hashes for different specs, both got %s", hash1)
+	}
+	// Hash is 8 hex chars
+	if len(hash1) != 8 {
+		t.Errorf("expected 8 char hash, got %d chars: %s", len(hash1), hash1)
+	}
+}

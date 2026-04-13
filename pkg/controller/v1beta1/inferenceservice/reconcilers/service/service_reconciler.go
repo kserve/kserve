@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,11 +54,12 @@ func NewServiceReconciler(client client.Client,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec, multiNodeEnabled bool,
 	serviceConfig *v1beta1.ServiceConfig,
+	podTemplateHash string,
 ) *ServiceReconciler {
 	return &ServiceReconciler{
 		client:       client,
 		scheme:       scheme,
-		ServiceList:  createService(componentMeta, componentExt, podSpec, multiNodeEnabled, serviceConfig),
+		ServiceList:  createService(componentMeta, componentExt, podSpec, multiNodeEnabled, serviceConfig, podTemplateHash),
 		componentExt: componentExt,
 	}
 }
@@ -79,6 +81,7 @@ func getAppProtocol(port corev1.ContainerPort) *string {
 
 func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec, multiNodeEnabled bool, serviceConfig *v1beta1.ServiceConfig,
+	podTemplateHash string,
 ) []*corev1.Service {
 	var svcList []*corev1.Service
 
@@ -91,10 +94,10 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 		defaultSvc := createDefaultSvc(componentMeta, componentExt, podSpec, serviceConfig)
 		svcList = append(svcList, defaultSvc)
 
-		headSvc := createHeadlessSvc(componentMeta)
+		headSvc := createHeadlessSvc(componentMeta, podTemplateHash)
 		svcList = append(svcList, headSvc)
 
-		workerSvc := createWorkerHeadlessSvc(componentMeta)
+		workerSvc := createWorkerHeadlessSvc(componentMeta, podTemplateHash)
 		svcList = append(svcList, workerSvc)
 	}
 
@@ -188,19 +191,18 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 	return service
 }
 
-func createWorkerHeadlessSvc(componentMeta metav1.ObjectMeta) *corev1.Service {
+func createWorkerHeadlessSvc(componentMeta metav1.ObjectMeta, podTemplateHash string) *corev1.Service {
 	workerComponentMeta := componentMeta.DeepCopy()
 	predictorSvcName := workerComponentMeta.Name
-	isvcGeneration := componentMeta.GetLabels()[constants.InferenceServiceGenerationPodLabelKey]
-	workerComponentMeta.Name = constants.GetWorkerServiceName(predictorSvcName, isvcGeneration)
+	workerComponentMeta.Name = constants.GetWorkerServiceName(predictorSvcName, podTemplateHash)
 	workerComponentMeta.Labels[constants.MultiNodeRoleLabelKey] = constants.MultiNodeWorker
 
 	service := &corev1.Service{
 		ObjectMeta: *workerComponentMeta,
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				"app": constants.GetRawWorkerServiceLabel(predictorSvcName),
-				constants.InferenceServiceGenerationPodLabelKey: isvcGeneration,
+				"app":                             constants.GetRawWorkerServiceLabel(predictorSvcName),
+				constants.PodTemplateHashLabelKey: podTemplateHash,
 			},
 			ClusterIP:                "None",
 			PublishNotReadyAddresses: true,
@@ -209,19 +211,18 @@ func createWorkerHeadlessSvc(componentMeta metav1.ObjectMeta) *corev1.Service {
 	return service
 }
 
-func createHeadlessSvc(componentMeta metav1.ObjectMeta) *corev1.Service {
+func createHeadlessSvc(componentMeta metav1.ObjectMeta, podTemplateHash string) *corev1.Service {
 	workerComponentMeta := componentMeta.DeepCopy()
 	predictorSvcName := workerComponentMeta.Name
-	isvcGeneration := componentMeta.GetLabels()[constants.InferenceServiceGenerationPodLabelKey]
-	workerComponentMeta.Name = constants.GetHeadServiceName(predictorSvcName, isvcGeneration)
+	workerComponentMeta.Name = constants.GetHeadServiceName(predictorSvcName, podTemplateHash)
 	workerComponentMeta.Labels[constants.MultiNodeRoleLabelKey] = constants.MultiNodeHead
 
 	service := &corev1.Service{
 		ObjectMeta: *workerComponentMeta,
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				"app": constants.GetRawServiceLabel(predictorSvcName),
-				constants.InferenceServiceGenerationPodLabelKey: isvcGeneration,
+				"app":                             constants.GetRawServiceLabel(predictorSvcName),
+				constants.PodTemplateHashLabelKey: podTemplateHash,
 			},
 			ClusterIP:                "None", // Without this, it requires a Port but this Service does not need it.
 			PublishNotReadyAddresses: true,
@@ -298,7 +299,86 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context) ([]*corev1.Service, e
 			return nil, opErr
 		}
 	}
+
+	// Clean up old headless services from previous pod template hashes
+	if err := r.cleanupOldHeadlessServices(ctx); err != nil {
+		return nil, err
+	}
+
 	return r.ServiceList, nil
+}
+
+// cleanupOldHeadlessServices removes headless services that belong to the same
+// InferenceService but have a stale pod-template-hash (from a previous rollout).
+func (r *ServiceReconciler) cleanupOldHeadlessServices(ctx context.Context) error {
+	// Collect current head and worker service names
+	currentSvcNames := map[string]bool{}
+	var namespace, isvcName string
+	for _, svc := range r.ServiceList {
+		if svc.Labels != nil {
+			role := svc.Labels[constants.MultiNodeRoleLabelKey]
+			if role == constants.MultiNodeHead || role == constants.MultiNodeWorker {
+				currentSvcNames[svc.Name] = true
+				namespace = svc.Namespace
+				if isvcName == "" {
+					isvcName = svc.Labels[constants.InferenceServicePodLabelKey]
+				}
+			}
+		}
+	}
+	if len(currentSvcNames) == 0 || isvcName == "" {
+		return nil
+	}
+
+	// List all head and worker headless services for this ISVC and delete stale ones
+	for _, role := range []string{constants.MultiNodeHead, constants.MultiNodeWorker} {
+		svcList := &corev1.ServiceList{}
+		if err := r.client.List(ctx, svcList,
+			client.InNamespace(namespace),
+			client.MatchingLabels{
+				constants.MultiNodeRoleLabelKey:       role,
+				constants.InferenceServicePodLabelKey: isvcName,
+			},
+		); err != nil {
+			return err
+		}
+
+		for i := range svcList.Items {
+			if currentSvcNames[svcList.Items[i].Name] {
+				continue
+			}
+			// Skip deletion while pods still use this service as their master address.
+			// PublishNotReadyAddresses is set, so all pods appear in the slice regardless
+			// of readiness; any entry means at least one pod still needs this service.
+			epSliceList := &discoveryv1.EndpointSliceList{}
+			if err := r.client.List(ctx, epSliceList,
+				client.InNamespace(namespace),
+				client.MatchingLabels{discoveryv1.LabelServiceName: svcList.Items[i].Name},
+			); err != nil {
+				log.Error(err, "Failed to list EndpointSlices for stale service, skipping deletion",
+					"name", svcList.Items[i].Name)
+				continue
+			}
+			hasEndpoints := false
+			for _, eps := range epSliceList.Items {
+				if len(eps.Endpoints) > 0 {
+					hasEndpoints = true
+					break
+				}
+			}
+			if hasEndpoints {
+				log.Info("Skipping cleanup of old headless service — endpoints still active",
+					"name", svcList.Items[i].Name)
+				continue
+			}
+			log.Info("Cleaning up old headless service", "name", svcList.Items[i].Name)
+			if err := r.client.Delete(ctx, &svcList.Items[i]); err != nil && !apierr.IsNotFound(err) {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 // GetServiceList returns all managed services

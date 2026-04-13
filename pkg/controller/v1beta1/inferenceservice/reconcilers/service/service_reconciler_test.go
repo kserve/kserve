@@ -16,18 +16,22 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 var emptyServiceConfig = &v1beta1.ServiceConfig{}
@@ -38,6 +42,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 		componentExt     *v1beta1.ComponentExtensionSpec
 		podSpec          *corev1.PodSpec
 		multiNodeEnabled bool
+		podTemplateHash  string
 	}
 
 	testInput := map[string]args{
@@ -81,10 +86,10 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					"annotation": "annotation-value",
 				},
 				Labels: map[string]string{
-					constants.RawDeploymentAppLabel:                 "isvc.default-predictor",
-					constants.InferenceServicePodLabelKey:           "default-predictor",
-					constants.KServiceComponentLabel:                string(v1beta1.PredictorComponent),
-					constants.InferenceServiceGenerationPodLabelKey: "1",
+					constants.RawDeploymentAppLabel:       "isvc.default-predictor",
+					constants.InferenceServicePodLabelKey: "default-predictor",
+					constants.KServiceComponentLabel:      string(v1beta1.PredictorComponent),
+					constants.PodTemplateHashLabelKey:     "", // will be set below
 				},
 			},
 
@@ -139,82 +144,93 @@ func TestCreateDefaultDeployment(t *testing.T) {
 			},
 			nil,
 		},
-		"multiNode-service": {
-			&corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "default-predictor",
-					Namespace: "default-predictor-namespace",
-					Labels: map[string]string{
-						constants.RawDeploymentAppLabel:                 "isvc.default-predictor",
-						constants.KServiceComponentLabel:                "predictor",
-						constants.InferenceServicePodLabelKey:           "default-predictor",
-						constants.InferenceServiceGenerationPodLabelKey: "1",
-					},
-					Annotations: map[string]string{
-						"annotation": "annotation-value",
-					},
+		"multiNode-service": nil, // populated dynamically below
+	}
+
+	// Compute hash for multiNode test case
+	multiNodeHash, err := utils.ComputePodSpecHash(testInput["multiNode-service"].podSpec)
+	require.NoError(t, err)
+	// Set the hash in input componentMeta labels
+	multiNodeInput := testInput["multiNode-service"]
+	multiNodeInput.componentMeta.Labels[constants.PodTemplateHashLabelKey] = multiNodeHash
+	multiNodeInput.podTemplateHash = multiNodeHash
+	testInput["multiNode-service"] = multiNodeInput
+
+	expectedServices["multiNode-service"] = []*corev1.Service{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "default-predictor",
+				Namespace: "default-predictor-namespace",
+				Labels: map[string]string{
+					constants.RawDeploymentAppLabel:       "isvc.default-predictor",
+					constants.KServiceComponentLabel:      "predictor",
+					constants.InferenceServicePodLabelKey: "default-predictor",
+					constants.PodTemplateHashLabelKey:     multiNodeHash,
 				},
-				Spec: corev1.ServiceSpec{
-					Ports: []corev1.ServicePort{
-						{
-							Name:       "default-predictor",
-							Protocol:   corev1.ProtocolTCP,
-							Port:       80,
-							TargetPort: intstr.IntOrString{IntVal: 8080},
-						},
-					},
-					Selector: map[string]string{
-						"app": "isvc.default-predictor",
-					},
+				Annotations: map[string]string{
+					"annotation": "annotation-value",
 				},
 			},
-			&corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "default-head-1",
-					Namespace: "default-predictor-namespace",
-					Labels: map[string]string{
-						constants.RawDeploymentAppLabel:                 "isvc.default-predictor",
-						constants.KServiceComponentLabel:                "predictor",
-						constants.InferenceServicePodLabelKey:           "default-predictor",
-						constants.InferenceServiceGenerationPodLabelKey: "1",
-						constants.MultiNodeRoleLabelKey:                 constants.MultiNodeHead,
-					},
-					Annotations: map[string]string{
-						"annotation": "annotation-value",
+			Spec: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{
+					{
+						Name:       "default-predictor",
+						Protocol:   corev1.ProtocolTCP,
+						Port:       80,
+						TargetPort: intstr.IntOrString{IntVal: 8080},
 					},
 				},
-				Spec: corev1.ServiceSpec{
-					Selector: map[string]string{
-						constants.RawDeploymentAppLabel:                 "isvc.default-predictor",
-						constants.InferenceServiceGenerationPodLabelKey: "1",
-					},
-					ClusterIP:                "None",
-					PublishNotReadyAddresses: true,
+				Selector: map[string]string{
+					"app": "isvc.default-predictor",
 				},
 			},
-			&corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "default-workers-1",
-					Namespace: "default-predictor-namespace",
-					Labels: map[string]string{
-						constants.RawDeploymentAppLabel:                 "isvc.default-predictor",
-						constants.KServiceComponentLabel:                "predictor",
-						constants.InferenceServicePodLabelKey:           "default-predictor",
-						constants.InferenceServiceGenerationPodLabelKey: "1",
-						constants.MultiNodeRoleLabelKey:                 constants.MultiNodeWorker,
-					},
-					Annotations: map[string]string{
-						"annotation": "annotation-value",
-					},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      constants.GetHeadServiceName("default-predictor", multiNodeHash),
+				Namespace: "default-predictor-namespace",
+				Labels: map[string]string{
+					constants.RawDeploymentAppLabel:       "isvc.default-predictor",
+					constants.KServiceComponentLabel:      "predictor",
+					constants.InferenceServicePodLabelKey: "default-predictor",
+					constants.PodTemplateHashLabelKey:     multiNodeHash,
+					constants.MultiNodeRoleLabelKey:       constants.MultiNodeHead,
 				},
-				Spec: corev1.ServiceSpec{
-					Selector: map[string]string{
-						"app": "isvc.default-predictor-worker",
-						constants.InferenceServiceGenerationPodLabelKey: "1",
-					},
-					ClusterIP:                "None",
-					PublishNotReadyAddresses: true,
+				Annotations: map[string]string{
+					"annotation": "annotation-value",
 				},
+			},
+			Spec: corev1.ServiceSpec{
+				Selector: map[string]string{
+					"app":                             "isvc.default-predictor",
+					constants.PodTemplateHashLabelKey: multiNodeHash,
+				},
+				ClusterIP:                "None",
+				PublishNotReadyAddresses: true,
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "default-workers-" + multiNodeHash,
+				Namespace: "default-predictor-namespace",
+				Labels: map[string]string{
+					constants.RawDeploymentAppLabel:       "isvc.default-predictor",
+					constants.KServiceComponentLabel:      "predictor",
+					constants.InferenceServicePodLabelKey: "default-predictor",
+					constants.PodTemplateHashLabelKey:     multiNodeHash,
+					constants.MultiNodeRoleLabelKey:       constants.MultiNodeWorker,
+				},
+				Annotations: map[string]string{
+					"annotation": "annotation-value",
+				},
+			},
+			Spec: corev1.ServiceSpec{
+				Selector: map[string]string{
+					"app":                             "isvc.default-predictor-worker",
+					constants.PodTemplateHashLabelKey: multiNodeHash,
+				},
+				ClusterIP:                "None",
+				PublishNotReadyAddresses: true,
 			},
 		},
 	}
@@ -241,13 +257,14 @@ func TestCreateDefaultDeployment(t *testing.T) {
 				componentExt:     testInput["multiNode-service"].componentExt,
 				podSpec:          testInput["multiNode-service"].podSpec,
 				multiNodeEnabled: testInput["multiNode-service"].multiNodeEnabled,
+				podTemplateHash:  testInput["multiNode-service"].podTemplateHash,
 			},
 			expected: expectedServices["multiNode-service"],
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := createService(tt.args.componentMeta, tt.args.componentExt, tt.args.podSpec, tt.args.multiNodeEnabled, emptyServiceConfig)
+			got := createService(tt.args.componentMeta, tt.args.componentExt, tt.args.podSpec, tt.args.multiNodeEnabled, emptyServiceConfig, tt.args.podTemplateHash)
 			for i, service := range got {
 				if diff := cmp.Diff(tt.expected[i], service); diff != "" {
 					t.Errorf("Test %q unexpected service (-want +got): %v", tt.name, diff)
@@ -299,7 +316,7 @@ func runTestServiceCreate(serviceConfig *v1beta1.ServiceConfig, expectedClusterI
 	componentExt := &v1beta1.ComponentExtensionSpec{}
 	podSpec := &corev1.PodSpec{}
 
-	service := createService(componentMeta, componentExt, podSpec, false, serviceConfig)
+	service := createService(componentMeta, componentExt, podSpec, false, serviceConfig, "")
 	assert.Equal(t, componentMeta, service[0].ObjectMeta, "Expected ObjectMeta to be equal")
 	assert.Equal(t, map[string]string{"app": "isvc.test-service"}, service[0].Spec.Selector, "Expected Selector to be equal")
 	assert.Equal(t, expectedClusterIP, service[0].Spec.ClusterIP, "Expected ClusterIP to be equal")
@@ -344,4 +361,108 @@ func TestServiceSetControllerReferences(t *testing.T) {
 	assert.Equal(t, owner.Name, service1.GetOwnerReferences()[0].Name)
 	assert.Len(t, service2.GetOwnerReferences(), 1)
 	assert.Equal(t, owner.Name, service2.GetOwnerReferences()[0].Name)
+}
+
+func newHeadSvc(name, namespace, isvcName, hash string) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			Labels: map[string]string{
+				constants.MultiNodeRoleLabelKey:       constants.MultiNodeHead,
+				constants.InferenceServicePodLabelKey: isvcName,
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{
+				constants.PodTemplateHashLabelKey: hash,
+			},
+			ClusterIP: "None",
+		},
+	}
+}
+
+func newEndpointSlice(svcName, namespace string, hasEndpoints bool) *discoveryv1.EndpointSlice {
+	eps := &discoveryv1.EndpointSlice{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      svcName + "-eps",
+			Namespace: namespace,
+			Labels: map[string]string{
+				discoveryv1.LabelServiceName: svcName,
+			},
+		},
+		AddressType: discoveryv1.AddressTypeIPv4,
+	}
+	if hasEndpoints {
+		eps.Endpoints = []discoveryv1.Endpoint{{Addresses: []string{"10.0.0.1"}}}
+	}
+	return eps
+}
+
+func TestCleanupOldHeadlessServices(t *testing.T) {
+	const (
+		ns       = "default"
+		isvcName = "my-isvc"
+		oldHash  = "aabbccdd"
+		newHash  = "11223344"
+	)
+
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+	require.NoError(t, discoveryv1.AddToScheme(scheme))
+
+	oldSvcName := constants.GetHeadServiceName(isvcName+"-predictor", oldHash)
+	newSvcName := constants.GetHeadServiceName(isvcName+"-predictor", newHash)
+
+	tests := []struct {
+		name            string
+		staleHasEPs     bool // whether the stale service has active endpoints
+		expectStaleKept bool // whether the stale service should be preserved
+	}{
+		{
+			name:            "stale service with active endpoints is preserved",
+			staleHasEPs:     true,
+			expectStaleKept: true,
+		},
+		{
+			name:            "stale service without endpoints is deleted",
+			staleHasEPs:     false,
+			expectStaleKept: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			staleSvc := newHeadSvc(oldSvcName, ns, isvcName, oldHash)
+			currentSvc := newHeadSvc(newSvcName, ns, isvcName, newHash)
+			staleEPS := newEndpointSlice(oldSvcName, ns, tc.staleHasEPs)
+
+			cl := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(staleSvc, currentSvc, staleEPS).
+				Build()
+
+			r := &ServiceReconciler{
+				client: cl,
+				ServiceList: []*corev1.Service{
+					currentSvc,
+				},
+			}
+
+			err := r.cleanupOldHeadlessServices(context.Background())
+			require.NoError(t, err)
+
+			remaining := &corev1.ServiceList{}
+			require.NoError(t, cl.List(context.Background(), remaining))
+
+			names := make(map[string]bool)
+			for _, s := range remaining.Items {
+				names[s.Name] = true
+			}
+
+			assert.True(t, names[newSvcName], "current service must always be kept")
+			assert.Equal(t, tc.expectStaleKept, names[oldSvcName],
+				"stale service presence mismatch")
+		})
+	}
 }
