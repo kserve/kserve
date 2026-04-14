@@ -468,7 +468,23 @@ func validateScalingKedaCompExtension(compExtSpec *ComponentExtensionSpec) error
 	}
 
 	if compExtSpec.AutoScaling != nil {
+		// Validate KEDA-specific configuration
+		if compExtSpec.AutoScaling.KEDA != nil {
+			if err := validateKEDAConfig(compExtSpec.AutoScaling.KEDA, compExtSpec.MinReplicas); err != nil {
+				return err
+			}
+		}
+
+		// Validate trigger names are unique
+		triggerNames := make(map[string]bool)
 		for _, metric := range compExtSpec.AutoScaling.Metrics {
+			if metric.Name != "" {
+				if triggerNames[metric.Name] {
+					return fmt.Errorf("duplicate trigger name: %s. Trigger names must be unique", metric.Name)
+				}
+				triggerNames[metric.Name] = true
+			}
+
 			metricType := metric.Type
 			switch metricType {
 			case ResourceMetricSourceType:
@@ -528,6 +544,52 @@ func validateScalingKedaCompExtension(compExtSpec *ComponentExtensionSpec) error
 			}
 		}
 	}
+	return nil
+}
+
+// validateKEDAConfig validates KEDA-specific configuration
+func validateKEDAConfig(keda *KEDAScalingConfig, minReplicas *int32) error {
+	if keda == nil {
+		return nil
+	}
+
+	// Validate IdleReplicaCount vs MinReplicas
+	if keda.IdleReplicaCount != nil && minReplicas != nil {
+		if *keda.IdleReplicaCount >= *minReplicas {
+			return fmt.Errorf("idleReplicaCount (%d) must be less than minReplicas (%d)",
+				*keda.IdleReplicaCount, *minReplicas)
+		}
+	}
+
+	// Validate fallback configuration
+	if keda.Fallback != nil {
+		if keda.Fallback.FailureThreshold < 0 {
+			return errors.New("fallback.failureThreshold must be >= 0")
+		}
+		if keda.Fallback.Replicas < 0 {
+			return errors.New("fallback.replicas must be >= 0")
+		}
+		// Behavior is validated by kubebuilder enum validation
+	}
+
+	// Validate advanced configuration
+	if keda.Advanced != nil {
+		// Validate HPA config name should not be set (we manage the HPA name)
+		if keda.Advanced.HorizontalPodAutoscalerConfig != nil &&
+			keda.Advanced.HorizontalPodAutoscalerConfig.Name != "" {
+			return errors.New("advanced.horizontalPodAutoscalerConfig.name should not be set; the controller manages the HPA name")
+		}
+
+		// Validate scaling modifiers
+		if keda.Advanced.ScalingModifiers != nil {
+			sm := keda.Advanced.ScalingModifiers
+			// If any scaling modifier field is set, formula should be set
+			if (sm.Target != "" || sm.ActivationTarget != "" || sm.MetricType != "") && sm.Formula == "" {
+				return errors.New("advanced.scalingModifiers.formula must be set when using scaling modifiers")
+			}
+		}
+	}
+
 	return nil
 }
 
