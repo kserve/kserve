@@ -7,22 +7,8 @@ spec:
     uri: hf://Qwen/Qwen2.5-7B-Instruct
     name: Qwen/Qwen2.5-7B-Instruct
   replicas: 3
-  # Shared label so the InferencePool selector can match pods from both
-  # the NVIDIA and AMD LLMInferenceService instances.
-  labels:
-    llm-pool: qwen2-7b
   router:
-    scheduler:
-      pool:
-        spec:
-          # Select all workload pods with the shared "llm-pool: qwen2-7b" label,
-          # regardless of which LLMInferenceService created them.
-          selector:
-            matchLabels:
-              llm-pool: qwen2-7b
-              kserve.io/component: workload
-          targetPorts:
-            - port: 8000
+    scheduler: { }
     route: { }
     gateway: { }
   template:

@@ -26,6 +26,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
@@ -1487,72 +1488,17 @@ schedulingProfiles:
 		})
 	})
 
-	Context("Custom InferencePool selector for multi-GPU-vendor pooling", func() {
-		It("should use custom pool selector when MatchLabels are provided", func(ctx SpecContext) {
-			// This test verifies the multi-GPU-vendor pooling pattern where a user provides
-			// a custom InferencePool selector (e.g., llm-pool: qwen2-7b) so that pods from
-			// multiple LLMInferenceService instances (NVIDIA + AMD) can be pooled together.
-			svcName := "test-llm-custom-pool-selector"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+	Context("Multi-GPU-vendor pooling via workload label propagation", func() {
+		It("should create InferencePool with default workload labels that AMD pods can match", func(ctx SpecContext) {
+			// This test verifies the multi-GPU-vendor pooling pattern:
+			// 1. NVIDIA instance with default scheduler creates InferencePool with default workload labels
+			// 2. AMD instance with no router uses spec.labels to match the NVIDIA InferencePool selector
+			nvidiaSvcName := "test-llm-nvidia"
+			amdSvcName := "test-llm-amd"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(nvidiaSvcName))
 
-			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
-				WithModelURI("hf://facebook/opt-125m"),
-				WithManagedRoute(),
-				WithManagedGateway(),
-				WithManagedScheduler(),
-				WithWorkloadLabels(map[string]string{
-					"llm-pool": "qwen2-7b",
-				}),
-			)
-			// Set custom pool selector with required endpointPickerRef
-			llmSvc.Spec.Router.Scheduler.Pool = &v1alpha2.InferencePoolSpec{
-				Spec: &igwapi.InferencePoolSpec{
-					Selector: igwapi.LabelSelector{
-						MatchLabels: map[igwapi.LabelKey]igwapi.LabelValue{
-							"llm-pool":            "qwen2-7b",
-							"kserve.io/component": "workload",
-						},
-					},
-					TargetPorts: []igwapi.Port{{Number: 8000}},
-					EndpointPickerRef: igwapi.EndpointPickerRef{
-						Kind:        "Service",
-						Name:        igwapi.ObjectName(svcName + "-kserve-epp"),
-						Port:        &igwapi.Port{Number: 9002},
-						FailureMode: igwapi.EndpointPickerFailOpen,
-					},
-				},
-			}
-
-			// when
-			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
-			defer func() {
-				testNs.DeleteAndWait(ctx, llmSvc)
-			}()
-
-			// then - verify the InferencePool is created with the custom selector
-			ip := &igwapi.InferencePool{}
-			Eventually(func(g Gomega, ctx context.Context) error {
-				return envTest.Client.Get(ctx, client.ObjectKey{
-					Name:      svcName + "-inference-pool",
-					Namespace: testNs.Name,
-				}, ip)
-			}).WithContext(ctx).Should(Succeed())
-
-			Expect(ip.Spec.Selector.MatchLabels).To(HaveLen(2))
-			Expect(ip.Spec.Selector.MatchLabels).To(HaveKeyWithValue(
-				igwapi.LabelKey("llm-pool"), igwapi.LabelValue("qwen2-7b")))
-			Expect(ip.Spec.Selector.MatchLabels).To(HaveKeyWithValue(
-				igwapi.LabelKey("kserve.io/component"), igwapi.LabelValue("workload")))
-			// Should NOT contain the default app.kubernetes.io/name selector
-			Expect(ip.Spec.Selector.MatchLabels).ToNot(HaveKey(igwapi.LabelKey("app.kubernetes.io/name")))
-		})
-
-		It("should default pool selector to workload labels when no MatchLabels are provided", func(ctx SpecContext) {
-			svcName := "test-llm-default-pool-selector"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
-
-			llmSvc := LLMInferenceService(svcName,
+			// Create NVIDIA instance with default scheduler
+			nvidiaLLMSvc := LLMInferenceService(nvidiaSvcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://facebook/opt-125m"),
 				WithManagedRoute(),
@@ -1560,27 +1506,76 @@ schedulingProfiles:
 				WithManagedScheduler(),
 			)
 
-			// when
-			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			Expect(envTest.Create(ctx, nvidiaLLMSvc)).To(Succeed())
 			defer func() {
-				testNs.DeleteAndWait(ctx, llmSvc)
+				testNs.DeleteAndWait(ctx, nvidiaLLMSvc)
 			}()
 
-			// then - verify the InferencePool uses default workload label selector
+			// Verify InferencePool is created with default workload label selector
 			ip := &igwapi.InferencePool{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Client.Get(ctx, client.ObjectKey{
-					Name:      svcName + "-inference-pool",
+					Name:      nvidiaSvcName + "-inference-pool",
 					Namespace: testNs.Name,
 				}, ip)
 			}).WithContext(ctx).Should(Succeed())
 
 			Expect(ip.Spec.Selector.MatchLabels).To(HaveKeyWithValue(
-				igwapi.LabelKey("app.kubernetes.io/name"), igwapi.LabelValue(svcName)))
+				igwapi.LabelKey("app.kubernetes.io/name"), igwapi.LabelValue(nvidiaSvcName)))
 			Expect(ip.Spec.Selector.MatchLabels).To(HaveKeyWithValue(
 				igwapi.LabelKey("kserve.io/component"), igwapi.LabelValue("workload")))
 			Expect(ip.Spec.Selector.MatchLabels).To(HaveKeyWithValue(
 				igwapi.LabelKey("app.kubernetes.io/part-of"), igwapi.LabelValue("llminferenceservice")))
+
+			// Create AMD instance with no router, using spec.labels to match NVIDIA's InferencePool
+			amdLLMSvc := LLMInferenceService(amdSvcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithWorkloadLabels(map[string]string{
+					"app.kubernetes.io/name":    nvidiaSvcName,
+					"app.kubernetes.io/part-of": "llminferenceservice",
+					"kserve.io/component":       "workload",
+				}),
+			)
+
+			Expect(envTest.Create(ctx, amdLLMSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, amdLLMSvc)
+			}()
+
+			// Verify AMD workload deployment is created and its pod template labels
+			// match the NVIDIA InferencePool selector
+			amdDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Client.Get(ctx, client.ObjectKey{
+					Name:      amdSvcName + "-kserve",
+					Namespace: testNs.Name,
+				}, amdDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			podLabels := amdDeployment.Spec.Template.Labels
+			for labelKey, labelValue := range ip.Spec.Selector.MatchLabels {
+				Expect(podLabels).To(HaveKeyWithValue(string(labelKey), string(labelValue)),
+					"AMD pod template label %q should match NVIDIA InferencePool selector", labelKey)
+			}
+
+			// Verify no InferencePool was created for the AMD instance
+			amdIP := &igwapi.InferencePool{}
+			err := envTest.Client.Get(ctx, client.ObjectKey{
+				Name:      amdSvcName + "-inference-pool",
+				Namespace: testNs.Name,
+			}, amdIP)
+			Expect(errors.IsNotFound(err)).To(BeTrue(),
+				"AMD instance should not create its own InferencePool")
+
+			// Verify no scheduler deployment was created for the AMD instance
+			amdScheduler := &appsv1.Deployment{}
+			err = envTest.Client.Get(ctx, client.ObjectKey{
+				Name:      amdSvcName + "-kserve-epp",
+				Namespace: testNs.Name,
+			}, amdScheduler)
+			Expect(errors.IsNotFound(err)).To(BeTrue(),
+				"AMD instance should not create a scheduler deployment")
 		})
 	})
 })

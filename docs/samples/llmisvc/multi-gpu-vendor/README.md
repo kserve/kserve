@@ -1,7 +1,7 @@
 # Multi-GPU-Vendor Deployment Example
 
 Deploy the same model across NVIDIA and AMD GPUs using two LLMInferenceService instances that share a single
-scheduler/EPP via a custom InferencePool selector.
+scheduler/EPP via workload label propagation.
 
 ## Problem
 
@@ -11,9 +11,10 @@ replicas share the same pod template. Without this pattern, one GPU vendor's cap
 ## Solution
 
 1. **NVIDIA instance** (`qwen2-7b-instruct-nvidia`) — creates the scheduler/EPP, InferencePool, HTTPRoute, and Gateway.
-   The InferencePool uses a custom selector (`llm-pool: qwen2-7b`) instead of the default name-based selector.
+   The InferencePool uses the default selector (`app.kubernetes.io/name: qwen2-7b-instruct-nvidia`,
+   `app.kubernetes.io/part-of: llminferenceservice`, `kserve.io/component: workload`).
 2. **AMD instance** (`qwen2-7b-instruct-amd`) — has **no router** (no scheduler, no route, no gateway). Its pods carry
-   the same `llm-pool: qwen2-7b` label, so the EPP from the NVIDIA instance discovers and routes traffic to them.
+   the NVIDIA instance's workload labels via `spec.labels`, so the EPP discovers and routes traffic to them.
 
 ## Architecture
 
@@ -32,7 +33,8 @@ replicas share the same pod template. Without this pattern, one GPU vendor's cap
                     └───────────┬───────────┘
                                 │
                     InferencePool selector:
-                      llm-pool: qwen2-7b
+                      app.kubernetes.io/name: qwen2-7b-instruct-nvidia
+                      app.kubernetes.io/part-of: llminferenceservice
                       kserve.io/component: workload
                                 │
               ┌─────────────────┼─────────────────┐
@@ -46,34 +48,26 @@ replicas share the same pod template. Without this pattern, one GPU vendor's cap
 
 ## How It Works
 
-By default, the controller sets the InferencePool selector to match on `app.kubernetes.io/name: <service-name>`,
-which only selects pods from that single LLMInferenceService. To pool pods from multiple instances together, the
-NVIDIA instance overrides the selector with a shared custom label:
+The controller sets the InferencePool selector using the NVIDIA instance's default workload labels
+(`app.kubernetes.io/name`, `app.kubernetes.io/part-of`, `kserve.io/component`). To make the AMD pods
+discoverable by the same InferencePool, the AMD instance overrides these labels via `spec.labels`:
 
 ```yaml
-# NVIDIA instance — custom pool selector
+# AMD instance — no router, labels match the NVIDIA InferencePool selector
 spec:
   labels:
-    llm-pool: qwen2-7b          # added to all workload pods
-  router:
-    scheduler:
-      pool:
-        spec:
-          selector:
-            matchLabels:
-              llm-pool: qwen2-7b           # shared across instances
-              kserve.io/component: workload # only select workload pods
-```
-
-The AMD instance carries the same label but has no router:
-
-```yaml
-# AMD instance — no router, shared label
-spec:
-  labels:
-    llm-pool: qwen2-7b          # matches the InferencePool selector
+    app.kubernetes.io/name: qwen2-7b-instruct-nvidia
+    app.kubernetes.io/part-of: llminferenceservice
+    kserve.io/component: workload
   # no router section
 ```
+
+Because `spec.labels` is propagated to the pod template **after** the controller sets its own default labels,
+the AMD pods' `app.kubernetes.io/name` is overwritten from `qwen2-7b-instruct-amd` to
+`qwen2-7b-instruct-nvidia`, making them match the NVIDIA InferencePool's selector.
+
+The two Deployments do not conflict despite sharing label values because Kubernetes injects a unique
+`pod-template-hash` label into each Deployment's ReplicaSet selector, keeping pod ownership isolated.
 
 ## Prerequisites
 
@@ -87,19 +81,19 @@ spec:
 # 1. Deploy the NVIDIA instance (creates InferencePool, EPP, HTTPRoute, Gateway)
 kubectl apply -f llm-inference-service-qwen2-7b-nvidia-with-scheduler.yaml
 
-# 2. Deploy the AMD instance (pods join the existing InferencePool via shared label)
+# 2. Deploy the AMD instance (pods join the existing InferencePool via shared labels)
 kubectl apply -f llm-inference-service-qwen2-7b-amd-no-scheduler.yaml
 ```
 
 ## Configuration Summary
 
-| Feature         | NVIDIA Instance                   | AMD Instance         |
-|-----------------|-----------------------------------|----------------------|
-| Replicas        | 3                                 | 2                    |
-| GPU             | 1x NVIDIA per replica             | 1x AMD per replica   |
-| Scheduler / EPP | Yes (creates InferencePool + EPP) | No                   |
-| Route / Gateway | Yes                               | No                   |
-| Shared label    | `llm-pool: qwen2-7b`              | `llm-pool: qwen2-7b` |
+| Feature         | NVIDIA Instance                   | AMD Instance                           |
+|-----------------|-----------------------------------|----------------------------------------|
+| Replicas        | 3                                 | 2                                      |
+| GPU             | 1x NVIDIA per replica             | 1x AMD per replica                     |
+| Scheduler / EPP | Yes (creates InferencePool + EPP) | No                                     |
+| Route / Gateway | Yes                               | No                                     |
+| Labels override | None (uses defaults)              | Overrides `app.kubernetes.io/name` etc. |
 
 ## Verification
 
@@ -108,7 +102,7 @@ kubectl apply -f llm-inference-service-qwen2-7b-amd-no-scheduler.yaml
 kubectl get llminferenceservice
 
 # Verify pods are on the correct GPU nodes
-kubectl get pods -o wide -l llm-pool=qwen2-7b
+kubectl get pods -o wide -l app.kubernetes.io/name=qwen2-7b-instruct-nvidia
 
 # Confirm the InferencePool selects pods from both instances
 kubectl get inferencepool -o yaml
@@ -138,4 +132,4 @@ kubectl patch llmisvc qwen2-7b-instruct-nvidia --type merge -p '{"spec":{"replic
 kubectl patch llmisvc qwen2-7b-instruct-amd --type merge -p '{"spec":{"replicas":4}}'
 ```
 
-The EPP automatically discovers new pods as they match the shared `llm-pool: qwen2-7b` label.
+The EPP automatically discovers new pods as they match the workload labels.
