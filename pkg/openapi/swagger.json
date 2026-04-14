@@ -3752,6 +3752,10 @@
         "pathTemplate": {
           "type": "string"
         },
+        "rawDeployment": {
+          "description": "RawDeployment holds HTTPRoute generation options specific to RawDeployment InferenceServices when enableGatewayApi is true. All sub-fields are optional; omitting this block preserves existing behaviour.",
+          "$ref": "#/definitions/v1beta1.RawDeploymentIngressConfig"
+        },
         "urlScheme": {
           "type": "string"
         }
@@ -5879,6 +5883,44 @@
         "xgboost": {
           "description": "Spec for XGBoost model server",
           "$ref": "#/definitions/v1beta1.XGBoostSpec"
+        }
+      }
+    },
+    "v1beta1.RawDeploymentIngressConfig": {
+      "description": "RawDeploymentIngressConfig holds Gateway API HTTPRoute generation options for RawDeployment InferenceServices. All fields are optional; zero values preserve existing behaviour exactly.",
+      "type": "object",
+      "properties": {
+        "backendRequestTimeout": {
+          "description": "BackendRequestTimeout sets the backendRequest timeout for path-based rules (unset by default).",
+          "type": "string"
+        },
+        "disableHostBasedRouting": {
+          "description": "DisableHostBasedRouting omits HTTPRoute hostnames and host catch-all rules when pathTemplate is set.",
+          "type": "boolean"
+        },
+        "gatewayListenerName": {
+          "description": "GatewayListenerName sets sectionName on all parentRefs, pinning routes to a specific listener (e.g. \"https\").",
+          "type": "string"
+        },
+        "pathMatchType": {
+          "description": "PathMatchType sets the path match type for path-based rules. Accepted: \"PathPrefix\", \"RegularExpression\" (default).",
+          "type": "string"
+        },
+        "pathRewriteTarget": {
+          "description": "PathRewriteTarget adds a URLRewrite ReplacePrefixMatch filter when non-empty (requires PathPrefix). Typically \"/\".",
+          "type": "string"
+        },
+        "requestTimeout": {
+          "description": "RequestTimeout overrides the per-component timeout for path-based rules (Gateway API duration string, e.g. \"300s\").",
+          "type": "string"
+        },
+        "routeLabels": {
+          "description": "RouteLabels are merged onto every generated HTTPRoute, e.g. for SecurityPolicy targetSelectors.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "default": ""
+          }
         }
       }
     },
