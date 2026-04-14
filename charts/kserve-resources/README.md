@@ -44,6 +44,13 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.controller.gateway.localGateway.gatewayService | string | `"knative-local-gateway.istio-system.svc.cluster.local"` |  |
 | kserve.controller.gateway.localGateway.knativeGatewayService | string | `""` |  |
 | kserve.controller.gateway.pathTemplate | string | `""` |  |
+| kserve.controller.gateway.rawDeployment.backendRequestTimeout | string | `""` |  |
+| kserve.controller.gateway.rawDeployment.disableHostBasedRouting | bool | `false` |  |
+| kserve.controller.gateway.rawDeployment.gatewayListenerName | string | `""` |  |
+| kserve.controller.gateway.rawDeployment.pathMatchType | string | `""` |  |
+| kserve.controller.gateway.rawDeployment.pathRewriteTarget | string | `""` |  |
+| kserve.controller.gateway.rawDeployment.requestTimeout | string | `""` |  |
+| kserve.controller.gateway.rawDeployment.routeLabels | object | `{}` |  |
 | kserve.controller.gateway.urlScheme | string | `"http"` |  |
 | kserve.controller.image | string | `"kserve/kserve-controller"` |  |
 | kserve.controller.imagePullPolicy | string | `"Always"` |  |

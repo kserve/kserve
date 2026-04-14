@@ -87,7 +87,24 @@ data:
         "urlScheme": "{{ .Values.kserve.controller.gateway.urlScheme }}",
         "disableIstioVirtualHost": {{ .Values.kserve.controller.gateway.disableIstioVirtualHost }},
         "disableIngressCreation": {{ .Values.kserve.controller.gateway.disableIngressCreation }},
-        "disableHTTPRouteTimeout": {{ .Values.kserve.controller.gateway.disableHTTPRouteTimeout }}
+        "disableHTTPRouteTimeout": {{ .Values.kserve.controller.gateway.disableHTTPRouteTimeout }},
+        "rawDeployment": {
+            "gatewayListenerName": "{{ .Values.kserve.controller.gateway.rawDeployment.gatewayListenerName }}",
+            "pathMatchType": "{{ .Values.kserve.controller.gateway.rawDeployment.pathMatchType }}",
+            "pathRewriteTarget": "{{ .Values.kserve.controller.gateway.rawDeployment.pathRewriteTarget }}",
+            "disableHostBasedRouting": {{ .Values.kserve.controller.gateway.rawDeployment.disableHostBasedRouting }},
+            "routeLabels": {
+                {{- $labels := .Values.kserve.controller.gateway.rawDeployment.routeLabels }}
+                {{- $i := 0 }}
+                {{- range $key, $value := $labels }}
+                {{- if $i }},{{ end }}
+                {{ $key | quote }}: {{ $value | quote }}
+                {{- $i = 1 }}
+                {{- end }}
+            },
+            "requestTimeout": "{{ .Values.kserve.controller.gateway.rawDeployment.requestTimeout }}",
+            "backendRequestTimeout": "{{ .Values.kserve.controller.gateway.rawDeployment.backendRequestTimeout }}"
+        }
     }
   logger: |-
     {
