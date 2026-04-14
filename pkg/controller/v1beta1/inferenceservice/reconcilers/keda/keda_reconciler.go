@@ -107,11 +107,20 @@ func getKedaMetrics(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compo
 				case v1beta1.ValueMetricType:
 					targetValue = getOriginalStringMQ(metric.Resource.Target.Value, "0")
 				}
-				triggers = append(triggers, kedav1alpha1.ScaleTriggers{
+				trigger := kedav1alpha1.ScaleTriggers{
 					Type:       triggerType,
 					Metadata:   map[string]string{"value": targetValue},
 					MetricType: autoscalingv2.MetricTargetType(metricType),
-				})
+				}
+				// Set trigger name if provided
+				if metric.Name != "" {
+					trigger.Name = metric.Name
+				}
+				// Set useCachedMetrics if provided
+				if metric.UseCachedMetrics {
+					trigger.UseCachedMetrics = metric.UseCachedMetrics
+				}
+				triggers = append(triggers, trigger)
 			case v1beta1.ExternalMetricSourceType:
 				triggerType := string(metric.External.Metric.Backend)
 				serverAddress := metric.External.Metric.ServerAddress
@@ -141,6 +150,14 @@ func getKedaMetrics(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compo
 							Name: authRef.Name,
 						}
 					}
+				}
+				// Set trigger name if provided
+				if metric.Name != "" {
+					trigger.Name = metric.Name
+				}
+				// Set useCachedMetrics if provided
+				if metric.UseCachedMetrics {
+					trigger.UseCachedMetrics = metric.UseCachedMetrics
 				}
 				triggers = append(triggers, trigger)
 			case v1beta1.PodMetricSourceType:
@@ -177,6 +194,14 @@ func getKedaMetrics(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compo
 					}
 				}
 
+				// Set trigger name if provided
+				if metric.Name != "" {
+					trigger.Name = metric.Name
+				}
+				// Set useCachedMetrics if provided
+				if metric.UseCachedMetrics {
+					trigger.UseCachedMetrics = metric.UseCachedMetrics
+				}
 				triggers = append(triggers, trigger)
 			}
 		}
@@ -255,7 +280,84 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 		},
 	}
 
-	if scaleDownStabilizationWindowSeconds != nil || scaleUpStabilizationWindowSeconds != nil {
+	// Apply KEDA-specific configuration if present
+	if componentExtension != nil && componentExtension.AutoScaling != nil && componentExtension.AutoScaling.KEDA != nil {
+		kedaConfig := componentExtension.AutoScaling.KEDA
+
+		// Set polling interval
+		if kedaConfig.PollingInterval != nil {
+			scaledobject.Spec.PollingInterval = kedaConfig.PollingInterval
+		}
+
+		// Set cooldown period
+		if kedaConfig.CooldownPeriod != nil {
+			scaledobject.Spec.CooldownPeriod = kedaConfig.CooldownPeriod
+		}
+
+		// Set initial cooldown period
+		if kedaConfig.InitialCooldownPeriod != nil {
+			scaledobject.Spec.InitialCooldownPeriod = kedaConfig.InitialCooldownPeriod
+		}
+
+		// Set idle replica count
+		if kedaConfig.IdleReplicaCount != nil {
+			scaledobject.Spec.IdleReplicaCount = kedaConfig.IdleReplicaCount
+		}
+
+		// Set fallback configuration
+		if kedaConfig.Fallback != nil {
+			scaledobject.Spec.Fallback = &kedav1alpha1.Fallback{
+				FailureThreshold: kedaConfig.Fallback.FailureThreshold,
+				Replicas:         kedaConfig.Fallback.Replicas,
+			}
+			if kedaConfig.Fallback.Behavior != "" {
+				scaledobject.Spec.Fallback.Behavior = kedaConfig.Fallback.Behavior
+			}
+		}
+
+		// Set advanced configuration
+		if kedaConfig.Advanced != nil {
+			if scaledobject.Spec.Advanced == nil {
+				scaledobject.Spec.Advanced = &kedav1alpha1.AdvancedConfig{}
+			}
+
+			// Set HPA config
+			if kedaConfig.Advanced.HorizontalPodAutoscalerConfig != nil {
+				if scaledobject.Spec.Advanced.HorizontalPodAutoscalerConfig == nil {
+					scaledobject.Spec.Advanced.HorizontalPodAutoscalerConfig = &kedav1alpha1.HorizontalPodAutoscalerConfig{}
+				}
+				if kedaConfig.Advanced.HorizontalPodAutoscalerConfig.Behavior != nil {
+					scaledobject.Spec.Advanced.HorizontalPodAutoscalerConfig.Behavior = kedaConfig.Advanced.HorizontalPodAutoscalerConfig.Behavior
+				}
+				if kedaConfig.Advanced.HorizontalPodAutoscalerConfig.Name != "" {
+					scaledobject.Spec.Advanced.HorizontalPodAutoscalerConfig.Name = kedaConfig.Advanced.HorizontalPodAutoscalerConfig.Name
+				}
+			}
+
+			// Set restore to original replica count
+			if kedaConfig.Advanced.RestoreToOriginalReplicaCount != nil {
+				scaledobject.Spec.Advanced.RestoreToOriginalReplicaCount = *kedaConfig.Advanced.RestoreToOriginalReplicaCount
+			}
+
+			// Set scaling modifiers
+			if kedaConfig.Advanced.ScalingModifiers != nil {
+				scaledobject.Spec.Advanced.ScalingModifiers = kedav1alpha1.ScalingModifiers{
+					Formula:          kedaConfig.Advanced.ScalingModifiers.Formula,
+					Target:           kedaConfig.Advanced.ScalingModifiers.Target,
+					ActivationTarget: kedaConfig.Advanced.ScalingModifiers.ActivationTarget,
+					MetricType:       autoscalingv2.MetricTargetType(kedaConfig.Advanced.ScalingModifiers.MetricType),
+				}
+			}
+		}
+	}
+
+	// Apply backward compatible Behavior settings only if KEDA advanced config is not set
+	// This maintains compatibility with existing configurations that use the Behavior field directly
+	if (scaleDownStabilizationWindowSeconds != nil || scaleUpStabilizationWindowSeconds != nil) &&
+		(componentExtension == nil || componentExtension.AutoScaling == nil ||
+			componentExtension.AutoScaling.KEDA == nil || componentExtension.AutoScaling.KEDA.Advanced == nil ||
+			componentExtension.AutoScaling.KEDA.Advanced.HorizontalPodAutoscalerConfig == nil ||
+			componentExtension.AutoScaling.KEDA.Advanced.HorizontalPodAutoscalerConfig.Behavior == nil) {
 		hpaBehavior := &autoscalingv2.HorizontalPodAutoscalerBehavior{}
 		if scaleDownStabilizationWindowSeconds != nil {
 			hpaBehavior.ScaleDown = &autoscalingv2.HPAScalingRules{
@@ -267,11 +369,13 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 				StabilizationWindowSeconds: scaleUpStabilizationWindowSeconds,
 			}
 		}
-		scaledobject.Spec.Advanced = &kedav1alpha1.AdvancedConfig{
-			HorizontalPodAutoscalerConfig: &kedav1alpha1.HorizontalPodAutoscalerConfig{
-				Behavior: hpaBehavior,
-			},
+		if scaledobject.Spec.Advanced == nil {
+			scaledobject.Spec.Advanced = &kedav1alpha1.AdvancedConfig{}
 		}
+		if scaledobject.Spec.Advanced.HorizontalPodAutoscalerConfig == nil {
+			scaledobject.Spec.Advanced.HorizontalPodAutoscalerConfig = &kedav1alpha1.HorizontalPodAutoscalerConfig{}
+		}
+		scaledobject.Spec.Advanced.HorizontalPodAutoscalerConfig.Behavior = hpaBehavior
 	}
 
 	return scaledobject, nil

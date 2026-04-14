@@ -1015,3 +1015,378 @@ func TestGetOriginalStringMQ(t *testing.T) {
 		})
 	}
 }
+
+// Tests for new KEDA advanced fields
+
+func TestCreateKedaScaledObject_WithKEDAConfig(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "keda-advanced",
+		Namespace: "test-ns",
+	}
+	componentExt := &v1beta1.ComponentExtensionSpec{
+		MinReplicas: ptr.To(int32(1)),
+		MaxReplicas: 10,
+		AutoScaling: &v1beta1.AutoScalingSpec{
+			KEDA: &v1beta1.KEDAScalingConfig{
+				PollingInterval:       ptr.To(int32(15)),
+				CooldownPeriod:        ptr.To(int32(60)),
+				InitialCooldownPeriod: ptr.To(int32(120)),
+				IdleReplicaCount:      ptr.To(int32(0)),
+			},
+		},
+	}
+	configMap := &corev1.ConfigMap{}
+
+	scaledObject, err := createKedaScaledObject(componentMeta, componentExt, configMap)
+	require.NoError(t, err)
+	assert.NotNil(t, scaledObject)
+	assert.Equal(t, ptr.To(int32(15)), scaledObject.Spec.PollingInterval)
+	assert.Equal(t, ptr.To(int32(60)), scaledObject.Spec.CooldownPeriod)
+	assert.Equal(t, ptr.To(int32(120)), scaledObject.Spec.InitialCooldownPeriod)
+	assert.Equal(t, ptr.To(int32(0)), scaledObject.Spec.IdleReplicaCount)
+}
+
+func TestCreateKedaScaledObject_WithFallback(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "keda-fallback",
+		Namespace: "test-ns",
+	}
+	componentExt := &v1beta1.ComponentExtensionSpec{
+		MinReplicas: ptr.To(int32(1)),
+		MaxReplicas: 10,
+		AutoScaling: &v1beta1.AutoScalingSpec{
+			KEDA: &v1beta1.KEDAScalingConfig{
+				Fallback: &v1beta1.KEDAFallback{
+					FailureThreshold: 3,
+					Replicas:         2,
+					Behavior:         "static",
+				},
+			},
+		},
+	}
+	configMap := &corev1.ConfigMap{}
+
+	scaledObject, err := createKedaScaledObject(componentMeta, componentExt, configMap)
+	require.NoError(t, err)
+	assert.NotNil(t, scaledObject.Spec.Fallback)
+	assert.Equal(t, int32(3), scaledObject.Spec.Fallback.FailureThreshold)
+	assert.Equal(t, int32(2), scaledObject.Spec.Fallback.Replicas)
+	assert.Equal(t, "static", scaledObject.Spec.Fallback.Behavior)
+}
+
+func TestCreateKedaScaledObject_WithAdvancedConfig(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "keda-advanced-config",
+		Namespace: "test-ns",
+	}
+	componentExt := &v1beta1.ComponentExtensionSpec{
+		MinReplicas: ptr.To(int32(1)),
+		MaxReplicas: 10,
+		AutoScaling: &v1beta1.AutoScalingSpec{
+			KEDA: &v1beta1.KEDAScalingConfig{
+				Advanced: &v1beta1.KEDAAdvancedConfig{
+					RestoreToOriginalReplicaCount: ptr.To(true),
+					HorizontalPodAutoscalerConfig: &v1beta1.KEDAHPAConfig{
+						Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{
+							ScaleDown: &autoscalingv2.HPAScalingRules{
+								StabilizationWindowSeconds: ptr.To(int32(300)),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	configMap := &corev1.ConfigMap{}
+
+	scaledObject, err := createKedaScaledObject(componentMeta, componentExt, configMap)
+	require.NoError(t, err)
+	assert.NotNil(t, scaledObject.Spec.Advanced)
+	assert.Equal(t, true, scaledObject.Spec.Advanced.RestoreToOriginalReplicaCount)
+	assert.NotNil(t, scaledObject.Spec.Advanced.HorizontalPodAutoscalerConfig)
+	assert.NotNil(t, scaledObject.Spec.Advanced.HorizontalPodAutoscalerConfig.Behavior)
+	assert.Equal(t, ptr.To(int32(300)), scaledObject.Spec.Advanced.HorizontalPodAutoscalerConfig.Behavior.ScaleDown.StabilizationWindowSeconds)
+}
+
+func TestCreateKedaScaledObject_WithScalingModifiers(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "keda-scaling-modifiers",
+		Namespace: "test-ns",
+	}
+	componentExt := &v1beta1.ComponentExtensionSpec{
+		MinReplicas: ptr.To(int32(1)),
+		MaxReplicas: 10,
+		AutoScaling: &v1beta1.AutoScalingSpec{
+			KEDA: &v1beta1.KEDAScalingConfig{
+				Advanced: &v1beta1.KEDAAdvancedConfig{
+					ScalingModifiers: &v1beta1.KEDAScalingModifiers{
+						Formula:          "desired_replicas",
+						Target:           "100",
+						ActivationTarget: "50",
+						MetricType:       "AverageValue",
+					},
+				},
+			},
+		},
+	}
+	configMap := &corev1.ConfigMap{}
+
+	scaledObject, err := createKedaScaledObject(componentMeta, componentExt, configMap)
+	require.NoError(t, err)
+	assert.NotNil(t, scaledObject.Spec.Advanced)
+	assert.Equal(t, "desired_replicas", scaledObject.Spec.Advanced.ScalingModifiers.Formula)
+	assert.Equal(t, "100", scaledObject.Spec.Advanced.ScalingModifiers.Target)
+	assert.Equal(t, "50", scaledObject.Spec.Advanced.ScalingModifiers.ActivationTarget)
+	assert.Equal(t, autoscalingv2.MetricTargetType("AverageValue"), scaledObject.Spec.Advanced.ScalingModifiers.MetricType)
+}
+
+func TestGetKedaMetrics_WithTriggerName(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "test-component",
+		Namespace: "test-namespace",
+	}
+	componentExt := &v1beta1.ComponentExtensionSpec{
+		AutoScaling: &v1beta1.AutoScalingSpec{
+			Metrics: []v1beta1.MetricsSpec{
+				{
+					Type: v1beta1.ResourceMetricSourceType,
+					Name: "cpu-trigger",
+					Resource: &v1beta1.ResourceMetricSource{
+						Name: v1beta1.ResourceMetricCPU,
+						Target: v1beta1.MetricTarget{
+							Type:               v1beta1.UtilizationMetricType,
+							AverageUtilization: ptr.To(int32(80)),
+						},
+					},
+				},
+			},
+		},
+	}
+	configMap := &corev1.ConfigMap{}
+
+	triggers, err := getKedaMetrics(componentMeta, componentExt, configMap)
+	require.NoError(t, err)
+	assert.Len(t, triggers, 1)
+	assert.Equal(t, "cpu-trigger", triggers[0].Name)
+	assert.Equal(t, "cpu", triggers[0].Type)
+}
+
+func TestGetKedaMetrics_WithUseCachedMetrics(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "test-component",
+		Namespace: "test-namespace",
+	}
+	componentExt := &v1beta1.ComponentExtensionSpec{
+		AutoScaling: &v1beta1.AutoScalingSpec{
+			Metrics: []v1beta1.MetricsSpec{
+				{
+					Type:             v1beta1.ExternalMetricSourceType,
+					Name:             "prometheus-trigger",
+					UseCachedMetrics: true,
+					External: &v1beta1.ExternalMetricSource{
+						Metric: v1beta1.ExternalMetrics{
+							Backend:       v1beta1.PrometheusBackend,
+							ServerAddress: "http://prometheus",
+							Query:         "query",
+						},
+						Target: v1beta1.MetricTarget{
+							Value: v1beta1.NewMetricQuantity("100"),
+						},
+					},
+				},
+			},
+		},
+	}
+	configMap := &corev1.ConfigMap{}
+
+	triggers, err := getKedaMetrics(componentMeta, componentExt, configMap)
+	require.NoError(t, err)
+	assert.Len(t, triggers, 1)
+	assert.Equal(t, "prometheus-trigger", triggers[0].Name)
+	assert.True(t, triggers[0].UseCachedMetrics)
+}
+
+func TestGetKedaMetrics_MultipleTriggers_WithNames(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "test-component",
+		Namespace: "test-namespace",
+	}
+	componentExt := &v1beta1.ComponentExtensionSpec{
+		AutoScaling: &v1beta1.AutoScalingSpec{
+			Metrics: []v1beta1.MetricsSpec{
+				{
+					Type: v1beta1.ResourceMetricSourceType,
+					Name: "cpu-trigger",
+					Resource: &v1beta1.ResourceMetricSource{
+						Name: v1beta1.ResourceMetricCPU,
+						Target: v1beta1.MetricTarget{
+							Type:               v1beta1.UtilizationMetricType,
+							AverageUtilization: ptr.To(int32(80)),
+						},
+					},
+				},
+				{
+					Type: v1beta1.ResourceMetricSourceType,
+					Name: "memory-trigger",
+					Resource: &v1beta1.ResourceMetricSource{
+						Name: v1beta1.ResourceMetricMemory,
+						Target: v1beta1.MetricTarget{
+							Type:               v1beta1.UtilizationMetricType,
+							AverageUtilization: ptr.To(int32(85)),
+						},
+					},
+				},
+			},
+		},
+	}
+	configMap := &corev1.ConfigMap{}
+
+	triggers, err := getKedaMetrics(componentMeta, componentExt, configMap)
+	require.NoError(t, err)
+	assert.Len(t, triggers, 2)
+	assert.Equal(t, "cpu-trigger", triggers[0].Name)
+	assert.Equal(t, "memory-trigger", triggers[1].Name)
+}
+
+func TestCreateKedaScaledObject_BackwardCompatibility(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "backward-compat",
+		Namespace: "test-ns",
+	}
+	sdWin := int32(300)
+	componentExt := &v1beta1.ComponentExtensionSpec{
+		MinReplicas: ptr.To(int32(1)),
+		MaxReplicas: 5,
+		AutoScaling: &v1beta1.AutoScalingSpec{
+			Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{
+				ScaleDown: &autoscalingv2.HPAScalingRules{
+					StabilizationWindowSeconds: &sdWin,
+				},
+			},
+			// No KEDA config - should use backward compatible behavior
+		},
+	}
+	configMap := &corev1.ConfigMap{}
+
+	scaledObject, err := createKedaScaledObject(componentMeta, componentExt, configMap)
+	require.NoError(t, err)
+	assert.NotNil(t, scaledObject.Spec.Advanced)
+	assert.NotNil(t, scaledObject.Spec.Advanced.HorizontalPodAutoscalerConfig)
+	assert.NotNil(t, scaledObject.Spec.Advanced.HorizontalPodAutoscalerConfig.Behavior)
+	assert.Equal(t, &sdWin, scaledObject.Spec.Advanced.HorizontalPodAutoscalerConfig.Behavior.ScaleDown.StabilizationWindowSeconds)
+	// Ensure KEDA-specific fields are not set
+	assert.Nil(t, scaledObject.Spec.PollingInterval)
+	assert.Nil(t, scaledObject.Spec.CooldownPeriod)
+	assert.Nil(t, scaledObject.Spec.IdleReplicaCount)
+}
+
+func TestCreateKedaScaledObject_KEDAConfigOverridesBehavior(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "override-test",
+		Namespace: "test-ns",
+	}
+	oldBehaviorWin := int32(100)
+	newBehaviorWin := int32(200)
+	componentExt := &v1beta1.ComponentExtensionSpec{
+		MinReplicas: ptr.To(int32(1)),
+		MaxReplicas: 5,
+		AutoScaling: &v1beta1.AutoScalingSpec{
+			// Old behavior field (for backward compatibility)
+			Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{
+				ScaleDown: &autoscalingv2.HPAScalingRules{
+					StabilizationWindowSeconds: &oldBehaviorWin,
+				},
+			},
+			// New KEDA config with different behavior
+			KEDA: &v1beta1.KEDAScalingConfig{
+				Advanced: &v1beta1.KEDAAdvancedConfig{
+					HorizontalPodAutoscalerConfig: &v1beta1.KEDAHPAConfig{
+						Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{
+							ScaleDown: &autoscalingv2.HPAScalingRules{
+								StabilizationWindowSeconds: &newBehaviorWin,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	configMap := &corev1.ConfigMap{}
+
+	scaledObject, err := createKedaScaledObject(componentMeta, componentExt, configMap)
+	require.NoError(t, err)
+	assert.NotNil(t, scaledObject.Spec.Advanced)
+	assert.NotNil(t, scaledObject.Spec.Advanced.HorizontalPodAutoscalerConfig)
+	assert.NotNil(t, scaledObject.Spec.Advanced.HorizontalPodAutoscalerConfig.Behavior)
+	// Should use KEDA config, not old behavior
+	assert.Equal(t, &newBehaviorWin, scaledObject.Spec.Advanced.HorizontalPodAutoscalerConfig.Behavior.ScaleDown.StabilizationWindowSeconds)
+}
+
+func TestCreateKedaScaledObject_CompleteKEDAConfig(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "complete-keda",
+		Namespace: "test-ns",
+	}
+	componentExt := &v1beta1.ComponentExtensionSpec{
+		MinReplicas: ptr.To(int32(1)),
+		MaxReplicas: 10,
+		AutoScaling: &v1beta1.AutoScalingSpec{
+			KEDA: &v1beta1.KEDAScalingConfig{
+				PollingInterval:       ptr.To(int32(20)),
+				CooldownPeriod:        ptr.To(int32(90)),
+				InitialCooldownPeriod: ptr.To(int32(180)),
+				IdleReplicaCount:      ptr.To(int32(0)),
+				Fallback: &v1beta1.KEDAFallback{
+					FailureThreshold: 5,
+					Replicas:         3,
+					Behavior:         "currentReplicas",
+				},
+				Advanced: &v1beta1.KEDAAdvancedConfig{
+					RestoreToOriginalReplicaCount: ptr.To(false),
+					HorizontalPodAutoscalerConfig: &v1beta1.KEDAHPAConfig{
+						Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{
+							ScaleDown: &autoscalingv2.HPAScalingRules{
+								StabilizationWindowSeconds: ptr.To(int32(600)),
+							},
+							ScaleUp: &autoscalingv2.HPAScalingRules{
+								StabilizationWindowSeconds: ptr.To(int32(0)),
+							},
+						},
+					},
+					ScalingModifiers: &v1beta1.KEDAScalingModifiers{
+						Formula:          "custom_formula",
+						Target:           "200",
+						ActivationTarget: "100",
+						MetricType:       "Value",
+					},
+				},
+			},
+		},
+	}
+	configMap := &corev1.ConfigMap{}
+
+	scaledObject, err := createKedaScaledObject(componentMeta, componentExt, configMap)
+	require.NoError(t, err)
+
+	// Verify all KEDA fields are set correctly
+	assert.Equal(t, ptr.To(int32(20)), scaledObject.Spec.PollingInterval)
+	assert.Equal(t, ptr.To(int32(90)), scaledObject.Spec.CooldownPeriod)
+	assert.Equal(t, ptr.To(int32(180)), scaledObject.Spec.InitialCooldownPeriod)
+	assert.Equal(t, ptr.To(int32(0)), scaledObject.Spec.IdleReplicaCount)
+
+	assert.NotNil(t, scaledObject.Spec.Fallback)
+	assert.Equal(t, int32(5), scaledObject.Spec.Fallback.FailureThreshold)
+	assert.Equal(t, int32(3), scaledObject.Spec.Fallback.Replicas)
+	assert.Equal(t, "currentReplicas", scaledObject.Spec.Fallback.Behavior)
+
+	assert.NotNil(t, scaledObject.Spec.Advanced)
+	assert.Equal(t, false, scaledObject.Spec.Advanced.RestoreToOriginalReplicaCount)
+	assert.NotNil(t, scaledObject.Spec.Advanced.HorizontalPodAutoscalerConfig.Behavior)
+	assert.Equal(t, ptr.To(int32(600)), scaledObject.Spec.Advanced.HorizontalPodAutoscalerConfig.Behavior.ScaleDown.StabilizationWindowSeconds)
+	assert.Equal(t, ptr.To(int32(0)), scaledObject.Spec.Advanced.HorizontalPodAutoscalerConfig.Behavior.ScaleUp.StabilizationWindowSeconds)
+
+	assert.Equal(t, "custom_formula", scaledObject.Spec.Advanced.ScalingModifiers.Formula)
+	assert.Equal(t, "200", scaledObject.Spec.Advanced.ScalingModifiers.Target)
+	assert.Equal(t, "100", scaledObject.Spec.Advanced.ScalingModifiers.ActivationTarget)
+	assert.Equal(t, autoscalingv2.MetricTargetType("Value"), scaledObject.Spec.Advanced.ScalingModifiers.MetricType)
+}
