@@ -3,7 +3,7 @@ kind: InferenceService
 metadata:
   name: sklearn-iris-keda-advanced
   annotations:
-    serving.kserve.io/deploymentMode: "RawDeployment"
+    serving.kserve.io/deploymentMode: "Standard"
     serving.kserve.io/autoscalerClass: "keda"
 spec:
   predictor:
