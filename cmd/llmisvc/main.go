@@ -262,6 +262,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	setupLog.Info("Setting up LLMInferenceServiceConfig controller")
+	if err = (&llmisvc.LLMISVCConfigReconciler{
+		Client:        mgr.GetClient(),
+		EventRecorder: llmEventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: "LLMInferenceServiceConfigController"}),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "LLMInferenceServiceConfig")
+		os.Exit(1)
+	}
+
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
 		os.Exit(1)
