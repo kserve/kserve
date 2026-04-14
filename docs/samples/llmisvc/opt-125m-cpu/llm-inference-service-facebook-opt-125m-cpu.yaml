@@ -14,7 +14,7 @@ spec:
   template:
     containers:
       - name: main
-        image: public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1
+        image: public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0
         env:
           - name: VLLM_LOGGING_LEVEL
             value: DEBUG

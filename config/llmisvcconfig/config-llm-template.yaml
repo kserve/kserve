@@ -155,8 +155,8 @@ spec:
             value: /models
         securityContext:
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: false
-          runAsNonRoot: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
           capabilities:
             drop:
               - ALL
@@ -190,6 +190,8 @@ spec:
         volumeMounts:
           - mountPath: /home
             name: home
+          - mountPath: /tmp
+            name: tmp-dir
           - mountPath: /dev/shm
             name: dshm
           - mountPath: /models
@@ -207,6 +209,8 @@ spec:
         name: dshm
       - emptyDir: { }
         name: model-cache
+      - emptyDir: { }
+        name: tmp-dir
       - name: tls-certs
         secret:
           secretName: "{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}"
