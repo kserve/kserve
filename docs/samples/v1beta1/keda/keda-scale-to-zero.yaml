@@ -1,0 +1,33 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: sklearn-iris-scale-to-zero
+  annotations:
+    serving.kserve.io/deploymentMode: "RawDeployment"
+    serving.kserve.io/autoscalerClass: "keda"
+spec:
+  predictor:
+    minReplicas: 1
+    maxReplicas: 5
+    autoScaling:
+      metrics:
+        - type: External
+          name: prometheus-requests
+          external:
+            metric:
+              backend: prometheus
+              serverAddress: "http://prometheus.monitoring.svc.cluster.local:9090"
+              query: "sum(rate(istio_requests_total{destination_workload=\"sklearn-iris-scale-to-zero-predictor-default\"}[2m]))"
+            target:
+              type: Value
+              value: "10"
+      # KEDA configuration for scale-to-zero
+      keda:
+        # Scale down to 0 replicas when there are no active triggers
+        idleReplicaCount: 0
+        # Check triggers every 30 seconds
+        pollingInterval: 30
+        # Wait 120 seconds after last trigger before scaling down to idleReplicaCount
+        cooldownPeriod: 120
+    sklearn:
+      storageUri: "gs://kfserving-examples/models/sklearn/1.0/model"
