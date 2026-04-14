@@ -137,6 +137,123 @@ type AutoScalingSpec struct {
 	// Behavior contains the scaling behavior configuration for the Horizontal Pod Autoscaler.
 	// +optional
 	Behavior *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
+	// KEDA contains KEDA-specific autoscaling configuration.
+	// When specified, KEDA ScaledObject will be used for autoscaling.
+	// +optional
+	KEDA *KEDAScalingConfig `json:"keda,omitempty"`
+}
+
+// KEDAScalingConfig configures KEDA ScaledObject-specific options.
+// These fields map directly to KEDA ScaledObject spec fields.
+type KEDAScalingConfig struct {
+	// PollingInterval is the interval in seconds to check each trigger on.
+	// Must be at least 1 second. Default is 30 seconds.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	PollingInterval *int32 `json:"pollingInterval,omitempty"`
+
+	// CooldownPeriod is the period in seconds to wait after the last trigger reported active
+	// before scaling the resource back to its minimum replica count.
+	// A value of 0 means scale down immediately with no cooldown.
+	// Default is 300 seconds (5 minutes).
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	CooldownPeriod *int32 `json:"cooldownPeriod,omitempty"`
+
+	// InitialCooldownPeriod is the period in seconds to wait after the ScaledObject is created
+	// before KEDA starts evaluating triggers. Useful for model deployments where the model
+	// takes time to load before it can serve traffic, preventing premature scale-up decisions.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	InitialCooldownPeriod *int32 `json:"initialCooldownPeriod,omitempty"`
+
+	// IdleReplicaCount is the number of replicas KEDA will scale the resource down to
+	// when there are no triggers active. This must be less than minReplicas.
+	// If not set, KEDA will not scale below minReplicas.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	IdleReplicaCount *int32 `json:"idleReplicaCount,omitempty"`
+
+	// Fallback defines the replica count to maintain when the scaler is in a fallback state
+	// (e.g., when metrics are unavailable). This allows the deployment to hold a safe
+	// replica count during metric outages rather than scaling to zero.
+	// +optional
+	Fallback *KEDAFallback `json:"fallback,omitempty"`
+
+	// Advanced specifies advanced KEDA configuration options.
+	// This includes HPA behavior configuration and restore-to-original replica count settings.
+	// +optional
+	Advanced *KEDAAdvancedConfig `json:"advanced,omitempty"`
+}
+
+// KEDAFallback defines fallback configuration for KEDA ScaledObject.
+type KEDAFallback struct {
+	// FailureThreshold is the number of consecutive failures before fallback is triggered.
+	// +kubebuilder:validation:Minimum=0
+	FailureThreshold int32 `json:"failureThreshold"`
+
+	// Replicas is the number of replicas to maintain when in fallback mode.
+	// +kubebuilder:validation:Minimum=0
+	Replicas int32 `json:"replicas"`
+
+	// Behavior defines how fallback replicas are determined.
+	// Valid values: static, currentReplicas, currentReplicasIfHigher, currentReplicasIfLower
+	// Default: static
+	// +optional
+	// +kubebuilder:default=static
+	// +kubebuilder:validation:Enum=static;currentReplicas;currentReplicasIfHigher;currentReplicasIfLower
+	Behavior string `json:"behavior,omitempty"`
+}
+
+// KEDAAdvancedConfig specifies advanced scaling options for KEDA.
+type KEDAAdvancedConfig struct {
+	// HorizontalPodAutoscalerConfig specifies HPA-related configuration.
+	// +optional
+	HorizontalPodAutoscalerConfig *KEDAHPAConfig `json:"horizontalPodAutoscalerConfig,omitempty"`
+
+	// RestoreToOriginalReplicaCount specifies whether to restore the original replica count
+	// when the ScaledObject is deleted.
+	// +optional
+	RestoreToOriginalReplicaCount *bool `json:"restoreToOriginalReplicaCount,omitempty"`
+
+	// ScalingModifiers describes advanced scaling logic options like formula.
+	// +optional
+	ScalingModifiers *KEDAScalingModifiers `json:"scalingModifiers,omitempty"`
+}
+
+// KEDAHPAConfig specifies horizontal scale config for KEDA-managed HPA.
+type KEDAHPAConfig struct {
+	// Behavior contains the scaling behavior configuration.
+	// This is the same as the top-level Behavior field but applies when using KEDA.
+	// +optional
+	Behavior *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
+
+	// Name is the name of the HPA resource created by KEDA.
+	// If not set, KEDA will auto-generate the name.
+	// NOTE: This field is typically not needed as KEDA manages the HPA name.
+	// +optional
+	Name string `json:"name,omitempty"`
+}
+
+// KEDAScalingModifiers describes advanced scaling logic options.
+type KEDAScalingModifiers struct {
+	// Formula is a custom formula to calculate the desired replica count.
+	// +optional
+	Formula string `json:"formula,omitempty"`
+
+	// Target is the target value for the formula.
+	// +optional
+	Target string `json:"target,omitempty"`
+
+	// ActivationTarget is the activation threshold for the formula.
+	// +optional
+	ActivationTarget string `json:"activationTarget,omitempty"`
+
+	// MetricType specifies the metric type for the formula.
+	// Valid values: AverageValue, Value
+	// +optional
+	// +kubebuilder:validation:Enum=AverageValue;Value
+	MetricType string `json:"metricType,omitempty"`
 }
 
 // MetricsSpec specifies how to scale based on a single metric
@@ -167,6 +284,16 @@ type MetricsSpec struct {
 	// averaged together before being compared to the target value.
 	// +optional
 	PodMetric *PodMetricSource `json:"podmetric,omitempty"`
+
+	// Name is the name of the trigger. Must be unique within the ScaledObject.
+	// Used by KEDA to identify triggers.
+	// +optional
+	Name string `json:"name,omitempty"`
+
+	// UseCachedMetrics determines whether KEDA should use cached metrics.
+	// Not supported for cpu, memory, or cron scalers.
+	// +optional
+	UseCachedMetrics bool `json:"useCachedMetrics,omitempty"`
 }
 
 // MetricSourceType indicates the type of metric.
@@ -335,7 +462,29 @@ const (
 )
 
 // Default the ComponentExtensionSpec
-func (s *ComponentExtensionSpec) Default(config *InferenceServicesConfig) {}
+func (s *ComponentExtensionSpec) Default(config *InferenceServicesConfig) {
+	// Apply defaults for KEDA configuration
+	if s.AutoScaling != nil && s.AutoScaling.KEDA != nil {
+		keda := s.AutoScaling.KEDA
+
+		// Set default polling interval to 30 seconds if not specified
+		if keda.PollingInterval == nil {
+			defaultPollingInterval := int32(30)
+			keda.PollingInterval = &defaultPollingInterval
+		}
+
+		// Set default cooldown period to 300 seconds (5 minutes) if not specified
+		if keda.CooldownPeriod == nil {
+			defaultCooldownPeriod := int32(300)
+			keda.CooldownPeriod = &defaultCooldownPeriod
+		}
+
+		// Set default fallback behavior to "static" if fallback is specified but behavior is not
+		if keda.Fallback != nil && keda.Fallback.Behavior == "" {
+			keda.Fallback.Behavior = "static"
+		}
+	}
+}
 
 // Validate the ComponentExtensionSpec
 func (s *ComponentExtensionSpec) Validate() error {
