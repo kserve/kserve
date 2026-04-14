@@ -19,6 +19,8 @@ package pod
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,9 +33,7 @@ import (
 func newOVMSInjector(t *testing.T) *StorageInitializerInjector {
 	t.Helper()
 	ovmsConfig, err := getOVMSVersioningConfig(&corev1.ConfigMap{Data: map[string]string{}})
-	if err != nil {
-		t.Fatalf("failed to build default OVMS config: %v", err)
-	}
+	require.NoError(t, err, "failed to build default OVMS config")
 	return &StorageInitializerInjector{
 		credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{
 			Data: map[string]string{},
@@ -218,10 +218,7 @@ done
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			injector := newOVMSInjector(t)
-			if err := injector.InjectStorageInitializer(t.Context(), scenario.original); err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
+			require.NoError(t, newOVMSInjector(t).InjectStorageInitializer(t.Context(), scenario.original))
 			if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
 				t.Errorf("unexpected pod spec (-want +got):\n%v", diff)
 			}
@@ -230,20 +227,19 @@ done
 }
 
 func TestOVMSAutoVersioningInvalidAnnotationValues(t *testing.T) {
-	cases := []struct {
-		name        string
+	cases := map[string]struct {
 		value       string
 		expectError bool
 	}{
-		{"not a number", "invalid", true},
-		{"zero", "0", true},
-		{"negative", "-1", true},
-		{"version 1", "1", false},
-		{"version 10", "10", false},
+		"not a number": {value: "invalid", expectError: true},
+		"zero":         {value: "0", expectError: true},
+		"negative":     {value: "-1", expectError: true},
+		"version 1":    {value: "1", expectError: false},
+		"version 10":   {value: "10", expectError: false},
 	}
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
 			pod := &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
@@ -255,13 +251,11 @@ func TestOVMSAutoVersioningInvalidAnnotationValues(t *testing.T) {
 					Containers: []corev1.Container{{Name: constants.InferenceServiceContainerName}},
 				},
 			}
-
 			err := newOVMSInjector(t).InjectStorageInitializer(t.Context(), pod)
-			if tc.expectError && err == nil {
-				t.Error("expected error, got nil")
-			}
-			if !tc.expectError && err != nil {
-				t.Errorf("unexpected error: %v", err)
+			if tc.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}
@@ -270,18 +264,12 @@ func TestOVMSAutoVersioningInvalidAnnotationValues(t *testing.T) {
 func TestGetOVMSVersioningConfig(t *testing.T) {
 	t.Run("empty configmap returns defaults", func(t *testing.T) {
 		cfg, err := getOVMSVersioningConfig(&corev1.ConfigMap{Data: map[string]string{}})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if cfg.Image != OVMSVersioningDefaultImage {
-			t.Errorf("expected default image %q, got %q", OVMSVersioningDefaultImage, cfg.Image)
-		}
-		if cfg.CpuRequest != "50m" {
-			t.Errorf("expected cpuRequest 50m, got %q", cfg.CpuRequest)
-		}
-		if cfg.MemoryRequest != "64Mi" {
-			t.Errorf("expected memoryRequest 64Mi, got %q", cfg.MemoryRequest)
-		}
+		require.NoError(t, err)
+		assert.Equal(t, OVMSVersioningDefaultImage, cfg.Image)
+		assert.Equal(t, "50m", cfg.CpuRequest)
+		assert.Equal(t, "100m", cfg.CpuLimit)
+		assert.Equal(t, "64Mi", cfg.MemoryRequest)
+		assert.Equal(t, "128Mi", cfg.MemoryLimit)
 	})
 
 	t.Run("custom values override defaults", func(t *testing.T) {
@@ -298,18 +286,12 @@ func TestGetOVMSVersioningConfig(t *testing.T) {
 			},
 		}
 		cfg, err := getOVMSVersioningConfig(cm)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if cfg.Image != customImage {
-			t.Errorf("expected image %q, got %q", customImage, cfg.Image)
-		}
-		if cfg.CpuRequest != "200m" {
-			t.Errorf("expected cpuRequest 200m, got %q", cfg.CpuRequest)
-		}
-		if cfg.MemoryLimit != "256Mi" {
-			t.Errorf("expected memoryLimit 256Mi, got %q", cfg.MemoryLimit)
-		}
+		require.NoError(t, err)
+		assert.Equal(t, customImage, cfg.Image)
+		assert.Equal(t, "200m", cfg.CpuRequest)
+		assert.Equal(t, "500m", cfg.CpuLimit)
+		assert.Equal(t, "128Mi", cfg.MemoryRequest)
+		assert.Equal(t, "256Mi", cfg.MemoryLimit)
 	})
 
 	t.Run("custom image is used in injected container", func(t *testing.T) {
@@ -320,9 +302,8 @@ func TestGetOVMSVersioningConfig(t *testing.T) {
 			},
 		}
 		cfg, err := getOVMSVersioningConfig(cm)
-		if err != nil {
-			t.Fatalf("unexpected error building config: %v", err)
-		}
+		require.NoError(t, err)
+
 		injector := &StorageInitializerInjector{
 			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{Data: map[string]string{}}),
 			config:            storageInitializerConfig,
@@ -340,18 +321,15 @@ func TestGetOVMSVersioningConfig(t *testing.T) {
 				Containers: []corev1.Container{{Name: constants.InferenceServiceContainerName}},
 			},
 		}
-		if err := injector.InjectStorageInitializer(t.Context(), pod); err != nil {
-			t.Fatalf("injection failed: %v", err)
-		}
+		require.NoError(t, injector.InjectStorageInitializer(t.Context(), pod))
+
 		var got string
 		for _, c := range pod.Spec.InitContainers {
 			if c.Name == constants.OVMSVersioningContainerName {
 				got = c.Image
 			}
 		}
-		if got != customImage {
-			t.Errorf("expected injected image %q, got %q", customImage, got)
-		}
+		assert.Equal(t, customImage, got)
 	})
 
 	t.Run("malformed JSON returns error", func(t *testing.T) {
@@ -361,9 +339,7 @@ func TestGetOVMSVersioningConfig(t *testing.T) {
 			},
 		}
 		_, err := getOVMSVersioningConfig(cm)
-		if err == nil {
-			t.Error("expected error for malformed JSON, got nil")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("invalid resource quantity returns error", func(t *testing.T) {
@@ -373,9 +349,7 @@ func TestGetOVMSVersioningConfig(t *testing.T) {
 			},
 		}
 		_, err := getOVMSVersioningConfig(cm)
-		if err == nil {
-			t.Error("expected error for invalid resource quantity, got nil")
-		}
+		assert.Error(t, err)
 	})
 }
 
@@ -394,19 +368,11 @@ func TestOVMSAutoVersioningIdempotent(t *testing.T) {
 
 	injector := newOVMSInjector(t)
 
-	if err := injector.InjectStorageInitializer(t.Context(), pod); err != nil {
-		t.Fatalf("first injection failed: %v", err)
-	}
+	require.NoError(t, injector.InjectStorageInitializer(t.Context(), pod), "first injection")
 	countAfterFirst := len(pod.Spec.InitContainers)
 
-	if err := injector.InjectStorageInitializer(t.Context(), pod); err != nil {
-		t.Fatalf("second injection failed: %v", err)
-	}
-
-	if len(pod.Spec.InitContainers) != countAfterFirst {
-		t.Errorf("expected %d init containers after second injection, got %d",
-			countAfterFirst, len(pod.Spec.InitContainers))
-	}
+	require.NoError(t, injector.InjectStorageInitializer(t.Context(), pod), "second injection")
+	assert.Equal(t, countAfterFirst, len(pod.Spec.InitContainers), "init container count should not change on second injection")
 
 	var ovmsCount int
 	for _, c := range pod.Spec.InitContainers {
@@ -414,7 +380,5 @@ func TestOVMSAutoVersioningIdempotent(t *testing.T) {
 			ovmsCount++
 		}
 	}
-	if ovmsCount != 1 {
-		t.Errorf("expected exactly 1 OVMS versioning container, got %d", ovmsCount)
-	}
+	assert.Equal(t, 1, ovmsCount, "expected exactly one OVMS versioning container")
 }
