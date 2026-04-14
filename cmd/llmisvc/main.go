@@ -309,10 +309,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha2.LLMInferenceServiceConfig{}).
-		Complete(); err != nil {
-		setupLog.Error(err, "unable to create conversion webhook", "webhook", "llminferenceserviceconfig")
+	setupLog.Info("Setting up LLMInferenceServiceConfig controller")
+	if err = (&llmisvc.LLMISVCConfigReconciler{
+		Client:        mgr.GetClient(),
+		EventRecorder: llmEventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: "LLMInferenceServiceConfigController"}),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "LLMInferenceServiceConfig")
 		os.Exit(1)
 	}
 
