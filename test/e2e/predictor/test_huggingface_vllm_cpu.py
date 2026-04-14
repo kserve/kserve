@@ -137,19 +137,13 @@ def test_huggingface_vllm_cpu_openai_chat_completions_from_modelscope():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    try:
-        timeout_seconds = int(os.getenv("MODELSCOPE_READY_TIMEOUT", "1800"))
-        kserve_client.wait_isvc_ready(
-            service_name,
-            namespace=KSERVE_TEST_NAMESPACE,
-            timeout_seconds=timeout_seconds,
-        )
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-        res = generate(service_name, "./data/qwen_input_chat.json")
-        content = res["choices"][0]["message"]["content"].strip()
-        assert content
-    finally:
-        kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+    res = generate(service_name, "./data/qwen_input_chat.json")
+    content = res["choices"][0]["message"]["content"].strip()
+    assert content
+
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.vllm
