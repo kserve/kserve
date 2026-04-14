@@ -386,12 +386,34 @@ data:
            "disableHTTPRouteTimeout": false,
 
            # pathTemplate specifies the template for generating path based url for each inference service.
-           # The following variables can be used in the template for generating url.
-           # Name of the inference service  ( {{ .Name}} )
-           # Namespace of the inference service ( {{ .Namespace }} )
-           # For more info https://github.com/kserve/kserve/issues/2257.
-           # NOTE: This configuration only applicable to serverless deployment.
-           "pathTemplate": "/serving/{{ .Namespace }}/{{ .Name }}"
+           # Supported variables: {{ .Name }}, {{ .Namespace }}. For more info https://github.com/kserve/kserve/issues/2257.
+           # Used by serverless (Knative) and RawDeployment (Gateway API, see rawDeployment block below).
+           "pathTemplate": "/serving/{{ .Namespace }}/{{ .Name }}",
+
+           # rawDeployment configures HTTPRoute generation for RawDeployment InferenceServices
+           # when enableGatewayApi and pathTemplate are both set. All fields are optional.
+           "rawDeployment": {
+               # Pin all HTTPRoutes to a specific gateway listener via sectionName (e.g. "https"). Default "": all listeners.
+               "gatewayListenerName": "",
+
+               # Path match type for path-based rules: "PathPrefix" or "RegularExpression". Default "": RegularExpression.
+               "pathMatchType": "",
+
+               # URLRewrite ReplacePrefixMatch target (e.g. "/") for path-based rules. Requires pathMatchType "PathPrefix". Default "": no rewrite.
+               "pathRewriteTarget": "",
+
+               # When true, suppresses all hostnames and host-based rules on the top-level HTTPRoute. Default false.
+               "disableHostBasedRouting": false,
+
+               # Extra labels merged (with precedence) onto all HTTPRoutes for the InferenceService. Default {}.
+               "routeLabels": {},
+
+               # Request timeout for path-based rules as a Gateway API duration string (e.g. "300s"). Default "": component timeoutSeconds or 60s.
+               "requestTimeout": "",
+
+               # backendRequest timeout for path-based rules (e.g. "300s"). Default "": not set.
+               "backendRequestTimeout": ""
+           }
        }
 
      # ====================================== LOGGER CONFIGURATION ======================================
