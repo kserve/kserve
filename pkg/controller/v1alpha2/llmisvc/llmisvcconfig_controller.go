@@ -106,6 +106,13 @@ func (r *LLMISVCConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 // isConfigInUse checks if any LLMInferenceService references this config
 // via spec.baseRefs, status.annotations, or implicitly as a well-known default.
 // It returns whether the config is in use and a list of referencing service names.
+//
+// Well-known default configs (those in WellKnownDefaultConfigs) are treated as implicitly
+// referenced by all LLMInferenceService instances in the same namespace (or cluster-wide
+// for system namespace configs). This is intentionally conservative: well-known configs
+// are resolved implicitly by the controller, so any existing service could depend on them
+// even without an explicit baseRef. Operators must drain all services before deleting a
+// well-known config.
 func (r *LLMISVCConfigReconciler) isConfigInUse(ctx context.Context, config *v1alpha2.LLMInferenceServiceConfig) (bool, []string, error) {
 	// System namespace configs can be used by services in any namespace as a fallback.
 	// Non-system namespace configs can only be used by services in the same namespace.
@@ -130,11 +137,15 @@ func (r *LLMISVCConfigReconciler) isConfigInUse(ctx context.Context, config *v1a
 		for _, llmSvc := range llmSvcList.Items {
 			// Well-known default configs are implicitly used by all services in the
 			// same namespace (or all namespaces for system namespace configs).
+			// This early return is intentional: since the config is implicitly available to
+			// any service, we report one example and short-circuit to avoid scanning the entire list.
 			if isWellKnown && (config.Namespace == constants.KServeNamespace || config.Namespace == llmSvc.Namespace) {
-				return true, []string{fmt.Sprintf("%s/%s", llmSvc.Namespace, llmSvc.Name)}, nil
+				return true, []string{fmt.Sprintf("%s/%s (and potentially others — well-known config)", llmSvc.Namespace, llmSvc.Name)}, nil
 			}
 
-			// Check explicit references via spec.baseRefs and status.annotations
+			// Check explicit references via spec.baseRefs and status.annotations.
+			// Status.Annotations stores versioned config resolution as {key: annotation-key, value: config-name},
+			// so iterating values matches config names (consistent with IsUsingLLMInferenceServiceConfig).
 			if llmSvc.IsUsingLLMInferenceServiceConfig(config.Name) {
 				referencing = append(referencing, fmt.Sprintf("%s/%s", llmSvc.Namespace, llmSvc.Name))
 			}
@@ -165,6 +176,12 @@ func (r *LLMISVCConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // LLMInferenceServiceConfig reconcile requests when an LLMInferenceService
 // is created, updated, or deleted. This ensures finalizers are re-evaluated
 // when services add or remove config references.
+//
+// Note: This handler only enqueues configs explicitly referenced in spec.baseRefs
+// and status.annotations. Well-known default configs are NOT reactively enqueued here
+// to avoid fanning out to all well-known configs on every service change. Instead,
+// pending-deletion well-known configs rely on the RequeueAfter safety net (10s) in
+// the Reconcile method to re-evaluate references.
 func (r *LLMISVCConfigReconciler) enqueueOnLLMInferenceServiceChange(logger logr.Logger) handler.EventHandler {
 	logger = logger.WithName("enqueueOnLLMInferenceServiceChange")
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
@@ -195,6 +212,8 @@ func (r *LLMISVCConfigReconciler) enqueueOnLLMInferenceServiceChange(logger logr
 		}
 
 		// Enqueue configs referenced in status.annotations (versioned config resolution).
+		// Status.Annotations is map[string]string where values are config names
+		// (e.g., "kserve-config-llm-template"), consistent with IsUsingLLMInferenceServiceConfig.
 		for _, name := range llmSvc.Status.Annotations {
 			enqueue(llmSvc.Namespace, name)
 			if llmSvc.Namespace != constants.KServeNamespace {

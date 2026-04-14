@@ -156,8 +156,19 @@ def _cleanup_llmisvc_silent(kserve_client, llm_svc):
         print(f"Warning: Failed to cleanup service {llm_svc.metadata.name}: {e}")
 
 
+def _config_is_gone(kserve_client, config_name, namespace=KSERVE_TEST_NAMESPACE):
+    """Assert that a config no longer exists (404)."""
+    try:
+        _get_config(kserve_client, config_name, namespace)
+        raise AssertionError(f"Config {config_name} still exists, expected 404")
+    except client.rest.ApiException as e:
+        if e.status == 404:
+            return True
+        raise AssertionError(f"Unexpected error checking config {config_name}: {e}") from e
+
+
 @pytest.mark.llminferenceservice
-@pytest.mark.asyncio(loop_scope="session")
+
 @pytest.mark.cluster_cpu
 @pytest.mark.cluster_single_node
 @log_execution
@@ -186,7 +197,7 @@ def test_config_finalizer_added():
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.asyncio(loop_scope="session")
+
 @pytest.mark.cluster_cpu
 @pytest.mark.cluster_single_node
 @log_execution
@@ -253,7 +264,7 @@ def test_config_deletion_blocked_when_referenced():
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.asyncio(loop_scope="session")
+
 @pytest.mark.cluster_cpu
 @pytest.mark.cluster_single_node
 @log_execution
@@ -290,7 +301,7 @@ def test_config_deletion_allowed_when_unreferenced():
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.asyncio(loop_scope="session")
+
 @pytest.mark.cluster_cpu
 @pytest.mark.cluster_single_node
 @log_execution
@@ -351,14 +362,3 @@ def test_config_deletion_unblocked_after_service_deleted():
         _cleanup_config_silent(kserve_client, config_name)
         for cfg_name in extra_configs:
             _cleanup_config_silent(kserve_client, cfg_name)
-
-
-def _config_is_gone(kserve_client, config_name, namespace=KSERVE_TEST_NAMESPACE):
-    """Assert that a config no longer exists (404)."""
-    try:
-        _get_config(kserve_client, config_name, namespace)
-        raise AssertionError(f"Config {config_name} still exists, expected 404")
-    except client.rest.ApiException as e:
-        if e.status == 404:
-            return True
-        raise AssertionError(f"Unexpected error checking config {config_name}: {e}") from e
