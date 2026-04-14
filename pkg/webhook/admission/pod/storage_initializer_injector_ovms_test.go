@@ -30,19 +30,24 @@ import (
 
 func newOVMSInjector(t *testing.T) *StorageInitializerInjector {
 	t.Helper()
+	ovmsConfig, err := getOVMSVersioningConfig(&corev1.ConfigMap{Data: map[string]string{}})
+	if err != nil {
+		t.Fatalf("failed to build default OVMS config: %v", err)
+	}
 	return &StorageInitializerInjector{
 		credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{
 			Data: map[string]string{},
 		}),
-		config: storageInitializerConfig,
-		client: c,
+		config:     storageInitializerConfig,
+		ovmsConfig: ovmsConfig,
+		client:     c,
 	}
 }
 
 func TestOVMSAutoVersioning(t *testing.T) {
 	ovmsContainer := corev1.Container{
 		Name:    constants.OVMSVersioningContainerName,
-		Image:   ovmsVersioningImage,
+		Image:   OVMSVersioningDefaultImage,
 		Command: []string{"/bin/sh"},
 		Args: []string{
 			"-c",

@@ -17,6 +17,7 @@ limitations under the License.
 package pod
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -26,9 +27,57 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 )
 
-// ovmsVersioningImage is the minimal init container image used to reorganise model files.
-// registry.access.redhat.com is the public Red Hat registry (no authentication required).
-const ovmsVersioningImage = "registry.access.redhat.com/ubi9/ubi-micro@sha256:2173487b3b72b1a7b11edc908e9bbf1726f9df46a4f78fd6d19a2bab0a701f38"
+const (
+	// OVMSVersioningDefaultImage is the default init container image used to reorganise
+	// model files into the versioned directory structure that OVMS requires.
+	// registry.access.redhat.com is the public Red Hat registry - no authentication needed.
+	// The digest pin ensures deterministic behaviour across deployments.
+	OVMSVersioningDefaultImage = "registry.access.redhat.com/ubi9/ubi-micro@sha256:2173487b3b72b1a7b11edc908e9bbf1726f9df46a4f78fd6d19a2bab0a701f38"
+)
+
+// OVMSVersioningConfig holds the configuration for the OVMS auto-versioning init container.
+// It mirrors the agent/batcher pattern: values are read from the inferenceservice configmap
+// under the "ovmsVersioning" key, and override the compiled-in defaults.
+type OVMSVersioningConfig struct {
+	Image         string `json:"image"`
+	CpuRequest    string `json:"cpuRequest"`
+	CpuLimit      string `json:"cpuLimit"`
+	MemoryRequest string `json:"memoryRequest"`
+	MemoryLimit   string `json:"memoryLimit"`
+}
+
+// getOVMSVersioningConfig reads the OVMS versioning configuration from the inferenceservice
+// configmap. When the key is absent the compiled-in defaults are returned unchanged.
+func getOVMSVersioningConfig(configMap *corev1.ConfigMap) (*OVMSVersioningConfig, error) {
+	cfg := &OVMSVersioningConfig{
+		Image:         OVMSVersioningDefaultImage,
+		CpuRequest:    "50m",
+		CpuLimit:      "100m",
+		MemoryRequest: "64Mi",
+		MemoryLimit:   "128Mi",
+	}
+
+	if raw, ok := configMap.Data[constants.OVMSVersioningConfigMapKeyName]; ok {
+		if err := json.Unmarshal([]byte(raw), cfg); err != nil {
+			return cfg, fmt.Errorf("unable to unmarshal %q configmap key: %w",
+				constants.OVMSVersioningConfigMapKeyName, err)
+		}
+	}
+
+	for key, val := range map[string]string{
+		"cpuRequest":    cfg.CpuRequest,
+		"cpuLimit":      cfg.CpuLimit,
+		"memoryRequest": cfg.MemoryRequest,
+		"memoryLimit":   cfg.MemoryLimit,
+	} {
+		if _, err := resource.ParseQuantity(val); err != nil {
+			return cfg, fmt.Errorf("failed to parse resource %q in %q: %w",
+				key, constants.OVMSVersioningConfigMapKeyName, err)
+		}
+	}
+
+	return cfg, nil
+}
 
 // injectOVMSAutoVersioning injects an init container that reorganises model files into
 // the versioned directory structure that OpenVINO Model Server (OVMS) requires.
@@ -60,9 +109,11 @@ func (mi *StorageInitializerInjector) injectOVMSAutoVersioning(pod *corev1.Pod) 
 		}
 	}
 
+	cfg := mi.ovmsConfig
+
 	pod.Spec.InitContainers = append(pod.Spec.InitContainers, corev1.Container{
 		Name:    constants.OVMSVersioningContainerName,
-		Image:   ovmsVersioningImage,
+		Image:   cfg.Image,
 		Command: []string{"/bin/sh"},
 		Args: []string{
 			"-c",
@@ -94,12 +145,12 @@ done
 		},
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("50m"),
-				corev1.ResourceMemory: resource.MustParse("64Mi"),
+				corev1.ResourceCPU:    resource.MustParse(cfg.CpuRequest),
+				corev1.ResourceMemory: resource.MustParse(cfg.MemoryRequest),
 			},
 			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("100m"),
-				corev1.ResourceMemory: resource.MustParse("128Mi"),
+				corev1.ResourceCPU:    resource.MustParse(cfg.CpuLimit),
+				corev1.ResourceMemory: resource.MustParse(cfg.MemoryLimit),
 			},
 		},
 	})

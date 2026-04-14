@@ -48,6 +48,7 @@ const (
 type StorageInitializerInjector struct {
 	credentialBuilder *credentials.CredentialBuilder
 	config            *types.StorageInitializerConfig
+	ovmsConfig        *OVMSVersioningConfig
 	client            client.Client
 }
 
