@@ -145,7 +145,7 @@ done
 					},
 					Volumes: []corev1.Volume{
 						{
-							Name: constants.StorageInitializerVolumeName,
+							Name:         constants.StorageInitializerVolumeName,
 							VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
 						},
 					},
@@ -207,7 +207,7 @@ done
 					},
 					Volumes: []corev1.Volume{
 						{
-							Name: constants.StorageInitializerVolumeName,
+							Name:         constants.StorageInitializerVolumeName,
 							VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
 						},
 					},

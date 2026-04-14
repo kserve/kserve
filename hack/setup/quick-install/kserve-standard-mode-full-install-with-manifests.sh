@@ -38119,6 +38119,27 @@ data:
            "cpuLimit": "1"
        }
 
+     # ====================================== OVMS VERSIONING CONFIGURATION ======================================
+     ovmsVersioning: |-
+       {
+           # image contains the init container image used to reorganise model files into the
+           # versioned directory structure that OpenVINO Model Server requires.
+           # registry.access.redhat.com is the public Red Hat registry (no authentication needed).
+           "image": "registry.access.redhat.com/ubi9/ubi-micro@sha256:2173487b3b72b1a7b11edc908e9bbf1726f9df46a4f78fd6d19a2bab0a701f38",
+
+           # memoryRequest is the requests.memory to set for the ovms versioning init container.
+           "memoryRequest": "64Mi",
+
+           # memoryLimit is the limits.memory to set for the ovms versioning init container.
+           "memoryLimit": "128Mi",
+
+           # cpuRequest is the requests.cpu to set for the ovms versioning init container.
+           "cpuRequest": "50m",
+
+           # cpuLimit is the limits.cpu to set for the ovms versioning init container.
+           "cpuLimit": "100m"
+       }
+
      # ====================================== ROUTER CONFIGURATION ======================================
      # Example
      router: |-
