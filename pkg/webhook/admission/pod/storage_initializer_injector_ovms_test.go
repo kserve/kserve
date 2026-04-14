@@ -267,6 +267,118 @@ func TestOVMSAutoVersioningInvalidAnnotationValues(t *testing.T) {
 	}
 }
 
+func TestGetOVMSVersioningConfig(t *testing.T) {
+	t.Run("empty configmap returns defaults", func(t *testing.T) {
+		cfg, err := getOVMSVersioningConfig(&corev1.ConfigMap{Data: map[string]string{}})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cfg.Image != OVMSVersioningDefaultImage {
+			t.Errorf("expected default image %q, got %q", OVMSVersioningDefaultImage, cfg.Image)
+		}
+		if cfg.CpuRequest != "50m" {
+			t.Errorf("expected cpuRequest 50m, got %q", cfg.CpuRequest)
+		}
+		if cfg.MemoryRequest != "64Mi" {
+			t.Errorf("expected memoryRequest 64Mi, got %q", cfg.MemoryRequest)
+		}
+	})
+
+	t.Run("custom values override defaults", func(t *testing.T) {
+		const customImage = "my-registry.example.com/ubi9/ubi-micro:custom"
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				constants.OVMSVersioningConfigMapKeyName: `{
+					"image":         "` + customImage + `",
+					"cpuRequest":    "200m",
+					"cpuLimit":      "500m",
+					"memoryRequest": "128Mi",
+					"memoryLimit":   "256Mi"
+				}`,
+			},
+		}
+		cfg, err := getOVMSVersioningConfig(cm)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cfg.Image != customImage {
+			t.Errorf("expected image %q, got %q", customImage, cfg.Image)
+		}
+		if cfg.CpuRequest != "200m" {
+			t.Errorf("expected cpuRequest 200m, got %q", cfg.CpuRequest)
+		}
+		if cfg.MemoryLimit != "256Mi" {
+			t.Errorf("expected memoryLimit 256Mi, got %q", cfg.MemoryLimit)
+		}
+	})
+
+	t.Run("custom image is used in injected container", func(t *testing.T) {
+		const customImage = "my-registry.example.com/ubi9/ubi-micro:custom"
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				constants.OVMSVersioningConfigMapKeyName: `{"image":"` + customImage + `","cpuRequest":"50m","cpuLimit":"100m","memoryRequest":"64Mi","memoryLimit":"128Mi"}`,
+			},
+		}
+		cfg, err := getOVMSVersioningConfig(cm)
+		if err != nil {
+			t.Fatalf("unexpected error building config: %v", err)
+		}
+		injector := &StorageInitializerInjector{
+			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{Data: map[string]string{}}),
+			config:            storageInitializerConfig,
+			ovmsConfig:        cfg,
+			client:            c,
+		}
+		pod := &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo/model.xml",
+					constants.OVMSAutoVersioningAnnotationKey:                  "1",
+				},
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{{Name: constants.InferenceServiceContainerName}},
+			},
+		}
+		if err := injector.InjectStorageInitializer(t.Context(), pod); err != nil {
+			t.Fatalf("injection failed: %v", err)
+		}
+		var got string
+		for _, c := range pod.Spec.InitContainers {
+			if c.Name == constants.OVMSVersioningContainerName {
+				got = c.Image
+			}
+		}
+		if got != customImage {
+			t.Errorf("expected injected image %q, got %q", customImage, got)
+		}
+	})
+
+	t.Run("malformed JSON returns error", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				constants.OVMSVersioningConfigMapKeyName: `{not valid json`,
+			},
+		}
+		_, err := getOVMSVersioningConfig(cm)
+		if err == nil {
+			t.Error("expected error for malformed JSON, got nil")
+		}
+	})
+
+	t.Run("invalid resource quantity returns error", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				constants.OVMSVersioningConfigMapKeyName: `{"image":"img","cpuRequest":"not-a-quantity","cpuLimit":"100m","memoryRequest":"64Mi","memoryLimit":"128Mi"}`,
+			},
+		}
+		_, err := getOVMSVersioningConfig(cm)
+		if err == nil {
+			t.Error("expected error for invalid resource quantity, got nil")
+		}
+	})
+}
+
 func TestOVMSAutoVersioningIdempotent(t *testing.T) {
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
