@@ -32,7 +32,7 @@ import (
 	"github.com/kserve/kserve/pkg/utils"
 )
 
-// +kubebuilder:webhook:path=/validate-serving-kserve-io-v1alpha2-llminferenceserviceconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=serving.kserve.io,resources=llminferenceserviceconfigs,verbs=create;update,versions=v1alpha2,name=llminferenceserviceconfig.kserve-webhook-server.v1alpha2.validator,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/validate-serving-kserve-io-v1alpha2-llminferenceserviceconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=serving.kserve.io,resources=llminferenceserviceconfigs,verbs=create;update,versions=v1alpha2,name=llmisvcconfig.kserve-webhook-server.v1alpha2.validator,admissionReviewVersions=v1
 
 // LLMInferenceServiceConfigValidator is responsible for validating the LLMInferenceServiceConfig resource
 // when it is created, updated, or deleted.
