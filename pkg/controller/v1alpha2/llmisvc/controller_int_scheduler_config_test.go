@@ -33,6 +33,8 @@ import (
 	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 	. "github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/fixture"
@@ -1482,6 +1484,103 @@ schedulingProfiles:
 					corev1.LocalObjectReference{Name: "new-secret"}))
 				return nil
 			}).WithContext(ctx).Should(Succeed())
+		})
+	})
+
+	Context("Custom InferencePool selector for multi-GPU-vendor pooling", func() {
+		It("should use custom pool selector when MatchLabels are provided", func(ctx SpecContext) {
+			// This test verifies the multi-GPU-vendor pooling pattern where a user provides
+			// a custom InferencePool selector (e.g., llm-pool: qwen2-7b) so that pods from
+			// multiple LLMInferenceService instances (NVIDIA + AMD) can be pooled together.
+			svcName := "test-llm-custom-pool-selector"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithWorkloadLabels(map[string]string{
+					"llm-pool": "qwen2-7b",
+				}),
+			)
+			// Set custom pool selector with required endpointPickerRef
+			llmSvc.Spec.Router.Scheduler.Pool = &v1alpha2.InferencePoolSpec{
+				Spec: &igwapi.InferencePoolSpec{
+					Selector: igwapi.LabelSelector{
+						MatchLabels: map[igwapi.LabelKey]igwapi.LabelValue{
+							"llm-pool":            "qwen2-7b",
+							"kserve.io/component": "workload",
+						},
+					},
+					TargetPorts: []igwapi.Port{{Number: 8000}},
+					EndpointPickerRef: igwapi.EndpointPickerRef{
+						Kind:        "Service",
+						Name:        igwapi.ObjectName(svcName + "-kserve-epp"),
+						Port:        &igwapi.Port{Number: 9002},
+						FailureMode: igwapi.EndpointPickerFailOpen,
+					},
+				},
+			}
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - verify the InferencePool is created with the custom selector
+			ip := &igwapi.InferencePool{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Client.Get(ctx, client.ObjectKey{
+					Name:      svcName + "-inference-pool",
+					Namespace: testNs.Name,
+				}, ip)
+			}).WithContext(ctx).Should(Succeed())
+
+			Expect(ip.Spec.Selector.MatchLabels).To(HaveLen(2))
+			Expect(ip.Spec.Selector.MatchLabels).To(HaveKeyWithValue(
+				igwapi.LabelKey("llm-pool"), igwapi.LabelValue("qwen2-7b")))
+			Expect(ip.Spec.Selector.MatchLabels).To(HaveKeyWithValue(
+				igwapi.LabelKey("kserve.io/component"), igwapi.LabelValue("workload")))
+			// Should NOT contain the default app.kubernetes.io/name selector
+			Expect(ip.Spec.Selector.MatchLabels).ToNot(HaveKey(igwapi.LabelKey("app.kubernetes.io/name")))
+		})
+
+		It("should default pool selector to workload labels when no MatchLabels are provided", func(ctx SpecContext) {
+			svcName := "test-llm-default-pool-selector"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - verify the InferencePool uses default workload label selector
+			ip := &igwapi.InferencePool{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Client.Get(ctx, client.ObjectKey{
+					Name:      svcName + "-inference-pool",
+					Namespace: testNs.Name,
+				}, ip)
+			}).WithContext(ctx).Should(Succeed())
+
+			Expect(ip.Spec.Selector.MatchLabels).To(HaveKeyWithValue(
+				igwapi.LabelKey("app.kubernetes.io/name"), igwapi.LabelValue(svcName)))
+			Expect(ip.Spec.Selector.MatchLabels).To(HaveKeyWithValue(
+				igwapi.LabelKey("kserve.io/component"), igwapi.LabelValue("workload")))
+			Expect(ip.Spec.Selector.MatchLabels).To(HaveKeyWithValue(
+				igwapi.LabelKey("app.kubernetes.io/part-of"), igwapi.LabelValue("llminferenceservice")))
 		})
 	})
 })
