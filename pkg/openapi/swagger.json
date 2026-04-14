@@ -234,6 +234,10 @@
         "affinity": {
           "$ref": "#/definitions/v1.Affinity"
         },
+        "defaultRetry": {
+          "description": "DefaultRetry defines the default retry configuration for all steps in the graph. Steps can override this by specifying their own retry configuration. If not set, no retries are attempted unless configured per-step.",
+          "$ref": "#/definitions/v1alpha1.RetryConfig"
+        },
         "maxReplicas": {
           "description": "Maximum number of replicas for autoscaling.",
           "type": "integer",
@@ -385,6 +389,10 @@
         "nodeName": {
           "description": "The node name for routing as next step",
           "type": "string"
+        },
+        "retry": {
+          "description": "Retry configures retry behavior for this step on transient failures (5xx and connection errors). If not set, no retries are attempted (the current default behavior).",
+          "$ref": "#/definitions/v1alpha1.RetryConfig"
         },
         "serviceName": {
           "description": "named reference for InferenceService",
@@ -886,6 +894,27 @@
           "description": "Storage URI for the model repository",
           "type": "string",
           "default": ""
+        }
+      }
+    },
+    "v1alpha1.RetryConfig": {
+      "description": "RetryConfig defines retry behavior for an inference step when it encounters transient failures. Retries use exponential backoff with jitter. Only 5xx status codes and connection errors are retried; 4xx errors are not retried.",
+      "type": "object",
+      "properties": {
+        "initialDelayMs": {
+          "description": "InitialDelayMilliseconds is the initial backoff delay in milliseconds before the first retry. Subsequent retries use exponential backoff with jitter.",
+          "type": "integer",
+          "format": "int32"
+        },
+        "maxDelayMs": {
+          "description": "MaxDelayMilliseconds is the maximum delay in milliseconds between retries. Defaults to 300000 (5 minutes). Set a lower value for latency-sensitive workloads.",
+          "type": "integer",
+          "format": "int32"
+        },
+        "maxRetries": {
+          "description": "MaxRetries is the maximum number of retry attempts (not counting the initial request).",
+          "type": "integer",
+          "format": "int32"
         }
       }
     },
