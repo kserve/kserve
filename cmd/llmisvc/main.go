@@ -268,7 +268,7 @@ func main() {
 	// and sets local model cache labels when a matching cache exists.
 	if err = ctrl.NewWebhookManagedBy(mgr).
 		For(&v1alpha2.LLMInferenceService{}).
-		WithDefaulter(&llmisvcwebhook.LLMInferenceServiceDefaulter{Scheme: scheme}).
+		WithDefaulter(&llmisvcwebhook.LLMInferenceServiceDefaulter{Client: mgr.GetClient(), Clientset: clientSet}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create conversion webhook", "webhook", "llminferenceservice")
 		os.Exit(1)

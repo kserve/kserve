@@ -23,7 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
@@ -39,12 +38,12 @@ var defaulterLogger = logf.Log.WithName("llminferenceservice-defaulter")
 // +kubebuilder:object:generate=false
 // +k8s:openapi-gen=false
 
-// +kubebuilder:webhook:path=/mutate-serving-kserve-io-v1alpha2-llminferenceservice,mutating=true,failurePolicy=fail,sideEffects=None,groups=serving.kserve.io,resources=llminferenceservices,verbs=create;update,versions=v1alpha2,name=llminferenceservice.kserve-webhook-server.defaulter,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/mutate-serving-kserve-io-v1alpha2-llminferenceservice,mutating=true,failurePolicy=fail,sideEffects=None,groups=serving.kserve.io,resources=llminferenceservices,verbs=create;update,versions=v1alpha1;v1alpha2,name=llminferenceservice.kserve-webhook-server.defaulter,admissionReviewVersions=v1
 
 // LLMInferenceServiceDefaulter sets local model cache labels on LLMInferenceService resources.
-// The Scheme field must be set to the manager's scheme so that the client can list KServe CRD types.
 type LLMInferenceServiceDefaulter struct {
-	Scheme *runtime.Scheme
+	Client    client.Client
+	Clientset kubernetes.Interface
 }
 
 var _ webhook.CustomDefaulter = &LLMInferenceServiceDefaulter{}
@@ -58,17 +57,7 @@ func (d *LLMInferenceServiceDefaulter) Default(ctx context.Context, obj runtime.
 
 	llmSvc.SetDefaults(ctx)
 
-	cfg, err := config.GetConfig()
-	if err != nil {
-		defaulterLogger.Error(err, "unable to set up client config")
-		return err
-	}
-	clientSet, err := kubernetes.NewForConfig(cfg)
-	if err != nil {
-		defaulterLogger.Error(err, "unable to create clientSet")
-		return err
-	}
-	configMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, clientSet)
+	configMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, d.Clientset)
 	if err != nil {
 		defaulterLogger.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
 		return err
@@ -80,19 +69,13 @@ func (d *LLMInferenceServiceDefaulter) Default(ctx context.Context, obj runtime.
 
 	_, localModelDisabled := llmSvc.Annotations[constants.DisableLocalModelKey]
 	if !localModelDisabled && localModelConfig.Enabled {
-		// Use the manager's scheme so that v1alpha1 types are registered
-		var c client.Client
-		if c, err = client.New(cfg, client.Options{Scheme: d.Scheme}); err != nil {
-			defaulterLogger.Error(err, "Failed to start client")
-			return err
-		}
 		models := &v1alpha1.LocalModelCacheList{}
-		if err := c.List(ctx, models); err != nil {
+		if err := d.Client.List(ctx, models); err != nil {
 			defaulterLogger.Error(err, "Cannot list local models")
 			return err
 		}
 		nsModels := &v1alpha1.LocalModelNamespaceCacheList{}
-		if err := c.List(ctx, nsModels, client.InNamespace(llmSvc.Namespace)); err != nil {
+		if err := d.Client.List(ctx, nsModels, client.InNamespace(llmSvc.Namespace)); err != nil {
 			defaulterLogger.Error(err, "Cannot list namespace-scoped local models", "namespace", llmSvc.Namespace)
 			return err
 		}
