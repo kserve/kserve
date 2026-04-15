@@ -44,3 +44,4 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "llminferenceservice: mark test as an LLM inference service test"
     )
+    config.addinivalue_line("markers", "autoscaling: mark test as an autoscaling test")

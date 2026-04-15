@@ -105,6 +105,20 @@ else
   kubectl scale deployment lws-controller-manager -n lws-system --replicas=1
   kubectl patch deployment lws-controller-manager -n lws-system --type=json -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/resources", "value": {"requests": {"cpu": "20m", "memory": "64Mi"}, "limits": {"cpu": "100m", "memory": "256Mi"}}}]'
   kubectl wait deployment lws-controller-manager -n lws-system --for condition=Available --timeout=300s
+
+  if [[ $ENABLE_KEDA == "true" ]]; then
+    echo "Installing LLMISVC autoscaling components (Prometheus, Prometheus Adapter, KEDA, WVA)..."
+
+    ${REPO_ROOT}/hack/setup/infra/manage.prometheus-helm.sh
+    ${REPO_ROOT}/hack/setup/infra/manage.prometheus-adapter-helm.sh
+
+    # Disable KEDA metrics server to avoid conflict with Prometheus Adapter
+    # which already registers the external.metrics.k8s.io API service
+    export KEDA_EXTRA_ARGS="--set metricsServer.enabled=false"
+    ${REPO_ROOT}/hack/setup/infra/manage.keda-helm.sh
+
+    ${REPO_ROOT}/hack/setup/infra/manage.wva-helm.sh
+  fi
   
 fi
 
