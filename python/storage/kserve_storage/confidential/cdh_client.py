@@ -23,7 +23,9 @@ from .secret_resolver import SecretResolutionError, SecretResolver
 logger = logging.getLogger(__name__)
 
 # kbs:///<repo>/<type>/<tag>
-_KBS_RESOURCE_ID_RE = re.compile(r"^kbs:///(?P<repo>[^/]+)/(?P<type>[^/]+)/(?P<tag>[^/]+)$")
+_KBS_RESOURCE_ID_RE = re.compile(
+    r"^kbs:///(?P<repo>[^/]+)/(?P<type>[^/]+)/(?P<tag>[^/]+)$"
+)
 
 _DEFAULT_CDH_ADDR = "http://127.0.0.1:8006"
 
@@ -42,7 +44,9 @@ class CDHSecretResolver(SecretResolver):
     """
 
     def __init__(self, cdh_addr: str | None = None, timeout: int = 30):
-        self._cdh_addr = (cdh_addr or os.environ.get("CDH_ADDR", _DEFAULT_CDH_ADDR)).rstrip("/")
+        self._cdh_addr = (
+            cdh_addr or os.environ.get("CDH_ADDR", _DEFAULT_CDH_ADDR)
+        ).rstrip("/")
         self._timeout = timeout
 
     def resolve_key(self, resource_id: str) -> bytes:

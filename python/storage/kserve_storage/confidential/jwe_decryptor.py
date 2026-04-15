@@ -18,7 +18,7 @@ from pathlib import Path
 
 from jwcrypto import jwe, jwk
 
-from .secret_resolver import SecretResolutionError, SecretResolver
+from .secret_resolver import SecretResolver
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +69,9 @@ class JWEDecryptor:
         except OSError:
             return False
 
-    def decrypt_file(self, file_path: str | Path, resource_id: str | None = None) -> Path:
+    def decrypt_file(
+        self, file_path: str | Path, resource_id: str | None = None
+    ) -> Path:
         """Decrypt a single JWE-encrypted file in place.
 
         The decrypted content replaces the encrypted file. If the file has a
@@ -121,7 +123,9 @@ class JWEDecryptor:
         logger.info("Decrypted %s -> %s", path, output_path)
         return output_path
 
-    def decrypt_directory(self, dir_path: str | Path, resource_id: str | None = None) -> list[Path]:
+    def decrypt_directory(
+        self, dir_path: str | Path, resource_id: str | None = None
+    ) -> list[Path]:
         """Walk a directory tree and decrypt all JWE-encrypted files.
 
         Args:

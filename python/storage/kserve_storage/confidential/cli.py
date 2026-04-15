@@ -57,7 +57,9 @@ def main():
     try:
         resolver = CDHSecretResolver()
         decryptor = JWEDecryptor(resolver, resource_id=resource_id)
-        decrypted = decryptor.decrypt_directory(args.source_dir, resource_id=resource_id)
+        decrypted = decryptor.decrypt_directory(
+            args.source_dir, resource_id=resource_id
+        )
         logger.info("Decrypted %d files in %s", len(decrypted), args.source_dir)
     except Exception as e:
         logger.error("Decryption failed: %s", e)

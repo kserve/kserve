@@ -13,8 +13,6 @@
 # limitations under the License.
 
 import os
-import tempfile
-from pathlib import Path
 
 import pytest
 from jwcrypto import jwe, jwk
