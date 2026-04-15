@@ -156,6 +156,15 @@ def _cleanup_llmisvc_silent(kserve_client, llm_svc):
         print(f"Warning: Failed to cleanup service {llm_svc.metadata.name}: {e}")
 
 
+def _get_ready_condition(config_obj):
+    """Extract the Ready condition from a config object's status."""
+    conditions = config_obj.get("status", {}).get("conditions", [])
+    for cond in conditions:
+        if cond.get("type") == "Ready":
+            return cond
+    return None
+
+
 def _config_is_gone(kserve_client, config_name, namespace=KSERVE_TEST_NAMESPACE):
     """Assert that a config no longer exists (404)."""
     try:
@@ -173,7 +182,7 @@ def _config_is_gone(kserve_client, config_name, namespace=KSERVE_TEST_NAMESPACE)
 @pytest.mark.cluster_single_node
 @log_execution
 def test_config_finalizer_added():
-    """Test that a finalizer is added to a new LLMInferenceServiceConfig."""
+    """Test that a finalizer is added and Ready condition is set on a new LLMInferenceServiceConfig."""
     inject_k8s_proxy()
     kserve_client = _kserve_client()
     config_name = "e2e-finalizer-add-test"
@@ -181,16 +190,22 @@ def test_config_finalizer_added():
     try:
         _create_config(kserve_client, config_name)
 
-        def assert_finalizer_present():
+        def assert_finalizer_and_ready():
             cfg = _get_config(kserve_client, config_name)
             assert _config_has_finalizer(cfg), (
                 f"Expected finalizer {CONFIG_FINALIZER} on config {config_name}, "
                 f"got finalizers: {cfg.get('metadata', {}).get('finalizers', [])}"
             )
+            # Verify Ready condition is True
+            ready_cond = _get_ready_condition(cfg)
+            assert ready_cond is not None, "Expected Ready condition to be set"
+            assert ready_cond.get("status") == "True", (
+                f"Expected Ready=True, got {ready_cond.get('status')}"
+            )
             return True
 
-        wait_for(assert_finalizer_present, timeout=60, interval=2.0)
-        print(f"Finalizer {CONFIG_FINALIZER} present on config {config_name}")
+        wait_for(assert_finalizer_and_ready, timeout=60, interval=2.0)
+        print(f"Finalizer and Ready=True condition present on config {config_name}")
 
     finally:
         _cleanup_config_silent(kserve_client, config_name)
@@ -232,7 +247,7 @@ def test_config_deletion_blocked_when_referenced():
         _delete_config(kserve_client, config_name)
 
         # The config should still exist with a deletionTimestamp but the finalizer
-        # should prevent actual removal
+        # should prevent actual removal, and Ready condition should be False
         def assert_deletion_blocked():
             cfg = _get_config(kserve_client, config_name)
             assert _config_has_deletion_timestamp(cfg), (
@@ -241,10 +256,19 @@ def test_config_deletion_blocked_when_referenced():
             assert _config_has_finalizer(cfg), (
                 "Finalizer should still be present while config is referenced"
             )
+            # Verify Ready condition is False with DeletionBlocked reason
+            ready_cond = _get_ready_condition(cfg)
+            assert ready_cond is not None, "Expected Ready condition to be set"
+            assert ready_cond.get("status") == "False", (
+                f"Expected Ready=False when deletion is blocked, got {ready_cond.get('status')}"
+            )
+            assert ready_cond.get("reason") == "DeletionBlocked", (
+                f"Expected reason=DeletionBlocked, got {ready_cond.get('reason')}"
+            )
             return True
 
         wait_for(assert_deletion_blocked, timeout=60, interval=2.0)
-        print(f"Config {config_name} deletion is correctly blocked by finalizer")
+        print(f"Config {config_name} deletion is correctly blocked (Ready=False, reason=DeletionBlocked)")
 
     finally:
         # Clean up: delete the service first (unblocks the config), then configs

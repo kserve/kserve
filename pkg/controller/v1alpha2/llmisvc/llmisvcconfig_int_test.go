@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -35,7 +36,7 @@ const configFinalizerName = constants.KServeAPIGroupName + "/llmisvcconfig-final
 
 var _ = Describe("LLMInferenceServiceConfig Controller", func() {
 	Context("Finalizer management", func() {
-		It("should add a finalizer to a new LLMInferenceServiceConfig", func(ctx SpecContext) {
+		It("should add a finalizer and mark Ready on a new LLMInferenceServiceConfig", func(ctx SpecContext) {
 			// given
 			testNs := NewTestNamespace(ctx, envTest)
 
@@ -52,6 +53,10 @@ var _ = Describe("LLMInferenceServiceConfig Controller", func() {
 				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(config), current)).To(Succeed())
 				g.Expect(controllerutil.ContainsFinalizer(current, configFinalizerName)).To(BeTrue(),
 					"expected finalizer %q to be present on LLMInferenceServiceConfig", configFinalizerName)
+
+				readyCond := current.GetStatus().GetCondition(apis.ConditionReady)
+				g.Expect(readyCond).ToNot(BeNil(), "expected Ready condition to be set")
+				g.Expect(readyCond.IsTrue()).To(BeTrue(), "expected Ready condition to be True")
 			}).WithContext(ctx).Should(Succeed())
 		})
 	})
@@ -89,13 +94,20 @@ var _ = Describe("LLMInferenceServiceConfig Controller", func() {
 			Expect(envTest.Delete(ctx, config)).To(Succeed())
 
 			// then - config should still exist (finalizer blocks deletion)
-			Consistently(func(g Gomega, ctx context.Context) {
+			// and the Ready condition should be False with reason DeletionBlocked
+			Eventually(func(g Gomega, ctx context.Context) {
 				current := &v1alpha2.LLMInferenceServiceConfig{}
 				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(config), current)).To(Succeed())
 				g.Expect(current.DeletionTimestamp).ToNot(BeNil(),
 					"config should have a deletion timestamp")
 				g.Expect(controllerutil.ContainsFinalizer(current, configFinalizerName)).To(BeTrue(),
 					"finalizer should still be present while config is referenced")
+
+				readyCond := current.GetStatus().GetCondition(apis.ConditionReady)
+				g.Expect(readyCond).ToNot(BeNil(), "expected Ready condition to be set")
+				g.Expect(readyCond.IsFalse()).To(BeTrue(), "expected Ready=False when deletion is blocked")
+				g.Expect(readyCond.Reason).To(Equal("DeletionBlocked"))
+				g.Expect(readyCond.Message).To(ContainSubstring(svcName))
 			}).WithContext(ctx).Should(Succeed())
 		})
 
@@ -142,12 +154,18 @@ var _ = Describe("LLMInferenceServiceConfig Controller", func() {
 			Expect(envTest.Delete(ctx, config)).To(Succeed())
 
 			// then - config should still exist (referenced via status annotations)
-			Consistently(func(g Gomega, ctx context.Context) {
+			// and the Ready condition should be False with reason DeletionBlocked
+			Eventually(func(g Gomega, ctx context.Context) {
 				current := &v1alpha2.LLMInferenceServiceConfig{}
 				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(config), current)).To(Succeed())
 				g.Expect(current.DeletionTimestamp).ToNot(BeNil())
 				g.Expect(controllerutil.ContainsFinalizer(current, configFinalizerName)).To(BeTrue(),
 					"finalizer should still be present while config is pinned in status annotations")
+
+				readyCond := current.GetStatus().GetCondition(apis.ConditionReady)
+				g.Expect(readyCond).ToNot(BeNil(), "expected Ready condition to be set")
+				g.Expect(readyCond.IsFalse()).To(BeTrue(), "expected Ready=False when deletion is blocked")
+				g.Expect(readyCond.Reason).To(Equal("DeletionBlocked"))
 			}).WithContext(ctx).Should(Succeed())
 		})
 
