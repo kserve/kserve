@@ -1928,7 +1928,7 @@ webhooks:
       path: /validate-serving-kserve-io-v1alpha2-llminferenceserviceconfig
   failurePolicy: Fail
   matchPolicy: Exact
-  name: llmisvcconfig.kserve-webhook-server.v1alpha2.validator
+  name: llminferenceserviceconfig.kserve-webhook-server.v1alpha2.validator
   rules:
   - apiGroups:
     - serving.kserve.io
@@ -1951,7 +1951,7 @@ webhooks:
       path: /validate-serving-kserve-io-v1alpha1-llminferenceserviceconfig
   failurePolicy: Fail
   matchPolicy: Exact
-  name: llmisvcconfig.kserve-webhook-server.v1alpha1.validator
+  name: llminferenceserviceconfig.kserve-webhook-server.v1alpha1.validator
   rules:
   - apiGroups:
     - serving.kserve.io
