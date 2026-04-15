@@ -148,8 +148,9 @@ func TestCreateDefaultDeployment(t *testing.T) {
 		"multiNode-service": nil, // populated dynamically below
 	}
 
-	// Compute hash for multiNode test case using the same inputs as production:
-	// ComputeHash(podSpec, isvc.Spec) — podSpec captures SR info, isvc.Spec captures storage URI etc.
+	// Compute hash using the same inputs as production code (podSpec + PredictorSpec).
+	// isvcPredictor is zero-value here — this test verifies hash propagation to
+	// service names/selectors, not hash computation accuracy.
 	multiNodeHash, err := utils.ComputeHash(testInput["multiNode-service"].podSpec, testInput["multiNode-service"].isvcPredictor)
 	require.NoError(t, err)
 	// Set the hash in input componentMeta labels
@@ -365,14 +366,33 @@ func TestServiceSetControllerReferences(t *testing.T) {
 	assert.Equal(t, owner.Name, service2.GetOwnerReferences()[0].Name)
 }
 
-func newHeadSvc(name, namespace, isvcName, hash string) *corev1.Service {
+func newHeadSvc(name, hash string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: namespace,
+			Namespace: "default",
 			Labels: map[string]string{
 				constants.MultiNodeRoleLabelKey:       constants.MultiNodeHead,
-				constants.InferenceServicePodLabelKey: isvcName,
+				constants.InferenceServicePodLabelKey: "my-isvc",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{
+				constants.PodTemplateHashLabelKey: hash,
+			},
+			ClusterIP: "None",
+		},
+	}
+}
+
+func newWorkerSvc(name, hash string) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "default",
+			Labels: map[string]string{
+				constants.MultiNodeRoleLabelKey:       constants.MultiNodeWorker,
+				constants.InferenceServicePodLabelKey: "my-isvc",
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -435,8 +455,8 @@ func TestCleanupOldHeadlessServices(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			staleSvc := newHeadSvc(oldSvcName, ns, isvcName, oldHash)
-			currentSvc := newHeadSvc(newSvcName, ns, isvcName, newHash)
+			staleSvc := newHeadSvc(oldSvcName, oldHash)
+			currentSvc := newHeadSvc(newSvcName, newHash)
 			staleEPS := newEndpointSlice(oldSvcName, ns, tc.staleHasEPs)
 
 			cl := fake.NewClientBuilder().
@@ -465,6 +485,84 @@ func TestCleanupOldHeadlessServices(t *testing.T) {
 			assert.True(t, names[newSvcName], "current service must always be kept")
 			assert.Equal(t, tc.expectStaleKept, names[oldSvcName],
 				"stale service presence mismatch")
+		})
+	}
+}
+
+func TestCleanupOldWorkerHeadlessServices(t *testing.T) {
+	const (
+		ns       = "default"
+		isvcName = "my-isvc"
+		oldHash  = "aabbccdd"
+		newHash  = "11223344"
+	)
+
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+	require.NoError(t, discoveryv1.AddToScheme(scheme))
+
+	predictorSvcName := constants.PredictorServiceName(isvcName)
+	oldWorkerSvcName := constants.GetWorkerServiceName(predictorSvcName, oldHash)
+	newWorkerSvcName := constants.GetWorkerServiceName(predictorSvcName, newHash)
+	oldHeadSvcName := constants.GetHeadServiceName(predictorSvcName, oldHash)
+	newHeadSvcName := constants.GetHeadServiceName(predictorSvcName, newHash)
+
+	tests := []struct {
+		name                  string
+		staleWorkerHasEPs     bool
+		expectStaleWorkerKept bool
+	}{
+		{
+			name:                  "stale worker service with active endpoints is preserved",
+			staleWorkerHasEPs:     true,
+			expectStaleWorkerKept: true,
+		},
+		{
+			name:                  "stale worker service without endpoints is deleted",
+			staleWorkerHasEPs:     false,
+			expectStaleWorkerKept: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			staleWorkerSvc := newWorkerSvc(oldWorkerSvcName, oldHash)
+			currentWorkerSvc := newWorkerSvc(newWorkerSvcName, newHash)
+			currentHeadSvc := newHeadSvc(newHeadSvcName, newHash)
+			// stale head service with no endpoints — should always be deleted
+			staleHeadSvc := newHeadSvc(oldHeadSvcName, oldHash)
+			staleWorkerEPS := newEndpointSlice(oldWorkerSvcName, ns, tc.staleWorkerHasEPs)
+			staleHeadEPS := newEndpointSlice(oldHeadSvcName, ns, false)
+
+			cl := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(staleWorkerSvc, currentWorkerSvc, currentHeadSvc, staleHeadSvc, staleWorkerEPS, staleHeadEPS).
+				Build()
+
+			r := &ServiceReconciler{
+				client: cl,
+				ServiceList: []*corev1.Service{
+					currentHeadSvc,
+					currentWorkerSvc,
+				},
+			}
+
+			err := r.cleanupOldHeadlessServices(context.Background())
+			require.NoError(t, err)
+
+			remaining := &corev1.ServiceList{}
+			require.NoError(t, cl.List(context.Background(), remaining))
+
+			names := make(map[string]bool)
+			for _, s := range remaining.Items {
+				names[s.Name] = true
+			}
+
+			assert.True(t, names[newHeadSvcName], "current head service must always be kept")
+			assert.True(t, names[newWorkerSvcName], "current worker service must always be kept")
+			assert.False(t, names[oldHeadSvcName], "stale head service with no endpoints must be deleted")
+			assert.Equal(t, tc.expectStaleWorkerKept, names[oldWorkerSvcName],
+				"stale worker service presence mismatch")
 		})
 	}
 }

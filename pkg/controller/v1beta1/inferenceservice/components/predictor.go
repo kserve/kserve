@@ -472,6 +472,12 @@ func (p *Predictor) reconcileWorker(sRuntime v1alpha1.ServingRuntimeSpec, isvc *
 	var podTemplateHash string
 	var err error
 
+	if sRuntime.WorkerSpec == nil {
+		errMsg := "you cannot set WorkerSpec in the InferenceService if the ServingRuntime does not have a WorkerSpec"
+		isvc.Status.PropagateRawStatusWithMessages(v1beta1.PredictorComponent, v1beta1.InvalidWorkerSpecNotSet, errMsg, corev1.ConditionFalse)
+		return workerObjectMeta, nil, "", errors.New(errMsg)
+	}
+
 	sRuntimeWorkerAnnotations := sRuntime.WorkerSpec.Annotations
 	sRuntimeWorkerLabels := sRuntime.WorkerSpec.Labels
 
@@ -506,12 +512,6 @@ func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.Infere
 	var workerContainer *corev1.Container
 	var mergedWorkerPodSpec *corev1.PodSpec
 	var err error
-
-	if sRuntime.WorkerSpec == nil {
-		errMsg := "you cannot set WorkerSpec in the InferenceService if the ServingRuntime does not have a WorkerSpec"
-		isvc.Status.PropagateRawStatusWithMessages(v1beta1.PredictorComponent, v1beta1.InvalidWorkerSpecNotSet, errMsg, corev1.ConditionFalse)
-		return nil, "", errors.New(errMsg)
-	}
 
 	// Initialize PipelineParallelSize and TensorParallelSize if not set
 	if sRuntime.WorkerSpec.PipelineParallelSize == nil {
@@ -599,20 +599,14 @@ func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.Infere
 		}
 	}
 
-	// Compute pod template hash from head podSpec after all head env vars are set.
-	// Worker env vars (HEAD_SVC, ISVC_NAME, etc.) are set after this point using the hash.
-	// Hash covers both the head PodSpec (ServingRuntime info) and the ISVC Predictor spec
-	// (storage URI, WorkerSpec, etc.) so that any effective pod template change — including
-	// storage URI updates that only affect the storage-initializer init container — produces
-	// a new hash and triggers correct service isolation during rolling updates.
-	// Only Predictor spec is used (not Transformer/Explainer) to avoid unnecessary hash
-	// changes when unrelated components are modified.
+	// Hash head podSpec + Predictor spec so any effective change (SR image, storage URI, etc.)
+	// produces a new value for correct headless service isolation during rolling updates.
 	podTemplateHash, err := utils.ComputeHash(podSpec, isvc.Spec.Predictor)
 	if err != nil {
 		return nil, "", err
 	}
 
-	// Worker node deployement
+	// Worker node deployment
 	if err := isvcutils.AddEnvVarToPodSpec(mergedWorkerPodSpec, constants.WorkerContainerName, constants.RayNodeCountEnvName, strconv.Itoa(nodeCount)); err != nil {
 		return nil, "", errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.RayNodeCountEnvName, constants.WorkerContainerName)
 	}
@@ -625,7 +619,6 @@ func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.Infere
 	if err := isvcutils.AddEnvVarToPodSpec(mergedWorkerPodSpec, constants.WorkerContainerName, constants.TensorParallelSizeEnvName, strconv.Itoa(*sRuntime.WorkerSpec.TensorParallelSize)); err != nil {
 		return nil, "", errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.TensorParallelSizeEnvName, constants.WorkerContainerName)
 	}
-	// Set the environment variable for "isvc name" to the ISVC_NAME when multiNodeEnabled is true.
 	if err := isvcutils.AddEnvVarToPodSpec(mergedWorkerPodSpec, constants.WorkerContainerName, "ISVC_NAME", isvc.Name); err != nil {
 		return nil, "", errors.Wrapf(err, "failed to add ISVC_NAME environment to the container(%s)", constants.WorkerContainerName)
 	}
@@ -633,7 +626,6 @@ func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.Infere
 	if err := isvcutils.AddEnvVarToPodSpec(mergedWorkerPodSpec, constants.WorkerContainerName, "HEAD_SVC", constants.GetHeadServiceName(isvc.Name, podTemplateHash)); err != nil {
 		return nil, "", errors.Wrapf(err, "failed to add HEAD_SVC environment to the container(%s)", constants.WorkerContainerName)
 	}
-
 	// Set the environment variable for worker headless service name to the WORKER_SVC when multiNodeEnabled is true.
 	if err := isvcutils.AddEnvVarToPodSpec(mergedWorkerPodSpec, constants.WorkerContainerName, "WORKER_SVC", constants.GetWorkerServiceName(constants.PredictorServiceName(isvc.Name), podTemplateHash)); err != nil {
 		return nil, "", errors.Wrapf(err, "failed to add WORKER_SVC environment to the container(%s)", constants.WorkerContainerName)
