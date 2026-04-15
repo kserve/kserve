@@ -1162,7 +1162,7 @@ func TestGetGPUResourceQtyByType(t *testing.T) {
 	}
 }
 
-func TestComputePodSpecHash(t *testing.T) {
+func TestComputeHash(t *testing.T) {
 	spec1 := &corev1.PodSpec{
 		Containers: []corev1.Container{
 			{Name: "kserve-container", Image: "image:v1"},
@@ -1174,17 +1174,17 @@ func TestComputePodSpecHash(t *testing.T) {
 		},
 	}
 
-	hash1, err1 := ComputePodSpecHash(spec1)
+	hash1, err1 := ComputeHash(spec1)
 	if err1 != nil {
 		t.Fatalf("unexpected error: %v", err1)
 	}
-	hash2, err2 := ComputePodSpecHash(spec2)
+	hash2, err2 := ComputeHash(spec2)
 	if err2 != nil {
 		t.Fatalf("unexpected error: %v", err2)
 	}
 
 	// Same input produces same hash
-	hash1Again, err := ComputePodSpecHash(spec1)
+	hash1Again, err := ComputeHash(spec1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1198,5 +1198,14 @@ func TestComputePodSpecHash(t *testing.T) {
 	// Hash is 8 hex chars
 	if len(hash1) != 8 {
 		t.Errorf("expected 8 char hash, got %d chars: %s", len(hash1), hash1)
+	}
+
+	// Multiple objects: combining different inputs should differ from single input
+	hashCombined, err := ComputeHash(spec1, spec2)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if hashCombined == hash1 || hashCombined == hash2 {
+		t.Errorf("combined hash should differ from individual hashes")
 	}
 }

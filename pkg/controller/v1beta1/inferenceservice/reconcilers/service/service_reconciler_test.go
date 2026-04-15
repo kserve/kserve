@@ -43,6 +43,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 		podSpec          *corev1.PodSpec
 		multiNodeEnabled bool
 		podTemplateHash  string
+		isvcPredictor    v1beta1.PredictorSpec
 	}
 
 	testInput := map[string]args{
@@ -147,8 +148,9 @@ func TestCreateDefaultDeployment(t *testing.T) {
 		"multiNode-service": nil, // populated dynamically below
 	}
 
-	// Compute hash for multiNode test case
-	multiNodeHash, err := utils.ComputePodSpecHash(testInput["multiNode-service"].podSpec)
+	// Compute hash for multiNode test case using the same inputs as production:
+	// ComputeHash(podSpec, isvc.Spec) — podSpec captures SR info, isvc.Spec captures storage URI etc.
+	multiNodeHash, err := utils.ComputeHash(testInput["multiNode-service"].podSpec, testInput["multiNode-service"].isvcPredictor)
 	require.NoError(t, err)
 	// Set the hash in input componentMeta labels
 	multiNodeInput := testInput["multiNode-service"]

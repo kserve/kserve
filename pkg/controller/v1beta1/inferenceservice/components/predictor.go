@@ -601,9 +601,13 @@ func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.Infere
 
 	// Compute pod template hash from head podSpec after all head env vars are set.
 	// Worker env vars (HEAD_SVC, ISVC_NAME, etc.) are set after this point using the hash.
-	// This hash changes when the head pod template changes (e.g., ServingRuntime image update),
-	// ensuring the headless service selector correctly isolates pods during rolling updates.
-	podTemplateHash, err := utils.ComputePodSpecHash(podSpec)
+	// Hash covers both the head PodSpec (ServingRuntime info) and the ISVC Predictor spec
+	// (storage URI, WorkerSpec, etc.) so that any effective pod template change — including
+	// storage URI updates that only affect the storage-initializer init container — produces
+	// a new hash and triggers correct service isolation during rolling updates.
+	// Only Predictor spec is used (not Transformer/Explainer) to avoid unnecessary hash
+	// changes when unrelated components are modified.
+	podTemplateHash, err := utils.ComputeHash(podSpec, isvc.Spec.Predictor)
 	if err != nil {
 		return nil, "", err
 	}

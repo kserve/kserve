@@ -18,6 +18,7 @@ package utils
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"path/filepath"
@@ -489,18 +490,24 @@ func GetParentDirectory(path string) string {
 	return parentDir
 }
 
-// ComputePodSpecHash computes a FNV-32a hash of the given PodSpec.
+// ComputeHash computes a FNV-32a hash over one or more objects by JSON-marshaling
+// each in order and feeding the bytes into the same hasher.
 // Used for multinode headless service selectors so that rolling updates
 // correctly isolate old and new pods when the pod template changes
-// (e.g., ServingRuntime image updates that don't bump ISVC generation).
-func ComputePodSpecHash(podSpec *corev1.PodSpec) (string, error) {
-	data, err := json.Marshal(podSpec)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal PodSpec: %w", err)
+// (e.g., ServingRuntime image updates or ISVC spec changes like storage URI).
+func ComputeHash(objects ...interface{}) (string, error) {
+	if len(objects) == 0 {
+		return "", errors.New("ComputeHash: at least one object required")
 	}
 	hasher := fnv.New32a()
-	if _, err = hasher.Write(data); err != nil {
-		return "", fmt.Errorf("failed to hash PodSpec: %w", err)
+	for _, obj := range objects {
+		data, err := json.Marshal(obj)
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal object: %w", err)
+		}
+		if _, err = hasher.Write(data); err != nil {
+			return "", fmt.Errorf("failed to hash object: %w", err)
+		}
 	}
 	return fmt.Sprintf("%08x", hasher.Sum32()), nil
 }
