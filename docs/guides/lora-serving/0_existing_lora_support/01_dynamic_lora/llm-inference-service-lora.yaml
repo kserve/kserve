@@ -1,15 +1,11 @@
-apiVersion: serving.kserve.io/v1alpha2
+apiVersion: serving.kserve.io/v1alpha1
 kind: LLMInferenceService
 metadata:
-  name: qwen2-lora-verified
+  name: qwen2-lora
 spec:
   model:
     name: Qwen/Qwen2.5-7B-Instruct
     uri: hf://Qwen/Qwen2.5-7B-Instruct
-    lora:
-      adapters:
-        - name: finance-lora
-          uri: hf://Max1690/qwen2.5-7b-finance-lora
   replicas: 2
   router:
     gateway: {}
@@ -23,6 +19,13 @@ spec:
       effect: "NoSchedule"
     containers:
     - name: main
+      env:
+        # Enable LoRA support in vLLM without pre-loading any adapters.
+        # Adapters will be loaded dynamically via POST /v1/load_lora_adapter.
+        - name: VLLM_ADDITIONAL_ARGS
+          value: "--enable-lora --max-lora-rank=64 --max-loras=4 --max-cpu-loras=4"
+        - name: HF_HUB_OFFLINE
+          value: "false"
       resources:
         limits:
           cpu: "4"
@@ -41,13 +44,3 @@ spec:
         periodSeconds: 30
         timeoutSeconds: 30
         failureThreshold: 5
-    # Enable signature verification and safety scanning in the
-    # storage-initializer init container. The pod will not start
-    # if any downloaded artifact fails verification.
-    initContainers:
-    - name: storage-initializer
-      env:
-        - name: KSERVE_VERIFY_SIGNATURES
-          value: "true"
-        - name: KSERVE_SCAN_MODELS
-          value: "true"

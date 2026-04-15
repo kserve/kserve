@@ -1,0 +1,43 @@
+# AuthPolicy — API key authentication for LoRA inference endpoints
+#
+# Protects all /v1/* endpoints behind the HTTPRoute with API key auth.
+# API keys are stored as Kubernetes Secrets with the label selector below.
+# The authenticated user ID is extracted from the secret's annotation
+# and injected into the auth identity context, making it available for
+# per-user rate limiting in the RateLimitPolicy.
+#
+# Credential format: Authorization: APIKEY <key-value>
+#
+apiVersion: kuadrant.io/v1
+kind: AuthPolicy
+metadata:
+  name: lora-serving-auth
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: lora-serving-route
+  rules:
+    authentication:
+      "api-key-users":
+        apiKey:
+          selector:
+            matchLabels:
+              app: lora-serving
+              authorino.kuadrant.io/managed-by: authorino
+          allNamespaces: false
+        credentials:
+          authorizationHeader:
+            prefix: APIKEY
+    response:
+      success:
+        # Inject identity fields into filter metadata so they are available
+        # to RateLimitPolicy predicates as auth.identity.*
+        filters:
+          "identity":
+            json:
+              properties:
+                "userid":
+                  selector: auth.identity.metadata.annotations.secret\.kuadrant\.io/user-id
+                "tier":
+                  selector: auth.identity.metadata.annotations.secret\.kuadrant\.io/tier

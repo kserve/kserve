@@ -1,0 +1,67 @@
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceService
+metadata:
+  name: qwen2-lora-verified
+spec:
+  model:
+    name: Qwen/Qwen2.5-7B-Instruct
+    uri: hf://Qwen/Qwen2.5-7B-Instruct
+    lora:
+      adapters:
+        - name: finance-lora
+          uri: hf://Max1690/qwen2.5-7b-finance-lora
+  replicas: 2
+  router:
+    gateway: {}
+    route: {}
+    scheduler: {}
+  template:
+    tolerations:
+    - key: "nvidia.com/gpu"
+      operator: "Equal"
+      value: "present"
+      effect: "NoSchedule"
+    containers:
+    - name: main
+      resources:
+        limits:
+          cpu: "4"
+          memory: 32Gi
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "2"
+          memory: 16Gi
+          nvidia.com/gpu: "1"
+      livenessProbe:
+        httpGet:
+          path: /health
+          port: 8000
+          scheme: HTTPS
+        initialDelaySeconds: 120
+        periodSeconds: 30
+        timeoutSeconds: 30
+        failureThreshold: 5
+    # Enable signature verification and safety scanning in the
+    # storage-initializer init container. The pod will not start
+    # if any downloaded artifact fails verification.
+    initContainers:
+    - name: storage-initializer
+      env:
+        # Verify Sigstore signatures on all downloaded artifacts.
+        # Requires model.sig files to be present alongside the weights.
+        - name: KSERVE_VERIFY_SIGNATURES
+          value: "true"
+        # The expected signer identity (email or workflow URI).
+        # Only artifacts signed by this identity will be accepted.
+        - name: KSERVE_SIGNER_IDENTITY
+          value: "REPLACE_ME_SIGNER_EMAIL"
+        # The OIDC issuer for the signer identity.
+        # Common values:
+        #   https://accounts.google.com (Google)
+        #   https://github.com/login/oauth (GitHub)
+        #   https://login.microsoftonline.com (Microsoft)
+        - name: KSERVE_SIGNER_ISSUER
+          value: "REPLACE_ME_OIDC_ISSUER"
+        # Scan for pickle deserialization attacks and other unsafe patterns.
+        - name: KSERVE_SCAN_MODELS
+          value: "true"

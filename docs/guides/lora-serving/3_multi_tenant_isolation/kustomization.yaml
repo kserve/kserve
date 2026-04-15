@@ -5,6 +5,9 @@ kind: Kustomization
 # Each resource specifies its own namespace in metadata.
 
 resources:
+  # LLMInferenceService (deployed into the shared namespace)
+  - llm-inference-service-lora.yaml
+
   # Namespaces
   - shared-model-namespace.yaml
   - team-a-namespace.yaml

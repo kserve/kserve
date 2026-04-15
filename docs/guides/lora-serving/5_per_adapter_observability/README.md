@@ -1,4 +1,4 @@
-# 06 - Per-Adapter Observability
+# 05 - Per-Adapter Observability
 
 This directory provides monitoring and alerting for LoRA adapter serving,
 giving platform teams visibility into how each adapter is performing

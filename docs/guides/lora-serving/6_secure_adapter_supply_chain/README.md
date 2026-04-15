@@ -1,4 +1,4 @@
-# 07 - Secure Adapter Supply Chain
+# 06 - Secure Adapter Supply Chain
 
 This directory demonstrates securing the LoRA adapter supply chain by adding
 signature verification and safety scanning to the storage initializer. A bad
@@ -12,7 +12,7 @@ LoRA adapters introduce a unique supply chain risk compared to base models:
   tamper with, easy to redistribute, and changes much more often than a 14 GB
   base model. Every update is a new trust decision.
 
-- **Dynamic loading amplifies the attack surface.** With `02_dynamic_lora_lifecycle`,
+- **Dynamic loading amplifies the attack surface.** With `00_existing_lora_support/01_dynamic_lora/`,
   adapters can be loaded at runtime from HuggingFace without a CR update. If
   someone pushes a malicious adapter to a repo you trust, it gets loaded.
 
@@ -66,9 +66,20 @@ spec:
       env:
         - name: KSERVE_VERIFY_SIGNATURES
           value: "true"
+        - name: KSERVE_SIGNER_IDENTITY
+          value: "signer@example.com"
+        - name: KSERVE_SIGNER_ISSUER
+          value: "https://accounts.google.com"
         - name: KSERVE_SCAN_MODELS
           value: "true"
 ```
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `KSERVE_VERIFY_SIGNATURES` | No | Set to `true` to enable Sigstore signature verification |
+| `KSERVE_SIGNER_IDENTITY` | If signatures enabled | Expected signer identity (email or GitHub Actions workflow URI) |
+| `KSERVE_SIGNER_ISSUER` | If signatures enabled | OIDC issuer URL (e.g., `https://accounts.google.com`, `https://github.com/login/oauth`) |
+| `KSERVE_SCAN_MODELS` | No | Set to `true` to enable ModelScan pickle/unsafe pattern scanning |
 
 ## Code changes
 
@@ -130,17 +141,29 @@ Sigstore before publishing.
 
 ## Signing your own adapters
 
-To sign a LoRA adapter before pushing to HuggingFace:
+Use the included `sign-adapter.sh` script to download, scan, sign, and
+optionally push a LoRA adapter:
 
 ```bash
-pip install model-signing
+# Install dependencies
+pip install model-signing huggingface-hub modelscan
 
-# Sign the adapter directory (uses Sigstore keyless signing via OIDC)
-model-signing sign --path ./my-lora-adapter/
+# Sign an adapter and keep it locally
+./sign-adapter.sh cimendev/kubernetes-qa-qwen2.5-7b-lora
 
-# Push to HuggingFace (signature files are included automatically)
-huggingface-cli upload my-org/my-lora-adapter ./my-lora-adapter/
+# Sign and push to a new HuggingFace repo you control
+./sign-adapter.sh cimendev/kubernetes-qa-qwen2.5-7b-lora my-org/k8s-lora-signed
 ```
+
+The script:
+1. Downloads the adapter from HuggingFace
+2. Runs ModelScan to check for unsafe serialization patterns
+3. Signs the adapter with Sigstore keyless signing (opens a browser for OIDC)
+4. Verifies the signature was created correctly
+5. Optionally pushes the signed adapter (with `model.sig`) to HuggingFace
+
+Your identity (GitHub, Google, etc.) is recorded in the public Sigstore
+transparency log, creating a verifiable chain of custody for the adapter.
 
 ## Integration with Red Hat Trusted Artifact Signer (RHTAS)
 

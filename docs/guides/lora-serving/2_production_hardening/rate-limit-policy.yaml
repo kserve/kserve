@@ -1,0 +1,98 @@
+# RateLimitPolicy — Per-adapter and per-user rate limiting
+#
+# IMPORTANT: Per-adapter rate limiting based on the JSON body "model" field
+#
+# In OpenAI-compatible APIs, the adapter/model name is in the request body:
+#   {"model": "k8s-lora", "messages": [...]}
+#
+# Kuadrant's wasm-shim supports extracting JSON body fields via the
+# requestBodyJSON() CEL function using RFC 6901 JSON Pointer syntax.
+# This requires Envoy to buffer the request body (see envoy-body-buffering.yaml).
+#
+# The policy defines:
+#   1. Global rate limit across all adapters (safety net)
+#   2. Per-adapter limits using requestBodyJSON('/model')
+#   3. Tiered per-user limits based on auth.identity.tier
+#
+apiVersion: kuadrant.io/v1
+kind: RateLimitPolicy
+metadata:
+  name: lora-serving-rate-limits
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: lora-serving-route
+  limits:
+    # -----------------------------------------------------------
+    # Global safety net: cap total throughput to the route
+    # -----------------------------------------------------------
+    "global-limit":
+      rates:
+        - limit: 500
+          window: 1m
+
+    # -----------------------------------------------------------
+    # Per-user counters: each authenticated user gets their own
+    # bucket. Premium tier gets higher limits than standard.
+    # -----------------------------------------------------------
+    "per-user-premium":
+      rates:
+        - limit: 100
+          window: 1m
+      counters:
+        - expression: auth.identity.userid
+      when:
+        - predicate: "auth.identity.tier == 'premium'"
+
+    "per-user-standard":
+      rates:
+        - limit: 20
+          window: 1m
+      counters:
+        - expression: auth.identity.userid
+      when:
+        - predicate: "auth.identity.tier == 'standard'"
+
+    # -----------------------------------------------------------
+    # Per-adapter limits: prevent any single adapter from
+    # consuming all capacity. Uses requestBodyJSON() to extract
+    # the "model" field from the OpenAI-compatible request body.
+    #
+    # NOTE: requestBodyJSON() requires request body buffering
+    # to be enabled at the Envoy/proxy level. See the
+    # envoy-body-buffering.yaml EnvoyFilter or the Gateway
+    # provider's documentation for enabling this.
+    #
+    # If body buffering is NOT available in your environment,
+    # use the header-based alternative below instead.
+    # -----------------------------------------------------------
+    "adapter-finance-lora":
+      rates:
+        - limit: 200
+          window: 1m
+      when:
+        - predicate: "request.method == 'POST'"
+        - predicate: "requestBodyJSON('/model') == 'finance-lora'"
+
+    "adapter-k8s-lora":
+      rates:
+        - limit: 100
+          window: 1m
+      when:
+        - predicate: "request.method == 'POST'"
+        - predicate: "requestBodyJSON('/model') == 'k8s-lora'"
+
+    # -----------------------------------------------------------
+    # Catch-all for any adapter not explicitly listed
+    # -----------------------------------------------------------
+    "adapter-default":
+      rates:
+        - limit: 50
+          window: 1m
+      counters:
+        - expression: "requestBodyJSON('/model')"
+      when:
+        - predicate: "request.method == 'POST'"
+        - predicate: "requestBodyJSON('/model') != 'finance-lora'"
+        - predicate: "requestBodyJSON('/model') != 'k8s-lora'"

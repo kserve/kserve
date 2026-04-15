@@ -4,5 +4,6 @@ kind: Kustomization
 namespace: REPLACE_ME_NAMESPACE
 
 resources:
-  - cronjob-daytime.yaml
-  - cronjob-nighttime.yaml
+  - llm-inference-service-lora.yaml
+  - service-monitor.yaml
+  - prometheus-rules.yaml

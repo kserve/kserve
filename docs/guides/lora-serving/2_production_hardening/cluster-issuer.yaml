@@ -1,0 +1,31 @@
+# ClusterIssuer — cert-manager issuer for TLS certificates
+#
+# This example uses a self-signed issuer for development/testing.
+# For production, replace with a Let's Encrypt or internal CA issuer.
+#
+# Example Let's Encrypt production issuer (uncomment and configure):
+#
+# apiVersion: cert-manager.io/v1
+# kind: ClusterIssuer
+# metadata:
+#   name: letsencrypt-production
+# spec:
+#   acme:
+#     server: https://acme-v2.api.letsencrypt.org/directory
+#     email: REPLACE_ME_EMAIL
+#     privateKeySecretRef:
+#       name: letsencrypt-production-key
+#     solvers:
+#     - http01:
+#         gatewayHTTPRoute:
+#           parentRefs:
+#           - name: REPLACE_ME_GATEWAY_NAME
+#             namespace: REPLACE_ME_GATEWAY_NAMESPACE
+#
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}

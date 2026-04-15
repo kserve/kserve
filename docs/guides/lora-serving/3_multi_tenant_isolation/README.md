@@ -1,4 +1,4 @@
-# 04 - Multi-Tenant Adapter Isolation
+# 03 - Multi-Tenant Adapter Isolation
 
 This directory demonstrates how multiple teams can share a single
 LLMInferenceService (and its GPU resources) while maintaining strict
@@ -64,7 +64,7 @@ kubectl apply -k .
 
 ### 2. Deploy the LLMInferenceService in the shared namespace
 
-Use the LLMInferenceService from `02_dynamic_lora_lifecycle/` deployed
+Use the LLMInferenceService from `00_existing_lora_support/01_dynamic_lora/` deployed
 into the `lora-serving` namespace.
 
 ### 3. Team A loads their adapter

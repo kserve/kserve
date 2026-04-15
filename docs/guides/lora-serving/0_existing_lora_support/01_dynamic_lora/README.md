@@ -1,10 +1,17 @@
-# 02 - Dynamic LoRA Adapter Lifecycle
+# 01 - Dynamic LoRA Serving
 
-This directory demonstrates the core value proposition of LoRA serving:
-**decoupling the adapter lifecycle from the model server lifecycle.**
+This directory demonstrates **decoupling the adapter lifecycle from the model server
+lifecycle** using only the capabilities available today (v1alpha1, `VLLM_ADDITIONAL_ARGS`).
 
-LoRA adapters are loaded and unloaded at runtime via vLLM's management API --
+LoRA adapters are loaded and unloaded at runtime via vLLM's management API —
 no pod restarts, no CR updates, no downtime.
+
+## How it differs from 00_static_lora
+
+In `00_static_lora`, adapters are baked into the deployment via `--lora-modules`.
+Here, the LLMInferenceService starts with `--enable-lora` but **no static adapters**.
+In-cluster Jobs call vLLM's `/v1/load_lora_adapter` and `/v1/unload_lora_adapter`
+endpoints to manage adapters at runtime.
 
 ## Architecture
 
@@ -100,46 +107,19 @@ kubectl wait --for=condition=Complete job/lora-unload-k8s-adapter --timeout=120s
 
 The security boundary is enforced at two levels:
 
-1. **Gateway/HTTPRoute** -- External traffic is routed only to inference endpoints.
+1. **Gateway/HTTPRoute** — External traffic is routed only to inference endpoints.
    The LoRA management endpoints (`/v1/load_lora_adapter`, `/v1/unload_lora_adapter`)
    are never exposed through the Gateway.
 
-2. **RBAC** -- The `lora-manager` ServiceAccount has the minimum permissions needed
+2. **RBAC** — The `lora-manager` ServiceAccount has the minimum permissions needed
    to discover vLLM pods and manage adapters. Cluster operators control who can
    create Jobs using this ServiceAccount via standard Kubernetes RBAC.
 
-## Adapter lifecycle operations
+## Limitations
 
-### Load a new adapter
-The `lora-load-job.yaml` discovers all vLLM pods and calls `POST /v1/load_lora_adapter`
-on each one. Edit the Job to change:
-- `ADAPTER_NAME` -- the name clients use in the `model` field
-- `ADAPTER_SOURCE` -- HuggingFace repo ID (vLLM downloads it)
-
-### Unload an adapter
-The `lora-unload-job.yaml` calls `POST /v1/unload_lora_adapter` on all pods.
-The adapter is removed from GPU memory immediately.
-
-### Swap an adapter
-Load a new adapter and unload the old one -- the base model continues serving
-throughout. Zero downtime.
-
-### Automate with CronJobs
-For scheduled adapter updates, convert the Jobs to CronJobs:
-
-```yaml
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: nightly-adapter-refresh
-spec:
-  schedule: "0 2 * * *"  # 2 AM daily
-  jobTemplate:
-    spec:
-      # ... same as lora-load-job.yaml
-```
-
-## What's next
-
-See `03_production_hardening/` for adding rate limiting, authentication,
-and quota management per adapter via Red Hat Connectivity Link (Kuadrant).
+- **Still uses `VLLM_ADDITIONAL_ARGS`.** The controller has no awareness of LoRA
+  configuration — `--enable-lora` and related flags are passed as raw vLLM args.
+- **No storage orchestration.** vLLM downloads adapters from HuggingFace at load
+  time (`HF_HUB_OFFLINE=false`). No pre-download via the storage initializer.
+- **Manual pod discovery.** Jobs must discover vLLM pod IPs via the Kubernetes API
+  and call each pod individually.

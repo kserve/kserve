@@ -28,6 +28,22 @@ The controller automatically:
 
 No `VLLM_ADDITIONAL_ARGS`, no `HF_HUB_OFFLINE=false` — the controller handles it all.
 
+## LoRA-aware request routing
+
+When multiple vLLM replicas are serving LoRA adapters, the Gateway API Inference
+Extension's **LoRA affinity scorer** automatically routes requests to the best pod.
+It scores each endpoint based on adapter availability:
+
+| Score | Condition |
+|-------|-----------|
+| 1.0   | Requested adapter is already active on the endpoint |
+| 0.8   | Adapter not active but endpoint has capacity to load it |
+| 0.6   | Adapter is queued/waiting to be loaded |
+| 0.0   | Endpoint is full and adapter is neither active nor queued |
+
+This maximizes adapter cache reuse and minimizes cold-load latency. No additional
+configuration is needed — the scorer is built into the inference gateway.
+
 ## Supported URI schemes
 
 | Scheme   | Description                      | Example                               |
@@ -72,5 +88,6 @@ kubectl apply -k .
 Adapters are still **statically declared** at deploy time. Adding or removing an adapter
 requires updating the LLMInferenceService CR, which triggers a new rollout.
 
-See `02_dynamic_lora_lifecycle/` for dynamic adapter loading and unloading without
-restarting the model server.
+For dynamic adapter loading/unloading without restarts, see the approach in
+`00_existing_lora_support/01_dynamic_lora/` — this can be combined with the
+declarative base model configuration.
