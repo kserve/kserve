@@ -19,12 +19,15 @@ package llmisvc
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -45,11 +48,14 @@ type LLMISVCConfigReconciler struct {
 }
 
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceserviceconfigs,verbs=get;list;watch;update;patch
+//+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceserviceconfigs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceserviceconfigs/finalizers,verbs=update
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceservices,verbs=get;list;watch
 
 // Reconcile manages the finalizer on LLMInferenceServiceConfig resources to prevent
 // deletion while they are still referenced by LLMInferenceService instances.
+// It also updates the config's status conditions to surface why deletion is blocked,
+// similar to how Kubernetes namespaces report finalizer status during termination.
 func (r *LLMISVCConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithName("LLMInferenceServiceConfig").
 		WithValues("Namespace", req.Namespace, "Name", req.Name)
@@ -63,12 +69,18 @@ func (r *LLMISVCConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	finalizerName := constants.KServeAPIGroupName + "/llmisvcconfig-finalizer"
 
 	if config.DeletionTimestamp.IsZero() {
-		// Resource is not being deleted, ensure finalizer is present
+		// Resource is not being deleted, ensure finalizer is present and mark Ready
 		if controllerutil.AddFinalizer(config, finalizerName) {
 			if err := r.Update(ctx, config); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
+
+		config.MarkReady()
+		if err := r.updateStatus(ctx, config); err != nil {
+			return ctrl.Result{}, err
+		}
+
 		return ctrl.Result{}, nil
 	}
 
@@ -83,11 +95,19 @@ func (r *LLMISVCConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	if inUse {
+		msg := fmt.Sprintf("still referenced by LLMInferenceService(s): %s", strings.Join(referencing, ", "))
+
 		logger.Info("LLMInferenceServiceConfig is still referenced, blocking deletion",
 			"referencedBy", referencing)
 		r.Eventf(config, corev1.EventTypeWarning, "DeletionBlocked",
-			"Cannot delete LLMInferenceServiceConfig %s/%s: still referenced by LLMInferenceService(s): %v",
-			config.Namespace, config.Name, referencing)
+			"Cannot delete LLMInferenceServiceConfig %s/%s: %s",
+			config.Namespace, config.Name, msg)
+
+		config.MarkNotReady("DeletionBlocked", msg)
+		if err := r.updateStatus(ctx, config); err != nil {
+			return ctrl.Result{}, err
+		}
+
 		// Requeue as a safety net in case a watch event is missed (e.g. a baseRef removal
 		// from an LLMInferenceService update where only the new object is observed).
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
@@ -101,6 +121,27 @@ func (r *LLMISVCConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// updateStatus updates the status of the LLMInferenceServiceConfig with retry on conflict.
+func (r *LLMISVCConfigReconciler) updateStatus(ctx context.Context, desired *v1alpha2.LLMInferenceServiceConfig) error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		latest := &v1alpha2.LLMInferenceServiceConfig{}
+		if err := r.Get(ctx, client.ObjectKeyFromObject(desired), latest); err != nil {
+			return client.IgnoreNotFound(err)
+		}
+
+		if equality.Semantic.DeepEqual(latest.Status, desired.Status) {
+			return nil
+		}
+
+		latest.Status = desired.Status
+
+		if err := r.Client.Status().Update(ctx, latest); err != nil {
+			return fmt.Errorf("failed to update status for LLMInferenceServiceConfig: %w", err)
+		}
+		return nil
+	})
 }
 
 // isConfigInUse checks if any LLMInferenceService references this config
