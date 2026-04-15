@@ -1,0 +1,77 @@
+# Example Job that dynamically loads a LoRA adapter onto all running
+# vLLM replicas without restarting the model server.
+#
+# Usage:
+#   kubectl apply -f lora-load-job.yaml
+#
+# This Job discovers all pods backing the LLMInferenceService and calls
+# vLLM's POST /v1/load_lora_adapter on each one. The adapter weights
+# are pulled from HuggingFace by vLLM at load time.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: lora-load-k8s-adapter
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      serviceAccountName: lora-manager
+      restartPolicy: Never
+      containers:
+      - name: loader
+        image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          set -euo pipefail
+
+          ADAPTER_NAME="k8s-lora"
+          ADAPTER_SOURCE="cimendev/kubernetes-qa-qwen2.5-7b-lora"
+          LLMISVC_NAME="qwen2-lora"
+          LABEL_SELECTOR="app.kubernetes.io/part-of=llminferenceservice,app.kubernetes.io/name=${LLMISVC_NAME}"
+          PORT=8000
+
+          echo "Discovering vLLM pods for ${LLMISVC_NAME}..."
+
+          # Get pod IPs using the Kubernetes API via the mounted service account token
+          APISERVER="https://kubernetes.default.svc"
+          TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+          NAMESPACE=$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)
+          CACERT="/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+
+          PODS_JSON=$(curl -s --cacert ${CACERT} \
+            -H "Authorization: Bearer ${TOKEN}" \
+            "${APISERVER}/api/v1/namespaces/${NAMESPACE}/pods?labelSelector=${LABEL_SELECTOR}")
+
+          POD_IPS=$(echo "${PODS_JSON}" | grep -o '"podIP":"[^"]*"' | cut -d'"' -f4)
+
+          if [ -z "${POD_IPS}" ]; then
+            echo "ERROR: No pods found for ${LLMISVC_NAME}"
+            exit 1
+          fi
+
+          FAILED=0
+          for IP in ${POD_IPS}; do
+            echo "Loading adapter '${ADAPTER_NAME}' on pod ${IP}..."
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -k \
+              -X POST "https://${IP}:${PORT}/v1/load_lora_adapter" \
+              -H "Content-Type: application/json" \
+              -d "{
+                \"lora_name\": \"${ADAPTER_NAME}\",
+                \"lora_path\": \"${ADAPTER_SOURCE}\"
+              }")
+
+            if [ "${HTTP_CODE}" -eq 200 ]; then
+              echo "  OK (${HTTP_CODE})"
+            else
+              echo "  FAILED (${HTTP_CODE})"
+              FAILED=$((FAILED + 1))
+            fi
+          done
+
+          if [ ${FAILED} -gt 0 ]; then
+            echo "ERROR: ${FAILED} pod(s) failed to load adapter"
+            exit 1
+          fi
+
+          echo "Adapter '${ADAPTER_NAME}' loaded on all replicas."

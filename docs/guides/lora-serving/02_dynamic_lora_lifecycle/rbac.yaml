@@ -1,0 +1,38 @@
+# ServiceAccount for workloads that manage LoRA adapters (load/unload).
+# This gives cluster operators a clear audit trail of which identity is
+# making adapter changes, and can be further restricted with additional
+# RBAC policies as needed.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: lora-manager
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: lora-manager
+rules:
+# Allow reading pods and services to discover vLLM endpoints
+- apiGroups: [""]
+  resources: ["pods", "services"]
+  verbs: ["get", "list"]
+# Allow reading LLMInferenceService to know which model servers exist
+- apiGroups: ["serving.kserve.io"]
+  resources: ["llminferenceservices"]
+  verbs: ["get", "list"]
+# Allow creating/deleting jobs for adapter management
+- apiGroups: ["batch"]
+  resources: ["jobs"]
+  verbs: ["create", "get", "list", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: lora-manager
+subjects:
+- kind: ServiceAccount
+  name: lora-manager
+roleRef:
+  kind: Role
+  name: lora-manager
+  apiGroup: rbac.authorization.k8s.io

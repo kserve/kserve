@@ -6,12 +6,8 @@ spec:
   model:
     name: Qwen/Qwen2.5-7B-Instruct
     uri: hf://Qwen/Qwen2.5-7B-Instruct
-    lora:
-      adapters:
-        - name: k8s-lora
-          uri: hf://cimendev/kubernetes-qa-qwen2.5-7b-lora
-        - name: finance-lora
-          uri: hf://Max1690/qwen2.5-7b-finance-lora
+    # No static lora.adapters -- adapters are loaded and unloaded
+    # dynamically via the vLLM LoRA management API at runtime.
   replicas: 2
   router:
     gateway: {}
@@ -25,6 +21,13 @@ spec:
       effect: "NoSchedule"
     containers:
     - name: main
+      env:
+        # Enable LoRA support in vLLM without pre-loading any adapters.
+        # Adapters will be loaded dynamically via POST /v1/load_lora_adapter.
+        - name: VLLM_ADDITIONAL_ARGS
+          value: "--enable-lora --max-lora-rank=64 --max-loras=4 --max-cpu-loras=4"
+        - name: HF_HUB_OFFLINE
+          value: "false"
       resources:
         limits:
           cpu: "4"

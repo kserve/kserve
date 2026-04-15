@@ -1,0 +1,28 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: lora-serving-route
+spec:
+  parentRefs:
+  - name: REPLACE_ME_GATEWAY_NAME
+    namespace: REPLACE_ME_GATEWAY_NAMESPACE
+  rules:
+  # Only expose inference endpoints to external traffic.
+  # LoRA management endpoints (/v1/load_lora_adapter, /v1/unload_lora_adapter)
+  # are intentionally NOT routed here -- they are only accessible from
+  # within the cluster. See network-policy.yaml and rbac.yaml.
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /v1/chat
+    - path:
+        type: PathPrefix
+        value: /v1/completions
+    - path:
+        type: PathPrefix
+        value: /v1/models
+    backendRefs:
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: qwen2-lora-inference-pool
+      port: 8000
