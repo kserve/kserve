@@ -31,6 +31,7 @@ from vllm.entrypoints.openai.models.serving import OpenAIServingModels
 from vllm.entrypoints.openai.cli_args import validate_parsed_serve_args
 from vllm.entrypoints.chat_utils import load_chat_template
 from vllm.entrypoints.openai.engine.protocol import ErrorResponse as engineError
+from vllm.exceptions import VLLMValidationError
 from vllm.reasoning import ReasoningParserManager
 
 from kserve.protocol.rest.openai.errors import create_error_response
@@ -298,9 +299,13 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
                 message="The model does not support Embeddings API",
                 status_code=HTTPStatus.BAD_REQUEST,
             )
-        response = await self.openai_serving_embedding.create_embedding(
-            request, raw_request
-        )
+        try:
+            response = await self.openai_serving_embedding(request, raw_request)
+        except VLLMValidationError as e:
+            return create_error_response(
+                message=str(e),
+                status_code=HTTPStatus.BAD_REQUEST,
+            )
 
         if isinstance(response, engineError):
             return create_error_response(
