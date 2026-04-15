@@ -1514,7 +1514,7 @@ schedulingProfiles:
 			// Verify InferencePool is created with default workload label selector
 			ip := &igwapi.InferencePool{}
 			Eventually(func(g Gomega, ctx context.Context) error {
-				return envTest.Client.Get(ctx, client.ObjectKey{
+				return envTest.Get(ctx, client.ObjectKey{
 					Name:      nvidiaSvcName + "-inference-pool",
 					Namespace: testNs.Name,
 				}, ip)
@@ -1570,7 +1570,7 @@ schedulingProfiles:
 
 			// Verify no scheduler deployment was created for the AMD instance
 			amdScheduler := &appsv1.Deployment{}
-			err = envTest.Client.Get(ctx, client.ObjectKey{
+			err = envTest.Get(ctx, client.ObjectKey{
 				Name:      amdSvcName + "-kserve-epp",
 				Namespace: testNs.Name,
 			}, amdScheduler)
