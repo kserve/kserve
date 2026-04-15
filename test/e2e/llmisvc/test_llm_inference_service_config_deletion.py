@@ -94,7 +94,9 @@ def _config_has_deletion_timestamp(config_obj):
     return config_obj.get("metadata", {}).get("deletionTimestamp") is not None
 
 
-def _create_llmisvc_with_config_ref(kserve_client, service_name, config_name, namespace=KSERVE_TEST_NAMESPACE):
+def _create_llmisvc_with_config_ref(
+    kserve_client, service_name, config_name, namespace=KSERVE_TEST_NAMESPACE
+):
     """Create an LLMInferenceService referencing a config via baseRefs."""
     from kserve import V1alpha1LLMInferenceService
 
@@ -103,19 +105,27 @@ def _create_llmisvc_with_config_ref(kserve_client, service_name, config_name, na
     workload_config_name = f"{service_name}-workload-cfg"
     router_config_name = f"{service_name}-router-cfg"
 
-    _create_or_update_llmisvc_config(kserve_client, {
-        "apiVersion": f"serving.kserve.io/{API_VERSION}",
-        "kind": "LLMInferenceServiceConfig",
-        "metadata": {"name": workload_config_name, "namespace": namespace},
-        "spec": LLMINFERENCESERVICE_CONFIGS["workload-single-cpu"],
-    }, namespace)
+    _create_or_update_llmisvc_config(
+        kserve_client,
+        {
+            "apiVersion": f"serving.kserve.io/{API_VERSION}",
+            "kind": "LLMInferenceServiceConfig",
+            "metadata": {"name": workload_config_name, "namespace": namespace},
+            "spec": LLMINFERENCESERVICE_CONFIGS["workload-single-cpu"],
+        },
+        namespace,
+    )
 
-    _create_or_update_llmisvc_config(kserve_client, {
-        "apiVersion": f"serving.kserve.io/{API_VERSION}",
-        "kind": "LLMInferenceServiceConfig",
-        "metadata": {"name": router_config_name, "namespace": namespace},
-        "spec": LLMINFERENCESERVICE_CONFIGS["router-managed"],
-    }, namespace)
+    _create_or_update_llmisvc_config(
+        kserve_client,
+        {
+            "apiVersion": f"serving.kserve.io/{API_VERSION}",
+            "kind": "LLMInferenceServiceConfig",
+            "metadata": {"name": router_config_name, "namespace": namespace},
+            "spec": LLMINFERENCESERVICE_CONFIGS["router-managed"],
+        },
+        namespace,
+    )
 
     llm_svc = V1alpha1LLMInferenceService(
         api_version=f"serving.kserve.io/{API_VERSION}",
@@ -173,11 +183,12 @@ def _config_is_gone(kserve_client, config_name, namespace=KSERVE_TEST_NAMESPACE)
     except client.rest.ApiException as e:
         if e.status == 404:
             return True
-        raise AssertionError(f"Unexpected error checking config {config_name}: {e}") from e
+        raise AssertionError(
+            f"Unexpected error checking config {config_name}: {e}"
+        ) from e
 
 
 @pytest.mark.llminferenceservice
-
 @pytest.mark.cluster_cpu
 @pytest.mark.cluster_single_node
 @log_execution
@@ -212,7 +223,6 @@ def test_config_finalizer_added():
 
 
 @pytest.mark.llminferenceservice
-
 @pytest.mark.cluster_cpu
 @pytest.mark.cluster_single_node
 @log_execution
@@ -239,7 +249,9 @@ def test_config_deletion_blocked_when_referenced():
 
         # Create an LLMInferenceService that references this config
         llm_svc, extra_configs = _create_llmisvc_with_config_ref(
-            kserve_client, service_name, config_name,
+            kserve_client,
+            service_name,
+            config_name,
         )
 
         # Attempt to delete the config
@@ -268,7 +280,9 @@ def test_config_deletion_blocked_when_referenced():
             return True
 
         wait_for(assert_deletion_blocked, timeout=60, interval=2.0)
-        print(f"Config {config_name} deletion is correctly blocked (Ready=False, reason=DeletionBlocked)")
+        print(
+            f"Config {config_name} deletion is correctly blocked (Ready=False, reason=DeletionBlocked)"
+        )
 
     finally:
         # Clean up: delete the service first (unblocks the config), then configs
@@ -288,7 +302,6 @@ def test_config_deletion_blocked_when_referenced():
 
 
 @pytest.mark.llminferenceservice
-
 @pytest.mark.cluster_cpu
 @pytest.mark.cluster_single_node
 @log_execution
@@ -325,7 +338,6 @@ def test_config_deletion_allowed_when_unreferenced():
 
 
 @pytest.mark.llminferenceservice
-
 @pytest.mark.cluster_cpu
 @pytest.mark.cluster_single_node
 @log_execution
@@ -350,7 +362,9 @@ def test_config_deletion_unblocked_after_service_deleted():
         wait_for(assert_finalizer_present, timeout=60, interval=2.0)
 
         llm_svc, extra_configs = _create_llmisvc_with_config_ref(
-            kserve_client, service_name, config_name,
+            kserve_client,
+            service_name,
+            config_name,
         )
 
         # Attempt to delete the config (should be blocked)
@@ -378,7 +392,9 @@ def test_config_deletion_unblocked_after_service_deleted():
             return _config_is_gone(kserve_client, config_name)
 
         wait_for(assert_config_gone, timeout=120, interval=2.0)
-        print(f"Config {config_name} was deleted after service {service_name} was removed")
+        print(
+            f"Config {config_name} was deleted after service {service_name} was removed"
+        )
 
     finally:
         if llm_svc is not None:

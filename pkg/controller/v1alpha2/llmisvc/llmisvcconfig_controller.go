@@ -95,7 +95,7 @@ func (r *LLMISVCConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	if inUse {
-		msg := fmt.Sprintf("still referenced by LLMInferenceService(s): %s", strings.Join(referencing, ", "))
+		msg := "still referenced by LLMInferenceService(s): " + strings.Join(referencing, ", ")
 
 		logger.Info("LLMInferenceServiceConfig is still referenced, blocking deletion",
 			"referencedBy", referencing)
