@@ -1,0 +1,57 @@
+# Team B's lora-manager identity and permissions.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: lora-manager
+  namespace: lora-team-b
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: lora-manager-team-b
+  namespace: lora-serving
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services"]
+  verbs: ["get", "list"]
+- apiGroups: ["serving.kserve.io"]
+  resources: ["llminferenceservices"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: lora-manager-team-b
+  namespace: lora-serving
+subjects:
+- kind: ServiceAccount
+  name: lora-manager
+  namespace: lora-team-b
+roleRef:
+  kind: Role
+  name: lora-manager-team-b
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: lora-job-runner
+  namespace: lora-team-b
+rules:
+- apiGroups: ["batch"]
+  resources: ["jobs"]
+  verbs: ["create", "get", "list", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: lora-job-runner
+  namespace: lora-team-b
+subjects:
+- kind: ServiceAccount
+  name: lora-manager
+  namespace: lora-team-b
+roleRef:
+  kind: Role
+  name: lora-job-runner
+  apiGroup: rbac.authorization.k8s.io

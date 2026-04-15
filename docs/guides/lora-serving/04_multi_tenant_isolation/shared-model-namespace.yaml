@@ -1,0 +1,9 @@
+# The LLMInferenceService runs in a shared namespace.
+# Both teams' adapters are loaded onto the same model server,
+# but only their own namespace's lora-manager can manage them.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: lora-serving
+  labels:
+    lora-serving/role: model-server

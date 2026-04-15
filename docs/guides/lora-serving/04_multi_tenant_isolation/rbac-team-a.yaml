@@ -1,0 +1,61 @@
+# Team A's lora-manager identity and permissions.
+# This ServiceAccount can only manage adapters prefixed with "team-a-".
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: lora-manager
+  namespace: lora-team-a
+---
+# Allow Team A to read pods/services in the shared model-server namespace
+# so their load/unload Jobs can discover vLLM endpoints.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: lora-manager-team-a
+  namespace: lora-serving
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services"]
+  verbs: ["get", "list"]
+- apiGroups: ["serving.kserve.io"]
+  resources: ["llminferenceservices"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: lora-manager-team-a
+  namespace: lora-serving
+subjects:
+- kind: ServiceAccount
+  name: lora-manager
+  namespace: lora-team-a
+roleRef:
+  kind: Role
+  name: lora-manager-team-a
+  apiGroup: rbac.authorization.k8s.io
+---
+# Allow Team A to create Jobs in their own namespace
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: lora-job-runner
+  namespace: lora-team-a
+rules:
+- apiGroups: ["batch"]
+  resources: ["jobs"]
+  verbs: ["create", "get", "list", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: lora-job-runner
+  namespace: lora-team-a
+subjects:
+- kind: ServiceAccount
+  name: lora-manager
+  namespace: lora-team-a
+roleRef:
+  kind: Role
+  name: lora-job-runner
+  apiGroup: rbac.authorization.k8s.io

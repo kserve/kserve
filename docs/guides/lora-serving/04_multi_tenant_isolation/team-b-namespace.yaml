@@ -1,0 +1,7 @@
+# Namespace for Team B's LoRA adapter workloads.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: lora-team-b
+  labels:
+    lora-serving/tenant: team-b

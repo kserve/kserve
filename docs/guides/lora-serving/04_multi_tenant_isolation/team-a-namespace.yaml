@@ -1,0 +1,8 @@
+# Namespace for Team A's LoRA adapter workloads.
+# Each team gets their own namespace with isolated RBAC.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: lora-team-a
+  labels:
+    lora-serving/tenant: team-a
