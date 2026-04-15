@@ -53,6 +53,14 @@ class MockPool:
 # Mock multiprocessing.Pool globally for all S3 tests
 mock.patch("kserve_storage.kserve_storage.multiprocessing.Pool", MockPool).start()
 
+class MockSession:
+    def resource(self, *args, **kwargs):
+        import boto3
+        return boto3.resource(*args, **kwargs)
+
+# Mock boto3.Session globally so it returns a session that forwards resource() to the patched boto3.resource
+mock.patch("boto3.Session", return_value=MockSession()).start()
+
 
 def create_mock_obj(path):
     mock_obj = mock.MagicMock()
