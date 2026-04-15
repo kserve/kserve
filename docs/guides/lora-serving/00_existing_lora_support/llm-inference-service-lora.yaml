@@ -1,0 +1,50 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceService
+metadata:
+  name: qwen2-lora
+spec:
+  model:
+    name: Qwen/Qwen2.5-7B-Instruct
+    uri: hf://Qwen/Qwen2.5-7B-Instruct
+  replicas: 2
+  router:
+    gateway: {}
+    route: {}
+    scheduler: {}
+  template:
+    tolerations:
+    - key: "nvidia.com/gpu"
+      operator: "Equal"
+      value: "present"
+      effect: "NoSchedule"
+    containers:
+    - name: main
+      env:
+        # Required so vLLM can download LoRA adapters from HuggingFace at startup.
+        # For production, pre-download adapters to a PVC or bake them into the image.
+        - name: HF_HUB_OFFLINE
+          value: "false"
+        # LoRA adapters are configured manually via vLLM CLI args.
+        # This means any change to adapters requires updating this field and
+        # re-rolling the deployment -- the adapter lifecycle is coupled to
+        # the model server lifecycle.
+        - name: VLLM_ADDITIONAL_ARGS
+          value: "--enable-lora --max-lora-rank=64 --max-loras=2 --max-cpu-loras=2 --lora-modules k8s-lora=cimendev/kubernetes-qa-qwen2.5-7b-lora finance-lora=Max1690/qwen2.5-7b-finance-lora"
+      resources:
+        limits:
+          cpu: "4"
+          memory: 32Gi
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "2"
+          memory: 16Gi
+          nvidia.com/gpu: "1"
+      livenessProbe:
+        httpGet:
+          path: /health
+          port: 8000
+          scheme: HTTPS
+        initialDelaySeconds: 120
+        periodSeconds: 30
+        timeoutSeconds: 30
+        failureThreshold: 5
