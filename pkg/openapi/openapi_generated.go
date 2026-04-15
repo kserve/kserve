@@ -955,11 +955,17 @@ func schema_pkg_apis_serving_v1alpha1_LLMInferenceServiceConfig(ref common.Refer
 							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceServiceSpec"),
 						},
 					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceServiceConfigStatus"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceServiceSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceServiceConfigStatus", "github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceServiceSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -2551,11 +2557,17 @@ func schema_pkg_apis_serving_v1alpha2_LLMInferenceServiceConfig(ref common.Refer
 							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha2.LLMInferenceServiceSpec"),
 						},
 					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha2.LLMInferenceServiceConfigStatus"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1alpha2.LLMInferenceServiceSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha2.LLMInferenceServiceConfigStatus", "github.com/kserve/kserve/pkg/apis/serving/v1alpha2.LLMInferenceServiceSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
