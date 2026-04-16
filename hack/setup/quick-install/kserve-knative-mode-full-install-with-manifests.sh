@@ -38911,8 +38911,7 @@ data:
         "cpuModelcar": "10m",
         "memoryModelcar": "15Mi",
         "uidModelcar": 1010,
-        "confidentialImage": "",
-        "enableConfidentialAutoDiscovery": false
+        "confidentialImage": ""
     }
 kind: ConfigMap
 metadata:
