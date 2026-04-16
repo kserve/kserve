@@ -1547,7 +1547,7 @@ schedulingProfiles:
 			// match the NVIDIA InferencePool selector
 			amdDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
-				return envTest.Client.Get(ctx, client.ObjectKey{
+				return envTest.Get(ctx, client.ObjectKey{
 					Name:      amdSvcName + "-kserve",
 					Namespace: testNs.Name,
 				}, amdDeployment)
@@ -1561,7 +1561,7 @@ schedulingProfiles:
 
 			// Verify no InferencePool was created for the AMD instance
 			amdIP := &igwapi.InferencePool{}
-			err := envTest.Client.Get(ctx, client.ObjectKey{
+			err := envTest.Get(ctx, client.ObjectKey{
 				Name:      amdSvcName + "-inference-pool",
 				Namespace: testNs.Name,
 			}, amdIP)
