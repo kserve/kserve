@@ -558,7 +558,7 @@ def test_llm_autoscaling_keda_lws(test_case: TestCase):
                 service_name="autoscale-prefill-hpa",
             ),
             marks=[
-                pytest.mark.cluster_cpu,
+                pytest.mark.cluster_gpu,
                 pytest.mark.cluster_single_node,
                 pytest.mark.llmd_simulator,
             ],
@@ -606,7 +606,7 @@ def test_llm_autoscaling_prefill_hpa(test_case: TestCase):
                 service_name="autoscale-prefill-keda",
             ),
             marks=[
-                pytest.mark.cluster_cpu,
+                pytest.mark.cluster_gpu,
                 pytest.mark.cluster_single_node,
                 pytest.mark.llmd_simulator,
             ],
@@ -673,12 +673,17 @@ def test_llm_autoscaling_cleanup_hpa(test_case: TestCase):
         _create_and_wait(kserve_client, test_case)
         assert_scaling_resources_exist(service_name, actuator="hpa")
 
+        # Remove the scaling baseRef; keep only non-scaling refs.
+        # Scaling comes from a LLMInferenceServiceConfig, so patching inline
+        # spec.scaling=null won't override it — we must remove the baseRef.
+        base_refs = test_case.llm_service.spec["baseRefs"]
+        non_scaling_refs = [ref for ref in base_refs if "scaling" not in ref["name"]]
         patch_llmisvc(
             kserve_client,
             test_case.llm_service,
             {
                 "spec": {
-                    "scaling": None,
+                    "baseRefs": non_scaling_refs,
                     "replicas": 1,
                 }
             },
@@ -731,12 +736,14 @@ def test_llm_autoscaling_cleanup_keda(test_case: TestCase):
         _create_and_wait(kserve_client, test_case)
         assert_scaling_resources_exist(service_name, actuator="keda")
 
+        base_refs = test_case.llm_service.spec["baseRefs"]
+        non_scaling_refs = [ref for ref in base_refs if "scaling" not in ref["name"]]
         patch_llmisvc(
             kserve_client,
             test_case.llm_service,
             {
                 "spec": {
-                    "scaling": None,
+                    "baseRefs": non_scaling_refs,
                     "replicas": 1,
                 }
             },
@@ -907,13 +914,17 @@ def test_llm_autoscaling_update_hpa(test_case: TestCase):
         _create_and_wait(kserve_client, test_case)
         assert_scaling_resources_exist(service_name, actuator="hpa")
 
+        # JSON merge patch replaces `scaling` entirely, so we must include
+        # the full spec with `wva` to satisfy the webhook validation.
         patch_llmisvc(
             kserve_client,
             test_case.llm_service,
             {
                 "spec": {
                     "scaling": {
+                        "minReplicas": 1,
                         "maxReplicas": 5,
+                        "wva": {"hpa": {}},
                     }
                 }
             },
@@ -985,7 +996,15 @@ def test_llm_autoscaling_update_keda(test_case: TestCase):
             {
                 "spec": {
                     "scaling": {
+                        "minReplicas": 1,
                         "maxReplicas": 5,
+                        "wva": {
+                            "keda": {
+                                "pollingInterval": 5,
+                                "cooldownPeriod": 10,
+                                "initialCooldownPeriod": 0,
+                            }
+                        },
                     }
                 }
             },

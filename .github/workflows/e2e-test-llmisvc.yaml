@@ -229,14 +229,14 @@ jobs:
         run: |
           # Run only CPU tests for now using pytest markers (cluster_)
           # Available GPU vendors: amd, nvidia, intel
-          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and cluster_cpu" 0 "envoy-gateway"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and cluster_cpu and not autoscaling" 0 "envoy-gateway"
 
       - name: Check system status
         if: always()
         run: |
           ./test/scripts/gh-actions/status-check.sh "llmisvc"
 
-  test-llmisvc-autoscaling-hpa:
+  test-llmisvc-wva-autoscaling-hpa:
     runs-on: ubuntu-latest
     needs: [detect-changes, llmisvc-image-build]
     strategy:
@@ -346,7 +346,7 @@ jobs:
         run: |
           ./test/scripts/gh-actions/status-check.sh "llmisvc"
 
-  test-llmisvc-autoscaling-keda:
+  test-llmisvc-wva-autoscaling-keda:
     runs-on: ubuntu-latest
     needs: [detect-changes, llmisvc-image-build]
     strategy:
