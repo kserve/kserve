@@ -156,7 +156,10 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "name": "lora-adapter-2",
                         "uri": "hf://edbeeching/opt-125m-lora",
                     },
-                ]
+                ],
+                "maxRank": 64,
+                "maxAdapters": 2,
+                "maxCpuAdapters": 4,
             },
         },
     },

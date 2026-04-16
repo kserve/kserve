@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,10 +18,10 @@ package llmisvc
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -39,11 +39,17 @@ const (
 	// loraAdaptersMountRoot must not be under constants.DefaultModelLocalMountPath: the base model
 	// is mounted there read-only, and nested volume mounts require mkdir on the parent (fails on RO).
 	loraAdaptersMountRoot = "/mnt/lora"
+	// loraAdapterDocsURL is linked in user-facing error messages for better UX.
+	loraAdapterDocsURL = "https://github.com/kserve/kserve/blob/master/docs/samples/llmisvc/lora-adapters/README.md"
 )
 
 // loraPathInvalidCharsRe matches characters that are invalid in filesystem paths.
 // Replaces anything that is not alphanumeric, dash, underscore, or dot.
 var loraPathInvalidCharsRe = regexp.MustCompile(`[^a-zA-Z0-9._-]`)
+
+// loraVolumeNameInvalidCharsRe matches characters that are invalid in Kubernetes volume names
+// (which must be DNS labels: lowercase alphanumeric and hyphens only).
+var loraVolumeNameInvalidCharsRe = regexp.MustCompile(`[^a-z0-9-]`)
 
 // resolvedLoRAAdapter is one adapter after URI validation (hf/s3 downloads are handled in attachModelArtifacts).
 type resolvedLoRAAdapter struct {
@@ -64,18 +70,15 @@ func enumerateLoRAAdapters(llmSvc *v1alpha2.LLMInferenceService) ([]resolvedLoRA
 		llmSvc.Spec.StorageInitializer.Enabled != nil &&
 		!*llmSvc.Spec.StorageInitializer.Enabled
 
-	baseModelName := ptr.Deref(llmSvc.Spec.Model.Name, llmSvc.Name)
-	adapters := llmSvc.Spec.Model.LoRA.Adapters
+	// Sort by name for stable ordering: ensures the same spec always produces the same
+	// pod spec regardless of the order adapters appear in spec.model.lora.adapters.
+	adapters := slices.SortedFunc(slices.Values(llmSvc.Spec.Model.LoRA.Adapters), func(a, b v1alpha2.LLMModelSpec) int {
+		return strings.Compare(ptr.Deref(a.Name, ""), ptr.Deref(b.Name, ""))
+	})
 	out := make([]resolvedLoRAAdapter, 0, len(adapters))
 
-	for i, adapter := range adapters {
-		if adapter.Name == nil || *adapter.Name == "" {
-			return nil, fmt.Errorf("LoRA adapter[%d]: name is required when lora.adapters is set", i)
-		}
-		adapterName := *adapter.Name
-		if adapterName == baseModelName {
-			return nil, fmt.Errorf("LoRA adapter name %q must differ from base model name %q", adapterName, baseModelName)
-		}
+	for _, adapter := range adapters {
+		adapterName := ptr.Deref(adapter.Name, "")
 
 		uri := adapter.URI.String()
 		schema, _, sepFound := strings.Cut(uri, "://")
@@ -88,20 +91,19 @@ func enumerateLoRAAdapters(llmSvc *v1alpha2.LLMInferenceService) ([]resolvedLoRA
 		switch scheme {
 		case constants.HfURIPrefix, constants.S3URIPrefix:
 			if storageInitializerDisabled {
-				return nil, errors.New("LoRA adapter with hf:// or s3:// URI requires storage initializer (set storageInitializer.enabled to true)")
+				return nil, fmt.Errorf("LoRA adapter %q: hf:// and s3:// require the storage initializer — set storageInitializer.enabled to true (see %s)", adapterName, loraAdapterDocsURL)
 			}
 		case constants.PvcURIPrefix:
 			if storageInitializerDisabled {
-				return nil, errors.New("LoRA adapter with pvc:// URI requires a mounted volume (do not set storageInitializer.enabled to false)")
+				return nil, fmt.Errorf("LoRA adapter %q: pvc:// requires a mounted volume — do not set storageInitializer.enabled to false (see %s)", adapterName, loraAdapterDocsURL)
 			}
+		case constants.OciURIPrefix:
+			// oci:// is intentionally not supported for LoRA adapters. OCI models run as sidecar
+			// containers ("modelcars") with shared process namespaces, but only one modelcar per pod
+			// is currently supported. Workaround: package the adapter in a PVC and use pvc://.
+			return nil, fmt.Errorf("LoRA adapter %q: oci:// is not supported for LoRA adapters; use hf://, s3://, or pvc:// instead (see %s)", adapterName, loraAdapterDocsURL)
 		default:
-			// Note: oci:// is intentionally not supported for LoRA adapters.
-			// OCI models run as sidecar containers ("modelcars") with shared process namespaces,
-			// but only one modelcar per pod is currently supported. Supporting multiple OCI
-			// adapters would require architectural changes (multiple sidecars, complex path
-			// management). Most LoRA adapters are distributed via HuggingFace (hf://), so the
-			// limitation has minimal real-world impact. Workaround: package in PVC and use pvc://.
-			return nil, fmt.Errorf("LoRA adapter %q: unsupported URI scheme in %q (supported: hf://, s3://, pvc://)", adapterName, uri)
+			return nil, fmt.Errorf("LoRA adapter %q: unsupported URI scheme %q; supported schemes are hf://, s3://, pvc:// (see %s)", adapterName, scheme, loraAdapterDocsURL)
 		}
 
 		out = append(out, resolvedLoRAAdapter{
@@ -114,19 +116,16 @@ func enumerateLoRAAdapters(llmSvc *v1alpha2.LLMInferenceService) ([]resolvedLoRA
 	return out, nil
 }
 
-// collectLoRADownloadPairs returns hf:// and s3:// adapter uri/path pairs for a single storage-initializer run.
-func collectLoRADownloadPairs(llmSvc *v1alpha2.LLMInferenceService) ([]storageDownloadPair, error) {
-	adapters, err := enumerateLoRAAdapters(llmSvc)
-	if err != nil || len(adapters) == 0 {
-		return nil, err
-	}
+// collectLoRADownloadPairs filters pre-resolved adapters to hf:// and s3:// uri/path pairs
+// for a single storage-initializer run.
+func collectLoRADownloadPairs(adapters []resolvedLoRAAdapter) []storageDownloadPair {
 	var pairs []storageDownloadPair
 	for _, a := range adapters {
 		if a.scheme == constants.HfURIPrefix || a.scheme == constants.S3URIPrefix {
 			pairs = append(pairs, storageDownloadPair{uri: a.uri, path: a.mountPath})
 		}
 	}
-	return pairs, nil
+	return pairs
 }
 
 // attachLoRAAdapters reconciles spec.model.lora.adapters into vLLM CLI flags appended to the main
@@ -134,27 +133,21 @@ func collectLoRADownloadPairs(llmSvc *v1alpha2.LLMInferenceService) ([]storageDo
 // storage-initializer; pvc:// adapters are mounted here.
 func (r *LLMISVCReconciler) attachLoRAAdapters(
 	ctx context.Context,
-	_ *corev1.ServiceAccount,
 	llmSvc *v1alpha2.LLMInferenceService,
-	_ corev1.PodSpec,
 	podSpec *corev1.PodSpec,
-	_ *Config,
+	adapters []resolvedLoRAAdapter,
 ) error {
 	const containerName = "main"
 
-	adapters, err := enumerateLoRAAdapters(llmSvc)
-	if err != nil {
-		return err
-	}
 	if len(adapters) == 0 {
 		return nil
 	}
 
 	var loraModules []string
-	for i, a := range adapters {
+	for _, a := range adapters {
 		switch a.scheme {
 		case constants.PvcURIPrefix:
-			volName := fmt.Sprintf("lora-pvc-%d", i)
+			volName := "lora-pvc-" + sanitizeLoRAVolumeName(a.name)
 			if err := attachLoraPVCAdapter(a.uri, podSpec, containerName, a.mountPath, volName); err != nil {
 				return fmt.Errorf("LoRA adapter %q: %w", a.name, err)
 			}
@@ -178,13 +171,36 @@ func (r *LLMISVCReconciler) attachLoRAAdapters(
 	}
 	main := &podSpec.Containers[mainIdx]
 
+	if hasValueFromLoRAConfig(main) {
+		log.FromContext(ctx).Info("VLLM_ADDITIONAL_ARGS is set via valueFrom; cannot inspect value at reconcile time — "+
+			"injecting --lora-modules as usual; if the referenced value already contains --lora-modules, duplicate flags may result",
+			"llmService", llmSvc.Name, "namespace", llmSvc.Namespace)
+	}
+
 	if userSuppliedLoRAConfig(main) {
 		log.FromContext(ctx).Info("Skipping controller LoRA injection: workload already sets --lora-modules",
 			"llmService", llmSvc.Name, "namespace", llmSvc.Namespace)
 		return nil
 	}
 
-	appendLoRAVLLMWorkloadArgs(main, len(loraModules), loraModules)
+	loraSpec := llmSvc.Spec.Model.LoRA
+
+	maxRank := int(defaultMaxLoRARank)
+	if loraSpec != nil && loraSpec.MaxRank != nil {
+		maxRank = int(*loraSpec.MaxRank)
+	}
+
+	maxAdapters := len(loraModules)
+	if loraSpec != nil && loraSpec.MaxAdapters != nil {
+		maxAdapters = int(*loraSpec.MaxAdapters)
+	}
+
+	maxCpuAdapters := len(loraModules)
+	if loraSpec != nil && loraSpec.MaxCpuAdapters != nil {
+		maxCpuAdapters = int(*loraSpec.MaxCpuAdapters)
+	}
+
+	appendLoRAVLLMWorkloadArgs(main, loraModules, maxRank, maxAdapters, maxCpuAdapters)
 
 	return nil
 }
@@ -199,15 +215,26 @@ func userSuppliedLoRAConfig(c *corev1.Container) bool {
 	return strings.Contains(joined, "--lora-modules")
 }
 
+// hasValueFromLoRAConfig reports whether VLLM_ADDITIONAL_ARGS is set via valueFrom
+// (ConfigMap/Secret reference), meaning the controller cannot inspect the value at reconcile time.
+func hasValueFromLoRAConfig(c *corev1.Container) bool {
+	for _, e := range c.Env {
+		if e.Name == "VLLM_ADDITIONAL_ARGS" && e.ValueFrom != nil {
+			return true
+		}
+	}
+	return false
+}
+
 // appendLoRAVLLMWorkloadArgs appends vLLM LoRA flags to main.Args so the LLMInferenceServiceConfig
 // entrypoint can pass them to `vllm serve` (eval "... $@") after the trailing `--` argv separator.
-func appendLoRAVLLMWorkloadArgs(main *corev1.Container, n int, loraModules []string) {
+func appendLoRAVLLMWorkloadArgs(main *corev1.Container, loraModules []string, maxRank, maxAdapters, maxCpuAdapters int) {
 	argv := make([]string, 0, 5+len(loraModules))
 	argv = append(argv,
 		"--enable-lora",
-		fmt.Sprintf("--max-lora-rank=%d", defaultMaxLoRARank),
-		fmt.Sprintf("--max-loras=%d", n),
-		fmt.Sprintf("--max-cpu-loras=%d", n),
+		fmt.Sprintf("--max-lora-rank=%d", maxRank),
+		fmt.Sprintf("--max-loras=%d", maxAdapters),
+		fmt.Sprintf("--max-cpu-loras=%d", maxCpuAdapters),
 		"--lora-modules",
 	)
 	argv = append(argv, loraModules...)
@@ -216,6 +243,23 @@ func appendLoRAVLLMWorkloadArgs(main *corev1.Container, n int, loraModules []str
 
 func sanitizeLoRAPathSegment(s string) string {
 	out := loraPathInvalidCharsRe.ReplaceAllString(s, "-")
+	// "." and ".." are valid after sanitization but dangerous as path components:
+	// filepath.Join("/mnt/lora", "..") resolves to "/mnt" (path traversal).
+	if out == "" || out == "." || out == ".." {
+		return "adapter"
+	}
+	return out
+}
+
+// sanitizeLoRAVolumeName produces a valid Kubernetes volume name (DNS label) from an adapter name.
+// Volume names must be lowercase alphanumeric and hyphens, max 63 chars. The "lora-pvc-" prefix
+// (9 chars) is added by the caller, so we cap the output at 54 chars.
+func sanitizeLoRAVolumeName(s string) string {
+	out := loraVolumeNameInvalidCharsRe.ReplaceAllString(strings.ToLower(s), "-")
+	out = strings.Trim(out, "-")
+	if len(out) > 54 {
+		out = strings.TrimRight(out[:54], "-")
+	}
 	if out == "" {
 		return "adapter"
 	}

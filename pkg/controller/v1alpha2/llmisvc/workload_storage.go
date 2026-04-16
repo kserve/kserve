@@ -50,58 +50,16 @@ var tokenizerOnlyDownload = corev1.EnvVar{
 	Value: `["tokenizer.json", "tokenizer_config.json", "special_tokens_map.json", "vocab.json", "merges.txt", "config.json", "generation_config.json"]`,
 }
 
-// stripPriorControllerStorageInitializer removes storage-initializer init containers that would
+// stripPriorControllerStorageInitializer removes the storage-initializer init container that would
 // duplicate the one the controller is about to add: merged/user templates often already
-// define "storage-initializer", and older reconciles used per-LoRA "storage-initializer-lora-*"
-// plus "kserve-provision-location-lora-*" volumes.
+// define "storage-initializer".
 func stripPriorControllerStorageInitializer(podSpec *corev1.PodSpec) {
 	if podSpec == nil {
 		return
 	}
-	loraInitPrefix := constants.StorageInitializerContainerName + "-lora-"
-	loraVolPrefix := constants.StorageInitializerVolumeName + "-lora-"
-
-	removeVol := make(map[string]struct{})
-	for _, v := range podSpec.Volumes {
-		if strings.HasPrefix(v.Name, loraVolPrefix) {
-			removeVol[v.Name] = struct{}{}
-		}
-	}
-
-	dropLoraVolumeMounts := func(c *corev1.Container) {
-		if len(c.VolumeMounts) == 0 || len(removeVol) == 0 {
-			return
-		}
-		kept := c.VolumeMounts[:0]
-		for _, vm := range c.VolumeMounts {
-			if _, drop := removeVol[vm.Name]; drop {
-				continue
-			}
-			kept = append(kept, vm)
-		}
-		c.VolumeMounts = kept
-	}
-	for i := range podSpec.Containers {
-		dropLoraVolumeMounts(&podSpec.Containers[i])
-	}
-	for i := range podSpec.InitContainers {
-		dropLoraVolumeMounts(&podSpec.InitContainers[i])
-	}
-
-	if len(removeVol) > 0 {
-		keptVol := podSpec.Volumes[:0]
-		for _, v := range podSpec.Volumes {
-			if _, drop := removeVol[v.Name]; drop {
-				continue
-			}
-			keptVol = append(keptVol, v)
-		}
-		podSpec.Volumes = keptVol
-	}
-
 	keptInit := podSpec.InitContainers[:0]
 	for _, ic := range podSpec.InitContainers {
-		if ic.Name == constants.StorageInitializerContainerName || strings.HasPrefix(ic.Name, loraInitPrefix) {
+		if ic.Name == constants.StorageInitializerContainerName {
 			continue
 		}
 		keptInit = append(keptInit, ic)
@@ -124,7 +82,7 @@ func stripPriorControllerStorageInitializer(podSpec *corev1.PodSpec) {
 // Returns:
 //
 //	An error if the configuration fails, otherwise nil.
-func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, curr corev1.PodSpec, podSpec *corev1.PodSpec, config *Config, containerName string, modelPath string) error {
+func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, curr corev1.PodSpec, podSpec *corev1.PodSpec, config *Config, containerName string, modelPath string, attachLoRA bool) error {
 	modelUri := llmSvc.Spec.Model.URI.String()
 	schema, _, sepFound := strings.Cut(modelUri, "://")
 
@@ -142,12 +100,8 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 	}
 
 	var loraPairs []storageDownloadPair
-	var err error
-	if containerName == "main" {
-		loraPairs, err = collectLoRADownloadPairs(llmSvc)
-		if err != nil {
-			return err
-		}
+	if attachLoRA {
+		loraPairs = collectLoRADownloadPairs(config.ResolvedLoRAAdapters)
 	}
 
 	// Handle model artifact downloads based on URI scheme
@@ -206,8 +160,8 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 	}
 
 	// Attach LoRA adapters (PVC mounts + vLLM flag injection) after model downloads
-	if containerName == "main" {
-		if err := r.attachLoRAAdapters(ctx, serviceAccount, llmSvc, curr, podSpec, config); err != nil {
+	if attachLoRA {
+		if err := r.attachLoRAAdapters(ctx, llmSvc, podSpec, config.ResolvedLoRAAdapters); err != nil {
 			return err
 		}
 	}
@@ -497,7 +451,7 @@ func (r *LLMISVCReconciler) attachMultiStorageDownloads(
 
 	if serviceAccount == nil {
 		serviceAccount = &corev1.ServiceAccount{}
-		err := r.Get(ctx, types.NamespacedName{Name: "default", Namespace: llmSvc.Namespace}, serviceAccount)
+		err := r.Get(ctx, types.NamespacedName{Name: defaultServiceAccountName, Namespace: llmSvc.Namespace}, serviceAccount)
 		if err != nil {
 			log.FromContext(ctx).Error(err, "Failed to find default service account", "namespace", llmSvc.Namespace)
 			injectCaBundle(llmSvc.Namespace, podSpec, initPtr, storageConfig)

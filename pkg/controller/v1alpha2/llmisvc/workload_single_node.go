@@ -155,7 +155,7 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 		if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
 			return nil, fmt.Errorf("failed to get current deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
 		}
-		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, "main", constants.DefaultModelLocalMountPath); err != nil {
+		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, "main", constants.DefaultModelLocalMountPath, withLoRAAdapters); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to main deployment: %w", err)
 		}
 	}
@@ -240,7 +240,7 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 		if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
 			return nil, fmt.Errorf("failed to get current prefill deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
 		}
-		if err := r.attachModelArtifacts(ctx, existingServiceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, "main", constants.DefaultModelLocalMountPath); err != nil {
+		if err := r.attachModelArtifacts(ctx, existingServiceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, "main", constants.DefaultModelLocalMountPath, withLoRAAdapters); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to prefill deployment: %w", err)
 		}
 	}

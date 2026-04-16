@@ -8,7 +8,7 @@ LoRA adapters allow you to serve a base model with task-specific or domain-speci
 
 ## What are LoRA Adapters?
 
-**LoRA (Low-Rank Adaptation)** is a parameter-efficient fine-tuning technique that adapts large language models by training small adapter modules instead of the full model. Benefits include:
+**LoRA (Low-Rank Adaptation)** is a parameter-efficient fine-tuning technique that adapts large language models by training small adapter modules instead of the full model ([vLLM LoRA docs](https://docs.vllm.ai/en/stable/features/lora.html)). Benefits include:
 
 - **Storage Efficiency**: Adapters are typically 1-100 MB vs. multi-GB base models
 - **Multi-Tenancy**: Serve multiple adapted versions of a model from a single deployment

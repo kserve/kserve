@@ -1013,3 +1013,125 @@ func TestValidateActuatorConsistency(t *testing.T) {
 		assert.Contains(t, errs[0].Detail, "autoscaling (scaling) is not supported for multi-node deployments")
 	})
 }
+
+func TestValidateLoRAAdapters(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+
+	makeAdapter := func(name, uri string) LLMModelSpec {
+		return LLMModelSpec{URI: apis.URL{Scheme: "hf", Host: uri}, Name: ptr.To(name)}
+	}
+
+	makeSvc := func(modelName string, loraSpec *LoRASpec) *LLMInferenceService {
+		return &LLMInferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: modelName, Namespace: "default"},
+			Spec: LLMInferenceServiceSpec{
+				Model: LLMModelSpec{
+					URI:  apis.URL{Scheme: "hf", Host: "base-model"},
+					Name: ptr.To(modelName),
+					LoRA: loraSpec,
+				},
+			},
+		}
+	}
+
+	t.Run("no lora", func(t *testing.T) {
+		errs := validator.validateLoRAAdapters(makeSvc("base", nil))
+		assert.Empty(t, errs)
+	})
+
+	t.Run("valid single adapter", func(t *testing.T) {
+		errs := validator.validateLoRAAdapters(makeSvc("base", &LoRASpec{
+			Adapters: []LLMModelSpec{makeAdapter("adapter-1", "adapter-1")},
+		}))
+		assert.Empty(t, errs)
+	})
+
+	t.Run("adapter name missing", func(t *testing.T) {
+		svc := makeSvc("base", &LoRASpec{
+			Adapters: []LLMModelSpec{{URI: apis.URL{Scheme: "hf", Host: "adapter-1"}}},
+		})
+		errs := validator.validateLoRAAdapters(svc)
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "spec.model.lora.adapters[0].name")
+		assert.Equal(t, field.ErrorTypeRequired, errs[0].Type)
+	})
+
+	t.Run("adapter name is dot (path traversal)", func(t *testing.T) {
+		errs := validator.validateLoRAAdapters(makeSvc("base", &LoRASpec{
+			Adapters: []LLMModelSpec{makeAdapter(".", "adapter-dot")},
+		}))
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "spec.model.lora.adapters[0].name")
+		assert.Contains(t, errs[0].Detail, "path traversal")
+	})
+
+	t.Run("adapter name is dotdot (path traversal)", func(t *testing.T) {
+		errs := validator.validateLoRAAdapters(makeSvc("base", &LoRASpec{
+			Adapters: []LLMModelSpec{makeAdapter("..", "adapter-dotdot")},
+		}))
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "spec.model.lora.adapters[0].name")
+		assert.Contains(t, errs[0].Detail, "path traversal")
+	})
+
+	t.Run("duplicate adapter names", func(t *testing.T) {
+		errs := validator.validateLoRAAdapters(makeSvc("base", &LoRASpec{
+			Adapters: []LLMModelSpec{
+				makeAdapter("dup", "adapter-1"),
+				makeAdapter("dup", "adapter-2"),
+			},
+		}))
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "spec.model.lora.adapters[1].name")
+		assert.Contains(t, errs[0].Detail, "duplicate")
+	})
+
+	t.Run("adapter name same as base model name", func(t *testing.T) {
+		errs := validator.validateLoRAAdapters(makeSvc("base-model", &LoRASpec{
+			Adapters: []LLMModelSpec{makeAdapter("base-model", "adapter-1")},
+		}))
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "spec.model.lora.adapters[0].name")
+		assert.Contains(t, errs[0].Detail, "adapter name must differ from base model name")
+	})
+
+	t.Run("maxRank zero is invalid", func(t *testing.T) {
+		errs := validator.validateLoRAAdapters(makeSvc("base", &LoRASpec{
+			MaxRank:  ptr.To(int32(0)),
+			Adapters: []LLMModelSpec{makeAdapter("adapter-1", "adapter-1")},
+		}))
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "spec.model.lora.maxRank")
+	})
+
+	t.Run("maxAdapters zero is invalid", func(t *testing.T) {
+		errs := validator.validateLoRAAdapters(makeSvc("base", &LoRASpec{
+			MaxAdapters: ptr.To(int32(0)),
+			Adapters:    []LLMModelSpec{makeAdapter("adapter-1", "adapter-1")},
+		}))
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "spec.model.lora.maxAdapters")
+	})
+
+	t.Run("maxCpuAdapters zero is invalid", func(t *testing.T) {
+		errs := validator.validateLoRAAdapters(makeSvc("base", &LoRASpec{
+			MaxCpuAdapters: ptr.To(int32(0)),
+			Adapters:       []LLMModelSpec{makeAdapter("adapter-1", "adapter-1")},
+		}))
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "spec.model.lora.maxCpuAdapters")
+	})
+
+	t.Run("all lora params valid", func(t *testing.T) {
+		errs := validator.validateLoRAAdapters(makeSvc("base", &LoRASpec{
+			MaxRank:        ptr.To(int32(128)),
+			MaxAdapters:    ptr.To(int32(4)),
+			MaxCpuAdapters: ptr.To(int32(8)),
+			Adapters: []LLMModelSpec{
+				makeAdapter("adapter-1", "adapter-1"),
+				makeAdapter("adapter-2", "adapter-2"),
+			},
+		}))
+		assert.Empty(t, errs)
+	})
+}

@@ -434,7 +434,7 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 
 			modelPath := path.Join(constants.DefaultModelLocalMountPath, "base")
 
-			if err := r.attachModelArtifacts(ctx, existingServiceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, tokenizerContainerName, modelPath); err != nil {
+			if err := r.attachModelArtifacts(ctx, existingServiceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, tokenizerContainerName, modelPath, withoutLoRAAdapters); err != nil {
 				return d, fmt.Errorf("failed to attach model artifacts to scheduler deployment: %w", err)
 			}
 

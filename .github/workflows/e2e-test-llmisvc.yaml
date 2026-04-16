@@ -220,8 +220,8 @@ jobs:
 
           echo "✅ LLMISvc setup verification complete!"
 
-      - name: Run predictor E2E tests
-        id: predictor-tests
+      - name: Run LLMInferenceService E2E tests
+        id: llmisvc-e2e-tests
         timeout-minutes: 60
         run: |
           # Run only CPU tests for now using pytest markers (cluster_)
