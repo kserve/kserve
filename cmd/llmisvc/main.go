@@ -291,7 +291,6 @@ func main() {
 	// after the webhook server and cache sync are ready. This avoids the
 	// chicken-and-egg problem where migration patches trigger validating webhooks
 	// that aren't serving yet.
-	//
 	// Local copies pin the values into the closure by value. If Options were ever
 	// mutated after mgr.Add returns (it is not today, but nothing prevents it),
 	// closures capturing options directly would see stale or live values depending
