@@ -349,6 +349,15 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		}
 	}
 
+	// Resolve LoRA adapters from the final merged spec and embed the result in reconcilerConfig.
+	// Doing this here ties resolution to the config-merge step so all downstream workload
+	// functions share a single, consistent resolution rather than each re-parsing the spec.
+	loraAdapters, err := enumerateLoRAAdapters(llmSvcCfg.Spec)
+	if err != nil {
+		return llmSvcCfg, fmt.Errorf("failed to enumerate LoRA adapters: %w", err)
+	}
+	reconcilerConfig.ResolvedLoRAAdapters = loraAdapters
+
 	return llmSvcCfg, nil
 }
 

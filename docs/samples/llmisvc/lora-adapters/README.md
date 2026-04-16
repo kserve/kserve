@@ -199,8 +199,9 @@ When you specify `spec.model.lora.adapters`, the controller automatically:
 
 3. **Configures vLLM Runtime**:
    - Appends `--enable-lora` to vLLM CLI arguments
-   - Sets `--max-lora-rank=64` (default rank limit)
-   - Sets `--max-loras=N` where N = number of adapters
+   - Sets `--max-lora-rank` from `spec.model.lora.maxRank` (default: 64)
+   - Sets `--max-loras` from `spec.model.lora.maxAdapters` (default: number of configured adapters)
+   - Sets `--max-cpu-loras` from `spec.model.lora.maxCpuAdapters` (default: number of configured adapters)
    - Passes `--lora-modules adapter-name=/mnt/lora/adapter-name` for each adapter
 
 ### Adapter Path Sanitization
@@ -263,25 +264,41 @@ curl -k https://<route-url>/v1/chat/completions \
 
 The controller sets `--max-lora-rank=64` by default. This must be ≥ the rank used during adapter training.
 
-If your adapters use a higher rank, you can override vLLM args:
+If your adapters use a higher rank, set `spec.model.lora.maxRank`:
 
 ```yaml
 spec:
-  template:
-    containers:
-      - name: main
-        env:
-          - name: VLLM_ADDITIONAL_ARGS
-            value: "--max-lora-rank=128"
+  model:
+    lora:
+      maxRank: 128
+      adapters:
+        - name: my-adapter
+          uri: hf://my-org/my-high-rank-adapter
 ```
 
 ### Multiple Adapters
 
 All adapters are loaded at service startup. vLLM can switch between adapters dynamically per request without reloading.
 
+Use `spec.model.lora.maxAdapters` and `spec.model.lora.maxCpuAdapters` to control how many adapters are kept in GPU and CPU memory respectively:
+
+```yaml
+spec:
+  model:
+    lora:
+      maxAdapters: 2      # max adapters in GPU memory simultaneously (default: number of adapters)
+      maxCpuAdapters: 4   # max adapters cached in CPU memory (default: number of adapters)
+      adapters:
+        - name: adapter-1
+          uri: hf://my-org/adapter-1
+        - name: adapter-2
+          uri: hf://my-org/adapter-2
+```
+
 **Resource impact:**
 - Each adapter consumes GPU memory proportional to its rank
-- Higher `--max-loras` increases memory overhead
+- Higher `maxAdapters` increases GPU memory overhead
+- Use `maxCpuAdapters` to cache adapters in CPU memory when not actively serving
 - Monitor GPU memory usage when serving many adapters
 
 ### Adapter Name Constraints
@@ -325,6 +342,7 @@ Expected output:
 'enable_lora': True
 'max_lora_rank': 64
 'max_loras': 2
+'max_cpu_loras': 2
 'lora_modules': [LoRAModulePath(name='sql-adapter', path='/mnt/lora/sql-adapter'), ...]
 ```
 
@@ -345,7 +363,7 @@ Expected output:
 
 - All adapters must be compatible with the base model architecture
 - Adapters must use LoRA format compatible with vLLM
-- Maximum rank is limited by `--max-lora-rank` (default 64)
+- Maximum rank is limited by `spec.model.lora.maxRank` (default 64); increase it if adapters were trained with a higher rank
 
 ## Troubleshooting
 
@@ -449,7 +467,7 @@ kubectl describe pvc <pvc-name>
 1. Reduce number of adapters
 2. Use lower-rank adapters (re-train if necessary)
 3. Increase GPU memory allocation
-4. Reduce `--max-loras` if only subset of adapters needed at once
+4. Set `spec.model.lora.maxAdapters` to a smaller value if only a subset of adapters need to be in GPU memory at once
 
 ## Performance Considerations
 
@@ -481,16 +499,18 @@ For `hf://` and `s3://`:
 
 ### Custom vLLM Arguments
 
-Override default LoRA configuration:
+Prefer using the spec fields (`maxRank`, `maxAdapters`, `maxCpuAdapters`) over `VLLM_ADDITIONAL_ARGS` for LoRA configuration. Use `VLLM_ADDITIONAL_ARGS` only when you need to pass other vLLM flags alongside LoRA settings:
 
 ```yaml
 spec:
-  template:
-    containers:
-      - name: main
-        env:
-          - name: VLLM_ADDITIONAL_ARGS
-            value: "--max-lora-rank=128 --max-cpu-loras=4"
+  model:
+    lora:
+      maxRank: 128
+      maxAdapters: 2
+      maxCpuAdapters: 4
+      adapters:
+        - name: my-adapter
+          uri: hf://my-org/my-adapter
 ```
 
 **Note**: If you manually specify `--lora-modules` in `VLLM_ADDITIONAL_ARGS` or container args, the controller will skip automatic LoRA injection.

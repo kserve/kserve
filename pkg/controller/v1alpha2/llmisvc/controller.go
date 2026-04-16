@@ -212,13 +212,6 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 	// We are only writing to status, so we can safely use the original object.
 	llmSvc.Spec = baseCfg.Spec
 
-	// Resolve LoRA adapters once after spec merge so all workload functions share the result.
-	loraAdapters, err := enumerateLoRAAdapters(llmSvc)
-	if err != nil {
-		return fmt.Errorf("failed to enumerate LoRA adapters: %w", err)
-	}
-	config.ResolvedLoRAAdapters = loraAdapters
-
 	if err := r.reconcileWorkload(ctx, llmSvc, config); err != nil {
 		return fmt.Errorf("failed to reconcile workload: %w", err)
 	}

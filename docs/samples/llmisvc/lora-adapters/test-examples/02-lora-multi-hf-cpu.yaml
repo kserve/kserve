@@ -15,6 +15,11 @@ spec:
           uri: hf://edbeeching/opt-125m-lora
         - name: adapter-2
           uri: hf://edbeeching/opt-125m-lora
+      # Optional: override vLLM LoRA runtime settings.
+      # maxRank defaults to 64, maxAdapters and maxCpuAdapters default to the number of configured adapters.
+      maxRank: 64
+      maxAdapters: 2
+      maxCpuAdapters: 4
   replicas: 1
   router:
     scheduler: {}
