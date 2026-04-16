@@ -92,6 +92,28 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 			// Verify labels
 			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels).To(HaveKeyWithValue(constants.KServeComponentLabelKey, constants.KServeComponentWorkload))
 			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels).To(HaveKeyWithValue(constants.LLMDRoleLabelKey, constants.LLMDRoleDecode))
+
+			// Verify status.workloads references
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, types.NamespacedName{Name: svcName, Namespace: testNs.Name}, current)).To(Succeed())
+				g.Expect(current.Status.Workloads).NotTo(BeNil())
+				g.Expect(current.Status.Workloads.Primary).To(Equal(&corev1.TypedLocalObjectReference{
+					APIGroup: ptr.To("leaderworkerset.x-k8s.io"),
+					Kind:     "LeaderWorkerSet",
+					Name:     kmeta.ChildName(svcName, "-kserve-mn"),
+				}))
+				g.Expect(current.Status.Workloads.Service).To(Equal(&corev1.TypedLocalObjectReference{
+					Kind: "Service",
+					Name: kmeta.ChildName(svcName, "-kserve-workload-svc"),
+				}))
+				g.Expect(current.Status.Workloads.Prefill).To(Equal(&corev1.TypedLocalObjectReference{
+					APIGroup: ptr.To("leaderworkerset.x-k8s.io"),
+					Kind:     "LeaderWorkerSet",
+					Name:     kmeta.ChildName(svcName, "-kserve-mn-prefill"),
+				}))
+				g.Expect(current.Status.Workloads.Scheduler).To(BeNil())
+			}).WithContext(ctx).Should(Succeed())
 		})
 
 		It("should create multi-node deployment with prefill workload", func(ctx SpecContext) {

@@ -339,7 +339,7 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 	labels := SchedulerLabels(llmSvc)
 	d := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve-router-scheduler"),
+			Name:      schedulerDeploymentName(llmSvc),
 			Namespace: llmSvc.GetNamespace(),
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
@@ -949,6 +949,10 @@ func semanticRoleBindingIsEqual(expected *rbacv1.RoleBinding, curr *rbacv1.RoleB
 		equality.Semantic.DeepDerivative(expected.RoleRef, curr.RoleRef) &&
 		equality.Semantic.DeepDerivative(expected.Labels, curr.Labels) &&
 		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
+}
+
+func schedulerDeploymentName(llmSvc *v1alpha2.LLMInferenceService) string {
+	return kmeta.ChildName(llmSvc.GetName(), "-kserve-router-scheduler")
 }
 
 func SchedulerLabels(llmSvc *v1alpha2.LLMInferenceService) map[string]string {
