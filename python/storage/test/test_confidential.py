@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+from unittest.mock import MagicMock, patch
 
 import pytest
 from jwcrypto import jwe, jwk
@@ -93,15 +94,22 @@ class TestCDHSecretResolver:
         with pytest.raises(SecretResolutionError, match="Invalid resource ID"):
             resolver.resolve_key("invalid-id")
 
-    def test_valid_resource_id_format(self, monkeypatch, requests_mock):
+    @patch("kserve_storage.confidential.cdh_client.requests.get")
+    def test_valid_resource_id_format(self, mock_get):
         key_data = b"0123456789abcdef0123456789abcdef"
-        requests_mock.get(
-            "http://127.0.0.1:8006/cdh/resource/default/key/model-key",
-            content=key_data,
-        )
+        mock_response = MagicMock()
+        mock_response.content = key_data
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
         resolver = CDHSecretResolver()
         result = resolver.resolve_key("kbs:///default/key/model-key")
+
         assert result == key_data
+        mock_get.assert_called_once_with(
+            "http://127.0.0.1:8006/cdh/resource/default/key/model-key",
+            timeout=30,
+        )
 
 
 # --- JWEDecryptor ---
