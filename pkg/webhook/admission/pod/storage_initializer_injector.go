@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -101,25 +102,30 @@ type StorageInitializerParams struct {
 }
 
 // GetStorageContainerSpec finds and returns a ClusterStorageContainer specification
-// that supports the given storage URI. This function searches through all available
-// ClusterStorageContainer resources in the cluster and returns the first one that
+// that supports the given storage URI.
+//
+// When storageContainerName is provided (non-nil and non-empty), the function
+// performs a direct lookup by name via GetStorageContainerSpecByName, which
+// applies full eligibility checks (not disabled, correct workload type, URI
+// support). No fallback to URI-based matching occurs in this case.
+//
+// When storageContainerName is nil or empty, the function searches through all
+// available ClusterStorageContainer resources and returns the first one that
 // can handle the specified URI format.
 //
 // Parameters:
 //   - ctx: Context for the Kubernetes API call
 //   - storageUri: The storage URI to find a compatible container for (e.g., "s3://bucket/path")
-//   - client: Kubernetes client for listing ClusterStorageContainer resources
+//   - storageContainerName: Optional name of a specific ClusterStorageContainer to use
+//   - client: Kubernetes client for accessing ClusterStorageContainer resources
 //
 // Returns:
 //   - *v1alpha1.StorageContainerSpec: The container specification that supports the URI, or nil if none found
-//   - error: Error if the Kubernetes API call fails or URI format checking fails
-//
-// The function iterates through ClusterStorageContainer resources and uses their
-// IsStorageUriSupported method to determine compatibility with the provided URI.
+//   - error: Error if the lookup or eligibility checks fail
 func GetStorageContainerSpec(ctx context.Context, storageUri string, storageContainerName *string, client client.Client) (*v1alpha1.StorageContainerSpec, error) {
 	// If a specific ClusterStorageContainer is requested by name, fetch it directly
 	if storageContainerName != nil && *storageContainerName != "" {
-		return GetStorageContainerSpecByName(ctx, *storageContainerName, client)
+		return GetStorageContainerSpecByName(ctx, *storageContainerName, storageUri, client)
 	}
 
 	// Otherwise, auto-match by URI scheme
@@ -147,15 +153,33 @@ func GetStorageContainerSpec(ctx context.Context, storageUri string, storageCont
 	return nil, nil
 }
 
-// GetStorageContainerSpecByName fetches a ClusterStorageContainer by name directly,
-// bypassing URI-based auto-matching. Returns an error if the named CSC does not exist or is disabled.
-func GetStorageContainerSpecByName(ctx context.Context, name string, client client.Client) (*v1alpha1.StorageContainerSpec, error) {
+// GetStorageContainerSpecByName looks up a ClusterStorageContainer by name and
+// verifies it is eligible: not disabled, workloadType == initContainer, and
+// supports the given storageUri. Returns an error on any eligibility failure
+// rather than falling back to scheme-based auto-match.
+func GetStorageContainerSpecByName(ctx context.Context, name, storageUri string, client client.Client) (*v1alpha1.StorageContainerSpec, error) {
 	sc := &v1alpha1.ClusterStorageContainer{}
 	if err := client.Get(ctx, k8stypes.NamespacedName{Name: name}, sc); err != nil {
-		return nil, fmt.Errorf("failed to get ClusterStorageContainer %q: %w", name, err)
+		if apierrors.IsNotFound(err) {
+			return nil, fmt.Errorf("ClusterStorageContainer %q not found", name)
+		}
+		return nil, fmt.Errorf("failed to fetch ClusterStorageContainer %q: %w", name, err)
 	}
 	if sc.IsDisabled() {
 		return nil, fmt.Errorf("ClusterStorageContainer %q is disabled", name)
+	}
+	if sc.Spec.WorkloadType != v1alpha1.InitContainer {
+		return nil, fmt.Errorf(
+			"ClusterStorageContainer %q has workloadType %q; explicit selection requires %q",
+			name, sc.Spec.WorkloadType, v1alpha1.InitContainer,
+		)
+	}
+	supported, err := sc.Spec.IsStorageUriSupported(storageUri)
+	if err != nil {
+		return nil, fmt.Errorf("ClusterStorageContainer %q URI check failed for %q: %w", name, storageUri, err)
+	}
+	if !supported {
+		return nil, fmt.Errorf("ClusterStorageContainer %q does not support storageUri %q", name, storageUri)
 	}
 	return &sc.Spec, nil
 }
@@ -163,7 +187,7 @@ func GetStorageContainerSpecByName(ctx context.Context, name string, client clie
 func GetContainerSpecForStorageUri(ctx context.Context, storageUri string, client client.Client) (*corev1.Container, error) {
 	supported, err := GetStorageContainerSpec(ctx, storageUri, nil, client)
 	if err != nil {
-		return nil, fmt.Errorf("error checking storage container %s: %w", supported.Container.Name, err)
+		return nil, fmt.Errorf("error resolving storage container for %q: %w", storageUri, err)
 	}
 	if supported != nil {
 		return &supported.Container, nil

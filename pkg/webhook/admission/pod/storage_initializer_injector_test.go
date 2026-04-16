@@ -2828,14 +2828,30 @@ func TestExplicitStorageContainerName(t *testing.T) {
 		},
 		Disabled: ptr.Bool(true),
 	}
+	s3OnlyCSC := &v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "s3-only",
+		},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: corev1.Container{
+				Name:  "storage-initializer",
+				Image: "kserve/s3-only:latest",
+			},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{
+				{Prefix: "s3://"},
+			},
+		},
+	}
 
 	require.NoError(t, c.Create(t.Context(), defaultCSC))
 	require.NoError(t, c.Create(t.Context(), hfCustomCSC))
 	require.NoError(t, c.Create(t.Context(), disabledCSC))
+	require.NoError(t, c.Create(t.Context(), s3OnlyCSC))
 	defer func() {
 		_ = c.Delete(t.Context(), defaultCSC)
 		_ = c.Delete(t.Context(), hfCustomCSC)
 		_ = c.Delete(t.Context(), disabledCSC)
+		_ = c.Delete(t.Context(), s3OnlyCSC)
 	}()
 
 	t.Run("auto-match returns first alphabetical CSC when name not specified", func(t *testing.T) {
@@ -2860,7 +2876,7 @@ func TestExplicitStorageContainerName(t *testing.T) {
 		spec, err := GetStorageContainerSpec(t.Context(), "hf://my-model", &name, c)
 		assert.Error(t, err)
 		assert.Nil(t, spec)
-		assert.Contains(t, err.Error(), "does-not-exist")
+		assert.Contains(t, err.Error(), "not found")
 	})
 
 	t.Run("explicit name for disabled CSC returns error", func(t *testing.T) {
@@ -2869,6 +2885,14 @@ func TestExplicitStorageContainerName(t *testing.T) {
 		assert.Error(t, err)
 		assert.Nil(t, spec)
 		assert.Contains(t, err.Error(), "disabled")
+	})
+
+	t.Run("explicit name for CSC that does not support the URI returns error", func(t *testing.T) {
+		name := "s3-only"
+		spec, err := GetStorageContainerSpec(t.Context(), "hf://my-model", &name, c)
+		assert.Error(t, err)
+		assert.Nil(t, spec)
+		assert.Contains(t, err.Error(), "does not support")
 	})
 }
 
