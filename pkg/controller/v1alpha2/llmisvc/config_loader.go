@@ -103,9 +103,10 @@ type Config struct {
 	CredentialConfig *credentials.CredentialConfig   `json:"-"`
 	SchedulerConfig  *SchedulerConfig                `json:"-"`
 
-	// ResolvedLoRAAdapters holds the resolved LoRA adapter list derived from the merged spec.
-	// Populated once per reconcile after spec merge so all workload functions share a single
-	// resolution instead of each calling enumerateLoRAAdapters independently.
+	// ResolvedLoRAAdapters holds the resolved LoRA adapter list derived from the final merged spec.
+	// Populated inside combineBaseRefsConfig (after all spec overlays and variable substitution)
+	// so that resolution is tied to the config-merge step and all downstream workload functions
+	// share a single consistent result.
 	ResolvedLoRAAdapters []resolvedLoRAAdapter `json:"-"`
 }
 

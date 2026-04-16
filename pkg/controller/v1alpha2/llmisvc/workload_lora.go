@@ -61,18 +61,18 @@ type resolvedLoRAAdapter struct {
 
 // enumerateLoRAAdapters validates spec.model.lora.adapters and returns mount paths and schemes.
 // Returns adapters in the same order as spec.model.lora.adapters.
-func enumerateLoRAAdapters(llmSvc *v1alpha2.LLMInferenceService) ([]resolvedLoRAAdapter, error) {
-	if llmSvc.Spec.Model.LoRA == nil || len(llmSvc.Spec.Model.LoRA.Adapters) == 0 {
+func enumerateLoRAAdapters(spec v1alpha2.LLMInferenceServiceSpec) ([]resolvedLoRAAdapter, error) {
+	if spec.Model.LoRA == nil || len(spec.Model.LoRA.Adapters) == 0 {
 		return nil, nil
 	}
 
-	storageInitializerDisabled := llmSvc.Spec.StorageInitializer != nil &&
-		llmSvc.Spec.StorageInitializer.Enabled != nil &&
-		!*llmSvc.Spec.StorageInitializer.Enabled
+	storageInitializerDisabled := spec.StorageInitializer != nil &&
+		spec.StorageInitializer.Enabled != nil &&
+		!*spec.StorageInitializer.Enabled
 
 	// Sort by name for stable ordering: ensures the same spec always produces the same
 	// pod spec regardless of the order adapters appear in spec.model.lora.adapters.
-	adapters := slices.SortedFunc(slices.Values(llmSvc.Spec.Model.LoRA.Adapters), func(a, b v1alpha2.LLMModelSpec) int {
+	adapters := slices.SortedFunc(slices.Values(spec.Model.LoRA.Adapters), func(a, b v1alpha2.LLMModelSpec) int {
 		return strings.Compare(ptr.Deref(a.Name, ""), ptr.Deref(b.Name, ""))
 	})
 	out := make([]resolvedLoRAAdapter, 0, len(adapters))
