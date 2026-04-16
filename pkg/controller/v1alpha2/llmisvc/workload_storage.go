@@ -439,16 +439,10 @@ func applyLLMConfidentialConfig(llmSvc *v1alpha2.LLMInferenceService, podSpec *c
 			podSpec.InitContainers[i].Image = storageConfig.ConfidentialImage
 		}
 
-		podSpec.InitContainers[i].Env = append(podSpec.InitContainers[i].Env, corev1.EnvVar{
-			Name:  constants.ConfidentialEnabledEnvVar,
-			Value: "true",
-		})
+		utils.AddOrReplaceEnv(&podSpec.InitContainers[i], constants.ConfidentialEnabledEnvVar, "true")
 
 		if confidential.ResourceId != nil && *confidential.ResourceId != "" {
-			podSpec.InitContainers[i].Env = append(podSpec.InitContainers[i].Env, corev1.EnvVar{
-				Name:  constants.ConfidentialResourceIdEnvVar,
-				Value: *confidential.ResourceId,
-			})
+			utils.AddOrReplaceEnv(&podSpec.InitContainers[i], constants.ConfidentialResourceIdEnvVar, *confidential.ResourceId)
 		}
 
 		break

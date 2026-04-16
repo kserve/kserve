@@ -18,11 +18,8 @@ RUN uv venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Install Python dependencies (including confidential extras)
-COPY storage/pyproject.toml storage/uv.lock storage/
-RUN cd storage && uv sync --active --no-cache
-
 COPY storage storage
-RUN cd storage && uv pip install ".[confidential]" --no-cache
+RUN cd storage && uv sync --active --extra confidential --no-cache
 
 ARG DEBIAN_FRONTEND=noninteractive
 

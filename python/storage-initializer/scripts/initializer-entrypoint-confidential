@@ -27,10 +27,13 @@ except Exception as e:
 
 # Post-download decryption for confidential model serving
 if os.environ.get("CONFIDENTIAL_ENABLED", "").lower() == "true":
-    from kserve_storage.confidential import JWEDecryptor, CDHSecretResolver, SecretResolutionError
+    from kserve_storage.confidential import JWEDecryptor, CDHSecretResolver
 
     resource_id = os.environ.get("CONFIDENTIAL_RESOURCE_ID", "")
-    logger.info("Confidential mode enabled, resource_id=%s", resource_id or "(auto-discovery)")
+    if not resource_id:
+        logger.error("CONFIDENTIAL_RESOURCE_ID must be set when confidential mode is enabled")
+        sys.exit(1)
+    logger.info("Confidential mode enabled, resource_id=%s", resource_id)
 
     try:
         # Select the appropriate SecretResolver based on available configuration.

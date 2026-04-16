@@ -38,8 +38,8 @@ class JWEDecryptor:
         """
         Args:
             secret_resolver: Resolver used to obtain decryption keys.
-            resource_id: Default KBS resource ID for key resolution. If not
-                provided, must be discoverable per-file or set via environment.
+            resource_id: Default KBS resource ID for key resolution. Must be
+                provided either here or per-call to decrypt_file/decrypt_directory.
         """
         self._resolver = secret_resolver
         self._resource_id = resource_id
@@ -100,6 +100,9 @@ class JWEDecryptor:
 
         logger.info("Decrypting %s with resource_id=%s", path, rid)
 
+        # NOTE: JWE Compact Serialization requires loading the entire file into
+        # memory.  For very large models this may be a concern; consider splitting
+        # large files before encryption or increasing container memory limits.
         key_bytes = self._resolver.resolve_key(rid)
         symmetric_key = jwk.JWK(kty="oct", k=jwk.base64url_encode(key_bytes))
 

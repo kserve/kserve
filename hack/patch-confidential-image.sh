@@ -15,9 +15,9 @@ kubectl get configmap inferenceservice-config -n "${NAMESPACE}" -o json | \
 import json, sys
 cm = json.load(sys.stdin)
 si = json.loads(cm['data']['storageInitializer'])
-si['confidentialImage'] = '${IMAGE}'
+si['confidentialImage'] = sys.argv[1]
 cm['data']['storageInitializer'] = json.dumps(si)
 json.dump(cm, sys.stdout)
-" | kubectl apply -f -
+" "${IMAGE}" | kubectl apply -f -
 
 echo "Updated confidentialImage to ${IMAGE} in namespace ${NAMESPACE}"

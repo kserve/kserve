@@ -554,16 +554,10 @@ func applyConfidentialConfig(initContainer *corev1.Container, annotations map[st
 		initContainer.Image = config.ConfidentialImage
 	}
 
-	initContainer.Env = append(initContainer.Env, corev1.EnvVar{
-		Name:  constants.ConfidentialEnabledEnvVar,
-		Value: "true",
-	})
+	utils.AddOrReplaceEnv(initContainer, constants.ConfidentialEnabledEnvVar, "true")
 
 	if resourceId, ok := annotations[constants.ConfidentialResourceIdAnnotationKey]; ok && resourceId != "" {
-		initContainer.Env = append(initContainer.Env, corev1.EnvVar{
-			Name:  constants.ConfidentialResourceIdEnvVar,
-			Value: resourceId,
-		})
+		utils.AddOrReplaceEnv(initContainer, constants.ConfidentialResourceIdEnvVar, resourceId)
 	}
 }
 
