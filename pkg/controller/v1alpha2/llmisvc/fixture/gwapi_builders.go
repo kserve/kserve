@@ -402,6 +402,12 @@ func GatewayParentRef(name, namespace string) gwapiv1.ParentReference {
 	}
 }
 
+func GatewayParentRefWithSection(name, namespace, sectionName string) gwapiv1.ParentReference {
+	ref := GatewayParentRef(name, namespace)
+	ref.SectionName = ptr.To(gwapiv1.SectionName(sectionName))
+	return ref
+}
+
 // WithGatewayCondition creates a GatewayOption that sets specific status conditions
 func WithGatewayCondition(conditionType string, status metav1.ConditionStatus, reason, message string) GatewayOption {
 	return func(gw *gwapiv1.Gateway) {

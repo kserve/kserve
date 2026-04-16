@@ -170,10 +170,12 @@ func LLMInferenceServiceSample() *v1alpha2.LLMInferenceService {
 					},
 				},
 				Gateway: &v1alpha2.GatewaySpec{
-					Refs: []v1alpha2.UntypedObjectReference{
+					Refs: []v1alpha2.GatewayObjectReference{
 						{
-							Name:      "kserve-ingress-gateway",
-							Namespace: "kserve",
+							UntypedObjectReference: v1alpha2.UntypedObjectReference{
+								Name:      "kserve-ingress-gateway",
+								Namespace: "kserve",
+							},
 						},
 					},
 				},
