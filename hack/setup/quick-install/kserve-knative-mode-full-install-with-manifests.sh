@@ -16174,6 +16174,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -17638,6 +17647,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -18411,6 +18429,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -19158,6 +19185,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -19900,6 +19936,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -20629,6 +20674,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -21365,6 +21419,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -22273,6 +22336,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -23021,6 +23093,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -23830,6 +23911,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -29111,6 +29201,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -38811,7 +38910,9 @@ data:
         "enableModelcar": true,
         "cpuModelcar": "10m",
         "memoryModelcar": "15Mi",
-        "uidModelcar": 1010
+        "uidModelcar": 1010,
+        "confidentialImage": "",
+        "enableConfidentialAutoDiscovery": false
     }
 kind: ConfigMap
 metadata:

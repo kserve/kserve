@@ -742,11 +742,11 @@ func validateConfidential(isvc *InferenceService) (admission.Warnings, error) {
 	// Confidential requires a storageUri to be set
 	implementations := isvc.Spec.Predictor.GetImplementations()
 	if len(implementations) == 0 {
-		return warnings, fmt.Errorf("confidential model serving requires storageUri to be set")
+		return warnings, errors.New("confidential model serving requires storageUri to be set")
 	}
 	storageUri := implementations[0].GetStorageUri()
 	if storageUri == nil || *storageUri == "" {
-		return warnings, fmt.Errorf("confidential model serving requires storageUri to be set")
+		return warnings, errors.New("confidential model serving requires storageUri to be set")
 	}
 
 	// Warn if OCI URI is used with confidential — OCI decryption is handled by the container runtime
