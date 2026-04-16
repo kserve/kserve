@@ -81,7 +81,7 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 			workloadService := &corev1.Service{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-workload-svc",
+					Name:      kmeta.ChildName(svcName, "-kserve-workload-svc"),
 					Namespace: nsName,
 				}, workloadService)
 			}).WithContext(ctx).Should(Succeed())
@@ -120,6 +120,7 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 				g.Expect(mainWorkloadCondition).ToNot(BeNil())
 				g.Expect(mainWorkloadCondition.Status).To(Equal(corev1.ConditionFalse))
 				g.Expect(mainWorkloadCondition.Reason).To(Equal("Stopped"))
+				g.Expect(llmSvc.Status.Workloads).To(BeNil())
 				return nil
 			}).WithContext(ctx).Should(Succeed(), "service should be marked as stopped")
 
@@ -135,7 +136,7 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 			// verify workload service is deleted
 			Eventually(func(g Gomega, ctx context.Context) bool {
 				err := envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-workload-svc",
+					Name:      kmeta.ChildName(svcName, "-kserve-workload-svc"),
 					Namespace: nsName,
 				}, workloadService)
 				return err != nil && errors.IsNotFound(err)
@@ -247,7 +248,7 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 			schedulerDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: nsName,
 				}, schedulerDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -578,6 +579,7 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 				g.Expect(mainWorkloadCondition).ToNot(BeNil())
 				g.Expect(mainWorkloadCondition.Status).To(Equal(corev1.ConditionFalse))
 				g.Expect(mainWorkloadCondition.Reason).To(Equal("Stopped"))
+				g.Expect(llmSvc.Status.Workloads).To(BeNil())
 				return nil
 			}).WithContext(ctx).Should(Succeed(), "service should be marked as stopped")
 

@@ -95,6 +95,28 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 			// Verify labels
 			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels).To(HaveKeyWithValue(constants.KServeComponentLabelKey, constants.KServeComponentWorkload))
 			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels).To(HaveKeyWithValue(constants.LLMDRoleLabelKey, constants.LLMDRoleDecode))
+
+			// Verify status.workloads references
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, types.NamespacedName{Name: svcName, Namespace: testNs.Name}, current)).To(Succeed())
+				g.Expect(current.Status.Workloads).NotTo(BeNil())
+				g.Expect(current.Status.Workloads.Primary).To(Equal(&corev1.TypedLocalObjectReference{
+					APIGroup: ptr.To("leaderworkerset.x-k8s.io"),
+					Kind:     "LeaderWorkerSet",
+					Name:     kmeta.ChildName(svcName, "-kserve-mn"),
+				}))
+				g.Expect(current.Status.Workloads.Service).To(Equal(&corev1.TypedLocalObjectReference{
+					Kind: "Service",
+					Name: kmeta.ChildName(svcName, "-kserve-workload-svc"),
+				}))
+				g.Expect(current.Status.Workloads.Prefill).To(Equal(&corev1.TypedLocalObjectReference{
+					APIGroup: ptr.To("apps"),
+					Kind:     "Deployment",
+					Name:     kmeta.ChildName(svcName, "-kserve-prefill"),
+				}))
+				g.Expect(current.Status.Workloads.Scheduler).To(BeNil())
+			}).WithContext(ctx).Should(Succeed())
 		})
 
 		It("should create multi-node deployment with prefill workload", func(ctx SpecContext) {
@@ -432,6 +454,13 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})
+
+		// NOTE: Topology transition test (LWS -> Deployment when Worker
+		// is removed) is covered by the unit test in
+		// workload_status_test.go. An envtest variant cannot be written
+		// because CRD structural schema validation rejects nulling out
+		// a PodSpec field (containers: null). Same limitation affects
+		// the existing "should delete multi-node resources" test above.
 
 		It("should delete prefill resources when prefill spec is removed", func(ctx SpecContext) {
 			// given
