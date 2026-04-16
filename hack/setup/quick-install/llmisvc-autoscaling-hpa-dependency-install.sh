@@ -14,15 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Install KServe LLM InferenceService autoscaling dependencies (Prometheus, Prometheus Adapter, KEDA, WVA)
+# Install KServe LLM InferenceService HPA autoscaling dependencies (Prometheus, Prometheus Adapter, WVA)
 #
-# AUTO-GENERATED from: llmisvc-autoscaling-dependency-install.definition
+# AUTO-GENERATED from: llmisvc-autoscaling-hpa-dependency-install.definition
 # DO NOT EDIT MANUALLY
 #
 # To regenerate:
-#   ./scripts/generate-install-script.py llmisvc-autoscaling-dependency-install.definition
+#   ./scripts/generate-install-script.py llmisvc-autoscaling-hpa-dependency-install.definition
 #
-# Usage: llmisvc-autoscaling-dependency-install.sh [--reinstall|--uninstall]
+# Usage: llmisvc-autoscaling-hpa-dependency-install.sh [--reinstall|--uninstall]
 
 set -o errexit
 set -o nounset
@@ -907,51 +907,6 @@ install_prometheus_adapter_helm() {
 }
 
 # ----------------------------------------
-# CLI/Component: keda-helm
-# ----------------------------------------
-
-uninstall_keda_helm() {
-    log_info "Uninstalling KEDA..."
-
-    helm uninstall keda-otel-scaler -n "${KEDA_NAMESPACE}" 2>/dev/null || true
-    helm uninstall keda -n "${KEDA_NAMESPACE}" 2>/dev/null || true
-    kubectl delete all --all -n "${KEDA_NAMESPACE}" --force --grace-period=0 2>/dev/null || true
-    kubectl delete namespace "${KEDA_NAMESPACE}" --wait=true --timeout=60s --force --grace-period=0 2>/dev/null || true
-
-    log_success "KEDA uninstalled"
-}
-
-install_keda_helm() {
-    if helm list -n "${KEDA_NAMESPACE}" 2>/dev/null | grep -q "keda"; then
-        if [ "$REINSTALL" = false ]; then
-            log_info "KEDA is already installed. Use --reinstall to reinstall."
-            return 0
-        else
-            log_info "Reinstalling KEDA..."
-            uninstall_keda_helm
-        fi
-    fi
-
-    log_info "Adding KEDA Helm repository..."
-    helm repo add kedacore https://kedacore.github.io/charts --force-update
-
-    log_info "Installing KEDA ${KEDA_VERSION}..."
-    helm install keda kedacore/keda \
-        --namespace "${KEDA_NAMESPACE}" \
-        --create-namespace \
-        --version "${KEDA_VERSION}" \
-        --wait \
-        --timeout 10m \
-        ${KEDA_EXTRA_ARGS:-}
-
-    log_success "Successfully installed KEDA ${KEDA_VERSION} via Helm"
-
-    wait_for_pods "${KEDA_NAMESPACE}" "app.kubernetes.io/name=keda-operator" "300s"
-
-    log_success "KEDA is ready!"
-}
-
-# ----------------------------------------
 # CLI/Component: wva-helm
 # ----------------------------------------
 
@@ -1020,7 +975,6 @@ main() {
         echo "Uninstalling components..."
         echo "=========================================="
         uninstall_wva_helm
-        uninstall_keda_helm
         uninstall_prometheus_adapter_helm
         uninstall_prometheus_helm
         
@@ -1031,7 +985,7 @@ main() {
     fi
 
     echo "=========================================="
-    echo "Install KServe LLM InferenceService autoscaling dependencies (Prometheus, Prometheus Adapter, KEDA, WVA)"
+    echo "Install KServe LLM InferenceService HPA autoscaling dependencies (Prometheus, Prometheus Adapter, WVA)"
     echo "=========================================="
 
     export EMBED_TEMPLATES="true"
@@ -1039,7 +993,6 @@ main() {
     install_helm
     install_prometheus_helm
     install_prometheus_adapter_helm
-    install_keda_helm
     install_wva_helm
 
     echo "=========================================="

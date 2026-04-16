@@ -18,7 +18,15 @@ E2E tests for LLMISVC autoscaling.
 These tests verify behavioral outcomes of the autoscaling pipeline:
 - Scaling resources (VariantAutoscaling, HPA, KEDA ScaledObject) exist by name
 - Pods actually scale up under load
-- Lifecycle operations (cleanup, stop, update, actuator switch) work end-to-end
+- Lifecycle operations (cleanup, stop, update) work end-to-end
+
+HPA and KEDA tests are isolated into separate CI jobs because their infra
+requirements conflict: Prometheus Adapter and KEDA both register the
+v1beta1.external.metrics.k8s.io APIService. Tests are tagged with
+autoscaling_hpa / autoscaling_keda markers for filtering.
+
+Actuator-switch tests (HPA<->KEDA) are covered by integration tests in
+pkg/controller/v1alpha2/llmisvc/scaling_int_test.go and are not repeated here.
 
 Scale-down is not asserted because it depends on WVA saturation metrics
 (KV cache, queue depth) from the inference server; the llm-d-inference-sim
@@ -312,6 +320,7 @@ def _new_kserve_client():
 
 @pytest.mark.llminferenceservice
 @pytest.mark.autoscaling
+@pytest.mark.autoscaling_hpa
 @pytest.mark.parametrize(
     "test_case",
     [
@@ -370,6 +379,7 @@ def test_llm_autoscaling_hpa_deployment(test_case: TestCase):
 
 @pytest.mark.llminferenceservice
 @pytest.mark.autoscaling
+@pytest.mark.autoscaling_keda
 @pytest.mark.parametrize(
     "test_case",
     [
@@ -428,6 +438,7 @@ def test_llm_autoscaling_keda_deployment(test_case: TestCase):
 
 @pytest.mark.llminferenceservice
 @pytest.mark.autoscaling
+@pytest.mark.autoscaling_hpa
 @pytest.mark.parametrize(
     "test_case",
     [
@@ -479,6 +490,7 @@ def test_llm_autoscaling_hpa_lws(test_case: TestCase):
 
 @pytest.mark.llminferenceservice
 @pytest.mark.autoscaling
+@pytest.mark.autoscaling_keda
 @pytest.mark.parametrize(
     "test_case",
     [
@@ -530,6 +542,7 @@ def test_llm_autoscaling_keda_lws(test_case: TestCase):
 
 @pytest.mark.llminferenceservice
 @pytest.mark.autoscaling
+@pytest.mark.autoscaling_hpa
 @pytest.mark.parametrize(
     "test_case",
     [
@@ -577,6 +590,7 @@ def test_llm_autoscaling_prefill_hpa(test_case: TestCase):
 
 @pytest.mark.llminferenceservice
 @pytest.mark.autoscaling
+@pytest.mark.autoscaling_keda
 @pytest.mark.parametrize(
     "test_case",
     [
@@ -624,6 +638,7 @@ def test_llm_autoscaling_prefill_keda(test_case: TestCase):
 
 @pytest.mark.llminferenceservice
 @pytest.mark.autoscaling
+@pytest.mark.autoscaling_hpa
 @pytest.mark.parametrize(
     "test_case",
     [
@@ -681,6 +696,7 @@ def test_llm_autoscaling_cleanup_hpa(test_case: TestCase):
 
 @pytest.mark.llminferenceservice
 @pytest.mark.autoscaling
+@pytest.mark.autoscaling_keda
 @pytest.mark.parametrize(
     "test_case",
     [
@@ -738,6 +754,7 @@ def test_llm_autoscaling_cleanup_keda(test_case: TestCase):
 
 @pytest.mark.llminferenceservice
 @pytest.mark.autoscaling
+@pytest.mark.autoscaling_hpa
 @pytest.mark.parametrize(
     "test_case",
     [
@@ -796,6 +813,7 @@ def test_llm_autoscaling_stop_hpa(test_case: TestCase):
 
 @pytest.mark.llminferenceservice
 @pytest.mark.autoscaling
+@pytest.mark.autoscaling_keda
 @pytest.mark.parametrize(
     "test_case",
     [
@@ -854,6 +872,7 @@ def test_llm_autoscaling_stop_keda(test_case: TestCase):
 
 @pytest.mark.llminferenceservice
 @pytest.mark.autoscaling
+@pytest.mark.autoscaling_hpa
 @pytest.mark.parametrize(
     "test_case",
     [
@@ -925,6 +944,7 @@ def test_llm_autoscaling_update_hpa(test_case: TestCase):
 
 @pytest.mark.llminferenceservice
 @pytest.mark.autoscaling
+@pytest.mark.autoscaling_keda
 @pytest.mark.parametrize(
     "test_case",
     [
@@ -984,195 +1004,6 @@ def test_llm_autoscaling_update_keda(test_case: TestCase):
         assert so is not None
         assert so["spec"]["maxReplicaCount"] == 5, (
             f"Expected maxReplicaCount=5 after update, got {so['spec']['maxReplicaCount']}"
-        )
-    finally:
-        _cleanup(kserve_client, test_case)
-
-
-# =============================================================================
-# Test 10: Actuator switch -- HPA -> KEDA
-# =============================================================================
-
-
-@pytest.mark.llminferenceservice
-@pytest.mark.autoscaling
-@pytest.mark.parametrize(
-    "test_case",
-    [
-        pytest.param(
-            TestCase(
-                base_refs=[
-                    "router-managed",
-                    "workload-llmd-simulator-no-replicas",
-                    "scaling-hpa",
-                ],
-                prompt="KServe is a",
-                service_name="autoscale-switch-to-keda",
-            ),
-            marks=[
-                pytest.mark.cluster_cpu,
-                pytest.mark.cluster_single_node,
-                pytest.mark.llmd_simulator,
-            ],
-        ),
-    ],
-    indirect=["test_case"],
-    ids=generate_test_id,
-)
-@log_execution
-def test_llm_autoscaling_switch_hpa_to_keda(test_case: TestCase):
-    """Switching from HPA to KEDA: HPA deleted, ScaledObject created, VA preserved."""
-    inject_k8s_proxy()
-    kserve_client = _new_kserve_client()
-    service_name = test_case.llm_service.metadata.name
-
-    try:
-        _create_and_wait(kserve_client, test_case)
-        assert_scaling_resources_exist(service_name, actuator="hpa")
-
-        patch_llmisvc(
-            kserve_client,
-            test_case.llm_service,
-            {
-                "spec": {
-                    "scaling": {
-                        "wva": {
-                            "hpa": None,
-                            "keda": {
-                                "pollingInterval": 5,
-                                "cooldownPeriod": 10,
-                                "initialCooldownPeriod": 0,
-                            },
-                        }
-                    }
-                }
-            },
-        )
-
-        wait_for_resource_deleted(
-            HPA_GROUP,
-            HPA_VERSION,
-            HPA_PLURAL,
-            hpa_name(service_name),
-            KSERVE_TEST_NAMESPACE,
-        )
-        wait_for_resource(
-            KEDA_GROUP,
-            KEDA_VERSION,
-            KEDA_PLURAL,
-            scaled_object_name(service_name),
-            KSERVE_TEST_NAMESPACE,
-        )
-        assert resource_exists(
-            VA_GROUP,
-            VA_VERSION,
-            VA_PLURAL,
-            va_name(service_name),
-            KSERVE_TEST_NAMESPACE,
-        )
-    finally:
-        _cleanup(kserve_client, test_case)
-
-
-# =============================================================================
-# Test 10b: Actuator switch -- KEDA -> HPA
-# =============================================================================
-
-
-@pytest.mark.llminferenceservice
-@pytest.mark.autoscaling
-@pytest.mark.parametrize(
-    "test_case",
-    [
-        pytest.param(
-            TestCase(
-                base_refs=[
-                    "router-managed",
-                    "workload-llmd-simulator-no-replicas",
-                    "scaling-keda",
-                ],
-                prompt="KServe is a",
-                service_name="autoscale-switch-to-hpa",
-            ),
-            marks=[
-                pytest.mark.cluster_cpu,
-                pytest.mark.cluster_single_node,
-                pytest.mark.llmd_simulator,
-            ],
-        ),
-    ],
-    indirect=["test_case"],
-    ids=generate_test_id,
-)
-@log_execution
-def test_llm_autoscaling_switch_keda_to_hpa(test_case: TestCase):
-    """Switching from KEDA to HPA: ScaledObject deleted, HPA created, VA preserved."""
-    inject_k8s_proxy()
-    kserve_client = _new_kserve_client()
-    service_name = test_case.llm_service.metadata.name
-
-    try:
-        _create_and_wait(kserve_client, test_case)
-        assert_scaling_resources_exist(service_name, actuator="keda")
-
-        patch_llmisvc(
-            kserve_client,
-            test_case.llm_service,
-            {
-                "spec": {
-                    "scaling": {
-                        "wva": {
-                            "keda": None,
-                            "hpa": {
-                                "behavior": {
-                                    "scaleDown": {
-                                        "stabilizationWindowSeconds": 10,
-                                        "policies": [
-                                            {
-                                                "type": "Percent",
-                                                "value": 100,
-                                                "periodSeconds": 10,
-                                            }
-                                        ],
-                                    },
-                                    "scaleUp": {
-                                        "stabilizationWindowSeconds": 0,
-                                        "policies": [
-                                            {
-                                                "type": "Percent",
-                                                "value": 100,
-                                                "periodSeconds": 10,
-                                            }
-                                        ],
-                                    },
-                                }
-                            },
-                        }
-                    }
-                }
-            },
-        )
-
-        wait_for_resource_deleted(
-            KEDA_GROUP,
-            KEDA_VERSION,
-            KEDA_PLURAL,
-            scaled_object_name(service_name),
-            KSERVE_TEST_NAMESPACE,
-        )
-        wait_for_resource(
-            HPA_GROUP,
-            HPA_VERSION,
-            HPA_PLURAL,
-            hpa_name(service_name),
-            KSERVE_TEST_NAMESPACE,
-        )
-        assert resource_exists(
-            VA_GROUP,
-            VA_VERSION,
-            VA_PLURAL,
-            va_name(service_name),
-            KSERVE_TEST_NAMESPACE,
         )
     finally:
         _cleanup(kserve_client, test_case)
