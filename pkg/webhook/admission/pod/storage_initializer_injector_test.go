@@ -2842,16 +2842,33 @@ func TestExplicitStorageContainerName(t *testing.T) {
 			},
 		},
 	}
+	downloadJobCSC := &v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "download-job",
+		},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: corev1.Container{
+				Name:  "storage-initializer",
+				Image: "kserve/download-job:latest",
+			},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{
+				{Prefix: "hf://"},
+			},
+			WorkloadType: v1alpha1.LocalModelDownloadJob,
+		},
+	}
 
 	require.NoError(t, c.Create(t.Context(), defaultCSC))
 	require.NoError(t, c.Create(t.Context(), hfCustomCSC))
 	require.NoError(t, c.Create(t.Context(), disabledCSC))
 	require.NoError(t, c.Create(t.Context(), s3OnlyCSC))
+	require.NoError(t, c.Create(t.Context(), downloadJobCSC))
 	defer func() {
 		_ = c.Delete(t.Context(), defaultCSC)
 		_ = c.Delete(t.Context(), hfCustomCSC)
 		_ = c.Delete(t.Context(), disabledCSC)
 		_ = c.Delete(t.Context(), s3OnlyCSC)
+		_ = c.Delete(t.Context(), downloadJobCSC)
 	}()
 
 	t.Run("auto-match returns first alphabetical CSC when name not specified", func(t *testing.T) {
@@ -2893,6 +2910,14 @@ func TestExplicitStorageContainerName(t *testing.T) {
 		assert.Error(t, err)
 		assert.Nil(t, spec)
 		assert.Contains(t, err.Error(), "does not support")
+	})
+
+	t.Run("explicit name for CSC with wrong workloadType returns error", func(t *testing.T) {
+		name := "download-job"
+		spec, err := GetStorageContainerSpec(t.Context(), "hf://my-model", &name, c)
+		assert.Error(t, err)
+		assert.Nil(t, spec)
+		assert.Contains(t, err.Error(), "workloadType")
 	})
 }
 
