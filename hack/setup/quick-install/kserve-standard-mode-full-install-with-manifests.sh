@@ -3041,7 +3041,7 @@ spec:
       readinessProbe:
         failureThreshold: 60
         httpGet:
-          path: /health
+          path: /v1/models
           port: 8001
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 30
@@ -4248,7 +4248,7 @@ spec:
         readinessProbe:
           failureThreshold: 60
           httpGet:
-            path: /health
+            path: /v1/models
             port: 8000
             scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
           periodSeconds: 30
@@ -5655,7 +5655,7 @@ spec:
       readinessProbe:
         failureThreshold: 60
         httpGet:
-          path: /health
+          path: /v1/models
           port: 8000
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 30
