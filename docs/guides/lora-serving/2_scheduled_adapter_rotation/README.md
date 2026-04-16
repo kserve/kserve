@@ -1,4 +1,4 @@
-# 04 - Scheduled Adapter Rotation
+# 02 - Scheduled Adapter Rotation
 
 This directory demonstrates time-based LoRA adapter rotation. Different
 adapters are loaded during business hours vs. off-hours, optimizing GPU
@@ -141,4 +141,4 @@ unload the previous adapter, load the next one.
 ### Combine with multi-tenant isolation
 
 Use the `lora-manager` ServiceAccount from a specific team namespace
-(`3_multi_tenant_isolation/`) to restrict which teams can run rotations.
+(`future/3_multi_tenant_isolation/`) to restrict which teams can run rotations.

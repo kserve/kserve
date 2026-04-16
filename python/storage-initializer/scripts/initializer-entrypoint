@@ -30,18 +30,3 @@ except RuntimeError as e:
 except Exception as e:
     logger.error("Unexpected error during storage initialization: %s", e)
     sys.exit(1)
-
-# Post-download verification: signature checking and safety scanning.
-# Enabled via KSERVE_VERIFY_SIGNATURES=true and/or KSERVE_SCAN_MODELS=true.
-try:
-    from kserve_storage.model_verification import run_post_download_verification
-    run_post_download_verification(dest_paths)
-except RuntimeError as e:
-    logger.error("Post-download verification failed: %s", e)
-    sys.exit(1)
-except ImportError as e:
-    logger.error("Verification dependency missing: %s", e)
-    sys.exit(1)
-except Exception as e:
-    logger.error("Unexpected error during verification: %s", e)
-    sys.exit(1)

@@ -45,9 +45,5 @@ no additional configuration.
 
 | Directory | Description |
 |-----------|-------------|
-| `01_declarative_lora/` | First-class `model.lora.adapters` API with controller-managed storage and flag injection |
-| `02_production_hardening/` | Rate limiting, auth, and quota per adapter via Red Hat Connectivity Link |
-| `03_multi_tenant_isolation/` | Namespace isolation with cross-namespace adapter management |
-| `04_scheduled_adapter_rotation/` | CronJob-based adapter swaps (e.g., daytime vs. nighttime workloads) |
-| `05_per_adapter_observability/` | Prometheus alerts and Grafana dashboards for per-adapter metrics |
-| `06_secure_adapter_supply_chain/` | Model signing and scanning for adapter weight verification |
+| `1_declarative_lora/` | Manage adapters as part of your GitOps workflow — declare them in the CR and let the platform handle the rest |
+| `2_scheduled_adapter_rotation/` | Automatically swap adapters on a schedule to match changing workload patterns |
