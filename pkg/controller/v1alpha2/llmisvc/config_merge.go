@@ -357,20 +357,19 @@ func isUsingTokenizerSidecar(spec v1alpha2.LLMInferenceServiceSpec) bool {
 
 // ToParentRefs converts a slice of UntypedObjectReference (gateway refs) to a slice
 // of gwapiv1.ParentReference suitable for setting on an HTTPRoute's CommonRouteSpec.
-//
-// TODO(api): With this structure we are missing the ability to narrow a section
-// of targeted gateway by the route we are creating.
-// Missing SectionName and Port will implicitly bind the route to the first
-// listener in the parent.
-func ToParentRefs(gatewayRefs []v1alpha2.UntypedObjectReference) []gwapiv1.ParentReference {
+// When a ref includes SectionName, the generated ParentReference targets that
+// specific Gateway listener; otherwise the route attaches to all listeners.
+func ToParentRefs(gatewayRefs []v1alpha2.GatewayObjectReference) []gwapiv1.ParentReference {
 	parentRefs := make([]gwapiv1.ParentReference, 0, len(gatewayRefs))
 	for _, ref := range gatewayRefs {
-		parentRefs = append(parentRefs, gwapiv1.ParentReference{
-			Name:      ref.Name,
-			Namespace: &ref.Namespace,
-			Group:     ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
-			Kind:      ptr.To(gwapiv1.Kind("Gateway")),
-		})
+		parentRef := gwapiv1.ParentReference{
+			Name:        ref.Name,
+			Namespace:   &ref.Namespace,
+			Group:       ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
+			Kind:        ptr.To(gwapiv1.Kind("Gateway")),
+			SectionName: ref.SectionName,
+		}
+		parentRefs = append(parentRefs, parentRef)
 	}
 	return parentRefs
 }
