@@ -433,22 +433,38 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 	return out, nil
 }
 
+// configNotFoundError is returned by getConfig when an LLMInferenceServiceConfig
+// cannot be found in either the service namespace or the system namespace.
+// It carries the config name and the ordered list of namespaces that were searched.
+// TODO: extend Error() to list the LLMInferenceServiceConfig resources that do exist
+// in the searched namespaces, so the operator can see available alternatives at a glance.
+type configNotFoundError struct {
+	Name       string
+	Namespaces []string
+}
+
+func (e *configNotFoundError) Error() string {
+	return fmt.Sprintf("LLMInferenceServiceConfig %q not found in namespaces %v", e.Name, e.Namespaces)
+}
+
 // getConfig retrieves kserveapis.LLMInferenceServiceConfig with the given name from either the kserveapis.LLMInferenceService
 // namespace or from the SystemNamespace (e.g. 'kserve'), prioritizing the former.
 // This allows for both global default configs and service-specific overrides.
 func (r *LLMISVCReconciler) getConfig(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, name string) (*v1alpha2.LLMInferenceServiceConfig, error) {
 	cfg := &v1alpha2.LLMInferenceServiceConfig{}
 	if err := r.Get(ctx, client.ObjectKey{Name: name, Namespace: llmSvc.Namespace}, cfg); err != nil {
-		if apierrors.IsNotFound(err) {
-			cfg = &v1alpha2.LLMInferenceServiceConfig{}
-			if err := r.Get(ctx, client.ObjectKey{Name: name, Namespace: constants.KServeNamespace}, cfg); err != nil {
-				// TODO: add available LLMInferenceServiceConfig in system namespace and llmSvc.Namespace namespace if not found
-
-				return nil, fmt.Errorf("failed to get LLMInferenceServiceConfig %q from namespaces [%q, %q]: %w", name, llmSvc.Namespace, constants.KServeNamespace, err)
-			}
-			return cfg, nil
+		if !apierrors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to get LLMInferenceServiceConfig %s/%s: %w", llmSvc.Namespace, name, err)
 		}
-		return nil, fmt.Errorf("failed to get LLMInferenceServiceConfig %s/%s: %w", llmSvc.Namespace, name, err)
+		cfg = &v1alpha2.LLMInferenceServiceConfig{}
+		if err := r.Get(ctx, client.ObjectKey{Name: name, Namespace: constants.KServeNamespace}, cfg); err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil, &configNotFoundError{Name: name, Namespaces: []string{llmSvc.Namespace, constants.KServeNamespace}}
+			}
+			return nil, fmt.Errorf("failed to get LLMInferenceServiceConfig %q from namespaces [%q, %q]: %w",
+				name, llmSvc.Namespace, constants.KServeNamespace, err)
+		}
+		return cfg, nil
 	}
 	return cfg, nil
 }
