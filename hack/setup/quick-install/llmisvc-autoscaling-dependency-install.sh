@@ -883,9 +883,13 @@ install_prometheus_adapter_helm() {
         --version "${PROMETHEUS_ADAPTER_VERSION}" \
         --set prometheus.url="${PROMETHEUS_URL}" \
         --set prometheus.port=9090 \
-        --set tls.enable=true \
-        --set tls.ca="" \
-        --set extraArguments[0]="--prometheus-auth-config={}" \
+        --set certManager.enabled=true \
+        --set extraArguments[0]="--prometheus-ca-file=/etc/prometheus-tls/ca.crt" \
+        --set extraVolumes[0].name=prometheus-tls \
+        --set extraVolumes[0].secret.secretName=prometheus-tls \
+        --set extraVolumeMounts[0].name=prometheus-tls \
+        --set extraVolumeMounts[0].mountPath=/etc/prometheus-tls \
+        --set extraVolumeMounts[0].readOnly=true \
         --set rules.external[0].seriesQuery='wva_desired_replicas' \
         --set 'rules.external[0].resources.overrides.exported_namespace.resource=namespace' \
         --set 'rules.external[0].name.matches=^(.*)' \
