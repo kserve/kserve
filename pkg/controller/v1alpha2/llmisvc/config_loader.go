@@ -102,6 +102,11 @@ type Config struct {
 	StorageConfig    *types.StorageInitializerConfig `json:"-"`
 	CredentialConfig *credentials.CredentialConfig   `json:"-"`
 	SchedulerConfig  *SchedulerConfig                `json:"-"`
+
+	// ResolvedLoRAAdapters holds the resolved LoRA adapter list derived from the merged spec.
+	// Populated once per reconcile after spec merge so all workload functions share a single
+	// resolution instead of each calling enumerateLoRAAdapters independently.
+	ResolvedLoRAAdapters []resolvedLoRAAdapter `json:"-"`
 }
 
 // PrometheusConfig holds Prometheus connection and authentication settings used by KEDA

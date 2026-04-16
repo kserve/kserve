@@ -43,6 +43,11 @@ const (
 	routingSidecarContainerName = "llm-d-routing-sidecar"
 
 	defaultServiceAccountName = "default"
+
+	// withLoRAAdapters and withoutLoRAAdapters are used as the attachLoRA parameter
+	// of attachModelArtifacts to make call sites self-documenting.
+	withLoRAAdapters    = true
+	withoutLoRAAdapters = false
 )
 
 // sidecarSSRFProtectionRules defines RBAC rules for the routing sidecar

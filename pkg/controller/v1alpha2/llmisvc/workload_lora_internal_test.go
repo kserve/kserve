@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ func TestSanitizeLoRAPathSegment(t *testing.T) {
 func TestAppendLoRAVLLMWorkloadArgs(t *testing.T) {
 	t.Parallel()
 	c := &corev1.Container{Name: "main", Args: []string{"--user-flag"}}
-	appendLoRAVLLMWorkloadArgs(c, 2, []string{"a=/mnt/lora/a", "b=/mnt/lora/b"})
+	appendLoRAVLLMWorkloadArgs(c, []string{"a=/mnt/lora/a", "b=/mnt/lora/b"}, 64, 2, 2)
 	want := []string{
 		"--user-flag",
 		"--enable-lora",
