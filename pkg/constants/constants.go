@@ -88,11 +88,6 @@ const (
 	RemoteStorageEnvVarName = "REMOTE_STORAGE_URI"
 )
 
-// OVMS versioning constants
-const (
-	OVMSVersioningConfigMapKeyName = "ovmsVersioning"
-)
-
 // Model agent Constants
 const (
 	AgentContainerName        = "agent"

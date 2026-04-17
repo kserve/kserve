@@ -221,17 +221,7 @@ func TestMutator_Handle(t *testing.T) {
 			configMap: corev1.ConfigMap{
 				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
 				ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
-				Data: func() map[string]string {
-					d := baseConfigMapData()
-					d[constants.OVMSVersioningConfigMapKeyName] = `{
-						"image":         "` + OVMSVersioningDefaultImage + `",
-						"cpuRequest":    "50m",
-						"cpuLimit":      "100m",
-						"memoryRequest": "64Mi",
-						"memoryLimit":   "128Mi"
-					}`
-					return d
-				}(),
+				Data:       baseConfigMapData(),
 			},
 			request: baseAdmissionRequest(),
 			pod: corev1.Pod{

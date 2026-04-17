@@ -97,15 +97,9 @@ func (mutator *Mutator) mutate(ctx context.Context, pod *corev1.Pod, configMap *
 		return err
 	}
 
-	ovmsConfig, err := getOVMSVersioningConfig(configMap)
-	if err != nil {
-		return err
-	}
-
 	storageInitializer := &StorageInitializerInjector{
 		credentialBuilder: credentialBuilder,
 		config:            storageInitializerConfig,
-		ovmsConfig:        ovmsConfig,
 		client:            mutator.Client,
 	}
 

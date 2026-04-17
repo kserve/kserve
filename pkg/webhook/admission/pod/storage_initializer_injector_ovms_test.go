@@ -32,15 +32,12 @@ import (
 
 func newOVMSInjector(t *testing.T) *StorageInitializerInjector {
 	t.Helper()
-	ovmsConfig, err := getOVMSVersioningConfig(&corev1.ConfigMap{Data: map[string]string{}})
-	require.NoError(t, err, "failed to build default OVMS config")
 	return &StorageInitializerInjector{
 		credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{
 			Data: map[string]string{},
 		}),
-		config:     storageInitializerConfig,
-		ovmsConfig: ovmsConfig,
-		client:     c,
+		config: storageInitializerConfig,
+		client: c,
 	}
 }
 
@@ -259,98 +256,6 @@ func TestOVMSAutoVersioningInvalidAnnotationValues(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestGetOVMSVersioningConfig(t *testing.T) {
-	t.Run("empty configmap returns defaults", func(t *testing.T) {
-		cfg, err := getOVMSVersioningConfig(&corev1.ConfigMap{Data: map[string]string{}})
-		require.NoError(t, err)
-		assert.Equal(t, OVMSVersioningDefaultImage, cfg.Image)
-		assert.Equal(t, "50m", cfg.CpuRequest)
-		assert.Equal(t, "100m", cfg.CpuLimit)
-		assert.Equal(t, "64Mi", cfg.MemoryRequest)
-		assert.Equal(t, "128Mi", cfg.MemoryLimit)
-	})
-
-	t.Run("custom values override defaults", func(t *testing.T) {
-		const customImage = "my-registry.example.com/ubi9/ubi-micro:custom"
-		cm := &corev1.ConfigMap{
-			Data: map[string]string{
-				constants.OVMSVersioningConfigMapKeyName: `{
-					"image":         "` + customImage + `",
-					"cpuRequest":    "200m",
-					"cpuLimit":      "500m",
-					"memoryRequest": "128Mi",
-					"memoryLimit":   "256Mi"
-				}`,
-			},
-		}
-		cfg, err := getOVMSVersioningConfig(cm)
-		require.NoError(t, err)
-		assert.Equal(t, customImage, cfg.Image)
-		assert.Equal(t, "200m", cfg.CpuRequest)
-		assert.Equal(t, "500m", cfg.CpuLimit)
-		assert.Equal(t, "128Mi", cfg.MemoryRequest)
-		assert.Equal(t, "256Mi", cfg.MemoryLimit)
-	})
-
-	t.Run("custom image is used in injected container", func(t *testing.T) {
-		const customImage = "my-registry.example.com/ubi9/ubi-micro:custom"
-		cm := &corev1.ConfigMap{
-			Data: map[string]string{
-				constants.OVMSVersioningConfigMapKeyName: `{"image":"` + customImage + `","cpuRequest":"50m","cpuLimit":"100m","memoryRequest":"64Mi","memoryLimit":"128Mi"}`,
-			},
-		}
-		cfg, err := getOVMSVersioningConfig(cm)
-		require.NoError(t, err)
-
-		injector := &StorageInitializerInjector{
-			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{Data: map[string]string{}}),
-			config:            storageInitializerConfig,
-			ovmsConfig:        cfg,
-			client:            c,
-		}
-		pod := &corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{
-				Annotations: map[string]string{
-					constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo/model.xml",
-					constants.OVMSAutoVersioningAnnotationKey:                  "1",
-				},
-			},
-			Spec: corev1.PodSpec{
-				Containers: []corev1.Container{{Name: constants.InferenceServiceContainerName}},
-			},
-		}
-		require.NoError(t, injector.InjectStorageInitializer(t.Context(), pod))
-
-		var got string
-		for _, c := range pod.Spec.InitContainers {
-			if c.Name == constants.OVMSVersioningContainerName {
-				got = c.Image
-			}
-		}
-		assert.Equal(t, customImage, got)
-	})
-
-	t.Run("malformed JSON returns error", func(t *testing.T) {
-		cm := &corev1.ConfigMap{
-			Data: map[string]string{
-				constants.OVMSVersioningConfigMapKeyName: `{not valid json`,
-			},
-		}
-		_, err := getOVMSVersioningConfig(cm)
-		assert.Error(t, err)
-	})
-
-	t.Run("invalid resource quantity returns error", func(t *testing.T) {
-		cm := &corev1.ConfigMap{
-			Data: map[string]string{
-				constants.OVMSVersioningConfigMapKeyName: `{"image":"img","cpuRequest":"not-a-quantity","cpuLimit":"100m","memoryRequest":"64Mi","memoryLimit":"128Mi"}`,
-			},
-		}
-		_, err := getOVMSVersioningConfig(cm)
-		assert.Error(t, err)
-	})
 }
 
 func TestOVMSAutoVersioningIdempotent(t *testing.T) {
