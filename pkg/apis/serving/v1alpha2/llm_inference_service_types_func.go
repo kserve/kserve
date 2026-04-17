@@ -92,9 +92,20 @@ func (p *ParallelismSpec) GetSize() *int32 {
 	return nil
 }
 
-// IsUsingLLMInferenceServiceConfig returns true if the given config name is referenced by this service,
-// either via versioned config resolution (pinned in Status.Annotations values) or via explicit Spec.BaseRefs.
+// IsUsingLLMInferenceServiceConfig returns true if the given config name is referenced by this service.
+// It checks applied configs from the last successful reconciliation first, then falls back to
+// versioned config resolution annotations and explicit BaseRefs for services that haven't been
+// reconciled yet (cold start).
 func (s *LLMInferenceService) IsUsingLLMInferenceServiceConfig(name string) bool {
+	// Check applied configs from last successful reconciliation (preferred path).
+	for i := range s.Status.AppliedConfigs {
+		if s.Status.AppliedConfigs[i].Name == name {
+			return true
+		}
+	}
+
+	// Fallback: check versioned config resolution annotations and explicit BaseRefs.
+	// This covers services that haven't been reconciled yet (cold start).
 	for _, value := range s.Status.Annotations {
 		if value == name {
 			return true

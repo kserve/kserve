@@ -469,8 +469,7 @@ func (r *LLMISVCReconciler) enqueueOnLLMInferenceServiceConfigChange(logger logr
 				return reqs
 			}
 			for _, llmSvc := range llmSvcList.Items {
-				// Check if this is a well-known config template that services automatically inherit
-				if WellKnownDefaultConfigs.Has(sub.Name) && (sub.Namespace == constants.KServeNamespace || sub.Namespace == llmSvc.Namespace) {
+				if llmSvc.IsUsingLLMInferenceServiceConfig(sub.Name) {
 					reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
 						Namespace: llmSvc.Namespace,
 						Name:      llmSvc.Name,
@@ -478,13 +477,15 @@ func (r *LLMISVCReconciler) enqueueOnLLMInferenceServiceConfigChange(logger logr
 					continue
 				}
 
-				// Check if service explicitly references this config or uses it via versioned config resolution
-				if llmSvc.IsUsingLLMInferenceServiceConfig(sub.Name) {
+				// Fallback for services not yet reconciled: if appliedConfigs is empty,
+				// check well-known config membership to avoid missing enqueue.
+				if len(llmSvc.Status.AppliedConfigs) == 0 &&
+					WellKnownDefaultConfigs.Has(sub.Name) &&
+					(sub.Namespace == constants.KServeNamespace || sub.Namespace == llmSvc.Namespace) {
 					reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
 						Namespace: llmSvc.Namespace,
 						Name:      llmSvc.Name,
 					}})
-					continue
 				}
 			}
 

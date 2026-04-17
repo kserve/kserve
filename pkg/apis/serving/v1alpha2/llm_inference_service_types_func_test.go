@@ -350,6 +350,31 @@ func TestIsUsingLLMInferenceServiceConfig(t *testing.T) {
 			configName: "config-b",
 			want:       true,
 		},
+		{
+			name: "match via Status.AppliedConfigs name",
+			llmSvc: &LLMInferenceService{
+				Status: LLMInferenceServiceStatus{
+					AppliedConfigs: []AppliedConfigRef{
+						{Name: "kserve-config-llm-template", Source: AppliedConfigSourceWellKnown},
+						{Name: "my-custom-config", Source: AppliedConfigSourceBaseRef},
+					},
+				},
+			},
+			configName: "my-custom-config",
+			want:       true,
+		},
+		{
+			name: "no false positive on substring match in appliedConfigs",
+			llmSvc: &LLMInferenceService{
+				Status: LLMInferenceServiceStatus{
+					AppliedConfigs: []AppliedConfigRef{
+						{Name: "kserve-config-llm-template-extended", Source: AppliedConfigSourceWellKnown},
+					},
+				},
+			},
+			configName: "kserve-config-llm-template",
+			want:       false,
+		},
 	}
 
 	for _, tt := range tests {
