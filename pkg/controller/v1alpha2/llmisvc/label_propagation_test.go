@@ -389,8 +389,8 @@ func TestPropagateWorkloadServiceMetadata(t *testing.T) {
 		constants.KubernetesComponentLabelKey: constants.LLMComponentWorkload,
 		constants.KubernetesAppNameLabelKey:   "test-llm",
 		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
-		"model":    "llama-3.1-8b",
-		"endpoint": "my-endpoint",
+		"model":                               "llama-3.1-8b",
+		"endpoint":                            "my-endpoint",
 	}
 	assert.Equal(t, expectedLabels, svc.Labels)
 	assert.Equal(t, map[string]string{"prometheus.io/scrape": "true"}, svc.Annotations)
