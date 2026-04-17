@@ -29,7 +29,6 @@ RUN cd kserve && uv sync --active --no-cache
 
 # ========== Install kserve storage dependencies ==========
 RUN cd storage && uv sync --active --no-cache
-RUN cd storage && uv pip install . --no-cache
 
 # ========== Install autogluonserver dependencies ==========
 COPY autogluonserver autogluonserver
