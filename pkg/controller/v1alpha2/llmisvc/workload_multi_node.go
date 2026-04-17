@@ -390,7 +390,7 @@ func (r *LLMISVCReconciler) reconcileMultiNodeMainServiceAccount(ctx context.Con
 		return fmt.Errorf("failed to create expected multi node service account: %w", err)
 	}
 	if !useExistingServiceAccount {
-		if llmSvc.Spec.Worker == nil {
+		if utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Worker == nil {
 			return Delete(ctx, r, llmSvc, serviceAccount)
 		}
 
@@ -411,7 +411,7 @@ func (r *LLMISVCReconciler) reconcileMultiNodePrefillServiceAccount(ctx context.
 		return fmt.Errorf("failed to create expected multi node service account: %w", err)
 	}
 	if !useExistingServiceAccount {
-		if llmSvc.Spec.Prefill == nil || llmSvc.Spec.Prefill.Worker == nil {
+		if utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Prefill == nil || llmSvc.Spec.Prefill.Worker == nil {
 			return Delete(ctx, r, llmSvc, serviceAccount)
 		}
 
