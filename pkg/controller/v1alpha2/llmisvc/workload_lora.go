@@ -34,8 +34,6 @@ import (
 )
 
 const (
-	// defaultMaxLoRARank is passed to vLLM --max-lora-rank when LoRA adapters are reconciled from the CR.
-	defaultMaxLoRARank = 64
 	// loraAdaptersMountRoot must not be under constants.DefaultModelLocalMountPath: the base model
 	// is mounted there read-only, and nested volume mounts require mkdir on the parent (fails on RO).
 	loraAdaptersMountRoot = "/mnt/lora"
@@ -183,21 +181,17 @@ func (r *LLMISVCReconciler) attachLoRAAdapters(
 		return nil
 	}
 
+	// vLLM sets its own defaults for these LoRA tuning parameters (rank=16, loras=1,
+	// cpu-loras=max_loras). We only inject them when the user explicitly sets the
+	// corresponding fields in the spec, letting vLLM apply its own defaults otherwise.
+	// See: https://github.com/vllm-project/vllm/blob/main/vllm/config/lora.py
 	loraSpec := llmSvc.Spec.Model.LoRA
 
-	maxRank := int(defaultMaxLoRARank)
-	if loraSpec != nil && loraSpec.MaxRank != nil {
-		maxRank = int(*loraSpec.MaxRank)
-	}
-
-	maxAdapters := len(loraModules)
-	if loraSpec != nil && loraSpec.MaxAdapters != nil {
-		maxAdapters = int(*loraSpec.MaxAdapters)
-	}
-
-	maxCpuAdapters := len(loraModules)
-	if loraSpec != nil && loraSpec.MaxCpuAdapters != nil {
-		maxCpuAdapters = int(*loraSpec.MaxCpuAdapters)
+	var maxRank, maxAdapters, maxCpuAdapters *int32
+	if loraSpec != nil {
+		maxRank = loraSpec.MaxRank
+		maxAdapters = loraSpec.MaxAdapters
+		maxCpuAdapters = loraSpec.MaxCpuAdapters
 	}
 
 	appendLoRAVLLMWorkloadArgs(main, loraModules, maxRank, maxAdapters, maxCpuAdapters)
@@ -228,15 +222,22 @@ func hasValueFromLoRAConfig(c *corev1.Container) bool {
 
 // appendLoRAVLLMWorkloadArgs appends vLLM LoRA flags to main.Args so the LLMInferenceServiceConfig
 // entrypoint can pass them to `vllm serve` (eval "... $@") after the trailing `--` argv separator.
-func appendLoRAVLLMWorkloadArgs(main *corev1.Container, loraModules []string, maxRank, maxAdapters, maxCpuAdapters int) {
+// maxRank, maxAdapters, and maxCpuAdapters are only injected when non-nil (explicitly set in the spec);
+// vLLM applies its own defaults otherwise.
+// See: https://github.com/vllm-project/vllm/blob/main/vllm/config/lora.py
+func appendLoRAVLLMWorkloadArgs(main *corev1.Container, loraModules []string, maxRank, maxAdapters, maxCpuAdapters *int32) {
 	argv := make([]string, 0, 5+len(loraModules))
-	argv = append(argv,
-		"--enable-lora",
-		fmt.Sprintf("--max-lora-rank=%d", maxRank),
-		fmt.Sprintf("--max-loras=%d", maxAdapters),
-		fmt.Sprintf("--max-cpu-loras=%d", maxCpuAdapters),
-		"--lora-modules",
-	)
+	argv = append(argv, "--enable-lora")
+	if maxRank != nil {
+		argv = append(argv, fmt.Sprintf("--max-lora-rank=%d", *maxRank))
+	}
+	if maxAdapters != nil {
+		argv = append(argv, fmt.Sprintf("--max-loras=%d", *maxAdapters))
+	}
+	if maxCpuAdapters != nil {
+		argv = append(argv, fmt.Sprintf("--max-cpu-loras=%d", *maxCpuAdapters))
+	}
+	argv = append(argv, "--lora-modules")
 	argv = append(argv, loraModules...)
 	main.Args = append(main.Args, argv...)
 }

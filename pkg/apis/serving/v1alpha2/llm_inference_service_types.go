@@ -178,7 +178,7 @@ type LoRASpec struct {
 
 	// MaxRank is the maximum LoRA rank supported by the runtime (maps to vLLM --max-lora-rank).
 	// Higher values allow adapters with higher rank but increase memory usage.
-	// Defaults to 64 if not set.
+	// If not set, vLLM's default applies (16).
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	MaxRank *int32 `json:"maxRank,omitempty"`

@@ -199,9 +199,7 @@ When you specify `spec.model.lora.adapters`, the controller automatically:
 
 3. **Configures vLLM Runtime**:
    - Appends `--enable-lora` to vLLM CLI arguments
-   - Sets `--max-lora-rank` from `spec.model.lora.maxRank` (default: 64)
-   - Sets `--max-loras` from `spec.model.lora.maxAdapters` (default: number of configured adapters)
-   - Sets `--max-cpu-loras` from `spec.model.lora.maxCpuAdapters` (default: number of configured adapters)
+   - Sets `--max-lora-rank`, `--max-loras`, `--max-cpu-loras` only when explicitly set in `spec.model.lora`; vLLM's own defaults apply otherwise
    - Passes `--lora-modules adapter-name=/mnt/lora/adapter-name` for each adapter
 
 ### Adapter Path Sanitization
@@ -262,7 +260,7 @@ curl -k https://<route-url>/v1/chat/completions \
 
 ### LoRA Rank Limit
 
-The controller sets `--max-lora-rank=64` by default. This must be ≥ the rank used during adapter training.
+vLLM defaults `--max-lora-rank` to 16. This must be ≥ the rank used during adapter training.
 
 If your adapters use a higher rank, set `spec.model.lora.maxRank`:
 
@@ -363,7 +361,7 @@ Expected output:
 
 - All adapters must be compatible with the base model architecture
 - Adapters must use LoRA format compatible with vLLM
-- Maximum rank is limited by `spec.model.lora.maxRank` (default 64); increase it if adapters were trained with a higher rank
+- Maximum rank is limited by `spec.model.lora.maxRank` (vLLM default: 16); increase it if adapters were trained with a higher rank
 
 ## Troubleshooting
 
