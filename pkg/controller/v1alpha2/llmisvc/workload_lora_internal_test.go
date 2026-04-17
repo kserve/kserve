@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
 )
 
 func TestSanitizeLoRAPathSegment(t *testing.T) {
@@ -40,26 +41,48 @@ func TestSanitizeLoRAPathSegment(t *testing.T) {
 
 func TestAppendLoRAVLLMWorkloadArgs(t *testing.T) {
 	t.Parallel()
-	c := &corev1.Container{Name: "main", Args: []string{"--user-flag"}}
-	appendLoRAVLLMWorkloadArgs(c, []string{"a=/mnt/lora/a", "b=/mnt/lora/b"}, 64, 2, 2)
-	want := []string{
-		"--user-flag",
-		"--enable-lora",
-		"--max-lora-rank=64",
-		"--max-loras=2",
-		"--max-cpu-loras=2",
-		"--lora-modules",
-		"a=/mnt/lora/a",
-		"b=/mnt/lora/b",
-	}
-	if len(c.Args) != len(want) {
-		t.Fatalf("len(args)=%d want %d: %v", len(c.Args), len(want), c.Args)
-	}
-	for i := range want {
-		if c.Args[i] != want[i] {
-			t.Fatalf("args[%d]=%q want %q (full %v)", i, c.Args[i], want[i], c.Args)
+
+	t.Run("all params set", func(t *testing.T) {
+		c := &corev1.Container{Name: "main", Args: []string{"--user-flag"}}
+		appendLoRAVLLMWorkloadArgs(c, []string{"a=/mnt/lora/a", "b=/mnt/lora/b"}, ptr.To(int32(64)), ptr.To(int32(2)), ptr.To(int32(4)))
+		want := []string{
+			"--user-flag",
+			"--enable-lora",
+			"--max-lora-rank=64",
+			"--max-loras=2",
+			"--max-cpu-loras=4",
+			"--lora-modules",
+			"a=/mnt/lora/a",
+			"b=/mnt/lora/b",
 		}
-	}
+		if len(c.Args) != len(want) {
+			t.Fatalf("len(args)=%d want %d: %v", len(c.Args), len(want), c.Args)
+		}
+		for i := range want {
+			if c.Args[i] != want[i] {
+				t.Fatalf("args[%d]=%q want %q (full %v)", i, c.Args[i], want[i], c.Args)
+			}
+		}
+	})
+
+	t.Run("no optional params — vLLM uses its own defaults", func(t *testing.T) {
+		c := &corev1.Container{Name: "main", Args: []string{"--user-flag"}}
+		appendLoRAVLLMWorkloadArgs(c, []string{"a=/mnt/lora/a"}, nil, nil, nil)
+		want := []string{
+			"--user-flag",
+			"--enable-lora",
+			"--lora-modules",
+			"a=/mnt/lora/a",
+		}
+		if len(c.Args) != len(want) {
+			t.Fatalf("len(args)=%d want %d: %v", len(c.Args), len(want), c.Args)
+		}
+		for i := range want {
+			if c.Args[i] != want[i] {
+				t.Fatalf("args[%d]=%q want %q (full %v)", i, c.Args[i], want[i], c.Args)
+			}
+		}
+	})
 }
 
 func TestUserSuppliedLoRAConfig(t *testing.T) {
