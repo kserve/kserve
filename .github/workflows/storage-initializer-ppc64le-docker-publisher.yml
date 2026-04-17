@@ -1,4 +1,4 @@
-name: Storage Intializer ppc64le Docker Publisher
+name: Storage Initializer ppc64le Docker Publisher
 
 on:
   push:
@@ -14,6 +14,7 @@ on:
     paths:
       - "python/storage-initializer/**"
       - "python/storage/**"
+      - "python/storage-initializer.Dockerfile"
       - "!.github/**"
       - "!docs/**"
       - "!**.md"
@@ -59,7 +60,7 @@ jobs:
           # https://github.com/docker/buildx/issues/1533
           provenance: false
 
-  # Push image to GitHub Packages.
+  # Push image to DockerHub.
   # See also https://docs.docker.com/docker-hub/builds/
   push:
     # Ensure test job passes before pushing image.
