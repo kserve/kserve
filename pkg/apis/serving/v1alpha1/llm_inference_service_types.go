@@ -500,6 +500,53 @@ type GatewayObjectReference struct {
 	SectionName *gwapiv1.SectionName `json:"sectionName,omitempty"`
 }
 
+// ObservedGateway is a Gateway reference with the listeners and HTTPRoutes
+// bound to this service through it. Used in status to record observed routing topology.
+type ObservedGateway struct {
+	// Embedded ObjectReference carries group, kind, name, namespace of the Gateway.
+	gwapiv1.ObjectReference `json:",inline"`
+
+	// Listeners lists the SectionNames of the Gateway listeners that accepted
+	// routes from this service. Nil means the route targets all listeners
+	// (no SectionName was specified on the parentRef).
+	// +optional
+	// +listType=atomic
+	Listeners []gwapiv1.SectionName `json:"listeners,omitempty"`
+
+	// HTTPRoutes lists the HTTPRoutes bound to this service through this Gateway.
+	// +optional
+	// +listType=atomic
+	HTTPRoutes []gwapiv1.ObjectReference `json:"httpRoutes,omitempty"`
+}
+
+// ObservedSchedulerStatus records the scheduler-related resources observed
+// during the last successful routing reconciliation.
+type ObservedSchedulerStatus struct {
+	// InferencePool is the InferencePool observed as active for this service.
+	// +optional
+	InferencePool *gwapiv1.ObjectReference `json:"inferencePool,omitempty"`
+
+	// Service is the EPP Service observed for this service.
+	// +optional
+	Service *gwapiv1.ObjectReference `json:"service,omitempty"`
+}
+
+// RouterStatus records the networking resources observed during the last
+// successful routing reconciliation. Nil when routing is not configured or
+// the service is stopped.
+type RouterStatus struct {
+	// Gateways lists the Gateway resources observed as attached to this service,
+	// each with the listeners and HTTPRoutes bound through them.
+	// +optional
+	// +listType=atomic
+	Gateways []ObservedGateway `json:"gateways,omitempty"`
+
+	// Scheduler records the observed scheduler topology.
+	// Nil when the scheduler is not configured.
+	// +optional
+	Scheduler *ObservedSchedulerStatus `json:"scheduler,omitempty"`
+}
+
 // LLMInferenceServiceStatus defines the observed state of LLMInferenceService.
 type LLMInferenceServiceStatus struct {
 	// URL is the primary address for accessing the service.
@@ -514,6 +561,11 @@ type LLMInferenceServiceStatus struct {
 
 	// Addressable endpoint for the service, including cluster-local URLs.
 	duckv1.AddressStatus `json:",inline,omitempty"`
+
+	// Router records the observed networking topology for this service.
+	// Nil when routing is not configured or the service is stopped.
+	// +optional
+	Router *RouterStatus `json:"router,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
