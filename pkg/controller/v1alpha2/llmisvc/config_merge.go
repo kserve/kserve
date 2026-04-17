@@ -113,6 +113,15 @@ type combineOptions struct {
 	skipClearSchedulerConfigRef bool
 }
 
+// CombinedConfig holds the output of combineBaseRefsConfig.
+type CombinedConfig struct {
+	// Config is the merged LLMInferenceServiceConfig.
+	Config *v1alpha2.LLMInferenceServiceConfig
+	// AppliedConfigRefs is the ordered list of configs that were applied, tagged by source.
+	// May be incomplete when returned alongside a non-nil error.
+	AppliedConfigRefs []v1alpha2.AppliedConfigRef
+}
+
 // WithSkipClearSchedulerConfigRef prevents clearing the scheduler config ref after resolving.
 // This is useful when the caller needs to check which ConfigMap was referenced.
 func WithSkipClearSchedulerConfigRef() CombineOption {
@@ -124,16 +133,18 @@ func WithSkipClearSchedulerConfigRef() CombineOption {
 func (r *LLMISVCReconciler) reconcileBaseRefs(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (*v1alpha2.LLMInferenceServiceConfig, error) {
 	// Combine base configurations with service-specific overrides
 	// This includes default configs based on deployment pattern (single node, multi-node, etc.)
-	baseCfg, err := r.combineBaseRefsConfig(ctx, llmSvc, config)
+	result, err := r.combineBaseRefsConfig(ctx, llmSvc, config)
 	if err != nil {
 		if utils.GetForceStopRuntime(llmSvc) {
 			llmSvc.MarkPresetsCombinedNotReady("Stopped", "Service is stopped with warning: %v", err.Error())
 
-			baseCfg = &v1alpha2.LLMInferenceServiceConfig{
+			return &v1alpha2.LLMInferenceServiceConfig{
 				Spec: *llmSvc.Spec.DeepCopy(),
-			}
-			return baseCfg, nil
+			}, nil
 		}
+
+		llmSvc.Status.AppliedConfigRefs = nil
+
 		var cfgNotFound *configNotFoundError
 		if errors.As(err, &cfgNotFound) {
 			llmSvc.MarkPresetsCombinedNotReady("ConfigNotFound", cfgNotFound.Error())
@@ -144,15 +155,18 @@ func (r *LLMISVCReconciler) reconcileBaseRefs(ctx context.Context, llmSvc *v1alp
 		return nil, fmt.Errorf("failed to combine base-configurations: %w", err)
 	}
 
+	// Persist only the applied configs from successful reconciliation.
+	llmSvc.Status.AppliedConfigRefs = result.AppliedConfigRefs
 	llmSvc.MarkPresetsCombinedReady()
-	return baseCfg, nil
+
+	return result.Config, nil
 }
 
 // combineBaseRefsConfig applies well-known config overlays to inject default values for various components, when some components are
 // enabled. These LLMInferenceServiceConfig resources must exist in either resource namespace (prioritized) or
 // SystemNamespace (e.g. `kserve`).
 // It determines which deployment pattern is being used (single node, multi-node, disaggregated) and applies appropriate defaults.
-func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, reconcilerConfig *Config, opts ...CombineOption) (*v1alpha2.LLMInferenceServiceConfig, error) {
+func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, reconcilerConfig *Config, opts ...CombineOption) (*CombinedConfig, error) {
 	options := &combineOptions{}
 	for _, opt := range opts {
 		opt(options)
@@ -235,16 +249,27 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	}
 
 	// Append explicit base refs to override well know configs.
+	wellKnownCount := len(refs)
 	refs = append(refs, llmSvc.Spec.BaseRefs...)
 
 	specs := make([]v1alpha2.LLMInferenceServiceSpec, 0, len(refs))
-	for _, ref := range refs {
+	appliedRefs := make([]v1alpha2.AppliedConfigRef, 0, len(refs))
+	for i, ref := range refs {
 		cfg, err := r.getConfig(ctx, llmSvc, ref.Name)
 		if err != nil {
 			return nil, err
 		}
 		if cfg != nil {
 			specs = append(specs, cfg.Spec)
+			source := v1alpha2.AppliedConfigSourcePreset
+			if i >= wellKnownCount {
+				source = v1alpha2.AppliedConfigSourceUserRef
+			}
+			appliedRefs = append(appliedRefs, v1alpha2.AppliedConfigRef{
+				Name:      gwapiv1.ObjectName(ref.Name),
+				Namespace: gwapiv1.Namespace(cfg.Namespace),
+				Source:    source,
+			})
 		}
 	}
 	spec, err := MergeSpecs(ctx, append(specs, llmSvc.Spec)...)
@@ -280,7 +305,7 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 
 	llmSvcCfg, err = ReplaceVariables(llmSvc, llmSvcCfg, reconcilerConfig)
 	if err != nil {
-		return llmSvcCfg, err
+		return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, err
 	}
 
 	// Update HTTPRoute parentRefs to point to the custom gateway if Gateway.Refs is specified.
@@ -333,13 +358,13 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		cm, err := Get(ctx, r.Client, client.ObjectKey{Namespace: llmSvc.GetNamespace(), Name: cmName}, &corev1.ConfigMap{}, WithGetFallbackAPIServerConfigMap(r.Clientset))
 		if err != nil {
 			if !apierrors.IsNotFound(err) {
-				return llmSvcCfg, fmt.Errorf("failed to get ConfigMap %s/%s: %w", llmSvc.GetNamespace(), cmName, err)
+				return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, fmt.Errorf("failed to get ConfigMap %s/%s: %w", llmSvc.GetNamespace(), cmName, err)
 			}
 
 			if strings.HasPrefix(cmName, "config-scheduler-") {
 				cm, err = Get(ctx, r.Client, client.ObjectKey{Namespace: constants.KServeNamespace, Name: cmName}, &corev1.ConfigMap{}, WithGetFallbackAPIServerConfigMap(r.Clientset))
 				if err != nil {
-					return nil, fmt.Errorf("failed to get scheduler config %q from namespaces [%q, %q]: %w", cmName, llmSvc.Namespace, constants.KServeNamespace, err)
+					return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, fmt.Errorf("failed to get scheduler config %q from namespaces [%q, %q]: %w", cmName, llmSvc.Namespace, constants.KServeNamespace, err)
 				}
 			}
 		}
@@ -348,7 +373,7 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		}
 		cfg, ok := cm.Data[llmSvcCfg.Spec.Router.Scheduler.Config.Ref.Key]
 		if !ok {
-			return llmSvcCfg, fmt.Errorf("ConfigMap %s/%s doesn't have key %q in data",
+			return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, fmt.Errorf("ConfigMap %s/%s doesn't have key %q in data",
 				cm.GetNamespace(),
 				cm.GetName(),
 				llmSvcCfg.Spec.Router.Scheduler.Config.Ref.Key,
@@ -373,7 +398,7 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 			Spec: llmSvcCfg.Spec,
 		})
 		if err != nil {
-			return llmSvcCfg, err
+			return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, err
 		}
 	}
 
@@ -382,11 +407,11 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	// functions share a single, consistent resolution rather than each re-parsing the spec.
 	loraAdapters, err := enumerateLoRAAdapters(llmSvcCfg.Spec)
 	if err != nil {
-		return llmSvcCfg, fmt.Errorf("failed to enumerate LoRA adapters: %w", err)
+		return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, fmt.Errorf("failed to enumerate LoRA adapters: %w", err)
 	}
 	reconcilerConfig.ResolvedLoRAAdapters = loraAdapters
 
-	return llmSvcCfg, nil
+	return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, nil
 }
 
 func isUsingTokenizerSidecar(spec v1alpha2.LLMInferenceServiceSpec) bool {
