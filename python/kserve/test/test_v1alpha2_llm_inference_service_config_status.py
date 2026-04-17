@@ -30,14 +30,14 @@ import unittest
 import datetime
 
 import kserve
-from kserve.models.v1alpha2_llm_inference_service_config import (
-    V1alpha2LLMInferenceServiceConfig,
+from kserve.models.v1alpha2_llm_inference_service_config_status import (
+    V1alpha2LLMInferenceServiceConfigStatus,
 )  # noqa: E501
 from kserve.rest import ApiException
 
 
-class TestV1alpha2LLMInferenceServiceConfig(unittest.TestCase):
-    """V1alpha2LLMInferenceServiceConfig unit test stubs"""
+class TestV1alpha2LLMInferenceServiceConfigStatus(unittest.TestCase):
+    """V1alpha2LLMInferenceServiceConfigStatus unit test stubs"""
 
     def setUp(self):
         pass
@@ -46,20 +46,22 @@ class TestV1alpha2LLMInferenceServiceConfig(unittest.TestCase):
         pass
 
     def make_instance(self, include_optional):
-        """Test V1alpha2LLMInferenceServiceConfig
+        """Test V1alpha2LLMInferenceServiceConfigStatus
         include_option is a boolean, when False only required
         params are included, when True both required and
         optional params are included"""
-        # model = kserve.models.v1alpha2_llm_inference_service_config.V1alpha2LLMInferenceServiceConfig()  # noqa: E501
+        # model = kserve.models.v1alpha2_llm_inference_service_config_status.V1alpha2LLMInferenceServiceConfigStatus()  # noqa: E501
         if include_optional:
-            return V1alpha2LLMInferenceServiceConfig(
-                api_version="0", kind="0", metadata=None, spec=None, status=None
+            return V1alpha2LLMInferenceServiceConfigStatus(
+                annotations={"key": "0"},
+                conditions=[None],
+                observed_generation=56,
             )
         else:
-            return V1alpha2LLMInferenceServiceConfig()
+            return V1alpha2LLMInferenceServiceConfigStatus()
 
-    def testV1alpha2LLMInferenceServiceConfig(self):
-        """Test V1alpha2LLMInferenceServiceConfig"""
+    def testV1alpha2LLMInferenceServiceConfigStatus(self):
+        """Test V1alpha2LLMInferenceServiceConfigStatus"""
         inst_req_only = self.make_instance(include_optional=False)
         inst_req_and_optional = self.make_instance(include_optional=True)
 
