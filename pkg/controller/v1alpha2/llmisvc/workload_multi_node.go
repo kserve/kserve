@@ -57,21 +57,23 @@ func (r *LLMISVCReconciler) reconcileMultiNodeWorkload(ctx context.Context, llmS
 }
 
 func (r *LLMISVCReconciler) reconcileMultiNodeMainWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
-	expected, err := r.expectedMainMultiNodeLWS(ctx, llmSvc, config)
-	if err != nil {
-		return fmt.Errorf("failed to build the expected main LWS: %w", err)
-	}
-
 	if isStopped := utils.GetForceStopRuntime(llmSvc); isStopped || llmSvc.Spec.Worker == nil {
 		if isStopped {
 			llmSvc.MarkWorkerWorkloadNotReady("Stopped", "Service is stopped")
 		} else {
 			llmSvc.MarkWorkerWorkloadUnset()
 		}
-		if err := Delete(ctx, r, llmSvc, expected); err != nil {
-			return err
-		}
-		return nil
+		return Delete(ctx, r, llmSvc, &lwsapi.LeaderWorkerSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      mainLWSName(llmSvc),
+				Namespace: llmSvc.GetNamespace(),
+			},
+		})
+	}
+
+	expected, err := r.expectedMainMultiNodeLWS(ctx, llmSvc, config)
+	if err != nil {
+		return fmt.Errorf("failed to build the expected main LWS: %w", err)
 	}
 	if err := Reconcile(ctx, r, llmSvc, &lwsapi.LeaderWorkerSet{}, expected, semanticLWSIsEqual, PreserveLWSReplicas()); err != nil {
 		return err
@@ -80,21 +82,23 @@ func (r *LLMISVCReconciler) reconcileMultiNodeMainWorkload(ctx context.Context, 
 }
 
 func (r *LLMISVCReconciler) reconcileMultiNodePrefillWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
-	expected, err := r.expectedPrefillMultiNodeLWS(ctx, llmSvc, config)
-	if err != nil {
-		return fmt.Errorf("failed to build the expected prefill LWS: %w", err)
-	}
 	if isStopped := utils.GetForceStopRuntime(llmSvc); isStopped || llmSvc.Spec.Prefill == nil || llmSvc.Spec.Prefill.Worker == nil {
 		if isStopped {
 			llmSvc.MarkPrefillWorkerWorkloadNotReady("Stopped", "Service is stopped")
 		} else {
 			llmSvc.MarkPrefillWorkerWorkloadUnset()
 		}
+		return Delete(ctx, r, llmSvc, &lwsapi.LeaderWorkerSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      prefillLWSName(llmSvc),
+				Namespace: llmSvc.GetNamespace(),
+			},
+		})
+	}
 
-		if err := Delete(ctx, r, llmSvc, expected); err != nil {
-			return err
-		}
-		return nil
+	expected, err := r.expectedPrefillMultiNodeLWS(ctx, llmSvc, config)
+	if err != nil {
+		return fmt.Errorf("failed to build the expected prefill LWS: %w", err)
 	}
 	if err := Reconcile(ctx, r, llmSvc, &lwsapi.LeaderWorkerSet{}, expected, semanticLWSIsEqual, PreserveLWSReplicas()); err != nil {
 		return err
