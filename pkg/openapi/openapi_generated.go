@@ -3358,7 +3358,7 @@ func schema_pkg_apis_serving_v1beta1_ConfidentialSpec(ref common.ReferenceCallba
 					},
 					"resourceId": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ResourceId is the KBS resource identifier for the decryption key, in the format kbs:///<repo>/<type>/<tag>. If omitted, the storage initializer will attempt auto-discovery.",
+							Description: "ResourceId is the KBS resource identifier for the decryption key, in the format kbs:///<repo>/<type>/<tag>.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

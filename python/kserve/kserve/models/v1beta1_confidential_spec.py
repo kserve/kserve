@@ -99,7 +99,7 @@ class V1beta1ConfidentialSpec(object):
     def resource_id(self):
         """Gets the resource_id of this V1beta1ConfidentialSpec.  # noqa: E501
 
-        ResourceId is the KBS resource identifier for the decryption key, in the format kbs:///<repo>/<type>/<tag>. If omitted, the storage initializer will attempt auto-discovery.  # noqa: E501
+        ResourceId is the KBS resource identifier for the decryption key, in the format kbs:///<repo>/<type>/<tag>.  # noqa: E501
 
         :return: The resource_id of this V1beta1ConfidentialSpec.  # noqa: E501
         :rtype: str
@@ -110,7 +110,7 @@ class V1beta1ConfidentialSpec(object):
     def resource_id(self, resource_id):
         """Sets the resource_id of this V1beta1ConfidentialSpec.
 
-        ResourceId is the KBS resource identifier for the decryption key, in the format kbs:///<repo>/<type>/<tag>. If omitted, the storage initializer will attempt auto-discovery.  # noqa: E501
+        ResourceId is the KBS resource identifier for the decryption key, in the format kbs:///<repo>/<type>/<tag>.  # noqa: E501
 
         :param resource_id: The resource_id of this V1beta1ConfidentialSpec.  # noqa: E501
         :type: str

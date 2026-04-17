@@ -147,7 +147,6 @@ type ConfidentialSpec struct {
 	Enabled bool `json:"enabled"`
 	// ResourceId is the KBS resource identifier for the decryption key,
 	// in the format kbs:///<repo>/<type>/<tag>.
-	// If omitted, the storage initializer will attempt auto-discovery.
 	// +optional
 	ResourceId *string `json:"resourceId,omitempty"`
 }

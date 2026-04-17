@@ -1813,7 +1813,7 @@
           "default": false
         },
         "resourceId": {
-          "description": "ResourceId is the KBS resource identifier for the decryption key, in the format kbs:///\u003crepo\u003e/\u003ctype\u003e/\u003ctag\u003e. If omitted, the storage initializer will attempt auto-discovery.",
+          "description": "ResourceId is the KBS resource identifier for the decryption key, in the format kbs:///\u003crepo\u003e/\u003ctype\u003e/\u003ctag\u003e.",
           "type": "string"
         }
       }
