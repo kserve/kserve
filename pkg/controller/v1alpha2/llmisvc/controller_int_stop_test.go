@@ -1080,8 +1080,8 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 				}, &appsv1.Deployment{})
 				return err != nil && errors.IsNotFound(err)
 			}).WithContext(ctx).
-				WithTimeout(2 * time.Second).
-				WithPolling(300 * time.Millisecond).
+				WithTimeout(2*time.Second).
+				WithPolling(300*time.Millisecond).
 				Should(BeTrue(), "no deployment should be created when service is stopped")
 		})
 
