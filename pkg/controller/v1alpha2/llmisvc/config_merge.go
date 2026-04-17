@@ -272,10 +272,15 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		llmSvcCfg.Spec.Router.Scheduler == nil {
 		for i := range llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules {
 			for j := range llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs {
-				if isDefaultBackendRef(llmSvc, llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j].BackendRef) {
-					llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j].Group = ptr.To[gwapiv1.Group]("")
-					llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j].Kind = ptr.To[gwapiv1.Kind]("Service")
-					llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j].Name = gwapiv1.ObjectName(kmeta.ChildName(llmSvc.GetName(), "-kserve-workload-svc"))
+				ref := &llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j]
+				if isDefaultBackendRef(llmSvc, ref.BackendRef) {
+					ref.Group = ptr.To[gwapiv1.Group]("")
+					ref.Kind = ptr.To[gwapiv1.Kind]("Service")
+					ref.Name = gwapiv1.ObjectName(kmeta.ChildName(llmSvc.GetName(), "-kserve-workload-svc"))
+				} else if isDefaultWorkloadServiceBackendRef(llmSvc, ref.BackendRef) {
+					// Ensure the workload service name uses ChildName for proper hash truncation
+					// when the combined name exceeds K8s 63-character limit.
+					ref.Name = gwapiv1.ObjectName(kmeta.ChildName(llmSvc.GetName(), "-kserve-workload-svc"))
 				}
 			}
 		}
@@ -289,8 +294,30 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		llmSvcCfg.Spec.Router.Scheduler.Pool.HasRef() {
 		for i := range llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules {
 			for j := range llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs {
-				if isDefaultBackendRef(llmSvc, llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j].BackendRef) {
-					llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j].Name = gwapiv1.ObjectName(llmSvcCfg.Spec.Router.Scheduler.Pool.Ref.Name)
+				ref := &llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j]
+				if isDefaultBackendRef(llmSvc, ref.BackendRef) {
+					ref.Name = gwapiv1.ObjectName(llmSvcCfg.Spec.Router.Scheduler.Pool.Ref.Name)
+				} else if isDefaultWorkloadServiceBackendRef(llmSvc, ref.BackendRef) {
+					// Ensure the workload service name uses ChildName for proper hash truncation.
+					ref.Name = gwapiv1.ObjectName(kmeta.ChildName(llmSvc.GetName(), "-kserve-workload-svc"))
+				}
+			}
+		}
+	}
+
+	// Ensure all workload service BackendRefs use ChildName for proper hash truncation
+	// when a managed scheduler is configured (inline pool, not external ref).
+	// This covers the catch-all Service rule from templates or custom user configs.
+	if llmSvcCfg.Spec.Router != nil &&
+		llmSvcCfg.Spec.Router.Route != nil &&
+		llmSvcCfg.Spec.Router.Route.HTTP.HasSpec() &&
+		llmSvcCfg.Spec.Router.Scheduler != nil &&
+		!llmSvcCfg.Spec.Router.Scheduler.Pool.HasRef() {
+		for i := range llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules {
+			for j := range llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs {
+				ref := &llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j]
+				if isDefaultWorkloadServiceBackendRef(llmSvc, ref.BackendRef) {
+					ref.Name = gwapiv1.ObjectName(kmeta.ChildName(llmSvc.GetName(), "-kserve-workload-svc"))
 				}
 			}
 		}
@@ -524,9 +551,27 @@ func mergeSpecs(ctx context.Context, base, override v1alpha2.LLMInferenceService
 
 func isDefaultBackendRef(llmSvc *v1alpha2.LLMInferenceService, ref gwapiv1.BackendRef) bool {
 	defaultInfPoolName := (&v1alpha2.SchedulerSpec{}).InferencePoolName(llmSvc)
+	// Also match the simple (un-hashed) concatenation for long names where ChildName truncates
+	simpleInfPoolName := llmSvc.GetName() + "-inference-pool"
 	// Check Kind and Name only - Group can be either v1 or v1alpha2
 	return ptr.Deref[gwapiv1.Kind](ref.Kind, "") == "InferencePool" &&
-		string(ref.Name) == defaultInfPoolName
+		(string(ref.Name) == defaultInfPoolName || string(ref.Name) == simpleInfPoolName)
+}
+
+// isDefaultWorkloadServiceBackendRef returns true if the BackendRef is a core Service
+// pointing to the workload service, matching either the ChildName (hash-truncated) or
+// the plain concatenated name. This ensures that custom route configs or inline specs
+// that use simple concatenation (without ChildName) still get corrected when the
+// combined name exceeds the K8s 63-character limit.
+func isDefaultWorkloadServiceBackendRef(llmSvc *v1alpha2.LLMInferenceService, ref gwapiv1.BackendRef) bool {
+	kind := ptr.Deref[gwapiv1.Kind](ref.Kind, "Service")
+	group := ptr.Deref[gwapiv1.Group](ref.Group, "")
+	if kind != "Service" || group != "" {
+		return false
+	}
+	childName := kmeta.ChildName(llmSvc.GetName(), "-kserve-workload-svc")
+	simpleName := llmSvc.GetName() + "-kserve-workload-svc"
+	return string(ref.Name) == childName || string(ref.Name) == simpleName
 }
 
 const (
