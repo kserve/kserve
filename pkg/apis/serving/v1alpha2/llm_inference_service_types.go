@@ -494,6 +494,34 @@ type GatewayObjectReference struct {
 	SectionName *gwapiv1.SectionName `json:"sectionName,omitempty"`
 }
 
+// AppliedConfigSource identifies how a configuration was selected for merging.
+// +kubebuilder:validation:Enum=WellKnown;BaseRef
+type AppliedConfigSource string
+
+const (
+	// AppliedConfigSourceWellKnown indicates the config was automatically injected
+	// by the controller based on the deployment pattern (single-node, multi-node,
+	// disaggregated, scheduler, router).
+	AppliedConfigSourceWellKnown AppliedConfigSource = "WellKnown"
+	// AppliedConfigSourceBaseRef indicates the config was explicitly referenced
+	// by the user via spec.baseRefs.
+	AppliedConfigSourceBaseRef AppliedConfigSource = "BaseRef"
+)
+
+// AppliedConfigRef identifies an LLMInferenceServiceConfig resource that contributed
+// to the final merged configuration during reconciliation.
+type AppliedConfigRef struct {
+	// Name of the LLMInferenceServiceConfig resource that was applied.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+	// Source indicates how this config was selected - either automatically injected
+	// as a well-known default based on the deployment pattern, or explicitly
+	// referenced via spec.baseRefs.
+	// +required
+	Source AppliedConfigSource `json:"source"`
+}
+
 // LLMInferenceServiceStatus defines the observed state of LLMInferenceService.
 type LLMInferenceServiceStatus struct {
 	// URL is the primary address for accessing the service.
@@ -508,6 +536,16 @@ type LLMInferenceServiceStatus struct {
 
 	// Addressable endpoint for the service, including cluster-local URLs.
 	duckv1.AddressStatus `json:",inline,omitempty"`
+
+	// AppliedConfigs records which LLMInferenceServiceConfig resources were applied
+	// during the last successful reconciliation, in merge precedence order.
+	// Well-known configs (determined by the deployment pattern) appear first with
+	// lower precedence, followed by explicitly referenced baseRefs with higher
+	// precedence. The service's own spec always takes the highest precedence but
+	// is not listed here.
+	// +optional
+	// +listType=atomic
+	AppliedConfigs []AppliedConfigRef `json:"appliedConfigs,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
