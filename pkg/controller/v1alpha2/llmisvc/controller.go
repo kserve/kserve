@@ -206,6 +206,7 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 		return fmt.Errorf("failed to combine base-configurations: %w", err)
 	}
 	llmSvc.MarkPresetsCombinedReady()
+	llmSvc.Status.AppliedConfigs = result.AppliedRefs
 
 	logger.V(2).Info("Reconciling with combined base configurations", "combined.spec", result.Config.Spec, "original.spec", llmSvc.Spec)
 	// Replace the spec with the merged configuration for reconciliation

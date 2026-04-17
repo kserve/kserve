@@ -329,7 +329,7 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 			if strings.HasPrefix(cmName, "config-scheduler-") {
 				cm, err = Get(ctx, r.Client, client.ObjectKey{Namespace: constants.KServeNamespace, Name: cmName}, &corev1.ConfigMap{}, WithGetFallbackAPIServerConfigMap(r.Clientset))
 				if err != nil {
-					return nil, fmt.Errorf("failed to get scheduler config %q from namespaces [%q, %q]: %w", cmName, llmSvc.Namespace, constants.KServeNamespace, err)
+					return &CombineResult{Config: llmSvcCfg, AppliedRefs: appliedRefs}, fmt.Errorf("failed to get scheduler config %q from namespaces [%q, %q]: %w", cmName, llmSvc.Namespace, constants.KServeNamespace, err)
 				}
 			}
 		}
