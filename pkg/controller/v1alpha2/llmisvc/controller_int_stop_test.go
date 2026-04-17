@@ -694,6 +694,106 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 			}).WithContext(ctx).Should(BeTrue(), "deployment should be deleted when service is stopped with missing config")
 		})
 
+		It("should delete single-node workload with Template when baseRef config providing model URI is deleted before stop", func(ctx SpecContext) {
+			// This covers the case where Template is set directly on the service
+			// but the model URI comes from a baseRef config. Without the early stop
+			// check, expectedSingleNodeMainDeployment would fail on attachModelArtifacts
+			// because the fallback spec has Template (enters the attachModelArtifacts path)
+			// but no model URI.
+			// given
+			svcName := "test-llm-stop-cfg-tmpl"
+			nsName := kmeta.ChildName(svcName, "-test")
+			namespace := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nsName,
+				},
+			}
+
+			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
+			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
+			defer func() {
+				envTest.DeleteAll(ctx, namespace)
+			}()
+
+			// Create the LLMInferenceServiceConfig that provides the model URI
+			modelConfig := LLMInferenceServiceConfig("model-uri-config",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](nsName),
+				WithConfigModelURI("hf://facebook/opt-125m"),
+			)
+			Expect(envTest.Client.Create(ctx, modelConfig)).To(Succeed())
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				WithBaseRefs(
+					corev1.LocalObjectReference{Name: "model-uri-config"},
+				),
+				// Template is set directly on the service, not via the config
+				WithTemplate(&corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "main",
+							Image: "quay.io/test/vllm:latest",
+						},
+					},
+				}),
+			)
+
+			// when - Create LLMInferenceService with baseRef and Template
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+			}()
+
+			// then - verify deployment is created
+			expectedDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve",
+					Namespace: nsName,
+				}, expectedDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			// when - Delete the LLMInferenceServiceConfig before stopping
+			Expect(envTest.Client.Delete(ctx, modelConfig)).To(Succeed())
+
+			// when - Set stop annotation (config is now missing, but Template is still on the service)
+			errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				_, errUpdate := ctrl.CreateOrUpdate(ctx, envTest.Client, llmSvc, func() error {
+					if llmSvc.Annotations == nil {
+						llmSvc.Annotations = make(map[string]string)
+					}
+					llmSvc.Annotations[constants.StopAnnotationKey] = "true"
+					return nil
+				})
+				return errUpdate
+			})
+			Expect(errRetry).ToNot(HaveOccurred())
+
+			// then - verify the service is marked as stopped
+			Eventually(func(g Gomega, ctx context.Context) error {
+				err := envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName,
+					Namespace: nsName,
+				}, llmSvc)
+				g.Expect(err).ToNot(HaveOccurred())
+
+				mainWorkloadCondition := llmSvc.Status.GetCondition(v1alpha2.MainWorkloadReady)
+				g.Expect(mainWorkloadCondition).ToNot(BeNil())
+				g.Expect(mainWorkloadCondition.Status).To(Equal(corev1.ConditionFalse))
+				g.Expect(mainWorkloadCondition.Reason).To(Equal("Stopped"))
+				return nil
+			}).WithContext(ctx).Should(Succeed(), "service should be marked as stopped")
+
+			// verify deployment is deleted
+			Eventually(func(g Gomega, ctx context.Context) bool {
+				err := envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve",
+					Namespace: nsName,
+				}, expectedDeployment)
+				return err != nil && errors.IsNotFound(err)
+			}).WithContext(ctx).Should(BeTrue(), "deployment should be deleted when stopped with missing config and Template set")
+		})
+
 		It("should delete router resources when baseRef config is deleted before stop", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-stop-cfg-router"
