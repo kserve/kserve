@@ -187,7 +187,7 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 		return nil, fmt.Errorf("failed to get current leader worker set %s/%s: %w", expected.GetNamespace(), expected.GetName(), err)
 	}
 
-	if llmSvc.Spec.Template != nil {
+	if llmSvc.Spec.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
 		expected.Spec.LeaderWorkerTemplate.LeaderTemplate = &corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: leaderLabels,
@@ -222,7 +222,7 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 			}
 		}
 	}
-	if llmSvc.Spec.Worker != nil {
+	if llmSvc.Spec.Worker != nil && !utils.GetForceStopRuntime(llmSvc) {
 		expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec = *llmSvc.Spec.Worker.DeepCopy()
 
 		serviceAccount, _, err := r.expectedMultiNodeMainServiceAccount(ctx, llmSvc)
@@ -299,7 +299,7 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 		},
 	}
 
-	if llmSvc.Spec.Prefill != nil {
+	if llmSvc.Spec.Prefill != nil && !utils.GetForceStopRuntime(llmSvc) {
 		expected.Spec.Replicas = llmSvc.Spec.Prefill.Replicas
 		expected.Spec.LeaderWorkerTemplate.Size = llmSvc.Spec.Prefill.Parallelism.GetSize()
 

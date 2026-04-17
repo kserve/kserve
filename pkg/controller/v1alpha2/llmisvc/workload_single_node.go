@@ -128,7 +128,7 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 		},
 	}
 
-	if llmSvc.Spec.Template != nil {
+	if llmSvc.Spec.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
 		d.Spec.Template.Spec = *llmSvc.Spec.Template.DeepCopy()
 
 		var serviceAccount *corev1.ServiceAccount = nil
@@ -232,7 +232,7 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 		}
 	}
 
-	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Template != nil {
+	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
 		d.Spec.Template.Spec = *llmSvc.Spec.Prefill.Template.DeepCopy()
 
 		var existingServiceAccount *corev1.ServiceAccount = nil
