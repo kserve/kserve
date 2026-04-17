@@ -338,7 +338,16 @@ func (r *LLMISVCReconciler) enqueueOnGatewayChange(logger logr.Logger) handler.E
 				return reqs
 			}
 			for _, llmSvc := range llmSvcList.Items {
-				// Use a deep copy to avoid modifying the original object
+				if hasRoutingGatewayRef(&llmSvc, gwapiv1.ObjectName(sub.Name), gwapiv1.Namespace(sub.Namespace)) {
+					reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
+						Namespace: llmSvc.Namespace,
+						Name:      llmSvc.Name,
+					}})
+					continue // skip the expensive combineBaseRefsConfig fallback
+				}
+
+				// Fallback: service created before status.routing was introduced.
+				// Use the old derivation path until it reconciles and populates status.
 				llmSvcCopy := llmSvc.DeepCopy()
 				combinedCfg, err := r.combineBaseRefsConfig(ctx, llmSvcCopy, cfg)
 				if err != nil {
@@ -408,7 +417,16 @@ func (r *LLMISVCReconciler) enqueueOnHttpRouteChange(logger logr.Logger) handler
 				return reqs
 			}
 			for _, llmSvc := range llmSvcList.Items {
-				// Use a deep copy to avoid modifying the original object
+				if hasRoutingHTTPRouteRef(&llmSvc, gwapiv1.ObjectName(sub.Name), sub.Namespace) {
+					reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
+						Namespace: llmSvc.Namespace,
+						Name:      llmSvc.Name,
+					}})
+					continue
+				}
+
+				// Fallback: service created before status.routing was introduced.
+				// Use the old derivation path until it reconciles and populates status.
 				llmSvcCopy := llmSvc.DeepCopy()
 				combinedCfg, err := r.combineBaseRefsConfig(ctx, llmSvcCopy, cfg)
 				if err != nil {
@@ -495,6 +513,37 @@ func (r *LLMISVCReconciler) enqueueOnLLMInferenceServiceConfigChange(logger logr
 
 		return reqs
 	})
+}
+
+func hasRoutingGatewayRef(llmSvc *v1alpha2.LLMInferenceService, gatewayName gwapiv1.ObjectName, gatewayNamespace gwapiv1.Namespace) bool {
+	if llmSvc.Status.Routing == nil || len(llmSvc.Status.Routing.Gateways) == 0 {
+		return false
+	}
+
+	for _, gw := range llmSvc.Status.Routing.Gateways {
+		if string(gw.Name) == string(gatewayName) &&
+			gw.Namespace != nil && string(*gw.Namespace) == string(gatewayNamespace) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func hasRoutingHTTPRouteRef(llmSvc *v1alpha2.LLMInferenceService, routeName gwapiv1.ObjectName, routeNamespace string) bool {
+	if llmSvc.Status.Routing == nil || len(llmSvc.Status.Routing.Gateways) == 0 {
+		return false
+	}
+
+	for _, gw := range llmSvc.Status.Routing.Gateways {
+		for _, route := range gw.HTTPRoutes {
+			if string(route.Name) == string(routeName) && llmSvc.Namespace == routeNamespace {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func (r *LLMISVCReconciler) enqueueOnConfigMapChange(logger logr.Logger) handler.EventHandler {

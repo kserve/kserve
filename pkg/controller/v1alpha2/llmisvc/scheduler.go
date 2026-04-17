@@ -40,6 +40,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -957,4 +958,15 @@ func SchedulerLabels(llmSvc *v1alpha2.LLMInferenceService) map[string]string {
 		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
 		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 	}
+}
+
+// setRoutingPoolStatus writes the InferencePool and EPP Service refs into status.routing.
+// If status.routing has not yet been created from routing discovery, it is intentionally
+// not initialised to avoid marking routing as populated without gateway information.
+func setRoutingPoolStatus(llmSvc *v1alpha2.LLMInferenceService, pool, svc gwapiv1.ObjectReference) {
+	if llmSvc.Status.Routing == nil {
+		return
+	}
+	llmSvc.Status.Routing.InferencePool = &pool
+	llmSvc.Status.Routing.SchedulerService = &svc
 }

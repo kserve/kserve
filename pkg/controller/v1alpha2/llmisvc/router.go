@@ -94,7 +94,8 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 	// Reconcile HTTP routes for traffic routing
 	// We do not support Gateway's spec, when creating HTTPRoutes either the default gateway or those provided
 	// as refs are attached to reconciled routes
-	if err := r.reconcileHTTPRoutes(ctx, llmSvc); err != nil {
+	resolvedGWs, err := r.reconcileHTTPRoutes(ctx, llmSvc)
+	if err != nil {
 		llmSvc.MarkHTTPRoutesNotReady("HTTPRouteReconcileError", "Failed to reconcile HTTPRoute: %v", err.Error())
 		return fmt.Errorf("failed to reconcile HTTP routes: %w", err)
 	}
@@ -110,7 +111,7 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 		return fmt.Errorf("failed to evaluate Inference Pool conditions: %w", err)
 	}
 
-	if err := r.EvaluateGatewayConditions(ctx, llmSvc); err != nil {
+	if err := r.EvaluateGatewayConditions(ctx, llmSvc, resolvedGWs); err != nil {
 		return fmt.Errorf("failed to evaluate gateway conditions: %w", err)
 	}
 
@@ -121,9 +122,11 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 	return nil
 }
 
-// reconcileHTTPRoutes manages HTTPRoute resources for traffic routing
-// It handles both custom routes (via refs) and generated routes (via spec)
-func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+// reconcileHTTPRoutes manages HTTPRoute resources for traffic routing.
+// It handles both custom routes (via refs) and generated routes (via spec).
+// Returns the resolved gateways discovered during URL assembly so the caller
+// can pass them to EvaluateGatewayConditions without re-fetching.
+func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) ([]ResolvedGateway, error) {
 	logger := log.FromContext(ctx)
 	logger.Info("Reconciling HTTPRoute")
 
@@ -131,14 +134,14 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 
 	// Clean up if router or routes are not configured
 	if utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route == nil {
-		_ = r.updateRoutingStatus(ctx, llmSvc)
-		return Delete(ctx, r, llmSvc, expectedHTTPRoute)
+		_, _ = r.updateRoutingStatus(ctx, llmSvc)
+		return nil, Delete(ctx, r, llmSvc, expectedHTTPRoute)
 	}
 
 	// Collect any explicitly referenced HTTPRoutes
 	referencedRoutes, err := r.collectReferencedRoutes(ctx, llmSvc)
 	if err != nil {
-		return fmt.Errorf("failed to collect referenced routes: %w", err)
+		return nil, fmt.Errorf("failed to collect referenced routes: %w", err)
 	}
 
 	route := llmSvc.Spec.Router.Route
@@ -146,13 +149,13 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 	// If using custom routes via refs, delete our own
 	if route.HTTP.HasRefs() {
 		if err := Delete(ctx, r, llmSvc, expectedHTTPRoute); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	if route.HTTP.HasSpec() {
 		if err := Reconcile(ctx, r, llmSvc, &gwapiv1.HTTPRoute{}, expectedHTTPRoute, semanticHTTPRouteIsEqual); err != nil {
-			return fmt.Errorf("failed to reconcile HTTPRoute %s/%s: %w", expectedHTTPRoute.GetNamespace(), expectedHTTPRoute.GetName(), err)
+			return nil, fmt.Errorf("failed to reconcile HTTPRoute %s/%s: %w", expectedHTTPRoute.GetNamespace(), expectedHTTPRoute.GetName(), err)
 		}
 		referencedRoutes = append(referencedRoutes, expectedHTTPRoute)
 	}
@@ -277,14 +280,17 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 	return httpRoute
 }
 
-func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, routes ...*gwapiv1.HTTPRoute) error {
+func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, routes ...*gwapiv1.HTTPRoute) ([]ResolvedGateway, error) {
 	logger := log.FromContext(ctx)
+
+	// Zero out routing status on every entry to avoid stale state on early returns.
+	llmSvc.Status.Routing = nil
 
 	if utils.GetForceStopRuntime(llmSvc) {
 		llmSvc.Status.Addresses = nil
 		llmSvc.Status.Address = nil
 		llmSvc.MarkHTTPRoutesNotReady("Stopped", "Service is stopped")
-		return nil
+		return nil, nil
 	}
 
 	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route == nil {
@@ -294,7 +300,7 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 				llmSvc.GetNamespace(),
 			)),
 		}}
-		return nil
+		return nil, nil
 	}
 
 	// TODO: LoadConfig fetches the configmap from the API server on every
@@ -302,17 +308,30 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 	// API server pressure under high reconciliation load.
 	cfg, err := LoadConfig(ctx, r.Clientset)
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
 	var urls []*apis.URL
+	var routeGateways []RouteWithGateways
 	for _, route := range routes {
-		discoverURL, err := DiscoverURLs(ctx, r.Client, route, cfg.UrlScheme)
+		resolvedGWs, err := DiscoverGateways(ctx, r.Client, route)
+		if err != nil {
+			return nil, fmt.Errorf("failed to discover gateways for route %s/%s: %w", route.GetNamespace(), route.GetName(), err)
+		}
+		routeGateways = append(routeGateways, RouteWithGateways{Route: route, Gateways: resolvedGWs})
+		discoverURL, err := DiscoverURLs(ctx, r.Client, resolvedGWs, route, cfg.UrlScheme)
 		if IgnoreNoURLsDiscovered(err) != nil {
-			return fmt.Errorf("failed to discover URL for route %s/%s: %w", route.GetNamespace(), route.GetName(), err)
+			return nil, fmt.Errorf("failed to discover URL for route %s/%s: %w", route.GetNamespace(), route.GetName(), err)
 		}
 		if discoverURL != nil {
 			urls = append(urls, discoverURL...)
+		}
+	}
+
+	// Populate status.routing.gateways from the discovered route-gateway pairs.
+	if len(routeGateways) > 0 {
+		llmSvc.Status.Routing = &v1alpha2.RoutingStatus{
+			Gateways: BuildObservedGateways(routeGateways),
 		}
 	}
 
@@ -345,7 +364,20 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 		})
 	}
 
-	return nil
+	// Collect unique resolved gateways across all routes for downstream condition evaluation.
+	seen := make(map[string]struct{})
+	var allResolved []ResolvedGateway
+	for _, rg := range routeGateways {
+		for _, gw := range rg.Gateways {
+			key := gw.Gateway.Namespace + "/" + gw.Gateway.Name
+			if _, ok := seen[key]; !ok {
+				seen[key] = struct{}{}
+				allResolved = append(allResolved, gw)
+			}
+		}
+	}
+
+	return allResolved, nil
 }
 
 func RouterLabels(llmSvc *v1alpha2.LLMInferenceService) map[string]string {
@@ -363,8 +395,9 @@ func semanticHTTPRouteIsEqual(e *gwapiv1.HTTPRoute, c *gwapiv1.HTTPRoute) bool {
 }
 
 // EvaluateGatewayConditions evaluates the readiness of all Gateways referenced by the LLMInferenceService
-// and updates the GatewaysReady condition accordingly
-func (r *LLMISVCReconciler) EvaluateGatewayConditions(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+// and updates the GatewaysReady condition accordingly. The resolved slice is provided by
+// updateRoutingStatus so that gateways are not re-fetched from the API server.
+func (r *LLMISVCReconciler) EvaluateGatewayConditions(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, resolved []ResolvedGateway) error {
 	logger := log.FromContext(ctx).WithName("evaluateGatewayConditions")
 
 	if utils.GetForceStopRuntime(llmSvc) {
@@ -379,10 +412,9 @@ func (r *LLMISVCReconciler) EvaluateGatewayConditions(ctx context.Context, llmSv
 		return nil
 	}
 
-	gateways, err := r.CollectReferencedGateways(ctx, llmSvc)
-	if err != nil {
-		llmSvc.MarkGatewaysNotReady("GatewayFetchError", "Failed to fetch referenced Gateways: %v", err.Error())
-		return fmt.Errorf("failed to fetch referenced gateways: %w", err)
+	gateways := make([]*gwapiv1.Gateway, 0, len(resolved))
+	for _, resolvedGateway := range resolved {
+		gateways = append(gateways, resolvedGateway.Gateway)
 	}
 
 	notReadyGateways := EvaluateGatewayReadiness(ctx, gateways)
@@ -419,8 +451,8 @@ func (r *LLMISVCReconciler) CollectReferencedGateways(ctx context.Context, llmSv
 			return nil, fmt.Errorf("failed to discover gateways: %w", err)
 		}
 		for _, gateway := range discoveredGateways {
-			key := gateway.gateway.Namespace + "/" + gateway.gateway.Name
-			gatewayMap[key] = gateway.gateway
+			key := gateway.Gateway.Namespace + "/" + gateway.Gateway.Name
+			gatewayMap[key] = gateway.Gateway
 		}
 	}
 
@@ -553,6 +585,18 @@ func (r *LLMISVCReconciler) EvaluateInferencePoolConditions(ctx context.Context,
 			llmSvc.MarkInferencePoolNotReady("InferencePoolFetchError", err.Error())
 			return err
 		}
+		setRoutingPoolStatus(llmSvc,
+			gwapiv1.ObjectReference{
+				Group: gwapiv1.Group("inference.networking.k8s.io"),
+				Kind:  "InferencePool",
+				Name:  gwapiv1.ObjectName(poolRef.Name),
+			},
+			gwapiv1.ObjectReference{
+				Group: "",
+				Kind:  "Service",
+				Name:  gwapiv1.ObjectName(llmSvc.Spec.Router.EPPServiceName(llmSvc)),
+			},
+		)
 		return r.evaluateSingleInferencePoolCondition(ctx, llmSvc, curr)
 	}
 
@@ -572,6 +616,21 @@ func (r *LLMISVCReconciler) EvaluateInferencePoolConditions(ctx context.Context,
 	v1alpha2Pool := &igwapiv1alpha2.InferencePool{}
 	v1alpha2Err := r.Get(ctx, types.NamespacedName{Namespace: poolNamespace, Name: poolName}, v1alpha2Pool)
 	v1alpha2Ready := v1alpha2Err == nil && IsInferencePoolV1Alpha2Ready(v1alpha2Pool)
+
+	// Record the pool and EPP service refs in status - the pool name is deterministic
+	// regardless of whether the pool is ready or even exists yet.
+	setRoutingPoolStatus(llmSvc,
+		gwapiv1.ObjectReference{
+			Group: gwapiv1.Group("inference.networking.k8s.io"),
+			Kind:  "InferencePool",
+			Name:  gwapiv1.ObjectName(poolName),
+		},
+		gwapiv1.ObjectReference{
+			Group: "",
+			Kind:  "Service",
+			Name:  gwapiv1.ObjectName(llmSvc.Spec.Router.EPPServiceName(llmSvc)),
+		},
+	)
 
 	logger.V(2).Info("Checking InferencePool readiness",
 		"pool", poolNamespace+"/"+poolName,
@@ -660,4 +719,100 @@ func (r *LLMISVCReconciler) evaluateSingleInferencePoolCondition(ctx context.Con
 	llmSvc.MarkInferencePoolReady()
 	log.FromContext(ctx).V(2).Info("Inference Pool is ready", "pool", curr)
 	return nil
+}
+
+// RouteWithGateways pairs an HTTPRoute with the resolved gateways it references.
+type RouteWithGateways struct {
+	Route    *gwapiv1.HTTPRoute
+	Gateways []ResolvedGateway
+}
+
+// BuildObservedGateways constructs the RoutingStatus.Gateways slice.
+// Gateways are deduplicated by namespace/name; listeners and HTTPRoutes
+// are aggregated per unique gateway and sorted for stable DeepEqual.
+func BuildObservedGateways(routeGateways []RouteWithGateways) []v1alpha2.ObservedGateway {
+	if len(routeGateways) == 0 {
+		return nil
+	}
+
+	type accumulator struct {
+		gw         *gwapiv1.Gateway
+		listeners  []gwapiv1.SectionName
+		httpRoutes []gwapiv1.ObjectReference
+	}
+
+	acc := map[string]*accumulator{}
+
+	for _, rg := range routeGateways {
+		routeRef := gwapiv1.ObjectReference{
+			Group: gwapiv1.Group(gwapiv1.GroupName),
+			Kind:  "HTTPRoute",
+			Name:  gwapiv1.ObjectName(rg.Route.Name),
+		}
+
+		for _, resolved := range rg.Gateways {
+			key := resolved.Gateway.Namespace + "/" + resolved.Gateway.Name
+			if _, ok := acc[key]; !ok {
+				acc[key] = &accumulator{gw: resolved.Gateway}
+			}
+			a := acc[key]
+
+			if resolved.ParentRef.SectionName != nil {
+				a.listeners = append(a.listeners, *resolved.ParentRef.SectionName)
+			}
+
+			// Deduplicate route refs: same route may appear via multiple parentRefs on same gateway.
+			alreadyAdded := false
+			for _, r := range a.httpRoutes {
+				if r.Name == routeRef.Name {
+					alreadyAdded = true
+					break
+				}
+			}
+			if !alreadyAdded {
+				a.httpRoutes = append(a.httpRoutes, routeRef)
+			}
+		}
+	}
+
+	keys := make([]string, 0, len(acc))
+	for k := range acc {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+
+	result := make([]v1alpha2.ObservedGateway, 0, len(acc))
+	for _, key := range keys {
+		a := acc[key]
+
+		// Deduplicate and sort listeners. Nil if no SectionName was ever set.
+		var listeners []gwapiv1.SectionName
+		if len(a.listeners) > 0 {
+			seen := map[gwapiv1.SectionName]struct{}{}
+			for _, l := range a.listeners {
+				if _, ok := seen[l]; !ok {
+					seen[l] = struct{}{}
+					listeners = append(listeners, l)
+				}
+			}
+			slices.SortFunc(listeners, cmp.Compare)
+		}
+
+		slices.SortFunc(a.httpRoutes, func(x, y gwapiv1.ObjectReference) int {
+			return cmp.Compare(string(x.Name), string(y.Name))
+		})
+
+		result = append(result, v1alpha2.ObservedGateway{
+			ObjectReference: gwapiv1.ObjectReference{
+				Group:     gwapiv1.Group(gwapiv1.GroupName),
+				Kind:      "Gateway",
+				Name:      gwapiv1.ObjectName(a.gw.Name),
+				Namespace: ptr.To(gwapiv1.Namespace(a.gw.Namespace)),
+			},
+			Listeners:  listeners,
+			HTTPRoutes: a.httpRoutes,
+		})
+	}
+
+	return result
 }
