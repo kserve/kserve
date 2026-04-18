@@ -1434,6 +1434,47 @@ func TestDeploymentModeUpdate(t *testing.T) {
 	g.Expect(err).Should(gomega.Succeed())
 }
 
+func TestValidateUpdateDuringDeletion(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	validator := InferenceServiceValidator{}
+	pvcStorageUri := "pvc://my-pvc/model"
+
+	oldIsvc := InferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "multinode-isvc",
+			Namespace: "default",
+			Annotations: map[string]string{
+				constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+				constants.DeploymentMode:  string(constants.LegacyRawDeployment),
+			},
+		},
+		Spec: InferenceServiceSpec{
+			Predictor: PredictorSpec{
+				Model: &ModelSpec{
+					ModelFormat: ModelFormat{Name: "huggingface"},
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: &pvcStorageUri,
+					},
+				},
+				WorkerSpec: &WorkerSpec{},
+			},
+		},
+	}
+
+	// Without DeletionTimestamp, this ISVC should be rejected (autoscalerClass: external is invalid for multinode)
+	warnings, err := validator.ValidateUpdate(t.Context(), &oldIsvc, oldIsvc.DeepCopy())
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).ShouldNot(gomega.Succeed())
+
+	// With DeletionTimestamp set, the same ISVC should be accepted so finalizers can be removed
+	deletingIsvc := oldIsvc.DeepCopy()
+	now := metav1.Now()
+	deletingIsvc.DeletionTimestamp = &now
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvc, deletingIsvc)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+}
+
 func TestValidateDelete(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	validator := InferenceServiceValidator{}
