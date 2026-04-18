@@ -20,17 +20,19 @@ PASS=0
 FAIL=0
 
 usage() {
-    echo "Usage: $0 <version> [--repo=<owner/repo>]"
+    echo "Usage: $0 <version> [--repo=<owner/repo>] [--images-only]"
     echo ""
     echo "Arguments:"
     echo "  version              Release version with 'v' prefix (e.g., v0.18.0-rc0)"
     echo ""
     echo "Options:"
     echo "  --repo=<owner/repo>  Target repository (default: auto-detected)"
+    echo "  --images-only        Only check container images (skip other checks)"
     echo ""
     echo "Examples:"
     echo "  $0 v0.18.0-rc0"
     echo "  $0 v0.18.0-rc0 --repo=jooho/kserve"
+    echo "  $0 v0.18.0-rc0 --images-only"
     exit 1
 }
 
@@ -54,10 +56,12 @@ check_warn() {
 # Parse arguments
 VERSION=""
 REPO_OVERRIDE=""
+IMAGES_ONLY=false
 
 for arg in "$@"; do
     case "$arg" in
         --repo=*) REPO_OVERRIDE="${arg#--repo=}" ;;
+        --images-only) IMAGES_ONLY=true ;;
         --help|-h) usage ;;
         v*) VERSION="$arg" ;;
         *) echo -e "${RED}Unknown argument: $arg${NC}"; usage ;;
@@ -110,7 +114,12 @@ echo -e "${BLUE}  KServe Release Validation: $VERSION${NC}"
 echo -e "${BLUE}  Repo: $REPO${NC}"
 echo -e "${BLUE}=================================================${NC}"
 
+if [[ "$IMAGES_ONLY" == "true" ]]; then
+    echo -e "${YELLOW}  Mode: images-only${NC}"
+fi
+
 # ── 1. Install files ──────────────────────────────────────────
+if [[ "$IMAGES_ONLY" != "true" ]]; then
 echo ""
 echo -e "${YELLOW}[1/6] Install files...${NC}"
 INSTALL_DIR="install/${VERSION}"
@@ -184,17 +193,22 @@ for pkg in kserve kserve-storage; do
     fi
 done
 
+fi  # end IMAGES_ONLY skip
+
 # ── 6. Container images ───────────────────────────────────────
 echo ""
 echo -e "${YELLOW}[6/6] Container images...${NC}"
+IMAGE_FAIL_COUNT=0
 for image in "${IMAGES[@]}"; do
     IMAGE_REF="${REGISTRY}/${image}:${VERSION}"
     if docker manifest inspect "${IMAGE_REF}" >/dev/null 2>&1; then
         check_pass "Image: ${IMAGE_REF}"
     else
         check_fail "Image: ${IMAGE_REF} not found" "Check Docker Publisher workflows"
+        ((IMAGE_FAIL_COUNT++)) || true
     fi
 done
+
 
 # ── Summary ───────────────────────────────────────────────────
 echo ""
