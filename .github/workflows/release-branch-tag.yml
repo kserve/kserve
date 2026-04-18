@@ -1,0 +1,129 @@
+name: Prepare Release (Branch & Tag)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v0.17.0-rc0, v0.17.0-rc1, v0.17.0)'
+        required: true
+        type: string
+      dry_run:
+        description: 'Dry-run mode (validate only, no changes)'
+        required: false
+        type: boolean
+        default: true
+  pull_request:
+    types: [closed]
+    branches: [master]
+    paths:
+      - 'kserve-deps.env'
+
+# Prevent concurrent releases
+concurrency:
+  group: release-workflow
+  cancel-in-progress: false
+
+jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    # For PR trigger: only run when merged AND title matches release pattern
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true &&
+       startsWith(github.event.pull_request.title, 'release: prepare'))
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+            echo "dry_run=${{ inputs.dry_run }}" >> "$GITHUB_OUTPUT"
+          else
+            # Read version from kserve-deps.env (set by make bump-version)
+            VERSION=$(grep "KSERVE_VERSION=" kserve-deps.env | cut -d'=' -f2)
+            if [[ -z "$VERSION" ]]; then
+              echo "Could not read KSERVE_VERSION from kserve-deps.env"
+              exit 1
+            fi
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "dry_run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install dependencies
+        run: |
+          ./hack/setup/cli/install-yq.sh
+
+      - name: Check OWNERS permissions
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "Checking permissions for user: ${{ github.actor }}"
+
+          # Extract allowed users from OWNERS file
+          ALLOWED_USERS=$(yq eval '.project-leads[], .approvers[], .reviewers[]' OWNERS)
+
+          # Check if current user is in the allowed list
+          if ! echo "$ALLOWED_USERS" | grep -q "^${{ github.actor }}$"; then
+            echo ""
+            echo "Permission denied!"
+            echo "   Only users listed in OWNERS (reviewer+) can run this workflow."
+            echo "   Current user: ${{ github.actor }}"
+            echo ""
+            echo "Allowed users:"
+            echo "$ALLOWED_USERS"
+            exit 1
+          fi
+
+          echo "Permission granted for ${{ github.actor }}"
+
+      - name: Check if release already exists
+        if: steps.version.outputs.dry_run == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo ""
+            echo "Release $VERSION already exists!"
+            echo ""
+            gh release view "$VERSION" --json url,createdAt -q '"URL: " + .url + "\nCreated: " + .createdAt'
+            exit 1
+          fi
+
+          echo "Release $VERSION does not exist yet"
+
+      - name: Create Branch and Tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "${{ steps.version.outputs.dry_run }}" == "true" ]]; then
+            ./hack/release/create-branch-tag.sh "${{ steps.version.outputs.version }}" --dry-run --github-actions
+          else
+            ./hack/release/create-branch-tag.sh "${{ steps.version.outputs.version }}" --github-actions
+          fi
+
+      - name: Next steps
+        if: steps.version.outputs.dry_run == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          echo ""
+          echo "Branch and tag created for $VERSION"
+          echo ""
+          echo "Next steps:"
+          echo "  1. Go to https://github.com/${{ github.repository }}/releases/new"
+          echo "  2. Choose tag: $VERSION"
+          echo "  3. Generate release notes"
+          echo "  4. Check 'Set as pre-release' if this is an RC version"
+          echo "  5. Publish the release"
+          echo ""
+          echo "Publishing will automatically trigger:"
+          echo "  - Helm charts publication (helm-publish workflow)"
+          echo "  - Python packages publication (python-publish workflow)"
