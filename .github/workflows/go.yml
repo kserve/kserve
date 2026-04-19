@@ -21,14 +21,14 @@ concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
     cancel-in-progress: true
 
-permissions:
-    contents: write
-    pull-requests: write
+permissions: {}
 
 jobs:
     test:
         name: Test
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
         steps:
 
             - name: Check out code into the Go module directory
@@ -75,6 +75,9 @@ jobs:
         needs: test
         runs-on: ubuntu-latest
         name: Check Coverage
+        permissions:
+            contents: write
+            pull-requests: write
         steps:
             - name: checkout
               uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1

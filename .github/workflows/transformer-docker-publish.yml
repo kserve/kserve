@@ -19,6 +19,9 @@ on:
   # merge_group:
   #   types: [ checks_requested ]
 
+permissions:
+  contents: read
+
 env:
   IMAGE_NAME: image-transformer
   GRPC_IMAGE_NAME: custom-image-transformer-grpc
