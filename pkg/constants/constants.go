@@ -560,6 +560,7 @@ const (
 	LGBServer         = "kserve-lgbserver"
 	PaddleServer      = "kserve-paddleserver"
 	HuggingFaceServer = "kserve-huggingfaceserver"
+	VLLMServer        = "kserve-vllmserver"
 )
 
 // Server type annotation values
@@ -634,6 +635,7 @@ const (
 	SupportedModelPaddle      = "paddle"
 	SupportedModelTriton      = "triton"
 	SupportedModelMLFlow      = "mlflow"
+	SupportedModelVLLM        = "vllm"
 )
 
 type ProtocolVersion int
