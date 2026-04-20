@@ -217,6 +217,37 @@ func newBaseLLMInferenceServiceV1Alpha2() *LLMInferenceService {
 	}
 }
 
+func TestValidateUpdate_DeletionBypass(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+
+	oldSvc := newBaseLLMInferenceServiceV1Alpha2()
+	newSvc := newBaseLLMInferenceServiceV1Alpha2()
+	newSvc.Spec.WorkloadSpec = WorkloadSpec{
+		Replicas: ptr.To(int32(3)),
+		Scaling: &ScalingSpec{
+			MaxReplicas: 5,
+			WVA: &WVASpec{
+				ActuatorSpec: ActuatorSpec{
+					HPA: &HPAScalingSpec{},
+				},
+			},
+		},
+	}
+
+	// Without DeletionTimestamp, this should be rejected (replicas + scaling are mutually exclusive)
+	warnings, err := validator.ValidateUpdate(t.Context(), oldSvc, newSvc)
+	assert.Empty(t, warnings)
+	assert.Error(t, err)
+
+	// With DeletionTimestamp set, the same object should be accepted
+	deletingSvc := newSvc.DeepCopy()
+	now := metav1.Now()
+	deletingSvc.DeletionTimestamp = &now
+	warnings, err = validator.ValidateUpdate(t.Context(), oldSvc, deletingSvc)
+	assert.Empty(t, warnings)
+	assert.NoError(t, err)
+}
+
 func TestValidateWorkloadScaling(t *testing.T) {
 	tests := []struct {
 		name           string

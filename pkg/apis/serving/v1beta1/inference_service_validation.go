@@ -88,6 +88,7 @@ func (v *InferenceServiceValidator) ValidateUpdate(ctx context.Context, oldObj, 
 	oldIsvc, err := utils.Convert[*InferenceService](oldObj)
 	if err != nil {
 		validatorLogger.Error(err, "Unable to convert object to InferenceService")
+		return nil, err
 	}
 	if isvc.GetDeletionTimestamp() != nil {
 		return nil, nil
