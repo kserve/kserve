@@ -157,6 +157,9 @@ func (r *LLMISVCReconciler) reconcileWorkloadService(ctx context.Context, llmSvc
 		},
 	}
 
+	utils.PropagateMap(llmSvc.Spec.Labels, &expected.Labels)
+	utils.PropagateMap(llmSvc.Spec.Annotations, &expected.Annotations)
+
 	if utils.GetForceStopRuntime(llmSvc) {
 		return Delete(ctx, r, llmSvc, expected)
 	}
