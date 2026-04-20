@@ -582,7 +582,7 @@ func validateCollocationStorageURI(predictorSpec PredictorSpec) error {
 
 // validates if the deploymentMode specified in the annotation is not different from the one recorded in the status
 func validateDeploymentMode(newIsvc *InferenceService, oldIsvc *InferenceService) error {
-	statusDeploymentMode := oldIsvc.Status.DeploymentMode
+	statusDeploymentMode := string(constants.ParseDeploymentMode(oldIsvc.Status.DeploymentMode))
 	if len(statusDeploymentMode) != 0 {
 		annotations := newIsvc.Annotations
 		annotationDeploymentMode, ok := annotations[constants.DeploymentMode]
