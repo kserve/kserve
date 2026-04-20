@@ -50,7 +50,7 @@ func TestValidateUpdate_DeletionBypass(t *testing.T) {
 
 	oldSvc := newBaseLLMInferenceService()
 	newSvc := newBaseLLMInferenceService()
-	newSvc.Spec.WorkloadSpec.Worker = &corev1.PodSpec{}
+	newSvc.Spec.Worker = &corev1.PodSpec{}
 
 	// Without DeletionTimestamp, this should be rejected (worker without parallelism)
 	warnings, err := validator.ValidateUpdate(t.Context(), oldSvc, newSvc)
