@@ -12,18 +12,10 @@ kind: Role
 metadata:
   name: lora-manager
 rules:
-# Allow reading pods and services to discover vLLM endpoints
+# Allow reading pods to resolve pod IPs for direct adapter management
 - apiGroups: [""]
-  resources: ["pods", "services"]
+  resources: ["pods"]
   verbs: ["get", "list"]
-# Allow reading LLMInferenceService to know which model servers exist
-- apiGroups: ["serving.kserve.io"]
-  resources: ["llminferenceservices"]
-  verbs: ["get", "list"]
-# Allow creating/deleting jobs for adapter management
-- apiGroups: ["batch"]
-  resources: ["jobs"]
-  verbs: ["create", "get", "list", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

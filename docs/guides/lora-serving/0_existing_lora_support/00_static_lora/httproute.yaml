@@ -1,18 +1,87 @@
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: lora-serving-route
+  name: qwen2-lora-static-kserve-route
 spec:
   parentRefs:
-  - name: openshift-ai-inference
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: openshift-ai-inference
     namespace: openshift-ingress
   rules:
-  - matches:
-    - path:
-        type: PathPrefix
-        value: /v1
-    backendRefs:
-    - group: inference.networking.k8s.io
+  - backendRefs:
+    - group: inference.networking.x-k8s.io
       kind: InferencePool
       name: qwen2-lora-inference-pool
       port: 8000
+      weight: 1
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          replacePrefixMatch: /v1/completions
+          type: ReplacePrefixMatch
+    matches:
+    - path:
+        type: PathPrefix
+        value: /greg/qwen2-lora/v1/completions
+    timeouts:
+      backendRequest: 0s
+      request: 0s
+  - backendRefs:
+    - group: inference.networking.x-k8s.io
+      kind: InferencePool
+      name: qwen2-lora-inference-pool
+      port: 8000
+      weight: 1
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          replacePrefixMatch: /v1/chat/completions
+          type: ReplacePrefixMatch
+    matches:
+    - path:
+        type: PathPrefix
+        value: /greg/qwen2-lora/v1/chat/completions
+    timeouts:
+      backendRequest: 0s
+      request: 0s
+  - backendRefs:
+    - group: inference.networking.x-k8s.io
+      kind: InferencePool
+      name: qwen2-lora-inference-pool
+      port: 8000
+      weight: 1
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          replacePrefixMatch: /v1/responses
+          type: ReplacePrefixMatch
+    matches:
+    - path:
+        type: PathPrefix
+        value: /greg/qwen2-lora/v1/responses
+    timeouts:
+      backendRequest: 0s
+      request: 0s
+  - backendRefs:
+    - group: ""
+      kind: Service
+      name: qwen2-lora-kserve-workload-svc
+      port: 8000
+      weight: 1
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          replacePrefixMatch: /v1/models
+          type: ReplacePrefixMatch
+    matches:
+    - path:
+        type: PathPrefix
+        value: /greg/qwen2-lora/v1/models
+    timeouts:
+      backendRequest: 0s
+      request: 0s

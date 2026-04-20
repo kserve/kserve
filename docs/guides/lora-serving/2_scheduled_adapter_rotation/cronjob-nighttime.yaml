@@ -16,56 +16,14 @@ spec:
           restartPolicy: Never
           containers:
           - name: rotator
-            image: registry.access.redhat.com/ubi9/ubi-minimal:latest
-            command: ["/bin/bash", "-c"]
-            args:
-            - |
-              set -euo pipefail
-
-              LLMISVC_NAME="qwen2-lora"
-              LABEL_SELECTOR="app.kubernetes.io/part-of=llminferenceservice,app.kubernetes.io/name=${LLMISVC_NAME}"
-              PORT=8000
-
-              APISERVER="https://kubernetes.default.svc"
-              TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
-              NAMESPACE=$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)
-              CACERT="/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-
-              PODS_JSON=$(curl -s --cacert ${CACERT} \
-                -H "Authorization: Bearer ${TOKEN}" \
-                "${APISERVER}/api/v1/namespaces/${NAMESPACE}/pods?labelSelector=${LABEL_SELECTOR}")
-
-              POD_IPS=$(echo "${PODS_JSON}" | grep -o '"podIP":"[^"]*"' | cut -d'"' -f4)
-
-              if [ -z "${POD_IPS}" ]; then
-                echo "ERROR: No pods found"
-                exit 1
-              fi
-
-              for IP in ${POD_IPS}; do
-                echo "=== Pod ${IP}: rotating to nighttime adapters ==="
-
-                # Unload the interactive adapter (ignore 400 if not loaded)
-                echo "  Unloading interactive-lora..."
-                curl -s -k -X POST "https://${IP}:${PORT}/v1/unload_lora_adapter" \
-                  -H "Content-Type: application/json" \
-                  -d '{"lora_name": "interactive-lora"}' || true
-
-                # Load the batch-processing adapter
-                echo "  Loading batch-processing-lora..."
-                HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -k \
-                  -X POST "https://${IP}:${PORT}/v1/load_lora_adapter" \
-                  -H "Content-Type: application/json" \
-                  -d '{
-                    "lora_name": "batch-processing-lora",
-                    "lora_path": "REPLACE_ME_HF_REPO/batch-processing-lora"
-                  }')
-
-                if [ "${HTTP_CODE}" -ne 200 ]; then
-                  echo "  FAILED to load batch-processing-lora (${HTTP_CODE})"
-                  exit 1
-                fi
-                echo "  OK"
-              done
-
-              echo "Nighttime rotation complete: batch-processing-lora loaded, interactive-lora unloaded."
+            image: REPLACE_ME_LORA_MANAGER_IMAGE
+            args: ["swap"]
+            env:
+              - name: LLMISVC_NAME
+                value: "qwen2-lora"
+              - name: UNLOAD_ADAPTER
+                value: "interactive-lora"
+              - name: LOAD_ADAPTER
+                value: "batch-processing-lora"
+              - name: LOAD_ADAPTER_SOURCE
+                value: "REPLACE_ME_HF_REPO/batch-processing-lora"

@@ -1,15 +1,21 @@
 apiVersion: serving.kserve.io/v1alpha1
 kind: LLMInferenceService
 metadata:
-  name: qwen2-lora
+  name: qwen2-lora-static
 spec:
   model:
     name: Qwen/Qwen2.5-7B-Instruct
     uri: hf://Qwen/Qwen2.5-7B-Instruct
   replicas: 2
   router:
-    gateway: {}
-    route: {}
+    gateway:
+      refs:
+        - name: openshift-ai-inference
+          namespace: openshift-ingress
+    route:
+      http:
+        refs:
+          - name: qwen2-lora-static-kserve-route
     scheduler: {}
   template:
     tolerations:
@@ -19,6 +25,8 @@ spec:
       effect: "NoSchedule"
     containers:
     - name: main
+      # Will become the latest image product image in a few days - chosen specifically for driver compat issues on my cluster
+      image: registry.stage.redhat.io/rhaii/vllm-cuda-rhel9:3.4.0-1776326705
       env:
         # Required so vLLM can download LoRA adapters from HuggingFace at startup.
         # For production, pre-download adapters to a PVC or bake them into the image.
@@ -30,6 +38,11 @@ spec:
         # the model server lifecycle.
         - name: VLLM_ADDITIONAL_ARGS
           value: "--enable-lora --max-lora-rank=64 --max-loras=2 --max-cpu-loras=2 --lora-modules k8s-lora=cimendev/kubernetes-qa-qwen2.5-7b-lora finance-lora=Max1690/qwen2.5-7b-finance-lora"
+        # CDI device injection sets NVIDIA_VISIBLE_DEVICES=void to prevent
+        # the legacy runtime hook from double-injecting. Override to restore
+        # CUDA visibility.
+        - name: NVIDIA_VISIBLE_DEVICES
+          value: all
       resources:
         limits:
           cpu: "4"

@@ -1,17 +1,12 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-namespace: REPLACE_ME_NAMESPACE
 
 resources:
   # Core serving infrastructure
-  - llm-inference-service-lora.yaml
+  - llm-inference-service-dynamic-lora.yaml
+
   - httproute.yaml
 
-  # Security: restrict LoRA management to in-cluster users
-  - network-policy.yaml
+  # RBAC for in-cluster LoRA adapter management
   - rbac.yaml
-
-  # Apply one of these to dynamically manage adapters:
-  # - lora-load-job.yaml
-  # - lora-unload-job.yaml

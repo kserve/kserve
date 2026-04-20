@@ -1,6 +1,5 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-
 resources:
-  - llm-inference-service-lora.yaml
   - httproute.yaml
+  - llm-inference-service-static-lora.yaml

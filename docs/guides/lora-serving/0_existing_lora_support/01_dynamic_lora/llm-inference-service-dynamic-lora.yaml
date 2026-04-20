@@ -1,0 +1,89 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceService
+metadata:
+  name: qwen2-lora-dynamic
+spec:
+  model:
+    name: Qwen/Qwen2.5-7B-Instruct
+    uri: hf://Qwen/Qwen2.5-7B-Instruct
+  replicas: 2
+  router:
+    gateway:
+      refs:
+        - name: openshift-ai-inference
+          namespace: openshift-ingress
+    route:
+      http:
+        refs:
+          - name: qwen2-lora-dynamic-route
+    scheduler:
+      config:
+        inline:
+          apiVersion: inference.networking.x-k8s.io/v1alpha1
+          kind: EndpointPickerConfig
+          plugins:
+            - type: single-profile-handler
+            - type: metrics-data-source
+              parameters:
+                scheme: http
+                path: /metrics
+                insecureSkipVerify: true
+            - type: queue-scorer
+            - type: kv-cache-utilization-scorer
+            - type: prefix-cache-scorer
+            - type: lora-affinity-scorer
+            - type: max-score-picker
+          schedulingProfiles:
+            - name: default
+              plugins:
+                - pluginRef: queue-scorer
+                  weight: 1.0
+                - pluginRef: kv-cache-utilization-scorer
+                  weight: 1.0
+                - pluginRef: prefix-cache-scorer
+                  weight: 1.5
+                - pluginRef: lora-affinity-scorer
+                  weight: 20.0
+                - pluginRef: max-score-picker
+  template:
+    tolerations:
+    - key: "nvidia.com/gpu"
+      operator: "Equal"
+      value: "present"
+      effect: "NoSchedule"
+    containers:
+    - name: main
+      # Will become the latest image product image in a few days - chosen specifically for driver compat issues on my cluster
+      image: registry.stage.redhat.io/rhaii/vllm-cuda-rhel9:3.4.0-1776326705
+      env:
+        # Enable LoRA support in vLLM without pre-loading any adapters.
+        # Adapters will be loaded dynamically via POST /v1/load_lora_adapter.
+        - name: VLLM_ADDITIONAL_ARGS
+          value: "--enable-lora --max-lora-rank=64 --max-loras=4 --max-cpu-loras=4"
+        - name: HF_HUB_OFFLINE
+          value: "true"
+        - name: VLLM_ALLOW_RUNTIME_LORA_UPDATING
+          value: "true"
+        # CDI device injection sets NVIDIA_VISIBLE_DEVICES=void to prevent
+        # the legacy runtime hook from double-injecting. Override to restore
+        # CUDA visibility.
+        - name: NVIDIA_VISIBLE_DEVICES
+          value: all
+      resources:
+        limits:
+          cpu: "4"
+          memory: 32Gi
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "2"
+          memory: 16Gi
+          nvidia.com/gpu: "1"
+      livenessProbe:
+        httpGet:
+          path: /health
+          port: 8000
+          scheme: HTTPS
+        initialDelaySeconds: 120
+        periodSeconds: 30
+        timeoutSeconds: 30
+        failureThreshold: 5
