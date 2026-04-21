@@ -1338,6 +1338,8 @@ get_kserve_runtime_manifests() {
 apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
+  annotations:
+    serving.kserve.io/server-type: autogluonserver
   name: kserve-autogluonserver
 spec:
   annotations:
