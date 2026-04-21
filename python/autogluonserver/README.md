@@ -41,7 +41,7 @@ Example (names must match your schema and env overrides):
 
 **Response**: `{"predictions": [ ... ]}` — list of objects with forecast index columns (e.g. `item_id`, `timestamp`) plus `mean`, quantile columns (e.g. `"0.1"`), matching the trained predictor.
 
-Use `autogluon` or `autogluon-timeseries` as `modelFormat.name` in `InferenceService`; the **same** `ClusterServingRuntime` image supports both. The format name does not change auto-detection — it still loads the directory with the try-load sequence above.
+Use `modelFormat.name: autogluon` in `InferenceService` for both tabular and time series; the **same** runtime image auto-detects the artifact type from the save directory (see above). `ClusterServingRuntime` advertises a single format, `autogluon`.
 
 ## Run AutoGluon Server Locally
 
@@ -92,7 +92,7 @@ spec:
   predictor:
     model:
       modelFormat:
-        name: autogluon-timeseries
+        name: autogluon
       storageUri: "gs://your-bucket/path/to/timeseries-predictor-save/"
 ```
 

@@ -28,8 +28,6 @@ from kserve.protocol.infer_type import InferRequest, InferResponse
 from kserve.utils.utils import get_predict_response
 from kserve_storage import Storage
 
-from autogluonserver.runtime_paths import ensure_autogluon_runtime_paths
-
 
 @dataclass
 class TimeSeriesInferenceMetadata:
@@ -193,8 +191,7 @@ class AutoGluonTimeSeriesModel(Model):
                     )
                 kc_tsdf = _known_covariates_to_tsdf(known_covariates, meta)
 
-            ensure_autogluon_runtime_paths()
-            # Avoid writing prediction_cache under the read-only downloaded model path (e.g. /s3/...).
+            # use_cache=False: avoid writing prediction_cache under read-only model dirs (e.g. downloaded URI).
             forecasts = self._predictor.predict(
                 ts_data, known_covariates=kc_tsdf, use_cache=False
             )

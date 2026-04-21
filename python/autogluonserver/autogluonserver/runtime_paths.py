@@ -22,6 +22,9 @@ import os
 def ensure_autogluon_runtime_paths() -> None:
     """Ensure matplotlib cache and process cwd allow AutoGluon to mkdir ./AutogluonModels.
 
+    Call **once at process startup** (e.g. server entrypoint): this function may
+    ``chdir``, which is process-wide and unsafe to invoke per request under concurrency.
+
     SeasonalNaive fallback (short TS history) calls setup_outputdir under the current working
     directory. Default cwd is often ``/``; arbitrary UIDs may also lack a usable HOME
     (see ``os.access`` false positives vs ``makedirs``). Prefer ``/tmp`` first.
