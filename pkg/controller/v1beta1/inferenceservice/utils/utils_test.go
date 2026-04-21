@@ -1316,9 +1316,10 @@ func TestUpdateImageTag(t *testing.T) {
 func TestGetDeploymentMode(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
-		annotations  map[string]string
-		deployConfig *DeployConfig
-		expected     constants.DeploymentModeType
+		statusDeploymentMode string
+		annotations          map[string]string
+		deployConfig         *DeployConfig
+		expected             constants.DeploymentModeType
 	}{
 		"Standard": {
 			annotations: map[string]string{
@@ -1348,11 +1349,23 @@ func TestGetDeploymentMode(t *testing.T) {
 			},
 			expected: constants.Knative,
 		},
+		"LegacyRawDeploymentInStatus": {
+			statusDeploymentMode: string(constants.LegacyRawDeployment),
+			annotations:          map[string]string{},
+			deployConfig:         &DeployConfig{},
+			expected:             constants.Standard,
+		},
+		"LegacyServerlessInStatus": {
+			statusDeploymentMode: string(constants.LegacyServerless),
+			annotations:          map[string]string{},
+			deployConfig:         &DeployConfig{},
+			expected:             constants.Knative,
+		},
 	}
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			deploymentMode := GetDeploymentMode("", scenario.annotations, scenario.deployConfig)
+			deploymentMode := GetDeploymentMode(scenario.statusDeploymentMode, scenario.annotations, scenario.deployConfig)
 			if !g.Expect(deploymentMode).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", deploymentMode, scenario.expected)
 			}
