@@ -13,6 +13,7 @@ You guide the user through the entire release process step by step, asking for a
 3. Do NOT skip approval points even if the user says "do everything automatically"
 4. Do NOT run `make test`, `make lint`, `make py-lint`, or any validation/build commands
 5. ALWAYS ask for user approval before merge, publish, and destructive actions
+6. ALWAYS `git fetch upstream master && git checkout upstream/master` before running `create-branch-tag.sh` or `validate-release.sh`. These scripts must run from the latest upstream master
 
 
 ## Checkpoint System
@@ -142,7 +143,7 @@ rm -f ~/.kserve_release/checkpoint.json
 
 5. Commit and create PR:
    - **RC0**: title `release: prepare release v{VERSION}`
-   - **RC1+ / Final**: title `chore: bump version to v{VERSION}`
+   - **RC1+ / Final**: title `release: prepare release v{VERSION}`
 
    ```bash
    git add -A
@@ -166,8 +167,7 @@ rm -f ~/.kserve_release/checkpoint.json
 
 Skip this phase for RC0. After the bump PR (Phase 2) merges to master:
 
-1. Find all PRs merged to master with `cherrypick-approved` label but NOT `cherrypicked`.
-   PRs already labeled `cherrypicked` have been backported before — skip them:
+1. Find all PRs merged to master with `cherrypick-approved` label but NOT `cherrypicked`:
    ```bash
    gh pr list --repo {PR_REPO} --state merged \
      --label cherrypick-approved \
@@ -176,15 +176,23 @@ Skip this phase for RC0. After the bump PR (Phase 2) merges to master:
    ```
    > `sort_by(.mergedAt)` = ascending = oldest commit first. Apply in this order to minimize conflicts.
 
+   **Bump PR (#{BUMP_PR_NUMBER}) must always be included.** If it's missing from the search results,
+   fetch it explicitly and add it:
+   ```bash
+   gh pr view {BUMP_PR_NUMBER} --repo {PR_REPO} --json number,title,mergeCommit,mergedAt
+   ```
+
+   Sort the final list by `mergedAt` ascending. Bump PR will naturally appear near the end since it was just merged.
+
 2. Fetch the release branch and create a cherry-pick branch:
    ```bash
    git fetch origin release-{MAJOR}.{MINOR}
    git checkout -b cherrypick/v{VERSION} origin/release-{MAJOR}.{MINOR}
    ```
 
-3. Cherry-pick each PR's merge commit in order (oldest first):
+3. Cherry-pick each PR's merge commit in `mergedAt` order:
    ```bash
-   git cherry-pick -x {MERGE_COMMIT_SHA}
+   git cherry-pick -x -S -s {MERGE_COMMIT_SHA}
    ```
    - On conflict: attempt auto-resolve
    - If not confident: report conflict details and ask user to resolve, then `git cherry-pick --continue`
@@ -217,13 +225,22 @@ Skip this phase for RC0. After the bump PR (Phase 2) merges to master:
    ```
    `--watch` blocks automatically until all checks conclude. No manual polling needed.
 
-2. If any check fails, post `/rerun-all` comment and watch again:
+2. If `pre-commit` check fails, fix locally instead of waiting for a rerun:
+   ```bash
+   make precommit
+   git add -A
+   git commit --amend --no-edit -S -s
+   git push --force-with-lease
+   ```
+   Then re-watch CI from step 1.
+
+3. If any other check fails, post `/rerun-all` comment and watch again:
    ```bash
    gh pr comment {PR_NUMBER} --repo {PR_REPO} --body "/rerun-all"
    gh pr checks {PR_NUMBER} --repo {PR_REPO} --watch
    ```
 
-3. If checks still fail after re-run, check how many e2e tests failed.
+4. If checks still fail after re-run, check how many e2e tests failed.
    E2e test checks are from workflows named `E2E Tests` or `LLMInferenceService E2E Tests`.
 
    - 3 or more e2e failures: report to user as likely flaky infrastructure.
@@ -259,7 +276,7 @@ Skip this phase for RC0. After the bump PR (Phase 2) merges to master:
 
      Execute only what the user selected.
 
-4. When all checks pass:
+5. When all checks pass:
    - **Save checkpoint**: `phase: CI_PASSED`
    - Report: "All CI checks passed."
 
@@ -274,11 +291,11 @@ gh pr merge {PR_NUMBER} --repo {PR_REPO} --squash
 Report: "PR #{PR_NUMBER} merged."
 **Save checkpoint**: `phase: BUMP_MERGED`
 
-**RC1+ / Final only**: After cherry-pick PR merges, add `cherrypicked` label to all PRs that were cherry-picked:
+**RC1+ only**: After cherry-pick PR merges, add `cherrypicked` label to **all** cherry-picked PRs (including the bump PR):
 ```bash
 gh pr edit {CHERRY_PICKED_PR_NUMBER} --repo {PR_REPO} --add-label cherrypicked
 ```
-Repeat for each PR in the cherry-pick list.
+Repeat for every PR in the cherry-pick list.
 
 ### Phase 5: Create Branch & Tag
 
