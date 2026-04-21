@@ -178,6 +178,74 @@ func convertSpecFromV1Alpha2(src *v1alpha2.LLMInferenceServiceSpec) LLMInference
 	return dst
 }
 
+func convertScalingSpecToV1Alpha2(src *ScalingSpec) *v1alpha2.ScalingSpec {
+	if src == nil {
+		return nil
+	}
+
+	dst := &v1alpha2.ScalingSpec{
+		MinReplicas: src.MinReplicas,
+		MaxReplicas: src.MaxReplicas,
+	}
+
+	if src.WVA != nil {
+		dst.WVA = &v1alpha2.WVASpec{
+			VariantCost: src.WVA.VariantCost,
+		}
+		if src.WVA.HPA != nil {
+			dst.WVA.HPA = &v1alpha2.HPAScalingSpec{
+				Behavior: src.WVA.HPA.Behavior,
+			}
+		}
+		if src.WVA.KEDA != nil {
+			dst.WVA.KEDA = &v1alpha2.KEDAScalingSpec{
+				PollingInterval:       src.WVA.KEDA.PollingInterval,
+				CooldownPeriod:        src.WVA.KEDA.CooldownPeriod,
+				InitialCooldownPeriod: src.WVA.KEDA.InitialCooldownPeriod,
+				IdleReplicaCount:      src.WVA.KEDA.IdleReplicaCount,
+				Fallback:              src.WVA.KEDA.Fallback,
+				Advanced:              src.WVA.KEDA.Advanced,
+			}
+		}
+	}
+
+	return dst
+}
+
+func convertScalingSpecFromV1Alpha2(src *v1alpha2.ScalingSpec) *ScalingSpec {
+	if src == nil {
+		return nil
+	}
+
+	dst := &ScalingSpec{
+		MinReplicas: src.MinReplicas,
+		MaxReplicas: src.MaxReplicas,
+	}
+
+	if src.WVA != nil {
+		dst.WVA = &WVASpec{
+			VariantCost: src.WVA.VariantCost,
+		}
+		if src.WVA.HPA != nil {
+			dst.WVA.HPA = &HPAScalingSpec{
+				Behavior: src.WVA.HPA.Behavior,
+			}
+		}
+		if src.WVA.KEDA != nil {
+			dst.WVA.KEDA = &KEDAScalingSpec{
+				PollingInterval:       src.WVA.KEDA.PollingInterval,
+				CooldownPeriod:        src.WVA.KEDA.CooldownPeriod,
+				InitialCooldownPeriod: src.WVA.KEDA.InitialCooldownPeriod,
+				IdleReplicaCount:      src.WVA.KEDA.IdleReplicaCount,
+				Fallback:              src.WVA.KEDA.Fallback,
+				Advanced:              src.WVA.KEDA.Advanced,
+			}
+		}
+	}
+
+	return dst
+}
+
 func convertModelSpecToV1Alpha2(src *LLMModelSpec) v1alpha2.LLMModelSpec {
 	dst := v1alpha2.LLMModelSpec{
 		URI:  src.URI,
@@ -252,6 +320,10 @@ func convertWorkloadSpecToV1Alpha2(src *WorkloadSpec) v1alpha2.WorkloadSpec {
 		}
 	}
 
+	if src.Scaling != nil {
+		dst.Scaling = convertScalingSpecToV1Alpha2(src.Scaling)
+	}
+
 	return dst
 }
 
@@ -273,6 +345,10 @@ func convertWorkloadSpecFromV1Alpha2(src *v1alpha2.WorkloadSpec) WorkloadSpec {
 			DataRPCPort: src.Parallelism.DataRPCPort,
 			Expert:      src.Parallelism.Expert,
 		}
+	}
+
+	if src.Scaling != nil {
+		dst.Scaling = convertScalingSpecFromV1Alpha2(src.Scaling)
 	}
 
 	return dst
@@ -298,9 +374,12 @@ func convertRouterSpecToV1Alpha2(src *RouterSpec) *v1alpha2.RouterSpec {
 	if src.Gateway != nil {
 		dst.Gateway = &v1alpha2.GatewaySpec{}
 		for _, ref := range src.Gateway.Refs {
-			dst.Gateway.Refs = append(dst.Gateway.Refs, v1alpha2.UntypedObjectReference{
-				Name:      ref.Name,
-				Namespace: ref.Namespace,
+			dst.Gateway.Refs = append(dst.Gateway.Refs, v1alpha2.GatewayObjectReference{
+				UntypedObjectReference: v1alpha2.UntypedObjectReference{
+					Name:      ref.Name,
+					Namespace: ref.Namespace,
+				},
+				SectionName: ref.SectionName,
 			})
 		}
 	}
@@ -379,9 +458,12 @@ func convertRouterSpecFromV1Alpha2(src *v1alpha2.RouterSpec) *RouterSpec {
 	if src.Gateway != nil {
 		dst.Gateway = &GatewaySpec{}
 		for _, ref := range src.Gateway.Refs {
-			dst.Gateway.Refs = append(dst.Gateway.Refs, UntypedObjectReference{
-				Name:      ref.Name,
-				Namespace: ref.Namespace,
+			dst.Gateway.Refs = append(dst.Gateway.Refs, GatewayObjectReference{
+				UntypedObjectReference: UntypedObjectReference{
+					Name:      ref.Name,
+					Namespace: ref.Namespace,
+				},
+				SectionName: ref.SectionName,
 			})
 		}
 	}

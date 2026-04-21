@@ -20,7 +20,6 @@ import (
 	"flag"
 	"os"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -33,9 +32,8 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	localmodelnodecontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/localmodelnode"
+	kservescheme "github.com/kserve/kserve/pkg/scheme"
 )
 
 var setupLog = ctrl.Log.WithName("setup")
@@ -114,21 +112,9 @@ func main() {
 
 	setupLog.Info("Registering Components.")
 
-	setupLog.Info("Setting up KServe v1alpha1 scheme")
-	if err := v1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
-		setupLog.Error(err, "unable to add KServe v1alpha1 to scheme")
-		os.Exit(1)
-	}
-
-	setupLog.Info("Setting up KServe v1beta1 scheme")
-	if err := v1beta1.AddToScheme(mgr.GetScheme()); err != nil {
-		setupLog.Error(err, "unable to add KServe v1beta1 to scheme")
-		os.Exit(1)
-	}
-
-	setupLog.Info("Setting up core scheme")
-	if err := corev1.AddToScheme(mgr.GetScheme()); err != nil {
-		setupLog.Error(err, "unable to add Core APIs to scheme")
+	setupLog.Info("Setting up controller schemes")
+	if err := kservescheme.AddControllerAPIs(mgr.GetScheme()); err != nil {
+		setupLog.Error(err, "unable to add controller APIs to scheme")
 		os.Exit(1)
 	}
 
@@ -136,12 +122,14 @@ func main() {
 	localModelNodeEventBroadcaster := record.NewBroadcaster()
 	setupLog.Info("Setting up v1alpha1 LocalModelNode controller")
 	localModelNodeEventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
-	if err = (&localmodelnodecontroller.LocalModelNodeReconciler{
+	reconciler := &localmodelnodecontroller.LocalModelNodeReconciler{
 		Client:    mgr.GetClient(),
 		Clientset: clientSet,
 		Log:       ctrl.Log.WithName("v1alpha1Controllers").WithName("LocalModelNode"),
 		Scheme:    mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	}
+
+	if err = reconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "LocalModelNode")
 		os.Exit(1)
 	}

@@ -41,7 +41,9 @@ def verify_forecast_response(response, request):
     for output in response.outputs:
         for content in output.content:
             output_names.append(content.name)
-    assert set(input_names) == set(output_names), f"Output names {output_names} do not match input names {input_names}"
+    assert set(input_names) == set(output_names), (
+        f"Output names {output_names} do not match input names {input_names}"
+    )
 
     expected_horizon = request.options.horizon
     expected_quantiles = request.options.quantiles
@@ -49,7 +51,9 @@ def verify_forecast_response(response, request):
     for output in response.outputs:
         for content in output.content:
             # Type should match
-            corresponding_input = next(inp for inp in request.inputs if inp.name == content.name)
+            corresponding_input = next(
+                inp for inp in request.inputs if inp.name == content.name
+            )
             assert content.type == corresponding_input.type, (
                 f"Type mismatch for {content.name}: {content.type} vs {corresponding_input.type}"
             )
@@ -76,16 +80,22 @@ def verify_forecast_response(response, request):
 
             # Quantiles structure and monotonicity
             if expected_quantiles is not None:
-                assert content.quantiles is not None, f"Quantiles missing for {content.name}"
+                assert content.quantiles is not None, (
+                    f"Quantiles missing for {content.name}"
+                )
                 for q in expected_quantiles:
                     qstr = str(q)
-                    assert qstr in content.quantiles, f"Quantile {qstr} missing for {content.name}"
+                    assert qstr in content.quantiles, (
+                        f"Quantile {qstr} missing for {content.name}"
+                    )
                     q_values = content.quantiles[qstr]
                     if isinstance(q_values[0], list):  # multivariate
                         q_horizon = len(q_values[0])
                     else:
                         q_horizon = len(q_values)
-                    assert q_horizon == expected_horizon, f"Quantile {qstr} horizon mismatch for {content.name}"
+                    assert q_horizon == expected_horizon, (
+                        f"Quantile {qstr} horizon mismatch for {content.name}"
+                    )
 
                 # Quantile monotonicity for each time step
                 quantile_keys = [str(q) for q in sorted(expected_quantiles)]

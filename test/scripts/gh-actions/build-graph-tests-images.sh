@@ -25,6 +25,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 source "${PROJECT_ROOT}/kserve-images.sh"
 
+BUILDER="${BUILDER:-docker}"
+if command -v podman &>/dev/null && ! command -v docker &>/dev/null; then
+  BUILDER="podman"
+fi
+
 if [ -d "${DOCKER_IMAGES_PATH}" ]; then
   mkdir -p "${DOCKER_IMAGES_PATH}"  
 fi
@@ -35,11 +40,11 @@ ERROR_404_ISVC_IMG_TAG=${KO_DOCKER_REPO}/${ERROR_404_ISVC_IMG}:${TAG}
 
 pushd python >/dev/null
 echo "Building success_200_isvc image"
-docker buildx build -t "${SUCCESS_200_ISVC_IMG_TAG}" -f success_200_isvc.Dockerfile \
+${BUILDER} buildx build -t "${SUCCESS_200_ISVC_IMG_TAG}" -f success_200_isvc.Dockerfile \
   -o type=docker,dest="${DOCKER_IMAGES_PATH}/${SUCCESS_200_ISVC_IMG}-${TAG}",compression-level=0 .
 echo "Done building success_200_isvc image"
 echo "Building error_404_isvc image"
-docker buildx build -t "${ERROR_404_ISVC_IMG_TAG}" -f error_404_isvc.Dockerfile \
+${BUILDER} buildx build -t "${ERROR_404_ISVC_IMG_TAG}" -f error_404_isvc.Dockerfile \
   -o type=docker,dest="${DOCKER_IMAGES_PATH}/${ERROR_404_ISVC_IMG}-${TAG}",compression-level=0 .
 echo "Done building error_404_isvc image"
 popd

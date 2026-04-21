@@ -141,9 +141,13 @@ def test_blob(mock_storage, mock_makedirs):  # pylint: disable=unused-argument
     # then
     # Check that get_blob_client was called for each blob
     arg_list = get_call_args(mock_container.get_blob_client.call_args_list)
-    assert set(arg_list) == set([("simple_string/1/model.graphdef",), ("simple_string/config.pbtxt",)])
+    assert set(arg_list) == set(
+        [("simple_string/1/model.graphdef",), ("simple_string/config.pbtxt",)]
+    )
 
-    mock_storage.assert_called_with("https://kfserving.blob.core.windows.net", credential=None)
+    mock_storage.assert_called_with(
+        "https://kfserving.blob.core.windows.net", credential=None
+    )
 
 
 @mock.patch(STORAGE_MODULE + ".os.makedirs")
@@ -160,7 +164,9 @@ def test_blob_file_direct(mock_storage, mock_makedirs):  # pylint: disable=unuse
     # then
     arg_list = get_call_args(mock_container.get_blob_client.call_args_list)
     assert arg_list == [("somefile.text",)]
-    mock_storage.assert_called_with("https://accountname.blob.core.windows.net", credential=None)
+    mock_storage.assert_called_with(
+        "https://accountname.blob.core.windows.net", credential=None
+    )
 
 
 @mock.patch(STORAGE_MODULE + ".os.makedirs")
@@ -190,7 +196,9 @@ def test_secure_blob(mock_storage, mock_get_token, mock_makedirs):  # pylint: di
 @mock.patch("azure.storage.blob.aio.BlobServiceClient")
 def test_deep_blob(mock_storage, mock_makedirs):  # pylint: disable=unused-argument
     # given
-    blob_path = "https://accountname.blob.core.windows.net/container/some/deep/blob/path"
+    blob_path = (
+        "https://accountname.blob.core.windows.net/container/some/deep/blob/path"
+    )
     paths = ["f1", "f2", "d1/f11", "d1/d2/f21", "d1/d2/d3/f1231", "d4/f41"]
     fq_item_paths = ["some/deep/blob/path/" + p for p in paths]
     expected_calls = [(f,) for f in fq_item_paths]
@@ -229,7 +237,9 @@ def test_blob_file(mock_storage, mock_makedirs):  # pylint: disable=unused-argum
 @mock.patch("azure.storage.blob.aio.BlobServiceClient")
 def test_blob_fq_file(mock_storage, mock_makedirs):  # pylint: disable=unused-argument
     # given
-    blob_path = "https://accountname.blob.core.windows.net/container/folder/somefile.text"
+    blob_path = (
+        "https://accountname.blob.core.windows.net/container/folder/somefile.text"
+    )
     paths = ["somefile"]
     fq_item_paths = ["folder/" + p for p in paths]
     expected_calls = [(f,) for f in fq_item_paths]
@@ -283,18 +293,24 @@ def test_file_share(mock_storage, mock_get_access_key, mock_makedirs):  # pylint
 
     # then
     arg_list = get_call_args(mock_file.get_file_client.call_args_list)
-    assert set(arg_list) == set([("simple_string/1/model.graphdef",), ("simple_string/config.pbtxt",)])
+    assert set(arg_list) == set(
+        [("simple_string/1/model.graphdef",), ("simple_string/config.pbtxt",)]
+    )
 
     # then
     mock_get_access_key.assert_called()
-    mock_storage.assert_called_with("https://kfserving.file.core.windows.net", credential="some_token")
+    mock_storage.assert_called_with(
+        "https://kfserving.file.core.windows.net", credential="some_token"
+    )
 
 
 @mock.patch(STORAGE_MODULE + ".os.makedirs")
 @mock.patch(STORAGE_MODULE + ".Storage._get_azure_storage_access_key")
 @mock.patch("azure.storage.fileshare.ShareServiceClient")
 def test_deep_file_share(mock_storage, mock_get_access_key, mock_makedirs):  # pylint: disable=unused-argument
-    file_share_path = "https://accountname.file.core.windows.net/container/some/deep/blob/path"
+    file_share_path = (
+        "https://accountname.file.core.windows.net/container/some/deep/blob/path"
+    )
     paths = ["f1", "f2", "d1/f11", "d1/d2/f21", "d1/d2/d3/f1231", "d4/f41"]
     fq_item_paths = ["some/deep/blob/path/" + p for p in paths]
     expected_calls = [(f,) for f in fq_item_paths]
@@ -328,7 +344,9 @@ def test_deep_file_share(mock_storage, mock_get_access_key, mock_makedirs):  # p
 
     # then
     mock_get_access_key.assert_called()
-    mock_storage.assert_called_with("https://accountname.file.core.windows.net", credential="some_token")
+    mock_storage.assert_called_with(
+        "https://accountname.file.core.windows.net", credential="some_token"
+    )
 
 
 @mock.patch(STORAGE_MODULE + ".os.makedirs")
@@ -354,7 +372,9 @@ def test_file_share_fq_file(mock_storage, mock_get_access_key, mock_makedirs):  
 
     # then
     mock_get_access_key.assert_called()
-    mock_storage.assert_called_with("https://accountname.file.core.windows.net", credential="some_token")
+    mock_storage.assert_called_with(
+        "https://accountname.file.core.windows.net", credential="some_token"
+    )
 
 
 @mock.patch(STORAGE_MODULE + ".os.makedirs")
@@ -385,7 +405,9 @@ def test_file_share_no_prefix(mock_storage, mock_get_access_key, mock_makedirs):
 
     # then
     mock_get_access_key.assert_called()
-    mock_storage.assert_called_with("https://accountname.file.core.windows.net", credential="some_token")
+    mock_storage.assert_called_with(
+        "https://accountname.file.core.windows.net", credential="some_token"
+    )
 
 
 @mock.patch(STORAGE_MODULE + ".os.makedirs")
@@ -401,7 +423,9 @@ def test_blob_allow_patterns(mock_storage, mock_makedirs):
     mock_blob, mock_container = create_mock_blob(mock_storage, paths)
 
     # when
-    Storage._download_azure_blob(blob_path, "dest_path", allow_patterns=["*.safetensors", "*.json"])
+    Storage._download_azure_blob(
+        blob_path, "dest_path", allow_patterns=["*.safetensors", "*.json"]
+    )
 
     # then
     arg_list = get_call_args(mock_container.get_blob_client.call_args_list)
@@ -454,7 +478,9 @@ def test_file_share_allow_patterns(mock_storage, mock_get_access_key, mock_maked
     )
 
     # when
-    Storage._download_azure_file_share(file_share_path, "dest_path", allow_patterns=["*.safetensors", "*.json"])
+    Storage._download_azure_file_share(
+        file_share_path, "dest_path", allow_patterns=["*.safetensors", "*.json"]
+    )
 
     # then
     arg_list = get_call_args(mock_file.get_file_client.call_args_list)
@@ -485,7 +511,9 @@ def test_file_share_ignore_patterns(mock_storage, mock_get_access_key, mock_make
     )
 
     # when
-    Storage._download_azure_file_share(file_share_path, "dest_path", ignore_patterns=["*.bin"])
+    Storage._download_azure_file_share(
+        file_share_path, "dest_path", ignore_patterns=["*.bin"]
+    )
 
     # then
     arg_list = get_call_args(mock_file.get_file_client.call_args_list)

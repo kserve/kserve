@@ -89,11 +89,13 @@ def read_yaml_file(file_path: Path) -> dict[str, Any]:
         return {}
 
 
-def extract_marked_section(file_path: Path,
-                           start_marker: str,
-                           end_marker: str,
-                           preserve_indent: bool = False,
-                           skip_empty: bool = False) -> list[str]:
+def extract_marked_section(
+    file_path: Path,
+    start_marker: str,
+    end_marker: str,
+    preserve_indent: bool = False,
+    skip_empty: bool = False,
+) -> list[str]:
     """Extract section between start and end markers.
 
     Args:

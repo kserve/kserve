@@ -25,13 +25,15 @@ from . import template_embedder
 
 
 # Section markers for extraction
-VARIABLES_SECTION_START = '# VARIABLES'
-VARIABLES_SECTION_END = '# VARIABLES END'
-INCLUDE_SECTION_START = '# INCLUDE_IN_GENERATED_SCRIPT_START'
-INCLUDE_SECTION_END = '# INCLUDE_IN_GENERATED_SCRIPT_END'
+VARIABLES_SECTION_START = "# VARIABLES"
+VARIABLES_SECTION_END = "# VARIABLES END"
+INCLUDE_SECTION_START = "# INCLUDE_IN_GENERATED_SCRIPT_START"
+INCLUDE_SECTION_END = "# INCLUDE_IN_GENERATED_SCRIPT_END"
 
 
-def find_component_script(component: str, infra_dir: Path, method: Optional[str] = None) -> Optional[Path]:
+def find_component_script(
+    component: str, infra_dir: Path, method: Optional[str] = None
+) -> Optional[Path]:
     """Find component script following naming conventions with progressive folder search.
 
     For a component like "gateway-api-crd" with method "helm", searches in order:
@@ -54,9 +56,9 @@ def find_component_script(component: str, infra_dir: Path, method: Optional[str]
     """
     # Generate folder candidates: gateway-api-crd → gateway-api → gateway → "" (root)
     folder_candidates = []
-    parts = component.split('-')
+    parts = component.split("-")
     for i in range(len(parts), 0, -1):
-        folder_candidates.append('-'.join(parts[:i]))
+        folder_candidates.append("-".join(parts[:i]))
     folder_candidates.append("")  # root directory
 
     # For each folder, try to find the script (method-specific first, then base)
@@ -77,7 +79,12 @@ def find_component_script(component: str, infra_dir: Path, method: Optional[str]
     return None
 
 
-def process_component(comp_config: dict[str, Any], infra_dir: Path, method: Optional[str] = None, embed_templates: bool = False) -> dict[str, Any]:
+def process_component(
+    comp_config: dict[str, Any],
+    infra_dir: Path,
+    method: Optional[str] = None,
+    embed_templates: bool = False,
+) -> dict[str, Any]:
     """Process single component: find script, extract and rename functions.
 
     Args:
@@ -125,7 +132,7 @@ def process_component(comp_config: dict[str, Any], infra_dir: Path, method: Opti
         VARIABLES_SECTION_START,
         VARIABLES_SECTION_END,
         preserve_indent=False,
-        skip_empty=True
+        skip_empty=True,
     )
 
     include_section = file_reader.extract_marked_section(
@@ -133,7 +140,7 @@ def process_component(comp_config: dict[str, Any], infra_dir: Path, method: Opti
         INCLUDE_SECTION_START,
         INCLUDE_SECTION_END,
         preserve_indent=True,
-        skip_empty=False
+        skip_empty=False,
     )
 
     # Rename functions
@@ -142,21 +149,31 @@ def process_component(comp_config: dict[str, Any], infra_dir: Path, method: Opti
     uninstall_func = f"uninstall_{suffix}"
 
     # Rename install function and its calls
-    install_code = bash_parser.rename_bash_function(install_raw, "install", install_func)
+    install_code = bash_parser.rename_bash_function(
+        install_raw, "install", install_func
+    )
     # Also rename any calls to uninstall within install function
-    install_code = bash_parser.rename_bash_function(install_code, "uninstall", uninstall_func)
+    install_code = bash_parser.rename_bash_function(
+        install_code, "uninstall", uninstall_func
+    )
 
     # Rename uninstall function and its calls
-    uninstall_code = bash_parser.rename_bash_function(uninstall_raw, "uninstall", uninstall_func)
+    uninstall_code = bash_parser.rename_bash_function(
+        uninstall_raw, "uninstall", uninstall_func
+    )
     # Also rename any calls to install within uninstall function (less common but possible)
-    uninstall_code = bash_parser.rename_bash_function(uninstall_code, "install", install_func)
+    uninstall_code = bash_parser.rename_bash_function(
+        uninstall_code, "install", install_func
+    )
 
     # Discover and embed template files if requested
     template_functions = ""
     if embed_templates:
         templates = template_embedder.discover_component_templates(name, infra_dir)
         if templates:
-            template_functions = template_embedder.generate_template_functions(name, templates)
+            template_functions = template_embedder.generate_template_functions(
+                name, templates
+            )
 
     return {
         "name": name,
@@ -168,5 +185,5 @@ def process_component(comp_config: dict[str, Any], infra_dir: Path, method: Opti
         "include_section": include_section,
         "template_functions": template_functions,
         "has_templates": bool(template_functions),
-        "env": comp_config["env"]
+        "env": comp_config["env"],
     }

@@ -224,14 +224,18 @@ class TestInferRequest:
                 "test-int": 2,
             },
         )
-        infer_input_2.set_data_from_numpy(np.array(["test"], dtype=np.object_), binary_data=True)
+        infer_input_2.set_data_from_numpy(
+            np.array(["test"], dtype=np.object_), binary_data=True
+        )
         infer_input_3 = InferInput(
             name="input3",
             shape=[3],
             datatype="FP16",
             data=None,
         )
-        infer_input_3.set_data_from_numpy(np.array([1.2, 2.2, 3.2], dtype=np.float16), binary_data=True)
+        infer_input_3.set_data_from_numpy(
+            np.array([1.2, 2.2, 3.2], dtype=np.float16), binary_data=True
+        )
         infer_request = InferRequest(
             request_id="4be4e82f-5500-420a-a5c5-ac86841e271b",
             model_name="test_model",
@@ -270,21 +274,27 @@ class TestInferRequest:
             datatype="INT32",
             data=None,
         )
-        infer_input_1.set_data_from_numpy(np.array([1, 2, 3], dtype=np.int32), binary_data=False)
+        infer_input_1.set_data_from_numpy(
+            np.array([1, 2, 3], dtype=np.int32), binary_data=False
+        )
         infer_input_2 = InferInput(
             name="input2",
             shape=[1],
             datatype="BYTES",
             data=None,
         )
-        infer_input_2.set_data_from_numpy(np.array(["test"], dtype=np.object_), binary_data=True)
+        infer_input_2.set_data_from_numpy(
+            np.array(["test"], dtype=np.object_), binary_data=True
+        )
         infer_input_3 = InferInput(
             name="input3",
             shape=[3],
             datatype="FP16",
             data=None,
         )
-        infer_input_3.set_data_from_numpy(np.array([1.2, 2.2, 3.2], dtype=np.float16), binary_data=False)
+        infer_input_3.set_data_from_numpy(
+            np.array([1.2, 2.2, 3.2], dtype=np.float16), binary_data=False
+        )
         infer_request = InferRequest(
             request_id="4be4e82f-5500-420a-a5c5-ac86841e271b",
             model_name="test_model",
@@ -388,7 +398,9 @@ class TestInferRequest:
             data=None,
             parameters={"param1": "value1"},
         )
-        infer_input.set_data_from_numpy(np.array([1, 2, 3], dtype=np.int32), binary_data=True)
+        infer_input.set_data_from_numpy(
+            np.array([1, 2, 3], dtype=np.int32), binary_data=True
+        )
         infer_request = InferRequest(
             model_name="test_model",
             infer_inputs=[infer_input],
@@ -429,7 +441,9 @@ class TestInferRequest:
             data=None,
             parameters={},
         )
-        infer_input_2.set_data_from_numpy(np.array([1.1, 2.9, 3.4], dtype=np.float16), binary_data=True)
+        infer_input_2.set_data_from_numpy(
+            np.array([1.1, 2.9, 3.4], dtype=np.float16), binary_data=True
+        )
         infer_request = InferRequest(
             request_id="abc",
             model_name="test_model",
@@ -437,7 +451,9 @@ class TestInferRequest:
         )
         expected = copy.deepcopy(infer_request)
         infer_request_bytes, json_length = infer_request.to_rest()
-        infer_request_from_bytes = InferRequest.from_bytes(infer_request_bytes, json_length, "test_model")
+        infer_request_from_bytes = InferRequest.from_bytes(
+            infer_request_bytes, json_length, "test_model"
+        )
         infer_request_from_bytes.inputs[1].set_data_from_numpy(
             infer_request_from_bytes.inputs[1].as_numpy(), binary_data=True
         )
@@ -457,7 +473,9 @@ class TestInferRequest:
             data=None,
             parameters={},
         )
-        infer_input_2.set_data_from_numpy(np.array([1.1, 2.9, 3.4], dtype=np.float16), binary_data=True)
+        infer_input_2.set_data_from_numpy(
+            np.array([1.1, 2.9, 3.4], dtype=np.float16), binary_data=True
+        )
         infer_request = InferRequest(
             request_id="abc",
             model_name="test_model",
@@ -483,7 +501,9 @@ class TestInferRequest:
         )
         expected = copy.deepcopy(infer_request)
         infer_request_bytes, json_length = infer_request.to_rest()
-        infer_request_from_bytes = InferRequest.from_bytes(infer_request_bytes, json_length, "test_model")
+        infer_request_from_bytes = InferRequest.from_bytes(
+            infer_request_bytes, json_length, "test_model"
+        )
         infer_request_from_bytes.inputs[1].set_data_from_numpy(
             infer_request_from_bytes.inputs[1].as_numpy(), binary_data=True
         )
@@ -500,7 +520,9 @@ class TestInferRequest:
     def test_infer_request_from_bytes_missing_data_field(self):
         infer_request_bytes = b'{"id": "1", "inputs": [{"name": "input1", "shape": [1], "datatype": "INT32"'
         with pytest.raises(InvalidInput):
-            InferRequest.from_bytes(infer_request_bytes, len(infer_request_bytes), "test_model")
+            InferRequest.from_bytes(
+                infer_request_bytes, len(infer_request_bytes), "test_model"
+            )
 
     def test_infer_request_from_bytes_missing_binary_data_size(self):
         infer_request_bytes = b'{"id":"509c5da9-80d4-46e8-a50c-0bba2b9d76f8","inputs":[{"name":"input1","shape":[3],"datatype":"INT32"}]}\x01\x00\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00'
@@ -515,11 +537,11 @@ class TestInferRequest:
             )
 
     def test_infer_request_from_bytes_fp16_data_via_json(self):
-        infer_request_bytes = (
-            b'{"id": "1", "inputs": [{"name": "input1", "shape": [1], "datatype": "FP16", "data": [1]}'
-        )
+        infer_request_bytes = b'{"id": "1", "inputs": [{"name": "input1", "shape": [1], "datatype": "FP16", "data": [1]}'
         with pytest.raises(InvalidInput):
-            InferRequest.from_bytes(infer_request_bytes, len(infer_request_bytes), "test_model")
+            InferRequest.from_bytes(
+                infer_request_bytes, len(infer_request_bytes), "test_model"
+            )
 
     def test_from_inference_request_with_valid_input(self):
         inference_request = InferenceRequest(
@@ -550,7 +572,9 @@ class TestInferRequest:
             ],
             parameters={"test-bool": True},
         )
-        infer_request = InferRequest.from_inference_request(inference_request, "test_model")
+        infer_request = InferRequest.from_inference_request(
+            inference_request, "test_model"
+        )
         assert infer_request.model_name == "test_model"
         assert infer_request.id == "test_id"
         assert infer_request.parameters == {"test-bool": True}
@@ -569,7 +593,11 @@ class TestInferRequest:
     def test_from_inference_request_with_fp16_data(self):
         inference_request = InferenceRequest(
             id="test_id",
-            inputs=[RequestInput(name="input1", shape=[3], datatype="FP16", data=[1.0, 2.0, 3.0])],
+            inputs=[
+                RequestInput(
+                    name="input1", shape=[3], datatype="FP16", data=[1.0, 2.0, 3.0]
+                )
+            ],
         )
         with pytest.raises(InvalidInput):
             InferRequest.from_inference_request(inference_request, "test_model")
@@ -577,9 +605,13 @@ class TestInferRequest:
     def test_from_inference_request_with_no_requested_outputs(self):
         inference_request = InferenceRequest(
             id="test_id",
-            inputs=[RequestInput(name="input1", shape=[3], datatype="INT32", data=[1, 2, 3])],
+            inputs=[
+                RequestInput(name="input1", shape=[3], datatype="INT32", data=[1, 2, 3])
+            ],
         )
-        infer_request = InferRequest.from_inference_request(inference_request, "test_model")
+        infer_request = InferRequest.from_inference_request(
+            inference_request, "test_model"
+        )
         assert infer_request.model_name == "test_model"
         assert infer_request.id == "test_id"
         assert len(infer_request.inputs) == 1
@@ -689,7 +721,9 @@ class TestInferResponse:
         assert res == expected
 
     def test_infer_response_to_rest_with_binary_data(self):
-        data = np.array([[1.2, 2.2, 3.2, 4.1], [1.5, 2.6, 3.787, 4.54]], dtype=np.float16)
+        data = np.array(
+            [[1.2, 2.2, 3.2, 4.1], [1.5, 2.6, 3.787, 4.54]], dtype=np.float16
+        )
         fp16_output = InferOutput(
             name="fp16_output",
             shape=list(data.shape),
@@ -789,7 +823,9 @@ class TestInferResponse:
             data=np.array([1], dtype=np.float16),
             parameters=None,
         )
-        infer_output1.set_data_from_numpy(np.array([1], dtype=np.float16), binary_data=True)
+        infer_output1.set_data_from_numpy(
+            np.array([1], dtype=np.float16), binary_data=True
+        )
         infer_output2 = InferOutput(
             name="output2",
             shape=[1],
@@ -797,7 +833,9 @@ class TestInferResponse:
             data=[1],
             parameters=None,
         )
-        infer_output2.set_data_from_numpy(np.array([1], dtype=np.int32), binary_data=False)
+        infer_output2.set_data_from_numpy(
+            np.array([1], dtype=np.int32), binary_data=False
+        )
         infer_output3 = InferOutput(
             name="output3",
             shape=[1],
@@ -805,7 +843,9 @@ class TestInferResponse:
             data=None,
             parameters=None,
         )
-        infer_output3.set_data_from_numpy(np.array(["test"], dtype=np.object_), binary_data=True)
+        infer_output3.set_data_from_numpy(
+            np.array(["test"], dtype=np.object_), binary_data=True
+        )
         infer_response = InferResponse(
             response_id="1",
             model_name="test_model",
@@ -839,7 +879,9 @@ class TestInferResponse:
             data=None,
             parameters=None,
         )
-        infer_output2.set_data_from_numpy(np.array([1], dtype=np.float16), binary_data=True)
+        infer_output2.set_data_from_numpy(
+            np.array([1], dtype=np.float16), binary_data=True
+        )
         infer_output3 = InferOutput(
             name="output3",
             shape=[1],
@@ -871,7 +913,9 @@ class TestInferResponse:
             data=np.array([1], dtype=np.float16),
             parameters=None,
         )
-        infer_output1.set_data_from_numpy(np.array([1], dtype=np.float16), binary_data=True)
+        infer_output1.set_data_from_numpy(
+            np.array([1], dtype=np.float16), binary_data=True
+        )
         infer_output2 = InferOutput(
             name="output2",
             shape=[1],
@@ -1011,8 +1055,12 @@ class TestInferResponse:
             InferResponse.from_bytes(response_bytes, json_length)
 
     def test_infer_response_get_output_by_name_returns_correct_output(self):
-        infer_output1 = InferOutput(name="output1", shape=[1], datatype="INT32", data=[1])
-        infer_output2 = InferOutput(name="output2", shape=[1], datatype="INT32", data=[2])
+        infer_output1 = InferOutput(
+            name="output1", shape=[1], datatype="INT32", data=[1]
+        )
+        infer_output2 = InferOutput(
+            name="output2", shape=[1], datatype="INT32", data=[2]
+        )
         infer_response = InferResponse(
             response_id="1",
             model_name="test_model",
@@ -1026,8 +1074,12 @@ class TestInferResponse:
     def test_infer_response_get_output_by_name_returns_none_for_non_existent_output(
         self,
     ):
-        infer_output1 = InferOutput(name="output1", shape=[1], datatype="INT32", data=[1])
-        infer_output2 = InferOutput(name="output2", shape=[1], datatype="INT32", data=[2])
+        infer_output1 = InferOutput(
+            name="output1", shape=[1], datatype="INT32", data=[1]
+        )
+        infer_output2 = InferOutput(
+            name="output2", shape=[1], datatype="INT32", data=[2]
+        )
         infer_response = InferResponse(
             response_id="1",
             model_name="test_model",
@@ -1053,12 +1105,16 @@ def test_contains_fp16_datatype_with_fp16_output():
 
 def test_contains_fp16_datatype_without_fp16_output():
     infer_output = InferOutput(name="output1", shape=[1], datatype="INT32", data=[1])
-    infer_response = InferResponse(response_id="1", model_name="test_model", infer_outputs=[infer_output])
+    infer_response = InferResponse(
+        response_id="1", model_name="test_model", infer_outputs=[infer_output]
+    )
 
     assert _contains_fp16_datatype(infer_response) is False
 
 
 def test_contains_fp16_datatype_with_no_outputs():
-    infer_response = InferResponse(response_id="1", model_name="test_model", infer_outputs=[])
+    infer_response = InferResponse(
+        response_id="1", model_name="test_model", infer_outputs=[]
+    )
 
     assert _contains_fp16_datatype(infer_response) is False

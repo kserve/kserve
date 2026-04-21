@@ -7,10 +7,10 @@ on:
 jobs:
   rerun_pr_tests:
     name: rerun_pr_tests
-    if: ${{ github.event.issue.pull_request }}
+    if: github.event.issue.pull_request != '' && (github.event.comment.author_association == 'OWNER' || github.event.comment.author_association == 'COLLABORATOR' || github.event.comment.author_association == 'CONTRIBUTOR' || github.event.comment.author_association == 'MEMBER')
     runs-on: ubuntu-latest
     steps:
-    - uses: estroz/rerun-actions@main
+    - uses: estroz/rerun-actions@6660c16a6581b198ac59545c06531a6077bf7be6
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
         comment_id: ${{ github.event.comment.id }}

@@ -78,3 +78,6 @@ istio-*
 # Claude code
 .claude/
 
+# bkit
+.bkit/
+

@@ -1,0 +1,29 @@
+---
+apiVersion: aigateway.envoyproxy.io/v1alpha1
+kind: AIGatewayRoute
+metadata:
+  name: envoy-ai-gateway-gpt-oss
+spec:
+  parentRefs:
+    - name: ai-gateway
+      kind: Gateway
+      group: gateway.networking.k8s.io
+  rules:
+    - matches:
+        - headers:
+            - type: Exact
+              name: x-ai-eg-model
+              value: RedHatAI/gpt-oss-20b
+      backendRefs:
+        - group: inference.networking.k8s.io
+          kind: InferencePool
+          name: gpt-oss-20b-inference-pool
+      timeouts:
+        request: 60s
+  llmRequestCosts:
+    - metadataKey: llm_input_token
+      type: InputToken    # Counts tokens in the request
+    - metadataKey: llm_output_token
+      type: OutputToken   # Counts tokens in the response
+    - metadataKey: llm_total_token
+      type: TotalToken   # Tracks combined usage

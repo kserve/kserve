@@ -19,7 +19,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -32,15 +31,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"knative.dev/pkg/apis"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
+	pkgtest "github.com/kserve/kserve/pkg/testing"
 )
 
 func init() {
-	logf.SetLogger(zap.New())
+	pkgtest.SetupTestLogger()
 }
 
 func Int64Ptr(i int64) *int64 {
@@ -152,7 +150,7 @@ func TestSimpleModelChainer(t *testing.T) {
 	expectedResponse := map[string]interface{}{
 		"predictions": "2",
 	}
-	fmt.Printf("final response:%v\n", response)
+	t.Logf("final response:%v", response)
 	assert.Equal(t, expectedResponse, response)
 }
 
@@ -247,7 +245,7 @@ func TestSimpleModelEnsemble(t *testing.T) {
 			"predictions": "2",
 		},
 	}
-	fmt.Printf("final response:%v\n", response)
+	t.Logf("final response:%v", response)
 	assert.Equal(t, expectedResponse, response)
 }
 
@@ -472,7 +470,7 @@ func TestInferenceGraphWithCondition(t *testing.T) {
 			},
 		},
 	}
-	fmt.Printf("final response:%v\n", response)
+	t.Logf("final response:%v", response)
 	assert.Equal(t, expectedModel3Response, response["model3"])
 	assert.Equal(t, expectedModel4Response, response["model4"])
 }
@@ -561,7 +559,7 @@ func TestInferenceGraphSequenceWithUnmetCondition(t *testing.T) {
 			},
 		},
 	}
-	fmt.Printf("final response:%v\n", response)
+	t.Logf("final response:%v", response)
 	assert.Equal(t, expectedResponse, response)
 }
 
@@ -624,7 +622,7 @@ func TestCallServiceWhenNoneHeadersToPropagateIsEmpty(t *testing.T) {
 	expectedResponse := map[string]interface{}{
 		"predictions": "1",
 	}
-	fmt.Printf("final response:%v\n", response)
+	t.Logf("final response:%v", response)
 	assert.Equal(t, expectedResponse, response)
 }
 
@@ -689,7 +687,7 @@ func TestCallServiceWhen1HeaderToPropagate(t *testing.T) {
 		"predictions":     "1",
 		"Test-Header-Key": "Test-Header-Value",
 	}
-	fmt.Printf("final response:%v\n", response)
+	t.Logf("final response:%v", response)
 	assert.Equal(t, expectedResponse, response)
 }
 
@@ -757,7 +755,7 @@ func TestCallServiceWhenMultipleHeadersToPropagate(t *testing.T) {
 		"Test-Header-Key": "Test-Header-Value",
 		"Authorization":   "Bearer Token",
 	}
-	fmt.Printf("final response:%v\n", response)
+	t.Logf("final response:%v", response)
 	assert.Equal(t, expectedResponse, response)
 }
 
@@ -836,7 +834,7 @@ func TestCallServiceWhenMultipleHeadersToPropagateUsingPatterns(t *testing.T) {
 		"Test-Header-3": "Test-Header-3",
 		"Authorization": "Bearer Token",
 	}
-	fmt.Printf("final response:%v\n", response)
+	t.Logf("final response:%v", response)
 	require.Equal(t, expectedResponse, response)
 }
 
@@ -906,7 +904,7 @@ func TestCallServiceWhenMultipleHeadersToPropagateUsingInvalidPattern(t *testing
 		"predictions":   "1",
 		"Authorization": "Bearer Token",
 	}
-	fmt.Printf("final response:%v\n", response)
+	t.Logf("final response:%v", response)
 	require.Equal(t, expectedResponse, response)
 }
 

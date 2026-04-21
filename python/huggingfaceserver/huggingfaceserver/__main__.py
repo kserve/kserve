@@ -57,7 +57,9 @@ def get_model_id_or_path(args: argparse.Namespace) -> Union[str, Path]:
     return Path(Storage.download(args.model_dir))
 
 
-def is_vllm_backend_enabled(args: argparse.Namespace, model_id_or_path: Union[str, Path]) -> bool:
+def is_vllm_backend_enabled(
+    args: argparse.Namespace, model_id_or_path: Union[str, Path]
+) -> bool:
     return (
         (args.backend == Backend.vllm or args.backend == Backend.auto)
         and vllm_available()
@@ -81,8 +83,12 @@ parser.add_argument(
     default="/mnt/models",
     help="A URI pointer to the model binary",
 )
-parser.add_argument("--model_id", required=False, default=None, help="Huggingface model id")
-parser.add_argument("--model_revision", required=False, default=None, help="Huggingface model revision")
+parser.add_argument(
+    "--model_id", required=False, default=None, help="Huggingface model id"
+)
+parser.add_argument(
+    "--model_revision", required=False, default=None, help="Huggingface model revision"
+)
 parser.add_argument(
     "--tokenizer_revision",
     required=False,
@@ -131,7 +137,15 @@ parser.add_argument(
     type=lambda t: Backend[t],
     help=f"the backend to use to load the model. Can be one of {available_backends}",
 )
-parser.add_argument("--return_token_type_ids", action="store_true", help="Return token type ids")
+parser.add_argument(
+    "--return_token_type_ids", action="store_true", help="Return token type ids"
+)
+parser.add_argument(
+    "--return_offsets_mapping",
+    action="store_true",
+    default=False,
+    help="Return start/end character offsets for each token (token_classification only).",
+)
 
 # Create a mutually exclusive group for output format options
 # This group allows the user to choose between returning probabilities or disabling postprocessing.
@@ -146,7 +160,9 @@ output_format_group.add_argument(
     action="store_true",
     help="Return raw logits without processing. Supported only classification tasks such as token classification, text classification and fill-mask.",
 )
-parser.add_argument("--disable_log_requests", action="store_true", help="Disable logging requests")
+parser.add_argument(
+    "--disable_log_requests", action="store_true", help="Disable logging requests"
+)
 
 # The initial_args are required to determine whether the vLLM backend is enabled.
 initial_args, _ = parser.parse_known_args()
@@ -156,14 +172,18 @@ if is_vllm_backend_enabled(initial_args, model_id_or_path):
     parser = maybe_add_vllm_cli_parser(parser)
 else:
     # If vLLM backend is not enabled, add the task argument for Huggingface backend
-    parser.add_argument("--task", required=False, help="The ML task name for huggingface backend")
+    parser.add_argument(
+        "--task", required=False, help="The ML task name for huggingface backend"
+    )
 
     parser.add_argument(
         "--max_log_len",
         "--max-log-len",
         type=int,
         default=None,
-        help="Max number of prompt characters or prompt ID numbers being printed in log.\n\nDefault: Unlimited",
+        help="Max number of prompt characters or prompt "
+        "ID numbers being printed in log."
+        "\n\nDefault: Unlimited",
     )
 
     # auto for vLLM uses FP16 even for an FP32 model while HF uses FP32 causing inconsistency.
@@ -228,7 +248,10 @@ def load_model():
         # Convert dtype from string to torch dtype. Default to float16
         dtype = kwargs.get("dtype", default_dtype)
         if dtype == "auto":
-            if hasattr(model_config, "torch_dtype") and model_config.torch_dtype is not None:
+            if (
+                hasattr(model_config, "torch_dtype")
+                and model_config.torch_dtype is not None
+            ):
                 dtype = model_config.torch_dtype
             else:
                 dtype = default_dtype
@@ -242,7 +265,10 @@ def load_model():
                     raise ValueError(f"Task not supported: {task.name}")
             except (KeyError, ValueError):
                 tasks_str = ", ".join(t.name for t in SUPPORTED_TASKS)
-                raise ValueError(f"Unsupported task: {kwargs['task']}. Currently supported tasks are: {tasks_str}")
+                raise ValueError(
+                    f"Unsupported task: {kwargs['task']}. "
+                    f"Currently supported tasks are: {tasks_str}"
+                )
         else:
             task = infer_task_from_model_architecture(model_config)
 
@@ -292,6 +318,7 @@ def load_model():
                 tensor_input_names=kwargs.get("tensor_input_names", None),
                 return_token_type_ids=kwargs.get("return_token_type_ids", None),
                 request_logger=request_logger,
+                return_offsets_mapping=kwargs.get("return_offsets_mapping", False),
                 return_probabilities=kwargs.get("return_probabilities", False),
                 return_raw_logits=kwargs.get("return_raw_logits", False),
             )

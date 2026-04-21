@@ -1,0 +1,101 @@
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: llmisvc-config-pd-disagg
+spec:
+  # Main/decode pool replica count
+  model:
+    uri: "pvc://gpt-oss-20b-pvc"
+    name: RedHatAI/gpt-oss-20b
+  replicas: 1
+  router:
+    route: { }
+    scheduler: { }
+  template:
+    containers:
+      - name: main
+        image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
+        env:
+          # Enable RDMA for KV cache transfer
+          - name: KSERVE_INFER_ROCE
+            value: "false"
+          # Pod IP for KV transfer side channel
+          - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+          # Enable KV cache transfer via NixlConnector (RDMA-based)
+          - name: VLLM_ADDITIONAL_ARGS
+            value: "--kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_both\"}'"
+          # UCX configuration for RDMA transport
+          - name: UCX_PROTO_INFO
+            value: "y"
+          - name: UCX_TLS
+            value: "rc,sm,self,cuda_copy,cuda_ipc"
+        resources:
+          limits:
+            cpu: '4'
+            memory: 32Gi
+            nvidia.com/gpu: "1"
+          requests:
+            cpu: '2'
+            memory: 16Gi
+            nvidia.com/gpu: "1"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+            scheme: HTTP
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          timeoutSeconds: 30
+          failureThreshold: 5
+  prefill:
+    # Prefill pool replica count (higher for concurrent prefill requests)
+    replicas: 2
+    template:
+      containers:
+        - name: main
+          image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
+          env:
+            - name: KSERVE_INFER_ROCE
+              value: "false"
+            - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: VLLM_ADDITIONAL_ARGS
+              value: "--kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_both\"}'"
+            - name: UCX_PROTO_INFO
+              value: "y"
+            - name: UCX_TLS
+              value: "rc,sm,self,cuda_copy,cuda_ipc"
+          resources:
+            limits:
+              cpu: '4'
+              memory: 32Gi
+              nvidia.com/gpu: "1"
+            requests:
+              cpu: '2'
+              memory: 16Gi
+              nvidia.com/gpu: "1"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            timeoutSeconds: 30
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 60

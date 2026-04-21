@@ -138,7 +138,9 @@ class TestStreamPredict:
                 data = value.decode()
                 assert fake_stream_data in data
                 all_data.append(data)
-        assert all([fake_stream_data in data for data in all_data]), "Unexpected number of streamed responses"
+        assert all([fake_stream_data in data for data in all_data]), (
+            "Unexpected number of streamed responses"
+        )
 
 
 class DummyModel(Model):
@@ -228,10 +230,18 @@ class DummyAvroCEModel(Model):
         return self._parserequest(request)
 
     async def predict(self, request, headers=None):
-        return {"predictions": [[request["name"], request["favorite_number"], request["favorite_color"]]]}
+        return {
+            "predictions": [
+                [request["name"], request["favorite_number"], request["favorite_color"]]
+            ]
+        }
 
     async def explain(self, request, headers=None):
-        return {"predictions": [[request["name"], request["favorite_number"], request["favorite_color"]]]}
+        return {
+            "predictions": [
+                [request["name"], request["favorite_number"], request["favorite_color"]]
+            ]
+        }
 
 
 class DummyModelRepository(ModelRepository):
@@ -272,8 +282,13 @@ class DummyFP16OutputModel(Model):
     async def predict(self, request, headers=None):
         outputs = pd.DataFrame(
             {
-                "fp16_output": request.get_input_by_name("fp32_input").as_numpy().astype(np.float16).flatten(),
-                "fp32_output": request.get_input_by_name("fp32_input").as_numpy().flatten(),
+                "fp16_output": request.get_input_by_name("fp32_input")
+                .as_numpy()
+                .astype(np.float16)
+                .flatten(),
+                "fp32_output": request.get_input_by_name("fp32_input")
+                .as_numpy()
+                .flatten(),
             }
         )
         # Fixme: Gets only the 1st element of the input
@@ -300,8 +315,13 @@ class DummyFP16InputModel(Model):
     async def predict(self, request, headers=None):
         outputs = pd.DataFrame(
             {
-                "str_output": request.get_input_by_name("str_input").as_numpy().flatten(),
-                "fp32_output": request.get_input_by_name("fp16_input").as_numpy().astype(np.float32).flatten(),
+                "str_output": request.get_input_by_name("str_input")
+                .as_numpy()
+                .flatten(),
+                "fp32_output": request.get_input_by_name("fp16_input")
+                .as_numpy()
+                .astype(np.float32)
+                .flatten(),
             }
         )
         # Fixme: Gets only the 1st element of the input
@@ -333,7 +353,9 @@ class DateTimeModel(Model):
                 datatype="BYTES",
             )
             infer_output.set_data_from_numpy(
-                np.array([datetime.datetime.now(tz=datetime.timezone.utc)], dtype=np.object_),
+                np.array(
+                    [datetime.datetime.now(tz=datetime.timezone.utc)], dtype=np.object_
+                ),
                 binary_data=False,
             )
             return InferResponse(
@@ -423,13 +445,17 @@ class TestV1Endpoints:
         assert resp.json() == {"models": ["TestModel", "DateTimeModel"]}
 
     def test_predict_v1(self, http_server_client):
-        resp = http_server_client.post("/v1/models/TestModel:predict", content=b'{"instances":[[1,2]]}')
+        resp = http_server_client.post(
+            "/v1/models/TestModel:predict", content=b'{"instances":[[1,2]]}'
+        )
         assert resp.status_code == 200
         assert resp.content == b'{"predictions":[[1,2]]}'
         assert resp.headers["content-type"] == "application/json"
 
     def test_explain_v1(self, http_server_client):
-        resp = http_server_client.post("/v1/models/TestModel:explain", content=b'{"instances":[[1,2]]}')
+        resp = http_server_client.post(
+            "/v1/models/TestModel:explain", content=b'{"instances":[[1,2]]}'
+        )
         assert resp.status_code == 200
         assert resp.content == b'{"predictions":[[1,2]]}'
         assert resp.headers["content-type"] == "application/json"
@@ -445,7 +471,9 @@ class TestV1Endpoints:
         assert resp.content is not None
 
     def test_datetime_output_v1(self, http_server_client):
-        resp = http_server_client.post("/v1/models/DateTimeModel:predict", content=b'{"instances":[[1,2]]}')
+        resp = http_server_client.post(
+            "/v1/models/DateTimeModel:predict", content=b'{"instances":[[1,2]]}'
+        )
         assert resp.status_code == 200
         assert resp.headers["content-type"] == "application/json"
         result = json.loads(resp.content)
@@ -561,7 +589,9 @@ class TestV2Endpoints:
         assert result == expected_res
 
     def test_fp16_input_as_binary_data(self, http_server_client):
-        fp16_data = np.array([[6.8, 2.8, 4.8, 1.4], [6.0, 3.4, 4.5, 1.6]], dtype=np.float16)
+        fp16_data = np.array(
+            [[6.8, 2.8, 4.8, 1.4], [6.0, 3.4, 4.5, 1.6]], dtype=np.float16
+        )
         str_data = np.array(
             [["cat", "dog", "cat", "dog"], ["cat", "dog", "cat", "dog"]],
             dtype=np.object_,
@@ -602,7 +632,9 @@ class TestV2Endpoints:
         )
 
     def test_fp16_input_not_binary_data(self, http_server_client):
-        fp16_data = np.array([[6.8, 2.8, 4.8, 1.4], [6.0, 3.4, 4.5, 1.6]], dtype=np.float16)
+        fp16_data = np.array(
+            [[6.8, 2.8, 4.8, 1.4], [6.0, 3.4, 4.5, 1.6]], dtype=np.float16
+        )
         str_data = np.array(
             [["cat", "dog", "cat", "dog"], ["cat", "dog", "cat", "dog"]],
             dtype=np.object_,
@@ -635,7 +667,9 @@ class TestV2Endpoints:
         assert resp.status_code == 400
 
     def test_fp16_output_as_binary_data(self, http_server_client):
-        fp32_data = np.array([[6.8, 2.8, 4.8, 1.4], [6.0, 3.4, 4.5, 1.6]], dtype=np.float32)
+        fp32_data = np.array(
+            [[6.8, 2.8, 4.8, 1.4], [6.0, 3.4, 4.5, 1.6]], dtype=np.float32
+        )
         request = InferRequest(
             model_name="FP16OutputModel",
             request_id="123",
@@ -674,7 +708,9 @@ class TestV2Endpoints:
         assert resp.headers.get(INFERENCE_CONTENT_LENGTH_HEADER) == "345"
 
     def test_fp16_output_not_binary_data(self, http_server_client):
-        fp32_data = np.array([[6.8, 2.8, 4.8, 1.4], [6.0, 3.4, 4.5, 1.6]], dtype=np.float32)
+        fp32_data = np.array(
+            [[6.8, 2.8, 4.8, 1.4], [6.0, 3.4, 4.5, 1.6]], dtype=np.float32
+        )
         req_dict = {
             "model_name": "FP16OutputModel",
             "request_id": "123",
@@ -706,7 +742,9 @@ class TestV2Endpoints:
         assert resp.status_code == 400
 
     def test_requested_output(self, http_server_client):
-        fp32_data = np.array([[6.8, 2.8, 4.8, 1.4], [6.0, 3.4, 4.5, 1.6]], dtype=np.float32)
+        fp32_data = np.array(
+            [[6.8, 2.8, 4.8, 1.4], [6.0, 3.4, 4.5, 1.6]], dtype=np.float32
+        )
         request = InferRequest(
             model_name="FP16OutputModel",
             request_id="123",
@@ -740,7 +778,9 @@ class TestV2Endpoints:
         )
 
     def test_all_output_as_binary_data(self, http_server_client):
-        fp32_data = np.array([[6.8, 2.8, 4.8, 1.4], [6.0, 3.4, 4.5, 1.6]], dtype=np.float32)
+        fp32_data = np.array(
+            [[6.8, 2.8, 4.8, 1.4], [6.0, 3.4, 4.5, 1.6]], dtype=np.float32
+        )
         request = InferRequest(
             model_name="FP16OutputModel",
             request_id="123",
@@ -770,7 +810,9 @@ class TestV2Endpoints:
         assert resp.headers.get(INFERENCE_CONTENT_LENGTH_HEADER) == "256"
 
     def test_binary_data_parameter_precedence(self, http_server_client):
-        fp32_data = np.array([[6.8, 2.8, 4.8, 1.4], [6.0, 3.4, 4.5, 1.6]], dtype=np.float32)
+        fp32_data = np.array(
+            [[6.8, 2.8, 4.8, 1.4], [6.0, 3.4, 4.5, 1.6]], dtype=np.float32
+        )
         request = InferRequest(
             model_name="FP16OutputModel",
             request_id="123",
@@ -819,7 +861,9 @@ class TestV2Endpoints:
         assert resp.headers["content-type"] == "application/json"
         result = json.loads(resp.content)
         assert isinstance(result["outputs"][0]["data"][0], str)
-        result_datetime = datetime.datetime.fromisoformat(result["outputs"][0]["data"][0])
+        result_datetime = datetime.datetime.fromisoformat(
+            result["outputs"][0]["data"][0]
+        )
         datetime_now = datetime.datetime.now(tz=datetime.timezone.utc)
         assert result_datetime.date() == datetime_now.date()
         assert result_datetime.tzinfo == datetime_now.tzinfo
@@ -859,7 +903,9 @@ class TestRayServer:
         assert resp.content == expected_content
 
     def test_predict(self, http_server_client):
-        resp = http_server_client.post("/v1/models/TestModel:predict", content=b'{"instances":[[1,2]]}')
+        resp = http_server_client.post(
+            "/v1/models/TestModel:predict", content=b'{"instances":[[1,2]]}'
+        )
         assert resp.status_code == 200
         assert resp.content == b'{"predictions":[[1,2]]}'
         assert resp.headers["content-type"] == "application/json"
@@ -874,7 +920,9 @@ class TestRayServer:
         assert resp.headers["content-type"] == "application/json"
 
     def test_explain(self, http_server_client):
-        resp = http_server_client.post("/v1/models/TestModel:explain", content=b'{"instances":[[1,2]]}')
+        resp = http_server_client.post(
+            "/v1/models/TestModel:explain", content=b'{"instances":[[1,2]]}'
+        )
         assert resp.status_code == 200
         assert resp.content == b'{"predictions":[[1,2]]}'
         assert resp.headers["content-type"] == "application/json"
@@ -906,7 +954,9 @@ class TestTFHttpServerCloudEvent:
         event = dummy_cloud_event({"instances": [[1, 2]]})
         headers, body = to_structured(event)
 
-        resp = http_server_client.post("/v1/models/TestModel:predict", headers=headers, content=body)
+        resp = http_server_client.post(
+            "/v1/models/TestModel:predict", headers=headers, content=body
+        )
         body = json.loads(resp.content)
 
         assert resp.status_code == 200
@@ -930,7 +980,9 @@ class TestTFHttpServerCloudEvent:
             event = dummy_cloud_event({"instances": [[1, 2]]})
             headers, body = to_structured(event)
 
-            resp = http_server_client.post("/v1/models/TestModel:predict", headers=headers, content=body)
+            resp = http_server_client.post(
+                "/v1/models/TestModel:predict", headers=headers, content=body
+            )
             body = json.loads(resp.content)
 
             assert resp.status_code == 200
@@ -946,7 +998,9 @@ class TestTFHttpServerCloudEvent:
             event = dummy_cloud_event({"instances": [[1, 2]]}, add_extension=True)
             headers, body = to_structured(event)
 
-            resp = http_server_client.post("/v1/models/TestModel:predict", headers=headers, content=body)
+            resp = http_server_client.post(
+                "/v1/models/TestModel:predict", headers=headers, content=body
+            )
             body = json.loads(resp.content)
 
             assert resp.status_code == 200
@@ -956,15 +1010,21 @@ class TestTFHttpServerCloudEvent:
             assert body["data"] == {"predictions": [[1, 2]]}
             assert body["source"] == "io.kserve.inference.TestModel"
             assert body["type"] == "io.kserve.inference.response"
-            assert body["custom-extension"] == "custom-value"  # Added by add_extension=True in dummy_cloud_event
+            assert (
+                body["custom-extension"] == "custom-value"
+            )  # Added by add_extension=True in dummy_cloud_event
             assert body["time"] > "2021-01-28T21:04:43.144141+00:00"
 
     def test_predict_merge_binary_ce_attributes(self, http_server_client):
         with mock.patch.dict(os.environ, {"CE_MERGE": "true"}):
-            event = dummy_cloud_event({"instances": [[1, 2]]}, set_contenttype=True, add_extension=True)
+            event = dummy_cloud_event(
+                {"instances": [[1, 2]]}, set_contenttype=True, add_extension=True
+            )
             headers, body = to_binary(event)
 
-            resp = http_server_client.post("/v1/models/TestModel:predict", headers=headers, content=body)
+            resp = http_server_client.post(
+                "/v1/models/TestModel:predict", headers=headers, content=body
+            )
 
             assert resp.status_code == 200
             assert resp.headers["content-type"] == "application/json"
@@ -981,7 +1041,9 @@ class TestTFHttpServerCloudEvent:
         event = dummy_cloud_event({"instances": [[1, 2]]}, set_contenttype=True)
         headers, body = to_binary(event)
 
-        resp = http_server_client.post("/v1/models/TestModel:predict", headers=headers, content=body)
+        resp = http_server_client.post(
+            "/v1/models/TestModel:predict", headers=headers, content=body
+        )
 
         assert resp.status_code == 200
         assert resp.headers["content-type"] == "application/json"
@@ -995,7 +1057,9 @@ class TestTFHttpServerCloudEvent:
     def test_predict_ce_binary_bytes(self, http_server_client):
         event = dummy_cloud_event(b'{"instances":[[1,2]]}', set_contenttype=True)
         headers, body = to_binary(event)
-        resp = http_server_client.post("/v1/models/TestModel:predict", headers=headers, content=body)
+        resp = http_server_client.post(
+            "/v1/models/TestModel:predict", headers=headers, content=body
+        )
 
         assert resp.status_code == 200
         assert resp.headers["content-type"] == "application/json"
@@ -1010,10 +1074,14 @@ class TestTFHttpServerCloudEvent:
         event = dummy_cloud_event(b"{", set_contenttype=True)
         headers, body = to_binary(event)
 
-        resp = http_server_client.post("/v1/models/TestModel:predict", headers=headers, content=body)
+        resp = http_server_client.post(
+            "/v1/models/TestModel:predict", headers=headers, content=body
+        )
 
         assert resp.status_code == 400
-        error_regex = re.compile("Failed to decode or parse binary json cloudevent: unexpected end of data:*")
+        error_regex = re.compile(
+            "Failed to decode or parse binary json cloudevent: unexpected end of data:*"
+        )
         response = json.loads(resp.content)
         assert error_regex.match(response["error"]) is not None
 
@@ -1021,7 +1089,9 @@ class TestTFHttpServerCloudEvent:
         event = dummy_cloud_event(b"0\x80\x80\x06World!\x00\x00", set_contenttype=True)
         headers, body = to_binary(event)
 
-        resp = http_server_client.post("/v1/models/TestModel:predict", headers=headers, content=body)
+        resp = http_server_client.post(
+            "/v1/models/TestModel:predict", headers=headers, content=body
+        )
 
         assert resp.status_code == 400
         error_regex = re.compile(
@@ -1051,10 +1121,14 @@ class TestTFHttpServerAvroCloudEvent:
         writer.write(msg, encoder)
         data = bytes_writer.getvalue()
 
-        event = dummy_cloud_event(data, set_contenttype=True, contenttype="application/avro")
+        event = dummy_cloud_event(
+            data, set_contenttype=True, contenttype="application/avro"
+        )
         # Creates the HTTP request representation of the CloudEvent in binary content mode
         headers, body = to_binary(event)
-        resp = http_server_client.post("/v1/models/TestModel:predict", headers=headers, content=body)
+        resp = http_server_client.post(
+            "/v1/models/TestModel:predict", headers=headers, content=body
+        )
 
         assert resp.status_code == 200
         assert resp.headers["content-type"] == "application/json"
@@ -1084,7 +1158,9 @@ class TestTFHttpServerLoadAndUnLoad:
         assert resp.content == b'{"name":"model","load":true}'
 
     def test_unload(self, http_server_client):
-        resp = http_server_client.post("/v2/repository/models/model/unload", content=b"")
+        resp = http_server_client.post(
+            "/v2/repository/models/model/unload", content=b""
+        )
         assert resp.status_code == 200
         assert resp.content == b'{"name":"model","unload":true}'
 
@@ -1106,7 +1182,9 @@ class TestTFHttpServerLoadAndUnLoadFailure:
         assert resp.status_code == 503
 
     def test_unload_fail(self, http_server_client):
-        resp = http_server_client.post("/v2/repository/models/model/unload", content=b"")
+        resp = http_server_client.post(
+            "/v2/repository/models/model/unload", content=b""
+        )
         assert resp.status_code == 404
 
 
@@ -1127,7 +1205,9 @@ class TestTFHttpServerModelNotReady:
         assert resp.status_code == 503
 
     def test_predict(self, http_server_client):
-        resp = http_server_client.post("/v1/models/TestModel:predict", content=b'{"instances":[[1,2]]}')
+        resp = http_server_client.post(
+            "/v1/models/TestModel:predict", content=b'{"instances":[[1,2]]}'
+        )
         assert resp.status_code == 503
 
     def test_infer(self, http_server_client):
@@ -1136,7 +1216,9 @@ class TestTFHttpServerModelNotReady:
         assert resp.status_code == 503
 
     def test_explain(self, http_server_client):
-        resp = http_server_client.post("/v1/models/TestModel:explain", content=b'{"instances":[[1,2]]}')
+        resp = http_server_client.post(
+            "/v1/models/TestModel:explain", content=b'{"instances":[[1,2]]}'
+        )
         assert resp.status_code == 503
 
 
@@ -1158,7 +1240,9 @@ class TestMutiProcessServer:
         model_repository.update(dummy_model)
         model_repository.load("TestModel")
         data_plane = DataPlane(model_registry=model_repository)
-        model_repository_extension = ModelRepositoryExtension(model_registry=model_repository)
+        model_repository_extension = ModelRepositoryExtension(
+            model_registry=model_repository
+        )
         http_port = 8080
         workers = 4
 
@@ -1177,7 +1261,9 @@ class TestMutiProcessServer:
         max_attempts = 30
         for attempt in range(max_attempts):
             await asyncio.sleep(1)
-            if len(server._processes) == workers and all(p.is_alive() for p in server._processes):
+            if len(server._processes) == workers and all(
+                p.is_alive() for p in server._processes
+            ):
                 break
             if attempt == max_attempts - 1:
                 raise RuntimeError("Server worker processes did not start properly")
@@ -1241,7 +1327,9 @@ class TestModelServerWithPredictorConfig:
 
         # Create ModelServer with PredictorConfig
         model_repository = ModelRepository()
-        model_server = ModelServer(registered_models=model_repository, predictor_config=predictor_config)
+        model_server = ModelServer(
+            registered_models=model_repository, predictor_config=predictor_config
+        )
 
         # Verify that the predictor config was set in the global context
         context_config = kserve_context.get_predictor_config()
@@ -1258,7 +1346,9 @@ class TestModelServerWithPredictorConfig:
         assert dataplane is not None
 
         # Test with None predictor_config (should not fail)
-        model_server_no_config = ModelServer(registered_models=ModelRepository(), predictor_config=None)
+        model_server_no_config = ModelServer(
+            registered_models=ModelRepository(), predictor_config=None
+        )
         assert model_server_no_config.dataplane is not None
 
     async def test_model_server_dataplane_with_predictor_config(self):
@@ -1279,7 +1369,9 @@ class TestModelServerWithPredictorConfig:
         dummy_model.load()
         model_repository.update(dummy_model)
 
-        model_server = ModelServer(registered_models=model_repository, predictor_config=predictor_config)
+        model_server = ModelServer(
+            registered_models=model_repository, predictor_config=predictor_config
+        )
 
         # Verify the DataPlane was created and can access the config
         dataplane = model_server.dataplane
@@ -1329,8 +1421,12 @@ class TestModelServerEventLoopWithDummy:
         # Patch to capture constructor and avoid side effects
         monkeypatch.setattr(model_server, "RESTServer", DummyREST)
         monkeypatch.setattr(model_server.asyncio, "run", Mock())
-        monkeypatch.setattr(model_server.ModelServer, "setup_event_loop", lambda _: None)
-        monkeypatch.setattr(model_server.ModelServer, "register_signal_handler", lambda _: None)
+        monkeypatch.setattr(
+            model_server.ModelServer, "setup_event_loop", lambda _: None
+        )
+        monkeypatch.setattr(
+            model_server.ModelServer, "register_signal_handler", lambda _: None
+        )
 
         ms = model_server.ModelServer(workers=1, event_loop="uvloop")
         m = DummyModel("TestModel")
@@ -1354,8 +1450,12 @@ class TestModelServerEventLoopWithDummy:
         # Patch multiprocess REST server and side effects
         monkeypatch.setattr(model_server, "RESTServerMultiProcess", DummyMulti)
         monkeypatch.setattr(model_server.asyncio, "run", Mock())
-        monkeypatch.setattr(model_server.ModelServer, "setup_event_loop", lambda _: None)
-        monkeypatch.setattr(model_server.ModelServer, "register_signal_handler", lambda _: None)
+        monkeypatch.setattr(
+            model_server.ModelServer, "setup_event_loop", lambda _: None
+        )
+        monkeypatch.setattr(
+            model_server.ModelServer, "register_signal_handler", lambda _: None
+        )
 
         ms = model_server.ModelServer(workers=4, event_loop="asyncio")
         m = DummyModel("TestModel")
