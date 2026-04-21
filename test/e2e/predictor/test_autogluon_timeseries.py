@@ -14,10 +14,11 @@
 
 """E2E tests for AutoGluon TimeSeriesPredictor on kserve-autogluonserver.
 
-``storage_uri`` must point at the AutoGluon TimeSeries predictor save directory
-(the path passed to ``TimeSeriesPredictor.load``).
+The InferenceService ``storage_uri`` must refer to an AutoGluon TimeSeries
+predictor save directory (the path you would pass to ``TimeSeriesPredictor.load``).
 
-Set ``AUTOGLUON_TIMESERIES_STORAGE_URI`` to enable; otherwise tests are skipped.
+By default, tests use a sample model artifact in a **public** GCS bucket. Override
+``AUTOGLUON_TIMESERIES_STORAGE_URI`` if you need a different ``storage_uri``.
 """
 
 import os
@@ -37,9 +38,13 @@ from kserve import (
 )
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc
 
+# Public sample TimeSeriesPredictor artifact for e2e (override via env if needed).
+_AUTOGLUON_TS_DEFAULT_STORAGE_URI = (
+    "gs://test-project-frog-ml-artifacts/timeseries-artifacts/predictor/"
+)
 AUTOGLUON_TS_STORAGE_URI = os.getenv(
     "AUTOGLUON_TIMESERIES_STORAGE_URI",
-    "gs://test-project-frog-ml-artifacts/timeseries-artifacts/predictor/",
+    _AUTOGLUON_TS_DEFAULT_STORAGE_URI,
 )
 
 AUTOGLUON_TS_RESOURCES = V1ResourceRequirements(

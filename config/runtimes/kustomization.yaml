@@ -54,7 +54,7 @@ images:
   newName: kserve/predictiveserver
   newTag: latest
 
-- name: kserve/model_server
+- name: kserve-autogluonserver
   newName: kserve/autogluonserver
   newTag: latest
   

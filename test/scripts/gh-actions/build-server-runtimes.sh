@@ -28,6 +28,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 source "${PROJECT_ROOT}/kserve-images.sh"
 
+# Default image basename if kserve-images.sh predates AUTOGLUON_IMG (matches kserve-images.env).
+AUTOGLUON_IMG="${AUTOGLUON_IMG:-autogluonserver}"
+
 if [ -d "${DOCKER_IMAGES_PATH}" ]; then
   mkdir -p "${DOCKER_IMAGES_PATH}"  
 fi

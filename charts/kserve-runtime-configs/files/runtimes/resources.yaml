@@ -35,6 +35,8 @@ spec:
   supportedModelFormats:
   - name: autogluon
     version: "1"
+    autoSelect: true
+    priority: 1
 ---
 apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime

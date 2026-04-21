@@ -488,5 +488,7 @@ class AutoGluonTabularModel(Model):
             if isinstance(result, pd.Series):
                 result = result.tolist()
             return get_predict_response(payload, result, self.name)
+        except InferenceError:
+            raise
         except Exception as e:
-            raise InferenceError(str(e))
+            raise InferenceError(str(e)) from e
