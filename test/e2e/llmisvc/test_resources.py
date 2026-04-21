@@ -12,7 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+
 from .fixtures import KSERVE_TEST_NAMESPACE
+
+# GatewayClass name - can be overridden via GATEWAY_CLASS_NAME env var (e.g., "istio")
+GATEWAY_CLASS_NAME = os.environ.get("GATEWAY_CLASS_NAME", "envoy")
 
 ROUTER_GATEWAYS = [
     {
@@ -23,7 +28,7 @@ ROUTER_GATEWAYS = [
             "namespace": KSERVE_TEST_NAMESPACE,
         },
         "spec": {
-            "gatewayClassName": "envoy",
+            "gatewayClassName": GATEWAY_CLASS_NAME,
             "listeners": [
                 {
                     "name": "http",
@@ -46,7 +51,7 @@ ROUTER_GATEWAYS = [
             "namespace": KSERVE_TEST_NAMESPACE,
         },
         "spec": {
-            "gatewayClassName": "envoy",
+            "gatewayClassName": GATEWAY_CLASS_NAME,
             "listeners": [
                 {
                     "name": "http",
@@ -84,6 +89,66 @@ ROUTER_ROUTES = [
                         {
                             "path": {
                                 "type": "PathPrefix",
+                                "value": "/kserve-ci-e2e-test/router-with-refs-test/v1/completions",
+                            },
+                        },
+                    ],
+                    "filters": [
+                        {
+                            "type": "URLRewrite",
+                            "urlRewrite": {
+                                "path": {
+                                    "replacePrefixMatch": "/v1/completions",
+                                    "type": "ReplacePrefixMatch",
+                                },
+                            },
+                        },
+                    ],
+                    "backendRefs": [
+                        {
+                            "group": "inference.networking.k8s.io",
+                            "kind": "InferencePool",
+                            "name": "router-with-refs-test-inference-pool",
+                            "namespace": KSERVE_TEST_NAMESPACE,
+                            "port": 8000,
+                        }
+                    ],
+                },
+                {
+                    "matches": [
+                        {
+                            "path": {
+                                "type": "PathPrefix",
+                                "value": "/kserve-ci-e2e-test/router-with-refs-test/v1/chat/completions",
+                            },
+                        },
+                    ],
+                    "filters": [
+                        {
+                            "type": "URLRewrite",
+                            "urlRewrite": {
+                                "path": {
+                                    "replacePrefixMatch": "/v1/chat/completions",
+                                    "type": "ReplacePrefixMatch",
+                                },
+                            },
+                        },
+                    ],
+                    "backendRefs": [
+                        {
+                            "group": "inference.networking.k8s.io",
+                            "kind": "InferencePool",
+                            "name": "router-with-refs-test-inference-pool",
+                            "namespace": KSERVE_TEST_NAMESPACE,
+                            "port": 8000,
+                        }
+                    ],
+                },
+                {
+                    "matches": [
+                        {
+                            "path": {
+                                "type": "PathPrefix",
                                 "value": "/kserve-ci-e2e-test/router-with-refs-test",
                             },
                         },
@@ -101,9 +166,9 @@ ROUTER_ROUTES = [
                     ],
                     "backendRefs": [
                         {
-                            "group": "inference.networking.k8s.io",
-                            "kind": "InferencePool",
-                            "name": "router-with-refs-test-inference-pool",
+                            "group": "",
+                            "kind": "Service",
+                            "name": "router-with-refs-test-kserve-workload-svc",
                             "namespace": KSERVE_TEST_NAMESPACE,
                             "port": 8000,
                         }
@@ -149,9 +214,9 @@ ROUTER_ROUTES = [
                     ],
                     "backendRefs": [
                         {
-                            "group": "inference.networking.k8s.io",
-                            "kind": "InferencePool",
-                            "name": "router-with-refs-test-inference-pool",
+                            "group": "",
+                            "kind": "Service",
+                            "name": "router-with-refs-test-kserve-workload-svc",
                             "namespace": KSERVE_TEST_NAMESPACE,
                             "port": 8000,
                         }
@@ -180,6 +245,66 @@ ROUTER_ROUTES = [
                         {
                             "path": {
                                 "type": "PathPrefix",
+                                "value": "/kserve-ci-e2e-test/router-with-refs-pd-test/v1/completions",
+                            },
+                        },
+                    ],
+                    "filters": [
+                        {
+                            "type": "URLRewrite",
+                            "urlRewrite": {
+                                "path": {
+                                    "replacePrefixMatch": "/v1/completions",
+                                    "type": "ReplacePrefixMatch",
+                                },
+                            },
+                        },
+                    ],
+                    "backendRefs": [
+                        {
+                            "group": "inference.networking.k8s.io",
+                            "kind": "InferencePool",
+                            "name": "router-with-refs-pd-test-inference-pool",
+                            "namespace": KSERVE_TEST_NAMESPACE,
+                            "port": 8000,
+                        }
+                    ],
+                },
+                {
+                    "matches": [
+                        {
+                            "path": {
+                                "type": "PathPrefix",
+                                "value": "/kserve-ci-e2e-test/router-with-refs-pd-test/v1/chat/completions",
+                            },
+                        },
+                    ],
+                    "filters": [
+                        {
+                            "type": "URLRewrite",
+                            "urlRewrite": {
+                                "path": {
+                                    "replacePrefixMatch": "/v1/chat/completions",
+                                    "type": "ReplacePrefixMatch",
+                                },
+                            },
+                        },
+                    ],
+                    "backendRefs": [
+                        {
+                            "group": "inference.networking.k8s.io",
+                            "kind": "InferencePool",
+                            "name": "router-with-refs-pd-test-inference-pool",
+                            "namespace": KSERVE_TEST_NAMESPACE,
+                            "port": 8000,
+                        }
+                    ],
+                },
+                {
+                    "matches": [
+                        {
+                            "path": {
+                                "type": "PathPrefix",
                                 "value": "/kserve-ci-e2e-test/router-with-refs-pd-test",
                             },
                         },
@@ -197,9 +322,9 @@ ROUTER_ROUTES = [
                     ],
                     "backendRefs": [
                         {
-                            "group": "inference.networking.k8s.io",
-                            "kind": "InferencePool",
-                            "name": "router-with-refs-pd-test-inference-pool",
+                            "group": "",
+                            "kind": "Service",
+                            "name": "router-with-refs-pd-test-kserve-workload-svc",
                             "namespace": KSERVE_TEST_NAMESPACE,
                             "port": 8000,
                         }
@@ -245,9 +370,9 @@ ROUTER_ROUTES = [
                     ],
                     "backendRefs": [
                         {
-                            "group": "inference.networking.k8s.io",
-                            "kind": "InferencePool",
-                            "name": "router-with-refs-pd-test-inference-pool",
+                            "group": "",
+                            "kind": "Service",
+                            "name": "router-with-refs-pd-test-kserve-workload-svc",
                             "namespace": KSERVE_TEST_NAMESPACE,
                             "port": 8000,
                         }

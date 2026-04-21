@@ -3293,3 +3293,130 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 		g.Expect(cond.Message).To(Equal("Predictor HTTPRoute not created"))
 	})
 }
+
+func TestResolveTimeout(t *testing.T) {
+	g := NewGomegaWithT(t)
+	testCases := map[string]struct {
+		disableTimeout bool
+		timeoutSeconds *int64
+		expected       *gwapiv1.Duration
+	}{
+		"default timeout when not disabled and no override": {
+			disableTimeout: false,
+			timeoutSeconds: nil,
+			expected:       DefaultTimeout,
+		},
+		"custom timeout when not disabled": {
+			disableTimeout: false,
+			timeoutSeconds: ptr.To(int64(120)),
+			expected:       ptr.To(gwapiv1.Duration("120s")),
+		},
+		"nil timeout when disabled and no override": {
+			disableTimeout: true,
+			timeoutSeconds: nil,
+			expected:       nil,
+		},
+		"nil timeout when disabled even with override": {
+			disableTimeout: true,
+			timeoutSeconds: ptr.To(int64(120)),
+			expected:       nil,
+		},
+	}
+
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			result := resolveTimeout(tc.disableTimeout, tc.timeoutSeconds)
+			g.Expect(result).To(BeComparableTo(tc.expected))
+		})
+	}
+}
+
+func TestCreateHTTPRouteRuleNilTimeout(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	matches := []gwapiv1.HTTPRouteMatch{
+		{
+			Path: &gwapiv1.HTTPPathMatch{
+				Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
+				Value: ptr.To("/predict"),
+			},
+		},
+	}
+	filters := []gwapiv1.HTTPRouteFilter{addIsvcHeaders("test-isvc", "default")}
+
+	t.Run("nil timeout omits Timeouts field", func(t *testing.T) {
+		rule := createHTTPRouteRule(matches, filters, "test-service", "default", 80, nil)
+		g.Expect(rule.Timeouts).To(BeNil())
+	})
+
+	t.Run("non-nil timeout sets Timeouts field", func(t *testing.T) {
+		rule := createHTTPRouteRule(matches, filters, "test-service", "default", 80, DefaultTimeout)
+		g.Expect(rule.Timeouts).ToNot(BeNil())
+		g.Expect(rule.Timeouts.Request).To(BeComparableTo(DefaultTimeout))
+	})
+}
+
+func TestCreateRawPredictorHTTPRouteDisableTimeout(t *testing.T) {
+	format.MaxLength = 0
+	g := NewGomegaWithT(t)
+
+	isvc := &v1beta1.InferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-isvc",
+			Namespace: "default",
+		},
+		Spec: v1beta1.InferenceServiceSpec{
+			Predictor: v1beta1.PredictorSpec{},
+		},
+		Status: v1beta1.InferenceServiceStatus{
+			Status: duckv1.Status{
+				Conditions: []apis.Condition{
+					{
+						Type:   v1beta1.PredictorReady,
+						Status: corev1.ConditionTrue,
+					},
+				},
+			},
+		},
+	}
+
+	isvcConfig := &v1beta1.InferenceServicesConfig{
+		ServiceAnnotationDisallowedList: []string{},
+		ServiceLabelDisallowedList:      []string{},
+	}
+
+	t.Run("timeout disabled produces no Timeouts field", func(t *testing.T) {
+		ingressConfig := &v1beta1.IngressConfig{
+			IngressDomain:           "example.com",
+			UrlScheme:               "http",
+			DomainTemplate:          "{{.Name}}-{{.Namespace}}.{{.IngressDomain}}",
+			KserveIngressGateway:    "kserve/kserve-gateway",
+			EnableGatewayAPI:        true,
+			DisableHTTPRouteTimeout: true,
+		}
+		httpRoute, err := createRawPredictorHTTPRoute(isvc, ingressConfig, isvcConfig)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(httpRoute).ToNot(BeNil())
+		for _, rule := range httpRoute.Spec.Rules {
+			g.Expect(rule.Timeouts).To(BeNil(), "expected Timeouts to be nil when DisableHTTPRouteTimeout is true")
+		}
+	})
+
+	t.Run("timeout enabled produces Timeouts field", func(t *testing.T) {
+		ingressConfig := &v1beta1.IngressConfig{
+			IngressDomain:           "example.com",
+			UrlScheme:               "http",
+			DomainTemplate:          "{{.Name}}-{{.Namespace}}.{{.IngressDomain}}",
+			KserveIngressGateway:    "kserve/kserve-gateway",
+			EnableGatewayAPI:        true,
+			DisableHTTPRouteTimeout: false,
+		}
+		httpRoute, err := createRawPredictorHTTPRoute(isvc, ingressConfig, isvcConfig)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(httpRoute).ToNot(BeNil())
+		for _, rule := range httpRoute.Spec.Rules {
+			g.Expect(rule.Timeouts).ToNot(BeNil(), "expected Timeouts to be set when DisableHTTPRouteTimeout is false")
+			g.Expect(rule.Timeouts.Request).To(BeComparableTo(DefaultTimeout))
+		}
+	})
+}

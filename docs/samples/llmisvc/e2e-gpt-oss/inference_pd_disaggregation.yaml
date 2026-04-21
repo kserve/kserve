@@ -1,0 +1,32 @@
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceService
+metadata:
+  name: gpt-oss-20b
+spec:
+  # Main/decode pool replica count
+  model:
+    uri: "pvc://gpt-oss-20b-pvc"
+    name: RedHatAI/gpt-oss-20b
+  replicas: 1
+  baseRefs:
+    - name: llmisvc-config-pd-disagg
+  template:
+    containers:
+      - name: main
+        resources:
+          limits:
+            nvidia.com/gpu: "1"
+          requests:
+            nvidia.com/gpu: "1"
+  prefill:
+    # Prefill pool replica count (higher for concurrent prefill requests)
+    replicas: 2
+    template:
+      containers:
+        - name: main
+          resources:
+            limits:
+              nvidia.com/gpu: "1"
+            requests:
+              nvidia.com/gpu: "1"

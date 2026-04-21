@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -87,6 +88,7 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, l.validateRouterCrossFieldConstraints(llmSvc)...)
 	allErrs = append(allErrs, l.validateParallelismConstraints(llmSvc)...)
 	allErrs = append(allErrs, l.validateSchedulerConfig(llmSvc)...)
+	allErrs = append(allErrs, l.validateScaling(llmSvc)...)
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
 
 	if len(allErrs) == 0 {
@@ -335,6 +337,38 @@ func (l *LLMInferenceServiceValidator) validateSchedulerConfig(svc *LLMInference
 	}
 
 	return allErrs
+}
+
+func (l *LLMInferenceServiceValidator) validateScaling(llmSvc *LLMInferenceService) field.ErrorList {
+	var allErrs field.ErrorList
+
+	// Validate scaling on the main (decode) workload
+	allErrs = append(allErrs, l.validateWorkloadScaling(field.NewPath("spec"), &llmSvc.Spec.WorkloadSpec)...)
+
+	// Validate scaling on the prefill workload, if present
+	if llmSvc.Spec.Prefill != nil {
+		allErrs = append(allErrs, l.validateWorkloadScaling(field.NewPath("spec").Child("prefill"), llmSvc.Spec.Prefill)...)
+	}
+
+	// Validate actuator backend consistency across decode and prefill.
+	// Convert to the hub (v1alpha2) type and delegate to its exported validator so
+	// the consistency rules live in exactly one place.
+	decode := convertWorkloadSpecToV1Alpha2(&llmSvc.Spec.WorkloadSpec)
+	var prefill *v1alpha2.WorkloadSpec
+	if llmSvc.Spec.Prefill != nil {
+		p := convertWorkloadSpecToV1Alpha2(llmSvc.Spec.Prefill)
+		prefill = &p
+	}
+	allErrs = append(allErrs, v1alpha2.ValidateActuatorConsistency(&decode, prefill)...)
+
+	return allErrs
+}
+
+func (l *LLMInferenceServiceValidator) validateWorkloadScaling(basePath *field.Path, workload *WorkloadSpec) field.ErrorList {
+	// Convert to the hub (v1alpha2) type and delegate to its exported validator so
+	// the scaling rules live in exactly one place.
+	w := convertWorkloadSpecToV1Alpha2(workload)
+	return v1alpha2.ValidateWorkloadScaling(basePath, &w)
 }
 
 // immutable returns a *Error indicating "unsupported mutation".

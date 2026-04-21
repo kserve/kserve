@@ -20,29 +20,40 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"path"
 	"slices"
 	"sort"
-
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/util/retry"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/util/retry"
 	"knative.dev/pkg/kmeta"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
+	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
+)
+
+const (
+	tokenizerContainerName = "tokenizer"
+
+	precisePrefixCacheScorerPlugin = "precise-prefix-cache-scorer"
+	prefixCacheScorerPlugin        = "prefix-cache-scorer"
+	udsTokenizerBaseModelName      = "base"
+	udsTokenizerSocketFile         = "/tmp/tokenizer/tokenizer-uds.socket" //nolint:gosec // G101: not a credential, UDS socket path
 )
 
 // reconcileScheduler manages the scheduler component and its related resources
@@ -148,7 +159,10 @@ func (r *LLMISVCReconciler) reconcileSchedulerServiceAccount(ctx context.Context
 }
 
 func (r *LLMISVCReconciler) reconcileSchedulerDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
-	scheduler := r.expectedSchedulerDeployment(ctx, llmSvc)
+	scheduler, err := r.expectedSchedulerDeployment(ctx, llmSvc)
+	if err != nil {
+		return fmt.Errorf("failed to build expected scheduler deployment: %w", err)
+	}
 	if isStopped := utils.GetForceStopRuntime(llmSvc); isStopped || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
 		if isStopped {
 			llmSvc.MarkSchedulerWorkloadNotReady("Stopped", "Service is stopped")
@@ -164,7 +178,6 @@ func (r *LLMISVCReconciler) reconcileSchedulerDeployment(ctx context.Context, ll
 }
 
 func (r *LLMISVCReconciler) reconcileSchedulerInferencePool(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
-	logger := log.FromContext(ctx)
 	shouldDelete := utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef()
 
 	if err := r.reconcileV1InferencePool(ctx, llmSvc, shouldDelete); err != nil {
@@ -175,19 +188,11 @@ func (r *LLMISVCReconciler) reconcileSchedulerInferencePool(ctx context.Context,
 		return err
 	}
 
-	logger.V(2).Info("InferencePool reconciliation complete",
-		"v1Available", r.InferencePoolV1Available,
-		"v1alpha2Available", r.InferencePoolV1Alpha2Available)
-
 	return nil
 }
 
 // reconcileV1InferencePool reconciles the v1 InferencePool if the CRD is available.
 func (r *LLMISVCReconciler) reconcileV1InferencePool(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, shouldDelete bool) error {
-	if !r.InferencePoolV1Available {
-		return nil
-	}
-
 	expected := r.expectedSchedulerInferencePool(ctx, llmSvc)
 	if shouldDelete {
 		return Delete(ctx, r, llmSvc, expected)
@@ -197,10 +202,6 @@ func (r *LLMISVCReconciler) reconcileV1InferencePool(ctx context.Context, llmSvc
 
 // reconcileV1Alpha2InferencePool reconciles the v1alpha2 InferencePool if the CRD is available.
 func (r *LLMISVCReconciler) reconcileV1Alpha2InferencePool(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, shouldDelete bool) error {
-	if !r.InferencePoolV1Alpha2Available {
-		return nil
-	}
-
 	expected := r.expectedSchedulerInferencePoolV1Alpha2(ctx, llmSvc)
 	if shouldDelete {
 		return Delete(ctx, r, llmSvc, expected)
@@ -334,7 +335,7 @@ func (r *LLMISVCReconciler) expectedSchedulerInferencePoolV1Alpha2(ctx context.C
 	return ip
 }
 
-func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) *appsv1.Deployment {
+func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*appsv1.Deployment, error) {
 	labels := SchedulerLabels(llmSvc)
 	d := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -367,29 +368,81 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 	}
 
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Template != nil {
+		curr := &appsv1.Deployment{}
+		if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to get current scheduler deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
+		}
+
 		d.Spec.Replicas = llmSvc.Spec.Router.Scheduler.Replicas
 		d.Spec.Template.Spec = *llmSvc.Spec.Router.Scheduler.Template.DeepCopy()
-		for i := range d.Spec.Template.Spec.Containers {
-			if d.Spec.Template.Spec.Containers[i].Name != "main" {
-				continue
-			}
+
+		mainIdx := slices.IndexFunc(d.Spec.Template.Spec.Containers, func(c corev1.Container) bool {
+			return c.Name == "main"
+		})
+		if mainIdx < 0 {
+			log.FromContext(ctx).Info("Scheduler template does not have a container named \"main\", skipping arg injection")
+		}
+
+		if mainIdx >= 0 {
+			mainContainer := &d.Spec.Template.Spec.Containers[mainIdx]
 
 			if d.Spec.Replicas != nil && *d.Spec.Replicas > 1 &&
-				!slices.Contains(d.Spec.Template.Spec.Containers[i].Args, "--ha-enable-leader-election") &&
-				!slices.Contains(d.Spec.Template.Spec.Containers[i].Args, "-ha-enable-leader-election") {
-				d.Spec.Template.Spec.Containers[i].Args = append(d.Spec.Template.Spec.Containers[i].Args,
+				!slices.Contains(mainContainer.Args, "--ha-enable-leader-election") &&
+				!slices.Contains(mainContainer.Args, "-ha-enable-leader-election") {
+				mainContainer.Args = append(mainContainer.Args,
 					"--ha-enable-leader-election",
 				)
 			}
 
-			if !slices.Contains(d.Spec.Template.Spec.Containers[i].Args, "--config-text") &&
-				!slices.Contains(d.Spec.Template.Spec.Containers[i].Args, "-config-text") &&
-				!slices.Contains(d.Spec.Template.Spec.Containers[i].Args, "--config-file") &&
-				!slices.Contains(d.Spec.Template.Spec.Containers[i].Args, "-config-file") {
-				d.Spec.Template.Spec.Containers[i].Args = append(d.Spec.Template.Spec.Containers[i].Args,
-					"--config-text",
-					schedulerConfigText(llmSvc),
-				)
+			mainContainer.Args = append(mainContainer.Args,
+				preserveSchedulerConfig(llmSvc, curr)...,
+			)
+		}
+
+		if isUsingTokenizerSidecar(llmSvc.Spec) {
+			var existingServiceAccount *corev1.ServiceAccount
+			if llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName != "" {
+				existingServiceAccount = &corev1.ServiceAccount{}
+				err := r.Get(ctx, types.NamespacedName{Name: llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
+				if err != nil {
+					if !apierrors.IsNotFound(err) {
+						return d, fmt.Errorf("failed to fetch existing scheduler service account %s/%s: %w", llmSvc.Namespace, llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName, err)
+					}
+					// The service account may not exist yet (first reconciliation, cache lag)
+					// or may have already been deleted (stop flow). Let attachModelArtifacts
+					// handle credential injection with the default service account fallback.
+					existingServiceAccount = nil
+				}
+			} else {
+				// Use the generated scheduler SA which has credentials propagated from the main workload SA.
+				sa, _, saErr := r.expectedSchedulerServiceAccount(ctx, llmSvc)
+				if saErr != nil {
+					return d, fmt.Errorf("failed to get expected scheduler service account: %w", saErr)
+				}
+				existingServiceAccount = sa
+			}
+
+			curr := &appsv1.Deployment{}
+			if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
+				return d, fmt.Errorf("failed to get current scheduler deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
+			}
+
+			config, err := LoadConfig(ctx, r.Clientset)
+			if err != nil {
+				return d, fmt.Errorf("failed to load config for scheduler deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
+			}
+
+			modelPath := path.Join(constants.DefaultModelLocalMountPath, "base")
+
+			if err := r.attachModelArtifacts(ctx, existingServiceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, tokenizerContainerName, modelPath); err != nil {
+				return d, fmt.Errorf("failed to attach model artifacts to scheduler deployment: %w", err)
+			}
+
+			// Mutate scheduler config: inject UDS tokenizer settings, migrate
+			// tokenProcessorConfig from indexerConfig to top-level parameters, and
+			// rename deprecated blockSize to blockSizeTokens (schema changes in v0.6.0).
+			if err := mutateSchedulerConfig(ctx, d, WithUdsTokenizerConfig, WithMigrateTokenProcessorConfig, WithMigrateBlockSizeToBlockSizeTokens); err != nil {
+				return d, fmt.Errorf("failed to mutate scheduler config: %w", err)
 			}
 		}
 	}
@@ -398,7 +451,7 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 
 	log.FromContext(ctx).V(2).Info("Expected router scheduler deployment", "deployment", d)
 
-	return d
+	return d, nil
 }
 
 func (r *LLMISVCReconciler) propagateSchedulerMetadata(llmSvc *v1alpha2.LLMInferenceService, expected *appsv1.Deployment) {
@@ -431,9 +484,10 @@ plugins:
 - type: queue-scorer
 - type: prefix-cache-scorer
 - type: max-score-picker
+- type: always-disagg-pd-decider
 - type: pd-profile-handler
   parameters:
-    threshold: 0
+    deciderPluginName: always-disagg-pd-decider
 schedulingProfiles:
 - name: prefill
   plugins:
@@ -473,6 +527,59 @@ schedulingProfiles:
 	}
 }
 
+// schedulerConfigFlags lists both kebab-case and camelCase variants because
+// Go's flag package accepts either form.
+var schedulerConfigFlags = map[string]struct{}{
+	"--config-text": {}, "-config-text": {}, "--configText": {}, "-configText": {},
+	"--config-file": {}, "-config-file": {}, "--configFile": {}, "-configFile": {},
+}
+
+// preserveSchedulerConfig returns the config args for the scheduler container.
+//
+// Priority:
+//  1. Explicit inline config (including resolved ConfigMap refs) - always wins.
+//  2. Config flag already present in the template args - kept as-is (return nil).
+//  3. Config flag found in the current deployment - preserved across upgrades.
+//  4. No config anywhere - a fresh default is generated.
+func preserveSchedulerConfig(llmSvc *v1alpha2.LLMInferenceService, curr *appsv1.Deployment) []string {
+	if llmSvc.Spec.Router != nil &&
+		llmSvc.Spec.Router.Scheduler != nil &&
+		llmSvc.Spec.Router.Scheduler.Config != nil &&
+		llmSvc.Spec.Router.Scheduler.Config.Inline != nil {
+		return []string{"--config-text", string(llmSvc.Spec.Router.Scheduler.Config.Inline.Raw)}
+	}
+
+	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Template != nil {
+		if configFlagFromContainers(llmSvc.Spec.Router.Scheduler.Template.Containers) != nil {
+			return nil
+		}
+	}
+
+	if pair := configFlagFromContainers(curr.Spec.Template.Spec.Containers); pair != nil {
+		return pair
+	}
+
+	return []string{"--config-text", schedulerConfigText(llmSvc)}
+}
+
+// configFlagFromContainers scans the "main" container for a config flag and
+// returns {flag, value} if found, nil otherwise.
+func configFlagFromContainers(containers []corev1.Container) []string {
+	for i := range containers {
+		c := &containers[i]
+		if c.Name != "main" {
+			continue
+		}
+		for j := 0; j+1 < len(c.Args); j++ {
+			if _, ok := schedulerConfigFlags[c.Args[j]]; ok {
+				return []string{c.Args[j], c.Args[j+1]}
+			}
+		}
+		break // done with main
+	}
+	return nil
+}
+
 func (r *LLMISVCReconciler) expectedSchedulerServiceAccount(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*corev1.ServiceAccount, bool, error) {
 	useExistingServiceAccount := false
 	expectedServiceAccountName := kmeta.ChildName(llmSvc.GetName(), "-epp-sa")
@@ -502,6 +609,37 @@ func (r *LLMISVCReconciler) expectedSchedulerServiceAccount(ctx context.Context,
 			},
 			Labels: SchedulerLabels(llmSvc),
 		},
+	}
+
+	// Propagate credential-related fields from the main workload's service account
+	// so the tokenizer sidecar can download the model using the same credentials.
+	if llmSvc.Spec.Template != nil && llmSvc.Spec.Template.ServiceAccountName != "" {
+		mainSA := &corev1.ServiceAccount{}
+		err := r.Get(ctx, types.NamespacedName{
+			Name:      llmSvc.Spec.Template.ServiceAccountName,
+			Namespace: llmSvc.GetNamespace(),
+		}, mainSA)
+		if err != nil {
+			if !apierrors.IsNotFound(err) {
+				return nil, false, fmt.Errorf("failed to fetch main workload service account %s/%s: %w",
+					llmSvc.GetNamespace(), llmSvc.Spec.Template.ServiceAccountName, err)
+			}
+			// SA may not exist yet on first reconciliation; next reconcile will pick it up.
+			log.FromContext(ctx).V(2).Info("Main workload service account not found, skipping credential propagation",
+				"serviceAccountName", llmSvc.Spec.Template.ServiceAccountName)
+		} else {
+			if mainSA.Annotations != nil {
+				if sa.Annotations == nil {
+					sa.Annotations = make(map[string]string)
+				}
+				maps.Copy(sa.Annotations, mainSA.Annotations)
+			}
+			sa.Secrets = mainSA.Secrets
+			sa.ImagePullSecrets = mainSA.ImagePullSecrets
+		}
+	} else {
+		// No explicit main workload SA — fall back to the default SA for registry credentials.
+		r.injectSecretsFromDefaultServiceAccount(ctx, sa)
 	}
 
 	return sa, useExistingServiceAccount, nil
@@ -539,7 +677,8 @@ func (r *LLMISVCReconciler) expectedSchedulerRole(llmSvc *v1alpha2.LLMInferenceS
 		},
 		Rules: []rbacv1.PolicyRule{
 			{APIGroups: []string{""}, Resources: []string{"pods"}, Verbs: []string{"get", "list", "watch"}},
-			{APIGroups: []string{"inference.networking.k8s.io", "inference.networking.x-k8s.io"}, Resources: []string{"inferencepools", "inferenceobjectives"}, Verbs: []string{"get", "list", "watch"}},
+			{APIGroups: []string{"inference.networking.k8s.io", "inference.networking.x-k8s.io"}, Resources: []string{"inferencepools", "inferenceobjectives", "inferencemodels"}, Verbs: []string{"get", "list", "watch"}},
+			{APIGroups: []string{"inference.networking.x-k8s.io"}, Resources: []string{"inferencemodelrewrites", "inferencepoolimports"}, Verbs: []string{"get", "list", "watch"}},
 			{APIGroups: []string{"discovery.k8s.io"}, Resources: []string{"endpointslices"}, Verbs: []string{"get", "list", "watch"}},
 			{APIGroups: []string{"coordination.k8s.io"}, Resources: []string{"leases"}, Verbs: []string{"get", "list", "watch", "create", "update", "patch", "delete"}},
 		},
@@ -606,6 +745,164 @@ func (r *LLMISVCReconciler) propagateSchedulerDeploymentStatus(ctx context.Conte
 	}
 
 	notReady(string(appsv1.DeploymentProgressing), "Deployment rollout in progress")
+	return nil
+}
+
+type mutateSchedulerConfigFunc func(ctx context.Context, u *unstructured.Unstructured) error
+
+func mutateSchedulerConfig(ctx context.Context, d *appsv1.Deployment, opts ...mutateSchedulerConfigFunc) error {
+	schedulerContainer := utils.GetContainerWithName(&d.Spec.Template.Spec, "main")
+	if schedulerContainer == nil {
+		return nil
+	}
+
+	for i := range len(schedulerContainer.Args) - 1 {
+		if schedulerContainer.Args[i] == "--config-text" || schedulerContainer.Args[i] == "-config-text" {
+			u := unstructured.Unstructured{}
+			if err := yaml.Unmarshal([]byte(schedulerContainer.Args[i+1]), &u); err != nil {
+				// Config text is not a valid YAML object (e.g. a plain string from a user-provided template),
+				// skip mutation as there's no structured config to modify.
+				return nil //nolint:nilerr // unmarshal error is intentionally discarded for non-YAML config values
+			}
+			for _, opt := range opts {
+				if err := opt(ctx, &u); err != nil {
+					return fmt.Errorf("failed to mutate config for scheduler deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
+				}
+			}
+			out, err := yaml.Marshal(u.Object)
+			if err != nil {
+				return fmt.Errorf("failed to marshal mutated config for scheduler deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
+			}
+			schedulerContainer.Args[i+1] = string(out)
+		}
+	}
+	return nil
+}
+
+func WithUdsTokenizerConfig(_ context.Context, u *unstructured.Unstructured) error {
+	var (
+		modelNameField     = []string{"parameters", "indexerConfig", "tokenizersPoolConfig", "modelName"}
+		udsSocketFileField = []string{"parameters", "indexerConfig", "tokenizersPoolConfig", "uds", "socketFile"}
+	)
+
+	val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
+	if err != nil || !found {
+		return err
+	}
+	plugins, ok := val.([]interface{})
+	if !ok {
+		return nil
+	}
+
+	for _, plugin := range plugins {
+		pluginMap, ok := plugin.(map[string]interface{})
+		if !ok || pluginMap["type"] != precisePrefixCacheScorerPlugin {
+			continue
+		}
+
+		if err := unstructured.SetNestedField(pluginMap, udsTokenizerBaseModelName, modelNameField...); err != nil {
+			return err
+		}
+		if err := unstructured.SetNestedField(pluginMap, udsTokenizerSocketFile, udsSocketFileField...); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// WithMigrateTokenProcessorConfig migrates tokenProcessorConfig from inside
+// indexerConfig to the top level of the plugin parameters for the
+// precise-prefix-cache-scorer plugin. This handles the schema change in
+// llm-d-inference-scheduler v0.6.0 where tokenProcessorConfig was promoted
+// from indexerConfig to a top-level plugin parameter.
+func WithMigrateTokenProcessorConfig(ctx context.Context, u *unstructured.Unstructured) error {
+	val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
+	if err != nil || !found {
+		return err
+	}
+	plugins, ok := val.([]interface{})
+	if !ok {
+		return nil
+	}
+
+	for _, plugin := range plugins {
+		pluginMap, ok := plugin.(map[string]interface{})
+		if !ok || pluginMap["type"] != precisePrefixCacheScorerPlugin {
+			continue
+		}
+
+		// Skip if tokenProcessorConfig already exists at the top level
+		if _, exists, _ := unstructured.NestedFieldNoCopy(pluginMap, "parameters", "tokenProcessorConfig"); exists {
+			log.FromContext(ctx).V(2).Info("tokenProcessorConfig already at top-level parameters, skipping migration")
+			continue
+		}
+
+		// Check if tokenProcessorConfig exists inside indexerConfig (old location)
+		tpc, found, err := unstructured.NestedFieldCopy(pluginMap, "parameters", "indexerConfig", "tokenProcessorConfig")
+		if err != nil {
+			log.FromContext(ctx).Error(err, "Failed to read tokenProcessorConfig from indexerConfig")
+			continue
+		}
+		if !found {
+			continue
+		}
+
+		log.FromContext(ctx).Info("Migrating tokenProcessorConfig from indexerConfig to top-level plugin parameters")
+		// Move to top-level parameters
+		if err := unstructured.SetNestedField(pluginMap, tpc, "parameters", "tokenProcessorConfig"); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// WithMigrateBlockSizeToBlockSizeTokens migrates the deprecated blockSize
+// field to blockSizeTokens in the prefix-cache-scorer plugin parameters.
+// In llm-d-inference-scheduler v0.6.0 the prefix-cache-scorer plugin renamed
+// blockSize (characters) to blockSizeTokens (tokens). If only blockSize is
+// set the plugin refuses to start. This migration copies blockSize to
+// blockSizeTokens when blockSizeTokens is not already present.
+func WithMigrateBlockSizeToBlockSizeTokens(ctx context.Context, u *unstructured.Unstructured) error {
+	val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
+	if err != nil || !found {
+		return err
+	}
+	plugins, ok := val.([]interface{})
+	if !ok {
+		return nil
+	}
+
+	for _, plugin := range plugins {
+		pluginMap, ok := plugin.(map[string]interface{})
+		if !ok || pluginMap["type"] != prefixCacheScorerPlugin {
+			continue
+		}
+
+		// Skip if blockSizeTokens already exists
+		if _, exists, _ := unstructured.NestedFieldNoCopy(pluginMap, "parameters", "blockSizeTokens"); exists {
+			log.FromContext(ctx).V(2).Info("blockSizeTokens already set, skipping migration from deprecated blockSize")
+			continue
+		}
+
+		// Check if deprecated blockSize exists
+		bs, found, err := unstructured.NestedFieldNoCopy(pluginMap, "parameters", "blockSize")
+		if err != nil {
+			log.FromContext(ctx).Error(err, "Failed to read blockSize from plugin parameters")
+			continue
+		}
+		if !found {
+			continue
+		}
+
+		log.FromContext(ctx).Info("Migrating deprecated blockSize to blockSizeTokens for prefix-cache-scorer plugin", "blockSize", bs)
+		// Copy blockSize value to blockSizeTokens
+		if err := unstructured.SetNestedField(pluginMap, bs, "parameters", "blockSizeTokens"); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

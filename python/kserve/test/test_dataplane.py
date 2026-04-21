@@ -146,14 +146,20 @@ class TestDataPlane:
         body = b'{"instances":[[1,2]]}'
         infer_request, req_attributes = dataplane_with_model.decode(body, None)
         resp, headers = await dataplane_with_model.infer(self.MODEL_NAME, infer_request)
-        resp, headers = dataplane_with_model.encode(self.MODEL_NAME, resp, headers, req_attributes)
+        resp, headers = dataplane_with_model.encode(
+            self.MODEL_NAME, resp, headers, req_attributes
+        )
         assert (resp, headers) == ({"predictions": [[1, 2]]}, {})  # body
 
     async def test_explain(self, dataplane_with_model: DataPlane):
         body = b'{"instances":[[1,2]]}'
         infer_request, req_attributes = dataplane_with_model.decode(body, None)
-        resp, headers = await dataplane_with_model.explain(self.MODEL_NAME, infer_request)
-        resp, headers = dataplane_with_model.encode(self.MODEL_NAME, resp, headers, req_attributes)
+        resp, headers = await dataplane_with_model.explain(
+            self.MODEL_NAME, infer_request
+        )
+        resp, headers = dataplane_with_model.encode(
+            self.MODEL_NAME, resp, headers, req_attributes
+        )
         assert (resp, headers) == ({"predictions": [[1, 2]]}, {})
 
 
@@ -173,8 +179,12 @@ class TestDataPlaneCloudEvent:
         event: CloudEvent = dummy_cloud_event({"instances": [[1, 2]]})
         headers, body = to_structured(event)
         infer_request, req_attributes = dataplane_with_ce_model.decode(body, headers)
-        resp, response_headers = await dataplane_with_ce_model.infer(self.MODEL_NAME, infer_request, headers)
-        resp, res_headers = dataplane_with_ce_model.encode(self.MODEL_NAME, resp, headers, req_attributes)
+        resp, response_headers = await dataplane_with_ce_model.infer(
+            self.MODEL_NAME, infer_request, headers
+        )
+        resp, res_headers = dataplane_with_ce_model.encode(
+            self.MODEL_NAME, resp, headers, req_attributes
+        )
         response_headers.update(res_headers)
         body = json.loads(resp)
 
@@ -198,9 +208,15 @@ class TestDataPlaneCloudEvent:
             event = dummy_cloud_event({"instances": [[1, 2]]})
             headers, body = to_structured(event)
 
-            infer_request, req_attributes = dataplane_with_ce_model.decode(body, headers)
-            resp, response_headers = await dataplane_with_ce_model.infer(self.MODEL_NAME, infer_request, headers)
-            resp, res_headers = dataplane_with_ce_model.encode(self.MODEL_NAME, resp, headers, req_attributes)
+            infer_request, req_attributes = dataplane_with_ce_model.decode(
+                body, headers
+            )
+            resp, response_headers = await dataplane_with_ce_model.infer(
+                self.MODEL_NAME, infer_request, headers
+            )
+            resp, res_headers = dataplane_with_ce_model.encode(
+                self.MODEL_NAME, resp, headers, req_attributes
+            )
             response_headers.update(res_headers)
             body = json.loads(resp)
 
@@ -211,14 +227,22 @@ class TestDataPlaneCloudEvent:
             assert body["source"] == "io.kserve.inference.CustomSource"
             assert body["type"] == "io.kserve.custom_type"
 
-    async def test_infer_merge_structured_ce_attributes(self, dataplane_with_ce_model: DataPlane):
+    async def test_infer_merge_structured_ce_attributes(
+        self, dataplane_with_ce_model: DataPlane
+    ):
         with mock.patch.dict(os.environ, {"CE_MERGE": "true"}):
             event = dummy_cloud_event({"instances": [[1, 2]]}, add_extension=True)
             headers, body = to_structured(event)
 
-            infer_request, req_attributes = dataplane_with_ce_model.decode(body, headers)
-            resp, response_headers = await dataplane_with_ce_model.infer(self.MODEL_NAME, infer_request, headers)
-            resp, res_headers = dataplane_with_ce_model.encode(self.MODEL_NAME, resp, headers, req_attributes)
+            infer_request, req_attributes = dataplane_with_ce_model.decode(
+                body, headers
+            )
+            resp, response_headers = await dataplane_with_ce_model.infer(
+                self.MODEL_NAME, infer_request, headers
+            )
+            resp, res_headers = dataplane_with_ce_model.encode(
+                self.MODEL_NAME, resp, headers, req_attributes
+            )
             response_headers.update(res_headers)
             body = json.loads(resp)
 
@@ -228,17 +252,27 @@ class TestDataPlaneCloudEvent:
             assert body["data"] == {"predictions": [[1, 2]]}
             assert body["source"] == "io.kserve.inference.TestModel"
             assert body["type"] == "io.kserve.inference.response"
-            assert body["custom-extension"] == "custom-value"  # Added by add_extension=True in dummy_cloud_event
+            assert (
+                body["custom-extension"] == "custom-value"
+            )  # Added by add_extension=True in dummy_cloud_event
             assert body["time"] > "2021-01-28T21:04:43.144141+00:00"
 
     async def test_infer_merge_binary_ce_attributes(self, dataplane_with_ce_model):
         with mock.patch.dict(os.environ, {"CE_MERGE": "true"}):
-            event = dummy_cloud_event({"instances": [[1, 2]]}, set_contenttype=True, add_extension=True)
+            event = dummy_cloud_event(
+                {"instances": [[1, 2]]}, set_contenttype=True, add_extension=True
+            )
             headers, body = to_binary(event)
 
-            infer_request, req_attributes = dataplane_with_ce_model.decode(body, headers)
-            resp, response_headers = await dataplane_with_ce_model.infer(self.MODEL_NAME, infer_request, headers)
-            resp, res_headers = dataplane_with_ce_model.encode(self.MODEL_NAME, resp, headers, req_attributes)
+            infer_request, req_attributes = dataplane_with_ce_model.decode(
+                body, headers
+            )
+            resp, response_headers = await dataplane_with_ce_model.infer(
+                self.MODEL_NAME, infer_request, headers
+            )
+            resp, res_headers = dataplane_with_ce_model.encode(
+                self.MODEL_NAME, resp, headers, req_attributes
+            )
             response_headers.update(res_headers)
 
             assert response_headers["content-type"] == "application/json"
@@ -256,8 +290,12 @@ class TestDataPlaneCloudEvent:
         headers, body = to_binary(event)
 
         infer_request, req_attributes = dataplane_with_ce_model.decode(body, headers)
-        resp, response_headers = await dataplane_with_ce_model.infer(self.MODEL_NAME, infer_request, headers)
-        resp, res_headers = dataplane_with_ce_model.encode(self.MODEL_NAME, resp, headers, req_attributes)
+        resp, response_headers = await dataplane_with_ce_model.infer(
+            self.MODEL_NAME, infer_request, headers
+        )
+        resp, res_headers = dataplane_with_ce_model.encode(
+            self.MODEL_NAME, resp, headers, req_attributes
+        )
         response_headers.update(res_headers)
 
         assert response_headers["content-type"] == "application/json"
@@ -273,8 +311,12 @@ class TestDataPlaneCloudEvent:
         headers, body = to_binary(event)
 
         infer_request, req_attributes = dataplane_with_ce_model.decode(body, headers)
-        resp, response_headers = await dataplane_with_ce_model.infer(self.MODEL_NAME, infer_request, headers)
-        resp, res_headers = dataplane_with_ce_model.encode(self.MODEL_NAME, resp, headers, req_attributes)
+        resp, response_headers = await dataplane_with_ce_model.infer(
+            self.MODEL_NAME, infer_request, headers
+        )
+        resp, res_headers = dataplane_with_ce_model.encode(
+            self.MODEL_NAME, resp, headers, req_attributes
+        )
         response_headers.update(res_headers)
         assert response_headers["content-type"] == "application/json"
         assert response_headers["ce-specversion"] == "1.0"
@@ -289,18 +331,26 @@ class TestDataPlaneCloudEvent:
         headers, body = to_binary(event)
 
         with pytest.raises(InvalidInput) as err:
-            infer_request, req_attributes = dataplane_with_ce_model.decode(body, headers)
+            infer_request, req_attributes = dataplane_with_ce_model.decode(
+                body, headers
+            )
             await dataplane_with_ce_model.infer(self.MODEL_NAME, infer_request, headers)
 
-        error_regex = re.compile("Failed to decode or parse binary json cloudevent: unexpected end of data:*")
+        error_regex = re.compile(
+            "Failed to decode or parse binary json cloudevent: unexpected end of data:*"
+        )
         assert error_regex.match(err.value.reason) is not None
 
-    async def test_infer_ce_bytes_bad_hex_format_exception(self, dataplane_with_ce_model):
+    async def test_infer_ce_bytes_bad_hex_format_exception(
+        self, dataplane_with_ce_model
+    ):
         event = dummy_cloud_event(b"0\x80\x80\x06World!\x00\x00", set_contenttype=True)
         headers, body = to_binary(event)
 
         with pytest.raises(InvalidInput) as err:
-            infer_request, req_attributes = dataplane_with_ce_model.decode(body, headers)
+            infer_request, req_attributes = dataplane_with_ce_model.decode(
+                body, headers
+            )
             await dataplane_with_ce_model.infer(self.MODEL_NAME, infer_request, headers)
 
         error_regex = re.compile(
@@ -346,14 +396,20 @@ class TestDataPlaneAvroCloudEvent:
         writer.write(msg, encoder)
         data = bytes_writer.getvalue()
 
-        event = dummy_cloud_event(data, set_contenttype=True, contenttype="application/avro")
+        event = dummy_cloud_event(
+            data, set_contenttype=True, contenttype="application/avro"
+        )
         # Creates the HTTP request representation of the CloudEvent in binary content mode
         headers, body = to_binary(event)
 
         infer_request, req_attributes = dataplane_with_ce_model.decode(body, headers)
-        resp, response_headers = await dataplane_with_ce_model.infer(self.MODEL_NAME, infer_request, headers)
+        resp, response_headers = await dataplane_with_ce_model.infer(
+            self.MODEL_NAME, infer_request, headers
+        )
 
-        resp, res_headers = dataplane_with_ce_model.encode(self.MODEL_NAME, resp, headers, req_attributes)
+        resp, res_headers = dataplane_with_ce_model.encode(
+            self.MODEL_NAME, resp, headers, req_attributes
+        )
         response_headers.update(res_headers)
 
         assert response_headers["content-type"] == "application/json"
@@ -370,7 +426,9 @@ class TestDataPlaneOpenAI:
     MODEL_NAME = "TestModel"
 
     class DummyOpenAIModel(OpenAIGenerativeModel):
-        async def create_completion(self, params: CompletionRequest) -> Union[Completion, AsyncIterator[Completion]]:
+        async def create_completion(
+            self, params: CompletionRequest
+        ) -> Union[Completion, AsyncIterator[Completion]]:
             pass
 
         async def create_chat_completion(
@@ -390,7 +448,10 @@ class TestDataPlaneOpenAI:
                 request={},
             )
 
-        assert exc.value.args[0] == "Model of type DummyOpenAIModel does not support inference"
+        assert (
+            exc.value.args[0]
+            == "Model of type DummyOpenAIModel does not support inference"
+        )
 
 
 @pytest.mark.asyncio
@@ -398,7 +459,9 @@ class TestDataplaneTransformer:
     async def test_dataplane_rest_with_ssl_enabled(self, httpx_mock):
         # scenario: getting a 2xx response from predictor with ssl enabled
         predictor_host = "ready.host"
-        httpx_mock.add_response(url=re.compile(f"https://{predictor_host}/*"), json={"status": "alive"})
+        httpx_mock.add_response(
+            url=re.compile(f"https://{predictor_host}/*"), json={"status": "alive"}
+        )
         predictor_config = PredictorConfig(
             predictor_host=predictor_host,
             predictor_protocol=PredictorProtocol.REST_V1.value,
@@ -429,12 +492,16 @@ class TestDataplaneTransformer:
         mock_is_server_ready = mock.AsyncMock(return_value=True)
         mock_grpc_client.return_value.is_server_ready = mock_is_server_ready
         assert (await dataplane.ready()) is True
-        mock_grpc_client.assert_called_with(url=predictor_host, timeout=5, retries=2, use_ssl=True)
+        mock_grpc_client.assert_called_with(
+            url=predictor_host, timeout=5, retries=2, use_ssl=True
+        )
 
     async def test_server_readiness_v1(self, httpx_mock):
         # scenario: getting a 2xx response from predictor
         predictor_host = "ready.host"
-        httpx_mock.add_response(url=re.compile(f"http://{predictor_host}/*"), json={"status": "alive"})
+        httpx_mock.add_response(
+            url=re.compile(f"http://{predictor_host}/*"), json={"status": "alive"}
+        )
         predictor_config = PredictorConfig(
             predictor_host=predictor_host,
             predictor_protocol=PredictorProtocol.REST_V1.value,
@@ -448,7 +515,9 @@ class TestDataplaneTransformer:
 
         # scenario: not a 2xx response from predictor
         predictor_host = "not-ready.host"
-        httpx_mock.add_response(url=re.compile(f"http://{predictor_host}/*"), status_code=500)
+        httpx_mock.add_response(
+            url=re.compile(f"http://{predictor_host}/*"), status_code=500
+        )
         predictor_config = PredictorConfig(
             predictor_host=predictor_host,
             predictor_protocol=PredictorProtocol.REST_V1.value,
@@ -464,7 +533,9 @@ class TestDataplaneTransformer:
     async def test_server_readiness_v2(self, httpx_mock):
         # scenario: getting a 2xx response from predictor
         predictor_host = "ready.host"
-        httpx_mock.add_response(url=re.compile(f"http://{predictor_host}/v2/*"), json={"ready": True})
+        httpx_mock.add_response(
+            url=re.compile(f"http://{predictor_host}/v2/*"), json={"ready": True}
+        )
         predictor_config = PredictorConfig(
             predictor_host=predictor_host,
             predictor_protocol=PredictorProtocol.REST_V2.value,
@@ -478,7 +549,9 @@ class TestDataplaneTransformer:
 
         # scenario: getting a 2xx response from predictor and server not ready
         predictor_host = "not-ready.host"
-        httpx_mock.add_response(url=re.compile(f"http://{predictor_host}/v2/*"), json={"ready": False})
+        httpx_mock.add_response(
+            url=re.compile(f"http://{predictor_host}/v2/*"), json={"ready": False}
+        )
         predictor_config = PredictorConfig(
             predictor_host=predictor_host,
             predictor_protocol=PredictorProtocol.REST_V2.value,
@@ -492,7 +565,9 @@ class TestDataplaneTransformer:
 
         # scenario: not a 2xx response from predictor
         predictor_host = "not-ready.host"
-        httpx_mock.add_response(url=re.compile(f"http://{predictor_host}/v2/*"), status_code=500)
+        httpx_mock.add_response(
+            url=re.compile(f"http://{predictor_host}/v2/*"), status_code=500
+        )
         predictor_config = PredictorConfig(
             predictor_host=predictor_host,
             predictor_protocol=PredictorProtocol.REST_V2.value,
@@ -521,7 +596,9 @@ class TestDataplaneTransformer:
         mock_is_server_ready = mock.AsyncMock(return_value=True)
         mock_grpc_client.return_value.is_server_ready = mock_is_server_ready
         assert (await dataplane.ready()) is True
-        mock_grpc_client.assert_called_with(url=predictor_host, timeout=5, retries=2, use_ssl=False)
+        mock_grpc_client.assert_called_with(
+            url=predictor_host, timeout=5, retries=2, use_ssl=False
+        )
 
         # scenario: getting a 2xx response from predictor and server not ready
         predictor_host = "not-ready.host"
@@ -537,12 +614,16 @@ class TestDataplaneTransformer:
         mock_is_server_ready = mock.AsyncMock(return_value=False)
         mock_grpc_client.return_value.is_server_ready = mock_is_server_ready
         assert (await dataplane.ready()) is False
-        mock_grpc_client.assert_called_with(url=predictor_host, timeout=5, retries=2, use_ssl=False)
+        mock_grpc_client.assert_called_with(
+            url=predictor_host, timeout=5, retries=2, use_ssl=False
+        )
 
     async def test_model_readiness_v1(self, httpx_mock):
         # scenario: getting a 2xx response from predictor
         predictor_host = "ready.host"
-        httpx_mock.add_response(url=re.compile(f"http://{predictor_host}/v1/*"), json={"ready": True})
+        httpx_mock.add_response(
+            url=re.compile(f"http://{predictor_host}/v1/*"), json={"ready": True}
+        )
         predictor_config = PredictorConfig(
             predictor_host=predictor_host,
             predictor_protocol=PredictorProtocol.REST_V1.value,
@@ -559,7 +640,9 @@ class TestDataplaneTransformer:
 
         # scenario: getting a 2xx response from predictor and model not ready
         predictor_host = "ready.host"
-        httpx_mock.add_response(url=re.compile(f"http://{predictor_host}/v1/*"), json={"ready": False})
+        httpx_mock.add_response(
+            url=re.compile(f"http://{predictor_host}/v1/*"), json={"ready": False}
+        )
         predictor_config = PredictorConfig(
             predictor_host=predictor_host,
             predictor_protocol=PredictorProtocol.REST_V1.value,
@@ -576,7 +659,9 @@ class TestDataplaneTransformer:
 
         # scenario: not a 2xx response from predictor
         predictor_host = "not-ready.host"
-        httpx_mock.add_response(url=re.compile(f"http://{predictor_host}/v1/*"), status_code=503)
+        httpx_mock.add_response(
+            url=re.compile(f"http://{predictor_host}/v1/*"), status_code=503
+        )
         predictor_config = PredictorConfig(
             predictor_host=predictor_host,
             predictor_protocol=PredictorProtocol.REST_V1.value,
@@ -612,7 +697,9 @@ class TestDataplaneTransformer:
         # scenario: getting a 400 response from predictor and model not ready
         predictor_host = "triton-not-ready.host"
         # Triton returns a non-200 response if model is not ready
-        httpx_mock.add_response(url=re.compile(f"http://{predictor_host}/v2/*"), status_code=400)
+        httpx_mock.add_response(
+            url=re.compile(f"http://{predictor_host}/v2/*"), status_code=400
+        )
         predictor_config = PredictorConfig(
             predictor_host=predictor_host,
             predictor_protocol=PredictorProtocol.REST_V2.value,
@@ -632,7 +719,9 @@ class TestDataplaneTransformer:
         # The HTTP response body should be empty.
         # However, KServe returns 503 when not ready
         predictor_host = "not-ready.host"
-        httpx_mock.add_response(url=re.compile(f"http://{predictor_host}/v2/*"), status_code=503)
+        httpx_mock.add_response(
+            url=re.compile(f"http://{predictor_host}/v2/*"), status_code=503
+        )
         predictor_config = PredictorConfig(
             predictor_host=predictor_host,
             predictor_protocol=PredictorProtocol.REST_V2.value,
@@ -686,7 +775,9 @@ class TestDataplaneTransformer:
         mock_is_model_ready = mock.AsyncMock(return_value=True)
         mock_grpc_client.return_value.is_model_ready = mock_is_model_ready
         assert (await dataplane.model_ready(ready_model.name)) is True
-        mock_grpc_client.assert_called_with(url=predictor_host, timeout=5, retries=2, use_ssl=False)
+        mock_grpc_client.assert_called_with(
+            url=predictor_host, timeout=5, retries=2, use_ssl=False
+        )
 
         # scenario: getting a 2xx response from predictor and server not ready
         predictor_host = "not-ready.host"
@@ -705,7 +796,9 @@ class TestDataplaneTransformer:
         mock_is_model_ready = mock.AsyncMock(return_value=False)
         mock_grpc_client.return_value.is_model_ready = mock_is_model_ready
         assert (await dataplane.model_ready(not_ready_model.name)) is False
-        mock_grpc_client.assert_called_with(url=predictor_host, timeout=5, retries=2, use_ssl=False)
+        mock_grpc_client.assert_called_with(
+            url=predictor_host, timeout=5, retries=2, use_ssl=False
+        )
 
         # Connection error
         predictor_host = "not-reachable.host"
@@ -724,7 +817,9 @@ class TestDataplaneTransformer:
 
     @patch("kserve.protocol.dataplane.InferenceClientFactory.get_grpc_client")
     @patch("kserve.protocol.dataplane.InferenceClientFactory.get_rest_client")
-    async def test_dataplane_with_predictor_health_check_false(self, mock_rest_client, mock_grpc_client):
+    async def test_dataplane_with_predictor_health_check_false(
+        self, mock_rest_client, mock_grpc_client
+    ):
         # Inference client should not be created when predictor_health_check is False
         predictor_host = "ready.host"
         predictor_config = PredictorConfig(

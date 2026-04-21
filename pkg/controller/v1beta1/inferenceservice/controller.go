@@ -70,6 +70,7 @@ import (
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=clusterservingruntimes/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=clusterstoragecontainers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelcaches,verbs=get;list;watch
+// +kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelnamespacecaches,verbs=get;list;watch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=inferenceservices/status,verbs=get;update;patch
@@ -415,7 +416,7 @@ func (r *InferenceServiceReconciler) updateStatus(ctx context.Context, desiredSe
 	existingService := &v1beta1.InferenceService{}
 	namespacedName := types.NamespacedName{Name: desiredService.Name, Namespace: desiredService.Namespace}
 	if err := r.Get(ctx, namespacedName, existingService); err != nil {
-		return err
+		return client.IgnoreNotFound(err)
 	}
 	wasReady := inferenceServiceReadiness(existingService.Status)
 	if inferenceServiceStatusEqual(existingService.Status, desiredService.Status, deploymentMode) {
@@ -702,7 +703,7 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 			ctrlBuilder = ctrlBuilder.Owns(&gwapiv1.HTTPRoute{})
 		} else {
 			r.Log.Info("The InferenceService controller won't watch gateway.networking.k8s.io/v1/HTTPRoute resources because the CRD is not available.")
-			panic("Gateway API CRD not available")
+			return fmt.Errorf("gateway API mode requires gateway.networking.k8s.io/v1 %q CRD", constants.HTTPRouteKind)
 		}
 	} else {
 		ctrlBuilder = ctrlBuilder.Owns(&netv1.Ingress{})

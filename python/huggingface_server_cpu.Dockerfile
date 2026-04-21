@@ -26,6 +26,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 10 --slave /usr/bin/g++ g++ /usr/bin/g++-12
+ENV CC=/usr/bin/gcc-12 CXX=/usr/bin/g++-12
 
 RUN ln -sf "$(which ${PYTHON})" /usr/bin/python
 
@@ -54,22 +55,28 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 ARG TORCH_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu"
 ARG TORCH_VERSION=2.10.0
 
-# Install kserve using UV
+# Copy storage metadata for editable dependency resolution
+COPY storage/pyproject.toml storage/uv.lock storage/
+
+# Install kserve dependencies (metadata-first for cache)
+COPY kserve/pyproject.toml kserve/uv.lock kserve/
+RUN cd kserve && \
+    uv sync --active --no-cache && \
+    uv cache clean && \
+    rm -rf ~/.cache/uv
+
 COPY kserve kserve
 RUN cd kserve && \
     uv sync --active --no-cache && \
     uv cache clean && \
     rm -rf ~/.cache/uv
 
- # Copy and install dependencies for kserve-storage using uv
-COPY storage/pyproject.toml storage/uv.lock storage/
-RUN cd storage && uv sync --active --no-cache
-
+# Install kserve-storage
 COPY storage storage
-RUN cd storage && uv pip install . --no-cache  
+RUN cd storage && uv pip install . --no-cache
 
-# Install huggingfaceserver using UV
-COPY huggingfaceserver huggingfaceserver
+# Install huggingfaceserver dependencies (metadata-first for cache)
+COPY huggingfaceserver/pyproject.toml huggingfaceserver/uv.lock huggingfaceserver/health_check.py huggingfaceserver/
 RUN cd huggingfaceserver && \
     uv pip install --no-cache-dir --index-url ${TORCH_EXTRA_INDEX_URL} \
         torch==${TORCH_VERSION} \
@@ -79,8 +86,14 @@ RUN cd huggingfaceserver && \
     uv cache clean && \
     rm -rf ~/.cache/uv
 
+COPY huggingfaceserver huggingfaceserver
+RUN cd huggingfaceserver && \
+    uv sync --active --no-cache && \
+    uv cache clean && \
+    rm -rf ~/.cache/uv
+
 # install vllm
-ARG VLLM_VERSION=0.15.1
+ARG VLLM_VERSION=0.19.0
 ARG VLLM_CPU_DISABLE_AVX512=true
 ENV VLLM_CPU_DISABLE_AVX512=${VLLM_CPU_DISABLE_AVX512}
 ARG VLLM_CPU_AVX512BF16=1
@@ -106,6 +119,14 @@ RUN cd vllm && \
 
 # Install built vLLM wheel
 RUN uv pip install --no-cache vllm/dist/vllm-${VLLM_VERSION}*.whl
+
+# Ensure CPU-only torch, torchvision, and torchaudio are installed.
+# Previous uv sync / pip install steps may have pulled CUDA wheels from PyPI;
+# this final reinstall from the CPU index guarantees CPU-only builds.
+RUN uv pip install --no-cache-dir --index-url ${TORCH_EXTRA_INDEX_URL} --reinstall \
+    torch==${TORCH_VERSION} \
+    torchvision \
+    torchaudio
 
 # Cleanup vllm source code and caches
 RUN rm -rf /vllm /root/.cache/uv /root/.cache/pip /tmp/*

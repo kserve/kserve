@@ -522,7 +522,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			defer k8sClient.Delete(ctx, isvc)
 			inferenceService := &v1beta1.InferenceService{}
@@ -773,7 +773,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
 
 			ctx := context.Background()
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
@@ -1910,7 +1910,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 
 			// Create the InferenceService object and expect the Reconcile and knative service to be created
-			transformer.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
+			transformer.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
 			instance := transformer.DeepCopy()
 			Expect(k8sClient.Create(context.TODO(), instance)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), instance)
@@ -2232,7 +2232,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 
 				//  Create the InferenceService object and expect the Reconcile and knative service to be created
-				isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
+				isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
 				Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 				defer k8sClient.Delete(ctx, isvc)
 				inferenceService := &v1beta1.InferenceService{}
@@ -2544,7 +2544,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 
 				//  Create the InferenceService object and expect the Reconcile and knative service to be created
-				isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
+				isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
 				Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 				defer k8sClient.Delete(ctx, isvc)
 				inferenceService := &v1beta1.InferenceService{}
@@ -2873,7 +2873,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 
 				//  Create the InferenceService object and expect the Reconcile and knative service to be created
-				isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
+				isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
 				Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 				defer k8sClient.Delete(ctx, isvc)
 				inferenceService := &v1beta1.InferenceService{}
@@ -3158,7 +3158,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 
 				//  Create the InferenceService object and expect the Reconcile and knative service to be created
-				isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
+				isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
 				Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 				defer k8sClient.Delete(ctx, isvc)
 				inferenceService := &v1beta1.InferenceService{}
@@ -3412,7 +3412,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			inferenceService := &v1beta1.InferenceService{}
 

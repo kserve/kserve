@@ -10,6 +10,7 @@ resources:
   - ../certmanager/llmisvc
   - ../rbac/llmisvc
   - ../webhook/llmisvc
+  - gateway-inference-extension.yaml
 
 replacements:
 # Replace the namespace with the namespace of the controller manager.

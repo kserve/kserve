@@ -1,0 +1,144 @@
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: llmisvc-prefix-caching
+spec:
+  template:
+    containers:
+      - image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
+        name: main
+        command: ["/bin/sh", "-c"]
+        args:
+          - >
+            vllm serve /mnt/models
+            --served-model-name "{{ .Spec.Model.Name }}"
+            --port 8000
+            --disable-uvicorn-access-log
+            --disable-log-requests
+            --prefix-caching-hash-algo sha256_cbor
+            --block-size 64
+            --kv_transfer_config '{"kv_connector":"NixlConnector","kv_role":"kv_both"}'
+            --kv-events-config "$KV_EVENTS_CONFIG"
+            $VLLM_ADDITIONAL_ARGS
+        env:
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+          - name: KV_EVENTS_CONFIG
+            value: |
+              {
+                "enable_kv_cache_events": true,
+                "publisher": "zmq",
+                "endpoint": "tcp://{{ ChildName .ObjectMeta.Name `-epp-service` }}.{{ .ObjectMeta.Namespace }}.svc.cluster.local:5557",
+                "topic": "kv@$(POD_IP)@{{ .Spec.Model.Name }}"
+              }
+          - name: PYTHONHASHSEED
+            value: "42"
+        securityContext:
+          runAsNonRoot: true
+        livenessProbe:
+          initialDelaySeconds: 1200
+        readinessProbe:
+          initialDelaySeconds: 10
+          periodSeconds: 10
+  router:
+    scheduler:
+      config:
+        inline:
+          apiVersion: inference.networking.x-k8s.io/v1alpha1
+          kind: EndpointPickerConfig
+          plugins:
+            - type: single-profile-handler
+            - type: precise-prefix-cache-scorer
+              parameters:
+                tokenProcessorConfig:
+                  blockSize: 64
+                  hashSeed: "42"
+                kvEventsConfig:
+                  zmqEndpoint: "tcp://*:5557"
+                  topicFilter: "kv@"
+                  discoverPods: false
+                indexerConfig:
+                  kvBlockIndexConfig:
+                    enableMetrics: true
+                    metricsLoggingInterval: 60000000000
+                  tokenizersPoolConfig:
+                    modelName: "{{ .Spec.Model.Name }}"
+                    hf:
+                      tokenizersCacheDir: "/mnt/tokenizers"
+            - type: queue-scorer
+            - type: kv-cache-utilization-scorer
+            - type: max-score-picker
+          schedulingProfiles:
+            - name: default
+              plugins:
+                - pluginRef: queue-scorer
+                  weight: 2
+                - pluginRef: kv-cache-utilization-scorer
+                  weight: 2
+                - pluginRef: precise-prefix-cache-scorer
+                  weight: 3
+                - pluginRef: max-score-picker
+      pool:
+        spec:
+          endpointPickerRef:
+            group: ""
+      template:
+        volumes:
+          - name: tls-certs
+            secret:
+              secretName: "{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}"
+          - name: tokenizers
+            emptyDir: {}
+          - name: go-cache
+            emptyDir: {}
+        containers:
+          - name: main
+            image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.7.1
+            ports:
+              - containerPort: 5557
+                name: zmq
+                protocol: TCP
+            env:
+              - name: HF_HOME
+                value: /mnt/tokenizers
+              - name: TMPDIR
+                value: /mnt/tokenizers
+              - name: HF_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: hf-token
+                    key: HF_TOKEN
+            args:
+              - --pool-name
+              - '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
+              - --pool-namespace
+              - '{{ .ObjectMeta.Namespace }}'
+              - --zap-encoder
+              - json
+              - --grpc-port
+              - "9002"
+              - --grpc-health-port
+              - "9003"
+              - --metrics-endpoint-auth=false
+              - --secure-serving
+              - --cert-path
+              - /etc/ssl/certs
+            volumeMounts:
+              - mountPath: /etc/ssl/certs
+                name: tls-certs
+                readOnly: true
+              - mountPath: /mnt/tokenizers
+                name: tokenizers
+              - mountPath: /go
+                name: go-cache
+            livenessProbe:
+              grpc:
+                port: 9003
+                service: envoy.service.ext_proc.v3.ExternalProcessor
+            readinessProbe:
+              grpc:
+                port: 9003
+                service: envoy.service.ext_proc.v3.ExternalProcessor

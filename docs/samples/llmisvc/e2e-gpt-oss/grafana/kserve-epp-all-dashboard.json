@@ -1,0 +1,276 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 2,
+  "links": [
+    { "asDropdown": false, "icon": "external link", "includeVars": false, "keepTime": true, "tags": [], "targetBlank": true, "title": "Kserve – Intelligent Routing & Load Balancing", "tooltip": "", "type": "link", "url": "https://github.com/llm-d/llm-d/blob/main/docs/monitoring/example-promQL-queries.md#path-b-intelligent-routing--load-balancing" },
+    { "asDropdown": false, "icon": "external link", "includeVars": false, "keepTime": true, "tags": [], "targetBlank": true, "title": "Kserve – Prefix Caching", "tooltip": "", "type": "link", "url": "https://github.com/llm-d/llm-d/blob/main/docs/monitoring/example-promQL-queries.md#path-c-prefix-caching" },
+    { "asDropdown": false, "icon": "external link", "includeVars": false, "keepTime": true, "tags": [], "targetBlank": true, "title": "Kserve – P/D Disaggregation", "tooltip": "", "type": "link", "url": "https://github.com/llm-d/llm-d/blob/main/docs/monitoring/example-promQL-queries.md#path-d-pd-disaggregation" }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "gridPos": { "h": 2, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "options": { "content": "## Intelligent Routing & Load Balancing\n\nRequest and token distribution, idle GPU time, and routing decision latency. Reference: [Kserve – Intelligent Routing & Load Balancing](https://github.com/llm-d/llm-d/blob/main/docs/monitoring/example-promQL-queries.md#path-b-intelligent-routing--load-balancing).", "mode": "markdown" },
+      "title": "Reference – Routing & Load Balancing",
+      "type": "text"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "Request distribution (QPS per instance). Uses inference_objective_request_total without a label filter so it works when target_model/target_model_name is missing or named differently. If you see no data, check Prometheus for inference_objective_request_total or inference_model_request_total (older deployments).",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "reqps" } },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 2 },
+      "id": 2,
+      "options": { "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "sortBy": "Max", "sortDesc": true } },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by(pod) (rate(inference_objective_request_total[5m]))", "legendFormat": "{{pod}}", "refId": "A" }],
+      "title": "Request distribution (QPS per instance)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "Token distribution by pod.",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "short" } },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 2 },
+      "id": 3,
+      "options": { "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "sortBy": "Max", "sortDesc": true } },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by(pod) (rate(vllm:prompt_tokens_total[5m]) + rate(vllm:generation_tokens_total[5m]))", "legendFormat": "{{pod}}", "refId": "A" }],
+      "title": "Token distribution by pod",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "Idle GPU time by pod.",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "max": 1, "min": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "percentunit" } },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 10 },
+      "id": 4,
+      "options": { "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "sortBy": "Max", "sortDesc": true } },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "1 - avg by(pod) (rate(vllm:iteration_tokens_total_count[5m]) > 0)", "legendFormat": "{{pod}}", "refId": "A" }],
+      "title": "Idle GPU time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "Routing decision latency P99. Tries inference_extension_scheduler_plugin_duration_seconds first; if empty, uses inference_extension_plugin_duration_seconds (some EPP versions expose only the latter).",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "s" } },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
+      "id": 5,
+      "options": { "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "sortBy": "Max", "sortDesc": true } },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "histogram_quantile(0.99, sum by(le) (rate(inference_extension_scheduler_plugin_duration_seconds_bucket[5m])))", "legendFormat": "P99 (scheduler plugin)", "refId": "A" },
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "histogram_quantile(0.99, sum by(le) (rate(inference_extension_plugin_duration_seconds_bucket[5m])))", "legendFormat": "P99 (plugin)", "refId": "B" }
+      ],
+      "title": "Routing decision latency P99",
+      "type": "timeseries"
+    },
+    {
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 18 },
+      "id": 6,
+      "options": { "content": "<div style=\"font-size: 14px; line-height: 1.6;\">\n<h2 style=\"margin-top: 0;\">Prefix Caching</h2>\n<p>This dashboard shows <strong>vLLM prefix cache</strong> and <strong>EPP prefix indexer</strong> metrics.</p>\n<p><strong>Documentation:</strong><br>\n<a href=\"https://github.com/llm-d/llm-d/blob/main/docs/monitoring/example-promQL-queries.md#path-c-prefix-caching\" target=\"_blank\">Kserve – Prefix Caching</a> — example PromQL queries and monitoring guide.</p>\n</div>", "mode": "html" },
+      "title": "Reference – Prefix Caching",
+      "type": "text"
+    },
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 22 }, "id": 7, "panels": [], "title": "vLLM prefix cache", "type": "row" },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "Overall prefix cache hit rate across all vLLM instances. Green ≥80%, yellow 50–80%, red <50%.",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "max": 1, "min": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "yellow", "value": 0.5 }, { "color": "green", "value": 0.8 }] }, "unit": "percentunit" } },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 23 },
+      "id": 8,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showThresholdLabels": true },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(vllm:prefix_cache_hits_total[5m])) / sum(rate(vllm:prefix_cache_queries_total[5m]))", "refId": "A" }],
+      "title": "Prefix cache hit rate (vLLM)",
+      "type": "gauge"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "Prefix cache hit rate per vLLM pod.",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "max": 1, "min": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "percentunit", "custom": { "lineWidth": 2, "pointSize": 6, "lineInterpolation": "smooth" } } },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 23 },
+      "id": 9,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by(pod) (rate(vllm:prefix_cache_hits_total[5m])) / sum by(pod) (rate(vllm:prefix_cache_queries_total[5m]))", "legendFormat": "{{pod}}", "refId": "A" }],
+      "title": "Per-instance hit rate (vLLM)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "KV cache usage percentage by pod and model. Metric name must match --kv-cache-usage-percentage-metric in LLM inference service config (e.g. vllm:kv_cache_usage_perc).",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "max": 100, "min": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 90 }] }, "unit": "percent", "custom": { "lineWidth": 2, "fillOpacity": 22, "pointSize": 6, "lineInterpolation": "smooth" } } },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 31 },
+      "id": 10,
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true } },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "avg by(pod, model_name) (vllm:kv_cache_usage_perc * 100)", "legendFormat": "{{pod}} ({{model_name}})", "refId": "A" }],
+      "title": "Cache utilization % (vLLM)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "Raw vLLM prefix cache hits and queries (rate).",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisCenteredZero": false, "axisLabel": "", "axisPlacement": "auto", "fillOpacity": 42, "gradientMode": "opacity", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "lineWidth": 3, "pointSize": 6, "scaleDistribution": { "type": "linear" }, "showUnfilled": true, "spanNulls": false, "stacking": { "group": "A", "mode": "normal" }, "thresholdsStyle": { "mode": "off" } }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "short" }, "overrides": [{ "matcher": { "id": "byName", "options": "hits/s" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "queries/s" }, "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 31 },
+      "id": 11,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "expr": "sum(rate(vllm:prefix_cache_hits_total[5m]))", "legendFormat": "hits/s", "refId": "A" }, { "expr": "sum(rate(vllm:prefix_cache_queries_total[5m]))", "legendFormat": "queries/s", "refId": "B" }],
+      "title": "Prefix cache hits vs queries (rate)",
+      "type": "timeseries"
+    },
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 39 }, "id": 12, "panels": [], "title": "EPP prefix indexer", "type": "row" },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "EPP prefix indexer size. Only model server pods (vLLM + EPP) expose this metric; router/scheduler pods (e.g. *-kserve-router-scheduler-*) do not run the prefix indexer and will not appear.",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "short", "custom": { "lineWidth": 2, "lineInterpolation": "smooth" } } },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 40 },
+      "id": 13,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "inference_extension_prefix_indexer_size", "legendFormat": "{{pod}}", "refId": "A" }],
+      "title": "EPP prefix indexer size",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "EPP prefix indexer hit ratio percentiles. Shows 0 when no EPP prefix hits in the selected window.",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "max": 1, "min": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "percentunit", "custom": { "lineWidth": 2, "lineInterpolation": "smooth" } } },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 40 },
+      "id": 14,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum by(le) (rate(inference_extension_prefix_indexer_hit_ratio_bucket[5m])))", "legendFormat": "P50", "refId": "A" },
+        { "expr": "histogram_quantile(0.90, sum by(le) (rate(inference_extension_prefix_indexer_hit_ratio_bucket[5m])))", "legendFormat": "P90", "refId": "B" }
+      ],
+      "title": "EPP prefix indexer hit ratio (P50, P90)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "EPP prefix indexer hit bytes percentiles. Shows 0 when no EPP prefix hits in the selected window.",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "bytes", "custom": { "lineWidth": 2, "lineInterpolation": "smooth" } } },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 47 },
+      "id": 15,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum by(le) (rate(inference_extension_prefix_indexer_hit_bytes_bucket[5m])))", "legendFormat": "P50", "refId": "A" },
+        { "expr": "histogram_quantile(0.90, sum by(le) (rate(inference_extension_prefix_indexer_hit_bytes_bucket[5m])))", "legendFormat": "P90", "refId": "B" }
+      ],
+      "title": "EPP prefix indexer hit bytes (P50, P90)",
+      "type": "timeseries"
+    },
+    {
+      "gridPos": { "h": 2, "w": 24, "x": 0, "y": 54 },
+      "id": 16,
+      "options": { "content": "## P/D Disaggregation\n\nPrefill and decode worker utilization, queue lengths, and P/D decision rates. Reference: [Kserve – P/D Disaggregation](https://github.com/llm-d/llm-d/blob/main/docs/monitoring/example-promQL-queries.md#path-d-pd-disaggregation).", "mode": "markdown" },
+      "title": "Reference – P/D Disaggregation",
+      "type": "text"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "Prefill worker utilization.",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "short" } },
+      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 56 },
+      "id": 17,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "avg by(pod) (vllm:num_requests_running{pod=~\".*prefill.*\"})", "legendFormat": "{{pod}}", "refId": "A" }],
+      "title": "Prefill worker utilization",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "Decode worker utilization (KV cache usage). Uses the metric set by --kv-cache-usage-percentage-metric in LLM inference service config (e.g. vllm:kv_cache_usage_perc).",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "max": 1, "min": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "percentunit" } },
+      "gridPos": { "h": 5, "w": 8, "x": 8, "y": 56 },
+      "id": 18,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "avg by(pod) (vllm:kv_cache_usage_perc{pod=~\".*decode.*\"})", "legendFormat": "{{pod}}", "refId": "A" }],
+      "title": "Decode worker utilization",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "Prefill queue length.",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "short" } },
+      "gridPos": { "h": 5, "w": 8, "x": 16, "y": 56 },
+      "id": 19,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by(pod) (vllm:num_requests_waiting{pod=~\".*prefill.*\"})", "legendFormat": "{{pod}}", "refId": "A" }],
+      "title": "Prefill queue length",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "P/D decision rate by decision type.",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "reqps" } },
+      "gridPos": { "h": 5, "w": 12, "x": 0, "y": 61 },
+      "id": 20,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by(decision_type) (rate(llm_d_inference_scheduler_pd_decision_total[5m]))", "legendFormat": "{{decision_type}}", "refId": "A" }],
+      "title": "P/D decision rate by type",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "Decode-only request rate.",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "reqps" } },
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 61 },
+      "id": 21,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(llm_d_inference_scheduler_pd_decision_total{decision_type=\"decode-only\"}[5m]))", "legendFormat": "decode-only", "refId": "A" }],
+      "title": "Decode-only request rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "Prefill-decode request rate.",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "reqps" } },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 61 },
+      "id": 22,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(llm_d_inference_scheduler_pd_decision_total{decision_type=\"prefill-decode\"}[5m]))", "legendFormat": "prefill-decode", "refId": "A" }],
+      "title": "Prefill-decode request rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "Ratio of prefill-decode decisions to all P/D decisions.",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "max": 1, "min": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "percentunit" } },
+      "gridPos": { "h": 5, "w": 12, "x": 0, "y": 66 },
+      "id": 23,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
+      "pluginVersion": "10.0.0",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(llm_d_inference_scheduler_pd_decision_total{decision_type=\"prefill-decode\"}[5m])) / sum(rate(llm_d_inference_scheduler_pd_decision_total[5m]))", "refId": "A" }],
+      "title": "P/D decision ratio (prefill-decode)",
+      "type": "gauge"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["llm-d", "routing", "load-balancing", "prefix-caching", "vllm", "epp", "kserve", "pd-disaggregation", "prefill", "decode"],
+  "templating": {
+    "list": [{ "current": { "selected": false, "text": "Prometheus", "value": "Prometheus" }, "hide": 0, "includeAll": false, "label": "Datasource", "multi": false, "name": "datasource", "options": [], "query": "prometheus", "refresh": 1, "regex": "", "skipUrlSync": false, "type": "datasource" }]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Kserve EPP metrics – All",
+  "uid": "kserve-epp-all",
+  "version": 1,
+  "weekStart": ""
+}

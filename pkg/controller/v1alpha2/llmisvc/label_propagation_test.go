@@ -21,9 +21,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 func TestPropagateDeploymentMetadata(t *testing.T) {
@@ -349,4 +352,46 @@ func TestPropagateSchedulerMetadata(t *testing.T) {
 			assert.Empty(t, deployment.Annotations, "Scheduler annotations should not be set on the Deployment itself")
 		})
 	}
+}
+
+func TestPropagateWorkloadServiceMetadata(t *testing.T) {
+	llmSvc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-llm",
+		},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			WorkloadSpec: v1alpha2.WorkloadSpec{
+				Labels: map[string]string{
+					"model":    "llama-3.1-8b",
+					"endpoint": "my-endpoint",
+				},
+				Annotations: map[string]string{
+					"prometheus.io/scrape": "true",
+				},
+			},
+		},
+	}
+
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{
+				constants.KubernetesComponentLabelKey: constants.LLMComponentWorkload,
+				constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
+				constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
+			},
+		},
+	}
+
+	utils.PropagateMap(llmSvc.Spec.Labels, &svc.Labels)
+	utils.PropagateMap(llmSvc.Spec.Annotations, &svc.Annotations)
+
+	expectedLabels := map[string]string{
+		constants.KubernetesComponentLabelKey: constants.LLMComponentWorkload,
+		constants.KubernetesAppNameLabelKey:   "test-llm",
+		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
+		"model":                               "llama-3.1-8b",
+		"endpoint":                            "my-endpoint",
+	}
+	assert.Equal(t, expectedLabels, svc.Labels)
+	assert.Equal(t, map[string]string{"prometheus.io/scrape": "true"}, svc.Annotations)
 }
