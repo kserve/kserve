@@ -49,7 +49,7 @@ spec:
         env:
           # Configure vLLM for prefix caching with KV cache event publishing
           - name: VLLM_ADDITIONAL_ARGS
-            value: "--prefix-caching-hash-algo sha256 --block-size 64 --kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_both\"}' --kv-events-config '{\"enable_kv_cache_events\":true,\"publisher\":\"zmq\",\"endpoint\":\"tcp://{{ ChildName .ObjectMeta.Name `-epp-service` }}:5557\",\"topic\":\"kv@${POD_IP}@Qwen/Qwen2.5-7B-Instruct\"}'"
+            value: "--prefix-caching-hash-algo sha256 --block-size 64 --kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_both\"}' --kv-events-config '{\"enable_kv_cache_events\":true,\"publisher\":\"zmq\",\"endpoint\":\"tcp://{{ ChildName .ObjectMeta.Name `-epp-service` }}:5557\",\"topic\":\"kv@${POD_IP}:8000@Qwen/Qwen2.5-7B-Instruct\"}'"
           # Pod IP used in KV cache event topic
           - name: POD_IP
             valueFrom:
