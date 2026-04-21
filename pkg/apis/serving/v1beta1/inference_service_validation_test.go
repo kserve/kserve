@@ -662,6 +662,9 @@ func TestRejectMultipleModelSpecs(t *testing.T) {
 func TestCustomizeDeploymentStrategyUnsupportedForServerless(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
+	isvc.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.Knative),
+	}
 	isvc.Spec.Predictor.PodSpec = PodSpec{ServiceAccountName: "test"}
 	isvc.Spec.Predictor.DeploymentStrategy = &appsv1.DeploymentStrategy{
 		Type: appsv1.RecreateDeploymentStrategyType,

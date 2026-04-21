@@ -253,12 +253,12 @@ func validateMultiNodeVariables(isvc *InferenceService) error {
 
 // Validate scaling options component extensions
 func validateAutoScalingCompExtension(annotations map[string]string, compExtSpec *ComponentExtensionSpec) error {
-	deploymentMode := annotations["serving.kserve.io/deploymentMode"]
+	deploymentMode := constants.ParseDeploymentMode(annotations[constants.DeploymentMode])
 	annotationClass := annotations[autoscaling.ClassAnnotationKey]
 	autoscalerClass := annotations[constants.AutoscalerClass]
 
 	switch deploymentMode {
-	case string(constants.Standard), string(constants.LegacyRawDeployment):
+	case constants.Standard:
 		switch autoscalerClass {
 		case string(constants.AutoscalerClassHPA), "":
 			return validateScalingHPACompExtension(compExtSpec)
