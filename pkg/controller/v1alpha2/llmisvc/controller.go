@@ -32,6 +32,7 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/cabundleconfigmap"
 
+	"knative.dev/pkg/apis"
 	"knative.dev/pkg/reconciler"
 
 	"github.com/go-logr/logr"
@@ -74,6 +75,14 @@ var ChildResourcesLabelSelector = metav1.LabelSelector{
 // childResourcesPredicate filters events to only those from resources owned by LLMInferenceService
 // This prevents unnecessary reconciliation triggers from unrelated resources
 var childResourcesPredicate, _ = predicate.LabelSelectorPredicate(ChildResourcesLabelSelector)
+
+// LLMInferenceServiceState describes the readiness of the LLMInferenceService.
+type LLMInferenceServiceState string
+
+const (
+	LLMInferenceServiceReadyState    LLMInferenceServiceState = "LLMInferenceServiceReady"
+	LLMInferenceServiceNotReadyState LLMInferenceServiceState = "LLMInferenceServiceNotReady"
+)
 
 // LLMISVCReconciler reconciles an LLMInferenceService object.
 // It orchestrates the reconciliation of child resources based on the spec.
@@ -232,17 +241,20 @@ func (r *LLMISVCReconciler) finalize(ctx context.Context, llmSvc *v1alpha2.LLMIn
 	return nil
 }
 
-// updateStatus updates the status of the LLMInferenceService with retry on conflict
-// This prevents race conditions when multiple controllers update the same resource
+// updateStatus updates the status of the LLMInferenceService with retry on conflict.
+// It also emits K8s Events on readiness state transitions (Ready <-> NotReady),
+// mirroring the pattern used by the InferenceService controller.
 func (r *LLMISVCReconciler) updateStatus(ctx context.Context, desired *v1alpha2.LLMInferenceService) error {
+	logger := log.FromContext(ctx)
+
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		// Always fetch the latest version to avoid conflicts
 		latest := &v1alpha2.LLMInferenceService{}
 		if err := r.Get(ctx, client.ObjectKeyFromObject(desired), latest); err != nil {
 			return client.IgnoreNotFound(err)
 		}
 
-		// Skip update if status hasn't changed
+		wasReady := llmInferenceServiceReadiness(latest.Status)
+
 		if equality.Semantic.DeepEqual(latest.Status, desired.Status) {
 			return nil
 		}
@@ -250,11 +262,56 @@ func (r *LLMISVCReconciler) updateStatus(ctx context.Context, desired *v1alpha2.
 		latest.Status = desired.Status
 
 		if err := r.Client.Status().Update(ctx, latest); err != nil {
+			logger.Error(err, "Failed to update LLMInferenceService status", "LLMInferenceService", desired.Name)
+			r.Eventf(desired, corev1.EventTypeWarning, "UpdateFailed",
+				"Failed to update status for LLMInferenceService %q: %v", desired.Name, err)
 			return fmt.Errorf("failed to update status for LLMInferenceService: %w", err)
+		}
+
+		isReady := llmInferenceServiceReadiness(desired.Status)
+		isReadyFalse := llmInferenceServiceReadinessFalse(desired.Status)
+		if wasReady && isReadyFalse {
+			r.Eventf(desired, corev1.EventTypeWarning, string(LLMInferenceServiceNotReadyState),
+				"LLMInferenceService [%v] is no longer Ready because of: %v", desired.GetName(), r.GetFailConditions(desired))
+		} else if !wasReady && isReady {
+			r.Eventf(desired, corev1.EventTypeNormal, string(LLMInferenceServiceReadyState),
+				"LLMInferenceService [%v] is Ready", desired.GetName())
 		}
 
 		return nil
 	})
+}
+
+func llmInferenceServiceReadiness(status v1alpha2.LLMInferenceServiceStatus) bool {
+	return status.Conditions != nil &&
+		status.GetCondition(apis.ConditionReady) != nil &&
+		status.GetCondition(apis.ConditionReady).Status == corev1.ConditionTrue
+}
+
+func llmInferenceServiceReadinessFalse(status v1alpha2.LLMInferenceServiceStatus) bool {
+	readyCondition := status.GetCondition(apis.ConditionReady)
+	return readyCondition != nil && readyCondition.Status == corev1.ConditionFalse
+}
+
+// GetFailConditions returns a comma-separated list of sub-condition Types whose Status is False.
+// The top-level apis.ConditionReady is intentionally excluded because it is the aggregate that
+// is being reported on; including it would be self-referential ("Ready is no longer Ready
+// because of: Ready, ...").
+func (r *LLMISVCReconciler) GetFailConditions(svc *v1alpha2.LLMInferenceService) string {
+	msg := ""
+	for _, cond := range svc.Status.Conditions {
+		if cond.Type == apis.ConditionReady {
+			continue
+		}
+		if string(cond.Status) == "False" {
+			if msg == "" {
+				msg = string(cond.Type)
+			} else {
+				msg = fmt.Sprintf("%s, %s", msg, string(cond.Type))
+			}
+		}
+	}
+	return msg
 }
 
 // SetupWithManager sets up the controller with the Manager.
