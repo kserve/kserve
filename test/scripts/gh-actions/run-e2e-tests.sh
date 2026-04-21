@@ -16,6 +16,15 @@
 
 # The script is used to deploy knative and kserve, and run e2e tests.
 # Usage: run-e2e-tests.sh $MARKER $PARALLELISM $NETWORK_LAYER
+#
+# Extra pytest flags can be passed via the PYTEST_ARGS env var, e.g.:
+#   PYTEST_ARGS="-k test_sklearn_v2" ./test/scripts/gh-actions/run-e2e-tests.sh predictor
+#
+# Quoted selectors are supported (parsed via xargs):
+#   PYTEST_ARGS='-k "test_a or test_b"' ./test/scripts/gh-actions/run-e2e-tests.sh predictor
+#
+# To run a specific test by path, pass an empty marker:
+#   PYTEST_ARGS="predictor/test_sklearn.py::test_sklearn_v2" ./test/scripts/gh-actions/run-e2e-tests.sh
 
 set -o errexit
 set -o nounset
@@ -29,18 +38,34 @@ source "${PROJECT_ROOT}/kserve-images.sh"
 export GITHUB_SHA="${TAG:-latest}"
 
 echo "Starting E2E functional tests ..."
-MARKER="${1}"
+MARKER="${1:-}"
 PARALLELISM="${2:-1}"
 NETWORK_LAYER="${3:-'istio'}"
 
 echo "Parallelism requested for pytest is ${PARALLELISM}"
 
 source python/kserve/.venv/bin/activate
+
+REPORT_DIR="${ARTIFACT_DIR:-/tmp}"
+mkdir -p "$REPORT_DIR"
+
+PYTEST_COMMON_ARGS=(--ignore=qpext --log-cli-level=INFO -n "$PARALLELISM" --dist worksteal --network-layer "$NETWORK_LAYER" -vv --tb=long -s --junitxml="$REPORT_DIR/junit_e2e.xml" --json-report --json-report-file="$REPORT_DIR/e2e_results.json")
+
+MARKER_ARGS=()
+if [[ -n "$MARKER" ]]; then
+  MARKER_ARGS=(-m "$MARKER")
+fi
+
+PYTEST_EXTRA_ARGS=()
+if [[ -n "${PYTEST_ARGS:-}" ]]; then
+  readarray -t PYTEST_EXTRA_ARGS < <(xargs printf '%s\n' <<< "$PYTEST_ARGS")
+fi
+
 pushd test/e2e >/dev/null
-  if [[ $MARKER == "raw" && $NETWORK_LAYER == "istio-ingress" ]]; then
+  if [[ "$MARKER" == "raw" && "$NETWORK_LAYER" == "istio-ingress" ]]; then
     echo "Skipping explainer tests for raw deployment with ingress"
-    pytest -m "$MARKER" --ignore=qpext --log-cli-level=INFO -n $PARALLELISM --dist worksteal --network-layer $NETWORK_LAYER --ignore=explainer/ -vv --tb=long -s    
+    pytest "${MARKER_ARGS[@]}" "${PYTEST_COMMON_ARGS[@]}" --ignore=explainer/ "${PYTEST_EXTRA_ARGS[@]}"
   else
-    pytest -m "$MARKER" --ignore=qpext --log-cli-level=INFO -n $PARALLELISM --dist worksteal --network-layer $NETWORK_LAYER -vv --tb=long -s
+    pytest "${MARKER_ARGS[@]}" "${PYTEST_COMMON_ARGS[@]}" "${PYTEST_EXTRA_ARGS[@]}"
   fi
 popd
