@@ -45,13 +45,13 @@ Use `autogluon` or `autogluon-timeseries` as `modelFormat.name` in `InferenceSer
 
 ## Run AutoGluon Server Locally
 
-Install the [kserve](../kserve) package first, then from this directory:
+Install the [kserve](../kserve) package first. To install this package’s dependencies for local development, run the following from this directory (same pattern as [sklearnserver](../sklearnserver/README.md)):
 
 ```bash
-uv sync --group test
+make dev_install
 ```
 
-**Note:** The dependency `autogluon.tabular[all]` pulls in CatBoost, which in the current lock file only has wheels for **Python 3.10** on some platforms. If you see an error like *"Distribution catboost can't be installed because it doesn't have a source distribution or wheel for the current platform"*, use Python 3.10 for this project (e.g. `uv venv .venv --python 3.10` then `uv sync --group test`). To install into an already-active virtualenv elsewhere (e.g. the repo root), use `uv sync --active --group test`.
+**Note:** The dependency `autogluon.tabular[all]` pulls in CatBoost, which in the current lock file only has wheels for **Python 3.10** on some platforms. If you see an error like *"Distribution catboost can't be installed because it doesn't have a source distribution or wheel for the current platform"*, use Python 3.10 for this project (e.g. `uv venv .venv --python 3.10`, activate it, then `make dev_install`). To install into an already-active virtualenv elsewhere (e.g. the repo root), use `uv sync --active --group test`.
 
 Check that the server is available:
 
@@ -105,38 +105,40 @@ spec:
 
 Install development dependencies from this directory:
 
-```shell
-uv sync --group test
+```bash
+make dev_install
 ```
 
 Run tests from this directory (discovery is limited to `tests/` via `pyproject.toml`):
 
-```shell
-pytest -W ignore
+```bash
+make test
 ```
 
 Run static type checks:
 
 ```bash
-mypy --ignore-missing-imports autogluonserver
+make type_check
 ```
 
 An empty result from mypy indicates success.
 
 ## Building the AutoGluon Server Docker Image
 
-Build your own image for development or custom deployments. From the `python` directory (one level up from this folder):
+From the **repository root**, use the same Makefile targets as the other predictor images (`KO_DOCKER_REPO` and `AUTOGLUON_IMG` come from `kserve-images.env`; override `TAG` as needed):
 
 ```shell
-docker build -t docker_user_name/autogluonserver:latest -f autogluon.Dockerfile .
+make docker-build-autogluon
+make docker-push-autogluon
 ```
 
 To use a different AutoGluon version, change the version in `autogluonserver/pyproject.toml` (e.g. `autogluon.tabular==1.5.0` and `autogluon.timeseries==1.5.0`) and rebuild with a versioned tag.
 
-Push the image to your registry:
+Equivalent manual build from the `python` directory (replace the image name with your registry and tag):
 
 ```shell
-docker push docker_user_name/autogluonserver:latest
+docker build -t your-registry/autogluonserver:latest -f autogluon.Dockerfile .
+docker push your-registry/autogluonserver:latest
 ```
 
 Update the InferenceService or KServe API configuration to use your image if needed.
