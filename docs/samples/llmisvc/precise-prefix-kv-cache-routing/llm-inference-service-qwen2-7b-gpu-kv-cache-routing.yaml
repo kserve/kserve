@@ -28,17 +28,24 @@ spec:
                   kvBlockIndexConfig:
                     enableMetrics: true                   # Enable Prometheus metrics for KV cache index
                     metricsLoggingInterval: 60000000000   # Log metrics every 60 seconds (in nanoseconds)
-            - type: queue-scorer
             - type: kv-cache-utilization-scorer
+            - type: queue-scorer
+            - type: active-request-scorer
+              parameters:
+                requestTimeout: "2m"
+                idleThreshold: 0        # Pods with ≤0 requests are idle
+                maxBusyScore: 0         # Busy pods score 0, idle pods score 1.0
             - type: max-score-picker
           schedulingProfiles:
             - name: default
               plugins:
-                - pluginRef: queue-scorer
-                  weight: 2
+                - pluginRef: precise-prefix-cache-scorer
+                  weight: 3
                 - pluginRef: kv-cache-utilization-scorer
                   weight: 2
-                - pluginRef: prefix-cache-scorer
+                - pluginRef: queue-scorer
+                  weight: 2
+                - pluginRef: active-request-scorer
                   weight: 3
                 - pluginRef: max-score-picker
     route: { }
