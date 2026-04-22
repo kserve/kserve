@@ -443,19 +443,12 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 				return d, fmt.Errorf("failed to attach model artifacts to scheduler deployment: %w", err)
 			}
 
-			// Mutate scheduler config: inject UDS tokenizer settings.
-			if err := mutateSchedulerConfig(ctx, d, WithUdsTokenizerConfig); err != nil {
+			// Mutate scheduler config: inject UDS tokenizer settings, migrate
+			// tokenProcessorConfig from indexerConfig to top-level parameters, and
+			// rename deprecated blockSize to blockSizeTokens (schema changes in v0.6.0).
+			if err := mutateSchedulerConfig(ctx, d, WithUdsTokenizerConfig, WithMigrateTokenProcessorConfig, WithMigrateBlockSizeToBlockSizeTokens); err != nil {
 				return d, fmt.Errorf("failed to mutate scheduler config: %w", err)
 			}
-		}
-
-		// Pre-v0.7.0 schema migrations: promote fields that moved in v0.6.0.
-		// These are safe to run unconditionally (idempotent, understood by both v0.6 and v0.7 binaries).
-		if err := mutateSchedulerConfig(ctx, d,
-			WithMigrateTokenProcessorConfig,
-			WithMigrateBlockSizeToBlockSizeTokens,
-		); err != nil {
-			return d, fmt.Errorf("failed to migrate scheduler config: %w", err)
 		}
 
 		// v0.7.0 migrations: rename plugins, restructure parameters, remove
