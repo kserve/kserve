@@ -250,7 +250,11 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		llmSvcCfg.Spec.Router.Scheduler.Template.ServiceAccountName = kmeta.ChildName(llmSvc.GetName(), "-epp-sa")
 	}
 
-	llmSvcCfg, err = ReplaceVariables(llmSvc, llmSvcCfg, reconcilerConfig)
+	// Create a temporary service with the merged spec for template rendering.
+	// This ensures Parallelism and other fields from baseRefs are available to templates.
+	tmpSvc := llmSvc.DeepCopy()
+	tmpSvc.Spec = spec
+	llmSvcCfg, err = ReplaceVariables(tmpSvc, llmSvcCfg, reconcilerConfig)
 	if err != nil {
 		return llmSvcCfg, err
 	}
