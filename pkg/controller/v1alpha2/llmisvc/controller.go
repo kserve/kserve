@@ -18,6 +18,7 @@ package llmisvc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"k8s.io/client-go/kubernetes"
@@ -202,6 +203,11 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 	// This includes default configs based on deployment pattern (single node, multi-node, etc.)
 	baseCfg, err := r.combineBaseRefsConfig(ctx, llmSvc, config)
 	if err != nil {
+		var cfgNotFound *configNotFoundError
+		if errors.As(err, &cfgNotFound) {
+			llmSvc.MarkPresetsCombinedNotReady("ConfigNotFound", cfgNotFound.Error())
+			return nil // watch on LLMInferenceServiceConfig re-triggers when the config is recreated
+		}
 		llmSvc.MarkPresetsCombinedNotReady("CombineBaseError", err.Error())
 		return fmt.Errorf("failed to combine base-configurations: %w", err)
 	}
