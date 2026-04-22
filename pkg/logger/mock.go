@@ -14,12 +14,12 @@ limitations under the License.
 package logger
 
 import (
+	"context"
 	"net/url"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager"
 
+	"github.com/kserve/kserve/pkg/agent/storage"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )
 
@@ -51,17 +51,18 @@ func (m MockStore) GetStorageSpec() *v1beta1.StorageSpec {
 var _ Store = &MockStore{}
 
 type MockS3Uploader struct {
-	ReceivedUploadObjectsChan chan s3manager.BatchUploadObject
+	ReceivedUploadObjectsChan chan *transfermanager.UploadObjectInput
 }
 
-func (m *MockS3Uploader) UploadWithIterator(_ aws.Context, iterator s3manager.BatchUploadIterator, _ ...func(*s3manager.Uploader)) error {
+func (m *MockS3Uploader) DownloadObject(_ context.Context, _ *transfermanager.DownloadObjectInput, _ ...func(*transfermanager.Options)) (*transfermanager.DownloadObjectOutput, error) {
+	return &transfermanager.DownloadObjectOutput{}, nil
+}
+
+func (m *MockS3Uploader) UploadObject(_ context.Context, input *transfermanager.UploadObjectInput, _ ...func(*transfermanager.Options)) (*transfermanager.UploadObjectOutput, error) {
 	go func() {
-		for iterator.Next() {
-			obj := iterator.UploadObject()
-			m.ReceivedUploadObjectsChan <- obj
-		}
+		m.ReceivedUploadObjectsChan <- input
 	}()
-	return nil
+	return &transfermanager.UploadObjectOutput{}, nil
 }
 
-var _ s3manageriface.UploadWithIterator = &MockS3Uploader{}
+var _ storage.S3TransferClient = &MockS3Uploader{}

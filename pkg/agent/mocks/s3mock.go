@@ -17,45 +17,48 @@ limitations under the License.
 package mocks
 
 import (
+	"context"
 	"errors"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3iface"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"google.golang.org/protobuf/proto"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
-type MockS3Client struct {
-	s3iface.S3API
-}
+type MockS3Client struct{}
 
-func (m *MockS3Client) ListObjects(*s3.ListObjectsInput) (*s3.ListObjectsOutput, error) {
-	return &s3.ListObjectsOutput{
-		Contents: []*s3.Object{
+func (m *MockS3Client) ListObjectsV2(_ context.Context, _ *s3.ListObjectsV2Input, _ ...func(*s3.Options)) (*s3.ListObjectsV2Output, error) {
+	return &s3.ListObjectsV2Output{
+		Contents: []s3types.Object{
 			{
-				Key: proto.String("model.pt"),
+				Key: aws.String("model.pt"),
 			},
 		},
 	}, nil
 }
 
-type MockS3Downloader struct{}
+type MockS3TransferClient struct{}
 
-func (m *MockS3Downloader) DownloadWithIterator(aws.Context, s3manager.BatchDownloadIterator, ...func(*s3manager.Downloader)) error {
-	return nil
+func (m *MockS3TransferClient) DownloadObject(_ context.Context, _ *transfermanager.DownloadObjectInput, _ ...func(*transfermanager.Options)) (*transfermanager.DownloadObjectOutput, error) {
+	return &transfermanager.DownloadObjectOutput{}, nil
 }
 
-type MockS3FailDownloader struct {
+func (m *MockS3TransferClient) UploadObject(_ context.Context, _ *transfermanager.UploadObjectInput, _ ...func(*transfermanager.Options)) (*transfermanager.UploadObjectOutput, error) {
+	return &transfermanager.UploadObjectOutput{}, nil
+}
+
+type MockS3FailTransferClient struct {
 	Err error
 }
 
-func (m *MockS3FailDownloader) DownloadWithIterator(aws.Context, s3manager.BatchDownloadIterator, ...func(*s3manager.Downloader)) error {
-	errs := make([]s3manager.Error, 0, 1)
-	errs = append(errs, s3manager.Error{
-		OrigErr: errors.New("failed to download"),
-		Bucket:  aws.String("modelRepo"),
-		Key:     aws.String("model1/model.pt"),
-	})
-	return s3manager.NewBatchError("BatchedDownloadIncomplete", "some objects have failed to download.", errs)
+func (m *MockS3FailTransferClient) DownloadObject(_ context.Context, _ *transfermanager.DownloadObjectInput, _ ...func(*transfermanager.Options)) (*transfermanager.DownloadObjectOutput, error) {
+	if m.Err != nil {
+		return nil, m.Err
+	}
+	return nil, errors.New("failed to download")
+}
+
+func (m *MockS3FailTransferClient) UploadObject(_ context.Context, _ *transfermanager.UploadObjectInput, _ ...func(*transfermanager.Options)) (*transfermanager.UploadObjectOutput, error) {
+	return &transfermanager.UploadObjectOutput{}, nil
 }
