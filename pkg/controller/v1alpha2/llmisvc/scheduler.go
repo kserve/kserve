@@ -213,7 +213,11 @@ func (r *LLMISVCReconciler) reconcileV1Alpha2InferencePool(ctx context.Context, 
 }
 
 func (r *LLMISVCReconciler) reconcileSchedulerService(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
-	expected := r.expectedSchedulerService(ctx, llmSvc)
+	expected, err := r.expectedSchedulerService(ctx, llmSvc)
+	if err != nil {
+		llmSvc.MarkSchedulerWorkloadNotReady("SchedulerPortMismatch", err.Error())
+		return err
+	}
 	if utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
 		return Delete(ctx, r, llmSvc, expected)
 	}
@@ -225,8 +229,7 @@ func (r *LLMISVCReconciler) reconcileSchedulerService(ctx context.Context, llmSv
 	return nil
 }
 
-func (r *LLMISVCReconciler) expectedSchedulerService(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) *corev1.Service {
-	logger := log.FromContext(ctx)
+func (r *LLMISVCReconciler) expectedSchedulerService(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*corev1.Service, error) {
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      llmSvc.Spec.Router.EPPServiceName(llmSvc),
@@ -255,9 +258,9 @@ func (r *LLMISVCReconciler) expectedSchedulerService(ctx context.Context, llmSvc
 			}
 		}
 
-		if len(desiredPorts) != len(actualPorts) {
-			// TODO should this be raised as failing condition? + check if grpc port matches what's defined in the inferencepool
-			logger.Info("some ports are not matching", "desired", desiredPorts, "actual", maps.Keys(actualPorts))
+		missingPorts := desiredPorts.Difference(sets.KeySet(actualPorts))
+		if missingPorts.Len() > 0 {
+			return nil, fmt.Errorf("scheduler container is missing required ports: %v", missingPorts.UnsortedList())
 		}
 
 		servicePorts := make([]corev1.ServicePort, 0, len(actualPorts))
@@ -279,7 +282,7 @@ func (r *LLMISVCReconciler) expectedSchedulerService(ctx context.Context, llmSvc
 
 	log.FromContext(ctx).V(2).Info("Expected router EPP service", "service", svc)
 
-	return svc
+	return svc, nil
 }
 
 func (r *LLMISVCReconciler) expectedSchedulerInferencePool(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) *igwapi.InferencePool {
