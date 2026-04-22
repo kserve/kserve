@@ -21272,6 +21272,23 @@ spec:
                 additionalProperties:
                   type: string
                 type: object
+              appliedConfigs:
+                items:
+                  properties:
+                    name:
+                      minLength: 1
+                      type: string
+                    source:
+                      enum:
+                      - WellKnown
+                      - BaseRef
+                      type: string
+                  required:
+                  - name
+                  - source
+                  type: object
+                type: array
+                x-kubernetes-list-type: atomic
               conditions:
                 items:
                   properties:

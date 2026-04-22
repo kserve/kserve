@@ -164,6 +164,68 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			})).WithContext(ctx).Should(Succeed())
 		})
 
+		It("should populate status.appliedConfigs with well-known and explicit configs", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-applied-configs"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithModelName("facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithBaseRefs(corev1.LocalObjectReference{Name: "my-custom-override"}),
+			)
+
+			// Create the custom override config
+			customCfg := &v1alpha2.LLMInferenceServiceConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-custom-override",
+					Namespace: testNs.Name,
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{},
+			}
+			Expect(envTest.Create(ctx, customCfg)).To(Succeed())
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then
+			Eventually(LLMInferenceServiceIsReady(llmSvc, func(g Gomega, current *v1alpha2.LLMInferenceService) {
+				g.Expect(current.Status.AppliedConfigs).NotTo(BeEmpty())
+
+				// Verify well-known configs appear first
+				var wellKnownCount int
+				for _, ac := range current.Status.AppliedConfigs {
+					if ac.Source == v1alpha2.AppliedConfigSourceWellKnown {
+						wellKnownCount++
+					}
+				}
+				g.Expect(wellKnownCount).To(BeNumerically(">", 0), "should have at least one well-known config")
+
+				// Verify explicit BaseRef appears last
+				last := current.Status.AppliedConfigs[len(current.Status.AppliedConfigs)-1]
+				g.Expect(last.Name).To(Equal("my-custom-override"))
+				g.Expect(last.Source).To(Equal(v1alpha2.AppliedConfigSourceBaseRef))
+
+				// Verify ordering: all WellKnown before all BaseRef
+				seenBaseRef := false
+				for _, ac := range current.Status.AppliedConfigs {
+					if ac.Source == v1alpha2.AppliedConfigSourceBaseRef {
+						seenBaseRef = true
+					}
+					if seenBaseRef {
+						g.Expect(ac.Source).To(Equal(v1alpha2.AppliedConfigSourceBaseRef),
+							"well-known config %q appeared after a BaseRef", ac.Name)
+					}
+				}
+			})).WithContext(ctx).Should(Succeed())
+		})
+
 		It("should preserve pinned config annotations across reconciliations", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-pinning-stable"

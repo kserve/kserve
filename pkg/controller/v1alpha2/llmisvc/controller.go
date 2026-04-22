@@ -200,17 +200,18 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 
 	// Combine base configurations with service-specific overrides
 	// This includes default configs based on deployment pattern (single node, multi-node, etc.)
-	baseCfg, err := r.combineBaseRefsConfig(ctx, llmSvc, config)
+	result, err := r.combineBaseRefsConfig(ctx, llmSvc, config)
 	if err != nil {
 		llmSvc.MarkPresetsCombinedNotReady("CombineBaseError", err.Error())
 		return fmt.Errorf("failed to combine base-configurations: %w", err)
 	}
 	llmSvc.MarkPresetsCombinedReady()
+	llmSvc.Status.AppliedConfigs = result.AppliedRefs
 
-	logger.V(2).Info("Reconciling with combined base configurations", "combined.spec", baseCfg.Spec, "original.spec", llmSvc.Spec)
+	logger.V(2).Info("Reconciling with combined base configurations", "combined.spec", result.Config.Spec, "original.spec", llmSvc.Spec)
 	// Replace the spec with the merged configuration for reconciliation
 	// We are only writing to status, so we can safely use the original object.
-	llmSvc.Spec = baseCfg.Spec
+	llmSvc.Spec = result.Config.Spec
 
 	if err := r.reconcileWorkload(ctx, llmSvc, config); err != nil {
 		return fmt.Errorf("failed to reconcile workload: %w", err)
@@ -340,19 +341,19 @@ func (r *LLMISVCReconciler) enqueueOnGatewayChange(logger logr.Logger) handler.E
 			for _, llmSvc := range llmSvcList.Items {
 				// Use a deep copy to avoid modifying the original object
 				llmSvcCopy := llmSvc.DeepCopy()
-				combinedCfg, err := r.combineBaseRefsConfig(ctx, llmSvcCopy, cfg)
+				result, err := r.combineBaseRefsConfig(ctx, llmSvcCopy, cfg)
 				if err != nil {
 					logger.Error(err, "Failed to combine base refs config", "llmSvc", llmSvc.Name)
 					continue
 				}
 
 				// Skip services that don't use gateways
-				if combinedCfg.Spec.Router == nil || combinedCfg.Spec.Router.Gateway == nil {
+				if result.Config.Spec.Router == nil || result.Config.Spec.Router.Gateway == nil {
 					continue
 				}
 
 				// Check if service uses the global default gateway
-				if !combinedCfg.Spec.Router.Gateway.HasRefs() && sub.Name == cfg.IngressGatewayName && sub.Namespace == cfg.IngressGatewayNamespace {
+				if !result.Config.Spec.Router.Gateway.HasRefs() && sub.Name == cfg.IngressGatewayName && sub.Namespace == cfg.IngressGatewayNamespace {
 					reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
 						Namespace: llmSvc.Namespace,
 						Name:      llmSvc.Name,
@@ -361,7 +362,7 @@ func (r *LLMISVCReconciler) enqueueOnGatewayChange(logger logr.Logger) handler.E
 				}
 
 				// Check if service explicitly references this gateway
-				for _, ref := range combinedCfg.Spec.Router.Gateway.Refs {
+				for _, ref := range result.Config.Spec.Router.Gateway.Refs {
 					if string(ref.Name) == sub.Name && string(ref.Namespace) == sub.Namespace {
 						reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
 							Namespace: llmSvc.Namespace,
@@ -410,19 +411,19 @@ func (r *LLMISVCReconciler) enqueueOnHttpRouteChange(logger logr.Logger) handler
 			for _, llmSvc := range llmSvcList.Items {
 				// Use a deep copy to avoid modifying the original object
 				llmSvcCopy := llmSvc.DeepCopy()
-				combinedCfg, err := r.combineBaseRefsConfig(ctx, llmSvcCopy, cfg)
+				result, err := r.combineBaseRefsConfig(ctx, llmSvcCopy, cfg)
 				if err != nil {
 					logger.Error(err, "Failed to combine base refs config", "llmSvc", llmSvc.Name)
 					continue
 				}
 
 				// Skip services that don't use HTTPRoute refs
-				if combinedCfg.Spec.Router == nil || combinedCfg.Spec.Router.Route == nil || !combinedCfg.Spec.Router.Route.HTTP.HasRefs() {
+				if result.Config.Spec.Router == nil || result.Config.Spec.Router.Route == nil || !result.Config.Spec.Router.Route.HTTP.HasRefs() {
 					continue
 				}
 
 				// Check if service explicitly references this HTTPRoute
-				for _, ref := range combinedCfg.Spec.Router.Route.HTTP.Refs {
+				for _, ref := range result.Config.Spec.Router.Route.HTTP.Refs {
 					if ref.Name == sub.Name && sub.Namespace == llmSvc.Namespace {
 						reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
 							Namespace: llmSvc.Namespace,
@@ -468,8 +469,7 @@ func (r *LLMISVCReconciler) enqueueOnLLMInferenceServiceConfigChange(logger logr
 				return reqs
 			}
 			for _, llmSvc := range llmSvcList.Items {
-				// Check if this is a well-known config template that services automatically inherit
-				if WellKnownDefaultConfigs.Has(sub.Name) && (sub.Namespace == constants.KServeNamespace || sub.Namespace == llmSvc.Namespace) {
+				if llmSvc.IsUsingLLMInferenceServiceConfig(sub.Name) {
 					reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
 						Namespace: llmSvc.Namespace,
 						Name:      llmSvc.Name,
@@ -477,13 +477,15 @@ func (r *LLMISVCReconciler) enqueueOnLLMInferenceServiceConfigChange(logger logr
 					continue
 				}
 
-				// Check if service explicitly references this config or uses it via versioned config resolution
-				if llmSvc.IsUsingLLMInferenceServiceConfig(sub.Name) {
+				// Fallback for services not yet reconciled: if appliedConfigs is empty,
+				// check well-known config membership to avoid missing enqueue.
+				if len(llmSvc.Status.AppliedConfigs) == 0 &&
+					WellKnownDefaultConfigs.Has(sub.Name) &&
+					(sub.Namespace == constants.KServeNamespace || sub.Namespace == llmSvc.Namespace) {
 					reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
 						Namespace: llmSvc.Namespace,
 						Name:      llmSvc.Name,
 					}})
-					continue
 				}
 			}
 
@@ -526,17 +528,17 @@ func (r *LLMISVCReconciler) enqueueOnConfigMapChange(logger logr.Logger) handler
 
 		for _, llmSvc := range llmSvcList.Items {
 			// Use WithSkipClearSchedulerConfigRef to preserve the Ref for matching
-			resolved, err := r.combineBaseRefsConfig(ctx, &llmSvc, cfg, WithSkipClearSchedulerConfigRef())
+			result, err := r.combineBaseRefsConfig(ctx, &llmSvc, cfg, WithSkipClearSchedulerConfigRef())
 			if err != nil {
 				logger.Error(err, "Failed to combine baseRefs config", "namespace", llmSvc.Namespace, "name", llmSvc.Name)
 				continue
 			}
 
-			if resolved.Spec.Router == nil ||
-				resolved.Spec.Router.Scheduler == nil ||
-				resolved.Spec.Router.Scheduler.Config == nil ||
-				resolved.Spec.Router.Scheduler.Config.Ref == nil ||
-				resolved.Spec.Router.Scheduler.Config.Ref.Name != sub.Name {
+			if result.Config.Spec.Router == nil ||
+				result.Config.Spec.Router.Scheduler == nil ||
+				result.Config.Spec.Router.Scheduler.Config == nil ||
+				result.Config.Spec.Router.Scheduler.Config.Ref == nil ||
+				result.Config.Spec.Router.Scheduler.Config.Ref.Name != sub.Name {
 				continue
 			}
 
