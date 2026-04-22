@@ -25,3 +25,4 @@ spec:
     - regex: "https://(.+?).file.core.windows.net/(.+)"
     - regex: "https?://(.+)/(.+)"
   workloadType: initContainer
+  supportsMultiModelDownload: true

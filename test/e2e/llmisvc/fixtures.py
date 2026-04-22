@@ -751,6 +751,19 @@ LLMINFERENCESERVICE_CONFIGS = {
             },
         },
     },
+    "router-with-gateway-section-name": {
+        "router": {
+            "gateway": {
+                "refs": [
+                    {
+                        "name": "router-gateway-1",
+                        "namespace": KSERVE_TEST_NAMESPACE,
+                        "sectionName": "http",
+                    },
+                ],
+            },
+        },
+    },
     "router-with-gateway-ref": {
         "router": {
             "gateway": {

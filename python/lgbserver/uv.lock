@@ -1039,7 +1039,7 @@ wheels = [
 
 [[package]]
 name = "kserve"
-version = "0.17.0"
+version = "0.18.0rc1"
 source = { directory = "../kserve" }
 dependencies = [
     { name = "aiohttp" },
@@ -1058,6 +1058,7 @@ dependencies = [
     { name = "prometheus-client" },
     { name = "protobuf" },
     { name = "psutil" },
+    { name = "pyasn" },
     { name = "pydantic" },
     { name = "pyjwt" },
     { name = "python-dateutil" },
@@ -1091,6 +1092,7 @@ requires-dist = [
     { name = "prometheus-client", specifier = ">=0.20.0,<1.0.0" },
     { name = "protobuf", specifier = ">=6.33.5,<7.0.0" },
     { name = "psutil", specifier = ">=5.9.6,<6.0.0" },
+    { name = "pyasn", specifier = ">=0.6.3" },
     { name = "pydantic", specifier = ">=2.5.0,<3.0.0" },
     { name = "pyjwt", specifier = ">=2.12.0" },
     { name = "python-dateutil", specifier = ">=2.8.0,<3.0.0" },
@@ -1128,7 +1130,7 @@ test = [
 
 [[package]]
 name = "kserve-storage"
-version = "0.17.0"
+version = "0.18.0rc1"
 source = { directory = "../storage" }
 dependencies = [
     { name = "aiohttp" },
@@ -1141,6 +1143,7 @@ dependencies = [
     { name = "google-cloud-storage" },
     { name = "huggingface-hub", extra = ["hf-transfer"] },
     { name = "modelscope" },
+    { name = "pyasn" },
     { name = "pyjwt" },
     { name = "requests" },
 ]
@@ -1157,6 +1160,7 @@ requires-dist = [
     { name = "google-cloud-storage", specifier = ">=2.14.0,<3.0.0" },
     { name = "huggingface-hub", extras = ["hf-transfer"], specifier = ">=0.32.0" },
     { name = "modelscope", specifier = ">=1.16.0" },
+    { name = "pyasn", specifier = ">=0.6.3" },
     { name = "pyjwt", specifier = ">=2.12.0" },
     { name = "requests", specifier = ">=2.32.2,<3.0.0" },
 ]
@@ -1185,7 +1189,7 @@ wheels = [
 
 [[package]]
 name = "lgbserver"
-version = "0.17.0"
+version = "0.18.0rc1"
 source = { virtual = "." }
 dependencies = [
     { name = "kserve" },
@@ -1246,7 +1250,7 @@ scikit-learn = [
 
 [[package]]
 name = "modelscope"
-version = "1.35.3"
+version = "1.36.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "filelock" },
@@ -1256,9 +1260,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/cc/d9/015d658b1c86f4ca380fb5f1aebf2a74528e8277af305b12ee4b09af004a/modelscope-1.35.3.tar.gz", hash = "sha256:502168541da4a261f94d9d4f491348888fd439f564fd79444bcf4e73f17fe669", size = 4566444, upload-time = "2026-03-27T07:33:33.506Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a0/06/60c648bc11195e1421a27e401673e6170eca9765be71da53f72a4274eed3/modelscope-1.36.1.tar.gz", hash = "sha256:7c175a7056259663ab1901ebe4d8338de415a40b25ea7bb556f7be40ece63d60", size = 4578481, upload-time = "2026-04-21T08:18:53.589Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0c/ca/52378c0ae37a77afd1bd48ad2d01a1638ae1192be7bfad31da3359306df9/modelscope-1.35.3-py3-none-any.whl", hash = "sha256:e3f2f14c156d790d65d630279ca7e316d834645dac1066d78383a59160515d9c", size = 6059875, upload-time = "2026-03-27T07:33:30.326Z" },
+    { url = "https://files.pythonhosted.org/packages/23/12/6c02d0c9a8e7f35c91b5f9c14b184fbec26f290b7314cb1cb98b3d4bf4df/modelscope-1.36.1-py3-none-any.whl", hash = "sha256:9286bfadd20b4c5bbe453f108abe13092200075df04ba1d5119c796704821cf4", size = 6073184, upload-time = "2026-04-21T08:18:49.006Z" },
 ]
 
 [[package]]
@@ -1664,6 +1668,12 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/93/52/3e39d26feae7df0aa0fd510b14012c3678b36ed068f7d78b8d8784d61f0e/psutil-5.9.8-cp37-abi3-win_amd64.whl", hash = "sha256:8db4c1b57507eef143a15a6884ca10f7c73876cdf5d51e713151c1236a0e68cf", size = 255090, upload-time = "2024-01-19T20:47:56.019Z" },
     { url = "https://files.pythonhosted.org/packages/05/33/2d74d588408caedd065c2497bdb5ef83ce6082db01289a1e1147f6639802/psutil-5.9.8-cp38-abi3-macosx_11_0_arm64.whl", hash = "sha256:d16bbddf0693323b8c6123dd804100241da461e41d6e332fb0ba6058f630f8c8", size = 249898, upload-time = "2024-01-19T20:47:59.238Z" },
 ]
+
+[[package]]
+name = "pyasn"
+version = "1.6.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a1/55/881259e00d62ac11713567ada5152b0ad3a744e9f12d5d1f115d40bf17d9/pyasn-1.6.2.tar.gz", hash = "sha256:a2d55fb3ee47947609f50211ca5b0bac411a86f3c935fb92ca4b0b8ab7c668ff", size = 49132, upload-time = "2023-09-01T14:47:24.219Z" }
 
 [[package]]
 name = "pyasn1"

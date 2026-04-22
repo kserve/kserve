@@ -556,7 +556,7 @@ func TestMergeSpecs(t *testing.T) {
 							},
 						},
 						Gateway: &v1alpha2.GatewaySpec{
-							Refs: []v1alpha2.UntypedObjectReference{{Name: "my-gateway"}},
+							Refs: []v1alpha2.GatewayObjectReference{{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "my-gateway"}}},
 						},
 					},
 				},
@@ -568,7 +568,7 @@ func TestMergeSpecs(t *testing.T) {
 							},
 						},
 						Gateway: &v1alpha2.GatewaySpec{
-							Refs: []v1alpha2.UntypedObjectReference{{Name: "my-second-gateway"}},
+							Refs: []v1alpha2.GatewayObjectReference{{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "my-second-gateway"}}},
 						},
 					},
 				},
@@ -645,7 +645,7 @@ func TestMergeSpecs(t *testing.T) {
 						},
 					},
 					Gateway: &v1alpha2.GatewaySpec{
-						Refs: []v1alpha2.UntypedObjectReference{{Name: "my-second-gateway"}},
+						Refs: []v1alpha2.GatewayObjectReference{{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "my-second-gateway"}}},
 					},
 					Scheduler: &v1alpha2.SchedulerSpec{
 						Pool: &v1alpha2.InferencePoolSpec{
@@ -942,7 +942,7 @@ func TestMergeSpecs(t *testing.T) {
 					},
 					Router: &v1alpha2.RouterSpec{
 						Gateway: &v1alpha2.GatewaySpec{
-							Refs: []v1alpha2.UntypedObjectReference{{Name: "base-gw"}},
+							Refs: []v1alpha2.GatewayObjectReference{{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "base-gw"}}},
 						},
 					},
 				},
@@ -991,7 +991,7 @@ func TestMergeSpecs(t *testing.T) {
 				},
 				Router: &v1alpha2.RouterSpec{
 					Gateway: &v1alpha2.GatewaySpec{
-						Refs: []v1alpha2.UntypedObjectReference{{Name: "base-gw"}},
+						Refs: []v1alpha2.GatewayObjectReference{{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "base-gw"}}},
 					},
 					Route: &v1alpha2.GatewayRoutesSpec{
 						HTTP: &v1alpha2.HTTPRouteSpec{
@@ -1537,8 +1537,8 @@ func TestReplaceVariables(t *testing.T) {
 							},
 						},
 						Gateway: &v1alpha2.GatewaySpec{
-							Refs: []v1alpha2.UntypedObjectReference{
-								{Name: "{{ .Name }}-gateway", Namespace: "{{ .Namespace }}"},
+							Refs: []v1alpha2.GatewayObjectReference{
+								{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "{{ .Name }}-gateway", Namespace: "{{ .Namespace }}"}},
 							},
 						},
 					},
@@ -1561,8 +1561,8 @@ func TestReplaceVariables(t *testing.T) {
 							},
 						},
 						Gateway: &v1alpha2.GatewaySpec{
-							Refs: []v1alpha2.UntypedObjectReference{
-								{Name: "router-test-gateway", Namespace: "routing-ns"},
+							Refs: []v1alpha2.GatewayObjectReference{
+								{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "router-test-gateway", Namespace: "routing-ns"}},
 							},
 						},
 					},
@@ -1767,13 +1767,13 @@ spec:
 func TestToParentRefs(t *testing.T) {
 	tests := []struct {
 		name string
-		refs []v1alpha2.UntypedObjectReference
+		refs []v1alpha2.GatewayObjectReference
 		want []gwapiv1.ParentReference
 	}{
 		{
 			name: "single gateway ref",
-			refs: []v1alpha2.UntypedObjectReference{
-				{Name: "my-gateway", Namespace: "my-ns"},
+			refs: []v1alpha2.GatewayObjectReference{
+				{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "my-gateway", Namespace: "my-ns"}},
 			},
 			want: []gwapiv1.ParentReference{
 				{
@@ -1786,9 +1786,9 @@ func TestToParentRefs(t *testing.T) {
 		},
 		{
 			name: "multiple gateway refs",
-			refs: []v1alpha2.UntypedObjectReference{
-				{Name: "gw-1", Namespace: "ns-1"},
-				{Name: "gw-2", Namespace: "ns-2"},
+			refs: []v1alpha2.GatewayObjectReference{
+				{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "gw-1", Namespace: "ns-1"}},
+				{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "gw-2", Namespace: "ns-2"}},
 			},
 			want: []gwapiv1.ParentReference{
 				{
@@ -1807,8 +1807,8 @@ func TestToParentRefs(t *testing.T) {
 		},
 		{
 			name: "gateway ref with empty namespace",
-			refs: []v1alpha2.UntypedObjectReference{
-				{Name: "my-gateway", Namespace: ""},
+			refs: []v1alpha2.GatewayObjectReference{
+				{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "my-gateway", Namespace: ""}},
 			},
 			want: []gwapiv1.ParentReference{
 				{
@@ -1821,13 +1821,57 @@ func TestToParentRefs(t *testing.T) {
 		},
 		{
 			name: "empty refs returns empty slice",
-			refs: []v1alpha2.UntypedObjectReference{},
+			refs: []v1alpha2.GatewayObjectReference{},
 			want: []gwapiv1.ParentReference{},
 		},
 		{
 			name: "nil refs returns empty slice",
 			refs: nil,
 			want: []gwapiv1.ParentReference{},
+		},
+		{
+			name: "gateway ref with sectionName targets specific listener",
+			refs: []v1alpha2.GatewayObjectReference{
+				{
+					UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "shared-gateway", Namespace: "gw-ns"},
+					SectionName:            ptr.To(gwapiv1.SectionName("https")),
+				},
+			},
+			want: []gwapiv1.ParentReference{
+				{
+					Name:        "shared-gateway",
+					Namespace:   ptr.To(gwapiv1.Namespace("gw-ns")),
+					Group:       ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
+					Kind:        ptr.To(gwapiv1.Kind("Gateway")),
+					SectionName: ptr.To(gwapiv1.SectionName("https")),
+				},
+			},
+		},
+		{
+			name: "mixed refs - with and without sectionName",
+			refs: []v1alpha2.GatewayObjectReference{
+				{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "gw-all", Namespace: "ns-1"}},
+				{
+					UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "gw-specific", Namespace: "ns-2"},
+					SectionName:            ptr.To(gwapiv1.SectionName("http")),
+				},
+			},
+			want: []gwapiv1.ParentReference{
+				{
+					Name:        "gw-all",
+					Namespace:   ptr.To(gwapiv1.Namespace("ns-1")),
+					Group:       ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
+					Kind:        ptr.To(gwapiv1.Kind("Gateway")),
+					SectionName: nil,
+				},
+				{
+					Name:        "gw-specific",
+					Namespace:   ptr.To(gwapiv1.Namespace("ns-2")),
+					Group:       ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
+					Kind:        ptr.To(gwapiv1.Kind("Gateway")),
+					SectionName: ptr.To(gwapiv1.SectionName("http")),
+				},
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -1877,8 +1921,8 @@ func TestParentRefRewritingGuard(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			gateway := &v1alpha2.GatewaySpec{}
 			if tt.gatewayHasRefs {
-				gateway.Refs = []v1alpha2.UntypedObjectReference{
-					{Name: "my-gw", Namespace: "my-ns"},
+				gateway.Refs = []v1alpha2.GatewayObjectReference{
+					{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "my-gw", Namespace: "my-ns"}},
 				}
 			}
 

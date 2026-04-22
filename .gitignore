@@ -80,3 +80,6 @@ istio-*
 .worktrees/
 
 CLAUDE.local.md
+
+# bkit
+.bkit/

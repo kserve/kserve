@@ -374,9 +374,12 @@ func convertRouterSpecToV1Alpha2(src *RouterSpec) *v1alpha2.RouterSpec {
 	if src.Gateway != nil {
 		dst.Gateway = &v1alpha2.GatewaySpec{}
 		for _, ref := range src.Gateway.Refs {
-			dst.Gateway.Refs = append(dst.Gateway.Refs, v1alpha2.UntypedObjectReference{
-				Name:      ref.Name,
-				Namespace: ref.Namespace,
+			dst.Gateway.Refs = append(dst.Gateway.Refs, v1alpha2.GatewayObjectReference{
+				UntypedObjectReference: v1alpha2.UntypedObjectReference{
+					Name:      ref.Name,
+					Namespace: ref.Namespace,
+				},
+				SectionName: ref.SectionName,
 			})
 		}
 	}
@@ -455,9 +458,12 @@ func convertRouterSpecFromV1Alpha2(src *v1alpha2.RouterSpec) *RouterSpec {
 	if src.Gateway != nil {
 		dst.Gateway = &GatewaySpec{}
 		for _, ref := range src.Gateway.Refs {
-			dst.Gateway.Refs = append(dst.Gateway.Refs, UntypedObjectReference{
-				Name:      ref.Name,
-				Namespace: ref.Namespace,
+			dst.Gateway.Refs = append(dst.Gateway.Refs, GatewayObjectReference{
+				UntypedObjectReference: UntypedObjectReference{
+					Name:      ref.Name,
+					Namespace: ref.Namespace,
+				},
+				SectionName: ref.SectionName,
 			})
 		}
 	}
