@@ -19,6 +19,7 @@ package llmisvc
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -210,6 +211,19 @@ func routingSidecar(pod *corev1.PodSpec) *corev1.Container {
 		}
 	}
 	return nil
+}
+
+// migrateRoutingSidecarCommand renames the deprecated --connector flag to
+// --kv-connector in the sidecar's Command slice. Handles both --connector=value
+// and --connector value forms. Idempotent: no-op if --kv-connector is already used.
+func migrateRoutingSidecarCommand(s *corev1.Container) {
+	for i, arg := range s.Command {
+		if arg == "--connector" && i+1 < len(s.Command) {
+			s.Command[i] = "--kv-connector"
+		} else if strings.HasPrefix(arg, "--connector=") {
+			s.Command[i] = "--kv-connector=" + strings.TrimPrefix(arg, "--connector=")
+		}
+	}
 }
 
 // PreserveDeploymentReplicas returns an UpdateOption that preserves the current

@@ -142,6 +142,7 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 			}
 			d.Spec.Template.Spec.ServiceAccountName = serviceAccount.GetName()
 			s := routingSidecar(&d.Spec.Template.Spec)
+			migrateRoutingSidecarCommand(s)
 			if llmSvc.Spec.Router != nil {
 				s.Env = append(s.Env, corev1.EnvVar{
 					Name:      "INFERENCE_POOL_NAME",

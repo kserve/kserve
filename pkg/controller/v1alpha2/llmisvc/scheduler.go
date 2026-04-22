@@ -23,7 +23,9 @@ import (
 	"path"
 	"slices"
 	"sort"
+	"strings"
 
+	"github.com/coreos/go-semver/semver"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -52,6 +54,7 @@ const (
 
 	precisePrefixCacheScorerPlugin = "precise-prefix-cache-scorer"
 	prefixCacheScorerPlugin        = "prefix-cache-scorer"
+	coreMetricsExtractorPlugin     = "core-metrics-extractor"
 	udsTokenizerBaseModelName      = "base"
 	udsTokenizerSocketFile         = "/tmp/tokenizer/tokenizer-uds.socket" //nolint:gosec // G101: not a credential, UDS socket path
 )
@@ -367,6 +370,8 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 		},
 	}
 
+	r.propagateSchedulerMetadata(llmSvc, d)
+
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Template != nil {
 		curr := &appsv1.Deployment{}
 		if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
@@ -438,16 +443,43 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 				return d, fmt.Errorf("failed to attach model artifacts to scheduler deployment: %w", err)
 			}
 
-			// Mutate scheduler config: inject UDS tokenizer settings, migrate
-			// tokenProcessorConfig from indexerConfig to top-level parameters, and
-			// rename deprecated blockSize to blockSizeTokens (schema changes in v0.6.0).
-			if err := mutateSchedulerConfig(ctx, d, WithUdsTokenizerConfig, WithMigrateTokenProcessorConfig, WithMigrateBlockSizeToBlockSizeTokens); err != nil {
+			// Mutate scheduler config: inject UDS tokenizer settings.
+			if err := mutateSchedulerConfig(ctx, d, WithUdsTokenizerConfig); err != nil {
 				return d, fmt.Errorf("failed to mutate scheduler config: %w", err)
 			}
 		}
-	}
 
-	r.propagateSchedulerMetadata(llmSvc, d)
+		// Pre-v0.7.0 schema migrations: promote fields that moved in v0.6.0.
+		// These are safe to run unconditionally (idempotent, understood by both v0.6 and v0.7 binaries).
+		if err := mutateSchedulerConfig(ctx, d,
+			WithMigrateTokenProcessorConfig,
+			WithMigrateBlockSizeToBlockSizeTokens,
+		); err != nil {
+			return d, fmt.Errorf("failed to migrate scheduler config: %w", err)
+		}
+
+		// v0.7.0 migrations: rename plugins, restructure parameters, remove
+		// deprecated fields, strip CLI flags and inject core-metrics-extractor.
+		// These are version-gated because the v0.6 binary would reject the new
+		// plugin names/parameters (strict plugin registry validation at startup).
+		if err := schedulerTransform(d,
+			migrateSchedulerConfig(ctx,
+				WithRenamePlugin("prefill-header-handler", "disagg-headers-handler"),
+				WithRenamePlugin("pd-profile-handler", "disagg-profile-handler"),
+				WithMigrateDisaggProfileParams,
+				WithRemoveHashBlockSize,
+			),
+			removeSchedulerArg(ctx,
+				"total-queued-requests-metric",
+				"total-running-requests-metric",
+				"kv-cache-usage-percentage-metric",
+				"lora-info-metric",
+				"cache-info-metric",
+			),
+		); err != nil {
+			return d, fmt.Errorf("failed to apply v0.7.0 scheduler migrations: %w", err)
+		}
+	}
 
 	log.FromContext(ctx).V(2).Info("Expected router scheduler deployment", "deployment", d)
 
@@ -478,16 +510,17 @@ func schedulerConfigText(llmSvc *v1alpha2.LLMInferenceService) string {
 apiVersion: inference.networking.x-k8s.io/v1alpha1
 kind: EndpointPickerConfig
 plugins:
-- type: prefill-header-handler
+- type: disagg-headers-handler
 - type: prefill-filter
 - type: decode-filter
 - type: queue-scorer
 - type: prefix-cache-scorer
 - type: max-score-picker
 - type: always-disagg-pd-decider
-- type: pd-profile-handler
+- type: disagg-profile-handler
   parameters:
-    deciderPluginName: always-disagg-pd-decider
+    deciders:
+      always-disagg-pd-decider: {}
 schedulingProfiles:
 - name: prefill
   plugins:
@@ -904,6 +937,283 @@ func WithMigrateBlockSizeToBlockSizeTokens(ctx context.Context, u *unstructured.
 	}
 
 	return nil
+}
+
+// WithRenamePlugin returns a mutateSchedulerConfigFunc that renames a plugin
+// type in the plugins array and updates matching pluginRef entries in
+// schedulingProfiles. This handles plugin renames across scheduler versions.
+func WithRenamePlugin(oldType, newType string) mutateSchedulerConfigFunc {
+	return func(_ context.Context, u *unstructured.Unstructured) error {
+		val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
+		if err != nil || !found {
+			return err
+		}
+		plugins, ok := val.([]interface{})
+		if !ok {
+			return nil
+		}
+
+		for _, plugin := range plugins {
+			pluginMap, ok := plugin.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			if pluginMap["type"] == oldType {
+				pluginMap["type"] = newType
+			}
+			if pluginMap["name"] == oldType {
+				pluginMap["name"] = newType
+			}
+		}
+
+		profiles, found, err := unstructured.NestedFieldNoCopy(u.Object, "schedulingProfiles")
+		if err != nil || !found {
+			return err
+		}
+		profileList, ok := profiles.([]interface{})
+		if !ok {
+			return nil
+		}
+		for _, profile := range profileList {
+			profileMap, ok := profile.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			pluginRefs, found, _ := unstructured.NestedFieldNoCopy(profileMap, "plugins")
+			if !found {
+				continue
+			}
+			refList, ok := pluginRefs.([]interface{})
+			if !ok {
+				continue
+			}
+			for _, ref := range refList {
+				refMap, ok := ref.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				if refMap["pluginRef"] == oldType {
+					refMap["pluginRef"] = newType
+				}
+			}
+		}
+
+		return nil
+	}
+}
+
+// WithMigrateDisaggProfileParams migrates the disagg-profile-handler (formerly
+// pd-profile-handler) from the old flat deciderPluginName parameter to the new
+// deciders map structure introduced in llm-d-inference-scheduler v0.7.0.
+func WithMigrateDisaggProfileParams(ctx context.Context, u *unstructured.Unstructured) error {
+	val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
+	if err != nil || !found {
+		return err
+	}
+	plugins, ok := val.([]interface{})
+	if !ok {
+		return nil
+	}
+
+	for _, plugin := range plugins {
+		pluginMap, ok := plugin.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		pluginType, _ := pluginMap["type"].(string)
+		if pluginType != "disagg-profile-handler" && pluginType != "pd-profile-handler" {
+			continue
+		}
+
+		if _, exists, _ := unstructured.NestedFieldNoCopy(pluginMap, "parameters", "deciders"); exists {
+			log.FromContext(ctx).V(2).Info("deciders map already present, skipping disagg-profile-handler migration")
+			continue
+		}
+
+		deciderName, found, err := unstructured.NestedString(pluginMap, "parameters", "deciderPluginName")
+		if err != nil || !found {
+			continue
+		}
+
+		log.FromContext(ctx).Info("Migrating deciderPluginName to deciders map for disagg-profile-handler", "deciderPluginName", deciderName)
+		deciders := map[string]interface{}{
+			deciderName: map[string]interface{}{},
+		}
+		if err := unstructured.SetNestedField(pluginMap, deciders, "parameters", "deciders"); err != nil {
+			return err
+		}
+		unstructured.RemoveNestedField(pluginMap, "parameters", "deciderPluginName")
+	}
+
+	return nil
+}
+
+// WithRemoveHashBlockSize removes the deprecated hashBlockSize field from
+// all plugin parameters. This field was removed in llm-d-inference-scheduler v0.7.0.
+func WithRemoveHashBlockSize(_ context.Context, u *unstructured.Unstructured) error {
+	val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
+	if err != nil || !found {
+		return err
+	}
+	plugins, ok := val.([]interface{})
+	if !ok {
+		return nil
+	}
+
+	for _, plugin := range plugins {
+		pluginMap, ok := plugin.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		unstructured.RemoveNestedField(pluginMap, "parameters", "hashBlockSize")
+	}
+
+	return nil
+}
+
+// TransformDeployment is a version-aware transformation function for scheduler
+// Deployments. It receives the parsed scheduler version from the pod template
+// annotation and decides whether to apply changes.
+type TransformDeployment func(curr semver.Version, d *appsv1.Deployment) error
+
+// schedulerTransform reads the app.kubernetes.io/version annotation from the
+// Deployment's pod template and runs each transformation with the parsed version.
+// If no annotation is present, the version defaults to 0.0.0 (skip all gated transforms).
+func schedulerTransform(d *appsv1.Deployment, transformations ...TransformDeployment) error {
+	version, ok := d.Spec.Template.Annotations["app.kubernetes.io/version"]
+	if !ok || version == "" {
+		version = "0.0.0"
+	}
+	v, err := semver.NewVersion(version)
+	if err != nil {
+		return fmt.Errorf("failed to parse version %q: %w", version, err)
+	}
+	for _, transformation := range transformations {
+		if err := transformation(*v, d); err != nil {
+			return fmt.Errorf("failed to apply transformation: %w", err)
+		}
+	}
+	return nil
+}
+
+// migrateSchedulerConfig returns a TransformDeployment that applies the given
+// mutateSchedulerConfigFunc mutations to the EndpointPickerConfig YAML.
+// Only runs for scheduler versions >= 0.7.0 because the v0.6 binary's plugin
+// registry would reject the new plugin names and parameter structures.
+func migrateSchedulerConfig(ctx context.Context, opts ...mutateSchedulerConfigFunc) TransformDeployment {
+	return func(curr semver.Version, d *appsv1.Deployment) error {
+		if curr.Compare(*semver.New("0.7.0")) < 0 {
+			return nil
+		}
+		return mutateSchedulerConfig(ctx, d, opts...)
+	}
+}
+
+// removeSchedulerArg returns a TransformDeployment that strips the named CLI
+// flags from all containers and injects a core-metrics-extractor plugin with
+// the extracted values. Only runs for scheduler versions >= 0.7.0.
+func removeSchedulerArg(ctx context.Context, args ...string) TransformDeployment {
+	return func(curr semver.Version, d *appsv1.Deployment) error {
+		if curr.Compare(*semver.New("0.7.0")) < 0 {
+			return nil
+		}
+
+		toRemove := make(map[string]bool, len(args))
+		for _, a := range args {
+			toRemove[a] = true
+		}
+		for ci := range d.Spec.Template.Spec.Containers {
+			c := &d.Spec.Template.Spec.Containers[ci]
+
+			filtered, extracted := filterArgs(c.Args, toRemove)
+			c.Args = filtered
+
+			if err := mutateSchedulerConfig(ctx, d, withCoreMetricsExtractorPlugin(extracted)); err != nil {
+				return fmt.Errorf("failed to inject core-metrics-extractor plugin: %w", err)
+			}
+		}
+		return nil
+	}
+}
+
+// filterArgs removes matching flags from args and returns their values.
+// It handles both --flag=value and --flag value forms.
+func filterArgs(args []string, names map[string]bool) (filtered []string, extracted map[string]string) {
+	extracted = make(map[string]string)
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		name := strings.TrimLeft(arg, "-")
+		value := ""
+		if eqIdx := strings.Index(name, "="); eqIdx != -1 {
+			value = name[eqIdx+1:]
+			name = name[:eqIdx]
+		}
+		if !names[name] {
+			filtered = append(filtered, args[i])
+			continue
+		}
+		if value == "" && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+			value = args[i+1]
+			i++
+		}
+		extracted[name] = value
+	}
+	return filtered, extracted
+}
+
+// withCoreMetricsExtractorPlugin returns a mutateSchedulerConfigFunc that
+// injects the core-metrics-extractor plugin using extracted CLI flag values.
+func withCoreMetricsExtractorPlugin(extracted map[string]string) mutateSchedulerConfigFunc {
+	argToEngineConfigField := map[string]string{
+		"total-queued-requests-metric":     "queuedRequestsSpec",
+		"total-running-requests-metric":    "runningRequestsSpec",
+		"kv-cache-usage-percentage-metric": "kvUsageSpec",
+		"lora-info-metric":                 "loraSpec",
+		"cache-info-metric":                "cacheInfoSpec",
+	}
+
+	return func(_ context.Context, u *unstructured.Unstructured) error {
+		if len(extracted) == 0 {
+			return nil
+		}
+
+		val, _, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
+		if err != nil {
+			return err
+		}
+		plugins, _ := val.([]interface{})
+
+		for _, plugin := range plugins {
+			pluginMap, ok := plugin.(map[string]interface{})
+			if ok && pluginMap["type"] == coreMetricsExtractorPlugin {
+				return nil
+			}
+		}
+
+		engineConfig := map[string]interface{}{
+			"name": "vllm",
+		}
+		for argName, fieldName := range argToEngineConfigField {
+			if v, ok := extracted[argName]; ok {
+				engineConfig[fieldName] = v
+			}
+		}
+
+		pluginEntry := map[string]interface{}{
+			"name": coreMetricsExtractorPlugin,
+			"type": coreMetricsExtractorPlugin,
+			"parameters": map[string]interface{}{
+				"engineLabelKey": "inference.networking.k8s.io/engine-type",
+				"defaultEngine":  "vllm",
+				"engineConfigs": []interface{}{
+					engineConfig,
+				},
+			},
+		}
+
+		plugins = append(plugins, pluginEntry)
+		return unstructured.SetNestedSlice(u.Object, plugins, "plugins")
+	}
 }
 
 func semanticServiceIsEqual(expected *corev1.Service, current *corev1.Service) bool {

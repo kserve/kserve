@@ -214,6 +214,7 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 			log.FromContext(ctx).V(2).Info("Main container has a routing sidecar")
 
 			s := routingSidecar(&expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec)
+			migrateRoutingSidecarCommand(s)
 			if llmSvc.Spec.Router != nil {
 				s.Env = append(s.Env, corev1.EnvVar{
 					Name:  "INFERENCE_POOL_NAME",
@@ -239,6 +240,7 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 			log.FromContext(ctx).V(2).Info("Main (worker) container has a routing sidecar")
 
 			s := routingSidecar(&expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec)
+			migrateRoutingSidecarCommand(s)
 			if llmSvc.Spec.Router != nil {
 				s.Env = append(s.Env, corev1.EnvVar{
 					Name:  "INFERENCE_POOL_NAME",
