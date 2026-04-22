@@ -451,24 +451,13 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 			}
 		}
 
-		// v0.7.0 migrations: rename plugins, restructure parameters, remove
-		// deprecated fields, strip CLI flags and inject core-metrics-extractor.
-		// These are version-gated because the v0.6 binary would reject the new
-		// plugin names/parameters (strict plugin registry validation at startup).
+		// v0.7.0 migrations: each function is version-gated (>= 0.7.0) because
+		// the v0.6 binary would reject the new plugin names/parameters.
 		if err := schedulerTransform(d,
-			migrateSchedulerConfig(ctx,
-				WithRenamePlugin("prefill-header-handler", "disagg-headers-handler"),
-				WithRenamePlugin("pd-profile-handler", "disagg-profile-handler"),
-				WithMigrateDisaggProfileParams,
-				WithRemoveHashBlockSize,
-			),
-			removeSchedulerArg(ctx,
-				"total-queued-requests-metric",
-				"total-running-requests-metric",
-				"kv-cache-usage-percentage-metric",
-				"lora-info-metric",
-				"cache-info-metric",
-			),
+			migrateDisaggHeadersHandler(ctx),
+			migrateDisaggProfileHandler(ctx),
+			migrateRemoveHashBlockSize(ctx),
+			migrateMetricFlagsToPlugin(ctx),
 		); err != nil {
 			return d, fmt.Errorf("failed to apply v0.7.0 scheduler migrations: %w", err)
 		}
@@ -1100,6 +1089,37 @@ func migrateSchedulerConfig(ctx context.Context, opts ...mutateSchedulerConfigFu
 		}
 		return mutateSchedulerConfig(ctx, d, opts...)
 	}
+}
+
+// migrateDisaggHeadersHandler renames the prefill-header-handler plugin to
+// disagg-headers-handler (v0.7.0 rename).
+func migrateDisaggHeadersHandler(ctx context.Context) TransformDeployment {
+	return migrateSchedulerConfig(ctx, WithRenamePlugin("prefill-header-handler", "disagg-headers-handler"))
+}
+
+// migrateDisaggProfileHandler renames the pd-profile-handler plugin to
+// disagg-profile-handler and migrates its parameters from the flat
+// deciderPluginName to the new deciders map (v0.7.0 rename + restructure).
+func migrateDisaggProfileHandler(ctx context.Context) TransformDeployment {
+	return migrateSchedulerConfig(ctx, WithRenamePlugin("pd-profile-handler", "disagg-profile-handler"), WithMigrateDisaggProfileParams)
+}
+
+// migrateRemoveHashBlockSize removes the deprecated hashBlockSize field from
+// all plugin parameters (removed in v0.7.0).
+func migrateRemoveHashBlockSize(ctx context.Context) TransformDeployment {
+	return migrateSchedulerConfig(ctx, WithRemoveHashBlockSize)
+}
+
+// migrateMetricFlagsToPlugin strips the deprecated metric CLI flags and injects
+// a core-metrics-extractor plugin with the extracted values (v0.7.0 migration).
+func migrateMetricFlagsToPlugin(ctx context.Context) TransformDeployment {
+	return removeSchedulerArg(ctx,
+		"total-queued-requests-metric",
+		"total-running-requests-metric",
+		"kv-cache-usage-percentage-metric",
+		"lora-info-metric",
+		"cache-info-metric",
+	)
 }
 
 // removeSchedulerArg returns a TransformDeployment that strips the named CLI
