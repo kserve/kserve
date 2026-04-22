@@ -187,6 +187,25 @@ func TestValidateUpdate_LocalModelNamespaceCacheWithValidNodeGroups(t *testing.T
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 }
 
+func TestValidateUpdate_LocalModelNamespaceCacheDeletionBypass(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	oldLmnc := makeTestLocalModelNamespaceCache()
+	newLmnc := makeTestLocalModelNamespaceCache()
+	newLmnc.Spec.NodeGroups = []string{"nonexistent-nodegroup"}
+	now := metav1.Now()
+	newLmnc.DeletionTimestamp = &now
+	s := runtime.NewScheme()
+	err := v1alpha1.AddToScheme(s)
+	if err != nil {
+		t.Errorf("unable to add scheme : %v", err)
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(s).Build()
+	validator := LocalModelNamespaceCacheValidator{Client: fakeClient}
+	warnings, err := validator.ValidateUpdate(t.Context(), &oldLmnc, &newLmnc)
+	g.Expect(warnings).To(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+}
+
 func TestValidateUpdate_LocalModelNamespaceCacheInvalidObjectType(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	s := runtime.NewScheme()
