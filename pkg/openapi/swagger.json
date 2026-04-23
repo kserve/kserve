@@ -3749,6 +3749,9 @@
         "localGatewayService": {
           "type": "string"
         },
+        "pathMatchType": {
+          "type": "string"
+        },
         "pathTemplate": {
           "type": "string"
         },

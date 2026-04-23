@@ -38348,7 +38348,8 @@ data:
            "urlScheme": "http",
            "disableIstioVirtualHost": false,
            "disableIngressCreation": false,
-           "disableHTTPRouteTimeout": false
+           "disableHTTPRouteTimeout": false,
+           "pathMatchType": ""
        }
      ingress: |-
        {
@@ -38427,6 +38428,11 @@ data:
            # disableHTTPRouteTimeout controls whether to omit the timeout field from HTTPRoute rules.
            # Set to true for Gateway controllers (e.g. GKE Gateway) that do not support the optional timeouts field.
            "disableHTTPRouteTimeout": false,
+
+           # pathMatchType controls the path match type used in HTTPRoute rules.
+           # Set to "PathPrefix" for Gateway controllers (e.g. GKE Gateway) that do not support RegularExpression path matches.
+           # When empty or unset, the default RegularExpression matching is used.
+           "pathMatchType": "",
 
            # pathTemplate specifies the template for generating path based url for each inference service.
            # The following variables can be used in the template for generating url.
@@ -38748,7 +38754,8 @@ data:
         "urlScheme": "http",
         "disableIstioVirtualHost": false,
         "disableIngressCreation": false,
-        "disableHTTPRouteTimeout": false
+        "disableHTTPRouteTimeout": false,
+        "pathMatchType": ""
     }
   localModel: |-
     {

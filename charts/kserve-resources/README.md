@@ -43,6 +43,7 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.controller.gateway.localGateway.gateway | string | `"knative-serving/knative-local-gateway"` |  |
 | kserve.controller.gateway.localGateway.gatewayService | string | `"knative-local-gateway.istio-system.svc.cluster.local"` |  |
 | kserve.controller.gateway.localGateway.knativeGatewayService | string | `""` |  |
+| kserve.controller.gateway.pathMatchType | string | `""` |  |
 | kserve.controller.gateway.pathTemplate | string | `""` |  |
 | kserve.controller.gateway.urlScheme | string | `"http"` |  |
 | kserve.controller.image | string | `"kserve/kserve-controller"` |  |

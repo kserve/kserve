@@ -47,6 +47,7 @@ kserve:
       disableIstioVirtualHost: false
       disableIngressCreation: false
       disableHTTPRouteTimeout: false
+      pathMatchType: ""
       localGateway:
         gateway: knative-serving/knative-local-gateway
         gatewayService: knative-local-gateway.istio-system.svc.cluster.local
