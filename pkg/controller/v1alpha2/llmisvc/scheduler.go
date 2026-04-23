@@ -451,14 +451,10 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 			}
 		}
 
-		// v0.7.0 migrations: each function is version-gated (>= 0.7.0) because
-		// the v0.6 binary would reject the new plugin names/parameters.
-		if err := schedulerTransform(d,
-			migrateDisaggHeadersHandler(ctx),
-			migrateDisaggProfileHandler(ctx),
-			migrateRemoveHashBlockSize(ctx),
-			migrateMetricFlagsToPlugin(ctx),
-		); err != nil {
+		// v0.7.0 migrations: version-gated (>= 0.7.0) because the v0.6 binary
+		// does not recognize the new plugin names. The v0.7 binary deprecates
+		// the old names but still accepts them.
+		if err := schedulerTransform(ctx, d); err != nil {
 			return d, fmt.Errorf("failed to apply v0.7.0 scheduler migrations: %w", err)
 		}
 	}
@@ -502,7 +498,7 @@ plugins:
 - type: disagg-profile-handler
   parameters:
     deciders:
-      always-disagg-pd-decider: {}
+      prefill: always-disagg-pd-decider
 schedulingProfiles:
 - name: prefill
   plugins:
@@ -1019,7 +1015,7 @@ func WithMigrateDisaggProfileParams(ctx context.Context, u *unstructured.Unstruc
 
 		log.FromContext(ctx).Info("Migrating deciderPluginName to deciders map for disagg-profile-handler", "deciderPluginName", deciderName)
 		deciders := map[string]interface{}{
-			deciderName: map[string]interface{}{},
+			"prefill": deciderName,
 		}
 		if err := unstructured.SetNestedField(pluginMap, deciders, "parameters", "deciders"); err != nil {
 			return err
@@ -1053,15 +1049,13 @@ func WithRemoveHashBlockSize(_ context.Context, u *unstructured.Unstructured) er
 	return nil
 }
 
-// TransformDeployment is a version-aware transformation function for scheduler
-// Deployments. It receives the parsed scheduler version from the pod template
-// annotation and decides whether to apply changes.
-type TransformDeployment func(curr semver.Version, d *appsv1.Deployment) error
-
-// schedulerTransform reads the app.kubernetes.io/version annotation from the
-// Deployment's pod template and runs each transformation with the parsed version.
-// If no annotation is present, the version defaults to 0.0.0 (skip all gated transforms).
-func schedulerTransform(d *appsv1.Deployment, transformations ...TransformDeployment) error {
+// schedulerTransform applies all v0.7.0 scheduler migrations in a single pass.
+// It reads the app.kubernetes.io/version annotation from the Deployment's pod
+// template; if the version is < 0.7.0 (or absent, which defaults to 0.0.0),
+// all migrations are skipped. Otherwise it strips deprecated CLI flags first,
+// then unmarshals the EndpointPickerConfig YAML once, applies every mutation,
+// and marshals it back.
+func schedulerTransform(ctx context.Context, d *appsv1.Deployment) error {
 	version, ok := d.Spec.Template.Annotations["app.kubernetes.io/version"]
 	if !ok || version == "" {
 		version = "0.0.0"
@@ -1070,83 +1064,61 @@ func schedulerTransform(d *appsv1.Deployment, transformations ...TransformDeploy
 	if err != nil {
 		return fmt.Errorf("failed to parse version %q: %w", version, err)
 	}
-	for _, transformation := range transformations {
-		if err := transformation(*v, d); err != nil {
-			return fmt.Errorf("failed to apply transformation: %w", err)
+	if v.Compare(*semver.New("0.7.0")) < 0 {
+		return nil
+	}
+
+	extracted := extractDeprecatedMetricFlags(d)
+
+	return mutateSchedulerConfig(ctx, d,
+		withMigrateDisaggHeadersHandler,
+		withMigrateDisaggProfileHandler,
+		WithRemoveHashBlockSize,
+		withCoreMetricsExtractorPlugin(extracted),
+	)
+}
+
+// withMigrateDisaggHeadersHandler renames the prefill-header-handler plugin to
+// disagg-headers-handler (v0.7.0 rename).
+func withMigrateDisaggHeadersHandler(ctx context.Context, u *unstructured.Unstructured) error {
+	return WithRenamePlugin("prefill-header-handler", "disagg-headers-handler")(ctx, u)
+}
+
+// withMigrateDisaggProfileHandler renames the pd-profile-handler plugin to
+// disagg-profile-handler and migrates its parameters from the flat
+// deciderPluginName to the new deciders map (v0.7.0 rename + restructure).
+func withMigrateDisaggProfileHandler(ctx context.Context, u *unstructured.Unstructured) error {
+	for _, fn := range []mutateSchedulerConfigFunc{
+		WithRenamePlugin("pd-profile-handler", "disagg-profile-handler"),
+		WithMigrateDisaggProfileParams,
+	} {
+		if err := fn(ctx, u); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-// migrateSchedulerConfig returns a TransformDeployment that applies the given
-// mutateSchedulerConfigFunc mutations to the EndpointPickerConfig YAML.
-// Only runs for scheduler versions >= 0.7.0 because the v0.6 binary's plugin
-// registry would reject the new plugin names and parameter structures.
-func migrateSchedulerConfig(ctx context.Context, opts ...mutateSchedulerConfigFunc) TransformDeployment {
-	return func(curr semver.Version, d *appsv1.Deployment) error {
-		if curr.Compare(*semver.New("0.7.0")) < 0 {
-			return nil
-		}
-		return mutateSchedulerConfig(ctx, d, opts...)
+// extractDeprecatedMetricFlags strips deprecated metric CLI flags from all
+// containers and returns their values for injection into the config YAML.
+func extractDeprecatedMetricFlags(d *appsv1.Deployment) map[string]string {
+	toRemove := map[string]bool{
+		"total-queued-requests-metric":     true,
+		"total-running-requests-metric":    true,
+		"kv-cache-usage-percentage-metric": true,
+		"lora-info-metric":                 true,
+		"cache-info-metric":                true,
 	}
-}
-
-// migrateDisaggHeadersHandler renames the prefill-header-handler plugin to
-// disagg-headers-handler (v0.7.0 rename).
-func migrateDisaggHeadersHandler(ctx context.Context) TransformDeployment {
-	return migrateSchedulerConfig(ctx, WithRenamePlugin("prefill-header-handler", "disagg-headers-handler"))
-}
-
-// migrateDisaggProfileHandler renames the pd-profile-handler plugin to
-// disagg-profile-handler and migrates its parameters from the flat
-// deciderPluginName to the new deciders map (v0.7.0 rename + restructure).
-func migrateDisaggProfileHandler(ctx context.Context) TransformDeployment {
-	return migrateSchedulerConfig(ctx, WithRenamePlugin("pd-profile-handler", "disagg-profile-handler"), WithMigrateDisaggProfileParams)
-}
-
-// migrateRemoveHashBlockSize removes the deprecated hashBlockSize field from
-// all plugin parameters (removed in v0.7.0).
-func migrateRemoveHashBlockSize(ctx context.Context) TransformDeployment {
-	return migrateSchedulerConfig(ctx, WithRemoveHashBlockSize)
-}
-
-// migrateMetricFlagsToPlugin strips the deprecated metric CLI flags and injects
-// a core-metrics-extractor plugin with the extracted values (v0.7.0 migration).
-func migrateMetricFlagsToPlugin(ctx context.Context) TransformDeployment {
-	return removeSchedulerArg(ctx,
-		"total-queued-requests-metric",
-		"total-running-requests-metric",
-		"kv-cache-usage-percentage-metric",
-		"lora-info-metric",
-		"cache-info-metric",
-	)
-}
-
-// removeSchedulerArg returns a TransformDeployment that strips the named CLI
-// flags from all containers and injects a core-metrics-extractor plugin with
-// the extracted values. Only runs for scheduler versions >= 0.7.0.
-func removeSchedulerArg(ctx context.Context, args ...string) TransformDeployment {
-	return func(curr semver.Version, d *appsv1.Deployment) error {
-		if curr.Compare(*semver.New("0.7.0")) < 0 {
-			return nil
+	var allExtracted map[string]string
+	for ci := range d.Spec.Template.Spec.Containers {
+		c := &d.Spec.Template.Spec.Containers[ci]
+		filtered, extracted := filterArgs(c.Args, toRemove)
+		c.Args = filtered
+		if len(extracted) > 0 {
+			allExtracted = extracted
 		}
-
-		toRemove := make(map[string]bool, len(args))
-		for _, a := range args {
-			toRemove[a] = true
-		}
-		for ci := range d.Spec.Template.Spec.Containers {
-			c := &d.Spec.Template.Spec.Containers[ci]
-
-			filtered, extracted := filterArgs(c.Args, toRemove)
-			c.Args = filtered
-
-			if err := mutateSchedulerConfig(ctx, d, withCoreMetricsExtractorPlugin(extracted)); err != nil {
-				return fmt.Errorf("failed to inject core-metrics-extractor plugin: %w", err)
-			}
-		}
-		return nil
 	}
+	return allExtracted
 }
 
 // filterArgs removes matching flags from args and returns their values.

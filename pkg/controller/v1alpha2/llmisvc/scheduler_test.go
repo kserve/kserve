@@ -420,7 +420,7 @@ plugins:
 				params := plugins[0].(map[string]interface{})["parameters"].(map[string]interface{})
 				g.Expect(params).NotTo(HaveKey("deciderPluginName"))
 				deciders := params["deciders"].(map[string]interface{})
-				g.Expect(deciders).To(HaveKey("always-disagg-pd-decider"))
+				g.Expect(deciders).To(HaveKeyWithValue("prefill", "always-disagg-pd-decider"))
 			},
 		},
 		{
@@ -430,13 +430,13 @@ plugins:
 - type: disagg-profile-handler
   parameters:
     deciders:
-      always-disagg-pd-decider: {}
+      prefill: always-disagg-pd-decider
 `,
 			validate: func(g Gomega, obj map[string]interface{}) {
 				plugins := obj["plugins"].([]interface{})
 				params := plugins[0].(map[string]interface{})["parameters"].(map[string]interface{})
 				deciders := params["deciders"].(map[string]interface{})
-				g.Expect(deciders).To(HaveKey("always-disagg-pd-decider"))
+				g.Expect(deciders).To(HaveKeyWithValue("prefill", "always-disagg-pd-decider"))
 			},
 		},
 		{
@@ -464,7 +464,7 @@ plugins:
 				params := plugins[0].(map[string]interface{})["parameters"].(map[string]interface{})
 				g.Expect(params).NotTo(HaveKey("deciderPluginName"))
 				deciders := params["deciders"].(map[string]interface{})
-				g.Expect(deciders).To(HaveKey("always-disagg-pd-decider"))
+				g.Expect(deciders).To(HaveKeyWithValue("prefill", "always-disagg-pd-decider"))
 			},
 		},
 	}
@@ -627,7 +627,7 @@ plugins:
 	}
 }
 
-func TestMigrateSchedulerConfig(t *testing.T) {
+func TestSchedulerTransform(t *testing.T) {
 	oldConfigYAML := `apiVersion: inference.networking.x-k8s.io/v1alpha1
 kind: EndpointPickerConfig
 plugins:
@@ -654,7 +654,7 @@ plugins:
 				g.Expect(configText).NotTo(ContainSubstring("prefill-header-handler"))
 				g.Expect(configText).To(ContainSubstring("disagg-profile-handler"))
 				g.Expect(configText).NotTo(ContainSubstring("pd-profile-handler"))
-				g.Expect(configText).To(ContainSubstring("deciders"))
+				g.Expect(configText).To(ContainSubstring("prefill: always-disagg-pd-decider"))
 				g.Expect(configText).NotTo(ContainSubstring("deciderPluginName"))
 				g.Expect(configText).NotTo(ContainSubstring("hashBlockSize"))
 				g.Expect(configText).To(ContainSubstring("blockSizeTokens"))
@@ -705,13 +705,7 @@ plugins:
 				},
 			}
 
-			transform := migrateSchedulerConfig(context.Background(),
-				WithRenamePlugin("prefill-header-handler", "disagg-headers-handler"),
-				WithRenamePlugin("pd-profile-handler", "disagg-profile-handler"),
-				WithMigrateDisaggProfileParams,
-				WithRemoveHashBlockSize,
-			)
-			g.Expect(schedulerTransform(d, transform)).To(Succeed())
+			g.Expect(schedulerTransform(context.Background(), d)).To(Succeed())
 
 			configText := d.Spec.Template.Spec.Containers[0].Args[1]
 			tt.validateConfig(g, configText)
@@ -778,7 +772,7 @@ schedulingProfiles:
 				g.Expect(configText).NotTo(ContainSubstring("pd-profile-handler"))
 
 				// Parameter restructuring applied
-				g.Expect(configText).To(ContainSubstring("deciders"))
+				g.Expect(configText).To(ContainSubstring("prefill: always-disagg-pd-decider"))
 				g.Expect(configText).NotTo(ContainSubstring("deciderPluginName"))
 
 				// Deprecated field removed
@@ -868,22 +862,8 @@ schedulingProfiles:
 				WithMigrateBlockSizeToBlockSizeTokens,
 			)).To(Succeed())
 
-			// Stage 2: version-gated v0.7 YAML + CLI migrations
-			g.Expect(schedulerTransform(d,
-				migrateSchedulerConfig(ctx,
-					WithRenamePlugin("prefill-header-handler", "disagg-headers-handler"),
-					WithRenamePlugin("pd-profile-handler", "disagg-profile-handler"),
-					WithMigrateDisaggProfileParams,
-					WithRemoveHashBlockSize,
-				),
-				removeSchedulerArg(ctx,
-					"total-queued-requests-metric",
-					"total-running-requests-metric",
-					"kv-cache-usage-percentage-metric",
-					"lora-info-metric",
-					"cache-info-metric",
-				),
-			)).To(Succeed())
+			// Stage 2: version-gated v0.7 migrations (single pass)
+			g.Expect(schedulerTransform(ctx, d)).To(Succeed())
 
 			resultArgs := d.Spec.Template.Spec.Containers[0].Args
 			for i, a := range resultArgs {
@@ -896,81 +876,49 @@ schedulingProfiles:
 	}
 }
 
-func TestRemoveSchedulerArg(t *testing.T) {
-	baseConfigYAML := `apiVersion: inference.networking.x-k8s.io/v1alpha1
-kind: EndpointPickerConfig
-plugins:
-- type: queue-scorer
-`
-
+func TestExtractDeprecatedMetricFlags(t *testing.T) {
 	tests := []struct {
-		name           string
-		version        string
-		args           []string
-		removeArgs     []string
-		expectedArgs   []string
-		validateConfig func(g Gomega, configText string)
+		name              string
+		args              []string
+		expectedFiltered  []string
+		expectedExtracted map[string]string
 	}{
 		{
-			name:    "removes args and injects plugin for v0.7.0",
-			version: "0.7.0",
+			name: "extracts all metric flags",
 			args: []string{
-				"--config-text", baseConfigYAML,
+				"--config-text", "someyaml",
 				"--total-queued-requests-metric", "vllm:num_requests_waiting",
 				"--kv-cache-usage-percentage-metric", "vllm:kv_cache_usage_perc",
 				"--grpc-port", "9002",
 			},
-			removeArgs:   []string{"total-queued-requests-metric", "kv-cache-usage-percentage-metric"},
-			expectedArgs: []string{"--config-text", "", "--grpc-port", "9002"},
-			validateConfig: func(g Gomega, configText string) {
-				g.Expect(configText).To(ContainSubstring("queue-scorer"))
-				g.Expect(configText).To(ContainSubstring("core-metrics-extractor"))
-				g.Expect(configText).To(ContainSubstring("vllm:num_requests_waiting"))
+			expectedFiltered: []string{"--config-text", "someyaml", "--grpc-port", "9002"},
+			expectedExtracted: map[string]string{
+				"total-queued-requests-metric":     "vllm:num_requests_waiting",
+				"kv-cache-usage-percentage-metric": "vllm:kv_cache_usage_perc",
 			},
 		},
 		{
-			name:    "no matching args - no plugin injected",
-			version: "0.7.0",
-			args: []string{
-				"--config-text", baseConfigYAML,
-				"--grpc-port", "9002",
-			},
-			removeArgs:   []string{"total-queued-requests-metric"},
-			expectedArgs: []string{"--config-text", "", "--grpc-port", "9002"},
-			validateConfig: func(g Gomega, configText string) {
-				g.Expect(configText).NotTo(ContainSubstring("core-metrics-extractor"))
-			},
+			name:              "no metric flags - returns nil",
+			args:              []string{"--config-text", "someyaml", "--grpc-port", "9002"},
+			expectedFiltered:  []string{"--config-text", "someyaml", "--grpc-port", "9002"},
+			expectedExtracted: nil,
 		},
 		{
-			name:    "skips transform for v0.6.0",
-			version: "0.6.0",
+			name: "extracts all five deprecated flags",
 			args: []string{
-				"--config-text", baseConfigYAML,
 				"--total-queued-requests-metric", "vllm:num_requests_waiting",
+				"--total-running-requests-metric", "vllm:num_requests_running",
+				"--kv-cache-usage-percentage-metric", "vllm:kv_cache_usage_perc",
+				"--lora-info-metric", "vllm:lora_requests_info",
+				"--cache-info-metric", "vllm:cache_config_info",
 			},
-			removeArgs: []string{"total-queued-requests-metric"},
-			expectedArgs: []string{
-				"--config-text", "",
-				"--total-queued-requests-metric", "vllm:num_requests_waiting",
-			},
-			validateConfig: func(g Gomega, configText string) {
-				g.Expect(configText).NotTo(ContainSubstring("core-metrics-extractor"))
-			},
-		},
-		{
-			name:    "skips transform when no version annotation",
-			version: "",
-			args: []string{
-				"--config-text", baseConfigYAML,
-				"--total-queued-requests-metric", "vllm:num_requests_waiting",
-			},
-			removeArgs: []string{"total-queued-requests-metric"},
-			expectedArgs: []string{
-				"--config-text", "",
-				"--total-queued-requests-metric", "vllm:num_requests_waiting",
-			},
-			validateConfig: func(g Gomega, configText string) {
-				g.Expect(configText).NotTo(ContainSubstring("core-metrics-extractor"))
+			expectedFiltered: nil,
+			expectedExtracted: map[string]string{
+				"total-queued-requests-metric":     "vllm:num_requests_waiting",
+				"total-running-requests-metric":    "vllm:num_requests_running",
+				"kv-cache-usage-percentage-metric": "vllm:kv_cache_usage_perc",
+				"lora-info-metric":                 "vllm:lora_requests_info",
+				"cache-info-metric":                "vllm:cache_config_info",
 			},
 		},
 	}
@@ -978,15 +926,9 @@ plugins:
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewGomegaWithT(t)
-
 			d := &appsv1.Deployment{
 				Spec: appsv1.DeploymentSpec{
 					Template: corev1.PodTemplateSpec{
-						ObjectMeta: metav1.ObjectMeta{
-							Annotations: map[string]string{
-								"app.kubernetes.io/version": tt.version,
-							},
-						},
 						Spec: corev1.PodSpec{
 							Containers: []corev1.Container{
 								{Name: "main", Args: tt.args},
@@ -995,20 +937,9 @@ plugins:
 					},
 				},
 			}
-
-			transform := removeSchedulerArg(context.Background(), tt.removeArgs...)
-			g.Expect(schedulerTransform(d, transform)).To(Succeed())
-
-			resultArgs := make([]string, len(d.Spec.Template.Spec.Containers[0].Args))
-			copy(resultArgs, d.Spec.Template.Spec.Containers[0].Args)
-			for i, a := range resultArgs {
-				if a == "--config-text" && i+1 < len(resultArgs) {
-					tt.validateConfig(g, resultArgs[i+1])
-					resultArgs[i+1] = ""
-				}
-			}
-
-			g.Expect(resultArgs).To(Equal(tt.expectedArgs))
+			extracted := extractDeprecatedMetricFlags(d)
+			g.Expect(d.Spec.Template.Spec.Containers[0].Args).To(Equal(tt.expectedFiltered))
+			g.Expect(extracted).To(Equal(tt.expectedExtracted))
 		})
 	}
 }
