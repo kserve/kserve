@@ -1282,6 +1282,136 @@ func TestMergeSpecs(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "custom pool selector overrides base empty selector",
+			cfgs: []v1alpha2.LLMInferenceServiceSpec{
+				// Base config with pool spec but no selector
+				{
+					Router: &v1alpha2.RouterSpec{
+						Route:   &v1alpha2.GatewayRoutesSpec{},
+						Gateway: &v1alpha2.GatewaySpec{},
+						Scheduler: &v1alpha2.SchedulerSpec{
+							Pool: &v1alpha2.InferencePoolSpec{
+								Spec: &igwapi.InferencePoolSpec{
+									TargetPorts: []igwapi.Port{{Number: 8000}},
+								},
+							},
+							Template: &corev1.PodSpec{
+								Containers: []corev1.Container{{Name: "main"}},
+							},
+						},
+					},
+				},
+				// Override with custom selector for multi-GPU-vendor pooling
+				{
+					Router: &v1alpha2.RouterSpec{
+						Scheduler: &v1alpha2.SchedulerSpec{
+							Pool: &v1alpha2.InferencePoolSpec{
+								Spec: &igwapi.InferencePoolSpec{
+									Selector: igwapi.LabelSelector{
+										MatchLabels: map[igwapi.LabelKey]igwapi.LabelValue{
+											"llm-pool":            "qwen2-7b",
+											"kserve.io/component": "workload",
+										},
+									},
+									TargetPorts: []igwapi.Port{{Number: 8000}},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: v1alpha2.LLMInferenceServiceSpec{
+				Router: &v1alpha2.RouterSpec{
+					Route:   &v1alpha2.GatewayRoutesSpec{},
+					Gateway: &v1alpha2.GatewaySpec{},
+					Scheduler: &v1alpha2.SchedulerSpec{
+						Pool: &v1alpha2.InferencePoolSpec{
+							Spec: &igwapi.InferencePoolSpec{
+								Selector: igwapi.LabelSelector{
+									MatchLabels: map[igwapi.LabelKey]igwapi.LabelValue{
+										"llm-pool":            "qwen2-7b",
+										"kserve.io/component": "workload",
+									},
+								},
+								TargetPorts: []igwapi.Port{{Number: 8000}},
+							},
+						},
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{{Name: "main"}},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "custom pool selector merge base selector",
+			cfgs: []v1alpha2.LLMInferenceServiceSpec{
+				// Base config with pool spec but no selector
+				{
+					Router: &v1alpha2.RouterSpec{
+						Route:   &v1alpha2.GatewayRoutesSpec{},
+						Gateway: &v1alpha2.GatewaySpec{},
+						Scheduler: &v1alpha2.SchedulerSpec{
+							Pool: &v1alpha2.InferencePoolSpec{
+								Spec: &igwapi.InferencePoolSpec{
+									Selector: igwapi.LabelSelector{
+										MatchLabels: map[igwapi.LabelKey]igwapi.LabelValue{
+											"x": "x",
+										},
+									},
+									TargetPorts: []igwapi.Port{{Number: 8000}},
+								},
+							},
+							Template: &corev1.PodSpec{
+								Containers: []corev1.Container{{Name: "main"}},
+							},
+						},
+					},
+				},
+				// Override with custom selector for multi-GPU-vendor pooling
+				{
+					Router: &v1alpha2.RouterSpec{
+						Scheduler: &v1alpha2.SchedulerSpec{
+							Pool: &v1alpha2.InferencePoolSpec{
+								Spec: &igwapi.InferencePoolSpec{
+									Selector: igwapi.LabelSelector{
+										MatchLabels: map[igwapi.LabelKey]igwapi.LabelValue{
+											"llm-pool":            "qwen2-7b",
+											"kserve.io/component": "workload",
+										},
+									},
+									TargetPorts: []igwapi.Port{{Number: 8000}},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: v1alpha2.LLMInferenceServiceSpec{
+				Router: &v1alpha2.RouterSpec{
+					Route:   &v1alpha2.GatewayRoutesSpec{},
+					Gateway: &v1alpha2.GatewaySpec{},
+					Scheduler: &v1alpha2.SchedulerSpec{
+						Pool: &v1alpha2.InferencePoolSpec{
+							Spec: &igwapi.InferencePoolSpec{
+								Selector: igwapi.LabelSelector{
+									MatchLabels: map[igwapi.LabelKey]igwapi.LabelValue{
+										"llm-pool":            "qwen2-7b",
+										"kserve.io/component": "workload",
+										"x":                   "x",
+									},
+								},
+								TargetPorts: []igwapi.Port{{Number: 8000}},
+							},
+						},
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{{Name: "main"}},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1298,6 +1428,21 @@ func TestMergeSpecs(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetWorkloadLabelSelectorUsedAsDefaultPoolSelector(t *testing.T) {
+	// Verify that GetWorkloadLabelSelector returns the labels used as default
+	// InferencePool selector in combineBaseRefsConfig (config_merge.go:232-244).
+	// When a user provides custom MatchLabels (e.g., for multi-GPU-vendor pooling),
+	// the default selector is not applied because MatchLabels is non-empty.
+	meta := metav1.ObjectMeta{Name: "test-svc", Namespace: "default"}
+	selector := llmisvc.GetWorkloadLabelSelector(meta, nil)
+
+	g := NewWithT(t)
+	g.Expect(selector).To(HaveKeyWithValue("app.kubernetes.io/name", "test-svc"))
+	g.Expect(selector).To(HaveKeyWithValue("app.kubernetes.io/part-of", "llminferenceservice"))
+	g.Expect(selector).To(HaveKeyWithValue("kserve.io/component", "workload"))
+	g.Expect(selector).To(HaveLen(3))
 }
 
 func TestReplaceVariables(t *testing.T) {
