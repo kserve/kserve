@@ -22,6 +22,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/utils"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -117,6 +118,9 @@ func (v *LocalModelNamespaceCacheValidator) ValidateDelete(ctx context.Context, 
 	for _, llmIsvcMeta := range localModelNamespaceCache.Status.LLMInferenceServices {
 		llmIsvc := v1alpha2.LLMInferenceService{}
 		if err := v.Get(ctx, client.ObjectKey(llmIsvcMeta), &llmIsvc); err != nil {
+			if apierrors.IsNotFound(err) {
+				continue
+			}
 			localModelNamespaceCacheValidatorLogger.Error(err, "Error getting LLMInferenceService", "name", llmIsvcMeta.Name, "namespace", llmIsvcMeta.Namespace)
 			return nil, err
 		}

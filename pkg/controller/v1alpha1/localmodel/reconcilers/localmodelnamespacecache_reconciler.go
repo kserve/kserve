@@ -346,9 +346,11 @@ func (c *LocalModelNamespaceCacheReconciler) SetupWithManager(mgr ctrl.Manager) 
 
 	llmIsvcPredicates := predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldModel := e.ObjectOld.GetLabels()[constants.LocalModelLabel]
+			newModel := e.ObjectNew.GetLabels()[constants.LocalModelLabel]
 			oldNsLabel := e.ObjectOld.GetLabels()[constants.LocalModelNamespaceLabel]
 			newNsLabel := e.ObjectNew.GetLabels()[constants.LocalModelNamespaceLabel]
-			return oldNsLabel != newNsLabel
+			return oldModel != newModel || oldNsLabel != newNsLabel
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
 			_, ok := e.Object.GetLabels()[constants.LocalModelNamespaceLabel]

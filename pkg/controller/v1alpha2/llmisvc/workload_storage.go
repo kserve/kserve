@@ -81,11 +81,11 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 	if _, ok := llmSvc.Labels[constants.LocalModelLabel]; ok {
 		sourceUri, ok := llmSvc.Annotations[constants.LocalModelSourceUriAnnotationKey]
 		if !ok {
-			return fmt.Errorf("annotation %s not found", constants.LocalModelSourceUriAnnotationKey)
+			return fmt.Errorf("LLMInferenceService %s/%s: annotation %s not found", llmSvc.Namespace, llmSvc.Name, constants.LocalModelSourceUriAnnotationKey)
 		}
 		pvcName, ok := llmSvc.Annotations[constants.LocalModelPVCNameAnnotationKey]
 		if !ok {
-			return fmt.Errorf("annotation %s not found", constants.LocalModelPVCNameAnnotationKey)
+			return fmt.Errorf("LLMInferenceService %s/%s: annotation %s not found", llmSvc.Namespace, llmSvc.Name, constants.LocalModelPVCNameAnnotationKey)
 		}
 		subPath, _ := strings.CutPrefix(modelUri, sourceUri)
 		if !strings.HasPrefix(subPath, "/") {

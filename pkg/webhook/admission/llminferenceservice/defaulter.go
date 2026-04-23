@@ -80,6 +80,8 @@ func (d *LLMInferenceServiceDefaulter) Default(ctx context.Context, obj runtime.
 			return err
 		}
 		SetLocalModelLabel(llmSvc, models, nsModels)
+	} else {
+		DeleteLocalModelMetadata(llmSvc)
 	}
 
 	return nil
