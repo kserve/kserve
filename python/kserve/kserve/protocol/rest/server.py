@@ -77,6 +77,7 @@ class RESTServer:
         workers: int = 1,
         grace_period: int = 30,
         event_loop: str = "auto",
+        timeout_keep_alive: int = 65,
     ):
         self.dataplane = data_plane
         self.model_repository_extension = model_repository_extension
@@ -97,6 +98,7 @@ class RESTServer:
             # configured by kserve.
             log_config=None,
             timeout_graceful_shutdown=grace_period,
+            timeout_keep_alive=timeout_keep_alive,
             loop=event_loop,
         )
         self._server = uvicorn.Server(self.config)
