@@ -467,6 +467,61 @@ plugins:
 				g.Expect(deciders).To(HaveKeyWithValue("prefill", "always-disagg-pd-decider"))
 			},
 		},
+		{
+			name: "migrates threshold 0 to always-disagg-pd-decider",
+			configYAML: `
+plugins:
+- type: pd-profile-handler
+  parameters:
+    threshold: 0
+- type: prefill-filter
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				params := plugins[0].(map[string]interface{})["parameters"].(map[string]interface{})
+				g.Expect(params).NotTo(HaveKey("threshold"))
+				deciders := params["deciders"].(map[string]interface{})
+				g.Expect(deciders).To(HaveKeyWithValue("prefill", "always-disagg-pd-decider"))
+				g.Expect(plugins).To(HaveLen(3))
+				g.Expect(plugins[2].(map[string]interface{})["type"]).To(Equal("always-disagg-pd-decider"))
+			},
+		},
+		{
+			name: "migrates threshold 0 when decider plugin already exists",
+			configYAML: `
+plugins:
+- type: pd-profile-handler
+  parameters:
+    threshold: 0
+- type: always-disagg-pd-decider
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				params := plugins[0].(map[string]interface{})["parameters"].(map[string]interface{})
+				g.Expect(params).NotTo(HaveKey("threshold"))
+				deciders := params["deciders"].(map[string]interface{})
+				g.Expect(deciders).To(HaveKeyWithValue("prefill", "always-disagg-pd-decider"))
+				g.Expect(plugins).To(HaveLen(2))
+			},
+		},
+		{
+			name: "strips threshold when deciderPluginName also present",
+			configYAML: `
+plugins:
+- type: pd-profile-handler
+  parameters:
+    deciderPluginName: prefix-based-pd-decider
+    threshold: 0
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				params := plugins[0].(map[string]interface{})["parameters"].(map[string]interface{})
+				g.Expect(params).NotTo(HaveKey("deciderPluginName"))
+				g.Expect(params).NotTo(HaveKey("threshold"))
+				deciders := params["deciders"].(map[string]interface{})
+				g.Expect(deciders).To(HaveKeyWithValue("prefill", "prefix-based-pd-decider"))
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -476,6 +531,192 @@ plugins:
 			g.Expect(yaml.Unmarshal([]byte(tt.configYAML), &obj)).To(Succeed())
 			u := unstructured.Unstructured{Object: obj}
 			g.Expect(WithMigrateDisaggProfileParams(context.Background(), &u)).To(Succeed())
+			tt.validate(g, u.Object)
+		})
+	}
+}
+
+func TestHasNonZeroThreshold(t *testing.T) {
+	tests := []struct {
+		name       string
+		configYAML string
+		expected   bool
+	}{
+		{
+			name: "no threshold - returns false",
+			configYAML: `
+plugins:
+- type: pd-profile-handler
+  parameters:
+    deciderPluginName: always-disagg-pd-decider
+`,
+			expected: false,
+		},
+		{
+			name: "threshold 0 - returns false",
+			configYAML: `
+plugins:
+- type: pd-profile-handler
+  parameters:
+    threshold: 0
+`,
+			expected: false,
+		},
+		{
+			name: "threshold 0.5 - returns true",
+			configYAML: `
+plugins:
+- type: pd-profile-handler
+  parameters:
+    threshold: 0.5
+`,
+			expected: true,
+		},
+		{
+			name: "threshold 1 - returns true",
+			configYAML: `
+plugins:
+- type: pd-profile-handler
+  parameters:
+    threshold: 1
+`,
+			expected: true,
+		},
+		{
+			name: "deciders already present - returns false even with threshold",
+			configYAML: `
+plugins:
+- type: disagg-profile-handler
+  parameters:
+    deciders:
+      prefill: always-disagg-pd-decider
+    threshold: 0.5
+`,
+			expected: false,
+		},
+		{
+			name: "non-profile plugin with threshold - returns false",
+			configYAML: `
+plugins:
+- type: some-other-plugin
+  parameters:
+    threshold: 0.5
+`,
+			expected: false,
+		},
+		{
+			name: "no plugins - returns false",
+			configYAML: `
+schedulingProfiles:
+- name: prefill
+`,
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			var obj map[string]interface{}
+			g.Expect(yaml.Unmarshal([]byte(tt.configYAML), &obj)).To(Succeed())
+			u := unstructured.Unstructured{Object: obj}
+			g.Expect(hasNonZeroThreshold(&u)).To(Equal(tt.expected))
+		})
+	}
+}
+
+func TestWithMigrateDisaggProfileHandlerThreshold(t *testing.T) {
+	tests := []struct {
+		name       string
+		configYAML string
+		validate   func(g Gomega, obj map[string]interface{})
+	}{
+		{
+			name: "skips all migration for non-zero threshold",
+			configYAML: `
+plugins:
+- type: pd-profile-handler
+  parameters:
+    threshold: 0.5
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				pluginMap := plugins[0].(map[string]interface{})
+				g.Expect(pluginMap["type"]).To(Equal("pd-profile-handler"))
+				params := pluginMap["parameters"].(map[string]interface{})
+				g.Expect(params).NotTo(HaveKey("deciders"))
+				g.Expect(params).To(HaveKey("threshold"))
+			},
+		},
+		{
+			name: "handles threshold 0 without deciderPluginName",
+			configYAML: `
+plugins:
+- type: pd-profile-handler
+  parameters:
+    threshold: 0
+- type: prefill-filter
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				pluginMap := plugins[0].(map[string]interface{})
+				g.Expect(pluginMap["type"]).To(Equal("disagg-profile-handler"))
+				params := pluginMap["parameters"].(map[string]interface{})
+				g.Expect(params).NotTo(HaveKey("threshold"))
+				deciders := params["deciders"].(map[string]interface{})
+				g.Expect(deciders).To(HaveKeyWithValue("prefill", "always-disagg-pd-decider"))
+				g.Expect(plugins).To(HaveLen(3))
+				g.Expect(plugins[2].(map[string]interface{})["type"]).To(Equal("always-disagg-pd-decider"))
+			},
+		},
+		{
+			name: "handles threshold 0 when decider plugin already present",
+			configYAML: `
+plugins:
+- type: pd-profile-handler
+  parameters:
+    threshold: 0
+- type: always-disagg-pd-decider
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				pluginMap := plugins[0].(map[string]interface{})
+				g.Expect(pluginMap["type"]).To(Equal("disagg-profile-handler"))
+				params := pluginMap["parameters"].(map[string]interface{})
+				g.Expect(params).NotTo(HaveKey("threshold"))
+				deciders := params["deciders"].(map[string]interface{})
+				g.Expect(deciders).To(HaveKeyWithValue("prefill", "always-disagg-pd-decider"))
+				g.Expect(plugins).To(HaveLen(2))
+			},
+		},
+		{
+			name: "handles non-zero threshold with deciderPluginName - skips all",
+			configYAML: `
+plugins:
+- type: pd-profile-handler
+  parameters:
+    deciderPluginName: prefix-based-pd-decider
+    threshold: 0.5
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				pluginMap := plugins[0].(map[string]interface{})
+				g.Expect(pluginMap["type"]).To(Equal("pd-profile-handler"))
+				params := pluginMap["parameters"].(map[string]interface{})
+				g.Expect(params).To(HaveKey("deciderPluginName"))
+				g.Expect(params).To(HaveKey("threshold"))
+				g.Expect(params).NotTo(HaveKey("deciders"))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			var obj map[string]interface{}
+			g.Expect(yaml.Unmarshal([]byte(tt.configYAML), &obj)).To(Succeed())
+			u := unstructured.Unstructured{Object: obj}
+			g.Expect(withMigrateDisaggProfileHandler(context.Background(), &u)).To(Succeed())
 			tt.validate(g, u.Object)
 		})
 	}
@@ -699,6 +940,118 @@ plugins:
 						Spec: corev1.PodSpec{
 							Containers: []corev1.Container{
 								{Name: "main", Args: []string{"--config-text", oldConfigYAML}},
+							},
+						},
+					},
+				},
+			}
+
+			g.Expect(schedulerTransform(context.Background(), d)).To(Succeed())
+
+			configText := d.Spec.Template.Spec.Containers[0].Args[1]
+			tt.validateConfig(g, configText)
+		})
+	}
+}
+
+func TestSchedulerTransformThreshold(t *testing.T) {
+	tests := []struct {
+		name           string
+		configYAML     string
+		version        string
+		validateConfig func(g Gomega, configText string)
+	}{
+		{
+			name: "skips profile handler rename for non-zero threshold",
+			configYAML: `apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: prefill-header-handler
+- type: pd-profile-handler
+  parameters:
+    threshold: 0.5
+- type: prefix-cache-scorer
+  parameters:
+    hashBlockSize: 64
+    blockSizeTokens: 16
+`,
+			version: "0.7.0",
+			validateConfig: func(g Gomega, configText string) {
+				g.Expect(configText).To(ContainSubstring("disagg-headers-handler"))
+				g.Expect(configText).NotTo(ContainSubstring("prefill-header-handler"))
+				g.Expect(configText).To(ContainSubstring("pd-profile-handler"))
+				g.Expect(configText).NotTo(ContainSubstring("disagg-profile-handler"))
+				g.Expect(configText).To(ContainSubstring("threshold"))
+				g.Expect(configText).NotTo(ContainSubstring("hashBlockSize"))
+			},
+		},
+		{
+			name: "skips profile handler for non-zero threshold with deciderPluginName",
+			configYAML: `apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: prefill-header-handler
+- type: pd-profile-handler
+  parameters:
+    deciderPluginName: prefix-based-pd-decider
+    threshold: 0.5
+- type: prefix-cache-scorer
+  parameters:
+    hashBlockSize: 64
+`,
+			version: "0.7.0",
+			validateConfig: func(g Gomega, configText string) {
+				g.Expect(configText).To(ContainSubstring("disagg-headers-handler"))
+				g.Expect(configText).To(ContainSubstring("pd-profile-handler"))
+				g.Expect(configText).NotTo(ContainSubstring("disagg-profile-handler"))
+				g.Expect(configText).To(ContainSubstring("deciderPluginName"))
+				g.Expect(configText).To(ContainSubstring("threshold"))
+				g.Expect(configText).NotTo(ContainSubstring("hashBlockSize"))
+			},
+		},
+		{
+			name: "migrates threshold 0 in full transform",
+			configYAML: `apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: prefill-header-handler
+- type: pd-profile-handler
+  parameters:
+    threshold: 0
+- type: prefix-cache-scorer
+  parameters:
+    hashBlockSize: 64
+    blockSizeTokens: 16
+`,
+			version: "0.7.0",
+			validateConfig: func(g Gomega, configText string) {
+				g.Expect(configText).To(ContainSubstring("disagg-headers-handler"))
+				g.Expect(configText).NotTo(ContainSubstring("prefill-header-handler"))
+				g.Expect(configText).To(ContainSubstring("disagg-profile-handler"))
+				g.Expect(configText).NotTo(ContainSubstring("pd-profile-handler"))
+				g.Expect(configText).To(ContainSubstring("prefill: always-disagg-pd-decider"))
+				g.Expect(configText).NotTo(ContainSubstring("threshold"))
+				g.Expect(configText).To(ContainSubstring("always-disagg-pd-decider"))
+				g.Expect(configText).NotTo(ContainSubstring("hashBlockSize"))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+
+			d := &appsv1.Deployment{
+				Spec: appsv1.DeploymentSpec{
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								"app.kubernetes.io/version": tt.version,
+							},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Name: "main", Args: []string{"--config-text", tt.configYAML}},
 							},
 						},
 					},

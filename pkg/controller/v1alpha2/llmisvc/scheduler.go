@@ -759,8 +759,14 @@ func (r *LLMISVCReconciler) propagateSchedulerDeploymentStatus(ctx context.Conte
 	return nil
 }
 
+// mutateSchedulerConfigFunc operates on the parsed EndpointPickerConfig YAML.
+// Each function receives the deserialized config as an Unstructured object and
+// may mutate it in place.
 type mutateSchedulerConfigFunc func(ctx context.Context, u *unstructured.Unstructured) error
 
+// mutateSchedulerConfig finds the --config-text arg, unmarshals the YAML once,
+// applies all opts sequentially, then marshals back. This ensures a single
+// unmarshal/marshal round-trip regardless of how many mutations are batched.
 func mutateSchedulerConfig(ctx context.Context, d *appsv1.Deployment, opts ...mutateSchedulerConfigFunc) error {
 	schedulerContainer := utils.GetContainerWithName(&d.Spec.Template.Spec, "main")
 	if schedulerContainer == nil {
@@ -993,6 +999,8 @@ func WithMigrateDisaggProfileParams(ctx context.Context, u *unstructured.Unstruc
 		return nil
 	}
 
+	needDeciderPluginEntry := false
+
 	for _, plugin := range plugins {
 		pluginMap, ok := plugin.(map[string]interface{})
 		if !ok {
@@ -1003,24 +1011,63 @@ func WithMigrateDisaggProfileParams(ctx context.Context, u *unstructured.Unstruc
 			continue
 		}
 
+		// Already migrated -- nothing to do.
 		if _, exists, _ := unstructured.NestedFieldNoCopy(pluginMap, "parameters", "deciders"); exists {
 			log.FromContext(ctx).V(2).Info("deciders map already present, skipping disagg-profile-handler migration")
 			continue
 		}
 
-		deciderName, found, err := unstructured.NestedString(pluginMap, "parameters", "deciderPluginName")
-		if err != nil || !found {
+		// Path A: deciderPluginName → deciders map. Also strips threshold if co-present.
+		deciderName, deciderFound, err := unstructured.NestedString(pluginMap, "parameters", "deciderPluginName")
+		if err != nil {
+			return err
+		}
+		if deciderFound {
+			log.FromContext(ctx).Info("Migrating deciderPluginName to deciders map for disagg-profile-handler", "deciderPluginName", deciderName)
+			deciders := map[string]interface{}{
+				"prefill": deciderName,
+			}
+			if err := unstructured.SetNestedField(pluginMap, deciders, "parameters", "deciders"); err != nil {
+				return err
+			}
+			unstructured.RemoveNestedField(pluginMap, "parameters", "deciderPluginName")
+			unstructured.RemoveNestedField(pluginMap, "parameters", "threshold")
 			continue
 		}
 
-		log.FromContext(ctx).Info("Migrating deciderPluginName to deciders map for disagg-profile-handler", "deciderPluginName", deciderName)
+		// Path B: threshold:0 (no deciderPluginName) → always-disagg-pd-decider.
+		// threshold:0 means "always disaggregate", which maps directly to the
+		// always-disagg-pd-decider plugin.
+		thresholdVal, thresholdFound, _ := unstructured.NestedFieldNoCopy(pluginMap, "parameters", "threshold")
+		if !thresholdFound {
+			continue
+		}
+		if fmt.Sprintf("%v", thresholdVal) != "0" {
+			continue
+		}
+		log.FromContext(ctx).Info("Migrating threshold:0 to always-disagg-pd-decider for disagg-profile-handler")
 		deciders := map[string]interface{}{
-			"prefill": deciderName,
+			"prefill": "always-disagg-pd-decider",
 		}
 		if err := unstructured.SetNestedField(pluginMap, deciders, "parameters", "deciders"); err != nil {
 			return err
 		}
-		unstructured.RemoveNestedField(pluginMap, "parameters", "deciderPluginName")
+		unstructured.RemoveNestedField(pluginMap, "parameters", "threshold")
+		needDeciderPluginEntry = true
+	}
+
+	// Ensure the always-disagg-pd-decider plugin entry exists in the top-level
+	// plugins list when we migrated threshold:0 (the decider must be declared).
+	if needDeciderPluginEntry {
+		for _, p := range plugins {
+			if pm, ok := p.(map[string]interface{}); ok && pm["type"] == "always-disagg-pd-decider" {
+				return nil
+			}
+		}
+		plugins = append(plugins, map[string]interface{}{"type": "always-disagg-pd-decider"})
+		if err := unstructured.SetNestedSlice(u.Object, plugins, "plugins"); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -1052,9 +1099,15 @@ func WithRemoveHashBlockSize(_ context.Context, u *unstructured.Unstructured) er
 // schedulerTransform applies all v0.7.0 scheduler migrations in a single pass.
 // It reads the app.kubernetes.io/version annotation from the Deployment's pod
 // template; if the version is < 0.7.0 (or absent, which defaults to 0.0.0),
-// all migrations are skipped. Otherwise it strips deprecated CLI flags first,
-// then unmarshals the EndpointPickerConfig YAML once, applies every mutation,
-// and marshals it back.
+// all migrations are skipped because the v0.6 binary would reject new names.
+//
+// Migrations applied (in order):
+//  1. extractDeprecatedMetricFlags  – strip 5 CLI flags hard-rejected by GIE v1.4.0
+//  2. withMigrateDisaggHeadersHandler – rename prefill-header-handler → disagg-headers-handler
+//  3. withMigrateDisaggProfileHandler – rename pd-profile-handler → disagg-profile-handler,
+//     migrate deciderPluginName/threshold to deciders map (skipped for non-zero threshold)
+//  4. WithRemoveHashBlockSize – drop deprecated hashBlockSize from all plugins
+//  5. withCoreMetricsExtractorPlugin – inject core-metrics-extractor with extracted flag values
 func schedulerTransform(ctx context.Context, d *appsv1.Deployment) error {
 	version, ok := d.Spec.Template.Annotations["app.kubernetes.io/version"]
 	if !ok || version == "" {
@@ -1087,7 +1140,16 @@ func withMigrateDisaggHeadersHandler(ctx context.Context, u *unstructured.Unstru
 // withMigrateDisaggProfileHandler renames the pd-profile-handler plugin to
 // disagg-profile-handler and migrates its parameters from the flat
 // deciderPluginName to the new deciders map (v0.7.0 rename + restructure).
+//
+// If the profile handler has a non-zero threshold value, the entire migration
+// is skipped (no rename, no param change) because there is no clean v0.7
+// equivalent for arbitrary threshold values. The v0.7 binary still accepts
+// the old pd-profile-handler + threshold as a deprecated alias.
 func withMigrateDisaggProfileHandler(ctx context.Context, u *unstructured.Unstructured) error {
+	if hasNonZeroThreshold(u) {
+		log.FromContext(ctx).Info("Skipping disagg-profile-handler migration: non-zero threshold has no v0.7 equivalent")
+		return nil
+	}
 	for _, fn := range []mutateSchedulerConfigFunc{
 		WithRenamePlugin("pd-profile-handler", "disagg-profile-handler"),
 		WithMigrateDisaggProfileParams,
@@ -1099,8 +1161,47 @@ func withMigrateDisaggProfileHandler(ctx context.Context, u *unstructured.Unstru
 	return nil
 }
 
-// extractDeprecatedMetricFlags strips deprecated metric CLI flags from all
-// containers and returns their values for injection into the config YAML.
+// hasNonZeroThreshold returns true if the EndpointPickerConfig contains a
+// profile handler plugin with a non-zero threshold and no deciders map.
+// Such configs have no clean v0.7 equivalent; the v0.7 binary still accepts
+// them as deprecated, so we leave them untouched to avoid partial migrations.
+func hasNonZeroThreshold(u *unstructured.Unstructured) bool {
+	val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
+	if err != nil || !found {
+		return false
+	}
+	plugins, ok := val.([]interface{})
+	if !ok {
+		return false
+	}
+	for _, plugin := range plugins {
+		pluginMap, ok := plugin.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		pluginType, _ := pluginMap["type"].(string)
+		if pluginType != "disagg-profile-handler" && pluginType != "pd-profile-handler" {
+			continue
+		}
+		// Already migrated to deciders map -- not a legacy threshold config.
+		if _, exists, _ := unstructured.NestedFieldNoCopy(pluginMap, "parameters", "deciders"); exists {
+			return false
+		}
+		thresholdVal, thresholdFound, _ := unstructured.NestedFieldNoCopy(pluginMap, "parameters", "threshold")
+		if !thresholdFound {
+			return false
+		}
+		// threshold:0 is semantically "always disaggregate" and can be migrated.
+		if fmt.Sprintf("%v", thresholdVal) != "0" {
+			return true
+		}
+	}
+	return false
+}
+
+// extractDeprecatedMetricFlags strips the 5 metric CLI flags that GIE v1.4.0
+// hard-rejects at startup. Returns their values so they can be re-injected as
+// core-metrics-extractor plugin parameters in the EndpointPickerConfig YAML.
 func extractDeprecatedMetricFlags(d *appsv1.Deployment) map[string]string {
 	toRemove := map[string]bool{
 		"total-queued-requests-metric":     true,
@@ -1147,7 +1248,9 @@ func filterArgs(args []string, names map[string]bool) (filtered []string, extrac
 }
 
 // withCoreMetricsExtractorPlugin returns a mutateSchedulerConfigFunc that
-// injects the core-metrics-extractor plugin using extracted CLI flag values.
+// injects the core-metrics-extractor plugin with the metric spec values
+// previously passed as CLI flags. No-op if the plugin already exists or no
+// flags were extracted.
 func withCoreMetricsExtractorPlugin(extracted map[string]string) mutateSchedulerConfigFunc {
 	argToEngineConfigField := map[string]string{
 		"total-queued-requests-metric":     "queuedRequestsSpec",
