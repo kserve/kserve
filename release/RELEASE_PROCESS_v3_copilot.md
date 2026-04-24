@@ -105,6 +105,8 @@ The `release-orchestrator` agent runs the following phases in order:
 
 There are 5 approval points total. Everything else is automated.
 
+> Checkpoints are saved to `~/.kserve_release/checkpoint.json` during long-running steps. If the session is interrupted, the agent will detect the checkpoint on restart and offer to resume.
+
 ---
 
 ## 5. Release Types

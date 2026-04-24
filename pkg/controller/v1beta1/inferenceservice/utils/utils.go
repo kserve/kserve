@@ -223,7 +223,7 @@ case 2: serving.kserve.org/deploymentMode is set
 func GetDeploymentMode(statusDeploymentMode string, annotations map[string]string, deployConfig *v1beta1.DeployConfig) constants.DeploymentModeType {
 	// First priority is the deploymentMode recorded in the status
 	if len(statusDeploymentMode) != 0 {
-		return constants.DeploymentModeType(statusDeploymentMode)
+		return constants.ParseDeploymentMode(statusDeploymentMode)
 	}
 
 	// Second priority, if the status doesn't have the deploymentMode recorded, is explicit annotations

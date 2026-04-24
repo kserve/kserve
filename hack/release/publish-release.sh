@@ -136,7 +136,7 @@ if [[ "$DRY_RUN" == "true" ]]; then
     echo -e "\n${YELLOW}[DRY-RUN] Would create release with:${NC}"
     echo "  gh release create $VERSION"
     echo "    --repo $REPO"
-    echo "    --title \"KServe $VERSION\""
+    echo "    --title \"$VERSION\""
     echo "    --generate-notes"
     echo "    $FLAGS"
     echo "    $INSTALL_DIR/*"
@@ -148,7 +148,7 @@ fi
 echo -e "\n${YELLOW}[6/6] Creating release...${NC}"
 gh release create "$VERSION" \
     --repo "$REPO" \
-    --title "KServe $VERSION" \
+    --title "$VERSION" \
     --generate-notes \
     $FLAGS \
     "$INSTALL_DIR"/*

@@ -76,6 +76,9 @@ func (v *LocalModelCacheValidator) ValidateUpdate(ctx context.Context, oldObj, n
 		localModelCacheValidatorLogger.Error(err, "Unable to convert object to LocalModelCache")
 		return nil, err
 	}
+	if localModelCache.GetDeletionTimestamp() != nil {
+		return nil, nil
+	}
 	localModelCacheValidatorLogger.Info("validate update", "name", localModelCache.Name)
 	localModelCacheWithSameStorageURI, err := v.validateUniqueStorageURI(ctx, localModelCache)
 	if err != nil {

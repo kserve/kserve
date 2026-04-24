@@ -32,7 +32,7 @@ NC='\033[0m' # No Color
 # Global variables
 # ============================================================
 VERSION=""
-DRY_RUN=false
+DRY_RUN=true
 VALIDATE_ONLY=false
 GITHUB_ACTIONS_MODE=false
 BASE_VERSION=""
@@ -71,27 +71,28 @@ Usage: $0 <version> [OPTIONS]
 
 Create a KServe release (branch and tag)
 
+Default behavior is dry-run (validate + show plan). Use --execute to actually create.
+
 Arguments:
   version           Release version (e.g., v0.17.0-rc0, v0.17.0-rc1, v0.17.0)
 
 Options:
-  --dry-run         Validate and show execution plan without making changes
+  --execute         Actually create branch and tag (default is dry-run)
   --validate-only   Only run validation checks and exit
-  --github-actions  Enable GitHub CLI checks (for CI environment)
   -h, --help        Show this help message
 
 Examples:
-  # Validate version and show execution plan
-  $0 v0.17.0-rc0 --dry-run
-
-  # Create RC0 (branch + tag)
+  # Dry-run (default): validate and show execution plan
   $0 v0.17.0-rc0
 
-  # Create RC1 (tag only)
-  $0 v0.17.0-rc1
+  # Execute: create RC0 (branch + tag)
+  $0 v0.17.0-rc0 --execute
 
-  # Create final release (tag only)
-  $0 v0.17.0
+  # Execute: create RC1 (tag only)
+  $0 v0.17.0-rc1 --execute
+
+  # Execute: create final release (tag only)
+  $0 v0.17.0 --execute
 
 Release Types:
   v0.17.0-rc0  → RC0 (creates release-0.17 branch + tag)
@@ -100,7 +101,7 @@ Release Types:
 
 Note:
   - This script creates branches and tags only
-  - GitHub Release is created by GitHub Actions workflow
+  - Use publish-release.sh to create the GitHub Release
   - Requires push access to kserve/kserve repository
 
 EOF
@@ -439,16 +440,17 @@ main() {
 
     while [[ $# -gt 0 ]]; do
         case $1 in
+            --execute)
+                DRY_RUN=false
+                shift
+                ;;
             --dry-run)
+                # Default behavior, kept for explicit usage
                 DRY_RUN=true
                 shift
                 ;;
             --validate-only)
                 VALIDATE_ONLY=true
-                shift
-                ;;
-            --github-actions)
-                GITHUB_ACTIONS_MODE=true
                 shift
                 ;;
             -h|--help)
@@ -482,7 +484,7 @@ main() {
     echo "=================================================="
 
     # Determine upstream remote
-    if [[ "$GITHUB_ACTIONS_MODE" == true ]]; then
+    if [[ "${GITHUB_ACTIONS:-false}" == "true" ]]; then
         # GitHub Actions always uses origin
         UPSTREAM_REMOTE="origin"
         echo "Using remote: $UPSTREAM_REMOTE (GitHub Actions)"
@@ -530,28 +532,8 @@ main() {
         exit 0
     fi
 
-    # Block local execution - only allow in GitHub Actions
-    if [[ "${GITHUB_ACTIONS:-false}" != "true" ]]; then
-        echo ""
-        echo "=================================================="
-        print_error "Direct execution is not allowed!"
-        echo "=================================================="
-        echo ""
-        echo "This script can only be executed in GitHub Actions"
-        echo "to prevent accidental releases."
-        echo ""
-        echo "To create a release:"
-        echo "  1. Go to: https://github.com/kserve/kserve/actions"
-        echo "  2. Select 'Create Release' workflow"
-        echo "  3. Click 'Run workflow'"
-        echo "  4. Enter version and set dry_run=false"
-        echo ""
-        echo "For local testing:"
-        echo "  ./hack/release/create-branch-tag.sh <version> --validate-only"
-        echo "  ./hack/release/create-branch-tag.sh <version> --dry-run"
-        echo ""
-        exit 1
-    fi
+    # Safety: dry-run is recommended for first-time usage
+    # Run without --dry-run to actually create branch and tag
 
     # Execute release
     execute_release

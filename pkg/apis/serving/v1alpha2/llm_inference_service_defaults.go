@@ -50,4 +50,8 @@ func (in *LLMInferenceServiceSpec) SetDefaults(_ context.Context) {
 	if in.Prefill != nil && in.Prefill.Worker != nil && in.Prefill.Worker.Containers == nil {
 		in.Prefill.Worker.Containers = []corev1.Container{}
 	}
+
+	if in.Router != nil && in.Router.Scheduler != nil && in.Router.Scheduler.Template != nil && in.Router.Scheduler.Template.Containers == nil {
+		in.Router.Scheduler.Template.Containers = []corev1.Container{}
+	}
 }
