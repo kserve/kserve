@@ -45,9 +45,10 @@ import (
 // LocalModelNamespaceCacheReconciler reconciles namespace-scoped LocalModelNamespaceCache resources
 type LocalModelNamespaceCacheReconciler struct {
 	client.Client
-	Clientset *kubernetes.Clientset
-	Log       logr.Logger
-	Scheme    *runtime.Scheme
+	Clientset                *kubernetes.Clientset
+	Log                      logr.Logger
+	Scheme                   *runtime.Scheme
+	llmInferenceServiceCRDUp bool
 }
 
 // Reconcile
@@ -136,7 +137,7 @@ func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req 
 	}
 
 	// Step 4 - Creates PV & PVCs for ISVCs in the same namespace using this model
-	err = ReconcileForIsvcs(ctx, c.Client, c.Clientset, c.Scheme, c.Log, nil, localModel, nodeGroups, defaultNodeGroup)
+	err = ReconcileForIsvcs(ctx, c.Client, c.Clientset, c.Scheme, c.Log, nil, localModel, nodeGroups, defaultNodeGroup, c.llmInferenceServiceCRDUp)
 	return ctrl.Result{}, err
 }
 
@@ -289,16 +290,25 @@ func (c *LocalModelNamespaceCacheReconciler) SetupWithManager(mgr ctrl.Manager) 
 		return err
 	}
 
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha2.LLMInferenceService{}, LocalModelNamespaceKey, func(rawObj client.Object) []string {
-		llmSvc := rawObj.(*v1alpha2.LLMInferenceService)
-		modelName, hasModel := llmSvc.GetLabels()[constants.LocalModelLabel]
-		modelNamespace, hasNamespace := llmSvc.GetLabels()[constants.LocalModelNamespaceLabel]
-		if hasModel && hasNamespace && llmSvc.Namespace == modelNamespace {
-			return []string{modelName}
-		}
-		return nil
-	}); err != nil {
+	hasLLMISvcCRD, err := hasLLMInferenceServiceCRD(mgr)
+	if err != nil {
 		return err
+	}
+	c.llmInferenceServiceCRDUp = hasLLMISvcCRD
+	if hasLLMISvcCRD {
+		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha2.LLMInferenceService{}, LocalModelNamespaceKey, func(rawObj client.Object) []string {
+			llmSvc := rawObj.(*v1alpha2.LLMInferenceService)
+			modelName, hasModel := llmSvc.GetLabels()[constants.LocalModelLabel]
+			modelNamespace, hasNamespace := llmSvc.GetLabels()[constants.LocalModelNamespaceLabel]
+			if hasModel && hasNamespace && llmSvc.Namespace == modelNamespace {
+				return []string{modelName}
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	} else {
+		c.Log.Info("LLMInferenceService CRD not installed; skipping LocalModelNamespaceCache LLMInferenceService index and watch setup")
 	}
 
 	isvcPredicates := predicate.Funcs{
@@ -364,7 +374,9 @@ func (c *LocalModelNamespaceCacheReconciler) SetupWithManager(mgr ctrl.Manager) 
 
 	if !localModelConfig.DisableVolumeManagement {
 		controllerBuilder.Watches(&v1beta1.InferenceService{}, handler.EnqueueRequestsFromMapFunc(c.isvcFuncNamespaceCache), builder.WithPredicates(isvcPredicates))
-		controllerBuilder.Watches(&v1alpha2.LLMInferenceService{}, handler.EnqueueRequestsFromMapFunc(c.llmIsvcFuncNamespaceCache), builder.WithPredicates(llmIsvcPredicates))
+		if hasLLMISvcCRD {
+			controllerBuilder.Watches(&v1alpha2.LLMInferenceService{}, handler.EnqueueRequestsFromMapFunc(c.llmIsvcFuncNamespaceCache), builder.WithPredicates(llmIsvcPredicates))
+		}
 	}
 
 	return controllerBuilder.

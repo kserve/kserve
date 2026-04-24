@@ -17,15 +17,21 @@ limitations under the License.
 package llminferenceservice
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"knative.dev/pkg/apis"
+	ctrlfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 )
 
@@ -214,4 +220,84 @@ func TestSetLocalModelLabel_NodeGroupNotMatching(t *testing.T) {
 
 	// Node group doesn't match — no labels set
 	assert.NotContains(t, llmSvc.Labels, constants.LocalModelLabel)
+}
+
+func newLLMSvcV1(modelUri string) *v1alpha1.LLMInferenceService {
+	uri, _ := apis.ParseURL(modelUri)
+	return &v1alpha1.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-v1",
+			Namespace: "default",
+		},
+		Spec: v1alpha1.LLMInferenceServiceSpec{
+			Model: v1alpha1.LLMModelSpec{
+				URI: *uri,
+			},
+		},
+	}
+}
+
+func newDefaulterForDefaultTests(t *testing.T, localModelEnabled bool, objects ...runtime.Object) *LLMInferenceServiceDefaulter {
+	t.Helper()
+
+	scheme := runtime.NewScheme()
+	assert.NoError(t, v1alpha1.AddToScheme(scheme))
+	assert.NoError(t, v1alpha2.AddToScheme(scheme))
+
+	fakeClient := ctrlfake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objects...).Build()
+	configMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.InferenceServiceConfigMapName,
+			Namespace: constants.KServeNamespace,
+		},
+		Data: map[string]string{
+			v1beta1.LocalModelConfigName: `{"enabled": ` + map[bool]string{true: "true", false: "false"}[localModelEnabled] + `}`,
+		},
+	}
+	fakeClientset := k8sfake.NewSimpleClientset(configMap)
+
+	return &LLMInferenceServiceDefaulter{
+		Client:    fakeClient,
+		Clientset: fakeClientset,
+	}
+}
+
+func TestDefault_V1Alpha1Object_DoesNotErrorAndSetsMetadata(t *testing.T) {
+	model := &v1alpha1.LocalModelCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-cache"},
+		Spec: v1alpha1.LocalModelCacheSpec{
+			SourceModelUri: "s3://mybucket/mymodel",
+			ModelSize:      resource.MustParse("10Gi"),
+			NodeGroups:     []string{"gpu1"},
+		},
+	}
+	defaulter := newDefaulterForDefaultTests(t, true, model)
+	llmSvc := newLLMSvcV1("s3://mybucket/mymodel")
+
+	err := defaulter.Default(context.Background(), llmSvc)
+	assert.NoError(t, err)
+	assert.Equal(t, "my-cache", llmSvc.Labels[constants.LocalModelLabel])
+	assert.Equal(t, "s3://mybucket/mymodel", llmSvc.Annotations[constants.LocalModelSourceUriAnnotationKey])
+	assert.Equal(t, "my-cache-gpu1", llmSvc.Annotations[constants.LocalModelPVCNameAnnotationKey])
+}
+
+func TestDefault_V1Alpha1Object_Disabled_CleansStaleMetadata(t *testing.T) {
+	defaulter := newDefaulterForDefaultTests(t, true)
+	llmSvc := newLLMSvcV1("s3://mybucket/mymodel")
+	llmSvc.Annotations = map[string]string{
+		constants.DisableLocalModelKey:             "true",
+		constants.LocalModelSourceUriAnnotationKey: "s3://mybucket/old",
+		constants.LocalModelPVCNameAnnotationKey:   "old-pvc",
+	}
+	llmSvc.Labels = map[string]string{
+		constants.LocalModelLabel:          "old-cache",
+		constants.LocalModelNamespaceLabel: "default",
+	}
+
+	err := defaulter.Default(context.Background(), llmSvc)
+	assert.NoError(t, err)
+	assert.NotContains(t, llmSvc.Labels, constants.LocalModelLabel)
+	assert.NotContains(t, llmSvc.Labels, constants.LocalModelNamespaceLabel)
+	assert.NotContains(t, llmSvc.Annotations, constants.LocalModelSourceUriAnnotationKey)
+	assert.NotContains(t, llmSvc.Annotations, constants.LocalModelPVCNameAnnotationKey)
 }

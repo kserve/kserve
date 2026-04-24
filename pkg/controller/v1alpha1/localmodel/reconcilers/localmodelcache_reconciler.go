@@ -45,9 +45,10 @@ import (
 // LocalModelReconciler reconciles cluster-scoped LocalModelCache resources
 type LocalModelReconciler struct {
 	client.Client
-	Clientset *kubernetes.Clientset
-	Log       logr.Logger
-	Scheme    *runtime.Scheme
+	Clientset                *kubernetes.Clientset
+	Log                      logr.Logger
+	Scheme                   *runtime.Scheme
+	llmInferenceServiceCRDUp bool
 }
 
 // Reconcile
@@ -136,7 +137,7 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	// Step 4 - Creates PV & PVCs for namespaces with isvcs using this model
-	err = ReconcileForIsvcs(ctx, c.Client, c.Clientset, c.Scheme, c.Log, localModel, nil, nodeGroups, defaultNodeGroup)
+	err = ReconcileForIsvcs(ctx, c.Client, c.Clientset, c.Scheme, c.Log, localModel, nil, nodeGroups, defaultNodeGroup, c.llmInferenceServiceCRDUp)
 	return ctrl.Result{}, err
 }
 
@@ -278,14 +279,23 @@ func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha2.LLMInferenceService{}, LocalModelKey, func(rawObj client.Object) []string {
-		llmSvc := rawObj.(*v1alpha2.LLMInferenceService)
-		if model, ok := llmSvc.GetLabels()[constants.LocalModelLabel]; ok {
-			return []string{model}
-		}
-		return nil
-	}); err != nil {
+	hasLLMISvcCRD, err := hasLLMInferenceServiceCRD(mgr)
+	if err != nil {
 		return err
+	}
+	c.llmInferenceServiceCRDUp = hasLLMISvcCRD
+	if hasLLMISvcCRD {
+		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha2.LLMInferenceService{}, LocalModelKey, func(rawObj client.Object) []string {
+			llmSvc := rawObj.(*v1alpha2.LLMInferenceService)
+			if model, ok := llmSvc.GetLabels()[constants.LocalModelLabel]; ok {
+				return []string{model}
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	} else {
+		c.Log.Info("LLMInferenceService CRD not installed; skipping LocalModelCache LLMInferenceService index and watch setup")
 	}
 
 	isvcPredicates := predicate.Funcs{
@@ -346,7 +356,9 @@ func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	if !localModelConfig.DisableVolumeManagement {
 		controllerBuilder.Watches(&v1beta1.InferenceService{}, handler.EnqueueRequestsFromMapFunc(c.isvcFunc), builder.WithPredicates(isvcPredicates))
-		controllerBuilder.Watches(&v1alpha2.LLMInferenceService{}, handler.EnqueueRequestsFromMapFunc(c.llmIsvcFunc), builder.WithPredicates(llmIsvcPredicates))
+		if hasLLMISvcCRD {
+			controllerBuilder.Watches(&v1alpha2.LLMInferenceService{}, handler.EnqueueRequestsFromMapFunc(c.llmIsvcFunc), builder.WithPredicates(llmIsvcPredicates))
+		}
 	}
 
 	return controllerBuilder.

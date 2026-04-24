@@ -1883,7 +1883,7 @@ webhooks:
       namespace: kserve
       path: /mutate-serving-kserve-io-v1alpha2-llminferenceservice
   failurePolicy: Fail
-  matchPolicy: Exact
+  matchPolicy: Equivalent
   name: llminferenceservice.kserve-webhook-server.defaulter
   rules:
   - apiGroups:

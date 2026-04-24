@@ -18,6 +18,7 @@ package llminferenceservice
 
 import (
 	"context"
+	"fmt"
 	"slices"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -30,7 +31,6 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 )
 
 var defaulterLogger = logf.Log.WithName("llminferenceservice-defaulter")
@@ -49,12 +49,31 @@ type LLMInferenceServiceDefaulter struct {
 var _ webhook.CustomDefaulter = &LLMInferenceServiceDefaulter{}
 
 func (d *LLMInferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Object) error {
-	llmSvc, err := utils.Convert[*v1alpha2.LLMInferenceService](obj)
-	if err != nil {
+	switch typedObj := obj.(type) {
+	case *v1alpha2.LLMInferenceService:
+		return d.applyDefaults(ctx, typedObj)
+	case *v1alpha1.LLMInferenceService:
+		llmSvcV2 := &v1alpha2.LLMInferenceService{}
+		if err := typedObj.ConvertTo(llmSvcV2); err != nil {
+			defaulterLogger.Error(err, "Unable to convert v1alpha1 object to LLMInferenceService v1alpha2")
+			return err
+		}
+		if err := d.applyDefaults(ctx, llmSvcV2); err != nil {
+			return err
+		}
+		if err := typedObj.ConvertFrom(llmSvcV2); err != nil {
+			defaulterLogger.Error(err, "Unable to convert LLMInferenceService v1alpha2 object back to v1alpha1")
+			return err
+		}
+		return nil
+	default:
+		err := fmt.Errorf("unsupported object type %T for LLMInferenceService defaulter", obj)
 		defaulterLogger.Error(err, "Unable to convert object to LLMInferenceService")
 		return err
 	}
+}
 
+func (d *LLMInferenceServiceDefaulter) applyDefaults(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
 	llmSvc.SetDefaults(ctx)
 
 	configMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, d.Clientset)
