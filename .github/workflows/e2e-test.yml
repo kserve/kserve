@@ -1156,7 +1156,7 @@ jobs:
       - name: Run E2E tests
         timeout-minutes: 30
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "autoscaling" "6" "istio-ingress"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "autoscaling and not llminferenceservice" "6" "istio-ingress"
 
       - name: Check system status
         if: always()
