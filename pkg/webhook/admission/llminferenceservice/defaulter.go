@@ -38,9 +38,61 @@ var defaulterLogger = logf.Log.WithName("llminferenceservice-defaulter")
 // +kubebuilder:object:generate=false
 // +k8s:openapi-gen=false
 
-// +kubebuilder:webhook:path=/mutate-serving-kserve-io-v1alpha2-llminferenceservice,mutating=true,failurePolicy=fail,sideEffects=None,groups=serving.kserve.io,resources=llminferenceservices,verbs=create;update,versions=v1alpha1;v1alpha2,name=llminferenceservice.kserve-webhook-server.defaulter,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/mutate-serving-kserve-io-v1alpha1-llminferenceservice,mutating=true,failurePolicy=fail,sideEffects=None,groups=serving.kserve.io,resources=llminferenceservices,verbs=create;update,versions=v1alpha1,name=llminferenceservice.kserve-webhook-server.v1alpha1.defaulter,admissionReviewVersions=v1
 
-// LLMInferenceServiceDefaulter sets local model cache labels on LLMInferenceService resources.
+// LLMInferenceServiceDefaulterV1Alpha1 sets local model cache labels on v1alpha1 LLMInferenceService resources.
+type LLMInferenceServiceDefaulterV1Alpha1 struct {
+	Client    client.Client
+	Clientset kubernetes.Interface
+}
+
+var _ webhook.CustomDefaulter = &LLMInferenceServiceDefaulterV1Alpha1{}
+
+func (d *LLMInferenceServiceDefaulterV1Alpha1) Default(ctx context.Context, obj runtime.Object) error {
+	typedObj, ok := obj.(*v1alpha1.LLMInferenceService)
+	if !ok {
+		err := fmt.Errorf("unsupported object type %T for LLMInferenceService v1alpha1 defaulter", obj)
+		defaulterLogger.Error(err, "Unable to convert object to LLMInferenceService v1alpha1")
+		return err
+	}
+
+	llmSvcV2 := &v1alpha2.LLMInferenceService{}
+	if err := typedObj.ConvertTo(llmSvcV2); err != nil {
+		defaulterLogger.Error(err, "Unable to convert v1alpha1 object to LLMInferenceService v1alpha2")
+		return err
+	}
+	if err := d.applyDefaults(ctx, llmSvcV2); err != nil {
+		return err
+	}
+	if err := typedObj.ConvertFrom(llmSvcV2); err != nil {
+		defaulterLogger.Error(err, "Unable to convert LLMInferenceService v1alpha2 object back to v1alpha1")
+		return err
+	}
+	return nil
+}
+
+// +kubebuilder:webhook:path=/mutate-serving-kserve-io-v1alpha2-llminferenceservice,mutating=true,failurePolicy=fail,sideEffects=None,groups=serving.kserve.io,resources=llminferenceservices,verbs=create;update,versions=v1alpha2,name=llminferenceservice.kserve-webhook-server.v1alpha2.defaulter,admissionReviewVersions=v1
+
+// LLMInferenceServiceDefaulterV1Alpha2 sets local model cache labels on v1alpha2 LLMInferenceService resources.
+type LLMInferenceServiceDefaulterV1Alpha2 struct {
+	Client    client.Client
+	Clientset kubernetes.Interface
+}
+
+var _ webhook.CustomDefaulter = &LLMInferenceServiceDefaulterV1Alpha2{}
+
+func (d *LLMInferenceServiceDefaulterV1Alpha2) Default(ctx context.Context, obj runtime.Object) error {
+	typedObj, ok := obj.(*v1alpha2.LLMInferenceService)
+	if !ok {
+		err := fmt.Errorf("unsupported object type %T for LLMInferenceService v1alpha2 defaulter", obj)
+		defaulterLogger.Error(err, "Unable to convert object to LLMInferenceService v1alpha2")
+		return err
+	}
+	return d.applyDefaults(ctx, typedObj)
+}
+
+// LLMInferenceServiceDefaulter is kept for shared tests and local usage.
+// Production registration uses version-specific defaulters.
 type LLMInferenceServiceDefaulter struct {
 	Client    client.Client
 	Clientset kubernetes.Interface
@@ -51,14 +103,14 @@ var _ webhook.CustomDefaulter = &LLMInferenceServiceDefaulter{}
 func (d *LLMInferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Object) error {
 	switch typedObj := obj.(type) {
 	case *v1alpha2.LLMInferenceService:
-		return d.applyDefaults(ctx, typedObj)
+		return applyDefaults(ctx, d.Client, d.Clientset, typedObj)
 	case *v1alpha1.LLMInferenceService:
 		llmSvcV2 := &v1alpha2.LLMInferenceService{}
 		if err := typedObj.ConvertTo(llmSvcV2); err != nil {
 			defaulterLogger.Error(err, "Unable to convert v1alpha1 object to LLMInferenceService v1alpha2")
 			return err
 		}
-		if err := d.applyDefaults(ctx, llmSvcV2); err != nil {
+		if err := applyDefaults(ctx, d.Client, d.Clientset, llmSvcV2); err != nil {
 			return err
 		}
 		if err := typedObj.ConvertFrom(llmSvcV2); err != nil {
@@ -73,10 +125,23 @@ func (d *LLMInferenceServiceDefaulter) Default(ctx context.Context, obj runtime.
 	}
 }
 
-func (d *LLMInferenceServiceDefaulter) applyDefaults(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+func (d *LLMInferenceServiceDefaulterV1Alpha1) applyDefaults(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+	return applyDefaults(ctx, d.Client, d.Clientset, llmSvc)
+}
+
+func (d *LLMInferenceServiceDefaulterV1Alpha2) applyDefaults(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+	return applyDefaults(ctx, d.Client, d.Clientset, llmSvc)
+}
+
+func applyDefaults(
+	ctx context.Context,
+	k8sClient client.Client,
+	clientset kubernetes.Interface,
+	llmSvc *v1alpha2.LLMInferenceService,
+) error {
 	llmSvc.SetDefaults(ctx)
 
-	configMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, d.Clientset)
+	configMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, clientset)
 	if err != nil {
 		defaulterLogger.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
 		return err
@@ -89,12 +154,12 @@ func (d *LLMInferenceServiceDefaulter) applyDefaults(ctx context.Context, llmSvc
 	_, localModelDisabled := llmSvc.Annotations[constants.DisableLocalModelKey]
 	if !localModelDisabled && localModelConfig.Enabled {
 		models := &v1alpha1.LocalModelCacheList{}
-		if err := d.Client.List(ctx, models); err != nil {
+		if err := k8sClient.List(ctx, models); err != nil {
 			defaulterLogger.Error(err, "Cannot list local models")
 			return err
 		}
 		nsModels := &v1alpha1.LocalModelNamespaceCacheList{}
-		if err := d.Client.List(ctx, nsModels, client.InNamespace(llmSvc.Namespace)); err != nil {
+		if err := k8sClient.List(ctx, nsModels, client.InNamespace(llmSvc.Namespace)); err != nil {
 			defaulterLogger.Error(err, "Cannot list namespace-scoped local models", "namespace", llmSvc.Namespace)
 			return err
 		}

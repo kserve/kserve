@@ -263,14 +263,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Register conversion and defaulting webhooks for Hub types (v1alpha2)
-	// This enables automatic API version conversion between v1alpha1 and v1alpha2,
-	// and sets local model cache labels when a matching cache exists.
+	// Register version-specific mutating webhooks.
+	// This ensures admission decoding matches request version (v1alpha1 or v1alpha2)
+	// before shared defaulting logic is applied.
+	if err = ctrl.NewWebhookManagedBy(mgr).
+		For(&v1alpha1.LLMInferenceService{}).
+		WithDefaulter(&llmisvcwebhook.LLMInferenceServiceDefaulterV1Alpha1{Client: mgr.GetClient(), Clientset: clientSet}).
+		Complete(); err != nil {
+		setupLog.Error(err, "unable to create defaulting webhook", "webhook", "llminferenceservice-v1alpha1")
+		os.Exit(1)
+	}
+
 	if err = ctrl.NewWebhookManagedBy(mgr).
 		For(&v1alpha2.LLMInferenceService{}).
-		WithDefaulter(&llmisvcwebhook.LLMInferenceServiceDefaulter{Client: mgr.GetClient(), Clientset: clientSet}).
+		WithDefaulter(&llmisvcwebhook.LLMInferenceServiceDefaulterV1Alpha2{Client: mgr.GetClient(), Clientset: clientSet}).
 		Complete(); err != nil {
-		setupLog.Error(err, "unable to create conversion webhook", "webhook", "llminferenceservice")
+		setupLog.Error(err, "unable to create defaulting webhook", "webhook", "llminferenceservice-v1alpha2")
 		os.Exit(1)
 	}
 

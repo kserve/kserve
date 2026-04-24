@@ -1645,8 +1645,13 @@ main() {
                 TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/localmodel")
                 TARGET_CRDS_TO_VERIFY+=("${KSERVE_CRDS}")
                 TARGET_CRDS_TO_VERIFY+=("${LOCALMODEL_CRDS}")
-                TARGET_DEPLOYMENT_NAMES+=("kserve-controller-manager")
-                TARGET_DEPLOYMENT_NAMES+=("kserve-localmodel-controller-manager")
+                test_overlay_deployments="kserve-controller-manager kserve-localmodel-controller-manager"
+                if is_positive "${ENABLE_LLMISVC}"; then
+                    TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/llmisvc")
+                    TARGET_CRDS_TO_VERIFY+=("${LLMISVC_CRDS}")
+                    test_overlay_deployments+=" llmisvc-controller-manager"
+                fi
+                TARGET_DEPLOYMENT_NAMES+=("${test_overlay_deployments}")
             elif [ "${KSERVE_OVERLAY_DIR}" == "test-llmisvc" ]; then
                 TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/llmisvc")
                 TARGET_CRDS_TO_VERIFY+=("${LLMISVC_CRDS}")
