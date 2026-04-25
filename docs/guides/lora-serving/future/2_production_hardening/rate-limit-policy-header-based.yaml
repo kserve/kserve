@@ -1,0 +1,90 @@
+# RateLimitPolicy — Header-based alternative for per-adapter rate limiting
+#
+# ALTERNATIVE APPROACH: When request body buffering is not available
+#
+# If your environment does not support Envoy request body buffering
+# (required for requestBodyJSON()), you can use a header-based approach
+# instead. This works if:
+#
+#   (a) The Gateway API Inference Extension (InferencePool) or an
+#       EnvoyFilter sets a header like x-model-name based on the
+#       request body's "model" field, OR
+#   (b) Clients are required to send a custom header identifying the
+#       adapter (e.g., x-adapter-name: finance-lora)
+#
+# The Gateway API Inference Extension's endpoint picker already parses
+# the request body to extract the model name for routing. An EnvoyFilter
+# or Lua filter can copy this into a request header before rate limiting
+# is evaluated.
+#
+apiVersion: kuadrant.io/v1
+kind: RateLimitPolicy
+metadata:
+  name: lora-serving-rate-limits
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: lora-serving-route
+  limits:
+    # -----------------------------------------------------------
+    # Global safety net
+    # -----------------------------------------------------------
+    "global-limit":
+      rates:
+        - limit: 500
+          window: 1m
+
+    # -----------------------------------------------------------
+    # Per-user tiered limits (same as body-based policy)
+    # -----------------------------------------------------------
+    "per-user-premium":
+      rates:
+        - limit: 100
+          window: 1m
+      counters:
+        - expression: auth.identity.userid
+      when:
+        - predicate: "auth.identity.tier == 'premium'"
+
+    "per-user-standard":
+      rates:
+        - limit: 20
+          window: 1m
+      counters:
+        - expression: auth.identity.userid
+      when:
+        - predicate: "auth.identity.tier == 'standard'"
+
+    # -----------------------------------------------------------
+    # Per-adapter limits using request header
+    # Requires x-model-name header to be set by the gateway
+    # (via EnvoyFilter, Lua filter, or client convention)
+    # -----------------------------------------------------------
+    "adapter-finance-lora":
+      rates:
+        - limit: 200
+          window: 1m
+      when:
+        - predicate: "request.headers['x-model-name'] == 'finance-lora'"
+
+    "adapter-k8s-lora":
+      rates:
+        - limit: 100
+          window: 1m
+      when:
+        - predicate: "request.headers['x-model-name'] == 'k8s-lora'"
+
+    # -----------------------------------------------------------
+    # Per-adapter counter for unlisted adapters
+    # -----------------------------------------------------------
+    "adapter-default":
+      rates:
+        - limit: 50
+          window: 1m
+      counters:
+        - expression: "request.headers['x-model-name']"
+      when:
+        - predicate: "request.headers.exists('x-model-name')"
+        - predicate: "request.headers['x-model-name'] != 'finance-lora'"
+        - predicate: "request.headers['x-model-name'] != 'k8s-lora'"

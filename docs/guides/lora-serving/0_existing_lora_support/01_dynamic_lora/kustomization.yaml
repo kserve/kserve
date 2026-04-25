@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+
+resources:
+  # Core serving infrastructure
+  - llm-inference-service-dynamic-lora.yaml
+
+  - httproute.yaml
+
+  # RBAC for in-cluster LoRA adapter management
+  - rbac.yaml

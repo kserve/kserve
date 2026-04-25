@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Note: This kustomization spans multiple namespaces.
+# Each resource specifies its own namespace in metadata.
+
+resources:
+  # LLMInferenceService (deployed into the shared namespace)
+  - llm-inference-service-lora.yaml
+
+  # Namespaces
+  - shared-model-namespace.yaml
+  - team-a-namespace.yaml
+  - team-b-namespace.yaml
+
+  # RBAC per tenant
+  - rbac-team-a.yaml
+  - rbac-team-b.yaml
+
+  # Network policy on the shared model server
+  - network-policy.yaml
+
+  # Example: Team A loads an adapter
+  # - lora-load-job-team-a.yaml

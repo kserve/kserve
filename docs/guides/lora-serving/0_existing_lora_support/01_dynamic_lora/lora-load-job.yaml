@@ -1,0 +1,27 @@
+# Job that dynamically loads a LoRA adapter onto a specific vLLM pod.
+# Target a single replica so different pods can serve different adapters.
+#
+# Usage:
+#   kubectl apply -f lora-load-job.yaml
+#   kubectl logs -f job/lora-load-k8s-adapter
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: lora-load-k8s-adapter
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      serviceAccountName: lora-manager
+      restartPolicy: Never
+      containers:
+      - name: loader
+        image: quay.io/grpereir/lora-adapter-manager:latest
+        args: ["load"]
+        env:
+          - name: POD_NAME
+            value: "REPLACE_ME_POD_NAME"
+          - name: ADAPTER_NAME
+            value: "k8s-lora"
+          - name: ADAPTER_SOURCE
+            value: "cimendev/kubernetes-qa-qwen2.5-7b-lora"

@@ -1,0 +1,33 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: lora-tenant-access
+  namespace: lora-serving
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: llminferenceservice
+  policyTypes:
+  - Ingress
+  ingress:
+  # Allow traffic from tenant namespaces to the vLLM pods.
+  # Each tenant's lora-manager Jobs run in their own namespace
+  # and reach the shared model server via pod IPs.
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          lora-serving/tenant: team-a
+    - namespaceSelector:
+        matchLabels:
+          lora-serving/tenant: team-b
+    ports:
+    - protocol: TCP
+      port: 8000
+  # Allow traffic from the gateway namespace for inference
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          lora-serving/role: model-server
+    ports:
+    - protocol: TCP
+      port: 8000

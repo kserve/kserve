@@ -1,0 +1,24 @@
+# TLSPolicy — TLS termination at the Gateway for LoRA inference endpoints
+#
+# Attaches to the Gateway resource to automatically provision TLS
+# certificates via cert-manager. The TLSPolicy controller creates
+# Certificate resources for each HTTPS listener on the Gateway and
+# stores the resulting certs in the referenced Secret.
+#
+# Prerequisites:
+#   - cert-manager operator installed
+#   - A ClusterIssuer or Issuer configured (see cluster-issuer.yaml)
+#
+apiVersion: kuadrant.io/v1
+kind: TLSPolicy
+metadata:
+  name: lora-serving-tls
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: REPLACE_ME_GATEWAY_NAME
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: REPLACE_ME_CLUSTER_ISSUER_NAME

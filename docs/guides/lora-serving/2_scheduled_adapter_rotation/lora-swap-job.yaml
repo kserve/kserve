@@ -1,0 +1,28 @@
+# One-shot Job to swap LoRA adapters on all vLLM replicas.
+#
+# Usage:
+#   kubectl apply -f lora-swap-job.yaml
+#   kubectl logs -f job/lora-swap
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: lora-swap
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      serviceAccountName: lora-manager
+      restartPolicy: Never
+      containers:
+      - name: swapper
+        image: REPLACE_ME_LORA_MANAGER_IMAGE
+        args: ["swap"]
+        env:
+          - name: LLMISVC_NAME
+            value: "qwen2-lora"
+          - name: UNLOAD_ADAPTER
+            value: "batch-processing-lora"
+          - name: LOAD_ADAPTER
+            value: "interactive-lora"
+          - name: LOAD_ADAPTER_SOURCE
+            value: "REPLACE_ME_HF_REPO/interactive-lora"

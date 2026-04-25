@@ -1,0 +1,22 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: lora-serving-metrics
+  labels:
+    release: prometheus-stack
+spec:
+  endpoints:
+  - interval: 15s
+    path: /metrics
+    port: https
+    scheme: https
+    tlsConfig:
+      insecureSkipVerify: true
+  - interval: 15s
+    path: /metrics
+    port: metrics
+  namespaceSelector:
+    matchNames: []  # Set to your deployment namespace
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: llminferenceservice

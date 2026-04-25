@@ -1,0 +1,32 @@
+# ServiceAccount for workloads that manage LoRA adapters (load/unload).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: lora-manager
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: lora-manager
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services"]
+  verbs: ["get", "list"]
+- apiGroups: ["serving.kserve.io"]
+  resources: ["llminferenceservices"]
+  verbs: ["get", "list"]
+- apiGroups: ["batch"]
+  resources: ["jobs"]
+  verbs: ["create", "get", "list", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: lora-manager
+subjects:
+- kind: ServiceAccount
+  name: lora-manager
+roleRef:
+  kind: Role
+  name: lora-manager
+  apiGroup: rbac.authorization.k8s.io

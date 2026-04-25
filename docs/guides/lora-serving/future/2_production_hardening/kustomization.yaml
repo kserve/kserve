@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: REPLACE_ME_NAMESPACE
+
+resources:
+  - llm-inference-service-lora.yaml
+  - cluster-issuer.yaml
+  - tls-policy.yaml
+  - auth-policy.yaml
+  - api-key-secrets.yaml
+  # Choose ONE rate limit policy:
+  # Option A: Body-based (requires Envoy request body buffering)
+  - rate-limit-policy.yaml
+  # Option B: Header-based (requires x-model-name header from gateway/client)
+  # - rate-limit-policy-header-based.yaml

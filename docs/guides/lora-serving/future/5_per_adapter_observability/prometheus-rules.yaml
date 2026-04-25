@@ -1,0 +1,49 @@
+# PrometheusRule for LoRA adapter alerting.
+# Fires alerts when adapter-specific metrics cross thresholds.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: lora-adapter-alerts
+  labels:
+    release: prometheus-stack
+spec:
+  groups:
+  - name: lora-adapter-health
+    rules:
+    # Alert if any adapter's p99 latency exceeds 30 seconds
+    - alert: LoRAAdapterHighLatency
+      expr: |
+        histogram_quantile(0.99,
+          sum(rate(vllm:request_duration_seconds_bucket{model_name!~".*Instruct.*"}[5m])) by (le, model_name)
+        ) > 30
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "LoRA adapter {{ $labels.model_name }} p99 latency > 30s"
+        description: "The adapter {{ $labels.model_name }} has sustained high latency for 5 minutes."
+
+    # Alert if any adapter's error rate exceeds 5%
+    - alert: LoRAAdapterHighErrorRate
+      expr: |
+        sum(rate(vllm:request_success_total{model_name!~".*Instruct.*", finished="false"}[5m])) by (model_name)
+        /
+        sum(rate(vllm:request_success_total{model_name!~".*Instruct.*"}[5m])) by (model_name)
+        > 0.05
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "LoRA adapter {{ $labels.model_name }} error rate > 5%"
+        description: "The adapter {{ $labels.model_name }} is returning errors at an elevated rate."
+
+    # Alert if LoRA GPU memory usage exceeds 80% of allocated
+    - alert: LoRAHighGPUMemory
+      expr: |
+        vllm:gpu_cache_usage_perc > 0.8
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: "vLLM GPU cache usage above 80%"
+        description: "High GPU memory pressure may impact LoRA adapter performance. Consider reducing --max-loras or removing unused adapters."

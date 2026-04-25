@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: REPLACE_ME_NAMESPACE
+
+resources:
+  - llm-inference-service-lora.yaml
+  - rbac.yaml
+  - cronjob-daytime.yaml
+  - cronjob-nighttime.yaml
+
+  # One-shot swap job (apply manually, not included in kustomize by default):
+  # kubectl apply -f lora-swap-job.yaml

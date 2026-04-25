@@ -1,0 +1,24 @@
+# Job that dynamically unloads a LoRA adapter from a specific vLLM pod.
+#
+# Usage:
+#   kubectl apply -f lora-unload-job.yaml
+#   kubectl logs -f job/lora-unload-k8s-adapter
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: lora-unload-k8s-adapter
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      serviceAccountName: lora-manager
+      restartPolicy: Never
+      containers:
+      - name: unloader
+        image: quay.io/grpereir/lora-adapter-manager:latest
+        args: ["unload"]
+        env:
+          - name: POD_NAME
+            value: "REPLACE_ME_POD_NAME"
+          - name: ADAPTER_NAME
+            value: "k8s-lora"
