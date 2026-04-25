@@ -18,6 +18,7 @@ package llmisvc
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -306,6 +307,199 @@ func (r *LLMISVCReconciler) attachStorageInitializer(modelUri string, curr corev
 	storageMountParams.MountPath = modelPath
 	if err := utils.AddModelMount(storageMountParams, containerName, podSpec); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// attachSpeculatorModelArtifacts configures a PodSpec to fetch a speculator/draft model for speculative decoding.
+// It creates a second storage-initializer init container to download the speculator model, mounts it
+// into the inference container at the speculator mount path, and injects the --speculative-config
+// arguments into VLLM_ADDITIONAL_ARGS.
+func (r *LLMISVCReconciler) attachSpeculatorModelArtifacts(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, curr corev1.PodSpec, podSpec *corev1.PodSpec, config *Config, containerName string) error {
+	specDecoding := llmSvc.Spec.SpeculativeDecoding
+	if specDecoding == nil {
+		return nil
+	}
+
+	// If no speculator is configured (e.g., ngram method), just inject the args
+	if specDecoding.Speculator == nil {
+		return injectSpeculativeDecodingArgs(specDecoding, podSpec, containerName)
+	}
+
+	speculatorUri := specDecoding.Speculator.Model.URI.String()
+	schema, _, sepFound := strings.Cut(speculatorUri, "://")
+	if !sepFound {
+		return fmt.Errorf("invalid speculator model URI: %s", speculatorUri)
+	}
+
+	// Attach the speculator model storage
+	switch schema + "://" {
+	case constants.PvcURIPrefix:
+		if err := r.attachPVCModelArtifact(speculatorUri, podSpec, containerName, constants.DefaultSpeculatorLocalMountPath); err != nil {
+			return err
+		}
+
+	case constants.OciURIPrefix:
+		if !config.StorageConfig.EnableOciImageSource {
+			return errors.New("OCI modelcars is not enabled")
+		}
+		if err := r.attachOciModelArtifact(speculatorUri, podSpec, config.StorageConfig, containerName, constants.DefaultSpeculatorLocalMountPath); err != nil {
+			return err
+		}
+
+	case constants.HfURIPrefix, constants.S3URIPrefix:
+		if err := r.attachSpeculatorStorageInitializer(ctx, serviceAccount, llmSvc, speculatorUri, schema+"://", curr, podSpec, config, containerName); err != nil {
+			return err
+		}
+
+	default:
+		return fmt.Errorf("unsupported schema in speculator model URI: %s", speculatorUri)
+	}
+
+	// Inject the --speculative-config into VLLM_ADDITIONAL_ARGS on the main container
+	return injectSpeculativeDecodingArgs(specDecoding, podSpec, containerName)
+}
+
+// attachSpeculatorStorageInitializer creates a second storage-initializer init container for the speculator model.
+func (r *LLMISVCReconciler) attachSpeculatorStorageInitializer(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, speculatorUri string, uriPrefix string, curr corev1.PodSpec, podSpec *corev1.PodSpec, config *Config, containerName string) error {
+	containerArgs := []string{
+		speculatorUri,
+		constants.DefaultSpeculatorLocalMountPath,
+	}
+
+	// Preserve the existing speculator-initializer image from the current deployment
+	copied := *config.StorageConfig
+	for _, initContainer := range curr.InitContainers {
+		if initContainer.Name == constants.SpeculatorInitializerContainerName {
+			copied.Image = initContainer.Image
+		}
+	}
+
+	// Create the init container using the same image as the storage-initializer but with a different name
+	initContainer := utils.CreateInitContainerWithConfig(&copied, containerArgs)
+	initContainer.Name = constants.SpeculatorInitializerContainerName
+	podSpec.InitContainers = append(podSpec.InitContainers, *initContainer)
+
+	// Mount the speculator volume to the init container (read-write for download)
+	speculatorMountParams := utils.StorageMountParams{
+		MountPath:  constants.DefaultSpeculatorLocalMountPath,
+		VolumeName: constants.SpeculatorVolumeName,
+		ReadOnly:   false,
+	}
+	if err := utils.AddModelMount(speculatorMountParams, initContainer.Name, podSpec); err != nil {
+		return err
+	}
+
+	// Mount the speculator volume to the main container (read-only)
+	speculatorMountParams.ReadOnly = true
+	if err := utils.AddModelMount(speculatorMountParams, containerName, podSpec); err != nil {
+		return err
+	}
+
+	// Inject credentials for HF downloads
+	if serviceAccount == nil {
+		serviceAccount = &corev1.ServiceAccount{}
+		err := r.Get(ctx, types.NamespacedName{Name: defaultServiceAccountName, Namespace: llmSvc.Namespace}, serviceAccount)
+		if err != nil {
+			log.FromContext(ctx).Error(err, "Failed to find default service account for speculator", "namespace", llmSvc.Namespace)
+			if uriPrefix == constants.S3URIPrefix {
+				injectCaBundle(llmSvc.Namespace, podSpec, initContainer, config.StorageConfig)
+			}
+			return nil
+		}
+	}
+
+	speculatorInitContainer := utils.GetInitContainerWithName(podSpec, constants.SpeculatorInitializerContainerName)
+	if speculatorInitContainer != nil {
+		credentialBuilder := credentials.NewCredentialBuilderFromConfig(r.Client, r.Clientset, *config.CredentialConfig)
+		if err := credentialBuilder.CreateSecretVolumeAndEnvFromServiceAccount(
+			ctx,
+			serviceAccount,
+			llmSvc.Annotations,
+			speculatorInitContainer,
+			&podSpec.Volumes,
+		); err != nil {
+			return err
+		}
+
+		switch uriPrefix {
+		case constants.HfURIPrefix:
+			currentInitContainer := utils.GetInitContainerWithName(&curr, constants.SpeculatorInitializerContainerName)
+			if currentInitContainer == nil || slices.ContainsFunc(currentInitContainer.Env, func(e corev1.EnvVar) bool {
+				return strings.HasPrefix(e.Name, "HF_")
+			}) {
+				utils.AddDefaultHuggingFaceEnvVars(speculatorInitContainer)
+			}
+		case constants.S3URIPrefix:
+			injectCaBundle(llmSvc.Namespace, podSpec, speculatorInitContainer, config.StorageConfig)
+		}
+	}
+
+	return nil
+}
+
+// injectSpeculativeDecodingArgs adds the --speculative-config argument to VLLM_ADDITIONAL_ARGS
+// on the specified container. The speculative config JSON points the model to the local mount path
+// where the speculator/draft model was downloaded by the speculator-initializer init container.
+func injectSpeculativeDecodingArgs(specDecoding *v1alpha2.SpeculativeDecodingSpec, podSpec *corev1.PodSpec, containerName string) error {
+	// Start with additionalConfig as the base (first-class fields override)
+	specConfig := map[string]interface{}{}
+	for k, v := range specDecoding.AdditionalConfig {
+		specConfig[k] = v
+	}
+
+	// Set first-class fields (these take precedence over additionalConfig)
+	specConfig["num_speculative_tokens"] = specDecoding.NumSpeculativeTokens
+
+	// Allow additionalConfig to refine the method (e.g. "mtp" → "qwen3_next_mtp")
+	// for runtime-specific variants. Only set from the CRD field if not already provided.
+	if _, ok := specDecoding.AdditionalConfig["method"]; !ok {
+		specConfig["method"] = specDecoding.Method
+	}
+
+	if specDecoding.Speculator != nil {
+		specConfig["model"] = constants.DefaultSpeculatorLocalMountPath
+		if specDecoding.Speculator.TensorParallelSize != nil {
+			specConfig["draft_tensor_parallel_size"] = *specDecoding.Speculator.TensorParallelSize
+		}
+		if specDecoding.Speculator.MaxModelLen != nil {
+			specConfig["max_model_len"] = *specDecoding.Speculator.MaxModelLen
+		}
+	}
+
+	specConfigJSON, err := json.Marshal(specConfig)
+	if err != nil {
+		return fmt.Errorf("failed to marshal speculative config: %w", err)
+	}
+
+	specArg := fmt.Sprintf("--speculative-config '%s'", string(specConfigJSON))
+
+	// Find the main container and append to VLLM_ADDITIONAL_ARGS
+	for i := range podSpec.Containers {
+		if podSpec.Containers[i].Name != containerName {
+			continue
+		}
+		found := false
+		for j := range podSpec.Containers[i].Env {
+			if podSpec.Containers[i].Env[j].Name == "VLLM_ADDITIONAL_ARGS" {
+				// Append to existing value
+				if podSpec.Containers[i].Env[j].Value != "" {
+					podSpec.Containers[i].Env[j].Value += " " + specArg
+				} else {
+					podSpec.Containers[i].Env[j].Value = specArg
+				}
+				found = true
+				break
+			}
+		}
+		if !found {
+			podSpec.Containers[i].Env = append(podSpec.Containers[i].Env, corev1.EnvVar{
+				Name:  "VLLM_ADDITIONAL_ARGS",
+				Value: specArg,
+			})
+		}
+		break
 	}
 
 	return nil

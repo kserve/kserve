@@ -131,6 +131,11 @@ func convertSpecToV1Alpha2(src *LLMInferenceServiceSpec) v1alpha2.LLMInferenceSe
 		}
 	}
 
+	// SpeculativeDecoding
+	if src.SpeculativeDecoding != nil {
+		dst.SpeculativeDecoding = convertSpeculativeDecodingToV1Alpha2(src.SpeculativeDecoding)
+	}
+
 	// WorkloadSpec (inline)
 	dst.WorkloadSpec = convertWorkloadSpecToV1Alpha2(&src.WorkloadSpec)
 
@@ -161,6 +166,11 @@ func convertSpecFromV1Alpha2(src *v1alpha2.LLMInferenceServiceSpec) LLMInference
 		}
 	}
 
+	// SpeculativeDecoding
+	if src.SpeculativeDecoding != nil {
+		dst.SpeculativeDecoding = convertSpeculativeDecodingFromV1Alpha2(src.SpeculativeDecoding)
+	}
+
 	// WorkloadSpec (inline)
 	dst.WorkloadSpec = convertWorkloadSpecFromV1Alpha2(&src.WorkloadSpec)
 
@@ -175,6 +185,38 @@ func convertSpecFromV1Alpha2(src *v1alpha2.LLMInferenceServiceSpec) LLMInference
 		dst.Prefill = &prefill
 	}
 
+	return dst
+}
+
+func convertSpeculativeDecodingToV1Alpha2(src *SpeculativeDecodingSpec) *v1alpha2.SpeculativeDecodingSpec {
+	dst := &v1alpha2.SpeculativeDecodingSpec{
+		Method:               src.Method,
+		NumSpeculativeTokens: src.NumSpeculativeTokens,
+		AdditionalConfig:     src.AdditionalConfig,
+	}
+	if src.Speculator != nil {
+		dst.Speculator = &v1alpha2.SpeculatorSpec{
+			Model:              convertModelSpecToV1Alpha2(&src.Speculator.Model),
+			TensorParallelSize: src.Speculator.TensorParallelSize,
+			MaxModelLen:        src.Speculator.MaxModelLen,
+		}
+	}
+	return dst
+}
+
+func convertSpeculativeDecodingFromV1Alpha2(src *v1alpha2.SpeculativeDecodingSpec) *SpeculativeDecodingSpec {
+	dst := &SpeculativeDecodingSpec{
+		Method:               src.Method,
+		NumSpeculativeTokens: src.NumSpeculativeTokens,
+		AdditionalConfig:     src.AdditionalConfig,
+	}
+	if src.Speculator != nil {
+		dst.Speculator = &SpeculatorSpec{
+			Model:              convertModelSpecFromV1Alpha2(&src.Speculator.Model),
+			TensorParallelSize: src.Speculator.TensorParallelSize,
+			MaxModelLen:        src.Speculator.MaxModelLen,
+		}
+	}
 	return dst
 }
 

@@ -1,0 +1,62 @@
+# Llama 3.1 8B + Llama 3.2 1B Draft-Target Speculative Decoding — 4 replicas × TP1 × A100 40GB
+#
+# Baseline speculative decoding on A100 40GB. More headroom than L40S so we can push
+# max-model-len to 8192 and allow up to 32 concurrent sequences per replica.
+#
+# Hardware sizing (A100 40GB GPUs):
+#   - Llama-3.1-8B BF16: ~16 GB
+#   - Llama-3.2-1B BF16: ~2.4 GB
+#   - Total: ~18.4 GB → fits on 1× A100 40GB with gpu_memory_utilization=0.9
+#   - Remaining for KV cache: 40 × 0.9 - 18.4 - 2 (CUDA) ≈ 15.6 GB
+#   - max-model-len 8192, max-num-seqs 32
+#
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceService
+metadata:
+  name: llama8b-draft-target-a100
+  namespace: grpereir-dev
+  annotations:
+    # ADD YOUR HF TOKEN HERE - Llama-3.1-8B-Instruct is a gated model
+    serving.kserve.io/secretName: llm-d-hf-token
+spec:
+  model:
+    uri: hf://meta-llama/Llama-3.1-8B-Instruct
+    name: meta-llama/Llama-3.1-8B-Instruct
+  replicas: 4
+  speculativeDecoding:
+    method: draft_model
+    numSpeculativeTokens: 5
+    speculator:
+      model:
+        uri: hf://meta-llama/Llama-3.2-1B-Instruct
+      tensorParallelSize: 1
+      maxModelLen: 8192
+  router:
+    scheduler: {}
+    route: {}
+    gateway:
+      refs:
+        - name: spec-decoding-gateway
+          namespace: grpereir-dev
+  template:
+    containers:
+      - name: main
+        env:
+          - name: HF_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: llm-d-hf-token
+                key: HF_TOKEN
+          - name: VLLM_USE_V1
+            value: "1"
+          - name: VLLM_ADDITIONAL_ARGS
+            value: "--max-model-len 8192 --gpu-memory-utilization 0.9 --max-num-seqs 32"
+        resources:
+          requests:
+            cpu: "2"
+            memory: 16Gi
+            nvidia.com/gpu: "1"
+          limits:
+            cpu: "4"
+            memory: 32Gi
+            nvidia.com/gpu: "1"

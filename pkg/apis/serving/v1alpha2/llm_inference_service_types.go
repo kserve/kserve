@@ -69,6 +69,13 @@ type LLMInferenceServiceSpec struct {
 	// +optional
 	Model LLMModelSpec `json:"model"`
 
+	// SpeculativeDecoding configures speculative decoding for the model server.
+	// When specified, the controller creates a second storage-initializer init container
+	// to download the speculator (or draft) model and mounts it into the inference container.
+	// The speculative decoding arguments are automatically injected into the vLLM command line.
+	// +optional
+	SpeculativeDecoding *SpeculativeDecodingSpec `json:"speculativeDecoding,omitempty"`
+
 	// StorageInitializer configuration for model artifact fetching.
 	// +optional
 	StorageInitializer *StorageInitializerSpec `json:"storageInitializer,omitempty"`
@@ -195,6 +202,84 @@ type StorageInitializerSpec struct {
 	// Default: true (nil is treated as true for backward compatibility)
 	// +optional
 	Enabled *bool `json:"enabled,omitempty"`
+}
+
+// SpeculativeDecodingSpec configures speculative decoding for the inference server.
+// Speculative decoding uses a fast draft mechanism (either a small draft model or a purpose-trained
+// speculator head like Eagle3) to propose candidate tokens that the target model verifies in parallel,
+// reducing the number of sequential decode steps and improving token generation throughput.
+//
+// When configured, the controller:
+//  1. Creates a second storage-initializer init container to download the speculator/draft model
+//  2. Mounts the downloaded model into the inference container at /mnt/speculator
+//  3. Injects the appropriate --speculative-config arguments into the vLLM command line
+//
+// Example - Eagle3 speculator head:
+//
+//	speculativeDecoding:
+//	  method: eagle3
+//	  numSpeculativeTokens: 3
+//	  speculator:
+//	    model:
+//	      uri: hf://RedHatAI/Qwen3-32B-speculator.eagle3
+//
+// Example - Draft-target model pair:
+//
+//	speculativeDecoding:
+//	  method: draft_model
+//	  numSpeculativeTokens: 5
+//	  speculator:
+//	    model:
+//	      uri: hf://meta-llama/Llama-3.2-1B-Instruct
+//	    tensorParallelSize: 1
+type SpeculativeDecodingSpec struct {
+	// Method specifies the speculative decoding algorithm to use.
+	// Supported values:
+	//   - "eagle3": purpose-trained speculator heads (requires speculator model)
+	//   - "draft_model": independent draft model (requires speculator model)
+	//   - "medusa": purpose-trained Medusa heads for parallel token prediction (requires speculator model)
+	//   - "ngram": prompt-based n-gram proposer (no speculator model required)
+	//   - "mtp": multi-token prediction using the target model's own MTP heads (no speculator model required)
+	// +kubebuilder:validation:Enum=eagle3;draft_model;medusa;ngram;mtp
+	Method string `json:"method"`
+
+	// NumSpeculativeTokens is the number of candidate tokens the draft mechanism proposes per step.
+	// Higher values increase potential throughput but reduce acceptance rates.
+	// Typical values: 3-5 for Eagle3, 5-8 for draft models.
+	// +kubebuilder:validation:Minimum=1
+	NumSpeculativeTokens int32 `json:"numSpeculativeTokens"`
+
+	// Speculator configures the draft/speculator model used for candidate token generation.
+	// Required for "eagle3" and "draft_model" methods. Not needed for "ngram".
+	// +optional
+	Speculator *SpeculatorSpec `json:"speculator,omitempty"`
+
+	// AdditionalConfig provides an escape hatch for passing additional speculative decoding
+	// parameters directly to the vLLM --speculative-config JSON. First-class fields take
+	// precedence over keys in additionalConfig.
+	// +optional
+	AdditionalConfig map[string]string `json:"additionalConfig,omitempty"`
+}
+
+// SpeculatorSpec defines the configuration for the speculator/draft model.
+type SpeculatorSpec struct {
+	// Model specification for the speculator or draft model.
+	// The URI specifies the location of the model to download (e.g., hf://RedHatAI/Qwen3-32B-speculator.eagle3).
+	// The controller creates a dedicated storage-initializer init container to fetch this model.
+	Model LLMModelSpec `json:"model"`
+
+	// TensorParallelSize is the tensor parallelism degree for the draft/speculator model.
+	// Defaults to 1, as speculator models are typically small enough for a single GPU.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	TensorParallelSize *int32 `json:"tensorParallelSize,omitempty"`
+
+	// MaxModelLen is the maximum model length (context length) of the draft/speculator model.
+	// When set, this overrides the draft model's default max model length.
+	// Useful when the draft model has a different context length than the target model.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	MaxModelLen *int32 `json:"maxModelLen,omitempty"`
 }
 
 // RouterSpec defines the routing configuration for exposing the service.
