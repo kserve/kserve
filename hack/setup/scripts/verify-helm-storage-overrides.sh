@@ -101,7 +101,13 @@ verify_chart() {
   echo "Checking ${chart}..."
   rendered="$(render_chart "$chart")"
 
+  # Disable pipefail temporarily for these extractions since awk exits early by design,
+  # which causes SIGPIPE when printf still has data to write
+  set +o pipefail
   configmap_doc="$(printf "%s" "$rendered" | extract_configmap_doc)"
+  csc_doc="$(printf "%s" "$rendered" | extract_csc_doc)"
+  set -o pipefail
+
   [[ -n "$configmap_doc" ]] || fail "Could not find inferenceservice-config ConfigMap in ${chart}"
 
   assert_contains "$configmap_doc" "\"memoryRequest\": \"${EXPECTED_MEMORY_REQUEST}\"" "${chart} inferenceservice-config.storageInitializer"
@@ -109,7 +115,6 @@ verify_chart() {
   assert_contains "$configmap_doc" "\"cpuRequest\": \"${EXPECTED_CPU_REQUEST}\"" "${chart} inferenceservice-config.storageInitializer"
   assert_contains "$configmap_doc" "\"cpuLimit\": \"${EXPECTED_CPU_LIMIT}\"" "${chart} inferenceservice-config.storageInitializer"
 
-  csc_doc="$(printf "%s" "$rendered" | extract_csc_doc)"
   [[ -n "$csc_doc" ]] || fail "Could not find ClusterStorageContainer in ${chart}"
 
   assert_contains "$csc_doc" "memory: ${EXPECTED_MEMORY_LIMIT}" "${chart} ClusterStorageContainer.resources.limits"
