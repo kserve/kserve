@@ -60,11 +60,12 @@ func TestInferenceServiceConfigPredicate(t *testing.T) {
 		t.Error("Expected Create to return false for wrong namespace ConfigMap")
 	}
 
-	// Update events with ResourceVersion change
+	// Update with ResourceVersion and Data change
 	updatedCM := matchingCM.DeepCopy()
 	updatedCM.ResourceVersion = "2"
+	updatedCM.Data = map[string]string{"inferenceService": "{}"}
 	if !pred.Update(event.UpdateEvent{ObjectOld: matchingCM, ObjectNew: updatedCM}) {
-		t.Error("Expected Update to return true for matching ConfigMap with changed ResourceVersion")
+		t.Error("Expected Update to return true for matching ConfigMap with changed Data")
 	}
 	if pred.Update(event.UpdateEvent{ObjectOld: nonMatchingCM, ObjectNew: nonMatchingCM}) {
 		t.Error("Expected Update to return false for non-matching ConfigMap")
@@ -73,6 +74,14 @@ func TestInferenceServiceConfigPredicate(t *testing.T) {
 	// Update events with same ResourceVersion should be filtered by ResourceVersionChangedPredicate
 	if pred.Update(event.UpdateEvent{ObjectOld: matchingCM, ObjectNew: matchingCM}) {
 		t.Error("Expected Update to return false when ResourceVersion unchanged")
+	}
+
+	// Update with ResourceVersion change but same Data (e.g. annotation touch) should be filtered
+	annotationTouchedCM := matchingCM.DeepCopy()
+	annotationTouchedCM.ResourceVersion = "2"
+	annotationTouchedCM.Annotations = map[string]string{"touched-by": "argocd"}
+	if pred.Update(event.UpdateEvent{ObjectOld: matchingCM, ObjectNew: annotationTouchedCM}) {
+		t.Error("Expected Update to return false when only metadata changed, not Data")
 	}
 
 	// Delete events always return false

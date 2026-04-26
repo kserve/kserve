@@ -17,6 +17,8 @@ limitations under the License.
 package utils
 
 import (
+	"reflect"
+
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -35,11 +37,11 @@ func InferenceServiceConfigPredicate(configMapName, configMapNamespace string) p
 			return cm.Name == configMapName && cm.Namespace == configMapNamespace
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			cm, ok := e.ObjectNew.(*corev1.ConfigMap)
+			cmNew, ok := e.ObjectNew.(*corev1.ConfigMap)
 			if !ok {
 				return false
 			}
-			return cm.Name == configMapName && cm.Namespace == configMapNamespace
+			return cmNew.Name == configMapName && cmNew.Namespace == configMapNamespace
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			return false
@@ -48,5 +50,15 @@ func InferenceServiceConfigPredicate(configMapName, configMapNamespace string) p
 			return false
 		},
 	}
-	return predicate.And(nameFilter, predicate.ResourceVersionChangedPredicate{})
+	dataChangedFilter := predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			cmOld, okOld := e.ObjectOld.(*corev1.ConfigMap)
+			cmNew, okNew := e.ObjectNew.(*corev1.ConfigMap)
+			if !okOld || !okNew {
+				return true
+			}
+			return !reflect.DeepEqual(cmOld.Data, cmNew.Data)
+		},
+	}
+	return predicate.And(nameFilter, predicate.ResourceVersionChangedPredicate{}, dataChangedFilter)
 }
