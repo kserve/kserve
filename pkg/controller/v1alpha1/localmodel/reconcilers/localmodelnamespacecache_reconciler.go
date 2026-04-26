@@ -56,14 +56,14 @@ type LocalModelNamespaceCacheReconciler struct {
 // Step 4 - Creates PV & PVCs for ISVCs in the same namespace using this cached model
 func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	c.Log.Info("Reconciling namespace-scoped localmodel", "name", req.Name, "namespace", req.Namespace)
-	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, c.Clientset)
+	isvcConfigMap, err := utils.GetInferenceServiceConfigMap(ctx, c.Client)
 	if err != nil {
-		c.Log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
+		c.Log.Error(err, "Failed to get inferenceservice-config ConfigMap")
 		return reconcile.Result{}, err
 	}
 	localModelConfig, err := v1beta1.NewLocalModelConfig(isvcConfigMap)
 	if err != nil {
-		c.Log.Error(err, "Failed to get local model config")
+		c.Log.Error(err, "Failed to parse local model config")
 		return reconcile.Result{}, err
 	}
 
@@ -228,14 +228,14 @@ func (c *LocalModelNamespaceCacheReconciler) localmodelNodeFuncNamespaceCache(ct
 }
 
 func (c *LocalModelNamespaceCacheReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(context.Background(), c.Clientset)
+	isvcConfigMap, err := utils.GetInferenceServiceConfigMap(context.Background(), mgr.GetAPIReader())
 	if err != nil {
-		c.Log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
+		c.Log.Error(err, "Failed to get inferenceservice-config ConfigMap during setup")
 		return err
 	}
 	localModelConfig, err := v1beta1.NewLocalModelConfig(isvcConfigMap)
 	if err != nil {
-		c.Log.Error(err, "Failed to get local model config during controller manager setup")
+		c.Log.Error(err, "Failed to parse local model config during controller manager setup")
 		return err
 	}
 
