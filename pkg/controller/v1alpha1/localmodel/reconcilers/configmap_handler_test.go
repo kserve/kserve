@@ -66,7 +66,7 @@ func TestLocalModelConfigMapFunc(t *testing.T) {
 
 		names := map[string]bool{}
 		for _, r := range requests {
-			names[r.NamespacedName.Name] = true
+			names[r.Name] = true
 		}
 		if !names["model-1"] || !names["model-2"] {
 			t.Errorf("expected requests for model-1 and model-2, got %v", requests)

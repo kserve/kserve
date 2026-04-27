@@ -68,7 +68,7 @@ func TestInferenceGraphConfigMapFunc(t *testing.T) {
 
 		names := map[string]bool{}
 		for _, r := range requests {
-			names[r.NamespacedName.Name] = true
+			names[r.Name] = true
 		}
 		if !names["graph-1"] || !names["graph-2"] {
 			t.Errorf("expected requests for graph-1 and graph-2, got %v", requests)

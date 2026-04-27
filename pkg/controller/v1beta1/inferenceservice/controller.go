@@ -570,7 +570,7 @@ func (r *InferenceServiceReconciler) inferenceServiceConfigMapFunc(ctx context.C
 
 	var isvcList v1beta1.InferenceServiceList
 	// List all InferenceServices across all namespaces
-	if err := r.Client.List(ctx, &isvcList); err != nil {
+	if err := r.List(ctx, &isvcList); err != nil {
 		r.Log.Error(err, "unable to list InferenceServices for ConfigMap change", "configMap", cm.Name)
 		return nil
 	}

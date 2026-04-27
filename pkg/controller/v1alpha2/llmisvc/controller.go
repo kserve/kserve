@@ -508,7 +508,7 @@ func (r *LLMISVCReconciler) enqueueOnConfigMapChange(logger logr.Logger) handler
 		// When this ConfigMap changes, all LLMInferenceServices need to re-reconcile
 		if sub.Name == constants.InferenceServiceConfigMapName && sub.Namespace == constants.KServeNamespace {
 			llmSvcList := &v1alpha2.LLMInferenceServiceList{}
-			if err := r.Client.List(ctx, llmSvcList); err != nil {
+			if err := r.List(ctx, llmSvcList); err != nil {
 				logger.Error(err, "Failed to list LLMInferenceService for inferenceservice-config change")
 				return reqs
 			}

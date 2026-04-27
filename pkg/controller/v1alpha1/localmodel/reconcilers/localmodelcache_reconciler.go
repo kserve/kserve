@@ -311,7 +311,7 @@ func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (c *LocalModelReconciler) localModelConfigMapFunc(ctx context.Context, obj client.Object) []reconcile.Request {
 	var modelList v1alpha1.LocalModelCacheList
-	if err := c.Client.List(ctx, &modelList); err != nil {
+	if err := c.List(ctx, &modelList); err != nil {
 		c.Log.Error(err, "unable to list LocalModelCaches for ConfigMap change")
 		return nil
 	}

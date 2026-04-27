@@ -623,7 +623,7 @@ func (c *LocalModelNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (c *LocalModelNodeReconciler) localModelNodeConfigMapFunc(ctx context.Context, obj client.Object) []reconcile.Request {
 	var nodeList v1alpha1.LocalModelNodeList
-	if err := c.Client.List(ctx, &nodeList); err != nil {
+	if err := c.List(ctx, &nodeList); err != nil {
 		c.Log.Error(err, "unable to list LocalModelNodes for ConfigMap change")
 		return nil
 	}

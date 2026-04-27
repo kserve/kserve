@@ -366,7 +366,7 @@ func (r *InferenceGraphReconciler) inferenceGraphConfigMapFunc(ctx context.Conte
 	}
 
 	var graphList v1alpha1.InferenceGraphList
-	if err := r.Client.List(ctx, &graphList); err != nil {
+	if err := r.List(ctx, &graphList); err != nil {
 		r.Log.Error(err, "unable to list InferenceGraphs for ConfigMap change", "configMap", cm.Name)
 		return nil
 	}
