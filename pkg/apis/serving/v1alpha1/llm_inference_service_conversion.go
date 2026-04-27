@@ -99,6 +99,11 @@ func (src *LLMInferenceServiceConfig) ConvertTo(dstRaw conversion.Hub) error {
 	// Spec conversion
 	dst.Spec = convertSpecToV1Alpha2(&src.Spec)
 
+	// Status conversion (controller-managed, only duckv1.Status)
+	dst.Status = v1alpha2.LLMInferenceServiceConfigStatus{
+		Status: src.Status.Status,
+	}
+
 	return nil
 }
 
@@ -111,6 +116,11 @@ func (dst *LLMInferenceServiceConfig) ConvertFrom(srcRaw conversion.Hub) error {
 
 	// Spec conversion
 	dst.Spec = convertSpecFromV1Alpha2(&src.Spec)
+
+	// Status conversion (controller-managed, only duckv1.Status)
+	dst.Status = LLMInferenceServiceConfigStatus{
+		Status: src.Status.Status,
+	}
 
 	// Restore criticality values from annotations
 	restoreCriticalityFromAnnotations(&dst.ObjectMeta, &dst.Spec.Model)

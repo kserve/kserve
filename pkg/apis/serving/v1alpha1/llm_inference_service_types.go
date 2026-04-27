@@ -68,11 +68,16 @@ type LLMInferenceService struct {
 // It acts as a template to provide base configurations that can be inherited by multiple LLMInferenceService instances.
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
+// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type LLMInferenceServiceConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec LLMInferenceServiceSpec `json:"spec,omitempty"`
+	Spec   LLMInferenceServiceSpec         `json:"spec,omitempty"`
+	Status LLMInferenceServiceConfigStatus `json:"status,omitempty"`
 }
 
 // LLMInferenceServiceSpec defines the desired state of LLMInferenceService.
@@ -498,6 +503,12 @@ type GatewayObjectReference struct {
 	// Gateway that support the route type.
 	// +optional
 	SectionName *gwapiv1.SectionName `json:"sectionName,omitempty"`
+}
+
+// LLMInferenceServiceConfigStatus defines the observed state of LLMInferenceServiceConfig.
+type LLMInferenceServiceConfigStatus struct {
+	// Conditions of the resource.
+	duckv1.Status `json:",inline"`
 }
 
 // LLMInferenceServiceStatus defines the observed state of LLMInferenceService.
