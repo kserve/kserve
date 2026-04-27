@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.10, <3.13"
 
 [[package]]
@@ -832,7 +832,8 @@ dependencies = [
     { name = "cryptography" },
     { name = "dulwich" },
     { name = "google-cloud-storage" },
-    { name = "huggingface-hub", extra = ["hf-transfer"] },
+    { name = "huggingface-hub" },
+    { name = "mlflow-skinny" },
     { name = "pyasn" },
     { name = "pyjwt" },
     { name = "requests" },
@@ -849,6 +850,7 @@ requires-dist = [
     { name = "dulwich", specifier = ">=0.21.0" },
     { name = "google-cloud-storage", specifier = ">=2.14.0,<3.0.0" },
     { name = "huggingface-hub", extras = ["hf-transfer"], specifier = ">=0.32.0" },
+    { name = "mlflow-skinny", specifier = ">=3.8.1" },
     { name = "pyasn", specifier = ">=0.6.3" },
     { name = "pyjwt", specifier = ">=2.12.0" },
     { name = "requests", specifier = ">=2.32.2,<3.0.0" },
