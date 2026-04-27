@@ -3620,7 +3620,8 @@ spec:
               backendRequest: 0s
               request: 0s
           - backendRefs:
-            - kind: Service
+            - group: ""
+              kind: Service
               name: '{{ ChildName .ObjectMeta.Name `-kserve-workload-svc` }}'
               port: 8000
               weight: 1
