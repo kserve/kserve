@@ -609,7 +609,11 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(ctx context.Conte
 		IsLegacyURI:          true,
 	}
 
-	return CommonStorageInitialization(ctx, storageInitializerParams)
+	if err := CommonStorageInitialization(ctx, storageInitializerParams); err != nil {
+		return err
+	}
+
+	return mi.injectOVMSAutoVersioning(pod)
 }
 
 // SetIstioCniSecurityContext determines if Istio is installed in using the CNI plugin. If so,

@@ -200,6 +200,12 @@ const (
 	StorageInitializerContainerImage        = "kserve/storage-initializer"
 	StorageInitializerContainerImageVersion = "latest"
 
+	// OVMSAutoVersioningAnnotationKey triggers an init container that reorganises model
+	// files into the versioned directory structure expected by OpenVINO Model Server.
+	// The annotation value must be a positive integer representing the model version
+	// (e.g. "1"). When set, model files are moved from /mnt/models into /mnt/models/<version>/.
+	OVMSAutoVersioningAnnotationKey = "storage.kserve.io/ovms-auto-versioning"
+
 	CpuModelcarDefault    = "10m"
 	MemoryModelcarDefault = "15Mi"
 )
@@ -460,6 +466,8 @@ const (
 
 	ModelcarContainerName     = "modelcar"
 	ModelcarInitContainerName = "modelcar-init"
+
+	OVMSVersioningContainerName = "ovms-auto-versioning"
 )
 
 // DefaultModelLocalMountPath is where models will be mounted by the storage-initializer
