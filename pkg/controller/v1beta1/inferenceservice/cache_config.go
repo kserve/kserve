@@ -40,6 +40,14 @@ func NewCacheOptions() (cache.Options, error) {
 			&corev1.Pod{}: {
 				Label: isvcPodLabelSelector,
 			},
+			&corev1.ConfigMap{}: {
+				// Only the KServe namespace holds ConfigMaps the controllers read
+				// (notably inferenceservice-config). Scope the cache there to avoid
+				// watching every ConfigMap cluster-wide.
+				Namespaces: map[string]cache.Config{
+					constants.KServeNamespace: {},
+				},
+			},
 		},
 	}, nil
 }
