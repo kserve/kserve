@@ -141,10 +141,9 @@ async def test_custom_model_grpc():
     kserve_client.delete(msg_dumper, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.grpc
-@pytest.mark.predictor
+@pytest.mark.dual_protocol
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_dual_protocol(rest_v2_client):
+async def test_sklearn_dual_protocol(rest_v2_client, network_layer):
     service_name = "sklearn-dual-protocol"
     model_name = "sklearn-dual-protocol"
 
@@ -184,7 +183,10 @@ async def test_sklearn_dual_protocol(rest_v2_client):
         payload = json.load(json_file)["inputs"]
 
     response = await predict_grpc(
-        service_name=service_name, payload=payload, model_name=model_name
+        service_name=service_name,
+        payload=payload,
+        model_name=model_name,
+        network_layer=network_layer,
     )
     prediction = response.outputs[0].data
     assert prediction == [1, 1]
@@ -194,6 +196,7 @@ async def test_sklearn_dual_protocol(rest_v2_client):
         rest_v2_client,
         service_name,
         "./data/iris_input_v2.json",
+        network_layer=network_layer,
     )
     assert res.outputs[0].data == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
