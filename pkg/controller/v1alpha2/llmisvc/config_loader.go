@@ -41,10 +41,6 @@ const (
 // checked for certificate secret expiration. The first entry is the write key.
 var DefaultExpirationAnnotations = []string{"certificates.kserve.io/expiration"}
 
-// DefaultRestartAnnotation is the default annotation key set on scheduler pod
-// templates with a certificate hash to trigger restarts on renewal.
-const DefaultRestartAnnotation = "certificates.kserve.io/cert-hash"
-
 // SchedulerConfig holds configurable settings for the scheduler component,
 // parsed from the "scheduler" key in the inferenceservice-config ConfigMap.
 //
@@ -52,16 +48,14 @@ const DefaultRestartAnnotation = "certificates.kserve.io/cert-hash"
 //
 //   - ExpirationAnnotations: first entry is the write key (set on new secrets),
 //     all entries are read keys (checked for expiration, first match wins).
-//   - RestartAnnotation: key on scheduler pod template carrying a cert hash
-//     to trigger rollout on renewal. Skipped when the scheduler has --enable-cert-reload.
 //
 // Defaults (upstream - no ConfigMap override needed, can default to values shown below):
 //
-//	{"expirationAnnotations": ["certificates.kserve.io/expiration"], "restartAnnotation": "certificates.kserve.io/cert-hash"}
+//	{"expirationAnnotations": ["certificates.kserve.io/expiration"]}
 //
 // Override example (reads both old and new keys during upgrade):
 //
-//	{"expirationAnnotations": ["certificates.kserve.io/expiration-v2", "certificates.kserve.io/expiration"], "restartAnnotation": "certificates.kserve.io/cert-hash"}
+//	{"expirationAnnotations": ["certificates.kserve.io/expiration-v2", "certificates.kserve.io/expiration"]}
 //
 // During a rolling upgrade, existing secrets carrying the old annotation key are
 // recognized via the read list; no unnecessary cert regeneration or secret updates.
@@ -71,10 +65,6 @@ type SchedulerConfig struct {
 	// determining whether a certificate secret has expired. The first entry is the
 	// write key (set on newly created secrets); all entries are read keys.
 	ExpirationAnnotations []string `json:"expirationAnnotations,omitempty"`
-	// RestartAnnotation is the annotation key set on scheduler pod templates; by default with
-	// a hash of the certificate data. Changing the value triggers a pod rollout so
-	// the new certificate is picked up.
-	RestartAnnotation string `json:"restartAnnotation,omitempty"`
 }
 
 // NewSchedulerConfig parses the "scheduler" key from the inferenceservice-config
@@ -90,20 +80,22 @@ func NewSchedulerConfig(isvcConfigMap *corev1.ConfigMap) (*SchedulerConfig, erro
 	if len(cfg.ExpirationAnnotations) == 0 {
 		cfg.ExpirationAnnotations = DefaultExpirationAnnotations
 	}
-	if cfg.RestartAnnotation == "" {
-		cfg.RestartAnnotation = DefaultRestartAnnotation
-	}
 
 	return cfg, nil
 }
 
-// Config holds configuration needed for LLM inference services
-// It aggregates ingress, storage, and credential settings from the KServe configmap
+// Config holds configuration needed for LLM inference services.
+// It aggregates ingress, storage, credential, and autoscaling settings from the KServe configmap.
 type Config struct {
 	SystemNamespace         string `json:"systemNamespace,omitempty"`
 	IngressGatewayName      string `json:"ingressGatewayName,omitempty"`
 	IngressGatewayNamespace string `json:"ingressGatewayNamespace,omitempty"`
 	UrlScheme               string `json:"urlScheme,omitempty"`
+	EnableTLS               bool   `json:"enableTLS,omitempty"`
+
+	// WVAAutoscalingConfig holds Prometheus and monitoring settings for WVA autoscaling.
+	// nil when the "autoscaling-wva-controller-config" key is not present in inferenceservice-config.
+	WVAAutoscalingConfig *WVAAutoscalingConfig `json:"-"`
 
 	// Storage and credential configs are excluded from JSON serialization
 	// as they contain sensitive information
@@ -111,6 +103,43 @@ type Config struct {
 	CredentialConfig *credentials.CredentialConfig   `json:"-"`
 	SchedulerConfig  *SchedulerConfig                `json:"-"`
 }
+
+// PrometheusConfig holds Prometheus connection and authentication settings used by KEDA
+// to query the wva_desired_replicas metric.
+type PrometheusConfig struct {
+	// URL is the URL of the Prometheus server (used by KEDA to query wva_desired_replicas).
+	URL string `json:"url"`
+	// TLSInsecureSkipVerify disables TLS certificate verification for the Prometheus connection.
+	TLSInsecureSkipVerify bool `json:"tlsInsecureSkipVerify"`
+	// AuthModes is the KEDA authModes value for the Prometheus trigger
+	// (e.g. "bearer", "basic", "tls"). Empty means no authentication.
+	// See: https://keda.sh/docs/latest/scalers/prometheus/#authentication-parameters
+	// +optional
+	AuthModes string `json:"authModes,omitempty"`
+	// TriggerAuthName is the name of a pre-existing TriggerAuthentication or
+	// ClusterTriggerAuthentication CR that KEDA should use when querying Prometheus.
+	// The CR must be created by the cluster admin before enabling KEDA autoscaling.
+	// +optional
+	TriggerAuthName string `json:"triggerAuthName,omitempty"`
+	// TriggerAuthKind specifies the kind of the authentication CR referenced by
+	// TriggerAuthName. Accepted values are "TriggerAuthentication" (namespaced)
+	// and "ClusterTriggerAuthentication" (cluster-scoped). Defaults to "TriggerAuthentication"
+	// when empty. ClusterTriggerAuthentication is recommended for multi-namespace deployments.
+	// +optional
+	TriggerAuthKind string `json:"triggerAuthKind,omitempty"`
+}
+
+// WVAAutoscalingConfig holds cluster-wide WVA autoscaling settings loaded from the
+// "autoscaling-wva-controller-config" key in the inferenceservice-config ConfigMap.
+// These are shared across all LLMISVC instances.
+type WVAAutoscalingConfig struct {
+	// Prometheus holds Prometheus connection and authentication settings.
+	Prometheus PrometheusConfig `json:"prometheus"`
+}
+
+// autoscalingConfigName is the key in the inferenceservice-config ConfigMap
+// that holds WVA-specific autoscaling controller configuration.
+const autoscalingConfigName = "autoscaling-wva-controller-config"
 
 // NewConfig creates an instance of llm-specific config based on predefined values
 // in IngressConfig struct
@@ -130,6 +159,7 @@ func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.Storag
 		IngressGatewayNamespace: igwNs,
 		IngressGatewayName:      igwName,
 		UrlScheme:               ingressConfig.UrlScheme,
+		EnableTLS:               ingressConfig.EnableLLMInferenceServiceTLS,
 		StorageConfig:           storageConfig,
 		CredentialConfig:        credentialConfig,
 		SchedulerConfig:         schedulerConfig,
@@ -165,5 +195,15 @@ func LoadConfig(ctx context.Context, clientset kubernetes.Interface) (*Config, e
 		return nil, fmt.Errorf("failed to parse scheduler config: %w", errConvert)
 	}
 
-	return NewConfig(ingressConfig, storageInitializerConfig, &credentialConfig, schedulerConfig), nil
+	config := NewConfig(ingressConfig, storageInitializerConfig, &credentialConfig, schedulerConfig)
+
+	if autoscalingData, ok := isvcConfigMap.Data[autoscalingConfigName]; ok {
+		asCfg := &WVAAutoscalingConfig{}
+		if err := json.Unmarshal([]byte(autoscalingData), asCfg); err != nil {
+			return nil, fmt.Errorf("failed to parse %s config json: %w", autoscalingConfigName, err)
+		}
+		config.WVAAutoscalingConfig = asCfg
+	}
+
+	return config, nil
 }

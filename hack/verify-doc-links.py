@@ -81,7 +81,6 @@ url_status_cache = dict()
 
 
 def find_md_files() -> [str]:
-
     list_of_lists = [
         glob(project_root_dir + path_expr, recursive=True)
         for path_expr in md_file_path_expressions
@@ -99,7 +98,6 @@ def find_md_files() -> [str]:
 def get_links_from_md_file(
     md_file_path: str,
 ) -> [(int, str, str)]:  # -> [(line, link_text, URL)]
-
     with open(md_file_path, "r") as f:
         try:
             md_file_content = f.read()
@@ -126,7 +124,6 @@ def get_links_from_md_file(
     # find all the links
     line_text_url = []
     for line_number, line_text in enumerate(md_file_content.splitlines()):
-
         all_urls_in_this_line = set()
 
         # find markdown-styled links [text](url)
@@ -155,12 +152,10 @@ def get_links_from_md_file(
 def test_url(
     file: str, line: int, text: str, url: str
 ) -> (str, int, str, str, int):  # (file, line, text, url, status)
-
     short_url = url.split("#", maxsplit=1)[0]
     status = 0
 
     if short_url not in url_status_cache:
-
         # mind GitHub rate-limiting, use local files to verify link
         if short_url.startswith(github_repo_master_path):
             local_path = short_url.replace(github_repo_master_path, "")
@@ -278,7 +273,6 @@ def verify_urls_concurrently(
 
 
 def verify_doc_links() -> [(str, int, str, str)]:
-
     # 1. find all relevant Markdown files
     md_file_paths = find_md_files()
 
@@ -311,7 +305,6 @@ def verify_doc_links() -> [(str, int, str, str)]:
 
     # 6. report invalid links, exit with error for CI/CD
     if file_line_text_url_404:
-
         for file, line, _text, url, status in sorted(file_line_text_url_404):
             print(
                 "{}:{}: {} -> {}".format(

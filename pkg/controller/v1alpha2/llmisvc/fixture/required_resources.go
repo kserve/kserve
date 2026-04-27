@@ -151,6 +151,11 @@ func InferenceServiceCfgMapWithUrlScheme(ns, urlScheme string) *corev1.ConfigMap
 					"s3SecretAccessKeyName": "AWS_SECRET_ACCESS_KEY"
 				}
 			}`,
+		"autoscaling-wva-controller-config": `{
+				"prometheus": {
+					"url": "http://prometheus.monitoring:9090"
+				}
+			}`,
 	} // #nosec G101
 	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{

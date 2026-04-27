@@ -52,9 +52,9 @@ WORKDIR ${WORKSPACE_DIR}
 FROM base AS build
 
 ARG WORKSPACE_DIR
-ARG VLLM_VERSION=0.15.1
-ARG LMCACHE_VERSION=0.3.9
-ARG FLASHINFER_VERSION=0.6.1
+ARG VLLM_VERSION=0.19.0
+ARG LMCACHE_VERSION=0.4.2
+ARG FLASHINFER_VERSION=0.6.6
 
 WORKDIR ${WORKSPACE_DIR}
 
@@ -66,13 +66,15 @@ ENV PATH="${WORKSPACE_DIR}/${VENV_PATH}/bin:$PATH"
 
 # From this point, all Python packages will be installed in the virtual environment and copied to the final image
 
+# Copy storage metadata for editable dependency resolution
+COPY storage/pyproject.toml storage/uv.lock storage/
+
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
 RUN --mount=type=cache,target=/root/.cache/uv cd kserve && uv sync --active --no-cache
 COPY kserve kserve  
 RUN --mount=type=cache,target=/root/.cache/uv cd kserve && uv sync --active --no-cache
 
-COPY storage/pyproject.toml storage/uv.lock storage/
-RUN --mount=type=cache,target=/root/.cache/uv cd storage && uv sync --active --no-cache
+# Install kserve-storage
 COPY storage storage
 RUN --mount=type=cache,target=/root/.cache/uv cd storage && uv pip install . --no-cache
 

@@ -35,6 +35,8 @@ from kserve import KServeClient, V1alpha1LLMInferenceService, constants
 
 from .fixtures import (
     KSERVE_TEST_NAMESPACE,
+    UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT,
+    UPSTREAM_K8S_VLLM_ENV_OVERRIDES,
     inject_k8s_proxy,
 )
 from .logging import logger
@@ -365,11 +367,13 @@ async def test_event_storm_prevention_init_container_isolation():
                     "containers": [
                         {
                             "name": "main",
-                            "image": "quay.io/pierdipi/vllm-cpu:latest",
+                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
+                            "env": [*UPSTREAM_K8S_VLLM_ENV_OVERRIDES],
                             "resources": {
                                 "limits": {"cpu": "2", "memory": "7Gi"},
                                 "requests": {"cpu": "200m", "memory": "2Gi"},
                             },
+                            "securityContext": UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT.copy(),
                         }
                     ]
                 }
@@ -462,7 +466,9 @@ async def test_event_storm_prevention_init_container_isolation():
                     timeout_seconds=180,
                 )
                 if failure_condition:
-                    logger.info("Secondary LLMISVC failure detected: %s", failure_condition)
+                    logger.info(
+                        "Secondary LLMISVC failure detected: %s", failure_condition
+                    )
 
                 # Give time for any potential event storms to propagate
                 await asyncio.sleep(10)
@@ -494,7 +500,9 @@ async def test_event_storm_prevention_init_container_isolation():
         delete_service_account(KSERVE_TEST_NAMESPACE, invalid_sa_name)
         delete_secret(KSERVE_TEST_NAMESPACE, invalid_secret_name)
         delete_llmisvc_config(kserve_client, model_config_name, KSERVE_TEST_NAMESPACE)
-        delete_llmisvc_config(kserve_client, workload_config_name, KSERVE_TEST_NAMESPACE)
+        delete_llmisvc_config(
+            kserve_client, workload_config_name, KSERVE_TEST_NAMESPACE
+        )
         delete_llmisvc_config(kserve_client, router_config_name, KSERVE_TEST_NAMESPACE)
         delete_llmisvc_config(
             kserve_client, invalid_model_config_name, KSERVE_TEST_NAMESPACE
@@ -561,11 +569,13 @@ async def test_quick_reconciliation_on_init_container_failure():
                     "containers": [
                         {
                             "name": "main",
-                            "image": "quay.io/pierdipi/vllm-cpu:latest",
+                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
+                            "env": [*UPSTREAM_K8S_VLLM_ENV_OVERRIDES],
                             "resources": {
                                 "limits": {"cpu": "2", "memory": "7Gi"},
                                 "requests": {"cpu": "200m", "memory": "2Gi"},
                             },
+                            "securityContext": UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT.copy(),
                         }
                     ]
                 }
@@ -633,9 +643,9 @@ async def test_quick_reconciliation_on_init_container_failure():
             if ready_condition:
                 logger.info("Ready condition: %s", ready_condition)
                 # The service should not be ready due to workload failure
-                assert (
-                    ready_condition.get("status") != "True"
-                ), "LLMISVC should not be Ready when init container fails"
+                assert ready_condition.get("status") != "True", (
+                    "LLMISVC should not be Ready when init container fails"
+                )
 
             # Validate reasonable time to failure detection
             assert time_to_failure < 180, (
@@ -655,5 +665,7 @@ async def test_quick_reconciliation_on_init_container_failure():
         delete_llmisvc_config(
             kserve_client, invalid_model_config_name, KSERVE_TEST_NAMESPACE
         )
-        delete_llmisvc_config(kserve_client, workload_config_name, KSERVE_TEST_NAMESPACE)
+        delete_llmisvc_config(
+            kserve_client, workload_config_name, KSERVE_TEST_NAMESPACE
+        )
         delete_llmisvc_config(kserve_client, router_config_name, KSERVE_TEST_NAMESPACE)

@@ -487,7 +487,7 @@ func TestLLMInferenceServiceConversion_ScalingSpecWithHPA(t *testing.T) {
 			WorkloadSpec: WorkloadSpec{
 				Scaling: &ScalingSpec{
 					MinReplicas: ptr.To(int32(2)),
-					MaxReplicas: ptr.To(int32(10)),
+					MaxReplicas: 10,
 					WVA: &WVASpec{
 						VariantCost: "15.0",
 						ActuatorSpec: ActuatorSpec{
@@ -516,7 +516,7 @@ func TestLLMInferenceServiceConversion_ScalingSpecWithHPA(t *testing.T) {
 	// Verify the scaling spec is converted
 	require.NotNil(t, dst.Spec.Scaling)
 	assert.Equal(t, int32(2), *dst.Spec.Scaling.MinReplicas)
-	assert.Equal(t, int32(10), *dst.Spec.Scaling.MaxReplicas)
+	assert.Equal(t, int32(10), dst.Spec.Scaling.MaxReplicas)
 	require.NotNil(t, dst.Spec.Scaling.WVA)
 	assert.Equal(t, "15.0", dst.Spec.Scaling.WVA.VariantCost)
 	require.NotNil(t, dst.Spec.Scaling.WVA.HPA)
@@ -533,7 +533,7 @@ func TestLLMInferenceServiceConversion_ScalingSpecWithHPA(t *testing.T) {
 	// Verify round-trip
 	require.NotNil(t, restored.Spec.Scaling)
 	assert.Equal(t, int32(2), *restored.Spec.Scaling.MinReplicas)
-	assert.Equal(t, int32(10), *restored.Spec.Scaling.MaxReplicas)
+	assert.Equal(t, int32(10), restored.Spec.Scaling.MaxReplicas)
 	require.NotNil(t, restored.Spec.Scaling.WVA)
 	assert.Equal(t, "15.0", restored.Spec.Scaling.WVA.VariantCost)
 	require.NotNil(t, restored.Spec.Scaling.WVA.HPA)
@@ -558,7 +558,7 @@ func TestLLMInferenceServiceConversion_ScalingSpecWithKEDA(t *testing.T) {
 			WorkloadSpec: WorkloadSpec{
 				Scaling: &ScalingSpec{
 					MinReplicas: ptr.To(int32(3)),
-					MaxReplicas: ptr.To(int32(20)),
+					MaxReplicas: 20,
 					WVA: &WVASpec{
 						VariantCost: "5.5",
 						ActuatorSpec: ActuatorSpec{
@@ -587,7 +587,7 @@ func TestLLMInferenceServiceConversion_ScalingSpecWithKEDA(t *testing.T) {
 	// Verify the scaling spec is converted
 	require.NotNil(t, dst.Spec.Scaling)
 	assert.Equal(t, int32(3), *dst.Spec.Scaling.MinReplicas)
-	assert.Equal(t, int32(20), *dst.Spec.Scaling.MaxReplicas)
+	assert.Equal(t, int32(20), dst.Spec.Scaling.MaxReplicas)
 	require.NotNil(t, dst.Spec.Scaling.WVA)
 	assert.Equal(t, "5.5", dst.Spec.Scaling.WVA.VariantCost)
 	assert.Nil(t, dst.Spec.Scaling.WVA.HPA)
@@ -608,7 +608,7 @@ func TestLLMInferenceServiceConversion_ScalingSpecWithKEDA(t *testing.T) {
 	// Verify round-trip
 	require.NotNil(t, restored.Spec.Scaling)
 	assert.Equal(t, int32(3), *restored.Spec.Scaling.MinReplicas)
-	assert.Equal(t, int32(20), *restored.Spec.Scaling.MaxReplicas)
+	assert.Equal(t, int32(20), restored.Spec.Scaling.MaxReplicas)
 	require.NotNil(t, restored.Spec.Scaling.WVA)
 	assert.Equal(t, "5.5", restored.Spec.Scaling.WVA.VariantCost)
 	assert.Nil(t, restored.Spec.Scaling.WVA.HPA)
@@ -679,7 +679,7 @@ func TestLLMInferenceServiceConversion_ScalingOnPrefill(t *testing.T) {
 			Prefill: &WorkloadSpec{
 				Scaling: &ScalingSpec{
 					MinReplicas: ptr.To(int32(1)),
-					MaxReplicas: ptr.To(int32(8)),
+					MaxReplicas: 8,
 					WVA: &WVASpec{
 						VariantCost: "10.0",
 						ActuatorSpec: ActuatorSpec{
@@ -704,7 +704,7 @@ func TestLLMInferenceServiceConversion_ScalingOnPrefill(t *testing.T) {
 	require.NotNil(t, dst.Spec.Prefill)
 	require.NotNil(t, dst.Spec.Prefill.Scaling)
 	assert.Equal(t, int32(1), *dst.Spec.Prefill.Scaling.MinReplicas)
-	assert.Equal(t, int32(8), *dst.Spec.Prefill.Scaling.MaxReplicas)
+	assert.Equal(t, int32(8), dst.Spec.Prefill.Scaling.MaxReplicas)
 	require.NotNil(t, dst.Spec.Prefill.Scaling.WVA)
 	assert.Equal(t, "10.0", dst.Spec.Prefill.Scaling.WVA.VariantCost)
 	require.NotNil(t, dst.Spec.Prefill.Scaling.WVA.HPA)
@@ -720,7 +720,7 @@ func TestLLMInferenceServiceConversion_ScalingOnPrefill(t *testing.T) {
 	require.NotNil(t, restored.Spec.Prefill)
 	require.NotNil(t, restored.Spec.Prefill.Scaling)
 	assert.Equal(t, int32(1), *restored.Spec.Prefill.Scaling.MinReplicas)
-	assert.Equal(t, int32(8), *restored.Spec.Prefill.Scaling.MaxReplicas)
+	assert.Equal(t, int32(8), restored.Spec.Prefill.Scaling.MaxReplicas)
 	require.NotNil(t, restored.Spec.Prefill.Scaling.WVA)
 	require.NotNil(t, restored.Spec.Prefill.Scaling.WVA.HPA)
 }
@@ -741,7 +741,7 @@ func TestLLMInferenceServiceConversion_DecodeAndPrefillWithDifferentScaling(t *t
 			WorkloadSpec: WorkloadSpec{
 				Scaling: &ScalingSpec{
 					MinReplicas: ptr.To(int32(2)),
-					MaxReplicas: ptr.To(int32(10)),
+					MaxReplicas: 10,
 					WVA: &WVASpec{
 						VariantCost: "10.0",
 						ActuatorSpec: ActuatorSpec{
@@ -753,7 +753,7 @@ func TestLLMInferenceServiceConversion_DecodeAndPrefillWithDifferentScaling(t *t
 			Prefill: &WorkloadSpec{
 				Scaling: &ScalingSpec{
 					MinReplicas: ptr.To(int32(4)),
-					MaxReplicas: ptr.To(int32(20)),
+					MaxReplicas: 20,
 					WVA: &WVASpec{
 						VariantCost: "5.0",
 						ActuatorSpec: ActuatorSpec{
@@ -782,7 +782,7 @@ func TestLLMInferenceServiceConversion_DecodeAndPrefillWithDifferentScaling(t *t
 	// Verify decode scaling
 	require.NotNil(t, dst.Spec.Scaling)
 	assert.Equal(t, int32(2), *dst.Spec.Scaling.MinReplicas)
-	assert.Equal(t, int32(10), *dst.Spec.Scaling.MaxReplicas)
+	assert.Equal(t, int32(10), dst.Spec.Scaling.MaxReplicas)
 	assert.Equal(t, "10.0", dst.Spec.Scaling.WVA.VariantCost)
 	require.NotNil(t, dst.Spec.Scaling.WVA.HPA)
 	assert.Nil(t, dst.Spec.Scaling.WVA.KEDA)
@@ -791,7 +791,7 @@ func TestLLMInferenceServiceConversion_DecodeAndPrefillWithDifferentScaling(t *t
 	require.NotNil(t, dst.Spec.Prefill)
 	require.NotNil(t, dst.Spec.Prefill.Scaling)
 	assert.Equal(t, int32(4), *dst.Spec.Prefill.Scaling.MinReplicas)
-	assert.Equal(t, int32(20), *dst.Spec.Prefill.Scaling.MaxReplicas)
+	assert.Equal(t, int32(20), dst.Spec.Prefill.Scaling.MaxReplicas)
 	assert.Equal(t, "5.0", dst.Spec.Prefill.Scaling.WVA.VariantCost)
 	assert.Nil(t, dst.Spec.Prefill.Scaling.WVA.HPA)
 	require.NotNil(t, dst.Spec.Prefill.Scaling.WVA.KEDA)
@@ -810,7 +810,7 @@ func TestLLMInferenceServiceConversion_DecodeAndPrefillWithDifferentScaling(t *t
 	// Verify decode round-trip
 	require.NotNil(t, restored.Spec.Scaling)
 	assert.Equal(t, int32(2), *restored.Spec.Scaling.MinReplicas)
-	assert.Equal(t, int32(10), *restored.Spec.Scaling.MaxReplicas)
+	assert.Equal(t, int32(10), restored.Spec.Scaling.MaxReplicas)
 	assert.Equal(t, "10.0", restored.Spec.Scaling.WVA.VariantCost)
 	require.NotNil(t, restored.Spec.Scaling.WVA.HPA)
 	assert.Nil(t, restored.Spec.Scaling.WVA.KEDA)
@@ -819,7 +819,7 @@ func TestLLMInferenceServiceConversion_DecodeAndPrefillWithDifferentScaling(t *t
 	require.NotNil(t, restored.Spec.Prefill)
 	require.NotNil(t, restored.Spec.Prefill.Scaling)
 	assert.Equal(t, int32(4), *restored.Spec.Prefill.Scaling.MinReplicas)
-	assert.Equal(t, int32(20), *restored.Spec.Prefill.Scaling.MaxReplicas)
+	assert.Equal(t, int32(20), restored.Spec.Prefill.Scaling.MaxReplicas)
 	assert.Equal(t, "5.0", restored.Spec.Prefill.Scaling.WVA.VariantCost)
 	assert.Nil(t, restored.Spec.Prefill.Scaling.WVA.HPA)
 	require.NotNil(t, restored.Spec.Prefill.Scaling.WVA.KEDA)

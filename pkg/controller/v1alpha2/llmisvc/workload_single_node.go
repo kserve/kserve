@@ -57,17 +57,23 @@ func (r *LLMISVCReconciler) reconcileSingleNodeWorkload(ctx context.Context, llm
 }
 
 func (r *LLMISVCReconciler) reconcileSingleNodeMainWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
-	expected, err := r.expectedSingleNodeMainDeployment(ctx, llmSvc, config)
-	if err != nil {
-		return fmt.Errorf("failed to get expected main deployment: %w", err)
-	}
 	if isStopped := utils.GetForceStopRuntime(llmSvc); isStopped || llmSvc.Spec.Worker != nil {
 		if isStopped {
 			llmSvc.MarkMainWorkloadNotReady("Stopped", "Service is stopped")
 		} else {
 			llmSvc.MarkMainWorkloadUnset()
 		}
-		return Delete(ctx, r, llmSvc, expected)
+		return Delete(ctx, r, llmSvc, &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      mainDeploymentName(llmSvc),
+				Namespace: llmSvc.GetNamespace(),
+			},
+		})
+	}
+
+	expected, err := r.expectedSingleNodeMainDeployment(ctx, llmSvc, config)
+	if err != nil {
+		return fmt.Errorf("failed to get expected main deployment: %w", err)
 	}
 	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, expected, semanticDeploymentIsEqual, PreserveDeploymentReplicas()); err != nil {
 		return err
@@ -101,7 +107,7 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 
 	d := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve"),
+			Name:      mainDeploymentName(llmSvc),
 			Namespace: llmSvc.GetNamespace(),
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
@@ -122,7 +128,7 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 		},
 	}
 
-	if llmSvc.Spec.Template != nil {
+	if llmSvc.Spec.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
 		d.Spec.Template.Spec = *llmSvc.Spec.Template.DeepCopy()
 
 		var serviceAccount *corev1.ServiceAccount = nil
@@ -155,7 +161,7 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 		if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
 			return nil, fmt.Errorf("failed to get current deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
 		}
-		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config); err != nil {
+		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, "main", constants.DefaultModelLocalMountPath); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to main deployment: %w", err)
 		}
 	}
@@ -168,21 +174,23 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 }
 
 func (r *LLMISVCReconciler) reconcileSingleNodePrefill(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
-	prefill, err := r.expectedPrefillMainDeployment(ctx, llmSvc, config)
-	if err != nil {
-		return fmt.Errorf("failed to get expected prefill deployment: %w", err)
-	}
 	if isStopped := utils.GetForceStopRuntime(llmSvc); isStopped || llmSvc.Spec.Prefill == nil || llmSvc.Spec.Prefill.Worker != nil {
 		if isStopped {
 			llmSvc.MarkPrefillWorkloadNotReady("Stopped", "Service is stopped")
 		} else {
 			llmSvc.MarkPrefillWorkloadUnset()
 		}
+		return Delete(ctx, r, llmSvc, &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      prefillDeploymentName(llmSvc),
+				Namespace: llmSvc.GetNamespace(),
+			},
+		})
+	}
 
-		if err := Delete(ctx, r, llmSvc, prefill); err != nil {
-			return fmt.Errorf("failed to delete prefill main deployment: %w", err)
-		}
-		return nil
+	prefill, err := r.expectedPrefillMainDeployment(ctx, llmSvc, config)
+	if err != nil {
+		return fmt.Errorf("failed to get expected prefill deployment: %w", err)
 	}
 	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, prefill, semanticDeploymentIsEqual, PreserveDeploymentReplicas()); err != nil {
 		return fmt.Errorf("failed to reconcile prefill deployment %s/%s: %w", prefill.GetNamespace(), prefill.GetName(), err)
@@ -201,7 +209,7 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 
 	d := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve-prefill"),
+			Name:      prefillDeploymentName(llmSvc),
 			Namespace: llmSvc.GetNamespace(),
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
@@ -224,7 +232,7 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 		}
 	}
 
-	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Template != nil {
+	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
 		d.Spec.Template.Spec = *llmSvc.Spec.Prefill.Template.DeepCopy()
 
 		var existingServiceAccount *corev1.ServiceAccount = nil
@@ -240,7 +248,7 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 		if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
 			return nil, fmt.Errorf("failed to get current prefill deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
 		}
-		if err := r.attachModelArtifacts(ctx, existingServiceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config); err != nil {
+		if err := r.attachModelArtifacts(ctx, existingServiceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, "main", constants.DefaultModelLocalMountPath); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to prefill deployment: %w", err)
 		}
 	}
@@ -415,6 +423,8 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainServiceAccount(ctx context.Con
 		},
 	}
 
+	r.injectSecretsFromDefaultServiceAccount(ctx, expectedServiceAccount)
+
 	if expectedServiceAccount.Labels == nil {
 		expectedServiceAccount.Labels = make(map[string]string)
 	}
@@ -467,4 +477,12 @@ func (r *LLMISVCReconciler) singleNodeLabels(llmSvc *v1alpha2.LLMInferenceServic
 		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
 		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 	}
+}
+
+func mainDeploymentName(llmSvc *v1alpha2.LLMInferenceService) string {
+	return kmeta.ChildName(llmSvc.GetName(), "-kserve")
+}
+
+func prefillDeploymentName(llmSvc *v1alpha2.LLMInferenceService) string {
+	return kmeta.ChildName(llmSvc.GetName(), "-kserve-prefill")
 }

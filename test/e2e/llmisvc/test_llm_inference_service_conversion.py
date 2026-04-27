@@ -32,6 +32,8 @@ from .fixtures import (
     inject_k8s_proxy,
     KSERVE_TEST_NAMESPACE,
     KSERVE_PLURAL_LLMINFERENCESERVICECONFIG,
+    UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT,
+    UPSTREAM_K8S_VLLM_ENV_OVERRIDES,
 )
 from .logging import log_execution, logger
 
@@ -42,9 +44,7 @@ MODEL_CRITICALITY_ANNOTATION_KEY = "internal.serving.kserve.io/model-criticality
 LORA_CRITICALITIES_ANNOTATION_KEY = "internal.serving.kserve.io/lora-criticalities"
 
 
-def wait_for(
-    assertion_fn, timeout: float = 60.0, interval: float = 1.0
-):
+def wait_for(assertion_fn, timeout: float = 60.0, interval: float = 1.0):
     """Wait for the assertion to succeed within timeout."""
     deadline = time.time() + timeout
     last_error = None
@@ -72,16 +72,18 @@ def create_llmisvc_raw(kserve_client: KServeClient, llm_isvc: dict, version: str
             KSERVE_PLURAL_LLMINFERENCESERVICE,
             llm_isvc,
         )
-        print(f"✅ LLM inference service {llm_isvc['metadata']['name']} created with {version}")
+        print(
+            f"✅ LLM inference service {llm_isvc['metadata']['name']} created with {version}"
+        )
         return outputs
     except client.rest.ApiException as e:
-        raise RuntimeError(
-            f"❌ Exception creating LLMInferenceService: {e}"
-        ) from e
+        raise RuntimeError(f"❌ Exception creating LLMInferenceService: {e}") from e
 
 
 @log_execution
-def get_llmisvc_raw(kserve_client: KServeClient, name: str, namespace: str, version: str):
+def get_llmisvc_raw(
+    kserve_client: KServeClient, name: str, namespace: str, version: str
+):
     """Get an LLMInferenceService as a specific API version."""
     try:
         return kserve_client.api_instance.get_namespaced_custom_object(
@@ -98,7 +100,9 @@ def get_llmisvc_raw(kserve_client: KServeClient, name: str, namespace: str, vers
 
 
 @log_execution
-def delete_llmisvc_raw(kserve_client: KServeClient, name: str, namespace: str, version: str):
+def delete_llmisvc_raw(
+    kserve_client: KServeClient, name: str, namespace: str, version: str
+):
     """Delete an LLMInferenceService."""
     try:
         result = kserve_client.api_instance.delete_namespaced_custom_object(
@@ -128,11 +132,15 @@ def create_llmisvc_config_raw(kserve_client: KServeClient, config: dict, version
             KSERVE_PLURAL_LLMINFERENCESERVICECONFIG,
             config,
         )
-        print(f"✅ LLMInferenceServiceConfig {config['metadata']['name']} created with {version}")
+        print(
+            f"✅ LLMInferenceServiceConfig {config['metadata']['name']} created with {version}"
+        )
         return outputs
     except client.rest.ApiException as e:
         if e.status == 409:  # Already exists
-            print(f"⚠️ LLMInferenceServiceConfig {config['metadata']['name']} already exists")
+            print(
+                f"⚠️ LLMInferenceServiceConfig {config['metadata']['name']} already exists"
+            )
             return None
         raise RuntimeError(
             f"❌ Exception creating LLMInferenceServiceConfig: {e}"
@@ -140,7 +148,9 @@ def create_llmisvc_config_raw(kserve_client: KServeClient, config: dict, version
 
 
 @log_execution
-def delete_llmisvc_config_raw(kserve_client: KServeClient, name: str, namespace: str, version: str):
+def delete_llmisvc_config_raw(
+    kserve_client: KServeClient, name: str, namespace: str, version: str
+):
     """Delete an LLMInferenceServiceConfig."""
     try:
         result = kserve_client.api_instance.delete_namespaced_custom_object(
@@ -189,9 +199,13 @@ class TestLLMInferenceServiceConversion:
         for resource_type, name, version in self.created_resources:
             try:
                 if resource_type == "llmisvc":
-                    delete_llmisvc_raw(self.kserve_client, name, self.namespace, version)
+                    delete_llmisvc_raw(
+                        self.kserve_client, name, self.namespace, version
+                    )
                 elif resource_type == "config":
-                    delete_llmisvc_config_raw(self.kserve_client, name, self.namespace, version)
+                    delete_llmisvc_config_raw(
+                        self.kserve_client, name, self.namespace, version
+                    )
             except Exception as e:
                 logger.warning(f"Failed to cleanup {resource_type} {name}: {e}")
 
@@ -214,19 +228,27 @@ class TestLLMInferenceServiceConversion:
                 "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},
                 "router": {"route": {}},
                 "template": {
-                    "containers": [{
-                        "name": "main",
-                        "image": "quay.io/pierdipi/vllm-cpu:latest",
-                        "resources": {
-                            "limits": {"cpu": "2", "memory": "7Gi"},
-                            "requests": {"cpu": "200m", "memory": "2Gi"},
-                        },
-                    }]
+                    "containers": [
+                        {
+                            "name": "main",
+                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
+                            "env": [*UPSTREAM_K8S_VLLM_ENV_OVERRIDES],
+                            "resources": {
+                                "limits": {"cpu": "2", "memory": "7Gi"},
+                                "requests": {"cpu": "200m", "memory": "2Gi"},
+                            },
+                            "securityContext": UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT.copy(),
+                        }
+                    ]
                 },
             },
         }
-        create_llmisvc_config_raw(self.kserve_client, config, constants.KSERVE_V1ALPHA1_VERSION)
-        self.created_resources.append(("config", config_name, constants.KSERVE_V1ALPHA1_VERSION))
+        create_llmisvc_config_raw(
+            self.kserve_client, config, constants.KSERVE_V1ALPHA1_VERSION
+        )
+        self.created_resources.append(
+            ("config", config_name, constants.KSERVE_V1ALPHA1_VERSION)
+        )
 
         # Create v1alpha1 LLMInferenceService
         v1alpha1_isvc = {
@@ -241,18 +263,30 @@ class TestLLMInferenceServiceConversion:
             },
         }
 
-        create_llmisvc_raw(self.kserve_client, v1alpha1_isvc, constants.KSERVE_V1ALPHA1_VERSION)
-        self.created_resources.append(("llmisvc", service_name, constants.KSERVE_V1ALPHA1_VERSION))
+        create_llmisvc_raw(
+            self.kserve_client, v1alpha1_isvc, constants.KSERVE_V1ALPHA1_VERSION
+        )
+        self.created_resources.append(
+            ("llmisvc", service_name, constants.KSERVE_V1ALPHA1_VERSION)
+        )
 
         # Read as v1alpha2 - this tests the conversion webhook
         def assert_readable_as_v1alpha2():
             v1alpha2_isvc = get_llmisvc_raw(
-                self.kserve_client, service_name, self.namespace, constants.KSERVE_V1ALPHA2_VERSION
+                self.kserve_client,
+                service_name,
+                self.namespace,
+                constants.KSERVE_V1ALPHA2_VERSION,
             )
 
             # Verify basic fields are present
-            assert v1alpha2_isvc is not None, "Should be able to read v1alpha1 resource as v1alpha2"
-            assert v1alpha2_isvc["apiVersion"] == f"{constants.KSERVE_GROUP}/{constants.KSERVE_V1ALPHA2_VERSION}"
+            assert v1alpha2_isvc is not None, (
+                "Should be able to read v1alpha1 resource as v1alpha2"
+            )
+            assert (
+                v1alpha2_isvc["apiVersion"]
+                == f"{constants.KSERVE_GROUP}/{constants.KSERVE_V1ALPHA2_VERSION}"
+            )
             assert v1alpha2_isvc["metadata"]["name"] == service_name
 
             # Verify spec fields are converted
@@ -262,7 +296,9 @@ class TestLLMInferenceServiceConversion:
             return v1alpha2_isvc
 
         v1alpha2_result = wait_for(assert_readable_as_v1alpha2, timeout=30.0)
-        print(f"✅ Successfully read v1alpha1 resource as v1alpha2: {v1alpha2_result['metadata']['name']}")
+        print(
+            f"✅ Successfully read v1alpha1 resource as v1alpha2: {v1alpha2_result['metadata']['name']}"
+        )
 
     @pytest.mark.cluster_cpu
     @pytest.mark.cluster_single_node
@@ -283,19 +319,27 @@ class TestLLMInferenceServiceConversion:
                 "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},
                 "router": {"route": {}},
                 "template": {
-                    "containers": [{
-                        "name": "main",
-                        "image": "quay.io/pierdipi/vllm-cpu:latest",
-                        "resources": {
-                            "limits": {"cpu": "2", "memory": "7Gi"},
-                            "requests": {"cpu": "200m", "memory": "2Gi"},
-                        },
-                    }]
+                    "containers": [
+                        {
+                            "name": "main",
+                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
+                            "env": [*UPSTREAM_K8S_VLLM_ENV_OVERRIDES],
+                            "resources": {
+                                "limits": {"cpu": "2", "memory": "7Gi"},
+                                "requests": {"cpu": "200m", "memory": "2Gi"},
+                            },
+                            "securityContext": UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT.copy(),
+                        }
+                    ]
                 },
             },
         }
-        create_llmisvc_config_raw(self.kserve_client, config, constants.KSERVE_V1ALPHA2_VERSION)
-        self.created_resources.append(("config", config_name, constants.KSERVE_V1ALPHA2_VERSION))
+        create_llmisvc_config_raw(
+            self.kserve_client, config, constants.KSERVE_V1ALPHA2_VERSION
+        )
+        self.created_resources.append(
+            ("config", config_name, constants.KSERVE_V1ALPHA2_VERSION)
+        )
 
         # Create v1alpha2 LLMInferenceService
         v1alpha2_isvc = {
@@ -310,18 +354,30 @@ class TestLLMInferenceServiceConversion:
             },
         }
 
-        create_llmisvc_raw(self.kserve_client, v1alpha2_isvc, constants.KSERVE_V1ALPHA2_VERSION)
-        self.created_resources.append(("llmisvc", service_name, constants.KSERVE_V1ALPHA2_VERSION))
+        create_llmisvc_raw(
+            self.kserve_client, v1alpha2_isvc, constants.KSERVE_V1ALPHA2_VERSION
+        )
+        self.created_resources.append(
+            ("llmisvc", service_name, constants.KSERVE_V1ALPHA2_VERSION)
+        )
 
         # Read as v1alpha1 - this tests the conversion webhook
         def assert_readable_as_v1alpha1():
             v1alpha1_isvc = get_llmisvc_raw(
-                self.kserve_client, service_name, self.namespace, constants.KSERVE_V1ALPHA1_VERSION
+                self.kserve_client,
+                service_name,
+                self.namespace,
+                constants.KSERVE_V1ALPHA1_VERSION,
             )
 
             # Verify basic fields are present
-            assert v1alpha1_isvc is not None, "Should be able to read v1alpha2 resource as v1alpha1"
-            assert v1alpha1_isvc["apiVersion"] == f"{constants.KSERVE_GROUP}/{constants.KSERVE_V1ALPHA1_VERSION}"
+            assert v1alpha1_isvc is not None, (
+                "Should be able to read v1alpha2 resource as v1alpha1"
+            )
+            assert (
+                v1alpha1_isvc["apiVersion"]
+                == f"{constants.KSERVE_GROUP}/{constants.KSERVE_V1ALPHA1_VERSION}"
+            )
             assert v1alpha1_isvc["metadata"]["name"] == service_name
 
             # Verify spec fields are converted
@@ -331,7 +387,9 @@ class TestLLMInferenceServiceConversion:
             return v1alpha1_isvc
 
         v1alpha1_result = wait_for(assert_readable_as_v1alpha1, timeout=30.0)
-        print(f"✅ Successfully read v1alpha2 resource as v1alpha1: {v1alpha1_result['metadata']['name']}")
+        print(
+            f"✅ Successfully read v1alpha2 resource as v1alpha1: {v1alpha1_result['metadata']['name']}"
+        )
 
     @pytest.mark.cluster_cpu
     @pytest.mark.cluster_single_node
@@ -361,19 +419,27 @@ class TestLLMInferenceServiceConversion:
                 },
                 "router": {"route": {}},
                 "template": {
-                    "containers": [{
-                        "name": "main",
-                        "image": "quay.io/pierdipi/vllm-cpu:latest",
-                        "resources": {
-                            "limits": {"cpu": "2", "memory": "7Gi"},
-                            "requests": {"cpu": "200m", "memory": "2Gi"},
-                        },
-                    }]
+                    "containers": [
+                        {
+                            "name": "main",
+                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
+                            "env": [*UPSTREAM_K8S_VLLM_ENV_OVERRIDES],
+                            "resources": {
+                                "limits": {"cpu": "2", "memory": "7Gi"},
+                                "requests": {"cpu": "200m", "memory": "2Gi"},
+                            },
+                            "securityContext": UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT.copy(),
+                        }
+                    ]
                 },
             },
         }
-        create_llmisvc_config_raw(self.kserve_client, config, constants.KSERVE_V1ALPHA1_VERSION)
-        self.created_resources.append(("config", config_name, constants.KSERVE_V1ALPHA1_VERSION))
+        create_llmisvc_config_raw(
+            self.kserve_client, config, constants.KSERVE_V1ALPHA1_VERSION
+        )
+        self.created_resources.append(
+            ("config", config_name, constants.KSERVE_V1ALPHA1_VERSION)
+        )
 
         # Create v1alpha1 LLMInferenceService with criticality in model spec
         v1alpha1_isvc = {
@@ -393,13 +459,20 @@ class TestLLMInferenceServiceConversion:
             },
         }
 
-        create_llmisvc_raw(self.kserve_client, v1alpha1_isvc, constants.KSERVE_V1ALPHA1_VERSION)
-        self.created_resources.append(("llmisvc", service_name, constants.KSERVE_V1ALPHA1_VERSION))
+        create_llmisvc_raw(
+            self.kserve_client, v1alpha1_isvc, constants.KSERVE_V1ALPHA1_VERSION
+        )
+        self.created_resources.append(
+            ("llmisvc", service_name, constants.KSERVE_V1ALPHA1_VERSION)
+        )
 
         # Step 1: Read as v1alpha2 and verify criticality is stored in annotation
         def assert_criticality_in_annotation():
             v1alpha2_isvc = get_llmisvc_raw(
-                self.kserve_client, service_name, self.namespace, constants.KSERVE_V1ALPHA2_VERSION
+                self.kserve_client,
+                service_name,
+                self.namespace,
+                constants.KSERVE_V1ALPHA2_VERSION,
             )
 
             annotations = v1alpha2_isvc.get("metadata", {}).get("annotations", {})
@@ -428,7 +501,10 @@ class TestLLMInferenceServiceConversion:
         # Step 2: Read back as v1alpha1 and verify criticality is restored
         def assert_criticality_restored():
             v1alpha1_isvc = get_llmisvc_raw(
-                self.kserve_client, service_name, self.namespace, constants.KSERVE_V1ALPHA1_VERSION
+                self.kserve_client,
+                service_name,
+                self.namespace,
+                constants.KSERVE_V1ALPHA1_VERSION,
             )
 
             model_spec = v1alpha1_isvc.get("spec", {}).get("model", {})
@@ -474,19 +550,27 @@ class TestLLMInferenceServiceConversion:
             "spec": {
                 "router": {"route": {}},
                 "template": {
-                    "containers": [{
-                        "name": "main",
-                        "image": "quay.io/pierdipi/vllm-cpu:latest",
-                        "resources": {
-                            "limits": {"cpu": "2", "memory": "7Gi"},
-                            "requests": {"cpu": "200m", "memory": "2Gi"},
-                        },
-                    }]
+                    "containers": [
+                        {
+                            "name": "main",
+                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
+                            "env": [*UPSTREAM_K8S_VLLM_ENV_OVERRIDES],
+                            "resources": {
+                                "limits": {"cpu": "2", "memory": "7Gi"},
+                                "requests": {"cpu": "200m", "memory": "2Gi"},
+                            },
+                            "securityContext": UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT.copy(),
+                        }
+                    ]
                 },
             },
         }
-        create_llmisvc_config_raw(self.kserve_client, config, constants.KSERVE_V1ALPHA1_VERSION)
-        self.created_resources.append(("config", config_name, constants.KSERVE_V1ALPHA1_VERSION))
+        create_llmisvc_config_raw(
+            self.kserve_client, config, constants.KSERVE_V1ALPHA1_VERSION
+        )
+        self.created_resources.append(
+            ("config", config_name, constants.KSERVE_V1ALPHA1_VERSION)
+        )
 
         # Create v1alpha1 LLMInferenceService with LoRA adapters having criticality
         v1alpha1_isvc = {
@@ -520,13 +604,20 @@ class TestLLMInferenceServiceConversion:
             },
         }
 
-        create_llmisvc_raw(self.kserve_client, v1alpha1_isvc, constants.KSERVE_V1ALPHA1_VERSION)
-        self.created_resources.append(("llmisvc", service_name, constants.KSERVE_V1ALPHA1_VERSION))
+        create_llmisvc_raw(
+            self.kserve_client, v1alpha1_isvc, constants.KSERVE_V1ALPHA1_VERSION
+        )
+        self.created_resources.append(
+            ("llmisvc", service_name, constants.KSERVE_V1ALPHA1_VERSION)
+        )
 
         # Read as v1alpha2 and verify LoRA criticalities are in annotation
         def assert_lora_criticalities_in_annotation():
             v1alpha2_isvc = get_llmisvc_raw(
-                self.kserve_client, service_name, self.namespace, constants.KSERVE_V1ALPHA2_VERSION
+                self.kserve_client,
+                service_name,
+                self.namespace,
+                constants.KSERVE_V1ALPHA2_VERSION,
             )
 
             annotations = v1alpha2_isvc.get("metadata", {}).get("annotations", {})
@@ -542,11 +633,16 @@ class TestLLMInferenceServiceConversion:
             )
 
             import json
+
             lora_crit_data = json.loads(annotations[LORA_CRITICALITIES_ANNOTATION_KEY])
 
             # Verify both adapter criticalities are stored (keys are string indices)
-            assert "0" in lora_crit_data or 0 in lora_crit_data, "Adapter 0 criticality should be stored"
-            assert "1" in lora_crit_data or 1 in lora_crit_data, "Adapter 1 criticality should be stored"
+            assert "0" in lora_crit_data or 0 in lora_crit_data, (
+                "Adapter 0 criticality should be stored"
+            )
+            assert "1" in lora_crit_data or 1 in lora_crit_data, (
+                "Adapter 1 criticality should be stored"
+            )
 
             return v1alpha2_isvc
 
@@ -556,7 +652,10 @@ class TestLLMInferenceServiceConversion:
         # Read back as v1alpha1 and verify LoRA criticalities are restored
         def assert_lora_criticalities_restored():
             v1alpha1_isvc = get_llmisvc_raw(
-                self.kserve_client, service_name, self.namespace, constants.KSERVE_V1ALPHA1_VERSION
+                self.kserve_client,
+                service_name,
+                self.namespace,
+                constants.KSERVE_V1ALPHA1_VERSION,
             )
 
             model_spec = v1alpha1_isvc.get("spec", {}).get("model", {})
@@ -596,19 +695,27 @@ class TestLLMInferenceServiceConversion:
             "spec": {
                 "router": {"route": {}, "gateway": {}},
                 "template": {
-                    "containers": [{
-                        "name": "main",
-                        "image": "quay.io/pierdipi/vllm-cpu:latest",
-                        "resources": {
-                            "limits": {"cpu": "2", "memory": "7Gi"},
-                            "requests": {"cpu": "200m", "memory": "2Gi"},
-                        },
-                    }]
+                    "containers": [
+                        {
+                            "name": "main",
+                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
+                            "env": [*UPSTREAM_K8S_VLLM_ENV_OVERRIDES],
+                            "resources": {
+                                "limits": {"cpu": "2", "memory": "7Gi"},
+                                "requests": {"cpu": "200m", "memory": "2Gi"},
+                            },
+                            "securityContext": UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT.copy(),
+                        }
+                    ]
                 },
             },
         }
-        create_llmisvc_config_raw(self.kserve_client, config, constants.KSERVE_V1ALPHA1_VERSION)
-        self.created_resources.append(("config", config_name, constants.KSERVE_V1ALPHA1_VERSION))
+        create_llmisvc_config_raw(
+            self.kserve_client, config, constants.KSERVE_V1ALPHA1_VERSION
+        )
+        self.created_resources.append(
+            ("config", config_name, constants.KSERVE_V1ALPHA1_VERSION)
+        )
 
         # Create v1alpha1 LLMInferenceService with various fields
         original_annotations = {
@@ -637,47 +744,73 @@ class TestLLMInferenceServiceConversion:
             },
         }
 
-        create_llmisvc_raw(self.kserve_client, v1alpha1_isvc, constants.KSERVE_V1ALPHA1_VERSION)
-        self.created_resources.append(("llmisvc", service_name, constants.KSERVE_V1ALPHA1_VERSION))
+        create_llmisvc_raw(
+            self.kserve_client, v1alpha1_isvc, constants.KSERVE_V1ALPHA1_VERSION
+        )
+        self.created_resources.append(
+            ("llmisvc", service_name, constants.KSERVE_V1ALPHA1_VERSION)
+        )
 
         # Read as v1alpha2
         def get_as_v1alpha2():
             return get_llmisvc_raw(
-                self.kserve_client, service_name, self.namespace, constants.KSERVE_V1ALPHA2_VERSION
+                self.kserve_client,
+                service_name,
+                self.namespace,
+                constants.KSERVE_V1ALPHA2_VERSION,
             )
 
         v1alpha2_isvc = wait_for(get_as_v1alpha2, timeout=30.0)
 
         # Verify key fields in v1alpha2
-        assert v1alpha2_isvc["spec"].get("replicas") == 1, "Replicas should be preserved"
+        assert v1alpha2_isvc["spec"].get("replicas") == 1, (
+            "Replicas should be preserved"
+        )
         model_spec = v1alpha2_isvc["spec"].get("model", {})
         assert model_spec.get("name") == "test-model", "Model name should be preserved"
 
         # User annotations/labels should be preserved
         annotations = v1alpha2_isvc.get("metadata", {}).get("annotations", {})
-        assert annotations.get("user-annotation") == "test-value", "User annotations should be preserved"
+        assert annotations.get("user-annotation") == "test-value", (
+            "User annotations should be preserved"
+        )
         labels = v1alpha2_isvc.get("metadata", {}).get("labels", {})
-        assert labels.get("user-label") == "test-label", "User labels should be preserved"
+        assert labels.get("user-label") == "test-label", (
+            "User labels should be preserved"
+        )
 
         print("✅ Fields preserved when converting to v1alpha2")
 
         # Read back as v1alpha1
         def get_as_v1alpha1():
             return get_llmisvc_raw(
-                self.kserve_client, service_name, self.namespace, constants.KSERVE_V1ALPHA1_VERSION
+                self.kserve_client,
+                service_name,
+                self.namespace,
+                constants.KSERVE_V1ALPHA1_VERSION,
             )
 
         v1alpha1_result = wait_for(get_as_v1alpha1, timeout=30.0)
 
         # Verify all original fields are preserved
-        assert v1alpha1_result["spec"].get("replicas") == 1, "Replicas should be preserved in round-trip"
+        assert v1alpha1_result["spec"].get("replicas") == 1, (
+            "Replicas should be preserved in round-trip"
+        )
         model_spec = v1alpha1_result["spec"].get("model", {})
-        assert model_spec.get("name") == "test-model", "Model name should be preserved in round-trip"
+        assert model_spec.get("name") == "test-model", (
+            "Model name should be preserved in round-trip"
+        )
 
         # User annotations/labels should still be there
         annotations = v1alpha1_result.get("metadata", {}).get("annotations", {})
-        assert annotations.get("user-annotation") == "test-value", "User annotations should survive round-trip"
+        assert annotations.get("user-annotation") == "test-value", (
+            "User annotations should survive round-trip"
+        )
         labels = v1alpha1_result.get("metadata", {}).get("labels", {})
-        assert labels.get("user-label") == "test-label", "User labels should survive round-trip"
+        assert labels.get("user-label") == "test-label", (
+            "User labels should survive round-trip"
+        )
 
-        print("✅ All fields preserved through v1alpha1 -> v1alpha2 -> v1alpha1 round-trip")
+        print(
+            "✅ All fields preserved through v1alpha1 -> v1alpha2 -> v1alpha1 round-trip"
+        )

@@ -32,9 +32,16 @@ dependencies = [
     "aiohttp>=3.13.3", # CVE-2025-69223 AIOHTTP's HTTP Parser auto_decompress feature is vulnerable to zip bomb
     "h11>=0.16.0", # CVE-2025-43859 h11 accepts some malformed Chunked-Encoding bodies
     "cryptography>=46.0.5", # CVE-2026-26007 cryptography Subgroup Attack Due to Missing Subgroup Validation for SECT Curves
+    "python-multipart>=0.0.22", # CVE-2026-24486 Python-Multipart has Arbitrary File Write via Non-Default Configuration
+    # CVE-2026-32597 PyJWT accepts unknown `crit` header extensions (RFC 7515 §4.1.11 MUST violation)
+    # Pinning because it is a transitive dependency.
+    "pyjwt>=2.12.0",
+    # CVE-2026-30922 pyasn1 Vulnerable to Denial of Service via Unbounded Recursion
+    # Pinning because it is a transitive dependency.
+    "pyasn>=0.6.3"
 ]
 name = "kserve"
-version = "0.16.0"
+version = "0.18.0rc1"
 description = "KServe Python SDK"
 readme = "README.md"
 classifiers = [
@@ -59,7 +66,7 @@ repository = "https://github.com/kserve/kserve/tree/master/python/kserve"
 
 [project.optional-dependencies]
 storage = [
-    "kserve-storage==0.16.0"
+    "kserve-storage==0.18.0rc1"
 ]
 logging = [
     "asgi-logger<1.0.0,>=0.1.0",
@@ -68,7 +75,7 @@ ray = [
     "ray[serve]>=2.43.0",
 ]
 llm = [
-    "vllm==0.15.1",
+    "vllm==0.19.0",
 ]
 
 [dependency-groups]
@@ -85,6 +92,8 @@ test = [
     "jinja2<4.0.0,>=3.1.4",
     "grpcio-testing<2.0.0,>=1.73.0",
     "httpx-retries>=0.4.5,<1.0.0",
+    "boto3>=1.35.0,<2.0.0",
+    "pyarrow>=18.0.0,<20.0.0",
 ]
 dev = [
     "black[colorama]~=24.3.0",
@@ -99,3 +108,7 @@ index-strategy = "unsafe-best-match"
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+
+# UV workspace source for local dependency resolution
+[tool.uv.sources]
+kserve-storage = { path = "../storage", editable = true }

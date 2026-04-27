@@ -281,6 +281,7 @@ rules:
   - serving.kserve.io
   resources:
   - localmodelcaches
+  - localmodelnamespacecaches
   verbs:
   - get
   - list

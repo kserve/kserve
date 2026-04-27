@@ -48,10 +48,12 @@ class V1beta1IngressConfig(object):
     """
     openapi_types = {
         'additional_ingress_domains': 'list[str]',
+        'disable_http_route_timeout': 'bool',
         'disable_ingress_creation': 'bool',
         'disable_istio_virtual_host': 'bool',
         'domain_template': 'str',
         'enable_gateway_api': 'bool',
+        'enable_llm_inference_service_tls': 'bool',
         'ingress_class_name': 'str',
         'ingress_domain': 'str',
         'ingress_gateway': 'str',
@@ -65,10 +67,12 @@ class V1beta1IngressConfig(object):
 
     attribute_map = {
         'additional_ingress_domains': 'additionalIngressDomains',
+        'disable_http_route_timeout': 'disableHTTPRouteTimeout',
         'disable_ingress_creation': 'disableIngressCreation',
         'disable_istio_virtual_host': 'disableIstioVirtualHost',
         'domain_template': 'domainTemplate',
         'enable_gateway_api': 'enableGatewayApi',
+        'enable_llm_inference_service_tls': 'enableLLMInferenceServiceTLS',
         'ingress_class_name': 'ingressClassName',
         'ingress_domain': 'ingressDomain',
         'ingress_gateway': 'ingressGateway',
@@ -80,17 +84,19 @@ class V1beta1IngressConfig(object):
         'url_scheme': 'urlScheme'
     }
 
-    def __init__(self, additional_ingress_domains=None, disable_ingress_creation=None, disable_istio_virtual_host=None, domain_template=None, enable_gateway_api=None, ingress_class_name=None, ingress_domain=None, ingress_gateway=None, knative_local_gateway_service=None, kserve_ingress_gateway=None, local_gateway=None, local_gateway_service=None, path_template=None, url_scheme=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, additional_ingress_domains=None, disable_http_route_timeout=None, disable_ingress_creation=None, disable_istio_virtual_host=None, domain_template=None, enable_gateway_api=None, enable_llm_inference_service_tls=None, ingress_class_name=None, ingress_domain=None, ingress_gateway=None, knative_local_gateway_service=None, kserve_ingress_gateway=None, local_gateway=None, local_gateway_service=None, path_template=None, url_scheme=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1IngressConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._additional_ingress_domains = None
+        self._disable_http_route_timeout = None
         self._disable_ingress_creation = None
         self._disable_istio_virtual_host = None
         self._domain_template = None
         self._enable_gateway_api = None
+        self._enable_llm_inference_service_tls = None
         self._ingress_class_name = None
         self._ingress_domain = None
         self._ingress_gateway = None
@@ -104,6 +110,8 @@ class V1beta1IngressConfig(object):
 
         if additional_ingress_domains is not None:
             self.additional_ingress_domains = additional_ingress_domains
+        if disable_http_route_timeout is not None:
+            self.disable_http_route_timeout = disable_http_route_timeout
         if disable_ingress_creation is not None:
             self.disable_ingress_creation = disable_ingress_creation
         if disable_istio_virtual_host is not None:
@@ -112,6 +120,8 @@ class V1beta1IngressConfig(object):
             self.domain_template = domain_template
         if enable_gateway_api is not None:
             self.enable_gateway_api = enable_gateway_api
+        if enable_llm_inference_service_tls is not None:
+            self.enable_llm_inference_service_tls = enable_llm_inference_service_tls
         if ingress_class_name is not None:
             self.ingress_class_name = ingress_class_name
         if ingress_domain is not None:
@@ -151,6 +161,27 @@ class V1beta1IngressConfig(object):
         """
 
         self._additional_ingress_domains = additional_ingress_domains
+
+    @property
+    def disable_http_route_timeout(self):
+        """Gets the disable_http_route_timeout of this V1beta1IngressConfig.  # noqa: E501
+
+
+        :return: The disable_http_route_timeout of this V1beta1IngressConfig.  # noqa: E501
+        :rtype: bool
+        """
+        return self._disable_http_route_timeout
+
+    @disable_http_route_timeout.setter
+    def disable_http_route_timeout(self, disable_http_route_timeout):
+        """Sets the disable_http_route_timeout of this V1beta1IngressConfig.
+
+
+        :param disable_http_route_timeout: The disable_http_route_timeout of this V1beta1IngressConfig.  # noqa: E501
+        :type: bool
+        """
+
+        self._disable_http_route_timeout = disable_http_route_timeout
 
     @property
     def disable_ingress_creation(self):
@@ -235,6 +266,27 @@ class V1beta1IngressConfig(object):
         """
 
         self._enable_gateway_api = enable_gateway_api
+
+    @property
+    def enable_llm_inference_service_tls(self):
+        """Gets the enable_llm_inference_service_tls of this V1beta1IngressConfig.  # noqa: E501
+
+
+        :return: The enable_llm_inference_service_tls of this V1beta1IngressConfig.  # noqa: E501
+        :rtype: bool
+        """
+        return self._enable_llm_inference_service_tls
+
+    @enable_llm_inference_service_tls.setter
+    def enable_llm_inference_service_tls(self, enable_llm_inference_service_tls):
+        """Sets the enable_llm_inference_service_tls of this V1beta1IngressConfig.
+
+
+        :param enable_llm_inference_service_tls: The enable_llm_inference_service_tls of this V1beta1IngressConfig.  # noqa: E501
+        :type: bool
+        """
+
+        self._enable_llm_inference_service_tls = enable_llm_inference_service_tls
 
     @property
     def ingress_class_name(self):

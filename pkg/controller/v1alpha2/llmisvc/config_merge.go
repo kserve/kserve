@@ -40,6 +40,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 // Configuration template name suffixes for different LLM deployment patterns
@@ -98,6 +99,10 @@ var WellKnownDefaultConfigs = sets.New[string](
 	configRouterRouteName,
 )
 
+const (
+	precisePrefixCacheScorerName = "precise-prefix-cache-scorer"
+)
+
 var useVersionedConfig, _ = strconv.ParseBool(constants.GetEnvOrDefault("LLM_INFERENCE_SERVICE_VERSIONED_CONFIG", "true"))
 
 // CombineOption is a functional option for combineBaseRefsConfig
@@ -113,6 +118,28 @@ func WithSkipClearSchedulerConfigRef() CombineOption {
 	return func(o *combineOptions) {
 		o.skipClearSchedulerConfigRef = true
 	}
+}
+
+func (r *LLMISVCReconciler) reconcileBaseRefs(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (*v1alpha2.LLMInferenceServiceConfig, error) {
+	// Combine base configurations with service-specific overrides
+	// This includes default configs based on deployment pattern (single node, multi-node, etc.)
+	baseCfg, err := r.combineBaseRefsConfig(ctx, llmSvc, config)
+	if err != nil {
+		if utils.GetForceStopRuntime(llmSvc) {
+			llmSvc.MarkPresetsCombinedNotReady("Stopped", "Service is stopped with warning: %v", err.Error())
+
+			baseCfg = &v1alpha2.LLMInferenceServiceConfig{
+				Spec: *llmSvc.Spec.DeepCopy(),
+			}
+			return baseCfg, nil
+		}
+
+		llmSvc.MarkPresetsCombinedNotReady("CombineBaseError", err.Error())
+		return nil, fmt.Errorf("failed to combine base-configurations: %w", err)
+	}
+
+	llmSvc.MarkPresetsCombinedReady()
+	return baseCfg, nil
 }
 
 // combineBaseRefsConfig applies well-known config overlays to inject default values for various components, when some components are
@@ -347,22 +374,28 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	return llmSvcCfg, nil
 }
 
+func isUsingTokenizerSidecar(spec v1alpha2.LLMInferenceServiceSpec) bool {
+	if spec.Router == nil || spec.Router.Scheduler == nil || spec.Router.Scheduler.Template == nil {
+		return false
+	}
+	return utils.GetContainerWithName(spec.Router.Scheduler.Template, tokenizerContainerName) != nil
+}
+
 // ToParentRefs converts a slice of UntypedObjectReference (gateway refs) to a slice
 // of gwapiv1.ParentReference suitable for setting on an HTTPRoute's CommonRouteSpec.
-//
-// TODO(api): With this structure we are missing the ability to narrow a section
-// of targeted gateway by the route we are creating.
-// Missing SectionName and Port will implicitly bind the route to the first
-// listener in the parent.
-func ToParentRefs(gatewayRefs []v1alpha2.UntypedObjectReference) []gwapiv1.ParentReference {
+// When a ref includes SectionName, the generated ParentReference targets that
+// specific Gateway listener; otherwise the route attaches to all listeners.
+func ToParentRefs(gatewayRefs []v1alpha2.GatewayObjectReference) []gwapiv1.ParentReference {
 	parentRefs := make([]gwapiv1.ParentReference, 0, len(gatewayRefs))
 	for _, ref := range gatewayRefs {
-		parentRefs = append(parentRefs, gwapiv1.ParentReference{
-			Name:      ref.Name,
-			Namespace: &ref.Namespace,
-			Group:     ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
-			Kind:      ptr.To(gwapiv1.Kind("Gateway")),
-		})
+		parentRef := gwapiv1.ParentReference{
+			Name:        ref.Name,
+			Namespace:   &ref.Namespace,
+			Group:       ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
+			Kind:        ptr.To(gwapiv1.Kind("Gateway")),
+			SectionName: ref.SectionName,
+		}
+		parentRefs = append(parentRefs, parentRef)
 	}
 	return parentRefs
 }
@@ -374,6 +407,7 @@ type templateGlobalConfig struct {
 	SystemNamespace         string
 	IngressGatewayName      string
 	IngressGatewayNamespace string
+	EnableTLS               bool
 }
 
 // ReplaceVariables processes the configuration as a Go template to substitute
@@ -390,6 +424,7 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 			SystemNamespace:         reconcilerConfig.SystemNamespace,
 			IngressGatewayName:      reconcilerConfig.IngressGatewayName,
 			IngressGatewayNamespace: reconcilerConfig.IngressGatewayNamespace,
+			EnableTLS:               reconcilerConfig.EnableTLS,
 		}
 	}
 	config := struct {

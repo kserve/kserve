@@ -1,10 +1,18 @@
 # kserve-localmodel-resources
 
-![Version: v0.16.0](https://img.shields.io/badge/Version-v0.16.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.16.0](https://img.shields.io/badge/AppVersion-v0.16.0-informational?style=flat-square)
+![Version: v0.18.0-rc1](https://img.shields.io/badge/Version-v0.18.0--rc1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.18.0-rc1](https://img.shields.io/badge/AppVersion-v0.18.0--rc1-informational?style=flat-square)
 
 KServe LocalModel - Local Model Storage and Caching for Edge and On-Premise Deployments
 
 **Homepage:** <https://kserve.github.io/website/>
+
+## Installing the Chart
+
+To install the chart, run the following:
+
+```console
+$ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-localmodel-resources --version v0.18.0-rc1
+```
 
 ## Maintainers
 
@@ -37,5 +45,4 @@ KServe LocalModel - Local Model Storage and Caching for Edge and On-Premise Depl
 | kserve.localmodelnode.controller.resources.requests.memory | string | `"200Mi"` |  |
 | kserve.localmodelnode.controller.tag | string | `""` |  |
 | kserve.localmodelnode.controller.tolerations | list | `[]` |  |
-| kserve.version | string | `"v0.16.0"` |  |
-
+| kserve.version | string | `"v0.18.0-rc1"` |  |

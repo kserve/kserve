@@ -23,7 +23,7 @@ from vllm.entrypoints.logger import RequestLogger
 from vllm.engine.protocol import EngineClient
 from vllm.entrypoints.openai.completion.serving import OpenAIServingCompletion
 from vllm.entrypoints.openai.chat_completion.serving import OpenAIServingChat
-from vllm.entrypoints.pooling.embed.serving import OpenAIServingEmbedding
+from vllm.entrypoints.pooling.embed.serving import ServingEmbedding
 from vllm.entrypoints.pooling.score.serving import ServingScores
 from vllm.tool_parsers import ToolParserManager
 from vllm.entrypoints.openai.models.protocol import BaseModelPath
@@ -52,9 +52,7 @@ from kserve.protocol.rest.openai.types import (
 from .utils import build_async_engine_client_from_engine_args, build_vllm_engine_args
 
 
-class VLLMModel(
-    OpenAIEncoderModel, OpenAIGenerativeModel
-):  # pylint:disable=c-extension-no-member
+class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-extension-no-member
     engine_client: EngineClient
     vllm_engine_args: AsyncEngineArgs = None
     args: Namespace = None
@@ -62,7 +60,7 @@ class VLLMModel(
     openai_serving_models: Optional[OpenAIServingModels] = None
     openai_serving_completion: Optional[OpenAIServingCompletion] = None
     openai_serving_chat: Optional[OpenAIServingChat] = None
-    openai_serving_embedding: Optional[OpenAIServingEmbedding] = None
+    openai_serving_embedding: Optional[ServingEmbedding] = None
     serving_reranking: Optional[ServingScores] = None
 
     def __init__(
@@ -109,7 +107,7 @@ class VLLMModel(
             self.vllm_engine_args.tensor_parallel_size = torch.cuda.device_count()
 
         async with build_async_engine_client_from_engine_args(
-            self.vllm_engine_args, self.args.disable_frontend_multiprocessing
+            self.vllm_engine_args,
         ) as engine_client:
             self.engine_client = engine_client
             vllm_config = self.engine_client.vllm_config
@@ -139,11 +137,29 @@ class VLLMModel(
             )
             await self.openai_serving_models.init_static_loras()
 
+            from vllm.entrypoints.serve.render.serving import OpenAIServingRender
+
+            openai_serving_render = OpenAIServingRender(
+                model_config=vllm_config.model_config,
+                renderer=self.engine_client.renderer,
+                io_processor=self.engine_client.io_processor,
+                model_registry=self.openai_serving_models.registry,
+                request_logger=self.request_logger,
+                chat_template=resolved_chat_template,
+                chat_template_content_format=self.args.chat_template_content_format,
+                trust_request_chat_template=self.args.trust_request_chat_template,
+                enable_auto_tools=self.args.enable_auto_tool_choice,
+                exclude_tools_when_tool_choice_none=self.args.exclude_tools_when_tool_choice_none,
+                tool_parser=self.args.tool_call_parser,
+                log_error_stack=self.args.log_error_stack,
+            )
+
             self.openai_serving_chat = (
                 OpenAIServingChat(
                     self.engine_client,
                     self.openai_serving_models,
                     self.args.response_role,
+                    openai_serving_render=openai_serving_render,
                     request_logger=self.request_logger,
                     chat_template=resolved_chat_template,
                     chat_template_content_format=self.args.chat_template_content_format,
@@ -156,7 +172,6 @@ class VLLMModel(
                     enable_prompt_tokens_details=self.args.enable_prompt_tokens_details,
                     enable_force_include_usage=self.args.enable_force_include_usage,
                     enable_log_outputs=self.args.enable_log_outputs,
-                    log_error_stack=self.args.log_error_stack,
                 )
                 if "generate" in supported_tasks
                 else None
@@ -166,18 +181,18 @@ class VLLMModel(
                 OpenAIServingCompletion(
                     self.engine_client,
                     self.openai_serving_models,
+                    openai_serving_render=openai_serving_render,
                     request_logger=self.request_logger,
                     return_tokens_as_token_ids=self.args.return_tokens_as_token_ids,
                     enable_prompt_tokens_details=self.args.enable_prompt_tokens_details,
                     enable_force_include_usage=self.args.enable_force_include_usage,
-                    log_error_stack=self.args.log_error_stack,
                 )
                 if "generate" in supported_tasks
                 else None
             )
 
             self.openai_serving_embedding = (
-                OpenAIServingEmbedding(
+                ServingEmbedding(
                     self.engine_client,
                     self.openai_serving_models,
                     request_logger=self.request_logger,
@@ -197,7 +212,7 @@ class VLLMModel(
                     request_logger=self.request_logger,
                     log_error_stack=self.args.log_error_stack,
                 )
-                if ("embed" in supported_tasks or "score" in supported_tasks)
+                if ("embed" in supported_tasks or "classify" in supported_tasks)
                 else None
             )
 

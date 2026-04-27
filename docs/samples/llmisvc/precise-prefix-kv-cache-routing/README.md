@@ -29,8 +29,10 @@ This example demonstrates precise prefix cache routing with cache block tracking
 
 **Key Features:**
 
-- **Prefix Cache Scorer**: Routes requests to endpoints with matching KV cache blocks (weight: 2.0)
-- **Load-Aware Scorer**: Balances load across endpoints (weight: 1.0)
+- **Prefix Cache Scorer**: Routes requests to endpoints with matching KV cache blocks (weight: 3)
+- **KV Cache Utilization Scorer**: Considers KV cache memory pressure per endpoint (weight: 2)
+- **Queue Scorer**: Balances load across endpoints based on queue depth (weight: 2)
+- **Active Request Scorer**: Prefers idle pods to spread prefix caches during cold starts, preventing all requests with a shared prefix from piling onto one endpoint (weight: 3)
 - **Cache Tracking Mode**: Real-time tracking of KV cache blocks using ZMQ events
 - **KV Transfer**: Enabled via NixlConnector for cache sharing between instances
 - **Block Size**: 64 tokens (configurable, must match between vLLM and scheduler)
@@ -43,7 +45,7 @@ This example demonstrates precise prefix cache routing with cache block tracking
 3. **Request Routing**: When a request arrives, the scheduler:
    - Computes the prefix hash using the same algorithm as vLLM
    - Queries the cache index to find endpoints with matching blocks
-   - Scores endpoints based on cache hit potential (weight 2.0) and current load (weight 1.0)
+   - Scores endpoints based on cache hit potential, load, and idle status
    - Routes to the endpoint with the highest combined score
 
 ## Scheduler Configuration
@@ -51,12 +53,14 @@ This example demonstrates precise prefix cache routing with cache block tracking
 The example uses a custom scheduler configuration with the following plugins:
 
 - **single-profile-handler**: Single scheduling profile for all requests
-- **prefix-cache-scorer**:
-  - Mode: `cache_tracking` (real-time tracking via ZMQ)
+- **precise-prefix-cache-scorer**:
+  - Real-time tracking of KV cache blocks via ZMQ
   - Block size: 64 tokens (must match vLLM `--block-size`)
   - Hash seed: 42 (must match `PYTHONHASHSEED`)
   - Metrics enabled with 60-second logging interval
-- **load-aware-scorer**: Balances load across endpoints
+- **kv-cache-utilization-scorer**: Considers KV cache memory pressure per endpoint
+- **queue-scorer**: Balances load across endpoints based on queue depth
+- **active-request-scorer**: Prefers idle pods (binary mode: idle pods score 1.0, busy pods score 0.0) to distribute prefix caches across endpoints during cold starts
 - **max-score-picker**: Selects endpoint with highest combined score
 
 ## vLLM Configuration

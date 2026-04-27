@@ -266,7 +266,7 @@ type GatewaySpec struct {
 	// Refs provides references to existing, user-managed Gateway objects ("Bring Your Own" gateway).
 	// The controller will use the specified Gateway instead of creating one.
 	// +optional
-	Refs []UntypedObjectReference `json:"refs,omitempty"`
+	Refs []GatewayObjectReference `json:"refs,omitempty"`
 }
 
 // IngressSpec defines the configuration for a Kubernetes Ingress.
@@ -337,9 +337,8 @@ type InferencePoolSpec struct {
 // ScalingSpec configures autoscaling for the LLM inference deployment.
 // When scaling is configured, the controller creates and manages autoscaling resources
 // (VariantAutoscaling CR, ServiceMonitor, and the selected actuator — HPA or KEDA ScaledObject).
-// +kubebuilder:validation:XValidation:rule="has(self.maxReplicas)",message="maxReplicas is required when scaling is configured"
 // +kubebuilder:validation:XValidation:rule="has(self.wva)",message="wva is required when scaling is configured; it provides the autoscaling mechanism"
-// +kubebuilder:validation:XValidation:rule="!has(self.minReplicas) || !has(self.maxReplicas) || self.minReplicas <= self.maxReplicas",message="minReplicas cannot exceed maxReplicas"
+// +kubebuilder:validation:XValidation:rule="!has(self.minReplicas) || self.minReplicas <= self.maxReplicas",message="minReplicas cannot exceed maxReplicas"
 // +kubebuilder:validation:XValidation:rule="!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || has(self.minReplicas)",message="minReplicas is required when idleReplicaCount is set; idleReplicaCount must be less than minReplicas"
 // +kubebuilder:validation:XValidation:rule="!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || !has(self.minReplicas) || self.wva.keda.idleReplicaCount < self.minReplicas",message="idleReplicaCount must be less than minReplicas; idleReplicaCount defines the replica floor when no triggers are active"
 type ScalingSpec struct {
@@ -348,13 +347,13 @@ type ScalingSpec struct {
 	// For idle scale-down, use KEDA's idleReplicaCount instead.
 	// Defaults to 1 if not specified.
 	// +optional
+	// +kubebuilder:default=1
 	// +kubebuilder:validation:Minimum=1
 	MinReplicas *int32 `json:"minReplicas,omitempty"`
 
 	// MaxReplicas is the maximum number of replicas for the deployment.
-	// +optional
 	// +kubebuilder:validation:Minimum=1
-	MaxReplicas *int32 `json:"maxReplicas,omitempty"`
+	MaxReplicas int32 `json:"maxReplicas"`
 
 	// WVA configures the Workload Variant Autoscaler (WVA) for scaling.
 	// WVA scales based on a variety of inference metrics (KV cache utilization, queue depth, etc.)
@@ -480,7 +479,7 @@ type ParallelismSpec struct {
 }
 
 // UntypedObjectReference is a reference to an object without a specific Group/Version/Kind.
-// It's used for referencing networking resources like Gateways and Ingresses where the exact type
+// It's used for referencing networking resources like Ingresses where the exact type
 // might be inferred or is not strictly required by this controller.
 type UntypedObjectReference struct {
 	// Name of the referenced object.
@@ -489,9 +488,24 @@ type UntypedObjectReference struct {
 	Namespace gwapiv1.Namespace `json:"namespace,omitempty"`
 }
 
+// GatewayObjectReference is a reference to a Gateway resource.
+// It extends UntypedObjectReference with Gateway-specific fields.
+type GatewayObjectReference struct {
+	UntypedObjectReference `json:",inline"`
+	// SectionName is the name of a section within the target resource. When
+	// set on a Gateway reference, it targets a specific listener by name.
+	// When unset, the route is attached to all listeners on the referenced
+	// Gateway that support the route type.
+	// +optional
+	SectionName *gwapiv1.SectionName `json:"sectionName,omitempty"`
+}
+
 // LLMInferenceServiceStatus defines the observed state of LLMInferenceService.
 type LLMInferenceServiceStatus struct {
-	// URL of the publicly exposed service.
+	// URL is the primary address for accessing the service.
+	// It is set to an external (public) address when available, otherwise
+	// it is promoted from the first discovered address (which may be
+	// cluster-local or private) for easy discovery.
 	// +optional
 	URL *apis.URL `json:"url,omitempty"`
 

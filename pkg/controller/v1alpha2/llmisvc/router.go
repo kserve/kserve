@@ -19,10 +19,12 @@ package llmisvc
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/network"
@@ -35,6 +37,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/kmeta"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -49,12 +52,15 @@ import (
 // Once set to "v1", traffic will never fall back to v1alpha2 even during transient failures.
 const AnnotationInferencePoolMigrated = "serving.kserve.io/inference-pool-migrated"
 
+// ErrPreconditionNotMet is a sentinel error returned by ensureGatewayPreconditions
+// when a non-transient precondition is not met (e.g. a required CRD is missing).
+// The caller should mark status but not propagate the error to avoid infinite requeue.
+var ErrPreconditionNotMet = errors.New("precondition not met")
+
 // reconcileRouter handles the networking and routing components for the LLM service
 // This includes schedulers, HTTP routes, and various validation checks
-func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
-	logger := log.FromContext(ctx).WithName("reconcileRouter").
-		WithValues("InferencePoolV1Alpha2Available", r.InferencePoolV1Alpha2Available,
-			"InferencePoolV1Available", r.InferencePoolV1Available)
+func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+	logger := log.FromContext(ctx).WithName("reconcileRouter")
 	ctx = log.IntoContext(ctx, logger)
 
 	logger.Info("Reconciling Router")
@@ -62,13 +68,25 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 	// Ensure readiness is determined even if errors occur
 	defer llmSvc.DetermineRouterReadiness()
 
+	// Ensure platform-specific preconditions are met before proceeding.
+	// A non-transient precondition failure (e.g. missing CRD) marks status and stops
+	// reconciliation without requeuing — the condition won't resolve by retrying.
+	if err := r.ensureGatewayPreconditions(ctx, llmSvc); err != nil {
+		if errors.Is(err, ErrPreconditionNotMet) {
+			llmSvc.MarkHTTPRoutesNotReady("GatewayPreconditionNotMet", err.Error())
+			return nil
+		}
+		llmSvc.MarkHTTPRoutesNotReady("HTTPRouteReconcileError", err.Error())
+		return fmt.Errorf("failed to ensure gateway preconditions: %w", err)
+	}
+
 	// Validate that referenced resources exist before proceeding
 	if err := r.validateRouterReferences(ctx, llmSvc); err != nil {
 		return err
 	}
 
 	// Reconcile the scheduler component that manages inference pools
-	if err := r.reconcileScheduler(ctx, llmSvc, config.SchedulerConfig); err != nil {
+	if err := r.reconcileScheduler(ctx, llmSvc); err != nil {
 		llmSvc.MarkSchedulerWorkloadNotReady("SchedulerReconcileError", "Failed to reconcile scheduler: %v", err.Error())
 		return fmt.Errorf("failed to reconcile scheduler: %w", err)
 	}
@@ -79,6 +97,12 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 	if err := r.reconcileHTTPRoutes(ctx, llmSvc); err != nil {
 		llmSvc.MarkHTTPRoutesNotReady("HTTPRouteReconcileError", "Failed to reconcile HTTPRoute: %v", err.Error())
 		return fmt.Errorf("failed to reconcile HTTP routes: %w", err)
+	}
+
+	// Reconcile platform-specific networking resources
+	if err := r.reconcileRouterPlatformNetworking(ctx, llmSvc); err != nil {
+		llmSvc.MarkHTTPRoutesNotReady("PlatformNetworkingReconcileError", "Failed to reconcile platform networking: %v", err.Error())
+		return fmt.Errorf("failed to reconcile router platform networking: %w", err)
 	}
 
 	// Evaluate the subconditions to determine overall router health
@@ -230,7 +254,7 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 			"httproute.curr.status", curr.Status,
 			"httproute.expected.spec", httpRoute.Spec,
 		)
-	} else if r.InferencePoolV1Alpha2Available {
+	} else {
 		// Not migrated yet, use v1alpha2
 		for i := range httpRoute.Spec.Rules {
 			for j := range httpRoute.Spec.Rules[i].BackendRefs {
@@ -299,7 +323,15 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 	externalURLs := FilterExternalURLs(urls)
 	if len(externalURLs) == 0 {
 		logger.Info("no public URL discovered")
-		llmSvc.Status.URL = nil
+		if len(urls) > 0 {
+			// Promote first address to top-level status.URL as some "cluster external" addresses are technically within
+			// "virtual private networks" and we cannot detect that from just IPs. Even if it's a cluster-local URL, the
+			// status URL is just for discovery and easy access, and it's not a problem to have here while we prioritize
+			// external addresses.
+			llmSvc.Status.URL = urls[0]
+		} else {
+			llmSvc.Status.URL = nil
+		}
 	} else {
 		llmSvc.Status.URL = externalURLs[0]
 	}
@@ -344,13 +376,6 @@ func (r *LLMISVCReconciler) EvaluateGatewayConditions(ctx context.Context, llmSv
 	if llmSvc.Spec.Router == nil || !llmSvc.Spec.Router.Gateway.HasRefs() {
 		logger.Info("No Gateway references found, skipping Gateway condition evaluation")
 		llmSvc.MarkGatewaysReadyUnset()
-		return nil
-	}
-
-	// Check if there's already a validation failure condition set
-	condition := llmSvc.GetStatus().GetCondition(v1alpha2.GatewaysReady)
-	if condition != nil && condition.IsFalse() && condition.Reason == RefsInvalidReason {
-		logger.Info("Gateway validation failed, skipping readiness evaluation", "reason", condition.Reason, "message", condition.Message)
 		return nil
 	}
 
@@ -446,13 +471,6 @@ func (r *LLMISVCReconciler) EvaluateHTTPRouteConditions(ctx context.Context, llm
 		return nil
 	}
 
-	// Check if there's already a validation failure condition set
-	condition := llmSvc.GetStatus().GetCondition(v1alpha2.HTTPRoutesReady)
-	if condition != nil && condition.IsFalse() && condition.Reason == RefsInvalidReason {
-		logger.Info("HTTPRoute validation failed, skipping readiness evaluation", "reason", condition.Reason, "message", condition.Message)
-		return nil
-	}
-
 	// Collect all HTTPRoutes (both referenced and managed)
 	var allRoutes []*gwapiv1.HTTPRoute
 
@@ -507,7 +525,9 @@ func (r *LLMISVCReconciler) EvaluateHTTPRouteConditions(ctx context.Context, llm
 }
 
 // EvaluateInferencePoolConditions evaluates the readiness of all Inference Pools in the LLMInferenceService
-// and updates the InferencePoolReady condition accordingly
+// and updates the InferencePoolReady condition accordingly.
+// During the v1alpha2 to v1 migration, it checks both pool versions for managed pools
+// and considers the pool ready if at least one is ready.
 func (r *LLMISVCReconciler) EvaluateInferencePoolConditions(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
 	logger := log.FromContext(ctx).WithName("EvaluateInferencePoolConditions")
 
@@ -523,27 +543,103 @@ func (r *LLMISVCReconciler) EvaluateInferencePoolConditions(ctx context.Context,
 		return nil
 	}
 
-	curr := &igwapi.InferencePool{}
-
+	// For referenced pools (external), only check that pool
 	if llmSvc.Spec.Router.Scheduler.Pool != nil && llmSvc.Spec.Router.Scheduler.Pool.Ref != nil && llmSvc.Spec.Router.Scheduler.Pool.Ref.Name != "" {
 		poolRef := llmSvc.Spec.Router.Scheduler.Pool.Ref
+		curr := &igwapi.InferencePool{}
 		err := r.Get(ctx, types.NamespacedName{Namespace: llmSvc.Namespace, Name: poolRef.Name}, curr)
 		if err != nil {
 			err := fmt.Errorf("failed to fetch referenced Inference Pool %s/%s: %w", llmSvc.Namespace, poolRef.Name, err)
 			llmSvc.MarkInferencePoolNotReady("InferencePoolFetchError", err.Error())
 			return err
 		}
-	} else {
-		expected := r.expectedSchedulerInferencePool(ctx, llmSvc)
-		err := r.Get(ctx, types.NamespacedName{Namespace: expected.Namespace, Name: expected.Name}, curr)
-		if err != nil {
-			err := fmt.Errorf("failed to fetch embedded Inference Pool %s/%s: %w", llmSvc.Namespace, llmSvc.Name, err)
-			llmSvc.MarkInferencePoolNotReady("InferencePoolFetchError", err.Error())
-			return err
-		}
+		return r.evaluateSingleInferencePoolCondition(ctx, llmSvc, curr)
 	}
 
+	// For managed pools, check both v1 and v1alpha2 pools during migration.
+	// Both pool versions are created by the scheduler reconciler - they live in different
+	// API groups and can coexist. During migration, the gateway may only accept one version.
+	expected := r.expectedSchedulerInferencePool(ctx, llmSvc)
+	poolName := expected.Name
+	poolNamespace := expected.Namespace
+
+	// Check v1 pool
+	v1Pool := &igwapi.InferencePool{}
+	v1Err := r.Get(ctx, types.NamespacedName{Namespace: poolNamespace, Name: poolName}, v1Pool)
+	v1Ready := v1Err == nil && IsInferencePoolReady(v1Pool)
+
+	// Check v1alpha2 pool - treat CRD-not-installed as "version unavailable" (not an error)
+	v1alpha2Pool := &igwapiv1alpha2.InferencePool{}
+	v1alpha2Err := r.Get(ctx, types.NamespacedName{Namespace: poolNamespace, Name: poolName}, v1alpha2Pool)
+	v1alpha2Ready := v1alpha2Err == nil && IsInferencePoolV1Alpha2Ready(v1alpha2Pool)
+
+	logger.V(2).Info("Checking InferencePool readiness",
+		"pool", poolNamespace+"/"+poolName,
+		"v1Ready", v1Ready,
+		"v1Err", v1Err,
+		"v1alpha2Ready", v1alpha2Ready,
+		"v1alpha2Err", v1alpha2Err,
+	)
+
+	// If at least one is ready, mark as ready
+	if v1Ready || v1alpha2Ready {
+		llmSvc.MarkInferencePoolReady()
+		logger.V(2).Info("Inference Pool is ready", "v1Ready", v1Ready, "v1alpha2Ready", v1alpha2Ready)
+		return nil
+	}
+
+	// Neither is ready - report status from the one that exists (prefer v1 since it's the target)
+	if v1Err == nil {
+		return r.evaluateSingleInferencePoolCondition(ctx, llmSvc, v1Pool)
+	}
+
+	if v1alpha2Err == nil {
+		if len(v1alpha2Pool.Status.Parents) == 0 {
+			llmSvc.MarkInferencePoolNotReady("WaitingForGateway",
+				"Inference Pool %s/%s exists but no Gateway controller has accepted it yet", poolNamespace, poolName)
+			return nil
+		}
+		topLevelCondition, _ := nonReadyInferencePoolV1Alpha2TopLevelCondition(v1alpha2Pool)
+		if topLevelCondition != nil {
+			llmSvc.MarkInferencePoolNotReady("InferencePoolNotReady", fmt.Sprintf(
+				"%s/%s: %v=%#v (reason %q, message %q)",
+				poolNamespace,
+				poolName,
+				topLevelCondition.Type,
+				topLevelCondition.Status,
+				topLevelCondition.Reason,
+				topLevelCondition.Message,
+			))
+		} else {
+			llmSvc.MarkInferencePoolNotReady("InferencePoolNotReady", fmt.Sprintf("The inference pool %s/%s is not ready", poolNamespace, poolName))
+		}
+		return nil
+	}
+
+	// Both failed to fetch - distinguish between "not found" and transient errors
+	if (apierrors.IsNotFound(v1Err) || meta.IsNoMatchError(v1Err)) &&
+		(apierrors.IsNotFound(v1alpha2Err) || meta.IsNoMatchError(v1alpha2Err)) {
+		llmSvc.MarkInferencePoolNotReady("InferencePoolFetchError",
+			fmt.Sprintf("Inference Pool %s/%s not found (checked v1 and v1alpha2)", poolNamespace, poolName))
+		return nil
+	}
+
+	// At least one was a transient error - return it so the controller requeues
+	err := fmt.Errorf("failed to fetch Inference Pool %s/%s: v1: %w, v1alpha2: %w", poolNamespace, poolName, v1Err, v1alpha2Err)
+	llmSvc.MarkInferencePoolNotReady("InferencePoolFetchError", err.Error())
+	return err
+}
+
+// evaluateSingleInferencePoolCondition evaluates a single v1 InferencePool and updates the condition.
+func (r *LLMISVCReconciler) evaluateSingleInferencePoolCondition(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, curr *igwapi.InferencePool) error {
 	if !IsInferencePoolReady(curr) {
+		if len(curr.Status.Parents) == 0 {
+			// Pool exists but no Gateway controller has claimed it yet.
+			// The Owns() watch will trigger re-reconciliation when the Gateway updates the pool's status.
+			llmSvc.MarkInferencePoolNotReady("WaitingForGateway",
+				"Inference Pool %s/%s exists but no Gateway controller has accepted it yet", curr.Namespace, curr.Name)
+			return nil
+		}
 		topLevelCondition, _ := nonReadyInferencePoolTopLevelCondition(curr)
 		if topLevelCondition != nil {
 			llmSvc.MarkInferencePoolNotReady("InferencePoolNotReady", fmt.Sprintf(
@@ -562,6 +658,6 @@ func (r *LLMISVCReconciler) EvaluateInferencePoolConditions(ctx context.Context,
 	}
 
 	llmSvc.MarkInferencePoolReady()
-	logger.V(2).Info("Inference Pool is ready", "pool", curr)
+	log.FromContext(ctx).V(2).Info("Inference Pool is ready", "pool", curr)
 	return nil
 }

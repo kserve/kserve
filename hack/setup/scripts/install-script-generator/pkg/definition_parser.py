@@ -26,6 +26,7 @@ from . import file_reader
 # Helper Functions
 # ============================================================================
 
+
 def resolve_definition_path(include_path: str, base_definition_file: Path) -> Path:
     """Resolve include path relative to base definition file.
 
@@ -70,8 +71,7 @@ def merge_tools(base_tools: list[str], new_tools: list[str]) -> list[str]:
 
 
 def merge_components(
-    base_components: list[dict[str, Any]],
-    new_components: list[dict[str, Any]]
+    base_components: list[dict[str, Any]], new_components: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
     """Merge component lists with last-wins strategy.
 
@@ -101,6 +101,7 @@ def merge_components(
 # Parsing Helper Functions
 # ============================================================================
 
+
 def parse_tools(config: dict[str, Any]) -> list[str]:
     """Parse TOOLS field from config.
 
@@ -119,7 +120,9 @@ def parse_tools(config: dict[str, Any]) -> list[str]:
         return []
 
 
-def parse_components(config: dict[str, Any], definition_file: Path) -> list[dict[str, Any]]:
+def parse_components(
+    config: dict[str, Any], definition_file: Path
+) -> list[dict[str, Any]]:
     """Parse COMPONENTS field from config.
 
     Args:
@@ -143,10 +146,9 @@ def parse_components(config: dict[str, Any], definition_file: Path) -> list[dict
         if isinstance(item, str):
             components.append({"name": item.strip(), "env": {}})
         elif isinstance(item, dict):
-            components.append({
-                "name": item.get("name", "").strip(),
-                "env": item.get("env", {})
-            })
+            components.append(
+                {"name": item.get("name", "").strip(), "env": item.get("env", {})}
+            )
 
     return components
 
@@ -197,16 +199,20 @@ def parse_release(config: dict[str, Any]) -> bool:
         Boolean indicating whether this is a release build
     """
     release_val = config.get("RELEASE", False)
-    return str(release_val).lower() == "true" if isinstance(release_val, str) else release_val
+    return (
+        str(release_val).lower() == "true"
+        if isinstance(release_val, str)
+        else release_val
+    )
 
 
 # ============================================================================
 # Main Parsing Functions
 # ============================================================================
 
+
 def parse_definition_recursive(
-    definition_file: Path,
-    visited: set[Path] | None = None
+    definition_file: Path, visited: set[Path] | None = None
 ) -> dict[str, Any]:
     """Parse definition with INCLUDE_DEFINITIONS support.
 
@@ -266,7 +272,9 @@ def parse_definition_recursive(
 
             # Merge tools and components (included files first)
             merged_tools = merge_tools(merged_tools, included_config["tools"])
-            merged_components = merge_components(merged_components, included_config["components"])
+            merged_components = merge_components(
+                merged_components, included_config["components"]
+            )
 
     # Parse current file's TOOLS and COMPONENTS
     current_tools = parse_tools(config)
@@ -286,7 +294,7 @@ def parse_definition_recursive(
         "release": parse_release(config),
         "tools": final_tools,
         "global_env": parse_global_env(config),
-        "components": final_components
+        "components": final_components,
     }
 
 
