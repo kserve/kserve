@@ -272,7 +272,7 @@ func (r *LLMISVCReconciler) updateStatus(ctx context.Context, desired *v1alpha2.
 		isReadyFalse := llmInferenceServiceReadinessFalse(desired.Status)
 		if wasReady && isReadyFalse {
 			r.Eventf(desired, corev1.EventTypeWarning, string(LLMInferenceServiceNotReadyState),
-				"LLMInferenceService [%v] is no longer Ready because of: %v", desired.GetName(), r.GetFailConditions(desired))
+				"LLMInferenceService [%v] is no longer Ready because of: %v", desired.GetName(), GetFailConditions(desired))
 		} else if !wasReady && isReady {
 			r.Eventf(desired, corev1.EventTypeNormal, string(LLMInferenceServiceReadyState),
 				"LLMInferenceService [%v] is Ready", desired.GetName())
@@ -297,13 +297,13 @@ func llmInferenceServiceReadinessFalse(status v1alpha2.LLMInferenceServiceStatus
 // The top-level apis.ConditionReady is intentionally excluded because it is the aggregate that
 // is being reported on; including it would be self-referential ("Ready is no longer Ready
 // because of: Ready, ...").
-func (r *LLMISVCReconciler) GetFailConditions(svc *v1alpha2.LLMInferenceService) string {
+func GetFailConditions(svc *v1alpha2.LLMInferenceService) string {
 	msg := ""
 	for _, cond := range svc.Status.Conditions {
 		if cond.Type == apis.ConditionReady {
 			continue
 		}
-		if string(cond.Status) == "False" {
+		if cond.Status == corev1.ConditionFalse {
 			if msg == "" {
 				msg = string(cond.Type)
 			} else {
