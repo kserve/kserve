@@ -248,7 +248,7 @@ type GatewaySpec struct {
 	// Refs provides references to existing, user-managed Gateway objects ("Bring Your Own" gateway).
 	// The controller will use the specified Gateway instead of creating one.
 	// +optional
-	Refs []UntypedObjectReference `json:"refs,omitempty"`
+	Refs []GatewayObjectReference `json:"refs,omitempty"`
 }
 
 // IngressSpec defines the configuration for a Kubernetes Ingress.
@@ -473,13 +473,25 @@ type ParallelismSpec struct {
 }
 
 // UntypedObjectReference is a reference to an object without a specific Group/Version/Kind.
-// It's used for referencing networking resources like Gateways and Ingresses where the exact type
+// It's used for referencing networking resources like Ingresses where the exact type
 // might be inferred or is not strictly required by this controller.
 type UntypedObjectReference struct {
 	// Name of the referenced object.
 	Name gwapiv1.ObjectName `json:"name,omitempty"`
 	// Namespace of the referenced object.
 	Namespace gwapiv1.Namespace `json:"namespace,omitempty"`
+}
+
+// GatewayObjectReference is a reference to a Gateway resource.
+// It extends UntypedObjectReference with Gateway-specific fields.
+type GatewayObjectReference struct {
+	UntypedObjectReference `json:",inline"`
+	// SectionName is the name of a section within the target resource. When
+	// set on a Gateway reference, it targets a specific listener by name.
+	// When unset, the route is attached to all listeners on the referenced
+	// Gateway that support the route type.
+	// +optional
+	SectionName *gwapiv1.SectionName `json:"sectionName,omitempty"`
 }
 
 // LLMInferenceServiceStatus defines the observed state of LLMInferenceService.

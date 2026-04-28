@@ -36,7 +36,7 @@ func TestParentRefsMatchGatewayRefs(t *testing.T) {
 	tests := []struct {
 		name       string
 		parentRefs []gwapiv1.ParentReference
-		gwRefs     []UntypedObjectReference
+		gwRefs     []GatewayObjectReference
 		want       bool
 	}{
 		{
@@ -50,8 +50,8 @@ func TestParentRefsMatchGatewayRefs(t *testing.T) {
 			parentRefs: []gwapiv1.ParentReference{
 				{Name: "gw-1", Namespace: ptr.To(gwapiv1.Namespace("ns-a"))},
 			},
-			gwRefs: []UntypedObjectReference{
-				{Name: "gw-1", Namespace: "ns-a"},
+			gwRefs: []GatewayObjectReference{
+				{UntypedObjectReference: UntypedObjectReference{Name: "gw-1", Namespace: "ns-a"}},
 			},
 			want: true,
 		},
@@ -60,8 +60,8 @@ func TestParentRefsMatchGatewayRefs(t *testing.T) {
 			parentRefs: []gwapiv1.ParentReference{
 				{Name: "gw-1", Namespace: ptr.To(gwapiv1.Namespace("ns-a"))},
 			},
-			gwRefs: []UntypedObjectReference{
-				{Name: "gw-other", Namespace: "ns-a"},
+			gwRefs: []GatewayObjectReference{
+				{UntypedObjectReference: UntypedObjectReference{Name: "gw-other", Namespace: "ns-a"}},
 			},
 			want: false,
 		},
@@ -70,8 +70,8 @@ func TestParentRefsMatchGatewayRefs(t *testing.T) {
 			parentRefs: []gwapiv1.ParentReference{
 				{Name: "gw-1", Namespace: ptr.To(gwapiv1.Namespace("ns-a"))},
 			},
-			gwRefs: []UntypedObjectReference{
-				{Name: "gw-1", Namespace: "ns-b"},
+			gwRefs: []GatewayObjectReference{
+				{UntypedObjectReference: UntypedObjectReference{Name: "gw-1", Namespace: "ns-b"}},
 			},
 			want: false,
 		},
@@ -80,8 +80,8 @@ func TestParentRefsMatchGatewayRefs(t *testing.T) {
 			parentRefs: []gwapiv1.ParentReference{
 				{Name: "gw-1"},
 			},
-			gwRefs: []UntypedObjectReference{
-				{Name: "gw-1", Namespace: ""},
+			gwRefs: []GatewayObjectReference{
+				{UntypedObjectReference: UntypedObjectReference{Name: "gw-1", Namespace: ""}},
 			},
 			want: true,
 		},
@@ -90,8 +90,8 @@ func TestParentRefsMatchGatewayRefs(t *testing.T) {
 			parentRefs: []gwapiv1.ParentReference{
 				{Name: "gw-1"},
 			},
-			gwRefs: []UntypedObjectReference{
-				{Name: "gw-1", Namespace: "ns-a"},
+			gwRefs: []GatewayObjectReference{
+				{UntypedObjectReference: UntypedObjectReference{Name: "gw-1", Namespace: "ns-a"}},
 			},
 			want: false,
 		},
@@ -101,8 +101,8 @@ func TestParentRefsMatchGatewayRefs(t *testing.T) {
 				{Name: "gw-1", Namespace: ptr.To(gwapiv1.Namespace("ns-a"))},
 				{Name: "gw-2", Namespace: ptr.To(gwapiv1.Namespace("ns-a"))},
 			},
-			gwRefs: []UntypedObjectReference{
-				{Name: "gw-1", Namespace: "ns-a"},
+			gwRefs: []GatewayObjectReference{
+				{UntypedObjectReference: UntypedObjectReference{Name: "gw-1", Namespace: "ns-a"}},
 			},
 			want: false,
 		},
@@ -112,9 +112,9 @@ func TestParentRefsMatchGatewayRefs(t *testing.T) {
 				{Name: "gw-1", Namespace: ptr.To(gwapiv1.Namespace("ns-a"))},
 				{Name: "gw-2", Namespace: ptr.To(gwapiv1.Namespace("ns-b"))},
 			},
-			gwRefs: []UntypedObjectReference{
-				{Name: "gw-1", Namespace: "ns-a"},
-				{Name: "gw-2", Namespace: "ns-b"},
+			gwRefs: []GatewayObjectReference{
+				{UntypedObjectReference: UntypedObjectReference{Name: "gw-1", Namespace: "ns-a"}},
+				{UntypedObjectReference: UntypedObjectReference{Name: "gw-2", Namespace: "ns-b"}},
 			},
 			want: true,
 		},
@@ -124,9 +124,9 @@ func TestParentRefsMatchGatewayRefs(t *testing.T) {
 				{Name: "gw-2", Namespace: ptr.To(gwapiv1.Namespace("ns-b"))},
 				{Name: "gw-1", Namespace: ptr.To(gwapiv1.Namespace("ns-a"))},
 			},
-			gwRefs: []UntypedObjectReference{
-				{Name: "gw-1", Namespace: "ns-a"},
-				{Name: "gw-2", Namespace: "ns-b"},
+			gwRefs: []GatewayObjectReference{
+				{UntypedObjectReference: UntypedObjectReference{Name: "gw-1", Namespace: "ns-a"}},
+				{UntypedObjectReference: UntypedObjectReference{Name: "gw-2", Namespace: "ns-b"}},
 			},
 			want: true,
 		},
@@ -136,9 +136,58 @@ func TestParentRefsMatchGatewayRefs(t *testing.T) {
 				{Name: "gw-1", Namespace: ptr.To(gwapiv1.Namespace("ns-a"))},
 				{Name: "gw-3", Namespace: ptr.To(gwapiv1.Namespace("ns-b"))},
 			},
-			gwRefs: []UntypedObjectReference{
-				{Name: "gw-1", Namespace: "ns-a"},
-				{Name: "gw-2", Namespace: "ns-b"},
+			gwRefs: []GatewayObjectReference{
+				{UntypedObjectReference: UntypedObjectReference{Name: "gw-1", Namespace: "ns-a"}},
+				{UntypedObjectReference: UntypedObjectReference{Name: "gw-2", Namespace: "ns-b"}},
+			},
+			want: false,
+		},
+		{
+			name: "matching sectionName",
+			parentRefs: []gwapiv1.ParentReference{
+				{Name: "gw-1", Namespace: ptr.To(gwapiv1.Namespace("ns-a")), SectionName: ptr.To(gwapiv1.SectionName("https"))},
+			},
+			gwRefs: []GatewayObjectReference{
+				{
+					UntypedObjectReference: UntypedObjectReference{Name: "gw-1", Namespace: "ns-a"},
+					SectionName:            ptr.To(gwapiv1.SectionName("https")),
+				},
+			},
+			want: true,
+		},
+		{
+			name: "different sectionName - same gateway otherwise",
+			parentRefs: []gwapiv1.ParentReference{
+				{Name: "gw-1", Namespace: ptr.To(gwapiv1.Namespace("ns-a")), SectionName: ptr.To(gwapiv1.SectionName("https"))},
+			},
+			gwRefs: []GatewayObjectReference{
+				{
+					UntypedObjectReference: UntypedObjectReference{Name: "gw-1", Namespace: "ns-a"},
+					SectionName:            ptr.To(gwapiv1.SectionName("http")),
+				},
+			},
+			want: false,
+		},
+		{
+			name: "parentRef has sectionName, gwRef does not",
+			parentRefs: []gwapiv1.ParentReference{
+				{Name: "gw-1", Namespace: ptr.To(gwapiv1.Namespace("ns-a")), SectionName: ptr.To(gwapiv1.SectionName("https"))},
+			},
+			gwRefs: []GatewayObjectReference{
+				{UntypedObjectReference: UntypedObjectReference{Name: "gw-1", Namespace: "ns-a"}},
+			},
+			want: false,
+		},
+		{
+			name: "gwRef has sectionName, parentRef does not",
+			parentRefs: []gwapiv1.ParentReference{
+				{Name: "gw-1", Namespace: ptr.To(gwapiv1.Namespace("ns-a"))},
+			},
+			gwRefs: []GatewayObjectReference{
+				{
+					UntypedObjectReference: UntypedObjectReference{Name: "gw-1", Namespace: "ns-a"},
+					SectionName:            ptr.To(gwapiv1.SectionName("https")),
+				},
 			},
 			want: false,
 		},
@@ -166,6 +215,37 @@ func newBaseLLMInferenceServiceV1Alpha2() *LLMInferenceService {
 			},
 		},
 	}
+}
+
+func TestValidateUpdate_DeletionBypass(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+
+	oldSvc := newBaseLLMInferenceServiceV1Alpha2()
+	newSvc := newBaseLLMInferenceServiceV1Alpha2()
+	newSvc.Spec.WorkloadSpec = WorkloadSpec{
+		Replicas: ptr.To(int32(3)),
+		Scaling: &ScalingSpec{
+			MaxReplicas: 5,
+			WVA: &WVASpec{
+				ActuatorSpec: ActuatorSpec{
+					HPA: &HPAScalingSpec{},
+				},
+			},
+		},
+	}
+
+	// Without DeletionTimestamp, this should be rejected (replicas + scaling are mutually exclusive)
+	warnings, err := validator.ValidateUpdate(t.Context(), oldSvc, newSvc)
+	assert.Empty(t, warnings)
+	assert.Error(t, err)
+
+	// With DeletionTimestamp set, the same object should be accepted
+	deletingSvc := newSvc.DeepCopy()
+	now := metav1.Now()
+	deletingSvc.DeletionTimestamp = &now
+	warnings, err = validator.ValidateUpdate(t.Context(), oldSvc, deletingSvc)
+	assert.Empty(t, warnings)
+	assert.NoError(t, err)
 }
 
 func TestValidateWorkloadScaling(t *testing.T) {

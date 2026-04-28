@@ -15,6 +15,9 @@ on:
       - ".github/workflows/e2e-test-llmisvc.yaml"
       - ".github/actions/**"
       - "hack/setup/quick-install/llmisvc-dependency-install.sh"
+      - "hack/setup/infra/manage.prometheus-helm.sh"
+      - "hack/setup/infra/manage.prometheus-adapter-helm.sh"
+      - "hack/setup/infra/manage.wva-helm.sh"
   merge_group:
     types: [ checks_requested ]
 
@@ -226,7 +229,229 @@ jobs:
         run: |
           # Run only CPU tests for now using pytest markers (cluster_)
           # Available GPU vendors: amd, nvidia, intel
-          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and cluster_cpu" 0 "envoy-gateway"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and cluster_cpu and not autoscaling" 0 "envoy-gateway"
+
+      - name: Check system status
+        if: always()
+        run: |
+          ./test/scripts/gh-actions/status-check.sh "llmisvc"
+
+  test-llmisvc-wva-autoscaling-hpa:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, llmisvc-image-build]
+    strategy:
+      fail-fast: false
+      matrix:
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.9"
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: Download LLMISvc controller image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.LLMISVC_CONTROLLER_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Download storage-initializer image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Load LLMISvc controller image into minikube
+        run: |
+          minikube image load ./tmp/${{ env.LLMISVC_CONTROLLER_IMG }}-${{ env.TAG }}
+          echo "Images in minikube:"
+          minikube image ls | grep ${{ env.LLMISVC_CONTROLLER_IMG }} || echo "No llmisvc-controller images found"
+
+      - name: Load storage-initializer image into minikube
+        run: |
+          minikube image load ./tmp/${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
+          echo "Images in minikube:"
+          minikube image ls | grep ${{ env.STORAGE_INIT_IMG }} || echo "No storage-initializer images found"
+
+      - name: KServe dependency setup (HPA autoscaling)
+        uses: ./.github/actions/kserve-dep-setup
+        with:
+          deploy-llmisvc: "true"
+          autoscaler: "hpa"
+
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
+
+      - name: Install KServe
+        run: |
+          ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
+          ./test/scripts/gh-actions/setup-kserve.sh
+
+      - name: Verify HPA autoscaling setup
+        run: |
+          echo "Verifying HPA autoscaling infrastructure..."
+
+          echo "Prometheus:"
+          kubectl get pods -n monitoring -l app.kubernetes.io/name=prometheus || true
+
+          echo "Prometheus Adapter:"
+          kubectl get pods -n monitoring -l app.kubernetes.io/name=prometheus-adapter || true
+
+          echo "WVA:"
+          kubectl get pods -n wva-system || true
+
+          echo "CRDs:"
+          kubectl get crd variantautoscalings.llmd.ai || true
+
+          echo "External Metrics API:"
+          kubectl get apiservice v1beta1.external.metrics.k8s.io || true
+
+          echo ""
+          echo "HPA autoscaling setup verification complete!"
+
+      - name: Run HPA autoscaling E2E tests
+        id: autoscaling-hpa-tests
+        timeout-minutes: 40
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and autoscaling_hpa and cluster_cpu" 0 "envoy-gateway"
+
+      - name: Check system status
+        if: always()
+        run: |
+          ./test/scripts/gh-actions/status-check.sh "llmisvc"
+
+  test-llmisvc-wva-autoscaling-keda:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, llmisvc-image-build]
+    strategy:
+      fail-fast: false
+      matrix:
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.9"
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: Download LLMISvc controller image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.LLMISVC_CONTROLLER_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Download storage-initializer image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Load LLMISvc controller image into minikube
+        run: |
+          minikube image load ./tmp/${{ env.LLMISVC_CONTROLLER_IMG }}-${{ env.TAG }}
+          echo "Images in minikube:"
+          minikube image ls | grep ${{ env.LLMISVC_CONTROLLER_IMG }} || echo "No llmisvc-controller images found"
+
+      - name: Load storage-initializer image into minikube
+        run: |
+          minikube image load ./tmp/${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
+          echo "Images in minikube:"
+          minikube image ls | grep ${{ env.STORAGE_INIT_IMG }} || echo "No storage-initializer images found"
+
+      - name: KServe dependency setup (KEDA autoscaling)
+        uses: ./.github/actions/kserve-dep-setup
+        with:
+          deploy-llmisvc: "true"
+          autoscaler: "keda"
+
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
+
+      - name: Install KServe
+        run: |
+          export ENABLE_KEDA=true
+          ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
+          ./test/scripts/gh-actions/setup-kserve.sh
+
+      - name: Verify KEDA autoscaling setup
+        run: |
+          echo "Verifying KEDA autoscaling infrastructure..."
+
+          echo "Prometheus:"
+          kubectl get pods -n monitoring -l app.kubernetes.io/name=prometheus || true
+
+          echo "KEDA:"
+          kubectl get pods -n keda -l app.kubernetes.io/name=keda-operator || true
+
+          echo "WVA:"
+          kubectl get pods -n wva-system || true
+
+          echo "CRDs:"
+          kubectl get crd variantautoscalings.llmd.ai || true
+          kubectl get crd scaledobjects.keda.sh || true
+
+          echo "ConfigMap autoscaling key:"
+          kubectl get configmap inferenceservice-config -n kserve -o jsonpath='{.data.autoscaling-wva-controller-config}' || true
+
+          echo ""
+          echo "KEDA autoscaling setup verification complete!"
+
+      - name: Run KEDA autoscaling E2E tests
+        id: autoscaling-keda-tests
+        timeout-minutes: 40
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and autoscaling_keda and cluster_cpu" 0 "envoy-gateway"
 
       - name: Check system status
         if: always()

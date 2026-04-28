@@ -1803,7 +1803,7 @@ wheels = [
 
 [[package]]
 name = "kserve"
-version = "0.17.0"
+version = "0.18.0rc1"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -1822,6 +1822,7 @@ dependencies = [
     { name = "prometheus-client" },
     { name = "protobuf" },
     { name = "psutil" },
+    { name = "pyasn" },
     { name = "pydantic" },
     { name = "pyjwt" },
     { name = "python-dateutil" },
@@ -1890,6 +1891,7 @@ requires-dist = [
     { name = "prometheus-client", specifier = ">=0.20.0,<1.0.0" },
     { name = "protobuf", specifier = ">=6.33.5,<7.0.0" },
     { name = "psutil", specifier = ">=5.9.6,<6.0.0" },
+    { name = "pyasn", specifier = ">=0.6.3" },
     { name = "pydantic", specifier = ">=2.5.0,<3.0.0" },
     { name = "pyjwt", specifier = ">=2.12.0" },
     { name = "python-dateutil", specifier = ">=2.8.0,<3.0.0" },
@@ -1927,7 +1929,7 @@ test = [
 
 [[package]]
 name = "kserve-storage"
-version = "0.17.0"
+version = "0.18.0rc1"
 source = { editable = "../storage" }
 dependencies = [
     { name = "aiohttp" },
@@ -1939,6 +1941,7 @@ dependencies = [
     { name = "dulwich" },
     { name = "google-cloud-storage" },
     { name = "huggingface-hub", extra = ["hf-transfer"] },
+    { name = "pyasn" },
     { name = "pyjwt" },
     { name = "requests" },
 ]
@@ -1954,6 +1957,7 @@ requires-dist = [
     { name = "dulwich", specifier = ">=0.21.0" },
     { name = "google-cloud-storage", specifier = ">=2.14.0,<3.0.0" },
     { name = "huggingface-hub", extras = ["hf-transfer"], specifier = ">=0.32.0" },
+    { name = "pyasn", specifier = ">=0.6.3" },
     { name = "pyjwt", specifier = ">=2.12.0" },
     { name = "requests", specifier = ">=2.32.2,<3.0.0" },
 ]
@@ -3323,6 +3327,12 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/27/2e/29bb28a7102a6f71026a9d70d1d61df926887e36ec797f2e6acfd2dd3867/pyarrow-19.0.1-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:b4c4156a625f1e35d6c0b2132635a237708944eb41df5fbe7d50f20d20c17832", size = 42087026, upload-time = "2025-02-18T18:53:33.063Z" },
     { url = "https://files.pythonhosted.org/packages/16/33/2a67c0f783251106aeeee516f4806161e7b481f7d744d0d643d2f30230a5/pyarrow-19.0.1-cp312-cp312-win_amd64.whl", hash = "sha256:5bd1618ae5e5476b7654c7b55a6364ae87686d4724538c24185bbb2952679960", size = 25250108, upload-time = "2025-02-18T18:53:38.462Z" },
 ]
+
+[[package]]
+name = "pyasn"
+version = "1.6.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a1/55/881259e00d62ac11713567ada5152b0ad3a744e9f12d5d1f115d40bf17d9/pyasn-1.6.2.tar.gz", hash = "sha256:a2d55fb3ee47947609f50211ca5b0bac411a86f3c935fb92ca4b0b8ab7c668ff", size = 49132, upload-time = "2023-09-01T14:47:24.219Z" }
 
 [[package]]
 name = "pyasn1"

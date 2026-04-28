@@ -644,7 +644,9 @@ ENVOY_AI_GATEWAY_VERSION=v0.5.0
 KNATIVE_OPERATOR_VERSION=v1.21.1
 KNATIVE_SERVING_VERSION=1.21.1
 KEDA_OTEL_ADDON_VERSION=v0.0.6
-KSERVE_VERSION=v0.17.0
+PROMETHEUS_VERSION=83.4.0
+PROMETHEUS_ADAPTER_VERSION=5.3.0
+KSERVE_VERSION=v0.18.0-rc1
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.17.3
 OPENTELEMETRY_OPERATOR_VERSION=0.74.3
@@ -661,6 +663,9 @@ WVA_VERSION=v0.6.0
 
 KEDA_NAMESPACE="${KEDA_NAMESPACE:-keda}"
 KSERVE_NAMESPACE="${KSERVE_NAMESPACE:-kserve}"
+PROMETHEUS_NAMESPACE="${PROMETHEUS_NAMESPACE:-monitoring}"
+PROMETHEUS_ADAPTER_NAMESPACE="${PROMETHEUS_ADAPTER_NAMESPACE:-monitoring}"
+WVA_NAMESPACE="${WVA_NAMESPACE:-wva-system}"
 OTEL_NAMESPACE="${OTEL_NAMESPACE:-opentelemetry-operator}"
 OPERATOR_NAMESPACE="${OPERATOR_NAMESPACE:-knative-operator}"
 SERVING_NAMESPACE="${SERVING_NAMESPACE:-knative-serving}"
@@ -2246,7 +2251,7 @@ spec:
       - /app/pd-sidecar
       - --port=8000
       - --vllm-port=8001
-      - --connector=nixlv2
+      - --kv-connector=nixlv2
       - --enable-ssrf-protection=true
       - --pool-group=inference.networking.x-k8s.io
       - '{{ if .GlobalConfig.EnableTLS }}--secure-proxy=true{{else}}--secure-proxy=false{{-
@@ -2556,7 +2561,7 @@ spec:
       - /app/pd-sidecar
       - --port=8000
       - --vllm-port=8001
-      - --connector=nixlv2
+      - --kv-connector=nixlv2
       - --enable-ssrf-protection=true
       - --pool-group=inference.networking.x-k8s.io
       - '{{ if .GlobalConfig.EnableTLS }}--secure-proxy=true{{else}}--secure-proxy=false{{-
@@ -3641,6 +3646,8 @@ metadata:
 spec:
   router:
     scheduler:
+      annotations:
+        app.kubernetes.io/version: 0.7.0
       pool:
         spec:
           endpointPickerRef:

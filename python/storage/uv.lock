@@ -675,7 +675,7 @@ wheels = [
 
 [[package]]
 name = "kserve-storage"
-version = "0.17.0"
+version = "0.18.0rc1"
 source = { virtual = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -687,6 +687,7 @@ dependencies = [
     { name = "dulwich" },
     { name = "google-cloud-storage" },
     { name = "huggingface-hub", extra = ["hf-transfer"] },
+    { name = "pyasn" },
     { name = "pyjwt" },
     { name = "requests" },
 ]
@@ -702,6 +703,7 @@ requires-dist = [
     { name = "dulwich", specifier = ">=0.21.0" },
     { name = "google-cloud-storage", specifier = ">=2.14.0,<3.0.0" },
     { name = "huggingface-hub", extras = ["hf-transfer"], specifier = ">=0.32.0" },
+    { name = "pyasn", specifier = ">=0.6.3" },
     { name = "pyjwt", specifier = ">=2.12.0" },
     { name = "requests", specifier = ">=2.32.2,<3.0.0" },
 ]
@@ -889,6 +891,12 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/fa/b1/b59d405d64d31999244643d88c45c8241c58f17cc887e73bcb90602327f8/protobuf-6.31.1-cp39-abi3-manylinux2014_x86_64.whl", hash = "sha256:4ee898bf66f7a8b0bd21bce523814e6fbd8c6add948045ce958b73af7e8878c6", size = 321070, upload-time = "2025-05-28T19:25:50.036Z" },
     { url = "https://files.pythonhosted.org/packages/f7/af/ab3c51ab7507a7325e98ffe691d9495ee3d3aa5f589afad65ec920d39821/protobuf-6.31.1-py3-none-any.whl", hash = "sha256:720a6c7e6b77288b85063569baae8536671b39f15cc22037ec7045658d80489e", size = 168724, upload-time = "2025-05-28T19:25:53.926Z" },
 ]
+
+[[package]]
+name = "pyasn"
+version = "1.6.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a1/55/881259e00d62ac11713567ada5152b0ad3a744e9f12d5d1f115d40bf17d9/pyasn-1.6.2.tar.gz", hash = "sha256:a2d55fb3ee47947609f50211ca5b0bac411a86f3c935fb92ca4b0b8ab7c668ff", size = 49132, upload-time = "2023-09-01T14:47:24.219Z" }
 
 [[package]]
 name = "pyasn1"

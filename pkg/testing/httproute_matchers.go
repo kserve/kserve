@@ -53,14 +53,13 @@ func extractHTTPRoute(actual any) (*gwapiv1.HTTPRoute, error) {
 // HaveGatewayRefs returns a matcher that checks if an HTTPRoute has the specified gateway parent refs
 func HaveGatewayRefs(expectedGateways ...gwapiv1.ParentReference) types.GomegaMatcher {
 	return &haveGatewayRefsMatcher{
-		expectedGatewayNames: expectedGateways,
+		expected: expectedGateways,
 	}
 }
 
 type haveGatewayRefsMatcher struct {
-	expectedGatewayNames []gwapiv1.ParentReference
-	actualParentRefs     []gwapiv1.ParentReference
-	actualGatewayNames   []string
+	expected         []gwapiv1.ParentReference
+	actualParentRefs []gwapiv1.ParentReference
 }
 
 func (matcher *haveGatewayRefsMatcher) Match(actual any) (success bool, err error) {
@@ -71,33 +70,49 @@ func (matcher *haveGatewayRefsMatcher) Match(actual any) (success bool, err erro
 
 	matcher.actualParentRefs = httpRoute.Spec.ParentRefs
 
-	expectedSet := make(map[string]gwapiv1.ParentReference)
-	for _, ref := range matcher.expectedGatewayNames {
-		expectedSet[string(ref.Name)] = ref
+	if len(matcher.actualParentRefs) != len(matcher.expected) {
+		return false, nil
 	}
 
-	for _, ref := range matcher.actualParentRefs {
-		expectedRef, found := expectedSet[string(ref.Name)]
+	for _, want := range matcher.expected {
+		found := false
+		for _, got := range matcher.actualParentRefs {
+			if parentRefMatches(want, got) {
+				found = true
+				break
+			}
+		}
 		if !found {
 			return false, nil
-		}
-
-		if expectedRef.Namespace != nil {
-			return ptr.Deref(expectedRef.Namespace, "") == ptr.Deref(ref.Namespace, ""), nil
 		}
 	}
 
 	return true, nil
 }
 
+// parentRefMatches checks whether two ParentReferences match on Name, Namespace,
+// and SectionName. Nil fields on the expected ref are treated as "don't care".
+func parentRefMatches(want, got gwapiv1.ParentReference) bool {
+	if want.Name != got.Name {
+		return false
+	}
+	if want.Namespace != nil && ptr.Deref(want.Namespace, "") != ptr.Deref(got.Namespace, "") {
+		return false
+	}
+	if want.SectionName != nil && ptr.Deref(want.SectionName, "") != ptr.Deref(got.SectionName, "") {
+		return false
+	}
+	return true
+}
+
 func (matcher *haveGatewayRefsMatcher) FailureMessage(actual any) string {
 	return fmt.Sprintf("Expected %T to have gateway refs %v, but found %v",
-		actual, matcher.expectedGatewayNames, matcher.actualGatewayNames)
+		actual, matcher.expected, matcher.actualParentRefs)
 }
 
 func (matcher *haveGatewayRefsMatcher) NegatedFailureMessage(actual any) string {
 	return fmt.Sprintf("Expected %T to not have gateway refs %v, but they were found",
-		actual, matcher.expectedGatewayNames)
+		actual, matcher.expected)
 }
 
 // HaveBackendRefs returns a matcher that checks if an HTTPRoute contains the specified backend refs.
