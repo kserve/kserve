@@ -25,7 +25,7 @@ wheels = [
 
 [[package]]
 name = "aifserver"
-version = "0.18.0rc1"
+version = "0.18.0"
 source = { virtual = "." }
 dependencies = [
     { name = "aif360" },
@@ -1104,7 +1104,7 @@ wheels = [
 
 [[package]]
 name = "kserve"
-version = "0.18.0rc1"
+version = "0.18.0"
 source = { directory = "../kserve" }
 dependencies = [
     { name = "aiohttp" },
