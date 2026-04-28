@@ -198,14 +198,10 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 		return fmt.Errorf("failed to load ingress config: %w", configErr)
 	}
 
-	// Combine base configurations with service-specific overrides
-	// This includes default configs based on deployment pattern (single node, multi-node, etc.)
-	baseCfg, err := r.combineBaseRefsConfig(ctx, llmSvc, config)
+	baseCfg, err := r.reconcileBaseRefs(ctx, llmSvc, config)
 	if err != nil {
-		llmSvc.MarkPresetsCombinedNotReady("CombineBaseError", err.Error())
-		return fmt.Errorf("failed to combine base-configurations: %w", err)
+		return err
 	}
-	llmSvc.MarkPresetsCombinedReady()
 
 	logger.V(2).Info("Reconciling with combined base configurations", "combined.spec", baseCfg.Spec, "original.spec", llmSvc.Spec)
 	// Replace the spec with the merged configuration for reconciliation

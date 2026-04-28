@@ -802,6 +802,227 @@ LLMINFERENCESERVICE_CONFIGS = {
             ]
         },
     },
+    "workload-llmd-simulator-no-replicas": {
+        "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},
+        "template": {
+            "containers": [
+                {
+                    "name": "main",
+                    "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.8.2",
+                    "command": ["/app/llm-d-inference-sim"],
+                    "args": [
+                        "--port",
+                        "8000",
+                        "--model",
+                        "{{ .Spec.Model.Name }}",
+                        "--mode",
+                        "random",
+                    ],
+                    "resources": {
+                        "limits": {"cpu": "1", "memory": "2Gi"},
+                        "requests": {"cpu": "200m", "memory": "2Gi"},
+                    },
+                    "securityContext": LLMD_SIMULATOR_SECURITY_CONTEXT.copy(),
+                }
+            ]
+        },
+    },
+    "workload-llmd-simulator-lws": {
+        "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},
+        "parallelism": {
+            "data": 2,
+            "dataLocal": 1,
+            "expert": True,
+            "tensor": 1,
+        },
+        "template": {
+            "containers": [
+                {
+                    "name": "main",
+                    "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.8.2",
+                    "command": ["/app/llm-d-inference-sim"],
+                    "args": [
+                        "--port",
+                        "8000",
+                        "--model",
+                        "{{ .Spec.Model.Name }}",
+                        "--mode",
+                        "random",
+                    ],
+                    "resources": {
+                        "limits": {"cpu": "1", "memory": "2Gi"},
+                        "requests": {"cpu": "200m", "memory": "2Gi"},
+                    },
+                    "securityContext": LLMD_SIMULATOR_SECURITY_CONTEXT.copy(),
+                }
+            ]
+        },
+        "worker": {
+            "containers": [
+                {
+                    "name": "main",
+                    "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.8.2",
+                    "command": ["/app/llm-d-inference-sim"],
+                    "args": [
+                        "--port",
+                        "8000",
+                        "--model",
+                        "{{ .Spec.Model.Name }}",
+                        "--mode",
+                        "random",
+                    ],
+                    "resources": {
+                        "limits": {"cpu": "1", "memory": "2Gi"},
+                        "requests": {"cpu": "200m", "memory": "2Gi"},
+                    },
+                    "securityContext": LLMD_SIMULATOR_SECURITY_CONTEXT.copy(),
+                }
+            ]
+        },
+    },
+    "workload-llmd-simulator-pd": {
+        "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},
+        "template": {
+            "containers": [
+                {
+                    "name": "main",
+                    "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.8.2",
+                    "command": ["/app/llm-d-inference-sim"],
+                    "args": [
+                        "--port",
+                        "8000",
+                        "--model",
+                        "{{ .Spec.Model.Name }}",
+                        "--mode",
+                        "random",
+                    ],
+                    "resources": {
+                        "limits": {"cpu": "1", "memory": "2Gi"},
+                        "requests": {"cpu": "200m", "memory": "2Gi"},
+                    },
+                    "securityContext": LLMD_SIMULATOR_SECURITY_CONTEXT.copy(),
+                }
+            ]
+        },
+        "prefill": {
+            "template": {
+                "containers": [
+                    {
+                        "name": "main",
+                        "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.8.2",
+                        "command": ["/app/llm-d-inference-sim"],
+                        "args": [
+                            "--port",
+                            "8000",
+                            "--model",
+                            "{{ .Spec.Model.Name }}",
+                            "--mode",
+                            "random",
+                        ],
+                        "resources": {
+                            "limits": {"cpu": "1", "memory": "2Gi"},
+                            "requests": {"cpu": "200m", "memory": "2Gi"},
+                        },
+                        "securityContext": LLMD_SIMULATOR_SECURITY_CONTEXT.copy(),
+                    }
+                ]
+            }
+        },
+    },
+    "scaling-hpa": {
+        "scaling": {
+            "minReplicas": 1,
+            "maxReplicas": 3,
+            "wva": {
+                "hpa": {
+                    "behavior": {
+                        "scaleDown": {
+                            "stabilizationWindowSeconds": 10,
+                            "policies": [
+                                {
+                                    "type": "Percent",
+                                    "value": 100,
+                                    "periodSeconds": 10,
+                                }
+                            ],
+                        },
+                        "scaleUp": {
+                            "stabilizationWindowSeconds": 0,
+                            "policies": [
+                                {
+                                    "type": "Percent",
+                                    "value": 100,
+                                    "periodSeconds": 10,
+                                }
+                            ],
+                        },
+                    }
+                }
+            },
+        }
+    },
+    "scaling-keda": {
+        "scaling": {
+            "minReplicas": 1,
+            "maxReplicas": 3,
+            "wva": {
+                "keda": {
+                    "pollingInterval": 5,
+                    "cooldownPeriod": 10,
+                    "initialCooldownPeriod": 0,
+                }
+            },
+        }
+    },
+    "scaling-prefill-hpa": {
+        "prefill": {
+            "scaling": {
+                "minReplicas": 1,
+                "maxReplicas": 3,
+                "wva": {
+                    "hpa": {
+                        "behavior": {
+                            "scaleDown": {
+                                "stabilizationWindowSeconds": 10,
+                                "policies": [
+                                    {
+                                        "type": "Percent",
+                                        "value": 100,
+                                        "periodSeconds": 10,
+                                    }
+                                ],
+                            },
+                            "scaleUp": {
+                                "stabilizationWindowSeconds": 0,
+                                "policies": [
+                                    {
+                                        "type": "Percent",
+                                        "value": 100,
+                                        "periodSeconds": 10,
+                                    }
+                                ],
+                            },
+                        }
+                    }
+                },
+            }
+        }
+    },
+    "scaling-prefill-keda": {
+        "prefill": {
+            "scaling": {
+                "minReplicas": 1,
+                "maxReplicas": 3,
+                "wva": {
+                    "keda": {
+                        "pollingInterval": 5,
+                        "cooldownPeriod": 10,
+                        "initialCooldownPeriod": 0,
+                    }
+                },
+            }
+        }
+    },
     "workload-llmd-simulator-kvcache": {
         "replicas": 2,
         "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},

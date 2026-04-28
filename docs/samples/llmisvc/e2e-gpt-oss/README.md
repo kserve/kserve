@@ -200,7 +200,7 @@ kubectl apply -f llmisvc_config_prefix_cache.yaml -n kserve-lab
 This creates `llmisvc-prefix-caching`. It adds:
 
 - vLLM args: `--prefix-caching-hash-algo sha256_cbor`, `--block-size 64`, `--kv_transfer_config`, `--kv-events-config` (ZMQ to EPP)
-- Router scheduler with `precise-prefix-cache-scorer`, `queue-scorer`, `kv-cache-utilization-scorer`, and tokenizers (HF) for the indexer
+- Router scheduler with `precise-prefix-cache-scorer`, `queue-scorer`, `kv-cache-utilization-scorer`, `active-request-scorer`, and tokenizers (HF) for the indexer
 - Scheduler needs `hf-token` secret for tokenizer download (already created above)
 
 ### 8.2 Switch Inference Service to precise prefix cache aware routing

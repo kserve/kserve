@@ -1420,6 +1420,45 @@ func TestDeploymentModeUpdate(t *testing.T) {
 	g.Expect(warnings).Should(gomega.BeEmpty())
 	g.Expect(err).Should(gomega.Succeed())
 
+	// Test: Legacy status "RawDeployment" should accept normalized annotation "Standard"
+	oldIsvcLegacy := makeTestInferenceService()
+	oldIsvcLegacy.Status = InferenceServiceStatus{
+		DeploymentMode: string(constants.LegacyRawDeployment),
+	}
+	updatedIsvcLegacy := oldIsvcLegacy.DeepCopy()
+	updatedIsvcLegacy.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.Standard),
+	}
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcLegacy, updatedIsvcLegacy)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: Legacy status "Serverless" should accept normalized annotation "Knative"
+	oldIsvcLegacySl := makeTestInferenceService()
+	oldIsvcLegacySl.Status = InferenceServiceStatus{
+		DeploymentMode: string(constants.LegacyServerless),
+	}
+	updatedIsvcLegacySl := oldIsvcLegacySl.DeepCopy()
+	updatedIsvcLegacySl.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.Knative),
+	}
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcLegacySl, updatedIsvcLegacySl)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: Legacy status "RawDeployment" with different mode "Knative" should still be rejected
+	oldIsvcLegacyReject := makeTestInferenceService()
+	oldIsvcLegacyReject.Status = InferenceServiceStatus{
+		DeploymentMode: string(constants.LegacyRawDeployment),
+	}
+	updatedIsvcLegacyReject := oldIsvcLegacyReject.DeepCopy()
+	updatedIsvcLegacyReject.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.Knative),
+	}
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcLegacyReject, updatedIsvcLegacyReject)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).ShouldNot(gomega.Succeed())
+
 	// Test: Mismatched deploymentMode should be allowed during deletion (DeletionTimestamp set)
 	// This allows finalizer cleanup when annotation differs from status
 	deletingIsvc := oldIsvc.DeepCopy()
@@ -1430,6 +1469,47 @@ func TestDeploymentModeUpdate(t *testing.T) {
 	deletingIsvc.DeletionTimestamp = &now
 	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvc, deletingIsvc)
 	// During deletion, deploymentMode mismatch should be allowed
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+}
+
+func TestValidateUpdateDuringDeletion(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	validator := InferenceServiceValidator{}
+	pvcStorageUri := "pvc://my-pvc/model"
+
+	oldIsvc := InferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "multinode-isvc",
+			Namespace: "default",
+			Annotations: map[string]string{
+				constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+				constants.DeploymentMode:  string(constants.LegacyRawDeployment),
+			},
+		},
+		Spec: InferenceServiceSpec{
+			Predictor: PredictorSpec{
+				Model: &ModelSpec{
+					ModelFormat: ModelFormat{Name: "huggingface"},
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: &pvcStorageUri,
+					},
+				},
+				WorkerSpec: &WorkerSpec{},
+			},
+		},
+	}
+
+	// Without DeletionTimestamp, this ISVC should be rejected (autoscalerClass: external is invalid for multinode)
+	warnings, err := validator.ValidateUpdate(t.Context(), &oldIsvc, oldIsvc.DeepCopy())
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).ShouldNot(gomega.Succeed())
+
+	// With DeletionTimestamp set, the same ISVC should be accepted so finalizers can be removed
+	deletingIsvc := oldIsvc.DeepCopy()
+	now := metav1.Now()
+	deletingIsvc.DeletionTimestamp = &now
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvc, deletingIsvc)
 	g.Expect(warnings).Should(gomega.BeEmpty())
 	g.Expect(err).Should(gomega.Succeed())
 }

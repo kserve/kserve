@@ -22,6 +22,8 @@ spec:
               kserve.io/component: workload
           targetPorts:
             - number: 8000
+      annotations:
+        "app.kubernetes.io/version": "0.7.0"
       template:
         containers:
           - name: main

@@ -74,6 +74,9 @@ func (l *LLMInferenceServiceValidator) ValidateUpdate(ctx context.Context, oldOb
 	if err != nil {
 		return nil, err
 	}
+	if llmSvc.GetDeletionTimestamp() != nil {
+		return nil, nil
+	}
 
 	return l.validate(ctx, prev, llmSvc)
 }

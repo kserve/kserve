@@ -116,6 +116,28 @@ func WithSkipClearSchedulerConfigRef() CombineOption {
 	}
 }
 
+func (r *LLMISVCReconciler) reconcileBaseRefs(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (*v1alpha2.LLMInferenceServiceConfig, error) {
+	// Combine base configurations with service-specific overrides
+	// This includes default configs based on deployment pattern (single node, multi-node, etc.)
+	baseCfg, err := r.combineBaseRefsConfig(ctx, llmSvc, config)
+	if err != nil {
+		if utils.GetForceStopRuntime(llmSvc) {
+			llmSvc.MarkPresetsCombinedNotReady("Stopped", "Service is stopped with warning: %v", err.Error())
+
+			baseCfg = &v1alpha2.LLMInferenceServiceConfig{
+				Spec: *llmSvc.Spec.DeepCopy(),
+			}
+			return baseCfg, nil
+		}
+
+		llmSvc.MarkPresetsCombinedNotReady("CombineBaseError", err.Error())
+		return nil, fmt.Errorf("failed to combine base-configurations: %w", err)
+	}
+
+	llmSvc.MarkPresetsCombinedReady()
+	return baseCfg, nil
+}
+
 // combineBaseRefsConfig applies well-known config overlays to inject default values for various components, when some components are
 // enabled. These LLMInferenceServiceConfig resources must exist in either resource namespace (prioritized) or
 // SystemNamespace (e.g. `kserve`).

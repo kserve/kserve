@@ -19,9 +19,12 @@ dependencies = [
     # CVE-2026-32597 PyJWT accepts unknown `crit` header extensions (RFC 7515 §4.1.11 MUST violation)
     # Pinning because it is a transitive dependency.
     "pyjwt>=2.12.0",
+    # CVE-2026-30922 pyasn1 Vulnerable to Denial of Service via Unbounded Recursion
+    # Pinning because it is a transitive dependency.
+    "pyasn>=0.6.3"
 ]
 name = "kserve-storage"
-version = "0.17.0"
+version = "0.18.0rc1"
 readme = "README.md"
 description = "KServe Storage Handler. This module is responsible to download the models from the provided source"
 classifiers = [
