@@ -65,7 +65,7 @@ func GenerateDomainName(name string, obj metav1.ObjectMeta, ingressConfig *v1bet
 			return "", fmt.Errorf("invalid domain name %q: %w", domainName, urlErrs.ToAggregate())
 		}
 	}
-	
+
 	return domainName, nil
 }
 
