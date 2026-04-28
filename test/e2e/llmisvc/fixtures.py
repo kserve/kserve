@@ -148,6 +148,41 @@ LLMINFERENCESERVICE_CONFIGS = {
             "name": "deepseek-ai/DeepSeek-V2-Lite-Chat",
         },
     },
+    "model-fb-opt-125m-with-lora-hf": {
+        "model": {
+            "uri": "hf://facebook/opt-125m",
+            "name": "facebook/opt-125m",
+            "lora": {
+                "adapters": [
+                    {
+                        "name": "lora-adapter-1",
+                        "uri": "hf://edbeeching/opt-125m-lora",
+                    }
+                ]
+            },
+        },
+    },
+    "model-fb-opt-125m-with-multiple-lora": {
+        "model": {
+            "uri": "hf://facebook/opt-125m",
+            "name": "facebook/opt-125m",
+            "lora": {
+                "adapters": [
+                    {
+                        "name": "lora-adapter-1",
+                        "uri": "hf://edbeeching/opt-125m-lora",
+                    },
+                    {
+                        "name": "lora-adapter-2",
+                        "uri": "hf://edbeeching/opt-125m-lora",
+                    },
+                ],
+                "maxRank": 64,
+                "maxAdapters": 2,
+                "maxCpuAdapters": 4,
+            },
+        },
+    },
     "workload-dp-ep-gpu": {
         "replicas": 2,
         "parallelism": {
@@ -699,6 +734,9 @@ LLMINFERENCESERVICE_CONFIGS = {
                                         "zmqEndpoint": "tcp://*:5557",
                                     },
                                     "indexerConfig": {
+                                        "tokenizersPoolConfig": {
+                                            "modelName": "facebook/opt-125m",
+                                        },
                                         "kvBlockIndexConfig": {
                                             "enableMetrics": True,
                                             "metricsLoggingInterval": 60000000000,

@@ -165,13 +165,33 @@ type LLMModelSpec struct {
 
 // LoRASpec defines the configuration for LoRA adapters.
 type LoRASpec struct {
-	// Adapters is the static specification for one or more LoRA adapters.
-	// Each adapter is defined by its own ModelSpec.
+	// Adapters is a list of LoRA (Low-Rank Adaptation) adapters to attach to the base model.
+	// Each adapter is specified by name and URI (supports hf://, s3://, and pvc:// schemes).
+	// The controller automatically downloads adapters and configures the runtime to use them.
 	// +optional
 	// This type is recursive https://github.com/kubernetes-sigs/controller-tools/issues/585
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless
 	Adapters []LLMModelSpec `json:"adapters,omitempty"`
+
+	// MaxRank is the maximum LoRA rank supported by the runtime (maps to vLLM --max-lora-rank).
+	// Higher values allow adapters with higher rank but increase memory usage.
+	// If not set, vLLM's default applies (16).
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	MaxRank *int32 `json:"maxRank,omitempty"`
+
+	// MaxAdapters is the maximum number of LoRA adapters that can be loaded simultaneously
+	// (maps to vLLM --max-loras). Defaults to the number of configured adapters.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	MaxAdapters *int32 `json:"maxAdapters,omitempty"`
+
+	// MaxCpuAdapters is the maximum number of LoRA adapters stored in CPU memory
+	// (maps to vLLM --max-cpu-loras). Defaults to the number of configured adapters.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	MaxCpuAdapters *int32 `json:"maxCpuAdapters,omitempty"`
 }
 
 // StorageInitializerSpec defines the configuration for the storage initializer.

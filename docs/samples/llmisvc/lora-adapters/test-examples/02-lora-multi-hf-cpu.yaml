@@ -1,0 +1,61 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceService
+metadata:
+  name: lora-multi-hf-test
+  namespace: kserve-ci-e2e-test
+spec:
+  model:
+    uri: hf://facebook/opt-125m
+    name: facebook/opt-125m
+    lora:
+      adapters:
+        # Multiple HuggingFace LoRA adapters
+        # Using the same adapter with different names to test multi-adapter functionality
+        - name: adapter-1
+          uri: hf://edbeeching/opt-125m-lora
+        - name: adapter-2
+          uri: hf://edbeeching/opt-125m-lora
+      # Optional: override vLLM LoRA runtime settings.
+      # maxRank defaults to 64, maxAdapters and maxCpuAdapters default to the number of configured adapters.
+      maxRank: 64
+      maxAdapters: 2
+      maxCpuAdapters: 4
+  replicas: 1
+  router:
+    scheduler: {}
+    route: {}
+    gateway: {}
+  template:
+    containers:
+      - name: main
+        image: public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1
+        env:
+          - name: VLLM_LOGGING_LEVEL
+            value: DEBUG
+          - name: VLLM_CPU_KVCACHE_SPACE
+            value: "1"
+        resources:
+          limits:
+            cpu: '2'
+            memory: 7Gi
+          requests:
+            cpu: '200m'
+            memory: 2Gi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTPS
+          initialDelaySeconds: 180
+          periodSeconds: 30
+          timeoutSeconds: 30
+          failureThreshold: 8
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTPS
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
