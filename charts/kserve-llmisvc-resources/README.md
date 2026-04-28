@@ -72,7 +72,7 @@ $ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmis
 | kserve.llmisvc.controller.extraVolumeMounts | list | `[]` |  |
 | kserve.llmisvc.controller.extraVolumes | list | `[]` |  |
 | kserve.llmisvc.controller.image | string | `"kserve/llmisvc-controller"` |  |
-| kserve.llmisvc.controller.imagePullPolicy | string | `"IfNotPresent"` |  |
+| kserve.llmisvc.controller.imagePullPolicy | string | `"Always"` |  |
 | kserve.llmisvc.controller.imagePullSecrets | list | `[]` |  |
 | kserve.llmisvc.controller.labels | object | `{}` |  |
 | kserve.llmisvc.controller.livenessProbe.enabled | bool | `true` |  |
