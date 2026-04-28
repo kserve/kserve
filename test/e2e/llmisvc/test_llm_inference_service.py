@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import time
 
 import os
@@ -38,17 +39,19 @@ from .test_resources import (
     ROUTER_GATEWAYS,
     ROUTER_ROUTES,
 )
-from .logging import log_execution, logger
+from .logging import log_execution
 from ..common.http_retry import post_with_retry
 
 KSERVE_PLURAL_LLMINFERENCESERVICE = "llminferenceservices"
 
+logger = logging.getLogger(__name__)
+
 
 def assert_200(response: requests.Response) -> None:
     """Default response assertion that checks for 200 status code."""
-    assert (
-        response.status_code == 200
-    ), f"Service returned {response.status_code}: {response.text}"
+    assert response.status_code == 200, (
+        f"Service returned {response.status_code}: {response.text}"
+    )
 
 
 def assert_200_with_choices(response: requests.Response) -> None:
@@ -66,15 +69,15 @@ def create_response_assertion(
     """Factory for creating flexible response assertions with arbitrary status codes and field checks."""
 
     def response_assertion(response: requests.Response) -> None:
-        assert (
-            response.status_code == status_code
-        ), f"Expected status code {status_code}, but service returned {response.status_code}: {response.text}"
+        assert response.status_code == status_code, (
+            f"Expected status code {status_code}, but service returned {response.status_code}: {response.text}"
+        )
         if with_field:
             body = response.json()
             field_value = body.get(with_field)
-            assert (
-                field_value is not None and len(field_value) > 0
-            ), f"Expected response body to contain non empty field '{with_field}': {response.text}"
+            assert field_value is not None and len(field_value) > 0, (
+                f"Expected response body to contain non empty field '{with_field}': {response.text}"
+            )
 
     return response_assertion
 
@@ -82,6 +85,7 @@ def create_response_assertion(
 @dataclass
 class TestCase:
     """Test case configuration for LLM inference service tests."""
+
     __test__ = False  # So pytest will not try to execute it.
     base_refs: List[str]
     prompt: str
@@ -354,6 +358,23 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
             ),
             marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
         ),
+        # Precise prefix KV cache routing test
+        pytest.param(
+            TestCase(
+                base_refs=[
+                    "router-managed",
+                    "scheduler-with-precise-prefix-cache-inline-config",
+                    "workload-llmd-simulator-kvcache",
+                ],
+                prompt="KServe is a",
+                service_name="precise-prefix-cache-test",
+            ),
+            marks=[
+                pytest.mark.cluster_cpu,
+                pytest.mark.cluster_single_node,
+                pytest.mark.llmd_simulator,
+            ],
+        ),
     ],
     indirect=["test_case"],
     ids=generate_test_id,
@@ -456,6 +477,7 @@ def wait_for_model_response(
     kserve_client: KServeClient,
     test_case: TestCase,  # noqa: F811
     timeout_seconds: int = 900,
+    extra_headers: Optional[Dict[str, str]] = None,
 ) -> str:
     def assert_model_responds():
         try:
@@ -464,6 +486,10 @@ def wait_for_model_response(
             raise AssertionError(f"❌ Failed to get service URL: {e}") from e
 
         model_url = service_url + test_case.endpoint
+
+        headers = {"Content-Type": "application/json"}
+        if extra_headers:
+            headers.update(extra_headers)
 
         if test_case.payload_formatter is not None:
             test_payload = test_case.payload_formatter(test_case)
@@ -474,13 +500,11 @@ def wait_for_model_response(
                 "max_tokens": test_case.max_tokens,
             }
 
-        logger.info(
-            f"Calling LLM service at {model_url} with payload {test_payload}"
-        )
+        logger.info(f"Calling LLM service at {model_url} with payload {test_payload}")
         try:
             response = post_with_retry(
                 model_url,
-                headers={"Content-Type": "application/json"},
+                headers=headers,
                 json_data=test_payload,
                 timeout=test_case.response_timeout,
             )
@@ -488,7 +512,7 @@ def wait_for_model_response(
             logger.error(f"❌ Failed to call model: {e}")
             raise AssertionError(f"❌ Failed to call model: {e}") from e
 
-        logger.info(f"Model response is {response.status_code}")
+        logger.info(f"Model response is {response.status_code}: {response.text[:500]}")
 
         test_case.response_assertion(response)
         return response.text[: test_case.max_tokens]
@@ -587,9 +611,10 @@ def wait_for(
     while True:
         try:
             return assertion_fn()
-        except AssertionError:
+        except AssertionError as e:
             if time.time() >= deadline:
                 raise
+            logger.info("Waiting: %s", e)
             time.sleep(interval)
 
 

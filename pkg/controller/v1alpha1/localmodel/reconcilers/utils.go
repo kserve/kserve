@@ -235,14 +235,24 @@ func DeleteModelFromNodes(
 			downloadPVName := params.Name + "-" + nodeGroupName + "-" + params.Namespace + "-download"
 			if err := DeletePV(ctx, clientset, log, downloadPVName); err != nil {
 				log.Error(err, "failed to delete download PV", "name", downloadPVName)
-				// Continue with cleanup, don't return error for PV deletion failures
+			}
+
+			// Delete download PVC from jobNamespace (where download jobs run)
+			downloadPVCName := downloadPVName
+			isvcConfigMap, cfgErr := v1beta1.GetInferenceServiceConfigMap(ctx, clientset)
+			if cfgErr == nil {
+				localModelConfig, cfgErr := v1beta1.NewLocalModelConfig(isvcConfigMap)
+				if cfgErr == nil {
+					if err := DeletePVC(ctx, clientset, log, downloadPVCName, localModelConfig.JobNamespace); err != nil {
+						log.Error(err, "failed to delete download PVC from jobNamespace", "name", downloadPVCName, "namespace", localModelConfig.JobNamespace)
+					}
+				}
 			}
 
 			// Delete serving PV: {modelName}-{nodeGroup}-{namespace}
 			servingPVName := params.Name + "-" + nodeGroupName + "-" + params.Namespace
 			if err := DeletePV(ctx, clientset, log, servingPVName); err != nil {
 				log.Error(err, "failed to delete serving PV", "name", servingPVName)
-				// Continue with cleanup, don't return error for PV deletion failures
 			}
 		}
 	}

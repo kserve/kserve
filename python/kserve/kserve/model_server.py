@@ -128,6 +128,17 @@ parser.add_argument(
         "'asyncio', or 'uvloop'."
     ),
 )
+parser.add_argument(
+    "--timeout-keep-alive",
+    dest="timeout_keep_alive",
+    default=65,
+    type=int,
+    help=(
+        "Timeout for keep-alive connections in seconds. "
+        "The keep-alive timeout should be longer than the proxy idle timeout "
+        "to avoid intermittent 503 errors from the proxy (e.g. Istio/Envoy)."
+    ),
+)
 
 # Model arguments: The arguments are passed to the kserve.Model object
 parser.add_argument(
@@ -219,6 +230,7 @@ class ModelServer:
         enable_latency_logging: bool = args.enable_latency_logging,
         access_log_format: str = args.access_log_format,
         event_loop: str = args.event_loop,
+        timeout_keep_alive: int = args.timeout_keep_alive,
         grace_period: int = 30,
         predictor_config: Optional[PredictorConfig] = None,
     ):
@@ -241,6 +253,7 @@ class ModelServer:
                                (please refer to this Uvicorn
                                [github issue](https://github.com/encode/uvicorn/issues/527) for more info).
             event_loop: Uvicorn event loop. Default: ``'auto'``. It supports "auto", "asyncio", "uvloop".
+            timeout_keep_alive: Timeout for keep-alive connections in seconds. Default: ``65``.
             grace_period: The grace period in seconds to wait for the server to stop. Default: ``30``.
             predictor_config: Optional configuration for the predictor. Default: ``None``.
         """
@@ -253,6 +266,7 @@ class ModelServer:
         self.event_loop = event_loop
         self.max_threads = max_threads
         self.max_asyncio_workers = max_asyncio_workers
+        self.timeout_keep_alive = timeout_keep_alive
         self.enable_grpc = enable_grpc
         self.enable_docs_url = enable_docs_url
         self.enable_latency_logging = enable_latency_logging
@@ -333,6 +347,7 @@ class ModelServer:
                 grace_period=self.grace_period,
                 log_config_file=args.log_config_file,
                 event_loop=self.event_loop,
+                timeout_keep_alive=self.timeout_keep_alive,
             )
             self.servers.append(self._rest_multiprocess_server.start())
         else:
@@ -345,6 +360,7 @@ class ModelServer:
                 workers=self.workers,
                 grace_period=self.grace_period,
                 event_loop=self.event_loop,
+                timeout_keep_alive=self.timeout_keep_alive,
             )
             self.servers.append(self._rest_server.start())
         if self.enable_grpc:

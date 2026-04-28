@@ -57,21 +57,23 @@ func (r *LLMISVCReconciler) reconcileMultiNodeWorkload(ctx context.Context, llmS
 }
 
 func (r *LLMISVCReconciler) reconcileMultiNodeMainWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
-	expected, err := r.expectedMainMultiNodeLWS(ctx, llmSvc, config)
-	if err != nil {
-		return fmt.Errorf("failed to build the expected main LWS: %w", err)
-	}
-
 	if isStopped := utils.GetForceStopRuntime(llmSvc); isStopped || llmSvc.Spec.Worker == nil {
 		if isStopped {
 			llmSvc.MarkWorkerWorkloadNotReady("Stopped", "Service is stopped")
 		} else {
 			llmSvc.MarkWorkerWorkloadUnset()
 		}
-		if err := Delete(ctx, r, llmSvc, expected); err != nil {
-			return err
-		}
-		return nil
+		return Delete(ctx, r, llmSvc, &lwsapi.LeaderWorkerSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      mainLWSName(llmSvc),
+				Namespace: llmSvc.GetNamespace(),
+			},
+		})
+	}
+
+	expected, err := r.expectedMainMultiNodeLWS(ctx, llmSvc, config)
+	if err != nil {
+		return fmt.Errorf("failed to build the expected main LWS: %w", err)
 	}
 	if err := Reconcile(ctx, r, llmSvc, &lwsapi.LeaderWorkerSet{}, expected, semanticLWSIsEqual, PreserveLWSReplicas()); err != nil {
 		return err
@@ -80,21 +82,23 @@ func (r *LLMISVCReconciler) reconcileMultiNodeMainWorkload(ctx context.Context, 
 }
 
 func (r *LLMISVCReconciler) reconcileMultiNodePrefillWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
-	expected, err := r.expectedPrefillMultiNodeLWS(ctx, llmSvc, config)
-	if err != nil {
-		return fmt.Errorf("failed to build the expected prefill LWS: %w", err)
-	}
 	if isStopped := utils.GetForceStopRuntime(llmSvc); isStopped || llmSvc.Spec.Prefill == nil || llmSvc.Spec.Prefill.Worker == nil {
 		if isStopped {
 			llmSvc.MarkPrefillWorkerWorkloadNotReady("Stopped", "Service is stopped")
 		} else {
 			llmSvc.MarkPrefillWorkerWorkloadUnset()
 		}
+		return Delete(ctx, r, llmSvc, &lwsapi.LeaderWorkerSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      prefillLWSName(llmSvc),
+				Namespace: llmSvc.GetNamespace(),
+			},
+		})
+	}
 
-		if err := Delete(ctx, r, llmSvc, expected); err != nil {
-			return err
-		}
-		return nil
+	expected, err := r.expectedPrefillMultiNodeLWS(ctx, llmSvc, config)
+	if err != nil {
+		return fmt.Errorf("failed to build the expected prefill LWS: %w", err)
 	}
 	if err := Reconcile(ctx, r, llmSvc, &lwsapi.LeaderWorkerSet{}, expected, semanticLWSIsEqual, PreserveLWSReplicas()); err != nil {
 		return err
@@ -152,7 +156,7 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 
 	expected := &lwsapi.LeaderWorkerSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve-mn"),
+			Name:      mainLWSName(llmSvc),
 			Namespace: llmSvc.GetNamespace(),
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
@@ -183,7 +187,7 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 		return nil, fmt.Errorf("failed to get current leader worker set %s/%s: %w", expected.GetNamespace(), expected.GetName(), err)
 	}
 
-	if llmSvc.Spec.Template != nil {
+	if llmSvc.Spec.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
 		expected.Spec.LeaderWorkerTemplate.LeaderTemplate = &corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: leaderLabels,
@@ -202,7 +206,7 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 			currLeaderSpec = currLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec
 		}
 
-		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLeaderSpec, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, config); err != nil {
+		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLeaderSpec, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, config, "main", constants.DefaultModelLocalMountPath); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to leader template: %w", err)
 		}
 
@@ -218,7 +222,7 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 			}
 		}
 	}
-	if llmSvc.Spec.Worker != nil {
+	if llmSvc.Spec.Worker != nil && !utils.GetForceStopRuntime(llmSvc) {
 		expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec = *llmSvc.Spec.Worker.DeepCopy()
 
 		serviceAccount, _, err := r.expectedMultiNodeMainServiceAccount(ctx, llmSvc)
@@ -227,7 +231,7 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 		}
 		expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
 
-		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, config); err != nil {
+		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, config, "main", constants.DefaultModelLocalMountPath); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to worker template: %w", err)
 		}
 
@@ -272,7 +276,7 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 
 	expected := &lwsapi.LeaderWorkerSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve-mn-prefill"),
+			Name:      prefillLWSName(llmSvc),
 			Namespace: llmSvc.GetNamespace(),
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
@@ -295,7 +299,7 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 		},
 	}
 
-	if llmSvc.Spec.Prefill != nil {
+	if llmSvc.Spec.Prefill != nil && !utils.GetForceStopRuntime(llmSvc) {
 		expected.Spec.Replicas = llmSvc.Spec.Prefill.Replicas
 		expected.Spec.LeaderWorkerTemplate.Size = llmSvc.Spec.Prefill.Parallelism.GetSize()
 
@@ -323,7 +327,7 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 				currLeaderSpec = currLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec
 			}
 
-			if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLeaderSpec, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, config); err != nil {
+			if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLeaderSpec, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, config, "main", constants.DefaultModelLocalMountPath); err != nil {
 				return nil, fmt.Errorf("failed to attach model artifacts to prefill leader template: %w", err)
 			}
 		}
@@ -331,7 +335,7 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec = *llmSvc.Spec.Prefill.Worker.DeepCopy()
 			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
 
-			if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, config); err != nil {
+			if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, config, "main", constants.DefaultModelLocalMountPath); err != nil {
 				return nil, fmt.Errorf("failed to attach model artifacts to prefill worker template: %w", err)
 			}
 		}
@@ -390,7 +394,7 @@ func (r *LLMISVCReconciler) reconcileMultiNodeMainServiceAccount(ctx context.Con
 		return fmt.Errorf("failed to create expected multi node service account: %w", err)
 	}
 	if !useExistingServiceAccount {
-		if llmSvc.Spec.Worker == nil {
+		if utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Worker == nil {
 			return Delete(ctx, r, llmSvc, serviceAccount)
 		}
 
@@ -411,7 +415,7 @@ func (r *LLMISVCReconciler) reconcileMultiNodePrefillServiceAccount(ctx context.
 		return fmt.Errorf("failed to create expected multi node service account: %w", err)
 	}
 	if !useExistingServiceAccount {
-		if llmSvc.Spec.Prefill == nil || llmSvc.Spec.Prefill.Worker == nil {
+		if utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Prefill == nil || llmSvc.Spec.Prefill.Worker == nil {
 			return Delete(ctx, r, llmSvc, serviceAccount)
 		}
 
@@ -461,7 +465,7 @@ func (r *LLMISVCReconciler) reconcileMultiNodeMainRoleBinding(ctx context.Contex
 
 func (r *LLMISVCReconciler) expectedMultiNodeMainServiceAccount(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*corev1.ServiceAccount, bool, error) {
 	useExistingServiceAccount := false
-	expectedServiceAccountName := kmeta.ChildName(llmSvc.GetName(), "-kserve-mn")
+	expectedServiceAccountName := mainLWSName(llmSvc)
 
 	// An existing service account attached to the main leader template takes precedence over any attached to the prefill worker template.
 	var existingServiceAccountName string
@@ -492,6 +496,8 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainServiceAccount(ctx context.Cont
 		},
 	}
 
+	r.injectSecretsFromDefaultServiceAccount(ctx, expectedServiceAccount)
+
 	// Add required labels to the created service account
 	if expectedServiceAccount.Labels == nil {
 		expectedServiceAccount.Labels = make(map[string]string)
@@ -504,7 +510,7 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainServiceAccount(ctx context.Cont
 
 func (r *LLMISVCReconciler) expectedMultiNodePrefillServiceAccount(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*corev1.ServiceAccount, bool, error) {
 	useExistingServiceAccount := false
-	expectedServiceAccountName := kmeta.ChildName(llmSvc.GetName(), "-kserve-mn-prefill")
+	expectedServiceAccountName := prefillLWSName(llmSvc)
 
 	// An existing service account attached to the prefill leader template takes precedence over any attached to the prefill worker template.
 	var existingServiceAccountName string
@@ -534,6 +540,8 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillServiceAccount(ctx context.C
 			},
 		},
 	}
+
+	r.injectSecretsFromDefaultServiceAccount(ctx, expectedServiceAccount)
 
 	// Add required labels to the created service account
 	if expectedServiceAccount.Labels == nil {
@@ -668,6 +676,14 @@ func (r *LLMISVCReconciler) propagateLeaderWorkerSetMetadata(llmSvc *v1alpha2.LL
 			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations[k] = v
 		}
 	}
+}
+
+func mainLWSName(llmSvc *v1alpha2.LLMInferenceService) string {
+	return kmeta.ChildName(llmSvc.GetName(), "-kserve-mn")
+}
+
+func prefillLWSName(llmSvc *v1alpha2.LLMInferenceService) string {
+	return kmeta.ChildName(llmSvc.GetName(), "-kserve-mn-prefill")
 }
 
 func semanticLWSIsEqual(expected *lwsapi.LeaderWorkerSet, curr *lwsapi.LeaderWorkerSet) bool {

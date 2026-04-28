@@ -70,6 +70,9 @@ if [[ $ENABLE_LLMISVC == "false" ]]; then
 
   kubectl get events -A
 
+  echo "Waiting for seaweedfs to be ready ..."
+  kubectl rollout status deployment/seaweedfs -n kserve --timeout=120s
+
   echo "Add testing models to s3 storage ..."
   kubectl apply -f config/overlays/test/s3-local-backend/seaweedfs-init-job.yaml -n kserve
   kubectl wait --for=condition=complete --timeout=90s job/s3-init -n kserve
@@ -92,6 +95,19 @@ else
     export ENABLE_KSERVE=false
     ${REPO_ROOT}/hack/setup/infra/manage.kserve-kustomize.sh
   fi
+fi
+
+ENABLE_KEDA="${ENABLE_KEDA:-false}"
+if [[ $ENABLE_LLMISVC == "true" ]] && [[ $ENABLE_KEDA == "true" ]]; then
+  echo "Patching inferenceservice-config with autoscaling-wva-controller-config for KEDA..."
+  kubectl patch configmap inferenceservice-config -n kserve --type merge -p '{
+    "data": {
+      "autoscaling-wva-controller-config": "{\"prometheus\":{\"url\":\"https://prometheus-kube-prometheus-prometheus.monitoring:9090\",\"tlsInsecureSkipVerify\":true}}"
+    }
+  }'
+  echo "Restarting LLMISVC controller to pick up new config..."
+  kubectl rollout restart deployment llmisvc-controller-manager -n kserve
+  kubectl rollout status deployment llmisvc-controller-manager -n kserve --timeout=120s
 fi
 
 echo "Show inferenceservice-config configmap..."

@@ -3710,6 +3710,9 @@
             "default": ""
           }
         },
+        "disableHTTPRouteTimeout": {
+          "type": "boolean"
+        },
         "disableIngressCreation": {
           "type": "boolean"
         },
@@ -3720,6 +3723,9 @@
           "type": "string"
         },
         "enableGatewayApi": {
+          "type": "boolean"
+        },
+        "enableLLMInferenceServiceTLS": {
           "type": "boolean"
         },
         "ingressClassName": {

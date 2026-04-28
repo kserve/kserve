@@ -23,7 +23,9 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmeta"
@@ -39,6 +41,8 @@ const (
 	// routingSidecarContainerName is the name of the routing sidecar container
 	// that handles prefill disaggregation routing.
 	routingSidecarContainerName = "llm-d-routing-sidecar"
+
+	defaultServiceAccountName = "default"
 )
 
 // sidecarSSRFProtectionRules defines RBAC rules for the routing sidecar
@@ -69,6 +73,13 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 		return fmt.Errorf("failed to reconcile self-signed certificates secret: %w", err)
 	}
 
+	// Reconcile platform-specific workload permissions (e.g. SCC RoleBindings)
+	// before creating workloads so pods can start with the correct permissions.
+	if err := r.reconcileWorkloadPlatformPermissions(ctx, llmSvc); err != nil {
+		llmSvc.MarkMainWorkloadNotReady("ReconcileWorkloadPermissionsError", err.Error())
+		return fmt.Errorf("failed to reconcile workload platform permissions: %w", err)
+	}
+
 	// We need to always reconcile every type of workload to handle transitions from P/D to another topology (meaning
 	// finalizing superfluous workloads).
 
@@ -88,6 +99,19 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 	if err := r.reconcileWorkloadService(ctx, llmSvc); err != nil {
 		llmSvc.MarkMainWorkloadNotReady("ReconcileWorkloadServiceError", err.Error())
 		return fmt.Errorf("failed to reconcile workload service: %w", err)
+	}
+
+	// Reconcile autoscaling resources (VariantAutoscaling + HPA or KEDA ScaledObject) when scaling is configured.
+	// A missing CRD is a hard error: the LLMISVC is misconfigured and deployment is blocked.
+	if err := r.reconcileScaling(ctx, llmSvc, config); err != nil {
+		if meta.IsNoMatchError(err) {
+			r.Eventf(llmSvc, corev1.EventTypeWarning, "ScalingCRDNotFound",
+				"Required scaling CRD not installed: %v", err)
+			llmSvc.MarkMainWorkloadNotReady("ScalingCRDNotFound", err.Error())
+		} else {
+			llmSvc.MarkMainWorkloadNotReady("ReconcileScalingError", err.Error())
+		}
+		return fmt.Errorf("failed to reconcile scaling: %w", err)
 	}
 
 	return nil
@@ -133,6 +157,9 @@ func (r *LLMISVCReconciler) reconcileWorkloadService(ctx context.Context, llmSvc
 		},
 	}
 
+	utils.PropagateMap(llmSvc.Spec.Labels, &expected.Labels)
+	utils.PropagateMap(llmSvc.Spec.Annotations, &expected.Annotations)
+
 	if utils.GetForceStopRuntime(llmSvc) {
 		return Delete(ctx, r, llmSvc, expected)
 	}
@@ -150,6 +177,21 @@ func GetWorkloadLabelSelector(meta metav1.ObjectMeta, _ *v1alpha2.LLMInferenceSe
 	// TODO https://github.com/llm-d/llm-d-inference-scheduler/issues/220 and DP template
 
 	return s
+}
+
+// injectSecretsFromDefaultServiceAccount copies ImagePullSecrets and Secrets from the
+// namespace's default ServiceAccount onto the target ServiceAccount. This ensures that
+// controller-created ServiceAccounts inherit private registry credentials configured on
+// the default SA. If the default SA cannot be retrieved, a warning is logged and the
+// target SA is left unchanged.
+func (r *LLMISVCReconciler) injectSecretsFromDefaultServiceAccount(ctx context.Context, target *corev1.ServiceAccount) {
+	defaultSa := &corev1.ServiceAccount{}
+	if err := r.Get(ctx, types.NamespacedName{Name: defaultServiceAccountName, Namespace: target.Namespace}, defaultSa); err != nil {
+		log.FromContext(ctx).Error(err, "Warning: failed to retrieve 'default' service account, continuing ...")
+		return
+	}
+	target.ImagePullSecrets = defaultSa.ImagePullSecrets
+	target.Secrets = defaultSa.Secrets
 }
 
 func hasRoutingSidecar(pod corev1.PodSpec) bool {

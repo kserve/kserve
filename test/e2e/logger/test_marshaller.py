@@ -18,7 +18,11 @@ import pytest
 
 from kserve import KServeClient
 from ..common.utils import predict_isvc, KSERVE_TEST_NAMESPACE
-from .format_verifiers import verify_json_object, verify_csv_object, verify_parquet_object
+from .format_verifiers import (
+    verify_json_object,
+    verify_csv_object,
+    verify_parquet_object,
+)
 from .marshaller_helpers import create_logger_isvc
 from .s3_utils import (
     LOGGER_BUCKET,
@@ -49,13 +53,9 @@ async def test_json_immediate(rest_v1_client):
 
     try:
         kserve_client.create(isvc)
-        kserve_client.wait_isvc_ready(
-            service_name, namespace=KSERVE_TEST_NAMESPACE
-        )
+        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-        res = await predict_isvc(
-            rest_v1_client, service_name, "./data/iris_input.json"
-        )
+        res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
         assert res["predictions"] == [1, 1]
 
         objects = wait_for_s3_objects(s3, LOGGER_BUCKET, prefix, 2, timeout=60)
@@ -97,9 +97,7 @@ async def test_json_size_batch(rest_v1_client):
 
     try:
         kserve_client.create(isvc)
-        kserve_client.wait_isvc_ready(
-            service_name, namespace=KSERVE_TEST_NAMESPACE
-        )
+        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
         for _ in range(5):
             res = await predict_isvc(
@@ -135,9 +133,7 @@ async def test_json_timed_batch(rest_v1_client):
 
     try:
         kserve_client.create(isvc)
-        kserve_client.wait_isvc_ready(
-            service_name, namespace=KSERVE_TEST_NAMESPACE
-        )
+        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
         # Phase 1: fill the batch
         for _ in range(2):
@@ -152,9 +148,7 @@ async def test_json_timed_batch(rest_v1_client):
             verify_json_object(body, expected_records=2)
 
         # Phase 2: partial batch flushed by timer
-        res = await predict_isvc(
-            rest_v1_client, service_name, "./data/iris_input.json"
-        )
+        res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
         assert res["predictions"] == [1, 1]
 
         objects = wait_for_s3_objects(
@@ -187,13 +181,9 @@ async def test_csv_immediate(rest_v1_client):
 
     try:
         kserve_client.create(isvc)
-        kserve_client.wait_isvc_ready(
-            service_name, namespace=KSERVE_TEST_NAMESPACE
-        )
+        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-        res = await predict_isvc(
-            rest_v1_client, service_name, "./data/iris_input.json"
-        )
+        res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
         assert res["predictions"] == [1, 1]
 
         objects = wait_for_s3_objects(s3, LOGGER_BUCKET, prefix, 2, timeout=60)
@@ -229,9 +219,7 @@ async def test_csv_size_batch(rest_v1_client):
 
     try:
         kserve_client.create(isvc)
-        kserve_client.wait_isvc_ready(
-            service_name, namespace=KSERVE_TEST_NAMESPACE
-        )
+        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
         for _ in range(5):
             res = await predict_isvc(
@@ -267,9 +255,7 @@ async def test_csv_timed_batch(rest_v1_client):
 
     try:
         kserve_client.create(isvc)
-        kserve_client.wait_isvc_ready(
-            service_name, namespace=KSERVE_TEST_NAMESPACE
-        )
+        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
         for _ in range(2):
             res = await predict_isvc(
@@ -282,9 +268,7 @@ async def test_csv_timed_batch(rest_v1_client):
             body = get_s3_object_body(s3, LOGGER_BUCKET, obj["Key"])
             verify_csv_object(body, expected_records=2)
 
-        res = await predict_isvc(
-            rest_v1_client, service_name, "./data/iris_input.json"
-        )
+        res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
         assert res["predictions"] == [1, 1]
 
         objects = wait_for_s3_objects(
@@ -317,13 +301,9 @@ async def test_parquet_immediate(rest_v1_client):
 
     try:
         kserve_client.create(isvc)
-        kserve_client.wait_isvc_ready(
-            service_name, namespace=KSERVE_TEST_NAMESPACE
-        )
+        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-        res = await predict_isvc(
-            rest_v1_client, service_name, "./data/iris_input.json"
-        )
+        res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
         assert res["predictions"] == [1, 1]
 
         objects = wait_for_s3_objects(s3, LOGGER_BUCKET, prefix, 2, timeout=60)
@@ -359,9 +339,7 @@ async def test_parquet_size_batch(rest_v1_client):
 
     try:
         kserve_client.create(isvc)
-        kserve_client.wait_isvc_ready(
-            service_name, namespace=KSERVE_TEST_NAMESPACE
-        )
+        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
         for _ in range(5):
             res = await predict_isvc(
@@ -397,9 +375,7 @@ async def test_parquet_timed_batch(rest_v1_client):
 
     try:
         kserve_client.create(isvc)
-        kserve_client.wait_isvc_ready(
-            service_name, namespace=KSERVE_TEST_NAMESPACE
-        )
+        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
         for _ in range(2):
             res = await predict_isvc(
@@ -412,9 +388,7 @@ async def test_parquet_timed_batch(rest_v1_client):
             body = get_s3_object_body(s3, LOGGER_BUCKET, obj["Key"])
             verify_parquet_object(body, expected_records=2)
 
-        res = await predict_isvc(
-            rest_v1_client, service_name, "./data/iris_input.json"
-        )
+        res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
         assert res["predictions"] == [1, 1]
 
         objects = wait_for_s3_objects(

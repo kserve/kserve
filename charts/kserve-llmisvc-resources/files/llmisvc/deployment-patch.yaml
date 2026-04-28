@@ -81,7 +81,7 @@ spec:
       containers:
       - name: manager
         image: "{{ .Values.kserve.llmisvc.controller.image }}:{{ .Values.kserve.llmisvc.controller.tag | default .Values.kserve.version }}"
-        imagePullPolicy: {{ include "llm-isvc-resources.imagePullPolicy" . }}
+        imagePullPolicy: {{ .Values.kserve.llmisvc.controller.imagePullPolicy }}
         command:
           - /manager
         {{- with .Values.kserve.llmisvc.controller.containerSecurityContext }}

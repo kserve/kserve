@@ -31,13 +31,11 @@ func TestNewSchedulerConfig(t *testing.T) {
 		configMapData             map[string]string
 		wantErr                   bool
 		wantExpirationAnnotations []string
-		wantRestartAnnotation     string
 	}{
 		{
 			name:                      "missing scheduler key uses defaults",
 			configMapData:             map[string]string{},
 			wantExpirationAnnotations: llmisvc.DefaultExpirationAnnotations,
-			wantRestartAnnotation:     llmisvc.DefaultRestartAnnotation,
 		},
 		{
 			name: "empty JSON object uses defaults",
@@ -45,7 +43,6 @@ func TestNewSchedulerConfig(t *testing.T) {
 				"scheduler": `{}`,
 			},
 			wantExpirationAnnotations: llmisvc.DefaultExpirationAnnotations,
-			wantRestartAnnotation:     llmisvc.DefaultRestartAnnotation,
 		},
 		{
 			name: "custom expiration annotations",
@@ -53,23 +50,6 @@ func TestNewSchedulerConfig(t *testing.T) {
 				"scheduler": `{"expirationAnnotations":["custom.io/expiration-v2","custom.io/expiration"]}`,
 			},
 			wantExpirationAnnotations: []string{"custom.io/expiration-v2", "custom.io/expiration"},
-			wantRestartAnnotation:     llmisvc.DefaultRestartAnnotation,
-		},
-		{
-			name: "custom restart annotation",
-			configMapData: map[string]string{
-				"scheduler": `{"restartAnnotation":"custom.io/cert-hash"}`,
-			},
-			wantExpirationAnnotations: llmisvc.DefaultExpirationAnnotations,
-			wantRestartAnnotation:     "custom.io/cert-hash",
-		},
-		{
-			name: "both fields set",
-			configMapData: map[string]string{
-				"scheduler": `{"expirationAnnotations":["a","b"],"restartAnnotation":"c"}`,
-			},
-			wantExpirationAnnotations: []string{"a", "b"},
-			wantRestartAnnotation:     "c",
 		},
 		{
 			name: "invalid JSON returns error",
@@ -105,9 +85,6 @@ func TestNewSchedulerConfig(t *testing.T) {
 				if got.ExpirationAnnotations[i] != tt.wantExpirationAnnotations[i] {
 					t.Errorf("ExpirationAnnotations[%d] = %q, want %q", i, got.ExpirationAnnotations[i], tt.wantExpirationAnnotations[i])
 				}
-			}
-			if got.RestartAnnotation != tt.wantRestartAnnotation {
-				t.Errorf("RestartAnnotation = %q, want %q", got.RestartAnnotation, tt.wantRestartAnnotation)
 			}
 		})
 	}

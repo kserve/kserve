@@ -59,7 +59,7 @@ spec:
           {{- end }}
       - name: manager
         image: "{{ .Values.kserve.controller.image }}:{{ .Values.kserve.controller.tag | default .Values.kserve.version }}"
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{ .Values.kserve.controller.imagePullPolicy }}
         securityContext:
           {{- with .Values.kserve.controller.containerSecurityContext}}
           {{- toYaml . | nindent 10 }}

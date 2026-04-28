@@ -1931,6 +1931,97 @@ func (f *fakeDecoder) Decode(_ admission.Request, into runtime.Object) error {
 	return nil
 }
 
+func TestValidateBlockedEnvVars(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	scenarios := map[string]struct {
+		spec      *v1alpha1.ServingRuntimeSpec
+		expectErr bool
+	}{
+		"PYTHONPATH in main container should be rejected": {
+			spec: &v1alpha1.ServingRuntimeSpec{
+				ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  constants.InferenceServiceContainerName,
+							Image: "kserve/sklearnserver:latest",
+							Env: []corev1.EnvVar{
+								{Name: "PYTHONPATH", Value: "/custom"},
+							},
+						},
+					},
+				},
+			},
+			expectErr: true,
+		},
+		"PYTHONPATH in workerSpec container should be rejected": {
+			spec: &v1alpha1.ServingRuntimeSpec{
+				ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  constants.InferenceServiceContainerName,
+							Image: "kserve/sklearnserver:latest",
+						},
+					},
+				},
+				WorkerSpec: &v1alpha1.WorkerSpec{
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []corev1.Container{
+							{
+								Name: "worker-container",
+								Env: []corev1.EnvVar{
+									{Name: "PYTHONPATH", Value: "/bad"},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectErr: true,
+		},
+		"allowed env vars should pass": {
+			spec: &v1alpha1.ServingRuntimeSpec{
+				ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  constants.InferenceServiceContainerName,
+							Image: "kserve/sklearnserver:latest",
+							Env: []corev1.EnvVar{
+								{Name: "MODEL_NAME", Value: "test"},
+							},
+						},
+					},
+				},
+			},
+			expectErr: false,
+		},
+		"no env vars should pass": {
+			spec: &v1alpha1.ServingRuntimeSpec{
+				ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  constants.InferenceServiceContainerName,
+							Image: "kserve/sklearnserver:latest",
+						},
+					},
+				},
+			},
+			expectErr: false,
+		},
+	}
+
+	for name, tc := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			err := validateBlockedEnvVars(tc.spec)
+			if tc.expectErr {
+				g.Expect(err).To(gomega.HaveOccurred())
+				g.Expect(err.Error()).To(gomega.ContainSubstring("PYTHONPATH"))
+			} else {
+				g.Expect(err).ToNot(gomega.HaveOccurred())
+			}
+		})
+	}
+}
+
 func intPtr(i int) *int {
 	return &i
 }

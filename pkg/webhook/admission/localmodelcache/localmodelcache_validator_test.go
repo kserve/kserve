@@ -176,6 +176,25 @@ func TestValidateUpdate_LocalModelCacheWithUniqueStorageURI(t *testing.T) {
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 }
 
+func TestValidateUpdate_DeletionBypass(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	existingLmc := makeTestLocalModelCache()
+	s := runtime.NewScheme()
+	err := v1alpha1.AddToScheme(s)
+	if err != nil {
+		t.Errorf("unable to add scheme : %v", err)
+	}
+	fakeClient := fake.NewClientBuilder().WithObjects(&existingLmc).WithScheme(s).Build()
+	validator := LocalModelCacheValidator{fakeClient}
+	oldLmc := makeTestLocalModelCacheWithDifferentStorageURI()
+	newLmc := makeTestLocalModelCacheWithSameStorageURI()
+	now := metav1.Now()
+	newLmc.DeletionTimestamp = &now
+	warnings, err := validator.ValidateUpdate(t.Context(), &oldLmc, &newLmc)
+	g.Expect(warnings).To(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+}
+
 func TestValidateUpdate_InvalidObjectType(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	s := runtime.NewScheme()

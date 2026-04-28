@@ -32,7 +32,6 @@ from ...logging import logger
 
 
 class LoggingInterceptor(ServerInterceptor):
-
     async def intercept_service(
         self,
         continuation: Callable[[HandlerCallDetails], Awaitable[RpcMethodHandler]],
@@ -43,7 +42,6 @@ class LoggingInterceptor(ServerInterceptor):
 
 
 class ExceptionToStatusInterceptor(AsyncExceptionToStatusInterceptor):
-
     async def handle_exception(
         self,
         ex: Exception,

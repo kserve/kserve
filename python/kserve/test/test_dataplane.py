@@ -337,8 +337,7 @@ class TestDataPlaneCloudEvent:
             await dataplane_with_ce_model.infer(self.MODEL_NAME, infer_request, headers)
 
         error_regex = re.compile(
-            "Failed to decode or parse binary json cloudevent: "
-            "unexpected end of data:*"
+            "Failed to decode or parse binary json cloudevent: unexpected end of data:*"
         )
         assert error_regex.match(err.value.reason) is not None
 
@@ -457,7 +456,6 @@ class TestDataPlaneOpenAI:
 
 @pytest.mark.asyncio
 class TestDataplaneTransformer:
-
     async def test_dataplane_rest_with_ssl_enabled(self, httpx_mock):
         # scenario: getting a 2xx response from predictor with ssl enabled
         predictor_host = "ready.host"

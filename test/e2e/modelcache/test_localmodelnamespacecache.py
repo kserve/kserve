@@ -32,8 +32,12 @@ from kserve.models.v1alpha1_local_model_node_group import V1alpha1LocalModelNode
 from kserve.models.v1alpha1_local_model_node_group_spec import (
     V1alpha1LocalModelNodeGroupSpec,
 )
-from kserve.models.v1alpha1_local_model_namespace_cache import V1alpha1LocalModelNamespaceCache
-from kserve.models.v1alpha1_local_model_namespace_cache_spec import V1alpha1LocalModelNamespaceCacheSpec
+from kserve.models.v1alpha1_local_model_namespace_cache import (
+    V1alpha1LocalModelNamespaceCache,
+)
+from kserve.models.v1alpha1_local_model_namespace_cache_spec import (
+    V1alpha1LocalModelNamespaceCacheSpec,
+)
 from kserve.models.v1beta1_inference_service import V1beta1InferenceService
 from kserve.models.v1beta1_inference_service_spec import V1beta1InferenceServiceSpec
 from kserve.models.v1beta1_predictor_spec import V1beta1PredictorSpec
@@ -133,7 +137,9 @@ async def test_sklearn_modelnamespacecache(rest_v1_client):
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create_local_model_node_group(node_group)
-    kserve_client.create_local_model_namespace_cache(model_cache, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.create_local_model_namespace_cache(
+        model_cache, namespace=KSERVE_TEST_NAMESPACE
+    )
     kserve_client.wait_local_model_namespace_cache_ready(
         model_cache.metadata.name, namespace=KSERVE_TEST_NAMESPACE, nodes=nodes
     )
@@ -156,14 +162,8 @@ async def test_sklearn_modelnamespacecache(rest_v1_client):
     )
     # Status key for namespace-scoped models is namespace/modelName
     status_key = f"{KSERVE_TEST_NAMESPACE}/{model_cache.metadata.name}"
-    assert (
-        worker_node_1_cache["status"]["modelStatus"][status_key]
-        == "ModelDownloaded"
-    )
-    assert (
-        worker_node_2_cache["status"]["modelStatus"][status_key]
-        == "ModelDownloaded"
-    )
+    assert worker_node_1_cache["status"]["modelStatus"][status_key] == "ModelDownloaded"
+    assert worker_node_2_cache["status"]["modelStatus"][status_key] == "ModelDownloaded"
 
     # Test the model is not cached on the controller node
     with pytest.raises(ApiException):
@@ -179,5 +179,7 @@ async def test_sklearn_modelnamespacecache(rest_v1_client):
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
     # Wait for the isvc to be deleted to avoid modelcache still in use error when deleting the model cache
     await asyncio.sleep(30)
-    kserve_client.delete_local_model_namespace_cache(model_cache.metadata.name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.delete_local_model_namespace_cache(
+        model_cache.metadata.name, namespace=KSERVE_TEST_NAMESPACE
+    )
     kserve_client.delete_local_model_node_group(node_group.metadata.name)

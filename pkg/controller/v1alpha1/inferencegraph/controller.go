@@ -326,7 +326,7 @@ func (r *InferenceGraphReconciler) updateStatus(ctx context.Context, desiredGrap
 	graph := &v1alpha1.InferenceGraph{}
 	namespacedName := types.NamespacedName{Name: desiredGraph.Name, Namespace: desiredGraph.Namespace}
 	if err := r.Get(ctx, namespacedName, graph); err != nil {
-		return err
+		return client.IgnoreNotFound(err)
 	}
 
 	wasReady := inferenceGraphReadiness(graph.Status)

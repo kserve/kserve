@@ -73,6 +73,9 @@ func (v *LocalModelNamespaceCacheValidator) ValidateUpdate(ctx context.Context, 
 		localModelNamespaceCacheValidatorLogger.Error(err, "Unable to convert object to LocalModelNamespaceCache")
 		return nil, err
 	}
+	if localModelNamespaceCache.GetDeletionTimestamp() != nil {
+		return nil, nil
+	}
 	localModelNamespaceCacheValidatorLogger.Info("validate update", "name", localModelNamespaceCache.Name, "namespace", localModelNamespaceCache.Namespace)
 
 	if err := v.validateNodeGroups(ctx, localModelNamespaceCache); err != nil {

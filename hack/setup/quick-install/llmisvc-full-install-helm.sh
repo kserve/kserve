@@ -628,15 +628,15 @@ export RELEASE
 
 GOLANGCI_LINT_VERSION=v2.9.0
 CONTROLLER_TOOLS_VERSION=v0.19.0
-ENVTEST_VERSION=latest
+ENVTEST_VERSION=release-0.19
 YQ_VERSION=v4.52.1
 HELM_VERSION=v3.16.3
-KUSTOMIZE_VERSION=v5.5.0
+KUSTOMIZE_VERSION=v5.8.1
 HELM_DOCS_VERSION=v1.12.0
-BLACK_FMT_VERSION=24.3
 POETRY_VERSION=1.8.3
 UV_VERSION=0.7.8
 RUFF_VERSION=0.14.13
+PINACT_VERSION=v3.9.0
 KIND_VERSION=v0.30.0
 CERT_MANAGER_VERSION=v1.17.0
 ENVOY_GATEWAY_VERSION=v1.6.3
@@ -644,13 +644,16 @@ ENVOY_AI_GATEWAY_VERSION=v0.5.0
 KNATIVE_OPERATOR_VERSION=v1.21.1
 KNATIVE_SERVING_VERSION=1.21.1
 KEDA_OTEL_ADDON_VERSION=v0.0.6
-KSERVE_VERSION=v0.17.0-rc1
+PROMETHEUS_VERSION=83.4.0
+PROMETHEUS_ADAPTER_VERSION=5.3.0
+KSERVE_VERSION=v0.18.0-rc1
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.17.3
 OPENTELEMETRY_OPERATOR_VERSION=0.74.3
-LWS_VERSION=v0.7.0
+LWS_VERSION=v0.8.0
 GATEWAY_API_VERSION=v1.4.1
-GIE_VERSION=v1.3.0
+GIE_VERSION=v1.3.1
+WVA_VERSION=v0.6.0
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -660,6 +663,9 @@ GIE_VERSION=v1.3.0
 
 KEDA_NAMESPACE="${KEDA_NAMESPACE:-keda}"
 KSERVE_NAMESPACE="${KSERVE_NAMESPACE:-kserve}"
+PROMETHEUS_NAMESPACE="${PROMETHEUS_NAMESPACE:-monitoring}"
+PROMETHEUS_ADAPTER_NAMESPACE="${PROMETHEUS_ADAPTER_NAMESPACE:-monitoring}"
+WVA_NAMESPACE="${WVA_NAMESPACE:-wva-system}"
 OTEL_NAMESPACE="${OTEL_NAMESPACE:-opentelemetry-operator}"
 OPERATOR_NAMESPACE="${OPERATOR_NAMESPACE:-knative-operator}"
 SERVING_NAMESPACE="${SERVING_NAMESPACE:-knative-serving}"
@@ -788,7 +794,7 @@ install_helm() {
     rm -rf "${temp_dir}"
 
     log_success "Successfully installed Helm ${HELM_VERSION} to ${BIN_DIR}/helm"
-    helm version
+    "${BIN_DIR}/helm" version
 }
 
 # ----------------------------------------
@@ -806,7 +812,7 @@ install_yq() {
     log_info "Installing yq ${YQ_VERSION} for ${os}/${arch}..."
 
     if [[ -x "${BIN_DIR}/yq" ]]; then
-        local current_version=$("${BIN_DIR}/yq" --version 2>&1 | grep -oP 'version \K[v0-9.]+')
+        local current_version=$("${BIN_DIR}/yq" --version 2>&1 | awk 'match($0, /v[0-9.]+/) {print substr($0, RSTART, RLENGTH)}')
         # Normalize version format (add 'v' prefix if missing)
         [[ -n "$current_version" && "$current_version" != v* ]] && current_version="v${current_version}"
         if [[ -n "$current_version" ]] && version_gte "$current_version" "$YQ_VERSION"; then
@@ -1482,11 +1488,22 @@ main() {
         fi
         
         # Build chart arrays based on ENABLE_* flags
+        # When a specific version is set, override imagePullPolicy to IfNotPresent
+        # to match kustomize version-template overlay behavior for dev/test scenarios
+        PULL_POLICY_KSERVE=""
+        PULL_POLICY_LLMISVC=""
+        PULL_POLICY_LOCALMODEL=""
+        if [ -n "${SET_KSERVE_VERSION}" ]; then
+            PULL_POLICY_KSERVE="--set kserve.controller.imagePullPolicy=IfNotPresent"
+            PULL_POLICY_LLMISVC="--set kserve.llmisvc.controller.imagePullPolicy=IfNotPresent"
+            PULL_POLICY_LOCALMODEL="--set kserve.localmodel.controller.imagePullPolicy=IfNotPresent --set kserve.localmodelnode.controller.imagePullPolicy=IfNotPresent"
+        fi
+        
         if is_positive "${ENABLE_KSERVE}"; then
             log_info "KServe is enabled"
             CRD_CHARTS+=("kserve-crd")
             RESOURCE_CHARTS+=("kserve-resources")
-            RESOURCE_EXTRA_ARGS_LIST+=("${KSERVE_EXTRA_ARGS:-}")
+            RESOURCE_EXTRA_ARGS_LIST+=("${KSERVE_EXTRA_ARGS:-} ${PULL_POLICY_KSERVE}")
             TARGET_DEPLOYMENT_NAMES+=("kserve-controller-manager")
         fi
         
@@ -1494,7 +1511,7 @@ main() {
             log_info "LLMIsvc is enabled"
             CRD_CHARTS+=("kserve-llmisvc-crd")
             RESOURCE_CHARTS+=("kserve-llmisvc-resources")
-            RESOURCE_EXTRA_ARGS_LIST+=("${LLMISVC_EXTRA_ARGS:-}")
+            RESOURCE_EXTRA_ARGS_LIST+=("${LLMISVC_EXTRA_ARGS:-} ${PULL_POLICY_LLMISVC}")
             TARGET_DEPLOYMENT_NAMES+=("llmisvc-controller-manager")
         fi
         
@@ -1502,7 +1519,7 @@ main() {
             log_info "LocalModel is enabled"
             CRD_CHARTS+=("kserve-localmodel-crd")
             RESOURCE_CHARTS+=("kserve-localmodel-resources")
-            RESOURCE_EXTRA_ARGS_LIST+=("${LOCALMODEL_EXTRA_ARGS:-}")
+            RESOURCE_EXTRA_ARGS_LIST+=("${LOCALMODEL_EXTRA_ARGS:-} ${PULL_POLICY_LOCALMODEL}")
             TARGET_DEPLOYMENT_NAMES+=("kserve-localmodel-controller-manager")
         fi
 

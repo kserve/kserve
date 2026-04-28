@@ -4,10 +4,12 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **additional_ingress_domains** | **list[str]** |  | [optional] 
+**disable_http_route_timeout** | **bool** |  | [optional] 
 **disable_ingress_creation** | **bool** |  | [optional] 
 **disable_istio_virtual_host** | **bool** |  | [optional] 
 **domain_template** | **str** |  | [optional] 
 **enable_gateway_api** | **bool** |  | [optional] 
+**enable_llm_inference_service_tls** | **bool** |  | [optional] 
 **ingress_class_name** | **str** |  | [optional] 
 **ingress_domain** | **str** |  | [optional] 
 **ingress_gateway** | **str** |  | [optional] 

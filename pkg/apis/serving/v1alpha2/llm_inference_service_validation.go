@@ -74,6 +74,9 @@ func (l *LLMInferenceServiceValidator) ValidateUpdate(ctx context.Context, oldOb
 	if err != nil {
 		return nil, err
 	}
+	if llmSvc.GetDeletionTimestamp() != nil {
+		return nil, nil
+	}
 
 	return l.validate(ctx, prev, llmSvc)
 }
@@ -183,32 +186,39 @@ func (l *LLMInferenceServiceValidator) validateRouterCrossFieldConstraints(llmSv
 
 // parentRefsMatchGatewayRefs checks whether the parentRefs on an HTTPRoute are
 // consistent with the gateway refs. A parentRef matches a gateway ref if the
-// name and namespace are equal (Group and Kind are always Gateway).
+// name, namespace, and sectionName are equal (Group and Kind are always Gateway).
 // Both slices are sorted before comparison so order does not matter.
-func parentRefsMatchGatewayRefs(parentRefs []gwapiv1.ParentReference, gatewayRefs []UntypedObjectReference) bool {
+func parentRefsMatchGatewayRefs(parentRefs []gwapiv1.ParentReference, gatewayRefs []GatewayObjectReference) bool {
 	if len(parentRefs) != len(gatewayRefs) {
 		return false
 	}
 
 	// Build comparable keys and sort so that order-independent matching works.
-	type key struct{ ns, name string }
-	toKey := func(name gwapiv1.ObjectName, ns gwapiv1.Namespace) key {
-		return key{ns: string(ns), name: string(name)}
+	type key struct{ ns, name, sectionName string }
+	toKey := func(name gwapiv1.ObjectName, ns gwapiv1.Namespace, sn *gwapiv1.SectionName) key {
+		sectionName := ""
+		if sn != nil {
+			sectionName = string(*sn)
+		}
+		return key{ns: string(ns), name: string(name), sectionName: sectionName}
 	}
 	cmpKey := func(a, b key) int {
 		if c := cmp.Compare(a.ns, b.ns); c != 0 {
 			return c
 		}
-		return cmp.Compare(a.name, b.name)
+		if c := cmp.Compare(a.name, b.name); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.sectionName, b.sectionName)
 	}
 
 	pKeys := make([]key, len(parentRefs))
 	for i, ref := range parentRefs {
-		pKeys[i] = toKey(ref.Name, ptr.Deref(ref.Namespace, ""))
+		pKeys[i] = toKey(ref.Name, ptr.Deref(ref.Namespace, ""), ref.SectionName)
 	}
 	gKeys := make([]key, len(gatewayRefs))
 	for i, ref := range gatewayRefs {
-		gKeys[i] = toKey(ref.Name, ref.Namespace)
+		gKeys[i] = toKey(ref.Name, ref.Namespace, ref.SectionName)
 	}
 
 	slices.SortFunc(pKeys, cmpKey)
@@ -476,25 +486,6 @@ func ValidateWorkloadScaling(basePath *field.Path, workload *WorkloadSpec) field
 
 	scalingPath := basePath.Child("scaling")
 
-	// Autoscaling is not supported for multi-node deployments (worker is set).
-	// When worker is set, the controller creates a LeaderWorkerSet which does not
-	// integrate with WVA/HPA/KEDA — the scaling block would be silently ignored.
-	//
-	// Note: LWS itself can be targeted by an HPA, so the hardware capability exists.
-	// This is a current limitation of WVA, which only knows how to reconcile against
-	// a Deployment. When WVA gains LWS support, this validation should be revisited.
-	// TODO: remove this restriction once WVA supports LeaderWorkerSet as a scaling target.
-	if workload.Worker != nil {
-		allErrs = append(allErrs, field.Invalid(
-			scalingPath,
-			scaling,
-			"autoscaling (scaling) is not supported for multi-node deployments; "+
-				"worker is set, which uses a LeaderWorkerSet that does not integrate with WVA/HPA/KEDA — "+
-				"remove scaling and use replicas instead to set a fixed replica count",
-		))
-		return allErrs
-	}
-
 	// Replicas and scaling are mutually exclusive
 	if workload.Replicas != nil {
 		allErrs = append(allErrs, field.Invalid(
@@ -504,23 +495,13 @@ func ValidateWorkloadScaling(basePath *field.Path, workload *WorkloadSpec) field
 		))
 	}
 
-	// MaxReplicas is required when scaling is configured
-	if scaling.MaxReplicas == nil {
-		allErrs = append(allErrs, field.Required(
-			scalingPath.Child("maxReplicas"),
-			"maxReplicas is required when scaling is configured",
-		))
-	}
-
 	// Validate replica bounds
-	if scaling.MinReplicas != nil && scaling.MaxReplicas != nil {
-		if *scaling.MinReplicas > *scaling.MaxReplicas {
-			allErrs = append(allErrs, field.Invalid(
-				scalingPath.Child("minReplicas"),
-				*scaling.MinReplicas,
-				fmt.Sprintf("minReplicas (%d) cannot exceed maxReplicas (%d)", *scaling.MinReplicas, *scaling.MaxReplicas),
-			))
-		}
+	if scaling.MinReplicas != nil && *scaling.MinReplicas > scaling.MaxReplicas {
+		allErrs = append(allErrs, field.Invalid(
+			scalingPath.Child("minReplicas"),
+			*scaling.MinReplicas,
+			fmt.Sprintf("minReplicas (%d) cannot exceed maxReplicas (%d)", *scaling.MinReplicas, scaling.MaxReplicas),
+		))
 	}
 
 	// WVA is required when scaling is configured — it provides the scaling mechanism
