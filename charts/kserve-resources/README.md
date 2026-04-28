@@ -46,6 +46,7 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.controller.gateway.pathTemplate | string | `""` |  |
 | kserve.controller.gateway.urlScheme | string | `"http"` |  |
 | kserve.controller.image | string | `"kserve/kserve-controller"` |  |
+| kserve.controller.imagePullPolicy | string | `"Always"` |  |
 | kserve.controller.imagePullSecrets | list | `[]` |  |
 | kserve.controller.knativeAddressableResolver.enabled | bool | `false` |  |
 | kserve.controller.labels | object | `{}` |  |

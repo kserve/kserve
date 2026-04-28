@@ -63,6 +63,7 @@ kserve:
     affinity: {}
     image: kserve/kserve-controller
     tag: ''
+    imagePullPolicy: Always
     imagePullSecrets: []
     resources:
       limits:
