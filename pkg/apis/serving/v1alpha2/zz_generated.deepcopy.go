@@ -22,6 +22,7 @@ package v1alpha2
 
 import (
 	"github.com/kedacore/keda/v2/apis/keda/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/api/autoscaling/v2"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -742,6 +743,11 @@ func (in *WorkloadSpec) DeepCopyInto(out *WorkloadSpec) {
 	if in.Worker != nil {
 		in, out := &in.Worker, &out.Worker
 		*out = new(v1.PodSpec)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.DeploymentStrategy != nil {
+		in, out := &in.DeploymentStrategy, &out.DeploymentStrategy
+		*out = new(appsv1.DeploymentStrategy)
 		(*in).DeepCopyInto(*out)
 	}
 }

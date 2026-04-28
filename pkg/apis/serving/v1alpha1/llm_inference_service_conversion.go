@@ -302,11 +302,12 @@ func convertLoRASpecFromV1Alpha2(src *v1alpha2.LoRASpec) *LoRASpec {
 
 func convertWorkloadSpecToV1Alpha2(src *WorkloadSpec) v1alpha2.WorkloadSpec {
 	dst := v1alpha2.WorkloadSpec{
-		Replicas:    src.Replicas,
-		Labels:      src.Labels,
-		Annotations: src.Annotations,
-		Template:    src.Template,
-		Worker:      src.Worker,
+		Replicas:           src.Replicas,
+		Labels:             src.Labels,
+		Annotations:        src.Annotations,
+		Template:           src.Template,
+		Worker:             src.Worker,
+		DeploymentStrategy: src.DeploymentStrategy,
 	}
 
 	if src.Parallelism != nil {
@@ -329,11 +330,12 @@ func convertWorkloadSpecToV1Alpha2(src *WorkloadSpec) v1alpha2.WorkloadSpec {
 
 func convertWorkloadSpecFromV1Alpha2(src *v1alpha2.WorkloadSpec) WorkloadSpec {
 	dst := WorkloadSpec{
-		Replicas:    src.Replicas,
-		Labels:      src.Labels,
-		Annotations: src.Annotations,
-		Template:    src.Template,
-		Worker:      src.Worker,
+		Replicas:           src.Replicas,
+		Labels:             src.Labels,
+		Annotations:        src.Annotations,
+		Template:           src.Template,
+		Worker:             src.Worker,
+		DeploymentStrategy: src.DeploymentStrategy,
 	}
 
 	if src.Parallelism != nil {

@@ -102,6 +102,7 @@ type Config struct {
 	StorageConfig    *types.StorageInitializerConfig `json:"-"`
 	CredentialConfig *credentials.CredentialConfig   `json:"-"`
 	SchedulerConfig  *SchedulerConfig                `json:"-"`
+	DeployConfig     *v1beta1.DeployConfig           `json:"-"`
 }
 
 // PrometheusConfig holds Prometheus connection and authentication settings used by KEDA
@@ -143,7 +144,7 @@ const autoscalingConfigName = "autoscaling-wva-controller-config"
 
 // NewConfig creates an instance of llm-specific config based on predefined values
 // in IngressConfig struct
-func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig, schedulerConfig *SchedulerConfig) *Config {
+func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig, schedulerConfig *SchedulerConfig, deployConfig *v1beta1.DeployConfig) *Config {
 	igwNs := constants.KServeNamespace
 	igwName := ingressConfig.KserveIngressGateway
 	// Parse gateway name to extract namespace and name components
@@ -163,6 +164,7 @@ func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.Storag
 		StorageConfig:           storageConfig,
 		CredentialConfig:        credentialConfig,
 		SchedulerConfig:         schedulerConfig,
+		DeployConfig:            deployConfig,
 	}
 }
 
@@ -195,7 +197,12 @@ func LoadConfig(ctx context.Context, clientset kubernetes.Interface) (*Config, e
 		return nil, fmt.Errorf("failed to parse scheduler config: %w", errConvert)
 	}
 
-	config := NewConfig(ingressConfig, storageInitializerConfig, &credentialConfig, schedulerConfig)
+	deployConfig, errConvert := v1beta1.NewDeployConfig(isvcConfigMap)
+	if errConvert != nil {
+		return nil, fmt.Errorf("failed to convert InferenceServiceConfigMap to DeployConfig: %w", errConvert)
+	}
+
+	config := NewConfig(ingressConfig, storageInitializerConfig, &credentialConfig, schedulerConfig, deployConfig)
 
 	if autoscalingData, ok := isvcConfigMap.Data[autoscalingConfigName]; ok {
 		asCfg := &WVAAutoscalingConfig{}

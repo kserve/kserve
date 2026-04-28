@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -157,6 +158,11 @@ type WorkloadSpec struct {
 	// The controller is responsible for enabling discovery between head and worker pods.
 	// +optional
 	Worker *corev1.PodSpec `json:"worker,omitempty"`
+
+	// The deployment strategy to use to replace existing pods with new ones.
+	// Only applicable to single-node deployment workloads.
+	// +optional
+	DeploymentStrategy *appsv1.DeploymentStrategy `json:"deploymentStrategy,omitempty"`
 }
 
 // LLMModelSpec defines the model source and its characteristics.
