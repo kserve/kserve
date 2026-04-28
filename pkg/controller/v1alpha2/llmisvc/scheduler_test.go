@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -1295,4 +1296,37 @@ func TestExtractDeprecatedMetricFlags(t *testing.T) {
 			g.Expect(extracted).To(Equal(tt.expectedExtracted))
 		})
 	}
+}
+
+func TestSchedulerPortMismatch(t *testing.T) {
+	g := NewWithT(t)
+
+	llmSvc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test",
+			Namespace: "default",
+		},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Router: &v1alpha2.RouterSpec{
+				Scheduler: &v1alpha2.SchedulerSpec{
+					Template: &corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name: "main",
+								Ports: []corev1.ContainerPort{
+									// grpc-health, metrics, zmq intentionally missing
+									{Name: "grpc", ContainerPort: 9002, Protocol: corev1.ProtocolTCP},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	r := &LLMISVCReconciler{Client: fake.NewClientBuilder().Build()}
+	_, err := r.expectedSchedulerService(context.Background(), llmSvc)
+	g.Expect(err).To(HaveOccurred())
+	g.Expect(err.Error()).To(ContainSubstring("missing required ports"))
 }
