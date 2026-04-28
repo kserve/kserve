@@ -1292,9 +1292,9 @@ install_kserve_helm() {
         fi
 
         if is_positive "${ENABLE_LOCALMODEL}"; then
-            config_args+=(--set "kserve.localModel.enabled=true")
-            config_args+=(--set "kserve.localModel.defaultJobImage=kserve/storage-initializer")
-            config_args+=(--set "kserve.localModel.defaultJobImageTag=${KSERVE_VERSION}")
+            config_args+=(--set "kserve.localmodel.enabled=true")
+            config_args+=(--set "kserve.localmodel.defaultJobImage=kserve/storage-initializer")
+            config_args+=(--set "kserve.localmodel.defaultJobImageTag=${KSERVE_VERSION}")
         fi
         # Add custom configurations if provided
         if [ -n "${KSERVE_CUSTOM_ISVC_CONFIGS}" ]; then

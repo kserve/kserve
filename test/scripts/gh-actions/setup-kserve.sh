@@ -68,6 +68,9 @@ if [[ $ENABLE_LLMISVC == "false" || $ENABLE_KSERVE_WITH_LLMISVC == "true" ]]; th
     export KSERVE_OVERLAY_DIR=test
     export INSTALL_RUNTIMES=false
     if [[ $ENABLE_LLMISVC == "true" ]]; then
+      if [[ $ENABLE_KSERVE_WITH_LLMISVC == "true" ]]; then
+        export KSERVE_OVERLAY_DIR=test-modelcache
+      fi
       export INSTALL_LLMISVC_CONFIGS=true
     fi
     ${REPO_ROOT}/hack/setup/infra/manage.kserve-kustomize.sh
