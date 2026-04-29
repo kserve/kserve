@@ -427,6 +427,45 @@ func (ss *InferenceServiceStatus) PropagateRawStatus(
 	}
 
 	ss.SetCondition(readyCondition, componentReadyCondition)
+
+	// Propagate configuration condition based on Progressing status
+	// This is needed for LatestDeploymentReady condition to work in standard deployment mode
+	configurationCondition := configurationConditionsMap[component]
+	componentConfigurationCondition := &apis.Condition{
+		Type:   configurationCondition,
+		Status: corev1.ConditionFalse,
+	}
+
+	if progressingCondition != nil {
+		if progressingCondition.IsFalse() {
+			if len(progressingCondition.Message) > 0 {
+				componentConfigurationCondition = &apis.Condition{
+					Type:    configurationCondition,
+					Status:  corev1.ConditionFalse,
+					Reason:  progressingCondition.Reason,
+					Message: progressingCondition.Message,
+				}
+			}
+		} else if progressingCondition.IsTrue() {
+			if progressingCondition.Reason == "NewReplicaSetAvailable" {
+				componentConfigurationCondition = &apis.Condition{
+					Type:    configurationCondition,
+					Status:  corev1.ConditionTrue,
+					Reason:  progressingCondition.Reason,
+					Message: progressingCondition.Message,
+				}
+			} else {
+				componentConfigurationCondition = &apis.Condition{
+					Type:    configurationCondition,
+					Status:  corev1.ConditionUnknown,
+					Reason:  progressingCondition.Reason,
+					Message: progressingCondition.Message,
+				}
+			}
+		}
+	}
+
+	ss.SetCondition(configurationCondition, componentConfigurationCondition)
 	ss.Components[component] = statusSpec
 	if len(deploymentList) > 0 {
 		ss.ObservedGeneration = deploymentList[0].Status.ObservedGeneration
