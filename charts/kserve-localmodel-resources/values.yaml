@@ -37,3 +37,4 @@ kserve:
         kserve/localmodel: worker
       affinity: {}
       tolerations: []
+      hostPath: /models
