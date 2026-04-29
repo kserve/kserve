@@ -534,9 +534,31 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 		// This is done after merging to avoid conflicts with user-defined environment variables.
 		// See https://github.com/kserve/kserve/issues/4761
 		utils.AddDefaultHuggingFaceEnvVars(initContainer)
+
+		// Apply confidential model serving configuration if enabled via annotations
+		applyConfidentialConfig(initContainer, params.IsvcAnnotations, params.Config)
 	}
 
 	return nil
+}
+
+// applyConfidentialConfig swaps the init container image and injects environment variables
+// for confidential model serving when enabled via pod annotations.
+func applyConfidentialConfig(initContainer *corev1.Container, annotations map[string]string, config *types.StorageInitializerConfig) {
+	if annotations[constants.ConfidentialEnabledAnnotationKey] != "true" {
+		return
+	}
+
+	// Swap init container image to confidential image if configured
+	if config.ConfidentialImage != "" {
+		initContainer.Image = config.ConfidentialImage
+	}
+
+	utils.AddOrReplaceEnv(initContainer, constants.ConfidentialEnabledEnvVar, "true")
+
+	if resourceId, ok := annotations[constants.ConfidentialResourceIdAnnotationKey]; ok && resourceId != "" {
+		utils.AddOrReplaceEnv(initContainer, constants.ConfidentialResourceIdEnvVar, resourceId)
+	}
 }
 
 // InjectStorageInitializer injects an init container to provision model data

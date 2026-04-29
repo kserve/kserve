@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
+	"strings"
 
 	"k8s.io/utils/ptr"
 
@@ -39,6 +40,9 @@ import (
 
 // variantCostPattern is compiled once at package init to avoid recompilation on every webhook call.
 var variantCostPattern = regexp.MustCompile(`^\d+(\.\d+)?$`)
+
+// kbsResourceIdRegexp validates KBS resource ID format: kbs:///<repo>/<type>/<tag>
+var kbsResourceIdRegexp = regexp.MustCompile(`^kbs:///[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+/[a-zA-Z0-9_.-]+$`)
 
 // +kubebuilder:webhook:path=/validate-serving-kserve-io-v1alpha2-llminferenceservice,mutating=false,failurePolicy=fail,sideEffects=None,groups=serving.kserve.io,resources=llminferenceservices,verbs=create;update,versions=v1alpha2,name=llminferenceservice.kserve-webhook-server.v1alpha2.validator,admissionReviewVersions=v1
 
@@ -102,6 +106,10 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, l.validateScaling(llmSvc)...)
 
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
+
+	confidentialWarnings, confidentialErrs := l.validateConfidential(llmSvc)
+	warnings = append(warnings, confidentialWarnings...)
+	allErrs = append(allErrs, confidentialErrs...)
 
 	if len(allErrs) == 0 {
 		logger.V(2).Info("LLMInferenceService v1alpha2 is valid", "llmisvc", llmSvc)
@@ -590,4 +598,36 @@ func ValidateWorkloadScaling(basePath *field.Path, workload *WorkloadSpec) field
 // This is used to report unsupported mutation of values.
 func immutableField(path *field.Path, value interface{}, detail string) *field.Error {
 	return &field.Error{Type: field.ErrorTypeNotSupported, Field: path.String(), BadValue: value, Detail: detail}
+}
+
+// validateConfidential validates the confidential spec on the model.
+func (l *LLMInferenceServiceValidator) validateConfidential(llmSvc *LLMInferenceService) (admission.Warnings, field.ErrorList) {
+	var warnings admission.Warnings
+	var allErrs field.ErrorList
+
+	confidential := llmSvc.Spec.Model.Confidential
+	if confidential == nil || !confidential.Enabled {
+		return warnings, allErrs
+	}
+
+	modelPath := field.NewPath("spec", "model")
+	uri := llmSvc.Spec.Model.URI.String()
+
+	// Warn if OCI URI is used with confidential
+	if strings.HasPrefix(uri, "oci://") {
+		warnings = append(warnings,
+			"confidential has no effect with OCI URIs; OCI image decryption is handled by the container runtime via runtimeClassName")
+	}
+
+	// Validate resourceId format if provided
+	if confidential.ResourceId != nil && *confidential.ResourceId != "" {
+		if !kbsResourceIdRegexp.MatchString(*confidential.ResourceId) {
+			allErrs = append(allErrs, field.Invalid(
+				modelPath.Child("confidential", "resourceId"),
+				*confidential.ResourceId,
+				"must be in the format kbs:///<repo>/<type>/<tag>"))
+		}
+	}
+
+	return warnings, allErrs
 }

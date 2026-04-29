@@ -20888,6 +20888,15 @@ spec:
                   type: object
                 model:
                   properties:
+                    confidential:
+                      properties:
+                        enabled:
+                          type: boolean
+                        resourceId:
+                          type: string
+                      required:
+                        - enabled
+                      type: object
                     lora:
                       properties:
                         adapters:

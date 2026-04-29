@@ -28,4 +28,5 @@ type StorageInitializerConfig struct {
 	MemoryModelcar          string `json:"memoryModelcar"`
 	EnableOciImageSource    bool   `json:"enableModelcar"`
 	UidModelcar             *int64 `json:"uidModelcar"`
+	ConfidentialImage       string `json:"confidentialImage,omitempty"`
 }
