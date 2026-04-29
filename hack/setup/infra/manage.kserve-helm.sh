@@ -142,11 +142,22 @@ if [ "${SET_KSERVE_VERSION}" != "" ]; then
 fi
 
 # Build chart arrays based on ENABLE_* flags
+# When a specific version is set, override imagePullPolicy to IfNotPresent
+# to match kustomize version-template overlay behavior for dev/test scenarios
+PULL_POLICY_KSERVE=""
+PULL_POLICY_LLMISVC=""
+PULL_POLICY_LOCALMODEL=""
+if [ -n "${SET_KSERVE_VERSION}" ]; then
+    PULL_POLICY_KSERVE="--set kserve.controller.imagePullPolicy=IfNotPresent"
+    PULL_POLICY_LLMISVC="--set kserve.llmisvc.controller.imagePullPolicy=IfNotPresent"
+    PULL_POLICY_LOCALMODEL="--set kserve.localmodel.controller.imagePullPolicy=IfNotPresent --set kserve.localmodelnode.controller.imagePullPolicy=IfNotPresent"
+fi
+
 if is_positive "${ENABLE_KSERVE}"; then
     log_info "KServe is enabled"
     CRD_CHARTS+=("kserve-crd")
     RESOURCE_CHARTS+=("kserve-resources")
-    RESOURCE_EXTRA_ARGS_LIST+=("${KSERVE_EXTRA_ARGS:-}")
+    RESOURCE_EXTRA_ARGS_LIST+=("${KSERVE_EXTRA_ARGS:-} ${PULL_POLICY_KSERVE}")
     TARGET_DEPLOYMENT_NAMES+=("kserve-controller-manager")
 fi
 
@@ -154,7 +165,7 @@ if is_positive "${ENABLE_LLMISVC}"; then
     log_info "LLMIsvc is enabled"
     CRD_CHARTS+=("kserve-llmisvc-crd")
     RESOURCE_CHARTS+=("kserve-llmisvc-resources")
-    RESOURCE_EXTRA_ARGS_LIST+=("${LLMISVC_EXTRA_ARGS:-}")
+    RESOURCE_EXTRA_ARGS_LIST+=("${LLMISVC_EXTRA_ARGS:-} ${PULL_POLICY_LLMISVC}")
     TARGET_DEPLOYMENT_NAMES+=("llmisvc-controller-manager")
 fi
 
@@ -162,7 +173,7 @@ if is_positive "${ENABLE_LOCALMODEL}"; then
     log_info "LocalModel is enabled"
     CRD_CHARTS+=("kserve-localmodel-crd")
     RESOURCE_CHARTS+=("kserve-localmodel-resources")
-    RESOURCE_EXTRA_ARGS_LIST+=("${LOCALMODEL_EXTRA_ARGS:-}")
+    RESOURCE_EXTRA_ARGS_LIST+=("${LOCALMODEL_EXTRA_ARGS:-} ${PULL_POLICY_LOCALMODEL}")
     TARGET_DEPLOYMENT_NAMES+=("kserve-localmodel-controller-manager")
 fi
 # INCLUDE_IN_GENERATED_SCRIPT_END

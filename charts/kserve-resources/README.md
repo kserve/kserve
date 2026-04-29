@@ -2,14 +2,14 @@
 
 Helm chart for deploying kserve resources
 
-![Version: v0.18.0-rc1](https://img.shields.io/badge/Version-v0.18.0--rc1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.18.0-rc1](https://img.shields.io/badge/AppVersion-v0.18.0--rc1-informational?style=flat-square)
+![Version: v0.18.0](https://img.shields.io/badge/Version-v0.18.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.18.0](https://img.shields.io/badge/AppVersion-v0.18.0-informational?style=flat-square)
 
 ## Installing the Chart
 
 To install the chart, run the following:
 
 ```console
-$ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --version v0.18.0-rc1
+$ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --version v0.18.0
 ```
 
 ## Values
@@ -46,6 +46,7 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.controller.gateway.pathTemplate | string | `""` |  |
 | kserve.controller.gateway.urlScheme | string | `"http"` |  |
 | kserve.controller.image | string | `"kserve/kserve-controller"` |  |
+| kserve.controller.imagePullPolicy | string | `"Always"` |  |
 | kserve.controller.imagePullSecrets | list | `[]` |  |
 | kserve.controller.knativeAddressableResolver.enabled | bool | `false` |  |
 | kserve.controller.labels | object | `{}` |  |
@@ -145,4 +146,4 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.storage.tag | string | `""` |  |
 | kserve.storage.uidModelcar | int | `1010` |  |
 | kserve.storagecontainer.enabled | string | `""` |  |
-| kserve.version | string | `"v0.18.0-rc1"` |  |
+| kserve.version | string | `"v0.18.0"` |  |

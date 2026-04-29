@@ -644,7 +644,9 @@ ENVOY_AI_GATEWAY_VERSION=v0.5.0
 KNATIVE_OPERATOR_VERSION=v1.21.1
 KNATIVE_SERVING_VERSION=1.21.1
 KEDA_OTEL_ADDON_VERSION=v0.0.6
-KSERVE_VERSION=v0.18.0-rc1
+PROMETHEUS_VERSION=83.4.0
+PROMETHEUS_ADAPTER_VERSION=5.3.0
+KSERVE_VERSION=v0.18.0
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.17.3
 OPENTELEMETRY_OPERATOR_VERSION=0.74.3
@@ -661,6 +663,9 @@ WVA_VERSION=v0.6.0
 
 KEDA_NAMESPACE="${KEDA_NAMESPACE:-keda}"
 KSERVE_NAMESPACE="${KSERVE_NAMESPACE:-kserve}"
+PROMETHEUS_NAMESPACE="${PROMETHEUS_NAMESPACE:-monitoring}"
+PROMETHEUS_ADAPTER_NAMESPACE="${PROMETHEUS_ADAPTER_NAMESPACE:-monitoring}"
+WVA_NAMESPACE="${WVA_NAMESPACE:-wva-system}"
 OTEL_NAMESPACE="${OTEL_NAMESPACE:-opentelemetry-operator}"
 OPERATOR_NAMESPACE="${OPERATOR_NAMESPACE:-knative-operator}"
 SERVING_NAMESPACE="${SERVING_NAMESPACE:-knative-serving}"
@@ -1483,11 +1488,22 @@ main() {
         fi
         
         # Build chart arrays based on ENABLE_* flags
+        # When a specific version is set, override imagePullPolicy to IfNotPresent
+        # to match kustomize version-template overlay behavior for dev/test scenarios
+        PULL_POLICY_KSERVE=""
+        PULL_POLICY_LLMISVC=""
+        PULL_POLICY_LOCALMODEL=""
+        if [ -n "${SET_KSERVE_VERSION}" ]; then
+            PULL_POLICY_KSERVE="--set kserve.controller.imagePullPolicy=IfNotPresent"
+            PULL_POLICY_LLMISVC="--set kserve.llmisvc.controller.imagePullPolicy=IfNotPresent"
+            PULL_POLICY_LOCALMODEL="--set kserve.localmodel.controller.imagePullPolicy=IfNotPresent --set kserve.localmodelnode.controller.imagePullPolicy=IfNotPresent"
+        fi
+        
         if is_positive "${ENABLE_KSERVE}"; then
             log_info "KServe is enabled"
             CRD_CHARTS+=("kserve-crd")
             RESOURCE_CHARTS+=("kserve-resources")
-            RESOURCE_EXTRA_ARGS_LIST+=("${KSERVE_EXTRA_ARGS:-}")
+            RESOURCE_EXTRA_ARGS_LIST+=("${KSERVE_EXTRA_ARGS:-} ${PULL_POLICY_KSERVE}")
             TARGET_DEPLOYMENT_NAMES+=("kserve-controller-manager")
         fi
         
@@ -1495,7 +1511,7 @@ main() {
             log_info "LLMIsvc is enabled"
             CRD_CHARTS+=("kserve-llmisvc-crd")
             RESOURCE_CHARTS+=("kserve-llmisvc-resources")
-            RESOURCE_EXTRA_ARGS_LIST+=("${LLMISVC_EXTRA_ARGS:-}")
+            RESOURCE_EXTRA_ARGS_LIST+=("${LLMISVC_EXTRA_ARGS:-} ${PULL_POLICY_LLMISVC}")
             TARGET_DEPLOYMENT_NAMES+=("llmisvc-controller-manager")
         fi
         
@@ -1503,7 +1519,7 @@ main() {
             log_info "LocalModel is enabled"
             CRD_CHARTS+=("kserve-localmodel-crd")
             RESOURCE_CHARTS+=("kserve-localmodel-resources")
-            RESOURCE_EXTRA_ARGS_LIST+=("${LOCALMODEL_EXTRA_ARGS:-}")
+            RESOURCE_EXTRA_ARGS_LIST+=("${LOCALMODEL_EXTRA_ARGS:-} ${PULL_POLICY_LOCALMODEL}")
             TARGET_DEPLOYMENT_NAMES+=("kserve-localmodel-controller-manager")
         fi
 

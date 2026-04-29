@@ -107,5 +107,18 @@ else
   fi
 fi
 
+ENABLE_KEDA="${ENABLE_KEDA:-false}"
+if [[ $ENABLE_LLMISVC == "true" ]] && [[ $ENABLE_KEDA == "true" ]]; then
+  echo "Patching inferenceservice-config with autoscaling-wva-controller-config for KEDA..."
+  kubectl patch configmap inferenceservice-config -n kserve --type merge -p '{
+    "data": {
+      "autoscaling-wva-controller-config": "{\"prometheus\":{\"url\":\"https://prometheus-kube-prometheus-prometheus.monitoring:9090\",\"tlsInsecureSkipVerify\":true}}"
+    }
+  }'
+  echo "Restarting LLMISVC controller to pick up new config..."
+  kubectl rollout restart deployment llmisvc-controller-manager -n kserve
+  kubectl rollout status deployment llmisvc-controller-manager -n kserve --timeout=120s
+fi
+
 echo "Show inferenceservice-config configmap..."
 kubectl get configmap inferenceservice-config -n kserve

@@ -1,6 +1,6 @@
 # kserve-localmodel-resources
 
-![Version: v0.18.0-rc1](https://img.shields.io/badge/Version-v0.18.0--rc1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.18.0-rc1](https://img.shields.io/badge/AppVersion-v0.18.0--rc1-informational?style=flat-square)
+![Version: v0.18.0](https://img.shields.io/badge/Version-v0.18.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.18.0](https://img.shields.io/badge/AppVersion-v0.18.0-informational?style=flat-square)
 
 KServe LocalModel - Local Model Storage and Caching for Edge and On-Premise Deployments
 
@@ -11,7 +11,7 @@ KServe LocalModel - Local Model Storage and Caching for Edge and On-Premise Depl
 To install the chart, run the following:
 
 ```console
-$ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-localmodel-resources --version v0.18.0-rc1
+$ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-localmodel-resources --version v0.18.0
 ```
 
 ## Maintainers
@@ -72,50 +72,4 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-lo
 | kserve.localmodelnode.controller.resources.requests.memory | string | `"200Mi"` |  |
 | kserve.localmodelnode.controller.tag | string | `""` |  |
 | kserve.localmodelnode.controller.tolerations | list | `[]` |  |
-| kserve.metricsaggregator.enableMetricAggregation | string | `"false"` |  |
-| kserve.metricsaggregator.enablePrometheusScraping | string | `"false"` |  |
-| kserve.opentelemetryCollector.metricReceiverEndpoint | string | `"keda-otel-scaler.keda.svc:4317"` |  |
-| kserve.opentelemetryCollector.metricScalerEndpoint | string | `"keda-otel-scaler.keda.svc:4318"` |  |
-| kserve.opentelemetryCollector.resource.cpuLimit | string | `"1"` |  |
-| kserve.opentelemetryCollector.resource.cpuRequest | string | `"200m"` |  |
-| kserve.opentelemetryCollector.resource.memoryLimit | string | `"2Gi"` |  |
-| kserve.opentelemetryCollector.resource.memoryRequest | string | `"512Mi"` |  |
-| kserve.opentelemetryCollector.scrapeInterval | string | `"5s"` |  |
-| kserve.router.image | string | `"kserve/router"` |  |
-| kserve.router.imagePullPolicy | string | `"IfNotPresent"` |  |
-| kserve.router.imagePullSecrets | list | `[]` |  |
-| kserve.router.tag | string | `""` |  |
-| kserve.security.autoMountServiceAccountToken | bool | `true` |  |
-| kserve.service.serviceClusterIPNone | bool | `false` |  |
-| kserve.servingruntime.art.defaultVersion | string | `""` |  |
-| kserve.servingruntime.art.image | string | `"kserve/art-explainer"` |  |
-| kserve.storage.caBundleConfigMapName | string | `""` |  |
-| kserve.storage.caBundleVolumeMountPath | string | `"/etc/ssl/custom-certs"` |  |
-| kserve.storage.containerSecurityContext.allowPrivilegeEscalation | bool | `false` |  |
-| kserve.storage.containerSecurityContext.capabilities.drop[0] | string | `"ALL"` |  |
-| kserve.storage.containerSecurityContext.privileged | bool | `false` |  |
-| kserve.storage.containerSecurityContext.runAsNonRoot | bool | `true` |  |
-| kserve.storage.cpuModelcar | string | `"10m"` |  |
-| kserve.storage.enableModelcar | bool | `true` |  |
-| kserve.storage.image | string | `"kserve/storage-initializer"` |  |
-| kserve.storage.memoryModelcar | string | `"15Mi"` |  |
-| kserve.storage.resources.limits.cpu | string | `"1"` |  |
-| kserve.storage.resources.limits.memory | string | `"1Gi"` |  |
-| kserve.storage.resources.requests.cpu | string | `"100m"` |  |
-| kserve.storage.resources.requests.memory | string | `"100Mi"` |  |
-| kserve.storage.s3.CABundle | string | `""` |  |
-| kserve.storage.s3.CABundleConfigMap | string | `""` |  |
-| kserve.storage.s3.accessKeyIdName | string | `"AWS_ACCESS_KEY_ID"` |  |
-| kserve.storage.s3.endpoint | string | `""` |  |
-| kserve.storage.s3.region | string | `""` |  |
-| kserve.storage.s3.secretAccessKeyName | string | `"AWS_SECRET_ACCESS_KEY"` |  |
-| kserve.storage.s3.useAnonymousCredential | string | `""` |  |
-| kserve.storage.s3.useHttps | string | `""` |  |
-| kserve.storage.s3.useVirtualBucket | string | `""` |  |
-| kserve.storage.s3.verifySSL | string | `""` |  |
-| kserve.storage.storageSecretNameAnnotation | string | `"serving.kserve.io/secretName"` |  |
-| kserve.storage.storageSpecSecretName | string | `"storage-config"` |  |
-| kserve.storage.tag | string | `""` |  |
-| kserve.storage.uidModelcar | int | `1010` |  |
-| kserve.storagecontainer.enabled | string | `""` |  |
-| kserve.version | string | `"v0.18.0-rc1"` |  |
+| kserve.version | string | `"v0.18.0"` |  |

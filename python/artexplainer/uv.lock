@@ -165,7 +165,7 @@ wheels = [
 
 [[package]]
 name = "artserver"
-version = "0.18.0rc1"
+version = "0.18.0"
 source = { virtual = "." }
 dependencies = [
     { name = "adversarial-robustness-toolbox", extra = ["keras"] },
@@ -841,7 +841,7 @@ wheels = [
 
 [[package]]
 name = "kserve"
-version = "0.18.0rc1"
+version = "0.18.0"
 source = { directory = "../kserve" }
 dependencies = [
     { name = "aiohttp" },

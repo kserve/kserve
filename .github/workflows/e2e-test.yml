@@ -1032,6 +1032,13 @@ jobs:
         timeout-minutes: 30
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "raw" "6" ${{ matrix.network-layer }}
+      
+      # Run dual protocol (gRPC/REST) test only for gatewayapi as it is the only one supporting it currently.
+      - name: Run E2E tests - Dual Protocol
+        if: matrix.network-layer == 'envoy-gatewayapi' || matrix.network-layer == 'istio-gatewayapi'
+        timeout-minutes: 10
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "dual_protocol" "6" ${{ matrix.network-layer }}
 
       - name: Patch inferenceservice config for path based routing
         if: matrix.network-layer == 'envoy-gatewayapi' || matrix.network-layer == 'istio-gatewayapi'
@@ -1156,7 +1163,7 @@ jobs:
       - name: Run E2E tests
         timeout-minutes: 30
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "autoscaling" "6" "istio-ingress"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "autoscaling and not llminferenceservice" "6" "istio-ingress"
 
       - name: Check system status
         if: always()

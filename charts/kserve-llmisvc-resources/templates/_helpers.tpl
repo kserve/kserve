@@ -68,12 +68,6 @@ Return the proper image name
 {{- printf "%s:%s" $repositoryName $tag -}}
 {{- end }}
 
-{{/*
-Return the proper image pull policy
-*/}}
-{{- define "llm-isvc-resources.imagePullPolicy" -}}
-{{- .Values.kserve.llmisvc.controller.imagePullPolicy | default "IfNotPresent" }}
-{{- end }}
 
 {{/*
 Return the proper image pull secrets
