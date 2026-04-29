@@ -475,6 +475,21 @@ func (p *Predictor) reconcileWorker(sRuntime v1alpha1.ServingRuntimeSpec, isvc *
 	var workerPodSpec *corev1.PodSpec
 	var err error
 
+	// If no ServingRuntime was passed, we still want to support WorkerSpec provided directly on the InferenceService.
+	// Setting an empty WorkerSpec here avoids nil dereference errors in the code below when we try to
+	// access WorkerSpec fields (like annotations, labels, pipelineParallelSize, tensorParallelSize) in reconcileWorker
+	// and multiNodeProcess functions. The code will use the values from the ISVC's WorkerSpec if the ServingRuntime one
+	// is empty
+	if sRuntime.WorkerSpec == nil {
+		sRuntime.WorkerSpec = &v1alpha1.WorkerSpec{}
+	}
+	// If the runtime didn't define worker containers, prefer containers specified on the InferenceService WorkerSpec.
+	// This allows multi-node InferenceService to work even when no ServingRuntime is specified, as long as the user
+	// provides the necessary worker container spec directly on the InferenceService
+	if len(sRuntime.WorkerSpec.Containers) == 0 && isvc.Spec.Predictor.WorkerSpec != nil {
+		sRuntime.WorkerSpec.Containers = isvc.Spec.Predictor.WorkerSpec.Containers
+	}
+
 	sRuntimeWorkerAnnotations := sRuntime.WorkerSpec.Annotations
 	sRuntimeWorkerLabels := sRuntime.WorkerSpec.Labels
 
@@ -510,6 +525,21 @@ func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.Infere
 	var mergedWorkerPodSpec *corev1.PodSpec
 	var err error
 
+	if sRuntime.WorkerSpec == nil {
+		errMsg := "you cannot set WorkerSpec in the InferenceService if the ServingRuntime does not have a WorkerSpec"
+		isvc.Status.PropagateRawStatusWithMessages(v1beta1.PredictorComponent, v1beta1.InvalidWorkerSpecNotSet, errMsg, corev1.ConditionFalse)
+		return nil, errors.New(errMsg)
+	}
+	// Check if workerSpec in ServingRuntime does not have worker containers information, it should return errors
+	if len(sRuntime.WorkerSpec.Containers) == 0 {
+		errMsg := "No workerSpec container configuration found in selected serving runtime"
+		isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
+			Reason:  v1beta1.InvalidPredictorSpec,
+			Message: errMsg,
+		})
+		return nil, errors.New(errMsg)
+	}
+
 	// Initialize PipelineParallelSize and TensorParallelSize if not set
 	if sRuntime.WorkerSpec.PipelineParallelSize == nil {
 		sRuntime.WorkerSpec.PipelineParallelSize = ptr.To(constants.DefaultPipelineParallelSize)
@@ -525,21 +555,6 @@ func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.Infere
 	// Set the TensorParallelSize from InferenceService to ServingRuntime workerSpec.TensorParallelSize
 	if isvc.Spec.Predictor.WorkerSpec.TensorParallelSize != nil {
 		sRuntime.WorkerSpec.TensorParallelSize = isvc.Spec.Predictor.WorkerSpec.TensorParallelSize
-	}
-
-	if sRuntime.WorkerSpec == nil {
-		errMsg := "you cannot set WorkerSpec in the InferenceService if the ServingRuntime does not have a WorkerSpec"
-		isvc.Status.PropagateRawStatusWithMessages(v1beta1.PredictorComponent, v1beta1.InvalidWorkerSpecNotSet, errMsg, corev1.ConditionFalse)
-		return nil, errors.New(errMsg)
-	}
-	// Check if workerSpec in ServingRuntime does not have worker containers information, it should return errors
-	if len(sRuntime.WorkerSpec.Containers) == 0 {
-		errMsg := "No workerSpec container configuration found in selected serving runtime"
-		isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
-			Reason:  v1beta1.InvalidPredictorSpec,
-			Message: errMsg,
-		})
-		return nil, errors.New(errMsg)
 	}
 
 	targetisvcContainer := corev1.Container{}
