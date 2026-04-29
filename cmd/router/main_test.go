@@ -1034,3 +1034,391 @@ func TestServerTimeout(t *testing.T) {
 		})
 	}
 }
+
+func TestRetryOnTransient500(t *testing.T) {
+	// Model returns 500 on the first two calls, then 200 on the third.
+	callCount := 0
+	model := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		_, _ = io.ReadAll(req.Body)
+		callCount++
+		if callCount <= 2 {
+			rw.WriteHeader(http.StatusInternalServerError)
+			response := map[string]interface{}{"error": "transient failure"}
+			responseBytes, _ := json.Marshal(response)
+			_, _ = rw.Write(responseBytes)
+			return
+		}
+		response := map[string]interface{}{"predictions": "success"}
+		responseBytes, _ := json.Marshal(response)
+		_, _ = rw.Write(responseBytes)
+	}))
+	modelUrl, err := apis.ParseURL(model.URL)
+	if err != nil {
+		t.Fatalf("Failed to parse model url")
+	}
+	defer model.Close()
+
+	graphSpec := v1alpha1.InferenceGraphSpec{
+		Nodes: map[string]v1alpha1.InferenceRouter{
+			"root": {
+				RouterType: v1alpha1.Sequence,
+				Steps: []v1alpha1.InferenceStep{
+					{
+						StepName: "model",
+						InferenceTarget: v1alpha1.InferenceTarget{
+							ServiceURL: modelUrl.String(),
+						},
+						Retry: &v1alpha1.RetryConfig{
+							MaxRetries:               3,
+							InitialDelayMilliseconds: 10,
+							MaxDelayMilliseconds:     50,
+						},
+					},
+				},
+			},
+		},
+	}
+	input := map[string]interface{}{"instances": []string{"test"}}
+	jsonBytes, _ := json.Marshal(input)
+	headers := http.Header{}
+
+	res, statusCode, err := routeStep("root", graphSpec, jsonBytes, headers)
+	require.NoError(t, err)
+	assert.Equal(t, 200, statusCode)
+
+	var response map[string]interface{}
+	err = json.Unmarshal(res, &response)
+	require.NoError(t, err)
+	assert.Equal(t, "success", response["predictions"])
+	assert.Equal(t, 3, callCount, "expected 2 failures + 1 success = 3 total calls")
+}
+
+func TestNoRetryOn4xx(t *testing.T) {
+	// Model always returns 400 — should NOT be retried.
+	callCount := 0
+	model := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		_, _ = io.ReadAll(req.Body)
+		callCount++
+		rw.WriteHeader(http.StatusBadRequest)
+		response := map[string]interface{}{"error": "bad request"}
+		responseBytes, _ := json.Marshal(response)
+		_, _ = rw.Write(responseBytes)
+	}))
+	modelUrl, err := apis.ParseURL(model.URL)
+	if err != nil {
+		t.Fatalf("Failed to parse model url")
+	}
+	defer model.Close()
+
+	graphSpec := v1alpha1.InferenceGraphSpec{
+		Nodes: map[string]v1alpha1.InferenceRouter{
+			"root": {
+				RouterType: v1alpha1.Sequence,
+				Steps: []v1alpha1.InferenceStep{
+					{
+						StepName: "model",
+						InferenceTarget: v1alpha1.InferenceTarget{
+							ServiceURL: modelUrl.String(),
+						},
+						Retry: &v1alpha1.RetryConfig{
+							MaxRetries:               3,
+							InitialDelayMilliseconds: 10,
+							MaxDelayMilliseconds:     50,
+						},
+					},
+				},
+			},
+		},
+	}
+	input := map[string]interface{}{"instances": []string{"test"}}
+	jsonBytes, _ := json.Marshal(input)
+	headers := http.Header{}
+
+	res, statusCode, err := routeStep("root", graphSpec, jsonBytes, headers)
+	require.NoError(t, err)
+	assert.Equal(t, 400, statusCode)
+
+	var response map[string]interface{}
+	err = json.Unmarshal(res, &response)
+	require.NoError(t, err)
+	assert.Equal(t, "bad request", response["error"])
+	assert.Equal(t, 1, callCount, "4xx should not be retried")
+}
+
+func TestRetryExhausted(t *testing.T) {
+	// Model always returns 503 — retries should be exhausted.
+	callCount := 0
+	model := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		_, _ = io.ReadAll(req.Body)
+		callCount++
+		rw.WriteHeader(http.StatusServiceUnavailable)
+		response := map[string]interface{}{"error": "service unavailable"}
+		responseBytes, _ := json.Marshal(response)
+		_, _ = rw.Write(responseBytes)
+	}))
+	modelUrl, err := apis.ParseURL(model.URL)
+	if err != nil {
+		t.Fatalf("Failed to parse model url")
+	}
+	defer model.Close()
+
+	graphSpec := v1alpha1.InferenceGraphSpec{
+		Nodes: map[string]v1alpha1.InferenceRouter{
+			"root": {
+				RouterType: v1alpha1.Sequence,
+				Steps: []v1alpha1.InferenceStep{
+					{
+						StepName: "model",
+						InferenceTarget: v1alpha1.InferenceTarget{
+							ServiceURL: modelUrl.String(),
+						},
+						Retry: &v1alpha1.RetryConfig{
+							MaxRetries:               2,
+							InitialDelayMilliseconds: 10,
+							MaxDelayMilliseconds:     50,
+						},
+					},
+				},
+			},
+		},
+	}
+	input := map[string]interface{}{"instances": []string{"test"}}
+	jsonBytes, _ := json.Marshal(input)
+	headers := http.Header{}
+
+	res, statusCode, err := routeStep("root", graphSpec, jsonBytes, headers)
+	require.NoError(t, err)
+	assert.Equal(t, 503, statusCode)
+
+	var response map[string]interface{}
+	err = json.Unmarshal(res, &response)
+	require.NoError(t, err)
+	assert.Equal(t, "service unavailable", response["error"])
+	assert.Equal(t, 3, callCount, "expected 1 initial + 2 retries = 3 total calls")
+}
+
+func TestRetryWithNoConfig(t *testing.T) {
+	// Model returns 500 — without retry config, should fail on first attempt.
+	callCount := 0
+	model := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		_, _ = io.ReadAll(req.Body)
+		callCount++
+		rw.WriteHeader(http.StatusInternalServerError)
+		response := map[string]interface{}{"error": "server error"}
+		responseBytes, _ := json.Marshal(response)
+		_, _ = rw.Write(responseBytes)
+	}))
+	modelUrl, err := apis.ParseURL(model.URL)
+	if err != nil {
+		t.Fatalf("Failed to parse model url")
+	}
+	defer model.Close()
+
+	graphSpec := v1alpha1.InferenceGraphSpec{
+		Nodes: map[string]v1alpha1.InferenceRouter{
+			"root": {
+				RouterType: v1alpha1.Sequence,
+				Steps: []v1alpha1.InferenceStep{
+					{
+						StepName: "model",
+						InferenceTarget: v1alpha1.InferenceTarget{
+							ServiceURL: modelUrl.String(),
+						},
+						// No Retry config
+					},
+				},
+			},
+		},
+	}
+	input := map[string]interface{}{"instances": []string{"test"}}
+	jsonBytes, _ := json.Marshal(input)
+	headers := http.Header{}
+
+	_, statusCode, err := routeStep("root", graphSpec, jsonBytes, headers)
+	require.NoError(t, err)
+	assert.Equal(t, 500, statusCode)
+	assert.Equal(t, 1, callCount, "without retry config should only call once")
+}
+
+func TestEnsembleRetryOnTransientFailure(t *testing.T) {
+	// Model 1 returns 503 on first call, then 200. Model 2 always returns 200.
+	model1CallCount := 0
+	model1 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		_, _ = io.ReadAll(req.Body)
+		model1CallCount++
+		if model1CallCount <= 1 {
+			rw.WriteHeader(http.StatusServiceUnavailable)
+			response := map[string]interface{}{"error": "not ready"}
+			responseBytes, _ := json.Marshal(response)
+			_, _ = rw.Write(responseBytes)
+			return
+		}
+		response := map[string]interface{}{"predictions": "model1"}
+		responseBytes, _ := json.Marshal(response)
+		_, _ = rw.Write(responseBytes)
+	}))
+	model1Url, err := apis.ParseURL(model1.URL)
+	require.NoError(t, err)
+	defer model1.Close()
+
+	model2 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		_, _ = io.ReadAll(req.Body)
+		response := map[string]interface{}{"predictions": "model2"}
+		responseBytes, _ := json.Marshal(response)
+		_, _ = rw.Write(responseBytes)
+	}))
+	model2Url, err := apis.ParseURL(model2.URL)
+	require.NoError(t, err)
+	defer model2.Close()
+
+	graphSpec := v1alpha1.InferenceGraphSpec{
+		Nodes: map[string]v1alpha1.InferenceRouter{
+			"root": {
+				RouterType: v1alpha1.Ensemble,
+				Steps: []v1alpha1.InferenceStep{
+					{
+						StepName: "model1",
+						InferenceTarget: v1alpha1.InferenceTarget{
+							ServiceURL: model1Url.String(),
+						},
+						Retry: &v1alpha1.RetryConfig{
+							MaxRetries:               3,
+							InitialDelayMilliseconds: 10,
+							MaxDelayMilliseconds:     50,
+						},
+					},
+					{
+						StepName: "model2",
+						InferenceTarget: v1alpha1.InferenceTarget{
+							ServiceURL: model2Url.String(),
+						},
+					},
+				},
+			},
+		},
+	}
+	input := map[string]interface{}{"instances": []string{"test"}}
+	jsonBytes, _ := json.Marshal(input)
+	headers := http.Header{}
+
+	res, statusCode, err := routeStep("root", graphSpec, jsonBytes, headers)
+	require.NoError(t, err)
+	assert.Equal(t, 200, statusCode)
+
+	var response map[string]interface{}
+	err = json.Unmarshal(res, &response)
+	require.NoError(t, err)
+
+	// Both models should be in the ensemble response
+	model1Resp, ok := response["model1"].(map[string]interface{})
+	assert.True(t, ok, "model1 should be in ensemble response")
+	assert.Equal(t, "model1", model1Resp["predictions"])
+
+	model2Resp, ok := response["model2"].(map[string]interface{})
+	assert.True(t, ok, "model2 should be in ensemble response")
+	assert.Equal(t, "model2", model2Resp["predictions"])
+
+	assert.Equal(t, 2, model1CallCount, "model1 should have been called twice (1 failure + 1 success)")
+}
+
+// TestGraphLevelDefaultRetry verifies that steps without per-step retry inherit the graph's defaultRetry.
+func TestGraphLevelDefaultRetry(t *testing.T) {
+	callCount := 0
+	model := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		if callCount <= 2 {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(`{"error": "unavailable"}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"predictions": "ok"}`))
+	}))
+	defer model.Close()
+	modelUrl, err := apis.ParseURL(model.URL)
+	require.NoError(t, err)
+
+	graphSpec := v1alpha1.InferenceGraphSpec{
+		DefaultRetry: &v1alpha1.RetryConfig{
+			MaxRetries:               3,
+			InitialDelayMilliseconds: 10,
+			MaxDelayMilliseconds:     50,
+		},
+		Nodes: map[string]v1alpha1.InferenceRouter{
+			"root": {
+				RouterType: v1alpha1.Sequence,
+				Steps: []v1alpha1.InferenceStep{
+					{
+						StepName: "model",
+						InferenceTarget: v1alpha1.InferenceTarget{
+							ServiceURL: modelUrl.String(),
+						},
+						// No per-step retry — should inherit graph-level default
+					},
+				},
+			},
+		},
+	}
+	input := map[string]interface{}{"instances": []string{"test"}}
+	jsonBytes, _ := json.Marshal(input)
+	headers := http.Header{}
+
+	res, statusCode, err := routeStep("root", graphSpec, jsonBytes, headers)
+	require.NoError(t, err)
+	assert.Equal(t, 200, statusCode)
+
+	var response map[string]interface{}
+	err = json.Unmarshal(res, &response)
+	require.NoError(t, err)
+	assert.Equal(t, "ok", response["predictions"])
+	assert.Equal(t, 3, callCount, "should have been called 3 times (2 failures + 1 success via graph-level retry)")
+}
+
+// TestStepRetryOverridesGraphDefault verifies that per-step retry takes precedence over graph defaultRetry.
+func TestStepRetryOverridesGraphDefault(t *testing.T) {
+	callCount := 0
+	model := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		// Always return 503 so we can count retry attempts
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte(`{"error": "unavailable"}`))
+	}))
+	defer model.Close()
+	modelUrl, err := apis.ParseURL(model.URL)
+	require.NoError(t, err)
+
+	graphSpec := v1alpha1.InferenceGraphSpec{
+		DefaultRetry: &v1alpha1.RetryConfig{
+			MaxRetries:               5,
+			InitialDelayMilliseconds: 10,
+			MaxDelayMilliseconds:     50,
+		},
+		Nodes: map[string]v1alpha1.InferenceRouter{
+			"root": {
+				RouterType: v1alpha1.Sequence,
+				Steps: []v1alpha1.InferenceStep{
+					{
+						StepName: "model",
+						InferenceTarget: v1alpha1.InferenceTarget{
+							ServiceURL: modelUrl.String(),
+						},
+						// Per-step retry overrides graph default
+						Retry: &v1alpha1.RetryConfig{
+							MaxRetries:               2,
+							InitialDelayMilliseconds: 10,
+							MaxDelayMilliseconds:     50,
+						},
+					},
+				},
+			},
+		},
+	}
+	input := map[string]interface{}{"instances": []string{"test"}}
+	jsonBytes, _ := json.Marshal(input)
+	headers := http.Header{}
+
+	_, statusCode, _ := routeStep("root", graphSpec, jsonBytes, headers)
+	assert.Equal(t, 503, statusCode)
+	// 1 initial + 2 retries = 3 total (step-level maxRetries=2, NOT graph-level 5)
+	assert.Equal(t, 3, callCount, "should use step-level retry (2) not graph-level (5)")
+}

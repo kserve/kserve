@@ -59,6 +59,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LocalModelNodeSpec":            schema_pkg_apis_serving_v1alpha1_LocalModelNodeSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LocalModelStorageSpec":         schema_pkg_apis_serving_v1alpha1_LocalModelStorageSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ModelSpec":                     schema_pkg_apis_serving_v1alpha1_ModelSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.RetryConfig":                   schema_pkg_apis_serving_v1alpha1_RetryConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ServingRuntime":                schema_pkg_apis_serving_v1alpha1_ServingRuntime(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ServingRuntimeList":            schema_pkg_apis_serving_v1alpha1_ServingRuntimeList(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ServingRuntimePodSpec":         schema_pkg_apis_serving_v1alpha1_ServingRuntimePodSpec(ref),
@@ -647,12 +648,18 @@ func schema_pkg_apis_serving_v1alpha1_InferenceGraphSpec(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
+					"defaultRetry": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DefaultRetry defines the default retry configuration for all steps in the graph. Steps can override this by specifying their own retry configuration. If not set, no retries are attempted unless configured per-step.",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.RetryConfig"),
+						},
+					},
 				},
 				Required: []string{"nodes"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InfereceGraphRouterTimeouts", "github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceRouter", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InfereceGraphRouterTimeouts", "github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceRouter", "github.com/kserve/kserve/pkg/apis/serving/v1alpha1.RetryConfig", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration"},
 	}
 }
 
@@ -835,9 +842,17 @@ func schema_pkg_apis_serving_v1alpha1_InferenceStep(ref common.ReferenceCallback
 							Format:      "",
 						},
 					},
+					"retry": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Retry configures retry behavior for this step on transient failures (5xx and connection errors). If not set, no retries are attempted (the current default behavior).",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.RetryConfig"),
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.RetryConfig"},
 	}
 }
 
@@ -1691,6 +1706,40 @@ func schema_pkg_apis_serving_v1alpha1_ModelSpec(ref common.ReferenceCallback) co
 		},
 		Dependencies: []string{
 			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_RetryConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "RetryConfig defines retry behavior for an inference step when it encounters transient failures. Retries use exponential backoff with jitter. Only 5xx status codes and connection errors are retried; 4xx errors are not retried.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"maxRetries": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MaxRetries is the maximum number of retry attempts (not counting the initial request).",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"initialDelayMs": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InitialDelayMilliseconds is the initial backoff delay in milliseconds before the first retry. Subsequent retries use exponential backoff with jitter.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"maxDelayMs": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MaxDelayMilliseconds is the maximum delay in milliseconds between retries. Defaults to 300000 (5 minutes). Set a lower value for latency-sensitive workloads.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 

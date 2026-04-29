@@ -53,6 +53,7 @@ class V1alpha1InferenceStep(object):
         'map_predictions_to_instances': 'bool',
         'name': 'str',
         'node_name': 'str',
+        'retry': 'V1alpha1RetryConfig',
         'service_name': 'str',
         'service_url': 'str',
         'weight': 'int'
@@ -65,12 +66,13 @@ class V1alpha1InferenceStep(object):
         'map_predictions_to_instances': 'mapPredictionsToInstances',
         'name': 'name',
         'node_name': 'nodeName',
+        'retry': 'retry',
         'service_name': 'serviceName',
         'service_url': 'serviceUrl',
         'weight': 'weight'
     }
 
-    def __init__(self, condition=None, data=None, dependency=None, map_predictions_to_instances=None, name=None, node_name=None, service_name=None, service_url=None, weight=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, condition=None, data=None, dependency=None, map_predictions_to_instances=None, name=None, node_name=None, retry=None, service_name=None, service_url=None, weight=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1InferenceStep - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -82,6 +84,7 @@ class V1alpha1InferenceStep(object):
         self._map_predictions_to_instances = None
         self._name = None
         self._node_name = None
+        self._retry = None
         self._service_name = None
         self._service_url = None
         self._weight = None
@@ -99,6 +102,8 @@ class V1alpha1InferenceStep(object):
             self.name = name
         if node_name is not None:
             self.node_name = node_name
+        if retry is not None:
+            self.retry = retry
         if service_name is not None:
             self.service_name = service_name
         if service_url is not None:
@@ -243,6 +248,27 @@ class V1alpha1InferenceStep(object):
         """
 
         self._node_name = node_name
+
+    @property
+    def retry(self):
+        """Gets the retry of this V1alpha1InferenceStep.  # noqa: E501
+
+
+        :return: The retry of this V1alpha1InferenceStep.  # noqa: E501
+        :rtype: V1alpha1RetryConfig
+        """
+        return self._retry
+
+    @retry.setter
+    def retry(self, retry):
+        """Sets the retry of this V1alpha1InferenceStep.
+
+
+        :param retry: The retry of this V1alpha1InferenceStep.  # noqa: E501
+        :type: V1alpha1RetryConfig
+        """
+
+        self._retry = retry
 
     @property
     def service_name(self):

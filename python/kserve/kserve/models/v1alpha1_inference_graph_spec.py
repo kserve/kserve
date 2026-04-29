@@ -48,6 +48,7 @@ class V1alpha1InferenceGraphSpec(object):
     """
     openapi_types = {
         'affinity': 'V1Affinity',
+        'default_retry': 'V1alpha1RetryConfig',
         'max_replicas': 'int',
         'min_replicas': 'int',
         'node_name': 'str',
@@ -64,6 +65,7 @@ class V1alpha1InferenceGraphSpec(object):
 
     attribute_map = {
         'affinity': 'affinity',
+        'default_retry': 'defaultRetry',
         'max_replicas': 'maxReplicas',
         'min_replicas': 'minReplicas',
         'node_name': 'nodeName',
@@ -78,13 +80,14 @@ class V1alpha1InferenceGraphSpec(object):
         'tolerations': 'tolerations'
     }
 
-    def __init__(self, affinity=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, nodes=None, resources=None, router_timeouts=None, scale_metric=None, scale_target=None, service_account_name=None, timeout=None, tolerations=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, affinity=None, default_retry=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, nodes=None, resources=None, router_timeouts=None, scale_metric=None, scale_target=None, service_account_name=None, timeout=None, tolerations=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1InferenceGraphSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._affinity = None
+        self._default_retry = None
         self._max_replicas = None
         self._min_replicas = None
         self._node_name = None
@@ -101,6 +104,8 @@ class V1alpha1InferenceGraphSpec(object):
 
         if affinity is not None:
             self.affinity = affinity
+        if default_retry is not None:
+            self.default_retry = default_retry
         if max_replicas is not None:
             self.max_replicas = max_replicas
         if min_replicas is not None:
@@ -145,6 +150,27 @@ class V1alpha1InferenceGraphSpec(object):
         """
 
         self._affinity = affinity
+
+    @property
+    def default_retry(self):
+        """Gets the default_retry of this V1alpha1InferenceGraphSpec.  # noqa: E501
+
+
+        :return: The default_retry of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :rtype: V1alpha1RetryConfig
+        """
+        return self._default_retry
+
+    @default_retry.setter
+    def default_retry(self, default_retry):
+        """Sets the default_retry of this V1alpha1InferenceGraphSpec.
+
+
+        :param default_retry: The default_retry of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :type: V1alpha1RetryConfig
+        """
+
+        self._default_retry = default_retry
 
     @property
     def max_replicas(self):
