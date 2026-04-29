@@ -37,7 +37,7 @@ type InferenceServiceStatus struct {
 	// - TransformerReady: transformer readiness condition; <br/>
 	// - ExplainerReady: explainer readiness condition; <br/>
 	// - RoutesReady (serverless mode only): aggregated routing condition, i.e. endpoint readiness condition; <br/>
-	// - LatestDeploymentReady (serverless mode only): aggregated configuration condition, i.e. latest deployment readiness condition; <br/>
+	// - LatestDeploymentReady: aggregated deployment readiness condition; set in both Serverless and Standard modes; <br/>
 	// - Ready: aggregated condition; <br/>
 	duckv1.Status `json:",inline"`
 	// Addressable endpoint for the InferenceService
@@ -515,6 +515,28 @@ func (ss *InferenceServiceStatus) PropagateCrossComponentStatus(componentList []
 		}
 	}
 	ss.SetCondition(conditionType, crossComponentCondition)
+}
+
+// PropagateRawDeploymentReadyStatus sets LatestDeploymentReady for Standard (raw Deployment) mode
+// by aggregating the component-level Ready conditions. Configuration sub-conditions
+// (PredictorConfigurationReady etc.) are only populated in Serverless mode, so Standard
+// mode derives deployment readiness directly from the component Ready conditions instead.
+func (ss *InferenceServiceStatus) PropagateRawDeploymentReadyStatus(componentList []ComponentType) {
+	crossComponentCondition := &apis.Condition{
+		Type:   LatestDeploymentReady,
+		Status: corev1.ConditionTrue,
+	}
+	for _, component := range componentList {
+		readyCondition := readyConditionsMap[component]
+		if !ss.IsConditionReady(readyCondition) {
+			crossComponentCondition.Status = corev1.ConditionFalse
+			if ss.IsConditionUnknown(readyCondition) {
+				crossComponentCondition.Status = corev1.ConditionUnknown
+			}
+			crossComponentCondition.Reason = string(readyCondition) + " not ready"
+		}
+	}
+	ss.SetCondition(LatestDeploymentReady, crossComponentCondition)
 }
 
 func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, serviceStatus *knservingv1.ServiceStatus) {
