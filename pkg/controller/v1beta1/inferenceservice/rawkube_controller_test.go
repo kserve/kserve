@@ -8909,16 +8909,25 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// Check Services
 			actualService := &corev1.Service{}
-			headServiceName := constants.GetHeadServiceName(isvcName+"-predictor", "1")
 			defaultServiceName := isvcName + "-predictor"
-			expectedHeadServiceName := types.NamespacedName{Name: headServiceName, Namespace: isvcNamespace}
 			expectedDefaultServiceName := types.NamespacedName{Name: defaultServiceName, Namespace: isvcNamespace}
 
-			// Verify if head service is created
+			// Verify if head service is created by listing with multinode head label
 			Eventually(func() bool {
-				if err := k8sClient.Get(ctx, expectedHeadServiceName, actualService); err != nil {
+				svcList := &corev1.ServiceList{}
+				if err := k8sClient.List(ctx, svcList,
+					client.InNamespace(isvcNamespace),
+					client.MatchingLabels{
+						constants.MultiNodeRoleLabelKey:       constants.MultiNodeHead,
+						constants.InferenceServicePodLabelKey: isvcName,
+					},
+				); err != nil {
 					return false
 				}
+				if len(svcList.Items) != 1 {
+					return false
+				}
+				*actualService = svcList.Items[0]
 				return true
 			}, timeout, interval).Should(BeTrue())
 

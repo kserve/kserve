@@ -55,11 +55,11 @@ const (
 
 // InferenceService Constants
 var (
-	InferenceServiceName                  = "inferenceservice"
-	InferenceServiceAPIName               = "inferenceservices"
-	InferenceServicePodLabelKey           = KServeAPIGroupName + "/" + InferenceServiceName
-	InferenceServiceGenerationPodLabelKey = "isvc.generation"
-	InferenceServiceConfigMapName         = "inferenceservice-config"
+	InferenceServiceName          = "inferenceservice"
+	InferenceServiceAPIName       = "inferenceservices"
+	InferenceServicePodLabelKey   = KServeAPIGroupName + "/" + InferenceServiceName
+	PodTemplateHashLabelKey       = "serving.kserve.io/pod-template-hash"
+	InferenceServiceConfigMapName = "inferenceservice-config"
 )
 
 // InferenceGraph Constants
@@ -711,15 +711,15 @@ func GetRawWorkerServiceLabel(service string) string {
 }
 
 // GetHeadServiceName generate head service name
-func GetHeadServiceName(service string, isvcGeneration string) string {
+func GetHeadServiceName(service string, podTemplateHash string) string {
 	isvcName := strings.TrimSuffix(service, "-predictor")
-	return isvcName + "-" + MultiNodeHead + "-" + isvcGeneration
+	return isvcName + "-" + MultiNodeHead + "-" + podTemplateHash
 }
 
 // GetWorkerServiceName generate worker headless service name
-func GetWorkerServiceName(service string, isvcGeneration string) string {
+func GetWorkerServiceName(service string, podTemplateHash string) string {
 	isvcName := strings.TrimSuffix(service, "-predictor")
-	return isvcName + "-" + WorkerNodeSuffixPlural + "-" + isvcGeneration
+	return isvcName + "-" + WorkerNodeSuffixPlural + "-" + podTemplateHash
 }
 
 func (e InferenceServiceComponent) String() string {

@@ -69,6 +69,7 @@ func NewRawKubeReconciler(ctx context.Context,
 	storageSpec *v1beta1.StorageSpec,
 	credentialBuilder *credentials.CredentialBuilder,
 	storageContainerSpec *v1alpha1.StorageContainerSpec,
+	podTemplateHash string,
 ) (*RawKubeReconciler, error) {
 	var otelCollector *otel.OtelReconciler
 	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, clientset)
@@ -207,6 +208,7 @@ func NewRawKubeReconciler(ctx context.Context,
 			PodSpec:          podSpec,
 			MultiNodeEnabled: multiNodeEnabled,
 			ServiceConfig:    serviceConfig,
+			PodTemplateHash:  podTemplateHash,
 		},
 	)
 	if err != nil {
@@ -243,14 +245,15 @@ func (r *RawKubeReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deployment
 			return nil, err
 		}
 	}
-	// reconcile Workload (Deployment)
-	deploymentList, err := r.Workload.Reconcile(ctx)
-	if err != nil {
+	// reconcile Service before Workload so that headless services exist
+	// before new pods start — prevents DNS NXDOMAIN when worker pods boot
+	// and resolve the head service DNS name on first connection.
+	if _, err := r.Service.Reconcile(ctx); err != nil {
 		return nil, err
 	}
 
-	// reconcile Service
-	_, err = r.Service.Reconcile(ctx)
+	// reconcile Workload (Deployment)
+	deploymentList, err := r.Workload.Reconcile(ctx)
 	if err != nil {
 		return nil, err
 	}

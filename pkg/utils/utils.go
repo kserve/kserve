@@ -18,7 +18,9 @@ package utils
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"hash/fnv"
 	"path/filepath"
 	"strings"
 
@@ -486,4 +488,26 @@ func GetParentDirectory(path string) string {
 	}
 
 	return parentDir
+}
+
+// ComputeHash computes a FNV-32a hash over one or more objects by JSON-marshaling
+// each in order and feeding the bytes into the same hasher.
+// Used for multinode headless service selectors so that rolling updates
+// correctly isolate old and new pods when the pod template changes
+// (e.g., ServingRuntime image updates or ISVC spec changes like storage URI).
+func ComputeHash(objects ...interface{}) (string, error) {
+	if len(objects) == 0 {
+		return "", errors.New("ComputeHash: at least one object required")
+	}
+	hasher := fnv.New32a()
+	for _, obj := range objects {
+		data, err := json.Marshal(obj)
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal object: %w", err)
+		}
+		if _, err = hasher.Write(data); err != nil {
+			return "", fmt.Errorf("failed to hash object: %w", err)
+		}
+	}
+	return fmt.Sprintf("%08x", hasher.Sum32()), nil
 }
