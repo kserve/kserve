@@ -239,5 +239,15 @@ func LoadConfigFromClient(ctx context.Context, reader client.Reader) (*Config, e
 		return nil, fmt.Errorf("failed to parse SchedulerConfig: %w", err)
 	}
 
-	return NewConfig(ingressConfig, storageInitializerConfig, &credentialConfig, schedulerConfig), nil
+	config := NewConfig(ingressConfig, storageInitializerConfig, &credentialConfig, schedulerConfig)
+
+	if autoscalingData, ok := configMap.Data[autoscalingConfigName]; ok {
+		asCfg := &WVAAutoscalingConfig{}
+		if err := json.Unmarshal([]byte(autoscalingData), asCfg); err != nil {
+			return nil, fmt.Errorf("failed to parse %s config json: %w", autoscalingConfigName, err)
+		}
+		config.WVAAutoscalingConfig = asCfg
+	}
+
+	return config, nil
 }
