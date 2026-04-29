@@ -235,9 +235,48 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 		return nil
 	}
 
-	// Don't inject init-containers if a modelcar is used
-	if params.Config.EnableOciImageSource && len(params.StorageURIs) > 0 && strings.HasPrefix(params.StorageURIs[0].Uri, constants.OciURIPrefix) {
-		return nil
+	// Handle OCI URIs via modelcar injection instead of init-containers
+	if params.Config.EnableOciImageSource && len(params.StorageURIs) > 0 {
+		hasOciUri := false
+		for _, storageUri := range params.StorageURIs {
+			if strings.HasPrefix(storageUri.Uri, constants.OciURIPrefix) {
+				hasOciUri = true
+				break
+			}
+		}
+		if hasOciUri {
+			// For the storageUris path (IsLegacyURI == false), inject modelcar directly.
+			// For the legacy path (IsLegacyURI == true), the webhook's InjectModelcar() handles it via annotations.
+			if params.IsLegacyURI {
+				return nil
+			}
+
+			userContainer := utils.GetContainerWithName(params.PodSpec, constants.InferenceServiceContainerName)
+			workerContainer := utils.GetContainerWithName(params.PodSpec, constants.WorkerContainerName)
+			if userContainer == nil && workerContainer == nil {
+				return errors.New("Invalid configuration: cannot find container")
+			}
+
+			for _, storageUri := range params.StorageURIs {
+				if !strings.HasPrefix(storageUri.Uri, constants.OciURIPrefix) {
+					continue
+				}
+				targetContainerName := constants.InferenceServiceContainerName
+				if userContainer == nil {
+					targetContainerName = constants.WorkerContainerName
+				}
+				if err := utils.ConfigureModelcarToContainer(storageUri.Uri, params.PodSpec, targetContainerName, storageUri.MountPath, params.Config); err != nil {
+					return err
+				}
+				// Also configure for transformer if present
+				if utils.GetContainerWithName(params.PodSpec, constants.TransformerContainerName) != nil {
+					if err := utils.ConfigureModelcarToContainer(storageUri.Uri, params.PodSpec, constants.TransformerContainerName, storageUri.MountPath, params.Config); err != nil {
+						return err
+					}
+				}
+			}
+			return nil
+		}
 	}
 
 	// Don't inject if InitContainer already injected
