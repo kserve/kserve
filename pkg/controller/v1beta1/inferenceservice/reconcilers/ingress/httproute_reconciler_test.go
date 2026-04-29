@@ -1287,7 +1287,11 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 				ServiceAnnotationDisallowedList: []string{},
 				ServiceLabelDisallowedList:      []string{},
 			}
-			httpRoute, err := createRawTopLevelHTTPRoute(tc.isvc, tc.ingressConfig, isvcConfig)
+			ctx := context.TODO()
+
+			fakeClient := fake.NewClientBuilder().Build()
+
+			httpRoute, err := createRawTopLevelHTTPRoute(ctx, fakeClient, tc.isvc, tc.ingressConfig, isvcConfig)
 
 			g.Expect(err).ToNot(HaveOccurred())
 			if tc.expected != nil {
@@ -1451,7 +1455,11 @@ func TestCreateRawPredictorHTTPRoute(t *testing.T) {
 				ServiceAnnotationDisallowedList: []string{},
 				ServiceLabelDisallowedList:      []string{},
 			}
-			httpRoute, err := createRawPredictorHTTPRoute(tc.isvc, tc.ingressConfig, isvcConfig)
+			ctx := context.TODO()
+
+			fakeClient := fake.NewClientBuilder().Build()
+
+			httpRoute, err := createRawPredictorHTTPRoute(ctx, fakeClient, tc.isvc, tc.ingressConfig, isvcConfig)
 
 			g.Expect(err).ToNot(HaveOccurred())
 			if tc.expected != nil {
@@ -1617,7 +1625,11 @@ func TestCreateRawTransformerHTTPRoute(t *testing.T) {
 				ServiceAnnotationDisallowedList: []string{},
 				ServiceLabelDisallowedList:      []string{},
 			}
-			httpRoute, err := createRawTransformerHTTPRoute(tc.isvc, tc.ingressConfig, isvcConfig)
+			ctx := context.TODO()
+
+			fakeClient := fake.NewClientBuilder().Build()
+
+			httpRoute, err := createRawTransformerHTTPRoute(ctx, fakeClient, tc.isvc, tc.ingressConfig, isvcConfig)
 
 			g.Expect(err).ToNot(HaveOccurred())
 			if tc.expected != nil {
@@ -1783,7 +1795,11 @@ func TestCreateRawExplainerHTTPRoute(t *testing.T) {
 				ServiceAnnotationDisallowedList: []string{},
 				ServiceLabelDisallowedList:      []string{},
 			}
-			httpRoute, err := createRawExplainerHTTPRoute(tc.isvc, tc.ingressConfig, isvcConfig)
+			ctx := context.TODO()
+
+			fakeClient := fake.NewClientBuilder().Build()
+
+			httpRoute, err := createRawExplainerHTTPRoute(ctx, fakeClient, tc.isvc, tc.ingressConfig, isvcConfig)
 
 			g.Expect(err).ToNot(HaveOccurred())
 			if tc.expected != nil {
@@ -2676,7 +2692,11 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 		})
 
 		// Create HTTPRoute with not ready status - needs to have the correct spec to avoid being updated
-		desiredPredictorRoute, err := createRawPredictorHTTPRoute(isvc, ingressConfig, isvcConfig)
+		ctx := context.TODO()
+
+		fakeClient := fake.NewClientBuilder().Build()
+
+		desiredPredictorRoute, err := createRawPredictorHTTPRoute(ctx, fakeClient, isvc, ingressConfig, isvcConfig)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(desiredPredictorRoute).NotTo(BeNil())
 
@@ -2743,7 +2763,11 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 		})
 
 		// Create ready predictor HTTPRoute but not ready transformer HTTPRoute
-		desiredPredictorRoute, err := createRawPredictorHTTPRoute(isvc, ingressConfig, isvcConfig)
+		ctx := context.TODO()
+
+		fakeClient := fake.NewClientBuilder().Build()
+
+		desiredPredictorRoute, err := createRawPredictorHTTPRoute(ctx, fakeClient, isvc, ingressConfig, isvcConfig)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(desiredPredictorRoute).NotTo(BeNil())
 
@@ -2770,7 +2794,7 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 			},
 		}
 
-		desiredTransformerRoute, err := createRawTransformerHTTPRoute(isvc, ingressConfig, isvcConfig)
+		desiredTransformerRoute, err := createRawTransformerHTTPRoute(ctx, fakeClient, isvc, ingressConfig, isvcConfig)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(desiredTransformerRoute).NotTo(BeNil())
 
@@ -2807,7 +2831,7 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 		}
 
 		// Create ready top-level HTTPRoute
-		desiredTopLevelRoute, err := createRawTopLevelHTTPRoute(isvc, ingressConfig, isvcConfig)
+		desiredTopLevelRoute, err := createRawTopLevelHTTPRoute(ctx, fakeClient, isvc, ingressConfig, isvcConfig)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(desiredTopLevelRoute).NotTo(BeNil())
 
@@ -2886,7 +2910,11 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 		})
 
 		// Create ready predictor HTTPRoute but not ready explainer HTTPRoute
-		desiredPredictorRoute, err := createRawPredictorHTTPRoute(isvc, ingressConfig, isvcConfig)
+		ctx := context.TODO()
+
+		fakeClient := fake.NewClientBuilder().Build()
+
+		desiredPredictorRoute, err := createRawPredictorHTTPRoute(ctx, fakeClient, isvc, ingressConfig, isvcConfig)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(desiredPredictorRoute).NotTo(BeNil())
 
@@ -2913,7 +2941,7 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 			},
 		}
 
-		desiredExplainerRoute, err := createRawExplainerHTTPRoute(isvc, ingressConfig, isvcConfig)
+		desiredExplainerRoute, err := createRawExplainerHTTPRoute(ctx, fakeClient, isvc, ingressConfig, isvcConfig)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(desiredExplainerRoute).NotTo(BeNil())
 
@@ -2938,7 +2966,7 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 			},
 		}
 
-		desiredTopLevelRoute, err := createRawTopLevelHTTPRoute(isvc, ingressConfig, isvcConfig)
+		desiredTopLevelRoute, err := createRawTopLevelHTTPRoute(ctx, fakeClient, isvc, ingressConfig, isvcConfig)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(desiredTopLevelRoute).NotTo(BeNil())
 
@@ -3003,7 +3031,9 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 		})
 
 		// Create ready predictor HTTPRoute but not ready top-level HTTPRoute
-		desiredTopLevelRoute, err := createRawTopLevelHTTPRoute(isvc, ingressConfig, isvcConfig)
+		ctx := context.TODO()
+		fakeClient := fake.NewClientBuilder().Build()
+		desiredTopLevelRoute, err := createRawTopLevelHTTPRoute(ctx, fakeClient, isvc, ingressConfig, isvcConfig)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(desiredTopLevelRoute).NotTo(BeNil())
 
@@ -3032,7 +3062,7 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 			},
 		}
 
-		desiredPredictorRoute, err := createRawPredictorHTTPRoute(isvc, ingressConfig, isvcConfig)
+		desiredPredictorRoute, err := createRawPredictorHTTPRoute(ctx, fakeClient, isvc, ingressConfig, isvcConfig)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(desiredPredictorRoute).NotTo(BeNil())
 
@@ -3105,7 +3135,11 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 			Status: corev1.ConditionTrue,
 		})
 
-		desiredPredictorRoute, err := createRawPredictorHTTPRoute(isvc, ingressConfig, isvcConfig)
+		ctx := context.TODO()
+
+		fakeClient := fake.NewClientBuilder().Build()
+
+		desiredPredictorRoute, err := createRawPredictorHTTPRoute(ctx, fakeClient, isvc, ingressConfig, isvcConfig)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(desiredPredictorRoute).NotTo(BeNil())
 
@@ -3131,7 +3165,7 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 			},
 		}
 
-		desiredTransformerRoute, err := createRawTransformerHTTPRoute(isvc, ingressConfig, isvcConfig)
+		desiredTransformerRoute, err := createRawTransformerHTTPRoute(ctx, fakeClient, isvc, ingressConfig, isvcConfig)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(desiredTransformerRoute).NotTo(BeNil())
 
@@ -3157,7 +3191,7 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 			},
 		}
 
-		desiredExplainerRoute, err := createRawExplainerHTTPRoute(isvc, ingressConfig, isvcConfig)
+		desiredExplainerRoute, err := createRawExplainerHTTPRoute(ctx, fakeClient, isvc, ingressConfig, isvcConfig)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(desiredExplainerRoute).NotTo(BeNil())
 
@@ -3183,7 +3217,7 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 			},
 		}
 
-		desiredTopLevelRoute, err := createRawTopLevelHTTPRoute(isvc, ingressConfig, isvcConfig)
+		desiredTopLevelRoute, err := createRawTopLevelHTTPRoute(ctx, fakeClient, isvc, ingressConfig, isvcConfig)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(desiredTopLevelRoute).NotTo(BeNil())
 
@@ -3394,7 +3428,11 @@ func TestCreateRawPredictorHTTPRouteDisableTimeout(t *testing.T) {
 			EnableGatewayAPI:        true,
 			DisableHTTPRouteTimeout: true,
 		}
-		httpRoute, err := createRawPredictorHTTPRoute(isvc, ingressConfig, isvcConfig)
+		ctx := context.TODO()
+
+		fakeClient := fake.NewClientBuilder().Build()
+
+		httpRoute, err := createRawPredictorHTTPRoute(ctx, fakeClient, isvc, ingressConfig, isvcConfig)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(httpRoute).ToNot(BeNil())
 		for _, rule := range httpRoute.Spec.Rules {
@@ -3411,7 +3449,11 @@ func TestCreateRawPredictorHTTPRouteDisableTimeout(t *testing.T) {
 			EnableGatewayAPI:        true,
 			DisableHTTPRouteTimeout: false,
 		}
-		httpRoute, err := createRawPredictorHTTPRoute(isvc, ingressConfig, isvcConfig)
+		ctx := context.TODO()
+
+		fakeClient := fake.NewClientBuilder().Build()
+
+		httpRoute, err := createRawPredictorHTTPRoute(ctx, fakeClient, isvc, ingressConfig, isvcConfig)
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(httpRoute).ToNot(BeNil())
 		for _, rule := range httpRoute.Spec.Rules {
