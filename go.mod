@@ -234,10 +234,21 @@ replace google.golang.org/grpc => google.golang.org/grpc v1.79.3
 // github.com/lyft/protoc-gen-validate was moved to github.com/envoyproxy/protoc-gen-validate
 replace github.com/lyft/protoc-gen-validate => github.com/envoyproxy/protoc-gen-validate v1.0.4
 
-// KEDA v2.19.0 declares pre-module placeholder versions (v1.5.2, v1.99.0) with
+// KEDA v2.19.0 uses placeholder versions (v1.5.2, v1.99.0, v0.35.0) with
 // internal replace directives that don't propagate to consumers.
+// Pin all k8s.io packages to v0.34.5, consistent with KEDA upstream (v0.34.3).
 replace k8s.io/api => k8s.io/api v0.34.5
 
 replace k8s.io/client-go => k8s.io/client-go v0.34.5
+
+replace k8s.io/apimachinery => k8s.io/apimachinery v0.34.5
+
+replace k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.34.5
+
+replace k8s.io/apiserver => k8s.io/apiserver v0.34.5
+
+replace k8s.io/component-base => k8s.io/component-base v0.34.5
+
+replace k8s.io/code-generator => k8s.io/code-generator v0.34.5
 
 replace github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.304.2
