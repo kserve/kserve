@@ -135,9 +135,8 @@ WORKDIR ${WORKSPACE_DIR}
 FROM base AS build
 
 ARG WORKSPACE_DIR
-ARG VLLM_VERSION=0.19.0
-ARG LMCACHE_VERSION=0.4.2
-ARG FLASHINFER_VERSION=0.6.6
+ARG VLLM_VERSION=0.20.0
+ARG LMCACHE_VERSION=0.4.4
 
 WORKDIR ${WORKSPACE_DIR}
 
@@ -176,18 +175,6 @@ RUN --mount=type=cache,target=/root/.cache/pip pip install vllm[runai,tensorizer
 
 # Install lmcache
 RUN --mount=type=cache,target=/root/.cache/pip pip install lmcache==${LMCACHE_VERSION}
-
-# Use Bash with `-o pipefail` so we can leverage Bash-specific features (like `[[ … ]]` for glob tests)
-# and ensure that failures in any part of a piped command cause the build to fail immediately.
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-
-# Install flashinfer
-# https://docs.flashinfer.ai/installation.html
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install flashinfer-cubin==${FLASHINFER_VERSION} && \
-    pip install flashinfer-jit-cache==${FLASHINFER_VERSION} \
-        --extra-index-url https://flashinfer.ai/whl/cu$(echo ${CUDA_VERSION} | cut -d. -f1,2 | tr -d '.') && \
-    flashinfer show-config
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
