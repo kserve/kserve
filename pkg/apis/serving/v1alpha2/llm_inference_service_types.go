@@ -494,6 +494,32 @@ type GatewayObjectReference struct {
 	SectionName *gwapiv1.SectionName `json:"sectionName,omitempty"`
 }
 
+// WorkloadStatus records the workload resources observed during the last
+// successful reconciliation. Nil when no workload resources have been
+// created yet, or when the service is stopped.
+// +optional
+type WorkloadStatus struct {
+	// Primary is the main inference workload (Deployment or LeaderWorkerSet).
+	// When disaggregated serving is configured, this workload handles
+	// the decode phase; otherwise it handles both prefill and decode.
+	// +optional
+	Primary *corev1.TypedLocalObjectReference `json:"primary,omitempty"`
+
+	// Prefill is the prefill workload in disaggregated serving mode.
+	// Nil when disaggregated serving is not configured.
+	// +optional
+	Prefill *corev1.TypedLocalObjectReference `json:"prefill,omitempty"`
+
+	// Service is the Kubernetes Service fronting the primary inference workload.
+	// +optional
+	Service *corev1.TypedLocalObjectReference `json:"service,omitempty"`
+
+	// Scheduler is the EPP scheduler Deployment.
+	// Nil when the scheduler is not configured.
+	// +optional
+	Scheduler *corev1.TypedLocalObjectReference `json:"scheduler,omitempty"`
+}
+
 // LLMInferenceServiceStatus defines the observed state of LLMInferenceService.
 type LLMInferenceServiceStatus struct {
 	// URL is the primary address for accessing the service.
@@ -508,6 +534,10 @@ type LLMInferenceServiceStatus struct {
 
 	// Addressable endpoint for the service, including cluster-local URLs.
 	duckv1.AddressStatus `json:",inline,omitempty"`
+
+	// Workloads records the observed workload resources for this service.
+	// +optional
+	Workloads *WorkloadStatus `json:"workloads,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

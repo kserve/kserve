@@ -161,7 +161,58 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				for _, name := range llmisvc.WellKnownDefaultConfigs.UnsortedList() {
 					g.Expect(current.Status.Annotations).To(HaveKeyWithValue(llmisvc.StaticWellKnownConfigResolverPrefix+strings.TrimPrefix(name, "kserve-"), name))
 				}
+			}, func(g Gomega, current *v1alpha2.LLMInferenceService) {
+				g.Expect(current.Status.Workloads).NotTo(BeNil())
+				g.Expect(current.Status.Workloads.Primary).To(Equal(&corev1.TypedLocalObjectReference{
+					APIGroup: ptr.To("apps"),
+					Kind:     "Deployment",
+					Name:     kmeta.ChildName(svcName, "-kserve"),
+				}))
+				g.Expect(current.Status.Workloads.Service).To(Equal(&corev1.TypedLocalObjectReference{
+					Kind: "Service",
+					Name: kmeta.ChildName(svcName, "-kserve-workload-svc"),
+				}))
+				g.Expect(current.Status.Workloads.Prefill).To(BeNil())
+				// Scheduler is populated because "router-managed" config includes a
+				// scheduler spec and the well-known kserve-config-llm-scheduler preset
+				// provides the template.
+				g.Expect(current.Status.Workloads.Scheduler).To(Equal(&corev1.TypedLocalObjectReference{
+					APIGroup: ptr.To("apps"),
+					Kind:     "Deployment",
+					Name:     kmeta.ChildName(svcName, "-kserve-router-scheduler"),
+				}))
 			})).WithContext(ctx).Should(Succeed())
+
+			// Idempotency: trigger a no-op requeue and verify status.workloads
+			// is unchanged through the full updateStatus round-trip.
+			current := &v1alpha2.LLMInferenceService{}
+			Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+			firstSnapshot := current.Status.Workloads.DeepCopy()
+			beforeTriggerRV := current.ResourceVersion
+
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				if current.Annotations == nil {
+					current.Annotations = map[string]string{}
+				}
+				current.Annotations["test/idempotency-trigger"] = "1"
+				return envTest.Update(ctx, current)
+			})).To(Succeed())
+
+			var afterTriggerRV string
+			Eventually(func(g Gomega, ctx context.Context) {
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Annotations).To(HaveKeyWithValue("test/idempotency-trigger", "1"))
+				g.Expect(current.Status.Workloads).To(Equal(firstSnapshot))
+				g.Expect(current.ResourceVersion).NotTo(Equal(beforeTriggerRV))
+				afterTriggerRV = current.ResourceVersion
+			}).WithContext(ctx).Should(Succeed())
+
+			Consistently(func(g Gomega, ctx context.Context) {
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Status.Workloads).To(Equal(firstSnapshot))
+				g.Expect(current.ResourceVersion).To(Equal(afterTriggerRV))
+			}).WithContext(ctx).Should(Succeed())
 		})
 
 		It("should preserve pinned config annotations across reconciliations", func(ctx SpecContext) {
@@ -546,7 +597,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				Expect(expectedHTTPRoute).To(BeControlledBy(llmSvc))
 				Expect(expectedHTTPRoute).To(HaveGatewayRefs(gwapiv1.ParentReference{Name: "kserve-ingress-gateway"}))
 				// With completions-only routing, the catch-all rule uses a Service backend
-				Expect(expectedHTTPRoute).To(HaveBackendRefs(BackendRefService(svcName + "-kserve-workload-svc")))
+				Expect(expectedHTTPRoute).To(HaveBackendRefs(BackendRefService(kmeta.ChildName(svcName, "-kserve-workload-svc"))))
 
 				ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvc)
 
@@ -635,7 +686,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				Expect(expectedHTTPRoute).To(HaveGatewayRefs(gwapiv1.ParentReference{Name: "kserve-ingress-gateway"}))
 				Expect(expectedHTTPRoute).To(HaveBackendRefs(BackendRefInferencePool(infPoolName)))
 				// With completions-only routing, the catch-all rule uses a Service backend
-				Expect(expectedHTTPRoute).To(HaveBackendRefs(BackendRefService(svcName + "-kserve-workload-svc")))
+				Expect(expectedHTTPRoute).To(HaveBackendRefs(BackendRefService(kmeta.ChildName(svcName, "-kserve-workload-svc"))))
 
 				ensureInferencePoolReady(ctx, envTest.Client, infPool)
 				ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvc)
