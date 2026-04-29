@@ -1,25 +1,22 @@
-ARG CUDA_VERSION=12.9.1
+ARG CUDA_VERSION=13.0.0
 ARG VENV_PATH=prod_venv
-ARG PYTHON_VERSION=3.12
 ARG WORKSPACE_DIR=/kserve-workspace
 
 #################### BASE BUILD IMAGE ####################
 # prepare basic build environment
-FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu24.04 AS base
+FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu25.10 AS base
 
 ARG WORKSPACE_DIR
-ARG CUDA_VERSION=12.9.1
-ARG PYTHON_VERSION=3.12
+ARG CUDA_VERSION=13.0.0
 ENV DEBIAN_FRONTEND=noninteractive
 
+RUN echo '[global]' >>/etc/pip.conf && \
+    echo 'break-system-packages = true' >>/etc/pip.conf && \
+    echo 'ignore-installed = true' >>/etc/pip.conf && \
+    echo 'root-user-action = ignore' >>/etc/pip.conf
+
 RUN apt-get update -y \
-    && apt-get install -y ccache software-properties-common git curl sudo gcc python-is-python3 \
-    && apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-venv \
-    && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1 \
-    && update-alternatives --set python3 /usr/bin/python${PYTHON_VERSION} \
-    && ln -sf /usr/bin/python${PYTHON_VERSION}-config /usr/bin/python3-config \
-    && curl -sS https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} - --break-system-packages \
-    && python3 --version && python3 -m pip --version \
+    && apt-get install -y ccache software-properties-common git curl sudo gcc python3 python3-venv python3-pip python-is-python3 \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install uv and ensure it's in PATH
@@ -57,6 +54,9 @@ ARG FLASHINFER_VERSION=0.6.6
 WORKDIR ${WORKSPACE_DIR}
 
 ARG VENV_PATH
+
+ENV UV_PYTHON_INSTALL_DIR=/opt/uv_python
+
 RUN python3 -m venv ${VENV_PATH}
 # Activate virtual env by setting VIRTUAL_ENV
 ENV VIRTUAL_ENV=${WORKSPACE_DIR}/${VENV_PATH}
@@ -69,7 +69,7 @@ COPY storage/pyproject.toml storage/uv.lock storage/
 
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
 RUN --mount=type=cache,target=/root/.cache/uv cd kserve && uv sync --active --no-cache
-COPY kserve kserve  
+COPY kserve kserve
 RUN --mount=type=cache,target=/root/.cache/uv cd kserve && uv sync --active --no-cache
 
 # Install kserve-storage
@@ -109,26 +109,19 @@ RUN mkdir -p third_party/library && python3 pip-licenses.py
 #################### WHEEL BUILD IMAGE ####################
 
 #################### PROD IMAGE ####################
-FROM nvidia/cuda:${CUDA_VERSION}-runtime-ubuntu24.04 AS prod
+FROM nvidia/cuda:${CUDA_VERSION}-runtime-ubuntu25.10 AS prod
 
 ARG WORKSPACE_DIR
-ARG CUDA_VERSION=12.9.1
-ARG PYTHON_VERSION=3.12
+ARG CUDA_VERSION=13.0.0
 ENV DEBIAN_FRONTEND=noninteractive
 
 WORKDIR ${WORKSPACE_DIR}
 
-# Install Python and other dependencies
+# Install runtime dependencies
 RUN apt-get update -y \
     && apt-get upgrade -y \
     && apt-get install -y software-properties-common curl \
     && apt-get install -y ffmpeg libsm6 libxext6 libgl1 gcc libibverbs-dev \
-    && apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-venv \
-    && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1 \
-    && update-alternatives --set python3 /usr/bin/python${PYTHON_VERSION} \
-    && ln -sf /usr/bin/python${PYTHON_VERSION}-config /usr/bin/python3-config \
-    && curl -sS https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} - --break-system-packages \
-    && python3 --version && python3 -m pip --version \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 ARG VENV_PATH
@@ -139,6 +132,7 @@ ENV PATH="${WORKSPACE_DIR}/${VENV_PATH}/bin:$PATH"
 # Create non-root user
 RUN userdel -r ubuntu && useradd kserve -m -u 1000 -d /home/kserve
 
+COPY --from=build /opt/uv_python /opt/uv_python
 COPY --from=build --chown=kserve:kserve ${WORKSPACE_DIR}/third_party third_party
 COPY --from=build --chown=kserve:kserve ${WORKSPACE_DIR}/$VENV_PATH $VENV_PATH
 COPY --from=build ${WORKSPACE_DIR}/kserve kserve
