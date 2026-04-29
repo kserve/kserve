@@ -418,6 +418,8 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 		return nil, fmt.Errorf("failed to marshal config for template processing: %w", err)
 	}
 	buf := bytes.NewBuffer(nil)
+	templateSvc := llmSvc.DeepCopy()
+	templateSvc.Spec = *llmSvcCfg.Spec.DeepCopy()
 	var gc templateGlobalConfig
 	if reconcilerConfig != nil {
 		gc = templateGlobalConfig{
@@ -431,7 +433,7 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 		*v1alpha2.LLMInferenceService
 		GlobalConfig templateGlobalConfig
 	}{
-		LLMInferenceService: llmSvc,
+		LLMInferenceService: templateSvc,
 		GlobalConfig:        gc,
 	}
 	t, err := template.New("config").
