@@ -7,8 +7,11 @@ on:
         description: 'Huggingface vLLM image version to publish'
         required: true
 
+permissions:
+  contents: read
+
 env:
-  IMAGE_NAME: huggingfaceserver 
+  IMAGE_NAME: huggingfaceserver
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

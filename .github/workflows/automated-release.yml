@@ -9,9 +9,13 @@ on:
         description: "The release tag, e.g. v0.12.0-rc1"
         required: true
 
+permissions: {}
+
 jobs:
   prepare-release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout source code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1

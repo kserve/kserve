@@ -6,6 +6,9 @@ on:
   schedule:
   - cron: "*/10 * * * *" # every 10 minutes
 
+permissions:
+  contents: read
+
 jobs:
   auto-merge:
     runs-on: ubuntu-latest
