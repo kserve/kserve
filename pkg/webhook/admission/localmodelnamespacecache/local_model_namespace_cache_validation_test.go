@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 )
@@ -115,6 +116,48 @@ func TestUnableToDeleteLocalModelNamespaceCacheWithActiveIsvc(t *testing.T) {
 	g.Expect(warnings).NotTo(gomega.BeNil())
 	g.Expect(err).To(gomega.MatchError(fmt.Errorf("LocalModelNamespaceCache %s/%s is being used by InferenceService %s/%s",
 		lmnc.Namespace, lmnc.Name, isvc.Namespace, isvc.Name)))
+}
+
+func makeTestLLMInferenceServiceForNamespaceCache() v1alpha2.LLMInferenceService {
+	return v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "llm-iris",
+			Namespace: "default",
+			Labels: map[string]string{
+				constants.LocalModelLabel:          "iris",
+				constants.LocalModelNamespaceLabel: "default",
+			},
+		},
+	}
+}
+
+func makeTestLocalModelNamespaceCacheWithLLMIsvc() v1alpha1.LocalModelNamespaceCache {
+	lmnc := makeTestLocalModelNamespaceCache()
+	lmnc.Status.InferenceServices = nil
+	lmnc.Status.LLMInferenceServices = []v1alpha1.NamespacedName{
+		{
+			Namespace: "default",
+			Name:      "llm-iris",
+		},
+	}
+	return lmnc
+}
+
+func TestUnableToDeleteLocalModelNamespaceCacheWithActiveLLMIsvc(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	lmnc := makeTestLocalModelNamespaceCacheWithLLMIsvc()
+	llmIsvc := makeTestLLMInferenceServiceForNamespaceCache()
+	s := runtime.NewScheme()
+	err := v1alpha2.AddToScheme(s)
+	if err != nil {
+		t.Errorf("unable to add scheme : %v", err)
+	}
+	fakeClient := fake.NewClientBuilder().WithObjects(&llmIsvc).WithScheme(s).Build()
+	validator := LocalModelNamespaceCacheValidator{Client: fakeClient}
+	warnings, err := validator.ValidateDelete(t.Context(), &lmnc)
+	g.Expect(warnings).NotTo(gomega.BeNil())
+	g.Expect(err).To(gomega.MatchError(fmt.Errorf("LocalModelNamespaceCache %s/%s is being used by LLMInferenceService %s/%s",
+		lmnc.Namespace, lmnc.Name, llmIsvc.Namespace, llmIsvc.Name)))
 }
 
 func TestUnableToCreateLocalModelNamespaceCacheWithMissingNodeGroup(t *testing.T) {

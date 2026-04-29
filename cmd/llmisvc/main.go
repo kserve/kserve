@@ -55,6 +55,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 	kservescheme "github.com/kserve/kserve/pkg/scheme"
+	llmisvcwebhook "github.com/kserve/kserve/pkg/webhook/admission/llminferenceservice"
 )
 
 var (
@@ -259,6 +260,32 @@ func main() {
 		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "LLMInferenceService")
+		os.Exit(1)
+	}
+
+	// Register version-specific mutating webhooks.
+	// This ensures admission decoding matches request version (v1alpha1 or v1alpha2)
+	// before shared defaulting logic is applied.
+	if err = ctrl.NewWebhookManagedBy(mgr).
+		For(&v1alpha1.LLMInferenceService{}).
+		WithDefaulter(&llmisvcwebhook.LLMInferenceServiceDefaulterV1Alpha1{Client: mgr.GetClient(), Clientset: clientSet}).
+		Complete(); err != nil {
+		setupLog.Error(err, "unable to create defaulting webhook", "webhook", "llminferenceservice-v1alpha1")
+		os.Exit(1)
+	}
+
+	if err = ctrl.NewWebhookManagedBy(mgr).
+		For(&v1alpha2.LLMInferenceService{}).
+		WithDefaulter(&llmisvcwebhook.LLMInferenceServiceDefaulterV1Alpha2{Client: mgr.GetClient(), Clientset: clientSet}).
+		Complete(); err != nil {
+		setupLog.Error(err, "unable to create defaulting webhook", "webhook", "llminferenceservice-v1alpha2")
+		os.Exit(1)
+	}
+
+	if err = ctrl.NewWebhookManagedBy(mgr).
+		For(&v1alpha2.LLMInferenceServiceConfig{}).
+		Complete(); err != nil {
+		setupLog.Error(err, "unable to create conversion webhook", "webhook", "llminferenceserviceconfig")
 		os.Exit(1)
 	}
 

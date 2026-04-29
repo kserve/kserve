@@ -113,6 +113,8 @@ type LLMISVCReconciler struct {
 //+kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=llmd.ai,resources=variantautoscalings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=keda.sh,resources=scaledobjects,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelcaches,verbs=get;list;watch
+//+kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelnamespacecaches,verbs=get;list;watch
 //+kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is the main entry point for the reconciliation loop.
