@@ -326,20 +326,27 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			isvc.Status.SetCondition(v1beta1.Stopped, resumeCondition)
 		}
 	}
-	// reconcile RoutesReady and LatestDeploymentReady conditions for serverless deployment
-	if deploymentMode == constants.Knative {
-		componentList := []v1beta1.ComponentType{v1beta1.PredictorComponent}
-		if isvc.Spec.Transformer != nil {
-			componentList = append(componentList, v1beta1.TransformerComponent)
-		}
-		if isvc.Spec.Explainer != nil {
-			componentList = append(componentList, v1beta1.ExplainerComponent)
-		}
-		if !forceStopRuntime {
+	// reconcile RoutesReady and LatestDeploymentReady conditions
+	componentList := []v1beta1.ComponentType{v1beta1.PredictorComponent}
+	if isvc.Spec.Transformer != nil {
+		componentList = append(componentList, v1beta1.TransformerComponent)
+	}
+	if isvc.Spec.Explainer != nil {
+		componentList = append(componentList, v1beta1.ExplainerComponent)
+	}
+	if !forceStopRuntime {
+		switch deploymentMode {
+		case constants.Knative:
+			// RoutesReady aggregates route sub-conditions only populated in Serverless mode
 			isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1.RoutesReady)
 			isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1.LatestDeploymentReady)
+		case constants.Standard:
+			// Standard mode doesn't populate configuration sub-conditions, so derive
+			// LatestDeploymentReady directly from the component Ready conditions
+			isvc.Status.PropagateRawDeploymentReadyStatus(componentList)
 		}
 	}
+
 	// Reconcile ingress
 	ingressConfig, err := v1beta1.NewIngressConfig(isvcConfigMap)
 	if err != nil {

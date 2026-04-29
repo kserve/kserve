@@ -1996,3 +1996,86 @@ func TestInferenceServiceStatus_ClearCondition(t *testing.T) {
 	// Try clearing a condition that was never set
 	status.ClearCondition(TransformerReady)
 }
+
+func TestPropagateRawDeploymentReadyStatus(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	// Helper to set a component-level ready condition
+	setComponentCondition := func(ss *InferenceServiceStatus, condType apis.ConditionType, status corev1.ConditionStatus) {
+		ss.SetCondition(condType, &apis.Condition{
+			Type:   condType,
+			Status: status,
+		})
+	}
+
+	t.Run("All components ready sets LatestDeploymentReady True", func(t *testing.T) {
+		ss := &InferenceServiceStatus{}
+		ss.InitializeConditions()
+		setComponentCondition(ss, PredictorReady, corev1.ConditionTrue)
+		setComponentCondition(ss, TransformerReady, corev1.ConditionTrue)
+		setComponentCondition(ss, ExplainerReady, corev1.ConditionTrue)
+
+		ss.PropagateRawDeploymentReadyStatus([]ComponentType{PredictorComponent, TransformerComponent, ExplainerComponent})
+		cond := ss.GetCondition(LatestDeploymentReady)
+		g.Expect(cond).NotTo(gomega.BeNil())
+		g.Expect(cond.Status).To(gomega.Equal(corev1.ConditionTrue))
+	})
+
+	t.Run("Predictor not ready sets LatestDeploymentReady False", func(t *testing.T) {
+		ss := &InferenceServiceStatus{}
+		ss.InitializeConditions()
+		setComponentCondition(ss, PredictorReady, corev1.ConditionFalse)
+
+		ss.PropagateRawDeploymentReadyStatus([]ComponentType{PredictorComponent})
+		cond := ss.GetCondition(LatestDeploymentReady)
+		g.Expect(cond).NotTo(gomega.BeNil())
+		g.Expect(cond.Status).To(gomega.Equal(corev1.ConditionFalse))
+		g.Expect(cond.Reason).To(gomega.Equal("PredictorReady not ready"))
+	})
+
+	t.Run("Predictor unknown sets LatestDeploymentReady Unknown", func(t *testing.T) {
+		ss := &InferenceServiceStatus{}
+		ss.InitializeConditions()
+		setComponentCondition(ss, PredictorReady, corev1.ConditionUnknown)
+
+		ss.PropagateRawDeploymentReadyStatus([]ComponentType{PredictorComponent})
+		cond := ss.GetCondition(LatestDeploymentReady)
+		g.Expect(cond).NotTo(gomega.BeNil())
+		g.Expect(cond.Status).To(gomega.Equal(corev1.ConditionUnknown))
+		g.Expect(cond.Reason).To(gomega.Equal("PredictorReady not ready"))
+	})
+
+	t.Run("One of multiple components not ready sets LatestDeploymentReady False", func(t *testing.T) {
+		ss := &InferenceServiceStatus{}
+		ss.InitializeConditions()
+		setComponentCondition(ss, PredictorReady, corev1.ConditionTrue)
+		setComponentCondition(ss, TransformerReady, corev1.ConditionFalse)
+
+		ss.PropagateRawDeploymentReadyStatus([]ComponentType{PredictorComponent, TransformerComponent})
+		cond := ss.GetCondition(LatestDeploymentReady)
+		g.Expect(cond).NotTo(gomega.BeNil())
+		g.Expect(cond.Status).To(gomega.Equal(corev1.ConditionFalse))
+		g.Expect(cond.Reason).To(gomega.Equal("TransformerReady not ready"))
+	})
+
+	t.Run("Predictor only ready sets LatestDeploymentReady True", func(t *testing.T) {
+		ss := &InferenceServiceStatus{}
+		ss.InitializeConditions()
+		setComponentCondition(ss, PredictorReady, corev1.ConditionTrue)
+
+		ss.PropagateRawDeploymentReadyStatus([]ComponentType{PredictorComponent})
+		cond := ss.GetCondition(LatestDeploymentReady)
+		g.Expect(cond).NotTo(gomega.BeNil())
+		g.Expect(cond.Status).To(gomega.Equal(corev1.ConditionTrue))
+	})
+
+	t.Run("Empty component list sets LatestDeploymentReady True", func(t *testing.T) {
+		ss := &InferenceServiceStatus{}
+		ss.InitializeConditions()
+
+		ss.PropagateRawDeploymentReadyStatus([]ComponentType{})
+		cond := ss.GetCondition(LatestDeploymentReady)
+		g.Expect(cond).NotTo(gomega.BeNil())
+		g.Expect(cond.Status).To(gomega.Equal(corev1.ConditionTrue))
+	})
+}
