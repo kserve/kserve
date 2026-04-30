@@ -123,6 +123,18 @@ func injectServerTracing(t *v1alpha2.TracingSpec, namespace string, roleSuffix s
 	container.Env = mergeEnvVars(container.Env, tracingEnvVars)
 }
 
+// injectServerTracingIntoPodSpec finds the "main" container in a PodSpec and
+// injects server tracing into it. This is a convenience wrapper for multi-node
+// workloads where the caller works with PodSpecs directly.
+func injectServerTracingIntoPodSpec(t *v1alpha2.TracingSpec, namespace string, roleSuffix string, podSpec *corev1.PodSpec) {
+	for i := range podSpec.Containers {
+		if podSpec.Containers[i].Name == "main" {
+			injectServerTracing(t, namespace, roleSuffix, &podSpec.Containers[i])
+			return
+		}
+	}
+}
+
 // mergeEnvVars appends env vars from src into dst, skipping any that already
 // exist in dst (by name). This ensures user-provided env vars take precedence.
 func mergeEnvVars(dst, src []corev1.EnvVar) []corev1.EnvVar {
