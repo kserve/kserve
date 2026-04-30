@@ -176,19 +176,19 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *corev1.Pod) error {
 			return fmt.Errorf("Invalid configuration: cannot find container: %s", constants.InferenceServiceContainerName)
 		} else {
 			// Use worker container for multi-node scenarios
-			if err := utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.WorkerContainerName, constants.DefaultModelLocalMountPath, mi.config); err != nil {
+			if err := utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.WorkerContainerName, constants.DefaultModelLocalMountPath, mi.config, 0); err != nil {
 				return err
 			}
 		}
 	} else {
-		if err := utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.InferenceServiceContainerName, constants.DefaultModelLocalMountPath, mi.config); err != nil {
+		if err := utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.InferenceServiceContainerName, constants.DefaultModelLocalMountPath, mi.config, 0); err != nil {
 			return err
 		}
 	}
 
 	// Configure modelcar for transformer container if it exists
 	if utils.GetContainerWithName(&pod.Spec, constants.TransformerContainerName) != nil {
-		return utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.TransformerContainerName, constants.DefaultModelLocalMountPath, mi.config)
+		return utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.TransformerContainerName, constants.DefaultModelLocalMountPath, mi.config, 0)
 	}
 
 	return nil
@@ -257,6 +257,7 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 				return errors.New("Invalid configuration: cannot find container")
 			}
 
+			ociIndex := 0
 			for _, storageUri := range params.StorageURIs {
 				if !strings.HasPrefix(storageUri.Uri, constants.OciURIPrefix) {
 					continue
@@ -265,15 +266,16 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 				if userContainer == nil {
 					targetContainerName = constants.WorkerContainerName
 				}
-				if err := utils.ConfigureModelcarToContainer(storageUri.Uri, params.PodSpec, targetContainerName, storageUri.MountPath, params.Config); err != nil {
+				if err := utils.ConfigureModelcarToContainer(storageUri.Uri, params.PodSpec, targetContainerName, storageUri.MountPath, params.Config, ociIndex); err != nil {
 					return err
 				}
 				// Also configure for transformer if present
 				if utils.GetContainerWithName(params.PodSpec, constants.TransformerContainerName) != nil {
-					if err := utils.ConfigureModelcarToContainer(storageUri.Uri, params.PodSpec, constants.TransformerContainerName, storageUri.MountPath, params.Config); err != nil {
+					if err := utils.ConfigureModelcarToContainer(storageUri.Uri, params.PodSpec, constants.TransformerContainerName, storageUri.MountPath, params.Config, ociIndex); err != nil {
 						return err
 					}
 				}
+				ociIndex++
 			}
 			return nil
 		}

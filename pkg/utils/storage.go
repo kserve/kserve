@@ -351,13 +351,15 @@ func modelcarCommand(modelPath string) string {
 // The container is configured with CPU, memory, and UID settings from the storage initializer configuration.
 //
 // Parameters:
+//   - containerName: The name to assign to the modelcar container.
 //   - image: The container image to use for the modelcar.
 //   - modelPath: The path where the model should be mounted inside the container.
+//   - volumeName: The name of the shared volume for model data.
 //   - storageConfig: The storage initializer configuration.
 //
 // Returns:
 //   - *corev1.Container: The modelcar container definition.
-func CreateModelcarContainer(image string, modelPath string, storageConfig *types.StorageInitializerConfig) *corev1.Container {
+func CreateModelcarContainer(containerName string, image string, modelPath string, volumeName string, storageConfig *types.StorageInitializerConfig) *corev1.Container {
 	cpu := storageConfig.CpuModelcar
 	if cpu == "" {
 		cpu = constants.CpuModelcarDefault
@@ -368,11 +370,11 @@ func CreateModelcarContainer(image string, modelPath string, storageConfig *type
 	}
 
 	modelContainer := &corev1.Container{
-		Name:  constants.ModelcarContainerName,
+		Name:  containerName,
 		Image: image,
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      constants.StorageInitializerVolumeName,
+				Name:      volumeName,
 				MountPath: GetParentDirectory(modelPath),
 				ReadOnly:  false,
 			},
@@ -409,12 +411,13 @@ func CreateModelcarContainer(image string, modelPath string, storageConfig *type
 // This init container is intended to run before the main containers to pre-fetch and validate the modelcar image.
 //
 // Parameters:
+//   - containerName: The name to assign to the modelcar init container.
 //   - image: The container image to use for the modelcar init container.
 //   - storageConfig: The storage initializer configuration.
 //
 // Returns:
 //   - *corev1.Container: The modelcar init container definition.
-func CreateModelcarInitContainer(image string, storageConfig *types.StorageInitializerConfig) *corev1.Container {
+func CreateModelcarInitContainer(containerName string, image string, storageConfig *types.StorageInitializerConfig) *corev1.Container {
 	cpu := storageConfig.CpuModelcar
 	if cpu == "" {
 		cpu = constants.CpuModelcarDefault
@@ -425,7 +428,7 @@ func CreateModelcarInitContainer(image string, storageConfig *types.StorageIniti
 	}
 
 	modelContainer := &corev1.Container{
-		Name:  constants.ModelcarInitContainerName,
+		Name:  containerName,
 		Image: image,
 		Args: []string{
 			"sh",
@@ -450,6 +453,18 @@ func CreateModelcarInitContainer(image string, storageConfig *types.StorageIniti
 	return modelContainer
 }
 
+// ModelcarNames generates unique container and volume names for a modelcar at the given OCI index.
+// When ociIndex is 0, the original constant names are returned for backward compatibility.
+func ModelcarNames(ociIndex int) (sidecarName, initName, volumeName string) {
+	if ociIndex == 0 {
+		return constants.ModelcarContainerName, constants.ModelcarInitContainerName, constants.StorageInitializerVolumeName
+	}
+	suffix := fmt.Sprintf("-%d", ociIndex)
+	return constants.ModelcarContainerName + suffix,
+		constants.ModelcarInitContainerName + suffix,
+		constants.StorageInitializerVolumeName + suffix
+}
+
 // ConfigureModelcarToContainer configures the OCI image specified in modelUri as a modelcar to the
 // specified target container of a given PodSpec. The configuration includes:
 //   - Adding an environment variable `async` to indicate to the runtime that the model directory may not be available immediately.
@@ -465,14 +480,19 @@ func CreateModelcarInitContainer(image string, storageConfig *types.StorageIniti
 //   - modelPath: The path where the model symlink should be created inside the container
 //     (e.g. /mnt/models or /mnt/models/my-llama for a model-name subdirectory).
 //   - storageConfig: The storage initializer configuration.
+//   - ociIndex: The index of this OCI URI within the storageUris list. Used to generate
+//     unique container/volume names when multiple OCI URIs are specified. Use 0 for
+//     single-URI or legacy scenarios to preserve backward compatibility.
 //
 // Returns:
 //   - error: An error if the target container is not found or if configuration fails; otherwise, nil.
-func ConfigureModelcarToContainer(modelUri string, podSpec *corev1.PodSpec, targetContainerName string, modelPath string, storageConfig *types.StorageInitializerConfig) error {
+func ConfigureModelcarToContainer(modelUri string, podSpec *corev1.PodSpec, targetContainerName string, modelPath string, storageConfig *types.StorageInitializerConfig, ociIndex int) error {
 	targetContainer := GetContainerWithName(podSpec, targetContainerName)
 	if targetContainer == nil {
 		return fmt.Errorf("no container found with name %s", targetContainerName)
 	}
+
+	sidecarName, initName, volumeName := ModelcarNames(ociIndex)
 
 	// Indicate to the runtime that it the model directory could be
 	// available a bit later only so that it should wait and retry when
@@ -481,8 +501,8 @@ func ConfigureModelcarToContainer(modelUri string, podSpec *corev1.PodSpec, targ
 
 	// Mount volume initialized by the modelcar container to the target container
 	modelParentDir := GetParentDirectory(modelPath)
-	AddEmptyDirVolumeIfNotPresent(podSpec, constants.StorageInitializerVolumeName)
-	AddVolumeMountIfNotPresent(targetContainer, constants.StorageInitializerVolumeName, modelParentDir, false)
+	AddEmptyDirVolumeIfNotPresent(podSpec, volumeName)
+	AddVolumeMountIfNotPresent(targetContainer, volumeName, modelParentDir, false)
 
 	// If configured, run as the given user. There might be certain installations
 	// of Kubernetes where sharing the filesystem via the process namespace only works
@@ -496,16 +516,16 @@ func ConfigureModelcarToContainer(modelUri string, podSpec *corev1.PodSpec, targ
 
 	// Create the modelcar that is used as a sidecar in Pod and add it to the end
 	// of the containers (but only if not already have been added)
-	if GetContainerWithName(podSpec, constants.ModelcarContainerName) == nil {
+	if GetContainerWithName(podSpec, sidecarName) == nil {
 		// Extract image reference for modelcar from URI
 		image := strings.TrimPrefix(modelUri, constants.OciURIPrefix)
 
-		modelContainer := CreateModelcarContainer(image, modelPath, storageConfig)
+		modelContainer := CreateModelcarContainer(sidecarName, image, modelPath, volumeName, storageConfig)
 		podSpec.Containers = append(podSpec.Containers, *modelContainer)
 
 		// Add the model container as an init-container to pre-fetch the model before
 		// the runtimes starts.
-		modelInitContainer := CreateModelcarInitContainer(image, storageConfig)
+		modelInitContainer := CreateModelcarInitContainer(initName, image, storageConfig)
 		podSpec.InitContainers = append(podSpec.InitContainers, *modelInitContainer)
 	}
 
