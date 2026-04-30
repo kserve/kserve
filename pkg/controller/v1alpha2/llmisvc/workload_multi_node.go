@@ -41,6 +41,10 @@ import (
 func (r *LLMISVCReconciler) reconcileMultiNodeWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
 	log.FromContext(ctx).Info("Reconciling multi-node workload")
 
+	if err := r.reconcileManagedDRA(ctx, llmSvc); err != nil {
+		return fmt.Errorf("failed to reconcile managed DRA: %w", err)
+	}
+
 	if err := r.reconcileMultiNodeMainServiceAccount(ctx, llmSvc, config); err != nil {
 		return fmt.Errorf("failed to reconcile multi-node service account: %w", err)
 	}
@@ -195,6 +199,8 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 			Spec: *llmSvc.Spec.Template.DeepCopy(),
 		}
 
+		injectManagedDRA(llmSvc, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec)
+
 		serviceAccount, _, err := r.expectedMultiNodeMainServiceAccount(ctx, llmSvc)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create expected multi node service account: %w", err)
@@ -224,6 +230,8 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 	}
 	if llmSvc.Spec.Worker != nil && !utils.GetForceStopRuntime(llmSvc) {
 		expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec = *llmSvc.Spec.Worker.DeepCopy()
+
+		injectManagedDRA(llmSvc, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec)
 
 		serviceAccount, _, err := r.expectedMultiNodeMainServiceAccount(ctx, llmSvc)
 		if err != nil {
@@ -320,6 +328,9 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 				},
 				Spec: *llmSvc.Spec.Prefill.Template.DeepCopy(),
 			}
+
+			injectManagedDRA(llmSvc, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec)
+
 			expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
 
 			var currLeaderSpec corev1.PodSpec
@@ -333,6 +344,9 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 		}
 		if llmSvc.Spec.Prefill.Worker != nil {
 			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec = *llmSvc.Spec.Prefill.Worker.DeepCopy()
+
+			injectManagedDRA(llmSvc, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec)
+
 			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
 
 			if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, config, "main", constants.DefaultModelLocalMountPath); err != nil {

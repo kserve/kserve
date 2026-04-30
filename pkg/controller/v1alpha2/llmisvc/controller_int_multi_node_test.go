@@ -27,6 +27,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	resourcev1 "k8s.io/api/resource/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmeta"
@@ -94,6 +95,77 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels).To(HaveKeyWithValue(constants.LLMDRoleLabelKey, constants.LLMDRoleDecode))
 		})
 
+		It("should create a multi-node deployment with managed DRA", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-multinode-dra"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithReplicas(2),
+				WithParallelism(ParallelismSpec(
+					WithDataParallelism(4),
+					WithDataLocalParallelism(1),
+					WithTensorParallelism(3),
+				)),
+				WithTemplate(SimpleWorkerPodSpec()),
+				WithWorker(SimpleWorkerPodSpec()),
+				WithAnnotations(map[string]string{
+					constants.ManagedDRADeviceClassAnnotationKey: "gpu.nvidia.com",
+					constants.ManagedDRAGpuCountAnnotationKey:    "8",
+				}),
+				WithManagedRoute(),
+				WithManagedGateway(),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then
+			expectedLWS := &lwsapi.LeaderWorkerSet{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve-mn",
+					Namespace: testNs.Name,
+				}, expectedLWS)
+			}).WithContext(ctx).Should(Succeed())
+
+			// Verify the ResourceClaimTemplate was created with correct values
+			expectedTemplate := &resourcev1.ResourceClaimTemplate{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-managed-dra",
+					Namespace: testNs.Name,
+				}, expectedTemplate)
+			}).WithContext(ctx).Should(Succeed())
+
+			// Check that it parsed the annotations correctly
+			Expect(expectedTemplate.Spec.Spec.Devices.Requests).To(HaveLen(8))
+			Expect(expectedTemplate.Spec.Spec.Devices.Requests[0].Name).To(Equal("gpu-1"))
+			Expect(expectedTemplate.Spec.Spec.Devices.Requests[0].Exactly.DeviceClassName).To(Equal("gpu.nvidia.com"))
+
+			// Verify leader template has DRA
+			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec.ResourceClaims).To(HaveLen(1))
+			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec.ResourceClaims[0].Name).To(Equal("managed-gpu"))
+			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Not(BeNil()))
+			Expect(*expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Equal(svcName + "-managed-dra"))
+
+			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec.Containers[0].Resources.Claims).To(HaveLen(1))
+			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec.Containers[0].Resources.Claims[0].Name).To(Equal("managed-gpu"))
+
+			// Verify worker template has DRA
+			Expect(expectedLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.ResourceClaims).To(HaveLen(1))
+			Expect(expectedLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.ResourceClaims[0].Name).To(Equal("managed-gpu"))
+			Expect(expectedLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Not(BeNil()))
+			Expect(*expectedLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Equal(svcName + "-managed-dra"))
+
+			Expect(expectedLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.Containers[0].Resources.Claims).To(HaveLen(1))
+			Expect(expectedLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.Containers[0].Resources.Claims[0].Name).To(Equal("managed-gpu"))
+		})
 		It("should create multi-node deployment with prefill workload", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-multinode-prefill"
