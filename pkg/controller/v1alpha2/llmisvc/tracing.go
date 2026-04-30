@@ -73,14 +73,16 @@ func injectSchedulerTracing(t *v1alpha2.TracingSpec, namespace string, container
 		container.Args = append(container.Args, "--tracing=true")
 	}
 
-	tracingEnvVars := []corev1.EnvVar{
-		{Name: "OTEL_SERVICE_NAME", Value: ptr.Deref(t.ServiceName, "")},
-		{Name: "OTEL_EXPORTER_OTLP_ENDPOINT", Value: ptr.Deref(t.OtelExporterEndpoint, "")},
-		{Name: "OTEL_TRACES_EXPORTER", Value: ptr.Deref(t.TracesExporter, "")},
-		{Name: "OTEL_TRACES_SAMPLER", Value: ptr.Deref(t.TracesSampler, "")},
-		{Name: "OTEL_TRACES_SAMPLER_ARG", Value: ptr.Deref(t.TracesSamplerArg, "")},
-	}
-	tracingEnvVars = append(tracingEnvVars, otelResourceAttributeEnvVars(namespace)...)
+	resourceAttrs := otelResourceAttributeEnvVars(namespace)
+	tracingEnvVars := make([]corev1.EnvVar, 0, 5+len(resourceAttrs))
+	tracingEnvVars = append(tracingEnvVars,
+		corev1.EnvVar{Name: "OTEL_SERVICE_NAME", Value: ptr.Deref(t.ServiceName, "")},
+		corev1.EnvVar{Name: "OTEL_EXPORTER_OTLP_ENDPOINT", Value: ptr.Deref(t.OtelExporterEndpoint, "")},
+		corev1.EnvVar{Name: "OTEL_TRACES_EXPORTER", Value: ptr.Deref(t.TracesExporter, "")},
+		corev1.EnvVar{Name: "OTEL_TRACES_SAMPLER", Value: ptr.Deref(t.TracesSampler, "")},
+		corev1.EnvVar{Name: "OTEL_TRACES_SAMPLER_ARG", Value: ptr.Deref(t.TracesSamplerArg, "")},
+	)
+	tracingEnvVars = append(tracingEnvVars, resourceAttrs...)
 
 	container.Env = mergeEnvVars(container.Env, tracingEnvVars)
 }
@@ -110,15 +112,17 @@ func injectServerTracing(t *v1alpha2.TracingSpec, namespace string, roleSuffix s
 	}
 
 	serviceName := ptr.Deref(t.ServiceName, "") + roleSuffix
+	resourceAttrs := otelResourceAttributeEnvVars(namespace)
 
-	tracingEnvVars := []corev1.EnvVar{
-		{Name: "OTEL_SERVICE_NAME", Value: serviceName},
-		{Name: "OTEL_EXPORTER_OTLP_ENDPOINT", Value: endpoint},
-		{Name: "OTEL_TRACES_EXPORTER", Value: ptr.Deref(t.TracesExporter, "")},
-		{Name: "OTEL_TRACES_SAMPLER", Value: ptr.Deref(t.TracesSampler, "")},
-		{Name: "OTEL_TRACES_SAMPLER_ARG", Value: ptr.Deref(t.TracesSamplerArg, "")},
-	}
-	tracingEnvVars = append(tracingEnvVars, otelResourceAttributeEnvVars(namespace)...)
+	tracingEnvVars := make([]corev1.EnvVar, 0, 5+len(resourceAttrs))
+	tracingEnvVars = append(tracingEnvVars,
+		corev1.EnvVar{Name: "OTEL_SERVICE_NAME", Value: serviceName},
+		corev1.EnvVar{Name: "OTEL_EXPORTER_OTLP_ENDPOINT", Value: endpoint},
+		corev1.EnvVar{Name: "OTEL_TRACES_EXPORTER", Value: ptr.Deref(t.TracesExporter, "")},
+		corev1.EnvVar{Name: "OTEL_TRACES_SAMPLER", Value: ptr.Deref(t.TracesSampler, "")},
+		corev1.EnvVar{Name: "OTEL_TRACES_SAMPLER_ARG", Value: ptr.Deref(t.TracesSamplerArg, "")},
+	)
+	tracingEnvVars = append(tracingEnvVars, resourceAttrs...)
 
 	container.Env = mergeEnvVars(container.Env, tracingEnvVars)
 }
