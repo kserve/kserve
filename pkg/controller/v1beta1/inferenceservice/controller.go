@@ -335,16 +335,10 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		componentList = append(componentList, v1beta1.ExplainerComponent)
 	}
 	if !forceStopRuntime {
-		switch deploymentMode {
-		case constants.Knative:
-			// RoutesReady aggregates route sub-conditions only populated in Serverless mode
+		if deploymentMode == constants.Knative {
 			isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1.RoutesReady)
-			isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1.LatestDeploymentReady)
-		case constants.Standard:
-			// Standard mode doesn't populate configuration sub-conditions, so derive
-			// LatestDeploymentReady directly from the component Ready conditions
-			isvc.Status.PropagateRawDeploymentReadyStatus(componentList)
 		}
+		isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1.LatestDeploymentReady)
 	}
 
 	// Reconcile ingress

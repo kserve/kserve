@@ -211,6 +211,7 @@ func (e *Explainer) reconcileExplainerRawDeployment(ctx context.Context, isvc *v
 	}
 	if !utils.GetForceStopRuntime(isvc) {
 		isvc.Status.PropagateRawStatus(v1beta1.ExplainerComponent, deployment, r.URL)
+		isvc.Status.PropagateRawConfigurationStatus(v1beta1.ExplainerComponent, deployment)
 	}
 	return nil
 }

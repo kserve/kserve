@@ -517,28 +517,6 @@ func (ss *InferenceServiceStatus) PropagateCrossComponentStatus(componentList []
 	ss.SetCondition(conditionType, crossComponentCondition)
 }
 
-// PropagateRawDeploymentReadyStatus sets LatestDeploymentReady for Standard (raw Deployment) mode
-// by aggregating the component-level Ready conditions. Configuration sub-conditions
-// (PredictorConfigurationReady etc.) are only populated in Serverless mode, so Standard
-// mode derives deployment readiness directly from the component Ready conditions instead.
-func (ss *InferenceServiceStatus) PropagateRawDeploymentReadyStatus(componentList []ComponentType) {
-	crossComponentCondition := &apis.Condition{
-		Type:   LatestDeploymentReady,
-		Status: corev1.ConditionTrue,
-	}
-	for _, component := range componentList {
-		readyCondition := readyConditionsMap[component]
-		if !ss.IsConditionReady(readyCondition) {
-			crossComponentCondition.Status = corev1.ConditionFalse
-			if ss.IsConditionUnknown(readyCondition) {
-				crossComponentCondition.Status = corev1.ConditionUnknown
-			}
-			crossComponentCondition.Reason = string(readyCondition) + " not ready"
-		}
-	}
-	ss.SetCondition(LatestDeploymentReady, crossComponentCondition)
-}
-
 func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, serviceStatus *knservingv1.ServiceStatus) {
 	if len(ss.Components) == 0 {
 		ss.Components = make(map[ComponentType]ComponentStatusSpec)
@@ -791,4 +769,32 @@ func (ss *InferenceServiceStatus) PropagateModelStatus(statusSpec ComponentStatu
 		}
 	}
 	return true
+}
+
+// PropagateRawConfigurationStatus sets PredictorConfigurationReady (and equivalents for
+// Transformer/Explainer) for Standard mode by reading the Deployment's Progressing condition.
+// This mirrors what PropagateStatus does for Knative via the ConfigurationsReady condition,
+// allowing PropagateCrossComponentStatus to set LatestDeploymentReady correctly in Standard mode.
+func (ss *InferenceServiceStatus) PropagateRawConfigurationStatus(component ComponentType, deploymentList []*appsv1.Deployment) {
+    configConditionType := configurationConditionsMap[component]
+    progressingCondition := getDeploymentCondition(deploymentList, appsv1.DeploymentProgressing)
+
+    configCondition := &apis.Condition{
+        Type:   configConditionType,
+        Status: corev1.ConditionFalse,
+    }
+    if progressingCondition != nil && progressingCondition.Status == corev1.ConditionTrue &&
+        progressingCondition.Reason == "NewReplicaSetAvailable" {
+        configCondition.Status = corev1.ConditionTrue
+        configCondition.Reason = progressingCondition.Reason
+        configCondition.Message = progressingCondition.Message
+    } else if progressingCondition != nil && progressingCondition.Status == corev1.ConditionTrue {
+        configCondition.Status = corev1.ConditionUnknown
+        configCondition.Reason = progressingCondition.Reason
+        configCondition.Message = progressingCondition.Message
+    } else if progressingCondition != nil {
+        configCondition.Reason = progressingCondition.Reason
+        configCondition.Message = progressingCondition.Message
+    }
+    ss.SetCondition(configConditionType, configCondition)
 }
