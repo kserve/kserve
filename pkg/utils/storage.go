@@ -338,13 +338,17 @@ func CreateInitContainerWithConfig(storageConfig *types.StorageInitializerConfig
 // the parent directory so that the symlink target exists. For the default path
 // the command is kept identical to the original to avoid unnecessary pod restarts
 // on upgrade.
+//
+// Paths are single-quoted to prevent shell metacharacter injection.
+// The upstream validation (validateStorageURISpec) ensures paths are absolute
+// and contain no "..", but single-quoting provides defense-in-depth.
 func modelcarCommand(modelPath string) string {
 	// $$$$ gets escaped by YAML to $$, which is the current PID
 	if modelPath != constants.DefaultModelLocalMountPath {
-		return fmt.Sprintf("mkdir -p %s && ln -sf /proc/$$$$/root/models %s && sleep infinity",
+		return fmt.Sprintf("mkdir -p '%s' && ln -sf /proc/$$$$/root/models '%s' && sleep infinity",
 			path.Dir(modelPath), modelPath)
 	}
-	return fmt.Sprintf("ln -sf /proc/$$$$/root/models %s && sleep infinity", modelPath)
+	return fmt.Sprintf("ln -sf /proc/$$$$/root/models '%s' && sleep infinity", modelPath)
 }
 
 // CreateModelcarContainer creates the definition of a container holding a model intended to be used as a sidecar (modelcar).
