@@ -48,6 +48,8 @@ import (
 const (
 	// Single node deployment template
 	configTemplateNameSuffix = "config-llm-template"
+	// SGLang single node deployment template
+	configSGLangTemplateNameSuffix = "config-llm-sglang-template"
 	// Disaggregated prefill/decode templates
 	configDecodeTemplateNameSuffix  = "config-llm-decode-template"
 	configPrefillTemplateNameSuffix = "config-llm-prefill-template"
@@ -67,6 +69,7 @@ const (
 var (
 	configPrefix                            = constants.GetEnvOrDefault("LLM_INFERENCE_SERVICE_CONFIG_PREFIX", "kserve-")
 	configTemplateName                      = configPrefix + configTemplateNameSuffix
+	configSGLangTemplateName                = configPrefix + configSGLangTemplateNameSuffix
 	configDecodeTemplateName                = configPrefix + configDecodeTemplateNameSuffix
 	configDecodeWorkerPipelineParallelName  = configPrefix + configDecodeWorkerPipelineParallelNameSuffix
 	configWorkerPipelineParallelName        = configPrefix + configWorkerPipelineParallelNameSuffix
@@ -90,6 +93,7 @@ var _ = sets.New[string](
 // that are automatically applied based on the LLM service deployment pattern
 var WellKnownDefaultConfigs = sets.New[string](
 	configTemplateName,
+	configSGLangTemplateName,
 	configDecodeTemplateName,
 	configWorkerDataParallelName,
 	configDecodeWorkerDataParallelName,
@@ -217,8 +221,12 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	} else { // Non P/D
 		switch {
 		case resolvedSpec.Worker == nil:
-			// single-node
-			refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configTemplateName)})
+			// single-node: select template based on runtime (vllm or sglang)
+			templateName := configTemplateName
+			if llmSvc.Spec.Runtime == v1alpha2.LLMRuntimeSGLang {
+				templateName = configSGLangTemplateName
+			}
+			refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, templateName)})
 		case resolvedSpec.Worker != nil && resolvedSpec.Parallelism.IsDataParallel():
 			// multi-node Data Parallel
 			refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configWorkerDataParallelName)})

@@ -1909,6 +1909,141 @@ spec:
 	}
 }
 
+func TestMergeSpecs_RuntimeSelection(t *testing.T) {
+	tests := []struct {
+		name    string
+		cfgs    []v1alpha2.LLMInferenceServiceSpec
+		want    v1alpha2.LLMInferenceServiceSpec
+		wantErr bool
+	}{
+		{
+			name: "default runtime is vllm",
+			cfgs: []v1alpha2.LLMInferenceServiceSpec{
+				{
+					Model: v1alpha2.LLMModelSpec{URI: apis.URL{Path: "model-a"}},
+				},
+			},
+			want: v1alpha2.LLMInferenceServiceSpec{
+				Model: v1alpha2.LLMModelSpec{URI: apis.URL{Path: "model-a"}},
+			},
+			wantErr: false,
+		},
+		{
+			name: "explicit vllm runtime",
+			cfgs: []v1alpha2.LLMInferenceServiceSpec{
+				{
+					Runtime: v1alpha2.LLMRuntimeVLLM,
+					Model:   v1alpha2.LLMModelSpec{URI: apis.URL{Path: "model-a"}},
+				},
+			},
+			want: v1alpha2.LLMInferenceServiceSpec{
+				Runtime: v1alpha2.LLMRuntimeVLLM,
+				Model:   v1alpha2.LLMModelSpec{URI: apis.URL{Path: "model-a"}},
+			},
+			wantErr: false,
+		},
+		{
+			name: "sglang runtime",
+			cfgs: []v1alpha2.LLMInferenceServiceSpec{
+				{
+					Runtime: v1alpha2.LLMRuntimeSGLang,
+					Model:   v1alpha2.LLMModelSpec{URI: apis.URL{Path: "model-a"}},
+				},
+			},
+			want: v1alpha2.LLMInferenceServiceSpec{
+				Runtime: v1alpha2.LLMRuntimeSGLang,
+				Model:   v1alpha2.LLMModelSpec{URI: apis.URL{Path: "model-a"}},
+			},
+			wantErr: false,
+		},
+		{
+			name: "merge with runtime override from sglang to vllm",
+			cfgs: []v1alpha2.LLMInferenceServiceSpec{
+				{
+					Runtime: v1alpha2.LLMRuntimeSGLang,
+					Model:   v1alpha2.LLMModelSpec{URI: apis.URL{Path: "model-a"}},
+				},
+				{
+					Runtime: v1alpha2.LLMRuntimeVLLM,
+				},
+			},
+			want: v1alpha2.LLMInferenceServiceSpec{
+				Runtime: v1alpha2.LLMRuntimeVLLM,
+				Model:   v1alpha2.LLMModelSpec{URI: apis.URL{Path: "model-a"}},
+			},
+			wantErr: false,
+		},
+		{
+			name: "merge with runtime override from vllm to sglang",
+			cfgs: []v1alpha2.LLMInferenceServiceSpec{
+				{
+					Runtime: v1alpha2.LLMRuntimeVLLM,
+					Model:   v1alpha2.LLMModelSpec{URI: apis.URL{Path: "model-a"}},
+				},
+				{
+					Runtime: v1alpha2.LLMRuntimeSGLang,
+				},
+			},
+			want: v1alpha2.LLMInferenceServiceSpec{
+				Runtime: v1alpha2.LLMRuntimeSGLang,
+				Model:   v1alpha2.LLMModelSpec{URI: apis.URL{Path: "model-a"}},
+			},
+			wantErr: false,
+		},
+		{
+			name: "sglang runtime with workload spec",
+			cfgs: []v1alpha2.LLMInferenceServiceSpec{
+				{
+					Runtime: v1alpha2.LLMRuntimeSGLang,
+					Model:   v1alpha2.LLMModelSpec{URI: apis.URL{Path: "model-a"}},
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Replicas: ptr.To[int32](2),
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "main",
+									Image: "lmsysorg/sglang:latest",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: v1alpha2.LLMInferenceServiceSpec{
+				Runtime: v1alpha2.LLMRuntimeSGLang,
+				Model:   v1alpha2.LLMModelSpec{URI: apis.URL{Path: "model-a"}},
+				WorkloadSpec: v1alpha2.WorkloadSpec{
+					Replicas: ptr.To[int32](2),
+					Template: &corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  "main",
+								Image: "lmsysorg/sglang:latest",
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := t.Context()
+			ctx = log.IntoContext(ctx, pkgtest.NewTestLogger(t))
+
+			got, err := llmisvc.MergeSpecs(ctx, tt.cfgs...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("MergeSpecs() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("MergeSpecs() got = \n%#v\n, want \n%#v\nDiff (-want, +got):\n%s", got, tt.want, diff)
+			}
+		})
+	}
+}
+
 func TestToParentRefs(t *testing.T) {
 	tests := []struct {
 		name string
