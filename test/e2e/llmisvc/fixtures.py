@@ -1176,8 +1176,8 @@ def generate_k8s_safe_suffix(
 
     name_hash = hashlib.sha256(full_name.encode()).hexdigest()[:8]
 
-    # TODO: we can't use the real maximum (63), LWS and STS add additional suffixes (ie `-0`) and don't handle that case.
-    max_total = 40
+    # TODO: we can't use the real maximum (63), LWS and STS add additional suffixes (e.g.`-0` or `prefill-0`) and don't handle that case.
+    max_total = 35
     sep = "-"
     max_base = max_total - len(sep) - len(name_hash)
     safe_base = full_name[:max_base].rstrip(sep)
