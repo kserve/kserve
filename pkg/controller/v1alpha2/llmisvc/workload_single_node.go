@@ -31,6 +31,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/util/retry"
 	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -166,6 +167,7 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 		}
 	}
 
+	applyDeploymentRolloutStrategy(&d.Spec, &llmSvc.Spec.WorkloadSpec, config)
 	r.propagateDeploymentMetadata(llmSvc, d)
 
 	log.FromContext(ctx).V(2).Info("Expected main deployment", "deployment", d)
@@ -253,6 +255,9 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 		}
 	}
 
+	if llmSvc.Spec.Prefill != nil {
+		applyDeploymentRolloutStrategy(&d.Spec, llmSvc.Spec.Prefill, config)
+	}
 	r.propagateDeploymentMetadata(llmSvc, d)
 
 	// Propagate prefill-specific labels and annotations
@@ -318,6 +323,34 @@ func (r *LLMISVCReconciler) propagateDeploymentStatus(ctx context.Context, expec
 	}
 	notReady(string(appsv1.DeploymentProgressing), "")
 	return nil
+}
+
+func applyDeploymentRolloutStrategy(spec *appsv1.DeploymentSpec, workloadSpec *v1alpha2.WorkloadSpec, config *Config) {
+	if workloadSpec != nil && workloadSpec.DeploymentStrategy != nil {
+		spec.Strategy = *workloadSpec.DeploymentStrategy
+		return
+	}
+
+	if config == nil || config.DeployConfig == nil ||
+		config.DeployConfig.DefaultDeploymentMode != string(constants.Standard) ||
+		config.DeployConfig.DeploymentRolloutStrategy == nil ||
+		config.DeployConfig.DeploymentRolloutStrategy.DefaultRollout == nil {
+		return
+	}
+
+	rollout := config.DeployConfig.DeploymentRolloutStrategy.DefaultRollout
+	if spec.Strategy.Type != appsv1.RollingUpdateDeploymentStrategyType {
+		spec.Strategy.Type = appsv1.RollingUpdateDeploymentStrategyType
+	}
+	if spec.Strategy.RollingUpdate == nil {
+		spec.Strategy.RollingUpdate = &appsv1.RollingUpdateDeployment{}
+	}
+	if rollout.MaxSurge != "" {
+		spec.Strategy.RollingUpdate.MaxSurge = &intstr.IntOrString{Type: intstr.String, StrVal: rollout.MaxSurge}
+	}
+	if rollout.MaxUnavailable != "" {
+		spec.Strategy.RollingUpdate.MaxUnavailable = &intstr.IntOrString{Type: intstr.String, StrVal: rollout.MaxUnavailable}
+	}
 }
 
 func semanticDeploymentIsEqual(expected *appsv1.Deployment, curr *appsv1.Deployment) bool {
