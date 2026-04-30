@@ -35,6 +35,18 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       install_methods: ${{ steps.set-matrix.outputs.install_methods }}
+      core: ${{ steps.filter.outputs.core }}
+      graph: ${{ steps.filter.outputs.graph }}
+      qpext: ${{ steps.filter.outputs.qpext }}
+      router: ${{ steps.filter.outputs.router }}
+      localmodel: ${{ steps.filter.outputs.localmodel }}
+      python_runtimes: ${{ steps.filter.outputs.python_runtimes }}
+      explainer: ${{ steps.filter.outputs.explainer }}
+      huggingface: ${{ steps.filter.outputs.huggingface }}
+      raw_deploy: ${{ steps.filter.outputs.raw_deploy }}
+      networking: ${{ steps.filter.outputs.networking }}
+      charts: ${{ steps.filter.outputs.charts }}
+      non_charts: ${{ steps.filter.outputs.non_charts }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - name: Merge target branch
@@ -54,6 +66,68 @@ jobs:
             non_charts:
               - '**'
               - '!charts/**'
+            # Core controller/API changes affect all tests
+            core:
+              - 'pkg/apis/**'
+              - 'pkg/controller/v1beta1/**'
+              - 'pkg/credentials/**'
+              - 'pkg/webhook/**'
+              - 'pkg/utils/**'
+              - 'cmd/manager/**'
+              - 'config/**'
+              - '!config/llmisvc/**'
+              - 'Dockerfile'
+              - 'agent.Dockerfile'
+              - 'go.mod'
+              - 'go.sum'
+              - 'kserve-images.sh'
+              - 'python/storage-initializer.Dockerfile'
+              - 'python/storage/**'
+              - 'python/storage-initializer/**'
+              - 'test/scripts/gh-actions/**'
+              - 'test/e2e/conftest.py'
+              - '.github/workflows/e2e-test.yml'
+              - '.github/actions/**'
+            # Component-specific paths
+            graph:
+              - 'pkg/apis/**/inference_graph*'
+              - 'pkg/controller/**/inference_graph*'
+              - 'test/e2e/graph/**'
+              - 'python/success_200_isvc.Dockerfile'
+              - 'python/error_404_isvc.Dockerfile'
+            qpext:
+              - 'qpext/**'
+              - 'test/e2e/qpext/**'
+            router:
+              - 'cmd/router/**'
+              - 'pkg/router/**'
+              - 'router.Dockerfile'
+            localmodel:
+              - 'pkg/controller/**/localmodel*'
+              - 'pkg/apis/**/localmodel*'
+              - 'cmd/localmodel*/**'
+              - 'test/e2e/modelcache/**'
+              - 'localmodel.Dockerfile'
+              - 'localmodel-agent.Dockerfile'
+            python_runtimes:
+              - 'python/**'
+            explainer:
+              - 'python/artexplainer/**'
+              - 'python/artexplainer.Dockerfile'
+              - 'test/e2e/explainer/**'
+            huggingface:
+              - 'python/huggingfaceserver/**'
+              - 'python/huggingface_server.Dockerfile'
+              - 'python/huggingface_server_cpu.Dockerfile'
+              - 'test/e2e/predictor/test_huggingface*'
+            raw_deploy:
+              - 'pkg/controller/**/rawkube*'
+              - 'pkg/controller/**/autoscaler*'
+              - 'test/e2e/raw/**'
+            networking:
+              - 'pkg/controller/**/ingress*'
+              - 'pkg/controller/**/route*'
+              - 'config/overlays/**'
       - id: set-matrix
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
@@ -355,6 +429,11 @@ jobs:
   test-predictor:
     runs-on: ubuntu-latest
     needs: [detect-changes, kserve-image-build, predictor-runtime-build]
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'merge_group' ||
+      needs.detect-changes.outputs.core == 'true' ||
+      needs.detect-changes.outputs.python_runtimes == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -435,6 +514,12 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       [detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'merge_group' ||
+      needs.detect-changes.outputs.core == 'true' ||
+      needs.detect-changes.outputs.explainer == 'true' ||
+      needs.detect-changes.outputs.python_runtimes == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -544,6 +629,12 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       [detect-changes, kserve-image-build, predictor-runtime-build, graph-tests-images-build]
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'merge_group' ||
+      needs.detect-changes.outputs.core == 'true' ||
+      needs.detect-changes.outputs.graph == 'true' ||
+      needs.detect-changes.outputs.router == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -642,6 +733,12 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       [detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'merge_group' ||
+      needs.detect-changes.outputs.core == 'true' ||
+      needs.detect-changes.outputs.networking == 'true' ||
+      needs.detect-changes.outputs.router == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -761,6 +858,11 @@ jobs:
   test-qpext:
     runs-on: ubuntu-latest
     needs: [detect-changes, kserve-image-build, predictor-runtime-build]
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'merge_group' ||
+      needs.detect-changes.outputs.core == 'true' ||
+      needs.detect-changes.outputs.qpext == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -853,7 +955,11 @@ jobs:
 
   test-with-helm:
     runs-on: ubuntu-latest
-    needs: [kserve-image-build]
+    needs: [detect-changes, kserve-image-build]
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'merge_group' ||
+      needs.detect-changes.outputs.charts == 'true'
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -915,6 +1021,14 @@ jobs:
 
   test-raw:
     runs-on: ubuntu-latest
+    needs:
+      [detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'merge_group' ||
+      needs.detect-changes.outputs.core == 'true' ||
+      needs.detect-changes.outputs.raw_deploy == 'true' ||
+      needs.detect-changes.outputs.networking == 'true'
     strategy:
       fail-fast: false
       max-parallel: 3
@@ -922,8 +1036,6 @@ jobs:
         # Test with Ingress and Gateway API
         network-layer: ["istio-ingress", "envoy-gatewayapi", "istio-gatewayapi"]
         install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
-    needs:
-      [detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -1071,6 +1183,11 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       [detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'merge_group' ||
+      needs.detect-changes.outputs.core == 'true' ||
+      needs.detect-changes.outputs.raw_deploy == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -1174,6 +1291,11 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       [detect-changes, kserve-image-build, predictor-runtime-build, graph-tests-images-build]
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'merge_group' ||
+      needs.detect-changes.outputs.core == 'true' ||
+      needs.detect-changes.outputs.networking == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -1282,6 +1404,11 @@ jobs:
   test-llm:
     runs-on: ubuntu-latest
     needs: [detect-changes, kserve-image-build, predictor-runtime-build]
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'merge_group' ||
+      needs.detect-changes.outputs.core == 'true' ||
+      needs.detect-changes.outputs.huggingface == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -1359,6 +1486,11 @@ jobs:
   test-huggingface-server-vllm:
     runs-on: ubuntu-latest
     needs: [detect-changes, kserve-image-build, predictor-runtime-build]
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'merge_group' ||
+      needs.detect-changes.outputs.core == 'true' ||
+      needs.detect-changes.outputs.huggingface == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -1436,6 +1568,11 @@ jobs:
   test-modelcache:
     runs-on: ubuntu-latest
     needs: [detect-changes, kserve-image-build, predictor-runtime-build]
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'merge_group' ||
+      needs.detect-changes.outputs.core == 'true' ||
+      needs.detect-changes.outputs.localmodel == 'true'
     strategy:
       fail-fast: false
       matrix:
