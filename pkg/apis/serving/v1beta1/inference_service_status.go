@@ -37,7 +37,7 @@ type InferenceServiceStatus struct {
 	// - TransformerReady: transformer readiness condition; <br/>
 	// - ExplainerReady: explainer readiness condition; <br/>
 	// - RoutesReady (serverless mode only): aggregated routing condition, i.e. endpoint readiness condition; <br/>
-	// - LatestDeploymentReady (serverless mode only): aggregated configuration condition, i.e. latest deployment readiness condition; <br/>
+	// - LatestDeploymentReady: aggregated deployment readiness condition; set in both Serverless and Standard modes; <br/>
 	// - Ready: aggregated condition; <br/>
 	duckv1.Status `json:",inline"`
 	// Addressable endpoint for the InferenceService
@@ -769,4 +769,32 @@ func (ss *InferenceServiceStatus) PropagateModelStatus(statusSpec ComponentStatu
 		}
 	}
 	return true
+}
+
+// PropagateRawConfigurationStatus sets PredictorConfigurationReady (and equivalents for
+// Transformer/Explainer) for Standard mode by reading the Deployment's Progressing condition.
+// This mirrors what PropagateStatus does for Knative via the ConfigurationsReady condition,
+// allowing PropagateCrossComponentStatus to set LatestDeploymentReady correctly in Standard mode.
+func (ss *InferenceServiceStatus) PropagateRawConfigurationStatus(component ComponentType, deploymentList []*appsv1.Deployment) {
+    configConditionType := configurationConditionsMap[component]
+    progressingCondition := getDeploymentCondition(deploymentList, appsv1.DeploymentProgressing)
+
+    configCondition := &apis.Condition{
+        Type:   configConditionType,
+        Status: corev1.ConditionFalse,
+    }
+    if progressingCondition != nil && progressingCondition.Status == corev1.ConditionTrue &&
+        progressingCondition.Reason == "NewReplicaSetAvailable" {
+        configCondition.Status = corev1.ConditionTrue
+        configCondition.Reason = progressingCondition.Reason
+        configCondition.Message = progressingCondition.Message
+    } else if progressingCondition != nil && progressingCondition.Status == corev1.ConditionTrue {
+        configCondition.Status = corev1.ConditionUnknown
+        configCondition.Reason = progressingCondition.Reason
+        configCondition.Message = progressingCondition.Message
+    } else if progressingCondition != nil {
+        configCondition.Reason = progressingCondition.Reason
+        configCondition.Message = progressingCondition.Message
+    }
+    ss.SetCondition(configConditionType, configCondition)
 }

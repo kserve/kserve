@@ -247,6 +247,7 @@ func (p *Transformer) reconcileTransformerRawDeployment(ctx context.Context, isv
 	}
 	if !utils.GetForceStopRuntime(isvc) {
 		isvc.Status.PropagateRawStatus(v1beta1.TransformerComponent, deployment, r.URL)
+		isvc.Status.PropagateRawConfigurationStatus(v1beta1.TransformerComponent, deployment)
 	}
 	return nil
 }

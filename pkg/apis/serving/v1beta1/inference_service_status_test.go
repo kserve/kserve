@@ -1996,3 +1996,90 @@ func TestInferenceServiceStatus_ClearCondition(t *testing.T) {
 	// Try clearing a condition that was never set
 	status.ClearCondition(TransformerReady)
 }
+
+func TestPropagateRawConfigurationStatus(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	makeDeployment := func(progressingStatus corev1.ConditionStatus, reason, message string) *appsv1.Deployment {
+		return &appsv1.Deployment{
+			Status: appsv1.DeploymentStatus{
+				Conditions: []appsv1.DeploymentCondition{
+					{
+						Type:    appsv1.DeploymentProgressing,
+						Status:  progressingStatus,
+						Reason:  reason,
+						Message: message,
+					},
+				},
+			},
+		}
+	}
+
+	t.Run("Progressing True with NewReplicaSetAvailable sets configuration condition True", func(t *testing.T) {
+		ss := &InferenceServiceStatus{}
+		ss.InitializeConditions()
+		deployment := makeDeployment(corev1.ConditionTrue, "NewReplicaSetAvailable", "ReplicaSet has successfully progressed.")
+
+		ss.PropagateRawConfigurationStatus(PredictorComponent, []*appsv1.Deployment{deployment})
+		cond := ss.GetCondition(PredictorConfigurationReady)
+		g.Expect(cond).NotTo(gomega.BeNil())
+		g.Expect(cond.Status).To(gomega.Equal(corev1.ConditionTrue))
+		g.Expect(cond.Reason).To(gomega.Equal("NewReplicaSetAvailable"))
+	})
+
+	t.Run("Progressing True with other reason sets configuration condition Unknown", func(t *testing.T) {
+		ss := &InferenceServiceStatus{}
+		ss.InitializeConditions()
+		deployment := makeDeployment(corev1.ConditionTrue, "ReplicaSetUpdated", "Waiting for rollout to finish.")
+
+		ss.PropagateRawConfigurationStatus(PredictorComponent, []*appsv1.Deployment{deployment})
+		cond := ss.GetCondition(PredictorConfigurationReady)
+		g.Expect(cond).NotTo(gomega.BeNil())
+		g.Expect(cond.Status).To(gomega.Equal(corev1.ConditionUnknown))
+		g.Expect(cond.Reason).To(gomega.Equal("ReplicaSetUpdated"))
+	})
+
+	t.Run("Progressing False sets configuration condition False", func(t *testing.T) {
+		ss := &InferenceServiceStatus{}
+		ss.InitializeConditions()
+		deployment := makeDeployment(corev1.ConditionFalse, "ProgressDeadlineExceeded", "Deployment exceeded deadline.")
+
+		ss.PropagateRawConfigurationStatus(PredictorComponent, []*appsv1.Deployment{deployment})
+		cond := ss.GetCondition(PredictorConfigurationReady)
+		g.Expect(cond).NotTo(gomega.BeNil())
+		g.Expect(cond.Status).To(gomega.Equal(corev1.ConditionFalse))
+		g.Expect(cond.Reason).To(gomega.Equal("ProgressDeadlineExceeded"))
+	})
+
+	t.Run("Empty deployment list sets configuration condition False", func(t *testing.T) {
+		ss := &InferenceServiceStatus{}
+		ss.InitializeConditions()
+
+		ss.PropagateRawConfigurationStatus(PredictorComponent, []*appsv1.Deployment{})
+		cond := ss.GetCondition(PredictorConfigurationReady)
+		g.Expect(cond).NotTo(gomega.BeNil())
+		g.Expect(cond.Status).To(gomega.Equal(corev1.ConditionFalse))
+	})
+
+	t.Run("TransformerComponent sets TransformerConfigurationReady", func(t *testing.T) {
+		ss := &InferenceServiceStatus{}
+		ss.InitializeConditions()
+		deployment := makeDeployment(corev1.ConditionTrue, "NewReplicaSetAvailable", "")
+
+		ss.PropagateRawConfigurationStatus(TransformerComponent, []*appsv1.Deployment{deployment})
+		cond := ss.GetCondition(TransformerConfigurationReady)
+		g.Expect(cond).NotTo(gomega.BeNil())
+		g.Expect(cond.Status).To(gomega.Equal(corev1.ConditionTrue))
+	})
+
+	t.Run("ExplainerComponent sets ExplainerConfigurationReady", func(t *testing.T) {
+		ss := &InferenceServiceStatus{}
+		ss.InitializeConditions()
+		deployment := makeDeployment(corev1.ConditionTrue, "NewReplicaSetAvailable", "")
+
+		ss.PropagateRawConfigurationStatus(ExplainerComponent, []*appsv1.Deployment{deployment})
+		cond := ss.GetCondition(ExplainerConfigurationReady)
+		g.Expect(cond).NotTo(gomega.BeNil())
+		g.Expect(cond.Status).To(gomega.Equal(corev1.ConditionTrue))
+	})
+}
