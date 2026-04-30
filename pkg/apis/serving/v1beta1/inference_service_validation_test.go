@@ -249,7 +249,75 @@ func TestAutoscalerClassHPA(t *testing.T) {
 					},
 				},
 			},
-			errMatcher: gomega.MatchError("invalid HPA metric source type with value [External],valid metric source types are Resource"),
+			errMatcher: gomega.MatchError("invalid HPA metric source type with value [External], " +
+				"valid metric source types are Resource. " +
+				"For External or PodMetric types, set the annotation serving.kserve.io/autoscalerClass to keda"),
+		},
+		"Invalid External metrics without autoscalerClass annotation in Standard mode": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode": "Standard",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							AutoScaling: &AutoScalingSpec{
+								Metrics: []MetricsSpec{
+									{
+										Type: ExternalMetricSourceType,
+									},
+								},
+							},
+						},
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.MatchError("invalid HPA metric source type with value [External], " +
+				"valid metric source types are Resource. " +
+				"For External or PodMetric types, set the annotation serving.kserve.io/autoscalerClass to keda"),
+		},
+		"Invalid External metrics without autoscalerClass annotation in RawDeployment mode": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode": "RawDeployment",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							AutoScaling: &AutoScalingSpec{
+								Metrics: []MetricsSpec{
+									{
+										Type: ExternalMetricSourceType,
+									},
+								},
+							},
+						},
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.MatchError("invalid HPA metric source type with value [External], " +
+				"valid metric source types are Resource. " +
+				"For External or PodMetric types, set the annotation serving.kserve.io/autoscalerClass to keda"),
 		},
 		"Valid HPA CPU metrics with target utilization": {
 			isvc: &InferenceService{
@@ -594,6 +662,9 @@ func TestRejectMultipleModelSpecs(t *testing.T) {
 func TestCustomizeDeploymentStrategyUnsupportedForServerless(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
+	isvc.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.Knative),
+	}
 	isvc.Spec.Predictor.PodSpec = PodSpec{ServiceAccountName: "test"}
 	isvc.Spec.Predictor.DeploymentStrategy = &appsv1.DeploymentStrategy{
 		Type: appsv1.RecreateDeploymentStrategyType,
