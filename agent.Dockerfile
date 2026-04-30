@@ -1,5 +1,5 @@
 # Build the inference-agent binary
-FROM golang:1.25 AS deps
+FROM golang:1.26 AS deps
 
 WORKDIR /go/src/github.com/kserve/kserve
 COPY go.mod  go.mod

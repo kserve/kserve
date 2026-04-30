@@ -20,7 +20,7 @@ set -o pipefail
 
 SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
 SCRIPT_ROOT="${SCRIPT_DIR}/.."
-CODEGEN_VERSION=$(cd "${SCRIPT_ROOT}" && grep 'k8s.io/code-generator' go.mod | awk '{print $2}')
+CODEGEN_VERSION=$(cd "${SCRIPT_ROOT}" && go list -m -f '{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}' k8s.io/code-generator)
 KUBE_CODEGEN_TAG=${CODEGEN_VERSION}
 
 # For debugging purposes
