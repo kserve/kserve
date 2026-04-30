@@ -38,7 +38,7 @@ dependencies = [
     "pyjwt>=2.12.0",
     # CVE-2026-30922 pyasn1 Vulnerable to Denial of Service via Unbounded Recursion
     # Pinning because it is a transitive dependency.
-    "pyasn>=0.6.3"
+    "pyasn1>=0.6.3"
 ]
 name = "kserve"
 version = "0.18.0"
