@@ -24,7 +24,7 @@ from vllm.engine.protocol import EngineClient
 from vllm.entrypoints.openai.completion.serving import OpenAIServingCompletion
 from vllm.entrypoints.openai.chat_completion.serving import OpenAIServingChat
 from vllm.entrypoints.pooling.embed.serving import ServingEmbedding
-from vllm.entrypoints.pooling.score.serving import ServingScores
+from vllm.entrypoints.pooling.scoring.serving import ServingScores
 from vllm.tool_parsers import ToolParserManager
 from vllm.entrypoints.openai.models.protocol import BaseModelPath
 from vllm.entrypoints.openai.models.serving import OpenAIServingModels

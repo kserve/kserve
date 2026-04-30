@@ -105,7 +105,7 @@ RUN git clone --single-branch --branch v${VLLM_VERSION} https://github.com/vllm-
 
 # Install vLLM build requirements
 RUN cd vllm && \
-    uv pip install --no-cache -v --index-strategy unsafe-best-match --extra-index-url ${TORCH_EXTRA_INDEX_URL} -r requirements/cpu-build.txt && \
+    uv pip install --no-cache -v --index-strategy unsafe-best-match --extra-index-url ${TORCH_EXTRA_INDEX_URL} -r requirements/build/cpu.txt && \
     uv cache clean
 
 # Install vLLM cpu requirements
