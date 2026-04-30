@@ -538,6 +538,13 @@ schedulingProfiles:
 	}
 }
 
+// inlineConfigTextFlags lists the config-text flag variants that carry inline
+// YAML and can be rewritten by mutateSchedulerConfig. Go's flag package
+// accepts both kebab-case and camelCase, so all four forms are valid.
+var inlineConfigTextFlags = map[string]struct{}{
+	"--config-text": {}, "-config-text": {}, "--configText": {}, "-configText": {},
+}
+
 // schedulerConfigFlags lists both kebab-case and camelCase variants because
 // Go's flag package accepts either form.
 var schedulerConfigFlags = map[string]struct{}{
@@ -764,9 +771,10 @@ func (r *LLMISVCReconciler) propagateSchedulerDeploymentStatus(ctx context.Conte
 // may mutate it in place.
 type mutateSchedulerConfigFunc func(ctx context.Context, u *unstructured.Unstructured) error
 
-// mutateSchedulerConfig finds the --config-text arg, unmarshals the YAML once,
-// applies all opts sequentially, then marshals back. This ensures a single
-// unmarshal/marshal round-trip regardless of how many mutations are batched.
+// mutateSchedulerConfig finds an inline config-text arg (any of the four
+// accepted spellings), unmarshals the YAML once, applies all opts
+// sequentially, then marshals back. This ensures a single unmarshal/marshal
+// round-trip regardless of how many mutations are batched.
 func mutateSchedulerConfig(ctx context.Context, d *appsv1.Deployment, opts ...mutateSchedulerConfigFunc) error {
 	schedulerContainer := utils.GetContainerWithName(&d.Spec.Template.Spec, "main")
 	if schedulerContainer == nil {
@@ -774,7 +782,7 @@ func mutateSchedulerConfig(ctx context.Context, d *appsv1.Deployment, opts ...mu
 	}
 
 	for i := range len(schedulerContainer.Args) - 1 {
-		if schedulerContainer.Args[i] == "--config-text" || schedulerContainer.Args[i] == "-config-text" {
+		if _, ok := inlineConfigTextFlags[schedulerContainer.Args[i]]; ok {
 			u := unstructured.Unstructured{}
 			if err := yaml.Unmarshal([]byte(schedulerContainer.Args[i+1]), &u); err != nil {
 				// Config text is not a valid YAML object (e.g. a plain string from a user-provided template),
@@ -1096,12 +1104,61 @@ func WithRemoveHashBlockSize(_ context.Context, u *unstructured.Unstructured) er
 	return nil
 }
 
+// hasWritableConfigText reports whether the "main" container has an inline
+// config-text flag (any of the four accepted spellings) whose value can be
+// rewritten by mutateSchedulerConfig.
+func hasWritableConfigText(d *appsv1.Deployment) bool {
+	c := utils.GetContainerWithName(&d.Spec.Template.Spec, "main")
+	if c == nil {
+		return false
+	}
+	for i := range len(c.Args) - 1 {
+		if _, ok := inlineConfigTextFlags[c.Args[i]]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// deprecatedMetricFlagNames is the set of CLI flag names (without leading
+// dashes) that GIE v1.4.0 hard-rejects at startup.
+var deprecatedMetricFlagNames = map[string]bool{
+	"total-queued-requests-metric":     true,
+	"total-running-requests-metric":    true,
+	"kv-cache-usage-percentage-metric": true,
+	"lora-info-metric":                 true,
+	"cache-info-metric":                true,
+}
+
+// hasDeprecatedMetricFlags reports whether any container in the pod spec
+// carries one of the 5 deprecated metric CLI flags, without modifying args.
+func hasDeprecatedMetricFlags(d *appsv1.Deployment) bool {
+	for ci := range d.Spec.Template.Spec.Containers {
+		for _, arg := range d.Spec.Template.Spec.Containers[ci].Args {
+			name := strings.TrimLeft(arg, "-")
+			if eqIdx := strings.Index(name, "="); eqIdx != -1 {
+				name = name[:eqIdx]
+			}
+			if deprecatedMetricFlagNames[name] {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // schedulerTransform applies all v0.7.0 scheduler migrations in a single pass.
 // It reads the app.kubernetes.io/version annotation from the Deployment's pod
 // template; if the version is < 0.7.0 (or absent, which defaults to 0.0.0),
 // all migrations are skipped because the v0.6 binary would reject new names.
 //
-// Migrations applied (in order):
+// Deprecated metric flag extraction (extractDeprecatedMetricFlags) and
+// core-metrics-extractor injection (withCoreMetricsExtractorPlugin) are only
+// performed when the deployment has a writable inline config-text payload.
+// If the deployment uses --config-file and still carries deprecated metric
+// flags, reconciliation is aborted with an error to prevent silent data loss.
+//
+// Migrations applied (in order, when config is writable):
 //  1. extractDeprecatedMetricFlags  – strip 5 CLI flags hard-rejected by GIE v1.4.0
 //  2. withMigrateDisaggHeadersHandler – rename prefill-header-handler → disagg-headers-handler
 //  3. withMigrateDisaggProfileHandler – rename pd-profile-handler → disagg-profile-handler,
@@ -1121,14 +1178,30 @@ func schedulerTransform(ctx context.Context, d *appsv1.Deployment) error {
 		return nil
 	}
 
-	extracted := extractDeprecatedMetricFlags(d)
+	writable := hasWritableConfigText(d)
 
-	return mutateSchedulerConfig(ctx, d,
+	if !writable && hasDeprecatedMetricFlags(d) {
+		return fmt.Errorf(
+			"scheduler deployment %s/%s uses deprecated metric flags but has no "+
+				"inline --config-text; automatic migration to core-metrics-extractor "+
+				"plugin is not possible — convert to --config-text or remove the "+
+				"deprecated flags manually",
+			d.GetNamespace(), d.GetName(),
+		)
+	}
+
+	opts := []mutateSchedulerConfigFunc{
 		withMigrateDisaggHeadersHandler,
 		withMigrateDisaggProfileHandler,
 		WithRemoveHashBlockSize,
-		withCoreMetricsExtractorPlugin(extracted),
-	)
+	}
+
+	if writable {
+		extracted := extractDeprecatedMetricFlags(d)
+		opts = append(opts, withCoreMetricsExtractorPlugin(extracted))
+	}
+
+	return mutateSchedulerConfig(ctx, d, opts...)
 }
 
 // withMigrateDisaggHeadersHandler renames the prefill-header-handler plugin to
@@ -1202,18 +1275,15 @@ func hasNonZeroThreshold(u *unstructured.Unstructured) bool {
 // extractDeprecatedMetricFlags strips the 5 metric CLI flags that GIE v1.4.0
 // hard-rejects at startup. Returns their values so they can be re-injected as
 // core-metrics-extractor plugin parameters in the EndpointPickerConfig YAML.
+//
+// Callers must verify that the deployment has a writable inline config
+// (hasWritableConfigText) before calling this function, otherwise the
+// extracted values have nowhere to be re-injected.
 func extractDeprecatedMetricFlags(d *appsv1.Deployment) map[string]string {
-	toRemove := map[string]bool{
-		"total-queued-requests-metric":     true,
-		"total-running-requests-metric":    true,
-		"kv-cache-usage-percentage-metric": true,
-		"lora-info-metric":                 true,
-		"cache-info-metric":                true,
-	}
 	var allExtracted map[string]string
 	for ci := range d.Spec.Template.Spec.Containers {
 		c := &d.Spec.Template.Spec.Containers[ci]
-		filtered, extracted := filterArgs(c.Args, toRemove)
+		filtered, extracted := filterArgs(c.Args, deprecatedMetricFlagNames)
 		c.Args = filtered
 		if len(extracted) > 0 {
 			allExtracted = extracted
