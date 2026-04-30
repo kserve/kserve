@@ -528,6 +528,12 @@ docker-build-paddle:
 docker-push-paddle: docker-build-paddle
 	${ENGINE} push ${KO_DOCKER_REPO}/${PADDLE_IMG}
 
+docker-build-autogluon:
+	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${AUTOGLUON_IMG} -f autogluon.Dockerfile .
+
+docker-push-autogluon: docker-build-autogluon
+	${ENGINE} push ${KO_DOCKER_REPO}/${AUTOGLUON_IMG}
+
 docker-build-custom-model:
 	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${CUSTOM_MODEL_IMG} -f custom_model.Dockerfile .
 

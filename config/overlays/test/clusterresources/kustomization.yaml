@@ -19,6 +19,9 @@ images:
 
 - name: kserve/predictiveserver
   newTag: latest
+
+- name: kserve/autogluonserver
+  newTag: latest
   
 - name: kserve/lgbserver
   newTag: latest
