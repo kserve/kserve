@@ -111,7 +111,7 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 //
 //	An error if the configuration fails, otherwise nil.
 func (r *LLMISVCReconciler) attachOciModelArtifact(modelUri string, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, containerName string, modelPath string) error {
-	if err := utils.ConfigureModelcarToContainer(modelUri, podSpec, containerName, modelPath, storageConfig); err != nil {
+	if err := utils.ConfigureModelcarToContainer(modelUri, podSpec, containerName, modelPath, storageConfig, 0); err != nil {
 		return err
 	}
 
