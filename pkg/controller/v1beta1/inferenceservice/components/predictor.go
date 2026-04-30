@@ -776,6 +776,7 @@ func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.In
 
 	if !utils.GetForceStopRuntime(isvc) {
 		isvc.Status.PropagateRawStatus(v1beta1.PredictorComponent, deploymentList, r.URL)
+		isvc.Status.PropagateRawConfigurationStatus(v1beta1.PredictorComponent, deploymentList)
 	}
 
 	return nil
