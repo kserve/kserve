@@ -553,6 +553,123 @@ func TestPresetFiles(t *testing.T) {
 				},
 			},
 		},
+		"config-llm-worker-pipeline-parallel.yaml": {
+			expected: &v1alpha2.LLMInferenceServiceConfig{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "serving.kserve.io/v1alpha2",
+					Kind:       "LLMInferenceServiceConfig",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "kserve-config-llm-worker-pipeline-parallel",
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "main",
+									Image: "ghcr.io/llm-d/llm-d-cuda:v0.5.1",
+									Ports: []corev1.ContainerPort{
+										{ContainerPort: 8000, Protocol: corev1.ProtocolTCP},
+									},
+								},
+							},
+							TerminationGracePeriodSeconds: ptr.To(int64(30)),
+						},
+						Worker: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "main",
+									Image: "ghcr.io/llm-d/llm-d-cuda:v0.5.1",
+									Ports: []corev1.ContainerPort{
+										{ContainerPort: 8000, Protocol: corev1.ProtocolTCP},
+									},
+								},
+							},
+							TerminationGracePeriodSeconds: ptr.To(int64(30)),
+						},
+					},
+				},
+			},
+		},
+		"config-llm-decode-worker-pipeline-parallel.yaml": {
+			expected: &v1alpha2.LLMInferenceServiceConfig{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "serving.kserve.io/v1alpha2",
+					Kind:       "LLMInferenceServiceConfig",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "kserve-config-llm-decode-worker-pipeline-parallel",
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "main",
+									Image: "ghcr.io/llm-d/llm-d-cuda:v0.5.1",
+									Ports: []corev1.ContainerPort{
+										{ContainerPort: 8001, Protocol: corev1.ProtocolTCP},
+									},
+								},
+							},
+							TerminationGracePeriodSeconds: ptr.To(int64(30)),
+						},
+						Worker: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "main",
+									Image: "ghcr.io/llm-d/llm-d-cuda:v0.5.1",
+									Ports: []corev1.ContainerPort{
+										{ContainerPort: 8001, Protocol: corev1.ProtocolTCP},
+									},
+								},
+							},
+							TerminationGracePeriodSeconds: ptr.To(int64(30)),
+						},
+					},
+				},
+			},
+		},
+		"config-llm-prefill-worker-pipeline-parallel.yaml": {
+			expected: &v1alpha2.LLMInferenceServiceConfig{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "serving.kserve.io/v1alpha2",
+					Kind:       "LLMInferenceServiceConfig",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "kserve-config-llm-prefill-worker-pipeline-parallel",
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Prefill: &v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "main",
+									Image: "ghcr.io/llm-d/llm-d-cuda:v0.5.1",
+									Ports: []corev1.ContainerPort{
+										{ContainerPort: 8000, Protocol: corev1.ProtocolTCP},
+									},
+								},
+							},
+							TerminationGracePeriodSeconds: ptr.To(int64(30)),
+						},
+						Worker: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "main",
+									Image: "ghcr.io/llm-d/llm-d-cuda:v0.5.1",
+									Ports: []corev1.ContainerPort{
+										{ContainerPort: 8000, Protocol: corev1.ProtocolTCP},
+									},
+								},
+							},
+							TerminationGracePeriodSeconds: ptr.To(int64(30)),
+						},
+					},
+				},
+			},
+		},
 	}
 
 	remaining := llmisvc.WellKnownDefaultConfigs.Clone()
