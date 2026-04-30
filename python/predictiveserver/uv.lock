@@ -1100,7 +1100,7 @@ requires-dist = [
     { name = "timing-asgi", specifier = ">=0.3.0,<1.0.0" },
     { name = "urllib3", specifier = ">=2.6.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30.6,<1.0.0" },
-    { name = "vllm", marker = "extra == 'llm'", specifier = "==0.19.0" },
+    { name = "vllm", marker = "extra == 'llm'", specifier = "==0.20.0" },
 ]
 provides-extras = ["storage", "logging", "ray", "llm"]
 
