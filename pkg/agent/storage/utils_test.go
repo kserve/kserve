@@ -105,8 +105,8 @@ func TestGetProvider(t *testing.T) {
 	// When providers map already have specified provider
 	mockProviders := map[Protocol]Provider{
 		S3: &S3Provider{
-			Client:     &mocks.MockS3Client{},
-			Downloader: &mocks.MockS3Downloader{},
+			Client:         &mocks.MockS3Client{},
+			TransferClient: &mocks.MockS3TransferClient{},
 		},
 		GCS: &GCSProvider{
 			Client: mocks.NewMockClient(),
