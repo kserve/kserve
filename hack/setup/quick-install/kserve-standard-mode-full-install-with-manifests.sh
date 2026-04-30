@@ -5846,6 +5846,8 @@ spec:
                 type: array
               replicas:
                 type: integer
+              runtimeClassName:
+                type: string
               schedulerName:
                 type: string
               storageHelper:
@@ -7874,6 +7876,8 @@ spec:
                     type: object
                   pipelineParallelSize:
                     type: integer
+                  runtimeClassName:
+                    type: string
                   schedulerName:
                     type: string
                   tensorParallelSize:
@@ -34298,6 +34302,8 @@ spec:
                 type: array
               replicas:
                 type: integer
+              runtimeClassName:
+                type: string
               schedulerName:
                 type: string
               storageHelper:
@@ -36326,6 +36332,8 @@ spec:
                     type: object
                   pipelineParallelSize:
                     type: integer
+                  runtimeClassName:
+                    type: string
                   schedulerName:
                     type: string
                   tensorParallelSize:

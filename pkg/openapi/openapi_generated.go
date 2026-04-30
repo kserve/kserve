@@ -1938,6 +1938,13 @@ func schema_pkg_apis_serving_v1alpha1_ServingRuntimePodSpec(ref common.Reference
 							Format:      "",
 						},
 					},
+					"runtimeClassName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RuntimeClassName is the name of the RuntimeClass to use for this pod. More info: https://kubernetes.io/docs/concepts/containers/runtime-class/",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"containers"},
 			},
@@ -2141,6 +2148,13 @@ func schema_pkg_apis_serving_v1alpha1_ServingRuntimeSpec(ref common.ReferenceCal
 					"schedulerName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "If specified, the pod will be dispatched by specified scheduler. If not specified, the pod will be dispatched by default scheduler.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"runtimeClassName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RuntimeClassName is the name of the RuntimeClass to use for this pod. More info: https://kubernetes.io/docs/concepts/containers/runtime-class/",
 							Type:        []string{"string"},
 							Format:      "",
 						},
