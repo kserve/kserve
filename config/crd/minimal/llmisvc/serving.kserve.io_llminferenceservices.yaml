@@ -8168,6 +8168,12 @@ spec:
                                                       maxItems: 64
                                                       type: array
                                                       x-kubernetes-list-type: set
+                                                      x-kubernetes-validations:
+                                                      - message: AllowHeaders cannot
+                                                          contain '*' alongside other
+                                                          methods
+                                                        rule: '!(''*'' in self &&
+                                                          self.size() > 1)'
                                                     allowMethods:
                                                       items:
                                                         enum:
@@ -8195,7 +8201,7 @@ spec:
                                                       items:
                                                         maxLength: 253
                                                         minLength: 1
-                                                        pattern: (^\*$)|(^([a-zA-Z][a-zA-Z0-9+\-.]+):\/\/([^:/?#]+)(:([0-9]{1,5}))?$)
+                                                        pattern: (^\*$)|(^(http(s)?):\/\/(((\*\.)?([a-zA-Z0-9\-]+\.)*[a-zA-Z0-9-]+|\*)(:([0-9]{1,5}))?)$)
                                                         type: string
                                                       maxItems: 64
                                                       type: array
@@ -8522,6 +8528,9 @@ spec:
                                                       enum:
                                                       - 301
                                                       - 302
+                                                      - 303
+                                                      - 307
+                                                      - 308
                                                       type: integer
                                                   type: object
                                                 responseHeaderModifier:
@@ -8583,6 +8592,7 @@ spec:
                                                   - RequestRedirect
                                                   - URLRewrite
                                                   - ExtensionRef
+                                                  - CORS
                                                   type: string
                                                 urlRewrite:
                                                   properties:
@@ -8637,6 +8647,14 @@ spec:
                                               - type
                                               type: object
                                               x-kubernetes-validations:
+                                              - message: filter.cors must be nil if
+                                                  the filter.type is not CORS
+                                                rule: '!(has(self.cors) && self.type
+                                                  != ''CORS'')'
+                                              - message: filter.cors must be specified
+                                                  for CORS filter.type
+                                                rule: '!(!has(self.cors) && self.type
+                                                  == ''CORS'')'
                                               - message: filter.requestHeaderModifier
                                                   must be nil if the filter.type is
                                                   not RequestHeaderModifier
@@ -8702,6 +8720,9 @@ spec:
                                                 but not both
                                               rule: '!(self.exists(f, f.type == ''RequestRedirect'')
                                                 && self.exists(f, f.type == ''URLRewrite''))'
+                                            - message: CORS filter cannot be repeated
+                                              rule: self.filter(f, f.type == 'CORS').size()
+                                                <= 1
                                             - message: RequestHeaderModifier filter
                                                 cannot be repeated
                                               rule: self.filter(f, f.type == 'RequestHeaderModifier').size()
@@ -8775,6 +8796,11 @@ spec:
                                                 maxItems: 64
                                                 type: array
                                                 x-kubernetes-list-type: set
+                                                x-kubernetes-validations:
+                                                - message: AllowHeaders cannot contain
+                                                    '*' alongside other methods
+                                                  rule: '!(''*'' in self && self.size()
+                                                    > 1)'
                                               allowMethods:
                                                 items:
                                                   enum:
@@ -8801,7 +8827,7 @@ spec:
                                                 items:
                                                   maxLength: 253
                                                   minLength: 1
-                                                  pattern: (^\*$)|(^([a-zA-Z][a-zA-Z0-9+\-.]+):\/\/([^:/?#]+)(:([0-9]{1,5}))?$)
+                                                  pattern: (^\*$)|(^(http(s)?):\/\/(((\*\.)?([a-zA-Z0-9\-]+\.)*[a-zA-Z0-9-]+|\*)(:([0-9]{1,5}))?)$)
                                                   type: string
                                                 maxItems: 64
                                                 type: array
@@ -9123,6 +9149,9 @@ spec:
                                                 enum:
                                                 - 301
                                                 - 302
+                                                - 303
+                                                - 307
+                                                - 308
                                                 type: integer
                                             type: object
                                           responseHeaderModifier:
@@ -9184,6 +9213,7 @@ spec:
                                             - RequestRedirect
                                             - URLRewrite
                                             - ExtensionRef
+                                            - CORS
                                             type: string
                                           urlRewrite:
                                             properties:
@@ -9236,6 +9266,14 @@ spec:
                                         - type
                                         type: object
                                         x-kubernetes-validations:
+                                        - message: filter.cors must be nil if the
+                                            filter.type is not CORS
+                                          rule: '!(has(self.cors) && self.type !=
+                                            ''CORS'')'
+                                        - message: filter.cors must be specified for
+                                            CORS filter.type
+                                          rule: '!(!has(self.cors) && self.type ==
+                                            ''CORS'')'
                                         - message: filter.requestHeaderModifier must
                                             be nil if the filter.type is not RequestHeaderModifier
                                           rule: '!(has(self.requestHeaderModifier)
@@ -9295,6 +9333,9 @@ spec:
                                           both
                                         rule: '!(self.exists(f, f.type == ''RequestRedirect'')
                                           && self.exists(f, f.type == ''URLRewrite''))'
+                                      - message: CORS filter cannot be repeated
+                                        rule: self.filter(f, f.type == 'CORS').size()
+                                          <= 1
                                       - message: RequestHeaderModifier filter cannot
                                           be repeated
                                         rule: self.filter(f, f.type == 'RequestHeaderModifier').size()
@@ -9510,6 +9551,10 @@ spec:
                                         rule: '!has(self.cookieConfig) || !has(self.cookieConfig.lifetimeType)
                                           || self.cookieConfig.lifetimeType != ''Permanent''
                                           || has(self.absoluteTimeout)'
+                                      - message: cookieConfig can only be set with
+                                          type Cookie
+                                        rule: '!has(self.cookieConfig) || self.type
+                                          == ''Cookie'''
                                     timeouts:
                                       properties:
                                         backendRequest:
@@ -9572,6 +9617,7 @@ spec:
                                       || self.matches[0].path.type != ''PathPrefix'')
                                       ? false : true) : true'
                                 maxItems: 16
+                                minItems: 1
                                 type: array
                                 x-kubernetes-list-type: atomic
                                 x-kubernetes-validations:
