@@ -107,6 +107,59 @@ func TestCreateRawURL(t *testing.T) {
 			expectedURL:     "",
 			isErrorExpected: true,
 		},
+		"path-based routing with disableHostBasedRouting returns path URL": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "sklearn-iris",
+					Namespace: "raw-test",
+				},
+			},
+			ingressConfig: &v1beta1.IngressConfig{
+				IngressDomain:  "example.com",
+				UrlScheme:      "https",
+				DomainTemplate: "{{.Name}}-{{.Namespace}}.{{.IngressDomain}}",
+				PathTemplate:   "/serving/{{ .Namespace }}/{{ .Name }}",
+				RawDeployment: &v1beta1.RawDeploymentIngressConfig{
+					DisableHostBasedRouting: true,
+				},
+			},
+			isErrorExpected: false,
+			expectedURL:     "https://example.com/serving/raw-test/sklearn-iris",
+		},
+		"path-based routing without disableHostBasedRouting still returns subdomain URL": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "sklearn-iris",
+					Namespace: "raw-test",
+				},
+			},
+			ingressConfig: &v1beta1.IngressConfig{
+				IngressDomain:  "example.com",
+				UrlScheme:      "https",
+				DomainTemplate: "{{.Name}}-{{.Namespace}}.{{.IngressDomain}}",
+				PathTemplate:   "/serving/{{ .Namespace }}/{{ .Name }}",
+			},
+			isErrorExpected: false,
+			expectedURL:     "https://sklearn-iris-raw-test.example.com",
+		},
+		"disableHostBasedRouting without pathTemplate still returns subdomain URL": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "sklearn-iris",
+					Namespace: "raw-test",
+				},
+			},
+			ingressConfig: &v1beta1.IngressConfig{
+				IngressDomain:  "example.com",
+				UrlScheme:      "https",
+				DomainTemplate: "{{.Name}}-{{.Namespace}}.{{.IngressDomain}}",
+				RawDeployment: &v1beta1.RawDeploymentIngressConfig{
+					DisableHostBasedRouting: true,
+				},
+			},
+			isErrorExpected: false,
+			expectedURL:     "https://sklearn-iris-raw-test.example.com",
+		},
 	}
 
 	for name, tc := range testCases {
@@ -211,6 +264,192 @@ func TestAddIsvcHeaders(t *testing.T) {
 			g.Expect(headers.RequestHeaderModifier.Set[1].Value).To(BeComparableTo(tc.isvcNamespace))
 		})
 	}
+}
+
+func TestCreateHTTPRouteMatchWithType(t *testing.T) {
+	g := NewGomegaWithT(t)
+	testCases := map[string]struct {
+		prefix    string
+		matchType gwapiv1.PathMatchType
+		expected  gwapiv1.HTTPRouteMatch
+	}{
+		"PathPrefix match": {
+			prefix:    "/serving/default/test-isvc/",
+			matchType: gwapiv1.PathMatchPathPrefix,
+			expected: gwapiv1.HTTPRouteMatch{
+				Path: &gwapiv1.HTTPPathMatch{
+					Type:  ptr.To(gwapiv1.PathMatchPathPrefix),
+					Value: ptr.To("/serving/default/test-isvc/"),
+				},
+			},
+		},
+		"Exact match": {
+			prefix:    "/serving/default/test-isvc/",
+			matchType: gwapiv1.PathMatchExact,
+			expected: gwapiv1.HTTPRouteMatch{
+				Path: &gwapiv1.HTTPPathMatch{
+					Type:  ptr.To(gwapiv1.PathMatchExact),
+					Value: ptr.To("/serving/default/test-isvc/"),
+				},
+			},
+		},
+		"RegularExpression match": {
+			prefix:    "^/.*$",
+			matchType: gwapiv1.PathMatchRegularExpression,
+			expected: gwapiv1.HTTPRouteMatch{
+				Path: &gwapiv1.HTTPPathMatch{
+					Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
+					Value: ptr.To("^/.*$"),
+				},
+			},
+		},
+	}
+
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			match := createHTTPRouteMatchWithType(tc.prefix, tc.matchType)
+			g.Expect(match).To(BeComparableTo(tc.expected))
+		})
+	}
+}
+
+func TestCreateHTTPRouteRuleWithTimeouts(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	matches := []gwapiv1.HTTPRouteMatch{createHTTPRouteMatch("^/.*$")}
+	filters := []gwapiv1.HTTPRouteFilter{addIsvcHeaders("test-isvc", "default")}
+
+	t.Run("with both request and backend timeout", func(t *testing.T) {
+		reqTimeout := gwapiv1.Duration("300s")
+		backendTimeout := gwapiv1.Duration("300s")
+		rule := createHTTPRouteRuleWithTimeouts(matches, filters, "test-svc", "default",
+			int32(constants.CommonDefaultHttpPort), &reqTimeout, &backendTimeout)
+		g.Expect(rule.Timeouts).ToNot(BeNil())
+		g.Expect(rule.Timeouts.Request).To(BeComparableTo(ptr.To(gwapiv1.Duration("300s"))))
+		g.Expect(rule.Timeouts.BackendRequest).To(BeComparableTo(ptr.To(gwapiv1.Duration("300s"))))
+	})
+
+	t.Run("with nil backend timeout", func(t *testing.T) {
+		reqTimeout := gwapiv1.Duration("60s")
+		rule := createHTTPRouteRuleWithTimeouts(matches, filters, "test-svc", "default",
+			int32(constants.CommonDefaultHttpPort), &reqTimeout, nil)
+		g.Expect(rule.Timeouts).ToNot(BeNil())
+		g.Expect(rule.Timeouts.Request).To(BeComparableTo(ptr.To(gwapiv1.Duration("60s"))))
+		g.Expect(rule.Timeouts.BackendRequest).To(BeNil())
+	})
+
+	t.Run("with nil request timeout and non-nil backend timeout", func(t *testing.T) {
+		backendTimeout := gwapiv1.Duration("120s")
+		rule := createHTTPRouteRuleWithTimeouts(matches, filters, "test-svc", "default",
+			int32(constants.CommonDefaultHttpPort), nil, &backendTimeout)
+		// nil request timeout means createHTTPRouteRule won't set Timeouts at all,
+		// but createHTTPRouteRuleWithTimeouts should still set BackendRequest
+		g.Expect(rule.Timeouts).ToNot(BeNil())
+		g.Expect(rule.Timeouts.BackendRequest).To(BeComparableTo(ptr.To(gwapiv1.Duration("120s"))))
+	})
+}
+
+func TestRawSectionName(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	t.Run("nil config returns nil", func(t *testing.T) {
+		g.Expect(rawSectionName(nil)).To(BeNil())
+	})
+
+	t.Run("empty listener name returns nil", func(t *testing.T) {
+		cfg := &v1beta1.RawDeploymentIngressConfig{GatewayListenerName: ""}
+		g.Expect(rawSectionName(cfg)).To(BeNil())
+	})
+
+	t.Run("non-empty listener name returns SectionName pointer", func(t *testing.T) {
+		cfg := &v1beta1.RawDeploymentIngressConfig{GatewayListenerName: "https"}
+		result := rawSectionName(cfg)
+		g.Expect(result).ToNot(BeNil())
+		g.Expect(*result).To(BeComparableTo(gwapiv1.SectionName("https")))
+	})
+}
+
+func TestApplyRewriteFilter(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	baseFilters := []gwapiv1.HTTPRouteFilter{addIsvcHeaders("test-isvc", "default")}
+
+	t.Run("nil rewrite filter returns original slice", func(t *testing.T) {
+		result := applyRewriteFilter(baseFilters, nil)
+		g.Expect(result).To(HaveLen(1))
+		g.Expect(result[0].Type).To(Equal(gwapiv1.HTTPRouteFilterRequestHeaderModifier))
+	})
+
+	t.Run("non-nil rewrite filter prepends to slice", func(t *testing.T) {
+		rewriteTarget := "/"
+		rewriteFilter := &gwapiv1.HTTPRouteFilter{
+			Type: gwapiv1.HTTPRouteFilterURLRewrite,
+			URLRewrite: &gwapiv1.HTTPURLRewriteFilter{
+				Path: &gwapiv1.HTTPPathModifier{
+					Type:               gwapiv1.PrefixMatchHTTPPathModifier,
+					ReplacePrefixMatch: &rewriteTarget,
+				},
+			},
+		}
+		result := applyRewriteFilter(baseFilters, rewriteFilter)
+		g.Expect(result).To(HaveLen(2))
+		g.Expect(result[0].Type).To(Equal(gwapiv1.HTTPRouteFilterURLRewrite))
+		g.Expect(result[1].Type).To(Equal(gwapiv1.HTTPRouteFilterRequestHeaderModifier))
+	})
+
+	t.Run("does not modify original slice", func(t *testing.T) {
+		rewriteTarget := "/"
+		rewriteFilter := &gwapiv1.HTTPRouteFilter{
+			Type: gwapiv1.HTTPRouteFilterURLRewrite,
+			URLRewrite: &gwapiv1.HTTPURLRewriteFilter{
+				Path: &gwapiv1.HTTPPathModifier{
+					Type:               gwapiv1.PrefixMatchHTTPPathModifier,
+					ReplacePrefixMatch: &rewriteTarget,
+				},
+			},
+		}
+		originalLen := len(baseFilters)
+		_ = applyRewriteFilter(baseFilters, rewriteFilter)
+		g.Expect(baseFilters).To(HaveLen(originalLen))
+	})
+}
+
+func TestResolveRawRequestTimeout(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	componentTimeout := int64(120)
+
+	t.Run("nil rawCfg falls back to resolveTimeout", func(t *testing.T) {
+		result := resolveRawRequestTimeout(false, &componentTimeout, nil)
+		g.Expect(result).ToNot(BeNil())
+		g.Expect(*result).To(Equal(gwapiv1.Duration("120s")))
+	})
+
+	t.Run("rawCfg with empty RequestTimeout falls back to resolveTimeout", func(t *testing.T) {
+		cfg := &v1beta1.RawDeploymentIngressConfig{RequestTimeout: ""}
+		result := resolveRawRequestTimeout(false, &componentTimeout, cfg)
+		g.Expect(result).ToNot(BeNil())
+		g.Expect(*result).To(Equal(gwapiv1.Duration("120s")))
+	})
+
+	t.Run("rawCfg RequestTimeout takes precedence over component timeout", func(t *testing.T) {
+		cfg := &v1beta1.RawDeploymentIngressConfig{RequestTimeout: "300s"}
+		result := resolveRawRequestTimeout(false, &componentTimeout, cfg)
+		g.Expect(result).ToNot(BeNil())
+		g.Expect(*result).To(Equal(gwapiv1.Duration("300s")))
+	})
+
+	t.Run("disableHTTPRouteTimeout with no rawCfg override returns nil", func(t *testing.T) {
+		result := resolveRawRequestTimeout(true, &componentTimeout, nil)
+		g.Expect(result).To(BeNil())
+	})
+
+	t.Run("rawCfg RequestTimeout overrides disableHTTPRouteTimeout", func(t *testing.T) {
+		cfg := &v1beta1.RawDeploymentIngressConfig{RequestTimeout: "300s"}
+		result := resolveRawRequestTimeout(true, &componentTimeout, cfg)
+		g.Expect(result).ToNot(BeNil())
+		g.Expect(*result).To(Equal(gwapiv1.Duration("300s")))
+	})
 }
 
 func TestCreateHTTPRouteRule(t *testing.T) {
@@ -1260,6 +1499,1087 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								Kind:      ptr.To(gwapiv1.Kind(constants.GatewayKind)),
 								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gwapiv1.Namespace("kserve")),
+							},
+						},
+					},
+				},
+			},
+		},
+		"Path based routing with PathPrefix match type": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-isvc",
+					Namespace: "default",
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{},
+				},
+				Status: v1beta1.InferenceServiceStatus{
+					Status: duckv1.Status{
+						Conditions: []apis.Condition{
+							{
+								Type:   v1beta1.PredictorReady,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+			ingressConfig: &v1beta1.IngressConfig{
+				IngressDomain:        "example.com",
+				UrlScheme:            "http",
+				DomainTemplate:       "{{.Name}}-{{.Namespace}}.{{.IngressDomain}}",
+				KserveIngressGateway: "kserve/kserve-gateway",
+				PathTemplate:         "/serving/{{ .Namespace }}/{{ .Name }}",
+				EnableGatewayAPI:     true,
+				RawDeployment: &v1beta1.RawDeploymentIngressConfig{
+					PathMatchType: "PathPrefix",
+				},
+			},
+			expected: &gwapiv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test-isvc",
+					Namespace:   "default",
+					Annotations: map[string]string{},
+					Labels:      map[string]string{},
+				},
+				Spec: gwapiv1.HTTPRouteSpec{
+					Hostnames: []gwapiv1.Hostname{"test-isvc-default.example.com", "example.com"},
+					Rules: []gwapiv1.HTTPRouteRule{
+						{
+							Matches: []gwapiv1.HTTPRouteMatch{
+								{
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
+										Value: ptr.To("^/.*$"),
+									},
+								},
+							},
+							Filters: []gwapiv1.HTTPRouteFilter{
+								{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
+											{Name: constants.IsvcNameHeader, Value: "test-isvc"},
+											{Name: constants.IsvcNamespaceHeader, Value: "default"},
+										},
+									},
+								},
+							},
+							BackendRefs: []gwapiv1.HTTPBackendRef{
+								{
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
+											Name:      "test-isvc-predictor",
+											Namespace: (*gwapiv1.Namespace)(ptr.To("default")),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
+										},
+									},
+								},
+							},
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("60s")),
+							},
+						},
+						{
+							Matches: []gwapiv1.HTTPRouteMatch{
+								{
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchPathPrefix),
+										Value: ptr.To("/serving/default/test-isvc/"),
+									},
+								},
+							},
+							Filters: []gwapiv1.HTTPRouteFilter{
+								{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
+											{Name: constants.IsvcNameHeader, Value: "test-isvc"},
+											{Name: constants.IsvcNamespaceHeader, Value: "default"},
+										},
+									},
+								},
+							},
+							BackendRefs: []gwapiv1.HTTPBackendRef{
+								{
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
+											Name:      "test-isvc-predictor",
+											Namespace: (*gwapiv1.Namespace)(ptr.To("default")),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
+										},
+									},
+								},
+							},
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("60s")),
+							},
+						},
+					},
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
+							{
+								Name:      "kserve-gateway",
+								Kind:      ptr.To(gwapiv1.Kind(constants.GatewayKind)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace("kserve")),
+							},
+						},
+					},
+				},
+			},
+		},
+		"Path based routing with PathPrefix match type and explainer": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-isvc",
+					Namespace: "default",
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{},
+					Explainer: &v1beta1.ExplainerSpec{},
+				},
+				Status: v1beta1.InferenceServiceStatus{
+					Status: duckv1.Status{
+						Conditions: []apis.Condition{
+							{
+								Type:   v1beta1.PredictorReady,
+								Status: corev1.ConditionTrue,
+							},
+							{
+								Type:   v1beta1.ExplainerReady,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+			ingressConfig: &v1beta1.IngressConfig{
+				IngressDomain:        "example.com",
+				UrlScheme:            "http",
+				DomainTemplate:       "{{.Name}}-{{.Namespace}}.{{.IngressDomain}}",
+				KserveIngressGateway: "kserve/kserve-gateway",
+				PathTemplate:         "/serving/{{ .Namespace }}/{{ .Name }}",
+				EnableGatewayAPI:     true,
+				RawDeployment: &v1beta1.RawDeploymentIngressConfig{
+					PathMatchType: "PathPrefix",
+				},
+			},
+			expected: &gwapiv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test-isvc",
+					Namespace:   "default",
+					Annotations: map[string]string{},
+					Labels:      map[string]string{},
+				},
+				Spec: gwapiv1.HTTPRouteSpec{
+					Hostnames: []gwapiv1.Hostname{"test-isvc-default.example.com", "example.com"},
+					Rules: []gwapiv1.HTTPRouteRule{
+						// Host-based catch-all :explain rule — always RegularExpression
+						{
+							Matches: []gwapiv1.HTTPRouteMatch{
+								{
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
+										Value: ptr.To(constants.ExplainPrefix()),
+									},
+								},
+							},
+							Filters: []gwapiv1.HTTPRouteFilter{
+								{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
+											{Name: constants.IsvcNameHeader, Value: "test-isvc"},
+											{Name: constants.IsvcNamespaceHeader, Value: "default"},
+										},
+									},
+								},
+							},
+							BackendRefs: []gwapiv1.HTTPBackendRef{
+								{
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
+											Name:      "test-isvc-explainer",
+											Namespace: (*gwapiv1.Namespace)(ptr.To("default")),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
+										},
+									},
+								},
+							},
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("60s")),
+							},
+						},
+						// Host-based catch-all :predict rule — always RegularExpression
+						{
+							Matches: []gwapiv1.HTTPRouteMatch{
+								{
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
+										Value: ptr.To("^/.*$"),
+									},
+								},
+							},
+							Filters: []gwapiv1.HTTPRouteFilter{
+								{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
+											{Name: constants.IsvcNameHeader, Value: "test-isvc"},
+											{Name: constants.IsvcNamespaceHeader, Value: "default"},
+										},
+									},
+								},
+							},
+							BackendRefs: []gwapiv1.HTTPBackendRef{
+								{
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
+											Name:      "test-isvc-predictor",
+											Namespace: (*gwapiv1.Namespace)(ptr.To("default")),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
+										},
+									},
+								},
+							},
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("60s")),
+							},
+						},
+						// Path-based :explain rule — must always be RegularExpression
+						// because PathBasedExplainPrefix() returns a regex fragment
+						{
+							Matches: []gwapiv1.HTTPRouteMatch{
+								{
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
+										Value: ptr.To("/serving/default/test-isvc" + constants.PathBasedExplainPrefix()),
+									},
+								},
+							},
+							Filters: []gwapiv1.HTTPRouteFilter{
+								{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
+											{Name: constants.IsvcNameHeader, Value: "test-isvc"},
+											{Name: constants.IsvcNamespaceHeader, Value: "default"},
+										},
+									},
+								},
+							},
+							BackendRefs: []gwapiv1.HTTPBackendRef{
+								{
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
+											Name:      "test-isvc-explainer",
+											Namespace: (*gwapiv1.Namespace)(ptr.To("default")),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
+										},
+									},
+								},
+							},
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("60s")),
+							},
+						},
+						// Path-based :predict rule — PathPrefix as configured
+						{
+							Matches: []gwapiv1.HTTPRouteMatch{
+								{
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchPathPrefix),
+										Value: ptr.To("/serving/default/test-isvc/"),
+									},
+								},
+							},
+							Filters: []gwapiv1.HTTPRouteFilter{
+								{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
+											{Name: constants.IsvcNameHeader, Value: "test-isvc"},
+											{Name: constants.IsvcNamespaceHeader, Value: "default"},
+										},
+									},
+								},
+							},
+							BackendRefs: []gwapiv1.HTTPBackendRef{
+								{
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
+											Name:      "test-isvc-predictor",
+											Namespace: (*gwapiv1.Namespace)(ptr.To("default")),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
+										},
+									},
+								},
+							},
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("60s")),
+							},
+						},
+					},
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
+							{
+								Name:      "kserve-gateway",
+								Kind:      ptr.To(gwapiv1.Kind(constants.GatewayKind)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace("kserve")),
+							},
+						},
+					},
+				},
+			},
+		},
+		"Path based routing with URL rewrite": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-isvc",
+					Namespace: "default",
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{},
+				},
+				Status: v1beta1.InferenceServiceStatus{
+					Status: duckv1.Status{
+						Conditions: []apis.Condition{
+							{
+								Type:   v1beta1.PredictorReady,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+			ingressConfig: &v1beta1.IngressConfig{
+				IngressDomain:        "example.com",
+				UrlScheme:            "http",
+				DomainTemplate:       "{{.Name}}-{{.Namespace}}.{{.IngressDomain}}",
+				KserveIngressGateway: "kserve/kserve-gateway",
+				PathTemplate:         "/serving/{{ .Namespace }}/{{ .Name }}",
+				EnableGatewayAPI:     true,
+				RawDeployment: &v1beta1.RawDeploymentIngressConfig{
+					PathMatchType:     "PathPrefix",
+					PathRewriteTarget: "/",
+				},
+			},
+			expected: &gwapiv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test-isvc",
+					Namespace:   "default",
+					Annotations: map[string]string{},
+					Labels:      map[string]string{},
+				},
+				Spec: gwapiv1.HTTPRouteSpec{
+					Hostnames: []gwapiv1.Hostname{"test-isvc-default.example.com", "example.com"},
+					Rules: []gwapiv1.HTTPRouteRule{
+						{
+							Matches: []gwapiv1.HTTPRouteMatch{
+								{
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
+										Value: ptr.To("^/.*$"),
+									},
+								},
+							},
+							Filters: []gwapiv1.HTTPRouteFilter{
+								{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
+											{Name: constants.IsvcNameHeader, Value: "test-isvc"},
+											{Name: constants.IsvcNamespaceHeader, Value: "default"},
+										},
+									},
+								},
+							},
+							BackendRefs: []gwapiv1.HTTPBackendRef{
+								{
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
+											Name:      "test-isvc-predictor",
+											Namespace: (*gwapiv1.Namespace)(ptr.To("default")),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
+										},
+									},
+								},
+							},
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("60s")),
+							},
+						},
+						{
+							Matches: []gwapiv1.HTTPRouteMatch{
+								{
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchPathPrefix),
+										Value: ptr.To("/serving/default/test-isvc/"),
+									},
+								},
+							},
+							Filters: []gwapiv1.HTTPRouteFilter{
+								{
+									Type: gwapiv1.HTTPRouteFilterURLRewrite,
+									URLRewrite: &gwapiv1.HTTPURLRewriteFilter{
+										Path: &gwapiv1.HTTPPathModifier{
+											Type:               gwapiv1.PrefixMatchHTTPPathModifier,
+											ReplacePrefixMatch: ptr.To("/"),
+										},
+									},
+								},
+								{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
+											{Name: constants.IsvcNameHeader, Value: "test-isvc"},
+											{Name: constants.IsvcNamespaceHeader, Value: "default"},
+										},
+									},
+								},
+							},
+							BackendRefs: []gwapiv1.HTTPBackendRef{
+								{
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
+											Name:      "test-isvc-predictor",
+											Namespace: (*gwapiv1.Namespace)(ptr.To("default")),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
+										},
+									},
+								},
+							},
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("60s")),
+							},
+						},
+					},
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
+							{
+								Name:      "kserve-gateway",
+								Kind:      ptr.To(gwapiv1.Kind(constants.GatewayKind)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace("kserve")),
+							},
+						},
+					},
+				},
+			},
+		},
+		"Path based routing with disableHostBasedRouting": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-isvc",
+					Namespace: "default",
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{},
+				},
+				Status: v1beta1.InferenceServiceStatus{
+					Status: duckv1.Status{
+						Conditions: []apis.Condition{
+							{
+								Type:   v1beta1.PredictorReady,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+			ingressConfig: &v1beta1.IngressConfig{
+				IngressDomain:        "example.com",
+				UrlScheme:            "http",
+				DomainTemplate:       "{{.Name}}-{{.Namespace}}.{{.IngressDomain}}",
+				KserveIngressGateway: "kserve/kserve-gateway",
+				PathTemplate:         "/serving/{{ .Namespace }}/{{ .Name }}",
+				EnableGatewayAPI:     true,
+				RawDeployment: &v1beta1.RawDeploymentIngressConfig{
+					DisableHostBasedRouting: true,
+				},
+			},
+			expected: &gwapiv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test-isvc",
+					Namespace:   "default",
+					Annotations: map[string]string{},
+					Labels:      map[string]string{},
+				},
+				Spec: gwapiv1.HTTPRouteSpec{
+					// No hostnames — disableHostBasedRouting suppresses both
+					// domainTemplate and ingressDomain hostnames so the gateway
+					// listener's own hostname filter applies.
+					Hostnames: []gwapiv1.Hostname{},
+					Rules: []gwapiv1.HTTPRouteRule{
+						// Only the path-based rule; host catch-all is suppressed.
+						{
+							Matches: []gwapiv1.HTTPRouteMatch{
+								{
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
+										Value: ptr.To("/serving/default/test-isvc/"),
+									},
+								},
+							},
+							Filters: []gwapiv1.HTTPRouteFilter{
+								{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
+											{Name: constants.IsvcNameHeader, Value: "test-isvc"},
+											{Name: constants.IsvcNamespaceHeader, Value: "default"},
+										},
+									},
+								},
+							},
+							BackendRefs: []gwapiv1.HTTPBackendRef{
+								{
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
+											Name:      "test-isvc-predictor",
+											Namespace: (*gwapiv1.Namespace)(ptr.To("default")),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
+										},
+									},
+								},
+							},
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("60s")),
+							},
+						},
+					},
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
+							{
+								Name:      "kserve-gateway",
+								Kind:      ptr.To(gwapiv1.Kind(constants.GatewayKind)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace("kserve")),
+							},
+						},
+					},
+				},
+			},
+		},
+		"Path based routing with gatewayListenerName": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-isvc",
+					Namespace: "default",
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{},
+				},
+				Status: v1beta1.InferenceServiceStatus{
+					Status: duckv1.Status{
+						Conditions: []apis.Condition{
+							{
+								Type:   v1beta1.PredictorReady,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+			ingressConfig: &v1beta1.IngressConfig{
+				IngressDomain:        "example.com",
+				UrlScheme:            "http",
+				DomainTemplate:       "{{.Name}}-{{.Namespace}}.{{.IngressDomain}}",
+				KserveIngressGateway: "kserve/kserve-gateway",
+				PathTemplate:         "/serving/{{ .Namespace }}/{{ .Name }}",
+				EnableGatewayAPI:     true,
+				RawDeployment: &v1beta1.RawDeploymentIngressConfig{
+					GatewayListenerName: "https",
+				},
+			},
+			expected: &gwapiv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test-isvc",
+					Namespace:   "default",
+					Annotations: map[string]string{},
+					Labels:      map[string]string{},
+				},
+				Spec: gwapiv1.HTTPRouteSpec{
+					Hostnames: []gwapiv1.Hostname{"test-isvc-default.example.com", "example.com"},
+					Rules: []gwapiv1.HTTPRouteRule{
+						{
+							Matches: []gwapiv1.HTTPRouteMatch{
+								{
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
+										Value: ptr.To("^/.*$"),
+									},
+								},
+							},
+							Filters: []gwapiv1.HTTPRouteFilter{
+								{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
+											{Name: constants.IsvcNameHeader, Value: "test-isvc"},
+											{Name: constants.IsvcNamespaceHeader, Value: "default"},
+										},
+									},
+								},
+							},
+							BackendRefs: []gwapiv1.HTTPBackendRef{
+								{
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
+											Name:      "test-isvc-predictor",
+											Namespace: (*gwapiv1.Namespace)(ptr.To("default")),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
+										},
+									},
+								},
+							},
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("60s")),
+							},
+						},
+						{
+							Matches: []gwapiv1.HTTPRouteMatch{
+								{
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
+										Value: ptr.To("/serving/default/test-isvc/"),
+									},
+								},
+							},
+							Filters: []gwapiv1.HTTPRouteFilter{
+								{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
+											{Name: constants.IsvcNameHeader, Value: "test-isvc"},
+											{Name: constants.IsvcNamespaceHeader, Value: "default"},
+										},
+									},
+								},
+							},
+							BackendRefs: []gwapiv1.HTTPBackendRef{
+								{
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
+											Name:      "test-isvc-predictor",
+											Namespace: (*gwapiv1.Namespace)(ptr.To("default")),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
+										},
+									},
+								},
+							},
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("60s")),
+							},
+						},
+					},
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
+							{
+								Name:        "kserve-gateway",
+								Kind:        ptr.To(gwapiv1.Kind(constants.GatewayKind)),
+								Group:       (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace:   ptr.To(gwapiv1.Namespace("kserve")),
+								SectionName: ptr.To(gwapiv1.SectionName("https")),
+							},
+						},
+					},
+				},
+			},
+		},
+		"Path based routing with routeLabels": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-isvc",
+					Namespace: "default",
+					Labels:    map[string]string{"existing-label": "value"},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{},
+				},
+				Status: v1beta1.InferenceServiceStatus{
+					Status: duckv1.Status{
+						Conditions: []apis.Condition{
+							{
+								Type:   v1beta1.PredictorReady,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+			ingressConfig: &v1beta1.IngressConfig{
+				IngressDomain:        "example.com",
+				UrlScheme:            "http",
+				DomainTemplate:       "{{.Name}}-{{.Namespace}}.{{.IngressDomain}}",
+				KserveIngressGateway: "kserve/kserve-gateway",
+				PathTemplate:         "/serving/{{ .Namespace }}/{{ .Name }}",
+				EnableGatewayAPI:     true,
+				RawDeployment: &v1beta1.RawDeploymentIngressConfig{
+					RouteLabels: map[string]string{
+						"custom-label": "custom-value",
+					},
+				},
+			},
+			expected: &gwapiv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test-isvc",
+					Namespace:   "default",
+					Annotations: map[string]string{},
+					Labels: map[string]string{
+						"existing-label": "value",
+						"custom-label":   "custom-value",
+					},
+				},
+				Spec: gwapiv1.HTTPRouteSpec{
+					Hostnames: []gwapiv1.Hostname{"test-isvc-default.example.com", "example.com"},
+					Rules: []gwapiv1.HTTPRouteRule{
+						// Host-based rule — labels applied, unaffected by routeLabels content
+						{
+							Matches: []gwapiv1.HTTPRouteMatch{
+								{
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
+										Value: ptr.To("^/.*$"),
+									},
+								},
+							},
+							Filters: []gwapiv1.HTTPRouteFilter{
+								{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
+											{Name: constants.IsvcNameHeader, Value: "test-isvc"},
+											{Name: constants.IsvcNamespaceHeader, Value: "default"},
+										},
+									},
+								},
+							},
+							BackendRefs: []gwapiv1.HTTPBackendRef{
+								{
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
+											Name:      "test-isvc-predictor",
+											Namespace: (*gwapiv1.Namespace)(ptr.To("default")),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
+										},
+									},
+								},
+							},
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("60s")),
+							},
+						},
+						// Path-based rule — also on the same HTTPRoute, so labels apply here too
+						{
+							Matches: []gwapiv1.HTTPRouteMatch{
+								{
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
+										Value: ptr.To("/serving/default/test-isvc/"),
+									},
+								},
+							},
+							Filters: []gwapiv1.HTTPRouteFilter{
+								{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
+											{Name: constants.IsvcNameHeader, Value: "test-isvc"},
+											{Name: constants.IsvcNamespaceHeader, Value: "default"},
+										},
+									},
+								},
+							},
+							BackendRefs: []gwapiv1.HTTPBackendRef{
+								{
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
+											Name:      "test-isvc-predictor",
+											Namespace: (*gwapiv1.Namespace)(ptr.To("default")),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
+										},
+									},
+								},
+							},
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("60s")),
+							},
+						},
+					},
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
+							{
+								Name:      "kserve-gateway",
+								Kind:      ptr.To(gwapiv1.Kind(constants.GatewayKind)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace("kserve")),
+							},
+						},
+					},
+				},
+			},
+		},
+		"Path based routing with custom timeouts": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-isvc",
+					Namespace: "default",
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{},
+				},
+				Status: v1beta1.InferenceServiceStatus{
+					Status: duckv1.Status{
+						Conditions: []apis.Condition{
+							{
+								Type:   v1beta1.PredictorReady,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+			ingressConfig: &v1beta1.IngressConfig{
+				IngressDomain:        "example.com",
+				UrlScheme:            "http",
+				DomainTemplate:       "{{.Name}}-{{.Namespace}}.{{.IngressDomain}}",
+				KserveIngressGateway: "kserve/kserve-gateway",
+				PathTemplate:         "/serving/{{ .Namespace }}/{{ .Name }}",
+				EnableGatewayAPI:     true,
+				RawDeployment: &v1beta1.RawDeploymentIngressConfig{
+					RequestTimeout:        "300s",
+					BackendRequestTimeout: "300s",
+				},
+			},
+			expected: &gwapiv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test-isvc",
+					Namespace:   "default",
+					Annotations: map[string]string{},
+					Labels:      map[string]string{},
+				},
+				Spec: gwapiv1.HTTPRouteSpec{
+					Hostnames: []gwapiv1.Hostname{"test-isvc-default.example.com", "example.com"},
+					Rules: []gwapiv1.HTTPRouteRule{
+						// Host-based rule should still use default 60s timeout
+						{
+							Matches: []gwapiv1.HTTPRouteMatch{
+								{
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
+										Value: ptr.To("^/.*$"),
+									},
+								},
+							},
+							Filters: []gwapiv1.HTTPRouteFilter{
+								{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
+											{Name: constants.IsvcNameHeader, Value: "test-isvc"},
+											{Name: constants.IsvcNamespaceHeader, Value: "default"},
+										},
+									},
+								},
+							},
+							BackendRefs: []gwapiv1.HTTPBackendRef{
+								{
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
+											Name:      "test-isvc-predictor",
+											Namespace: (*gwapiv1.Namespace)(ptr.To("default")),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
+										},
+									},
+								},
+							},
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("60s")),
+							},
+						},
+						// Path-based rule should use custom 300s timeouts
+						{
+							Matches: []gwapiv1.HTTPRouteMatch{
+								{
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
+										Value: ptr.To("/serving/default/test-isvc/"),
+									},
+								},
+							},
+							Filters: []gwapiv1.HTTPRouteFilter{
+								{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
+											{Name: constants.IsvcNameHeader, Value: "test-isvc"},
+											{Name: constants.IsvcNamespaceHeader, Value: "default"},
+										},
+									},
+								},
+							},
+							BackendRefs: []gwapiv1.HTTPBackendRef{
+								{
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
+											Name:      "test-isvc-predictor",
+											Namespace: (*gwapiv1.Namespace)(ptr.To("default")),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
+										},
+									},
+								},
+							},
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request:        ptr.To(gwapiv1.Duration("300s")),
+								BackendRequest: ptr.To(gwapiv1.Duration("300s")),
+							},
+						},
+					},
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
+							{
+								Name:      "kserve-gateway",
+								Kind:      ptr.To(gwapiv1.Kind(constants.GatewayKind)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace("kserve")),
+							},
+						},
+					},
+				},
+			},
+		},
+		"Path based routing with full rawDeployment config": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-isvc",
+					Namespace: "default",
+					Labels:    map[string]string{"app": "test"},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{},
+				},
+				Status: v1beta1.InferenceServiceStatus{
+					Status: duckv1.Status{
+						Conditions: []apis.Condition{
+							{
+								Type:   v1beta1.PredictorReady,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+			ingressConfig: &v1beta1.IngressConfig{
+				IngressDomain:        "example.com",
+				UrlScheme:            "https",
+				DomainTemplate:       "{{.Name}}-{{.Namespace}}.{{.IngressDomain}}",
+				KserveIngressGateway: "envoy-gateway-system/main-gateway",
+				PathTemplate:         "/serving/{{ .Namespace }}/{{ .Name }}",
+				EnableGatewayAPI:     true,
+				RawDeployment: &v1beta1.RawDeploymentIngressConfig{
+					GatewayListenerName:     "https",
+					PathMatchType:           "PathPrefix",
+					PathRewriteTarget:       "/",
+					DisableHostBasedRouting: true,
+					RouteLabels: map[string]string{
+						"policy.example.com/serving": "true",
+					},
+					RequestTimeout:        "300s",
+					BackendRequestTimeout: "300s",
+				},
+			},
+			expected: &gwapiv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test-isvc",
+					Namespace:   "default",
+					Annotations: map[string]string{},
+					Labels: map[string]string{
+						"app":                        "test",
+						"policy.example.com/serving": "true",
+					},
+				},
+				Spec: gwapiv1.HTTPRouteSpec{
+					// No hostnames — disableHostBasedRouting suppresses both
+					// domainTemplate and ingressDomain hostnames so the gateway
+					// listener's own hostname filter applies.
+					Hostnames: []gwapiv1.Hostname{},
+					Rules: []gwapiv1.HTTPRouteRule{
+						// Only the path-based rule; host catch-all is suppressed.
+						// Path-based rule with all rawDeployment features
+						{
+							Matches: []gwapiv1.HTTPRouteMatch{
+								{
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchPathPrefix),
+										Value: ptr.To("/serving/default/test-isvc/"),
+									},
+								},
+							},
+							Filters: []gwapiv1.HTTPRouteFilter{
+								{
+									Type: gwapiv1.HTTPRouteFilterURLRewrite,
+									URLRewrite: &gwapiv1.HTTPURLRewriteFilter{
+										Path: &gwapiv1.HTTPPathModifier{
+											Type:               gwapiv1.PrefixMatchHTTPPathModifier,
+											ReplacePrefixMatch: ptr.To("/"),
+										},
+									},
+								},
+								{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
+											{Name: constants.IsvcNameHeader, Value: "test-isvc"},
+											{Name: constants.IsvcNamespaceHeader, Value: "default"},
+										},
+									},
+								},
+							},
+							BackendRefs: []gwapiv1.HTTPBackendRef{
+								{
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
+											Name:      "test-isvc-predictor",
+											Namespace: (*gwapiv1.Namespace)(ptr.To("default")),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
+										},
+									},
+								},
+							},
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request:        ptr.To(gwapiv1.Duration("300s")),
+								BackendRequest: ptr.To(gwapiv1.Duration("300s")),
+							},
+						},
+					},
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
+							{
+								Name:        "main-gateway",
+								Kind:        ptr.To(gwapiv1.Kind(constants.GatewayKind)),
+								Group:       (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace:   ptr.To(gwapiv1.Namespace("envoy-gateway-system")),
+								SectionName: ptr.To(gwapiv1.SectionName("https")),
 							},
 						},
 					},

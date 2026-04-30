@@ -126,6 +126,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodSpec":                        schema_pkg_apis_serving_v1beta1_PodSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorExtensionSpec":         schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorSpec":                  schema_pkg_apis_serving_v1beta1_PredictorSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.RawDeploymentIngressConfig":     schema_pkg_apis_serving_v1beta1_RawDeploymentIngressConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceConfig":                 schema_pkg_apis_serving_v1beta1_ResourceConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceMetricSource":           schema_pkg_apis_serving_v1beta1_ResourceMetricSource(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.RolloutSpec":                    schema_pkg_apis_serving_v1beta1_RolloutSpec(ref),
@@ -6824,9 +6825,17 @@ func schema_pkg_apis_serving_v1beta1_IngressConfig(ref common.ReferenceCallback)
 							Format: "",
 						},
 					},
+					"rawDeployment": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RawDeployment holds HTTPRoute generation options specific to RawDeployment InferenceServices when enableGatewayApi is true. All sub-fields are optional; omitting this block preserves existing behaviour.",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.RawDeploymentIngressConfig"),
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.RawDeploymentIngressConfig"},
 	}
 }
 
@@ -10635,6 +10644,77 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 		},
 		Dependencies: []string{
 			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.HuggingFaceRuntimeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LightGBMSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ONNXRuntimeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PMMLSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PaddleServerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.SKLearnSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageUri", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TFServingSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TorchServeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TritonSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.WorkerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.XGBoostSpec", "k8s.io/api/apps/v1.DeploymentStrategy", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+	}
+}
+
+func schema_pkg_apis_serving_v1beta1_RawDeploymentIngressConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "RawDeploymentIngressConfig holds Gateway API HTTPRoute generation options for RawDeployment InferenceServices. All fields are optional; zero values preserve existing behaviour exactly.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"gatewayListenerName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GatewayListenerName sets sectionName on all parentRefs, pinning routes to a specific listener (e.g. \"https\").",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"pathMatchType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PathMatchType sets the path match type for path-based rules. Accepted: \"PathPrefix\", \"RegularExpression\" (default).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"pathRewriteTarget": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PathRewriteTarget adds a URLRewrite ReplacePrefixMatch filter when non-empty (requires PathPrefix). Typically \"/\".",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"disableHostBasedRouting": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DisableHostBasedRouting omits HTTPRoute hostnames and host catch-all rules when pathTemplate is set.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"routeLabels": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RouteLabels are merged onto every generated HTTPRoute, e.g. for SecurityPolicy targetSelectors.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"requestTimeout": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RequestTimeout overrides the per-component timeout for path-based rules (Gateway API duration string, e.g. \"300s\").",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"backendRequestTimeout": {
+						SchemaProps: spec.SchemaProps{
+							Description: "BackendRequestTimeout sets the backendRequest timeout for path-based rules (unset by default).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 

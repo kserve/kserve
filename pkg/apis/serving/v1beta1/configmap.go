@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"strings"
 	"text/template"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -109,6 +110,26 @@ type MultiNodeConfig struct {
 	CustomGPUResourceTypeList []string `json:"customGPUResourceTypeList,omitempty"`
 }
 
+// RawDeploymentIngressConfig holds Gateway API HTTPRoute generation options for RawDeployment
+// InferenceServices. All fields are optional; zero values preserve existing behaviour exactly.
+// +kubebuilder:object:generate=false
+type RawDeploymentIngressConfig struct {
+	// GatewayListenerName sets sectionName on all parentRefs, pinning routes to a specific listener (e.g. "https").
+	GatewayListenerName string `json:"gatewayListenerName,omitempty"`
+	// PathMatchType sets the path match type for path-based rules. Accepted: "PathPrefix", "RegularExpression" (default).
+	PathMatchType string `json:"pathMatchType,omitempty"`
+	// PathRewriteTarget adds a URLRewrite ReplacePrefixMatch filter when non-empty (requires PathPrefix). Typically "/".
+	PathRewriteTarget string `json:"pathRewriteTarget,omitempty"`
+	// DisableHostBasedRouting omits HTTPRoute hostnames and host catch-all rules when pathTemplate is set.
+	DisableHostBasedRouting bool `json:"disableHostBasedRouting,omitempty"`
+	// RouteLabels are merged onto every generated HTTPRoute, e.g. for SecurityPolicy targetSelectors.
+	RouteLabels map[string]string `json:"routeLabels,omitempty"`
+	// RequestTimeout overrides the per-component timeout for path-based rules (Gateway API duration string, e.g. "300s").
+	RequestTimeout string `json:"requestTimeout,omitempty"`
+	// BackendRequestTimeout sets the backendRequest timeout for path-based rules (unset by default).
+	BackendRequestTimeout string `json:"backendRequestTimeout,omitempty"`
+}
+
 // +kubebuilder:object:generate=false
 type IngressConfig struct {
 	EnableGatewayAPI             bool      `json:"enableGatewayApi,omitempty"`
@@ -127,6 +148,10 @@ type IngressConfig struct {
 	PathTemplate                 string    `json:"pathTemplate,omitempty"`
 	DisableIngressCreation       bool      `json:"disableIngressCreation,omitempty"`
 	DisableHTTPRouteTimeout      bool      `json:"disableHTTPRouteTimeout,omitempty"`
+	// RawDeployment holds HTTPRoute generation options specific to
+	// RawDeployment InferenceServices when enableGatewayApi is true.
+	// All sub-fields are optional; omitting this block preserves existing behaviour.
+	RawDeployment *RawDeploymentIngressConfig `json:"rawDeployment,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -318,6 +343,12 @@ func NewIngressConfig(isvcConfigMap *corev1.ConfigMap) (*IngressConfig, error) {
 			}
 		}
 
+		if ingressConfig.RawDeployment != nil {
+			if err := validateRawDeploymentConfig(ingressConfig.RawDeployment); err != nil {
+				return nil, err
+			}
+		}
+
 		if len(ingressConfig.KnativeLocalGatewayService) == 0 {
 			ingressConfig.KnativeLocalGatewayService = ingressConfig.LocalGatewayServiceName
 		}
@@ -336,6 +367,38 @@ func NewIngressConfig(isvcConfigMap *corev1.ConfigMap) (*IngressConfig, error) {
 	}
 
 	return ingressConfig, nil
+}
+
+// validateRawDeploymentConfig validates the RawDeploymentIngressConfig fields.
+// It is called from NewIngressConfig when the rawDeployment block is present.
+func validateRawDeploymentConfig(cfg *RawDeploymentIngressConfig) error {
+	// Only PathPrefix and RegularExpression are supported; Exact would miss inference sub-paths.
+	switch cfg.PathMatchType {
+	case "", "PathPrefix", "RegularExpression":
+		// valid
+	default:
+		return fmt.Errorf("invalid ingress config - rawDeployment.pathMatchType %q is not supported; "+
+			"accepted values are \"PathPrefix\", \"RegularExpression\"", cfg.PathMatchType)
+	}
+
+	// PathRewriteTarget uses ReplacePrefixMatch semantics, only valid with PathPrefix.
+	if cfg.PathRewriteTarget != "" && cfg.PathMatchType != "PathPrefix" {
+		return errors.New("invalid ingress config - rawDeployment.pathRewriteTarget requires " +
+			"pathMatchType to be \"PathPrefix\"")
+	}
+
+	// Validate duration strings early so misconfigured values are caught before producing a rejected HTTPRoute.
+	if cfg.RequestTimeout != "" {
+		if _, err := time.ParseDuration(cfg.RequestTimeout); err != nil {
+			return fmt.Errorf("invalid ingress config - rawDeployment.requestTimeout %q: %w", cfg.RequestTimeout, err)
+		}
+	}
+	if cfg.BackendRequestTimeout != "" {
+		if _, err := time.ParseDuration(cfg.BackendRequestTimeout); err != nil {
+			return fmt.Errorf("invalid ingress config - rawDeployment.backendRequestTimeout %q: %w", cfg.BackendRequestTimeout, err)
+		}
+	}
+	return nil
 }
 
 func getComponentConfig(key string, configMap *corev1.ConfigMap, componentConfig interface{}) error {

@@ -188,6 +188,87 @@ func TestNewIngressConfigDefaultKnativeService(t *testing.T) {
 	g.Expect(ingressCfg.KnativeLocalGatewayService).To(gomega.Equal(LocalGatewayService))
 }
 
+func TestNewIngressConfigWithRawDeployment(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data: map[string]string{
+			IngressConfigKeyName: `{
+				"enableGatewayApi": true,
+				"kserveIngressGateway": "envoy-gateway-system/main-gateway",
+				"ingressGateway": "knative-serving/knative-ingress-gateway",
+				"localGateway": "knative-serving/knative-local-gateway",
+				"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local",
+				"ingressDomain": "example.com",
+				"domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
+				"pathTemplate": "/serving/{{ .Namespace }}/{{ .Name }}",
+				"urlScheme": "https",
+				"rawDeployment": {
+					"gatewayListenerName": "https",
+					"pathMatchType": "PathPrefix",
+					"pathRewriteTarget": "/",
+					"disableHostBasedRouting": true,
+					"routeLabels": {
+						"policy.example.com/serving": "true",
+						"app.kubernetes.io/component": "inference"
+					},
+					"requestTimeout": "300s",
+					"backendRequestTimeout": "300s"
+				}
+			}`,
+		},
+	})
+	configMap, err := GetInferenceServiceConfigMap(t.Context(), clientset)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	ingressCfg, err := NewIngressConfig(configMap)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(ingressCfg).ShouldNot(gomega.BeNil())
+
+	// Verify top-level fields parse correctly
+	g.Expect(ingressCfg.EnableGatewayAPI).To(gomega.BeTrue())
+	g.Expect(ingressCfg.KserveIngressGateway).To(gomega.Equal("envoy-gateway-system/main-gateway"))
+	g.Expect(ingressCfg.PathTemplate).To(gomega.Equal("/serving/{{ .Namespace }}/{{ .Name }}"))
+
+	// Verify rawDeployment sub-block parses correctly
+	g.Expect(ingressCfg.RawDeployment).ShouldNot(gomega.BeNil())
+	g.Expect(ingressCfg.RawDeployment.GatewayListenerName).To(gomega.Equal("https"))
+	g.Expect(ingressCfg.RawDeployment.PathMatchType).To(gomega.Equal("PathPrefix"))
+	g.Expect(ingressCfg.RawDeployment.PathRewriteTarget).To(gomega.Equal("/"))
+	g.Expect(ingressCfg.RawDeployment.DisableHostBasedRouting).To(gomega.BeTrue())
+	g.Expect(ingressCfg.RawDeployment.RouteLabels).To(gomega.Equal(map[string]string{
+		"policy.example.com/serving":  "true",
+		"app.kubernetes.io/component": "inference",
+	}))
+	g.Expect(ingressCfg.RawDeployment.RequestTimeout).To(gomega.Equal("300s"))
+	g.Expect(ingressCfg.RawDeployment.BackendRequestTimeout).To(gomega.Equal("300s"))
+}
+
+func TestNewIngressConfigWithoutRawDeployment(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	// Verify that omitting rawDeployment entirely results in a nil pointer (backwards compat)
+	clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data: map[string]string{
+			IngressConfigKeyName: `{
+				"enableGatewayApi": true,
+				"kserveIngressGateway": "kserve/kserve-ingress-gateway",
+				"ingressGateway": "knative-serving/knative-ingress-gateway",
+				"localGateway": "knative-serving/knative-local-gateway",
+				"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local",
+				"ingressDomain": "example.com",
+				"domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
+				"urlScheme": "http"
+			}`,
+		},
+	})
+	configMap, err := GetInferenceServiceConfigMap(t.Context(), clientset)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	ingressCfg, err := NewIngressConfig(configMap)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(ingressCfg).ShouldNot(gomega.BeNil())
+	g.Expect(ingressCfg.RawDeployment).To(gomega.BeNil())
+}
+
 func TestNewDeployConfig(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
@@ -689,22 +770,6 @@ func TestNewIngressConfig_Validation(t *testing.T) {
 		g.Expect(cfg.KnativeLocalGatewayService).To(gomega.Equal("my-local-gateway-service"))
 	})
 
-	t.Run("returns error if pathTemplate is valid but ingressDomain is empty", func(t *testing.T) {
-		cm := &corev1.ConfigMap{
-			Data: map[string]string{
-				IngressConfigKeyName: `{
-					"kserveIngressGateway": "kserve/kserve-ingress-gateway",
-					"ingressGateway": "knative-serving/knative-ingress-gateway",
-					"pathTemplate": "/foo/bar"
-				}`,
-			},
-		}
-		cfg, err := NewIngressConfig(cm)
-		g.Expect(err).Should(gomega.HaveOccurred())
-		g.Expect(cfg).To(gomega.BeNil())
-		g.Expect(err.Error()).To(gomega.ContainSubstring("ingressDomain is required if pathTemplate is given"))
-	})
-
 	t.Run("returns config when all required fields are present", func(t *testing.T) {
 		cm := &corev1.ConfigMap{
 			Data: map[string]string{
@@ -723,5 +788,81 @@ func TestNewIngressConfig_Validation(t *testing.T) {
 		g.Expect(cfg.IngressGateway).To(gomega.Equal("knative-serving/knative-ingress-gateway"))
 		g.Expect(cfg.IngressDomain).To(gomega.Equal("mydomain.com"))
 		g.Expect(cfg.UrlScheme).To(gomega.Equal("https"))
+	})
+
+	t.Run("returns error if rawDeployment.pathMatchType is invalid", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"ingressGateway": "knative-serving/knative-ingress-gateway",
+					"rawDeployment": {"pathMatchType": "BadType"}
+				}`,
+			},
+		}
+		_, err := NewIngressConfig(cm)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("pathMatchType"))
+	})
+
+	t.Run("returns error if rawDeployment.pathRewriteTarget is set without PathPrefix", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"ingressGateway": "knative-serving/knative-ingress-gateway",
+					"rawDeployment": {"pathRewriteTarget": "/", "pathMatchType": "RegularExpression"}
+				}`,
+			},
+		}
+		_, err := NewIngressConfig(cm)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("pathRewriteTarget requires"))
+	})
+
+	t.Run("returns error if rawDeployment.requestTimeout is invalid", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"ingressGateway": "knative-serving/knative-ingress-gateway",
+					"rawDeployment": {"requestTimeout": "bad-duration"}
+				}`,
+			},
+		}
+		_, err := NewIngressConfig(cm)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("requestTimeout"))
+	})
+
+	t.Run("returns error if rawDeployment.backendRequestTimeout is invalid", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"ingressGateway": "knative-serving/knative-ingress-gateway",
+					"rawDeployment": {"backendRequestTimeout": "bad-duration"}
+				}`,
+			},
+		}
+		_, err := NewIngressConfig(cm)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("backendRequestTimeout"))
+	})
+
+	t.Run("accepts valid rawDeployment with PathPrefix and pathRewriteTarget", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"ingressGateway": "knative-serving/knative-ingress-gateway",
+					"rawDeployment": {
+						"pathMatchType": "PathPrefix",
+						"pathRewriteTarget": "/",
+						"requestTimeout": "300s",
+						"backendRequestTimeout": "300s"
+					}
+				}`,
+			},
+		}
+		cfg, err := NewIngressConfig(cm)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(cfg.RawDeployment).ShouldNot(gomega.BeNil())
+		g.Expect(cfg.RawDeployment.PathMatchType).To(gomega.Equal("PathPrefix"))
 	})
 }

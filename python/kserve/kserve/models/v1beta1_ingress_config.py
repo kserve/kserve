@@ -62,6 +62,7 @@ class V1beta1IngressConfig(object):
         'local_gateway': 'str',
         'local_gateway_service': 'str',
         'path_template': 'str',
+        'raw_deployment': 'V1beta1RawDeploymentIngressConfig',
         'url_scheme': 'str'
     }
 
@@ -81,10 +82,11 @@ class V1beta1IngressConfig(object):
         'local_gateway': 'localGateway',
         'local_gateway_service': 'localGatewayService',
         'path_template': 'pathTemplate',
+        'raw_deployment': 'rawDeployment',
         'url_scheme': 'urlScheme'
     }
 
-    def __init__(self, additional_ingress_domains=None, disable_http_route_timeout=None, disable_ingress_creation=None, disable_istio_virtual_host=None, domain_template=None, enable_gateway_api=None, enable_llm_inference_service_tls=None, ingress_class_name=None, ingress_domain=None, ingress_gateway=None, knative_local_gateway_service=None, kserve_ingress_gateway=None, local_gateway=None, local_gateway_service=None, path_template=None, url_scheme=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, additional_ingress_domains=None, disable_http_route_timeout=None, disable_ingress_creation=None, disable_istio_virtual_host=None, domain_template=None, enable_gateway_api=None, enable_llm_inference_service_tls=None, ingress_class_name=None, ingress_domain=None, ingress_gateway=None, knative_local_gateway_service=None, kserve_ingress_gateway=None, local_gateway=None, local_gateway_service=None, path_template=None, raw_deployment=None, url_scheme=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1IngressConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -105,6 +107,7 @@ class V1beta1IngressConfig(object):
         self._local_gateway = None
         self._local_gateway_service = None
         self._path_template = None
+        self._raw_deployment = None
         self._url_scheme = None
         self.discriminator = None
 
@@ -138,6 +141,8 @@ class V1beta1IngressConfig(object):
             self.local_gateway_service = local_gateway_service
         if path_template is not None:
             self.path_template = path_template
+        if raw_deployment is not None:
+            self.raw_deployment = raw_deployment
         if url_scheme is not None:
             self.url_scheme = url_scheme
 
@@ -455,6 +460,27 @@ class V1beta1IngressConfig(object):
         """
 
         self._path_template = path_template
+
+    @property
+    def raw_deployment(self):
+        """Gets the raw_deployment of this V1beta1IngressConfig.  # noqa: E501
+
+
+        :return: The raw_deployment of this V1beta1IngressConfig.  # noqa: E501
+        :rtype: V1beta1RawDeploymentIngressConfig
+        """
+        return self._raw_deployment
+
+    @raw_deployment.setter
+    def raw_deployment(self, raw_deployment):
+        """Sets the raw_deployment of this V1beta1IngressConfig.
+
+
+        :param raw_deployment: The raw_deployment of this V1beta1IngressConfig.  # noqa: E501
+        :type: V1beta1RawDeploymentIngressConfig
+        """
+
+        self._raw_deployment = raw_deployment
 
     @property
     def url_scheme(self):
