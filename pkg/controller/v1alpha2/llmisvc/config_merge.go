@@ -63,6 +63,9 @@ const (
 	// Router and scheduler configurations
 	configRouterSchedulerNameSuffix = "config-llm-scheduler"
 	configRouterRouteNameSuffix     = "config-llm-router-route"
+	// Tracing configurations
+	configTracingNameSuffix          = "config-llm-tracing"
+	configTracingSchedulerNameSuffix = "config-llm-tracing-scheduler"
 )
 
 var (
@@ -78,6 +81,8 @@ var (
 	configPrefillWorkerDataParallelName     = configPrefix + configPrefillWorkerDataParallelNameSuffix
 	configRouterSchedulerName               = configPrefix + configRouterSchedulerNameSuffix
 	configRouterRouteName                   = configPrefix + configRouterRouteNameSuffix
+	configTracingName                       = configPrefix + configTracingNameSuffix
+	configTracingSchedulerName              = configPrefix + configTracingSchedulerNameSuffix
 )
 
 // FIXME move those presets to well-known when they're finally known :)
@@ -98,6 +103,8 @@ var WellKnownDefaultConfigs = sets.New[string](
 	configPrefillWorkerDataParallelName,
 	configRouterSchedulerName,
 	configRouterRouteName,
+	configTracingName,
+	configTracingSchedulerName,
 )
 
 const (
@@ -207,6 +214,13 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		// For the HTTP route configuration we don't use versioned defaults since this configuration depends on the
 		// GW API provider version.
 		refs = append(refs, corev1.LocalObjectReference{Name: configRouterRouteName})
+	}
+	// Inject tracing default configs when tracing is enabled (field is non-nil)
+	if resolvedSpec.Tracing != nil {
+		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configTracingName)})
+	}
+	if resolvedSpec.Router != nil && resolvedSpec.Router.Scheduler != nil && resolvedSpec.Router.Scheduler.Tracing != nil {
+		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configTracingSchedulerName)})
 	}
 
 	if resolvedSpec.Prefill != nil { // P/D

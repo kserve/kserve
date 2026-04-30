@@ -144,6 +144,14 @@ type WorkloadSpec struct {
 	// The controller is responsible for enabling discovery between head and worker pods.
 	// +optional
 	Worker *corev1.PodSpec `json:"worker,omitempty"`
+
+	// Tracing configuration for the inference server.
+	// When present (even as `{}`), distributed tracing is enabled with defaults.
+	// When omitted, no tracing instrumentation is injected.
+	// In a disaggregated setup, this configuration applies to both decode and prefill workloads,
+	// with the service name automatically suffixed ("-decode"/"-prefill") to distinguish them.
+	// +optional
+	Tracing *TracingSpec `json:"tracing,omitempty"`
 }
 
 // LLMModelSpec defines the model source and its characteristics.
@@ -314,6 +322,12 @@ type SchedulerSpec struct {
 
 	// Replicas is the number of replicas for the scheduler.
 	Replicas *int32 `json:"replicas,omitempty"`
+
+	// Tracing configuration for the scheduler component.
+	// When present (even as `{}`), distributed tracing is enabled with defaults.
+	// When omitted, no tracing instrumentation is injected.
+	// +optional
+	Tracing *TracingSpec `json:"tracing,omitempty"`
 }
 
 type SchedulerConfigSpec struct {
@@ -462,6 +476,55 @@ type KEDAScalingSpec struct {
 	// This includes HPA behavior configuration and restore-to-original replica count settings.
 	// +optional
 	Advanced *kedav1alpha1.AdvancedConfig `json:"advanced,omitempty"`
+}
+
+// TracingSpec defines the distributed tracing configuration for a component.
+// When present (even as an empty object `{}`), tracing is enabled with sensible defaults.
+// When omitted, no tracing instrumentation is injected.
+//
+// Example - Enable tracing with defaults:
+//
+//	tracing: {}
+//
+// Example - Custom configuration:
+//
+//	tracing:
+//	  serviceName: my-scheduler
+//	  otelExporterEndpoint: "http://my-collector:4317"
+//	  tracesSampler: "parentbased_traceidratio"
+//	  tracesSamplerArg: "0.1"
+//	  traceExporter: "otlp"
+type TracingSpec struct {
+	// ServiceName is the logical service name reported to the OpenTelemetry collector.
+	// Maps to the OTEL_SERVICE_NAME environment variable.
+	// Defaults vary by component: "inference-scheduler" for the scheduler,
+	// "inference-server" for the inference server (with "-decode"/"-prefill" suffix in disaggregated setups).
+	// +optional
+	ServiceName *string `json:"serviceName,omitempty"`
+
+	// OtelExporterEndpoint is the OTLP exporter endpoint.
+	// Maps to the OTEL_EXPORTER_OTLP_ENDPOINT environment variable.
+	// Default: "http://otel-collector:4317"
+	// +optional
+	OtelExporterEndpoint *string `json:"otelExporterEndpoint,omitempty"`
+
+	// TracesSampler specifies the sampler to use for traces.
+	// Maps to the OTEL_TRACES_SAMPLER environment variable.
+	// Default: "parentbased_traceidratio"
+	// +optional
+	TracesSampler *string `json:"tracesSampler,omitempty"`
+
+	// TracesSamplerArg is an argument passed to the traces sampler (e.g. the sampling ratio).
+	// Maps to the OTEL_TRACES_SAMPLER_ARG environment variable.
+	// Default: "0.05" (5% sampling rate)
+	// +optional
+	TracesSamplerArg *string `json:"tracesSamplerArg,omitempty"`
+
+	// TracesExporter specifies which exporter is used for traces.
+	// Maps to the OTEL_TRACES_EXPORTER environment variable.
+	// Default: "otlp"
+	// +optional
+	TracesExporter *string `json:"tracesExporter,omitempty"`
 }
 
 // ParallelismSpec defines the parallelism parameters for distributed inference.

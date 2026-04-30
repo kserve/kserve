@@ -404,6 +404,9 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 			mainContainer.Args = append(mainContainer.Args,
 				preserveSchedulerConfig(llmSvc, curr)...,
 			)
+
+			// Inject tracing instrumentation when spec.router.scheduler.tracing is set
+			injectSchedulerTracing(llmSvc.Spec.Router.Scheduler.Tracing, llmSvc.GetNamespace(), mainContainer)
 		}
 
 		if isUsingTokenizerSidecar(llmSvc.Spec) {
