@@ -155,6 +155,14 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
+# Prepare OLM bundle image tags
+echo -e "\033[32mPreparing OLM bundle image tags for v${NEW_VERSION}...\033[0m"
+hack/bundle-release-prepare.sh "${NEW_VERSION}"
+if [ $? -ne 0 ]; then
+  echo -e "\033[31mError: Failed to prepare OLM bundle image tags\033[0m"
+  exit 1
+fi
+
 # Run precommit checks
 echo -e "\033[32mRunning precommit checks (lint, format, vet)...\033[0m"
 make precommit

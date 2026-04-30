@@ -28,6 +28,13 @@ spec:
         - containerPort: 8443
           protocol: TCP
           name: https
+        resources:
+          requests:
+            cpu: 5m
+            memory: 20Mi
+          limits:
+            cpu: 20m
+            memory: 64Mi
       - name: manager
         args:
         # When changing args, also update manager.yaml because the following
