@@ -20,3 +20,8 @@ spec:
         imagePullPolicy: {{ .Values.kserve.localmodelnode.controller.imagePullPolicy }}
         resources:
           {{- toYaml .Values.kserve.localmodelnode.controller.resources | nindent 10 }}
+      volumes:
+      - hostPath:
+          path: {{ .Values.kserve.localmodelnode.controller.hostPath }}
+          type: DirectoryOrCreate
+        name: models
