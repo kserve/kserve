@@ -723,9 +723,16 @@ var _ = Describe("ServingRuntime Watch", func() {
 			}
 			Expect(k8sClient.Create(context.Background(), isvc)).To(Succeed())
 
-			// Set the ClusterServingRuntimeName in status to a different runtime
-			isvc.Status.ClusterServingRuntimeName = "cluster-runtime-other"
-			Expect(k8sClient.Status().Update(context.Background(), isvc)).To(Succeed())
+			// Set the ClusterServingRuntimeName in status to a different runtime.
+			// Retry to handle concurrent reconciler updates that may change the resource version.
+			Eventually(func() error {
+				latest := &v1beta1.InferenceService{}
+				if err := k8sClient.Get(context.Background(), types.NamespacedName{Name: isvc.Name, Namespace: isvc.Namespace}, latest); err != nil {
+					return err
+				}
+				latest.Status.ClusterServingRuntimeName = "cluster-runtime-other"
+				return k8sClient.Status().Update(context.Background(), latest)
+			}).Should(Succeed())
 
 			// Create a ClusterServingRuntime object with a unique name not used by any ISVC
 			csr := &v1alpha1.ClusterServingRuntime{

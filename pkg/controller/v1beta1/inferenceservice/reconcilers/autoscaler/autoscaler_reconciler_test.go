@@ -23,7 +23,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -92,11 +91,12 @@ func TestGetAutoscalerClass(t *testing.T) {
 
 func TestCreateAutoscaler(t *testing.T) {
 	type args struct {
-		client        client.Client
-		scheme        *runtime.Scheme
-		componentMeta metav1.ObjectMeta
-		componentExt  *v1beta1.ComponentExtensionSpec
-		configMap     *corev1.ConfigMap
+		client              client.Client
+		scheme              *runtime.Scheme
+		componentMeta       metav1.ObjectMeta
+		componentExt        *v1beta1.ComponentExtensionSpec
+		autoscalerConfig    *v1beta1.AutoscalerConfig
+		otelCollectorConfig *v1beta1.OtelCollectorConfig
 	}
 	serviceName := "my-model"
 	namespace := "test"
@@ -153,20 +153,8 @@ func TestCreateAutoscaler(t *testing.T) {
 			meta := baseMeta
 			meta.Annotations = tt.annotations
 
-			// Provide a dummy configMap for keda autoscalerClass to avoid nil pointer panic
-			var configMap *corev1.ConfigMap
-			if tt.annotations["serving.kserve.io/autoscalerClass"] == "keda" {
-				configMap = &corev1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "dummy-config",
-						Namespace: "default",
-					},
-					Data: map[string]string{},
-				}
-			}
-
 			// Use nils for client, scheme as we only test type selection logic
-			as, err := createAutoscaler(nil, nil, meta, &v1beta1.ComponentExtensionSpec{}, configMap)
+			as, err := createAutoscaler(nil, nil, meta, &v1beta1.ComponentExtensionSpec{}, nil, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("createAutoscaler() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -245,19 +233,7 @@ func TestNewAutoscalerReconciler(t *testing.T) {
 			meta := baseMeta
 			meta.Annotations = tt.annotations
 
-			// Provide a dummy configMap for keda autoscalerClass to avoid nil pointer panic
-			var configMap *corev1.ConfigMap
-			if tt.annotations["serving.kserve.io/autoscalerClass"] == "keda" {
-				configMap = &corev1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "dummy-config",
-						Namespace: "default",
-					},
-					Data: map[string]string{},
-				}
-			}
-
-			ar, err := NewAutoscalerReconciler(nil, nil, meta, &v1beta1.ComponentExtensionSpec{}, configMap)
+			ar, err := NewAutoscalerReconciler(nil, nil, meta, &v1beta1.ComponentExtensionSpec{}, nil, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewAutoscalerReconciler() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -362,7 +338,7 @@ func TestExternalAutoscalerWithNilComponentExt(t *testing.T) {
 	}
 
 	// Test with nil componentExt - this should not panic
-	as, err := createAutoscaler(nil, nil, meta, nil, nil)
+	as, err := createAutoscaler(nil, nil, meta, nil, nil, nil)
 	if err != nil {
 		t.Errorf("createAutoscaler() with nil componentExt should not error for external class, got: %v", err)
 	}
@@ -389,7 +365,7 @@ func TestNoneAutoscalerWithNilComponentExt(t *testing.T) {
 	}
 
 	// Test with nil componentExt - this should not panic
-	as, err := createAutoscaler(nil, nil, meta, nil, nil)
+	as, err := createAutoscaler(nil, nil, meta, nil, nil, nil)
 	if err != nil {
 		t.Errorf("createAutoscaler() with nil componentExt should not error for none class, got: %v", err)
 	}
