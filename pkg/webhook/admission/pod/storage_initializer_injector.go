@@ -258,6 +258,20 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 			}
 
 			ociIndex := 0
+			// Collect OCI mount paths for collision check and count validation
+			var ociMountPaths []string
+			for _, storageUri := range params.StorageURIs {
+				if strings.HasPrefix(storageUri.Uri, constants.OciURIPrefix) {
+					ociMountPaths = append(ociMountPaths, storageUri.MountPath)
+				}
+			}
+			if len(ociMountPaths) > utils.MaxOCISourcesPerPod {
+				return fmt.Errorf("too many OCI sources (%d); maximum is %d per pod", len(ociMountPaths), utils.MaxOCISourcesPerPod)
+			}
+			if err := utils.ValidateOCIMountPaths(ociMountPaths); err != nil {
+				return err
+			}
+
 			for _, storageUri := range params.StorageURIs {
 				if !strings.HasPrefix(storageUri.Uri, constants.OciURIPrefix) {
 					continue

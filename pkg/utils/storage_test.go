@@ -442,3 +442,57 @@ func TestConfigureModelcarToContainerMultipleOCI(t *testing.T) {
 		assert.Len(t, podSpec.Volumes, 1)
 	})
 }
+
+func TestValidateOCIMountPaths(t *testing.T) {
+	t.Run("Single path is always valid", func(t *testing.T) {
+		err := ValidateOCIMountPaths([]string{"/mnt/models"})
+		assert.NoError(t, err)
+	})
+
+	t.Run("Empty paths are valid", func(t *testing.T) {
+		err := ValidateOCIMountPaths(nil)
+		assert.NoError(t, err)
+	})
+
+	t.Run("Distinct parent directories are valid", func(t *testing.T) {
+		err := ValidateOCIMountPaths([]string{
+			"/mnt/model-a/data",
+			"/mnt/model-b/data",
+		})
+		assert.NoError(t, err)
+	})
+
+	t.Run("Shared parent directory is rejected", func(t *testing.T) {
+		err := ValidateOCIMountPaths([]string{
+			"/mnt/models/model-a",
+			"/mnt/models/model-b",
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "volume mount shadowing")
+		assert.Contains(t, err.Error(), "/mnt/models")
+	})
+
+	t.Run("Three paths with collision on second pair", func(t *testing.T) {
+		err := ValidateOCIMountPaths([]string{
+			"/mnt/alpha/data",
+			"/mnt/beta/model-x",
+			"/mnt/beta/model-y", // collides with previous
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "/mnt/beta")
+	})
+
+	t.Run("Default mount path used twice is rejected", func(t *testing.T) {
+		err := ValidateOCIMountPaths([]string{
+			constants.DefaultModelLocalMountPath,
+			constants.DefaultModelLocalMountPath,
+		})
+		require.Error(t, err)
+	})
+}
+
+func TestMaxOCISourcesPerPod(t *testing.T) {
+	// Ensure the constant is reasonable and matches documented limit
+	assert.Equal(t, 10, MaxOCISourcesPerPod,
+		"MaxOCISourcesPerPod should be 10 — each URI adds 2 containers + 1 volume")
+}

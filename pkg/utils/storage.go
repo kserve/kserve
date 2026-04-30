@@ -453,6 +453,11 @@ func CreateModelcarInitContainer(containerName string, image string, storageConf
 	return modelContainer
 }
 
+// MaxOCISourcesPerPod is the maximum number of OCI modelcar sidecars that can be
+// injected into a single pod. This prevents resource exhaustion from unbounded
+// sidecar injection — each OCI URI adds 2 containers (sidecar + init) and 1 volume.
+const MaxOCISourcesPerPod = 10
+
 // ModelcarNames generates unique container and volume names for a modelcar at the given OCI index.
 // When ociIndex is 0, the original constant names are returned for backward compatibility.
 func ModelcarNames(ociIndex int) (sidecarName, initName, volumeName string) {
@@ -463,6 +468,32 @@ func ModelcarNames(ociIndex int) (sidecarName, initName, volumeName string) {
 	return constants.ModelcarContainerName + suffix,
 		constants.ModelcarInitContainerName + suffix,
 		constants.StorageInitializerVolumeName + suffix
+}
+
+// ValidateOCIMountPaths checks that the given OCI mount paths will not cause volume
+// mount shadowing when injected. Each modelcar sidecar mounts an emptyDir at the
+// *parent directory* of its modelPath (via GetParentDirectory). If two OCI URIs share
+// the same parent directory, their volumes would be mounted at the same path on the
+// target container, causing the last mount to shadow all previous ones.
+//
+// Returns an error if a collision is detected.
+func ValidateOCIMountPaths(mountPaths []string) error {
+	if len(mountPaths) <= 1 {
+		return nil
+	}
+	parentDirSeen := make(map[string]string, len(mountPaths)) // parentDir -> first modelPath that used it
+	for _, mp := range mountPaths {
+		parentDir := GetParentDirectory(mp)
+		if prev, exists := parentDirSeen[parentDir]; exists {
+			return fmt.Errorf(
+				"OCI mount paths %q and %q share parent directory %q, which would cause volume mount shadowing; "+
+					"use mount paths with distinct parent directories",
+				prev, mp, parentDir,
+			)
+		}
+		parentDirSeen[parentDir] = mp
+	}
+	return nil
 }
 
 // ConfigureModelcarToContainer configures the OCI image specified in modelUri as a modelcar to the
@@ -499,7 +530,11 @@ func ConfigureModelcarToContainer(modelUri string, podSpec *corev1.PodSpec, targ
 	// starting up
 	AddOrReplaceEnv(targetContainer, constants.ModelInitModeEnvVarKey, "async")
 
-	// Mount volume initialized by the modelcar container to the target container
+	// Mount volume initialized by the modelcar container to the target container.
+	// Each OCI URI gets its own emptyDir volume because the modelcar sidecar creates
+	// a symlink (via /proc/<PID>/root) that is specific to its container image.
+	// Sharing a single volume between multiple modelcar sidecars would cause symlink
+	// conflicts.
 	modelParentDir := GetParentDirectory(modelPath)
 	AddEmptyDirVolumeIfNotPresent(podSpec, volumeName)
 	AddVolumeMountIfNotPresent(targetContainer, volumeName, modelParentDir, false)
