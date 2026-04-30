@@ -687,6 +687,7 @@ dependencies = [
     { name = "dulwich" },
     { name = "google-cloud-storage" },
     { name = "huggingface-hub", extra = ["hf-transfer"] },
+    { name = "modelscope" },
     { name = "pyasn" },
     { name = "pyjwt" },
     { name = "requests" },
@@ -703,9 +704,27 @@ requires-dist = [
     { name = "dulwich", specifier = ">=0.21.0" },
     { name = "google-cloud-storage", specifier = ">=2.14.0,<3.0.0" },
     { name = "huggingface-hub", extras = ["hf-transfer"], specifier = ">=0.32.0" },
+    { name = "modelscope", specifier = ">=1.16.0" },
     { name = "pyasn", specifier = ">=0.6.3" },
     { name = "pyjwt", specifier = ">=2.12.0" },
     { name = "requests", specifier = ">=2.32.2,<3.0.0" },
+]
+
+[[package]]
+name = "modelscope"
+version = "1.36.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "filelock" },
+    { name = "packaging" },
+    { name = "requests" },
+    { name = "setuptools" },
+    { name = "tqdm" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a0/06/60c648bc11195e1421a27e401673e6170eca9765be71da53f72a4274eed3/modelscope-1.36.1.tar.gz", hash = "sha256:7c175a7056259663ab1901ebe4d8338de415a40b25ea7bb556f7be40ece63d60", size = 4578481, upload-time = "2026-04-21T08:18:53.589Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/23/12/6c02d0c9a8e7f35c91b5f9c14b184fbec26f290b7314cb1cb98b3d4bf4df/modelscope-1.36.1-py3-none-any.whl", hash = "sha256:9286bfadd20b4c5bbe453f108abe13092200075df04ba1d5119c796704821cf4", size = 6073184, upload-time = "2026-04-21T08:18:49.006Z" },
 ]
 
 [[package]]
@@ -1029,6 +1048,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/ed/5d/9dcc100abc6711e8247af5aa561fc07c4a046f72f659c3adea9a449e191a/s3transfer-0.13.0.tar.gz", hash = "sha256:f5e6db74eb7776a37208001113ea7aa97695368242b364d73e91c981ac522177", size = 150232, upload-time = "2025-05-22T19:24:50.245Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/18/17/22bf8155aa0ea2305eefa3a6402e040df7ebe512d1310165eda1e233c3f8/s3transfer-0.13.0-py3-none-any.whl", hash = "sha256:0148ef34d6dd964d0d8cf4311b2b21c474693e57c2e069ec708ce043d2b527be", size = 85152, upload-time = "2025-05-22T19:24:48.703Z" },
+]
+
+[[package]]
+name = "setuptools"
+version = "82.0.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/4f/db/cfac1baf10650ab4d1c111714410d2fbb77ac5a616db26775db562c8fab2/setuptools-82.0.1.tar.gz", hash = "sha256:7d872682c5d01cfde07da7bccc7b65469d3dca203318515ada1de5eda35efbf9", size = 1152316, upload-time = "2026-03-09T12:47:17.221Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9d/76/f789f7a86709c6b087c5a2f52f911838cad707cc613162401badc665acfe/setuptools-82.0.1-py3-none-any.whl", hash = "sha256:a59e362652f08dcd477c78bb6e7bd9d80a7995bc73ce773050228a348ce2e5bb", size = 1006223, upload-time = "2026-03-09T12:47:15.026Z" },
 ]
 
 [[package]]

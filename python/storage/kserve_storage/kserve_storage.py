@@ -41,6 +41,24 @@ from kserve_storage.storage_errors import (
     check_http_response,
 )
 
+# ModelScope imports - module level for testability
+try:
+    from modelscope.hub.snapshot_download import (
+        snapshot_download as ms_snapshot_download,
+    )
+    from modelscope.hub.errors import (
+        NotExistError as MsNotExistError,
+        NoValidRevisionError as MsNoValidRevisionError,
+        NotLoginException as MsNotLoginException,
+        RequestError as MsRequestError,
+    )
+except ImportError:
+    ms_snapshot_download = None
+    MsNotExistError = None
+    MsNoValidRevisionError = None
+    MsNotLoginException = None
+    MsRequestError = None
+
 MODEL_MOUNT_DIRS = "/mnt/models"
 
 _GCS_PREFIX = "gs://"
@@ -61,6 +79,7 @@ _HTTP_PREFIX = "http(s)://"
 _HEADERS_SUFFIX = "-headers"
 _PVC_PREFIX = "/mnt/pvc"
 _HF_PREFIX = "hf://"
+_MS_PREFIX = "ms://"
 _GIT_RE = r"https://.+\.git"
 
 _HDFS_SECRET_DIRECTORY = "/var/secrets/kserve-hdfscreds"
@@ -213,6 +232,10 @@ class Storage(object):
                 model_dir = Storage._download_hf(
                     uri, out_dir, allow_patterns, ignore_patterns
                 )
+            elif uri.startswith(_MS_PREFIX):
+                model_dir = Storage._download_ms(
+                    uri, out_dir, allow_patterns, ignore_patterns
+                )
             elif re.search(_GIT_RE, uri):
                 model_dir = Storage._download_git_repo(uri, out_dir)
             # "catch-all" pattern, should always be last
@@ -222,8 +245,15 @@ class Storage(object):
                 raise Exception(
                     "Cannot recognize storage type for "
                     + uri
-                    + "\n'%s', '%s', '%s', '%s' and '%s' are the current available storage type."
-                    % (_GCS_PREFIX, _S3_PREFIX, _LOCAL_PREFIX, _HTTP_PREFIX, _HF_PREFIX)
+                    + "\n'%s', '%s', '%s', '%s', '%s' and '%s' are the current available storage type."
+                    % (
+                        _GCS_PREFIX,
+                        _S3_PREFIX,
+                        _LOCAL_PREFIX,
+                        _HTTP_PREFIX,
+                        _HF_PREFIX,
+                        _MS_PREFIX,
+                    )
                 )
 
         logger.info("Successfully copied %s to %s", uri, out_dir)
@@ -581,6 +611,65 @@ class Storage(object):
             HfHubHTTPError,
         ) as e:
             raise_storage_error("HuggingFace", uri, e, repo_id)
+
+        return temp_dir
+
+    @staticmethod
+    def _download_ms(
+        uri,
+        temp_dir: str,
+        allow_patterns: Optional[List[str]] = None,
+        ignore_patterns: Optional[List[str]] = None,
+    ) -> str:
+        if ms_snapshot_download is None:
+            raise RuntimeError(
+                "ModelScope is not installed. Please install it with: pip install modelscope"
+            )
+
+        components = uri[len(_MS_PREFIX) :].split("/")
+
+        # Validate that the URI has two parts: repo and model (optional revision)
+        if len(components) != 2:
+            raise RuntimeError(
+                "Invalid ModelScope URI format. Expected 'ms://owner/model[:revision]', got '%s'"
+                % uri
+            )
+
+        repo = components[0]
+        model_part = components[1]
+
+        if not repo:
+            raise RuntimeError(
+                "ModelScope repository owner cannot be empty in URI: %s" % uri
+            )
+        if not model_part:
+            raise RuntimeError("ModelScope model name cannot be empty in URI: %s" % uri)
+
+        model, _, revision_value = model_part.partition(":")
+        # Ensure model is non-empty
+        if not model:
+            raise RuntimeError("ModelScope model name cannot be empty in URI: %s" % uri)
+
+        revision = revision_value if revision_value else None
+        repo_id = f"{repo}/{model}"
+
+        try:
+            kwargs = dict(repo_id=repo_id, revision=revision, local_dir=temp_dir)
+            if allow_patterns:
+                kwargs["allow_patterns"] = allow_patterns
+            if ignore_patterns:
+                kwargs["ignore_patterns"] = ignore_patterns
+            token = os.environ.get("MS_TOKEN")
+            if token:
+                kwargs["token"] = token
+            ms_snapshot_download(**kwargs)
+        except (
+            MsNotExistError,
+            MsNoValidRevisionError,
+            MsNotLoginException,
+            MsRequestError,
+        ) as e:
+            raise_storage_error("ModelScope", uri, e, repo_id)
 
         return temp_dir
 

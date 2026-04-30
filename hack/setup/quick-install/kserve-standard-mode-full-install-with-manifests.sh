@@ -38633,6 +38633,7 @@ spec:
   - prefix: s3://
   - prefix: hdfs://
   - prefix: hf://
+  - prefix: ms://
   - prefix: webhdfs://
   - regex: https://(.+?).blob.core.windows.net/(.+)
   - regex: https://(.+?).file.core.windows.net/(.+)

@@ -92,6 +92,61 @@ def test_huggingface_vllm_cpu_openai_chat_completions():
 
 
 @pytest.mark.vllm
+def test_huggingface_vllm_cpu_openai_chat_completions_from_modelscope():
+    service_name = "hf-qwen-chat-ms-vllm"
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        model=V1beta1ModelSpec(
+            model_format=V1beta1ModelFormat(
+                name="huggingface",
+            ),
+            storage_uri="ms://Qwen/Qwen2.5-0.5B-Instruct",
+            args=[
+                "--model_name",
+                "hf-qwen-chat-ms-vllm",
+                "--backend",
+                "vllm",
+                "--max_model_len",
+                "512",
+                "--dtype",
+                "bfloat16",
+            ],
+            env=[
+                client.V1EnvVar(
+                    name="VLLM_CPU_KVCACHE_SPACE",
+                    value="1",
+                ),
+            ],
+            resources=V1ResourceRequirements(
+                requests={"cpu": "2", "memory": "7Gi"},
+                limits={"cpu": "2", "memory": "7Gi"},
+            ),
+        ),
+    )
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    res = generate(service_name, "./data/qwen_input_chat.json")
+    content = res["choices"][0]["message"]["content"].strip()
+    assert content
+
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.vllm
 def test_huggingface_vllm_cpu_text_completion_streaming():
     service_name = "hf-qwen-cmpl-stream-vllm"
     predictor = V1beta1PredictorSpec(

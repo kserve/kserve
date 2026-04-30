@@ -67,6 +67,7 @@ def get_storage_error_message(
         "GoogleAuthError",
         "ClientAuthenticationError",
         "GatedRepoError",
+        "NotLoginException",
     )
     if (
         error_type in auth_error_types
@@ -79,6 +80,7 @@ def get_storage_error_message(
             "Azure": "Verify AZURE_CLIENT_ID/AZURE_CLIENT_SECRET or AZURE_STORAGE_ACCESS_KEY.",
             "HDFS": "Verify Kerberos keytab and principal configuration.",
             "HuggingFace": "Set HF_TOKEN or request access to the gated repository.",
+            "ModelScope": "Set MODELSCOPE_SDK_TOKEN or log in to ModelScope.",
             "HTTP": "Verify authentication credentials.",
             "Git": "Set GIT_USERNAME/GIT_PASSWORD or use a public repository.",
         }
@@ -93,6 +95,8 @@ def get_storage_error_message(
         "ResourceNotFoundError",
         "RepositoryNotFoundError",
         "RevisionNotFoundError",
+        "NotExistError",
+        "NoValidRevisionError",
     )
     if (
         error_type in not_found_types
