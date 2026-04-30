@@ -68,9 +68,7 @@ class OpenAIDataPlane(DataPlane):
             )
 
         context = {"headers": dict(headers), "response": response}
-        return await model.create_completion(
-            request=request, raw_request=raw_request, context=context
-        )
+        return await model.create_completion(request=request, raw_request=raw_request, context=context)
 
     async def create_chat_completion(
         self,
@@ -98,9 +96,7 @@ class OpenAIDataPlane(DataPlane):
             )
 
         context = {"headers": dict(headers), "response": response}
-        return await model.create_chat_completion(
-            request=request, raw_request=raw_request, context=context
-        )
+        return await model.create_chat_completion(request=request, raw_request=raw_request, context=context)
 
     async def create_embedding(
         self,
@@ -129,9 +125,7 @@ class OpenAIDataPlane(DataPlane):
             )
 
         context = {"headers": dict(headers), "response": response}
-        return await model.create_embedding(
-            request=request, raw_request=raw_request, context=context
-        )
+        return await model.create_embedding(request=request, raw_request=raw_request, context=context)
 
     async def create_rerank(
         self,
@@ -160,9 +154,7 @@ class OpenAIDataPlane(DataPlane):
             )
 
         context = {"headers": dict(headers), "response": response}
-        return await model.create_rerank(
-            request=request, raw_request=raw_request, context=context
-        )
+        return await model.create_rerank(request=request, raw_request=raw_request, context=context)
 
     async def models(self) -> List[OpenAIModel]:
         """Retrieve a list of models
@@ -170,8 +162,4 @@ class OpenAIDataPlane(DataPlane):
         Returns:
             response: A list of OpenAIModel instances
         """
-        return [
-            model
-            for model in self.model_registry.get_models().values()
-            if isinstance(model, OpenAIModel)
-        ]
+        return [model for model in self.model_registry.get_models().values() if isinstance(model, OpenAIModel)]

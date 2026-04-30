@@ -55,14 +55,11 @@ class PaddleModel(Model):
                     return file_path
 
             raise Exception(
-                f"Missing model file with extension '{primary_ext}'"
-                + (f" or '{fallback_ext}'" if fallback_ext else "")
+                f"Missing model file with extension '{primary_ext}'" + (f" or '{fallback_ext}'" if fallback_ext else "")
             )
 
         model_path = Storage.download(self.model_dir)
-        config = inference.Config(
-            get_model_file(".pdmodel", ".json"), get_model_file(".pdiparams")
-        )
+        config = inference.Config(get_model_file(".pdmodel", ".json"), get_model_file(".pdiparams"))
         # TODO: add GPU support
         config.disable_gpu()
 
@@ -77,9 +74,7 @@ class PaddleModel(Model):
         self.ready = True
         return self.ready
 
-    def predict(
-        self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None
-    ) -> Union[Dict, InferResponse]:
+    def predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
         try:
             instances = get_predict_input(payload)
             np_array_input = np.array(instances, dtype="float32")

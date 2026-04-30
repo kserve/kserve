@@ -22,9 +22,7 @@ from kserve.errors import WorkersShouldBeLessThanMaxWorkersError
 
 
 parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
-parser.add_argument(
-    "--model_dir", required=True, help="A local path to the model directory"
-)
+parser.add_argument("--model_dir", required=True, help="A local path to the model directory")
 args, _ = parser.parse_known_args()
 
 

@@ -13,7 +13,7 @@ type_check:
 	mypy --ignore-missing-imports aiserver
 
 format:
-	black aiserver/
+	ruff aiserver/
 
 clean:
 	rm -rf __pycache__

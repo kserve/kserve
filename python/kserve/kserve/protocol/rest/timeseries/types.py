@@ -93,26 +93,20 @@ class TimeSeriesType(str, Enum):
 
 
 class TimeSeriesInput(BaseModel):
-    type: TimeSeriesType = Field(
-        ..., description="Whether the time series is univariate or multivariate."
-    )
+    type: TimeSeriesType = Field(..., description="Whether the time series is univariate or multivariate.")
     name: str = Field(..., description="The name of the time series.")
     series: TimeSeries = Field(
         ...,
         description="The observed time series data. List[float] (univariate) or List[List[float]] (multivariate).",
     )
     frequency: Frequency = Field(..., description="The frequency of the time series.")
-    start_timestamp: Optional[str] = Field(
-        None, description="ISO8601 start timestamp of the series."
-    )
+    start_timestamp: Optional[str] = Field(None, description="ISO8601 start timestamp of the series.")
     model_config = {"extra": "allow"}
 
 
 class ForecastOptions(BaseModel):
     horizon: int = Field(..., description="The number of steps to forecast.")
-    quantiles: Optional[List[float]] = Field(
-        None, description="Quantiles to forecast, e.g., [0.1, 0.5, 0.9]."
-    )
+    quantiles: Optional[List[float]] = Field(None, description="Quantiles to forecast, e.g., [0.1, 0.5, 0.9].")
     model_config = {"extra": "allow"}
 
 
@@ -123,12 +117,8 @@ class Metadata(BaseModel):
 class ForecastRequest(BaseModel):
     model: str = Field(..., description="The model to use for forecasting.")
     inputs: List[TimeSeriesInput] = Field(..., description="The input time series.")
-    options: ForecastOptions = Field(
-        ..., description="Forecasting options and hyperparameters."
-    )
-    metadata: Optional[Metadata] = Field(
-        None, description="Optional user-provided metadata."
-    )
+    options: ForecastOptions = Field(..., description="Forecasting options and hyperparameters.")
+    metadata: Optional[Metadata] = Field(None, description="Optional user-provided metadata.")
     model_config = {"extra": "allow"}
 
 
@@ -143,9 +133,7 @@ class TimeSeriesForecast(BaseModel):
         description="The mean forecasted values. List[float] (univariate) or List[List[float]] (multivariate).",
     )
     frequency: Frequency = Field(..., description="The frequency of the time series.")
-    start_timestamp: str = Field(
-        ..., description="ISO8601 start timestamp of the forecast."
-    )
+    start_timestamp: str = Field(..., description="ISO8601 start timestamp of the forecast.")
     quantiles: Optional[Dict[str, TimeSeries]] = Field(
         None, description="Optional: Quantile forecasts for each horizon."
     )
@@ -159,19 +147,13 @@ class ForecastOutput(BaseModel):
     content: List[TimeSeriesForecast] = Field(
         ..., description="The list of forecast results (one per input time series)."
     )
-    error: Optional[Error] = Field(
-        None, description="Error details if the forecast failed."
-    )
+    error: Optional[Error] = Field(None, description="Error details if the forecast failed.")
     model_config = {"extra": "allow"}
 
 
 class Usage(BaseModel):
-    prompt_tokens: int = Field(
-        ..., description="Number of tokens in prompt (if using LLM-style accounting)."
-    )
-    completion_tokens: int = Field(
-        ..., description="Number of tokens generated in completion."
-    )
+    prompt_tokens: int = Field(..., description="Number of tokens in prompt (if using LLM-style accounting).")
+    completion_tokens: int = Field(..., description="Number of tokens generated in completion.")
     total_tokens: int = Field(..., description="Total tokens used.")
     model_config = {"extra": "allow"}
 

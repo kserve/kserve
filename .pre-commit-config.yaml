@@ -15,7 +15,7 @@ repos:
         files: '\.github/workflows/.*\.ya?ml$'
         pass_filenames: false
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.13
+    rev: v0.15.1
     hooks:
       - id: ruff-format
         args: [--config, ruff.toml]

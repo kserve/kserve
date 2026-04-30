@@ -20,8 +20,8 @@ from typing import Optional
 from .predictor_config import PredictorConfig
 
 # Global context variable for predictor configuration
-_predictor_config_var: contextvars.ContextVar[Optional[PredictorConfig]] = (
-    contextvars.ContextVar("predictor_config", default=None)
+_predictor_config_var: contextvars.ContextVar[Optional[PredictorConfig]] = contextvars.ContextVar(
+    "predictor_config", default=None
 )
 
 

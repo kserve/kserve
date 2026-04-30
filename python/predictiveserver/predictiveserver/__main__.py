@@ -25,9 +25,7 @@ DEFAULT_NTHREAD = 1
 DEFAULT_FRAMEWORK = "sklearn"
 
 parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
-parser.add_argument(
-    "--model_dir", required=True, help="A local path to the model directory"
-)
+parser.add_argument("--model_dir", required=True, help="A local path to the model directory")
 parser.add_argument(
     "--framework",
     default=DEFAULT_FRAMEWORK,
@@ -52,18 +50,14 @@ if __name__ == "__main__":
     # 2. Default value (sklearn)
     logger.info(f"Using framework: {args.framework}")
 
-    model = PredictiveServerModel(
-        args.model_name, args.model_dir, args.framework, args.nthread
-    )
+    model = PredictiveServerModel(args.model_name, args.model_dir, args.framework, args.nthread)
     try:
         model.load()
         # Determine worker count based on framework
         # LightGBM with multi-process workers can cause hanging due to OpenMP threading issues.
         # Force workers=1 for LightGBM (internal threading is already limited via --nthread=1 default).
         # For other frameworks, use args.workers if specified, otherwise default to 1
-        workers = (
-            1 if args.framework == "lightgbm" else (args.workers if args.workers else 1)
-        )
+        workers = 1 if args.framework == "lightgbm" else (args.workers if args.workers else 1)
         kserve.ModelServer(workers=workers).start([model])
     except ModelMissingError:
         logger.error(
@@ -74,15 +68,9 @@ if __name__ == "__main__":
         # Case 2: In the event that the model repository is empty, it's possible that this is a scenario for
         # multi-model serving. In such a case, models are loaded dynamically using the TrainedModel.
         # Therefore, we start the server without any preloaded models
-        model_repository = PredictiveServerModelRepository(
-            args.model_dir, args.framework, args.nthread
-        )
+        model_repository = PredictiveServerModelRepository(args.model_dir, args.framework, args.nthread)
         # LightGBM with multi-process workers can cause hanging due to OpenMP threading issues.
         # Force workers=1 for LightGBM (internal threading is already limited via --nthread=1 default).
         # For other frameworks, use args.workers if specified, otherwise default to 1
-        workers = (
-            1 if args.framework == "lightgbm" else (args.workers if args.workers else 1)
-        )
-        kserve.ModelServer(workers=workers, registered_models=model_repository).start(
-            []
-        )
+        workers = 1 if args.framework == "lightgbm" else (args.workers if args.workers else 1)
+        kserve.ModelServer(workers=workers, registered_models=model_repository).start([])

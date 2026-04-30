@@ -28,11 +28,7 @@ class OpenAIError(Exception):
         self.response = response
 
     def __str__(self):
-        return (
-            self.response.error.message
-            if isinstance(self.response, ErrorResponse)
-            else self.response
-        )
+        return self.response.error.message if isinstance(self.response, ErrorResponse) else self.response
 
 
 async def openai_error_handler(_, exc: OpenAIError):
@@ -60,7 +56,5 @@ def create_error_response(
     param: str = "",
     status_code: HTTPStatus = HTTPStatus.BAD_REQUEST,
 ) -> ErrorResponse:
-    error = Error(
-        message=message, type=err_type, param=param, code=str(status_code.value)
-    )
+    error = Error(message=message, type=err_type, param=param, code=str(status_code.value))
     return ErrorResponse(error=error)

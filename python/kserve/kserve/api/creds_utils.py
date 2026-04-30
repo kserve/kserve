@@ -46,9 +46,7 @@ def set_gcs_credentials(namespace, credentials_file, service_account):
 
     secret_name = create_secret(namespace=namespace, string_data=string_data)
 
-    set_service_account(
-        namespace=namespace, service_account=service_account, secret_name=secret_name
-    )
+    set_service_account(namespace=namespace, service_account=service_account, secret_name=secret_name)
 
 
 def set_s3_credentials(
@@ -111,13 +109,9 @@ def set_s3_credentials(
         if arg is not None:
             s3_annotations.update({value: arg})
 
-    secret_name = create_secret(
-        namespace=namespace, annotations=s3_annotations, data=data
-    )
+    secret_name = create_secret(namespace=namespace, annotations=s3_annotations, data=data)
 
-    set_service_account(
-        namespace=namespace, service_account=service_account, secret_name=secret_name
-    )
+    set_service_account(namespace=namespace, service_account=service_account, secret_name=secret_name)
 
 
 def set_azure_credentials(namespace, credentials_file, service_account):
@@ -143,9 +137,7 @@ def set_azure_credentials(namespace, credentials_file, service_account):
 
     secret_name = create_secret(namespace=namespace, data=data)
 
-    set_service_account(
-        namespace=namespace, service_account=service_account, secret_name=secret_name
-    )
+    set_service_account(namespace=namespace, service_account=service_account, secret_name=secret_name)
 
 
 def create_secret(namespace, annotations=None, data=None, string_data=None):
@@ -156,17 +148,13 @@ def create_secret(namespace, annotations=None, data=None, string_data=None):
             client.V1Secret(
                 api_version="v1",
                 kind="Secret",
-                metadata=client.V1ObjectMeta(
-                    generate_name=constants.DEFAULT_SECRET_NAME, annotations=annotations
-                ),
+                metadata=client.V1ObjectMeta(generate_name=constants.DEFAULT_SECRET_NAME, annotations=annotations),
                 data=data,
                 string_data=string_data,
             ),
         )
     except client.rest.ApiException as e:
-        raise RuntimeError(
-            "Exception when calling CoreV1Api->create_namespaced_secret: %s\n" % e
-        )
+        raise RuntimeError("Exception when calling CoreV1Api->create_namespaced_secret: %s\n" % e)
 
     secret_name = created_secret.metadata.name
     logger.info("Created Secret: %s in namespace %s", secret_name, namespace)
@@ -178,13 +166,9 @@ def set_service_account(namespace, service_account, secret_name):
     Set service account, create if service_account does not exist, otherwise patch it.
     """
     if check_sa_exists(namespace=namespace, service_account=service_account):
-        patch_service_account(
-            secret_name=secret_name, namespace=namespace, sa_name=service_account
-        )
+        patch_service_account(secret_name=secret_name, namespace=namespace, sa_name=service_account)
     else:
-        create_service_account(
-            secret_name=secret_name, namespace=namespace, sa_name=service_account
-        )
+        create_service_account(secret_name=secret_name, namespace=namespace, sa_name=service_account)
 
 
 def check_sa_exists(namespace, service_account):
@@ -214,10 +198,7 @@ def create_service_account(secret_name, namespace, sa_name):
             ),
         )
     except client.rest.ApiException as e:
-        raise RuntimeError(
-            "Exception when calling CoreV1Api->create_namespaced_service_account: %s\n"
-            % e
-        )
+        raise RuntimeError("Exception when calling CoreV1Api->create_namespaced_service_account: %s\n" % e)
 
     logger.info("Created Service account: %s in namespace %s", sa_name, namespace)
 
@@ -230,15 +211,10 @@ def patch_service_account(secret_name, namespace, sa_name):
         client.CoreV1Api().patch_namespaced_service_account(
             sa_name,
             namespace,
-            client.V1ServiceAccount(
-                secrets=[client.V1ObjectReference(kind="Secret", name=secret_name)]
-            ),
+            client.V1ServiceAccount(secrets=[client.V1ObjectReference(kind="Secret", name=secret_name)]),
         )
     except client.rest.ApiException as e:
-        raise RuntimeError(
-            "Exception when calling CoreV1Api->patch_namespaced_service_account: %s\n"
-            % e
-        )
+        raise RuntimeError("Exception when calling CoreV1Api->patch_namespaced_service_account: %s\n" % e)
 
     logger.info("Patched Service account: %s in namespace %s", sa_name, namespace)
 

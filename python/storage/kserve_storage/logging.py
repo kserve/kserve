@@ -23,12 +23,9 @@ KSERVE_STORAGE_LOGLEVEL = "DEBUG"
 KSERVE_STORAGE_LOGGER_NAME = "storage.initializer"
 KSERVE_STORAGE_TRACE_LOGGER_NAME = "storage.initializer.trace"
 KSERVE_STORAGE_LOGGER_FORMAT = (
-    "%(asctime)s.%(msecs)03d %(process)s %(name)s "
-    "%(levelname)s [%(filename)s:%(funcName)s():%(lineno)s] %(message)s"
+    "%(asctime)s.%(msecs)03d %(process)s %(name)s %(levelname)s [%(filename)s:%(funcName)s():%(lineno)s] %(message)s"
 )
-KSERVE_STORAGE_TRACE_LOGGER_FORMAT = (
-    "%(asctime)s.%(msecs)03d %(process)s %(name)s %(message)s"
-)
+KSERVE_STORAGE_TRACE_LOGGER_FORMAT = "%(asctime)s.%(msecs)03d %(process)s %(name)s %(message)s"
 KSERVE_STORAGE_LOGGER_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 KSERVE_STORAGE_LOG_CONFIG = {

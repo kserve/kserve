@@ -79,9 +79,7 @@ async def test_function_calling(client: openai.AsyncOpenAI, model_name: str):
 
     messages = [{"role": "user", "content": "What's the weather like in Paris today?"}]
 
-    chat_completion = await client.chat.completions.create(
-        model=model_name, messages=messages, tools=tools
-    )
+    chat_completion = await client.chat.completions.create(model=model_name, messages=messages, tools=tools)
 
     assert chat_completion.object != "error"
     choice = chat_completion.choices[0]

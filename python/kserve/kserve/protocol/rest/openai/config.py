@@ -22,11 +22,7 @@ def get_open_ai_models(repository: ModelRepository) -> dict[str, Model]:
     """Retrieve all models in the repository that implement the OpenAI interface"""
     from .openai_model import OpenAIModel
 
-    return {
-        name: model
-        for name, model in repository.get_models().items()
-        if isinstance(model, OpenAIModel)
-    }
+    return {name: model for name, model in repository.get_models().items() if isinstance(model, OpenAIModel)}
 
 
 def maybe_register_openai_endpoints(app: FastAPI, model_registry: ModelRepository):

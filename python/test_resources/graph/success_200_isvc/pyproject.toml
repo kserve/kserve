@@ -13,7 +13,7 @@ description = "Custom isvc that always returns 200 with a JSON SUCCESS message"
 
 [dependency-groups]
 dev = [
-    "black[colorama]~=24.3.0",
+    "ruff~=0.14.0",
 ]
 
 [tool.uv.sources]

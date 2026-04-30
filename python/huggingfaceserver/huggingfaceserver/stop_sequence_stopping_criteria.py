@@ -33,9 +33,7 @@ class StopSequenceStoppingCriteria(StoppingCriteria):
         self.input_length = input_length
         self.stop_sequences = stop_sequences
 
-    def __call__(
-        self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs
-    ) -> bool:
+    def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs) -> bool:
         for seq in self.stop_sequences:
             # Make sure we have generated enough tokens to check this sequence against
             if seq.shape[-1] > input_ids.shape[-1] - self.input_length:

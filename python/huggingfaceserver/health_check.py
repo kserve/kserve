@@ -53,9 +53,7 @@ def verify_status(result, probe_type):
 
 
 # Function for startup check using Ray API
-def check_registered_node_and_runtime_health(
-    ray_node_count, health_check_url, ray_address="auto"
-):
+def check_registered_node_and_runtime_health(ray_node_count, health_check_url, ray_address="auto"):
     initialize_ray_cluster(ray_address)
     # Check if the registered nodes count matches RAY_NODE_COUNT
     check_registered_nodes_status = check_registered_nodes(ray_node_count, ray_address)
@@ -66,25 +64,18 @@ def check_registered_node_and_runtime_health(
         f"check_registered_nodes_status: {check_registered_nodes_status},check_runtime_health_status: {check_runtime_health_status}"
     )
 
-    if (
-        check_registered_nodes_status == "Healthy"
-        and check_runtime_health_status == "Healthy"
-    ):
+    if check_registered_nodes_status == "Healthy" and check_runtime_health_status == "Healthy":
         return "Healthy"
     else:
         return "Unhealthy"
 
 
-def check_registered_node_and_runtime_models(
-    ray_node_count, runtime_url, ray_address, isvc_name
-):
+def check_registered_node_and_runtime_models(ray_node_count, runtime_url, ray_address, isvc_name):
     result1 = check_registered_nodes(ray_node_count, ray_address)
     result2 = check_runtime_models(runtime_url, isvc_name)
     logger.debug(f"check_registered_nodes: {result1}, check_runtime_models: {result2}")
     # Check both results
-    if (result1 == "Healthy" or result1 is True) and (
-        result2 == "Healthy" or result2 is True
-    ):
+    if (result1 == "Healthy" or result1 is True) and (result2 == "Healthy" or result2 is True):
         return "Healthy"
     else:
         return "Unhealthy"
@@ -102,9 +93,7 @@ def check_gpu_usage(ray_address="auto"):
 
         # Determine health status based on GPU usage
         if total_gpus == 0 or total_gpus != used_gpus:
-            logger.error(
-                f"GPU Usage: Unhealthy - Used: {used_gpus}, Total: {total_gpus}"
-            )
+            logger.error(f"GPU Usage: Unhealthy - Used: {used_gpus}, Total: {total_gpus}")
             return "Unhealthy"
         else:
             logger.info(f"GPU Usage: Healthy - Used: {used_gpus}, Total: {total_gpus}")
@@ -127,9 +116,7 @@ def check_registered_nodes(ray_node_count, ray_address="auto", retries=0, interv
             # Get list of alive nodes
             nodes = ray.nodes()
             registered_node_count = len([node for node in nodes if node["Alive"]])
-            logger.debug(
-                f"registered_node_count: {registered_node_count}, ray_node_count: {ray_node_count}"
-            )
+            logger.debug(f"registered_node_count: {registered_node_count}, ray_node_count: {ray_node_count}")
             # Check if the registered nodes count matches RAY_NODE_COUNT
             if not registered_node_count >= ray_node_count:
                 logger.error(
@@ -146,9 +133,7 @@ def check_registered_nodes(ray_node_count, ray_address="auto", retries=0, interv
 
         if attempt < retries:
             time.sleep(interval)
-    logger.error(
-        "Max retries reached. Node count did not match the expected Ray node count."
-    )
+    logger.error("Max retries reached. Node count did not match the expected Ray node count.")
     return "Unhealthy"
 
 
@@ -195,26 +180,18 @@ def main():
     # Get default values from environment variables if available
     default_ray_address = os.getenv("RAY_ADDRESS", "auto")
     default_isvc_name = os.getenv("ISVC_NAME", "")
-    default_ray_node_count = int(
-        os.getenv("RAY_NODE_COUNT", 2)
-    )  # Default to 2 if not set
+    default_ray_node_count = int(os.getenv("RAY_NODE_COUNT", 2))  # Default to 2 if not set
 
     # Create the top-level parser
     parser = argparse.ArgumentParser(description="Perform multinode operations")
-    parser.add_argument(
-        "--ray_address", default=default_ray_address, help="Ray head address"
-    )
-    parser.add_argument(
-        "--isvc_name", default=default_isvc_name, help="InferenceService name"
-    )
+    parser.add_argument("--ray_address", default=default_ray_address, help="Ray head address")
+    parser.add_argument("--isvc_name", default=default_isvc_name, help="InferenceService name")
 
     # Define subcommands (readiness,,liveness, startup, gpu_usage, registered_nodes)
     subparsers = parser.add_subparsers(dest="command", help="Sub-command to run")
 
     # Check runtime health subcommand
-    runtime_health_parser = subparsers.add_parser(
-        "runtime_health", help="Check runtime health"
-    )
+    runtime_health_parser = subparsers.add_parser("runtime_health", help="Check runtime health")
     runtime_health_parser.add_argument("--health_check_url", help="Health check URL")
     runtime_health_parser.add_argument("--probe_name", help="Probe name")
 
@@ -229,9 +206,7 @@ def main():
         default=default_ray_node_count,
         help="Ray node count",
     )
-    reigstered_node_parser.add_argument(
-        "--retries", type=int, default=0, help="Ray node count"
-    )
+    reigstered_node_parser.add_argument("--retries", type=int, default=0, help="Ray node count")
     reigstered_node_parser.add_argument("--probe_name", help="Probe name")
 
     # Check if registered node is the same as rayNodeCount/ runtime health subcommand
@@ -245,12 +220,8 @@ def main():
         default=default_ray_node_count,
         help="Ray node count",
     )
-    registered_node_and_runtime_health_parser.add_argument(
-        "--health_check_url", help="Health check URL"
-    )
-    registered_node_and_runtime_health_parser.add_argument(
-        "--probe_name", help="Probe name"
-    )
+    registered_node_and_runtime_health_parser.add_argument("--health_check_url", help="Health check URL")
+    registered_node_and_runtime_health_parser.add_argument("--probe_name", help="Probe name")
 
     # Check if registered node is the same as rayNodeCount/ model loaded on runtime subcommand
     registered_node_and_runtime_models_parser = subparsers.add_parser(
@@ -263,12 +234,8 @@ def main():
         default=default_ray_node_count,
         help="Ray node count",
     )
-    registered_node_and_runtime_models_parser.add_argument(
-        "--runtime_url", help="Health check URL"
-    )
-    registered_node_and_runtime_models_parser.add_argument(
-        "--probe_name", help="Probe name"
-    )
+    registered_node_and_runtime_models_parser.add_argument("--runtime_url", help="Health check URL")
+    registered_node_and_runtime_models_parser.add_argument("--probe_name", help="Probe name")
 
     # Parse the arguments
     args = parser.parse_args()
@@ -278,9 +245,7 @@ def main():
         result = check_runtime_health(args.health_check_url)
         verify_status(result, args.probe_name)
     elif args.command == "registered_node_and_runtime_health":
-        result = check_registered_node_and_runtime_health(
-            args.ray_node_count, args.health_check_url, args.ray_address
-        )
+        result = check_registered_node_and_runtime_health(args.ray_node_count, args.health_check_url, args.ray_address)
         verify_status(result, args.probe_name)
     elif args.command == "registered_node_and_runtime_models":
         result = check_registered_node_and_runtime_models(
@@ -291,9 +256,7 @@ def main():
         )
         verify_status(result, args.probe_name)
     elif args.command == "registered_nodes":
-        result = check_registered_nodes(
-            args.ray_node_count, args.ray_address, args.retries
-        )
+        result = check_registered_nodes(args.ray_node_count, args.ray_address, args.retries)
         verify_status(result, args.probe_name)
     else:
         parser.print_help()

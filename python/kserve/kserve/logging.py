@@ -23,8 +23,7 @@ from .constants.constants import KSERVE_LOGLEVEL
 KSERVE_LOGGER_NAME = "kserve"
 KSERVE_TRACE_LOGGER_NAME = "kserve.trace"
 KSERVE_LOGGER_FORMAT = (
-    "%(asctime)s.%(msecs)03d %(process)s %(name)s "
-    "%(levelname)s [%(filename)s:%(funcName)s():%(lineno)s] %(message)s"
+    "%(asctime)s.%(msecs)03d %(process)s %(name)s %(levelname)s [%(filename)s:%(funcName)s():%(lineno)s] %(message)s"
 )
 KSERVE_TRACE_LOGGER_FORMAT = "%(asctime)s.%(msecs)03d %(process)s %(name)s %(message)s"
 KSERVE_LOGGER_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"

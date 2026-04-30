@@ -17,9 +17,7 @@ from kserve.logging import logger
 try:
     from ray.serve.handle import DeploymentHandle, DeploymentResponse
 except ImportError:
-    logger.error(
-        "Ray dependency is missing. Install Ray Serve with: pip install kserve[ray]"
-    )
+    logger.error("Ray dependency is missing. Install Ray Serve with: pip install kserve[ray]")
     raise
 from typing import cast, Dict, Union, Optional
 from cloudevents.http import CloudEvent

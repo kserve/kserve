@@ -42,9 +42,7 @@ class Tokenizer(kserve.Model):
             "the Apollo-Soyuz Test Project a joint Earth orbit mission with "
             "the Soviet Union in 1975."
         )
-        self.tokenizer = tokenization.FullTokenizer(
-            vocab_file=args.vocab_file, do_lower_case=True
-        )
+        self.tokenizer = tokenization.FullTokenizer(vocab_file=args.vocab_file, do_lower_case=True)
         self.ready = True
 
     def preprocess(

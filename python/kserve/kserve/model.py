@@ -262,27 +262,21 @@ class Model(InferenceModel):
     def _http_client(self) -> InferenceRESTClient:
         predictor_config = self.predictor_config
         if predictor_config is None:
-            raise RuntimeError(
-                "PredictorConfig is required to create HTTP client but is None."
-            )
+            raise RuntimeError("PredictorConfig is required to create HTTP client but is None.")
         if self._http_client_instance is None and self.predictor_config.predictor_host:
             config = RESTConfig(
                 protocol=self.predictor_config.protocol,
                 timeout=self.predictor_config.timeout,
                 retries=self.predictor_config.retries,
             )
-            self._http_client_instance = InferenceClientFactory().get_rest_client(
-                config=config
-            )
+            self._http_client_instance = InferenceClientFactory().get_rest_client(config=config)
         return self._http_client_instance
 
     @property
     def _grpc_client(self) -> InferenceGRPCClient:
         predictor_config = self.predictor_config
         if predictor_config is None:
-            raise RuntimeError(
-                "PredictorConfig is required to create GRPC client but is None."
-            )
+            raise RuntimeError("PredictorConfig is required to create GRPC client but is None.")
         if self._grpc_client_stub is None and self.predictor_config.predictor_host:
             self._grpc_client_stub = InferenceClientFactory().get_grpc_client(
                 url=self.predictor_config.predictor_host,
@@ -304,11 +298,7 @@ class Model(InferenceModel):
                 if "inputs" in payload and not isinstance(payload["inputs"], list):
                     raise InvalidInput('Expected "inputs" to be a list')
             elif predictor_config.protocol == PredictorProtocol.REST_V1.value:
-                if (
-                    isinstance(payload, Dict)
-                    and "instances" in payload
-                    and not isinstance(payload["instances"], list)
-                ):
+                if isinstance(payload, Dict) and "instances" in payload and not isinstance(payload["instances"], list):
                     raise InvalidInput('Expected "instances" to be a list')
         # If predictor_config is None, skip protocol-specific validation
         return payload
@@ -457,9 +447,7 @@ class Model(InferenceModel):
 
         protocol = "https" if self.use_ssl else "http"
         # Currently explainer only supports the kserve v1 endpoints
-        explain_base_url = EXPLAINER_BASE_URL_FORMAT.format(
-            protocol, self.explainer_host
-        )
+        explain_base_url = EXPLAINER_BASE_URL_FORMAT.format(protocol, self.explainer_host)
         response = await self._http_client.explain(
             explain_base_url,
             model_name=self.name,

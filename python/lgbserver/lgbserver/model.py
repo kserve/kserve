@@ -29,9 +29,7 @@ MODEL_EXTENSIONS = ".bst"
 
 
 class LightGBMModel(Model):
-    def __init__(
-        self, name: str, model_dir: str, nthread: int, booster: Booster = None
-    ):
+    def __init__(self, name: str, model_dir: str, nthread: int, booster: Booster = None):
         super().__init__(name)
         self.name = name
         self.model_dir = model_dir
@@ -51,18 +49,13 @@ class LightGBMModel(Model):
             raise ModelMissingError(model_path)
         elif len(model_files) > 1:
             raise RuntimeError(
-                "More than one model file is detected, "
-                f"Only one is allowed within model_dir: {model_files}"
+                f"More than one model file is detected, Only one is allowed within model_dir: {model_files}"
             )
-        self._booster = Booster(
-            params={"nthread": self.nthread}, model_file=model_files[0]
-        )
+        self._booster = Booster(params={"nthread": self.nthread}, model_file=model_files[0])
         self.ready = True
         return self.ready
 
-    def predict(
-        self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None
-    ) -> Union[Dict, InferResponse]:
+    def predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
         try:
             instances = get_predict_input(payload, columns=self._booster.feature_name())
             result = self._booster.predict(instances)

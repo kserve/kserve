@@ -56,9 +56,7 @@ async def test_reasoning(client: openai.AsyncOpenAI, model_name: str):
     # Round 1
     messages = [{"role": "user", "content": "9.11 and 9.8, which is greater?"}]
 
-    chat_completion = await client.chat.completions.create(
-        model=model_name, messages=messages
-    )
+    chat_completion = await client.chat.completions.create(model=model_name, messages=messages)
 
     assert chat_completion.object != "error"
     reasoning_content = chat_completion.choices[0].message.reasoning_content
@@ -77,9 +75,7 @@ async def test_reasoning(client: openai.AsyncOpenAI, model_name: str):
             "content": "How many Rs are there in the word 'strawberry'?",
         }
     )
-    chat_completion = await client.chat.completions.create(
-        model=model_name, messages=messages
-    )
+    chat_completion = await client.chat.completions.create(model=model_name, messages=messages)
 
     assert chat_completion.object != "error"
     reasoning_content = chat_completion.choices[0].message.reasoning_content

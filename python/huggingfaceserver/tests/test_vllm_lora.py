@@ -42,8 +42,7 @@ def lora_server(qwen2_lora_files):
         "--enforce-eager",
         "--enable-lora",
         "--lora-modules",
-        '{"name": "%s", "path": "%s", "base_model_name": "%s"}'
-        % (LORA_NAME, qwen2_lora_files, MODEL),
+        '{"name": "%s", "path": "%s", "base_model_name": "%s"}' % (LORA_NAME, qwen2_lora_files, MODEL),
     ]
 
     with RemoteOpenAIServer(MODEL, MODEL_NAME, args) as remote_server:

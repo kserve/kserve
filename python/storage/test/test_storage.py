@@ -92,9 +92,7 @@ class MockHttpResponse(object):
 
 @mock.patch(
     "requests.get",
-    return_value=MockHttpResponse(
-        status_code=200, content_type="application/octet-stream"
-    ),
+    return_value=MockHttpResponse(status_code=200, content_type="application/octet-stream"),
 )
 def test_http_uri_path(_):
     http_uri = "http://foo.bar/model.joblib"
@@ -107,9 +105,7 @@ def test_http_uri_path(_):
 
 @mock.patch(
     "requests.get",
-    return_value=MockHttpResponse(
-        status_code=200, content_type="application/octet-stream"
-    ),
+    return_value=MockHttpResponse(status_code=200, content_type="application/octet-stream"),
 )
 def test_https_uri_path(_):
     https_uri = "https://foo.bar/model.joblib"
@@ -272,9 +268,7 @@ def test_download_azure_blob_called_with_matching_uri(mock_download_azure_blob):
     for uri in azure_blob_uris:
         Storage.download(uri, out_dir="dest_path")
 
-    expected_calls = [
-        mock.call(uri, "dest_path", None, None) for uri in azure_blob_uris
-    ]
+    expected_calls = [mock.call(uri, "dest_path", None, None) for uri in azure_blob_uris]
     mock_download_azure_blob.assert_has_calls(expected_calls)
 
 
@@ -291,9 +285,7 @@ def test_download_azure_file_share_called_with_matching_uri(
     for uri in azure_file_uris:
         Storage.download(uri, out_dir="dest_path")
 
-    expected_calls = [
-        mock.call(uri, "dest_path", None, None) for uri in azure_file_uris
-    ]
+    expected_calls = [mock.call(uri, "dest_path", None, None) for uri in azure_file_uris]
     mock_download_azure_file_share.assert_has_calls(expected_calls)
 
 
@@ -335,9 +327,7 @@ git_repo_test_params = [
     git_repo_test_params,
 )
 @mock.patch("dulwich.porcelain.clone")
-def test_git_repo_download_success(
-    mock_clone, uri, username_in_url, username_env, password_env, expected_clean_uri
-):
+def test_git_repo_download_success(mock_clone, uri, username_in_url, username_env, password_env, expected_clean_uri):
     """Test successful git repository downloads with HTTPS authentication."""
     out_dir = "/tmp/test_model"
 
@@ -443,10 +433,7 @@ class TestShouldDownload:
         assert _should_download("subdir/model.bin") is True
 
     def test_allow_patterns_match(self):
-        assert (
-            _should_download("model.safetensors", allow_patterns=["*.safetensors"])
-            is True
-        )
+        assert _should_download("model.safetensors", allow_patterns=["*.safetensors"]) is True
         assert _should_download("model.bin", allow_patterns=["*.safetensors"]) is False
 
     def test_allow_patterns_multiple(self):
@@ -474,16 +461,8 @@ class TestShouldDownload:
         assert _should_download("model.bin", allow, ignore) is False
 
     def test_subdirectory_matching(self):
-        assert (
-            _should_download(
-                "subdir/model.safetensors", allow_patterns=["*.safetensors"]
-            )
-            is True
-        )
-        assert (
-            _should_download("deep/nested/model.bin", ignore_patterns=["*.bin"])
-            is False
-        )
+        assert _should_download("subdir/model.safetensors", allow_patterns=["*.safetensors"]) is True
+        assert _should_download("deep/nested/model.bin", ignore_patterns=["*.bin"]) is False
 
     def test_empty_patterns_treated_as_none(self):
         assert _should_download("model.bin", allow_patterns=[]) is True
@@ -508,9 +487,7 @@ class TestParsePatterns:
             assert result == ["*.safetensors", "*.json"]
 
     def test_comma_separated(self):
-        with mock.patch.dict(
-            os.environ, {"STORAGE_ALLOW_PATTERNS": "*.safetensors,*.json"}
-        ):
+        with mock.patch.dict(os.environ, {"STORAGE_ALLOW_PATTERNS": "*.safetensors,*.json"}):
             result = _parse_patterns_from_env("STORAGE_ALLOW_PATTERNS")
             assert result == ["*.safetensors", "*.json"]
 

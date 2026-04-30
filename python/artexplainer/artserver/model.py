@@ -66,10 +66,7 @@ class ARTModel(kserve.Model):  # pylint:disable=c-extension-no-member
             label = np.array(label)
             logger.info("Calling explain on image of shape %s", (inputs.shape,))
         except Exception as e:
-            raise Exception(
-                "Failed to initialize NumPy array from inputs: %s, %s"
-                % (e, payload["instances"])
-            )
+            raise Exception("Failed to initialize NumPy array from inputs: %s, %s" % (e, payload["instances"]))
         try:
             if str.lower(self.adversary_type) == "squareattack":
                 classifier = BlackBoxClassifierNeuralNetwork(

@@ -20,7 +20,7 @@ test = [
     "mypy<1.0,>=0.991",
 ]
 dev = [
-    "black[colorama]~=24.3.0",
+    "ruff~=0.14.0",
 ]
 
 [tool.uv.sources]

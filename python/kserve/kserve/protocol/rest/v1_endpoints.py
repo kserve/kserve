@@ -78,9 +78,7 @@ class V1Endpoints:
 
         body = await request.body()
         headers = dict(request.headers.items())
-        infer_request, req_attributes = self.dataplane.decode(
-            body=body, headers=headers
-        )
+        infer_request, req_attributes = self.dataplane.decode(body=body, headers=headers)
         response, response_headers = await self.dataplane.infer(
             model_name=model_name, request=infer_request, headers=headers
         )
@@ -117,9 +115,7 @@ class V1Endpoints:
 
         body = await request.body()
         headers = dict(request.headers.items())
-        infer_request, req_attributes = self.dataplane.decode(
-            body=body, headers=headers
-        )
+        infer_request, req_attributes = self.dataplane.decode(body=body, headers=headers)
         response, response_headers = await self.dataplane.explain(
             model_name=model_name, request=infer_request, headers=headers
         )
@@ -154,9 +150,7 @@ def register_v1_endpoints(
     v1_router = APIRouter(prefix=V1_ROUTE_PREFIX, tags=["V1"])
     v1_router.add_api_route(r"/models", v1_endpoints.models, methods=["GET"])
     # Model Health API returns 200 if model is ready to serve.
-    v1_router.add_api_route(
-        r"/models/{model_name}", v1_endpoints.model_ready, methods=["GET"]
-    )
+    v1_router.add_api_route(r"/models/{model_name}", v1_endpoints.model_ready, methods=["GET"])
     # Note: Set response_model to None to resolve fastapi Response issue
     # https://fastapi.tiangolo.com/tutorial/response-model/#disable-response-model
     v1_router.add_api_route(

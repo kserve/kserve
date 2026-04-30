@@ -91,7 +91,7 @@ go-lint: golangci-lint
 	@$(GOLANGCI_LINT) run --fix
 
 py-lint: $(RUFF)
-	$(RUFF) check --config ruff.toml 
+	$(RUFF) check --config ruff.toml
 
 pin-actions: pinact
 	GITHUB_TOKEN=$$(gh auth token 2>/dev/null) $(PINACT) run .github/workflows/*.yml .github/workflows/*.yaml

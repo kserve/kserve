@@ -30,9 +30,7 @@ parser.add_argument(
     default=DEFAULT_ADVERSARY_TYPE,
     help="What type of adversarial tool to use.",
 )
-parser.add_argument(
-    "--max_iter", default=DEFAULT_MAX_ITER, help="The max number of iterations to run."
-)
+parser.add_argument("--max_iter", default=DEFAULT_MAX_ITER, help="The max number of iterations to run.")
 parser.add_argument(
     "--nb_classes",
     default=DEFAULT_NB_CLASSES,

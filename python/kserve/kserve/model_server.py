@@ -45,9 +45,7 @@ from .utils import utils
 from .utils.inference_client_factory import InferenceClientFactory
 
 
-parser = argparse.ArgumentParser(
-    add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter
-)
+parser = argparse.ArgumentParser(add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 # Model Server Arguments: The arguments are passed to the kserve.ModelServer object
 parser.add_argument(
     "--http_port",
@@ -257,9 +255,7 @@ class ModelServer:
             grace_period: The grace period in seconds to wait for the server to stop. Default: ``30``.
             predictor_config: Optional configuration for the predictor. Default: ``None``.
         """
-        self.registered_models = (
-            ModelRepository() if registered_models is None else registered_models
-        )
+        self.registered_models = ModelRepository() if registered_models is None else registered_models
         self.http_port = http_port
         self.grpc_port = grpc_port
         self.workers = workers
@@ -270,9 +266,7 @@ class ModelServer:
         self.enable_grpc = enable_grpc
         self.enable_docs_url = enable_docs_url
         self.enable_latency_logging = enable_latency_logging
-        self.model_repository_extension = ModelRepositoryExtension(
-            model_registry=self.registered_models
-        )
+        self.model_repository_extension = ModelRepositoryExtension(model_registry=self.registered_models)
         self.grace_period = grace_period
         if args.configure_logging:
             # If the logger does not have any handlers, then the logger is not configured.
@@ -313,9 +307,7 @@ class ModelServer:
             # formula as suggest in https://bugs.python.org/issue35279
             self.max_asyncio_workers = min(32, utils.cpu_count() + 4)
         logger.info(f"Setting max asyncio worker threads as {self.max_asyncio_workers}")
-        loop.set_default_executor(
-            concurrent.futures.ThreadPoolExecutor(max_workers=self.max_asyncio_workers)
-        )
+        loop.set_default_executor(concurrent.futures.ThreadPoolExecutor(max_workers=self.max_asyncio_workers))
 
     def register_signal_handler(self):
         if sys.platform == "win32":
@@ -411,9 +403,7 @@ class ModelServer:
         """
         self._custom_exception_handler = handler
 
-    def default_exception_handler(
-        self, loop: asyncio.events.AbstractEventLoop, context: Dict[str, Any]
-    ):
+    def default_exception_handler(self, loop: asyncio.events.AbstractEventLoop, context: Dict[str, Any]):
         """Default exception handler for event loop.
 
         This is called when an exception occurs and no exception handler is set.
@@ -438,9 +428,7 @@ class ModelServer:
         self.registered_models.update(model, name)
         logger.info("Registering model: %s", name)
 
-    def _register_and_check_atleast_one_model_is_ready(
-        self, models: List[BaseKServeModel]
-    ):
+    def _register_and_check_atleast_one_model_is_ready(self, models: List[BaseKServeModel]):
         if isinstance(models, list):
             at_least_one_model_ready = False
             for model in models:

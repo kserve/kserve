@@ -112,14 +112,10 @@ class OpenAIChatAdapterModel(OpenAIGenerativeModel):
         return ChatCompletionLogProbs(content=chat_completion_logprobs)
 
     @classmethod
-    def to_chat_completion_choice(
-        cls, completion_choice: CompletionChoice, role: str
-    ) -> ChatCompletionChoice:
+    def to_chat_completion_choice(cls, completion_choice: CompletionChoice, role: str) -> ChatCompletionChoice:
         # translate Token -> ChatCompletionTokenLogprob
         choice_logprobs = (
-            cls.to_choice_logprobs(completion_choice.logprobs)
-            if completion_choice.logprobs is not None
-            else None
+            cls.to_choice_logprobs(completion_choice.logprobs) if completion_choice.logprobs is not None else None
         )
         return ChatCompletionChoice(
             index=0,
@@ -129,19 +125,13 @@ class OpenAIChatAdapterModel(OpenAIGenerativeModel):
         )
 
     @classmethod
-    def to_chat_completion_chunk_choice(
-        cls, completion_choice: CompletionChunkChoice, role: str
-    ) -> ChunkChoice:
+    def to_chat_completion_chunk_choice(cls, completion_choice: CompletionChunkChoice, role: str) -> ChunkChoice:
         # translate Token -> ChatCompletionTokenLogprob
         choice_logprobs = (
-            cls.to_choice_logprobs(completion_choice.logprobs)
-            if completion_choice.logprobs is not None
-            else None
+            cls.to_choice_logprobs(completion_choice.logprobs) if completion_choice.logprobs is not None else None
         )
         choice_logprobs = (
-            ChatCompletionLogProbs(content=choice_logprobs.content)
-            if choice_logprobs is not None
-            else None
+            ChatCompletionLogProbs(content=choice_logprobs.content) if choice_logprobs is not None else None
         )
         return ChunkChoice(
             delta=ChoiceDelta(content=completion_choice.text, role=role),
@@ -151,17 +141,9 @@ class OpenAIChatAdapterModel(OpenAIGenerativeModel):
         )
 
     @classmethod
-    def completion_to_chat_completion(
-        cls, completion: Completion, role: str
-    ) -> ChatCompletion:
-        completion_choice = (
-            completion.choices[0] if len(completion.choices) > 0 else None
-        )
-        choices = (
-            [cls.to_chat_completion_choice(completion_choice, role)]
-            if completion_choice is not None
-            else []
-        )
+    def completion_to_chat_completion(cls, completion: Completion, role: str) -> ChatCompletion:
+        completion_choice = completion.choices[0] if len(completion.choices) > 0 else None
+        choices = [cls.to_chat_completion_choice(completion_choice, role)] if completion_choice is not None else []
         return ChatCompletion(
             id=completion.id,
             choices=choices,
@@ -173,16 +155,10 @@ class OpenAIChatAdapterModel(OpenAIGenerativeModel):
         )
 
     @classmethod
-    def completion_to_chat_completion_chunk(
-        cls, completion: Completion, role: str
-    ) -> ChatCompletionChunk:
-        completion_choice = (
-            completion.choices[0] if len(completion.choices) > 0 else None
-        )
+    def completion_to_chat_completion_chunk(cls, completion: Completion, role: str) -> ChatCompletionChunk:
+        completion_choice = completion.choices[0] if len(completion.choices) > 0 else None
         choices = (
-            [cls.to_chat_completion_chunk_choice(completion_choice, role)]
-            if completion_choice is not None
-            else []
+            [cls.to_chat_completion_chunk_choice(completion_choice, role)] if completion_choice is not None else []
         )
         return ChatCompletionChunk(
             id=completion.id,
@@ -205,21 +181,13 @@ class OpenAIChatAdapterModel(OpenAIGenerativeModel):
         # Convert the messages into a prompt
         chat_prompt = self.apply_chat_template(request)
         # Translate the chat completion request to a completion request
-        completion_params = self.chat_completion_params_to_completion_params(
-            request, chat_prompt.prompt
-        )
+        completion_params = self.chat_completion_params_to_completion_params(request, chat_prompt.prompt)
 
         if not request.stream:
-            completion = cast(
-                Completion, await self.create_completion(completion_params, raw_request)
-            )
-            return self.completion_to_chat_completion(
-                completion, chat_prompt.response_role
-            )
+            completion = cast(Completion, await self.create_completion(completion_params, raw_request))
+            return self.completion_to_chat_completion(completion, chat_prompt.response_role)
         else:
-            completion_iterator = await self.create_completion(
-                completion_params, raw_request
-            )
+            completion_iterator = await self.create_completion(completion_params, raw_request)
 
             def mapper(completion_str: str) -> ChatCompletionChunk:
                 chunk = completion_str.removeprefix("data: ")
@@ -228,13 +196,9 @@ class OpenAIChatAdapterModel(OpenAIGenerativeModel):
 
                 completion = CompletionChunk.model_validate_json(chunk)
 
-                return self.completion_to_chat_completion_chunk(
-                    completion, chat_prompt.response_role
-                )
+                return self.completion_to_chat_completion_chunk(completion, chat_prompt.response_role)
 
-            completion = AsyncMappingIterator(
-                iterator=completion_iterator, mapper=mapper
-            )
+            completion = AsyncMappingIterator(iterator=completion_iterator, mapper=mapper)
 
             async def stream_results() -> AsyncGenerator[str, None]:
                 async for chunk in completion:

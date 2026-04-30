@@ -104,14 +104,10 @@ def infer_task_from_model_architecture(
             break
 
     if task is None:
-        raise ValueError(
-            f"Task couldn't be inferred from {architecture}. Please manually set `task` option. "
-        )
+        raise ValueError(f"Task couldn't be inferred from {architecture}. Please manually set `task` option. ")
     elif task not in SUPPORTED_TASKS:
         tasks_str = ", ".join(t.name for t in SUPPORTED_TASKS)
-        raise ValueError(
-            f"Task {task.name} is not supported. Currently supported tasks are: {tasks_str}."
-        )
+        raise ValueError(f"Task {task.name} is not supported. Currently supported tasks are: {tasks_str}.")
     return task
 
 
