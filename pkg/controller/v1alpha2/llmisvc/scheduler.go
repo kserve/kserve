@@ -516,6 +516,8 @@ schedulingProfiles:
   - pluginRef: prefix-cache-scorer
     weight: 3
   - pluginRef: max-score-picker
+featureGates:
+- flowControl
 `
 	default:
 		return `
@@ -534,6 +536,8 @@ schedulingProfiles:
   - pluginRef: prefix-cache-scorer
     weight: 3
   - pluginRef: max-score-picker
+featureGates:
+- flowControl
 `
 	}
 }

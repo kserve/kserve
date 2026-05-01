@@ -1,0 +1,69 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceService
+metadata:
+  name: qwen2-7b-flow-control
+spec:
+  model:
+    uri: hf://Qwen/Qwen2.5-7B-Instruct
+    name: Qwen/Qwen2.5-7B-Instruct
+  replicas: 2
+  router:
+    scheduler:
+      config:
+        inline:
+          apiVersion: inference.networking.x-k8s.io/v1alpha1
+          kind: EndpointPickerConfig
+          plugins:
+            - type: single-profile-handler
+            - type: queue-scorer
+            - type: prefix-cache-scorer
+            - type: max-score-picker
+            - type: slo-deadline-ordering-policy
+            - type: round-robin-fairness-policy
+          schedulingProfiles:
+            - name: default
+              plugins:
+                - pluginRef: queue-scorer
+                  weight: 2
+                - pluginRef: prefix-cache-scorer
+                  weight: 3
+                - pluginRef: max-score-picker
+          saturationDetector:
+            queueDepthThreshold: 3
+            kvCacheUtilThreshold: 0.8
+          featureGates:
+            - flowControl
+          flowControl:
+            maxBytes: 1073741824
+            defaultRequestTTL: 1m
+            priorityBands:
+              - priority: 1
+                orderingPolicyRef: slo-deadline-ordering-policy
+                fairnessPolicyRef: round-robin-fairness-policy
+              - priority: 0
+                fairnessPolicyRef: round-robin-fairness-policy
+              - priority: -1
+                fairnessPolicyRef: round-robin-fairness-policy
+    route: { }
+    gateway: { }
+  template:
+    containers:
+      - name: main
+        resources:
+          limits:
+            cpu: '4'
+            memory: 32Gi
+            nvidia.com/gpu: "1"
+          requests:
+            cpu: '2'
+            memory: 16Gi
+            nvidia.com/gpu: "1"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTPS
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          timeoutSeconds: 30
+          failureThreshold: 5
