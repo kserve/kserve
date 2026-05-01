@@ -256,6 +256,12 @@ spec:
               - ALL
           seccompProfile:
             type: RuntimeDefault
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /bin/sleep
+              - "15"
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: FallbackToLogsOnError
         livenessProbe:
@@ -293,7 +299,7 @@ spec:
           - mountPath: /var/run/kserve/tls
             name: tls-certs
             readOnly: true
-    terminationGracePeriodSeconds: 30
+    terminationGracePeriodSeconds: 60
     volumes:
       - emptyDir: { }
         name: home
@@ -504,6 +510,12 @@ spec:
               - ALL
           seccompProfile:
             type: RuntimeDefault
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /bin/sleep
+              - "15"
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
@@ -518,7 +530,7 @@ spec:
           - mountPath: /var/run/kserve/tls
             name: tls-certs
             readOnly: true
-    terminationGracePeriodSeconds: 30
+    terminationGracePeriodSeconds: 60
     volumes:
       - emptyDir: { }
         name: home

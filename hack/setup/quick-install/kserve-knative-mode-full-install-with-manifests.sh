@@ -2610,6 +2610,12 @@ spec:
         value: /models
       image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
       imagePullPolicy: IfNotPresent
+      lifecycle:
+        preStop:
+          exec:
+            command:
+            - /bin/sleep
+            - "15"
       livenessProbe:
         failureThreshold: 3
         httpGet:
@@ -2719,7 +2725,7 @@ spec:
       - mountPath: /var/run/kserve/tls
         name: tls-certs
         readOnly: true
-    terminationGracePeriodSeconds: 30
+    terminationGracePeriodSeconds: 60
     volumes:
     - emptyDir: {}
       name: home
@@ -2916,6 +2922,12 @@ spec:
         value: /models
       image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
       imagePullPolicy: IfNotPresent
+      lifecycle:
+        preStop:
+          exec:
+            command:
+            - /bin/sleep
+            - "15"
       livenessProbe:
         failureThreshold: 3
         httpGet:
@@ -3030,7 +3042,7 @@ spec:
       - mountPath: /var/run/kserve/tls
         name: tls-certs
         readOnly: true
-    terminationGracePeriodSeconds: 30
+    terminationGracePeriodSeconds: 60
     volumes:
     - emptyDir: {}
       name: home
@@ -3222,6 +3234,12 @@ spec:
         value: "1"
       image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
       imagePullPolicy: IfNotPresent
+      lifecycle:
+        preStop:
+          exec:
+            command:
+            - /bin/sleep
+            - "15"
       name: main
       ports:
       - containerPort: 8001
@@ -3253,7 +3271,7 @@ spec:
       - mountPath: /var/run/kserve/tls
         name: tls-certs
         readOnly: true
-    terminationGracePeriodSeconds: 30
+    terminationGracePeriodSeconds: 60
     volumes:
     - emptyDir: {}
       name: home
@@ -3421,6 +3439,12 @@ spec:
           value: /models
         image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
         imagePullPolicy: IfNotPresent
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /bin/sleep
+              - "15"
         livenessProbe:
           failureThreshold: 3
           httpGet:
@@ -3471,7 +3495,7 @@ spec:
         - mountPath: /var/run/kserve/tls
           name: tls-certs
           readOnly: true
-      terminationGracePeriodSeconds: 30
+      terminationGracePeriodSeconds: 60
       volumes:
       - emptyDir: {}
         name: home
@@ -3669,6 +3693,12 @@ spec:
           value: /models
         image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
         imagePullPolicy: IfNotPresent
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /bin/sleep
+              - "15"
         livenessProbe:
           failureThreshold: 3
           httpGet:
@@ -3723,7 +3753,7 @@ spec:
         - mountPath: /var/run/kserve/tls
           name: tls-certs
           readOnly: true
-      terminationGracePeriodSeconds: 30
+      terminationGracePeriodSeconds: 60
       volumes:
       - emptyDir: {}
         name: home
@@ -3913,6 +3943,12 @@ spec:
           value: /models
         image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
         imagePullPolicy: IfNotPresent
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /bin/sleep
+              - "15"
         name: main
         ports:
         - containerPort: 8000
@@ -3944,7 +3980,7 @@ spec:
         - mountPath: /var/run/kserve/tls
           name: tls-certs
           readOnly: true
-      terminationGracePeriodSeconds: 30
+      terminationGracePeriodSeconds: 60
       volumes:
       - emptyDir: {}
         name: home
@@ -4376,6 +4412,12 @@ spec:
         value: /models
       image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
       imagePullPolicy: IfNotPresent
+      lifecycle:
+        preStop:
+          exec:
+            command:
+            - /bin/sleep
+            - "15"
       livenessProbe:
         failureThreshold: 3
         httpGet:
@@ -4426,7 +4468,7 @@ spec:
       - mountPath: /var/run/kserve/tls
         name: tls-certs
         readOnly: true
-    terminationGracePeriodSeconds: 30
+    terminationGracePeriodSeconds: 60
     volumes:
     - emptyDir: {}
       name: home
@@ -4623,6 +4665,12 @@ spec:
         value: /models
       image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
       imagePullPolicy: IfNotPresent
+      lifecycle:
+        preStop:
+          exec:
+            command:
+            - /bin/sleep
+            - "15"
       livenessProbe:
         failureThreshold: 3
         httpGet:
@@ -4677,7 +4725,7 @@ spec:
       - mountPath: /var/run/kserve/tls
         name: tls-certs
         readOnly: true
-    terminationGracePeriodSeconds: 30
+    terminationGracePeriodSeconds: 60
     volumes:
     - emptyDir: {}
       name: home
@@ -4867,6 +4915,12 @@ spec:
         value: /models
       image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
       imagePullPolicy: IfNotPresent
+      lifecycle:
+        preStop:
+          exec:
+            command:
+            - /bin/sleep
+            - "15"
       name: main
       ports:
       - containerPort: 8000
@@ -4898,7 +4952,7 @@ spec:
       - mountPath: /var/run/kserve/tls
         name: tls-certs
         readOnly: true
-    terminationGracePeriodSeconds: 30
+    terminationGracePeriodSeconds: 60
     volumes:
     - emptyDir: {}
       name: home
