@@ -177,11 +177,10 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 }
 
 func pickupRoute(routes []v1alpha1.InferenceStep) *v1alpha1.InferenceStep {
-	randomNumber, err := rand.Int(rand.Reader, big.NewInt(101))
+	randomNumber, err := rand.Int(rand.Reader, big.NewInt(100))
 	if err != nil {
 		panic(err)
 	}
-	// generate num [0,100)
 	point := int(randomNumber.Int64())
 	end := 0
 	for _, route := range routes {
@@ -246,6 +245,11 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 
 	if currentNode.RouterType == v1alpha1.Splitter {
 		route := pickupRoute(currentNode.Steps)
+		if route == nil {
+			err := errors.New("No route was selected by the splitter")
+			log.Error(err, "failed to pick a route", "nodeName", nodeName)
+			return nil, 500, err
+		}
 		return handleSplitterORSwitchNode(route, graph, input, headers)
 	}
 	if currentNode.RouterType == v1alpha1.Switch {
