@@ -1056,7 +1056,7 @@ func TestPickupRouteNeverReturnsNil(t *testing.T) {
 		},
 	}
 
-	for i := 0; i < 10000; i++ {
+	for i := range 10000 {
 		route := pickupRoute(routes)
 		require.NotNil(t, route, "pickupRoute returned nil on iteration %d", i)
 	}
@@ -1081,14 +1081,14 @@ func TestPickupRouteAlwaysReturnsRouteForAllRandValues(t *testing.T) {
 		},
 	}
 
-	for i := 0; i < 10000; i++ {
+	for i := range 10000 {
 		route := pickupRoute(routes)
 		require.NotNil(t, route, "pickupRoute returned nil on iteration %d", i)
 	}
 }
 
 func TestCryptoRandIntUpperBoundWithFix(t *testing.T) {
-	for i := 0; i < 100_000; i++ {
+	for i := range 100_000 {
 		n, err := crand.Int(crand.Reader, big.NewInt(100))
 		require.NoError(t, err)
 		require.True(t, n.Int64() >= 0 && n.Int64() < 100,
