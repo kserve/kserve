@@ -346,6 +346,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                     "workload-llmd-simulator",
                     "model-qwen2.5-0.5b",
                 ],
+                model_name="Qwen/Qwen2.5-0.5B-Instruct",
                 endpoint="/v1/chat/completions",
                 prompt="What is KServe?",
                 payload_formatter=chat_completions_payload,

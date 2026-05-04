@@ -1117,7 +1117,8 @@ def test_case(request):
             )
         if not tc.service_name:
             tc.service_name = generate_service_name(request.node.name, tc.base_refs)
-        tc.model_name = _get_model_name_from_configs(tc.base_refs)
+        if tc.model_name == "default/model":
+            tc.model_name = _get_model_name_from_configs(tc.base_refs)
 
         # Create unique configs for this test
         unique_base_refs = []
