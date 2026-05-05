@@ -1368,5 +1368,3 @@ def delete_scheduler_configmap():
     except client.rest.ApiException as e:
         if e.status != 404:  # Ignore not found
             raise
-
-
