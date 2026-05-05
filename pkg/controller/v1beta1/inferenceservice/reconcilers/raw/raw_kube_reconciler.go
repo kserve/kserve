@@ -31,6 +31,8 @@ import (
 	kserveTypes "github.com/kserve/kserve/pkg/types"
 	"github.com/kserve/kserve/pkg/webhook/admission/pod"
 
+	"github.com/pkg/errors"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -69,13 +71,15 @@ func NewRawKubeReconciler(ctx context.Context,
 	storageSpec *v1beta1.StorageSpec,
 	credentialBuilder *credentials.CredentialBuilder,
 	storageContainerSpec *v1alpha1.StorageContainerSpec,
+	configMap *corev1.ConfigMap,
 ) (*RawKubeReconciler, error) {
-	var otelCollector *otel.OtelReconciler
-	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, clientset)
+	// Parse configs from the ConfigMap
+	otelCollectorConfig, err := v1beta1.NewOtelCollectorConfig(configMap)
 	if err != nil {
-		log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
-		return nil, err
+		return nil, errors.Wrap(err, "failed to parse OtelCollector config")
 	}
+
+	var otelCollector *otel.OtelReconciler
 	// create OTel Collector if pod metrics is enabled for auto-scaling
 	if componentExt != nil && componentExt.AutoScaling != nil {
 		var metricNames []string
@@ -88,24 +92,26 @@ func NewRawKubeReconciler(ctx context.Context,
 			}
 		}
 		if len(metricNames) > 0 {
-			otelConfig, err := v1beta1.NewOtelCollectorConfig(isvcConfigMap)
-			if err != nil {
-				return nil, err
-			}
-			otelCollector, err = otel.NewOtelReconciler(client, scheme, componentMeta, metricNames, *otelConfig)
+			otelCollector, err = otel.NewOtelReconciler(client, scheme, componentMeta, metricNames, *otelCollectorConfig)
 			if err != nil {
 				return nil, err
 			}
 		}
 	}
 
-	as, err := autoscaler.NewAutoscalerReconciler(client, scheme, componentMeta, componentExt, isvcConfigMap)
+	autoscalerConfig, err := v1beta1.NewAutoscalerConfig(configMap)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse Autoscaler config")
+	}
+
+	as, err := autoscaler.NewAutoscalerReconciler(client, scheme, componentMeta, componentExt, autoscalerConfig, otelCollectorConfig)
 	if err != nil {
 		return nil, err
 	}
-	ingressConfig, err := v1beta1.NewIngressConfig(isvcConfigMap)
+
+	ingressConfig, err := v1beta1.NewIngressConfig(configMap)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to parse Ingress config")
 	}
 	url, err := createRawURL(ingressConfig, componentMeta)
 	if err != nil {
@@ -117,10 +123,10 @@ func NewRawKubeReconciler(ctx context.Context,
 		multiNodeEnabled = true
 	}
 
-	// do not return error as service config is optional
-	serviceConfig, err1 := v1beta1.NewServiceConfig(isvcConfigMap)
-	if err1 != nil {
-		log.Error(err1, "failed to get service config")
+	serviceConfig, err := v1beta1.NewServiceConfig(configMap)
+	if err != nil {
+		// do not return error as service config is optional
+		log.Error(err, "failed to parse service config")
 	}
 
 	if storageUris != nil && len(*storageUris) > 0 {
@@ -166,10 +172,10 @@ func NewRawKubeReconciler(ctx context.Context,
 		}
 	}
 
-	// Get deploy config
-	deployConfig, err := v1beta1.NewDeployConfig(isvcConfigMap)
+	// Parse deploy config from ConfigMap
+	deployConfig, err := v1beta1.NewDeployConfig(configMap)
 	if err != nil {
-		log.Error(err, "failed to get deploy config")
+		log.Error(err, "failed to parse deploy config")
 		deployConfig = nil // Use nil if config is not available
 	}
 

@@ -137,60 +137,35 @@ func TestReconcile(t *testing.T) {
 	_ = corev1.AddToScheme(scheme)
 	_ = v1beta1.AddToScheme(scheme)
 
-	// Test CA bundle content
-	caBundleContent := "TEST_CA_BUNDLE_CONTENT"
-
 	testCases := []struct {
-		name                string
-		configMaps          []*corev1.ConfigMap
-		namespace           string
-		expectedErr         bool
-		expectedConfigMapNS string
+		name            string
+		configMapData   map[string]string
+		extraConfigMaps []*corev1.ConfigMap
+		namespace       string
+		expectedErr     bool
 	}{
 		{
 			name: "No CA bundle name in storage config",
-			configMaps: []*corev1.ConfigMap{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      constants.InferenceServiceConfigMapName,
-						Namespace: constants.KServeNamespace,
-					},
-					Data: map[string]string{
-						"storageInitializer": `{"CaBundleConfigMapName": ""}`,
-					},
-				},
+			configMapData: map[string]string{
+				"storageInitializer": `{"image":"kserve/storage-initializer:latest","memoryRequest":"100Mi","memoryLimit":"1Gi","cpuRequest":"100m","cpuLimit":"1","caBundleConfigMapName":"","cpuModelcar":"10m","memoryModelcar":"15Mi"}`,
 			},
 			namespace:   "test-ns",
 			expectedErr: false,
 		},
 		{
 			name: "CA bundle not found",
-			configMaps: []*corev1.ConfigMap{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      constants.InferenceServiceConfigMapName,
-						Namespace: constants.KServeNamespace,
-					},
-					Data: map[string]string{
-						"storageInitializer": `{"CaBundleConfigMapName": "nonexistent-cm"}`,
-					},
-				},
+			configMapData: map[string]string{
+				"storageInitializer": `{"image":"kserve/storage-initializer:latest","memoryRequest":"100Mi","memoryLimit":"1Gi","cpuRequest":"100m","cpuLimit":"1","caBundleConfigMapName":"nonexistent-cm","cpuModelcar":"10m","memoryModelcar":"15Mi"}`,
 			},
 			namespace:   "test-ns",
 			expectedErr: true,
 		},
 		{
 			name: "CA bundle missing required data",
-			configMaps: []*corev1.ConfigMap{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      constants.InferenceServiceConfigMapName,
-						Namespace: constants.KServeNamespace,
-					},
-					Data: map[string]string{
-						"storageInitializer": `{"CaBundleConfigMapName": "test-cabundle-cm"}`,
-					},
-				},
+			configMapData: map[string]string{
+				"storageInitializer": `{"image":"kserve/storage-initializer:latest","memoryRequest":"100Mi","memoryLimit":"1Gi","cpuRequest":"100m","cpuLimit":"1","caBundleConfigMapName":"test-cabundle-cm","cpuModelcar":"10m","memoryModelcar":"15Mi"}`,
+			},
+			extraConfigMaps: []*corev1.ConfigMap{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-cabundle-cm",
@@ -208,9 +183,8 @@ func TestReconcile(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Setup fake clients
 			clientset := fake.NewSimpleClientset()
-			for _, cm := range tc.configMaps {
+			for _, cm := range tc.extraConfigMaps {
 				_, err := clientset.CoreV1().ConfigMaps(cm.Namespace).Create(t.Context(), cm, metav1.CreateOptions{})
 				if err != nil {
 					t.Fatalf("Error creating test configmap: %v", err)
@@ -222,9 +196,9 @@ func TestReconcile(t *testing.T) {
 			reconciler := &CaBundleConfigMapReconciler{
 				client:    client,
 				clientset: clientset,
+				configMap: &corev1.ConfigMap{Data: tc.configMapData},
 			}
 
-			// Test reconciliation
 			err := reconciler.Reconcile(t.Context(), tc.namespace)
 
 			if tc.expectedErr && err == nil {
@@ -232,23 +206,6 @@ func TestReconcile(t *testing.T) {
 			}
 			if !tc.expectedErr && err != nil {
 				t.Errorf("Expected no error but got: %v", err)
-			}
-
-			// Verify configmap was created in the correct namespace if expected
-			if tc.expectedConfigMapNS != "" {
-				cm, err := clientset.CoreV1().ConfigMaps(tc.expectedConfigMapNS).Get(
-					t.Context(),
-					constants.DefaultGlobalCaBundleConfigMapName,
-					metav1.GetOptions{},
-				)
-				if err != nil {
-					t.Errorf("Expected configmap in namespace %s but got error: %v", tc.expectedConfigMapNS, err)
-				}
-				if cm != nil {
-					if data, ok := cm.Data[constants.DefaultCaBundleFileName]; !ok || data != caBundleContent {
-						t.Errorf("Expected configmap to have correct data but got: %v", cm.Data)
-					}
-				}
 			}
 		})
 	}
@@ -376,7 +333,7 @@ func TestNewCaBundleConfigMapReconciler(t *testing.T) {
 	clientset := fake.NewSimpleClientset()
 	client := rtesting.NewClientBuilder().WithScheme(scheme).Build()
 
-	reconciler := NewCaBundleConfigMapReconciler(client, clientset)
+	reconciler := NewCaBundleConfigMapReconciler(client, clientset, nil)
 	// The constructor should always return a valid non-nil reconciler
 	// with properly initialized fields
 

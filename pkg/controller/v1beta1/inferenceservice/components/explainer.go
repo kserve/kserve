@@ -51,11 +51,13 @@ type Explainer struct {
 	scheme                 *runtime.Scheme
 	inferenceServiceConfig *v1beta1.InferenceServicesConfig
 	deploymentMode         constants.DeploymentModeType
+	configMap              *corev1.ConfigMap
 	Log                    logr.Logger
 }
 
 func NewExplainer(client client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme,
 	inferenceServiceConfig *v1beta1.InferenceServicesConfig, deploymentMode constants.DeploymentModeType,
+	configMap *corev1.ConfigMap,
 ) Component {
 	return &Explainer{
 		client:                 client,
@@ -63,6 +65,7 @@ func NewExplainer(client client.Client, clientset kubernetes.Interface, scheme *
 		scheme:                 scheme,
 		inferenceServiceConfig: inferenceServiceConfig,
 		deploymentMode:         deploymentMode,
+		configMap:              configMap,
 		Log:                    ctrl.Log.WithName("ExplainerReconciler"),
 	}
 }
@@ -160,18 +163,13 @@ func (e *Explainer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 }
 
 func (e *Explainer) reconcileExplainerRawDeployment(ctx context.Context, isvc *v1beta1.InferenceService, objectMeta *metav1.ObjectMeta, podSpec *corev1.PodSpec) error {
-	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, e.clientset)
+	storageInitializerConfig, err := v1beta1.GetStorageInitializerConfigs(e.configMap)
 	if err != nil {
-		return errors.Wrapf(err, "failed to get InferenceService ConfigMap")
-	}
-
-	storageInitializerConfig, err := v1beta1.GetStorageInitializerConfigs(isvcConfigMap)
-	if err != nil {
-		return errors.Wrapf(err, "failed to get StorageInitializer config")
+		return errors.Wrapf(err, "failed to parse StorageInitializer config")
 	}
 
 	modelStorageSpec := isvc.Spec.Predictor.GetImplementation().GetStorageSpec()
-	credentialBuilder := credentials.NewCredentialBuilder(e.client, e.clientset, isvcConfigMap)
+	credentialBuilder := credentials.NewCredentialBuilder(e.client, e.clientset, e.configMap)
 
 	var storageContainerSpec *v1alpha1.StorageContainerSpec
 	if len(isvc.Spec.Explainer.StorageUris) > 0 {
@@ -187,7 +185,7 @@ func (e *Explainer) reconcileExplainerRawDeployment(ctx context.Context, isvc *v
 	}
 
 	r, err := raw.NewRawKubeReconciler(ctx, e.client, e.clientset, e.scheme, *objectMeta, metav1.ObjectMeta{},
-		&isvc.Spec.Explainer.ComponentExtensionSpec, podSpec, nil, &isvc.Spec.Explainer.StorageUris, storageInitializerConfig, storageSpec, credentialBuilder, storageContainerSpec)
+		&isvc.Spec.Explainer.ComponentExtensionSpec, podSpec, nil, &isvc.Spec.Explainer.StorageUris, storageInitializerConfig, storageSpec, credentialBuilder, storageContainerSpec, e.configMap)
 	if err != nil {
 		return errors.Wrapf(err, "fails to create NewRawKubeReconciler for explainer")
 	}
@@ -216,18 +214,13 @@ func (e *Explainer) reconcileExplainerRawDeployment(ctx context.Context, isvc *v
 }
 
 func (e *Explainer) reconcileExplainerKnativeDeployment(ctx context.Context, isvc *v1beta1.InferenceService, objectMeta *metav1.ObjectMeta, podSpec *corev1.PodSpec) error {
-	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, e.clientset)
+	storageInitializerConfig, err := v1beta1.GetStorageInitializerConfigs(e.configMap)
 	if err != nil {
-		return errors.Wrapf(err, "failed to get InferenceService ConfigMap")
-	}
-
-	storageInitializerConfig, err := v1beta1.GetStorageInitializerConfigs(isvcConfigMap)
-	if err != nil {
-		return errors.Wrapf(err, "failed to get StorageInitializer config")
+		return errors.Wrapf(err, "failed to parse StorageInitializer config")
 	}
 
 	modelStorageSpec := isvc.Spec.Predictor.GetImplementation().GetStorageSpec()
-	credentialBuilder := credentials.NewCredentialBuilder(e.client, e.clientset, isvcConfigMap)
+	credentialBuilder := credentials.NewCredentialBuilder(e.client, e.clientset, e.configMap)
 
 	var storageContainerSpec *v1alpha1.StorageContainerSpec
 	if len(isvc.Spec.Explainer.StorageUris) > 0 {

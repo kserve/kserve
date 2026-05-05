@@ -145,7 +145,7 @@ Handles bulk of raw deployment logic for Inference graph controller
 5. Finally reconcile
 */
 func handleInferenceGraphRawDeployment(ctx context.Context, cl client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme,
-	graph *v1alpha1.InferenceGraph, routerConfig *RouterConfig,
+	graph *v1alpha1.InferenceGraph, routerConfig *RouterConfig, configMap *corev1.ConfigMap,
 ) (*appsv1.Deployment, *knapis.URL, error) {
 	// create desired service object.
 	desiredSvc := createInferenceGraphPodSpec(graph, routerConfig)
@@ -153,7 +153,7 @@ func handleInferenceGraphRawDeployment(ctx context.Context, cl client.Client, cl
 	objectMeta, componentExtSpec := constructForRawDeployment(graph)
 
 	// create the reconciler
-	reconciler, err := raw.NewRawKubeReconciler(ctx, cl, clientset, scheme, objectMeta, metav1.ObjectMeta{}, &componentExtSpec, desiredSvc, nil, nil, nil, nil, nil, nil)
+	reconciler, err := raw.NewRawKubeReconciler(ctx, cl, clientset, scheme, objectMeta, metav1.ObjectMeta{}, &componentExtSpec, desiredSvc, nil, nil, nil, nil, nil, nil, configMap)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "fails to create NewRawKubeReconciler for inference graph")
 	}

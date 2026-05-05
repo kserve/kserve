@@ -32,11 +32,6 @@ rules:
   - ""
   resources:
   - configmaps
-  verbs:
-  - get
-- apiGroups:
-  - ""
-  resources:
   - nodes
   verbs:
   - get
@@ -113,11 +108,6 @@ rules:
   - ""
   resources:
   - configmaps
-  verbs:
-  - get
-- apiGroups:
-  - ""
-  resources:
   - nodes
   - secrets
   - serviceaccounts
