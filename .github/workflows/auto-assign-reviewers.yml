@@ -15,7 +15,9 @@ jobs:
     if: ${{ github.actor != 'dependabot[bot]' }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: master
 
       - name: Pick random reviewers and request review
         env:
@@ -23,6 +25,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
+          set -euo pipefail
           # Parse the reviewers list from the OWNERS file
           REVIEWERS=$(yq e '.reviewers[]' OWNERS)
 
@@ -45,6 +48,6 @@ jobs:
           echo "Selected reviewers:"
           echo "$SELECTED"
 
-          for REVIEWER in $SELECTED; do
+          echo "$SELECTED" | while IFS= read -r REVIEWER; do
             gh pr edit "$PR_NUMBER" --add-reviewer "$REVIEWER"
           done
