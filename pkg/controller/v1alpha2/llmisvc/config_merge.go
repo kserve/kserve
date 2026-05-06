@@ -589,6 +589,22 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 	t, err := template.New("config").
 		Funcs(map[string]any{
 			"ChildName": kmeta.ChildName,
+			// shutdownTimeout computes the vLLM --shutdown-timeout value:
+			// terminationGracePeriodSeconds - preStop, defaulting to 60 - preStop if unset.
+			"shutdownTimeout": func(tgps *int64, preStop int64) int64 {
+				const defaultTGPS = int64(60)
+				if tgps == nil {
+					return defaultTGPS - preStop
+				}
+				return *tgps - preStop
+			},
+			// tgps safely extracts TerminationGracePeriodSeconds from a potentially-nil PodSpec.
+			"tgps": func(podSpec *corev1.PodSpec) *int64 {
+				if podSpec == nil {
+					return nil
+				}
+				return podSpec.TerminationGracePeriodSeconds
+			},
 		}).
 		Option("missingkey=error").
 		Parse(string(templateBytes))
