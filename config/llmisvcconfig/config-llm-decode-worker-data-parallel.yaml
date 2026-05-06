@@ -231,7 +231,11 @@ spec:
               {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
               {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
               {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
-              ${VLLM_ADDITIONAL_ARGS} \
+              {{ if .Spec.Model.LoRA }}{{ if gt (len .Spec.Model.LoRA.Adapters) 0 }}--enable-lora \
+              --max-loras={{ if .Spec.Model.LoRA.MaxAdapters }}{{ .Spec.Model.LoRA.MaxAdapters }}{{ else }}{{ len .Spec.Model.LoRA.Adapters }}{{ end }} \
+              --max-lora-rank={{ if .Spec.Model.LoRA.MaxRank }}{{ .Spec.Model.LoRA.MaxRank }}{{ else }}16{{ end }} \
+              {{ range .Spec.Model.LoRA.Adapters }}{{ if not .Disabled }}--lora-modules={{ .Name }}=/mnt/loras/{{ .Name }} \
+              {{ end }}{{ end }}{{ end }}{{ end }}${VLLM_ADDITIONAL_ARGS} \
               $@"
           # "--" ends bash options; subsequent args become positional params ($@) forwarded to vllm serve
           - "--"
@@ -477,7 +481,11 @@ spec:
               {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
               {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
               {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
-              ${VLLM_ADDITIONAL_ARGS} \
+              {{ if .Spec.Model.LoRA }}{{ if gt (len .Spec.Model.LoRA.Adapters) 0 }}--enable-lora \
+              --max-loras={{ if .Spec.Model.LoRA.MaxAdapters }}{{ .Spec.Model.LoRA.MaxAdapters }}{{ else }}{{ len .Spec.Model.LoRA.Adapters }}{{ end }} \
+              --max-lora-rank={{ if .Spec.Model.LoRA.MaxRank }}{{ .Spec.Model.LoRA.MaxRank }}{{ else }}16{{ end }} \
+              {{ range .Spec.Model.LoRA.Adapters }}{{ if not .Disabled }}--lora-modules={{ .Name }}=/mnt/loras/{{ .Name }} \
+              {{ end }}{{ end }}{{ end }}{{ end }}${VLLM_ADDITIONAL_ARGS} \
               $@"
           # "--" ends bash options; subsequent args become positional params ($@) forwarded to vllm serve
           - "--"
