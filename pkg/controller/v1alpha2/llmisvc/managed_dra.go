@@ -1,9 +1,37 @@
+/*
+Copyright 2026 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+// Package llmisvc contains the controller logic for the LLMInferenceService.
+//
+// Note on Managed DRA:
+// The Managed DRA feature implemented here via the serving.kserve.io/exp-dra-* annotations
+// is an intentionally limited-scope convenience feature for basic DRA use cases.
+// It provides a simplified mechanism for users to dynamically request GPUs, avoiding
+// the need to manually create and manage ResourceClaimTemplate objects.
+//
+// Complex DRA topologies or advanced use cases should bypass this managed feature
+// and use native Kubernetes ResourceClaimTemplate objects directly by attaching
+// them to the PodSpec.
 package llmisvc
 
 import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	resourcev1 "k8s.io/api/resource/v1"
@@ -12,12 +40,14 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 const (
 	managedDRASuffix      = "-managed-dra"
 	managedDRAClaimName   = "managed-gpu"
 	defaultManagedDRAName = "gpu"
+	llmMainContainerName  = "main"
 )
 
 // hasManagedDRA checks if the LLMInferenceService has the required annotations to enable Managed DRA.
@@ -26,7 +56,7 @@ func hasManagedDRA(llmSvc *v1alpha2.LLMInferenceService) bool {
 	return ok
 }
 
-// managedDRAResourceName generates the name of the ResourceClaim or ResourceClaimTemplate.
+// managedDRAResourceName generates the name of the ResourceClaimTemplate.
 func managedDRAResourceName(llmSvc *v1alpha2.LLMInferenceService) string {
 	return llmSvc.GetName() + managedDRASuffix
 }
@@ -47,64 +77,102 @@ func parseManagedDRAGpuCount(llmSvc *v1alpha2.LLMInferenceService) (int, error) 
 	return count, nil
 }
 
-// buildDeviceRequests creates the slice of DeviceRequest objects based on the requested count and class.
-func buildDeviceRequests(deviceClass, celSelector string, gpuCount int) []resourcev1.DeviceRequest {
-	requests := make([]resourcev1.DeviceRequest, gpuCount)
-	for i := range requests {
-		name := defaultManagedDRAName
-		if gpuCount > 1 {
-			name = fmt.Sprintf("%s-%d", defaultManagedDRAName, i+1)
-		}
-		req := resourcev1.DeviceRequest{
-			Name: name,
-			Exactly: &resourcev1.ExactDeviceRequest{
-				DeviceClassName: deviceClass,
-			},
-		}
-		if celSelector != "" {
-			req.Exactly.Selectors = []resourcev1.DeviceSelector{
-				{
-					CEL: &resourcev1.CELDeviceSelector{
-						Expression: celSelector,
-					},
-				},
-			}
-		}
-		requests[i] = req
-	}
-	return requests
-}
-
-// reconcileManagedDRA creates or updates the ResourceClaim/ResourceClaimTemplate
-// that backs managed DRA for this LLMInferenceService.
-func (r *LLMISVCReconciler) reconcileManagedDRA(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
-	if !hasManagedDRA(llmSvc) {
+// parseManagedDRACelSelectors extracts newline-separated CEL expressions
+// from the cel-selector annotation, ignoring empty lines and whitespace.
+func parseManagedDRACelSelectors(llmSvc *v1alpha2.LLMInferenceService) []string {
+	raw, ok := llmSvc.Annotations[constants.ManagedDRACelSelectorAnnotationKey]
+	if !ok || strings.TrimSpace(raw) == "" {
 		return nil
 	}
 
+	parts := strings.Split(raw, "\n")
+	selectors := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if s := strings.TrimSpace(p); s != "" {
+			selectors = append(selectors, s)
+		}
+	}
+	return selectors
+}
+
+// buildDeviceRequests creates the slice of DeviceRequest objects based on the requested count and class.
+func buildDeviceRequests(deviceClass string, celSelectors []string, gpuCount int) []resourcev1.DeviceRequest {
+	req := resourcev1.DeviceRequest{
+		Name: defaultManagedDRAName,
+		Exactly: &resourcev1.ExactDeviceRequest{
+			DeviceClassName: deviceClass,
+		},
+	}
+
+	if gpuCount > 1 {
+		req.Exactly.Count = int64(gpuCount)
+	}
+
+	if len(celSelectors) > 0 {
+		selectors := make([]resourcev1.DeviceSelector, len(celSelectors))
+		for j, expr := range celSelectors {
+			selectors[j] = resourcev1.DeviceSelector{
+				CEL: &resourcev1.CELDeviceSelector{
+					Expression: expr,
+				},
+			}
+		}
+		req.Exactly.Selectors = selectors
+	}
+
+	return []resourcev1.DeviceRequest{req}
+}
+
+// reconcileManagedDRA creates, updates, or deletes the ResourceClaimTemplate
+// that backs managed DRA for this LLMInferenceService.
+func (r *LLMISVCReconciler) reconcileManagedDRA(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+	if !hasManagedDRA(llmSvc) {
+		return r.cleanupManagedDRA(ctx, llmSvc)
+	}
+
+	// Return an error if the cluster does not support the DRA ResourceClaimTemplate API.
+	if ok, err := utils.IsCrdAvailable(r.Config, resourcev1.SchemeGroupVersion.String(), "ResourceClaimTemplate"); err != nil || !ok {
+		return fmt.Errorf("managed DRA is requested but the ResourceClaimTemplate API (%s) is not available in this cluster", resourcev1.SchemeGroupVersion.String())
+	}
+
 	deviceClass := llmSvc.Annotations[constants.ManagedDRADeviceClassAnnotationKey]
-	celSelector := llmSvc.Annotations[constants.ManagedDRACelSelectorAnnotationKey]
-	isShared := llmSvc.Annotations[constants.ManagedDRASharingAnnotationKey] == "true"
+	celSelectors := parseManagedDRACelSelectors(llmSvc)
 
 	gpuCount, err := parseManagedDRAGpuCount(llmSvc)
 	if err != nil {
 		return err
 	}
 
-	deviceRequests := buildDeviceRequests(deviceClass, celSelector, gpuCount)
+	deviceRequests := buildDeviceRequests(deviceClass, celSelectors, gpuCount)
 
-	if isShared {
-		expected := expectedManagedDRAClaim(llmSvc, deviceRequests)
-		if err := Reconcile(ctx, r, llmSvc, &resourcev1.ResourceClaim{}, expected, semanticResourceClaimIsEqual); err != nil {
-			return fmt.Errorf("failed to reconcile Managed DRA ResourceClaim: %w", err)
-		}
-	} else {
-		expected := expectedManagedDRATemplate(llmSvc, deviceRequests)
-		if err := Reconcile(ctx, r, llmSvc, &resourcev1.ResourceClaimTemplate{}, expected, semanticResourceClaimTemplateIsEqual); err != nil {
-			return fmt.Errorf("failed to reconcile Managed DRA ResourceClaimTemplate: %w", err)
-		}
+	expected := expectedManagedDRATemplate(llmSvc, deviceRequests)
+	if err := Reconcile(ctx, r, llmSvc, &resourcev1.ResourceClaimTemplate{}, expected, semanticResourceClaimTemplateIsEqual); err != nil {
+		return fmt.Errorf("failed to reconcile Managed DRA ResourceClaimTemplate: %w", err)
 	}
 
+	return nil
+}
+
+// cleanupManagedDRA removes any previously generated ResourceClaimTemplate
+// owned by this LLMInferenceService.
+func (r *LLMISVCReconciler) cleanupManagedDRA(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+	ok, err := utils.IsCrdAvailable(r.Config, resourcev1.SchemeGroupVersion.String(), "ResourceClaimTemplate")
+	if err != nil {
+		return fmt.Errorf("failed to check if ResourceClaimTemplate CRD is available: %w", err)
+	}
+	if !ok {
+		return nil // Nothing to clean up if the API doesn't exist
+	}
+
+	stale := &resourcev1.ResourceClaimTemplate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      managedDRAResourceName(llmSvc),
+			Namespace: llmSvc.GetNamespace(),
+		},
+	}
+	if err := Delete(ctx, r, llmSvc, stale); err != nil {
+		return fmt.Errorf("failed to cleanup Managed DRA ResourceClaimTemplate: %w", err)
+	}
 	return nil
 }
 
@@ -127,43 +195,20 @@ func expectedManagedDRATemplate(llmSvc *v1alpha2.LLMInferenceService, requests [
 	}
 }
 
-func expectedManagedDRAClaim(llmSvc *v1alpha2.LLMInferenceService, requests []resourcev1.DeviceRequest) *resourcev1.ResourceClaim {
-	return &resourcev1.ResourceClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      managedDRAResourceName(llmSvc),
-			Namespace: llmSvc.GetNamespace(),
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
-			},
-		},
-		Spec: resourcev1.ResourceClaimSpec{
-			Devices: resourcev1.DeviceClaim{
-				Requests: requests,
-			},
-		},
-	}
-}
-
 func semanticResourceClaimTemplateIsEqual(expected *resourcev1.ResourceClaimTemplate, curr *resourcev1.ResourceClaimTemplate) bool {
 	return equality.Semantic.DeepEqual(expected.Spec, curr.Spec)
 }
 
-func semanticResourceClaimIsEqual(expected *resourcev1.ResourceClaim, curr *resourcev1.ResourceClaim) bool {
-	return equality.Semantic.DeepEqual(expected.Spec, curr.Spec)
-}
-
 // injectManagedDRA wires the managed DRA claim into the PodSpec:
-//   - Adds a pod-level resourceClaim entry pointing to the generated ResourceClaim or ResourceClaimTemplate
-//   - Adds container-level resources.claims entries so every container can access the GPU(s)
+//   - Adds a pod-level resourceClaim entry pointing to the generated ResourceClaimTemplate
+//   - Adds a container-level resources.claims entry on the "main" container only
 func injectManagedDRA(llmSvc *v1alpha2.LLMInferenceService, podSpec *corev1.PodSpec) {
 	if !hasManagedDRA(llmSvc) {
 		return
 	}
 
-	isShared := llmSvc.Annotations[constants.ManagedDRASharingAnnotationKey] == "true"
 	resourceName := managedDRAResourceName(llmSvc)
 
-	// Inject into PodSpec.ResourceClaims (the pod-level alias)
 	hasPodClaim := false
 	for _, claim := range podSpec.ResourceClaims {
 		if claim.Name == managedDRAClaimName {
@@ -172,19 +217,16 @@ func injectManagedDRA(llmSvc *v1alpha2.LLMInferenceService, podSpec *corev1.PodS
 		}
 	}
 	if !hasPodClaim {
-		podResourceClaim := corev1.PodResourceClaim{
-			Name: managedDRAClaimName,
-		}
-		if isShared {
-			podResourceClaim.ResourceClaimName = &resourceName
-		} else {
-			podResourceClaim.ResourceClaimTemplateName = &resourceName
-		}
-		podSpec.ResourceClaims = append(podSpec.ResourceClaims, podResourceClaim)
+		podSpec.ResourceClaims = append(podSpec.ResourceClaims, corev1.PodResourceClaim{
+			Name:                      managedDRAClaimName,
+			ResourceClaimTemplateName: &resourceName,
+		})
 	}
 
-	// Inject into ALL containers
 	for i := range podSpec.Containers {
+		if podSpec.Containers[i].Name != llmMainContainerName {
+			continue
+		}
 		hasContainerClaim := false
 		for _, claim := range podSpec.Containers[i].Resources.Claims {
 			if claim.Name == managedDRAClaimName {

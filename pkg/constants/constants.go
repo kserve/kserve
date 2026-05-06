@@ -137,10 +137,13 @@ var (
 	DisableAutoUpdateAnnotationKey              = KServeAPIGroupName + "/disable-auto-update"
 	ModelFormatAnnotationKey                    = "modelFormat"
 	InferencePoolMigratedAnnotationKey          = KServeAPIGroupName + "/inferencepool-migrated"
-	ManagedDRADeviceClassAnnotationKey          = KServeAPIGroupName + "/dra-device-class"
-	ManagedDRACelSelectorAnnotationKey          = KServeAPIGroupName + "/dra-cel-selector"
-	ManagedDRASharingAnnotationKey              = KServeAPIGroupName + "/dra-sharing"
-	ManagedDRAGpuCountAnnotationKey             = KServeAPIGroupName + "/dra-gpu-count"
+	// Managed DRA Experimental Annotations
+	// These annotations provide an intentionally limited-scope convenience feature for basic DRA use cases.
+	// Complex DRA topologies should use native Kubernetes ResourceClaimTemplate objects directly.
+	// These serve as a strong guideline to prevent feature bloat while leaving room for minor, practical additions.
+	ManagedDRADeviceClassAnnotationKey = KServeAPIGroupName + "/exp-dra-device-class"
+	ManagedDRACelSelectorAnnotationKey = KServeAPIGroupName + "/exp-dra-cel-selector"
+	ManagedDRAGpuCountAnnotationKey    = KServeAPIGroupName + "/exp-dra-gpu-count"
 )
 
 // ServingRuntime Server Type Annotations

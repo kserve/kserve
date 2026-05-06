@@ -169,9 +169,10 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 			}).WithContext(ctx).Should(Succeed())
 
 			// Check that it parsed the annotations correctly
-			Expect(expectedTemplate.Spec.Spec.Devices.Requests).To(HaveLen(8))
-			Expect(expectedTemplate.Spec.Spec.Devices.Requests[0].Name).To(Equal("gpu-1"))
+			Expect(expectedTemplate.Spec.Spec.Devices.Requests).To(HaveLen(1))
+			Expect(expectedTemplate.Spec.Spec.Devices.Requests[0].Name).To(Equal("gpu"))
 			Expect(expectedTemplate.Spec.Spec.Devices.Requests[0].Exactly.DeviceClassName).To(Equal("gpu.nvidia.com"))
+			Expect(expectedTemplate.Spec.Spec.Devices.Requests[0].Exactly.Count).To(Equal(int64(8)))
 
 			// Verify leader template has DRA
 			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec.ResourceClaims).To(HaveLen(1))

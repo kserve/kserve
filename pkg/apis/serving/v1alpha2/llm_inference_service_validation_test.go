@@ -1209,3 +1209,147 @@ func TestValidateLoRAAdapters(t *testing.T) {
 		assert.Empty(t, errs)
 	})
 }
+
+func TestValidateManagedDRAAnnotations(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+
+	const (
+		deviceClassKey = "serving.kserve.io/exp-dra-device-class"
+		gpuCountKey    = "serving.kserve.io/exp-dra-gpu-count"
+		celSelectorKey = "serving.kserve.io/exp-dra-cel-selector"
+	)
+
+	tests := []struct {
+		name         string
+		annotations  map[string]string
+		wantErrCount int
+		wantErrField string
+	}{
+		{
+			name:         "no DRA annotations",
+			annotations:  nil,
+			wantErrCount: 0,
+		},
+		{
+			name: "valid: device class only",
+			annotations: map[string]string{
+				deviceClassKey: "gpu.nvidia.com",
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "valid: device class + gpu count + cel selectors",
+			annotations: map[string]string{
+				deviceClassKey: "gpu.nvidia.com",
+				gpuCountKey:    "4",
+				celSelectorKey: "device.attributes['gpu.nvidia.com']['type'] == 'A100'\n" +
+					"device.capacity['gpu.nvidia.com']['memory'].compareTo(quantity('40Gi')) > 0",
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "valid: device class with dotted name",
+			annotations: map[string]string{
+				deviceClassKey: "mig-3g.40gb",
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "invalid: empty device class",
+			annotations: map[string]string{
+				deviceClassKey: "   ",
+			},
+			wantErrCount: 1,
+			wantErrField: deviceClassKey,
+		},
+		{
+			name: "invalid: device class with uppercase",
+			annotations: map[string]string{
+				deviceClassKey: "GPU.Nvidia.com",
+			},
+			wantErrCount: 1,
+			wantErrField: deviceClassKey,
+		},
+		{
+			name: "invalid: gpu count without device class",
+			annotations: map[string]string{
+				gpuCountKey: "2",
+			},
+			wantErrCount: 1,
+			wantErrField: deviceClassKey,
+		},
+		{
+			name: "invalid: cel selector without device class",
+			annotations: map[string]string{
+				celSelectorKey: "device.attributes['gpu.nvidia.com']['type'] == 'A100'",
+			},
+			wantErrCount: 1,
+			wantErrField: deviceClassKey,
+		},
+		{
+			name: "invalid: gpu count is non-numeric (the foot-gun the webhook is meant to catch)",
+			annotations: map[string]string{
+				deviceClassKey: "gpu.nvidia.com",
+				gpuCountKey:    "abc",
+			},
+			wantErrCount: 1,
+			wantErrField: gpuCountKey,
+		},
+		{
+			name: "invalid: gpu count is zero",
+			annotations: map[string]string{
+				deviceClassKey: "gpu.nvidia.com",
+				gpuCountKey:    "0",
+			},
+			wantErrCount: 1,
+			wantErrField: gpuCountKey,
+		},
+		{
+			name: "invalid: gpu count is negative",
+			annotations: map[string]string{
+				deviceClassKey: "gpu.nvidia.com",
+				gpuCountKey:    "-1",
+			},
+			wantErrCount: 1,
+			wantErrField: gpuCountKey,
+		},
+		{
+			name: "invalid: cel selector annotation set but contains no expressions",
+			annotations: map[string]string{
+				deviceClassKey: "gpu.nvidia.com",
+				celSelectorKey: "\n  \n",
+			},
+			wantErrCount: 1,
+			wantErrField: celSelectorKey,
+		},
+		{
+			name: "invalid: multiple errors are surfaced together",
+			annotations: map[string]string{
+				deviceClassKey: "BAD CLASS",
+				gpuCountKey:    "abc",
+			},
+			wantErrCount: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := newBaseLLMInferenceServiceV1Alpha2()
+			svc.Annotations = tt.annotations
+
+			errs := validator.validateManagedDRAAnnotations(svc)
+
+			require.Len(t, errs, tt.wantErrCount, "errors: %v", errs)
+			if tt.wantErrField != "" {
+				found := false
+				for _, e := range errs {
+					if strings.Contains(e.Field, tt.wantErrField) {
+						found = true
+						break
+					}
+				}
+				assert.True(t, found, "expected error on field %q, got: %v", tt.wantErrField, errs)
+			}
+		})
+	}
+}

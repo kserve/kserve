@@ -240,6 +240,10 @@ var _ = Describe("LLMInferenceService Controller", func() {
 							Name:  "main",
 							Image: "quay.io/pierdipi/vllm-cpu:latest",
 						},
+						{
+							Name:  "sidecar",
+							Image: "busybox:latest",
+						},
 					},
 				}),
 			)
@@ -248,12 +252,13 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			Expect(envTest.Client.Create(ctx, routerConfig)).To(Succeed())
 			Expect(envTest.Client.Create(ctx, workloadConfig)).To(Succeed())
 
-			// Create LLMInferenceService using baseRefs only
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithAnnotations(map[string]string{
 					constants.ManagedDRADeviceClassAnnotationKey: "gpu.nvidia.com",
 					constants.ManagedDRAGpuCountAnnotationKey:    "2",
+					constants.ManagedDRACelSelectorAnnotationKey: "device.attributes['gpu.nvidia.com']['type'] == 'A100'\n" +
+						"device.capacity['gpu.nvidia.com']['memory'].compareTo(quantity('40Gi')) > 0",
 				}),
 				WithBaseRefs(
 					corev1.LocalObjectReference{Name: "model-fb-opt-125m"},
@@ -277,7 +282,6 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
-			// Verify the ResourceClaimTemplate was created with correct values
 			expectedTemplate := &resourcev1.ResourceClaimTemplate{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
@@ -286,18 +290,110 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				}, expectedTemplate)
 			}).WithContext(ctx).Should(Succeed())
 
-			// Check that it parsed the annotations correctly
-			Expect(expectedTemplate.Spec.Spec.Devices.Requests).To(HaveLen(2))
-			Expect(expectedTemplate.Spec.Spec.Devices.Requests[0].Name).To(Equal("gpu-1"))
+			Expect(expectedTemplate.Spec.Spec.Devices.Requests).To(HaveLen(1))
+			Expect(expectedTemplate.Spec.Spec.Devices.Requests[0].Name).To(Equal("gpu"))
 			Expect(expectedTemplate.Spec.Spec.Devices.Requests[0].Exactly.DeviceClassName).To(Equal("gpu.nvidia.com"))
+			Expect(expectedTemplate.Spec.Spec.Devices.Requests[0].Exactly.Count).To(Equal(int64(2)))
+
+			// Multiple CEL selectors must be propagated to every device request.
+			for _, req := range expectedTemplate.Spec.Spec.Devices.Requests {
+				Expect(req.Exactly.Selectors).To(HaveLen(2))
+				Expect(req.Exactly.Selectors[0].CEL.Expression).To(ContainSubstring("type"))
+				Expect(req.Exactly.Selectors[1].CEL.Expression).To(ContainSubstring("memory"))
+			}
 
 			Expect(expectedDeployment.Spec.Template.Spec.ResourceClaims).To(HaveLen(1))
 			Expect(expectedDeployment.Spec.Template.Spec.ResourceClaims[0].Name).To(Equal("managed-gpu"))
 			Expect(expectedDeployment.Spec.Template.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Not(BeNil()))
 			Expect(*expectedDeployment.Spec.Template.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Equal(svcName + "-managed-dra"))
 
-			Expect(expectedDeployment.Spec.Template.Spec.Containers[0].Resources.Claims).To(HaveLen(1))
-			Expect(expectedDeployment.Spec.Template.Spec.Containers[0].Resources.Claims[0].Name).To(Equal("managed-gpu"))
+			// Only the "main" container gets the GPU claim; sidecars are left alone.
+			Expect(expectedDeployment.Spec.Template.Spec.Containers).To(HaveLen(2))
+			var mainCtr, sidecarCtr *corev1.Container
+			for i := range expectedDeployment.Spec.Template.Spec.Containers {
+				c := &expectedDeployment.Spec.Template.Spec.Containers[i]
+				switch c.Name {
+				case "main":
+					mainCtr = c
+				case "sidecar":
+					sidecarCtr = c
+				}
+			}
+			Expect(mainCtr).ToNot(BeNil())
+			Expect(sidecarCtr).ToNot(BeNil())
+			Expect(mainCtr.Resources.Claims).To(HaveLen(1))
+			Expect(mainCtr.Resources.Claims[0].Name).To(Equal("managed-gpu"))
+			Expect(sidecarCtr.Resources.Claims).To(BeEmpty(),
+				"sidecar containers must not receive the managed DRA claim")
+		})
+
+		It("should clean up the ResourceClaimTemplate when managed DRA is disabled", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-dra-cleanup"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			modelConfig := LLMInferenceServiceConfig("model-fb-opt-125m",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+				WithConfigModelName("facebook/opt-125m"),
+				WithConfigModelURI("hf://facebook/opt-125m"),
+			)
+			routerConfig := LLMInferenceServiceConfig("router-managed",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+				WithConfigManagedRouter(),
+			)
+			workloadConfig := LLMInferenceServiceConfig("workload-single-cpu",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+				WithConfigWorkloadTemplate(&corev1.PodSpec{
+					Containers: []corev1.Container{
+						{Name: "main", Image: "quay.io/pierdipi/vllm-cpu:latest"},
+					},
+				}),
+			)
+			Expect(envTest.Client.Create(ctx, modelConfig)).To(Succeed())
+			Expect(envTest.Client.Create(ctx, routerConfig)).To(Succeed())
+			Expect(envTest.Client.Create(ctx, workloadConfig)).To(Succeed())
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithAnnotations(map[string]string{
+					constants.ManagedDRADeviceClassAnnotationKey: "gpu.nvidia.com",
+				}),
+				WithBaseRefs(
+					corev1.LocalObjectReference{Name: "model-fb-opt-125m"},
+					corev1.LocalObjectReference{Name: "router-managed"},
+					corev1.LocalObjectReference{Name: "workload-single-cpu"},
+				),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			templateName := types.NamespacedName{Name: svcName + "-managed-dra", Namespace: testNs.Name}
+
+			// First reconcile creates the template
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, templateName, &resourcev1.ResourceClaimTemplate{})
+			}).WithContext(ctx).Should(Succeed())
+
+			// Disable managed DRA by removing the annotation
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				current := &v1alpha2.LLMInferenceService{}
+				if err := envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current); err != nil {
+					return err
+				}
+				delete(current.Annotations, constants.ManagedDRADeviceClassAnnotationKey)
+				return envTest.Update(ctx, current)
+			})).To(Succeed())
+
+			// Reconcile must clean up the orphaned template instead of leaving it
+			// to accumulate until the LLMInferenceService is deleted.
+			Eventually(func(g Gomega, ctx context.Context) bool {
+				err := envTest.Get(ctx, templateName, &resourcev1.ResourceClaimTemplate{})
+				return errors.IsNotFound(err)
+			}).WithContext(ctx).Should(BeTrue(),
+				"orphaned ResourceClaimTemplate must be deleted when managed DRA is disabled")
 		})
 		It("should preserve pinned config annotations across reconciliations", func(ctx SpecContext) {
 			// given

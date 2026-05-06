@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
+	"strconv"
+	"strings"
 
 	"k8s.io/utils/ptr"
 
@@ -34,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -101,6 +104,7 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 
 	allErrs = append(allErrs, l.validateScaling(llmSvc)...)
 	allErrs = append(allErrs, l.validateLoRAAdapters(llmSvc)...)
+	allErrs = append(allErrs, l.validateManagedDRAAnnotations(llmSvc)...)
 
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
 
@@ -660,4 +664,86 @@ func ValidateWorkloadScaling(basePath *field.Path, workload *WorkloadSpec) field
 // This is used to report unsupported mutation of values.
 func immutableField(path *field.Path, value interface{}, detail string) *field.Error {
 	return &field.Error{Type: field.ErrorTypeNotSupported, Field: path.String(), BadValue: value, Detail: detail}
+}
+
+// dnsLabelLikePattern validates DRA DeviceClass names (e.g. "gpu.nvidia.com").
+var dnsLabelLikePattern = regexp.MustCompile(`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$`)
+
+// validateManagedDRAAnnotations performs admission-time validation of the
+// serving.kserve.io/exp-dra-* annotations to catch user mistakes early.
+func (l *LLMInferenceServiceValidator) validateManagedDRAAnnotations(llmSvc *LLMInferenceService) field.ErrorList {
+	var allErrs field.ErrorList
+	annotations := llmSvc.GetAnnotations()
+	if len(annotations) == 0 {
+		return allErrs
+	}
+
+	annotationsPath := field.NewPath("metadata").Child("annotations")
+
+	deviceClass, hasDeviceClass := annotations[constants.ManagedDRADeviceClassAnnotationKey]
+	_, hasGpuCount := annotations[constants.ManagedDRAGpuCountAnnotationKey]
+	_, hasCelSelector := annotations[constants.ManagedDRACelSelectorAnnotationKey]
+
+	// Require device-class if any other DRA annotation is set.
+	if !hasDeviceClass && (hasGpuCount || hasCelSelector) {
+		allErrs = append(allErrs, field.Required(
+			annotationsPath.Key(constants.ManagedDRADeviceClassAnnotationKey),
+			fmt.Sprintf("%s is required to enable managed DRA when %s or %s is set",
+				constants.ManagedDRADeviceClassAnnotationKey,
+				constants.ManagedDRAGpuCountAnnotationKey,
+				constants.ManagedDRACelSelectorAnnotationKey),
+		))
+	}
+
+	if hasDeviceClass {
+		if trimmed := strings.TrimSpace(deviceClass); trimmed == "" {
+			allErrs = append(allErrs, field.Invalid(
+				annotationsPath.Key(constants.ManagedDRADeviceClassAnnotationKey),
+				deviceClass,
+				"device class must not be empty",
+			))
+		} else if !dnsLabelLikePattern.MatchString(trimmed) {
+			allErrs = append(allErrs, field.Invalid(
+				annotationsPath.Key(constants.ManagedDRADeviceClassAnnotationKey),
+				deviceClass,
+				"device class must be a DNS-label-like name (lower-case alphanumerics, '-' and '.')",
+			))
+		}
+	}
+
+	if rawCount, ok := annotations[constants.ManagedDRAGpuCountAnnotationKey]; ok {
+		count, err := strconv.Atoi(strings.TrimSpace(rawCount))
+		if err != nil {
+			allErrs = append(allErrs, field.Invalid(
+				annotationsPath.Key(constants.ManagedDRAGpuCountAnnotationKey),
+				rawCount,
+				"gpu count must be an integer",
+			))
+		} else if count < 1 {
+			allErrs = append(allErrs, field.Invalid(
+				annotationsPath.Key(constants.ManagedDRAGpuCountAnnotationKey),
+				rawCount,
+				"gpu count must be greater than or equal to 1",
+			))
+		}
+	}
+
+	if rawSelectors, ok := annotations[constants.ManagedDRACelSelectorAnnotationKey]; ok {
+		hasNonEmpty := false
+		for _, line := range strings.Split(rawSelectors, "\n") {
+			if strings.TrimSpace(line) != "" {
+				hasNonEmpty = true
+				break
+			}
+		}
+		if !hasNonEmpty {
+			allErrs = append(allErrs, field.Invalid(
+				annotationsPath.Key(constants.ManagedDRACelSelectorAnnotationKey),
+				rawSelectors,
+				"cel selector must contain at least one non-empty CEL expression",
+			))
+		}
+	}
+
+	return allErrs
 }
