@@ -789,8 +789,8 @@ func TestMergeSpecs(t *testing.T) {
 					Model: v1alpha2.LLMModelSpec{
 						URI: apis.URL{Path: "base-model"},
 						LoRA: &v1alpha2.LoRASpec{
-							Adapters: []v1alpha2.LLMModelSpec{
-								{URI: apis.URL{Path: "lora-model"}},
+							Adapters: []v1alpha2.LoRAAdapterSpec{
+								{Name: "lora-model", URI: &apis.URL{Path: "lora-model"}},
 							},
 						},
 					},
@@ -798,8 +798,8 @@ func TestMergeSpecs(t *testing.T) {
 				{
 					Model: v1alpha2.LLMModelSpec{
 						LoRA: &v1alpha2.LoRASpec{
-							Adapters: []v1alpha2.LLMModelSpec{
-								{URI: apis.URL{Path: "lora-model2"}},
+							Adapters: []v1alpha2.LoRAAdapterSpec{
+								{Name: "lora-model2", URI: &apis.URL{Path: "lora-model2"}},
 							},
 						},
 					},
@@ -809,8 +809,8 @@ func TestMergeSpecs(t *testing.T) {
 				Model: v1alpha2.LLMModelSpec{
 					URI: apis.URL{Path: "base-model"},
 					LoRA: &v1alpha2.LoRASpec{
-						Adapters: []v1alpha2.LLMModelSpec{
-							{URI: apis.URL{Path: "lora-model2"}},
+						Adapters: []v1alpha2.LoRAAdapterSpec{
+							{Name: "lora-model2", URI: &apis.URL{Path: "lora-model2"}},
 						},
 					},
 				},
@@ -929,8 +929,8 @@ func TestMergeSpecs(t *testing.T) {
 						Name: ptr.To("base-name"),
 						// Criticality: ptr.To(igwapi.Sheddable),
 						LoRA: &v1alpha2.LoRASpec{
-							Adapters: []v1alpha2.LLMModelSpec{
-								{URI: apis.URL{Path: "lora-model"}},
+							Adapters: []v1alpha2.LoRAAdapterSpec{
+								{Name: "lora-model", URI: &apis.URL{Path: "lora-model"}},
 							},
 						},
 					},
@@ -951,8 +951,8 @@ func TestMergeSpecs(t *testing.T) {
 						Name: ptr.To("override-name"),
 						// Criticality: ptr.To(igwapi.Critical),
 						LoRA: &v1alpha2.LoRASpec{
-							Adapters: []v1alpha2.LLMModelSpec{
-								{URI: apis.URL{Path: "lora-model2"}},
+							Adapters: []v1alpha2.LoRAAdapterSpec{
+								{Name: "lora-model2", URI: &apis.URL{Path: "lora-model2"}},
 							},
 						},
 					},
@@ -977,8 +977,8 @@ func TestMergeSpecs(t *testing.T) {
 					Name: ptr.To("override-name"),      // Override name
 					// Criticality: ptr.To(igwapi.Critical),
 					LoRA: &v1alpha2.LoRASpec{
-						Adapters: []v1alpha2.LLMModelSpec{
-							{URI: apis.URL{Path: "lora-model2"}},
+						Adapters: []v1alpha2.LoRAAdapterSpec{
+							{Name: "lora-model2", URI: &apis.URL{Path: "lora-model2"}},
 						},
 					},
 				},

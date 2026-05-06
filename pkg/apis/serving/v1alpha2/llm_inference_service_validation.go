@@ -40,6 +40,9 @@ import (
 // variantCostPattern is compiled once at package init to avoid recompilation on every webhook call.
 var variantCostPattern = regexp.MustCompile(`^\d+(\.\d+)?$`)
 
+// adapterNamePattern validates LoRA adapter names: lowercase alphanumeric with internal hyphens.
+var adapterNamePattern = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
+
 // +kubebuilder:webhook:path=/validate-serving-kserve-io-v1alpha2-llminferenceservice,mutating=false,failurePolicy=fail,sideEffects=None,groups=serving.kserve.io,resources=llminferenceservices,verbs=create;update,versions=v1alpha2,name=llminferenceservice.kserve-webhook-server.v1alpha2.validator,admissionReviewVersions=v1
 
 // LLMInferenceServiceValidator is responsible for validating the LLMInferenceService resource
@@ -102,6 +105,7 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, l.validateScaling(llmSvc)...)
 
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
+	allErrs = append(allErrs, l.validateLoRA(llmSvc)...)
 
 	if len(allErrs) == 0 {
 		logger.V(2).Info("LLMInferenceService v1alpha2 is valid", "llmisvc", llmSvc)
@@ -584,6 +588,43 @@ func ValidateWorkloadScaling(basePath *field.Path, workload *WorkloadSpec) field
 	}
 
 	return allErrs
+}
+
+func (l *LLMInferenceServiceValidator) validateLoRA(llmSvc *LLMInferenceService) field.ErrorList {
+	var errs field.ErrorList
+	if llmSvc.Spec.Model.LoRA == nil {
+		return nil
+	}
+	seen := map[string]bool{}
+	preloadCount := 0
+	for i, adapter := range llmSvc.Spec.Model.LoRA.Adapters {
+		path := field.NewPath("spec", "model", "lora", "adapters").Index(i)
+		if adapter.Name == "" || !adapterNamePattern.MatchString(adapter.Name) {
+			errs = append(errs, field.Invalid(path.Child("name"), adapter.Name,
+				`name must match ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`))
+		}
+		if seen[adapter.Name] {
+			errs = append(errs, field.Duplicate(path.Child("name"), adapter.Name))
+		}
+		seen[adapter.Name] = true
+		if (adapter.URI == nil) == (adapter.Ref == nil) {
+			errs = append(errs, field.Invalid(path, adapter, "exactly one of uri or ref must be set"))
+		}
+		if adapter.LoadMode == LoRALoadModeDynamic {
+			errs = append(errs, field.NotSupported(path.Child("loadMode"),
+				adapter.LoadMode, []string{string(LoRALoadModePreload)}))
+		}
+		if !adapter.Disabled && (adapter.LoadMode == "" || adapter.LoadMode == LoRALoadModePreload) {
+			preloadCount++
+		}
+	}
+	if llmSvc.Spec.Model.LoRA.MaxAdapters != nil && int(*llmSvc.Spec.Model.LoRA.MaxAdapters) < preloadCount {
+		errs = append(errs, field.Invalid(
+			field.NewPath("spec", "model", "lora", "maxAdapters"),
+			*llmSvc.Spec.Model.LoRA.MaxAdapters,
+			"must be >= number of enabled Preload adapters"))
+	}
+	return errs
 }
 
 // immutableField returns a *Error indicating "unsupported mutation".

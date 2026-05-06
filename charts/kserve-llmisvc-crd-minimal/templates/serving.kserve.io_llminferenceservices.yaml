@@ -106,7 +106,53 @@ spec:
                   lora:
                     properties:
                       adapters:
-                        x-kubernetes-preserve-unknown-fields: true
+                        items:
+                          properties:
+                            disabled:
+                              type: boolean
+                            loadMode:
+                              default: Preload
+                              enum:
+                              - Preload
+                              - Dynamic
+                              type: string
+                            name:
+                              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                              type: string
+                            priority:
+                              format: int32
+                              type: integer
+                            ref:
+                              properties:
+                                name:
+                                  default: ""
+                                  type: string
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            uri:
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
+                      maxAdapters:
+                        format: int32
+                        type: integer
+                      maxRank:
+                        enum:
+                        - 8
+                        - 16
+                        - 32
+                        - 64
+                        - 128
+                        - 256
+                        - 320
+                        - 512
+                        format: int32
+                        type: integer
                     type: object
                   name:
                     type: string

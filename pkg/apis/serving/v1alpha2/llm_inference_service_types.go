@@ -163,16 +163,85 @@ type LLMModelSpec struct {
 	LoRA *LoRASpec `json:"lora,omitempty"`
 }
 
-// LoRASpec defines the configuration for LoRA adapters.
+// LoRASpec describes the LoRA adapter set served alongside the base model.
 type LoRASpec struct {
-	// Adapters is the static specification for one or more LoRA adapters.
-	// Each adapter is defined by its own ModelSpec.
+	// Adapters is the declarative set of LoRA adapters served by this
+	// LLMInferenceService. Each adapter is exposed under its Name in
+	// OpenAI-compatible APIs (the `model` field of /v1/chat/completions).
 	// +optional
-	// This type is recursive https://github.com/kubernetes-sigs/controller-tools/issues/585
-	// +kubebuilder:pruning:PreserveUnknownFields
-	// +kubebuilder:validation:Schemaless
-	Adapters []LLMModelSpec `json:"adapters,omitempty"`
+	// +listType=map
+	// +listMapKey=name
+	Adapters []LoRAAdapterSpec `json:"adapters,omitempty"`
+
+	// MaxAdapters is the maximum number of adapters that can be co-resident
+	// on GPU at once. Maps to vLLM --max-loras. Defaults to len(Adapters)
+	// capped at 16.
+	// +optional
+	MaxAdapters *int32 `json:"maxAdapters,omitempty"`
+
+	// MaxRank is the maximum LoRA rank accepted at load time. Maps to vLLM
+	// --max-lora-rank. Allowed values: 8,16,32,64,128,256,320,512.
+	// Defaults to 16.
+	// +optional
+	// +kubebuilder:validation:Enum=8;16;32;64;128;256;320;512
+	MaxRank *int32 `json:"maxRank,omitempty"`
 }
+
+// LoRAAdapterSpec is a single declared LoRA adapter.
+type LoRAAdapterSpec struct {
+	// Name uniquely identifies the adapter within this LLMInferenceService.
+	// Surfaced as the `model` field in OpenAI-compatible requests.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	Name string `json:"name"`
+
+	// URI is the source of the adapter weights. Supported schemes:
+	// hf://, s3://, gs://, oci://, pvc://.
+	// Exactly one of URI or Ref must be set.
+	// +optional
+	URI *apis.URL `json:"uri,omitempty"`
+
+	// Ref references a same-namespace ConfigMap or Secret that holds the URI
+	// and any auth (token, accessKey). Useful for rotating credentials
+	// independently of the LLMInferenceService spec.
+	// +optional
+	Ref *corev1.LocalObjectReference `json:"ref,omitempty"`
+
+	// LoadMode controls when the adapter is materialized:
+	//   Preload  — passed via vLLM --lora-modules at boot. Unloading
+	//              requires pod restart. Best for stable, high-traffic
+	//              adapters.
+	//   Dynamic  — loaded via POST /v1/load_lora_adapter after pod is
+	//              ready. Hot-swappable via PATCH on the LLMInferenceService.
+	//              [PR #1: only Preload is implemented; Dynamic is followup.]
+	// +optional
+	// +kubebuilder:validation:Enum=Preload;Dynamic
+	// +kubebuilder:default=Preload
+	LoadMode LoRALoadMode `json:"loadMode,omitempty"`
+
+	// Priority is a numeric priority surfaced as
+	// gateway.networking.k8s.io.InferenceObjective.Priority. Higher = more
+	// critical. Negative values opt the adapter into shedding under EPP
+	// pressure. Defaults to 0.
+	// +optional
+	Priority *int32 `json:"priority,omitempty"`
+
+	// Disabled prevents the controller from materializing or routing this
+	// adapter without removing it from the spec. Useful for staging.
+	// +optional
+	Disabled bool `json:"disabled,omitempty"`
+}
+
+// LoRALoadMode controls when a LoRA adapter is materialized on the serving pod.
+type LoRALoadMode string
+
+const (
+	// LoRALoadModePreload passes the adapter via vLLM --lora-modules at boot time.
+	LoRALoadModePreload LoRALoadMode = "Preload"
+	// LoRALoadModeDynamic loads the adapter via POST /v1/load_lora_adapter at runtime.
+	// Not implemented in PR #1 — validated and rejected until the followup PR ships.
+	LoRALoadModeDynamic LoRALoadMode = "Dynamic"
+)
 
 // StorageInitializerSpec defines the configuration for the storage initializer.
 // The storage initializer is an initContainer responsible for downloading model artifacts

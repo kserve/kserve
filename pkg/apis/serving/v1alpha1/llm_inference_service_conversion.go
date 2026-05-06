@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"encoding/json"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 	igwapiv1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
@@ -32,7 +33,26 @@ const (
 	ModelCriticalityAnnotationKey = "internal.serving.kserve.io/model-criticality"
 	// LoRACriticalitiesAnnotationKey stores LoRA adapter criticalities as JSON when converting to v1alpha2.
 	LoRACriticalitiesAnnotationKey = "internal.serving.kserve.io/lora-criticalities"
+	// LoRAExtrasAnnotationKey stores v1alpha2-only LoRA fields (LoadMode, Priority, Disabled, Ref,
+	// MaxAdapters, MaxRank) as JSON so they survive a v1alpha2→v1alpha1→v1alpha2 round-trip.
+	LoRAExtrasAnnotationKey = "internal.serving.kserve.io/lora-extras"
 )
+
+// loraExtras is the JSON payload stored in LoRAExtrasAnnotationKey.
+type loraExtras struct {
+	MaxAdapters *int32                    `json:"maxAdapters,omitempty"`
+	MaxRank     *int32                    `json:"maxRank,omitempty"`
+	Adapters    map[int]loraAdapterExtras `json:"adapters,omitempty"`
+}
+
+// loraAdapterExtras holds v1alpha2-only per-adapter fields that have no v1alpha1 equivalent.
+type loraAdapterExtras struct {
+	LoadMode v1alpha2.LoRALoadMode `json:"loadMode,omitempty"`
+	Priority *int32                `json:"priority,omitempty"`
+	Disabled bool                  `json:"disabled,omitempty"`
+	// RefName is the Name of the corev1.LocalObjectReference stored in LoRAAdapterSpec.Ref.
+	RefName string `json:"refName,omitempty"`
+}
 
 // Compile-time interface compliance checks.
 var (
@@ -53,6 +73,10 @@ func (src *LLMInferenceService) ConvertTo(dstRaw conversion.Hub) error {
 	// Spec conversion
 	dst.Spec = convertSpecToV1Alpha2(&src.Spec)
 
+	// Restore v1alpha2-only LoRA fields from annotation (present when this object
+	// was previously downgraded v1alpha2 → v1alpha1 and is now being promoted back).
+	restoreLoRAExtrasFromAnnotations(&dst.ObjectMeta, dst.Spec.Model.LoRA)
+
 	// Status conversion
 	dst.Status = v1alpha2.LLMInferenceServiceStatus{
 		URL:           src.Status.URL,
@@ -69,6 +93,9 @@ func (dst *LLMInferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 
 	// ObjectMeta
 	dst.ObjectMeta = src.ObjectMeta
+
+	// Save v1alpha2-only LoRA fields to annotation before losing them in the downgrade.
+	saveLoRAExtrasToAnnotations(&dst.ObjectMeta, src.Spec.Model.LoRA)
 
 	// Spec conversion
 	dst.Spec = convertSpecFromV1Alpha2(&src.Spec)
@@ -99,6 +126,9 @@ func (src *LLMInferenceServiceConfig) ConvertTo(dstRaw conversion.Hub) error {
 	// Spec conversion
 	dst.Spec = convertSpecToV1Alpha2(&src.Spec)
 
+	// Restore v1alpha2-only LoRA fields from annotation.
+	restoreLoRAExtrasFromAnnotations(&dst.ObjectMeta, dst.Spec.Model.LoRA)
+
 	return nil
 }
 
@@ -108,6 +138,9 @@ func (dst *LLMInferenceServiceConfig) ConvertFrom(srcRaw conversion.Hub) error {
 
 	// ObjectMeta
 	dst.ObjectMeta = src.ObjectMeta
+
+	// Save v1alpha2-only LoRA fields to annotation before losing them in the downgrade.
+	saveLoRAExtrasToAnnotations(&dst.ObjectMeta, src.Spec.Model.LoRA)
 
 	// Spec conversion
 	dst.Spec = convertSpecFromV1Alpha2(&src.Spec)
@@ -280,10 +313,19 @@ func convertLoRASpecToV1Alpha2(src *LoRASpec) *v1alpha2.LoRASpec {
 	}
 
 	dst := &v1alpha2.LoRASpec{}
-	for _, adapter := range src.Adapters {
-		dst.Adapters = append(dst.Adapters, convertModelSpecToV1Alpha2(&adapter))
+	for i := range src.Adapters {
+		a := &src.Adapters[i]
+		uri := a.URI // copy value so we can safely take its address
+		adapted := v1alpha2.LoRAAdapterSpec{
+			URI: &uri,
+		}
+		if a.Name != nil {
+			adapted.Name = *a.Name
+		}
+		dst.Adapters = append(dst.Adapters, adapted)
 	}
-
+	// MaxAdapters and MaxRank are v1alpha2-only; they are restored from the
+	// LoRAExtrasAnnotationKey annotation in restoreLoRAExtrasFromAnnotations.
 	return dst
 }
 
@@ -293,10 +335,19 @@ func convertLoRASpecFromV1Alpha2(src *v1alpha2.LoRASpec) *LoRASpec {
 	}
 
 	dst := &LoRASpec{}
-	for _, adapter := range src.Adapters {
-		dst.Adapters = append(dst.Adapters, convertModelSpecFromV1Alpha2(&adapter))
+	for i := range src.Adapters {
+		a := &src.Adapters[i]
+		name := a.Name
+		adapted := LLMModelSpec{
+			Name: &name,
+		}
+		if a.URI != nil {
+			adapted.URI = *a.URI
+		}
+		// LoadMode, Priority, Disabled, Ref, MaxAdapters, MaxRank are saved to
+		// LoRAExtrasAnnotationKey in saveLoRAExtrasToAnnotations before this runs.
+		dst.Adapters = append(dst.Adapters, adapted)
 	}
-
 	return dst
 }
 
@@ -520,6 +571,81 @@ func convertInferencePoolSpecFromV1(src *igwapiv1.InferencePoolSpec) *igwapiv1al
 	}
 
 	return &dstPool.Spec
+}
+
+// saveLoRAExtrasToAnnotations serialises v1alpha2-only LoRA fields into LoRAExtrasAnnotationKey
+// so they survive a v1alpha2→v1alpha1 downgrade. Called during ConvertFrom.
+func saveLoRAExtrasToAnnotations(meta *metav1.ObjectMeta, lora *v1alpha2.LoRASpec) {
+	if lora == nil {
+		return
+	}
+	extras := loraExtras{
+		MaxAdapters: lora.MaxAdapters,
+		MaxRank:     lora.MaxRank,
+	}
+	hasExtras := extras.MaxAdapters != nil || extras.MaxRank != nil
+	for i, adapter := range lora.Adapters {
+		e := loraAdapterExtras{
+			LoadMode: adapter.LoadMode,
+			Priority: adapter.Priority,
+			Disabled: adapter.Disabled,
+		}
+		if adapter.Ref != nil {
+			e.RefName = adapter.Ref.Name
+		}
+		if e.LoadMode != "" || e.Priority != nil || e.Disabled || e.RefName != "" {
+			if extras.Adapters == nil {
+				extras.Adapters = make(map[int]loraAdapterExtras)
+			}
+			extras.Adapters[i] = e
+			hasExtras = true
+		}
+	}
+	if !hasExtras {
+		return
+	}
+	data, err := json.Marshal(extras)
+	if err != nil {
+		return
+	}
+	if meta.Annotations == nil {
+		meta.Annotations = make(map[string]string)
+	}
+	meta.Annotations[LoRAExtrasAnnotationKey] = string(data)
+}
+
+// restoreLoRAExtrasFromAnnotations reads LoRAExtrasAnnotationKey and applies the stored
+// v1alpha2-only fields back onto the LoRASpec after conversion. Called during ConvertTo.
+func restoreLoRAExtrasFromAnnotations(meta *metav1.ObjectMeta, lora *v1alpha2.LoRASpec) {
+	if meta.Annotations == nil || lora == nil {
+		return
+	}
+	extrasData, ok := meta.Annotations[LoRAExtrasAnnotationKey]
+	if !ok || extrasData == "" {
+		return
+	}
+	var extras loraExtras
+	if err := json.Unmarshal([]byte(extrasData), &extras); err != nil {
+		return
+	}
+	lora.MaxAdapters = extras.MaxAdapters
+	lora.MaxRank = extras.MaxRank
+	for i := range lora.Adapters {
+		if e, ok := extras.Adapters[i]; ok {
+			lora.Adapters[i].LoadMode = e.LoadMode
+			lora.Adapters[i].Priority = e.Priority
+			lora.Adapters[i].Disabled = e.Disabled
+			if e.RefName != "" {
+				lora.Adapters[i].Ref = &corev1.LocalObjectReference{Name: e.RefName}
+				// Ref and URI are mutually exclusive; clear URI when restoring a Ref.
+				lora.Adapters[i].URI = nil
+			}
+		}
+	}
+	delete(meta.Annotations, LoRAExtrasAnnotationKey)
+	if len(meta.Annotations) == 0 {
+		meta.Annotations = nil
+	}
 }
 
 // saveCriticalityToAnnotations stores criticality values in annotations to prevent data loss
