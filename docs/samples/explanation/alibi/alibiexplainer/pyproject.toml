@@ -1,48 +1,47 @@
-[tool.poetry]
+[project]
 name = "alibiexplainer"
 version = "0.18.0"
 description = "Model Explanation Server. Not intended for use outside KServe Frameworks Images."
-authors = ["cliveseldon <cc@seldon.io>"]
-license = "https://github.com/kserve/kserve/blob/master/LICENSE"
 readme = "README.md"
-packages = [
-    { include = "alibiexplainer" },
+requires-python = ">=3.10,<=3.12"
+license = { text = "Apache-2.0" }
+authors = [{ name = "cliveseldon", email = "cc@seldon.io" }]
+dependencies = [
+    "kserve",
+    "kserve-storage",
+    # From 0.9.5 alibi uses BSL license (removed tensorflow extra for newer tensorflow stacks)
+    "alibi[shap]>=0.9.4,<0.10",
+    "tensorflow>=2.15",
+    "dill>=0.3.8,<0.4",
+    "nest-asyncio>=1.4.0,<1.5",
+    # needed since resolvers may pick an older llvmlite not supported on newer Python
+    "llvmlite>0.38.1",
+    "tensorflow-io-gcs-filesystem==0.37.1",
+    "keras>=3.12.0",
+    "urllib3>=2.6.0",
+    "transformers>=4.53.0",
 ]
 
-[tool.poetry.dependencies]
-python = ">=3.10,<=3.12"
-kserve = { path = "../../../../../python/kserve", develop = true }
-kserve-storage = { path = "../../../../../python/storage", develop = true }
-alibi = { version = "^0.9.4", extras = ["shap"] } # From 0.9.5 alibi uses BSL license (removed tensorflow extra to allow newer tensorflow/protobuf)
-tensorflow = ">=2.15"  # version that supports protobuf 5.x and python 3.9
-protobuf = "^5.27.1"  # Override to match kserve's requirement
-dill = "^0.3.8"
-nest-asyncio = "~1.4.0"
-llvmlite = ">0.38.1" # needed since poetry chooses lower version of llvmlite which is not supported by python 3.9 above
-tensorflow-io-gcs-filesystem = "0.37.1"
-keras = ">=3.12.0"
-urllib3 = ">=2.6.0"
-transformers = ">=4.53.0"
+[project.urls]
+repository = "https://github.com/kserve/kserve/tree/master/docs/samples/explanation/alibi/alibiexplainer"
 
-[tool.poetry.group.test]
-optional = true
+[dependency-groups]
+test = [
+    "pytest>=7.2.0,<8.0.0",
+    "pytest-cov>=4.0.0,<5.0.0",
+    "mypy>=0.991,<1.0",
+]
+dev = [
+    "black[colorama]>=24.3.0,<24.4",
+]
 
-[tool.poetry.group.test.dependencies]
-pytest = "^7.2.0"
-pytest-cov = "^4.0.0"
-mypy = "^0.991"
-sklearnserver = { path = "../../../../../python/sklearnserver", develop = true }
-
-[tool.poetry.group.dev]
-optional = true
-
-[tool.poetry.group.dev.dependencies]
-black = { version = "~24.3.0", extras = ["colorama"] }
-
-[tool.poetry-version-plugin]
-source = "file"
-file_path = "../../../../../python/VERSION"
+[tool.uv.sources]
+kserve = { path = "../../../../../python/kserve", editable = true }
+kserve-storage = { path = "../../../../../python/storage", editable = true }
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling>=1.18.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["alibiexplainer"]
