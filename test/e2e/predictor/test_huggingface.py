@@ -251,7 +251,7 @@ def test_huggingface_openai_text_completion_streaming():
 
 @pytest.mark.llm
 @pytest.mark.asyncio(scope="session")
-async def test_huggingface_v2_sequence_classification(rest_v2_client):
+async def test_huggingface_v2_sequence_classification(rest_v2_client, network_layer):
     service_name = "hf-bert-sequence-v2"
     protocol_version = "v2"
     predictor = V1beta1PredictorSpec(
@@ -297,6 +297,7 @@ async def test_huggingface_v2_sequence_classification(rest_v2_client):
         rest_v2_client,
         service_name,
         "./data/bert_sequence_classification_v2.json",
+        network_layer=network_layer,
     )
     assert res.outputs[0].data == [1]
 
@@ -305,7 +306,7 @@ async def test_huggingface_v2_sequence_classification(rest_v2_client):
 
 @pytest.mark.llm
 @pytest.mark.asyncio(scope="session")
-async def test_huggingface_v1_fill_mask(rest_v1_client):
+async def test_huggingface_v1_fill_mask(rest_v1_client, network_layer):
     service_name = "hf-bert-fill-mask-v1"
     protocol_version = "v1"
     predictor = V1beta1PredictorSpec(
@@ -345,6 +346,7 @@ async def test_huggingface_v1_fill_mask(rest_v1_client):
         rest_v1_client,
         service_name,
         "./data/bert_fill_mask_v1.json",
+        network_layer=network_layer,
     )
     assert res["predictions"] == ["paris", "france"]
 
@@ -353,7 +355,7 @@ async def test_huggingface_v1_fill_mask(rest_v1_client):
 
 @pytest.mark.llm
 @pytest.mark.asyncio(scope="session")
-async def test_huggingface_v2_token_classification(rest_v2_client):
+async def test_huggingface_v2_token_classification(rest_v2_client, network_layer):
     service_name = "hf-bert-token-classification-v2"
     protocol_version = "v2"
     predictor = V1beta1PredictorSpec(
@@ -400,6 +402,7 @@ async def test_huggingface_v2_token_classification(rest_v2_client):
         rest_v2_client,
         service_name,
         "./data/bert_token_classification_v2.json",
+        network_layer=network_layer,
     )
     assert res.outputs[0].data == [0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
@@ -455,7 +458,7 @@ def test_huggingface_openai_text_2_text():
 
 @pytest.mark.llm
 @pytest.mark.asyncio(scope="session")
-async def test_huggingface_v2_text_embedding(rest_v2_client):
+async def test_huggingface_v2_text_embedding(rest_v2_client, network_layer):
     service_name = "hf-text-embedding-v2"
     protocol_version = "v2"
     predictor = V1beta1PredictorSpec(
@@ -502,7 +505,10 @@ async def test_huggingface_v2_text_embedding(rest_v2_client):
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     res = await predict_isvc(
-        rest_v2_client, service_name, "./data/text_embedding_input_v2.json"
+        rest_v2_client,
+        service_name,
+        "./data/text_embedding_input_v2.json",
+        network_layer=network_layer,
     )
     assert res.outputs[0].data == huggingface_text_embedding_expected_output
 
@@ -578,6 +584,7 @@ async def test_huggingface_openai_text_embedding():
 @pytest.mark.asyncio(scope="session")
 async def test_huggingface_v2_sequence_classification_with_raw_logits(
     rest_v2_client,
+    network_layer,
 ):
     service_name = "hf-bert-sequence-v2-prob"
     protocol_version = "v2"
@@ -625,6 +632,7 @@ async def test_huggingface_v2_sequence_classification_with_raw_logits(
         rest_v2_client,
         service_name,
         "./data/bert_sequence_classification_v2.json",
+        network_layer=network_layer,
     )
 
     result = res.outputs[0].data[0]
@@ -645,6 +653,7 @@ async def test_huggingface_v2_sequence_classification_with_raw_logits(
 @pytest.mark.asyncio(scope="session")
 async def test_huggingface_v2_sequence_classification_with_probabilities(
     rest_v2_client,
+    network_layer,
 ):
     service_name = "hf-bert-sequence-v2-logits"
     protocol_version = "v2"
@@ -692,6 +701,7 @@ async def test_huggingface_v2_sequence_classification_with_probabilities(
         rest_v2_client,
         service_name,
         "./data/bert_sequence_classification_v2.json",
+        network_layer=network_layer,
     )
     output = ast.literal_eval(res.outputs[0].data[0])
     assert output == {0: 0.0094, 1: 0.9906}
