@@ -651,7 +651,7 @@ OPENTELEMETRY_OPERATOR_VERSION=0.74.3
 LWS_VERSION=v0.8.0
 GATEWAY_API_VERSION=v1.4.1
 GIE_VERSION=v1.3.1
-WVA_VERSION=v0.6.0
+WVA_VERSION=v0.7.0
 
 #================================================
 # Global Variables (from global-vars.env)
