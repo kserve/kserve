@@ -820,8 +820,43 @@ EOF
 
     kubectl wait certificate prometheus-tls -n "${PROMETHEUS_NAMESPACE}" --for=condition=Ready --timeout=60s
 
+    local values_file
+    values_file="$(mktemp)"
+    cat > "${values_file}" <<'VALUES_EOF'
+prometheus:
+  prometheusSpec:
+    additionalScrapeConfigs:
+      - job_name: kubernetes-pods-annotation
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: "true"
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: $1:$2
+            target_label: __address__
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scheme]
+            action: replace
+            target_label: __scheme__
+            regex: (.+)
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: pod
+VALUES_EOF
+
     log_info "Installing kube-prometheus-stack ${PROMETHEUS_VERSION}..."
     helm install "${PROMETHEUS_RELEASE_NAME}" prometheus-community/kube-prometheus-stack \
+        --values "${values_file}" \
         --namespace "${PROMETHEUS_NAMESPACE}" \
         --create-namespace \
         --version "${PROMETHEUS_VERSION}" \
@@ -829,6 +864,8 @@ EOF
         --set alertmanager.enabled=false \
         --set nodeExporter.enabled=false \
         --set kubeStateMetrics.enabled=false \
+        --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false \
+        --set prometheus.prometheusSpec.podMonitorSelectorNilUsesHelmValues=false \
         --set prometheus.prometheusSpec.resources.requests.cpu=50m \
         --set prometheus.prometheusSpec.resources.requests.memory=256Mi \
         --set prometheus.prometheusSpec.resources.limits.cpu=200m \
@@ -840,6 +877,8 @@ EOF
         --wait \
         --timeout 10m \
         ${PROMETHEUS_EXTRA_ARGS:-}
+
+    rm -f "${values_file}"
 
     log_success "Successfully installed kube-prometheus-stack ${PROMETHEUS_VERSION} via Helm"
 
