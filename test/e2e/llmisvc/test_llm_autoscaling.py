@@ -82,6 +82,9 @@ HPA_GROUP = "autoscaling"
 HPA_VERSION = "v2"
 HPA_PLURAL = "horizontalpodautoscalers"
 
+PROMETHEUS_NAMESPACE = os.environ.get("PROMETHEUS_NAMESPACE", "monitoring")
+KEDA_NAMESPACE = os.environ.get("KEDA_NAMESPACE", "keda")
+
 
 def _get_custom_resource(group, version, plural, name, namespace):
     """Fetch a custom resource, return the object or None if 404."""
@@ -321,7 +324,7 @@ def assert_metrics_pipeline_ready(actuator="hpa"):
     if actuator == "hpa":
         v1 = client.CoreV1Api()
         pods = v1.list_namespaced_pod(
-            namespace="monitoring",
+            namespace=PROMETHEUS_NAMESPACE,
             label_selector="app.kubernetes.io/name=prometheus-adapter",
         )
         running = [p for p in pods.items if p.status.phase == "Running"]
@@ -329,7 +332,7 @@ def assert_metrics_pipeline_ready(actuator="hpa"):
     elif actuator == "keda":
         v1 = client.CoreV1Api()
         pods = v1.list_namespaced_pod(
-            namespace="keda",
+            namespace=KEDA_NAMESPACE,
             label_selector="app.kubernetes.io/name=keda-operator",
         )
         running = [p for p in pods.items if p.status.phase == "Running"]
@@ -397,16 +400,20 @@ def assert_scaled_object_active(service_name, namespace=KSERVE_TEST_NAMESPACE):
 
 
 def assert_lws_replicas(service_name, min_replicas, namespace=KSERVE_TEST_NAMESPACE):
-    """Verify LeaderWorkerSet status reflects scale-up."""
-    api = client.CustomObjectsApi()
+    """Verify LeaderWorkerSet status reflects scale-up (polls for up to 60s)."""
     lws_name = _child_name(service_name, "-kserve-mn")
-    lws = api.get_namespaced_custom_object(
-        "leaderworkerset.x-k8s.io", "v1", namespace, "leaderworkersets", lws_name
-    )
-    actual = lws.get("status", {}).get("replicas", 0)
-    assert actual >= min_replicas, (
-        f"LWS {lws_name} replicas={actual}, expected >= {min_replicas}"
-    )
+
+    def _check():
+        api = client.CustomObjectsApi()
+        lws = api.get_namespaced_custom_object(
+            "leaderworkerset.x-k8s.io", "v1", namespace, "leaderworkersets", lws_name
+        )
+        actual = lws.get("status", {}).get("replicas", 0)
+        assert actual >= min_replicas, (
+            f"LWS {lws_name} replicas={actual}, expected >= {min_replicas}"
+        )
+
+    wait_for(_check, timeout=60, interval=5.0)
 
 
 # --- Common test lifecycle ---
