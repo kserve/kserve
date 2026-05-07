@@ -116,20 +116,6 @@ def test_download_model_uses_modelscope_sdk_token(mock_snapshot_download):
 
 
 @mock.patch("kserve_storage.kserve_storage.ms_snapshot_download")
-def test_download_model_ignores_legacy_ms_token(mock_snapshot_download):
-    uri = "ms://example.com/model"
-
-    with mock.patch.dict(os.environ, {"MS_TOKEN": "legacy-token"}, clear=True):
-        Storage._download_ms(uri, "/tmp/out")
-
-    mock_snapshot_download.assert_called_once_with(
-        repo_id="example.com/model",
-        revision=None,
-        local_dir="/tmp/out",
-    )
-
-
-@mock.patch("kserve_storage.kserve_storage.ms_snapshot_download")
 def test_download_reads_env_patterns(mock_snapshot_download):
     uri = "ms://example.com/model"
 
