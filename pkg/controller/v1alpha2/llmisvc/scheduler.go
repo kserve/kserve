@@ -76,6 +76,9 @@ func (r *LLMISVCReconciler) reconcileScheduler(ctx context.Context, llmSvc *v1al
 	if err := r.reconcileSchedulerInferencePool(ctx, llmSvc); err != nil {
 		return err
 	}
+	if err := r.reconcileSchedulerInferenceObjective(ctx, llmSvc); err != nil {
+		return err
+	}
 
 	if utils.GetForceStopRuntime(llmSvc) {
 		llmSvc.MarkInferencePoolNotReady("Stopped", "Service is stopped")
@@ -1415,6 +1418,75 @@ func semanticClusterRoleBindingIsEqual(expected *rbacv1.ClusterRoleBinding, curr
 func semanticRoleBindingIsEqual(expected *rbacv1.RoleBinding, curr *rbacv1.RoleBinding) bool {
 	return equality.Semantic.DeepDerivative(expected.Subjects, curr.Subjects) &&
 		equality.Semantic.DeepDerivative(expected.RoleRef, curr.RoleRef) &&
+		equality.Semantic.DeepDerivative(expected.Labels, curr.Labels) &&
+		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
+}
+
+func (r *LLMISVCReconciler) reconcileSchedulerInferenceObjective(
+	ctx context.Context, llmSvc *v1alpha2.LLMInferenceService,
+) error {
+	poolName := kmeta.ChildName(llmSvc.GetName(), "-inference-pool")
+
+	desired := map[string]*igwapiv1alpha2.InferenceObjective{}
+	if !utils.GetForceStopRuntime(llmSvc) && llmSvc.Spec.Model.LoRA != nil {
+		for i := range llmSvc.Spec.Model.LoRA.Adapters {
+			adapter := &llmSvc.Spec.Model.LoRA.Adapters[i]
+			if adapter.Disabled {
+				continue
+			}
+			prio := 0
+			if adapter.Priority != nil {
+				prio = int(*adapter.Priority)
+			}
+			name := kmeta.ChildName(llmSvc.Name, "-adapter-"+adapter.Name)
+			desired[name] = &igwapiv1alpha2.InferenceObjective{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: llmSvc.Namespace,
+					OwnerReferences: []metav1.OwnerReference{
+						*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
+					},
+				},
+				Spec: igwapiv1alpha2.InferenceObjectiveSpec{
+					Priority: &prio,
+					PoolRef: igwapiv1alpha2.PoolObjectReference{
+						Name: igwapiv1alpha2.ObjectName(poolName),
+					},
+				},
+			}
+		}
+	}
+
+	for _, exp := range desired {
+		if err := Reconcile(ctx, r, llmSvc,
+			&igwapiv1alpha2.InferenceObjective{},
+			exp,
+			semanticInferenceObjectiveIsEqual,
+		); err != nil {
+			return err
+		}
+	}
+
+	var existing igwapiv1alpha2.InferenceObjectiveList
+	if err := r.List(ctx, &existing, client.InNamespace(llmSvc.Namespace)); err != nil {
+		return err
+	}
+	for i := range existing.Items {
+		item := &existing.Items[i]
+		if !metav1.IsControlledBy(item, llmSvc) {
+			continue
+		}
+		if _, keep := desired[item.Name]; !keep {
+			if err := Delete(ctx, r, llmSvc, item); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func semanticInferenceObjectiveIsEqual(expected *igwapiv1alpha2.InferenceObjective, curr *igwapiv1alpha2.InferenceObjective) bool {
+	return equality.Semantic.DeepDerivative(expected.Spec, curr.Spec) &&
 		equality.Semantic.DeepDerivative(expected.Labels, curr.Labels) &&
 		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
 }

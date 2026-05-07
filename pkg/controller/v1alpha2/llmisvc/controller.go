@@ -291,6 +291,9 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), igwapiv1alpha2.GroupVersion.String(), "InferencePool"); ok && err == nil {
 		b = b.Owns(&igwapiv1alpha2.InferencePool{}, builder.WithPredicates(childResourcesPredicate))
 	}
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), igwapiv1alpha2.GroupVersion.String(), "InferenceObjective"); ok && err == nil {
+		b = b.Owns(&igwapiv1alpha2.InferenceObjective{}, builder.WithPredicates(childResourcesPredicate))
+	}
 
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), wvav1alpha1.GroupVersion.String(), "VariantAutoscaling"); ok && err == nil {
 		b = b.Owns(&wvav1alpha1.VariantAutoscaling{}, builder.WithPredicates(childResourcesPredicate))
