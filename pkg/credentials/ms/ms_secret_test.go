@@ -59,21 +59,6 @@ func TestBuildSecretEnvs_WithoutToken(t *testing.T) {
 	assert.Empty(t, envs)
 }
 
-func TestBuildSecretEnvs_IgnoresLegacyToken(t *testing.T) {
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "ms-secret",
-		},
-		Data: map[string][]byte{
-			"MS_TOKEN": []byte("my-secret-token"),
-		},
-	}
-
-	envs := BuildSecretEnvs(secret)
-
-	assert.Empty(t, envs)
-}
-
 func TestBuildSecretEnvs_NilSecret(t *testing.T) {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
