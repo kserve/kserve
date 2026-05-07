@@ -1,5 +1,6 @@
-# This Github workflow will check every hour for PRs with the lgtm label and will attempt to automatically merge them.
-# If the hold label is present, it will block automatic merging.
+# This workflow checks every 10 minutes for open PRs with the lgtm label and
+# squash-merges them, provided they also have at least one approved review
+# (/approve checks the approvers role in OWNERS) and no hold label.
 
 name: "Prow merge on lgtm label"
 on:
@@ -10,8 +11,43 @@ jobs:
   auto-merge:
     runs-on: ubuntu-latest
     steps:
-      - uses: jpmcb/prow-github-actions@c44ac3a57d67639e39e4a4988b52049ef45b80dd # v2.0.0
+      - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         with:
-          jobs: 'lgtm'
-          github-token: "${{ secrets.GITHUB_TOKEN }}"
-          merge-method: 'squash'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const yaml = require('js-yaml');
+            const { owner, repo } = context.repo;
+
+            // Load approvers from the OWNERS file
+            const { data: ownersFile } = await github.rest.repos.getContent({ owner, repo, path: 'OWNERS' });
+            const owners = yaml.load(Buffer.from(ownersFile.content, 'base64').toString());
+            const approvers = (owners.approvers || []).map(a => a.toLowerCase());
+
+            const prs = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, state: 'open', labels: 'lgtm',
+            });
+
+            for (const issue of prs) {
+              if (!issue.pull_request) continue;
+              if (issue.labels.some(l => l.name === 'hold')) continue;
+
+              const { data: reviews } = await github.rest.pulls.listReviews({
+                owner, repo, pull_number: issue.number,
+              });
+              const approvedByApprover = reviews.some(
+                r => r.state === 'APPROVED' && approvers.includes(r.user.login.toLowerCase())
+              );
+              if (!approvedByApprover) {
+                core.info(`PR #${issue.number} has lgtm but no approved review from an OWNERS approver, skipping`);
+                continue;
+              }
+
+              try {
+                await github.rest.pulls.merge({
+                  owner, repo, pull_number: issue.number, merge_method: 'squash',
+                });
+                core.info(`Merged PR #${issue.number}`);
+              } catch (e) {
+                core.warning(`Could not merge PR #${issue.number}: ${e.message}`);
+              }
+            }
