@@ -177,11 +177,11 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 }
 
 func pickupRoute(routes []v1alpha1.InferenceStep) *v1alpha1.InferenceStep {
-	randomNumber, err := rand.Int(rand.Reader, big.NewInt(101))
+	randomNumber, err := rand.Int(rand.Reader, big.NewInt(100))
 	if err != nil {
 		panic(err)
 	}
-	// generate num [0,100)
+	// generate num [0, 100)
 	point := int(randomNumber.Int64())
 	end := 0
 	for _, route := range routes {

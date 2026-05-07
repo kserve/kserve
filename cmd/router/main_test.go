@@ -908,6 +908,44 @@ func TestCallServiceWhenMultipleHeadersToPropagateUsingInvalidPattern(t *testing
 	require.Equal(t, expectedResponse, response)
 }
 
+func TestPickupRouteAlwaysReturnsRoute(t *testing.T) {
+	weight40 := int64(40)
+	weight60 := int64(60)
+	routes := []v1alpha1.InferenceStep{
+		{
+			StepName: "route1",
+			Weight:   &weight40,
+		},
+		{
+			StepName: "route2",
+			Weight:   &weight60,
+		},
+	}
+	// Run many iterations to ensure pickupRoute never returns nil.
+	// Before the fix (big.NewInt(101)), the random value 100 would cause a nil return
+	// approximately 1% of the time.
+	for i := 0; i < 1000; i++ {
+		route := pickupRoute(routes)
+		require.NotNilf(t, route, "pickupRoute returned nil on iteration %d", i)
+		assert.Contains(t, []string{"route1", "route2"}, route.StepName)
+	}
+}
+
+func TestPickupRouteSingleRoute(t *testing.T) {
+	weight100 := int64(100)
+	routes := []v1alpha1.InferenceStep{
+		{
+			StepName: "only-route",
+			Weight:   &weight100,
+		},
+	}
+	for i := 0; i < 200; i++ {
+		route := pickupRoute(routes)
+		require.NotNilf(t, route, "pickupRoute returned nil on iteration %d", i)
+		assert.Equal(t, "only-route", route.StepName)
+	}
+}
+
 func TestServerTimeout(t *testing.T) {
 	testCases := []struct {
 		name                string
