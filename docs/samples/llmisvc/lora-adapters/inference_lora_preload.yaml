@@ -1,0 +1,80 @@
+# Demonstrates declarative Preload LoRA adapter management for LLMInferenceService.
+#
+# The KServe controller will:
+#   1. Render --enable-lora / --lora-modules flags into the vLLM startup command.
+#   2. Add one "adapter-fetch-<name>" init container per adapter that downloads
+#      weights into /mnt/loras/<name> using the KServe storage initializer.
+#   3. Create one InferenceObjective per adapter for GIE EPP LoRA-affinity routing.
+#
+# Prerequisites:
+#   - KServe LLMInferenceService controller installed.
+#   - gateway-api-inference-extension (GIE) installed for InferenceObjective routing.
+#   - A node with sufficient GPU memory for the base model + all adapters.
+#   - HF_TOKEN secret/env for gated models (opt-125m is public, no token needed).
+#
+# Replace the adapter URIs with your actual adapter locations.
+# Adapter names must be valid DNS label segments: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+#
+# Tracking issue: https://github.com/kserve/kserve/issues/3750
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceService
+metadata:
+  name: opt-125m-with-lora
+  namespace: kserve-demo
+spec:
+  model:
+    # Public Hugging Face model — no token required.
+    uri: hf://facebook/opt-125m
+    name: facebook/opt-125m
+
+    lora:
+      # Maximum number of adapters co-resident on GPU.
+      # Defaults to len(adapters) when omitted.
+      maxAdapters: 4
+
+      # Maximum LoRA rank. Must be one of: 8, 16, 32, 64, 128, 256, 320, 512.
+      # Defaults to 16 when omitted.
+      maxRank: 16
+
+      adapters:
+        # Adapter "customer-a": a fine-tune of opt-125m for customer A.
+        # Replace with your adapter's actual URI.
+        - name: customer-a
+          uri: hf://your-org/opt-125m-customer-a-lora
+          # loadMode: Preload  # default; omit unless explicitly needed
+
+        # Adapter "customer-b": fine-tune for customer B, with a higher
+        # EPP scheduling priority (positive = less likely to be shed under load).
+        - name: customer-b
+          uri: hf://your-org/opt-125m-customer-b-lora
+          priority: 10
+
+        # Adapter "staging": staged for testing; set disabled: true to
+        # skip init container + InferenceObjective without removing from spec.
+        - name: staging
+          uri: hf://your-org/opt-125m-staging-lora
+          disabled: true
+
+  replicas: 1
+
+  router:
+    # Managed scheduler (GIE EPP) — handles LoRA-affinity routing.
+    scheduler: {}
+    route: {}
+    gateway: {}
+
+  template:
+    containers:
+      - name: main
+        # Replace with your vLLM image.
+        image: public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0
+        env:
+          - name: VLLM_LOGGING_LEVEL
+            value: INFO
+        resources:
+          limits:
+            cpu: "4"
+            memory: 16Gi
+          requests:
+            cpu: "1"
+            memory: 8Gi
