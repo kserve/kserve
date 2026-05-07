@@ -16,6 +16,8 @@ dependencies = [
     "boto3<2.0.0,>=1.29.0",
     "huggingface-hub[hf-transfer]>=0.32.0",
     "hf-xet>=1.5.0",
+    # Lightweight ModelScope download-only SDK (4 runtime deps), analogous to huggingface-hub.
+    "modelscope-hub>=0.1.4",
     # CVE-2026-42563 Dulwich arbitrary code execution via malicious Git file paths during merge
     # CVE-2026-42305 Dulwich remote code execution via malicious Git repository (Windows path validation)
     "dulwich>=1.2.5",
