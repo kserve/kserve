@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	MSTokenKey = "MODELSCOPE_SDK_TOKEN"
+	MSTokenKey = "MODELSCOPE_SDK_TOKEN" //nolint:gosec // G101: this is an env var key name, not a credential value // #nosec G101
 )
 
 func BuildSecretEnvs(secret *corev1.Secret) []corev1.EnvVar {
