@@ -126,6 +126,7 @@ func (h *HTTPSDownloader) Download(client http.Client) error {
 		if err != nil {
 			return err
 		}
+		defer file.Close()
 		if _, err = io.Copy(file, resp.Body); err != nil {
 			return fmt.Errorf("unable to copy file content: %w", err)
 		}
@@ -277,7 +278,11 @@ func extractTarFiles(reader io.Reader, dest string) error {
 
 		limitReader := io.LimitReader(tr, DEFAULT_MAX_DECOMPRESSION_SIZE)
 		if _, err := io.Copy(newFile, limitReader); err != nil {
+			newFile.Close()
 			return fmt.Errorf("unable to copy contents to %s: %w", header.Name, err)
+		}
+		if closeErr := newFile.Close(); closeErr != nil {
+			return closeErr
 		}
 	}
 	return nil
