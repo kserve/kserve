@@ -25,6 +25,8 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -35,6 +37,11 @@ import (
 	"github.com/kserve/kserve/pkg/credentials/s3"
 	kserveTypes "github.com/kserve/kserve/pkg/types"
 	"github.com/kserve/kserve/pkg/utils"
+)
+
+const (
+	loraAdaptersVolumeName = "lora-adapters"
+	loraAdaptersMountPath  = "/mnt/loras"
 )
 
 const CaBundleVolumeName = "cabundle-cert"
@@ -76,26 +83,37 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 		return nil
 	}
 
+	var err error
 	switch schema + "://" {
 	case constants.PvcURIPrefix:
-		return r.attachPVCModelArtifact(modelUri, podSpec, containerName, modelPath)
+		err = r.attachPVCModelArtifact(modelUri, podSpec, containerName, modelPath)
 
 	case constants.OciURIPrefix:
 		// Check of OCI is enabled
 		if !config.StorageConfig.EnableOciImageSource {
 			return errors.New("OCI modelcars is not enabled")
 		}
-
-		return r.attachOciModelArtifact(modelUri, podSpec, config.StorageConfig, containerName, modelPath)
+		err = r.attachOciModelArtifact(modelUri, podSpec, config.StorageConfig, containerName, modelPath)
 
 	case constants.HfURIPrefix:
-		return r.attachHfModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, modelPath)
+		err = r.attachHfModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, modelPath)
 
 	case constants.S3URIPrefix:
-		return r.attachS3ModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, modelPath)
+		err = r.attachS3ModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, modelPath)
+
+	default:
+		return fmt.Errorf("unsupported schema in model URI: %s", modelUri)
+	}
+	if err != nil {
+		return err
 	}
 
-	return fmt.Errorf("unsupported schema in model URI: %s", modelUri)
+	// Fan out per-adapter init containers for the main workload container.
+	// The tokenizer container fetches only vocab files so adapters are not needed there.
+	if containerName != tokenizerContainerName {
+		return r.attachLoRAAdapterArtifacts(ctx, llmSvc, podSpec, config.StorageConfig, containerName)
+	}
+	return nil
 }
 
 // attachOciModelArtifact configures a PodSpec to use a model stored in an OCI registry.
@@ -407,4 +425,123 @@ func needCaBundleMount(caBundleConfigMapName string, initContainer *corev1.Conta
 		}
 	}
 	return result
+}
+
+// attachLoRAAdapterArtifacts appends one init container per enabled LoRA adapter,
+// each downloading adapter weights into /mnt/loras/<name> using the storage initializer.
+// The lora-adapters emptyDir volume is created on the pod and mounted on containerName.
+func (r *LLMISVCReconciler) attachLoRAAdapterArtifacts(
+	ctx context.Context,
+	llmSvc *v1alpha2.LLMInferenceService,
+	podSpec *corev1.PodSpec,
+	storageConfig *kserveTypes.StorageInitializerConfig,
+	containerName string,
+) error {
+	if llmSvc.Spec.Model.LoRA == nil {
+		return nil
+	}
+
+	anyEnabled := false
+	for i := range llmSvc.Spec.Model.LoRA.Adapters {
+		adapter := &llmSvc.Spec.Model.LoRA.Adapters[i]
+		if adapter.Disabled {
+			continue
+		}
+		anyEnabled = true
+
+		uri, err := r.resolveAdapterURI(ctx, llmSvc.Namespace, adapter)
+		if err != nil {
+			return err
+		}
+
+		image := constants.StorageInitializerContainerImage + ":" + constants.StorageInitializerContainerImageVersion
+		var res corev1.ResourceRequirements
+		if storageConfig != nil {
+			if storageConfig.Image != "" {
+				image = storageConfig.Image
+			}
+			res = corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse(storageConfig.CpuLimit),
+					corev1.ResourceMemory: resource.MustParse(storageConfig.MemoryLimit),
+				},
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse(storageConfig.CpuRequest),
+					corev1.ResourceMemory: resource.MustParse(storageConfig.MemoryRequest),
+				},
+			}
+		}
+
+		podSpec.InitContainers = append(podSpec.InitContainers, corev1.Container{
+			Name:  "adapter-fetch-" + adapter.Name,
+			Image: image,
+			Args:  []string{uri, loraAdaptersMountPath + "/" + adapter.Name},
+			VolumeMounts: []corev1.VolumeMount{
+				{Name: loraAdaptersVolumeName, MountPath: loraAdaptersMountPath},
+			},
+			TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+			Resources:                res,
+		})
+	}
+
+	if !anyEnabled {
+		return nil
+	}
+
+	utils.AddEmptyDirVolumeIfNotPresent(podSpec, loraAdaptersVolumeName)
+
+	for i := range podSpec.Containers {
+		if podSpec.Containers[i].Name == containerName {
+			appendVolumeMountIfMissing(&podSpec.Containers[i].VolumeMounts, corev1.VolumeMount{
+				Name:      loraAdaptersVolumeName,
+				MountPath: loraAdaptersMountPath,
+			})
+			break
+		}
+	}
+
+	return nil
+}
+
+// resolveAdapterURI returns the URI for an adapter.
+// adapter.URI is used directly; adapter.Ref is resolved by looking up a ConfigMap
+// first (key "uri" in .data), then a Secret if no ConfigMap exists with that name.
+func (r *LLMISVCReconciler) resolveAdapterURI(ctx context.Context, namespace string, adapter *v1alpha2.LoRAAdapterSpec) (string, error) {
+	if adapter.URI != nil {
+		return adapter.URI.String(), nil
+	}
+	if adapter.Ref == nil {
+		return "", fmt.Errorf("adapter %q: neither URI nor Ref is set", adapter.Name)
+	}
+
+	cm := &corev1.ConfigMap{}
+	if err := r.Get(ctx, types.NamespacedName{Namespace: namespace, Name: adapter.Ref.Name}, cm); err == nil {
+		uri, ok := cm.Data["uri"]
+		if !ok {
+			return "", fmt.Errorf("ConfigMap %s/%s has no key %q", namespace, adapter.Ref.Name, "uri")
+		}
+		return uri, nil
+	} else if !apierrors.IsNotFound(err) {
+		return "", fmt.Errorf("getting ConfigMap %s/%s: %w", namespace, adapter.Ref.Name, err)
+	}
+
+	secret := &corev1.Secret{}
+	if err := r.Get(ctx, types.NamespacedName{Namespace: namespace, Name: adapter.Ref.Name}, secret); err != nil {
+		return "", fmt.Errorf("resolving Ref %q for adapter %q: %w", adapter.Ref.Name, adapter.Name, err)
+	}
+	uri, ok := secret.Data["uri"]
+	if !ok {
+		return "", fmt.Errorf("Secret %s/%s has no key %q", namespace, adapter.Ref.Name, "uri")
+	}
+	return string(uri), nil
+}
+
+// appendVolumeMountIfMissing appends mount to mounts if no existing mount has the same Name.
+func appendVolumeMountIfMissing(mounts *[]corev1.VolumeMount, mount corev1.VolumeMount) {
+	for _, m := range *mounts {
+		if m.Name == mount.Name {
+			return
+		}
+	}
+	*mounts = append(*mounts, mount)
 }
