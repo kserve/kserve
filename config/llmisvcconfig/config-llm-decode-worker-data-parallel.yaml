@@ -503,7 +503,7 @@ spec:
               --data-parallel-start-rank $START_RANK \
               --headless \
               ${ACCESS_LOG_ARGS} \
-              --shutdown-timeout {{ shutdownTimeout (tgps .Spec.Template) 15 }} \
+              --shutdown-timeout {{ shutdownTimeout (tgps .Spec.Worker) 15 }} \
               {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
               {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
               {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \

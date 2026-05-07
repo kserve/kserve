@@ -1872,6 +1872,192 @@ func TestReplaceVariables(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "shutdownTimeout uses default when spec.worker is nil",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout (tgps .Spec.Worker) 15 }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				// spec.worker not set — tgps returns nil, shutdownTimeout falls back to 60-15=45
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "45"}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "shutdownTimeout uses spec.worker.terminationGracePeriodSeconds when set",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout (tgps .Spec.Worker) 15 }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Worker: &corev1.PodSpec{
+							TerminationGracePeriodSeconds: ptr.To(int64(120)),
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "105"}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "shutdownTimeout uses default when spec.prefill is nil",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout (prefillTGPS .Spec.Prefill) 15 }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				// spec.prefill not set — prefillTGPS returns nil, shutdownTimeout falls back to 60-15=45
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "45"}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "shutdownTimeout uses spec.prefill.template.terminationGracePeriodSeconds when set",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout (prefillTGPS .Spec.Prefill) 15 }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Prefill: &v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							TerminationGracePeriodSeconds: ptr.To(int64(120)),
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "105"}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "shutdownTimeout uses default for prefill worker when spec.prefill is nil",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout (prefillWorkerTGPS .Spec.Prefill) 15 }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				// spec.prefill not set — prefillWorkerTGPS returns nil, shutdownTimeout falls back to 60-15=45
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "45"}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "shutdownTimeout uses spec.prefill.worker.terminationGracePeriodSeconds when set",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout (prefillWorkerTGPS .Spec.Prefill) 15 }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Prefill: &v1alpha2.WorkloadSpec{
+						Worker: &corev1.PodSpec{
+							TerminationGracePeriodSeconds: ptr.To(int64(120)),
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "105"}},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

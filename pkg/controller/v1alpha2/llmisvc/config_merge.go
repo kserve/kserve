@@ -605,6 +605,22 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 				}
 				return podSpec.TerminationGracePeriodSeconds
 			},
+			// prefillTGPS safely extracts TerminationGracePeriodSeconds from the leader/head
+			// PodSpec of a potentially-nil WorkloadSpec (used for .Spec.Prefill.Template).
+			"prefillTGPS": func(ws *v1alpha2.WorkloadSpec) *int64 {
+				if ws == nil || ws.Template == nil {
+					return nil
+				}
+				return ws.Template.TerminationGracePeriodSeconds
+			},
+			// prefillWorkerTGPS safely extracts TerminationGracePeriodSeconds from the worker
+			// PodSpec of a potentially-nil WorkloadSpec (used for .Spec.Prefill.Worker).
+			"prefillWorkerTGPS": func(ws *v1alpha2.WorkloadSpec) *int64 {
+				if ws == nil || ws.Worker == nil {
+					return nil
+				}
+				return ws.Worker.TerminationGracePeriodSeconds
+			},
 		}).
 		Option("missingkey=error").
 		Parse(string(templateBytes))

@@ -758,7 +758,7 @@ spec:
           --data-parallel-start-rank $START_RANK \
           --headless \
           --disable-uvicorn-access-log \
-          --shutdown-timeout {{ shutdownTimeout (tgps .Spec.Template) 15 }} \
+          --shutdown-timeout {{ shutdownTimeout (tgps .Spec.Worker) 15 }} \
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -966,7 +966,7 @@ spec:
             --served-model-name "{{ .Spec.Model.Name }}" \
             --port 8000 \
             --disable-uvicorn-access-log \
-            --shutdown-timeout {{ shutdownTimeout (tgps .Spec.Template) 15 }} \
+            --shutdown-timeout {{ shutdownTimeout (prefillTGPS .Spec.Prefill) 15 }} \
             {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -1221,7 +1221,7 @@ spec:
             --data-parallel-rpc-port {{ if .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
             --data-parallel-start-rank $START_RANK \
             --disable-uvicorn-access-log \
-            --shutdown-timeout {{ shutdownTimeout (tgps .Spec.Template) 15 }} \
+            --shutdown-timeout {{ shutdownTimeout (prefillTGPS .Spec.Prefill) 15 }} \
             {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -1472,7 +1472,7 @@ spec:
             --data-parallel-start-rank $START_RANK \
             --headless \
             --disable-uvicorn-access-log \
-            --shutdown-timeout {{ shutdownTimeout (tgps .Spec.Template) 15 }} \
+            --shutdown-timeout {{ shutdownTimeout (prefillWorkerTGPS .Spec.Prefill) 15 }} \
             {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -2547,7 +2547,7 @@ spec:
           --data-parallel-start-rank $START_RANK \
           --headless \
           --disable-uvicorn-access-log \
-          --shutdown-timeout {{ shutdownTimeout (tgps .Spec.Template) 15 }} \
+          --shutdown-timeout {{ shutdownTimeout (tgps .Spec.Worker) 15 }} \
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
