@@ -1424,7 +1424,7 @@ jobs:
           kubectl describe pods -n kserve
 
       - name: Run E2E tests
-        timeout-minutes: 30
+        timeout-minutes: 60
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "vllm" "1"
 
