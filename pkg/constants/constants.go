@@ -200,6 +200,7 @@ var (
 
 const (
 	HfURIPrefix  = "hf://"
+	MsURIPrefix  = "ms://"
 	OciURIPrefix = "oci://"
 	PvcURIPrefix = "pvc://"
 	S3URIPrefix  = "s3://"
