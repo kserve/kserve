@@ -24,3 +24,8 @@
 
 # License (used by go-licenses in all builds)
 !LICENSE
+
+# OLM bundle (used by bundle.Dockerfile)
+!bundle/manifests/
+!bundle/metadata/
+!bundle/tests/

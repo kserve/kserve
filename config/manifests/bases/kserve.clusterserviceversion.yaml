@@ -1,0 +1,1669 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: |-
+      [
+        {
+          "apiVersion": "serving.kserve.io/v1beta1",
+          "kind": "InferenceService",
+          "metadata": {
+            "name": "sklearn-iris"
+          },
+          "spec": {
+            "predictor": {
+              "sklearn": {
+                "storageUri": "gs://kfserving-examples/models/sklearn/1.0/model"
+              }
+            }
+          }
+        },
+        {
+          "apiVersion": "serving.kserve.io/v1alpha1",
+          "kind": "ClusterServingRuntime",
+          "metadata": {
+            "name": "kserve-huggingfaceserver-multinode",
+            "annotations": {
+              "serving.kserve.io/server-type": "huggingfaceserver"
+            }
+          },
+          "spec": {
+            "annotations": {
+              "prometheus.kserve.io/port": "8080",
+              "prometheus.kserve.io/path": "/metrics"
+            },
+            "supportedModelFormats": [
+              {
+                "name": "huggingface",
+                "version": "1",
+                "autoSelect": true,
+                "priority": 2
+              }
+            ],
+            "protocolVersions": [
+              "v2",
+              "v1"
+            ],
+            "containers": [
+              {
+                "name": "kserve-container",
+                "image": "huggingfaceserver-gpu:replace",
+                "command": [
+                  "bash",
+                  "-c",
+                  "export MODEL_DIR_ARG=\"\"\nif [[ ! -z ${MODEL_ID} ]]\nthen\n  export MODEL_DIR_ARG=\"--model_dir=${MODEL_ID}\"\nfi\n\nif [[ ! -z ${MODEL_DIR} ]]\nthen\n  export MODEL_DIR_ARG=\"--model_dir=${MODEL_DIR}\"\nfi\n\nexport RAY_ADDRESS=${POD_IP}:${RAY_PORT}\nray start --head --disable-usage-stats --include-dashboard false \npython ./huggingfaceserver/health_check.py registered_nodes --retries 200  --probe_name runtime_start\n\npython -m huggingfaceserver ${MODEL_DIR_ARG} --tensor-parallel-size=${TENSOR_PARALLEL_SIZE} --pipeline-parallel-size=${PIPELINE_PARALLEL_SIZE} $0 $@\n"
+                ],
+                "args": [
+                  "--model_name={{.Name}}"
+                ],
+                "env": [
+                  {
+                    "name": "RAY_PORT",
+                    "value": "6379"
+                  },
+                  {
+                    "name": "POD_NAMESPACE",
+                    "valueFrom": {
+                      "fieldRef": {
+                        "fieldPath": "metadata.namespace"
+                      }
+                    }
+                  },
+                  {
+                    "name": "POD_IP",
+                    "valueFrom": {
+                      "fieldRef": {
+                        "fieldPath": "status.podIP"
+                      }
+                    }
+                  },
+                  {
+                    "name": "VLLM_CONFIG_ROOT",
+                    "value": "/tmp"
+                  },
+                  {
+                    "name": "HF_HUB_CACHE",
+                    "value": "/tmp"
+                  }
+                ],
+                "resources": {
+                  "requests": {
+                    "cpu": "2",
+                    "memory": "6Gi"
+                  },
+                  "limits": {
+                    "cpu": "4",
+                    "memory": "12Gi"
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "name": "shm",
+                    "mountPath": "/dev/shm"
+                  }
+                ],
+                "livenessProbe": {
+                  "failureThreshold": 2,
+                  "periodSeconds": 5,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 15,
+                  "exec": {
+                    "command": [
+                      "bash",
+                      "-c",
+                      "python ./huggingfaceserver/health_check.py registered_node_and_runtime_health --health_check_url http://localhost:8080 --probe_name head_liveness\n"
+                    ]
+                  }
+                },
+                "readinessProbe": {
+                  "failureThreshold": 2,
+                  "periodSeconds": 5,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 15,
+                  "exec": {
+                    "command": [
+                      "bash",
+                      "-c",
+                      "python ./huggingfaceserver/health_check.py runtime_health --health_check_url http://localhost:8080 --probe_name head_readiness\n"
+                    ]
+                  }
+                },
+                "startupProbe": {
+                  "failureThreshold": 40,
+                  "periodSeconds": 30,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 30,
+                  "initialDelaySeconds": 60,
+                  "exec": {
+                    "command": [
+                      "bash",
+                      "-c",
+                      "python ./huggingfaceserver/health_check.py registered_node_and_runtime_health --health_check_url http://localhost:8080 --probe_name head_startup\n"
+                    ]
+                  }
+                }
+              }
+            ],
+            "volumes": [
+              {
+                "name": "shm",
+                "emptyDir": {
+                  "medium": "Memory",
+                  "sizeLimit": "3Gi"
+                }
+              }
+            ],
+            "workerSpec": {
+              "pipelineParallelSize": 1,
+              "tensorParallelSize": 1,
+              "containers": [
+                {
+                  "name": "worker-container",
+                  "image": "huggingfaceserver-gpu:replace",
+                  "command": [
+                    "bash",
+                    "-c",
+                    "export RAY_HEAD_ADDRESS=${HEAD_SVC}.${POD_NAMESPACE}.svc.cluster.local:6379\nSECONDS=0\n\nwhile true; do              \n  if (( SECONDS <= 240 )); then\n    if ray health-check --address \"${RAY_HEAD_ADDRESS}\" > /dev/null 2>&1; then\n      echo \"Ray Global Control Service(GCS) is ready.\"\n      break\n    fi\n    echo \"$SECONDS seconds elapsed: Waiting for Ray Global Control Service(GCS) to be ready.\"\n  else\n    if ray health-check --address \"${RAY_HEAD_ADDRESS}\"; then\n      echo \"Ray Global Control Service(GCS) is ready. Any error messages above can be safely ignored.\"\n      break\n    fi\n    echo \"$SECONDS seconds elapsed: Still waiting for Ray Global Control Service(GCS) to be ready.\"\n  fi\n\n  sleep 5\ndone\n\necho \"Attempting to connect to Ray cluster at $RAY_HEAD_ADDRESS ...\"\nray start --address=\"${RAY_HEAD_ADDRESS}\" --block\n"
+                  ],
+                  "env": [
+                    {
+                      "name": "POD_NAME",
+                      "valueFrom": {
+                        "fieldRef": {
+                          "fieldPath": "metadata.name"
+                        }
+                      }
+                    },
+                    {
+                      "name": "POD_NAMESPACE",
+                      "valueFrom": {
+                        "fieldRef": {
+                          "fieldPath": "metadata.namespace"
+                        }
+                      }
+                    }
+                  ],
+                  "resources": {
+                    "requests": {
+                      "cpu": "2",
+                      "memory": "6Gi"
+                    },
+                    "limits": {
+                      "cpu": "4",
+                      "memory": "12Gi"
+                    }
+                  },
+                  "volumeMounts": [
+                    {
+                      "name": "shm",
+                      "mountPath": "/dev/shm"
+                    }
+                  ],
+                  "livenessProbe": {
+                    "failureThreshold": 2,
+                    "periodSeconds": 5,
+                    "successThreshold": 1,
+                    "timeoutSeconds": 15,
+                    "exec": {
+                      "command": [
+                        "bash",
+                        "-c",
+                        "export RAY_ADDRESS=${HEAD_SVC}.${POD_NAMESPACE}.svc.cluster.local:6379\npython ./huggingfaceserver/health_check.py registered_nodes --probe_name worker_liveness\n"
+                      ]
+                    }
+                  },
+                  "startupProbe": {
+                    "failureThreshold": 40,
+                    "periodSeconds": 30,
+                    "successThreshold": 1,
+                    "timeoutSeconds": 30,
+                    "initialDelaySeconds": 60,
+                    "exec": {
+                      "command": [
+                        "bash",
+                        "-c",
+                        "export RAY_HEAD_NODE=${HEAD_SVC}.${POD_NAMESPACE}.svc.cluster.local\nexport RAY_ADDRESS=${RAY_HEAD_NODE}:6379\npython ./huggingfaceserver/health_check.py registered_node_and_runtime_models --runtime_url http://${RAY_HEAD_NODE}:8080/v1/models --probe_name worker_startup\n"
+                      ]
+                    }
+                  }
+                }
+              ],
+              "volumes": [
+                {
+                  "name": "shm",
+                  "emptyDir": {
+                    "medium": "Memory",
+                    "sizeLimit": "3Gi"
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "apiVersion": "serving.kserve.io/v1alpha1",
+          "kind": "ClusterServingRuntime",
+          "metadata": {
+            "name": "kserve-huggingfaceserver",
+            "annotations": {
+              "serving.kserve.io/server-type": "huggingfaceserver"
+            }
+          },
+          "spec": {
+            "annotations": {
+              "prometheus.kserve.io/port": "8080",
+              "prometheus.kserve.io/path": "/metrics"
+            },
+            "supportedModelFormats": [
+              {
+                "name": "huggingface",
+                "version": "1",
+                "autoSelect": true,
+                "priority": 1
+              }
+            ],
+            "protocolVersions": [
+              "v2",
+              "v1"
+            ],
+            "containers": [
+              {
+                "name": "kserve-container",
+                "image": "huggingfaceserver:replace",
+                "args": [
+                  "--model_name={{.Name}}"
+                ],
+                "env": [
+                  {
+                    "name": "LMCACHE_USE_EXPERIMENTAL",
+                    "value": "True"
+                  }
+                ],
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "privileged": false,
+                  "runAsNonRoot": true,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "resources": {
+                  "requests": {
+                    "cpu": "1",
+                    "memory": "2Gi"
+                  },
+                  "limits": {
+                    "cpu": "1",
+                    "memory": "2Gi"
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "name": "devshm",
+                    "mountPath": "/dev/shm"
+                  }
+                ]
+              }
+            ],
+            "volumes": [
+              {
+                "name": "devshm",
+                "emptyDir": {
+                  "medium": "Memory"
+                }
+              }
+            ],
+            "hostIPC": false
+          }
+        },
+        {
+          "apiVersion": "serving.kserve.io/v1alpha1",
+          "kind": "ClusterServingRuntime",
+          "metadata": {
+            "name": "kserve-lgbserver",
+            "annotations": {
+              "serving.kserve.io/server-type": "lgbserver"
+            }
+          },
+          "spec": {
+            "annotations": {
+              "prometheus.kserve.io/port": "8080",
+              "prometheus.kserve.io/path": "/metrics"
+            },
+            "supportedModelFormats": [
+              {
+                "name": "lightgbm",
+                "version": "4",
+                "autoSelect": true,
+                "priority": 1
+              }
+            ],
+            "protocolVersions": [
+              "v1",
+              "v2"
+            ],
+            "containers": [
+              {
+                "name": "kserve-container",
+                "image": "kserve-lgbserver:replace",
+                "args": [
+                  "--model_name={{.Name}}",
+                  "--model_dir=/mnt/models",
+                  "--http_port=8080",
+                  "--nthread=1"
+                ],
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "privileged": false,
+                  "runAsNonRoot": true,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "resources": {
+                  "requests": {
+                    "cpu": "1",
+                    "memory": "2Gi"
+                  },
+                  "limits": {
+                    "cpu": "1",
+                    "memory": "2Gi"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "apiVersion": "serving.kserve.io/v1alpha1",
+          "kind": "ClusterServingRuntime",
+          "metadata": {
+            "name": "kserve-mlserver",
+            "annotations": {
+              "serving.kserve.io/server-type": "mlserver"
+            }
+          },
+          "spec": {
+            "annotations": {
+              "prometheus.kserve.io/port": "8080",
+              "prometheus.kserve.io/path": "/metrics"
+            },
+            "supportedModelFormats": [
+              {
+                "name": "sklearn",
+                "version": "0",
+                "autoSelect": true,
+                "priority": 2
+              },
+              {
+                "name": "sklearn",
+                "version": "1",
+                "autoSelect": true,
+                "priority": 2
+              },
+              {
+                "name": "xgboost",
+                "version": "1",
+                "autoSelect": true,
+                "priority": 2
+              },
+              {
+                "name": "xgboost",
+                "version": "2",
+                "autoSelect": true,
+                "priority": 2
+              },
+              {
+                "name": "lightgbm",
+                "version": "3",
+                "autoSelect": true,
+                "priority": 2
+              },
+              {
+                "name": "lightgbm",
+                "version": "4",
+                "autoSelect": true,
+                "priority": 2
+              },
+              {
+                "name": "mlflow",
+                "version": "1",
+                "autoSelect": true,
+                "priority": 1
+              },
+              {
+                "name": "mlflow",
+                "version": "2",
+                "autoSelect": true,
+                "priority": 1
+              }
+            ],
+            "protocolVersions": [
+              "v2"
+            ],
+            "containers": [
+              {
+                "name": "kserve-container",
+                "image": "mlserver:replace",
+                "env": [
+                  {
+                    "name": "MLSERVER_MODEL_IMPLEMENTATION",
+                    "value": "{{.Labels.modelClass}}"
+                  },
+                  {
+                    "name": "MLSERVER_HTTP_PORT",
+                    "value": "8080"
+                  },
+                  {
+                    "name": "MLSERVER_GRPC_PORT",
+                    "value": "9000"
+                  }
+                ],
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "privileged": false,
+                  "runAsNonRoot": true,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "resources": {
+                  "requests": {
+                    "cpu": "1",
+                    "memory": "2Gi"
+                  },
+                  "limits": {
+                    "cpu": "1",
+                    "memory": "2Gi"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "apiVersion": "serving.kserve.io/v1alpha1",
+          "kind": "ClusterServingRuntime",
+          "metadata": {
+            "annotations": {
+              "serving.kserve.io/server-type": "ovms"
+            },
+            "name": "kserve-openvino"
+          },
+          "spec": {
+            "annotations": {
+              "prometheus.kserve.io/path": "/metrics",
+              "prometheus.kserve.io/port": "8080"
+            },
+            "containers": [
+              {
+                "args": [
+                  "--model_name={{.Name}}",
+                  "--model_path=/mnt/models",
+                  "--port=9000",
+                  "--rest_port=8080",
+                  "--file_system_poll_wait_seconds=0"
+                ],
+                "image": "openvino/model_server:replace",
+                "name": "kserve-container",
+                "resources": {
+                  "limits": {
+                    "cpu": "1",
+                    "memory": "2Gi"
+                  },
+                  "requests": {
+                    "cpu": "1",
+                    "memory": "2Gi"
+                  }
+                },
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  },
+                  "privileged": false,
+                  "runAsNonRoot": true,
+                  "runAsUser": 5000
+                }
+              }
+            ],
+            "protocolVersions": [
+              "v1",
+              "v2",
+              "grpc-v2"
+            ],
+            "supportedModelFormats": [
+              {
+                "autoSelect": true,
+                "name": "openvino",
+                "priority": 1,
+                "version": "10"
+              },
+              {
+                "autoSelect": true,
+                "name": "onnx",
+                "priority": 2,
+                "version": "1"
+              },
+              {
+                "autoSelect": true,
+                "name": "tensorflow",
+                "priority": 3,
+                "version": "1"
+              },
+              {
+                "autoSelect": true,
+                "name": "huggingface"
+              }
+            ]
+          }
+        },
+        {
+          "apiVersion": "serving.kserve.io/v1alpha1",
+          "kind": "ClusterServingRuntime",
+          "metadata": {
+            "name": "kserve-paddleserver",
+            "annotations": {
+              "serving.kserve.io/server-type": "paddleserver"
+            }
+          },
+          "spec": {
+            "annotations": {
+              "prometheus.kserve.io/port": "8080",
+              "prometheus.kserve.io/path": "/metrics"
+            },
+            "supportedModelFormats": [
+              {
+                "name": "paddle",
+                "version": "2",
+                "autoSelect": true,
+                "priority": 1
+              }
+            ],
+            "protocolVersions": [
+              "v1",
+              "v2"
+            ],
+            "containers": [
+              {
+                "name": "kserve-container",
+                "image": "kserve-paddleserver:replace",
+                "args": [
+                  "--model_name={{.Name}}",
+                  "--model_dir=/mnt/models",
+                  "--http_port=8080"
+                ],
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "privileged": false,
+                  "runAsNonRoot": true,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "resources": {
+                  "requests": {
+                    "cpu": "1",
+                    "memory": "2Gi"
+                  },
+                  "limits": {
+                    "cpu": "1",
+                    "memory": "2Gi"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "apiVersion": "serving.kserve.io/v1alpha1",
+          "kind": "ClusterServingRuntime",
+          "metadata": {
+            "name": "kserve-pmmlserver",
+            "annotations": {
+              "serving.kserve.io/server-type": "pmmlserver"
+            }
+          },
+          "spec": {
+            "annotations": {
+              "prometheus.kserve.io/port": "8080",
+              "prometheus.kserve.io/path": "/metrics"
+            },
+            "supportedModelFormats": [
+              {
+                "name": "pmml",
+                "version": "3",
+                "autoSelect": true,
+                "priority": 1
+              },
+              {
+                "name": "pmml",
+                "version": "4",
+                "autoSelect": true,
+                "priority": 1
+              }
+            ],
+            "protocolVersions": [
+              "v1",
+              "v2"
+            ],
+            "containers": [
+              {
+                "name": "kserve-container",
+                "image": "kserve-pmmlserver:replace",
+                "args": [
+                  "--model_name={{.Name}}",
+                  "--model_dir=/mnt/models",
+                  "--http_port=8080"
+                ],
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "privileged": false,
+                  "runAsNonRoot": true,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "resources": {
+                  "requests": {
+                    "cpu": "1",
+                    "memory": "2Gi"
+                  },
+                  "limits": {
+                    "cpu": "1",
+                    "memory": "2Gi"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "apiVersion": "serving.kserve.io/v1alpha1",
+          "kind": "ClusterServingRuntime",
+          "metadata": {
+            "name": "kserve-predictiveserver",
+            "annotations": {
+              "serving.kserve.io/server-type": "predictiveserver"
+            }
+          },
+          "spec": {
+            "multiModel": false,
+            "annotations": {
+              "prometheus.kserve.io/port": "8080",
+              "prometheus.kserve.io/path": "/metrics"
+            },
+            "supportedModelFormats": [
+              {
+                "name": "sklearn",
+                "version": "1",
+                "autoSelect": false,
+                "priority": 3
+              },
+              {
+                "name": "xgboost",
+                "version": "2",
+                "autoSelect": false,
+                "priority": 3
+              },
+              {
+                "name": "lightgbm",
+                "version": "4",
+                "autoSelect": false,
+                "priority": 3
+              }
+            ],
+            "protocolVersions": [
+              "v1",
+              "v2"
+            ],
+            "containers": [
+              {
+                "name": "kserve-container",
+                "image": "kserve-predictiveserver:replace",
+                "args": [
+                  "--model_name={{.Name}}",
+                  "--model_dir=/mnt/models",
+                  "--http_port=8080",
+                  "--framework={{.Annotations.modelFormat}}",
+                  "--nthread=1"
+                ],
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "privileged": false,
+                  "runAsNonRoot": true,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "resources": {
+                  "requests": {
+                    "cpu": "1",
+                    "memory": "2Gi"
+                  },
+                  "limits": {
+                    "cpu": "1",
+                    "memory": "2Gi"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "apiVersion": "serving.kserve.io/v1alpha1",
+          "kind": "ClusterServingRuntime",
+          "metadata": {
+            "name": "kserve-sklearnserver",
+            "annotations": {
+              "serving.kserve.io/server-type": "sklearnserver"
+            }
+          },
+          "spec": {
+            "annotations": {
+              "prometheus.kserve.io/port": "8080",
+              "prometheus.kserve.io/path": "/metrics"
+            },
+            "supportedModelFormats": [
+              {
+                "name": "sklearn",
+                "version": "1",
+                "autoSelect": true,
+                "priority": 1
+              }
+            ],
+            "protocolVersions": [
+              "v1",
+              "v2"
+            ],
+            "containers": [
+              {
+                "name": "kserve-container",
+                "image": "kserve-sklearnserver:replace",
+                "args": [
+                  "--model_name={{.Name}}",
+                  "--model_dir=/mnt/models",
+                  "--http_port=8080"
+                ],
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "privileged": false,
+                  "runAsNonRoot": true,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "resources": {
+                  "requests": {
+                    "cpu": "1",
+                    "memory": "2Gi"
+                  },
+                  "limits": {
+                    "cpu": "1",
+                    "memory": "2Gi"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "apiVersion": "serving.kserve.io/v1alpha1",
+          "kind": "ClusterServingRuntime",
+          "metadata": {
+            "name": "kserve-tensorflow-serving",
+            "annotations": {
+              "serving.kserve.io/server-type": "tensorflow-serving"
+            }
+          },
+          "spec": {
+            "annotations": {
+              "prometheus.kserve.io/port": "8080",
+              "prometheus.kserve.io/path": "/metrics"
+            },
+            "supportedModelFormats": [
+              {
+                "name": "tensorflow",
+                "version": "1",
+                "autoSelect": true,
+                "priority": 2
+              },
+              {
+                "name": "tensorflow",
+                "version": "2",
+                "autoSelect": true,
+                "priority": 2
+              }
+            ],
+            "protocolVersions": [
+              "v1",
+              "grpc-v1"
+            ],
+            "containers": [
+              {
+                "name": "kserve-container",
+                "image": "tensorflow-serving:replace",
+                "command": [
+                  "/usr/bin/tensorflow_model_server"
+                ],
+                "args": [
+                  "--model_name={{.Name}}",
+                  "--port=9000",
+                  "--rest_api_port=8080",
+                  "--model_base_path=/mnt/models",
+                  "--rest_api_timeout_in_ms=60000"
+                ],
+                "securityContext": {
+                  "runAsUser": 1000,
+                  "allowPrivilegeEscalation": false,
+                  "privileged": false,
+                  "runAsNonRoot": true,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "resources": {
+                  "requests": {
+                    "cpu": "1",
+                    "memory": "2Gi"
+                  },
+                  "limits": {
+                    "cpu": "1",
+                    "memory": "2Gi"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "apiVersion": "serving.kserve.io/v1alpha1",
+          "kind": "ClusterServingRuntime",
+          "metadata": {
+            "name": "kserve-torchserve",
+            "annotations": {
+              "serving.kserve.io/server-type": "torchserve"
+            }
+          },
+          "spec": {
+            "annotations": {
+              "prometheus.kserve.io/port": "8082",
+              "prometheus.kserve.io/path": "/metrics"
+            },
+            "supportedModelFormats": [
+              {
+                "name": "pytorch",
+                "version": "1",
+                "autoSelect": true,
+                "priority": 2
+              }
+            ],
+            "protocolVersions": [
+              "v1",
+              "v2",
+              "grpc-v2"
+            ],
+            "containers": [
+              {
+                "name": "kserve-container",
+                "image": "kserve-torchserve:replace",
+                "args": [
+                  "torchserve",
+                  "--start",
+                  "--model-store=/mnt/models/model-store",
+                  "--ts-config=/mnt/models/config/config.properties"
+                ],
+                "env": [
+                  {
+                    "name": "TS_SERVICE_ENVELOPE",
+                    "value": "{{.Labels.serviceEnvelope}}"
+                  }
+                ],
+                "securityContext": {
+                  "runAsUser": 1000,
+                  "allowPrivilegeEscalation": false,
+                  "privileged": false,
+                  "runAsNonRoot": true,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "resources": {
+                  "requests": {
+                    "cpu": "1",
+                    "memory": "2Gi"
+                  },
+                  "limits": {
+                    "cpu": "1",
+                    "memory": "2Gi"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "apiVersion": "serving.kserve.io/v1alpha1",
+          "kind": "ClusterServingRuntime",
+          "metadata": {
+            "name": "kserve-tritonserver",
+            "annotations": {
+              "serving.kserve.io/server-type": "tritonserver"
+            }
+          },
+          "spec": {
+            "annotations": {
+              "prometheus.kserve.io/port": "8002",
+              "prometheus.kserve.io/path": "/metrics"
+            },
+            "supportedModelFormats": [
+              {
+                "name": "tensorrt",
+                "version": "8",
+                "autoSelect": true,
+                "priority": 1
+              },
+              {
+                "name": "tensorflow",
+                "version": "1",
+                "autoSelect": true,
+                "priority": 1
+              },
+              {
+                "name": "tensorflow",
+                "version": "2",
+                "autoSelect": true,
+                "priority": 1
+              },
+              {
+                "name": "onnx",
+                "version": "1",
+                "autoSelect": true,
+                "priority": 1
+              },
+              {
+                "name": "pytorch",
+                "version": "1"
+              },
+              {
+                "name": "triton",
+                "version": "2",
+                "autoSelect": true,
+                "priority": 1
+              }
+            ],
+            "protocolVersions": [
+              "v2",
+              "grpc-v2"
+            ],
+            "containers": [
+              {
+                "name": "kserve-container",
+                "image": "kserve-tritonserver:replace",
+                "args": [
+                  "tritonserver",
+                  "--model-store=/mnt/models",
+                  "--grpc-port=9000",
+                  "--http-port=8080",
+                  "--allow-grpc=true",
+                  "--allow-http=true"
+                ],
+                "securityContext": {
+                  "runAsUser": 1000,
+                  "allowPrivilegeEscalation": false,
+                  "privileged": false,
+                  "runAsNonRoot": true,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "resources": {
+                  "requests": {
+                    "cpu": "1",
+                    "memory": "2Gi"
+                  },
+                  "limits": {
+                    "cpu": "1",
+                    "memory": "2Gi"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "apiVersion": "serving.kserve.io/v1alpha1",
+          "kind": "ClusterServingRuntime",
+          "metadata": {
+            "name": "kserve-xgbserver",
+            "annotations": {
+              "serving.kserve.io/server-type": "xgbserver"
+            }
+          },
+          "spec": {
+            "annotations": {
+              "prometheus.kserve.io/port": "8080",
+              "prometheus.kserve.io/path": "/metrics"
+            },
+            "supportedModelFormats": [
+              {
+                "name": "xgboost",
+                "version": "2",
+                "autoSelect": true,
+                "priority": 1
+              }
+            ],
+            "protocolVersions": [
+              "v1",
+              "v2"
+            ],
+            "containers": [
+              {
+                "name": "kserve-container",
+                "image": "kserve-xgbserver:replace",
+                "args": [
+                  "--model_name={{.Name}}",
+                  "--model_dir=/mnt/models",
+                  "--http_port=8080",
+                  "--nthread=1"
+                ],
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "privileged": false,
+                  "runAsNonRoot": true,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "resources": {
+                  "requests": {
+                    "cpu": "1",
+                    "memory": "2Gi"
+                  },
+                  "limits": {
+                    "cpu": "1",
+                    "memory": "2Gi"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "apiVersion": "serving.kserve.io/v1alpha1",
+          "kind": "InferenceGraph",
+          "metadata": {
+            "name": "ensemble-model"
+          },
+          "spec": {
+            "nodes": {
+              "root": {
+                "routerType": "Ensemble",
+                "steps": [
+                  {
+                    "serviceName": "sklearn-iris",
+                    "name": "sklearn-iris"
+                  },
+                  {
+                    "serviceName": "xgboost-iris",
+                    "name": "xgboost-iris"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "apiVersion": "serving.kserve.io/v1alpha1",
+          "kind": "ClusterStorageContainer",
+          "metadata": {
+            "name": "default"
+          },
+          "spec": {
+            "container": {
+              "name": "storage-initializer",
+              "image": "kserve/storage-initializer:v0.17.0",
+              "resources": {
+                "requests": {
+                  "memory": "100Mi",
+                  "cpu": "100m"
+                },
+                "limits": {
+                  "memory": "1Gi",
+                  "cpu": "1"
+                }
+              }
+            },
+            "supportedUriFormats": [
+              {
+                "prefix": "gs://"
+              },
+              {
+                "prefix": "s3://"
+              },
+              {
+                "prefix": "hdfs://"
+              },
+              {
+                "prefix": "hf://"
+              }
+            ],
+            "workloadType": "initContainer"
+          }
+        },
+        {
+          "apiVersion": "serving.kserve.io/v1alpha2",
+          "kind": "LLMInferenceService",
+          "metadata": {
+            "name": "facebook-opt-125m"
+          },
+          "spec": {
+            "model": {
+              "uri": "hf://facebook/opt-125m",
+              "name": "facebook/opt-125m"
+            },
+            "replicas": 1,
+            "router": {
+              "route": {}
+            },
+            "template": {
+              "containers": [
+                {
+                  "name": "main",
+                  "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1",
+                  "env": [
+                    {
+                      "name": "VLLM_CPU_KVCACHE_SPACE",
+                      "value": "1"
+                    }
+                  ],
+                  "resources": {
+                    "requests": {
+                      "cpu": "100m",
+                      "memory": "8Gi"
+                    },
+                    "limits": {
+                      "cpu": "1",
+                      "memory": "10Gi"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "apiVersion": "serving.kserve.io/v1alpha1",
+          "kind": "LLMInferenceService",
+          "metadata": {
+            "name": "facebook-opt-125m"
+          },
+          "spec": {
+            "model": {
+              "uri": "hf://facebook/opt-125m",
+              "name": "facebook/opt-125m"
+            },
+            "replicas": 1,
+            "router": {
+              "scheduler": {},
+              "route": {},
+              "gateway": {}
+            },
+            "template": {
+              "containers": [
+                {
+                  "name": "main",
+                  "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1",
+                  "env": [
+                    {
+                      "name": "VLLM_CPU_KVCACHE_SPACE",
+                      "value": "1"
+                    }
+                  ],
+                  "resources": {
+                    "requests": {
+                      "cpu": "100m",
+                      "memory": "8Gi"
+                    },
+                    "limits": {
+                      "cpu": "1",
+                      "memory": "10Gi"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "apiVersion": "serving.kserve.io/v1alpha2",
+          "kind": "LLMInferenceServiceConfig",
+          "metadata": {
+            "name": "llmisvc-config"
+          },
+          "spec": {
+            "template": {
+              "containers": [
+                {
+                  "name": "main",
+                  "image": "ghcr.io/llm-d/llm-d-cuda:v0.6.0"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "apiVersion": "serving.kserve.io/v1alpha1",
+          "kind": "LLMInferenceServiceConfig",
+          "metadata": {
+            "name": "llmisvc-config"
+          },
+          "spec": {
+            "template": {
+              "containers": [
+                {
+                  "name": "main",
+                  "image": "ghcr.io/llm-d/llm-d-cuda:v0.6.0"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "apiVersion": "serving.kserve.io/v1alpha1",
+          "kind": "ServingRuntime",
+          "metadata": {
+            "name": "kserve-sklearnserver"
+          },
+          "spec": {
+            "supportedModelFormats": [
+              {
+                "name": "sklearn",
+                "version": "1",
+                "autoSelect": true
+              }
+            ],
+            "containers": [
+              {
+                "name": "kserve-container",
+                "image": "kserve/sklearnserver:v0.17.0",
+                "args": [
+                  "--model_name={{.Name}}",
+                  "--model_dir=/mnt/models",
+                  "--http_port=8080"
+                ],
+                "resources": {
+                  "requests": {
+                    "cpu": "1",
+                    "memory": "2Gi"
+                  },
+                  "limits": {
+                    "cpu": "1",
+                    "memory": "2Gi"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "apiVersion": "serving.kserve.io/v1alpha1",
+          "kind": "TrainedModel",
+          "metadata": {
+            "name": "model1-sklearn"
+          },
+          "spec": {
+            "inferenceService": "sklearn-iris",
+            "model": {
+              "storageUri": "gs://kfserving-examples/models/sklearn/1.0/model",
+              "framework": "sklearn",
+              "memory": "256Mi"
+            }
+          }
+        },
+        {
+          "apiVersion": "serving.kserve.io/v1alpha1",
+          "kind": "LocalModelCache",
+          "metadata": {
+            "name": "meta-llama3-8b-instruct"
+          },
+          "spec": {
+            "sourceModelUri": "hf://meta-llama/meta-llama-3-8b-instruct",
+            "modelSize": "10Gi",
+            "nodeGroups": [
+              "workers"
+            ]
+          }
+        },
+        {
+          "apiVersion": "serving.kserve.io/v1alpha1",
+          "kind": "LocalModelNamespaceCache",
+          "metadata": {
+            "name": "namespace-model-cache"
+          },
+          "spec": {
+            "sourceModelUri": "hf://meta-llama/meta-llama-3-8b-instruct",
+            "modelSize": "10Gi",
+            "nodeGroups": [
+              "workers"
+            ]
+          }
+        },
+        {
+          "apiVersion": "serving.kserve.io/v1alpha1",
+          "kind": "LocalModelNodeGroup",
+          "metadata": {
+            "name": "workers"
+          },
+          "spec": {
+            "storageLimit": "100Gi",
+            "persistentVolumeClaimSpec": {
+              "accessModes": [
+                "ReadWriteOnce"
+              ],
+              "resources": {
+                "requests": {
+                  "storage": "100Gi"
+                }
+              }
+            }
+          }
+        },
+        {
+          "apiVersion": "serving.kserve.io/v1alpha1",
+          "kind": "LocalModelNode",
+          "metadata": {
+            "name": "worker-node-1"
+          },
+          "spec": {
+            "localModels": [
+              {
+                "sourceModelUri": "hf://meta-llama/meta-llama-3-8b-instruct",
+                "modelName": "meta-llama-3-8b-instruct"
+              }
+            ]
+          }
+        },
+        {
+          "apiVersion": "inference.networking.k8s.io/v1",
+          "kind": "InferencePool",
+          "metadata": {
+            "name": "llm-pool"
+          },
+          "spec": {
+            "endpointPickerRef": {
+              "name": "inference-scheduler",
+              "port": {
+                "number": 9002
+              }
+            },
+            "selector": {
+              "matchLabels": {
+                "app": "llm-inference"
+              }
+            }
+          }
+        },
+        {
+          "apiVersion": "inference.networking.x-k8s.io/v1alpha2",
+          "kind": "InferencePool",
+          "metadata": {
+            "name": "llm-pool"
+          },
+          "spec": {
+            "extensionRef": {
+              "name": "inference-scheduler",
+              "portNumber": 9002
+            },
+            "selector": {
+              "app": "llm-inference"
+            },
+            "targetPortNumber": 8000
+          }
+        },
+        {
+          "apiVersion": "inference.networking.x-k8s.io/v1alpha2",
+          "kind": "InferenceModelRewrite",
+          "metadata": {
+            "name": "model-rewrite"
+          },
+          "spec": {
+            "poolRef": {
+              "name": "llm-pool",
+              "group": "inference.networking.k8s.io",
+              "kind": "InferencePool"
+            }
+          }
+        },
+        {
+          "apiVersion": "inference.networking.x-k8s.io/v1alpha2",
+          "kind": "InferenceObjective",
+          "metadata": {
+            "name": "inference-objective"
+          },
+          "spec": {
+            "poolRef": {
+              "name": "llm-pool",
+              "group": "inference.networking.k8s.io",
+              "kind": "InferencePool"
+            }
+          }
+        },
+        {
+          "apiVersion": "inference.networking.x-k8s.io/v1alpha1",
+          "kind": "InferencePoolImport",
+          "metadata": {
+            "name": "pool-import"
+          },
+          "spec": {
+            "pool": {
+              "name": "llm-pool"
+            }
+          }
+        }
+      ]
+    capabilities: Seamless Upgrades
+    categories: AI/Machine Learning
+    containerImage: kserve/kserve-controller:v0.17.0
+    description: >-
+      KServe provides a Kubernetes Custom Resource Definition for serving predictive and generative machine learning models.
+    repository: https://github.com/kserve/kserve
+    support: KServe Community
+  name: kserve.v0.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+      - description: Serves predictive and generative ML models with autoscaling.
+        displayName: InferenceService
+        kind: InferenceService
+        name: inferenceservices.serving.kserve.io
+        version: v1beta1
+      - description: Defines a reusable serving runtime configuration for models.
+        displayName: ServingRuntime
+        kind: ServingRuntime
+        name: servingruntimes.serving.kserve.io
+        version: v1alpha1
+      - description: Cluster-scoped serving runtime shared across namespaces.
+        displayName: ClusterServingRuntime
+        kind: ClusterServingRuntime
+        name: clusterservingruntimes.serving.kserve.io
+        version: v1alpha1
+      - description: Defines inference graphs for model ensembles and pipelines.
+        displayName: InferenceGraph
+        kind: InferenceGraph
+        name: inferencegraphs.serving.kserve.io
+        version: v1alpha1
+      - description: Represents a trained model for multi-model serving.
+        displayName: TrainedModel
+        kind: TrainedModel
+        name: trainedmodels.serving.kserve.io
+        version: v1alpha1
+      - description: Configures cluster-scoped storage container credentials.
+        displayName: ClusterStorageContainer
+        kind: ClusterStorageContainer
+        name: clusterstoragecontainers.serving.kserve.io
+        version: v1alpha1
+      - description: Serves large language models with optimized inference.
+        displayName: LLMInferenceService
+        kind: LLMInferenceService
+        name: llminferenceservices.serving.kserve.io
+        version: v1alpha1
+      - description: Serves large language models with optimized inference.
+        displayName: LLMInferenceService
+        kind: LLMInferenceService
+        name: llminferenceservices.serving.kserve.io
+        version: v1alpha2
+      - description: Configuration for LLM inference services.
+        displayName: LLMInferenceServiceConfig
+        kind: LLMInferenceServiceConfig
+        name: llminferenceserviceconfigs.serving.kserve.io
+        version: v1alpha1
+      - description: Configuration for LLM inference services.
+        displayName: LLMInferenceServiceConfig
+        kind: LLMInferenceServiceConfig
+        name: llminferenceserviceconfigs.serving.kserve.io
+        version: v1alpha2
+      - description: Manages local model caching for faster inference.
+        displayName: LocalModelCache
+        kind: LocalModelCache
+        name: localmodelcaches.serving.kserve.io
+        version: v1alpha1
+      - description: Caches models locally within a namespace for faster inference.
+        displayName: LocalModelNamespaceCache
+        kind: LocalModelNamespaceCache
+        name: localmodelnamespacecaches.serving.kserve.io
+        version: v1alpha1
+      - description: Tracks local model availability on individual nodes.
+        displayName: LocalModelNode
+        kind: LocalModelNode
+        name: localmodelnodes.serving.kserve.io
+        version: v1alpha1
+      - description: Groups nodes for local model distribution.
+        displayName: LocalModelNodeGroup
+        kind: LocalModelNodeGroup
+        name: localmodelnodegroups.serving.kserve.io
+        version: v1alpha1
+      - description: Rewrites inference model requests for Gateway API routing.
+        displayName: InferenceModelRewrite
+        kind: InferenceModelRewrite
+        name: inferencemodelrewrites.inference.networking.x-k8s.io
+        version: v1alpha2
+      - description: Defines inference objectives for Gateway API routing.
+        displayName: InferenceObjective
+        kind: InferenceObjective
+        name: inferenceobjectives.inference.networking.x-k8s.io
+        version: v1alpha2
+      - description: Imports inference pools across namespaces.
+        displayName: InferencePoolImport
+        kind: InferencePoolImport
+        name: inferencepoolimports.inference.networking.x-k8s.io
+        version: v1alpha1
+      - description: Groups inference backends for load balancing via Gateway API.
+        displayName: InferencePool
+        kind: InferencePool
+        name: inferencepools.inference.networking.k8s.io
+        version: v1
+      - description: Groups inference backends for load balancing via Gateway API.
+        displayName: InferencePool
+        kind: InferencePool
+        name: inferencepools.inference.networking.x-k8s.io
+        version: v1alpha2
+  minKubeVersion: "1.28.0"
+  description: |-
+    ## KServe: Scalable Model Inference on Kubernetes
+
+    KServe is a highly scalable and standards-based model inference platform
+    on Kubernetes for trusted AI. It provides performant, standardized
+    inference protocol across ML frameworks including PyTorch, TensorFlow,
+    XGBoost, scikit-learn, and supports modern generative AI use cases such
+    as LLM serving with Hugging Face and vLLM.
+
+    ### Key Features
+
+    * **Serverless inference** - Autoscaling including scale-to-zero on GPU.
+    * **High scalability and density** - ModelMesh for high-scale,
+      high-density, and frequently-changing model serving use cases.
+    * **Inference graphs** - Multi-model serving, model ensembles, and
+      inference pipelines for complex AI workflows.
+    * **LLM serving** - First-class support for large language model
+      deployment with optimized batching and GPU scheduling.
+    * **Pluggable runtimes** - Support for custom model serving runtimes
+      and framework-specific optimizations.
+    * **Standard inference protocol** - Open Inference Protocol for
+      interoperability across ML/DL frameworks.
+
+    ### Getting Started
+
+    After installing the operator, create an `InferenceService` resource to
+    deploy your first model. See the
+    [KServe documentation](https://kserve.github.io/website/) for guides
+    and examples.
+  displayName: KServe
+  icon:
+    - base64data: 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
+      mediatype: image/png
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+    - supported: false
+      type: OwnNamespace
+    - supported: false
+      type: SingleNamespace
+    - supported: false
+      type: MultiNamespace
+    - supported: true
+      type: AllNamespaces
+  keywords:
+    - ai
+    - ml
+    - machine learning
+    - model serving
+    - inference
+    - kserve
+    - llm
+    - generative ai
+  links:
+    - name: KServe Website
+      url: https://kserve.github.io/website/
+    - name: KServe GitHub
+      url: https://github.com/kserve/kserve
+    - name: KServe Documentation
+      url: https://kserve.github.io/website/latest/
+    - name: KServe Maintainers
+      url: https://github.com/kserve/kserve/blob/master/MAINTAINERS.md
+  maintainers:
+    - email: kserve-maintainers@lists.cncf.io
+      name: KServe Maintainers
+  maturity: stable
+  provider:
+    name: KServe Community
+    url: https://kserve.github.io/website/
+  version: 0.0.0

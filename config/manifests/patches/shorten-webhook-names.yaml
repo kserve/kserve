@@ -1,0 +1,10 @@
+# Shorten LLMInferenceServiceConfig webhook names to comply with the
+# 63-character Kubernetes label value limit enforced by OLM.
+# Original: llminferenceserviceconfig.kserve-webhook-server.v1alpha{1,2}.validator (66 chars)
+# Patched:  llmisvcconfig.kserve-webhook-server.v1alpha{1,2}.validator (54 chars)
+- op: replace
+  path: /webhooks/0/name
+  value: llmisvcconfig.kserve-webhook-server.v1alpha1.validator
+- op: replace
+  path: /webhooks/1/name
+  value: llmisvcconfig.kserve-webhook-server.v1alpha2.validator

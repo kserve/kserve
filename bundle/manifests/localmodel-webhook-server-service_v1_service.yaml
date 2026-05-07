@@ -1,0 +1,18 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: localmodel-webhook-server-service
+spec:
+  ports:
+  - name: https
+    port: 443
+    targetPort: webhook-server
+  selector:
+    control-plane: kserve-localmodel-controller-manager
+status:
+  loadBalancer: {}

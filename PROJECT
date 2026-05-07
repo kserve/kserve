@@ -1,3 +1,4 @@
 domain: serving.kserve.io
 repo: github.com/kserve/kserve
 version: "3"
+

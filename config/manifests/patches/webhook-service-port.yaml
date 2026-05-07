@@ -1,0 +1,12 @@
+# Add webhook port (443) to controller-manager services so that
+# OLM-managed webhook configurations can reach the webhook server.
+# OLM routes webhooks to {deploymentName}-service, which by default
+# only has the metrics port (8443). Without port 443, webhook calls
+# fail with "no service port 443 found".
+- op: add
+  path: /spec/ports/-
+  value:
+    name: webhook-server
+    port: 443
+    targetPort: webhook-server
+    protocol: TCP

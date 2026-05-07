@@ -12,6 +12,7 @@ ENVTEST = $(LOCALBIN)/setup-envtest
 KUSTOMIZE = $(LOCALBIN)/kustomize
 YQ = $(LOCALBIN)/yq
 HELM_DOCS = $(LOCALBIN)/helm-docs
+OPERATOR_SDK = $(LOCALBIN)/operator-sdk
 PINACT = $(LOCALBIN)/pinact
 UV = $(PYTHON_BIN)/uv
 RUFF = $(PYTHON_BIN)/ruff
@@ -54,6 +55,16 @@ $(YQ): $(LOCALBIN) $(DEPS_ENV)
 	mv $(LOCALBIN)/yq $(YQ)-$(YQ_VERSION) ; \
 	} ; \
 	ln -sf "$$(basename $(YQ)-$(YQ_VERSION))" "$(YQ)"
+
+## Download operator-sdk locally if necessary.
+.PHONY: operator-sdk
+operator-sdk: $(OPERATOR_SDK)
+$(OPERATOR_SDK): $(LOCALBIN)
+	@[ -f "$(OPERATOR_SDK)-$(OPERATOR_SDK_VERSION)" ] || { \
+	BIN_DIR=$(LOCALBIN) hack/setup/cli/install-operator-sdk.sh && \
+	mv $(LOCALBIN)/operator-sdk $(OPERATOR_SDK)-$(OPERATOR_SDK_VERSION) ; \
+	} ; \
+	ln -sf "$$(basename $(OPERATOR_SDK)-$(OPERATOR_SDK_VERSION))" "$(OPERATOR_SDK)"
 
 ## Download helm-docs locally if necessary.
 .PHONY: helm-docs

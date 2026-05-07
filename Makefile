@@ -611,6 +611,75 @@ apidocs:
 check-doc-links:
 	@python3 hack/verify-doc-links.py && echo "$@: OK"
 
+# OLM Bundle
+BUNDLE_VERSION ?= 0.17.0
+BUNDLE_CHANNELS ?= stable,alpha
+BUNDLE_DEFAULT_CHANNEL ?= stable
+BUNDLE_PACKAGE ?= kserve
+BUNDLE_IMG ?= $(KO_DOCKER_REPO)/kserve-operator-bundle:v$(BUNDLE_VERSION)
+BUNDLE_OPENSHIFT_VERSIONS ?= v4.21
+
+## Generate the OLM bundle manifests and metadata.
+.PHONY: bundle
+bundle: manifests operator-sdk
+	kustomize build config/manifests | $(OPERATOR_SDK) generate bundle \
+		--version $(BUNDLE_VERSION) \
+		--channels $(BUNDLE_CHANNELS) \
+		--default-channel $(BUNDLE_DEFAULT_CHANNEL) \
+		--package $(BUNDLE_PACKAGE) \
+		--kustomize-dir config/manifests
+	@# Restore alm-examples from the base CSV since operator-sdk clears them during generation.
+	$(YQ) '.metadata.annotations."alm-examples" = (load("config/manifests/bases/kserve.clusterserviceversion.yaml") | .metadata.annotations."alm-examples")' \
+		-i bundle/manifests/kserve.clusterserviceversion.yaml
+	@# Add OpenShift version constraint (required by community-operators-prod when minKubeVersion is set).
+	$(YQ) -i '.annotations."com.redhat.openshift.versions" = "$(BUNDLE_OPENSHIFT_VERSIONS)"' \
+		bundle/metadata/annotations.yaml
+	@# Fix yaml-lint issues in generated files:
+	@#   - Strip trailing whitespace (operator-sdk leaves trailing space on empty values)
+	@#   - Prepend document-start marker (---) to all YAML files
+	@#   - Ensure every file ends with a newline
+	@for f in bundle/manifests/*.yaml bundle/metadata/*.yaml bundle/tests/scorecard/*.yaml; do \
+		sed 's/[[:space:]]*$$//' "$$f" > "$$f.tmp" && mv "$$f.tmp" "$$f"; \
+		if [ "$$(head -1 "$$f")" != "---" ]; then \
+			{ echo '---'; cat "$$f"; } > "$$f.tmp" && mv "$$f.tmp" "$$f"; \
+		fi; \
+		c=$$(tail -c 1 "$$f" | wc -l); if [ "$$c" -eq 0 ]; then printf '\n' >> "$$f"; fi; \
+	done
+	@# Validate that no :latest tags remain in the bundle.
+	@if grep -rq ':latest' bundle/manifests/*.yaml; then \
+		echo "ERROR: Found ':latest' image tags in the bundle. Run 'make bundle-release-prepare' first." >&2; \
+		grep -rn ':latest' bundle/manifests/*.yaml >&2; \
+		exit 1; \
+	fi
+	$(OPERATOR_SDK) bundle validate ./bundle --select-optional suite=operatorframework
+
+## Prepare kustomize files for a bundle release. Updates all :latest image tags to v$(BUNDLE_VERSION).
+.PHONY: bundle-release-prepare
+bundle-release-prepare:
+	hack/bundle-release-prepare.sh $(BUNDLE_VERSION)
+
+## Build the OLM bundle image.
+.PHONY: bundle-build
+bundle-build:
+	$(ENGINE) buildx build $(ARCH) -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+
+## Push the OLM bundle image.
+## Set TLS_VERIFY=false when pushing to an insecure (HTTP-only) registry, e.g. Minikube registry addon.
+TLS_VERIFY ?= true
+.PHONY: bundle-push
+bundle-push:
+ifeq ($(TLS_VERIFY),false)
+	$(ENGINE) push --tls-verify=false $(BUNDLE_IMG)
+else
+	$(ENGINE) push $(BUNDLE_IMG)
+endif
+
+## Validate the OLM bundle.
+.PHONY: bundle-validate
+bundle-validate: operator-sdk
+	$(OPERATOR_SDK) bundle validate ./bundle --select-optional suite=operatorframework
+	$(OPERATOR_SDK) bundle validate ./bundle --select-optional name=community
+
 # Extension point for distro-specific manifest generation.
 .PHONY: manifests-distro
 manifests-distro:

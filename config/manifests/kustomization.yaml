@@ -1,0 +1,37 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../default
+  - ../llmisvc
+  - ../localmodels
+  - ../configmap
+# Override controller image tags for the OLM bundle release.
+images:
+  - name: kserve/kserve-controller
+    newTag: v0.17.0
+  - name: kserve/kserve-localmodel-controller
+    newTag: v0.17.0
+  - name: kserve/llmisvc-controller
+    newTag: v0.17.0
+patches:
+  - target:
+      group: admissionregistration.k8s.io
+      version: v1
+      kind: ValidatingWebhookConfiguration
+      name: llminferenceserviceconfig.serving.kserve.io
+    path: patches/shorten-webhook-names.yaml
+  - target:
+      version: v1
+      kind: ConfigMap
+      name: inferenceservice-config
+    path: patches/deploy-mode-standard.yaml
+  - target:
+      version: v1
+      kind: Service
+      name: kserve-controller-manager-service
+    path: patches/webhook-service-port.yaml
+  - target:
+      version: v1
+      kind: Service
+      name: llmisvc-controller-manager-service
+    path: patches/webhook-service-port.yaml

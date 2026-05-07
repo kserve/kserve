@@ -149,7 +149,7 @@ data:
      # Example
      storageInitializer: |-
        {
-           "image" : "kserve/storage-initializer:latest",
+           "image" : "kserve/storage-initializer:v0.17.0",
            "memoryRequest": "100Mi",
            "memoryLimit": "1Gi",
            "cpuRequest": "100m",
@@ -163,7 +163,7 @@ data:
      storageInitializer: |-
        {
            # image contains the default storage initializer image uri.
-           "image" : "kserve/storage-initializer:latest",
+           "image" : "kserve/storage-initializer:v0.17.0",
 
            # memoryRequest is the requests.memory to set for the storage initializer init container.
            "memoryRequest": "100Mi",
@@ -398,7 +398,7 @@ data:
      # Example
      logger: |-
        {
-           "image" : "kserve/agent:latest",
+           "image" : "kserve/agent:v0.17.0",
            "memoryRequest": "100Mi",
            "memoryLimit": "1Gi",
            "cpuRequest": "100m",
@@ -408,7 +408,7 @@ data:
      logger: |-
        {
            # image contains the default logger image uri.
-           "image" : "kserve/agent:latest",
+           "image" : "kserve/agent:v0.17.0",
 
            # memoryRequest is the requests.memory to set for the logger container.
            "memoryRequest": "100Mi",
@@ -430,7 +430,7 @@ data:
      # Example
      batcher: |-
        {
-           "image" : "kserve/agent:latest",
+           "image" : "kserve/agent:v0.17.0",
            "memoryRequest": "1Gi",
            "memoryLimit": "1Gi",
            "cpuRequest": "1",
@@ -441,7 +441,7 @@ data:
      batcher: |-
        {
            # image contains the default batcher image uri.
-           "image" : "kserve/agent:latest",
+           "image" : "kserve/agent:v0.17.0",
 
            # memoryRequest is the requests.memory to set for the batcher container.
            "memoryRequest": "1Gi",
@@ -466,7 +466,7 @@ data:
      # Example
      agent: |-
        {
-           "image" : "kserve/agent:latest",
+           "image" : "kserve/agent:v0.17.0",
            "memoryRequest": "100Mi",
            "memoryLimit": "1Gi",
            "cpuRequest": "100m",
@@ -475,7 +475,7 @@ data:
      agent: |-
        {
            # image contains the default agent image uri.
-           "image" : "kserve/agent:latest",
+           "image" : "kserve/agent:v0.17.0",
 
            # memoryRequest is the requests.memory to set for the agent container.
            "memoryRequest": "100Mi",
@@ -494,7 +494,7 @@ data:
      # Example
      router: |-
        {
-           "image" : "kserve/router:latest",
+           "image" : "kserve/router:v0.17.0",
            "memoryRequest": "100Mi",
            "memoryLimit": "1Gi",
            "cpuRequest": "100m",
@@ -509,7 +509,7 @@ data:
      router: |-
        {
            # image contains the default router image uri.
-           "image" : "kserve/router:latest",
+           "image" : "kserve/router:v0.17.0",
 
            # memoryRequest is the requests.memory to set for the router container.
            "memoryRequest": "100Mi",
@@ -617,7 +617,7 @@ data:
          # jobNamespace specifies the namespace where the download job will be created.
          "jobNamespace": "kserve-localmodel-jobs",
          # defaultJobImage specifies the default image used for the download job.
-         "defaultJobImage" : "kserve/storage-initializer:latest",
+         "defaultJobImage" : "kserve/storage-initializer:v0.17.0",
          # Kubernetes modifies the filesystem group ID on the attached volume.
          "fsGroup": 1000,
          # TTL for the download job after it is finished.
@@ -639,7 +639,7 @@ data:
 
   storageInitializer: |-
     {
-        "image" : "kserve/storage-initializer:latest",
+        "image" : "kserve/storage-initializer:v0.17.0",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -692,7 +692,7 @@ data:
 
   logger: |-
     {
-        "image" : "kserve/agent:latest",
+        "image" : "kserve/agent:v0.17.0",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -702,7 +702,7 @@ data:
 
   batcher: |-
     {
-        "image" : "kserve/agent:latest",
+        "image" : "kserve/agent:v0.17.0",
         "memoryRequest": "1Gi",
         "memoryLimit": "1Gi",
         "cpuRequest": "1",
@@ -713,7 +713,7 @@ data:
 
   agent: |-
     {
-        "image" : "kserve/agent:latest",
+        "image" : "kserve/agent:v0.17.0",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -722,7 +722,7 @@ data:
 
   router: |-
     {
-        "image" : "kserve/router:latest",
+        "image" : "kserve/router:v0.17.0",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -745,7 +745,7 @@ data:
     {
       "enabled": false,
       "jobNamespace": "kserve-localmodel-jobs",
-      "defaultJobImage" : "kserve/storage-initializer:latest",
+      "defaultJobImage" : "kserve/storage-initializer:v0.17.0",
       "fsGroup": 1000,
       "jobTTLSecondsAfterFinished": 3600,
       "reconcilationFrequencyInSecs": 60,
