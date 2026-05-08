@@ -3,14 +3,18 @@ name: LLMInferenceService E2E Tests
 on:
   pull_request:
     paths:
-      - "pkg/apis/serving/v1alpha1/llm*"
-      - "pkg/apis/serving/v1alpha2/llm*"
-      - "pkg/controller/v1alpha1/llmisvc/**"
-      - "pkg/controller/v1alpha2/llmisvc/**"
-      - "charts/kserve-llmisvc-resources/**"
+      - "pkg/apis/serving/**/llm*"
+      - "pkg/controller/**/llmisvc/**"
+      - "charts/kserve-llmisvc-*"
       - "config/llmisvc/**"
+      - "config/llmisvcconfig/**"
       - "config/rbac/llmisvc/**"
       - "cmd/llmisvc/**"
+      - "llmisvc-controller.Dockerfile"
+      - "python/storage-initializer.Dockerfile"
+      - "python/storage/**"
+      - "python/storage-initializer/**"
+      - "config/configmap/inferenceservice.yaml"
       - "test/e2e/llmisvc/**"
       - ".github/workflows/e2e-test-llmisvc.yaml"
       - ".github/actions/**"
