@@ -22,6 +22,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/utils"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -29,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 )
@@ -109,6 +111,27 @@ func (v *LocalModelNamespaceCacheValidator) ValidateDelete(ctx context.Context, 
 		if modelName == localModelNamespaceCache.Name && modelNamespace == localModelNamespaceCache.Namespace {
 			return admission.Warnings{}, fmt.Errorf("LocalModelNamespaceCache %s/%s is being used by InferenceService %s/%s",
 				localModelNamespaceCache.Namespace, localModelNamespaceCache.Name, isvcMeta.Namespace, isvcMeta.Name)
+		}
+	}
+
+	// Check if current LocalModelNamespaceCache is being used by LLMInferenceServices in the same namespace
+	for _, llmIsvcMeta := range localModelNamespaceCache.Status.LLMInferenceServices {
+		llmIsvc := v1alpha2.LLMInferenceService{}
+		if err := v.Get(ctx, client.ObjectKey(llmIsvcMeta), &llmIsvc); err != nil {
+			if apierrors.IsNotFound(err) {
+				continue
+			}
+			localModelNamespaceCacheValidatorLogger.Error(err, "Error getting LLMInferenceService", "name", llmIsvcMeta.Name, "namespace", llmIsvcMeta.Namespace)
+			return nil, err
+		}
+		modelName, ok := llmIsvc.Labels[constants.LocalModelLabel]
+		if !ok {
+			continue
+		}
+		modelNamespace := llmIsvc.Labels[constants.LocalModelNamespaceLabel]
+		if modelName == localModelNamespaceCache.Name && modelNamespace == localModelNamespaceCache.Namespace {
+			return admission.Warnings{}, fmt.Errorf("LocalModelNamespaceCache %s/%s is being used by LLMInferenceService %s/%s",
+				localModelNamespaceCache.Namespace, localModelNamespaceCache.Name, llmIsvcMeta.Namespace, llmIsvcMeta.Name)
 		}
 	}
 	return nil, nil
