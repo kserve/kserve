@@ -132,7 +132,9 @@ func (c *CaBundleConfigMapReconciler) ReconcileCaBundleConfigMap(ctx context.Con
 	}
 
 	// Return if no differences to reconcile.
-	if equality.Semantic.DeepEqual(desiredConfigMap, existingConfigMap) {
+	// DeepDerivative treats zero/nil fields in desired as "don't care",
+	// so server-populated metadata fields on existing don't cause false diffs.
+	if equality.Semantic.DeepDerivative(desiredConfigMap, existingConfigMap) {
 		return nil
 	}
 
