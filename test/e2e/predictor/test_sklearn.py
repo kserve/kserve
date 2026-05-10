@@ -330,8 +330,8 @@ async def test_sklearn_v2_grpc():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    json_file = open("./data/iris_input_v2_grpc.json")
-    payload = json.load(json_file)["inputs"]
+    with open("./data/iris_input_v2_grpc.json") as json_file:
+        payload = json.load(json_file)["inputs"]
 
     response = await predict_grpc(
         service_name=service_name, payload=payload, model_name=model_name

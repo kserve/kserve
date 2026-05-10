@@ -121,6 +121,9 @@ lint-helm-charts:
 verify-helm-helpers-consistency:
 	@bash hack/setup/scripts/verify-helm-helpers.sh
 
+verify-minimal-crd-sync:
+	@bash hack/verify-minimal-crd-sync.sh
+
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen kustomize yq
 	@$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/... output:crd:dir=config/crd/full	
@@ -230,15 +233,17 @@ manifests: controller-gen kustomize yq
 	# Generate minimal crd
 	./hack/minimal-crdgen.sh
 	
-	# Copy the minimal crd to the helm chart	
+	# Copy the minimal crd to the helm chart
 	cp -f config/crd/minimal/*.yaml charts/kserve-crd-minimal/templates/
-	cp -f config/crd/minimal/llmisvc/*.yaml charts/kserve-llmisvc-crd-minimal/templates/
 	cp -f config/crd/minimal/localmodel/*.yaml charts/kserve-localmodel-crd-minimal/templates/
 	cp -f config/crd/minimal/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-crd-minimal/files/
 	cp -f config/crd/minimal/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-llmisvc-crd-minimal/files/
 	rm charts/kserve-crd-minimal/templates/kustomization.yaml
-	rm charts/kserve-llmisvc-crd-minimal/templates/kustomization.yaml
 	rm charts/kserve-localmodel-crd-minimal/templates/kustomization.yaml
+
+	# Copy minimal llmisvc crd (with conversion webhook patches applied via kustomize)
+	$(KUSTOMIZE) build config/crd/minimal/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceservices.serving.kserve.io")' > charts/kserve-llmisvc-crd-minimal/templates/serving.kserve.io_llminferenceservices.yaml
+	$(KUSTOMIZE) build config/crd/minimal/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceserviceconfigs.serving.kserve.io")' > charts/kserve-llmisvc-crd-minimal/templates/serving.kserve.io_llminferenceserviceconfigs.yaml
 	
     # Copy Test inferenceconfig configmap to test overlay
 	cp config/configmap/inferenceservice.yaml config/overlays/test/configmap/inferenceservice.yaml
@@ -306,7 +311,7 @@ sync-helm-multi-resource-helpers:
 	done
 
 # This runs all necessary steps to prepare for a commit.
-precommit: ensure-go-version-upgrade sync-deps sync-img-env vet tidy go-lint py-fmt py-lint generate manifests uv-lock generate-quick-install-scripts generate-chart-manifests sync-helm-common-helpers sync-helm-common-resource-helpers sync-helm-multi-resource-helpers verify-pinned-actions
+precommit: ensure-go-version-upgrade sync-deps sync-img-env vet tidy go-lint py-fmt py-lint generate manifests uv-lock generate-quick-install-scripts generate-chart-manifests sync-helm-common-helpers sync-helm-common-resource-helpers sync-helm-multi-resource-helpers verify-pinned-actions verify-minimal-crd-sync
 
 # This is used by CI to ensure that the precommit checks are met.
 check: precommit
@@ -451,7 +456,7 @@ bump-version:
 
 # Build the docker image
 docker-build:
-	${ENGINE} buildx build ${ARCH} . -t ${KO_DOCKER_REPO}/${CONTROLLER_IMG}
+	${ENGINE} buildx build ${ARCH} --build-arg GOTAGS=${GOTAGS} . -t ${KO_DOCKER_REPO}/${CONTROLLER_IMG}
 	@echo "updating kustomize image patch file for manager resource"
 
 	# Use perl instead of sed to avoid OSX/Linux compatibility issue:

@@ -1,0 +1,9 @@
+DESCRIPTION: Install KServe LLM InferenceService HPA autoscaling dependencies (Prometheus, Prometheus Adapter, WVA)
+
+TOOLS:
+  - helm
+
+COMPONENTS:
+  - name: prometheus-helm
+  - name: prometheus-adapter-helm
+  - name: wva-helm

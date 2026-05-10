@@ -272,9 +272,11 @@ func (r *LLMISVCReconciler) propagateDeploymentMetadata(llmSvc *v1alpha2.LLMInfe
 		"k8s.v1.cni.cncf.io",
 		constants.KueueAPIGroupName,
 		"prometheus.io",
+		constants.LocalModelLabel,
 	}
 	approvedLabelPrefixes := []string{
 		constants.KueueAPIGroupName,
+		constants.LocalModelLabel,
 	}
 
 	// Propagate approved annotations from top-level metadata to the Deployment and its Pod template

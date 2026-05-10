@@ -5,7 +5,7 @@ kserve:
     controller:
       image: kserve/llmisvc-controller
       tag: ''
-      imagePullPolicy: IfNotPresent
+      imagePullPolicy: Always
       imagePullSecrets: []
       labels: {}
       podLabels: {}

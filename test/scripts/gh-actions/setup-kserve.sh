@@ -29,6 +29,7 @@ export DEPLOYMENT_MODE="${1:-Knative}"
 export NETWORK_LAYER="${2:-istio}"
 export GATEWAY_NETWORK_LAYER="false"
 export ENABLE_LLMISVC="${ENABLE_LLMISVC:-false}"
+export ENABLE_KSERVE_WITH_LLMISVC="${ENABLE_KSERVE_WITH_LLMISVC:-false}"
 export INSTALL_METHOD="${INSTALL_METHOD:-kustomize}"
 
 # Extract gateway class name from NETWORK_LAYER (e.g., "envoy-gatewayapi" -> "envoy")
@@ -48,11 +49,14 @@ pushd python/kserve >/dev/null
 popd
 
 
-if [[ $ENABLE_LLMISVC == "false" ]]; then
+if [[ $ENABLE_LLMISVC == "false" || $ENABLE_KSERVE_WITH_LLMISVC == "true" ]]; then
   if [[ $INSTALL_METHOD == "helm" ]]; then
     export KSERVE_EXTRA_ARGS="--set kserve.controller.imagePullPolicy=IfNotPresent" 
     export LOCALMODEL_EXTRA_ARGS="--set kserve.localmodel.controller.imagePullPolicy=IfNotPresent --set kserve.localmodelnode.controller.imagePullPolicy=IfNotPresent" 
     export ENABLE_LOCALMODEL=true
+    if [[ $ENABLE_LLMISVC == "true" ]]; then
+      export LLMISVC_EXTRA_ARGS="--set kserve.llmisvc.controller.imagePullPolicy=IfNotPresent"
+    fi
     export SET_KSERVE_VERSION=${TAG}
     export USE_LOCAL_CHARTS=true
     export INSTALL_RUNTIMES=true
@@ -63,6 +67,12 @@ if [[ $ENABLE_LLMISVC == "false" ]]; then
     export ENABLE_LOCALMODEL=true
     export KSERVE_OVERLAY_DIR=test
     export INSTALL_RUNTIMES=false
+    if [[ $ENABLE_LLMISVC == "true" ]]; then
+      if [[ $ENABLE_KSERVE_WITH_LLMISVC == "true" ]]; then
+        export KSERVE_OVERLAY_DIR=test-modelcache
+      fi
+      export INSTALL_LLMISVC_CONFIGS=true
+    fi
     ${REPO_ROOT}/hack/setup/infra/manage.kserve-kustomize.sh
     echo "Installing KServe Runtimes..."
     kubectl apply --server-side=true -k config/overlays/test/clusterresources
@@ -95,6 +105,19 @@ else
     export ENABLE_KSERVE=false
     ${REPO_ROOT}/hack/setup/infra/manage.kserve-kustomize.sh
   fi
+fi
+
+ENABLE_KEDA="${ENABLE_KEDA:-false}"
+if [[ $ENABLE_LLMISVC == "true" ]] && [[ $ENABLE_KEDA == "true" ]]; then
+  echo "Patching inferenceservice-config with autoscaling-wva-controller-config for KEDA..."
+  kubectl patch configmap inferenceservice-config -n kserve --type merge -p '{
+    "data": {
+      "autoscaling-wva-controller-config": "{\"prometheus\":{\"url\":\"https://prometheus-kube-prometheus-prometheus.monitoring:9090\",\"tlsInsecureSkipVerify\":true}}"
+    }
+  }'
+  echo "Restarting LLMISVC controller to pick up new config..."
+  kubectl rollout restart deployment llmisvc-controller-manager -n kserve
+  kubectl rollout status deployment llmisvc-controller-manager -n kserve --timeout=120s
 fi
 
 echo "Show inferenceservice-config configmap..."

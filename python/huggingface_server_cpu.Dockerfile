@@ -53,7 +53,7 @@ RUN uv venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 ARG TORCH_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu"
-ARG TORCH_VERSION=2.10.0
+ARG TORCH_VERSION=2.11.0
 
 # Copy storage metadata for editable dependency resolution
 COPY storage/pyproject.toml storage/uv.lock storage/
@@ -93,7 +93,7 @@ RUN cd huggingfaceserver && \
     rm -rf ~/.cache/uv
 
 # install vllm
-ARG VLLM_VERSION=0.19.0
+ARG VLLM_VERSION=0.20.0
 ARG VLLM_CPU_DISABLE_AVX512=true
 ENV VLLM_CPU_DISABLE_AVX512=${VLLM_CPU_DISABLE_AVX512}
 ARG VLLM_CPU_AVX512BF16=1
@@ -105,7 +105,7 @@ RUN git clone --single-branch --branch v${VLLM_VERSION} https://github.com/vllm-
 
 # Install vLLM build requirements
 RUN cd vllm && \
-    uv pip install --no-cache -v --index-strategy unsafe-best-match --extra-index-url ${TORCH_EXTRA_INDEX_URL} -r requirements/cpu-build.txt && \
+    uv pip install --no-cache -v --index-strategy unsafe-best-match --extra-index-url ${TORCH_EXTRA_INDEX_URL} -r requirements/build/cpu.txt && \
     uv cache clean
 
 # Install vLLM cpu requirements

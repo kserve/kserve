@@ -1190,6 +1190,12 @@ var _ = Describe("LocalModelNode controller", func() {
 			Expect(pvcVolume.PersistentVolumeClaim).NotTo(BeNil())
 			Expect(pvcVolume.PersistentVolumeClaim.ClaimName).To(Equal("sklearn-model-sklearn-nodegroup"),
 				"PVC name should use NodeGroup from modelInfo, not the first matching nodegroup from getNodeGroupFromNode")
+
+			Expect(job.Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{
+				"kubernetes.io/hostname": nodeName,
+			}), "Job should use NodeSelector for scheduler-based placement")
+			Expect(job.Spec.Template.Spec.NodeName).To(BeEmpty(),
+				"Job should not use NodeName to allow the scheduler to establish PVC-to-node binding")
 		})
 
 		It("Should append -download suffix to PVC name for namespace-scoped models", func() {

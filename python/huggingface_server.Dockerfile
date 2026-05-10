@@ -1,27 +1,110 @@
-ARG CUDA_VERSION=12.9.1
+ARG CUDA_VERSION=13.2.1
 ARG VENV_PATH=prod_venv
-ARG PYTHON_VERSION=3.12
 ARG WORKSPACE_DIR=/kserve-workspace
 
+#################### CUDA RUNTIME (Ubuntu 25.10) ####################
+# Custom CUDA runtime image since NVIDIA doesn't publish Ubuntu 25.10 images.
+# Uses the ubuntu2404 apt repo — packages are compatible across Ubuntu versions.
+FROM ubuntu:25.10 AS cuda-runtime
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV NVARCH=x86_64
+ENV NV_CUDA_CUDART_VERSION=13.2.75-1
+ENV CUDA_VERSION=13.2.1
+ENV NV_CUDA_LIB_VERSION=13.2.1-1
+ENV NV_NVTX_VERSION=13.2.75-1
+ENV NV_LIBNPP_VERSION=13.1.0.48-1
+ENV NV_LIBCUSPARSE_VERSION=12.7.10.1-1
+ENV NV_LIBCUBLAS_VERSION=13.4.0.1-1
+
+ENV NVIDIA_REQUIRE_CUDA="cuda>=13.2 brand=tesla,driver>=535,driver<536 brand=tesla,driver>=570,driver<571 brand=tesla,driver>=580,driver<581 brand=tesla,driver>=590,driver<591 brand=nvidia,driver>=535,driver<536 brand=nvidia,driver>=570,driver<571 brand=nvidia,driver>=580,driver<581 brand=nvidia,driver>=590,driver<591 brand=nvidiartx,driver>=535,driver<536 brand=nvidiartx,driver>=570,driver<571 brand=nvidiartx,driver>=580,driver<581 brand=nvidiartx,driver>=590,driver<591"
+
+# Add NVIDIA CUDA apt repo (ubuntu2404 — no 2510 repo exists)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gnupg2 curl ca-certificates && \
+    curl -fsSLO https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/${NVARCH}/cuda-keyring_1.1-1_all.deb && \
+    dpkg -i cuda-keyring_1.1-1_all.deb && \
+    rm cuda-keyring_1.1-1_all.deb && \
+    apt-get purge --autoremove -y curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# CUDA base packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    cuda-cudart-13-2=${NV_CUDA_CUDART_VERSION} \
+    cuda-toolkit-13-2-config-common=${NV_CUDA_CUDART_VERSION} \
+    cuda-toolkit-13-config-common=${NV_CUDA_CUDART_VERSION} \
+    cuda-toolkit-config-common=${NV_CUDA_CUDART_VERSION} \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update && \
+    if apt-cache policy cuda-compat-13-2 2>/dev/null | grep -q "Candidate:"; then \
+        apt-get install -y --no-install-recommends cuda-compat-13-2; \
+    fi && \
+    rm -rf /var/lib/apt/lists/*
+
+# CUDA runtime libraries
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    cuda-libraries-13-2=${NV_CUDA_LIB_VERSION} \
+    libnpp-13-2=${NV_LIBNPP_VERSION} \
+    cuda-nvtx-13-2=${NV_NVTX_VERSION} \
+    libcusparse-13-2=${NV_LIBCUSPARSE_VERSION} \
+    libcublas-13-2=${NV_LIBCUBLAS_VERSION} \
+    libnccl2 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN apt-mark hold libcublas-13-2 libnccl2
+
+RUN echo "/usr/local/cuda/lib64" >> /etc/ld.so.conf.d/nvidia.conf
+
+ENV PATH=/usr/local/nvidia/bin:/usr/local/cuda/bin:${PATH}
+ENV LD_LIBRARY_PATH=/usr/local/nvidia/lib:/usr/local/nvidia/lib64:/usr/local/cuda/lib64
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+#################### CUDA RUNTIME (Ubuntu 25.10) ####################
+
+#################### CUDA DEVEL (Ubuntu 25.10) ####################
+FROM cuda-runtime AS cuda-devel
+
+ENV NV_CUDA_CUDART_DEV_VERSION=13.2.75-1
+ENV NV_NVML_DEV_VERSION=13.2.82-1
+ENV NV_LIBCUSPARSE_DEV_VERSION=12.7.10.1-1
+ENV NV_LIBNPP_DEV_VERSION=13.1.0.48-1
+ENV NV_LIBCUBLAS_DEV_VERSION=13.4.0.1-1
+ENV NV_CUDA_NSIGHT_COMPUTE_VERSION=13.2.1-1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    cuda-cudart-dev-13-2=${NV_CUDA_CUDART_DEV_VERSION} \
+    cuda-command-line-tools-13-2=${NV_CUDA_LIB_VERSION} \
+    cuda-minimal-build-13-2=${NV_CUDA_LIB_VERSION} \
+    cuda-libraries-dev-13-2=${NV_CUDA_LIB_VERSION} \
+    cuda-nvml-dev-13-2=${NV_NVML_DEV_VERSION} \
+    libnpp-dev-13-2=${NV_LIBNPP_DEV_VERSION} \
+    libcusparse-dev-13-2=${NV_LIBCUSPARSE_DEV_VERSION} \
+    libcublas-dev-13-2=${NV_LIBCUBLAS_DEV_VERSION} \
+    cuda-nsight-compute-13-2=${NV_CUDA_NSIGHT_COMPUTE_VERSION} \
+    libnccl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN apt-mark hold libcublas-dev-13-2 libnccl-dev
+
+ENV LIBRARY_PATH=/usr/local/cuda/lib64/stubs
+
+#################### CUDA DEVEL (Ubuntu 25.10) ####################
+
 #################### BASE BUILD IMAGE ####################
-# prepare basic build environment
-FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu22.04 AS base
+FROM cuda-devel AS base
 
 ARG WORKSPACE_DIR
-ARG CUDA_VERSION=12.9.1
-ARG PYTHON_VERSION=3.12
-ENV DEBIAN_FRONTEND=noninteractive
+ARG CUDA_VERSION=13.2.1
+
+RUN echo '[global]' >>/etc/pip.conf && \
+    echo 'break-system-packages = true' >>/etc/pip.conf && \
+    echo 'ignore-installed = true' >>/etc/pip.conf && \
+    echo 'root-user-action = ignore' >>/etc/pip.conf
 
 RUN apt-get update -y \
-    && apt-get install -y ccache software-properties-common git curl sudo gcc python-is-python3 \
-    && add-apt-repository ppa:deadsnakes/ppa \
-    && apt-get update -y \
-    && apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-venv \
-    && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1 \
-    && update-alternatives --set python3 /usr/bin/python${PYTHON_VERSION} \
-    && ln -sf /usr/bin/python${PYTHON_VERSION}-config /usr/bin/python3-config \
-    && curl -sS https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} \
-    && python3 --version && python3 -m pip --version \
+    && apt-get install -y ccache software-properties-common git curl sudo gcc python3 python3-venv python3-pip python-is-python3 \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install uv and ensure it's in PATH
@@ -52,13 +135,15 @@ WORKDIR ${WORKSPACE_DIR}
 FROM base AS build
 
 ARG WORKSPACE_DIR
-ARG VLLM_VERSION=0.19.0
-ARG LMCACHE_VERSION=0.4.2
-ARG FLASHINFER_VERSION=0.6.6
+ARG VLLM_VERSION=0.20.0
+ARG LMCACHE_VERSION=0.4.4
 
 WORKDIR ${WORKSPACE_DIR}
 
 ARG VENV_PATH
+
+ENV UV_PYTHON_INSTALL_DIR=/opt/uv_python
+
 RUN python3 -m venv ${VENV_PATH}
 # Activate virtual env by setting VIRTUAL_ENV
 ENV VIRTUAL_ENV=${WORKSPACE_DIR}/${VENV_PATH}
@@ -71,7 +156,7 @@ COPY storage/pyproject.toml storage/uv.lock storage/
 
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
 RUN --mount=type=cache,target=/root/.cache/uv cd kserve && uv sync --active --no-cache
-COPY kserve kserve  
+COPY kserve kserve
 RUN --mount=type=cache,target=/root/.cache/uv cd kserve && uv sync --active --no-cache
 
 # Install kserve-storage
@@ -91,18 +176,6 @@ RUN --mount=type=cache,target=/root/.cache/pip pip install vllm[runai,tensorizer
 # Install lmcache
 RUN --mount=type=cache,target=/root/.cache/pip pip install lmcache==${LMCACHE_VERSION}
 
-# Use Bash with `-o pipefail` so we can leverage Bash-specific features (like `[[ … ]]` for glob tests)
-# and ensure that failures in any part of a piped command cause the build to fail immediately.
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-
-# Install flashinfer
-# https://docs.flashinfer.ai/installation.html
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install flashinfer-cubin==${FLASHINFER_VERSION} && \
-    pip install flashinfer-jit-cache==${FLASHINFER_VERSION} \
-        --extra-index-url https://flashinfer.ai/whl/cu$(echo ${CUDA_VERSION} | cut -d. -f1,2 | tr -d '.') && \
-    flashinfer show-config
-
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
 COPY third_party/pip-licenses.py pip-licenses.py
@@ -111,28 +184,19 @@ RUN mkdir -p third_party/library && python3 pip-licenses.py
 #################### WHEEL BUILD IMAGE ####################
 
 #################### PROD IMAGE ####################
-FROM nvidia/cuda:${CUDA_VERSION}-runtime-ubuntu22.04 AS prod
+FROM cuda-runtime AS prod
 
 ARG WORKSPACE_DIR
-ARG CUDA_VERSION=12.9.1
-ARG PYTHON_VERSION=3.12
+ARG CUDA_VERSION=13.2.1
 ENV DEBIAN_FRONTEND=noninteractive
 
 WORKDIR ${WORKSPACE_DIR}
 
-# Install Python and other dependencies
+# Install runtime dependencies
 RUN apt-get update -y \
     && apt-get upgrade -y \
     && apt-get install -y software-properties-common curl \
     && apt-get install -y ffmpeg libsm6 libxext6 libgl1 gcc libibverbs-dev \
-    && add-apt-repository ppa:deadsnakes/ppa \
-    && apt-get update -y \
-    && apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-venv \
-    && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1 \
-    && update-alternatives --set python3 /usr/bin/python${PYTHON_VERSION} \
-    && ln -sf /usr/bin/python${PYTHON_VERSION}-config /usr/bin/python3-config \
-    && curl -sS https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} \
-    && python3 --version && python3 -m pip --version \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 ARG VENV_PATH
@@ -141,8 +205,9 @@ ENV VIRTUAL_ENV=${WORKSPACE_DIR}/${VENV_PATH}
 ENV PATH="${WORKSPACE_DIR}/${VENV_PATH}/bin:$PATH"
 
 # Create non-root user
-RUN useradd kserve -m -u 1000 -d /home/kserve
+RUN userdel -r ubuntu && useradd kserve -m -u 1000 -d /home/kserve
 
+COPY --from=build /opt/uv_python /opt/uv_python
 COPY --from=build --chown=kserve:kserve ${WORKSPACE_DIR}/third_party third_party
 COPY --from=build --chown=kserve:kserve ${WORKSPACE_DIR}/$VENV_PATH $VENV_PATH
 COPY --from=build ${WORKSPACE_DIR}/kserve kserve

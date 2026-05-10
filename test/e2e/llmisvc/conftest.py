@@ -44,3 +44,10 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "llminferenceservice: mark test as an LLM inference service test"
     )
+    config.addinivalue_line("markers", "autoscaling: mark test as an autoscaling test")
+    config.addinivalue_line(
+        "markers", "autoscaling_hpa: mark test as an HPA autoscaling test"
+    )
+    config.addinivalue_line(
+        "markers", "autoscaling_keda: mark test as a KEDA autoscaling test"
+    )

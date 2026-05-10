@@ -190,17 +190,23 @@ validate_kserve_deps() {
 }
 
 validate_tag_duplicate() {
-    print_section "🔍 Phase 3: Checking for duplicate tag..."
+    print_section "🔍 Phase 3: Checking for duplicate tag on upstream..."
 
-    if git rev-parse "$VERSION" >/dev/null 2>&1; then
-        print_error "Tag $VERSION already exists!"
+    if git ls-remote --tags "$UPSTREAM_REMOTE" "$VERSION" 2>/dev/null | grep -q "refs/tags/$VERSION"; then
+        print_error "Tag $VERSION already exists on $UPSTREAM_REMOTE!"
         echo ""
-        echo "Existing tag information:"
-        git show -s --format='%h %ci %s' "$VERSION"
+        echo "Check the tag on upstream:"
+        echo "  git ls-remote --tags $UPSTREAM_REMOTE $VERSION"
         exit 1
     fi
 
-    print_success "Tag $VERSION does not exist (OK)"
+    # Clean up stale local tag that doesn't exist on upstream
+    if git rev-parse "$VERSION" >/dev/null 2>&1; then
+        print_warning "Tag $VERSION exists locally but NOT on $UPSTREAM_REMOTE. Deleting stale local tag."
+        git tag -d "$VERSION"
+    fi
+
+    print_success "Tag $VERSION does not exist on $UPSTREAM_REMOTE (OK)"
 }
 
 validate_github_release_duplicate() {
@@ -312,7 +318,7 @@ show_dry_run_plan() {
     echo "=================================================="
     echo ""
     echo "🚀 To execute this release, run:"
-    echo "   ./hack/release/create-branch-tag.sh $VERSION"
+    echo "   ./hack/release/create-branch-tag.sh $VERSION --execute"
     echo ""
 }
 
