@@ -116,7 +116,6 @@ def assert_metrics_present(metrics_text, expected_metrics, model_name):
 
 
 @pytest.mark.raw
-@pytest.mark.transformer
 @pytest.mark.asyncio(scope="session")
 async def test_transformer_metrics_isolated(rest_v1_client, network_layer):
     """Test that an isolated transformer in Standard mode exposes Prometheus metrics."""
@@ -192,8 +191,6 @@ async def test_transformer_metrics_isolated(rest_v1_client, network_layer):
 
 
 @pytest.mark.raw
-@pytest.mark.transformer
-@pytest.mark.collocation
 @pytest.mark.asyncio(scope="session")
 async def test_transformer_metrics_collocated(rest_v1_client, network_layer):
     """Test that a collocated transformer in Standard mode exposes Prometheus metrics."""
