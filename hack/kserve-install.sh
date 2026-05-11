@@ -303,10 +303,11 @@ if [[ ${#TYPES[@]} -gt 0 ]]; then
   # Configure autoscaling settings in inferenceservice-config ConfigMap
   if [[ -n "${LLMISVC_SCALING}" ]]; then
     AUTOSCALING_PROM_URL="${WVA_PROMETHEUS_URL:-https://prometheus-kube-prometheus-prometheus.${PROMETHEUS_NAMESPACE:-monitoring}:9090}"
+    AUTOSCALING_PROM_UNSAFE_SSL="${WVA_PROMETHEUS_UNSAFE_SSL:-true}"
     log_info "Configuring autoscaling-wva-controller-config with Prometheus URL: ${AUTOSCALING_PROM_URL}"
     update_isvc_config \
       "autoscaling-wva-controller-config.prometheus.url=${AUTOSCALING_PROM_URL}" \
-      "autoscaling-wva-controller-config.prometheus.unsafeSsl=true"
+      "autoscaling-wva-controller-config.prometheus.unsafeSsl=${AUTOSCALING_PROM_UNSAFE_SSL}"
   fi
 
   log_success "Installation complete: ${TYPES[*]}"
