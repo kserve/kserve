@@ -209,7 +209,7 @@ def send_load(service_url, model_name, concurrency=5, duration_seconds=30):
 
     deadline = time.time() + duration_seconds
     lock = threading.Lock()
-    counters = {"success": 0, "error": 0}
+    counters = {"success": 0, "client_error": 0, "server_error": 0}
 
     def _worker():
         while time.time() < deadline:
@@ -218,13 +218,15 @@ def send_load(service_url, model_name, concurrency=5, duration_seconds=30):
                     endpoint, json=payload, headers=headers, timeout=30
                 )
                 with lock:
-                    if resp.status_code < 500:
+                    if resp.status_code == 200:
                         counters["success"] += 1
+                    elif resp.status_code < 500:
+                        counters["client_error"] += 1
                     else:
-                        counters["error"] += 1
+                        counters["server_error"] += 1
             except Exception:
                 with lock:
-                    counters["error"] += 1
+                    counters["server_error"] += 1
             time.sleep(0.1)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as pool:
@@ -233,10 +235,12 @@ def send_load(service_url, model_name, concurrency=5, duration_seconds=30):
 
     logger.info(
         f"send_load complete: {counters['success']} ok, "
-        f"{counters['error']} errors to {endpoint}"
+        f"{counters['client_error']} client errors, "
+        f"{counters['server_error']} server errors to {endpoint}"
     )
-    assert counters["success"] > 0, (
-        f"send_load: all {counters['error']} requests failed to {endpoint}"
+    total_delivered = counters["success"] + counters["client_error"]
+    assert total_delivered > 0, (
+        f"send_load: all {counters['server_error']} requests failed to {endpoint}"
     )
 
 
