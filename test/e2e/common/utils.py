@@ -34,6 +34,9 @@ from .http_retry import post_with_retry
 
 KSERVE_NAMESPACE = os.environ.get("KSERVE_NAMESPACE", "kserve")
 KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
+# autogluonserver: large image + storage init + predictor load often exceeds default
+# KServeClient.wait_isvc_ready (600s) under parallel e2e; override via env if needed.
+AUTOGLUON_ISVC_WAIT_TIMEOUT = int(os.getenv("AUTOGLUON_ISVC_WAIT_TIMEOUT", "1200"))
 MODEL_CLASS_NAME = "modelClass"
 INFERENCESERVICE_CONTAINER = "kserve-container"
 TRANSFORMER_CONTAINER = "transformer-container"

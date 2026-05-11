@@ -46,6 +46,15 @@ $ helm install kserve-runtime-configs oci://ghcr.io/kserve/charts/kserve-runtime
 | kserve.servingruntime.art.defaultVersion | string | `""` |  |
 | kserve.servingruntime.art.image | string | `"kserve/art-explainer"` |  |
 | kserve.servingruntime.art.imagePullSecrets | list | `[]` |  |
+| kserve.servingruntime.autogluonserver.disabled | bool | `false` |  |
+| kserve.servingruntime.autogluonserver.image | string | `"kserve/autogluonserver"` |  |
+| kserve.servingruntime.autogluonserver.imagePullPolicy | string | `"IfNotPresent"` |  |
+| kserve.servingruntime.autogluonserver.imagePullSecrets | list | `[]` |  |
+| kserve.servingruntime.autogluonserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
+| kserve.servingruntime.autogluonserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
+| kserve.servingruntime.autogluonserver.securityContext.privileged | bool | `false` |  |
+| kserve.servingruntime.autogluonserver.securityContext.runAsNonRoot | bool | `true` |  |
+| kserve.servingruntime.autogluonserver.tag | string | `""` |  |
 | kserve.servingruntime.enabled | bool | `false` |  |
 | kserve.servingruntime.huggingfaceserver.devShm.enabled | bool | `false` |  |
 | kserve.servingruntime.huggingfaceserver.devShm.sizeLimit | string | `""` |  |
