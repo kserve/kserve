@@ -26,7 +26,6 @@ import (
 	"strings"
 
 	gstorage "cloud.google.com/go/storage"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/googleapis/google-cloud-go-testing/storage/stiface"
 	"google.golang.org/api/iterator"
 )
@@ -121,7 +120,7 @@ func (g *GCSObjectDownloader) Download(ctx context.Context, client stiface.Clien
 		return gstorage.ErrObjectNotExist
 	}
 	if len(errs) > 0 {
-		return awserr.NewBatchError("GCSDownloadIncomplete", "some objects failed to download.", errs)
+		return fmt.Errorf("GCSDownloadIncomplete: some objects failed to download: %w", errors.Join(errs...))
 	}
 	return nil
 }
