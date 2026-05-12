@@ -57,6 +57,7 @@ const (
 	DefaultUrlScheme      = "http"
 
 	DefaultModelBasedRoutingHeaderName = "X-Gateway-Model-Name"
+	DefaultModelBasedRoutingMode       = "enabled"
 )
 
 // Error messages
@@ -131,6 +132,7 @@ type IngressConfig struct {
 	DisableHTTPRouteTimeout      bool      `json:"disableHTTPRouteTimeout,omitempty"`
 
 	ModelBasedRoutingHeaderName string `json:"modelBasedRoutingHeaderName,omitempty"`
+	ModelBasedRoutingMode       string `json:"modelBasedRoutingMode,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -341,6 +343,10 @@ func NewIngressConfig(isvcConfigMap *corev1.ConfigMap) (*IngressConfig, error) {
 
 	if ingressConfig.ModelBasedRoutingHeaderName == "" {
 		ingressConfig.ModelBasedRoutingHeaderName = DefaultModelBasedRoutingHeaderName
+	}
+
+	if ingressConfig.ModelBasedRoutingMode == "" {
+		ingressConfig.ModelBasedRoutingMode = DefaultModelBasedRoutingMode
 	}
 
 	return ingressConfig, nil

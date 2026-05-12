@@ -53,6 +53,8 @@ import (
 // Once set to "v1", traffic will never fall back to v1alpha2 even during transient failures.
 const AnnotationInferencePoolMigrated = "serving.kserve.io/inference-pool-migrated"
 
+const AnnotationModelBasedRoutingEnabled = "serving.kserve.io/model-based-routing-enabled"
+
 // ErrPreconditionNotMet is a sentinel error returned by ensureGatewayPreconditions
 // when a non-transient precondition is not met (e.g. a required CRD is missing).
 // The caller should mark status but not propagate the error to avoid infinite requeue.
