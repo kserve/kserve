@@ -246,7 +246,7 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 	if currentNode.RouterType == v1alpha1.Splitter {
 		route := pickupRoute(currentNode.Steps)
 		if route == nil {
-			err := errors.New("No route was selected by the splitter")
+			err := errors.New("no route was selected by the splitter")
 			log.Error(err, "failed to pick a route", "nodeName", nodeName)
 			return nil, 500, err
 		}
