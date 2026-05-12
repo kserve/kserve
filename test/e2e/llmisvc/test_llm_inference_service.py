@@ -709,8 +709,6 @@ def _collect_diagnostics(
     name = llm_isvc.metadata.name
     ns = llm_isvc.metadata.namespace
 
-    svc = get_llmisvc(kserve_client, name, ns)
-
     labels = {
         "app.kubernetes.io/part-of": "llminferenceservice",
         "app.kubernetes.io/name": name,
@@ -720,6 +718,7 @@ def _collect_diagnostics(
     print("---")
     print(f"# LLMInferenceService {name}")
     try:
+        svc = get_llmisvc(kserve_client, name, ns)
         print(yaml.safe_dump(svc, sort_keys=False))
     except Exception as e:
         print(f"# ❌ failed to dump LLMInferenceService: {e}")
