@@ -1,5 +1,5 @@
 ---
-apiVersion: aigateway.envoyproxy.io/v1alpha1
+apiVersion: aigateway.envoyproxy.io/v1beta1
 kind: AIGatewayRoute
 metadata:
   name: envoy-ai-gateway-gpt-oss
