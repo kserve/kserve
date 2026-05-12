@@ -24,8 +24,9 @@ from kubernetes import client
 from typing import Any, Callable, Dict, List, Optional
 
 from .diagnostic import (
-    print_all_events_table,
+    collect_pod_logs,
     kinds_matching_by_labels,
+    print_all_events_table,
 )
 from .fixtures import (
     create_router_resources,
@@ -724,6 +725,7 @@ def _collect_diagnostics(
         print(f"# ❌ failed to dump LLMInferenceService: {e}")
 
     print_all_events_table(ns)
+    collect_pod_logs(ns, labels)
 
     all_resources = kinds_matching_by_labels(ns, labels)
     for obj in all_resources:
