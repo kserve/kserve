@@ -313,27 +313,9 @@ jobs:
           ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
           ./test/scripts/gh-actions/setup-kserve.sh
 
-      - name: Verify HPA autoscaling setup
+      - name: Verify HPA autoscaling pipeline health
         run: |
-          echo "Verifying HPA autoscaling infrastructure..."
-
-          echo "Prometheus:"
-          kubectl get pods -n monitoring -l app.kubernetes.io/name=prometheus || true
-
-          echo "Prometheus Adapter:"
-          kubectl get pods -n monitoring -l app.kubernetes.io/name=prometheus-adapter || true
-
-          echo "WVA:"
-          kubectl get pods -n wva-system || true
-
-          echo "CRDs:"
-          kubectl get crd variantautoscalings.llmd.ai || true
-
-          echo "External Metrics API:"
-          kubectl get apiservice v1beta1.external.metrics.k8s.io || true
-
-          echo ""
-          echo "HPA autoscaling setup verification complete!"
+          ./test/scripts/gh-actions/verify-autoscaling-health.sh hpa
 
       - name: Run HPA autoscaling E2E tests
         id: autoscaling-hpa-tests
@@ -424,28 +406,9 @@ jobs:
           ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
           ./test/scripts/gh-actions/setup-kserve.sh
 
-      - name: Verify KEDA autoscaling setup
+      - name: Verify KEDA autoscaling pipeline health
         run: |
-          echo "Verifying KEDA autoscaling infrastructure..."
-
-          echo "Prometheus:"
-          kubectl get pods -n monitoring -l app.kubernetes.io/name=prometheus || true
-
-          echo "KEDA:"
-          kubectl get pods -n keda -l app.kubernetes.io/name=keda-operator || true
-
-          echo "WVA:"
-          kubectl get pods -n wva-system || true
-
-          echo "CRDs:"
-          kubectl get crd variantautoscalings.llmd.ai || true
-          kubectl get crd scaledobjects.keda.sh || true
-
-          echo "ConfigMap autoscaling key:"
-          kubectl get configmap inferenceservice-config -n kserve -o jsonpath='{.data.autoscaling-wva-controller-config}' || true
-
-          echo ""
-          echo "KEDA autoscaling setup verification complete!"
+          ./test/scripts/gh-actions/verify-autoscaling-health.sh keda
 
       - name: Run KEDA autoscaling E2E tests
         id: autoscaling-keda-tests

@@ -40,6 +40,7 @@ integration tests in pkg/controller/v1alpha2/llmisvc/scaling_int_test.go.
 import concurrent.futures
 import logging
 import os
+import threading
 import time
 
 import pytest
@@ -80,6 +81,9 @@ KEDA_PLURAL = "scaledobjects"
 HPA_GROUP = "autoscaling"
 HPA_VERSION = "v2"
 HPA_PLURAL = "horizontalpodautoscalers"
+
+PROMETHEUS_NAMESPACE = os.environ.get("PROMETHEUS_NAMESPACE", "monitoring")
+KEDA_NAMESPACE = os.environ.get("KEDA_NAMESPACE", "keda")
 
 
 def _get_custom_resource(group, version, plural, name, namespace):
@@ -204,18 +208,40 @@ def send_load(service_url, model_name, concurrency=5, duration_seconds=30):
     headers = {"Content-Type": "application/json"}
 
     deadline = time.time() + duration_seconds
+    lock = threading.Lock()
+    counters = {"success": 0, "client_error": 0, "server_error": 0}
 
     def _worker():
         while time.time() < deadline:
             try:
-                requests.post(endpoint, json=payload, headers=headers, timeout=30)
+                resp = requests.post(
+                    endpoint, json=payload, headers=headers, timeout=30
+                )
+                with lock:
+                    if resp.status_code == 200:
+                        counters["success"] += 1
+                    elif resp.status_code < 500:
+                        counters["client_error"] += 1
+                    else:
+                        counters["server_error"] += 1
             except Exception:
-                pass
+                with lock:
+                    counters["server_error"] += 1
             time.sleep(0.1)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as pool:
         futures = [pool.submit(_worker) for _ in range(concurrency)]
         concurrent.futures.wait(futures)
+
+    logger.info(
+        f"send_load complete: {counters['success']} ok, "
+        f"{counters['client_error']} client errors, "
+        f"{counters['server_error']} server errors to {endpoint}"
+    )
+    total_delivered = counters["success"] + counters["client_error"]
+    assert total_delivered > 0, (
+        f"send_load: all {counters['server_error']} requests failed to {endpoint}"
+    )
 
 
 # --- Patching helpers ---
@@ -286,6 +312,114 @@ def assert_scaling_resources_deleted(
         )
 
 
+# --- Pipeline and actuator health assertions ---
+
+
+def assert_metrics_pipeline_ready(actuator="hpa"):
+    """Verify the external metrics API is reachable before relying on scaling."""
+    api = client.ApiregistrationV1Api()
+    apiservice = api.read_api_service("v1beta1.external.metrics.k8s.io")
+    conditions = apiservice.status.conditions or []
+    available = next((c for c in conditions if c.type == "Available"), None)
+    assert available and available.status == "True", (
+        f"External metrics APIService not Available: {conditions}"
+    )
+
+    if actuator == "hpa":
+        v1 = client.CoreV1Api()
+        pods = v1.list_namespaced_pod(
+            namespace=PROMETHEUS_NAMESPACE,
+            label_selector="app.kubernetes.io/name=prometheus-adapter",
+        )
+        running = [p for p in pods.items if p.status.phase == "Running"]
+        assert len(running) > 0, "No running Prometheus Adapter pods found"
+    elif actuator == "keda":
+        v1 = client.CoreV1Api()
+        pods = v1.list_namespaced_pod(
+            namespace=KEDA_NAMESPACE,
+            label_selector="app.kubernetes.io/name=keda-operator",
+        )
+        running = [p for p in pods.items if p.status.phase == "Running"]
+        assert len(running) > 0, "No running KEDA operator pods found"
+
+
+def assert_wva_metric_exists(service_name, namespace=KSERVE_TEST_NAMESPACE):
+    """Verify WVA computed a scaling decision (desiredOptimizedAlloc present)."""
+
+    def _check():
+        va = _get_custom_resource(
+            VA_GROUP, VA_VERSION, VA_PLURAL, va_name(service_name), namespace
+        )
+        assert va is not None, f"VariantAutoscaling {va_name(service_name)} not found"
+        status = va.get("status", {})
+        alloc = status.get("desiredOptimizedAlloc", {})
+        num_replicas = alloc.get("numReplicas")
+        assert num_replicas is not None and num_replicas >= 1, (
+            f"WVA did not compute desiredOptimizedAlloc.numReplicas; status: {status}"
+        )
+
+    wait_for(_check, timeout=120, interval=5.0)
+
+
+def assert_hpa_active(service_name, namespace=KSERVE_TEST_NAMESPACE):
+    """Verify HPA has ScalingActive=True condition (polls for up to 60s)."""
+
+    def _check():
+        hpa = _get_custom_resource(
+            HPA_GROUP, HPA_VERSION, HPA_PLURAL, hpa_name(service_name), namespace
+        )
+        assert hpa is not None, f"HPA {hpa_name(service_name)} not found"
+        conditions = hpa.get("status", {}).get("conditions", [])
+        scaling_active = next(
+            (c for c in conditions if c["type"] == "ScalingActive"), None
+        )
+        assert scaling_active and scaling_active["status"] == "True", (
+            f"HPA ScalingActive is not True: {conditions}"
+        )
+
+    wait_for(_check, timeout=60, interval=5.0)
+
+
+def assert_scaled_object_active(service_name, namespace=KSERVE_TEST_NAMESPACE):
+    """Verify KEDA ScaledObject has Ready=True condition (polls for up to 60s)."""
+
+    def _check():
+        so = _get_custom_resource(
+            KEDA_GROUP,
+            KEDA_VERSION,
+            KEDA_PLURAL,
+            scaled_object_name(service_name),
+            namespace,
+        )
+        assert so is not None, (
+            f"ScaledObject {scaled_object_name(service_name)} not found"
+        )
+        conditions = so.get("status", {}).get("conditions", [])
+        ready = next((c for c in conditions if c["type"] == "Ready"), None)
+        assert ready and ready["status"] == "True", (
+            f"ScaledObject Ready is not True: {conditions}"
+        )
+
+    wait_for(_check, timeout=60, interval=5.0)
+
+
+def assert_lws_replicas(service_name, min_replicas, namespace=KSERVE_TEST_NAMESPACE):
+    """Verify LeaderWorkerSet status reflects scale-up (polls for up to 60s)."""
+    lws_name = _child_name(service_name, "-kserve-mn")
+
+    def _check():
+        api = client.CustomObjectsApi()
+        lws = api.get_namespaced_custom_object(
+            "leaderworkerset.x-k8s.io", "v1", namespace, "leaderworkersets", lws_name
+        )
+        actual = lws.get("status", {}).get("replicas", 0)
+        assert actual >= min_replicas, (
+            f"LWS {lws_name} replicas={actual}, expected >= {min_replicas}"
+        )
+
+    wait_for(_check, timeout=60, interval=5.0)
+
+
 # --- Common test lifecycle ---
 
 
@@ -329,6 +463,7 @@ def _new_kserve_client():
                 base_refs=[
                     "router-managed",
                     "workload-llmd-simulator-no-replicas",
+                    "prometheus-scrape",
                     "scaling-hpa",
                 ],
                 prompt="KServe is a",
@@ -362,12 +497,16 @@ def test_llm_autoscaling_hpa_deployment(test_case: TestCase):
             scaled_object_name(service_name),
             KSERVE_TEST_NAMESPACE,
         )
+        assert_metrics_pipeline_ready(actuator="hpa")
 
         service_url = get_llm_service_url(kserve_client, test_case.llm_service)
         send_load(
             service_url, test_case.model_name, concurrency=10, duration_seconds=60
         )
+
+        assert_wva_metric_exists(service_name)
         wait_for_pod_count(service_name, min_count=2, timeout=300)
+        assert_hpa_active(service_name)
     finally:
         _cleanup(kserve_client, test_case)
 
@@ -388,6 +527,7 @@ def test_llm_autoscaling_hpa_deployment(test_case: TestCase):
                 base_refs=[
                     "router-managed",
                     "workload-llmd-simulator-no-replicas",
+                    "prometheus-scrape",
                     "scaling-keda",
                 ],
                 prompt="KServe is a",
@@ -421,12 +561,16 @@ def test_llm_autoscaling_keda_deployment(test_case: TestCase):
             hpa_name(service_name),
             KSERVE_TEST_NAMESPACE,
         )
+        assert_metrics_pipeline_ready(actuator="keda")
 
         service_url = get_llm_service_url(kserve_client, test_case.llm_service)
         send_load(
             service_url, test_case.model_name, concurrency=10, duration_seconds=60
         )
+
+        assert_wva_metric_exists(service_name)
         wait_for_pod_count(service_name, min_count=2, timeout=300)
+        assert_scaled_object_active(service_name)
     finally:
         _cleanup(kserve_client, test_case)
 
@@ -447,6 +591,7 @@ def test_llm_autoscaling_keda_deployment(test_case: TestCase):
                 base_refs=[
                     "router-managed",
                     "workload-llmd-simulator-lws",
+                    "prometheus-scrape",
                     "scaling-hpa",
                 ],
                 prompt="KServe is a",
@@ -473,12 +618,17 @@ def test_llm_autoscaling_hpa_lws(test_case: TestCase):
         _create_and_wait(kserve_client, test_case)
 
         assert_scaling_resources_exist(service_name, actuator="hpa")
+        assert_metrics_pipeline_ready(actuator="hpa")
 
         service_url = get_llm_service_url(kserve_client, test_case.llm_service)
         send_load(
             service_url, test_case.model_name, concurrency=10, duration_seconds=60
         )
+
+        assert_wva_metric_exists(service_name)
         wait_for_pod_count(service_name, min_count=2, timeout=300)
+        assert_hpa_active(service_name)
+        assert_lws_replicas(service_name, min_replicas=1)
     finally:
         _cleanup(kserve_client, test_case)
 
@@ -499,6 +649,7 @@ def test_llm_autoscaling_hpa_lws(test_case: TestCase):
                 base_refs=[
                     "router-managed",
                     "workload-llmd-simulator-lws",
+                    "prometheus-scrape",
                     "scaling-keda",
                 ],
                 prompt="KServe is a",
@@ -525,12 +676,17 @@ def test_llm_autoscaling_keda_lws(test_case: TestCase):
         _create_and_wait(kserve_client, test_case)
 
         assert_scaling_resources_exist(service_name, actuator="keda")
+        assert_metrics_pipeline_ready(actuator="keda")
 
         service_url = get_llm_service_url(kserve_client, test_case.llm_service)
         send_load(
             service_url, test_case.model_name, concurrency=10, duration_seconds=60
         )
+
+        assert_wva_metric_exists(service_name)
         wait_for_pod_count(service_name, min_count=2, timeout=300)
+        assert_scaled_object_active(service_name)
+        assert_lws_replicas(service_name, min_replicas=1)
     finally:
         _cleanup(kserve_client, test_case)
 
@@ -551,6 +707,7 @@ def test_llm_autoscaling_keda_lws(test_case: TestCase):
                 base_refs=[
                     "router-managed",
                     "workload-llmd-simulator-pd",
+                    "prometheus-scrape",
                     "scaling-hpa",
                     "scaling-prefill-hpa",
                 ],
@@ -599,6 +756,7 @@ def test_llm_autoscaling_prefill_hpa(test_case: TestCase):
                 base_refs=[
                     "router-managed",
                     "workload-llmd-simulator-pd",
+                    "prometheus-scrape",
                     "scaling-keda",
                     "scaling-prefill-keda",
                 ],
@@ -647,6 +805,7 @@ def test_llm_autoscaling_prefill_keda(test_case: TestCase):
                 base_refs=[
                     "router-managed",
                     "workload-llmd-simulator-no-replicas",
+                    "prometheus-scrape",
                     "scaling-hpa",
                 ],
                 prompt="KServe is a",
@@ -710,6 +869,7 @@ def test_llm_autoscaling_cleanup_hpa(test_case: TestCase):
                 base_refs=[
                     "router-managed",
                     "workload-llmd-simulator-no-replicas",
+                    "prometheus-scrape",
                     "scaling-keda",
                 ],
                 prompt="KServe is a",
@@ -770,6 +930,7 @@ def test_llm_autoscaling_cleanup_keda(test_case: TestCase):
                 base_refs=[
                     "router-managed",
                     "workload-llmd-simulator-no-replicas",
+                    "prometheus-scrape",
                     "scaling-hpa",
                 ],
                 prompt="KServe is a",
@@ -829,6 +990,7 @@ def test_llm_autoscaling_stop_hpa(test_case: TestCase):
                 base_refs=[
                     "router-managed",
                     "workload-llmd-simulator-no-replicas",
+                    "prometheus-scrape",
                     "scaling-keda",
                 ],
                 prompt="KServe is a",
@@ -888,6 +1050,7 @@ def test_llm_autoscaling_stop_keda(test_case: TestCase):
                 base_refs=[
                     "router-managed",
                     "workload-llmd-simulator-no-replicas",
+                    "prometheus-scrape",
                     "scaling-hpa",
                 ],
                 prompt="KServe is a",
@@ -964,6 +1127,7 @@ def test_llm_autoscaling_update_hpa(test_case: TestCase):
                 base_refs=[
                     "router-managed",
                     "workload-llmd-simulator-no-replicas",
+                    "prometheus-scrape",
                     "scaling-keda",
                 ],
                 prompt="KServe is a",
