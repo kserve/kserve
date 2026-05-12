@@ -92,7 +92,7 @@ class TestCase:
     max_tokens: int = 100
     payload_formatter: Optional[Callable[["TestCase"], Dict[str, Any]]] = None
     response_assertion: Callable[[requests.Response], None] = assert_200
-    wait_timeout: int = 900
+    wait_timeout: int = int(os.environ.get("LLMISVC_WAIT_TIMEOUT", "900"))
     response_timeout: int = 60
     before_test: List[Callable[[], Any]] = field(default_factory=list)
     after_test: List[Callable[[], Any]] = field(default_factory=list)
@@ -442,7 +442,7 @@ def test_llm_inference_service(test_case: TestCase):  # noqa: F811
         wait_for_model_response(kserve_client, test_case, test_case.wait_timeout)
     except Exception as e:
         test_failed = True
-        print(f"❌ ERROR: Failed to call llm inference service {service_name}: {e}")
+        logger.error("❌ ERROR: Failed to call llm inference service %s: %s", service_name, e)
         _collect_diagnostics(kserve_client, test_case.llm_service)
         raise
     finally:
@@ -714,19 +714,19 @@ def _collect_diagnostics(
         "app.kubernetes.io/name": name,
     }
 
-    print(f"🔍 # Diagnostics for {name!r} in {ns!r}")
-    print("---")
-    print(f"# LLMInferenceService {name}")
+    logger.info("🔍 # Diagnostics for %r in %r", name, ns)
+    logger.info("---")
+    logger.info("# LLMInferenceService %s", name)
     try:
         svc = get_llmisvc(kserve_client, name, ns)
-        print(yaml.safe_dump(svc, sort_keys=False))
+        logger.info(yaml.safe_dump(svc, sort_keys=False))
     except Exception as e:
-        print(f"# ❌ failed to dump LLMInferenceService: {e}")
+        logger.info("# ❌ failed to dump LLMInferenceService: %s", e)
 
-    print_all_events_table(ns)
-    collect_pod_logs(ns, labels)
+    print_all_events_table(ns, log=logger.info)
+    collect_pod_logs(ns, labels, log=logger.info)
 
     all_resources = kinds_matching_by_labels(ns, labels)
     for obj in all_resources:
-        print("---")
-        print(yaml.safe_dump(obj.to_dict(), sort_keys=False))
+        logger.info("---")
+        logger.info(yaml.safe_dump(obj.to_dict(), sort_keys=False))

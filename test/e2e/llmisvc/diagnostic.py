@@ -13,15 +13,20 @@
 # limitations under the License.
 
 import itertools
+import logging
 from datetime import datetime
 from kubernetes import client, config, dynamic
 from kubernetes.client import api_client
-from typing import Optional
+from typing import Callable, Optional
+
+_log = logging.getLogger(__name__)
 
 
-def print_all_events_table(namespace: str, max_events: int = 50):
+def print_all_events_table(
+    namespace: str, max_events: int = 50, log: Callable = _log.info
+):
     """
-    Print the most recent `max_events` events in `namespace` as a nice table.
+    Emit the most recent `max_events` events in `namespace` as a nice table.
     """
     core = client.CoreV1Api()
 
@@ -29,12 +34,12 @@ def print_all_events_table(namespace: str, max_events: int = 50):
         events = core.list_namespaced_event(namespace=namespace).items
 
         if not events:
-            print("ℹ️ # No events found in namespace", namespace)
+            log("ℹ️ # No events found in namespace %s", namespace)
             return
 
         header = f"{'TIME':<25} {'NAMESPACE':<12} {'SOURCE':<20} {'TYPE':<8} {'REASON':<20} MESSAGE"
-        print(header)
-        print("-" * len(header))
+        log(header)
+        log("-" * len(header))
 
         for ev in events:
             ts = ev.last_timestamp or ev.first_timestamp
@@ -45,13 +50,18 @@ def print_all_events_table(namespace: str, max_events: int = 50):
             )
             src = f"{ev.source.component or ''}/{ev.source.host or ''}".strip("/")
             msg = (ev.message or "").replace("\n", " ")
-            print(
-                f"{ts_str:<25} {ev.metadata.namespace:<12} {src:<20} {ev.type or '':<8} "
-                f"{ev.reason or '':<20} {msg}"
+            log(
+                "%s %s %s %s %s %s",
+                ts_str.ljust(25),
+                ev.metadata.namespace.ljust(12),
+                src.ljust(20),
+                (ev.type or "").ljust(8),
+                (ev.reason or "").ljust(20),
+                msg,
             )
 
     except Exception as e:
-        print(f"# ❌ failed to list events: {e}")
+        log("# ❌ failed to list events: %s", e)
 
 
 def kinds_matching_by_labels(namespace: str, labels, skip_api_kinds=None):
@@ -87,15 +97,17 @@ def kinds_matching_by_labels(namespace: str, labels, skip_api_kinds=None):
             if not rsrc.namespaced or "list" not in rsrc.verbs:
                 continue
         except Exception as e:
-            print(
-                f"failed to check resource properties for {getattr(rsrc, 'kind', 'unknown')}, skipping: {e}"
+            _log.debug(
+                "failed to check resource properties for %s, skipping: %s",
+                getattr(rsrc, "kind", "unknown"),
+                e,
             )
             continue
 
         try:
             resp = rsrc.get(namespace=namespace, label_selector=selector)
         except Exception as e:
-            print(f"failed to get {rsrc.kind}, skipping: {e}")
+            _log.debug("failed to get %s, skipping: %s", rsrc.kind, e)
             continue
 
         items = getattr(resp, "items", [])
@@ -104,9 +116,9 @@ def kinds_matching_by_labels(namespace: str, labels, skip_api_kinds=None):
     return found
 
 
-def collect_pod_logs(namespace: str, labels):
+def collect_pod_logs(namespace: str, labels, log: Callable = _log.info):
     """
-    For every pod in `namespace` matching `labels`, print logs for all init
+    For every pod in `namespace` matching `labels`, emit logs for all init
     containers and regular containers (current and, when restarted, previous).
     """
     core = client.CoreV1Api()
@@ -120,26 +132,26 @@ def collect_pod_logs(namespace: str, labels):
             namespace=namespace, label_selector=selector
         ).items
     except Exception as e:
-        print(f"# failed to list pods: {e}")
+        log("# failed to list pods: %s", e)
         return
 
     if not pods:
-        print(f"# no pods found in {namespace} matching {selector}")
+        log("# no pods found in %s matching %s", namespace, selector)
         return
 
     for pod in pods:
         pod_name = pod.metadata.name
         phase = pod.status.phase if pod.status else "Unknown"
-        print(f"\n### Pod {pod_name} (phase={phase})")
+        log("### Pod %s (phase=%s)", pod_name, phase)
 
         init_specs = pod.spec.init_containers or []
         init_statuses = {
             s.name: s for s in (pod.status.init_container_statuses or [])
         }
         for c in init_specs:
-            _print_container_logs(
+            _emit_container_logs(
                 core, namespace, pod_name, c.name,
-                is_init=True, status=init_statuses.get(c.name),
+                is_init=True, status=init_statuses.get(c.name), log=log,
             )
 
         c_specs = pod.spec.containers or []
@@ -147,23 +159,24 @@ def collect_pod_logs(namespace: str, labels):
             s.name: s for s in (pod.status.container_statuses or [])
         }
         for c in c_specs:
-            _print_container_logs(
+            _emit_container_logs(
                 core, namespace, pod_name, c.name,
-                is_init=False, status=c_statuses.get(c.name),
+                is_init=False, status=c_statuses.get(c.name), log=log,
             )
 
 
-def _print_container_logs(
+def _emit_container_logs(
     core: client.CoreV1Api,
     namespace: str,
     pod_name: str,
     container_name: str,
     is_init: bool,
     status: Optional[object],
+    log: Callable = _log.info,
 ):
     kind = "init-container" if is_init else "container"
     restart_count = status.restart_count if status else 0
-    print(f"\n#### {kind} {container_name!r} (restarts={restart_count})")
+    log("#### %s %r (restarts=%d)", kind, container_name, restart_count)
 
     revisions = [False, True] if restart_count > 0 else [False]
     for previous in revisions:
@@ -176,7 +189,7 @@ def _print_container_logs(
                 previous=previous,
                 tail_lines=200,
             )
-            print(f"# -- logs ({label}) --")
-            print(logs or "(empty)")
+            log("# -- logs (%s) --", label)
+            log("%s", logs or "(empty)")
         except Exception as e:
-            print(f"# -- logs ({label}): unavailable ({e})")
+            log("# -- logs (%s): unavailable (%s)", label, e)
