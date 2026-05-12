@@ -51,3 +51,6 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "autoscaling_keda: mark test as a KEDA autoscaling test"
     )
+    config.addinivalue_line(
+        "markers", "model_routing: mark test as a model-based routing test"
+    )

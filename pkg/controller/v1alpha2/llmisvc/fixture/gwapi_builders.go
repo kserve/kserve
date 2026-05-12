@@ -365,6 +365,38 @@ func PathPrefixMatch(path string) gwapiv1.HTTPRouteMatch {
 	}
 }
 
+func ExactPathWithHeaderMatch(path, headerName, headerValue string) gwapiv1.HTTPRouteMatch {
+	return gwapiv1.HTTPRouteMatch{
+		Path: &gwapiv1.HTTPPathMatch{
+			Type:  ptr.To(gwapiv1.PathMatchExact),
+			Value: ptr.To(path),
+		},
+		Headers: []gwapiv1.HTTPHeaderMatch{
+			{
+				Type:  ptr.To(gwapiv1.HeaderMatchExact),
+				Name:  gwapiv1.HTTPHeaderName(headerName),
+				Value: headerValue,
+			},
+		},
+	}
+}
+
+func HeaderOnlyMatch(headerName, headerValue string) gwapiv1.HTTPRouteMatch {
+	return gwapiv1.HTTPRouteMatch{
+		Path: &gwapiv1.HTTPPathMatch{
+			Type:  ptr.To(gwapiv1.PathMatchPathPrefix),
+			Value: ptr.To("/"),
+		},
+		Headers: []gwapiv1.HTTPHeaderMatch{
+			{
+				Type:  ptr.To(gwapiv1.HeaderMatchExact),
+				Name:  gwapiv1.HTTPHeaderName(headerName),
+				Value: headerValue,
+			},
+		},
+	}
+}
+
 func ServiceRef(name string, port int32, weight int32) gwapiv1.HTTPBackendRef {
 	return gwapiv1.HTTPBackendRef{
 		BackendRef: gwapiv1.BackendRef{

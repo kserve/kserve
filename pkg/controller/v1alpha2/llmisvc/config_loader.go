@@ -93,6 +93,8 @@ type Config struct {
 	UrlScheme               string `json:"urlScheme,omitempty"`
 	EnableTLS               bool   `json:"enableTLS,omitempty"`
 
+	ModelBasedRoutingHeaderName string `json:"modelBasedRoutingHeaderName,omitempty"`
+
 	// WVAAutoscalingConfig holds Prometheus and monitoring settings for WVA autoscaling.
 	// nil when the "autoscaling-wva-controller-config" key is not present in inferenceservice-config.
 	WVAAutoscalingConfig *WVAAutoscalingConfig `json:"-"`
@@ -155,14 +157,15 @@ func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.Storag
 	}
 
 	return &Config{
-		SystemNamespace:         constants.KServeNamespace,
-		IngressGatewayNamespace: igwNs,
-		IngressGatewayName:      igwName,
-		UrlScheme:               ingressConfig.UrlScheme,
-		EnableTLS:               ingressConfig.EnableLLMInferenceServiceTLS,
-		StorageConfig:           storageConfig,
-		CredentialConfig:        credentialConfig,
-		SchedulerConfig:         schedulerConfig,
+		SystemNamespace:             constants.KServeNamespace,
+		IngressGatewayNamespace:     igwNs,
+		IngressGatewayName:          igwName,
+		UrlScheme:                   ingressConfig.UrlScheme,
+		EnableTLS:                   ingressConfig.EnableLLMInferenceServiceTLS,
+		ModelBasedRoutingHeaderName: ingressConfig.ModelBasedRoutingHeaderName,
+		StorageConfig:               storageConfig,
+		CredentialConfig:            credentialConfig,
+		SchedulerConfig:             schedulerConfig,
 	}
 }
 

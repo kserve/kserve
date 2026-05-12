@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -307,7 +308,7 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 
 	var urls []*apis.URL
 	for _, route := range routes {
-		discoverURL, err := DiscoverURLs(ctx, r.Client, route, cfg.UrlScheme)
+		discoverURL, err := DiscoverURLs(ctx, r.Client, route, cfg.UrlScheme, cfg.ModelBasedRoutingHeaderName)
 		if IgnoreNoURLsDiscovered(err) != nil {
 			return fmt.Errorf("failed to discover URL for route %s/%s: %w", route.GetNamespace(), route.GetName(), err)
 		}
@@ -328,12 +329,18 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 			// "virtual private networks" and we cannot detect that from just IPs. Even if it's a cluster-local URL, the
 			// status URL is just for discovery and easy access, and it's not a problem to have here while we prioritize
 			// external addresses.
-			llmSvc.Status.URL = urls[0]
+			//
+			// We prefer the path-based URL (/{ns}/{name}) over the model-routing
+			// root URL (/) for backward compatibility: status.URL was always the
+			// path-based URL before model-based routing was introduced, and
+			// existing clients may rely on that form.
+			llmSvc.Status.URL = preferPathBasedURL(urls, llmSvc.Namespace, llmSvc.Name)
 		} else {
 			llmSvc.Status.URL = nil
 		}
 	} else {
-		llmSvc.Status.URL = externalURLs[0]
+		// Same path-based preference as above — see comment.
+		llmSvc.Status.URL = preferPathBasedURL(externalURLs, llmSvc.Namespace, llmSvc.Name)
 	}
 
 	llmSvc.Status.Addresses = make([]duckv1.Addressable, 0, len(urls))
@@ -346,6 +353,24 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 	}
 
 	return nil
+}
+
+// preferPathBasedURL selects the URL whose path starts with /{namespace}/{name}
+// from the list, falling back to the first URL if none matches.
+//
+// With model-based routing enabled, DiscoverURLs returns both the path-based
+// URL (/{ns}/{name}, works without special headers) and the model-routing root
+// URL (/, requires the model-routing header). Alphabetical sorting puts "/" first,
+// but status.URL must remain the path-based URL for backward compatibility —
+// it's the form clients have always seen and the one that works unconditionally.
+func preferPathBasedURL(urls []*apis.URL, namespace, name string) *apis.URL {
+	prefix := "/" + namespace + "/" + name
+	for _, u := range urls {
+		if strings.HasPrefix(u.Path, prefix) {
+			return u
+		}
+	}
+	return urls[0]
 }
 
 func RouterLabels(llmSvc *v1alpha2.LLMInferenceService) map[string]string {

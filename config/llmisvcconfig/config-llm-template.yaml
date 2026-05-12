@@ -136,7 +136,7 @@ spec:
             fi
 
             eval "vllm serve /mnt/models \
-              --served-model-name "{{ .Spec.Model.Name }}" \
+              --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
               --port 8000 \
               --disable-uvicorn-access-log \
               {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
