@@ -209,8 +209,9 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 		return fmt.Errorf("failed to load ingress config: %w", configErr)
 	}
 
+	// nil baseCfg means config resolution set a condition (e.g. ConfigNotFound) and there's nothing more to do.
 	baseCfg, err := r.reconcileBaseRefs(ctx, llmSvc, config)
-	if err != nil {
+	if err != nil || baseCfg == nil {
 		return err
 	}
 
