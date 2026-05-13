@@ -176,6 +176,10 @@ func DiscoverURLs(ctx context.Context, c client.Client, route *gwapiv1.HTTPRoute
 				return nil, fmt.Errorf("failed to discover gateway service host for %s/%s: %w", g.gateway.Namespace, g.gateway.Name, err)
 			}
 			if internalHost != "" {
+				// Use preferred (first) listener's scheme and port for the internal URL.
+				// Internal services typically expose a single protocol, so generating one
+				// URL (matching the preferred scheme) is sufficient. External URLs are
+				// generated for all listeners because clients may need either protocol.
 				listener := listeners[0]
 				internalURLs, err := combineIntoURLs([]string{internalHost}, schemeForProtocol(listener.Protocol), listener.Port, path)
 				if err != nil {
@@ -246,10 +250,10 @@ func extractRoutePaths(route *gwapiv1.HTTPRoute, modelRoutingHeader string) []st
 	for _, rule := range route.Spec.Rules {
 		svc := hasServiceBackend(rule)
 		for _, match := range rule.Matches {
-			if match.Path == nil {
-				continue
+			p := "/"
+			if match.Path != nil {
+				p = ptr.Deref(match.Path.Value, "/")
 			}
-			p := ptr.Deref(match.Path.Value, "/")
 
 			if len(match.Headers) == 0 {
 				// Traditional path-only match — always collected.

@@ -2195,7 +2195,7 @@ spec:
         fi
 
         eval "vllm serve /mnt/models \
-          --served-model-name "{{ .Spec.Model.Name }}" \
+          --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8001 \
           --disable-uvicorn-access-log \
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
@@ -2493,7 +2493,7 @@ spec:
         START_RANK=0
         eval "vllm serve \
           /mnt/models \
-          --served-model-name "{{ .Spec.Model.Name }}" \
+          --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8001 \
           --api-server-count ${VLLM_API_SERVER_COUNT:-8} \
           {{- if .Spec.Parallelism.Expert -}}--enable-expert-parallel{{- end }} \
@@ -2797,7 +2797,7 @@ spec:
         START_RANK=$(( ${LWS_WORKER_INDEX:-0} * {{ or .Spec.Parallelism.DataLocal 1 }} ))
         eval "vllm serve \
           /mnt/models \
-          --served-model-name "{{ .Spec.Model.Name }}" \
+          --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8001 \
           {{- if .Spec.Parallelism.Expert }}--enable-expert-parallel{{- end }} \
           {{- if .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
@@ -3246,7 +3246,7 @@ spec:
           START_RANK=0
           eval "vllm serve \
             /mnt/models \
-            --served-model-name "{{ .Spec.Model.Name }}" \
+            --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
             --port 8000 \
             --api-server-count ${VLLM_API_SERVER_COUNT:-8} \
             {{- if .Spec.Prefill.Parallelism.Expert -}}--enable-expert-parallel{{- end }} \
@@ -3490,7 +3490,7 @@ spec:
           START_RANK=$(( ${LWS_WORKER_INDEX:-0} * {{ or .Spec.Prefill.Parallelism.DataLocal 1 }} ))
           eval "vllm serve \
             /mnt/models \
-            --served-model-name "{{ .Spec.Model.Name }}" \
+            --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
             --port 8000 \
             {{- if .Spec.Prefill.Parallelism.Expert }}--enable-expert-parallel{{- end }} \
             {{- if .Spec.Prefill.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }} \
@@ -3595,6 +3595,34 @@ spec:
             - path:
                 type: PathPrefix
                 value: /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }}/v1/completions
+            name: v1-completions-path
+            timeouts:
+              backendRequest: 0s
+              request: 0s
+          - backendRefs:
+            - group: inference.networking.k8s.io
+              kind: InferencePool
+              name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
+              port: 8000
+              weight: 1
+            matches:
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/completions
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/completions/
+            name: v1-completions-model-routing
             timeouts:
               backendRequest: 0s
               request: 0s
@@ -3614,6 +3642,34 @@ spec:
             - path:
                 type: PathPrefix
                 value: /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }}/v1/chat/completions
+            name: v1-chat-completions-path
+            timeouts:
+              backendRequest: 0s
+              request: 0s
+          - backendRefs:
+            - group: inference.networking.k8s.io
+              kind: InferencePool
+              name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
+              port: 8000
+              weight: 1
+            matches:
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/chat/completions
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/chat/completions/
+            name: v1-chat-completions-model-routing
             timeouts:
               backendRequest: 0s
               request: 0s
@@ -3633,6 +3689,34 @@ spec:
             - path:
                 type: PathPrefix
                 value: /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }}/v1/responses
+            name: v1-responses-path
+            timeouts:
+              backendRequest: 0s
+              request: 0s
+          - backendRefs:
+            - group: inference.networking.k8s.io
+              kind: InferencePool
+              name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
+              port: 8000
+              weight: 1
+            matches:
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/responses
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/responses/
+            name: v1-responses-model-routing
             timeouts:
               backendRequest: 0s
               request: 0s
@@ -3651,6 +3735,22 @@ spec:
             - path:
                 type: PathPrefix
                 value: /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }}
+            name: v1-catch-all-path
+            timeouts:
+              backendRequest: 0s
+              request: 0s
+          - backendRefs:
+            - kind: Service
+              name: '{{ ChildName .ObjectMeta.Name `-kserve-workload-svc` }}'
+              port: 8000
+              weight: 1
+            matches:
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+            name: v1-catch-all-model-routing
             timeouts:
               backendRequest: 0s
               request: 0s
@@ -3961,7 +4061,7 @@ spec:
         fi
 
         eval "vllm serve /mnt/models \
-          --served-model-name "{{ .Spec.Model.Name }}" \
+          --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8000 \
           --disable-uvicorn-access-log \
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
@@ -4200,7 +4300,7 @@ spec:
         START_RANK=0
         eval "vllm serve \
           /mnt/models \
-          --served-model-name "{{ .Spec.Model.Name }}" \
+          --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8000 \
           --api-server-count ${VLLM_API_SERVER_COUNT:-8} \
           {{- if .Spec.Parallelism.Expert -}}--enable-expert-parallel{{- end }} \
@@ -4444,7 +4544,7 @@ spec:
         START_RANK=$(( ${LWS_WORKER_INDEX:-0} * {{ or .Spec.Parallelism.DataLocal 1 }} ))
         eval "vllm serve \
           /mnt/models \
-          --served-model-name "{{ .Spec.Model.Name }}" \
+          --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8000 \
           {{- if .Spec.Parallelism.Expert }}--enable-expert-parallel{{- end }} \
           {{- if .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \

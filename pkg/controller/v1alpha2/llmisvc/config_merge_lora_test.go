@@ -87,8 +87,8 @@ func TestExpandLoRAAdapterMatches(t *testing.T) {
 			name: "expands model-routing matches for each adapter",
 			rules: []gwapiv1.HTTPRouteRule{
 				ruleWithMatches(
-					exactPathWithHeaderMatch("/v1/completions","publishers/ns/models/base-model"),
-					exactPathWithHeaderMatch("/v1/completions/","publishers/ns/models/base-model"),
+					exactPathWithHeaderMatch("/v1/completions", "publishers/ns/models/base-model"),
+					exactPathWithHeaderMatch("/v1/completions/", "publishers/ns/models/base-model"),
 				),
 			},
 			namespace:  "ns",
@@ -116,7 +116,7 @@ func TestExpandLoRAAdapterMatches(t *testing.T) {
 			name: "no adapters - rules unchanged",
 			rules: []gwapiv1.HTTPRouteRule{
 				ruleWithMatches(
-					exactPathWithHeaderMatch("/v1/completions","publishers/ns/models/base-model"),
+					exactPathWithHeaderMatch("/v1/completions", "publishers/ns/models/base-model"),
 				),
 			},
 			namespace:  "ns",
@@ -130,7 +130,7 @@ func TestExpandLoRAAdapterMatches(t *testing.T) {
 			name: "empty header name - rules unchanged",
 			rules: []gwapiv1.HTTPRouteRule{
 				ruleWithMatches(
-					exactPathWithHeaderMatch("/v1/completions","publishers/ns/models/base-model"),
+					exactPathWithHeaderMatch("/v1/completions", "publishers/ns/models/base-model"),
 				),
 			},
 			namespace:  "ns",
@@ -145,7 +145,7 @@ func TestExpandLoRAAdapterMatches(t *testing.T) {
 			rules: []gwapiv1.HTTPRouteRule{
 				ruleWithMatches(pathPrefixMatch("/ns/name/v1/completions")),
 				ruleWithMatches(
-					exactPathWithHeaderMatch("/v1/completions","publishers/ns/models/base-model"),
+					exactPathWithHeaderMatch("/v1/completions", "publishers/ns/models/base-model"),
 				),
 			},
 			namespace:  "ns",
@@ -177,7 +177,7 @@ func TestExpandLoRAAdapterMatches(t *testing.T) {
 			name: "adapter with nil name is skipped",
 			rules: []gwapiv1.HTTPRouteRule{
 				ruleWithMatches(
-					exactPathWithHeaderMatch("/v1/completions","publishers/ns/models/base-model"),
+					exactPathWithHeaderMatch("/v1/completions", "publishers/ns/models/base-model"),
 				),
 			},
 			namespace: "ns",
@@ -196,7 +196,7 @@ func TestExpandLoRAAdapterMatches(t *testing.T) {
 			name: "uses correct namespace in header value",
 			rules: []gwapiv1.HTTPRouteRule{
 				ruleWithMatches(
-					exactPathWithHeaderMatch("/v1/completions","publishers/prod/models/base-model"),
+					exactPathWithHeaderMatch("/v1/completions", "publishers/prod/models/base-model"),
 				),
 			},
 			namespace:  "prod",

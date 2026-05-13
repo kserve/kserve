@@ -25,8 +25,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
-	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
@@ -35,12 +35,12 @@ import (
 	. "github.com/kserve/kserve/pkg/testing"
 )
 
-func countRulesWithHeader(rules []gwapiv1.HTTPRouteRule, headerName string) int {
+func countModelRoutingRules(rules []gwapiv1.HTTPRouteRule) int {
 	count := 0
 	for _, rule := range rules {
 		for _, match := range rule.Matches {
 			for _, h := range match.Headers {
-				if string(h.Name) == headerName {
+				if string(h.Name) == "X-Gateway-Model-Name" {
 					count++
 					break
 				}
@@ -144,7 +144,7 @@ var _ = Describe("Model Based Routing", func() {
 				g.Expect(&routes[0]).To(HaveHeaderMatch(headerName, "publishers/"+testNs.Name+"/models/facebook/opt-125m"))
 
 				rules := routes[0].Spec.Rules
-				g.Expect(countRulesWithHeader(rules, headerName)).To(BeNumerically(">=", 4),
+				g.Expect(countModelRoutingRules(rules)).To(BeNumerically(">=", 4),
 					"should have at least 4 model-routing rules")
 			}).WithContext(ctx).Should(Succeed())
 
@@ -175,7 +175,7 @@ var _ = Describe("Model Based Routing", func() {
 				g.Expect(&routes[0]).NotTo(HaveHeaderMatch(headerName, "publishers/"+testNs.Name+"/models/facebook/opt-125m"))
 
 				rules := routes[0].Spec.Rules
-				g.Expect(countRulesWithHeader(rules, headerName)).To(Equal(0),
+				g.Expect(countModelRoutingRules(rules)).To(Equal(0),
 					"should have no model-routing rules when disabled")
 			}).WithContext(ctx).Should(Succeed())
 
@@ -225,7 +225,7 @@ var _ = Describe("Model Based Routing", func() {
 				g.Expect(&routes[0]).To(HaveHeaderMatch(headerName, "publishers/"+testNs.Name+"/models/facebook/opt-125m"))
 
 				rules := routes[0].Spec.Rules
-				g.Expect(countRulesWithHeader(rules, headerName)).To(BeNumerically(">=", 4),
+				g.Expect(countModelRoutingRules(rules)).To(BeNumerically(">=", 4),
 					"forced mode should keep model-routing rules despite Gateway opt-out")
 			}).WithContext(ctx).Should(Succeed())
 
@@ -272,7 +272,7 @@ var _ = Describe("Model Based Routing", func() {
 				g.Expect(&routes[0]).NotTo(HaveHeaderMatch(headerName, "publishers/"+testNs.Name+"/models/facebook/opt-125m"))
 
 				rules := routes[0].Spec.Rules
-				g.Expect(countRulesWithHeader(rules, headerName)).To(Equal(0),
+				g.Expect(countModelRoutingRules(rules)).To(Equal(0),
 					"should have no model-routing rules when Gateway opts out")
 			}).WithContext(ctx).Should(Succeed())
 
