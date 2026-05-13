@@ -553,6 +553,158 @@ func TestPresetFiles(t *testing.T) {
 				},
 			},
 		},
+		"config-sglang-template.yaml": {
+			expected: &v1alpha2.LLMInferenceServiceConfig{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "serving.kserve.io/v1alpha2",
+					Kind:       "LLMInferenceServiceConfig",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "kserve-config-sglang-template",
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Volumes: []corev1.Volume{
+								{
+									Name: "home",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "dshm",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{
+											Medium:    corev1.StorageMediumMemory,
+											SizeLimit: ptr.To(resource.MustParse("1Gi")),
+										},
+									},
+								},
+								{
+									Name: "model-cache",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "tmp-dir",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+							},
+							Containers: []corev1.Container{
+								{
+									Name:  "main",
+									Image: "lmsysorg/sglang:v0.5.11",
+									Command: []string{
+										"/bin/bash",
+										"-c",
+										"args=(\n" +
+											"  python3 -m sglang.launch_server\n" +
+											"  --model-path /mnt/models\n" +
+											"  --served-model-name \"llama\"\n" +
+											"  --port 8000\n" +
+											"  --host 0.0.0.0\n" +
+											"  --disable-log-requests\n" +
+											" --tp 1\n" +
+											"\n" +
+											")\n" +
+											"exec \"${args[@]}\" \"$@\"",
+										"--",
+									},
+									Ports: []corev1.ContainerPort{
+										{
+											ContainerPort: 8000,
+											Protocol:      corev1.ProtocolTCP,
+										},
+									},
+									Env: []corev1.EnvVar{
+										{
+											Name:  "HOME",
+											Value: "/home",
+										},
+										{
+											Name:  "HF_HUB_CACHE",
+											Value: "/models",
+										},
+									},
+									VolumeMounts: []corev1.VolumeMount{
+										{
+											Name:      "home",
+											MountPath: "/home",
+										},
+										{
+											Name:      "tmp-dir",
+											MountPath: "/tmp",
+										},
+										{
+											Name:      "dshm",
+											MountPath: "/dev/shm",
+										},
+										{
+											Name:      "model-cache",
+											MountPath: "/models",
+										},
+									},
+									LivenessProbe: &corev1.Probe{
+										ProbeHandler: corev1.ProbeHandler{
+											HTTPGet: &corev1.HTTPGetAction{
+												Path:   "/health",
+												Port:   intstr.FromInt32(8000),
+												Scheme: corev1.URISchemeHTTP,
+											},
+										},
+										TimeoutSeconds:   10,
+										PeriodSeconds:    10,
+										FailureThreshold: 3,
+									},
+									ReadinessProbe: &corev1.Probe{
+										ProbeHandler: corev1.ProbeHandler{
+											HTTPGet: &corev1.HTTPGetAction{
+												Path:   "/health",
+												Port:   intstr.FromInt32(8000),
+												Scheme: corev1.URISchemeHTTP,
+											},
+										},
+										TimeoutSeconds:   5,
+										PeriodSeconds:    10,
+										FailureThreshold: 60,
+									},
+									StartupProbe: &corev1.Probe{
+										ProbeHandler: corev1.ProbeHandler{
+											HTTPGet: &corev1.HTTPGetAction{
+												Path:   "/health",
+												Port:   intstr.FromInt32(8000),
+												Scheme: corev1.URISchemeHTTP,
+											},
+										},
+										FailureThreshold: 60,
+										PeriodSeconds:    10,
+									},
+									TerminationMessagePath:   "/dev/termination-log",
+									TerminationMessagePolicy: "FallbackToLogsOnError",
+									ImagePullPolicy:          "IfNotPresent",
+									SecurityContext: &corev1.SecurityContext{
+										Capabilities: &corev1.Capabilities{
+											Drop: []corev1.Capability{"ALL"},
+										},
+										AllowPrivilegeEscalation: ptr.To(false),
+										RunAsNonRoot:             ptr.To(true),
+										ReadOnlyRootFilesystem:   ptr.To(true),
+										SeccompProfile: &corev1.SeccompProfile{
+											Type: corev1.SeccompProfileTypeRuntimeDefault,
+										},
+									},
+								},
+							},
+							TerminationGracePeriodSeconds: ptr.To(int64(30)),
+						},
+					},
+				},
+			},
+		},
 	}
 
 	remaining := llmisvc.WellKnownDefaultConfigs.Clone()
@@ -633,4 +785,74 @@ func loadConfig(t *testing.T, data []byte, filePath string) *v1alpha2.LLMInferen
 	}
 
 	return config
+}
+
+// TestSGLangTemplateNilParallelism verifies that the SGLang config template renders
+// without error when Parallelism is nil (the common single-GPU case).
+func TestSGLangTemplateNilParallelism(t *testing.T) {
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
+	filePath := filepath.Join(presetsDir, "config-sglang-template.yaml")
+
+	data, err := os.ReadFile(filepath.Clean(filePath))
+	if err != nil {
+		t.Fatalf("Failed to read config-sglang-template.yaml: %v", err)
+	}
+
+	config := loadConfig(t, data, filePath)
+
+	llmSvc := llmisvc.LLMInferenceServiceSample()
+	// Clear Parallelism to simulate single-GPU deployment (no --tp flag needed)
+	llmSvc.Spec.Parallelism = nil
+
+	kserveSystemConfig := llmisvc.Config{
+		SystemNamespace:         "kserve",
+		IngressGatewayName:      "kserve-ingress-gateway",
+		IngressGatewayNamespace: "kserve",
+	}
+
+	out, err := llmisvc.ReplaceVariables(llmSvc, config, &kserveSystemConfig)
+	if err != nil {
+		t.Fatalf("ReplaceVariables() with nil Parallelism returned unexpected error: %v", err)
+	}
+
+	// --tp flag must be absent when Parallelism.Tensor is zero/nil
+	cmd := out.Spec.Template.Containers[0].Command[2]
+	if strings.Contains(cmd, "--tp") {
+		t.Errorf("Expected no --tp flag when Parallelism.Tensor is unset, got command: %q", cmd)
+	}
+	if strings.Contains(cmd, "--trust-remote-code") {
+		t.Errorf("Expected no --trust-remote-code flag when TrustRemoteCode is false, got command: %q", cmd)
+	}
+}
+
+// TestSGLangTemplateTrustRemoteCode verifies --trust-remote-code is included when TrustRemoteCode=true.
+func TestSGLangTemplateTrustRemoteCode(t *testing.T) {
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
+	filePath := filepath.Join(presetsDir, "config-sglang-template.yaml")
+
+	data, err := os.ReadFile(filepath.Clean(filePath))
+	if err != nil {
+		t.Fatalf("Failed to read config-sglang-template.yaml: %v", err)
+	}
+
+	config := loadConfig(t, data, filePath)
+
+	llmSvc := llmisvc.LLMInferenceServiceSample()
+	llmSvc.Spec.TrustRemoteCode = true
+
+	kserveSystemConfig := llmisvc.Config{
+		SystemNamespace:         "kserve",
+		IngressGatewayName:      "kserve-ingress-gateway",
+		IngressGatewayNamespace: "kserve",
+	}
+
+	out, err := llmisvc.ReplaceVariables(llmSvc, config, &kserveSystemConfig)
+	if err != nil {
+		t.Fatalf("ReplaceVariables() returned unexpected error: %v", err)
+	}
+
+	cmd := out.Spec.Template.Containers[0].Command[2]
+	if !strings.Contains(cmd, "--trust-remote-code") {
+		t.Errorf("Expected --trust-remote-code flag when TrustRemoteCode=true, got command: %q", cmd)
+	}
 }
