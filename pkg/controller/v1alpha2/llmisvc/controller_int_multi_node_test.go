@@ -21,18 +21,21 @@ import (
 
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmeta"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 
 	. "github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/fixture"
 	. "github.com/kserve/kserve/pkg/testing"
@@ -704,4 +707,102 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 			}).WithContext(ctx).Should(Succeed())
 		})
 	})
+
+	Context("Readiness Event Emission", func() {
+		It("should emit a Warning LLMInferenceServiceNotReady Event with WorkerWorkloadReady when transitioning Ready to NotReady", func(ctx SpecContext) {
+			svcName := "test-llm-mn-event-notready"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithModelName("facebook/opt-125m"),
+				WithReplicas(2),
+				WithParallelism(ParallelismSpec(
+					WithDataParallelism(2),
+					WithDataLocalParallelism(1),
+					WithTensorParallelism(2),
+				)),
+				WithTemplate(SimpleWorkerPodSpec()),
+				WithWorker(SimpleWorkerPodSpec()),
+				WithManagedRoute(),
+				WithManagedGateway(),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() { testNs.DeleteAndWait(ctx, llmSvc) }()
+
+			lwsName := types.NamespacedName{
+				Name:      kmeta.ChildName(svcName, "-kserve-mn"),
+				Namespace: testNs.Name,
+			}
+
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, lwsName, &lwsapi.LeaderWorkerSet{})
+			}).WithContext(ctx).Should(Succeed())
+
+			ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvc)
+			ensureLWSReady(ctx, envTest.Client, lwsName)
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Status).To(HaveCondition("Ready", "True"))
+			}).WithContext(ctx).Should(Succeed())
+
+			setLWSNotReady(ctx, envTest.Client, lwsName)
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Status).To(HaveCondition("Ready", "False"))
+			}).WithContext(ctx).Should(Succeed())
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				ev := findEvent(ctx, envTest.Client, llmSvc, string(llmisvc.LLMInferenceServiceNotReadyState))
+				g.Expect(ev).NotTo(BeNil(), "Expected a Warning LLMInferenceServiceNotReady Event")
+				g.Expect(ev.Message).To(ContainSubstring(string(v1alpha2.WorkerWorkloadReady)))
+			}).WithContext(ctx).Should(Succeed())
+		})
+	})
 })
+
+func ensureLWSReady(ctx context.Context, c client.Client, lwsName types.NamespacedName) {
+	if envTest.UsingExistingCluster() {
+		return
+	}
+
+	Eventually(func(g Gomega, ctx context.Context) {
+		lws := &lwsapi.LeaderWorkerSet{}
+		g.Expect(c.Get(ctx, lwsName, lws)).To(Succeed())
+
+		lws.Status.Conditions = []metav1.Condition{
+			{
+				Type:               string(lwsapi.LeaderWorkerSetAvailable),
+				Status:             metav1.ConditionTrue,
+				Reason:             "AllReplicasAvailable",
+				Message:            "All replicas are available",
+				LastTransitionTime: metav1.Now(),
+			},
+		}
+		g.Expect(c.Status().Update(ctx, lws)).To(Succeed())
+	}).WithContext(ctx).Should(Succeed())
+}
+
+func setLWSNotReady(ctx context.Context, c client.Client, lwsName types.NamespacedName) {
+	Eventually(func(g Gomega, ctx context.Context) {
+		lws := &lwsapi.LeaderWorkerSet{}
+		g.Expect(c.Get(ctx, lwsName, lws)).To(Succeed())
+
+		lws.Status.Conditions = []metav1.Condition{
+			{
+				Type:               string(lwsapi.LeaderWorkerSetAvailable),
+				Status:             metav1.ConditionFalse,
+				Reason:             "ReplicasUnavailable",
+				Message:            "Not all replicas are available",
+				LastTransitionTime: metav1.Now(),
+			},
+		}
+		g.Expect(c.Status().Update(ctx, lws)).To(Succeed())
+	}).WithContext(ctx).Should(Succeed())
+}

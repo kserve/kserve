@@ -1467,7 +1467,13 @@ func TestDiscoverURLs(t *testing.T) {
 				WithObjects(objects...).
 				Build()
 
-			urls, err := llmisvc.DiscoverURLs(ctx, fakeClient, tt.route, tt.preferredUrlScheme, tt.modelRoutingHeader)
+			gateways, gwErr := llmisvc.DiscoverGateways(ctx, fakeClient, tt.route)
+			if gwErr != nil {
+				tt.assert(g, nil, gwErr)
+				return
+			}
+
+			urls, err := llmisvc.DiscoverURLs(ctx, fakeClient, gateways, tt.route, llmisvc.Config{UrlScheme: tt.preferredUrlScheme, ModelBasedRoutingHeaderName: tt.modelRoutingHeader})
 
 			var actualURLs []string
 			for _, url := range urls {

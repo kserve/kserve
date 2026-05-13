@@ -942,6 +942,13 @@ LLMINFERENCESERVICE_CONFIGS = {
             }
         },
     },
+    "prometheus-scrape": {
+        "annotations": {
+            "prometheus.io/scrape": "true",
+            "prometheus.io/port": "8000",
+            "prometheus.io/path": "/metrics",
+        },
+    },
     "scaling-hpa": {
         "scaling": {
             "minReplicas": 1,

@@ -25,6 +25,7 @@ import (
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 
@@ -48,16 +49,17 @@ func SetupTestEnv(ctx context.Context) *pkgtest.Client {
 	systemNs := constants.KServeNamespace
 
 	llmCtrlFunc := func(cfg *rest.Config, mgr ctrl.Manager) error {
-		eventBroadcaster := record.NewBroadcaster()
 		clientSet, err := kubernetes.NewForConfig(cfg)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
+		eventBroadcaster := record.NewBroadcaster()
+		eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
+
 		llmCtrl := llmisvc.LLMISVCReconciler{
-			Client:    mgr.GetClient(),
-			Config:    cfg,
-			Clientset: clientSet,
-			// TODO fix it to be set up similar to main.go, for now it's stub
-			EventRecorder: eventBroadcaster.NewRecorder(mgr.GetScheme(), corev1.EventSource{Component: "v1beta1Controllers"}),
+			Client:        mgr.GetClient(),
+			Config:        cfg,
+			Clientset:     clientSet,
+			EventRecorder: eventBroadcaster.NewRecorder(mgr.GetScheme(), corev1.EventSource{Component: "LLMInferenceServiceController"}),
 			Validator: func(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
 				_, err := (&v1alpha2.LLMInferenceServiceValidator{}).ValidateCreate(ctx, llmSvc)
 				return err
