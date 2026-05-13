@@ -344,7 +344,9 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), igwapi.GroupVersion.String(), "InferencePool"); ok && err == nil {
-		b = b.Owns(&igwapi.InferencePool{}, builder.WithPredicates(childResourcesPredicate))
+		b = b.
+			Owns(&igwapi.InferencePool{}, builder.WithPredicates(childResourcesPredicate)).
+			Watches(&igwapi.InferencePool{}, r.enqueueOnInferencePoolChange(logger))
 	}
 
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), igwapiv1alpha2.GroupVersion.String(), "InferencePool"); ok && err == nil {
@@ -393,7 +395,16 @@ func (r *LLMISVCReconciler) enqueueOnGatewayChange(logger logr.Logger) handler.E
 				return reqs
 			}
 			for _, llmSvc := range llmSvcList.Items {
-				// Use a deep copy to avoid modifying the original object
+				if hasRoutingGatewayRef(&llmSvc, gwapiv1.ObjectName(sub.Name), gwapiv1.Namespace(sub.Namespace)) {
+					reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
+						Namespace: llmSvc.Namespace,
+						Name:      llmSvc.Name,
+					}})
+					continue // skip the expensive combineBaseRefsConfig fallback
+				}
+
+				// Fallback: service created before status.routing was introduced.
+				// Use the old derivation path until it reconciles and populates status.
 				llmSvcCopy := llmSvc.DeepCopy()
 				combinedCfg, err := r.combineBaseRefsConfig(ctx, llmSvcCopy, cfg)
 				if err != nil {
@@ -463,7 +474,16 @@ func (r *LLMISVCReconciler) enqueueOnHttpRouteChange(logger logr.Logger) handler
 				return reqs
 			}
 			for _, llmSvc := range llmSvcList.Items {
-				// Use a deep copy to avoid modifying the original object
+				if hasRoutingHTTPRouteRef(&llmSvc, gwapiv1.ObjectName(sub.Name), sub.Namespace) {
+					reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
+						Namespace: llmSvc.Namespace,
+						Name:      llmSvc.Name,
+					}})
+					continue
+				}
+
+				// Fallback: service created before status.routing was introduced.
+				// Use the old derivation path until it reconciles and populates status.
 				llmSvcCopy := llmSvc.DeepCopy()
 				combinedCfg, err := r.combineBaseRefsConfig(ctx, llmSvcCopy, cfg)
 				if err != nil {
@@ -486,6 +506,63 @@ func (r *LLMISVCReconciler) enqueueOnHttpRouteChange(logger logr.Logger) handler
 						break
 					}
 				}
+			}
+
+			if llmSvcList.Continue == "" {
+				break
+			}
+			continueToken = llmSvcList.Continue
+		}
+
+		return reqs
+	})
+}
+
+// enqueueOnInferencePoolChange creates an event handler that triggers reconciliation of
+// LLMInferenceServices when a referenced external InferencePool changes.
+func (r *LLMISVCReconciler) enqueueOnInferencePoolChange(logger logr.Logger) handler.EventHandler {
+	logger = logger.WithName("enqueueOnInferencePoolChange")
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
+		sub := object.(*igwapi.InferencePool)
+		reqs := make([]reconcile.Request, 0, 2)
+
+		listNamespace := sub.GetNamespace()
+
+		cfg, err := LoadConfig(ctx, r.Clientset)
+		if err != nil {
+			logger.Error(err, "Failed to load config")
+			return reqs
+		}
+
+		// When an InferencePool is modified, we need to find all LLMInferenceService instances that might
+		// depend on it through scheduler.pool.ref and trigger their reconciliation.
+		continueToken := ""
+		for {
+			llmSvcList := &v1alpha2.LLMInferenceServiceList{}
+			if err := r.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace, Continue: continueToken}); err != nil {
+				logger.Error(err, "Failed to list LLMInferenceService")
+				return reqs
+			}
+			for _, llmSvc := range llmSvcList.Items {
+				llmSvcCopy := llmSvc.DeepCopy()
+				combinedCfg, err := r.combineBaseRefsConfig(ctx, llmSvcCopy, cfg)
+				if err != nil {
+					logger.Error(err, "Failed to combine base refs config", "namespace", llmSvc.Namespace, "name", llmSvc.Name)
+					continue
+				}
+
+				if combinedCfg.Spec.Router == nil ||
+					combinedCfg.Spec.Router.Scheduler == nil ||
+					combinedCfg.Spec.Router.Scheduler.Pool == nil ||
+					combinedCfg.Spec.Router.Scheduler.Pool.Ref == nil ||
+					combinedCfg.Spec.Router.Scheduler.Pool.Ref.Name != sub.Name {
+					continue
+				}
+
+				reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
+					Namespace: llmSvc.Namespace,
+					Name:      llmSvc.Name,
+				}})
 			}
 
 			if llmSvcList.Continue == "" {
@@ -550,6 +627,38 @@ func (r *LLMISVCReconciler) enqueueOnLLMInferenceServiceConfigChange(logger logr
 
 		return reqs
 	})
+}
+
+func hasRoutingGatewayRef(llmSvc *v1alpha2.LLMInferenceService, gatewayName gwapiv1.ObjectName, gatewayNamespace gwapiv1.Namespace) bool {
+	if llmSvc.Status.Router == nil || len(llmSvc.Status.Router.Gateways) == 0 {
+		return false
+	}
+
+	for _, gw := range llmSvc.Status.Router.Gateways {
+		if string(gw.Name) == string(gatewayName) &&
+			gw.Namespace != nil && string(*gw.Namespace) == string(gatewayNamespace) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func hasRoutingHTTPRouteRef(llmSvc *v1alpha2.LLMInferenceService, routeName gwapiv1.ObjectName, routeNamespace string) bool {
+	if llmSvc.Status.Router == nil || len(llmSvc.Status.Router.Gateways) == 0 {
+		return false
+	}
+
+	for _, gw := range llmSvc.Status.Router.Gateways {
+		for _, route := range gw.HTTPRoutes {
+			if string(route.Name) == string(routeName) &&
+				route.Namespace != nil && string(*route.Namespace) == routeNamespace {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func (r *LLMISVCReconciler) enqueueOnConfigMapChange(logger logr.Logger) handler.EventHandler {

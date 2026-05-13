@@ -1502,6 +1502,72 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				}).WithContext(ctx).Should(Succeed())
 			})
 		})
+
+		When("referenced external InferencePool status changes", func() {
+			It("should update InferencePoolReady when the referenced pool becomes ready", func(ctx SpecContext) {
+				// given
+				svcName := "test-llm-stale-inferencepool-condition"
+				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+				infPoolName := kmeta.ChildName(svcName, "-my-inf-pool")
+
+				infPool := InferencePool(infPoolName,
+					InNamespace[*igwapi.InferencePool](testNs.Name),
+					WithSelector("app", "workload"),
+					WithTargetPort(8000),
+					WithExtensionRef("", "Service", kmeta.ChildName(svcName, "-epp-service"), 9002),
+				)
+				Expect(envTest.Create(ctx, infPool)).To(Succeed())
+				defer func() {
+					testNs.DeleteAndWait(ctx, infPool)
+				}()
+
+				llmSvc := LLMInferenceService(svcName,
+					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+					WithModelURI("hf://facebook/opt-125m"),
+					WithManagedRoute(),
+					WithManagedGateway(),
+					WithInferencePoolRef(infPoolName),
+				)
+
+				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+				defer func() {
+					testNs.DeleteAndWait(ctx, llmSvc)
+				}()
+
+				ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvc)
+
+				// Verify the initial not-ready state is reflected.
+				Eventually(func(g Gomega, ctx context.Context) error {
+					current := &v1alpha2.LLMInferenceService{}
+					g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+
+					inferencePoolCondition := current.Status.GetCondition(v1alpha2.InferencePoolReady)
+					g.Expect(inferencePoolCondition).ToNot(BeNil())
+					g.Expect(inferencePoolCondition.IsFalse()).To(BeTrue())
+					g.Expect(inferencePoolCondition.Reason).To(Equal("WaitingForGateway"))
+					g.Expect(current.Status.Router).ToNot(BeNil())
+					g.Expect(current.Status.Router.Scheduler.InferencePool).ToNot(BeNil())
+					g.Expect(string(current.Status.Router.Scheduler.InferencePool.Name)).To(Equal(infPoolName))
+
+					return nil
+				}).WithContext(ctx).Should(Succeed())
+
+				// when - the external pool transitions to ready
+				ensureInferencePoolReady(ctx, envTest.Client, infPool)
+
+				// then - InferencePoolReady should be refreshed to true
+				Eventually(func(g Gomega, ctx context.Context) error {
+					current := &v1alpha2.LLMInferenceService{}
+					g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+					g.Expect(current.Status).To(HaveCondition(string(v1alpha2.InferencePoolReady), "True"))
+					g.Expect(current.Status.Router).ToNot(BeNil())
+					g.Expect(current.Status.Router.Scheduler.InferencePool).ToNot(BeNil())
+					g.Expect(string(current.Status.Router.Scheduler.InferencePool.Name)).To(Equal(infPoolName))
+
+					return nil
+				}).WithContext(ctx).Should(Succeed())
+			})
+		})
 	})
 
 	Context("Readiness Event Emission", func() {
