@@ -86,6 +86,12 @@ type InferenceGraphSpec struct {
 	// https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
 	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+
+	// DefaultRetry defines the default retry configuration for all steps in the graph.
+	// Steps can override this by specifying their own retry configuration.
+	// If not set, no retries are attempted unless configured per-step.
+	// +optional
+	DefaultRetry *RetryConfig `json:"defaultRetry,omitempty"`
 }
 
 // ScaleMetric enum
@@ -300,6 +306,33 @@ const (
 	Hard InferenceStepDependencyType = "Hard"
 )
 
+// RetryConfig defines retry behavior for an inference step when it encounters transient failures.
+// Retries use exponential backoff with jitter.
+// Only 5xx status codes and connection errors are retried; 4xx errors are not retried.
+// +k8s:openapi-gen=true
+type RetryConfig struct {
+	// MaxRetries is the maximum number of retry attempts (not counting the initial request).
+	// +optional
+	// +kubebuilder:default=3
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=10
+	MaxRetries int `json:"maxRetries,omitempty"`
+
+	// InitialDelayMilliseconds is the initial backoff delay in milliseconds before the first retry.
+	// Subsequent retries use exponential backoff with jitter.
+	// +optional
+	// +kubebuilder:default=100
+	// +kubebuilder:validation:Minimum=0
+	InitialDelayMilliseconds int `json:"initialDelayMs,omitempty"`
+
+	// MaxDelayMilliseconds is the maximum delay in milliseconds between retries.
+	// Defaults to 300000 (5 minutes). Set a lower value for latency-sensitive workloads.
+	// +optional
+	// +kubebuilder:default=300000
+	// +kubebuilder:validation:Minimum=0
+	MaxDelayMilliseconds int `json:"maxDelayMs,omitempty"`
+}
+
 // InferenceStep defines the inference target of the current step with condition, weights and data.
 // +k8s:openapi-gen=true
 type InferenceStep struct {
@@ -335,6 +368,11 @@ type InferenceStep struct {
 	// to decide whether a step is a hard or a soft dependency in the Inference Graph
 	// +optional
 	Dependency InferenceStepDependencyType `json:"dependency,omitempty"`
+
+	// Retry configures retry behavior for this step on transient failures (5xx and connection errors).
+	// If not set, no retries are attempted (the current default behavior).
+	// +optional
+	Retry *RetryConfig `json:"retry,omitempty"`
 }
 
 // InferenceGraphStatus defines the InferenceGraph conditions and status

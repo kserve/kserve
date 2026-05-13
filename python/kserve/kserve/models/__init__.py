@@ -59,6 +59,7 @@ from kserve.models.v1alpha1_local_model_node_list import V1alpha1LocalModelNodeL
 from kserve.models.v1alpha1_local_model_node_spec import V1alpha1LocalModelNodeSpec
 from kserve.models.v1alpha1_local_model_storage_spec import V1alpha1LocalModelStorageSpec
 from kserve.models.v1alpha1_model_spec import V1alpha1ModelSpec
+from kserve.models.v1alpha1_retry_config import V1alpha1RetryConfig
 from kserve.models.v1alpha1_serving_runtime import V1alpha1ServingRuntime
 from kserve.models.v1alpha1_serving_runtime_list import V1alpha1ServingRuntimeList
 from kserve.models.v1alpha1_serving_runtime_pod_spec import V1alpha1ServingRuntimePodSpec

@@ -24,6 +24,7 @@ import (
 	goerrors "errors"
 	"fmt"
 	"io"
+	"math"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -378,12 +379,85 @@ func isSuccessFul(statusCode int) bool {
 	return false
 }
 
+// isRetriable returns true for status codes that indicate a transient failure
+// that may succeed on retry (5xx server errors). Client errors (4xx) are not retried.
+func isRetriable(statusCode int) bool {
+	return statusCode >= 500
+}
+
+// retryBackoff computes the delay before the next retry using exponential backoff with jitter.
+// The delay is: min(maxDelay, initialDelay * 2^attempt) with random jitter in [0, delay).
+func retryBackoff(attempt int, initialDelay, maxDelay time.Duration) time.Duration {
+	delay := float64(initialDelay) * math.Pow(2, float64(attempt))
+	if delay > float64(maxDelay) {
+		delay = float64(maxDelay)
+	}
+	// Add jitter: random value in [0, delay)
+	jitter, err := rand.Int(rand.Reader, big.NewInt(int64(delay)))
+	if err != nil {
+		// If randomness fails, use full delay
+		return time.Duration(int64(delay))
+	}
+	return time.Duration(jitter.Int64())
+}
+
+// callServiceWithRetry wraps callService with retry logic using exponential backoff.
+// Only transient failures (5xx status codes and connection errors) are retried.
+func callServiceWithRetry(serviceUrl string, input []byte, headers http.Header, retryConfig *v1alpha1.RetryConfig) ([]byte, int, error) {
+	if retryConfig == nil || retryConfig.MaxRetries <= 0 {
+		return callService(serviceUrl, input, headers)
+	}
+
+	initialDelay := time.Duration(retryConfig.InitialDelayMilliseconds) * time.Millisecond
+	maxDelay := time.Duration(retryConfig.MaxDelayMilliseconds) * time.Millisecond
+
+	var lastBody []byte
+	var lastStatusCode int
+	var lastErr error
+
+	for attempt := 0; attempt <= retryConfig.MaxRetries; attempt++ {
+		if attempt > 0 {
+			delay := retryBackoff(attempt-1, initialDelay, maxDelay)
+			log.Info("Retrying step", "url", serviceUrl, "attempt", attempt, "maxRetries", retryConfig.MaxRetries, "delay", delay)
+			time.Sleep(delay)
+		}
+
+		lastBody, lastStatusCode, lastErr = callService(serviceUrl, input, headers)
+
+		// Success — return immediately
+		if lastErr == nil && !isRetriable(lastStatusCode) {
+			return lastBody, lastStatusCode, nil
+		}
+
+		// Connection error — retriable
+		if lastErr != nil {
+			log.Info("Step call failed with error, will retry", "url", serviceUrl, "attempt", attempt, "error", lastErr)
+			continue
+		}
+
+		// 5xx — retriable
+		log.Info("Step returned retriable status, will retry", "url", serviceUrl, "attempt", attempt, "statusCode", lastStatusCode)
+	}
+
+	// Exhausted all retries, return last result
+	if lastErr != nil {
+		log.Info("All retries exhausted with error", "url", serviceUrl, "maxRetries", retryConfig.MaxRetries, "error", lastErr)
+	} else {
+		log.Info("All retries exhausted with retriable status", "url", serviceUrl, "maxRetries", retryConfig.MaxRetries, "statusCode", lastStatusCode)
+	}
+	return lastBody, lastStatusCode, lastErr
+}
+
 func executeStep(step *v1alpha1.InferenceStep, graph v1alpha1.InferenceGraphSpec, input []byte, headers http.Header) ([]byte, int, error) {
 	if step.NodeName != "" {
 		// when nodeName is specified make a recursive call for routing to next step
 		return routeStep(step.NodeName, graph, input, headers)
 	}
-	return callService(step.ServiceURL, input, headers)
+	retryConfig := step.Retry
+	if retryConfig == nil {
+		retryConfig = graph.DefaultRetry
+	}
+	return callServiceWithRetry(step.ServiceURL, input, headers, retryConfig)
 }
 
 func prepareErrorResponse(err error, errorMessage string) []byte {

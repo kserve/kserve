@@ -477,6 +477,22 @@ spec:
                         x-kubernetes-list-type: atomic
                     type: object
                 type: object
+              defaultRetry:
+                properties:
+                  initialDelayMs:
+                    default: 100
+                    minimum: 0
+                    type: integer
+                  maxDelayMs:
+                    default: 300000
+                    minimum: 0
+                    type: integer
+                  maxRetries:
+                    default: 3
+                    maximum: 10
+                    minimum: 0
+                    type: integer
+                type: object
               maxReplicas:
                 format: int32
                 type: integer
@@ -517,6 +533,22 @@ spec:
                             type: string
                           nodeName:
                             type: string
+                          retry:
+                            properties:
+                              initialDelayMs:
+                                default: 100
+                                minimum: 0
+                                type: integer
+                              maxDelayMs:
+                                default: 300000
+                                minimum: 0
+                                type: integer
+                              maxRetries:
+                                default: 3
+                                maximum: 10
+                                minimum: 0
+                                type: integer
+                            type: object
                           serviceName:
                             type: string
                           serviceUrl:

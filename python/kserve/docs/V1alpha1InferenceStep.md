@@ -10,6 +10,7 @@ Name | Type | Description | Notes
 **map_predictions_to_instances** | **bool** | If true, maps the &#39;predictions&#39; field from the previous step&#39;s response to the &#39;instances&#39; field of this step&#39;s request. Useful in sequential inference graphs where one step&#39;s output becomes the input for the next. | [optional] 
 **name** | **str** | Unique name for the step within this node | [optional] 
 **node_name** | **str** | The node name for routing as next step | [optional] 
+**retry** | [**V1alpha1RetryConfig**](V1alpha1RetryConfig.md) |  | [optional] 
 **service_name** | **str** | named reference for InferenceService | [optional] 
 **service_url** | **str** | InferenceService URL, mutually exclusive with ServiceName | [optional] 
 **weight** | **int** | the weight for split of the traffic, only used for Split Router when weight is specified all the routing targets should be sum to 100 | [optional] 
