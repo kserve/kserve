@@ -590,13 +590,11 @@ func validateKEDAConfig(keda *KEDAScalingConfig, minReplicas *int32) error {
 		}
 
 		// Validate scaling modifiers
-		if keda.Advanced.ScalingModifiers != nil {
-			sm := keda.Advanced.ScalingModifiers
-			// If any scaling modifier field is set, formula should be set
-			if (sm.Target != "" || sm.ActivationTarget != "" || sm.MetricType != "") && sm.Formula == "" {
-				return errors.New("advanced.scalingModifiers.formula must be set when using scaling modifiers")
-			}
+		sm := keda.Advanced.ScalingModifiers
+		if (sm.Target != "" || sm.ActivationTarget != "" || sm.MetricType != "") && sm.Formula == "" {
+			return errors.New("advanced.scalingModifiers.formula must be set when using scaling modifiers")
 		}
+
 	}
 
 	return nil

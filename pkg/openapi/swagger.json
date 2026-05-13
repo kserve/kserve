@@ -1636,6 +1636,10 @@
           "description": "Behavior contains the scaling behavior configuration for the Horizontal Pod Autoscaler.",
           "$ref": "#/definitions/k8s.io.api.autoscaling.v2.HorizontalPodAutoscalerBehavior"
         },
+        "keda": {
+          "description": "KEDA contains KEDA-specific autoscaling configuration. When specified, KEDA ScaledObject will be used for autoscaling.",
+          "$ref": "#/definitions/v1beta1.KEDAScalingConfig"
+        },
         "metrics": {
           "description": "metrics is a list of metrics spec to be used for autoscaling",
           "type": "array",
@@ -3785,6 +3789,40 @@
         }
       }
     },
+    "v1beta1.KEDAScalingConfig": {
+      "description": "KEDAScalingConfig configures KEDA ScaledObject-specific options. These fields map directly to KEDA ScaledObject spec fields.",
+      "type": "object",
+      "properties": {
+        "advanced": {
+          "description": "Advanced specifies advanced KEDA configuration options. This includes HPA behavior configuration and restore-to-original replica count settings.",
+          "$ref": "#/definitions/github.com.kedacore.keda.v2.apis.keda.v1alpha1.AdvancedConfig"
+        },
+        "cooldownPeriod": {
+          "description": "CooldownPeriod is the period in seconds to wait after the last trigger reported active before scaling the resource back to its minimum replica count. A value of 0 means scale down immediately with no cooldown. Default is 300 seconds (5 minutes).",
+          "type": "integer",
+          "format": "int32"
+        },
+        "fallback": {
+          "description": "Fallback defines the replica count to maintain when the scaler is in a fallback state (e.g., when metrics are unavailable). This allows the deployment to hold a safe replica count during metric outages rather than scaling to zero.",
+          "$ref": "#/definitions/github.com.kedacore.keda.v2.apis.keda.v1alpha1.Fallback"
+        },
+        "idleReplicaCount": {
+          "description": "IdleReplicaCount is the number of replicas KEDA will scale the resource down to when there are no triggers active. This must be less than minReplicas. If not set, KEDA will not scale below minReplicas.",
+          "type": "integer",
+          "format": "int32"
+        },
+        "initialCooldownPeriod": {
+          "description": "InitialCooldownPeriod is the period in seconds to wait after the ScaledObject is created before KEDA starts evaluating triggers. Useful for model deployments where the model takes time to load before it can serve traffic, preventing premature scale-up decisions.",
+          "type": "integer",
+          "format": "int32"
+        },
+        "pollingInterval": {
+          "description": "PollingInterval is the interval in seconds to check each trigger on. Must be at least 1 second. Default is 30 seconds.",
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
     "v1beta1.LightGBMSpec": {
       "description": "LightGBMSpec defines arguments for configuring LightGBMSpec model serving.",
       "type": "object",
@@ -4120,6 +4158,10 @@
           "description": "external refers to a global metric that is not associated with any Kubernetes object. It allows autoscaling based on information coming from components running outside of cluster (for example length of queue in cloud messaging service, or QPS from load balancer running outside of cluster).",
           "$ref": "#/definitions/v1beta1.ExternalMetricSource"
         },
+        "name": {
+          "description": "Name is the name of the trigger. Must be unique within the ScaledObject. Used by KEDA to identify triggers.",
+          "type": "string"
+        },
         "podmetric": {
           "description": "pods refers to a metric describing each pod in the current scale target (for example, transactions-processed-per-second).  The values will be averaged together before being compared to the target value.",
           "$ref": "#/definitions/v1beta1.PodMetricSource"
@@ -4132,6 +4174,10 @@
           "description": "type is the type of metric source.  It should be one of \"Resource\", \"External\", \"PodMetric\". \"Resource\" or \"External\" each mapping to a matching field in the object.",
           "type": "string",
           "default": ""
+        },
+        "useCachedMetrics": {
+          "description": "UseCachedMetrics determines whether KEDA should use cached metrics. Not supported for cpu, memory, or cron scalers.",
+          "type": "boolean"
         }
       }
     },

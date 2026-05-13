@@ -105,6 +105,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServiceValidator":      schema_pkg_apis_serving_v1beta1_InferenceServiceValidator(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServicesConfig":        schema_pkg_apis_serving_v1beta1_InferenceServicesConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.IngressConfig":                  schema_pkg_apis_serving_v1beta1_IngressConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.KEDAScalingConfig":              schema_pkg_apis_serving_v1beta1_KEDAScalingConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LightGBMSpec":                   schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LocalModelConfig":               schema_pkg_apis_serving_v1beta1_LocalModelConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec":                     schema_pkg_apis_serving_v1beta1_LoggerSpec(ref),
@@ -3067,11 +3068,17 @@ func schema_pkg_apis_serving_v1beta1_AutoScalingSpec(ref common.ReferenceCallbac
 							Ref:         ref("k8s.io/api/autoscaling/v2.HorizontalPodAutoscalerBehavior"),
 						},
 					},
+					"keda": {
+						SchemaProps: spec.SchemaProps{
+							Description: "KEDA contains KEDA-specific autoscaling configuration. When specified, KEDA ScaledObject will be used for autoscaling.",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.KEDAScalingConfig"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricsSpec", "k8s.io/api/autoscaling/v2.HorizontalPodAutoscalerBehavior"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.KEDAScalingConfig", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricsSpec", "k8s.io/api/autoscaling/v2.HorizontalPodAutoscalerBehavior"},
 	}
 }
 
@@ -6878,6 +6885,61 @@ func schema_pkg_apis_serving_v1beta1_IngressConfig(ref common.ReferenceCallback)
 	}
 }
 
+func schema_pkg_apis_serving_v1beta1_KEDAScalingConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "KEDAScalingConfig configures KEDA ScaledObject-specific options. These fields map directly to KEDA ScaledObject spec fields.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"pollingInterval": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PollingInterval is the interval in seconds to check each trigger on. Must be at least 1 second. Default is 30 seconds.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"cooldownPeriod": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CooldownPeriod is the period in seconds to wait after the last trigger reported active before scaling the resource back to its minimum replica count. A value of 0 means scale down immediately with no cooldown. Default is 300 seconds (5 minutes).",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"initialCooldownPeriod": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InitialCooldownPeriod is the period in seconds to wait after the ScaledObject is created before KEDA starts evaluating triggers. Useful for model deployments where the model takes time to load before it can serve traffic, preventing premature scale-up decisions.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"idleReplicaCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "IdleReplicaCount is the number of replicas KEDA will scale the resource down to when there are no triggers active. This must be less than minReplicas. If not set, KEDA will not scale below minReplicas.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"fallback": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Fallback defines the replica count to maintain when the scaler is in a fallback state (e.g., when metrics are unavailable). This allows the deployment to hold a safe replica count during metric outages rather than scaling to zero.",
+							Ref:         ref("github.com/kedacore/keda/v2/apis/keda/v1alpha1.Fallback"),
+						},
+					},
+					"advanced": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Advanced specifies advanced KEDA configuration options. This includes HPA behavior configuration and restore-to-original replica count settings.",
+							Ref:         ref("github.com/kedacore/keda/v2/apis/keda/v1alpha1.AdvancedConfig"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kedacore/keda/v2/apis/keda/v1alpha1.AdvancedConfig", "github.com/kedacore/keda/v2/apis/keda/v1alpha1.Fallback"},
+	}
+}
+
 func schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -7493,6 +7555,20 @@ func schema_pkg_apis_serving_v1beta1_MetricsSpec(ref common.ReferenceCallback) c
 						SchemaProps: spec.SchemaProps{
 							Description: "pods refers to a metric describing each pod in the current scale target (for example, transactions-processed-per-second).  The values will be averaged together before being compared to the target value.",
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodMetricSource"),
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the name of the trigger. Must be unique within the ScaledObject. Used by KEDA to identify triggers.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"useCachedMetrics": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UseCachedMetrics determines whether KEDA should use cached metrics. Not supported for cpu, memory, or cron scalers.",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 				},
