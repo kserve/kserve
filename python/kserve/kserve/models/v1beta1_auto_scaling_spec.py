@@ -48,26 +48,31 @@ class V1beta1AutoScalingSpec(object):
     """
     openapi_types = {
         'behavior': 'K8sIoApiAutoscalingV2HorizontalPodAutoscalerBehavior',
+        'keda': 'V1beta1KEDAScalingConfig',
         'metrics': 'list[V1beta1MetricsSpec]'
     }
 
     attribute_map = {
         'behavior': 'behavior',
+        'keda': 'keda',
         'metrics': 'metrics'
     }
 
-    def __init__(self, behavior=None, metrics=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, behavior=None, keda=None, metrics=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1AutoScalingSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._behavior = None
+        self._keda = None
         self._metrics = None
         self.discriminator = None
 
         if behavior is not None:
             self.behavior = behavior
+        if keda is not None:
+            self.keda = keda
         if metrics is not None:
             self.metrics = metrics
 
@@ -91,6 +96,27 @@ class V1beta1AutoScalingSpec(object):
         """
 
         self._behavior = behavior
+
+    @property
+    def keda(self):
+        """Gets the keda of this V1beta1AutoScalingSpec.  # noqa: E501
+
+
+        :return: The keda of this V1beta1AutoScalingSpec.  # noqa: E501
+        :rtype: V1beta1KEDAScalingConfig
+        """
+        return self._keda
+
+    @keda.setter
+    def keda(self, keda):
+        """Sets the keda of this V1beta1AutoScalingSpec.
+
+
+        :param keda: The keda of this V1beta1AutoScalingSpec.  # noqa: E501
+        :type: V1beta1KEDAScalingConfig
+        """
+
+        self._keda = keda
 
     @property
     def metrics(self):

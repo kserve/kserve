@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"strings"
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
@@ -178,82 +179,12 @@ type KEDAScalingConfig struct {
 	// (e.g., when metrics are unavailable). This allows the deployment to hold a safe
 	// replica count during metric outages rather than scaling to zero.
 	// +optional
-	Fallback *KEDAFallback `json:"fallback,omitempty"`
+	Fallback *kedav1alpha1.Fallback `json:"fallback,omitempty"`
 
 	// Advanced specifies advanced KEDA configuration options.
 	// This includes HPA behavior configuration and restore-to-original replica count settings.
 	// +optional
-	Advanced *KEDAAdvancedConfig `json:"advanced,omitempty"`
-}
-
-// KEDAFallback defines fallback configuration for KEDA ScaledObject.
-type KEDAFallback struct {
-	// FailureThreshold is the number of consecutive failures before fallback is triggered.
-	// +kubebuilder:validation:Minimum=0
-	FailureThreshold int32 `json:"failureThreshold"`
-
-	// Replicas is the number of replicas to maintain when in fallback mode.
-	// +kubebuilder:validation:Minimum=0
-	Replicas int32 `json:"replicas"`
-
-	// Behavior defines how fallback replicas are determined.
-	// Valid values: static, currentReplicas, currentReplicasIfHigher, currentReplicasIfLower
-	// Default: static
-	// +optional
-	// +kubebuilder:default=static
-	// +kubebuilder:validation:Enum=static;currentReplicas;currentReplicasIfHigher;currentReplicasIfLower
-	Behavior string `json:"behavior,omitempty"`
-}
-
-// KEDAAdvancedConfig specifies advanced scaling options for KEDA.
-type KEDAAdvancedConfig struct {
-	// HorizontalPodAutoscalerConfig specifies HPA-related configuration.
-	// +optional
-	HorizontalPodAutoscalerConfig *KEDAHPAConfig `json:"horizontalPodAutoscalerConfig,omitempty"`
-
-	// RestoreToOriginalReplicaCount specifies whether to restore the original replica count
-	// when the ScaledObject is deleted.
-	// +optional
-	RestoreToOriginalReplicaCount *bool `json:"restoreToOriginalReplicaCount,omitempty"`
-
-	// ScalingModifiers describes advanced scaling logic options like formula.
-	// +optional
-	ScalingModifiers *KEDAScalingModifiers `json:"scalingModifiers,omitempty"`
-}
-
-// KEDAHPAConfig specifies horizontal scale config for KEDA-managed HPA.
-type KEDAHPAConfig struct {
-	// Behavior contains the scaling behavior configuration.
-	// This is the same as the top-level Behavior field but applies when using KEDA.
-	// +optional
-	Behavior *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
-
-	// Name is the name of the HPA resource created by KEDA.
-	// If not set, KEDA will auto-generate the name.
-	// NOTE: This field is typically not needed as KEDA manages the HPA name.
-	// +optional
-	Name string `json:"name,omitempty"`
-}
-
-// KEDAScalingModifiers describes advanced scaling logic options.
-type KEDAScalingModifiers struct {
-	// Formula is a custom formula to calculate the desired replica count.
-	// +optional
-	Formula string `json:"formula,omitempty"`
-
-	// Target is the target value for the formula.
-	// +optional
-	Target string `json:"target,omitempty"`
-
-	// ActivationTarget is the activation threshold for the formula.
-	// +optional
-	ActivationTarget string `json:"activationTarget,omitempty"`
-
-	// MetricType specifies the metric type for the formula.
-	// Valid values: AverageValue, Value
-	// +optional
-	// +kubebuilder:validation:Enum=AverageValue;Value
-	MetricType string `json:"metricType,omitempty"`
+	Advanced *kedav1alpha1.AdvancedConfig `json:"advanced,omitempty"`
 }
 
 // MetricsSpec specifies how to scale based on a single metric

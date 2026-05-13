@@ -25,6 +25,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -3103,7 +3104,7 @@ func TestValidateKEDAConfig(t *testing.T) {
 		},
 		"Valid KEDA config with fallback": {
 			keda: &KEDAScalingConfig{
-				Fallback: &KEDAFallback{
+				Fallback: &kedav1alpha1.Fallback{
 					FailureThreshold: 3,
 					Replicas:         2,
 					Behavior:         "static",
@@ -3135,7 +3136,7 @@ func TestValidateKEDAConfig(t *testing.T) {
 		},
 		"Fallback with negative FailureThreshold": {
 			keda: &KEDAScalingConfig{
-				Fallback: &KEDAFallback{
+				Fallback: &kedav1alpha1.Fallback{
 					FailureThreshold: -1,
 					Replicas:         2,
 				},
@@ -3145,7 +3146,7 @@ func TestValidateKEDAConfig(t *testing.T) {
 		},
 		"Fallback with negative Replicas": {
 			keda: &KEDAScalingConfig{
-				Fallback: &KEDAFallback{
+				Fallback: &kedav1alpha1.Fallback{
 					FailureThreshold: 3,
 					Replicas:         -1,
 				},
@@ -3155,8 +3156,8 @@ func TestValidateKEDAConfig(t *testing.T) {
 		},
 		"Advanced config with HPA name set - should error": {
 			keda: &KEDAScalingConfig{
-				Advanced: &KEDAAdvancedConfig{
-					HorizontalPodAutoscalerConfig: &KEDAHPAConfig{
+				Advanced: &kedav1alpha1.AdvancedConfig{
+					HorizontalPodAutoscalerConfig: &kedav1alpha1.HorizontalPodAutoscalerConfig{
 						Name: "custom-hpa-name",
 					},
 				},
@@ -3166,8 +3167,8 @@ func TestValidateKEDAConfig(t *testing.T) {
 		},
 		"Scaling modifiers without formula - should error": {
 			keda: &KEDAScalingConfig{
-				Advanced: &KEDAAdvancedConfig{
-					ScalingModifiers: &KEDAScalingModifiers{
+				Advanced: &kedav1alpha1.AdvancedConfig{
+					ScalingModifiers: kedav1alpha1.ScalingModifiers{
 						Target:     "100",
 						MetricType: "AverageValue",
 					},
@@ -3178,8 +3179,8 @@ func TestValidateKEDAConfig(t *testing.T) {
 		},
 		"Scaling modifiers with formula - should pass": {
 			keda: &KEDAScalingConfig{
-				Advanced: &KEDAAdvancedConfig{
-					ScalingModifiers: &KEDAScalingModifiers{
+				Advanced: &kedav1alpha1.AdvancedConfig{
+					ScalingModifiers: kedav1alpha1.ScalingModifiers{
 						Formula:    "custom_formula",
 						Target:     "100",
 						MetricType: "AverageValue",
