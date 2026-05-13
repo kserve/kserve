@@ -58,16 +58,14 @@ git push -u origin release/${NEW_VERSION}-rc0
 # Create PR to master in upstream kserve via GitHub UI
 ```
 
-### 2. Prepare Release (Branch & Tag)
+### 2. Create Release Branch & Tag
 
-**GitHub Actions:**
-1. Go to **Actions** → **Prepare Release (Branch & Tag)** → **Run workflow**
-2. Set `version: v${NEW_VERSION}-rc0`, `dry_run: true`
-3. Review output, then run with `dry_run: false`
-
-**Local Script (only for testing):**
 ```bash
-./hack/release/create-release.sh v${NEW_VERSION}-rc0 --dry-run
+# Dry-run (default): validate and show execution plan
+./hack/release/create-branch-tag.sh v${NEW_VERSION}-rc0
+
+# Execute after confirming dry-run output
+./hack/release/create-branch-tag.sh v${NEW_VERSION}-rc0 --execute
 ```
 
 This creates:
@@ -153,18 +151,14 @@ make bump-version NEW_VERSION=${NEW_VERSION}-rc1 PRIOR_VERSION=${PRIOR_VERSION}
 # Cherry-pick: /cherry-pick release-${NEW_VERSION%.*}  ex. /cherry-pick release-0.17
 ```
 
-### 4. Prepare Release (Tag Only)
-
-**GitHub Actions (Recommended):**
-
-1. Go to **Actions** → **Prepare Release (Branch & Tag)** → **Run workflow**
-2. Set `version: v${NEW_VERSION}-rc1`, `dry_run: true`
-3. Review output, then run with `dry_run: false`
-
-**Local Script (only for testing):**
+### 4. Create Tag
 
 ```bash
-./hack/release/create-release.sh v${NEW_VERSION}-rc1 --dry-run
+# Dry-run (default)
+./hack/release/create-branch-tag.sh v${NEW_VERSION}-rc1
+
+# Execute after confirming
+./hack/release/create-branch-tag.sh v${NEW_VERSION}-rc1 --execute
 ```
 
 
@@ -201,18 +195,14 @@ make bump-version NEW_VERSION=${NEW_VERSION} PRIOR_VERSION=${PRIOR_VERSION}
 # Cherry-pick: /cherry-pick release-${NEW_VERSION%.*}  ex. /cherry-pick release-0.17
 ```
 
-### 2. Prepare Release (Tag Only)
-
-**GitHub Actions (Recommended):**
-
-1. Go to **Actions** → **Prepare Release (Branch & Tag)** → **Run workflow**
-2. Set `version: v${NEW_VERSION}`, `dry_run: true`
-3. Review output, then run with `dry_run: false`
-
-**Local Script (only for testing):**
+### 2. Create Tag
 
 ```bash
-./hack/release/create-release.sh v${NEW_VERSION} --dry-run
+# Dry-run (default)
+./hack/release/create-branch-tag.sh v${NEW_VERSION}
+
+# Execute after confirming
+./hack/release/create-branch-tag.sh v${NEW_VERSION} --execute
 ```
 
 ### 3. Review and Publish Final Release
@@ -232,6 +222,6 @@ Publishing automatically triggers `python-publish` and `helm-publish` workflows.
 
 ## Resources
 
-- Scripts: [`prepare-for-release.sh`](../hack/release/prepare-for-release.sh), [`create-release.sh`](../hack/release/create-release.sh)
-- Workflows: [`prepare-release.yml`](../.github/workflows/prepare-release.yml), [`python-publish.yml`](../.github/workflows/python-publish.yml)
-- Help: `./hack/release/create-release.sh --help`
+- Scripts: [`prepare-for-release.sh`](../hack/release/prepare-for-release.sh), [`create-branch-tag.sh`](../hack/release/create-branch-tag.sh), [`publish-release.sh`](../hack/release/publish-release.sh)
+- Workflows: [`python-publish.yml`](../.github/workflows/python-publish.yml), [`helm-publish.yml`](../.github/workflows/helm-publish.yml)
+- Help: `./hack/release/create-branch-tag.sh --help`

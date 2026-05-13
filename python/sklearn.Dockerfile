@@ -18,8 +18,8 @@ ENV VIRTUAL_ENV=${VENV_PATH}
 RUN uv venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-# Copy storage directory for editable install
-COPY storage storage
+# Copy storage metadata for editable dependency resolution
+COPY storage/pyproject.toml storage/uv.lock storage/
 
 # ========== Install kserve dependencies ==========
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
@@ -29,9 +29,6 @@ COPY kserve kserve
 RUN cd kserve && uv sync --active --no-cache
 
 # ========== Install kserve storage dependencies ==========
-COPY storage/pyproject.toml storage/uv.lock storage/
-RUN cd storage && uv sync --active --no-cache
-
 COPY storage storage
 RUN cd storage && uv pip install . --no-cache
 
@@ -52,8 +49,6 @@ RUN mkdir -p third_party/library && python3 pip-licenses.py
 
 # =================== Final stage ===================
 FROM ${BASE_IMAGE} AS prod
-
-COPY third_party third_party
 
 # Activate virtual env
 ARG VENV_PATH

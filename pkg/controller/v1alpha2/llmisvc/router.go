@@ -59,7 +59,7 @@ var ErrPreconditionNotMet = errors.New("precondition not met")
 
 // reconcileRouter handles the networking and routing components for the LLM service
 // This includes schedulers, HTTP routes, and various validation checks
-func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
+func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
 	logger := log.FromContext(ctx).WithName("reconcileRouter")
 	ctx = log.IntoContext(ctx, logger)
 
@@ -86,7 +86,7 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 	}
 
 	// Reconcile the scheduler component that manages inference pools
-	if err := r.reconcileScheduler(ctx, llmSvc, config.SchedulerConfig); err != nil {
+	if err := r.reconcileScheduler(ctx, llmSvc); err != nil {
 		llmSvc.MarkSchedulerWorkloadNotReady("SchedulerReconcileError", "Failed to reconcile scheduler: %v", err.Error())
 		return fmt.Errorf("failed to reconcile scheduler: %w", err)
 	}
@@ -97,6 +97,12 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 	if err := r.reconcileHTTPRoutes(ctx, llmSvc); err != nil {
 		llmSvc.MarkHTTPRoutesNotReady("HTTPRouteReconcileError", "Failed to reconcile HTTPRoute: %v", err.Error())
 		return fmt.Errorf("failed to reconcile HTTP routes: %w", err)
+	}
+
+	// Reconcile platform-specific networking resources
+	if err := r.reconcileRouterPlatformNetworking(ctx, llmSvc); err != nil {
+		llmSvc.MarkHTTPRoutesNotReady("PlatformNetworkingReconcileError", "Failed to reconcile platform networking: %v", err.Error())
+		return fmt.Errorf("failed to reconcile router platform networking: %w", err)
 	}
 
 	// Evaluate the subconditions to determine overall router health
@@ -317,7 +323,15 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 	externalURLs := FilterExternalURLs(urls)
 	if len(externalURLs) == 0 {
 		logger.Info("no public URL discovered")
-		llmSvc.Status.URL = nil
+		if len(urls) > 0 {
+			// Promote first address to top-level status.URL as some "cluster external" addresses are technically within
+			// "virtual private networks" and we cannot detect that from just IPs. Even if it's a cluster-local URL, the
+			// status URL is just for discovery and easy access, and it's not a problem to have here while we prioritize
+			// external addresses.
+			llmSvc.Status.URL = urls[0]
+		} else {
+			llmSvc.Status.URL = nil
+		}
 	} else {
 		llmSvc.Status.URL = externalURLs[0]
 	}
@@ -362,13 +376,6 @@ func (r *LLMISVCReconciler) EvaluateGatewayConditions(ctx context.Context, llmSv
 	if llmSvc.Spec.Router == nil || !llmSvc.Spec.Router.Gateway.HasRefs() {
 		logger.Info("No Gateway references found, skipping Gateway condition evaluation")
 		llmSvc.MarkGatewaysReadyUnset()
-		return nil
-	}
-
-	// Check if there's already a validation failure condition set
-	condition := llmSvc.GetStatus().GetCondition(v1alpha2.GatewaysReady)
-	if condition != nil && condition.IsFalse() && condition.Reason == RefsInvalidReason {
-		logger.Info("Gateway validation failed, skipping readiness evaluation", "reason", condition.Reason, "message", condition.Message)
 		return nil
 	}
 
@@ -461,13 +468,6 @@ func (r *LLMISVCReconciler) EvaluateHTTPRouteConditions(ctx context.Context, llm
 	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route == nil || llmSvc.Spec.Router.Route.HTTP == nil {
 		logger.Info("No HTTPRoute configuration found, clearing HTTPRoutesReady condition")
 		llmSvc.MarkHTTPRoutesReadyUnset()
-		return nil
-	}
-
-	// Check if there's already a validation failure condition set
-	condition := llmSvc.GetStatus().GetCondition(v1alpha2.HTTPRoutesReady)
-	if condition != nil && condition.IsFalse() && condition.Reason == RefsInvalidReason {
-		logger.Info("HTTPRoute validation failed, skipping readiness evaluation", "reason", condition.Reason, "message", condition.Message)
 		return nil
 	}
 

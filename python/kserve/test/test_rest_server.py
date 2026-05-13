@@ -42,3 +42,42 @@ def test_config_loop_value(loop_value, expected, monkeypatch):
     )
 
     assert rs.config.loop == expected
+
+
+@pytest.mark.parametrize(
+    "timeout_keep_alive,expected",
+    [
+        (65, 65),  # default value
+        (120, 120),  # custom value
+        (5, 5),  # uvicorn default
+    ],
+)
+def test_config_timeout_keep_alive(timeout_keep_alive, expected, monkeypatch):
+    monkeypatch.setattr(rest_mod.RESTServer, "create_application", lambda self: None)
+    data_plane = Mock()
+    model_repo_ext = Mock()
+
+    rs = rest_mod.RESTServer(
+        app="dummy:app",
+        data_plane=data_plane,
+        model_repository_extension=model_repo_ext,
+        http_port=8080,
+        timeout_keep_alive=timeout_keep_alive,
+    )
+
+    assert rs.config.timeout_keep_alive == expected
+
+
+def test_config_timeout_keep_alive_default(monkeypatch):
+    monkeypatch.setattr(rest_mod.RESTServer, "create_application", lambda self: None)
+    data_plane = Mock()
+    model_repo_ext = Mock()
+
+    rs = rest_mod.RESTServer(
+        app="dummy:app",
+        data_plane=data_plane,
+        model_repository_extension=model_repo_ext,
+        http_port=8080,
+    )
+
+    assert rs.config.timeout_keep_alive == 65

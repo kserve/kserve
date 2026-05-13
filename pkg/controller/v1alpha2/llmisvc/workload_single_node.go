@@ -57,17 +57,23 @@ func (r *LLMISVCReconciler) reconcileSingleNodeWorkload(ctx context.Context, llm
 }
 
 func (r *LLMISVCReconciler) reconcileSingleNodeMainWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
-	expected, err := r.expectedSingleNodeMainDeployment(ctx, llmSvc, config)
-	if err != nil {
-		return fmt.Errorf("failed to get expected main deployment: %w", err)
-	}
 	if isStopped := utils.GetForceStopRuntime(llmSvc); isStopped || llmSvc.Spec.Worker != nil {
 		if isStopped {
 			llmSvc.MarkMainWorkloadNotReady("Stopped", "Service is stopped")
 		} else {
 			llmSvc.MarkMainWorkloadUnset()
 		}
-		return Delete(ctx, r, llmSvc, expected)
+		return Delete(ctx, r, llmSvc, &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      mainDeploymentName(llmSvc),
+				Namespace: llmSvc.GetNamespace(),
+			},
+		})
+	}
+
+	expected, err := r.expectedSingleNodeMainDeployment(ctx, llmSvc, config)
+	if err != nil {
+		return fmt.Errorf("failed to get expected main deployment: %w", err)
 	}
 	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, expected, semanticDeploymentIsEqual, PreserveDeploymentReplicas()); err != nil {
 		return err
@@ -122,7 +128,7 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 		},
 	}
 
-	if llmSvc.Spec.Template != nil {
+	if llmSvc.Spec.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
 		d.Spec.Template.Spec = *llmSvc.Spec.Template.DeepCopy()
 
 		var serviceAccount *corev1.ServiceAccount = nil
@@ -168,21 +174,23 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 }
 
 func (r *LLMISVCReconciler) reconcileSingleNodePrefill(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
-	prefill, err := r.expectedPrefillMainDeployment(ctx, llmSvc, config)
-	if err != nil {
-		return fmt.Errorf("failed to get expected prefill deployment: %w", err)
-	}
 	if isStopped := utils.GetForceStopRuntime(llmSvc); isStopped || llmSvc.Spec.Prefill == nil || llmSvc.Spec.Prefill.Worker != nil {
 		if isStopped {
 			llmSvc.MarkPrefillWorkloadNotReady("Stopped", "Service is stopped")
 		} else {
 			llmSvc.MarkPrefillWorkloadUnset()
 		}
+		return Delete(ctx, r, llmSvc, &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      prefillDeploymentName(llmSvc),
+				Namespace: llmSvc.GetNamespace(),
+			},
+		})
+	}
 
-		if err := Delete(ctx, r, llmSvc, prefill); err != nil {
-			return fmt.Errorf("failed to delete prefill main deployment: %w", err)
-		}
-		return nil
+	prefill, err := r.expectedPrefillMainDeployment(ctx, llmSvc, config)
+	if err != nil {
+		return fmt.Errorf("failed to get expected prefill deployment: %w", err)
 	}
 	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, prefill, semanticDeploymentIsEqual, PreserveDeploymentReplicas()); err != nil {
 		return fmt.Errorf("failed to reconcile prefill deployment %s/%s: %w", prefill.GetNamespace(), prefill.GetName(), err)
@@ -224,7 +232,7 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 		}
 	}
 
-	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Template != nil {
+	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
 		d.Spec.Template.Spec = *llmSvc.Spec.Prefill.Template.DeepCopy()
 
 		var existingServiceAccount *corev1.ServiceAccount = nil
@@ -264,9 +272,11 @@ func (r *LLMISVCReconciler) propagateDeploymentMetadata(llmSvc *v1alpha2.LLMInfe
 		"k8s.v1.cni.cncf.io",
 		constants.KueueAPIGroupName,
 		"prometheus.io",
+		constants.LocalModelLabel,
 	}
 	approvedLabelPrefixes := []string{
 		constants.KueueAPIGroupName,
+		constants.LocalModelLabel,
 	}
 
 	// Propagate approved annotations from top-level metadata to the Deployment and its Pod template
@@ -414,6 +424,8 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainServiceAccount(ctx context.Con
 			},
 		},
 	}
+
+	r.injectSecretsFromDefaultServiceAccount(ctx, expectedServiceAccount)
 
 	if expectedServiceAccount.Labels == nil {
 		expectedServiceAccount.Labels = make(map[string]string)

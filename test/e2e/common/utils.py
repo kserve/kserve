@@ -23,6 +23,8 @@ import portforward
 from kubernetes import client as k8s_client
 from orjson import orjson
 
+from httpx import HTTPStatusError
+
 from kserve import KServeClient, InferResponse, InferRequest
 from kserve import constants
 from kserve.inference_client import InferenceGRPCClient, InferenceRESTClient
@@ -30,7 +32,7 @@ from kserve.protocol.grpc import grpc_predict_v2_pb2 as pb
 from kserve.logging import trace_logger as logger
 from .http_retry import post_with_retry
 
-KSERVE_NAMESPACE = "kserve"
+KSERVE_NAMESPACE = os.environ.get("KSERVE_NAMESPACE", "kserve")
 KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
 MODEL_CLASS_NAME = "modelClass"
 INFERENCESERVICE_CONTAINER = "kserve-container"
@@ -137,17 +139,41 @@ async def _predict(
     model_name,
     headers=None,
     is_graph=False,
+    *,
+    retries: int = 5,
+    retry_delay: int = 5,
 ) -> Union[InferResponse, Dict]:
+    transient_status_codes = {502, 503, 504}
     logger.info("Sending Header = %s", headers)
     logger.info("base url = %s", url)
-    response = await client.infer(
-        url,
-        input_data,
-        model_name=model_name,
-        headers=headers,
-        is_graph_endpoint=is_graph,
-    )
-    return response
+    for attempt in range(retries):
+        try:
+            return await client.infer(
+                url,
+                input_data,
+                model_name=model_name,
+                headers=headers,
+                is_graph_endpoint=is_graph,
+            )
+        except HTTPStatusError as e:
+            logger.info(
+                "HTTP %s response body: %s",
+                e.response.status_code,
+                e.response.text,
+            )
+            if (
+                e.response.status_code not in transient_status_codes
+                or attempt == retries - 1
+            ):
+                raise
+            logger.info(
+                "Transient error on attempt %d/%d, retrying in %ds...",
+                attempt + 1,
+                retries,
+                retry_delay,
+            )
+            await asyncio.sleep(retry_delay)
+    raise RuntimeError("unreachable: retries must be >= 1")
 
 
 async def predict_ig(

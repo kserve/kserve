@@ -3710,6 +3710,9 @@
             "default": ""
           }
         },
+        "disableHTTPRouteTimeout": {
+          "type": "boolean"
+        },
         "disableIngressCreation": {
           "type": "boolean"
         },

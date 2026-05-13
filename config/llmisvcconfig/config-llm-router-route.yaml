@@ -58,6 +58,27 @@ spec:
                 backendRequest: 0s
                 request: 0s
             - backendRefs:
+                - group: inference.networking.k8s.io
+                  kind: InferencePool
+                  name: |-
+                    {{ ChildName .ObjectMeta.Name `-inference-pool` }}
+                  port: 8000
+                  weight: 1
+              matches:
+                - path:
+                    type: PathPrefix
+                    value: |-
+                      /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }}/v1/responses
+              filters:
+                - type: URLRewrite
+                  urlRewrite:
+                    path:
+                      type: ReplacePrefixMatch
+                      replacePrefixMatch: /v1/responses
+              timeouts:
+                backendRequest: 0s
+                request: 0s
+            - backendRefs:
                 - kind: Service
                   name: |-
                     {{ ChildName .ObjectMeta.Name `-kserve-workload-svc` }}

@@ -555,15 +555,22 @@ func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.Infere
 		*workerContainer,
 	}
 
-	// Calculate the total number of GPUs required for the request based on the tensor parallel size and pipeline parallel size specified in the worker spec.
-	// totalRequestGPUCount is the product of TensorParallelSize and PipelineParallelSize,
-	// which represents the total number of GPUs needed for distributed computation.
+	// Calculate node count and GPU allocation based on executor backend mode.
+	var nodeCount, workerNodeGPUCount, headNodeGPUCount int
+	executorBackend := sRuntime.Annotations[constants.MultiNodeExecutorBackendAnnotationKey]
 
-	totalRequestGPUCount := *sRuntime.WorkerSpec.TensorParallelSize * *sRuntime.WorkerSpec.PipelineParallelSize
-
-	rayNodeCount, workerNodeGPUCount, headNodeGPUCount, err := computeRayNodeAndGPUs(mergedWorkerPodSpec, totalRequestGPUCount, podSpec)
-	if err != nil {
-		return nil, err
+	if executorBackend == constants.MultiNodeExecutorBackendMp {
+		// mp mode: PP determines node count, TP determines GPUs per node
+		nodeCount, workerNodeGPUCount, headNodeGPUCount = computeMpNodeAndGPUs(
+			*sRuntime.WorkerSpec.PipelineParallelSize, *sRuntime.WorkerSpec.TensorParallelSize)
+	} else {
+		// ray mode (default): compute based on total GPU count and worker GPU resources
+		totalRequestGPUCount := *sRuntime.WorkerSpec.TensorParallelSize * *sRuntime.WorkerSpec.PipelineParallelSize
+		var err error
+		nodeCount, workerNodeGPUCount, headNodeGPUCount, err = computeRayNodeAndGPUs(mergedWorkerPodSpec, totalRequestGPUCount, podSpec)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Add required environment variables: PipelineParallelSize, TensorParallelSize
@@ -574,7 +581,7 @@ func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.Infere
 	if err := isvcutils.AddEnvVarToPodSpec(podSpec, constants.InferenceServiceContainerName, constants.TensorParallelSizeEnvName, strconv.Itoa(*sRuntime.WorkerSpec.TensorParallelSize)); err != nil {
 		return nil, errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.TensorParallelSizeEnvName, constants.InferenceServiceContainerName)
 	}
-	if err := isvcutils.AddEnvVarToPodSpec(podSpec, constants.InferenceServiceContainerName, constants.RayNodeCountEnvName, strconv.Itoa(rayNodeCount)); err != nil {
+	if err := isvcutils.AddEnvVarToPodSpec(podSpec, constants.InferenceServiceContainerName, constants.RayNodeCountEnvName, strconv.Itoa(nodeCount)); err != nil {
 		return nil, errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.RayNodeCountEnvName, constants.InferenceServiceContainerName)
 	}
 	if err := isvcutils.AddEnvVarToPodSpec(podSpec, constants.InferenceServiceContainerName, constants.RequestGPUCountEnvName, strconv.Itoa(headNodeGPUCount)); err != nil {
@@ -595,11 +602,17 @@ func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.Infere
 		}
 	}
 	// Worker node deployement
-	if err := isvcutils.AddEnvVarToPodSpec(mergedWorkerPodSpec, constants.WorkerContainerName, constants.RayNodeCountEnvName, strconv.Itoa(rayNodeCount)); err != nil {
+	if err := isvcutils.AddEnvVarToPodSpec(mergedWorkerPodSpec, constants.WorkerContainerName, constants.RayNodeCountEnvName, strconv.Itoa(nodeCount)); err != nil {
 		return nil, errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.RayNodeCountEnvName, constants.WorkerContainerName)
 	}
 	if err := isvcutils.AddEnvVarToPodSpec(mergedWorkerPodSpec, constants.WorkerContainerName, constants.RequestGPUCountEnvName, strconv.Itoa(workerNodeGPUCount)); err != nil {
 		return nil, errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.RequestGPUCountEnvName, constants.WorkerContainerName)
+	}
+	if err := isvcutils.AddEnvVarToPodSpec(mergedWorkerPodSpec, constants.WorkerContainerName, constants.PipelineParallelSizeEnvName, strconv.Itoa(*sRuntime.WorkerSpec.PipelineParallelSize)); err != nil {
+		return nil, errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.PipelineParallelSizeEnvName, constants.WorkerContainerName)
+	}
+	if err := isvcutils.AddEnvVarToPodSpec(mergedWorkerPodSpec, constants.WorkerContainerName, constants.TensorParallelSizeEnvName, strconv.Itoa(*sRuntime.WorkerSpec.TensorParallelSize)); err != nil {
+		return nil, errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.TensorParallelSizeEnvName, constants.WorkerContainerName)
 	}
 	// Set the environment variable for "isvc name" to the ISVC_NAME when multiNodeEnabled is true.
 	if err := isvcutils.AddEnvVarToPodSpec(mergedWorkerPodSpec, constants.WorkerContainerName, "ISVC_NAME", isvc.Name); err != nil {
@@ -608,6 +621,10 @@ func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.Infere
 	// Set the environment variable for "isvc name" to the HEAD_SVC when multiNodeEnabled is true.
 	if err := isvcutils.AddEnvVarToPodSpec(mergedWorkerPodSpec, constants.WorkerContainerName, "HEAD_SVC", constants.GetHeadServiceName(isvc.Name, isvcGeneration)); err != nil {
 		return nil, errors.Wrapf(err, "failed to add HEAD_SVC environment to the container(%s)", constants.WorkerContainerName)
+	}
+	// Set the environment variable for worker headless service name to the WORKER_SVC when multiNodeEnabled is true.
+	if err := isvcutils.AddEnvVarToPodSpec(mergedWorkerPodSpec, constants.WorkerContainerName, "WORKER_SVC", constants.GetWorkerServiceName(constants.PredictorServiceName(isvc.Name), isvcGeneration)); err != nil {
+		return nil, errors.Wrapf(err, "failed to add WORKER_SVC environment to the container(%s)", constants.WorkerContainerName)
 	}
 	return mergedWorkerPodSpec, nil
 }
@@ -688,6 +705,15 @@ func computeRayNodeAndGPUs(mergedWorkerPodSpec *corev1.PodSpec, totalRequestGPUC
 
 	// Case 4: No GPUs found → Default values
 	return totalRequestGPUCount, 1, 1, nil
+}
+
+// computeMpNodeAndGPUs computes node count and GPU allocation for mp (multiprocessing) executor backend.
+// In mp mode, PipelineParallelSize directly determines the number of nodes,
+// and TensorParallelSize determines the number of GPUs per node.
+func computeMpNodeAndGPUs(pipelineParallelSize, tensorParallelSize int) (int, int, int) {
+	nodeCount := pipelineParallelSize
+	gpuPerNode := tensorParallelSize
+	return nodeCount, gpuPerNode, gpuPerNode
 }
 
 func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.InferenceService, objectMeta, workerObjectMeta metav1.ObjectMeta, podSpec, workerPodSpec *corev1.PodSpec) error {

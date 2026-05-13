@@ -4,6 +4,7 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **additional_ingress_domains** | **list[str]** |  | [optional] 
+**disable_http_route_timeout** | **bool** |  | [optional] 
 **disable_ingress_creation** | **bool** |  | [optional] 
 **disable_istio_virtual_host** | **bool** |  | [optional] 
 **domain_template** | **str** |  | [optional] 

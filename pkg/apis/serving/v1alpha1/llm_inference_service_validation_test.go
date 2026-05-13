@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
@@ -42,6 +43,27 @@ func newBaseLLMInferenceService() *LLMInferenceService {
 			},
 		},
 	}
+}
+
+func TestValidateUpdate_DeletionBypass(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+
+	oldSvc := newBaseLLMInferenceService()
+	newSvc := newBaseLLMInferenceService()
+	newSvc.Spec.Worker = &corev1.PodSpec{}
+
+	// Without DeletionTimestamp, this should be rejected (worker without parallelism)
+	warnings, err := validator.ValidateUpdate(t.Context(), oldSvc, newSvc)
+	assert.Empty(t, warnings)
+	assert.Error(t, err)
+
+	// With DeletionTimestamp set, the same object should be accepted
+	deletingSvc := newSvc.DeepCopy()
+	now := metav1.Now()
+	deletingSvc.DeletionTimestamp = &now
+	warnings, err = validator.ValidateUpdate(t.Context(), oldSvc, deletingSvc)
+	assert.Empty(t, warnings)
+	assert.NoError(t, err)
 }
 
 func TestValidateWorkloadScaling(t *testing.T) {

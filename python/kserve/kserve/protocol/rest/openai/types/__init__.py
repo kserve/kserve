@@ -43,7 +43,7 @@ from vllm.entrypoints.pooling.embed.protocol import (
     EmbeddingResponseData,
     EmbeddingCompletionRequest,
 )
-from vllm.entrypoints.pooling.score.protocol import (
+from vllm.entrypoints.pooling.scoring.protocol import (
     RerankRequest,
     RerankResponse as Rerank,
 )

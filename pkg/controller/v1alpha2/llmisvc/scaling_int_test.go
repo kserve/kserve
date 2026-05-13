@@ -32,6 +32,7 @@ import (
 	"knative.dev/pkg/kmeta"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
@@ -837,6 +838,224 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 				g.Expect(trigger.AuthenticationRef).ToNot(BeNil())
 				g.Expect(trigger.AuthenticationRef.Name).To(Equal("prom-bearer-auth"))
 				g.Expect(trigger.AuthenticationRef.Kind).To(Equal("ClusterTriggerAuthentication"))
+			}).WithContext(ctx).Should(Succeed())
+		})
+	})
+
+	Context("Multi-node (LWS) HPA scaling", func() {
+		It("should create VA and HPA targeting LeaderWorkerSet when worker is set", func(ctx SpecContext) {
+			svcName := "test-lws-hpa"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://meta-llama/Llama-3.1-8B"),
+				WithModelName("meta-llama/Llama-3.1-8B"),
+				WithParallelism(ParallelismSpec(
+					WithDataParallelism(2),
+					WithDataLocalParallelism(1),
+				)),
+				WithWorker(&corev1.PodSpec{
+					Containers: []corev1.Container{{Name: "worker", Image: "vllm:latest"}},
+				}),
+				WithScaling(HPAScaling(1, 5)),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			vaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-va"), Namespace: testNs.Name}
+			hpaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-hpa"), Namespace: testNs.Name}
+
+			va := &wvav1alpha1.VariantAutoscaling{}
+			Eventually(func(g Gomega, ctx context.Context) {
+				g.Expect(envTest.Get(ctx, vaKey, va)).To(Succeed())
+				g.Expect(va.Spec.ScaleTargetRef.APIVersion).To(Equal(lwsapi.GroupVersion.String()))
+				g.Expect(va.Spec.ScaleTargetRef.Kind).To(Equal("LeaderWorkerSet"))
+				g.Expect(va.Spec.ScaleTargetRef.Name).To(Equal(kmeta.ChildName(svcName, "-kserve-mn")))
+				g.Expect(va).To(BeOwnedBy(llmSvc))
+			}).WithContext(ctx).Should(Succeed())
+
+			hpa := &autoscalingv2.HorizontalPodAutoscaler{}
+			Eventually(func(g Gomega, ctx context.Context) {
+				g.Expect(envTest.Get(ctx, hpaKey, hpa)).To(Succeed())
+				g.Expect(hpa.Spec.ScaleTargetRef.APIVersion).To(Equal(lwsapi.GroupVersion.String()))
+				g.Expect(hpa.Spec.ScaleTargetRef.Kind).To(Equal("LeaderWorkerSet"))
+				g.Expect(hpa.Spec.ScaleTargetRef.Name).To(Equal(kmeta.ChildName(svcName, "-kserve-mn")))
+				g.Expect(hpa.Spec.MinReplicas).To(Equal(ptr.To(int32(1))))
+				g.Expect(hpa.Spec.MaxReplicas).To(Equal(int32(5)))
+				g.Expect(hpa).To(BeOwnedBy(llmSvc))
+			}).WithContext(ctx).Should(Succeed())
+		})
+	})
+
+	Context("Multi-node (LWS) KEDA scaling", func() {
+		It("should create VA and ScaledObject targeting LeaderWorkerSet when worker is set", func(ctx SpecContext) {
+			svcName := "test-lws-keda"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://meta-llama/Llama-3.1-8B"),
+				WithModelName("meta-llama/Llama-3.1-8B"),
+				WithParallelism(ParallelismSpec(
+					WithDataParallelism(2),
+					WithDataLocalParallelism(1),
+				)),
+				WithWorker(&corev1.PodSpec{
+					Containers: []corev1.Container{{Name: "worker", Image: "vllm:latest"}},
+				}),
+				WithScaling(KEDAScaling(1, 5)),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			vaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-va"), Namespace: testNs.Name}
+			soKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-keda"), Namespace: testNs.Name}
+
+			va := &wvav1alpha1.VariantAutoscaling{}
+			Eventually(func(g Gomega, ctx context.Context) {
+				g.Expect(envTest.Get(ctx, vaKey, va)).To(Succeed())
+				g.Expect(va.Spec.ScaleTargetRef.APIVersion).To(Equal(lwsapi.GroupVersion.String()))
+				g.Expect(va.Spec.ScaleTargetRef.Kind).To(Equal("LeaderWorkerSet"))
+				g.Expect(va.Spec.ScaleTargetRef.Name).To(Equal(kmeta.ChildName(svcName, "-kserve-mn")))
+			}).WithContext(ctx).Should(Succeed())
+
+			so := &kedav1alpha1.ScaledObject{}
+			Eventually(func(g Gomega, ctx context.Context) {
+				g.Expect(envTest.Get(ctx, soKey, so)).To(Succeed())
+				g.Expect(so.Spec.ScaleTargetRef.APIVersion).To(Equal(lwsapi.GroupVersion.String()))
+				g.Expect(so.Spec.ScaleTargetRef.Kind).To(Equal("LeaderWorkerSet"))
+				g.Expect(so.Spec.ScaleTargetRef.Name).To(Equal(kmeta.ChildName(svcName, "-kserve-mn")))
+			}).WithContext(ctx).Should(Succeed())
+		})
+	})
+
+	Context("Multi-node P/D scaling", func() {
+		It("should create separate LWS-targeting scaling resources for decode and prefill", func(ctx SpecContext) {
+			svcName := "test-lws-pd"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://meta-llama/Llama-3.1-8B"),
+				WithModelName("meta-llama/Llama-3.1-8B"),
+				WithParallelism(ParallelismSpec(
+					WithDataParallelism(2),
+					WithDataLocalParallelism(1),
+				)),
+				WithWorker(&corev1.PodSpec{
+					Containers: []corev1.Container{{Name: "worker", Image: "vllm:latest"}},
+				}),
+				WithScaling(HPAScaling(1, 5)),
+				WithPrefillParallelism(ParallelismSpec(
+					WithDataParallelism(2),
+					WithDataLocalParallelism(1),
+				)),
+				WithPrefillWorker(&corev1.PodSpec{
+					Containers: []corev1.Container{{Name: "prefill-worker", Image: "vllm:latest"}},
+				}),
+				WithPrefillScaling(HPAScaling(2, 8)),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// Decode VA and HPA should target LWS
+			decodeVAKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-va"), Namespace: testNs.Name}
+			decodeHPAKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-hpa"), Namespace: testNs.Name}
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				va := &wvav1alpha1.VariantAutoscaling{}
+				g.Expect(envTest.Get(ctx, decodeVAKey, va)).To(Succeed())
+				g.Expect(va.Spec.ScaleTargetRef.Kind).To(Equal("LeaderWorkerSet"))
+				g.Expect(va.Spec.ScaleTargetRef.Name).To(Equal(kmeta.ChildName(svcName, "-kserve-mn")))
+
+				hpa := &autoscalingv2.HorizontalPodAutoscaler{}
+				g.Expect(envTest.Get(ctx, decodeHPAKey, hpa)).To(Succeed())
+				g.Expect(hpa.Spec.ScaleTargetRef.Kind).To(Equal("LeaderWorkerSet"))
+				g.Expect(hpa.Spec.ScaleTargetRef.Name).To(Equal(kmeta.ChildName(svcName, "-kserve-mn")))
+			}).WithContext(ctx).Should(Succeed())
+
+			// Prefill VA and HPA should target prefill LWS
+			prefillVAKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-prefill-va"), Namespace: testNs.Name}
+			prefillHPAKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-prefill-hpa"), Namespace: testNs.Name}
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				va := &wvav1alpha1.VariantAutoscaling{}
+				g.Expect(envTest.Get(ctx, prefillVAKey, va)).To(Succeed())
+				g.Expect(va.Spec.ScaleTargetRef.Kind).To(Equal("LeaderWorkerSet"))
+				g.Expect(va.Spec.ScaleTargetRef.Name).To(Equal(kmeta.ChildName(svcName, "-kserve-mn-prefill")))
+
+				hpa := &autoscalingv2.HorizontalPodAutoscaler{}
+				g.Expect(envTest.Get(ctx, prefillHPAKey, hpa)).To(Succeed())
+				g.Expect(hpa.Spec.ScaleTargetRef.Kind).To(Equal("LeaderWorkerSet"))
+				g.Expect(hpa.Spec.ScaleTargetRef.Name).To(Equal(kmeta.ChildName(svcName, "-kserve-mn-prefill")))
+			}).WithContext(ctx).Should(Succeed())
+		})
+	})
+
+	Context("Multi-node scaling with stop annotation", func() {
+		It("should delete LWS-targeting scaling resources when stop annotation is set", func(ctx SpecContext) {
+			svcName := "test-lws-stop"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://meta-llama/Llama-3.1-8B"),
+				WithModelName("meta-llama/Llama-3.1-8B"),
+				WithParallelism(ParallelismSpec(
+					WithDataParallelism(2),
+					WithDataLocalParallelism(1),
+				)),
+				WithWorker(&corev1.PodSpec{
+					Containers: []corev1.Container{{Name: "worker", Image: "vllm:latest"}},
+				}),
+				WithScaling(HPAScaling(1, 5)),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			vaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-va"), Namespace: testNs.Name}
+			hpaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-hpa"), Namespace: testNs.Name}
+
+			// Wait for scaling resources to be created
+			Eventually(func(g Gomega, ctx context.Context) {
+				g.Expect(envTest.Get(ctx, vaKey, &wvav1alpha1.VariantAutoscaling{})).To(Succeed())
+				g.Expect(envTest.Get(ctx, hpaKey, &autoscalingv2.HorizontalPodAutoscaler{})).To(Succeed())
+			}).WithContext(ctx).Should(Succeed())
+
+			// Set stop annotation
+			errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				_, errUpdate := ctrl.CreateOrUpdate(ctx, envTest.Client, llmSvc, func() error {
+					WithAnnotations(map[string]string{
+						constants.StopAnnotationKey: "true",
+					})(llmSvc)
+					return nil
+				})
+				return errUpdate
+			})
+			Expect(errRetry).ToNot(HaveOccurred())
+
+			// Verify scaling resources are deleted
+			Eventually(func(g Gomega, ctx context.Context) {
+				err := envTest.Get(ctx, vaKey, &wvav1alpha1.VariantAutoscaling{})
+				g.Expect(client.IgnoreNotFound(err)).To(Succeed())
+				g.Expect(err).To(HaveOccurred(), "VA should be deleted when stopped")
+
+				err = envTest.Get(ctx, hpaKey, &autoscalingv2.HorizontalPodAutoscaler{})
+				g.Expect(client.IgnoreNotFound(err)).To(Succeed())
+				g.Expect(err).To(HaveOccurred(), "HPA should be deleted when stopped")
 			}).WithContext(ctx).Should(Succeed())
 		})
 	})

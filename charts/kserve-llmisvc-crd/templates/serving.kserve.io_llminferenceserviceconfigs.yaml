@@ -7941,6 +7941,11 @@ spec:
                                 minLength: 1
                                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                                 type: string
+                              sectionName:
+                                maxLength: 253
+                                minLength: 1
+                                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                type: string
                             type: object
                           type: array
                       type: object
@@ -28753,8 +28758,6 @@ spec:
                   x-kubernetes-validations:
                     - message: replicas and scaling are mutually exclusive; use scaling for autoscaled deployments or replicas for static deployments
                       rule: '!(has(self.replicas) && has(self.scaling))'
-                    - message: autoscaling (scaling) is not supported for multi-node deployments (worker is set); remove scaling and use replicas instead to set a fixed replica count
-                      rule: '!(has(self.worker) && has(self.scaling))'
                 replicas:
                   format: int32
                   minimum: 0
@@ -28774,6 +28777,11 @@ spec:
                                 maxLength: 63
                                 minLength: 1
                                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                                type: string
+                              sectionName:
+                                maxLength: 253
+                                minLength: 1
+                                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                 type: string
                             type: object
                           type: array
@@ -41686,8 +41694,6 @@ spec:
               x-kubernetes-validations:
                 - message: replicas and scaling are mutually exclusive; use scaling for autoscaled deployments or replicas for static deployments
                   rule: '!(has(self.replicas) && has(self.scaling))'
-                - message: autoscaling (scaling) is not supported for multi-node deployments (worker is set); remove scaling and use replicas instead to set a fixed replica count
-                  rule: '!(has(self.worker) && has(self.scaling))'
           type: object
       served: true
       storage: true

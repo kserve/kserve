@@ -7,7 +7,7 @@ spec:
     initContainers:
       - name: llm-d-routing-sidecar
         imagePullPolicy: IfNotPresent
-        image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.6.0
+        image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.7.1
         restartPolicy: Always
         ports:
           - containerPort: 8000
@@ -15,7 +15,7 @@ spec:
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
-          runAsNonRoot: false
+          runAsNonRoot: true
           capabilities:
             drop:
               - ALL
@@ -45,7 +45,7 @@ spec:
           - "/app/pd-sidecar"
           - "--port=8000"
           - "--vllm-port=8001"
-          - "--connector=nixlv2"
+          - "--kv-connector=nixlv2"
           - "--enable-ssrf-protection=true"
           - "--pool-group=inference.networking.x-k8s.io"
           - '{{ if .GlobalConfig.EnableTLS }}--secure-proxy=true{{else}}--secure-proxy=false{{- end }}'
@@ -64,7 +64,7 @@ spec:
           - name: SSL_CERT_DIR
             value: "/var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs"
     containers:
-      - image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
+      - image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
         imagePullPolicy: IfNotPresent
         name: main
         ports:
@@ -245,8 +245,8 @@ spec:
             value: /models
         securityContext:
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: false
-          runAsNonRoot: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
           capabilities:
             add:
               - "IPC_LOCK"
@@ -284,6 +284,8 @@ spec:
         volumeMounts:
           - mountPath: /home
             name: home
+          - mountPath: /tmp
+            name: tmp-dir
           - mountPath: /dev/shm
             name: dshm
           - mountPath: /models
@@ -295,6 +297,8 @@ spec:
     volumes:
       - emptyDir: { }
         name: home
+      - emptyDir: { }
+        name: tmp-dir
       - emptyDir:
           medium: Memory
           sizeLimit: 8Gi
@@ -306,7 +310,7 @@ spec:
           secretName: "{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}"
   worker:
     containers:
-      - image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
+      - image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
         imagePullPolicy: IfNotPresent
         name: main
         ports:
@@ -489,8 +493,8 @@ spec:
             value: "1"
         securityContext:
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: false
-          runAsNonRoot: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
           capabilities:
             add:
               - "IPC_LOCK"
@@ -505,6 +509,8 @@ spec:
         volumeMounts:
           - mountPath: /home
             name: home
+          - mountPath: /tmp
+            name: tmp-dir
           - mountPath: /dev/shm
             name: dshm
           - mountPath: /models
@@ -516,6 +522,8 @@ spec:
     volumes:
       - emptyDir: { }
         name: home
+      - emptyDir: { }
+        name: tmp-dir
       - emptyDir:
           medium: Memory
           sizeLimit: 8Gi

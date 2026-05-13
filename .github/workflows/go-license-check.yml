@@ -1,0 +1,38 @@
+name: Go License Check
+
+on:
+  push:
+    branches: [master]
+    tags: [v*]
+  pull_request:
+    paths:
+      - "**"
+      - "!python/**"
+      - "!.github/**"
+      - "!docs/**"
+      - "!**.md"
+      - ".github/workflows/go-license-check.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  license-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+
+      - name: Install go-licenses
+        run: go install github.com/google/go-licenses@v1.6.0
+
+      - name: Check main module licenses
+        run: go-licenses check ./cmd/... ./pkg/... --disallowed_types="forbidden,unknown"
+
+      - name: Check qpext licenses
+        working-directory: qpext
+        run: go-licenses check ./... --disallowed_types="forbidden,unknown"

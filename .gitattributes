@@ -1,2 +1,28 @@
-*.sh linguist-vendored
+# Generated Python code
 python/kserve/kserve/models/** linguist-generated=true
+python/kserve/kserve/protocol/rest/openai/types/openapi.py linguist-generated=true
+
+# Generated install scripts
+hack/setup/quick-install/*.sh linguist-generated=true
+install/**/*.sh linguist-generated=true
+
+# Helm chart generated files
+charts/**/files/** linguist-generated=true
+
+# Generated Go code (openapi, client, deepcopy)
+pkg/openapi/** linguist-generated=true
+pkg/client/** linguist-generated=true
+pkg/apis/**/zz_generated* linguist-generated=true
+
+# Protobuf generated files
+tools/tf2openapi/generated/** linguist-generated=true
+**/*_pb2.py linguist-generated=true
+**/*_pb2_grpc.py linguist-generated=true
+
+# Kubernetes CRDs and webhook configs (controller-gen)
+config/crd/** linguist-generated=true
+
+# Lock files
+**/go.sum linguist-generated=true
+**/uv.lock linguist-generated=true
+**/poetry.lock linguist-generated=true

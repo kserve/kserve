@@ -1700,6 +1700,138 @@ func TestAgentInjector(t *testing.T) {
 				},
 			},
 		},
+		"AddAgentWithHTTPGetReadinessProbe": {
+			original: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "deployment",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.AgentShouldInjectAnnotationKey:          "true",
+						constants.AgentModelConfigVolumeNameAnnotationKey: "modelconfig-deployment-0",
+						constants.AgentModelDirAnnotationKey:              "/mnt/models",
+						constants.AgentModelConfigMountPathAnnotationKey:  "/mnt/configs",
+					},
+					Labels: map[string]string{
+						"serving.kserve.io/inferenceservice": "sklearn",
+						constants.KServiceModelLabel:         "sklearn",
+						constants.KServiceEndpointLabel:      "default",
+						constants.KServiceComponentLabel:     "predictor",
+					},
+				},
+				Spec: corev1.PodSpec{
+					ServiceAccountName: "sa",
+					Containers: []corev1.Container{
+						{
+							Name: "sklearn",
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/v1/health/ready",
+										Port:   intstr.FromInt(8080),
+										Scheme: "HTTP",
+									},
+								},
+								TimeoutSeconds:   1,
+								PeriodSeconds:    10,
+								SuccessThreshold: 1,
+								FailureThreshold: 3,
+							},
+						},
+					},
+				},
+			},
+			expected: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "deployment",
+					Annotations: map[string]string{
+						constants.AgentShouldInjectAnnotationKey: "true",
+					},
+				},
+				Spec: corev1.PodSpec{
+					ServiceAccountName: "sa",
+					Containers: []corev1.Container{
+						{
+							Name: "sklearn",
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/v1/health/ready",
+										Port:   intstr.FromInt(8080),
+										Scheme: "HTTP",
+									},
+								},
+								TimeoutSeconds:   1,
+								PeriodSeconds:    10,
+								SuccessThreshold: 1,
+								FailureThreshold: 3,
+							},
+						},
+						{
+							Name:      constants.AgentContainerName,
+							Image:     agentConfig.Image,
+							Resources: agentResourceRequirement,
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      constants.ModelDirVolumeName,
+									ReadOnly:  false,
+									MountPath: constants.ModelDir,
+								},
+								{
+									Name:      constants.ModelConfigVolumeName,
+									ReadOnly:  false,
+									MountPath: constants.ModelConfigDir,
+								},
+							},
+							Args: []string{
+								"--enable-puller", "--config-dir", "/mnt/configs", "--model-dir", "/mnt/models", constants.AgentComponentPortArgName,
+								constants.InferenceServiceDefaultHttpPort,
+							},
+							Ports: []corev1.ContainerPort{
+								{
+									Name:          "agent-port",
+									ContainerPort: constants.InferenceServiceDefaultAgentPort,
+									Protocol:      "TCP",
+								},
+							},
+							Env: []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"httpGet\":{\"path\":\"/v1/health/ready\",\"port\":8080,\"scheme\":\"HTTP\"},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										HTTPHeaders: []corev1.HTTPHeader{
+											{
+												Name:  "K-Network-Probe",
+												Value: "queue",
+											},
+										},
+										Port:   intstr.FromInt(9081),
+										Path:   "/v1/health/ready",
+										Scheme: "HTTP",
+									},
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "model-dir",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
+							},
+						},
+						{
+							Name: "model-config",
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "modelconfig-deployment-0",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	clientset := fakeclientset.NewSimpleClientset()
 	credentialBuilder := credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{

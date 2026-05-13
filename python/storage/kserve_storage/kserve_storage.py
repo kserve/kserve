@@ -377,7 +377,8 @@ class Storage(object):
             import boto3
 
             kwargs = Storage._get_s3_client_kwargs()
-            _worker_s3_resource = boto3.resource("s3", **kwargs)
+            session = boto3.Session()
+            _worker_s3_resource = session.resource("s3", **kwargs)
         except Exception as e:
             logger.error(f"Failed to initialize S3 worker: {e}")
             _worker_s3_resource = None

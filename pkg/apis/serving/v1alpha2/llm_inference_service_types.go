@@ -100,8 +100,6 @@ type LLMInferenceServiceSpec struct {
 
 // WorkloadSpec defines the configuration for a deployment workload, such as replicas and pod specifications.
 // +kubebuilder:validation:XValidation:rule="!(has(self.replicas) && has(self.scaling))",message="replicas and scaling are mutually exclusive; use scaling for autoscaled deployments or replicas for static deployments"
-// +kubebuilder:validation:XValidation:rule="!(has(self.worker) && has(self.scaling))",message="autoscaling (scaling) is not supported for multi-node deployments (worker is set); remove scaling and use replicas instead to set a fixed replica count"
-// TODO: remove the worker+scaling restriction above once WVA supports LeaderWorkerSet as a scaling target.
 type WorkloadSpec struct {
 	// Number of replicas for the deployment.
 	// +optional
@@ -250,7 +248,7 @@ type GatewaySpec struct {
 	// Refs provides references to existing, user-managed Gateway objects ("Bring Your Own" gateway).
 	// The controller will use the specified Gateway instead of creating one.
 	// +optional
-	Refs []UntypedObjectReference `json:"refs,omitempty"`
+	Refs []GatewayObjectReference `json:"refs,omitempty"`
 }
 
 // IngressSpec defines the configuration for a Kubernetes Ingress.
@@ -475,7 +473,7 @@ type ParallelismSpec struct {
 }
 
 // UntypedObjectReference is a reference to an object without a specific Group/Version/Kind.
-// It's used for referencing networking resources like Gateways and Ingresses where the exact type
+// It's used for referencing networking resources like Ingresses where the exact type
 // might be inferred or is not strictly required by this controller.
 type UntypedObjectReference struct {
 	// Name of the referenced object.
@@ -484,9 +482,24 @@ type UntypedObjectReference struct {
 	Namespace gwapiv1.Namespace `json:"namespace,omitempty"`
 }
 
+// GatewayObjectReference is a reference to a Gateway resource.
+// It extends UntypedObjectReference with Gateway-specific fields.
+type GatewayObjectReference struct {
+	UntypedObjectReference `json:",inline"`
+	// SectionName is the name of a section within the target resource. When
+	// set on a Gateway reference, it targets a specific listener by name.
+	// When unset, the route is attached to all listeners on the referenced
+	// Gateway that support the route type.
+	// +optional
+	SectionName *gwapiv1.SectionName `json:"sectionName,omitempty"`
+}
+
 // LLMInferenceServiceStatus defines the observed state of LLMInferenceService.
 type LLMInferenceServiceStatus struct {
-	// URL of the publicly exposed service.
+	// URL is the primary address for accessing the service.
+	// It is set to an external (public) address when available, otherwise
+	// it is promoted from the first discovered address (which may be
+	// cluster-local or private) for easy discovery.
 	// +optional
 	URL *apis.URL `json:"url,omitempty"`
 

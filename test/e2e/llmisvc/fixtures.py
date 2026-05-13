@@ -14,6 +14,8 @@
 
 import hashlib
 import os
+import re
+
 import pytest
 from ..common.gw_api import (
     create_or_update_gateway,
@@ -32,22 +34,42 @@ KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
 SCHEDULER_CONFIGMAP_NAME = "scheduler-config-e2e"
 SCHEDULER_CONFIGMAP_KEY = "epp"
 
+# Vanilla Kubernetes rejects runAsNonRoot-only containers when the image does not declare a USER.
+# Keep the templates OpenShift-safe and use an explicit non-root UID only in upstream CI test overrides.
+UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT = {
+    "runAsNonRoot": True,
+    "runAsUser": 1000,
+}
+
+UPSTREAM_K8S_VLLM_ENV_OVERRIDES = [
+    {"name": "USER", "value": "nonroot"},
+    {"name": "TORCHINDUCTOR_CACHE_DIR", "value": "/tmp/torchinductor-cache"},
+]
+
+LLMD_SIMULATOR_SECURITY_CONTEXT = {
+    "runAsNonRoot": True,
+    "runAsUser": 65532,
+    "runAsGroup": 65532,
+}
+
 LLMINFERENCESERVICE_CONFIGS = {
     "workload-single-cpu": {
         "template": {
             "containers": [
                 {
                     "name": "main",
-                    "image": "quay.io/pierdipi/vllm-cpu:latest",
-                    "env": [{"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"}],
+                    "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
+                    "env": [
+                        {"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"},
+                        {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
+                        {"name": "VLLM_USE_V1", "value": "0"},
+                        *UPSTREAM_K8S_VLLM_ENV_OVERRIDES,
+                    ],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
                         "requests": {"cpu": "200m", "memory": "2Gi"},
                     },
-                    "securityContext": {
-                        "runAsNonRoot": False,
-                        "runAsUser": 0,
-                    },
+                    "securityContext": UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT.copy(),
                 }
             ]
         },
@@ -57,12 +79,18 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "quay.io/pierdipi/vllm-cpu:latest",
-                    "env": [{"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"}],
+                    "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
+                    "env": [
+                        {"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"},
+                        {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
+                        {"name": "VLLM_USE_V1", "value": "0"},
+                        *UPSTREAM_K8S_VLLM_ENV_OVERRIDES,
+                    ],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
                         "requests": {"cpu": "200m", "memory": "2Gi"},
                     },
+                    "securityContext": UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT.copy(),
                     "livenessProbe": {
                         "httpGet": {"path": "/health", "port": 8000},
                         "initialDelaySeconds": 180,
@@ -77,10 +105,6 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "timeoutSeconds": 5,
                         "failureThreshold": 3,
                     },
-                    "securityContext": {
-                        "runAsNonRoot": False,
-                        "runAsUser": 0,
-                    },
                 }
             ]
         },
@@ -89,8 +113,13 @@ LLMINFERENCESERVICE_CONFIGS = {
                 "containers": [
                     {
                         "name": "main",
-                        "image": "quay.io/pierdipi/vllm-cpu:latest",
-                        "env": [{"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"}],
+                        "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
+                        "env": [
+                            {"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"},
+                            {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
+                            {"name": "VLLM_USE_V1", "value": "0"},
+                            *UPSTREAM_K8S_VLLM_ENV_OVERRIDES,
+                        ],
                         "resources": {
                             "limits": {"cpu": "2", "memory": "7Gi"},
                             "requests": {"cpu": "200m", "memory": "2Gi"},
@@ -109,10 +138,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                             "timeoutSeconds": 5,
                             "failureThreshold": 3,
                         },
-                        "securityContext": {
-                            "runAsNonRoot": False,
-                            "runAsUser": 0,
-                        },
+                        "securityContext": UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT.copy(),
                     }
                 ]
             }
@@ -120,6 +146,12 @@ LLMINFERENCESERVICE_CONFIGS = {
     },
     "model-fb-opt-125m": {
         "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},
+    },
+    "model-qwen2.5-0.5b": {
+        "model": {
+            "uri": "hf://Qwen/Qwen2.5-0.5B-Instruct",
+            "name": "Qwen/Qwen2.5-0.5B-Instruct",
+        },
     },
     "model-deepseek-v2-lite": {
         "model": {
@@ -316,7 +348,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "quay.io/pierdipi/vllm-cpu:latest",
+                    "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
                     "command": ["vllm", "serve", "/mnt/models"],
                     "args": [
                         "--served-model-name",
@@ -324,14 +356,16 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "--port",
                         "8000",
                     ],
+                    "env": [
+                        {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
+                        {"name": "VLLM_USE_V1", "value": "0"},
+                        *UPSTREAM_K8S_VLLM_ENV_OVERRIDES,
+                    ],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
                         "requests": {"cpu": "200m", "memory": "2Gi"},
                     },
-                    "securityContext": {
-                        "runAsNonRoot": False,
-                        "runAsUser": 0,
-                    },
+                    "securityContext": UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT.copy(),
                 }
             ]
         },
@@ -339,7 +373,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "quay.io/pierdipi/vllm-cpu:latest",
+                    "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
                     "command": ["vllm", "serve", "/mnt/models"],
                     "args": [
                         "--served-model-name",
@@ -347,14 +381,16 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "--port",
                         "8000",
                     ],
+                    "env": [
+                        {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
+                        {"name": "VLLM_USE_V1", "value": "0"},
+                        *UPSTREAM_K8S_VLLM_ENV_OVERRIDES,
+                    ],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
                         "requests": {"cpu": "200m", "memory": "2Gi"},
                     },
-                    "securityContext": {
-                        "runAsNonRoot": False,
-                        "runAsUser": 0,
-                    },
+                    "securityContext": UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT.copy(),
                 }
             ]
         },
@@ -668,14 +704,14 @@ LLMINFERENCESERVICE_CONFIGS = {
                             {
                                 "type": "precise-prefix-cache-scorer",
                                 "parameters": {
+                                    "tokenProcessorConfig": {
+                                        "blockSize": 16,
+                                        "hashSeed": "42",
+                                    },
                                     "kvEventsConfig": {
                                         "zmqEndpoint": "tcp://*:5557",
                                     },
                                     "indexerConfig": {
-                                        "tokenProcessorConfig": {
-                                            "blockSize": 16,
-                                            "hashSeed": "42",
-                                        },
                                         "kvBlockIndexConfig": {
                                             "enableMetrics": True,
                                             "metricsLoggingInterval": 60000000000,
@@ -728,6 +764,19 @@ LLMINFERENCESERVICE_CONFIGS = {
             },
         },
     },
+    "router-with-gateway-section-name": {
+        "router": {
+            "gateway": {
+                "refs": [
+                    {
+                        "name": "router-gateway-1",
+                        "namespace": KSERVE_TEST_NAMESPACE,
+                        "sectionName": "http",
+                    },
+                ],
+            },
+        },
+    },
     "router-with-gateway-ref": {
         "router": {
             "gateway": {
@@ -747,7 +796,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.5.1",
+                    "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.8.2",
                     "command": ["/app/llm-d-inference-sim"],
                     "args": [
                         "--port",
@@ -761,9 +810,238 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "limits": {"cpu": "1", "memory": "2Gi"},
                         "requests": {"cpu": "200m", "memory": "2Gi"},
                     },
+                    "securityContext": LLMD_SIMULATOR_SECURITY_CONTEXT.copy(),
                 }
             ]
         },
+    },
+    "workload-llmd-simulator-no-replicas": {
+        "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},
+        "template": {
+            "containers": [
+                {
+                    "name": "main",
+                    "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.8.2",
+                    "command": ["/app/llm-d-inference-sim"],
+                    "args": [
+                        "--port",
+                        "8000",
+                        "--model",
+                        "{{ .Spec.Model.Name }}",
+                        "--mode",
+                        "random",
+                    ],
+                    "resources": {
+                        "limits": {"cpu": "1", "memory": "2Gi"},
+                        "requests": {"cpu": "200m", "memory": "2Gi"},
+                    },
+                    "securityContext": LLMD_SIMULATOR_SECURITY_CONTEXT.copy(),
+                }
+            ]
+        },
+    },
+    "workload-llmd-simulator-lws": {
+        "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},
+        "parallelism": {
+            "data": 2,
+            "dataLocal": 1,
+            "expert": True,
+            "tensor": 1,
+        },
+        "template": {
+            "containers": [
+                {
+                    "name": "main",
+                    "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.8.2",
+                    "command": ["/app/llm-d-inference-sim"],
+                    "args": [
+                        "--port",
+                        "8000",
+                        "--model",
+                        "{{ .Spec.Model.Name }}",
+                        "--mode",
+                        "random",
+                    ],
+                    "resources": {
+                        "limits": {"cpu": "1", "memory": "2Gi"},
+                        "requests": {"cpu": "200m", "memory": "2Gi"},
+                    },
+                    "securityContext": LLMD_SIMULATOR_SECURITY_CONTEXT.copy(),
+                }
+            ]
+        },
+        "worker": {
+            "containers": [
+                {
+                    "name": "main",
+                    "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.8.2",
+                    "command": ["/app/llm-d-inference-sim"],
+                    "args": [
+                        "--port",
+                        "8000",
+                        "--model",
+                        "{{ .Spec.Model.Name }}",
+                        "--mode",
+                        "random",
+                    ],
+                    "resources": {
+                        "limits": {"cpu": "1", "memory": "2Gi"},
+                        "requests": {"cpu": "200m", "memory": "2Gi"},
+                    },
+                    "securityContext": LLMD_SIMULATOR_SECURITY_CONTEXT.copy(),
+                }
+            ]
+        },
+    },
+    "workload-llmd-simulator-pd": {
+        "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},
+        "template": {
+            "containers": [
+                {
+                    "name": "main",
+                    "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.8.2",
+                    "command": ["/app/llm-d-inference-sim"],
+                    "args": [
+                        "--port",
+                        "8000",
+                        "--model",
+                        "{{ .Spec.Model.Name }}",
+                        "--mode",
+                        "random",
+                    ],
+                    "resources": {
+                        "limits": {"cpu": "1", "memory": "2Gi"},
+                        "requests": {"cpu": "200m", "memory": "2Gi"},
+                    },
+                    "securityContext": LLMD_SIMULATOR_SECURITY_CONTEXT.copy(),
+                }
+            ]
+        },
+        "prefill": {
+            "template": {
+                "containers": [
+                    {
+                        "name": "main",
+                        "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.8.2",
+                        "command": ["/app/llm-d-inference-sim"],
+                        "args": [
+                            "--port",
+                            "8000",
+                            "--model",
+                            "{{ .Spec.Model.Name }}",
+                            "--mode",
+                            "random",
+                        ],
+                        "resources": {
+                            "limits": {"cpu": "1", "memory": "2Gi"},
+                            "requests": {"cpu": "200m", "memory": "2Gi"},
+                        },
+                        "securityContext": LLMD_SIMULATOR_SECURITY_CONTEXT.copy(),
+                    }
+                ]
+            }
+        },
+    },
+    "prometheus-scrape": {
+        "annotations": {
+            "prometheus.io/scrape": "true",
+            "prometheus.io/port": "8000",
+            "prometheus.io/path": "/metrics",
+        },
+    },
+    "scaling-hpa": {
+        "scaling": {
+            "minReplicas": 1,
+            "maxReplicas": 3,
+            "wva": {
+                "hpa": {
+                    "behavior": {
+                        "scaleDown": {
+                            "stabilizationWindowSeconds": 10,
+                            "policies": [
+                                {
+                                    "type": "Percent",
+                                    "value": 100,
+                                    "periodSeconds": 10,
+                                }
+                            ],
+                        },
+                        "scaleUp": {
+                            "stabilizationWindowSeconds": 0,
+                            "policies": [
+                                {
+                                    "type": "Percent",
+                                    "value": 100,
+                                    "periodSeconds": 10,
+                                }
+                            ],
+                        },
+                    }
+                }
+            },
+        }
+    },
+    "scaling-keda": {
+        "scaling": {
+            "minReplicas": 1,
+            "maxReplicas": 3,
+            "wva": {
+                "keda": {
+                    "pollingInterval": 5,
+                    "cooldownPeriod": 10,
+                    "initialCooldownPeriod": 0,
+                }
+            },
+        }
+    },
+    "scaling-prefill-hpa": {
+        "prefill": {
+            "scaling": {
+                "minReplicas": 1,
+                "maxReplicas": 3,
+                "wva": {
+                    "hpa": {
+                        "behavior": {
+                            "scaleDown": {
+                                "stabilizationWindowSeconds": 10,
+                                "policies": [
+                                    {
+                                        "type": "Percent",
+                                        "value": 100,
+                                        "periodSeconds": 10,
+                                    }
+                                ],
+                            },
+                            "scaleUp": {
+                                "stabilizationWindowSeconds": 0,
+                                "policies": [
+                                    {
+                                        "type": "Percent",
+                                        "value": 100,
+                                        "periodSeconds": 10,
+                                    }
+                                ],
+                            },
+                        }
+                    }
+                },
+            }
+        }
+    },
+    "scaling-prefill-keda": {
+        "prefill": {
+            "scaling": {
+                "minReplicas": 1,
+                "maxReplicas": 3,
+                "wva": {
+                    "keda": {
+                        "pollingInterval": 5,
+                        "cooldownPeriod": 10,
+                        "initialCooldownPeriod": 0,
+                    }
+                },
+            }
+        }
     },
     "workload-llmd-simulator-kvcache": {
         "replicas": 2,
@@ -772,7 +1050,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.5.1",
+                    "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.8.2",
                     "command": ["/app/llm-d-inference-sim"],
                     "args": [
                         "--port",
@@ -806,6 +1084,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "limits": {"cpu": "1", "memory": "2Gi"},
                         "requests": {"cpu": "20m", "memory": "20Mi"},
                     },
+                    "securityContext": LLMD_SIMULATOR_SECURITY_CONTEXT.copy(),
                 }
             ]
         },
@@ -845,7 +1124,8 @@ def test_case(request):
             )
         if not tc.service_name:
             tc.service_name = generate_service_name(request.node.name, tc.base_refs)
-        tc.model_name = _get_model_name_from_configs(tc.base_refs)
+        if tc.model_name == "default/model":
+            tc.model_name = _get_model_name_from_configs(tc.base_refs)
 
         # Create unique configs for this test
         unique_base_refs = []
@@ -904,18 +1184,22 @@ def _get_model_name_from_configs(config_names):
     return "default/model"
 
 
+_NON_DNS_CHARS = re.compile(r"[^a-z0-9]+")
+
+
+def _sanitize_for_dns(s: str) -> str:
+    """Replace non-DNS characters with hyphens, mirrors sanitizeForDNS in test_namespace.go."""
+    return _NON_DNS_CHARS.sub("-", s.lower()).strip("-")
+
+
 def generate_k8s_safe_suffix(
     base_name: str, extra_parts: Optional[List[str]] = None
 ) -> str:
     """Generate a Kubernetes-safe name suffix with hash."""
-    if extra_parts:
-        full_name = f"{base_name}-{'-'.join(sorted(extra_parts))}"
-    else:
-        full_name = base_name
+    raw = f"{base_name}-{'-'.join(sorted(extra_parts))}" if extra_parts else base_name
+    full_name = _sanitize_for_dns(raw)
 
-    full_name = full_name.lower().replace("_", "-")
-
-    name_hash = hashlib.md5(full_name.encode()).hexdigest()[:8]
+    name_hash = hashlib.sha256(full_name.encode()).hexdigest()[:8]
 
     # TODO: we can't use the real maximum (63), LWS and STS add additional suffixes (ie `-0`) and don't handle that case.
     max_total = 40

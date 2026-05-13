@@ -71,7 +71,7 @@ install() {
     rm -rf "${temp_dir}"
 
     log_success "Successfully installed Helm ${HELM_VERSION} to ${BIN_DIR}/helm"
-    helm version
+    "${BIN_DIR}/helm" version
 }
 
 install
