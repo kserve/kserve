@@ -404,7 +404,7 @@ class HuggingfaceEncoderModel(Model, OpenAIEncoderModel):  # pylint:disable=c-ex
 
     def _process_sequence_classification(
         self, outputs: Tensor
-    ) -> List[Union[int, Dict]]:
+    ) -> List[Union[int, str, Dict]]:
         """
         Process outputs for sequence classification task.
 
@@ -412,7 +412,9 @@ class HuggingfaceEncoderModel(Model, OpenAIEncoderModel):  # pylint:disable=c-ex
             outputs: Model output tensor
 
         Returns:
-            List of processed inferences (indices or probability dictionaries)
+            List of processed inferences — class indices, label strings (when
+            ``use_id2label`` is enabled), or dictionaries keyed by index/label
+            for probability/raw-logit outputs.
         """
         inferences = []
         num_rows, _ = outputs.shape
@@ -439,7 +441,7 @@ class HuggingfaceEncoderModel(Model, OpenAIEncoderModel):  # pylint:disable=c-ex
                 )
             else:
                 predicted_idx = out.argmax().item()
-                inferences.append(predicted_idx)
+                inferences.append(self._get_label_or_index(predicted_idx))
 
         return inferences
 

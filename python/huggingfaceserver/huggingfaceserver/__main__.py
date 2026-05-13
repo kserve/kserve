@@ -163,7 +163,15 @@ output_format_group.add_argument(
 parser.add_argument(
     "--use_id2label",
     action="store_true",
-    help="Use id2label mapping from model config to return human-readable labels instead of numeric indices for classification tasks.",
+    help=(
+        "Use the model config's id2label mapping to return human-readable "
+        "labels instead of numeric class indices for sequence (text) "
+        "classification outputs. Applies to the default prediction, "
+        "--return_probabilities, and --return_raw_logits. Falls back to "
+        "numeric indices if the model config has no id2label mapping. Note: "
+        "label strings come verbatim from the model's config.id2label and "
+        "vary by model."
+    ),
 )
 parser.add_argument(
     "--disable_log_requests", action="store_true", help="Disable logging requests"

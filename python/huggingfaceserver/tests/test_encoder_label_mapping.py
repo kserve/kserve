@@ -83,33 +83,25 @@ class TestEncoderLabelMapping:
         return model
 
     def test_get_label_or_index_with_valid_labels(self, encoder_model_with_labels):
-        """Test _get_label_or_index returns label when use_id2label=True and id2label exists."""
-        # Access the helper method through postprocess method context
-        # We'll test this indirectly through the postprocess method
+        """Default prediction returns the id2label string when use_id2label=True."""
         model: HuggingfaceEncoderModel = encoder_model_with_labels
 
-        # Create a mock context for postprocess
         context = {
             "payload": {"instances": ["test input"]},
             "input_ids": torch.tensor([[1, 2, 3]]),
         }
 
-        # Create mock outputs for sequence classification
         outputs = torch.tensor([[2.0, -1.0]])  # Logits favoring class 0
 
         with (
             patch.object(model, "_model", None),
             patch.object(model, "_tokenizer", None),
         ):
-            # Test the helper method directly by accessing it in postprocess
             model.task = MLTask.sequence_classification
             model.return_probabilities = False
 
-            # We need to access the helper method that gets created in postprocess
-            # Since it's a nested function, we'll test its behavior through postprocess
             result = model.postprocess(outputs, context)
 
-            # Should return label "negative" for class 0 (highest logit)
             assert result["predictions"][0] == "negative"
 
     def test_get_label_or_index_disabled(self, encoder_model_labels_disabled):
