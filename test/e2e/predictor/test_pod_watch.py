@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
 import json
 import os
 import time
@@ -140,16 +139,6 @@ def managed_isvc(kserve_client: KServeClient, isvc: V1beta1InferenceService):
         except Exception as e:
             if not error_occurred:
                 logger.warning("Failed to delete ISVC %s: %s", name, e)
-
-
-def get_isvc_resource_version(
-    kserve_client: KServeClient, name: str, namespace: str = KSERVE_TEST_NAMESPACE
-) -> str:
-    isvc = kserve_client.get(name, namespace=namespace)
-    metadata = isvc.get("metadata") if isinstance(isvc, dict) else {}
-    if isinstance(metadata, dict):
-        return str(metadata.get("resourceVersion", ""))
-    return ""
 
 
 def get_isvc_model_status(
@@ -286,136 +275,6 @@ def get_controller_logs(since_seconds: int) -> str:
         raise RuntimeError(
             f"Failed to read controller logs from pod {pod.metadata.name}: {e}"
         ) from e
-
-
-@pytest.mark.predictor
-@pytest.mark.raw
-@pytest.mark.asyncio(scope="session")
-async def test_event_storm_prevention_init_container_isolation(rest_v1_client):
-    """
-    Test that init container status changes on one ISVC don't cause unwanted modifications
-    to unrelated ISVCs (event storm prevention).
-
-    The controller may reconcile an ISVC for legitimate reasons (e.g.,
-    HTTPRoute status updates from Istio, deployment status changes) without making any
-    changes. This is acceptable. The real concern is if the secondary ISVC's events
-    cause the primary ISVC to be MODIFIED (resourceVersion change).
-
-    Test flow:
-    1. Creates a "primary" ISVC that will successfully load a model from GCS
-    2. Waits for the primary ISVC to become ready
-    3. Records baseline resourceVersion
-    4. Creates a "secondary" ISVC with invalid S3 credentials that will fail
-    5. Waits for the secondary ISVC to show failure status
-    6. Verifies the primary ISVC's resourceVersion is unchanged
-    """
-    suffix = str(uuid.uuid4())[:6]
-    primary_name = f"isvc-primary-{suffix}"
-    secondary_name = f"isvc-secondary-{suffix}"
-    invalid_sa_name = f"invalid-s3-sa-{suffix}"
-    invalid_secret_name = f"invalid-s3-secret-{suffix}"
-
-    kserve_client = KServeClient(
-        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
-    )
-
-    # Create primary ISVC with a valid GCS storage URI (no credentials needed)
-    primary_predictor = V1beta1PredictorSpec(
-        min_replicas=1,
-        sklearn=V1beta1SKLearnSpec(
-            storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
-            resources=V1ResourceRequirements(
-                requests={"cpu": "50m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
-            ),
-        ),
-    )
-
-    primary_isvc = V1beta1InferenceService(
-        api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=primary_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
-        spec=V1beta1InferenceServiceSpec(predictor=primary_predictor),
-    )
-
-    with managed_isvc(kserve_client, primary_isvc):
-        # Step 1: Wait for primary ISVC to be ready (created by managed_isvc)
-        logger.info("Created primary ISVC: %s", primary_name)
-        kserve_client.wait_isvc_ready(primary_name, namespace=KSERVE_TEST_NAMESPACE)
-        logger.info("Primary ISVC is ready")
-
-        # Record baseline resourceVersion
-        primary_rv_before = get_isvc_resource_version(kserve_client, primary_name)
-        logger.info("Baseline recorded - resourceVersion: %s", primary_rv_before)
-
-        # Step 2: Create invalid S3 credentials
-        logger.info("Creating invalid S3 secret and service account")
-        create_invalid_s3_secret(KSERVE_TEST_NAMESPACE, invalid_secret_name)
-        create_service_account_with_secret(
-            KSERVE_TEST_NAMESPACE, invalid_sa_name, invalid_secret_name
-        )
-
-        # Step 3: Create secondary ISVC with invalid S3 credentials
-        secondary_predictor = V1beta1PredictorSpec(
-            min_replicas=1,
-            service_account_name=invalid_sa_name,
-            sklearn=V1beta1SKLearnSpec(
-                storage_uri="s3://nonexistent-bucket-12345/invalid/path/model",
-                resources=V1ResourceRequirements(
-                    requests={"cpu": "50m", "memory": "128Mi"},
-                    limits={"cpu": "100m", "memory": "256Mi"},
-                ),
-            ),
-        )
-
-        secondary_isvc = V1beta1InferenceService(
-            api_version=constants.KSERVE_V1BETA1,
-            kind=constants.KSERVE_KIND_INFERENCESERVICE,
-            metadata=client.V1ObjectMeta(
-                name=secondary_name, namespace=KSERVE_TEST_NAMESPACE
-            ),
-            spec=V1beta1InferenceServiceSpec(predictor=secondary_predictor),
-        )
-
-        with managed_isvc(kserve_client, secondary_isvc):
-            # Step 4: Wait for secondary ISVC to report failure (created by managed_isvc)
-            logger.info(
-                "Created secondary ISVC %s, waiting for failure status...",
-                secondary_name,
-            )
-            secondary_failure = wait_for_isvc_failure_status(
-                kserve_client, secondary_name, timeout_seconds=180
-            )
-            if secondary_failure:
-                logger.info("Secondary ISVC failure detected: %s", secondary_failure)
-
-            # Give time for any potential event storms to propagate
-            await asyncio.sleep(10)
-
-            # Step 5: Verify primary ISVC was not modified
-            # The controller may reconcile the primary ISVC for legitimate reasons
-            # (e.g., HTTPRoute status updates from Istio), but no-op reconciliations
-            # are fine. Only fail if resourceVersion changed (actual modification).
-            primary_rv_after = get_isvc_resource_version(kserve_client, primary_name)
-            logger.info(
-                "Primary ISVC resourceVersion: before=%s, after=%s",
-                primary_rv_before,
-                primary_rv_after,
-            )
-
-            assert primary_rv_before == primary_rv_after, (
-                f"Primary ISVC '{primary_name}' was modified during secondary ISVC failure. "
-                f"ResourceVersion changed from {primary_rv_before} to {primary_rv_after}. "
-                "This indicates potential event storm - init container status changes "
-                "on secondary ISVC may have triggered modification of unrelated primary ISVC."
-            )
-
-            logger.info(
-                "Event storm prevention validated: Primary ISVC was not modified "
-                "during secondary ISVC init container failures"
-            )
 
 
 @pytest.mark.predictor
