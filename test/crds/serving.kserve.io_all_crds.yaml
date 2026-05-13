@@ -23933,11 +23933,9 @@ spec:
                                 type: string
                               failureThreshold:
                                 format: int32
-                                minimum: 0
                                 type: integer
                               replicas:
                                 format: int32
-                                minimum: 0
                                 type: integer
                             required:
                             - failureThreshold
@@ -27551,11 +27549,9 @@ spec:
                                 type: string
                               failureThreshold:
                                 format: int32
-                                minimum: 0
                                 type: integer
                               replicas:
                                 format: int32
-                                minimum: 0
                                 type: integer
                             required:
                             - failureThreshold
@@ -43498,11 +43494,9 @@ spec:
                                 type: string
                               failureThreshold:
                                 format: int32
-                                minimum: 0
                                 type: integer
                               replicas:
                                 format: int32
-                                minimum: 0
                                 type: integer
                             required:
                             - failureThreshold
