@@ -442,7 +442,9 @@ def test_llm_inference_service(test_case: TestCase):  # noqa: F811
         wait_for_model_response(kserve_client, test_case, test_case.wait_timeout)
     except Exception as e:
         test_failed = True
-        logger.error("❌ ERROR: Failed to call llm inference service %s: %s", service_name, e)
+        logger.error(
+            "❌ ERROR: Failed to call llm inference service %s: %s", service_name, e
+        )
         _collect_diagnostics(kserve_client, test_case.llm_service)
         raise
     finally:

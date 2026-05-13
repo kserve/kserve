@@ -145,23 +145,29 @@ def collect_pod_logs(namespace: str, labels, log: Callable = _log.info):
         log("### Pod %s (phase=%s)", pod_name, phase)
 
         init_specs = pod.spec.init_containers or []
-        init_statuses = {
-            s.name: s for s in (pod.status.init_container_statuses or [])
-        }
+        init_statuses = {s.name: s for s in (pod.status.init_container_statuses or [])}
         for c in init_specs:
             _emit_container_logs(
-                core, namespace, pod_name, c.name,
-                is_init=True, status=init_statuses.get(c.name), log=log,
+                core,
+                namespace,
+                pod_name,
+                c.name,
+                is_init=True,
+                status=init_statuses.get(c.name),
+                log=log,
             )
 
         c_specs = pod.spec.containers or []
-        c_statuses = {
-            s.name: s for s in (pod.status.container_statuses or [])
-        }
+        c_statuses = {s.name: s for s in (pod.status.container_statuses or [])}
         for c in c_specs:
             _emit_container_logs(
-                core, namespace, pod_name, c.name,
-                is_init=False, status=c_statuses.get(c.name), log=log,
+                core,
+                namespace,
+                pod_name,
+                c.name,
+                is_init=False,
+                status=c_statuses.get(c.name),
+                log=log,
             )
 
 
