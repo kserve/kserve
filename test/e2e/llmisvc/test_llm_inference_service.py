@@ -92,7 +92,7 @@ class TestCase:
     max_tokens: int = 100
     payload_formatter: Optional[Callable[["TestCase"], Dict[str, Any]]] = None
     response_assertion: Callable[[requests.Response], None] = assert_200
-    wait_timeout: int = int(os.environ.get("LLMISVC_WAIT_TIMEOUT", "900"))
+    wait_timeout: int = 900
     response_timeout: int = 60
     before_test: List[Callable[[], Any]] = field(default_factory=list)
     after_test: List[Callable[[], Any]] = field(default_factory=list)
