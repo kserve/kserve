@@ -25,3 +25,6 @@ func SetUseVersionedConfigForTest(enabled bool) func() {
 		useVersionedConfig = original
 	}
 }
+
+// SelectSingleNodeTemplateName exposes selectSingleNodeTemplateName for testing.
+var SelectSingleNodeTemplateName = selectSingleNodeTemplateName

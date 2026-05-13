@@ -1416,3 +1416,44 @@ func TestLLMInferenceServiceConversion_NilRolloutStrategy(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, restored.Spec.RolloutStrategy)
 }
+
+func TestLLMInferenceServiceConversion_PreservesRuntime(t *testing.T) {
+	modelName := "test-model"
+
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-llm-isvc", Namespace: "default"},
+		Spec: LLMInferenceServiceSpec{
+			Model:   LLMModelSpec{URI: apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"}, Name: &modelName},
+			Runtime: LLMRuntimeSGLang,
+		},
+	}
+
+	// Convert to v1alpha2
+	dst := &v1alpha2.LLMInferenceService{}
+	require.NoError(t, src.ConvertTo(dst))
+	assert.Equal(t, v1alpha2.LLMRuntimeSGLang, dst.Spec.Runtime)
+
+	// Convert back to v1alpha1
+	restored := &LLMInferenceService{}
+	require.NoError(t, restored.ConvertFrom(dst))
+	assert.Equal(t, LLMRuntimeSGLang, restored.Spec.Runtime)
+}
+
+func TestLLMInferenceServiceConversion_EmptyRuntimeRoundTrips(t *testing.T) {
+	modelName := "test-model"
+
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-llm-isvc", Namespace: "default"},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{URI: apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"}, Name: &modelName},
+		},
+	}
+
+	dst := &v1alpha2.LLMInferenceService{}
+	require.NoError(t, src.ConvertTo(dst))
+	assert.Equal(t, v1alpha2.LLMRuntime(""), dst.Spec.Runtime)
+
+	restored := &LLMInferenceService{}
+	require.NoError(t, restored.ConvertFrom(dst))
+	assert.Equal(t, LLMRuntime(""), restored.Spec.Runtime)
+}

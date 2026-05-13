@@ -17192,6 +17192,12 @@ spec:
                           type: object
                       type: object
                   type: object
+                runtime:
+                  default: vllm
+                  enum:
+                    - vllm
+                    - sglang
+                  type: string
                 scaling:
                   properties:
                     keda:
@@ -21416,6 +21422,8 @@ spec:
                     samplerArg:
                       type: string
                   type: object
+                trustRemoteCode:
+                  type: boolean
                 worker:
                   properties:
                     activeDeadlineSeconds:
@@ -42865,6 +42873,12 @@ spec:
                           type: object
                       type: object
                   type: object
+                runtime:
+                  default: vllm
+                  enum:
+                    - vllm
+                    - sglang
+                  type: string
                 scaling:
                   properties:
                     keda:
@@ -47089,6 +47103,8 @@ spec:
                     samplerArg:
                       type: string
                   type: object
+                trustRemoteCode:
+                  type: boolean
                 worker:
                   properties:
                     activeDeadlineSeconds:
