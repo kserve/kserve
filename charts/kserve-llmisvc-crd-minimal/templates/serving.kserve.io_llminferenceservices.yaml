@@ -17274,6 +17274,12 @@ spec:
                           type: object
                       type: object
                   type: object
+                runtime:
+                  default: vllm
+                  enum:
+                    - vllm
+                    - sglang
+                  type: string
                 scaling:
                   properties:
                     maxReplicas:
@@ -21298,6 +21304,8 @@ spec:
                     samplerArg:
                       type: string
                   type: object
+                trustRemoteCode:
+                  type: boolean
                 worker:
                   properties:
                     activeDeadlineSeconds:

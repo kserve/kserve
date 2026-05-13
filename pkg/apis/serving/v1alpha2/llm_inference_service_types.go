@@ -80,12 +80,37 @@ type LLMInferenceServiceConfigStatus struct {
 	ReferencedBy []UntypedObjectReference `json:"referencedBy,omitempty"`
 }
 
+// LLMRuntime represents the inference engine used by the LLMInferenceService.
+// +kubebuilder:validation:Enum=vllm;sglang
+type LLMRuntime string
+
+const (
+	// LLMRuntimeVLLM uses vLLM as the inference engine.
+	LLMRuntimeVLLM LLMRuntime = "vllm"
+	// LLMRuntimeSGLang uses SGLang as the inference engine.
+	LLMRuntimeSGLang LLMRuntime = "sglang"
+)
+
 // LLMInferenceServiceSpec defines the desired state of LLMInferenceService.
 type LLMInferenceServiceSpec struct {
 	// Model specification, including its URI, potential LoRA adapters, and storage details.
 	// It's optional for `LLMInferenceServiceConfig` kind.
 	// +optional
 	Model LLMModelSpec `json:"model"`
+
+	// Runtime specifies the inference engine to use.
+	// When "sglang" is specified, the controller selects SGLang-specific config templates.
+	// Defaults to "vllm" for backward compatibility.
+	// +optional
+	// +kubebuilder:default=vllm
+	Runtime LLMRuntime `json:"runtime,omitempty"`
+
+	// TrustRemoteCode allows the inference runtime to execute custom model code bundled
+	// with model weights (e.g. HuggingFace models with custom architectures).
+	// Enable only when loading models from trusted sources — this executes arbitrary Python
+	// at model load time.
+	// +optional
+	TrustRemoteCode bool `json:"trustRemoteCode,omitempty"`
 
 	// StorageInitializer configuration for model artifact fetching.
 	// +optional
