@@ -1056,7 +1056,7 @@ func TestCreateKedaScaledObject_WithFallback(t *testing.T) {
 		MaxReplicas: 10,
 		AutoScaling: &v1beta1.AutoScalingSpec{
 			KEDA: &v1beta1.KEDAScalingConfig{
-				Fallback: &v1beta1.KEDAFallback{
+				Fallback: &kedav1alpha1.Fallback{
 					FailureThreshold: 3,
 					Replicas:         2,
 					Behavior:         "static",
@@ -1084,9 +1084,9 @@ func TestCreateKedaScaledObject_WithAdvancedConfig(t *testing.T) {
 		MaxReplicas: 10,
 		AutoScaling: &v1beta1.AutoScalingSpec{
 			KEDA: &v1beta1.KEDAScalingConfig{
-				Advanced: &v1beta1.KEDAAdvancedConfig{
-					RestoreToOriginalReplicaCount: ptr.To(true),
-					HorizontalPodAutoscalerConfig: &v1beta1.KEDAHPAConfig{
+				Advanced: &kedav1alpha1.AdvancedConfig{
+					RestoreToOriginalReplicaCount: true,
+					HorizontalPodAutoscalerConfig: &kedav1alpha1.HorizontalPodAutoscalerConfig{
 						Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{
 							ScaleDown: &autoscalingv2.HPAScalingRules{
 								StabilizationWindowSeconds: ptr.To(int32(300)),
@@ -1118,8 +1118,8 @@ func TestCreateKedaScaledObject_WithScalingModifiers(t *testing.T) {
 		MaxReplicas: 10,
 		AutoScaling: &v1beta1.AutoScalingSpec{
 			KEDA: &v1beta1.KEDAScalingConfig{
-				Advanced: &v1beta1.KEDAAdvancedConfig{
-					ScalingModifiers: &v1beta1.KEDAScalingModifiers{
+				Advanced: &kedav1alpha1.AdvancedConfig{
+					ScalingModifiers: kedav1alpha1.ScalingModifiers{
 						Formula:          "desired_replicas",
 						Target:           "100",
 						ActivationTarget: "50",
@@ -1299,8 +1299,8 @@ func TestCreateKedaScaledObject_KEDAConfigOverridesBehavior(t *testing.T) {
 			},
 			// New KEDA config with different behavior
 			KEDA: &v1beta1.KEDAScalingConfig{
-				Advanced: &v1beta1.KEDAAdvancedConfig{
-					HorizontalPodAutoscalerConfig: &v1beta1.KEDAHPAConfig{
+				Advanced: &kedav1alpha1.AdvancedConfig{
+					HorizontalPodAutoscalerConfig: &kedav1alpha1.HorizontalPodAutoscalerConfig{
 						Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{
 							ScaleDown: &autoscalingv2.HPAScalingRules{
 								StabilizationWindowSeconds: &newBehaviorWin,
@@ -1336,14 +1336,14 @@ func TestCreateKedaScaledObject_CompleteKEDAConfig(t *testing.T) {
 				CooldownPeriod:        ptr.To(int32(90)),
 				InitialCooldownPeriod: ptr.To(int32(180)),
 				IdleReplicaCount:      ptr.To(int32(0)),
-				Fallback: &v1beta1.KEDAFallback{
+				Fallback: &kedav1alpha1.Fallback{
 					FailureThreshold: 5,
 					Replicas:         3,
 					Behavior:         "currentReplicas",
 				},
-				Advanced: &v1beta1.KEDAAdvancedConfig{
-					RestoreToOriginalReplicaCount: ptr.To(false),
-					HorizontalPodAutoscalerConfig: &v1beta1.KEDAHPAConfig{
+				Advanced: &kedav1alpha1.AdvancedConfig{
+					RestoreToOriginalReplicaCount: false,
+					HorizontalPodAutoscalerConfig: &kedav1alpha1.HorizontalPodAutoscalerConfig{
 						Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{
 							ScaleDown: &autoscalingv2.HPAScalingRules{
 								StabilizationWindowSeconds: ptr.To(int32(600)),
@@ -1353,7 +1353,7 @@ func TestCreateKedaScaledObject_CompleteKEDAConfig(t *testing.T) {
 							},
 						},
 					},
-					ScalingModifiers: &v1beta1.KEDAScalingModifiers{
+					ScalingModifiers: kedav1alpha1.ScalingModifiers{
 						Formula:          "custom_formula",
 						Target:           "200",
 						ActivationTarget: "100",
