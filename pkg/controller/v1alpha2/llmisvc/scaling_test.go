@@ -17,6 +17,7 @@ limitations under the License.
 package llmisvc
 
 import (
+	"context"
 	"testing"
 
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
@@ -27,8 +28,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -989,4 +993,275 @@ func TestScaleTargetRefHelpers(t *testing.T) {
 		assert.Equal(t, "Deployment", ref.Kind)
 		assert.Equal(t, prefillDeploymentName(svc), ref.Name)
 	})
+}
+
+func newReconcilerWithHPA(hpa *autoscalingv2.HorizontalPodAutoscaler) *LLMISVCReconciler {
+	scheme := runtime.NewScheme()
+	_ = autoscalingv2.AddToScheme(scheme)
+	cb := fake.NewClientBuilder().WithScheme(scheme)
+	if hpa != nil {
+		cb = cb.WithObjects(hpa)
+	}
+	return &LLMISVCReconciler{
+		Client:        cb.Build(),
+		EventRecorder: record.NewFakeRecorder(10),
+	}
+}
+
+func newReconcilerWithScaledObject(so *kedav1alpha1.ScaledObject) *LLMISVCReconciler {
+	scheme := runtime.NewScheme()
+	_ = kedav1alpha1.AddToScheme(scheme)
+	cb := fake.NewClientBuilder().WithScheme(scheme)
+	if so != nil {
+		cb = cb.WithObjects(so)
+	}
+	return &LLMISVCReconciler{
+		Client:        cb.Build(),
+		EventRecorder: record.NewFakeRecorder(10),
+	}
+}
+
+func TestPropagateHPAStatus(t *testing.T) {
+	expectedHPAObj := &autoscalingv2.HorizontalPodAutoscaler{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-hpa", Namespace: "test-ns"},
+	}
+
+	tests := []struct {
+		name         string
+		hpa          *autoscalingv2.HorizontalPodAutoscaler
+		wantReady    bool
+		wantNotReady bool
+		wantReason   string
+		wantErr      bool
+	}{
+		{
+			name: "AbleToScale=True and ScalingActive=True -> ready",
+			hpa: &autoscalingv2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-hpa", Namespace: "test-ns"},
+				Status: autoscalingv2.HorizontalPodAutoscalerStatus{
+					Conditions: []autoscalingv2.HorizontalPodAutoscalerCondition{
+						{Type: autoscalingv2.AbleToScale, Status: corev1.ConditionTrue},
+						{Type: autoscalingv2.ScalingActive, Status: corev1.ConditionTrue},
+					},
+				},
+			},
+			wantReady: true,
+		},
+		{
+			name: "AbleToScale=False -> not ready with reason",
+			hpa: &autoscalingv2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-hpa", Namespace: "test-ns"},
+				Status: autoscalingv2.HorizontalPodAutoscalerStatus{
+					Conditions: []autoscalingv2.HorizontalPodAutoscalerCondition{
+						{Type: autoscalingv2.AbleToScale, Status: corev1.ConditionFalse, Reason: "FailedGetScale", Message: "cannot get scale"},
+						{Type: autoscalingv2.ScalingActive, Status: corev1.ConditionTrue},
+					},
+				},
+			},
+			wantNotReady: true,
+			wantReason:   "FailedGetScale",
+		},
+		{
+			name: "ScalingActive=False -> not ready with reason",
+			hpa: &autoscalingv2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-hpa", Namespace: "test-ns"},
+				Status: autoscalingv2.HorizontalPodAutoscalerStatus{
+					Conditions: []autoscalingv2.HorizontalPodAutoscalerCondition{
+						{Type: autoscalingv2.AbleToScale, Status: corev1.ConditionTrue},
+						{Type: autoscalingv2.ScalingActive, Status: corev1.ConditionFalse, Reason: "FailedGetExternalMetric", Message: "metric not found"},
+					},
+				},
+			},
+			wantNotReady: true,
+			wantReason:   "FailedGetExternalMetric",
+		},
+		{
+			name: "no conditions yet -> not ready HPAProgressing",
+			hpa: &autoscalingv2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-hpa", Namespace: "test-ns"},
+			},
+			wantNotReady: true,
+			wantReason:   "HPAProgressing",
+		},
+		{
+			name: "ScalingLimited=True with healthy conditions -> ready",
+			hpa: &autoscalingv2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-hpa", Namespace: "test-ns"},
+				Status: autoscalingv2.HorizontalPodAutoscalerStatus{
+					Conditions: []autoscalingv2.HorizontalPodAutoscalerCondition{
+						{Type: autoscalingv2.AbleToScale, Status: corev1.ConditionTrue},
+						{Type: autoscalingv2.ScalingActive, Status: corev1.ConditionTrue},
+						{Type: autoscalingv2.ScalingLimited, Status: corev1.ConditionTrue, Message: "at max replicas"},
+					},
+				},
+			},
+			wantReady: true,
+		},
+		{
+			name:    "HPA not found -> error",
+			hpa:     nil,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := newReconcilerWithHPA(tt.hpa)
+			var readyCalled, notReadyCalled bool
+			var notReadyReason string
+
+			err := r.propagateHPAStatus(context.Background(), expectedHPAObj,
+				func() { readyCalled = true },
+				func(reason, msg string, a ...interface{}) {
+					notReadyCalled = true
+					notReadyReason = reason
+				},
+			)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantReady, readyCalled, "ready callback")
+			assert.Equal(t, tt.wantNotReady, notReadyCalled, "notReady callback")
+			if tt.wantReason != "" {
+				assert.Equal(t, tt.wantReason, notReadyReason)
+			}
+		})
+	}
+}
+
+func TestPropagateScaledObjectStatus(t *testing.T) {
+	expectedSO := &kedav1alpha1.ScaledObject{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-so", Namespace: "test-ns"},
+	}
+
+	tests := []struct {
+		name         string
+		so           *kedav1alpha1.ScaledObject
+		wantReady    bool
+		wantNotReady bool
+		wantReason   string
+		wantErr      bool
+	}{
+		{
+			name: "Ready=True -> ready",
+			so: &kedav1alpha1.ScaledObject{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-so", Namespace: "test-ns"},
+				Status: kedav1alpha1.ScaledObjectStatus{
+					Conditions: kedav1alpha1.Conditions{
+						{Type: kedav1alpha1.ConditionReady, Status: metav1.ConditionTrue},
+						{Type: kedav1alpha1.ConditionActive, Status: metav1.ConditionTrue},
+						{Type: kedav1alpha1.ConditionFallback, Status: metav1.ConditionFalse},
+						{Type: kedav1alpha1.ConditionPaused, Status: metav1.ConditionFalse},
+					},
+				},
+			},
+			wantReady: true,
+		},
+		{
+			name: "Ready=False -> not ready with reason",
+			so: &kedav1alpha1.ScaledObject{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-so", Namespace: "test-ns"},
+				Status: kedav1alpha1.ScaledObjectStatus{
+					Conditions: kedav1alpha1.Conditions{
+						{Type: kedav1alpha1.ConditionReady, Status: metav1.ConditionFalse, Reason: "TriggerError", Message: "prometheus query failed"},
+						{Type: kedav1alpha1.ConditionActive, Status: metav1.ConditionFalse},
+						{Type: kedav1alpha1.ConditionFallback, Status: metav1.ConditionFalse},
+						{Type: kedav1alpha1.ConditionPaused, Status: metav1.ConditionFalse},
+					},
+				},
+			},
+			wantNotReady: true,
+			wantReason:   "TriggerError",
+		},
+		{
+			name: "Ready=Unknown -> not ready ScaledObjectProgressing",
+			so: &kedav1alpha1.ScaledObject{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-so", Namespace: "test-ns"},
+				Status: kedav1alpha1.ScaledObjectStatus{
+					Conditions: kedav1alpha1.Conditions{
+						{Type: kedav1alpha1.ConditionReady, Status: metav1.ConditionUnknown},
+						{Type: kedav1alpha1.ConditionActive, Status: metav1.ConditionUnknown},
+						{Type: kedav1alpha1.ConditionFallback, Status: metav1.ConditionUnknown},
+						{Type: kedav1alpha1.ConditionPaused, Status: metav1.ConditionUnknown},
+					},
+				},
+			},
+			wantNotReady: true,
+			wantReason:   "ScaledObjectProgressing",
+		},
+		{
+			name: "Paused=True -> not ready",
+			so: &kedav1alpha1.ScaledObject{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-so", Namespace: "test-ns"},
+				Status: kedav1alpha1.ScaledObjectStatus{
+					Conditions: kedav1alpha1.Conditions{
+						{Type: kedav1alpha1.ConditionReady, Status: metav1.ConditionTrue},
+						{Type: kedav1alpha1.ConditionActive, Status: metav1.ConditionTrue},
+						{Type: kedav1alpha1.ConditionFallback, Status: metav1.ConditionFalse},
+						{Type: kedav1alpha1.ConditionPaused, Status: metav1.ConditionTrue, Reason: "ScaledObjectPaused", Message: "ScaledObject is paused"},
+					},
+				},
+			},
+			wantNotReady: true,
+			wantReason:   "ScaledObjectPaused",
+		},
+		{
+			name: "Fallback=True with Ready=True -> ready (soft warning)",
+			so: &kedav1alpha1.ScaledObject{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-so", Namespace: "test-ns"},
+				Status: kedav1alpha1.ScaledObjectStatus{
+					Conditions: kedav1alpha1.Conditions{
+						{Type: kedav1alpha1.ConditionReady, Status: metav1.ConditionTrue},
+						{Type: kedav1alpha1.ConditionActive, Status: metav1.ConditionTrue},
+						{Type: kedav1alpha1.ConditionFallback, Status: metav1.ConditionTrue, Message: "using fallback replicas"},
+						{Type: kedav1alpha1.ConditionPaused, Status: metav1.ConditionFalse},
+					},
+				},
+			},
+			wantReady: true,
+		},
+		{
+			name: "no conditions (nil) -> not ready ScaledObjectProgressing",
+			so: &kedav1alpha1.ScaledObject{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-so", Namespace: "test-ns"},
+			},
+			wantNotReady: true,
+			wantReason:   "ScaledObjectProgressing",
+		},
+		{
+			name:    "ScaledObject not found -> error",
+			so:      nil,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := newReconcilerWithScaledObject(tt.so)
+			var readyCalled, notReadyCalled bool
+			var notReadyReason string
+
+			err := r.propagateScaledObjectStatus(context.Background(), expectedSO,
+				func() { readyCalled = true },
+				func(reason, msg string, a ...interface{}) {
+					notReadyCalled = true
+					notReadyReason = reason
+				},
+			)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantReady, readyCalled, "ready callback")
+			assert.Equal(t, tt.wantNotReady, notReadyCalled, "notReady callback")
+			if tt.wantReason != "" {
+				assert.Equal(t, tt.wantReason, notReadyReason)
+			}
+		})
+	}
 }
