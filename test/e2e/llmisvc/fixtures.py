@@ -1050,7 +1050,7 @@ LLMINFERENCESERVICE_CONFIGS = {
     "workload-llmd-simulator-kvcache": {
         "replicas": 2,
         "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},
-        "storageInitializer": {"enabled": False},
+        # Important: storage initializer is required for precise-prefix-scorer
         "template": {
             "containers": [
                 {

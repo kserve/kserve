@@ -18,7 +18,7 @@ from kubernetes import client, config, dynamic
 from kubernetes.client import api_client
 
 
-def print_all_events_table(namespace: str, max_events: int = 50):
+def print_all_events_table(namespace: str, max_events: int = 50, log_prefix: str = ""):
     """
     Print the most recent `max_events` events in `namespace` as a nice table.
     """
@@ -28,12 +28,12 @@ def print_all_events_table(namespace: str, max_events: int = 50):
         events = core.list_namespaced_event(namespace=namespace).items
 
         if not events:
-            print("ℹ️ # No events found in namespace", namespace)
+            print(f"{log_prefix} ℹ️ # No events found in namespace {namespace}")
             return
 
         header = f"{'TIME':<25} {'NAMESPACE':<12} {'SOURCE':<20} {'TYPE':<8} {'REASON':<20} MESSAGE"
-        print(header)
-        print("-" * len(header))
+        print(f"{log_prefix} {header}")
+        print(f"{log_prefix} {'-' * len(header)}")
 
         for ev in events:
             ts = ev.last_timestamp or ev.first_timestamp
@@ -45,12 +45,12 @@ def print_all_events_table(namespace: str, max_events: int = 50):
             src = f"{ev.source.component or ''}/{ev.source.host or ''}".strip("/")
             msg = (ev.message or "").replace("\n", " ")
             print(
-                f"{ts_str:<25} {ev.metadata.namespace:<12} {src:<20} {ev.type or '':<8} "
+                f"{log_prefix} {ts_str:<25} {ev.metadata.namespace:<12} {src:<20} {ev.type or '':<8} "
                 f"{ev.reason or '':<20} {msg}"
             )
 
     except Exception as e:
-        print(f"# ❌ failed to list events: {e}")
+        print(f"{log_prefix} # ❌ failed to list events: {e}")
 
 
 def kinds_matching_by_labels(namespace: str, labels, skip_api_kinds=None):
