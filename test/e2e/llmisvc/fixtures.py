@@ -1213,7 +1213,9 @@ def generate_k8s_safe_suffix(
 def generate_service_name(test_name: str, base_refs: List[str]) -> str:
     base_name = test_name.split("[", 1)[0]
     base_name = base_name.replace("test_llm_inference_service", "llmisvc")
-    return generate_k8s_safe_suffix(base_name, base_refs)
+    # Include the full pytest node name (with parametrize index) in the hash
+    # so that tests sharing the same base_refs get unique service names.
+    return generate_k8s_safe_suffix(base_name, [test_name] + base_refs)
 
 
 def generate_test_id(test_case) -> str:
