@@ -35,16 +35,6 @@ envtest: $(ENVTEST)
 $(ENVTEST): $(LOCALBIN) $(DEPS_ENV)
 	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest,$(ENVTEST_VERSION))
 
-## Download kustomize locally if necessary.
-.PHONY: kustomize
-kustomize: $(KUSTOMIZE)
-$(KUSTOMIZE): $(LOCALBIN) $(DEPS_ENV)
-	@[ -f "$(KUSTOMIZE)-$(KUSTOMIZE_VERSION)" ] || { \
-	BIN_DIR=$(LOCALBIN) hack/setup/cli/install-kustomize.sh && \
-	mv $(LOCALBIN)/kustomize $(KUSTOMIZE)-$(KUSTOMIZE_VERSION) ; \
-	} ; \
-	ln -sf "$$(basename $(KUSTOMIZE)-$(KUSTOMIZE_VERSION))" "$(KUSTOMIZE)"
-
 ## Download yq locally if necessary.
 .PHONY: yq
 yq: $(YQ)
@@ -54,6 +44,22 @@ $(YQ): $(LOCALBIN) $(DEPS_ENV)
 	mv $(LOCALBIN)/yq $(YQ)-$(YQ_VERSION) ; \
 	} ; \
 	ln -sf "$$(basename $(YQ)-$(YQ_VERSION))" "$(YQ)"
+
+## Download kustomize locally if necessary.
+.PHONY: kustomize
+kustomize: $(KUSTOMIZE)
+$(KUSTOMIZE): $(LOCALBIN)
+	@[ -f "$(KUSTOMIZE)-$(KUSTOMIZE_VERSION)" ] || { \
+	BIN_DIR=$(LOCALBIN) hack/setup/cli/install-kustomize.sh; \
+	if [ -f "$(LOCALBIN)/kustomize" ]; then \
+	  mv "$(LOCALBIN)/kustomize" "$(KUSTOMIZE)-$(KUSTOMIZE_VERSION)"; \
+	elif command -v kustomize >/dev/null 2>&1; then \
+	  ln -sf "$$(command -v kustomize)" "$(KUSTOMIZE)-$(KUSTOMIZE_VERSION)"; \
+	else \
+	  echo "ERROR: kustomize not found after install"; exit 1; \
+	fi; \
+	} ; \
+	ln -sf "$$(basename $(KUSTOMIZE)-$(KUSTOMIZE_VERSION))" "$(KUSTOMIZE)"
 
 ## Download helm-docs locally if necessary.
 .PHONY: helm-docs
