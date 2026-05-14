@@ -807,7 +807,7 @@ def wait_for_model_response(
         elif test_case.prompt is not None:
             test_payload = {
                 "model": test_case.model_name
-                if MODEL_ROUTING_HEADER not in extra_headers
+                if not extra_headers or MODEL_ROUTING_HEADER not in extra_headers
                 else extra_headers[MODEL_ROUTING_HEADER],
                 "prompt": test_case.prompt,
                 "max_tokens": test_case.max_tokens,
