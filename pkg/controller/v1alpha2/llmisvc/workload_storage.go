@@ -266,7 +266,7 @@ func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAc
 		// If service account is nil, fetch the default service account
 		if serviceAccount == nil {
 			serviceAccount = &corev1.ServiceAccount{}
-			err := r.Get(ctx, types.NamespacedName{Name: defaultServiceAccountName, Namespace: llmSvc.Namespace}, serviceAccount)
+			err := r.Get(ctx, types.NamespacedName{Name: constants.LLMISVCDefaultServiceAccountName, Namespace: llmSvc.Namespace}, serviceAccount)
 			if err != nil {
 				log.FromContext(ctx).Error(err, "Failed to find default service account", "namespace", llmSvc.Namespace)
 				injectCaBundle(llmSvc.Namespace, podSpec, initContainer, storageConfig)
@@ -317,7 +317,7 @@ func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAc
 		// If service account is nil, fetch the default service account
 		if serviceAccount == nil {
 			serviceAccount = &corev1.ServiceAccount{}
-			err := r.Get(ctx, types.NamespacedName{Name: defaultServiceAccountName, Namespace: llmSvc.Namespace}, serviceAccount)
+			err := r.Get(ctx, types.NamespacedName{Name: constants.LLMISVCDefaultServiceAccountName, Namespace: llmSvc.Namespace}, serviceAccount)
 			if err != nil {
 				log.FromContext(ctx).Error(err, "Failed to find default service account", "namespace", llmSvc.Namespace)
 				return nil
@@ -471,7 +471,7 @@ func (r *LLMISVCReconciler) attachMultiStorageDownloads(
 
 	if serviceAccount == nil {
 		serviceAccount = &corev1.ServiceAccount{}
-		err := r.Get(ctx, types.NamespacedName{Name: defaultServiceAccountName, Namespace: llmSvc.Namespace}, serviceAccount)
+		err := r.Get(ctx, types.NamespacedName{Name: constants.LLMISVCDefaultServiceAccountName, Namespace: llmSvc.Namespace}, serviceAccount)
 		if err != nil {
 			log.FromContext(ctx).Error(err, "Failed to find default service account", "namespace", llmSvc.Namespace)
 			injectCaBundle(llmSvc.Namespace, podSpec, initPtr, storageConfig)

@@ -446,7 +446,7 @@ func (l *LLMInferenceServiceValidator) validateLoRAAdapters(llmSvc *LLMInference
 			allErrs = append(allErrs, field.Invalid(
 				namePath,
 				adapterName,
-				"adapter name must not be \".\" or \"..\" (path traversal risk)",
+				"adapter name must not include \".\" or \"..\" (path traversal risk)",
 			))
 			continue
 		}

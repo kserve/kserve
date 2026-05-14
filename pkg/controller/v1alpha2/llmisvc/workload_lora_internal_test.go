@@ -39,12 +39,12 @@ func TestSanitizeLoRAPathSegment(t *testing.T) {
 	}
 }
 
-func TestAppendLoRAVLLMWorkloadArgs(t *testing.T) {
+func TestAddLoRAVLLMArgs(t *testing.T) {
 	t.Parallel()
 
 	t.Run("all params set", func(t *testing.T) {
 		c := &corev1.Container{Name: "main", Args: []string{"--user-flag"}}
-		appendLoRAVLLMWorkloadArgs(c, []string{"a=/mnt/lora/a", "b=/mnt/lora/b"}, ptr.To(int32(64)), ptr.To(int32(2)), ptr.To(int32(4)))
+		addLoRAVLLMArgs(c, []string{"a=/mnt/lora/a", "b=/mnt/lora/b"}, ptr.To(int32(64)), ptr.To(int32(2)), ptr.To(int32(4)))
 		want := []string{
 			"--user-flag",
 			"--enable-lora",
@@ -67,7 +67,7 @@ func TestAppendLoRAVLLMWorkloadArgs(t *testing.T) {
 
 	t.Run("no optional params — vLLM uses its own defaults", func(t *testing.T) {
 		c := &corev1.Container{Name: "main", Args: []string{"--user-flag"}}
-		appendLoRAVLLMWorkloadArgs(c, []string{"a=/mnt/lora/a"}, nil, nil, nil)
+		addLoRAVLLMArgs(c, []string{"a=/mnt/lora/a"}, nil, nil, nil)
 		want := []string{
 			"--user-flag",
 			"--enable-lora",

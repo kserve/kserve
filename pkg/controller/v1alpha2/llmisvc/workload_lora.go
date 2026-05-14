@@ -58,7 +58,7 @@ type resolvedLoRAAdapter struct {
 }
 
 // enumerateLoRAAdapters validates spec.model.lora.adapters and returns mount paths and schemes.
-// Returns adapters in the same order as spec.model.lora.adapters.
+// Returns adapters sorted by name for stable pod spec generation.
 func enumerateLoRAAdapters(spec v1alpha2.LLMInferenceServiceSpec) ([]resolvedLoRAAdapter, error) {
 	if spec.Model.LoRA == nil || len(spec.Model.LoRA.Adapters) == 0 {
 		return nil, nil
@@ -194,7 +194,7 @@ func (r *LLMISVCReconciler) attachLoRAAdapters(
 		maxCpuAdapters = loraSpec.MaxCpuAdapters
 	}
 
-	appendLoRAVLLMWorkloadArgs(main, loraModules, maxRank, maxAdapters, maxCpuAdapters)
+	addLoRAVLLMArgs(main, loraModules, maxRank, maxAdapters, maxCpuAdapters)
 
 	return nil
 }
@@ -220,22 +220,22 @@ func hasValueFromLoRAConfig(c *corev1.Container) bool {
 	return false
 }
 
-// appendLoRAVLLMWorkloadArgs appends vLLM LoRA flags to main.Args so the LLMInferenceServiceConfig
+// addLoRAVLLMArgs appends vLLM LoRA flags to main.Args so the LLMInferenceServiceConfig
 // entrypoint can pass them to `vllm serve` (eval "... $@") after the trailing `--` argv separator.
-// maxRank, maxAdapters, and maxCpuAdapters are only injected when non-nil (explicitly set in the spec);
+// loraMaxRank, loraMaxAdapters, and loraMaxCpuAdapters are only injected when non-nil (explicitly set in the spec);
 // vLLM applies its own defaults otherwise.
 // See: https://github.com/vllm-project/vllm/blob/main/vllm/config/lora.py
-func appendLoRAVLLMWorkloadArgs(main *corev1.Container, loraModules []string, maxRank, maxAdapters, maxCpuAdapters *int32) {
+func addLoRAVLLMArgs(main *corev1.Container, loraModules []string, loraMaxRank, loraMaxAdapters, loraMaxCpuAdapters *int32) {
 	argv := make([]string, 0, 5+len(loraModules))
 	argv = append(argv, "--enable-lora")
-	if maxRank != nil {
-		argv = append(argv, fmt.Sprintf("--max-lora-rank=%d", *maxRank))
+	if loraMaxRank != nil {
+		argv = append(argv, fmt.Sprintf("--max-lora-rank=%d", *loraMaxRank))
 	}
-	if maxAdapters != nil {
-		argv = append(argv, fmt.Sprintf("--max-loras=%d", *maxAdapters))
+	if loraMaxAdapters != nil {
+		argv = append(argv, fmt.Sprintf("--max-loras=%d", *loraMaxAdapters))
 	}
-	if maxCpuAdapters != nil {
-		argv = append(argv, fmt.Sprintf("--max-cpu-loras=%d", *maxCpuAdapters))
+	if loraMaxCpuAdapters != nil {
+		argv = append(argv, fmt.Sprintf("--max-cpu-loras=%d", *loraMaxCpuAdapters))
 	}
 	argv = append(argv, "--lora-modules")
 	argv = append(argv, loraModules...)

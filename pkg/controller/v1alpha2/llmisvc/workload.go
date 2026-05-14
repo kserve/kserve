@@ -37,19 +37,6 @@ import (
 	"github.com/kserve/kserve/pkg/utils"
 )
 
-const (
-	// routingSidecarContainerName is the name of the routing sidecar container
-	// that handles prefill disaggregation routing.
-	routingSidecarContainerName = "llm-d-routing-sidecar"
-
-	defaultServiceAccountName = "default"
-
-	// withLoRAAdapters and withoutLoRAAdapters are used as the attachLoRA parameter
-	// of attachModelArtifacts to make call sites self-documenting.
-	withLoRAAdapters    = true
-	withoutLoRAAdapters = false
-)
-
 // sidecarSSRFProtectionRules defines RBAC rules for the routing sidecar
 // These permissions are needed to discover and monitor inference pools and pods.
 var sidecarSSRFProtectionRules = []rbacv1.PolicyRule{
@@ -191,7 +178,7 @@ func GetWorkloadLabelSelector(meta metav1.ObjectMeta, _ *v1alpha2.LLMInferenceSe
 // target SA is left unchanged.
 func (r *LLMISVCReconciler) injectSecretsFromDefaultServiceAccount(ctx context.Context, target *corev1.ServiceAccount) {
 	defaultSa := &corev1.ServiceAccount{}
-	if err := r.Get(ctx, types.NamespacedName{Name: defaultServiceAccountName, Namespace: target.Namespace}, defaultSa); err != nil {
+	if err := r.Get(ctx, types.NamespacedName{Name: constants.LLMISVCDefaultServiceAccountName, Namespace: target.Namespace}, defaultSa); err != nil {
 		log.FromContext(ctx).Error(err, "Warning: failed to retrieve 'default' service account, continuing ...")
 		return
 	}
@@ -209,7 +196,7 @@ func hasRoutingSidecar(pod corev1.PodSpec) bool {
 func routingSidecar(pod *corev1.PodSpec) *corev1.Container {
 	if pod != nil {
 		for i := range pod.InitContainers {
-			if pod.InitContainers[i].Name == routingSidecarContainerName {
+			if pod.InitContainers[i].Name == constants.LLMISVCRoutingSidecarContainerName {
 				return &pod.InitContainers[i]
 			}
 		}
