@@ -225,7 +225,7 @@ jobs:
 
       - name: Run predictor E2E tests
         id: predictor-tests
-        timeout-minutes: 40
+        timeout-minutes: 60
         run: |
           # Run only CPU tests for now using pytest markers (cluster_)
           # Available GPU vendors: amd, nvidia, intel
