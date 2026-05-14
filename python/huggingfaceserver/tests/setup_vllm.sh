@@ -2,7 +2,7 @@
 
 set -e
 
-VLLM_VERSION=v0.19.0
+VLLM_VERSION=v0.20.0
 VLLM_DIR=vllm-clone
 VLLM_TARGET_DEVICE="${VLLM_TARGET_DEVICE:-cpu}"
 
@@ -25,7 +25,7 @@ git clone --branch $VLLM_VERSION --depth 1 https://github.com/vllm-project/vllm.
 
 case $VLLM_TARGET_DEVICE in
     cpu)
-        uv pip install -r requirements/cpu-build.txt --torch-backend cpu --index-strategy unsafe-best-match
+        uv pip install -r requirements/build/cpu.txt --torch-backend cpu --index-strategy unsafe-best-match
         uv pip install -r requirements/cpu.txt --torch-backend cpu --index-strategy unsafe-best-match
         ;;
 esac

@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 import time
 
 import os
@@ -39,12 +38,10 @@ from .test_resources import (
     ROUTER_GATEWAYS,
     ROUTER_ROUTES,
 )
-from .logging import log_execution
-from ..common.http_retry import post_with_retry
+from .logging import log_execution, logger
+from ..common.http_retry import get_with_retry, post_with_retry
 
 KSERVE_PLURAL_LLMINFERENCESERVICE = "llminferenceservices"
-
-logger = logging.getLogger(__name__)
 
 
 def assert_200(response: requests.Response) -> None:
@@ -88,7 +85,7 @@ class TestCase:
 
     __test__ = False  # So pytest will not try to execute it.
     base_refs: List[str]
-    prompt: str
+    prompt: Optional[str] = None
     service_name: Optional[str] = None
     endpoint: str = "/v1/completions"
     max_tokens: int = 100
@@ -148,6 +145,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 pytest.mark.cluster_cpu,
                 pytest.mark.cluster_single_node,
                 pytest.mark.llmd_simulator,
+                pytest.mark.custom_gateway,
             ],
         ),
         pytest.param(
@@ -193,7 +191,11 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                     )
                 ],
             ),
-            marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
+            marks=[
+                pytest.mark.cluster_cpu,
+                pytest.mark.cluster_single_node,
+                pytest.mark.custom_gateway,
+            ],
         ),
         pytest.param(
             TestCase(
@@ -241,7 +243,11 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                     )
                 ],
             ),
-            marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
+            marks=[
+                pytest.mark.cluster_cpu,
+                pytest.mark.cluster_single_node,
+                pytest.mark.custom_gateway,
+            ],
         ),
         pytest.param(
             TestCase(
@@ -332,6 +338,26 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
             ),
             marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
         ),
+        # Chat completions endpoint coverage
+        pytest.param(
+            TestCase(
+                base_refs=[
+                    "router-managed",
+                    "workload-llmd-simulator",
+                    "model-qwen2.5-0.5b",
+                ],
+                model_name="Qwen/Qwen2.5-0.5B-Instruct",
+                endpoint="/v1/chat/completions",
+                prompt="What is KServe?",
+                payload_formatter=chat_completions_payload,
+                response_assertion=create_response_assertion(with_field="choices"),
+            ),
+            marks=[
+                pytest.mark.cluster_cpu,
+                pytest.mark.cluster_single_node,
+                pytest.mark.llmd_simulator,
+            ],
+        ),
         pytest.param(
             TestCase(
                 base_refs=[
@@ -375,6 +401,22 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 pytest.mark.llmd_simulator,
             ],
         ),
+        # Models endpoint coverage
+        pytest.param(
+            TestCase(
+                base_refs=[
+                    "router-managed",
+                    "workload-llmd-simulator",
+                ],
+                endpoint="/v1/models",
+                response_assertion=create_response_assertion(with_field="data"),
+            ),
+            marks=[
+                pytest.mark.cluster_cpu,
+                pytest.mark.cluster_single_node,
+                pytest.mark.llmd_simulator,
+            ],
+        ),
     ],
     indirect=["test_case"],
     ids=generate_test_id,
@@ -390,6 +432,7 @@ def test_llm_inference_service(test_case: TestCase):  # noqa: F811
 
     service_name = test_case.llm_service.metadata.name
 
+    test_failed = False
     try:
         create_llmisvc(kserve_client, test_case.llm_service)
         wait_for_llm_isvc_ready(
@@ -397,19 +440,12 @@ def test_llm_inference_service(test_case: TestCase):  # noqa: F811
         )
         wait_for_model_response(kserve_client, test_case, test_case.wait_timeout)
     except Exception as e:
+        test_failed = True
         print(f"❌ ERROR: Failed to call llm inference service {service_name}: {e}")
         _collect_diagnostics(kserve_client, test_case.llm_service)
         raise
     finally:
-        try:
-            if os.getenv("SKIP_RESOURCE_DELETION", "False").lower() in (
-                "false",
-                "0",
-                "f",
-            ):
-                delete_llmisvc(kserve_client, test_case.llm_service)
-        except Exception as e:
-            print(f"⚠️ Warning: Failed to cleanup service {service_name}: {e}")
+        maybe_delete_llmisvc(kserve_client, test_case.llm_service, test_failed)
 
 
 @log_execution
@@ -448,6 +484,45 @@ def delete_llmisvc(kserve_client: KServeClient, llm_isvc: V1alpha1LLMInferenceSe
             f"❌ Exception when calling CustomObjectsApi->"
             f"delete_namespaced_custom_object for LLMInferenceService: {e}"
         ) from e
+
+
+def maybe_delete_llmisvc(
+    kserve_client: KServeClient,
+    llm_isvc: V1alpha1LLMInferenceService,
+    test_failed: bool = False,
+):
+    """Delete LLMInferenceService unless env vars instruct otherwise.
+
+    Respects SKIP_RESOURCE_DELETION (skip always) and
+    SKIP_DELETION_ON_FAILURE (skip only when test_failed is True).
+    """
+    service_name = llm_isvc.metadata.name
+    try:
+        skip_all = os.getenv("SKIP_RESOURCE_DELETION", "False").lower() in (
+            "true",
+            "1",
+            "t",
+        )
+        skip_on_failure = os.getenv("SKIP_DELETION_ON_FAILURE", "False").lower() in (
+            "true",
+            "1",
+            "t",
+        )
+
+        should_skip = skip_all or (skip_on_failure and test_failed)
+
+        if not should_skip:
+            delete_llmisvc(kserve_client, llm_isvc)
+        elif skip_all:
+            print(
+                f"⏭️  Skipping deletion of {service_name} (SKIP_RESOURCE_DELETION=True)"
+            )
+        elif test_failed and skip_on_failure:
+            print(
+                f"⏭️  Skipping deletion of {service_name} due to test failure (SKIP_DELETION_ON_FAILURE=True)"
+            )
+    except Exception as e:
+        print(f"⚠️ Warning: Failed to cleanup service {service_name}: {e}")
 
 
 @log_execution
@@ -493,21 +568,30 @@ def wait_for_model_response(
 
         if test_case.payload_formatter is not None:
             test_payload = test_case.payload_formatter(test_case)
-        else:
+        elif test_case.prompt is not None:
             test_payload = {
                 "model": test_case.model_name,
                 "prompt": test_case.prompt,
                 "max_tokens": test_case.max_tokens,
             }
+        else:
+            test_payload = None
 
         logger.info(f"Calling LLM service at {model_url} with payload {test_payload}")
         try:
-            response = post_with_retry(
-                model_url,
-                headers=headers,
-                json_data=test_payload,
-                timeout=test_case.response_timeout,
-            )
+            if test_payload is not None:
+                response = post_with_retry(
+                    model_url,
+                    headers={"Content-Type": "application/json"},
+                    json_data=test_payload,
+                    timeout=test_case.response_timeout,
+                )
+            else:
+                response = get_with_retry(
+                    model_url,
+                    headers={"Accept": "application/json"},
+                    timeout=test_case.response_timeout,
+                )
         except Exception as e:
             logger.error(f"❌ Failed to call model: {e}")
             raise AssertionError(f"❌ Failed to call model: {e}") from e

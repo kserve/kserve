@@ -1502,6 +1502,187 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				}).WithContext(ctx).Should(Succeed())
 			})
 		})
+
+		When("referenced external InferencePool status changes", func() {
+			It("should update InferencePoolReady when the referenced pool becomes ready", func(ctx SpecContext) {
+				// given
+				svcName := "test-llm-stale-inferencepool-condition"
+				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+				infPoolName := kmeta.ChildName(svcName, "-my-inf-pool")
+
+				infPool := InferencePool(infPoolName,
+					InNamespace[*igwapi.InferencePool](testNs.Name),
+					WithSelector("app", "workload"),
+					WithTargetPort(8000),
+					WithExtensionRef("", "Service", kmeta.ChildName(svcName, "-epp-service"), 9002),
+				)
+				Expect(envTest.Create(ctx, infPool)).To(Succeed())
+				defer func() {
+					testNs.DeleteAndWait(ctx, infPool)
+				}()
+
+				llmSvc := LLMInferenceService(svcName,
+					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+					WithModelURI("hf://facebook/opt-125m"),
+					WithManagedRoute(),
+					WithManagedGateway(),
+					WithInferencePoolRef(infPoolName),
+				)
+
+				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+				defer func() {
+					testNs.DeleteAndWait(ctx, llmSvc)
+				}()
+
+				ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvc)
+
+				// Verify the initial not-ready state is reflected.
+				Eventually(func(g Gomega, ctx context.Context) error {
+					current := &v1alpha2.LLMInferenceService{}
+					g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+
+					inferencePoolCondition := current.Status.GetCondition(v1alpha2.InferencePoolReady)
+					g.Expect(inferencePoolCondition).ToNot(BeNil())
+					g.Expect(inferencePoolCondition.IsFalse()).To(BeTrue())
+					g.Expect(inferencePoolCondition.Reason).To(Equal("WaitingForGateway"))
+					g.Expect(current.Status.Router).ToNot(BeNil())
+					g.Expect(current.Status.Router.Scheduler.InferencePool).ToNot(BeNil())
+					g.Expect(string(current.Status.Router.Scheduler.InferencePool.Name)).To(Equal(infPoolName))
+
+					return nil
+				}).WithContext(ctx).Should(Succeed())
+
+				// when - the external pool transitions to ready
+				ensureInferencePoolReady(ctx, envTest.Client, infPool)
+
+				// then - InferencePoolReady should be refreshed to true
+				Eventually(func(g Gomega, ctx context.Context) error {
+					current := &v1alpha2.LLMInferenceService{}
+					g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+					g.Expect(current.Status).To(HaveCondition(string(v1alpha2.InferencePoolReady), "True"))
+					g.Expect(current.Status.Router).ToNot(BeNil())
+					g.Expect(current.Status.Router.Scheduler.InferencePool).ToNot(BeNil())
+					g.Expect(string(current.Status.Router.Scheduler.InferencePool.Name)).To(Equal(infPoolName))
+
+					return nil
+				}).WithContext(ctx).Should(Succeed())
+			})
+		})
+	})
+
+	Context("Readiness Event Emission", func() {
+		It("should emit a Normal LLMInferenceServiceReady Event when transitioning NotReady to Ready", func(ctx SpecContext) {
+			svcName := "test-llm-event-ready"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithModelName("facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() { testNs.DeleteAndWait(ctx, llmSvc) }()
+
+			ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvc)
+			ensureWorkloadDeploymentReady(ctx, envTest.Client, llmSvc)
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Status).To(HaveCondition("Ready", "True"))
+			}).WithContext(ctx).Should(Succeed())
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				g.Expect(findEvent(ctx, envTest.Client, llmSvc, string(llmisvc.LLMInferenceServiceReadyState))).NotTo(BeNil(),
+					"Expected a Normal LLMInferenceServiceReady Event")
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should emit a Warning LLMInferenceServiceNotReady Event with MainWorkloadReady when transitioning Ready to NotReady", func(ctx SpecContext) {
+			svcName := "test-llm-event-notready"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithModelName("facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() { testNs.DeleteAndWait(ctx, llmSvc) }()
+
+			ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvc)
+			ensureWorkloadDeploymentReady(ctx, envTest.Client, llmSvc)
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Status).To(HaveCondition("Ready", "True"))
+			}).WithContext(ctx).Should(Succeed())
+
+			setWorkloadDeploymentNotReady(ctx, envTest.Client, llmSvc)
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Status).To(HaveCondition("Ready", "False"))
+			}).WithContext(ctx).Should(Succeed())
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				ev := findEvent(ctx, envTest.Client, llmSvc, string(llmisvc.LLMInferenceServiceNotReadyState))
+				g.Expect(ev).NotTo(BeNil(), "Expected a Warning LLMInferenceServiceNotReady Event")
+				g.Expect(ev.Message).To(ContainSubstring(string(v1alpha2.MainWorkloadReady)))
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should not emit a readiness Event when status is unchanged", func(ctx SpecContext) {
+			svcName := "test-llm-event-noop"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithModelName("facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() { testNs.DeleteAndWait(ctx, llmSvc) }()
+
+			ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvc)
+			ensureWorkloadDeploymentReady(ctx, envTest.Client, llmSvc)
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Status).To(HaveCondition("Ready", "True"))
+			}).WithContext(ctx).Should(Succeed())
+
+			baselineCount := countReadinessEvents(ctx, envTest.Client, llmSvc)
+
+			errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				_, errUpdate := ctrl.CreateOrUpdate(ctx, envTest.Client, llmSvc, func() error {
+					if llmSvc.Annotations == nil {
+						llmSvc.Annotations = map[string]string{}
+					}
+					llmSvc.Annotations["test-noop-trigger"] = time.Now().String()
+					return nil
+				})
+				return errUpdate
+			})
+			Expect(errRetry).ToNot(HaveOccurred())
+
+			Consistently(func(g Gomega, ctx context.Context) {
+				g.Expect(countReadinessEvents(ctx, envTest.Client, llmSvc)).To(Equal(baselineCount),
+					"No new readiness Events should be emitted when status is unchanged")
+			}, 5*time.Second, 500*time.Millisecond).WithContext(ctx).Should(Succeed())
+		})
 	})
 })
 
@@ -1784,4 +1965,83 @@ func customRouteSpec(ctx context.Context, c client.Client, nsName, gatewayRefNam
 	httpRouteSpec := &route.Spec
 
 	return httpRouteSpec
+}
+
+func ensureWorkloadDeploymentReady(ctx context.Context, c client.Client, llmSvc *v1alpha2.LLMInferenceService) {
+	if envTest.UsingExistingCluster() {
+		return
+	}
+
+	deployName := types.NamespacedName{
+		Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve"),
+		Namespace: llmSvc.GetNamespace(),
+	}
+
+	Eventually(func(g Gomega, ctx context.Context) {
+		dep := &appsv1.Deployment{}
+		g.Expect(c.Get(ctx, deployName, dep)).To(Succeed())
+
+		dep.Status.Conditions = []appsv1.DeploymentCondition{
+			{
+				Type:   appsv1.DeploymentAvailable,
+				Status: corev1.ConditionTrue,
+			},
+		}
+		g.Expect(c.Status().Update(ctx, dep)).To(Succeed())
+	}).WithContext(ctx).Should(Succeed())
+}
+
+func setWorkloadDeploymentNotReady(ctx context.Context, c client.Client, llmSvc *v1alpha2.LLMInferenceService) {
+	deployName := types.NamespacedName{
+		Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve"),
+		Namespace: llmSvc.GetNamespace(),
+	}
+
+	Eventually(func(g Gomega, ctx context.Context) {
+		dep := &appsv1.Deployment{}
+		g.Expect(c.Get(ctx, deployName, dep)).To(Succeed())
+
+		dep.Status.Conditions = []appsv1.DeploymentCondition{
+			{
+				Type:    appsv1.DeploymentAvailable,
+				Status:  corev1.ConditionFalse,
+				Reason:  "MinimumReplicasUnavailable",
+				Message: "Deployment does not have minimum availability",
+			},
+		}
+		g.Expect(c.Status().Update(ctx, dep)).To(Succeed())
+	}).WithContext(ctx).Should(Succeed())
+}
+
+func findEvent(ctx context.Context, c client.Client, llmSvc *v1alpha2.LLMInferenceService, reason string) *corev1.Event {
+	events := &corev1.EventList{}
+	if err := c.List(ctx, events, client.InNamespace(llmSvc.GetNamespace())); err != nil {
+		return nil
+	}
+	for i := range events.Items {
+		ev := &events.Items[i]
+		if ev.InvolvedObject.Kind == "LLMInferenceService" &&
+			ev.InvolvedObject.Name == llmSvc.GetName() &&
+			ev.Reason == reason {
+			return ev
+		}
+	}
+	return nil
+}
+
+func countReadinessEvents(ctx context.Context, c client.Client, llmSvc *v1alpha2.LLMInferenceService) int {
+	events := &corev1.EventList{}
+	if err := c.List(ctx, events, client.InNamespace(llmSvc.GetNamespace())); err != nil {
+		return 0
+	}
+	count := 0
+	for _, ev := range events.Items {
+		if ev.InvolvedObject.Kind == "LLMInferenceService" &&
+			ev.InvolvedObject.Name == llmSvc.GetName() &&
+			(ev.Reason == string(llmisvc.LLMInferenceServiceReadyState) ||
+				ev.Reason == string(llmisvc.LLMInferenceServiceNotReadyState)) {
+			count++
+		}
+	}
+	return count
 }

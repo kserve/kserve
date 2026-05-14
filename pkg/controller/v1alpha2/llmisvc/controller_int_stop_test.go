@@ -1276,7 +1276,7 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 				presetsCombinedCondition := llmSvc.Status.GetCondition(v1alpha2.PresetsCombined)
 				g.Expect(presetsCombinedCondition).ToNot(BeNil())
 				g.Expect(presetsCombinedCondition.Status).To(Equal(corev1.ConditionFalse))
-				g.Expect(presetsCombinedCondition.Reason).To(Equal("CombineBaseError"))
+				g.Expect(presetsCombinedCondition.Reason).To(Equal("ConfigNotFound"))
 				return nil
 			}).WithContext(ctx).Should(Succeed(), "PresetsCombined should report config error when config is missing and service is not stopped")
 

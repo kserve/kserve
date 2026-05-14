@@ -14,6 +14,8 @@
 
 import hashlib
 import os
+import re
+
 import pytest
 from ..common.gw_api import (
     create_or_update_gateway,
@@ -60,6 +62,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     "env": [
                         {"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"},
                         {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
+                        {"name": "VLLM_USE_V1", "value": "0"},
                         *UPSTREAM_K8S_VLLM_ENV_OVERRIDES,
                     ],
                     "resources": {
@@ -80,6 +83,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     "env": [
                         {"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"},
                         {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
+                        {"name": "VLLM_USE_V1", "value": "0"},
                         *UPSTREAM_K8S_VLLM_ENV_OVERRIDES,
                     ],
                     "resources": {
@@ -113,6 +117,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "env": [
                             {"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"},
                             {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
+                            {"name": "VLLM_USE_V1", "value": "0"},
                             *UPSTREAM_K8S_VLLM_ENV_OVERRIDES,
                         ],
                         "resources": {
@@ -141,6 +146,12 @@ LLMINFERENCESERVICE_CONFIGS = {
     },
     "model-fb-opt-125m": {
         "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},
+    },
+    "model-qwen2.5-0.5b": {
+        "model": {
+            "uri": "hf://Qwen/Qwen2.5-0.5B-Instruct",
+            "name": "Qwen/Qwen2.5-0.5B-Instruct",
+        },
     },
     "model-deepseek-v2-lite": {
         "model": {
@@ -347,6 +358,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     ],
                     "env": [
                         {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
+                        {"name": "VLLM_USE_V1", "value": "0"},
                         *UPSTREAM_K8S_VLLM_ENV_OVERRIDES,
                     ],
                     "resources": {
@@ -371,6 +383,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     ],
                     "env": [
                         {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
+                        {"name": "VLLM_USE_V1", "value": "0"},
                         *UPSTREAM_K8S_VLLM_ENV_OVERRIDES,
                     ],
                     "resources": {
@@ -929,6 +942,13 @@ LLMINFERENCESERVICE_CONFIGS = {
             }
         },
     },
+    "prometheus-scrape": {
+        "annotations": {
+            "prometheus.io/scrape": "true",
+            "prometheus.io/port": "8000",
+            "prometheus.io/path": "/metrics",
+        },
+    },
     "scaling-hpa": {
         "scaling": {
             "minReplicas": 1,
@@ -1104,7 +1124,8 @@ def test_case(request):
             )
         if not tc.service_name:
             tc.service_name = generate_service_name(request.node.name, tc.base_refs)
-        tc.model_name = _get_model_name_from_configs(tc.base_refs)
+        if tc.model_name == "default/model":
+            tc.model_name = _get_model_name_from_configs(tc.base_refs)
 
         # Create unique configs for this test
         unique_base_refs = []
@@ -1163,16 +1184,20 @@ def _get_model_name_from_configs(config_names):
     return "default/model"
 
 
+_NON_DNS_CHARS = re.compile(r"[^a-z0-9]+")
+
+
+def _sanitize_for_dns(s: str) -> str:
+    """Replace non-DNS characters with hyphens, mirrors sanitizeForDNS in test_namespace.go."""
+    return _NON_DNS_CHARS.sub("-", s.lower()).strip("-")
+
+
 def generate_k8s_safe_suffix(
     base_name: str, extra_parts: Optional[List[str]] = None
 ) -> str:
     """Generate a Kubernetes-safe name suffix with hash."""
-    if extra_parts:
-        full_name = f"{base_name}-{'-'.join(sorted(extra_parts))}"
-    else:
-        full_name = base_name
-
-    full_name = full_name.lower().replace("_", "-")
+    raw = f"{base_name}-{'-'.join(sorted(extra_parts))}" if extra_parts else base_name
+    full_name = _sanitize_for_dns(raw)
 
     name_hash = hashlib.sha256(full_name.encode()).hexdigest()[:8]
 

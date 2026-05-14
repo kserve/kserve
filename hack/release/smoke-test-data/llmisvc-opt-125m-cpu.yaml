@@ -1,0 +1,44 @@
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceService
+metadata:
+  name: facebook-opt-125m-single
+spec:
+  model:
+    uri: "hf://facebook/opt-125m"
+    name: facebook/opt-125m
+  replicas: 1
+  router:
+    scheduler: {}
+    route: {}
+    gateway: {}
+  template:
+    containers:
+      - name: main
+        image: public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+        env:
+          - name: USER
+            value: nonroot
+          - name: VLLM_LOGGING_LEVEL
+            value: DEBUG
+          - name: VLLM_CPU_KVCACHE_SPACE
+            value: "1"
+        resources:
+          limits:
+            cpu: "2"
+            memory: 7Gi
+          requests:
+            cpu: 200m
+            memory: 2Gi
+        livenessProbe:
+          initialDelaySeconds: 180
+          periodSeconds: 30
+          timeoutSeconds: 30
+          failureThreshold: 8
+        readinessProbe:
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3

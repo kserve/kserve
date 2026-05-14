@@ -30,6 +30,7 @@ import (
 	goerrors "github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -336,7 +337,7 @@ func GetServingRuntime(ctx context.Context, cl client.Client, name string, names
 	err = cl.Get(ctx, client.ObjectKey{Name: name}, clusterRuntime)
 	if err == nil {
 		return &clusterRuntime.Spec, clusterRuntime.Annotations, nil, true
-	} else if !apierrors.IsNotFound(err) {
+	} else if !apierrors.IsNotFound(err) && !apimeta.IsNoMatchError(err) {
 		return nil, nil, err, false
 	}
 	return nil, nil, goerrors.New("No ServingRuntimes or ClusterServingRuntimes with the name: " + name), false

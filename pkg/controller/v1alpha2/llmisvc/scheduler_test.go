@@ -1296,3 +1296,199 @@ func TestExtractDeprecatedMetricFlags(t *testing.T) {
 		})
 	}
 }
+
+func TestSchedulerTransformGatesMetricFlagExtraction(t *testing.T) {
+	configYAML := `apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: queue-scorer
+`
+
+	tests := []struct {
+		name           string
+		args           []string
+		expectErr      bool
+		errSubstring   string
+		validateArgs   func(g Gomega, args []string)
+		validateConfig func(g Gomega, args []string)
+	}{
+		{
+			name: "config-file with deprecated flags returns error",
+			args: []string{
+				"--config-file", "/etc/scheduler/config.yaml",
+				"--total-queued-requests-metric", "vllm:num_requests_waiting",
+				"--kv-cache-usage-percentage-metric", "vllm:kv_cache_usage_perc",
+			},
+			expectErr:    true,
+			errSubstring: "no inline --config-text",
+		},
+		{
+			name: "no config flag with deprecated flags returns error",
+			args: []string{
+				"--grpc-port", "9002",
+				"--total-queued-requests-metric", "vllm:num_requests_waiting",
+			},
+			expectErr:    true,
+			errSubstring: "no inline --config-text",
+		},
+		{
+			name: "config-file without deprecated flags succeeds",
+			args: []string{
+				"--config-file", "/etc/scheduler/config.yaml",
+				"--grpc-port", "9002",
+			},
+			expectErr: false,
+			validateArgs: func(g Gomega, args []string) {
+				g.Expect(args).To(ContainElement("--config-file"))
+				g.Expect(args).To(ContainElement("/etc/scheduler/config.yaml"))
+				g.Expect(args).To(ContainElement("--grpc-port"))
+			},
+		},
+		{
+			name: "configText camelCase with deprecated flags succeeds",
+			args: []string{
+				"--configText", configYAML,
+				"--total-queued-requests-metric", "vllm:num_requests_waiting",
+				"--kv-cache-usage-percentage-metric", "vllm:kv_cache_usage_perc",
+				"--grpc-port", "9002",
+			},
+			expectErr: false,
+			validateArgs: func(g Gomega, args []string) {
+				for _, a := range args {
+					g.Expect(a).NotTo(ContainSubstring("total-queued-requests-metric"))
+					g.Expect(a).NotTo(ContainSubstring("kv-cache-usage-percentage-metric"))
+				}
+				g.Expect(args).To(ContainElement("--grpc-port"))
+			},
+			validateConfig: func(g Gomega, args []string) {
+				for i, a := range args {
+					if a == "--configText" && i+1 < len(args) {
+						g.Expect(args[i+1]).To(ContainSubstring("core-metrics-extractor"))
+						g.Expect(args[i+1]).To(ContainSubstring("vllm:num_requests_waiting"))
+						g.Expect(args[i+1]).To(ContainSubstring("vllm:kv_cache_usage_perc"))
+						return
+					}
+				}
+				g.Expect(true).To(BeFalse(), "expected --configText arg not found")
+			},
+		},
+		{
+			name: "config-text with deprecated flags succeeds (existing behavior)",
+			args: []string{
+				"--config-text", configYAML,
+				"--total-queued-requests-metric", "vllm:num_requests_waiting",
+				"--grpc-port", "9002",
+			},
+			expectErr: false,
+			validateArgs: func(g Gomega, args []string) {
+				for _, a := range args {
+					g.Expect(a).NotTo(ContainSubstring("total-queued-requests-metric"))
+				}
+				g.Expect(args).To(ContainElement("--grpc-port"))
+			},
+			validateConfig: func(g Gomega, args []string) {
+				for i, a := range args {
+					if a == "--config-text" && i+1 < len(args) {
+						g.Expect(args[i+1]).To(ContainSubstring("core-metrics-extractor"))
+						g.Expect(args[i+1]).To(ContainSubstring("vllm:num_requests_waiting"))
+						return
+					}
+				}
+				g.Expect(true).To(BeFalse(), "expected --config-text arg not found")
+			},
+		},
+		{
+			name: "single-dash -config-text with deprecated flags succeeds",
+			args: []string{
+				"-config-text", configYAML,
+				"--total-queued-requests-metric", "vllm:num_requests_waiting",
+				"--grpc-port", "9002",
+			},
+			expectErr: false,
+			validateArgs: func(g Gomega, args []string) {
+				for _, a := range args {
+					g.Expect(a).NotTo(ContainSubstring("total-queued-requests-metric"))
+				}
+				g.Expect(args).To(ContainElement("--grpc-port"))
+			},
+			validateConfig: func(g Gomega, args []string) {
+				for i, a := range args {
+					if a == "-config-text" && i+1 < len(args) {
+						g.Expect(args[i+1]).To(ContainSubstring("core-metrics-extractor"))
+						g.Expect(args[i+1]).To(ContainSubstring("vllm:num_requests_waiting"))
+						return
+					}
+				}
+				g.Expect(true).To(BeFalse(), "expected -config-text arg not found")
+			},
+		},
+		{
+			name: "single-dash -configText with deprecated flags succeeds",
+			args: []string{
+				"-configText", configYAML,
+				"--total-queued-requests-metric", "vllm:num_requests_waiting",
+				"--grpc-port", "9002",
+			},
+			expectErr: false,
+			validateArgs: func(g Gomega, args []string) {
+				for _, a := range args {
+					g.Expect(a).NotTo(ContainSubstring("total-queued-requests-metric"))
+				}
+				g.Expect(args).To(ContainElement("--grpc-port"))
+			},
+			validateConfig: func(g Gomega, args []string) {
+				for i, a := range args {
+					if a == "-configText" && i+1 < len(args) {
+						g.Expect(args[i+1]).To(ContainSubstring("core-metrics-extractor"))
+						g.Expect(args[i+1]).To(ContainSubstring("vllm:num_requests_waiting"))
+						return
+					}
+				}
+				g.Expect(true).To(BeFalse(), "expected -configText arg not found")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+
+			d := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-scheduler",
+					Namespace: "test-ns",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								"app.kubernetes.io/version": "0.7.0",
+							},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Name: "main", Args: tt.args},
+							},
+						},
+					},
+				},
+			}
+
+			err := schedulerTransform(context.Background(), d)
+			if tt.expectErr {
+				g.Expect(err).To(HaveOccurred())
+				g.Expect(err.Error()).To(ContainSubstring(tt.errSubstring))
+				return
+			}
+			g.Expect(err).NotTo(HaveOccurred())
+
+			resultArgs := d.Spec.Template.Spec.Containers[0].Args
+			if tt.validateArgs != nil {
+				tt.validateArgs(g, resultArgs)
+			}
+			if tt.validateConfig != nil {
+				tt.validateConfig(g, resultArgs)
+			}
+		})
+	}
+}

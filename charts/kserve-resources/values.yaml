@@ -1,5 +1,5 @@
 kserve:
-  version: v0.18.0-rc1
+  version: v0.18.0
   createSharedResources: true
   inferenceServiceConfig:
     enabled: ''
@@ -169,6 +169,7 @@ kserve:
     affinity: {}
     image: kserve/kserve-controller
     tag: ''
+    imagePullPolicy: Always
     imagePullSecrets: []
     resources:
       limits:
