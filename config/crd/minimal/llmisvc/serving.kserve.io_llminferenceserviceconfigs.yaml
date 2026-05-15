@@ -65,6 +65,18 @@ spec:
                     properties:
                       adapters:
                         x-kubernetes-preserve-unknown-fields: true
+                      maxAdapters:
+                        format: int32
+                        minimum: 1
+                        type: integer
+                      maxCpuAdapters:
+                        format: int32
+                        minimum: 1
+                        type: integer
+                      maxRank:
+                        format: int32
+                        minimum: 1
+                        type: integer
                     type: object
                   name:
                     type: string
