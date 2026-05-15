@@ -1,10 +1,16 @@
-name: 'Upload E2E test results'
+name: 'Upload test results'
 description: 'Uploads JUnit XML and JSON structured test result artifacts'
 
 inputs:
   name:
     description: 'Artifact name'
     required: true
+  path:
+    description: 'Glob or path list for result files'
+    required: false
+    default: |
+      /tmp/junit_e2e.xml
+      /tmp/e2e_results.json
 
 runs:
   using: "composite"
@@ -12,7 +18,5 @@ runs:
     - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: ${{ inputs.name }}
-        path: |
-          /tmp/junit_e2e.xml
-          /tmp/e2e_results.json
+        path: ${{ inputs.path }}
         if-no-files-found: ignore
