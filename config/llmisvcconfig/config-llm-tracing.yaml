@@ -4,8 +4,7 @@ metadata:
   name: kserve-config-llm-tracing
 spec:
   tracing:
-    serviceName: inference-server
-    otelExporterEndpoint: "http://otel-collector:4317"
-    tracesSampler: "parentbased_traceidratio"
-    tracesSamplerArg: "0.05"
-    tracesExporter: "otlp"
+    exporterEndpoint: "http://otel-collector:4317"
+    sampler: "parentbased_traceidratio"
+    samplerArg: "0.05"
+    exporter: "otlp"

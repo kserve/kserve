@@ -25224,19 +25224,6 @@ spec:
                             - name
                           x-kubernetes-list-type: map
                       type: object
-                    tracing:
-                      properties:
-                        otelExporterEndpoint:
-                          type: string
-                        serviceName:
-                          type: string
-                        tracesExporter:
-                          type: string
-                        tracesSampler:
-                          type: string
-                        tracesSamplerArg:
-                          type: string
-                      type: object
                     worker:
                       properties:
                         activeDeadlineSeconds:
@@ -34196,19 +34183,6 @@ spec:
                                 - name
                               x-kubernetes-list-type: map
                           type: object
-                        tracing:
-                          properties:
-                            otelExporterEndpoint:
-                              type: string
-                            serviceName:
-                              type: string
-                            tracesExporter:
-                              type: string
-                            tracesSampler:
-                              type: string
-                            tracesSamplerArg:
-                              type: string
-                          type: object
                       type: object
                   type: object
                 scaling:
@@ -38226,15 +38200,13 @@ spec:
                   type: object
                 tracing:
                   properties:
-                    otelExporterEndpoint:
+                    exporter:
                       type: string
-                    serviceName:
+                    exporterEndpoint:
                       type: string
-                    tracesExporter:
+                    sampler:
                       type: string
-                    tracesSampler:
-                      type: string
-                    tracesSamplerArg:
+                    samplerArg:
                       type: string
                   type: object
                 worker:

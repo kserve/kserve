@@ -25,10 +25,15 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 )
 
+const (
+	defaultSchedulerServiceName = "inference-scheduler"
+	defaultServerServiceName    = "inference-server"
+)
+
 // otelResourceAttributeEnvVars returns the standard k8s resource attribute env
 // vars that are always injected when tracing is enabled. These use the downward
 // API to populate node and pod names, then compose OTEL_RESOURCE_ATTRIBUTES.
-func otelResourceAttributeEnvVars(namespace string) []corev1.EnvVar {
+func otelResourceAttributeEnvVars(namespace, llmisvcName string) []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
 			Name: "OTEL_RESOURCE_ATTRIBUTES_NODE_NAME",
@@ -49,8 +54,11 @@ func otelResourceAttributeEnvVars(namespace string) []corev1.EnvVar {
 			},
 		},
 		{
-			Name:  "OTEL_RESOURCE_ATTRIBUTES",
-			Value: "k8s.namespace.name=" + namespace + ",k8s.node.name=$(OTEL_RESOURCE_ATTRIBUTES_NODE_NAME),k8s.pod.name=$(OTEL_RESOURCE_ATTRIBUTES_POD_NAME)",
+			Name: "OTEL_RESOURCE_ATTRIBUTES",
+			Value: "k8s.namespace.name=" + namespace +
+				",k8s.node.name=$(OTEL_RESOURCE_ATTRIBUTES_NODE_NAME)" +
+				",k8s.pod.name=$(OTEL_RESOURCE_ATTRIBUTES_POD_NAME)" +
+				",llmisvc.name=" + llmisvcName,
 		},
 	}
 }
@@ -60,27 +68,26 @@ func otelResourceAttributeEnvVars(namespace string) []corev1.EnvVar {
 // and standard OTEL_* env vars.
 //
 // TracingSpec field values are expected to be populated by the well-known config
-// merge (kserve-config-llm-tracing-scheduler) before this function is called.
-func injectSchedulerTracing(t *v1alpha2.TracingSpec, namespace string, container *corev1.Container) {
+// merge (kserve-config-llm-tracing) before this function is called.
+func injectSchedulerTracing(t *v1alpha2.TracingSpec, namespace, llmisvcName string, container *corev1.Container) {
 	if t == nil {
 		return
 	}
 
-	// Inject --tracing=true if not already present
 	if !slices.Contains(container.Args, "--tracing=true") &&
 		!slices.Contains(container.Args, "-tracing=true") &&
 		!slices.Contains(container.Args, "--tracing") {
 		container.Args = append(container.Args, "--tracing=true")
 	}
 
-	resourceAttrs := otelResourceAttributeEnvVars(namespace)
+	resourceAttrs := otelResourceAttributeEnvVars(namespace, llmisvcName)
 	tracingEnvVars := make([]corev1.EnvVar, 0, 5+len(resourceAttrs))
 	tracingEnvVars = append(tracingEnvVars,
-		corev1.EnvVar{Name: "OTEL_SERVICE_NAME", Value: ptr.Deref(t.ServiceName, "")},
-		corev1.EnvVar{Name: "OTEL_EXPORTER_OTLP_ENDPOINT", Value: ptr.Deref(t.OtelExporterEndpoint, "")},
-		corev1.EnvVar{Name: "OTEL_TRACES_EXPORTER", Value: ptr.Deref(t.TracesExporter, "")},
-		corev1.EnvVar{Name: "OTEL_TRACES_SAMPLER", Value: ptr.Deref(t.TracesSampler, "")},
-		corev1.EnvVar{Name: "OTEL_TRACES_SAMPLER_ARG", Value: ptr.Deref(t.TracesSamplerArg, "")},
+		corev1.EnvVar{Name: "OTEL_SERVICE_NAME", Value: defaultSchedulerServiceName},
+		corev1.EnvVar{Name: "OTEL_EXPORTER_OTLP_ENDPOINT", Value: ptr.Deref(t.ExporterEndpoint, "")},
+		corev1.EnvVar{Name: "OTEL_TRACES_EXPORTER", Value: ptr.Deref(t.Exporter, "")},
+		corev1.EnvVar{Name: "OTEL_TRACES_SAMPLER", Value: ptr.Deref(t.Sampler, "")},
+		corev1.EnvVar{Name: "OTEL_TRACES_SAMPLER_ARG", Value: ptr.Deref(t.SamplerArg, "")},
 	)
 	tracingEnvVars = append(tracingEnvVars, resourceAttrs...)
 
@@ -94,33 +101,34 @@ func injectSchedulerTracing(t *v1alpha2.TracingSpec, namespace string, container
 //
 // TracingSpec field values are expected to be populated by the well-known config
 // merge (kserve-config-llm-tracing) before this function is called.
-func injectServerTracing(t *v1alpha2.TracingSpec, namespace string, roleSuffix string, container *corev1.Container) {
+func injectServerTracing(t *v1alpha2.TracingSpec, namespace, llmisvcName, roleSuffix string, container *corev1.Container) {
 	if t == nil {
 		return
 	}
 
-	endpoint := ptr.Deref(t.OtelExporterEndpoint, "")
+	endpoint := ptr.Deref(t.ExporterEndpoint, "")
+	if endpoint == "" {
+		return
+	}
 
-	// Inject --otlp-traces-endpoint if not already present
 	if !hasArg(container.Args, "--otlp-traces-endpoint") {
 		container.Args = append(container.Args, "--otlp-traces-endpoint", endpoint)
 	}
 
-	// Inject --collect-detailed-traces all if not already present
 	if !hasArg(container.Args, "--collect-detailed-traces") {
 		container.Args = append(container.Args, "--collect-detailed-traces", "all")
 	}
 
-	serviceName := ptr.Deref(t.ServiceName, "") + roleSuffix
-	resourceAttrs := otelResourceAttributeEnvVars(namespace)
+	serviceName := defaultServerServiceName + roleSuffix
+	resourceAttrs := otelResourceAttributeEnvVars(namespace, llmisvcName)
 
 	tracingEnvVars := make([]corev1.EnvVar, 0, 5+len(resourceAttrs))
 	tracingEnvVars = append(tracingEnvVars,
 		corev1.EnvVar{Name: "OTEL_SERVICE_NAME", Value: serviceName},
 		corev1.EnvVar{Name: "OTEL_EXPORTER_OTLP_ENDPOINT", Value: endpoint},
-		corev1.EnvVar{Name: "OTEL_TRACES_EXPORTER", Value: ptr.Deref(t.TracesExporter, "")},
-		corev1.EnvVar{Name: "OTEL_TRACES_SAMPLER", Value: ptr.Deref(t.TracesSampler, "")},
-		corev1.EnvVar{Name: "OTEL_TRACES_SAMPLER_ARG", Value: ptr.Deref(t.TracesSamplerArg, "")},
+		corev1.EnvVar{Name: "OTEL_TRACES_EXPORTER", Value: ptr.Deref(t.Exporter, "")},
+		corev1.EnvVar{Name: "OTEL_TRACES_SAMPLER", Value: ptr.Deref(t.Sampler, "")},
+		corev1.EnvVar{Name: "OTEL_TRACES_SAMPLER_ARG", Value: ptr.Deref(t.SamplerArg, "")},
 	)
 	tracingEnvVars = append(tracingEnvVars, resourceAttrs...)
 
@@ -130,10 +138,10 @@ func injectServerTracing(t *v1alpha2.TracingSpec, namespace string, roleSuffix s
 // injectServerTracingIntoPodSpec finds the "main" container in a PodSpec and
 // injects server tracing into it. This is a convenience wrapper for multi-node
 // workloads where the caller works with PodSpecs directly.
-func injectServerTracingIntoPodSpec(t *v1alpha2.TracingSpec, namespace string, roleSuffix string, podSpec *corev1.PodSpec) {
+func injectServerTracingIntoPodSpec(t *v1alpha2.TracingSpec, namespace, llmisvcName, roleSuffix string, podSpec *corev1.PodSpec) {
 	for i := range podSpec.Containers {
 		if podSpec.Containers[i].Name == "main" {
-			injectServerTracing(t, namespace, roleSuffix, &podSpec.Containers[i])
+			injectServerTracing(t, namespace, llmisvcName, roleSuffix, &podSpec.Containers[i])
 			return
 		}
 	}
