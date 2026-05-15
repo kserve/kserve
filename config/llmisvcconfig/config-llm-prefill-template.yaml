@@ -240,3 +240,4 @@ spec:
         - name: tls-certs
           secret:
             secretName: "{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}"
+            optional: true

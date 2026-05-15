@@ -314,9 +314,17 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 
 	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route == nil {
 		llmSvc.Status.Router = nil
+		urlFn := apis.HTTPS
+		statusCfg, err := LoadConfig(ctx, r.Clientset)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load config: %w", err)
+		}
+		if !statusCfg.EnableTLS {
+			urlFn = apis.HTTP
+		}
 		llmSvc.Status.Addresses = []v1alpha2.SourcedAddress{{
 			Addressable: duckv1.Addressable{
-				URL: apis.HTTPS(network.GetServiceHostname(
+				URL: urlFn(network.GetServiceHostname(
 					kmeta.ChildName(llmSvc.GetName(), "-kserve-workload-svc"),
 					llmSvc.GetNamespace(),
 				)),
