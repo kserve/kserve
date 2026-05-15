@@ -81,7 +81,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -91,6 +91,46 @@ schedulingProfiles:
 			Expect(found).To(BeTrue(), "Expected to find --config-text with inline config in scheduler deployment")
 			Expect(configText).To(ContainSubstring("custom-plugin"))
 			Expect(configText).To(ContainSubstring("customParam"))
+
+			// Verify status.workloads references include the scheduler
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, types.NamespacedName{Name: svcName, Namespace: testNs.Name}, current)).To(Succeed())
+				g.Expect(current.Status.Workloads).NotTo(BeNil())
+				g.Expect(current.Status.Workloads.Scheduler).To(Equal(&corev1.TypedLocalObjectReference{
+					APIGroup: ptr.To("apps"),
+					Kind:     "Deployment",
+					Name:     kmeta.ChildName(svcName, "-kserve-router-scheduler"),
+				}))
+			}).WithContext(ctx).Should(Succeed())
+
+			// when - remove managed scheduler
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				current := &v1alpha2.LLMInferenceService{}
+				if err := envTest.Get(ctx, types.NamespacedName{Name: svcName, Namespace: testNs.Name}, current); err != nil {
+					return err
+				}
+				current.Spec.Router.Scheduler = nil
+				return envTest.Update(ctx, current)
+			})).To(Succeed())
+
+			// then - scheduler deployment should be deleted
+			Eventually(func(ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
+					Namespace: testNs.Name,
+				}, &appsv1.Deployment{})
+			}).WithContext(ctx).Should(MatchError(ContainSubstring("not found")))
+
+			// status.workloads.scheduler should be nil, other refs preserved
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, types.NamespacedName{Name: svcName, Namespace: testNs.Name}, current)).To(Succeed())
+				g.Expect(current.Status.Workloads).NotTo(BeNil())
+				g.Expect(current.Status.Workloads.Scheduler).To(BeNil())
+				g.Expect(current.Status.Workloads.Primary).NotTo(BeNil())
+				g.Expect(current.Status.Workloads.Service).NotTo(BeNil())
+			}).WithContext(ctx).Should(Succeed())
 		})
 
 		It("should not override config when args already contain --config-text or --configFile", func(ctx SpecContext) {
@@ -156,7 +196,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -208,7 +248,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -257,7 +297,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -306,7 +346,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -342,7 +382,7 @@ schedulingProfiles:
 			Eventually(func(g Gomega, ctx context.Context) error {
 				updatedDeployment = &appsv1.Deployment{}
 				if err := envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, updatedDeployment); err != nil {
 					return err
@@ -382,7 +422,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -428,7 +468,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -487,7 +527,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -524,7 +564,7 @@ schedulingProfiles:
 			Consistently(func(g Gomega, ctx context.Context) error {
 				deployment := &appsv1.Deployment{}
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, deployment)
 			}).WithContext(ctx).
@@ -561,7 +601,7 @@ schedulingProfiles:
 			Consistently(func(g Gomega, ctx context.Context) error {
 				deployment := &appsv1.Deployment{}
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, deployment)
 			}).WithContext(ctx).
@@ -623,7 +663,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -683,7 +723,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -732,7 +772,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: nsName,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -776,7 +816,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: nsName,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -820,7 +860,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: nsName,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -903,7 +943,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: nsName,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -1020,7 +1060,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				if err := envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment); err != nil {
 					return err
@@ -1086,7 +1126,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				if err := envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment); err != nil {
 					return err
@@ -1147,7 +1187,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				if err := envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment); err != nil {
 					return err
@@ -1209,7 +1249,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				if err := envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment); err != nil {
 					return err
@@ -1274,7 +1314,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				if err := envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment); err != nil {
 					return err
