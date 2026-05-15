@@ -303,7 +303,7 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 				if isDefaultBackendRef(llmSvc, llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j].BackendRef) {
 					llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j].Group = ptr.To[gwapiv1.Group]("")
 					llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j].Kind = ptr.To[gwapiv1.Kind]("Service")
-					llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j].Name = gwapiv1.ObjectName(kmeta.ChildName(llmSvc.GetName(), "-kserve-workload-svc"))
+					llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j].Name = gwapiv1.ObjectName(workloadServiceName(llmSvc))
 				}
 			}
 		}
@@ -396,10 +396,15 @@ func ToParentRefs(gatewayRefs []v1alpha2.GatewayObjectReference) []gwapiv1.Paren
 	for _, ref := range gatewayRefs {
 		parentRef := gwapiv1.ParentReference{
 			Name:        ref.Name,
-			Namespace:   &ref.Namespace,
 			Group:       ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
 			Kind:        ptr.To(gwapiv1.Kind("Gateway")),
 			SectionName: ref.SectionName,
+		}
+		// Keep Namespace nil when the ref omits it so Gateway API defaults to
+		// the route namespace, matching validation and watch matching behavior.
+		if ref.Namespace != "" {
+			namespace := ref.Namespace
+			parentRef.Namespace = &namespace
 		}
 		parentRefs = append(parentRefs, parentRef)
 	}

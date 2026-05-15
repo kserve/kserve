@@ -120,7 +120,7 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 func (r *LLMISVCReconciler) reconcileWorkloadService(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
 	expected := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve-workload-svc"),
+			Name:      workloadServiceName(llmSvc),
 			Namespace: llmSvc.GetNamespace(),
 			Labels: map[string]string{
 				constants.KubernetesComponentLabelKey: constants.LLMComponentWorkload,
@@ -177,6 +177,10 @@ func GetWorkloadLabelSelector(meta metav1.ObjectMeta, _ *v1alpha2.LLMInferenceSe
 	// TODO https://github.com/llm-d/llm-d-inference-scheduler/issues/220 and DP template
 
 	return s
+}
+
+func workloadServiceName(llmSvc *v1alpha2.LLMInferenceService) string {
+	return kmeta.ChildName(llmSvc.GetName(), "-kserve-workload-svc")
 }
 
 // injectSecretsFromDefaultServiceAccount copies ImagePullSecrets and Secrets from the
