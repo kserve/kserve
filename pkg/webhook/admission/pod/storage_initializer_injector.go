@@ -794,10 +794,40 @@ func mergeContainerSpecs(targetContainer *corev1.Container, crdContainer *corev1
 		return err
 	}
 
-	if err := json.Unmarshal(jsonResult, targetContainer); err != nil {
+	// Unmarshal into a fresh Container rather than the existing targetContainer:
+	// json.Unmarshal does not clear struct fields absent from the JSON, so reusing
+	// the target's existing EnvVar slice elements lets stale Value/ValueFrom fields
+	// bleed into merged-in entries (issue #5516).
+	merged := corev1.Container{}
+	if err := json.Unmarshal(jsonResult, &merged); err != nil {
 		return err
 	}
 
+	// For env entries whose name is overridden by the ClusterStorageContainer, strategic
+	// merge patch performs a field-wise merge keyed on name, which can leave both
+	// Value and ValueFrom populated on a single entry — a state Kubernetes
+	// admission rejects. Reconcile by deferring to the ClusterStorageContainer's intent.
+	crdEnvByName := make(map[string]corev1.EnvVar, len(crdContainer.Env))
+	for _, e := range crdContainer.Env {
+		crdEnvByName[e.Name] = e
+	}
+	for i := range merged.Env {
+		e := &merged.Env[i]
+		if e.Value == "" || e.ValueFrom == nil {
+			continue
+		}
+		crdEntry, ok := crdEnvByName[e.Name]
+		if !ok {
+			continue
+		}
+		if crdEntry.ValueFrom != nil {
+			e.Value = ""
+		} else if crdEntry.Value != "" {
+			e.ValueFrom = nil
+		}
+	}
+
+	*targetContainer = merged
 	if targetContainer.Name == "" {
 		targetContainer.Name = containerName
 	}
