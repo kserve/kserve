@@ -1810,6 +1810,56 @@ func TestReplaceVariables(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "template uses merged spec when base config overrides expert to false",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Parallelism: &v1alpha2.ParallelismSpec{
+							Expert: false,
+						},
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "main",
+									Env: []corev1.EnvVar{
+										{Name: "EXPERT_ENABLED", Value: "{{ if .Spec.Parallelism.Expert }}true{{ else }}false{{ end }}"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Parallelism: &v1alpha2.ParallelismSpec{
+							Expert: true,
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Parallelism: &v1alpha2.ParallelismSpec{
+							Expert: false,
+						},
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "main",
+									Env: []corev1.EnvVar{
+										{Name: "EXPERT_ENABLED", Value: "false"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
