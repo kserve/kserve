@@ -34,7 +34,7 @@ kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/c
 @pytest.mark.predictor
 @pytest.mark.path_based_routing
 @pytest.mark.asyncio(scope="session")
-async def test_kserve_logger(rest_v1_client):
+async def test_kserve_logger(rest_v1_client, network_layer):
     msg_dumper = "message-dumper"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -96,7 +96,12 @@ async def test_kserve_logger(rest_v1_client):
         for pod in pods.items:
             print(pod)
 
-    res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
+    res = await predict_isvc(
+        rest_v1_client,
+        service_name,
+        "./data/iris_input.json",
+        network_layer=network_layer,
+    )
     assert res["predictions"] == [1, 1]
     pods = kserve_client.core_api.list_namespaced_pod(
         KSERVE_TEST_NAMESPACE,

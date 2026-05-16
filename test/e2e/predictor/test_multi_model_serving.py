@@ -49,7 +49,11 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 @pytest.mark.mms
 @pytest.mark.asyncio(scope="session")
 async def test_mms_sklearn_kserve(
-    protocol_version: str, storage_uri: str, rest_v1_client, rest_v2_client
+    protocol_version: str,
+    storage_uri: str,
+    rest_v1_client,
+    rest_v2_client,
+    network_layer,
 ):
     service_name = f"isvc-sklearn-mms-{protocol_version}"
     # Define an inference service
@@ -124,6 +128,7 @@ async def test_mms_sklearn_kserve(
                 service_name,
                 "./data/iris_input.json",
                 model_name=model_name,
+                network_layer=network_layer,
             )
             for model_name in model_names
         ]
@@ -136,6 +141,7 @@ async def test_mms_sklearn_kserve(
                 service_name,
                 "./data/iris_input_v2.json",
                 model_name=model_name,
+                network_layer=network_layer,
             )
             for model_name in model_names
         ]
@@ -164,7 +170,11 @@ async def test_mms_sklearn_kserve(
 @pytest.mark.mms
 @pytest.mark.asyncio(scope="session")
 async def test_mms_xgboost_kserve(
-    protocol_version: str, storage_uri: str, rest_v1_client, rest_v2_client
+    protocol_version: str,
+    storage_uri: str,
+    rest_v1_client,
+    rest_v2_client,
+    network_layer,
 ):
     service_name = f"isvc-xgboost-mms-{protocol_version}"
     # Define an inference service
@@ -240,6 +250,7 @@ async def test_mms_xgboost_kserve(
                 service_name,
                 "./data/iris_input.json",
                 model_name=model_name,
+                network_layer=network_layer,
             )
             for model_name in model_names
         ]
@@ -252,6 +263,7 @@ async def test_mms_xgboost_kserve(
                 service_name,
                 "./data/iris_input_v2.json",
                 model_name=model_name,
+                network_layer=network_layer,
             )
             for model_name in model_names
         ]

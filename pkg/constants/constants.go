@@ -431,6 +431,20 @@ const (
 	LLMComponentInference             = "inference" // used in sample/template resources
 )
 
+// LLMInferenceService constants
+const (
+	// LLMISVCRoutingSidecarContainerName is the name of the routing sidecar container
+	// that handles prefill disaggregation routing.
+	LLMISVCRoutingSidecarContainerName = "llm-d-routing-sidecar"
+
+	LLMISVCDefaultServiceAccountName = "default"
+
+	// LLMISVCSchedulerAttachesLoRA controls whether the scheduler's tokenizer sidecar
+	// receives LoRA adapter artifacts. The tokenizer only performs tokenization and does
+	// not run inference, so LoRA weights are never needed.
+	LLMISVCSchedulerAttachesLoRA = false
+)
+
 // InferenceService canary constants
 const (
 	InferenceServiceCanary = "canary"

@@ -74,6 +74,18 @@ spec:
                       properties:
                         adapters:
                           x-kubernetes-preserve-unknown-fields: true
+                        maxAdapters:
+                          format: int32
+                          minimum: 1
+                          type: integer
+                        maxCpuAdapters:
+                          format: int32
+                          minimum: 1
+                          type: integer
+                        maxRank:
+                          format: int32
+                          minimum: 1
+                          type: integer
                       type: object
                     name:
                       type: string
@@ -21106,6 +21118,18 @@ spec:
                       properties:
                         adapters:
                           x-kubernetes-preserve-unknown-fields: true
+                        maxAdapters:
+                          format: int32
+                          minimum: 1
+                          type: integer
+                        maxCpuAdapters:
+                          format: int32
+                          minimum: 1
+                          type: integer
+                        maxRank:
+                          format: int32
+                          minimum: 1
+                          type: integer
                       type: object
                     name:
                       type: string
@@ -42109,6 +42133,61 @@ spec:
                   type: object
                 url:
                   type: string
+                workloads:
+                  properties:
+                    prefill:
+                      properties:
+                        apiGroup:
+                          type: string
+                        kind:
+                          type: string
+                        name:
+                          type: string
+                      required:
+                        - kind
+                        - name
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    primary:
+                      properties:
+                        apiGroup:
+                          type: string
+                        kind:
+                          type: string
+                        name:
+                          type: string
+                      required:
+                        - kind
+                        - name
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    scheduler:
+                      properties:
+                        apiGroup:
+                          type: string
+                        kind:
+                          type: string
+                        name:
+                          type: string
+                      required:
+                        - kind
+                        - name
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    service:
+                      properties:
+                        apiGroup:
+                          type: string
+                        kind:
+                          type: string
+                        name:
+                          type: string
+                      required:
+                        - kind
+                        - name
+                      type: object
+                      x-kubernetes-map-type: atomic
+                  type: object
               type: object
           type: object
       served: true
