@@ -1,5 +1,19 @@
-{{- include "kserve-common.renderMultiResourceWithPatches" (dict
+{{- $rendered := include "kserve-common.renderMultiResourceWithPatches" (dict
   "baseFile" "files/llmisvc/resources.yaml"
   "patchGlob" "files/llmisvc/*-patch.yaml"
   "certName" "llmisvc-serving-cert"
-  "context" .) -}}
+  "context" .) }}
+{{- if .Values.kserve.llmisvc.createGIECRDs -}}
+{{ $rendered }}
+{{- else -}}
+{{- range $doc := splitList "\n---\n" $rendered -}}
+{{- $trimmed := trim $doc -}}
+{{- if $trimmed -}}
+{{- $parsed := fromYaml $trimmed -}}
+{{- if and $parsed (ne $parsed.kind "CustomResourceDefinition") }}
+---
+{{ $trimmed }}
+{{- end -}}
+{{- end -}}
+{{- end }}
+{{- end }}
