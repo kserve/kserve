@@ -613,10 +613,6 @@ func loadConfig(t *testing.T, data []byte, filePath string) *v1alpha2.LLMInferen
 		t.Errorf("Failed to unmarshal YAML from %s: %v", filePath, err)
 		return nil
 	}
-	if err := yaml.Unmarshal(data, config); err != nil {
-		t.Errorf("Failed to unmarshal YAML from %s: %v", filePath, err)
-		return nil
-	}
 
 	expectedGroupVersion := v1alpha2.LLMInferenceServiceConfigGVK.GroupVersion().String()
 	if config.APIVersion != expectedGroupVersion {
