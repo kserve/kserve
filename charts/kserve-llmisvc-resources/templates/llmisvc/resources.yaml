@@ -6,14 +6,25 @@
 {{- if .Values.kserve.llmisvc.createGIECRDs -}}
 {{ $rendered }}
 {{- else -}}
+{{- $gieCRDNames := include "llm-isvc-resources.gieCRDNames" . | fromYamlArray -}}
 {{- range $doc := splitList "\n---\n" $rendered -}}
 {{- $trimmed := trim $doc -}}
 {{- if $trimmed -}}
 {{- $parsed := fromYaml $trimmed -}}
-{{- if and $parsed (ne $parsed.kind "CustomResourceDefinition") }}
+{{- $skip := false -}}
+{{- if and $parsed (eq (default "" $parsed.kind) "CustomResourceDefinition") -}}
+{{- $name := "" -}}
+{{- if $parsed.metadata -}}
+{{- $name = default "" $parsed.metadata.name -}}
+{{- end -}}
+{{- if has $name $gieCRDNames -}}
+{{- $skip = true -}}
+{{- end -}}
+{{- end -}}
+{{- if and $parsed (not $skip) }}
 ---
 {{ $trimmed }}
 {{- end -}}
 {{- end -}}
-{{- end }}
+{{- end -}}
 {{- end }}
