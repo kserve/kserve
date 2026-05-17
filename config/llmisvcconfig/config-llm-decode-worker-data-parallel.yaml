@@ -64,7 +64,7 @@ spec:
               fieldRef:
                 fieldPath: metadata.namespace
           - name: SSL_CERT_DIR
-            value: "/var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs"
+            value: '{{ if .GlobalConfig.EnableTLS }}/var/run/kserve/tls:{{- end }}/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs'
     containers:
       - image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
         imagePullPolicy: IfNotPresent
