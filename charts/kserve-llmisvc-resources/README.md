@@ -58,6 +58,7 @@ $ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmis
 | kserve.inferenceservice.resources.limits.memory | string | `"2Gi"` |  |
 | kserve.inferenceservice.resources.requests.cpu | string | `"1"` |  |
 | kserve.inferenceservice.resources.requests.memory | string | `"2Gi"` |  |
+| kserve.llmisvc.installGIECRDs | bool | `true` | Whether to install Gateway API Inference Extension (GIE) CRDs. Set to false if already managed by another release. |
 | kserve.llmisvc.controller.affinity | object | `{}` |  |
 | kserve.llmisvc.controller.annotations | object | `{}` |  |
 | kserve.llmisvc.controller.containerSecurityContext.allowPrivilegeEscalation | bool | `false` |  |

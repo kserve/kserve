@@ -21,6 +21,11 @@
                 "llmisvc": {
                     "type": "object",
                     "properties": {
+                        "installGIECRDs": {
+                            "type": "boolean",
+                            "default": true,
+                            "description": "Whether to install Gateway API Inference Extension (GIE) CRDs. Set to false if already managed by another release."
+                        },
                         "controller": {
                             "type": "object",
                             "properties": {

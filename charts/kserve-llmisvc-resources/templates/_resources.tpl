@@ -10,6 +10,7 @@ Parameters (dict):
   - patchGlob: string - Glob pattern for patch files (e.g., "files/kserve/*-patch.yaml")
   - certName: string - The cert name portion after namespace (e.g., "serving-cert", "llmisvc-serving-cert")
   - context: . - The root context for accessing .Release, .Files, etc.
+  - excludeCRDNames: list (optional) - List of CRD metadata.name values to exclude from output
 
 Example usage:
 {{- include "kserve-common.renderMultiResourceWithPatches" (dict
@@ -78,10 +79,21 @@ Example usage:
   {{- end -}}
 {{- end -}}
 
-{{- /* 7. Output all merged resources */ -}}
+{{- /* 6.1. Build set of CRD names to exclude (optional) */ -}}
+{{- $excludeSet := dict -}}
+{{- if .excludeCRDNames -}}
+  {{- range .excludeCRDNames -}}
+    {{- $excludeKey := printf "CustomResourceDefinition/%s" . -}}
+    {{- $_ := set $excludeSet $excludeKey true -}}
+  {{- end -}}
+{{- end -}}
+
+{{- /* 7. Output all merged resources, skipping excluded CRDs */ -}}
 {{- range $key := keys $baseMap | sortAlpha }}
+{{- if not (hasKey $excludeSet $key) }}
 {{- $resource := index $baseMap $key }}
 ---
 {{ toYaml $resource }}
+{{ end -}}
 {{ end -}}
 {{- end -}}

@@ -1,5 +1,19 @@
+{{- $gieCRDNames := list
+  "inferencemodelrewrites.inference.networking.x-k8s.io"
+  "inferenceobjectives.inference.networking.x-k8s.io"
+  "inferencepoolimports.inference.networking.x-k8s.io"
+  "inferencepools.inference.networking.k8s.io"
+  "inferencepools.inference.networking.x-k8s.io"
+-}}
+{{- $ctx := dict "exclude" (list) -}}
+{{- if hasKey .Values.kserve.llmisvc "installGIECRDs" -}}
+  {{- if not .Values.kserve.llmisvc.installGIECRDs -}}
+    {{- $_ := set $ctx "exclude" $gieCRDNames -}}
+  {{- end -}}
+{{- end -}}
 {{- include "kserve-common.renderMultiResourceWithPatches" (dict
   "baseFile" "files/llmisvc/resources.yaml"
   "patchGlob" "files/llmisvc/*-patch.yaml"
   "certName" "llmisvc-serving-cert"
+  "excludeCRDNames" (get $ctx "exclude")
   "context" .) -}}
