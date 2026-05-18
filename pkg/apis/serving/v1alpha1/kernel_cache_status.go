@@ -88,8 +88,5 @@ type ServingStatus struct {
 	NamespaceCounts map[string]NamespaceServingCounts `json:"namespaceCounts,omitempty"`
 }
 
-// NamespacedName identifies a resource by namespace and name
-type NamespacedName struct {
-	Namespace string `json:"namespace"`
-	Name      string `json:"name"`
-}
+// NamespacedName is already defined in local_model_cache_status.go
+// Reusing that type to avoid duplication
