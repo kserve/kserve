@@ -5616,4 +5616,119 @@ func TestApplyConfidentialConfig(t *testing.T) {
 			}
 		})
 	}
+
+// TestInjectModelcarOciNative verifies that InjectModelcar dispatches oci+native:// URIs
+// to the native handler stub (returns ErrOciNativeNotImplemented).
+func TestInjectModelcarOciNative(t *testing.T) {
+	t.Run("oci+native:// annotation reaches native handler stub", func(t *testing.T) {
+		pod := &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					constants.StorageInitializerSourceUriInternalAnnotationKey: constants.OciNativeURIPrefix + "registry.io/mymodel:v1",
+				},
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{Name: constants.InferenceServiceContainerName},
+				},
+			},
+		}
+		mi := &StorageInitializerInjector{config: &kserveTypes.StorageInitializerConfig{}}
+		err := mi.InjectModelcar(pod)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, utils.ErrOciNativeNotImplemented)
+	})
+
+	t.Run("bare oci:// with OciModelMode=native reaches native handler stub", func(t *testing.T) {
+		pod := &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					constants.StorageInitializerSourceUriInternalAnnotationKey: constants.OciURIPrefix + "registry.io/mymodel:v1",
+				},
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{Name: constants.InferenceServiceContainerName},
+				},
+			},
+		}
+		mi := &StorageInitializerInjector{config: &kserveTypes.StorageInitializerConfig{OciModelMode: kserveTypes.OciModelModeNative}}
+		err := mi.InjectModelcar(pod)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, utils.ErrOciNativeNotImplemented)
+	})
+
+	t.Run("bare oci:// with enableModelcar=true still uses modelcar (backcompat)", func(t *testing.T) {
+		pod := createTestPodForModelcar()
+		mi := &StorageInitializerInjector{config: &kserveTypes.StorageInitializerConfig{EnableOciImageSource: true}}
+		err := mi.InjectModelcar(pod)
+		require.NoError(t, err)
+		modelcarContainer := utils.GetContainerWithName(&pod.Spec, constants.ModelcarContainerName)
+		assert.NotNil(t, modelcarContainer, "modelcar sidecar should be injected for backcompat path")
+	})
+}
+
+// TestCommonStorageInitializationWithOciNativeURI verifies dispatch for oci+native:// in the storageUris path.
+func TestCommonStorageInitializationWithOciNativeURI(t *testing.T) {
+	t.Run("oci+native:// storageUri reaches native handler stub", func(t *testing.T) {
+		podSpec := corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.InferenceServiceContainerName},
+			},
+		}
+		params := &StorageInitializerParams{
+			Namespace: "default",
+			StorageURIs: []v1beta1.StorageUri{
+				{Uri: constants.OciNativeURIPrefix + "registry.io/mymodel:v1", MountPath: constants.DefaultModelLocalMountPath},
+			},
+			PodSpec:         &podSpec,
+			Config:          &kserveTypes.StorageInitializerConfig{},
+			IsvcAnnotations: map[string]string{},
+			IsLegacyURI:     false,
+		}
+		err := CommonStorageInitialization(t.Context(), params)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, utils.ErrOciNativeNotImplemented)
+	})
+
+	t.Run("bare oci:// with OciModelMode=native reaches native handler stub", func(t *testing.T) {
+		podSpec := corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.InferenceServiceContainerName},
+			},
+		}
+		params := &StorageInitializerParams{
+			Namespace: "default",
+			StorageURIs: []v1beta1.StorageUri{
+				{Uri: constants.OciURIPrefix + "registry.io/mymodel:v1", MountPath: constants.DefaultModelLocalMountPath},
+			},
+			PodSpec:         &podSpec,
+			Config:          &kserveTypes.StorageInitializerConfig{OciModelMode: kserveTypes.OciModelModeNative},
+			IsvcAnnotations: map[string]string{},
+			IsLegacyURI:     false,
+		}
+		err := CommonStorageInitialization(t.Context(), params)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, utils.ErrOciNativeNotImplemented)
+	})
+
+	t.Run("oci+native:// legacy path returns nil (handled by annotation webhook)", func(t *testing.T) {
+		podSpec := corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.InferenceServiceContainerName},
+			},
+		}
+		params := &StorageInitializerParams{
+			Namespace: "default",
+			StorageURIs: []v1beta1.StorageUri{
+				{Uri: constants.OciNativeURIPrefix + "registry.io/mymodel:v1", MountPath: constants.DefaultModelLocalMountPath},
+			},
+			PodSpec:         &podSpec,
+			Config:          &kserveTypes.StorageInitializerConfig{},
+			IsvcAnnotations: map[string]string{},
+			IsLegacyURI:     true,
+		}
+		err := CommonStorageInitialization(t.Context(), params)
+		require.NoError(t, err)
+	})
 }

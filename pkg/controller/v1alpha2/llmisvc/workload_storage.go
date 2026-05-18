@@ -136,14 +136,31 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 			}
 		}
 
-	case constants.OciURIPrefix:
-		// Check of OCI is enabled
-		if !config.StorageConfig.EnableOciImageSource {
-			return errors.New("OCI modelcars is not enabled")
+	case constants.OciNativeURIPrefix:
+		_, normalizedURI, _ := utils.ParseOciScheme(modelUri)
+		if err := r.attachOciNativeModelArtifact(normalizedURI, podSpec, config.StorageConfig, containerName, modelPath); err != nil {
+			return err
+		}
+		if len(loraPairs) > 0 {
+			if err := r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, loraPairs); err != nil {
+				return err
+			}
 		}
 
-		if err := r.attachOciModelArtifact(modelUri, podSpec, config.StorageConfig, containerName, modelPath); err != nil {
-			return err
+	case constants.OciURIPrefix:
+		effectiveMode := kserveTypes.ResolveOciModelMode(config.StorageConfig)
+		if effectiveMode == "" {
+			return errors.New("OCI modelcars is not enabled")
+		}
+		switch effectiveMode {
+		case kserveTypes.OciModelModeNative:
+			if err := r.attachOciNativeModelArtifact(modelUri, podSpec, config.StorageConfig, containerName, modelPath); err != nil {
+				return err
+			}
+		default: // "modelcar" (and "fetch" handled in a future commit)
+			if err := r.attachOciModelArtifact(modelUri, podSpec, config.StorageConfig, containerName, modelPath); err != nil {
+				return err
+			}
 		}
 		if len(loraPairs) > 0 {
 			if err := r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, loraPairs); err != nil {
@@ -207,6 +224,10 @@ func (r *LLMISVCReconciler) attachOciModelArtifact(modelUri string, podSpec *cor
 	}
 
 	return nil
+}
+
+func (r *LLMISVCReconciler) attachOciNativeModelArtifact(modelUri string, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, containerName string, modelPath string) error {
+	return utils.ConfigureOciNativeToContainer(modelUri, podSpec, containerName, modelPath, storageConfig)
 }
 
 // attachPVCModelArtifact mounts a model artifact from a PersistentVolumeClaim (PVC) to the specified PodSpec.

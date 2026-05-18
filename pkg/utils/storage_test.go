@@ -501,3 +501,53 @@ func TestMaxOCISourcesPerPod(t *testing.T) {
 	g.Expect(MaxOCISourcesPerPod).To(gomega.Equal(10),
 		"MaxOCISourcesPerPod should be 10 — each URI adds 2 containers + 1 volume")
 }
+
+func TestParseOciScheme(t *testing.T) {
+	cases := []struct {
+		uri       string
+		wantMode  string
+		wantNorm  string
+		wantIsOci bool
+	}{
+		{
+			uri:       "oci+native://registry.io/image:tag",
+			wantMode:  "native",
+			wantNorm:  "oci://registry.io/image:tag",
+			wantIsOci: true,
+		},
+		{
+			uri:       "oci+modelcar://registry.io/image:tag",
+			wantMode:  "modelcar",
+			wantNorm:  "oci://registry.io/image:tag",
+			wantIsOci: true,
+		},
+		{
+			uri:       "oci+fetch://registry.io/image:tag",
+			wantMode:  "fetch",
+			wantNorm:  "oci://registry.io/image:tag",
+			wantIsOci: true,
+		},
+		{
+			uri:       "oci://registry.io/image:tag",
+			wantMode:  "",
+			wantNorm:  "oci://registry.io/image:tag",
+			wantIsOci: true,
+		},
+		{
+			uri:       "s3://bucket/path/to/model",
+			wantMode:  "",
+			wantNorm:  "s3://bucket/path/to/model",
+			wantIsOci: false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.uri, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+			gotMode, gotNorm, gotIsOci := ParseOciScheme(tc.uri)
+			g.Expect(gotMode).To(gomega.Equal(tc.wantMode), "mode")
+			g.Expect(gotNorm).To(gomega.Equal(tc.wantNorm), "normalizedURI")
+			g.Expect(gotIsOci).To(gomega.Equal(tc.wantIsOci), "isOci")
+		})
+	}
+}
