@@ -551,3 +551,101 @@ func TestParseOciScheme(t *testing.T) {
 		})
 	}
 }
+
+func TestConfigureOciNativeToContainer(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cfg := &types.StorageInitializerConfig{}
+
+	t.Run("happy path: ImageVolume and VolumeMount added", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+		podSpec := &corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: "kserve-container"},
+			},
+		}
+		err := ConfigureOciNativeToContainer(
+			constants.OciURIPrefix+"registry.io/mymodel:v1",
+			podSpec, "kserve-container",
+			constants.DefaultModelLocalMountPath, cfg,
+		)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		g.Expect(podSpec.Volumes).To(gomega.HaveLen(1))
+		g.Expect(podSpec.Volumes[0].VolumeSource.Image).ToNot(gomega.BeNil())
+		g.Expect(podSpec.Volumes[0].VolumeSource.Image.Reference).To(gomega.Equal("registry.io/mymodel:v1"))
+		g.Expect(podSpec.Containers[0].VolumeMounts).To(gomega.HaveLen(1))
+		g.Expect(podSpec.Containers[0].VolumeMounts[0].ReadOnly).To(gomega.BeTrue())
+		g.Expect(podSpec.Containers[0].VolumeMounts[0].MountPath).To(gomega.Equal(constants.DefaultModelLocalMountPath))
+	})
+
+	t.Run("idempotent: second call with same path is a no-op", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+		podSpec := &corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: "kserve-container"},
+			},
+		}
+		uri := constants.OciURIPrefix + "registry.io/mymodel:v1"
+		_ = ConfigureOciNativeToContainer(uri, podSpec, "kserve-container", constants.DefaultModelLocalMountPath, cfg)
+		err := ConfigureOciNativeToContainer(uri, podSpec, "kserve-container", constants.DefaultModelLocalMountPath, cfg)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		g.Expect(podSpec.Volumes).To(gomega.HaveLen(1), "volume should not be duplicated")
+	})
+
+	t.Run("multi-adapter: two adapters at different paths coexist", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+		podSpec := &corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: "kserve-container"},
+			},
+		}
+		err1 := ConfigureOciNativeToContainer(
+			constants.OciURIPrefix+"registry.io/adapter-a:v1",
+			podSpec, "kserve-container", "/mnt/models/adapter-a", cfg,
+		)
+		err2 := ConfigureOciNativeToContainer(
+			constants.OciURIPrefix+"registry.io/adapter-b:v1",
+			podSpec, "kserve-container", "/mnt/models/adapter-b", cfg,
+		)
+		g.Expect(err1).ToNot(gomega.HaveOccurred())
+		g.Expect(err2).ToNot(gomega.HaveOccurred())
+		g.Expect(podSpec.Volumes).To(gomega.HaveLen(2))
+		g.Expect(podSpec.Containers[0].VolumeMounts).To(gomega.HaveLen(2))
+	})
+
+	t.Run("mountPath collision: different volume already claims modelPath", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+		podSpec := &corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: "kserve-container",
+					VolumeMounts: []corev1.VolumeMount{
+						{Name: "other-volume", MountPath: constants.DefaultModelLocalMountPath},
+					},
+				},
+			},
+		}
+		err := ConfigureOciNativeToContainer(
+			constants.OciURIPrefix+"registry.io/mymodel:v1",
+			podSpec, "kserve-container", constants.DefaultModelLocalMountPath, cfg,
+		)
+		g.Expect(err).To(gomega.HaveOccurred())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("already used by volume"))
+	})
+
+	t.Run("missing container: returns error", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+		podSpec := &corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: "some-other-container"},
+			},
+		}
+		err := ConfigureOciNativeToContainer(
+			constants.OciURIPrefix+"registry.io/mymodel:v1",
+			podSpec, "kserve-container", constants.DefaultModelLocalMountPath, cfg,
+		)
+		g.Expect(err).To(gomega.HaveOccurred())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("no container found"))
+	})
+
+	_ = g // suppress unused warning from outer scope
+}

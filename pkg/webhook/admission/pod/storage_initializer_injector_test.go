@@ -5618,9 +5618,9 @@ func TestApplyConfidentialConfig(t *testing.T) {
 	}
 
 // TestInjectModelcarOciNative verifies that InjectModelcar dispatches oci+native:// URIs
-// to the native handler stub (returns ErrOciNativeNotImplemented).
+// to the ImageVolume materializer and produces the expected pod mutations.
 func TestInjectModelcarOciNative(t *testing.T) {
-	t.Run("oci+native:// annotation reaches native handler stub", func(t *testing.T) {
+	t.Run("oci+native:// annotation mounts ImageVolume", func(t *testing.T) {
 		pod := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
@@ -5635,11 +5635,30 @@ func TestInjectModelcarOciNative(t *testing.T) {
 		}
 		mi := &StorageInitializerInjector{config: &kserveTypes.StorageInitializerConfig{}}
 		err := mi.InjectModelcar(pod)
-		require.Error(t, err)
-		assert.ErrorIs(t, err, utils.ErrOciNativeNotImplemented)
+		require.NoError(t, err)
+		var imgVol *corev1.Volume
+		for i := range pod.Spec.Volumes {
+			if pod.Spec.Volumes[i].Image != nil {
+				imgVol = &pod.Spec.Volumes[i]
+				break
+			}
+		}
+		require.NotNil(t, imgVol, "pod should have an ImageVolume")
+		assert.Equal(t, "registry.io/mymodel:v1", imgVol.Image.Reference)
+		c := utils.GetContainerWithName(&pod.Spec, constants.InferenceServiceContainerName)
+		require.NotNil(t, c)
+		var found bool
+		for _, m := range c.VolumeMounts {
+			if m.Name == imgVol.Name {
+				found = true
+				assert.True(t, m.ReadOnly)
+				break
+			}
+		}
+		assert.True(t, found, "kserve-container should have VolumeMount for the ImageVolume")
 	})
 
-	t.Run("bare oci:// with OciModelMode=native reaches native handler stub", func(t *testing.T) {
+	t.Run("bare oci:// with OciModelMode=native mounts ImageVolume", func(t *testing.T) {
 		pod := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
@@ -5654,8 +5673,16 @@ func TestInjectModelcarOciNative(t *testing.T) {
 		}
 		mi := &StorageInitializerInjector{config: &kserveTypes.StorageInitializerConfig{OciModelMode: kserveTypes.OciModelModeNative}}
 		err := mi.InjectModelcar(pod)
-		require.Error(t, err)
-		assert.ErrorIs(t, err, utils.ErrOciNativeNotImplemented)
+		require.NoError(t, err)
+		var imgVol *corev1.Volume
+		for i := range pod.Spec.Volumes {
+			if pod.Spec.Volumes[i].Image != nil {
+				imgVol = &pod.Spec.Volumes[i]
+				break
+			}
+		}
+		require.NotNil(t, imgVol, "pod should have an ImageVolume")
+		assert.Equal(t, "registry.io/mymodel:v1", imgVol.Image.Reference)
 	})
 
 	t.Run("bare oci:// with enableModelcar=true still uses modelcar (backcompat)", func(t *testing.T) {
@@ -5670,7 +5697,7 @@ func TestInjectModelcarOciNative(t *testing.T) {
 
 // TestCommonStorageInitializationWithOciNativeURI verifies dispatch for oci+native:// in the storageUris path.
 func TestCommonStorageInitializationWithOciNativeURI(t *testing.T) {
-	t.Run("oci+native:// storageUri reaches native handler stub", func(t *testing.T) {
+	t.Run("oci+native:// storageUri mounts ImageVolume", func(t *testing.T) {
 		podSpec := corev1.PodSpec{
 			Containers: []corev1.Container{
 				{Name: constants.InferenceServiceContainerName},
@@ -5687,11 +5714,19 @@ func TestCommonStorageInitializationWithOciNativeURI(t *testing.T) {
 			IsLegacyURI:     false,
 		}
 		err := CommonStorageInitialization(t.Context(), params)
-		require.Error(t, err)
-		assert.ErrorIs(t, err, utils.ErrOciNativeNotImplemented)
+		require.NoError(t, err)
+		var imgVol *corev1.Volume
+		for i := range podSpec.Volumes {
+			if podSpec.Volumes[i].Image != nil {
+				imgVol = &podSpec.Volumes[i]
+				break
+			}
+		}
+		require.NotNil(t, imgVol, "podSpec should have an ImageVolume after oci+native:// dispatch")
+		assert.Equal(t, "registry.io/mymodel:v1", imgVol.Image.Reference)
 	})
 
-	t.Run("bare oci:// with OciModelMode=native reaches native handler stub", func(t *testing.T) {
+	t.Run("bare oci:// with OciModelMode=native mounts ImageVolume", func(t *testing.T) {
 		podSpec := corev1.PodSpec{
 			Containers: []corev1.Container{
 				{Name: constants.InferenceServiceContainerName},
@@ -5708,8 +5743,16 @@ func TestCommonStorageInitializationWithOciNativeURI(t *testing.T) {
 			IsLegacyURI:     false,
 		}
 		err := CommonStorageInitialization(t.Context(), params)
-		require.Error(t, err)
-		assert.ErrorIs(t, err, utils.ErrOciNativeNotImplemented)
+		require.NoError(t, err)
+		var imgVol *corev1.Volume
+		for i := range podSpec.Volumes {
+			if podSpec.Volumes[i].Image != nil {
+				imgVol = &podSpec.Volumes[i]
+				break
+			}
+		}
+		require.NotNil(t, imgVol, "podSpec should have an ImageVolume after oci:// native dispatch")
+		assert.Equal(t, "registry.io/mymodel:v1", imgVol.Image.Reference)
 	})
 
 	t.Run("oci+native:// legacy path returns nil (handled by annotation webhook)", func(t *testing.T) {
