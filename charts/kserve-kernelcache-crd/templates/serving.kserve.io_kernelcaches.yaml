@@ -1,0 +1,166 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: kernelcaches.serving.kserve.io
+spec:
+  group: serving.kserve.io
+  names:
+    kind: KernelCache
+    listKind: KernelCacheList
+    plural: kernelcaches
+    shortNames:
+    - kc
+    singular: kernelcache
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              accessModes:
+                items:
+                  type: string
+                type: array
+              framework:
+                type: string
+              frameworkVersion:
+                type: string
+              gpuType:
+                type: string
+              image:
+                type: string
+              minCUDAVersion:
+                type: string
+              minDriverVersion:
+                type: string
+              podTemplate:
+                properties:
+                  nodeSelector:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  priorityClassName:
+                    type: string
+                  tolerations:
+                    items:
+                      properties:
+                        effect:
+                          type: string
+                        key:
+                          type: string
+                        operator:
+                          type: string
+                        tolerationSeconds:
+                          format: int64
+                          type: integer
+                        value:
+                          type: string
+                      type: object
+                    type: array
+                type: object
+              storageClassName:
+                type: string
+              storageSize:
+                anyOf:
+                - type: integer
+                - type: string
+                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                x-kubernetes-int-or-string: true
+            required:
+            - image
+            type: object
+          status:
+            properties:
+              cacheCopies:
+                properties:
+                  available:
+                    type: integer
+                  failed:
+                    type: integer
+                  inProgress:
+                    type: integer
+                  total:
+                    type: integer
+                required:
+                - available
+                - failed
+                - inProgress
+                - total
+                type: object
+              gpuCompatibility:
+                properties:
+                  compatibleTypes:
+                    items:
+                      type: string
+                    type: array
+                  incompatibleTypes:
+                    items:
+                      type: string
+                    type: array
+                  totalCompatibleGPUs:
+                    type: integer
+                  totalIncompatibleGPUs:
+                    type: integer
+                required:
+                - totalCompatibleGPUs
+                - totalIncompatibleGPUs
+                type: object
+              inferenceServices:
+                items:
+                  properties:
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                  type: object
+                type: array
+              resolvedDigest:
+                type: string
+              servingStatus:
+                properties:
+                  namespaceCounts:
+                    additionalProperties:
+                      properties:
+                        podsReady:
+                          type: integer
+                        podsTerminating:
+                          type: integer
+                        podsUsing:
+                          type: integer
+                      required:
+                      - podsReady
+                      - podsTerminating
+                      - podsUsing
+                      type: object
+                    type: object
+                  totalNamespaces:
+                    type: integer
+                  totalPods:
+                    type: integer
+                  totalPodsReady:
+                    type: integer
+                  totalPodsTerminating:
+                    type: integer
+                required:
+                - totalNamespaces
+                - totalPods
+                - totalPodsReady
+                - totalPodsTerminating
+                type: object
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
