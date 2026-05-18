@@ -520,11 +520,16 @@ func (r *LLMISVCReconciler) getConfig(ctx context.Context, llmSvc *v1alpha2.LLMI
 // the given namespaces, deduplicating entries. This is used to provide helpful context
 // in configNotFoundError messages so operators can quickly identify available alternatives.
 func (r *LLMISVCReconciler) listAvailableConfigs(ctx context.Context, namespaces []string) []string {
+	logger := log.FromContext(ctx).WithName("listAvailableConfigs")
 	seen := sets.New[string]()
 	for _, ns := range namespaces {
 		cfgList := &v1alpha2.LLMInferenceServiceConfigList{}
 		if err := r.List(ctx, cfgList, client.InNamespace(ns)); err != nil {
-			// Best-effort: if we can't list, just skip this namespace
+			// Best-effort: log and skip this namespace so a recurring list failure
+			// (RBAC, transient API errors) is visible during troubleshooting and is
+			// distinguishable from "no configs exist". The original not-found
+			// information is still returned to the caller.
+			logger.Error(err, "failed to list LLMInferenceServiceConfigs", "namespace", ns)
 			continue
 		}
 		for i := range cfgList.Items {
