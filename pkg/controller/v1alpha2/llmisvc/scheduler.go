@@ -213,10 +213,24 @@ func (r *LLMISVCReconciler) reconcileV1Alpha2InferencePool(ctx context.Context, 
 	return Reconcile(ctx, r, llmSvc, &igwapiv1alpha2.InferencePool{}, expected, semanticInferencePoolV1Alpha2IsEqual)
 }
 
+// SchedulerPortMismatchReason is the SchedulerWorkloadReady condition reason
+// set when the scheduler PodTemplateSpec is missing one or more required ports.
+const SchedulerPortMismatchReason = "SchedulerPortMismatch"
+
 func (r *LLMISVCReconciler) reconcileSchedulerService(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
-	expected := r.expectedSchedulerService(ctx, llmSvc)
+	// Deletion path: we don't validate scheduler ports because the user is
+	// either stopping the runtime or referencing an external InferencePool.
+	// expectedSchedulerService still returns a Service shell with the correct
+	// name/namespace which is all Delete needs.
 	if utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
-		return Delete(ctx, r, llmSvc, expected)
+		toDelete, _ := r.expectedSchedulerService(ctx, llmSvc)
+		return Delete(ctx, r, llmSvc, toDelete)
+	}
+
+	expected, err := r.expectedSchedulerService(ctx, llmSvc)
+	if err != nil {
+		llmSvc.MarkSchedulerWorkloadNotReady(SchedulerPortMismatchReason, "%s", err.Error())
+		return err
 	}
 
 	if err := Reconcile(ctx, r, llmSvc, &corev1.Service{}, expected, semanticServiceIsEqual); err != nil {
@@ -226,8 +240,7 @@ func (r *LLMISVCReconciler) reconcileSchedulerService(ctx context.Context, llmSv
 	return nil
 }
 
-func (r *LLMISVCReconciler) expectedSchedulerService(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) *corev1.Service {
-	logger := log.FromContext(ctx)
+func (r *LLMISVCReconciler) expectedSchedulerService(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*corev1.Service, error) {
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      llmSvc.Spec.Router.EPPServiceName(llmSvc),
@@ -256,9 +269,13 @@ func (r *LLMISVCReconciler) expectedSchedulerService(ctx context.Context, llmSvc
 			}
 		}
 
-		if len(desiredPorts) != len(actualPorts) {
-			// TODO should this be raised as failing condition? + check if grpc port matches what's defined in the inferencepool
-			logger.Info("some ports are not matching", "desired", desiredPorts, "actual", maps.Keys(actualPorts))
+		if missing := desiredPorts.Difference(sets.KeySet(actualPorts)); missing.Len() > 0 {
+			// Returning an error here lets reconcileSchedulerService surface a
+			// SchedulerPortMismatch status condition instead of silently building
+			// an incomplete Service that leaves the Endpoint Picker unreachable
+			// to the Gateway.
+			// TODO also cross-check the grpc port against the InferencePool spec.
+			return nil, fmt.Errorf("scheduler container template is missing required ports: %v", sets.List(missing))
 		}
 
 		servicePorts := make([]corev1.ServicePort, 0, len(actualPorts))
@@ -280,7 +297,7 @@ func (r *LLMISVCReconciler) expectedSchedulerService(ctx context.Context, llmSvc
 
 	log.FromContext(ctx).V(2).Info("Expected router EPP service", "service", svc)
 
-	return svc
+	return svc, nil
 }
 
 func (r *LLMISVCReconciler) expectedSchedulerInferencePool(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) *igwapi.InferencePool {
