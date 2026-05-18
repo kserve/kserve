@@ -14,6 +14,20 @@ testing, or production deployments of smaller models (e.g., 7B parameter models)
 - Model weights accessible via HuggingFace or PVC
 - For prefill-decode examples: RoCE network configuration and RDMA support
 
+## Storage Initializer Resources
+
+Large HuggingFace models may need more CPU or memory while the storage initializer downloads and prepares model files.
+Use these annotations on an `LLMInferenceService` to override the storage initializer resources for a single service:
+
+```yaml
+metadata:
+  annotations:
+    storage.kserve.io/initializer-cpu-request: "500m"
+    storage.kserve.io/initializer-cpu-limit: "2"
+    storage.kserve.io/initializer-memory-request: "2Gi"
+    storage.kserve.io/initializer-memory-limit: "4Gi"
+```
+
 ## Examples
 
 ### 1. Basic Deployment with Default Scheduler ([
