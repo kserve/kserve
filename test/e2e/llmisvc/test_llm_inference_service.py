@@ -525,7 +525,6 @@ def maybe_delete_llmisvc(
         print(f"⚠️ Warning: Failed to cleanup service {service_name}: {e}")
 
 
-@log_execution
 def get_llmisvc(
     kserve_client: KServeClient,
     name,
@@ -692,13 +691,18 @@ def wait_for(
 ) -> Any:
     """Wait for the assertion to succeed within timeout."""
     deadline = time.time() + timeout
+    last_msg = None
     while True:
         try:
             return assertion_fn()
         except AssertionError as e:
+            msg = str(e)
             if time.time() >= deadline:
+                logger.error("Timed out waiting: %s", e)
                 raise
-            logger.info("Waiting: %s", e)
+            if msg != last_msg:
+                logger.info("Waiting: %s", e)
+                last_msg = msg
             time.sleep(interval)
 
 
