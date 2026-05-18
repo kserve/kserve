@@ -477,7 +477,10 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 // configNotFoundError is returned by getConfig when an LLMInferenceServiceConfig
 // cannot be found in either the service namespace or the system namespace.
 // It carries the config name, the ordered list of namespaces that were searched,
-// and the names of configs that do exist so the operator can see alternatives.
+// and the namespace/name of configs that do exist so the operator can see
+// alternatives. An empty Available slice renders as "[]", which by itself is a
+// useful signal that no LLMInferenceServiceConfig resources were found in any
+// of the searched namespaces.
 type configNotFoundError struct {
 	Name       string
 	Namespaces []string
@@ -485,11 +488,8 @@ type configNotFoundError struct {
 }
 
 func (e *configNotFoundError) Error() string {
-	msg := fmt.Sprintf("LLMInferenceServiceConfig %q not found in namespaces %v", e.Name, e.Namespaces)
-	if len(e.Available) > 0 {
-		msg += fmt.Sprintf("; available configs: %v", e.Available)
-	}
-	return msg
+	return fmt.Sprintf("LLMInferenceServiceConfig %q not found in namespaces %v; available configs: %v",
+		e.Name, e.Namespaces, e.Available)
 }
 
 // getConfig retrieves kserveapis.LLMInferenceServiceConfig with the given name from either the kserveapis.LLMInferenceService
@@ -516,24 +516,21 @@ func (r *LLMISVCReconciler) getConfig(ctx context.Context, llmSvc *v1alpha2.LLMI
 	return cfg, nil
 }
 
-// listAvailableConfigs lists the names of LLMInferenceServiceConfig resources across
-// the given namespaces, deduplicating entries. This is used to provide helpful context
-// in configNotFoundError messages so operators can quickly identify available alternatives.
+// listAvailableConfigs returns the sorted, deduplicated namespace/name pairs
+// of LLMInferenceServiceConfig resources across the given namespaces, so that
+// a config named "foo" in two different namespaces is not ambiguous.
+// Best-effort: namespaces that fail to list are skipped with a log line.
 func (r *LLMISVCReconciler) listAvailableConfigs(ctx context.Context, namespaces []string) []string {
 	logger := log.FromContext(ctx).WithName("listAvailableConfigs")
 	seen := sets.New[string]()
 	for _, ns := range namespaces {
 		cfgList := &v1alpha2.LLMInferenceServiceConfigList{}
 		if err := r.List(ctx, cfgList, client.InNamespace(ns)); err != nil {
-			// Best-effort: log and skip this namespace so a recurring list failure
-			// (RBAC, transient API errors) is visible during troubleshooting and is
-			// distinguishable from "no configs exist". The original not-found
-			// information is still returned to the caller.
 			logger.Error(err, "failed to list LLMInferenceServiceConfigs", "namespace", ns)
 			continue
 		}
 		for i := range cfgList.Items {
-			seen.Insert(cfgList.Items[i].Name)
+			seen.Insert(fmt.Sprintf("%s/%s", ns, cfgList.Items[i].Name))
 		}
 	}
 	return sets.List(seen)
