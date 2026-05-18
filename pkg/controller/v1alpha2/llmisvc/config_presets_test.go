@@ -619,7 +619,7 @@ func TestPresetFiles(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:  "main",
-									Image: "lmsysorg/sglang:v0.5.11",
+									Image: "lmsysorg/sglang:latest",
 									Command: []string{
 										"/bin/bash",
 										"-c",
@@ -629,7 +629,6 @@ func TestPresetFiles(t *testing.T) {
 											"  --served-model-name \"llama\"\n" +
 											"  --port 8000\n" +
 											"  --host 0.0.0.0\n" +
-											"  --disable-log-requests\n" +
 											" --tp 1\n" +
 											"\n" +
 											")\n" +
@@ -704,6 +703,7 @@ func TestPresetFiles(t *testing.T) {
 										},
 										FailureThreshold: 60,
 										PeriodSeconds:    10,
+										TimeoutSeconds:   10,
 									},
 									TerminationMessagePath:   "/dev/termination-log",
 									TerminationMessagePolicy: "FallbackToLogsOnError",
@@ -713,7 +713,8 @@ func TestPresetFiles(t *testing.T) {
 											Drop: []corev1.Capability{"ALL"},
 										},
 										AllowPrivilegeEscalation: ptr.To(false),
-										RunAsNonRoot:             ptr.To(true),
+										RunAsNonRoot:             ptr.To(false),
+										RunAsUser:                ptr.To(int64(0)),
 										ReadOnlyRootFilesystem:   ptr.To(true),
 										SeccompProfile: &corev1.SeccompProfile{
 											Type: corev1.SeccompProfileTypeRuntimeDefault,
