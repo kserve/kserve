@@ -17,6 +17,7 @@ limitations under the License.
 package utils
 
 import (
+	"errors"
 	"fmt"
 	"path"
 	"strings"
@@ -592,4 +593,43 @@ func ConfigureModelcarToContainer(modelUri string, podSpec *corev1.PodSpec, targ
 	podSpec.ShareProcessNamespace = ptr.To(true)
 
 	return nil
+}
+
+// ErrOciNativeNotImplemented is returned by ConfigureOciNativeToContainer until the
+// ImageVolume materializer is wired in commit #3.
+var ErrOciNativeNotImplemented = errors.New("oci+native:// materializer not yet implemented")
+
+// OciNativeHandler materializes Kubernetes-native ImageVolume mounts for oci+native:// URIs.
+// The real implementation replaces ConfigureOciNativeToContainer in the next commit.
+type OciNativeHandler interface {
+	ConfigureNative(modelUri string, podSpec *corev1.PodSpec, targetContainerName, modelPath string, storageConfig *types.StorageInitializerConfig) error
+}
+
+// ParseOciScheme splits any OCI storageUri into its mode, a normalized oci:// URI, and
+// whether it is an OCI URI at all.
+//
+//   - "oci+native://reg/img:tag" → ("native", "oci://reg/img:tag", true)
+//   - "oci+modelcar://reg/img:tag" → ("modelcar", "oci://reg/img:tag", true)
+//   - "oci+fetch://reg/img:tag"   → ("fetch",    "oci://reg/img:tag", true)
+//   - "oci://reg/img:tag"         → ("",         "oci://reg/img:tag", true)  // mode resolved later
+//   - "s3://bucket/key"           → ("",         "s3://bucket/key",  false)
+func ParseOciScheme(uri string) (mode string, normalizedURI string, isOci bool) {
+	const ociPlus = "oci+"
+	if strings.HasPrefix(uri, ociPlus) {
+		rest := uri[len(ociPlus):]
+		sepIdx := strings.Index(rest, "://")
+		if sepIdx > 0 {
+			return rest[:sepIdx], constants.OciURIPrefix + rest[sepIdx+3:], true
+		}
+	}
+	if strings.HasPrefix(uri, constants.OciURIPrefix) {
+		return "", uri, true
+	}
+	return "", uri, false
+}
+
+// ConfigureOciNativeToContainer is the stub for the Kubernetes-native ImageVolume
+// materializer. Replaced by the real implementation in commit #3.
+func ConfigureOciNativeToContainer(modelUri string, podSpec *corev1.PodSpec, targetContainerName, modelPath string, storageConfig *types.StorageInitializerConfig) error {
+	return ErrOciNativeNotImplemented
 }
