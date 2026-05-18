@@ -5,7 +5,7 @@ metadata:
 spec:
   template:
     containers:
-      - image: lmsysorg/sglang:v0.5.11
+      - image: lmsysorg/sglang:latest
         imagePullPolicy: IfNotPresent
         name: main
         ports:
@@ -35,7 +35,8 @@ spec:
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
-          runAsNonRoot: true
+          runAsNonRoot: false
+          runAsUser: 0
           capabilities:
             drop:
               - ALL
@@ -66,6 +67,7 @@ spec:
             scheme: HTTP
           failureThreshold: 60
           periodSeconds: 10
+          timeoutSeconds: 10
         volumeMounts:
           - mountPath: /home
             name: home
