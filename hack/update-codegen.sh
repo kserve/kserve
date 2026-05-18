@@ -30,7 +30,7 @@ if [ -z "${GOPATH:-}" ]; then
     GOPATH=$(go env GOPATH)
     export GOPATH
 fi
-CODEGEN_PKG="$GOPATH/pkg/mod/k8s.io/code-generator@${CODEGEN_VERSION}"
+CODEGEN_PKG=$(cd "${SCRIPT_ROOT}" && go list -m -f '{{if .Replace}}{{.Replace.Dir}}{{else}}{{.Dir}}{{end}}' k8s.io/code-generator)
 THIS_PKG="github.com/kserve/kserve"
 
 BOILERPLATE_RENDERED=$(mktemp)

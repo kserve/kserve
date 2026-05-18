@@ -734,6 +734,18 @@ func ReconcileLocalModelNode(
 					Spec: v1alpha1.LocalModelNodeSpec{LocalModels: []v1alpha1.LocalModelInfo{modelInfo}},
 				}
 				if err := c.Create(ctx, localModelNode); err != nil {
+					if apierr.IsAlreadyExists(err) {
+						if err := c.Get(ctx, types.NamespacedName{Name: node.Name}, localModelNode); err != nil {
+							log.Error(err, "Get existing localmodelnode", "name", node.Name)
+							return err
+						}
+						if err := UpdateLocalModelNode(ctx, c, log, localModelNode, localModelCache, localModelNamespaceCache, nodeGroupName); err != nil {
+							return err
+						}
+						modelStatus := localModelNode.Status.ModelStatus[statusKey]
+						nodeStatus[node.Name] = NodeStatusFromLocalModelStatus(modelStatus)
+						continue
+					}
 					log.Error(err, "Create localmodelnode", "name", node.Name)
 					return err
 				}
