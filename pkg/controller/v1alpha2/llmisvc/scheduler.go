@@ -294,35 +294,19 @@ func (r *LLMISVCReconciler) reconcileV1Alpha2InferencePool(ctx context.Context, 
 const SchedulerPortMismatchReason = "SchedulerPortMismatch"
 
 func (r *LLMISVCReconciler) reconcileSchedulerService(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+	expected := r.expectedSchedulerService(ctx, llmSvc)
 	if schedulerShouldBeDeleted(llmSvc) {
-		return Delete(ctx, r, llmSvc, schedulerServiceShell(llmSvc))
+		return Delete(ctx, r, llmSvc, expected)
 	}
-	return Reconcile(ctx, r, llmSvc, &corev1.Service{}, r.expectedSchedulerService(ctx, llmSvc), semanticServiceIsEqual)
+	return Reconcile(ctx, r, llmSvc, &corev1.Service{}, expected, semanticServiceIsEqual)
 }
 
-// schedulerServiceShell returns the minimum *corev1.Service required to
-// identify and delete the Endpoint Picker Service via Delete() — name and
-// namespace only. The Delete helper in lifecycle_crud.go uses
-// client.ObjectKeyFromObject(expected) to look up the live object and
-// checks ownership / deletion timestamp against the fetched copy, so
-// labels, owner refs and ports on the input shell are unused. Building a
-// shell here lets the delete path avoid the full expectedSchedulerService
-// work (PodSpec DeepCopy, port collection, sorting) just to throw it away.
-func schedulerServiceShell(llmSvc *v1alpha2.LLMInferenceService) *corev1.Service {
-	return &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      llmSvc.Spec.Router.EPPServiceName(llmSvc),
-			Namespace: llmSvc.GetNamespace(),
-		},
-	}
-}
-
-// expectedSchedulerService builds the full Endpoint Picker Service for the
-// reconcile path and populates it with the required container ports declared
-// on the scheduler PodTemplateSpec. Port validation is intentionally NOT
-// performed here — reconcileScheduler short-circuits on missing ports
-// before this function is reached. Not used by the delete path; see
-// schedulerServiceShell for that.
+// expectedSchedulerService builds the Endpoint Picker Service shell and
+// populates it with whatever required ports are defined on the scheduler
+// PodTemplateSpec. Port validation is intentionally NOT performed here —
+// reconcileScheduler short-circuits on missing ports before this function
+// is reached on the create path, and on the delete path the populated
+// ports don't matter (only name/namespace are used by Delete).
 func (r *LLMISVCReconciler) expectedSchedulerService(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) *corev1.Service {
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
