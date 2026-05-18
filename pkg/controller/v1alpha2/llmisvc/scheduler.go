@@ -58,6 +58,26 @@ const (
 	coreMetricsExtractorPlugin     = "core-metrics-extractor"
 	udsTokenizerBaseModelName      = "base"
 	udsTokenizerSocketFile         = "/tmp/tokenizer/tokenizer-uds.socket" //nolint:gosec // G101: not a credential, UDS socket path
+
+	// Required container port names on the scheduler PodTemplateSpec.
+	// Centralised so the validation in reconcileScheduler and the generated
+	// Service in expectedSchedulerService stay in lock-step with the sample
+	// template in sample.go and the preset configs in config/llmisvcconfig.
+	schedulerPortGRPC       = "grpc"
+	schedulerPortGRPCHealth = "grpc-health"
+	schedulerPortMetrics    = "metrics"
+	schedulerPortZMQ        = "zmq"
+)
+
+// requiredSchedulerPorts is the set of container port names that must be
+// present (across the union of all containers) in the scheduler
+// PodTemplateSpec for the Endpoint Picker Service and InferencePool to
+// function.
+var requiredSchedulerPorts = sets.New(
+	schedulerPortGRPC,
+	schedulerPortGRPCHealth,
+	schedulerPortMetrics,
+	schedulerPortZMQ,
 )
 
 // reconcileScheduler manages the scheduler component and its related resources
@@ -68,6 +88,26 @@ func (r *LLMISVCReconciler) reconcileScheduler(ctx context.Context, llmSvc *v1al
 	if err := r.reconcileSchedulerServiceAccount(ctx, llmSvc); err != nil {
 		return err
 	}
+
+	// Validate scheduler port wiring before any workload is created so we
+	// don't end up with a Deployment that no Service can ever expose.
+	// Skipped when the scheduler is on its delete path (no template,
+	// force-stop, or external InferencePool reference) — missing ports
+	// are irrelevant when we're tearing the scheduler down.
+	// TODO also cross-check the grpc port against the InferencePool spec.
+	if !schedulerShouldBeDeleted(llmSvc) {
+		if missing := missingSchedulerPorts(llmSvc.Spec.Router.Scheduler.Template); len(missing) > 0 {
+			llmSvc.MarkSchedulerWorkloadNotReady(
+				SchedulerPortMismatchReason,
+				"scheduler container template is missing required ports: %v", missing,
+			)
+			// Returning nil avoids exponential backoff retries; the watch
+			// on LLMInferenceService re-triggers reconcile when the user
+			// fixes the template.
+			return nil
+		}
+	}
+
 	if err := r.reconcileSchedulerDeployment(ctx, llmSvc); err != nil {
 		return err
 	}
@@ -83,6 +123,41 @@ func (r *LLMISVCReconciler) reconcileScheduler(ctx context.Context, llmSvc *v1al
 	}
 
 	return nil
+}
+
+// schedulerShouldBeDeleted reports whether the scheduler workload
+// (Deployment, Service, InferencePool) should be deleted rather than
+// reconciled. True when the user is force-stopping the runtime, has not
+// provided a scheduler template, or is referencing an external
+// InferencePool.
+func schedulerShouldBeDeleted(llmSvc *v1alpha2.LLMInferenceService) bool {
+	return utils.GetForceStopRuntime(llmSvc) ||
+		llmSvc.Spec.Router == nil ||
+		llmSvc.Spec.Router.Scheduler == nil ||
+		llmSvc.Spec.Router.Scheduler.Template == nil ||
+		llmSvc.Spec.Router.Scheduler.Pool.HasRef()
+}
+
+// missingSchedulerPorts returns the sorted, distinct names of required
+// scheduler container ports that are NOT defined anywhere in template.
+// Ports may be split across multiple containers — the union is what
+// counts. Returns nil when no ports are missing (so `len(...) == 0` is
+// the "ok" check).
+func missingSchedulerPorts(template *corev1.PodSpec) []string {
+	if template == nil {
+		return sets.List(requiredSchedulerPorts)
+	}
+	actual := sets.New[string]()
+	for _, container := range template.Containers {
+		for _, port := range container.Ports {
+			actual.Insert(port.Name)
+		}
+	}
+	missing := requiredSchedulerPorts.Difference(actual)
+	if missing.Len() == 0 {
+		return nil
+	}
+	return sets.List(missing)
 }
 
 // reconcileSchedulerAuthDelegatorBinding manages RBAC for authentication delegation
@@ -214,33 +289,25 @@ func (r *LLMISVCReconciler) reconcileV1Alpha2InferencePool(ctx context.Context, 
 }
 
 // SchedulerPortMismatchReason is the SchedulerWorkloadReady condition reason
-// set when the scheduler PodTemplateSpec is missing one or more required ports.
+// set by reconcileScheduler when the scheduler PodTemplateSpec is missing
+// one or more required container ports.
 const SchedulerPortMismatchReason = "SchedulerPortMismatch"
 
 func (r *LLMISVCReconciler) reconcileSchedulerService(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
-	// Deletion path: we don't validate scheduler ports because the user is
-	// either stopping the runtime or referencing an external InferencePool.
-	// expectedSchedulerService still returns a Service shell with the correct
-	// name/namespace which is all Delete needs.
-	if utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
-		toDelete, _ := r.expectedSchedulerService(ctx, llmSvc)
-		return Delete(ctx, r, llmSvc, toDelete)
+	expected := r.expectedSchedulerService(ctx, llmSvc)
+	if schedulerShouldBeDeleted(llmSvc) {
+		return Delete(ctx, r, llmSvc, expected)
 	}
-
-	expected, err := r.expectedSchedulerService(ctx, llmSvc)
-	if err != nil {
-		llmSvc.MarkSchedulerWorkloadNotReady(SchedulerPortMismatchReason, "%s", err.Error())
-		return err
-	}
-
-	if err := Reconcile(ctx, r, llmSvc, &corev1.Service{}, expected, semanticServiceIsEqual); err != nil {
-		return err
-	}
-
-	return nil
+	return Reconcile(ctx, r, llmSvc, &corev1.Service{}, expected, semanticServiceIsEqual)
 }
 
-func (r *LLMISVCReconciler) expectedSchedulerService(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*corev1.Service, error) {
+// expectedSchedulerService builds the Endpoint Picker Service shell and
+// populates it with whatever required ports are defined on the scheduler
+// PodTemplateSpec. Port validation is intentionally NOT performed here —
+// reconcileScheduler short-circuits on missing ports before this function
+// is reached on the create path, and on the delete path the populated
+// ports don't matter (only name/namespace are used by Delete).
+func (r *LLMISVCReconciler) expectedSchedulerService(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) *corev1.Service {
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      llmSvc.Spec.Router.EPPServiceName(llmSvc),
@@ -258,24 +325,13 @@ func (r *LLMISVCReconciler) expectedSchedulerService(ctx context.Context, llmSvc
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Template != nil {
 		podSpec := llmSvc.Spec.Router.Scheduler.Template.DeepCopy()
 
-		desiredPorts := sets.New("grpc", "grpc-health", "metrics", "zmq")
-
 		actualPorts := make(map[string]*corev1.ContainerPort)
 		for _, container := range podSpec.Containers {
 			for _, port := range container.Ports {
-				if desiredPorts.Has(port.Name) {
+				if requiredSchedulerPorts.Has(port.Name) {
 					actualPorts[port.Name] = port.DeepCopy()
 				}
 			}
-		}
-
-		if missing := desiredPorts.Difference(sets.KeySet(actualPorts)); missing.Len() > 0 {
-			// Returning an error here lets reconcileSchedulerService surface a
-			// SchedulerPortMismatch status condition instead of silently building
-			// an incomplete Service that leaves the Endpoint Picker unreachable
-			// to the Gateway.
-			// TODO also cross-check the grpc port against the InferencePool spec.
-			return nil, fmt.Errorf("scheduler container template is missing required ports: %v", sets.List(missing))
 		}
 
 		servicePorts := make([]corev1.ServicePort, 0, len(actualPorts))
@@ -296,8 +352,7 @@ func (r *LLMISVCReconciler) expectedSchedulerService(ctx context.Context, llmSvc
 	}
 
 	log.FromContext(ctx).V(2).Info("Expected router EPP service", "service", svc)
-
-	return svc, nil
+	return svc
 }
 
 func (r *LLMISVCReconciler) expectedSchedulerInferencePool(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) *igwapi.InferencePool {
