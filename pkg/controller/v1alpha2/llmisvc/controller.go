@@ -65,6 +65,7 @@ import (
 	"github.com/kserve/kserve/pkg/utils"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	kserveTypes "github.com/kserve/kserve/pkg/types"
 )
 
 // ChildResourcesLabelSelector matches resources belonging to LLMInferenceService.
@@ -252,6 +253,13 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 	config, configErr := r.loadConfig(ctx)
 	if configErr != nil {
 		return fmt.Errorf("failed to load ingress config: %w", configErr)
+	}
+
+	// Advisory warning: if oci+native:// mode is configured, check the cluster K8s version
+	// and surface an OciImageVolumeCompatible condition when ImageVolume support may be absent.
+	if config.StorageConfig != nil {
+		warnIfImageVolumeUnsupported(ctx, r.Clientset.Discovery(),
+			llmSvc, kserveTypes.ResolveOciModelMode(config.StorageConfig))
 	}
 
 	// nil baseCfg means config resolution set a condition (e.g. ConfigNotFound) and there's nothing more to do.

@@ -60,6 +60,7 @@ import (
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/cabundleconfigmap"
 	modelconfig "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/modelconfig"
 	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
+	kservetypes "github.com/kserve/kserve/pkg/types"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -223,6 +224,15 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// This must happen before any early-return path that calls updateStatus.
 	if isvc.Status.GetCondition(apis.ConditionReady) == nil {
 		isvc.Status.InitializeConditions()
+	}
+
+	// Advisory warning: if oci+native:// mode is configured, check the cluster K8s version
+	// and surface an OciImageVolumeCompatible condition when ImageVolume support may be absent.
+	if storageInitializerConfig, siErr := v1beta1.GetStorageInitializerConfigs(isvcConfigMap); siErr != nil {
+		r.Log.V(1).Info("Skipping OCI version check: failed to parse storageInitializer config", "error", siErr)
+	} else {
+		warnIfImageVolumeUnsupported(ctx, r.Clientset.Discovery(),
+			isvc, kservetypes.ResolveOciModelMode(storageInitializerConfig))
 	}
 
 	// Abort early if the resolved deployment mode is Knative, but Knative Services are not available
