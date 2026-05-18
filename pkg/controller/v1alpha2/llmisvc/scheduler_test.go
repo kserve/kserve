@@ -1644,6 +1644,38 @@ func TestExpectedSchedulerService_PopulatesPresentPorts(t *testing.T) {
 	}
 }
 
+// TestSchedulerServiceShell confirms that the minimal Service shell used by
+// the delete path carries exactly the fields Delete() needs (name +
+// namespace) and nothing else — no Spec, no labels, no owner refs.
+func TestSchedulerServiceShell(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	llmSvc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-llm", Namespace: "my-ns"},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Router: &v1alpha2.RouterSpec{},
+		},
+	}
+
+	shell := schedulerServiceShell(llmSvc)
+	g.Expect(shell).NotTo(BeNil())
+	g.Expect(shell.GetName()).To(Equal(llmSvc.Spec.Router.EPPServiceName(llmSvc)))
+	g.Expect(shell.GetNamespace()).To(Equal("my-ns"))
+	g.Expect(shell.Spec).To(Equal(corev1.ServiceSpec{}))
+	g.Expect(shell.Labels).To(BeEmpty())
+	g.Expect(shell.OwnerReferences).To(BeEmpty())
+
+	// Works even when Router is nil — EPPServiceName falls back to the
+	// llmSvc-derived default so the delete path can still locate a stray
+	// Service left over from a previous reconcile.
+	llmSvcNoRouter := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-llm", Namespace: "my-ns"},
+	}
+	shellNoRouter := schedulerServiceShell(llmSvcNoRouter)
+	g.Expect(shellNoRouter.GetName()).NotTo(BeEmpty())
+	g.Expect(shellNoRouter.GetNamespace()).To(Equal("my-ns"))
+}
+
 func TestSchedulerShouldBeDeleted(t *testing.T) {
 	withTemplate := func() *v1alpha2.LLMInferenceService {
 		return &v1alpha2.LLMInferenceService{
