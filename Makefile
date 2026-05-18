@@ -96,7 +96,7 @@ go-lint: golangci-lint
 	@cd qpext && $(GOLANGCI_LINT) run --fix
 
 py-lint: $(RUFF)
-	$(RUFF) check --config ruff.toml 
+	$(RUFF) check --config ruff.toml
 
 pin-actions: pinact
 	GITHUB_TOKEN=$$(gh auth token 2>/dev/null) $(PINACT) run .github/workflows/*.yml .github/workflows/*.yaml
@@ -131,7 +131,7 @@ verify-minimal-crd-sync:
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen kustomize yq
-	@$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/... output:crd:dir=config/crd/full	
+	@$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/... output:crd:dir=config/crd/full
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-manager-role paths={./pkg/controller/v1alpha1/inferencegraph,./pkg/controller/v1alpha1/trainedmodel,./pkg/controller/v1beta1/inferenceservice} output:rbac:artifacts:config=config/rbac
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-llmisvc-manager-role paths=./pkg/controller/v1alpha2/llmisvc output:rbac:artifacts:config=config/rbac/llmisvc
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-localmodel-manager-role paths=./pkg/controller/v1alpha1/localmodel output:rbac:artifacts:config=config/rbac/localmodel
@@ -148,17 +148,21 @@ manifests: controller-gen kustomize yq
 
 	# Move StorageContainer CRD to storagecontainer folder
 	mv config/crd/full/serving.kserve.io_clusterstoragecontainers.yaml config/crd/full/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml
-	
-	# Move LLMISVC CRD to llmisvc folder	                   
+
+	# Move LLMISVC CRD to llmisvc folder
 	mv config/crd/full/serving.kserve.io_llminferenceservices.yaml config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
 	mv config/crd/full/serving.kserve.io_llminferenceserviceconfigs.yaml config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	
+
 	# Move LocalModel CRD to localmodel folder
 	mv config/crd/full/serving.kserve.io_localmodelcaches.yaml config/crd/full/localmodel/serving.kserve.io_localmodelcaches.yaml
 	mv config/crd/full/serving.kserve.io_localmodelnamespacecaches.yaml config/crd/full/localmodel/serving.kserve.io_localmodelnamespacecaches.yaml
 	mv config/crd/full/serving.kserve.io_localmodelnodegroups.yaml config/crd/full/localmodel/serving.kserve.io_localmodelnodegroups.yaml
 	mv config/crd/full/serving.kserve.io_localmodelnodes.yaml config/crd/full/localmodel/serving.kserve.io_localmodelnodes.yaml
-		
+
+	# Move KernelCache CRD to kernelcache folder
+	mv config/crd/full/serving.kserve.io_kernelcaches.yaml config/crd/full/kernelcache/serving.kserve.io_kernelcaches.yaml
+	mv config/crd/full/serving.kserve.io_kernelcachenodes.yaml config/crd/full/kernelcache/serving.kserve.io_kernelcachenodes.yaml
+
 	@$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt",year=$(CURRENT_YEAR) paths=./pkg/apis/serving/v1alpha1
 	@$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt",year=$(CURRENT_YEAR) paths=./pkg/apis/serving/v1alpha2
 	@$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt",year=$(CURRENT_YEAR) paths=./pkg/apis/serving/v1beta1
@@ -214,19 +218,21 @@ manifests: controller-gen kustomize yq
 	@$(YQ) '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/full/serving.kserve.io_inferenceservices.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} $(YQ) '{} = "TCP"' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
 	@$(YQ) '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/full/serving.kserve.io_clusterservingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} $(YQ) '{} = "TCP"' -i config/crd/full/serving.kserve.io_clusterservingruntimes.yaml
 	@$(YQ) '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/full/serving.kserve.io_servingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} $(YQ) '{} = "TCP"' -i config/crd/full/serving.kserve.io_servingruntimes.yaml
-	
+
 	# Copy the full crd to the helm chart
-	cp config/crd/full/*.yaml charts/kserve-crd/templates/	
+	cp config/crd/full/*.yaml charts/kserve-crd/templates/
 	cp config/crd/full/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-crd/files/
-	cp config/crd/full/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-llmisvc-crd/files/	
+	cp config/crd/full/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-llmisvc-crd/files/
 	rm charts/kserve-crd/templates/kustomization.yaml
 	cp -f config/crd/full/localmodel/*.yaml charts/kserve-localmodel-crd/templates/
 	rm charts/kserve-localmodel-crd/templates/kustomization.yaml
-	
+	cp -f config/crd/full/kernelcache/*.yaml charts/kserve-kernelcache-crd/templates/
+	rm charts/kserve-kernelcache-crd/templates/kustomization.yaml
+
 	# Copy llmisvc crd (with conversion webhook patches applied via kustomize)
 	$(KUSTOMIZE) build config/crd/full/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceservices.serving.kserve.io")' > charts/kserve-llmisvc-crd/templates/serving.kserve.io_llminferenceservices.yaml
 	$(KUSTOMIZE) build config/crd/full/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceserviceconfigs.serving.kserve.io")' > charts/kserve-llmisvc-crd/templates/serving.kserve.io_llminferenceserviceconfigs.yaml
-	
+
 	# Copy the WVA VariantAutoscaling CRD for envtest
 	$(KUSTOMIZE) build https://github.com/llm-d/llm-d-workload-variant-autoscaler.git/config/crd?ref=$(WVA_VERSION) > test/crds/wva_variantautoscalings.yaml
 
@@ -238,22 +244,26 @@ manifests: controller-gen kustomize yq
 	$(KUSTOMIZE) build config/crd/full/llmisvc >> test/crds/serving.kserve.io_all_crds.yaml
 	echo "---" >> test/crds/serving.kserve.io_all_crds.yaml
 	$(KUSTOMIZE) build config/crd/full/localmodel >> test/crds/serving.kserve.io_all_crds.yaml
-	
+	echo "---" >> test/crds/serving.kserve.io_all_crds.yaml
+	$(KUSTOMIZE) build config/crd/full/kernelcache >> test/crds/serving.kserve.io_all_crds.yaml
+
 	# Generate minimal crd
 	./hack/minimal-crdgen.sh
-	
+
 	# Copy the minimal crd to the helm chart
 	cp -f config/crd/minimal/*.yaml charts/kserve-crd-minimal/templates/
 	cp -f config/crd/minimal/localmodel/*.yaml charts/kserve-localmodel-crd-minimal/templates/
+	cp -f config/crd/minimal/kernelcache/*.yaml charts/kserve-kernelcache-crd-minimal/templates/
 	cp -f config/crd/minimal/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-crd-minimal/files/
 	cp -f config/crd/minimal/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-llmisvc-crd-minimal/files/
 	rm charts/kserve-crd-minimal/templates/kustomization.yaml
 	rm charts/kserve-localmodel-crd-minimal/templates/kustomization.yaml
+	rm charts/kserve-kernelcache-crd-minimal/templates/kustomization.yaml
 
 	# Copy minimal llmisvc crd (with conversion webhook patches applied via kustomize)
 	$(KUSTOMIZE) build config/crd/minimal/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceservices.serving.kserve.io")' > charts/kserve-llmisvc-crd-minimal/templates/serving.kserve.io_llminferenceservices.yaml
 	$(KUSTOMIZE) build config/crd/minimal/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceserviceconfigs.serving.kserve.io")' > charts/kserve-llmisvc-crd-minimal/templates/serving.kserve.io_llminferenceserviceconfigs.yaml
-	
+
     # Copy Test inferenceconfig configmap to test overlay
 	cp config/configmap/inferenceservice.yaml config/overlays/test/configmap/inferenceservice.yaml
 
@@ -293,7 +303,7 @@ uv-lock: $(UV)
 .PHONY: ensure-go-version-upgrade ensure-golangci-go-version
 ensure-go-version-upgrade: ensure-golangci-go-version
 
-ensure-golangci-go-version: yq	
+ensure-golangci-go-version: yq
 	@GO_GOMOD_VERSION="$$(grep -m1 '^go ' go.mod | cut -d' ' -f2 | cut -d. -f1-2)"; \
 	GO_GOLANGCI_VERSION="$$($(YQ) -r '.run.go // ""' .golangci.yml | cut -d. -f1-2)"; \
 	if [ -z "$${GO_GOLANGCI_VERSION}" ]; then \
@@ -417,7 +427,7 @@ deploy-dev: manifests
 	kubectl apply --server-side=true --force-conflicts -k config/crd/full/llmisvc
 	kubectl wait --for=condition=established --timeout=60s crd/llminferenceserviceconfigs.serving.kserve.io
 	./hack/image_patch_dev.sh development
-	
+
 	@echo "Deploy KServe,LocalModel and LLMInferenceService"
 	hack/setup/infra/manage.cert-manager-helm.sh
 	hack/setup/infra/manage.lws-operator.sh
@@ -427,7 +437,7 @@ deploy-dev: manifests
 	hack/setup/infra/gateway-api/manage.gateway-api-gwclass.sh
 	hack/setup/infra/gateway-api/manage.gateway-api-gw.sh
 	KSERVE_OVERLAY_DIR=development hack/setup/infra/manage.kserve-kustomize.sh
-	
+
 	@echo "Create ClusterServingRuntimes as part of default deployment"
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
 	kubectl wait --for=condition=ready pod -l control-plane=llmisvc-controller-manager -n kserve --timeout=300s
@@ -437,13 +447,13 @@ deploy-dev: manifests
 redeploy-dev-image:
 	./hack/image_patch_dev.sh development
 	kubectl apply --server-side=true --force-conflicts -k config/overlays/development
-	
+
 	kubectl rollout restart deployment/kserve-controller-manager -n kserve
 	kubectl rollout status deployment/kserve-controller-manager -n kserve --timeout=300s
-	
+
 	kubectl rollout restart deployment/llmisvc-controller-manager -n kserve
 	kubectl rollout status deployment/llmisvc-controller-manager -n kserve --timeout=300s
-	
+
 	@echo "Deployments updated successfully"
 	kubectl get pods -n kserve
 
@@ -471,7 +481,7 @@ deploy-dev-huggingface: docker-push-huggingface
 deploy-dev-storageInitializer: docker-push-storageInitializer
 	./hack/storageInitializer_patch_dev.sh ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
 	kubectl apply --server-side=true -k config/overlays/dev-image-config
-	
+
 deploy-helm:
 	USE_LOCAL_CHARTS=true ./hack/setup/infra/manage.kserve-helm.sh
 
