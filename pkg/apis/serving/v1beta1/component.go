@@ -205,7 +205,7 @@ type ExternalMetricSource struct {
 	Metric ExternalMetrics `json:"metric"`
 
 	// authenticationRef is a reference to the authentication information
-	// for more information see: https://keda.sh/docs/2.17/scalers/prometheus/#authentication-parameters
+	// for more information see: https://keda.sh/docs/2.19/scalers/prometheus/#authentication-parameters
 	// +optional
 	Authentication *ExtMetricAuthentication `json:"authenticationRef,omitempty"`
 
@@ -232,11 +232,11 @@ type AuthenticationRef struct {
 
 type ExtMetricAuthentication struct {
 	// authenticationRef is a reference to the authentication information
-	// for more information see: https://keda.sh/docs/2.17/scalers/prometheus/#authentication-parameters
+	// for more information see: https://keda.sh/docs/2.19/scalers/prometheus/#authentication-parameters
 	AuthenticationRef AuthenticationRef `json:"authenticationRef"`
 	// authModes defines the authentication modes for the metrics backend
 	// possible values are bearer, basic, tls.
-	// for more information see: https://keda.sh/docs/2.17/scalers/prometheus/#authentication-parameters
+	// for more information see: https://keda.sh/docs/2.19/scalers/prometheus/#authentication-parameters
 	// +optional
 	AuthModes string `json:"authModes,omitempty"`
 }
