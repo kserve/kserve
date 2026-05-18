@@ -144,6 +144,7 @@ func createRawDefaultDeployment(componentMeta metav1.ObjectMeta,
 ) *appsv1.Deployment {
 	podMetadata := componentMeta
 	podMetadata.Labels["app"] = constants.GetRawServiceLabel(componentMeta.Name)
+	podMetadata.Labels[constants.KubernetesManagedByLabelKey] = constants.KubernetesManagedByLabelValue
 	setDefaultPodSpec(podSpec)
 	deployment := &appsv1.Deployment{
 		ObjectMeta: componentMeta,
@@ -182,6 +183,7 @@ func createRawWorkerDeployment(componentMeta metav1.ObjectMeta,
 	podMetadata := componentMeta
 	workerPredictorName := constants.GetRawWorkerServiceLabel(predictorName)
 	podMetadata.Labels["app"] = workerPredictorName
+	podMetadata.Labels[constants.KubernetesManagedByLabelKey] = constants.KubernetesManagedByLabelValue
 	setDefaultPodSpec(podSpec)
 	deployment := &appsv1.Deployment{
 		ObjectMeta: componentMeta,

@@ -396,10 +396,12 @@ const (
 
 // Kubernetes recommended label keys (https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/)
 const (
-	KubernetesAppNameLabelKey   = "app.kubernetes.io/name"
-	KubernetesInstanceLabelKey  = "app.kubernetes.io/instance"
-	KubernetesPartOfLabelKey    = "app.kubernetes.io/part-of"
-	KubernetesComponentLabelKey = "app.kubernetes.io/component"
+	KubernetesAppNameLabelKey      = "app.kubernetes.io/name"
+	KubernetesInstanceLabelKey     = "app.kubernetes.io/instance"
+	KubernetesPartOfLabelKey       = "app.kubernetes.io/part-of"
+	KubernetesComponentLabelKey    = "app.kubernetes.io/component"
+	KubernetesManagedByLabelKey    = "app.kubernetes.io/managed-by"
+	KubernetesManagedByLabelValue  = "kserve-controller"
 )
 
 // KServe workload component label (key and value for "kserve.io/component" on workload resources)

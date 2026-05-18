@@ -171,37 +171,39 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					Annotations: map[string]string{
 						"annotation": "annotation-value",
 					},
-					Labels: map[string]string{
+				Labels: map[string]string{
+					constants.RawDeploymentAppLabel:     "isvc.default-predictor",
+					constants.AutoscalerClass:           string(constants.AutoscalerClassHPA),
+					constants.DeploymentMode:            string(constants.Standard),
+					constants.KubernetesManagedByLabelKey: constants.KubernetesManagedByLabelValue,
+				},
+			},
+			Spec: appsv1.DeploymentSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
 						constants.RawDeploymentAppLabel: "isvc.default-predictor",
-						constants.AutoscalerClass:       string(constants.AutoscalerClassHPA),
-						constants.DeploymentMode:        string(constants.Standard),
 					},
 				},
-				Spec: appsv1.DeploymentSpec{
-					Selector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							constants.RawDeploymentAppLabel: "isvc.default-predictor",
-						},
+				Strategy: appsv1.DeploymentStrategy{
+					Type: appsv1.RollingUpdateDeploymentStrategyType,
+					RollingUpdate: &appsv1.RollingUpdateDeployment{
+						MaxUnavailable: intStrPtr("25%"),
+						MaxSurge:       intStrPtr("25%"),
 					},
-					Strategy: appsv1.DeploymentStrategy{
-						Type: appsv1.RollingUpdateDeploymentStrategyType,
-						RollingUpdate: &appsv1.RollingUpdateDeployment{
-							MaxUnavailable: intStrPtr("25%"),
-							MaxSurge:       intStrPtr("25%"),
+				},
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "default-predictor",
+						Namespace: "default-predictor-namespace",
+						Annotations: map[string]string{
+							"annotation": "annotation-value",
 						},
-					},
-					Template: corev1.PodTemplateSpec{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "default-predictor",
-							Namespace: "default-predictor-namespace",
-							Annotations: map[string]string{
-								"annotation": "annotation-value",
-							},
-							Labels: map[string]string{
-								constants.RawDeploymentAppLabel: "isvc.default-predictor",
-								constants.AutoscalerClass:       string(constants.AutoscalerClassHPA),
-								constants.DeploymentMode:        string(constants.Standard),
-							},
+						Labels: map[string]string{
+							constants.RawDeploymentAppLabel:     "isvc.default-predictor",
+							constants.AutoscalerClass:           string(constants.AutoscalerClassHPA),
+							constants.DeploymentMode:            string(constants.Standard),
+							constants.KubernetesManagedByLabelKey: constants.KubernetesManagedByLabelValue,
+						},
 						},
 						Spec: corev1.PodSpec{
 							Volumes:                      []corev1.Volume{{Name: "default-predictor-example-volume"}},
@@ -248,6 +250,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 						"app":                               "isvc.default-predictor",
 						"serving.kserve.io/autoscalerClass": "none",
 						"serving.kserve.io/deploymentMode":  "Standard",
+						constants.KubernetesManagedByLabelKey: constants.KubernetesManagedByLabelValue,
 					},
 				},
 				Spec: appsv1.DeploymentSpec{
@@ -274,6 +277,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 								"app":                               "isvc.default-predictor",
 								"serving.kserve.io/autoscalerClass": "none",
 								"serving.kserve.io/deploymentMode":  "Standard",
+								constants.KubernetesManagedByLabelKey: constants.KubernetesManagedByLabelValue,
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -327,9 +331,10 @@ func TestCreateDefaultDeployment(t *testing.T) {
 						"annotation": "annotation-value",
 					},
 					Labels: map[string]string{
-						constants.RawDeploymentAppLabel: "isvc.default-predictor-worker",
-						constants.AutoscalerClass:       string(constants.AutoscalerClassNone),
-						constants.DeploymentMode:        string(constants.Standard),
+						constants.RawDeploymentAppLabel:       "isvc.default-predictor-worker",
+						constants.AutoscalerClass:             string(constants.AutoscalerClassNone),
+						constants.DeploymentMode:              string(constants.Standard),
+						constants.KubernetesManagedByLabelKey: constants.KubernetesManagedByLabelValue,
 					},
 				},
 				Spec: appsv1.DeploymentSpec{
@@ -354,9 +359,10 @@ func TestCreateDefaultDeployment(t *testing.T) {
 								"annotation": "annotation-value",
 							},
 							Labels: map[string]string{
-								constants.RawDeploymentAppLabel: "isvc.default-predictor-worker",
-								constants.AutoscalerClass:       string(constants.AutoscalerClassNone),
-								constants.DeploymentMode:        string(constants.Standard),
+								constants.RawDeploymentAppLabel:       "isvc.default-predictor-worker",
+								constants.AutoscalerClass:             string(constants.AutoscalerClassNone),
+								constants.DeploymentMode:              string(constants.Standard),
+								constants.KubernetesManagedByLabelKey: constants.KubernetesManagedByLabelValue,
 							},
 						},
 						Spec: corev1.PodSpec{
