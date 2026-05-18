@@ -18,6 +18,12 @@ version = "0.18.0"
 description = "Model Server implementation for huggingface. Not intended for use outside KServe Frameworks Images."
 readme = "README.md"
 
+# fixes CVE-2026-40192
+[tool.uv]
+override-dependencies = [
+    "pillow>=12.2.0",
+]
+
 [dependency-groups]
 test = [
     "pytest<8.0.0,>=7.4.4",

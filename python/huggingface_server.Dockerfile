@@ -98,11 +98,6 @@ FROM cuda-devel AS base
 ARG WORKSPACE_DIR
 ARG CUDA_VERSION=13.2.1
 
-RUN echo '[global]' >>/etc/pip.conf && \
-    echo 'break-system-packages = true' >>/etc/pip.conf && \
-    echo 'ignore-installed = true' >>/etc/pip.conf && \
-    echo 'root-user-action = ignore' >>/etc/pip.conf
-
 RUN apt-get update -y \
     && apt-get install -y ccache software-properties-common git curl sudo gcc python3 python3-venv python3-pip python-is-python3 \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -171,10 +166,10 @@ RUN --mount=type=cache,target=/root/.cache/uv cd huggingfaceserver && uv sync --
 # Install vllm
 # https://docs.vllm.ai/en/latest/models/extensions/runai_model_streamer.html, https://docs.vllm.ai/en/latest/models/extensions/tensorizer.html
 # https://docs.vllm.ai/en/latest/models/extensions/fastsafetensor.html
-RUN --mount=type=cache,target=/root/.cache/pip pip install vllm[runai,tensorizer,fastsafetensors]==${VLLM_VERSION}
+RUN --mount=type=cache,target=/root/.cache/uv uv pip install vllm[runai,tensorizer,fastsafetensors]==${VLLM_VERSION}
 
 # Install lmcache
-RUN --mount=type=cache,target=/root/.cache/pip pip install lmcache==${LMCACHE_VERSION}
+RUN --mount=type=cache,target=/root/.cache/uv uv pip install lmcache==${LMCACHE_VERSION}
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
