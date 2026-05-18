@@ -17,7 +17,6 @@ limitations under the License.
 package utils
 
 import (
-	"errors"
 	"fmt"
 	"path"
 	"strings"
@@ -595,16 +594,6 @@ func ConfigureModelcarToContainer(modelUri string, podSpec *corev1.PodSpec, targ
 	return nil
 }
 
-// ErrOciNativeNotImplemented is returned by ConfigureOciNativeToContainer until the
-// ImageVolume materializer is wired in commit #3.
-var ErrOciNativeNotImplemented = errors.New("oci+native:// materializer not yet implemented")
-
-// OciNativeHandler materializes Kubernetes-native ImageVolume mounts for oci+native:// URIs.
-// The real implementation replaces ConfigureOciNativeToContainer in the next commit.
-type OciNativeHandler interface {
-	ConfigureNative(modelUri string, podSpec *corev1.PodSpec, targetContainerName, modelPath string, storageConfig *types.StorageInitializerConfig) error
-}
-
 // ParseOciScheme splits any OCI storageUri into its mode, a normalized oci:// URI, and
 // whether it is an OCI URI at all.
 //
@@ -628,8 +617,51 @@ func ParseOciScheme(uri string) (mode string, normalizedURI string, isOci bool) 
 	return "", uri, false
 }
 
-// ConfigureOciNativeToContainer is the stub for the Kubernetes-native ImageVolume
-// materializer. Replaced by the real implementation in commit #3.
-func ConfigureOciNativeToContainer(modelUri string, podSpec *corev1.PodSpec, targetContainerName, modelPath string, storageConfig *types.StorageInitializerConfig) error {
-	return ErrOciNativeNotImplemented
+// ConfigureOciNativeToContainer mounts a Kubernetes ImageVolume (alpha/beta gated by
+// +featureGate=ImageVolume) for an oci:// storageUri onto targetContainerName at modelPath.
+//
+// The volume name is derived from modelPath so that multiple adapters at different paths
+// can coexist without collision (each path produces a unique name via GetVolumeNameFromPath).
+// If another VolumeMount already uses modelPath the call is rejected to avoid silent
+// mount shadowing.
+func ConfigureOciNativeToContainer(modelUri string, podSpec *corev1.PodSpec, targetContainerName, modelPath string, _ *types.StorageInitializerConfig) error {
+	targetContainer := GetContainerWithName(podSpec, targetContainerName)
+	if targetContainer == nil {
+		return fmt.Errorf("no container found with name %s", targetContainerName)
+	}
+
+	imageRef := strings.TrimPrefix(modelUri, constants.OciURIPrefix)
+
+	volName := GetVolumeNameFromPath(modelPath)
+	if volName == "" {
+		volName = "oci-model"
+	}
+
+	// Reject if modelPath is already claimed by a different mount.
+	for _, m := range targetContainer.VolumeMounts {
+		if m.MountPath == modelPath && m.Name != volName {
+			return fmt.Errorf("mountPath %q already used by volume %q", modelPath, m.Name)
+		}
+	}
+
+	// Idempotent: skip if the volume already exists (e.g. duplicate adapter path).
+	for _, v := range podSpec.Volumes {
+		if v.Name == volName {
+			return nil
+		}
+	}
+
+	podSpec.Volumes = append(podSpec.Volumes, corev1.Volume{
+		Name: volName,
+		VolumeSource: corev1.VolumeSource{
+			Image: &corev1.ImageVolumeSource{
+				Reference:  imageRef,
+				PullPolicy: corev1.PullIfNotPresent,
+			},
+		},
+	})
+
+	AddVolumeMountIfNotPresent(targetContainer, volName, modelPath, true)
+
+	return nil
 }
