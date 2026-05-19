@@ -172,6 +172,12 @@ spec:
               - ALL
           seccompProfile:
             type: RuntimeDefault
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /bin/sleep
+              - "15"
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: FallbackToLogsOnError
         livenessProbe:
@@ -267,7 +273,7 @@ spec:
                 fieldPath: metadata.namespace
           - name: SSL_CERT_DIR
             value: "/var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs"
-    terminationGracePeriodSeconds: 30
+    terminationGracePeriodSeconds: 60
     volumes:
       - emptyDir: { }
         name: home
