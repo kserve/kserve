@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package llmisvc
+package llmisvc_test
 
 import (
 	"context"
@@ -31,6 +31,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 )
 
 func newConfigMergeTestScheme(t *testing.T) *runtime.Scheme {
@@ -51,12 +52,12 @@ func newCfg(name, namespace string) *v1alpha2.LLMInferenceServiceConfig {
 func TestConfigNotFoundErrorMessage(t *testing.T) {
 	tests := []struct {
 		name string
-		err  *configNotFoundError
+		err  *llmisvc.ConfigNotFoundError
 		want string
 	}{
 		{
 			name: "available configs present - ns/name listed in sorted form",
-			err: &configNotFoundError{
+			err: &llmisvc.ConfigNotFoundError{
 				Name:       "kserve-config-llm-template",
 				Namespaces: []string{"default", "kserve"},
 				Available: []string{
@@ -69,7 +70,7 @@ func TestConfigNotFoundErrorMessage(t *testing.T) {
 		},
 		{
 			name: "empty available slice renders as []",
-			err: &configNotFoundError{
+			err: &llmisvc.ConfigNotFoundError{
 				Name:       "missing",
 				Namespaces: []string{"default", "kserve"},
 				Available:  []string{},
@@ -78,7 +79,7 @@ func TestConfigNotFoundErrorMessage(t *testing.T) {
 		},
 		{
 			name: "nil available slice also renders as []",
-			err: &configNotFoundError{
+			err: &llmisvc.ConfigNotFoundError{
 				Name:       "missing",
 				Namespaces: []string{"default", "kserve"},
 				Available:  nil,
@@ -109,9 +110,9 @@ func TestListAvailableConfigs(t *testing.T) {
 				newCfg("kserve-config-llm-scheduler", "kserve"),
 			).
 			Build()
-		r := &LLMISVCReconciler{Client: fc}
+		r := &llmisvc.LLMISVCReconciler{Client: fc}
 
-		got := r.listAvailableConfigs(context.Background(), []string{"default", "kserve"})
+		got := r.ListAvailableConfigsForTest(context.Background(), []string{"default", "kserve"})
 
 		g.Expect(got).To(Equal([]string{
 			"default/alpha",
@@ -132,9 +133,9 @@ func TestListAvailableConfigs(t *testing.T) {
 				newCfg("foo", "kserve"),
 			).
 			Build()
-		r := &LLMISVCReconciler{Client: fc}
+		r := &llmisvc.LLMISVCReconciler{Client: fc}
 
-		got := r.listAvailableConfigs(context.Background(), []string{"default", "kserve"})
+		got := r.ListAvailableConfigsForTest(context.Background(), []string{"default", "kserve"})
 
 		g.Expect(got).To(Equal([]string{"default/foo", "kserve/foo"}))
 	})
@@ -144,9 +145,9 @@ func TestListAvailableConfigs(t *testing.T) {
 		scheme := newConfigMergeTestScheme(t)
 
 		fc := fake.NewClientBuilder().WithScheme(scheme).Build()
-		r := &LLMISVCReconciler{Client: fc}
+		r := &llmisvc.LLMISVCReconciler{Client: fc}
 
-		got := r.listAvailableConfigs(context.Background(), []string{"default", "kserve"})
+		got := r.ListAvailableConfigsForTest(context.Background(), []string{"default", "kserve"})
 
 		g.Expect(got).To(BeEmpty())
 	})
@@ -175,9 +176,9 @@ func TestListAvailableConfigs(t *testing.T) {
 				},
 			}).
 			Build()
-		r := &LLMISVCReconciler{Client: fc}
+		r := &llmisvc.LLMISVCReconciler{Client: fc}
 
-		got := r.listAvailableConfigs(context.Background(), []string{"default", "forbidden-ns"})
+		got := r.ListAvailableConfigsForTest(context.Background(), []string{"default", "forbidden-ns"})
 
 		g.Expect(got).To(Equal([]string{"default/ok-config"}),
 			"forbidden namespace should be silently dropped, default's configs preserved")
@@ -199,18 +200,18 @@ func TestGetConfig_NotFound_PopulatesAvailable(t *testing.T) {
 			newCfg("user-custom-config", "user-ns"),
 		).
 		Build()
-	r := &LLMISVCReconciler{Client: fc}
+	r := &llmisvc.LLMISVCReconciler{Client: fc}
 
 	llmSvc := &v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-llm", Namespace: "user-ns"},
 	}
 
-	_, err := r.getConfig(context.Background(), llmSvc, "does-not-exist")
+	_, err := r.GetConfigForTest(context.Background(), llmSvc, "does-not-exist")
 
 	g.Expect(err).To(HaveOccurred())
 
-	var cfgNotFound *configNotFoundError
-	g.Expect(errors.As(err, &cfgNotFound)).To(BeTrue(), "error should unwrap to *configNotFoundError")
+	var cfgNotFound *llmisvc.ConfigNotFoundError
+	g.Expect(errors.As(err, &cfgNotFound)).To(BeTrue(), "error should unwrap to *ConfigNotFoundError")
 	g.Expect(cfgNotFound.Name).To(Equal("does-not-exist"))
 	g.Expect(cfgNotFound.Namespaces).To(Equal([]string{"user-ns", constants.KServeNamespace}))
 	g.Expect(cfgNotFound.Available).To(ConsistOf(
