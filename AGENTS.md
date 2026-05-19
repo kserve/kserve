@@ -28,7 +28,8 @@ make test-qpext    # qpext tests
 Run tests for a specific package:
 
 ```bash
-KUBEBUILDER_ASSETS="$(setup-envtest use -p path)" go test ./pkg/controller/v1beta1/...
+make setup-envtest
+KUBEBUILDER_ASSETS="$(./bin/setup-envtest use $(go list -m -f '{{ .Version }}' k8s.io/api | awk -F'[v.]' '{printf "1.%d", $3}') -p path)" go test ./pkg/controller/v1beta1/...
 ```
 
 Controller tests are a mix of unit tests (often with `fake.NewClientBuilder`) and envtest integration suites. Envtest is used across multiple controller areas, including llmisvc.
