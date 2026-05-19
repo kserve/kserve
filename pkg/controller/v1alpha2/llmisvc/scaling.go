@@ -26,6 +26,7 @@ import (
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -267,6 +268,10 @@ func (r *LLMISVCReconciler) propagateScalingStatus(ctx context.Context, llmSvc *
 func (r *LLMISVCReconciler) propagateHPAStatus(ctx context.Context, expected *autoscalingv2.HorizontalPodAutoscaler, ready func(), notReady func(reason, messageFormat string, messageA ...interface{})) error {
 	curr := &autoscalingv2.HorizontalPodAutoscaler{}
 	if err := r.Get(ctx, client.ObjectKeyFromObject(expected), curr); err != nil {
+		if apierrors.IsNotFound(err) {
+			notReady("HPAProgressing", "HPA not yet visible in cache")
+			return nil
+		}
 		return fmt.Errorf("failed to get current HPA %s/%s: %w", expected.GetNamespace(), expected.GetName(), err)
 	}
 
@@ -313,6 +318,10 @@ func (r *LLMISVCReconciler) propagateHPAStatus(ctx context.Context, expected *au
 func (r *LLMISVCReconciler) propagateScaledObjectStatus(ctx context.Context, expected *kedav1alpha1.ScaledObject, ready func(), notReady func(reason, messageFormat string, messageA ...interface{})) error {
 	curr := &kedav1alpha1.ScaledObject{}
 	if err := r.Get(ctx, client.ObjectKeyFromObject(expected), curr); err != nil {
+		if apierrors.IsNotFound(err) {
+			notReady("ScaledObjectProgressing", "ScaledObject not yet visible in cache")
+			return nil
+		}
 		return fmt.Errorf("failed to get current ScaledObject %s/%s: %w", expected.GetNamespace(), expected.GetName(), err)
 	}
 

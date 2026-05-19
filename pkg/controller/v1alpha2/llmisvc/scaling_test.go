@@ -1098,9 +1098,10 @@ func TestPropagateHPAStatus(t *testing.T) {
 			wantReady: true,
 		},
 		{
-			name:    "HPA not found -> error",
-			hpa:     nil,
-			wantErr: true,
+			name:         "HPA not found -> not ready HPAProgressing (cache lag)",
+			hpa:          nil,
+			wantNotReady: true,
+			wantReason:   "HPAProgressing",
 		},
 	}
 
@@ -1232,9 +1233,10 @@ func TestPropagateScaledObjectStatus(t *testing.T) {
 			wantReason:   "ScaledObjectProgressing",
 		},
 		{
-			name:    "ScaledObject not found -> error",
-			so:      nil,
-			wantErr: true,
+			name:         "ScaledObject not found -> not ready ScaledObjectProgressing (cache lag)",
+			so:           nil,
+			wantNotReady: true,
+			wantReason:   "ScaledObjectProgressing",
 		},
 	}
 
