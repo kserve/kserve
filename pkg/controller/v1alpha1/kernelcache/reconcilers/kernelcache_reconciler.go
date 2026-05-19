@@ -22,6 +22,7 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -84,16 +85,28 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
-	// Step 3: Get nodes in cluster
-	nodes := &corev1.NodeList{}
-	if err := r.List(ctx, nodes); err != nil {
+	// Step 3: Get nodes where agent pods are running
+	// This automatically respects DaemonSet scheduling (taints, labels, node selectors)
+	agentPods := &corev1.PodList{}
+	if err := r.List(ctx, agentPods,
+		client.InNamespace("kserve"),
+		client.MatchingLabels{"app": "kserve-kernelcachenode-agent"},
+	); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	// Step 4: For each node, ensure KernelCacheNode exists and has this cache
-	for _, node := range nodes.Items {
-		if err := r.ensureKernelCacheNode(ctx, kc, node.Name); err != nil {
-			r.Log.Error(err, "failed to ensure KernelCacheNode", "node", node.Name)
+	// Extract unique node names from running agent pods
+	agentNodes := make(map[string]bool)
+	for _, pod := range agentPods.Items {
+		if pod.Spec.NodeName != "" {
+			agentNodes[pod.Spec.NodeName] = true
+		}
+	}
+
+	// Step 4: For each node with agent, ensure KernelCacheNode exists and has this cache
+	for nodeName := range agentNodes {
+		if err := r.ensureKernelCacheNode(ctx, kc, nodeName); err != nil {
+			r.Log.Error(err, "failed to ensure KernelCacheNode", "node", nodeName)
 			continue
 		}
 	}
@@ -101,6 +114,14 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// Step 5: Aggregate status from KernelCacheNodes
 	if err := r.updateAggregateStatus(ctx, kc); err != nil {
 		return ctrl.Result{}, err
+	}
+
+	// Step 6: Create Serving PVC when all extractions complete
+	if r.allExtractionsComplete(ctx, kc) {
+		if err := r.ensureServingPVC(ctx, kc); err != nil {
+			r.Log.Error(err, "failed to create serving PVC")
+			return ctrl.Result{}, err
+		}
 	}
 
 	// No periodic requeue needed - all operations synchronous
@@ -156,34 +177,99 @@ func (r *KernelCacheReconciler) handleDeletion(ctx context.Context, kc *v1alpha1
 		}
 	}
 
-	// Delete PVC and PV (no owner references, manual cleanup required)
+	// Delete extraction Jobs, then Download and Serving PVCs and PVs
 	jobNamespace := "kserve"
-	pvcName := kc.Namespace + "-" + kc.Name + "-download"
-	pvName := kc.Namespace + "-" + kc.Name + "-download-pv"
+	downloadPVCName := kc.Namespace + "-" + kc.Name + "-download"
+	downloadPVName := kc.Namespace + "-" + kc.Name + "-download-pv"
+	servingPVCName := kc.Name // Same name as KernelCache
+	servingPVName := kc.Namespace + "-" + kc.Name + "-serving-pv"
 
-	// Delete PVC
-	pvc := &corev1.PersistentVolumeClaim{}
-	if err := r.Get(ctx, types.NamespacedName{
-		Name:      pvcName,
-		Namespace: jobNamespace,
-	}, pvc); err == nil {
-		if err := r.Delete(ctx, pvc); err != nil && !errors.IsNotFound(err) {
-			r.Log.Error(err, "Failed to delete PVC", "pvc", pvcName)
-			return ctrl.Result{}, err
-		}
-		r.Log.Info("Deleted PVC", "pvc", pvcName)
+	// Delete extraction Jobs and Pods first (PVC can't delete while Pods are using it)
+	jobLabels := map[string]string{
+		"cache":           kc.Name,
+		"cache-namespace": kc.Namespace,
 	}
 
-	// Delete PV
-	pv := &corev1.PersistentVolume{}
+	// Delete Pods (Job deletion doesn't immediately delete Pods)
+	podList := &corev1.PodList{}
+	if err := r.List(ctx, podList,
+		client.InNamespace(jobNamespace),
+		client.MatchingLabels(jobLabels),
+	); err == nil {
+		for i := range podList.Items {
+			pod := &podList.Items[i]
+			if err := r.Delete(ctx, pod); err != nil && !errors.IsNotFound(err) {
+				r.Log.Error(err, "Failed to delete extraction Pod", "pod", pod.Name)
+			} else {
+				r.Log.Info("Deleted extraction Pod", "pod", pod.Name)
+			}
+		}
+	}
+
+	// Delete Jobs
+	jobList := &batchv1.JobList{}
+	if err := r.List(ctx, jobList,
+		client.InNamespace(jobNamespace),
+		client.MatchingLabels(jobLabels),
+	); err == nil {
+		for i := range jobList.Items {
+			job := &jobList.Items[i]
+			if err := r.Delete(ctx, job); err != nil && !errors.IsNotFound(err) {
+				r.Log.Error(err, "Failed to delete extraction Job", "job", job.Name)
+			} else {
+				r.Log.Info("Deleted extraction Job", "job", job.Name)
+			}
+		}
+	}
+
+	// Delete Download PVC
+	downloadPVC := &corev1.PersistentVolumeClaim{}
 	if err := r.Get(ctx, types.NamespacedName{
-		Name: pvName,
-	}, pv); err == nil {
-		if err := r.Delete(ctx, pv); err != nil && !errors.IsNotFound(err) {
-			r.Log.Error(err, "Failed to delete PV", "pv", pvName)
+		Name:      downloadPVCName,
+		Namespace: jobNamespace,
+	}, downloadPVC); err == nil {
+		if err := r.Delete(ctx, downloadPVC); err != nil && !errors.IsNotFound(err) {
+			r.Log.Error(err, "Failed to delete Download PVC", "pvc", downloadPVCName)
 			return ctrl.Result{}, err
 		}
-		r.Log.Info("Deleted PV", "pv", pvName)
+		r.Log.Info("Deleted Download PVC", "pvc", downloadPVCName)
+	}
+
+	// Delete Download PV
+	downloadPV := &corev1.PersistentVolume{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name: downloadPVName,
+	}, downloadPV); err == nil {
+		if err := r.Delete(ctx, downloadPV); err != nil && !errors.IsNotFound(err) {
+			r.Log.Error(err, "Failed to delete Download PV", "pv", downloadPVName)
+			return ctrl.Result{}, err
+		}
+		r.Log.Info("Deleted Download PV", "pv", downloadPVName)
+	}
+
+	// Delete Serving PVC (has owner reference, should auto-delete, but clean up manually to be safe)
+	servingPVC := &corev1.PersistentVolumeClaim{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      servingPVCName,
+		Namespace: kc.Namespace,
+	}, servingPVC); err == nil {
+		if err := r.Delete(ctx, servingPVC); err != nil && !errors.IsNotFound(err) {
+			r.Log.Error(err, "Failed to delete Serving PVC", "pvc", servingPVCName)
+			return ctrl.Result{}, err
+		}
+		r.Log.Info("Deleted Serving PVC", "pvc", servingPVCName)
+	}
+
+	// Delete Serving PV
+	servingPV := &corev1.PersistentVolume{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name: servingPVName,
+	}, servingPV); err == nil {
+		if err := r.Delete(ctx, servingPV); err != nil && !errors.IsNotFound(err) {
+			r.Log.Error(err, "Failed to delete Serving PV", "pv", servingPVName)
+			return ctrl.Result{}, err
+		}
+		r.Log.Info("Deleted Serving PV", "pv", servingPVName)
 	}
 
 	// Remove finalizer
@@ -378,6 +464,200 @@ func (r *KernelCacheReconciler) ensureDownloadPVC(
 	if err := CreatePVC(ctx, r.Clientset, r.Scheme, r.Log, pvc, jobNamespace, nil); err != nil {
 		return fmt.Errorf("failed to create download PVC: %w", err)
 	}
+
+	return nil
+}
+
+// allExtractionsComplete checks if all nodes have completed extraction for this cache
+func (r *KernelCacheReconciler) allExtractionsComplete(
+	ctx context.Context,
+	kc *v1alpha1.KernelCache,
+) bool {
+	// Get nodes where agent pods are running
+	agentPods := &corev1.PodList{}
+	if err := r.List(ctx, agentPods,
+		client.InNamespace("kserve"),
+		client.MatchingLabels{"app": "kserve-kernelcachenode-agent"},
+	); err != nil {
+		r.Log.Error(err, "failed to list agent pods")
+		return false
+	}
+
+	// Extract unique node names from running agent pods
+	agentNodes := make(map[string]bool)
+	for _, pod := range agentPods.Items {
+		if pod.Spec.NodeName != "" {
+			agentNodes[pod.Spec.NodeName] = true
+		}
+	}
+
+	if len(agentNodes) == 0 {
+		r.Log.V(1).Info("No agent nodes found", "cache", kc.Name)
+		return false
+	}
+
+	// List all KernelCacheNodes
+	kcNodes := &v1alpha1.KernelCacheNodeList{}
+	if err := r.List(ctx, kcNodes); err != nil {
+		r.Log.Error(err, "failed to list KernelCacheNodes")
+		return false
+	}
+
+	// Track if we found this cache on any agent node
+	foundOnAnyNode := false
+
+	// Check if all agent nodes that have this cache have completed extraction
+	for _, kcNode := range kcNodes.Items {
+		// Only check nodes where agent is running
+		if !agentNodes[kcNode.Status.NodeName] {
+			continue
+		}
+
+		// Check if this node has this cache
+		hasCache := false
+		for _, cacheInfo := range kcNode.Status.Caches {
+			if cacheInfo.Name == kc.Name && cacheInfo.Namespace == kc.Namespace {
+				hasCache = true
+				foundOnAnyNode = true
+				break
+			}
+		}
+
+		if !hasCache {
+			continue // This node doesn't have this cache, skip
+		}
+
+		// Node has this cache - check extraction status
+		cacheStatus, ok := kcNode.Status.CacheStatus[kc.Name]
+		if !ok {
+			// Cache in Caches array but no status yet - still initializing
+			return false
+		}
+
+		if cacheStatus.DownloadStatus != v1alpha1.NodeExtractionCompleted {
+			// At least one node hasn't completed extraction
+			r.Log.V(1).Info("Extraction not complete on node",
+				"node", kcNode.Status.NodeName,
+				"status", cacheStatus.DownloadStatus,
+				"cache", kc.Name)
+			return false
+		}
+	}
+
+	// All agent nodes with this cache have completed extraction
+	// Only return true if we found at least one agent node with this cache
+	if !foundOnAnyNode {
+		r.Log.V(1).Info("Cache not found on any agent node yet", "cache", kc.Name)
+		return false
+	}
+
+	r.Log.Info("All extractions complete for cache", "cache", kc.Name, "namespace", kc.Namespace)
+	return true
+}
+
+// ensureServingPVC creates Serving PV and PVC in KernelCache's namespace
+// Serving PV points to same HostPath as Download PV (shares disk space)
+// But they are separate Kubernetes resources (PV can only bind to one PVC)
+func (r *KernelCacheReconciler) ensureServingPVC(
+	ctx context.Context,
+	kc *v1alpha1.KernelCache,
+) error {
+	// Create Serving PV and PVC in KernelCache's namespace
+	// This allows ISVC pods in same namespace to mount the cache
+	servingPVName := kc.Namespace + "-" + kc.Name + "-serving-pv"
+	servingPVCName := kc.Name // Same name as KernelCache
+
+	// Storage size from CRD or default
+	storageSize := resource.MustParse("10Gi") // Default
+	if kc.Spec.StorageSize != nil {
+		storageSize = *kc.Spec.StorageSize
+	}
+
+	// Step 1: Create Serving PV (separate from Download PV)
+	// Uses same HostPath but different PV resource (PV binds to one PVC only)
+	servingPV := corev1.PersistentVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: servingPVName,
+			Labels: map[string]string{
+				"app.kubernetes.io/name":          "kernelcache",
+				"app.kubernetes.io/component":     "serving",
+				"kernelcache.kserve.io/cache":     kc.Name,
+				"kernelcache.kserve.io/namespace": kc.Namespace,
+			},
+		},
+		Spec: corev1.PersistentVolumeSpec{
+			Capacity: corev1.ResourceList{
+				corev1.ResourceStorage: storageSize,
+			},
+			AccessModes: []corev1.PersistentVolumeAccessMode{
+				corev1.ReadOnlyMany, // ReadOnly for serving pods
+			},
+			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimDelete,
+			VolumeMode:                    func() *corev1.PersistentVolumeMode { m := corev1.PersistentVolumeFilesystem; return &m }(),
+			PersistentVolumeSource: corev1.PersistentVolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: "/kernel-caches", // Same path as Download PV
+					Type: func() *corev1.HostPathType { t := corev1.HostPathDirectoryOrCreate; return &t }(),
+				},
+			},
+		},
+	}
+
+	// Set storage class if specified
+	var storageClass string
+	if kc.Spec.StorageClassName != nil {
+		storageClass = *kc.Spec.StorageClassName
+		servingPV.Spec.StorageClassName = storageClass
+	}
+
+	// Create Serving PV (no owner reference - cluster-scoped)
+	if err := CreatePV(ctx, r.Clientset, r.Scheme, r.Log, servingPV, nil); err != nil {
+		return fmt.Errorf("failed to create serving PV: %w", err)
+	}
+
+	// Step 2: Create Serving PVC in KernelCache's namespace
+	servingPVC := corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      servingPVCName,
+			Namespace: kc.Namespace, // SAME namespace as KernelCache
+			Labels: map[string]string{
+				"app.kubernetes.io/name":          "kernelcache",
+				"app.kubernetes.io/component":     "serving",
+				"kernelcache.kserve.io/cache":     kc.Name,
+				"kernelcache.kserve.io/namespace": kc.Namespace,
+				"kernelcache.kserve.io/pv":        servingPVName,
+			},
+		},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{
+				corev1.ReadOnlyMany, // ReadOnly for serving
+			},
+			Resources: corev1.VolumeResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceStorage: storageSize,
+				},
+			},
+			VolumeName: servingPVName, // Bind to Serving PV
+		},
+	}
+
+	// StorageClass must match PV
+	if storageClass != "" {
+		servingPVC.Spec.StorageClassName = &storageClass
+	} else {
+		emptyClass := ""
+		servingPVC.Spec.StorageClassName = &emptyClass
+	}
+
+	// Create Serving PVC (CreatePVC will set owner reference - same namespace)
+	if err := CreatePVC(ctx, r.Clientset, r.Scheme, r.Log, servingPVC, kc.Namespace, kc); err != nil {
+		return fmt.Errorf("failed to create serving PVC: %w", err)
+	}
+
+	r.Log.Info("Created Serving PV and PVC",
+		"pv", servingPVName,
+		"pvc", servingPVCName,
+		"namespace", kc.Namespace)
 
 	return nil
 }
