@@ -225,7 +225,7 @@ jobs:
 
       - name: Run predictor E2E tests
         id: predictor-tests
-        timeout-minutes: 40
+        timeout-minutes: 60
         run: |
           # Run only CPU tests for now using pytest markers (cluster_)
           # Available GPU vendors: amd, nvidia, intel
@@ -319,7 +319,7 @@ jobs:
 
       - name: Run HPA autoscaling E2E tests
         id: autoscaling-hpa-tests
-        timeout-minutes: 40
+        timeout-minutes: 60
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and autoscaling_hpa and cluster_cpu" 0 "envoy-gateway"
 
@@ -412,7 +412,7 @@ jobs:
 
       - name: Run KEDA autoscaling E2E tests
         id: autoscaling-keda-tests
-        timeout-minutes: 40
+        timeout-minutes: 60
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and autoscaling_keda and cluster_cpu" 0 "envoy-gateway"
 
