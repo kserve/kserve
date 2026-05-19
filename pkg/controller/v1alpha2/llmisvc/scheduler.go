@@ -89,13 +89,19 @@ func (r *LLMISVCReconciler) reconcileScheduler(ctx context.Context, llmSvc *v1al
 		return err
 	}
 
+	shouldDelete := utils.GetForceStopRuntime(llmSvc) ||
+		llmSvc.Spec.Router == nil ||
+		llmSvc.Spec.Router.Scheduler == nil ||
+		llmSvc.Spec.Router.Scheduler.Template == nil ||
+		llmSvc.Spec.Router.Scheduler.Pool.HasRef()
+
 	// Validate scheduler port wiring before any workload is created so we
 	// don't end up with a Deployment that no Service can ever expose.
 	// Skipped when the scheduler is on its delete path (no template,
 	// force-stop, or external InferencePool reference) — missing ports
 	// are irrelevant when we're tearing the scheduler down.
 	// TODO also cross-check the grpc port against the InferencePool spec.
-	if !schedulerShouldBeDeleted(llmSvc) {
+	if !shouldDelete {
 		if missing := missingSchedulerPorts(llmSvc.Spec.Router.Scheduler.Template); len(missing) > 0 {
 			llmSvc.MarkSchedulerWorkloadNotReady(
 				SchedulerPortMismatchReason,
@@ -111,7 +117,7 @@ func (r *LLMISVCReconciler) reconcileScheduler(ctx context.Context, llmSvc *v1al
 	if err := r.reconcileSchedulerDeployment(ctx, llmSvc); err != nil {
 		return err
 	}
-	if err := r.reconcileSchedulerService(ctx, llmSvc); err != nil {
+	if err := r.reconcileSchedulerService(ctx, llmSvc, shouldDelete); err != nil {
 		return err
 	}
 	if err := r.reconcileSchedulerInferencePool(ctx, llmSvc); err != nil {
@@ -123,19 +129,6 @@ func (r *LLMISVCReconciler) reconcileScheduler(ctx context.Context, llmSvc *v1al
 	}
 
 	return nil
-}
-
-// schedulerShouldBeDeleted reports whether the scheduler workload
-// (Deployment, Service, InferencePool) should be deleted rather than
-// reconciled. True when the user is force-stopping the runtime, has not
-// provided a scheduler template, or is referencing an external
-// InferencePool.
-func schedulerShouldBeDeleted(llmSvc *v1alpha2.LLMInferenceService) bool {
-	return utils.GetForceStopRuntime(llmSvc) ||
-		llmSvc.Spec.Router == nil ||
-		llmSvc.Spec.Router.Scheduler == nil ||
-		llmSvc.Spec.Router.Scheduler.Template == nil ||
-		llmSvc.Spec.Router.Scheduler.Pool.HasRef()
 }
 
 // missingSchedulerPorts returns the sorted, distinct names of required
@@ -293,9 +286,14 @@ func (r *LLMISVCReconciler) reconcileV1Alpha2InferencePool(ctx context.Context, 
 // one or more required container ports.
 const SchedulerPortMismatchReason = "SchedulerPortMismatch"
 
-func (r *LLMISVCReconciler) reconcileSchedulerService(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+// reconcileSchedulerService reconciles or deletes the Endpoint Picker
+// Service. shouldDelete carries the caller's delete-path decision (see
+// reconcileScheduler) so the same disjunction isn't re-evaluated here,
+// mirroring the reconcileSchedulerInferencePool → reconcileV1InferencePool
+// pattern already used in this file.
+func (r *LLMISVCReconciler) reconcileSchedulerService(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, shouldDelete bool) error {
 	expected := r.expectedSchedulerService(ctx, llmSvc)
-	if schedulerShouldBeDeleted(llmSvc) {
+	if shouldDelete {
 		return Delete(ctx, r, llmSvc, expected)
 	}
 	return Reconcile(ctx, r, llmSvc, &corev1.Service{}, expected, semanticServiceIsEqual)
