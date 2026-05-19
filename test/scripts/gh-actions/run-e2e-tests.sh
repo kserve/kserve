@@ -35,12 +35,14 @@ NETWORK_LAYER="${3:-'istio'}"
 
 echo "Parallelism requested for pytest is ${PARALLELISM}"
 
+MAXFAIL="${PYTEST_MAXFAIL:-5}"
+
 source python/kserve/.venv/bin/activate
 pushd test/e2e >/dev/null
   if [[ $MARKER == "raw" && $NETWORK_LAYER == "istio-ingress" ]]; then
     echo "Skipping explainer tests for raw deployment with ingress"
-    pytest -m "$MARKER" --ignore=qpext --log-cli-level=INFO -n $PARALLELISM --dist worksteal --network-layer $NETWORK_LAYER --ignore=explainer/ --maxfail=10 -vv --tb=long -s
+    pytest -m "$MARKER" --ignore=qpext --log-cli-level=INFO -n $PARALLELISM --dist worksteal --network-layer $NETWORK_LAYER --ignore=explainer/ --maxfail="$MAXFAIL" -vv --tb=long -s
   else
-    pytest -m "$MARKER" --ignore=qpext --log-cli-level=INFO -n $PARALLELISM --dist worksteal --network-layer $NETWORK_LAYER --maxfail=10 -vv --tb=long -s
+    pytest -m "$MARKER" --ignore=qpext --log-cli-level=INFO -n $PARALLELISM --dist worksteal --network-layer $NETWORK_LAYER --maxfail="$MAXFAIL" -vv --tb=long -s
   fi
 popd
