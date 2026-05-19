@@ -42,7 +42,9 @@ import (
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -295,6 +297,14 @@ func (r *KernelCacheNodeReconciler) launchExtractionJob(
 		Spec: batchv1.JobSpec{
 			TTLSecondsAfterFinished: ptr.To(jobTTLSecondsAfterFinished),
 			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app":             "kernel-cache-extract",
+						"cache":           cacheInfo.Name,
+						"cache-namespace": cacheInfo.Namespace,
+						"node":            kcNode.Status.NodeName,
+					},
+				},
 				Spec: corev1.PodSpec{
 					NodeName:       kcNode.Status.NodeName,
 					InitContainers: []corev1.Container{*initContainer},
@@ -452,5 +462,25 @@ func (r *KernelCacheNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&v1alpha1.KernelCache{},
 			handler.EnqueueRequestsFromMapFunc(r.kernelCacheToNodeMapper),
 		).
+		WithEventFilter(predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool {
+				if kcNode, ok := e.Object.(*v1alpha1.KernelCacheNode); ok {
+					return kcNode.Status.NodeName == nodeName
+				}
+				return true // Allow other object types (KernelCache, Job) through
+			},
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				if kcNode, ok := e.ObjectNew.(*v1alpha1.KernelCacheNode); ok {
+					return kcNode.Status.NodeName == nodeName
+				}
+				return true // Allow other object types through
+			},
+			DeleteFunc: func(e event.DeleteEvent) bool {
+				if kcNode, ok := e.Object.(*v1alpha1.KernelCacheNode); ok {
+					return kcNode.Status.NodeName == nodeName
+				}
+				return true // Allow other object types through
+			},
+		}).
 		Complete(r)
 }
