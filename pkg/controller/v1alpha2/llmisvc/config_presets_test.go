@@ -267,6 +267,13 @@ func TestPresetFiles(t *testing.T) {
 										FailureThreshold: 60,
 										PeriodSeconds:    10,
 									},
+									Lifecycle: &corev1.Lifecycle{
+										PreStop: &corev1.LifecycleHandler{
+											Exec: &corev1.ExecAction{
+												Command: []string{"/bin/sleep", "15"},
+											},
+										},
+									},
 									TerminationMessagePath:   "/dev/termination-log",
 									TerminationMessagePolicy: "FallbackToLogsOnError",
 									ImagePullPolicy:          "IfNotPresent",
@@ -288,7 +295,7 @@ func TestPresetFiles(t *testing.T) {
 									},
 								},
 							},
-							TerminationGracePeriodSeconds: ptr.To(int64(30)),
+							TerminationGracePeriodSeconds: ptr.To(int64(60)),
 						},
 						Worker: &corev1.PodSpec{
 							Volumes: []corev1.Volume{
@@ -324,7 +331,7 @@ func TestPresetFiles(t *testing.T) {
 									VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: "test-llm-preset-kserve-self-signed-certs"}},
 								},
 							},
-							TerminationGracePeriodSeconds: ptr.To(int64(30)),
+							TerminationGracePeriodSeconds: ptr.To(int64(60)),
 							Containers: []corev1.Container{
 								{
 									Name:  "main",
@@ -390,6 +397,13 @@ func TestPresetFiles(t *testing.T) {
 										{
 											Name:  "VLLM_RANDOMIZE_DP_DUMMY_INPUTS",
 											Value: "1",
+										},
+									},
+									Lifecycle: &corev1.Lifecycle{
+										PreStop: &corev1.LifecycleHandler{
+											Exec: &corev1.ExecAction{
+												Command: []string{"/bin/sleep", "15"},
+											},
 										},
 									},
 									TerminationMessagePath:   "/dev/termination-log",
@@ -531,6 +545,13 @@ func TestPresetFiles(t *testing.T) {
 										FailureThreshold: 60,
 										PeriodSeconds:    10,
 									},
+									Lifecycle: &corev1.Lifecycle{
+										PreStop: &corev1.LifecycleHandler{
+											Exec: &corev1.ExecAction{
+												Command: []string{"/bin/sleep", "15"},
+											},
+										},
+									},
 									TerminationMessagePath:   "/dev/termination-log",
 									TerminationMessagePolicy: "FallbackToLogsOnError",
 									ImagePullPolicy:          "IfNotPresent",
@@ -547,7 +568,7 @@ func TestPresetFiles(t *testing.T) {
 									},
 								},
 							},
-							TerminationGracePeriodSeconds: ptr.To(int64(30)),
+							TerminationGracePeriodSeconds: ptr.To(int64(60)),
 						},
 					},
 				},
