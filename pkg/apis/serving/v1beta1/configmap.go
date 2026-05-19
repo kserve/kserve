@@ -42,6 +42,7 @@ const (
 	IngressConfigKeyName               = "ingress"
 	DeployConfigName                   = "deploy"
 	LocalModelConfigName               = "localModel"
+	KernelCacheConfigName              = "kernelcache"
 	SecurityConfigName                 = "security"
 	ServiceConfigName                  = "service"
 	ResourceConfigName                 = "resource"
@@ -167,6 +168,17 @@ type LocalModelConfig struct {
 	JobTTLSecondsAfterFinished   *int32 `json:"jobTTLSecondsAfterFinished,omitempty"`
 	ReconcilationFrequencyInSecs *int64 `json:"reconcilationFrequencyInSecs,omitempty"`
 	DisableVolumeManagement      bool   `json:"disableVolumeManagement,omitempty"`
+}
+
+// +kubebuilder:object:generate=false
+type KernelCacheConfig struct {
+	Enabled                       bool   `json:"enabled"`
+	JobNamespace                  string `json:"jobNamespace"`
+	ExtractImage                  string `json:"extractImage,omitempty"`
+	JobTTLSecondsAfterFinished    *int32 `json:"jobTTLSecondsAfterFinished,omitempty"`
+	ReconcileIntervalSeconds      *int64 `json:"reconcileIntervalSeconds,omitempty"`
+	NoGPU                         bool   `json:"noGPU,omitempty"`
+	EnablePermissionInitContainer bool   `json:"enablePermissionInitContainer,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -402,6 +414,17 @@ func NewLocalModelConfig(isvcConfigMap *corev1.ConfigMap) (*LocalModelConfig, er
 		}
 	}
 	return localModelConfig, nil
+}
+
+func NewKernelCacheConfig(isvcConfigMap *corev1.ConfigMap) (*KernelCacheConfig, error) {
+	kernelCacheConfig := &KernelCacheConfig{}
+	if kernelCache, ok := isvcConfigMap.Data[KernelCacheConfigName]; ok {
+		err := json.Unmarshal([]byte(kernelCache), &kernelCacheConfig)
+		if err != nil {
+			return nil, fmt.Errorf("unable to unmarshall kernelcache: %w", err)
+		}
+	}
+	return kernelCacheConfig, nil
 }
 
 func NewSecurityConfig(isvcConfigMap *corev1.ConfigMap) (*SecurityConfig, error) {
