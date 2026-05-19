@@ -1209,3 +1209,63 @@ func TestValidateLoRAAdapters(t *testing.T) {
 		assert.Empty(t, errs)
 	})
 }
+
+func TestValidateRuntime(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+
+	t.Run("sglang runtime alone is valid", func(t *testing.T) {
+		svc := newBaseLLMInferenceServiceV1Alpha2()
+		svc.Spec.Runtime = LLMRuntimeSGLang
+		errs := validator.validateRuntime(svc)
+		require.Empty(t, errs)
+	})
+
+	t.Run("vllm runtime is valid", func(t *testing.T) {
+		svc := newBaseLLMInferenceServiceV1Alpha2()
+		svc.Spec.Runtime = LLMRuntimeVLLM
+		errs := validator.validateRuntime(svc)
+		require.Empty(t, errs)
+	})
+
+	t.Run("empty runtime is valid", func(t *testing.T) {
+		svc := newBaseLLMInferenceServiceV1Alpha2()
+		svc.Spec.Runtime = ""
+		errs := validator.validateRuntime(svc)
+		require.Empty(t, errs)
+	})
+
+	t.Run("sglang with worker is invalid", func(t *testing.T) {
+		svc := newBaseLLMInferenceServiceV1Alpha2()
+		svc.Spec.Runtime = LLMRuntimeSGLang
+		svc.Spec.Worker = &corev1.PodSpec{}
+		errs := validator.validateRuntime(svc)
+		require.Len(t, errs, 1)
+		assert.Equal(t, "spec.runtime", errs[0].Field)
+	})
+
+	t.Run("sglang with prefill is invalid", func(t *testing.T) {
+		svc := newBaseLLMInferenceServiceV1Alpha2()
+		svc.Spec.Runtime = LLMRuntimeSGLang
+		svc.Spec.Prefill = &WorkloadSpec{}
+		errs := validator.validateRuntime(svc)
+		require.Len(t, errs, 1)
+		assert.Equal(t, "spec.runtime", errs[0].Field)
+	})
+
+	t.Run("sglang with both worker and prefill reports two errors", func(t *testing.T) {
+		svc := newBaseLLMInferenceServiceV1Alpha2()
+		svc.Spec.Runtime = LLMRuntimeSGLang
+		svc.Spec.Worker = &corev1.PodSpec{}
+		svc.Spec.Prefill = &WorkloadSpec{}
+		errs := validator.validateRuntime(svc)
+		require.Len(t, errs, 2)
+	})
+
+	t.Run("vllm with worker is valid", func(t *testing.T) {
+		svc := newBaseLLMInferenceServiceV1Alpha2()
+		svc.Spec.Runtime = LLMRuntimeVLLM
+		svc.Spec.Worker = &corev1.PodSpec{}
+		errs := validator.validateRuntime(svc)
+		require.Empty(t, errs)
+	})
+}

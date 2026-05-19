@@ -49,6 +49,8 @@ import (
 const (
 	// Single node deployment template
 	configTemplateNameSuffix = "config-llm-template"
+	// Single node SGLang deployment template
+	configSGLangTemplateNameSuffix = "config-sglang-template"
 	// Disaggregated prefill/decode templates
 	configDecodeTemplateNameSuffix  = "config-llm-decode-template"
 	configPrefillTemplateNameSuffix = "config-llm-prefill-template"
@@ -68,6 +70,7 @@ const (
 var (
 	configPrefix                            = constants.GetEnvOrDefault("LLM_INFERENCE_SERVICE_CONFIG_PREFIX", "kserve-")
 	configTemplateName                      = configPrefix + configTemplateNameSuffix
+	configSGLangTemplateName                = configPrefix + configSGLangTemplateNameSuffix
 	configDecodeTemplateName                = configPrefix + configDecodeTemplateNameSuffix
 	configDecodeWorkerPipelineParallelName  = configPrefix + configDecodeWorkerPipelineParallelNameSuffix
 	configWorkerPipelineParallelName        = configPrefix + configWorkerPipelineParallelNameSuffix
@@ -91,6 +94,7 @@ var _ = sets.New[string](
 // that are automatically applied based on the LLM service deployment pattern
 var WellKnownDefaultConfigs = sets.New[string](
 	configTemplateName,
+	configSGLangTemplateName,
 	configDecodeTemplateName,
 	configWorkerDataParallelName,
 	configDecodeWorkerDataParallelName,
@@ -105,6 +109,15 @@ const (
 )
 
 var useVersionedConfig, _ = strconv.ParseBool(constants.GetEnvOrDefault("LLM_INFERENCE_SERVICE_VERSIONED_CONFIG", "true"))
+
+// selectSingleNodeTemplateName returns the well-known config template name for
+// a single-node Non-P/D deployment based on the requested runtime.
+func selectSingleNodeTemplateName(runtime v1alpha2.LLMRuntime) string {
+	if runtime == v1alpha2.LLMRuntimeSGLang {
+		return configSGLangTemplateName
+	}
+	return configTemplateName
+}
 
 // CombineOption is a functional option for combineBaseRefsConfig
 type CombineOption func(*combineOptions)
@@ -223,8 +236,8 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	} else { // Non P/D
 		switch {
 		case resolvedSpec.Worker == nil:
-			// single-node
-			refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configTemplateName)})
+			// single-node -- select template based on runtime
+			refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, selectSingleNodeTemplateName(resolvedSpec.Runtime))})
 		case resolvedSpec.Worker != nil && resolvedSpec.Parallelism.IsDataParallel():
 			// multi-node Data Parallel
 			refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configWorkerDataParallelName)})

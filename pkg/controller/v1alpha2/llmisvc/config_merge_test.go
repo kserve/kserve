@@ -2410,3 +2410,36 @@ func TestWellKnownConfigResolver_Resolve(t *testing.T) {
 		})
 	}
 }
+
+func TestSelectSingleNodeTemplateName(t *testing.T) {
+	tests := []struct {
+		name    string
+		runtime v1alpha2.LLMRuntime
+		want    string
+	}{
+		{
+			name:    "empty runtime defaults to vllm template",
+			runtime: "",
+			want:    "kserve-config-llm-template",
+		},
+		{
+			name:    "vllm runtime selects vllm template",
+			runtime: v1alpha2.LLMRuntimeVLLM,
+			want:    "kserve-config-llm-template",
+		},
+		{
+			name:    "sglang runtime selects sglang template",
+			runtime: v1alpha2.LLMRuntimeSGLang,
+			want:    "kserve-config-sglang-template",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := llmisvc.SelectSingleNodeTemplateName(tt.runtime)
+			if got != tt.want {
+				t.Errorf("SelectSingleNodeTemplateName(%q) = %q, want %q", tt.runtime, got, tt.want)
+			}
+		})
+	}
+}

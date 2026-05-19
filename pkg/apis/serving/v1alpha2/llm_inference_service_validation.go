@@ -101,6 +101,7 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 
 	allErrs = append(allErrs, l.validateScaling(llmSvc)...)
 	allErrs = append(allErrs, l.validateLoRAAdapters(llmSvc)...)
+	allErrs = append(allErrs, l.validateRuntime(llmSvc)...)
 
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
 
@@ -653,6 +654,27 @@ func ValidateWorkloadScaling(basePath *field.Path, workload *WorkloadSpec) field
 		}
 	}
 
+	return allErrs
+}
+
+func (l *LLMInferenceServiceValidator) validateRuntime(llmSvc *LLMInferenceService) field.ErrorList {
+	if llmSvc.Spec.Runtime != LLMRuntimeSGLang {
+		return nil
+	}
+	var allErrs field.ErrorList
+	runtimePath := field.NewPath("spec").Child("runtime")
+	if llmSvc.Spec.Worker != nil {
+		allErrs = append(allErrs, field.Invalid(
+			runtimePath, llmSvc.Spec.Runtime,
+			"sglang runtime does not support multi-node (worker) deployments in this version",
+		))
+	}
+	if llmSvc.Spec.Prefill != nil {
+		allErrs = append(allErrs, field.Invalid(
+			runtimePath, llmSvc.Spec.Runtime,
+			"sglang runtime does not support disaggregated prefill/decode in this version",
+		))
+	}
 	return allErrs
 }
 
