@@ -831,3 +831,112 @@ func TestLLMInferenceServiceConversion_DecodeAndPrefillWithDifferentScaling(t *t
 	assert.Equal(t, int32(5), restored.Spec.Prefill.Scaling.WVA.KEDA.Fallback.FailureThreshold)
 	assert.Equal(t, int32(3), restored.Spec.Prefill.Scaling.WVA.KEDA.Fallback.Replicas)
 }
+
+func TestLLMInferenceServiceConversion_PreservesLoRASpecFields(t *testing.T) {
+	modelName := "base-model"
+	adapterName := "my-adapter"
+
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-isvc-lora-fields",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI:  apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"},
+				Name: &modelName,
+				LoRA: &LoRASpec{
+					Adapters: []LLMModelSpec{
+						{
+							URI:  apis.URL{Scheme: "hf", Host: "my-org/my-adapter"},
+							Name: &adapterName,
+						},
+					},
+					MaxRank:        ptr.To(int32(128)),
+					MaxAdapters:    ptr.To(int32(4)),
+					MaxCpuAdapters: ptr.To(int32(8)),
+				},
+			},
+		},
+	}
+
+	// Convert to v1alpha2 (hub)
+	dst := &v1alpha2.LLMInferenceService{}
+	err := src.ConvertTo(dst)
+	require.NoError(t, err)
+
+	// Verify LoRA fields in v1alpha2
+	require.NotNil(t, dst.Spec.Model.LoRA)
+	assert.Len(t, dst.Spec.Model.LoRA.Adapters, 1)
+	require.NotNil(t, dst.Spec.Model.LoRA.MaxRank)
+	assert.Equal(t, int32(128), *dst.Spec.Model.LoRA.MaxRank)
+	require.NotNil(t, dst.Spec.Model.LoRA.MaxAdapters)
+	assert.Equal(t, int32(4), *dst.Spec.Model.LoRA.MaxAdapters)
+	require.NotNil(t, dst.Spec.Model.LoRA.MaxCpuAdapters)
+	assert.Equal(t, int32(8), *dst.Spec.Model.LoRA.MaxCpuAdapters)
+
+	// Convert back to v1alpha1
+	restored := &LLMInferenceService{}
+	err = restored.ConvertFrom(dst)
+	require.NoError(t, err)
+
+	// Verify LoRA fields round-trip correctly
+	require.NotNil(t, restored.Spec.Model.LoRA)
+	assert.Len(t, restored.Spec.Model.LoRA.Adapters, 1)
+	assert.Equal(t, adapterName, *restored.Spec.Model.LoRA.Adapters[0].Name)
+	require.NotNil(t, restored.Spec.Model.LoRA.MaxRank)
+	assert.Equal(t, int32(128), *restored.Spec.Model.LoRA.MaxRank)
+	require.NotNil(t, restored.Spec.Model.LoRA.MaxAdapters)
+	assert.Equal(t, int32(4), *restored.Spec.Model.LoRA.MaxAdapters)
+	require.NotNil(t, restored.Spec.Model.LoRA.MaxCpuAdapters)
+	assert.Equal(t, int32(8), *restored.Spec.Model.LoRA.MaxCpuAdapters)
+}
+
+func TestLLMInferenceServiceConversion_NilLoRASpecFields(t *testing.T) {
+	modelName := "base-model"
+	adapterName := "my-adapter"
+
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-isvc-lora-nil-fields",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI:  apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"},
+				Name: &modelName,
+				LoRA: &LoRASpec{
+					Adapters: []LLMModelSpec{
+						{
+							URI:  apis.URL{Scheme: "hf", Host: "my-org/my-adapter"},
+							Name: &adapterName,
+						},
+					},
+					// MaxRank, MaxAdapters, MaxCpuAdapters all nil (defaults)
+				},
+			},
+		},
+	}
+
+	// Convert to v1alpha2 (hub)
+	dst := &v1alpha2.LLMInferenceService{}
+	err := src.ConvertTo(dst)
+	require.NoError(t, err)
+
+	// Verify nil fields remain nil in v1alpha2
+	require.NotNil(t, dst.Spec.Model.LoRA)
+	assert.Nil(t, dst.Spec.Model.LoRA.MaxRank)
+	assert.Nil(t, dst.Spec.Model.LoRA.MaxAdapters)
+	assert.Nil(t, dst.Spec.Model.LoRA.MaxCpuAdapters)
+
+	// Convert back to v1alpha1
+	restored := &LLMInferenceService{}
+	err = restored.ConvertFrom(dst)
+	require.NoError(t, err)
+
+	// Verify nil fields remain nil after round-trip
+	require.NotNil(t, restored.Spec.Model.LoRA)
+	assert.Nil(t, restored.Spec.Model.LoRA.MaxRank)
+	assert.Nil(t, restored.Spec.Model.LoRA.MaxAdapters)
+	assert.Nil(t, restored.Spec.Model.LoRA.MaxCpuAdapters)
+}

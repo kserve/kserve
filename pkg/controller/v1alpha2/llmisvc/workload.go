@@ -37,14 +37,6 @@ import (
 	"github.com/kserve/kserve/pkg/utils"
 )
 
-const (
-	// routingSidecarContainerName is the name of the routing sidecar container
-	// that handles prefill disaggregation routing.
-	routingSidecarContainerName = "llm-d-routing-sidecar"
-
-	defaultServiceAccountName = "default"
-)
-
 // sidecarSSRFProtectionRules defines RBAC rules for the routing sidecar
 // These permissions are needed to discover and monitor inference pools and pods.
 var sidecarSSRFProtectionRules = []rbacv1.PolicyRule{
@@ -120,7 +112,7 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 func (r *LLMISVCReconciler) reconcileWorkloadService(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
 	expected := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve-workload-svc"),
+			Name:      workloadServiceName(llmSvc),
 			Namespace: llmSvc.GetNamespace(),
 			Labels: map[string]string{
 				constants.KubernetesComponentLabelKey: constants.LLMComponentWorkload,
@@ -179,6 +171,10 @@ func GetWorkloadLabelSelector(meta metav1.ObjectMeta, _ *v1alpha2.LLMInferenceSe
 	return s
 }
 
+func workloadServiceName(llmSvc *v1alpha2.LLMInferenceService) string {
+	return kmeta.ChildName(llmSvc.GetName(), "-kserve-workload-svc")
+}
+
 // injectSecretsFromDefaultServiceAccount copies ImagePullSecrets and Secrets from the
 // namespace's default ServiceAccount onto the target ServiceAccount. This ensures that
 // controller-created ServiceAccounts inherit private registry credentials configured on
@@ -186,7 +182,7 @@ func GetWorkloadLabelSelector(meta metav1.ObjectMeta, _ *v1alpha2.LLMInferenceSe
 // target SA is left unchanged.
 func (r *LLMISVCReconciler) injectSecretsFromDefaultServiceAccount(ctx context.Context, target *corev1.ServiceAccount) {
 	defaultSa := &corev1.ServiceAccount{}
-	if err := r.Get(ctx, types.NamespacedName{Name: defaultServiceAccountName, Namespace: target.Namespace}, defaultSa); err != nil {
+	if err := r.Get(ctx, types.NamespacedName{Name: constants.LLMISVCDefaultServiceAccountName, Namespace: target.Namespace}, defaultSa); err != nil {
 		log.FromContext(ctx).Error(err, "Warning: failed to retrieve 'default' service account, continuing ...")
 		return
 	}
@@ -204,7 +200,7 @@ func hasRoutingSidecar(pod corev1.PodSpec) bool {
 func routingSidecar(pod *corev1.PodSpec) *corev1.Container {
 	if pod != nil {
 		for i := range pod.InitContainers {
-			if pod.InitContainers[i].Name == routingSidecarContainerName {
+			if pod.InitContainers[i].Name == constants.LLMISVCRoutingSidecarContainerName {
 				return &pod.InitContainers[i]
 			}
 		}
