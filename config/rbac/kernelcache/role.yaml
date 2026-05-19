@@ -33,6 +33,24 @@ rules:
   - update
   - watch
 - apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
   - serving.kserve.io
   resources:
   - kernelcachenodes
