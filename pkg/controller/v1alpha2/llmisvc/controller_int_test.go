@@ -256,7 +256,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithAnnotations(map[string]string{
 					constants.ManagedDRADeviceClassAnnotationKey: "gpu.nvidia.com",
-					constants.ManagedDRAGpuCountAnnotationKey:    "2",
+					constants.ManagedDRADeviceCountAnnotationKey: "2",
 					constants.ManagedDRACelSelectorAnnotationKey: "device.attributes['gpu.nvidia.com']['type'] == 'A100'\n" +
 						"device.capacity['gpu.nvidia.com']['memory'].compareTo(quantity('40Gi')) > 0",
 				}),
@@ -291,7 +291,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			}).WithContext(ctx).Should(Succeed())
 
 			Expect(expectedTemplate.Spec.Spec.Devices.Requests).To(HaveLen(1))
-			Expect(expectedTemplate.Spec.Spec.Devices.Requests[0].Name).To(Equal("gpu"))
+			Expect(expectedTemplate.Spec.Spec.Devices.Requests[0].Name).To(Equal("device"))
 			Expect(expectedTemplate.Spec.Spec.Devices.Requests[0].Exactly.DeviceClassName).To(Equal("gpu.nvidia.com"))
 			Expect(expectedTemplate.Spec.Spec.Devices.Requests[0].Exactly.Count).To(Equal(int64(2)))
 
@@ -303,11 +303,11 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			}
 
 			Expect(expectedDeployment.Spec.Template.Spec.ResourceClaims).To(HaveLen(1))
-			Expect(expectedDeployment.Spec.Template.Spec.ResourceClaims[0].Name).To(Equal("managed-gpu"))
+			Expect(expectedDeployment.Spec.Template.Spec.ResourceClaims[0].Name).To(Equal("managed-device"))
 			Expect(expectedDeployment.Spec.Template.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Not(BeNil()))
 			Expect(*expectedDeployment.Spec.Template.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Equal(svcName + "-managed-dra"))
 
-			// Only the "main" container gets the GPU claim; sidecars are left alone.
+			// Only the "main" container gets the device claim; sidecars are left alone.
 			Expect(expectedDeployment.Spec.Template.Spec.Containers).To(HaveLen(2))
 			var mainCtr, sidecarCtr *corev1.Container
 			for i := range expectedDeployment.Spec.Template.Spec.Containers {
@@ -322,7 +322,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			Expect(mainCtr).ToNot(BeNil())
 			Expect(sidecarCtr).ToNot(BeNil())
 			Expect(mainCtr.Resources.Claims).To(HaveLen(1))
-			Expect(mainCtr.Resources.Claims[0].Name).To(Equal("managed-gpu"))
+			Expect(mainCtr.Resources.Claims[0].Name).To(Equal("managed-device"))
 			Expect(sidecarCtr.Resources.Claims).To(BeEmpty(),
 				"sidecar containers must not receive the managed DRA claim")
 		})

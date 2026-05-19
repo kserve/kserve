@@ -199,8 +199,6 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 			Spec: *llmSvc.Spec.Template.DeepCopy(),
 		}
 
-		injectManagedDRA(llmSvc, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec)
-
 		serviceAccount, _, err := r.expectedMultiNodeMainServiceAccount(ctx, llmSvc)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create expected multi node service account: %w", err)
@@ -230,8 +228,6 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 	}
 	if llmSvc.Spec.Worker != nil && !utils.GetForceStopRuntime(llmSvc) {
 		expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec = *llmSvc.Spec.Worker.DeepCopy()
-
-		injectManagedDRA(llmSvc, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec)
 
 		serviceAccount, _, err := r.expectedMultiNodeMainServiceAccount(ctx, llmSvc)
 		if err != nil {
@@ -336,8 +332,6 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 				Spec: *llmSvc.Spec.Prefill.Template.DeepCopy(),
 			}
 
-			injectManagedDRA(llmSvc, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec)
-
 			expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
 
 			var currLeaderSpec corev1.PodSpec
@@ -351,8 +345,6 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 		}
 		if llmSvc.Spec.Prefill.Worker != nil {
 			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec = *llmSvc.Spec.Prefill.Worker.DeepCopy()
-
-			injectManagedDRA(llmSvc, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec)
 
 			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
 

@@ -138,7 +138,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 				WithWorker(SimpleWorkerPodSpec()),
 				WithAnnotations(map[string]string{
 					constants.ManagedDRADeviceClassAnnotationKey: "gpu.nvidia.com",
-					constants.ManagedDRAGpuCountAnnotationKey:    "8",
+					constants.ManagedDRADeviceCountAnnotationKey: "8",
 				}),
 				WithManagedRoute(),
 				WithManagedGateway(),
@@ -170,28 +170,119 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 
 			// Check that it parsed the annotations correctly
 			Expect(expectedTemplate.Spec.Spec.Devices.Requests).To(HaveLen(1))
-			Expect(expectedTemplate.Spec.Spec.Devices.Requests[0].Name).To(Equal("gpu"))
+			Expect(expectedTemplate.Spec.Spec.Devices.Requests[0].Name).To(Equal("device"))
 			Expect(expectedTemplate.Spec.Spec.Devices.Requests[0].Exactly.DeviceClassName).To(Equal("gpu.nvidia.com"))
 			Expect(expectedTemplate.Spec.Spec.Devices.Requests[0].Exactly.Count).To(Equal(int64(8)))
 
 			// Verify leader template has DRA
 			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec.ResourceClaims).To(HaveLen(1))
-			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec.ResourceClaims[0].Name).To(Equal("managed-gpu"))
+			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec.ResourceClaims[0].Name).To(Equal("managed-device"))
 			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Not(BeNil()))
 			Expect(*expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Equal(svcName + "-managed-dra"))
 
 			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec.Containers[0].Resources.Claims).To(HaveLen(1))
-			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec.Containers[0].Resources.Claims[0].Name).To(Equal("managed-gpu"))
+			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec.Containers[0].Resources.Claims[0].Name).To(Equal("managed-device"))
 
 			// Verify worker template has DRA
 			Expect(expectedLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.ResourceClaims).To(HaveLen(1))
-			Expect(expectedLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.ResourceClaims[0].Name).To(Equal("managed-gpu"))
+			Expect(expectedLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.ResourceClaims[0].Name).To(Equal("managed-device"))
 			Expect(expectedLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Not(BeNil()))
 			Expect(*expectedLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Equal(svcName + "-managed-dra"))
 
 			Expect(expectedLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.Containers[0].Resources.Claims).To(HaveLen(1))
-			Expect(expectedLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.Containers[0].Resources.Claims[0].Name).To(Equal("managed-gpu"))
+			Expect(expectedLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.Containers[0].Resources.Claims[0].Name).To(Equal("managed-device"))
 		})
+
+		It("should create multi-node deployment with prefill workload and managed DRA", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-mn-pd-dra"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithReplicas(1),
+				WithParallelism(ParallelismSpec(
+					WithDataParallelism(2),
+					WithDataLocalParallelism(1),
+					WithTensorParallelism(2),
+				)),
+				WithTemplate(SimpleWorkerPodSpec()),
+				WithWorker(SimpleWorkerPodSpec()),
+				WithPrefill(SimpleWorkerPodSpec()),
+				WithPrefillWorker(SimpleWorkerPodSpec()),
+				WithPrefillParallelism(ParallelismSpec(
+					WithDataParallelism(2),
+					WithDataLocalParallelism(1),
+					WithTensorParallelism(2),
+				)),
+				WithPrefillReplicas(1),
+				WithAnnotations(map[string]string{
+					constants.ManagedDRADeviceClassAnnotationKey: "gpu.nvidia.com",
+					constants.ManagedDRADeviceCountAnnotationKey: "4",
+				}),
+				WithManagedRoute(),
+				WithManagedGateway(),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then
+			expectedTemplate := &resourcev1.ResourceClaimTemplate{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-managed-dra",
+					Namespace: testNs.Name,
+				}, expectedTemplate)
+			}).WithContext(ctx).Should(Succeed())
+
+			Expect(expectedTemplate.Spec.Spec.Devices.Requests).To(HaveLen(1))
+			Expect(expectedTemplate.Spec.Spec.Devices.Requests[0].Exactly.DeviceClassName).To(Equal("gpu.nvidia.com"))
+			Expect(expectedTemplate.Spec.Spec.Devices.Requests[0].Exactly.Count).To(Equal(int64(4)))
+
+			rctName := svcName + "-managed-dra"
+
+			expectDRAInjected := func(spec corev1.PodSpec, podLabel string) {
+				Expect(spec.ResourceClaims).To(HaveLen(1), "%s: pod-level resourceClaim missing", podLabel)
+				Expect(spec.ResourceClaims[0].Name).To(Equal("managed-device"), "%s", podLabel)
+				Expect(spec.ResourceClaims[0].ResourceClaimTemplateName).To(Not(BeNil()), "%s", podLabel)
+				Expect(*spec.ResourceClaims[0].ResourceClaimTemplateName).To(Equal(rctName), "%s", podLabel)
+
+				Expect(spec.Containers).ToNot(BeEmpty(), "%s", podLabel)
+				Expect(spec.Containers[0].Name).To(Equal("main"), "%s", podLabel)
+				Expect(spec.Containers[0].Resources.Claims).To(HaveLen(1), "%s: main-container claim missing", podLabel)
+				Expect(spec.Containers[0].Resources.Claims[0].Name).To(Equal("managed-device"), "%s", podLabel)
+			}
+
+			decodeLWS := &lwsapi.LeaderWorkerSet{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve-mn",
+					Namespace: testNs.Name,
+				}, decodeLWS)
+			}).WithContext(ctx).Should(Succeed())
+
+			Expect(decodeLWS.Spec.LeaderWorkerTemplate.LeaderTemplate).ToNot(BeNil())
+			expectDRAInjected(decodeLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, "decode-leader")
+			expectDRAInjected(decodeLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, "decode-worker")
+
+			prefillLWS := &lwsapi.LeaderWorkerSet{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve-mn-prefill",
+					Namespace: testNs.Name,
+				}, prefillLWS)
+			}).WithContext(ctx).Should(Succeed())
+
+			Expect(prefillLWS.Spec.LeaderWorkerTemplate.LeaderTemplate).ToNot(BeNil())
+			expectDRAInjected(prefillLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, "prefill-leader")
+			expectDRAInjected(prefillLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, "prefill-worker")
+		})
+
 		It("should create multi-node deployment with prefill workload", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-multinode-prefill"

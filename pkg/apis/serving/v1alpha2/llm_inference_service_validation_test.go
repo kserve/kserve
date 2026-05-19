@@ -1215,7 +1215,7 @@ func TestValidateManagedDRAAnnotations(t *testing.T) {
 
 	const (
 		deviceClassKey = "serving.kserve.io/exp-dra-device-class"
-		gpuCountKey    = "serving.kserve.io/exp-dra-gpu-count"
+		deviceCountKey = "serving.kserve.io/exp-dra-device-count"
 		celSelectorKey = "serving.kserve.io/exp-dra-cel-selector"
 	)
 
@@ -1238,10 +1238,10 @@ func TestValidateManagedDRAAnnotations(t *testing.T) {
 			wantErrCount: 0,
 		},
 		{
-			name: "valid: device class + gpu count + cel selectors",
+			name: "valid: device class + device count + cel selectors",
 			annotations: map[string]string{
 				deviceClassKey: "gpu.nvidia.com",
-				gpuCountKey:    "4",
+				deviceCountKey: "4",
 				celSelectorKey: "device.attributes['gpu.nvidia.com']['type'] == 'A100'\n" +
 					"device.capacity['gpu.nvidia.com']['memory'].compareTo(quantity('40Gi')) > 0",
 			},
@@ -1271,9 +1271,9 @@ func TestValidateManagedDRAAnnotations(t *testing.T) {
 			wantErrField: deviceClassKey,
 		},
 		{
-			name: "invalid: gpu count without device class",
+			name: "invalid: device count without device class",
 			annotations: map[string]string{
-				gpuCountKey: "2",
+				deviceCountKey: "2",
 			},
 			wantErrCount: 1,
 			wantErrField: deviceClassKey,
@@ -1287,31 +1287,31 @@ func TestValidateManagedDRAAnnotations(t *testing.T) {
 			wantErrField: deviceClassKey,
 		},
 		{
-			name: "invalid: gpu count is non-numeric (the foot-gun the webhook is meant to catch)",
+			name: "invalid: device count is non-numeric (the foot-gun the webhook is meant to catch)",
 			annotations: map[string]string{
 				deviceClassKey: "gpu.nvidia.com",
-				gpuCountKey:    "abc",
+				deviceCountKey: "abc",
 			},
 			wantErrCount: 1,
-			wantErrField: gpuCountKey,
+			wantErrField: deviceCountKey,
 		},
 		{
-			name: "invalid: gpu count is zero",
+			name: "invalid: device count is zero",
 			annotations: map[string]string{
 				deviceClassKey: "gpu.nvidia.com",
-				gpuCountKey:    "0",
+				deviceCountKey: "0",
 			},
 			wantErrCount: 1,
-			wantErrField: gpuCountKey,
+			wantErrField: deviceCountKey,
 		},
 		{
-			name: "invalid: gpu count is negative",
+			name: "invalid: device count is negative",
 			annotations: map[string]string{
 				deviceClassKey: "gpu.nvidia.com",
-				gpuCountKey:    "-1",
+				deviceCountKey: "-1",
 			},
 			wantErrCount: 1,
-			wantErrField: gpuCountKey,
+			wantErrField: deviceCountKey,
 		},
 		{
 			name: "invalid: cel selector annotation set but contains no expressions",
@@ -1326,7 +1326,7 @@ func TestValidateManagedDRAAnnotations(t *testing.T) {
 			name: "invalid: multiple errors are surfaced together",
 			annotations: map[string]string{
 				deviceClassKey: "BAD CLASS",
-				gpuCountKey:    "abc",
+				deviceCountKey: "abc",
 			},
 			wantErrCount: 2,
 		},

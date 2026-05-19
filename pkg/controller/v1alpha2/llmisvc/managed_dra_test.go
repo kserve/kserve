@@ -70,7 +70,7 @@ func TestHasManagedDRA(t *testing.T) {
 	}
 }
 
-func TestParseManagedDRAGpuCount(t *testing.T) {
+func TestParseManagedDRADeviceCount(t *testing.T) {
 	tests := []struct {
 		name      string
 		value     string
@@ -91,10 +91,10 @@ func TestParseManagedDRAGpuCount(t *testing.T) {
 				constants.ManagedDRADeviceClassAnnotationKey: "gpu.nvidia.com",
 			}
 			if tt.value != "" {
-				annotations[constants.ManagedDRAGpuCountAnnotationKey] = tt.value
+				annotations[constants.ManagedDRADeviceCountAnnotationKey] = tt.value
 			}
 			llmSvc := newManagedDRATestLLMISVC("test", annotations)
-			count, err := parseManagedDRAGpuCount(llmSvc)
+			count, err := parseManagedDRADeviceCount(llmSvc)
 			if tt.expectErr {
 				require.Error(t, err)
 			} else {
@@ -116,7 +116,7 @@ metadata:
   namespace: default
   annotations:
     serving.kserve.io/exp-dra-device-class: gpu.example.com
-    serving.kserve.io/exp-dra-gpu-count: "1"
+    serving.kserve.io/exp-dra-device-count: "1"
     serving.kserve.io/exp-dra-cel-selector: |
       device.attributes['gpu.example.com'].model == 'LATEST-GPU-MODEL'
       device.capacity['gpu.example.com'].memory.compareTo(quantity('4Gi')) >= 0
@@ -126,7 +126,7 @@ metadata:
 	require.NoError(t, yaml.Unmarshal([]byte(manifest), llmSvc))
 
 	// Verify basic annotations are parsed as strings.
-	assert.Equal(t, "1", llmSvc.Annotations[constants.ManagedDRAGpuCountAnnotationKey])
+	assert.Equal(t, "1", llmSvc.Annotations[constants.ManagedDRADeviceCountAnnotationKey])
 	assert.Equal(t, "gpu.example.com", llmSvc.Annotations[constants.ManagedDRADeviceClassAnnotationKey])
 
 	// Verify the block scalar preserves newlines.
@@ -139,7 +139,7 @@ metadata:
 	assert.Equal(t, "device.capacity['gpu.example.com'].memory.compareTo(quantity('4Gi')) >= 0", selectors[1])
 
 	// Verify the device request builder applies all selectors.
-	count, err := parseManagedDRAGpuCount(llmSvc)
+	count, err := parseManagedDRADeviceCount(llmSvc)
 	require.NoError(t, err)
 	requests := buildDeviceRequests(
 		llmSvc.Annotations[constants.ManagedDRADeviceClassAnnotationKey],
@@ -197,24 +197,24 @@ func TestParseManagedDRACelSelectors(t *testing.T) {
 }
 
 func TestBuildDeviceRequests(t *testing.T) {
-	t.Run("single GPU without CEL", func(t *testing.T) {
+	t.Run("single device without CEL", func(t *testing.T) {
 		reqs := buildDeviceRequests("gpu.nvidia.com", nil, 1)
 		require.Len(t, reqs, 1)
-		assert.Equal(t, "gpu", reqs[0].Name)
+		assert.Equal(t, "device", reqs[0].Name)
 		assert.Equal(t, "gpu.nvidia.com", reqs[0].Exactly.DeviceClassName)
 		assert.Empty(t, reqs[0].Exactly.Selectors)
 	})
 
-	t.Run("single GPU with single CEL", func(t *testing.T) {
+	t.Run("single device with single CEL", func(t *testing.T) {
 		cel := "device.capacity['gpu.nvidia.com']['memory'].compareTo(quantity('40Gi')) > 0"
 		reqs := buildDeviceRequests("gpu.nvidia.com", []string{cel}, 1)
 		require.Len(t, reqs, 1)
-		assert.Equal(t, "gpu", reqs[0].Name)
+		assert.Equal(t, "device", reqs[0].Name)
 		require.Len(t, reqs[0].Exactly.Selectors, 1)
 		assert.Equal(t, cel, reqs[0].Exactly.Selectors[0].CEL.Expression)
 	})
 
-	t.Run("single GPU with multiple CEL selectors", func(t *testing.T) {
+	t.Run("single device with multiple CEL selectors", func(t *testing.T) {
 		cels := []string{
 			"device.attributes['gpu.nvidia.com']['type'] == 'A100'",
 			"device.capacity['gpu.nvidia.com']['memory'].compareTo(quantity('40Gi')) > 0",
@@ -226,22 +226,22 @@ func TestBuildDeviceRequests(t *testing.T) {
 		assert.Equal(t, cels[1], reqs[0].Exactly.Selectors[1].CEL.Expression)
 	})
 
-	t.Run("multiple GPUs", func(t *testing.T) {
+	t.Run("multiple devices", func(t *testing.T) {
 		reqs := buildDeviceRequests("gpu.nvidia.com", nil, 3)
 		require.Len(t, reqs, 1)
-		assert.Equal(t, "gpu", reqs[0].Name)
+		assert.Equal(t, "device", reqs[0].Name)
 		assert.Equal(t, "gpu.nvidia.com", reqs[0].Exactly.DeviceClassName)
 		assert.Equal(t, int64(3), reqs[0].Exactly.Count)
 	})
 
-	t.Run("multiple GPUs with multiple CEL selectors", func(t *testing.T) {
+	t.Run("multiple devices with multiple CEL selectors", func(t *testing.T) {
 		cels := []string{
 			"device.attributes['gpu.nvidia.com']['type'] == 'mig'",
 			"device.attributes['gpu.nvidia.com']['profile'] == '3g.40gb'",
 		}
 		reqs := buildDeviceRequests("mig-3g.40gb", cels, 2)
 		require.Len(t, reqs, 1)
-		assert.Equal(t, "gpu", reqs[0].Name)
+		assert.Equal(t, "device", reqs[0].Name)
 		assert.Equal(t, "mig-3g.40gb", reqs[0].Exactly.DeviceClassName)
 		assert.Equal(t, int64(2), reqs[0].Exactly.Count)
 		require.Len(t, reqs[0].Exactly.Selectors, 2)
@@ -260,7 +260,7 @@ func TestExpectedManagedDRATemplate(t *testing.T) {
 	assert.Equal(t, "my-model-managed-dra", tmpl.Name)
 	assert.Equal(t, "default", tmpl.Namespace)
 	require.Len(t, tmpl.Spec.Spec.Devices.Requests, 1)
-	assert.Equal(t, "gpu", tmpl.Spec.Spec.Devices.Requests[0].Name)
+	assert.Equal(t, "device", tmpl.Spec.Spec.Devices.Requests[0].Name)
 	require.Len(t, tmpl.OwnerReferences, 1)
 	assert.True(t, *tmpl.OwnerReferences[0].Controller)
 }
@@ -296,7 +296,7 @@ func TestInjectManagedDRA_MainContainerOnly(t *testing.T) {
 	assert.Equal(t, managedDRAClaimName, podSpec.Containers[0].Resources.Claims[0].Name)
 }
 
-// Sidecar containers must NOT receive the GPU claim — only the "main" container does.
+// Sidecar containers must NOT receive the device claim — only the "main" container does.
 func TestInjectManagedDRA_OnlyMainContainerInjected(t *testing.T) {
 	llmSvc := newManagedDRATestLLMISVC("test", map[string]string{
 		constants.ManagedDRADeviceClassAnnotationKey: "gpu.example.com",
@@ -313,11 +313,11 @@ func TestInjectManagedDRA_OnlyMainContainerInjected(t *testing.T) {
 	require.Len(t, podSpec.ResourceClaims, 1)
 
 	mainClaims := podSpec.Containers[0].Resources.Claims
-	require.Len(t, mainClaims, 1, "main container should have the GPU claim")
+	require.Len(t, mainClaims, 1, "main container should have the device claim")
 	assert.Equal(t, managedDRAClaimName, mainClaims[0].Name)
 
 	for _, ctr := range podSpec.Containers[1:] {
-		assert.Empty(t, ctr.Resources.Claims, "sidecar %q must not receive the GPU claim", ctr.Name)
+		assert.Empty(t, ctr.Resources.Claims, "sidecar %q must not receive the device claim", ctr.Name)
 	}
 }
 
@@ -337,7 +337,7 @@ func TestInjectManagedDRA_NoMainContainer(t *testing.T) {
 
 	require.Len(t, podSpec.ResourceClaims, 1)
 	for _, ctr := range podSpec.Containers {
-		assert.Empty(t, ctr.Resources.Claims, "container %q must not receive the GPU claim", ctr.Name)
+		assert.Empty(t, ctr.Resources.Claims, "container %q must not receive the device claim", ctr.Name)
 	}
 }
 
@@ -379,6 +379,174 @@ func TestInjectManagedDRA_PreservesExistingClaims(t *testing.T) {
 
 	assert.Len(t, podSpec.ResourceClaims, 2)
 	assert.Len(t, podSpec.Containers[0].Resources.Claims, 2)
+}
+
+func TestInjectManagedDRAIntoConfig(t *testing.T) {
+	const deviceClass = "gpu.example.com"
+
+	mainPod := func() *corev1.PodSpec {
+		return &corev1.PodSpec{Containers: []corev1.Container{{Name: "main"}}}
+	}
+
+	tests := []struct {
+		name            string
+		annotated       bool
+		cfg             *v1alpha2.LLMInferenceServiceConfig
+		wantTemplateInj bool
+		wantWorkerInj   bool
+		wantPrefTmplInj bool
+		wantPrefWrkrInj bool
+	}{
+		{
+			name:      "no annotation: nothing injected even if all slots set",
+			annotated: false,
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{Template: mainPod(), Worker: mainPod()},
+					Prefill:      &v1alpha2.WorkloadSpec{Template: mainPod(), Worker: mainPod()},
+				},
+			},
+		},
+		{
+			name:      "annotated: all four slots populated -> all four injected",
+			annotated: true,
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{Template: mainPod(), Worker: mainPod()},
+					Prefill:      &v1alpha2.WorkloadSpec{Template: mainPod(), Worker: mainPod()},
+				},
+			},
+			wantTemplateInj: true,
+			wantWorkerInj:   true,
+			wantPrefTmplInj: true,
+			wantPrefWrkrInj: true,
+		},
+		{
+			name:      "annotated: only Template set (single-node main)",
+			annotated: true,
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{Template: mainPod()},
+				},
+			},
+			wantTemplateInj: true,
+		},
+		{
+			name:      "annotated: only Worker set (multi-node worker, no leader)",
+			annotated: true,
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{Worker: mainPod()},
+				},
+			},
+			wantWorkerInj: true,
+		},
+		{
+			name:      "annotated: only Prefill.Template set (single-node prefill)",
+			annotated: true,
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Prefill: &v1alpha2.WorkloadSpec{Template: mainPod()},
+				},
+			},
+			wantPrefTmplInj: true,
+		},
+		{
+			name:      "annotated: only Prefill.Worker set (multi-node prefill worker)",
+			annotated: true,
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Prefill: &v1alpha2.WorkloadSpec{Worker: mainPod()},
+				},
+			},
+			wantPrefWrkrInj: true,
+		},
+		{
+			name:      "annotated: Prefill is nil -> only decode slots considered, no nil deref",
+			annotated: true,
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{Template: mainPod(), Worker: mainPod()},
+				},
+			},
+			wantTemplateInj: true,
+			wantWorkerInj:   true,
+		},
+		{
+			name:      "annotated: all slots nil -> no-op",
+			annotated: true,
+			cfg:       &v1alpha2.LLMInferenceServiceConfig{},
+		},
+	}
+
+	hasClaim := func(t *testing.T, pod *corev1.PodSpec) bool {
+		t.Helper()
+		if pod == nil {
+			return false
+		}
+		for _, c := range pod.ResourceClaims {
+			if c.Name == managedDRAClaimName {
+				return true
+			}
+		}
+		return false
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var ann map[string]string
+			if tt.annotated {
+				ann = map[string]string{constants.ManagedDRADeviceClassAnnotationKey: deviceClass}
+			}
+			llmSvc := newManagedDRATestLLMISVC("test", ann)
+
+			injectManagedDRAIntoConfig(llmSvc, tt.cfg)
+
+			assert.Equal(t, tt.wantTemplateInj, hasClaim(t, tt.cfg.Spec.Template), "Template")
+			assert.Equal(t, tt.wantWorkerInj, hasClaim(t, tt.cfg.Spec.Worker), "Worker")
+			if tt.cfg.Spec.Prefill != nil {
+				assert.Equal(t, tt.wantPrefTmplInj, hasClaim(t, tt.cfg.Spec.Prefill.Template), "Prefill.Template")
+				assert.Equal(t, tt.wantPrefWrkrInj, hasClaim(t, tt.cfg.Spec.Prefill.Worker), "Prefill.Worker")
+			}
+		})
+	}
+}
+
+func TestInjectManagedDRAIntoConfig_NilCfg(t *testing.T) {
+	llmSvc := newManagedDRATestLLMISVC("test", map[string]string{
+		constants.ManagedDRADeviceClassAnnotationKey: "gpu.example.com",
+	})
+	assert.NotPanics(t, func() {
+		injectManagedDRAIntoConfig(llmSvc, nil)
+	})
+}
+
+func TestInjectManagedDRAIntoConfig_Idempotent(t *testing.T) {
+	llmSvc := newManagedDRATestLLMISVC("test", map[string]string{
+		constants.ManagedDRADeviceClassAnnotationKey: "gpu.example.com",
+	})
+	mkPod := func() *corev1.PodSpec {
+		return &corev1.PodSpec{Containers: []corev1.Container{{Name: "main"}}}
+	}
+	cfg := &v1alpha2.LLMInferenceServiceConfig{
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			WorkloadSpec: v1alpha2.WorkloadSpec{Template: mkPod(), Worker: mkPod()},
+			Prefill:      &v1alpha2.WorkloadSpec{Template: mkPod(), Worker: mkPod()},
+		},
+	}
+
+	injectManagedDRAIntoConfig(llmSvc, cfg)
+	injectManagedDRAIntoConfig(llmSvc, cfg)
+
+	for name, pod := range map[string]*corev1.PodSpec{
+		"Template":         cfg.Spec.Template,
+		"Worker":           cfg.Spec.Worker,
+		"Prefill.Template": cfg.Spec.Prefill.Template,
+		"Prefill.Worker":   cfg.Spec.Prefill.Worker,
+	} {
+		assert.Len(t, pod.ResourceClaims, 1, "%s pod-level claim should not be duplicated", name)
+		assert.Len(t, pod.Containers[0].Resources.Claims, 1, "%s main-container claim should not be duplicated", name)
+	}
 }
 
 func TestSemanticResourceClaimTemplateIsEqual(t *testing.T) {
@@ -429,10 +597,10 @@ func TestReconcileManagedDRA(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("invalid gpu count", func(t *testing.T) {
+	t.Run("invalid device count", func(t *testing.T) {
 		llmSvc := newManagedDRATestLLMISVC("test-svc", map[string]string{
 			constants.ManagedDRADeviceClassAnnotationKey: "gpu.nvidia.com",
-			constants.ManagedDRAGpuCountAnnotationKey:    "invalid",
+			constants.ManagedDRADeviceCountAnnotationKey: "invalid",
 		})
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 		r := &LLMISVCReconciler{
@@ -461,7 +629,7 @@ func TestReconcileManagedDRA(t *testing.T) {
 		tmpl := &resourcev1.ResourceClaimTemplate{}
 		err = fakeClient.Get(ctx, types.NamespacedName{Name: "test-svc-managed-dra", Namespace: "default"}, tmpl)
 		require.NoError(t, err)
-		assert.Equal(t, "gpu", tmpl.Spec.Spec.Devices.Requests[0].Name)
+		assert.Equal(t, "device", tmpl.Spec.Spec.Devices.Requests[0].Name)
 	})
 
 	t.Run("template claim with multiple CEL selectors", func(t *testing.T) {
@@ -519,6 +687,31 @@ func TestReconcileManagedDRA(t *testing.T) {
 		}
 
 		require.NoError(t, r.reconcileManagedDRA(ctx, llmSvc))
+	})
+
+	t.Run("cleanup deletes orphaned template when service is force-stopped", func(t *testing.T) {
+		objNamespacedName := types.NamespacedName{Name: "test-svc-stopped-managed-dra", Namespace: "default"}
+
+		llmSvcWithDRA := newManagedDRATestLLMISVC("test-svc-stopped", map[string]string{
+			constants.ManagedDRADeviceClassAnnotationKey: "gpu.nvidia.com",
+		})
+
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+		r := &LLMISVCReconciler{
+			Client:        fakeClient,
+			EventRecorder: record.NewFakeRecorder(10),
+		}
+
+		require.NoError(t, r.reconcileManagedDRA(ctx, llmSvcWithDRA))
+		require.NoError(t, fakeClient.Get(ctx, objNamespacedName, &resourcev1.ResourceClaimTemplate{}),
+			"template should exist after first reconcile")
+
+		llmSvcWithDRA.Annotations[constants.StopAnnotationKey] = "true"
+		require.NoError(t, r.reconcileManagedDRA(ctx, llmSvcWithDRA))
+
+		err := fakeClient.Get(ctx, objNamespacedName, &resourcev1.ResourceClaimTemplate{})
+		require.Error(t, err, "orphaned template should be cleaned up when service is stopped")
+		assert.True(t, apierrors.IsNotFound(err), "expected NotFound, got %v", err)
 	})
 }
 

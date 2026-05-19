@@ -681,16 +681,16 @@ func (l *LLMInferenceServiceValidator) validateManagedDRAAnnotations(llmSvc *LLM
 	annotationsPath := field.NewPath("metadata").Child("annotations")
 
 	deviceClass, hasDeviceClass := annotations[constants.ManagedDRADeviceClassAnnotationKey]
-	_, hasGpuCount := annotations[constants.ManagedDRAGpuCountAnnotationKey]
+	_, hasDeviceCount := annotations[constants.ManagedDRADeviceCountAnnotationKey]
 	_, hasCelSelector := annotations[constants.ManagedDRACelSelectorAnnotationKey]
 
 	// Require device-class if any other DRA annotation is set.
-	if !hasDeviceClass && (hasGpuCount || hasCelSelector) {
+	if !hasDeviceClass && (hasDeviceCount || hasCelSelector) {
 		allErrs = append(allErrs, field.Required(
 			annotationsPath.Key(constants.ManagedDRADeviceClassAnnotationKey),
 			fmt.Sprintf("%s is required to enable managed DRA when %s or %s is set",
 				constants.ManagedDRADeviceClassAnnotationKey,
-				constants.ManagedDRAGpuCountAnnotationKey,
+				constants.ManagedDRADeviceCountAnnotationKey,
 				constants.ManagedDRACelSelectorAnnotationKey),
 		))
 	}
@@ -711,19 +711,19 @@ func (l *LLMInferenceServiceValidator) validateManagedDRAAnnotations(llmSvc *LLM
 		}
 	}
 
-	if rawCount, ok := annotations[constants.ManagedDRAGpuCountAnnotationKey]; ok {
+	if rawCount, ok := annotations[constants.ManagedDRADeviceCountAnnotationKey]; ok {
 		count, err := strconv.Atoi(strings.TrimSpace(rawCount))
 		if err != nil {
 			allErrs = append(allErrs, field.Invalid(
-				annotationsPath.Key(constants.ManagedDRAGpuCountAnnotationKey),
+				annotationsPath.Key(constants.ManagedDRADeviceCountAnnotationKey),
 				rawCount,
-				"gpu count must be an integer",
+				"device count must be an integer",
 			))
 		} else if count < 1 {
 			allErrs = append(allErrs, field.Invalid(
-				annotationsPath.Key(constants.ManagedDRAGpuCountAnnotationKey),
+				annotationsPath.Key(constants.ManagedDRADeviceCountAnnotationKey),
 				rawCount,
-				"gpu count must be greater than or equal to 1",
+				"device count must be greater than or equal to 1",
 			))
 		}
 	}

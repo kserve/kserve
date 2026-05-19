@@ -308,6 +308,8 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, err
 	}
 
+	injectManagedDRAIntoConfig(llmSvc, llmSvcCfg)
+
 	// Update HTTPRoute parentRefs to point to the custom gateway if Gateway.Refs is specified.
 	// This ensures the managed HTTPRoute references the correct gateway instead of the default one from presets.
 	if llmSvcCfg.Spec.Router != nil &&

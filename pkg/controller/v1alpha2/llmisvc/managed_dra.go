@@ -19,8 +19,9 @@ limitations under the License.
 // Note on Managed DRA:
 // The Managed DRA feature implemented here via the serving.kserve.io/exp-dra-* annotations
 // is an intentionally limited-scope convenience feature for basic DRA use cases.
-// It provides a simplified mechanism for users to dynamically request GPUs, avoiding
-// the need to manually create and manage ResourceClaimTemplate objects.
+// It provides a simplified mechanism for users to dynamically request accelerator
+// devices (GPUs, TPUs, NICs, etc.) via DeviceClass, avoiding the need to manually
+// create and manage ResourceClaimTemplate objects.
 //
 // Complex DRA topologies or advanced use cases should bypass this managed feature
 // and use native Kubernetes ResourceClaimTemplate objects directly by attaching
@@ -37,6 +38,7 @@ import (
 	resourcev1 "k8s.io/api/resource/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/kmeta"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
@@ -45,8 +47,8 @@ import (
 
 const (
 	managedDRASuffix      = "-managed-dra"
-	managedDRAClaimName   = "managed-gpu"
-	defaultManagedDRAName = "gpu"
+	managedDRAClaimName   = "managed-device"
+	defaultManagedDRAName = "device"
 	llmMainContainerName  = "main"
 )
 
@@ -56,23 +58,23 @@ func hasManagedDRA(llmSvc *v1alpha2.LLMInferenceService) bool {
 	return ok
 }
 
-// managedDRAResourceName generates the name of the ResourceClaimTemplate.
+// managedDRAResourceName returns the name of the ResourceClaimTemplate
 func managedDRAResourceName(llmSvc *v1alpha2.LLMInferenceService) string {
-	return llmSvc.GetName() + managedDRASuffix
+	return kmeta.ChildName(llmSvc.GetName(), managedDRASuffix)
 }
 
-// parseManagedDRAGpuCount extracts the number of GPUs requested from the annotations.
-func parseManagedDRAGpuCount(llmSvc *v1alpha2.LLMInferenceService) (int, error) {
-	raw, ok := llmSvc.Annotations[constants.ManagedDRAGpuCountAnnotationKey]
+// parseManagedDRADeviceCount extracts the number of devices requested from the annotations.
+func parseManagedDRADeviceCount(llmSvc *v1alpha2.LLMInferenceService) (int, error) {
+	raw, ok := llmSvc.Annotations[constants.ManagedDRADeviceCountAnnotationKey]
 	if !ok || raw == "" {
 		return 1, nil
 	}
 	count, err := strconv.Atoi(raw)
 	if err != nil {
-		return 0, fmt.Errorf("invalid %s value %q: %w", constants.ManagedDRAGpuCountAnnotationKey, raw, err)
+		return 0, fmt.Errorf("invalid %s value %q: %w", constants.ManagedDRADeviceCountAnnotationKey, raw, err)
 	}
 	if count < 1 {
-		return 0, fmt.Errorf("invalid %s value %q: must be >= 1", constants.ManagedDRAGpuCountAnnotationKey, raw)
+		return 0, fmt.Errorf("invalid %s value %q: must be >= 1", constants.ManagedDRADeviceCountAnnotationKey, raw)
 	}
 	return count, nil
 }
@@ -96,7 +98,7 @@ func parseManagedDRACelSelectors(llmSvc *v1alpha2.LLMInferenceService) []string 
 }
 
 // buildDeviceRequests creates the slice of DeviceRequest objects based on the requested count and class.
-func buildDeviceRequests(deviceClass string, celSelectors []string, gpuCount int) []resourcev1.DeviceRequest {
+func buildDeviceRequests(deviceClass string, celSelectors []string, deviceCount int) []resourcev1.DeviceRequest {
 	req := resourcev1.DeviceRequest{
 		Name: defaultManagedDRAName,
 		Exactly: &resourcev1.ExactDeviceRequest{
@@ -104,8 +106,8 @@ func buildDeviceRequests(deviceClass string, celSelectors []string, gpuCount int
 		},
 	}
 
-	if gpuCount > 1 {
-		req.Exactly.Count = int64(gpuCount)
+	if deviceCount > 1 {
+		req.Exactly.Count = int64(deviceCount)
 	}
 
 	if len(celSelectors) > 0 {
@@ -126,7 +128,7 @@ func buildDeviceRequests(deviceClass string, celSelectors []string, gpuCount int
 // reconcileManagedDRA creates, updates, or deletes the ResourceClaimTemplate
 // that backs managed DRA for this LLMInferenceService.
 func (r *LLMISVCReconciler) reconcileManagedDRA(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
-	if !hasManagedDRA(llmSvc) {
+	if !hasManagedDRA(llmSvc) || utils.GetForceStopRuntime(llmSvc) {
 		return r.cleanupManagedDRA(ctx, llmSvc)
 	}
 
@@ -138,12 +140,12 @@ func (r *LLMISVCReconciler) reconcileManagedDRA(ctx context.Context, llmSvc *v1a
 	deviceClass := llmSvc.Annotations[constants.ManagedDRADeviceClassAnnotationKey]
 	celSelectors := parseManagedDRACelSelectors(llmSvc)
 
-	gpuCount, err := parseManagedDRAGpuCount(llmSvc)
+	deviceCount, err := parseManagedDRADeviceCount(llmSvc)
 	if err != nil {
 		return err
 	}
 
-	deviceRequests := buildDeviceRequests(deviceClass, celSelectors, gpuCount)
+	deviceRequests := buildDeviceRequests(deviceClass, celSelectors, deviceCount)
 
 	expected := expectedManagedDRATemplate(llmSvc, deviceRequests)
 	if err := Reconcile(ctx, r, llmSvc, &resourcev1.ResourceClaimTemplate{}, expected, semanticResourceClaimTemplateIsEqual); err != nil {
@@ -156,14 +158,6 @@ func (r *LLMISVCReconciler) reconcileManagedDRA(ctx context.Context, llmSvc *v1a
 // cleanupManagedDRA removes any previously generated ResourceClaimTemplate
 // owned by this LLMInferenceService.
 func (r *LLMISVCReconciler) cleanupManagedDRA(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
-	ok, err := utils.IsCrdAvailable(r.Config, resourcev1.SchemeGroupVersion.String(), "ResourceClaimTemplate")
-	if err != nil {
-		return fmt.Errorf("failed to check if ResourceClaimTemplate CRD is available: %w", err)
-	}
-	if !ok {
-		return nil // Nothing to clean up if the API doesn't exist
-	}
-
 	stale := &resourcev1.ResourceClaimTemplate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      managedDRAResourceName(llmSvc),
@@ -197,6 +191,28 @@ func expectedManagedDRATemplate(llmSvc *v1alpha2.LLMInferenceService, requests [
 
 func semanticResourceClaimTemplateIsEqual(expected *resourcev1.ResourceClaimTemplate, curr *resourcev1.ResourceClaimTemplate) bool {
 	return equality.Semantic.DeepEqual(expected.Spec, curr.Spec)
+}
+
+// injectManagedDRAIntoConfig fans injectManagedDRA out to every workload
+// PodSpec of the merged config (Template, Worker, Prefill.Template, Prefill.Worker).
+func injectManagedDRAIntoConfig(llmSvc *v1alpha2.LLMInferenceService, cfg *v1alpha2.LLMInferenceServiceConfig) {
+	if cfg == nil || !hasManagedDRA(llmSvc) {
+		return
+	}
+	if cfg.Spec.Template != nil {
+		injectManagedDRA(llmSvc, cfg.Spec.Template)
+	}
+	if cfg.Spec.Worker != nil {
+		injectManagedDRA(llmSvc, cfg.Spec.Worker)
+	}
+	if cfg.Spec.Prefill != nil {
+		if cfg.Spec.Prefill.Template != nil {
+			injectManagedDRA(llmSvc, cfg.Spec.Prefill.Template)
+		}
+		if cfg.Spec.Prefill.Worker != nil {
+			injectManagedDRA(llmSvc, cfg.Spec.Prefill.Worker)
+		}
+	}
 }
 
 // injectManagedDRA wires the managed DRA claim into the PodSpec:

@@ -143,7 +143,7 @@ var (
 	// These serve as a strong guideline to prevent feature bloat while leaving room for minor, practical additions.
 	ManagedDRADeviceClassAnnotationKey = KServeAPIGroupName + "/exp-dra-device-class"
 	ManagedDRACelSelectorAnnotationKey = KServeAPIGroupName + "/exp-dra-cel-selector"
-	ManagedDRAGpuCountAnnotationKey    = KServeAPIGroupName + "/exp-dra-gpu-count"
+	ManagedDRADeviceCountAnnotationKey = KServeAPIGroupName + "/exp-dra-device-count"
 )
 
 // ServingRuntime Server Type Annotations

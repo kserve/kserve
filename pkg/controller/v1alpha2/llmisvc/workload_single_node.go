@@ -135,8 +135,6 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 	if llmSvc.Spec.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
 		d.Spec.Template.Spec = *llmSvc.Spec.Template.DeepCopy()
 
-		injectManagedDRA(llmSvc, &d.Spec.Template.Spec)
-
 		var serviceAccount *corev1.ServiceAccount = nil
 		if hasRoutingSidecar(d.Spec.Template.Spec) {
 			log.FromContext(ctx).Info("Main container has a routing sidecar")
@@ -243,8 +241,6 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 
 	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
 		d.Spec.Template.Spec = *llmSvc.Spec.Prefill.Template.DeepCopy()
-
-		injectManagedDRA(llmSvc, &d.Spec.Template.Spec)
 
 		var existingServiceAccount *corev1.ServiceAccount = nil
 		if llmSvc.Spec.Prefill.Template.ServiceAccountName != "" {
