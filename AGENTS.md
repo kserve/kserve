@@ -87,14 +87,13 @@ Use the template in `.github/PULL_REQUEST_TEMPLATE.md` when opening PRs. Every P
 - **Checklist** - confirm unit/e2e tests, comments for complex code, and docs updates
 - **Release note** - write a release note or `NONE` if not user-facing
 
-Run `make precommit` before opening a PR.
 
 ## Controller-Runtime Patterns
 
 ### Reconcile Loop
 
 - Reconcile must be **idempotent** - same input run N times produces the same result
-- Use `context.Context` everywhere; avoid `context.Background()` inside reconcile
+- Avoid using `context.Background()`, prefer propagating existing `context.Context` via function arguments.
 - Handle `NotFound` as success for deleted objects
 - Use `Patch` with `MergeFrom` for updates to reduce conflicts
 - Return errors for reconciliation failures (controller-runtime handles backoff). Use `Requeue: true` only for async work in progress, `RequeueAfter` only for wall-clock delays
