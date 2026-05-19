@@ -40,6 +40,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1alpha1/kernelcachecommon"
 )
 
 const (
@@ -68,9 +71,16 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
+	// Load config from inferenceservice-config ConfigMap (once at top)
+	kernelCacheConfig, err := kernelcachecommon.LoadKernelCacheConfig(ctx, r.Clientset)
+	if err != nil {
+		r.Log.Error(err, "unable to load kernel cache config", "name", constants.InferenceServiceConfigMapName)
+		return ctrl.Result{}, err
+	}
+
 	// Step 1: Handle deletion
 	if !kc.DeletionTimestamp.IsZero() {
-		return r.handleDeletion(ctx, kc)
+		return r.handleDeletion(ctx, kc, kernelCacheConfig)
 	}
 
 	// Add finalizer if not present
@@ -79,8 +89,10 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, r.Update(ctx, kc)
 	}
 
+	jobNamespace := kernelCacheConfig.JobNamespace
+
 	// Step 2: Create Download PVC (operator creates ALL PVCs, agent creates only Jobs)
-	if err := r.ensureDownloadPVC(ctx, kc); err != nil {
+	if err := r.ensureDownloadPVC(ctx, kc, jobNamespace); err != nil {
 		r.Log.Error(err, "failed to create download PVC")
 		return ctrl.Result{}, err
 	}
@@ -89,7 +101,7 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// This automatically respects DaemonSet scheduling (taints, labels, node selectors)
 	agentPods := &corev1.PodList{}
 	if err := r.List(ctx, agentPods,
-		client.InNamespace("kserve"),
+		client.InNamespace(jobNamespace),
 		client.MatchingLabels{"app": "kserve-kernelcachenode-agent"},
 	); err != nil {
 		return ctrl.Result{}, err
@@ -117,7 +129,7 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	// Step 6: Create Serving PVC when all extractions complete
-	if r.allExtractionsComplete(ctx, kc) {
+	if r.allExtractionsComplete(ctx, kc, jobNamespace) {
 		if err := r.ensureServingPVC(ctx, kc); err != nil {
 			r.Log.Error(err, "failed to create serving PVC")
 			return ctrl.Result{}, err
@@ -131,12 +143,18 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 // handleDeletion: Phase 1 simple finalizer (no pod usage check)
 // Phase 2 will add validating webhook for production safety
-func (r *KernelCacheReconciler) handleDeletion(ctx context.Context, kc *v1alpha1.KernelCache) (ctrl.Result, error) {
+func (r *KernelCacheReconciler) handleDeletion(
+	ctx context.Context,
+	kc *v1alpha1.KernelCache,
+	kernelCacheConfig *v1beta1.KernelCacheConfig,
+) (ctrl.Result, error) {
 	if !controllerutil.ContainsFinalizer(kc, KernelCacheFinalizerName) {
 		return ctrl.Result{}, nil
 	}
 
 	r.Log.Info("Deleting KernelCache", "name", kc.Name, "namespace", kc.Namespace)
+
+	jobNamespace := kernelCacheConfig.JobNamespace
 
 	// Remove cache from all KernelCacheNodes (cluster-scoped)
 	// Owner references on PVC ensure automatic cleanup
@@ -178,7 +196,6 @@ func (r *KernelCacheReconciler) handleDeletion(ctx context.Context, kc *v1alpha1
 	}
 
 	// Delete extraction Jobs, then Download and Serving PVCs and PVs
-	jobNamespace := "kserve"
 	downloadPVCName := kc.Namespace + "-" + kc.Name + "-download"
 	downloadPVName := kc.Namespace + "-" + kc.Name + "-download-pv"
 	servingPVCName := kc.Name // Same name as KernelCache
@@ -362,11 +379,11 @@ func (r *KernelCacheReconciler) ensureKernelCacheNode(
 func (r *KernelCacheReconciler) ensureDownloadPVC(
 	ctx context.Context,
 	kc *v1alpha1.KernelCache,
+	jobNamespace string,
 ) error {
-	// Create Download PV and PVC in job namespace (kserve), NOT in KernelCache namespace
+	// Create Download PV and PVC in job namespace (from config), NOT in KernelCache namespace
 	// Job namespace is where agents run and create extraction Jobs
 
-	jobNamespace := "kserve" // Phase 1: hardcoded, Phase 2: from ConfigMap
 	// Include namespace to avoid conflicts when same name in different namespaces
 	pvName := kc.Namespace + "-" + kc.Name + "-download-pv"
 	pvcName := kc.Namespace + "-" + kc.Name + "-download"
@@ -390,9 +407,9 @@ func (r *KernelCacheReconciler) ensureDownloadPVC(
 		ObjectMeta: metav1.ObjectMeta{
 			Name: pvName,
 			Labels: map[string]string{
-				"app.kubernetes.io/name":       "kernelcache",
-				"app.kubernetes.io/component":  "download",
-				"kernelcache.kserve.io/cache":  kc.Name,
+				"app.kubernetes.io/name":          "kernelcache",
+				"app.kubernetes.io/component":     "download",
+				"kernelcache.kserve.io/cache":     kc.Name,
 				"kernelcache.kserve.io/namespace": kc.Namespace,
 			},
 		},
@@ -431,11 +448,11 @@ func (r *KernelCacheReconciler) ensureDownloadPVC(
 			Name:      pvcName,
 			Namespace: jobNamespace,
 			Labels: map[string]string{
-				"app.kubernetes.io/name":       "kernelcache",
-				"app.kubernetes.io/component":  "download",
-				"kernelcache.kserve.io/cache":  kc.Name,
+				"app.kubernetes.io/name":          "kernelcache",
+				"app.kubernetes.io/component":     "download",
+				"kernelcache.kserve.io/cache":     kc.Name,
 				"kernelcache.kserve.io/namespace": kc.Namespace,
-				"kernelcache.kserve.io/pv":     pvName,
+				"kernelcache.kserve.io/pv":        pvName,
 			},
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
@@ -472,11 +489,12 @@ func (r *KernelCacheReconciler) ensureDownloadPVC(
 func (r *KernelCacheReconciler) allExtractionsComplete(
 	ctx context.Context,
 	kc *v1alpha1.KernelCache,
+	jobNamespace string,
 ) bool {
 	// Get nodes where agent pods are running
 	agentPods := &corev1.PodList{}
 	if err := r.List(ctx, agentPods,
-		client.InNamespace("kserve"),
+		client.InNamespace(jobNamespace),
 		client.MatchingLabels{"app": "kserve-kernelcachenode-agent"},
 	); err != nil {
 		r.Log.Error(err, "failed to list agent pods")
@@ -771,7 +789,7 @@ func (r *KernelCacheReconciler) updateAggregateStatus(
 // nodeStatusMapper maps KernelCacheNode changes to KernelCache reconciliation requests
 func (r *KernelCacheReconciler) nodeStatusMapper(ctx context.Context, obj client.Object) []reconcile.Request {
 	kcNode := obj.(*v1alpha1.KernelCacheNode)
-	requests := []reconcile.Request{}
+	requests := make([]reconcile.Request, 0, len(kcNode.Status.Caches))
 
 	// Reconcile all caches referenced in this node
 	for _, cacheInfo := range kcNode.Status.Caches {

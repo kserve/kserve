@@ -3793,6 +3793,40 @@
         }
       }
     },
+    "v1beta1.KernelCacheConfig": {
+      "type": "object",
+      "required": [
+        "enabled",
+        "jobNamespace"
+      ],
+      "properties": {
+        "enablePermissionInitContainer": {
+          "type": "boolean"
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "extractImage": {
+          "type": "string"
+        },
+        "jobNamespace": {
+          "type": "string",
+          "default": ""
+        },
+        "jobTTLSecondsAfterFinished": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "noGPU": {
+          "type": "boolean"
+        },
+        "reconcileIntervalSeconds": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
     "v1beta1.LightGBMSpec": {
       "description": "LightGBMSpec defines arguments for configuring LightGBMSpec model serving.",
       "type": "object",
