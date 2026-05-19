@@ -2,7 +2,6 @@
 
 KServe is a Kubernetes-native platform for serving machine learning models. The Go codebase implements custom controllers using controller-runtime to manage inference services, serving runtimes, and related resources on Kubernetes.
 
-The project lives under `github.com/kserve/kserve`. Core controller logic is in `pkg/controller/`, API types in `pkg/apis/`, and webhook handling in `pkg/webhook/`.
 
 ## Building and Testing
 
