@@ -22,9 +22,12 @@ import (
 
 // KernelCacheNode tracks per-node kernel cache extraction status.
 // Operator-created CRD pattern uses Status only (no Spec).
+// Cluster-scoped like LocalModelNode - one per physical node, tracks caches from all namespaces.
+// +genclient
+// +genclient:nonNamespaced
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Namespaced
+// +kubebuilder:resource:scope=Cluster
 type KernelCacheNode struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
