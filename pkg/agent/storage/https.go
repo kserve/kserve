@@ -126,9 +126,12 @@ func (h *HTTPSDownloader) Download(client http.Client) error {
 		if err != nil {
 			return err
 		}
-		defer file.Close()
 		if _, err = io.Copy(file, resp.Body); err != nil {
+			file.Close()
 			return fmt.Errorf("unable to copy file content: %w", err)
+		}
+		if err = file.Close(); err != nil {
+			return err
 		}
 	}
 
