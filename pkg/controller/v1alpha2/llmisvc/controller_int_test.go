@@ -216,116 +216,134 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			}).WithContext(ctx).Should(Succeed())
 		})
 
-		It("should create a single node deployment with managed DRA", func(ctx SpecContext) {
-			// given
-			svcName := "test-llm-dra"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+		DescribeTable("should create a single node deployment with managed DRA",
+			func(ctx SpecContext, testName string, containers []corev1.Container, extraAnnotations map[string]string, targetContainer string) {
+				// given
+				svcName := "test-llm-dra-" + testName
+				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
-			modelConfig := LLMInferenceServiceConfig("model-fb-opt-125m",
-				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
-				WithConfigModelName("facebook/opt-125m"),
-				WithConfigModelURI("hf://facebook/opt-125m"),
-			)
+				modelConfig := LLMInferenceServiceConfig("model-fb-opt-125m",
+					InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+					WithConfigModelName("facebook/opt-125m"),
+					WithConfigModelURI("hf://facebook/opt-125m"),
+				)
+				routerConfig := LLMInferenceServiceConfig("router-managed",
+					InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+					WithConfigManagedRouter(),
+				)
+				workloadConfig := LLMInferenceServiceConfig("workload-single-cpu",
+					InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+					WithConfigWorkloadTemplate(&corev1.PodSpec{Containers: containers}),
+				)
 
-			routerConfig := LLMInferenceServiceConfig("router-managed",
-				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
-				WithConfigManagedRouter(),
-			)
+				Expect(envTest.Client.Create(ctx, modelConfig)).To(Succeed())
+				Expect(envTest.Client.Create(ctx, routerConfig)).To(Succeed())
+				Expect(envTest.Client.Create(ctx, workloadConfig)).To(Succeed())
 
-			workloadConfig := LLMInferenceServiceConfig("workload-single-cpu",
-				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
-				WithConfigWorkloadTemplate(&corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name:  "main",
-							Image: "quay.io/pierdipi/vllm-cpu:latest",
-						},
-						{
-							Name:  "sidecar",
-							Image: "busybox:latest",
-						},
-					},
-				}),
-			)
-
-			Expect(envTest.Client.Create(ctx, modelConfig)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, routerConfig)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, workloadConfig)).To(Succeed())
-
-			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
-				WithAnnotations(map[string]string{
+				annotations := map[string]string{
 					constants.ManagedDRADeviceClassAnnotationKey: "gpu.nvidia.com",
 					constants.ManagedDRADeviceCountAnnotationKey: "2",
 					constants.ManagedDRACelSelectorAnnotationKey: "device.attributes['gpu.nvidia.com']['type'] == 'A100'\n" +
 						"device.capacity['gpu.nvidia.com']['memory'].compareTo(quantity('40Gi')) > 0",
-				}),
-				WithBaseRefs(
-					corev1.LocalObjectReference{Name: "model-fb-opt-125m"},
-					corev1.LocalObjectReference{Name: "router-managed"},
-					corev1.LocalObjectReference{Name: "workload-single-cpu"},
-				),
-			)
-
-			// when
-			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
-			defer func() {
-				testNs.DeleteAndWait(ctx, llmSvc)
-			}()
-
-			// then
-			expectedDeployment := &appsv1.Deployment{}
-			Eventually(func(g Gomega, ctx context.Context) error {
-				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve",
-					Namespace: testNs.Name,
-				}, expectedDeployment)
-			}).WithContext(ctx).Should(Succeed())
-
-			expectedTemplate := &resourcev1.ResourceClaimTemplate{}
-			Eventually(func(g Gomega, ctx context.Context) error {
-				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-managed-dra",
-					Namespace: testNs.Name,
-				}, expectedTemplate)
-			}).WithContext(ctx).Should(Succeed())
-
-			Expect(expectedTemplate.Spec.Spec.Devices.Requests).To(HaveLen(1))
-			Expect(expectedTemplate.Spec.Spec.Devices.Requests[0].Name).To(Equal("device"))
-			Expect(expectedTemplate.Spec.Spec.Devices.Requests[0].Exactly.DeviceClassName).To(Equal("gpu.nvidia.com"))
-			Expect(expectedTemplate.Spec.Spec.Devices.Requests[0].Exactly.Count).To(Equal(int64(2)))
-
-			// Multiple CEL selectors must be propagated to every device request.
-			for _, req := range expectedTemplate.Spec.Spec.Devices.Requests {
-				Expect(req.Exactly.Selectors).To(HaveLen(2))
-				Expect(req.Exactly.Selectors[0].CEL.Expression).To(ContainSubstring("type"))
-				Expect(req.Exactly.Selectors[1].CEL.Expression).To(ContainSubstring("memory"))
-			}
-
-			Expect(expectedDeployment.Spec.Template.Spec.ResourceClaims).To(HaveLen(1))
-			Expect(expectedDeployment.Spec.Template.Spec.ResourceClaims[0].Name).To(Equal("managed-device"))
-			Expect(expectedDeployment.Spec.Template.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Not(BeNil()))
-			Expect(*expectedDeployment.Spec.Template.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Equal(svcName + "-managed-dra"))
-
-			// Only the "main" container gets the device claim; sidecars are left alone.
-			Expect(expectedDeployment.Spec.Template.Spec.Containers).To(HaveLen(2))
-			var mainCtr, sidecarCtr *corev1.Container
-			for i := range expectedDeployment.Spec.Template.Spec.Containers {
-				c := &expectedDeployment.Spec.Template.Spec.Containers[i]
-				switch c.Name {
-				case "main":
-					mainCtr = c
-				case "sidecar":
-					sidecarCtr = c
 				}
-			}
-			Expect(mainCtr).ToNot(BeNil())
-			Expect(sidecarCtr).ToNot(BeNil())
-			Expect(mainCtr.Resources.Claims).To(HaveLen(1))
-			Expect(mainCtr.Resources.Claims[0].Name).To(Equal("managed-device"))
-			Expect(sidecarCtr.Resources.Claims).To(BeEmpty(),
-				"sidecar containers must not receive the managed DRA claim")
-		})
+				for k, v := range extraAnnotations {
+					annotations[k] = v
+				}
+
+				llmSvc := LLMInferenceService(svcName,
+					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+					WithAnnotations(annotations),
+					WithBaseRefs(
+						corev1.LocalObjectReference{Name: "model-fb-opt-125m"},
+						corev1.LocalObjectReference{Name: "router-managed"},
+						corev1.LocalObjectReference{Name: "workload-single-cpu"},
+					),
+				)
+
+				// when
+				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+				defer func() {
+					testNs.DeleteAndWait(ctx, llmSvc)
+				}()
+
+				// then
+				expectedDeployment := &appsv1.Deployment{}
+				Eventually(func(g Gomega, ctx context.Context) error {
+					return envTest.Get(ctx, types.NamespacedName{
+						Name:      svcName + "-kserve",
+						Namespace: testNs.Name,
+					}, expectedDeployment)
+				}).WithContext(ctx).Should(Succeed())
+
+				// Verify the ResourceClaimTemplate was created with correct values
+				expectedTemplate := &resourcev1.ResourceClaimTemplate{}
+				Eventually(func(g Gomega, ctx context.Context) error {
+					return envTest.Get(ctx, types.NamespacedName{
+						Name:      svcName + "-managed-dra",
+						Namespace: testNs.Name,
+					}, expectedTemplate)
+				}).WithContext(ctx).Should(Succeed())
+
+				// Check that it parsed the annotations correctly
+				Expect(expectedTemplate.Spec.Spec.Devices.Requests).To(HaveLen(1))
+				Expect(expectedTemplate.Spec.Spec.Devices.Requests[0].Name).To(Equal("device"))
+				Expect(expectedTemplate.Spec.Spec.Devices.Requests[0].Exactly.DeviceClassName).To(Equal("gpu.nvidia.com"))
+				Expect(expectedTemplate.Spec.Spec.Devices.Requests[0].Exactly.Count).To(Equal(int64(2)))
+
+				for _, req := range expectedTemplate.Spec.Spec.Devices.Requests {
+					Expect(req.Exactly.Selectors).To(HaveLen(2))
+					Expect(req.Exactly.Selectors[0].CEL.Expression).To(ContainSubstring("type"))
+					Expect(req.Exactly.Selectors[1].CEL.Expression).To(ContainSubstring("memory"))
+				}
+
+				// Verify the deployment has the DRA pod-level claim
+				Expect(expectedDeployment.Spec.Template.Spec.ResourceClaims).To(HaveLen(1))
+				Expect(expectedDeployment.Spec.Template.Spec.ResourceClaims[0].Name).To(Equal("managed-device"))
+				Expect(expectedDeployment.Spec.Template.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Not(BeNil()))
+				Expect(*expectedDeployment.Spec.Template.Spec.ResourceClaims[0].ResourceClaimTemplateName).To(Equal(svcName + "-managed-dra"))
+
+				// Verify only the target container received the container-level claim
+				var targetSeen bool
+				for _, c := range expectedDeployment.Spec.Template.Spec.Containers {
+					if c.Name == targetContainer {
+						targetSeen = true
+						Expect(c.Resources.Claims).To(HaveLen(1), "%s should receive the device claim", c.Name)
+						Expect(c.Resources.Claims[0].Name).To(Equal("managed-device"))
+					} else {
+						Expect(c.Resources.Claims).To(BeEmpty(), "%s must not receive the device claim", c.Name)
+					}
+				}
+				Expect(targetSeen).To(BeTrue(), "target container %q should be present in the deployment", targetContainer)
+			},
+			Entry("main-named workload, no container annotation -> claim on main",
+				"main",
+				[]corev1.Container{
+					{Name: "main", Image: "quay.io/pierdipi/vllm-cpu:latest"},
+					{Name: "sidecar", Image: "busybox:latest"},
+				},
+				nil,
+				"main",
+			),
+			Entry("non-main first container, no container annotation -> claim on first container",
+				"fallback",
+				[]corev1.Container{
+					{Name: "vllm", Image: "quay.io/pierdipi/vllm-cpu:latest"},
+					{Name: "sidecar", Image: "busybox:latest"},
+				},
+				nil,
+				"vllm",
+			),
+			Entry("container annotation set -> claim on annotated container",
+				"annotated",
+				[]corev1.Container{
+					{Name: "init", Image: "busybox:latest"},
+					{Name: "worker", Image: "quay.io/pierdipi/vllm-cpu:latest"},
+					{Name: "sidecar", Image: "busybox:latest"},
+				},
+				map[string]string{constants.ManagedDRAContainerNameAnnotationKey: "worker"},
+				"worker",
+			),
+		)
 
 		It("should clean up the ResourceClaimTemplate when managed DRA is disabled", func(ctx SpecContext) {
 			// given

@@ -49,7 +49,6 @@ const (
 	managedDRASuffix      = "-managed-dra"
 	managedDRAClaimName   = "managed-device"
 	defaultManagedDRAName = "device"
-	llmMainContainerName  = "main"
 )
 
 // hasManagedDRA checks if the LLMInferenceService has the required annotations to enable Managed DRA.
@@ -215,9 +214,27 @@ func injectManagedDRAIntoConfig(llmSvc *v1alpha2.LLMInferenceService, cfg *v1alp
 	}
 }
 
-// injectManagedDRA wires the managed DRA claim into the PodSpec:
-//   - Adds a pod-level resourceClaim entry pointing to the generated ResourceClaimTemplate
-//   - Adds a container-level resources.claims entry on the "main" container only
+// targetContainerForDRA returns the index of the container that should receive
+// the DRA claim: the annotated container when set and present, otherwise the
+// first container. Returns -1 if no suitable container exists.
+func targetContainerForDRA(llmSvc *v1alpha2.LLMInferenceService, podSpec *corev1.PodSpec) int {
+	if len(podSpec.Containers) == 0 {
+		return -1
+	}
+	if name, ok := llmSvc.Annotations[constants.ManagedDRAContainerNameAnnotationKey]; ok && strings.TrimSpace(name) != "" {
+		want := strings.TrimSpace(name)
+		for i := range podSpec.Containers {
+			if podSpec.Containers[i].Name == want {
+				return i
+			}
+		}
+		return -1
+	}
+	return 0
+}
+
+// injectManagedDRA adds the managed DRA claim to the PodSpec at both the
+// pod level and the target container chosen by targetContainerForDRA.
 func injectManagedDRA(llmSvc *v1alpha2.LLMInferenceService, podSpec *corev1.PodSpec) {
 	if !hasManagedDRA(llmSvc) {
 		return
@@ -239,22 +256,17 @@ func injectManagedDRA(llmSvc *v1alpha2.LLMInferenceService, podSpec *corev1.PodS
 		})
 	}
 
-	for i := range podSpec.Containers {
-		if podSpec.Containers[i].Name != llmMainContainerName {
-			continue
-		}
-		hasContainerClaim := false
-		for _, claim := range podSpec.Containers[i].Resources.Claims {
-			if claim.Name == managedDRAClaimName {
-				hasContainerClaim = true
-				break
-			}
-		}
-		if !hasContainerClaim {
-			podSpec.Containers[i].Resources.Claims = append(
-				podSpec.Containers[i].Resources.Claims,
-				corev1.ResourceClaim{Name: managedDRAClaimName},
-			)
+	idx := targetContainerForDRA(llmSvc, podSpec)
+	if idx < 0 {
+		return
+	}
+	for _, claim := range podSpec.Containers[idx].Resources.Claims {
+		if claim.Name == managedDRAClaimName {
+			return
 		}
 	}
+	podSpec.Containers[idx].Resources.Claims = append(
+		podSpec.Containers[idx].Resources.Claims,
+		corev1.ResourceClaim{Name: managedDRAClaimName},
+	)
 }

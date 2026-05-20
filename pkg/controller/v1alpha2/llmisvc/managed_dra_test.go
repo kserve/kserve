@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
@@ -276,8 +277,99 @@ func TestInjectManagedDRA_NoAnnotation(t *testing.T) {
 	assert.Empty(t, podSpec.Containers[0].Resources.Claims)
 }
 
-// Single container named "main" should get the claim.
-func TestInjectManagedDRA_MainContainerOnly(t *testing.T) {
+func TestTargetContainerForDRA(t *testing.T) {
+	annKey := constants.ManagedDRAContainerNameAnnotationKey
+
+	tests := []struct {
+		name       string
+		containers []corev1.Container
+		// nil means the annotation key is absent.
+		annotation *string
+		expected   int
+	}{
+		{
+			name:       "no annotation, no containers -> -1",
+			containers: nil,
+			annotation: nil,
+			expected:   -1,
+		},
+		{
+			name:       "no annotation, single container -> first",
+			containers: []corev1.Container{{Name: "main"}},
+			annotation: nil,
+			expected:   0,
+		},
+		{
+			name:       "no annotation, multiple containers -> first",
+			containers: []corev1.Container{{Name: "main"}, {Name: "sidecar"}, {Name: "monitor"}},
+			annotation: nil,
+			expected:   0,
+		},
+		{
+			name:       "empty annotation value falls back to first container",
+			containers: []corev1.Container{{Name: "main"}, {Name: "sidecar"}},
+			annotation: ptr.To(""),
+			expected:   0,
+		},
+		{
+			name:       "whitespace-only annotation falls back to first container",
+			containers: []corev1.Container{{Name: "main"}, {Name: "sidecar"}},
+			annotation: ptr.To("   \t\n "),
+			expected:   0,
+		},
+		{
+			name:       "annotation matches first container",
+			containers: []corev1.Container{{Name: "main"}, {Name: "sidecar"}},
+			annotation: ptr.To("main"),
+			expected:   0,
+		},
+		{
+			name:       "annotation matches middle container",
+			containers: []corev1.Container{{Name: "init"}, {Name: "worker"}, {Name: "sidecar"}},
+			annotation: ptr.To("worker"),
+			expected:   1,
+		},
+		{
+			name:       "annotation matches last container",
+			containers: []corev1.Container{{Name: "init"}, {Name: "worker"}, {Name: "sidecar"}},
+			annotation: ptr.To("sidecar"),
+			expected:   2,
+		},
+		{
+			name:       "annotation with surrounding whitespace is trimmed before matching",
+			containers: []corev1.Container{{Name: "main"}, {Name: "sidecar"}},
+			annotation: ptr.To("  sidecar  "),
+			expected:   1,
+		},
+		{
+			name:       "annotation names a container that does not exist -> -1",
+			containers: []corev1.Container{{Name: "main"}, {Name: "sidecar"}},
+			annotation: ptr.To("ghost"),
+			expected:   -1,
+		},
+		{
+			name:       "annotation set but PodSpec has no containers -> -1",
+			containers: nil,
+			annotation: ptr.To("main"),
+			expected:   -1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			annotations := map[string]string{}
+			if tt.annotation != nil {
+				annotations[annKey] = *tt.annotation
+			}
+			llmSvc := newManagedDRATestLLMISVC("t", annotations)
+			podSpec := &corev1.PodSpec{Containers: tt.containers}
+
+			assert.Equal(t, tt.expected, targetContainerForDRA(llmSvc, podSpec))
+		})
+	}
+}
+
+func TestInjectManagedDRA_SingleContainer(t *testing.T) {
 	llmSvc := newManagedDRATestLLMISVC("test", map[string]string{
 		constants.ManagedDRADeviceClassAnnotationKey: "gpu.example.com",
 	})
@@ -296,14 +388,13 @@ func TestInjectManagedDRA_MainContainerOnly(t *testing.T) {
 	assert.Equal(t, managedDRAClaimName, podSpec.Containers[0].Resources.Claims[0].Name)
 }
 
-// Sidecar containers must NOT receive the device claim — only the "main" container does.
-func TestInjectManagedDRA_OnlyMainContainerInjected(t *testing.T) {
+func TestInjectManagedDRA_FirstContainerByDefault(t *testing.T) {
 	llmSvc := newManagedDRATestLLMISVC("test", map[string]string{
 		constants.ManagedDRADeviceClassAnnotationKey: "gpu.example.com",
 	})
 	podSpec := &corev1.PodSpec{
 		Containers: []corev1.Container{
-			{Name: "main"},
+			{Name: "primary"},
 			{Name: "sidecar"},
 			{Name: "monitor"},
 		},
@@ -312,20 +403,39 @@ func TestInjectManagedDRA_OnlyMainContainerInjected(t *testing.T) {
 
 	require.Len(t, podSpec.ResourceClaims, 1)
 
-	mainClaims := podSpec.Containers[0].Resources.Claims
-	require.Len(t, mainClaims, 1, "main container should have the device claim")
-	assert.Equal(t, managedDRAClaimName, mainClaims[0].Name)
+	require.Len(t, podSpec.Containers[0].Resources.Claims, 1, "first container should have the device claim")
+	assert.Equal(t, managedDRAClaimName, podSpec.Containers[0].Resources.Claims[0].Name)
 
 	for _, ctr := range podSpec.Containers[1:] {
-		assert.Empty(t, ctr.Resources.Claims, "sidecar %q must not receive the device claim", ctr.Name)
+		assert.Empty(t, ctr.Resources.Claims, "container %q must not receive the device claim", ctr.Name)
 	}
 }
 
-// If there is no container called "main" the pod-level claim is still added,
-// but no container claim is injected.
-func TestInjectManagedDRA_NoMainContainer(t *testing.T) {
+func TestInjectManagedDRA_ExplicitContainerName(t *testing.T) {
 	llmSvc := newManagedDRATestLLMISVC("test", map[string]string{
-		constants.ManagedDRADeviceClassAnnotationKey: "gpu.example.com",
+		constants.ManagedDRADeviceClassAnnotationKey:   "gpu.example.com",
+		constants.ManagedDRAContainerNameAnnotationKey: "worker",
+	})
+	podSpec := &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{Name: "init"},
+			{Name: "worker"},
+			{Name: "monitor"},
+		},
+	}
+	injectManagedDRA(llmSvc, podSpec)
+
+	require.Len(t, podSpec.ResourceClaims, 1)
+	assert.Empty(t, podSpec.Containers[0].Resources.Claims, "container %q must not receive the device claim", podSpec.Containers[0].Name)
+	require.Len(t, podSpec.Containers[1].Resources.Claims, 1, "annotated container should have the device claim")
+	assert.Equal(t, managedDRAClaimName, podSpec.Containers[1].Resources.Claims[0].Name)
+	assert.Empty(t, podSpec.Containers[2].Resources.Claims, "container %q must not receive the device claim", podSpec.Containers[2].Name)
+}
+
+func TestInjectManagedDRA_AnnotatedContainerMissing(t *testing.T) {
+	llmSvc := newManagedDRATestLLMISVC("test", map[string]string{
+		constants.ManagedDRADeviceClassAnnotationKey:   "gpu.example.com",
+		constants.ManagedDRAContainerNameAnnotationKey: "ghost",
 	})
 	podSpec := &corev1.PodSpec{
 		Containers: []corev1.Container{
@@ -341,7 +451,17 @@ func TestInjectManagedDRA_NoMainContainer(t *testing.T) {
 	}
 }
 
-// calling inject twice should not duplicate entries on the main container.
+func TestInjectManagedDRA_NoContainers(t *testing.T) {
+	llmSvc := newManagedDRATestLLMISVC("test", map[string]string{
+		constants.ManagedDRADeviceClassAnnotationKey: "gpu.example.com",
+	})
+	podSpec := &corev1.PodSpec{}
+	injectManagedDRA(llmSvc, podSpec)
+
+	require.Len(t, podSpec.ResourceClaims, 1)
+	assert.Empty(t, podSpec.Containers)
+}
+
 func TestInjectManagedDRA_Idempotent(t *testing.T) {
 	llmSvc := newManagedDRATestLLMISVC("test", map[string]string{
 		constants.ManagedDRADeviceClassAnnotationKey: "gpu.example.com",
@@ -357,7 +477,6 @@ func TestInjectManagedDRA_Idempotent(t *testing.T) {
 	assert.Empty(t, podSpec.Containers[1].Resources.Claims)
 }
 
-// Pre-existing user claims on the main container should not be clobbered.
 func TestInjectManagedDRA_PreservesExistingClaims(t *testing.T) {
 	llmSvc := newManagedDRATestLLMISVC("test", map[string]string{
 		constants.ManagedDRADeviceClassAnnotationKey: "gpu.example.com",
@@ -509,6 +628,42 @@ func TestInjectManagedDRAIntoConfig(t *testing.T) {
 				assert.Equal(t, tt.wantPrefWrkrInj, hasClaim(t, tt.cfg.Spec.Prefill.Worker), "Prefill.Worker")
 			}
 		})
+	}
+}
+
+func TestInjectManagedDRAIntoConfig_AnnotatedContainerAcrossSlots(t *testing.T) {
+	mkPod := func() *corev1.PodSpec {
+		return &corev1.PodSpec{Containers: []corev1.Container{
+			{Name: "init"},
+			{Name: "worker"},
+			{Name: "sidecar"},
+		}}
+	}
+
+	llmSvc := newManagedDRATestLLMISVC("test", map[string]string{
+		constants.ManagedDRADeviceClassAnnotationKey:   "gpu.example.com",
+		constants.ManagedDRAContainerNameAnnotationKey: "worker",
+	})
+	cfg := &v1alpha2.LLMInferenceServiceConfig{
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			WorkloadSpec: v1alpha2.WorkloadSpec{Template: mkPod(), Worker: mkPod()},
+			Prefill:      &v1alpha2.WorkloadSpec{Template: mkPod(), Worker: mkPod()},
+		},
+	}
+
+	injectManagedDRAIntoConfig(llmSvc, cfg)
+
+	for name, pod := range map[string]*corev1.PodSpec{
+		"Template":         cfg.Spec.Template,
+		"Worker":           cfg.Spec.Worker,
+		"Prefill.Template": cfg.Spec.Prefill.Template,
+		"Prefill.Worker":   cfg.Spec.Prefill.Worker,
+	} {
+		require.Len(t, pod.ResourceClaims, 1, "%s pod-level claim", name)
+		assert.Empty(t, pod.Containers[0].Resources.Claims, "%s init must not receive the claim", name)
+		require.Len(t, pod.Containers[1].Resources.Claims, 1, "%s worker should receive the claim", name)
+		assert.Equal(t, managedDRAClaimName, pod.Containers[1].Resources.Claims[0].Name, "%s worker claim name", name)
+		assert.Empty(t, pod.Containers[2].Resources.Claims, "%s sidecar must not receive the claim", name)
 	}
 }
 

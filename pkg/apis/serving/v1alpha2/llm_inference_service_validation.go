@@ -29,6 +29,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -666,9 +667,6 @@ func immutableField(path *field.Path, value interface{}, detail string) *field.E
 	return &field.Error{Type: field.ErrorTypeNotSupported, Field: path.String(), BadValue: value, Detail: detail}
 }
 
-// dnsLabelLikePattern validates DRA DeviceClass names (e.g. "gpu.nvidia.com").
-var dnsLabelLikePattern = regexp.MustCompile(`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$`)
-
 // validateManagedDRAAnnotations performs admission-time validation of the
 // serving.kserve.io/exp-dra-* annotations to catch user mistakes early.
 func (l *LLMInferenceServiceValidator) validateManagedDRAAnnotations(llmSvc *LLMInferenceService) field.ErrorList {
@@ -683,30 +681,33 @@ func (l *LLMInferenceServiceValidator) validateManagedDRAAnnotations(llmSvc *LLM
 	deviceClass, hasDeviceClass := annotations[constants.ManagedDRADeviceClassAnnotationKey]
 	_, hasDeviceCount := annotations[constants.ManagedDRADeviceCountAnnotationKey]
 	_, hasCelSelector := annotations[constants.ManagedDRACelSelectorAnnotationKey]
+	_, hasContainerName := annotations[constants.ManagedDRAContainerNameAnnotationKey]
 
 	// Require device-class if any other DRA annotation is set.
-	if !hasDeviceClass && (hasDeviceCount || hasCelSelector) {
+	if !hasDeviceClass && (hasDeviceCount || hasCelSelector || hasContainerName) {
 		allErrs = append(allErrs, field.Required(
 			annotationsPath.Key(constants.ManagedDRADeviceClassAnnotationKey),
-			fmt.Sprintf("%s is required to enable managed DRA when %s or %s is set",
+			fmt.Sprintf("%s is required to enable managed DRA when %s, %s, or %s is set",
 				constants.ManagedDRADeviceClassAnnotationKey,
 				constants.ManagedDRADeviceCountAnnotationKey,
-				constants.ManagedDRACelSelectorAnnotationKey),
+				constants.ManagedDRACelSelectorAnnotationKey,
+				constants.ManagedDRAContainerNameAnnotationKey),
 		))
 	}
 
 	if hasDeviceClass {
-		if trimmed := strings.TrimSpace(deviceClass); trimmed == "" {
+		trimmed := strings.TrimSpace(deviceClass)
+		if trimmed == "" {
 			allErrs = append(allErrs, field.Invalid(
 				annotationsPath.Key(constants.ManagedDRADeviceClassAnnotationKey),
 				deviceClass,
 				"device class must not be empty",
 			))
-		} else if !dnsLabelLikePattern.MatchString(trimmed) {
+		} else if errs := validation.IsDNS1123Subdomain(trimmed); len(errs) > 0 {
 			allErrs = append(allErrs, field.Invalid(
 				annotationsPath.Key(constants.ManagedDRADeviceClassAnnotationKey),
 				deviceClass,
-				"device class must be a DNS-label-like name (lower-case alphanumerics, '-' and '.')",
+				"device class must be a DNS subdomain: "+strings.Join(errs, "; "),
 			))
 		}
 	}
@@ -741,6 +742,23 @@ func (l *LLMInferenceServiceValidator) validateManagedDRAAnnotations(llmSvc *LLM
 				annotationsPath.Key(constants.ManagedDRACelSelectorAnnotationKey),
 				rawSelectors,
 				"cel selector must contain at least one non-empty CEL expression",
+			))
+		}
+	}
+
+	if rawName, ok := annotations[constants.ManagedDRAContainerNameAnnotationKey]; ok {
+		trimmed := strings.TrimSpace(rawName)
+		if trimmed == "" {
+			allErrs = append(allErrs, field.Invalid(
+				annotationsPath.Key(constants.ManagedDRAContainerNameAnnotationKey),
+				rawName,
+				"container name must not be empty",
+			))
+		} else if errs := validation.IsDNS1123Label(trimmed); len(errs) > 0 {
+			allErrs = append(allErrs, field.Invalid(
+				annotationsPath.Key(constants.ManagedDRAContainerNameAnnotationKey),
+				rawName,
+				"container name must be a DNS label: "+strings.Join(errs, "; "),
 			))
 		}
 	}

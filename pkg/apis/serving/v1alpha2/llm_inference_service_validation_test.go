@@ -1214,9 +1214,10 @@ func TestValidateManagedDRAAnnotations(t *testing.T) {
 	validator := &LLMInferenceServiceValidator{}
 
 	const (
-		deviceClassKey = "serving.kserve.io/exp-dra-device-class"
-		deviceCountKey = "serving.kserve.io/exp-dra-device-count"
-		celSelectorKey = "serving.kserve.io/exp-dra-cel-selector"
+		deviceClassKey   = "serving.kserve.io/exp-dra-device-class"
+		deviceCountKey   = "serving.kserve.io/exp-dra-device-count"
+		celSelectorKey   = "serving.kserve.io/exp-dra-cel-selector"
+		containerNameKey = "serving.kserve.io/exp-dra-container-name"
 	)
 
 	tests := []struct {
@@ -1329,6 +1330,109 @@ func TestValidateManagedDRAAnnotations(t *testing.T) {
 				deviceCountKey: "abc",
 			},
 			wantErrCount: 2,
+		},
+		{
+			name: "invalid: device class with consecutive dots (rejected by IsDNS1123Subdomain)",
+			annotations: map[string]string{
+				deviceClassKey: "gpu..nvidia.com",
+			},
+			wantErrCount: 1,
+			wantErrField: deviceClassKey,
+		},
+		{
+			name: "valid: device class + explicit container name",
+			annotations: map[string]string{
+				deviceClassKey:   "gpu.nvidia.com",
+				containerNameKey: "vllm",
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "invalid: container name without device class",
+			annotations: map[string]string{
+				containerNameKey: "vllm",
+			},
+			wantErrCount: 1,
+			wantErrField: deviceClassKey,
+		},
+		{
+			name: "invalid: empty container name",
+			annotations: map[string]string{
+				deviceClassKey:   "gpu.nvidia.com",
+				containerNameKey: "   ",
+			},
+			wantErrCount: 1,
+			wantErrField: containerNameKey,
+		},
+		{
+			name: "invalid: container name with uppercase (not a DNS label)",
+			annotations: map[string]string{
+				deviceClassKey:   "gpu.nvidia.com",
+				containerNameKey: "VLLM",
+			},
+			wantErrCount: 1,
+			wantErrField: containerNameKey,
+		},
+		{
+			name: "invalid: container name contains dots (DNS label disallows dots)",
+			annotations: map[string]string{
+				deviceClassKey:   "gpu.nvidia.com",
+				containerNameKey: "vllm.main",
+			},
+			wantErrCount: 1,
+			wantErrField: containerNameKey,
+		},
+		{
+			name: "valid: hyphenated container name (normal DNS label)",
+			annotations: map[string]string{
+				deviceClassKey:   "gpu.nvidia.com",
+				containerNameKey: "kserve-container",
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "valid: container name with surrounding whitespace is trimmed before validation",
+			annotations: map[string]string{
+				deviceClassKey:   "gpu.nvidia.com",
+				containerNameKey: "  vllm  ",
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "invalid: container name with embedded space",
+			annotations: map[string]string{
+				deviceClassKey:   "gpu.nvidia.com",
+				containerNameKey: "vllm main",
+			},
+			wantErrCount: 1,
+			wantErrField: containerNameKey,
+		},
+		{
+			name: "invalid: container name with underscore (DNS label disallows underscores)",
+			annotations: map[string]string{
+				deviceClassKey:   "gpu.nvidia.com",
+				containerNameKey: "vllm_main",
+			},
+			wantErrCount: 1,
+			wantErrField: containerNameKey,
+		},
+		{
+			name: "invalid: container name with trailing hyphen",
+			annotations: map[string]string{
+				deviceClassKey:   "gpu.nvidia.com",
+				containerNameKey: "vllm-",
+			},
+			wantErrCount: 1,
+			wantErrField: containerNameKey,
+		},
+		{
+			name: "invalid: container name longer than 63 characters",
+			annotations: map[string]string{
+				deviceClassKey:   "gpu.nvidia.com",
+				containerNameKey: strings.Repeat("a", 64),
+			},
+			wantErrCount: 1,
+			wantErrField: containerNameKey,
 		},
 	}
 
