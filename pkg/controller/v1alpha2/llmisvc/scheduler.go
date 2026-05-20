@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"math"
 	"path"
 	"slices"
 	"sort"
@@ -996,8 +997,25 @@ func WithRenamePlugin(oldType, newType string) mutateSchedulerConfigFunc {
 }
 
 // WithMigrateDisaggProfileParams migrates the disagg-profile-handler (formerly
-// pd-profile-handler) from the old flat deciderPluginName parameter to the new
-// deciders map structure introduced in llm-d-inference-scheduler v0.7.0.
+// pd-profile-handler) from the old flat deciderPluginName/threshold parameters
+// to the new deciders map structure introduced in llm-d-inference-scheduler v0.7.0.
+//
+// Migration paths:
+//
+//	Path A: deciderPluginName present → use that name in the deciders map, strip threshold.
+//	Path B: threshold == 0, no deciderPluginName → always-disagg-pd-decider.
+//	Path C: threshold > 0, no deciderPluginName → prefix-based-pd-decider with nonCachedTokens.
+//
+// Path C conversion rationale (threshold → nonCachedTokens):
+// In v0.6, `threshold` was the number of **non-cached characters** in the user input
+// that determined whether to disaggregate:
+//
+//	if (1.0 - hitPercentagePrefix) * len(userInput) < threshold { /* skip prefill */ }
+//
+// In v0.7, the prefix-based-pd-decider uses `nonCachedTokens` (in **tokens**, not chars).
+// The conversion uses ceil(threshold / 4) based on the empirical ~4:1 character-to-token
+// ratio for English text. Note: the original v0.6 threshold was never properly tuned
+// (per upstream feedback), so the converted value should be reviewed for each workload.
 func WithMigrateDisaggProfileParams(ctx context.Context, u *unstructured.Unstructured) error {
 	val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
 	if err != nil || !found {
@@ -1008,7 +1026,11 @@ func WithMigrateDisaggProfileParams(ctx context.Context, u *unstructured.Unstruc
 		return nil
 	}
 
-	needDeciderPluginEntry := false
+	type deciderPluginEntry struct {
+		pluginType string
+		params     map[string]interface{}
+	}
+	var deciderPluginsToInject []deciderPluginEntry
 
 	for _, plugin := range plugins {
 		pluginMap, ok := plugin.(map[string]interface{})
@@ -1044,42 +1066,95 @@ func WithMigrateDisaggProfileParams(ctx context.Context, u *unstructured.Unstruc
 			continue
 		}
 
-		// Path B: threshold:0 (no deciderPluginName) → always-disagg-pd-decider.
-		// threshold:0 means "always disaggregate", which maps directly to the
-		// always-disagg-pd-decider plugin.
 		thresholdVal, thresholdFound, _ := unstructured.NestedFieldNoCopy(pluginMap, "parameters", "threshold")
 		if !thresholdFound {
 			continue
 		}
-		if fmt.Sprintf("%v", thresholdVal) != "0" {
-			continue
+
+		if fmt.Sprintf("%v", thresholdVal) == "0" {
+			// Path B: threshold == 0 → always-disagg-pd-decider.
+			log.FromContext(ctx).Info("Migrating threshold:0 to always-disagg-pd-decider for disagg-profile-handler")
+			deciders := map[string]interface{}{
+				"prefill": "always-disagg-pd-decider",
+			}
+			if err := unstructured.SetNestedField(pluginMap, deciders, "parameters", "deciders"); err != nil {
+				return err
+			}
+			unstructured.RemoveNestedField(pluginMap, "parameters", "threshold")
+			deciderPluginsToInject = append(deciderPluginsToInject, deciderPluginEntry{pluginType: "always-disagg-pd-decider"})
+		} else {
+			// Path C: threshold > 0 → prefix-based-pd-decider with nonCachedTokens.
+			nonCachedTokens := thresholdToNonCachedTokens(thresholdVal)
+			log.FromContext(ctx).Info(
+				"Migrating non-zero threshold to prefix-based-pd-decider: "+
+					"nonCachedTokens = ceil(threshold/4) is an approximation based on ~4:1 char-to-token ratio; "+
+					"the original v0.6 threshold was never properly tuned — review nonCachedTokens for your workload",
+				"threshold", thresholdVal,
+				"nonCachedTokens", nonCachedTokens,
+			)
+			deciders := map[string]interface{}{
+				"prefill": "prefix-based-pd-decider",
+			}
+			if err := unstructured.SetNestedField(pluginMap, deciders, "parameters", "deciders"); err != nil {
+				return err
+			}
+			unstructured.RemoveNestedField(pluginMap, "parameters", "threshold")
+			deciderPluginsToInject = append(deciderPluginsToInject, deciderPluginEntry{
+				pluginType: "prefix-based-pd-decider",
+				params:     map[string]interface{}{"nonCachedTokens": nonCachedTokens},
+			})
 		}
-		log.FromContext(ctx).Info("Migrating threshold:0 to always-disagg-pd-decider for disagg-profile-handler")
-		deciders := map[string]interface{}{
-			"prefill": "always-disagg-pd-decider",
-		}
-		if err := unstructured.SetNestedField(pluginMap, deciders, "parameters", "deciders"); err != nil {
-			return err
-		}
-		unstructured.RemoveNestedField(pluginMap, "parameters", "threshold")
-		needDeciderPluginEntry = true
 	}
 
-	// Ensure the always-disagg-pd-decider plugin entry exists in the top-level
-	// plugins list when we migrated threshold:0 (the decider must be declared).
-	if needDeciderPluginEntry {
+	// Ensure each decider plugin entry exists in the top-level plugins list.
+	for _, d := range deciderPluginsToInject {
+		alreadyExists := false
 		for _, p := range plugins {
-			if pm, ok := p.(map[string]interface{}); ok && pm["type"] == "always-disagg-pd-decider" {
-				return nil
+			if pm, ok := p.(map[string]interface{}); ok && pm["type"] == d.pluginType {
+				alreadyExists = true
+				break
 			}
 		}
-		plugins = append(plugins, map[string]interface{}{"type": "always-disagg-pd-decider"})
+		if !alreadyExists {
+			entry := map[string]interface{}{"type": d.pluginType}
+			if d.params != nil {
+				entry["parameters"] = d.params
+			}
+			plugins = append(plugins, entry)
+		}
+	}
+
+	if len(deciderPluginsToInject) > 0 {
 		if err := unstructured.SetNestedSlice(u.Object, plugins, "plugins"); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+// thresholdToNonCachedTokens converts a v0.6 threshold (non-cached characters)
+// to the v0.7 nonCachedTokens value (tokens) using ceil(threshold / 4).
+// The 4:1 ratio is the empirical average for English text. The threshold may
+// be deserialized from YAML as int64 or float64, so both are handled.
+func thresholdToNonCachedTokens(val interface{}) int64 {
+	var f float64
+	switch v := val.(type) {
+	case float64:
+		f = v
+	case int64:
+		f = float64(v)
+	default:
+		// Best-effort parse for unexpected types (e.g. string from JSON).
+		if _, err := fmt.Sscanf(fmt.Sprintf("%v", val), "%f", &f); err != nil {
+			return 1
+		}
+	}
+	tokens := int64(math.Ceil(f / 4.0))
+	if tokens < 1 {
+		tokens = 1
+	}
+	return tokens
 }
 
 // WithRemoveHashBlockSize removes the deprecated hashBlockSize field from
@@ -1163,7 +1238,8 @@ func hasDeprecatedMetricFlags(d *appsv1.Deployment) bool {
 //  1. extractDeprecatedMetricFlags  – strip 5 CLI flags hard-rejected by GIE v1.4.0
 //  2. withMigrateDisaggHeadersHandler – rename prefill-header-handler → disagg-headers-handler
 //  3. withMigrateDisaggProfileHandler – rename pd-profile-handler → disagg-profile-handler,
-//     migrate deciderPluginName/threshold to deciders map (skipped for non-zero threshold)
+//     migrate deciderPluginName/threshold to deciders map (threshold:0 → always-disagg-pd-decider,
+//     threshold>0 → prefix-based-pd-decider with nonCachedTokens = ceil(threshold/4))
 //  4. WithRemoveHashBlockSize – drop deprecated hashBlockSize from all plugins
 //  5. withCoreMetricsExtractorPlugin – inject core-metrics-extractor with extracted flag values
 func schedulerTransform(ctx context.Context, d *appsv1.Deployment) error {
@@ -1213,17 +1289,12 @@ func withMigrateDisaggHeadersHandler(ctx context.Context, u *unstructured.Unstru
 
 // withMigrateDisaggProfileHandler renames the pd-profile-handler plugin to
 // disagg-profile-handler and migrates its parameters from the flat
-// deciderPluginName to the new deciders map (v0.7.0 rename + restructure).
+// deciderPluginName/threshold to the new deciders map (v0.7.0 rename + restructure).
 //
-// If the profile handler has a non-zero threshold value, the entire migration
-// is skipped (no rename, no param change) because there is no clean v0.7
-// equivalent for arbitrary threshold values. The v0.7 binary still accepts
-// the old pd-profile-handler + threshold as a deprecated alias.
+// All threshold values are now migrated:
+//   - threshold: 0 → always-disagg-pd-decider
+//   - threshold > 0 → prefix-based-pd-decider with nonCachedTokens = ceil(threshold/4)
 func withMigrateDisaggProfileHandler(ctx context.Context, u *unstructured.Unstructured) error {
-	if hasNonZeroThreshold(u) {
-		log.FromContext(ctx).Info("Skipping disagg-profile-handler migration: non-zero threshold has no v0.7 equivalent")
-		return nil
-	}
 	for _, fn := range []mutateSchedulerConfigFunc{
 		WithRenamePlugin("pd-profile-handler", "disagg-profile-handler"),
 		WithMigrateDisaggProfileParams,
@@ -1233,44 +1304,6 @@ func withMigrateDisaggProfileHandler(ctx context.Context, u *unstructured.Unstru
 		}
 	}
 	return nil
-}
-
-// hasNonZeroThreshold returns true if the EndpointPickerConfig contains a
-// profile handler plugin with a non-zero threshold and no deciders map.
-// Such configs have no clean v0.7 equivalent; the v0.7 binary still accepts
-// them as deprecated, so we leave them untouched to avoid partial migrations.
-func hasNonZeroThreshold(u *unstructured.Unstructured) bool {
-	val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
-	if err != nil || !found {
-		return false
-	}
-	plugins, ok := val.([]interface{})
-	if !ok {
-		return false
-	}
-	for _, plugin := range plugins {
-		pluginMap, ok := plugin.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		pluginType, _ := pluginMap["type"].(string)
-		if pluginType != "disagg-profile-handler" && pluginType != "pd-profile-handler" {
-			continue
-		}
-		// Already migrated to deciders map -- not a legacy threshold config.
-		if _, exists, _ := unstructured.NestedFieldNoCopy(pluginMap, "parameters", "deciders"); exists {
-			return false
-		}
-		thresholdVal, thresholdFound, _ := unstructured.NestedFieldNoCopy(pluginMap, "parameters", "threshold")
-		if !thresholdFound {
-			return false
-		}
-		// threshold:0 is semantically "always disaggregate" and can be migrated.
-		if fmt.Sprintf("%v", thresholdVal) != "0" {
-			return true
-		}
-	}
-	return false
 }
 
 // extractDeprecatedMetricFlags strips the 5 metric CLI flags that GIE v1.4.0
