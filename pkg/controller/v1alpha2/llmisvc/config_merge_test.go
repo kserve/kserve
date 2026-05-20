@@ -1967,7 +1967,7 @@ func TestReplaceVariables(t *testing.T) {
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout .Spec.Prefill.Template 15 }}"}},
+								{Args: []string{"--shutdown-timeout", "{{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Template 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"}},
 							},
 						},
 					},
@@ -2001,7 +2001,7 @@ func TestReplaceVariables(t *testing.T) {
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout .Spec.Prefill.Worker 15 }}"}},
+								{Args: []string{"--shutdown-timeout", "{{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Worker 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"}},
 							},
 						},
 					},
@@ -2022,6 +2022,34 @@ func TestReplaceVariables(t *testing.T) {
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
 								{Args: []string{"--shutdown-timeout", "100"}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "shutdownTimeout uses default when spec.prefill is nil (prefill via base ref only)",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "{{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Template 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "40"}},
 							},
 						},
 					},
