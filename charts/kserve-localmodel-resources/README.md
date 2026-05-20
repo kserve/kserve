@@ -1,6 +1,6 @@
 # kserve-localmodel-resources
 
-![Version: v0.17.0](https://img.shields.io/badge/Version-v0.17.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.17.0](https://img.shields.io/badge/AppVersion-v0.17.0-informational?style=flat-square)
+![Version: v0.17.0](https://img.shields.io/badge/Version-v0.17.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.17.0](https://img.shields.io/badge/AppVersion-v0.17.1-informational?style=flat-square)
 
 KServe LocalModel - Local Model Storage and Caching for Edge and On-Premise Deployments
 
