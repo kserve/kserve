@@ -802,6 +802,88 @@ LLMINFERENCESERVICE_CONFIGS = {
             },
         },
     },
+    "scheduler-with-custom-template": {
+        "router": {
+            "scheduler": {
+                "template": {
+                    "containers": [
+                        {
+                            "name": "main",
+                            "env": [
+                                {
+                                    "name": "TOKENIZER_CACHE_DIR",
+                                    "value": "/tmp/tokenizer-cache",
+                                },
+                                {
+                                    "name": "HF_HOME",
+                                    "value": "/tmp/tokenizer-cache",
+                                },
+                                {
+                                    "name": "TRANSFORMERS_CACHE",
+                                    "value": "/tmp/tokenizer-cache",
+                                },
+                                {"name": "XDG_CACHE_HOME", "value": "/tmp"},
+                            ],
+                            "args": [
+                                "--cert-path",
+                                "/var/run/kserve/tls",
+                                "--pool-group",
+                                "inference.networking.x-k8s.io",
+                                "--pool-name",
+                                "{{ ChildName .ObjectMeta.Name `-inference-pool` }}",
+                                "--pool-namespace",
+                                "{{ .ObjectMeta.Namespace }}",
+                                "--zap-encoder",
+                                "json",
+                                "--grpc-port",
+                                "9002",
+                                "--grpc-health-port",
+                                "9003",
+                                "--secure-serving",
+                                "--model-server-metrics-scheme",
+                                "https",
+                                "--kv-cache-usage-percentage-metric",
+                                "vllm:kv_cache_usage_perc",
+                                "--config-text",
+                                (
+                                    "apiVersion: inference.networking.x-k8s.io/v1alpha1\n"
+                                    "kind: EndpointPickerConfig\n"
+                                    "plugins:\n"
+                                    "- type: single-profile-handler\n"
+                                    "- type: queue-scorer\n"
+                                    "- type: active-request-scorer\n"
+                                    "- type: prefix-cache-scorer\n"
+                                    "schedulingProfiles:\n"
+                                    "- name: default\n"
+                                    "  plugins:\n"
+                                    "  - pluginRef: queue-scorer\n"
+                                    "    weight: 2\n"
+                                    "  - pluginRef: active-request-scorer\n"
+                                    "    weight: 2\n"
+                                    "  - pluginRef: prefix-cache-scorer\n"
+                                    "    weight: 3\n"
+                                ),
+                            ],
+                            "volumeMounts": [
+                                {
+                                    "name": "tokenizer-cache",
+                                    "mountPath": "/tmp/tokenizer-cache",
+                                },
+                                {
+                                    "name": "cachi2-cache",
+                                    "mountPath": "/cachi2",
+                                },
+                            ],
+                        }
+                    ],
+                    "volumes": [
+                        {"name": "tokenizer-cache", "emptyDir": {}},
+                        {"name": "cachi2-cache", "emptyDir": {}},
+                    ],
+                },
+            },
+        },
+    },
     "router-with-gateway-section-name": {
         "router": {
             "gateway": {

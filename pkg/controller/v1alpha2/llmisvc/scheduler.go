@@ -55,7 +55,7 @@ const (
 
 	precisePrefixCacheScorerPlugin = "precise-prefix-cache-scorer"
 	prefixCacheScorerPlugin        = "prefix-cache-scorer"
-	coreMetricsExtractorPlugin     = "core-metrics-extractor"
+	coreMetricsExtractorPlugin     = "model-server-protocol-metrics"
 	udsTokenizerBaseModelName      = "base"
 	udsTokenizerSocketFile         = "/tmp/tokenizer/tokenizer-uds.socket" //nolint:gosec // G101: not a credential, UDS socket path
 )

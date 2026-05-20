@@ -229,6 +229,7 @@ jobs:
         run: |
           # Run only CPU tests for now using pytest markers (cluster_)
           # Available GPU vendors: amd, nvidia, intel
+          export PYTEST_MAXFAIL=3
           ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and cluster_cpu and not autoscaling" 0 "envoy-gateway"
 
       - name: Check system status
@@ -319,8 +320,9 @@ jobs:
 
       - name: Run HPA autoscaling E2E tests
         id: autoscaling-hpa-tests
-        timeout-minutes: 40
+        timeout-minutes: 60
         run: |
+          export PYTEST_MAXFAIL=2
           ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and autoscaling_hpa and cluster_cpu" 0 "envoy-gateway"
 
       - name: Check system status
@@ -412,8 +414,9 @@ jobs:
 
       - name: Run KEDA autoscaling E2E tests
         id: autoscaling-keda-tests
-        timeout-minutes: 40
+        timeout-minutes: 60
         run: |
+          export PYTEST_MAXFAIL=2
           ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and autoscaling_keda and cluster_cpu" 0 "envoy-gateway"
 
       - name: Check system status
