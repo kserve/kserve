@@ -1031,8 +1031,9 @@ func WithMigrateDisaggProfileParams(ctx context.Context, u *unstructured.Unstruc
 		params     map[string]interface{}
 	}
 	var deciderPluginsToInject []deciderPluginEntry
+	handlerIdx := -1 // index of the first handler; deciders must be declared before it
 
-	for _, plugin := range plugins {
+	for i, plugin := range plugins {
 		pluginMap, ok := plugin.(map[string]interface{})
 		if !ok {
 			continue
@@ -1040,6 +1041,9 @@ func WithMigrateDisaggProfileParams(ctx context.Context, u *unstructured.Unstruc
 		pluginType, _ := pluginMap["type"].(string)
 		if pluginType != "disagg-profile-handler" && pluginType != "pd-profile-handler" {
 			continue
+		}
+		if handlerIdx == -1 {
+			handlerIdx = i
 		}
 
 		// Already migrated -- nothing to do.
@@ -1107,6 +1111,10 @@ func WithMigrateDisaggProfileParams(ctx context.Context, u *unstructured.Unstruc
 	}
 
 	// Ensure each decider plugin entry exists in the top-level plugins list.
+	// Deciders must appear before the handler that references them because the
+	// GIE loader registers plugins in list order; the handler will fail with
+	// "plugin not found" if its decider has not been registered yet.
+	inserted := 0
 	for _, d := range deciderPluginsToInject {
 		alreadyExists := false
 		for _, p := range plugins {
@@ -1120,7 +1128,11 @@ func WithMigrateDisaggProfileParams(ctx context.Context, u *unstructured.Unstruc
 			if d.params != nil {
 				entry["parameters"] = d.params
 			}
-			plugins = append(plugins, entry)
+			idx := handlerIdx + inserted
+			plugins = append(plugins, nil)
+			copy(plugins[idx+1:], plugins[idx:])
+			plugins[idx] = entry
+			inserted++
 		}
 	}
 

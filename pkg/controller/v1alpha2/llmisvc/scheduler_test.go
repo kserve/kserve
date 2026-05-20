@@ -478,12 +478,12 @@ plugins:
 `,
 			validate: func(g Gomega, obj map[string]interface{}) {
 				plugins := obj["plugins"].([]interface{})
-				params := plugins[0].(map[string]interface{})["parameters"].(map[string]interface{})
+				g.Expect(plugins).To(HaveLen(3))
+				g.Expect(plugins[0].(map[string]interface{})["type"]).To(Equal("always-disagg-pd-decider"))
+				params := plugins[1].(map[string]interface{})["parameters"].(map[string]interface{})
 				g.Expect(params).NotTo(HaveKey("threshold"))
 				deciders := params["deciders"].(map[string]interface{})
 				g.Expect(deciders).To(HaveKeyWithValue("prefill", "always-disagg-pd-decider"))
-				g.Expect(plugins).To(HaveLen(3))
-				g.Expect(plugins[2].(map[string]interface{})["type"]).To(Equal("always-disagg-pd-decider"))
 			},
 		},
 		{
@@ -533,15 +533,15 @@ plugins:
 `,
 			validate: func(g Gomega, obj map[string]interface{}) {
 				plugins := obj["plugins"].([]interface{})
-				params := plugins[0].(map[string]interface{})["parameters"].(map[string]interface{})
-				g.Expect(params).NotTo(HaveKey("threshold"))
-				deciders := params["deciders"].(map[string]interface{})
-				g.Expect(deciders).To(HaveKeyWithValue("prefill", "prefix-based-pd-decider"))
 				g.Expect(plugins).To(HaveLen(3))
-				deciderPlugin := plugins[2].(map[string]interface{})
+				deciderPlugin := plugins[0].(map[string]interface{})
 				g.Expect(deciderPlugin["type"]).To(Equal("prefix-based-pd-decider"))
 				deciderParams := deciderPlugin["parameters"].(map[string]interface{})
 				g.Expect(deciderParams["nonCachedTokens"]).To(Equal(int64(25)))
+				params := plugins[1].(map[string]interface{})["parameters"].(map[string]interface{})
+				g.Expect(params).NotTo(HaveKey("threshold"))
+				deciders := params["deciders"].(map[string]interface{})
+				g.Expect(deciders).To(HaveKeyWithValue("prefill", "prefix-based-pd-decider"))
 			},
 		},
 		{
@@ -554,14 +554,14 @@ plugins:
 `,
 			validate: func(g Gomega, obj map[string]interface{}) {
 				plugins := obj["plugins"].([]interface{})
-				params := plugins[0].(map[string]interface{})["parameters"].(map[string]interface{})
-				g.Expect(params).NotTo(HaveKey("threshold"))
-				deciders := params["deciders"].(map[string]interface{})
-				g.Expect(deciders).To(HaveKeyWithValue("prefill", "prefix-based-pd-decider"))
-				deciderPlugin := plugins[1].(map[string]interface{})
+				deciderPlugin := plugins[0].(map[string]interface{})
 				g.Expect(deciderPlugin["type"]).To(Equal("prefix-based-pd-decider"))
 				deciderParams := deciderPlugin["parameters"].(map[string]interface{})
 				g.Expect(deciderParams["nonCachedTokens"]).To(Equal(int64(2)))
+				params := plugins[1].(map[string]interface{})["parameters"].(map[string]interface{})
+				g.Expect(params).NotTo(HaveKey("threshold"))
+				deciders := params["deciders"].(map[string]interface{})
+				g.Expect(deciders).To(HaveKeyWithValue("prefill", "prefix-based-pd-decider"))
 			},
 		},
 		{
@@ -574,13 +574,14 @@ plugins:
 `,
 			validate: func(g Gomega, obj map[string]interface{}) {
 				plugins := obj["plugins"].([]interface{})
-				params := plugins[0].(map[string]interface{})["parameters"].(map[string]interface{})
+				deciderPlugin := plugins[0].(map[string]interface{})
+				g.Expect(deciderPlugin["type"]).To(Equal("prefix-based-pd-decider"))
+				deciderParams := deciderPlugin["parameters"].(map[string]interface{})
+				g.Expect(deciderParams["nonCachedTokens"]).To(Equal(int64(1)))
+				params := plugins[1].(map[string]interface{})["parameters"].(map[string]interface{})
 				g.Expect(params).NotTo(HaveKey("threshold"))
 				deciders := params["deciders"].(map[string]interface{})
 				g.Expect(deciders).To(HaveKeyWithValue("prefill", "prefix-based-pd-decider"))
-				deciderPlugin := plugins[1].(map[string]interface{})
-				deciderParams := deciderPlugin["parameters"].(map[string]interface{})
-				g.Expect(deciderParams["nonCachedTokens"]).To(Equal(int64(1)))
 			},
 		},
 		{
@@ -601,6 +602,47 @@ plugins:
 				deciders := params["deciders"].(map[string]interface{})
 				g.Expect(deciders).To(HaveKeyWithValue("prefill", "prefix-based-pd-decider"))
 				g.Expect(plugins).To(HaveLen(2))
+			},
+		},
+		{
+			name: "decider inserted before handler not after - load order matters",
+			configYAML: `
+plugins:
+- type: queue-scorer
+- type: pd-profile-handler
+  parameters:
+    threshold: 100
+- type: prefill-filter
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				g.Expect(plugins).To(HaveLen(4))
+				g.Expect(plugins[0].(map[string]interface{})["type"]).To(Equal("queue-scorer"))
+				deciderPlugin := plugins[1].(map[string]interface{})
+				g.Expect(deciderPlugin["type"]).To(Equal("prefix-based-pd-decider"))
+				handlerPlugin := plugins[2].(map[string]interface{})
+				g.Expect(handlerPlugin["type"]).To(Equal("pd-profile-handler"))
+				g.Expect(plugins[3].(map[string]interface{})["type"]).To(Equal("prefill-filter"))
+			},
+		},
+		{
+			name: "always-disagg decider inserted before handler not after",
+			configYAML: `
+plugins:
+- type: queue-scorer
+- type: pd-profile-handler
+  parameters:
+    threshold: 0
+- type: prefill-filter
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				g.Expect(plugins).To(HaveLen(4))
+				g.Expect(plugins[0].(map[string]interface{})["type"]).To(Equal("queue-scorer"))
+				g.Expect(plugins[1].(map[string]interface{})["type"]).To(Equal("always-disagg-pd-decider"))
+				handlerPlugin := plugins[2].(map[string]interface{})
+				g.Expect(handlerPlugin["type"]).To(Equal("pd-profile-handler"))
+				g.Expect(plugins[3].(map[string]interface{})["type"]).To(Equal("prefill-filter"))
 			},
 		},
 	}
@@ -656,17 +698,17 @@ plugins:
 `,
 			validate: func(g Gomega, obj map[string]interface{}) {
 				plugins := obj["plugins"].([]interface{})
-				pluginMap := plugins[0].(map[string]interface{})
+				g.Expect(plugins).To(HaveLen(2))
+				deciderPlugin := plugins[0].(map[string]interface{})
+				g.Expect(deciderPlugin["type"]).To(Equal("prefix-based-pd-decider"))
+				deciderParams := deciderPlugin["parameters"].(map[string]interface{})
+				g.Expect(deciderParams["nonCachedTokens"]).To(Equal(int64(1)))
+				pluginMap := plugins[1].(map[string]interface{})
 				g.Expect(pluginMap["type"]).To(Equal("disagg-profile-handler"))
 				params := pluginMap["parameters"].(map[string]interface{})
 				g.Expect(params).NotTo(HaveKey("threshold"))
 				deciders := params["deciders"].(map[string]interface{})
 				g.Expect(deciders).To(HaveKeyWithValue("prefill", "prefix-based-pd-decider"))
-				g.Expect(plugins).To(HaveLen(2))
-				deciderPlugin := plugins[1].(map[string]interface{})
-				g.Expect(deciderPlugin["type"]).To(Equal("prefix-based-pd-decider"))
-				deciderParams := deciderPlugin["parameters"].(map[string]interface{})
-				g.Expect(deciderParams["nonCachedTokens"]).To(Equal(int64(1)))
 			},
 		},
 		{
@@ -680,14 +722,14 @@ plugins:
 `,
 			validate: func(g Gomega, obj map[string]interface{}) {
 				plugins := obj["plugins"].([]interface{})
-				pluginMap := plugins[0].(map[string]interface{})
+				g.Expect(plugins).To(HaveLen(3))
+				g.Expect(plugins[0].(map[string]interface{})["type"]).To(Equal("always-disagg-pd-decider"))
+				pluginMap := plugins[1].(map[string]interface{})
 				g.Expect(pluginMap["type"]).To(Equal("disagg-profile-handler"))
 				params := pluginMap["parameters"].(map[string]interface{})
 				g.Expect(params).NotTo(HaveKey("threshold"))
 				deciders := params["deciders"].(map[string]interface{})
 				g.Expect(deciders).To(HaveKeyWithValue("prefill", "always-disagg-pd-decider"))
-				g.Expect(plugins).To(HaveLen(3))
-				g.Expect(plugins[2].(map[string]interface{})["type"]).To(Equal("always-disagg-pd-decider"))
 			},
 		},
 		{
