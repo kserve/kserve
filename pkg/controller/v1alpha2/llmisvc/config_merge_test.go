@@ -1817,21 +1817,21 @@ func TestReplaceVariables(t *testing.T) {
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout (tgps .Spec.Template) 15 }}"}},
+								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout .Spec.Template 15 }}"}},
 							},
 						},
 					},
 				},
 			},
 			llmSvc: &v1alpha2.LLMInferenceService{
-				// spec.template not set — tgps returns nil, shutdownTimeout falls back to 60-15=45
+				// spec.template not set — shutdownTimeout falls back to default tgps=60: 60-15-min(5,60)=40
 			},
 			want: &v1alpha2.LLMInferenceServiceConfig{
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "45"}},
+								{Args: []string{"--shutdown-timeout", "40"}},
 							},
 						},
 					},
@@ -1845,7 +1845,7 @@ func TestReplaceVariables(t *testing.T) {
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout (tgps .Spec.Template) 15 }}"}},
+								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout .Spec.Template 15 }}"}},
 							},
 						},
 					},
@@ -1865,7 +1865,7 @@ func TestReplaceVariables(t *testing.T) {
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "105"}},
+								{Args: []string{"--shutdown-timeout", "100"}},
 							},
 						},
 					},
@@ -1879,21 +1879,21 @@ func TestReplaceVariables(t *testing.T) {
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout (tgps .Spec.Worker) 15 }}"}},
+								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout .Spec.Worker 15 }}"}},
 							},
 						},
 					},
 				},
 			},
 			llmSvc: &v1alpha2.LLMInferenceService{
-				// spec.worker not set — tgps returns nil, shutdownTimeout falls back to 60-15=45
+				// spec.worker not set — shutdownTimeout falls back to default tgps=60: 60-15-min(5,60)=40
 			},
 			want: &v1alpha2.LLMInferenceServiceConfig{
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "45"}},
+								{Args: []string{"--shutdown-timeout", "40"}},
 							},
 						},
 					},
@@ -1907,7 +1907,7 @@ func TestReplaceVariables(t *testing.T) {
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout (tgps .Spec.Worker) 15 }}"}},
+								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout .Spec.Worker 15 }}"}},
 							},
 						},
 					},
@@ -1927,7 +1927,7 @@ func TestReplaceVariables(t *testing.T) {
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "105"}},
+								{Args: []string{"--shutdown-timeout", "100"}},
 							},
 						},
 					},
@@ -1935,27 +1935,25 @@ func TestReplaceVariables(t *testing.T) {
 			},
 		},
 		{
-			name: "shutdownTimeout uses default when spec.prefill is nil",
+			name: "shutdownTimeout uses default when no spec provided (nil arg)",
 			cfg: &v1alpha2.LLMInferenceServiceConfig{
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout (prefillTGPS .Spec.Prefill) 15 }}"}},
+								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout nil 15 }}"}},
 							},
 						},
 					},
 				},
 			},
-			llmSvc: &v1alpha2.LLMInferenceService{
-				// spec.prefill not set — prefillTGPS returns nil, shutdownTimeout falls back to 60-15=45
-			},
+			llmSvc: &v1alpha2.LLMInferenceService{},
 			want: &v1alpha2.LLMInferenceServiceConfig{
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "45"}},
+								{Args: []string{"--shutdown-timeout", "40"}},
 							},
 						},
 					},
@@ -1969,7 +1967,7 @@ func TestReplaceVariables(t *testing.T) {
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout (prefillTGPS .Spec.Prefill) 15 }}"}},
+								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout .Spec.Prefill.Template 15 }}"}},
 							},
 						},
 					},
@@ -1989,35 +1987,7 @@ func TestReplaceVariables(t *testing.T) {
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "105"}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "shutdownTimeout uses default for prefill worker when spec.prefill is nil",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout (prefillWorkerTGPS .Spec.Prefill) 15 }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{
-				// spec.prefill not set — prefillWorkerTGPS returns nil, shutdownTimeout falls back to 60-15=45
-			},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "45"}},
+								{Args: []string{"--shutdown-timeout", "100"}},
 							},
 						},
 					},
@@ -2031,7 +2001,7 @@ func TestReplaceVariables(t *testing.T) {
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout (prefillWorkerTGPS .Spec.Prefill) 15 }}"}},
+								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout .Spec.Prefill.Worker 15 }}"}},
 							},
 						},
 					},
@@ -2051,7 +2021,7 @@ func TestReplaceVariables(t *testing.T) {
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "105"}},
+								{Args: []string{"--shutdown-timeout", "100"}},
 							},
 						},
 					},

@@ -589,37 +589,28 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 	t, err := template.New("config").
 		Funcs(map[string]any{
 			"ChildName": kmeta.ChildName,
-			// shutdownTimeout computes the vLLM --shutdown-timeout value:
-			// terminationGracePeriodSeconds - preStop, defaulting to 60 - preStop if unset.
-			"shutdownTimeout": func(tgps *int64, preStop int64) int64 {
+			// shutdownTimeout computes the vLLM --shutdown-timeout value from a *corev1.PodSpec
+			// (or nil): max(0, tgps - preStop - min(5, tgps)), defaulting tgps to 60 when unset.
+			// The 5-second buffer reserves time for signal propagation and final process cleanup
+			// before Kubernetes sends SIGKILL.
+			"shutdownTimeout": func(spec any, preStop int64) int64 {
 				const defaultTGPS = int64(60)
-				if tgps == nil {
-					return defaultTGPS - preStop
+				var tgpsVal int64
+				if spec != nil {
+					if ps, ok := spec.(*corev1.PodSpec); ok && ps != nil && ps.TerminationGracePeriodSeconds != nil {
+						tgpsVal = *ps.TerminationGracePeriodSeconds
+					} else {
+						tgpsVal = defaultTGPS
+					}
+				} else {
+					tgpsVal = defaultTGPS
 				}
-				return *tgps - preStop
-			},
-			// tgps safely extracts TerminationGracePeriodSeconds from a potentially-nil PodSpec.
-			"tgps": func(podSpec *corev1.PodSpec) *int64 {
-				if podSpec == nil {
-					return nil
+				buf := min(int64(5), tgpsVal)
+				result := tgpsVal - preStop - buf
+				if result < 0 {
+					return 0
 				}
-				return podSpec.TerminationGracePeriodSeconds
-			},
-			// prefillTGPS safely extracts TerminationGracePeriodSeconds from the leader/head
-			// PodSpec of a potentially-nil WorkloadSpec (used for .Spec.Prefill.Template).
-			"prefillTGPS": func(ws *v1alpha2.WorkloadSpec) *int64 {
-				if ws == nil || ws.Template == nil {
-					return nil
-				}
-				return ws.Template.TerminationGracePeriodSeconds
-			},
-			// prefillWorkerTGPS safely extracts TerminationGracePeriodSeconds from the worker
-			// PodSpec of a potentially-nil WorkloadSpec (used for .Spec.Prefill.Worker).
-			"prefillWorkerTGPS": func(ws *v1alpha2.WorkloadSpec) *int64 {
-				if ws == nil || ws.Worker == nil {
-					return nil
-				}
-				return ws.Worker.TerminationGracePeriodSeconds
+				return result
 			},
 		}).
 		Option("missingkey=error").

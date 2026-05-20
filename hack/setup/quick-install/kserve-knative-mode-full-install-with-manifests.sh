@@ -2624,11 +2624,17 @@ spec:
         fi
         echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
 
-        eval "vllm serve /mnt/models \
+        # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
+        SHUTDOWN_TIMEOUT_ARGS=""
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
+          SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Template 15 }}"
+        fi
+
+        eval "exec vllm serve /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8001 \
           ${ACCESS_LOG_ARGS} \
-          --shutdown-timeout {{ shutdownTimeout (tgps .Spec.Template) 15 }} \
+          ${SHUTDOWN_TIMEOUT_ARGS} \
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -2939,7 +2945,13 @@ spec:
         fi
         echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
 
-        eval "vllm serve \
+        # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
+        SHUTDOWN_TIMEOUT_ARGS=""
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
+          SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Template 15 }}"
+        fi
+
+        eval "exec vllm serve \
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8001 \
@@ -2952,7 +2964,7 @@ spec:
           --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
           --data-parallel-start-rank $START_RANK \
           ${ACCESS_LOG_ARGS} \
-          --shutdown-timeout {{ shutdownTimeout (tgps .Spec.Template) 15 }} \
+          ${SHUTDOWN_TIMEOUT_ARGS} \
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -3261,7 +3273,13 @@ spec:
         fi
         echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
 
-        eval "vllm serve \
+        # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
+        SHUTDOWN_TIMEOUT_ARGS=""
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
+          SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Worker 15 }}"
+        fi
+
+        eval "exec vllm serve \
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8001 \
@@ -3274,7 +3292,7 @@ spec:
           --data-parallel-start-rank $START_RANK \
           --headless \
           ${ACCESS_LOG_ARGS} \
-          --shutdown-timeout {{ shutdownTimeout (tgps .Spec.Worker) 15 }} \
+          ${SHUTDOWN_TIMEOUT_ARGS} \
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -3488,11 +3506,17 @@ spec:
           fi
           echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
 
-          eval "vllm serve /mnt/models \
+          # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
+          SHUTDOWN_TIMEOUT_ARGS=""
+          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
+            SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Prefill.Template 15 }}"
+          fi
+
+          eval "exec vllm serve /mnt/models \
             --served-model-name "{{ .Spec.Model.Name }}" \
             --port 8000 \
             ${ACCESS_LOG_ARGS} \
-            --shutdown-timeout {{ shutdownTimeout (prefillTGPS .Spec.Prefill) 15 }} \
+            ${SHUTDOWN_TIMEOUT_ARGS} \
             {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -3745,7 +3769,13 @@ spec:
           fi
           echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
 
-          eval "vllm serve \
+          # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
+          SHUTDOWN_TIMEOUT_ARGS=""
+          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
+            SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Prefill.Template 15 }}"
+          fi
+
+          eval "exec vllm serve \
             /mnt/models \
             --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
             --port 8000 \
@@ -3758,7 +3788,7 @@ spec:
             --data-parallel-rpc-port {{ if .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
             --data-parallel-start-rank $START_RANK \
             ${ACCESS_LOG_ARGS} \
-            --shutdown-timeout {{ shutdownTimeout (prefillTGPS .Spec.Prefill) 15 }} \
+            ${SHUTDOWN_TIMEOUT_ARGS} \
             {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -4007,7 +4037,13 @@ spec:
           fi
           echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
 
-          eval "vllm serve \
+          # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
+          SHUTDOWN_TIMEOUT_ARGS=""
+          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
+            SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Prefill.Worker 15 }}"
+          fi
+
+          eval "exec vllm serve \
             /mnt/models \
             --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
             --port 8000 \
@@ -4020,7 +4056,7 @@ spec:
             --data-parallel-start-rank $START_RANK \
             --headless \
             ${ACCESS_LOG_ARGS} \
-            --shutdown-timeout {{ shutdownTimeout (prefillWorkerTGPS .Spec.Prefill) 15 }} \
+            ${SHUTDOWN_TIMEOUT_ARGS} \
             {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -4596,11 +4632,17 @@ spec:
         fi
         echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
 
-        eval "vllm serve /mnt/models \
+        # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
+        SHUTDOWN_TIMEOUT_ARGS=""
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
+          SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Template 15 }}"
+        fi
+
+        eval "exec vllm serve /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8000 \
           ${ACCESS_LOG_ARGS} \
-          --shutdown-timeout {{ shutdownTimeout (tgps .Spec.Template) 15 }} \
+          ${SHUTDOWN_TIMEOUT_ARGS} \
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -4852,7 +4894,13 @@ spec:
         fi
         echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
 
-        eval "vllm serve \
+        # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
+        SHUTDOWN_TIMEOUT_ARGS=""
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
+          SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Template 15 }}"
+        fi
+
+        eval "exec vllm serve \
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8000 \
@@ -4865,7 +4913,7 @@ spec:
           --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
           --data-parallel-start-rank $START_RANK \
           ${ACCESS_LOG_ARGS} \
-          --shutdown-timeout {{ shutdownTimeout (tgps .Spec.Template) 15 }} \
+          ${SHUTDOWN_TIMEOUT_ARGS} \
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -5114,7 +5162,13 @@ spec:
         fi
         echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
 
-        eval "vllm serve \
+        # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
+        SHUTDOWN_TIMEOUT_ARGS=""
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
+          SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Worker 15 }}"
+        fi
+
+        eval "exec vllm serve \
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8000 \
@@ -5127,7 +5181,7 @@ spec:
           --data-parallel-start-rank $START_RANK \
           --headless \
           ${ACCESS_LOG_ARGS} \
-          --shutdown-timeout {{ shutdownTimeout (tgps .Spec.Worker) 15 }} \
+          ${SHUTDOWN_TIMEOUT_ARGS} \
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
