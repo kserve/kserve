@@ -815,3 +815,14 @@ data:
       "scaleUpStabilizationWindowSeconds": "0",
       "scaleDownStabilizationWindowSeconds": "300"
     }
+
+  kernelcache: |-
+    {
+        "enabled": true,
+        "jobNamespace": "kserve",
+        "extractImage": "quay.io/gkm/gkm-extract:latest",
+        "jobTTLSecondsAfterFinished": 3600,
+        "reconcileIntervalSeconds": 60,
+        "noGPU": true,
+        "enablePermissionInitContainer": true
+    }

@@ -1,0 +1,11 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kserve-kernelcache-controller-manager
+  namespace: kserve
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        image: ${KO_DOCKER_REPO}/kserve-kernelcache-controller:${KSERVE_TAG}
