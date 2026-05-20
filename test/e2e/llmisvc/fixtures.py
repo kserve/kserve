@@ -785,6 +785,93 @@ LLMINFERENCESERVICE_CONFIGS = {
             },
         },
     },
+    # v0.6-style PD config: old plugin names, deciderPluginName param, hashBlockSize.
+    # Exercises the full #5433 migration: plugin renames, param restructure,
+    # hashBlockSize removal, decider ordering.
+    "scheduler-v06-pd-config-migration": {
+        "router": {
+            "scheduler": {
+                "config": {
+                    "inline": {
+                        "apiVersion": "inference.networking.x-k8s.io/v1alpha1",
+                        "kind": "EndpointPickerConfig",
+                        "plugins": [
+                            {"type": "prefill-header-handler"},
+                            {"type": "always-disagg-pd-decider"},
+                            {
+                                "type": "pd-profile-handler",
+                                "parameters": {
+                                    "deciderPluginName": "always-disagg-pd-decider",
+                                },
+                            },
+                            {
+                                "type": "prefix-cache-scorer",
+                                "parameters": {
+                                    "hashBlockSize": 64,
+                                    "blockSizeTokens": 16,
+                                },
+                            },
+                            {"type": "queue-scorer"},
+                            {"type": "max-score-picker"},
+                        ],
+                        "schedulingProfiles": [
+                            {
+                                "name": "default",
+                                "plugins": [
+                                    {"pluginRef": "queue-scorer", "weight": 2},
+                                    {"pluginRef": "prefix-cache-scorer", "weight": 3},
+                                    {"pluginRef": "max-score-picker"},
+                                ],
+                            },
+                        ],
+                    },
+                },
+            },
+        },
+    },
+    # v0.6-style PD config with non-zero threshold (no deciderPluginName).
+    # Exercises #5560 migration: threshold -> prefix-based-pd-decider with
+    # nonCachedTokens = ceil(threshold / 4), plus all #5433 renames.
+    "scheduler-v06-nonzero-threshold-migration": {
+        "router": {
+            "scheduler": {
+                "config": {
+                    "inline": {
+                        "apiVersion": "inference.networking.x-k8s.io/v1alpha1",
+                        "kind": "EndpointPickerConfig",
+                        "plugins": [
+                            {"type": "prefill-header-handler"},
+                            {
+                                "type": "pd-profile-handler",
+                                "parameters": {
+                                    "threshold": 100,
+                                },
+                            },
+                            {
+                                "type": "prefix-cache-scorer",
+                                "parameters": {
+                                    "hashBlockSize": 64,
+                                    "blockSizeTokens": 16,
+                                },
+                            },
+                            {"type": "queue-scorer"},
+                            {"type": "max-score-picker"},
+                        ],
+                        "schedulingProfiles": [
+                            {
+                                "name": "default",
+                                "plugins": [
+                                    {"pluginRef": "queue-scorer", "weight": 2},
+                                    {"pluginRef": "prefix-cache-scorer", "weight": 3},
+                                    {"pluginRef": "max-score-picker"},
+                                ],
+                            },
+                        ],
+                    },
+                },
+            },
+        },
+    },
     "scheduler-with-configmap-ref": {
         "router": {
             "scheduler": {
