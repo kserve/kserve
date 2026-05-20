@@ -18,6 +18,7 @@ package llmisvc
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -401,6 +402,71 @@ schedulingProfiles:
 	}
 }
 
+// validateDeciderOrder checks the GIE loader ordering invariant: every plugin
+// referenced in a handler's "deciders" map must appear earlier in the plugins
+// list. The GIE loader registers plugins in list order, so a handler that
+// references a decider declared later will fail with "plugin not found".
+func validateDeciderOrder(g Gomega, obj map[string]interface{}) {
+	val, ok := obj["plugins"]
+	if !ok {
+		return
+	}
+	plugins, ok := val.([]interface{})
+	if !ok {
+		return
+	}
+
+	typeIndex := map[string]int{}
+	for i, p := range plugins {
+		pm, ok := p.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if t, ok := pm["type"].(string); ok {
+			typeIndex[t] = i
+		}
+	}
+
+	for i, p := range plugins {
+		pm, ok := p.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		pluginType, _ := pm["type"].(string)
+		params, ok := pm["parameters"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		deciders, ok := params["deciders"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		for role, ref := range deciders {
+			refName, ok := ref.(string)
+			if !ok {
+				continue
+			}
+			refIdx, exists := typeIndex[refName]
+			if !exists {
+				// Decider not in the plugins list — may be externally
+				// declared (e.g. Path A where the user manages it).
+				continue
+			}
+			g.Expect(refIdx).To(BeNumerically("<", i),
+				fmt.Sprintf("%s at index %d references decider %q (role %s) at index %d — decider must appear before handler",
+					pluginType, i, refName, role, refIdx))
+		}
+	}
+}
+
+// validateDeciderOrderFromYAML is a convenience wrapper that unmarshals a
+// config-text YAML string and then runs validateDeciderOrder on the result.
+func validateDeciderOrderFromYAML(g Gomega, configText string) {
+	var obj map[string]interface{}
+	g.Expect(yaml.Unmarshal([]byte(configText), &obj)).To(Succeed())
+	validateDeciderOrder(g, obj)
+}
+
 func TestWithMigrateDisaggProfileParams(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -490,18 +556,19 @@ plugins:
 			name: "migrates threshold 0 when decider plugin already exists",
 			configYAML: `
 plugins:
+- type: always-disagg-pd-decider
 - type: pd-profile-handler
   parameters:
     threshold: 0
-- type: always-disagg-pd-decider
 `,
 			validate: func(g Gomega, obj map[string]interface{}) {
 				plugins := obj["plugins"].([]interface{})
-				params := plugins[0].(map[string]interface{})["parameters"].(map[string]interface{})
+				g.Expect(plugins).To(HaveLen(2))
+				g.Expect(plugins[0].(map[string]interface{})["type"]).To(Equal("always-disagg-pd-decider"))
+				params := plugins[1].(map[string]interface{})["parameters"].(map[string]interface{})
 				g.Expect(params).NotTo(HaveKey("threshold"))
 				deciders := params["deciders"].(map[string]interface{})
 				g.Expect(deciders).To(HaveKeyWithValue("prefill", "always-disagg-pd-decider"))
-				g.Expect(plugins).To(HaveLen(2))
 			},
 		},
 		{
@@ -588,20 +655,21 @@ plugins:
 			name: "non-zero threshold idempotent when prefix-based-pd-decider already exists",
 			configYAML: `
 plugins:
-- type: pd-profile-handler
-  parameters:
-    threshold: 100
 - type: prefix-based-pd-decider
   parameters:
     nonCachedTokens: 50
+- type: pd-profile-handler
+  parameters:
+    threshold: 100
 `,
 			validate: func(g Gomega, obj map[string]interface{}) {
 				plugins := obj["plugins"].([]interface{})
-				params := plugins[0].(map[string]interface{})["parameters"].(map[string]interface{})
+				g.Expect(plugins).To(HaveLen(2))
+				g.Expect(plugins[0].(map[string]interface{})["type"]).To(Equal("prefix-based-pd-decider"))
+				params := plugins[1].(map[string]interface{})["parameters"].(map[string]interface{})
 				g.Expect(params).NotTo(HaveKey("threshold"))
 				deciders := params["deciders"].(map[string]interface{})
 				g.Expect(deciders).To(HaveKeyWithValue("prefill", "prefix-based-pd-decider"))
-				g.Expect(plugins).To(HaveLen(2))
 			},
 		},
 		{
@@ -655,6 +723,7 @@ plugins:
 			u := unstructured.Unstructured{Object: obj}
 			g.Expect(WithMigrateDisaggProfileParams(context.Background(), &u)).To(Succeed())
 			tt.validate(g, u.Object)
+			validateDeciderOrder(g, u.Object)
 		})
 	}
 }
@@ -736,20 +805,21 @@ plugins:
 			name: "handles threshold 0 when decider plugin already present",
 			configYAML: `
 plugins:
+- type: always-disagg-pd-decider
 - type: pd-profile-handler
   parameters:
     threshold: 0
-- type: always-disagg-pd-decider
 `,
 			validate: func(g Gomega, obj map[string]interface{}) {
 				plugins := obj["plugins"].([]interface{})
-				pluginMap := plugins[0].(map[string]interface{})
+				g.Expect(plugins).To(HaveLen(2))
+				g.Expect(plugins[0].(map[string]interface{})["type"]).To(Equal("always-disagg-pd-decider"))
+				pluginMap := plugins[1].(map[string]interface{})
 				g.Expect(pluginMap["type"]).To(Equal("disagg-profile-handler"))
 				params := pluginMap["parameters"].(map[string]interface{})
 				g.Expect(params).NotTo(HaveKey("threshold"))
 				deciders := params["deciders"].(map[string]interface{})
 				g.Expect(deciders).To(HaveKeyWithValue("prefill", "always-disagg-pd-decider"))
-				g.Expect(plugins).To(HaveLen(2))
 			},
 		},
 		{
@@ -782,6 +852,7 @@ plugins:
 			u := unstructured.Unstructured{Object: obj}
 			g.Expect(withMigrateDisaggProfileHandler(context.Background(), &u)).To(Succeed())
 			tt.validate(g, u.Object)
+			validateDeciderOrder(g, u.Object)
 		})
 	}
 }
@@ -1131,6 +1202,7 @@ plugins:
 
 			configText := d.Spec.Template.Spec.Containers[0].Args[1]
 			tt.validateConfig(g, configText)
+			validateDeciderOrderFromYAML(g, configText)
 		})
 	}
 }
@@ -1291,6 +1363,7 @@ schedulingProfiles:
 			for i, a := range resultArgs {
 				if a == "--config-text" && i+1 < len(resultArgs) {
 					tt.validateConfig(g, resultArgs[i+1])
+					validateDeciderOrderFromYAML(g, resultArgs[i+1])
 				}
 			}
 			tt.validateArgs(g, resultArgs)
@@ -1372,6 +1445,9 @@ schedulingProfiles:
 	g.Expect(configText).To(ContainSubstring("decode-filter"))
 	g.Expect(configText).To(ContainSubstring("queue-scorer"))
 	g.Expect(configText).To(ContainSubstring("max-score-picker"))
+
+	// Decider ordering invariant
+	validateDeciderOrderFromYAML(g, configText)
 }
 
 func TestExtractDeprecatedMetricFlags(t *testing.T) {
