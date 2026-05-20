@@ -19,7 +19,9 @@ package reconcilers
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"reflect"
+	"time"
 
 	"github.com/go-logr/logr"
 	batchv1 "k8s.io/api/batch/v1"
@@ -59,17 +61,23 @@ type KernelCacheReconciler struct {
 
 // Reconcile
 // Step 1 - Handle deletion with finalizer
-// Step 2 - Create Download PVC (operator creates ALL PVCs, agent creates only Jobs)
-// Step 3 - Get nodes in cluster
-// Step 4 - Ensure KernelCacheNode exists for each node
-// Step 5 - Aggregate status from KernelCacheNodes
+// Step 2 - Create Download PVC (RWX)
+// Step 3 - Create ONE extraction Job per cache (RWX pattern)
+// Step 4 - Get nodes where agent pods are running
+// Step 5 - Ensure KernelCacheNode exists for each node
+// Step 6 - Aggregate status from KernelCacheNodes
+// Step 7 - Create Serving PVC when extraction complete
 func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.Log.Info("Reconciling KernelCache", "name", req.Name, "namespace", req.Namespace)
-
 	kc := &v1alpha1.KernelCache{}
 	if err := r.Get(ctx, req.NamespacedName, kc); err != nil {
-		return reconcile.Result{}, client.IgnoreNotFound(err)
+		if errors.IsNotFound(err) {
+			// Resource deleted between watch trigger and reconcile - normal during deletion
+			return reconcile.Result{}, nil
+		}
+		return reconcile.Result{}, err
 	}
+
+	r.Log.Info("Reconciling KernelCache", "name", req.Name, "namespace", req.Namespace)
 
 	// Load config from inferenceservice-config ConfigMap (once at top)
 	kernelCacheConfig, err := kernelcachecommon.LoadKernelCacheConfig(ctx, r.Clientset)
@@ -91,13 +99,20 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	jobNamespace := kernelCacheConfig.JobNamespace
 
-	// Step 2: Create Download PVC (operator creates ALL PVCs, agent creates only Jobs)
+	// Step 2: Create Download PVC (RWX)
 	if err := r.ensureDownloadPVC(ctx, kc, jobNamespace); err != nil {
 		r.Log.Error(err, "failed to create download PVC")
 		return ctrl.Result{}, err
 	}
 
-	// Step 3: Get nodes where agent pods are running
+	// Step 3: Create ONE extraction Job per cache (RWX pattern)
+	// Operator creates the Job, agent monitors availability
+	if err := r.ensureExtractionJob(ctx, kc, kernelCacheConfig); err != nil {
+		r.Log.Error(err, "failed to ensure extraction job")
+		return ctrl.Result{}, err
+	}
+
+	// Step 4: Get nodes where agent pods are running
 	// This automatically respects DaemonSet scheduling (taints, labels, node selectors)
 	agentPods := &corev1.PodList{}
 	if err := r.List(ctx, agentPods,
@@ -115,7 +130,7 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 	}
 
-	// Step 4: For each node with agent, ensure KernelCacheNode exists and has this cache
+	// Step 5: For each node with agent, ensure KernelCacheNode exists and has this cache
 	for nodeName := range agentNodes {
 		if err := r.ensureKernelCacheNode(ctx, kc, nodeName); err != nil {
 			r.Log.Error(err, "failed to ensure KernelCacheNode", "node", nodeName)
@@ -123,13 +138,13 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 	}
 
-	// Step 5: Aggregate status from KernelCacheNodes
+	// Step 6: Aggregate status from KernelCacheNodes
 	if err := r.updateAggregateStatus(ctx, kc); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	// Step 6: Create Serving PVC when all extractions complete
-	if r.allExtractionsComplete(ctx, kc, jobNamespace) {
+	// Step 7: Create Serving PVC when extraction complete
+	if r.extractionComplete(ctx, kc, jobNamespace) {
 		if err := r.ensureServingPVC(ctx, kc); err != nil {
 			r.Log.Error(err, "failed to create serving PVC")
 			return ctrl.Result{}, err
@@ -137,7 +152,7 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	// No periodic requeue needed - all operations synchronous
-	// Watches on KernelCacheNode status changes trigger reconciliation
+	// Watches on Job status changes trigger reconciliation
 	return ctrl.Result{}, nil
 }
 
@@ -485,7 +500,237 @@ func (r *KernelCacheReconciler) ensureDownloadPVC(
 	return nil
 }
 
+// ensureExtractionJob creates ONE extraction Job per cache (RWX pattern)
+// Job runs on any node and writes to RWX Download PVC
+// Storage backend distributes data to all nodes
+func (r *KernelCacheReconciler) ensureExtractionJob(
+	ctx context.Context,
+	kc *v1alpha1.KernelCache,
+	config *v1beta1.KernelCacheConfig,
+) error {
+	jobNamespace := config.JobNamespace
+	pvcName := kc.Namespace + "-" + kc.Name + "-download"
+
+	// Check if Job already exists
+	job, err := r.getExtractionJob(ctx, kc, jobNamespace)
+	if err != nil {
+		return err
+	}
+
+	// Only create if no Job exists OR Job failed
+	if job == nil {
+		return r.createExtractionJob(ctx, kc, pvcName, config)
+	} else if r.jobFailed(job) {
+		// Only recreate if failed job is old enough
+		age := time.Since(job.CreationTimestamp.Time)
+		if age > 5*time.Minute {
+			return r.createExtractionJob(ctx, kc, pvcName, config)
+		}
+	}
+
+	return nil
+}
+
+// getExtractionJob retrieves the extraction Job for this cache
+func (r *KernelCacheReconciler) getExtractionJob(
+	ctx context.Context,
+	kc *v1alpha1.KernelCache,
+	jobNamespace string,
+) (*batchv1.Job, error) {
+	jobList := &batchv1.JobList{}
+	labels := map[string]string{
+		"cache":           kc.Name,
+		"cache-namespace": kc.Namespace,
+		"app":             "kernel-cache-extract",
+	}
+
+	if err := r.List(ctx, jobList,
+		client.InNamespace(jobNamespace),
+		client.MatchingLabels(labels),
+	); err != nil {
+		return nil, err
+	}
+
+	if len(jobList.Items) == 0 {
+		return nil, nil
+	}
+
+	// Return most recent
+	latest := &jobList.Items[0]
+	for i := range jobList.Items {
+		if jobList.Items[i].CreationTimestamp.After(latest.CreationTimestamp.Time) {
+			latest = &jobList.Items[i]
+		}
+	}
+
+	return latest, nil
+}
+
+// createExtractionJob creates extraction Job
+func (r *KernelCacheReconciler) createExtractionJob(
+	ctx context.Context,
+	kc *v1alpha1.KernelCache,
+	pvcName string,
+	config *v1beta1.KernelCacheConfig,
+) error {
+	jobNamespace := config.JobNamespace
+
+	// Double-check no job exists
+	existingJob, err := r.getExtractionJob(ctx, kc, jobNamespace)
+	if err != nil {
+		return err
+	}
+	if existingJob != nil && !r.jobFailed(existingJob) {
+		r.Log.Info("Job already exists, skipping creation", "cache", kc.Name)
+		return nil
+	}
+
+	// Deterministic name
+	jobName := fmt.Sprintf("%s-%s-extract", kc.Namespace, kc.Name)
+
+	// Hash-based storage key for deduplication
+	storageKey := v1alpha1.GetKernelCacheStorageKey(kc.Spec.Image)
+
+	noGPU := "false"
+	if config.NoGPU {
+		noGPU = "true"
+	}
+
+	container := &corev1.Container{
+		Name:  kernelcachecommon.ExtractContainerName,
+		Image: config.ExtractImage,
+		Env: []corev1.EnvVar{
+			{Name: "GKM_CACHE_DIR", Value: kernelcachecommon.MountPath},
+			{Name: "GKM_IMAGE_URL", Value: kc.Spec.Image},
+			{Name: "GO_LOG", Value: "info"},
+			{Name: "NO_GPU", Value: noGPU},
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      kernelcachecommon.CachePVCMountName,
+				MountPath: kernelcachecommon.MountPath,
+				ReadOnly:  false,
+				SubPath:   filepath.Join("kernel-cache", storageKey),
+			},
+		},
+	}
+
+	var fsGroup int64 = 1000
+	var initContainers []corev1.Container
+	if config.EnablePermissionInitContainer {
+		var rootUser int64 = 0
+		commandString := "mkdir -p " + kernelcachecommon.MountPath +
+			" && chown -R 1000:1000 " + kernelcachecommon.MountPath +
+			" && chmod -R 775 " + kernelcachecommon.MountPath
+
+		initContainer := corev1.Container{
+			Name:  "fix-permissions",
+			Image: "busybox:1.28",
+			SecurityContext: &corev1.SecurityContext{
+				RunAsUser: &rootUser,
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      kernelcachecommon.CachePVCMountName,
+					MountPath: kernelcachecommon.MountPath,
+					ReadOnly:  false,
+				},
+			},
+			Command: []string{"/bin/sh"},
+			Args:    []string{"-c", commandString},
+		}
+		initContainers = []corev1.Container{initContainer}
+	}
+
+	job := &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      jobName,
+			Namespace: jobNamespace,
+			Labels: map[string]string{
+				"app":             "kernel-cache-extract",
+				"cache":           kc.Name,
+				"cache-namespace": kc.Namespace,
+			},
+		},
+		Spec: batchv1.JobSpec{
+			TTLSecondsAfterFinished: config.JobTTLSecondsAfterFinished,
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app":             "kernel-cache-extract",
+						"cache":           kc.Name,
+						"cache-namespace": kc.Namespace,
+					},
+				},
+				Spec: corev1.PodSpec{
+					InitContainers: initContainers,
+					Containers:     []corev1.Container{*container},
+					RestartPolicy:  corev1.RestartPolicyNever,
+					Volumes: []corev1.Volume{
+						{
+							Name: kernelcachecommon.CachePVCMountName,
+							VolumeSource: corev1.VolumeSource{
+								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+									ClaimName: pvcName,
+								},
+							},
+						},
+					},
+					SecurityContext: &corev1.PodSecurityContext{
+						FSGroup:    &fsGroup,
+						RunAsUser:  &fsGroup,
+						RunAsGroup: &fsGroup,
+					},
+				},
+			},
+		},
+	}
+
+	r.Log.Info("Creating extraction job", "job", jobName, "cache", kc.Name)
+	return r.Create(ctx, job)
+}
+
+// jobFailed checks if Job has failed
+func (r *KernelCacheReconciler) jobFailed(job *batchv1.Job) bool {
+	for _, cond := range job.Status.Conditions {
+		if cond.Type == batchv1.JobFailed && cond.Status == corev1.ConditionTrue {
+			return true
+		}
+	}
+	return false
+}
+
+// jobCompleted checks if Job has completed
+func (r *KernelCacheReconciler) jobCompleted(job *batchv1.Job) bool {
+	for _, cond := range job.Status.Conditions {
+		if cond.Type == batchv1.JobComplete && cond.Status == corev1.ConditionTrue {
+			return true
+		}
+	}
+	return false
+}
+
+// extractionComplete checks if the single extraction Job has completed
+func (r *KernelCacheReconciler) extractionComplete(
+	ctx context.Context,
+	kc *v1alpha1.KernelCache,
+	jobNamespace string,
+) bool {
+	job, err := r.getExtractionJob(ctx, kc, jobNamespace)
+	if err != nil {
+		r.Log.Error(err, "failed to get extraction job")
+		return false
+	}
+
+	if job == nil {
+		return false
+	}
+
+	return r.jobCompleted(job)
+}
+
 // allExtractionsComplete checks if all nodes have completed extraction for this cache
+// DEPRECATED: Use extractionComplete() instead (single Job pattern)
 func (r *KernelCacheReconciler) allExtractionsComplete(
 	ctx context.Context,
 	kc *v1alpha1.KernelCache,
@@ -804,6 +1049,28 @@ func (r *KernelCacheReconciler) nodeStatusMapper(ctx context.Context, obj client
 	return requests
 }
 
+// jobMapper maps Job changes to KernelCache reconciliation requests
+func (r *KernelCacheReconciler) jobMapper(ctx context.Context, obj client.Object) []reconcile.Request {
+	job := obj.(*batchv1.Job)
+
+	// Extract cache info from Job labels
+	cacheName := job.Labels["cache"]
+	cacheNamespace := job.Labels["cache-namespace"]
+
+	if cacheName == "" || cacheNamespace == "" {
+		return []reconcile.Request{}
+	}
+
+	return []reconcile.Request{
+		{
+			NamespacedName: types.NamespacedName{
+				Name:      cacheName,
+				Namespace: cacheNamespace,
+			},
+		},
+	}
+}
+
 // SetupWithManager configures event-driven watches (no polling needed for controller)
 func (r *KernelCacheReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Predicate to watch only KernelCacheNode status changes
@@ -832,6 +1099,10 @@ func (r *KernelCacheReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&v1alpha1.KernelCacheNode{},
 			handler.EnqueueRequestsFromMapFunc(r.nodeStatusMapper),
 			builder.WithPredicates(kernelCacheNodeStatusPredicate),
+		).
+		Watches(
+			&batchv1.Job{},
+			handler.EnqueueRequestsFromMapFunc(r.jobMapper),
 		).
 		Complete(r)
 }
