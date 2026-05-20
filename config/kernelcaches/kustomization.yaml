@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: kserve
+
+resources:
+- manager.yaml
+- ../rbac/kernelcache
+- ../crd/full/kernelcache
+
+patches:
+- path: kernelcache_manager_image_patch.yaml
+  target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: kserve-kernelcache-controller-manager
