@@ -829,7 +829,7 @@ plugins:
 			name: "skips when plugin already exists",
 			configYAML: `
 plugins:
-- type: core-metrics-extractor
+- type: model-server-protocol-metrics
   parameters:
     defaultEngine: vllm
 `,
@@ -1134,8 +1134,8 @@ schedulingProfiles:
 				// Pre-existing migrations applied
 				g.Expect(configText).To(ContainSubstring("blockSizeTokens"))
 
-				// CLI flag values moved to core-metrics-extractor plugin
-				g.Expect(configText).To(ContainSubstring("core-metrics-extractor"))
+				// CLI flag values moved to model-server-protocol-metrics plugin
+				g.Expect(configText).To(ContainSubstring("model-server-protocol-metrics"))
 				g.Expect(configText).To(ContainSubstring("vllm:num_requests_waiting"))
 				g.Expect(configText).To(ContainSubstring("vllm:num_requests_running"))
 				g.Expect(configText).To(ContainSubstring("vllm:kv_cache_usage_perc"))
@@ -1171,8 +1171,8 @@ schedulingProfiles:
 				g.Expect(configText).To(ContainSubstring("deciderPluginName"))
 				g.Expect(configText).To(ContainSubstring("hashBlockSize"))
 
-				// No core-metrics-extractor injected
-				g.Expect(configText).NotTo(ContainSubstring("core-metrics-extractor"))
+				// No model-server-protocol-metrics injected
+				g.Expect(configText).NotTo(ContainSubstring("model-server-protocol-metrics"))
 
 				// Pre-existing migrations still applied (unconditional)
 				g.Expect(configText).To(ContainSubstring("blockSizeTokens"))
@@ -1363,7 +1363,7 @@ plugins:
 			validateConfig: func(g Gomega, args []string) {
 				for i, a := range args {
 					if a == "--configText" && i+1 < len(args) {
-						g.Expect(args[i+1]).To(ContainSubstring("core-metrics-extractor"))
+						g.Expect(args[i+1]).To(ContainSubstring("model-server-protocol-metrics"))
 						g.Expect(args[i+1]).To(ContainSubstring("vllm:num_requests_waiting"))
 						g.Expect(args[i+1]).To(ContainSubstring("vllm:kv_cache_usage_perc"))
 						return
@@ -1389,7 +1389,7 @@ plugins:
 			validateConfig: func(g Gomega, args []string) {
 				for i, a := range args {
 					if a == "--config-text" && i+1 < len(args) {
-						g.Expect(args[i+1]).To(ContainSubstring("core-metrics-extractor"))
+						g.Expect(args[i+1]).To(ContainSubstring("model-server-protocol-metrics"))
 						g.Expect(args[i+1]).To(ContainSubstring("vllm:num_requests_waiting"))
 						return
 					}
@@ -1414,7 +1414,7 @@ plugins:
 			validateConfig: func(g Gomega, args []string) {
 				for i, a := range args {
 					if a == "-config-text" && i+1 < len(args) {
-						g.Expect(args[i+1]).To(ContainSubstring("core-metrics-extractor"))
+						g.Expect(args[i+1]).To(ContainSubstring("model-server-protocol-metrics"))
 						g.Expect(args[i+1]).To(ContainSubstring("vllm:num_requests_waiting"))
 						return
 					}
@@ -1439,7 +1439,7 @@ plugins:
 			validateConfig: func(g Gomega, args []string) {
 				for i, a := range args {
 					if a == "-configText" && i+1 < len(args) {
-						g.Expect(args[i+1]).To(ContainSubstring("core-metrics-extractor"))
+						g.Expect(args[i+1]).To(ContainSubstring("model-server-protocol-metrics"))
 						g.Expect(args[i+1]).To(ContainSubstring("vllm:num_requests_waiting"))
 						return
 					}

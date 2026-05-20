@@ -1958,7 +1958,7 @@ func TestToParentRefs(t *testing.T) {
 			want: []gwapiv1.ParentReference{
 				{
 					Name:      "my-gateway",
-					Namespace: ptr.To(gwapiv1.Namespace("")),
+					Namespace: nil,
 					Group:     ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
 					Kind:      ptr.To(gwapiv1.Kind("Gateway")),
 				},

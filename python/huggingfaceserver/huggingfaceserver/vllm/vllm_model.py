@@ -298,9 +298,7 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
                 message="The model does not support Embeddings API",
                 status_code=HTTPStatus.BAD_REQUEST,
             )
-        response = await self.openai_serving_embedding.create_embedding(
-            request, raw_request
-        )
+        response = await self.openai_serving_embedding(request, raw_request)
 
         if isinstance(response, engineError):
             return create_error_response(

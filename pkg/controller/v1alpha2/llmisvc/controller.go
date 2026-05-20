@@ -228,6 +228,8 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 		return fmt.Errorf("failed to reconcile networking: %w", err)
 	}
 
+	observeWorkloadStatus(llmSvc)
+
 	return nil
 }
 
@@ -345,13 +347,13 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), igwapi.GroupVersion.String(), "InferencePool"); ok && err == nil {
-		b = b.
-			Owns(&igwapi.InferencePool{}, builder.WithPredicates(childResourcesPredicate)).
+		b = b.Owns(&igwapi.InferencePool{}, builder.WithPredicates(childResourcesPredicate)).
 			Watches(&igwapi.InferencePool{}, r.enqueueOnInferencePoolChange(logger))
 	}
 
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), igwapiv1alpha2.GroupVersion.String(), "InferencePool"); ok && err == nil {
-		b = b.Owns(&igwapiv1alpha2.InferencePool{}, builder.WithPredicates(childResourcesPredicate))
+		b = b.Owns(&igwapiv1alpha2.InferencePool{}, builder.WithPredicates(childResourcesPredicate)).
+			Watches(&igwapiv1alpha2.InferencePool{}, r.enqueueOnInferencePoolChange(logger))
 	}
 
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), wvav1alpha1.GroupVersion.String(), "VariantAutoscaling"); ok && err == nil {
@@ -429,7 +431,11 @@ func (r *LLMISVCReconciler) enqueueOnGatewayChange(logger logr.Logger) handler.E
 
 				// Check if service explicitly references this gateway
 				for _, ref := range combinedCfg.Spec.Router.Gateway.Refs {
-					if string(ref.Name) == sub.Name && string(ref.Namespace) == sub.Namespace {
+					refNamespace := string(ref.Namespace)
+					if refNamespace == "" {
+						refNamespace = llmSvc.Namespace
+					}
+					if string(ref.Name) == sub.Name && refNamespace == sub.Namespace {
 						reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
 							Namespace: llmSvc.Namespace,
 							Name:      llmSvc.Name,
@@ -520,13 +526,14 @@ func (r *LLMISVCReconciler) enqueueOnHttpRouteChange(logger logr.Logger) handler
 }
 
 // enqueueOnInferencePoolChange creates an event handler that triggers reconciliation of
-// LLMInferenceServices when a referenced external InferencePool changes.
+// LLMInferenceServices that reference an external InferencePool via scheduler.pool.ref.
+// Managed pools are already covered by Owns(...) watches.
 func (r *LLMISVCReconciler) enqueueOnInferencePoolChange(logger logr.Logger) handler.EventHandler {
 	logger = logger.WithName("enqueueOnInferencePoolChange")
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
-		sub := object.(*igwapi.InferencePool)
+		// Intentionally client.Object - this handler is registered for both igwapi.InferencePool (v1) and igwapiv1alpha2.InferencePool.
+		sub := object
 		reqs := make([]reconcile.Request, 0, 2)
-
 		listNamespace := sub.GetNamespace()
 
 		cfg, err := LoadConfig(ctx, r.Clientset)
@@ -537,6 +544,7 @@ func (r *LLMISVCReconciler) enqueueOnInferencePoolChange(logger logr.Logger) han
 
 		// When an InferencePool is modified, we need to find all LLMInferenceService instances that might
 		// depend on it through scheduler.pool.ref and trigger their reconciliation.
+		// Use pagination to handle large numbers of services efficiently.
 		continueToken := ""
 		for {
 			llmSvcList := &v1alpha2.LLMInferenceServiceList{}
@@ -548,7 +556,7 @@ func (r *LLMISVCReconciler) enqueueOnInferencePoolChange(logger logr.Logger) han
 				llmSvcCopy := llmSvc.DeepCopy()
 				combinedCfg, err := r.combineBaseRefsConfig(ctx, llmSvcCopy, cfg)
 				if err != nil {
-					logger.Error(err, "Failed to combine base refs config", "namespace", llmSvc.Namespace, "name", llmSvc.Name)
+					logger.Error(err, "Failed to combine base refs config", "llmSvc", llmSvc.Name)
 					continue
 				}
 
@@ -556,7 +564,7 @@ func (r *LLMISVCReconciler) enqueueOnInferencePoolChange(logger logr.Logger) han
 					combinedCfg.Spec.Router.Scheduler == nil ||
 					combinedCfg.Spec.Router.Scheduler.Pool == nil ||
 					combinedCfg.Spec.Router.Scheduler.Pool.Ref == nil ||
-					combinedCfg.Spec.Router.Scheduler.Pool.Ref.Name != sub.Name {
+					combinedCfg.Spec.Router.Scheduler.Pool.Ref.Name != sub.GetName() {
 					continue
 				}
 

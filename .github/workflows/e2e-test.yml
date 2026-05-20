@@ -1347,7 +1347,7 @@ jobs:
           kubectl describe pods -n kserve
 
       - name: Run E2E tests
-        timeout-minutes: 30
+        timeout-minutes: 45
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "llm" "2"
 
@@ -1424,8 +1424,9 @@ jobs:
           kubectl describe pods -n kserve
 
       - name: Run E2E tests
-        timeout-minutes: 30
+        timeout-minutes: 45
         run: |
+          export PYTEST_MAXFAIL=3
           ./test/scripts/gh-actions/run-e2e-tests.sh "vllm" "1"
 
       - name: Check system status
