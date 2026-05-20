@@ -635,18 +635,47 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 pytest.mark.model_routing,
             ],
         ),
-        # Model-based routing via X-Gateway-Model-Name header — /v1/models
+        # Model-based routing via X-Gateway-Model-Name header — LoRA adapter
         pytest.param(
             TestCase(
                 base_refs=[
                     "router-managed",
                     "workload-single-cpu",
-                    "model-fb-opt-125m",
+                    "model-fb-opt-125m-with-lora-hf",
+                ],
+                endpoint="/v1/completions",
+                prompt="KServe is a",
+                model_name=f"publishers/{KSERVE_TEST_NAMESPACE}/models/lora-adapter-1",
+                payload_formatter=completions_payload,
+                response_assertion=assert_model_field_matches(
+                    f"publishers/{KSERVE_TEST_NAMESPACE}/models/lora-adapter-1"
+                ),
+                url_getter=get_model_routing_url,
+                extra_headers={
+                    MODEL_ROUTING_HEADER: f"publishers/{KSERVE_TEST_NAMESPACE}/models/lora-adapter-1",
+                },
+            ),
+            marks=[
+                pytest.mark.cluster_cpu,
+                pytest.mark.cluster_single_node,
+                pytest.mark.model_routing,
+                pytest.mark.lora,
+            ],
+        ),
+        # Model-based routing via X-Gateway-Model-Name header — /v1/models (base + LoRA)
+        pytest.param(
+            TestCase(
+                base_refs=[
+                    "router-managed",
+                    "workload-single-cpu",
+                    "model-fb-opt-125m-with-lora-hf",
                 ],
                 endpoint="/v1/models",
                 response_assertion=assert_models_contains(
                     "facebook/opt-125m",
                     f"publishers/{KSERVE_TEST_NAMESPACE}/models/facebook/opt-125m",
+                    "lora-adapter-1",
+                    f"publishers/{KSERVE_TEST_NAMESPACE}/models/lora-adapter-1",
                 ),
                 url_getter=get_model_routing_url,
                 extra_headers={
@@ -657,6 +686,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 pytest.mark.cluster_cpu,
                 pytest.mark.cluster_single_node,
                 pytest.mark.model_routing,
+                pytest.mark.lora,
             ],
         ),
     ],

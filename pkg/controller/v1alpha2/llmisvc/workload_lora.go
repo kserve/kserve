@@ -18,6 +18,7 @@ package llmisvc
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"regexp"
@@ -26,6 +27,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
+	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -55,6 +57,12 @@ type resolvedLoRAAdapter struct {
 	mountPath string
 	uri       string
 	scheme    string
+}
+
+// loraModuleJSON is the JSON format for vLLM's --lora-modules flag.
+type loraModuleJSON struct {
+	Name string `json:"name"`
+	Path string `json:"path"`
 }
 
 // enumerateLoRAAdapters validates spec.model.lora.adapters and returns mount paths and schemes.
@@ -141,11 +149,11 @@ func (r *LLMISVCReconciler) attachLoRAAdapters(
 		return nil
 	}
 
-	var loraModules []string
+	var loraModules []loraModuleJSON
 	for _, a := range adapters {
 		switch a.scheme {
 		case constants.PvcURIPrefix:
-			volName := "lora-pvc-" + sanitizeLoRAVolumeName(a.name)
+			volName := kmeta.ChildName("lora-pvc-", a.name)
 			if err := attachLoraPVCAdapter(a.uri, podSpec, containerName, a.mountPath, volName); err != nil {
 				return fmt.Errorf("LoRA adapter %q: %w", a.name, err)
 			}
@@ -154,7 +162,15 @@ func (r *LLMISVCReconciler) attachLoRAAdapters(
 		default:
 			return fmt.Errorf("LoRA adapter %q: internal error, unhandled scheme %q", a.name, a.scheme)
 		}
-		loraModules = append(loraModules, fmt.Sprintf("%s=%s", a.name, a.mountPath))
+		loraModules = append(loraModules,
+			loraModuleJSON{Name: a.name, Path: a.mountPath},
+			loraModuleJSON{Name: fmt.Sprintf("publishers/%s/models/%s", llmSvc.Namespace, a.name), Path: a.mountPath},
+		)
+	}
+
+	loraModulesJSON, err := json.Marshal(loraModules)
+	if err != nil {
+		return fmt.Errorf("failed to marshal LoRA modules JSON: %w", err)
 	}
 
 	mainIdx := -1
@@ -194,7 +210,7 @@ func (r *LLMISVCReconciler) attachLoRAAdapters(
 		maxCpuAdapters = loraSpec.MaxCpuAdapters
 	}
 
-	addLoRAVLLMArgs(main, loraModules, maxRank, maxAdapters, maxCpuAdapters)
+	addLoRAVLLMArgs(main, string(loraModulesJSON), maxRank, maxAdapters, maxCpuAdapters)
 
 	return nil
 }
@@ -222,11 +238,12 @@ func hasValueFromLoRAConfig(c *corev1.Container) bool {
 
 // addLoRAVLLMArgs appends vLLM LoRA flags to main.Args so the LLMInferenceServiceConfig
 // entrypoint can pass them to `vllm serve` (eval "... $@") after the trailing `--` argv separator.
+// loraModulesJSON is a single JSON array containing all LoRA module entries.
 // loraMaxRank, loraMaxAdapters, and loraMaxCpuAdapters are only injected when non-nil (explicitly set in the spec);
 // vLLM applies its own defaults otherwise.
 // See: https://github.com/vllm-project/vllm/blob/main/vllm/config/lora.py
-func addLoRAVLLMArgs(main *corev1.Container, loraModules []string, loraMaxRank, loraMaxAdapters, loraMaxCpuAdapters *int32) {
-	argv := make([]string, 0, 5+len(loraModules))
+func addLoRAVLLMArgs(main *corev1.Container, loraModulesJSON string, loraMaxRank, loraMaxAdapters, loraMaxCpuAdapters *int32) {
+	argv := make([]string, 0, 6)
 	argv = append(argv, "--enable-lora")
 	if loraMaxRank != nil {
 		argv = append(argv, fmt.Sprintf("--max-lora-rank=%d", *loraMaxRank))
@@ -237,9 +254,10 @@ func addLoRAVLLMArgs(main *corev1.Container, loraModules []string, loraMaxRank, 
 	if loraMaxCpuAdapters != nil {
 		argv = append(argv, fmt.Sprintf("--max-cpu-loras=%d", *loraMaxCpuAdapters))
 	}
-	argv = append(argv, "--lora-modules")
-	argv = append(argv, loraModules...)
-	main.Args = append(main.Args, argv...)
+	argv = append(argv, "--lora-modules", loraModulesJSON)
+
+	// Place injected args before so that user-provided arguments could override the injected arguments
+	main.Args = append(argv, main.Args...)
 }
 
 func sanitizeLoRAPathSegment(s string) string {
@@ -247,21 +265,6 @@ func sanitizeLoRAPathSegment(s string) string {
 	// "." and ".." are valid after sanitization but dangerous as path components:
 	// filepath.Join("/mnt/lora", "..") resolves to "/mnt" (path traversal).
 	if out == "" || out == "." || out == ".." {
-		return "adapter"
-	}
-	return out
-}
-
-// sanitizeLoRAVolumeName produces a valid Kubernetes volume name (DNS label) from an adapter name.
-// Volume names must be lowercase alphanumeric and hyphens, max 63 chars. The "lora-pvc-" prefix
-// (9 chars) is added by the caller, so we cap the output at 54 chars.
-func sanitizeLoRAVolumeName(s string) string {
-	out := loraVolumeNameInvalidCharsRe.ReplaceAllString(strings.ToLower(s), "-")
-	out = strings.Trim(out, "-")
-	if len(out) > 54 {
-		out = strings.TrimRight(out[:54], "-")
-	}
-	if out == "" {
 		return "adapter"
 	}
 	return out
