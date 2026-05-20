@@ -70,8 +70,13 @@ func WithLoRAAdapters(adapterNames ...string) LLMInferenceServiceOption {
 			llmSvc.Spec.Model.LoRA = &v1alpha2.LoRASpec{}
 		}
 		for _, name := range adapterNames {
+			adapterURL, err := apis.ParseURL("hf://test-org/" + name)
+			if err != nil {
+				panic(err)
+			}
 			llmSvc.Spec.Model.LoRA.Adapters = append(llmSvc.Spec.Model.LoRA.Adapters, v1alpha2.LLMModelSpec{
 				Name: ptr.To(name),
+				URI:  *adapterURL,
 			})
 		}
 	}
