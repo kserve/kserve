@@ -94,6 +94,7 @@ class TestCase:
     response_assertion: Callable[[requests.Response], None] = assert_200
     wait_timeout: int = 900
     response_timeout: int = 60
+    expected_gateway: Optional[Dict[str, Any]] = None
     before_test: List[Callable[[], Any]] = field(default_factory=list)
     after_test: List[Callable[[], Any]] = field(default_factory=list)
     # Factory provided
@@ -136,6 +137,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 prompt="KServe is a",
                 payload_formatter=completions_payload,
                 response_assertion=create_response_assertion(with_field="choices"),
+                expected_gateway=ROUTER_GATEWAYS[0],
                 before_test=[
                     lambda: create_router_resources(
                         gateways=[ROUTER_GATEWAYS[0]],
@@ -185,6 +187,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 ],
                 prompt="KServe is a",
                 service_name="router-with-refs-test",
+                expected_gateway=ROUTER_GATEWAYS[0],
                 before_test=[
                     lambda: create_router_resources(
                         gateways=[ROUTER_GATEWAYS[0]],
@@ -237,6 +240,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 "Provide a detailed comparison with open source alternatives, focusing on operational trade-offs.",
                 service_name="router-with-refs-pd-test",
                 response_assertion=assert_200_with_choices,
+                expected_gateway=ROUTER_GATEWAYS[1],
                 before_test=[
                     lambda: create_router_resources(
                         gateways=[ROUTER_GATEWAYS[1]],
@@ -451,6 +455,9 @@ def test_llm_inference_service(test_case: TestCase):  # noqa: F811
         wait_for_llm_isvc_ready(
             kserve_client, test_case.llm_service, test_case.wait_timeout
         )
+        assert_address_origins(
+            kserve_client, test_case.llm_service, test_case.expected_gateway
+        )
         wait_for_model_response(kserve_client, test_case, test_case.wait_timeout)
     except Exception as e:
         test_failed = True
@@ -480,6 +487,53 @@ def create_llmisvc(kserve_client: KServeClient, llm_isvc: V1alpha1LLMInferenceSe
             f"❌ Exception when calling CustomObjectsApi->"
             f"create_namespaced_custom_object for LLMInferenceService: {e}"
         ) from e
+
+
+def assert_address_origins(
+    kserve_client: KServeClient,
+    llm_isvc: V1alpha1LLMInferenceService,
+    expected_gateway: Optional[Dict[str, Any]] = None,
+):
+    """Verify that every address in status carries a valid origin reference.
+
+    When expected_gateway is a Gateway resource dict, also asserts the
+    origin matches its metadata.name and metadata.namespace.
+
+    Reads via v1alpha2 (hub) because v1alpha1 conversion drops origin.
+    """
+    svc = get_llmisvc(
+        kserve_client,
+        llm_isvc.metadata.name,
+        llm_isvc.metadata.namespace,
+        "v1alpha2",
+    )
+
+    addresses = svc.get("status", {}).get("addresses", [])
+    assert len(addresses) > 0, (
+        f"Expected at least one address in status, got: {svc.get('status')}"
+    )
+
+    gw_meta = expected_gateway.get("metadata", {}) if expected_gateway else {}
+
+    for addr in addresses:
+        origin = addr.get("origin")
+        assert origin is not None, f"Address {addr.get('url')} is missing origin"
+        assert origin.get("kind") == "Gateway", (
+            f"Expected origin kind 'Gateway', got '{origin.get('kind')}' for {addr.get('url')}"
+        )
+        assert origin.get("group") == "gateway.networking.k8s.io", (
+            f"Expected origin group 'gateway.networking.k8s.io', got '{origin.get('group')}'"
+        )
+
+        if gw_meta:
+            assert origin.get("name") == gw_meta["name"], (
+                f"Expected origin gateway '{gw_meta['name']}', got '{origin.get('name')}'"
+            )
+            assert origin.get("namespace") == gw_meta["namespace"], (
+                f"Expected origin namespace '{gw_meta['namespace']}', got '{origin.get('namespace')}'"
+            )
+
+    logger.info(f"All {len(addresses)} addresses have valid origin references")
 
 
 @log_execution

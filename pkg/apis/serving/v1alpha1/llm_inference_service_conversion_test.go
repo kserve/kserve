@@ -27,8 +27,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	igwapiv1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 
@@ -892,6 +894,54 @@ func TestLLMInferenceServiceConversion_PreservesLoRASpecFields(t *testing.T) {
 	assert.Equal(t, int32(8), *restored.Spec.Model.LoRA.MaxCpuAdapters)
 }
 
+func TestLLMInferenceServiceConversion_StatusRoundtrip_V1Alpha1ToV1Alpha2(t *testing.T) {
+	externalName := "gateway-external"
+	internalName := "gateway-internal"
+	externalURL, _ := apis.ParseURL("https://example.com/ns/m")
+	internalURL, _ := apis.ParseURL("https://gw.ns.svc.cluster.local/ns/m")
+
+	addressSingular := &duckv1.Addressable{URL: externalURL}
+
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+		Spec:       LLMInferenceServiceSpec{Model: LLMModelSpec{URI: *apis.HTTPS("example.com")}},
+		Status: LLMInferenceServiceStatus{
+			URL: apis.HTTPS("example.com"),
+			AddressStatus: duckv1.AddressStatus{
+				Address: addressSingular,
+				Addresses: []duckv1.Addressable{
+					{Name: &externalName, URL: externalURL},
+					{Name: &internalName, URL: internalURL},
+				},
+			},
+		},
+	}
+
+	// v1alpha1 -> v1alpha2
+	hub := &v1alpha2.LLMInferenceService{}
+	require.NoError(t, src.ConvertTo(hub))
+
+	assert.Equal(t, src.Status.URL.String(), hub.Status.URL.String())
+	require.NotNil(t, hub.Status.Address, "Address (singular) should be preserved in ConvertTo") //nolint:staticcheck // testing deprecated field
+	assert.Equal(t, externalURL.String(), hub.Status.Address.URL.String())                       //nolint:staticcheck // testing deprecated field
+	require.Len(t, hub.Status.Addresses, 2)
+	assert.Equal(t, "gateway-external", *hub.Status.Addresses[0].Name)
+	assert.Equal(t, "https://example.com/ns/m", hub.Status.Addresses[0].URL.String())
+	assert.Nil(t, hub.Status.Addresses[0].Origin, "Origin should be nil when coming from v1alpha1")
+	assert.Nil(t, hub.Status.Addresses[1].Origin)
+
+	// v1alpha2 -> v1alpha1 (roundtrip)
+	restored := &LLMInferenceService{}
+	require.NoError(t, restored.ConvertFrom(hub))
+
+	assert.Equal(t, src.Status.URL.String(), restored.Status.URL.String())
+	require.NotNil(t, restored.Status.Address, "Address (singular) should survive roundtrip")
+	assert.Equal(t, externalURL.String(), restored.Status.Address.URL.String())
+	require.Len(t, restored.Status.Addresses, 2)
+	assert.Equal(t, "gateway-external", *restored.Status.AddressStatus.Addresses[0].Name)
+	assert.Equal(t, src.Status.Addresses[0].URL.String(), restored.Status.Addresses[0].URL.String())
+}
+
 func TestLLMInferenceServiceConversion_NilLoRASpecFields(t *testing.T) {
 	modelName := "base-model"
 	adapterName := "my-adapter"
@@ -939,4 +989,57 @@ func TestLLMInferenceServiceConversion_NilLoRASpecFields(t *testing.T) {
 	assert.Nil(t, restored.Spec.Model.LoRA.MaxRank)
 	assert.Nil(t, restored.Spec.Model.LoRA.MaxAdapters)
 	assert.Nil(t, restored.Spec.Model.LoRA.MaxCpuAdapters)
+}
+
+func TestLLMInferenceServiceConversion_StatusRoundtrip_V1Alpha2ToV1Alpha1(t *testing.T) {
+	externalName := "gateway-external"
+	externalURL, _ := apis.ParseURL("https://example.com/ns/m")
+
+	addressSingular := &duckv1.Addressable{URL: externalURL}
+
+	hub := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+		Spec:       v1alpha2.LLMInferenceServiceSpec{Model: v1alpha2.LLMModelSpec{URI: *apis.HTTPS("example.com")}},
+		Status: v1alpha2.LLMInferenceServiceStatus{
+			URL:     apis.HTTPS("example.com"),
+			Address: addressSingular,
+			Addresses: []v1alpha2.SourcedAddress{
+				{
+					Addressable: duckv1.Addressable{
+						Name: &externalName,
+						URL:  externalURL,
+					},
+					Origin: &gwapiv1.ObjectReference{
+						Group:     "gateway.networking.k8s.io",
+						Kind:      "Gateway",
+						Name:      "my-gateway",
+						Namespace: ptr.To(gwapiv1.Namespace("istio-system")),
+					},
+				},
+			},
+		},
+	}
+
+	// v1alpha2 -> v1alpha1
+	spoke := &LLMInferenceService{}
+	require.NoError(t, spoke.ConvertFrom(hub))
+
+	assert.Equal(t, hub.Status.URL.String(), spoke.Status.URL.String())
+	require.NotNil(t, spoke.Status.Address, "Address (singular) should be preserved in ConvertFrom")
+	assert.Equal(t, externalURL.String(), spoke.Status.Address.URL.String())
+	require.Len(t, spoke.Status.Addresses, 1)
+	assert.Equal(t, "gateway-external", *spoke.Status.AddressStatus.Addresses[0].Name)
+	assert.Equal(t, "https://example.com/ns/m", spoke.Status.Addresses[0].URL.String())
+
+	// v1alpha1 -> v1alpha2 (roundtrip) - Origin is lost
+	restored := &v1alpha2.LLMInferenceService{}
+	require.NoError(t, spoke.ConvertTo(restored))
+
+	assert.Equal(t, hub.Status.URL.String(), restored.Status.URL.String())
+	require.NotNil(t, restored.Status.Address, "Address (singular) should survive roundtrip") //nolint:staticcheck // testing deprecated field
+	assert.Equal(t, externalURL.String(), restored.Status.Address.URL.String())               //nolint:staticcheck // testing deprecated field
+	require.Len(t, restored.Status.Addresses, 1)
+	assert.Equal(t, "gateway-external", *restored.Status.Addresses[0].Name)
+	assert.Equal(t, "https://example.com/ns/m", restored.Status.Addresses[0].URL.String())
+	assert.Nil(t, restored.Status.Addresses[0].Origin, "Origin is lost on v1alpha2 -> v1alpha1 -> v1alpha2 roundtrip")
 }
