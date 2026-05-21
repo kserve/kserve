@@ -431,6 +431,12 @@ jobs:
         run: |
           ./test/scripts/gh-actions/status-check.sh
 
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-predictor-${{ matrix.install-method }}
+
   test-transformer-explainer-mms:
     runs-on: ubuntu-latest
     needs:
@@ -540,6 +546,12 @@ jobs:
         run: |
           ./test/scripts/gh-actions/status-check.sh
 
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-transformer-explainer-mms-${{ matrix.install-method }}
+
   test-graph:
     runs-on: ubuntu-latest
     needs:
@@ -637,6 +649,12 @@ jobs:
         if: always()
         run: |
           ./test/scripts/gh-actions/status-check.sh
+
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-graph-${{ matrix.install-method }}
 
   test-path-based-routing:
     runs-on: ubuntu-latest
@@ -757,6 +775,12 @@ jobs:
         if: always()
         run: |
           ./test/scripts/gh-actions/status-check.sh
+
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-path-based-routing-${{ matrix.install-method }}
 
   test-qpext:
     runs-on: ubuntu-latest
@@ -913,6 +937,12 @@ jobs:
         run: |
           ./test/scripts/gh-actions/status-check.sh
 
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-helm
+
   test-raw:
     runs-on: ubuntu-latest
     strategy:
@@ -1067,6 +1097,12 @@ jobs:
         run: |
           ./test/scripts/gh-actions/status-check.sh
 
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-raw-${{ matrix.network-layer }}-${{ matrix.install-method }}
+
   test-autoscaling:
     runs-on: ubuntu-latest
     needs:
@@ -1169,6 +1205,12 @@ jobs:
         if: always()
         run: |
           ./test/scripts/gh-actions/status-check.sh
+
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-autoscaling-${{ matrix.install-method }}
 
   test-kourier:
     runs-on: ubuntu-latest
@@ -1279,6 +1321,12 @@ jobs:
         run: |
           ./test/scripts/gh-actions/status-check.sh "kourier"
 
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-kourier-${{ matrix.install-method }}
+
   test-llm:
     runs-on: ubuntu-latest
     needs: [detect-changes, kserve-image-build, predictor-runtime-build]
@@ -1355,6 +1403,12 @@ jobs:
         if: always()
         run: |
           ./test/scripts/gh-actions/status-check.sh
+
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-llm-${{ matrix.install-method }}
 
   test-huggingface-server-vllm:
     runs-on: ubuntu-latest
@@ -1433,3 +1487,9 @@ jobs:
         if: always()
         run: |
           ./test/scripts/gh-actions/status-check.sh
+
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-vllm-${{ matrix.install-method }}
