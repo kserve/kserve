@@ -264,7 +264,7 @@ func (r *LLMISVCReconciler) propagateScalingStatus(ctx context.Context, llmSvc *
 
 // propagateHPAStatus reads the live HPA status and maps its conditions to a ScalingReady
 // condition on the LLMInferenceService. AbleToScale=False or ScalingActive=False means the
-// metrics pipeline is broken; ScalingLimited is informational (scaling works but is capped).
+// metrics pipeline is broken and sets ScalingReady=False.
 func (r *LLMISVCReconciler) propagateHPAStatus(ctx context.Context, expected *autoscalingv2.HorizontalPodAutoscaler, ready func(), notReady func(reason, messageFormat string, messageA ...interface{})) error {
 	curr := &autoscalingv2.HorizontalPodAutoscaler{}
 	if err := r.Get(ctx, client.ObjectKeyFromObject(expected), curr); err != nil {
@@ -279,25 +279,11 @@ func (r *LLMISVCReconciler) propagateHPAStatus(ctx context.Context, expected *au
 
 	for _, cond := range curr.Status.Conditions {
 		switch cond.Type {
-		case autoscalingv2.AbleToScale:
+		case autoscalingv2.AbleToScale, autoscalingv2.ScalingActive:
 			foundAny = true
 			if cond.Status == corev1.ConditionFalse {
 				notReady(cond.Reason, cond.Message)
 				return nil
-			}
-		case autoscalingv2.ScalingActive:
-			foundAny = true
-			if cond.Status == corev1.ConditionFalse {
-				notReady(cond.Reason, cond.Message)
-				return nil
-			}
-		case autoscalingv2.ScalingLimited:
-			// ScalingLimited=True is informational: the HPA is functioning but capped at
-			// min or max replicas. This is not a failure — scaling is still healthy — so we
-			// emit an event rather than marking ScalingReady=False. The event is visible via
-			// `kubectl describe llminferenceservice` in the Events section.
-			if cond.Status == corev1.ConditionTrue {
-				r.Eventf(expected, corev1.EventTypeNormal, "ScalingLimited", "HPA is at scaling limit: %s", cond.Message)
 			}
 		}
 	}
@@ -313,8 +299,7 @@ func (r *LLMISVCReconciler) propagateHPAStatus(ctx context.Context, expected *au
 
 // propagateScaledObjectStatus reads the live KEDA ScaledObject status and maps its conditions
 // to a ScalingReady condition on the LLMInferenceService. Ready=False means a trigger/config
-// issue; Paused=True means scaling is paused; Fallback=True is a soft warning (scaling degraded
-// but still operating).
+// issue and sets ScalingReady=False.
 func (r *LLMISVCReconciler) propagateScaledObjectStatus(ctx context.Context, expected *kedav1alpha1.ScaledObject, ready func(), notReady func(reason, messageFormat string, messageA ...interface{})) error {
 	curr := &kedav1alpha1.ScaledObject{}
 	if err := r.Get(ctx, client.ObjectKeyFromObject(expected), curr); err != nil {
@@ -331,12 +316,6 @@ func (r *LLMISVCReconciler) propagateScaledObjectStatus(ctx context.Context, exp
 		return nil
 	}
 
-	pausedCond := conditions.GetPausedCondition()
-	if pausedCond.Status == metav1.ConditionTrue {
-		notReady(pausedCond.Reason, pausedCond.Message)
-		return nil
-	}
-
 	readyCond := conditions.GetReadyCondition()
 	if readyCond.Status == metav1.ConditionFalse {
 		notReady(readyCond.Reason, readyCond.Message)
@@ -346,12 +325,6 @@ func (r *LLMISVCReconciler) propagateScaledObjectStatus(ctx context.Context, exp
 	if readyCond.Status != metav1.ConditionTrue {
 		notReady("ScaledObjectProgressing", "ScaledObject is not yet ready")
 		return nil
-	}
-
-	fallbackCond := conditions.GetFallbackCondition()
-	if fallbackCond.Status == metav1.ConditionTrue {
-		r.Eventf(expected, corev1.EventTypeWarning, "ScaledObjectFallback",
-			"ScaledObject is using fallback replicas: %s", fallbackCond.Message)
 	}
 
 	ready()

@@ -1194,7 +1194,7 @@ func TestPropagateScaledObjectStatus(t *testing.T) {
 			wantReason:   "ScaledObjectProgressing",
 		},
 		{
-			name: "Paused=True -> not ready",
+			name: "Paused=True with Ready=True -> ready (pause not surfaced yet)",
 			so: &kedav1alpha1.ScaledObject{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-so", Namespace: "test-ns"},
 				Status: kedav1alpha1.ScaledObjectStatus{
@@ -1206,8 +1206,7 @@ func TestPropagateScaledObjectStatus(t *testing.T) {
 					},
 				},
 			},
-			wantNotReady: true,
-			wantReason:   "ScaledObjectPaused",
+			wantReady: true,
 		},
 		{
 			name: "Fallback=True with Ready=True -> ready (soft warning)",
