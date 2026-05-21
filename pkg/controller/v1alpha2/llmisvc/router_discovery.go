@@ -46,6 +46,12 @@ import (
 
 var wildcardHostname = constants.GetEnvOrDefault("GATEWAY_API_WILDCARD_HOSTNAME", "inference")
 
+// DiscoveredURL pairs a URL with the networking resource that produced it.
+type DiscoveredURL struct {
+	URL    *apis.URL
+	Origin *gwapiv1.ObjectReference
+}
+
 // ResolvedGateway contains a Gateway and its associated GatewayClass.
 type ResolvedGateway struct {
 	Gateway      *gwapiv1.Gateway
@@ -133,13 +139,20 @@ func DiscoverGatewayServiceHost(ctx context.Context, c client.Client, gateway *g
 // DiscoverURLs extracts accessible URLs from an HTTPRoute by examining its gateways
 // It constructs URLs based on gateway listeners and addresses, and also discovers
 // internal URLs from backing services
-func DiscoverURLs(ctx context.Context, c client.Client, gateways []ResolvedGateway, route *gwapiv1.HTTPRoute, cfg Config) ([]*apis.URL, error) {
-	var urls []*apis.URL
+func DiscoverURLs(ctx context.Context, c client.Client, gateways []ResolvedGateway, route *gwapiv1.HTTPRoute, cfg Config) ([]DiscoveredURL, error) {
+	var urls []DiscoveredURL
 
 	for _, g := range gateways {
 		listeners, err := selectListeners(g.Gateway, g.ParentRef.SectionName, cfg.UrlScheme)
 		if err != nil {
 			return nil, fmt.Errorf("failed to select listeners for gateway %s/%s: %w", g.Gateway.Namespace, g.Gateway.Name, err)
+		}
+
+		origin := &gwapiv1.ObjectReference{
+			Group:     gwapiv1.GroupName,
+			Kind:      "Gateway",
+			Name:      gwapiv1.ObjectName(g.Gateway.Name),
+			Namespace: ptr.To(gwapiv1.Namespace(g.Gateway.Namespace)),
 		}
 
 		paths := extractRoutePaths(route, cfg.ModelBasedRoutingHeaderName)
@@ -160,7 +173,9 @@ func DiscoverURLs(ctx context.Context, c client.Client, gateways []ResolvedGatew
 					if err != nil {
 						return nil, fmt.Errorf("failed to combine URLs for Gateway %s/%s: %w", g.Gateway.Namespace, g.Gateway.Name, err)
 					}
-					urls = append(urls, gatewayURLs...)
+					for _, u := range gatewayURLs {
+						urls = append(urls, DiscoveredURL{URL: u, Origin: origin})
+					}
 				}
 			}
 
@@ -169,17 +184,26 @@ func DiscoverURLs(ctx context.Context, c client.Client, gateways []ResolvedGatew
 			if err != nil {
 				return nil, fmt.Errorf("failed to discover gateway service host for %s/%s: %w", g.Gateway.Namespace, g.Gateway.Name, err)
 			}
-			if internalHost != "" {
-				// Use preferred (first) listener's scheme and port for the internal URL.
-				// Internal services typically expose a single protocol, so generating one
-				// URL (matching the preferred scheme) is sufficient. External URLs are
-				// generated for all listeners because clients may need either protocol.
-				listener := listeners[0]
-				internalURLs, err := combineIntoURLs([]string{internalHost}, schemeForProtocol(listener.Protocol), listener.Port, path)
-				if err != nil {
-					return nil, fmt.Errorf("failed to build internal URL for Gateway %s/%s: %w", g.Gateway.Namespace, g.Gateway.Name, err)
+			// Skip if this host was already discovered through gateway status addresses.
+			// This happens when a ClusterIP-backed gateway reports its service hostname
+			// as its status address, making the backing-service lookup redundant.
+			if internalHost != "" && !slices.ContainsFunc(urls, func(d DiscoveredURL) bool {
+				return d.URL.URL().Hostname() == internalHost
+			}) {
+				if internalHost != "" {
+					// Use preferred (first) listener's scheme and port for the internal URL.
+					// Internal services typically expose a single protocol, so generating one
+					// URL (matching the preferred scheme) is sufficient. External URLs are
+					// generated for all listeners because clients may need either protocol.
+					listener := listeners[0]
+					internalURLs, err := combineIntoURLs([]string{internalHost}, schemeForProtocol(listener.Protocol), listener.Port, path)
+					if err != nil {
+						return nil, fmt.Errorf("failed to build internal URL for Gateway %s/%s: %w", g.Gateway.Namespace, g.Gateway.Name, err)
+					}
+					for _, u := range internalURLs {
+						urls = append(urls, DiscoveredURL{URL: u, Origin: origin})
+					}
 				}
-				urls = append(urls, internalURLs...)
 			}
 		}
 	}

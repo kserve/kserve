@@ -290,19 +290,21 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 
 	if utils.GetForceStopRuntime(llmSvc) {
 		llmSvc.Status.Router = nil
+		llmSvc.Status.Address = nil //nolint:staticcheck // retained for schema compatibility
 		llmSvc.Status.Addresses = nil
-		llmSvc.Status.Address = nil
 		llmSvc.MarkHTTPRoutesNotReady("Stopped", "Service is stopped")
 		return nil, nil
 	}
 
 	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route == nil {
 		llmSvc.Status.Router = nil
-		llmSvc.Status.Addresses = []duckv1.Addressable{{
-			URL: apis.HTTPS(network.GetServiceHostname(
-				kmeta.ChildName(llmSvc.GetName(), "-kserve-workload-svc"),
-				llmSvc.GetNamespace(),
-			)),
+		llmSvc.Status.Addresses = []v1alpha2.SourcedAddress{{
+			Addressable: duckv1.Addressable{
+				URL: apis.HTTPS(network.GetServiceHostname(
+					kmeta.ChildName(llmSvc.GetName(), "-kserve-workload-svc"),
+					llmSvc.GetNamespace(),
+				)),
+			},
 		}}
 		return nil, nil
 	}
@@ -315,7 +317,7 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	var urls []*apis.URL
+	var discovered []DiscoveredURL
 	var allResolved []ResolvedGateway
 	for _, route := range routes {
 		resolvedGWs, err := DiscoverGateways(ctx, r.Client, route)
@@ -323,13 +325,11 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 			return nil, fmt.Errorf("failed to discover gateways for route %s/%s: %w", route.GetNamespace(), route.GetName(), err)
 		}
 		allResolved = append(allResolved, resolvedGWs...)
-		discoverURL, err := DiscoverURLs(ctx, r.Client, resolvedGWs, route, *cfg)
+		urls, err := DiscoverURLs(ctx, r.Client, resolvedGWs, route, *cfg)
 		if IgnoreNoURLsDiscovered(err) != nil {
 			return nil, fmt.Errorf("failed to discover URL for route %s/%s: %w", route.GetNamespace(), route.GetName(), err)
 		}
-		if discoverURL != nil {
-			urls = append(urls, discoverURL...)
-		}
+		discovered = append(discovered, urls...)
 	}
 
 	if len(routes) > 0 {
@@ -338,14 +338,20 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 		}
 	}
 
-	slices.SortStableFunc(urls, func(a, b *apis.URL) int {
-		return cmp.Compare(a.String(), b.String())
+	additional, err := r.discoverAdditionalURLs(ctx, discovered)
+	if err != nil {
+		return nil, fmt.Errorf("failed to discover additional URLs: %w", err)
+	}
+	discovered = append(discovered, additional...)
+
+	slices.SortStableFunc(discovered, func(a, b DiscoveredURL) int {
+		return cmp.Compare(a.URL.String(), b.URL.String())
 	})
 
-	externalURLs := FilterExternalURLs(urls)
+	externalURLs := FilterExternalURLs(discovered)
 	if len(externalURLs) == 0 {
 		logger.Info("no public URL discovered")
-		if len(urls) > 0 {
+		if len(discovered) > 0 {
 			// Promote first address to top-level status.URL as some "cluster external" addresses are technically within
 			// "virtual private networks" and we cannot detect that from just IPs. Even if it's a cluster-local URL, the
 			// status URL is just for discovery and easy access, and it's not a problem to have here while we prioritize
@@ -355,7 +361,7 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 			// root URL (/) for backward compatibility: status.URL was always the
 			// path-based URL before model-based routing was introduced, and
 			// existing clients may rely on that form.
-			llmSvc.Status.URL = preferPathBasedURL(urls, llmSvc.Namespace, llmSvc.Name)
+			llmSvc.Status.URL = preferPathBasedURL(discovered, llmSvc.Namespace, llmSvc.Name)
 		} else {
 			llmSvc.Status.URL = nil
 		}
@@ -364,12 +370,15 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 		llmSvc.Status.URL = preferPathBasedURL(externalURLs, llmSvc.Namespace, llmSvc.Name)
 	}
 
-	llmSvc.Status.Addresses = make([]duckv1.Addressable, 0, len(urls))
-	for _, url := range urls {
-		addressType := AddressTypeName(url)
-		llmSvc.Status.Addresses = append(llmSvc.Status.Addresses, duckv1.Addressable{
-			Name: &addressType,
-			URL:  url,
+	llmSvc.Status.Addresses = make([]v1alpha2.SourcedAddress, 0, len(discovered))
+	for _, d := range discovered {
+		addressType := AddressTypeName(d.URL)
+		llmSvc.Status.Addresses = append(llmSvc.Status.Addresses, v1alpha2.SourcedAddress{
+			Addressable: duckv1.Addressable{
+				Name: &addressType,
+				URL:  d.URL,
+			},
+			Origin: d.Origin,
 		})
 	}
 
@@ -395,14 +404,14 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 // URL (/, requires the model-routing header). Alphabetical sorting puts "/" first,
 // but status.URL must remain the path-based URL for backward compatibility —
 // it's the form clients have always seen and the one that works unconditionally.
-func preferPathBasedURL(urls []*apis.URL, namespace, name string) *apis.URL {
+func preferPathBasedURL(urls []DiscoveredURL, namespace, name string) *apis.URL {
 	prefix := "/" + namespace + "/" + name
 	for _, u := range urls {
-		if strings.HasPrefix(u.Path, prefix) {
-			return u
+		if strings.HasPrefix(u.URL.Path, prefix) {
+			return u.URL
 		}
 	}
-	return urls[0]
+	return urls[0].URL
 }
 
 func RouterLabels(llmSvc *v1alpha2.LLMInferenceService) map[string]string {

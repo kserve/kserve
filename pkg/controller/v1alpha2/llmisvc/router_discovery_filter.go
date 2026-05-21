@@ -43,14 +43,18 @@ func IsExternalURL(url *apis.URL) bool {
 	return !IsInternalURL(url)
 }
 
-// FilterInternalURLs returns only the URLs that are internal/private
-func FilterInternalURLs(urls []*apis.URL) []*apis.URL {
-	return utils.FilterSlice(urls, IsInternalURL)
+// FilterInternalURLs returns only the discovered URLs that are internal/private
+func FilterInternalURLs(urls []DiscoveredURL) []DiscoveredURL {
+	return utils.FilterSlice(urls, func(d DiscoveredURL) bool {
+		return IsInternalURL(d.URL)
+	})
 }
 
-// FilterExternalURLs returns only the URLs that are external/public
-func FilterExternalURLs(urls []*apis.URL) []*apis.URL {
-	return utils.FilterSlice(urls, IsExternalURL)
+// FilterExternalURLs returns only the discovered URLs that are external/public
+func FilterExternalURLs(urls []DiscoveredURL) []DiscoveredURL {
+	return utils.FilterSlice(urls, func(d DiscoveredURL) bool {
+		return IsExternalURL(d.URL)
+	})
 }
 
 // isInternalIP checks if an IP address is in a private range

@@ -587,6 +587,18 @@ type WorkloadStatus struct {
 	Scheduler *corev1.TypedLocalObjectReference `json:"scheduler,omitempty"`
 }
 
+// SourcedAddress extends Addressable with the networking resource that
+// produced this address, enabling consumers to select endpoints by origin.
+type SourcedAddress struct {
+	duckv1.Addressable `json:",inline"`
+
+	// Origin identifies the networking resource (e.g., Gateway) that
+	// produced this address. Nil when the origin is unknown or when
+	// the address was converted from an older API version.
+	// +optional
+	Origin *gwapiv1.ObjectReference `json:"origin,omitempty"`
+}
+
 // LLMInferenceServiceStatus defines the observed state of LLMInferenceService.
 type LLMInferenceServiceStatus struct {
 	// URL is the primary address for accessing the service.
@@ -599,8 +611,17 @@ type LLMInferenceServiceStatus struct {
 	// Conditions of the resource.
 	duckv1.Status `json:",inline"`
 
-	// Addressable endpoint for the service, including cluster-local URLs.
-	duckv1.AddressStatus `json:",inline,omitempty"`
+	// Deprecated: Address is retained for CRD schema compatibility.
+	// It is never populated; use Addresses instead.
+	// +optional
+	Address *duckv1.Addressable `json:"address,omitempty"`
+
+	// Addresses lists the network endpoints where the service is reachable.
+	// Each address may include an origin reference identifying the networking
+	// resource that produced it.
+	// +optional
+	// +listType=atomic
+	Addresses []SourcedAddress `json:"addresses,omitempty"`
 
 	// Router records the observed networking topology for this service.
 	// Nil when routing is not configured or the service is stopped.

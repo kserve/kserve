@@ -1327,6 +1327,38 @@ func TestDiscoverURLs(t *testing.T) {
 			),
 		},
 		{
+			name: "ClusterIP-backed gateway - no duplicate when status address matches backing service hostname",
+			route: HTTPRoute("test-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("my-gateway", RefInNamespace("gateway-ns"))),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("my-gateway",
+					InNamespace[*gwapiv1.Gateway]("gateway-ns"),
+					WithListeners(gwapiv1.Listener{
+						Name:     "https",
+						Protocol: gwapiv1.HTTPSProtocolType,
+						Port:     443,
+					}),
+					WithHostnameAddresses("gateway-service.gateway-ns.svc.cluster.local"),
+				),
+			},
+			services: []*corev1.Service{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "gateway-service",
+						Namespace: "gateway-ns",
+						Labels: map[string]string{
+							"gateway.networking.k8s.io/gateway-name": "my-gateway",
+						},
+					},
+				},
+			},
+			assert: expectURLs(
+				"https://gateway-service.gateway-ns.svc.cluster.local/",
+			),
+		},
+		{
 			name: "no internal URL without backing service",
 			route: HTTPRoute("test-route",
 				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
@@ -1477,26 +1509,102 @@ func TestDiscoverURLs(t *testing.T) {
 
 			var actualURLs []string
 			for _, url := range urls {
-				actualURLs = append(actualURLs, url.String())
+				actualURLs = append(actualURLs, url.URL.String())
 			}
 
 			tt.assert(g, actualURLs, err)
 		})
 	}
+
+	t.Run("Origin tracks the source gateway for each discovered URL", func(t *testing.T) {
+		g := NewWithT(t)
+		ctx := t.Context()
+
+		scheme := runtime.NewScheme()
+		g.Expect(gwapiv1.Install(scheme)).To(Succeed())
+		g.Expect(corev1.AddToScheme(scheme)).To(Succeed())
+
+		route := HTTPRoute("test-route",
+			InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+			WithParentRefs(
+				gwapiv1.ParentReference{
+					Name:      "gateway-a",
+					Namespace: ptr.To(gwapiv1.Namespace("gw-ns")),
+					Group:     ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
+					Kind:      ptr.To(gwapiv1.Kind("Gateway")),
+				},
+				gwapiv1.ParentReference{
+					Name:      "gateway-b",
+					Namespace: ptr.To(gwapiv1.Namespace("gw-ns")),
+					Group:     ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
+					Kind:      ptr.To(gwapiv1.Kind("Gateway")),
+				},
+			),
+		)
+
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(
+				route,
+				Gateway("gateway-a",
+					InNamespace[*gwapiv1.Gateway]("gw-ns"),
+					WithListeners(gwapiv1.Listener{
+						Name:     "https",
+						Protocol: gwapiv1.HTTPSProtocolType,
+						Port:     443,
+					}),
+					WithAddresses("gw-a.example.com"),
+				),
+				Gateway("gateway-b",
+					InNamespace[*gwapiv1.Gateway]("gw-ns"),
+					WithListeners(gwapiv1.Listener{
+						Name:     "http",
+						Protocol: gwapiv1.HTTPProtocolType,
+						Port:     80,
+					}),
+					WithAddresses("gw-b.example.com"),
+				),
+				DefaultGatewayClass(),
+			).
+			Build()
+
+		gateways, gwErr := llmisvc.DiscoverGateways(ctx, fakeClient, route)
+		g.Expect(gwErr).ToNot(HaveOccurred())
+		discovered, err := llmisvc.DiscoverURLs(ctx, fakeClient, gateways, route, "")
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(discovered).ToNot(BeEmpty())
+
+		for _, d := range discovered {
+			g.Expect(d.Origin).ToNot(BeNil(), "Origin must be set for URL %s", d.URL.String())
+			g.Expect(string(d.Origin.Kind)).To(Equal("Gateway"))
+			g.Expect(string(d.Origin.Group)).To(Equal(gwapiv1.GroupName))
+			g.Expect(string(ptr.Deref(d.Origin.Namespace, ""))).To(Equal("gw-ns"))
+
+			host := d.URL.URL().Hostname()
+			switch host {
+			case "gw-a.example.com":
+				g.Expect(string(d.Origin.Name)).To(Equal("gateway-a"))
+			case "gw-b.example.com":
+				g.Expect(string(d.Origin.Name)).To(Equal("gateway-b"))
+			default:
+				t.Errorf("unexpected host %s", host)
+			}
+		}
+	})
 }
 
 func TestFilterURLs(t *testing.T) {
-	convertToURLs := func(urls []string) ([]*apis.URL, error) {
-		var parsedURLs []*apis.URL
+	toDiscoveredURLs := func(urls []string) ([]llmisvc.DiscoveredURL, error) {
+		discovered := make([]llmisvc.DiscoveredURL, 0, len(urls))
 		for _, urlStr := range urls {
-			url, err := apis.ParseURL(urlStr)
+			u, err := apis.ParseURL(urlStr)
 			if err != nil {
 				return nil, err
 			}
-			parsedURLs = append(parsedURLs, url)
+			discovered = append(discovered, llmisvc.DiscoveredURL{URL: u})
 		}
 
-		return parsedURLs, nil
+		return discovered, nil
 	}
 	t.Run("mixed internal and external URLs", func(t *testing.T) {
 		g := NewGomegaWithT(t)
@@ -1519,20 +1627,20 @@ func TestFilterURLs(t *testing.T) {
 			"http://203.0.113.1/",
 		}
 
-		parsedURLs, err := convertToURLs(inputURLs)
+		discovered, err := toDiscoveredURLs(inputURLs)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		internalURLs := llmisvc.FilterInternalURLs(parsedURLs)
+		internalURLs := llmisvc.FilterInternalURLs(discovered)
 		actualInternal := make([]string, 0, len(internalURLs))
 		for _, url := range internalURLs {
-			actualInternal = append(actualInternal, url.String())
+			actualInternal = append(actualInternal, url.URL.String())
 		}
 		g.Expect(actualInternal).To(Equal(expectedInternal))
 
-		externalURLs := llmisvc.FilterExternalURLs(parsedURLs)
+		externalURLs := llmisvc.FilterExternalURLs(discovered)
 		actualExternal := make([]string, 0, len(externalURLs))
 		for _, url := range externalURLs {
-			actualExternal = append(actualExternal, url.String())
+			actualExternal = append(actualExternal, url.URL.String())
 		}
 		g.Expect(actualExternal).To(Equal(expectedExternal))
 	})
@@ -1554,20 +1662,20 @@ func TestFilterURLs(t *testing.T) {
 			"https://secure.example.com:8443/",
 		}
 
-		parsedURLs, err := convertToURLs(inputURLs)
+		discovered, err := toDiscoveredURLs(inputURLs)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		internalURLs := llmisvc.FilterInternalURLs(parsedURLs)
+		internalURLs := llmisvc.FilterInternalURLs(discovered)
 		actualInternal := make([]string, 0, len(internalURLs))
 		for _, url := range internalURLs {
-			actualInternal = append(actualInternal, url.String())
+			actualInternal = append(actualInternal, url.URL.String())
 		}
 		g.Expect(actualInternal).To(Equal(expectedInternal))
 
-		externalURLs := llmisvc.FilterExternalURLs(parsedURLs)
+		externalURLs := llmisvc.FilterExternalURLs(discovered)
 		actualExternal := make([]string, 0, len(externalURLs))
 		for _, url := range externalURLs {
-			actualExternal = append(actualExternal, url.String())
+			actualExternal = append(actualExternal, url.URL.String())
 		}
 		g.Expect(actualExternal).To(Equal(expectedExternal))
 	})
@@ -1591,20 +1699,20 @@ func TestFilterURLs(t *testing.T) {
 			"http://api.example.com/",
 		}
 
-		parsedURLs, err := convertToURLs(inputURLs)
+		discovered, err := toDiscoveredURLs(inputURLs)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		internalURLs := llmisvc.FilterInternalURLs(parsedURLs)
+		internalURLs := llmisvc.FilterInternalURLs(discovered)
 		actualInternal := make([]string, 0, len(internalURLs))
 		for _, url := range internalURLs {
-			actualInternal = append(actualInternal, url.String())
+			actualInternal = append(actualInternal, url.URL.String())
 		}
 		g.Expect(actualInternal).To(Equal(expectedInternal))
 
-		externalURLs := llmisvc.FilterExternalURLs(parsedURLs)
+		externalURLs := llmisvc.FilterExternalURLs(discovered)
 		actualExternal := make([]string, 0, len(externalURLs))
 		for _, url := range externalURLs {
-			actualExternal = append(actualExternal, url.String())
+			actualExternal = append(actualExternal, url.URL.String())
 		}
 		g.Expect(actualExternal).To(Equal(expectedExternal))
 	})
@@ -1623,20 +1731,20 @@ func TestFilterURLs(t *testing.T) {
 		}
 		expectedExternal := []string{}
 
-		parsedURLs, err := convertToURLs(inputURLs)
+		discovered, err := toDiscoveredURLs(inputURLs)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		internalURLs := llmisvc.FilterInternalURLs(parsedURLs)
+		internalURLs := llmisvc.FilterInternalURLs(discovered)
 		actualInternal := make([]string, 0, len(internalURLs))
 		for _, url := range internalURLs {
-			actualInternal = append(actualInternal, url.String())
+			actualInternal = append(actualInternal, url.URL.String())
 		}
 		g.Expect(actualInternal).To(Equal(expectedInternal))
 
-		externalURLs := llmisvc.FilterExternalURLs(parsedURLs)
+		externalURLs := llmisvc.FilterExternalURLs(discovered)
 		actualExternal := make([]string, 0, len(externalURLs))
 		for _, url := range externalURLs {
-			actualExternal = append(actualExternal, url.String())
+			actualExternal = append(actualExternal, url.URL.String())
 		}
 		g.Expect(actualExternal).To(Equal(expectedExternal))
 	})
@@ -1655,20 +1763,20 @@ func TestFilterURLs(t *testing.T) {
 			"http://203.0.113.1/",
 		}
 
-		parsedURLs, err := convertToURLs(inputURLs)
+		discovered, err := toDiscoveredURLs(inputURLs)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		internalURLs := llmisvc.FilterInternalURLs(parsedURLs)
+		internalURLs := llmisvc.FilterInternalURLs(discovered)
 		actualInternal := make([]string, 0, len(internalURLs))
 		for _, url := range internalURLs {
-			actualInternal = append(actualInternal, url.String())
+			actualInternal = append(actualInternal, url.URL.String())
 		}
 		g.Expect(actualInternal).To(Equal(expectedInternal))
 
-		externalURLs := llmisvc.FilterExternalURLs(parsedURLs)
+		externalURLs := llmisvc.FilterExternalURLs(discovered)
 		actualExternal := make([]string, 0, len(externalURLs))
 		for _, url := range externalURLs {
-			actualExternal = append(actualExternal, url.String())
+			actualExternal = append(actualExternal, url.URL.String())
 		}
 		g.Expect(actualExternal).To(Equal(expectedExternal))
 	})
@@ -1679,20 +1787,20 @@ func TestFilterURLs(t *testing.T) {
 		expectedInternal := []string{}
 		expectedExternal := []string{}
 
-		parsedURLs, err := convertToURLs(inputURLs)
+		discovered, err := toDiscoveredURLs(inputURLs)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		internalURLs := llmisvc.FilterInternalURLs(parsedURLs)
+		internalURLs := llmisvc.FilterInternalURLs(discovered)
 		actualInternal := make([]string, 0, len(internalURLs))
 		for _, url := range internalURLs {
-			actualInternal = append(actualInternal, url.String())
+			actualInternal = append(actualInternal, url.URL.String())
 		}
 		g.Expect(actualInternal).To(Equal(expectedInternal))
 
-		externalURLs := llmisvc.FilterExternalURLs(parsedURLs)
+		externalURLs := llmisvc.FilterExternalURLs(discovered)
 		actualExternal := make([]string, 0, len(externalURLs))
 		for _, url := range externalURLs {
-			actualExternal = append(actualExternal, url.String())
+			actualExternal = append(actualExternal, url.URL.String())
 		}
 		g.Expect(actualExternal).To(Equal(expectedExternal))
 	})
@@ -1712,20 +1820,20 @@ func TestFilterURLs(t *testing.T) {
 			"http://api.example.com/api/v1/models",
 		}
 
-		parsedURLs, err := convertToURLs(inputURLs)
+		discovered, err := toDiscoveredURLs(inputURLs)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		internalURLs := llmisvc.FilterInternalURLs(parsedURLs)
+		internalURLs := llmisvc.FilterInternalURLs(discovered)
 		actualInternal := make([]string, 0, len(internalURLs))
 		for _, url := range internalURLs {
-			actualInternal = append(actualInternal, url.String())
+			actualInternal = append(actualInternal, url.URL.String())
 		}
 		g.Expect(actualInternal).To(Equal(expectedInternal))
 
-		externalURLs := llmisvc.FilterExternalURLs(parsedURLs)
+		externalURLs := llmisvc.FilterExternalURLs(discovered)
 		actualExternal := make([]string, 0, len(externalURLs))
 		for _, url := range externalURLs {
-			actualExternal = append(actualExternal, url.String())
+			actualExternal = append(actualExternal, url.URL.String())
 		}
 		g.Expect(actualExternal).To(Equal(expectedExternal))
 	})

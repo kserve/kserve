@@ -55,9 +55,14 @@ func (src *LLMInferenceService) ConvertTo(dstRaw conversion.Hub) error {
 
 	// Status conversion
 	dst.Status = v1alpha2.LLMInferenceServiceStatus{
-		URL:           src.Status.URL,
-		Status:        src.Status.Status,
-		AddressStatus: src.Status.AddressStatus,
+		URL:     src.Status.URL,
+		Status:  src.Status.Status,
+		Address: src.Status.Address,
+	}
+	for _, addr := range src.Status.Addresses {
+		dst.Status.Addresses = append(dst.Status.Addresses, v1alpha2.SourcedAddress{
+			Addressable: addr,
+		})
 	}
 
 	return nil
@@ -76,11 +81,15 @@ func (dst *LLMInferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 	// Restore criticality values from annotations
 	restoreCriticalityFromAnnotations(&dst.ObjectMeta, &dst.Spec.Model)
 
-	// Status conversion
+	// Status conversion - Origin is lost on this path (v1alpha1 doesn't have it),
+	// but status is controller-produced and gets re-populated on next reconcile.
 	dst.Status = LLMInferenceServiceStatus{
-		URL:           src.Status.URL,
-		Status:        src.Status.Status,
-		AddressStatus: src.Status.AddressStatus,
+		URL:    src.Status.URL,
+		Status: src.Status.Status,
+	}
+	dst.Status.Address = src.Status.Address //nolint:staticcheck // retained for schema compatibility
+	for _, sa := range src.Status.Addresses {
+		dst.Status.Addresses = append(dst.Status.Addresses, sa.Addressable)
 	}
 
 	return nil
