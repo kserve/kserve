@@ -44,7 +44,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc
 
 @pytest.mark.modelcache
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_modelcache(rest_v1_client):
+async def test_sklearn_modelcache(rest_v1_client, network_layer):
     """
     Test LocalModelCache with sklearn predictor.
     This test is ARM64 compatible as sklearn server has multi-arch images.
@@ -174,7 +174,12 @@ async def test_sklearn_modelcache(rest_v1_client):
         )
 
     # Test inference with the cached model
-    res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
+    res = await predict_isvc(
+        rest_v1_client,
+        service_name,
+        "./data/iris_input.json",
+        network_layer=network_layer,
+    )
     assert res["predictions"] == [1, 1]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

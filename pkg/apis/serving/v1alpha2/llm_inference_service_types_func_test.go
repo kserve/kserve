@@ -350,6 +350,53 @@ func TestIsUsingLLMInferenceServiceConfig(t *testing.T) {
 			configName: "config-b",
 			want:       true,
 		},
+		{
+			name: "match via Status.AppliedConfigRefs name",
+			llmSvc: &LLMInferenceService{
+				Status: LLMInferenceServiceStatus{
+					AppliedConfigRefs: []AppliedConfigRef{
+						{Name: "kserve-config-llm-template", Namespace: "kserve", Source: AppliedConfigSourcePreset},
+						{Name: "my-custom-config", Namespace: "test-ns", Source: AppliedConfigSourceUserRef},
+					},
+				},
+			},
+			configName: "my-custom-config",
+			want:       true,
+		},
+		{
+			name: "no false positive on substring match in appliedConfigRefs",
+			llmSvc: &LLMInferenceService{
+				Status: LLMInferenceServiceStatus{
+					AppliedConfigRefs: []AppliedConfigRef{
+						{Name: "kserve-config-llm-template-extended", Namespace: "kserve", Source: AppliedConfigSourcePreset},
+					},
+				},
+			},
+			configName: "kserve-config-llm-template",
+			want:       false,
+		},
+		{
+			name: "appliedConfigRefs short-circuits annotation and baseRef checks",
+			llmSvc: &LLMInferenceService{
+				Spec: LLMInferenceServiceSpec{
+					BaseRefs: []corev1.LocalObjectReference{
+						{Name: "unrelated-config"},
+					},
+				},
+				Status: LLMInferenceServiceStatus{
+					Status: duckv1.Status{
+						Annotations: map[string]string{
+							"serving.kserve.io/config-llm-template": "also-unrelated",
+						},
+					},
+					AppliedConfigRefs: []AppliedConfigRef{
+						{Name: "target-config", Namespace: "kserve", Source: AppliedConfigSourcePreset},
+					},
+				},
+			},
+			configName: "target-config",
+			want:       true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -357,6 +404,98 @@ func TestIsUsingLLMInferenceServiceConfig(t *testing.T) {
 			got := tt.llmSvc.IsUsingLLMInferenceServiceConfig(tt.configName)
 			if got != tt.want {
 				t.Errorf("IsUsingLLMInferenceServiceConfig(%q) = %v, want %v", tt.configName, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsUsingLLMInferenceServiceConfigInNamespace(t *testing.T) {
+	tests := []struct {
+		name            string
+		llmSvc          *LLMInferenceService
+		configName      string
+		configNamespace string
+		want            bool
+	}{
+		{
+			name: "matches applied config in same namespace",
+			llmSvc: &LLMInferenceService{
+				Status: LLMInferenceServiceStatus{
+					AppliedConfigRefs: []AppliedConfigRef{
+						{Name: "shared-config", Namespace: "tenant-a", Source: AppliedConfigSourceUserRef},
+					},
+				},
+			},
+			configName:      "shared-config",
+			configNamespace: "tenant-a",
+			want:            true,
+		},
+		{
+			name: "does not match applied config in different namespace",
+			llmSvc: &LLMInferenceService{
+				Status: LLMInferenceServiceStatus{
+					AppliedConfigRefs: []AppliedConfigRef{
+						{Name: "shared-config", Namespace: "tenant-a", Source: AppliedConfigSourceUserRef},
+					},
+				},
+			},
+			configName:      "shared-config",
+			configNamespace: "kserve",
+			want:            false,
+		},
+		{
+			name: "when applied configs exist, annotation fallback is not used",
+			llmSvc: &LLMInferenceService{
+				Status: LLMInferenceServiceStatus{
+					Status: duckv1.Status{
+						Annotations: map[string]string{
+							"serving.kserve.io/config-llm-template": "kserve-config-llm-template",
+						},
+					},
+					AppliedConfigRefs: []AppliedConfigRef{
+						{Name: "different-config", Namespace: "kserve", Source: AppliedConfigSourcePreset},
+					},
+				},
+			},
+			configName:      "kserve-config-llm-template",
+			configNamespace: "kserve",
+			want:            false,
+		},
+		{
+			name: "cold start falls back to annotations",
+			llmSvc: &LLMInferenceService{
+				Status: LLMInferenceServiceStatus{
+					Status: duckv1.Status{
+						Annotations: map[string]string{
+							"serving.kserve.io/config-llm-template": "kserve-config-llm-template",
+						},
+					},
+				},
+			},
+			configName:      "kserve-config-llm-template",
+			configNamespace: "kserve",
+			want:            true,
+		},
+		{
+			name: "cold start falls back to base refs",
+			llmSvc: &LLMInferenceService{
+				Spec: LLMInferenceServiceSpec{
+					BaseRefs: []corev1.LocalObjectReference{
+						{Name: "tenant-config"},
+					},
+				},
+			},
+			configName:      "tenant-config",
+			configNamespace: "tenant-a",
+			want:            true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.llmSvc.IsUsingLLMInferenceServiceConfigInNamespace(tt.configName, tt.configNamespace)
+			if got != tt.want {
+				t.Errorf("IsUsingLLMInferenceServiceConfigInNamespace(%q, %q) = %v, want %v", tt.configName, tt.configNamespace, got, tt.want)
 			}
 		})
 	}

@@ -197,6 +197,23 @@ if [[ $# -eq 1 && "$1" == "llmisvc" ]]; then
 
   echo "::endgroup::"
 
+  echo "::group::Autoscaling pipeline diagnostics"
+  echo "--- ServiceMonitors ---"
+  kubectl get servicemonitors -A 2>/dev/null || true
+  echo "--- VariantAutoscalings ---"
+  kubectl get variantautoscalings -n kserve-ci-e2e-test -o yaml 2>/dev/null || true
+  echo "--- HPAs ---"
+  kubectl get hpa -n kserve-ci-e2e-test -o yaml 2>/dev/null || true
+  echo "--- ScaledObjects ---"
+  kubectl get scaledobjects -n kserve-ci-e2e-test -o yaml 2>/dev/null || true
+  echo "--- External Metrics APIService ---"
+  kubectl get apiservice v1beta1.external.metrics.k8s.io -o yaml 2>/dev/null || true
+  echo "--- WVA Controller Logs ---"
+  kubectl logs -n wva-system -l control-plane=controller-manager --tail=100 2>/dev/null || true
+  echo "--- Prometheus Adapter Logs ---"
+  kubectl logs -n monitoring -l app.kubernetes.io/name=prometheus-adapter --tail=50 2>/dev/null || true
+  echo "::endgroup::"
+
   echo "::group::Gather logs in envoy-gateway-system envoy-ai-gateway-system"
   NAMESPACES="envoy-gateway-system envoy-ai-gateway-system"
 

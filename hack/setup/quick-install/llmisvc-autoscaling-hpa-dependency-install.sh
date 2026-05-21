@@ -639,8 +639,8 @@ RUFF_VERSION=0.14.13
 PINACT_VERSION=v3.9.0
 KIND_VERSION=v0.30.0
 CERT_MANAGER_VERSION=v1.17.0
-ENVOY_GATEWAY_VERSION=v1.6.3
-ENVOY_AI_GATEWAY_VERSION=v0.5.0
+ENVOY_GATEWAY_VERSION=v1.7.0
+ENVOY_AI_GATEWAY_VERSION=v0.6.0
 KNATIVE_OPERATOR_VERSION=v1.21.1
 KNATIVE_SERVING_VERSION=1.21.1
 KEDA_OTEL_ADDON_VERSION=v0.0.6
@@ -648,12 +648,12 @@ PROMETHEUS_VERSION=83.4.0
 PROMETHEUS_ADAPTER_VERSION=5.3.0
 KSERVE_VERSION=v0.18.0
 ISTIO_VERSION=1.27.1
-KEDA_VERSION=2.17.3
+KEDA_VERSION=2.18.0
 OPENTELEMETRY_OPERATOR_VERSION=0.74.3
 LWS_VERSION=v0.8.0
 GATEWAY_API_VERSION=v1.4.1
 GIE_VERSION=v1.3.1
-WVA_VERSION=v0.6.0
+WVA_VERSION=v0.7.0
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -822,8 +822,43 @@ EOF
 
     kubectl wait certificate prometheus-tls -n "${PROMETHEUS_NAMESPACE}" --for=condition=Ready --timeout=60s
 
+    local values_file
+    values_file="$(mktemp)"
+    cat > "${values_file}" <<'VALUES_EOF'
+prometheus:
+  prometheusSpec:
+    additionalScrapeConfigs:
+      - job_name: kubernetes-pods-annotation
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: "true"
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: $1:$2
+            target_label: __address__
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scheme]
+            action: replace
+            target_label: __scheme__
+            regex: (.+)
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: pod
+VALUES_EOF
+
     log_info "Installing kube-prometheus-stack ${PROMETHEUS_VERSION}..."
     helm install "${PROMETHEUS_RELEASE_NAME}" prometheus-community/kube-prometheus-stack \
+        --values "${values_file}" \
         --namespace "${PROMETHEUS_NAMESPACE}" \
         --create-namespace \
         --version "${PROMETHEUS_VERSION}" \
@@ -831,6 +866,8 @@ EOF
         --set alertmanager.enabled=false \
         --set nodeExporter.enabled=false \
         --set kubeStateMetrics.enabled=false \
+        --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false \
+        --set prometheus.prometheusSpec.podMonitorSelectorNilUsesHelmValues=false \
         --set prometheus.prometheusSpec.resources.requests.cpu=50m \
         --set prometheus.prometheusSpec.resources.requests.memory=256Mi \
         --set prometheus.prometheusSpec.resources.limits.cpu=200m \
@@ -842,6 +879,8 @@ EOF
         --wait \
         --timeout 10m \
         ${PROMETHEUS_EXTRA_ARGS:-}
+
+    rm -f "${values_file}"
 
     log_success "Successfully installed kube-prometheus-stack ${PROMETHEUS_VERSION} via Helm"
 

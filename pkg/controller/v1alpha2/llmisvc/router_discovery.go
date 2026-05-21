@@ -46,18 +46,23 @@ import (
 
 var wildcardHostname = constants.GetEnvOrDefault("GATEWAY_API_WILDCARD_HOSTNAME", "inference")
 
-// resolvedGateway contains a Gateway and its associated GatewayClass
-// This provides all the information needed to understand gateway capabilities
-type resolvedGateway struct {
-	gateway      *gwapiv1.Gateway
-	gatewayClass *gwapiv1.GatewayClass
-	parentRef    gwapiv1.ParentReference
+// DiscoveredURL pairs a URL with the networking resource that produced it.
+type DiscoveredURL struct {
+	URL    *apis.URL
+	Origin *gwapiv1.ObjectReference
+}
+
+// ResolvedGateway contains a Gateway and its associated GatewayClass.
+type ResolvedGateway struct {
+	Gateway      *gwapiv1.Gateway
+	GatewayClass *gwapiv1.GatewayClass
+	ParentRef    gwapiv1.ParentReference
 }
 
 // DiscoverGateways finds and resolves all gateways referenced by an HTTPRoute
 // It fetches the Gateway and GatewayClass resources to provide complete routing context
-func DiscoverGateways(ctx context.Context, c client.Client, route *gwapiv1.HTTPRoute) ([]resolvedGateway, error) {
-	gateways := make([]resolvedGateway, 0)
+func DiscoverGateways(ctx context.Context, c client.Client, route *gwapiv1.HTTPRoute) ([]ResolvedGateway, error) {
+	gateways := make([]ResolvedGateway, 0)
 	for _, parentRef := range route.Spec.ParentRefs {
 		// Resolve namespace (defaults to route's namespace if not specified)
 		ns := ptr.Deref((&parentRef).Namespace, gwapiv1.Namespace(route.Namespace))
@@ -72,10 +77,10 @@ func DiscoverGateways(ctx context.Context, c client.Client, route *gwapiv1.HTTPR
 		if err := c.Get(ctx, types.NamespacedName{Name: string(gateway.Spec.GatewayClassName)}, gatewayClass); err != nil {
 			return nil, fmt.Errorf("failed to get GatewayClass %q for gateway %s/%s: %w", string(gateway.Spec.GatewayClassName), gwNS, gwName, err)
 		}
-		gateways = append(gateways, resolvedGateway{
-			gateway:      gateway,
-			gatewayClass: gatewayClass,
-			parentRef:    parentRef,
+		gateways = append(gateways, ResolvedGateway{
+			Gateway:      gateway,
+			GatewayClass: gatewayClass,
+			ParentRef:    parentRef,
 		})
 	}
 	return gateways, nil
@@ -134,22 +139,24 @@ func DiscoverGatewayServiceHost(ctx context.Context, c client.Client, gateway *g
 // DiscoverURLs extracts accessible URLs from an HTTPRoute by examining its gateways
 // It constructs URLs based on gateway listeners and addresses, and also discovers
 // internal URLs from backing services
-func DiscoverURLs(ctx context.Context, c client.Client, route *gwapiv1.HTTPRoute, preferredUrlScheme string) ([]*apis.URL, error) {
-	var urls []*apis.URL
-
-	gateways, err := DiscoverGateways(ctx, c, route)
-	if err != nil {
-		return nil, fmt.Errorf("failed to discover gateways: %w", err)
-	}
+func DiscoverURLs(ctx context.Context, c client.Client, gateways []ResolvedGateway, route *gwapiv1.HTTPRoute, preferredUrlScheme string) ([]DiscoveredURL, error) {
+	var urls []DiscoveredURL
 
 	for _, g := range gateways {
-		listeners, err := selectListeners(g.gateway, g.parentRef.SectionName, preferredUrlScheme)
+		listeners, err := selectListeners(g.Gateway, g.ParentRef.SectionName, preferredUrlScheme)
 		if err != nil {
-			return nil, fmt.Errorf("failed to select listeners for gateway %s/%s: %w", g.gateway.Namespace, g.gateway.Name, err)
+			return nil, fmt.Errorf("failed to select listeners for gateway %s/%s: %w", g.Gateway.Namespace, g.Gateway.Name, err)
+		}
+
+		origin := &gwapiv1.ObjectReference{
+			Group:     gwapiv1.GroupName,
+			Kind:      "Gateway",
+			Name:      gwapiv1.ObjectName(g.Gateway.Name),
+			Namespace: ptr.To(gwapiv1.Namespace(g.Gateway.Namespace)),
 		}
 
 		path := extractRoutePath(route)
-		addresses := g.gateway.Status.Addresses
+		addresses := g.Gateway.Status.Addresses
 
 		// Discover external URLs from Gateway status addresses (if available)
 		if len(addresses) > 0 {
@@ -157,24 +164,31 @@ func DiscoverURLs(ctx context.Context, c client.Client, route *gwapiv1.HTTPRoute
 				scheme, err := resolveScheme(listener)
 				if err != nil {
 					return nil, fmt.Errorf("failed to resolve scheme for gateway %s/%s listener %s: %w",
-						g.gateway.Namespace, g.gateway.Name, listener.Name, err)
+						g.Gateway.Namespace, g.Gateway.Name, listener.Name, err)
 				}
 
 				hostnames := extractHostnamesForListener(route, listener, addresses)
 				gatewayURLs, err := combineIntoURLs(hostnames, scheme, listener.Port, path)
 				if err != nil {
-					return nil, fmt.Errorf("failed to combine URLs for Gateway %s/%s: %w", g.gateway.Namespace, g.gateway.Name, err)
+					return nil, fmt.Errorf("failed to combine URLs for Gateway %s/%s: %w", g.Gateway.Namespace, g.Gateway.Name, err)
 				}
-				urls = append(urls, gatewayURLs...)
+				for _, u := range gatewayURLs {
+					urls = append(urls, DiscoveredURL{URL: u, Origin: origin})
+				}
 			}
 		}
 
 		// Discover internal URL from Gateway backing service
-		internalHost, err := DiscoverGatewayServiceHost(ctx, c, g.gateway)
+		internalHost, err := DiscoverGatewayServiceHost(ctx, c, g.Gateway)
 		if err != nil {
-			return nil, fmt.Errorf("failed to discover gateway service host for %s/%s: %w", g.gateway.Namespace, g.gateway.Name, err)
+			return nil, fmt.Errorf("failed to discover gateway service host for %s/%s: %w", g.Gateway.Namespace, g.Gateway.Name, err)
 		}
-		if internalHost != "" {
+		// Skip if this host was already discovered through gateway status addresses.
+		// This happens when a ClusterIP-backed gateway reports its service hostname
+		// as its status address, making the backing-service lookup redundant.
+		if internalHost != "" && !slices.ContainsFunc(urls, func(d DiscoveredURL) bool {
+			return d.URL.URL().Hostname() == internalHost
+		}) {
 			// Use preferred (first) listener's scheme and port for the internal URL.
 			// Internal services typically expose a single protocol, so generating one
 			// URL (matching the preferred scheme) is sufficient. External URLs are
@@ -182,9 +196,11 @@ func DiscoverURLs(ctx context.Context, c client.Client, route *gwapiv1.HTTPRoute
 			listener := listeners[0]
 			internalURLs, err := combineIntoURLs([]string{internalHost}, schemeForProtocol(listener.Protocol), listener.Port, path)
 			if err != nil {
-				return nil, fmt.Errorf("failed to build internal URL for Gateway %s/%s: %w", g.gateway.Namespace, g.gateway.Name, err)
+				return nil, fmt.Errorf("failed to build internal URL for Gateway %s/%s: %w", g.Gateway.Namespace, g.Gateway.Name, err)
 			}
-			urls = append(urls, internalURLs...)
+			for _, u := range internalURLs {
+				urls = append(urls, DiscoveredURL{URL: u, Origin: origin})
+			}
 		}
 	}
 
@@ -192,8 +208,8 @@ func DiscoverURLs(ctx context.Context, c client.Client, route *gwapiv1.HTTPRoute
 	if len(urls) == 0 && len(gateways) > 0 {
 		g := gateways[0]
 		return nil, &NoURLsDiscoveredError{
-			GatewayNamespace: g.gateway.Namespace,
-			GatewayName:      g.gateway.Name,
+			GatewayNamespace: g.Gateway.Namespace,
+			GatewayName:      g.Gateway.Name,
 		}
 	}
 

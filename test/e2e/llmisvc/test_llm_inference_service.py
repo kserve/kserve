@@ -24,8 +24,9 @@ from kubernetes import client
 from typing import Any, Callable, Dict, List, Optional
 
 from .diagnostic import (
-    print_all_events_table,
+    collect_pod_logs,
     kinds_matching_by_labels,
+    print_all_events_table,
 )
 from .fixtures import (
     create_router_resources,
@@ -93,6 +94,7 @@ class TestCase:
     response_assertion: Callable[[requests.Response], None] = assert_200
     wait_timeout: int = 900
     response_timeout: int = 60
+    expected_gateway: Optional[Dict[str, Any]] = None
     before_test: List[Callable[[], Any]] = field(default_factory=list)
     after_test: List[Callable[[], Any]] = field(default_factory=list)
     # Factory provided
@@ -135,6 +137,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 prompt="KServe is a",
                 payload_formatter=completions_payload,
                 response_assertion=create_response_assertion(with_field="choices"),
+                expected_gateway=ROUTER_GATEWAYS[0],
                 before_test=[
                     lambda: create_router_resources(
                         gateways=[ROUTER_GATEWAYS[0]],
@@ -184,6 +187,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 ],
                 prompt="KServe is a",
                 service_name="router-with-refs-test",
+                expected_gateway=ROUTER_GATEWAYS[0],
                 before_test=[
                     lambda: create_router_resources(
                         gateways=[ROUTER_GATEWAYS[0]],
@@ -236,6 +240,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 "Provide a detailed comparison with open source alternatives, focusing on operational trade-offs.",
                 service_name="router-with-refs-pd-test",
                 response_assertion=assert_200_with_choices,
+                expected_gateway=ROUTER_GATEWAYS[1],
                 before_test=[
                     lambda: create_router_resources(
                         gateways=[ROUTER_GATEWAYS[1]],
@@ -384,6 +389,18 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
             ),
             marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
         ),
+        pytest.param(
+            TestCase(
+                base_refs=[
+                    "router-managed",
+                    "scheduler-with-custom-template",
+                    "workload-llmd-simulator",
+                ],
+                prompt="KServe is a",
+                service_name="scheduler-custom-template-test",
+            ),
+            marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
+        ),
         # Precise prefix KV cache routing test
         pytest.param(
             TestCase(
@@ -438,10 +455,15 @@ def test_llm_inference_service(test_case: TestCase):  # noqa: F811
         wait_for_llm_isvc_ready(
             kserve_client, test_case.llm_service, test_case.wait_timeout
         )
+        assert_address_origins(
+            kserve_client, test_case.llm_service, test_case.expected_gateway
+        )
         wait_for_model_response(kserve_client, test_case, test_case.wait_timeout)
     except Exception as e:
         test_failed = True
-        print(f"❌ ERROR: Failed to call llm inference service {service_name}: {e}")
+        logger.error(
+            "❌ ERROR: Failed to call llm inference service %s: %s", service_name, e
+        )
         _collect_diagnostics(kserve_client, test_case.llm_service)
         raise
     finally:
@@ -465,6 +487,53 @@ def create_llmisvc(kserve_client: KServeClient, llm_isvc: V1alpha1LLMInferenceSe
             f"❌ Exception when calling CustomObjectsApi->"
             f"create_namespaced_custom_object for LLMInferenceService: {e}"
         ) from e
+
+
+def assert_address_origins(
+    kserve_client: KServeClient,
+    llm_isvc: V1alpha1LLMInferenceService,
+    expected_gateway: Optional[Dict[str, Any]] = None,
+):
+    """Verify that every address in status carries a valid origin reference.
+
+    When expected_gateway is a Gateway resource dict, also asserts the
+    origin matches its metadata.name and metadata.namespace.
+
+    Reads via v1alpha2 (hub) because v1alpha1 conversion drops origin.
+    """
+    svc = get_llmisvc(
+        kserve_client,
+        llm_isvc.metadata.name,
+        llm_isvc.metadata.namespace,
+        "v1alpha2",
+    )
+
+    addresses = svc.get("status", {}).get("addresses", [])
+    assert len(addresses) > 0, (
+        f"Expected at least one address in status, got: {svc.get('status')}"
+    )
+
+    gw_meta = expected_gateway.get("metadata", {}) if expected_gateway else {}
+
+    for addr in addresses:
+        origin = addr.get("origin")
+        assert origin is not None, f"Address {addr.get('url')} is missing origin"
+        assert origin.get("kind") == "Gateway", (
+            f"Expected origin kind 'Gateway', got '{origin.get('kind')}' for {addr.get('url')}"
+        )
+        assert origin.get("group") == "gateway.networking.k8s.io", (
+            f"Expected origin group 'gateway.networking.k8s.io', got '{origin.get('group')}'"
+        )
+
+        if gw_meta:
+            assert origin.get("name") == gw_meta["name"], (
+                f"Expected origin gateway '{gw_meta['name']}', got '{origin.get('name')}'"
+            )
+            assert origin.get("namespace") == gw_meta["namespace"], (
+                f"Expected origin namespace '{gw_meta['namespace']}', got '{origin.get('namespace')}'"
+            )
+
+    logger.info(f"All {len(addresses)} addresses have valid origin references")
 
 
 @log_execution
@@ -525,7 +594,6 @@ def maybe_delete_llmisvc(
         print(f"⚠️ Warning: Failed to cleanup service {service_name}: {e}")
 
 
-@log_execution
 def get_llmisvc(
     kserve_client: KServeClient,
     name,
@@ -692,13 +760,18 @@ def wait_for(
 ) -> Any:
     """Wait for the assertion to succeed within timeout."""
     deadline = time.time() + timeout
+    last_msg = None
     while True:
         try:
             return assertion_fn()
         except AssertionError as e:
+            msg = str(e)
             if time.time() >= deadline:
+                logger.error("Timed out waiting: %s", e)
                 raise
-            logger.info("Waiting: %s", e)
+            if msg != last_msg:
+                logger.info("Waiting: %s", e)
+                last_msg = msg
             time.sleep(interval)
 
 
@@ -708,24 +781,24 @@ def _collect_diagnostics(
     name = llm_isvc.metadata.name
     ns = llm_isvc.metadata.namespace
 
-    svc = get_llmisvc(kserve_client, name, ns)
-
     labels = {
         "app.kubernetes.io/part-of": "llminferenceservice",
         "app.kubernetes.io/name": name,
     }
 
-    print(f"🔍 # Diagnostics for {name!r} in {ns!r}")
-    print("---")
-    print(f"# LLMInferenceService {name}")
+    logger.info("🔍 # Diagnostics for %r in %r", name, ns)
+    logger.info("---")
+    logger.info("# LLMInferenceService %s", name)
     try:
-        print(yaml.safe_dump(svc, sort_keys=False))
+        svc = get_llmisvc(kserve_client, name, ns)
+        logger.info(yaml.safe_dump(svc, sort_keys=False))
     except Exception as e:
-        print(f"# ❌ failed to dump LLMInferenceService: {e}")
+        logger.info("# ❌ failed to dump LLMInferenceService: %s", e)
 
-    print_all_events_table(ns)
+    print_all_events_table(ns, log=logger.info)
+    collect_pod_logs(ns, labels, log=logger.info)
 
     all_resources = kinds_matching_by_labels(ns, labels)
     for obj in all_resources:
-        print("---")
-        print(yaml.safe_dump(obj.to_dict(), sort_keys=False))
+        logger.info("---")
+        logger.info(yaml.safe_dump(obj.to_dict(), sort_keys=False))
