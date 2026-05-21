@@ -40,6 +40,8 @@ import (
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	igwv1alpha2pool "github.com/kserve/kserve/pkg/apis/gie/v1alpha2pool"
 )
 
 type addToSchemeFunc func(scheme *runtime.Scheme) error
@@ -72,6 +74,7 @@ func AddGatewayAPIs(s *runtime.Scheme) error {
 		gwapiv1.Install,
 		igwapi.Install,
 		igwapiv1alpha2.Install,
+		igwv1alpha2pool.Install,
 	)
 }
 

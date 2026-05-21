@@ -24,8 +24,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
-	igwapi "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	igwapi "github.com/kserve/kserve/pkg/apis/gie/v1alpha2pool"
 )
 
 // Criticality defines how important it is to serve the model compared to other models.

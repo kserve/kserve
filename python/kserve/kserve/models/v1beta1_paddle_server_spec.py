@@ -480,7 +480,7 @@ class V1beta1PaddleServerSpec(object):
     def resize_policy(self):
         """Gets the resize_policy of this V1beta1PaddleServerSpec.  # noqa: E501
 
-        Resources resize policy for the container.  # noqa: E501
+        Resources resize policy for the container. This field cannot be set on ephemeral containers.  # noqa: E501
 
         :return: The resize_policy of this V1beta1PaddleServerSpec.  # noqa: E501
         :rtype: list[V1ContainerResizePolicy]
@@ -491,7 +491,7 @@ class V1beta1PaddleServerSpec(object):
     def resize_policy(self, resize_policy):
         """Sets the resize_policy of this V1beta1PaddleServerSpec.
 
-        Resources resize policy for the container.  # noqa: E501
+        Resources resize policy for the container. This field cannot be set on ephemeral containers.  # noqa: E501
 
         :param resize_policy: The resize_policy of this V1beta1PaddleServerSpec.  # noqa: E501
         :type: list[V1ContainerResizePolicy]

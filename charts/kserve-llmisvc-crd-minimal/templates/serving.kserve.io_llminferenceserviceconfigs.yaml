@@ -3977,6 +3977,10 @@ spec:
                                               type: integer
                                             signerName:
                                               type: string
+                                            userAnnotations:
+                                              additionalProperties:
+                                                type: string
+                                              type: object
                                           required:
                                             - keyType
                                             - signerName
@@ -4171,6 +4175,18 @@ spec:
                           x-kubernetes-list-map-keys:
                             - name
                           x-kubernetes-list-type: map
+                        workloadRef:
+                          properties:
+                            name:
+                              type: string
+                            podGroup:
+                              type: string
+                            podGroupReplicaKey:
+                              type: string
+                          required:
+                            - name
+                            - podGroup
+                          type: object
                       type: object
                     worker:
                       properties:
@@ -7745,6 +7761,10 @@ spec:
                                               type: integer
                                             signerName:
                                               type: string
+                                            userAnnotations:
+                                              additionalProperties:
+                                                type: string
+                                              type: object
                                           required:
                                             - keyType
                                             - signerName
@@ -7939,6 +7959,18 @@ spec:
                           x-kubernetes-list-map-keys:
                             - name
                           x-kubernetes-list-type: map
+                        workloadRef:
+                          properties:
+                            name:
+                              type: string
+                            podGroup:
+                              type: string
+                            podGroupReplicaKey:
+                              type: string
+                          required:
+                            - name
+                            - podGroup
+                          type: object
                       type: object
                   type: object
                   x-kubernetes-validations:
@@ -9248,6 +9280,12 @@ spec:
                               x-kubernetes-map-type: atomic
                             spec:
                               properties:
+                                appProtocol:
+                                  default: http
+                                  enum:
+                                    - http
+                                    - kubernetes.io/h2c
+                                  type: string
                                 endpointPickerRef:
                                   properties:
                                     failureMode:
@@ -12897,6 +12935,10 @@ spec:
                                                   type: integer
                                                 signerName:
                                                   type: string
+                                                userAnnotations:
+                                                  additionalProperties:
+                                                    type: string
+                                                  type: object
                                               required:
                                                 - keyType
                                                 - signerName
@@ -13091,6 +13133,18 @@ spec:
                               x-kubernetes-list-map-keys:
                                 - name
                               x-kubernetes-list-type: map
+                            workloadRef:
+                              properties:
+                                name:
+                                  type: string
+                                podGroup:
+                                  type: string
+                                podGroupReplicaKey:
+                                  type: string
+                              required:
+                                - name
+                                - podGroup
+                              type: object
                           type: object
                       type: object
                   type: object
@@ -16912,6 +16966,10 @@ spec:
                                           type: integer
                                         signerName:
                                           type: string
+                                        userAnnotations:
+                                          additionalProperties:
+                                            type: string
+                                          type: object
                                       required:
                                         - keyType
                                         - signerName
@@ -17106,6 +17164,18 @@ spec:
                       x-kubernetes-list-map-keys:
                         - name
                       x-kubernetes-list-type: map
+                    workloadRef:
+                      properties:
+                        name:
+                          type: string
+                        podGroup:
+                          type: string
+                        podGroupReplicaKey:
+                          type: string
+                      required:
+                        - name
+                        - podGroup
+                      type: object
                   type: object
                 worker:
                   properties:
@@ -20680,6 +20750,10 @@ spec:
                                           type: integer
                                         signerName:
                                           type: string
+                                        userAnnotations:
+                                          additionalProperties:
+                                            type: string
+                                          type: object
                                       required:
                                         - keyType
                                         - signerName
@@ -20874,6 +20948,18 @@ spec:
                       x-kubernetes-list-map-keys:
                         - name
                       x-kubernetes-list-type: map
+                    workloadRef:
+                      properties:
+                        name:
+                          type: string
+                        podGroup:
+                          type: string
+                        podGroupReplicaKey:
+                          type: string
+                      required:
+                        - name
+                        - podGroup
+                      type: object
                   type: object
               type: object
               x-kubernetes-validations:

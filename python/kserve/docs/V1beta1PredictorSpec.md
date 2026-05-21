@@ -72,6 +72,7 @@ Name | Type | Description | Notes
 **triton** | [**V1beta1TritonSpec**](V1beta1TritonSpec.md) |  | [optional] 
 **volumes** | [**list[V1Volume]**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1Volume.md) | List of volumes that can be mounted by containers belonging to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes | [optional] 
 **worker_spec** | [**V1beta1WorkerSpec**](V1beta1WorkerSpec.md) |  | [optional] 
+**workload_ref** | [**V1WorkloadReference**](V1WorkloadReference.md) |  | [optional] 
 **xgboost** | [**V1beta1XGBoostSpec**](V1beta1XGBoostSpec.md) |  | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
