@@ -396,3 +396,9 @@ jobs:
           cat minikube-tunnel.log
           echo "::endgroup::"
           ./test/scripts/gh-actions/status-check.sh
+
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-modelcache-${{ matrix.install-method }}
