@@ -64,6 +64,24 @@ func WithModelName(name string) LLMInferenceServiceOption {
 	}
 }
 
+func WithLoRAAdapters(adapterNames ...string) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha2.LLMInferenceService) {
+		if llmSvc.Spec.Model.LoRA == nil {
+			llmSvc.Spec.Model.LoRA = &v1alpha2.LoRASpec{}
+		}
+		for _, name := range adapterNames {
+			adapterURL, err := apis.ParseURL("hf://test-org/" + name)
+			if err != nil {
+				panic(err)
+			}
+			llmSvc.Spec.Model.LoRA.Adapters = append(llmSvc.Spec.Model.LoRA.Adapters, v1alpha2.LLMModelSpec{
+				Name: ptr.To(name),
+				URI:  *adapterURL,
+			})
+		}
+	}
+}
+
 func WithGatewayRefs(refs ...v1alpha2.GatewayObjectReference) LLMInferenceServiceOption {
 	return func(llmSvc *v1alpha2.LLMInferenceService) {
 		if llmSvc.Spec.Router == nil {

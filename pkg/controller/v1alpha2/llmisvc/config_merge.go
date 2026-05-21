@@ -308,6 +308,26 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, err
 	}
 
+	if llmSvcCfg.Spec.Router != nil &&
+		llmSvcCfg.Spec.Router.Route != nil &&
+		llmSvcCfg.Spec.Router.Route.HTTP.HasSpec() {
+		if r.isModelBasedRoutingEnabled(ctx, llmSvc, reconcilerConfig) {
+			if llmSvcCfg.Spec.Model.LoRA != nil {
+				expandLoRAAdapterMatches(
+					llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules,
+					llmSvc.Namespace,
+					llmSvcCfg.Spec.Model.LoRA.Adapters,
+					reconcilerConfig.ModelBasedRoutingHeaderName,
+				)
+			}
+		} else {
+			llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules = stripModelBasedRoutingRules(
+				llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules,
+				reconcilerConfig.ModelBasedRoutingHeaderName,
+			)
+		}
+	}
+
 	// Update HTTPRoute parentRefs to point to the custom gateway if Gateway.Refs is specified.
 	// This ensures the managed HTTPRoute references the correct gateway instead of the default one from presets.
 	if llmSvcCfg.Spec.Router != nil &&
@@ -421,6 +441,87 @@ func isUsingTokenizerSidecar(spec v1alpha2.LLMInferenceServiceSpec) bool {
 	return utils.GetContainerWithName(spec.Router.Scheduler.Template, tokenizerContainerName) != nil
 }
 
+func (r *LLMISVCReconciler) isModelBasedRoutingEnabled(
+	ctx context.Context,
+	llmSvc *v1alpha2.LLMInferenceService,
+	cfg *Config,
+) bool {
+	if cfg.ModelBasedRoutingHeaderName == "" {
+		return false
+	}
+	switch cfg.ModelBasedRoutingMode {
+	case ModelBasedRoutingDisabled:
+		return false
+	case ModelBasedRoutingForced:
+		return true
+	default:
+		gateways, err := r.CollectReferencedGateways(ctx, llmSvc)
+		if err != nil {
+			return true
+		}
+		for _, gw := range gateways {
+			if gw.Annotations[AnnotationModelBasedRoutingEnabled] == "false" {
+				return false
+			}
+		}
+		return true
+	}
+}
+
+func stripModelBasedRoutingRules(rules []gwapiv1.HTTPRouteRule, headerName string) []gwapiv1.HTTPRouteRule {
+	if headerName == "" {
+		return rules
+	}
+	var filtered []gwapiv1.HTTPRouteRule
+	for i := range rules {
+		var kept []gwapiv1.HTTPRouteMatch
+		for _, match := range rules[i].Matches {
+			if !isModelBasedRoutingMatch(match, headerName) {
+				kept = append(kept, match)
+			}
+		}
+		if len(kept) > 0 {
+			rules[i].Matches = kept
+			filtered = append(filtered, rules[i])
+		}
+	}
+	return filtered
+}
+
+// expandLoRAAdapterMatches duplicates model-routing header matches for each LoRA
+// adapter so that adapter requests are routed through the same backend as the base
+// model. Matches within a Gateway API rule are OR'd, so a rule ends up matching
+// "base model OR adapter-1 OR adapter-2 …" — all targeting the same InferencePool.
+//
+// Only matches whose header name equals headerName are duplicated; path-only rules
+// and rules with unrelated headers are left untouched.
+func expandLoRAAdapterMatches(rules []gwapiv1.HTTPRouteRule, namespace string, adapters []v1alpha2.LLMModelSpec, headerName string) {
+	if headerName == "" || len(adapters) == 0 {
+		return
+	}
+	for i := range rules {
+		var adapterMatches []gwapiv1.HTTPRouteMatch
+		for _, match := range rules[i].Matches {
+			if !isModelBasedRoutingMatch(match, headerName) {
+				continue
+			}
+			for _, adapter := range adapters {
+				if adapter.Name == nil {
+					continue
+				}
+				am := *match.DeepCopy()
+				for h := range am.Headers {
+					if string(am.Headers[h].Name) == headerName {
+						am.Headers[h].Value = fmt.Sprintf("publishers/%s/models/%s", namespace, *adapter.Name)
+					}
+				}
+				adapterMatches = append(adapterMatches, am)
+			}
+		}
+		rules[i].Matches = append(rules[i].Matches, adapterMatches...)
+	}
+}
+
 // ToParentRefs converts a slice of UntypedObjectReference (gateway refs) to a slice
 // of gwapiv1.ParentReference suitable for setting on an HTTPRoute's CommonRouteSpec.
 // When a ref includes SectionName, the generated ParentReference targets that
@@ -453,6 +554,11 @@ type templateGlobalConfig struct {
 	IngressGatewayName      string
 	IngressGatewayNamespace string
 	EnableTLS               bool
+
+	// ModelBasedRoutingHeaderName is the HTTP header used to select a model in
+	// shared-gateway deployments (e.g. "X-Gateway-Model-Name"). Exposed here so
+	// that HTTPRoute templates can reference it via {{ .GlobalConfig.ModelBasedRoutingHeaderName }}.
+	ModelBasedRoutingHeaderName string
 }
 
 // ReplaceVariables processes the configuration as a Go template to substitute
@@ -466,10 +572,11 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 	var gc templateGlobalConfig
 	if reconcilerConfig != nil {
 		gc = templateGlobalConfig{
-			SystemNamespace:         reconcilerConfig.SystemNamespace,
-			IngressGatewayName:      reconcilerConfig.IngressGatewayName,
-			IngressGatewayNamespace: reconcilerConfig.IngressGatewayNamespace,
-			EnableTLS:               reconcilerConfig.EnableTLS,
+			SystemNamespace:             reconcilerConfig.SystemNamespace,
+			IngressGatewayName:          reconcilerConfig.IngressGatewayName,
+			IngressGatewayNamespace:     reconcilerConfig.IngressGatewayNamespace,
+			EnableTLS:                   reconcilerConfig.EnableTLS,
+			ModelBasedRoutingHeaderName: reconcilerConfig.ModelBasedRoutingHeaderName,
 		}
 	}
 	config := struct {
@@ -609,6 +716,25 @@ func isDefaultBackendRef(llmSvc *v1alpha2.LLMInferenceService, ref gwapiv1.Backe
 	// Check Kind and Name only - Group can be either v1 or v1alpha2
 	return ptr.Deref[gwapiv1.Kind](ref.Kind, "") == "InferencePool" &&
 		string(ref.Name) == defaultInfPoolName
+}
+
+type ModelBasedRoutingMode string
+
+const (
+	ModelBasedRoutingEnabled  ModelBasedRoutingMode = "enabled"
+	ModelBasedRoutingForced   ModelBasedRoutingMode = "forced"
+	ModelBasedRoutingDisabled ModelBasedRoutingMode = "disabled"
+)
+
+func parseModelBasedRoutingMode(s string) ModelBasedRoutingMode {
+	switch strings.ToLower(s) {
+	case "forced":
+		return ModelBasedRoutingForced
+	case "disabled":
+		return ModelBasedRoutingDisabled
+	default:
+		return ModelBasedRoutingEnabled
+	}
 }
 
 const (
