@@ -32,6 +32,8 @@ const (
 	WorkerWorkloadReady        apis.ConditionType = "WorkerWorkloadReady"
 	PrefillWorkloadReady       apis.ConditionType = "PrefillWorkloadReady"
 	PrefillWorkerWorkloadReady apis.ConditionType = "PrefillWorkerWorkloadReady"
+	ScalingReady               apis.ConditionType = "ScalingReady"
+	PrefillScalingReady        apis.ConditionType = "PrefillScalingReady"
 )
 
 const (
@@ -105,12 +107,46 @@ func (in *LLMInferenceService) MarkPrefillWorkerWorkloadUnset() {
 	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(PrefillWorkerWorkloadReady)
 }
 
+func (in *LLMInferenceService) MarkScalingReady() {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(ScalingReady)
+}
+
+func (in *LLMInferenceService) MarkScalingNotReady(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(ScalingReady, reason, messageFormat, messageA...)
+}
+
+func (in *LLMInferenceService) MarkScalingUnset() {
+	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(ScalingReady)
+}
+
+func (in *LLMInferenceService) MarkPrefillScalingReady() {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(PrefillScalingReady)
+}
+
+func (in *LLMInferenceService) MarkPrefillScalingNotReady(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(PrefillScalingReady, reason, messageFormat, messageA...)
+}
+
+func (in *LLMInferenceService) MarkPrefillScalingUnset() {
+	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(PrefillScalingReady)
+}
+
+// DetermineWorkloadReadiness rolls up sub-conditions into the top-level WorkloadsReady
+// condition. Any sub-condition that is False blocks overall readiness.
+//
+// ScalingReady and PrefillScalingReady are included in the rollup because a misconfigured
+// autoscaler (e.g. broken metrics pipeline) should surface as a service-level issue.
+// When scaling is not configured, the controller calls MarkScalingUnset / MarkPrefillScalingUnset
+// which clears the condition entirely — GetCondition returns nil, and nil entries are
+// skipped by the loop below. This means unconfigured scaling never blocks readiness.
 func (in *LLMInferenceService) DetermineWorkloadReadiness() {
 	subConditions := []*apis.Condition{
 		in.GetStatus().GetCondition(MainWorkloadReady),
 		in.GetStatus().GetCondition(WorkerWorkloadReady),
 		in.GetStatus().GetCondition(PrefillWorkloadReady),
 		in.GetStatus().GetCondition(PrefillWorkerWorkloadReady),
+		in.GetStatus().GetCondition(ScalingReady),
+		in.GetStatus().GetCondition(PrefillScalingReady),
 	}
 
 	for _, cond := range subConditions {
