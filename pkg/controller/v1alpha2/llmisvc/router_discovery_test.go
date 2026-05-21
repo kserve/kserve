@@ -1570,7 +1570,7 @@ func TestDiscoverURLs(t *testing.T) {
 
 		gateways, gwErr := llmisvc.DiscoverGateways(ctx, fakeClient, route)
 		g.Expect(gwErr).ToNot(HaveOccurred())
-		discovered, err := llmisvc.DiscoverURLs(ctx, fakeClient, gateways, route, "")
+		discovered, err := llmisvc.DiscoverURLs(ctx, fakeClient, gateways, route, llmisvc.Config{})
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(discovered).ToNot(BeEmpty())
 
