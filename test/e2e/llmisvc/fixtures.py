@@ -915,6 +915,7 @@ LLMINFERENCESERVICE_CONFIGS = {
     "workload-llmd-simulator": {
         "replicas": 1,
         "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},
+        "storageInitializer": {"enabled": False},
         "template": {
             "containers": [
                 {
@@ -940,6 +941,7 @@ LLMINFERENCESERVICE_CONFIGS = {
     },
     "workload-llmd-simulator-no-replicas": {
         "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},
+        "storageInitializer": {"enabled": False},
         "template": {
             "containers": [
                 {
@@ -971,6 +973,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "expert": True,
             "tensor": 1,
         },
+        "storageInitializer": {"enabled": False},
         "template": {
             "containers": [
                 {
@@ -1018,6 +1021,7 @@ LLMINFERENCESERVICE_CONFIGS = {
     },
     "workload-llmd-simulator-pd": {
         "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},
+        "storageInitializer": {"enabled": False},
         "template": {
             "containers": [
                 {
@@ -1169,6 +1173,7 @@ LLMINFERENCESERVICE_CONFIGS = {
     "workload-llmd-simulator-kvcache": {
         "replicas": 2,
         "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},
+        # Important: storage initializer is required for precise-prefix-scorer
         "template": {
             "containers": [
                 {
@@ -1215,10 +1220,62 @@ LLMINFERENCESERVICE_CONFIGS = {
 }
 
 
+def _setup_test_case_service(kserve_client, tc, test_node_name, peer_index=None):
+    """Create LLMInferenceServiceConfigs and build the LLMInferenceService for a TestCase.
+
+    Returns a list of created config names for cleanup tracking.
+    """
+    missing_refs = [
+        ref for ref in tc.base_refs if ref not in LLMINFERENCESERVICE_CONFIGS
+    ]
+    if missing_refs:
+        raise ValueError(
+            f"Missing base_refs in LLMINFERENCESERVICE_CONFIGS: {missing_refs}"
+        )
+    if not tc.service_name:
+        suffix = f"-peer-{peer_index}" if peer_index is not None else ""
+        tc.service_name = generate_service_name(test_node_name + suffix, tc.base_refs)
+    if tc.model_name == "default/model":
+        tc.model_name = _get_model_name_from_configs(tc.base_refs)
+
+    created_configs = []
+    unique_base_refs = []
+    for base_ref in tc.base_refs:
+        unique_config_name = generate_k8s_safe_suffix(base_ref, [tc.service_name])
+        unique_base_refs.append(unique_config_name)
+
+        unique_config_body = {
+            "apiVersion": HUB_VERSION,
+            "kind": "LLMInferenceServiceConfig",
+            "metadata": {
+                "name": unique_config_name,
+                "namespace": KSERVE_TEST_NAMESPACE,
+            },
+            "spec": LLMINFERENCESERVICE_CONFIGS[base_ref],
+        }
+
+        _create_or_update_llmisvc_config(
+            kserve_client, unique_config_body, KSERVE_TEST_NAMESPACE
+        )
+        created_configs.append(unique_config_name)
+
+    tc.llm_service = V1alpha2LLMInferenceService(
+        api_version=HUB_VERSION,
+        kind="LLMInferenceService",
+        metadata=client.V1ObjectMeta(
+            name=tc.service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
+        spec={
+            "baseRefs": [{"name": base_ref} for base_ref in unique_base_refs],
+        },
+    )
+
+    return created_configs
+
+
 @pytest.fixture(scope="function")
 def test_case(request):
     tc = request.param
-    created_configs = []
 
     inject_k8s_proxy()
 
@@ -1237,52 +1294,11 @@ def test_case(request):
         ) from before_test_error
 
     try:
-        # Validate base_refs defined in the test fixture exist in LLMINFERENCESERVICE_CONFIGS
-        missing_refs = [
-            ref for ref in tc.base_refs if ref not in LLMINFERENCESERVICE_CONFIGS
-        ]
-        if missing_refs:
-            raise ValueError(
-                f"Missing base_refs in LLMINFERENCESERVICE_CONFIGS: {missing_refs}"
+        _setup_test_case_service(kserve_client, tc, request.node.name)
+        for i, peer in enumerate(tc.peers):
+            _setup_test_case_service(
+                kserve_client, peer, request.node.name, peer_index=i
             )
-        if not tc.service_name:
-            tc.service_name = generate_service_name(request.node.name, tc.base_refs)
-        if tc.model_name == "default/model":
-            tc.model_name = _get_model_name_from_configs(tc.base_refs)
-
-        # Create unique configs for this test
-        unique_base_refs = []
-        for base_ref in tc.base_refs:
-            unique_config_name = generate_k8s_safe_suffix(base_ref, [tc.service_name])
-            unique_base_refs.append(unique_config_name)
-
-            original_spec = LLMINFERENCESERVICE_CONFIGS[base_ref]
-
-            unique_config_body = {
-                "apiVersion": HUB_VERSION,
-                "kind": "LLMInferenceServiceConfig",
-                "metadata": {
-                    "name": unique_config_name,
-                    "namespace": KSERVE_TEST_NAMESPACE,
-                },
-                "spec": original_spec,
-            }
-
-            _create_or_update_llmisvc_config(
-                kserve_client, unique_config_body, KSERVE_TEST_NAMESPACE
-            )
-            created_configs.append(unique_config_name)
-
-        tc.llm_service = V1alpha2LLMInferenceService(
-            api_version=HUB_VERSION,
-            kind="LLMInferenceService",
-            metadata=client.V1ObjectMeta(
-                name=tc.service_name, namespace=KSERVE_TEST_NAMESPACE
-            ),
-            spec={
-                "baseRefs": [{"name": base_ref} for base_ref in unique_base_refs],
-            },
-        )
 
         yield tc
 
@@ -1299,12 +1315,13 @@ def test_case(request):
 
 
 def _get_model_name_from_configs(config_names):
-    """Extract the model name from model config."""
+    """Extract the model name from model configs (last wins, matching config layering)."""
+    model_name = "default/model"
     for config_name in config_names:
         config = LLMINFERENCESERVICE_CONFIGS[config_name]
         if "model" in config and "name" in config["model"]:
-            return config["model"]["name"]
-    return "default/model"
+            model_name = config["model"]["name"]
+    return model_name
 
 
 _NON_DNS_CHARS = re.compile(r"[^a-z0-9]+")
@@ -1336,7 +1353,9 @@ def generate_k8s_safe_suffix(
 def generate_service_name(test_name: str, base_refs: List[str]) -> str:
     base_name = test_name.split("[", 1)[0]
     base_name = base_name.replace("test_llm_inference_service", "llmisvc")
-    return generate_k8s_safe_suffix(base_name, base_refs)
+    # Include the full pytest node name (with parametrize index) in the hash
+    # so that tests sharing the same base_refs get unique service names.
+    return generate_k8s_safe_suffix(base_name, [test_name] + base_refs)
 
 
 def generate_test_id(test_case) -> str:

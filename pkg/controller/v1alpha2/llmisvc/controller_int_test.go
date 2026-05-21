@@ -927,6 +927,47 @@ var _ = Describe("LLMInferenceService Controller", func() {
 					g.Expect(current.Status).To(HaveCondition(string(v1alpha2.HTTPRoutesReady), "True"))
 				})).WithContext(ctx).Should(Succeed())
 			})
+
+			It("should expand HTTPRoute with LoRA adapter header matches", func(ctx SpecContext) {
+				// given
+				svcName := "test-llm-lora-routing"
+				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+				llmSvc := LLMInferenceService(svcName,
+					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+					WithModelURI("hf://facebook/opt-125m"),
+					WithModelName("base-model"),
+					WithLoRAAdapters("lora-adapter-a", "lora-adapter-b"),
+					WithManagedRoute(),
+					WithManagedGateway(),
+					WithManagedScheduler(),
+				)
+
+				// when
+				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+				defer func() {
+					testNs.DeleteAndWait(ctx, llmSvc)
+				}()
+
+				// then — HTTPRoute should contain header matches for the base model AND each LoRA adapter
+				expectedHTTPRoute := &gwapiv1.HTTPRoute{}
+				Eventually(func(g Gomega, ctx context.Context) error {
+					routes, errList := managedRoutes(ctx, llmSvc)
+					g.Expect(errList).ToNot(HaveOccurred())
+					g.Expect(routes).To(HaveLen(1))
+					expectedHTTPRoute = &routes[0]
+					return nil
+				}).WithContext(ctx).Should(Succeed())
+
+				headerName := "X-Gateway-Model-Name"
+				baseHeaderValue := fmt.Sprintf("publishers/%s/models/base-model", testNs.Name)
+				adapterAHeaderValue := fmt.Sprintf("publishers/%s/models/lora-adapter-a", testNs.Name)
+				adapterBHeaderValue := fmt.Sprintf("publishers/%s/models/lora-adapter-b", testNs.Name)
+
+				Expect(expectedHTTPRoute).To(HaveHeaderMatch(headerName, baseHeaderValue))
+				Expect(expectedHTTPRoute).To(HaveHeaderMatch(headerName, adapterAHeaderValue))
+				Expect(expectedHTTPRoute).To(HaveHeaderMatch(headerName, adapterBHeaderValue))
+			})
 		})
 
 		When("transitioning from managed to unmanaged router", func() {

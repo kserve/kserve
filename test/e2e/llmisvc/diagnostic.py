@@ -23,7 +23,10 @@ _log = logging.getLogger(__name__)
 
 
 def print_all_events_table(
-    namespace: str, max_events: int = 50, log: Callable = _log.info
+    namespace: str,
+    max_events: int = 50,
+    log: Callable = _log.info,
+    log_prefix: str = "",
 ):
     """
     Emit the most recent `max_events` events in `namespace` as a nice table.
@@ -34,12 +37,12 @@ def print_all_events_table(
         events = core.list_namespaced_event(namespace=namespace).items
 
         if not events:
-            log("ℹ️ # No events found in namespace %s", namespace)
+            log(f"{log_prefix} ℹ️ # No events found in namespace %s", namespace)
             return
 
-        header = f"{'TIME':<25} {'NAMESPACE':<12} {'SOURCE':<20} {'TYPE':<8} {'REASON':<20} MESSAGE"
+        header = f"{log_prefix} {'TIME':<25} {'NAMESPACE':<12} {'SOURCE':<20} {'TYPE':<8} {'REASON':<20} MESSAGE"
         log(header)
-        log("-" * len(header))
+        log(f"{log_prefix}" + "-" * len(header))
 
         for ev in events:
             ts = ev.last_timestamp or ev.first_timestamp
@@ -51,7 +54,7 @@ def print_all_events_table(
             src = f"{ev.source.component or ''}/{ev.source.host or ''}".strip("/")
             msg = (ev.message or "").replace("\n", " ")
             log(
-                "%s %s %s %s %s %s",
+                f"{log_prefix} %s %s %s %s %s %s",
                 ts_str.ljust(25),
                 ev.metadata.namespace.ljust(12),
                 src.ljust(20),
@@ -61,7 +64,7 @@ def print_all_events_table(
             )
 
     except Exception as e:
-        log("# ❌ failed to list events: %s", e)
+        log(f"{log_prefix} # ❌ failed to list events: %s", e)
 
 
 def kinds_matching_by_labels(namespace: str, labels, skip_api_kinds=None):

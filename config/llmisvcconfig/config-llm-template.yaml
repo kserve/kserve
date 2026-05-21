@@ -146,7 +146,7 @@ spec:
             echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
 
             eval "vllm serve /mnt/models \
-              --served-model-name "{{ .Spec.Model.Name }}" \
+              --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
               --port 8000 \
               ${ACCESS_LOG_ARGS} \
               {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
