@@ -374,21 +374,27 @@ func UpdateImageTag(container *corev1.Container, runtimeVersion *string, serving
 		} else {
 			container.Image = re.ReplaceAllString(image, ":"+*runtimeVersion)
 		}
-	} else if utils.IsGPUEnabled(container.Resources) && len(strings.Split(image, ":")) > 0 {
+	} else if servingRuntime != nil {
 		re := regexp.MustCompile(`(:([\w.\-_]*))$`)
-		if len(re.FindString(image)) > 0 {
-			// For TFServing/TorchServe/HuggingFace the GPU image is tagged with suffix "-gpu", when the version is found in the tag
-			// and runtimeVersion is not specified, we default to append the "-gpu" suffix to the image tag
-			if servingRuntime != nil && (*servingRuntime == constants.TFServing || *servingRuntime == constants.TorchServe || *servingRuntime == constants.HuggingFaceServer) {
-				// check for the case when image field is specified directly with gpu tag
-				if !strings.HasSuffix(container.Image, "-gpu") {
-					container.Image = image + "-gpu"
-				}
-			} else if servingRuntime != nil && *servingRuntime == constants.VLLMServer {
-				// For vLLM server, use the GPU image from environment variable if GPU Enabled
-				if image, exists := utils.GetEnvVarValue(container.Env, "VLLM_GPU_IMAGE"); exists {
-					container.Image = image
-				}
+		tag := re.FindString(image)
+		if tag == "" {
+			return
+		}
+		imageWithoutTag := strings.TrimSuffix(image, tag)
+
+		if utils.IsGPUEnabled(container.Resources) {
+			// For TFServing/TorchServe/HuggingFace the GPU build is published as the same image
+			// with a "-gpu" tag suffix; append it when runtimeVersion is not specified.
+			if (*servingRuntime == constants.TFServing || *servingRuntime == constants.TorchServe || *servingRuntime == constants.HuggingFaceServer) &&
+				!strings.HasSuffix(image, "-gpu") {
+				container.Image = image + "-gpu"
+			}
+		} else {
+			// For vLLM the CPU build lives in a sibling repository named "<image>-cpu"
+			// (e.g. vllm/vllm-openai -> vllm/vllm-openai-cpu), so insert "-cpu" immediately
+			// before the tag separator instead of appending it to the tag.
+			if *servingRuntime == constants.VLLMServer && !strings.HasSuffix(imageWithoutTag, "-cpu") {
+				container.Image = imageWithoutTag + "-cpu" + tag
 			}
 		}
 	}

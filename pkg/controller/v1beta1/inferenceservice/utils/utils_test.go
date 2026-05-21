@@ -1302,20 +1302,10 @@ func TestUpdateImageTag(t *testing.T) {
 			servingRuntime: constants.TFServing,
 			expected:       "huggingfaceserver@sha256:abcdef1234567890",
 		},
-		"UpdateVLLMServerGPUImageTag": {
+		"VLLMServerGPUKeepsDefaultImage": {
 			container: &corev1.Container{
 				Name:  "kserve-container",
-				Image: "vllmserver:v0.1.0",
-				Args: []string{
-					"--foo=bar",
-					"--test=dummy",
-					"--new-arg=baz",
-				},
-				Env: []corev1.EnvVar{
-					{Name: "PORT", Value: "8000"},
-					{Name: "MODELS_DIR", Value: "/mnt/models"},
-					{Name: "VLLM_GPU_IMAGE", Value: "vllmserver:v0.1.0-gpu"},
-				},
+				Image: "vllm/vllm-openai:latest",
 				Resources: corev1.ResourceRequirements{
 					Limits: corev1.ResourceList{
 						"nvidia.com/gpu": resource.MustParse("1"),
@@ -1324,69 +1314,12 @@ func TestUpdateImageTag(t *testing.T) {
 			},
 			runtimeVersion: nil,
 			servingRuntime: constants.VLLMServer,
-			expected:       "vllmserver:v0.1.0-gpu",
+			expected:       "vllm/vllm-openai:latest",
 		},
-		"UpdateVLLMServerGPUImageTagWithProxy": {
+		"VLLMServerCPURewritesImageName": {
 			container: &corev1.Container{
 				Name:  "kserve-container",
-				Image: "localhost:8888/vllmserver:v0.1.0",
-				Args: []string{
-					"--foo=bar",
-					"--test=dummy",
-					"--new-arg=baz",
-				},
-				Env: []corev1.EnvVar{
-					{Name: "PORT", Value: "8000"},
-					{Name: "MODELS_DIR", Value: "/mnt/models"},
-					{Name: "VLLM_GPU_IMAGE", Value: "localhost:8888/vllmserver:v0.1.0-gpu"},
-				},
-				Resources: corev1.ResourceRequirements{
-					Limits: corev1.ResourceList{
-						"nvidia.com/gpu": resource.MustParse("1"),
-					},
-				},
-			},
-			runtimeVersion: nil,
-			servingRuntime: constants.VLLMServer,
-			expected:       "localhost:8888/vllmserver:v0.1.0-gpu",
-		},
-		"VLLMServerGPUWithoutVLLMGPUImageEnv": {
-			container: &corev1.Container{
-				Name:  "kserve-container",
-				Image: "vllmserver:v0.1.0",
-				Args: []string{
-					"--foo=bar",
-					"--test=dummy",
-					"--new-arg=baz",
-				},
-				Env: []corev1.EnvVar{
-					{Name: "PORT", Value: "8000"},
-					{Name: "MODELS_DIR", Value: "/mnt/models"},
-				},
-				Resources: corev1.ResourceRequirements{
-					Limits: corev1.ResourceList{
-						"nvidia.com/gpu": resource.MustParse("1"),
-					},
-				},
-			},
-			runtimeVersion: nil,
-			servingRuntime: constants.VLLMServer,
-			expected:       "vllmserver:v0.1.0",
-		},
-		"VLLMServerCPUNoUpdate": {
-			container: &corev1.Container{
-				Name:  "kserve-container",
-				Image: "vllmserver:v0.1.0",
-				Args: []string{
-					"--foo=bar",
-					"--test=dummy",
-					"--new-arg=baz",
-				},
-				Env: []corev1.EnvVar{
-					{Name: "PORT", Value: "8000"},
-					{Name: "MODELS_DIR", Value: "/mnt/models"},
-					{Name: "VLLM_GPU_IMAGE", Value: "vllmserver:v0.1.0-gpu"},
-				},
+				Image: "vllm/vllm-openai:latest",
 				Resources: corev1.ResourceRequirements{
 					Limits: corev1.ResourceList{
 						corev1.ResourceCPU:    resource.MustParse("2"),
@@ -1400,7 +1333,67 @@ func TestUpdateImageTag(t *testing.T) {
 			},
 			runtimeVersion: nil,
 			servingRuntime: constants.VLLMServer,
-			expected:       "vllmserver:v0.1.0",
+			expected:       "vllm/vllm-openai-cpu:latest",
+		},
+		"VLLMServerCPUWithProxyRewritesImageName": {
+			container: &corev1.Container{
+				Name:  "kserve-container",
+				Image: "localhost:8888/vllm/vllm-openai:v0.5.0",
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceMemory: resource.MustParse("2Gi"),
+					},
+				},
+			},
+			runtimeVersion: nil,
+			servingRuntime: constants.VLLMServer,
+			expected:       "localhost:8888/vllm/vllm-openai-cpu:v0.5.0",
+		},
+		"VLLMServerCPUSkipsWhenImageNameAlreadyCpu": {
+			container: &corev1.Container{
+				Name:  "kserve-container",
+				Image: "vllm/vllm-openai-cpu:v0.5.0",
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceMemory: resource.MustParse("2Gi"),
+					},
+				},
+			},
+			runtimeVersion: nil,
+			servingRuntime: constants.VLLMServer,
+			expected:       "vllm/vllm-openai-cpu:v0.5.0",
+		},
+		"VLLMServerCPUSkipsWhenImageHasNoTag": {
+			container: &corev1.Container{
+				Name:  "kserve-container",
+				Image: "vllm/vllm-openai",
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceMemory: resource.MustParse("2Gi"),
+					},
+				},
+			},
+			runtimeVersion: nil,
+			servingRuntime: constants.VLLMServer,
+			expected:       "vllm/vllm-openai",
+		},
+		"VLLMServerRuntimeVersionTakesPrecedence": {
+			container: &corev1.Container{
+				Name:  "kserve-container",
+				Image: "vllm/vllm-openai:latest",
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceMemory: resource.MustParse("2Gi"),
+					},
+				},
+			},
+			runtimeVersion: proto.String("v0.5.0"),
+			servingRuntime: constants.VLLMServer,
+			expected:       "vllm/vllm-openai:v0.5.0",
 		},
 	}
 	for name, scenario := range scenarios {

@@ -649,7 +649,7 @@ const (
 	SupportedModelPaddle      = "paddle"
 	SupportedModelTriton      = "triton"
 	SupportedModelMLFlow      = "mlflow"
-	SupportedModelVLLM        = "vllm"
+	SupportedModelVLLM        = "vLLM"
 )
 
 type ProtocolVersion int

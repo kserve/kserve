@@ -51,7 +51,7 @@ def test_vllm_openai_chat_completions():
         min_replicas=1,
         model=V1beta1ModelSpec(
             model_format=V1beta1ModelFormat(
-                name="vllm",
+                name="vLLM",
             ),
             env=[
                 client.V1EnvVar(
@@ -102,7 +102,7 @@ def test_vllm_openai_chat_completions_streaming():
         min_replicas=1,
         model=V1beta1ModelSpec(
             model_format=V1beta1ModelFormat(
-                name="vllm",
+                name="vLLM",
             ),
             env=[
                 client.V1EnvVar(
@@ -163,7 +163,7 @@ def test_vllm_openai_text_completion_qwen2():
         min_replicas=1,
         model=V1beta1ModelSpec(
             model_format=V1beta1ModelFormat(
-                name="vllm",
+                name="vLLM",
             ),
             env=[
                 client.V1EnvVar(
@@ -214,7 +214,7 @@ def test_vllm_openai_text_completion_streaming():
         min_replicas=1,
         model=V1beta1ModelSpec(
             model_format=V1beta1ModelFormat(
-                name="vllm",
+                name="vLLM",
             ),
             env=[
                 client.V1EnvVar(
@@ -269,7 +269,7 @@ def test_vllm_classify_sequence_classification():
         min_replicas=1,
         model=V1beta1ModelSpec(
             model_format=V1beta1ModelFormat(
-                name="vllm",
+                name="vLLM",
             ),
             env=[
                 client.V1EnvVar(
@@ -326,7 +326,7 @@ async def test_vllm_openai_text_embedding():
         min_replicas=1,
         model=V1beta1ModelSpec(
             model_format=V1beta1ModelFormat(
-                name="vllm",
+                name="vLLM",
             ),
             env=[
                 client.V1EnvVar(
@@ -395,7 +395,7 @@ def test_vllm_classify_sequence_classification_probabilities():
         min_replicas=1,
         model=V1beta1ModelSpec(
             model_format=V1beta1ModelFormat(
-                name="vllm",
+                name="vLLM",
             ),
             env=[
                 client.V1EnvVar(

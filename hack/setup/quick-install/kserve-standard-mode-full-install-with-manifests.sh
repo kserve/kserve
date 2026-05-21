@@ -2027,6 +2027,82 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
   annotations:
+    serving.kserve.io/server-type: vllmserver
+  name: kserve-vllmserver
+spec:
+  annotations:
+    prometheus.kserve.io/path: /metrics
+    prometheus.kserve.io/port: "8000"
+  containers:
+  - args:
+    - --port=8000
+    - --model=/mnt/models
+    - --served-model-name={{.Name}}
+    command:
+    - python
+    - -m
+    - vllm.entrypoints.openai.api_server
+    env:
+    - name: LMCACHE_USE_EXPERIMENTAL
+      value: "True"
+    - name: HF_HOME
+      value: /tmp
+    - name: VLLM_CONFIG_ROOT
+      value: /tmp
+    image: vllm/vllm-openai:latest
+    name: kserve-container
+    ports:
+    - containerPort: 8000
+      name: http
+      protocol: TCP
+    readinessProbe:
+      failureThreshold: 3
+      httpGet:
+        path: /v1/models
+        port: 8000
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 5
+    resources:
+      limits:
+        cpu: "1"
+        memory: 2Gi
+      requests:
+        cpu: "1"
+        memory: 2Gi
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      privileged: false
+    startupProbe:
+      failureThreshold: 60
+      httpGet:
+        path: /v1/models
+        port: 8000
+      initialDelaySeconds: 30
+      periodSeconds: 30
+      successThreshold: 1
+      timeoutSeconds: 10
+    volumeMounts:
+    - mountPath: /dev/shm
+      name: devshm
+  hostIPC: false
+  supportedModelFormats:
+  - autoSelect: true
+    name: vLLM
+    priority: 1
+    version: "1"
+  volumes:
+  - emptyDir:
+      medium: Memory
+    name: devshm
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  annotations:
     serving.kserve.io/server-type: xgbserver
   name: kserve-xgbserver
 spec:

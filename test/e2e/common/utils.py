@@ -15,11 +15,13 @@
 import asyncio
 import json
 import os
+import time
 from concurrent import futures
 from typing import Union, List, Dict
 from urllib.parse import urlparse
 
 import portforward
+import requests
 from kubernetes import client as k8s_client
 from orjson import orjson
 
@@ -514,7 +516,7 @@ def _get_openai_endpoint_and_host(
         .get("modelFormat", {})
         .get("name", "")
     )
-    if model_format == "vllm":
+    if model_format == "vLLM":
         return f"{scheme}://{cluster_ip}{path}/{url_suffix}", host
     else:
         return f"{scheme}://{cluster_ip}{path}/openai/{url_suffix}", host

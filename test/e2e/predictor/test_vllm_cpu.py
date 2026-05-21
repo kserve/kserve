@@ -43,7 +43,7 @@ def test_vllm_cpu_openai_chat_completions():
         min_replicas=1,
         model=V1beta1ModelSpec(
             model_format=V1beta1ModelFormat(
-                name="vllm",
+                name="vLLM",
             ),
             env=[
                 client.V1EnvVar(
@@ -94,7 +94,7 @@ def test_vllm_cpu_text_completion_streaming():
         min_replicas=1,
         model=V1beta1ModelSpec(
             model_format=V1beta1ModelFormat(
-                name="vllm",
+                name="vLLM",
             ),
             env=[
                 client.V1EnvVar(
@@ -147,7 +147,7 @@ def test_vllm_cpu_openai_completions():
         min_replicas=1,
         model=V1beta1ModelSpec(
             model_format=V1beta1ModelFormat(
-                name="vllm",
+                name="vLLM",
             ),
             env=[
                 client.V1EnvVar(
@@ -197,7 +197,7 @@ def test_vllm_openai_chat_completions_streaming():
         min_replicas=1,
         model=V1beta1ModelSpec(
             model_format=V1beta1ModelFormat(
-                name="vllm",
+                name="vLLM",
             ),
             env=[
                 client.V1EnvVar(
@@ -250,7 +250,7 @@ def test_vllm_cpu_rerank():
         min_replicas=1,
         model=V1beta1ModelSpec(
             model_format=V1beta1ModelFormat(
-                name="vllm",
+                name="vLLM",
             ),
             env=[
                 client.V1EnvVar(
