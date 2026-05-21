@@ -21016,6 +21016,30 @@ spec:
                   additionalProperties:
                     type: string
                   type: object
+                appliedConfigs:
+                  items:
+                    properties:
+                      name:
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      namespace:
+                        maxLength: 63
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                        type: string
+                      source:
+                        enum:
+                          - Preset
+                          - UserRef
+                        type: string
+                    required:
+                      - name
+                      - namespace
+                      - source
+                    type: object
+                  type: array
+                  x-kubernetes-list-type: atomic
                 conditions:
                   items:
                     properties:
