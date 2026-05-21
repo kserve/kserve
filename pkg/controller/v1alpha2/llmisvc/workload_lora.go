@@ -149,7 +149,7 @@ func (r *LLMISVCReconciler) attachLoRAAdapters(
 		return nil
 	}
 
-	var loraModules []loraModuleJSON
+	var loraModules []string
 	for _, a := range adapters {
 		switch a.scheme {
 		case constants.PvcURIPrefix:
@@ -162,15 +162,16 @@ func (r *LLMISVCReconciler) attachLoRAAdapters(
 		default:
 			return fmt.Errorf("LoRA adapter %q: internal error, unhandled scheme %q", a.name, a.scheme)
 		}
-		loraModules = append(loraModules,
-			loraModuleJSON{Name: a.name, Path: a.mountPath},
-			loraModuleJSON{Name: fmt.Sprintf("publishers/%s/models/%s", llmSvc.Namespace, a.name), Path: a.mountPath},
-		)
-	}
-
-	loraModulesJSON, err := json.Marshal(loraModules)
-	if err != nil {
-		return fmt.Errorf("failed to marshal LoRA modules JSON: %w", err)
+		for _, mod := range []loraModuleJSON{
+			{Name: a.name, Path: a.mountPath},
+			{Name: fmt.Sprintf("publishers/%s/models/%s", llmSvc.Namespace, a.name), Path: a.mountPath},
+		} {
+			m, err := json.Marshal(mod)
+			if err != nil {
+				return fmt.Errorf("LoRA adapter %q: failed to marshal module JSON: %w", a.name, err)
+			}
+			loraModules = append(loraModules, string(m))
+		}
 	}
 
 	mainIdx := -1
@@ -210,7 +211,7 @@ func (r *LLMISVCReconciler) attachLoRAAdapters(
 		maxCpuAdapters = loraSpec.MaxCpuAdapters
 	}
 
-	addLoRAVLLMArgs(main, string(loraModulesJSON), maxRank, maxAdapters, maxCpuAdapters)
+	addLoRAVLLMArgs(main, loraModules, maxRank, maxAdapters, maxCpuAdapters)
 
 	return nil
 }
@@ -238,12 +239,13 @@ func hasValueFromLoRAConfig(c *corev1.Container) bool {
 
 // addLoRAVLLMArgs appends vLLM LoRA flags to main.Args so the LLMInferenceServiceConfig
 // entrypoint can pass them to `vllm serve` (eval "... $@") after the trailing `--` argv separator.
-// loraModulesJSON is a single JSON array containing all LoRA module entries.
+// Each loraModules entry is a JSON object (e.g. {"name":"...","path":"..."}); entries are
+// single-quoted so they survive bash eval without brace expansion or quote stripping.
 // loraMaxRank, loraMaxAdapters, and loraMaxCpuAdapters are only injected when non-nil (explicitly set in the spec);
 // vLLM applies its own defaults otherwise.
 // See: https://github.com/vllm-project/vllm/blob/main/vllm/config/lora.py
-func addLoRAVLLMArgs(main *corev1.Container, loraModulesJSON string, loraMaxRank, loraMaxAdapters, loraMaxCpuAdapters *int32) {
-	argv := make([]string, 0, 6)
+func addLoRAVLLMArgs(main *corev1.Container, loraModules []string, loraMaxRank, loraMaxAdapters, loraMaxCpuAdapters *int32) {
+	argv := make([]string, 0, 5+len(loraModules))
 	argv = append(argv, "--enable-lora")
 	if loraMaxRank != nil {
 		argv = append(argv, fmt.Sprintf("--max-lora-rank=%d", *loraMaxRank))
@@ -254,7 +256,12 @@ func addLoRAVLLMArgs(main *corev1.Container, loraModulesJSON string, loraMaxRank
 	if loraMaxCpuAdapters != nil {
 		argv = append(argv, fmt.Sprintf("--max-cpu-loras=%d", *loraMaxCpuAdapters))
 	}
-	argv = append(argv, "--lora-modules", loraModulesJSON)
+	argv = append(argv, "--lora-modules")
+	// Single-quote each JSON object so it survives bash eval in the config template
+	// entrypoint (eval "vllm serve ... $@" would otherwise strip quotes and expand braces).
+	for _, m := range loraModules {
+		argv = append(argv, "'"+m+"'")
+	}
 
 	// Place injected args before so that user-provided arguments could override the injected arguments
 	main.Args = append(argv, main.Args...)

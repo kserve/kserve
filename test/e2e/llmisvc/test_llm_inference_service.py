@@ -203,7 +203,7 @@ class TestCase:
     prompt: Optional[str] = None
     service_name: Optional[str] = None
     endpoint: str = "/v1/completions"
-    max_tokens: int = 100
+    max_tokens: int = 20
     payload_formatter: Optional[Callable[["TestCase"], Dict[str, Any]]] = None
     response_assertion: Callable[[requests.Response], None] = assert_200
     wait_timeout: int = 900

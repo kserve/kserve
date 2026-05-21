@@ -175,6 +175,9 @@ spec:
               timeouts:
                 backendRequest: 0s
                 request: 0s
+            # Catch-all rules route to the workload Service directly (bypassing
+            # InferencePool) for endpoints not handled by the scheduler, such as
+            # /v1/models, /health, or custom paths exposed by the runtime.
             - name: v1-catch-all-path
               backendRefs:
                 - kind: Service

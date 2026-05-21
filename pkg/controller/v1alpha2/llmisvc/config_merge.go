@@ -287,11 +287,11 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		llmSvcCfg.Spec.Router.Route != nil &&
 		llmSvcCfg.Spec.Router.Route.HTTP.HasSpec() {
 		if r.isModelBasedRoutingEnabled(ctx, llmSvc, reconcilerConfig) {
-			if llmSvc.Spec.Model.LoRA != nil {
+			if llmSvcCfg.Spec.Model.LoRA != nil {
 				expandLoRAAdapterMatches(
 					llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules,
 					llmSvc.Namespace,
-					llmSvc.Spec.Model.LoRA.Adapters,
+					llmSvcCfg.Spec.Model.LoRA.Adapters,
 					reconcilerConfig.ModelBasedRoutingHeaderName,
 				)
 			}
