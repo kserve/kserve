@@ -81,3 +81,14 @@ imagePullSecrets:
 {{- end }}
 {{- end }}
 
+{{/*
+Names of the GIE CRDs bundled with this chart.
+*/}}
+{{- define "llm-isvc-resources.gieCRDNames" -}}
+- inferencemodelrewrites.inference.networking.x-k8s.io
+- inferenceobjectives.inference.networking.x-k8s.io
+- inferencepoolimports.inference.networking.x-k8s.io
+- inferencepools.inference.networking.k8s.io
+- inferencepools.inference.networking.x-k8s.io
+{{- end }}
+
