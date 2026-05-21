@@ -21,7 +21,10 @@ dependencies = [
     "pyjwt>=2.12.0",
     # CVE-2026-30922 pyasn1 Vulnerable to Denial of Service via Unbounded Recursion
     # Pinning because it is a transitive dependency.
-    "pyasn>=0.6.3"
+    "pyasn1>=0.6.3",
+    # CVE-2026-21226 Azure Core is vulnerable to deserialization of untrusted data
+    # Pinning because it is a transitive dependency.
+    "azure-core>=1.38.0"
 ]
 name = "kserve-storage"
 version = "0.18.0"
