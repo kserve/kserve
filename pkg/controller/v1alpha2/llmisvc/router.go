@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -51,6 +52,8 @@ import (
 // AnnotationInferencePoolMigrated records when the HTTPRoute has migrated to v1 InferencePool.
 // Once set to "v1", traffic will never fall back to v1alpha2 even during transient failures.
 const AnnotationInferencePoolMigrated = "serving.kserve.io/inference-pool-migrated"
+
+const AnnotationModelBasedRoutingEnabled = "serving.kserve.io/model-based-routing-enabled"
 
 // ErrPreconditionNotMet is a sentinel error returned by ensureGatewayPreconditions
 // when a non-transient precondition is not met (e.g. a required CRD is missing).
@@ -322,7 +325,7 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 			return nil, fmt.Errorf("failed to discover gateways for route %s/%s: %w", route.GetNamespace(), route.GetName(), err)
 		}
 		allResolved = append(allResolved, resolvedGWs...)
-		urls, err := DiscoverURLs(ctx, r.Client, resolvedGWs, route, cfg.UrlScheme)
+		urls, err := DiscoverURLs(ctx, r.Client, resolvedGWs, route, *cfg)
 		if IgnoreNoURLsDiscovered(err) != nil {
 			return nil, fmt.Errorf("failed to discover URL for route %s/%s: %w", route.GetNamespace(), route.GetName(), err)
 		}
@@ -353,12 +356,18 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 			// "virtual private networks" and we cannot detect that from just IPs. Even if it's a cluster-local URL, the
 			// status URL is just for discovery and easy access, and it's not a problem to have here while we prioritize
 			// external addresses.
-			llmSvc.Status.URL = discovered[0].URL
+			//
+			// We prefer the path-based URL (/{ns}/{name}) over the model-routing
+			// root URL (/) for backward compatibility: status.URL was always the
+			// path-based URL before model-based routing was introduced, and
+			// existing clients may rely on that form.
+			llmSvc.Status.URL = preferPathBasedURL(discovered, llmSvc.Namespace, llmSvc.Name)
 		} else {
 			llmSvc.Status.URL = nil
 		}
 	} else {
-		llmSvc.Status.URL = externalURLs[0].URL
+		// Same path-based preference as above — see comment.
+		llmSvc.Status.URL = preferPathBasedURL(externalURLs, llmSvc.Namespace, llmSvc.Name)
 	}
 
 	llmSvc.Status.Addresses = make([]v1alpha2.SourcedAddress, 0, len(discovered))
@@ -385,6 +394,24 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 	}
 
 	return deduped, nil
+}
+
+// preferPathBasedURL selects the URL whose path starts with /{namespace}/{name}
+// from the list, falling back to the first URL if none matches.
+//
+// With model-based routing enabled, DiscoverURLs returns both the path-based
+// URL (/{ns}/{name}, works without special headers) and the model-routing root
+// URL (/, requires the model-routing header). Alphabetical sorting puts "/" first,
+// but status.URL must remain the path-based URL for backward compatibility —
+// it's the form clients have always seen and the one that works unconditionally.
+func preferPathBasedURL(urls []DiscoveredURL, namespace, name string) *apis.URL {
+	prefix := "/" + namespace + "/" + name
+	for _, u := range urls {
+		if strings.HasPrefix(u.URL.Path, prefix) {
+			return u.URL
+		}
+	}
+	return urls[0].URL
 }
 
 func RouterLabels(llmSvc *v1alpha2.LLMInferenceService) map[string]string {

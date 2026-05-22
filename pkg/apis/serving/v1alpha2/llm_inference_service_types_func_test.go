@@ -19,8 +19,10 @@ package v1alpha2
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 )
@@ -499,4 +501,109 @@ func TestIsUsingLLMInferenceServiceConfigInNamespace(t *testing.T) {
 			}
 		})
 	}
+}
+
+func newTestLLMISVC() *LLMInferenceService {
+	svc := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
+		Status: LLMInferenceServiceStatus{
+			Status: duckv1.Status{},
+		},
+	}
+	svc.GetConditionSet().Manage(svc.GetStatus()).InitializeConditions()
+	return svc
+}
+
+func getConditionStatus(svc *LLMInferenceService, ct apis.ConditionType) string {
+	cond := svc.GetStatus().GetCondition(ct)
+	if cond == nil {
+		return "nil"
+	}
+	return string(cond.Status)
+}
+
+func TestDetermineWorkloadReadiness_ScalingConditions(t *testing.T) {
+	t.Run("ScalingReady=False blocks WorkloadsReady", func(t *testing.T) {
+		svc := newTestLLMISVC()
+		svc.MarkMainWorkloadReady()
+		svc.MarkScalingNotReady("FailedGetExternalMetric", "metric not found")
+
+		svc.DetermineWorkloadReadiness()
+
+		assert.Equal(t, "False", getConditionStatus(svc, WorkloadReady))
+		cond := svc.GetStatus().GetCondition(WorkloadReady)
+		assert.Equal(t, "FailedGetExternalMetric", cond.Reason)
+	})
+
+	t.Run("PrefillScalingReady=False blocks WorkloadsReady", func(t *testing.T) {
+		svc := newTestLLMISVC()
+		svc.MarkMainWorkloadReady()
+		svc.MarkScalingReady()
+		svc.MarkPrefillScalingNotReady("TriggerError", "prometheus query failed")
+
+		svc.DetermineWorkloadReadiness()
+
+		assert.Equal(t, "False", getConditionStatus(svc, WorkloadReady))
+		cond := svc.GetStatus().GetCondition(WorkloadReady)
+		assert.Equal(t, "TriggerError", cond.Reason)
+	})
+
+	t.Run("all conditions ready including scaling -> WorkloadsReady=True", func(t *testing.T) {
+		svc := newTestLLMISVC()
+		svc.MarkMainWorkloadReady()
+		svc.MarkScalingReady()
+
+		svc.DetermineWorkloadReadiness()
+
+		assert.Equal(t, "True", getConditionStatus(svc, WorkloadReady))
+	})
+
+	t.Run("absent ScalingReady does not block WorkloadsReady", func(t *testing.T) {
+		svc := newTestLLMISVC()
+		svc.MarkMainWorkloadReady()
+
+		svc.DetermineWorkloadReadiness()
+
+		assert.Equal(t, "True", getConditionStatus(svc, WorkloadReady))
+	})
+
+	t.Run("absent PrefillScalingReady does not block WorkloadsReady", func(t *testing.T) {
+		svc := newTestLLMISVC()
+		svc.MarkMainWorkloadReady()
+		svc.MarkScalingReady()
+
+		svc.DetermineWorkloadReadiness()
+
+		assert.Equal(t, "True", getConditionStatus(svc, WorkloadReady))
+	})
+
+	t.Run("MarkScalingUnset clears the condition", func(t *testing.T) {
+		svc := newTestLLMISVC()
+		svc.MarkScalingNotReady("test", "msg")
+		assert.Equal(t, "False", getConditionStatus(svc, ScalingReady))
+
+		svc.MarkScalingUnset()
+		assert.Equal(t, "nil", getConditionStatus(svc, ScalingReady))
+	})
+
+	t.Run("MarkPrefillScalingUnset clears the condition", func(t *testing.T) {
+		svc := newTestLLMISVC()
+		svc.MarkPrefillScalingNotReady("test", "msg")
+		assert.Equal(t, "False", getConditionStatus(svc, PrefillScalingReady))
+
+		svc.MarkPrefillScalingUnset()
+		assert.Equal(t, "nil", getConditionStatus(svc, PrefillScalingReady))
+	})
+
+	t.Run("MainWorkloadReady=False takes priority over ScalingReady=False", func(t *testing.T) {
+		svc := newTestLLMISVC()
+		svc.MarkMainWorkloadNotReady("DeploymentUnavailable", "pods crashing")
+		svc.MarkScalingNotReady("FailedGetExternalMetric", "metric not found")
+
+		svc.DetermineWorkloadReadiness()
+
+		assert.Equal(t, "False", getConditionStatus(svc, WorkloadReady))
+		cond := svc.GetStatus().GetCondition(WorkloadReady)
+		assert.Equal(t, "DeploymentUnavailable", cond.Reason, "MainWorkloadReady comes first in order")
+	})
 }

@@ -73,18 +73,27 @@ func IsClusterLocalURL(url *apis.URL) bool {
 	return strings.HasSuffix(host, network.GetClusterDomainName())
 }
 
+func IsModelRoutingURL(url *apis.URL) bool {
+	return url.Path == "/" || url.Path == ""
+}
+
 // AddressTypeName returns the type name for a URL to be used in Addressable.Name:
 // - "gateway-external" for public addresses
 // - "gateway-internal" for cluster-local gateway service URLs
 // - "internal" for private IPs or other internal hostnames
 func AddressTypeName(url *apis.URL) string {
+	typeName := "gateway-external"
 	if IsClusterLocalURL(url) {
-		return "gateway-internal"
+		typeName = "gateway-internal"
+	} else if IsInternalURL(url) {
+		typeName = "internal"
 	}
-	if IsInternalURL(url) {
-		return "internal"
+
+	if IsModelRoutingURL(url) {
+		return typeName + "-model-routing"
 	}
-	return "gateway-external"
+
+	return typeName
 }
 
 // isInternalHostname checks if a hostname appears to be internal
