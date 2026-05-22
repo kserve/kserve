@@ -261,9 +261,11 @@ func (isvc *InferenceService) setPredictorModelDefaults() {
 		isvc.assignPaddleRuntime()
 	}
 
-	if isvc.Spec.Predictor.Model != nil && isvc.Spec.Predictor.Model.ProtocolVersion == nil {
-		if isvc.Spec.Predictor.Model.ModelFormat.Name == constants.SupportedModelTriton || isvc.Spec.Predictor.Model.ModelFormat.Name == constants.SupportedModelVLLM {
-			// set 'v2' as default protocol version for triton and vllm servers
+	if isvc.Spec.Predictor.Model != nil {
+		// set 'v2' as default protocol version for triton and vllm servers
+		if isvc.Spec.Predictor.Model.ProtocolVersion == nil &&
+			(isvc.Spec.Predictor.Model.ModelFormat.Name == constants.SupportedModelTriton ||
+				isvc.Spec.Predictor.Model.ModelFormat.Name == constants.SupportedModelVLLM) {
 			protocolV2 := constants.ProtocolV2
 			isvc.Spec.Predictor.Model.ProtocolVersion = &protocolV2
 		}
