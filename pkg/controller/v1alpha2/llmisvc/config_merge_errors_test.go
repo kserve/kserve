@@ -16,10 +16,24 @@ limitations under the License.
 
 package llmisvc_test
 
+// Most "config not found" coverage is provided by the envtest specs in
+// controller_int_config_not_found_test.go, which exercise the real
+// reconciliation path and assert on the user-facing Status condition
+// Message. The unit-level tests below cover the two cases that don't
+// fit naturally into an envtest cluster:
+//
+//   - the pure string-formatting contract of (*ConfigNotFoundError).Error()
+//     across populated / empty / nil Available slices, where spinning up
+//     an envtest apiserver would be overkill;
+//
+//   - the best-effort behaviour of listAvailableConfigs when a per-namespace
+//     LIST fails (e.g. RBAC denial). Reproducing a List error scoped to a
+//     single namespace is awkward under envtest, so we inject the error
+//     via controller-runtime's fake client and interceptor.Funcs.
+
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -30,7 +44,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 )
 
@@ -96,129 +109,39 @@ func TestConfigNotFoundErrorMessage(t *testing.T) {
 	}
 }
 
-func TestListAvailableConfigs(t *testing.T) {
-	t.Run("returns sorted ns/name pairs across namespaces", func(t *testing.T) {
-		g := NewGomegaWithT(t)
-		scheme := newConfigMergeTestScheme(t)
-
-		fc := fake.NewClientBuilder().
-			WithScheme(scheme).
-			WithObjects(
-				newCfg("zeta", "default"),
-				newCfg("alpha", "default"),
-				newCfg("kserve-config-llm-decode-template", "kserve"),
-				newCfg("kserve-config-llm-scheduler", "kserve"),
-			).
-			Build()
-		r := &llmisvc.LLMISVCReconciler{Client: fc}
-
-		got := r.ListAvailableConfigsForTest(context.Background(), []string{"default", "kserve"})
-
-		g.Expect(got).To(Equal([]string{
-			"default/alpha",
-			"default/zeta",
-			"kserve/kserve-config-llm-decode-template",
-			"kserve/kserve-config-llm-scheduler",
-		}))
-	})
-
-	t.Run("disambiguates same-named configs in different namespaces", func(t *testing.T) {
-		g := NewGomegaWithT(t)
-		scheme := newConfigMergeTestScheme(t)
-
-		fc := fake.NewClientBuilder().
-			WithScheme(scheme).
-			WithObjects(
-				newCfg("foo", "default"),
-				newCfg("foo", "kserve"),
-			).
-			Build()
-		r := &llmisvc.LLMISVCReconciler{Client: fc}
-
-		got := r.ListAvailableConfigsForTest(context.Background(), []string{"default", "kserve"})
-
-		g.Expect(got).To(Equal([]string{"default/foo", "kserve/foo"}))
-	})
-
-	t.Run("empty result when no configs exist in any namespace", func(t *testing.T) {
-		g := NewGomegaWithT(t)
-		scheme := newConfigMergeTestScheme(t)
-
-		fc := fake.NewClientBuilder().WithScheme(scheme).Build()
-		r := &llmisvc.LLMISVCReconciler{Client: fc}
-
-		got := r.ListAvailableConfigsForTest(context.Background(), []string{"default", "kserve"})
-
-		g.Expect(got).To(BeEmpty())
-	})
-
-	t.Run("best-effort: namespace with failing list is skipped, others returned", func(t *testing.T) {
-		g := NewGomegaWithT(t)
-		scheme := newConfigMergeTestScheme(t)
-
-		listErr := errors.New("forbidden: user cannot list LLMInferenceServiceConfig in namespace \"forbidden-ns\"")
-
-		fc := fake.NewClientBuilder().
-			WithScheme(scheme).
-			WithObjects(
-				newCfg("ok-config", "default"),
-			).
-			WithInterceptorFuncs(interceptor.Funcs{
-				List: func(ctx context.Context, c client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
-					listOpts := &client.ListOptions{}
-					for _, o := range opts {
-						o.ApplyToList(listOpts)
-					}
-					if listOpts.Namespace == "forbidden-ns" {
-						return listErr
-					}
-					return c.List(ctx, list, opts...)
-				},
-			}).
-			Build()
-		r := &llmisvc.LLMISVCReconciler{Client: fc}
-
-		got := r.ListAvailableConfigsForTest(context.Background(), []string{"default", "forbidden-ns"})
-
-		g.Expect(got).To(Equal([]string{"default/ok-config"}),
-			"forbidden namespace should be silently dropped, default's configs preserved")
-	})
-}
-
-// TestGetConfig_NotFound_PopulatesAvailable is the end-to-end check that the
-// configNotFoundError returned by getConfig carries the namespace/name
-// formatted Available list — the user-facing payoff of listAvailableConfigs.
-func TestGetConfig_NotFound_PopulatesAvailable(t *testing.T) {
+// TestListAvailableConfigs_SkipsFailingNamespace verifies that a LIST error
+// scoped to a single namespace (e.g. an RBAC denial in that namespace only)
+// does not poison the overall result — configs from the healthy namespaces
+// are still returned. envtest cannot easily reproduce this without
+// elaborate RBAC plumbing, so we inject the error via interceptor.Funcs.
+func TestListAvailableConfigs_SkipsFailingNamespace(t *testing.T) {
 	g := NewGomegaWithT(t)
 	scheme := newConfigMergeTestScheme(t)
+
+	listErr := errors.New("forbidden: user cannot list LLMInferenceServiceConfig in namespace \"forbidden-ns\"")
 
 	fc := fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithObjects(
-			newCfg("kserve-config-llm-decode-template", constants.KServeNamespace),
-			newCfg("kserve-config-llm-scheduler", constants.KServeNamespace),
-			newCfg("user-custom-config", "user-ns"),
+			newCfg("ok-config", "default"),
 		).
+		WithInterceptorFuncs(interceptor.Funcs{
+			List: func(ctx context.Context, c client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+				listOpts := &client.ListOptions{}
+				for _, o := range opts {
+					o.ApplyToList(listOpts)
+				}
+				if listOpts.Namespace == "forbidden-ns" {
+					return listErr
+				}
+				return c.List(ctx, list, opts...)
+			},
+		}).
 		Build()
 	r := &llmisvc.LLMISVCReconciler{Client: fc}
 
-	llmSvc := &v1alpha2.LLMInferenceService{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-llm", Namespace: "user-ns"},
-	}
+	got := r.ListAvailableConfigsForTest(context.Background(), []string{"default", "forbidden-ns"})
 
-	_, err := r.GetConfigForTest(context.Background(), llmSvc, "does-not-exist")
-
-	g.Expect(err).To(HaveOccurred())
-
-	var cfgNotFound *llmisvc.ConfigNotFoundError
-	g.Expect(errors.As(err, &cfgNotFound)).To(BeTrue(), "error should unwrap to *ConfigNotFoundError")
-	g.Expect(cfgNotFound.Name).To(Equal("does-not-exist"))
-	g.Expect(cfgNotFound.Namespaces).To(Equal([]string{"user-ns", constants.KServeNamespace}))
-	g.Expect(cfgNotFound.Available).To(ConsistOf(
-		fmt.Sprintf("%s/%s", constants.KServeNamespace, "kserve-config-llm-decode-template"),
-		fmt.Sprintf("%s/%s", constants.KServeNamespace, "kserve-config-llm-scheduler"),
-		"user-ns/user-custom-config",
-	))
-	g.Expect(cfgNotFound.Error()).To(ContainSubstring(`"does-not-exist" not found`))
-	g.Expect(cfgNotFound.Error()).To(ContainSubstring("user-ns/user-custom-config"))
+	g.Expect(got).To(Equal([]string{"default/ok-config"}),
+		"forbidden namespace should be silently dropped, default's configs preserved")
 }
