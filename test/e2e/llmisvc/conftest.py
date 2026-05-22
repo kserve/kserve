@@ -56,3 +56,6 @@ def pytest_configure(config):
     )
     config.addinivalue_line("markers", "lora: mark test as a LoRA adapter test")
     config.addinivalue_line("markers", "pvc_storage: mark test as a PVC storage test")
+    config.addinivalue_line(
+        "markers", "tracing: mark test as a distributed tracing test"
+    )

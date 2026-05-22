@@ -652,6 +652,7 @@ KNATIVE_SERVING_VERSION=1.21.1
 KEDA_OTEL_ADDON_VERSION=v0.0.6
 PROMETHEUS_VERSION=83.4.0
 PROMETHEUS_ADAPTER_VERSION=5.3.0
+JAEGER_VERSION=4.7.0
 KSERVE_VERSION=v0.19.0
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.18.0
@@ -38450,7 +38451,7 @@ data:
       {
           "art": {
               "image" : "kserve/art-explainer",
-              "defaultImageVersion": "latest"
+              "defaultImageVersion": "local"
           }
       }
     # Art Explainer runtime configuration
@@ -38462,7 +38463,7 @@ data:
                "image" : "kserve/art-explainer",
 
                # defautltImageVersion contains the Art explainer serving runtime default image version.
-               "defaultImageVersion": "latest"
+               "defaultImageVersion": "local"
            }
        }
     # ====================================== ISVC CONFIGURATION ======================================
@@ -38573,7 +38574,7 @@ data:
      # Example
      storageInitializer: |-
        {
-           "image" : "kserve/storage-initializer:latest",
+           "image" : "kserve/storage-initializer:local",
            "memoryRequest": "100Mi",
            "memoryLimit": "1Gi",
            "cpuRequest": "100m",
@@ -38587,7 +38588,7 @@ data:
      storageInitializer: |-
        {
            # image contains the default storage initializer image uri.
-           "image" : "kserve/storage-initializer:latest",
+           "image" : "kserve/storage-initializer:local",
 
            # memoryRequest is the requests.memory to set for the storage initializer init container.
            "memoryRequest": "100Mi",
@@ -38651,8 +38652,8 @@ data:
      # You can override this configuration by specifying the annotations on service account or static secret.
      # https://kserve.github.io/website/master/modelserving/storage/s3/s3/
      # For a quick reference about AWS ENV variables:
-     # AWS Cli: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html
-     # Boto: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#using-environment-variables
+     # AWS Cli: https://docs.aws.amazon.com/cli/local/userguide/cli-configure-envvars.html
+     # Boto: https://boto3.amazonaws.com/v1/documentation/api/local/guide/configuration.html#using-environment-variables
      #
      # The `s3AccessKeyIDName` and `s3SecretAccessKeyName` fields are only used from this configmap when static credentials (IAM User Access Key Secret)
      # are used as the authentication method for AWS S3.
@@ -38822,7 +38823,7 @@ data:
      # Example
      logger: |-
        {
-           "image" : "kserve/agent:latest",
+           "image" : "kserve/agent:local",
            "memoryRequest": "100Mi",
            "memoryLimit": "1Gi",
            "cpuRequest": "100m",
@@ -38832,7 +38833,7 @@ data:
      logger: |-
        {
            # image contains the default logger image uri.
-           "image" : "kserve/agent:latest",
+           "image" : "kserve/agent:local",
 
            # memoryRequest is the requests.memory to set for the logger container.
            "memoryRequest": "100Mi",
@@ -38854,7 +38855,7 @@ data:
      # Example
      batcher: |-
        {
-           "image" : "kserve/agent:latest",
+           "image" : "kserve/agent:local",
            "memoryRequest": "1Gi",
            "memoryLimit": "1Gi",
            "cpuRequest": "1",
@@ -38865,7 +38866,7 @@ data:
      batcher: |-
        {
            # image contains the default batcher image uri.
-           "image" : "kserve/agent:latest",
+           "image" : "kserve/agent:local",
 
            # memoryRequest is the requests.memory to set for the batcher container.
            "memoryRequest": "1Gi",
@@ -38890,7 +38891,7 @@ data:
      # Example
      agent: |-
        {
-           "image" : "kserve/agent:latest",
+           "image" : "kserve/agent:local",
            "memoryRequest": "100Mi",
            "memoryLimit": "1Gi",
            "cpuRequest": "100m",
@@ -38899,7 +38900,7 @@ data:
      agent: |-
        {
            # image contains the default agent image uri.
-           "image" : "kserve/agent:latest",
+           "image" : "kserve/agent:local",
 
            # memoryRequest is the requests.memory to set for the agent container.
            "memoryRequest": "100Mi",
@@ -38918,7 +38919,7 @@ data:
      # Example
      router: |-
        {
-           "image" : "kserve/router:latest",
+           "image" : "kserve/router:local",
            "memoryRequest": "100Mi",
            "memoryLimit": "1Gi",
            "cpuRequest": "100m",
@@ -38933,7 +38934,7 @@ data:
      router: |-
        {
            # image contains the default router image uri.
-           "image" : "kserve/router:latest",
+           "image" : "kserve/router:local",
 
            # memoryRequest is the requests.memory to set for the router container.
            "memoryRequest": "100Mi",
@@ -39041,7 +39042,7 @@ data:
          # jobNamespace specifies the namespace where the download job will be created.
          "jobNamespace": "kserve-localmodel-jobs",
          # defaultJobImage specifies the default image used for the download job.
-         "defaultJobImage" : "kserve/storage-initializer:latest",
+         "defaultJobImage" : "kserve/storage-initializer:local",
          # Kubernetes modifies the filesystem group ID on the attached volume.
          "fsGroup": 1000,
          # TTL for the download job after it is finished.
@@ -39054,7 +39055,7 @@ data:
        }
   agent: |-
     {
-        "image" : "kserve/agent:latest",
+        "image" : "kserve/agent:local",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -39067,7 +39068,7 @@ data:
     }
   batcher: |-
     {
-        "image" : "kserve/agent:latest",
+        "image" : "kserve/agent:local",
         "memoryRequest": "1Gi",
         "memoryLimit": "1Gi",
         "cpuRequest": "1",
@@ -39104,7 +39105,7 @@ data:
     {
         "art": {
             "image" : "kserve/art-explainer",
-            "defaultImageVersion": "latest"
+            "defaultImageVersion": "local"
         }
     }
   inferenceService: |-
@@ -39135,7 +39136,7 @@ data:
     {
       "enabled": false,
       "jobNamespace": "kserve-localmodel-jobs",
-      "defaultJobImage" : "kserve/storage-initializer:latest",
+      "defaultJobImage" : "kserve/storage-initializer:local",
       "fsGroup": 1000,
       "jobTTLSecondsAfterFinished": 3600,
       "reconcilationFrequencyInSecs": 60,
@@ -39143,7 +39144,7 @@ data:
     }
   logger: |-
     {
-        "image" : "kserve/agent:latest",
+        "image" : "kserve/agent:local",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -39169,7 +39170,7 @@ data:
     }
   router: |-
     {
-        "image" : "kserve/router:latest",
+        "image" : "kserve/router:local",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -39182,7 +39183,7 @@ data:
     }
   storageInitializer: |-
     {
-        "image" : "kserve/storage-initializer:latest",
+        "image" : "kserve/storage-initializer:local",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",

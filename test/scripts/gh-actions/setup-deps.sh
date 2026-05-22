@@ -118,6 +118,10 @@ else
     ${REPO_ROOT}/hack/setup/infra/manage.prometheus-helm.sh
     ${REPO_ROOT}/hack/setup/infra/manage.keda-helm.sh
     ${REPO_ROOT}/hack/setup/infra/manage.wva-helm.sh
+
+  elif [[ $LLMISVC_AUTOSCALER == "tracing" ]]; then
+    echo "Installing Jaeger All-in-One for tracing e2e tests..."
+    ${REPO_ROOT}/hack/setup/infra/manage.jaeger-helm.sh
   fi
   
 fi
