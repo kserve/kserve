@@ -5,7 +5,9 @@ ARG VENV_PATH=/prod_venv
 FROM ${BASE_IMAGE} AS builder
 
 # Required for building packages for arm64 arch
-RUN apt-get update && apt-get install -y --no-install-recommends curl python3-dev build-essential && apt-get clean && \
+RUN apt-get update && apt-get install -y --no-install-recommends curl python3-dev build-essential && \
+    if [ "$(uname -m)" = "ppc64le" ]; then apt-get install pkg-config libssl-dev gcc gfortran cmake pkg-config libssl-dev libopenblas-dev libjpeg-dev libhdf5-dev wget -y; fi && \
+    apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 # Install uv

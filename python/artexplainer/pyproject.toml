@@ -10,6 +10,11 @@ dependencies = [
     "nest-asyncio<2.0.0,>=1.5.8",
     "pillow<11.0.0,>=10.3.0",
     "h5py==3.10.0",
+    "uvloop>=0.21.0" ,
+    "httptools>=0.6.0" ,
+    "scipy>=1.10.0",
+    "scikit-learn>=1.3.0",
+    "ml-dtypes>=0.3.0 "
 ]
 name = "artserver"
 version = "0.18.0"
@@ -24,4 +29,69 @@ test = [
 ]
 dev = [
     "black[colorama]~=24.3.0",
+]
+
+[tool.uv]
+index-strategy = "unsafe-best-match"
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+default = true
+
+[[tool.uv.index]]
+name = "ppc64le-wheels"
+url = "https://wheels.developerfirst.ibm.com/ppc64le/linux"
+
+grpcio = [
+    { index = "pypi", marker = "platform_machine != 'ppc64le'" },
+    { index = "ppc64le-wheels", marker = "platform_machine == 'ppc64le'" },
+]
+scipy = [
+    { index = "pypi", marker = "platform_machine != 'ppc64le'" },
+    { index = "ppc64le-wheels", marker = "platform_machine == 'ppc64le'" },
+]
+grpcio-tools = [
+    { index = "pypi", marker = "platform_machine != 'ppc64le'" },
+    { index = "ppc64le-wheels", marker = "platform_machine == 'ppc64le'" },
+]
+numpy = [
+    { index = "pypi", marker = "platform_machine != 'ppc64le'" },
+    { index = "ppc64le-wheels", marker = "platform_machine == 'ppc64le'" },
+]
+pandas = [
+    { index = "pypi", marker = "platform_machine != 'ppc64le'" },
+    { index = "ppc64le-wheels", marker = "platform_machine == 'ppc64le'" },
+]
+psutil = [
+    { index = "pypi", marker = "platform_machine != 'ppc64le'" },
+    { index = "ppc64le-wheels", marker = "platform_machine == 'ppc64le'" },
+]
+pyyaml = [
+    { index = "pypi", marker = "platform_machine != 'ppc64le'" },
+    { index = "ppc64le-wheels", marker = "platform_machine == 'ppc64le'" },
+]
+uvloop = [
+    { index = "pypi", marker = "platform_machine != 'ppc64le'" },
+    { index = "ppc64le-wheels", marker = "platform_machine == 'ppc64le'" },
+]
+httptools = [
+    { index = "pypi", marker = "platform_machine != 'ppc64le'" },
+    { index = "ppc64le-wheels", marker = "platform_machine == 'ppc64le'" },
+]
+scikit-learn = [
+    { index = "pypi", marker = "platform_machine != 'ppc64le'" },
+    { index = "ppc64le-wheels", marker = "platform_machine == 'ppc64le'" },
+]
+pillow = [
+    { index = "pypi", marker = "platform_machine != 'ppc64le'" },
+    { index = "ppc64le-wheels", marker = "platform_machine == 'ppc64le'" },
+]
+h5py = [
+    { index = "pypi", marker = "platform_machine != 'ppc64le'" },
+    { index = "ppc64le-wheels", marker = "platform_machine == 'ppc64le'" },
+]
+ml-dtypes = [
+    { index = "pypi", marker = "platform_machine != 'ppc64le'" },
+    { index = "ppc64le-wheels", marker = "platform_machine == 'ppc64le'" },
 ]
