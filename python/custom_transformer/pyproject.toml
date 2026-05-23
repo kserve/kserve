@@ -6,9 +6,8 @@ license = {text = "Apache-2.0"}
 requires-python = "<3.14,>=3.10"
 dependencies = [
     "kserve @ file:///${PROJECT_ROOT}/../kserve",
-    "torchvision==0.26.0+cpu",
-    "torch==2.11.0+cpu",
-    "pillow<11.0.0,>=10.3.0",
+    "transformers>=4.30.0",
+    "numpy>=1.24.0",
 ]
 name = "custom_transformer"
 version = "0.20.0"
@@ -20,6 +19,7 @@ test = [
     "mypy<1.0,>=0.991",
 ]
 dev = [
+<<<<<<< HEAD
     "black[colorama]>=26.3.1,<27",
 ]
 
@@ -32,3 +32,7 @@ name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
 explicit = true
 
+=======
+    "black[colorama]~=24.3.0",
+]
+>>>>>>> 70020a3af (update transformer tests)

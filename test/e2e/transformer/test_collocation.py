@@ -37,34 +37,55 @@ from ..common.utils import (
     STORAGE_URI_ENV,
 )
 
+SENTIMENT_TRANSFORMER_ARGS = [
+    "--tokenizer_name",
+    "optimum/distilbert-base-uncased-finetuned-sst-2-english",
+    "--sentiment_labels",
+    "negative,positive",
+    "--output_name",
+    "logits",
+]
+
+SENTIMENT_STORAGE_URI = "hf://optimum/distilbert-base-uncased-finetuned-sst-2-english"
+
+
+def assert_sentiment_predictions(res, expected_count=2):
+    """Common assertion logic for sentiment prediction responses."""
+    assert "predictions" in res
+    predictions = res["predictions"]
+    assert len(predictions) == expected_count
+    for pred in predictions:
+        assert pred["sentiment"] in ["positive", "negative"]
+        assert 0.0 <= pred["confidence"] <= 1.0
+
 
 @pytest.mark.collocation
 @pytest.mark.asyncio(scope="session")
 async def test_transformer_collocation(rest_v1_client, network_layer):
     service_name = "custom-model-transformer-collocation"
-    model_name = "mnist"
+    model_name = "sentiment-analysis"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         containers=[
             V1Container(
                 name=INFERENCESERVICE_CONTAINER,
-                image="pytorch/torchserve:0.9.0-cpu",
+                image="openvino/model_server:2024.5",
                 env=[
                     V1EnvVar(
                         name=STORAGE_URI_ENV,
-                        value="gs://kfserving-examples/models/torchserve/image_classifier/v1",
+                        value=SENTIMENT_STORAGE_URI,
                     ),
-                    V1EnvVar(name="TS_SERVICE_ENVELOPE", value="kserve"),
                 ],
                 args=[
-                    "torchserve",
-                    "--start",
-                    "--model-store=/mnt/models/model-store",
-                    "--ts-config=/mnt/models/config/config.properties",
+                    f"--model_name={model_name}",
+                    "--model_path=/mnt/models",
+                    "--port=9000",
+                    "--rest_port=8085",
+                    "--file_system_poll_wait_seconds=0",
                 ],
                 resources=V1ResourceRequirements(
-                    requests={"cpu": "10m", "memory": "128Mi"},
-                    limits={"cpu": "1", "memory": "1Gi"},
+                    requests={"cpu": "100m", "memory": "512Mi"},
+                    limits={"cpu": "1", "memory": "2Gi"},
                 ),
             ),
             V1Container(
@@ -75,8 +96,10 @@ async def test_transformer_collocation(rest_v1_client, network_layer):
                     "--http_port=8080",
                     "--grpc_port=8081",
                     "--predictor_host=localhost:8085",
+                    "--predictor_protocol=v2",
                     "--enable_predictor_health_check",
-                ],
+                ]
+                + SENTIMENT_TRANSFORMER_ARGS,
                 ports=[V1ContainerPort(container_port=8080, protocol="TCP")],
                 resources=V1ResourceRequirements(
                     requests={"cpu": "10m", "memory": "128Mi"},
@@ -128,11 +151,11 @@ async def test_transformer_collocation(rest_v1_client, network_layer):
     res = await predict_isvc(
         rest_v1_client,
         service_name,
-        "./data/transformer.json",
+        "./data/sentiment.json",
         model_name=model_name,
         network_layer=network_layer,
     )
-    assert res["predictions"][0] == 2
+    assert_sentiment_predictions(res)
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
@@ -140,18 +163,18 @@ async def test_transformer_collocation(rest_v1_client, network_layer):
 @pytest.mark.asyncio(scope="session")
 async def test_transformer_collocation_runtime(rest_v1_client, network_layer):
     service_name = "custom-model-trans-collocation-runtime"
-    model_name = "mnist"
+    model_name = "sentiment-analysis"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         model=V1beta1ModelSpec(
             model_format=V1beta1ModelFormat(
-                name="pytorch",
+                name="onnx",
             ),
-            storage_uri="gs://kfserving-examples/models/torchserve/image_classifier/v1",
-            protocol_version="v1",
+            storage_uri=SENTIMENT_STORAGE_URI,
+            protocol_version="v2",
             resources=V1ResourceRequirements(
-                requests={"cpu": "100m", "memory": "4Gi"},
-                limits={"cpu": "1", "memory": "4Gi"},
+                requests={"cpu": "100m", "memory": "512Mi"},
+                limits={"cpu": "1", "memory": "2Gi"},
             ),
         ),
         containers=[
@@ -163,8 +186,10 @@ async def test_transformer_collocation_runtime(rest_v1_client, network_layer):
                     "--http_port=8090",
                     "--grpc_port=8091",
                     "--predictor_host=localhost:8085",
+                    "--predictor_protocol=v2",
                     "--enable_predictor_health_check",
-                ],
+                ]
+                + SENTIMENT_TRANSFORMER_ARGS,
                 ports=[V1ContainerPort(container_port=8090, protocol="TCP")],
                 resources=V1ResourceRequirements(
                     requests={"cpu": "10m", "memory": "128Mi"},
@@ -216,11 +241,11 @@ async def test_transformer_collocation_runtime(rest_v1_client, network_layer):
     res = await predict_isvc(
         rest_v1_client,
         service_name,
-        "./data/transformer.json",
+        "./data/sentiment.json",
         model_name=model_name,
         network_layer=network_layer,
     )
-    assert res["predictions"][0] == 2
+    assert_sentiment_predictions(res)
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
@@ -229,29 +254,29 @@ async def test_transformer_collocation_runtime(rest_v1_client, network_layer):
 async def test_raw_transformer_collocation(rest_v1_client, network_layer):
     suffix = str(uuid.uuid4())[1:6]
     service_name = "raw-custom-model-collocation-" + suffix
-    model_name = "mnist"
+    model_name = "sentiment-analysis"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         containers=[
             V1Container(
                 name=INFERENCESERVICE_CONTAINER,
-                image="pytorch/torchserve:0.9.0-cpu",
+                image="openvino/model_server:2024.5",
                 env=[
                     V1EnvVar(
                         name=STORAGE_URI_ENV,
-                        value="gs://kfserving-examples/models/torchserve/image_classifier/v1",
+                        value=SENTIMENT_STORAGE_URI,
                     ),
-                    V1EnvVar(name="TS_SERVICE_ENVELOPE", value="kserve"),
                 ],
                 args=[
-                    "torchserve",
-                    "--start",
-                    "--model-store=/mnt/models/model-store",
-                    "--ts-config=/mnt/models/config/config.properties",
+                    f"--model_name={model_name}",
+                    "--model_path=/mnt/models",
+                    "--port=9000",
+                    "--rest_port=8085",
+                    "--file_system_poll_wait_seconds=0",
                 ],
                 resources=V1ResourceRequirements(
-                    requests={"cpu": "10m", "memory": "128Mi"},
-                    limits={"cpu": "1", "memory": "1Gi"},
+                    requests={"cpu": "100m", "memory": "512Mi"},
+                    limits={"cpu": "1", "memory": "2Gi"},
                 ),
             ),
             V1Container(
@@ -262,8 +287,10 @@ async def test_raw_transformer_collocation(rest_v1_client, network_layer):
                     "--http_port=8080",
                     "--grpc_port=8081",
                     "--predictor_host=localhost:8085",
+                    "--predictor_protocol=v2",
                     "--enable_predictor_health_check",
-                ],
+                ]
+                + SENTIMENT_TRANSFORMER_ARGS,
                 ports=[
                     V1ContainerPort(name="http", container_port=8080, protocol="TCP"),
                     V1ContainerPort(name="grpc", container_port=8081, protocol="TCP"),
@@ -320,11 +347,11 @@ async def test_raw_transformer_collocation(rest_v1_client, network_layer):
     res = await predict_isvc(
         rest_v1_client,
         service_name,
-        "./data/transformer.json",
+        "./data/sentiment.json",
         model_name=model_name,
         network_layer=network_layer,
     )
-    assert res["predictions"][0] == 2
+    assert_sentiment_predictions(res)
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
@@ -333,18 +360,18 @@ async def test_raw_transformer_collocation(rest_v1_client, network_layer):
 async def test_raw_transformer_collocation_runtime(rest_v1_client, network_layer):
     suffix = str(uuid.uuid4())[1:5]
     service_name = "raw-custom-pred-collocation-" + suffix
-    model_name = "mnist"
+    model_name = "sentiment-analysis"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         model=V1beta1ModelSpec(
             model_format=V1beta1ModelFormat(
-                name="pytorch",
+                name="onnx",
             ),
-            storage_uri="gs://kfserving-examples/models/torchserve/image_classifier/v1",
-            protocol_version="v1",
+            storage_uri=SENTIMENT_STORAGE_URI,
+            protocol_version="v2",
             resources=V1ResourceRequirements(
-                requests={"cpu": "100m", "memory": "4Gi"},
-                limits={"cpu": "1", "memory": "4Gi"},
+                requests={"cpu": "100m", "memory": "512Mi"},
+                limits={"cpu": "1", "memory": "2Gi"},
             ),
         ),
         containers=[
@@ -356,8 +383,10 @@ async def test_raw_transformer_collocation_runtime(rest_v1_client, network_layer
                     "--http_port=8090",
                     "--grpc_port=8091",
                     "--predictor_host=localhost:8085",
+                    "--predictor_protocol=v2",
                     "--enable_predictor_health_check",
-                ],
+                ]
+                + SENTIMENT_TRANSFORMER_ARGS,
                 ports=[V1ContainerPort(container_port=8090, protocol="TCP")],
                 resources=V1ResourceRequirements(
                     requests={"cpu": "10m", "memory": "128Mi"},
@@ -416,9 +445,9 @@ async def test_raw_transformer_collocation_runtime(rest_v1_client, network_layer
     res = await predict_isvc(
         rest_v1_client,
         service_name,
-        "./data/transformer.json",
+        "./data/sentiment.json",
         model_name=model_name,
         network_layer=network_layer,
     )
-    assert res["predictions"][0] == 2
+    assert_sentiment_predictions(res)
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

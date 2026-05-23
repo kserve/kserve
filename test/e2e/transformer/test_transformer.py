@@ -32,12 +32,12 @@ from kserve import KServeClient
 from kserve import constants
 from kserve import V1beta1PredictorSpec
 from kserve import V1beta1TransformerSpec
-from kserve import V1beta1TorchServeSpec
 from kserve import V1beta1InferenceServiceSpec
 from kserve import V1beta1InferenceService
+from kserve.models.v1beta1_model_format import V1beta1ModelFormat
+from kserve.models.v1beta1_model_spec import V1beta1ModelSpec
 from kubernetes.client import V1ResourceRequirements
 from kubernetes.client import V1Container
-from kubernetes.client import V1EnvVar
 import pytest
 from ..common.utils import predict_isvc
 from ..common.utils import KSERVE_TEST_NAMESPACE
@@ -46,15 +46,17 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 @pytest.mark.transformer
 @pytest.mark.asyncio(scope="session")
 async def test_transformer(rest_v1_client, network_layer):
-    service_name = "isvc-transformer"
+    service_name = "isvc-sentiment-transformer"
+    model_name = "sentiment-analysis"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
-        pytorch=V1beta1TorchServeSpec(
-            storage_uri="gs://kfserving-examples/models/torchserve/image_classifier/v1",
-            protocol_version="v1",
+        model=V1beta1ModelSpec(
+            model_format=V1beta1ModelFormat(name="onnx"),
+            storage_uri="hf://optimum/distilbert-base-uncased-finetuned-sst-2-english",
+            protocol_version="v2",
             resources=V1ResourceRequirements(
-                requests={"cpu": "10m", "memory": "128Mi"},
-                limits={"cpu": "1", "memory": "1Gi"},
+                requests={"cpu": "100m", "memory": "512Mi"},
+                limits={"cpu": "1", "memory": "2Gi"},
             ),
         ),
     )
@@ -68,12 +70,15 @@ async def test_transformer(rest_v1_client, network_layer):
                     requests={"cpu": "10m", "memory": "128Mi"},
                     limits={"cpu": "100m", "memory": "1Gi"},
                 ),
-                args=["--model_name", "mnist"],
-                env=[
-                    V1EnvVar(
-                        name="STORAGE_URI",
-                        value="gs://kfserving-examples/models/torchserve/image_classifier/v1",
-                    )
+                args=[
+                    "--model_name",
+                    model_name,
+                    "--tokenizer_name",
+                    "optimum/distilbert-base-uncased-finetuned-sst-2-english",
+                    "--sentiment_labels",
+                    "negative,positive",
+                    "--output_name",
+                    "logits",
                 ],
             )
         ],
@@ -114,9 +119,14 @@ async def test_transformer(rest_v1_client, network_layer):
     res = await predict_isvc(
         rest_v1_client,
         service_name,
-        "./data/transformer.json",
-        model_name="mnist",
+        "./data/sentiment.json",
+        model_name=model_name,
         network_layer=network_layer,
     )
-    assert res["predictions"][0] == 2
+    assert "predictions" in res
+    predictions = res["predictions"]
+    assert len(predictions) == 2
+    assert predictions[0]["sentiment"] in ["positive", "negative"]
+    assert predictions[1]["sentiment"] in ["positive", "negative"]
+    assert 0.0 <= predictions[0]["confidence"] <= 1.0
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

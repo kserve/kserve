@@ -37,7 +37,7 @@ RUN cd kserve && uv sync --active --no-cache
 COPY custom_transformer/pyproject.toml custom_transformer/uv.lock custom_transformer/
 RUN cd custom_transformer && uv sync --active --no-cache
 
-COPY custom_transformer custom_transformer
+COPY custom_transformer/sentiment_transformer.py custom_transformer/model_grpc.py custom_transformer/
 RUN cd custom_transformer && uv sync --active --no-cache
 
 # Generate third-party licenses
