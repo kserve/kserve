@@ -115,7 +115,6 @@ class V1beta1PredictorSpec(object):
         'triton': 'V1beta1TritonSpec',
         'volumes': 'list[V1Volume]',
         'worker_spec': 'V1beta1WorkerSpec',
-        'workload_ref': 'V1WorkloadReference',
         'xgboost': 'V1beta1XGBoostSpec'
     }
 
@@ -188,7 +187,6 @@ class V1beta1PredictorSpec(object):
         'triton': 'triton',
         'volumes': 'volumes',
         'worker_spec': 'workerSpec',
-        'workload_ref': 'workloadRef',
         'xgboost': 'xgboost'
     }
 
@@ -266,7 +264,6 @@ class V1beta1PredictorSpec(object):
         self._triton = None
         self._volumes = None
         self._worker_spec = None
-        self._workload_ref = None
         self._xgboost = None
         self.discriminator = None
 
@@ -406,8 +403,6 @@ class V1beta1PredictorSpec(object):
             self.volumes = volumes
         if worker_spec is not None:
             self.worker_spec = worker_spec
-        if workload_ref is not None:
-            self.workload_ref = workload_ref
         if xgboost is not None:
             self.xgboost = xgboost
 
@@ -1934,27 +1929,6 @@ class V1beta1PredictorSpec(object):
         """
 
         self._worker_spec = worker_spec
-
-    @property
-    def workload_ref(self):
-        """Gets the workload_ref of this V1beta1PredictorSpec.  # noqa: E501
-
-
-        :return: The workload_ref of this V1beta1PredictorSpec.  # noqa: E501
-        :rtype: V1WorkloadReference
-        """
-        return self._workload_ref
-
-    @workload_ref.setter
-    def workload_ref(self, workload_ref):
-        """Sets the workload_ref of this V1beta1PredictorSpec.
-
-
-        :param workload_ref: The workload_ref of this V1beta1PredictorSpec.  # noqa: E501
-        :type: V1WorkloadReference
-        """
-
-        self._workload_ref = workload_ref
 
     @property
     def xgboost(self):

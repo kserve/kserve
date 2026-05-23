@@ -6867,10 +6867,6 @@ spec:
                                     type: integer
                                   signerName:
                                     type: string
-                                  userAnnotations:
-                                    additionalProperties:
-                                      type: string
-                                    type: object
                                 required:
                                 - keyType
                                 - signerName
@@ -8879,10 +8875,6 @@ spec:
                                         type: integer
                                       signerName:
                                         type: string
-                                      userAnnotations:
-                                        additionalProperties:
-                                          type: string
-                                        type: object
                                     required:
                                     - keyType
                                     - signerName
@@ -14466,10 +14458,6 @@ spec:
                                         type: integer
                                       signerName:
                                         type: string
-                                      userAnnotations:
-                                        additionalProperties:
-                                          type: string
-                                        type: object
                                     required:
                                     - keyType
                                     - signerName
@@ -14661,15 +14649,6 @@ spec:
                       - name
                       type: object
                     type: array
-                  workloadRef:
-                    properties:
-                      name:
-                        type: string
-                      podGroup:
-                        type: string
-                      podGroupReplicaKey:
-                        type: string
-                    type: object
                 type: object
               predictor:
                 properties:
@@ -25144,10 +25123,6 @@ spec:
                                         type: integer
                                       signerName:
                                         type: string
-                                      userAnnotations:
-                                        additionalProperties:
-                                          type: string
-                                        type: object
                                     required:
                                     - keyType
                                     - signerName
@@ -28899,10 +28874,6 @@ spec:
                                             type: integer
                                           signerName:
                                             type: string
-                                          userAnnotations:
-                                            additionalProperties:
-                                              type: string
-                                            type: object
                                         required:
                                         - keyType
                                         - signerName
@@ -29094,27 +29065,6 @@ spec:
                           - name
                           type: object
                         type: array
-                      workloadRef:
-                        properties:
-                          name:
-                            type: string
-                          podGroup:
-                            type: string
-                          podGroupReplicaKey:
-                            type: string
-                        required:
-                        - name
-                        - podGroup
-                        type: object
-                    type: object
-                  workloadRef:
-                    properties:
-                      name:
-                        type: string
-                      podGroup:
-                        type: string
-                      podGroupReplicaKey:
-                        type: string
                     type: object
                   xgboost:
                     properties:
@@ -33016,10 +32966,6 @@ spec:
                                         type: integer
                                       signerName:
                                         type: string
-                                      userAnnotations:
-                                        additionalProperties:
-                                          type: string
-                                        type: object
                                     required:
                                     - keyType
                                     - signerName
@@ -33211,15 +33157,6 @@ spec:
                       - name
                       type: object
                     type: array
-                  workloadRef:
-                    properties:
-                      name:
-                        type: string
-                      podGroup:
-                        type: string
-                      podGroupReplicaKey:
-                        type: string
-                    type: object
                 type: object
             required:
             - predictor
@@ -35384,10 +35321,6 @@ spec:
                                     type: integer
                                   signerName:
                                     type: string
-                                  userAnnotations:
-                                    additionalProperties:
-                                      type: string
-                                    type: object
                                 required:
                                 - keyType
                                 - signerName
@@ -37396,10 +37329,6 @@ spec:
                                         type: integer
                                       signerName:
                                         type: string
-                                      userAnnotations:
-                                        additionalProperties:
-                                          type: string
-                                        type: object
                                     required:
                                     - keyType
                                     - signerName

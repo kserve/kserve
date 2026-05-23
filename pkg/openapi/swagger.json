@@ -1514,7 +1514,7 @@
           "$ref": "#/definitions/v1.Probe"
         },
         "resizePolicy": {
-          "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
+          "description": "Resources resize policy for the container.",
           "type": "array",
           "items": {
             "default": {},
@@ -1973,7 +1973,7 @@
           "x-kubernetes-list-type": "atomic"
         },
         "resourceClaims": {
-          "description": "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nThis is a stable field but requires that the DynamicResourceAllocation feature gate is enabled.\n\nThis field is immutable.",
+          "description": "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nThis is an alpha field and requires enabling the DynamicResourceAllocation feature gate.\n\nThis field is immutable.",
           "type": "array",
           "items": {
             "default": {},
@@ -2082,10 +2082,6 @@
           "x-kubernetes-list-type": "map",
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge,retainKeys"
-        },
-        "workloadRef": {
-          "description": "WorkloadRef provides a reference to the Workload object that this Pod belongs to. This field is used by the scheduler to identify the PodGroup and apply the correct group scheduling policies. The Workload object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a Workload object with the same name may be recreated with different policies. Doing this during pod scheduling may result in the placement not conforming to the expected policies.",
-          "$ref": "#/definitions/v1.WorkloadReference"
         }
       }
     },
@@ -2262,7 +2258,7 @@
           "x-kubernetes-list-type": "atomic"
         },
         "resourceClaims": {
-          "description": "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nThis is a stable field but requires that the DynamicResourceAllocation feature gate is enabled.\n\nThis field is immutable.",
+          "description": "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nThis is an alpha field and requires enabling the DynamicResourceAllocation feature gate.\n\nThis field is immutable.",
           "type": "array",
           "items": {
             "default": {},
@@ -2371,10 +2367,6 @@
           "x-kubernetes-list-type": "map",
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge,retainKeys"
-        },
-        "workloadRef": {
-          "description": "WorkloadRef provides a reference to the Workload object that this Pod belongs to. This field is used by the scheduler to identify the PodGroup and apply the correct group scheduling policies. The Workload object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a Workload object with the same name may be recreated with different policies. Doing this during pod scheduling may result in the placement not conforming to the expected policies.",
-          "$ref": "#/definitions/v1.WorkloadReference"
         }
       }
     },
@@ -2551,7 +2543,7 @@
           "x-kubernetes-list-type": "atomic"
         },
         "resourceClaims": {
-          "description": "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nThis is a stable field but requires that the DynamicResourceAllocation feature gate is enabled.\n\nThis field is immutable.",
+          "description": "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nThis is an alpha field and requires enabling the DynamicResourceAllocation feature gate.\n\nThis field is immutable.",
           "type": "array",
           "items": {
             "default": {},
@@ -2660,10 +2652,6 @@
           "x-kubernetes-list-type": "map",
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge,retainKeys"
-        },
-        "workloadRef": {
-          "description": "WorkloadRef provides a reference to the Workload object that this Pod belongs to. This field is used by the scheduler to identify the PodGroup and apply the correct group scheduling policies. The Workload object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a Workload object with the same name may be recreated with different policies. Doing this during pod scheduling may result in the placement not conforming to the expected policies.",
-          "$ref": "#/definitions/v1.WorkloadReference"
         }
       }
     },
@@ -2801,7 +2789,7 @@
           "$ref": "#/definitions/v1.Probe"
         },
         "resizePolicy": {
-          "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
+          "description": "Resources resize policy for the container.",
           "type": "array",
           "items": {
             "default": {},
@@ -3237,10 +3225,6 @@
           },
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge,retainKeys"
-        },
-        "workloadRef": {
-          "description": "WorkloadRef provides a reference to the Workload object that this Pod belongs to. This field is used by the scheduler to identify the PodGroup and apply the correct group scheduling policies. The Workload object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a Workload object with the same name may be recreated with different policies. Doing this during pod scheduling may result in the placement not conforming to the expected policies.",
-          "$ref": "#/definitions/v1.WorkloadReference"
         }
       }
     },
@@ -3435,7 +3419,7 @@
           "$ref": "#/definitions/v1.Probe"
         },
         "resizePolicy": {
-          "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
+          "description": "Resources resize policy for the container.",
           "type": "array",
           "items": {
             "default": {},
@@ -3869,7 +3853,7 @@
           "$ref": "#/definitions/v1.Probe"
         },
         "resizePolicy": {
-          "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
+          "description": "Resources resize policy for the container.",
           "type": "array",
           "items": {
             "default": {},
@@ -4271,7 +4255,7 @@
           "$ref": "#/definitions/v1.Probe"
         },
         "resizePolicy": {
-          "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
+          "description": "Resources resize policy for the container.",
           "type": "array",
           "items": {
             "default": {},
@@ -4528,7 +4512,7 @@
           "$ref": "#/definitions/v1.Probe"
         },
         "resizePolicy": {
-          "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
+          "description": "Resources resize policy for the container.",
           "type": "array",
           "items": {
             "default": {},
@@ -4736,7 +4720,7 @@
           "$ref": "#/definitions/v1.Probe"
         },
         "resizePolicy": {
-          "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
+          "description": "Resources resize policy for the container.",
           "type": "array",
           "items": {
             "default": {},
@@ -4925,7 +4909,7 @@
           "$ref": "#/definitions/v1.Probe"
         },
         "resizePolicy": {
-          "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
+          "description": "Resources resize policy for the container.",
           "type": "array",
           "items": {
             "default": {},
@@ -5328,10 +5312,6 @@
           },
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge,retainKeys"
-        },
-        "workloadRef": {
-          "description": "WorkloadRef provides a reference to the Workload object that this Pod belongs to. This field is used by the scheduler to identify the PodGroup and apply the correct group scheduling policies. The Workload object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a Workload object with the same name may be recreated with different policies. Doing this during pod scheduling may result in the placement not conforming to the expected policies.",
-          "$ref": "#/definitions/v1.WorkloadReference"
         }
       }
     },
@@ -5425,7 +5405,7 @@
           "$ref": "#/definitions/v1.Probe"
         },
         "resizePolicy": {
-          "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
+          "description": "Resources resize policy for the container.",
           "type": "array",
           "items": {
             "default": {},
@@ -5906,10 +5886,6 @@
           "description": "WorkerSpec for enabling multi-node/multi-gpu",
           "$ref": "#/definitions/v1beta1.WorkerSpec"
         },
-        "workloadRef": {
-          "description": "WorkloadRef provides a reference to the Workload object that this Pod belongs to. This field is used by the scheduler to identify the PodGroup and apply the correct group scheduling policies. The Workload object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a Workload object with the same name may be recreated with different policies. Doing this during pod scheduling may result in the placement not conforming to the expected policies.",
-          "$ref": "#/definitions/v1.WorkloadReference"
-        },
         "xgboost": {
           "description": "Spec for XGBoost model server",
           "$ref": "#/definitions/v1beta1.XGBoostSpec"
@@ -6062,7 +6038,7 @@
           "$ref": "#/definitions/v1.Probe"
         },
         "resizePolicy": {
-          "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
+          "description": "Resources resize policy for the container.",
           "type": "array",
           "items": {
             "default": {},
@@ -6312,7 +6288,7 @@
           "$ref": "#/definitions/v1.Probe"
         },
         "resizePolicy": {
-          "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
+          "description": "Resources resize policy for the container.",
           "type": "array",
           "items": {
             "default": {},
@@ -6502,7 +6478,7 @@
           "$ref": "#/definitions/v1.Probe"
         },
         "resizePolicy": {
-          "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
+          "description": "Resources resize policy for the container.",
           "type": "array",
           "items": {
             "default": {},
@@ -6934,10 +6910,6 @@
           },
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge,retainKeys"
-        },
-        "workloadRef": {
-          "description": "WorkloadRef provides a reference to the Workload object that this Pod belongs to. This field is used by the scheduler to identify the PodGroup and apply the correct group scheduling policies. The Workload object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a Workload object with the same name may be recreated with different policies. Doing this during pod scheduling may result in the placement not conforming to the expected policies.",
-          "$ref": "#/definitions/v1.WorkloadReference"
         }
       }
     },
@@ -7031,7 +7003,7 @@
           "$ref": "#/definitions/v1.Probe"
         },
         "resizePolicy": {
-          "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
+          "description": "Resources resize policy for the container.",
           "type": "array",
           "items": {
             "default": {},
@@ -7393,10 +7365,6 @@
           },
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge,retainKeys"
-        },
-        "workloadRef": {
-          "description": "WorkloadRef provides a reference to the Workload object that this Pod belongs to. This field is used by the scheduler to identify the PodGroup and apply the correct group scheduling policies. The Workload object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a Workload object with the same name may be recreated with different policies. Doing this during pod scheduling may result in the placement not conforming to the expected policies.",
-          "$ref": "#/definitions/v1.WorkloadReference"
         }
       }
     },
@@ -7490,7 +7458,7 @@
           "$ref": "#/definitions/v1.Probe"
         },
         "resizePolicy": {
-          "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
+          "description": "Resources resize policy for the container.",
           "type": "array",
           "items": {
             "default": {},

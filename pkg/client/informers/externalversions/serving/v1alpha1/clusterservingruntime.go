@@ -57,7 +57,7 @@ func NewClusterServingRuntimeInformer(client versioned.Interface, namespace stri
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredClusterServingRuntimeInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
+		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -82,7 +82,7 @@ func NewFilteredClusterServingRuntimeInformer(client versioned.Interface, namesp
 				}
 				return client.ServingV1alpha1().ClusterServingRuntimes(namespace).Watch(ctx, options)
 			},
-		}, client),
+		},
 		&apisservingv1alpha1.ClusterServingRuntime{},
 		resyncPeriod,
 		indexers,

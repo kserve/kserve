@@ -57,7 +57,7 @@ func NewInferenceServiceInformer(client versioned.Interface, namespace string, r
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredInferenceServiceInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
+		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -82,7 +82,7 @@ func NewFilteredInferenceServiceInformer(client versioned.Interface, namespace s
 				}
 				return client.ServingV1beta1().InferenceServices(namespace).Watch(ctx, options)
 			},
-		}, client),
+		},
 		&apisservingv1beta1.InferenceService{},
 		resyncPeriod,
 		indexers,
