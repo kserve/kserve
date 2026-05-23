@@ -384,12 +384,28 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 			}
 		}
 	} else {
-		// Adjust USER_PORT when queueProxy is available
+		// Adjust USER_PORT and SERVING_READINESS_PROBE when queueProxy is available.
 		for i, envVar := range queueProxyEnvs {
 			if envVar.Name == "USER_PORT" {
 				klog.Infof("Adjusting USER_PORT to %s for pod %s/%s", constants.InferenceServiceDefaultAgentPortStr, pod.Namespace, pod.Name)
 				envVar.Value = constants.InferenceServiceDefaultAgentPortStr
 				queueProxyEnvs[i] = envVar // Update the environment variable in the list
+			}
+			if envVar.Name == "SERVING_READINESS_PROBE" {
+				var probe corev1.Probe
+				if err := json.Unmarshal([]byte(envVar.Value), &probe); err == nil {
+					agentPort := intstr.FromInt(constants.InferenceServiceDefaultAgentPort)
+					if probe.TCPSocket != nil {
+						probe.TCPSocket.Port = agentPort
+					} else if probe.HTTPGet != nil {
+						probe.HTTPGet.Port = agentPort
+					}
+					if updated, err := json.Marshal(probe); err == nil {
+						klog.Infof("Adjusting SERVING_READINESS_PROBE port to %s for pod %s/%s", constants.InferenceServiceDefaultAgentPortStr, pod.Namespace, pod.Name)
+						envVar.Value = string(updated)
+						queueProxyEnvs[i] = envVar
+					}
+				}
 			}
 		}
 	}

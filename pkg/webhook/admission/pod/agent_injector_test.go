@@ -334,7 +334,7 @@ func TestAgentInjector(t *testing.T) {
 						},
 						{
 							Name: "queue-proxy",
-							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":9081},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 						},
 						{
 							Name:  constants.AgentContainerName,
@@ -462,7 +462,7 @@ func TestAgentInjector(t *testing.T) {
 						},
 						{
 							Name: "queue-proxy",
-							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":9081},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 						},
 						{
 							Name:  constants.AgentContainerName,
@@ -594,7 +594,7 @@ func TestAgentInjector(t *testing.T) {
 						},
 						{
 							Name: "queue-proxy",
-							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":9081},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 						},
 						{
 							Name:  constants.AgentContainerName,
@@ -745,7 +745,7 @@ func TestAgentInjector(t *testing.T) {
 						},
 						{
 							Name: "queue-proxy",
-							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":9081},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 						},
 						{
 							Name:  constants.AgentContainerName,
@@ -1073,7 +1073,7 @@ func TestAgentInjector(t *testing.T) {
 						},
 						{
 							Name: "queue-proxy",
-							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":9081},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 						},
 						{
 							Name:  constants.AgentContainerName,
@@ -1202,7 +1202,7 @@ func TestAgentInjector(t *testing.T) {
 						{
 							Name: "queue-proxy",
 							Env: []corev1.EnvVar{
-								{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"},
+								{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":9081},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"},
 								{Name: "USER_PORT", Value: constants.InferenceServiceDefaultAgentPortStr},
 							},
 						},
@@ -1488,7 +1488,7 @@ func TestAgentInjector(t *testing.T) {
 						},
 						{
 							Name: "queue-proxy",
-							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":9081},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 						},
 						{
 							Name:  constants.AgentContainerName,
@@ -1642,7 +1642,7 @@ func TestAgentInjector(t *testing.T) {
 						},
 						{
 							Name: "queue-proxy",
-							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":9081},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 						},
 						{
 							Name:  constants.AgentContainerName,
