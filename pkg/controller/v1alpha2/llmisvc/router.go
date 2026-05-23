@@ -309,10 +309,7 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 		return nil, nil
 	}
 
-	// TODO: LoadConfig fetches the configmap from the API server on every
-	// reconciliation. Consider caching with an informer-based watch to reduce
-	// API server pressure under high reconciliation load.
-	cfg, err := LoadConfig(ctx, r.Clientset)
+	cfg, err := r.loadConfig(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}

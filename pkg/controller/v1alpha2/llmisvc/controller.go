@@ -18,6 +18,7 @@ package llmisvc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"k8s.io/client-go/kubernetes"
@@ -75,6 +76,48 @@ var ChildResourcesLabelSelector = metav1.LabelSelector{
 // childResourcesPredicate filters events to only those from resources owned by LLMInferenceService
 // This prevents unnecessary reconciliation triggers from unrelated resources
 var childResourcesPredicate, _ = predicate.LabelSelectorPredicate(ChildResourcesLabelSelector)
+
+var (
+	inferenceServiceConfigMapPredicate = predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			return isInferenceServiceConfigMap(e.Object)
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return isInferenceServiceConfigMap(e.Object)
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return isInferenceServiceConfigMap(e.ObjectNew) && inferenceServiceConfigChanged(e.ObjectOld, e.ObjectNew)
+		},
+		GenericFunc: func(e event.GenericEvent) bool {
+			return isInferenceServiceConfigMap(e.Object)
+		},
+	}
+	nonInferenceServiceConfigMapPredicate = predicate.NewPredicateFuncs(func(obj client.Object) bool {
+		return !isInferenceServiceConfigMap(obj)
+	})
+)
+
+func isInferenceServiceConfigMap(obj client.Object) bool {
+	return obj.GetNamespace() == constants.KServeNamespace &&
+		obj.GetName() == constants.InferenceServiceConfigMapName
+}
+
+func inferenceServiceConfigChanged(oldObj, newObj client.Object) bool {
+	oldConfigMap := oldObj.(*corev1.ConfigMap)
+	newConfigMap := newObj.(*corev1.ConfigMap)
+
+	oldConfig, oldErr := toConfig(oldConfigMap)
+	newConfig, newErr := toConfig(newConfigMap)
+	if oldErr != nil || newErr != nil {
+		ctrl.Log.WithName("LLMInferenceService").Error(
+			errors.Join(oldErr, newErr),
+			"Failed to parse inferenceservice-config, falling back to raw comparison",
+		)
+		return !equality.Semantic.DeepEqual(oldConfigMap.Data, newConfigMap.Data)
+	}
+
+	return !equality.Semantic.DeepEqual(oldConfig, newConfig)
+}
 
 // LLMInferenceServiceState describes the readiness of the LLMInferenceService.
 type LLMInferenceServiceState string
@@ -202,9 +245,8 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 	logger := log.FromContext(ctx).WithName("reconcile")
 	ctx = log.IntoContext(ctx, logger)
 
-	// Load global configuration from KServe configmap
-	// TODO(ctrl): add watch on CfgMap with predicate and cache tuning to trigger reconcile when it changes
-	config, configErr := LoadConfig(ctx, r.Clientset)
+	// Load global configuration from KServe configmap.
+	config, configErr := r.loadConfig(ctx)
 	if configErr != nil {
 		return fmt.Errorf("failed to load ingress config: %w", configErr)
 	}
@@ -329,7 +371,8 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Secret{}, builder.WithPredicates(childResourcesPredicate)).
 		Owns(&corev1.Service{}, builder.WithPredicates(childResourcesPredicate)).
 		Owns(&autoscalingv2.HorizontalPodAutoscaler{}, builder.WithPredicates(childResourcesPredicate)).
-		Watches(&corev1.ConfigMap{}, r.enqueueOnConfigMapChange(logger)).
+		Watches(&corev1.ConfigMap{}, r.enqueueOnConfigMapChange(logger), builder.WithPredicates(nonInferenceServiceConfigMapPredicate)).
+		Watches(&corev1.ConfigMap{}, r.enqueueOnInferenceServiceConfigMapChange(logger), builder.WithPredicates(inferenceServiceConfigMapPredicate)).
 		Watches(&corev1.Pod{},
 			handler.EnqueueRequestsFromMapFunc(r.EnqueueOnLLMInferenceServicePods),
 			builder.WithPredicates(PodStatusPredicate()))
@@ -381,7 +424,7 @@ func (r *LLMISVCReconciler) enqueueOnGatewayChange(logger logr.Logger) handler.E
 
 		listNamespace := corev1.NamespaceAll
 
-		cfg, err := LoadConfig(ctx, r.Clientset)
+		cfg, err := r.loadConfig(ctx)
 		if err != nil {
 			logger.Error(err, "Failed to load config")
 			return reqs
@@ -466,7 +509,7 @@ func (r *LLMISVCReconciler) enqueueOnHttpRouteChange(logger logr.Logger) handler
 
 		listNamespace := corev1.NamespaceAll
 
-		cfg, err := LoadConfig(ctx, r.Clientset)
+		cfg, err := r.loadConfig(ctx)
 		if err != nil {
 			logger.Error(err, "Failed to load config")
 			return reqs
@@ -540,7 +583,7 @@ func (r *LLMISVCReconciler) enqueueOnInferencePoolChange(logger logr.Logger) han
 		reqs := make([]reconcile.Request, 0, 2)
 		listNamespace := sub.GetNamespace()
 
-		cfg, err := LoadConfig(ctx, r.Clientset)
+		cfg, err := r.loadConfig(ctx)
 		if err != nil {
 			logger.Error(err, "Failed to load config")
 			return reqs
@@ -687,15 +730,10 @@ func (r *LLMISVCReconciler) enqueueOnConfigMapChange(logger logr.Logger) handler
 
 		listNamespace := sub.GetNamespace()
 
-		cfg, err := LoadConfig(ctx, r.Clientset)
+		cfg, err := r.loadConfig(ctx)
 		if err != nil {
 			logger.Error(err, "Failed to load config")
 			return reqs
-		}
-
-		// System namespace configs are global and can affect services in any namespace
-		if sub.Namespace == constants.KServeNamespace {
-			listNamespace = corev1.NamespaceAll
 		}
 
 		// When a ConfigMap is modified, we need to find all LLMInferenceService instances that might
@@ -724,6 +762,31 @@ func (r *LLMISVCReconciler) enqueueOnConfigMapChange(logger logr.Logger) handler
 				continue
 			}
 
+			reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
+				Namespace: llmSvc.Namespace,
+				Name:      llmSvc.Name,
+			}})
+		}
+
+		return reqs
+	})
+}
+
+func (r *LLMISVCReconciler) enqueueOnInferenceServiceConfigMapChange(logger logr.Logger) handler.EventHandler {
+	logger = logger.WithName("enqueueOnInferenceServiceConfigMapChange")
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
+		reqs := make([]reconcile.Request, 0)
+		if !isInferenceServiceConfigMap(object) {
+			return reqs
+		}
+
+		llmSvcList := &v1alpha2.LLMInferenceServiceList{}
+		if err := r.List(ctx, llmSvcList, &client.ListOptions{Namespace: corev1.NamespaceAll}); err != nil {
+			logger.Error(err, "Failed to list LLMInferenceService")
+			return reqs
+		}
+
+		for _, llmSvc := range llmSvcList.Items {
 			reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
 				Namespace: llmSvc.Namespace,
 				Name:      llmSvc.Name,

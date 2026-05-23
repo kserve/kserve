@@ -433,7 +433,7 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 				return d, fmt.Errorf("failed to get current scheduler deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
 			}
 
-			config, err := LoadConfig(ctx, r.Clientset)
+			config, err := r.loadConfig(ctx)
 			if err != nil {
 				return d, fmt.Errorf("failed to load config for scheduler deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
 			}
