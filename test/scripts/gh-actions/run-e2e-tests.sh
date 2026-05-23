@@ -48,13 +48,17 @@ export SKIP_DELETION_ON_FAILURE
 echo "Parallelism requested for pytest is ${PARALLELISM}"
 
 MAXFAIL="${PYTEST_MAXFAIL:-5}"
+# Retry flaky tests up to RERUNS times to reduce false failures from
+# timing issues, network blips, etc. Does not mask assertion failures.
+RERUNS="${PYTEST_RERUNS:-2}"
+RERUNS_DELAY="${PYTEST_RERUNS_DELAY:-10}"
 
 source python/kserve/.venv/bin/activate
 
 REPORT_DIR="${ARTIFACT_DIR:-/tmp}"
 mkdir -p "$REPORT_DIR"
 
-PYTEST_COMMON_ARGS=(--ignore=qpext --log-cli-level=INFO -n "$PARALLELISM" --dist worksteal --network-layer "$NETWORK_LAYER" --maxfail="$MAXFAIL" -vv --tb=long -s --junitxml="$REPORT_DIR/junit_e2e.xml" --json-report --json-report-file="$REPORT_DIR/e2e_results.json" --json-report-omit=log)
+PYTEST_COMMON_ARGS=(--ignore=qpext --log-cli-level=INFO -n "$PARALLELISM" --dist worksteal --network-layer "$NETWORK_LAYER" --maxfail="$MAXFAIL" --reruns="$RERUNS" --reruns-delay="$RERUNS_DELAY" -vv --tb=long -s --junitxml="$REPORT_DIR/junit_e2e.xml" --json-report --json-report-file="$REPORT_DIR/e2e_results.json" --json-report-omit=log)
 
 MARKER_ARGS=()
 if [[ -n "$MARKER" ]]; then

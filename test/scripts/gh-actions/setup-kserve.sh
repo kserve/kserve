@@ -122,3 +122,11 @@ fi
 
 echo "Show inferenceservice-config configmap..."
 kubectl get configmap inferenceservice-config -n kserve
+
+echo "Waiting for all pods in kserve namespace to be ready..."
+kubectl wait --for=condition=Ready pods --all -n kserve --timeout=120s || {
+  echo "ERROR: Pods not ready after 120s. Tests may fail."
+  kubectl get pods -n kserve
+  exit 1
+}
+echo "KServe setup complete."

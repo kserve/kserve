@@ -319,12 +319,11 @@ jobs:
         run: |
           ls -l /tmp-images
           minikube ssh -n minikube -- ls -l /tmp-images
-          files=$(find /tmp-images -maxdepth 1 -type f)
-          for file in ${files[@]};do
-            echo "Loading image $(basename ${file})"
-            minikube ssh -n minikube -- docker image load -i ${file}
-            minikube ssh -n minikube-m02 -- docker image load -i ${file}
-            minikube ssh -n minikube-m03 -- docker image load -i ${file}
+          find /tmp-images -maxdepth 1 -type f | while read -r file; do
+            echo "Loading image $(basename "$file")"
+            minikube ssh -n minikube -- docker image load -i "$file"
+            minikube ssh -n minikube-m02 -- docker image load -i "$file"
+            minikube ssh -n minikube-m03 -- docker image load -i "$file"
           done
           sudo rm -rf /tmp-images/*
           minikube ssh -n minikube -- docker image ls
@@ -345,13 +344,16 @@ jobs:
 
       - name: Load runtime docker images
         run: |
-          files=$(find /tmp-images -maxdepth 1 -type f)
-          for file in ${files[@]};do
-            echo "Loading image $(basename ${file})"
-            minikube ssh -n minikube-m02 -- docker image load -i ${file}
+          find /tmp-images -maxdepth 1 -type f | while read -r file; do
+            echo "Loading image $(basename "$file")"
+            minikube ssh -n minikube -- docker image load -i "$file"
+            minikube ssh -n minikube-m02 -- docker image load -i "$file"
+            minikube ssh -n minikube-m03 -- docker image load -i "$file"
           done
-          sudo rm -rf tmp-images/*
+          sudo rm -rf /tmp-images/*
+          minikube ssh -n minikube -- docker image ls
           minikube ssh -n minikube-m02 -- docker image ls
+          minikube ssh -n minikube-m03 -- docker image ls
 
       - name: Create model root directory
         run: |
