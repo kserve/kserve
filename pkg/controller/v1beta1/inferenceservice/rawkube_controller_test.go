@@ -3197,8 +3197,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Spec: v1alpha1.ServingRuntimeSpec{
 					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
 						{
-							Name:       "pytorch",
-							Version:    ptr.To("1"),
+							Name:       "triton",
+							Version:    ptr.To("2"),
 							AutoSelect: ptr.To(true),
 						},
 					},
@@ -3254,7 +3254,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 				Spec: v1beta1.InferenceServiceSpec{
 					Predictor: v1beta1.PredictorSpec{
-						PyTorch: &v1beta1.TorchServeSpec{
+						Triton: &v1beta1.TritonSpec{
 							PredictorExtensionSpec: getCommonPredictorExtensionSpec(),
 						},
 					},
@@ -3336,8 +3336,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Spec: v1alpha1.ServingRuntimeSpec{
 					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
 						{
-							Name:       "pytorch",
-							Version:    ptr.To("1"),
+							Name:       "triton",
+							Version:    ptr.To("2"),
 							AutoSelect: ptr.To(true),
 						},
 					},
@@ -3391,7 +3391,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 				Spec: v1beta1.InferenceServiceSpec{
 					Predictor: v1beta1.PredictorSpec{
-						PyTorch: &v1beta1.TorchServeSpec{
+						Triton: &v1beta1.TritonSpec{
 							PredictorExtensionSpec: getCommonPredictorExtensionSpec(),
 						},
 					},
@@ -3472,8 +3472,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Spec: v1alpha1.ServingRuntimeSpec{
 					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
 						{
-							Name:       "pytorch",
-							Version:    ptr.To("1"),
+							Name:       "triton",
+							Version:    ptr.To("2"),
 							AutoSelect: ptr.To(true),
 						},
 					},
@@ -3528,7 +3528,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 				Spec: v1beta1.InferenceServiceSpec{
 					Predictor: v1beta1.PredictorSpec{
-						PyTorch: &v1beta1.TorchServeSpec{
+						Triton: &v1beta1.TritonSpec{
 							PredictorExtensionSpec: getCommonPredictorExtensionSpec(),
 						},
 					},
@@ -3615,23 +3615,23 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: isvcNamespace}, cm)
 			}, timeout, interval).Should(Succeed())
 
-			isvcNamePytorch := "isvc-enable-auto-update-multiple-pytorch"
+			isvcNamePytorch := "isvc-enable-auto-update-multiple-triton"
 			serviceKeyPytorch := types.NamespacedName{Name: isvcNamePytorch, Namespace: isvcNamespace}
 			isvcNameTensorflow := "isvc-enable-auto-update-multiple-tensorflow"
 			serviceKeyTensorflow := types.NamespacedName{Name: isvcNameTensorflow, Namespace: isvcNamespace}
 
-			servingRuntimePytorchName := "pytorch-serving-auto-update-true-multiple"
+			servingRuntimeTritonName := "pytorch-serving-auto-update-true-multiple"
 			servingRuntimeTensorflowName := "tensorflow-serving-auto-update-true-multiple"
-			pytorchServingRuntime := &v1alpha1.ServingRuntime{
+			tritonServingRuntime := &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      servingRuntimePytorchName,
+					Name:      servingRuntimeTritonName,
 					Namespace: isvcNamespace,
 				},
 				Spec: v1alpha1.ServingRuntimeSpec{
 					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
 						{
-							Name:       "pytorch",
-							Version:    ptr.To("1"),
+							Name:       "triton",
+							Version:    ptr.To("2"),
 							AutoSelect: ptr.To(true),
 						},
 					},
@@ -3649,7 +3649,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						Containers: []corev1.Container{
 							{
 								Name:    constants.InferenceServiceContainerName,
-								Image:   "pytorch/serving:1.14.0",
+								Image:   "triton/serving:1.14.0",
 								Command: []string{"/usr/bin/pytorch_model_server"},
 								Args: []string{
 									"--port=9000",
@@ -3667,11 +3667,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Disabled: ptr.To(false),
 				},
 			}
-			Expect(k8sClient.Create(ctx, pytorchServingRuntime)).Should(Succeed())
+			Expect(k8sClient.Create(ctx, tritonServingRuntime)).Should(Succeed())
 			Eventually(func() error {
-				return k8sClient.Get(ctx, types.NamespacedName{Name: servingRuntimePytorchName, Namespace: isvcNamespace}, &v1alpha1.ServingRuntime{})
+				return k8sClient.Get(ctx, types.NamespacedName{Name: servingRuntimeTritonName, Namespace: isvcNamespace}, &v1alpha1.ServingRuntime{})
 			}, timeout, interval).Should(Succeed())
-			defer k8sClient.Delete(ctx, pytorchServingRuntime)
+			defer k8sClient.Delete(ctx, tritonServingRuntime)
 
 			tensorflowServingRuntime := &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
@@ -3738,7 +3738,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 				Spec: v1beta1.InferenceServiceSpec{
 					Predictor: v1beta1.PredictorSpec{
-						PyTorch: &v1beta1.TorchServeSpec{
+						Triton: &v1beta1.TritonSpec{
 							PredictorExtensionSpec: getCommonPredictorExtensionSpec(),
 						},
 					},
@@ -3786,31 +3786,31 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// Update the ServingRuntime spec
 			servingRuntimeToUpdate := &v1alpha1.ServingRuntime{}
-			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: servingRuntimePytorchName, Namespace: isvcNamespace}, servingRuntimeToUpdate)).Should(Succeed())
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: servingRuntimeTritonName, Namespace: isvcNamespace}, servingRuntimeToUpdate)).Should(Succeed())
 			servingRuntimeToUpdate.Spec.Labels["key1"] = "updatedServingRuntime"
 			Eventually(func() error {
 				return k8sClient.Update(ctx, servingRuntimeToUpdate)
 			}, timeout, interval).Should(Succeed())
 
 			// Wait until the ServingRuntime reflects the updated spec.
-			pytorchServingRuntimeAfterUpdate := &v1alpha1.ServingRuntime{}
+			tritonServingRuntimeAfterUpdate := &v1alpha1.ServingRuntime{}
 			Eventually(func() (string, error) {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: servingRuntimePytorchName, Namespace: isvcNamespace}, pytorchServingRuntimeAfterUpdate)
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: servingRuntimeTritonName, Namespace: isvcNamespace}, tritonServingRuntimeAfterUpdate)
 				if err != nil {
 					return "", err
 				}
-				return pytorchServingRuntimeAfterUpdate.Spec.ServingRuntimePodSpec.Labels["key1"], nil
+				return tritonServingRuntimeAfterUpdate.Spec.ServingRuntimePodSpec.Labels["key1"], nil
 			}, timeout, interval).Should(Equal("updatedServingRuntime"))
 
 			// Wait until the Deployment reflects the update
-			pytorchDeploymentAfterUpdate := &appsv1.Deployment{}
+			tritonDeploymentAfterUpdate := &appsv1.Deployment{}
 			deploymentName := constants.PredictorServiceName(serviceKeyPytorch.Name)
 			Eventually(func() (string, error) {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: deploymentName, Namespace: serviceKeyPytorch.Namespace}, pytorchDeploymentAfterUpdate)
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: deploymentName, Namespace: serviceKeyPytorch.Namespace}, tritonDeploymentAfterUpdate)
 				if err != nil {
 					return "", err
 				}
-				return pytorchDeploymentAfterUpdate.Spec.Template.Labels["key1"], nil
+				return tritonDeploymentAfterUpdate.Spec.Template.Labels["key1"], nil
 			}, timeout, interval).Should(Equal("updatedServingRuntime"))
 
 			tensorFlowDeploymentAfterUpdate := &appsv1.Deployment{}

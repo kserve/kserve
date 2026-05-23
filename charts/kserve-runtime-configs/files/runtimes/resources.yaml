@@ -554,52 +554,6 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
   annotations:
-    serving.kserve.io/server-type: torchserve
-  name: kserve-torchserve
-spec:
-  annotations:
-    prometheus.kserve.io/path: /metrics
-    prometheus.kserve.io/port: "8082"
-  containers:
-  - args:
-    - torchserve
-    - --start
-    - --model-store=/mnt/models/model-store
-    - --ts-config=/mnt/models/config/config.properties
-    env:
-    - name: TS_SERVICE_ENVELOPE
-      value: '{{.Labels.serviceEnvelope}}'
-    image: pytorch/torchserve-kfs:0.9.0
-    name: kserve-container
-    resources:
-      limits:
-        cpu: "1"
-        memory: 2Gi
-      requests:
-        cpu: "1"
-        memory: 2Gi
-    securityContext:
-      allowPrivilegeEscalation: false
-      capabilities:
-        drop:
-        - ALL
-      privileged: false
-      runAsNonRoot: true
-      runAsUser: 1000
-  protocolVersions:
-  - v1
-  - v2
-  - grpc-v2
-  supportedModelFormats:
-  - autoSelect: true
-    name: pytorch
-    priority: 2
-    version: "1"
----
-apiVersion: serving.kserve.io/v1alpha1
-kind: ClusterServingRuntime
-metadata:
-  annotations:
     serving.kserve.io/server-type: tritonserver
   name: kserve-tritonserver
 spec:

@@ -239,9 +239,6 @@ func (isvc *InferenceService) setPredictorModelDefaults() {
 	case isvc.Spec.Predictor.XGBoost != nil:
 		isvc.assignXGBoostRuntime()
 
-	case isvc.Spec.Predictor.PyTorch != nil:
-		isvc.assignPyTorchRuntime()
-
 	case isvc.Spec.Predictor.Triton != nil:
 		isvc.assignTritonRuntime()
 
@@ -308,15 +305,6 @@ func (isvc *InferenceService) assignXGBoostRuntime() {
 	}
 	// remove xgboost spec
 	isvc.Spec.Predictor.XGBoost = nil
-}
-
-func (isvc *InferenceService) assignPyTorchRuntime() {
-	isvc.Spec.Predictor.Model = &ModelSpec{
-		ModelFormat:            ModelFormat{Name: constants.SupportedModelPyTorch},
-		PredictorExtensionSpec: isvc.Spec.Predictor.PyTorch.PredictorExtensionSpec,
-	}
-	// remove pytorch spec
-	isvc.Spec.Predictor.PyTorch = nil
 }
 
 func (isvc *InferenceService) assignTritonRuntime() {
@@ -403,8 +391,6 @@ func (isvc *InferenceService) SetRuntimeDefaults(runtimeAnnotations map[string]s
 		isvc.SetMlServerDefaults()
 	case constants.ServerTypeTritonServer:
 		isvc.SetTritonDefaults()
-	case constants.ServerTypeTorchServe:
-		isvc.SetTorchServeDefaults()
 	}
 }
 
@@ -449,30 +435,6 @@ func (isvc *InferenceService) SetMlServerDefaults() {
 	} else {
 		isvc.Labels[constants.ModelClassLabel] = modelClass
 	}
-}
-
-func (isvc *InferenceService) SetTorchServeDefaults() {
-	// set 'v1' as default protocol version for torchserve
-	if isvc.Spec.Predictor.Model.ProtocolVersion == nil {
-		protocolV1 := constants.ProtocolV1
-		isvc.Spec.Predictor.Model.ProtocolVersion = &protocolV1
-	}
-	// set torchserve service envelope based on protocol version
-	if isvc.Labels == nil {
-		isvc.Labels = map[string]string{constants.ServiceEnvelope: constants.ServiceEnvelopeKServe}
-	} else {
-		isvc.Labels[constants.ServiceEnvelope] = constants.ServiceEnvelopeKServe
-	}
-	if (constants.ProtocolV2 == *isvc.Spec.Predictor.Model.ProtocolVersion) || (constants.ProtocolGRPCV2 == *isvc.Spec.Predictor.Model.ProtocolVersion) {
-		isvc.Labels[constants.ServiceEnvelope] = constants.ServiceEnvelopeKServeV2
-	}
-
-	// set torchserve env variable "PROTOCOL_VERSION" based on ProtocolVersion
-	isvc.Spec.Predictor.Model.Env = append(isvc.Spec.Predictor.Model.Env,
-		corev1.EnvVar{
-			Name:  constants.ProtocolVersionENV,
-			Value: string(*isvc.Spec.Predictor.Model.ProtocolVersion),
-		})
 }
 
 func (isvc *InferenceService) SetTritonDefaults() {

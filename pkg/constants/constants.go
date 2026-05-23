@@ -568,7 +568,6 @@ const (
 	MLServer          = "kserve-mlserver"
 	TFServing         = "kserve-tensorflow-serving"
 	XGBServer         = "kserve-xgbserver"
-	TorchServe        = "kserve-torchserve"
 	TritonServer      = "kserve-tritonserver"
 	PMMLServer        = "kserve-pmmlserver"
 	LGBServer         = "kserve-lgbserver"
@@ -580,7 +579,6 @@ const (
 const (
 	ServerTypeMLServer          = "mlserver"
 	ServerTypeTritonServer      = "tritonserver"
-	ServerTypeTorchServe        = "torchserve"
 	ServerTypeOVMS              = "ovms"
 	ServerTypePredictiveServer  = "predictiveserver"
 	ServerTypeHuggingFaceServer = "huggingfaceserver"
@@ -588,7 +586,6 @@ const (
 	ServerTypeLightGBMServer    = "lightgbmserver"
 	ServerTypePaddleServer      = "paddleserver"
 	ServerTypeTensorflowServing = "tensorflow-serving"
-	ServerTypePyTorchServer     = "pytorchserver"
 	ServerTypeSKLearnServer     = "sklearnserver"
 	ServerTypeXGBoostServer     = "xgbserver"
 )
@@ -599,8 +596,6 @@ func GetServerTypeFromRuntimeName(runtimeName string) string {
 	switch runtimeName {
 	case MLServer:
 		return ServerTypeMLServer
-	case TorchServe:
-		return ServerTypeTorchServe
 	case TritonServer:
 		return ServerTypeTritonServer
 	default:
@@ -610,7 +605,6 @@ func GetServerTypeFromRuntimeName(runtimeName string) string {
 
 const (
 	ModelClassLabel = "modelClass"
-	ServiceEnvelope = "serviceEnvelope"
 )
 
 // MLServer environment variables
@@ -627,12 +621,6 @@ const (
 	MLServerModelClassXGBoost  = "mlserver_xgboost.XGBoostModel"
 	MLServerModelClassLightGBM = "mlserver_lightgbm.LightGBMModel"
 	MLServerModelClassMLFlow   = "mlserver_mlflow.MLflowRuntime"
-)
-
-// torchserve service envelope label allowed values
-const (
-	ServiceEnvelopeKServe   = "kserve"
-	ServiceEnvelopeKServeV2 = "kservev2"
 )
 
 // supported model type
