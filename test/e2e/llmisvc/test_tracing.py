@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import os
 
 import pytest
-import requests
 from kserve import KServeClient
 from kubernetes import client
 
@@ -33,23 +33,45 @@ from .test_llm_inference_service import (
     _collect_diagnostics,
 )
 
-JAEGER_QUERY_HOST = os.getenv(
-    "JAEGER_QUERY_HOST", "jaeger.observability.svc.cluster.local"
-)
+JAEGER_NAMESPACE = os.getenv("JAEGER_NAMESPACE", "observability")
+JAEGER_SERVICE = os.getenv("JAEGER_SERVICE", "jaeger")
 JAEGER_QUERY_PORT = os.getenv("JAEGER_QUERY_PORT", "16686")
+
+
+def _query_jaeger(path: str, params: dict) -> dict:
+    """Query Jaeger via the K8s API server service proxy.
+
+    Uses ApiClient.call_api with a pre-built resource path so the path is not
+    URL-encoded, and passes query parameters separately so they are appended
+    correctly.  Auth is inherited from the kubeconfig loaded by inject_k8s_proxy.
+    """
+    resource_path = (
+        f"/api/v1/namespaces/{JAEGER_NAMESPACE}/services/"
+        f"{JAEGER_SERVICE}:{JAEGER_QUERY_PORT}/proxy/{path}"
+    )
+    api_client = client.ApiClient()
+    resp = api_client.call_api(
+        resource_path,
+        "GET",
+        query_params=list(params.items()),
+        auth_settings=["BearerToken"],
+        _preload_content=False,
+    )
+    return json.loads(resp[0].data)
 
 
 def assert_jaeger_traces_exist(service_name: str, timeout: int = 120):
     """Poll Jaeger API until traces for the given service appear."""
-    jaeger_url = f"http://{JAEGER_QUERY_HOST}:{JAEGER_QUERY_PORT}/api/traces"
-    params = {"service": service_name, "lookback": "10m", "limit": 5}
 
     def check_traces():
-        resp = requests.get(jaeger_url, params=params, timeout=10)
-        assert resp.status_code == 200, (
-            f"Jaeger API returned {resp.status_code}: {resp.text}"
+        data = _query_jaeger(
+            "api/traces",
+            {
+                "service": service_name,
+                "lookback": "10m",
+                "limit": "5",
+            },
         )
-        data = resp.json()
         traces = data.get("data", [])
         assert len(traces) > 0, f"No traces found for service '{service_name}'"
         return traces
