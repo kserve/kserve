@@ -118,6 +118,17 @@ if [[ $ENABLE_LLMISVC == "true" ]] && [[ $ENABLE_KEDA == "true" ]]; then
   echo "Restarting LLMISVC controller to pick up new config..."
   kubectl rollout restart deployment llmisvc-controller-manager -n kserve
   kubectl rollout status deployment llmisvc-controller-manager -n kserve --timeout=120s
+  # The old pod from the previous ReplicaSet is terminated asynchronously
+  # after rollout completes. Wait for it to be fully removed so it doesn't
+  # trip the readiness gate below while still in Running phase.
+  echo "Waiting for old controller pod to terminate..."
+  for i in $(seq 1 30); do
+    pod_count=$(kubectl get pods -l control-plane=llmisvc-controller-manager -n kserve --no-headers 2>/dev/null | wc -l)
+    if [ "$pod_count" -le 1 ]; then
+      break
+    fi
+    sleep 2
+  done
 fi
 
 echo "Show inferenceservice-config configmap..."
