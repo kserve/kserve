@@ -319,7 +319,7 @@ jobs:
         run: |
           ls -l /tmp-images
           minikube ssh -n minikube -- ls -l /tmp-images
-          find /tmp-images -maxdepth 1 -type f | while read -r file; do
+          for file in $(find /tmp-images -maxdepth 1 -type f); do
             echo "Loading image $(basename "$file")"
             minikube ssh -n minikube -- docker image load -i "$file"
             minikube ssh -n minikube-m02 -- docker image load -i "$file"
@@ -344,7 +344,7 @@ jobs:
 
       - name: Load runtime docker images
         run: |
-          find /tmp-images -maxdepth 1 -type f | while read -r file; do
+          for file in $(find /tmp-images -maxdepth 1 -type f); do
             echo "Loading image $(basename "$file")"
             minikube ssh -n minikube -- docker image load -i "$file"
             minikube ssh -n minikube-m02 -- docker image load -i "$file"
