@@ -8,7 +8,7 @@ spec:
     spec:
       containers:
         - name: manager
-          image: kserve/llmisvc-controller:local
+          image: kserve/llmisvc-controller:latest
           imagePullPolicy: IfNotPresent
           resources:
             limits:

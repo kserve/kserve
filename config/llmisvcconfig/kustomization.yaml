@@ -11,4 +11,5 @@ resources:
   - config-llm-router-route.yaml
   - config-llm-scheduler.yaml
   - config-llm-template.yaml
+  - config-llm-tracing.yaml
   - config-llm-worker-data-parallel.yaml
