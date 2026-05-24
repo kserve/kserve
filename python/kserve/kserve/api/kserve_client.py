@@ -48,30 +48,35 @@ class KServeClient(object):
         :param client_configuration: kubernetes configuration object
         :param persist_config:
         """
-        if client_configuration and not config_file and not config_dict:
+        if config_dict:
+            config.load_kube_config_from_dict(
+                config_dict=config_dict,
+                context=context,
+                client_configuration=None,
+                persist_config=persist_config,
+            )
+        elif config_file:
+            config.load_kube_config(
+                config_file=config_file,
+                context=context,
+                client_configuration=client_configuration,
+                persist_config=persist_config,
+            )
+        elif client_configuration:
             api_client = client.ApiClient(configuration=client_configuration)
             self.core_api = client.CoreV1Api(api_client=api_client)
             self.app_api = client.AppsV1Api(api_client=api_client)
             self.api_instance = client.CustomObjectsApi(api_client=api_client)
             self.hpa_v2_api = client.AutoscalingV2Api(api_client=api_client)
             return
-        if config_file or config_dict or not utils.is_running_in_k8s():
-            if config_dict:
-                config.load_kube_config_from_dict(
-                    config_dict=config_dict,
-                    context=context,
-                    client_configuration=None,
-                    persist_config=persist_config,
-                )
-            else:
-                config.load_kube_config(
-                    config_file=config_file,
-                    context=context,
-                    client_configuration=client_configuration,
-                    persist_config=persist_config,
-                )
-        else:
+        elif utils.is_running_in_k8s():
             config.load_incluster_config()
+        else:
+            config.load_kube_config(
+                context=context,
+                client_configuration=client_configuration,
+                persist_config=persist_config,
+            )
         self.core_api = client.CoreV1Api()
         self.app_api = client.AppsV1Api()
         self.api_instance = client.CustomObjectsApi()

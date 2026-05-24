@@ -1,4 +1,4 @@
-# Copyright 2021 The KServe Authors.
+# Copyright 2026 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,56 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from unittest.mock import patch
-
 from kubernetes import client
-
-from kserve import V1beta1PredictorSpec
-from kserve import V1beta1TFServingSpec
-from kserve import V1beta1InferenceServiceSpec
-from kserve import V1beta1InferenceService
+from unittest.mock import patch
 from kserve import KServeClient
-
 
 cfg = client.Configuration()
 cfg.host = "https://test-cluster.example.com"
 cfg.api_key = {"authorization": "Bearer test-token"}
 
 kserve_client = KServeClient(client_configuration=cfg)
-
-mocked_unit_result = """
-{
-    "api_version": "serving.kserve.io/v1beta1",
-    "kind": "InferenceService",
-    "metadata": {
-        "name": "flower-sample",
-        "namespace": "kubeflow"
-    },
-    "spec": {
-        "predictor": {
-            "tensorflow": {
-                "storage_uri": "gs://kfserving-samples/models/tensorflow/flowers"
-            }
-        }
-    }
-}
- """
-
-
-def generate_inferenceservice():
-    tf_spec = V1beta1TFServingSpec(
-        storage_uri="gs://kfserving-samples/models/tensorflow/flowers"
-    )
-    predictor_spec = V1beta1PredictorSpec(tensorflow=tf_spec)
-
-    isvc = V1beta1InferenceService(
-        api_version="serving.kserve.io/v1beta1",
-        kind="InferenceService",
-        metadata=client.V1ObjectMeta(name="flower-sample"),
-        spec=V1beta1InferenceServiceSpec(predictor=predictor_spec),
-    )
-    return isvc
-
 
 def test_client_configuration_is_wired_to_all_api_clients():
     """client_configuration must be passed directly to every underlying API
@@ -70,54 +29,26 @@ def test_client_configuration_is_wired_to_all_api_clients():
     assert kserve_client.app_api.api_client.configuration.host == cfg.host
     assert kserve_client.api_instance.api_client.configuration.host == cfg.host
     assert kserve_client.hpa_v2_api.api_client.configuration.host == cfg.host
+    assert kserve_client.core_api.api_client.configuration.api_key == cfg.api_key
+    assert kserve_client.app_api.api_client.configuration.api_key == cfg.api_key
+    assert kserve_client.api_instance.api_client.configuration.api_key == cfg.api_key
+    assert kserve_client.hpa_v2_api.api_client.configuration.api_key == cfg.api_key
 
+def test_config_dict_takes_priority_over_client_configuration():
+    """When config_dict and client_configuration are both provided,
+    config_dict wins and client_configuration is ignored."""
+    with patch("kubernetes.config.load_kube_config_from_dict") as mock_load:
+        KServeClient(config_dict={"apiVersion": "v1"}, client_configuration=cfg)
+        mock_load.assert_called_once()
+        _, kwargs = mock_load.call_args
+        assert kwargs["client_configuration"] is None
 
-def test_inferenceservice_client_create():
-    """Unit test for kserve create api with client_configuration"""
-    with patch(
-        "kserve.api.kserve_client.KServeClient.create", return_value=mocked_unit_result
-    ):
-        isvc = generate_inferenceservice()
-        assert mocked_unit_result == kserve_client.create(isvc, namespace="kubeflow")
-
-
-def test_inferenceservice_client_get():
-    """Unit test for kserve get api with client_configuration"""
-    with patch(
-        "kserve.api.kserve_client.KServeClient.get", return_value=mocked_unit_result
-    ):
-        assert mocked_unit_result == kserve_client.get(
-            "flower-sample", namespace="kubeflow"
-        )
-
-
-def test_inferenceservice_client_patch():
-    """Unit test for kserve patch api with client_configuration"""
-    with patch(
-        "kserve.api.kserve_client.KServeClient.patch", return_value=mocked_unit_result
-    ):
-        isvc = generate_inferenceservice()
-        assert mocked_unit_result == kserve_client.patch(
-            "flower-sample", isvc, namespace="kubeflow"
-        )
-
-
-def test_inferenceservice_client_replace():
-    """Unit test for kserve replace api with client_configuration"""
-    with patch(
-        "kserve.api.kserve_client.KServeClient.replace", return_value=mocked_unit_result
-    ):
-        isvc = generate_inferenceservice()
-        assert mocked_unit_result == kserve_client.replace(
-            "flower-sample", isvc, namespace="kubeflow"
-        )
-
-
-def test_inferenceservice_client_delete():
-    """Unit test for kserve delete api with client_configuration"""
-    with patch(
-        "kserve.api.kserve_client.KServeClient.delete", return_value=mocked_unit_result
-    ):
-        assert mocked_unit_result == kserve_client.delete(
-            "flower-sample", namespace="kubeflow"
-        )
+def test_config_file_takes_priority_over_client_configuration():
+    """When config_file and client_configuration are both provided,
+    config_file wins and load_kube_config is called instead of using
+    client_configuration directly."""
+    with patch("kubernetes.config.load_kube_config") as mock_load:
+        KServeClient(config_file="./kserve/test/kubeconfig", client_configuration=cfg)
+        mock_load.assert_called_once()
+        _, kwargs = mock_load.call_args
+        assert kwargs["config_file"] == "./kserve/test/kubeconfig"
