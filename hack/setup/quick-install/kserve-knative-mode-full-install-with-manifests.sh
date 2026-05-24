@@ -2446,12 +2446,12 @@ metadata:
 spec:
   annotations:
     prometheus.kserve.io/path: /metrics
-    prometheus.kserve.io/port: "8000"
+    prometheus.kserve.io/port: "8080"
   containers:
   - args:
-    - --port=8000
-    - --model=/mnt/models
+    - --port=8080
     - --served-model-name={{.Name}}
+    - --model=/mnt/models
     command:
     - python
     - -m
@@ -2465,15 +2465,11 @@ spec:
       value: /tmp
     image: vllm/vllm-openai:latest
     name: kserve-container
-    ports:
-    - containerPort: 8000
-      name: http
-      protocol: TCP
     readinessProbe:
       failureThreshold: 3
       httpGet:
         path: /v1/models
-        port: 8000
+        port: 8080
       periodSeconds: 10
       successThreshold: 1
       timeoutSeconds: 5
@@ -2494,7 +2490,7 @@ spec:
       failureThreshold: 60
       httpGet:
         path: /v1/models
-        port: 8000
+        port: 8080
       initialDelaySeconds: 30
       periodSeconds: 30
       successThreshold: 1

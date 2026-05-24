@@ -6,7 +6,7 @@ metadata:
     serving.kserve.io/server-type: vllmserver
 spec:
   annotations:
-    prometheus.kserve.io/port: "8000"
+    prometheus.kserve.io/port: "8080"
     prometheus.kserve.io/path: "/metrics"
   supportedModelFormats:
     - name: vLLM
@@ -24,13 +24,9 @@ spec:
         - -m
         - vllm.entrypoints.openai.api_server
       args:
-        - "--port=8000"
-        - "--model=/mnt/models"
+        - "--port=8080"
         - "--served-model-name={{.Name}}"
-      ports:
-        - containerPort: 8000
-          name: http
-          protocol: TCP
+        - "--model=/mnt/models"
       env:
         - name: LMCACHE_USE_EXPERIMENTAL
           value: "True"
@@ -55,7 +51,7 @@ spec:
         # `/v1/models` only returns 200 once the model is registered.
         httpGet:
           path: /v1/models
-          port: 8000
+          port: 8080
         failureThreshold: 3
         periodSeconds: 10
         successThreshold: 1
@@ -64,7 +60,7 @@ spec:
         # ~30 min grace for large model loads (60 * 30s).
         httpGet:
           path: /v1/models
-          port: 8000
+          port: 8080
         failureThreshold: 60
         periodSeconds: 30
         successThreshold: 1

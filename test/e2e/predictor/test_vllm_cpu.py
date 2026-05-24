@@ -47,11 +47,13 @@ def test_vllm_cpu_openai_chat_completions():
             ),
             env=[
                 client.V1EnvVar(
-                    name="MODEL_ID",
-                    value="Qwen/Qwen2-0.5B-Instruct",
+                    name="VLLM_CPU_KVCACHE_SPACE",
+                    value="1",
                 ),
             ],
             args=[
+                "--model",
+                "Qwen/Qwen2-0.5B-Instruct",
                 "--served-model-name",
                 "qwen-chat",
                 "--max-model-len",
@@ -98,11 +100,13 @@ def test_vllm_cpu_text_completion_streaming():
             ),
             env=[
                 client.V1EnvVar(
-                    name="MODEL_ID",
-                    value="Qwen/Qwen2-0.5B",
+                    name="VLLM_CPU_KVCACHE_SPACE",
+                    value="1",
                 ),
             ],
             args=[
+                "--model",
+                "Qwen/Qwen2-0.5B",
                 "--served-model-name",
                 "qwen-cmpl-stream",
                 "--max-model-len",
@@ -151,11 +155,13 @@ def test_vllm_cpu_openai_completions():
             ),
             env=[
                 client.V1EnvVar(
-                    name="MODEL_ID",
-                    value="Qwen/Qwen2-0.5B",
+                    name="VLLM_CPU_KVCACHE_SPACE",
+                    value="1",
                 ),
             ],
             args=[
+                "--model",
+                "Qwen/Qwen2-0.5B",
                 "--served-model-name",
                 "qwen-cmpl",
                 "--max-model-len",
@@ -201,11 +207,13 @@ def test_vllm_openai_chat_completions_streaming():
             ),
             env=[
                 client.V1EnvVar(
-                    name="MODEL_ID",
-                    value="Qwen/Qwen2-0.5B-Instruct",
+                    name="VLLM_CPU_KVCACHE_SPACE",
+                    value="1",
                 ),
             ],
             args=[
+                "--model",
+                "Qwen/Qwen2-0.5B-Instruct",
                 "--served-model-name",
                 "qwen-chat-stream",
                 "--max-model-len",
@@ -254,11 +262,13 @@ def test_vllm_cpu_rerank():
             ),
             env=[
                 client.V1EnvVar(
-                    name="MODEL_ID",
-                    value="BAAI/bge-reranker-base",
+                    name="VLLM_CPU_KVCACHE_SPACE",
+                    value="1",
                 ),
             ],
             args=[
+                "--model",
+                "BAAI/bge-reranker-base",
                 "--revision",
                 "2cfc18c9415c912f9d8155881c133215df768a70",
                 "--tokenizer-revision",

@@ -55,11 +55,13 @@ def test_vllm_openai_chat_completions():
             ),
             env=[
                 client.V1EnvVar(
-                    name="MODEL_ID",
-                    value="Qwen/Qwen2-0.5B-Instruct",
+                    name="VLLM_CPU_KVCACHE_SPACE",
+                    value="1",
                 ),
             ],
             args=[
+                "--model",
+                "Qwen/Qwen2-0.5B-Instruct",
                 "--served-model-name",
                 "qwen-chat",
                 "--max-model-len",
@@ -106,15 +108,17 @@ def test_vllm_openai_chat_completions_streaming():
             ),
             env=[
                 client.V1EnvVar(
-                    name="MODEL_ID",
-                    value="Qwen/Qwen2-0.5B-Instruct",
-                ),
-                client.V1EnvVar(
                     name="TRANSFORMERS_VERBOSITY",
                     value="info",
                 ),
+                client.V1EnvVar(
+                    name="VLLM_CPU_KVCACHE_SPACE",
+                    value="1",
+                ),
             ],
             args=[
+                "--model",
+                "Qwen/Qwen2-0.5B-Instruct",
                 "--served-model-name",
                 "qwen-chat-stream",
                 "--max-model-len",
@@ -167,11 +171,13 @@ def test_vllm_openai_text_completion_qwen2():
             ),
             env=[
                 client.V1EnvVar(
-                    name="MODEL_ID",
-                    value="Qwen/Qwen2-0.5B",
+                    name="VLLM_CPU_KVCACHE_SPACE",
+                    value="1",
                 ),
             ],
             args=[
+                "--model",
+                "Qwen/Qwen2-0.5B",
                 "--served-model-name",
                 "qwen-cmpl",
                 "--max-model-len",
@@ -218,11 +224,13 @@ def test_vllm_openai_text_completion_streaming():
             ),
             env=[
                 client.V1EnvVar(
-                    name="MODEL_ID",
-                    value="Qwen/Qwen2-0.5B",
+                    name="VLLM_CPU_KVCACHE_SPACE",
+                    value="1",
                 ),
             ],
             args=[
+                "--model",
+                "Qwen/Qwen2-0.5B",
                 "--served-model-name",
                 "qwen-cmpl-stream",
                 "--max-model-len",
@@ -273,11 +281,13 @@ def test_vllm_classify_sequence_classification():
             ),
             env=[
                 client.V1EnvVar(
-                    name="MODEL_ID",
-                    value="textattack/bert-base-uncased-yelp-polarity",
+                    name="VLLM_CPU_KVCACHE_SPACE",
+                    value="1",
                 ),
             ],
             args=[
+                "--model",
+                "textattack/bert-base-uncased-yelp-polarity",
                 "--revision",
                 "a4d0a85ea6c1d5bb944dcc12ea5c918863e469a4",
                 "--tokenizer_revision",
@@ -330,11 +340,13 @@ async def test_vllm_openai_text_embedding():
             ),
             env=[
                 client.V1EnvVar(
-                    name="MODEL_ID",
-                    value="sentence-transformers/all-MiniLM-L6-v2",
+                    name="VLLM_CPU_KVCACHE_SPACE",
+                    value="1",
                 ),
             ],
             args=[
+                "--model",
+                "sentence-transformers/all-MiniLM-L6-v2",
                 "--revision",
                 "8b3219a92973c328a8e22fadcfa821b5dc75636a",
                 "--tokenizer_revision",
@@ -399,11 +411,13 @@ def test_vllm_classify_sequence_classification_probabilities():
             ),
             env=[
                 client.V1EnvVar(
-                    name="MODEL_ID",
-                    value="textattack/bert-base-uncased-yelp-polarity",
+                    name="VLLM_CPU_KVCACHE_SPACE",
+                    value="1",
                 ),
             ],
             args=[
+                "--model",
+                "textattack/bert-base-uncased-yelp-polarity",
                 "--revision",
                 "a4d0a85ea6c1d5bb944dcc12ea5c918863e469a4",
                 "--tokenizer_revision",

@@ -612,7 +612,7 @@ spec:
       image: "{{ .Values.kserve.servingruntime.vllmserver.image }}:{{ .Values.kserve.servingruntime.vllmserver.tag | default .Values.kserve.version }}"
       imagePullPolicy: {{ .Values.kserve.servingruntime.vllmserver.imagePullPolicy }}
       args:
-        - "--port=8000"
+        - "--port=8080"
         - "--model=/mnt/models"
         - "--served-model-name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}"
       env:
