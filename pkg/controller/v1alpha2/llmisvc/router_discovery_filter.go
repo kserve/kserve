@@ -17,9 +17,14 @@ limitations under the License.
 package llmisvc
 
 import (
+	"context"
+	"fmt"
 	"net"
 	"strings"
 
+	duckv1 "knative.dev/pkg/apis/duck/v1"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/utils"
 
 	"knative.dev/pkg/apis"
@@ -77,23 +82,74 @@ func IsModelRoutingURL(url *apis.URL) bool {
 	return url.Path == "/" || url.Path == ""
 }
 
-// AddressTypeName returns the type name for a URL to be used in Addressable.Name:
-// - "gateway-external" for public addresses
-// - "gateway-internal" for cluster-local gateway service URLs
-// - "internal" for private IPs or other internal hostnames
-func AddressTypeName(url *apis.URL) string {
+func SourcedAddress(ctx context.Context, d DiscoveredURL, llmSvc *v1alpha2.LLMInferenceService) v1alpha2.SourcedAddress {
 	typeName := "gateway-external"
-	if IsClusterLocalURL(url) {
+
+	if IsClusterLocalURL(d.URL) {
 		typeName = "gateway-internal"
-	} else if IsInternalURL(url) {
+	} else if IsInternalURL(d.URL) {
 		typeName = "internal"
 	}
 
-	if IsModelRoutingURL(url) {
-		return typeName + "-model-routing"
+	models := make([]v1alpha2.ModelSourcedAddressStatus, 0, 2)
+	const modelRoutingFmt = "publishers/%s/models/%s"
+
+	// Ensure llmSvc.Spec.Model.Name is set.
+	llmSvc.SetDefaults(ctx)
+
+	if IsModelRoutingURL(d.URL) {
+		typeName += "-model-routing"
+
+		models = append(models, v1alpha2.ModelSourcedAddressStatus{
+			Name: fmt.Sprintf(modelRoutingFmt, llmSvc.GetNamespace(), *llmSvc.Spec.Model.Name),
+		})
+		if llmSvc.Spec.Model.LoRA != nil {
+			for _, m := range llmSvc.Spec.Model.LoRA.Adapters {
+				if m.Name == nil {
+					continue
+				}
+				models = append(models, v1alpha2.ModelSourcedAddressStatus{
+					Name: fmt.Sprintf(modelRoutingFmt, llmSvc.GetNamespace(), *m.Name),
+				})
+			}
+		}
+	} else {
+		models = append(models,
+			v1alpha2.ModelSourcedAddressStatus{
+				Name: fmt.Sprintf(modelRoutingFmt, llmSvc.GetNamespace(), *llmSvc.Spec.Model.Name),
+			},
+			v1alpha2.ModelSourcedAddressStatus{
+				Name: *llmSvc.Spec.Model.Name,
+			},
+		)
+		if llmSvc.Spec.Model.LoRA != nil {
+			for _, m := range llmSvc.Spec.Model.LoRA.Adapters {
+				if m.Name == nil {
+					continue
+				}
+
+				models = append(models,
+					v1alpha2.ModelSourcedAddressStatus{
+						Name: fmt.Sprintf(modelRoutingFmt, llmSvc.GetNamespace(), *m.Name),
+					},
+					v1alpha2.ModelSourcedAddressStatus{
+						Name: *m.Name,
+					},
+				)
+			}
+		}
 	}
 
-	return typeName
+	sa := v1alpha2.SourcedAddress{
+		Addressable: duckv1.Addressable{
+			Name: &typeName,
+			URL:  d.URL,
+		},
+		Origin: d.Origin,
+		Models: models,
+	}
+
+	return sa
 }
 
 // isInternalHostname checks if a hostname appears to be internal

@@ -17,6 +17,7 @@ limitations under the License.
 package llmisvc_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -29,6 +30,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 
 	. "github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/fixture"
 
@@ -1917,8 +1920,120 @@ func TestFilterURLs(t *testing.T) {
 				parsedURL, err := apis.ParseURL(tt.url)
 				g.Expect(err).ToNot(HaveOccurred())
 
-				result := llmisvc.AddressTypeName(parsedURL)
-				g.Expect(result).To(Equal(tt.expected))
+				llmSvc := &v1alpha2.LLMInferenceService{
+					Spec: v1alpha2.LLMInferenceServiceSpec{
+						Model: v1alpha2.LLMModelSpec{Name: ptr.To("name")},
+					},
+				}
+				sa := llmisvc.SourcedAddress(context.Background(), llmisvc.DiscoveredURL{URL: parsedURL}, llmSvc)
+				g.Expect(sa.Name).ToNot(BeNil())
+				g.Expect(*sa.Name).To(Equal(tt.expected))
+			})
+		}
+	})
+
+	t.Run("SourcedAddress Models", func(t *testing.T) {
+		tests := []struct {
+			name           string
+			url            string
+			namespace      string
+			modelName      string
+			loraAdapters   []string
+			emptyLoRA      bool
+			expectedModels []v1alpha2.ModelSourcedAddressStatus
+		}{
+			{
+				name:      "path-based URL with base model only",
+				url:       "http://203.0.113.1/ns/name",
+				namespace: "test-ns",
+				modelName: "facebook/opt-125m",
+				expectedModels: []v1alpha2.ModelSourcedAddressStatus{
+					{Name: "publishers/test-ns/models/facebook/opt-125m"},
+					{Name: "facebook/opt-125m"},
+				},
+			},
+			{
+				name:      "model-routing URL with base model only",
+				url:       "http://203.0.113.1/",
+				namespace: "test-ns",
+				modelName: "facebook/opt-125m",
+				expectedModels: []v1alpha2.ModelSourcedAddressStatus{
+					{Name: "publishers/test-ns/models/facebook/opt-125m"},
+				},
+			},
+			{
+				name:         "path-based URL with LoRA adapters",
+				url:          "http://203.0.113.1/ns/name",
+				namespace:    "test-ns",
+				modelName:    "facebook/opt-125m",
+				loraAdapters: []string{"adapter-a", "adapter-b"},
+				expectedModels: []v1alpha2.ModelSourcedAddressStatus{
+					{Name: "publishers/test-ns/models/facebook/opt-125m"},
+					{Name: "facebook/opt-125m"},
+					{Name: "publishers/test-ns/models/adapter-a"},
+					{Name: "adapter-a"},
+					{Name: "publishers/test-ns/models/adapter-b"},
+					{Name: "adapter-b"},
+				},
+			},
+			{
+				name:         "model-routing URL with LoRA adapters",
+				url:          "http://203.0.113.1/",
+				namespace:    "test-ns",
+				modelName:    "facebook/opt-125m",
+				loraAdapters: []string{"adapter-a", "adapter-b"},
+				expectedModels: []v1alpha2.ModelSourcedAddressStatus{
+					{Name: "publishers/test-ns/models/facebook/opt-125m"},
+					{Name: "publishers/test-ns/models/adapter-a"},
+					{Name: "publishers/test-ns/models/adapter-b"},
+				},
+			},
+			{
+				name:      "model-routing URL with empty LoRA adapters list",
+				url:       "http://203.0.113.1/",
+				namespace: "test-ns",
+				modelName: "facebook/opt-125m",
+				emptyLoRA: true,
+				expectedModels: []v1alpha2.ModelSourcedAddressStatus{
+					{Name: "publishers/test-ns/models/facebook/opt-125m"},
+				},
+			},
+			{
+				name:      "cluster-local model-routing URL",
+				url:       "http://my-service.default.svc.cluster.local/",
+				namespace: "my-ns",
+				modelName: "my-model",
+				expectedModels: []v1alpha2.ModelSourcedAddressStatus{
+					{Name: "publishers/my-ns/models/my-model"},
+				},
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				g := NewGomegaWithT(t)
+				parsedURL, err := apis.ParseURL(tt.url)
+				g.Expect(err).ToNot(HaveOccurred())
+
+				llmSvc := &v1alpha2.LLMInferenceService{
+					ObjectMeta: metav1.ObjectMeta{Namespace: tt.namespace},
+					Spec: v1alpha2.LLMInferenceServiceSpec{
+						Model: v1alpha2.LLMModelSpec{Name: ptr.To(tt.modelName)},
+					},
+				}
+				if tt.emptyLoRA {
+					llmSvc.Spec.Model.LoRA = &v1alpha2.LoRASpec{}
+				} else if len(tt.loraAdapters) > 0 {
+					llmSvc.Spec.Model.LoRA = &v1alpha2.LoRASpec{}
+					for _, name := range tt.loraAdapters {
+						llmSvc.Spec.Model.LoRA.Adapters = append(llmSvc.Spec.Model.LoRA.Adapters, v1alpha2.LLMModelSpec{
+							Name: ptr.To(name),
+						})
+					}
+				}
+
+				sa := llmisvc.SourcedAddress(context.Background(), llmisvc.DiscoveredURL{URL: parsedURL}, llmSvc)
+				g.Expect(sa.Models).To(Equal(tt.expectedModels))
 			})
 		}
 	})
