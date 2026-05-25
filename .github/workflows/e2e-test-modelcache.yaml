@@ -319,6 +319,11 @@ jobs:
         run: |
           ls -l /tmp-images
           minikube ssh -n minikube -- ls -l /tmp-images
+          file_count=$(find /tmp-images -maxdepth 1 -type f | wc -l)
+          if [[ "$file_count" -eq 0 ]]; then
+            echo "::error::No image files found in /tmp-images"
+            exit 1
+          fi
           for file in $(find /tmp-images -maxdepth 1 -type f); do
             echo "Loading image $(basename "$file")"
             minikube ssh -n minikube -- docker image load -i "$file"
@@ -326,9 +331,24 @@ jobs:
             minikube ssh -n minikube-m03 -- docker image load -i "$file"
           done
           sudo rm -rf /tmp-images/*
-          minikube ssh -n minikube -- docker image ls
-          minikube ssh -n minikube-m02 -- docker image ls
-          minikube ssh -n minikube-m03 -- docker image ls
+          expected_images=(
+            "${KO_DOCKER_REPO}/${CONTROLLER_IMG}:${TAG}"
+            "${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${TAG}"
+            "${KO_DOCKER_REPO}/${LOCALMODEL_AGENT_IMG}:${TAG}"
+            "${KO_DOCKER_REPO}/${AGENT_IMG}:${TAG}"
+            "${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}:${TAG}"
+            "${KO_DOCKER_REPO}/${ROUTER_IMG}:${TAG}"
+            "${KO_DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}:${TAG}"
+          )
+          for node in minikube minikube-m02 minikube-m03; do
+            for img in "${expected_images[@]}"; do
+              if ! minikube ssh -n "$node" -- docker image inspect "$img" > /dev/null 2>&1; then
+                echo "::error::Image $img not found on node $node"
+                exit 1
+              fi
+            done
+          done
+          echo "All base images verified on all nodes"
 
       - name: Download huggingface server image
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -344,6 +364,11 @@ jobs:
 
       - name: Load runtime docker images
         run: |
+          file_count=$(find /tmp-images -maxdepth 1 -type f | wc -l)
+          if [[ "$file_count" -eq 0 ]]; then
+            echo "::error::No image files found in /tmp-images"
+            exit 1
+          fi
           for file in $(find /tmp-images -maxdepth 1 -type f); do
             echo "Loading image $(basename "$file")"
             minikube ssh -n minikube -- docker image load -i "$file"
@@ -351,9 +376,19 @@ jobs:
             minikube ssh -n minikube-m03 -- docker image load -i "$file"
           done
           sudo rm -rf /tmp-images/*
-          minikube ssh -n minikube -- docker image ls
-          minikube ssh -n minikube-m02 -- docker image ls
-          minikube ssh -n minikube-m03 -- docker image ls
+          expected_images=(
+            "${KO_DOCKER_REPO}/${HUGGINGFACE_IMG}:${TAG}"
+            "${KO_DOCKER_REPO}/${SKLEARN_IMG}:${TAG}"
+          )
+          for node in minikube minikube-m02 minikube-m03; do
+            for img in "${expected_images[@]}"; do
+              if ! minikube ssh -n "$node" -- docker image inspect "$img" > /dev/null 2>&1; then
+                echo "::error::Image $img not found on node $node"
+                exit 1
+              fi
+            done
+          done
+          echo "All runtime images verified on all nodes"
 
       - name: Create model root directory
         run: |
