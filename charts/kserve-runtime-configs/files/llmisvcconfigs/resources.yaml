@@ -297,7 +297,7 @@ spec:
       name: model-cache
     - name: tls-certs
       secret:
-        optional: {{ if .GlobalConfig.EnableTLS }}false{{ else }}true{{ end }}
+        optional: '{{ if .GlobalConfig.EnableTLS }}false{{ else }}true{{ end }}'
         secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}'
 ---
 apiVersion: serving.kserve.io/v1alpha2
@@ -635,7 +635,7 @@ spec:
       name: model-cache
     - name: tls-certs
       secret:
-        optional: {{ if .GlobalConfig.EnableTLS }}false{{ else }}true{{ end }}
+        optional: '{{ if .GlobalConfig.EnableTLS }}false{{ else }}true{{ end }}'
         secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}'
   worker:
     containers:
@@ -883,7 +883,7 @@ spec:
       name: model-cache
     - name: tls-certs
       secret:
-        optional: {{ if .GlobalConfig.EnableTLS }}false{{ else }}true{{ end }}
+        optional: '{{ if .GlobalConfig.EnableTLS }}false{{ else }}true{{ end }}'
         secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}'
 ---
 apiVersion: serving.kserve.io/v1alpha2
@@ -1127,7 +1127,7 @@ spec:
         name: model-cache
       - name: tls-certs
         secret:
-          optional: {{ if .GlobalConfig.EnableTLS }}false{{ else }}true{{ end }}
+          optional: '{{ if .GlobalConfig.EnableTLS }}false{{ else }}true{{ end }}'
           secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}'
 ---
 apiVersion: serving.kserve.io/v1alpha2
@@ -1406,7 +1406,7 @@ spec:
         name: model-cache
       - name: tls-certs
         secret:
-          optional: {{ if .GlobalConfig.EnableTLS }}false{{ else }}true{{ end }}
+          optional: '{{ if .GlobalConfig.EnableTLS }}false{{ else }}true{{ end }}'
           secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}'
     worker:
       containers:
@@ -1652,7 +1652,7 @@ spec:
         name: model-cache
       - name: tls-certs
         secret:
-          optional: {{ if .GlobalConfig.EnableTLS }}false{{ else }}true{{ end }}
+          optional: '{{ if .GlobalConfig.EnableTLS }}false{{ else }}true{{ end }}'
           secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}'
 ---
 apiVersion: serving.kserve.io/v1alpha2
@@ -1889,8 +1889,10 @@ spec:
           - '{{ if .GlobalConfig.EnableTLS }}--enable-cert-reload=true{{- end }}'
           - '{{ if .GlobalConfig.EnableTLS }}--secure-serving=true{{- else }}--secure-serving=false{{-
             end }}'
-          - '{{ if .GlobalConfig.EnableTLS }}--model-server-metrics-scheme=https{{- end }}'
-          - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
+          - '{{ if .GlobalConfig.EnableTLS }}--model-server-metrics-scheme=https{{-
+            end }}'
+          - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end
+            }}'
           env:
           - name: SSL_CERT_DIR
             value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
@@ -2010,7 +2012,7 @@ spec:
         volumes:
         - name: tls-certs
           secret:
-            optional: {{ if .GlobalConfig.EnableTLS }}false{{ else }}true{{ end }}
+            optional: '{{ if .GlobalConfig.EnableTLS }}false{{ else }}true{{ end }}'
             secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs`
               }}'
         - emptyDir: {}
@@ -2260,7 +2262,7 @@ spec:
       name: tmp-dir
     - name: tls-certs
       secret:
-        optional: {{ if .GlobalConfig.EnableTLS }}false{{ else }}true{{ end }}
+        optional: '{{ if .GlobalConfig.EnableTLS }}false{{ else }}true{{ end }}'
         secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}'
 ---
 apiVersion: serving.kserve.io/v1alpha2
@@ -2538,7 +2540,7 @@ spec:
       name: model-cache
     - name: tls-certs
       secret:
-        optional: {{ if .GlobalConfig.EnableTLS }}false{{ else }}true{{ end }}
+        optional: '{{ if .GlobalConfig.EnableTLS }}false{{ else }}true{{ end }}'
         secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}'
   worker:
     containers:
@@ -2784,5 +2786,5 @@ spec:
       name: model-cache
     - name: tls-certs
       secret:
-        optional: {{ if .GlobalConfig.EnableTLS }}false{{ else }}true{{ end }}
+        optional: '{{ if .GlobalConfig.EnableTLS }}false{{ else }}true{{ end }}'
         secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}'
