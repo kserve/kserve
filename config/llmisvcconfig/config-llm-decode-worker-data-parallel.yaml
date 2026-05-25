@@ -334,7 +334,7 @@ spec:
       - name: tls-certs
         secret:
           secretName: "{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}"
-          optional: '{{ if .GlobalConfig.EnableTLS }}false{{ else }}true{{ end }}'
+          optional: true
   worker:
     containers:
       - image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
@@ -584,4 +584,4 @@ spec:
       - name: tls-certs
         secret:
           secretName: "{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}"
-          optional: '{{ if .GlobalConfig.EnableTLS }}false{{ else }}true{{ end }}'
+          optional: true
