@@ -12,25 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from kserve.model import _filter_headers, _FORWARDABLE_HEADERS
+from kserve.model import append_forwardable_headers, _FORWARDABLE_HEADERS
 
 
 class TestFilterHeaders:
     def test_none_headers_returns_base(self):
-        result = _filter_headers(None, {"Content-Type": "application/json"})
+        result = append_forwardable_headers(None, {"Content-Type": "application/json"})
         assert result == {"Content-Type": "application/json"}
 
     def test_none_headers_no_base_returns_empty(self):
-        result = _filter_headers(None)
+        result = append_forwardable_headers(None)
         assert result == {}
 
     def test_empty_headers_returns_base(self):
-        result = _filter_headers({}, {"Content-Type": "application/json"})
+        result = append_forwardable_headers({}, {"Content-Type": "application/json"})
         assert result == {"Content-Type": "application/json"}
 
     def test_forwards_authorization(self):
         headers = {"authorization": "Bearer token123", "host": "transformer-host"}
-        result = _filter_headers(headers, {"Content-Type": "application/json"})
+        result = append_forwardable_headers(
+            headers, {"Content-Type": "application/json"}
+        )
         assert result == {
             "Content-Type": "application/json",
             "authorization": "Bearer token123",
@@ -39,12 +41,12 @@ class TestFilterHeaders:
 
     def test_forwards_x_request_id(self):
         headers = {"x-request-id": "abc-123"}
-        result = _filter_headers(headers)
+        result = append_forwardable_headers(headers)
         assert result == {"x-request-id": "abc-123"}
 
     def test_forwards_x_b3_traceid(self):
         headers = {"x-b3-traceid": "trace-456"}
-        result = _filter_headers(headers)
+        result = append_forwardable_headers(headers)
         assert result == {"x-b3-traceid": "trace-456"}
 
     def test_forwards_all_allowed_headers(self):
@@ -55,7 +57,9 @@ class TestFilterHeaders:
             "host": "should-be-dropped",
             "x-custom": "should-be-dropped",
         }
-        result = _filter_headers(headers, {"Content-Type": "application/json"})
+        result = append_forwardable_headers(
+            headers, {"Content-Type": "application/json"}
+        )
         assert result == {
             "Content-Type": "application/json",
             "x-request-id": "req-1",
@@ -70,12 +74,12 @@ class TestFilterHeaders:
             "x-custom-header": "value",
             "cookie": "session=abc",
         }
-        result = _filter_headers(headers)
+        result = append_forwardable_headers(headers)
         assert result == {}
 
     def test_base_not_mutated(self):
         base = {"Content-Type": "application/json"}
-        _filter_headers({"authorization": "Bearer tok"}, base)
+        append_forwardable_headers({"authorization": "Bearer tok"}, base)
         assert base == {"Content-Type": "application/json"}
 
     def test_forwardable_headers_contains_expected_keys(self):

@@ -44,7 +44,7 @@ from .utils.inference_client_factory import InferenceClientFactory
 _FORWARDABLE_HEADERS = frozenset({"x-request-id", "x-b3-traceid", "authorization"})
 
 
-def _filter_headers(
+def append_forwardable_headers(
     headers: Optional[Dict[str, str]],
     base: Optional[Dict[str, str]] = None,
 ) -> Dict[str, str]:
@@ -388,7 +388,9 @@ class Model(InferenceModel):
         headers: Dict[str, str] = None,
         response_headers: Dict[str, str] = None,
     ) -> Union[Dict, InferResponse]:
-        predict_headers = _filter_headers(headers, {"Content-Type": "application/json"})
+        predict_headers = append_forwardable_headers(
+            headers, {"Content-Type": "application/json"}
+        )
 
         response = await self._http_client.infer(
             self.predictor_config.predictor_base_url,
@@ -407,7 +409,7 @@ class Model(InferenceModel):
     ) -> InferResponse:
         if isinstance(payload, ModelInferRequest):
             payload = InferRequest.from_grpc(payload)
-        filtered = _filter_headers(headers)
+        filtered = append_forwardable_headers(headers)
         metadata = [("request_type", "grpc_v2"), ("response_type", "grpc_v2")]
         metadata.extend((k, v) for k, v in filtered.items())
         async_result = await self._grpc_client.infer(
@@ -465,7 +467,7 @@ class Model(InferenceModel):
         base = {"content-type": "application/json"}
         if headers is not None and "content-type" in headers:
             base["content-type"] = headers["content-type"]
-        explain_headers = _filter_headers(headers, base)
+        explain_headers = append_forwardable_headers(headers, base)
 
         protocol = "https" if self.use_ssl else "http"
         # Currently explainer only supports the kserve v1 endpoints
