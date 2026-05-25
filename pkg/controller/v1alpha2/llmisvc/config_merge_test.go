@@ -2668,10 +2668,10 @@ spec:
         containers:
           - name: main
             args:
-              - '{{ if .GlobalConfig.EnableTLS }}--enable-cert-reload=true{{- else }}--enable-cert-reload=false{{- end }}'
+              - '{{ if .GlobalConfig.EnableTLS }}--enable-cert-reload=true{{- end }}'
               - '{{ if .GlobalConfig.EnableTLS }}--secure-serving=true{{- else }}--secure-serving=false{{- end }}'
-              - '{{ if .GlobalConfig.EnableTLS }}--model-server-metrics-scheme=https{{- else }}--model-server-metrics-scheme=http{{- end }}'
-              - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- else }}--cert-path={{- end }}'
+              - '{{ if .GlobalConfig.EnableTLS }}--model-server-metrics-scheme=https{{- end }}'
+              - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
 `
 
 func TestReplaceVariables_TLSConditional(t *testing.T) {
@@ -2691,13 +2691,13 @@ func TestReplaceVariables_TLSConditional(t *testing.T) {
 			},
 		},
 		{
-			name:      "TLS off: boolean flags render false, cert-path renders empty",
+			name:      "TLS off: flags with true defaults render false, others render empty",
 			enableTLS: false,
 			wantArgs: []string{
-				"--enable-cert-reload=false",
+				"",
 				"--secure-serving=false",
-				"--model-server-metrics-scheme=http",
-				"--cert-path=",
+				"",
+				"",
 			},
 		},
 	}
@@ -2746,8 +2746,8 @@ spec:
         containers:
           - name: sidecar
             args:
-              - '{{ if .GlobalConfig.EnableTLS }}--decoder-use-tls=true{{- else }}--decoder-use-tls=false{{- end }}'
-              - '{{ if .GlobalConfig.EnableTLS }}--prefiller-use-tls=true{{- else }}--prefiller-use-tls=false{{- end }}'
+              - '{{ if .GlobalConfig.EnableTLS }}--decoder-use-tls=true{{- end }}'
+              - '{{ if .GlobalConfig.EnableTLS }}--prefiller-use-tls=true{{- end }}'
 `
 	tests := []struct {
 		name      string
@@ -2762,7 +2762,7 @@ spec:
 		{
 			name:      "TLS off",
 			enableTLS: false,
-			wantArgs:  []string{"--decoder-use-tls=false", "--prefiller-use-tls=false"},
+			wantArgs:  []string{"", ""},
 		},
 	}
 	for _, tt := range tests {
