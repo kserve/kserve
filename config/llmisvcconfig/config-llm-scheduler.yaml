@@ -163,7 +163,6 @@ spec:
           - name: tls-certs
             secret:
               secretName: "{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}"
-              optional: true
           - name: tokenizer-uds
             emptyDir: {}
           # Writable /tmp for the tokenizer container (see volumeMounts comment above).

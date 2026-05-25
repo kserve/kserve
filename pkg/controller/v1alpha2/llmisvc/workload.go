@@ -60,7 +60,7 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 	}
 
 	// Set up TLS certificates for secure communication
-	if err := r.reconcileSelfSignedCertsSecret(ctx, llmSvc, config.SchedulerConfig, config.EnableTLS); err != nil {
+	if err := r.reconcileSelfSignedCertsSecret(ctx, llmSvc, config.SchedulerConfig); err != nil {
 		llmSvc.MarkMainWorkloadNotReady("ReconcileCertsError", err.Error())
 		return fmt.Errorf("failed to reconcile self-signed certificates secret: %w", err)
 	}

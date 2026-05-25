@@ -297,7 +297,6 @@ spec:
       name: model-cache
     - name: tls-certs
       secret:
-        optional: true
         secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}'
 ---
 apiVersion: serving.kserve.io/v1alpha2
@@ -635,7 +634,6 @@ spec:
       name: model-cache
     - name: tls-certs
       secret:
-        optional: true
         secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}'
   worker:
     containers:
@@ -883,7 +881,6 @@ spec:
       name: model-cache
     - name: tls-certs
       secret:
-        optional: true
         secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}'
 ---
 apiVersion: serving.kserve.io/v1alpha2
@@ -1127,7 +1124,6 @@ spec:
         name: model-cache
       - name: tls-certs
         secret:
-          optional: true
           secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}'
 ---
 apiVersion: serving.kserve.io/v1alpha2
@@ -1406,7 +1402,6 @@ spec:
         name: model-cache
       - name: tls-certs
         secret:
-          optional: true
           secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}'
     worker:
       containers:
@@ -1652,7 +1647,6 @@ spec:
         name: model-cache
       - name: tls-certs
         secret:
-          optional: true
           secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}'
 ---
 apiVersion: serving.kserve.io/v1alpha2
@@ -2012,7 +2006,6 @@ spec:
         volumes:
         - name: tls-certs
           secret:
-            optional: true
             secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs`
               }}'
         - emptyDir: {}
@@ -2262,7 +2255,6 @@ spec:
       name: tmp-dir
     - name: tls-certs
       secret:
-        optional: true
         secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}'
 ---
 apiVersion: serving.kserve.io/v1alpha2
@@ -2540,7 +2532,6 @@ spec:
       name: model-cache
     - name: tls-certs
       secret:
-        optional: true
         secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}'
   worker:
     containers:
@@ -2786,5 +2777,4 @@ spec:
       name: model-cache
     - name: tls-certs
       secret:
-        optional: true
         secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}'

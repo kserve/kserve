@@ -57,11 +57,7 @@ const (
 // reconcileSelfSignedCertsSecret reconciles the secret containing self-signed certs used by the server to serve TLS.
 // These self-signed certs are used for cluster internal communication encryption by the workload and the scheduler.
 // The certificates are automatically renewed before expiration to ensure continuous secure communication.
-func (r *LLMISVCReconciler) reconcileSelfSignedCertsSecret(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, schedulerConfig *SchedulerConfig, enableTLS bool) error {
-	if !enableTLS {
-		return r.deleteCertSecretIfExists(ctx, llmSvc)
-	}
-
+func (r *LLMISVCReconciler) reconcileSelfSignedCertsSecret(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, schedulerConfig *SchedulerConfig) error {
 	log.FromContext(ctx).Info("Reconciling self-signed certificates secret")
 
 	ips, err := r.collectIPAddresses(ctx, llmSvc)
@@ -388,14 +384,3 @@ func SemanticCertificateSecretIsEqual(expected *corev1.Secret, curr *corev1.Secr
 	return NewSemanticCertificateSecretIsEqual(DefaultExpirationAnnotations)(expected, curr)
 }
 
-// deleteCertSecretIfExists deletes the self-signed cert secret when TLS is disabled.
-// Idempotent — returns nil if the secret does not exist.
-func (r *LLMISVCReconciler) deleteCertSecretIfExists(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
-	stub := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve-self-signed-certs"),
-			Namespace: llmSvc.GetNamespace(),
-		},
-	}
-	return Delete(ctx, r, llmSvc, stub)
-}

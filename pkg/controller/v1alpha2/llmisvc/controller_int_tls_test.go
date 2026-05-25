@@ -23,7 +23,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/kmeta"
 
@@ -88,14 +87,14 @@ var _ = Describe("LLMInferenceService TLS Toggle", func() {
 				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
 			}()
 
-			// Verify: no cert secret created
+			// Verify: cert secret still created (kept for volume mount stability)
 			Eventually(func(g Gomega, ctx context.Context) {
 				secret := &corev1.Secret{}
 				err := envTest.Get(ctx, types.NamespacedName{
 					Name:      kmeta.ChildName(svcName, "-kserve-self-signed-certs"),
 					Namespace: testNs.Name,
 				}, secret)
-				g.Expect(apierrors.IsNotFound(err)).To(BeTrue(), "cert secret should not exist when TLS is disabled")
+				g.Expect(err).ToNot(HaveOccurred(), "cert secret should exist even when TLS is disabled")
 			}).WithContext(ctx).Should(Succeed())
 
 			// Verify: workload service has HTTP port name
