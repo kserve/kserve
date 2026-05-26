@@ -36,6 +36,7 @@ from ..common.utils import (
     chat_completion_stream,
     completion_stream,
     classify,
+    rerank,
 )
 from .test_output import (
     vllm_text_embedding_expected_output,
@@ -44,7 +45,7 @@ from .test_output import (
 from kserve.logging import trace_logger
 
 
-@pytest.mark.llm
+@pytest.mark.vllm_runtime
 def test_vllm_openai_chat_completions():
     service_name = "vllm-qwen-chat"
     predictor = V1beta1PredictorSpec(
@@ -97,7 +98,7 @@ def test_vllm_openai_chat_completions():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.llm
+@pytest.mark.vllm_runtime
 def test_vllm_openai_chat_completions_streaming():
     service_name = "vllm-qwen-chat-stream"
     predictor = V1beta1PredictorSpec(
@@ -160,7 +161,7 @@ def test_vllm_openai_chat_completions_streaming():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.llm
+@pytest.mark.vllm_runtime
 def test_vllm_openai_text_completion_qwen2():
     service_name = "vllm-qwen-cmpl"
     predictor = V1beta1PredictorSpec(
@@ -213,7 +214,7 @@ def test_vllm_openai_text_completion_qwen2():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.llm
+@pytest.mark.vllm_runtime
 def test_vllm_openai_text_completion_streaming():
     service_name = "vllm-qwen-cmpl-stream"
     predictor = V1beta1PredictorSpec(
@@ -269,7 +270,7 @@ def test_vllm_openai_text_completion_streaming():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.llm
+@pytest.mark.vllm_runtime
 def test_vllm_classify_sequence_classification():
     """Test vLLM sequence classification using /classify endpoint"""
     service_name = "vllm-bert-sequence-classify"
@@ -328,7 +329,7 @@ def test_vllm_classify_sequence_classification():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.llm
+@pytest.mark.vllm_runtime
 @pytest.mark.asyncio(scope="session")
 async def test_vllm_openai_text_embedding():
     service_name = "vllm-text-embedding-openai"
@@ -399,7 +400,7 @@ async def test_vllm_openai_text_embedding():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.llm
+@pytest.mark.vllm_runtime
 def test_vllm_classify_sequence_classification_probabilities():
     """Test vLLM sequence classification using /classify endpoint for probabilities"""
     service_name = "vllm-bert-sequence-classify-prob"
@@ -457,5 +458,68 @@ def test_vllm_classify_sequence_classification_probabilities():
     assert "probs" in res["data"][0]
     assert isinstance(res["data"][0]["probs"], list)
     assert "label" in res["data"][0]
+
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.vllm_runtime
+def test_vllm_rerank():
+    service_name = "bge-reranker-base"
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        model=V1beta1ModelSpec(
+            model_format=V1beta1ModelFormat(
+                name="vLLM",
+            ),
+            env=[
+                client.V1EnvVar(
+                    name="VLLM_CPU_KVCACHE_SPACE",
+                    value="1",
+                ),
+            ],
+            args=[
+                "--model",
+                "BAAI/bge-reranker-base",
+                "--revision",
+                "2cfc18c9415c912f9d8155881c133215df768a70",
+                "--tokenizer-revision",
+                "2cfc18c9415c912f9d8155881c133215df768a70",
+                "--served-model-name",
+                "bge-reranker-base",
+                "--max-model-len",
+                "100",
+                "--dtype",
+                "bfloat16",
+                "--enforce-eager",
+            ],
+            resources=V1ResourceRequirements(
+                requests={"cpu": "2", "memory": "6Gi"},
+                limits={"cpu": "2", "memory": "6Gi"},
+            ),
+        ),
+    )
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    res = rerank(service_name, "./data/bge-reranker-base.json")
+    assert res["results"][0]["index"] == 1
+    assert res["results"][0]["relevance_score"] > 0.9
+    assert res["results"][0]["document"]["text"] == "The capital of France is Paris."
+    assert res["results"][1]["index"] == 0
+    assert res["results"][1]["relevance_score"] < 0.01
+    assert res["results"][1]["document"]["text"] == "The capital of Brazil is Brasilia."
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
