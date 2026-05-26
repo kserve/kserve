@@ -811,21 +811,48 @@ def assert_address_origins(
 
 @log_execution
 def delete_llmisvc(kserve_client: KServeClient, llm_isvc: V1alpha2LLMInferenceService):
+    name = llm_isvc.metadata.name
+    namespace = llm_isvc.metadata.namespace
     try:
         result = kserve_client.api_instance.delete_namespaced_custom_object(
             constants.KSERVE_GROUP,
             llm_isvc.api_version.split("/")[1],
-            llm_isvc.metadata.namespace,
+            namespace,
             KSERVE_PLURAL_LLMINFERENCESERVICE,
-            llm_isvc.metadata.name,
+            name,
         )
-        print(f"✅ LLM inference service {llm_isvc.metadata.name} deleted successfully")
+        print(f"✅ LLM inference service {name} deleted successfully")
+        _wait_for_llmisvc_pods_deleted(name, namespace)
         return result
     except client.rest.ApiException as e:
         raise RuntimeError(
             f"❌ Exception when calling CustomObjectsApi->"
             f"delete_namespaced_custom_object for LLMInferenceService: {e}"
         ) from e
+
+
+def _wait_for_llmisvc_pods_deleted(
+    service_name: str, namespace: str, timeout: int = 120
+):
+    """Block until all workload pods for the service are fully gone from the node.
+
+    Without this, the next test can start before Terminating pods release their
+    CPU/memory, causing scheduling failures on resource-constrained CI nodes.
+    """
+    core_v1 = client.CoreV1Api()
+    label_selector = f"app.kubernetes.io/name={service_name}"
+
+    def assert_no_pods():
+        pods = core_v1.list_namespaced_pod(namespace, label_selector=label_selector)
+        assert not pods.items, (
+            f"{len(pods.items)} pod(s) for {service_name} still terminating"
+        )
+
+    try:
+        wait_for(assert_no_pods, timeout=timeout, interval=5.0)
+        print(f"✅ All pods for {service_name} terminated")
+    except AssertionError:
+        print(f"⚠️ Timed out waiting for pods of {service_name} to terminate")
 
 
 def maybe_delete_llmisvc(
