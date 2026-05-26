@@ -87,14 +87,16 @@ data:
         "urlScheme": "{{ .Values.kserve.controller.gateway.urlScheme }}",
         "disableIstioVirtualHost": {{ .Values.kserve.controller.gateway.disableIstioVirtualHost }},
         "disableIngressCreation": {{ .Values.kserve.controller.gateway.disableIngressCreation }},
-        "disableHTTPRouteTimeout": {{ .Values.kserve.controller.gateway.disableHTTPRouteTimeout }},
+        "disableHTTPRouteTimeout": {{ .Values.kserve.controller.gateway.disableHTTPRouteTimeout }}
+        {{- $rd := .Values.kserve.controller.gateway.rawDeployment -}}
+        {{- if or $rd.gatewayListenerName $rd.pathMatchType $rd.pathRewriteTarget $rd.disableHostBasedRouting (not (eq (len $rd.routeLabels) 0)) $rd.requestTimeout $rd.backendRequestTimeout }},
         "rawDeployment": {
-            "gatewayListenerName": "{{ .Values.kserve.controller.gateway.rawDeployment.gatewayListenerName }}",
-            "pathMatchType": "{{ .Values.kserve.controller.gateway.rawDeployment.pathMatchType }}",
-            "pathRewriteTarget": "{{ .Values.kserve.controller.gateway.rawDeployment.pathRewriteTarget }}",
-            "disableHostBasedRouting": {{ .Values.kserve.controller.gateway.rawDeployment.disableHostBasedRouting }},
+            "gatewayListenerName": "{{ $rd.gatewayListenerName }}",
+            "pathMatchType": "{{ $rd.pathMatchType }}",
+            "pathRewriteTarget": "{{ $rd.pathRewriteTarget }}",
+            "disableHostBasedRouting": {{ $rd.disableHostBasedRouting }},
             "routeLabels": {
-                {{- $labels := .Values.kserve.controller.gateway.rawDeployment.routeLabels }}
+                {{- $labels := $rd.routeLabels }}
                 {{- $i := 0 }}
                 {{- range $key, $value := $labels }}
                 {{- if $i }},{{ end }}
@@ -102,9 +104,10 @@ data:
                 {{- $i = 1 }}
                 {{- end }}
             },
-            "requestTimeout": "{{ .Values.kserve.controller.gateway.rawDeployment.requestTimeout }}",
-            "backendRequestTimeout": "{{ .Values.kserve.controller.gateway.rawDeployment.backendRequestTimeout }}"
+            "requestTimeout": "{{ $rd.requestTimeout }}",
+            "backendRequestTimeout": "{{ $rd.backendRequestTimeout }}"
         }
+        {{- end }}
     }
   logger: |-
     {

@@ -293,6 +293,16 @@ func rawSectionName(cfg *v1beta1.RawDeploymentIngressConfig) *gwapiv1.SectionNam
 	return &s
 }
 
+// resolvePathValue returns the path with a trailing slash for RegularExpression matches (preserving
+// existing behaviour) and the bare path for PathPrefix matches so that requests without a trailing
+// slash (e.g. health checks) still match the route.
+func resolvePathValue(path string, matchType gwapiv1.PathMatchType) string {
+	if matchType == gwapiv1.PathMatchPathPrefix {
+		return path
+	}
+	return path + "/"
+}
+
 // applyRewriteFilter prepends an optional URLRewrite filter to a filter slice.
 func applyRewriteFilter(filters []gwapiv1.HTTPRouteFilter, rewriteFilter *gwapiv1.HTTPRouteFilter) []gwapiv1.HTTPRouteFilter {
 	if rewriteFilter == nil {
@@ -315,13 +325,16 @@ func mergeRouteLabels(labels map[string]string, ingressConfig *v1beta1.IngressCo
 }
 
 // resolveRawRequestTimeout returns the effective request timeout, preferring rawDeployment.requestTimeout when set.
+// disableHTTPRouteTimeout always takes precedence: when true, no timeout is emitted regardless of rawDeployment config.
 func resolveRawRequestTimeout(disableTimeout bool, componentTimeout *int64, rawCfg *v1beta1.RawDeploymentIngressConfig) *gwapiv1.Duration {
-	timeout := resolveTimeout(disableTimeout, componentTimeout)
+	if disableTimeout {
+		return nil
+	}
 	if rawCfg != nil && rawCfg.RequestTimeout != "" {
 		d := gwapiv1.Duration(rawCfg.RequestTimeout)
 		return &d
 	}
-	return timeout
+	return resolveTimeout(disableTimeout, componentTimeout)
 }
 
 func createRawPredictorHTTPRoute(ctx context.Context, client client.Client, isvc *v1beta1.InferenceService, ingressConfig *v1beta1.IngressConfig,
@@ -732,9 +745,10 @@ func createRawTopLevelHTTPRoute(ctx context.Context, client client.Client, isvc 
 			}
 		}
 
-		// Resolve optional timeout overrides from rawDeployment config
+		// Resolve optional timeout overrides from rawDeployment config.
+		// Both timeouts are suppressed when DisableHTTPRouteTimeout is true.
 		var rawBackendTimeout *gwapiv1.Duration
-		if rawCfg != nil && rawCfg.BackendRequestTimeout != "" {
+		if !ingressConfig.DisableHTTPRouteTimeout && rawCfg != nil && rawCfg.BackendRequestTimeout != "" {
 			d := gwapiv1.Duration(rawCfg.BackendRequestTimeout)
 			rawBackendTimeout = &d
 		}
@@ -753,8 +767,12 @@ func createRawTopLevelHTTPRoute(ctx context.Context, client client.Client, isvc 
 			// Add path based routing rule for :explain endpoint.
 			// PathBasedExplainPrefix() returns a regex fragment, so the match type must
 			// always be RegularExpression regardless of the configured pathMatchType.
+			// ReplacePrefixMatch rewrites are not applied here because they are only
+			// spec-defined for PathPrefix matches; with regex the gateway doesn't know
+			// what the "prefix" is, leading to implementation-dependent behaviour.
+			// As a result, the full path (including any path template prefix) is forwarded to the explainer.
 			explainerPathRouteMatch := []gwapiv1.HTTPRouteMatch{createHTTPRouteMatchWithType(path+constants.PathBasedExplainPrefix(), gwapiv1.PathMatchRegularExpression)}
-			httpRouteRules = append(httpRouteRules, createHTTPRouteRuleWithTimeouts(explainerPathRouteMatch, applyRewriteFilter(filters, rewriteFilter), explainerName, isvc.Namespace,
+			httpRouteRules = append(httpRouteRules, createHTTPRouteRuleWithTimeouts(explainerPathRouteMatch, filters, explainerName, isvc.Namespace,
 				constants.CommonDefaultHttpPort, timeout, rawBackendTimeout))
 		}
 		// Add path based routing rule for :predict endpoint
@@ -770,13 +788,15 @@ func createRawTopLevelHTTPRoute(ctx context.Context, client client.Client, isvc 
 			}
 			timeout := resolveRawRequestTimeout(ingressConfig.DisableHTTPRouteTimeout, isvc.Spec.Transformer.TimeoutSeconds, rawCfg)
 			// :predict routes to the transformer when there are both predictor and transformer
-			pathRouteMatch := []gwapiv1.HTTPRouteMatch{createHTTPRouteMatchWithType(path+"/", pathMatchType)}
+			// Use bare path for PathPrefix so requests without trailing slash still match.
+			pathRouteMatch := []gwapiv1.HTTPRouteMatch{createHTTPRouteMatchWithType(resolvePathValue(path, pathMatchType), pathMatchType)}
 			httpRouteRules = append(httpRouteRules, createHTTPRouteRuleWithTimeouts(pathRouteMatch, applyRewriteFilter(filters, rewriteFilter), transformerName, isvc.Namespace,
 				constants.CommonDefaultHttpPort, timeout, rawBackendTimeout))
 		} else {
 			timeout := resolveRawRequestTimeout(ingressConfig.DisableHTTPRouteTimeout, isvc.Spec.Predictor.TimeoutSeconds, rawCfg)
 			// :predict routes to the predictor when there is only predictor
-			pathRouteMatch := []gwapiv1.HTTPRouteMatch{createHTTPRouteMatchWithType(path+"/", pathMatchType)}
+			// Use bare path for PathPrefix so requests without trailing slash still match.
+			pathRouteMatch := []gwapiv1.HTTPRouteMatch{createHTTPRouteMatchWithType(resolvePathValue(path, pathMatchType), pathMatchType)}
 			httpRouteRules = append(httpRouteRules, createHTTPRouteRuleWithTimeouts(pathRouteMatch, applyRewriteFilter(filters, rewriteFilter), predictorName, isvc.Namespace,
 				constants.CommonDefaultHttpPort, timeout, rawBackendTimeout))
 		}

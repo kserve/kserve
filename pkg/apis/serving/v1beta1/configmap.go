@@ -401,6 +401,17 @@ func validateRawDeploymentConfig(cfg *RawDeploymentIngressConfig) error {
 			"pathMatchType to be \"PathPrefix\"")
 	}
 
+	// Validate routeLabels against Kubernetes label rules so misconfiguration is caught at
+	// config parse time rather than at HTTPRoute creation time with a cryptic API server error.
+	for k, v := range cfg.RouteLabels {
+		if errs := validation.IsQualifiedName(k); len(errs) > 0 {
+			return fmt.Errorf("invalid ingress config - rawDeployment.routeLabels key %q: %s", k, strings.Join(errs, "; "))
+		}
+		if errs := validation.IsValidLabelValue(v); len(errs) > 0 {
+			return fmt.Errorf("invalid ingress config - rawDeployment.routeLabels value %q for key %q: %s", v, k, strings.Join(errs, "; "))
+		}
+	}
+
 	// Validate duration strings early so misconfigured values are caught before producing a rejected HTTPRoute.
 	if cfg.RequestTimeout != "" {
 		if _, err := time.ParseDuration(cfg.RequestTimeout); err != nil {

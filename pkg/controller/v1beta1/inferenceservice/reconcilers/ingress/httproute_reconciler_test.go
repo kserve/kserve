@@ -444,11 +444,24 @@ func TestResolveRawRequestTimeout(t *testing.T) {
 		g.Expect(result).To(BeNil())
 	})
 
-	t.Run("rawCfg RequestTimeout overrides disableHTTPRouteTimeout", func(t *testing.T) {
+	t.Run("disableHTTPRouteTimeout always wins even with rawCfg RequestTimeout", func(t *testing.T) {
 		cfg := &v1beta1.RawDeploymentIngressConfig{RequestTimeout: "300s"}
 		result := resolveRawRequestTimeout(true, &componentTimeout, cfg)
-		g.Expect(result).ToNot(BeNil())
-		g.Expect(*result).To(Equal(gwapiv1.Duration("300s")))
+		g.Expect(result).To(BeNil())
+	})
+}
+
+func TestResolvePathValue(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	t.Run("PathPrefix returns bare path without trailing slash", func(t *testing.T) {
+		result := resolvePathValue("/serving/default/test-isvc", gwapiv1.PathMatchPathPrefix)
+		g.Expect(result).To(Equal("/serving/default/test-isvc"))
+	})
+
+	t.Run("RegularExpression returns path with trailing slash", func(t *testing.T) {
+		result := resolvePathValue("/serving/default/test-isvc", gwapiv1.PathMatchRegularExpression)
+		g.Expect(result).To(Equal("/serving/default/test-isvc/"))
 	})
 }
 
@@ -1587,7 +1600,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								{
 									Path: &gwapiv1.HTTPPathMatch{
 										Type:  ptr.To(gwapiv1.PathMatchPathPrefix),
-										Value: ptr.To("/serving/default/test-isvc/"),
+										Value: ptr.To("/serving/default/test-isvc"),
 									},
 								},
 							},
@@ -1796,7 +1809,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								{
 									Path: &gwapiv1.HTTPPathMatch{
 										Type:  ptr.To(gwapiv1.PathMatchPathPrefix),
-										Value: ptr.To("/serving/default/test-isvc/"),
+										Value: ptr.To("/serving/default/test-isvc"),
 									},
 								},
 							},
@@ -1924,7 +1937,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								{
 									Path: &gwapiv1.HTTPPathMatch{
 										Type:  ptr.To(gwapiv1.PathMatchPathPrefix),
-										Value: ptr.To("/serving/default/test-isvc/"),
+										Value: ptr.To("/serving/default/test-isvc"),
 									},
 								},
 							},
@@ -2530,7 +2543,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								{
 									Path: &gwapiv1.HTTPPathMatch{
 										Type:  ptr.To(gwapiv1.PathMatchPathPrefix),
-										Value: ptr.To("/serving/default/test-isvc/"),
+										Value: ptr.To("/serving/default/test-isvc"),
 									},
 								},
 							},

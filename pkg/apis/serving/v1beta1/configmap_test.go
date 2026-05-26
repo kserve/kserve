@@ -865,4 +865,46 @@ func TestNewIngressConfig_Validation(t *testing.T) {
 		g.Expect(cfg.RawDeployment).ShouldNot(gomega.BeNil())
 		g.Expect(cfg.RawDeployment.PathMatchType).To(gomega.Equal("PathPrefix"))
 	})
+
+	t.Run("returns error if rawDeployment.routeLabels has invalid key", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"ingressGateway": "knative-serving/knative-ingress-gateway",
+					"rawDeployment": {"routeLabels": {"invalid key with spaces": "value"}}
+				}`,
+			},
+		}
+		_, err := NewIngressConfig(cm)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("routeLabels key"))
+	})
+
+	t.Run("returns error if rawDeployment.routeLabels has invalid value", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"ingressGateway": "knative-serving/knative-ingress-gateway",
+					"rawDeployment": {"routeLabels": {"valid-key": "invalid value with spaces"}}
+				}`,
+			},
+		}
+		_, err := NewIngressConfig(cm)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("routeLabels value"))
+	})
+
+	t.Run("accepts valid rawDeployment.routeLabels", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"ingressGateway": "knative-serving/knative-ingress-gateway",
+					"rawDeployment": {"routeLabels": {"app.kubernetes.io/env": "production"}}
+				}`,
+			},
+		}
+		cfg, err := NewIngressConfig(cm)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(cfg.RawDeployment.RouteLabels).To(gomega.Equal(map[string]string{"app.kubernetes.io/env": "production"}))
+	})
 }
