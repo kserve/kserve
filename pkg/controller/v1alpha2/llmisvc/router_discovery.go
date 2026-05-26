@@ -811,20 +811,47 @@ func isBackendSupported(route *gwapiv1.HTTPRoute) metav1.ConditionStatus {
 		return metav1.ConditionUnknown
 	}
 
-	// Check the first parent's status (TODO: filter to our specific gateway)
-	if len(route.Status.Parents) > 0 {
-		parent := route.Status.Parents[0]
+	parents := route.Status.Parents
+	if len(parents) == 0 {
+		return metav1.ConditionUnknown
+	}
+
+	hasInvalidKind := false
+	for _, parent := range parents {
+		if !routeParentStatusMatchesSpec(route, parent) {
+			continue
+		}
+
 		cond := meta.FindStatusCondition(parent.Conditions, string(gwapiv1.RouteConditionResolvedRefs))
 		if cond == nil {
-			return metav1.ConditionUnknown
+			continue
 		}
 		if cond.Status == metav1.ConditionFalse && cond.Reason == string(gwapiv1.RouteReasonInvalidKind) {
-			return metav1.ConditionFalse
+			hasInvalidKind = true
+			continue
 		}
 		return metav1.ConditionTrue
 	}
 
+	if hasInvalidKind {
+		return metav1.ConditionFalse
+	}
+
 	return metav1.ConditionUnknown
+}
+
+func routeParentStatusMatchesSpec(route *gwapiv1.HTTPRoute, parent gwapiv1.RouteParentStatus) bool {
+	if len(route.Spec.ParentRefs) == 0 {
+		return true
+	}
+
+	defaultNS := gwapiv1.Namespace(route.Namespace)
+	for _, specRef := range route.Spec.ParentRefs {
+		if parentRefMatches(specRef, parent.ParentRef, defaultNS) {
+			return true
+		}
+	}
+	return false
 }
 
 func isHTTPRouteUsingInferencePool(route *gwapiv1.HTTPRoute, group string) bool {
