@@ -45,6 +45,66 @@ func TestBuildS3EnvVars(t *testing.T) {
 				},
 			},
 		},
+		"S3EndpointWithFalseUseHTTPS": {
+			annotations: map[string]string{
+				InferenceServiceS3SecretEndpointAnnotation: "s3.aws.com",
+				InferenceServiceS3SecretHttpsAnnotation:   "false",
+			},
+			expected: []corev1.EnvVar{
+				{
+					Name:  S3UseHttps,
+					Value: "false",
+				},
+				{
+					Name:  S3Endpoint,
+					Value: "s3.aws.com",
+				},
+				{
+					Name:  AWSEndpointUrl,
+					Value: "http://s3.aws.com",
+				},
+			},
+		},
+		"S3EndpointWithUpperTrueUseHTTPS": {
+			annotations: map[string]string{
+				InferenceServiceS3SecretEndpointAnnotation: "s3.aws.com",
+				InferenceServiceS3SecretHttpsAnnotation:   "TRUE",
+			},
+			expected: []corev1.EnvVar{
+				{
+					Name:  S3UseHttps,
+					Value: "TRUE",
+				},
+				{
+					Name:  S3Endpoint,
+					Value: "s3.aws.com",
+				},
+				{
+					Name:  AWSEndpointUrl,
+					Value: "https://s3.aws.com",
+				},
+			},
+		},
+		"S3EndpointWithInvalidUseHTTPSDefaultsHTTPS": {
+			annotations: map[string]string{
+				InferenceServiceS3SecretEndpointAnnotation: "s3.aws.com",
+				InferenceServiceS3SecretHttpsAnnotation:   "invalid",
+			},
+			expected: []corev1.EnvVar{
+				{
+					Name:  S3UseHttps,
+					Value: "invalid",
+				},
+				{
+					Name:  S3Endpoint,
+					Value: "s3.aws.com",
+				},
+				{
+					Name:  AWSEndpointUrl,
+					Value: "https://s3.aws.com",
+				},
+			},
+		},
 		"AllAnnotations": {
 			annotations: map[string]string{
 				InferenceServiceS3SecretEndpointAnnotation:    "s3.aws.com",

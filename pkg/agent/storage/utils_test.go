@@ -23,9 +23,13 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	awss3 "github.com/aws/aws-sdk-go/service/s3"
 	"github.com/onsi/gomega"
 
 	"github.com/kserve/kserve/pkg/agent/mocks"
+	s3credential "github.com/kserve/kserve/pkg/credentials/s3"
 )
 
 func TestCreate(t *testing.T) {
@@ -127,5 +131,113 @@ func TestGetProvider(t *testing.T) {
 			g.Expect(err).ToNot(gomega.HaveOccurred())
 			g.Expect(provider).ShouldNot(gomega.BeNil())
 		}
+	}
+}
+
+func TestGetProviderS3ConfigParsesNumericBoolEnvs(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	t.Setenv(s3credential.S3UseVirtualBucket, "0")
+	t.Setenv(s3credential.S3UseAccelerate, "1")
+	t.Setenv(s3credential.AWSAnonymousCredential, "1")
+
+	provider, err := GetProvider(map[Protocol]Provider{}, S3)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	s3Provider, ok := provider.(*S3Provider)
+	g.Expect(ok).To(gomega.BeTrue())
+	s3Client, ok := s3Provider.Client.(*awss3.S3)
+	g.Expect(ok).To(gomega.BeTrue())
+
+	g.Expect(aws.BoolValue(s3Client.Config.S3ForcePathStyle)).To(gomega.BeTrue())
+	g.Expect(aws.BoolValue(s3Client.Config.S3UseAccelerate)).To(gomega.BeTrue())
+	g.Expect(
+		s3Client.Config.Credentials == credentials.AnonymousCredentials,
+	).To(gomega.BeTrue())
+}
+
+func TestParseBoolEnvOrDefault(t *testing.T) {
+	scenarios := map[string]struct {
+		set          bool
+		value        string
+		defaultValue bool
+		expected     bool
+	}{
+		"UnsetUsesDefaultTrue": {
+			defaultValue: true,
+			expected:     true,
+		},
+		"UnsetUsesDefaultFalse": {
+			defaultValue: false,
+			expected:     false,
+		},
+		"EmptyUsesDefault": {
+			set:          true,
+			defaultValue: true,
+			expected:     true,
+		},
+		"ZeroParsesFalse": {
+			set:          true,
+			value:        "0",
+			defaultValue: true,
+			expected:     false,
+		},
+		"OneParsesTrue": {
+			set:          true,
+			value:        "1",
+			defaultValue: false,
+			expected:     true,
+		},
+		"UpperFalseParsesFalse": {
+			set:          true,
+			value:        "FALSE",
+			defaultValue: true,
+			expected:     false,
+		},
+		"UpperTrueParsesTrue": {
+			set:          true,
+			value:        "TRUE",
+			defaultValue: false,
+			expected:     true,
+		},
+		"ShortFalseParsesFalse": {
+			set:          true,
+			value:        "f",
+			defaultValue: true,
+			expected:     false,
+		},
+		"ShortTrueParsesTrue": {
+			set:          true,
+			value:        "t",
+			defaultValue: false,
+			expected:     true,
+		},
+		"InvalidUsesDefaultTrue": {
+			set:          true,
+			value:        "invalid",
+			defaultValue: true,
+			expected:     true,
+		},
+		"InvalidUsesDefaultFalse": {
+			set:          true,
+			value:        "invalid",
+			defaultValue: false,
+			expected:     false,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+			const envVar = "KSERVE_TEST_S3_BOOL"
+			if scenario.set {
+				t.Setenv(envVar, scenario.value)
+			} else {
+				_ = os.Unsetenv(envVar)
+			}
+
+			g.Expect(
+				parseBoolEnvOrDefault(envVar, scenario.defaultValue),
+			).To(gomega.Equal(scenario.expected))
+		})
 	}
 }
