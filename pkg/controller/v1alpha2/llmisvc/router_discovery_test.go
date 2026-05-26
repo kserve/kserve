@@ -1412,6 +1412,47 @@ func TestDiscoverURLs(t *testing.T) {
 			assert: expectURLs("http://gateway-service.gateway-ns.svc.cluster.local:8080/"),
 		},
 		{
+			name: "model-based routing with backing service - internal URLs for both paths",
+			route: HTTPRoute("mbr-internal-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("mbr-internal-gw", RefInNamespace("gateway-ns"))),
+				WithHTTPRule(
+					Matches(PathPrefixMatch("/ns/name")),
+					WithBackendRefs(BackendRefService("svc")),
+				),
+				WithHTTPRule(
+					Matches(HeaderOnlyMatch("X-Gateway-Model-Name", "publishers/ns/models/m")),
+					WithBackendRefs(BackendRefService("svc")),
+				),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("mbr-internal-gw",
+					InNamespace[*gwapiv1.Gateway]("gateway-ns"),
+					WithListeners(gwapiv1.Listener{
+						Name:     "http",
+						Protocol: gwapiv1.HTTPProtocolType,
+						Port:     8080,
+					}),
+				),
+			},
+			services: []*corev1.Service{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "gateway-service",
+						Namespace: "gateway-ns",
+						Labels: map[string]string{
+							"gateway.networking.k8s.io/gateway-name": "mbr-internal-gw",
+						},
+					},
+				},
+			},
+			modelRoutingHeader: "X-Gateway-Model-Name",
+			assert: expectURLs(
+				"http://gateway-service.gateway-ns.svc.cluster.local:8080/",
+				"http://gateway-service.gateway-ns.svc.cluster.local:8080/ns/name",
+			),
+		},
+		{
 			name: "multiple gateways with backing services - each gets internal URL",
 			route: HTTPRoute("test-route",
 				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
