@@ -383,4 +383,3 @@ func NewSemanticCertificateSecretIsEqual(expirationAnnotations []string) Semanti
 func SemanticCertificateSecretIsEqual(expected *corev1.Secret, curr *corev1.Secret) bool {
 	return NewSemanticCertificateSecretIsEqual(DefaultExpirationAnnotations)(expected, curr)
 }
-
