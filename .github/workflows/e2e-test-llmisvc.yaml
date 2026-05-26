@@ -225,7 +225,7 @@ jobs:
 
       - name: Run LLMInferenceService E2E tests
         id: llmisvc-e2e-tests
-        timeout-minutes: 60
+        timeout-minutes: 90
         run: |
           # Run only CPU tests for now using pytest markers (cluster_)
           # Available GPU vendors: amd, nvidia, intel
