@@ -89,7 +89,7 @@ data:
         "disableIngressCreation": {{ .Values.kserve.controller.gateway.disableIngressCreation }},
         "disableHTTPRouteTimeout": {{ .Values.kserve.controller.gateway.disableHTTPRouteTimeout }}
         {{- $rd := .Values.kserve.controller.gateway.rawDeployment -}}
-        {{- if or $rd.gatewayListenerName $rd.pathMatchType $rd.pathRewriteTarget $rd.disableHostBasedRouting (not (eq (len $rd.routeLabels) 0)) $rd.requestTimeout $rd.backendRequestTimeout }},
+        {{- if or $rd.gatewayListenerName $rd.pathMatchType $rd.pathRewriteTarget $rd.disableHostBasedRouting (not (eq (len $rd.routeLabels) 0)) $rd.requestTimeout $rd.backendRequestTimeout $rd.disableHTTPRouteTimeout }},
         "rawDeployment": {
             "gatewayListenerName": "{{ $rd.gatewayListenerName }}",
             "pathMatchType": "{{ $rd.pathMatchType }}",
@@ -105,7 +105,8 @@ data:
                 {{- end }}
             },
             "requestTimeout": "{{ $rd.requestTimeout }}",
-            "backendRequestTimeout": "{{ $rd.backendRequestTimeout }}"
+            "backendRequestTimeout": "{{ $rd.backendRequestTimeout }}",
+            "disableHTTPRouteTimeout": {{ $rd.disableHTTPRouteTimeout }}
         }
         {{- end }}
     }

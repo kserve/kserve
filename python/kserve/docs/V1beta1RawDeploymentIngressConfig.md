@@ -5,6 +5,7 @@ RawDeploymentIngressConfig holds Gateway API HTTPRoute generation options for Ra
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **backend_request_timeout** | **str** | BackendRequestTimeout sets the backendRequest timeout for path-based rules (unset by default). | [optional] 
+**disable_http_route_timeout** | **bool** | DisableHTTPRouteTimeout omits the timeout field from all HTTPRoute rules. Set to true for Gateway controllers (e.g. GKE Gateway) that do not support the optional timeouts field. | [optional] 
 **disable_host_based_routing** | **bool** | DisableHostBasedRouting omits HTTPRoute hostnames and host catch-all rules when pathTemplate is set. | [optional] 
 **gateway_listener_name** | **str** | GatewayListenerName sets sectionName on all parentRefs, pinning routes to a specific listener (e.g. \&quot;https\&quot;). | [optional] 
 **path_match_type** | **str** | PathMatchType sets the path match type for path-based rules. Accepted: \&quot;PathPrefix\&quot;, \&quot;RegularExpression\&quot; (default). | [optional] 

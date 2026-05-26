@@ -31,6 +31,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/kubernetes"
 
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/types"
 	"github.com/kserve/kserve/pkg/utils"
@@ -131,6 +133,9 @@ type RawDeploymentIngressConfig struct {
 	RequestTimeout string `json:"requestTimeout,omitempty"`
 	// BackendRequestTimeout sets the backendRequest timeout for path-based rules (unset by default).
 	BackendRequestTimeout string `json:"backendRequestTimeout,omitempty"`
+	// DisableHTTPRouteTimeout omits the timeout field from all HTTPRoute rules.
+	// Set to true for Gateway controllers (e.g. GKE Gateway) that do not support the optional timeouts field.
+	DisableHTTPRouteTimeout bool `json:"disableHTTPRouteTimeout,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -150,7 +155,11 @@ type IngressConfig struct {
 	DisableIstioVirtualHost      bool      `json:"disableIstioVirtualHost,omitempty"`
 	PathTemplate                 string    `json:"pathTemplate,omitempty"`
 	DisableIngressCreation       bool      `json:"disableIngressCreation,omitempty"`
-	DisableHTTPRouteTimeout      bool      `json:"disableHTTPRouteTimeout,omitempty"`
+	// Deprecated: use rawDeployment.disableHTTPRouteTimeout instead.
+	// Kept for backward compatibility in current (0.18) and near-future versions.
+	// Will be removed in a future version; users should migrate before that.
+	// At runtime, whichever field is true will disable the timeout (OR logic).
+	DisableHTTPRouteTimeout bool `json:"disableHTTPRouteTimeout,omitempty"`
 
 	ModelBasedRoutingHeaderName string `json:"modelBasedRoutingHeaderName,omitempty"`
 	ModelBasedRoutingMode       string `json:"modelBasedRoutingMode,omitempty"`
@@ -353,6 +362,13 @@ func NewIngressConfig(isvcConfigMap *corev1.ConfigMap) (*IngressConfig, error) {
 			if err := validateRawDeploymentConfig(ingressConfig.RawDeployment); err != nil {
 				return nil, err
 			}
+		}
+
+		// Emit a deprecation warning when the top-level disableHTTPRouteTimeout is used.
+		if ingressConfig.DisableHTTPRouteTimeout {
+			logf.Log.Info("WARNING: ingress.disableHTTPRouteTimeout is deprecated; " +
+				"use ingress.rawDeployment.disableHTTPRouteTimeout instead. " +
+				"The top-level field will be removed in a future release.")
 		}
 
 		if len(ingressConfig.KnativeLocalGatewayService) == 0 {

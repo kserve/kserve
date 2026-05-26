@@ -4754,12 +4754,14 @@ func TestCreateRawPredictorHTTPRouteDisableTimeout(t *testing.T) {
 
 	t.Run("timeout disabled produces no Timeouts field", func(t *testing.T) {
 		ingressConfig := &v1beta1.IngressConfig{
-			IngressDomain:           "example.com",
-			UrlScheme:               "http",
-			DomainTemplate:          "{{.Name}}-{{.Namespace}}.{{.IngressDomain}}",
-			KserveIngressGateway:    "kserve/kserve-gateway",
-			EnableGatewayAPI:        true,
-			DisableHTTPRouteTimeout: true,
+			IngressDomain:        "example.com",
+			UrlScheme:            "http",
+			DomainTemplate:       "{{.Name}}-{{.Namespace}}.{{.IngressDomain}}",
+			KserveIngressGateway: "kserve/kserve-gateway",
+			EnableGatewayAPI:     true,
+			RawDeployment: &v1beta1.RawDeploymentIngressConfig{
+				DisableHTTPRouteTimeout: true,
+			},
 		}
 		ctx := context.TODO()
 
@@ -4775,12 +4777,11 @@ func TestCreateRawPredictorHTTPRouteDisableTimeout(t *testing.T) {
 
 	t.Run("timeout enabled produces Timeouts field", func(t *testing.T) {
 		ingressConfig := &v1beta1.IngressConfig{
-			IngressDomain:           "example.com",
-			UrlScheme:               "http",
-			DomainTemplate:          "{{.Name}}-{{.Namespace}}.{{.IngressDomain}}",
-			KserveIngressGateway:    "kserve/kserve-gateway",
-			EnableGatewayAPI:        true,
-			DisableHTTPRouteTimeout: false,
+			IngressDomain:        "example.com",
+			UrlScheme:            "http",
+			DomainTemplate:       "{{.Name}}-{{.Namespace}}.{{.IngressDomain}}",
+			KserveIngressGateway: "kserve/kserve-gateway",
+			EnableGatewayAPI:     true,
 		}
 		ctx := context.TODO()
 

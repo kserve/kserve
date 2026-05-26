@@ -48,6 +48,7 @@ class V1beta1RawDeploymentIngressConfig(object):
     """
     openapi_types = {
         'backend_request_timeout': 'str',
+        'disable_http_route_timeout': 'bool',
         'disable_host_based_routing': 'bool',
         'gateway_listener_name': 'str',
         'path_match_type': 'str',
@@ -58,6 +59,7 @@ class V1beta1RawDeploymentIngressConfig(object):
 
     attribute_map = {
         'backend_request_timeout': 'backendRequestTimeout',
+        'disable_http_route_timeout': 'disableHTTPRouteTimeout',
         'disable_host_based_routing': 'disableHostBasedRouting',
         'gateway_listener_name': 'gatewayListenerName',
         'path_match_type': 'pathMatchType',
@@ -66,13 +68,14 @@ class V1beta1RawDeploymentIngressConfig(object):
         'route_labels': 'routeLabels'
     }
 
-    def __init__(self, backend_request_timeout=None, disable_host_based_routing=None, gateway_listener_name=None, path_match_type=None, path_rewrite_target=None, request_timeout=None, route_labels=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, backend_request_timeout=None, disable_http_route_timeout=None, disable_host_based_routing=None, gateway_listener_name=None, path_match_type=None, path_rewrite_target=None, request_timeout=None, route_labels=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1RawDeploymentIngressConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._backend_request_timeout = None
+        self._disable_http_route_timeout = None
         self._disable_host_based_routing = None
         self._gateway_listener_name = None
         self._path_match_type = None
@@ -83,6 +86,8 @@ class V1beta1RawDeploymentIngressConfig(object):
 
         if backend_request_timeout is not None:
             self.backend_request_timeout = backend_request_timeout
+        if disable_http_route_timeout is not None:
+            self.disable_http_route_timeout = disable_http_route_timeout
         if disable_host_based_routing is not None:
             self.disable_host_based_routing = disable_host_based_routing
         if gateway_listener_name is not None:
@@ -118,6 +123,29 @@ class V1beta1RawDeploymentIngressConfig(object):
         """
 
         self._backend_request_timeout = backend_request_timeout
+
+    @property
+    def disable_http_route_timeout(self):
+        """Gets the disable_http_route_timeout of this V1beta1RawDeploymentIngressConfig.  # noqa: E501
+
+        DisableHTTPRouteTimeout omits the timeout field from all HTTPRoute rules. Set to true for Gateway controllers (e.g. GKE Gateway) that do not support the optional timeouts field.  # noqa: E501
+
+        :return: The disable_http_route_timeout of this V1beta1RawDeploymentIngressConfig.  # noqa: E501
+        :rtype: bool
+        """
+        return self._disable_http_route_timeout
+
+    @disable_http_route_timeout.setter
+    def disable_http_route_timeout(self, disable_http_route_timeout):
+        """Sets the disable_http_route_timeout of this V1beta1RawDeploymentIngressConfig.
+
+        DisableHTTPRouteTimeout omits the timeout field from all HTTPRoute rules. Set to true for Gateway controllers (e.g. GKE Gateway) that do not support the optional timeouts field.  # noqa: E501
+
+        :param disable_http_route_timeout: The disable_http_route_timeout of this V1beta1RawDeploymentIngressConfig.  # noqa: E501
+        :type: bool
+        """
+
+        self._disable_http_route_timeout = disable_http_route_timeout
 
     @property
     def disable_host_based_routing(self):

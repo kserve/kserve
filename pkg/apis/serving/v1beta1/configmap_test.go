@@ -907,4 +907,68 @@ func TestNewIngressConfig_Validation(t *testing.T) {
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
 		g.Expect(cfg.RawDeployment.RouteLabels).To(gomega.Equal(map[string]string{"app.kubernetes.io/env": "production"}))
 	})
+
+	t.Run("top-level disableHTTPRouteTimeout is kept as-is (deprecated, no migration)", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"ingressGateway": "knative-serving/knative-ingress-gateway",
+					"disableHTTPRouteTimeout": true
+				}`,
+			},
+		}
+		cfg, err := NewIngressConfig(cm)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(cfg.DisableHTTPRouteTimeout).To(gomega.BeTrue())
+		// rawDeployment is NOT created by migration (no automatic transformation)
+		g.Expect(cfg.RawDeployment).To(gomega.BeNil())
+	})
+
+	t.Run("rawDeployment.disableHTTPRouteTimeout is used directly when set", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"ingressGateway": "knative-serving/knative-ingress-gateway",
+					"rawDeployment": {"disableHTTPRouteTimeout": true}
+				}`,
+			},
+		}
+		cfg, err := NewIngressConfig(cm)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(cfg.RawDeployment.DisableHTTPRouteTimeout).To(gomega.BeTrue())
+	})
+
+	t.Run("when either disableHTTPRouteTimeout field is true, runtime disables timeouts", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"ingressGateway": "knative-serving/knative-ingress-gateway",
+					"disableHTTPRouteTimeout": false,
+					"rawDeployment": {"disableHTTPRouteTimeout": true}
+				}`,
+			},
+		}
+		cfg, err := NewIngressConfig(cm)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(cfg.RawDeployment.DisableHTTPRouteTimeout).To(gomega.BeTrue())
+		g.Expect(cfg.DisableHTTPRouteTimeout).To(gomega.BeFalse())
+		// Both fields coexist; runtime disables timeouts when either field is true.
+	})
+
+	t.Run("both disableHTTPRouteTimeout fields set to true are accepted", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"ingressGateway": "knative-serving/knative-ingress-gateway",
+					"disableHTTPRouteTimeout": true,
+					"rawDeployment": {"pathMatchType": "PathPrefix", "disableHTTPRouteTimeout": true}
+				}`,
+			},
+		}
+		cfg, err := NewIngressConfig(cm)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(cfg.RawDeployment.DisableHTTPRouteTimeout).To(gomega.BeTrue())
+		g.Expect(cfg.DisableHTTPRouteTimeout).To(gomega.BeTrue())
+		g.Expect(cfg.RawDeployment.PathMatchType).To(gomega.Equal("PathPrefix"))
+	})
 }

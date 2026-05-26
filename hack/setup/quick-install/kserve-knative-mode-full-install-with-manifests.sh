@@ -38627,8 +38627,7 @@ data:
            "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
            "urlScheme": "http",
            "disableIstioVirtualHost": false,
-           "disableIngressCreation": false,
-           "disableHTTPRouteTimeout": false
+           "disableIngressCreation": false
        }
      ingress: |-
        {
@@ -38704,10 +38703,6 @@ data:
            # disableIngressCreation controls whether to disable ingress creation for raw deployment mode.
            "disableIngressCreation": false,
 
-           # disableHTTPRouteTimeout controls whether to omit the timeout field from HTTPRoute rules.
-           # Set to true for Gateway controllers (e.g. GKE Gateway) that do not support the optional timeouts field.
-           "disableHTTPRouteTimeout": false,
-
            # pathTemplate specifies the template for generating path based url for each inference service.
            # Supported variables: {{ .Name }}, {{ .Namespace }}. For more info https://github.com/kserve/kserve/issues/2257.
            # Used by serverless (Knative) and RawDeployment (Gateway API, see rawDeployment block below).
@@ -38735,7 +38730,11 @@ data:
                "requestTimeout": "",
 
                # backendRequest timeout for path-based rules (e.g. "300s"). Default "": not set.
-               "backendRequestTimeout": ""
+               "backendRequestTimeout": "",
+
+               # disableHTTPRouteTimeout controls whether to omit the timeout field from all HTTPRoute rules.
+               # Set to true for Gateway controllers (e.g. GKE Gateway) that do not support the optional timeouts field.
+               "disableHTTPRouteTimeout": false
            }
        }
 
@@ -39049,8 +39048,7 @@ data:
         "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
         "urlScheme": "http",
         "disableIstioVirtualHost": false,
-        "disableIngressCreation": false,
-        "disableHTTPRouteTimeout": false
+        "disableIngressCreation": false
     }
   localModel: |-
     {

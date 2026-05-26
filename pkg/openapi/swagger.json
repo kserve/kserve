@@ -3711,6 +3711,7 @@
           }
         },
         "disableHTTPRouteTimeout": {
+          "description": "Deprecated: use rawDeployment.disableHTTPRouteTimeout instead. Kept for backward compatibility; at runtime, either field set to true disables HTTPRoute timeouts.",
           "type": "boolean"
         },
         "disableIngressCreation": {
@@ -5899,6 +5900,10 @@
         "backendRequestTimeout": {
           "description": "BackendRequestTimeout sets the backendRequest timeout for path-based rules (unset by default).",
           "type": "string"
+        },
+        "disableHTTPRouteTimeout": {
+          "description": "DisableHTTPRouteTimeout omits the timeout field from all HTTPRoute rules. Set to true for Gateway controllers (e.g. GKE Gateway) that do not support the optional timeouts field.",
+          "type": "boolean"
         },
         "disableHostBasedRouting": {
           "description": "DisableHostBasedRouting omits HTTPRoute hostnames and host catch-all rules when pathTemplate is set.",
