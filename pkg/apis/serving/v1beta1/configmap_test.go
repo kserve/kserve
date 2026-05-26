@@ -770,6 +770,20 @@ func TestNewIngressConfig_Validation(t *testing.T) {
 		g.Expect(cfg.KnativeLocalGatewayService).To(gomega.Equal("my-local-gateway-service"))
 	})
 
+	t.Run("returns error if pathTemplate is valid but ingressDomain is empty", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"ingressGateway": "knative-serving/knative-ingress-gateway",
+					"pathTemplate": "/serving/{{ .Namespace }}/{{ .Name }}"
+				}`,
+			},
+		}
+		_, err := NewIngressConfig(cm)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("ingressDomain is required if pathTemplate is given"))
+	})
+
 	t.Run("returns config when all required fields are present", func(t *testing.T) {
 		cm := &corev1.ConfigMap{
 			Data: map[string]string{
@@ -844,6 +858,36 @@ func TestNewIngressConfig_Validation(t *testing.T) {
 		_, err := NewIngressConfig(cm)
 		g.Expect(err).Should(gomega.HaveOccurred())
 		g.Expect(err.Error()).To(gomega.ContainSubstring("backendRequestTimeout"))
+	})
+
+	t.Run("returns error if rawDeployment.requestTimeout is valid Go duration but not Gateway API format", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"ingressGateway": "knative-serving/knative-ingress-gateway",
+					"rawDeployment": {"requestTimeout": "300000000ns"}
+				}`,
+			},
+		}
+		_, err := NewIngressConfig(cm)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("requestTimeout"))
+		g.Expect(err.Error()).To(gomega.ContainSubstring("Gateway API duration format"))
+	})
+
+	t.Run("returns error if rawDeployment.backendRequestTimeout is valid Go duration but not Gateway API format", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"ingressGateway": "knative-serving/knative-ingress-gateway",
+					"rawDeployment": {"backendRequestTimeout": "300000000ns"}
+				}`,
+			},
+		}
+		_, err := NewIngressConfig(cm)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("backendRequestTimeout"))
+		g.Expect(err.Error()).To(gomega.ContainSubstring("Gateway API duration format"))
 	})
 
 	t.Run("accepts valid rawDeployment with PathPrefix and pathRewriteTarget", func(t *testing.T) {

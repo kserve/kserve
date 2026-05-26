@@ -352,7 +352,8 @@ func resolveRawRequestTimeout(disableTimeout bool, componentTimeout *int64, rawC
 		d := gwapiv1.Duration(rawCfg.RequestTimeout)
 		return &d
 	}
-	return resolveTimeout(disableTimeout, componentTimeout)
+	// disableTimeout is guaranteed false here (the true case returns nil above).
+	return resolveTimeout(false, componentTimeout)
 }
 
 func createRawPredictorHTTPRoute(ctx context.Context, client client.Client, isvc *v1beta1.InferenceService, ingressConfig *v1beta1.IngressConfig,

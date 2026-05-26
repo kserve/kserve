@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"text/template"
 	"time"
@@ -399,6 +400,11 @@ func NewIngressConfig(isvcConfigMap *corev1.ConfigMap) (*IngressConfig, error) {
 	return ingressConfig, nil
 }
 
+// gatewayAPIDurationRe matches the Gateway API duration format accepted by HTTPRoute timeout fields.
+// Go's time.ParseDuration accepts a strict superset (e.g. "1ns", "1us") that the Gateway API
+// rejects, so we apply an additional format check after parsing.
+var gatewayAPIDurationRe = regexp.MustCompile(`^([0-9]{1,5}(h|m|s|ms)){1,4}$`)
+
 // validateRawDeploymentConfig validates the RawDeploymentIngressConfig fields.
 // It is called from NewIngressConfig when the rawDeployment block is present.
 func validateRawDeploymentConfig(cfg *RawDeploymentIngressConfig) error {
@@ -433,10 +439,16 @@ func validateRawDeploymentConfig(cfg *RawDeploymentIngressConfig) error {
 		if _, err := time.ParseDuration(cfg.RequestTimeout); err != nil {
 			return fmt.Errorf("invalid ingress config - rawDeployment.requestTimeout %q: %w", cfg.RequestTimeout, err)
 		}
+		if !gatewayAPIDurationRe.MatchString(cfg.RequestTimeout) {
+			return fmt.Errorf("invalid ingress config - rawDeployment.requestTimeout %q does not match Gateway API duration format (e.g. \"1h\", \"30m\", \"60s\", \"500ms\")", cfg.RequestTimeout)
+		}
 	}
 	if cfg.BackendRequestTimeout != "" {
 		if _, err := time.ParseDuration(cfg.BackendRequestTimeout); err != nil {
 			return fmt.Errorf("invalid ingress config - rawDeployment.backendRequestTimeout %q: %w", cfg.BackendRequestTimeout, err)
+		}
+		if !gatewayAPIDurationRe.MatchString(cfg.BackendRequestTimeout) {
+			return fmt.Errorf("invalid ingress config - rawDeployment.backendRequestTimeout %q does not match Gateway API duration format (e.g. \"1h\", \"30m\", \"60s\", \"500ms\")", cfg.BackendRequestTimeout)
 		}
 	}
 	return nil
