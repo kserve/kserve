@@ -1,3 +1,19 @@
+/*
+Copyright 2023 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package llmisvc
 
 import (
@@ -23,7 +39,6 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 )
 
 func newManagedDRATestLLMISVC(name string, annotations map[string]string) *v1alpha2.LLMInferenceService {
@@ -38,71 +53,6 @@ func newManagedDRATestLLMISVC(name string, annotations map[string]string) *v1alp
 			UID:         "test-uid-dra",
 			Annotations: annotations,
 		},
-	}
-}
-
-func TestHasManagedDRA(t *testing.T) {
-	tests := []struct {
-		name        string
-		annotations map[string]string
-		expected    bool
-	}{
-		{
-			name:        "no annotations",
-			annotations: nil,
-			expected:    false,
-		},
-		{
-			name:        "unrelated annotation",
-			annotations: map[string]string{"foo": "bar"},
-			expected:    false,
-		},
-		{
-			name:        "device class set",
-			annotations: map[string]string{constants.ManagedDRADeviceClassAnnotationKey: "gpu.nvidia.com"},
-			expected:    true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			llmSvc := newManagedDRATestLLMISVC("test", tt.annotations)
-			assert.Equal(t, tt.expected, hasManagedDRA(llmSvc))
-		})
-	}
-}
-
-func TestParseManagedDRADeviceCount(t *testing.T) {
-	tests := []struct {
-		name      string
-		value     string
-		expected  int
-		expectErr bool
-	}{
-		{name: "not set", value: "", expected: 1},
-		{name: "one", value: "1", expected: 1},
-		{name: "two", value: "2", expected: 2},
-		{name: "five", value: "5", expected: 5},
-		{name: "zero", value: "0", expectErr: true},
-		{name: "negative", value: "-1", expectErr: true},
-		{name: "non-numeric", value: "abc", expectErr: true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			annotations := map[string]string{
-				constants.ManagedDRADeviceClassAnnotationKey: "gpu.nvidia.com",
-			}
-			if tt.value != "" {
-				annotations[constants.ManagedDRADeviceCountAnnotationKey] = tt.value
-			}
-			llmSvc := newManagedDRATestLLMISVC("test", annotations)
-			count, err := parseManagedDRADeviceCount(llmSvc)
-			if tt.expectErr {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-				assert.Equal(t, tt.expected, count)
-			}
-		})
 	}
 }
 
@@ -134,67 +84,16 @@ metadata:
 	raw := llmSvc.Annotations[constants.ManagedDRACelSelectorAnnotationKey]
 	assert.Contains(t, raw, "\n")
 
-	selectors := parseManagedDRACelSelectors(llmSvc)
+	selectors := llmSvc.ManagedDRACelSelectors()
 	require.Len(t, selectors, 2)
 	assert.Equal(t, "device.attributes['gpu.example.com'].model == 'LATEST-GPU-MODEL'", selectors[0])
 	assert.Equal(t, "device.capacity['gpu.example.com'].memory.compareTo(quantity('4Gi')) >= 0", selectors[1])
 
-	// Verify the device request builder applies all selectors.
-	count, err := parseManagedDRADeviceCount(llmSvc)
+	// Verify the assembled template applies all selectors.
+	tmpl, err := expectedManagedDRATemplate(llmSvc)
 	require.NoError(t, err)
-	requests := buildDeviceRequests(
-		llmSvc.Annotations[constants.ManagedDRADeviceClassAnnotationKey],
-		selectors,
-		count,
-	)
-	require.Len(t, requests, 1)
-	require.Len(t, requests[0].Exactly.Selectors, 2)
-}
-
-func TestParseManagedDRACelSelectors(t *testing.T) {
-	tests := []struct {
-		name     string
-		value    string
-		expected []string
-	}{
-		{name: "not set", value: "", expected: nil},
-		{name: "whitespace only", value: "   \n  \n", expected: nil},
-		{
-			name:     "single expression",
-			value:    "device.attributes['gpu.nvidia.com']['type'] == 'A100'",
-			expected: []string{"device.attributes['gpu.nvidia.com']['type'] == 'A100'"},
-		},
-		{
-			name: "multiple expressions newline-separated",
-			value: "device.attributes['gpu.nvidia.com']['type'] == 'A100'\n" +
-				"device.capacity['gpu.nvidia.com']['memory'].compareTo(quantity('40Gi')) > 0",
-			expected: []string{
-				"device.attributes['gpu.nvidia.com']['type'] == 'A100'",
-				"device.capacity['gpu.nvidia.com']['memory'].compareTo(quantity('40Gi')) > 0",
-			},
-		},
-		{
-			name: "multiple expressions with blank lines and indentation",
-			value: "\n  device.attributes['gpu.nvidia.com']['type'] == 'A100'  \n" +
-				"\n  device.capacity['gpu.nvidia.com']['memory'].compareTo(quantity('40Gi')) > 0\n",
-			expected: []string{
-				"device.attributes['gpu.nvidia.com']['type'] == 'A100'",
-				"device.capacity['gpu.nvidia.com']['memory'].compareTo(quantity('40Gi')) > 0",
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			annotations := map[string]string{
-				constants.ManagedDRADeviceClassAnnotationKey: "gpu.nvidia.com",
-			}
-			if tt.value != "" {
-				annotations[constants.ManagedDRACelSelectorAnnotationKey] = tt.value
-			}
-			llmSvc := newManagedDRATestLLMISVC("test", annotations)
-			assert.Equal(t, tt.expected, parseManagedDRACelSelectors(llmSvc))
-		})
-	}
+	require.Len(t, tmpl.Spec.Spec.Devices.Requests, 1)
+	require.Len(t, tmpl.Spec.Spec.Devices.Requests[0].Exactly.Selectors, 2)
 }
 
 func TestBuildDeviceRequests(t *testing.T) {
@@ -252,18 +151,39 @@ func TestBuildDeviceRequests(t *testing.T) {
 }
 
 func TestExpectedManagedDRATemplate(t *testing.T) {
-	llmSvc := newManagedDRATestLLMISVC("my-model", map[string]string{
-		constants.ManagedDRADeviceClassAnnotationKey: "gpu.nvidia.com",
-	})
-	reqs := buildDeviceRequests("gpu.nvidia.com", nil, 1)
-	tmpl := expectedManagedDRATemplate(llmSvc, reqs)
+	t.Run("device class only", func(t *testing.T) {
+		llmSvc := newManagedDRATestLLMISVC("my-model", map[string]string{
+			constants.ManagedDRADeviceClassAnnotationKey: "gpu.nvidia.com",
+		})
+		tmpl, err := expectedManagedDRATemplate(llmSvc)
+		require.NoError(t, err)
 
-	assert.Equal(t, "my-model-managed-dra", tmpl.Name)
-	assert.Equal(t, "default", tmpl.Namespace)
-	require.Len(t, tmpl.Spec.Spec.Devices.Requests, 1)
-	assert.Equal(t, "device", tmpl.Spec.Spec.Devices.Requests[0].Name)
-	require.Len(t, tmpl.OwnerReferences, 1)
-	assert.True(t, *tmpl.OwnerReferences[0].Controller)
+		assert.Equal(t, "my-model-managed-dra", tmpl.Name)
+		assert.Equal(t, "default", tmpl.Namespace)
+		require.Len(t, tmpl.Spec.Spec.Devices.Requests, 1)
+		assert.Equal(t, "device", tmpl.Spec.Spec.Devices.Requests[0].Name)
+		assert.Equal(t, "gpu.nvidia.com", tmpl.Spec.Spec.Devices.Requests[0].Exactly.DeviceClassName)
+		require.Len(t, tmpl.OwnerReferences, 1)
+		assert.True(t, *tmpl.OwnerReferences[0].Controller)
+	})
+
+	t.Run("device class with whitespace is trimmed", func(t *testing.T) {
+		llmSvc := newManagedDRATestLLMISVC("my-model", map[string]string{
+			constants.ManagedDRADeviceClassAnnotationKey: "  gpu.nvidia.com  ",
+		})
+		tmpl, err := expectedManagedDRATemplate(llmSvc)
+		require.NoError(t, err)
+		assert.Equal(t, "gpu.nvidia.com", tmpl.Spec.Spec.Devices.Requests[0].Exactly.DeviceClassName)
+	})
+
+	t.Run("invalid device count surfaces a parse error", func(t *testing.T) {
+		llmSvc := newManagedDRATestLLMISVC("my-model", map[string]string{
+			constants.ManagedDRADeviceClassAnnotationKey: "gpu.nvidia.com",
+			constants.ManagedDRADeviceCountAnnotationKey: "abc",
+		})
+		_, err := expectedManagedDRATemplate(llmSvc)
+		require.Error(t, err)
+	})
 }
 
 func TestInjectManagedDRA_NoAnnotation(t *testing.T) {
@@ -733,13 +653,6 @@ func TestReconcileManagedDRA(t *testing.T) {
 	require.NoError(t, resourcev1.AddToScheme(scheme))
 	require.NoError(t, v1alpha2.AddToScheme(scheme))
 
-	// Mock the CRD availability to avoid panics when r.Config is nil in tests
-	utils.SetAvailableResourcesForApi(resourcev1.SchemeGroupVersion.String(), &metav1.APIResourceList{
-		APIResources: []metav1.APIResource{
-			{Kind: "ResourceClaimTemplate"},
-		},
-	})
-
 	t.Run("no managed DRA, nothing to clean up", func(t *testing.T) {
 		llmSvc := newManagedDRATestLLMISVC("test-svc", nil)
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
@@ -877,13 +790,6 @@ func TestReconcileManagedDRA_CreateError(t *testing.T) {
 	require.NoError(t, resourcev1.AddToScheme(scheme))
 	require.NoError(t, v1alpha2.AddToScheme(scheme))
 
-	// Mock the CRD availability to avoid panics when r.Config is nil in tests
-	utils.SetAvailableResourcesForApi(resourcev1.SchemeGroupVersion.String(), &metav1.APIResourceList{
-		APIResources: []metav1.APIResource{
-			{Kind: "ResourceClaimTemplate"},
-		},
-	})
-
 	t.Run("template claim error", func(t *testing.T) {
 		llmSvc := newManagedDRATestLLMISVC("test-svc", map[string]string{
 			constants.ManagedDRADeviceClassAnnotationKey: "gpu.nvidia.com",
@@ -938,54 +844,5 @@ func TestReconcileManagedDRA_CreateError(t *testing.T) {
 		err := r.reconcileManagedDRA(ctx, llmSvc)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to cleanup Managed DRA ResourceClaimTemplate")
-	})
-
-	t.Run("crd not available error", func(t *testing.T) {
-		llmSvc := newManagedDRATestLLMISVC("test-svc", map[string]string{
-			constants.ManagedDRADeviceClassAnnotationKey: "gpu.nvidia.com",
-		})
-
-		// Temporarily clear the mock cache to simulate CRD missing
-		utils.SetAvailableResourcesForApi(resourcev1.SchemeGroupVersion.String(), &metav1.APIResourceList{})
-
-		fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
-		r := &LLMISVCReconciler{
-			Client:        fakeClient,
-			EventRecorder: record.NewFakeRecorder(10),
-		}
-
-		err := r.reconcileManagedDRA(ctx, llmSvc)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "managed DRA is requested but the ResourceClaimTemplate API")
-
-		// Restore the mock for other tests
-		utils.SetAvailableResourcesForApi(resourcev1.SchemeGroupVersion.String(), &metav1.APIResourceList{
-			APIResources: []metav1.APIResource{
-				{Kind: "ResourceClaimTemplate"},
-			},
-		})
-	})
-
-	t.Run("cleanup crd not available", func(t *testing.T) {
-		llmSvc := newManagedDRATestLLMISVC("test-svc", nil) // no DRA annotations -> triggers cleanup
-
-		// Temporarily clear the mock cache to simulate CRD missing
-		utils.SetAvailableResourcesForApi(resourcev1.SchemeGroupVersion.String(), &metav1.APIResourceList{})
-
-		fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
-		r := &LLMISVCReconciler{
-			Client:        fakeClient,
-			EventRecorder: record.NewFakeRecorder(10),
-		}
-
-		err := r.reconcileManagedDRA(ctx, llmSvc)
-		require.NoError(t, err)
-
-		// Restore the mock for other tests
-		utils.SetAvailableResourcesForApi(resourcev1.SchemeGroupVersion.String(), &metav1.APIResourceList{
-			APIResources: []metav1.APIResource{
-				{Kind: "ResourceClaimTemplate"},
-			},
-		})
 	})
 }

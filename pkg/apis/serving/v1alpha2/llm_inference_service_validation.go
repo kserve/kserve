@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 
 	"k8s.io/utils/ptr"
@@ -678,7 +677,7 @@ func (l *LLMInferenceServiceValidator) validateManagedDRAAnnotations(llmSvc *LLM
 
 	annotationsPath := field.NewPath("metadata").Child("annotations")
 
-	deviceClass, hasDeviceClass := annotations[constants.ManagedDRADeviceClassAnnotationKey]
+	hasDeviceClass := llmSvc.HasManagedDRA()
 	_, hasDeviceCount := annotations[constants.ManagedDRADeviceCountAnnotationKey]
 	_, hasCelSelector := annotations[constants.ManagedDRACelSelectorAnnotationKey]
 	_, hasContainerName := annotations[constants.ManagedDRAContainerNameAnnotationKey]
@@ -695,69 +694,53 @@ func (l *LLMInferenceServiceValidator) validateManagedDRAAnnotations(llmSvc *LLM
 		))
 	}
 
-	if hasDeviceClass {
-		trimmed := strings.TrimSpace(deviceClass)
+	if trimmed, present := llmSvc.ManagedDRADeviceClass(); present {
+		raw := annotations[constants.ManagedDRADeviceClassAnnotationKey]
 		if trimmed == "" {
 			allErrs = append(allErrs, field.Invalid(
 				annotationsPath.Key(constants.ManagedDRADeviceClassAnnotationKey),
-				deviceClass,
+				raw,
 				"device class must not be empty",
 			))
 		} else if errs := validation.IsDNS1123Subdomain(trimmed); len(errs) > 0 {
 			allErrs = append(allErrs, field.Invalid(
 				annotationsPath.Key(constants.ManagedDRADeviceClassAnnotationKey),
-				deviceClass,
+				raw,
 				"device class must be a DNS subdomain: "+strings.Join(errs, "; "),
 			))
 		}
 	}
 
-	if rawCount, ok := annotations[constants.ManagedDRADeviceCountAnnotationKey]; ok {
-		count, err := strconv.Atoi(strings.TrimSpace(rawCount))
-		if err != nil {
+	if hasDeviceCount {
+		if _, err := llmSvc.ManagedDRADeviceCount(); err != nil {
 			allErrs = append(allErrs, field.Invalid(
 				annotationsPath.Key(constants.ManagedDRADeviceCountAnnotationKey),
-				rawCount,
-				"device count must be an integer",
-			))
-		} else if count < 1 {
-			allErrs = append(allErrs, field.Invalid(
-				annotationsPath.Key(constants.ManagedDRADeviceCountAnnotationKey),
-				rawCount,
-				"device count must be greater than or equal to 1",
+				annotations[constants.ManagedDRADeviceCountAnnotationKey],
+				err.Error(),
 			))
 		}
 	}
 
-	if rawSelectors, ok := annotations[constants.ManagedDRACelSelectorAnnotationKey]; ok {
-		hasNonEmpty := false
-		for _, line := range strings.Split(rawSelectors, "\n") {
-			if strings.TrimSpace(line) != "" {
-				hasNonEmpty = true
-				break
-			}
-		}
-		if !hasNonEmpty {
-			allErrs = append(allErrs, field.Invalid(
-				annotationsPath.Key(constants.ManagedDRACelSelectorAnnotationKey),
-				rawSelectors,
-				"cel selector must contain at least one non-empty CEL expression",
-			))
-		}
+	if hasCelSelector && len(llmSvc.ManagedDRACelSelectors()) == 0 {
+		allErrs = append(allErrs, field.Invalid(
+			annotationsPath.Key(constants.ManagedDRACelSelectorAnnotationKey),
+			annotations[constants.ManagedDRACelSelectorAnnotationKey],
+			"cel selector must contain at least one non-empty CEL expression",
+		))
 	}
 
-	if rawName, ok := annotations[constants.ManagedDRAContainerNameAnnotationKey]; ok {
-		trimmed := strings.TrimSpace(rawName)
+	if trimmed, present := llmSvc.ManagedDRAContainerName(); present {
+		raw := annotations[constants.ManagedDRAContainerNameAnnotationKey]
 		if trimmed == "" {
 			allErrs = append(allErrs, field.Invalid(
 				annotationsPath.Key(constants.ManagedDRAContainerNameAnnotationKey),
-				rawName,
+				raw,
 				"container name must not be empty",
 			))
 		} else if errs := validation.IsDNS1123Label(trimmed); len(errs) > 0 {
 			allErrs = append(allErrs, field.Invalid(
 				annotationsPath.Key(constants.ManagedDRAContainerNameAnnotationKey),
-				rawName,
+				raw,
 				"container name must be a DNS label: "+strings.Join(errs, "; "),
 			))
 		}
