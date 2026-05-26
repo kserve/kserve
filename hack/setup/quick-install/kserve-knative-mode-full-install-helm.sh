@@ -1130,13 +1130,6 @@ install_cert_manager() {
 
     wait_for_pods "cert-manager" "app in (cert-manager,webhook,cainjector)" "180s"
 
-    log_info "Waiting for cert-manager webhook to be ready..."
-    kubectl wait --for=condition=Available deployment/cert-manager-webhook -n cert-manager --timeout=60s || {
-        log_error "cert-manager webhook deployment not available"
-        return 1
-    }
-    kubectl wait --for=condition=Available apiservice v1.cert-manager.io --timeout=60s 2>/dev/null || true
-
     log_success "cert-manager is ready!"
 }
 
