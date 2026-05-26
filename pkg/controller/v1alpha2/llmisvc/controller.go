@@ -387,69 +387,59 @@ func (r *LLMISVCReconciler) enqueueOnGatewayChange(logger logr.Logger) handler.E
 			return reqs
 		}
 
-		// When a Gateway is modified, we need to find all LLMInferenceService instances that might
-		// depend on it and trigger their reconciliation.
-		// Use pagination to handle large numbers of services efficiently
-		continueToken := ""
-		for {
-			llmSvcList := &v1alpha2.LLMInferenceServiceList{}
-			if err := r.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace, Continue: continueToken}); err != nil {
-				logger.Error(err, "Failed to list LLMInferenceService")
-				return reqs
+		llmSvcList := &v1alpha2.LLMInferenceServiceList{}
+		if err := r.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace}); err != nil {
+			logger.Error(err, "Failed to list LLMInferenceService")
+			return reqs
+		}
+
+		for _, llmSvc := range llmSvcList.Items {
+			if hasRoutingGatewayRef(&llmSvc, gwapiv1.ObjectName(sub.Name), gwapiv1.Namespace(sub.Namespace)) {
+				reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
+					Namespace: llmSvc.Namespace,
+					Name:      llmSvc.Name,
+				}})
+				continue // skip the expensive combineBaseRefsConfig fallback
 			}
-			for _, llmSvc := range llmSvcList.Items {
-				if hasRoutingGatewayRef(&llmSvc, gwapiv1.ObjectName(sub.Name), gwapiv1.Namespace(sub.Namespace)) {
+
+			// Fallback: service created before status.routing was introduced.
+			// Use the old derivation path until it reconciles and populates status.
+			llmSvcCopy := llmSvc.DeepCopy()
+			result, err := r.combineBaseRefsConfig(ctx, llmSvcCopy, cfg)
+			if err != nil {
+				logger.Error(err, "Failed to combine base refs config", "llmSvc", llmSvc.Name)
+				continue
+			}
+
+			combinedCfg := result.Config.Spec
+
+			// Skip services that don't use gateways
+			if combinedCfg.Router == nil || combinedCfg.Router.Gateway == nil {
+				continue
+			}
+
+			// Check if service uses the global default gateway
+			if !combinedCfg.Router.Gateway.HasRefs() && sub.Name == cfg.IngressGatewayName && sub.Namespace == cfg.IngressGatewayNamespace {
+				reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
+					Namespace: llmSvc.Namespace,
+					Name:      llmSvc.Name,
+				}})
+				continue
+			}
+
+			// Check if service explicitly references this gateway
+			for _, ref := range combinedCfg.Router.Gateway.Refs {
+				refNamespace := string(ref.Namespace)
+				if refNamespace == "" {
+					refNamespace = llmSvc.Namespace
+				}
+				if string(ref.Name) == sub.Name && refNamespace == sub.Namespace {
 					reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
 						Namespace: llmSvc.Namespace,
 						Name:      llmSvc.Name,
 					}})
-					continue // skip the expensive combineBaseRefsConfig fallback
-				}
-
-				// Fallback: service created before status.routing was introduced.
-				// Use the old derivation path until it reconciles and populates status.
-				llmSvcCopy := llmSvc.DeepCopy()
-				result, err := r.combineBaseRefsConfig(ctx, llmSvcCopy, cfg)
-				if err != nil {
-					logger.Error(err, "Failed to combine base refs config", "llmSvc", llmSvc.Name)
-					continue
-				}
-
-				combinedCfg := result.Config.Spec
-
-				// Skip services that don't use gateways
-				if combinedCfg.Router == nil || combinedCfg.Router.Gateway == nil {
-					continue
-				}
-
-				// Check if service uses the global default gateway
-				if !combinedCfg.Router.Gateway.HasRefs() && sub.Name == cfg.IngressGatewayName && sub.Namespace == cfg.IngressGatewayNamespace {
-					reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
-						Namespace: llmSvc.Namespace,
-						Name:      llmSvc.Name,
-					}})
-					continue
-				}
-
-				// Check if service explicitly references this gateway
-				for _, ref := range combinedCfg.Router.Gateway.Refs {
-					refNamespace := string(ref.Namespace)
-					if refNamespace == "" {
-						refNamespace = llmSvc.Namespace
-					}
-					if string(ref.Name) == sub.Name && refNamespace == sub.Namespace {
-						reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
-							Namespace: llmSvc.Namespace,
-							Name:      llmSvc.Name,
-						}})
-					}
 				}
 			}
-
-			if llmSvcList.Continue == "" {
-				break
-			}
-			continueToken = llmSvcList.Continue
 		}
 
 		return reqs
@@ -472,57 +462,47 @@ func (r *LLMISVCReconciler) enqueueOnHttpRouteChange(logger logr.Logger) handler
 			return reqs
 		}
 
-		// When an HTTPRoute is modified, we need to find all LLMInferenceService instances that might
-		// depend on it and trigger their reconciliation.
-		// Use pagination to handle large numbers of services efficiently
-		continueToken := ""
-		for {
-			llmSvcList := &v1alpha2.LLMInferenceServiceList{}
-			if err := r.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace, Continue: continueToken}); err != nil {
-				logger.Error(err, "Failed to list LLMInferenceService")
-				return reqs
+		llmSvcList := &v1alpha2.LLMInferenceServiceList{}
+		if err := r.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace}); err != nil {
+			logger.Error(err, "Failed to list LLMInferenceService")
+			return reqs
+		}
+
+		for _, llmSvc := range llmSvcList.Items {
+			if hasRoutingHTTPRouteRef(&llmSvc, gwapiv1.ObjectName(sub.Name), sub.Namespace) {
+				reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
+					Namespace: llmSvc.Namespace,
+					Name:      llmSvc.Name,
+				}})
+				continue
 			}
-			for _, llmSvc := range llmSvcList.Items {
-				if hasRoutingHTTPRouteRef(&llmSvc, gwapiv1.ObjectName(sub.Name), sub.Namespace) {
+
+			// Fallback: service created before status.routing was introduced.
+			// Use the old derivation path until it reconciles and populates status.
+			llmSvcCopy := llmSvc.DeepCopy()
+			result, err := r.combineBaseRefsConfig(ctx, llmSvcCopy, cfg)
+			if err != nil {
+				logger.Error(err, "Failed to combine base refs config", "llmSvc", llmSvc.Name)
+				continue
+			}
+
+			combinedCfg := result.Config.Spec
+
+			// Skip services that don't use HTTPRoute refs
+			if combinedCfg.Router == nil || combinedCfg.Router.Route == nil || !combinedCfg.Router.Route.HTTP.HasRefs() {
+				continue
+			}
+
+			// Check if service explicitly references this HTTPRoute
+			for _, ref := range combinedCfg.Router.Route.HTTP.Refs {
+				if ref.Name == sub.Name && sub.Namespace == llmSvc.Namespace {
 					reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
 						Namespace: llmSvc.Namespace,
 						Name:      llmSvc.Name,
 					}})
-					continue
-				}
-
-				// Fallback: service created before status.routing was introduced.
-				// Use the old derivation path until it reconciles and populates status.
-				llmSvcCopy := llmSvc.DeepCopy()
-				result, err := r.combineBaseRefsConfig(ctx, llmSvcCopy, cfg)
-				if err != nil {
-					logger.Error(err, "Failed to combine base refs config", "llmSvc", llmSvc.Name)
-					continue
-				}
-
-				combinedCfg := result.Config.Spec
-
-				// Skip services that don't use HTTPRoute refs
-				if combinedCfg.Router == nil || combinedCfg.Router.Route == nil || !combinedCfg.Router.Route.HTTP.HasRefs() {
-					continue
-				}
-
-				// Check if service explicitly references this HTTPRoute
-				for _, ref := range combinedCfg.Router.Route.HTTP.Refs {
-					if ref.Name == sub.Name && sub.Namespace == llmSvc.Namespace {
-						reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
-							Namespace: llmSvc.Namespace,
-							Name:      llmSvc.Name,
-						}})
-						break
-					}
+					break
 				}
 			}
-
-			if llmSvcList.Continue == "" {
-				break
-			}
-			continueToken = llmSvcList.Continue
 		}
 
 		return reqs
@@ -546,43 +526,33 @@ func (r *LLMISVCReconciler) enqueueOnInferencePoolChange(logger logr.Logger) han
 			return reqs
 		}
 
-		// When an InferencePool is modified, we need to find all LLMInferenceService instances that might
-		// depend on it through scheduler.pool.ref and trigger their reconciliation.
-		// Use pagination to handle large numbers of services efficiently.
-		continueToken := ""
-		for {
-			llmSvcList := &v1alpha2.LLMInferenceServiceList{}
-			if err := r.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace, Continue: continueToken}); err != nil {
-				logger.Error(err, "Failed to list LLMInferenceService")
-				return reqs
-			}
-			for _, llmSvc := range llmSvcList.Items {
-				llmSvcCopy := llmSvc.DeepCopy()
-				result, err := r.combineBaseRefsConfig(ctx, llmSvcCopy, cfg)
-				if err != nil {
-					logger.Error(err, "Failed to combine base refs config", "llmSvc", llmSvc.Name)
-					continue
-				}
+		llmSvcList := &v1alpha2.LLMInferenceServiceList{}
+		if err := r.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace}); err != nil {
+			logger.Error(err, "Failed to list LLMInferenceService")
+			return reqs
+		}
 
-				combinedCfg := result.Config.Spec
-				if combinedCfg.Router == nil ||
-					combinedCfg.Router.Scheduler == nil ||
-					combinedCfg.Router.Scheduler.Pool == nil ||
-					combinedCfg.Router.Scheduler.Pool.Ref == nil ||
-					combinedCfg.Router.Scheduler.Pool.Ref.Name != sub.GetName() {
-					continue
-				}
-
-				reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
-					Namespace: llmSvc.Namespace,
-					Name:      llmSvc.Name,
-				}})
+		for _, llmSvc := range llmSvcList.Items {
+			llmSvcCopy := llmSvc.DeepCopy()
+			result, err := r.combineBaseRefsConfig(ctx, llmSvcCopy, cfg)
+			if err != nil {
+				logger.Error(err, "Failed to combine base refs config", "llmSvc", llmSvc.Name)
+				continue
 			}
 
-			if llmSvcList.Continue == "" {
-				break
+			combinedCfg := result.Config.Spec
+			if combinedCfg.Router == nil ||
+				combinedCfg.Router.Scheduler == nil ||
+				combinedCfg.Router.Scheduler.Pool == nil ||
+				combinedCfg.Router.Scheduler.Pool.Ref == nil ||
+				combinedCfg.Router.Scheduler.Pool.Ref.Name != sub.GetName() {
+				continue
 			}
-			continueToken = llmSvcList.Continue
+
+			reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
+				Namespace: llmSvc.Namespace,
+				Name:      llmSvc.Name,
+			}})
 		}
 
 		return reqs
@@ -605,42 +575,34 @@ func (r *LLMISVCReconciler) enqueueOnLLMInferenceServiceConfigChange(logger logr
 			listNamespace = corev1.NamespaceAll
 		}
 
-		// Find all LLMInferenceService instances that depend on (or may depend on) this config.
-		continueToken := ""
-		for {
-			llmSvcList := &v1alpha2.LLMInferenceServiceList{}
-			if err := r.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace, Continue: continueToken}); err != nil {
-				logger.Error(err, "Failed to list LLMInferenceService")
-				return reqs
-			}
-			for _, llmSvc := range llmSvcList.Items {
-				// Check status.appliedConfigs first (populated on success, retained
-				// when stopped), then fall back to annotations/baseRefs.
-				if llmSvc.IsUsingLLMInferenceServiceConfig(sub.Name) {
-					reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
-						Namespace: llmSvc.Namespace,
-						Name:      llmSvc.Name,
-					}})
-					continue
-				}
+		llmSvcList := &v1alpha2.LLMInferenceServiceList{}
+		if err := r.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace}); err != nil {
+			logger.Error(err, "Failed to list LLMInferenceService")
+			return reqs
+		}
 
-				// Fallback when appliedConfigs is empty (not yet reconciled, or
-				// cleared after a config-merge error): enqueue if the changed
-				// config is a well-known default that could apply to this service.
-				if len(llmSvc.Status.AppliedConfigRefs) == 0 &&
-					WellKnownDefaultConfigs.Has(sub.Name) &&
-					(sub.Namespace == constants.KServeNamespace || sub.Namespace == llmSvc.Namespace) {
-					reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
-						Namespace: llmSvc.Namespace,
-						Name:      llmSvc.Name,
-					}})
-				}
+		for _, llmSvc := range llmSvcList.Items {
+			// Check status.appliedConfigs first (populated on success, retained
+			// when stopped), then fall back to annotations/baseRefs.
+			if llmSvc.IsUsingLLMInferenceServiceConfig(sub.Name) {
+				reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
+					Namespace: llmSvc.Namespace,
+					Name:      llmSvc.Name,
+				}})
+				continue
 			}
 
-			if llmSvcList.Continue == "" {
-				break
+			// Fallback when appliedConfigs is empty (not yet reconciled, or
+			// cleared after a config-merge error): enqueue if the changed
+			// config is a well-known default that could apply to this service.
+			if len(llmSvc.Status.AppliedConfigRefs) == 0 &&
+				WellKnownDefaultConfigs.Has(sub.Name) &&
+				(sub.Namespace == constants.KServeNamespace || sub.Namespace == llmSvc.Namespace) {
+				reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
+					Namespace: llmSvc.Namespace,
+					Name:      llmSvc.Name,
+				}})
 			}
-			continueToken = llmSvcList.Continue
 		}
 
 		return reqs
