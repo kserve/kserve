@@ -1,6 +1,6 @@
 # Credential Forwarding for Transformers
 
-When deploying an InferenceService with both a **transformer** and **auth enabled** on the predictor, the transformer must forward the caller's credentials (the `Authorization` header) to the predictor so that the predictor's auth proxy (e.g. kube-rbac-proxy) can validate the original caller's identity.
+The transformer must forward the caller's credentials (the `Authorization` header) to the predictor so that the predictor's auth proxy (e.g. kube-rbac-proxy) can validate the original caller's identity.
 
 ## SDK-Based Transformers (Automatic)
 
