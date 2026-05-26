@@ -30,6 +30,7 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.controller.containerSecurityContext.runAsNonRoot | bool | `true` |  |
 | kserve.controller.deploymentMode | string | `"Knative"` |  |
 | kserve.controller.gateway.additionalIngressDomains | list | `[]` |  |
+| kserve.controller.gateway.disableHTTPRouteTimeout | bool | `false` |  |
 | kserve.controller.gateway.disableIngressCreation | bool | `false` |  |
 | kserve.controller.gateway.disableIstioVirtualHost | bool | `false` |  |
 | kserve.controller.gateway.domain | string | `"example.com"` |  |

@@ -3711,7 +3711,7 @@
           }
         },
         "disableHTTPRouteTimeout": {
-          "description": "Deprecated: use rawDeployment.disableHTTPRouteTimeout instead. Kept for backward compatibility; at runtime, either field set to true disables HTTPRoute timeouts.",
+          "description": "Deprecated: use rawDeployment.disableHTTPRouteTimeout instead. Kept for backward compatibility in current (0.18) and near-future versions. Will be removed in a future version; users should migrate before that. At runtime, whichever field is true will disable the timeout (OR logic).",
           "type": "boolean"
         },
         "disableIngressCreation": {

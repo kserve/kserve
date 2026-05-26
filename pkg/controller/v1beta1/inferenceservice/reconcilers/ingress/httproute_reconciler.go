@@ -299,7 +299,7 @@ func isHTTPRouteTimeoutDisabled(cfg *v1beta1.IngressConfig) bool {
 	if cfg.RawDeployment != nil && cfg.RawDeployment.DisableHTTPRouteTimeout {
 		return true
 	}
-	return cfg.DisableHTTPRouteTimeout
+	return cfg.DisableHTTPRouteTimeout //nolint:staticcheck // intentional: backward-compat bridge for deprecated field
 }
 
 // rawSectionName returns a SectionName pointer when gatewayListenerName is set, or nil to attach to all listeners.
