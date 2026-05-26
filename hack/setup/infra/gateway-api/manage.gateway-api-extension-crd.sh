@@ -35,8 +35,11 @@ fi
 # INIT END
 
 uninstall() {
-    log_info "Uninstalling Gateway Inference Extension CRDs..."
-    kubectl delete -f "https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/${GIE_VERSION}/manifests.yaml" --ignore-not-found=true 2>/dev/null || true
+    log_info "Uninstalling Gateway Inference Extension CRD..."
+    kubectl delete -f "https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/${GIE_VERSION}/v1-manifests.yaml" --ignore-not-found=true 2>/dev/null || true
+    log_info "Uninstalling llm-d CRDs from llm-d-router ${LLMD_ROUTER_VERSION}..."
+    kubectl delete -f "https://raw.githubusercontent.com/llm-d/llm-d-router/${LLMD_ROUTER_VERSION}/config/crd/bases/llm-d.ai_inferenceobjectives.yaml" --ignore-not-found=true 2>/dev/null || true
+    kubectl delete -f "https://raw.githubusercontent.com/llm-d/llm-d-router/${LLMD_ROUTER_VERSION}/config/crd/bases/llm-d.ai_inferencemodelrewrites.yaml" --ignore-not-found=true 2>/dev/null || true
     log_success "Gateway Inference Extension CRDs uninstalled"
 }
 
@@ -51,14 +54,21 @@ install() {
         fi
     fi
 
-    log_info "Installing Gateway Inference Extension CRDs ${GIE_VERSION}..."
-    kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/${GIE_VERSION}/manifests.yaml"
+    log_info "Installing Gateway Inference Extension CRD ${GIE_VERSION}..."
+    kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/${GIE_VERSION}/v1-manifests.yaml"
 
     log_success "Successfully installed Gateway Inference Extension CRDs ${GIE_VERSION}"
 
+    log_info "Installing llm-d.ai CRDs from llm-d-router ${LLMD_ROUTER_VERSION}..."
+    # TODO: once 0.9.0 is released switch to use release artifacts
+    kubectl apply -f "https://raw.githubusercontent.com/llm-d/llm-d-router/${LLMD_ROUTER_VERSION}/config/crd/bases/llm-d.ai_inferenceobjectives.yaml"
+    kubectl apply -f "https://raw.githubusercontent.com/llm-d/llm-d-router/${LLMD_ROUTER_VERSION}/config/crd/bases/llm-d.ai_inferencemodelrewrites.yaml"
+
+
     wait_for_crds "60s" \
         "inferencepools.inference.networking.k8s.io" \
-        "inferenceobjectives.inference.networking.x-k8s.io"
+        "inferenceobjectives.llm-d.ai" \
+        "inferencemodelrewrites.llm-d.ai"
 
     log_success "Gateway Inference Extension CRDs are ready!"
 }
