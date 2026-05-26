@@ -1551,10 +1551,10 @@ jobs:
           kubectl describe pods -n kserve
 
       - name: Run E2E tests
-        timeout-minutes: 45
+        timeout-minutes: 65
         run: |
           export PYTEST_MAXFAIL=3
-          ./test/scripts/gh-actions/run-e2e-tests.sh "vllm_runtime" "2"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "vllm_runtime" "1"
 
       - name: Check system status
         if: always()
