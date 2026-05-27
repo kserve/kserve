@@ -32,6 +32,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	mcvClient "github.com/redhat-et/GKM/mcv/pkg/client"
 	kernelcachenodecontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/kernelcachenode"
 	kservescheme "github.com/kserve/kserve/pkg/scheme"
 )
@@ -90,6 +91,35 @@ func main() {
 	if err != nil {
 		setupLog.Error(err, "unable to create clientSet")
 		os.Exit(1)
+	}
+
+	// Warm up MCV GPU detection cache before starting manager
+	// Pattern from GKM: Call MCV at startup to seed the cache
+	// First call is slow (hardware detection), subsequent calls are fast (cached)
+	setupLog.Info("Warming up MCV GPU detection cache")
+	noGPU := false
+	if os.Getenv("NO_GPU") == "true" {
+		noGPU = true
+		setupLog.Info("NO_GPU environment variable set - will use stub GPU data")
+	}
+
+	detected := false
+	disableTimeout := 0 // Use default MCV timeout
+	for i := 1; i < 8; i++ {
+		_, err := mcvClient.GetSystemGPUInfo(mcvClient.HwOptions{
+			EnableStub: &noGPU,
+			Timeout:    disableTimeout,
+		})
+		if err == nil {
+			detected = true
+			setupLog.Info("GPU detection cache warmed up", "attempts", i, "stubMode", noGPU)
+			break
+		}
+		setupLog.V(1).Info("GPU detection attempt failed, retrying", "attempt", i, "error", err)
+	}
+	if !detected {
+		setupLog.Info("GPU detection cache warmup failed - will retry during reconciliation")
+		// Non-fatal - reconciler will retry when KernelCacheNode is created
 	}
 
 	// Create a new Cmd to provide shared dependencies and start components

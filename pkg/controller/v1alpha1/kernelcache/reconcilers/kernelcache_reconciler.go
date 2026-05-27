@@ -667,7 +667,7 @@ func (r *KernelCacheReconciler) createExtractionJob(
 
 		initContainer := corev1.Container{
 			Name:  "fix-permissions",
-			Image: "busybox:1.28",
+			Image: "quay.io/fedora/fedora-minimal",
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser: &rootUser,
 			},

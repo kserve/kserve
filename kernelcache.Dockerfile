@@ -2,8 +2,12 @@
 FROM golang:1.25 AS deps
 
 WORKDIR /go/src/github.com/kserve/kserve
+# Copy MCV source from build context for local replace directive
+COPY --from=mcv . /go/src/github.com/redhat-et/GKM/mcv/
 COPY go.mod  go.mod
 COPY go.sum  go.sum
+# Update replace directive to point to copied MCV source
+RUN sed -i 's|replace github.com/redhat-et/GKM/mcv => /home/bmcfall/src/GKM/mcv|replace github.com/redhat-et/GKM/mcv => /go/src/github.com/redhat-et/GKM/mcv|' go.mod
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 
