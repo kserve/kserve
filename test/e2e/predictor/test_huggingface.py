@@ -705,7 +705,11 @@ async def test_huggingface_v2_sequence_classification_with_probabilities(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    # Pinned-revision HuggingFace pulls can be slow on contended CI runners;
+    # 600s (the default) has shown to be borderline. Give this test more runway.
+    kserve_client.wait_isvc_ready(
+        service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=900
+    )
 
     res = await predict_isvc(
         rest_v2_client,
