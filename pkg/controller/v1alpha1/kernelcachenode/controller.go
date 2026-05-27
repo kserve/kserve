@@ -82,6 +82,21 @@ func (r *KernelCacheNodeReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	reconcileInterval := time.Duration(*kernelCacheConfig.ReconcileIntervalSeconds) * time.Second
 
+	// Populate GPU info if not present (MCV detection or stub for KIND)
+	// This runs once per node - subsequent reconciles skip if GPUInfo already populated
+	if err := r.populateGPUInfo(kcNode, kernelCacheConfig.NoGPU); err != nil {
+		r.Log.Error(err, "failed to populate GPU info", "node", kcNode.Status.NodeName)
+		// Non-fatal - continue with reconciliation
+		// Status update will persist GPUInfo if successful
+	} else if len(kcNode.Status.GPUInfo) > 0 {
+		// GPU info was just populated - update status immediately
+		if err := r.Status().Update(ctx, kcNode); err != nil {
+			r.Log.Error(err, "failed to update status with GPU info")
+			return ctrl.Result{}, err
+		}
+		r.Log.Info("GPU info populated", "node", kcNode.Status.NodeName, "gpuTypes", len(kcNode.Status.GPUInfo))
+	}
+
 	// Process each cache in this node's spec
 	// Monitor cache availability (operator creates extraction Job)
 	for _, cacheInfo := range kcNode.Status.Caches {
