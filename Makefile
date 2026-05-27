@@ -523,7 +523,7 @@ bump-version:
 
 # Build the docker image
 docker-build:
-	${ENGINE} buildx build ${ARCH} --build-arg GOTAGS=${GOTAGS} . -t ${KO_DOCKER_REPO}/${CONTROLLER_IMG}
+	${ENGINE} buildx build ${ARCH} --build-context mcv=/home/bmcfall/src/GKM/mcv --build-arg GOTAGS=${GOTAGS} . -t ${KO_DOCKER_REPO}/${CONTROLLER_IMG}
 	@echo "updating kustomize image patch file for manager resource"
 
 	# Use perl instead of sed to avoid OSX/Linux compatibility issue:
@@ -553,16 +553,16 @@ docker-push-localmodelnode-agent: docker-build-localmodelnode-agent
 	${ENGINE} buildx build ${ARCH} --push --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LOCALMODEL_AGENT_IMG} -f localmodel-agent.Dockerfile .
 
 docker-build-kernelcache:
-	${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${KERNELCACHE_CONTROLLER_IMG} -f kernelcache.Dockerfile .
+	${ENGINE} buildx build ${ARCH} --build-context mcv=/home/bmcfall/src/GKM/mcv -t ${KO_DOCKER_REPO}/${KERNELCACHE_CONTROLLER_IMG} -f kernelcache.Dockerfile .
 
 docker-push-kernelcache: docker-build-kernelcache
-	${ENGINE} buildx build ${ARCH} --push -t ${KO_DOCKER_REPO}/${KERNELCACHE_CONTROLLER_IMG} -f kernelcache.Dockerfile .
+	${ENGINE} buildx build ${ARCH} --build-context mcv=/home/bmcfall/src/GKM/mcv --push -t ${KO_DOCKER_REPO}/${KERNELCACHE_CONTROLLER_IMG} -f kernelcache.Dockerfile .
 
 docker-build-kernelcachenode-agent:
-	${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${KERNELCACHE_AGENT_IMG} -f kernelcache-agent.Dockerfile .
+	${ENGINE} buildx build ${ARCH} --build-context mcv=/home/bmcfall/src/GKM/mcv -t ${KO_DOCKER_REPO}/${KERNELCACHE_AGENT_IMG} -f kernelcache-agent.Dockerfile .
 
 docker-push-kernelcachenode-agent: docker-build-kernelcachenode-agent
-	${ENGINE} buildx build ${ARCH} --push -t ${KO_DOCKER_REPO}/${KERNELCACHE_AGENT_IMG} -f kernelcache-agent.Dockerfile .
+	${ENGINE} buildx build ${ARCH} --build-context mcv=/home/bmcfall/src/GKM/mcv --push -t ${KO_DOCKER_REPO}/${KERNELCACHE_AGENT_IMG} -f kernelcache-agent.Dockerfile .
 
 docker-build-agent:
 	${ENGINE} buildx build ${ARCH} --build-arg GOTAGS=${GOTAGS} -f agent.Dockerfile . -t ${KO_DOCKER_REPO}/${AGENT_IMG}
