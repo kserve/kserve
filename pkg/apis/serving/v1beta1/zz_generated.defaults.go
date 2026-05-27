@@ -2090,8 +2090,7 @@ func SetObjectDefaults_InferenceService(in *InferenceService) {
 			}
 			if b.EphemeralContainerCommon.StartupProbe != nil {
 				if b.EphemeralContainerCommon.StartupProbe.ProbeHandler.GRPC != nil {
-					if b.EphemeralContainerCommon.StartupProbe.ProbeHandler.GRPC.Service == nil {
-						var ptrVar1 string = ""
+					if b.EphemeralContainerCommon.StartupProbe.ProbeHandler.GRPC.Service == nil {					var ptrVar1 string = ""
 						b.EphemeralContainerCommon.StartupProbe.ProbeHandler.GRPC.Service = &ptrVar1
 					}
 				}
@@ -2106,3 +2105,4 @@ func SetObjectDefaults_InferenceServiceList(in *InferenceServiceList) {
 		SetObjectDefaults_InferenceService(a)
 	}
 }
+

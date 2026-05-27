@@ -17,6 +17,7 @@ exclude = [
     "python/*_pb2.pyi",
     "docs/**/*.py",
     "docs/**/*.ipynb",
+    "kernelcache/mcv/example/**/*.py",
     "python/kserve/kserve/protocol/rest/openai/types/openapi.py",
 ]
 [lint]
