@@ -14,20 +14,33 @@
 
 """Predictor-scope pytest fixtures.
 
-``KServeClient.delete()`` is asynchronous: it returns as soon as the API
-server accepts the request, leaving the predictor pod to drain in the
-background while still holding its CPU/memory requests. Back-to-back tests
-can therefore contend for cluster capacity even though the previous test
-has logically completed.
+Predictor tests follow the pattern ``create -> wait_isvc_ready -> assert ->
+delete``. If ``wait_isvc_ready`` raises (slow cold start, scheduling failure,
+etc.) the trailing ``delete`` is never reached and the InferenceService is
+leaked into the cluster, where its Deployment keeps a Pod holding CPU/memory
+requests and blocks subsequent tests on resource-constrained CI runners.
 
-This autouse fixture, after each test, polls until any predictor pods that
-are *actively terminating* in the test namespace have fully disappeared.
-We only wait on pods carrying a ``deletionTimestamp`` so we don't block on
-peers that are still mid-test under parallel pytest workers.
+Additionally, ``KServeClient.delete`` is asynchronous: even on the happy path
+the pod stays in its graceful-termination window while the next test's
+``create`` may already be racing for the same capacity.
+
+This autouse fixture, after each test:
+  1. Force-deletes any InferenceService the test created (tracked by
+     monkey-patching ``KServeClient.create`` for the duration of the test).
+     Idempotent: already-deleted ISVCs are ignored.
+  2. Polls until any predictor pods carrying a ``deletionTimestamp`` in the
+     test namespace have fully disappeared, so the next test's scheduling
+     decision sees freed capacity.
+
+Pytest-xdist runs each worker in its own process, so the tracking state is
+worker-local and the cleanup only touches ISVCs this worker created — peers
+running concurrent tests are unaffected.
 """
 
+import os
 import time
 
+from kserve import KServeClient
 from kubernetes import client as k8s_client
 from kubernetes import config as k8s_config
 import pytest
@@ -44,13 +57,42 @@ _TERMINATION_PROPAGATION_GRACE_S = 5
 
 
 @pytest.fixture(autouse=True)
-def _wait_for_terminating_predictor_pods():
-    """Block the next test until predictor pods marked for deletion are gone.
+def _cleanup_orphaned_predictor_isvcs(monkeypatch):
+    """Track ISVCs created during the test and force-delete any survivors.
 
-    Bounded by ``_TERMINATION_WAIT_TIMEOUT_S``; never raises on timeout so a
-    slow teardown can't mask the real test result.
+    Never raises: a failure in cleanup must not mask the real test result.
     """
+    created: list[tuple[str, str]] = []
+    original_create = KServeClient.create
+
+    def _tracking_create(self, inferenceservice, *args, **kwargs):
+        result = original_create(self, inferenceservice, *args, **kwargs)
+        try:
+            meta = inferenceservice.metadata
+            name = meta.name
+            namespace = meta.namespace or KSERVE_TEST_NAMESPACE
+            if name:
+                created.append((name, namespace))
+        except Exception:
+            pass
+        return result
+
+    monkeypatch.setattr(KServeClient, "create", _tracking_create)
+
     yield
+
+    if created:
+        try:
+            cleanup_client = KServeClient(
+                config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+            )
+            for name, namespace in created:
+                try:
+                    cleanup_client.delete(name, namespace)
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
     try:
         try:
