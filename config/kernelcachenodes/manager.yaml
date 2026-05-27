@@ -53,6 +53,8 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: spec.nodeName
+          - name: NO_GPU
+            value: "false"
         resources:
           limits:
             cpu: 100m
