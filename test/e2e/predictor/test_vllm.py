@@ -45,9 +45,7 @@ from .test_output import (
 from kserve.logging import trace_logger
 
 
-def _assert_embedding_matches_reference(
-    actual, reference, *, threshold: float = 0.999
-):
+def _assert_embedding_matches_reference(actual, reference, *, threshold: float = 0.999):
     """Assert ``actual`` is semantically equivalent to the reference vector.
 
     Embedding outputs drift slightly across vLLM versions and pooling code
@@ -426,9 +424,7 @@ async def test_vllm_openai_text_embedding():
         base64.b64decode(res["data"][0]["embedding"]), dtype="float32"
     ).tolist()
     assert len(res["data"]) == 1
-    _assert_embedding_matches_reference(
-        embedding, vllm_text_embedding_expected_output
-    )
+    _assert_embedding_matches_reference(embedding, vllm_text_embedding_expected_output)
 
     # Validate Token count
     assert res["usage"]["prompt_tokens"] == 8
