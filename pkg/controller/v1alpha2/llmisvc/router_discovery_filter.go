@@ -22,6 +22,8 @@ import (
 	"net"
 	"strings"
 
+	"k8s.io/utils/ptr"
+
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -95,7 +97,7 @@ func SourcedAddress(ctx context.Context, d DiscoveredURL, llmSvc *v1alpha2.LLMIn
 	const modelRoutingFmt = "publishers/%s/models/%s"
 
 	// Ensure llmSvc.Spec.Model.Name is set.
-	llmSvc.SetDefaults(ctx)
+	llmSvc.Spec.Model.Name = ptr.To(ptr.Deref(llmSvc.Spec.Model.Name, llmSvc.GetName()))
 
 	if IsModelRoutingURL(d.URL) {
 		typeName += "-model-routing"
