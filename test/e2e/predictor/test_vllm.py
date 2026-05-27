@@ -45,6 +45,35 @@ from .test_output import (
 from kserve.logging import trace_logger
 
 
+def _assert_embedding_matches_reference(
+    actual, reference, *, threshold: float = 0.999
+):
+    """Assert ``actual`` is semantically equivalent to the reference vector.
+
+    Embedding outputs drift slightly across vLLM versions and pooling code
+    paths (dtype, fused vs unfused kernels, normalization order, etc.), so an
+    element-wise tolerance check is brittle. Cosine similarity is the standard
+    invariant for "same embedding": ``threshold=0.999`` keeps real regressions
+    visible (wrong model, wrong pooling, broken normalization all collapse
+    similarity well below this) while tolerating numerical drift on the order
+    of 1e-4. ``reference`` may be a list of ``pytest.approx`` wrappers — we
+    unwrap to the underlying floats.
+    """
+    reference_raw = [getattr(v, "expected", v) for v in reference]
+    assert len(actual) == len(reference_raw), (
+        f"embedding dimension mismatch: got {len(actual)}, "
+        f"expected {len(reference_raw)}"
+    )
+    a = np.asarray(actual, dtype=np.float64)
+    b = np.asarray(reference_raw, dtype=np.float64)
+    norms = float(np.linalg.norm(a) * np.linalg.norm(b))
+    assert norms > 0, "embedding vector is all zeros"
+    cosine = float(np.dot(a, b) / norms)
+    assert cosine >= threshold, (
+        f"embedding cosine similarity {cosine:.6f} below threshold {threshold}"
+    )
+
+
 @pytest.mark.vllm_runtime
 def test_vllm_openai_chat_completions():
     service_name = "vllm-qwen-chat"
@@ -386,7 +415,9 @@ async def test_vllm_openai_text_embedding():
     # Validate float output
     res = embed(service_name, "./data/text_embedding_input_openai_float.json")
     assert len(res["data"]) == 1
-    assert res["data"][0]["embedding"] == vllm_text_embedding_expected_output
+    _assert_embedding_matches_reference(
+        res["data"][0]["embedding"], vllm_text_embedding_expected_output
+    )
 
     # Validate base64 output. Decoded as the OpenAI library:
     # https://github.com/openai/openai-python/blob/v1.59.7/src/openai/resources/embeddings.py#L118-L120
@@ -395,7 +426,9 @@ async def test_vllm_openai_text_embedding():
         base64.b64decode(res["data"][0]["embedding"]), dtype="float32"
     ).tolist()
     assert len(res["data"]) == 1
-    assert embedding == vllm_text_embedding_expected_output
+    _assert_embedding_matches_reference(
+        embedding, vllm_text_embedding_expected_output
+    )
 
     # Validate Token count
     assert res["usage"]["prompt_tokens"] == 8
