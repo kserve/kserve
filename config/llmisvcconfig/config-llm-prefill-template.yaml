@@ -8,7 +8,7 @@ spec:
       serving.kserve.io/model-based-routing-enabled: "true"
     template:
       containers:
-        - image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
+        - image: ghcr.io/llm-d/llm-d-cuda:v0.7.0
           imagePullPolicy: IfNotPresent
           name: main
           ports:

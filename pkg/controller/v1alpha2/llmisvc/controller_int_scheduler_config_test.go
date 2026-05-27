@@ -156,7 +156,7 @@ schedulingProfiles:
 						Containers: []corev1.Container{
 							{
 								Name:  "main",
-								Image: "ghcr.io/llm-d/llm-d-inference-scheduler:v0.7.1",
+								Image: "ghcr.io/llm-d/llm-d-inference-scheduler:v0.8.0",
 								Args: []string{
 									"--config-text",
 									"existing-config-from-template",
@@ -904,7 +904,7 @@ schedulingProfiles:
 						Containers: []corev1.Container{
 							{
 								Name:  "main",
-								Image: "ghcr.io/llm-d/llm-d-inference-scheduler:v0.7.1",
+								Image: "ghcr.io/llm-d/llm-d-inference-scheduler:v0.8.0",
 								Args: []string{
 									"--ha-enable-leader-election",
 									"--poolName",
