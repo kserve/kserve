@@ -176,19 +176,19 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *corev1.Pod) error {
 			return fmt.Errorf("Invalid configuration: cannot find container: %s", constants.InferenceServiceContainerName)
 		} else {
 			// Use worker container for multi-node scenarios
-			if err := utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.WorkerContainerName, constants.DefaultModelLocalMountPath, mi.config); err != nil {
+			if err := utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.WorkerContainerName, constants.DefaultModelLocalMountPath, mi.config, 0); err != nil {
 				return err
 			}
 		}
 	} else {
-		if err := utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.InferenceServiceContainerName, constants.DefaultModelLocalMountPath, mi.config); err != nil {
+		if err := utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.InferenceServiceContainerName, constants.DefaultModelLocalMountPath, mi.config, 0); err != nil {
 			return err
 		}
 	}
 
 	// Configure modelcar for transformer container if it exists
 	if utils.GetContainerWithName(&pod.Spec, constants.TransformerContainerName) != nil {
-		return utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.TransformerContainerName, constants.DefaultModelLocalMountPath, mi.config)
+		return utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.TransformerContainerName, constants.DefaultModelLocalMountPath, mi.config, 0)
 	}
 
 	return nil
@@ -257,6 +257,21 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 				return errors.New("Invalid configuration: cannot find container")
 			}
 
+			ociIndex := 0
+			// Collect OCI mount paths for collision check and count validation
+			var ociMountPaths []string
+			for _, storageUri := range params.StorageURIs {
+				if strings.HasPrefix(storageUri.Uri, constants.OciURIPrefix) {
+					ociMountPaths = append(ociMountPaths, storageUri.MountPath)
+				}
+			}
+			if len(ociMountPaths) > utils.MaxOCISourcesPerPod {
+				return fmt.Errorf("too many OCI sources (%d); maximum is %d per pod", len(ociMountPaths), utils.MaxOCISourcesPerPod)
+			}
+			if err := utils.ValidateOCIMountPaths(ociMountPaths); err != nil {
+				return err
+			}
+
 			for _, storageUri := range params.StorageURIs {
 				if !strings.HasPrefix(storageUri.Uri, constants.OciURIPrefix) {
 					continue
@@ -265,17 +280,18 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 				if userContainer == nil {
 					targetContainerName = constants.WorkerContainerName
 				}
-				if err := utils.ConfigureModelcarToContainer(storageUri.Uri, params.PodSpec, targetContainerName, storageUri.MountPath, params.Config); err != nil {
+				if err := utils.ConfigureModelcarToContainer(storageUri.Uri, params.PodSpec, targetContainerName, storageUri.MountPath, params.Config, ociIndex); err != nil {
 					return err
 				}
 				// Also configure for transformer if present
 				if utils.GetContainerWithName(params.PodSpec, constants.TransformerContainerName) != nil {
-					if err := utils.ConfigureModelcarToContainer(storageUri.Uri, params.PodSpec, constants.TransformerContainerName, storageUri.MountPath, params.Config); err != nil {
+					if err := utils.ConfigureModelcarToContainer(storageUri.Uri, params.PodSpec, constants.TransformerContainerName, storageUri.MountPath, params.Config, ociIndex); err != nil {
 						return err
 					}
 				}
+				ociIndex++
 			}
-			return nil
+			// Fall through to handle any remaining non-OCI URIs in the list
 		}
 	}
 
@@ -327,6 +343,10 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 		// - PVC URIs are mounted directly as volumes (no download needed)
 		// - Other URIs require init container to download artifacts first
 		for _, storageUri := range params.StorageURIs {
+			if strings.HasPrefix(storageUri.Uri, constants.OciURIPrefix) {
+				// OCI URIs are already handled by modelcar injection above; skip.
+				continue
+			}
 			if strings.HasPrefix(storageUri.Uri, constants.PvcURIPrefix) {
 				pvcStorageURIs = append(pvcStorageURIs, storageUri)
 			} else {
