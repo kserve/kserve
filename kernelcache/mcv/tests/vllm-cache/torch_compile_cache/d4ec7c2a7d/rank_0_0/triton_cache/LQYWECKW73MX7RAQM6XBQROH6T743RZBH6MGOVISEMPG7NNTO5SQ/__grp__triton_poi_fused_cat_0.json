@@ -1,0 +1,10 @@
+{
+  "child_paths": {
+    "triton_poi_fused_cat_0.amdgcn": "/home/vllm/.cache/vllm/torch_compile_cache/d4ec7c2a7d/rank_0_0/triton_cache/LQYWECKW73MX7RAQM6XBQROH6T743RZBH6MGOVISEMPG7NNTO5SQ/triton_poi_fused_cat_0.amdgcn",
+    "triton_poi_fused_cat_0.hsaco": "/home/vllm/.cache/vllm/torch_compile_cache/d4ec7c2a7d/rank_0_0/triton_cache/LQYWECKW73MX7RAQM6XBQROH6T743RZBH6MGOVISEMPG7NNTO5SQ/triton_poi_fused_cat_0.hsaco",
+    "triton_poi_fused_cat_0.json": "/home/vllm/.cache/vllm/torch_compile_cache/d4ec7c2a7d/rank_0_0/triton_cache/LQYWECKW73MX7RAQM6XBQROH6T743RZBH6MGOVISEMPG7NNTO5SQ/triton_poi_fused_cat_0.json",
+    "triton_poi_fused_cat_0.llir": "/home/vllm/.cache/vllm/torch_compile_cache/d4ec7c2a7d/rank_0_0/triton_cache/LQYWECKW73MX7RAQM6XBQROH6T743RZBH6MGOVISEMPG7NNTO5SQ/triton_poi_fused_cat_0.llir",
+    "triton_poi_fused_cat_0.ttgir": "/home/vllm/.cache/vllm/torch_compile_cache/d4ec7c2a7d/rank_0_0/triton_cache/LQYWECKW73MX7RAQM6XBQROH6T743RZBH6MGOVISEMPG7NNTO5SQ/triton_poi_fused_cat_0.ttgir",
+    "triton_poi_fused_cat_0.ttir": "/home/vllm/.cache/vllm/torch_compile_cache/d4ec7c2a7d/rank_0_0/triton_cache/LQYWECKW73MX7RAQM6XBQROH6T743RZBH6MGOVISEMPG7NNTO5SQ/triton_poi_fused_cat_0.ttir"
+  }
+}

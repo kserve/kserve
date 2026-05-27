@@ -1,0 +1,110 @@
+name: MCV Build and Test
+
+on:
+  push:
+    branches:
+      - master
+
+  # Run tests for any PRs.
+  pull_request:
+    paths:
+      - "kernelcache/mcv/**"
+      - "!.github/**"
+      - "!docs/**"
+      - "!**.md"
+      - ".github/workflows/mcv-build-test.yml"
+      - ".github/actions/free-up-disk-space/**"
+
+env:
+  IMAGE_NAME: kserve-mcv
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Run tests.
+  # See also https://docs.docker.com/docker-hub/builds/automated-testing/
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: kernelcache/mcv/go.mod
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgpgme-dev \
+            libbtrfs-dev \
+            build-essential \
+            pkg-config \
+            libassuan-dev \
+            libgpg-error-dev
+
+      - name: Run tests
+        working-directory: kernelcache/mcv
+        run: make test
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+        with:
+          cache-binary: true
+
+      - name: Build mcv container image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          platforms: linux/amd64
+          context: kernelcache/mcv
+          file: kernelcache/mcv/mcv.Dockerfile
+          push: false
+          load: true
+          tags: ${{ env.IMAGE_NAME }}:test
+          # https://github.com/docker/buildx/issues/1533
+          provenance: false
+
+      - name: Build and validate cache images
+        run: |
+          set -euo pipefail
+
+          # tag|cache_dir (relative to repo root)
+          images=(
+            "vector-add-cache-rocm|kernelcache/mcv/tests/vector-add-cache-rocm"
+            "vector-add-cache-cuda|kernelcache/mcv/tests/vector-add-cache"
+            "vllm-example|kernelcache/mcv/tests/vllm-cache"
+          )
+
+          for entry in "${images[@]}"; do
+            IFS="|" read -r tag cache_dir <<< "${entry}"
+            image="localhost/mcv-test:${tag}"
+
+            echo "::group::Building ${image} from ${cache_dir}"
+            docker run --rm --privileged \
+              -v "${GITHUB_WORKSPACE}:/work:rw" \
+              ${{ env.IMAGE_NAME }}:test \
+              --create \
+              --image "${image}" \
+              --dir "/work/${cache_dir}" \
+              --builder buildah \
+              --log-level info
+            echo "Image ${image} built successfully"
+            echo "::endgroup::"
+          done
