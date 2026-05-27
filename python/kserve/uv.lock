@@ -1874,7 +1874,7 @@ wheels = [
 
 [[package]]
 name = "kserve"
-version = "0.18.0"
+version = "0.19.0rc0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -2002,7 +2002,7 @@ test = [
 
 [[package]]
 name = "kserve-storage"
-version = "0.18.0"
+version = "0.19.0rc0"
 source = { editable = "../storage" }
 dependencies = [
     { name = "aiohttp" },

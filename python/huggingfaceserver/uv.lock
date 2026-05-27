@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.10, <3.14"
 resolution-markers = [
     "python_full_version >= '3.13' and sys_platform == 'darwin'",
@@ -1803,7 +1803,7 @@ hf-transfer = [
 
 [[package]]
 name = "huggingfaceserver"
-version = "0.18.0"
+version = "0.19.0rc0"
 source = { virtual = "." }
 dependencies = [
     { name = "accelerate" },
@@ -2091,7 +2091,7 @@ wheels = [
 
 [[package]]
 name = "kserve"
-version = "0.18.0"
+version = "0.19.0rc0"
 source = { directory = "../kserve" }
 dependencies = [
     { name = "aiohttp" },
@@ -2188,7 +2188,7 @@ test = [
 
 [[package]]
 name = "kserve-storage"
-version = "0.18.0"
+version = "0.19.0rc0"
 source = { directory = "../storage" }
 dependencies = [
     { name = "aiohttp" },
