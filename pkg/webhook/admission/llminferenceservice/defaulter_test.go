@@ -254,7 +254,7 @@ func newDefaulterForDefaultTests(t *testing.T, localModelEnabled bool, objects .
 			v1beta1.LocalModelConfigName: `{"enabled": ` + map[bool]string{true: "true", false: "false"}[localModelEnabled] + `}`,
 		},
 	}
-	fakeClientset := k8sfake.NewSimpleClientset(configMap)
+	fakeClientset := k8sfake.NewClientset(configMap)
 
 	return &LLMInferenceServiceDefaulter{
 		Client:    fakeClient,

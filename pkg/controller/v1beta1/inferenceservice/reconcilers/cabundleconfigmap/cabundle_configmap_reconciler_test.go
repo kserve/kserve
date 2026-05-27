@@ -102,7 +102,7 @@ func TestReconcileCaBundleConfigMap(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Setup fake clientset
-			clientset := fake.NewSimpleClientset()
+			clientset := fake.NewClientset()
 			if tc.existingCM != nil {
 				_, err := clientset.CoreV1().ConfigMaps(tc.existingCM.Namespace).Create(t.Context(), tc.existingCM, metav1.CreateOptions{})
 				if err != nil {
@@ -213,7 +213,7 @@ func TestReconcile(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Setup fake clients
-			clientset := fake.NewSimpleClientset()
+			clientset := fake.NewClientset()
 			for _, cm := range tc.configMaps {
 				_, err := clientset.CoreV1().ConfigMaps(cm.Namespace).Create(t.Context(), cm, metav1.CreateOptions{})
 				if err != nil {
@@ -323,7 +323,7 @@ func TestGetCabundleConfigMapForUserNS(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Setup fake clients
-			clientset := fake.NewSimpleClientset()
+			clientset := fake.NewClientset()
 			for _, cm := range tc.existingCMs {
 				_, err := clientset.CoreV1().ConfigMaps(cm.Namespace).Create(t.Context(), cm, metav1.CreateOptions{})
 				if err != nil {
@@ -377,7 +377,7 @@ func TestNewCaBundleConfigMapReconciler(t *testing.T) {
 	_ = corev1.AddToScheme(scheme)
 	_ = v1beta1.AddToScheme(scheme)
 
-	clientset := fake.NewSimpleClientset()
+	clientset := fake.NewClientset()
 	client := rtesting.NewClientBuilder().WithScheme(scheme).Build()
 
 	reconciler := NewCaBundleConfigMapReconciler(client, clientset)
@@ -437,7 +437,7 @@ func TestReconcileCaBundleConfigMap_Update(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Setup fake clientset
-			clientset := fake.NewSimpleClientset()
+			clientset := fake.NewClientset()
 			if tc.existingCM != nil {
 				_, err := clientset.CoreV1().ConfigMaps(tc.existingCM.Namespace).Create(t.Context(), tc.existingCM, metav1.CreateOptions{})
 				if err != nil {
@@ -518,7 +518,7 @@ func TestReconcileCaBundleConfigMap_NoUpdateWhenUnchanged(t *testing.T) {
 		Data: bundleData,
 	}
 
-	clientset := fake.NewSimpleClientset()
+	clientset := fake.NewClientset()
 	_, err := clientset.CoreV1().ConfigMaps(existingCM.Namespace).Create(t.Context(), existingCM, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("Error creating test configmap: %v", err)

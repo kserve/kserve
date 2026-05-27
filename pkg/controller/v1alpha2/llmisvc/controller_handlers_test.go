@@ -208,7 +208,7 @@ func TestRequestsForInferencePoolChangeMatchesExternalPoolRefs(t *testing.T) {
 			WithScheme(scheme).
 			WithObjects(llmSvcWithMatch, llmSvcWithoutMatch).
 			Build(),
-		Clientset: kubefake.NewSimpleClientset(testInferenceServiceConfigMap()),
+		Clientset: kubefake.NewClientset(testInferenceServiceConfigMap()),
 		Validator: func(context.Context, *v1alpha2.LLMInferenceService) error {
 			return nil
 		},
@@ -276,7 +276,7 @@ func TestRequestsForInferencePoolChangeIncludesRefsEvenWhenPoolIsOwned(t *testin
 			WithScheme(scheme).
 			WithObjects(ownerSvc, consumerSvc).
 			Build(),
-		Clientset: kubefake.NewSimpleClientset(testInferenceServiceConfigMap()),
+		Clientset: kubefake.NewClientset(testInferenceServiceConfigMap()),
 		Validator: func(context.Context, *v1alpha2.LLMInferenceService) error {
 			return nil
 		},

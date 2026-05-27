@@ -90,7 +90,7 @@ func TestCreateIngressReconciler(t *testing.T) {
 
 	factory := NewReconcilerFactory()
 	fakeClient := fakeclient.NewClientBuilder().WithScheme(scheme).Build()
-	fakeClientset := fake.NewSimpleClientset()
+	fakeClientset := fake.NewClientset()
 
 	// Standard mode with Gateway API
 	params := IngressReconcilerParams{

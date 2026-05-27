@@ -1833,7 +1833,7 @@ func TestAgentInjector(t *testing.T) {
 			},
 		},
 	}
-	clientset := fakeclientset.NewSimpleClientset()
+	clientset := fakeclientset.NewClientset()
 	credentialBuilder := credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{
 		Data: map[string]string{},
 	})

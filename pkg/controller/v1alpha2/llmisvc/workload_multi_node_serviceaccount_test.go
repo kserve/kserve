@@ -77,7 +77,7 @@ func TestReconcileMultiNodeMainServiceAccount_UseExisting_SkipsManagedSA(t *test
 	reconciler := &llmisvc.LLMISVCReconciler{
 		Client:        fakeClient,
 		EventRecorder: record.NewFakeRecorder(10),
-		Clientset:     k8sfake.NewSimpleClientset(),
+		Clientset:     k8sfake.NewClientset(),
 	}
 
 	cfg := &llmisvc.Config{}
@@ -138,7 +138,7 @@ func TestReconcileMultiNodeMainServiceAccount_Default_CreatesManagedSA(t *testin
 	reconciler := &llmisvc.LLMISVCReconciler{
 		Client:        fakeClient,
 		EventRecorder: record.NewFakeRecorder(10),
-		Clientset:     k8sfake.NewSimpleClientset(),
+		Clientset:     k8sfake.NewClientset(),
 	}
 
 	cfg := &llmisvc.Config{}
@@ -199,7 +199,7 @@ func TestReconcileMultiNodeMainServiceAccount_Default_WhenWorkerNil_DeletesManag
 	reconciler := &llmisvc.LLMISVCReconciler{
 		Client:        fakeClient,
 		EventRecorder: record.NewFakeRecorder(10),
-		Clientset:     k8sfake.NewSimpleClientset(),
+		Clientset:     k8sfake.NewClientset(),
 	}
 
 	cfg := &llmisvc.Config{}
@@ -259,7 +259,7 @@ func TestReconcileMultiNodePrefillServiceAccount_UseExisting_SkipsManagedSA(t *t
 	reconciler := &llmisvc.LLMISVCReconciler{
 		Client:        fakeClient,
 		EventRecorder: record.NewFakeRecorder(10),
-		Clientset:     k8sfake.NewSimpleClientset(),
+		Clientset:     k8sfake.NewClientset(),
 	}
 
 	// Act: invoke the reconcile logic through the test wrapper
@@ -319,7 +319,7 @@ func TestReconcileMultiNodePrefillServiceAccount_Default_CreatesManagedSA(t *tes
 	reconciler := &llmisvc.LLMISVCReconciler{
 		Client:        fakeClient,
 		EventRecorder: record.NewFakeRecorder(10),
-		Clientset:     k8sfake.NewSimpleClientset(),
+		Clientset:     k8sfake.NewClientset(),
 	}
 
 	// Act: invoke the reconcile logic through the test wrapper
@@ -380,7 +380,7 @@ func TestReconcileMultiNodePrefillServiceAccount_Default_WhenWorkerNil_DeletesMa
 	reconciler := &llmisvc.LLMISVCReconciler{
 		Client:        fakeClient,
 		EventRecorder: record.NewFakeRecorder(10),
-		Clientset:     k8sfake.NewSimpleClientset(),
+		Clientset:     k8sfake.NewClientset(),
 	}
 
 	// Act: invoke the reconcile logic through the test wrapper

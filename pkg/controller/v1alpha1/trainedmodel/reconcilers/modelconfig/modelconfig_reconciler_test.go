@@ -82,7 +82,7 @@ func TestModelConfigReconciler_Reconcile(t *testing.T) {
 	t.Run("configmap not found", func(t *testing.T) {
 		tm := makeTrainedModel(tmName, isvc, model, false)
 		client := fake.NewClientBuilder().WithScheme(scheme).Build()
-		clientset := k8sfake.NewSimpleClientset()
+		clientset := k8sfake.NewClientset()
 		clientset.PrependReactor("get", "configmaps", func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
 			return true, nil, errors.New("not found")
 		})
@@ -98,7 +98,7 @@ func TestModelConfigReconciler_Reconcile(t *testing.T) {
 		tm := makeTrainedModel(tmName, isvc, model, false)
 		cm := makeConfigMap(configName, ns, map[string]string{})
 		client := &fakeErrorClient{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(cm).Build()}
-		clientset := k8sfake.NewSimpleClientset(cm)
+		clientset := k8sfake.NewClientset(cm)
 
 		reconciler := NewModelConfigReconciler(client, clientset, scheme)
 		req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: tmName}}
@@ -126,7 +126,7 @@ func TestModelConfigReconciler_Reconcile_AddOrUpdateModel_Success(t *testing.T) 
 	cm := makeConfigMap(configName, ns, map[string]string{})
 
 	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cm).Build()
-	clientset := k8sfake.NewSimpleClientset(cm)
+	clientset := k8sfake.NewClientset(cm)
 
 	reconciler := NewModelConfigReconciler(client, clientset, scheme)
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: tmName}}
@@ -155,7 +155,7 @@ func TestModelConfigReconciler_Reconcile_DeleteModel_Success(t *testing.T) {
 	})
 
 	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cm).Build()
-	clientset := k8sfake.NewSimpleClientset(cm)
+	clientset := k8sfake.NewClientset(cm)
 
 	reconciler := NewModelConfigReconciler(client, clientset, scheme)
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: tmName}}
@@ -185,7 +185,7 @@ func TestModelConfigReconciler_Reconcile_ProcessError_AddOrUpdate(t *testing.T) 
 	})
 
 	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cm).Build()
-	clientset := k8sfake.NewSimpleClientset(cm)
+	clientset := k8sfake.NewClientset(cm)
 
 	reconciler := NewModelConfigReconciler(client, clientset, scheme)
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: tmName}}
@@ -215,7 +215,7 @@ func TestModelConfigReconciler_Reconcile_ProcessError_Delete(t *testing.T) {
 	})
 
 	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cm).Build()
-	clientset := k8sfake.NewSimpleClientset(cm)
+	clientset := k8sfake.NewClientset(cm)
 
 	reconciler := NewModelConfigReconciler(client, clientset, scheme)
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: tmName}}

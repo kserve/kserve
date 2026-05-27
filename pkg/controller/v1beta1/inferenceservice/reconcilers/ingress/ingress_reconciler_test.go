@@ -2032,7 +2032,7 @@ func TestIngressReconciler_Reconcile(t *testing.T) {
 					},
 					Data: map[string]string{"example.com": ""},
 				}
-				fake := kubernetesfake.NewSimpleClientset(cm)
+				fake := kubernetesfake.NewClientset(cm)
 				return fake
 			},
 			wantErr:     false,
@@ -2082,7 +2082,7 @@ func TestIngressReconciler_Reconcile(t *testing.T) {
 				return cl
 			},
 			setupClientset: func() kubernetes.Interface {
-				return kubernetesfake.NewSimpleClientset()
+				return kubernetesfake.NewClientset()
 			},
 			wantErr:     false,
 			wantURLHost: "",
@@ -2122,7 +2122,7 @@ func TestIngressReconciler_Reconcile(t *testing.T) {
 				return cl
 			},
 			setupClientset: func() kubernetes.Interface {
-				return kubernetesfake.NewSimpleClientset()
+				return kubernetesfake.NewClientset()
 			},
 			wantErr:     false,
 			wantURLHost: "",
@@ -2177,7 +2177,7 @@ func TestNewIngressReconciler(t *testing.T) {
 	client := fake.NewClientBuilder().WithScheme(scheme).Build()
 
 	// Create fake kubernetes clientset
-	clientset := kubernetesfake.NewSimpleClientset()
+	clientset := kubernetesfake.NewClientset()
 
 	// Create configs
 	ingressConfig := &v1beta1.IngressConfig{
@@ -2212,7 +2212,7 @@ func TestIngressReconciler_Reconcile_SkipVirtualService(t *testing.T) {
 	_ = istioclientv1beta1.AddToScheme(scheme)
 
 	client := fake.NewClientBuilder().WithScheme(scheme).Build()
-	clientset := kubernetesfake.NewSimpleClientset()
+	clientset := kubernetesfake.NewClientset()
 
 	// Configs
 	ingressConfig := &v1beta1.IngressConfig{
@@ -2294,7 +2294,7 @@ func TestReconcileExternalService_NoUpdateWhenUnchanged(t *testing.T) {
 
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(isvc, existingSvc).Build()
 	isvcConfig := &v1beta1.InferenceServicesConfig{}
-	reconciler := NewIngressReconciler(cl, kubernetesfake.NewSimpleClientset(), scheme, ingressConfig, isvcConfig, true)
+	reconciler := NewIngressReconciler(cl, kubernetesfake.NewClientset(), scheme, ingressConfig, isvcConfig, true)
 
 	// Reconcile - this should be a no-op since the spec hasn't changed
 	err := reconciler.reconcileExternalService(t.Context(), isvc, ingressConfig)

@@ -77,7 +77,7 @@ func TestReconcileSingleNodeMainServiceAccount_UseExisting_SkipsManagedSA(t *tes
 	reconciler := &llmisvc.LLMISVCReconciler{
 		Client:        fakeClient,
 		EventRecorder: record.NewFakeRecorder(10),
-		Clientset:     k8sfake.NewSimpleClientset(),
+		Clientset:     k8sfake.NewClientset(),
 	}
 
 	cfg := &llmisvc.Config{}
@@ -148,7 +148,7 @@ func TestReconcileSingleNodeMainServiceAccount_Default_DeletesManagedSA(t *testi
 	reconciler := &llmisvc.LLMISVCReconciler{
 		Client:        fakeClient,
 		EventRecorder: record.NewFakeRecorder(10),
-		Clientset:     k8sfake.NewSimpleClientset(),
+		Clientset:     k8sfake.NewClientset(),
 	}
 
 	cfg := &llmisvc.Config{}
@@ -208,7 +208,7 @@ func TestReconcileSingleNodeMainServiceAccount_RoutingEnabled_UseExisting_SkipsM
 	reconciler := &llmisvc.LLMISVCReconciler{
 		Client:        fakeClient,
 		EventRecorder: record.NewFakeRecorder(10),
-		Clientset:     k8sfake.NewSimpleClientset(),
+		Clientset:     k8sfake.NewClientset(),
 	}
 
 	cfg := &llmisvc.Config{}
@@ -267,7 +267,7 @@ func TestReconcileSingleNodeMainServiceAccount_RoutingEnabled_Default_DeletesMan
 	reconciler := &llmisvc.LLMISVCReconciler{
 		Client:        fakeClient,
 		EventRecorder: record.NewFakeRecorder(10),
-		Clientset:     k8sfake.NewSimpleClientset(),
+		Clientset:     k8sfake.NewClientset(),
 	}
 
 	cfg := &llmisvc.Config{}
