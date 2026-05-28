@@ -80,14 +80,15 @@ var requiredSchedulerPorts = sets.New(
 	schedulerPortZMQ,
 )
 
+// schedulerPortMismatchReason is the SchedulerWorkloadReady condition reason
+// set by reconcileScheduler when the scheduler PodTemplateSpec is missing
+// one or more required container ports.
+const schedulerPortMismatchReason = "SchedulerPortMismatch"
+
 // reconcileScheduler manages the scheduler component and its related resources
 // The scheduler handles load balancing for inference pods
 func (r *LLMISVCReconciler) reconcileScheduler(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
 	log.FromContext(ctx).Info("Reconciling Scheduler")
-
-	if err := r.reconcileSchedulerServiceAccount(ctx, llmSvc); err != nil {
-		return err
-	}
 
 	shouldDelete := utils.GetForceStopRuntime(llmSvc) ||
 		llmSvc.Spec.Router == nil ||
@@ -95,16 +96,18 @@ func (r *LLMISVCReconciler) reconcileScheduler(ctx context.Context, llmSvc *v1al
 		llmSvc.Spec.Router.Scheduler.Template == nil ||
 		llmSvc.Spec.Router.Scheduler.Pool.HasRef()
 
-	// Validate scheduler port wiring before any workload is created so we
-	// don't end up with a Deployment that no Service can ever expose.
-	// Skipped when the scheduler is on its delete path (no template,
-	// force-stop, or external InferencePool reference) — missing ports
-	// are irrelevant when we're tearing the scheduler down.
+	// Validate scheduler port wiring before we touch any cluster state —
+	// otherwise a template with missing ports would still create the
+	// ServiceAccount + RBAC and then bail before the Deployment/Service
+	// exist, leaving orphaned RBAC behind. Skipped when the scheduler is
+	// on its delete path (no template, force-stop, or external
+	// InferencePool reference) — missing ports are irrelevant when
+	// we're tearing the scheduler down.
 	// TODO also cross-check the grpc port against the InferencePool spec.
 	if !shouldDelete {
 		if missing := missingSchedulerPorts(llmSvc.Spec.Router.Scheduler.Template); len(missing) > 0 {
 			llmSvc.MarkSchedulerWorkloadNotReady(
-				SchedulerPortMismatchReason,
+				schedulerPortMismatchReason,
 				"scheduler container template is missing required ports: %v", missing,
 			)
 			// Returning nil avoids exponential backoff retries; the watch
@@ -112,6 +115,10 @@ func (r *LLMISVCReconciler) reconcileScheduler(ctx context.Context, llmSvc *v1al
 			// fixes the template.
 			return nil
 		}
+	}
+
+	if err := r.reconcileSchedulerServiceAccount(ctx, llmSvc); err != nil {
+		return err
 	}
 
 	if err := r.reconcileSchedulerDeployment(ctx, llmSvc); err != nil {
@@ -280,11 +287,6 @@ func (r *LLMISVCReconciler) reconcileV1Alpha2InferencePool(ctx context.Context, 
 	}
 	return Reconcile(ctx, r, llmSvc, &igwapiv1alpha2.InferencePool{}, expected, semanticInferencePoolV1Alpha2IsEqual)
 }
-
-// SchedulerPortMismatchReason is the SchedulerWorkloadReady condition reason
-// set by reconcileScheduler when the scheduler PodTemplateSpec is missing
-// one or more required container ports.
-const SchedulerPortMismatchReason = "SchedulerPortMismatch"
 
 func (r *LLMISVCReconciler) reconcileSchedulerService(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
 	expected := r.expectedSchedulerService(ctx, llmSvc)
