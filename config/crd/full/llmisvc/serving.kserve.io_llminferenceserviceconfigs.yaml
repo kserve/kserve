@@ -13320,60 +13320,44 @@ spec:
                       rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || has(self.minReplicas)'
                     - message: idleReplicaCount must be less than minReplicas; idleReplicaCount defines the replica floor when no triggers are active
                       rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || !has(self.minReplicas) || self.wva.keda.idleReplicaCount < self.minReplicas'
-                speculativeDecoding:
+                speculator:
                   properties:
-                    additionalConfig:
+                    config:
                       additionalProperties:
                         type: string
                       type: object
-                    method:
-                      enum:
-                        - eagle3
-                        - draft_model
-                        - medusa
-                        - ngram
-                        - mtp
-                      type: string
-                    numSpeculativeTokens:
-                      format: int32
-                      minimum: 1
-                      type: integer
-                    speculator:
+                    model:
                       properties:
-                        maxModelLen:
-                          format: int32
-                          minimum: 1
-                          type: integer
-                        model:
+                        criticality:
+                          enum:
+                            - Critical
+                            - Standard
+                            - Sheddable
+                          type: string
+                        lora:
                           properties:
-                            criticality:
-                              enum:
-                                - Critical
-                                - Standard
-                                - Sheddable
-                              type: string
-                            lora:
-                              properties:
-                                adapters:
-                                  x-kubernetes-preserve-unknown-fields: true
-                              type: object
-                            name:
-                              type: string
-                            uri:
-                              type: string
-                          required:
-                            - uri
+                            adapters:
+                              x-kubernetes-preserve-unknown-fields: true
+                            maxAdapters:
+                              format: int32
+                              minimum: 1
+                              type: integer
+                            maxCpuAdapters:
+                              format: int32
+                              minimum: 1
+                              type: integer
+                            maxRank:
+                              format: int32
+                              minimum: 1
+                              type: integer
                           type: object
-                        tensorParallelSize:
-                          format: int32
-                          minimum: 1
-                          type: integer
+                        name:
+                          type: string
+                        uri:
+                          type: string
                       required:
-                        - model
+                        - uri
                       type: object
-                  required:
-                    - method
-                    - numSpeculativeTokens
                   type: object
                 storageInitializer:
                   properties:
@@ -34214,54 +34198,38 @@ spec:
                       rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || has(self.minReplicas)'
                     - message: idleReplicaCount must be less than minReplicas; idleReplicaCount defines the replica floor when no triggers are active
                       rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || !has(self.minReplicas) || self.wva.keda.idleReplicaCount < self.minReplicas'
-                speculativeDecoding:
+                speculator:
                   properties:
-                    additionalConfig:
+                    config:
                       additionalProperties:
                         type: string
                       type: object
-                    method:
-                      enum:
-                        - eagle3
-                        - draft_model
-                        - medusa
-                        - ngram
-                        - mtp
-                      type: string
-                    numSpeculativeTokens:
-                      format: int32
-                      minimum: 1
-                      type: integer
-                    speculator:
+                    model:
                       properties:
-                        maxModelLen:
-                          format: int32
-                          minimum: 1
-                          type: integer
-                        model:
+                        lora:
                           properties:
-                            lora:
-                              properties:
-                                adapters:
-                                  x-kubernetes-preserve-unknown-fields: true
-                              type: object
-                            name:
-                              type: string
-                            uri:
-                              type: string
-                          required:
-                            - uri
+                            adapters:
+                              x-kubernetes-preserve-unknown-fields: true
+                            maxAdapters:
+                              format: int32
+                              minimum: 1
+                              type: integer
+                            maxCpuAdapters:
+                              format: int32
+                              minimum: 1
+                              type: integer
+                            maxRank:
+                              format: int32
+                              minimum: 1
+                              type: integer
                           type: object
-                        tensorParallelSize:
-                          format: int32
-                          minimum: 1
-                          type: integer
+                        name:
+                          type: string
+                        uri:
+                          type: string
                       required:
-                        - model
+                        - uri
                       type: object
-                  required:
-                    - method
-                    - numSpeculativeTokens
                   type: object
                 storageInitializer:
                   properties:

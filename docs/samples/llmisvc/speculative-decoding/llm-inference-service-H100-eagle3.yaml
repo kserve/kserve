@@ -32,13 +32,13 @@ spec:
     name: RedHatAI/Qwen3-32B-FP8-dynamic
   # Decode pool replicas
   replicas: 2
-  speculativeDecoding:
-    method: eagle3
-    numSpeculativeTokens: 6
-    speculator:
-      model:
-        uri: hf://RedHatAI/Qwen3-32B-speculator.eagle3
-      tensorParallelSize: 1
+  speculator:
+    model:
+      uri: hf://RedHatAI/Qwen3-32B-speculator.eagle3
+    config:
+      method: eagle3
+      num_speculative_tokens: "6"
+      draft_tensor_parallel_size: "1"
   router:
     scheduler: {}
     route: {}

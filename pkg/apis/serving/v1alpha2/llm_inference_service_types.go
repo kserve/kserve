@@ -69,12 +69,12 @@ type LLMInferenceServiceSpec struct {
 	// +optional
 	Model LLMModelSpec `json:"model"`
 
-	// SpeculativeDecoding configures speculative decoding for the model server.
-	// When specified, the controller creates a second storage-initializer init container
-	// to download the speculator (or draft) model and mounts it into the inference container.
-	// The speculative decoding arguments are automatically injected into the vLLM command line.
+	// Speculator configures speculative decoding for the model server.
+	// When specified with a model URI, the controller creates a second storage-initializer
+	// init container to download the speculator (or draft) model and mounts it into the
+	// inference container. The config map is passed directly to vLLM's --speculative-config.
 	// +optional
-	SpeculativeDecoding *SpeculativeDecodingSpec `json:"speculativeDecoding,omitempty"`
+	Speculator *SpeculatorSpec `json:"speculator,omitempty"`
 
 	// StorageInitializer configuration for model artifact fetching.
 	// +optional
@@ -224,82 +224,60 @@ type StorageInitializerSpec struct {
 	Enabled *bool `json:"enabled,omitempty"`
 }
 
-// SpeculativeDecodingSpec configures speculative decoding for the inference server.
+// SpeculatorSpec configures speculative decoding for the inference server.
 // Speculative decoding uses a fast draft mechanism (either a small draft model or a purpose-trained
 // speculator head like Eagle3) to propose candidate tokens that the target model verifies in parallel,
 // reducing the number of sequential decode steps and improving token generation throughput.
 //
-// When configured, the controller:
+// When configured with a model, the controller:
 //  1. Creates a second storage-initializer init container to download the speculator/draft model
 //  2. Mounts the downloaded model into the inference container at /mnt/speculator
 //  3. Injects the appropriate --speculative-config arguments into the vLLM command line
 //
+// The Config map keys correspond directly to vLLM's --speculative-config JSON schema
+// (see https://docs.vllm.ai/en/latest/features/speculative_decoding/#-speculative-config-schema).
+//
 // Example - Eagle3 speculator head:
 //
-//	speculativeDecoding:
-//	  method: eagle3
-//	  numSpeculativeTokens: 3
-//	  speculator:
-//	    model:
-//	      uri: hf://RedHatAI/Qwen3-32B-speculator.eagle3
+//	speculator:
+//	  model:
+//	    uri: hf://RedHatAI/Qwen3-32B-speculator.eagle3
+//	  config:
+//	    method: eagle3
+//	    num_speculative_tokens: "3"
 //
 // Example - Draft-target model pair:
 //
-//	speculativeDecoding:
-//	  method: draft_model
-//	  numSpeculativeTokens: 5
-//	  speculator:
-//	    model:
-//	      uri: hf://meta-llama/Llama-3.2-1B-Instruct
-//	    tensorParallelSize: 1
-type SpeculativeDecodingSpec struct {
-	// Method specifies the speculative decoding algorithm to use.
-	// Supported values:
-	//   - "eagle3": purpose-trained speculator heads (requires speculator model)
-	//   - "draft_model": independent draft model (requires speculator model)
-	//   - "medusa": purpose-trained Medusa heads for parallel token prediction (requires speculator model)
-	//   - "ngram": prompt-based n-gram proposer (no speculator model required)
-	//   - "mtp": multi-token prediction using the target model's own MTP heads (no speculator model required)
-	// +kubebuilder:validation:Enum=eagle3;draft_model;medusa;ngram;mtp
-	Method string `json:"method"`
-
-	// NumSpeculativeTokens is the number of candidate tokens the draft mechanism proposes per step.
-	// Higher values increase potential throughput but reduce acceptance rates.
-	// Typical values: 3-5 for Eagle3, 5-8 for draft models.
-	// +kubebuilder:validation:Minimum=1
-	NumSpeculativeTokens int32 `json:"numSpeculativeTokens"`
-
-	// Speculator configures the draft/speculator model used for candidate token generation.
-	// Required for "eagle3" and "draft_model" methods. Not needed for "ngram".
-	// +optional
-	Speculator *SpeculatorSpec `json:"speculator,omitempty"`
-
-	// AdditionalConfig provides an escape hatch for passing additional speculative decoding
-	// parameters directly to the vLLM --speculative-config JSON. First-class fields take
-	// precedence over keys in additionalConfig.
-	// +optional
-	AdditionalConfig map[string]string `json:"additionalConfig,omitempty"`
-}
-
-// SpeculatorSpec defines the configuration for the speculator/draft model.
+//	speculator:
+//	  model:
+//	    uri: hf://meta-llama/Llama-3.2-1B-Instruct
+//	  config:
+//	    method: draft_model
+//	    num_speculative_tokens: "5"
+//	    max_model_len: "8192"
+//	    draft_tensor_parallel_size: "1"
+//
+// Example - N-gram (no model needed):
+//
+//	speculator:
+//	  config:
+//	    method: ngram
+//	    num_speculative_tokens: "4"
+//	    prompt_lookup_max: "5"
 type SpeculatorSpec struct {
 	// Model specification for the speculator or draft model.
 	// The URI specifies the location of the model to download (e.g., hf://RedHatAI/Qwen3-32B-speculator.eagle3).
 	// The controller creates a dedicated storage-initializer init container to fetch this model.
-	Model LLMModelSpec `json:"model"`
-
-	// TensorParallelSize is the tensor parallelism degree for the draft/speculator model.
-	// Defaults to 1, as speculator models are typically small enough for a single GPU.
+	// Not required for methods that don't use a separate model (e.g., ngram, mtp).
 	// +optional
-	// +kubebuilder:validation:Minimum=1
-	TensorParallelSize *int32 `json:"tensorParallelSize,omitempty"`
+	Model *LLMModelSpec `json:"model,omitempty"`
 
-	// MaxModelLen is the maximum model length (context length) of the draft/speculator model.
-	// When set, this overrides the draft model's default max model length.
-	// Useful when the draft model has a different context length than the target model.
+	// Config provides the speculative decoding parameters passed directly to the
+	// vLLM --speculative-config JSON. Keys correspond to vLLM's speculative config schema.
+	// Common keys: method, num_speculative_tokens, max_model_len, draft_tensor_parallel_size.
+	// See https://docs.vllm.ai/en/latest/features/speculative_decoding/#-speculative-config-schema
 	// +optional
-	// +kubebuilder:validation:Minimum=1
-	MaxModelLen *int32 `json:"maxModelLen,omitempty"`
+	Config map[string]string `json:"config,omitempty"`
 }
 
 // RouterSpec defines the routing configuration for exposing the service.

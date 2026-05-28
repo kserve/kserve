@@ -21,11 +21,10 @@ spec:
     uri: hf://Qwen/Qwen3-Next-80B-A3B-Instruct-FP8
     name: Qwen/Qwen3-Next-80B-A3B-Instruct-FP8
   replicas: 2
-  speculativeDecoding:
-    method: mtp
-    numSpeculativeTokens: 2
-    additionalConfig:
-      method: "qwen3_next_mtp"  # runtime-specific variant for Qwen3-Next models
+  speculator:
+    config:
+      method: "qwen3_next_mtp"
+      num_speculative_tokens: "2"
   router:
     scheduler: {}
     route: {}

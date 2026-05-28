@@ -140,9 +140,9 @@ func convertSpecToV1Alpha2(src *LLMInferenceServiceSpec) v1alpha2.LLMInferenceSe
 		}
 	}
 
-	// SpeculativeDecoding
-	if src.SpeculativeDecoding != nil {
-		dst.SpeculativeDecoding = convertSpeculativeDecodingToV1Alpha2(src.SpeculativeDecoding)
+	// Speculator
+	if src.Speculator != nil {
+		dst.Speculator = convertSpeculatorToV1Alpha2(src.Speculator)
 	}
 
 	// WorkloadSpec (inline)
@@ -175,9 +175,9 @@ func convertSpecFromV1Alpha2(src *v1alpha2.LLMInferenceServiceSpec) LLMInference
 		}
 	}
 
-	// SpeculativeDecoding
-	if src.SpeculativeDecoding != nil {
-		dst.SpeculativeDecoding = convertSpeculativeDecodingFromV1Alpha2(src.SpeculativeDecoding)
+	// Speculator
+	if src.Speculator != nil {
+		dst.Speculator = convertSpeculatorFromV1Alpha2(src.Speculator)
 	}
 
 	// WorkloadSpec (inline)
@@ -197,34 +197,24 @@ func convertSpecFromV1Alpha2(src *v1alpha2.LLMInferenceServiceSpec) LLMInference
 	return dst
 }
 
-func convertSpeculativeDecodingToV1Alpha2(src *SpeculativeDecodingSpec) *v1alpha2.SpeculativeDecodingSpec {
-	dst := &v1alpha2.SpeculativeDecodingSpec{
-		Method:               src.Method,
-		NumSpeculativeTokens: src.NumSpeculativeTokens,
-		AdditionalConfig:     src.AdditionalConfig,
+func convertSpeculatorToV1Alpha2(src *SpeculatorSpec) *v1alpha2.SpeculatorSpec {
+	dst := &v1alpha2.SpeculatorSpec{
+		Config: src.Config,
 	}
-	if src.Speculator != nil {
-		dst.Speculator = &v1alpha2.SpeculatorSpec{
-			Model:              convertModelSpecToV1Alpha2(&src.Speculator.Model),
-			TensorParallelSize: src.Speculator.TensorParallelSize,
-			MaxModelLen:        src.Speculator.MaxModelLen,
-		}
+	if src.Model != nil {
+		model := convertModelSpecToV1Alpha2(src.Model)
+		dst.Model = &model
 	}
 	return dst
 }
 
-func convertSpeculativeDecodingFromV1Alpha2(src *v1alpha2.SpeculativeDecodingSpec) *SpeculativeDecodingSpec {
-	dst := &SpeculativeDecodingSpec{
-		Method:               src.Method,
-		NumSpeculativeTokens: src.NumSpeculativeTokens,
-		AdditionalConfig:     src.AdditionalConfig,
+func convertSpeculatorFromV1Alpha2(src *v1alpha2.SpeculatorSpec) *SpeculatorSpec {
+	dst := &SpeculatorSpec{
+		Config: src.Config,
 	}
-	if src.Speculator != nil {
-		dst.Speculator = &SpeculatorSpec{
-			Model:              convertModelSpecFromV1Alpha2(&src.Speculator.Model),
-			TensorParallelSize: src.Speculator.TensorParallelSize,
-			MaxModelLen:        src.Speculator.MaxModelLen,
-		}
+	if src.Model != nil {
+		model := convertModelSpecFromV1Alpha2(src.Model)
+		dst.Model = &model
 	}
 	return dst
 }

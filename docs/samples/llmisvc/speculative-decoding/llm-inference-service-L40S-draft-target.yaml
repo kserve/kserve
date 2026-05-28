@@ -24,14 +24,14 @@ spec:
     uri: hf://meta-llama/Llama-3.1-8B-Instruct
     name: meta-llama/Llama-3.1-8B-Instruct
   replicas: 8
-  speculativeDecoding:
-    method: draft_model
-    numSpeculativeTokens: 5
-    speculator:
-      model:
-        uri: hf://meta-llama/Llama-3.2-1B-Instruct
-      tensorParallelSize: 1
-      maxModelLen: 4096
+  speculator:
+    model:
+      uri: hf://meta-llama/Llama-3.2-1B-Instruct
+    config:
+      method: draft_model
+      num_speculative_tokens: "5"
+      draft_tensor_parallel_size: "1"
+      max_model_len: "4096"
   router:
     scheduler: {}
     route: {}

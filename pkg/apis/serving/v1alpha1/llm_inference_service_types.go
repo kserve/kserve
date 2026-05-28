@@ -82,9 +82,9 @@ type LLMInferenceServiceSpec struct {
 	// +optional
 	Model LLMModelSpec `json:"model"`
 
-	// SpeculativeDecoding configures speculative decoding for the model server.
+	// Speculator configures speculative decoding for the model server.
 	// +optional
-	SpeculativeDecoding *SpeculativeDecodingSpec `json:"speculativeDecoding,omitempty"`
+	Speculator *SpeculatorSpec `json:"speculator,omitempty"`
 
 	// StorageInitializer configuration for model artifact fetching.
 	// +optional
@@ -239,40 +239,16 @@ type StorageInitializerSpec struct {
 	Enabled *bool `json:"enabled,omitempty"`
 }
 
-// SpeculativeDecodingSpec configures speculative decoding for the inference server.
-type SpeculativeDecodingSpec struct {
-	// Method specifies the speculative decoding algorithm to use.
-	// +kubebuilder:validation:Enum=eagle3;draft_model;medusa;ngram;mtp
-	Method string `json:"method"`
-
-	// NumSpeculativeTokens is the number of candidate tokens the draft mechanism proposes per step.
-	// +kubebuilder:validation:Minimum=1
-	NumSpeculativeTokens int32 `json:"numSpeculativeTokens"`
-
-	// Speculator configures the draft/speculator model used for candidate token generation.
-	// +optional
-	Speculator *SpeculatorSpec `json:"speculator,omitempty"`
-
-	// AdditionalConfig provides an escape hatch for passing additional speculative decoding
-	// parameters directly to the vLLM --speculative-config JSON.
-	// +optional
-	AdditionalConfig map[string]string `json:"additionalConfig,omitempty"`
-}
-
-// SpeculatorSpec defines the configuration for the speculator/draft model.
+// SpeculatorSpec configures speculative decoding for the inference server.
 type SpeculatorSpec struct {
 	// Model specification for the speculator or draft model.
-	Model LLMModelSpec `json:"model"`
-
-	// TensorParallelSize is the tensor parallelism degree for the draft/speculator model.
 	// +optional
-	// +kubebuilder:validation:Minimum=1
-	TensorParallelSize *int32 `json:"tensorParallelSize,omitempty"`
+	Model *LLMModelSpec `json:"model,omitempty"`
 
-	// MaxModelLen is the maximum model length (context length) of the draft/speculator model.
+	// Config provides the speculative decoding parameters passed directly to the
+	// vLLM --speculative-config JSON.
 	// +optional
-	// +kubebuilder:validation:Minimum=1
-	MaxModelLen *int32 `json:"maxModelLen,omitempty"`
+	Config map[string]string `json:"config,omitempty"`
 }
 
 // RouterSpec defines the routing configuration for exposing the service.

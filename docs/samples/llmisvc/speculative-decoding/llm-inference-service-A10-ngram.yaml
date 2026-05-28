@@ -23,10 +23,10 @@ spec:
     uri: hf://google/gemma-3-4b-it
     name: google/gemma-3-4b-it
   replicas: 4
-  speculativeDecoding:
-    method: ngram
-    numSpeculativeTokens: 4
-    additionalConfig:
+  speculator:
+    config:
+      method: ngram
+      num_speculative_tokens: "4"
       prompt_lookup_max: "5"
       prompt_lookup_min: "2"
   router:
