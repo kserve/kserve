@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from unittest.mock import Mock, patch
 from kserve.protocol.infer_type import InferInput, InferRequest
 import xgboost as xgb
 import os
@@ -121,3 +122,30 @@ def test_ubj_model():
     infer_response = model.predict(infer_request)
     infer_dict, _ = infer_response.to_rest()
     assert infer_dict["outputs"][0]["data"] == [0]
+
+
+def test_model_load_bytearray():
+    iris = load_iris()
+    y = iris["target"]
+    X = iris["data"]
+    dtrain = xgb.DMatrix(X, label=y)
+    param = {
+        "max_depth": 6,
+        "eta": 0.1,
+        "silent": 1,
+        "nthread": 4,
+        "num_class": 10,
+        "objective": "multi:softmax",
+    }
+    xgb_model = xgb.train(params=param, dtrain=dtrain)
+    model_file = os.path.join(ubj_model_dir, UBJ_FILE)
+    xgb_model.save_model(model_file)
+    model = XGBoostModel("model", ubj_model_dir, NTHREAD)
+
+    mock_booster = Mock(return_value=None)
+    with patch("xgbserver.model.xgb.Booster", mock_booster):
+        model.load()
+
+    mock_booster.assert_called_once()
+    call_args = mock_booster.call_args
+    assert isinstance(call_args[1]["model_file"], bytearray)

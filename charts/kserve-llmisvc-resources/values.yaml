@@ -1,0 +1,205 @@
+kserve:
+  version: v0.19.0-rc0
+  createSharedResources: true
+  inferenceServiceConfig:
+    enabled: ''
+  certManager:
+    enabled: ''
+  storagecontainer:
+    enabled: ''
+  agent:
+    image: kserve/agent
+    tag: ''
+  router:
+    image: kserve/router
+    tag: ''
+    imagePullPolicy: IfNotPresent
+    imagePullSecrets: []
+  service:
+    serviceClusterIPNone: false
+  storage:
+    image: kserve/storage-initializer
+    tag: ''
+    resources:
+      requests:
+        memory: 100Mi
+        cpu: 100m
+      limits:
+        memory: 1Gi
+        cpu: '1'
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      privileged: false
+      runAsNonRoot: true
+      capabilities:
+        drop:
+          - ALL
+    enableModelcar: true
+    uidModelcar: 1010
+    cpuModelcar: 10m
+    memoryModelcar: 15Mi
+    caBundleConfigMapName: ''
+    caBundleVolumeMountPath: /etc/ssl/custom-certs
+    storageSpecSecretName: storage-config
+    storageSecretNameAnnotation: serving.kserve.io/secretName
+    s3:
+      accessKeyIdName: AWS_ACCESS_KEY_ID
+      secretAccessKeyName: AWS_SECRET_ACCESS_KEY
+      endpoint: ''
+      useHttps: ''
+      region: ''
+      verifySSL: ''
+      useVirtualBucket: ''
+      useAnonymousCredential: ''
+      CABundleConfigMap: ''
+      CABundle: ''
+  metricsaggregator:
+    enableMetricAggregation: 'false'
+    enablePrometheusScraping: 'false'
+  servingruntime:
+    art:
+      image: kserve/art-explainer
+      defaultVersion: ''
+  localmodel:
+    enabled: false
+    controller:
+      image: kserve/kserve-localmodel-controller
+      tag: ''
+    jobNamespace: kserve-localmodel-jobs
+    jobTTLSecondsAfterFinished: 3600
+    defaultJobImage: kserve/storage-initializer
+    defaultJobTag: ''
+    securityContext:
+      fsGroup: 1000
+    disableVolumeManagement: false
+    agent:
+      nodeSelector: {}
+      affinity: {}
+      tolerations: []
+      hostPath: /mnt/models
+      image: kserve/kserve-localmodelnode-agent
+      tag: ''
+      reconcilationFrequencyInSecs: 60
+      securityContext:
+        runAsUser: 1000
+        runAsNonRoot: true
+  security:
+    autoMountServiceAccountToken: true
+  inferenceservice:
+    resources:
+      limits:
+        cpu: '1'
+        memory: 2Gi
+      requests:
+        cpu: '1'
+        memory: 2Gi
+  opentelemetryCollector:
+    scrapeInterval: 5s
+    metricReceiverEndpoint: keda-otel-scaler.keda.svc:4317
+    metricScalerEndpoint: keda-otel-scaler.keda.svc:4318
+    resource:
+      cpuLimit: '1'
+      memoryLimit: 2Gi
+      cpuRequest: 200m
+      memoryRequest: 512Mi
+  autoscaler:
+    scaleUpStabilizationWindowSeconds: '0'
+    scaleDownStabilizationWindowSeconds: '300'
+  llmisvc:
+    createGIECRDs: true
+    controller:
+      image: kserve/llmisvc-controller
+      tag: ''
+      imagePullPolicy: Always
+      imagePullSecrets: []
+      labels: {}
+      podLabels: {}
+      annotations: {}
+      podAnnotations: {}
+      serviceAnnotations: {}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containerSecurityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+        privileged: false
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      metricsBindAddress: 127.0.0.1
+      metricsBindPort: '8443'
+      nodeSelector: {}
+      tolerations: []
+      topologySpreadConstraints: []
+      affinity: {}
+      resources:
+        limits:
+          cpu: 100m
+          memory: 300Mi
+        requests:
+          cpu: 100m
+          memory: 300Mi
+      replicas: 1
+      strategy:
+        type: RollingUpdate
+        rollingUpdate:
+          maxSurge: 1
+          maxUnavailable: 0
+      livenessProbe:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 5
+        httpGet:
+          path: /healthz
+          port: 8081
+      readinessProbe:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 5
+        failureThreshold: 5
+        httpGet:
+          path: /readyz
+          port: 8081
+      service:
+        type: ClusterIP
+        port: 8443
+        targetPort: metrics
+      serviceAccount:
+        name: ''
+      env: []
+      extraVolumes: []
+      extraVolumeMounts: []
+      extraArgs: []
+      terminationGracePeriodSeconds: 10
+  controller:
+    deploymentMode: Knative
+    gateway:
+      domain: example.com
+      additionalIngressDomains: []
+      domainTemplate: '{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}'
+      pathTemplate: ''
+      urlScheme: http
+      disableIstioVirtualHost: false
+      disableIngressCreation: false
+      disableHTTPRouteTimeout: false
+      localGateway:
+        gateway: knative-serving/knative-local-gateway
+        gatewayService: knative-local-gateway.istio-system.svc.cluster.local
+        knativeGatewayService: ''
+      ingressGateway:
+        enableGatewayApi: false
+        kserveGateway: kserve/kserve-ingress-gateway
+        createGateway: false
+        gateway: knative-serving/knative-ingress-gateway
+        className: istio
+commonLabels: {}
+commonAnnotations: {}

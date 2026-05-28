@@ -1,0 +1,17 @@
+DESCRIPTION: Install KServe LLM InferenceService and all related dependencies with manifests included in the script.
+EMBED_MANIFESTS: true
+
+TOOLS:
+  - helm
+  - yq
+
+INCLUDE_DEFINITIONS:
+  - ./llmisvc-dependency-install.definition
+  
+COMPONENTS:
+  - name: kserve-kustomize
+    env:
+      ENABLE_LLMISVC: true
+      ENABLE_KSERVE: false
+      INSTALL_RUNTIMES: false
+      INSTALL_LLMISVC_CONFIGS: true

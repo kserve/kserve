@@ -1,0 +1,27 @@
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceService
+metadata:
+  name: gpt-oss-20b
+spec:
+  model:
+    uri: "pvc://gpt-oss-20b-pvc"
+    name: RedHatAI/gpt-oss-20b
+  replicas: 2
+  router:
+    scheduler: { }
+    gateway: { }
+  baseRefs:
+    - name: llmisvc-prefix-caching
+  template:
+    containers:
+      - name: main
+        resources:
+          limits:
+            cpu: '8'
+            memory: 64Gi
+            nvidia.com/gpu: 1
+          requests:
+            cpu: '4'
+            memory: 32Gi
+            nvidia.com/gpu: 1

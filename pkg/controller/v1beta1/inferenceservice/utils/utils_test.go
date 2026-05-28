@@ -895,6 +895,35 @@ func TestMergePodSpec(t *testing.T) {
 				},
 			},
 		},
+		"MergeWithSchedulerName": {
+			podSpecBase: &v1alpha1.ServingRuntimePodSpec{
+				NodeSelector: map[string]string{
+					"foo": "bar",
+				},
+				SchedulerName: "custom-scheduler",
+			},
+			podSpecOverride: &PodSpec{
+				ServiceAccountName: "testAccount",
+			},
+			expected: &corev1.PodSpec{
+				NodeSelector: map[string]string{
+					"foo": "bar",
+				},
+				ServiceAccountName: "testAccount",
+				SchedulerName:      "custom-scheduler",
+			},
+		},
+		"OverrideSchedulerName": {
+			podSpecBase: &v1alpha1.ServingRuntimePodSpec{
+				SchedulerName: "runtime-scheduler",
+			},
+			podSpecOverride: &PodSpec{
+				SchedulerName: "isvc-scheduler",
+			},
+			expected: &corev1.PodSpec{
+				SchedulerName: "isvc-scheduler",
+			},
+		},
 	}
 
 	for name, scenario := range scenarios {
@@ -990,12 +1019,12 @@ func TestGetServingRuntime(t *testing.T) {
 	}
 
 	s := runtime.NewScheme()
-	v1alpha1.AddToScheme(s)
+	_ = v1alpha1.AddToScheme(s)
 
 	mockClient := fake.NewClientBuilder().WithLists(runtimes, clusterRuntimes).WithScheme(s).Build()
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			res, _, isClusterServingRuntime := GetServingRuntime(t.Context(), mockClient, scenario.runtimeName, namespace)
+			res, _, _, isClusterServingRuntime := GetServingRuntime(t.Context(), mockClient, scenario.runtimeName, namespace)
 			if !g.Expect(res).To(gomega.Equal(&scenario.expected)) {
 				t.Errorf("got %v, want %v", res, &scenario.expected)
 			}
@@ -1010,7 +1039,7 @@ func TestGetServingRuntime(t *testing.T) {
 
 	// Check invalid case
 	t.Run("InvalidServingRuntime", func(t *testing.T) {
-		res, err, _ := GetServingRuntime(t.Context(), mockClient, "foo", namespace)
+		res, _, err, _ := GetServingRuntime(t.Context(), mockClient, "foo", namespace)
 		if !g.Expect(res).To(gomega.BeNil()) {
 			t.Errorf("got %v, want %v", res, nil)
 		}
@@ -1287,9 +1316,10 @@ func TestUpdateImageTag(t *testing.T) {
 func TestGetDeploymentMode(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
-		annotations  map[string]string
-		deployConfig *DeployConfig
-		expected     constants.DeploymentModeType
+		statusDeploymentMode string
+		annotations          map[string]string
+		deployConfig         *DeployConfig
+		expected             constants.DeploymentModeType
 	}{
 		"Standard": {
 			annotations: map[string]string{
@@ -1319,11 +1349,23 @@ func TestGetDeploymentMode(t *testing.T) {
 			},
 			expected: constants.Knative,
 		},
+		"LegacyRawDeploymentInStatus": {
+			statusDeploymentMode: string(constants.LegacyRawDeployment),
+			annotations:          map[string]string{},
+			deployConfig:         &DeployConfig{},
+			expected:             constants.Standard,
+		},
+		"LegacyServerlessInStatus": {
+			statusDeploymentMode: string(constants.LegacyServerless),
+			annotations:          map[string]string{},
+			deployConfig:         &DeployConfig{},
+			expected:             constants.Knative,
+		},
 	}
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			deploymentMode := GetDeploymentMode("", scenario.annotations, scenario.deployConfig)
+			deploymentMode := GetDeploymentMode(scenario.statusDeploymentMode, scenario.annotations, scenario.deployConfig)
 			if !g.Expect(deploymentMode).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", deploymentMode, scenario.expected)
 			}

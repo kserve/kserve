@@ -246,13 +246,13 @@ def format_plain_vertical(
             lines.append(url)
 
         # Header for license and notice sections
-        header = f"{'='*120}\n{name.center(0)}   {version.center(35)}   {license_info.center(35)}"
+        header = f"{'=' * 120}\n{name.center(0)}   {version.center(35)}   {license_info.center(35)}"
         if not url:
             url = package_urls.get(name, "")
         if with_urls:
             header += f"   {url.center(35)}"
 
-        header += f"\n{'='*120}"
+        header += f"\n{'=' * 120}"
 
         # Check if license is in allowlist
         if license_info != "UNKNOWN" and pkg.metadata.get("Name", "").lower() not in (

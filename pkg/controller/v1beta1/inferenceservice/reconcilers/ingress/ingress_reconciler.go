@@ -40,6 +40,7 @@ import (
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/reconciler/route/config"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -59,29 +60,34 @@ type IngressReconciler struct {
 	scheme        *runtime.Scheme
 	ingressConfig *v1beta1.IngressConfig
 	isvcConfig    *v1beta1.InferenceServicesConfig
+	// isVirtualServiceAvailable indicates whether Istio VirtualService CRD
+	// exists in the cluster. If false, VirtualService reconciliation is skipped.
+	isVirtualServiceAvailable bool
 }
 
 func NewIngressReconciler(client client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme,
 	ingressConfig *v1beta1.IngressConfig, isvcConfig *v1beta1.InferenceServicesConfig,
+	isVirtualServiceAvailable bool,
 ) *IngressReconciler {
 	return &IngressReconciler{
-		client:        client,
-		clientset:     clientset,
-		scheme:        scheme,
-		ingressConfig: ingressConfig,
-		isvcConfig:    isvcConfig,
+		client:                    client,
+		clientset:                 clientset,
+		scheme:                    scheme,
+		ingressConfig:             ingressConfig,
+		isvcConfig:                isvcConfig,
+		isVirtualServiceAvailable: isVirtualServiceAvailable,
 	}
 }
 
-func (ir *IngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) error {
+func (ir *IngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) (ctrl.Result, error) {
 	disableIstioVirtualHost := ir.ingressConfig.DisableIstioVirtualHost
 
 	if err := ir.reconcileVirtualService(ctx, isvc); err != nil {
-		return errors.Wrapf(err, "fails to reconcile virtual service")
+		return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile virtual service")
 	}
 	// Create external service which points to local gateway
 	if err := ir.reconcileExternalService(ctx, isvc, ir.ingressConfig); err != nil {
-		return errors.Wrapf(err, "fails to reconcile external name service")
+		return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile external name service")
 	}
 
 	if utils.GetForceStopRuntime(isvc) {
@@ -91,14 +97,14 @@ func (ir *IngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infere
 			Reason: v1beta1.StoppedISVCReason,
 		})
 
-		return nil
+		return ctrl.Result{}, nil
 	}
 
 	serviceHost := getServiceHost(isvc)
 	serviceUrl := getServiceUrl(isvc, ir.ingressConfig)
 	if serviceHost == "" || serviceUrl == "" {
 		log.Info("service host and serviceurl are empty, skipping updating the inference service")
-		return nil
+		return ctrl.Result{}, nil
 	}
 
 	if url, err := apis.ParseURL(serviceUrl); err == nil {
@@ -114,9 +120,9 @@ func (ir *IngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infere
 			Type:   v1beta1.IngressReady,
 			Status: corev1.ConditionTrue,
 		})
-		return nil
+		return ctrl.Result{}, nil
 	} else {
-		return errors.Wrapf(err, "fails to parse service url")
+		return ctrl.Result{}, errors.Wrapf(err, "fails to parse service url")
 	}
 }
 
@@ -231,6 +237,12 @@ func getHostBasedServiceUrl(isvc *v1beta1.InferenceService, config *v1beta1.Ingr
 func (ir *IngressReconciler) reconcileVirtualService(ctx context.Context, isvc *v1beta1.InferenceService) error {
 	disableIstioVirtualHost := ir.ingressConfig.DisableIstioVirtualHost
 
+	// If Istio VirtualService CRD is not present in the cluster, gracefully skip VirtualService reconciliation.
+	// This allows KServe to operate with non-Istio network layers (e.g., Kourier) without failing.
+	if !ir.isVirtualServiceAvailable {
+		return nil
+	}
+
 	domainList := getDomainList(ctx, ir.clientset)
 	desiredIngress := createIngress(isvc, ir.ingressConfig, domainList, ir.isvcConfig) // actually the virtual service
 
@@ -325,7 +337,9 @@ func (ir *IngressReconciler) reconcileExternalService(ctx context.Context, isvc 
 			}
 
 			// Return if no differences to reconcile.
-			if equality.Semantic.DeepEqual(desired, existing) {
+			// DeepDerivative treats zero/nil fields in desired as "don't care",
+			// so server-populated metadata fields on existing don't cause false diffs.
+			if equality.Semantic.DeepDerivative(desired, existing) {
 				return nil
 			}
 
@@ -337,8 +351,22 @@ func (ir *IngressReconciler) reconcileExternalService(ctx context.Context, isvc 
 			log.Info("Reconciling external service diff (-desired, +observed):", "diff", diff)
 			log.Info("Updating external service", "namespace", existing.Namespace, "name", existing.Name)
 			existing.Spec = desired.Spec
-			existing.ObjectMeta.Labels = desired.ObjectMeta.Labels
-			existing.ObjectMeta.Annotations = desired.ObjectMeta.Annotations
+			if desired.Labels != nil {
+				if existing.Labels == nil {
+					existing.Labels = make(map[string]string)
+				}
+				for k, v := range desired.Labels {
+					existing.Labels[k] = v
+				}
+			}
+			if desired.Annotations != nil {
+				if existing.Annotations == nil {
+					existing.Annotations = make(map[string]string)
+				}
+				for k, v := range desired.Annotations {
+					existing.Annotations[k] = v
+				}
+			}
 			err = ir.client.Update(ctx, existing)
 			if err != nil {
 				return errors.Wrapf(err, "fails to update external name service")
@@ -716,8 +744,8 @@ func getDomainList(ctx context.Context, clientset kubernetes.Interface) *[]strin
 
 func routeSemanticEquals(desired, existing *istioclientv1beta1.VirtualService) bool {
 	return cmp.Equal(desired.Spec.DeepCopy(), existing.Spec.DeepCopy(), protocmp.Transform()) &&
-		equality.Semantic.DeepEqual(desired.ObjectMeta.Labels, existing.ObjectMeta.Labels) &&
-		equality.Semantic.DeepEqual(desired.ObjectMeta.Annotations, existing.ObjectMeta.Annotations)
+		equality.Semantic.DeepEqual(desired.Labels, existing.Labels) &&
+		equality.Semantic.DeepEqual(desired.Annotations, existing.Annotations)
 }
 
 func getHostPrefix(isvc *v1beta1.InferenceService, disableIstioVirtualHost bool) string {

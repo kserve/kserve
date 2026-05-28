@@ -1,0 +1,14 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kserve-localmodel-controller-manager
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        image: "{{ .Values.kserve.localmodel.controller.image }}:{{ .Values.kserve.localmodel.controller.tag | default .Values.kserve.version }}"
+        imagePullPolicy: {{ .Values.kserve.localmodel.controller.imagePullPolicy }}
+        resources:
+          {{- toYaml .Values.kserve.localmodel.controller.resources | nindent 10 }}

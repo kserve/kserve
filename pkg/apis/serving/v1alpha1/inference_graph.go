@@ -316,6 +316,13 @@ type InferenceStep struct {
 	// +optional
 	Data string `json:"data,omitempty"`
 
+	// If true, maps the 'predictions' field from the previous step's response
+	// to the 'instances' field of this step's request.
+	// Useful in sequential inference graphs where one step's output
+	// becomes the input for the next.
+	// +optional
+	MapPredictionsToInstances bool `json:"mapPredictionsToInstances,omitempty"`
+
 	// the weight for split of the traffic, only used for Split Router
 	// when weight is specified all the routing targets should be sum to 100
 	// +optional

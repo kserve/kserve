@@ -1,0 +1,171 @@
+# GCP a3-highgpu-8g: No SR-IOV/RDMA, uses gVNIC with TCP-optimized NCCL
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceService
+metadata:
+  name: deepseek-coder-v2
+spec:
+  model:
+    # Initialize PVC following the example in /docs/samples/storage/pvc-init (recommended) or use the HuggingFace
+    # alternative
+    #uri: pvc://llm-test-pvc-deepseek
+    uri: hf://deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct
+    name: deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct
+  replicas: 1
+  parallelism:
+    data: 16
+    dataLocal: 8
+    expert: true
+    tensor: 1
+  router:
+    scheduler: { }
+    route: { }
+    gateway: { }
+  template:
+    serviceAccountName: hfsa
+    containers:
+      - name: main
+        env:
+          - name: VLLM_API_SERVER_COUNT
+            value: "1"
+          - name: VLLM_LOGGING_LEVEL
+            value: INFO
+          # GCP gVNIC: Optimized for TCP-based high-performance networking
+          # No RDMA devices available, using gVNIC with NCCL TCP optimization
+          - name: CUDA_DEVICE_ORDER
+            value: "PCI_BUS_ID"
+          # Memory optimizations
+          - name: VLLM_ADDITIONAL_ARGS
+            value: "--gpu-memory-utilization 0.95 --max-model-len 8192 --enforce-eager"
+          - name: VLLM_ALL2ALL_BACKEND
+            value: naive
+          - name: PYTORCH_CUDA_ALLOC_CONF
+            value: "expandable_segments:True"
+          # NCCL configuration optimized for GCP gVNIC (TCP-based)
+          - name: NCCL_IB_DISABLE
+            value: "1"  # Disable IB/RDMA - not available on gVNIC
+          - name: NCCL_NET_GDR_LEVEL
+            value: "0"  # Disable GPUDirect over network (no RDMA devices)
+          - name: NCCL_P2P_LEVEL
+            value: "NVL"  # Use NVLink for intra-node P2P
+          - name: NCCL_SOCKET_IFNAME
+            value: eth0  # gVNIC interface
+          - name: NCCL_NSOCKS_PERTHREAD
+            value: "2"  # Reduce sockets to avoid allocation errors
+          - name: NCCL_SOCKET_NTHREADS
+            value: "2"  # Reduce threads to lower memory pressure
+          - name: NCCL_BUFFSIZE
+            value: "2097152"  # 2MB buffer to reduce memory usage
+          - name: NCCL_DEBUG
+            value: WARN
+          # NVSHMEM configuration - use UCX transport (already configured for TCP)
+          - name: NVSHMEM_REMOTE_TRANSPORT
+            value: "ucx"
+          - name: NVSHMEM_DISABLE_CUDA_VMM
+            value: "0"
+          - name: NVSHMEM_BOOTSTRAP_TWO_STAGE
+            value: "1"
+          - name: NVSHMEM_BOOTSTRAP_TIMEOUT
+            value: "300"
+          - name: NVSHMEM_BOOTSTRAP_UID_SOCK_IFNAME
+            value: eth0
+          - name: NVSHMEM_DEBUG
+            value: INFO
+          # UCX configuration for TCP transport (no IB)
+          - name: UCX_TLS
+            value: "tcp,sm,self,cuda_copy,cuda_ipc"
+          - name: UCX_NET_DEVICES
+            value: eth0
+          # GDRCopy for intra-node GPU-GPU transfers
+          - name: NVIDIA_GDRCOPY
+            value: enabled
+        resources:
+          limits:
+            cpu: 128
+            ephemeral-storage: 100Gi
+            memory: 512Gi
+            nvidia.com/gpu: "8"
+            # GCP: No rdma/roce_gdr resource - using TCP over gVNIC
+          requests:
+            cpu: 64
+            ephemeral-storage: 100Gi
+            memory: 256Gi
+            nvidia.com/gpu: "8"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTPS
+          initialDelaySeconds: 4800
+          periodSeconds: 10
+          timeoutSeconds: 10
+          failureThreshold: 3
+  worker:
+    serviceAccountName: hfsa
+    containers:
+      - name: main
+        env:
+          - name: VLLM_API_SERVER_COUNT
+            value: "1"
+          - name: VLLM_LOGGING_LEVEL
+            value: INFO
+          # GCP gVNIC: Optimized for TCP-based high-performance networking
+          # No RDMA devices available, using gVNIC with NCCL TCP optimization
+          - name: CUDA_DEVICE_ORDER
+            value: "PCI_BUS_ID"
+          # Memory optimizations
+          - name: VLLM_ADDITIONAL_ARGS
+            value: "--gpu-memory-utilization 0.95 --max-model-len 8192 --enforce-eager"
+          - name: VLLM_ALL2ALL_BACKEND
+            value: naive
+          - name: PYTORCH_CUDA_ALLOC_CONF
+            value: "expandable_segments:True"
+          # NCCL configuration optimized for GCP gVNIC (TCP-based)
+          - name: NCCL_IB_DISABLE
+            value: "1"  # Disable IB/RDMA - not available on gVNIC
+          - name: NCCL_NET_GDR_LEVEL
+            value: "0"  # Disable GPUDirect over network (no RDMA devices)
+          - name: NCCL_P2P_LEVEL
+            value: "NVL"  # Use NVLink for intra-node P2P
+          - name: NCCL_SOCKET_IFNAME
+            value: eth0  # gVNIC interface
+          - name: NCCL_NSOCKS_PERTHREAD
+            value: "2"  # Reduce sockets to avoid allocation errors
+          - name: NCCL_SOCKET_NTHREADS
+            value: "2"  # Reduce threads to lower memory pressure
+          - name: NCCL_BUFFSIZE
+            value: "2097152"  # 2MB buffer to reduce memory usage
+          - name: NCCL_DEBUG
+            value: WARN
+          # NVSHMEM configuration - use UCX transport (already configured for TCP)
+          - name: NVSHMEM_REMOTE_TRANSPORT
+            value: "ucx"
+          - name: NVSHMEM_DISABLE_CUDA_VMM
+            value: "0"
+          - name: NVSHMEM_BOOTSTRAP_TWO_STAGE
+            value: "1"
+          - name: NVSHMEM_BOOTSTRAP_TIMEOUT
+            value: "300"
+          - name: NVSHMEM_BOOTSTRAP_UID_SOCK_IFNAME
+            value: eth0
+          - name: NVSHMEM_DEBUG
+            value: INFO
+          # UCX configuration for TCP transport (no IB)
+          - name: UCX_TLS
+            value: "tcp,sm,self,cuda_copy,cuda_ipc"
+          - name: UCX_NET_DEVICES
+            value: eth0
+          # GDRCopy for intra-node GPU-GPU transfers
+          - name: NVIDIA_GDRCOPY
+            value: enabled
+        resources:
+          limits:
+            cpu: 128
+            ephemeral-storage: 100Gi
+            memory: 512Gi
+            nvidia.com/gpu: "8"
+            # GCP: No rdma/roce_gdr resource - using TCP over gVNIC
+          requests:
+            cpu: 64
+            ephemeral-storage: 100Gi
+            memory: 256Gi
+            nvidia.com/gpu: "8"

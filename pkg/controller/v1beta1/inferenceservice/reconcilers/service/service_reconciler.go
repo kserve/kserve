@@ -18,7 +18,6 @@ package service
 
 import (
 	"context"
-	"sort"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -30,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -81,27 +81,21 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 	podSpec *corev1.PodSpec, multiNodeEnabled bool, serviceConfig *v1beta1.ServiceConfig,
 ) []*corev1.Service {
 	var svcList []*corev1.Service
-	var isWorkerContainer bool
-
-	if multiNodeEnabled {
-		for _, container := range podSpec.Containers {
-			if container.Name == constants.WorkerContainerName {
-				isWorkerContainer = true
-			}
-		}
-	}
 
 	if !multiNodeEnabled {
 		// If multiNodeEnabled is false, only defaultSvc will be created.
 		defaultSvc := createDefaultSvc(componentMeta, componentExt, podSpec, serviceConfig)
 		svcList = append(svcList, defaultSvc)
-	} else if multiNodeEnabled && !isWorkerContainer {
-		// If multiNodeEnabled is true, both defaultSvc and headSvc will be created.
+	} else {
+		// If multiNodeEnabled is true, create defaultSvc, headSvc and workerSvc.
 		defaultSvc := createDefaultSvc(componentMeta, componentExt, podSpec, serviceConfig)
 		svcList = append(svcList, defaultSvc)
 
 		headSvc := createHeadlessSvc(componentMeta)
 		svcList = append(svcList, headSvc)
+
+		workerSvc := createWorkerHeadlessSvc(componentMeta)
+		svcList = append(svcList, workerSvc)
 	}
 
 	return svcList
@@ -194,6 +188,27 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 	return service
 }
 
+func createWorkerHeadlessSvc(componentMeta metav1.ObjectMeta) *corev1.Service {
+	workerComponentMeta := componentMeta.DeepCopy()
+	predictorSvcName := workerComponentMeta.Name
+	isvcGeneration := componentMeta.GetLabels()[constants.InferenceServiceGenerationPodLabelKey]
+	workerComponentMeta.Name = constants.GetWorkerServiceName(predictorSvcName, isvcGeneration)
+	workerComponentMeta.Labels[constants.MultiNodeRoleLabelKey] = constants.MultiNodeWorker
+
+	service := &corev1.Service{
+		ObjectMeta: *workerComponentMeta,
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{
+				"app": constants.GetRawWorkerServiceLabel(predictorSvcName),
+				constants.InferenceServiceGenerationPodLabelKey: isvcGeneration,
+			},
+			ClusterIP:                "None",
+			PublishNotReadyAddresses: true,
+		},
+	}
+	return service
+}
+
 func createHeadlessSvc(componentMeta metav1.ObjectMeta) *corev1.Service {
 	workerComponentMeta := componentMeta.DeepCopy()
 	predictorSvcName := workerComponentMeta.Name
@@ -213,37 +228,6 @@ func createHeadlessSvc(componentMeta metav1.ObjectMeta) *corev1.Service {
 		},
 	}
 	return service
-}
-
-func (r *ServiceReconciler) cleanHeadSvc(ctx context.Context) error {
-	svcList := &corev1.ServiceList{}
-	if err := r.client.List(ctx, svcList, client.MatchingLabels{
-		constants.MultiNodeRoleLabelKey: constants.MultiNodeHead,
-	}); err != nil {
-		return err
-	}
-
-	sort.Slice(svcList.Items, func(i, j int) bool {
-		return svcList.Items[i].CreationTimestamp.Time.After(svcList.Items[j].CreationTimestamp.Time)
-	})
-
-	// Keep the 3 newest services and delete the rest
-	for i := 3; i < len(svcList.Items); i++ {
-		existingService := &corev1.Service{}
-		err := r.client.Get(ctx, types.NamespacedName{
-			Namespace: svcList.Items[i].Namespace,
-			Name:      svcList.Items[i].Name,
-		}, existingService)
-		if err == nil {
-			err := r.client.Delete(ctx, existingService)
-			if err != nil {
-				log.Error(err, "Failed to delete service", "name", existingService.Name)
-			} else {
-				log.Info("Deleted service", "name", existingService.Name, "namespace", existingService.Namespace)
-			}
-		}
-	}
-	return nil
 }
 
 // checkServiceExist checks if the service exists?
@@ -314,9 +298,20 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context) ([]*corev1.Service, e
 			return nil, opErr
 		}
 	}
-	// Clean up head svc when head sevices are more than 3.
-	if len(r.ServiceList) > 1 {
-		r.cleanHeadSvc(ctx)
-	}
 	return r.ServiceList, nil
+}
+
+// GetServiceList returns all managed services
+func (r *ServiceReconciler) GetServiceList() []*corev1.Service {
+	return r.ServiceList
+}
+
+// SetControllerReferences sets owner references on all services
+func (r *ServiceReconciler) SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error {
+	for _, svc := range r.ServiceList {
+		if err := controllerutil.SetControllerReference(owner, svc, scheme); err != nil {
+			return err
+		}
+	}
+	return nil
 }

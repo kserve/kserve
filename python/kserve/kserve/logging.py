@@ -123,6 +123,9 @@ def configure_logging(log_config: Optional[Union[Dict, str]] = None):
                              the Python logging module documentation. # See the note about fileConfig() here:
                              # https://docs.python.org/3/library/logging.config.html#configuration-file-format
     """
+    if log_config is None and logger.hasHandlers():
+        # Skip auto-configuration when logging is already configured by the user
+        return
     if log_config is None:
         logging.config.dictConfig(KSERVE_LOG_CONFIG)
     elif isinstance(log_config, dict):

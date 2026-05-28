@@ -54,7 +54,7 @@ var _ = Describe("Downloader", func() {
 		}
 	})
 	AfterEach(func() {
-		os.RemoveAll(modelDir)
+		_ = os.RemoveAll(modelDir)
 		logger.Printf("Deleted temp dir %v\n", modelDir)
 	})
 

@@ -2,8 +2,12 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-- ../../default
-- minio
+- ../../base
+- s3-local-backend
+
+components:
+- ../../components/kserve
+- ../../components/localmodel
 
 patches:
 - path: configmap/inferenceservice.yaml

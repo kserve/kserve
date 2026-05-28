@@ -1,0 +1,19 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kserve-proxy-rolebinding
+subjects:
+- kind: ServiceAccount
+  name: kserve-controller-manager
+  namespace: {{ .Release.Namespace }}
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kserve-manager-rolebinding
+subjects:
+- kind: ServiceAccount
+  name: kserve-controller-manager
+  namespace: {{ .Release.Namespace }}

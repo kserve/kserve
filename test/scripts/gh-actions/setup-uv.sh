@@ -20,10 +20,18 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-echo "Installing uv..."
-pip install uv
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" &>/dev/null && pwd 2>/dev/null)"
+source "${SCRIPT_DIR}/../../../hack/setup/common.sh"
+
+${REPO_ROOT}/hack/setup/cli/install-uv.sh
+
+# Add to GITHUB_PATH for GitHub Actions (allows uv to be found in subsequent steps)
+if [ -n "${GITHUB_PATH:-}" ]; then
+    echo "${BIN_DIR}" >> $GITHUB_PATH
+    log_info "Added ${BIN_DIR} to GITHUB_PATH for subsequent steps"
+fi
 
 echo "Creating virtual environment..."
-uv venv
+uv venv --clear
 source .venv/bin/activate
 

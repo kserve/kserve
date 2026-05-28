@@ -49,16 +49,18 @@ class V1alpha1StorageContainerSpec(object):
     openapi_types = {
         'container': 'V1Container',
         'supported_uri_formats': 'list[V1alpha1SupportedUriFormat]',
+        'supports_multi_model_download': 'bool',
         'workload_type': 'str'
     }
 
     attribute_map = {
         'container': 'container',
         'supported_uri_formats': 'supportedUriFormats',
+        'supports_multi_model_download': 'supportsMultiModelDownload',
         'workload_type': 'workloadType'
     }
 
-    def __init__(self, container=None, supported_uri_formats=None, workload_type=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, container=None, supported_uri_formats=None, supports_multi_model_download=None, workload_type=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1StorageContainerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -66,11 +68,14 @@ class V1alpha1StorageContainerSpec(object):
 
         self._container = None
         self._supported_uri_formats = None
+        self._supports_multi_model_download = None
         self._workload_type = None
         self.discriminator = None
 
         self.container = container
         self.supported_uri_formats = supported_uri_formats
+        if supports_multi_model_download is not None:
+            self.supports_multi_model_download = supports_multi_model_download
         if workload_type is not None:
             self.workload_type = workload_type
 
@@ -121,6 +126,27 @@ class V1alpha1StorageContainerSpec(object):
             raise ValueError("Invalid value for `supported_uri_formats`, must not be `None`")  # noqa: E501
 
         self._supported_uri_formats = supported_uri_formats
+
+    @property
+    def supports_multi_model_download(self):
+        """Gets the supports_multi_model_download of this V1alpha1StorageContainerSpec.  # noqa: E501
+
+
+        :return: The supports_multi_model_download of this V1alpha1StorageContainerSpec.  # noqa: E501
+        :rtype: bool
+        """
+        return self._supports_multi_model_download
+
+    @supports_multi_model_download.setter
+    def supports_multi_model_download(self, supports_multi_model_download):
+        """Sets the supports_multi_model_download of this V1alpha1StorageContainerSpec.
+
+
+        :param supports_multi_model_download: The supports_multi_model_download of this V1alpha1StorageContainerSpec.  # noqa: E501
+        :type: bool
+        """
+
+        self._supports_multi_model_download = supports_multi_model_download
 
     @property
     def workload_type(self):

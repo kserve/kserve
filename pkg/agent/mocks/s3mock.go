@@ -51,7 +51,7 @@ type MockS3FailDownloader struct {
 }
 
 func (m *MockS3FailDownloader) DownloadWithIterator(aws.Context, s3manager.BatchDownloadIterator, ...func(*s3manager.Downloader)) error {
-	var errs []s3manager.Error
+	errs := make([]s3manager.Error, 0, 1)
 	errs = append(errs, s3manager.Error{
 		OrigErr: errors.New("failed to download"),
 		Bucket:  aws.String("modelRepo"),

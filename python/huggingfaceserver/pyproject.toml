@@ -3,23 +3,26 @@ authors = [
     {name = "Dan Sun", email = "dsun20@bloomberg.net"},
 ]
 license = {text = "Apache-2.0"}
-requires-python = "<3.13,>=3.9"
+requires-python = ">=3.10,<3.14"
 dependencies = [
     "kserve[llm] @ file:///${PROJECT_ROOT}/../kserve",
     "kserve-storage @ file:///${PROJECT_ROOT}/../storage",
-    "transformers>=4.51.2",
+    "transformers>=4.53.2",
     "accelerate<2.0.0,>=1.6.0",
-    "torch>=2.7.0",
-    "triton>=3.2.0",
-    "vllm==0.9.2",
     "bitsandbytes>=0.45.3",
     "modelscope<2.0.0,>=1.16.0",
     "setuptools>=70.0.0",
 ]
 name = "huggingfaceserver"
-version = "0.16.0rc0"
+version = "0.19.0rc0"
 description = "Model Server implementation for huggingface. Not intended for use outside KServe Frameworks Images."
 readme = "README.md"
+
+# fixes CVE-2026-40192
+[tool.uv]
+override-dependencies = [
+    "pillow>=12.2.0",
+]
 
 [dependency-groups]
 test = [
@@ -29,7 +32,7 @@ test = [
     "pytest-asyncio<1.0.0,>=0.23.4",
     "pytest-httpx<1.0.0,>=0.30.0",
     "einops<1.0.0,>=0.8.0",
-    "openai<2.0.0,>=1.59.9",
+    "openai>=2.0.0",
 ]
 dev = [
     "black[colorama]~=24.3.0",

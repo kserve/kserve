@@ -88,6 +88,17 @@ type LoggerSpec struct {
 	// Specifies the storage location for the inference logger cloud events.
 	// +optional
 	Storage *LoggerStorageSpec `json:"storage,omitempty"`
+	// URL of the log marshaller service that transforms log records before storage.
+	// Defaults to the embedded JSON marshaller at http://localhost:9083/marshal.
+	// +optional
+	MarshallerURL *string `json:"marshallerUrl,omitempty"`
+	// Number of log records per batch for blob storage. Defaults to 1 (immediate).
+	// +optional
+	BatchSize *int `json:"batchSize,omitempty"`
+	// Max duration to wait before flushing a partial batch (e.g. "5s", "100ms").
+	// Only used when BatchSize > 1. Defaults to "0" (no time-based flushing).
+	// +optional
+	BatchInterval *string `json:"batchInterval,omitempty"`
 }
 
 // MetricsBackend enum

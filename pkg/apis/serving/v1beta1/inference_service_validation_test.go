@@ -169,7 +169,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 										Resource: &ResourceMetricSource{
 											Name: ResourceMetricMemory,
 											Target: MetricTarget{
-												AverageValue: ptr.To(resource.MustParse("1Gi")),
+												AverageValue: NewMetricQuantity("1Gi"),
 											},
 										},
 									},
@@ -437,7 +437,7 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 											Name: ResourceMetricMemory,
 											Target: MetricTarget{
 												Type:         AverageValueMetricType,
-												AverageValue: ptr.To(resource.MustParse("1Gi")),
+												AverageValue: NewMetricQuantity("1Gi"),
 											},
 										},
 									},
@@ -511,7 +511,7 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 											},
 											Target: MetricTarget{
 												Type:  ValueMetricType,
-												Value: ptr.To(resource.MustParse("10")),
+												Value: NewMetricQuantity("10"),
 											},
 										},
 									},
@@ -553,7 +553,7 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 											},
 											Target: MetricTarget{
 												Type:  ValueMetricType,
-												Value: ptr.To(resource.MustParse("10")),
+												Value: NewMetricQuantity("10"),
 											},
 										},
 									},
@@ -1419,6 +1419,99 @@ func TestDeploymentModeUpdate(t *testing.T) {
 	// Annotation matches status, update is accepted
 	g.Expect(warnings).Should(gomega.BeEmpty())
 	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: Legacy status "RawDeployment" should accept normalized annotation "Standard"
+	oldIsvcLegacy := makeTestInferenceService()
+	oldIsvcLegacy.Status = InferenceServiceStatus{
+		DeploymentMode: string(constants.LegacyRawDeployment),
+	}
+	updatedIsvcLegacy := oldIsvcLegacy.DeepCopy()
+	updatedIsvcLegacy.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.Standard),
+	}
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcLegacy, updatedIsvcLegacy)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: Legacy status "Serverless" should accept normalized annotation "Knative"
+	oldIsvcLegacySl := makeTestInferenceService()
+	oldIsvcLegacySl.Status = InferenceServiceStatus{
+		DeploymentMode: string(constants.LegacyServerless),
+	}
+	updatedIsvcLegacySl := oldIsvcLegacySl.DeepCopy()
+	updatedIsvcLegacySl.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.Knative),
+	}
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcLegacySl, updatedIsvcLegacySl)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: Legacy status "RawDeployment" with different mode "Knative" should still be rejected
+	oldIsvcLegacyReject := makeTestInferenceService()
+	oldIsvcLegacyReject.Status = InferenceServiceStatus{
+		DeploymentMode: string(constants.LegacyRawDeployment),
+	}
+	updatedIsvcLegacyReject := oldIsvcLegacyReject.DeepCopy()
+	updatedIsvcLegacyReject.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.Knative),
+	}
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcLegacyReject, updatedIsvcLegacyReject)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).ShouldNot(gomega.Succeed())
+
+	// Test: Mismatched deploymentMode should be allowed during deletion (DeletionTimestamp set)
+	// This allows finalizer cleanup when annotation differs from status
+	deletingIsvc := oldIsvc.DeepCopy()
+	deletingIsvc.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.Standard), // Mismatches status (Knative)
+	}
+	now := metav1.Now()
+	deletingIsvc.DeletionTimestamp = &now
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvc, deletingIsvc)
+	// During deletion, deploymentMode mismatch should be allowed
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+}
+
+func TestValidateUpdateDuringDeletion(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	validator := InferenceServiceValidator{}
+	pvcStorageUri := "pvc://my-pvc/model"
+
+	oldIsvc := InferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "multinode-isvc",
+			Namespace: "default",
+			Annotations: map[string]string{
+				constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+				constants.DeploymentMode:  string(constants.LegacyRawDeployment),
+			},
+		},
+		Spec: InferenceServiceSpec{
+			Predictor: PredictorSpec{
+				Model: &ModelSpec{
+					ModelFormat: ModelFormat{Name: "huggingface"},
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: &pvcStorageUri,
+					},
+				},
+				WorkerSpec: &WorkerSpec{},
+			},
+		},
+	}
+
+	// Without DeletionTimestamp, this ISVC should be rejected (autoscalerClass: external is invalid for multinode)
+	warnings, err := validator.ValidateUpdate(t.Context(), &oldIsvc, oldIsvc.DeepCopy())
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).ShouldNot(gomega.Succeed())
+
+	// With DeletionTimestamp set, the same ISVC should be accepted so finalizers can be removed
+	deletingIsvc := oldIsvc.DeepCopy()
+	now := metav1.Now()
+	deletingIsvc.DeletionTimestamp = &now
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvc, deletingIsvc)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
 }
 
 func TestValidateDelete(t *testing.T) {
@@ -1469,7 +1562,7 @@ func TestValidateScalingKedaCompExtension(t *testing.T) {
 						Name: ResourceMetricMemory,
 						Target: MetricTarget{
 							Type:         AverageValueMetricType,
-							AverageValue: ptr.To(resource.MustParse("2Gi")),
+							AverageValue: NewMetricQuantity("2Gi"),
 						},
 					},
 				},
@@ -1527,7 +1620,7 @@ func TestValidateScalingKedaCompExtension(t *testing.T) {
 						Name: ResourceMetricMemory,
 						Target: MetricTarget{
 							Type:         AverageValueMetricType,
-							AverageValue: ptr.To(resource.MustParse("512Ki")),
+							AverageValue: NewMetricQuantity("512Ki"),
 						},
 					},
 				},
@@ -1580,7 +1673,7 @@ func TestValidateScalingKedaCompExtension(t *testing.T) {
 						},
 						Target: MetricTarget{
 							Type:  ValueMetricType,
-							Value: ptr.To(resource.MustParse("10")),
+							Value: NewMetricQuantity("10"),
 						},
 					},
 				},
@@ -1618,7 +1711,7 @@ func TestValidateScalingKedaCompExtension(t *testing.T) {
 						},
 						Target: MetricTarget{
 							Type:  ValueMetricType,
-							Value: ptr.To(resource.MustParse("5")),
+							Value: NewMetricQuantity("5"),
 						},
 					},
 				},
@@ -1669,4 +1762,397 @@ func TestValidateScalingKedaCompExtension(t *testing.T) {
 
 func intPtr(i int) *int {
 	return &i
+}
+
+func TestValidateStorageUriSpec(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		storageUri *StorageUri
+		expected   gomega.OmegaMatcher
+	}{
+		"ValidStorageUriSpec": {
+			storageUri: &StorageUri{
+				Uri:       "gs://bucket/model",
+				MountPath: "/mnt/models",
+			},
+			expected: gomega.BeNil(),
+		},
+		"ValidStorageUriSpecWithRootPath": {
+			storageUri: &StorageUri{
+				Uri:       "s3://bucket/model",
+				MountPath: "/",
+			},
+			expected: gomega.MatchError("storage path cannot be empty"),
+		},
+		"EmptyUri": {
+			storageUri: &StorageUri{
+				Uri:       "",
+				MountPath: "/mnt/models",
+			},
+			expected: gomega.MatchError("storage URI cannot be empty"),
+		},
+		"RelativePath": {
+			storageUri: &StorageUri{
+				Uri:       "gs://bucket/model",
+				MountPath: "mnt/models",
+			},
+			expected: gomega.MatchError("storage path must be absolute: mnt/models"),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			err := validateStorageURISpec(scenario.storageUri)
+			g.Expect(err).To(scenario.expected)
+		})
+	}
+}
+
+func TestValidateStorageUri(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		storageUris []StorageUri
+		expected    gomega.OmegaMatcher
+	}{
+		"EmptyList": {
+			storageUris: []StorageUri{},
+			expected:    gomega.BeNil(),
+		},
+		"SingleValidStorageUri": {
+			storageUris: []StorageUri{
+				{
+					Uri:       "gs://bucket/model1",
+					MountPath: "/mnt/models",
+				},
+			},
+			expected: gomega.BeNil(),
+		},
+		"MultipleValidStorageUrisWithCommonParent": {
+			storageUris: []StorageUri{
+				{
+					Uri:       "gs://bucket/model1",
+					MountPath: "/mnt/models/model1",
+				},
+				{
+					Uri:       "s3://bucket/model2",
+					MountPath: "/mnt/models/model2",
+				},
+			},
+			expected: gomega.BeNil(),
+		},
+		"MultipleStorageUrisWithoutCommonParent": {
+			storageUris: []StorageUri{
+				{
+					Uri:       "gs://bucket/model1",
+					MountPath: "/mnt/models",
+				},
+				{
+					Uri:       "s3://bucket/model2",
+					MountPath: "/opt/models",
+				},
+			},
+			expected: gomega.MatchError(gomega.ContainSubstring("storage paths must have a common parent directory")),
+		},
+		"InvalidStorageUriInList": {
+			storageUris: []StorageUri{
+				{
+					Uri:       "gs://bucket/model1",
+					MountPath: "/mnt/models",
+				},
+				{
+					Uri:       "",
+					MountPath: "/mnt/models/model2",
+				},
+			},
+			expected: gomega.MatchError("storage URI cannot be empty"),
+		},
+		"RelativePathInList": {
+			storageUris: []StorageUri{
+				{
+					Uri:       "gs://bucket/model1",
+					MountPath: "/mnt/models",
+				},
+				{
+					Uri:       "s3://bucket/model2",
+					MountPath: "mnt/models/model2",
+				},
+			},
+			expected: gomega.MatchError("storage path must be absolute: mnt/models/model2"),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			err := validateMultipleStorageURIsSpec(scenario.storageUris)
+			g.Expect(err).To(scenario.expected)
+		})
+	}
+}
+
+func TestValidateBlockedEnvVars(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	scenarios := map[string]struct {
+		isvc      *InferenceService
+		expectErr bool
+	}{
+		"PYTHONPATH in predictor model env should be rejected": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-isvc"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{Name: "sklearn"},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								Container: corev1.Container{
+									Env: []corev1.EnvVar{
+										{Name: "PYTHONPATH", Value: "/custom"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectErr: true,
+		},
+		"PYTHONPATH in predictor custom container should be rejected": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-isvc"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						PodSpec: PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "kserve-container",
+									Env: []corev1.EnvVar{
+										{Name: "PYTHONPATH", Value: "/injected"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectErr: true,
+		},
+		"PYTHONPATH in workerSpec container should be rejected": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-isvc"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{Name: "huggingface"},
+						},
+						WorkerSpec: &WorkerSpec{
+							PodSpec: PodSpec{
+								Containers: []corev1.Container{
+									{
+										Name: "worker",
+										Env: []corev1.EnvVar{
+											{Name: "PYTHONPATH", Value: "/bad"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectErr: true,
+		},
+		"PYTHONPATH in transformer container should be rejected": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-isvc"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{Name: "sklearn"},
+						},
+					},
+					Transformer: &TransformerSpec{
+						PodSpec: PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "transformer",
+									Env: []corev1.EnvVar{
+										{Name: "PYTHONPATH", Value: "/evil"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectErr: true,
+		},
+		"allowed env vars should pass": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-isvc"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{Name: "sklearn"},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								Container: corev1.Container{
+									Env: []corev1.EnvVar{
+										{Name: "MODEL_NAME", Value: "my-model"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectErr: false,
+		},
+		"PYTHONPATH in explainer ART container should be rejected": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-isvc"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{Name: "sklearn"},
+						},
+					},
+					Explainer: &ExplainerSpec{
+						ART: &ARTExplainerSpec{
+							ExplainerExtensionSpec: ExplainerExtensionSpec{
+								Container: corev1.Container{
+									Env: []corev1.EnvVar{
+										{Name: "PYTHONPATH", Value: "/injected"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectErr: true,
+		},
+		"PYTHONPATH in predictor initContainer should be rejected": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-isvc"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{Name: "sklearn"},
+						},
+						PodSpec: PodSpec{
+							InitContainers: []corev1.Container{
+								{
+									Name: "init-setup",
+									Env: []corev1.EnvVar{
+										{Name: "PYTHONPATH", Value: "/injected"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectErr: true,
+		},
+		"PYTHONPATH in workerSpec initContainer should be rejected": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-isvc"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{Name: "huggingface"},
+						},
+						WorkerSpec: &WorkerSpec{
+							PodSpec: PodSpec{
+								InitContainers: []corev1.Container{
+									{
+										Name: "init-worker",
+										Env: []corev1.EnvVar{
+											{Name: "PYTHONPATH", Value: "/injected"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectErr: true,
+		},
+		"PYTHONPATH in explainer initContainer should be rejected": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-isvc"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{Name: "sklearn"},
+						},
+					},
+					Explainer: &ExplainerSpec{
+						PodSpec: PodSpec{
+							InitContainers: []corev1.Container{
+								{
+									Name: "init-explainer",
+									Env: []corev1.EnvVar{
+										{Name: "PYTHONPATH", Value: "/evil"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectErr: true,
+		},
+		"PYTHONPATH in transformer initContainer should be rejected": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-isvc"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{Name: "sklearn"},
+						},
+					},
+					Transformer: &TransformerSpec{
+						PodSpec: PodSpec{
+							InitContainers: []corev1.Container{
+								{
+									Name: "init-transform",
+									Env: []corev1.EnvVar{
+										{Name: "PYTHONPATH", Value: "/evil"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectErr: true,
+		},
+		"no env vars should pass": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-isvc"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{Name: "sklearn"},
+						},
+					},
+				},
+			},
+			expectErr: false,
+		},
+	}
+
+	for name, tc := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			err := validateBlockedEnvVars(tc.isvc)
+			if tc.expectErr {
+				g.Expect(err).To(gomega.HaveOccurred())
+				g.Expect(err.Error()).To(gomega.ContainSubstring("PYTHONPATH"))
+			} else {
+				g.Expect(err).ToNot(gomega.HaveOccurred())
+			}
+		})
+	}
 }

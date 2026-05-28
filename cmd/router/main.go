@@ -177,11 +177,10 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 }
 
 func pickupRoute(routes []v1alpha1.InferenceStep) *v1alpha1.InferenceStep {
-	randomNumber, err := rand.Int(rand.Reader, big.NewInt(101))
+	randomNumber, err := rand.Int(rand.Reader, big.NewInt(100))
 	if err != nil {
 		panic(err)
 	}
-	// generate num [0,100)
 	point := int(randomNumber.Int64())
 	end := 0
 	for _, route := range routes {
@@ -235,12 +234,22 @@ func handleSplitterORSwitchNode(route *v1alpha1.InferenceStep, graph v1alpha1.In
 	return responseBytes, statusCode, nil
 }
 
+type sequenceReqRes struct {
+	Predictions []interface{} `json:"predictions,omitempty"`
+	Instances   []interface{} `json:"instances,omitempty"`
+}
+
 func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte, headers http.Header) ([]byte, int, error) {
 	defer timeTrack(time.Now(), "node", nodeName)
 	currentNode := graph.Nodes[nodeName]
 
 	if currentNode.RouterType == v1alpha1.Splitter {
 		route := pickupRoute(currentNode.Steps)
+		if route == nil {
+			err := errors.New("no route was selected by the splitter")
+			log.Error(err, "failed to pick a route", "nodeName", nodeName)
+			return nil, 500, err
+		}
 		return handleSplitterORSwitchNode(route, graph, input, headers)
 	}
 	if currentNode.RouterType == v1alpha1.Switch {
@@ -321,6 +330,19 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 			request := input
 			if step.Data == "$response" && i > 0 {
 				request = responseBytes
+			}
+
+			if step.MapPredictionsToInstances {
+				decoded := sequenceReqRes{}
+				err = json.Unmarshal(request, &decoded)
+
+				// If unmarshaling succeeds and Predictions is non-empty,
+				// move Predictions to Instances and re-marshal the request.
+				if err == nil && len(decoded.Predictions) > 0 {
+					decoded.Instances = decoded.Predictions
+					decoded.Predictions = []interface{}{}
+					request, _ = json.Marshal(decoded) // TODO check if you need err handling for Marshalling
+				}
 			}
 
 			if step.Condition != "" {

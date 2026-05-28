@@ -310,7 +310,7 @@ func TestMutator_Handle(t *testing.T) {
 			tc.request.Object.Raw = byteData
 			res := mutator.Handle(t.Context(), tc.request)
 			sortPatches(res.Patches)
-			g.Expect(res).Should(tc.matcher)
+			g.Expect(res).Should(tc.matcher, name)
 			if err := c.Delete(t.Context(), &tc.configMap); err != nil {
 				t.Errorf("failed to delete configmap %v", err)
 			}

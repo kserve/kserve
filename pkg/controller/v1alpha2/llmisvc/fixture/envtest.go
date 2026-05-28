@@ -1,0 +1,129 @@
+/*
+Copyright 2025 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package fixture
+
+import (
+	"context"
+	"path/filepath"
+	"time"
+
+	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
+	pkgtest "github.com/kserve/kserve/pkg/testing"
+
+	ctrl "sigs.k8s.io/controller-runtime"
+)
+
+func SetupTestEnv(ctx context.Context) *pkgtest.Client {
+	duration, err := time.ParseDuration(constants.GetEnvOrDefault("ENVTEST_DEFAULT_TIMEOUT", "30s"))
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.SetDefaultEventuallyTimeout(duration)
+	gomega.SetDefaultEventuallyPollingInterval(250 * time.Millisecond)
+	gomega.EnforceDefaultTimeoutsWhenUsingContexts()
+
+	ginkgo.By("Setting up the test environment")
+	systemNs := constants.KServeNamespace
+
+	llmCtrlFunc := func(cfg *rest.Config, mgr ctrl.Manager) error {
+		clientSet, err := kubernetes.NewForConfig(cfg)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+		eventBroadcaster := record.NewBroadcaster()
+		eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
+
+		llmCtrl := llmisvc.LLMISVCReconciler{
+			Client:        mgr.GetClient(),
+			Config:        cfg,
+			Clientset:     clientSet,
+			EventRecorder: eventBroadcaster.NewRecorder(mgr.GetScheme(), corev1.EventSource{Component: "LLMInferenceServiceController"}),
+			Validator: func(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+				_, err := (&v1alpha2.LLMInferenceServiceValidator{}).ValidateCreate(ctx, llmSvc)
+				return err
+			},
+		}
+		return llmCtrl.SetupWithManager(mgr)
+	}
+
+	webhookManifests := pkgtest.WithWebhookManifests(filepath.Join(pkgtest.ProjectRoot(), "test", "webhooks"))
+	webhooks := func(cfg *rest.Config, mgr ctrl.Manager) error {
+		clientSet, err := kubernetes.NewForConfig(cfg)
+		if err != nil {
+			return err
+		}
+
+		// Create validation function for config template validation
+		v2ConfigValidationFunc := func(ctx context.Context, config *v1alpha2.LLMInferenceServiceConfig) error {
+			llmisvcConfig, err := llmisvc.LoadConfig(ctx, clientSet)
+			if err != nil {
+				return err
+			}
+			_, err = llmisvc.ReplaceVariables(llmisvc.LLMInferenceServiceSample(), config, llmisvcConfig)
+			return err
+		}
+		v1ConfigValidationFunc := func(ctx context.Context, config *v1alpha1.LLMInferenceServiceConfig) error {
+			v2Config := &v1alpha2.LLMInferenceServiceConfig{}
+			if err := config.ConvertTo(v2Config); err != nil {
+				return err
+			}
+			return v2ConfigValidationFunc(ctx, v2Config)
+		}
+
+		// Register v1alpha1 validators
+		v1alpha1LLMValidator := &v1alpha1.LLMInferenceServiceValidator{}
+		if err := v1alpha1LLMValidator.SetupWithManager(mgr); err != nil {
+			return err
+		}
+
+		v1alpha1ConfigValidator := &v1alpha1.LLMInferenceServiceConfigValidator{
+			ConfigValidationFunc: v1ConfigValidationFunc,
+		}
+		if err := v1alpha1ConfigValidator.SetupWithManager(mgr); err != nil {
+			return err
+		}
+
+		// Register v1alpha2 validators
+		v1alpha2LLMValidator := &v1alpha2.LLMInferenceServiceValidator{}
+		if err := v1alpha2LLMValidator.SetupWithManager(mgr); err != nil {
+			return err
+		}
+
+		v1alpha2ConfigValidator := &v1alpha2.LLMInferenceServiceConfigValidator{
+			ConfigValidationFunc: v2ConfigValidationFunc,
+		}
+		return v1alpha2ConfigValidator.SetupWithManager(mgr)
+	}
+
+	envTest := pkgtest.NewEnvTest(append([]pkgtest.Option{webhookManifests}, additionalEnvTestOptions()...)...).
+		WithWebhooks(webhooks).
+		WithControllers(llmCtrlFunc).
+		// The suite manager/webhook must outlive BeforeSuite node context.
+		Start(context.Background()) //nolint:contextcheck // intentional: manager context must not be tied to BeforeSuite
+
+	RequiredResources(ctx, envTest.Client, systemNs)
+
+	return envTest
+}

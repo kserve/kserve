@@ -62,7 +62,15 @@ func (p *GCSProvider) DownloadModel(modelDir string, modelName string, storageUr
 }
 
 func (p *GCSProvider) UploadObject(bucket string, key string, object []byte) error {
-	return errors.New("GCS upload not implemented")
+	writer := p.Client.Bucket(bucket).Object(key).NewWriter(context.Background())
+	if _, err := writer.Write(object); err != nil {
+		return fmt.Errorf("failed to write object to bucket %s with key %s: %w", bucket, key, err)
+	}
+	if err := writer.Close(); err != nil {
+		return fmt.Errorf("failed to close writer for bucket %s with key %s: %w", bucket, key, err)
+	}
+	log.Info("Wrote object to bucket", "bucket", bucket, "key", key)
+	return nil
 }
 
 type GCSObjectDownloader struct {

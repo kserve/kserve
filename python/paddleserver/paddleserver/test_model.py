@@ -55,7 +55,7 @@ def test_model():
         try:
             input_data = image_preprocess(img)
         except Exception as e:
-            assert False, f"Image processing failed: {str(e)}"
+            raise AssertionError(f"Image processing failed: {str(e)}")
 
         request = {"instances": input_data.tolist()}
         legacy_response = server.predict(request)

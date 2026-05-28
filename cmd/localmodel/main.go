@@ -20,13 +20,13 @@ import (
 	"flag"
 	"os"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
@@ -34,8 +34,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	localmodelcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/localmodel"
+	kservescheme "github.com/kserve/kserve/pkg/scheme"
+	localmodelwebhook "github.com/kserve/kserve/pkg/webhook/admission/localmodelcache"
+	localmodelnamespacecachewebhook "github.com/kserve/kserve/pkg/webhook/admission/localmodelnamespacecache"
 )
 
 var setupLog = ctrl.Log.WithName("setup")
@@ -67,9 +69,12 @@ func DefaultOptions() Options {
 // GetOptions parses the program flags and returns them as Options.
 func GetOptions() Options {
 	opts := DefaultOptions()
+	flag.StringVar(&opts.metricsAddr, "metrics-addr", opts.metricsAddr, "The address the metric endpoint binds to.")
+	flag.IntVar(&opts.webhookPort, "webhook-port", opts.webhookPort, "The port that the webhook server binds to.")
 	flag.BoolVar(&opts.enableLeaderElection, "leader-elect", opts.enableLeaderElection,
 		"Enable leader election for kserve controller manager. "+
 			"Enabling this will ensure there is only one active kserve controller manager.")
+	flag.StringVar(&opts.probeAddr, "health-probe-addr", opts.probeAddr, "The address the probe endpoint binds to.")
 	opts.zapOpts.BindFlags(flag.CommandLine)
 	flag.Parse()
 	return opts
@@ -114,21 +119,9 @@ func main() {
 
 	setupLog.Info("Registering Components.")
 
-	setupLog.Info("Setting up KServe v1alpha1 scheme")
-	if err := v1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
-		setupLog.Error(err, "unable to add KServe v1alpha1 to scheme")
-		os.Exit(1)
-	}
-
-	setupLog.Info("Setting up KServe v1beta1 scheme")
-	if err := v1beta1.AddToScheme(mgr.GetScheme()); err != nil {
-		setupLog.Error(err, "unable to add KServe v1beta1 to scheme")
-		os.Exit(1)
-	}
-
-	setupLog.Info("Setting up core scheme")
-	if err := corev1.AddToScheme(mgr.GetScheme()); err != nil {
-		setupLog.Error(err, "unable to add Core APIs to scheme")
+	setupLog.Info("Setting up controller schemes")
+	if err := kservescheme.AddControllerAPIs(mgr.GetScheme()); err != nil {
+		setupLog.Error(err, "unable to add controller APIs to scheme")
 		os.Exit(1)
 	}
 
@@ -143,6 +136,45 @@ func main() {
 		Scheme:    mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "LocalModel")
+		os.Exit(1)
+	}
+
+	// Setup LocalModelNamespaceCache controller
+	setupLog.Info("Setting up v1alpha1 LocalModelNamespaceCache controller")
+	if err = (&localmodelcontroller.LocalModelNamespaceCacheReconciler{
+		Client:    mgr.GetClient(),
+		Clientset: clientSet,
+		Log:       ctrl.Log.WithName("v1alpha1Controllers").WithName("LocalModelNamespaceCache"),
+		Scheme:    mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "LocalModelNamespaceCache")
+		os.Exit(1)
+	}
+
+	// Setup webhook
+	setupLog.Info("setting up webhook server")
+	if err = ctrl.NewWebhookManagedBy(mgr).
+		For(&v1alpha1.LocalModelCache{}).
+		WithValidator(&localmodelwebhook.LocalModelCacheValidator{Client: mgr.GetClient()}).
+		Complete(); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "LocalModelCache")
+		os.Exit(1)
+	}
+
+	if err = ctrl.NewWebhookManagedBy(mgr).
+		For(&v1alpha1.LocalModelNamespaceCache{}).
+		WithValidator(&localmodelnamespacecachewebhook.LocalModelNamespaceCacheValidator{Client: mgr.GetClient()}).
+		Complete(); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "LocalModelNamespaceCache")
+		os.Exit(1)
+	}
+
+	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
+		setupLog.Error(err, "unable to set up health check")
+		os.Exit(1)
+	}
+	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
+		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
 	}
 

@@ -30,6 +30,7 @@ import (
 	goerrors "github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -65,12 +66,17 @@ func IsMMSPredictor(predictor *v1beta1.PredictorSpec) bool {
 		return false
 	} else {
 		impl := predictor.GetImplementation()
-		res := impl.GetStorageUri() == nil && impl.GetStorageSpec() == nil
+		hasStorageUri := impl.GetStorageUri() != nil
+		hasStorageSpec := impl.GetStorageSpec() != nil
+		hasStorageUris := len(predictor.StorageUris) > 0
+
 		// HuggingFace supports model ID without storage initializer, but it should not be a multi-model server.
 		if predictor.HuggingFace != nil || (predictor.Model != nil && predictor.Model.ModelFormat.Name == "huggingface") {
 			return false
 		}
-		return res
+
+		// Only consider MMS if there are no storage URIs (singular or plural) and no storage spec
+		return !hasStorageUri && !hasStorageSpec && !hasStorageUris
 	}
 }
 
@@ -143,9 +149,10 @@ func GetPredictorEndpoint(ctx context.Context, client client.Client, isvc *v1bet
 		modelName := GetModelName(isvc)
 		if isvc.Spec.Transformer != nil {
 			protocol := isvc.Spec.Transformer.GetImplementation().GetProtocol()
-			if protocol == constants.ProtocolV1 {
+			switch protocol {
+			case constants.ProtocolV1:
 				path = constants.PredictPath(modelName, constants.ProtocolV1)
-			} else if protocol == constants.ProtocolV2 {
+			case constants.ProtocolV2:
 				path = constants.PredictPath(modelName, constants.ProtocolV2)
 			}
 		} else if !IsMMSPredictor(&isvc.Spec.Predictor) {
@@ -158,7 +165,7 @@ func GetPredictorEndpoint(ctx context.Context, client client.Client, isvc *v1bet
 					// in the ISVC, the protocol cannot imply to be V1. The protocol
 					// needs to be extracted from the Runtime.
 
-					runtime, err, _ := GetServingRuntime(ctx, client, *modelSpec.Runtime, isvc.Namespace)
+					runtime, _, err, _ := GetServingRuntime(ctx, client, *modelSpec.Runtime, isvc.Namespace)
 					if err != nil {
 						return "", err
 					}
@@ -190,9 +197,10 @@ func GetPredictorEndpoint(ctx context.Context, client client.Client, isvc *v1bet
 				// }
 			}
 
-			if protocol == constants.ProtocolV1 {
+			switch protocol {
+			case constants.ProtocolV1:
 				path = constants.PredictPath(modelName, constants.ProtocolV1)
-			} else if protocol == constants.ProtocolV2 {
+			case constants.ProtocolV2:
 				path = constants.PredictPath(modelName, constants.ProtocolV2)
 			}
 		}
@@ -216,7 +224,7 @@ case 2: serving.kserve.org/deploymentMode is set
 func GetDeploymentMode(statusDeploymentMode string, annotations map[string]string, deployConfig *v1beta1.DeployConfig) constants.DeploymentModeType {
 	// First priority is the deploymentMode recorded in the status
 	if len(statusDeploymentMode) != 0 {
-		return constants.DeploymentModeType(statusDeploymentMode)
+		return constants.ParseDeploymentMode(statusDeploymentMode)
 	}
 
 	// Second priority, if the status doesn't have the deploymentMode recorded, is explicit annotations
@@ -286,6 +294,7 @@ func MergePodSpec(runtimePodSpec *v1alpha1.ServingRuntimePodSpec, predictorPodSp
 		Tolerations:      runtimePodSpec.Tolerations,
 		Volumes:          runtimePodSpec.Volumes,
 		ImagePullSecrets: runtimePodSpec.ImagePullSecrets,
+		SchedulerName:    runtimePodSpec.SchedulerName,
 	})
 	if err != nil {
 		return nil, err
@@ -312,24 +321,26 @@ func MergePodSpec(runtimePodSpec *v1alpha1.ServingRuntimePodSpec, predictorPodSp
 
 // GetServingRuntime Get a ServingRuntime by name. First, ServingRuntimes in the given namespace will be checked.
 // If a resource of the specified name is not found, then ClusterServingRuntimes will be checked.
-// Third value will be true if the ServingRuntime is a ClusterServingRuntime.
-func GetServingRuntime(ctx context.Context, cl client.Client, name string, namespace string) (*v1alpha1.ServingRuntimeSpec, error, bool) {
+// GetServingRuntime returns the ServingRuntimeSpec, annotations, error, and whether it's a ClusterServingRuntime
+// Second value will be the runtime's metadata.annotations
+// Fourth value will be true if the ServingRuntime is a ClusterServingRuntime
+func GetServingRuntime(ctx context.Context, cl client.Client, name string, namespace string) (*v1alpha1.ServingRuntimeSpec, map[string]string, error, bool) {
 	runtime := &v1alpha1.ServingRuntime{}
 	err := cl.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, runtime)
 	if err == nil {
-		return &runtime.Spec, nil, false
+		return &runtime.Spec, runtime.Annotations, nil, false
 	} else if !apierrors.IsNotFound(err) {
-		return nil, err, false
+		return nil, nil, err, false
 	}
 
 	clusterRuntime := &v1alpha1.ClusterServingRuntime{}
 	err = cl.Get(ctx, client.ObjectKey{Name: name}, clusterRuntime)
 	if err == nil {
-		return &clusterRuntime.Spec, nil, true
-	} else if !apierrors.IsNotFound(err) {
-		return nil, err, false
+		return &clusterRuntime.Spec, clusterRuntime.Annotations, nil, true
+	} else if !apierrors.IsNotFound(err) && !apimeta.IsNoMatchError(err) {
+		return nil, nil, err, false
 	}
-	return nil, goerrors.New("No ServingRuntimes or ClusterServingRuntimes with the name: " + name), false
+	return nil, nil, goerrors.New("No ServingRuntimes or ClusterServingRuntimes with the name: " + name), false
 }
 
 // ReplacePlaceholders Replace placeholders in runtime container by values from inferenceservice metadata
@@ -395,7 +406,7 @@ func ListPodsByLabel(ctx context.Context, cl client.Client, namespace string, la
 
 func sortPodsByCreatedTimestampDesc(pods *corev1.PodList) {
 	sort.Slice(pods.Items, func(i, j int) bool {
-		return pods.Items[j].ObjectMeta.CreationTimestamp.Before(&pods.Items[i].ObjectMeta.CreationTimestamp)
+		return pods.Items[j].CreationTimestamp.Before(&pods.Items[i].CreationTimestamp)
 	})
 }
 

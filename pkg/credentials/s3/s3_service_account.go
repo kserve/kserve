@@ -27,9 +27,9 @@ Boto: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuratio
 */
 
 func BuildServiceAccountEnvs(serviceAccount *corev1.ServiceAccount, s3Config *S3Config) []corev1.EnvVar {
-	envs := []corev1.EnvVar{}
+	envs := make([]corev1.EnvVar, 0, 1)
 
-	envs = append(envs, BuildS3EnvVars(serviceAccount.Annotations, s3Config)...)
+	envs = append(envs, BuildS3EnvVars(serviceAccount.Annotations, nil, s3Config)...)
 
 	return envs
 }

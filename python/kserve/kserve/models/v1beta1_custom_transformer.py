@@ -61,6 +61,7 @@ class V1beta1CustomTransformer(object):
         'host_pid': 'bool',
         'host_users': 'bool',
         'hostname': 'str',
+        'hostname_override': 'str',
         'image_pull_secrets': 'list[V1LocalObjectReference]',
         'init_containers': 'list[V1Container]',
         'node_name': 'str',
@@ -104,6 +105,7 @@ class V1beta1CustomTransformer(object):
         'host_pid': 'hostPID',
         'host_users': 'hostUsers',
         'hostname': 'hostname',
+        'hostname_override': 'hostnameOverride',
         'image_pull_secrets': 'imagePullSecrets',
         'init_containers': 'initContainers',
         'node_name': 'nodeName',
@@ -132,7 +134,7 @@ class V1beta1CustomTransformer(object):
         'volumes': 'volumes'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, automount_service_account_token=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, image_pull_secrets=None, init_containers=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, resources=None, restart_policy=None, runtime_class_name=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, automount_service_account_token=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, hostname_override=None, image_pull_secrets=None, init_containers=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, resources=None, restart_policy=None, runtime_class_name=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1CustomTransformer - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -152,6 +154,7 @@ class V1beta1CustomTransformer(object):
         self._host_pid = None
         self._host_users = None
         self._hostname = None
+        self._hostname_override = None
         self._image_pull_secrets = None
         self._init_containers = None
         self._node_name = None
@@ -207,6 +210,8 @@ class V1beta1CustomTransformer(object):
             self.host_users = host_users
         if hostname is not None:
             self.hostname = hostname
+        if hostname_override is not None:
+            self.hostname_override = hostname_override
         if image_pull_secrets is not None:
             self.image_pull_secrets = image_pull_secrets
         if init_containers is not None:
@@ -492,7 +497,7 @@ class V1beta1CustomTransformer(object):
     def host_network(self):
         """Gets the host_network of this V1beta1CustomTransformer.  # noqa: E501
 
-        Host networking requested for this pod. Use the host's network namespace. If this option is set, the ports that will be used must be specified. Default to false.  # noqa: E501
+        Host networking requested for this pod. Use the host's network namespace. When using HostNetwork you should specify ports so the scheduler is aware. When `hostNetwork` is true, specified `hostPort` fields in port definitions must match `containerPort`, and unspecified `hostPort` fields in port definitions are defaulted to match `containerPort`. Default to false.  # noqa: E501
 
         :return: The host_network of this V1beta1CustomTransformer.  # noqa: E501
         :rtype: bool
@@ -503,7 +508,7 @@ class V1beta1CustomTransformer(object):
     def host_network(self, host_network):
         """Sets the host_network of this V1beta1CustomTransformer.
 
-        Host networking requested for this pod. Use the host's network namespace. If this option is set, the ports that will be used must be specified. Default to false.  # noqa: E501
+        Host networking requested for this pod. Use the host's network namespace. When using HostNetwork you should specify ports so the scheduler is aware. When `hostNetwork` is true, specified `hostPort` fields in port definitions must match `containerPort`, and unspecified `hostPort` fields in port definitions are defaulted to match `containerPort`. Default to false.  # noqa: E501
 
         :param host_network: The host_network of this V1beta1CustomTransformer.  # noqa: E501
         :type: bool
@@ -579,6 +584,29 @@ class V1beta1CustomTransformer(object):
         """
 
         self._hostname = hostname
+
+    @property
+    def hostname_override(self):
+        """Gets the hostname_override of this V1beta1CustomTransformer.  # noqa: E501
+
+        HostnameOverride specifies an explicit override for the pod's hostname as perceived by the pod. This field only specifies the pod's hostname and does not affect its DNS records. When this field is set to a non-empty string: - It takes precedence over the values set in `hostname` and `subdomain`. - The Pod's hostname will be set to this value. - `setHostnameAsFQDN` must be nil or set to false. - `hostNetwork` must be set to false.  This field must be a valid DNS subdomain as defined in RFC 1123 and contain at most 64 characters. Requires the HostnameOverride feature gate to be enabled.  # noqa: E501
+
+        :return: The hostname_override of this V1beta1CustomTransformer.  # noqa: E501
+        :rtype: str
+        """
+        return self._hostname_override
+
+    @hostname_override.setter
+    def hostname_override(self, hostname_override):
+        """Sets the hostname_override of this V1beta1CustomTransformer.
+
+        HostnameOverride specifies an explicit override for the pod's hostname as perceived by the pod. This field only specifies the pod's hostname and does not affect its DNS records. When this field is set to a non-empty string: - It takes precedence over the values set in `hostname` and `subdomain`. - The Pod's hostname will be set to this value. - `setHostnameAsFQDN` must be nil or set to false. - `hostNetwork` must be set to false.  This field must be a valid DNS subdomain as defined in RFC 1123 and contain at most 64 characters. Requires the HostnameOverride feature gate to be enabled.  # noqa: E501
+
+        :param hostname_override: The hostname_override of this V1beta1CustomTransformer.  # noqa: E501
+        :type: str
+        """
+
+        self._hostname_override = hostname_override
 
     @property
     def image_pull_secrets(self):

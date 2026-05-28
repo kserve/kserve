@@ -3,7 +3,7 @@ authors = [
     {name = "Zhengyuan Zhang", email = "zhangzhengyuan0604@gmail.com"},
 ]
 license = {text = "Apache-2.0"}
-requires-python = "<3.13,>=3.9"
+requires-python = "<3.13,>=3.10"
 dependencies = [
     "kserve @ file:///${PROJECT_ROOT}/../kserve",
     "kserve-storage @ file:///${PROJECT_ROOT}/../storage",
@@ -11,7 +11,7 @@ dependencies = [
     "setuptools<71.0.0,>=70.0.0",
 ]
 name = "paddleserver"
-version = "0.16.0rc0"
+version = "0.19.0rc0"
 description = "Model Server implementation for Paddle. Not intended for use outside KServe Frameworks Images"
 readme = "README.md"
 

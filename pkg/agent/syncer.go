@@ -48,7 +48,7 @@ func SyncModelDir(modelDir string, logger *zap.SugaredLogger) (map[string]modelW
 				}
 				modelName := dirSplit[len(dirSplit)-1]
 
-				jsonFile, err := os.Open(path)
+				jsonFile, err := os.Open(filepath.Clean(path))
 				if err != nil {
 					return errors.Wrapf(err, "failed to parse success file")
 				}

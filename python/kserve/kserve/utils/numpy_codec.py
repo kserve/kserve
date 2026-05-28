@@ -37,7 +37,7 @@ def to_np_dtype(dtype):
 
 
 def from_np_dtype(np_dtype):
-    if np_dtype == bool:
+    if np_dtype == bool:  # noqa: E721
         return "BOOL"
     elif np_dtype == np.int8:
         return "INT8"

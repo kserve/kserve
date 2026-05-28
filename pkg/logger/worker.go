@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	cehttp "github.com/cloudevents/sdk-go/v2/protocol/http"
@@ -45,8 +46,9 @@ const (
 	ComponentAttr        = "component"
 	MetadataAttr         = "metadata"
 	// endpoint would be either default or canary
-	EndpointAttr   = "endpoint"
-	AnnotationAttr = "annotations"
+	EndpointAttr     = "endpoint"
+	AnnotationAttr   = "annotations"
+	RecordedTimeAttr = "recordedtime"
 
 	LoggerWorkerQueueSize = 100
 	CloudEventsIdHeader   = "Ce-Id"
@@ -63,7 +65,7 @@ func QueueLogRequest(req LogRequest) error {
 // NewWorker creates, and returns a new Worker object. Its only argument
 // is a channel that the worker can add itself to whenever it is done its
 // work.
-func NewWorker(id int, workerQueue chan chan LogRequest, store Store, logger *zap.SugaredLogger) Worker {
+func NewWorker(id int, workerQueue chan chan LogRequest, logger *zap.SugaredLogger) Worker {
 	// Create, and return the worker.
 	return Worker{
 		Log:         logger,
@@ -71,7 +73,6 @@ func NewWorker(id int, workerQueue chan chan LogRequest, store Store, logger *za
 		Work:        make(chan LogRequest),
 		WorkerQueue: workerQueue,
 		QuitChan:    make(chan bool),
-		Store:       store,
 	}
 }
 
@@ -81,7 +82,6 @@ type Worker struct {
 	Work        chan LogRequest
 	WorkerQueue chan chan LogRequest
 	QuitChan    chan bool
-	Store       Store
 }
 
 func (w *Worker) sendHttpCloudEvent(logReq LogRequest) error {
@@ -94,7 +94,7 @@ func (w *Worker) sendHttpCloudEvent(logReq LogRequest) error {
 
 	if logReq.Url.Scheme == "https" {
 		caCertFilePath := filepath.Join(constants.LoggerCaCertMountPath, logReq.CertName)
-		caCertFile, err := os.ReadFile(caCertFilePath)
+		caCertFile, err := os.ReadFile(filepath.Clean(caCertFilePath))
 		// Do not fail if certificates not found, for backwards compatibility
 		if err == nil {
 			clientCertPool := x509.NewCertPool()
@@ -115,15 +115,15 @@ func (w *Worker) sendHttpCloudEvent(logReq LogRequest) error {
 		}
 	}
 
-	c, err := cloudevents.NewClient(t,
-		cloudevents.WithTimeNow(),
-	)
+	c, err := cloudevents.NewClient(t)
 	if err != nil {
 		return fmt.Errorf("while creating new cloudevents client: %w", err)
 	}
 	event := cloudevents.NewEvent(cloudevents.VersionV1)
 	event.SetID(logReq.Id)
 	event.SetType(logReq.ReqType)
+	event.SetTime(logReq.OccurrenceTime)
+	event.SetExtension(RecordedTimeAttr, time.Now())
 
 	event.SetExtension(InferenceServiceAttr, logReq.InferenceService)
 	event.SetExtension(NamespaceAttr, logReq.Namespace)
@@ -168,8 +168,8 @@ func (w *Worker) sendHttpCloudEvent(logReq LogRequest) error {
 	return nil
 }
 
-// This function "starts" the worker by starting a goroutine, that is
-// an infinite "for-select" loop.
+// Start begins the worker goroutine. Workers handle HTTP CloudEvents delivery.
+// Blob storage is handled by the dispatcher's batch pipeline.
 func (w *Worker) Start() {
 	go func() {
 		for {
@@ -178,32 +178,13 @@ func (w *Worker) Start() {
 
 			select {
 			case work := <-w.Work:
-				// Receive a work request.
 				w.Log.Infof("Received work request %d, url: %s, requestId: %s", w.ID, work.Url.String(), work.Id)
 
-				// Determine how we should handle the work request.
-				strategy := GetStorageStrategy(work.Url.String())
-
-				// Use HTTP if the URL scheme is HTTP or HTTPS, or if we don't have a configured logger store.
-				if strategy == HttpStorage {
-					if err := w.sendHttpCloudEvent(work); err != nil {
-						w.Log.Error(err, "Failed to send cloud event, url: %s", work.Url.String())
-					}
-					continue
-				}
-
-				if w.Store == nil {
-					w.Log.Error("Logger store not configured, cannot store event")
-					continue
-				}
-
-				// Store the cloud event in a logger store.
-				if err := w.Store.Store(work.Url, work); err != nil {
-					w.Log.Error(err, "Failed to log cloud event", "url", work.Url.String())
+				if err := w.sendHttpCloudEvent(work); err != nil {
+					w.Log.Error(err, "Failed to send cloud event, url: %s", work.Url.String())
 				}
 
 			case <-w.QuitChan:
-				// We have been asked to stop.
 				w.Log.Infof("worker %d stopping\n", w.ID)
 				return
 			}

@@ -1,17 +1,19 @@
 
 dev_install:
-	poetry install --with test
+	uv sync --group test
+	uv pip install --no-deps -e ../../../../../python/sklearnserver
 
 install_dependencies:
-	poetry install --with=test --no-interaction --no-root
+	uv sync --group test --no-install-project
+	uv pip install --no-deps -e ../../../../../python/sklearnserver
 
-# Requires sklearnserver to be installed
 test: type_check lint
-	pytest -W ignore
+	uv pip install --no-deps -e ../../../../../python/sklearnserver
+	uv run pytest -W ignore
 
 lint:
 	pylint --rcfile=../.pylintrc alibiexplainer
 	pylint --rcfile=../.pylintrc tests
 
 type_check:
-	mypy --ignore-missing-imports alibiexplainer
+	uv run mypy --ignore-missing-imports alibiexplainer

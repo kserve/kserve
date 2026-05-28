@@ -33,7 +33,7 @@ var _ ComponentImplementation = &XGBoostSpec{}
 
 // Default sets defaults on the resource
 func (x *XGBoostSpec) Default(config *InferenceServicesConfig) {
-	x.Container.Name = constants.InferenceServiceContainerName
+	x.Name = constants.InferenceServiceContainerName
 
 	if x.ProtocolVersion == nil {
 		defaultProtocol := constants.ProtocolV1

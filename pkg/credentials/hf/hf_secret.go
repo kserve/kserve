@@ -22,7 +22,6 @@ import (
 
 const (
 	HFTokenKey = "HF_TOKEN"
-	HFTransfer = "HF_HUB_ENABLE_HF_TRANSFER"
 )
 
 func BuildSecretEnvs(secret *corev1.Secret) []corev1.EnvVar {
@@ -40,10 +39,6 @@ func BuildSecretEnvs(secret *corev1.Secret) []corev1.EnvVar {
 						Key: HFTokenKey,
 					},
 				},
-			},
-			{
-				Name:  HFTransfer,
-				Value: "1",
 			},
 		}...)
 	}

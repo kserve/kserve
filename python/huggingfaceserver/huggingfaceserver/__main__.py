@@ -35,8 +35,10 @@ from huggingfaceserver.task import (
 from . import (
     HuggingfaceGenerativeModel,
     HuggingfaceEncoderModel,
+    HuggingFaceTimeSeriesModel,
     Backend,
 )
+
 from .vllm.utils import (
     infer_vllm_supported_from_model_architecture,
     maybe_add_vllm_cli_parser,
@@ -69,7 +71,7 @@ def is_vllm_backend_enabled(
 
 
 try:
-    from vllm.utils import FlexibleArgumentParser
+    from vllm.utils.argparse_utils import FlexibleArgumentParser
 
     parser = FlexibleArgumentParser(parents=[kserve.model_server.parser])
 except ImportError:
@@ -137,6 +139,12 @@ parser.add_argument(
 )
 parser.add_argument(
     "--return_token_type_ids", action="store_true", help="Return token type ids"
+)
+parser.add_argument(
+    "--return_offsets_mapping",
+    action="store_true",
+    default=False,
+    help="Return start/end character offsets for each token (token_classification only).",
 )
 
 # Create a mutually exclusive group for output format options
@@ -264,7 +272,18 @@ def load_model():
         else:
             task = infer_task_from_model_architecture(model_config)
 
-        if is_generative_task(task):
+        if task == MLTask.time_series_forecast:
+            logger.info(f"Loading time series model for task '{task.name}' in {dtype}")
+
+            model = HuggingFaceTimeSeriesModel(
+                args.model_name,
+                model_id_or_path=model_id_or_path,
+                model_config=model_config,
+                model_revision=kwargs.get("model_revision", None),
+                dtype=dtype,
+            )
+
+        elif is_generative_task(task):
             logger.debug(f"Loading model in {dtype}")
 
             logger.info(f"Loading generative model for task '{task.name}' in {dtype}")
@@ -299,6 +318,7 @@ def load_model():
                 tensor_input_names=kwargs.get("tensor_input_names", None),
                 return_token_type_ids=kwargs.get("return_token_type_ids", None),
                 request_logger=request_logger,
+                return_offsets_mapping=kwargs.get("return_offsets_mapping", False),
                 return_probabilities=kwargs.get("return_probabilities", False),
                 return_raw_logits=kwargs.get("return_raw_logits", False),
             )

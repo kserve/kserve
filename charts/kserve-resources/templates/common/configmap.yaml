@@ -1,0 +1,7 @@
+{{- if .Values.kserve.inferenceServiceConfig.enabled | default .Values.kserve.createSharedResources }}
+{{- include "kserve-common.renderPatchedResource" (dict
+  "baseFile" "files/common/configmap.yaml"
+  "patchFile" "files/common/configmap-patch.yaml"
+  "replaceNamespace" true
+  "context" .) -}}
+{{- end }}

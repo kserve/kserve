@@ -89,7 +89,6 @@ class Tokenizer(kserve.Model):
     def postprocess(
         self, infer_response: Union[Dict, InferResponse], headers: Dict[str, str] = None
     ) -> Union[Dict, InferResponse]:
-
         end_logits = infer_response.outputs[0].data
         start_logits = infer_response.outputs[1].data
         n_best_size = 20

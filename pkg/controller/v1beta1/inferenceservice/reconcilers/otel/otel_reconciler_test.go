@@ -330,7 +330,7 @@ func TestCreateOtelCollectorWithResources(t *testing.T) {
 	collector := createOtelCollector(componentMeta, []string{}, otelConfig)
 
 	// Verify resource requirements are set correctly
-	resources := collector.Spec.OpenTelemetryCommonFields.Resources
+	resources := collector.Spec.Resources
 
 	// Check CPU limits and requests
 	cpuLimit := resources.Limits["cpu"]
@@ -364,7 +364,7 @@ func TestCreateOtelCollectorWithPartialResources(t *testing.T) {
 	collector := createOtelCollector(componentMeta, []string{}, otelConfig)
 
 	// Verify only CPU resource requirements are set
-	resources := collector.Spec.OpenTelemetryCommonFields.Resources
+	resources := collector.Spec.Resources
 
 	// Check CPU limits and requests are set
 	cpuLimit := resources.Limits["cpu"]
@@ -394,7 +394,7 @@ func TestCreateOtelCollectorWithNoResources(t *testing.T) {
 	collector := createOtelCollector(componentMeta, []string{}, otelConfig)
 
 	// Verify no resource requirements are set
-	resources := collector.Spec.OpenTelemetryCommonFields.Resources
+	resources := collector.Spec.Resources
 
 	// Check that limits and requests maps are either nil or empty
 	assert.Empty(t, resources.Limits)

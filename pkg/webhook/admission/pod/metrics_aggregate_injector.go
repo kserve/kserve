@@ -55,12 +55,12 @@ func setMetricAggregationEnvVarsAndPorts(pod *corev1.Pod) error {
 			// The kserve-container prometheus port/path is inherited from the ClusterServingRuntime YAML.
 			// If no port is defined (transformer using python SDK), use the default port/path for the kserve-container.
 			kserveContainerPromPort := defaultKserveContainerPrometheusPort
-			if port, ok := pod.ObjectMeta.Annotations[constants.KserveContainerPrometheusPortKey]; ok {
+			if port, ok := pod.Annotations[constants.KserveContainerPrometheusPortKey]; ok {
 				kserveContainerPromPort = port
 			}
 
 			kserveContainerPromPath := constants.DefaultPrometheusPath
-			if path, ok := pod.ObjectMeta.Annotations[constants.KServeContainerPrometheusPathKey]; ok {
+			if path, ok := pod.Annotations[constants.KServeContainerPrometheusPathKey]; ok {
 				kserveContainerPromPath = path
 			}
 
@@ -93,12 +93,12 @@ func setMetricAggregationEnvVarsAndPorts(pod *corev1.Pod) error {
 // if specified, sets port-related EnvVars in queue-proxy and the aggregate prometheus annotation.
 func (ma *MetricsAggregator) InjectMetricsAggregator(pod *corev1.Pod) error {
 	// Only set metric configs if the required annotations are set
-	enableMetricAggregation, ok := pod.ObjectMeta.Annotations[constants.EnableMetricAggregation]
+	enableMetricAggregation, ok := pod.Annotations[constants.EnableMetricAggregation]
 	if !ok {
-		if pod.ObjectMeta.Annotations == nil {
-			pod.ObjectMeta.Annotations = make(map[string]string)
+		if pod.Annotations == nil {
+			pod.Annotations = make(map[string]string)
 		}
-		pod.ObjectMeta.Annotations[constants.EnableMetricAggregation] = ma.EnableMetricAggregation
+		pod.Annotations[constants.EnableMetricAggregation] = ma.EnableMetricAggregation
 		enableMetricAggregation = ma.EnableMetricAggregation
 	}
 	if enableMetricAggregation == "true" {
@@ -109,9 +109,9 @@ func (ma *MetricsAggregator) InjectMetricsAggregator(pod *corev1.Pod) error {
 	}
 
 	// Handle setting the pod prometheus annotations
-	setPromAnnotation, ok := pod.ObjectMeta.Annotations[constants.SetPrometheusAnnotation]
+	setPromAnnotation, ok := pod.Annotations[constants.SetPrometheusAnnotation]
 	if !ok {
-		pod.ObjectMeta.Annotations[constants.SetPrometheusAnnotation] = ma.EnablePrometheusScraping
+		pod.Annotations[constants.SetPrometheusAnnotation] = ma.EnablePrometheusScraping
 		setPromAnnotation = ma.EnablePrometheusScraping
 	}
 	if setPromAnnotation == "true" {
@@ -121,8 +121,8 @@ func (ma *MetricsAggregator) InjectMetricsAggregator(pod *corev1.Pod) error {
 		if enableMetricAggregation == "true" {
 			podPromPort = constants.QueueProxyAggregatePrometheusMetricsPort
 		}
-		pod.ObjectMeta.Annotations[constants.PrometheusPortAnnotationKey] = podPromPort
-		pod.ObjectMeta.Annotations[constants.PrometheusPathAnnotationKey] = constants.DefaultPrometheusPath
+		pod.Annotations[constants.PrometheusPortAnnotationKey] = podPromPort
+		pod.Annotations[constants.PrometheusPathAnnotationKey] = constants.DefaultPrometheusPath
 	}
 
 	return nil

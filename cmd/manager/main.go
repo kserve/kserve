@@ -22,16 +22,12 @@ import (
 	"net/http"
 	"os"
 
-	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
-	otelv1beta1 "github.com/open-telemetry/opentelemetry-operator/apis/v1beta1"
 	istio_networking "istio.io/api/networking/v1alpha3"
-	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/record"
-	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -40,7 +36,6 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -49,8 +44,8 @@ import (
 	trainedmodelcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/reconcilers/modelconfig"
 	v1beta1controller "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice"
-	"github.com/kserve/kserve/pkg/utils"
-	"github.com/kserve/kserve/pkg/webhook/admission/localmodelcache"
+	kservescheme "github.com/kserve/kserve/pkg/scheme"
+	kserveutils "github.com/kserve/kserve/pkg/utils"
 	"github.com/kserve/kserve/pkg/webhook/admission/pod"
 	"github.com/kserve/kserve/pkg/webhook/admission/servingruntime"
 )
@@ -122,6 +117,13 @@ func main() {
 
 	// Create a new Cmd to provide shared dependencies and start components
 	setupLog.Info("Setting up manager")
+
+	cacheOpts, err := v1beta1controller.NewCacheOptions()
+	if err != nil {
+		setupLog.Error(err, "unable to create cache options")
+		os.Exit(1)
+	}
+
 	mgr, err := manager.New(cfg, manager.Options{
 		Metrics: metricsserver.Options{
 			BindAddress: options.metricsAddr,
@@ -132,6 +134,7 @@ func main() {
 		LeaderElection:         options.enableLeaderElection,
 		LeaderElectionID:       LeaderLockName,
 		HealthProbeBindAddress: options.probeAddr,
+		Cache:                  cacheOpts,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to set up overall controller manager")
@@ -140,15 +143,9 @@ func main() {
 
 	setupLog.Info("Registering Components.")
 
-	setupLog.Info("Setting up KServe v1alpha1 scheme")
-	if err := v1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
-		setupLog.Error(err, "unable to add KServe v1alpha1 to scheme")
-		os.Exit(1)
-	}
-
-	setupLog.Info("Setting up KServe v1beta1 scheme")
-	if err := v1beta1.AddToScheme(mgr.GetScheme()); err != nil {
-		setupLog.Error(err, "unable to add KServe v1beta1 to scheme")
+	setupLog.Info("Setting up controller schemes")
+	if err := kservescheme.AddAll(mgr.GetScheme()); err != nil {
+		setupLog.Error(err, "unable to register API schemes")
 		os.Exit(1)
 	}
 
@@ -172,71 +169,6 @@ func main() {
 	_, err = v1beta1.NewMultiNodeConfig(isvcConfigMap)
 	if err != nil {
 		setupLog.Error(err, "unable to get multiNode config.")
-		os.Exit(1)
-	}
-
-	ksvcFound, ksvcCheckErr := utils.IsCrdAvailable(cfg, knservingv1.SchemeGroupVersion.String(), constants.KnativeServiceKind)
-	if ksvcCheckErr != nil {
-		setupLog.Error(ksvcCheckErr, "error when checking if Knative Service kind is available")
-		os.Exit(1)
-	}
-	if ksvcFound {
-		setupLog.Info("Setting up Knative scheme")
-		if err := knservingv1.AddToScheme(mgr.GetScheme()); err != nil {
-			setupLog.Error(err, "unable to add Knative APIs to scheme")
-			os.Exit(1)
-		}
-	}
-	if !ingressConfig.DisableIstioVirtualHost {
-		vsFound, vsCheckErr := utils.IsCrdAvailable(cfg, istioclientv1beta1.SchemeGroupVersion.String(), constants.IstioVirtualServiceKind)
-		if vsCheckErr != nil {
-			setupLog.Error(vsCheckErr, "error when checking if Istio VirtualServices are available")
-			os.Exit(1)
-		}
-		if vsFound {
-			setupLog.Info("Setting up Istio schemes")
-			if err := istioclientv1beta1.AddToScheme(mgr.GetScheme()); err != nil {
-				setupLog.Error(err, "unable to add Istio v1beta1 APIs to scheme")
-				os.Exit(1)
-			}
-		}
-	}
-
-	kedaFound, kedaCheckErr := utils.IsCrdAvailable(cfg, kedav1alpha1.SchemeGroupVersion.String(), constants.KedaScaledObjectKind)
-	if kedaCheckErr != nil {
-		setupLog.Error(ksvcCheckErr, "error when checking if KEDA ScaledObject kind is available")
-		os.Exit(1)
-	}
-	if kedaFound {
-		setupLog.Info("Setting up KEDA scheme")
-		if err := kedav1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
-			setupLog.Error(err, "unable to add KEDA APIs to scheme")
-			os.Exit(1)
-		}
-	}
-
-	otelFound, otelCheckErr := utils.IsCrdAvailable(cfg, otelv1beta1.GroupVersion.String(), constants.OpenTelemetryCollector)
-	if otelCheckErr != nil {
-		setupLog.Error(ksvcCheckErr, "error when checking if OpentelemetryCollector kind is available")
-		os.Exit(1)
-	}
-	if otelFound {
-		setupLog.Info("Setting up OTEL scheme")
-		if err := otelv1beta1.AddToScheme(mgr.GetScheme()); err != nil {
-			setupLog.Error(err, "unable to add OTEL APIs to scheme")
-			os.Exit(1)
-		}
-	}
-
-	setupLog.Info("Setting up gateway api scheme")
-	if err := gwapiv1.Install(mgr.GetScheme()); err != nil {
-		setupLog.Error(err, "unable to add Gateway APIs to scheme")
-		os.Exit(1)
-	}
-
-	setupLog.Info("Setting up core scheme")
-	if err := corev1.AddToScheme(mgr.GetScheme()); err != nil {
-		setupLog.Error(err, "unable to add Core APIs to scheme")
 		os.Exit(1)
 	}
 
@@ -294,10 +226,17 @@ func main() {
 		Handler: &pod.Mutator{Client: mgr.GetClient(), Clientset: clientSet, Decoder: admission.NewDecoder(mgr.GetScheme())},
 	})
 
-	setupLog.Info("registering cluster serving runtime validator webhook to the webhook server")
-	hookServer.Register("/validate-serving-kserve-io-v1alpha1-clusterservingruntime", &webhook.Admission{
-		Handler: &servingruntime.ClusterServingRuntimeValidator{Client: mgr.GetClient(), Decoder: admission.NewDecoder(mgr.GetScheme())},
-	})
+	csrAvailable, err := kserveutils.IsCrdAvailable(mgr.GetConfig(), v1alpha1.SchemeGroupVersion.String(), "ClusterServingRuntime")
+	if err != nil {
+		setupLog.Error(err, "failed to check ClusterServingRuntime CRD availability")
+		os.Exit(1)
+	}
+	if csrAvailable {
+		setupLog.Info("registering cluster serving runtime validator webhook to the webhook server")
+		hookServer.Register("/validate-serving-kserve-io-v1alpha1-clusterservingruntime", &webhook.Admission{
+			Handler: &servingruntime.ClusterServingRuntimeValidator{Client: mgr.GetClient(), Decoder: admission.NewDecoder(mgr.GetScheme())},
+		})
+	}
 
 	setupLog.Info("registering serving runtime validator webhook to the webhook server")
 	hookServer.Register("/validate-serving-kserve-io-v1alpha1-servingruntime", &webhook.Admission{
@@ -326,14 +265,6 @@ func main() {
 		WithValidator(&v1beta1.InferenceServiceValidator{}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "v1beta1")
-		os.Exit(1)
-	}
-
-	if err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha1.LocalModelCache{}).
-		WithValidator(&localmodelcache.LocalModelCacheValidator{Client: mgr.GetClient()}).
-		Complete(); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "localmodelcache")
 		os.Exit(1)
 	}
 

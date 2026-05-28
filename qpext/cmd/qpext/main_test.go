@@ -20,6 +20,7 @@ import (
 	logger "github.com/kserve/kserve/qpext"
 	io_prometheus_client "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
+	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
@@ -300,7 +301,7 @@ request_preprocess_seconds_count{model_name="custom-server-test",service_name="s
 			assert.Equal(t, rec.Code, 200)
 			assert.Contains(t, rec.Body.String(), test.output)
 
-			parser := expfmt.TextParser{}
+			parser := expfmt.NewTextParser(model.LegacyValidation)
 			mfMap, err := parser.TextToMetricFamilies(strings.NewReader(rec.Body.String()))
 			if !test.expectParseError {
 				assert.NoErrorf(t, err, "failed to parse metrics: %v", err)
@@ -402,7 +403,7 @@ request_preprocess_seconds_count{model_name="custom-server-test",service_name="s
 			assert.Equal(t, rec.Code, 200)
 			assert.Contains(t, rec.Body.String(), test.output)
 
-			parser := expfmt.TextParser{}
+			parser := expfmt.NewTextParser(model.LegacyValidation)
 			mfMap, err := parser.TextToMetricFamilies(strings.NewReader(rec.Body.String()))
 			if !test.expectParseError {
 				assert.NoErrorf(t, err, "failed to parse metrics: %v", err)

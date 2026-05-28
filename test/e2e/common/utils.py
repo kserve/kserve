@@ -15,23 +15,24 @@
 import asyncio
 import json
 import os
-import time
 from concurrent import futures
 from typing import Union, List, Dict
 from urllib.parse import urlparse
 
 import portforward
-import requests
 from kubernetes import client as k8s_client
 from orjson import orjson
+
+from httpx import HTTPStatusError
 
 from kserve import KServeClient, InferResponse, InferRequest
 from kserve import constants
 from kserve.inference_client import InferenceGRPCClient, InferenceRESTClient
 from kserve.protocol.grpc import grpc_predict_v2_pb2 as pb
 from kserve.logging import trace_logger as logger
+from .http_retry import post_with_retry
 
-KSERVE_NAMESPACE = "kserve"
+KSERVE_NAMESPACE = os.environ.get("KSERVE_NAMESPACE", "kserve")
 KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
 MODEL_CLASS_NAME = "modelClass"
 INFERENCESERVICE_CONTAINER = "kserve-container"
@@ -103,7 +104,7 @@ async def predict(
     headers = {"Host": host, "Content-Type": "application/json"}
     if is_batch:
         with futures.ThreadPoolExecutor(max_workers=4) as executor:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             future_list = [
                 await loop.run_in_executor(
                     executor,
@@ -138,19 +139,41 @@ async def _predict(
     model_name,
     headers=None,
     is_graph=False,
+    *,
+    retries: int = 5,
+    retry_delay: int = 5,
 ) -> Union[InferResponse, Dict]:
+    transient_status_codes = {502, 503, 504}
     logger.info("Sending Header = %s", headers)
     logger.info("base url = %s", url)
-    # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
-    await asyncio.sleep(5)
-    response = await client.infer(
-        url,
-        input_data,
-        model_name=model_name,
-        headers=headers,
-        is_graph_endpoint=is_graph,
-    )
-    return response
+    for attempt in range(retries):
+        try:
+            return await client.infer(
+                url,
+                input_data,
+                model_name=model_name,
+                headers=headers,
+                is_graph_endpoint=is_graph,
+            )
+        except HTTPStatusError as e:
+            logger.info(
+                "HTTP %s response body: %s",
+                e.response.status_code,
+                e.response.text,
+            )
+            if (
+                e.response.status_code not in transient_status_codes
+                or attempt == retries - 1
+            ):
+                raise
+            logger.info(
+                "Transient error on attempt %d/%d, retrying in %ds...",
+                attempt + 1,
+                retries,
+                retry_delay,
+            )
+            await asyncio.sleep(retry_delay)
+    raise RuntimeError("unreachable: retries must be >= 1")
 
 
 async def predict_ig(
@@ -200,8 +223,6 @@ async def explain_response(
         data = json.load(json_file)
         logger.info("Sending request data: %s", data)
         try:
-            # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
-            await asyncio.sleep(5)
             response = await client.explain(
                 url, model_name=service_name, data=data, headers=headers
             )
@@ -308,14 +329,44 @@ async def predict_modelmesh(
         return response
 
 
+def _get_gateway_from_config():
+    """Read the gateway namespace and name from kserveIngressGateway in the inferenceservice-config ConfigMap.
+
+    The controller stores the gateway reference as "namespace/name" in the ingress config.
+    This follows the same parsing logic used by the Go controller in configmap.go.
+    Returns (namespace, name).
+    """
+    api = k8s_client.CoreV1Api(k8s_client.ApiClient())
+    cm = api.read_namespaced_config_map(
+        name="inferenceservice-config", namespace=KSERVE_NAMESPACE
+    )
+    ingress_config = json.loads(cm.data.get("ingress", "{}"))
+    gateway = ingress_config.get("kserveIngressGateway", "")
+    parts = gateway.split("/")
+    if len(parts) == 2:
+        return parts[0], parts[1]
+    return KSERVE_NAMESPACE, "kserve-ingress-gateway"
+
+
 def get_isvc_endpoint(isvc, network_layer: str = "istio"):
     scheme = urlparse(isvc["status"]["url"]).scheme
     host = urlparse(isvc["status"]["url"]).netloc
     path = urlparse(isvc["status"]["url"]).path
-    if os.environ.get("CI_USE_ISVC_HOST") == "1":
+    logger.info(f"Host from isvc status URL = {host}")
+    logger.info(f"Network layer = {network_layer}")
+    if network_layer == "openshift-route":
         cluster_ip = host
+        logger.info(f"Using external route host: {cluster_ip}")
     elif network_layer == "istio" or network_layer == "istio-ingress":
         cluster_ip = get_cluster_ip()
+        logger.info(f"Using internal cluster IP: {cluster_ip}")
+    elif network_layer == "gateway-api":
+        gw_ns, gw_name = _get_gateway_from_config()
+        logger.info(f"Using gateway from config: {gw_ns}/{gw_name}")
+        cluster_ip = get_cluster_ip(
+            namespace=gw_ns,
+            labels={"serving.kserve.io/gateway": gw_name},
+        )
     elif network_layer == "envoy-gatewayapi":
         cluster_ip = get_cluster_ip(
             namespace="envoy-gateway-system",
@@ -336,9 +387,12 @@ def generate(
     input_json,
     version=constants.KSERVE_V1BETA1_VERSION,
     chat_completions=True,
+    network_layer: str = "istio",
 ):
     url_suffix = "v1/chat/completions" if chat_completions else "v1/completions"
-    res = _openai_request(service_name, input_json, version, url_suffix)
+    res = _openai_request(
+        service_name, input_json, version, url_suffix, network_layer=network_layer
+    )
     return _process_non_streaming_response(res)
 
 
@@ -346,8 +400,11 @@ def embed(
     service_name,
     input_json,
     version=constants.KSERVE_V1BETA1_VERSION,
+    network_layer: str = "istio",
 ):
-    res = _openai_request(service_name, input_json, version, "v1/embeddings")
+    res = _openai_request(
+        service_name, input_json, version, "v1/embeddings", network_layer=network_layer
+    )
     return _process_non_streaming_response(res)
 
 
@@ -355,13 +412,19 @@ def rerank(
     service_name,
     input_json,
     version=constants.KSERVE_V1BETA1_VERSION,
+    network_layer: str = "istio",
 ):
-    res = _openai_request(service_name, input_json, version, "v1/rerank")
+    res = _openai_request(
+        service_name, input_json, version, "v1/rerank", network_layer=network_layer
+    )
     return _process_non_streaming_response(res)
 
 
 def _get_openai_endpoint_and_host(
-    service_name, url_suffix, version=constants.KSERVE_V1BETA1_VERSION
+    service_name,
+    url_suffix,
+    version=constants.KSERVE_V1BETA1_VERSION,
+    network_layer: str = "istio",
 ):
     """
     Get the OpenAI endpoint for the given service name.
@@ -369,6 +432,7 @@ def _get_openai_endpoint_and_host(
         service_name: The name of the inference service
         url_suffix: The suffix for the OpenAI endpoint (e.g., "v1/chat/completions")
         version: The version of the inference service. Defaults to v1beta1
+        network_layer: The network layer to use for endpoint resolution
     Returns:
         A tuple containing the OpenAI endpoint URL and the host name
     """
@@ -378,7 +442,7 @@ def _get_openai_endpoint_and_host(
     isvc = kfs_client.get(
         service_name, namespace=KSERVE_TEST_NAMESPACE, version=version
     )
-    scheme, cluster_ip, host, path = get_isvc_endpoint(isvc)
+    scheme, cluster_ip, host, path = get_isvc_endpoint(isvc, network_layer)
     return f"{scheme}://{cluster_ip}{path}/openai/{url_suffix}", host
 
 
@@ -388,19 +452,25 @@ def _openai_request(
     version=constants.KSERVE_V1BETA1_VERSION,
     url_suffix="",
     stream=False,
+    network_layer: str = "istio",
 ):
     with open(input_json) as json_file:
         data = json.load(json_file)
 
-        url, host = _get_openai_endpoint_and_host(service_name, url_suffix, version)
+        url, host = _get_openai_endpoint_and_host(
+            service_name, url_suffix, version, network_layer
+        )
         headers = {"Host": host, "Content-Type": "application/json"}
 
         logger.info("Sending Header = %s", headers)
         logger.info("Sending url = %s", url)
         logger.info("Sending request data: %s", data)
-        # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
-        time.sleep(10)
-        response = requests.post(url, json.dumps(data), headers=headers, stream=stream)
+        response = post_with_retry(
+            url,
+            headers=headers,
+            json_data=data,
+            stream=stream,
+        )
         logger.info("Got response code %s", response.status_code)
         if not response.status_code == 200:
             response.raise_for_status()
@@ -417,13 +487,19 @@ def chat_completion_stream(
     service_name,
     input_json,
     version=constants.KSERVE_V1BETA1_VERSION,
+    network_layer: str = "istio",
 ):
     """
     Make a chat completion streaming request to the inference service and collect all chunks.
     Returns a tuple containing full response text and all chunks received.
     """
     res = _openai_request(
-        service_name, input_json, version, "v1/chat/completions", stream=True
+        service_name,
+        input_json,
+        version,
+        "v1/chat/completions",
+        stream=True,
+        network_layer=network_layer,
     )
 
     chunks = []
@@ -448,13 +524,19 @@ def completion_stream(
     service_name,
     input_json,
     version=constants.KSERVE_V1BETA1_VERSION,
+    network_layer: str = "istio",
 ):
     """
     Make a streaming request to the text completion inference service and collect all chunks.
     Returns a tuple containing full response text and all chunks received.
     """
     res = _openai_request(
-        service_name, input_json, version, "v1/completions", stream=True
+        service_name,
+        input_json,
+        version,
+        "v1/completions",
+        stream=True,
+        network_layer=network_layer,
     )
     chunks = []
     full_content = ""

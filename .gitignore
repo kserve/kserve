@@ -7,7 +7,8 @@
 *.dylib
 *.pyc
 *.egg-info/
-bin
+bin/*
+!bin/.gitkeep
 .venv/
 venv/
 # Test binary, build with `go test -c`
@@ -45,6 +46,7 @@ venv/
 config/overlays/development/configmap/inferenceservice_patch.yaml
 config/overlays/development/*_patch.yaml
 config/overlays/dev-image-config/inferenceservice_patch.yaml
+config/overlays/temp/
 
 .ko.yaml
 
@@ -72,3 +74,10 @@ docker-compose.yml
 
 # Istio installer downloaded by quick install
 istio-*
+
+# Claude code
+.claude/
+
+# bkit
+.bkit/
+

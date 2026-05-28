@@ -72,10 +72,10 @@ func reconcileKsvc(desired *knservingv1.Service, existing *knservingv1.Service) 
 	// Reconcile differences and update
 	// knative mutator defaults the enableServiceLinks to false which would generate a diff despite no changes on desired knative service
 	// https://github.com/knative/serving/blob/main/pkg/apis/serving/v1/revision_defaults.go#L134
-	if desired.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks == nil &&
-		existing.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks != nil &&
-		!*existing.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks {
-		desired.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks = proto.Bool(false)
+	if desired.Spec.Template.Spec.EnableServiceLinks == nil &&
+		existing.Spec.Template.Spec.EnableServiceLinks != nil &&
+		!*existing.Spec.Template.Spec.EnableServiceLinks {
+		desired.Spec.Template.Spec.EnableServiceLinks = proto.Bool(false)
 	}
 	diff, err := kmp.SafeDiff(desired.Spec.ConfigurationSpec, existing.Spec.ConfigurationSpec)
 	if err != nil {
@@ -83,7 +83,7 @@ func reconcileKsvc(desired *knservingv1.Service, existing *knservingv1.Service) 
 	}
 	log.Info("inference graph knative service configuration diff (-desired, +observed):", "diff", diff)
 	existing.Spec.ConfigurationSpec = desired.Spec.ConfigurationSpec
-	existing.ObjectMeta.Labels = desired.ObjectMeta.Labels
+	existing.Labels = desired.Labels
 	existing.Spec.Traffic = desired.Spec.Traffic
 	return nil
 }
@@ -152,7 +152,7 @@ func (r *GraphKnativeServiceReconciler) Reconcile(ctx context.Context) (*knservi
 
 func semanticEquals(desiredService, service *knservingv1.Service) bool {
 	return equality.Semantic.DeepEqual(desiredService.Spec.ConfigurationSpec, service.Spec.ConfigurationSpec) &&
-		equality.Semantic.DeepEqual(desiredService.ObjectMeta.Labels, service.ObjectMeta.Labels) &&
+		equality.Semantic.DeepEqual(desiredService.Labels, service.Labels) &&
 		equality.Semantic.DeepEqual(desiredService.Spec.RouteSpec, service.Spec.RouteSpec)
 }
 

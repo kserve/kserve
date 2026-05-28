@@ -18,7 +18,6 @@ package localmodelnode
 
 import (
 	"context"
-	"path/filepath"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -26,16 +25,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	pkgtest "github.com/kserve/kserve/pkg/testing"
 	// +kubebuilder:scaffold:imports
@@ -56,46 +49,31 @@ func TestAPIs(t *testing.T) {
 	RunSpecs(t, "v1alpha1 Controller Suite")
 }
 
-var _ = BeforeSuite(func() {
-	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
-	ctx, cancel := context.WithCancel(context.TODO())
-	By("bootstrapping test environment")
-	crdDirectoryPaths := []string{
-		filepath.Join(pkgtest.ProjectRoot(), "test", "crds"),
+var _ = BeforeSuite(func(ctx SpecContext) {
+	fsMock = newMockFileSystem()
+	fsHelper = fsMock
+
+	ctrlFunc := func(restCfg *rest.Config, mgr ctrl.Manager) error {
+		clientset, err := kubernetes.NewForConfig(restCfg)
+		if err != nil {
+			return err
+		}
+
+		return (&LocalModelNodeReconciler{
+			Client:    mgr.GetClient(),
+			Clientset: clientset,
+			Scheme:    mgr.GetScheme(),
+			Log:       ctrl.Log.WithName("v1alpha1LocalModelAgent"),
+		}).SetupWithManager(mgr)
 	}
-	testEnv := pkgtest.SetupEnvTest(crdDirectoryPaths)
-	var err error
-	cfg, err = testEnv.Start()
-	Expect(err).ToNot(HaveOccurred())
-	Expect(cfg).ToNot(BeNil())
 
-	DeferCleanup(func() {
-		cancel()
-		By("tearing down the test environment")
-		err := testEnv.Stop()
-		Expect(err).ToNot(HaveOccurred())
-	})
+	envTest := pkgtest.NewEnvTest().
+		WithControllers(ctrlFunc).
+		// The suite manager/webhook must outlive BeforeSuite node context.
+		Start(context.Background())
 
-	err = v1alpha1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = v1beta1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	// +kubebuilder:scaffold:scheme
-
-	clientset, err := kubernetes.NewForConfig(cfg)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(clientset).ToNot(BeNil())
-
-	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: scheme.Scheme,
-		Metrics: metricsserver.Options{
-			BindAddress: "0",
-		},
-	})
-	Expect(err).ToNot(HaveOccurred())
-
-	k8sClient = k8sManager.GetClient()
-	Expect(k8sClient).ToNot(BeNil())
+	cfg = envTest.Config
+	k8sClient = envTest.Client
 
 	// Creates namespace
 	kserveNamespaceObj := &corev1.Namespace{
@@ -108,22 +86,6 @@ var _ = BeforeSuite(func() {
 			Name: "kserve-localmodel-jobs",
 		},
 	}
-	Expect(k8sClient.Create(context.Background(), kserveNamespaceObj)).Should(Succeed())
-	Expect(k8sClient.Create(context.Background(), jobsNamespaceObj)).Should(Succeed())
-
-	fsMock = newMockFileSystem()
-	fsHelper = fsMock
-
-	err = (&LocalModelNodeReconciler{
-		Client:    k8sManager.GetClient(),
-		Clientset: clientset,
-		Scheme:    scheme.Scheme,
-		Log:       ctrl.Log.WithName("v1alpha1LocalModelAgent"),
-	}).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
-	defer GinkgoRecover()
-	go func() {
-		err = k8sManager.Start(ctx)
-		Expect(err).ToNot(HaveOccurred())
-	}()
+	Expect(k8sClient.Create(ctx, kserveNamespaceObj)).Should(Succeed())
+	Expect(k8sClient.Create(ctx, jobsNamespaceObj)).Should(Succeed())
 })

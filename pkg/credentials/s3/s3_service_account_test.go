@@ -91,6 +91,68 @@ func TestS3ServiceAccount(t *testing.T) {
 			},
 		},
 
+		"S3EndpointWithHttpsProtocol": {
+			serviceAccount: &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "s3-service-account",
+					Annotations: map[string]string{
+						InferenceServiceS3SecretEndpointAnnotation: "https://s3.aws.com",
+						InferenceServiceS3SecretHttpsAnnotation:    "0",
+						InferenceServiceS3SecretSSLAnnotation:      "1",
+					},
+				},
+			},
+			expected: []corev1.EnvVar{
+				{
+					Name:  S3UseHttps,
+					Value: "1",
+				},
+				{
+					Name:  S3Endpoint,
+					Value: "s3.aws.com",
+				},
+				{
+					Name:  AWSEndpointUrl,
+					Value: "https://s3.aws.com",
+				},
+				{
+					Name:  S3VerifySSL,
+					Value: "1",
+				},
+			},
+		},
+
+		"S3EndpointWithHttpProtocol": {
+			serviceAccount: &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "s3-service-account",
+					Annotations: map[string]string{
+						InferenceServiceS3SecretEndpointAnnotation: "http://s3.aws.com",
+						InferenceServiceS3SecretHttpsAnnotation:    "1",
+						InferenceServiceS3SecretSSLAnnotation:      "0",
+					},
+				},
+			},
+			expected: []corev1.EnvVar{
+				{
+					Name:  S3UseHttps,
+					Value: "0",
+				},
+				{
+					Name:  S3Endpoint,
+					Value: "s3.aws.com",
+				},
+				{
+					Name:  AWSEndpointUrl,
+					Value: "http://s3.aws.com",
+				},
+				{
+					Name:  S3VerifySSL,
+					Value: "0",
+				},
+			},
+		},
+
 		"S3EnvsWithAnonymousCredentials": {
 			serviceAccount: &corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{

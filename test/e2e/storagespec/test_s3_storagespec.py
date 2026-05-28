@@ -32,13 +32,13 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 @pytest.mark.predictor
 @pytest.mark.path_based_routing
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_s3_storagespec_kserve(rest_v1_client):
+async def test_sklearn_s3_storagespec_kserve(rest_v1_client, network_layer):
     service_name = "isvc-sklearn-s3"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         sklearn=V1beta1SKLearnSpec(
             storage=V1beta1StorageSpec(
-                key="localMinIO",
+                key="localS3",
                 path="sklearn",
                 parameters={"bucket": "example-models"},
             ),
@@ -63,6 +63,11 @@ async def test_sklearn_s3_storagespec_kserve(rest_v1_client):
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
+    res = await predict_isvc(
+        rest_v1_client,
+        service_name,
+        "./data/iris_input.json",
+        network_layer=network_layer,
+    )
     assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

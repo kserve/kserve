@@ -17,7 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	"fmt"
 	"reflect"
 	"strings"
 
@@ -367,7 +366,6 @@ func (ss *InferenceServiceStatus) PropagateRawStatus(
 			Message: availableCondition.Message,
 		}
 	}
-	fmt.Printf("availableCondition %v\n", componentReadyCondition)
 
 	progressingCondition := getDeploymentCondition(deploymentList, appsv1.DeploymentProgressing)
 	if progressingCondition != nil {
@@ -427,11 +425,12 @@ func (ss *InferenceServiceStatus) PropagateRawStatus(
 	if componentReadyCondition != nil && componentReadyCondition.Status == corev1.ConditionTrue {
 		statusSpec.URL = url
 	}
-	fmt.Printf("availableCondition2 %v", componentReadyCondition)
 
 	ss.SetCondition(readyCondition, componentReadyCondition)
 	ss.Components[component] = statusSpec
-	ss.ObservedGeneration = deploymentList[0].Status.ObservedGeneration
+	if len(deploymentList) > 0 {
+		ss.ObservedGeneration = deploymentList[0].Status.ObservedGeneration
+	}
 }
 
 func getDeploymentCondition(deploymentList []*appsv1.Deployment, conditionType appsv1.DeploymentConditionType) *apis.Condition {
@@ -466,7 +465,7 @@ func getDeploymentCondition(deploymentList []*appsv1.Deployment, conditionType a
 			condition.LastTransitionTime = lastTransitionTime[0] // used head node one
 		}
 		condition.Reason = strings.Join(reasons, ", ")
-	} else {
+	} else if len(deploymentList) == 1 {
 		// Usual rawDeployment case
 		for _, con := range deploymentList[0].Status.Conditions {
 			if con.Type == conditionType {
@@ -595,7 +594,7 @@ func (ss *InferenceServiceStatus) SetCondition(conditionType apis.ConditionType,
 	case condition.Status == corev1.ConditionUnknown:
 		conditionSet.Manage(ss).MarkUnknown(conditionType, condition.Reason, condition.Message)
 	case condition.Status == corev1.ConditionTrue:
-		conditionSet.Manage(ss).MarkTrue(conditionType)
+		conditionSet.Manage(ss).MarkTrueWithReason(conditionType, condition.Reason, condition.Message)
 	case condition.Status == corev1.ConditionFalse:
 		conditionSet.Manage(ss).MarkFalse(conditionType, condition.Reason, condition.Message)
 	}

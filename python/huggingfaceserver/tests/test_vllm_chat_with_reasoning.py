@@ -33,7 +33,6 @@ def server():  # noqa: F811
         "--max-model-len",
         "2048",
         "--trust_remote_code",
-        "--enable-reasoning",
         "--reasoning-parser",
         "deepseek_r1",
     ]

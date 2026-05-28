@@ -1,0 +1,9 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: llmisvc-manager-rolebinding
+subjects:
+- kind: ServiceAccount
+  name: {{ include "llm-isvc-resources.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}

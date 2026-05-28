@@ -23,6 +23,7 @@ import (
 	logger "github.com/kserve/kserve/qpext"
 	io_prometheus_client "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
+	"github.com/prometheus/common/model"
 	"go.uber.org/zap"
 	"io"
 	"net"
@@ -296,7 +297,7 @@ func (sc *ScrapeConfigurations) handleStats(w http.ResponseWriter, r *http.Reque
 
 	if application != nil {
 		var err error
-		var parser expfmt.TextParser
+		parser := expfmt.NewTextParser(model.LegacyValidation)
 		var mfs map[string]*io_prometheus_client.MetricFamily
 		mfs, err = parser.TextToMetricFamilies(application)
 		if err != nil {

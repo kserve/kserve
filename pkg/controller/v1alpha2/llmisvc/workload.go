@@ -1,0 +1,237 @@
+/*
+Copyright 2025 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package llmisvc
+
+import (
+	"context"
+	"fmt"
+
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
+	"knative.dev/pkg/kmeta"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
+)
+
+// sidecarSSRFProtectionRules defines RBAC rules for the routing sidecar
+// These permissions are needed to discover and monitor inference pools and pods.
+var sidecarSSRFProtectionRules = []rbacv1.PolicyRule{
+	{APIGroups: []string{""}, Resources: []string{"pods"}, Verbs: []string{"get", "list", "watch"}},
+	{APIGroups: []string{"inference.networking.x-k8s.io"}, Resources: []string{"inferencepools"}, Verbs: []string{"get", "list", "watch"}},
+}
+
+// reconcileWorkload manages the Deployments and Services for the LLM.
+// It handles standard, multi-node, and disaggregated (prefill/decode) deployment patterns.
+func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
+	logger := log.FromContext(ctx).WithName("reconcileWorkload")
+	ctx = log.IntoContext(ctx, logger)
+
+	logger.Info("Reconciling Workload")
+
+	// Ensure readiness is determined even if errors occur
+	defer llmSvc.DetermineWorkloadReadiness()
+
+	if utils.GetForceStopRuntime(llmSvc) {
+		llmSvc.MarkMainWorkloadNotReady("Stopped", "Service is stopped")
+	}
+
+	// Set up TLS certificates for secure communication
+	if err := r.reconcileSelfSignedCertsSecret(ctx, llmSvc, config.SchedulerConfig); err != nil {
+		llmSvc.MarkMainWorkloadNotReady("ReconcileCertsError", err.Error())
+		return fmt.Errorf("failed to reconcile self-signed certificates secret: %w", err)
+	}
+
+	// Reconcile platform-specific workload permissions (e.g. SCC RoleBindings)
+	// before creating workloads so pods can start with the correct permissions.
+	if err := r.reconcileWorkloadPlatformPermissions(ctx, llmSvc); err != nil {
+		llmSvc.MarkMainWorkloadNotReady("ReconcileWorkloadPermissionsError", err.Error())
+		return fmt.Errorf("failed to reconcile workload platform permissions: %w", err)
+	}
+
+	// We need to always reconcile every type of workload to handle transitions from P/D to another topology (meaning
+	// finalizing superfluous workloads).
+
+	// Handle multi-node deployments using LeaderWorkerSets
+	if err := r.reconcileMultiNodeWorkload(ctx, llmSvc, config); err != nil {
+		llmSvc.MarkWorkerWorkloadNotReady("ReconcileMultiNodeWorkloadError", err.Error())
+		return fmt.Errorf("failed to reconcile multi node workload: %w", err)
+	}
+
+	// Handle single-node deployments using standard Deployments
+	if err := r.reconcileSingleNodeWorkload(ctx, llmSvc, config); err != nil {
+		llmSvc.MarkMainWorkloadNotReady("ReconcileSingleNodeWorkloadError", err.Error())
+		return fmt.Errorf("failed to reconcile single node workload: %w", err)
+	}
+
+	// Create Service to expose workload pods
+	if err := r.reconcileWorkloadService(ctx, llmSvc, config); err != nil {
+		llmSvc.MarkMainWorkloadNotReady("ReconcileWorkloadServiceError", err.Error())
+		return fmt.Errorf("failed to reconcile workload service: %w", err)
+	}
+
+	// Reconcile autoscaling resources (VariantAutoscaling + HPA or KEDA ScaledObject) when scaling is configured.
+	// A missing CRD is a hard error: the LLMISVC is misconfigured and deployment is blocked.
+	if err := r.reconcileScaling(ctx, llmSvc, config); err != nil {
+		if meta.IsNoMatchError(err) {
+			r.Eventf(llmSvc, corev1.EventTypeWarning, "ScalingCRDNotFound",
+				"Required scaling CRD not installed: %v", err)
+			llmSvc.MarkMainWorkloadNotReady("ScalingCRDNotFound", err.Error())
+		} else {
+			llmSvc.MarkMainWorkloadNotReady("ReconcileScalingError", err.Error())
+		}
+		return fmt.Errorf("failed to reconcile scaling: %w", err)
+	}
+
+	return nil
+}
+
+func (r *LLMISVCReconciler) reconcileWorkloadService(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
+	workloadServiceProtocol := "http"
+	if config != nil && config.EnableTLS {
+		workloadServiceProtocol = "https"
+	}
+	expected := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      workloadServiceName(llmSvc),
+			Namespace: llmSvc.GetNamespace(),
+			Labels: map[string]string{
+				constants.KubernetesComponentLabelKey: constants.LLMComponentWorkload,
+				constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
+				constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			// The rationale for not supporting changing the vLLM port is because it requires a lot of changes beyond
+			// this service (presets, routing sidecar flags, routing sidecar container spec , etc) or selecting the
+			// exact port is not trivial, for example, when there is P/D, the request goes through the routing sidecar,
+			// so here we would need to use the routing sidecar container ports.
+			//
+			// The presets we bundle assume 8000 for the "main receiver" (being it vllm or P/D routing sidecar) and,
+			// for now, I'd discourage that use case unless we have a use case that requires not assuming
+			// "main receiver" port.
+			Ports: []corev1.ServicePort{
+				{
+					Name:        workloadServiceProtocol,
+					Protocol:    corev1.ProtocolTCP,
+					AppProtocol: ptr.To(workloadServiceProtocol),
+					Port:        8000,
+					TargetPort: intstr.IntOrString{
+						Type:   intstr.Int,
+						IntVal: 8000,
+					},
+				},
+			},
+			Selector: GetWorkloadLabelSelector(llmSvc.ObjectMeta, &llmSvc.Spec),
+			Type:     corev1.ServiceTypeClusterIP,
+		},
+	}
+
+	utils.PropagateMap(llmSvc.Spec.Labels, &expected.Labels)
+	utils.PropagateMap(llmSvc.Spec.Annotations, &expected.Annotations)
+
+	if utils.GetForceStopRuntime(llmSvc) {
+		return Delete(ctx, r, llmSvc, expected)
+	}
+
+	return Reconcile(ctx, r, llmSvc, &corev1.Service{}, expected, semanticServiceIsEqual)
+}
+
+func GetWorkloadLabelSelector(meta metav1.ObjectMeta, _ *v1alpha2.LLMInferenceServiceSpec) map[string]string {
+	s := map[string]string{
+		constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+		constants.KubernetesAppNameLabelKey: meta.GetName(),
+		constants.KServeComponentLabelKey:   constants.KServeComponentWorkload,
+	}
+
+	// TODO https://github.com/llm-d/llm-d-inference-scheduler/issues/220 and DP template
+
+	return s
+}
+
+func workloadServiceName(llmSvc *v1alpha2.LLMInferenceService) string {
+	return kmeta.ChildName(llmSvc.GetName(), "-kserve-workload-svc")
+}
+
+// injectSecretsFromDefaultServiceAccount copies ImagePullSecrets and Secrets from the
+// namespace's default ServiceAccount onto the target ServiceAccount. This ensures that
+// controller-created ServiceAccounts inherit private registry credentials configured on
+// the default SA. If the default SA cannot be retrieved, a warning is logged and the
+// target SA is left unchanged.
+func (r *LLMISVCReconciler) injectSecretsFromDefaultServiceAccount(ctx context.Context, target *corev1.ServiceAccount) {
+	defaultSa := &corev1.ServiceAccount{}
+	if err := r.Get(ctx, types.NamespacedName{Name: constants.LLMISVCDefaultServiceAccountName, Namespace: target.Namespace}, defaultSa); err != nil {
+		log.FromContext(ctx).Error(err, "Warning: failed to retrieve 'default' service account, continuing ...")
+		return
+	}
+	target.ImagePullSecrets = defaultSa.ImagePullSecrets
+	target.Secrets = defaultSa.Secrets
+}
+
+func hasRoutingSidecar(pod corev1.PodSpec) bool {
+	return routingSidecar(&pod) != nil
+}
+
+// routingSidecar returns the routing sidecar container within a pod if present.
+// The routing sidecar is used for disaggregated serving (separate prefill and decode instances) for multi node workloads
+// and is used in the single node deployment topology when prefill/decode is enabled for single node workloads.
+func routingSidecar(pod *corev1.PodSpec) *corev1.Container {
+	if pod != nil {
+		for i := range pod.InitContainers {
+			if pod.InitContainers[i].Name == constants.LLMISVCRoutingSidecarContainerName {
+				return &pod.InitContainers[i]
+			}
+		}
+	}
+	return nil
+}
+
+// PreserveDeploymentReplicas returns an UpdateOption that preserves the current
+// Deployment's replica count when the owner doesn't explicitly set it.
+// This allows external controllers (like HPA) to manage replicas without the
+// reconciler overwriting their values.
+func PreserveDeploymentReplicas() UpdateOption[*appsv1.Deployment] {
+	return AfterDryRun(func(expected, expectedGiven, curr *appsv1.Deployment) {
+		if expectedGiven.Spec.Replicas == nil {
+			expected.Spec.Replicas = curr.Spec.Replicas
+		}
+	})
+}
+
+// PreserveLWSReplicas returns an UpdateOption that preserves the current
+// LeaderWorkerSet's replica count when the owner doesn't explicitly set it.
+// This allows external controllers to manage replicas without the
+// reconciler overwriting their values.
+func PreserveLWSReplicas() UpdateOption[*lwsapi.LeaderWorkerSet] {
+	return AfterDryRun(func(expected, expectedGiven, curr *lwsapi.LeaderWorkerSet) {
+		if expectedGiven.Spec.Replicas == nil {
+			expected.Spec.Replicas = curr.Spec.Replicas
+		}
+	})
+}

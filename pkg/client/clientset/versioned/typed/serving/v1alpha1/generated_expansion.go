@@ -24,7 +24,11 @@ type ClusterStorageContainerExpansion interface{}
 
 type InferenceGraphExpansion interface{}
 
+type LLMInferenceServiceExpansion interface{}
+
 type LocalModelCacheExpansion interface{}
+
+type LocalModelNamespaceCacheExpansion interface{}
 
 type LocalModelNodeExpansion interface{}
 

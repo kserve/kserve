@@ -17,6 +17,8 @@ limitations under the License.
 package localmodelnode
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 )
@@ -49,7 +51,14 @@ func (f *FileSystemHelper) removeModel(modelName string) error {
 }
 
 func (f *FileSystemHelper) getModelFolders() ([]os.DirEntry, error) {
-	return os.ReadDir(f.modelsRootFolder)
+	entries, err := os.ReadDir(f.modelsRootFolder)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return entries, nil
 }
 
 func (f *FileSystemHelper) hasModelFolder(modelName string) (bool, error) {
@@ -66,7 +75,7 @@ func (f *FileSystemHelper) hasModelFolder(modelName string) (bool, error) {
 
 func (f *FileSystemHelper) ensureModelRootFolderExists() error {
 	// If the folder already exists, this will do nothing
-	if err := os.MkdirAll(f.modelsRootFolder, os.ModePerm); err != nil {
+	if err := os.MkdirAll(f.modelsRootFolder, os.ModePerm); err != nil { //nolint:gosec // G301: local model cache must be readable by model server running as a different UID
 		return err
 	}
 	return nil

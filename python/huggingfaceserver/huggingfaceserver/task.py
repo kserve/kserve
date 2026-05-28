@@ -24,6 +24,7 @@ from transformers import (
     AutoModelForSeq2SeqLM,
     AutoModelForSequenceClassification,
     AutoModelForTableQuestionAnswering,
+    AutoModelForTimeSeriesPrediction,
     AutoModelForTokenClassification,
     PretrainedConfig,
 )
@@ -43,6 +44,7 @@ class MLTask(str, Enum):
     text2text_generation = auto()
     multiple_choice = auto()
     text_embedding = auto()
+    time_series_forecast = auto()
 
     @classmethod
     def _missing_(cls, value: str):
@@ -64,6 +66,7 @@ ARCHITECTURES_2_TASK = {
     "ForConditionalGeneration": MLTask.text2text_generation,
     "MTModel": MLTask.text2text_generation,
     "EncoderDecoderModel": MLTask.text2text_generation,
+    "ForPrediction": MLTask.time_series_forecast,
 }
 
 TASK_2_CLS = {
@@ -76,6 +79,7 @@ TASK_2_CLS = {
     MLTask.text2text_generation: AutoModelForSeq2SeqLM,
     MLTask.multiple_choice: AutoModelForMultipleChoice,
     MLTask.text_embedding: AutoModel,
+    MLTask.time_series_forecast: AutoModelForTimeSeriesPrediction,
 }
 
 SUPPORTED_TASKS = {
@@ -85,6 +89,7 @@ SUPPORTED_TASKS = {
     MLTask.text_generation,
     MLTask.text2text_generation,
     MLTask.text_embedding,
+    MLTask.time_series_forecast,
 }
 
 
@@ -114,6 +119,7 @@ def is_generative_task(task: MLTask) -> bool:
     return task in {
         MLTask.text_generation,
         MLTask.text2text_generation,
+        MLTask.time_series_forecast,
     }
 
 

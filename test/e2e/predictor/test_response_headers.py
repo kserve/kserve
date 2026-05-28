@@ -1,9 +1,7 @@
 import os
 
 import pytest
-import requests
 import logging
-import time
 import json
 
 from kserve import (
@@ -17,6 +15,7 @@ from kserve import (
 from kubernetes.client import V1ResourceRequirements
 from kubernetes import client
 from kubernetes.client import V1Container, V1ContainerPort
+from ..common.http_retry import post_with_retry
 from ..common.utils import KSERVE_TEST_NAMESPACE, get_isvc_endpoint
 
 
@@ -88,10 +87,9 @@ def test_predictor_headers_v1():
 
     url = f"{scheme}://{cluster_ip}{path}/v1/models/{model_name}:predict"
 
-    time.sleep(10)
     with open(input_json) as json_file:
         data = json.load(json_file)
-        response = requests.post(url, json.dumps(data), headers=headers)
+        response = post_with_retry(url, headers=headers, json_data=data)
         logging.info(
             "Got response code %s, content %s", response.status_code, response.content
         )
@@ -173,10 +171,9 @@ def test_predictor_headers_v2():
 
     url = f"{scheme}://{cluster_ip}{path}/v2/models/{model_name}/infer"
 
-    time.sleep(10)
     with open(input_json) as json_file:
         data = json.load(json_file)
-        response = requests.post(url, json.dumps(data), headers=headers)
+        response = post_with_retry(url, headers=headers, json_data=data)
         logging.info(
             "Got response code %s, content %s", response.status_code, response.content
         )

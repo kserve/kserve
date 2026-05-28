@@ -116,15 +116,15 @@ echo "Waiting for KServe started ..."
 kubectl wait --for=condition=Ready pods --all --timeout=180s -n kserve
 kubectl get events -A
 
-echo "Add testing models to minio stroage ..."
-kubectl apply -f config/overlays/test/minio/minio-init-job.yaml -n kserve
-kubectl wait --for=condition=complete --timeout=30s job/minio-init -n kserve
+echo "Add testing models to s3 storage ..."
+kubectl apply -f config/overlays/test/s3-local-backend/seaweedfs-init-job.yaml -n kserve
+kubectl wait --for=condition=complete --timeout=30s job/s3-init -n kserve
 
 echo "Creating a namespace kserve-ci-test ..."
 kubectl create namespace kserve-ci-e2e-test
 
 echo "Add storageSpec testing secrets ..."
-kubectl apply -f config/overlays/test/minio/minio-user-secret.yaml -n kserve-ci-e2e-test
+kubectl apply -f config/overlays/test/s3-local-backend/storage-config-secret.yaml -n kserve-ci-e2e-test
 
 echo "Istio, Knative and KServe have been installed and started."
 

@@ -1,0 +1,13 @@
+# kserve-llmisvc-crd-minimal
+
+Helm chart for deploying LLMInferenceService minimal crds
+
+![Version: v0.19.0-rc0](https://img.shields.io/badge/Version-v0.19.0--rc0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.19.0-rc0](https://img.shields.io/badge/AppVersion-v0.19.0--rc0-informational?style=flat-square)
+
+## Installing the Chart
+
+To install the chart, run the following:
+
+```console
+$ helm install kserve-llmisvc-crd-minimal oci://ghcr.io/kserve/charts/kserve-llmisvc-crd-minimal --version v0.19.0-rc0
+```

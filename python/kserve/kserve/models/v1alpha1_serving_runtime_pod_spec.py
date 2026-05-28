@@ -54,6 +54,7 @@ class V1alpha1ServingRuntimePodSpec(object):
         'image_pull_secrets': 'list[V1LocalObjectReference]',
         'labels': 'dict(str, str)',
         'node_selector': 'dict(str, str)',
+        'scheduler_name': 'str',
         'tolerations': 'list[V1Toleration]',
         'volumes': 'list[V1Volume]'
     }
@@ -66,11 +67,12 @@ class V1alpha1ServingRuntimePodSpec(object):
         'image_pull_secrets': 'imagePullSecrets',
         'labels': 'labels',
         'node_selector': 'nodeSelector',
+        'scheduler_name': 'schedulerName',
         'tolerations': 'tolerations',
         'volumes': 'volumes'
     }
 
-    def __init__(self, affinity=None, annotations=None, containers=None, host_ipc=None, image_pull_secrets=None, labels=None, node_selector=None, tolerations=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, affinity=None, annotations=None, containers=None, host_ipc=None, image_pull_secrets=None, labels=None, node_selector=None, scheduler_name=None, tolerations=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1ServingRuntimePodSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -83,6 +85,7 @@ class V1alpha1ServingRuntimePodSpec(object):
         self._image_pull_secrets = None
         self._labels = None
         self._node_selector = None
+        self._scheduler_name = None
         self._tolerations = None
         self._volumes = None
         self.discriminator = None
@@ -100,6 +103,8 @@ class V1alpha1ServingRuntimePodSpec(object):
             self.labels = labels
         if node_selector is not None:
             self.node_selector = node_selector
+        if scheduler_name is not None:
+            self.scheduler_name = scheduler_name
         if tolerations is not None:
             self.tolerations = tolerations
         if volumes is not None:
@@ -265,6 +270,29 @@ class V1alpha1ServingRuntimePodSpec(object):
         """
 
         self._node_selector = node_selector
+
+    @property
+    def scheduler_name(self):
+        """Gets the scheduler_name of this V1alpha1ServingRuntimePodSpec.  # noqa: E501
+
+        If specified, the pod will be dispatched by specified scheduler. If not specified, the pod will be dispatched by default scheduler.  # noqa: E501
+
+        :return: The scheduler_name of this V1alpha1ServingRuntimePodSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._scheduler_name
+
+    @scheduler_name.setter
+    def scheduler_name(self, scheduler_name):
+        """Sets the scheduler_name of this V1alpha1ServingRuntimePodSpec.
+
+        If specified, the pod will be dispatched by specified scheduler. If not specified, the pod will be dispatched by default scheduler.  # noqa: E501
+
+        :param scheduler_name: The scheduler_name of this V1alpha1ServingRuntimePodSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._scheduler_name = scheduler_name
 
     @property
     def tolerations(self):

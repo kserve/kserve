@@ -33,7 +33,7 @@ var _ ComponentImplementation = &SKLearnSpec{}
 
 // Default sets defaults on the resource
 func (k *SKLearnSpec) Default(config *InferenceServicesConfig) {
-	k.Container.Name = constants.InferenceServiceContainerName
+	k.Name = constants.InferenceServiceContainerName
 
 	if k.ProtocolVersion == nil {
 		defaultProtocol := constants.ProtocolV1

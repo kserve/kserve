@@ -35,10 +35,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	knutils "github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
+	"github.com/kserve/kserve/pkg/credentials"
+	kserveTypes "github.com/kserve/kserve/pkg/types"
 	"github.com/kserve/kserve/pkg/utils"
+	"github.com/kserve/kserve/pkg/webhook/admission/pod"
 )
 
 var log = logf.Log.WithName("KsvcReconciler")
@@ -58,6 +62,7 @@ type KsvcReconciler struct {
 }
 
 func NewKsvcReconciler(
+	ctx context.Context,
 	client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
@@ -65,22 +70,34 @@ func NewKsvcReconciler(
 	podSpec *corev1.PodSpec,
 	componentStatus v1beta1.ComponentStatusSpec,
 	disallowedLabelList []string,
+	storageUrisSpec *[]v1beta1.StorageUri,
+	storageInitializerConfig *kserveTypes.StorageInitializerConfig,
+	storageSpec *v1beta1.StorageSpec,
+	credentialBuilder *credentials.CredentialBuilder,
+	storageContainerSpec *v1alpha1.StorageContainerSpec,
 ) *KsvcReconciler {
 	return &KsvcReconciler{
 		client:          client,
 		scheme:          scheme,
-		Service:         createKnativeService(componentMeta, componentExt, podSpec, componentStatus, disallowedLabelList),
+		Service:         createKnativeService(ctx, client, componentMeta, componentExt, podSpec, componentStatus, disallowedLabelList, storageUrisSpec, storageInitializerConfig, storageSpec, credentialBuilder, storageContainerSpec),
 		componentExt:    componentExt,
 		componentStatus: componentStatus,
 	}
 }
 
 func createKnativeService(
+	ctx context.Context,
+	client client.Client,
 	componentMeta metav1.ObjectMeta,
 	componentExtension *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec,
 	componentStatus v1beta1.ComponentStatusSpec,
 	disallowedLabelList []string,
+	storageUris *[]v1beta1.StorageUri,
+	storageInitializerConfig *kserveTypes.StorageInitializerConfig,
+	storageSpec *v1beta1.StorageSpec,
+	credentialBuilder *credentials.CredentialBuilder,
+	storageContainerSpec *v1alpha1.StorageContainerSpec,
 ) *knservingv1.Service {
 	annotations := componentMeta.GetAnnotations()
 
@@ -150,6 +167,28 @@ func createKnativeService(
 		return !utils.Includes(disallowedLabelList, key)
 	})
 
+	if storageUris != nil && len(*storageUris) > 0 {
+		isvcReadonlyStringFlag := pod.GetStorageInitializerReadOnlyFlag(annotations)
+
+		storageInitializerParams := &pod.StorageInitializerParams{
+			Namespace:            componentMeta.Namespace,
+			StorageURIs:          *storageUris,
+			IsReadOnly:           isvcReadonlyStringFlag,
+			PodSpec:              podSpec,
+			CredentialBuilder:    credentialBuilder,
+			Client:               client,
+			Config:               storageInitializerConfig,
+			IsvcAnnotations:      annotations,
+			StorageSpec:          storageSpec,
+			StorageContainerSpec: storageContainerSpec,
+		}
+
+		err := pod.CommonStorageInitialization(ctx, storageInitializerParams)
+		if err != nil {
+			log.Error(err, "Failed to initialize storage init container")
+		}
+	}
+
 	service := &knservingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        componentMeta.Name,
@@ -193,10 +232,10 @@ func reconcileKsvc(desired *knservingv1.Service, existing *knservingv1.Service) 
 	// Reconcile differences and update
 	// knative mutator defaults the enableServiceLinks to false which would generate a diff despite no changes on desired knative service
 	// https://github.com/knative/serving/blob/main/pkg/apis/serving/v1/revision_defaults.go#L134
-	if desired.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks == nil &&
-		existing.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks != nil &&
-		!*existing.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks {
-		desired.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks = proto.Bool(false)
+	if desired.Spec.Template.Spec.EnableServiceLinks == nil &&
+		existing.Spec.Template.Spec.EnableServiceLinks != nil &&
+		!*existing.Spec.Template.Spec.EnableServiceLinks {
+		desired.Spec.Template.Spec.EnableServiceLinks = proto.Bool(false)
 	}
 	diff, err := kmp.SafeDiff(desired.Spec.ConfigurationSpec, existing.Spec.ConfigurationSpec)
 	if err != nil {
@@ -204,13 +243,13 @@ func reconcileKsvc(desired *knservingv1.Service, existing *knservingv1.Service) 
 	}
 	log.Info("knative service configuration diff (-desired, +observed):", "diff", diff)
 	existing.Spec.ConfigurationSpec = desired.Spec.ConfigurationSpec
-	existing.ObjectMeta.Labels = desired.ObjectMeta.Labels
+	existing.Labels = desired.Labels
 	existing.Spec.Traffic = desired.Spec.Traffic
 	for ksvcAnnotationKey := range managedKsvcAnnotations {
-		if desiredValue, ok := desired.ObjectMeta.Annotations[ksvcAnnotationKey]; ok {
-			existing.ObjectMeta.Annotations[ksvcAnnotationKey] = desiredValue
+		if desiredValue, ok := desired.Annotations[ksvcAnnotationKey]; ok {
+			existing.Annotations[ksvcAnnotationKey] = desiredValue
 		} else {
-			delete(existing.ObjectMeta.Annotations, ksvcAnnotationKey)
+			delete(existing.Annotations, ksvcAnnotationKey)
 		}
 	}
 	return nil
@@ -280,13 +319,13 @@ func (r *KsvcReconciler) Reconcile(ctx context.Context) (*knservingv1.ServiceSta
 
 func semanticEquals(desiredService, service *knservingv1.Service) bool {
 	for ksvcAnnotationKey := range managedKsvcAnnotations {
-		existingValue, ok1 := service.ObjectMeta.Annotations[ksvcAnnotationKey]
-		desiredValue, ok2 := desiredService.ObjectMeta.Annotations[ksvcAnnotationKey]
+		existingValue, ok1 := service.Annotations[ksvcAnnotationKey]
+		desiredValue, ok2 := desiredService.Annotations[ksvcAnnotationKey]
 		if ok1 != ok2 || existingValue != desiredValue {
 			return false
 		}
 	}
 	return equality.Semantic.DeepEqual(desiredService.Spec.ConfigurationSpec, service.Spec.ConfigurationSpec) &&
-		equality.Semantic.DeepEqual(desiredService.ObjectMeta.Labels, service.ObjectMeta.Labels) &&
+		equality.Semantic.DeepEqual(desiredService.Labels, service.Labels) &&
 		equality.Semantic.DeepEqual(desiredService.Spec.RouteSpec, service.Spec.RouteSpec)
 }

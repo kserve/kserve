@@ -21,50 +21,104 @@
 set -o errexit
 set -o nounset
 set -o pipefail
-DEPLOYMENT_MODE="${1:-'serverless'}"
-NETWORK_LAYER="${2:-'istio'}"
 
-make deploy-ci
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" &>/dev/null && pwd 2>/dev/null)"
+source "${SCRIPT_DIR}/../../../hack/setup/common.sh"
 
-shopt -s nocasematch
-if [[ $DEPLOYMENT_MODE == "raw" ]];then
-  echo "Patching default deployment mode to raw deployment"
-  kubectl patch cm -n kserve inferenceservice-config --patch='{"data": {"deploy": "{\"defaultDeploymentMode\": \"RawDeployment\"}"}}'
+export DEPLOYMENT_MODE="${1:-Knative}"
+export NETWORK_LAYER="${2:-istio}"
+export GATEWAY_NETWORK_LAYER="false"
+export ENABLE_LLMISVC="${ENABLE_LLMISVC:-false}"
+export ENABLE_KSERVE_WITH_LLMISVC="${ENABLE_KSERVE_WITH_LLMISVC:-false}"
+export INSTALL_METHOD="${INSTALL_METHOD:-kustomize}"
 
-  if [[ $NETWORK_LAYER == "envoy-gatewayapi" ]]; then
-    echo "Creating Envoy Gateway ..."
-    kubectl apply -f config/overlays/test/gateway/ingress_gateway.yaml
-    sleep 10
-    echo "Waiting for envoy gateway to be ready ..."
-    kubectl wait --timeout=5m -n envoy-gateway-system pod -l serving.kserve.io/gateway=kserve-ingress-gateway --for=condition=Ready
-  elif [[ $NETWORK_LAYER == "istio-gatewayapi" ]]; then
-    echo "Creating Istio Gateway ..."
-    # Replace gatewayclass name
-    kubectl apply -f - <<EOF
-$(sed 's/envoy/istio/g' config/overlays/test/gateway/ingress_gateway.yaml)
-EOF
-    sleep 10
-    echo "Waiting for istio gateway to be ready ..."
-    kubectl wait --timeout=5m -n kserve pod -l serving.kserve.io/gateway=kserve-ingress-gateway --for=condition=Ready
-  fi
+# Extract gateway class name from NETWORK_LAYER (e.g., "envoy-gatewayapi" -> "envoy")
+# If NETWORK_LAYER contains "-", extract the first part; otherwise, use "false"
+if [[ $NETWORK_LAYER == *"-gatewayapi"* ]]; then
+  export GATEWAY_NETWORK_LAYER="${NETWORK_LAYER%%-*}"
 fi
-shopt -u nocasematch
 
-echo "Waiting for KServe started ..."
-kubectl wait --for=condition=Ready pods --all --timeout=180s -n kserve
-kubectl get events -A
+echo "Installing KServe using ${INSTALL_METHOD^}..."
 
-echo "Add testing models to minio storage ..."
-kubectl apply -f config/overlays/test/minio/minio-init-job.yaml -n kserve
-kubectl wait --for=condition=complete --timeout=90s job/minio-init -n kserve
-
-echo "Creating a namespace kserve-ci-test ..."
-kubectl create namespace kserve-ci-e2e-test
-
-echo "Add storageSpec testing secrets ..."
-kubectl apply -f config/overlays/test/minio/minio-user-secret.yaml -n kserve-ci-e2e-test
+echo "Creating a namespace kserve-ci-e2e-test ..."
+kubectl get namespace kserve-ci-e2e-test || kubectl create namespace kserve-ci-e2e-test
 
 echo "Installing KServe Python SDK ..."
 pushd python/kserve >/dev/null
     uv sync --active --group test
 popd
+
+
+if [[ $ENABLE_LLMISVC == "false" || $ENABLE_KSERVE_WITH_LLMISVC == "true" ]]; then
+  if [[ $INSTALL_METHOD == "helm" ]]; then
+    export KSERVE_EXTRA_ARGS="--set kserve.controller.imagePullPolicy=IfNotPresent" 
+    export LOCALMODEL_EXTRA_ARGS="--set kserve.localmodel.controller.imagePullPolicy=IfNotPresent --set kserve.localmodelnode.controller.imagePullPolicy=IfNotPresent" 
+    export ENABLE_LOCALMODEL=true
+    if [[ $ENABLE_LLMISVC == "true" ]]; then
+      export LLMISVC_EXTRA_ARGS="--set kserve.llmisvc.controller.imagePullPolicy=IfNotPresent"
+    fi
+    export SET_KSERVE_VERSION=${TAG}
+    export USE_LOCAL_CHARTS=true
+    export INSTALL_RUNTIMES=true
+    ${REPO_ROOT}/hack/setup/infra/manage.kserve-helm.sh
+    kustomize build config/overlays/test/s3-local-backend | kubectl apply --server-side --force-conflicts -f -
+  else
+    export SET_KSERVE_VERSION=${TAG}
+    export ENABLE_LOCALMODEL=true
+    export KSERVE_OVERLAY_DIR=test
+    export INSTALL_RUNTIMES=false
+    if [[ $ENABLE_LLMISVC == "true" ]]; then
+      if [[ $ENABLE_KSERVE_WITH_LLMISVC == "true" ]]; then
+        export KSERVE_OVERLAY_DIR=test-modelcache
+      fi
+      export INSTALL_LLMISVC_CONFIGS=true
+    fi
+    ${REPO_ROOT}/hack/setup/infra/manage.kserve-kustomize.sh
+    echo "Installing KServe Runtimes..."
+    kubectl apply --server-side=true -k config/overlays/test/clusterresources
+  fi
+
+  kubectl get events -A
+
+  echo "Waiting for seaweedfs to be ready ..."
+  kubectl rollout status deployment/seaweedfs -n kserve --timeout=120s
+
+  echo "Add testing models to s3 storage ..."
+  kubectl apply -f config/overlays/test/s3-local-backend/seaweedfs-init-job.yaml -n kserve
+  kubectl wait --for=condition=complete --timeout=90s job/s3-init -n kserve
+
+  echo "Add storageSpec testing secrets ..."
+  kubectl apply -f config/overlays/test/s3-local-backend/storage-config-secret.yaml -n kserve-ci-e2e-test
+else
+  if [[ $INSTALL_METHOD == "helm" ]]; then
+    export SET_KSERVE_VERSION=${TAG}
+    export USE_LOCAL_CHARTS=true
+    export ENABLE_KSERVE=false
+    export LLMISVC_EXTRA_ARGS="--set kserve.llmisvc.controller.imagePullPolicy=IfNotPresent" 
+    ${REPO_ROOT}/hack/setup/infra/manage.kserve-helm.sh
+  else
+    export SET_KSERVE_VERSION=${TAG}
+    export INSTALL_RUNTIMES=false
+    export INSTALL_LLMISVC_CONFIGS=true
+    export KSERVE_OVERLAY_DIR=test-llmisvc
+    export ENABLE_LLMISVC=true
+    export ENABLE_KSERVE=false
+    ${REPO_ROOT}/hack/setup/infra/manage.kserve-kustomize.sh
+  fi
+fi
+
+ENABLE_KEDA="${ENABLE_KEDA:-false}"
+if [[ $ENABLE_LLMISVC == "true" ]] && [[ $ENABLE_KEDA == "true" ]]; then
+  echo "Patching inferenceservice-config with autoscaling-wva-controller-config for KEDA..."
+  kubectl patch configmap inferenceservice-config -n kserve --type merge -p '{
+    "data": {
+      "autoscaling-wva-controller-config": "{\"prometheus\":{\"url\":\"https://prometheus-kube-prometheus-prometheus.monitoring:9090\",\"tlsInsecureSkipVerify\":true}}"
+    }
+  }'
+  echo "Restarting LLMISVC controller to pick up new config..."
+  kubectl rollout restart deployment llmisvc-controller-manager -n kserve
+  kubectl rollout status deployment llmisvc-controller-manager -n kserve --timeout=120s
+fi
+
+echo "Show inferenceservice-config configmap..."
+kubectl get configmap inferenceservice-config -n kserve

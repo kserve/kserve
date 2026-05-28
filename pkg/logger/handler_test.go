@@ -25,13 +25,13 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/onsi/gomega"
 	pkglogging "knative.dev/pkg/logging"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	pkgtest "github.com/kserve/kserve/pkg/testing"
 )
 
 func TestLogger(t *testing.T) {
@@ -68,7 +68,7 @@ func TestLogger(t *testing.T) {
 	r := httptest.NewRequest(http.MethodPost, "http://a", reader)
 	w := httptest.NewRecorder()
 	logger, _ := pkglogging.NewLogger("", "INFO")
-	logf.SetLogger(zap.New())
+	pkgtest.SetupTestLogger()
 	logSvcUrl, err := url.Parse(logSvc.URL)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	sourceUri, err := url.Parse("http://localhost:9081/")
@@ -76,7 +76,7 @@ func TestLogger(t *testing.T) {
 	targetUri, err := url.Parse(predictor.URL)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	StartDispatcher(5, &MockStore{}, logger)
+	StartDispatcher(5, &MockStore{}, &ImmediateBatch{}, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
 	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
 		"default", httpProxy, nil, "", nil, true)
@@ -113,7 +113,7 @@ func TestLoggerWithMetadata(t *testing.T) {
 		if req.Header["Ce-Type"][0] == "org.kubeflow.serving.inference.request" {
 			metadata := map[string][]string{}
 
-			json.Unmarshal([]byte(req.Header["Ce-Metadata"][0]), &metadata)
+			_ = json.Unmarshal([]byte(req.Header["Ce-Metadata"][0]), &metadata)
 
 			g.Expect(metadata["Foo"]).To(gomega.Equal([]string{"bar"}))
 
@@ -140,7 +140,7 @@ func TestLoggerWithMetadata(t *testing.T) {
 	r.Header.Add("Fizz", "buzz")
 	w := httptest.NewRecorder()
 	logger, _ := pkglogging.NewLogger("", "INFO")
-	logf.SetLogger(zap.New())
+	pkgtest.SetupTestLogger()
 	logSvcUrl, err := url.Parse(logSvc.URL)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	sourceUri, err := url.Parse("http://localhost:9081/")
@@ -148,7 +148,7 @@ func TestLoggerWithMetadata(t *testing.T) {
 	targetUri, err := url.Parse(predictor.URL)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	StartDispatcher(5, &MockStore{}, logger)
+	StartDispatcher(5, &MockStore{}, &ImmediateBatch{}, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
 	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
 		"default", httpProxy, []string{"Foo", "Fizz"}, "", nil, true)
@@ -185,7 +185,7 @@ func TestLoggerWithAnnotation(t *testing.T) {
 		if req.Header["Ce-Type"][0] == "org.kubeflow.serving.inference.request" {
 			annotations := map[string]string{}
 
-			json.Unmarshal([]byte(req.Header["Ce-Annotations"][0]), &annotations)
+			_ = json.Unmarshal([]byte(req.Header["Ce-Annotations"][0]), &annotations)
 
 			g.Expect(annotations["Foo"]).To(gomega.Equal("Bar"))
 
@@ -212,7 +212,7 @@ func TestLoggerWithAnnotation(t *testing.T) {
 	r.Header.Add("Fizz", "buzz")
 	w := httptest.NewRecorder()
 	logger, _ := pkglogging.NewLogger("", "INFO")
-	logf.SetLogger(zap.New())
+	pkgtest.SetupTestLogger()
 	logSvcUrl, err := url.Parse(logSvc.URL)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	sourceUri, err := url.Parse("http://localhost:9081/")
@@ -220,7 +220,7 @@ func TestLoggerWithAnnotation(t *testing.T) {
 	targetUri, err := url.Parse(predictor.URL)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	StartDispatcher(5, &MockStore{}, logger)
+	StartDispatcher(5, &MockStore{}, &ImmediateBatch{}, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
 	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
 		"default", httpProxy, nil, "", map[string]string{"Foo": "Bar", "Fizz": "Buzz"}, true)
@@ -257,7 +257,7 @@ func TestBadResponse(t *testing.T) {
 	r := httptest.NewRequest(http.MethodPost, "http://a", reader)
 	w := httptest.NewRecorder()
 	logger, _ := pkglogging.NewLogger("", "INFO")
-	logf.SetLogger(zap.New())
+	pkgtest.SetupTestLogger()
 	logSvcUrl, err := url.Parse("http://loggersvc")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	sourceUri, err := url.Parse("http://localhost:9081/")
@@ -265,7 +265,7 @@ func TestBadResponse(t *testing.T) {
 	targetUri, err := url.Parse(predictor.URL)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	StartDispatcher(1, &MockStore{}, logger)
+	StartDispatcher(1, &MockStore{}, &ImmediateBatch{}, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
 	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
 		"default", httpProxy, nil, "", nil, true)
@@ -309,7 +309,9 @@ func TestLoggerWithS3Store(t *testing.T) {
 	r := httptest.NewRequest(http.MethodPost, "http://a", reader)
 	w := httptest.NewRecorder()
 	logger, _ := pkglogging.NewLogger("", "INFO")
-	logf.SetLogger(zap.New())
+	pkgtest.SetupTestLogger()
+
+	r.Header.Add("Foo", "bar")
 
 	sourceUri, err := url.Parse("http://localhost:9081/")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
@@ -329,14 +331,14 @@ func TestLoggerWithS3Store(t *testing.T) {
 	}
 	store := NewMockStore(spec)
 
-	StartDispatcher(5, store, logger)
+	StartDispatcher(5, store, &ImmediateBatch{}, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
 
 	logSvcUrl, err := url.Parse("s3://bucket")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
 	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
-		"default", httpProxy, nil, "", map[string]string{}, true)
+		"default", httpProxy, []string{"Foo"}, "", map[string]string{"test-annotation": "test-value"}, true)
 
 	oh.ServeHTTP(w, r)
 
@@ -346,7 +348,95 @@ func TestLoggerWithS3Store(t *testing.T) {
 	// get logRequest
 	req := <-store.ResponseChan
 	g.Expect(req.ReqType).To(gomega.Equal(CEInferenceRequest))
+	g.Expect(req.Metadata).ToNot(gomega.BeNil())
+	g.Expect(req.Metadata).ToNot(gomega.BeEmpty())
+	g.Expect(req.Metadata).To(gomega.HaveLen(1))
+	g.Expect(req.Metadata["Foo"]).To(gomega.Equal([]string{"bar"}))
+	g.Expect(req.Annotations).ToNot(gomega.BeNil())
+	g.Expect(req.Annotations).ToNot(gomega.BeEmpty())
+	g.Expect(req.Annotations).To(gomega.HaveLen(1))
+	g.Expect(req.Annotations["test-annotation"]).To(gomega.Equal("test-value"))
 	// get logResponse
 	res := <-store.ResponseChan
 	g.Expect(res.ReqType).To(gomega.Equal(CEInferenceResponse))
+	g.Expect(res.Metadata).ToNot(gomega.BeNil())
+	g.Expect(res.Metadata).ToNot(gomega.BeEmpty())
+	g.Expect(res.Metadata).To(gomega.HaveLen(1))
+	g.Expect(res.Metadata["Foo"]).To(gomega.Equal([]string{"bar"}))
+	g.Expect(res.Annotations).ToNot(gomega.BeNil())
+	g.Expect(res.Annotations).ToNot(gomega.BeEmpty())
+	g.Expect(res.Annotations).To(gomega.HaveLen(1))
+	g.Expect(res.Annotations["test-annotation"]).To(gomega.Equal("test-value"))
+}
+
+func TestLoggerCloudEventTimestamps(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	predictorRequest := []byte(`{"instances":[[0,0,0]]}`)
+	predictorResponse := []byte(`{"instances":[[4,5,6]]}`)
+
+	type ceTimestamps struct {
+		ceTime       time.Time
+		recordedTime time.Time
+	}
+	reqTimestampChan := make(chan ceTimestamps, 1)
+	resTimestampChan := make(chan ceTimestamps, 1)
+
+	logSvc := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		_, err := io.ReadAll(req.Body)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		_, err = rw.Write([]byte(`ok`))
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+
+		ceTime, err := time.Parse(time.RFC3339Nano, req.Header.Get("Ce-Time"))
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		recordedTime, err := time.Parse(time.RFC3339Nano, req.Header.Get("Ce-Recordedtime"))
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+
+		// recordedtime (CE creation) should be >= time (occurrence)
+		g.Expect(recordedTime.After(ceTime) || recordedTime.Equal(ceTime)).To(gomega.BeTrue())
+
+		ts := ceTimestamps{ceTime: ceTime, recordedTime: recordedTime}
+		if req.Header.Get("Ce-Type") == CEInferenceRequest {
+			reqTimestampChan <- ts
+		} else {
+			resTimestampChan <- ts
+		}
+	}))
+	defer logSvc.Close()
+
+	predictor := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		b, err := io.ReadAll(req.Body)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		g.Expect(b).To(gomega.Or(gomega.Equal(predictorRequest), gomega.Equal(predictorResponse)))
+		_, err = rw.Write(predictorResponse)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+	}))
+	defer predictor.Close()
+
+	reader := bytes.NewReader(predictorRequest)
+	r := httptest.NewRequest(http.MethodPost, "http://a", reader)
+	w := httptest.NewRecorder()
+	logger, _ := pkglogging.NewLogger("", "INFO")
+	pkgtest.SetupTestLogger()
+	logSvcUrl, err := url.Parse(logSvc.URL)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	sourceUri, err := url.Parse("http://localhost:9081/")
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	targetUri, err := url.Parse(predictor.URL)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	StartDispatcher(5, &MockStore{}, &ImmediateBatch{}, logger)
+	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
+	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
+		"default", httpProxy, nil, "", nil, true)
+
+	oh.ServeHTTP(w, r)
+
+	reqTimestamps := <-reqTimestampChan
+	resTimestamps := <-resTimestampChan
+
+	// Response occurrence time should be >= request occurrence time
+	g.Expect(resTimestamps.ceTime.After(reqTimestamps.ceTime) ||
+		resTimestamps.ceTime.Equal(reqTimestamps.ceTime)).To(gomega.BeTrue())
 }

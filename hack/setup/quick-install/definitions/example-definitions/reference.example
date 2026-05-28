@@ -1,0 +1,162 @@
+# Complete Definition File Reference
+#
+# This file demonstrates ALL available configuration options for KServe installation
+# script generator. Use this as a reference when creating your own definition files.
+
+# ============================================================================
+# Basic Configuration (Optional)
+# ============================================================================
+
+# FILE_NAME: Custom output filename (default: definition filename without extension)
+FILE_NAME: my-custom-installer
+
+# DESCRIPTION: Description shown in generated script header and help
+DESCRIPTION: Complete reference example demonstrating all features
+
+# METHOD: Installation method (default: helm)
+# Options: helm, kustomize
+METHOD: helm
+
+# ============================================================================
+# Embedded Manifests (Optional)
+# ============================================================================
+
+# EMBED_MANIFESTS: Generate standalone script with embedded Kubernetes manifests
+# - true: Embeds KServe manifests in script (large file, no repo needed)
+# - false: Script uses kustomize build at runtime (requires repo)
+# Default: false
+EMBED_MANIFESTS: true
+
+# ============================================================================
+# Tools (Optional)
+# ============================================================================
+
+# TOOLS: CLI tools to install before components
+# The generator will add installation commands for these tools
+TOOLS:
+  - kubectl
+  - helm
+  - kustomize
+  - yq
+
+# ============================================================================
+# Global Environment Variables (Optional)
+# ============================================================================
+
+# GLOBAL_ENV: Variables applied to ALL components
+# These override defaults from hack/setup/global-vars.env
+# Component-specific env variables take precedence over these
+GLOBAL_ENV:
+  KSERVE_NAMESPACE: my-kserve
+  KEDA_NAMESPACE: my-keda
+  ISTIO_NAMESPACE: my-istio
+  SERVING_NAMESPACE: my-knative-serving
+  OPERATOR_NAMESPACE: my-knative-operator
+  OTEL_NAMESPACE: my-opentelemetry
+  GATEWAY_NAMESPACE: my-gateway
+
+# ============================================================================
+# Components (Required)
+# ============================================================================
+
+# COMPONENTS: List of components to install (in order)
+# Each component must have a corresponding manage.{component}.sh or
+# manage.{component}-helm.sh script in hack/setup/infra/
+
+COMPONENTS:
+  # Simple component (no environment variables)
+  - name: cert-manager
+
+  # Component with environment variables
+  - name: istio
+    env:
+      ISTIO_VERSION: "1.24.1"
+      ISTIO_NAMESPACE: custom-istio  # Overrides GLOBAL_ENV
+      ISTIO_BASE_EXTRA_ARGS: "--set global.proxy.resources.requests.cpu=100m"
+
+  - name: istio-ingress-class
+
+  - name: keda
+    env:
+      KEDA_VERSION: "2.15.0"
+      KEDA_NAMESPACE: production-keda  # Overrides GLOBAL_ENV
+
+  - name: keda-otel-addon
+
+  - name: opentelemetry
+
+  # KServe component with special options
+  - name: kserve-helm
+    env:
+      DEPLOYMENT_MODE: Standard  # or Knative
+      LLMISVC: "true"  # Enable LLM Inference Service Controller
+
+  # Alternative: Use kustomize instead of Helm
+  # - name: kserve-kustomize
+  #   env:
+  #     DEPLOYMENT_MODE: Standard
+  #     LLMISVC: "false"
+
+# ============================================================================
+# Component Environment Variable Reference
+# ============================================================================
+#
+# Common variables (from global-vars.env):
+#   KSERVE_NAMESPACE: Namespace for KServe (default: kserve)
+#   KEDA_NAMESPACE: Namespace for KEDA (default: keda)
+#   ISTIO_NAMESPACE: Namespace for Istio (default: istio-system)
+#   SERVING_NAMESPACE: Namespace for Knative Serving (default: knative-serving)
+#   OPERATOR_NAMESPACE: Namespace for Knative Operator (default: knative-operator)
+#   OTEL_NAMESPACE: Namespace for OpenTelemetry (default: opentelemetry-operator)
+#   GATEWAY_NAMESPACE: Namespace for Gateway (default: kserve)
+#
+# Component-specific variables (from kserve-deps.env):
+#   ISTIO_VERSION: Istio version
+#   KEDA_VERSION: KEDA version
+#   KNATIVE_SERVING_VERSION: Knative Serving version
+#   CERT_MANAGER_VERSION: Cert Manager version
+#   ...and more (see kserve-deps.env for full list)
+#
+# KServe-specific variables:
+#   DEPLOYMENT_MODE: KServe deployment mode (Knative or Standard)
+#   LLMISVC: Enable LLM Inference Service Controller (true or false)
+#
+# ============================================================================
+# Variable Precedence (highest to lowest)
+# ============================================================================
+#
+# 1. Component env (highest priority)
+#    Example: COMPONENTS[0].env.ISTIO_VERSION
+#
+# 2. GLOBAL_ENV
+#    Example: GLOBAL_ENV.ISTIO_NAMESPACE
+#
+# 3. User environment variables at runtime
+#    Example: ISTIO_VERSION=1.24.1 ./install-script.sh
+#
+# 4. global-vars.env defaults
+#    Example: KSERVE_NAMESPACE="${KSERVE_NAMESPACE:-kserve}"
+#
+# 5. kserve-deps.env defaults
+#    Example: ISTIO_VERSION="${ISTIO_VERSION:-1.23.2}"
+#
+# ============================================================================
+# Installation Order
+# ============================================================================
+#
+# Components are installed in the order listed
+# Uninstallation happens in REVERSE order
+#
+# ============================================================================
+# Generated Script Usage
+# ============================================================================
+#
+# The generated script supports:
+#   ./script.sh                    # Install all components
+#   ./script.sh --reinstall        # Uninstall then install
+#   ./script.sh --uninstall        # Uninstall all components
+#
+# Override at runtime:
+#   KSERVE_NAMESPACE=prod ./script.sh
+#   REINSTALL=true ./script.sh
+#

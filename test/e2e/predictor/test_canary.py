@@ -82,8 +82,14 @@ def test_canary_rollout():
         spec=canary_endpoint_spec,
     )
 
-    kserve_client.patch(service_name, isvc, namespace=KSERVE_TEST_NAMESPACE)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    patch_response = kserve_client.patch(
+        service_name, isvc, namespace=KSERVE_TEST_NAMESPACE
+    )
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=KSERVE_TEST_NAMESPACE,
+        expected_generation=patch_response["metadata"]["generation"],
+    )
 
     canary_isvc = kserve_client.get(service_name, namespace=KSERVE_TEST_NAMESPACE)
     for traffic in canary_isvc["status"]["components"]["predictor"]["traffic"]:
@@ -151,8 +157,14 @@ def test_canary_rollout_runtime():
         spec=canary_endpoint_spec,
     )
 
-    kserve_client.patch(service_name, isvc, namespace=KSERVE_TEST_NAMESPACE)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    patch_response = kserve_client.patch(
+        service_name, isvc, namespace=KSERVE_TEST_NAMESPACE
+    )
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=KSERVE_TEST_NAMESPACE,
+        expected_generation=patch_response["metadata"]["generation"],
+    )
 
     canary_isvc = kserve_client.get(service_name, namespace=KSERVE_TEST_NAMESPACE)
     for traffic in canary_isvc["status"]["components"]["predictor"]["traffic"]:
