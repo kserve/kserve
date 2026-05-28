@@ -594,6 +594,45 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 			Expect(expectedLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations).To(HaveKeyWithValue(PreemptionReclaimAnnotationKey, preemptPriority))
 		})
 
+		It("should not propagate model-based-routing annotation to LWS pod templates", func(ctx SpecContext) {
+			svcName := "test-llm-lws-no-mbr"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithParallelism(ParallelismSpec(
+					WithDataParallelism(1),
+					WithDataLocalParallelism(1),
+				)),
+				WithWorker(&corev1.PodSpec{}),
+				WithManagedRoute(),
+				WithManagedGateway(),
+			)
+
+			Expect(llmSvc.Spec.Parallelism.IsDataParallel()).To(BeTrue())
+			Expect(llmSvc.Spec.Worker).To(Not(BeNil()))
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			expectedLWS := &lwsapi.LeaderWorkerSet{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve-mn",
+					Namespace: testNs.Name,
+				}, expectedLWS)
+			}).WithContext(ctx).Should(Succeed())
+
+			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate).To(Not(BeNil()))
+			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations).
+				NotTo(HaveKey(llmisvc.AnnotationModelBasedRoutingEnabled))
+			Expect(expectedLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations).
+				NotTo(HaveKey(llmisvc.AnnotationModelBasedRoutingEnabled))
+		})
+
 		It("should preserve externally set replicas when owner does not specify replicas", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-mn-preserve-replicas"

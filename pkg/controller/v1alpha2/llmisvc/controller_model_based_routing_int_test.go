@@ -281,4 +281,42 @@ var _ = Describe("Model Based Routing", func() {
 			Eventually(LLMInferenceServiceIsReady(llmSvc)).WithContext(ctx).Should(Succeed())
 		})
 	})
+
+	Context("Disabled via explicit Spec annotation override", func() {
+		It("should strip model-routing rules when Spec.Annotations overrides the annotation to false", func(ctx SpecContext) {
+			svcName := "test-mbr-no-annotation"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithModelName("facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithSpecAnnotations(map[string]string{
+					llmisvc.AnnotationModelBasedRoutingEnabled: "false",
+				}),
+			)
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				routes, err := managedRoutes(ctx, llmSvc)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(routes).To(HaveLen(1))
+
+				g.Expect(&routes[0]).NotTo(HaveHeaderMatch(headerName, "publishers/"+testNs.Name+"/models/facebook/opt-125m"))
+
+				rules := routes[0].Spec.Rules
+				g.Expect(countModelRoutingRules(rules)).To(Equal(0),
+					"should have no model-routing rules when Spec annotation overrides to false")
+			}).WithContext(ctx).Should(Succeed())
+
+			ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvc)
+
+			Eventually(LLMInferenceServiceIsReady(llmSvc)).WithContext(ctx).Should(Succeed())
+		})
+	})
 })

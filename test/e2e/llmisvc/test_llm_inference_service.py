@@ -730,6 +730,7 @@ def test_llm_inference_service(test_case: TestCase):  # noqa: F811
         assert_address_origins(
             kserve_client, test_case.llm_service, test_case.expected_gateway
         )
+        assert_address_models(kserve_client, test_case.llm_service)
     except Exception as e:
         test_failed = True
         logger.error(
@@ -807,6 +808,49 @@ def assert_address_origins(
             )
 
     logger.info(f"All {len(addresses)} addresses have valid origin references")
+
+
+def assert_address_models(
+    kserve_client: KServeClient,
+    llm_isvc: V1alpha1LLMInferenceService,
+):
+    """Verify that every address in status carries a non-empty models list.
+
+    For model-routing addresses (name ends with '-model-routing'), model names
+    must use the 'publishers/{namespace}/models/{name}' format. Path-based
+    addresses may use either plain names or the publishers format.
+
+    Reads via v1alpha2 (hub) because v1alpha1 conversion may drop models.
+    """
+    svc = get_llmisvc(
+        kserve_client,
+        llm_isvc.metadata.name,
+        llm_isvc.metadata.namespace,
+        "v1alpha2",
+    )
+
+    addresses = svc.get("status", {}).get("addresses", [])
+    assert len(addresses) > 0, (
+        f"Expected at least one address in status, got: {svc.get('status')}"
+    )
+
+    namespace = llm_isvc.metadata.namespace
+
+    for addr in addresses:
+        name = addr.get("name", "")
+        models = addr.get("models", [])
+        assert len(models) > 0, f"Address {name!r} ({addr.get('url')}) has no models"
+
+        model_names = [m.get("name") for m in models]
+
+        if name.endswith(MODEL_ROUTING_ADDRESS_SUFFIX):
+            for model_name in model_names:
+                assert model_name.startswith(f"publishers/{namespace}/models/"), (
+                    f"Model-routing address model {model_name!r} does not use "
+                    f"publishers/{namespace}/models/... format"
+                )
+
+    logger.info(f"All {len(addresses)} addresses have valid models")
 
 
 @log_execution

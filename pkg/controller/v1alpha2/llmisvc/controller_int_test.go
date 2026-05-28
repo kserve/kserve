@@ -277,6 +277,34 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			Expect(expectedDeployment.Spec.Template.Annotations).NotTo(HaveKeyWithValue(testValue, testValue))
 		})
 
+		It("should not propagate model-based-routing annotation to pod template", func(ctx SpecContext) {
+			svcName := "test-llm-no-mbr-anno"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			expectedDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve",
+					Namespace: testNs.Name,
+				}, expectedDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			Expect(expectedDeployment.Spec.Template.Annotations).
+				NotTo(HaveKey(llmisvc.AnnotationModelBasedRoutingEnabled))
+		})
+
 		It("should preserve externally set replicas when owner does not specify replicas", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-preserve-replicas"
