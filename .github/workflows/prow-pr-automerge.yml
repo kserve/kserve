@@ -116,16 +116,23 @@ jobs:
                 });
                 core.info(`Merged PR #${issue.number}`);
               } catch (e) {
-                const errorDetails = [
-                  `status=${e.status ?? 'unknown'}`,
-                  `message=${e.response?.data?.message ?? e.message}`,
-                ];
                 if (debugEnabled) {
+                  const errorDetails = [
+                    `status=${e.status ?? 'unknown'}`,
+                    `message=${e.response?.data?.message ?? e.message}`,
+                  ];
                   const apiErrors = e.response?.data?.errors;
+                  const responseData = e.response?.data;
+                  const documentationUrl = e.response?.data?.documentation_url;
+                  if (responseData) {
+                    const prettyResponseData = JSON.stringify(responseData, null, 2);
+                    core.info(
+                      `PR #${issue.number} merge API response:\n${prettyResponseData}`
+                    );
+                  }
                   if (apiErrors) {
                     core.info(`[debug] PR #${issue.number} API errors: ${JSON.stringify(apiErrors)}`);
                   }
-                  const documentationUrl = e.response?.data?.documentation_url;
                   if (documentationUrl) {
                     core.info(`[debug] PR #${issue.number} docs: ${documentationUrl}`);
                   }
