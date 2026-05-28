@@ -38690,7 +38690,8 @@ data:
         "urlScheme": "http",
         "disableIstioVirtualHost": false,
         "disableIngressCreation": false,
-        "disableHTTPRouteTimeout": false
+        "disableHTTPRouteTimeout": false,
+        "enableLLMInferenceServiceTLS": true
     }
   localModel: |-
     {

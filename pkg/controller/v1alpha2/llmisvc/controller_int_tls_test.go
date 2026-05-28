@@ -33,7 +33,7 @@ import (
 
 var _ = Describe("LLMInferenceService TLS Toggle", func() {
 	Context("When enableLLMInferenceServiceTLS is false in ConfigMap", func() {
-		It("should not create cert secret and should use HTTP port name", func(ctx SpecContext) {
+		It("should keep cert secret and should use HTTP port name", func(ctx SpecContext) {
 			svcName := "test-llm-tls-off"
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
