@@ -22,6 +22,7 @@ cfg.api_key = {"authorization": "Bearer test-token"}
 
 kserve_client = KServeClient(client_configuration=cfg)
 
+
 def test_client_configuration_is_wired_to_all_api_clients():
     """client_configuration must be passed directly to every underlying API
     client without reading ~/.kube/config or setting a global default."""
@@ -34,6 +35,7 @@ def test_client_configuration_is_wired_to_all_api_clients():
     assert kserve_client.api_instance.api_client.configuration.api_key == cfg.api_key
     assert kserve_client.hpa_v2_api.api_client.configuration.api_key == cfg.api_key
 
+
 def test_config_dict_takes_priority_over_client_configuration():
     """When config_dict and client_configuration are both provided,
     config_dict wins and client_configuration is ignored."""
@@ -42,6 +44,7 @@ def test_config_dict_takes_priority_over_client_configuration():
         mock_load.assert_called_once()
         _, kwargs = mock_load.call_args
         assert kwargs["client_configuration"] is None
+
 
 def test_config_file_takes_priority_over_client_configuration():
     """When config_file and client_configuration are both provided,
