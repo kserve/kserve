@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"text/template"
 
@@ -311,16 +312,30 @@ func NewIngressConfig(isvcConfigMap *corev1.ConfigMap) (*IngressConfig, error) {
 			return nil, errors.New("invalid ingress config - ingressGateway is required")
 		}
 		if ingressConfig.PathTemplate != "" {
-			// TODO: ensure that the generated path is valid, that is:
-			// * both Name and Namespace are used to avoid collisions
-			// * starts with a /
-			// For now simply check that this is a valid template.
-			_, err := template.New("path-template").Parse(ingressConfig.PathTemplate)
+			tmpl, err := template.New("path-template").Parse(ingressConfig.PathTemplate)
 			if err != nil {
 				return nil, fmt.Errorf("invalid ingress config, unable to parse pathTemplate: %w", err)
 			}
 			if ingressConfig.IngressDomain == "" {
 				return nil, errors.New("invalid ingress config - ingressDomain is required if pathTemplate is given")
+			}
+			// Blocking validation: check template generates valid path format
+			// Validate that the generated path starts with '/' and uses both .Name and .Namespace
+			// to avoid route collisions. Returns an error if the path is invalid.
+			var buf strings.Builder
+			testParams := struct{ Name, Namespace string }{
+				Name: "test-service", Namespace: "test-namespace",
+			}
+			if err := tmpl.Execute(&buf, testParams); err != nil {
+				return nil, fmt.Errorf("invalid pathTemplate - execution failed: %w", err)
+			}
+			// Check if path starts with /
+			if _, err := url.ParseRequestURI(buf.String()); err != nil {
+				return nil, fmt.Errorf("invalid pathTemplate - generated path %q is not a valid URI path: %w", buf.String(), err)
+			}
+			// Check if template uses Name/Namespace to avoid collisions
+			if !strings.Contains(ingressConfig.PathTemplate, "{{ .Name }}") || !strings.Contains(ingressConfig.PathTemplate, "{{ .Namespace }}") {
+				return nil, errors.New("invalid pathTemplate - must include both {{ .Name }} and {{ .Namespace }} to avoid route collisions")
 			}
 		}
 
