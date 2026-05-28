@@ -87,7 +87,10 @@ def test_huggingface_openai_chat_completions():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    # Cold model load on contended CI runners can outrun the 600s default.
+    kserve_client.wait_isvc_ready(
+        service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=900
+    )
 
     res = generate(service_name, "./data/qwen_input_chat.json")
     assert res["choices"][0]["message"]["content"] == "The result of 2 + 2 is 4."
@@ -636,7 +639,11 @@ async def test_huggingface_v2_sequence_classification_with_raw_logits(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    # Pinned-revision HuggingFace pulls can be slow on contended CI runners;
+    # 600s (the default) has shown to be borderline. Give this test more runway.
+    kserve_client.wait_isvc_ready(
+        service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=900
+    )
 
     res = await predict_isvc(
         rest_v2_client,

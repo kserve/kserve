@@ -146,7 +146,11 @@ def test_huggingface_vllm_cpu_text_completion_streaming():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    # CPU vLLM init for Qwen2-0.5B (model load + bfloat16 + KV-cache build) can
+    # outrun the 600s default on contended CI runners.
+    kserve_client.wait_isvc_ready(
+        service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=900
+    )
 
     full_response, _ = completion_stream(
         service_name, "./data/qwen_input_cmpl_stream.json"

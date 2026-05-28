@@ -48,7 +48,7 @@ import pytest
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
 _ISVC_POD_LABEL = "serving.kserve.io/inferenceservice"
-_TERMINATION_WAIT_TIMEOUT_S = 60
+_TERMINATION_WAIT_TIMEOUT_S = 180
 _TERMINATION_POLL_INTERVAL_S = 2
 # Brief grace before the first poll so we don't race the controller's
 # propagation of a just-issued ``delete()`` (ISVC -> Knative -> Deployment
