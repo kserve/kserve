@@ -45,6 +45,10 @@ from .test_output import (
 
 from kserve.logging import trace_logger
 
+# Cold model loads + pinned-revision HuggingFace pulls can outrun the 600s default
+# on contended CI runners. Increase the timeout for all tests in this file.
+ISVC_READY_TIMEOUT_S = 900
+
 
 @pytest.mark.llm
 def test_huggingface_openai_chat_completions():
@@ -87,9 +91,10 @@ def test_huggingface_openai_chat_completions():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    # Cold model load on contended CI runners can outrun the 600s default.
     kserve_client.wait_isvc_ready(
-        service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=900
+        service_name,
+        namespace=KSERVE_TEST_NAMESPACE,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
     )
 
     res = generate(service_name, "./data/qwen_input_chat.json")
@@ -145,7 +150,11 @@ def test_huggingface_openai_chat_completions_streaming():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=KSERVE_TEST_NAMESPACE,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
+    )
 
     # Test streaming response
     full_response, _ = chat_completion_stream(
@@ -200,7 +209,11 @@ def test_huggingface_openai_text_completion_qwen2():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=KSERVE_TEST_NAMESPACE,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
+    )
 
     res = generate(service_name, "./data/qwen_input_cmpl.json", chat_completions=False)
     assert res["choices"][0].get("text").strip() == "The result of 2 + 2 is 4."
@@ -249,7 +262,11 @@ def test_huggingface_openai_text_completion_streaming():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=KSERVE_TEST_NAMESPACE,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
+    )
 
     full_response, _ = completion_stream(
         service_name, "./data/qwen_input_cmpl_stream.json"
@@ -302,7 +319,11 @@ async def test_huggingface_v2_sequence_classification(rest_v2_client, network_la
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=KSERVE_TEST_NAMESPACE,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
+    )
 
     res = await predict_isvc(
         rest_v2_client,
@@ -351,7 +372,11 @@ async def test_huggingface_v1_fill_mask(rest_v1_client, network_layer):
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=KSERVE_TEST_NAMESPACE,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
+    )
 
     res = await predict_isvc(
         rest_v1_client,
@@ -407,7 +432,11 @@ async def test_huggingface_v2_token_classification(rest_v2_client, network_layer
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=KSERVE_TEST_NAMESPACE,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
+    )
 
     res = await predict_isvc(
         rest_v2_client,
@@ -457,7 +486,11 @@ def test_huggingface_openai_text_2_text():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=KSERVE_TEST_NAMESPACE,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
+    )
 
     res = generate(
         service_name, "./data/t5_small_generate.json", chat_completions=False
@@ -513,7 +546,11 @@ async def test_huggingface_v2_text_embedding(rest_v2_client, network_layer):
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=KSERVE_TEST_NAMESPACE,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
+    )
 
     res = await predict_isvc(
         rest_v2_client,
@@ -570,7 +607,11 @@ async def test_huggingface_openai_text_embedding():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=KSERVE_TEST_NAMESPACE,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
+    )
 
     # Validate float output
     res = embed(service_name, "./data/text_embedding_input_openai_float.json")
@@ -639,10 +680,10 @@ async def test_huggingface_v2_sequence_classification_with_raw_logits(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    # Pinned-revision HuggingFace pulls can be slow on contended CI runners;
-    # 600s (the default) has shown to be borderline. Give this test more runway.
     kserve_client.wait_isvc_ready(
-        service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=900
+        service_name,
+        namespace=KSERVE_TEST_NAMESPACE,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
     )
 
     res = await predict_isvc(
@@ -712,10 +753,10 @@ async def test_huggingface_v2_sequence_classification_with_probabilities(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    # Pinned-revision HuggingFace pulls can be slow on contended CI runners;
-    # 600s (the default) has shown to be borderline. Give this test more runway.
     kserve_client.wait_isvc_ready(
-        service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=900
+        service_name,
+        namespace=KSERVE_TEST_NAMESPACE,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
     )
 
     res = await predict_isvc(

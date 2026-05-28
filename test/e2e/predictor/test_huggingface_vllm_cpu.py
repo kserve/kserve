@@ -35,6 +35,10 @@ from ..common.utils import (
     completion_stream,
 )
 
+# Cold model loads + pinned-revision HuggingFace pulls can outrun the 600s default
+# on contended CI runners. Increase the timeout for all tests in this file.
+ISVC_READY_TIMEOUT_S = 900
+
 
 @pytest.mark.vllm
 def test_huggingface_vllm_cpu_openai_chat_completions():
@@ -87,7 +91,11 @@ def test_huggingface_vllm_cpu_openai_chat_completions():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=KSERVE_TEST_NAMESPACE,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
+    )
 
     res = generate(service_name, "./data/qwen_input_chat.json")
     assert res["choices"][0]["message"]["content"] == "The result of 2 + 2 is 4."
@@ -146,10 +154,10 @@ def test_huggingface_vllm_cpu_text_completion_streaming():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    # CPU vLLM init for Qwen2-0.5B (model load + bfloat16 + KV-cache build) can
-    # outrun the 600s default on contended CI runners.
     kserve_client.wait_isvc_ready(
-        service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=900
+        service_name,
+        namespace=KSERVE_TEST_NAMESPACE,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
     )
 
     full_response, _ = completion_stream(
@@ -211,7 +219,11 @@ def test_huggingface_vllm_cpu_openai_completions():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=KSERVE_TEST_NAMESPACE,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
+    )
     res = generate(service_name, "./data/qwen_input_cmpl.json", chat_completions=False)
     assert res["choices"][0]["text"].strip() == "The result of 2 + 2 is 4."
 
@@ -269,7 +281,11 @@ def test_huggingface_vllm_openai_chat_completions_streaming():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=KSERVE_TEST_NAMESPACE,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
+    )
 
     full_response, _ = chat_completion_stream(
         service_name, "./data/qwen_input_chat_stream.json"
@@ -333,7 +349,11 @@ def test_huggingface_vllm_cpu_rerank():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=KSERVE_TEST_NAMESPACE,
+        timeout_seconds=ISVC_READY_TIMEOUT_S,
+    )
 
     res = rerank(service_name, "./data/bge-reranker-base.json")
     assert res["results"][0]["index"] == 1
