@@ -39,6 +39,14 @@ from ..common.utils import (
 # on contended CI runners. Increase the timeout for all tests in this file.
 ISVC_READY_TIMEOUT_S = 900
 
+# Knative's per-revision progress deadline (cluster default 600s) decides when a
+# slow-to-start Revision is permanently marked ``RevisionFailed``. Once that
+# happens, no amount of polling in ``wait_isvc_ready`` will recover. KServe
+# propagates this annotation onto the Knative revision template, so raising it
+# here gives CPU vLLM init (model load + bfloat16 + KV-cache build) room to
+# finish.
+ISVC_ANNOTATIONS = {"serving.knative.dev/progress-deadline": "20m"}
+
 
 @pytest.mark.vllm
 def test_huggingface_vllm_cpu_openai_chat_completions():
@@ -82,7 +90,9 @@ def test_huggingface_vllm_cpu_openai_chat_completions():
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            annotations=ISVC_ANNOTATIONS,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -145,7 +155,9 @@ def test_huggingface_vllm_cpu_text_completion_streaming():
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            annotations=ISVC_ANNOTATIONS,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -210,7 +222,9 @@ def test_huggingface_vllm_cpu_openai_completions():
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            annotations=ISVC_ANNOTATIONS,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -272,7 +286,9 @@ def test_huggingface_vllm_openai_chat_completions_streaming():
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            annotations=ISVC_ANNOTATIONS,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -340,7 +356,9 @@ def test_huggingface_vllm_cpu_rerank():
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            annotations=ISVC_ANNOTATIONS,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
