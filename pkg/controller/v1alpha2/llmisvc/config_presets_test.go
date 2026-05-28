@@ -52,6 +52,35 @@ func TestPresetFiles(t *testing.T) {
 	tt := map[string]struct {
 		expected *v1alpha2.LLMInferenceServiceConfig
 	}{
+		"config-llm-cpu-offload.yaml": {
+			expected: &v1alpha2.LLMInferenceServiceConfig{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "serving.kserve.io/v1alpha2",
+					Kind:       "LLMInferenceServiceConfig",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "kserve-config-llm-cpu-offload",
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "main",
+									Image: "ghcr.io/llm-d/llm-d-cuda:v0.6.0",
+									Env: []corev1.EnvVar{
+										{Name: "HOME", Value: "/home"},
+										{Name: "VLLM_LOGGING_LEVEL", Value: "INFO"},
+										{Name: "HF_HUB_CACHE", Value: "/models"},
+										{Name: "VLLM_CPU_OFFLOAD_BYTES", Value: "10737418240"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 		"config-llm-decode-worker-data-parallel.yaml": {
 			expected: &v1alpha2.LLMInferenceServiceConfig{
 				TypeMeta: metav1.TypeMeta{

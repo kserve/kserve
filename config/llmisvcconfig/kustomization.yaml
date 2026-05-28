@@ -4,6 +4,7 @@ kind: Kustomization
 namespace: kserve
 
 resources:
+  - config-llm-cpu-offload.yaml
   - config-llm-decode-template.yaml
   - config-llm-decode-worker-data-parallel.yaml
   - config-llm-prefill-template.yaml
