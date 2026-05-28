@@ -6,7 +6,7 @@ metadata:
   annotations:
     serving.kserve.io/exp-dra-device-class: gpu.nvidia.com
     serving.kserve.io/exp-dra-device-count: "2"
-    serving.kserve.io/exp-dra-container-name: vllm
+    serving.kserve.io/exp-dra-container-name: main
     serving.kserve.io/exp-dra-cel-selector: |
       device.attributes['gpu.nvidia.com']['type'] == 'A100'
       device.capacity['gpu.nvidia.com']['memory'].compareTo(quantity('40Gi')) >= 0
@@ -28,7 +28,7 @@ spec:
           requests:
             cpu: 100m
             memory: 64Mi
-      - name: vllm
+      - name: main
         resources:
           limits:
             cpu: '8'

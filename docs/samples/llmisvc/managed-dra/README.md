@@ -65,13 +65,13 @@ annotation is independent, use whichever subset matches your workload:
 - `exp-dra-device-count: "2"` requests multiple devices (default is `1`).
 - `exp-dra-cel-selector` filters eligible devices. Each non-empty line of the YAML `|`
   block scalar becomes one selector, and all selectors must evaluate to true.
-- `exp-dra-container-name: vllm` routes the claim to the named container instead of the
+- `exp-dra-container-name: main` routes the claim to the named container instead of the
   first one, only relevant when the pod template has multiple containers.
 
 **Configuration:**
 - Model: Qwen2.5-7B-Instruct, 1 replica
 - Devices: 2 of class `gpu.nvidia.com`, filtered by `type == 'A100'` AND `memory >= 40Gi`
-- Containers: `sidecar` (first) and `vllm`; claim targets `vllm`
+- Containers: `sidecar` (first) and `main`; claim targets `main`
 
 **Use Case:**
 - Cluster has heterogeneous GPUs and only a subset is appropriate
@@ -89,7 +89,7 @@ metadata:
   annotations:
     serving.kserve.io/exp-dra-device-class: gpu.nvidia.com
     serving.kserve.io/exp-dra-device-count: "2"
-    serving.kserve.io/exp-dra-container-name: vllm
+    serving.kserve.io/exp-dra-container-name: main
     serving.kserve.io/exp-dra-cel-selector: |
       device.attributes['gpu.nvidia.com']['type'] == 'A100'
       device.capacity['gpu.nvidia.com']['memory'].compareTo(quantity('40Gi')) >= 0
