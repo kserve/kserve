@@ -55,7 +55,7 @@ const (
 // KernelCacheReconciler reconciles KernelCache resources (namespace-scoped)
 type KernelCacheReconciler struct {
 	client.Client
-	Clientset *kubernetes.Clientset
+	Clientset kubernetes.Interface
 	Log       logr.Logger
 	Scheme    *runtime.Scheme
 }

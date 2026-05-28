@@ -17,7 +17,6 @@ limitations under the License.
 package kernelcachenode
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -46,13 +45,19 @@ func (c *KernelCacheNodeReconciler) populateGPUInfo(
 		Timeout:    disableTimeout,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to get GPU info from MCV: %w", err)
+		// Log error but don't fail reconciliation - GPU detection may not work in all environments
+		c.Log.Error(err, "failed to get GPU info from MCV", "node", kcNode.Status.NodeName)
+		return nil // Graceful degradation - continue without GPU info
 	}
 
 	if noGPU {
 		c.Log.Info("noGPU flag set - using MCV stub GPU data for testing", "node", kcNode.Status.NodeName)
 	} else {
-		c.Log.Info("Detected GPU devices via MCV", "node", kcNode.Status.NodeName, "gpuCount", len(gpus.GPUs))
+		gpuCount := 0
+		if gpus != nil {
+			gpuCount = len(gpus.GPUs)
+		}
+		c.Log.Info("Detected GPU devices via MCV", "node", kcNode.Status.NodeName, "gpuCount", gpuCount)
 	}
 
 	// Convert MCV response to GPUTypeInfo list (supports heterogeneous nodes)

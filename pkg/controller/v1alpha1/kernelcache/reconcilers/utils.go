@@ -34,7 +34,7 @@ import (
 // PVs are cluster-scoped, so owner can only be cluster-scoped resources (or nil)
 func CreatePV(
 	ctx context.Context,
-	clientset *kubernetes.Clientset,
+	clientset kubernetes.Interface,
 	scheme *runtime.Scheme,
 	log logr.Logger,
 	spec corev1.PersistentVolume,
@@ -68,7 +68,7 @@ func CreatePV(
 // CreatePVC creates a PersistentVolumeClaim and optionally sets the owner reference to the KernelCache
 func CreatePVC(
 	ctx context.Context,
-	clientset *kubernetes.Clientset,
+	clientset kubernetes.Interface,
 	scheme *runtime.Scheme,
 	log logr.Logger,
 	spec corev1.PersistentVolumeClaim,
