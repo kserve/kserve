@@ -308,26 +308,6 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, err
 	}
 
-	if llmSvcCfg.Spec.Router != nil &&
-		llmSvcCfg.Spec.Router.Route != nil &&
-		llmSvcCfg.Spec.Router.Route.HTTP.HasSpec() {
-		if r.isModelBasedRoutingEnabled(ctx, llmSvc, reconcilerConfig) {
-			if llmSvcCfg.Spec.Model.LoRA != nil {
-				expandLoRAAdapterMatches(
-					llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules,
-					llmSvc.Namespace,
-					llmSvcCfg.Spec.Model.LoRA.Adapters,
-					reconcilerConfig.ModelBasedRoutingHeaderName,
-				)
-			}
-		} else {
-			llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules = stripModelBasedRoutingRules(
-				llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules,
-				reconcilerConfig.ModelBasedRoutingHeaderName,
-			)
-		}
-	}
-
 	// Update HTTPRoute parentRefs to point to the custom gateway if Gateway.Refs is specified.
 	// This ensures the managed HTTPRoute references the correct gateway instead of the default one from presets.
 	if llmSvcCfg.Spec.Router != nil &&
@@ -449,6 +429,13 @@ func (r *LLMISVCReconciler) isModelBasedRoutingEnabled(
 	if cfg.ModelBasedRoutingHeaderName == "" {
 		return false
 	}
+
+	// Ensure the workload has been deployed with the alternative served model name for model-based routing.
+	// Older presets associated with the previous version will have this unset.
+	if v, ok := llmSvc.Spec.Annotations[AnnotationModelBasedRoutingEnabled]; !ok || v != "true" {
+		return false
+	}
+
 	switch cfg.ModelBasedRoutingMode {
 	case ModelBasedRoutingDisabled:
 		return false
@@ -457,7 +444,8 @@ func (r *LLMISVCReconciler) isModelBasedRoutingEnabled(
 	default:
 		gateways, err := r.CollectReferencedGateways(ctx, llmSvc)
 		if err != nil {
-			return true
+			log.FromContext(ctx).Error(err, "failed to collect reference gateways to establish model-based routing enabled, defaulting to ModelBasedRoutingMode", "ModelBasedRoutingMode", cfg.ModelBasedRoutingMode)
+			return cfg.ModelBasedRoutingMode != ModelBasedRoutingDisabled
 		}
 		for _, gw := range gateways {
 			if gw.Annotations[AnnotationModelBasedRoutingEnabled] == "false" {

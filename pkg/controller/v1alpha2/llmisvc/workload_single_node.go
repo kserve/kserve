@@ -168,6 +168,9 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 
 	r.propagateDeploymentMetadata(llmSvc, d)
 
+	utils.PropagateMap(llmSvc.Spec.Labels, &d.Spec.Template.Labels)
+	utils.PropagateMap(llmSvc.Spec.Annotations, &d.Spec.Template.Annotations, AnnotationModelBasedRoutingEnabled)
+
 	log.FromContext(ctx).V(2).Info("Expected main deployment", "deployment", d)
 
 	return d, nil
@@ -255,10 +258,9 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 
 	r.propagateDeploymentMetadata(llmSvc, d)
 
-	// Propagate prefill-specific labels and annotations
 	if llmSvc.Spec.Prefill != nil {
 		utils.PropagateMap(llmSvc.Spec.Prefill.Labels, &d.Spec.Template.Labels)
-		utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &d.Spec.Template.Annotations)
+		utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &d.Spec.Template.Annotations, AnnotationModelBasedRoutingEnabled)
 	}
 
 	log.FromContext(ctx).V(2).Info("Expected prefill deployment", "deployment", d)
@@ -286,12 +288,6 @@ func (r *LLMISVCReconciler) propagateDeploymentMetadata(llmSvc *v1alpha2.LLMInfe
 	// Propagate approved labels from top-level metadata to the Deployment and its Pod template
 	utils.PropagatePrefixedMap(llmSvc.GetLabels(), &expected.Labels, approvedLabelPrefixes...)
 	utils.PropagatePrefixedMap(llmSvc.GetLabels(), &expected.Spec.Template.Labels, approvedLabelPrefixes...)
-
-	// Propagate all labels from WorkloadSpec.Labels to Pod template
-	utils.PropagateMap(llmSvc.Spec.Labels, &expected.Spec.Template.Labels)
-
-	// Propagate all annotations from WorkloadSpec.Annotations to Pod template
-	utils.PropagateMap(llmSvc.Spec.Annotations, &expected.Spec.Template.Annotations)
 }
 
 func (r *LLMISVCReconciler) propagateDeploymentStatus(ctx context.Context, expected *appsv1.Deployment, ready func(), notReady func(reason, messageFormat string, messageA ...interface{})) error {
