@@ -772,7 +772,6 @@ func (r *KernelCacheReconciler) extractionComplete(
 	return r.jobCompleted(job)
 }
 
-
 // ensureServingPVC creates Serving PV and PVC in KernelCache's namespace
 // Serving PV points to same HostPath as Download PV (shares disk space)
 // But they are separate Kubernetes resources (PV can only bind to one PVC)

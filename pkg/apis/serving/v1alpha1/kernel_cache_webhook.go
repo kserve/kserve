@@ -125,7 +125,7 @@ func (kc *KernelCache) Default(ctx context.Context, obj runtime.Object) error {
 	}
 
 	// Resolve & verify image -> digest with appropriate timeout
-	verifyCtx, cancel := context.WithTimeout(context.Background(), ImageVerificationTimeout)
+	verifyCtx, cancel := context.WithTimeout(ctx, ImageVerificationTimeout)
 	defer cancel()
 
 	kyvernoEnabled := isKyvernoVerificationEnabled()
@@ -181,16 +181,10 @@ func (kc *KernelCache) Default(ctx context.Context, obj runtime.Object) error {
 	secret, err := mutationKeyFromEnv()
 	if err != nil {
 		kernelcacheLog.Error(err, "MUTATION_SIGNING_KEY not configured")
-		return apierrors.NewBadRequest(fmt.Sprintf("webhook configuration error: %s", err.Error()))
+		return apierrors.NewBadRequest("webhook configuration error: " + err.Error())
 	}
 
-	// Get admission request (not used in signature, but API requires it for context)
-	req, err := admission.RequestFromContext(ctx)
-	if err != nil {
-		return apierrors.NewBadRequest("unable to read admission request from context")
-	}
-
-	sig, err := signMutation(secret, string(req.UID), cache.Spec.Image, digest)
+	sig, err := signMutation(secret, cache.Spec.Image, digest)
 	if err != nil {
 		return apierrors.NewBadRequest(fmt.Sprintf("failed to sign mutation: %v", err))
 	}
@@ -229,13 +223,7 @@ func (kc *KernelCache) ValidateCreate(ctx context.Context, obj runtime.Object) (
 		return nil, fmt.Errorf("webhook configuration error: %s", err.Error())
 	}
 
-	// Get admission request (not used in signature, but API requires it for context)
-	req, err := admission.RequestFromContext(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("unable to read admission request from context")
-	}
-
-	if !verifyMutation(secret, string(req.UID), cache.Spec.Image, digest, sig) {
+	if !verifyMutation(secret, cache.Spec.Image, digest, sig) {
 		return nil, fmt.Errorf("%s present but missing/invalid %s; digest must be set only by the mutating webhook",
 			AnnotationResolvedDigest, AnnotationMutationSig)
 	}
@@ -475,8 +463,7 @@ func mutationKeyFromEnv() (string, error) {
 
 // signMutation creates HMAC signature: HMAC(secret, image|digest), base64-encoded
 // The signature binds the digest to the image ref to prevent digest tampering
-// Note: Cannot use requestUID as mutating and validating webhooks have different UIDs
-func signMutation(secret, requestUID, image, digest string) (string, error) {
+func signMutation(secret, image, digest string) (string, error) {
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write([]byte(image))
 	mac.Write([]byte("|"))
@@ -487,11 +474,11 @@ func signMutation(secret, requestUID, image, digest string) (string, error) {
 
 // verifyMutation verifies the HMAC signature matches expected value
 // Uses constant-time comparison to prevent timing attacks
-func verifyMutation(secret, requestUID, image, digest, sigB64 string) bool {
+func verifyMutation(secret, image, digest, sigB64 string) bool {
 	if sigB64 == "" {
 		return false
 	}
-	wantSig, _ := signMutation(secret, requestUID, image, digest)
+	wantSig, _ := signMutation(secret, image, digest)
 	want, _ := base64.StdEncoding.DecodeString(wantSig)
 	got, err := base64.StdEncoding.DecodeString(sigB64)
 	if err != nil {

@@ -72,7 +72,7 @@ var _ = Describe("KernelCacheNode Controller", func() {
 			// Clean up node
 			node := &corev1.Node{}
 			if err := k8sClient.Get(ctx, types.NamespacedName{Name: nodeName}, node); err == nil {
-				k8sClient.Delete(ctx, node)
+				_ = k8sClient.Delete(ctx, node)
 			}
 
 			// Clean up KernelCache
@@ -81,7 +81,7 @@ var _ = Describe("KernelCacheNode Controller", func() {
 				Name:      kernelCacheName,
 				Namespace: kernelCacheNamespace,
 			}, kc); err == nil {
-				k8sClient.Delete(ctx, kc)
+				_ = k8sClient.Delete(ctx, kc)
 			}
 
 			// Clean up KernelCacheNode
@@ -91,7 +91,7 @@ var _ = Describe("KernelCacheNode Controller", func() {
 				Name:      kcNodeName,
 				Namespace: kernelCacheNamespace,
 			}, kcNode); err == nil {
-				k8sClient.Delete(ctx, kcNode)
+				_ = k8sClient.Delete(ctx, kcNode)
 			}
 		})
 
@@ -138,7 +138,7 @@ var _ = Describe("KernelCacheNode Controller", func() {
 			Expect(kcNode.Status.GPUInfo).ToNot(BeEmpty())
 
 			// Verify stub GPU data (2x AMD MI210 as per MCV stub)
-			Expect(len(kcNode.Status.GPUInfo)).To(Equal(1))
+			Expect(kcNode.Status.GPUInfo).To(HaveLen(1))
 			gpuInfo := kcNode.Status.GPUInfo[0]
 			Expect(gpuInfo.GPUType).To(ContainSubstring("MI200"))
 			Expect(gpuInfo.IDs).To(HaveLen(2))
@@ -161,7 +161,7 @@ var _ = Describe("KernelCacheNode Controller", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			// Verify GPUInfo was NOT changed
-			Expect(len(kcNode.Status.GPUInfo)).To(Equal(1))
+			Expect(kcNode.Status.GPUInfo).To(HaveLen(1))
 			Expect(kcNode.Status.GPUInfo[0].GPUType).To(Equal("existing-gpu"))
 		})
 
