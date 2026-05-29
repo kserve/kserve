@@ -2245,25 +2245,25 @@ spec:
             - /bin/sleep
             - "15"
       livenessProbe:
-        failureThreshold: 3
+        failureThreshold: 10
         httpGet:
           path: /health
           port: 8001
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 10
-        timeoutSeconds: 10
+        timeoutSeconds: 1
       name: main
       ports:
       - containerPort: 8001
         protocol: TCP
       readinessProbe:
-        failureThreshold: 60
+        failureThreshold: 1
         httpGet:
           path: /health
           port: 8001
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
-        periodSeconds: 10
-        timeoutSeconds: 5
+        periodSeconds: 1
+        timeoutSeconds: 1
       securityContext:
         allowPrivilegeEscalation: false
         capabilities:
@@ -2577,25 +2577,25 @@ spec:
             - /bin/sleep
             - "15"
       livenessProbe:
-        failureThreshold: 3
+        failureThreshold: 10
         httpGet:
           path: /health
           port: 8001
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 10
-        timeoutSeconds: 10
+        timeoutSeconds: 1
       name: main
       ports:
       - containerPort: 8001
         protocol: TCP
       readinessProbe:
-        failureThreshold: 60
+        failureThreshold: 1
         httpGet:
           path: /health
           port: 8001
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
-        periodSeconds: 30
-        timeoutSeconds: 5
+        periodSeconds: 1
+        timeoutSeconds: 1
       securityContext:
         allowPrivilegeEscalation: false
         capabilities:
@@ -3131,25 +3131,25 @@ spec:
               - /bin/sleep
               - "15"
         livenessProbe:
-          failureThreshold: 3
+          failureThreshold: 10
           httpGet:
             path: /health
             port: 8000
             scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
           periodSeconds: 10
-          timeoutSeconds: 10
+          timeoutSeconds: 1
         name: main
         ports:
         - containerPort: 8000
           protocol: TCP
         readinessProbe:
-          failureThreshold: 60
+          failureThreshold: 1
           httpGet:
             path: /health
             port: 8000
             scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
-          periodSeconds: 10
-          timeoutSeconds: 5
+          periodSeconds: 1
+          timeoutSeconds: 1
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -3405,25 +3405,25 @@ spec:
               - /bin/sleep
               - "15"
         livenessProbe:
-          failureThreshold: 3
+          failureThreshold: 10
           httpGet:
             path: /health
             port: 8000
             scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
           periodSeconds: 10
-          timeoutSeconds: 10
+          timeoutSeconds: 1
         name: main
         ports:
         - containerPort: 8000
           protocol: TCP
         readinessProbe:
-          failureThreshold: 60
+          failureThreshold: 1
           httpGet:
             path: /health
             port: 8000
             scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
-          periodSeconds: 30
-          timeoutSeconds: 5
+          periodSeconds: 1
+          timeoutSeconds: 1
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -4071,7 +4071,7 @@ spec:
           workingDir: /mnt/models
         dnsPolicy: ClusterFirst
         restartPolicy: Always
-        terminationGracePeriodSeconds: 30
+        terminationGracePeriodSeconds: 60
         volumes:
         - name: tls-certs
           secret:
@@ -4261,25 +4261,25 @@ spec:
             - /bin/sleep
             - "15"
       livenessProbe:
-        failureThreshold: 3
+        failureThreshold: 10
         httpGet:
           path: /health
           port: 8000
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 10
-        timeoutSeconds: 10
+        timeoutSeconds: 1
       name: main
       ports:
       - containerPort: 8000
         protocol: TCP
       readinessProbe:
-        failureThreshold: 60
+        failureThreshold: 1
         httpGet:
           path: /health
           port: 8000
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
-        periodSeconds: 10
-        timeoutSeconds: 5
+        periodSeconds: 1
+        timeoutSeconds: 1
       securityContext:
         allowPrivilegeEscalation: false
         capabilities:
@@ -4534,25 +4534,25 @@ spec:
             - /bin/sleep
             - "15"
       livenessProbe:
-        failureThreshold: 3
+        failureThreshold: 10
         httpGet:
           path: /health
           port: 8000
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 10
-        timeoutSeconds: 10
+        timeoutSeconds: 1
       name: main
       ports:
       - containerPort: 8000
         protocol: TCP
       readinessProbe:
-        failureThreshold: 60
+        failureThreshold: 1
         httpGet:
           path: /health
           port: 8000
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
-        periodSeconds: 30
-        timeoutSeconds: 5
+        periodSeconds: 1
+        timeoutSeconds: 1
       securityContext:
         allowPrivilegeEscalation: false
         capabilities:

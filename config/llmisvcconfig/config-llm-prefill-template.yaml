@@ -196,16 +196,16 @@ spec:
               port: 8000
               scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
             periodSeconds: 10
-            timeoutSeconds: 10
-            failureThreshold: 3
+            timeoutSeconds: 1
+            failureThreshold: 10
           readinessProbe:
             httpGet:
               path: /health
               port: 8000
               scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
-            periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 60
+            periodSeconds: 1
+            timeoutSeconds: 1
+            failureThreshold: 1
           startupProbe:
             httpGet:
               path: /health

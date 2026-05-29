@@ -164,6 +164,7 @@ func (r *LLMISVCReconciler) reconcileSchedulerServiceAccount(ctx context.Context
 }
 
 func (r *LLMISVCReconciler) reconcileSchedulerDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+	logger := log.FromContext(ctx)
 	scheduler, err := r.expectedSchedulerDeployment(ctx, llmSvc)
 	if err != nil {
 		return fmt.Errorf("failed to build expected scheduler deployment: %w", err)
@@ -176,10 +177,51 @@ func (r *LLMISVCReconciler) reconcileSchedulerDeployment(ctx context.Context, ll
 		}
 		return Delete(ctx, r, llmSvc, scheduler)
 	}
+	// Defer EPP spec updates until all workload pods have finished rolling out.
+	// The EPP is on the critical path for every response chunk; restarting it mid-stream
+	// truncates in-flight streaming responses on the client side.
+	if rolling, err := r.isWorkloadRolling(ctx, llmSvc); err != nil {
+		return err
+	} else if rolling {
+		logger.Info("Workload rollout in progress, deferring EPP deployment update")
+		return r.propagateSchedulerDeploymentStatus(ctx, scheduler, llmSvc.MarkSchedulerWorkloadReady, llmSvc.MarkSchedulerWorkloadNotReady)
+	}
 	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, scheduler, semanticDeploymentIsEqual, PreserveDeploymentReplicas()); err != nil {
 		return fmt.Errorf("failed to reconcile scheduler deployment %s/%s: %w", scheduler.GetNamespace(), scheduler.GetName(), err)
 	}
 	return r.propagateSchedulerDeploymentStatus(ctx, scheduler, llmSvc.MarkSchedulerWorkloadReady, llmSvc.MarkSchedulerWorkloadNotReady)
+}
+
+// isWorkloadRolling returns true if any workload Deployment for the LLMInferenceService has
+// not yet reached the Available condition. Kubernetes sets DeploymentAvailable=True only once
+// all new replicas are available and no old replicas are running, so this correctly gates on
+// drain completion — not just pod scheduling. This is used to defer EPP updates until vLLM
+// pods have fully rolled out, preventing EPP restarts from truncating in-flight streams.
+func (r *LLMISVCReconciler) isWorkloadRolling(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (bool, error) {
+	names := []string{mainDeploymentName(llmSvc)}
+	if llmSvc.Spec.Prefill != nil {
+		names = append(names, prefillDeploymentName(llmSvc))
+	}
+	for _, name := range names {
+		d := &appsv1.Deployment{}
+		if err := r.Get(ctx, client.ObjectKey{Namespace: llmSvc.GetNamespace(), Name: name}, d); err != nil {
+			if apierrors.IsNotFound(err) {
+				continue
+			}
+			return false, fmt.Errorf("failed to get workload deployment %s: %w", name, err)
+		}
+		available := false
+		for _, cond := range d.Status.Conditions {
+			if cond.Type == appsv1.DeploymentAvailable {
+				available = cond.Status == corev1.ConditionTrue
+				break
+			}
+		}
+		if !available {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (r *LLMISVCReconciler) reconcileSchedulerInferencePool(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
