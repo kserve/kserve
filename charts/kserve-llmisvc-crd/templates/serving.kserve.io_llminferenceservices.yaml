@@ -21120,6 +21120,23 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                   type: array
+                kvCacheOffloading:
+                  properties:
+                    cpuBytesToUse:
+                      format: int64
+                      minimum: 1
+                      type: integer
+                    evictionPolicy:
+                      default: lru
+                      enum:
+                        - lru
+                        - arc
+                      type: string
+                    secondaryTiers:
+                      x-kubernetes-preserve-unknown-fields: true
+                  required:
+                    - cpuBytesToUse
+                  type: object
                 labels:
                   additionalProperties:
                     type: string
@@ -21181,6 +21198,23 @@ spec:
                     annotations:
                       additionalProperties:
                         type: string
+                      type: object
+                    kvCacheOffloading:
+                      properties:
+                        cpuBytesToUse:
+                          format: int64
+                          minimum: 1
+                          type: integer
+                        evictionPolicy:
+                          default: lru
+                          enum:
+                            - lru
+                            - arc
+                          type: string
+                        secondaryTiers:
+                          x-kubernetes-preserve-unknown-fields: true
+                      required:
+                        - cpuBytesToUse
                       type: object
                     labels:
                       additionalProperties:

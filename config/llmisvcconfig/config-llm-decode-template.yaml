@@ -151,11 +151,18 @@ spec:
               SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Template 15 }}"
             fi
 
+            # --kv-transfer-config with OffloadingConnector requires vLLM X.Y.Z+.
+            KV_TRANSFER_ARGS=""
+            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "X.Y.Z" "${VLLM_VERSION}" | sort -V | head -1)" = "X.Y.Z" ]; then
+              KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+            fi
+
             eval "exec vllm serve /mnt/models \
               --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
               --port 8001 \
               ${ACCESS_LOG_ARGS} \
               ${SHUTDOWN_TIMEOUT_ARGS} \
+              ${KV_TRANSFER_ARGS} \
               {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
               {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
               {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \

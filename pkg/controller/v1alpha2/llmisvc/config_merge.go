@@ -597,6 +597,42 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 			// (or nil): max(0, tgps - preStop - min(5, tgps)), defaulting tgps to 60 when unset.
 			// The 5-second buffer reserves time for signal propagation and final process cleanup
 			// before Kubernetes sends SIGKILL.
+			// kvTransferConfig renders the --kv-transfer-config flag value for vLLM's
+			// OffloadingConnector from spec.kvCacheOffloading. Returns an empty string when
+			// kvCacheOffloading is not set, so the bash version gate can skip the flag safely.
+			"kvTransferConfig": func(spec any) string {
+				if spec == nil {
+					return ""
+				}
+				kv, ok := spec.(*v1alpha2.KVCacheOffloadingSpec)
+				if !ok || kv == nil {
+					return ""
+				}
+				extraConfig := map[string]any{
+					"spec_name":        "TieringOffloadingSpec",
+					"cpu_bytes_to_use": kv.CPUBytesToUse,
+				}
+				if kv.EvictionPolicy != "" {
+					extraConfig["eviction_policy"] = kv.EvictionPolicy
+				}
+				if len(kv.SecondaryTiers) > 0 {
+					tiers := make([]json.RawMessage, len(kv.SecondaryTiers))
+					for i, t := range kv.SecondaryTiers {
+						tiers[i] = json.RawMessage(t.Raw)
+					}
+					extraConfig["secondary_tiers"] = tiers
+				}
+				kvConfig := map[string]any{
+					"kv_connector":              "OffloadingConnector",
+					"kv_role":                   "kv_both",
+					"kv_connector_extra_config": extraConfig,
+				}
+				b, err := json.Marshal(kvConfig)
+				if err != nil {
+					return ""
+				}
+				return "--kv-transfer-config '" + string(b) + "'"
+			},
 			"shutdownTimeout": func(spec any, preStop int64) int64 {
 				const defaultTGPS = int64(60)
 				var tgpsVal int64

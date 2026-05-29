@@ -144,6 +144,33 @@ type WorkloadSpec struct {
 	// The controller is responsible for enabling discovery between head and worker pods.
 	// +optional
 	Worker *corev1.PodSpec `json:"worker,omitempty"`
+
+	// KVCacheOffloading configures multi-tier KV cache CPU offloading for this workload.
+	// The controller translates this into --kv-transfer-config for the vLLM serve command.
+	// +optional
+	KVCacheOffloading *KVCacheOffloadingSpec `json:"kvCacheOffloading,omitempty"`
+}
+
+// KVCacheOffloadingSpec configures KV cache offloading via vLLM's OffloadingConnector.
+type KVCacheOffloadingSpec struct {
+	// CPUBytesToUse is the number of CPU RAM bytes to allocate as the primary KV cache tier
+	// (maps to vLLM kv_connector_extra_config.cpu_bytes_to_use).
+	// +kubebuilder:validation:Minimum=1
+	CPUBytesToUse int64 `json:"cpuBytesToUse"`
+
+	// EvictionPolicy for the primary CPU KV cache tier. Defaults to "lru".
+	// +optional
+	// +kubebuilder:validation:Enum=lru;arc
+	// +kubebuilder:default=lru
+	EvictionPolicy string `json:"evictionPolicy,omitempty"`
+
+	// SecondaryTiers lists optional additional storage tiers for KV cache cascading.
+	// Each entry is an opaque object with at minimum a "type" field identifying the tier
+	// implementation (e.g. {"type":"fs_python","path":"/mnt/kv-cache"}).
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Schemaless
+	SecondaryTiers []runtime.RawExtension `json:"secondaryTiers,omitempty"`
 }
 
 // LLMModelSpec defines the model source and its characteristics.
