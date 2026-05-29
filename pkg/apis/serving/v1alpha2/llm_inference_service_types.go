@@ -624,6 +624,8 @@ type SourcedAddress struct {
 	// the address was converted from an older API version.
 	// +optional
 	Origin *gwapiv1.ObjectReference `json:"origin,omitempty"`
+
+	Models []ModelSourcedAddressStatus `json:"models,omitempty"`
 }
 
 // AppliedConfigSource identifies how a configuration was selected for merging.
@@ -699,6 +701,10 @@ type LLMInferenceServiceStatus struct {
 	// Atomic because the controller always writes the full list and ordering encodes merge precedence.
 	// +listType=atomic
 	AppliedConfigRefs []AppliedConfigRef `json:"appliedConfigs,omitempty"`
+}
+
+type ModelSourcedAddressStatus struct {
+	Name string `json:"name"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

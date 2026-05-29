@@ -646,7 +646,7 @@ KNATIVE_SERVING_VERSION=1.21.1
 KEDA_OTEL_ADDON_VERSION=v0.0.6
 PROMETHEUS_VERSION=83.4.0
 PROMETHEUS_ADAPTER_VERSION=5.3.0
-KSERVE_VERSION=v0.18.0
+KSERVE_VERSION=v0.19.0-rc0
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.18.0
 OPENTELEMETRY_OPERATOR_VERSION=0.74.3
@@ -2203,6 +2203,8 @@ metadata:
   name: kserve-config-llm-decode-template
   namespace: kserve
 spec:
+  annotations:
+    serving.kserve.io/model-based-routing-enabled: "true"
   template:
     containers:
     - command:
@@ -2509,6 +2511,8 @@ metadata:
   name: kserve-config-llm-decode-worker-data-parallel
   namespace: kserve
 spec:
+  annotations:
+    serving.kserve.io/model-based-routing-enabled: "true"
   template:
     containers:
     - command:
@@ -3106,6 +3110,8 @@ metadata:
   namespace: kserve
 spec:
   prefill:
+    annotations:
+      serving.kserve.io/model-based-routing-enabled: "true"
     template:
       containers:
       - command:
@@ -3354,6 +3360,8 @@ metadata:
   namespace: kserve
 spec:
   prefill:
+    annotations:
+      serving.kserve.io/model-based-routing-enabled: "true"
     template:
       containers:
       - command:
@@ -4253,6 +4261,8 @@ metadata:
   name: kserve-config-llm-template
   namespace: kserve
 spec:
+  annotations:
+    serving.kserve.io/model-based-routing-enabled: "true"
   template:
     containers:
     - command:
@@ -4500,6 +4510,8 @@ metadata:
   name: kserve-config-llm-worker-data-parallel
   namespace: kserve
 spec:
+  annotations:
+    serving.kserve.io/model-based-routing-enabled: "true"
   template:
     containers:
     - command:

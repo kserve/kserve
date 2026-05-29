@@ -243,6 +243,8 @@ func TestPropagateDeploymentMetadata(t *testing.T) {
 
 			deployment := &appsv1.Deployment{}
 			r.propagateDeploymentMetadata(llmSvc, deployment)
+			utils.PropagateMap(llmSvc.Spec.Labels, &deployment.Spec.Template.Labels)
+			utils.PropagateMap(llmSvc.Spec.Annotations, &deployment.Spec.Template.Annotations, AnnotationModelBasedRoutingEnabled)
 
 			// Verify Deployment labels
 			for k, v := range tt.expectedDeploymentLabels {

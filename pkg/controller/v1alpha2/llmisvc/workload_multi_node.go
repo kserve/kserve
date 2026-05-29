@@ -248,7 +248,14 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 		}
 	}
 
-	r.propagateLeaderWorkerSetMetadata(llmSvc, expected)
+	r.propagateTopLevelLeaderWorkerSetMetadata(llmSvc, expected)
+
+	if expected.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
+		utils.PropagateMap(llmSvc.Spec.Labels, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels)
+		utils.PropagateMap(llmSvc.Spec.Annotations, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations, AnnotationModelBasedRoutingEnabled)
+	}
+	utils.PropagateMap(llmSvc.Spec.Labels, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Labels)
+	utils.PropagateMap(llmSvc.Spec.Annotations, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations, AnnotationModelBasedRoutingEnabled)
 
 	log.FromContext(ctx).V(2).Info("Expected main LWS", "leaderworkerset", expected)
 
@@ -347,40 +354,15 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 		}
 	}
 
-	r.propagateLeaderWorkerSetMetadata(llmSvc, expected)
+	r.propagateTopLevelLeaderWorkerSetMetadata(llmSvc, expected)
 
-	// Propagate prefill-specific labels and annotations
-	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Labels != nil {
+	if llmSvc.Spec.Prefill != nil {
 		if expected.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
-			if expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels == nil {
-				expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels = make(map[string]string, len(llmSvc.Spec.Prefill.Labels))
-			}
-			for k, v := range llmSvc.Spec.Prefill.Labels {
-				expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels[k] = v
-			}
+			utils.PropagateMap(llmSvc.Spec.Prefill.Labels, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels)
+			utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations, AnnotationModelBasedRoutingEnabled)
 		}
-		if expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Labels == nil {
-			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Labels = make(map[string]string, len(llmSvc.Spec.Prefill.Labels))
-		}
-		for k, v := range llmSvc.Spec.Prefill.Labels {
-			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Labels[k] = v
-		}
-	}
-	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Annotations != nil {
-		if expected.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
-			if expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations == nil {
-				expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations = make(map[string]string, len(llmSvc.Spec.Prefill.Annotations))
-			}
-			for k, v := range llmSvc.Spec.Prefill.Annotations {
-				expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations[k] = v
-			}
-		}
-		if expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations == nil {
-			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations = make(map[string]string, len(llmSvc.Spec.Prefill.Annotations))
-		}
-		for k, v := range llmSvc.Spec.Prefill.Annotations {
-			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations[k] = v
-		}
+		utils.PropagateMap(llmSvc.Spec.Prefill.Labels, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Labels)
+		utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations, AnnotationModelBasedRoutingEnabled)
 	}
 
 	log.FromContext(ctx).V(2).Info("Expected prefill LWS", "leaderworkerset", expected)
@@ -597,7 +579,7 @@ func (r *LLMISVCReconciler) expectedMultiNodeRoleBinding(llmSvc *v1alpha2.LLMInf
 	}
 }
 
-func (r *LLMISVCReconciler) propagateLeaderWorkerSetMetadata(llmSvc *v1alpha2.LLMInferenceService, expected *lwsapi.LeaderWorkerSet) {
+func (r *LLMISVCReconciler) propagateTopLevelLeaderWorkerSetMetadata(llmSvc *v1alpha2.LLMInferenceService, expected *lwsapi.LeaderWorkerSet) {
 	// Define the prefixes to approve for annotations and labels
 	approvedAnnotationPrefixes := []string{
 		"leaderworkerset.sigs.k8s.io",
@@ -642,42 +624,6 @@ func (r *LLMISVCReconciler) propagateLeaderWorkerSetMetadata(llmSvc *v1alpha2.LL
 		&expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Labels,
 		approvedLabelPrefixes...,
 	)
-
-	// Propagate all labels from WorkloadSpec.Labels to Pod templates
-	if llmSvc.Spec.Labels != nil {
-		if expected.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
-			if expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels == nil {
-				expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels = make(map[string]string, len(llmSvc.Spec.Labels))
-			}
-			for k, v := range llmSvc.Spec.Labels {
-				expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels[k] = v
-			}
-		}
-		if expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Labels == nil {
-			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Labels = make(map[string]string, len(llmSvc.Spec.Labels))
-		}
-		for k, v := range llmSvc.Spec.Labels {
-			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Labels[k] = v
-		}
-	}
-
-	// Propagate all annotations from WorkloadSpec.Annotations to Pod templates
-	if llmSvc.Spec.Annotations != nil {
-		if expected.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
-			if expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations == nil {
-				expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations = make(map[string]string, len(llmSvc.Spec.Annotations))
-			}
-			for k, v := range llmSvc.Spec.Annotations {
-				expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations[k] = v
-			}
-		}
-		if expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations == nil {
-			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations = make(map[string]string, len(llmSvc.Spec.Annotations))
-		}
-		for k, v := range llmSvc.Spec.Annotations {
-			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations[k] = v
-		}
-	}
 }
 
 func mainLWSName(llmSvc *v1alpha2.LLMInferenceService) string {
