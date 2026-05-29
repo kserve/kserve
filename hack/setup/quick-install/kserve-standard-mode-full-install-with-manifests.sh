@@ -2096,9 +2096,9 @@ spec:
           SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Template 15 }}"
         fi
 
-        # --kv-transfer-config with OffloadingConnector requires vLLM X.Y.Z+.
+        # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
         KV_TRANSFER_ARGS=""
-        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "X.Y.Z" "${VLLM_VERSION}" | sort -V | head -1)" = "X.Y.Z" ]; then
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
           KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
         fi
 
@@ -2345,9 +2345,9 @@ spec:
           SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Template 15 }}"
         fi
 
-        # --kv-transfer-config with OffloadingConnector requires vLLM X.Y.Z+.
+        # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
         KV_TRANSFER_ARGS=""
-        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "X.Y.Z" "${VLLM_VERSION}" | sort -V | head -1)" = "X.Y.Z" ]; then
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
           KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
         fi
 
@@ -2673,9 +2673,9 @@ spec:
           SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Template 15 }}"
         fi
 
-        # --kv-transfer-config with OffloadingConnector requires vLLM X.Y.Z+.
+        # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
         KV_TRANSFER_ARGS=""
-        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "X.Y.Z" "${VLLM_VERSION}" | sort -V | head -1)" = "X.Y.Z" ]; then
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
           KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
         fi
 
@@ -3008,9 +3008,9 @@ spec:
           SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Worker 15 }}"
         fi
 
-        # --kv-transfer-config with OffloadingConnector requires vLLM X.Y.Z+.
+        # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
         KV_TRANSFER_ARGS=""
-        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "X.Y.Z" "${VLLM_VERSION}" | sort -V | head -1)" = "X.Y.Z" ]; then
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
           KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
         fi
 
@@ -3248,9 +3248,9 @@ spec:
             SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Template 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"
           fi
 
-          # --kv-transfer-config with OffloadingConnector requires vLLM X.Y.Z+.
+          # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
           KV_TRANSFER_ARGS=""
-          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "X.Y.Z" "${VLLM_VERSION}" | sort -V | head -1)" = "X.Y.Z" ]; then
+          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
             KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
           fi
 
@@ -3518,9 +3518,9 @@ spec:
             SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Template 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"
           fi
 
-          # --kv-transfer-config with OffloadingConnector requires vLLM X.Y.Z+.
+          # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
           KV_TRANSFER_ARGS=""
-          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "X.Y.Z" "${VLLM_VERSION}" | sort -V | head -1)" = "X.Y.Z" ]; then
+          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
             KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
           fi
 
@@ -3793,9 +3793,9 @@ spec:
             SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Worker 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"
           fi
 
-          # --kv-transfer-config with OffloadingConnector requires vLLM X.Y.Z+.
+          # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
           KV_TRANSFER_ARGS=""
-          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "X.Y.Z" "${VLLM_VERSION}" | sort -V | head -1)" = "X.Y.Z" ]; then
+          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
             KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
           fi
 
@@ -4395,9 +4395,9 @@ spec:
           SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Template 15 }}"
         fi
 
-        # --kv-transfer-config with OffloadingConnector requires vLLM X.Y.Z+.
+        # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
         KV_TRANSFER_ARGS=""
-        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "X.Y.Z" "${VLLM_VERSION}" | sort -V | head -1)" = "X.Y.Z" ]; then
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
           KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
         fi
 
@@ -4664,9 +4664,9 @@ spec:
           SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Template 15 }}"
         fi
 
-        # --kv-transfer-config with OffloadingConnector requires vLLM X.Y.Z+.
+        # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
         KV_TRANSFER_ARGS=""
-        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "X.Y.Z" "${VLLM_VERSION}" | sort -V | head -1)" = "X.Y.Z" ]; then
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
           KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
         fi
 
@@ -4939,9 +4939,9 @@ spec:
           SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Worker 15 }}"
         fi
 
-        # --kv-transfer-config with OffloadingConnector requires vLLM X.Y.Z+.
+        # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
         KV_TRANSFER_ARGS=""
-        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "X.Y.Z" "${VLLM_VERSION}" | sort -V | head -1)" = "X.Y.Z" ]; then
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
           KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
         fi
 
