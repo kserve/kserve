@@ -123,8 +123,7 @@ async def test_kernelcache_deletion_with_finalizer():
         )
         expected_download_pvc = f"{KSERVE_TEST_NAMESPACE}-{cache_name}-download"
         download_pvc_exists = any(
-            pvc.metadata.name == expected_download_pvc
-            for pvc in download_pvcs.items
+            pvc.metadata.name == expected_download_pvc for pvc in download_pvcs.items
         )
         assert not download_pvc_exists, "Download PVC should be deleted by finalizer"
 

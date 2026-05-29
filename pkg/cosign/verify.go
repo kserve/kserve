@@ -20,6 +20,7 @@ package cosign
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"time"
 
@@ -102,7 +103,7 @@ func verifyNewBundleFormat(ctx context.Context, ref gcrname.Reference, regOpts [
 	}
 
 	if len(bundles) == 0 {
-		return "", fmt.Errorf("no bundles found")
+		return "", errors.New("no bundles found")
 	}
 
 	// Create artifact policy for the image digest
@@ -156,7 +157,7 @@ func verifyLegacySignature(ctx context.Context, ref gcrname.Reference, regOpts [
 	}
 
 	if len(checkedSignatures) == 0 {
-		return "", fmt.Errorf("no valid legacy signatures found")
+		return "", errors.New("no valid legacy signatures found")
 	}
 
 	se, err := ociremote.SignedEntity(ref, regOpts...)

@@ -55,7 +55,9 @@ async def test_kernelcache_basic():
     node_names = [node.metadata.name for node in nodes.items]
 
     # Ensure cluster has at least one worker node
-    assert len(node_names) > 0, "Cluster must have at least one worker node with kserve/kernelcache=worker label"
+    assert len(node_names) > 0, (
+        "Cluster must have at least one worker node with kserve/kernelcache=worker label"
+    )
 
     # Create KernelCache CR
     kernel_cache = {
@@ -95,12 +97,18 @@ async def test_kernelcache_basic():
                 )
 
                 # Verify GPU detection populated GPUInfo (stub mode)
-                assert "status" in kcnode, f"KernelCacheNode {kcnode_name} should have status"
-                assert "gpuInfo" in kcnode["status"], f"KernelCacheNode {kcnode_name} should have gpuInfo"
+                assert "status" in kcnode, (
+                    f"KernelCacheNode {kcnode_name} should have status"
+                )
+                assert "gpuInfo" in kcnode["status"], (
+                    f"KernelCacheNode {kcnode_name} should have gpuInfo"
+                )
 
                 # In stub mode (noGPU=true), we should see AMD MI210 GPUs
                 gpu_info = kcnode["status"]["gpuInfo"]
-                assert len(gpu_info) > 0, f"KernelCacheNode {kcnode_name} should detect GPUs in stub mode"
+                assert len(gpu_info) > 0, (
+                    f"KernelCacheNode {kcnode_name} should detect GPUs in stub mode"
+                )
 
                 # Verify GPU info structure
                 for gpu in gpu_info:
@@ -110,7 +118,9 @@ async def test_kernelcache_basic():
 
             except ApiException as e:
                 if e.status == 404:
-                    pytest.fail(f"KernelCacheNode {kcnode_name} was not created for node {node_name}")
+                    pytest.fail(
+                        f"KernelCacheNode {kcnode_name} was not created for node {node_name}"
+                    )
                 raise
 
         # Wait for extraction Job to be created
@@ -154,13 +164,20 @@ async def test_kernelcache_basic():
         )
 
         assert "status" in kc, "KernelCache should have status"
-        assert "cacheCopies" in kc["status"], "KernelCache status should have cacheCopies"
+        assert "cacheCopies" in kc["status"], (
+            "KernelCache status should have cacheCopies"
+        )
 
         cache_copies = kc["status"]["cacheCopies"]
-        assert cache_copies["available"] > 0, "KernelCache should have at least one available copy"
-        assert cache_copies["failed"] == 0, f"KernelCache should have no failed copies, got {cache_copies['failed']}"
-        assert cache_copies["available"] == cache_copies["total"], \
+        assert cache_copies["available"] > 0, (
+            "KernelCache should have at least one available copy"
+        )
+        assert cache_copies["failed"] == 0, (
+            f"KernelCache should have no failed copies, got {cache_copies['failed']}"
+        )
+        assert cache_copies["available"] == cache_copies["total"], (
             f"KernelCache should have all copies available, got {cache_copies['available']}/{cache_copies['total']}"
+        )
 
         # Verify ServingPVC was created (name matches cache name)
         pvcs = core_v1.list_namespaced_persistent_volume_claim(
@@ -175,10 +192,11 @@ async def test_kernelcache_basic():
         )
         expected_download_pvc = f"{KSERVE_TEST_NAMESPACE}-{cache_name}-download"
         download_pvc_exists = any(
-            pvc.metadata.name == expected_download_pvc
-            for pvc in download_pvcs.items
+            pvc.metadata.name == expected_download_pvc for pvc in download_pvcs.items
         )
-        assert download_pvc_exists, f"Download PVC {expected_download_pvc} should be created"
+        assert download_pvc_exists, (
+            f"Download PVC {expected_download_pvc} should be created"
+        )
 
     finally:
         # Cleanup
