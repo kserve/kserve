@@ -166,6 +166,7 @@ $ helm install kserve-runtime-configs oci://ghcr.io/kserve/charts/kserve-runtime
 | kserve.servingruntime.vllmserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kserve.servingruntime.vllmserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
 | kserve.servingruntime.vllmserver.securityContext.privileged | bool | `false` |  |
+| kserve.servingruntime.vllmserver.securityContext.runAsNonRoot | bool | `true` |  |
 | kserve.servingruntime.vllmserver.tag | string | `"latest"` |  |
 | kserve.servingruntime.xgbserver.disabled | bool | `false` |  |
 | kserve.servingruntime.xgbserver.image | string | `"kserve/xgbserver"` |  |

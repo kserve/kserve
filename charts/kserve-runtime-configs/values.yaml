@@ -182,6 +182,7 @@ kserve:
       securityContext:
         allowPrivilegeEscalation: false
         privileged: false
+        runAsNonRoot: true
         capabilities:
           drop:
             - ALL
