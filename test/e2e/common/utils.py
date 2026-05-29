@@ -15,7 +15,6 @@
 import asyncio
 import json
 import os
-import time
 from concurrent import futures
 from typing import Union, List, Dict
 from urllib.parse import urlparse
@@ -475,8 +474,7 @@ def _vllm_request(
         logger.info("Sending Header = %s", headers)
         logger.info("Sending url = %s", url)
         logger.info("Sending request data: %s", data)
-        # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
-        time.sleep(10)
+
         response = requests.post(url, json.dumps(data), headers=headers)
         logger.info("Got response code %s", response.status_code)
         if not response.status_code == 200:

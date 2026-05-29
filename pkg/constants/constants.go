@@ -592,6 +592,7 @@ const (
 	ServerTypePyTorchServer     = "pytorchserver"
 	ServerTypeSKLearnServer     = "sklearnserver"
 	ServerTypeXGBoostServer     = "xgbserver"
+	ServerTypeVLLMServer        = "vllmserver"
 )
 
 // GetServerTypeFromRuntimeName converts runtime name to server type for backward compatibility.
@@ -604,6 +605,12 @@ func GetServerTypeFromRuntimeName(runtimeName string) string {
 		return ServerTypeTorchServe
 	case TritonServer:
 		return ServerTypeTritonServer
+	case TFServing:
+		return ServerTypeTensorflowServing
+	case HuggingFaceServer:
+		return ServerTypeHuggingFaceServer
+	case VLLMServer:
+		return ServerTypeVLLMServer
 	default:
 		return ""
 	}

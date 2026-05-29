@@ -1124,11 +1124,12 @@ func TestUpdateImageTag(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	scenarios := map[string]struct {
-		container      *corev1.Container
-		runtimeVersion *string
-		servingRuntime string
-		isvcConfig     *InferenceServicesConfig
-		expected       string
+		container          *corev1.Container
+		runtimeVersion     *string
+		servingRuntime     string
+		runtimeAnnotations map[string]string
+		isvcConfig         *InferenceServicesConfig
+		expected           string
 	}{
 		"UpdateRuntimeVersion": {
 			container: &corev1.Container{
@@ -1395,10 +1396,78 @@ func TestUpdateImageTag(t *testing.T) {
 			servingRuntime: constants.VLLMServer,
 			expected:       "vllm/vllm-openai:v0.5.0",
 		},
+		"VLLMServerCPURewriteViaAnnotationForCustomRuntime": {
+			container: &corev1.Container{
+				Name:  "kserve-container",
+				Image: "vllm/vllm-openai:latest",
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceMemory: resource.MustParse("2Gi"),
+					},
+				},
+			},
+			runtimeVersion: nil,
+			servingRuntime: "my-custom-vllm",
+			runtimeAnnotations: map[string]string{
+				constants.ServerTypeAnnotationKey: constants.ServerTypeVLLMServer,
+			},
+			expected: "vllm/vllm-openai-cpu:latest",
+		},
+		"VLLMServerAnnotationTakesPrecedenceOverRuntimeName": {
+			container: &corev1.Container{
+				Name:  "kserve-container",
+				Image: "vllm/vllm-openai:latest",
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceMemory: resource.MustParse("2Gi"),
+					},
+				},
+			},
+			runtimeVersion: nil,
+			servingRuntime: constants.MLServer,
+			runtimeAnnotations: map[string]string{
+				constants.ServerTypeAnnotationKey: constants.ServerTypeVLLMServer,
+			},
+			expected: "vllm/vllm-openai-cpu:latest",
+		},
+		"HuggingFaceServerGPUViaAnnotationForCustomRuntime": {
+			container: &corev1.Container{
+				Name:  "kserve-container",
+				Image: "huggingfaceserver:1.14.0",
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						"nvidia.com/gpu": resource.MustParse("1"),
+					},
+				},
+			},
+			runtimeVersion: nil,
+			servingRuntime: "my-custom-hf",
+			runtimeAnnotations: map[string]string{
+				constants.ServerTypeAnnotationKey: constants.ServerTypeHuggingFaceServer,
+			},
+			expected: "huggingfaceserver:1.14.0-gpu",
+		},
+		"UnknownRuntimeWithoutAnnotationIsLeftAlone": {
+			container: &corev1.Container{
+				Name:  "kserve-container",
+				Image: "vllm/vllm-openai:latest",
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceMemory: resource.MustParse("2Gi"),
+					},
+				},
+			},
+			runtimeVersion: nil,
+			servingRuntime: "my-custom-vllm",
+			expected:       "vllm/vllm-openai:latest",
+		},
 	}
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			UpdateImageTag(scenario.container, scenario.runtimeVersion, &scenario.servingRuntime)
+			UpdateImageTag(scenario.container, scenario.runtimeVersion, &scenario.servingRuntime, scenario.runtimeAnnotations)
 			if !g.Expect(scenario.container.Image).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", scenario.container.Image, scenario.expected)
 			}

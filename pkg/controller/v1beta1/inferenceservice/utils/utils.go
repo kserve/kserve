@@ -359,7 +359,7 @@ func ReplacePlaceholders(container *corev1.Container, meta metav1.ObjectMeta) er
 }
 
 // UpdateImageTag Update image tag if GPU is enabled or runtime version is provided
-func UpdateImageTag(container *corev1.Container, runtimeVersion *string, servingRuntime *string) {
+func UpdateImageTag(container *corev1.Container, runtimeVersion *string, servingRuntime *string, runtimeAnnotations map[string]string) {
 	image := container.Image
 
 	// If image uses a digest (e.g. image@sha256:...), do not change it.
@@ -374,29 +374,39 @@ func UpdateImageTag(container *corev1.Container, runtimeVersion *string, serving
 		} else {
 			container.Image = re.ReplaceAllString(image, ":"+*runtimeVersion)
 		}
-	} else if servingRuntime != nil {
-		re := regexp.MustCompile(`(:([\w.\-_]*))$`)
-		tag := re.FindString(image)
-		if tag == "" {
-			return
-		}
-		imageWithoutTag := strings.TrimSuffix(image, tag)
+		return
+	}
 
-		if utils.IsGPUEnabled(container.Resources) {
-			// For TFServing/TorchServe/HuggingFace the GPU build is published as the same image
-			// with a "-gpu" tag suffix; append it when runtimeVersion is not specified.
-			if (*servingRuntime == constants.TFServing || *servingRuntime == constants.TorchServe || *servingRuntime == constants.HuggingFaceServer) &&
-				!strings.HasSuffix(image, "-gpu") {
+	// Resolve server type using the annotation-first, fallback to runtime name-based approach for backward compatibility.
+	serverType := runtimeAnnotations[constants.ServerTypeAnnotationKey]
+	if serverType == "" && servingRuntime != nil {
+		serverType = constants.GetServerTypeFromRuntimeName(*servingRuntime)
+	}
+	if serverType == "" {
+		return
+	}
+
+	re := regexp.MustCompile(`(:([\w.\-_]*))$`)
+	tag := re.FindString(image)
+	if tag == "" {
+		return
+	}
+	imageWithoutTag := strings.TrimSuffix(image, tag)
+
+	if utils.IsGPUEnabled(container.Resources) {
+		// For TFServing/TorchServe/HuggingFace the GPU build is published as the same image
+		// with a "-gpu" tag suffix; append it when runtimeVersion is not specified.
+		switch serverType {
+		case constants.ServerTypeTensorflowServing, constants.ServerTypeTorchServe, constants.ServerTypeHuggingFaceServer:
+			if !strings.HasSuffix(image, "-gpu") {
 				container.Image = image + "-gpu"
 			}
-		} else {
-			// For vLLM the CPU build lives in a sibling repository named "<image>-cpu"
-			// (e.g. vllm/vllm-openai -> vllm/vllm-openai-cpu), so insert "-cpu" immediately
-			// before the tag separator instead of appending it to the tag.
-			if *servingRuntime == constants.VLLMServer && !strings.HasSuffix(imageWithoutTag, "-cpu") {
-				container.Image = imageWithoutTag + "-cpu" + tag
-			}
 		}
+	} else if serverType == constants.ServerTypeVLLMServer && !strings.HasSuffix(imageWithoutTag, "-cpu") {
+		// For vLLM the CPU build lives in a sibling repository named "<image>-cpu"
+		// (e.g. vllm/vllm-openai -> vllm/vllm-openai-cpu), so insert "-cpu" immediately
+		// before the tag separator instead of appending it to the tag.
+		container.Image = imageWithoutTag + "-cpu" + tag
 	}
 }
 
