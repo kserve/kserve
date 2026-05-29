@@ -2525,22 +2525,24 @@ spec:
               fi
           done
 
-          ucx_hcas=()
-          for hca in "${active_hcas[@]}"; do
-            ucx_hcas+=("${hca}:1")
-          done
-
           # Check if we found any active HCAs
           if [ ${#active_hcas[@]} -gt 0 ]; then
               # Join the array elements with a comma
-              hcas=$(IFS=,; echo "${active_hcas[*]}")
-              echo "[Infer RoCE] Setting active HCAs: ${hcas}"
-              export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
-              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
+              hca_port_pairs=()
+              for hca in "${active_hcas[@]}"; do
+                hca_port_pairs+=("${hca}:1")
+              done
+
+              active_hca_list=$(IFS=,; echo "${active_hcas[*]}")
+              hca_port_pairs_list=$(IFS=,; echo "${hca_port_pairs[*]}")
+              echo "[Infer RoCE] Setting active HCAs: ${active_hca_list}"
+              export NCCL_IB_HCA=${NCCL_IB_HCA:-${active_hca_list}}
+              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hca_port_pairs_list}}
+              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${hca_port_pairs_list}}
 
               echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
               echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+              echo "[Infer RoCE] UCX_NET_DEVICES=${UCX_NET_DEVICES}"
           else
               echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
           fi
@@ -2584,7 +2586,7 @@ spec:
                   fi
               done
 
-              # Use deterministic fallback if counts are equal - prefer lower index number
+              # Use deterministic fallback if tied - prefer index 3 (SR-IOV standard)
               if [ ${#gid_index_count[@]} -gt 1 ]; then
                   echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
                   # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
@@ -2599,7 +2601,7 @@ spec:
                   echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
                   export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
                   export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
-                  echo "[Infer RoCE] Using hardcoded GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+                  echo "[Infer RoCE] Using pre-configured GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
               elif [ -n "$best_gid_index" ]; then
                   echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
 
@@ -2846,22 +2848,24 @@ spec:
               fi
           done
 
-          ucx_hcas=()
-          for hca in "${active_hcas[@]}"; do
-            ucx_hcas+=("${hca}:1")
-          done
-
           # Check if we found any active HCAs
           if [ ${#active_hcas[@]} -gt 0 ]; then
               # Join the array elements with a comma
-              hcas=$(IFS=,; echo "${active_hcas[*]}")
-              echo "[Infer RoCE] Setting active HCAs: ${hcas}"
-              export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
-              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
+              hca_port_pairs=()
+              for hca in "${active_hcas[@]}"; do
+                hca_port_pairs+=("${hca}:1")
+              done
+
+              active_hca_list=$(IFS=,; echo "${active_hcas[*]}")
+              hca_port_pairs_list=$(IFS=,; echo "${hca_port_pairs[*]}")
+              echo "[Infer RoCE] Setting active HCAs: ${active_hca_list}"
+              export NCCL_IB_HCA=${NCCL_IB_HCA:-${active_hca_list}}
+              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hca_port_pairs_list}}
+              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${hca_port_pairs_list}}
 
               echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
               echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+              echo "[Infer RoCE] UCX_NET_DEVICES=${UCX_NET_DEVICES}"
           else
               echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
           fi
@@ -2905,7 +2909,7 @@ spec:
                   fi
               done
 
-              # Use deterministic fallback if counts are equal - prefer lower index number
+              # Use deterministic fallback if tied - prefer index 3 (SR-IOV standard)
               if [ ${#gid_index_count[@]} -gt 1 ]; then
                   echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
                   # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
@@ -2920,7 +2924,7 @@ spec:
                   echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
                   export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
                   export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
-                  echo "[Infer RoCE] Using hardcoded GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+                  echo "[Infer RoCE] Using pre-configured GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
               elif [ -n "$best_gid_index" ]; then
                   echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
 
@@ -3174,22 +3178,24 @@ spec:
               fi
           done
 
-          ucx_hcas=()
-          for hca in "${active_hcas[@]}"; do
-            ucx_hcas+=("${hca}:1")
-          done
-
           # Check if we found any active HCAs
           if [ ${#active_hcas[@]} -gt 0 ]; then
               # Join the array elements with a comma
-              hcas=$(IFS=,; echo "${active_hcas[*]}")
-              echo "[Infer RoCE] Setting active HCAs: ${hcas}"
-              export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
-              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
+              hca_port_pairs=()
+              for hca in "${active_hcas[@]}"; do
+                hca_port_pairs+=("${hca}:1")
+              done
+
+              active_hca_list=$(IFS=,; echo "${active_hcas[*]}")
+              hca_port_pairs_list=$(IFS=,; echo "${hca_port_pairs[*]}")
+              echo "[Infer RoCE] Setting active HCAs: ${active_hca_list}"
+              export NCCL_IB_HCA=${NCCL_IB_HCA:-${active_hca_list}}
+              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hca_port_pairs_list}}
+              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${hca_port_pairs_list}}
 
               echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
               echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+              echo "[Infer RoCE] UCX_NET_DEVICES=${UCX_NET_DEVICES}"
           else
               echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
           fi
@@ -3233,7 +3239,7 @@ spec:
                   fi
               done
 
-              # Use deterministic fallback if counts are equal - prefer lower index number
+              # Use deterministic fallback if tied - prefer index 3 (SR-IOV standard)
               if [ ${#gid_index_count[@]} -gt 1 ]; then
                   echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
                   # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
@@ -3248,7 +3254,7 @@ spec:
                   echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
                   export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
                   export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
-                  echo "[Infer RoCE] Using hardcoded GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+                  echo "[Infer RoCE] Using pre-configured GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
               elif [ -n "$best_gid_index" ]; then
                   echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
 
@@ -3411,22 +3417,24 @@ spec:
                 fi
             done
 
-            ucx_hcas=()
-            for hca in "${active_hcas[@]}"; do
-              ucx_hcas+=("${hca}:1")
-            done
-
             # Check if we found any active HCAs
             if [ ${#active_hcas[@]} -gt 0 ]; then
                 # Join the array elements with a comma
-                hcas=$(IFS=,; echo "${active_hcas[*]}")
-                echo "[Infer RoCE] Setting active HCAs: ${hcas}"
-                export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-                export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
-                export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
+                hca_port_pairs=()
+                for hca in "${active_hcas[@]}"; do
+                  hca_port_pairs+=("${hca}:1")
+                done
+
+                active_hca_list=$(IFS=,; echo "${active_hcas[*]}")
+                hca_port_pairs_list=$(IFS=,; echo "${hca_port_pairs[*]}")
+                echo "[Infer RoCE] Setting active HCAs: ${active_hca_list}"
+                export NCCL_IB_HCA=${NCCL_IB_HCA:-${active_hca_list}}
+                export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hca_port_pairs_list}}
+                export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${hca_port_pairs_list}}
 
                 echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
                 echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+                echo "[Infer RoCE] UCX_NET_DEVICES=${UCX_NET_DEVICES}"
             else
                 echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
             fi
@@ -3470,7 +3478,7 @@ spec:
                     fi
                 done
 
-                # Use deterministic fallback if counts are equal - prefer lower index number
+                # Use deterministic fallback if tied - prefer index 3 (SR-IOV standard)
                 if [ ${#gid_index_count[@]} -gt 1 ]; then
                     echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
                     # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
@@ -3485,7 +3493,7 @@ spec:
                     echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
                     export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
                     export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
-                    echo "[Infer RoCE] Using hardcoded GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+                    echo "[Infer RoCE] Using pre-configured GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
                 elif [ -n "$best_gid_index" ]; then
                     echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
 
@@ -3674,22 +3682,24 @@ spec:
                 fi
             done
 
-            ucx_hcas=()
-            for hca in "${active_hcas[@]}"; do
-              ucx_hcas+=("${hca}:1")
-            done
-
             # Check if we found any active HCAs
             if [ ${#active_hcas[@]} -gt 0 ]; then
                 # Join the array elements with a comma
-                hcas=$(IFS=,; echo "${active_hcas[*]}")
-                echo "[Infer RoCE] Setting active HCAs: ${hcas}"
-                export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-                export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
-                export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
+                hca_port_pairs=()
+                for hca in "${active_hcas[@]}"; do
+                  hca_port_pairs+=("${hca}:1")
+                done
+
+                active_hca_list=$(IFS=,; echo "${active_hcas[*]}")
+                hca_port_pairs_list=$(IFS=,; echo "${hca_port_pairs[*]}")
+                echo "[Infer RoCE] Setting active HCAs: ${active_hca_list}"
+                export NCCL_IB_HCA=${NCCL_IB_HCA:-${active_hca_list}}
+                export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hca_port_pairs_list}}
+                export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${hca_port_pairs_list}}
 
                 echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
                 echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+                echo "[Infer RoCE] UCX_NET_DEVICES=${UCX_NET_DEVICES}"
             else
                 echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
             fi
@@ -3733,7 +3743,7 @@ spec:
                     fi
                 done
 
-                # Use deterministic fallback if counts are equal - prefer lower index number
+                # Use deterministic fallback if tied - prefer index 3 (SR-IOV standard)
                 if [ ${#gid_index_count[@]} -gt 1 ]; then
                     echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
                     # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
@@ -3748,7 +3758,7 @@ spec:
                     echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
                     export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
                     export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
-                    echo "[Infer RoCE] Using hardcoded GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+                    echo "[Infer RoCE] Using pre-configured GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
                 elif [ -n "$best_gid_index" ]; then
                     echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
 
@@ -3942,22 +3952,24 @@ spec:
                 fi
             done
 
-            ucx_hcas=()
-            for hca in "${active_hcas[@]}"; do
-              ucx_hcas+=("${hca}:1")
-            done
-
             # Check if we found any active HCAs
             if [ ${#active_hcas[@]} -gt 0 ]; then
                 # Join the array elements with a comma
-                hcas=$(IFS=,; echo "${active_hcas[*]}")
-                echo "[Infer RoCE] Setting active HCAs: ${hcas}"
-                export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-                export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
-                export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
+                hca_port_pairs=()
+                for hca in "${active_hcas[@]}"; do
+                  hca_port_pairs+=("${hca}:1")
+                done
+
+                active_hca_list=$(IFS=,; echo "${active_hcas[*]}")
+                hca_port_pairs_list=$(IFS=,; echo "${hca_port_pairs[*]}")
+                echo "[Infer RoCE] Setting active HCAs: ${active_hca_list}"
+                export NCCL_IB_HCA=${NCCL_IB_HCA:-${active_hca_list}}
+                export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hca_port_pairs_list}}
+                export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${hca_port_pairs_list}}
 
                 echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
                 echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+                echo "[Infer RoCE] UCX_NET_DEVICES=${UCX_NET_DEVICES}"
             else
                 echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
             fi
@@ -4001,7 +4013,7 @@ spec:
                     fi
                 done
 
-                # Use deterministic fallback if counts are equal - prefer lower index number
+                # Use deterministic fallback if tied - prefer index 3 (SR-IOV standard)
                 if [ ${#gid_index_count[@]} -gt 1 ]; then
                     echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
                     # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
@@ -4016,7 +4028,7 @@ spec:
                     echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
                     export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
                     export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
-                    echo "[Infer RoCE] Using hardcoded GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+                    echo "[Infer RoCE] Using pre-configured GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
                 elif [ -n "$best_gid_index" ]; then
                     echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
 
@@ -4541,22 +4553,24 @@ spec:
               fi
           done
 
-          ucx_hcas=()
-          for hca in "${active_hcas[@]}"; do
-            ucx_hcas+=("${hca}:1")
-          done
-
           # Check if we found any active HCAs
           if [ ${#active_hcas[@]} -gt 0 ]; then
               # Join the array elements with a comma
-              hcas=$(IFS=,; echo "${active_hcas[*]}")
-              echo "[Infer RoCE] Setting active HCAs: ${hcas}"
-              export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
-              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
+              hca_port_pairs=()
+              for hca in "${active_hcas[@]}"; do
+                hca_port_pairs+=("${hca}:1")
+              done
+
+              active_hca_list=$(IFS=,; echo "${active_hcas[*]}")
+              hca_port_pairs_list=$(IFS=,; echo "${hca_port_pairs[*]}")
+              echo "[Infer RoCE] Setting active HCAs: ${active_hca_list}"
+              export NCCL_IB_HCA=${NCCL_IB_HCA:-${active_hca_list}}
+              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hca_port_pairs_list}}
+              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${hca_port_pairs_list}}
 
               echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
               echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+              echo "[Infer RoCE] UCX_NET_DEVICES=${UCX_NET_DEVICES}"
           else
               echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
           fi
@@ -4600,7 +4614,7 @@ spec:
                   fi
               done
 
-              # Use deterministic fallback if counts are equal - prefer lower index number
+              # Use deterministic fallback if tied - prefer index 3 (SR-IOV standard)
               if [ ${#gid_index_count[@]} -gt 1 ]; then
                   echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
                   # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
@@ -4615,7 +4629,7 @@ spec:
                   echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
                   export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
                   export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
-                  echo "[Infer RoCE] Using hardcoded GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+                  echo "[Infer RoCE] Using pre-configured GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
               elif [ -n "$best_gid_index" ]; then
                   echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
 
@@ -4803,22 +4817,24 @@ spec:
               fi
           done
 
-          ucx_hcas=()
-          for hca in "${active_hcas[@]}"; do
-            ucx_hcas+=("${hca}:1")
-          done
-
           # Check if we found any active HCAs
           if [ ${#active_hcas[@]} -gt 0 ]; then
               # Join the array elements with a comma
-              hcas=$(IFS=,; echo "${active_hcas[*]}")
-              echo "[Infer RoCE] Setting active HCAs: ${hcas}"
-              export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
-              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
+              hca_port_pairs=()
+              for hca in "${active_hcas[@]}"; do
+                hca_port_pairs+=("${hca}:1")
+              done
+
+              active_hca_list=$(IFS=,; echo "${active_hcas[*]}")
+              hca_port_pairs_list=$(IFS=,; echo "${hca_port_pairs[*]}")
+              echo "[Infer RoCE] Setting active HCAs: ${active_hca_list}"
+              export NCCL_IB_HCA=${NCCL_IB_HCA:-${active_hca_list}}
+              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hca_port_pairs_list}}
+              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${hca_port_pairs_list}}
 
               echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
               echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+              echo "[Infer RoCE] UCX_NET_DEVICES=${UCX_NET_DEVICES}"
           else
               echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
           fi
@@ -4862,7 +4878,7 @@ spec:
                   fi
               done
 
-              # Use deterministic fallback if counts are equal - prefer lower index number
+              # Use deterministic fallback if tied - prefer index 3 (SR-IOV standard)
               if [ ${#gid_index_count[@]} -gt 1 ]; then
                   echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
                   # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
@@ -4877,7 +4893,7 @@ spec:
                   echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
                   export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
                   export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
-                  echo "[Infer RoCE] Using hardcoded GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+                  echo "[Infer RoCE] Using pre-configured GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
               elif [ -n "$best_gid_index" ]; then
                   echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
 
@@ -5071,22 +5087,24 @@ spec:
               fi
           done
 
-          ucx_hcas=()
-          for hca in "${active_hcas[@]}"; do
-            ucx_hcas+=("${hca}:1")
-          done
-
           # Check if we found any active HCAs
           if [ ${#active_hcas[@]} -gt 0 ]; then
               # Join the array elements with a comma
-              hcas=$(IFS=,; echo "${active_hcas[*]}")
-              echo "[Infer RoCE] Setting active HCAs: ${hcas}"
-              export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
-              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
+              hca_port_pairs=()
+              for hca in "${active_hcas[@]}"; do
+                hca_port_pairs+=("${hca}:1")
+              done
+
+              active_hca_list=$(IFS=,; echo "${active_hcas[*]}")
+              hca_port_pairs_list=$(IFS=,; echo "${hca_port_pairs[*]}")
+              echo "[Infer RoCE] Setting active HCAs: ${active_hca_list}"
+              export NCCL_IB_HCA=${NCCL_IB_HCA:-${active_hca_list}}
+              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hca_port_pairs_list}}
+              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${hca_port_pairs_list}}
 
               echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
               echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+              echo "[Infer RoCE] UCX_NET_DEVICES=${UCX_NET_DEVICES}"
           else
               echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
           fi
@@ -5130,7 +5148,7 @@ spec:
                   fi
               done
 
-              # Use deterministic fallback if counts are equal - prefer lower index number
+              # Use deterministic fallback if tied - prefer index 3 (SR-IOV standard)
               if [ ${#gid_index_count[@]} -gt 1 ]; then
                   echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
                   # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
@@ -5145,7 +5163,7 @@ spec:
                   echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
                   export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
                   export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
-                  echo "[Infer RoCE] Using hardcoded GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+                  echo "[Infer RoCE] Using pre-configured GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
               elif [ -n "$best_gid_index" ]; then
                   echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
 
