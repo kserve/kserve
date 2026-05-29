@@ -135,10 +135,10 @@ func TestLoadKernelCacheConfig(t *testing.T) {
 
 func TestReplaceUrlTag(t *testing.T) {
 	tests := []struct {
-		name      string
-		imageURL  string
-		digest    string
-		expected  string
+		name     string
+		imageURL string
+		digest   string
+		expected string
 	}{
 		{
 			name:     "replaces tag with digest",
