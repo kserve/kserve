@@ -41,16 +41,12 @@ func newRolloutTestReconciler(objs ...runtime.Object) *LLMISVCReconciler {
 	return &LLMISVCReconciler{Client: b.Build()}
 }
 
-func deployment(name string, available bool) *appsv1.Deployment {
-	condStatus := corev1.ConditionFalse
-	if available {
-		condStatus = corev1.ConditionTrue
-	}
+func deploymentWithAvailable(name string, available corev1.ConditionStatus) *appsv1.Deployment {
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
 		Status: appsv1.DeploymentStatus{
 			Conditions: []appsv1.DeploymentCondition{
-				{Type: appsv1.DeploymentAvailable, Status: condStatus},
+				{Type: appsv1.DeploymentAvailable, Status: available},
 			},
 		},
 	}
@@ -79,36 +75,42 @@ func TestIsWorkloadRolling(t *testing.T) {
 		want        bool
 	}{
 		{
-			name:        "single-node fully rolled out",
-			deployments: []*appsv1.Deployment{deployment(mainName, true)},
+			name:        "fully available — not rolling",
+			deployments: []*appsv1.Deployment{deploymentWithAvailable(mainName, corev1.ConditionTrue)},
 			want:        false,
 		},
 		{
-			name:        "single-node mid-rollout (Available=False)",
-			deployments: []*appsv1.Deployment{deployment(mainName, false)},
+			name:        "Available=False — not yet ready",
+			deployments: []*appsv1.Deployment{deploymentWithAvailable(mainName, corev1.ConditionFalse)},
 			want:        true,
 		},
 		{
-			name: "single-node no Available condition yet (brand new deployment)",
+			name: "no Available condition yet (brand new deployment)",
 			deployments: []*appsv1.Deployment{{
 				ObjectMeta: metav1.ObjectMeta{Name: mainName, Namespace: "default"},
 			}},
 			want: true,
 		},
 		{
-			name:        "main fully rolled out, prefill mid-rollout",
-			deployments: []*appsv1.Deployment{deployment(mainName, true), deployment(prefillName, false)},
+			name: "main available, prefill not yet ready",
+			deployments: []*appsv1.Deployment{
+				deploymentWithAvailable(mainName, corev1.ConditionTrue),
+				deploymentWithAvailable(prefillName, corev1.ConditionFalse),
+			},
 			withPrefill: true,
 			want:        true,
 		},
 		{
-			name:        "both main and prefill fully rolled out",
-			deployments: []*appsv1.Deployment{deployment(mainName, true), deployment(prefillName, true)},
+			name: "both main and prefill available",
+			deployments: []*appsv1.Deployment{
+				deploymentWithAvailable(mainName, corev1.ConditionTrue),
+				deploymentWithAvailable(prefillName, corev1.ConditionTrue),
+			},
 			withPrefill: true,
 			want:        false,
 		},
 		{
-			name:        "main deployment not found — treated as not rolling",
+			name:        "deployment not found — treated as not rolling",
 			deployments: []*appsv1.Deployment{},
 			want:        false,
 		},

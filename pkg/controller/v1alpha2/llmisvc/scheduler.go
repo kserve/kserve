@@ -192,11 +192,11 @@ func (r *LLMISVCReconciler) reconcileSchedulerDeployment(ctx context.Context, ll
 	return r.propagateSchedulerDeploymentStatus(ctx, scheduler, llmSvc.MarkSchedulerWorkloadReady, llmSvc.MarkSchedulerWorkloadNotReady)
 }
 
-// isWorkloadRolling returns true if any workload Deployment for the LLMInferenceService has
-// not yet reached the Available condition. Kubernetes sets DeploymentAvailable=True only once
-// all new replicas are available and no old replicas are running, so this correctly gates on
-// drain completion — not just pod scheduling. This is used to defer EPP updates until vLLM
-// pods have fully rolled out, preventing EPP restarts from truncating in-flight streams.
+// isWorkloadRolling returns true if any workload Deployment for the LLMInferenceService is not
+// yet fully available. It uses the same readiness definition as propagateDeploymentStatus: the
+// workload is ready only when the DeploymentAvailable condition is True. This is used to defer
+// EPP spec updates until all workload Deployments are fully available, preventing an EPP restart
+// from truncating in-flight streams while vLLM pods are still coming up.
 func (r *LLMISVCReconciler) isWorkloadRolling(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (bool, error) {
 	names := []string{mainDeploymentName(llmSvc)}
 	if llmSvc.Spec.Prefill != nil {
@@ -210,14 +210,14 @@ func (r *LLMISVCReconciler) isWorkloadRolling(ctx context.Context, llmSvc *v1alp
 			}
 			return false, fmt.Errorf("failed to get workload deployment %s: %w", name, err)
 		}
-		available := false
+		ready := false
 		for _, cond := range d.Status.Conditions {
-			if cond.Type == appsv1.DeploymentAvailable {
-				available = cond.Status == corev1.ConditionTrue
+			if cond.Type == appsv1.DeploymentAvailable && cond.Status == corev1.ConditionTrue {
+				ready = true
 				break
 			}
 		}
-		if !available {
+		if !ready {
 			return true, nil
 		}
 	}
