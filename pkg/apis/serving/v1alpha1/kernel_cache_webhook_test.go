@@ -92,11 +92,10 @@ func TestIsKyvernoVerificationEnabled(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Set environment variable
 			if tt.envValue != "" {
-				os.Setenv(EnvKyvernoEnabled, tt.envValue)
+				t.Setenv(EnvKyvernoEnabled, tt.envValue)
 			} else {
-				os.Unsetenv(EnvKyvernoEnabled)
+				_ = os.Unsetenv(EnvKyvernoEnabled)
 			}
-			defer os.Unsetenv(EnvKyvernoEnabled)
 
 			result := isKyvernoVerificationEnabled()
 			g.Expect(result).To(gomega.Equal(tt.expected))
@@ -163,37 +162,36 @@ func TestSignAndVerifyMutation(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	secret := "test-secret-key"
-	requestUID := "test-uid-123"
 	image := "quay.io/repo/image:v1.0"
 	digest := "sha256:abc123def456"
 
 	// Test signing
-	sig, err := signMutation(secret, requestUID, image, digest)
+	sig, err := signMutation(secret, image, digest)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(sig).ToNot(gomega.BeEmpty())
 
 	// Test valid verification
-	valid := verifyMutation(secret, requestUID, image, digest, sig)
+	valid := verifyMutation(secret, image, digest, sig)
 	g.Expect(valid).To(gomega.BeTrue())
 
 	// Test verification with wrong secret
-	valid = verifyMutation("wrong-secret", requestUID, image, digest, sig)
+	valid = verifyMutation("wrong-secret", image, digest, sig)
 	g.Expect(valid).To(gomega.BeFalse())
 
 	// Test verification with wrong image
-	valid = verifyMutation(secret, requestUID, "wrong-image", digest, sig)
+	valid = verifyMutation(secret, "wrong-image", digest, sig)
 	g.Expect(valid).To(gomega.BeFalse())
 
 	// Test verification with wrong digest
-	valid = verifyMutation(secret, requestUID, image, "sha256:wrong", sig)
+	valid = verifyMutation(secret, image, "sha256:wrong", sig)
 	g.Expect(valid).To(gomega.BeFalse())
 
 	// Test verification with empty signature
-	valid = verifyMutation(secret, requestUID, image, digest, "")
+	valid = verifyMutation(secret, image, digest, "")
 	g.Expect(valid).To(gomega.BeFalse())
 
 	// Test verification with invalid base64 signature
-	valid = verifyMutation(secret, requestUID, image, digest, "not-valid-base64!!!")
+	valid = verifyMutation(secret, image, digest, "not-valid-base64!!!")
 	g.Expect(valid).To(gomega.BeFalse())
 }
 
@@ -201,8 +199,7 @@ func TestKernelCacheValidateCreate(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	// Set up mutation signing key for tests
-	os.Setenv(EnvMutationSigningKey, "test-secret")
-	defer os.Unsetenv(EnvMutationSigningKey)
+	t.Setenv(EnvMutationSigningKey, "test-secret")
 
 	tests := []struct {
 		name        string

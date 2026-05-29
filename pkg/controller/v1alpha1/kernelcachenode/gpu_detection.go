@@ -19,15 +19,18 @@ package kernelcachenode
 import (
 	"strings"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	mcvClient "github.com/redhat-et/GKM/mcv/pkg/client"
 	mcvDevices "github.com/redhat-et/GKM/mcv/pkg/accelerator/devices"
+	mcvClient "github.com/redhat-et/GKM/mcv/pkg/client"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 )
 
 // populateGPUInfo calls MCV GetGpuList() to detect GPU hardware
 // Pattern from GKM's agent implementation
 // Supports heterogeneous nodes with mixed GPU types
 // When noGPU flag is set (for KIND testing), returns stub GPU data
+//
+//nolint:unparam // error return reserved for future Phase 2 enhancements
 func (c *KernelCacheNodeReconciler) populateGPUInfo(
 	kcNode *v1alpha1.KernelCacheNode,
 	noGPU bool,
@@ -104,6 +107,8 @@ func convertMCVToGPUTypeInfo(gpuSummary *mcvDevices.GPUFleetSummary) []v1alpha1.
 // updateCacheCompatibility validates which GPUs are compatible with this cache
 // Phase 1: Stub implementation - marks all GPUs as compatible
 // Phase 2+: Will use MCV cache validation when available
+//
+//nolint:unparam // cacheImage, noGPU, and error return reserved for Phase 2 MCV validation
 func (c *KernelCacheNodeReconciler) updateCacheCompatibility(
 	kcNode *v1alpha1.KernelCacheNode,
 	cacheName string,
