@@ -44,6 +44,14 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
             "v2",
             "gs://seldon-models/sklearn/mms/lr_model",
         ),
+        (
+            "v1",
+            "https://storage.googleapis.com/kfserving-examples/models/sklearn/1.0/model/model.joblib",
+        ),
+        (
+            "v2",
+            "https://storage.googleapis.com/seldon-models/sklearn/mms/lr_model/model.joblib",
+        ),
     ],
 )
 @pytest.mark.mms
@@ -164,6 +172,14 @@ async def test_mms_sklearn_kserve(
         (
             "v2",
             "gs://seldon-models/xgboost/mms/iris",
+        ),
+        (
+            "v1",
+            "https://storage.googleapis.com/kfserving-examples/models/xgboost/1.5/model/model.bst",
+        ),
+        (
+            "v2",
+            "https://storage.googleapis.com/seldon-models/xgboost/mms/iris/model.bst",
         ),
     ],
 )
