@@ -158,6 +158,12 @@ func DiscoverURLs(ctx context.Context, c client.Client, gateways []ResolvedGatew
 		paths := extractRoutePaths(route, cfg.ModelBasedRoutingHeaderName)
 		addresses := g.Gateway.Status.Addresses
 
+		// Discover internal hostname from Gateway backing service (once per gateway).
+		internalHost, err := DiscoverGatewayServiceHost(ctx, c, g.Gateway)
+		if err != nil {
+			return nil, fmt.Errorf("failed to discover gateway service host for %s/%s: %w", g.Gateway.Namespace, g.Gateway.Name, err)
+		}
+
 		for _, path := range paths {
 			// Discover external URLs from Gateway status addresses (if available)
 			if len(addresses) > 0 {
@@ -179,30 +185,24 @@ func DiscoverURLs(ctx context.Context, c client.Client, gateways []ResolvedGatew
 				}
 			}
 
-			// Discover internal URL from Gateway backing service
-			internalHost, err := DiscoverGatewayServiceHost(ctx, c, g.Gateway)
-			if err != nil {
-				return nil, fmt.Errorf("failed to discover gateway service host for %s/%s: %w", g.Gateway.Namespace, g.Gateway.Name, err)
-			}
-			// Skip if this host was already discovered through gateway status addresses.
+			// Skip if this host+path was already discovered through gateway status addresses.
 			// This happens when a ClusterIP-backed gateway reports its service hostname
 			// as its status address, making the backing-service lookup redundant.
 			if internalHost != "" && !slices.ContainsFunc(urls, func(d DiscoveredURL) bool {
-				return d.URL.URL().Hostname() == internalHost
+				u := d.URL.URL()
+				return u.Hostname() == internalHost && u.Path == path
 			}) {
-				if internalHost != "" {
-					// Use preferred (first) listener's scheme and port for the internal URL.
-					// Internal services typically expose a single protocol, so generating one
-					// URL (matching the preferred scheme) is sufficient. External URLs are
-					// generated for all listeners because clients may need either protocol.
-					listener := listeners[0]
-					internalURLs, err := combineIntoURLs([]string{internalHost}, schemeForProtocol(listener.Protocol), listener.Port, path)
-					if err != nil {
-						return nil, fmt.Errorf("failed to build internal URL for Gateway %s/%s: %w", g.Gateway.Namespace, g.Gateway.Name, err)
-					}
-					for _, u := range internalURLs {
-						urls = append(urls, DiscoveredURL{URL: u, Origin: origin})
-					}
+				// Use preferred (first) listener's scheme and port for the internal URL.
+				// Internal services typically expose a single protocol, so generating one
+				// URL (matching the preferred scheme) is sufficient. External URLs are
+				// generated for all listeners because clients may need either protocol.
+				listener := listeners[0]
+				internalURLs, err := combineIntoURLs([]string{internalHost}, schemeForProtocol(listener.Protocol), listener.Port, path)
+				if err != nil {
+					return nil, fmt.Errorf("failed to build internal URL for Gateway %s/%s: %w", g.Gateway.Namespace, g.Gateway.Name, err)
+				}
+				for _, u := range internalURLs {
+					urls = append(urls, DiscoveredURL{URL: u, Origin: origin})
 				}
 			}
 		}
