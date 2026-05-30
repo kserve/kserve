@@ -2072,7 +2072,6 @@ spec:
         drop:
         - ALL
       privileged: false
-      runAsNonRoot: true
     startupProbe:
       failureThreshold: 60
       httpGet:
