@@ -298,6 +298,9 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
                 message="The model does not support Embeddings API",
                 status_code=HTTPStatus.BAD_REQUEST,
             )
+        # vLLM's ServingEmbedding uses __call__ (not create_embedding)
+        # as the pooling API was restructured in v0.20.0.
+        # See kserve#5399 for details.
         response = await self.openai_serving_embedding(request, raw_request)
 
         if isinstance(response, engineError):
