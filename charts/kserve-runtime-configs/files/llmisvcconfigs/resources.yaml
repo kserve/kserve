@@ -2,7 +2,7 @@ apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
   name: kserve-config-llm-decode-template
-  namespace: kserve
+  namespace: {{ .Release.Namespace }}
 spec:
   annotations:
     serving.kserve.io/model-based-routing-enabled: "true"
@@ -303,7 +303,7 @@ apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
   name: kserve-config-llm-decode-worker-data-parallel
-  namespace: kserve
+  namespace: {{ .Release.Namespace }}
 spec:
   annotations:
     serving.kserve.io/model-based-routing-enabled: "true"
@@ -887,7 +887,7 @@ apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
   name: kserve-config-llm-prefill-template
-  namespace: kserve
+  namespace: {{ .Release.Namespace }}
 spec:
   prefill:
     annotations:
@@ -1130,7 +1130,7 @@ apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
   name: kserve-config-llm-prefill-worker-data-parallel
-  namespace: kserve
+  namespace: {{ .Release.Namespace }}
 spec:
   prefill:
     annotations:
@@ -1653,7 +1653,7 @@ apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
   name: kserve-config-llm-router-route
-  namespace: kserve
+  namespace: {{ .Release.Namespace }}
 spec:
   router:
     route:
@@ -1845,7 +1845,7 @@ apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
   name: kserve-config-llm-scheduler
-  namespace: kserve
+  namespace: {{ .Release.Namespace }}
 spec:
   router:
     scheduler:
@@ -2018,7 +2018,7 @@ apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
   name: kserve-config-llm-template
-  namespace: kserve
+  namespace: {{ .Release.Namespace }}
 spec:
   annotations:
     serving.kserve.io/model-based-routing-enabled: "true"
@@ -2260,7 +2260,7 @@ apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
   name: kserve-config-llm-worker-data-parallel
-  namespace: kserve
+  namespace: {{ .Release.Namespace }}
 spec:
   annotations:
     serving.kserve.io/model-based-routing-enabled: "true"
