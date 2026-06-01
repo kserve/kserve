@@ -3,26 +3,21 @@ kind: Job
 metadata:
   name: s3-init
 spec:
-  activeDeadlineSeconds: 600
+  activeDeadlineSeconds: 900
   template:
     spec:
       initContainers:
       - name: download-hf-model
         image: kserve/storage-initializer:latest
-        command:
-        - python3
-        - -c
-        - |
-          from huggingface_hub import snapshot_download
-          snapshot_download(
-            "facebook/opt-125m",
-            local_dir="/shared/facebook/opt-125m",
-            ignore_patterns=["*.msgpack", "*.h5", "flax_model*", "tf_model*", "rust_model*"],
-          )
-          print("Model download complete")
+        imagePullPolicy: IfNotPresent
+        args:
+        - "hf://facebook/opt-125m"
+        - "/shared/facebook/opt-125m"
         env:
         - name: HF_HUB_DISABLE_PROGRESS_BARS
           value: "1"
+        - name: STORAGE_IGNORE_PATTERNS
+          value: "*.msgpack,*.h5,flax_model*,tf_model*,rust_model*"
         volumeMounts:
         - name: model-cache
           mountPath: /shared

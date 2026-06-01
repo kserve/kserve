@@ -86,7 +86,7 @@ if [[ $ENABLE_LLMISVC == "false" || $ENABLE_KSERVE_WITH_LLMISVC == "true" ]]; th
   echo "Add testing models to s3 storage ..."
   sed "s|kserve/storage-initializer:latest|${KO_DOCKER_REPO:-kserve}/${STORAGE_INIT_IMG:-storage-initializer}:${TAG:-latest}|g" \
     config/overlays/test/s3-local-backend/seaweedfs-init-job.yaml | kubectl apply -n kserve -f -
-  if ! kubectl wait --for=condition=complete --timeout=300s job/s3-init -n kserve; then
+  if ! kubectl wait --for=condition=complete --timeout=900s job/s3-init -n kserve; then
     echo "S3 init job failed. Pod status and logs:"
     kubectl get pods -l job-name=s3-init -n kserve
     kubectl logs -l job-name=s3-init -n kserve --all-containers --tail=50 || true
@@ -129,7 +129,7 @@ else
   echo "Pre-caching opt-125m model in SeaweedFS ..."
   sed "s|kserve/storage-initializer:latest|${KO_DOCKER_REPO:-kserve}/${STORAGE_INIT_IMG:-storage-initializer}:${TAG:-latest}|g" \
     "${REPO_ROOT}/config/overlays/test/s3-local-backend/seaweedfs-init-job.yaml" | kubectl apply -n kserve -f -
-  if ! kubectl wait --for=condition=complete --timeout=300s job/s3-init -n kserve; then
+  if ! kubectl wait --for=condition=complete --timeout=900s job/s3-init -n kserve; then
     echo "S3 init job failed. Pod status and logs:"
     kubectl get pods -l job-name=s3-init -n kserve
     kubectl logs -l job-name=s3-init -n kserve --all-containers --tail=50 || true
