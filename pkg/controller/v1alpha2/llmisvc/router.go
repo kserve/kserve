@@ -315,7 +315,7 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route == nil {
 		llmSvc.Status.Router = nil
 		urlFn := apis.HTTPS
-		statusCfg, err := LoadConfig(ctx, r.Clientset)
+		statusCfg, err := r.loadConfig(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load config: %w", err)
 		}
