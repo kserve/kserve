@@ -3951,8 +3951,7 @@ spec:
           - --grpc-health-port
           - "9003"
           - '{{ if .GlobalConfig.EnableTLS }}--enable-cert-reload=true{{- end }}'
-          - '{{ if .GlobalConfig.EnableTLS }}--secure-serving=true{{- else }}--secure-serving=false{{-
-            end }}'
+          - '{{ if .GlobalConfig.EnableTLS }}--secure-serving=true{{- end }}'
           - '{{ if .GlobalConfig.EnableTLS }}--model-server-metrics-scheme=https{{-
             end }}'
           - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end
@@ -38690,8 +38689,7 @@ data:
         "urlScheme": "http",
         "disableIstioVirtualHost": false,
         "disableIngressCreation": false,
-        "disableHTTPRouteTimeout": false,
-        "enableLLMInferenceServiceTLS": true
+        "disableHTTPRouteTimeout": false
     }
   localModel: |-
     {
