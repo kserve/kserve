@@ -1846,6 +1846,16 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				g.Expect(current.Status).To(HaveCondition("Ready", "True"))
 			}).WithContext(ctx).Should(Succeed())
 
+			// The K8s event recorder writes events asynchronously, so the
+			// LLMInferenceServiceReady event may not exist yet even though the
+			// status already shows Ready=True. Wait for it before capturing
+			// the baseline to avoid a racy comparison in the Consistently
+			// block below.
+			Eventually(func(g Gomega, ctx context.Context) {
+				g.Expect(countReadinessEvents(ctx, envTest.Client, llmSvc)).To(BeNumerically(">=", 1),
+					"Expected initial LLMInferenceServiceReady event to be recorded")
+			}).WithContext(ctx).Should(Succeed())
+
 			baselineCount := countReadinessEvents(ctx, envTest.Client, llmSvc)
 
 			errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
