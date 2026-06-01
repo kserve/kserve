@@ -152,6 +152,34 @@ var _ = Describe("Model Based Routing", func() {
 
 			Eventually(LLMInferenceServiceIsReady(llmSvc)).WithContext(ctx).Should(Succeed())
 		})
+
+		It("should reconcile existing services when inferenceservice-config changes", func(ctx SpecContext) {
+			DeferCleanup(restoreIngressModelBasedRoutingMode)
+
+			svcName := "test-mbr-config-update"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := createModelRoutingTestService(ctx, svcName, testNs)
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				routes, err := managedRoutes(ctx, llmSvc)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(routes).To(HaveLen(1))
+				g.Expect(&routes[0]).To(HaveHeaderMatch(headerName, "publishers/"+testNs.Name+"/models/facebook/opt-125m"))
+			}).WithContext(ctx).Should(Succeed())
+
+			patchIngressModelBasedRoutingMode(ctx, "disabled")
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				routes, err := managedRoutes(ctx, llmSvc)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(routes).To(HaveLen(1))
+				g.Expect(&routes[0]).NotTo(HaveHeaderMatch(headerName, "publishers/"+testNs.Name+"/models/facebook/opt-125m"))
+			}).WithContext(ctx).Should(Succeed())
+		})
 	})
 
 	Context("Disabled via ConfigMap", func() {

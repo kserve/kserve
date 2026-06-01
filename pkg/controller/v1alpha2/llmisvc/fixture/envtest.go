@@ -69,15 +69,10 @@ func SetupTestEnv(ctx context.Context) *pkgtest.Client {
 	}
 
 	webhookManifests := pkgtest.WithWebhookManifests(filepath.Join(pkgtest.ProjectRoot(), "test", "webhooks"))
-	webhooks := func(cfg *rest.Config, mgr ctrl.Manager) error {
-		clientSet, err := kubernetes.NewForConfig(cfg)
-		if err != nil {
-			return err
-		}
-
+	webhooks := func(_ *rest.Config, mgr ctrl.Manager) error {
 		// Create validation function for config template validation
 		v2ConfigValidationFunc := func(ctx context.Context, config *v1alpha2.LLMInferenceServiceConfig) error {
-			llmisvcConfig, err := llmisvc.LoadConfig(ctx, clientSet)
+			llmisvcConfig, err := llmisvc.LoadConfig(ctx, mgr.GetAPIReader())
 			if err != nil {
 				return err
 			}
