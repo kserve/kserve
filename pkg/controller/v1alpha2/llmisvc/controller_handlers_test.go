@@ -162,8 +162,7 @@ func TestSetRoutingPoolStatusOnlyWritesWhenRoutingExists(t *testing.T) {
 func TestRequestsForInferencePoolChangeMatchesExternalPoolRefs(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	scheme := runtime.NewScheme()
-	g.Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
+	scheme := newControllerHandlersScheme(t)
 
 	llmSvcWithMatch := &v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{
@@ -237,8 +236,7 @@ func TestRequestsForInferencePoolChangeMatchesExternalPoolRefs(t *testing.T) {
 func TestRequestsForInferencePoolChangeIncludesRefsEvenWhenPoolIsOwned(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	scheme := runtime.NewScheme()
-	g.Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
+	scheme := newControllerHandlersScheme(t)
 
 	ownerSvc := &v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{
@@ -307,6 +305,95 @@ func TestRequestsForInferencePoolChangeIncludesRefsEvenWhenPoolIsOwned(t *testin
 			Name:      "svc-consumer",
 		},
 	}))
+}
+
+func TestRequestsForInferenceServiceConfigMapChangeEnqueuesAllServices(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	scheme := newControllerHandlersScheme(t)
+
+	first := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "first",
+			Namespace: "default",
+		},
+	}
+	second := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "second",
+			Namespace: "other",
+		},
+	}
+
+	reconciler := &LLMISVCReconciler{
+		Client: clientfake.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(first, second).
+			Build(),
+	}
+
+	configMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.InferenceServiceConfigMapName,
+			Namespace: constants.KServeNamespace,
+		},
+	}
+
+	reqs := enqueueRequestsForObject(
+		reconciler.enqueueOnInferenceServiceConfigMapChange(logr.Discard()),
+		configMap,
+	)
+
+	g.Expect(reqs).To(ConsistOf(
+		reconcile.Request{NamespacedName: types.NamespacedName{Namespace: "default", Name: "first"}},
+		reconcile.Request{NamespacedName: types.NamespacedName{Namespace: "other", Name: "second"}},
+	))
+}
+
+func TestInferenceServiceConfigMapPredicateOnlyAcceptsConfigChanges(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	base := testInferenceServiceConfigMap()
+
+	metadataOnly := base.DeepCopy()
+	metadataOnly.Labels = map[string]string{"changed": "true"}
+	g.Expect(inferenceServiceConfigMapPredicate.Update(event.UpdateEvent{
+		ObjectOld: base,
+		ObjectNew: metadataOnly,
+	})).To(BeFalse())
+
+	unusedData := base.DeepCopy()
+	unusedData.Data["unrelated"] = "ignored"
+	g.Expect(inferenceServiceConfigMapPredicate.Update(event.UpdateEvent{
+		ObjectOld: base,
+		ObjectNew: unusedData,
+	})).To(BeFalse())
+
+	configChange := base.DeepCopy()
+	configChange.Data["ingress"] = `{
+		"enableGatewayApi": true,
+		"kserveIngressGateway": "kserve/changed-gateway",
+		"ingressGateway": "knative-serving/knative-ingress-gateway",
+		"localGateway": "knative-serving/knative-local-gateway",
+		"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local"
+	}`
+	g.Expect(inferenceServiceConfigMapPredicate.Update(event.UpdateEvent{
+		ObjectOld: base,
+		ObjectNew: configChange,
+	})).To(BeTrue())
+}
+
+func newControllerHandlersScheme(t *testing.T) *runtime.Scheme {
+	t.Helper()
+
+	scheme := runtime.NewScheme()
+	if err := v1alpha2.AddToScheme(scheme); err != nil {
+		t.Fatalf("failed to add v1alpha2 to scheme: %v", err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("failed to add corev1 to scheme: %v", err)
+	}
+	return scheme
 }
 
 func enqueueRequestsForObject(eventHandler handler.EventHandler, object client.Object) []reconcile.Request {

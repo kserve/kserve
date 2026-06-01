@@ -171,23 +171,10 @@ jobs:
           name: ${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
           path: ./tmp
 
-      - name: Load LLMISvc controller image into minikube
-        run: |
-          # Load the tagged image into minikube
-          minikube image load ./tmp/${{ env.LLMISVC_CONTROLLER_IMG }}-${{ env.TAG }}
-
-          # Verify image is loaded
-          echo "Images in minikube:"
-          minikube image ls | grep ${{ env.LLMISVC_CONTROLLER_IMG }} || echo "No llmisvc-controller images found"
-
-      - name: Load storage-initializer image into minikube
-        run: |
-          # Load the tagged image into minikube
-          minikube image load ./tmp/${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
-
-          # Verify image is loaded
-          echo "Images in minikube:"
-          minikube image ls | grep ${{ env.STORAGE_INIT_IMG }} || echo "No storage-initializer images found"
+      - name: Load docker images
+        uses: ./.github/actions/load-docker-images
+        with:
+          directory: ./tmp
 
       - name: KServe dependency setup
         uses: ./.github/actions/kserve-dep-setup
@@ -294,17 +281,10 @@ jobs:
           name: ${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
           path: ./tmp
 
-      - name: Load LLMISvc controller image into minikube
-        run: |
-          minikube image load ./tmp/${{ env.LLMISVC_CONTROLLER_IMG }}-${{ env.TAG }}
-          echo "Images in minikube:"
-          minikube image ls | grep ${{ env.LLMISVC_CONTROLLER_IMG }} || echo "No llmisvc-controller images found"
-
-      - name: Load storage-initializer image into minikube
-        run: |
-          minikube image load ./tmp/${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
-          echo "Images in minikube:"
-          minikube image ls | grep ${{ env.STORAGE_INIT_IMG }} || echo "No storage-initializer images found"
+      - name: Load docker images
+        uses: ./.github/actions/load-docker-images
+        with:
+          directory: ./tmp
 
       - name: KServe dependency setup (HPA autoscaling)
         uses: ./.github/actions/kserve-dep-setup
@@ -393,17 +373,10 @@ jobs:
           name: ${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
           path: ./tmp
 
-      - name: Load LLMISvc controller image into minikube
-        run: |
-          minikube image load ./tmp/${{ env.LLMISVC_CONTROLLER_IMG }}-${{ env.TAG }}
-          echo "Images in minikube:"
-          minikube image ls | grep ${{ env.LLMISVC_CONTROLLER_IMG }} || echo "No llmisvc-controller images found"
-
-      - name: Load storage-initializer image into minikube
-        run: |
-          minikube image load ./tmp/${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
-          echo "Images in minikube:"
-          minikube image ls | grep ${{ env.STORAGE_INIT_IMG }} || echo "No storage-initializer images found"
+      - name: Load docker images
+        uses: ./.github/actions/load-docker-images
+        with:
+          directory: ./tmp
 
       - name: KServe dependency setup (KEDA autoscaling)
         uses: ./.github/actions/kserve-dep-setup

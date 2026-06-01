@@ -23,7 +23,8 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
+	k8stypes "k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -177,15 +178,34 @@ func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.Storag
 	}
 }
 
-// LoadConfig loads configuration from the KServe configmap in the cluster
-// It fetches and converts the configmap into structured config objects needed by LLM services
-func LoadConfig(ctx context.Context, clientset kubernetes.Interface) (*Config, error) {
-	// Fetch the KServe configmap directly from the API server to get latest values
-	isvcConfigMap, errCfgMap := v1beta1.GetInferenceServiceConfigMap(ctx, clientset)
-	if errCfgMap != nil {
-		return nil, fmt.Errorf("failed to load InferenceServiceConfigMap: %w", errCfgMap)
+// LoadConfig loads configuration from the supplied Kubernetes object reader.
+func LoadConfig(ctx context.Context, reader client.Reader) (*Config, error) {
+	isvcConfigMap := &corev1.ConfigMap{}
+	if err := reader.Get(ctx, k8stypes.NamespacedName{
+		Namespace: constants.KServeNamespace,
+		Name:      constants.InferenceServiceConfigMapName,
+	}, isvcConfigMap); err != nil {
+		return nil, fmt.Errorf("failed to load InferenceServiceConfigMap: %w", err)
 	}
 
+	return toConfig(isvcConfigMap)
+}
+
+func (r *LLMISVCReconciler) loadConfig(ctx context.Context) (*Config, error) {
+	configMap, fallbackErr := Get(
+		ctx,
+		r.Client,
+		client.ObjectKey{Namespace: constants.KServeNamespace, Name: constants.InferenceServiceConfigMapName},
+		&corev1.ConfigMap{},
+		WithGetFallbackAPIServerConfigMap(r.Clientset),
+	)
+	if fallbackErr != nil {
+		return nil, fmt.Errorf("failed to load InferenceServiceConfigMap: %w", fallbackErr)
+	}
+	return toConfig(configMap)
+}
+
+func toConfig(isvcConfigMap *corev1.ConfigMap) (*Config, error) {
 	ingressConfig, errConvert := v1beta1.NewIngressConfig(isvcConfigMap)
 	if errConvert != nil {
 		return nil, fmt.Errorf("failed to convert InferenceServiceConfigMap to IngressConfig: %w", errConvert)
