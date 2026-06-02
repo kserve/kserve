@@ -85,11 +85,14 @@ func TestIsWorkloadRolling(t *testing.T) {
 			want:        true,
 		},
 		{
+			// No Available condition means the Deployment was just created and the controller
+			// hasn't observed it yet (e.g. envtest). Treat as not rolling so that initial EPP
+			// creation is not blocked.
 			name: "no Available condition yet (brand new deployment)",
 			deployments: []*appsv1.Deployment{{
 				ObjectMeta: metav1.ObjectMeta{Name: mainName, Namespace: "default"},
 			}},
-			want: true,
+			want: false,
 		},
 		{
 			name: "main available, prefill not yet ready",

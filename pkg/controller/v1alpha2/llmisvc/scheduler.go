@@ -192,11 +192,12 @@ func (r *LLMISVCReconciler) reconcileSchedulerDeployment(ctx context.Context, ll
 	return r.propagateSchedulerDeploymentStatus(ctx, scheduler, llmSvc.MarkSchedulerWorkloadReady, llmSvc.MarkSchedulerWorkloadNotReady)
 }
 
-// isWorkloadRolling returns true if any workload Deployment for the LLMInferenceService is not
-// yet fully available. It uses the same readiness definition as propagateDeploymentStatus: the
-// workload is ready only when the DeploymentAvailable condition is True. This is used to defer
-// EPP spec updates until all workload Deployments are fully available, preventing an EPP restart
-// from truncating in-flight streams while vLLM pods are still coming up.
+// isWorkloadRolling returns true if any workload Deployment for the LLMInferenceService is
+// explicitly unavailable (DeploymentAvailable condition present and not True). Deployments with
+// no Available condition (brand-new or not yet observed by the controller, e.g. in envtest) are
+// treated as not rolling so that initial EPP creation is not blocked. This is used to defer EPP
+// spec updates during active workload rollouts, preventing an EPP restart from truncating
+// in-flight streams while vLLM pods are still coming up.
 func (r *LLMISVCReconciler) isWorkloadRolling(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (bool, error) {
 	names := []string{mainDeploymentName(llmSvc)}
 	if llmSvc.Spec.Prefill != nil {
@@ -210,15 +211,13 @@ func (r *LLMISVCReconciler) isWorkloadRolling(ctx context.Context, llmSvc *v1alp
 			}
 			return false, fmt.Errorf("failed to get workload deployment %s: %w", name, err)
 		}
-		ready := false
 		for _, cond := range d.Status.Conditions {
-			if cond.Type == appsv1.DeploymentAvailable && cond.Status == corev1.ConditionTrue {
-				ready = true
+			if cond.Type == appsv1.DeploymentAvailable {
+				if cond.Status != corev1.ConditionTrue {
+					return true, nil
+				}
 				break
 			}
-		}
-		if !ready {
-			return true, nil
 		}
 	}
 	return false, nil
