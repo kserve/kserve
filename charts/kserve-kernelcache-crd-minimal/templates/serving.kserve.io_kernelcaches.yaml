@@ -15,7 +15,32 @@ spec:
     singular: kernelcache
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.state
+      name: Status
+      type: string
+    - jsonPath: .status.counts.nodeCnt
+      name: Nodes
+      type: integer
+    - jsonPath: .status.counts.nodeInUseCnt
+      name: Node-In-Use
+      type: integer
+    - jsonPath: .status.counts.nodeNotInUseCnt
+      name: Node-Not-In-Use
+      type: integer
+    - jsonPath: .status.counts.nodeErrorCnt
+      name: Node-Error
+      type: integer
+    - jsonPath: .status.counts.podRunningCnt
+      name: Pod-Running
+      type: integer
+    - jsonPath: .status.counts.podDeletingCnt
+      name: Pod-Deleting
+      type: integer
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         properties:

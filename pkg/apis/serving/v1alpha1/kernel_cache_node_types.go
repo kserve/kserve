@@ -28,6 +28,12 @@ import (
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster
+// +kubebuilder:printcolumn:name="Caches-In-Use",type=integer,JSONPath=".status.counts.cachesInUse"
+// +kubebuilder:printcolumn:name="Caches-Not-In-Use",type=integer,JSONPath=".status.counts.cachesNotInUse"
+// +kubebuilder:printcolumn:name="Caches-Error",type=integer,JSONPath=".status.counts.cachesError"
+// +kubebuilder:printcolumn:name="Pod-Running",type=integer,JSONPath=".status.counts.podRunningCnt"
+// +kubebuilder:printcolumn:name="Pod-Deleting",type=integer,JSONPath=".status.counts.podDeletingCnt"
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=".metadata.creationTimestamp"
 type KernelCacheNode struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -35,37 +41,55 @@ type KernelCacheNode struct {
 	Status KernelCacheNodeStatus `json:"status,omitempty"`
 }
 
-// KernelCacheInfo identifies a kernel cache to extract
-type KernelCacheInfo struct {
-	Name      string `json:"name"`
-	Namespace string `json:"namespace"`
-	Image     string `json:"image"`
-	Digest    string `json:"digest,omitempty"`
-}
-
 // KernelCacheNodeStatus defines per-node extraction and GPU compatibility status
+// Agent owns all writes to this structure
 type KernelCacheNodeStatus struct {
-	// NodeName is the Kubernetes node this tracks (moved from Spec)
+	// NodeName is the Kubernetes node this tracks
 	NodeName string `json:"nodeName"`
-
-	// Caches lists kernel caches to extract on this node (moved from Spec)
-	// +optional
-	Caches []KernelCacheInfo `json:"caches,omitempty"`
 
 	// GPU info: list of GPU types detected on this node (from MCV)
 	// Can be empty (CPU-only node) or heterogeneous (mixed GPU types)
 	// +optional
 	GPUInfo []GPUTypeInfo `json:"gpuInfo,omitempty"`
 
-	// CacheStatus maps cache name to extraction and compatibility status
+	// CacheStatus maps cache name (unique within namespace) to full cache info and status
+	// Agent discovers caches by watching KernelCache CRs and populates this map
+	// Key format: "{namespace}/{name}" for uniqueness across namespaces
 	// +optional
-	CacheStatus map[string]CacheNodeExtractionStatus `json:"cacheStatus,omitempty"`
+	CacheStatus map[string]CacheNodeCacheInfo `json:"cacheStatus,omitempty"`
+
+	// Aggregate counts across all caches on this node (for kubectl get display)
+	// +optional
+	Counts *NodeCacheCounts `json:"counts,omitempty"`
 }
 
-// CacheNodeExtractionStatus tracks extraction and compatibility for one cache on one node
-type CacheNodeExtractionStatus struct {
-	// Download phase tracking
-	DownloadStatus NodeExtractionStatus `json:"downloadStatus"`
+// NodeCacheCounts aggregates cache and pod counts across all caches on a node
+type NodeCacheCounts struct {
+	// CachesInUse - caches in Running state (mounted by pods)
+	CachesInUse int `json:"cachesInUse"`
+	// CachesNotInUse - caches in Extracted state (available but not mounted)
+	CachesNotInUse int `json:"cachesNotInUse"`
+	// CachesError - caches in Error state
+	CachesError int `json:"cachesError"`
+	// PodRunningCnt - total pods using any cache on this node
+	PodRunningCnt int `json:"podRunningCnt"`
+	// PodDeletingCnt - total pods terminating
+	PodDeletingCnt int `json:"podDeletingCnt"`
+}
+
+// CacheNodeCacheInfo tracks full cache information and status on one node
+// Combines cache identity (name/namespace/image/digest) with extraction state
+// Agent populates all fields by watching KernelCache CRs and tracking extraction jobs
+type CacheNodeCacheInfo struct {
+	// Cache identity (agent reads from KernelCache CR)
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+	Image     string `json:"image"`
+	Digest    string `json:"digest,omitempty"`
+
+	// State represents this cache's state on this specific node
+	// +optional
+	State NodeCacheState `json:"state,omitempty"`
 
 	// GPU compatibility (from MCV validation during extraction)
 	// Lists GPU IDs that are compatible/incompatible with this cache
@@ -74,15 +98,22 @@ type CacheNodeExtractionStatus struct {
 	// +optional
 	IncompatibleGPUs []int `json:"incompatibleGPUs,omitempty"`
 
-	// Phase 2: Serving PVC usage on this node (per-namespace counts)
+	// Serving PVC usage on this node (per-namespace counts)
 	// +optional
 	ServingNamespaces map[string]NamespaceServingCounts `json:"servingNamespaces,omitempty"`
 
+	// Message provides details about current state (e.g., error messages)
 	// +optional
 	Message string `json:"message,omitempty"`
+
+	// LastUpdate timestamp
 	// +optional
 	LastUpdate metav1.Time `json:"lastUpdate,omitempty"`
 }
+
+// CacheNodeExtractionStatus is deprecated - use CacheNodeCacheInfo
+// Kept for backward compatibility during migration
+type CacheNodeExtractionStatus = CacheNodeCacheInfo
 
 // NamespaceServingCounts tracks pod usage per namespace
 type NamespaceServingCounts struct {
