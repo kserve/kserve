@@ -359,6 +359,27 @@ jobs:
       fail-fast: false
       matrix:
         install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
+        test:
+          - { file: "batcher/test_batcher.py", name: "batcher" }
+          - { file: "batcher/test_batcher_custom_port.py", name: "batcher-custom-port" }
+          - { file: "custom/test_custom_model_grpc.py", name: "custom-model-grpc" }
+          - { file: "custom/test_ray.py", name: "ray" }
+          - { file: "logger/test_logger.py", name: "logger" }
+          - { file: "predictor/test_autoscaling.py", name: "autoscaling" }
+          - { file: "predictor/test_canary.py", name: "canary" }
+          - { file: "predictor/test_grpc.py", name: "grpc" }
+          - { file: "predictor/test_lightgbm.py", name: "lightgbm" }
+          - { file: "predictor/test_mlflow.py", name: "mlflow" }
+          - { file: "predictor/test_paddle.py", name: "paddle" }
+          - { file: "predictor/test_pmml.py", name: "pmml" }
+          - { file: "predictor/test_pod_watch.py", name: "pod-watch" }
+          - { file: "predictor/test_predictive.py", name: "predictive" }
+          - { file: "predictor/test_sklearn.py", name: "sklearn" }
+          - { file: "predictor/test_tensorflow.py", name: "tensorflow" }
+          - { file: "predictor/test_torchserve.py", name: "torchserve" }
+          - { file: "predictor/test_triton.py", name: "triton" }
+          - { file: "predictor/test_xgboost.py", name: "xgboost" }
+          - { file: "storagespec/test_s3_storagespec.py", name: "s3-storagespec" }
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -424,7 +445,7 @@ jobs:
       - name: Run predictor E2E tests
         timeout-minutes: 40
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "predictor" "6"
+          PYTEST_ARGS="${{ matrix.test.file }}" ./test/scripts/gh-actions/run-e2e-tests.sh "predictor" "6"
 
       - name: Check system status
         if: always()
@@ -435,7 +456,7 @@ jobs:
         if: always()
         uses: ./.github/actions/upload-test-results
         with:
-          name: test-results-predictor-${{ matrix.install-method }}
+          name: test-results-predictor-${{ matrix.install-method }}-${{ matrix.test.name }}
 
   test-transformer-explainer-mms:
     runs-on: ubuntu-latest
@@ -445,6 +466,14 @@ jobs:
       fail-fast: false
       matrix:
         install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
+        test:
+          - { file: "custom/test_custom_model_grpc.py", marker: "transformer", name: "transformer-custom-model-grpc" }
+          - { file: "predictor/test_response_headers.py", marker: "transformer", name: "transformer-response-headers" }
+          - { file: "predictor/test_triton.py", marker: "transformer", name: "transformer-triton" }
+          - { file: "transformer/test_transformer.py", marker: "transformer", name: "transformer" }
+          - { file: "predictor/test_multi_model_serving.py", marker: "mms", name: "mms" }
+          - { file: "transformer/test_collocation.py", marker: "collocation", name: "collocation" }
+          - { file: "explainer/test_art_explainer.py", marker: "explainer", name: "explainer" }
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -534,12 +563,7 @@ jobs:
       - name: Run E2E tests
         timeout-minutes: 30
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "transformer or mms or collocation" "6"
-
-      - name: Run E2E tests - explainer
-        timeout-minutes: 30
-        run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "explainer" "1"
+          PYTEST_ARGS="${{ matrix.test.file }}" ./test/scripts/gh-actions/run-e2e-tests.sh "${{ matrix.test.marker }}" "6"
 
       - name: Check system status
         if: always()
@@ -550,7 +574,7 @@ jobs:
         if: always()
         uses: ./.github/actions/upload-test-results
         with:
-          name: test-results-transformer-explainer-mms-${{ matrix.install-method }}
+          name: test-results-transformer-explainer-mms-${{ matrix.install-method }}-${{ matrix.test.name }}
 
   test-graph:
     runs-on: ubuntu-latest
@@ -664,6 +688,14 @@ jobs:
       fail-fast: false
       matrix:
         install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
+        test:
+          - { file: "logger/test_logger.py", marker: "path_based_routing", name: "logger" }
+          - { file: "predictor/test_canary.py", marker: "path_based_routing", name: "canary" }
+          - { file: "predictor/test_lightgbm.py", marker: "path_based_routing", name: "lightgbm" }
+          - { file: "predictor/test_triton.py", marker: "path_based_routing", name: "triton" }
+          - { file: "predictor/test_xgboost.py", marker: "path_based_routing", name: "xgboost" }
+          - { file: "storagespec/test_s3_storagespec.py", marker: "path_based_routing", name: "s3-storagespec" }
+          - { file: "explainer/test_art_explainer.py", marker: "explainer", name: "explainer" }
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -764,12 +796,7 @@ jobs:
       - name: Run E2E tests with path-based routing
         timeout-minutes: 30
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "path_based_routing" "6"
-
-      - name: Run E2E tests with path-based routing - Explainer
-        timeout-minutes: 30
-        run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "explainer" "1"
+          PYTEST_ARGS="${{ matrix.test.file }}" ./test/scripts/gh-actions/run-e2e-tests.sh "${{ matrix.test.marker }}" "6"
 
       - name: Check system status
         if: always()
@@ -780,7 +807,7 @@ jobs:
         if: always()
         uses: ./.github/actions/upload-test-results
         with:
-          name: test-results-path-based-routing-${{ matrix.install-method }}
+          name: test-results-path-based-routing-${{ matrix.install-method }}-${{ matrix.test.name }}
 
   test-qpext:
     runs-on: ubuntu-latest
@@ -1111,6 +1138,8 @@ jobs:
       fail-fast: false
       matrix:
         install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
+        test:
+          - { file: "predictor/test_autoscaling.py", name: "autoscaling" }
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -1199,7 +1228,7 @@ jobs:
       - name: Run E2E tests
         timeout-minutes: 30
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "autoscaling and not llminferenceservice" "6" "istio-ingress"
+          PYTEST_ARGS="${{ matrix.test.file }}" ./test/scripts/gh-actions/run-e2e-tests.sh "autoscaling and not llminferenceservice" "6" "istio-ingress"
 
       - name: Check system status
         if: always()
@@ -1210,7 +1239,7 @@ jobs:
         if: always()
         uses: ./.github/actions/upload-test-results
         with:
-          name: test-results-autoscaling-${{ matrix.install-method }}
+          name: test-results-autoscaling-${{ matrix.install-method }}-${{ matrix.test.name }}
 
   test-kourier:
     runs-on: ubuntu-latest
@@ -1220,6 +1249,9 @@ jobs:
       fail-fast: false
       matrix:
         install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
+        test:
+          - { file: "graph/test_inference_graph.py", name: "graph" }
+          - { file: "predictor/test_sklearn.py", name: "sklearn" }
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -1314,7 +1346,7 @@ jobs:
           --output=jsonpath="{.items[0].status.podIP}"):$(kubectl get pod -n knative-serving -l "app=3scale-kourier-gateway" \
           --output=jsonpath="{.items[0].spec.containers[0].ports[0].containerPort}")
 
-          ./test/scripts/gh-actions/run-e2e-tests.sh "kourier" "6"
+          PYTEST_ARGS="${{ matrix.test.file }}" ./test/scripts/gh-actions/run-e2e-tests.sh "kourier" "6"
 
       - name: Check system status
         if: always()
@@ -1325,7 +1357,7 @@ jobs:
         if: always()
         uses: ./.github/actions/upload-test-results
         with:
-          name: test-results-kourier-${{ matrix.install-method }}
+          name: test-results-kourier-${{ matrix.install-method }}-${{ matrix.test.name }}
 
   test-llm:
     runs-on: ubuntu-latest
@@ -1334,6 +1366,17 @@ jobs:
       fail-fast: false
       matrix:
         install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
+        test:
+          - { file: "llmisvc/test_gateway_section_name.py", name: "gateway-section-name" }
+          - { file: "llmisvc/test_llm_autoscaling.py", name: "llm-autoscaling" }
+          - { file: "llmisvc/test_llm_inference_service_conversion.py", name: "llm-isvc-conversion" }
+          - { file: "llmisvc/test_llm_inference_service.py", name: "llm-isvc" }
+          - { file: "llmisvc/test_llm_inference_service_stop.py", name: "llm-isvc-stop" }
+          - { file: "llmisvc/test_llm_lora_adapters.py", name: "llm-lora-adapters" }
+          - { file: "llmisvc/test_pod_watch.py", name: "llm-pod-watch" }
+          - { file: "llmisvc/test_prestop_hook.py", name: "llm-prestop-hook" }
+          - { file: "llmisvc/test_storage_version_migration.py", name: "llm-storage-migration" }
+          - { file: "predictor/test_huggingface.py", name: "huggingface" }
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -1397,7 +1440,7 @@ jobs:
       - name: Run E2E tests
         timeout-minutes: 45
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "llm" "2"
+          PYTEST_ARGS="${{ matrix.test.file }}" ./test/scripts/gh-actions/run-e2e-tests.sh "llm" "2"
 
       - name: Check system status
         if: always()
@@ -1408,7 +1451,7 @@ jobs:
         if: always()
         uses: ./.github/actions/upload-test-results
         with:
-          name: test-results-llm-${{ matrix.install-method }}
+          name: test-results-llm-${{ matrix.install-method }}-${{ matrix.test.name }}
 
   test-huggingface-server-vllm:
     runs-on: ubuntu-latest
