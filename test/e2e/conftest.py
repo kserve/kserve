@@ -69,7 +69,7 @@ async def rest_v1_client():
         config=RESTConfig(
             transport=transport,
             timeout=180,
-            verbose=True,
+            verbose=False,
             protocol=PredictorProtocol.REST_V1,
         )
     )
@@ -97,7 +97,7 @@ async def rest_v2_client():
         config=RESTConfig(
             transport=transport,
             timeout=180,
-            verbose=True,
+            verbose=False,
             protocol=PredictorProtocol.REST_V2,
         )
     )
