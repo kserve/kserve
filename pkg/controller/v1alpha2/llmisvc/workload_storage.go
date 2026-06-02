@@ -18,6 +18,7 @@ package llmisvc
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -26,6 +27,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -51,21 +53,54 @@ var tokenizerOnlyDownload = corev1.EnvVar{
 	Value: `["tokenizer.json", "tokenizer_config.json", "special_tokens_map.json", "vocab.json", "merges.txt", "config.json", "generation_config.json"]`,
 }
 
-// stripPriorControllerStorageInitializer removes the storage-initializer init container that would
-// duplicate the one the controller is about to add: merged/user templates often already
-// define "storage-initializer".
-func stripPriorControllerStorageInitializer(podSpec *corev1.PodSpec) {
+// extractAndStripStorageInitializer removes the storage-initializer init container from the
+// podSpec and returns a deep copy of it. Returns nil if no storage-initializer was present.
+func extractAndStripStorageInitializer(podSpec *corev1.PodSpec) *corev1.Container {
 	if podSpec == nil {
-		return
+		return nil
 	}
+	var extracted *corev1.Container
 	keptInit := podSpec.InitContainers[:0]
-	for _, ic := range podSpec.InitContainers {
-		if ic.Name == constants.StorageInitializerContainerName {
+	for i := range podSpec.InitContainers {
+		if podSpec.InitContainers[i].Name == constants.StorageInitializerContainerName {
+			c := podSpec.InitContainers[i].DeepCopy()
+			extracted = c
 			continue
 		}
-		keptInit = append(keptInit, ic)
+		keptInit = append(keptInit, podSpec.InitContainers[i])
 	}
 	podSpec.InitContainers = keptInit
+	return extracted
+}
+
+// mergeStorageInitializerContainer merges user customizations onto the controller-generated
+// default storage-initializer container using strategic merge patch. The controller's Name
+// and Args are always preserved regardless of user overrides.
+func mergeStorageInitializerContainer(controllerDefault *corev1.Container, userOverride corev1.Container) (*corev1.Container, error) {
+	baseJSON, err := json.Marshal(controllerDefault)
+	if err != nil {
+		return nil, fmt.Errorf("could not marshal controller default container: %w", err)
+	}
+
+	overrideJSON, err := json.Marshal(userOverride)
+	if err != nil {
+		return nil, fmt.Errorf("could not marshal user override container: %w", err)
+	}
+
+	mergedJSON, err := strategicpatch.StrategicMergePatch(baseJSON, overrideJSON, corev1.Container{})
+	if err != nil {
+		return nil, fmt.Errorf("could not apply strategic merge patch: %w", err)
+	}
+
+	var merged corev1.Container
+	if err := json.Unmarshal(mergedJSON, &merged); err != nil {
+		return nil, fmt.Errorf("could not unmarshal merged container: %w", err)
+	}
+
+	merged.Name = controllerDefault.Name
+	merged.Args = controllerDefault.Args
+
+	return &merged, nil
 }
 
 // attachModelArtifacts configures a PodSpec to fetch and use a model from a provided URI in the LLMInferenceService.
@@ -366,7 +401,7 @@ func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAc
 //
 //	An error if the configuration fails, otherwise nil.
 func (r *LLMISVCReconciler) attachStorageInitializer(modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, containerName string, modelPath string) error {
-	stripPriorControllerStorageInitializer(podSpec)
+	userOverride := extractAndStripStorageInitializer(podSpec)
 
 	containerArgs := []string{
 		modelUri,
@@ -389,6 +424,15 @@ func (r *LLMISVCReconciler) attachStorageInitializer(modelUri string, curr corev
 	}
 
 	initContainer := utils.CreateInitContainerWithConfig(&copied, containerArgs)
+
+	if userOverride != nil {
+		var err error
+		initContainer, err = mergeStorageInitializerContainer(initContainer, *userOverride)
+		if err != nil {
+			return fmt.Errorf("failed to merge user storage-initializer customizations: %w", err)
+		}
+	}
+
 	podSpec.InitContainers = append(podSpec.InitContainers, *initContainer)
 
 	if err := utils.AddModelMount(storageMountParams, initContainer.Name, podSpec); err != nil {
@@ -421,7 +465,7 @@ func (r *LLMISVCReconciler) attachMultiStorageDownloads(
 	if len(pairs) == 0 {
 		return nil
 	}
-	stripPriorControllerStorageInitializer(podSpec)
+	userOverride := extractAndStripStorageInitializer(podSpec)
 
 	paths := make([]string, len(pairs))
 	for i, p := range pairs {
@@ -446,6 +490,15 @@ func (r *LLMISVCReconciler) attachMultiStorageDownloads(
 	}
 
 	initC := utils.CreateInitContainerWithConfig(&copied, args)
+
+	if userOverride != nil {
+		var err error
+		initC, err = mergeStorageInitializerContainer(initC, *userOverride)
+		if err != nil {
+			return fmt.Errorf("failed to merge user storage-initializer customizations: %w", err)
+		}
+	}
+
 	podSpec.InitContainers = append(podSpec.InitContainers, *initC)
 	iname := initC.Name
 
