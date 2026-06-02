@@ -282,4 +282,42 @@ func TestMergeStorageInitializerContainer(t *testing.T) {
 			t.Errorf("name = %q, want %q", merged.Name, constants.StorageInitializerContainerName)
 		}
 	})
+
+	t.Run("user passes HF_XET and TOKIO env vars to tune storage-initializer", func(t *testing.T) {
+		t.Parallel()
+		ctrl := defaultContainer()
+		ctrl.Env = []corev1.EnvVar{{Name: "DEFAULT_VAR", Value: "default"}}
+		user := corev1.Container{
+			Name: constants.StorageInitializerContainerName,
+			Env: []corev1.EnvVar{
+				{Name: "HF_XET_HIGH_PERFORMANCE", Value: "0"},
+				{Name: "TOKIO_WORKER_THREADS", Value: "1"},
+			},
+		}
+
+		merged, err := mergeStorageInitializerContainer(ctrl, user)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		envMap := make(map[string]string)
+		for _, e := range merged.Env {
+			envMap[e.Name] = e.Value
+		}
+		if envMap["DEFAULT_VAR"] != "default" {
+			t.Errorf("DEFAULT_VAR = %q, want %q", envMap["DEFAULT_VAR"], "default")
+		}
+		if envMap["HF_XET_HIGH_PERFORMANCE"] != "0" {
+			t.Errorf("HF_XET_HIGH_PERFORMANCE = %q, want %q", envMap["HF_XET_HIGH_PERFORMANCE"], "0")
+		}
+		if envMap["TOKIO_WORKER_THREADS"] != "1" {
+			t.Errorf("TOKIO_WORKER_THREADS = %q, want %q", envMap["TOKIO_WORKER_THREADS"], "1")
+		}
+		if merged.Name != constants.StorageInitializerContainerName {
+			t.Errorf("name = %q, want %q", merged.Name, constants.StorageInitializerContainerName)
+		}
+		if diff := cmp.Diff(ctrl.Args, merged.Args); diff != "" {
+			t.Errorf("args mismatch (-want +got):\n%s", diff)
+		}
+	})
 }
