@@ -13,7 +13,26 @@ spec:
     singular: kernelcachenode
   scope: Cluster
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.counts.cachesInUse
+      name: Caches-In-Use
+      type: integer
+    - jsonPath: .status.counts.cachesNotInUse
+      name: Caches-Not-In-Use
+      type: integer
+    - jsonPath: .status.counts.cachesError
+      name: Caches-Error
+      type: integer
+    - jsonPath: .status.counts.podRunningCnt
+      name: Pod-Running
+      type: integer
+    - jsonPath: .status.counts.podDeletingCnt
+      name: Pod-Deleting
+      type: integer
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         properties:

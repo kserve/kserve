@@ -7,7 +7,6 @@ components:
 - ../../components/kserve
 - ../../components/llmisvc
 - ../../components/localmodel
-- ../../components/kernelcache
 
 patches:
 - path: configmap/inferenceservice_patch.yaml
@@ -15,5 +14,3 @@ patches:
 - path: localmodelnode_image_patch.yaml
 - path: localmodel_image_patch.yaml
 - path: llmisvc_image_patch.yaml
-- path: kernelcachenode_image_patch.yaml
-- path: kernelcache_image_patch.yaml

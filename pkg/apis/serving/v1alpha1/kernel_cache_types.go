@@ -27,6 +27,14 @@ import (
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=kc
+// +kubebuilder:printcolumn:name="Status",type=string,JSONPath=".status.state"
+// +kubebuilder:printcolumn:name="Nodes",type=integer,JSONPath=".status.counts.nodeCnt"
+// +kubebuilder:printcolumn:name="Node-In-Use",type=integer,JSONPath=".status.counts.nodeInUseCnt"
+// +kubebuilder:printcolumn:name="Node-Not-In-Use",type=integer,JSONPath=".status.counts.nodeNotInUseCnt"
+// +kubebuilder:printcolumn:name="Node-Error",type=integer,JSONPath=".status.counts.nodeErrorCnt"
+// +kubebuilder:printcolumn:name="Pod-Running",type=integer,JSONPath=".status.counts.podRunningCnt"
+// +kubebuilder:printcolumn:name="Pod-Deleting",type=integer,JSONPath=".status.counts.podDeletingCnt"
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=".metadata.creationTimestamp"
 type KernelCache struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

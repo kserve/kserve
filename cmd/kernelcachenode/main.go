@@ -94,8 +94,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Warm up MCV GPU detection cache before starting manager
-	// Pattern from GKM: Call MCV at startup to seed the cache
+	// Warm up MCV GPU detection cache before starting manager by call MCV at startup to seed the cache
 	// First call is slow (hardware detection), subsequent calls are fast (cached)
 	setupLog.Info("Warming up MCV GPU detection cache")
 	noGPU := false
@@ -162,6 +161,12 @@ func main() {
 
 	if err = reconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "KernelCacheNode")
+		os.Exit(1)
+	}
+
+	// Agent creates its own KernelCacheNode on startup
+	if err := reconciler.EnsureKernelCacheNode(cfg); err != nil {
+		setupLog.Error(err, "failed to ensure KernelCacheNode exists")
 		os.Exit(1)
 	}
 
