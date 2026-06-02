@@ -14,7 +14,26 @@ spec:
     singular: kernelcachenode
   scope: Cluster
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.counts.cachesInUse
+      name: Caches-In-Use
+      type: integer
+    - jsonPath: .status.counts.cachesNotInUse
+      name: Caches-Not-In-Use
+      type: integer
+    - jsonPath: .status.counts.cachesError
+      name: Caches-Error
+      type: integer
+    - jsonPath: .status.counts.podRunningCnt
+      name: Pod-Running
+      type: integer
+    - jsonPath: .status.counts.podDeletingCnt
+      name: Pod-Deleting
+      type: integer
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         properties:
@@ -33,7 +52,9 @@ spec:
                       items:
                         type: integer
                       type: array
-                    downloadStatus:
+                    digest:
+                      type: string
+                    image:
                       type: string
                     incompatibleGPUs:
                       items:
@@ -43,6 +64,10 @@ spec:
                       format: date-time
                       type: string
                     message:
+                      type: string
+                    name:
+                      type: string
+                    namespace:
                       type: string
                     servingNamespaces:
                       additionalProperties:
@@ -59,27 +84,39 @@ spec:
                         - podsUsing
                         type: object
                       type: object
-                  required:
-                  - downloadStatus
-                  type: object
-                type: object
-              caches:
-                items:
-                  properties:
-                    digest:
-                      type: string
-                    image:
-                      type: string
-                    name:
-                      type: string
-                    namespace:
+                    state:
+                      enum:
+                      - Pending
+                      - Downloading
+                      - Extracted
+                      - Running
+                      - Error
                       type: string
                   required:
                   - image
                   - name
                   - namespace
                   type: object
-                type: array
+                type: object
+              counts:
+                properties:
+                  cachesError:
+                    type: integer
+                  cachesInUse:
+                    type: integer
+                  cachesNotInUse:
+                    type: integer
+                  podDeletingCnt:
+                    type: integer
+                  podRunningCnt:
+                    type: integer
+                required:
+                - cachesError
+                - cachesInUse
+                - cachesNotInUse
+                - podDeletingCnt
+                - podRunningCnt
+                type: object
               gpuInfo:
                 items:
                   properties:
