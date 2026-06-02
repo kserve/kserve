@@ -62,7 +62,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     "env": [
                         {"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"},
                         {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
-                        {"name": "VLLM_USE_V1", "value": "0"},
+                        {"name": "VLLM_ENABLE_V1_MULTIPROCESSING", "value": "0"},
                         *UPSTREAM_K8S_VLLM_ENV_OVERRIDES,
                     ],
                     "resources": {
@@ -83,7 +83,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     "env": [
                         {"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"},
                         {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
-                        {"name": "VLLM_USE_V1", "value": "0"},
+                        {"name": "VLLM_ENABLE_V1_MULTIPROCESSING", "value": "0"},
                         *UPSTREAM_K8S_VLLM_ENV_OVERRIDES,
                     ],
                     "resources": {
@@ -117,7 +117,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "env": [
                             {"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"},
                             {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
-                            {"name": "VLLM_USE_V1", "value": "0"},
+                            {"name": "VLLM_ENABLE_V1_MULTIPROCESSING", "value": "0"},
                             *UPSTREAM_K8S_VLLM_ENV_OVERRIDES,
                         ],
                         "resources": {
@@ -393,7 +393,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     ],
                     "env": [
                         {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
-                        {"name": "VLLM_USE_V1", "value": "0"},
+                        {"name": "VLLM_ENABLE_V1_MULTIPROCESSING", "value": "0"},
                         *UPSTREAM_K8S_VLLM_ENV_OVERRIDES,
                     ],
                     "resources": {
@@ -418,7 +418,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     ],
                     "env": [
                         {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
-                        {"name": "VLLM_USE_V1", "value": "0"},
+                        {"name": "VLLM_ENABLE_V1_MULTIPROCESSING", "value": "0"},
                         *UPSTREAM_K8S_VLLM_ENV_OVERRIDES,
                     ],
                     "resources": {
