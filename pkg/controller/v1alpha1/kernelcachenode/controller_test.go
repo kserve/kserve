@@ -86,7 +86,7 @@ var _ = Describe("KernelCacheNode Controller", func() {
 
 			// Clean up KernelCacheNode
 			kcNode := &v1alpha1.KernelCacheNode{}
-			kcNodeName := "kernel-cache-node-" + nodeName
+			kcNodeName := nodeName
 			if err := k8sClient.Get(ctx, types.NamespacedName{
 				Name:      kcNodeName,
 				Namespace: kernelCacheNamespace,
@@ -183,6 +183,372 @@ var _ = Describe("KernelCacheNode Controller", func() {
 			// Direct testing would require importing MCV types which complicates the test
 		})
 	})
+
+	Context("Pod Watching - Helper Functions", func() {
+		var reconciler *KernelCacheNodeReconciler
+
+		BeforeEach(func() {
+			reconciler = &KernelCacheNodeReconciler{
+				Client: k8sClient,
+				Scheme: k8sClient.Scheme(),
+				Log:    ctrl.Log.WithName("test"),
+			}
+		})
+
+		Describe("podHasPVCVolume", func() {
+			It("Should return true for pod with PVC volume", func() {
+				pod := &corev1.Pod{
+					Spec: corev1.PodSpec{
+						Volumes: []corev1.Volume{
+							{
+								Name: "cache-volume",
+								VolumeSource: corev1.VolumeSource{
+									PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+										ClaimName: "test-cache",
+									},
+								},
+							},
+						},
+					},
+				}
+				Expect(podHasPVCVolume(pod)).To(BeTrue())
+			})
+
+			It("Should return false for pod without PVC volume", func() {
+				pod := &corev1.Pod{
+					Spec: corev1.PodSpec{
+						Volumes: []corev1.Volume{
+							{
+								Name: "config-volume",
+								VolumeSource: corev1.VolumeSource{
+									ConfigMap: &corev1.ConfigMapVolumeSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "my-config",
+										},
+									},
+								},
+							},
+						},
+					},
+				}
+				Expect(podHasPVCVolume(pod)).To(BeFalse())
+			})
+
+			It("Should return false for pod with no volumes", func() {
+				pod := &corev1.Pod{
+					Spec: corev1.PodSpec{
+						Volumes: []corev1.Volume{},
+					},
+				}
+				Expect(podHasPVCVolume(pod)).To(BeFalse())
+			})
+		})
+
+		Describe("podMountsCachePVC", func() {
+			It("Should return true when pod mounts exact cache name", func() {
+				pod := &corev1.Pod{
+					Spec: corev1.PodSpec{
+						Volumes: []corev1.Volume{
+							{
+								Name: "cache-volume",
+								VolumeSource: corev1.VolumeSource{
+									PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+										ClaimName: "my-cache",
+									},
+								},
+							},
+						},
+					},
+				}
+				Expect(reconciler.podMountsCachePVC(pod, "my-cache")).To(BeTrue())
+			})
+
+			It("Should return true when pod mounts cache-serving PVC", func() {
+				pod := &corev1.Pod{
+					Spec: corev1.PodSpec{
+						Volumes: []corev1.Volume{
+							{
+								Name: "cache-volume",
+								VolumeSource: corev1.VolumeSource{
+									PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+										ClaimName: "my-cache-serving",
+									},
+								},
+							},
+						},
+					},
+				}
+				Expect(reconciler.podMountsCachePVC(pod, "my-cache")).To(BeTrue())
+			})
+
+			It("Should return false when pod mounts different cache", func() {
+				pod := &corev1.Pod{
+					Spec: corev1.PodSpec{
+						Volumes: []corev1.Volume{
+							{
+								Name: "cache-volume",
+								VolumeSource: corev1.VolumeSource{
+									PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+										ClaimName: "other-cache",
+									},
+								},
+							},
+						},
+					},
+				}
+				Expect(reconciler.podMountsCachePVC(pod, "my-cache")).To(BeFalse())
+			})
+
+			It("Should return false when pod has no PVC volumes", func() {
+				pod := &corev1.Pod{
+					Spec: corev1.PodSpec{
+						Volumes: []corev1.Volume{},
+					},
+				}
+				Expect(reconciler.podMountsCachePVC(pod, "my-cache")).To(BeFalse())
+			})
+		})
+
+		Describe("isPodReady", func() {
+			It("Should return true for running and ready pod", func() {
+				pod := &corev1.Pod{
+					Status: corev1.PodStatus{
+						Phase: corev1.PodRunning,
+						Conditions: []corev1.PodCondition{
+							{
+								Type:   corev1.PodReady,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+				}
+				Expect(reconciler.isPodReady(pod)).To(BeTrue())
+			})
+
+			It("Should return false for running but not ready pod", func() {
+				pod := &corev1.Pod{
+					Status: corev1.PodStatus{
+						Phase: corev1.PodRunning,
+						Conditions: []corev1.PodCondition{
+							{
+								Type:   corev1.PodReady,
+								Status: corev1.ConditionFalse,
+							},
+						},
+					},
+				}
+				Expect(reconciler.isPodReady(pod)).To(BeFalse())
+			})
+
+			It("Should return false for pending pod", func() {
+				pod := &corev1.Pod{
+					Status: corev1.PodStatus{
+						Phase: corev1.PodPending,
+					},
+				}
+				Expect(reconciler.isPodReady(pod)).To(BeFalse())
+			})
+
+			It("Should return false for succeeded pod", func() {
+				pod := &corev1.Pod{
+					Status: corev1.PodStatus{
+						Phase: corev1.PodSucceeded,
+					},
+				}
+				Expect(reconciler.isPodReady(pod)).To(BeFalse())
+			})
+		})
+
+		Describe("servingNamespacesEqual", func() {
+			It("Should return true for equal maps", func() {
+				a := map[string]v1alpha1.NamespaceServingCounts{
+					"ns1": {PodsUsing: 3, PodsReady: 2, PodsTerminating: 0},
+					"ns2": {PodsUsing: 1, PodsReady: 1, PodsTerminating: 0},
+				}
+				b := map[string]v1alpha1.NamespaceServingCounts{
+					"ns1": {PodsUsing: 3, PodsReady: 2, PodsTerminating: 0},
+					"ns2": {PodsUsing: 1, PodsReady: 1, PodsTerminating: 0},
+				}
+				Expect(servingNamespacesEqual(a, b)).To(BeTrue())
+			})
+
+			It("Should return false for different pod counts", func() {
+				a := map[string]v1alpha1.NamespaceServingCounts{
+					"ns1": {PodsUsing: 3, PodsReady: 2, PodsTerminating: 0},
+				}
+				b := map[string]v1alpha1.NamespaceServingCounts{
+					"ns1": {PodsUsing: 2, PodsReady: 2, PodsTerminating: 0},
+				}
+				Expect(servingNamespacesEqual(a, b)).To(BeFalse())
+			})
+
+			It("Should return false for different namespaces", func() {
+				a := map[string]v1alpha1.NamespaceServingCounts{
+					"ns1": {PodsUsing: 3, PodsReady: 2, PodsTerminating: 0},
+				}
+				b := map[string]v1alpha1.NamespaceServingCounts{
+					"ns2": {PodsUsing: 3, PodsReady: 2, PodsTerminating: 0},
+				}
+				Expect(servingNamespacesEqual(a, b)).To(BeFalse())
+			})
+
+			It("Should return false for different map sizes", func() {
+				a := map[string]v1alpha1.NamespaceServingCounts{
+					"ns1": {PodsUsing: 3, PodsReady: 2, PodsTerminating: 0},
+					"ns2": {PodsUsing: 1, PodsReady: 1, PodsTerminating: 0},
+				}
+				b := map[string]v1alpha1.NamespaceServingCounts{
+					"ns1": {PodsUsing: 3, PodsReady: 2, PodsTerminating: 0},
+				}
+				Expect(servingNamespacesEqual(a, b)).To(BeFalse())
+			})
+
+			It("Should return true for empty maps", func() {
+				a := map[string]v1alpha1.NamespaceServingCounts{}
+				b := map[string]v1alpha1.NamespaceServingCounts{}
+				Expect(servingNamespacesEqual(a, b)).To(BeTrue())
+			})
+		})
+
+		Describe("calculateAggregateCounts", func() {
+			It("Should aggregate counts across multiple caches", func() {
+				reconciler := &KernelCacheNodeReconciler{
+					Client: k8sClient,
+					Scheme: k8sClient.Scheme(),
+					Log:    ctrl.Log.WithName("test"),
+				}
+
+				kcNode := &v1alpha1.KernelCacheNode{
+					Status: v1alpha1.KernelCacheNodeStatus{
+						CacheStatus: map[string]v1alpha1.CacheNodeExtractionStatus{
+							"cache1": {
+								State: v1alpha1.NodeCacheStateRunning,
+								ServingNamespaces: map[string]v1alpha1.NamespaceServingCounts{
+									"ns1": {PodsUsing: 2, PodsReady: 2, PodsTerminating: 0},
+									"ns2": {PodsUsing: 1, PodsReady: 1, PodsTerminating: 0},
+								},
+							},
+							"cache2": {
+								State: v1alpha1.NodeCacheStateExtracted,
+								ServingNamespaces: map[string]v1alpha1.NamespaceServingCounts{},
+							},
+							"cache3": {
+								State: v1alpha1.NodeCacheStateError,
+								ServingNamespaces: map[string]v1alpha1.NamespaceServingCounts{},
+							},
+						},
+					},
+				}
+
+				counts := reconciler.calculateAggregateCounts(kcNode)
+				Expect(counts.CachesInUse).To(Equal(1))
+				Expect(counts.CachesNotInUse).To(Equal(1))
+				Expect(counts.CachesError).To(Equal(1))
+				Expect(counts.PodRunningCnt).To(Equal(3)) // 2 + 1
+				Expect(counts.PodDeletingCnt).To(Equal(0))
+			})
+
+			It("Should count terminating pods correctly", func() {
+				reconciler := &KernelCacheNodeReconciler{
+					Client: k8sClient,
+					Scheme: k8sClient.Scheme(),
+					Log:    ctrl.Log.WithName("test"),
+				}
+
+				kcNode := &v1alpha1.KernelCacheNode{
+					Status: v1alpha1.KernelCacheNodeStatus{
+						CacheStatus: map[string]v1alpha1.CacheNodeExtractionStatus{
+							"cache1": {
+								State: v1alpha1.NodeCacheStateRunning,
+								ServingNamespaces: map[string]v1alpha1.NamespaceServingCounts{
+									"ns1": {PodsUsing: 3, PodsReady: 2, PodsTerminating: 1},
+								},
+							},
+						},
+					},
+				}
+
+				counts := reconciler.calculateAggregateCounts(kcNode)
+				Expect(counts.PodRunningCnt).To(Equal(3))
+				Expect(counts.PodDeletingCnt).To(Equal(1))
+			})
+
+			It("Should return zero counts for empty CacheStatus", func() {
+				reconciler := &KernelCacheNodeReconciler{
+					Client: k8sClient,
+					Scheme: k8sClient.Scheme(),
+					Log:    ctrl.Log.WithName("test"),
+				}
+
+				kcNode := &v1alpha1.KernelCacheNode{
+					Status: v1alpha1.KernelCacheNodeStatus{
+						CacheStatus: map[string]v1alpha1.CacheNodeExtractionStatus{},
+					},
+				}
+
+				counts := reconciler.calculateAggregateCounts(kcNode)
+				Expect(counts.CachesInUse).To(Equal(0))
+				Expect(counts.CachesNotInUse).To(Equal(0))
+				Expect(counts.CachesError).To(Equal(0))
+				Expect(counts.PodRunningCnt).To(Equal(0))
+				Expect(counts.PodDeletingCnt).To(Equal(0))
+			})
+		})
+
+		Describe("nodeCountsEqual", func() {
+			It("Should return true for equal counts", func() {
+				a := &v1alpha1.NodeCacheCounts{
+					CachesInUse:    1,
+					CachesNotInUse: 2,
+					CachesError:    0,
+					PodRunningCnt:  3,
+					PodDeletingCnt: 0,
+				}
+				b := &v1alpha1.NodeCacheCounts{
+					CachesInUse:    1,
+					CachesNotInUse: 2,
+					CachesError:    0,
+					PodRunningCnt:  3,
+					PodDeletingCnt: 0,
+				}
+				Expect(nodeCountsEqual(a, b)).To(BeTrue())
+			})
+
+			It("Should return false for different counts", func() {
+				a := &v1alpha1.NodeCacheCounts{
+					CachesInUse:    1,
+					CachesNotInUse: 2,
+					CachesError:    0,
+					PodRunningCnt:  3,
+					PodDeletingCnt: 0,
+				}
+				b := &v1alpha1.NodeCacheCounts{
+					CachesInUse:    2,
+					CachesNotInUse: 2,
+					CachesError:    0,
+					PodRunningCnt:  3,
+					PodDeletingCnt: 0,
+				}
+				Expect(nodeCountsEqual(a, b)).To(BeFalse())
+			})
+
+			It("Should return true for both nil", func() {
+				Expect(nodeCountsEqual(nil, nil)).To(BeTrue())
+			})
+
+			It("Should return false for one nil", func() {
+				a := &v1alpha1.NodeCacheCounts{
+					CachesInUse: 1,
+				}
+				Expect(nodeCountsEqual(a, nil)).To(BeFalse())
+				Expect(nodeCountsEqual(nil, a)).To(BeFalse())
+			})
+		})
+	})
+
+	// NOTE: State transition tests require the full controller with reconciliation loops.
+	// These are integration tests and belong in test/e2e/kernelcache/test_kernelcache_pod_watching.py
+	// Unit tests above cover the helper functions that support state transitions.
 })
 
 // Helper function to generate random strings for test resource names

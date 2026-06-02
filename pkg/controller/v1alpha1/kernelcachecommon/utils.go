@@ -66,8 +66,6 @@ func LoadKernelCacheConfig(ctx context.Context, clientset kubernetes.Interface) 
 //   - registry/image (no tag) -> registry/image@sha256:abc123
 //
 // Returns empty string if imageURL or digest is empty.
-//
-// Adapted from GKM (github.com/redhat-et/GKM) pkg/utils/utils.go
 func ReplaceUrlTag(imageURL, digest string) string {
 	// If invalid input, return empty string
 	if imageURL == "" || digest == "" {

@@ -26,7 +26,6 @@ import (
 )
 
 // populateGPUInfo calls MCV GetGpuList() to detect GPU hardware
-// Pattern from GKM's agent implementation
 // Supports heterogeneous nodes with mixed GPU types
 // When noGPU flag is set (for KIND testing), returns stub GPU data
 //
@@ -39,9 +38,9 @@ func (c *KernelCacheNodeReconciler) populateGPUInfo(
 		return nil // Already populated
 	}
 
-	// Call MCV GetSystemGPUInfo (GKM pattern)
-	// When noGPU=true, MCV returns stub data for KIND testing
-	// When noGPU=false, MCV reads from cache file (fast) or detects hardware (slow, first call)
+	// Call MCV GetSystemGPUInfo
+	// - When noGPU=true, MCV returns stub data for KIND testing
+	// - When noGPU=false, MCV reads from cache file (fast) or detects hardware (slow, first call)
 	disableTimeout := 0 // 0 = use default timeout
 	gpus, err := mcvClient.GetSystemGPUInfo(mcvClient.HwOptions{
 		EnableStub: &noGPU,

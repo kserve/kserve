@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Cosign verification wrapper adapted from GKM pkg/cosign/verify.go
+// Cosign verification wrapper
 package cosign
 
 import (

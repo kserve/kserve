@@ -65,9 +65,8 @@ type KernelCacheReconciler struct {
 // Step 2 - Create Download PVC (RWX)
 // Step 3 - Create ONE extraction Job per cache (RWX pattern)
 // Step 4 - Get nodes where agent pods are running
-// Step 5 - Ensure KernelCacheNode exists for each node
-// Step 6 - Aggregate status from KernelCacheNodes
-// Step 7 - Create Serving PVC when extraction complete
+// Step 5 - Aggregate status from KernelCacheNodes
+// Step 6 - Create Serving PVC when extraction complete
 func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	kc := &v1alpha1.KernelCache{}
 	if err := r.Get(ctx, req.NamespacedName, kc); err != nil {
@@ -137,20 +136,12 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 	}
 
-	// Step 5: For each node with agent, ensure KernelCacheNode exists and has this cache
-	for nodeName := range agentNodes {
-		if err := r.ensureKernelCacheNode(ctx, kc, nodeName); err != nil {
-			r.Log.Error(err, "failed to ensure KernelCacheNode", "node", nodeName)
-			continue
-		}
-	}
-
-	// Step 6: Aggregate status from KernelCacheNodes
+	// Step 5: Aggregate status from KernelCacheNodes
 	if err := r.updateAggregateStatus(ctx, kc); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	// Step 7: Create Serving PVC when extraction complete
+	// Step 6: Create Serving PVC when extraction complete
 	if r.extractionComplete(ctx, kc, jobNamespace) {
 		if err := r.ensureServingPVC(ctx, kc); err != nil {
 			r.Log.Error(err, "failed to create serving PVC")
@@ -163,8 +154,9 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	return ctrl.Result{}, nil
 }
 
-// handleDeletion: Phase 1 simple finalizer (no pod usage check)
-// Phase 2 will add validating webhook for production safety
+// handleDeletion: Finalizer cleanup after webhook validation
+// ValidateDelete webhook blocks deletion if pods still using cache
+// Finalizer handles cleanup of extraction resources (Job, PVC)
 func (r *KernelCacheReconciler) handleDeletion(
 	ctx context.Context,
 	kc *v1alpha1.KernelCache,
@@ -178,44 +170,8 @@ func (r *KernelCacheReconciler) handleDeletion(
 
 	jobNamespace := kernelCacheConfig.JobNamespace
 
-	// Remove cache from all KernelCacheNodes (cluster-scoped)
-	// Owner references on PVC ensure automatic cleanup
-	nodes := &corev1.NodeList{}
-	if err := r.List(ctx, nodes); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	for _, node := range nodes.Items {
-		kcNode := &v1alpha1.KernelCacheNode{}
-		kcNodeName := "kernel-cache-node-" + node.Name
-
-		if err := r.Get(ctx, types.NamespacedName{
-			Name: kcNodeName,
-		}, kcNode); err != nil {
-			if errors.IsNotFound(err) {
-				continue
-			}
-			return ctrl.Result{}, err
-		}
-
-		// Remove this cache from node's status
-		updated := false
-		newCaches := []v1alpha1.KernelCacheInfo{}
-		for _, cache := range kcNode.Status.Caches {
-			if cache.Name != kc.Name || cache.Namespace != kc.Namespace {
-				newCaches = append(newCaches, cache)
-			} else {
-				updated = true
-			}
-		}
-
-		if updated {
-			kcNode.Status.Caches = newCaches
-			if err := r.Status().Update(ctx, kcNode); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-	}
+	// Agent owns KernelCacheNode writes and Agent will automatically remove
+	// this cache when it discovers KernelCache deletion
 
 	// Delete extraction Jobs, then Download and Serving PVCs and PVs
 	downloadPVCName := kc.Namespace + "-" + kc.Name + "-download"
@@ -340,86 +296,6 @@ func (r *KernelCacheReconciler) ensureResolvedDigest(ctx context.Context, kc *v1
 	return nil
 }
 
-// ensureKernelCacheNode creates or updates KernelCacheNode for a specific node
-// KernelCacheNodes are cluster-scoped (like LocalModelNode), one per physical node
-// They track caches from ALL namespaces in their Status.Caches array
-func (r *KernelCacheReconciler) ensureKernelCacheNode(
-	ctx context.Context,
-	kc *v1alpha1.KernelCache,
-	nodeName string,
-) error {
-	// KernelCacheNode is cluster-scoped (no namespace)
-	kcNode := &v1alpha1.KernelCacheNode{}
-	kcNodeName := "kernel-cache-node-" + nodeName
-
-	err := r.Get(ctx, types.NamespacedName{
-		Name: kcNodeName,
-	}, kcNode)
-
-	if errors.IsNotFound(err) {
-		// Create new KernelCacheNode (two-step: create resource, then update status)
-		// Cluster-scoped - no namespace
-		kcNode = &v1alpha1.KernelCacheNode{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: kcNodeName,
-			},
-		}
-
-		// Step 1: Create the resource
-		if err := r.Create(ctx, kcNode); err != nil {
-			return err
-		}
-
-		// Step 2: Update status subresource
-		kcNode.Status = v1alpha1.KernelCacheNodeStatus{
-			NodeName: nodeName,
-			Caches: []v1alpha1.KernelCacheInfo{
-				{
-					Name:      kc.Name,
-					Namespace: kc.Namespace,
-					Image:     kc.Spec.Image,
-					Digest:    kc.Status.ResolvedDigest,
-				},
-			},
-		}
-
-		// Note: GPU info populated by agent (not operator)
-		// Agent calls populateGPUInfo() via MCV GetGpuList() when it first sees KernelCacheNode
-		// Operator just creates the skeleton, agent fills in hardware details
-
-		return r.Status().Update(ctx, kcNode)
-	}
-
-	if err != nil {
-		return err
-	}
-
-	// Update KernelCacheNode if cache not present or digest changed
-	cacheFound := false
-	for i, cache := range kcNode.Status.Caches {
-		if cache.Name == kc.Name && cache.Namespace == kc.Namespace {
-			cacheFound = true
-			if cache.Digest != kc.Status.ResolvedDigest || cache.Image != kc.Spec.Image {
-				kcNode.Status.Caches[i].Image = kc.Spec.Image
-				kcNode.Status.Caches[i].Digest = kc.Status.ResolvedDigest
-				return r.Status().Update(ctx, kcNode)
-			}
-		}
-	}
-
-	if !cacheFound {
-		kcNode.Status.Caches = append(kcNode.Status.Caches, v1alpha1.KernelCacheInfo{
-			Name:      kc.Name,
-			Namespace: kc.Namespace,
-			Image:     kc.Spec.Image,
-			Digest:    kc.Status.ResolvedDigest,
-		})
-		return r.Status().Update(ctx, kcNode)
-	}
-
-	return nil
-}
-
 // ensureDownloadPVC creates Download PV and PVC in job namespace (kserve)
 // Pattern from GKM pkg/common/k8s.go CreatePv/CreatePvc and LocalModel reconciler
 func (r *KernelCacheReconciler) ensureDownloadPVC(
@@ -447,7 +323,6 @@ func (r *KernelCacheReconciler) ensureDownloadPVC(
 	}
 
 	// Step 1: Create PV (for KIND - no dynamic provisioner)
-	// Pattern from GKM CreatePv (pkg/common/k8s.go:205-288)
 	// Use labels for tracking instead of owner references (PV is cluster-scoped, KernelCache is namespace-scoped)
 	pv := corev1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
@@ -488,7 +363,6 @@ func (r *KernelCacheReconciler) ensureDownloadPVC(
 	}
 
 	// Step 2: Create PVC bound to PV
-	// Pattern from GKM CreatePvc (pkg/common/k8s.go:529-608)
 	pvc := corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pvcName,
@@ -890,8 +764,15 @@ func (r *KernelCacheReconciler) updateAggregateStatus(
 		return err
 	}
 
-	// Aggregate download status
-	counts := &v1alpha1.CacheCopies{Total: 0, Available: 0, Failed: 0, InProgress: 0}
+	// Aggregate counts for state calculation
+	counts := &v1alpha1.CacheCounts{
+		NodeCnt:         0,
+		NodeErrorCnt:    0,
+		NodeInUseCnt:    0,
+		NodeNotInUseCnt: 0,
+		PodRunningCnt:   0,
+		PodDeletingCnt:  0,
+	}
 
 	// Aggregate GPU compatibility
 	compatibleTypes := make(map[string]bool)
@@ -904,29 +785,32 @@ func (r *KernelCacheReconciler) updateAggregateStatus(
 		NamespaceCounts: make(map[string]v1alpha1.NamespaceServingCounts),
 	}
 
-	for _, node := range kcNodes.Items {
-		if cacheStatus, ok := node.Status.CacheStatus[kc.Name]; ok {
-			// Download counts
-			counts.Total++
+	// Build cache key for lookup: {namespace}/{name}
+	cacheKey := kc.Namespace + "/" + kc.Name
 
-			switch cacheStatus.DownloadStatus {
-			case v1alpha1.NodeExtractionCompleted:
-				counts.Available++
-			case v1alpha1.NodeExtractionFailed:
-				counts.Failed++
-			case v1alpha1.NodeExtractionInProgress:
-				counts.InProgress++
+	for _, node := range kcNodes.Items {
+		if cacheInfo, ok := node.Status.CacheStatus[cacheKey]; ok {
+			counts.NodeCnt++
+
+			// Count nodes by state
+			switch cacheInfo.State {
+			case v1alpha1.NodeCacheStateError:
+				counts.NodeErrorCnt++
+			case v1alpha1.NodeCacheStateRunning:
+				counts.NodeInUseCnt++
+			case v1alpha1.NodeCacheStateExtracted:
+				counts.NodeNotInUseCnt++
 			}
 
 			// GPU compatibility aggregation
-			totalCompatibleGPUs += len(cacheStatus.CompatibleGPUs)
-			totalIncompatibleGPUs += len(cacheStatus.IncompatibleGPUs)
+			totalCompatibleGPUs += len(cacheInfo.CompatibleGPUs)
+			totalIncompatibleGPUs += len(cacheInfo.IncompatibleGPUs)
 
 			// Find GPU types from node's GPUInfo
 			for _, gpuInfo := range node.Status.GPUInfo {
 				for _, id := range gpuInfo.IDs {
 					isCompatible := false
-					for _, compatID := range cacheStatus.CompatibleGPUs {
+					for _, compatID := range cacheInfo.CompatibleGPUs {
 						if id == compatID {
 							isCompatible = true
 							compatibleTypes[gpuInfo.GPUType] = true
@@ -934,7 +818,7 @@ func (r *KernelCacheReconciler) updateAggregateStatus(
 						}
 					}
 					if !isCompatible {
-						for _, incompatID := range cacheStatus.IncompatibleGPUs {
+						for _, incompatID := range cacheInfo.IncompatibleGPUs {
 							if id == incompatID {
 								incompatibleTypes[gpuInfo.GPUType] = true
 								break
@@ -945,21 +829,25 @@ func (r *KernelCacheReconciler) updateAggregateStatus(
 			}
 
 			// Serving counts aggregation (Phase 2)
-			for ns, nsCounts := range cacheStatus.ServingNamespaces {
+			for ns, nsCounts := range cacheInfo.ServingNamespaces {
 				aggCounts := servingStatus.NamespaceCounts[ns]
 				aggCounts.PodsUsing += nsCounts.PodsUsing
 				aggCounts.PodsReady += nsCounts.PodsReady
 				aggCounts.PodsTerminating += nsCounts.PodsTerminating
 				servingStatus.NamespaceCounts[ns] = aggCounts
+
+				// Aggregate pod counts
+				counts.PodRunningCnt += nsCounts.PodsUsing
+				counts.PodDeletingCnt += nsCounts.PodsTerminating
 			}
 		}
 	}
 
 	// Calculate serving totals
-	for _, counts := range servingStatus.NamespaceCounts {
-		servingStatus.TotalPods += counts.PodsUsing
-		servingStatus.TotalPodsReady += counts.PodsReady
-		servingStatus.TotalPodsTerminating += counts.PodsTerminating
+	for _, nsCounts := range servingStatus.NamespaceCounts {
+		servingStatus.TotalPods += nsCounts.PodsUsing
+		servingStatus.TotalPodsReady += nsCounts.PodsReady
+		servingStatus.TotalPodsTerminating += nsCounts.PodsTerminating
 	}
 	servingStatus.TotalNamespaces = len(servingStatus.NamespaceCounts)
 
@@ -977,8 +865,22 @@ func (r *KernelCacheReconciler) updateAggregateStatus(
 		gpuCompat.IncompatibleTypes = append(gpuCompat.IncompatibleTypes, gpuType)
 	}
 
+	// Calculate overall state based on hierarchy: Error > Running > Extracted > Downloading > Pending
+	state := v1alpha1.CacheStatePending
+	if counts.NodeErrorCnt > 0 {
+		state = v1alpha1.CacheStateError
+	} else if counts.NodeInUseCnt > 0 || counts.PodRunningCnt > 0 {
+		state = v1alpha1.CacheStateRunning
+	} else if counts.NodeNotInUseCnt > 0 {
+		state = v1alpha1.CacheStateExtracted
+	} else if counts.NodeCnt > 0 {
+		// Nodes exist but no extracted/running/error = downloading
+		state = v1alpha1.CacheStateDownloading
+	}
+
 	// Update KernelCache status
-	kc.Status.CacheCopies = counts
+	kc.Status.State = state
+	kc.Status.Counts = counts
 	kc.Status.GPUCompatibility = gpuCompat
 	kc.Status.ServingStatus = servingStatus
 
@@ -988,10 +890,10 @@ func (r *KernelCacheReconciler) updateAggregateStatus(
 // nodeStatusMapper maps KernelCacheNode changes to KernelCache reconciliation requests
 func (r *KernelCacheReconciler) nodeStatusMapper(ctx context.Context, obj client.Object) []reconcile.Request {
 	kcNode := obj.(*v1alpha1.KernelCacheNode)
-	requests := make([]reconcile.Request, 0, len(kcNode.Status.Caches))
+	requests := make([]reconcile.Request, 0, len(kcNode.Status.CacheStatus))
 
 	// Reconcile all caches referenced in this node
-	for _, cacheInfo := range kcNode.Status.Caches {
+	for _, cacheInfo := range kcNode.Status.CacheStatus {
 		requests = append(requests, reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      cacheInfo.Name,

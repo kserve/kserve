@@ -16,18 +16,39 @@ limitations under the License.
 
 package v1alpha1
 
+// CacheState represents overall cache state across all nodes
+// +kubebuilder:validation:Enum=Pending;Downloading;Extracted;Running;Error
+type CacheState string
+
+const (
+	// CacheStatePending - initial state, no extraction started
+	CacheStatePending CacheState = "Pending"
+	// CacheStateDownloading - extraction Job running on at least one node
+	CacheStateDownloading CacheState = "Downloading"
+	// CacheStateExtracted - cache extracted on at least one node, not in use
+	CacheStateExtracted CacheState = "Extracted"
+	// CacheStateRunning - cache mounted by pods on at least one node
+	CacheStateRunning CacheState = "Running"
+	// CacheStateError - extraction failed on at least one node
+	CacheStateError CacheState = "Error"
+)
+
 // KernelCacheStatus defines the observed state of KernelCache
 type KernelCacheStatus struct {
+	// State represents overall cache state across all nodes
+	// Hierarchy: Error > Running > Extracted > Downloading > Pending
+	// +optional
+	State CacheState `json:"state,omitempty"`
+
 	// ResolvedDigest is the image digest (sha256:...) resolved by mutating webhook
 	// This field is immutable once set - copied from annotation on first reconcile
 	// Controller ALWAYS uses this field (not annotation) to prevent tampering
 	// +optional
 	ResolvedDigest string `json:"resolvedDigest,omitempty"`
 
-	// Download status (aggregate from all KernelCacheNodes)
-	// NodeStatus removed - unreadable with 500+ nodes, use CacheCopies aggregate instead
+	// Counts tracks aggregate node and pod counts for state calculation
 	// +optional
-	CacheCopies *CacheCopies `json:"cacheCopies,omitempty"` // Aggregate counts
+	Counts *CacheCounts `json:"counts,omitempty"`
 
 	// GPU compatibility summary (aggregate from all nodes)
 	// +optional
@@ -42,22 +63,37 @@ type KernelCacheStatus struct {
 	InferenceServices []NamespacedName `json:"inferenceServices,omitempty"`
 }
 
-// NodeExtractionStatus represents extraction status on a node
-type NodeExtractionStatus string
+// NodeCacheState represents per-node cache state
+// +kubebuilder:validation:Enum=Pending;Downloading;Extracted;Running;Error
+type NodeCacheState string
 
 const (
-	NodeExtractionPending    NodeExtractionStatus = "Pending"
-	NodeExtractionInProgress NodeExtractionStatus = "InProgress"
-	NodeExtractionCompleted  NodeExtractionStatus = "Completed"
-	NodeExtractionFailed     NodeExtractionStatus = "Failed"
+	// NodeCacheStatePending - initial state, no extraction started
+	NodeCacheStatePending NodeCacheState = "Pending"
+	// NodeCacheStateDownloading - extraction Job running on this node
+	NodeCacheStateDownloading NodeCacheState = "Downloading"
+	// NodeCacheStateExtracted - cache extracted, not in use
+	NodeCacheStateExtracted NodeCacheState = "Extracted"
+	// NodeCacheStateRunning - cache mounted by pods on this node
+	NodeCacheStateRunning NodeCacheState = "Running"
+	// NodeCacheStateError - extraction failed on this node
+	NodeCacheStateError NodeCacheState = "Error"
 )
 
-// CacheCopies tracks aggregate extraction counts across all nodes
-type CacheCopies struct {
-	Total      int `json:"total"`      // Total nodes targeted for extraction
-	Available  int `json:"available"`  // Nodes with completed extraction
-	Failed     int `json:"failed"`     // Nodes with failed extraction
-	InProgress int `json:"inProgress"` // Nodes currently extracting
+// CacheCounts tracks aggregate node and pod counts for state calculation
+type CacheCounts struct {
+	// NodeCnt - total nodes with this cache tracked
+	NodeCnt int `json:"nodeCnt"`
+	// NodeErrorCnt - nodes with extraction errors
+	NodeErrorCnt int `json:"nodeErrorCnt"`
+	// NodeInUseCnt - nodes with cache mounted by pods
+	NodeInUseCnt int `json:"nodeInUseCnt"`
+	// NodeNotInUseCnt - nodes with cache extracted but not mounted
+	NodeNotInUseCnt int `json:"nodeNotInUseCnt"`
+	// PodRunningCnt - total pods using cache across all nodes
+	PodRunningCnt int `json:"podRunningCnt"`
+	// PodDeletingCnt - total pods terminating across all nodes
+	PodDeletingCnt int `json:"podDeletingCnt"`
 }
 
 // GPUCompatibilitySummary aggregates GPU compatibility across all nodes

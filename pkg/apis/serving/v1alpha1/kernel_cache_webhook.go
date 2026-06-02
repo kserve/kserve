@@ -14,9 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Webhook implementation adapted from GKM (github.com/redhat-et/GKM)
-// api/v1alpha1/gkmcache_webhook.go
-
 package v1alpha1
 
 import (
@@ -66,7 +63,7 @@ const (
 	KyvernoVerifyImagesAnnotation = "kyverno.io/verify-images"
 
 	// ImageLabelCacheSizeBytesSubstring is the substring in OCI image labels that contains cache size
-	// GKM's mcv tool sets labels like "io.kserve.cache-size-bytes.<layer>" with size values
+	// MCV tool sets labels like "io.kserve.cache-size-bytes.<layer>" with size values
 	ImageLabelCacheSizeBytesSubstring = "cache-size-bytes"
 
 	// EnvKyvernoEnabled is the environment variable to enable/disable Kyverno verification

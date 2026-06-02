@@ -16,7 +16,32 @@ spec:
     singular: kernelcache
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.state
+      name: Status
+      type: string
+    - jsonPath: .status.counts.nodeCnt
+      name: Nodes
+      type: integer
+    - jsonPath: .status.counts.nodeInUseCnt
+      name: Node-In-Use
+      type: integer
+    - jsonPath: .status.counts.nodeNotInUseCnt
+      name: Node-Not-In-Use
+      type: integer
+    - jsonPath: .status.counts.nodeErrorCnt
+      name: Node-Error
+      type: integer
+    - jsonPath: .status.counts.podRunningCnt
+      name: Pod-Running
+      type: integer
+    - jsonPath: .status.counts.podDeletingCnt
+      name: Pod-Deleting
+      type: integer
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         properties:
@@ -82,21 +107,27 @@ spec:
             type: object
           status:
             properties:
-              cacheCopies:
+              counts:
                 properties:
-                  available:
+                  nodeCnt:
                     type: integer
-                  failed:
+                  nodeErrorCnt:
                     type: integer
-                  inProgress:
+                  nodeInUseCnt:
                     type: integer
-                  total:
+                  nodeNotInUseCnt:
+                    type: integer
+                  podDeletingCnt:
+                    type: integer
+                  podRunningCnt:
                     type: integer
                 required:
-                - available
-                - failed
-                - inProgress
-                - total
+                - nodeCnt
+                - nodeErrorCnt
+                - nodeInUseCnt
+                - nodeNotInUseCnt
+                - podDeletingCnt
+                - podRunningCnt
                 type: object
               gpuCompatibility:
                 properties:
@@ -158,6 +189,14 @@ spec:
                 - totalPodsReady
                 - totalPodsTerminating
                 type: object
+              state:
+                enum:
+                - Pending
+                - Downloading
+                - Extracted
+                - Running
+                - Error
+                type: string
             type: object
         type: object
     served: true
