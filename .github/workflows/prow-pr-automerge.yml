@@ -18,6 +18,9 @@ permissions:
   contents: write
   pull-requests: write
 
+permissions:
+  contents: read
+
 jobs:
   auto-merge:
     runs-on: ubuntu-latest

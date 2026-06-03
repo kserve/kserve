@@ -23,6 +23,9 @@ on:
   # merge_group:
   #   types: [ checks_requested ]
 
+permissions:
+  contents: read
+
 env:
   IMAGE_NAME: storage-initializer
 

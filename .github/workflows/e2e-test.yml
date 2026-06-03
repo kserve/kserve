@@ -14,6 +14,9 @@ on:
     types: [ checks_requested ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   TAG: ${{ github.sha }}
