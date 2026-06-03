@@ -18,6 +18,7 @@ package kernelcachenode
 
 import (
 	"context"
+	"os"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -544,6 +545,98 @@ var _ = Describe("KernelCacheNode Controller", func() {
 				Expect(nodeCountsEqual(nil, a)).To(BeFalse())
 			})
 		})
+
+		Describe("deleteCaches", func() {
+			It("Should identify caches to delete based on CacheStatus", func() {
+				// This is a unit test for the logic - doesn't actually touch filesystem
+				reconciler := &KernelCacheNodeReconciler{
+					Client: k8sClient,
+					Scheme: k8sClient.Scheme(),
+					Log:    ctrl.Log.WithName("test"),
+				}
+
+				// Calculate actual storage keys for test images
+				image1 := "quay.io/test/cache@sha256:aaa111"
+				image2 := "quay.io/test/cache@sha256:bbb222"
+				storageKey1 := v1alpha1.GetKernelCacheStorageKey(image1)
+				storageKey2 := v1alpha1.GetKernelCacheStorageKey(image2)
+				orphanedKey := "orphaned123456"
+
+				// Mock filesystem helper
+				mockFS := &mockFileSystemHelper{
+					folders: []string{
+						storageKey1,  // Cache that exists in CacheStatus
+						orphanedKey,  // Orphaned cache (not in CacheStatus)
+						storageKey2,  // Another cache in CacheStatus
+					},
+					removedFolders: []string{},
+				}
+
+				// Temporarily replace global fsHelper
+				oldFsHelper := fsHelper
+				fsHelper = mockFS
+				defer func() { fsHelper = oldFsHelper }()
+
+				kcNode := &v1alpha1.KernelCacheNode{
+					Status: v1alpha1.KernelCacheNodeStatus{
+						CacheStatus: map[string]v1alpha1.CacheNodeCacheInfo{
+							"ns1/cache1": {
+								Name:      "cache1",
+								Namespace: "ns1",
+								Image:     "quay.io/test/cache:v1",
+								Digest:    "sha256:aaa111",
+							},
+							"ns2/cache2": {
+								Name:      "cache2",
+								Namespace: "ns2",
+								Image:     "quay.io/test/cache:v2",
+								Digest:    "sha256:bbb222",
+							},
+						},
+					},
+				}
+
+				err := reconciler.deleteCaches(kcNode)
+				Expect(err).ToNot(HaveOccurred())
+
+				// Verify that orphaned cache was removed
+				Expect(mockFS.removedFolders).To(ContainElement(orphanedKey))
+				Expect(len(mockFS.removedFolders)).To(Equal(1))
+
+				// Verify that active caches were NOT removed
+				Expect(mockFS.removedFolders).ToNot(ContainElement(storageKey1))
+				Expect(mockFS.removedFolders).ToNot(ContainElement(storageKey2))
+			})
+
+			It("Should handle empty CacheStatus map", func() {
+				reconciler := &KernelCacheNodeReconciler{
+					Client: k8sClient,
+					Scheme: k8sClient.Scheme(),
+					Log:    ctrl.Log.WithName("test"),
+				}
+
+				mockFS := &mockFileSystemHelper{
+					folders:        []string{"abc123", "def456"},
+					removedFolders: []string{},
+				}
+
+				oldFsHelper := fsHelper
+				fsHelper = mockFS
+				defer func() { fsHelper = oldFsHelper }()
+
+				kcNode := &v1alpha1.KernelCacheNode{
+					Status: v1alpha1.KernelCacheNodeStatus{
+						CacheStatus: map[string]v1alpha1.CacheNodeCacheInfo{},
+					},
+				}
+
+				err := reconciler.deleteCaches(kcNode)
+				Expect(err).ToNot(HaveOccurred())
+
+				// All folders should be removed (none in CacheStatus)
+				Expect(mockFS.removedFolders).To(ConsistOf("abc123", "def456"))
+			})
+		})
 	})
 
 	// NOTE: State transition tests require the full controller with reconciliation loops.
@@ -561,3 +654,46 @@ func randStringRunes(n int) string {
 	}
 	return string(b)
 }
+
+// Mock filesystem helper for testing
+type mockFileSystemHelper struct {
+	folders        []string
+	removedFolders []string
+}
+
+func (m *mockFileSystemHelper) removeCache(storageKey string) error {
+	m.removedFolders = append(m.removedFolders, storageKey)
+	return nil
+}
+
+func (m *mockFileSystemHelper) hasCacheFolder(storageKey string) (bool, error) {
+	for _, folder := range m.folders {
+		if folder == storageKey {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (m *mockFileSystemHelper) getCacheFolders() ([]os.DirEntry, error) {
+	// Create mock DirEntry objects
+	entries := make([]os.DirEntry, len(m.folders))
+	for i, folder := range m.folders {
+		entries[i] = &mockDirEntry{name: folder, isDir: true}
+	}
+	return entries, nil
+}
+
+func (m *mockFileSystemHelper) ensureCacheRootFolderExists() error {
+	return nil
+}
+
+type mockDirEntry struct {
+	name  string
+	isDir bool
+}
+
+func (m *mockDirEntry) Name() string               { return m.name }
+func (m *mockDirEntry) IsDir() bool                { return m.isDir }
+func (m *mockDirEntry) Type() os.FileMode          { return 0 }
+func (m *mockDirEntry) Info() (os.FileInfo, error) { return nil, nil }

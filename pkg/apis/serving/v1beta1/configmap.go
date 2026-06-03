@@ -175,6 +175,7 @@ type KernelCacheConfig struct {
 	Enabled                       bool   `json:"enabled"`
 	JobNamespace                  string `json:"jobNamespace"`
 	ExtractImage                  string `json:"extractImage,omitempty"`
+	FSGroup                       *int64 `json:"fsGroup,omitempty"`
 	JobTTLSecondsAfterFinished    *int32 `json:"jobTTLSecondsAfterFinished,omitempty"`
 	ReconcileIntervalSeconds      *int64 `json:"reconcileIntervalSeconds,omitempty"`
 	NoGPU                         bool   `json:"noGPU,omitempty"`

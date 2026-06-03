@@ -499,14 +499,14 @@ deploy-dev-kernelcache-kind: docker-build-kernelcache docker-build-kernelcacheno
 	kubectl apply -k config/kernelcaches
 	kubectl apply -k config/kernelcachenodes
 	kubectl patch deployment kserve-kernelcache-controller-manager -n kserve --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"${KO_DOCKER_REPO}/${KERNELCACHE_CONTROLLER_IMG}:${TAG}"},{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value":"Never"}]'
-	kubectl patch daemonset kserve-kernelcachenode-agent -n kserve --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"${KO_DOCKER_REPO}/${KERNELCACHE_AGENT_IMG}:${TAG}"},{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value":"Never"}]'
+	kubectl patch daemonset kserve-kernelcachenode-agent -n kserve --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"${KO_DOCKER_REPO}/${KERNELCACHE_AGENT_IMG}:${TAG}"},{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value":"Never"},{"op": "replace", "path": "/spec/template/spec/initContainers/0/env/0/value", "value":"true"}]'
 
 # Rebuild and reload KernelCache for local testing
 redeploy-dev-kernelcache-kind: docker-build-kernelcache docker-build-kernelcachenode-agent
 	kind load docker-image ${KO_DOCKER_REPO}/${KERNELCACHE_CONTROLLER_IMG}:${TAG} --name kind
 	kind load docker-image ${KO_DOCKER_REPO}/${KERNELCACHE_AGENT_IMG}:${TAG} --name kind
 	kubectl patch deployment kserve-kernelcache-controller-manager -n kserve --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"${KO_DOCKER_REPO}/${KERNELCACHE_CONTROLLER_IMG}:${TAG}"},{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value":"Never"}]'
-	kubectl patch daemonset kserve-kernelcachenode-agent -n kserve --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"${KO_DOCKER_REPO}/${KERNELCACHE_AGENT_IMG}:${TAG}"},{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value":"Never"}]'
+	kubectl patch daemonset kserve-kernelcachenode-agent -n kserve --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"${KO_DOCKER_REPO}/${KERNELCACHE_AGENT_IMG}:${TAG}"},{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value":"Never"},{"op": "replace", "path": "/spec/template/spec/initContainers/0/env/0/value", "value":"true"}]'
 
 deploy-helm:
 	USE_LOCAL_CHARTS=true ./hack/setup/infra/manage.kserve-helm.sh
