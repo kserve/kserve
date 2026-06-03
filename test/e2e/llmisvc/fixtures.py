@@ -34,6 +34,8 @@ KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
 SCHEDULER_CONFIGMAP_NAME = "scheduler-config-e2e"
 SCHEDULER_CONFIGMAP_KEY = "epp"
 
+OPT_125M_MODEL_URI = os.environ.get("OPT_125M_MODEL_URI", "hf://facebook/opt-125m")
+
 # Vanilla Kubernetes rejects runAsNonRoot-only containers when the image does not declare a USER.
 # Keep the templates OpenShift-safe and use an explicit non-root UID only in upstream CI test overrides.
 UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT = {
@@ -62,7 +64,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     "env": [
                         {"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"},
                         {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
-                        {"name": "VLLM_USE_V1", "value": "0"},
+                        {"name": "VLLM_ENABLE_V1_MULTIPROCESSING", "value": "0"},
                         *UPSTREAM_K8S_VLLM_ENV_OVERRIDES,
                     ],
                     "resources": {
@@ -83,7 +85,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     "env": [
                         {"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"},
                         {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
-                        {"name": "VLLM_USE_V1", "value": "0"},
+                        {"name": "VLLM_ENABLE_V1_MULTIPROCESSING", "value": "0"},
                         *UPSTREAM_K8S_VLLM_ENV_OVERRIDES,
                     ],
                     "resources": {
@@ -117,7 +119,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "env": [
                             {"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"},
                             {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
-                            {"name": "VLLM_USE_V1", "value": "0"},
+                            {"name": "VLLM_ENABLE_V1_MULTIPROCESSING", "value": "0"},
                             *UPSTREAM_K8S_VLLM_ENV_OVERRIDES,
                         ],
                         "resources": {
@@ -145,7 +147,7 @@ LLMINFERENCESERVICE_CONFIGS = {
         },
     },
     "model-fb-opt-125m": {
-        "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},
+        "model": {"uri": OPT_125M_MODEL_URI, "name": "facebook/opt-125m"},
     },
     "model-qwen2.5-0.5b": {
         "model": {
@@ -161,7 +163,7 @@ LLMINFERENCESERVICE_CONFIGS = {
     },
     "model-fb-opt-125m-with-lora-hf": {
         "model": {
-            "uri": "hf://facebook/opt-125m",
+            "uri": OPT_125M_MODEL_URI,
             "name": "facebook/opt-125m",
             "lora": {
                 "adapters": [
@@ -175,7 +177,7 @@ LLMINFERENCESERVICE_CONFIGS = {
     },
     "model-fb-opt-125m-with-multiple-lora": {
         "model": {
-            "uri": "hf://facebook/opt-125m",
+            "uri": OPT_125M_MODEL_URI,
             "name": "facebook/opt-125m",
             "lora": {
                 "adapters": [
@@ -393,7 +395,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     ],
                     "env": [
                         {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
-                        {"name": "VLLM_USE_V1", "value": "0"},
+                        {"name": "VLLM_ENABLE_V1_MULTIPROCESSING", "value": "0"},
                         *UPSTREAM_K8S_VLLM_ENV_OVERRIDES,
                     ],
                     "resources": {
@@ -418,7 +420,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     ],
                     "env": [
                         {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
-                        {"name": "VLLM_USE_V1", "value": "0"},
+                        {"name": "VLLM_ENABLE_V1_MULTIPROCESSING", "value": "0"},
                         *UPSTREAM_K8S_VLLM_ENV_OVERRIDES,
                     ],
                     "resources": {
@@ -911,7 +913,7 @@ LLMINFERENCESERVICE_CONFIGS = {
     },
     "workload-llmd-simulator": {
         "replicas": 1,
-        "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},
+        "model": {"uri": OPT_125M_MODEL_URI, "name": "facebook/opt-125m"},
         "storageInitializer": {"enabled": False},
         "template": {
             "containers": [
@@ -937,7 +939,7 @@ LLMINFERENCESERVICE_CONFIGS = {
         },
     },
     "workload-llmd-simulator-no-replicas": {
-        "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},
+        "model": {"uri": OPT_125M_MODEL_URI, "name": "facebook/opt-125m"},
         "storageInitializer": {"enabled": False},
         "template": {
             "containers": [
@@ -963,7 +965,7 @@ LLMINFERENCESERVICE_CONFIGS = {
         },
     },
     "workload-llmd-simulator-lws": {
-        "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},
+        "model": {"uri": OPT_125M_MODEL_URI, "name": "facebook/opt-125m"},
         "parallelism": {
             "data": 2,
             "dataLocal": 1,
@@ -1017,7 +1019,7 @@ LLMINFERENCESERVICE_CONFIGS = {
         },
     },
     "workload-llmd-simulator-pd": {
-        "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},
+        "model": {"uri": OPT_125M_MODEL_URI, "name": "facebook/opt-125m"},
         "storageInitializer": {"enabled": False},
         "template": {
             "containers": [
@@ -1169,7 +1171,7 @@ LLMINFERENCESERVICE_CONFIGS = {
     },
     "workload-llmd-simulator-kvcache": {
         "replicas": 2,
-        "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},
+        "model": {"uri": OPT_125M_MODEL_URI, "name": "facebook/opt-125m"},
         # Important: storage initializer is required for precise-prefix-scorer
         "template": {
             "containers": [

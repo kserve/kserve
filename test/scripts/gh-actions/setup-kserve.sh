@@ -84,11 +84,22 @@ if [[ $ENABLE_LLMISVC == "false" || $ENABLE_KSERVE_WITH_LLMISVC == "true" ]]; th
   kubectl rollout status deployment/seaweedfs -n kserve --timeout=120s
 
   echo "Add testing models to s3 storage ..."
-  kubectl apply -f config/overlays/test/s3-local-backend/seaweedfs-init-job.yaml -n kserve
-  kubectl wait --for=condition=complete --timeout=90s job/s3-init -n kserve
+  sed "s|kserve/storage-initializer:latest|${KO_DOCKER_REPO:-kserve}/${STORAGE_INIT_IMG:-storage-initializer}:${TAG:-latest}|g" \
+    config/overlays/test/s3-local-backend/seaweedfs-init-job.yaml | kubectl apply -n kserve -f -
+  if ! kubectl wait --for=condition=complete --timeout=900s job/s3-init -n kserve; then
+    echo "S3 init job failed. Pod status and logs:"
+    kubectl get pods -l job-name=s3-init -n kserve
+    kubectl logs -l job-name=s3-init -n kserve --all-containers --tail=50 || true
+    exit 1
+  fi
 
   echo "Add storageSpec testing secrets ..."
   kubectl apply -f config/overlays/test/s3-local-backend/storage-config-secret.yaml -n kserve-ci-e2e-test
+
+  echo "Configuring S3 credentials for model downloads ..."
+  kubectl apply -f config/overlays/test/s3-local-backend/seaweedfs-s3-creds-secret.yaml -n kserve-ci-e2e-test
+  kubectl patch serviceaccount default -n kserve-ci-e2e-test \
+    --type=merge -p='{"secrets": [{"name": "seaweedfs-s3-creds"}]}'
 else
   if [[ $INSTALL_METHOD == "helm" ]]; then
     export SET_KSERVE_VERSION=${TAG}
@@ -105,6 +116,30 @@ else
     export ENABLE_KSERVE=false
     ${REPO_ROOT}/hack/setup/infra/manage.kserve-kustomize.sh
   fi
+
+  echo "Deploying SeaweedFS for LLMISVC model caching ..."
+  kubectl apply -f "${REPO_ROOT}/config/overlays/test/s3-local-backend/mlpipeline-s3-artifact-secret.yaml" -n kserve
+  kubectl apply -f "${REPO_ROOT}/config/overlays/test/s3-local-backend/seaweedfs-deployment.yaml" -n kserve
+  sed "s/namespace: seaweedfs/namespace: kserve/" \
+    "${REPO_ROOT}/config/overlays/test/s3-local-backend/seaweedfs-service.yaml" | kubectl apply -n kserve -f -
+
+  echo "Waiting for seaweedfs to be ready ..."
+  kubectl rollout status deployment/seaweedfs -n kserve --timeout=120s
+
+  echo "Pre-caching opt-125m model in SeaweedFS ..."
+  sed "s|kserve/storage-initializer:latest|${KO_DOCKER_REPO:-kserve}/${STORAGE_INIT_IMG:-storage-initializer}:${TAG:-latest}|g" \
+    "${REPO_ROOT}/config/overlays/test/s3-local-backend/seaweedfs-init-job.yaml" | kubectl apply -n kserve -f -
+  if ! kubectl wait --for=condition=complete --timeout=900s job/s3-init -n kserve; then
+    echo "S3 init job failed. Pod status and logs:"
+    kubectl get pods -l job-name=s3-init -n kserve
+    kubectl logs -l job-name=s3-init -n kserve --all-containers --tail=50 || true
+    exit 1
+  fi
+
+  echo "Configuring S3 credentials in test namespace ..."
+  kubectl apply -f "${REPO_ROOT}/config/overlays/test/s3-local-backend/seaweedfs-s3-creds-secret.yaml" -n kserve-ci-e2e-test
+  kubectl patch serviceaccount default -n kserve-ci-e2e-test \
+    --type=merge -p='{"secrets": [{"name": "seaweedfs-s3-creds"}]}'
 fi
 
 ENABLE_KEDA="${ENABLE_KEDA:-false}"

@@ -123,7 +123,7 @@ async def test_vllm_modelcache():
                     value="1",
                 ),
                 client.V1EnvVar(
-                    name="VLLM_USE_V1",
+                    name="VLLM_ENABLE_V1_MULTIPROCESSING",
                     value="0",
                 ),
             ],
