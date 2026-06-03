@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
@@ -1616,6 +1617,305 @@ schedulingProfiles:
 			}, amdScheduler)
 			Expect(errors.IsNotFound(err)).To(BeTrue(),
 				"AMD instance should not create a scheduler deployment")
+		})
+
+		It("should propagate InferencePool ref matchLabels to AMD workload pods (pool ref)", func(ctx SpecContext) {
+			// This test verifies Option 2 of the multi-GPU-vendor pooling pattern:
+			// The AMD instance references the NVIDIA InferencePool via .spec.router.scheduler.pool.ref.name
+			// and the controller automatically propagates the pool's matchLabels to AMD workload pods.
+			nvidiaSvcName := "test-llm-nvidia-poolref"
+			amdSvcName := "test-llm-amd-poolref"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(nvidiaSvcName))
+
+			// Create NVIDIA instance with managed scheduler (creates an InferencePool)
+			nvidiaLLMSvc := LLMInferenceService(nvidiaSvcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+			)
+
+			Expect(envTest.Create(ctx, nvidiaLLMSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, nvidiaLLMSvc)
+			}()
+
+			// Wait for the NVIDIA InferencePool to be created
+			nvidiaPoolName := nvidiaSvcName + "-inference-pool"
+			ip := &igwapi.InferencePool{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, client.ObjectKey{
+					Name:      nvidiaPoolName,
+					Namespace: testNs.Name,
+				}, ip)
+			}).WithContext(ctx).Should(Succeed())
+
+			// Create AMD instance referencing the NVIDIA InferencePool (no router/gateway/scheduler)
+			amdLLMSvc := LLMInferenceService(amdSvcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithInferencePoolRef(nvidiaPoolName),
+			)
+
+			Expect(envTest.Create(ctx, amdLLMSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, amdLLMSvc)
+			}()
+
+			// Verify AMD workload deployment has the NVIDIA InferencePool's matchLabels
+			amdDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, client.ObjectKey{
+					Name:      amdSvcName + "-kserve",
+					Namespace: testNs.Name,
+				}, amdDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			podLabels := amdDeployment.Spec.Template.Labels
+			Expect(podLabels).To(HaveKeyWithValue(constants.KubernetesAppNameLabelKey, nvidiaSvcName),
+				"AMD pod should have the NVIDIA instance's app name label from the InferencePool selector")
+			Expect(podLabels).To(HaveKeyWithValue(constants.KubernetesPartOfLabelKey, constants.LLMInferenceServicePartOfValue),
+				"AMD pod should have the part-of label from the InferencePool selector")
+			Expect(podLabels).To(HaveKeyWithValue(constants.KServeComponentLabelKey, constants.KServeComponentWorkload),
+				"AMD pod should have the component label from the InferencePool selector")
+
+			// Verify no InferencePool was created for the AMD instance
+			amdIP := &igwapi.InferencePool{}
+			err := envTest.Get(ctx, client.ObjectKey{
+				Name:      amdSvcName + "-inference-pool",
+				Namespace: testNs.Name,
+			}, amdIP)
+			Expect(errors.IsNotFound(err)).To(BeTrue(),
+				"AMD instance should not create its own InferencePool")
+
+			// Verify no scheduler deployment was created for the AMD instance
+			amdScheduler := &appsv1.Deployment{}
+			err = envTest.Get(ctx, client.ObjectKey{
+				Name:      amdSvcName + "-kserve-epp",
+				Namespace: testNs.Name,
+			}, amdScheduler)
+			Expect(errors.IsNotFound(err)).To(BeTrue(),
+				"AMD instance should not create a scheduler deployment")
+		})
+
+		It("should propagate InferencePool ref matchLabels to single-node P/D workload pods (pool ref)", func(ctx SpecContext) {
+			nvidiaSvcName := "test-llm-nvidia-pd-sn"
+			amdSvcName := "test-llm-amd-pd-sn"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(nvidiaSvcName))
+
+			// Create NVIDIA instance with managed scheduler (creates an InferencePool)
+			nvidiaLLMSvc := LLMInferenceService(nvidiaSvcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+			)
+
+			Expect(envTest.Create(ctx, nvidiaLLMSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, nvidiaLLMSvc)
+			}()
+
+			// Wait for the NVIDIA InferencePool to be created
+			nvidiaPoolName := nvidiaSvcName + "-inference-pool"
+			ip := &igwapi.InferencePool{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, client.ObjectKey{
+					Name:      nvidiaPoolName,
+					Namespace: testNs.Name,
+				}, ip)
+			}).WithContext(ctx).Should(Succeed())
+
+			// Create AMD instance with pool ref and prefill (single-node P/D)
+			amdLLMSvc := LLMInferenceService(amdSvcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithInferencePoolRef(nvidiaPoolName),
+				WithPrefill(SimpleWorkerPodSpec()),
+			)
+
+			Expect(envTest.Create(ctx, amdLLMSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, amdLLMSvc)
+			}()
+
+			// Verify main deployment has pool ref labels
+			amdMainDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, client.ObjectKey{
+					Name:      amdSvcName + "-kserve",
+					Namespace: testNs.Name,
+				}, amdMainDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			mainLabels := amdMainDeployment.Spec.Template.Labels
+			Expect(mainLabels).To(HaveKeyWithValue(constants.KubernetesAppNameLabelKey, nvidiaSvcName))
+			Expect(mainLabels).To(HaveKeyWithValue(constants.KubernetesPartOfLabelKey, constants.LLMInferenceServicePartOfValue))
+			Expect(mainLabels).To(HaveKeyWithValue(constants.KServeComponentLabelKey, constants.KServeComponentWorkload))
+
+			// Verify prefill deployment has pool ref labels
+			amdPrefillDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, client.ObjectKey{
+					Name:      amdSvcName + "-kserve-prefill",
+					Namespace: testNs.Name,
+				}, amdPrefillDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			prefillLabels := amdPrefillDeployment.Spec.Template.Labels
+			Expect(prefillLabels).To(HaveKeyWithValue(constants.KubernetesAppNameLabelKey, nvidiaSvcName))
+			Expect(prefillLabels).To(HaveKeyWithValue(constants.KubernetesPartOfLabelKey, constants.LLMInferenceServicePartOfValue))
+			Expect(prefillLabels).To(HaveKeyWithValue(constants.KServeComponentLabelKey, constants.KServeComponentWorkload))
+		})
+
+		It("should propagate InferencePool ref matchLabels to multi-node non-P/D workload pods (pool ref)", func(ctx SpecContext) {
+			nvidiaSvcName := "test-llm-nvidia-mn"
+			amdSvcName := "test-llm-amd-mn"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(nvidiaSvcName))
+
+			// Create NVIDIA instance with managed scheduler (creates an InferencePool)
+			nvidiaLLMSvc := LLMInferenceService(nvidiaSvcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+			)
+
+			Expect(envTest.Create(ctx, nvidiaLLMSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, nvidiaLLMSvc)
+			}()
+
+			// Wait for the NVIDIA InferencePool to be created
+			nvidiaPoolName := nvidiaSvcName + "-inference-pool"
+			ip := &igwapi.InferencePool{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, client.ObjectKey{
+					Name:      nvidiaPoolName,
+					Namespace: testNs.Name,
+				}, ip)
+			}).WithContext(ctx).Should(Succeed())
+
+			// Create AMD instance with pool ref and multi-node (leader + worker templates)
+			amdLLMSvc := LLMInferenceService(amdSvcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithInferencePoolRef(nvidiaPoolName),
+				WithTemplate(SimpleWorkerPodSpec()),
+				WithWorker(SimpleWorkerPodSpec()),
+				WithParallelism(ParallelismSpec(
+					WithDataParallelism(4),
+					WithDataLocalParallelism(1),
+				)),
+			)
+
+			Expect(envTest.Create(ctx, amdLLMSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, amdLLMSvc)
+			}()
+
+			// Verify the main LWS leader template has pool ref labels
+			amdLWS := &lwsapi.LeaderWorkerSet{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, client.ObjectKey{
+					Name:      amdSvcName + "-kserve-mn",
+					Namespace: testNs.Name,
+				}, amdLWS)
+			}).WithContext(ctx).Should(Succeed())
+
+			Expect(amdLWS.Spec.LeaderWorkerTemplate.LeaderTemplate).ToNot(BeNil(),
+				"Leader template should be set when WithTemplate is used")
+			leaderLabels := amdLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels
+			Expect(leaderLabels).To(HaveKeyWithValue(constants.KubernetesAppNameLabelKey, nvidiaSvcName))
+			Expect(leaderLabels).To(HaveKeyWithValue(constants.KubernetesPartOfLabelKey, constants.LLMInferenceServicePartOfValue))
+			Expect(leaderLabels).To(HaveKeyWithValue(constants.KServeComponentLabelKey, constants.KServeComponentWorkload))
+		})
+
+		It("should propagate InferencePool ref matchLabels to multi-node P/D workload pods (pool ref)", func(ctx SpecContext) {
+			nvidiaSvcName := "test-llm-nvidia-pd-mn"
+			amdSvcName := "test-llm-amd-pd-mn"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(nvidiaSvcName))
+
+			// Create NVIDIA instance with managed scheduler (creates an InferencePool)
+			nvidiaLLMSvc := LLMInferenceService(nvidiaSvcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+			)
+
+			Expect(envTest.Create(ctx, nvidiaLLMSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, nvidiaLLMSvc)
+			}()
+
+			// Wait for the NVIDIA InferencePool to be created
+			nvidiaPoolName := nvidiaSvcName + "-inference-pool"
+			ip := &igwapi.InferencePool{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, client.ObjectKey{
+					Name:      nvidiaPoolName,
+					Namespace: testNs.Name,
+				}, ip)
+			}).WithContext(ctx).Should(Succeed())
+
+			// Create AMD instance with pool ref, multi-node, and P/D
+			amdLLMSvc := LLMInferenceService(amdSvcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithInferencePoolRef(nvidiaPoolName),
+				WithTemplate(SimpleWorkerPodSpec()),
+				WithWorker(SimpleWorkerPodSpec()),
+				WithParallelism(ParallelismSpec(
+					WithDataParallelism(4),
+					WithDataLocalParallelism(1),
+				)),
+				WithPrefill(SimpleWorkerPodSpec()),
+				WithPrefillWorker(SimpleWorkerPodSpec()),
+				WithPrefillParallelism(ParallelismSpec(
+					WithDataParallelism(4),
+					WithDataLocalParallelism(1),
+				)),
+			)
+
+			Expect(envTest.Create(ctx, amdLLMSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, amdLLMSvc)
+			}()
+
+			// Verify the main LWS leader template has pool ref labels
+			amdMainLWS := &lwsapi.LeaderWorkerSet{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, client.ObjectKey{
+					Name:      amdSvcName + "-kserve-mn",
+					Namespace: testNs.Name,
+				}, amdMainLWS)
+			}).WithContext(ctx).Should(Succeed())
+
+			Expect(amdMainLWS.Spec.LeaderWorkerTemplate.LeaderTemplate).ToNot(BeNil())
+			mainLeaderLabels := amdMainLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels
+			Expect(mainLeaderLabels).To(HaveKeyWithValue(constants.KubernetesAppNameLabelKey, nvidiaSvcName))
+			Expect(mainLeaderLabels).To(HaveKeyWithValue(constants.KubernetesPartOfLabelKey, constants.LLMInferenceServicePartOfValue))
+			Expect(mainLeaderLabels).To(HaveKeyWithValue(constants.KServeComponentLabelKey, constants.KServeComponentWorkload))
+
+			// Verify the prefill LWS leader template has pool ref labels
+			amdPrefillLWS := &lwsapi.LeaderWorkerSet{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, client.ObjectKey{
+					Name:      amdSvcName + "-kserve-mn-prefill",
+					Namespace: testNs.Name,
+				}, amdPrefillLWS)
+			}).WithContext(ctx).Should(Succeed())
+
+			Expect(amdPrefillLWS.Spec.LeaderWorkerTemplate.LeaderTemplate).ToNot(BeNil())
+			prefillLeaderLabels := amdPrefillLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels
+			Expect(prefillLeaderLabels).To(HaveKeyWithValue(constants.KubernetesAppNameLabelKey, nvidiaSvcName))
+			Expect(prefillLeaderLabels).To(HaveKeyWithValue(constants.KubernetesPartOfLabelKey, constants.LLMInferenceServicePartOfValue))
+			Expect(prefillLeaderLabels).To(HaveKeyWithValue(constants.KServeComponentLabelKey, constants.KServeComponentWorkload))
 		})
 	})
 })

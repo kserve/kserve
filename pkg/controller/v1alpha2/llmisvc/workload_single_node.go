@@ -105,6 +105,11 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 		}
 	}
 
+	err := r.propagateInferencePoolRefLabelSelector(ctx, llmSvc, labels)
+	if err != nil {
+		return nil, fmt.Errorf("failed to propagate InferencePool reference labels: %w", err)
+	}
+
 	d := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mainDeploymentName(llmSvc),
@@ -219,6 +224,11 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 	}
 
 	if llmSvc.Spec.Prefill != nil {
+		err := r.propagateInferencePoolRefLabelSelector(ctx, llmSvc, labels)
+		if err != nil {
+			return nil, fmt.Errorf("failed to propagate InferencePool reference labels: %w", err)
+		}
+
 		d.Spec = appsv1.DeploymentSpec{
 			Replicas: llmSvc.Spec.Prefill.Replicas,
 			Selector: &metav1.LabelSelector{

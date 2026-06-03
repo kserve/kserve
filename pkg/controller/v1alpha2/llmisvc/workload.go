@@ -29,7 +29,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmeta"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -173,6 +175,25 @@ func GetWorkloadLabelSelector(meta metav1.ObjectMeta, _ *v1alpha2.LLMInferenceSe
 	// TODO https://github.com/llm-d/llm-d-inference-scheduler/issues/220 and DP template
 
 	return s
+}
+
+func (r *LLMISVCReconciler) propagateInferencePoolRefLabelSelector(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, labels map[string]string) error {
+	if !utils.GetForceStopRuntime(llmSvc) && llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
+		infPool := &igwapi.InferencePool{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: llmSvc.GetNamespace(),
+				Name:      llmSvc.Spec.Router.Scheduler.Pool.Ref.Name,
+			},
+		}
+		if err := r.Get(ctx, client.ObjectKeyFromObject(infPool), infPool); err != nil {
+			return fmt.Errorf("failed to get InferencePool %s/%s: %w", infPool.GetNamespace(), infPool.GetName(), err)
+		}
+
+		for k, v := range infPool.Spec.Selector.MatchLabels {
+			labels[string(k)] = string(v)
+		}
+	}
+	return nil
 }
 
 func workloadServiceName(llmSvc *v1alpha2.LLMInferenceService) string {
