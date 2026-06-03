@@ -39,7 +39,7 @@ $(shell perl -pi -e 's/memory:.*/memory: $(KSERVE_CONTROLLER_MEMORY_LIMIT)/' con
 GOTOOLCHAIN ?= auto
 ifeq (auto,$(GOTOOLCHAIN))
 ifeq (,$(FORCE_HOST_GO))
-export GOTOOLCHAIN := $(shell grep '^toolchain go' go.mod | cut -d' ' -f2)
+export GOTOOLCHAIN := $(or $(shell grep '^toolchain go' go.mod | cut -d' ' -f2),go$(shell grep '^go ' go.mod | head -1 | cut -d' ' -f2))
 else
 export GOTOOLCHAIN := local
 endif
