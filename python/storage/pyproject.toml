@@ -37,3 +37,28 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
+[tool.uv]
+index-strategy = "unsafe-best-match"
+# TODO remove later
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+default = true
+
+[[tool.uv.index]]
+name = "ppc64le-wheels"
+url = "https://wheels.developerfirst.ibm.com/ppc64le/linux"
+index-strategy = "unsafe-best-match"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.uv.sources]
+kserve-storage = { path = "../storage", editable = true }
+
+google-crc32c = [
+    { index = "pypi", marker = "platform_machine != 'ppc64le'" },
+    { index = "ppc64le-wheels", marker = "platform_machine == 'ppc64le'" },
+]
+
