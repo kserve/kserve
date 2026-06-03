@@ -40,9 +40,11 @@ OPT_125M_MODEL_URI = os.environ.get("OPT_125M_MODEL_URI", "hf://facebook/opt-125
 # PVC storage test constants
 PVC_STORAGE_NAME = "e2e-pvc-model-storage"
 STORAGE_INITIALIZER_IMAGE = os.environ.get(
-    "STORAGE_INITIALIZER_IMAGE", "kserve/storage-initializer:latest"
+    "STORAGE_INITIALIZER_IMAGE",
+    f"kserve/storage-initializer:{os.environ.get('TAG', 'latest')}",
 )
 MODEL_DOWNLOAD_JOB_NAME = "e2e-pvc-model-download"
+S3_CREDENTIALS_SECRET = os.environ.get("S3_CREDENTIALS_SECRET", "seaweedfs-s3-creds")
 
 # Vanilla Kubernetes rejects runAsNonRoot-only containers when the image does not declare a USER.
 # Keep the templates OpenShift-safe and use an explicit non-root UID only in upstream CI test overrides.
@@ -1604,6 +1606,41 @@ def delete_pvc(
             raise
 
 
+def _s3_env_from_secret(namespace):
+    """Read the S3 credentials secret and return (env_from, env) for a container."""
+    core_v1 = client.CoreV1Api()
+    try:
+        secret = core_v1.read_namespaced_secret(
+            name=S3_CREDENTIALS_SECRET,
+            namespace=namespace,
+        )
+    except client.rest.ApiException as e:
+        if e.status == 404:
+            logger.info(f"S3 credentials secret {S3_CREDENTIALS_SECRET} not found, skipping")
+            return [], []
+        raise
+
+    annotations = secret.metadata.annotations or {}
+    env = []
+    endpoint = annotations.get("serving.kserve.io/s3-endpoint", "")
+    if endpoint:
+        scheme = "https" if annotations.get("serving.kserve.io/s3-usehttps", "1") != "0" else "http"
+        env.append(client.V1EnvVar(name="AWS_ENDPOINT_URL", value=f"{scheme}://{endpoint}"))
+    use_https = annotations.get("serving.kserve.io/s3-usehttps")
+    if use_https is not None:
+        env.append(client.V1EnvVar(name="S3_USE_HTTPS", value=use_https))
+    verify_ssl = annotations.get("serving.kserve.io/s3-verifyssl")
+    if verify_ssl is not None:
+        env.append(client.V1EnvVar(name="S3_VERIFY_SSL", value=verify_ssl))
+
+    env_from = [
+        client.V1EnvFromSource(
+            secret_ref=client.V1SecretEnvSource(name=S3_CREDENTIALS_SECRET),
+        ),
+    ]
+    return env_from, env
+
+
 def create_model_download_job(
     job_name=MODEL_DOWNLOAD_JOB_NAME,
     pvc_name=PVC_STORAGE_NAME,
@@ -1621,6 +1658,10 @@ def create_model_download_job(
 
     inject_k8s_proxy()
     batch_v1 = client.BatchV1Api()
+
+    env_from, env = [], []
+    if model_uri.startswith("s3://"):
+        env_from, env = _s3_env_from_secret(namespace)
 
     job = client.V1Job(
         api_version="batch/v1",
@@ -1640,6 +1681,8 @@ def create_model_download_job(
                             name="storage-initializer",
                             image=STORAGE_INITIALIZER_IMAGE,
                             args=[model_uri, "/mnt/models"],
+                            env=env or None,
+                            env_from=env_from or None,
                             volume_mounts=[
                                 client.V1VolumeMount(
                                     name="model-storage",
