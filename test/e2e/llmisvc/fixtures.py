@@ -1666,9 +1666,7 @@ def create_model_download_job(
             namespace=namespace,
             body=job,
         )
-        logger.info(
-            f"Created model download Job {job_name} in namespace {namespace}"
-        )
+        logger.info(f"Created model download Job {job_name} in namespace {namespace}")
     except client.rest.ApiException as e:
         if e.status == 409:
             logger.info(

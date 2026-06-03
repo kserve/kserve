@@ -55,6 +55,4 @@ def pytest_configure(config):
         "markers", "model_routing: mark test as a model-based routing test"
     )
     config.addinivalue_line("markers", "lora: mark test as a LoRA adapter test")
-    config.addinivalue_line(
-        "markers", "pvc_storage: mark test as a PVC storage test"
-    )
+    config.addinivalue_line("markers", "pvc_storage: mark test as a PVC storage test")
