@@ -1616,7 +1616,9 @@ def _s3_env_from_secret(namespace):
         )
     except client.rest.ApiException as e:
         if e.status == 404:
-            logger.info(f"S3 credentials secret {S3_CREDENTIALS_SECRET} not found, skipping")
+            logger.info(
+                f"S3 credentials secret {S3_CREDENTIALS_SECRET} not found, skipping"
+            )
             return [], []
         raise
 
@@ -1624,8 +1626,14 @@ def _s3_env_from_secret(namespace):
     env = []
     endpoint = annotations.get("serving.kserve.io/s3-endpoint", "")
     if endpoint:
-        scheme = "https" if annotations.get("serving.kserve.io/s3-usehttps", "1") != "0" else "http"
-        env.append(client.V1EnvVar(name="AWS_ENDPOINT_URL", value=f"{scheme}://{endpoint}"))
+        scheme = (
+            "https"
+            if annotations.get("serving.kserve.io/s3-usehttps", "1") != "0"
+            else "http"
+        )
+        env.append(
+            client.V1EnvVar(name="AWS_ENDPOINT_URL", value=f"{scheme}://{endpoint}")
+        )
     use_https = annotations.get("serving.kserve.io/s3-usehttps")
     if use_https is not None:
         env.append(client.V1EnvVar(name="S3_USE_HTTPS", value=use_https))
