@@ -29,6 +29,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -53,7 +55,11 @@ import (
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/kernelcachecommon"
 )
 
-var nodeName = os.Getenv("NODE_NAME")
+var (
+	nodeName         = os.Getenv("NODE_NAME")
+	cachesRootFolder = filepath.Join(kernelcachecommon.MountPath, "kernel-cache")
+	fsHelper         FileSystemInterface
+)
 
 type KernelCacheNodeReconciler struct {
 	client.Client
@@ -112,6 +118,13 @@ func (r *KernelCacheNodeReconciler) EnsureKernelCacheNode(cfg *rest.Config) erro
 	}
 
 	if err := c.Status().Update(context.Background(), kcNode); err != nil {
+		if strings.Contains(err.Error(), "object has been modified") {
+			r.Log.Info("Initial status update conflict (will retry)",
+				"name", kcNodeName, "node", nodeName)
+		} else {
+			r.Log.Error(err, "Failed to create KernelCacheNode status",
+				"name", kcNodeName, "node", nodeName)
+		}
 		return err
 	}
 
@@ -141,6 +154,15 @@ func (r *KernelCacheNodeReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	reconcileInterval := time.Duration(*kernelCacheConfig.ReconcileIntervalSeconds) * time.Second
 
+	// Initialize filesystem helper and ensure cache root folder exists
+	if fsHelper == nil {
+		fsHelper = NewFileSystemHelper(cachesRootFolder)
+		if err := fsHelper.ensureCacheRootFolderExists(); err != nil {
+			r.Log.Error(err, "failed to create cache root folder", "path", cachesRootFolder)
+			return ctrl.Result{}, err
+		}
+	}
+
 	// Populate GPU info if not present (MCV detection or stub for KIND)
 	// This runs once per node - subsequent reconciles skip if GPUInfo already populated
 	gpuInfoChanged := false
@@ -168,14 +190,20 @@ func (r *KernelCacheNodeReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		}
 	}
 
-	// Update status (agent owns all KernelCacheNode writes)
-	if err := r.updateStatus(ctx, kcNode, kernelCacheConfig, gpuInfoChanged); err != nil {
-		return ctrl.Result{}, err
+	// Cleanup cache directories no longer in CacheStatus (run before updateStatus to ensure it always runs)
+	if err := r.deleteCaches(kcNode); err != nil {
+		r.Log.Error(err, "failed to delete orphaned cache directories")
+		// Non-fatal - continue with reconciliation
 	}
 
 	// Cleanup old jobs
 	if err := r.cleanupJobs(ctx, kcNode, kernelCacheConfig); err != nil {
 		r.Log.Error(err, "failed to cleanup jobs")
+	}
+
+	// Update status (agent owns all KernelCacheNode writes)
+	if err := r.updateStatus(ctx, kcNode, kernelCacheConfig, gpuInfoChanged); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{RequeueAfter: reconcileInterval}, nil
@@ -236,6 +264,74 @@ func (r *KernelCacheNodeReconciler) discoverCaches(
 	return nil
 }
 
+// deleteCaches removes cache directories from filesystem that are no longer in CacheStatus
+// Follows LocalModelNode pattern - compares filesystem with CacheStatus map and removes orphaned directories
+func (r *KernelCacheNodeReconciler) deleteCaches(kcNode *v1alpha1.KernelCacheNode) error {
+	r.Log.V(1).Info("Running cache cleanup", "node", kcNode.Status.NodeName, "cachesRootFolder", cachesRootFolder)
+
+	// 1. Scan cache directory and get list of existing folders (storage keys)
+	foldersToRemove := make(map[string]struct{})
+	entries, err := fsHelper.getCacheFolders()
+	if err != nil {
+		r.Log.Error(err, "Failed to list cache folders", "path", cachesRootFolder)
+		return err
+	}
+
+	r.Log.V(1).Info("Found cache folders on filesystem", "count", len(entries), "node", kcNode.Status.NodeName)
+
+	for _, entry := range entries {
+		// Caches exist in subdirectories (storage key = hash of image URI)
+		if entry.IsDir() {
+			foldersToRemove[entry.Name()] = struct{}{}
+			r.Log.V(1).Info("Filesystem folder candidate for removal", "storageKey", entry.Name())
+		}
+	}
+
+	// 2. Compare with caches in CacheStatus map using storage keys
+	r.Log.V(1).Info("Checking CacheStatus for active caches", "cacheCount", len(kcNode.Status.CacheStatus), "node", kcNode.Status.NodeName)
+
+	for cacheKey, cacheInfo := range kcNode.Status.CacheStatus {
+		// Build image URI with digest (same as what operator uses)
+		imageWithDigest := cacheInfo.Image
+		if cacheInfo.Digest != "" {
+			imageWithDigest = kernelcachecommon.ReplaceUrlTag(cacheInfo.Image, cacheInfo.Digest)
+		} else {
+			r.Log.Info("Cache missing digest, using tag for storage key", "cache", cacheKey, "image", cacheInfo.Image)
+		}
+
+		// Calculate storage key (hash)
+		storageKey := v1alpha1.GetKernelCacheStorageKey(imageWithDigest)
+
+		// Remove expected caches from removal set
+		delete(foldersToRemove, storageKey)
+
+		r.Log.V(1).Info("Retaining cache directory",
+			"cache", cacheKey,
+			"storageKey", storageKey,
+			"image", imageWithDigest,
+			"digest", cacheInfo.Digest)
+	}
+
+	// 3. Delete orphaned cache directories (not in CacheStatus)
+	if len(foldersToRemove) > 0 {
+		r.Log.Info("Found cache(s) to remove from filesystem",
+			"count", len(foldersToRemove),
+			"node", kcNode.Status.NodeName)
+
+		for storageKey := range foldersToRemove {
+			r.Log.Info("Removing cache directory", "storageKey", storageKey, "node", kcNode.Status.NodeName)
+			if err := fsHelper.removeCache(storageKey); err != nil {
+				r.Log.Error(err, "Failed to remove cache directory",
+					"storageKey", storageKey,
+					"node", kcNode.Status.NodeName)
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 // checkCacheAvailability monitors cache availability on this node
 // Operator creates extraction Job, agent checks if cache is accessible
 func (r *KernelCacheNodeReconciler) checkCacheAvailability(
@@ -246,6 +342,25 @@ func (r *KernelCacheNodeReconciler) checkCacheAvailability(
 	config *v1beta1.KernelCacheConfig,
 ) error {
 	jobNamespace := config.JobNamespace
+
+	// Check if KernelCache CR is being deleted - skip availability check
+	kc := &v1alpha1.KernelCache{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      cacheInfo.Name,
+		Namespace: cacheInfo.Namespace,
+	}, kc); err != nil {
+		if errors.IsNotFound(err) {
+			// Cache deleted - discoverCaches will remove from status
+			r.Log.V(1).Info("Cache deleted, skipping availability check", "cache", cacheKey)
+			return nil
+		}
+		return err
+	}
+	if !kc.DeletionTimestamp.IsZero() {
+		// Cache being deleted - skip availability check (operator finalizer may have deleted PVC)
+		r.Log.V(1).Info("Cache being deleted, skipping availability check", "cache", cacheKey)
+		return nil
+	}
 
 	// PVC naming: {namespace}-{cachename}-download (created by operator)
 	pvcName := cacheInfo.Namespace + "-" + cacheInfo.Name + "-download"
@@ -424,7 +539,17 @@ func (r *KernelCacheNodeReconciler) updateStatus(
 		return nil
 	}
 
-	return r.Status().Update(ctx, kcNode)
+	if err := r.Status().Update(ctx, kcNode); err != nil {
+		if strings.Contains(err.Error(), "object has been modified") {
+			r.Log.Info("Status update conflict (will retry)",
+				"node", kcNode.Status.NodeName)
+		} else {
+			r.Log.Error(err, "Failed to update KernelCacheNode status",
+				"node", kcNode.Status.NodeName)
+		}
+		return err
+	}
+	return nil
 }
 
 // updateServingCounts counts pods on this node using each cache
