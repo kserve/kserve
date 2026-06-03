@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -94,7 +95,17 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// Add finalizer if not present
 	if !controllerutil.ContainsFinalizer(kc, KernelCacheFinalizerName) {
 		controllerutil.AddFinalizer(kc, KernelCacheFinalizerName)
-		return ctrl.Result{}, r.Update(ctx, kc)
+		if err := r.Update(ctx, kc); err != nil {
+			if strings.Contains(err.Error(), "object has been modified") {
+				r.Log.Info("Finalizer add conflict (will retry)",
+					"cache", kc.Name, "namespace", kc.Namespace)
+			} else {
+				r.Log.Error(err, "Failed to add finalizer",
+					"cache", kc.Name, "namespace", kc.Namespace)
+			}
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
 	}
 
 	// Ensure ResolvedDigest is copied from annotation to Status (immutability)
@@ -269,7 +280,17 @@ func (r *KernelCacheReconciler) handleDeletion(
 
 	// Remove finalizer
 	controllerutil.RemoveFinalizer(kc, KernelCacheFinalizerName)
-	return ctrl.Result{}, r.Update(ctx, kc)
+	if err := r.Update(ctx, kc); err != nil {
+		if strings.Contains(err.Error(), "object has been modified") {
+			r.Log.Info("Finalizer removal conflict (will retry)",
+				"cache", kc.Name, "namespace", kc.Namespace)
+		} else {
+			r.Log.Error(err, "Failed to remove finalizer",
+				"cache", kc.Name, "namespace", kc.Namespace)
+		}
+		return ctrl.Result{}, err
+	}
+	return ctrl.Result{}, nil
 }
 
 // ensureResolvedDigest copies digest from annotation to Status field (one-time, immutable)
@@ -283,7 +304,17 @@ func (r *KernelCacheReconciler) ensureResolvedDigest(ctx context.Context, kc *v1
 			return fmt.Errorf("webhook must set %s annotation before reconcile", v1alpha1.AnnotationResolvedDigest)
 		}
 		kc.Status.ResolvedDigest = annotationDigest
-		return r.Status().Update(ctx, kc)
+		if err := r.Status().Update(ctx, kc); err != nil {
+			if strings.Contains(err.Error(), "object has been modified") {
+				r.Log.Info("Digest status update conflict (will retry)",
+					"cache", kc.Name, "namespace", kc.Namespace)
+			} else {
+				r.Log.Error(err, "Failed to update KernelCache digest",
+					"cache", kc.Name, "namespace", kc.Namespace)
+			}
+			return err
+		}
+		return nil
 	}
 
 	// Detect tampering: annotation changed but Status is immutable
@@ -531,13 +562,17 @@ func (r *KernelCacheReconciler) createExtractionJob(
 		},
 	}
 
-	var fsGroup int64 = 1000
+	// Use FSGroup from config, default to 1000 if not set
+	fsGroup := int64(1000)
+	if config.FSGroup != nil {
+		fsGroup = *config.FSGroup
+	}
+
 	var initContainers []corev1.Container
 	if config.EnablePermissionInitContainer {
 		var rootUser int64 = 0
-		commandString := "mkdir -p " + kernelcachecommon.MountPath +
-			" && chown -R 1000:1000 " + kernelcachecommon.MountPath +
-			" && chmod -R 775 " + kernelcachecommon.MountPath
+		commandString := fmt.Sprintf("mkdir -p %s && chown -R %d:%d %s && chmod -R 775 %s",
+			kernelcachecommon.MountPath, fsGroup, fsGroup, kernelcachecommon.MountPath, kernelcachecommon.MountPath)
 
 		initContainer := corev1.Container{
 			Name:  "fix-permissions",
@@ -884,7 +919,17 @@ func (r *KernelCacheReconciler) updateAggregateStatus(
 	kc.Status.GPUCompatibility = gpuCompat
 	kc.Status.ServingStatus = servingStatus
 
-	return r.Status().Update(ctx, kc)
+	if err := r.Status().Update(ctx, kc); err != nil {
+		if strings.Contains(err.Error(), "object has been modified") {
+			r.Log.Info("Status update conflict (will retry)",
+				"cache", kc.Name, "namespace", kc.Namespace)
+		} else {
+			r.Log.Error(err, "Failed to update KernelCache status",
+				"cache", kc.Name, "namespace", kc.Namespace)
+		}
+		return err
+	}
+	return nil
 }
 
 // nodeStatusMapper maps KernelCacheNode changes to KernelCache reconciliation requests

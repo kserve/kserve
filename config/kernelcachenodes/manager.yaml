@@ -28,12 +28,39 @@ spec:
       serviceAccountName: kserve-kernelcachenode-agent
       securityContext:
         runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
+      initContainers:
+      - name: fix-permissions
+        image: quay.io/fedora/fedora-minimal:latest
+        command:
+          - /bin/sh
+          - -c
+          - |
+            if [ "$ENABLE_PERMISSION_INIT_CONTAINER" = "true" ]; then
+              echo "Permission init container enabled - fixing /mnt/kernel-cache permissions"
+              mkdir -p /mnt/kernel-cache/kernel-cache
+              chown -R 1000:1000 /mnt/kernel-cache
+              chmod -R 775 /mnt/kernel-cache
+              echo "Permissions fixed on /mnt/kernel-cache"
+            else
+              echo "Permission init container disabled - skipping"
+            fi
+        env:
+          - name: ENABLE_PERMISSION_INIT_CONTAINER
+            value: "false"  # Disabled by default - enabled for KIND via Makefile patch
+        securityContext:
+          runAsUser: 0
+          runAsNonRoot: false
+        volumeMounts:
+          - mountPath: /mnt/kernel-cache
+            name: kernel-caches
       containers:
       - command:
         - /manager
-        image: ko://github.com/kserve/kserve/cmd/localmodelnode
+        image: ko://github.com/kserve/kserve/cmd/kernelcachenode
         imagePullPolicy: Always
         name: manager
         securityContext:
@@ -55,6 +82,10 @@ spec:
                 fieldPath: spec.nodeName
           - name: NO_GPU
             value: "false"
+        volumeMounts:
+          - mountPath: /mnt/kernel-cache
+            name: kernel-caches
+            readOnly: false
         resources:
           limits:
             cpu: 100m
@@ -62,4 +93,9 @@ spec:
           requests:
             cpu: 100m
             memory: 200Mi
+      volumes:
+        - name: kernel-caches
+          hostPath:
+            path: /kernel-caches
+            type: DirectoryOrCreate
       terminationGracePeriodSeconds: 10
