@@ -3,7 +3,7 @@ kind: Job
 metadata:
   name: s3-init
 spec:
-  activeDeadlineSeconds: 900
+  activeDeadlineSeconds: 1800
   template:
     spec:
       initContainers:
@@ -55,4 +55,4 @@ spec:
       - name: model-cache
         emptyDir: {}
       restartPolicy: Never
-  backoffLimit: 3
+  backoffLimit: 5
