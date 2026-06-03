@@ -47,7 +47,7 @@ def grpc_client(host, cluster_ip):
     logger.info("gRPC target host: %s", host)
     return InferenceGRPCClient(
         cluster_ip,
-        verbose=True,
+        verbose=False,
         channel_args=[
             ("grpc.ssl_target_name_override", host),
         ],
