@@ -81,7 +81,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     },
                     "securityContext": UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT.copy(),
                 }
-            ]
+            ],
         },
     },
     "workload-pd-cpu": {
@@ -117,7 +117,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "failureThreshold": 3,
                     },
                 }
-            ]
+            ],
         },
         "prefill": {
             "template": {
@@ -152,7 +152,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                         },
                         "securityContext": UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT.copy(),
                     }
-                ]
+                ],
             }
         },
     },
@@ -253,7 +253,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "failureThreshold": 3,
                     },
                 }
-            ]
+            ],
         },
         "worker": {
             "initContainers": [STORAGE_INITIALIZER_INIT_CONTAINER],
@@ -287,7 +287,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                         },
                     },
                 }
-            ]
+            ],
         },
     },
     "workload-dp-ep-prefill-gpu": {
@@ -341,7 +341,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                             "failureThreshold": 3,
                         },
                     }
-                ]
+                ],
             },
             "worker": {
                 "initContainers": [STORAGE_INITIALIZER_INIT_CONTAINER],
@@ -375,7 +375,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                             },
                         },
                     }
-                ]
+                ],
             },
         },
     },
@@ -419,7 +419,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     },
                     "securityContext": UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT.copy(),
                 }
-            ]
+            ],
         },
         "worker": {
             "initContainers": [STORAGE_INITIALIZER_INIT_CONTAINER],
@@ -445,7 +445,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     },
                     "securityContext": UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT.copy(),
                 }
-            ]
+            ],
         },
     },
     "router-custom-route-timeout": {
@@ -1230,7 +1230,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     },
                     "securityContext": LLMD_SIMULATOR_SECURITY_CONTEXT.copy(),
                 }
-            ]
+            ],
         },
     },
 }
