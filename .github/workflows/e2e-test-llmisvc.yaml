@@ -9,6 +9,7 @@ on:
       - "pkg/controller/v1alpha2/llmisvc/**"
       - "charts/kserve-llmisvc-resources/**"
       - "config/llmisvc/**"
+      - "config/llmisvcconfig/**"
       - "config/rbac/llmisvc/**"
       - "cmd/llmisvc/**"
       - "test/e2e/llmisvc/**"
