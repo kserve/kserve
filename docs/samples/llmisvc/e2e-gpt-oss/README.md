@@ -168,6 +168,21 @@ KServe's portable integration surface for `LLMInferenceService` routing is:
 
 The `LLMInferenceService` created earlier already provisions the `InferencePool` and manages the `HTTPRoute` that points to it. To expose that route externally, create a `Gateway` backed by your cluster's GatewayClass.
 
+### 7.0 Provider matrix
+
+| Capability | Standard API | Portable across providers | Notes |
+|-----------|--------------|---------------------------|-------|
+| External listener | `Gateway` | Yes | Choose the `gatewayClassName` for your provider |
+| LLM routing path | `HTTPRoute` -> `InferencePool` | Yes | This is the standard KServe contract |
+| Scheduler / EPP integration | Gateway API Inference Extension | Yes | Requires provider support for `InferencePool` |
+| Model-name routing | `AIGatewayRoute` | No | Envoy AI Gateway-specific extension |
+
+### 7.0.1 Gateway provider examples
+
+- Provider-neutral template: [gateway.yaml](./gateway.yaml)
+- Agentgateway example: [gateway-agentgateway.yaml](./gateway-agentgateway.yaml)
+- Envoy AI Gateway extension: [ai-gateway-route.yaml](./ai-gateway-route.yaml)
+
 ### 7.1 Gateway
 
 ```bash
@@ -175,6 +190,12 @@ kubectl apply -f gateway.yaml -n kserve-lab
 ```
 
 [gateway.yaml](./gateway.yaml) defines a `Gateway` named `ai-gateway` with an HTTP listener on port 80. Before applying it, replace `gatewayClassName` with the GatewayClass provided by your cluster.
+
+If you are using [Agentgateway's Kubernetes inference support](https://agentgateway.dev/docs/kubernetes/latest/inference/), you can apply the ready-to-use sample instead:
+
+```bash
+kubectl apply -f gateway-agentgateway.yaml -n kserve-lab
+```
 
 With that in place, the standard `LLMInferenceService` path is:
 
@@ -309,14 +330,14 @@ Import in Grafana: **Dashboards** → **New** → **Import** → upload the JSON
 1. `kubectl apply -f model_weights_job.yaml -n kserve-lab` → wait for completion
 1. `kubectl apply -f llmisvc_config_default.yaml -n kserve-lab`
 1. `kubectl apply -f inference_default.yaml -n kserve-lab`
-1. `kubectl apply -f gateway.yaml -n kserve-lab`
+1. `kubectl apply -f gateway.yaml -n kserve-lab` or `kubectl apply -f gateway-agentgateway.yaml -n kserve-lab`
 1. (Optional, Envoy AI Gateway only) `kubectl apply -f ai-gateway-route.yaml -n kserve-lab`
 1. (Alternative) Prefix caching: `llmisvc_config_prefix_cache.yaml` then `inference_prefix_cache.yaml`
 1. (Alternative) Prefill Decode Disaggregation: `inference_pd_disaggregation.yaml`
 1. (Optional) `service_monitor.yaml` for Prometheus
 1. (Optional) Import Grafana dashboards
 
-Or use Kustomize from this directory (after fixing the HF token in the secret and choosing default vs prefix-cache inference):
+Or use Kustomize from this directory for the core llmisvc resources (after fixing the HF token in the secret and choosing default vs prefix-cache inference). Apply your gateway manifest separately:
 
 ```bash
 kubectl apply -k docs/samples/llmisvc/e2e-gpt-oss/ -n kserve-lab

@@ -13,5 +13,3 @@ resources:
   # - inference_prefix_cache.yaml
   # - inference_pd_disaggregation.yaml
   - service_monitor.yaml
-  - gateway.yaml
-  - ai-gateway-route.yaml
