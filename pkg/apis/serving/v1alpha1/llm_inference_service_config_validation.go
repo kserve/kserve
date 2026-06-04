@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kserve/kserve/pkg/constants"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -44,6 +45,9 @@ type LLMInferenceServiceConfigValidator struct {
 	// WellKnownConfigChecker is an optional function to check if a config name is a well-known config.
 	// This is used to emit warnings when modifying or deleting well-known configs.
 	WellKnownConfigChecker func(name string) bool
+
+	// PreventWellKnownConfigDeletion prevents _active_ well-known configs from being deleted.
+	PreventWellKnownConfigDeletion bool
 }
 
 var _ webhook.CustomValidator = &LLMInferenceServiceConfigValidator{}
@@ -103,7 +107,10 @@ func (l *LLMInferenceServiceConfigValidator) ValidateDelete(ctx context.Context,
 	}
 
 	// Warn if deleting a well-known config
-	if l.WellKnownConfigChecker != nil && l.WellKnownConfigChecker(config.Name) {
+	if l.WellKnownConfigChecker != nil && l.WellKnownConfigChecker(config.Name) && constants.KServeNamespace == config.Namespace {
+		if l.PreventWellKnownConfigDeletion {
+			return warnings, fmt.Errorf("well-known config %s/%s cannot be deleted", config.Namespace, config.Name)
+		}
 		warning := fmt.Sprintf("deleting well-known config %s/%s is not recommended", config.Namespace, config.Name)
 		logger.Info(warning)
 		warnings = append(warnings, warning)

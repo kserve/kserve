@@ -166,11 +166,11 @@ def _cleanup_llmisvc_silent(kserve_client, llm_svc):
         print(f"Warning: Failed to cleanup service {llm_svc.metadata.name}: {e}")
 
 
-def _get_ready_condition(config_obj):
-    """Extract the Ready condition from a config object's status."""
+def _get_condition(config_obj, condition_type):
+    """Extract a condition by type from a config object's status."""
     conditions = config_obj.get("status", {}).get("conditions", [])
     for cond in conditions:
-        if cond.get("type") == "Ready":
+        if cond.get("type") == condition_type:
             return cond
     return None
 
@@ -208,7 +208,7 @@ def test_config_finalizer_added():
                 f"got finalizers: {cfg.get('metadata', {}).get('finalizers', [])}"
             )
             # Verify Ready condition is True
-            ready_cond = _get_ready_condition(cfg)
+            ready_cond = _get_condition(cfg, "Ready")
             assert ready_cond is not None, "Expected Ready condition to be set"
             assert ready_cond.get("status") == "True", (
                 f"Expected Ready=True, got {ready_cond.get('status')}"
@@ -268,20 +268,20 @@ def test_config_deletion_blocked_when_referenced():
             assert _config_has_finalizer(cfg), (
                 "Finalizer should still be present while config is referenced"
             )
-            # Verify Ready condition is False with DeletionBlocked reason
-            ready_cond = _get_ready_condition(cfg)
-            assert ready_cond is not None, "Expected Ready condition to be set"
-            assert ready_cond.get("status") == "False", (
-                f"Expected Ready=False when deletion is blocked, got {ready_cond.get('status')}"
+            # Verify ConfigInUse condition is True with DeletionBlocked reason
+            in_use_cond = _get_condition(cfg, "ConfigInUse")
+            assert in_use_cond is not None, "Expected ConfigInUse condition to be set"
+            assert in_use_cond.get("status") == "True", (
+                f"Expected ConfigInUse=True when deletion is blocked, got {in_use_cond.get('status')}"
             )
-            assert ready_cond.get("reason") == "DeletionBlocked", (
-                f"Expected reason=DeletionBlocked, got {ready_cond.get('reason')}"
+            assert in_use_cond.get("reason") == "DeletionBlocked", (
+                f"Expected reason=DeletionBlocked, got {in_use_cond.get('reason')}"
             )
             return True
 
         wait_for(assert_deletion_blocked, timeout=60, interval=2.0)
         print(
-            f"Config {config_name} deletion is correctly blocked (Ready=False, reason=DeletionBlocked)"
+            f"Config {config_name} deletion is correctly blocked (ConfigInUse=True, reason=DeletionBlocked)"
         )
 
     finally:

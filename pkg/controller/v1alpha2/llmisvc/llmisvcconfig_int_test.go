@@ -57,6 +57,10 @@ var _ = Describe("LLMInferenceServiceConfig Controller", func() {
 				readyCond := current.GetStatus().GetCondition(apis.ConditionReady)
 				g.Expect(readyCond).ToNot(BeNil(), "expected Ready condition to be set")
 				g.Expect(readyCond.IsTrue()).To(BeTrue(), "expected Ready condition to be True")
+
+				inUseCond := current.GetStatus().GetCondition("ConfigInUse")
+				g.Expect(inUseCond).ToNot(BeNil(), "expected ConfigInUse condition to be set")
+				g.Expect(inUseCond.IsFalse()).To(BeTrue(), "expected ConfigInUse=False when not referenced")
 			}).WithContext(ctx).Should(Succeed())
 		})
 	})
@@ -93,8 +97,8 @@ var _ = Describe("LLMInferenceServiceConfig Controller", func() {
 			// when - attempt to delete the config
 			Expect(envTest.Delete(ctx, config)).To(Succeed())
 
-			// then - config should still exist (finalizer blocks deletion)
-			// and the Ready condition should be False with reason DeletionBlocked
+			// then - config should still exist (finalizer blocks deletion),
+			// Ready should remain True, and ConfigInUse should be True with reason DeletionBlocked
 			Eventually(func(g Gomega, ctx context.Context) {
 				current := &v1alpha2.LLMInferenceServiceConfig{}
 				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(config), current)).To(Succeed())
@@ -105,9 +109,13 @@ var _ = Describe("LLMInferenceServiceConfig Controller", func() {
 
 				readyCond := current.GetStatus().GetCondition(apis.ConditionReady)
 				g.Expect(readyCond).ToNot(BeNil(), "expected Ready condition to be set")
-				g.Expect(readyCond.IsFalse()).To(BeTrue(), "expected Ready=False when deletion is blocked")
-				g.Expect(readyCond.Reason).To(Equal("DeletionBlocked"))
-				g.Expect(readyCond.Message).To(ContainSubstring(svcName))
+				g.Expect(readyCond.IsTrue()).To(BeTrue(), "expected Ready=True even when deletion is blocked")
+
+				inUseCond := current.GetStatus().GetCondition("ConfigInUse")
+				g.Expect(inUseCond).ToNot(BeNil(), "expected ConfigInUse condition to be set")
+				g.Expect(inUseCond.IsTrue()).To(BeTrue(), "expected ConfigInUse=True when deletion is blocked")
+				g.Expect(inUseCond.Reason).To(Equal("DeletionBlocked"))
+				g.Expect(inUseCond.Message).To(ContainSubstring(svcName))
 			}).WithContext(ctx).Should(Succeed())
 		})
 
@@ -153,8 +161,8 @@ var _ = Describe("LLMInferenceServiceConfig Controller", func() {
 			// when - attempt to delete the config
 			Expect(envTest.Delete(ctx, config)).To(Succeed())
 
-			// then - config should still exist (referenced via status annotations)
-			// and the Ready condition should be False with reason DeletionBlocked
+			// then - config should still exist (referenced via status annotations),
+			// Ready should remain True, and ConfigInUse should be True with reason DeletionBlocked
 			Eventually(func(g Gomega, ctx context.Context) {
 				current := &v1alpha2.LLMInferenceServiceConfig{}
 				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(config), current)).To(Succeed())
@@ -164,8 +172,12 @@ var _ = Describe("LLMInferenceServiceConfig Controller", func() {
 
 				readyCond := current.GetStatus().GetCondition(apis.ConditionReady)
 				g.Expect(readyCond).ToNot(BeNil(), "expected Ready condition to be set")
-				g.Expect(readyCond.IsFalse()).To(BeTrue(), "expected Ready=False when deletion is blocked")
-				g.Expect(readyCond.Reason).To(Equal("DeletionBlocked"))
+				g.Expect(readyCond.IsTrue()).To(BeTrue(), "expected Ready=True even when deletion is blocked")
+
+				inUseCond := current.GetStatus().GetCondition("ConfigInUse")
+				g.Expect(inUseCond).ToNot(BeNil(), "expected ConfigInUse condition to be set")
+				g.Expect(inUseCond.IsTrue()).To(BeTrue(), "expected ConfigInUse=True when deletion is blocked")
+				g.Expect(inUseCond.Reason).To(Equal("DeletionBlocked"))
 			}).WithContext(ctx).Should(Succeed())
 		})
 

@@ -73,6 +73,10 @@ type LLMInferenceServiceConfigStatus struct {
 	duckv1.Status `json:",inline"`
 }
 
+type ReferencedLLMInferenceService struct {
+	UntypedObjectReference `json:",inline"`
+}
+
 // LLMInferenceServiceSpec defines the desired state of LLMInferenceService.
 type LLMInferenceServiceSpec struct {
 	// Model specification, including its URI, potential LoRA adapters, and storage details.

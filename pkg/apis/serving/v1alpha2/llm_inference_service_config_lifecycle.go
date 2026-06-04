@@ -37,6 +37,10 @@ func (in *LLMInferenceServiceConfig) MarkReady() {
 	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(apis.ConditionReady)
 }
 
-func (in *LLMInferenceServiceConfig) MarkNotReady(reason, messageFormat string, messageA ...interface{}) {
-	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(apis.ConditionReady, reason, messageFormat, messageA...)
+func (in *LLMInferenceServiceConfig) MarkConfigInUse(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkTrueWithReason("ConfigInUse", reason, messageFormat, messageA...)
+}
+
+func (in *LLMInferenceServiceConfig) MarkConfigNotInUse(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse("ConfigInUse", reason, messageFormat, messageA...)
 }

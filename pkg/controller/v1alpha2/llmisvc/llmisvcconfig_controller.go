@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -28,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
+	"knative.dev/pkg/reconciler"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -61,33 +61,66 @@ func (r *LLMISVCConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		WithValues("Namespace", req.Namespace, "Name", req.Name)
 	ctx = log.IntoContext(ctx, logger)
 
-	config := &v1alpha2.LLMInferenceServiceConfig{}
-	if err := r.Get(ctx, req.NamespacedName, config); err != nil {
+	original := &v1alpha2.LLMInferenceServiceConfig{}
+	if err := r.Get(ctx, req.NamespacedName, original); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	finalizerName := constants.KServeAPIGroupName + "/llmisvcconfig-finalizer"
 
-	if config.DeletionTimestamp.IsZero() {
-		// Resource is not being deleted, ensure finalizer is present and mark Ready
-		if controllerutil.AddFinalizer(config, finalizerName) {
-			if err := r.Update(ctx, config); err != nil {
+	if original.DeletionTimestamp.IsZero() {
+		if controllerutil.AddFinalizer(original, finalizerName) {
+			if err := r.Update(ctx, original); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
-
-		config.MarkReady()
-		if err := r.updateStatus(ctx, config); err != nil {
-			return ctrl.Result{}, err
+	} else {
+		if controllerutil.ContainsFinalizer(original, finalizerName) {
+			return r.reconcileDelete(ctx, original, finalizerName)
 		}
-
 		return ctrl.Result{}, nil
 	}
 
-	// Resource is being deleted
-	if !controllerutil.ContainsFinalizer(config, finalizerName) {
-		return ctrl.Result{}, nil
+	resource := original.DeepCopy()
+
+	reconciler.PreProcessReconcile(ctx, resource)
+	reconcileErr := r.reconcile(ctx, resource)
+	reconciler.PostProcessReconcile(ctx, resource, original)
+
+	if reconcileErr != nil {
+		logger.Error(reconcileErr, "Failed to reconcile LLMInferenceServiceConfig")
+		r.Eventf(original, corev1.EventTypeWarning, "Error", "Reconciliation failed: %v", reconcileErr.Error())
 	}
+
+	if err := r.updateStatus(ctx, resource); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, reconcileErr
+}
+
+func (r *LLMISVCConfigReconciler) reconcile(ctx context.Context, config *v1alpha2.LLMInferenceServiceConfig) error {
+	inUse, referencing, err := r.isConfigInUse(ctx, config)
+	if err != nil {
+		return fmt.Errorf("failed to check if config is in use: %w", err)
+	}
+
+	if inUse {
+		msg := "referenced by LLMInferenceService(s): " + strings.Join(referencing, ", ")
+		config.MarkConfigInUse("InUse", msg)
+	} else {
+		config.MarkConfigNotInUse("NotInUse", "not referenced by any LLMInferenceService")
+	}
+
+	config.MarkReady()
+	return nil
+}
+
+// reconcileDelete handles deletion of a config that still has the finalizer.
+// It checks whether the config is still referenced by any LLMInferenceService,
+// blocking deletion if so, or removing the finalizer to allow it.
+func (r *LLMISVCConfigReconciler) reconcileDelete(ctx context.Context, config *v1alpha2.LLMInferenceServiceConfig, finalizerName string) (ctrl.Result, error) {
+	logger := log.FromContext(ctx)
 
 	inUse, referencing, err := r.isConfigInUse(ctx, config)
 	if err != nil {
@@ -95,7 +128,7 @@ func (r *LLMISVCConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	if inUse {
-		msg := "still referenced by LLMInferenceService(s): " + strings.Join(referencing, ", ")
+		msg := "referenced by LLMInferenceService(s): " + strings.Join(referencing, ", ")
 
 		logger.Info("LLMInferenceServiceConfig is still referenced, blocking deletion",
 			"referencedBy", referencing)
@@ -103,17 +136,14 @@ func (r *LLMISVCConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			"Cannot delete LLMInferenceServiceConfig %s/%s: %s",
 			config.Namespace, config.Name, msg)
 
-		config.MarkNotReady("DeletionBlocked", msg)
+		config.MarkConfigInUse("DeletionBlocked", msg)
 		if err := r.updateStatus(ctx, config); err != nil {
 			return ctrl.Result{}, err
 		}
 
-		// Requeue as a safety net in case a watch event is missed (e.g. a baseRef removal
-		// from an LLMInferenceService update where only the new object is observed).
-		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+		return ctrl.Result{}, nil
 	}
 
-	// No longer in use, remove finalizer to allow deletion
 	logger.Info("LLMInferenceServiceConfig is no longer referenced, allowing deletion")
 	controllerutil.RemoveFinalizer(config, finalizerName)
 	if err := r.Update(ctx, config); err != nil {
@@ -165,37 +195,28 @@ func (r *LLMISVCConfigReconciler) isConfigInUse(ctx context.Context, config *v1a
 	isWellKnown := WellKnownDefaultConfigs.Has(config.Name)
 
 	var referencing []string
-	continueToken := ""
-	for {
-		llmSvcList := &v1alpha2.LLMInferenceServiceList{}
-		if err := r.List(ctx, llmSvcList, &client.ListOptions{
-			Namespace: listNamespace,
-			Continue:  continueToken,
-		}); err != nil {
-			return false, nil, fmt.Errorf("failed to list LLMInferenceService: %w", err)
+	llmSvcList := &v1alpha2.LLMInferenceServiceList{}
+	if err := r.List(ctx, llmSvcList, &client.ListOptions{
+		Namespace: listNamespace,
+	}); err != nil {
+		return false, nil, fmt.Errorf("failed to list LLMInferenceService: %w", err)
+	}
+
+	for _, llmSvc := range llmSvcList.Items {
+		// Well-known default configs are implicitly used by all services in the
+		// same namespace (or all namespaces for system namespace configs).
+		// This early return is intentional: since the config is implicitly available to
+		// any service, we report one example and short-circuit to avoid scanning the entire list.
+		if isWellKnown && (config.Namespace == constants.KServeNamespace || config.Namespace == llmSvc.Namespace) {
+			return true, []string{fmt.Sprintf("%s/%s (and potentially others well-known config)", llmSvc.Namespace, llmSvc.Name)}, nil
 		}
 
-		for _, llmSvc := range llmSvcList.Items {
-			// Well-known default configs are implicitly used by all services in the
-			// same namespace (or all namespaces for system namespace configs).
-			// This early return is intentional: since the config is implicitly available to
-			// any service, we report one example and short-circuit to avoid scanning the entire list.
-			if isWellKnown && (config.Namespace == constants.KServeNamespace || config.Namespace == llmSvc.Namespace) {
-				return true, []string{fmt.Sprintf("%s/%s (and potentially others — well-known config)", llmSvc.Namespace, llmSvc.Name)}, nil
-			}
-
-			// Check explicit references via spec.baseRefs and status.annotations.
-			// Status.Annotations stores versioned config resolution as {key: annotation-key, value: config-name},
-			// so iterating values matches config names (consistent with IsUsingLLMInferenceServiceConfig).
-			if llmSvc.IsUsingLLMInferenceServiceConfig(config.Name) {
-				referencing = append(referencing, fmt.Sprintf("%s/%s", llmSvc.Namespace, llmSvc.Name))
-			}
+		// Check explicit references via spec.baseRefs and status.annotations.
+		// Status.Annotations stores versioned config resolution as {key: annotation-key, value: config-name},
+		// so iterating values matches config names (consistent with IsUsingLLMInferenceServiceConfig).
+		if llmSvc.IsUsingLLMInferenceServiceConfig(config.Name) {
+			referencing = append(referencing, fmt.Sprintf("%s/%s", llmSvc.Namespace, llmSvc.Name))
 		}
-
-		if llmSvcList.Continue == "" {
-			break
-		}
-		continueToken = llmSvcList.Continue
 	}
 
 	return len(referencing) > 0, referencing, nil
@@ -218,11 +239,13 @@ func (r *LLMISVCConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // is created, updated, or deleted. This ensures finalizers are re-evaluated
 // when services add or remove config references.
 //
-// Note: This handler only enqueues configs explicitly referenced in spec.baseRefs
-// and status.annotations. Well-known default configs are NOT reactively enqueued here
-// to avoid fanning out to all well-known configs on every service change. Instead,
-// pending-deletion well-known configs rely on the RequeueAfter safety net (10s) in
-// the Reconcile method to re-evaluate references.
+// For updates, EnqueueRequestsFromMapFunc calls the map function for both
+// ObjectOld and ObjectNew, so configs from removed baseRefs are also enqueued.
+//
+// Well-known default configs are always enqueued because they are implicitly
+// referenced by all services. The fan-out is bounded by the small, fixed size
+// of WellKnownDefaultConfigs and each no-op reconciliation (config not pending
+// deletion) is very cheap.
 func (r *LLMISVCConfigReconciler) enqueueOnLLMInferenceServiceChange(logger logr.Logger) handler.EventHandler {
 	logger = logger.WithName("enqueueOnLLMInferenceServiceChange")
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
@@ -256,6 +279,15 @@ func (r *LLMISVCConfigReconciler) enqueueOnLLMInferenceServiceChange(logger logr
 		// Status.Annotations is map[string]string where values are config names
 		// (e.g., "kserve-config-llm-template"), consistent with IsUsingLLMInferenceServiceConfig.
 		for _, name := range llmSvc.Status.Annotations {
+			enqueue(llmSvc.Namespace, name)
+			if llmSvc.Namespace != constants.KServeNamespace {
+				enqueue(constants.KServeNamespace, name)
+			}
+		}
+
+		// Enqueue well-known default configs so that pending-deletion configs
+		// are re-evaluated when any service in their scope changes.
+		for name := range WellKnownDefaultConfigs {
 			enqueue(llmSvc.Namespace, name)
 			if llmSvc.Namespace != constants.KServeNamespace {
 				enqueue(constants.KServeNamespace, name)
