@@ -492,6 +492,18 @@ deploy-dev-storageInitializer: docker-push-storageInitializer
 	./hack/storageInitializer_patch_dev.sh ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
 	kubectl apply --server-side=true -k config/overlays/dev-image-config
 
+# Deploy KernelCache (general - works on any cluster)
+deploy-kernelcache: kernelcache-webhook-secret-file
+	kubectl apply --server-side=true --force-conflicts -k config/crd/full/kernelcache
+	kubectl apply -k config/kernelcaches
+	kubectl apply -k config/kernelcachenodes
+
+# Undeploy KernelCache
+undeploy-kernelcache:
+	kubectl delete -k config/kernelcachenodes
+	kubectl delete -k config/kernelcaches
+	kubectl delete -k config/crd/full/kernelcache
+
 # Deploy KernelCache to kind cluster for local testing
 deploy-dev-kernelcache-kind: docker-build-kernelcache docker-build-kernelcachenode-agent kernelcache-webhook-secret-file
 	kind load docker-image ${KO_DOCKER_REPO}/${KERNELCACHE_CONTROLLER_IMG}:${TAG} --name kind

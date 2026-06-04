@@ -14,3 +14,20 @@ patches:
     version: v1
     kind: DaemonSet
     name: kserve-kernelcachenode-agent
+
+# To restrict agent to specific nodes, add a nodeSelector patch in your own overlay:
+# See nodeselectors/README.md for examples
+# Example inline patch:
+# - target:
+#     kind: DaemonSet
+#     name: kserve-kernelcachenode-agent
+#   patch: |-
+#     apiVersion: apps/v1
+#     kind: DaemonSet
+#     metadata:
+#       name: kserve-kernelcachenode-agent
+#     spec:
+#       template:
+#         spec:
+#           nodeSelector:
+#             nvidia.com/gpu: "true"

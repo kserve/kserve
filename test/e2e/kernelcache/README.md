@@ -110,10 +110,25 @@ These E2E tests verify the complete workflow:
    
    **Why `enablePermissionInitContainer: true`?** Minikube's storage provisioner creates volumes owned by root. The init container fixes permissions so the extraction Job can write as user 1000.
 
-7. **Label nodes for KernelCache**:
+7. **(Optional) Configure node selector and tolerations**:
+   
+   By default, the KernelCache agent runs on all nodes (no nodeSelector, no tolerations). For testing or production GPU clusters:
+   
    ```bash
+   # Option A: Label worker nodes and restrict agent to them
    kubectl label nodes -l '!node-role.kubernetes.io/control-plane' kserve/kernelcache=worker
+   kubectl patch daemonset kserve-kernelcachenode-agent -n kserve --type strategic \
+     --patch-file config/kernelcachenodes/nodeselectors/kernelcache.yaml
+   
+   # Option B: For GPU clusters with tainted nodes, add tolerations
+   kubectl patch daemonset kserve-kernelcachenode-agent -n kserve --type strategic \
+     --patch-file config/kernelcachenodes/nodeselectors/gpu-nvidia-toleration.yaml
    ```
+   
+   **Production GPU clusters**: If GPU nodes are tainted (e.g., `nvidia.com/gpu:NoSchedule`), the agent needs matching tolerations to schedule. See `config/kernelcachenodes/nodeselectors/README.md` for:
+   - Toleration examples (NVIDIA, AMD, custom taints)
+   - Cloud provider configurations (GKE, AKS, EKS)
+   - Kustomize overlay patterns
 
 ### Run Tests
 
@@ -351,8 +366,8 @@ kubectl patch configmap inferenceservice-config -n kserve --type merge -p '{
   }
 }'
 
-# Label nodes
-kubectl label nodes -l '!node-role.kubernetes.io/control-plane' kserve/kernelcache=worker
+# (Optional) Label nodes if restricting agent to specific nodes
+# kubectl label nodes -l '!node-role.kubernetes.io/control-plane' kserve/kernelcache=worker
 
 # Run tests
 source python/kserve/.venv/bin/activate

@@ -23,8 +23,8 @@ spec:
       annotations:
         kubectl.kubernetes.io/default-container: manager
     spec:
-      nodeSelector:
-        kserve/kernelcache: worker
+      # Runs on all nodes by default. To restrict to specific nodes, add a Kustomize patch.
+      # See kustomization.yaml for nodeSelector patch example
       serviceAccountName: kserve-kernelcachenode-agent
       securityContext:
         runAsNonRoot: true
