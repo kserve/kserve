@@ -42,6 +42,10 @@ if [[ $NETWORK_LAYER == *"-gatewayapi"* ]]; then
   export GATEWAY_CLASS_NAME="${GATEWAY_CLASS_NAME:-${NETWORK_LAYER%%-*}}"
 fi
 
+if [[ -n "${GATEWAY_CLASS_NAME:-}" && -n "${GITHUB_ENV:-}" ]]; then
+  echo "GATEWAY_CLASS_NAME=${GATEWAY_CLASS_NAME}" >> "${GITHUB_ENV}"
+fi
+
 echo "Installing KServe using ${INSTALL_METHOD^}..."
 
 echo "Creating a namespace kserve-ci-e2e-test ..."
