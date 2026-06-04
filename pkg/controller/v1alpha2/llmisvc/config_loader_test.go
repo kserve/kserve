@@ -125,3 +125,31 @@ func TestLoadConfig(t *testing.T) {
 		t.Fatal("SchedulerConfig = nil, want populated config")
 	}
 }
+
+func TestLoadConfigWithCustomGatewayName(t *testing.T) {
+	configMap := fixture.InferenceServiceCfgMap(constants.KServeNamespace)
+	configMap.Data["ingress"] = `{
+		"enableGatewayApi": true,
+		"kserveIngressGateway": "gateway-system/shared-gateway",
+		"ingressGateway": "knative-serving/knative-ingress-gateway",
+		"localGateway": "knative-serving/knative-local-gateway",
+		"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local"
+	}`
+
+	c := fake.NewClientBuilder().
+		WithScheme(clientgoscheme.Scheme).
+		WithObjects(configMap).
+		Build()
+
+	got, err := llmisvc.LoadConfig(t.Context(), c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got.IngressGatewayNamespace != "gateway-system" {
+		t.Fatalf("IngressGatewayNamespace = %q, want %q", got.IngressGatewayNamespace, "gateway-system")
+	}
+	if got.IngressGatewayName != "shared-gateway" {
+		t.Fatalf("IngressGatewayName = %q, want %q", got.IngressGatewayName, "shared-gateway")
+	}
+}

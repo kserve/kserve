@@ -299,14 +299,14 @@ type IngressSpec struct {
 
 // SchedulerSpec defines the Inference Gateway extension configuration.
 //
-// The SchedulerSpec configures the connection from the Gateway to the model deployment leveraging the LLM optimized
-// request Scheduler, also known as the Endpoint Picker (EPP) which determines the exact pod that should handle the
-// request and responds back to Envoy with the target pod, Envoy will then forward the request to the chosen pod.
+// The SchedulerSpec configures the connection from the Gateway API data plane to the model deployment leveraging the
+// LLM-optimized request scheduler, also known as the Endpoint Picker (EPP), which determines the exact pod that should
+// handle the request and responds back to the gateway with the selected target pod.
 //
 // The Scheduler is only effective when having multiple inference pod replicas.
 //
-// Step 1: Gateway (Envoy) &lt;-- ExtProc --&gt; EPP (select the optimal replica to handle the request)
-// Step 2: Gateway (Envoy) &lt;-- forward request --&gt; Inference Pod X
+// Step 1: Gateway data plane &lt;-- scheduler integration --&gt; EPP (select the optimal replica to handle the request)
+// Step 2: Gateway data plane &lt;-- forward request --&gt; Inference Pod X
 type SchedulerSpec struct {
 	// Pool configuration for the InferencePool, which is part of the Inference Gateway extension.
 	// +optional

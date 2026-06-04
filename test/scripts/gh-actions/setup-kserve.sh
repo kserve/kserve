@@ -32,10 +32,14 @@ export ENABLE_LLMISVC="${ENABLE_LLMISVC:-false}"
 export ENABLE_KSERVE_WITH_LLMISVC="${ENABLE_KSERVE_WITH_LLMISVC:-false}"
 export INSTALL_METHOD="${INSTALL_METHOD:-kustomize}"
 
-# Extract gateway class name from NETWORK_LAYER (e.g., "envoy-gatewayapi" -> "envoy")
-# If NETWORK_LAYER contains "-", extract the first part; otherwise, use "false"
+# Extract the gateway provider identifier from NETWORK_LAYER (e.g. "envoy-gatewayapi" -> "envoy").
+# Tests can still override the actual GatewayClass name via GATEWAY_CLASS_NAME when needed.
 if [[ $NETWORK_LAYER == *"-gatewayapi"* ]]; then
   export GATEWAY_NETWORK_LAYER="${NETWORK_LAYER%%-*}"
+fi
+
+if [[ $NETWORK_LAYER == *"-gatewayapi"* ]]; then
+  export GATEWAY_CLASS_NAME="${GATEWAY_CLASS_NAME:-${NETWORK_LAYER%%-*}}"
 fi
 
 echo "Installing KServe using ${INSTALL_METHOD^}..."

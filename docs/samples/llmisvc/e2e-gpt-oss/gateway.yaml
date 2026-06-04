@@ -4,6 +4,8 @@ kind: Gateway
 metadata:
   name: ai-gateway
 spec:
+  # Replace this with the GatewayClass provided by your cluster.
+  # The companion AIGatewayRoute example in this directory is Envoy AI Gateway-specific.
   gatewayClassName: envoy
   listeners:
     - name: http
