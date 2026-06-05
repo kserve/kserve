@@ -163,6 +163,7 @@ kserve:
         createGateway: false
         gateway: knative-serving/knative-ingress-gateway
         className: istio
+        gatewayApiClassName: envoy
     nodeSelector: {}
     tolerations: []
     topologySpreadConstraints: []

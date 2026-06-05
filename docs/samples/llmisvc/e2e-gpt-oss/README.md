@@ -183,7 +183,7 @@ The `LLMInferenceService` created earlier already provisions the `InferencePool`
 - Agentgateway example: [gateway-agentgateway.yaml](./gateway-agentgateway.yaml)
 - Envoy AI Gateway extension: [ai-gateway-route.yaml](./ai-gateway-route.yaml)
 
-### 7.1 Gateway
+### 7.2 Gateway
 
 ```bash
 kubectl apply -f gateway.yaml -n kserve-lab
@@ -204,7 +204,7 @@ With that in place, the standard `LLMInferenceService` path is:
 - `HTTPRoute` -> `InferencePool`
 - `InferencePool` / scheduler -> selected inference pod
 
-### 7.2 Envoy AI Gateway extension
+### 7.3 Envoy AI Gateway extension
 
 If you also want model-name routing for OpenAI-compatible clients, apply the Envoy-specific `AIGatewayRoute` example below. This step is optional and only applies when your gateway provider supports `AIGatewayRoute`.
 

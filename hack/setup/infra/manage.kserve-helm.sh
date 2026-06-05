@@ -252,6 +252,7 @@ install() {
             log_info "Adding Gateway API configuration: enableGatewayApi=true, ingressClassName=${GATEWAY_NETWORK_LAYER}"
             config_args+=(--set "kserve.controller.gateway.ingressGateway.enableGatewayApi=true")
             config_args+=(--set "kserve.controller.gateway.ingressGateway.className=${GATEWAY_NETWORK_LAYER}")
+            config_args+=(--set "kserve.controller.gateway.ingressGateway.gatewayApiClassName=${GATEWAY_NETWORK_LAYER}")
         fi
 
         if is_positive "${ENABLE_LOCALMODEL}"; then

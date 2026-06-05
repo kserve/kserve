@@ -41,12 +41,10 @@ export_gateway_class_env() {
     return 0
   fi
 
-  export GATEWAY_CLASS_NAME="${gateway_class_name}"
   export GATEWAYCLASS_NAME="${gateway_class_name}"
 
   if [[ -n "${GITHUB_ENV:-}" ]]; then
     {
-      echo "GATEWAY_CLASS_NAME=${gateway_class_name}"
       echo "GATEWAYCLASS_NAME=${gateway_class_name}"
     } >> "${GITHUB_ENV}"
   fi
@@ -96,7 +94,7 @@ if [[ $ENABLE_LLMISVC == "false" ]]; then
   # Install Envoy Gateway
   if [[ $USES_ENVOY == true ]]; then
     export GATEWAY_NETWORK_LAYER="${NETWORK_LAYER%%-*}"
-    export_gateway_class_env "${GATEWAY_CLASS_NAME:-${GATEWAYCLASS_NAME:-${NETWORK_LAYER%%-*}}}"
+    export_gateway_class_env "${GATEWAYCLASS_NAME:-${NETWORK_LAYER%%-*}}"
     ${REPO_ROOT}/hack/setup/infra/manage.envoy-gateway-helm.sh
     ${REPO_ROOT}/hack/setup/infra/gateway-api/manage.gateway-api-gwclass.sh
   fi
@@ -108,7 +106,7 @@ if [[ $ENABLE_LLMISVC == "false" ]]; then
 
   # Install KServe Gateway for Gateway API or LLM use cases
   if [[ $USES_GATEWAY_API == true ]]; then
-    export_gateway_class_env "${GATEWAY_CLASS_NAME:-${GATEWAYCLASS_NAME:-${NETWORK_LAYER%%-*}}}"
+    export_gateway_class_env "${GATEWAYCLASS_NAME:-${NETWORK_LAYER%%-*}}"
     ${REPO_ROOT}/hack/setup/infra/gateway-api/manage.gateway-api-gw.sh
   fi
 

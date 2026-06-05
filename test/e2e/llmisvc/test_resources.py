@@ -16,8 +16,8 @@ import os
 
 from .fixtures import KSERVE_TEST_NAMESPACE
 
-# GatewayClass name - can be overridden via GATEWAY_CLASS_NAME env var (e.g., "istio")
-GATEWAY_CLASS_NAME = os.environ.get("GATEWAY_CLASS_NAME", "envoy")
+# GatewayClass name - prefer GATEWAYCLASS_NAME, but keep the old env var as a fallback.
+GATEWAY_CLASS_NAME = os.environ.get("GATEWAYCLASS_NAME", os.environ.get("GATEWAY_CLASS_NAME", "envoy"))
 
 ROUTER_GATEWAYS = [
     {
