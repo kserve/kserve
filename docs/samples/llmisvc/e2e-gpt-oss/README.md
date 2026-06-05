@@ -127,7 +127,7 @@ This creates `LLMInferenceServiceConfig` named `llmisvc-intelligent-inference-sc
 - vLLM server container serving `/mnt/models`
 - Router with scheduler pointing at the EPP service
 
-### 6.2 Use this config in the Inference Service
+### 5.2 Use this config in the Inference Service
 
 The Inference Service (next step) references this config via `baseRefs` (e.g. `llmisvc-intelligent-inference-scheduling`).
 
