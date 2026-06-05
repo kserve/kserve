@@ -177,7 +177,7 @@ The `LLMInferenceService` created earlier already provisions the `InferencePool`
 | Scheduler / EPP integration | Gateway API Inference Extension | Yes | Requires provider support for `InferencePool` |
 | Model-name routing | `AIGatewayRoute` | No | Envoy AI Gateway-specific extension |
 
-### 7.0.1 Gateway provider examples
+### 7.1 Gateway provider examples
 
 - Provider-neutral template: [gateway.yaml](./gateway.yaml)
 - Agentgateway example: [gateway-agentgateway.yaml](./gateway-agentgateway.yaml)
