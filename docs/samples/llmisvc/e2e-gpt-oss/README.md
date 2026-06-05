@@ -114,7 +114,7 @@ The Job uses [kserve-storage-initializer](https://github.com/kserve/kserve/tree/
 
 LLMInferenceServiceConfig defines the **pod and router template** (containers, volumes, scheduler, probes). The actual inference service will reference this by name.
 
-### 6.1 Default config (intelligent inference scheduling)
+### 5.1 Default config (intelligent inference scheduling)
 
 Apply the default config:
 
