@@ -27,6 +27,7 @@ import (
 	"testing"
 	"time"
 
+	guuid "github.com/google/uuid"
 	"github.com/onsi/gomega"
 	pkglogging "knative.dev/pkg/logging"
 
@@ -439,4 +440,54 @@ func TestLoggerCloudEventTimestamps(t *testing.T) {
 	// Response occurrence time should be >= request occurrence time
 	g.Expect(resTimestamps.ceTime.After(reqTimestamps.ceTime) ||
 		resTimestamps.ceTime.Equal(reqTimestamps.ceTime)).To(gomega.BeTrue())
+}
+
+func TestGetOrCreateID(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		headers    map[string]string
+		expectedID string
+	}{
+		"PrefersRequestIdHeader": {
+			headers: map[string]string{
+				RequestIdHeader:     "my-trace-123",
+				CloudEventsIdHeader: "cloud-event-id",
+			},
+			expectedID: "my-trace-123",
+		},
+		"UsesRequestIdHeader": {
+			headers: map[string]string{
+				RequestIdHeader: "my-trace-123",
+			},
+			expectedID: "my-trace-123",
+		},
+		"FallsBackToCloudEventsIdHeader": {
+			headers: map[string]string{
+				CloudEventsIdHeader: "cloud-event-id",
+			},
+			expectedID: "cloud-event-id",
+		},
+		"GeneratesIDWhenNoHeaders": {
+			headers:    map[string]string{},
+			expectedID: "",
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			r := httptest.NewRequest(http.MethodPost, "http://a", nil)
+			for k, v := range scenario.headers {
+				r.Header.Set(k, v)
+			}
+			id := getOrCreateID(r)
+			if scenario.expectedID != "" {
+				g.Expect(id).To(gomega.Equal(scenario.expectedID))
+			} else {
+				// A UUID should be generated when no ID headers are present
+				_, err := guuid.Parse(id)
+				g.Expect(err).ToNot(gomega.HaveOccurred())
+			}
+		})
+	}
 }

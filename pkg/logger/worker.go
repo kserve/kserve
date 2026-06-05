@@ -40,7 +40,6 @@ const (
 	CEInferenceResponse = "org.kubeflow.serving.inference.response"
 
 	// cloud events extension attributes have to be lowercase alphanumeric
-	// TODO: ideally request id would have its own header but make do with ce-id for now
 	InferenceServiceAttr = "inferenceservicename"
 	NamespaceAttr        = "namespace"
 	ComponentAttr        = "component"
@@ -51,7 +50,12 @@ const (
 	RecordedTimeAttr = "recordedtime"
 
 	LoggerWorkerQueueSize = 100
-	CloudEventsIdHeader   = "Ce-Id"
+	// RequestIdHeader is the dedicated request ID header used to correlate
+	// logged request/response events with access logs and traces. It takes
+	// precedence over CloudEventsIdHeader, which is kept as a fallback for
+	// backward compatibility.
+	RequestIdHeader     = "X-Request-Id"
+	CloudEventsIdHeader = "Ce-Id"
 )
 
 // A buffered channel that we can send work requests on.

@@ -207,8 +207,15 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// getOrCreateID resolves the request ID used to correlate the logged request
+// and response events. It prefers the dedicated X-Request-Id header, falling
+// back to Ce-Id for backward compatibility, and generates a UUID when neither
+// is present.
 func getOrCreateID(r *http.Request) string {
-	id := r.Header.Get(CloudEventsIdHeader)
+	id := r.Header.Get(RequestIdHeader)
+	if id == "" {
+		id = r.Header.Get(CloudEventsIdHeader)
+	}
 	if id == "" {
 		id = guuid.New().String()
 	}
