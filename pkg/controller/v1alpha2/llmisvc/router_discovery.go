@@ -46,6 +46,12 @@ import (
 
 var wildcardHostname = constants.GetEnvOrDefault("GATEWAY_API_WILDCARD_HOSTNAME", "inference")
 
+// DiscoveredURL pairs a URL with the networking resource that produced it.
+type DiscoveredURL struct {
+	URL    *apis.URL
+	Origin *gwapiv1.ObjectReference
+}
+
 // ResolvedGateway contains a Gateway and its associated GatewayClass.
 type ResolvedGateway struct {
 	Gateway      *gwapiv1.Gateway
@@ -133,52 +139,72 @@ func DiscoverGatewayServiceHost(ctx context.Context, c client.Client, gateway *g
 // DiscoverURLs extracts accessible URLs from an HTTPRoute by examining its gateways
 // It constructs URLs based on gateway listeners and addresses, and also discovers
 // internal URLs from backing services
-func DiscoverURLs(ctx context.Context, c client.Client, gateways []ResolvedGateway, route *gwapiv1.HTTPRoute, preferredUrlScheme string) ([]*apis.URL, error) {
-	var urls []*apis.URL
+func DiscoverURLs(ctx context.Context, c client.Client, gateways []ResolvedGateway, route *gwapiv1.HTTPRoute, cfg Config) ([]DiscoveredURL, error) {
+	var urls []DiscoveredURL
 
 	for _, g := range gateways {
-		listeners, err := selectListeners(g.Gateway, g.ParentRef.SectionName, preferredUrlScheme)
+		listeners, err := selectListeners(g.Gateway, g.ParentRef.SectionName, cfg.UrlScheme)
 		if err != nil {
 			return nil, fmt.Errorf("failed to select listeners for gateway %s/%s: %w", g.Gateway.Namespace, g.Gateway.Name, err)
 		}
 
-		path := extractRoutePath(route)
-		addresses := g.Gateway.Status.Addresses
-
-		// Discover external URLs from Gateway status addresses (if available)
-		if len(addresses) > 0 {
-			for _, listener := range listeners {
-				scheme, err := resolveScheme(listener)
-				if err != nil {
-					return nil, fmt.Errorf("failed to resolve scheme for gateway %s/%s listener %s: %w",
-						g.Gateway.Namespace, g.Gateway.Name, listener.Name, err)
-				}
-
-				hostnames := extractHostnamesForListener(route, listener, addresses)
-				gatewayURLs, err := combineIntoURLs(hostnames, scheme, listener.Port, path)
-				if err != nil {
-					return nil, fmt.Errorf("failed to combine URLs for Gateway %s/%s: %w", g.Gateway.Namespace, g.Gateway.Name, err)
-				}
-				urls = append(urls, gatewayURLs...)
-			}
+		origin := &gwapiv1.ObjectReference{
+			Group:     gwapiv1.GroupName,
+			Kind:      "Gateway",
+			Name:      gwapiv1.ObjectName(g.Gateway.Name),
+			Namespace: ptr.To(gwapiv1.Namespace(g.Gateway.Namespace)),
 		}
 
-		// Discover internal URL from Gateway backing service
+		paths := extractRoutePaths(route, cfg.ModelBasedRoutingHeaderName)
+		addresses := g.Gateway.Status.Addresses
+
+		// Discover internal hostname from Gateway backing service (once per gateway).
 		internalHost, err := DiscoverGatewayServiceHost(ctx, c, g.Gateway)
 		if err != nil {
 			return nil, fmt.Errorf("failed to discover gateway service host for %s/%s: %w", g.Gateway.Namespace, g.Gateway.Name, err)
 		}
-		if internalHost != "" {
-			// Use preferred (first) listener's scheme and port for the internal URL.
-			// Internal services typically expose a single protocol, so generating one
-			// URL (matching the preferred scheme) is sufficient. External URLs are
-			// generated for all listeners because clients may need either protocol.
-			listener := listeners[0]
-			internalURLs, err := combineIntoURLs([]string{internalHost}, schemeForProtocol(listener.Protocol), listener.Port, path)
-			if err != nil {
-				return nil, fmt.Errorf("failed to build internal URL for Gateway %s/%s: %w", g.Gateway.Namespace, g.Gateway.Name, err)
+
+		for _, path := range paths {
+			// Discover external URLs from Gateway status addresses (if available)
+			if len(addresses) > 0 {
+				for _, listener := range listeners {
+					scheme, err := resolveScheme(listener)
+					if err != nil {
+						return nil, fmt.Errorf("failed to resolve scheme for gateway %s/%s listener %s: %w",
+							g.Gateway.Namespace, g.Gateway.Name, listener.Name, err)
+					}
+
+					hostnames := extractHostnamesForListener(route, listener, addresses)
+					gatewayURLs, err := combineIntoURLs(hostnames, scheme, listener.Port, path)
+					if err != nil {
+						return nil, fmt.Errorf("failed to combine URLs for Gateway %s/%s: %w", g.Gateway.Namespace, g.Gateway.Name, err)
+					}
+					for _, u := range gatewayURLs {
+						urls = append(urls, DiscoveredURL{URL: u, Origin: origin})
+					}
+				}
 			}
-			urls = append(urls, internalURLs...)
+
+			// Skip if this host+path was already discovered through gateway status addresses.
+			// This happens when a ClusterIP-backed gateway reports its service hostname
+			// as its status address, making the backing-service lookup redundant.
+			if internalHost != "" && !slices.ContainsFunc(urls, func(d DiscoveredURL) bool {
+				u := d.URL.URL()
+				return u.Hostname() == internalHost && u.Path == path
+			}) {
+				// Use preferred (first) listener's scheme and port for the internal URL.
+				// Internal services typically expose a single protocol, so generating one
+				// URL (matching the preferred scheme) is sufficient. External URLs are
+				// generated for all listeners because clients may need either protocol.
+				listener := listeners[0]
+				internalURLs, err := combineIntoURLs([]string{internalHost}, schemeForProtocol(listener.Protocol), listener.Port, path)
+				if err != nil {
+					return nil, fmt.Errorf("failed to build internal URL for Gateway %s/%s: %w", g.Gateway.Namespace, g.Gateway.Name, err)
+				}
+				for _, u := range internalURLs {
+					urls = append(urls, DiscoveredURL{URL: u, Origin: origin})
+				}
+			}
 		}
 	}
 
@@ -215,47 +241,121 @@ func extractHostnamesForListener(route *gwapiv1.HTTPRoute, listener *gwapiv1.Lis
 	return hostnames
 }
 
-// extractRoutePath selects the base URL path from an HTTPRoute's rules.
-// It assumes paths form a hierarchy (e.g. /ns/name, /ns/name/v1/completions)
-// where the shallowest path is the logical base URL to advertise in status.
-// Paths from rules with a Service backend take priority over others (e.g. InferencePool).
-// Among candidates, the path with the fewest "/" segments is chosen, with
-// string length as a tiebreaker.
-// Note: this only handles PathPrefix matches correctly; Exact and RegularExpression
-// match types are not distinguished.
-func extractRoutePath(route *gwapiv1.HTTPRoute) string {
-	var servicePaths, otherPaths []string
+// extractRoutePaths returns the distinct base URL paths from an HTTPRoute's rules.
+// It considers two access methods independently:
+//   - Path-based matches (no headers): the traditional /{namespace}/{name} routing
+//   - Model-based routing matches (with the configured modelRoutingHeader): header-based routing
+//
+// For each access method, the shallowest path (fewest "/" segments) from
+// Service-backed rules is preferred; InferencePool-backed paths are used as
+// fallback. The results are merged and deduplicated.
+//
+// Matches with headers that do NOT match modelRoutingHeader are skipped so
+// that user-provided header rules are not misidentified as model-based routing.
+func extractRoutePaths(route *gwapiv1.HTTPRoute, modelRoutingHeader string) []string {
+	type pathBucket struct {
+		servicePaths []string
+		otherPaths   []string
+	}
+	// We keep two separate buckets because the two access methods produce
+	// different "base URL" paths that must both appear in the status:
+	//  - pathBased  → /{namespace}/{name} (the original routing scheme)
+	//  - modelRouting → / (reachable only with the model-routing header)
+	// Mixing them into one list would let the model-routing "/" shadow the
+	// deeper path-based URL, which breaks backward-compatible discovery.
+	var pathBased, modelRouting pathBucket
+
 	for _, rule := range route.Spec.Rules {
 		svc := hasServiceBackend(rule)
 		for _, match := range rule.Matches {
-			if match.Path == nil {
-				continue
+			p := "/"
+			if match.Path != nil {
+				p = ptr.Deref(match.Path.Value, "/")
 			}
-			p := ptr.Deref(match.Path.Value, "/")
-			if svc {
-				servicePaths = append(servicePaths, p)
-			} else {
-				otherPaths = append(otherPaths, p)
+
+			if len(match.Headers) == 0 {
+				// Traditional path-only match — always collected.
+				if svc {
+					pathBased.servicePaths = append(pathBased.servicePaths, p)
+				} else {
+					pathBased.otherPaths = append(pathBased.otherPaths, p)
+				}
+			} else if isModelBasedRoutingMatch(match, modelRoutingHeader) {
+				// Model-based routing match — collected only when the header
+				// is our configured model-routing header so we don't
+				// accidentally promote user-provided header rules to URLs.
+				if svc {
+					modelRouting.servicePaths = append(modelRouting.servicePaths, p)
+				} else {
+					modelRouting.otherPaths = append(modelRouting.otherPaths, p)
+				}
 			}
+			// Matches with other headers are intentionally ignored: they may
+			// be user-provided rules whose paths should not be advertised.
 		}
 	}
 
-	// TODO how do we deal with regexp
-	// TODO how do we intelligently handle multiple rules
-	paths := servicePaths
-	if len(paths) == 0 {
-		paths = otherPaths
-	}
-	if len(paths) == 0 {
-		return "/"
+	// Pick the shallowest path from a bucket. Service-backed paths are
+	// preferred because they represent the canonical entry-point; InferencePool
+	// paths (which are sub-paths like /ns/name/v1/completions) are only used
+	// as a fallback when no Service rule exists.
+	shallowest := func(b pathBucket) string {
+		paths := b.servicePaths
+		if len(paths) == 0 {
+			paths = b.otherPaths
+		}
+		if len(paths) == 0 {
+			return ""
+		}
+		return slices.MinFunc(paths, func(a, b string) int {
+			if d := strings.Count(a, "/") - strings.Count(b, "/"); d != 0 {
+				return d
+			}
+			return len(a) - len(b)
+		})
 	}
 
-	return slices.MinFunc(paths, func(a, b string) int {
+	var result []string
+	if p := shallowest(pathBased); p != "" {
+		result = append(result, p)
+	}
+	if p := shallowest(modelRouting); p != "" {
+		result = append(result, p)
+	}
+
+	if len(result) == 0 {
+		return []string{"/"}
+	}
+
+	slices.SortFunc(result, func(a, b string) int {
 		if d := strings.Count(a, "/") - strings.Count(b, "/"); d != 0 {
 			return d
 		}
 		return len(a) - len(b)
 	})
+
+	return slices.Compact(result)
+}
+
+// isModelBasedRoutingMatch returns true if the match contains a header condition
+// for the configured model-based routing header.
+//
+// This distinguishes controller-managed model-routing rules from arbitrary
+// user-provided header rules. Only matches whose header name equals the
+// configured modelRoutingHeader (e.g. "X-Gateway-Model-Name") are treated as
+// model-routing endpoints. When modelRoutingHeader is empty (feature not
+// configured), no match qualifies — so header-bearing rules are simply ignored
+// during path extraction, preserving the pre-model-routing behavior.
+func isModelBasedRoutingMatch(match gwapiv1.HTTPRouteMatch, modelRoutingHeader string) bool {
+	if modelRoutingHeader == "" {
+		return false
+	}
+	for _, h := range match.Headers {
+		if string(h.Name) == modelRoutingHeader {
+			return true
+		}
+	}
+	return false
 }
 
 // hasServiceBackend returns true if the rule has at least one backendRef with Kind "Service"

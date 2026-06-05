@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import time
+from urllib.parse import urlparse
 
 import os
 import pytest
@@ -24,10 +25,12 @@ from kubernetes import client
 from typing import Any, Callable, Dict, List, Optional
 
 from .diagnostic import (
-    print_all_events_table,
+    collect_pod_logs,
     kinds_matching_by_labels,
+    print_all_events_table,
 )
 from .fixtures import (
+    KSERVE_TEST_NAMESPACE,
     create_router_resources,
     create_scheduler_configmap,
     delete_scheduler_configmap,
@@ -79,6 +82,118 @@ def create_response_assertion(
     return response_assertion
 
 
+def assert_model_field_matches(
+    expected_model: str,
+) -> Callable[[requests.Response], None]:
+    """Assert 200 with choices and response model field matching expected_model."""
+
+    def response_assertion(response: requests.Response) -> None:
+        assert response.status_code == 200, (
+            f"Expected 200, got {response.status_code}: {response.text}"
+        )
+        body = response.json()
+        choices = body.get("choices")
+        assert choices and len(choices) > 0, (
+            f"Expected non-empty choices: {response.text}"
+        )
+        got_model = body.get("model", "")
+        assert got_model == expected_model, (
+            f"Expected model {expected_model!r}, got {got_model!r}"
+        )
+
+    return response_assertion
+
+
+def assert_models_contains(*model_ids: str) -> Callable[[requests.Response], None]:
+    """Assert 200 with data[] containing entries whose ids match all given model_ids."""
+
+    def response_assertion(response: requests.Response) -> None:
+        assert response.status_code == 200, (
+            f"Expected 200, got {response.status_code}: {response.text}"
+        )
+        body = response.json()
+        data = body.get("data", [])
+        assert data, f"Expected non-empty data[], got: {response.text}"
+        ids = [m.get("id") for m in data]
+        for model_id in model_ids:
+            assert model_id in ids, (
+                f"Expected model {model_id!r} in data[].id, found: {ids}"
+            )
+
+    return response_assertion
+
+
+MODEL_ROUTING_ADDRESS_SUFFIX = "-model-routing"
+MODEL_ROUTING_HEADER = "X-Gateway-Model-Name"
+
+
+@log_execution
+def get_model_routing_url(
+    kserve_client: KServeClient, llm_isvc: V1alpha1LLMInferenceService
+):
+    """Get the model-routing base URL from status.addresses.
+
+    Model-routing addresses are identified by their name ending with
+    "-model-routing" (set by AddressTypeName in the controller). As a
+    secondary check, the URL path must not start with /{ns}/{name}
+    (the path-based prefix).
+    """
+    service_name = llm_isvc.metadata.name
+
+    try:
+        llm_isvc_status = get_llmisvc(
+            kserve_client,
+            llm_isvc.metadata.name,
+            llm_isvc.metadata.namespace,
+            llm_isvc.api_version.split("/")[1],
+        )
+
+        status = llm_isvc_status.get("status", {})
+        addresses = status.get("addresses", [])
+
+        if not addresses:
+            raise ValueError(
+                f"❌ No addresses found in LLM inference service {service_name} status"
+            )
+
+        namespace = llm_isvc.metadata.namespace
+        path_based_prefix = f"/{namespace}/{service_name}"
+        other_entries = []
+        for addr in addresses:
+            url = addr.get("url", "")
+            name = addr.get("name", "")
+            if not url:
+                continue
+
+            if not name.endswith(MODEL_ROUTING_ADDRESS_SUFFIX):
+                other_entries.append(f"{name}={url}")
+                continue
+
+            parsed = urlparse(url)
+            path = parsed.path.rstrip("/")
+            if path.startswith(path_based_prefix):
+                raise ValueError(
+                    f"❌ Address {name!r} has model-routing suffix but its path "
+                    f"{parsed.path!r} starts with path-based prefix {path_based_prefix!r}"
+                )
+
+            logger.info(
+                f"Found model-routing URL for {service_name}: {url} "
+                f"(name={name!r}, path={parsed.path!r})"
+            )
+            return url.rstrip("/")
+
+        raise ValueError(
+            f"❌ No model-routing URL found for {service_name}. "
+            f"Addresses without '{MODEL_ROUTING_ADDRESS_SUFFIX}' suffix: {other_entries}"
+        )
+
+    except Exception as e:
+        raise ValueError(
+            f"❌ Failed to get model-routing URL for LLM inference service {service_name}: {e}"
+        ) from e
+
+
 @dataclass
 class TestCase:
     """Test case configuration for LLM inference service tests."""
@@ -88,16 +203,24 @@ class TestCase:
     prompt: Optional[str] = None
     service_name: Optional[str] = None
     endpoint: str = "/v1/completions"
-    max_tokens: int = 100
+    max_tokens: int = 20
     payload_formatter: Optional[Callable[["TestCase"], Dict[str, Any]]] = None
     response_assertion: Callable[[requests.Response], None] = assert_200
     wait_timeout: int = 900
     response_timeout: int = 60
+    extra_headers: Optional[Dict[str, str]] = None
+    url_getter: Optional[Callable] = None
+    expected_gateway: Optional[Dict[str, Any]] = None
     before_test: List[Callable[[], Any]] = field(default_factory=list)
     after_test: List[Callable[[], Any]] = field(default_factory=list)
+    peers: List["TestCase"] = field(default_factory=list)
     # Factory provided
     llm_service: V1alpha1LLMInferenceService = None  # Generated by llm_service_factory
     model_name: str = "default/model"  # This will be generated by the factory
+
+    @property
+    def log_prefix(self) -> str:
+        return f"[{'-'.join(self.base_refs)}]"
 
 
 def completions_payload(test_case: TestCase) -> Dict[str, Any]:
@@ -135,6 +258,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 prompt="KServe is a",
                 payload_formatter=completions_payload,
                 response_assertion=create_response_assertion(with_field="choices"),
+                expected_gateway=ROUTER_GATEWAYS[0],
                 before_test=[
                     lambda: create_router_resources(
                         gateways=[ROUTER_GATEWAYS[0]],
@@ -184,6 +308,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 ],
                 prompt="KServe is a",
                 service_name="router-with-refs-test",
+                expected_gateway=ROUTER_GATEWAYS[0],
                 before_test=[
                     lambda: create_router_resources(
                         gateways=[ROUTER_GATEWAYS[0]],
@@ -236,6 +361,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 "Provide a detailed comparison with open source alternatives, focusing on operational trade-offs.",
                 service_name="router-with-refs-pd-test",
                 response_assertion=assert_200_with_choices,
+                expected_gateway=ROUTER_GATEWAYS[1],
                 before_test=[
                     lambda: create_router_resources(
                         gateways=[ROUTER_GATEWAYS[1]],
@@ -384,6 +510,18 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
             ),
             marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
         ),
+        pytest.param(
+            TestCase(
+                base_refs=[
+                    "router-managed",
+                    "scheduler-with-custom-template",
+                    "workload-llmd-simulator",
+                ],
+                prompt="KServe is a",
+                service_name="scheduler-custom-template-test",
+            ),
+            marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
+        ),
         # Precise prefix KV cache routing test
         pytest.param(
             TestCase(
@@ -417,6 +555,144 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 pytest.mark.llmd_simulator,
             ],
         ),
+        # Model-based routing via X-Gateway-Model-Name header — /v1/completions
+        pytest.param(
+            TestCase(
+                base_refs=[
+                    "router-managed",
+                    "workload-llmd-simulator",
+                ],
+                endpoint="/v1/completions",
+                prompt="KServe is a",
+                payload_formatter=completions_payload,
+                response_assertion=assert_model_field_matches("facebook/opt-125m"),
+                url_getter=get_model_routing_url,
+                extra_headers={
+                    MODEL_ROUTING_HEADER: f"publishers/{KSERVE_TEST_NAMESPACE}/models/facebook/opt-125m",
+                },
+                peers=[
+                    TestCase(
+                        base_refs=[
+                            "router-managed",
+                            "workload-llmd-simulator",
+                            "model-qwen2.5-0.5b",
+                        ],
+                        endpoint="/v1/completions",
+                        prompt="KServe is a",
+                        payload_formatter=completions_payload,
+                        response_assertion=assert_model_field_matches(
+                            "Qwen/Qwen2.5-0.5B-Instruct"
+                        ),
+                        url_getter=get_model_routing_url,
+                        extra_headers={
+                            MODEL_ROUTING_HEADER: f"publishers/{KSERVE_TEST_NAMESPACE}/models/Qwen/Qwen2.5-0.5B-Instruct",
+                        },
+                    ),
+                ],
+            ),
+            marks=[
+                pytest.mark.cluster_cpu,
+                pytest.mark.cluster_single_node,
+                pytest.mark.llmd_simulator,
+                pytest.mark.model_routing,
+            ],
+        ),
+        # Model-based routing via X-Gateway-Model-Name header — /v1/chat/completions
+        pytest.param(
+            TestCase(
+                base_refs=[
+                    "router-managed",
+                    "workload-llmd-simulator",
+                ],
+                endpoint="/v1/chat/completions",
+                prompt="What is KServe?",
+                payload_formatter=chat_completions_payload,
+                response_assertion=assert_model_field_matches("facebook/opt-125m"),
+                url_getter=get_model_routing_url,
+                extra_headers={
+                    MODEL_ROUTING_HEADER: f"publishers/{KSERVE_TEST_NAMESPACE}/models/facebook/opt-125m",
+                },
+                peers=[
+                    TestCase(
+                        base_refs=[
+                            "router-managed",
+                            "workload-llmd-simulator",
+                            "model-qwen2.5-0.5b",
+                        ],
+                        endpoint="/v1/chat/completions",
+                        prompt="What is KServe?",
+                        payload_formatter=chat_completions_payload,
+                        response_assertion=assert_model_field_matches(
+                            "Qwen/Qwen2.5-0.5B-Instruct"
+                        ),
+                        url_getter=get_model_routing_url,
+                        extra_headers={
+                            MODEL_ROUTING_HEADER: f"publishers/{KSERVE_TEST_NAMESPACE}/models/Qwen/Qwen2.5-0.5B-Instruct",
+                        },
+                    ),
+                ],
+            ),
+            marks=[
+                pytest.mark.cluster_cpu,
+                pytest.mark.cluster_single_node,
+                pytest.mark.llmd_simulator,
+                pytest.mark.model_routing,
+            ],
+        ),
+        # Model-based routing via X-Gateway-Model-Name header — LoRA adapter
+        pytest.param(
+            TestCase(
+                base_refs=[
+                    "router-managed",
+                    "workload-single-cpu",
+                    "model-fb-opt-125m-with-lora-hf",
+                ],
+                endpoint="/v1/completions",
+                prompt="KServe is a",
+                model_name=f"publishers/{KSERVE_TEST_NAMESPACE}/models/lora-adapter-1",
+                payload_formatter=completions_payload,
+                response_assertion=assert_model_field_matches(
+                    f"publishers/{KSERVE_TEST_NAMESPACE}/models/lora-adapter-1"
+                ),
+                url_getter=get_model_routing_url,
+                extra_headers={
+                    MODEL_ROUTING_HEADER: f"publishers/{KSERVE_TEST_NAMESPACE}/models/lora-adapter-1",
+                },
+            ),
+            marks=[
+                pytest.mark.cluster_cpu,
+                pytest.mark.cluster_single_node,
+                pytest.mark.model_routing,
+                pytest.mark.lora,
+            ],
+        ),
+        # Model-based routing via X-Gateway-Model-Name header — /v1/models (base + LoRA)
+        pytest.param(
+            TestCase(
+                base_refs=[
+                    "router-managed",
+                    "workload-single-cpu",
+                    "model-fb-opt-125m-with-lora-hf",
+                ],
+                endpoint="/v1/models",
+                response_assertion=assert_models_contains(
+                    "facebook/opt-125m",
+                    f"publishers/{KSERVE_TEST_NAMESPACE}/models/facebook/opt-125m",
+                    "lora-adapter-1",
+                    f"publishers/{KSERVE_TEST_NAMESPACE}/models/lora-adapter-1",
+                ),
+                url_getter=get_model_routing_url,
+                extra_headers={
+                    MODEL_ROUTING_HEADER: f"publishers/{KSERVE_TEST_NAMESPACE}/models/facebook/opt-125m",
+                },
+            ),
+            marks=[
+                pytest.mark.cluster_cpu,
+                pytest.mark.cluster_single_node,
+                pytest.mark.model_routing,
+                pytest.mark.lora,
+            ],
+        ),
     ],
     indirect=["test_case"],
     ids=generate_test_id,
@@ -431,17 +707,37 @@ def test_llm_inference_service(test_case: TestCase):  # noqa: F811
     )
 
     service_name = test_case.llm_service.metadata.name
+    prefix = test_case.log_prefix
 
     test_failed = False
     try:
+        print(f"{prefix} Creating LLMInferenceService {service_name}")
         create_llmisvc(kserve_client, test_case.llm_service)
+        print(f"{prefix} Waiting for LLMInferenceService {service_name} to be ready")
         wait_for_llm_isvc_ready(
             kserve_client, test_case.llm_service, test_case.wait_timeout
         )
-        wait_for_model_response(kserve_client, test_case, test_case.wait_timeout)
+        print(f"{prefix} Waiting for model response from {service_name}")
+        wait_for_model_response(
+            kserve_client,
+            test_case,
+            test_case.wait_timeout,
+            extra_headers=test_case.extra_headers,
+        )
+
+        for peer in test_case.peers:
+            test_llm_inference_service(peer)
+        assert_address_origins(
+            kserve_client, test_case.llm_service, test_case.expected_gateway
+        )
+        assert_address_models(kserve_client, test_case.llm_service)
     except Exception as e:
         test_failed = True
-        print(f"❌ ERROR: Failed to call llm inference service {service_name}: {e}")
+        logger.error(
+            f"{prefix} ❌ ERROR: Failed to call llm inference service %s: %s",
+            service_name,
+            e,
+        )
         _collect_diagnostics(kserve_client, test_case.llm_service)
         raise
     finally:
@@ -467,23 +763,140 @@ def create_llmisvc(kserve_client: KServeClient, llm_isvc: V1alpha1LLMInferenceSe
         ) from e
 
 
+def assert_address_origins(
+    kserve_client: KServeClient,
+    llm_isvc: V1alpha1LLMInferenceService,
+    expected_gateway: Optional[Dict[str, Any]] = None,
+):
+    """Verify that every address in status carries a valid origin reference.
+
+    When expected_gateway is a Gateway resource dict, also asserts the
+    origin matches its metadata.name and metadata.namespace.
+
+    Reads via v1alpha2 (hub) because v1alpha1 conversion drops origin.
+    """
+    svc = get_llmisvc(
+        kserve_client,
+        llm_isvc.metadata.name,
+        llm_isvc.metadata.namespace,
+        "v1alpha2",
+    )
+
+    addresses = svc.get("status", {}).get("addresses", [])
+    assert len(addresses) > 0, (
+        f"Expected at least one address in status, got: {svc.get('status')}"
+    )
+
+    gw_meta = expected_gateway.get("metadata", {}) if expected_gateway else {}
+
+    for addr in addresses:
+        origin = addr.get("origin")
+        assert origin is not None, f"Address {addr.get('url')} is missing origin"
+        assert origin.get("kind") == "Gateway", (
+            f"Expected origin kind 'Gateway', got '{origin.get('kind')}' for {addr.get('url')}"
+        )
+        assert origin.get("group") == "gateway.networking.k8s.io", (
+            f"Expected origin group 'gateway.networking.k8s.io', got '{origin.get('group')}'"
+        )
+
+        if gw_meta:
+            assert origin.get("name") == gw_meta["name"], (
+                f"Expected origin gateway '{gw_meta['name']}', got '{origin.get('name')}'"
+            )
+            assert origin.get("namespace") == gw_meta["namespace"], (
+                f"Expected origin namespace '{gw_meta['namespace']}', got '{origin.get('namespace')}'"
+            )
+
+    logger.info(f"All {len(addresses)} addresses have valid origin references")
+
+
+def assert_address_models(
+    kserve_client: KServeClient,
+    llm_isvc: V1alpha1LLMInferenceService,
+):
+    """Verify that every address in status carries a non-empty models list.
+
+    For model-routing addresses (name ends with '-model-routing'), model names
+    must use the 'publishers/{namespace}/models/{name}' format. Path-based
+    addresses may use either plain names or the publishers format.
+
+    Reads via v1alpha2 (hub) because v1alpha1 conversion may drop models.
+    """
+    svc = get_llmisvc(
+        kserve_client,
+        llm_isvc.metadata.name,
+        llm_isvc.metadata.namespace,
+        "v1alpha2",
+    )
+
+    addresses = svc.get("status", {}).get("addresses", [])
+    assert len(addresses) > 0, (
+        f"Expected at least one address in status, got: {svc.get('status')}"
+    )
+
+    namespace = llm_isvc.metadata.namespace
+
+    for addr in addresses:
+        name = addr.get("name", "")
+        models = addr.get("models", [])
+        assert len(models) > 0, f"Address {name!r} ({addr.get('url')}) has no models"
+
+        model_names = [m.get("name") for m in models]
+
+        if name.endswith(MODEL_ROUTING_ADDRESS_SUFFIX):
+            for model_name in model_names:
+                assert model_name.startswith(f"publishers/{namespace}/models/"), (
+                    f"Model-routing address model {model_name!r} does not use "
+                    f"publishers/{namespace}/models/... format"
+                )
+
+    logger.info(f"All {len(addresses)} addresses have valid models")
+
+
 @log_execution
 def delete_llmisvc(kserve_client: KServeClient, llm_isvc: V1alpha1LLMInferenceService):
+    name = llm_isvc.metadata.name
+    namespace = llm_isvc.metadata.namespace
     try:
         result = kserve_client.api_instance.delete_namespaced_custom_object(
             constants.KSERVE_GROUP,
             llm_isvc.api_version.split("/")[1],
-            llm_isvc.metadata.namespace,
+            namespace,
             KSERVE_PLURAL_LLMINFERENCESERVICE,
-            llm_isvc.metadata.name,
+            name,
         )
-        print(f"✅ LLM inference service {llm_isvc.metadata.name} deleted successfully")
+        print(f"✅ LLM inference service {name} deleted successfully")
+        _wait_for_llmisvc_pods_deleted(name, namespace)
         return result
     except client.rest.ApiException as e:
         raise RuntimeError(
             f"❌ Exception when calling CustomObjectsApi->"
             f"delete_namespaced_custom_object for LLMInferenceService: {e}"
         ) from e
+
+
+def _wait_for_llmisvc_pods_deleted(
+    service_name: str, namespace: str, timeout: int = 120
+):
+    """Block until all workload pods for the service are fully gone from the node.
+
+    Without this, the next test can start before Terminating pods release their
+    CPU/memory, causing scheduling failures on resource-constrained CI nodes.
+    """
+    core_v1 = client.CoreV1Api()
+    label_selector = f"app.kubernetes.io/name={service_name}"
+
+    def assert_no_pods():
+        pods = core_v1.list_namespaced_pod(namespace, label_selector=label_selector)
+        assert not pods.items, (
+            f"{len(pods.items)} pod(s) for {service_name} still terminating"
+        )
+
+    try:
+        wait_for(assert_no_pods, timeout=timeout, interval=5.0)
+        print(f"✅ All pods for {service_name} terminated")
+    except AssertionError:
+        print(f"⚠️ Timed out waiting for pods of {service_name} to terminate")
 
 
 def maybe_delete_llmisvc(
@@ -525,7 +938,6 @@ def maybe_delete_llmisvc(
         print(f"⚠️ Warning: Failed to cleanup service {service_name}: {e}")
 
 
-@log_execution
 def get_llmisvc(
     kserve_client: KServeClient,
     name,
@@ -554,9 +966,12 @@ def wait_for_model_response(
     timeout_seconds: int = 900,
     extra_headers: Optional[Dict[str, str]] = None,
 ) -> str:
-    def assert_model_responds():
+    def get_successful_response():
         try:
-            service_url = get_llm_service_url(kserve_client, test_case.llm_service)
+            if test_case.url_getter:
+                service_url = test_case.url_getter(kserve_client, test_case.llm_service)
+            else:
+                service_url = get_llm_service_url(kserve_client, test_case.llm_service)
         except Exception as e:
             raise AssertionError(f"❌ Failed to get service URL: {e}") from e
 
@@ -570,7 +985,9 @@ def wait_for_model_response(
             test_payload = test_case.payload_formatter(test_case)
         elif test_case.prompt is not None:
             test_payload = {
-                "model": test_case.model_name,
+                "model": test_case.model_name
+                if not extra_headers or MODEL_ROUTING_HEADER not in extra_headers
+                else extra_headers[MODEL_ROUTING_HEADER],
                 "prompt": test_case.prompt,
                 "max_tokens": test_case.max_tokens,
             }
@@ -582,14 +999,14 @@ def wait_for_model_response(
             if test_payload is not None:
                 response = post_with_retry(
                     model_url,
-                    headers={"Content-Type": "application/json"},
+                    headers=headers,
                     json_data=test_payload,
                     timeout=test_case.response_timeout,
                 )
             else:
                 response = get_with_retry(
                     model_url,
-                    headers={"Accept": "application/json"},
+                    headers=headers,
                     timeout=test_case.response_timeout,
                 )
         except Exception as e:
@@ -598,10 +1015,15 @@ def wait_for_model_response(
 
         logger.info(f"Model response is {response.status_code}: {response.text[:500]}")
 
-        test_case.response_assertion(response)
-        return response.text[: test_case.max_tokens]
+        if 200 <= response.status_code < 300:
+            return response
+        raise AssertionError(
+            f"Service returned {response.status_code}: {response.text}"
+        )
 
-    return wait_for(assert_model_responds, timeout=timeout_seconds, interval=5.0)
+    response = wait_for(get_successful_response, timeout=timeout_seconds, interval=5.0)
+    test_case.response_assertion(response)
+    return response.text[: test_case.max_tokens]
 
 
 @log_execution
@@ -692,40 +1114,47 @@ def wait_for(
 ) -> Any:
     """Wait for the assertion to succeed within timeout."""
     deadline = time.time() + timeout
+    last_msg = None
     while True:
         try:
             return assertion_fn()
         except AssertionError as e:
+            msg = str(e)
             if time.time() >= deadline:
+                logger.error("Timed out waiting: %s", e)
                 raise
-            logger.info("Waiting: %s", e)
+            if msg != last_msg:
+                logger.info("Waiting: %s", e)
+                last_msg = msg
             time.sleep(interval)
 
 
 def _collect_diagnostics(
-    kserve_client: KServeClient, llm_isvc: V1alpha1LLMInferenceService
+    kserve_client: KServeClient,
+    llm_isvc: V1alpha1LLMInferenceService,
+    log_prefix: str = "",
 ):
     name = llm_isvc.metadata.name
     ns = llm_isvc.metadata.namespace
-
-    svc = get_llmisvc(kserve_client, name, ns)
 
     labels = {
         "app.kubernetes.io/part-of": "llminferenceservice",
         "app.kubernetes.io/name": name,
     }
 
-    print(f"🔍 # Diagnostics for {name!r} in {ns!r}")
-    print("---")
-    print(f"# LLMInferenceService {name}")
+    logger.info(f"{log_prefix}🔍 # Diagnostics for %r in %r", name, ns)
+    logger.info(f"{log_prefix} ---")
+    logger.info(f"{log_prefix} # LLMInferenceService %s", name)
     try:
-        print(yaml.safe_dump(svc, sort_keys=False))
+        svc = get_llmisvc(kserve_client, name, ns)
+        logger.info(yaml.safe_dump(svc, sort_keys=False))
     except Exception as e:
-        print(f"# ❌ failed to dump LLMInferenceService: {e}")
+        logger.info(f"{log_prefix} # ❌ failed to dump LLMInferenceService: %s", e)
 
-    print_all_events_table(ns)
+    print_all_events_table(ns, log=logger.info)
+    collect_pod_logs(ns, labels, log=logger.info)
 
     all_resources = kinds_matching_by_labels(ns, labels)
     for obj in all_resources:
-        print("---")
-        print(yaml.safe_dump(obj.to_dict(), sort_keys=False))
+        logger.info(f"{log_prefix} ---")
+        logger.info(yaml.safe_dump(obj.to_dict(), sort_keys=False))

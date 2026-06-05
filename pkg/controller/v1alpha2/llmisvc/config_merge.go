@@ -109,6 +109,15 @@ type combineOptions struct {
 	skipClearSchedulerConfigRef bool
 }
 
+// CombinedConfig holds the output of combineBaseRefsConfig.
+type CombinedConfig struct {
+	// Config is the merged LLMInferenceServiceConfig.
+	Config *v1alpha2.LLMInferenceServiceConfig
+	// AppliedConfigRefs is the ordered list of configs that were applied, tagged by source.
+	// May be incomplete when returned alongside a non-nil error.
+	AppliedConfigRefs []v1alpha2.AppliedConfigRef
+}
+
 // WithSkipClearSchedulerConfigRef prevents clearing the scheduler config ref after resolving.
 // This is useful when the caller needs to check which ConfigMap was referenced.
 func WithSkipClearSchedulerConfigRef() CombineOption {
@@ -120,16 +129,18 @@ func WithSkipClearSchedulerConfigRef() CombineOption {
 func (r *LLMISVCReconciler) reconcileBaseRefs(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (*v1alpha2.LLMInferenceServiceConfig, error) {
 	// Combine base configurations with service-specific overrides
 	// This includes default configs based on deployment pattern (single node, multi-node, etc.)
-	baseCfg, err := r.combineBaseRefsConfig(ctx, llmSvc, config)
+	result, err := r.combineBaseRefsConfig(ctx, llmSvc, config)
 	if err != nil {
 		if utils.GetForceStopRuntime(llmSvc) {
 			llmSvc.MarkPresetsCombinedNotReady("Stopped", "Service is stopped with warning: %v", err.Error())
 
-			baseCfg = &v1alpha2.LLMInferenceServiceConfig{
+			return &v1alpha2.LLMInferenceServiceConfig{
 				Spec: *llmSvc.Spec.DeepCopy(),
-			}
-			return baseCfg, nil
+			}, nil
 		}
+
+		llmSvc.Status.AppliedConfigRefs = nil
+
 		var cfgNotFound *configNotFoundError
 		if errors.As(err, &cfgNotFound) {
 			llmSvc.MarkPresetsCombinedNotReady("ConfigNotFound", cfgNotFound.Error())
@@ -140,15 +151,18 @@ func (r *LLMISVCReconciler) reconcileBaseRefs(ctx context.Context, llmSvc *v1alp
 		return nil, fmt.Errorf("failed to combine base-configurations: %w", err)
 	}
 
+	// Persist only the applied configs from successful reconciliation.
+	llmSvc.Status.AppliedConfigRefs = result.AppliedConfigRefs
 	llmSvc.MarkPresetsCombinedReady()
-	return baseCfg, nil
+
+	return result.Config, nil
 }
 
 // combineBaseRefsConfig applies well-known config overlays to inject default values for various components, when some components are
 // enabled. These LLMInferenceServiceConfig resources must exist in either resource namespace (prioritized) or
 // SystemNamespace (e.g. `kserve`).
 // It determines which deployment pattern is being used (single node, multi-node, disaggregated) and applies appropriate defaults.
-func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, reconcilerConfig *Config, opts ...CombineOption) (*v1alpha2.LLMInferenceServiceConfig, error) {
+func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, reconcilerConfig *Config, opts ...CombineOption) (*CombinedConfig, error) {
 	options := &combineOptions{}
 	for _, opt := range opts {
 		opt(options)
@@ -231,16 +245,27 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	}
 
 	// Append explicit base refs to override well know configs.
+	wellKnownCount := len(refs)
 	refs = append(refs, llmSvc.Spec.BaseRefs...)
 
 	specs := make([]v1alpha2.LLMInferenceServiceSpec, 0, len(refs))
-	for _, ref := range refs {
+	appliedRefs := make([]v1alpha2.AppliedConfigRef, 0, len(refs))
+	for i, ref := range refs {
 		cfg, err := r.getConfig(ctx, llmSvc, ref.Name)
 		if err != nil {
 			return nil, err
 		}
 		if cfg != nil {
 			specs = append(specs, cfg.Spec)
+			source := v1alpha2.AppliedConfigSourcePreset
+			if i >= wellKnownCount {
+				source = v1alpha2.AppliedConfigSourceUserRef
+			}
+			appliedRefs = append(appliedRefs, v1alpha2.AppliedConfigRef{
+				Name:      gwapiv1.ObjectName(ref.Name),
+				Namespace: gwapiv1.Namespace(cfg.Namespace),
+				Source:    source,
+			})
 		}
 	}
 	spec, err := MergeSpecs(ctx, append(specs, llmSvc.Spec)...)
@@ -276,7 +301,7 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 
 	llmSvcCfg, err = ReplaceVariables(llmSvc, llmSvcCfg, reconcilerConfig)
 	if err != nil {
-		return llmSvcCfg, err
+		return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, err
 	}
 
 	// Update HTTPRoute parentRefs to point to the custom gateway if Gateway.Refs is specified.
@@ -329,13 +354,13 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		cm, err := Get(ctx, r.Client, client.ObjectKey{Namespace: llmSvc.GetNamespace(), Name: cmName}, &corev1.ConfigMap{}, WithGetFallbackAPIServerConfigMap(r.Clientset))
 		if err != nil {
 			if !apierrors.IsNotFound(err) {
-				return llmSvcCfg, fmt.Errorf("failed to get ConfigMap %s/%s: %w", llmSvc.GetNamespace(), cmName, err)
+				return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, fmt.Errorf("failed to get ConfigMap %s/%s: %w", llmSvc.GetNamespace(), cmName, err)
 			}
 
 			if strings.HasPrefix(cmName, "config-scheduler-") {
 				cm, err = Get(ctx, r.Client, client.ObjectKey{Namespace: constants.KServeNamespace, Name: cmName}, &corev1.ConfigMap{}, WithGetFallbackAPIServerConfigMap(r.Clientset))
 				if err != nil {
-					return nil, fmt.Errorf("failed to get scheduler config %q from namespaces [%q, %q]: %w", cmName, llmSvc.Namespace, constants.KServeNamespace, err)
+					return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, fmt.Errorf("failed to get scheduler config %q from namespaces [%q, %q]: %w", cmName, llmSvc.Namespace, constants.KServeNamespace, err)
 				}
 			}
 		}
@@ -344,7 +369,7 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		}
 		cfg, ok := cm.Data[llmSvcCfg.Spec.Router.Scheduler.Config.Ref.Key]
 		if !ok {
-			return llmSvcCfg, fmt.Errorf("ConfigMap %s/%s doesn't have key %q in data",
+			return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, fmt.Errorf("ConfigMap %s/%s doesn't have key %q in data",
 				cm.GetNamespace(),
 				cm.GetName(),
 				llmSvcCfg.Spec.Router.Scheduler.Config.Ref.Key,
@@ -369,7 +394,7 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 			Spec: llmSvcCfg.Spec,
 		})
 		if err != nil {
-			return llmSvcCfg, err
+			return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, err
 		}
 	}
 
@@ -378,11 +403,11 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	// functions share a single, consistent resolution rather than each re-parsing the spec.
 	loraAdapters, err := enumerateLoRAAdapters(llmSvcCfg.Spec)
 	if err != nil {
-		return llmSvcCfg, fmt.Errorf("failed to enumerate LoRA adapters: %w", err)
+		return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, fmt.Errorf("failed to enumerate LoRA adapters: %w", err)
 	}
 	reconcilerConfig.ResolvedLoRAAdapters = loraAdapters
 
-	return llmSvcCfg, nil
+	return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, nil
 }
 
 func isUsingTokenizerSidecar(spec v1alpha2.LLMInferenceServiceSpec) bool {
@@ -390,6 +415,95 @@ func isUsingTokenizerSidecar(spec v1alpha2.LLMInferenceServiceSpec) bool {
 		return false
 	}
 	return utils.GetContainerWithName(spec.Router.Scheduler.Template, tokenizerContainerName) != nil
+}
+
+func (r *LLMISVCReconciler) isModelBasedRoutingEnabled(
+	ctx context.Context,
+	llmSvc *v1alpha2.LLMInferenceService,
+	cfg *Config,
+) bool {
+	if cfg.ModelBasedRoutingHeaderName == "" {
+		return false
+	}
+
+	// Ensure the workload has been deployed with the alternative served model name for model-based routing.
+	// Older presets associated with the previous version will have this unset.
+	if v, ok := llmSvc.Spec.Annotations[AnnotationModelBasedRoutingEnabled]; !ok || v != "true" {
+		return false
+	}
+
+	switch cfg.ModelBasedRoutingMode {
+	case ModelBasedRoutingDisabled:
+		return false
+	case ModelBasedRoutingForced:
+		return true
+	default:
+		gateways, err := r.CollectReferencedGateways(ctx, llmSvc)
+		if err != nil {
+			log.FromContext(ctx).Error(err, "failed to collect reference gateways to establish model-based routing enabled, defaulting to ModelBasedRoutingMode", "ModelBasedRoutingMode", cfg.ModelBasedRoutingMode)
+			return cfg.ModelBasedRoutingMode != ModelBasedRoutingDisabled
+		}
+		for _, gw := range gateways {
+			if gw.Annotations[AnnotationModelBasedRoutingEnabled] == "false" {
+				return false
+			}
+		}
+		return true
+	}
+}
+
+func stripModelBasedRoutingRules(rules []gwapiv1.HTTPRouteRule, headerName string) []gwapiv1.HTTPRouteRule {
+	if headerName == "" {
+		return rules
+	}
+	var filtered []gwapiv1.HTTPRouteRule
+	for i := range rules {
+		var kept []gwapiv1.HTTPRouteMatch
+		for _, match := range rules[i].Matches {
+			if !isModelBasedRoutingMatch(match, headerName) {
+				kept = append(kept, match)
+			}
+		}
+		if len(kept) > 0 {
+			rules[i].Matches = kept
+			filtered = append(filtered, rules[i])
+		}
+	}
+	return filtered
+}
+
+// expandLoRAAdapterMatches duplicates model-routing header matches for each LoRA
+// adapter so that adapter requests are routed through the same backend as the base
+// model. Matches within a Gateway API rule are OR'd, so a rule ends up matching
+// "base model OR adapter-1 OR adapter-2 …" — all targeting the same InferencePool.
+//
+// Only matches whose header name equals headerName are duplicated; path-only rules
+// and rules with unrelated headers are left untouched.
+func expandLoRAAdapterMatches(rules []gwapiv1.HTTPRouteRule, namespace string, adapters []v1alpha2.LLMModelSpec, headerName string) {
+	if headerName == "" || len(adapters) == 0 {
+		return
+	}
+	for i := range rules {
+		var adapterMatches []gwapiv1.HTTPRouteMatch
+		for _, match := range rules[i].Matches {
+			if !isModelBasedRoutingMatch(match, headerName) {
+				continue
+			}
+			for _, adapter := range adapters {
+				if adapter.Name == nil {
+					continue
+				}
+				am := *match.DeepCopy()
+				for h := range am.Headers {
+					if string(am.Headers[h].Name) == headerName {
+						am.Headers[h].Value = fmt.Sprintf("publishers/%s/models/%s", namespace, *adapter.Name)
+					}
+				}
+				adapterMatches = append(adapterMatches, am)
+			}
+		}
+		rules[i].Matches = append(rules[i].Matches, adapterMatches...)
+	}
 }
 
 // ToParentRefs converts a slice of UntypedObjectReference (gateway refs) to a slice
@@ -424,6 +538,11 @@ type templateGlobalConfig struct {
 	IngressGatewayName      string
 	IngressGatewayNamespace string
 	EnableTLS               bool
+
+	// ModelBasedRoutingHeaderName is the HTTP header used to select a model in
+	// shared-gateway deployments (e.g. "X-Gateway-Model-Name"). Exposed here so
+	// that HTTPRoute templates can reference it via {{ .GlobalConfig.ModelBasedRoutingHeaderName }}.
+	ModelBasedRoutingHeaderName string
 }
 
 // ReplaceVariables processes the configuration as a Go template to substitute
@@ -437,10 +556,11 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 	var gc templateGlobalConfig
 	if reconcilerConfig != nil {
 		gc = templateGlobalConfig{
-			SystemNamespace:         reconcilerConfig.SystemNamespace,
-			IngressGatewayName:      reconcilerConfig.IngressGatewayName,
-			IngressGatewayNamespace: reconcilerConfig.IngressGatewayNamespace,
-			EnableTLS:               reconcilerConfig.EnableTLS,
+			SystemNamespace:             reconcilerConfig.SystemNamespace,
+			IngressGatewayName:          reconcilerConfig.IngressGatewayName,
+			IngressGatewayNamespace:     reconcilerConfig.IngressGatewayNamespace,
+			EnableTLS:                   reconcilerConfig.EnableTLS,
+			ModelBasedRoutingHeaderName: reconcilerConfig.ModelBasedRoutingHeaderName,
 		}
 	}
 	config := struct {
@@ -453,6 +573,29 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 	t, err := template.New("config").
 		Funcs(map[string]any{
 			"ChildName": kmeta.ChildName,
+			// shutdownTimeout computes the vLLM --shutdown-timeout value from a *corev1.PodSpec
+			// (or nil): max(0, tgps - preStop - min(5, tgps)), defaulting tgps to 60 when unset.
+			// The 5-second buffer reserves time for signal propagation and final process cleanup
+			// before Kubernetes sends SIGKILL.
+			"shutdownTimeout": func(spec any, preStop int64) int64 {
+				const defaultTGPS = int64(60)
+				var tgpsVal int64
+				if spec != nil {
+					if ps, ok := spec.(*corev1.PodSpec); ok && ps != nil && ps.TerminationGracePeriodSeconds != nil {
+						tgpsVal = *ps.TerminationGracePeriodSeconds
+					} else {
+						tgpsVal = defaultTGPS
+					}
+				} else {
+					tgpsVal = defaultTGPS
+				}
+				buf := min(int64(5), tgpsVal)
+				result := tgpsVal - preStop - buf
+				if result < 0 {
+					return 0
+				}
+				return result
+			},
 		}).
 		Option("missingkey=error").
 		Parse(string(templateBytes))
@@ -580,6 +723,25 @@ func isDefaultBackendRef(llmSvc *v1alpha2.LLMInferenceService, ref gwapiv1.Backe
 	// Check Kind and Name only - Group can be either v1 or v1alpha2
 	return ptr.Deref[gwapiv1.Kind](ref.Kind, "") == "InferencePool" &&
 		string(ref.Name) == defaultInfPoolName
+}
+
+type ModelBasedRoutingMode string
+
+const (
+	ModelBasedRoutingEnabled  ModelBasedRoutingMode = "enabled"
+	ModelBasedRoutingForced   ModelBasedRoutingMode = "forced"
+	ModelBasedRoutingDisabled ModelBasedRoutingMode = "disabled"
+)
+
+func parseModelBasedRoutingMode(s string) ModelBasedRoutingMode {
+	switch strings.ToLower(s) {
+	case "forced":
+		return ModelBasedRoutingForced
+	case "disabled":
+		return ModelBasedRoutingDisabled
+	default:
+		return ModelBasedRoutingEnabled
+	}
 }
 
 const (

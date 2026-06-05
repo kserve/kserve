@@ -215,66 +215,6 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			}).WithContext(ctx).Should(Succeed())
 		})
 
-		It("should preserve pinned config annotations across reconciliations", func(ctx SpecContext) {
-			// given
-			svcName := "test-llm-pinning-stable"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
-
-			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
-				WithModelURI("hf://facebook/opt-125m"),
-				WithModelName("facebook/opt-125m"),
-				WithManagedRoute(),
-				WithManagedGateway(),
-			)
-
-			// when
-			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
-			defer func() {
-				testNs.DeleteAndWait(ctx, llmSvc)
-			}()
-
-			// then - wait for initial reconciliation to populate Status.Annotations.
-			// We check for PresetsCombined=True which indicates config merging completed,
-			// without requiring the full router readiness flow.
-			var pinnedAnnotations map[string]string
-			Eventually(func(g Gomega, ctx context.Context) error {
-				current := &v1alpha2.LLMInferenceService{}
-				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
-				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.PresetsCombined), "True"))
-				g.Expect(current.Status.Annotations).NotTo(BeNil())
-				pinnedAnnotations = make(map[string]string, len(current.Status.Annotations))
-				for k, v := range current.Status.Annotations {
-					pinnedAnnotations[k] = v
-				}
-				return nil
-			}).WithContext(ctx).Should(Succeed())
-
-			// Trigger a new reconciliation by changing a spec field.
-			errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				_, errUpdate := ctrl.CreateOrUpdate(ctx, envTest.Client, llmSvc, func() error {
-					llmSvc.Spec.Model.Name = ptr.To(*llmSvc.Spec.Model.Name + "-v2")
-					return nil
-				})
-				return errUpdate
-			})
-			Expect(errRetry).ToNot(HaveOccurred())
-
-			// Verify annotations are stable after re-reconciliation.
-			// Use Consistently to confirm they remain unchanged over a short observation window.
-			Consistently(func(g Gomega, ctx context.Context) {
-				current := &v1alpha2.LLMInferenceService{}
-				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
-				g.Expect(current.Status.Annotations).NotTo(BeNil())
-				for key, wantValue := range pinnedAnnotations {
-					g.Expect(current.Status.Annotations).To(
-						HaveKeyWithValue(key, wantValue),
-						fmt.Sprintf("pinned annotation %q should be stable across reconciliations", key),
-					)
-				}
-			}).WithContext(ctx).Should(Succeed())
-		})
-
 		It("should propagate kueue labels and annotations to the deployment", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-kueue"
@@ -335,6 +275,34 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			// Check that the arbitrary test label/annotation was NOT propagated to the template either
 			Expect(expectedDeployment.Spec.Template.Labels).NotTo(HaveKeyWithValue(testValue, testValue))
 			Expect(expectedDeployment.Spec.Template.Annotations).NotTo(HaveKeyWithValue(testValue, testValue))
+		})
+
+		It("should not propagate model-based-routing annotation to pod template", func(ctx SpecContext) {
+			svcName := "test-llm-no-mbr-anno"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			expectedDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve",
+					Namespace: testNs.Name,
+				}, expectedDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			Expect(expectedDeployment.Spec.Template.Annotations).
+				NotTo(HaveKey(llmisvc.AnnotationModelBasedRoutingEnabled))
 		})
 
 		It("should preserve externally set replicas when owner does not specify replicas", func(ctx SpecContext) {
@@ -986,6 +954,47 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				Eventually(LLMInferenceServiceIsReady(llmSvc, func(g Gomega, current *v1alpha2.LLMInferenceService) {
 					g.Expect(current.Status).To(HaveCondition(string(v1alpha2.HTTPRoutesReady), "True"))
 				})).WithContext(ctx).Should(Succeed())
+			})
+
+			It("should expand HTTPRoute with LoRA adapter header matches", func(ctx SpecContext) {
+				// given
+				svcName := "test-llm-lora-routing"
+				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+				llmSvc := LLMInferenceService(svcName,
+					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+					WithModelURI("hf://facebook/opt-125m"),
+					WithModelName("base-model"),
+					WithLoRAAdapters("lora-adapter-a", "lora-adapter-b"),
+					WithManagedRoute(),
+					WithManagedGateway(),
+					WithManagedScheduler(),
+				)
+
+				// when
+				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+				defer func() {
+					testNs.DeleteAndWait(ctx, llmSvc)
+				}()
+
+				// then — HTTPRoute should contain header matches for the base model AND each LoRA adapter
+				expectedHTTPRoute := &gwapiv1.HTTPRoute{}
+				Eventually(func(g Gomega, ctx context.Context) error {
+					routes, errList := managedRoutes(ctx, llmSvc)
+					g.Expect(errList).ToNot(HaveOccurred())
+					g.Expect(routes).To(HaveLen(1))
+					expectedHTTPRoute = &routes[0]
+					return nil
+				}).WithContext(ctx).Should(Succeed())
+
+				headerName := "X-Gateway-Model-Name"
+				baseHeaderValue := fmt.Sprintf("publishers/%s/models/base-model", testNs.Name)
+				adapterAHeaderValue := fmt.Sprintf("publishers/%s/models/lora-adapter-a", testNs.Name)
+				adapterBHeaderValue := fmt.Sprintf("publishers/%s/models/lora-adapter-b", testNs.Name)
+
+				Expect(expectedHTTPRoute).To(HaveHeaderMatch(headerName, baseHeaderValue))
+				Expect(expectedHTTPRoute).To(HaveHeaderMatch(headerName, adapterAHeaderValue))
+				Expect(expectedHTTPRoute).To(HaveHeaderMatch(headerName, adapterBHeaderValue))
 			})
 		})
 
@@ -1835,6 +1844,16 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				current := &v1alpha2.LLMInferenceService{}
 				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
 				g.Expect(current.Status).To(HaveCondition("Ready", "True"))
+			}).WithContext(ctx).Should(Succeed())
+
+			// The K8s event recorder writes events asynchronously, so the
+			// LLMInferenceServiceReady event may not exist yet even though the
+			// status already shows Ready=True. Wait for it before capturing
+			// the baseline to avoid a racy comparison in the Consistently
+			// block below.
+			Eventually(func(g Gomega, ctx context.Context) {
+				g.Expect(countReadinessEvents(ctx, envTest.Client, llmSvc)).To(BeNumerically(">=", 1),
+					"Expected initial LLMInferenceServiceReady event to be recorded")
 			}).WithContext(ctx).Should(Succeed())
 
 			baselineCount := countReadinessEvents(ctx, envTest.Client, llmSvc)

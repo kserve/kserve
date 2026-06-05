@@ -587,6 +587,50 @@ type WorkloadStatus struct {
 	Scheduler *corev1.TypedLocalObjectReference `json:"scheduler,omitempty"`
 }
 
+// SourcedAddress extends Addressable with the networking resource that
+// produced this address, enabling consumers to select endpoints by origin.
+type SourcedAddress struct {
+	duckv1.Addressable `json:",inline"`
+
+	// Origin identifies the networking resource (e.g., Gateway) that
+	// produced this address. Nil when the origin is unknown or when
+	// the address was converted from an older API version.
+	// +optional
+	Origin *gwapiv1.ObjectReference `json:"origin,omitempty"`
+
+	Models []ModelSourcedAddressStatus `json:"models,omitempty"`
+}
+
+// AppliedConfigSource identifies how a configuration was selected for merging.
+// +kubebuilder:validation:Enum=Preset;UserRef
+type AppliedConfigSource string
+
+const (
+	// AppliedConfigSourcePreset indicates the config was automatically injected
+	// by the controller based on the deployment pattern (single-node, multi-node,
+	// disaggregated, scheduler, router).
+	AppliedConfigSourcePreset AppliedConfigSource = "Preset"
+	// AppliedConfigSourceUserRef indicates the config was explicitly referenced
+	// by the user via spec.baseRefs.
+	AppliedConfigSourceUserRef AppliedConfigSource = "UserRef"
+)
+
+// AppliedConfigRef identifies an LLMInferenceServiceConfig resource that contributed
+// to the final merged configuration during reconciliation.
+type AppliedConfigRef struct {
+	// Name of the LLMInferenceServiceConfig resource that was applied.
+	// +required
+	Name gwapiv1.ObjectName `json:"name"`
+	// Namespace where the LLMInferenceServiceConfig was resolved from.
+	// +required
+	Namespace gwapiv1.Namespace `json:"namespace"`
+	// Source indicates how this config was selected - either automatically injected
+	// as a well-known default based on the deployment pattern, or explicitly
+	// referenced via spec.baseRefs.
+	// +required
+	Source AppliedConfigSource `json:"source"`
+}
+
 // LLMInferenceServiceStatus defines the observed state of LLMInferenceService.
 type LLMInferenceServiceStatus struct {
 	// URL is the primary address for accessing the service.
@@ -599,8 +643,17 @@ type LLMInferenceServiceStatus struct {
 	// Conditions of the resource.
 	duckv1.Status `json:",inline"`
 
-	// Addressable endpoint for the service, including cluster-local URLs.
-	duckv1.AddressStatus `json:",inline,omitempty"`
+	// Deprecated: Address is retained for CRD schema compatibility.
+	// It is never populated; use Addresses instead.
+	// +optional
+	Address *duckv1.Addressable `json:"address,omitempty"`
+
+	// Addresses lists the network endpoints where the service is reachable.
+	// Each address may include an origin reference identifying the networking
+	// resource that produced it.
+	// +optional
+	// +listType=atomic
+	Addresses []SourcedAddress `json:"addresses,omitempty"`
 
 	// Router records the observed networking topology for this service.
 	// Nil when routing is not configured or the service is stopped.
@@ -610,6 +663,21 @@ type LLMInferenceServiceStatus struct {
 	// Workloads records the observed workload resources for this service.
 	// +optional
 	Workloads *WorkloadStatus `json:"workloads,omitempty"`
+
+	// AppliedConfigRefs records which LLMInferenceServiceConfig resources were applied
+	// during the last successful reconciliation, in merge precedence order.
+	// Well-known configs (determined by the deployment pattern) appear first with
+	// lower precedence, followed by explicitly referenced baseRefs with higher
+	// precedence. The service's own spec always takes the highest precedence but
+	// is not listed here.
+	// +optional
+	// Atomic because the controller always writes the full list and ordering encodes merge precedence.
+	// +listType=atomic
+	AppliedConfigRefs []AppliedConfigRef `json:"appliedConfigs,omitempty"`
+}
+
+type ModelSourcedAddressStatus struct {
+	Name string `json:"name"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

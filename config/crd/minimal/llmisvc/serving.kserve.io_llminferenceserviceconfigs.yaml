@@ -9214,7 +9214,6 @@ spec:
                                                 name:
                                                   maxLength: 256
                                                   minLength: 1
-                                                  pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                   type: string
                                                 type:
                                                   default: Exact

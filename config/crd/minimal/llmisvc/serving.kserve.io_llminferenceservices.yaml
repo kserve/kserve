@@ -21274,16 +21274,75 @@ spec:
                       type: string
                     audience:
                       type: string
+                    models:
+                      items:
+                        properties:
+                          name:
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      type: array
                     name:
                       type: string
+                    origin:
+                      properties:
+                        group:
+                          maxLength: 253
+                          pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                        kind:
+                          maxLength: 63
+                          minLength: 1
+                          pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                          type: string
+                        name:
+                          maxLength: 253
+                          minLength: 1
+                          type: string
+                        namespace:
+                          maxLength: 63
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                          type: string
+                      required:
+                      - group
+                      - kind
+                      - name
+                      type: object
                     url:
                       type: string
                   type: object
                 type: array
+                x-kubernetes-list-type: atomic
               annotations:
                 additionalProperties:
                   type: string
                 type: object
+              appliedConfigs:
+                items:
+                  properties:
+                    name:
+                      maxLength: 253
+                      minLength: 1
+                      type: string
+                    namespace:
+                      maxLength: 63
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                      type: string
+                    source:
+                      enum:
+                      - Preset
+                      - UserRef
+                      type: string
+                  required:
+                  - name
+                  - namespace
+                  - source
+                  type: object
+                type: array
+                x-kubernetes-list-type: atomic
               conditions:
                 items:
                   properties:

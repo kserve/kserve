@@ -9,6 +9,7 @@ on:
       - "pkg/controller/v1alpha2/llmisvc/**"
       - "charts/kserve-llmisvc-resources/**"
       - "config/llmisvc/**"
+      - "config/llmisvcconfig/**"
       - "config/rbac/llmisvc/**"
       - "cmd/llmisvc/**"
       - "test/e2e/llmisvc/**"
@@ -171,23 +172,10 @@ jobs:
           name: ${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
           path: ./tmp
 
-      - name: Load LLMISvc controller image into minikube
-        run: |
-          # Load the tagged image into minikube
-          minikube image load ./tmp/${{ env.LLMISVC_CONTROLLER_IMG }}-${{ env.TAG }}
-
-          # Verify image is loaded
-          echo "Images in minikube:"
-          minikube image ls | grep ${{ env.LLMISVC_CONTROLLER_IMG }} || echo "No llmisvc-controller images found"
-
-      - name: Load storage-initializer image into minikube
-        run: |
-          # Load the tagged image into minikube
-          minikube image load ./tmp/${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
-
-          # Verify image is loaded
-          echo "Images in minikube:"
-          minikube image ls | grep ${{ env.STORAGE_INIT_IMG }} || echo "No storage-initializer images found"
+      - name: Load docker images
+        uses: ./.github/actions/load-docker-images
+        with:
+          directory: ./tmp
 
       - name: KServe dependency setup
         uses: ./.github/actions/kserve-dep-setup
@@ -225,16 +213,25 @@ jobs:
 
       - name: Run LLMInferenceService E2E tests
         id: llmisvc-e2e-tests
-        timeout-minutes: 60
+        timeout-minutes: 90
+        env:
+          OPT_125M_MODEL_URI: "s3://example-models/facebook/opt-125m"
         run: |
           # Run only CPU tests for now using pytest markers (cluster_)
           # Available GPU vendors: amd, nvidia, intel
+          export PYTEST_MAXFAIL=3
           ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and cluster_cpu and not autoscaling" 0 "envoy-gateway"
 
       - name: Check system status
         if: always()
         run: |
           ./test/scripts/gh-actions/status-check.sh "llmisvc"
+
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-llmisvc-${{ matrix.install-method }}
 
   test-llmisvc-wva-autoscaling-hpa:
     runs-on: ubuntu-latest
@@ -287,17 +284,10 @@ jobs:
           name: ${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
           path: ./tmp
 
-      - name: Load LLMISvc controller image into minikube
-        run: |
-          minikube image load ./tmp/${{ env.LLMISVC_CONTROLLER_IMG }}-${{ env.TAG }}
-          echo "Images in minikube:"
-          minikube image ls | grep ${{ env.LLMISVC_CONTROLLER_IMG }} || echo "No llmisvc-controller images found"
-
-      - name: Load storage-initializer image into minikube
-        run: |
-          minikube image load ./tmp/${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
-          echo "Images in minikube:"
-          minikube image ls | grep ${{ env.STORAGE_INIT_IMG }} || echo "No storage-initializer images found"
+      - name: Load docker images
+        uses: ./.github/actions/load-docker-images
+        with:
+          directory: ./tmp
 
       - name: KServe dependency setup (HPA autoscaling)
         uses: ./.github/actions/kserve-dep-setup
@@ -319,14 +309,23 @@ jobs:
 
       - name: Run HPA autoscaling E2E tests
         id: autoscaling-hpa-tests
-        timeout-minutes: 40
+        timeout-minutes: 60
+        env:
+          OPT_125M_MODEL_URI: "s3://example-models/facebook/opt-125m"
         run: |
+          export PYTEST_MAXFAIL=2
           ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and autoscaling_hpa and cluster_cpu" 0 "envoy-gateway"
 
       - name: Check system status
         if: always()
         run: |
           ./test/scripts/gh-actions/status-check.sh "llmisvc"
+
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-llmisvc-autoscaling-hpa-${{ matrix.install-method }}
 
   test-llmisvc-wva-autoscaling-keda:
     runs-on: ubuntu-latest
@@ -379,17 +378,10 @@ jobs:
           name: ${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
           path: ./tmp
 
-      - name: Load LLMISvc controller image into minikube
-        run: |
-          minikube image load ./tmp/${{ env.LLMISVC_CONTROLLER_IMG }}-${{ env.TAG }}
-          echo "Images in minikube:"
-          minikube image ls | grep ${{ env.LLMISVC_CONTROLLER_IMG }} || echo "No llmisvc-controller images found"
-
-      - name: Load storage-initializer image into minikube
-        run: |
-          minikube image load ./tmp/${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
-          echo "Images in minikube:"
-          minikube image ls | grep ${{ env.STORAGE_INIT_IMG }} || echo "No storage-initializer images found"
+      - name: Load docker images
+        uses: ./.github/actions/load-docker-images
+        with:
+          directory: ./tmp
 
       - name: KServe dependency setup (KEDA autoscaling)
         uses: ./.github/actions/kserve-dep-setup
@@ -412,11 +404,20 @@ jobs:
 
       - name: Run KEDA autoscaling E2E tests
         id: autoscaling-keda-tests
-        timeout-minutes: 40
+        timeout-minutes: 60
+        env:
+          OPT_125M_MODEL_URI: "s3://example-models/facebook/opt-125m"
         run: |
+          export PYTEST_MAXFAIL=2
           ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and autoscaling_keda and cluster_cpu" 0 "envoy-gateway"
 
       - name: Check system status
         if: always()
         run: |
           ./test/scripts/gh-actions/status-check.sh "llmisvc"
+
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-llmisvc-autoscaling-keda-${{ matrix.install-method }}
