@@ -33,17 +33,17 @@ export ENABLE_KSERVE_WITH_LLMISVC="${ENABLE_KSERVE_WITH_LLMISVC:-false}"
 export INSTALL_METHOD="${INSTALL_METHOD:-kustomize}"
 
 # Extract the gateway provider identifier from NETWORK_LAYER (e.g. "envoy-gatewayapi" -> "envoy").
-# Tests can still override the actual GatewayClass name via GATEWAY_CLASS_NAME when needed.
+# Tests can still override the actual GatewayClass name via GATEWAYCLASS_NAME when needed.
 if [[ $NETWORK_LAYER == *"-gatewayapi"* ]]; then
   export GATEWAY_NETWORK_LAYER="${NETWORK_LAYER%%-*}"
 fi
 
 if [[ $NETWORK_LAYER == *"-gatewayapi"* ]]; then
-  export GATEWAY_CLASS_NAME="${GATEWAY_CLASS_NAME:-${NETWORK_LAYER%%-*}}"
+  export GATEWAYCLASS_NAME="${GATEWAYCLASS_NAME:-${NETWORK_LAYER%%-*}}"
 fi
 
-if [[ -n "${GATEWAY_CLASS_NAME:-}" && -n "${GITHUB_ENV:-}" ]]; then
-  echo "GATEWAY_CLASS_NAME=${GATEWAY_CLASS_NAME}" >> "${GITHUB_ENV}"
+if [[ -n "${GATEWAYCLASS_NAME:-}" && -n "${GITHUB_ENV:-}" ]]; then
+  echo "GATEWAYCLASS_NAME=${GATEWAYCLASS_NAME}" >> "${GITHUB_ENV}"
 fi
 
 echo "Installing KServe using ${INSTALL_METHOD^}..."

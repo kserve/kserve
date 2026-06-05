@@ -13,3 +13,8 @@ resources:
   # - inference_prefix_cache.yaml
   # - inference_pd_disaggregation.yaml
   - service_monitor.yaml
+  # Uncomment one gateway for your provider:
+  # - gateway.yaml
+  # - gateway-agentgateway.yaml
+  # Envoy AI Gateway only:
+  # - ai-gateway-route.yaml
