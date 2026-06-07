@@ -1,0 +1,97 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceService
+metadata:
+  name: qwen2-7b-instruct-pd-nvidia-dra
+  annotations:
+    # RoCE network required for KV cache transfer via RDMA
+    k8s.v1.cni.cncf.io/networks: roce-p2
+spec:
+  # Main/decode pool replica count
+  replicas: 1
+  model:
+    uri: hf://Qwen/Qwen2.5-7B-Instruct
+    name: Qwen/Qwen2.5-7B-Instruct
+  router:
+    route: {}
+    gateway: {}
+    scheduler: {}
+  template:
+    resourceClaims:
+    - name: gpu
+      resourceClaimTemplateName: nvidia-gpu-template
+    containers:
+    - name: main
+      env:
+      - name: KSERVE_INFER_ROCE
+        value: "true"
+      - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+        valueFrom:
+          fieldRef:
+            fieldPath: status.podIP
+      - name: VLLM_ADDITIONAL_ARGS
+        value: "--kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_both\"}'"
+      - name: UCX_PROTO_INFO
+        value: "y"
+      - name: UCX_TLS
+        value: "rc,sm,self,cuda_copy,cuda_ipc"
+      resources:
+        limits:
+          cpu: '4'
+          memory: 32Gi
+          rdma/roce_gdr: 1
+        requests:
+          cpu: '2'
+          memory: 16Gi
+          rdma/roce_gdr: 1
+        claims:
+        - name: gpu
+      livenessProbe:
+        httpGet:
+          path: /health
+          port: 8000
+          scheme: HTTPS
+        initialDelaySeconds: 120
+        periodSeconds: 30
+        timeoutSeconds: 30
+        failureThreshold: 5
+  prefill:
+    replicas: 2
+    template:
+      resourceClaims:
+      - name: gpu
+        resourceClaimTemplateName: nvidia-gpu-template
+      containers:
+      - name: main
+        env:
+        - name: KSERVE_INFER_ROCE
+          value: "true"
+        - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: VLLM_ADDITIONAL_ARGS
+          value: "--kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_both\"}'"
+        - name: UCX_PROTO_INFO
+          value: "y"
+        - name: UCX_TLS
+          value: "rc,sm,self,cuda_copy,cuda_ipc"
+        resources:
+          limits:
+            cpu: '4'
+            memory: 32Gi
+            rdma/roce_gdr: 1
+          requests:
+            cpu: '2'
+            memory: 16Gi
+            rdma/roce_gdr: 1
+          claims:
+          - name: gpu
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTPS
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          timeoutSeconds: 30
+          failureThreshold: 5
