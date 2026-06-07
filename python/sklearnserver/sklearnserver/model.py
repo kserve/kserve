@@ -19,7 +19,7 @@ from typing import Dict, Union
 from kserve.errors import InferenceError, ModelMissingError
 from kserve_storage import Storage
 
-import joblib
+from sklearnserver._safe_unpickle import safe_joblib_load
 from kserve.protocol.infer_type import InferRequest, InferResponse
 from kserve.utils.utils import get_predict_input, get_predict_response
 from kserve import Model
@@ -49,7 +49,12 @@ class SKLearnModel(Model):  # pylint:disable=c-extension-no-member
                 "More than one model file is detected, "
                 f"Only one is allowed within model_dir: {model_files}"
             )
-        self._model = joblib.load(model_files[0])
+        # joblib.load executes arbitrary code embedded in the artifact, so the
+        # model is loaded through a restricted unpickler that refuses globals
+        # outside a scientific-stack safelist (set
+        # KSERVE_ALLOW_UNSAFE_DESERIALIZATION=true to opt out for fully trusted
+        # artifacts). See sklearnserver._safe_unpickle.
+        self._model = safe_joblib_load(model_files[0])
         self.ready = True
         return self.ready
 
