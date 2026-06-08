@@ -198,7 +198,7 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 			TTLSecondsAfterFinished: &jobTTLSecondsAfterFinished,
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
-					NodeName:      nodeName,
+					NodeSelector:  map[string]string{"kubernetes.io/hostname": nodeName},
 					Containers:    []corev1.Container{*container},
 					RestartPolicy: corev1.RestartPolicyNever,
 					Volumes:       volumes,

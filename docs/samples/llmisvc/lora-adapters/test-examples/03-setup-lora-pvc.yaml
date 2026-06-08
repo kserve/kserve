@@ -1,0 +1,37 @@
+---
+# PVC to store LoRA adapter
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: lora-adapters-pvc
+  namespace: kserve-ci-e2e-test
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+# Job to download LoRA adapter into PVC
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: populate-lora-pvc
+  namespace: kserve-ci-e2e-test
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: downloader
+          image: quay.io/opendatahub/kserve-storage-initializer:v0.17-latest
+          args:
+            - "hf://edbeeching/opt-125m-lora"
+            - "/mnt/adapters/opt-125m-lora"
+          volumeMounts:
+            - name: adapter-storage
+              mountPath: /mnt/adapters
+      volumes:
+        - name: adapter-storage
+          persistentVolumeClaim:
+            claimName: lora-adapters-pvc

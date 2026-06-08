@@ -162,13 +162,16 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 		if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
 			return nil, fmt.Errorf("failed to get current deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
 		}
-		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, "main", constants.DefaultModelLocalMountPath); err != nil {
+		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, "main", constants.DefaultModelLocalMountPath, len(config.ResolvedLoRAAdapters) > 0); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to main deployment: %w", err)
 		}
 	}
 
 	applyDeploymentRolloutStrategy(&d.Spec, &llmSvc.Spec.WorkloadSpec, config)
 	r.propagateDeploymentMetadata(llmSvc, d)
+
+	utils.PropagateMap(llmSvc.Spec.Labels, &d.Spec.Template.Labels)
+	utils.PropagateMap(llmSvc.Spec.Annotations, &d.Spec.Template.Annotations, AnnotationModelBasedRoutingEnabled)
 
 	log.FromContext(ctx).V(2).Info("Expected main deployment", "deployment", d)
 
@@ -250,7 +253,7 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 		if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
 			return nil, fmt.Errorf("failed to get current prefill deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
 		}
-		if err := r.attachModelArtifacts(ctx, existingServiceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, "main", constants.DefaultModelLocalMountPath); err != nil {
+		if err := r.attachModelArtifacts(ctx, existingServiceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, "main", constants.DefaultModelLocalMountPath, len(config.ResolvedLoRAAdapters) > 0); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to prefill deployment: %w", err)
 		}
 	}
@@ -260,10 +263,9 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 	}
 	r.propagateDeploymentMetadata(llmSvc, d)
 
-	// Propagate prefill-specific labels and annotations
 	if llmSvc.Spec.Prefill != nil {
 		utils.PropagateMap(llmSvc.Spec.Prefill.Labels, &d.Spec.Template.Labels)
-		utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &d.Spec.Template.Annotations)
+		utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &d.Spec.Template.Annotations, AnnotationModelBasedRoutingEnabled)
 	}
 
 	log.FromContext(ctx).V(2).Info("Expected prefill deployment", "deployment", d)
@@ -277,9 +279,11 @@ func (r *LLMISVCReconciler) propagateDeploymentMetadata(llmSvc *v1alpha2.LLMInfe
 		"k8s.v1.cni.cncf.io",
 		constants.KueueAPIGroupName,
 		"prometheus.io",
+		constants.LocalModelLabel,
 	}
 	approvedLabelPrefixes := []string{
 		constants.KueueAPIGroupName,
+		constants.LocalModelLabel,
 	}
 
 	// Propagate approved annotations from top-level metadata to the Deployment and its Pod template
@@ -289,12 +293,6 @@ func (r *LLMISVCReconciler) propagateDeploymentMetadata(llmSvc *v1alpha2.LLMInfe
 	// Propagate approved labels from top-level metadata to the Deployment and its Pod template
 	utils.PropagatePrefixedMap(llmSvc.GetLabels(), &expected.Labels, approvedLabelPrefixes...)
 	utils.PropagatePrefixedMap(llmSvc.GetLabels(), &expected.Spec.Template.Labels, approvedLabelPrefixes...)
-
-	// Propagate all labels from WorkloadSpec.Labels to Pod template
-	utils.PropagateMap(llmSvc.Spec.Labels, &expected.Spec.Template.Labels)
-
-	// Propagate all annotations from WorkloadSpec.Annotations to Pod template
-	utils.PropagateMap(llmSvc.Spec.Annotations, &expected.Spec.Template.Annotations)
 }
 
 func (r *LLMISVCReconciler) propagateDeploymentStatus(ctx context.Context, expected *appsv1.Deployment, ready func(), notReady func(reason, messageFormat string, messageA ...interface{})) error {

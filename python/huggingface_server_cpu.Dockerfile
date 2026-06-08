@@ -53,7 +53,7 @@ RUN uv venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 ARG TORCH_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu"
-ARG TORCH_VERSION=2.10.0
+ARG TORCH_VERSION=2.11.0
 
 # Copy storage metadata for editable dependency resolution
 COPY storage/pyproject.toml storage/uv.lock storage/

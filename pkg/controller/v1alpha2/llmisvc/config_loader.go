@@ -23,7 +23,8 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
+	k8stypes "k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -93,6 +94,9 @@ type Config struct {
 	UrlScheme               string `json:"urlScheme,omitempty"`
 	EnableTLS               bool   `json:"enableTLS,omitempty"`
 
+	ModelBasedRoutingHeaderName string                `json:"modelBasedRoutingHeaderName,omitempty"`
+	ModelBasedRoutingMode       ModelBasedRoutingMode `json:"modelBasedRoutingMode,omitempty"`
+
 	// WVAAutoscalingConfig holds Prometheus and monitoring settings for WVA autoscaling.
 	// nil when the "autoscaling-wva-controller-config" key is not present in inferenceservice-config.
 	WVAAutoscalingConfig *WVAAutoscalingConfig `json:"-"`
@@ -103,6 +107,12 @@ type Config struct {
 	CredentialConfig *credentials.CredentialConfig   `json:"-"`
 	SchedulerConfig  *SchedulerConfig                `json:"-"`
 	DeployConfig     *v1beta1.DeployConfig           `json:"-"`
+
+	// ResolvedLoRAAdapters holds the resolved LoRA adapter list derived from the final merged spec.
+	// Populated inside combineBaseRefsConfig (after all spec overlays and variable substitution)
+	// so that resolution is tied to the config-merge step and all downstream workload functions
+	// share a single consistent result.
+	ResolvedLoRAAdapters []resolvedLoRAAdapter `json:"-"`
 }
 
 // PrometheusConfig holds Prometheus connection and authentication settings used by KEDA
@@ -156,27 +166,48 @@ func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.Storag
 	}
 
 	return &Config{
-		SystemNamespace:         constants.KServeNamespace,
-		IngressGatewayNamespace: igwNs,
-		IngressGatewayName:      igwName,
-		UrlScheme:               ingressConfig.UrlScheme,
-		EnableTLS:               ingressConfig.EnableLLMInferenceServiceTLS,
-		StorageConfig:           storageConfig,
-		CredentialConfig:        credentialConfig,
-		SchedulerConfig:         schedulerConfig,
-		DeployConfig:            deployConfig,
+		SystemNamespace:             constants.KServeNamespace,
+		IngressGatewayNamespace:     igwNs,
+		IngressGatewayName:          igwName,
+		UrlScheme:                   ingressConfig.UrlScheme,
+		EnableTLS:                   ingressConfig.EnableLLMInferenceServiceTLS,
+		ModelBasedRoutingHeaderName: ingressConfig.ModelBasedRoutingHeaderName,
+		ModelBasedRoutingMode:       parseModelBasedRoutingMode(ingressConfig.ModelBasedRoutingMode),
+		StorageConfig:               storageConfig,
+		CredentialConfig:            credentialConfig,
+		SchedulerConfig:             schedulerConfig,
+		DeployConfig:                deployConfig,
 	}
 }
 
-// LoadConfig loads configuration from the KServe configmap in the cluster
-// It fetches and converts the configmap into structured config objects needed by LLM services
-func LoadConfig(ctx context.Context, clientset kubernetes.Interface) (*Config, error) {
-	// Fetch the KServe configmap directly from the API server to get latest values
-	isvcConfigMap, errCfgMap := v1beta1.GetInferenceServiceConfigMap(ctx, clientset)
-	if errCfgMap != nil {
-		return nil, fmt.Errorf("failed to load InferenceServiceConfigMap: %w", errCfgMap)
+// LoadConfig loads configuration from the supplied Kubernetes object reader.
+func LoadConfig(ctx context.Context, reader client.Reader) (*Config, error) {
+	isvcConfigMap := &corev1.ConfigMap{}
+	if err := reader.Get(ctx, k8stypes.NamespacedName{
+		Namespace: constants.KServeNamespace,
+		Name:      constants.InferenceServiceConfigMapName,
+	}, isvcConfigMap); err != nil {
+		return nil, fmt.Errorf("failed to load InferenceServiceConfigMap: %w", err)
 	}
 
+	return toConfig(isvcConfigMap)
+}
+
+func (r *LLMISVCReconciler) loadConfig(ctx context.Context) (*Config, error) {
+	configMap, fallbackErr := Get(
+		ctx,
+		r.Client,
+		client.ObjectKey{Namespace: constants.KServeNamespace, Name: constants.InferenceServiceConfigMapName},
+		&corev1.ConfigMap{},
+		WithGetFallbackAPIServerConfigMap(r.Clientset),
+	)
+	if fallbackErr != nil {
+		return nil, fmt.Errorf("failed to load InferenceServiceConfigMap: %w", fallbackErr)
+	}
+	return toConfig(configMap)
+}
+
+func toConfig(isvcConfigMap *corev1.ConfigMap) (*Config, error) {
 	ingressConfig, errConvert := v1beta1.NewIngressConfig(isvcConfigMap)
 	if errConvert != nil {
 		return nil, fmt.Errorf("failed to convert InferenceServiceConfigMap to IngressConfig: %w", errConvert)

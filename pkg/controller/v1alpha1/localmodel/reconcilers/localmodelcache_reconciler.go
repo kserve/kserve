@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	controllerutils "github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
@@ -44,9 +45,10 @@ import (
 // LocalModelReconciler reconciles cluster-scoped LocalModelCache resources
 type LocalModelReconciler struct {
 	client.Client
-	Clientset *kubernetes.Clientset
-	Log       logr.Logger
-	Scheme    *runtime.Scheme
+	Clientset                *kubernetes.Clientset
+	Log                      logr.Logger
+	Scheme                   *runtime.Scheme
+	llmInferenceServiceCRDUp bool
 }
 
 // Reconcile
@@ -135,7 +137,7 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	// Step 4 - Creates PV & PVCs for namespaces with isvcs using this model
-	err = ReconcileForIsvcs(ctx, c.Client, c.Clientset, c.Scheme, c.Log, localModel, nil, nodeGroups, defaultNodeGroup)
+	err = ReconcileForIsvcs(ctx, c.Client, c.Clientset, c.Scheme, c.Log, localModel, nil, nodeGroups, defaultNodeGroup, c.llmInferenceServiceCRDUp)
 	return ctrl.Result{}, err
 }
 
@@ -157,6 +159,32 @@ func (c *LocalModelReconciler) isvcFunc(ctx context.Context, obj client.Object) 
 	}
 
 	c.Log.Info("Reconcile localModel from inference services", "name", modelName)
+
+	return []reconcile.Request{{
+		NamespacedName: types.NamespacedName{
+			Name: modelName,
+		},
+	}}
+}
+
+// Reconciles corresponding model cache CR when we found an update on an LLMInferenceService
+func (c *LocalModelReconciler) llmIsvcFunc(ctx context.Context, obj client.Object) []reconcile.Request {
+	llmSvc := obj.(*v1alpha2.LLMInferenceService)
+	if llmSvc.Labels == nil {
+		return []reconcile.Request{}
+	}
+	var modelName string
+	var ok bool
+	if modelName, ok = llmSvc.Labels[constants.LocalModelLabel]; !ok {
+		return []reconcile.Request{}
+	}
+	localModel := &v1alpha1.LocalModelCache{}
+	if err := c.Get(ctx, types.NamespacedName{Name: modelName}, localModel); err != nil {
+		c.Log.Error(err, "error getting localModel", "name", modelName)
+		return []reconcile.Request{}
+	}
+
+	c.Log.Info("Reconcile localModel from LLM inference services", "name", modelName)
 
 	return []reconcile.Request{{
 		NamespacedName: types.NamespacedName{
@@ -251,6 +279,25 @@ func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
+	hasLLMISvcCRD, err := hasLLMInferenceServiceCRD(mgr)
+	if err != nil {
+		return err
+	}
+	c.llmInferenceServiceCRDUp = hasLLMISvcCRD
+	if hasLLMISvcCRD {
+		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha2.LLMInferenceService{}, LocalModelKey, func(rawObj client.Object) []string {
+			llmSvc := rawObj.(*v1alpha2.LLMInferenceService)
+			if model, ok := llmSvc.GetLabels()[constants.LocalModelLabel]; ok {
+				return []string{model}
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	} else {
+		c.Log.Info("LLMInferenceService CRD not installed; skipping LocalModelCache LLMInferenceService index and watch setup")
+	}
+
 	isvcPredicates := predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			return e.ObjectOld.GetLabels()[constants.LocalModelLabel] != e.ObjectNew.GetLabels()[constants.LocalModelLabel]
@@ -293,8 +340,25 @@ func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.PersistentVolume{}).
 		Owns(&corev1.PersistentVolumeClaim{})
 
+	llmIsvcPredicates := predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return e.ObjectOld.GetLabels()[constants.LocalModelLabel] != e.ObjectNew.GetLabels()[constants.LocalModelLabel]
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			_, ok := e.Object.GetLabels()[constants.LocalModelLabel]
+			return ok
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			_, ok := e.Object.GetLabels()[constants.LocalModelLabel]
+			return ok
+		},
+	}
+
 	if !localModelConfig.DisableVolumeManagement {
 		controllerBuilder.Watches(&v1beta1.InferenceService{}, handler.EnqueueRequestsFromMapFunc(c.isvcFunc), builder.WithPredicates(isvcPredicates))
+		if hasLLMISvcCRD {
+			controllerBuilder.Watches(&v1alpha2.LLMInferenceService{}, handler.EnqueueRequestsFromMapFunc(c.llmIsvcFunc), builder.WithPredicates(llmIsvcPredicates))
+		}
 	}
 
 	return controllerBuilder.
