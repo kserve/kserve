@@ -48,7 +48,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc
 
 @pytest.mark.modelcache
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_modelnamespacecache(rest_v1_client):
+async def test_sklearn_modelnamespacecache(rest_v1_client, network_layer):
     service_name = "sklearn-modelnamespacecache-worker1"
     storage_uri = "gs://kfserving-examples/models/sklearn/1.0/model"
     nodes = ["minikube-m02", "minikube-m03"]
@@ -174,7 +174,12 @@ async def test_sklearn_modelnamespacecache(rest_v1_client):
             "aks-agentpool-27350515-vmss000000",
         )
 
-    res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
+    res = await predict_isvc(
+        rest_v1_client,
+        service_name,
+        "./data/iris_input.json",
+        network_layer=network_layer,
+    )
     assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
     # Wait for the isvc to be deleted to avoid modelcache still in use error when deleting the model cache

@@ -24,11 +24,14 @@ import (
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	wvav1alpha1 "github.com/llm-d/llm-d-workload-variant-autoscaler/api/v1alpha1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmeta"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
@@ -54,58 +57,81 @@ func (r *LLMISVCReconciler) reconcileScaling(ctx context.Context, llmSvc *v1alph
 	logger := log.FromContext(ctx).WithName("reconcileScaling")
 	ctx = log.IntoContext(ctx, logger)
 
-	if err := r.reconcileMainWorkloadScaling(ctx, llmSvc, config); err != nil {
+	if err := r.reconcileWorkloadScaling(ctx, llmSvc, config, mainWorkloadScalingParams(llmSvc)); err != nil {
 		return fmt.Errorf("failed to reconcile main workload scaling: %w", err)
 	}
 
-	if err := r.reconcilePrefillWorkloadScaling(ctx, llmSvc, config); err != nil {
+	if err := r.reconcileWorkloadScaling(ctx, llmSvc, config, prefillWorkloadScalingParams(llmSvc)); err != nil {
 		return fmt.Errorf("failed to reconcile prefill workload scaling: %w", err)
 	}
 
 	return nil
 }
 
-// reconcileMainWorkloadScaling handles scaling for the main (decode) workload.
-func (r *LLMISVCReconciler) reconcileMainWorkloadScaling(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
-	scaleTargetRef := mainScaleTargetRef(llmSvc)
-	vaName := mainVAName(llmSvc)
-	scaling := llmSvc.Spec.Scaling
-
-	if err := r.reconcileVA(ctx, llmSvc, scaling, scaleTargetRef, vaName, llmSvc.Spec.Labels); err != nil {
-		return fmt.Errorf("failed to reconcile main VA: %w", err)
-	}
-
-	if err := r.reconcileActuator(ctx, llmSvc, scaling, config, scaleTargetRef, vaName, mainHPAName(llmSvc), mainScaledObjectName(llmSvc)); err != nil {
-		return fmt.Errorf("failed to reconcile main actuator: %w", err)
-	}
-
-	return nil
+// workloadScalingParams captures the per-workload differences between main and prefill
+// scaling so that reconcileWorkloadScaling can handle both without duplication.
+type workloadScalingParams struct {
+	name             string
+	scaling          *v1alpha2.ScalingSpec
+	scaleTargetRef   autoscalingv2.CrossVersionObjectReference
+	vaName           string
+	hpaName          string
+	scaledObjectName string
+	workloadLabels   map[string]string
+	markReady        func()
+	markNotReady     func(reason, messageFormat string, messageA ...interface{})
+	markUnset        func()
 }
 
-// reconcilePrefillWorkloadScaling handles scaling for the prefill workload in disaggregated deployments.
-func (r *LLMISVCReconciler) reconcilePrefillWorkloadScaling(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
+func mainWorkloadScalingParams(llmSvc *v1alpha2.LLMInferenceService) workloadScalingParams {
+	return workloadScalingParams{
+		name:             "main",
+		scaling:          llmSvc.Spec.Scaling,
+		scaleTargetRef:   mainScaleTargetRef(llmSvc),
+		vaName:           mainVAName(llmSvc),
+		hpaName:          mainHPAName(llmSvc),
+		scaledObjectName: mainScaledObjectName(llmSvc),
+		workloadLabels:   llmSvc.Spec.Labels,
+		markReady:        llmSvc.MarkScalingReady,
+		markNotReady:     llmSvc.MarkScalingNotReady,
+		markUnset:        llmSvc.MarkScalingUnset,
+	}
+}
+
+func prefillWorkloadScalingParams(llmSvc *v1alpha2.LLMInferenceService) workloadScalingParams {
 	var scaling *v1alpha2.ScalingSpec
+	var labels map[string]string
 	if llmSvc.Spec.Prefill != nil {
 		scaling = llmSvc.Spec.Prefill.Scaling
+		labels = llmSvc.Spec.Prefill.Labels
+	}
+	return workloadScalingParams{
+		name:             "prefill",
+		scaling:          scaling,
+		scaleTargetRef:   prefillScaleTargetRef(llmSvc),
+		vaName:           prefillVAName(llmSvc),
+		hpaName:          prefillHPAName(llmSvc),
+		scaledObjectName: prefillScaledObjectName(llmSvc),
+		workloadLabels:   labels,
+		markReady:        llmSvc.MarkPrefillScalingReady,
+		markNotReady:     llmSvc.MarkPrefillScalingNotReady,
+		markUnset:        llmSvc.MarkPrefillScalingUnset,
+	}
+}
+
+// reconcileWorkloadScaling reconciles all scaling resources (VA, actuator) and propagates
+// status for a single workload (main or prefill). The workloadScalingParams struct captures
+// all per-workload differences so this method does not need to know which workload it is handling.
+func (r *LLMISVCReconciler) reconcileWorkloadScaling(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config, p workloadScalingParams) error {
+	if err := r.reconcileVA(ctx, llmSvc, p.scaling, p.scaleTargetRef, p.vaName, p.workloadLabels); err != nil {
+		return fmt.Errorf("failed to reconcile %s VA: %w", p.name, err)
 	}
 
-	scaleTargetRef := prefillScaleTargetRef(llmSvc)
-	vaName := prefillVAName(llmSvc)
-
-	var prefillLabels map[string]string
-	if llmSvc.Spec.Prefill != nil {
-		prefillLabels = llmSvc.Spec.Prefill.Labels
+	if err := r.reconcileActuator(ctx, llmSvc, p.scaling, config, p.scaleTargetRef, p.vaName, p.hpaName, p.scaledObjectName); err != nil {
+		return fmt.Errorf("failed to reconcile %s actuator: %w", p.name, err)
 	}
 
-	if err := r.reconcileVA(ctx, llmSvc, scaling, scaleTargetRef, vaName, prefillLabels); err != nil {
-		return fmt.Errorf("failed to reconcile prefill VA: %w", err)
-	}
-
-	if err := r.reconcileActuator(ctx, llmSvc, scaling, config, scaleTargetRef, vaName, prefillHPAName(llmSvc), prefillScaledObjectName(llmSvc)); err != nil {
-		return fmt.Errorf("failed to reconcile prefill actuator: %w", err)
-	}
-
-	return nil
+	return r.propagateScalingStatus(ctx, llmSvc, p.scaling, p.hpaName, p.scaledObjectName, p.markReady, p.markNotReady, p.markUnset)
 }
 
 // reconcileHPA creates or updates an HPA for the workload, or deletes it when not needed.
@@ -200,6 +226,109 @@ func (r *LLMISVCReconciler) reconcileActuator(ctx context.Context, llmSvc *v1alp
 	}
 
 	return r.reconcileHPA(ctx, llmSvc, scaling, isStopped, scaleTargetRef, vaName, hpaName)
+}
+
+// propagateScalingStatus determines which actuator is active and propagates its status.
+// When no scaling is configured (or the service is stopped), the condition is cleared.
+func (r *LLMISVCReconciler) propagateScalingStatus(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, hpaName, scaledObjectName string, ready func(), notReady func(reason, messageFormat string, messageA ...interface{}), unset func()) error {
+	isStopped := utils.GetForceStopRuntime(llmSvc)
+
+	if scaling == nil || scaling.WVA == nil || isStopped {
+		unset()
+		return nil
+	}
+
+	if scaling.WVA.HPA != nil {
+		expected := &autoscalingv2.HorizontalPodAutoscaler{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      hpaName,
+				Namespace: llmSvc.GetNamespace(),
+			},
+		}
+		return r.propagateHPAStatus(ctx, expected, ready, notReady)
+	}
+
+	if scaling.WVA.KEDA != nil {
+		expected := &kedav1alpha1.ScaledObject{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      scaledObjectName,
+				Namespace: llmSvc.GetNamespace(),
+			},
+		}
+		return r.propagateScaledObjectStatus(ctx, expected, ready, notReady)
+	}
+
+	unset()
+	return nil
+}
+
+// propagateHPAStatus reads the live HPA status and maps its conditions to a ScalingReady
+// condition on the LLMInferenceService. AbleToScale=False or ScalingActive=False means the
+// metrics pipeline is broken and sets ScalingReady=False.
+func (r *LLMISVCReconciler) propagateHPAStatus(ctx context.Context, expected *autoscalingv2.HorizontalPodAutoscaler, ready func(), notReady func(reason, messageFormat string, messageA ...interface{})) error {
+	curr := &autoscalingv2.HorizontalPodAutoscaler{}
+	if err := r.Get(ctx, client.ObjectKeyFromObject(expected), curr); err != nil {
+		if apierrors.IsNotFound(err) {
+			notReady("HPAProgressing", "HPA not yet visible in cache")
+			return nil
+		}
+		return fmt.Errorf("failed to get current HPA %s/%s: %w", expected.GetNamespace(), expected.GetName(), err)
+	}
+
+	foundAny := false
+
+	for _, cond := range curr.Status.Conditions {
+		switch cond.Type {
+		case autoscalingv2.AbleToScale, autoscalingv2.ScalingActive:
+			foundAny = true
+			if cond.Status == corev1.ConditionFalse {
+				notReady(cond.Reason, cond.Message)
+				return nil
+			}
+		}
+	}
+
+	if !foundAny {
+		notReady("HPAProgressing", "HPA conditions not yet available")
+		return nil
+	}
+
+	ready()
+	return nil
+}
+
+// propagateScaledObjectStatus reads the live KEDA ScaledObject status and maps its conditions
+// to a ScalingReady condition on the LLMInferenceService. Ready=False means a trigger/config
+// issue and sets ScalingReady=False.
+func (r *LLMISVCReconciler) propagateScaledObjectStatus(ctx context.Context, expected *kedav1alpha1.ScaledObject, ready func(), notReady func(reason, messageFormat string, messageA ...interface{})) error {
+	curr := &kedav1alpha1.ScaledObject{}
+	if err := r.Get(ctx, client.ObjectKeyFromObject(expected), curr); err != nil {
+		if apierrors.IsNotFound(err) {
+			notReady("ScaledObjectProgressing", "ScaledObject not yet visible in cache")
+			return nil
+		}
+		return fmt.Errorf("failed to get current ScaledObject %s/%s: %w", expected.GetNamespace(), expected.GetName(), err)
+	}
+
+	conditions := curr.Status.Conditions
+	if conditions == nil || !conditions.AreInitialized() {
+		notReady("ScaledObjectProgressing", "ScaledObject conditions not yet available")
+		return nil
+	}
+
+	readyCond := conditions.GetReadyCondition()
+	if readyCond.Status == metav1.ConditionFalse {
+		notReady(readyCond.Reason, readyCond.Message)
+		return nil
+	}
+
+	if readyCond.Status != metav1.ConditionTrue {
+		notReady("ScaledObjectProgressing", "ScaledObject is not yet ready")
+		return nil
+	}
+
+	ready()
+	return nil
 }
 
 // validateAutoscalingConfig checks that the WVAAutoscalingConfig is valid for use with KEDA.

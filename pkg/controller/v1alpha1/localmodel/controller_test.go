@@ -30,7 +30,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 
+	"knative.dev/pkg/apis"
+
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 )
@@ -418,6 +421,78 @@ var _ = Describe("CachedModel controller", func() {
 
 			Expect(k8sClient.Delete(ctx, isvc1)).Should(Succeed())
 			Expect(k8sClient.Delete(ctx, isvc2)).Should(Succeed())
+		})
+
+		It("Should track LLMInferenceService in cluster-scoped cache status", func() {
+			defer GinkgoRecover()
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+			nodeGroup1 := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "gpu1",
+				},
+				Spec: localModelNodeGroupSpec1,
+			}
+			Expect(k8sClient.Create(ctx, nodeGroup1)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeGroup1)
+
+			modelName := fmt.Sprintf("llm-cache-%d", time.Now().UnixNano())
+			llmSvcName := "test-llm-svc"
+			llmSvcNamespace := "default"
+			cachedModel := &v1alpha1.LocalModelCache{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: modelName,
+				},
+				Spec: v1alpha1.LocalModelCacheSpec{
+					SourceModelUri: sourceModelUri,
+					ModelSize:      resource.MustParse("10Gi"),
+					NodeGroups:     []string{"gpu1"},
+				},
+			}
+			Expect(k8sClient.Create(ctx, cachedModel)).Should(Succeed())
+			defer func() {
+				Expect(k8sClient.Delete(ctx, cachedModel)).Should(Succeed())
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, types.NamespacedName{Name: modelName}, cachedModel)
+					return err != nil && errors.IsNotFound(err)
+				}, timeout, interval).Should(BeTrue())
+			}()
+
+			// Create LLMInferenceService with localmodel label (simulating the webhook)
+			modelUri, _ := apis.ParseURL(sourceModelUri)
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      llmSvcName,
+					Namespace: llmSvcNamespace,
+					Labels: map[string]string{
+						constants.LocalModelLabel: modelName,
+					},
+					Annotations: map[string]string{
+						constants.LocalModelSourceUriAnnotationKey: sourceModelUri,
+						constants.LocalModelPVCNameAnnotationKey:   modelName + "-gpu1",
+					},
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{
+						URI: *modelUri,
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, llmSvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, llmSvc)
+
+			// Verify the cache status tracks the LLMInferenceService
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: modelName}, cachedModel)
+				if err != nil {
+					return false
+				}
+				if len(cachedModel.Status.LLMInferenceServices) != 1 {
+					return false
+				}
+				return cachedModel.Status.LLMInferenceServices[0].Name == llmSvcName &&
+					cachedModel.Status.LLMInferenceServices[0].Namespace == llmSvcNamespace
+			}, timeout, interval).Should(BeTrue(), "Cache status should track the LLMInferenceService")
 		})
 	})
 

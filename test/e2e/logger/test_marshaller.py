@@ -40,7 +40,7 @@ kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/c
 
 @pytest.mark.marshaller
 @pytest.mark.asyncio(scope="session")
-async def test_json_immediate(rest_v1_client):
+async def test_json_immediate(rest_v1_client, network_layer):
     """JSON marshaller with immediate batching (batch_size=1).
 
     Send 1 prediction. Expect 2 S3 objects (request + response),
@@ -55,7 +55,12 @@ async def test_json_immediate(rest_v1_client):
         kserve_client.create(isvc)
         kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-        res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
+        res = await predict_isvc(
+            rest_v1_client,
+            service_name,
+            "./data/iris_input.json",
+            network_layer=network_layer,
+        )
         assert res["predictions"] == [1, 1]
 
         objects = wait_for_s3_objects(s3, LOGGER_BUCKET, prefix, 2, timeout=60)
@@ -84,7 +89,7 @@ async def test_json_immediate(rest_v1_client):
 
 @pytest.mark.marshaller
 @pytest.mark.asyncio(scope="session")
-async def test_json_size_batch(rest_v1_client):
+async def test_json_size_batch(rest_v1_client, network_layer):
     """JSON marshaller with size-based batching (batch_size=5).
 
     Send 5 predictions. Expect 2 S3 objects: one batch of 5 request
@@ -101,7 +106,10 @@ async def test_json_size_batch(rest_v1_client):
 
         for _ in range(5):
             res = await predict_isvc(
-                rest_v1_client, service_name, "./data/iris_input.json"
+                rest_v1_client,
+                service_name,
+                "./data/iris_input.json",
+                network_layer=network_layer,
             )
             assert res["predictions"] == [1, 1]
 
@@ -118,7 +126,7 @@ async def test_json_size_batch(rest_v1_client):
 
 @pytest.mark.marshaller
 @pytest.mark.asyncio(scope="session")
-async def test_json_timed_batch(rest_v1_client):
+async def test_json_timed_batch(rest_v1_client, network_layer):
     """JSON marshaller with timed batching (batch_size=2, interval=5s).
 
     Phase 1: Send 2 requests to fill the batch. Verify 2 objects with 2 records.
@@ -138,7 +146,10 @@ async def test_json_timed_batch(rest_v1_client):
         # Phase 1: fill the batch
         for _ in range(2):
             res = await predict_isvc(
-                rest_v1_client, service_name, "./data/iris_input.json"
+                rest_v1_client,
+                service_name,
+                "./data/iris_input.json",
+                network_layer=network_layer,
             )
             assert res["predictions"] == [1, 1]
 
@@ -148,7 +159,12 @@ async def test_json_timed_batch(rest_v1_client):
             verify_json_object(body, expected_records=2)
 
         # Phase 2: partial batch flushed by timer
-        res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
+        res = await predict_isvc(
+            rest_v1_client,
+            service_name,
+            "./data/iris_input.json",
+            network_layer=network_layer,
+        )
         assert res["predictions"] == [1, 1]
 
         objects = wait_for_s3_objects(
@@ -168,7 +184,7 @@ async def test_json_timed_batch(rest_v1_client):
 
 @pytest.mark.marshaller
 @pytest.mark.asyncio(scope="session")
-async def test_csv_immediate(rest_v1_client):
+async def test_csv_immediate(rest_v1_client, network_layer):
     """CSV marshaller with immediate batching (batch_size=1).
 
     Send 1 prediction. Expect 2 S3 objects (request + response),
@@ -183,7 +199,12 @@ async def test_csv_immediate(rest_v1_client):
         kserve_client.create(isvc)
         kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-        res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
+        res = await predict_isvc(
+            rest_v1_client,
+            service_name,
+            "./data/iris_input.json",
+            network_layer=network_layer,
+        )
         assert res["predictions"] == [1, 1]
 
         objects = wait_for_s3_objects(s3, LOGGER_BUCKET, prefix, 2, timeout=60)
@@ -206,7 +227,7 @@ async def test_csv_immediate(rest_v1_client):
 
 @pytest.mark.marshaller
 @pytest.mark.asyncio(scope="session")
-async def test_csv_size_batch(rest_v1_client):
+async def test_csv_size_batch(rest_v1_client, network_layer):
     """CSV marshaller with size-based batching (batch_size=5).
 
     Send 5 predictions. Expect 2 S3 objects: one batch of 5 request
@@ -223,7 +244,10 @@ async def test_csv_size_batch(rest_v1_client):
 
         for _ in range(5):
             res = await predict_isvc(
-                rest_v1_client, service_name, "./data/iris_input.json"
+                rest_v1_client,
+                service_name,
+                "./data/iris_input.json",
+                network_layer=network_layer,
             )
             assert res["predictions"] == [1, 1]
 
@@ -240,7 +264,7 @@ async def test_csv_size_batch(rest_v1_client):
 
 @pytest.mark.marshaller
 @pytest.mark.asyncio(scope="session")
-async def test_csv_timed_batch(rest_v1_client):
+async def test_csv_timed_batch(rest_v1_client, network_layer):
     """CSV marshaller with timed batching (batch_size=2, interval=5s).
 
     Phase 1: Send 2 requests to fill the batch. Verify 2 objects with 2 rows.
@@ -259,7 +283,10 @@ async def test_csv_timed_batch(rest_v1_client):
 
         for _ in range(2):
             res = await predict_isvc(
-                rest_v1_client, service_name, "./data/iris_input.json"
+                rest_v1_client,
+                service_name,
+                "./data/iris_input.json",
+                network_layer=network_layer,
             )
             assert res["predictions"] == [1, 1]
 
@@ -268,7 +295,12 @@ async def test_csv_timed_batch(rest_v1_client):
             body = get_s3_object_body(s3, LOGGER_BUCKET, obj["Key"])
             verify_csv_object(body, expected_records=2)
 
-        res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
+        res = await predict_isvc(
+            rest_v1_client,
+            service_name,
+            "./data/iris_input.json",
+            network_layer=network_layer,
+        )
         assert res["predictions"] == [1, 1]
 
         objects = wait_for_s3_objects(
@@ -288,7 +320,7 @@ async def test_csv_timed_batch(rest_v1_client):
 
 @pytest.mark.marshaller
 @pytest.mark.asyncio(scope="session")
-async def test_parquet_immediate(rest_v1_client):
+async def test_parquet_immediate(rest_v1_client, network_layer):
     """Parquet marshaller with immediate batching (batch_size=1).
 
     Send 1 prediction. Expect 2 S3 objects (request + response),
@@ -303,7 +335,12 @@ async def test_parquet_immediate(rest_v1_client):
         kserve_client.create(isvc)
         kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-        res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
+        res = await predict_isvc(
+            rest_v1_client,
+            service_name,
+            "./data/iris_input.json",
+            network_layer=network_layer,
+        )
         assert res["predictions"] == [1, 1]
 
         objects = wait_for_s3_objects(s3, LOGGER_BUCKET, prefix, 2, timeout=60)
@@ -326,7 +363,7 @@ async def test_parquet_immediate(rest_v1_client):
 
 @pytest.mark.marshaller
 @pytest.mark.asyncio(scope="session")
-async def test_parquet_size_batch(rest_v1_client):
+async def test_parquet_size_batch(rest_v1_client, network_layer):
     """Parquet marshaller with size-based batching (batch_size=5).
 
     Send 5 predictions. Expect 2 S3 objects: one batch of 5 request
@@ -343,7 +380,10 @@ async def test_parquet_size_batch(rest_v1_client):
 
         for _ in range(5):
             res = await predict_isvc(
-                rest_v1_client, service_name, "./data/iris_input.json"
+                rest_v1_client,
+                service_name,
+                "./data/iris_input.json",
+                network_layer=network_layer,
             )
             assert res["predictions"] == [1, 1]
 
@@ -360,7 +400,7 @@ async def test_parquet_size_batch(rest_v1_client):
 
 @pytest.mark.marshaller
 @pytest.mark.asyncio(scope="session")
-async def test_parquet_timed_batch(rest_v1_client):
+async def test_parquet_timed_batch(rest_v1_client, network_layer):
     """Parquet marshaller with timed batching (batch_size=2, interval=5s).
 
     Phase 1: Send 2 requests to fill the batch. Verify 2 objects with 2 rows.
@@ -379,7 +419,10 @@ async def test_parquet_timed_batch(rest_v1_client):
 
         for _ in range(2):
             res = await predict_isvc(
-                rest_v1_client, service_name, "./data/iris_input.json"
+                rest_v1_client,
+                service_name,
+                "./data/iris_input.json",
+                network_layer=network_layer,
             )
             assert res["predictions"] == [1, 1]
 
@@ -388,7 +431,12 @@ async def test_parquet_timed_batch(rest_v1_client):
             body = get_s3_object_body(s3, LOGGER_BUCKET, obj["Key"])
             verify_parquet_object(body, expected_records=2)
 
-        res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
+        res = await predict_isvc(
+            rest_v1_client,
+            service_name,
+            "./data/iris_input.json",
+            network_layer=network_layer,
+        )
         assert res["predictions"] == [1, 1]
 
         objects = wait_for_s3_objects(

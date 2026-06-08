@@ -22,6 +22,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/utils"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -29,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 )
@@ -113,6 +115,25 @@ func (v *LocalModelCacheValidator) ValidateDelete(ctx context.Context, obj runti
 		}
 		if modelName == localModelCache.Name {
 			return admission.Warnings{}, fmt.Errorf("LocalModelCache %s is being used by InferenceService %s", localModelCache.Name, isvcMeta.Name)
+		}
+	}
+
+	// Check if current LocalModelCache is being used by LLMInferenceServices
+	for _, llmIsvcMeta := range localModelCache.Status.LLMInferenceServices {
+		llmIsvc := v1alpha2.LLMInferenceService{}
+		if err := v.Get(ctx, client.ObjectKey(llmIsvcMeta), &llmIsvc); err != nil {
+			if apierrors.IsNotFound(err) {
+				continue
+			}
+			localModelCacheValidatorLogger.Error(err, "Error getting LLMInferenceService", "name", llmIsvcMeta.Name)
+			return nil, err
+		}
+		modelName, ok := llmIsvc.Labels[constants.LocalModelLabel]
+		if !ok {
+			continue
+		}
+		if modelName == localModelCache.Name {
+			return admission.Warnings{}, fmt.Errorf("LocalModelCache %s is being used by LLMInferenceService %s", localModelCache.Name, llmIsvcMeta.Name)
 		}
 	}
 	return nil, nil
