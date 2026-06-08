@@ -3,23 +3,17 @@ kind: Job
 metadata:
   name: s3-init
 spec:
-  activeDeadlineSeconds: 900
+  activeDeadlineSeconds: 300
   template:
     spec:
       initContainers:
-      - name: download-hf-model
-        image: kserve/storage-initializer:latest
-        imagePullPolicy: IfNotPresent
-        args:
-        - "hf://facebook/opt-125m"
-        - "/shared/facebook/opt-125m"
-        env:
-        - name: HF_HUB_DISABLE_PROGRESS_BARS
-          value: "1"
-        - name: TOKIO_WORKER_THREADS
-          value: "1"
-        - name: STORAGE_IGNORE_PATTERNS
-          value: "*.msgpack,*.h5,flax_model*,tf_model*,rust_model*"
+      - name: copy-model-from-cache
+        image: ${OPT_125M_CACHE_IMAGE}
+        imagePullPolicy: Never
+        command:
+        - sh
+        - -c
+        - mkdir -p /shared/facebook/opt-125m && cp -r /model/. /shared/facebook/opt-125m/
         volumeMounts:
         - name: model-cache
           mountPath: /shared
