@@ -25,6 +25,6 @@ import (
 
 // extendControllerSetup is a hook for distribution-specific controller setup such as
 // registering additional API schemes or adding ownership watches for platform-specific resources.
-func extendControllerSetup(_ manager.Manager, _ *builder.Builder) error {
+func extendControllerSetup(_ *LLMISVCReconciler, _ manager.Manager, _ *builder.Builder) error {
 	return nil
 }

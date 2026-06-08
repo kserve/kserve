@@ -3757,6 +3757,12 @@
         "localGatewayService": {
           "type": "string"
         },
+        "modelBasedRoutingHeaderName": {
+          "type": "string"
+        },
+        "modelBasedRoutingMode": {
+          "type": "string"
+        },
         "pathTemplate": {
           "type": "string"
         },

@@ -3,6 +3,8 @@ kind: LLMInferenceServiceConfig
 metadata:
   name: kserve-config-llm-decode-worker-data-parallel
 spec:
+  annotations:
+    serving.kserve.io/model-based-routing-enabled: "true"
   template:
     initContainers:
       - name: llm-d-routing-sidecar
@@ -215,9 +217,26 @@ spec:
             fi
 
             START_RANK=0
-            eval "vllm serve \
+
+            # --disable-access-log-for-endpoints landed in vLLM 0.16.0 (vllm-project/vllm#30011).
+            # Older versions still need the blanket --disable-uvicorn-access-log.
+            ACCESS_LOG_ARGS="--disable-uvicorn-access-log"
+            VLLM_VERSION=$(vllm --version 2>/dev/null | tail -1 | awk '{print $NF}')
+            echo "[access-log-detect] vllm version='${VLLM_VERSION}'"
+            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.16.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.16.0" ]; then
+              ACCESS_LOG_ARGS="--disable-access-log-for-endpoints /health,/metrics,/ping"
+            fi
+            echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
+
+            # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
+            SHUTDOWN_TIMEOUT_ARGS=""
+            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
+              SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Template 15 }}"
+            fi
+
+            eval "exec vllm serve \
               /mnt/models \
-              --served-model-name "{{ .Spec.Model.Name }}" \
+              --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
               --port 8001 \
               --api-server-count ${VLLM_API_SERVER_COUNT:-8} \
               {{- if .Spec.Parallelism.Expert -}}--enable-expert-parallel{{- end }} \
@@ -227,7 +246,8 @@ spec:
               --data-parallel-address ${DP_ADDRESS} \
               --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
               --data-parallel-start-rank $START_RANK \
-              --disable-uvicorn-access-log \
+              ${ACCESS_LOG_ARGS} \
+              ${SHUTDOWN_TIMEOUT_ARGS} \
               {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
               {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
               {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -256,6 +276,12 @@ spec:
               - ALL
           seccompProfile:
             type: RuntimeDefault
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /bin/sleep
+              - "15"
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: FallbackToLogsOnError
         livenessProbe:
@@ -293,7 +319,7 @@ spec:
           - mountPath: /var/run/kserve/tls
             name: tls-certs
             readOnly: true
-    terminationGracePeriodSeconds: 30
+    terminationGracePeriodSeconds: 60
     volumes:
       - emptyDir: { }
         name: home
@@ -461,9 +487,26 @@ spec:
             fi
 
             START_RANK=$(( ${LWS_WORKER_INDEX:-0} * {{ or .Spec.Parallelism.DataLocal 1 }} ))
-            eval "vllm serve \
+
+            # --disable-access-log-for-endpoints landed in vLLM 0.16.0 (vllm-project/vllm#30011).
+            # Older versions still need the blanket --disable-uvicorn-access-log.
+            ACCESS_LOG_ARGS="--disable-uvicorn-access-log"
+            VLLM_VERSION=$(vllm --version 2>/dev/null | tail -1 | awk '{print $NF}')
+            echo "[access-log-detect] vllm version='${VLLM_VERSION}'"
+            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.16.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.16.0" ]; then
+              ACCESS_LOG_ARGS="--disable-access-log-for-endpoints /health,/metrics,/ping"
+            fi
+            echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
+
+            # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
+            SHUTDOWN_TIMEOUT_ARGS=""
+            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
+              SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Worker 15 }}"
+            fi
+
+            eval "exec vllm serve \
               /mnt/models \
-              --served-model-name "{{ .Spec.Model.Name }}" \
+              --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
               --port 8001 \
               {{- if .Spec.Parallelism.Expert }}--enable-expert-parallel{{- end }} \
               {{- if .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
@@ -473,7 +516,8 @@ spec:
               --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
               --data-parallel-start-rank $START_RANK \
               --headless \
-              --disable-uvicorn-access-log \
+              ${ACCESS_LOG_ARGS} \
+              ${SHUTDOWN_TIMEOUT_ARGS} \
               {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
               {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
               {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -504,6 +548,12 @@ spec:
               - ALL
           seccompProfile:
             type: RuntimeDefault
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /bin/sleep
+              - "15"
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
@@ -518,7 +568,7 @@ spec:
           - mountPath: /var/run/kserve/tls
             name: tls-certs
             readOnly: true
-    terminationGracePeriodSeconds: 30
+    terminationGracePeriodSeconds: 60
     volumes:
       - emptyDir: { }
         name: home

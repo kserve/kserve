@@ -92,9 +92,32 @@ func (p *ParallelismSpec) GetSize() *int32 {
 	return nil
 }
 
-// IsUsingLLMInferenceServiceConfig returns true if the given config name is referenced by this service,
-// either via versioned config resolution (pinned in Status.Annotations values) or via explicit Spec.BaseRefs.
+// IsUsingLLMInferenceServiceConfig returns true if the given config name is referenced by this service.
+// This is a name-only helper and should be preferred only when namespace context is unavailable.
 func (s *LLMInferenceService) IsUsingLLMInferenceServiceConfig(name string) bool {
+	return s.IsUsingLLMInferenceServiceConfigInNamespace(name, "")
+}
+
+// IsUsingLLMInferenceServiceConfigInNamespace returns true if the given config is referenced by this service.
+// When status.appliedConfigs is present, it is treated as authoritative.
+// Annotation/baseRefs fallback is used when appliedConfigs is empty (new service, or stopped service
+// whose applied configs were cleared).
+func (s *LLMInferenceService) IsUsingLLMInferenceServiceConfigInNamespace(name, namespace string) bool {
+	// Use applied configs from the last successful reconciliation when available.
+	if len(s.Status.AppliedConfigRefs) > 0 {
+		for i := range s.Status.AppliedConfigRefs {
+			if string(s.Status.AppliedConfigRefs[i].Name) != name {
+				continue
+			}
+
+			if namespace == "" || string(s.Status.AppliedConfigRefs[i].Namespace) == namespace {
+				return true
+			}
+		}
+		return false
+	}
+
+	// Fallback: appliedConfigs is empty (not yet reconciled, or cleared on stop).
 	for _, value := range s.Status.Annotations {
 		if value == name {
 			return true

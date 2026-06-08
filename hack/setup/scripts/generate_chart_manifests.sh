@@ -75,6 +75,12 @@ yq eval-all '. as $item ireduce ({}; . * $item)' \
   ${REPO_ROOT}/charts/_common/kserve-llmisvc-resources-specific.yaml \
   > ${REPO_ROOT}/charts/kserve-llmisvc-resources/values.yaml
 
+# kserve-localmodel-resources values.yaml
+yq eval-all '. as $item ireduce ({}; . * $item)' \
+  ${REPO_ROOT}/charts/_common/common-sections.yaml \
+  ${REPO_ROOT}/charts/_common/kserve-localmodel-resources-specific.yaml \
+  > ${REPO_ROOT}/charts/kserve-localmodel-resources/values.yaml
+
 echo "✅ Generated values.yaml files"
 
 # Sync common patch files to charts that need them

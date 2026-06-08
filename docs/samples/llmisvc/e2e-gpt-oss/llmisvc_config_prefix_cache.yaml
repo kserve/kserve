@@ -14,7 +14,7 @@ spec:
             vllm serve /mnt/models
             --served-model-name "{{ .Spec.Model.Name }}"
             --port 8000
-            --disable-uvicorn-access-log
+            --disable-access-log-for-endpoints /health,/metrics,/ping
             --disable-log-requests
             --prefix-caching-hash-algo sha256_cbor
             --block-size 64

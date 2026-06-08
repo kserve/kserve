@@ -4,6 +4,8 @@ metadata:
   name: kserve-config-llm-prefill-template
 spec:
   prefill:
+    annotations:
+      serving.kserve.io/model-based-routing-enabled: "true"
     template:
       containers:
         - image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
@@ -136,10 +138,27 @@ spec:
                 fi
               fi
 
-              eval "vllm serve /mnt/models \
+              # --disable-access-log-for-endpoints landed in vLLM 0.16.0 (vllm-project/vllm#30011).
+              # Older versions still need the blanket --disable-uvicorn-access-log.
+              ACCESS_LOG_ARGS="--disable-uvicorn-access-log"
+              VLLM_VERSION=$(vllm --version 2>/dev/null | tail -1 | awk '{print $NF}')
+              echo "[access-log-detect] vllm version='${VLLM_VERSION}'"
+              if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.16.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.16.0" ]; then
+                ACCESS_LOG_ARGS="--disable-access-log-for-endpoints /health,/metrics,/ping"
+              fi
+              echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
+
+              # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
+              SHUTDOWN_TIMEOUT_ARGS=""
+              if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
+                SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Template 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"
+              fi
+
+              eval "exec vllm serve /mnt/models \
                 --served-model-name "{{ .Spec.Model.Name }}" \
                 --port 8000 \
-                --disable-uvicorn-access-log \
+                ${ACCESS_LOG_ARGS} \
+                ${SHUTDOWN_TIMEOUT_ARGS} \
                 {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
                 {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
                 {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -163,6 +182,12 @@ spec:
                 - ALL
             seccompProfile:
               type: RuntimeDefault
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                - /bin/sleep
+                - "15"
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           livenessProbe:
@@ -200,7 +225,7 @@ spec:
             - mountPath: /var/run/kserve/tls
               name: tls-certs
               readOnly: true
-      terminationGracePeriodSeconds: 30
+      terminationGracePeriodSeconds: 60
       volumes:
         - emptyDir: { }
           name: home
