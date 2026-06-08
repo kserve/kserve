@@ -22,6 +22,7 @@ ENABLE_LOCALMODEL=false
 ENABLE_LLMISVC=false
 SET_KSERVE_VERSION=""
 SET_KSERVE_REGISTRY=""
+LLMISVC_SCALING=""
 
 Help() {
    echo "KServe installation script"
@@ -37,6 +38,7 @@ Help() {
    echo "  --kserve-registry REG          Override image registry (kustomize only, e.g., quay.io/myuser)"
    echo "  --no-runtimes                   Skip installing ClusterServingRuntimes"
    echo "  --keda, -k                     Enable KEDA (standard mode only)"
+   echo "  --scaling MODE                 Autoscaling for LLMISvc: keda or hpa (requires --type llmisvc)"
    echo "  --deps-only, -d                Install dependencies only"
    echo "  --uninstall, -u                Uninstall all"
    echo ""
@@ -87,6 +89,10 @@ while [[ $# -gt 0 ]]; do
     --keda|-k)
       ENABLE_KEDA=true
       shift
+      ;;
+    --scaling)
+      LLMISVC_SCALING="$2"
+      shift 2
       ;;
     --deps-only|-d)
       DEPS_ONLY=true
@@ -144,6 +150,18 @@ esac
 
 export DEPLOYMENT_MODE="${NORMALIZED_MODE}"
 
+# Validate --scaling flag
+if [[ -n "$LLMISVC_SCALING" ]]; then
+  if [[ "$LLMISVC_SCALING" != "keda" && "$LLMISVC_SCALING" != "hpa" ]]; then
+    log_error "Invalid scaling mode: $LLMISVC_SCALING. Must be 'keda' or 'hpa'"
+    exit 1
+  fi
+  if ! is_positive "$ENABLE_LLMISVC"; then
+    log_error "--scaling requires --type llmisvc"
+    exit 1
+  fi
+fi
+
 # Validate dependencies
 is_positive "$USE_LOCAL_CHARTS" && [[ $INSTALL_METHOD != "helm" ]] && { log_error "Local chart requires helm mode"; exit 1; }
 [[ -n "${SET_KSERVE_REGISTRY}" && $INSTALL_METHOD != "kustomize" ]] && { log_error "--kserve-registry requires kustomize mode"; exit 1; }
@@ -179,6 +197,11 @@ show_installation_plan() {
       llmisvc)
         echo "  • LLMIsvc"
         echo "    - Dependencies: Gateway API, LWS Operator, Envoy Gateway"
+        if [[ "${LLMISVC_SCALING}" == "keda" ]]; then
+          echo "    - Autoscaling: KEDA (Prometheus + KEDA + WVA)"
+        elif [[ "${LLMISVC_SCALING}" == "hpa" ]]; then
+          echo "    - Autoscaling: HPA (Prometheus + Prometheus Adapter + WVA)"
+        fi
         ! is_positive "$DEPS_ONLY" && is_positive "$INSTALL_LLMISVC_CONFIGS" && echo "    - With LLMIsvc Configs"
         ;;
     esac
@@ -194,6 +217,9 @@ uninstall_all() {
   local scripts=(
     "hack/setup/infra/manage.kserve-helm.sh"
     "hack/setup/infra/manage.kserve-kustomize.sh"
+    "hack/setup/infra/manage.wva-helm.sh"
+    "hack/setup/infra/manage.prometheus-adapter-helm.sh"
+    "hack/setup/infra/manage.prometheus-helm.sh"
     "hack/setup/infra/manage.keda-otel-addon-helm.sh"
     "hack/setup/infra/manage.opentelemetry-helm.sh"
     "hack/setup/infra/manage.keda-helm.sh"
@@ -245,6 +271,15 @@ install_dependencies() {
     ${REPO_ROOT}/hack/setup/quick-install/keda-dependency-install.sh
   fi
 
+  # Install LLMISvc autoscaling dependencies if enabled
+  if [[ -n "${LLMISVC_SCALING}" ]]; then
+    if [[ "${LLMISVC_SCALING}" == "keda" ]]; then
+      ${REPO_ROOT}/hack/setup/quick-install/llmisvc-autoscaling-keda-dependency-install.sh
+    else
+      ${REPO_ROOT}/hack/setup/quick-install/llmisvc-autoscaling-hpa-dependency-install.sh
+    fi
+  fi
+
   log_success "Dependencies installed"
 }
 
@@ -263,6 +298,16 @@ if [[ ${#TYPES[@]} -gt 0 ]]; then
     ${REPO_ROOT}/hack/setup/infra/manage.kserve-helm.sh
   else
     ${REPO_ROOT}/hack/setup/infra/manage.kserve-kustomize.sh
+  fi
+
+  # Configure autoscaling settings in inferenceservice-config ConfigMap
+  if [[ -n "${LLMISVC_SCALING}" ]]; then
+    AUTOSCALING_PROM_URL="${WVA_PROMETHEUS_URL:-https://prometheus-kube-prometheus-prometheus.${PROMETHEUS_NAMESPACE:-monitoring}:9090}"
+    AUTOSCALING_PROM_UNSAFE_SSL="${WVA_PROMETHEUS_UNSAFE_SSL:-true}"
+    log_info "Configuring autoscaling-wva-controller-config with Prometheus URL: ${AUTOSCALING_PROM_URL}"
+    update_isvc_config \
+      "autoscaling-wva-controller-config.prometheus.url=${AUTOSCALING_PROM_URL}" \
+      "autoscaling-wva-controller-config.prometheus.unsafeSsl=${AUTOSCALING_PROM_UNSAFE_SSL}"
   fi
 
   log_success "Installation complete: ${TYPES[*]}"

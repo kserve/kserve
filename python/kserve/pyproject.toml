@@ -38,10 +38,10 @@ dependencies = [
     "pyjwt>=2.12.0",
     # CVE-2026-30922 pyasn1 Vulnerable to Denial of Service via Unbounded Recursion
     # Pinning because it is a transitive dependency.
-    "pyasn>=0.6.3"
+    "pyasn1>=0.6.3"
 ]
 name = "kserve"
-version = "0.18.0"
+version = "0.19.0rc0"
 description = "KServe Python SDK"
 readme = "README.md"
 classifiers = [
@@ -66,7 +66,7 @@ repository = "https://github.com/kserve/kserve/tree/master/python/kserve"
 
 [project.optional-dependencies]
 storage = [
-    "kserve-storage==0.18.0"
+    "kserve-storage==0.19.0rc0"
 ]
 logging = [
     "asgi-logger<1.0.0,>=0.1.0",
@@ -83,6 +83,7 @@ test = [
     "pytest<8.0.0,>=7.4.4",
     "pytest-cov<6.0.0,>=5.0.0",
     "pytest-xdist<4.0.0,>=3.0.2",
+    "pytest-json-report<2.0.0,>=1.5.0",
     "pytest-asyncio<1.0.0,>=0.23.4",
     "pytest-httpx<1.0.0,>=0.30.0",
     "mypy<1.0,>=0.991",

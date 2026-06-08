@@ -106,7 +106,8 @@ def check_url_exists(url, timeout=5):
         req = Request(url, method="HEAD")
         with urllib.request.urlopen(req, timeout=timeout) as response:
             return 200 <= response.status < 400
-    except Exception:
+    except Exception as e:
+        print(f"    HEAD {url} failed: {e}")
         return False
 
 
@@ -114,8 +115,17 @@ def build_release_url(github_repo, version, filename):
     return f"https://github.com/{github_repo}/releases/download/{version}/{filename}"
 
 
-def find_available_version_with_url(base_version, github_repo, filename):
-    """Find closest version in same minor version (X.Y.z) with existing URL"""
+def find_available_version_with_url(
+    base_version, github_repo, filename, existing_version=None
+):
+    """Find closest version in same minor version (X.Y.z) with existing URL.
+
+    When base_version is a pseudo-version that doesn't have a release artifact,
+    the existing kserve-deps.env value is checked first - if it's in the same
+    minor series and its URL still works, it's reused without querying the
+    GitHub releases API. This avoids flaky HEAD-request failures in CI causing
+    version downgrades.
+    """
     if check_url_exists(build_release_url(github_repo, base_version, filename)):
         return base_version, True
 
@@ -123,6 +133,16 @@ def find_available_version_with_url(base_version, github_repo, filename):
         major, minor, patch = parse_semver(base_version)
     except Exception:
         return base_version, False
+
+    if existing_version:
+        try:
+            e_major, e_minor, _ = parse_semver(existing_version)
+            if (e_major, e_minor) == (major, minor) and check_url_exists(
+                build_release_url(github_repo, existing_version, filename)
+            ):
+                return existing_version, True
+        except Exception:
+            pass
 
     try:
         api_url = f"https://api.github.com/repos/{github_repo}/releases"
@@ -255,11 +275,17 @@ def main():
         else:
             raw_version = f"v{app_version}"
             base_version = strip_pseudo_version(raw_version)
+            is_pseudo = base_version != raw_version
 
             if url_verify:
                 github_repo, filename = url_verify
                 final_version, url_found = find_available_version_with_url(
-                    base_version, github_repo, filename
+                    base_version,
+                    github_repo,
+                    filename,
+                    existing_version=existing_versions.get(var_name)
+                    if is_pseudo
+                    else None,
                 )
                 if url_found:
                     if final_version == base_version:
