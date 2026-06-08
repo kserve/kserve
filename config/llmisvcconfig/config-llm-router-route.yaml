@@ -1,6 +1,6 @@
 # HTTPRoute template for LLMInferenceService routing.
 #
-# Each endpoint (completions, chat/completions, responses) is split into two
+# Each endpoint (completions, chat/completions, responses, messages) is split into two
 # rules because Gateway API requires exactly one PathPrefix match per rule
 # when using URLRewrite with replacePrefixMatch:
 #
