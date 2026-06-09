@@ -132,11 +132,11 @@ def _patch_rolling_update_trigger(
     kserve_client: KServeClient,
     llm_isvc,
 ):
-    """Add a pod-template annotation to force a workload rolling update.
+    """Add a harmless env var to the main container to force a workload rolling update.
 
-    The annotation is harmless but changes the pod-template hash, so Kubernetes
-    creates a new ReplicaSet and rolls out fresh pods without altering workload
-    behaviour.
+    spec.template is a PodSpec (no metadata field), so env var injection on the
+    main container is the correct way to change the pod-template and trigger a
+    new rollout without altering workload behaviour.
     """
     from kserve import constants
 
@@ -149,9 +149,17 @@ def _patch_rolling_update_trigger(
 
     spec = current.setdefault("spec", {})
     template = spec.setdefault("template", {})
-    metadata = template.setdefault("metadata", {})
-    annotations = metadata.setdefault("annotations", {})
-    annotations["test.kserve.io/rolling-update-trigger"] = "v2"
+    containers = template.setdefault("containers", [])
+    main = next((c for c in containers if c.get("name") == "main"), None)
+    if main is None:
+        main = {"name": "main"}
+        containers.append(main)
+    env = main.setdefault("env", [])
+    trigger = next((e for e in env if e.get("name") == "TEST_ROLLING_UPDATE_TRIGGER"), None)
+    if trigger:
+        trigger["value"] = "v2"
+    else:
+        env.append({"name": "TEST_ROLLING_UPDATE_TRIGGER", "value": "v2"})
 
     kserve_client.api_instance.patch_namespaced_custom_object(
         constants.KSERVE_GROUP,
