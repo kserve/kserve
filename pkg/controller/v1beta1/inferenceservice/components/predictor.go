@@ -251,6 +251,13 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		return ctrl.Result{}, errors.Wrapf(err, "fails to list inferenceservice pods by label")
 	}
 
+	// Surface the resolved model name and supported protocols in status so consumers
+	// can construct inference endpoint paths without separately looking up the
+	// ServingRuntime. Both values are already resolved in-memory above; SupportedProtocols
+	// is empty for custom predictors that are not backed by a ServingRuntime.
+	isvc.Status.ModelStatus.ModelName = isvcutils.GetModelName(isvc)
+	isvc.Status.ModelStatus.SupportedProtocols = sRuntime.ProtocolVersions
+
 	if isvc.Status.PropagateModelStatus(statusSpec, predictorPods, rawDeployment, kstatus) {
 		return ctrl.Result{}, nil
 	} else {

@@ -2115,6 +2115,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					TransitionStatus:    "InProgress",
 					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
 					ModelCopies:         &v1beta1.ModelCopies{},
+					ModelName:           "svc-with-transformer",
 				},
 				ServingRuntimeName: "tf-serving",
 			}
