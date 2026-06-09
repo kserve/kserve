@@ -168,7 +168,7 @@ KServe's portable integration surface for `LLMInferenceService` routing is:
 
 The `LLMInferenceService` created earlier already provisions the `InferencePool` and manages the `HTTPRoute` that points to it. To expose that route externally, create a `Gateway` backed by your cluster's GatewayClass.
 
-### 7.0 Provider matrix
+### 7.1 Provider matrix
 
 | Capability | Standard API | Portable across providers | Notes |
 |-----------|--------------|---------------------------|-------|
@@ -177,13 +177,13 @@ The `LLMInferenceService` created earlier already provisions the `InferencePool`
 | Scheduler / EPP integration | Gateway API Inference Extension | Yes | Requires provider support for `InferencePool` |
 | Model-name routing | `AIGatewayRoute` | No | Envoy AI Gateway-specific extension |
 
-### 7.1 Gateway provider examples
+### 7.2 Gateway provider examples
 
 - Provider-neutral template: [gateway.yaml](./gateway.yaml)
 - Agentgateway example: [gateway-agentgateway.yaml](./gateway-agentgateway.yaml)
 - Envoy AI Gateway extension: [ai-gateway-route.yaml](./ai-gateway-route.yaml)
 
-### 7.2 Gateway
+### 7.3 Gateway
 
 ```bash
 kubectl apply -f gateway.yaml -n kserve-lab
@@ -204,7 +204,7 @@ With that in place, the standard `LLMInferenceService` path is:
 - `HTTPRoute` -> `InferencePool`
 - `InferencePool` / scheduler -> selected inference pod
 
-### 7.3 Envoy AI Gateway extension
+### 7.4 Envoy AI Gateway extension
 
 If you also want model-name routing for OpenAI-compatible clients, apply the Envoy-specific `AIGatewayRoute` example below. This step is optional and only applies when your gateway provider supports `AIGatewayRoute`.
 
