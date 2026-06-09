@@ -36,7 +36,7 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.controller.gateway.domain | string | `"example.com"` |  |
 | kserve.controller.gateway.domainTemplate | string | `"{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"` |  |
 | kserve.controller.gateway.ingressGateway.className | string | `"istio"` |  |
-| kserve.controller.gateway.ingressGateway.gatewayApiClassName | string | `"envoy"` |  |
+| kserve.controller.gateway.ingressGateway.gatewayClassName | string | `"envoy"` |  |
 | kserve.controller.gateway.ingressGateway.createGateway | bool | `false` |  |
 | kserve.controller.gateway.ingressGateway.enableGatewayApi | bool | `false` |  |
 | kserve.controller.gateway.ingressGateway.gateway | string | `"knative-serving/knative-ingress-gateway"` |  |
