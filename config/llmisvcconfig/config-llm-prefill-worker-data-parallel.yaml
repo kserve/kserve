@@ -179,7 +179,9 @@ spec:
               # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
               KV_TRANSFER_ARGS=""
               if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-                KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
+                if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+                  KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
+                fi
               fi
 
               eval "exec vllm serve \
@@ -456,7 +458,9 @@ spec:
               # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
               KV_TRANSFER_ARGS=""
               if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-                KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
+                if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+                  KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
+                fi
               fi
 
               eval "exec vllm serve \

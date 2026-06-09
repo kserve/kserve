@@ -63,8 +63,6 @@ const (
 	// Router and scheduler configurations
 	configRouterSchedulerNameSuffix = "config-llm-scheduler"
 	configRouterRouteNameSuffix     = "config-llm-router-route"
-	// CPU KV cache offloading configuration
-	configCPUOffloadNameSuffix = "config-llm-cpu-offload"
 )
 
 var (
@@ -80,7 +78,6 @@ var (
 	configPrefillWorkerDataParallelName     = configPrefix + configPrefillWorkerDataParallelNameSuffix
 	configRouterSchedulerName               = configPrefix + configRouterSchedulerNameSuffix
 	configRouterRouteName                   = configPrefix + configRouterRouteNameSuffix
-	configCPUOffloadName                    = configPrefix + configCPUOffloadNameSuffix
 )
 
 // FIXME move those presets to well-known when they're finally known :)
@@ -101,7 +98,6 @@ var WellKnownDefaultConfigs = sets.New[string](
 	configPrefillWorkerDataParallelName,
 	configRouterSchedulerName,
 	configRouterRouteName,
-	configCPUOffloadName,
 )
 
 const (
@@ -619,7 +615,9 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 				if err != nil {
 					return ""
 				}
-				return "--kv-transfer-config '" + string(b) + "'"
+				// Escape " as \" so the value embeds safely in a bash double-quoted
+				// assignment and in the JSON template string that ReplaceVariables renders.
+				return "--kv-transfer-config '" + strings.ReplaceAll(string(b), `"`, `\"`) + "'"
 			},
 			"shutdownTimeout": func(spec any, preStop int64) int64 {
 				const defaultTGPS = int64(60)

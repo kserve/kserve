@@ -2056,6 +2056,104 @@ func TestReplaceVariables(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "kvTransferConfig returns empty string when kvCacheOffloading is nil",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{""}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "kvTransferConfig renders --kv-transfer-config from kvCacheOffloading",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+							CPUBytesToUse: 10737418240,
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								// json.Marshal sorts map keys alphabetically: kv_connector < kv_connector_extra_config < kv_role
+								// Internally " is escaped to \" for JSON-safe template rendering; JSON unmarshal restores plain ".
+								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":10737418240,"spec_name":"TieringOffloadingSpec"},"kv_role":"kv_both"}'`}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "kvTransferConfig includes eviction policy when set",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+							CPUBytesToUse:  5368709120,
+							EvictionPolicy: "arc",
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								// json.Marshal sorts map keys alphabetically: cpu_bytes_to_use < eviction_policy < spec_name
+								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":5368709120,"eviction_policy":"arc","spec_name":"TieringOffloadingSpec"},"kv_role":"kv_both"}'`}},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
