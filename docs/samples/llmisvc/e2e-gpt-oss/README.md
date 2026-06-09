@@ -189,7 +189,7 @@ The `LLMInferenceService` created earlier already provisions the `InferencePool`
 kubectl apply -f gateway.yaml -n kserve-lab
 ```
 
-[gateway.yaml](./gateway.yaml) defines a `Gateway` named `ai-gateway` with an HTTP listener on port 80. Before applying it, replace `gatewayClassName` with the GatewayClass provided by your cluster.
+[gateway.yaml](./gateway.yaml) defines a `Gateway` named `ai-gateway` with an HTTP listener on port 80 and defaults `gatewayClassName` to `envoy`. Change it only if your cluster uses a different GatewayClass.
 
 If you are using [Agentgateway's Kubernetes inference support](https://agentgateway.dev/docs/kubernetes/latest/inference/), you can apply the ready-to-use sample instead:
 

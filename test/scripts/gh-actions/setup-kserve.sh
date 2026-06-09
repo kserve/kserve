@@ -36,10 +36,7 @@ export INSTALL_METHOD="${INSTALL_METHOD:-kustomize}"
 # Tests can still override the actual GatewayClass name via GATEWAYCLASS_NAME when needed.
 if [[ $NETWORK_LAYER == *"-gatewayapi"* ]]; then
   export GATEWAY_NETWORK_LAYER="${NETWORK_LAYER%%-*}"
-fi
-
-if [[ $NETWORK_LAYER == *"-gatewayapi"* ]]; then
-  export GATEWAYCLASS_NAME="${GATEWAYCLASS_NAME:-${NETWORK_LAYER%%-*}}"
+  export GATEWAYCLASS_NAME="${GATEWAYCLASS_NAME:-${GATEWAY_NETWORK_LAYER}}"
 fi
 
 if [[ -n "${GATEWAYCLASS_NAME:-}" && -n "${GITHUB_ENV:-}" ]]; then
