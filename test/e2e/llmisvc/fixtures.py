@@ -785,7 +785,8 @@ LLMINFERENCESERVICE_CONFIGS = {
             },
         },
     },
-    # v0.6-style PD config: old plugin names, deciderPluginName param, hashBlockSize.
+    # Realistic v0.6-style PD config: old plugin names, deciderPluginName param,
+    # hashBlockSize, prefill/decode filters and profiles.
     # Exercises the full #5433 migration: plugin renames, param restructure,
     # hashBlockSize removal, decider ordering.
     "scheduler-v06-pd-config-migration": {
@@ -797,6 +798,8 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "kind": "EndpointPickerConfig",
                         "plugins": [
                             {"type": "prefill-header-handler"},
+                            {"type": "prefill-filter"},
+                            {"type": "decode-filter"},
                             {"type": "always-disagg-pd-decider"},
                             {
                                 "type": "pd-profile-handler",
@@ -816,8 +819,18 @@ LLMINFERENCESERVICE_CONFIGS = {
                         ],
                         "schedulingProfiles": [
                             {
-                                "name": "default",
+                                "name": "prefill",
                                 "plugins": [
+                                    {"pluginRef": "prefill-filter"},
+                                    {"pluginRef": "queue-scorer", "weight": 2},
+                                    {"pluginRef": "prefix-cache-scorer", "weight": 3},
+                                    {"pluginRef": "max-score-picker"},
+                                ],
+                            },
+                            {
+                                "name": "decode",
+                                "plugins": [
+                                    {"pluginRef": "decode-filter"},
                                     {"pluginRef": "queue-scorer", "weight": 2},
                                     {"pluginRef": "prefix-cache-scorer", "weight": 3},
                                     {"pluginRef": "max-score-picker"},
@@ -829,7 +842,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             },
         },
     },
-    # v0.6-style PD config with non-zero threshold (no deciderPluginName).
+    # Realistic v0.6-style PD config with non-zero threshold (no deciderPluginName).
     # Exercises #5560 migration: threshold -> prefix-based-pd-decider with
     # nonCachedTokens = ceil(threshold / 4), plus all #5433 renames.
     "scheduler-v06-nonzero-threshold-migration": {
@@ -841,6 +854,8 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "kind": "EndpointPickerConfig",
                         "plugins": [
                             {"type": "prefill-header-handler"},
+                            {"type": "prefill-filter"},
+                            {"type": "decode-filter"},
                             {
                                 "type": "pd-profile-handler",
                                 "parameters": {
@@ -859,8 +874,18 @@ LLMINFERENCESERVICE_CONFIGS = {
                         ],
                         "schedulingProfiles": [
                             {
-                                "name": "default",
+                                "name": "prefill",
                                 "plugins": [
+                                    {"pluginRef": "prefill-filter"},
+                                    {"pluginRef": "queue-scorer", "weight": 2},
+                                    {"pluginRef": "prefix-cache-scorer", "weight": 3},
+                                    {"pluginRef": "max-score-picker"},
+                                ],
+                            },
+                            {
+                                "name": "decode",
+                                "plugins": [
+                                    {"pluginRef": "decode-filter"},
                                     {"pluginRef": "queue-scorer", "weight": 2},
                                     {"pluginRef": "prefix-cache-scorer", "weight": 3},
                                     {"pluginRef": "max-score-picker"},
