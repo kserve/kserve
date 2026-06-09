@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"knative.dev/pkg/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -203,6 +204,45 @@ func GetStorageInitializerReadOnlyFlag(annotations map[string]string) bool {
 		}
 	}
 	return isvcReadonlyStringFlag
+}
+
+func applyStorageInitializerResourceOverrides(container *corev1.Container, annotations map[string]string) error {
+	if len(annotations) == 0 {
+		return nil
+	}
+
+	applyOverride := func(annotation string, list *corev1.ResourceList, name corev1.ResourceName) error {
+		value, ok := annotations[annotation]
+		if !ok || strings.TrimSpace(value) == "" {
+			return nil
+		}
+
+		quantity, err := resource.ParseQuantity(value)
+		if err != nil {
+			return fmt.Errorf("invalid storage initializer resource override %q=%q: %w", annotation, value, err)
+		}
+
+		if *list == nil {
+			*list = corev1.ResourceList{}
+		}
+		(*list)[name] = quantity
+		return nil
+	}
+
+	if err := applyOverride(constants.StorageInitializerCPURequestAnnotationKey, &container.Resources.Requests, corev1.ResourceCPU); err != nil {
+		return err
+	}
+	if err := applyOverride(constants.StorageInitializerMemoryRequestAnnotationKey, &container.Resources.Requests, corev1.ResourceMemory); err != nil {
+		return err
+	}
+	if err := applyOverride(constants.StorageInitializerCPULimitAnnotationKey, &container.Resources.Limits, corev1.ResourceCPU); err != nil {
+		return err
+	}
+	if err := applyOverride(constants.StorageInitializerMemoryLimitAnnotationKey, &container.Resources.Limits, corev1.ResourceMemory); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // CommonStorageInitialization handles the injection of storage initialization logic for both single and multiple storage URIs.
@@ -477,6 +517,10 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 
 	// Inject credentials only if we have an init container (not for PVC only sources)
 	if initContainer != nil {
+		if err := applyStorageInitializerResourceOverrides(initContainer, params.IsvcAnnotations); err != nil {
+			return err
+		}
+
 		if params.StorageSpec != nil && params.StorageSpec.StorageKey != nil && params.StorageSpec.Parameters != nil {
 			// initContainer.Args (storageURI.URI) is modified up in CreateStorageSpecSecretEnvs
 			if err := params.CredentialBuilder.CreateStorageSpecSecretEnvs(

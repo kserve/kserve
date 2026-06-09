@@ -4405,6 +4405,73 @@ func TestCommonStorageInitialization(t *testing.T) {
 	}
 }
 
+func TestCommonStorageInitializationWithStorageInitializerResourceOverrides(t *testing.T) {
+	podSpec := &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{
+				Name:  constants.InferenceServiceContainerName,
+				Image: "test-image",
+			},
+		},
+	}
+
+	params := &StorageInitializerParams{
+		Namespace:   "default",
+		StorageURIs: []v1beta1.StorageUri{{Uri: "hf://Qwen/Qwen3-35B-A3B", MountPath: constants.DefaultModelLocalMountPath}},
+		PodSpec:     podSpec,
+		CredentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{
+			Data: map[string]string{},
+		}),
+		Client: c,
+		Config: storageInitializerConfig,
+		IsvcAnnotations: map[string]string{
+			constants.StorageInitializerCPURequestAnnotationKey:    "500m",
+			constants.StorageInitializerCPULimitAnnotationKey:      "2",
+			constants.StorageInitializerMemoryRequestAnnotationKey: "2Gi",
+			constants.StorageInitializerMemoryLimitAnnotationKey:   "4Gi",
+		},
+	}
+
+	err := CommonStorageInitialization(t.Context(), params)
+	require.NoError(t, err)
+	require.Len(t, podSpec.InitContainers, 1)
+
+	initContainer := podSpec.InitContainers[0]
+	assert.Equal(t, resource.MustParse("500m"), initContainer.Resources.Requests[corev1.ResourceCPU])
+	assert.Equal(t, resource.MustParse("2Gi"), initContainer.Resources.Requests[corev1.ResourceMemory])
+	assert.Equal(t, resource.MustParse("2"), initContainer.Resources.Limits[corev1.ResourceCPU])
+	assert.Equal(t, resource.MustParse("4Gi"), initContainer.Resources.Limits[corev1.ResourceMemory])
+}
+
+func TestCommonStorageInitializationWithInvalidStorageInitializerResourceOverride(t *testing.T) {
+	podSpec := &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{
+				Name:  constants.InferenceServiceContainerName,
+				Image: "test-image",
+			},
+		},
+	}
+
+	params := &StorageInitializerParams{
+		Namespace:   "default",
+		StorageURIs: []v1beta1.StorageUri{{Uri: "hf://Qwen/Qwen3-35B-A3B", MountPath: constants.DefaultModelLocalMountPath}},
+		PodSpec:     podSpec,
+		CredentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{
+			Data: map[string]string{},
+		}),
+		Client: c,
+		Config: storageInitializerConfig,
+		IsvcAnnotations: map[string]string{
+			constants.StorageInitializerMemoryLimitAnnotationKey: "not-a-quantity",
+		},
+	}
+
+	err := CommonStorageInitialization(t.Context(), params)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), constants.StorageInitializerMemoryLimitAnnotationKey)
+}
+
 func TestCommonStorageInitializationWithCustomStorageContainer(t *testing.T) {
 	// Setup custom storage container
 	customStorageContainer := &v1alpha1.StorageContainerSpec{
