@@ -155,7 +155,9 @@ def _patch_rolling_update_trigger(
         main = {"name": "main"}
         containers.append(main)
     env = main.setdefault("env", [])
-    trigger = next((e for e in env if e.get("name") == "TEST_ROLLING_UPDATE_TRIGGER"), None)
+    trigger = next(
+        (e for e in env if e.get("name") == "TEST_ROLLING_UPDATE_TRIGGER"), None
+    )
     if trigger:
         trigger["value"] = "v2"
     else:
