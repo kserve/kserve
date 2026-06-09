@@ -1141,7 +1141,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     "command": ["/app/llm-d-inference-sim"],
                     "args": [
                         "--port",
-                        "8000",
+                        "8001",
                         "--model",
                         "{{ .Spec.Model.Name }}",
                         "--mode",
