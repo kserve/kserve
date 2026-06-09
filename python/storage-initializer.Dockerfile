@@ -19,10 +19,10 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Install Python dependencies
 COPY storage/pyproject.toml storage/uv.lock storage/
-RUN cd storage && uv sync --active --no-cache 
+RUN cd storage && uv sync --active --extra confidential --no-cache
 
 COPY storage storage
-RUN cd storage && uv pip install . --no-cache 
+RUN cd storage && uv pip install ".[confidential]" --no-cache
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -59,11 +59,11 @@ COPY --from=builder --chown=kserve:kserve $VIRTUAL_ENV $VIRTUAL_ENV
 COPY --from=builder storage storage
 COPY ./storage-initializer /storage-initializer
 
-RUN chmod +x /storage-initializer/scripts/initializer-entrypoint
+RUN chmod +x /storage-initializer/scripts/initializer-entrypoint-confidential
 RUN mkdir /work
 WORKDIR /work
 
 # Set a writable /mnt folder to avoid permission issue on Huggingface download. See https://huggingface.co/docs/hub/spaces-sdks-docker#permissions
 RUN chown -R kserve:kserve /mnt
 USER 1000
-ENTRYPOINT ["/storage-initializer/scripts/initializer-entrypoint"]
+ENTRYPOINT ["/storage-initializer/scripts/initializer-entrypoint-confidential"]
