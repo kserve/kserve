@@ -94,11 +94,7 @@ def test_storage_uri_preserved_with_legacy_spec_on_create():
 
 @pytest.mark.predictor
 def test_storage_uri_preserved_on_replace():
-    """storageUri must survive a PUT/replace that changes imagePullSecrets.
-
-    This mirrors the dashboard workflow (RHOAIENG-61105): delete old OCI
-    secret, create new one, PUT the IS referencing the new secret.
-    """
+    """storageUri must survive a PUT/replace that changes imagePullSecrets."""
     service_name = "isvc-webhook-replace-uri"
 
     predictor = V1beta1PredictorSpec(
