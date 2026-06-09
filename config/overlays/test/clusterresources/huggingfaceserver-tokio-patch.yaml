@@ -1,0 +1,10 @@
+- op: add
+  path: /spec/containers/0/env/-
+  value:
+    name: TOKIO_WORKER_THREADS
+    value: "1"
+- op: add
+  path: /spec/containers/0/env/-
+  value:
+    name: HF_HUB_DISABLE_XET
+    value: "1"
