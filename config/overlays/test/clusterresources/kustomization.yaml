@@ -4,6 +4,12 @@ kind: Kustomization
 resources:
 - ../../../runtimes
 
+patches:
+- path: huggingfaceserver-tokio-patch.yaml
+  target:
+    kind: ClusterServingRuntime
+    name: kserve-huggingfaceserver
+
 images:
 - name: kserve/sklearnserver
   newTag: latest
