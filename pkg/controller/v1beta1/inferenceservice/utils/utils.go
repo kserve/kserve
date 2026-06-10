@@ -377,9 +377,9 @@ func UpdateImageTag(container *corev1.Container, runtimeVersion *string, serving
 	} else if utils.IsGPUEnabled(container.Resources) && len(strings.Split(image, ":")) > 0 {
 		re := regexp.MustCompile(`(:([\w.\-_]*))$`)
 		if len(re.FindString(image)) > 0 {
-			// For TFServing/TorchServe/HuggingFace the GPU image is tagged with suffix "-gpu", when the version is found in the tag
+			// For TFServing/HuggingFace the GPU image is tagged with suffix "-gpu", when the version is found in the tag
 			// and runtimeVersion is not specified, we default to append the "-gpu" suffix to the image tag
-			if servingRuntime != nil && (*servingRuntime == constants.TFServing || *servingRuntime == constants.TorchServe || *servingRuntime == constants.HuggingFaceServer) {
+			if servingRuntime != nil && (*servingRuntime == constants.TFServing || *servingRuntime == constants.HuggingFaceServer) {
 				// check for the case when image field is specified directly with gpu tag
 				if !strings.HasSuffix(container.Image, "-gpu") {
 					container.Image = image + "-gpu"

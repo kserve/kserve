@@ -179,8 +179,6 @@ func validatePredictor(isvc *InferenceService) error {
 		return errors.New("the 'name' field is not allowed in standard predictor")
 	case predictor.Tensorflow != nil && predictor.Tensorflow.Name != "":
 		return errors.New("the 'name' field is not allowed in standard predictor")
-	case predictor.PyTorch != nil && predictor.PyTorch.Name != "":
-		return errors.New("the 'name' field is not allowed in standard predictor")
 	case predictor.Triton != nil && predictor.Triton.Name != "":
 		return errors.New("the 'name' field is not allowed in standard predictor")
 	case predictor.ONNX != nil && predictor.ONNX.Name != "":
@@ -263,8 +261,6 @@ func predictorFrameworkContainer(p *PredictorSpec) *corev1.Container {
 		return &p.XGBoost.Container
 	case p.Tensorflow != nil:
 		return &p.Tensorflow.Container
-	case p.PyTorch != nil:
-		return &p.PyTorch.Container
 	case p.Triton != nil:
 		return &p.Triton.Container
 	case p.ONNX != nil:

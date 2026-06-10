@@ -205,7 +205,7 @@ func TestFirstNonNilComponent(t *testing.T) {
 	}{
 		"WithNonNilComponent": {
 			components: []ComponentImplementation{
-				spec.PyTorch,
+				spec.Triton,
 				spec.LightGBM,
 				spec.SKLearn,
 				spec.Tensorflow,
@@ -214,7 +214,7 @@ func TestFirstNonNilComponent(t *testing.T) {
 		},
 		"NoNonNilComponents": {
 			components: []ComponentImplementation{
-				spec.PyTorch,
+				spec.Triton,
 				spec.LightGBM,
 				spec.Tensorflow,
 				spec.PMML,

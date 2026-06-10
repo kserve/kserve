@@ -35,7 +35,7 @@ func TestGetImplementations(t *testing.T) {
 		{
 			name: "Single implementation - PyTorch",
 			predictorSpec: &PredictorSpec{
-				PyTorch: &TorchServeSpec{
+				Triton: &TritonSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
 						RuntimeVersion: ptr.To("0.4.1"),
 					},
@@ -46,7 +46,7 @@ func TestGetImplementations(t *testing.T) {
 		{
 			name: "Pytorch with transformer container",
 			predictorSpec: &PredictorSpec{
-				PyTorch: &TorchServeSpec{
+				Triton: &TritonSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
 						RuntimeVersion: ptr.To("0.4.1"),
 					},
@@ -64,7 +64,7 @@ func TestGetImplementations(t *testing.T) {
 		{
 			name: "Multiple implementations - PyTorch and Tensorflow",
 			predictorSpec: &PredictorSpec{
-				PyTorch: &TorchServeSpec{
+				Triton: &TritonSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
 						RuntimeVersion: ptr.To("0.4.1"),
 					},
