@@ -435,8 +435,9 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 		// - PVC URIs are mounted directly as volumes (no download needed)
 		// - Other URIs require init container to download artifacts first
 		for _, storageUri := range params.StorageURIs {
-			if strings.HasPrefix(storageUri.Uri, constants.OciURIPrefix) {
-				// OCI URIs are already handled by modelcar injection above; skip.
+			if _, _, isOci := utils.ParseOciScheme(storageUri.Uri); isOci {
+				// All OCI-scheme URIs (oci://, oci+native://, oci+fetch://, …) are
+				// already handled by the dispatch block above; skip here.
 				continue
 			}
 			if strings.HasPrefix(storageUri.Uri, constants.PvcURIPrefix) {
