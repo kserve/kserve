@@ -1343,8 +1343,8 @@ LLMINFERENCESERVICE_CONFIGS = {
     },
     "tracing-enabled": {
         "tracing": {
-            "exporterEndpoint": "jaeger.observability.svc.cluster.local:4317",
-            "sampler": "always_on",
+            "exporterEndpoint": "http://jaeger.observability.svc.cluster.local:4317",
+            "sampler": "parentbased_traceidratio",
             "samplerArg": "1.0",
             "exporter": "otlp",
         }

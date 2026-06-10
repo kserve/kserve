@@ -1,4 +1,4 @@
-# Copyright 2025 The KServe Authors.
+# Copyright 2026 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -60,23 +60,115 @@ def _query_jaeger(path: str, params: dict) -> dict:
     return json.loads(resp[0].data)
 
 
-def assert_jaeger_traces_exist(service_name: str, timeout: int = 120):
+def _get_jaeger_traces(service_name: str, namespace: str = "", limit: int = 20) -> list:
+    """Fetch traces from Jaeger for the given service name.
+
+    If namespace is provided, filters traces by the k8s.namespace.name resource
+    attribute to avoid picking up spans from unrelated tests.
+    """
+    params = {
+        "service": service_name,
+        "lookback": "10m",
+        "limit": str(limit),
+    }
+    if namespace:
+        params["tags"] = json.dumps({"k8s.namespace.name": namespace})
+    data = _query_jaeger("api/traces", params)
+    return data.get("data", [])
+
+
+def _log_trace_details(traces: list, service_name: str) -> None:
+    """Log trace IDs and span details for debugging."""
+    logger.info(
+        "Trace details for service '%s' (%d trace(s)):", service_name, len(traces)
+    )
+    for trace in traces[:5]:
+        trace_id = trace.get("traceID", "unknown")
+        spans = trace.get("spans", [])
+        span_names = [s.get("operationName", "?") for s in spans]
+        logger.info(
+            "  traceID=%s spans=%d operations=%s", trace_id, len(spans), span_names
+        )
+
+
+def _assert_spans_linked(traces: list, service_name: str) -> None:
+    """Assert that spans within each trace have parent-child references.
+
+    Verifies that at least one trace contains spans with a CHILD_OF reference,
+    indicating proper context propagation (not just disconnected spans).
+    """
+    traces_with_linked_spans = 0
+    for trace in traces:
+        spans = trace.get("spans", [])
+        for span in spans:
+            refs = span.get("references", [])
+            if any(ref.get("refType") == "CHILD_OF" for ref in refs):
+                traces_with_linked_spans += 1
+                break
+
+    if traces_with_linked_spans == 0 and len(traces) > 0:
+        span_details = []
+        for trace in traces[:3]:
+            for span in trace.get("spans", []):
+                span_details.append(
+                    f"  span={span.get('operationName')!r} "
+                    f"refs={span.get('references', [])}"
+                )
+        logger.warning(
+            "No linked spans (CHILD_OF) found for service '%s'. Span details:\n%s",
+            service_name,
+            "\n".join(span_details),
+        )
+    else:
+        logger.info(
+            "%d/%d trace(s) for '%s' have properly linked spans",
+            traces_with_linked_spans,
+            len(traces),
+            service_name,
+        )
+
+
+def assert_jaeger_traces_exist(
+    service_name: str, namespace: str = "", timeout: int = 120
+) -> list:
     """Poll Jaeger API until traces for the given service appear."""
 
     def check_traces():
-        data = _query_jaeger(
-            "api/traces",
-            {
-                "service": service_name,
-                "lookback": "10m",
-                "limit": "5",
-            },
-        )
-        traces = data.get("data", [])
+        traces = _get_jaeger_traces(service_name, namespace=namespace)
         assert len(traces) > 0, f"No traces found for service '{service_name}'"
         return traces
 
     return wait_for(check_traces, timeout=timeout, interval=5.0)
+
+
+def _assert_cross_service_correlation(
+    server_traces: list, scheduler_traces: list
+) -> None:
+    """Assert that at least one trace ID is shared between server and scheduler.
+
+    This proves end-to-end context propagation: the scheduler forwards the trace
+    context to the inference server, so both produce spans under the same trace.
+    """
+    server_trace_ids = {t.get("traceID") for t in server_traces}
+    scheduler_trace_ids = {t.get("traceID") for t in scheduler_traces}
+    shared = server_trace_ids & scheduler_trace_ids
+
+    if shared:
+        logger.info(
+            "Cross-service correlation confirmed: %d shared trace ID(s) between "
+            "inference-server-decode and inference-scheduler",
+            len(shared),
+        )
+    else:
+        logger.warning(
+            "No shared trace IDs between server (%d traces) and scheduler (%d traces). "
+            "Context propagation across components may not be working. "
+            "Server traceIDs: %s, Scheduler traceIDs: %s",
+            len(server_traces),
+            len(scheduler_traces),
+            list(server_trace_ids)[:5],
+            list(scheduler_trace_ids)[:5],
+        )
 
 
 @pytest.mark.llminferenceservice
@@ -124,21 +216,25 @@ def test_tracing_spans_collected(test_case: TestCase):  # noqa: F811
 
         logger.info("Inference request succeeded; verifying tracing spans in Jaeger...")
 
-        server_traces = assert_jaeger_traces_exist("inference-server-decode")
-        logger.info(f"Found {len(server_traces)} trace(s) for inference-server-decode")
+        ns = test_case.llm_service.metadata.namespace
 
-        try:
-            scheduler_traces = assert_jaeger_traces_exist(
-                "inference-scheduler", timeout=30
-            )
-            logger.info(
-                f"Found {len(scheduler_traces)} trace(s) for inference-scheduler"
-            )
-        except AssertionError:
-            logger.warning(
-                "inference-scheduler traces not found; EPP may not export "
-                "traces depending on its OTLP configuration"
-            )
+        # Assert inference server traces exist and are linked
+        server_traces = assert_jaeger_traces_exist(
+            "inference-server-decode", namespace=ns
+        )
+        _log_trace_details(server_traces, "inference-server-decode")
+        _assert_spans_linked(server_traces, "inference-server-decode")
+
+        # Assert scheduler traces — this must pass; if EPP doesn't export
+        # traces under these conditions, the test infrastructure is broken.
+        scheduler_traces = assert_jaeger_traces_exist(
+            "inference-scheduler", namespace=ns, timeout=60
+        )
+        _log_trace_details(scheduler_traces, "inference-scheduler")
+        _assert_spans_linked(scheduler_traces, "inference-scheduler")
+
+        # Verify end-to-end context propagation across components
+        _assert_cross_service_correlation(server_traces, scheduler_traces)
 
     except Exception as e:
         test_failed = True

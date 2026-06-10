@@ -33,6 +33,7 @@ NETWORK_LAYER="${2:-istio}"
 ENABLE_KEDA="${3:-false}"
 ENABLE_LLMISVC="${4:-false}"
 LLMISVC_AUTOSCALER="${5:-none}"
+OBSERVABILITY="${6:-none}"
 
 # Parse network layer configuration
 USES_GATEWAY_API=false
@@ -118,8 +119,9 @@ else
     ${REPO_ROOT}/hack/setup/infra/manage.prometheus-helm.sh
     ${REPO_ROOT}/hack/setup/infra/manage.keda-helm.sh
     ${REPO_ROOT}/hack/setup/infra/manage.wva-helm.sh
+  fi
 
-  elif [[ $LLMISVC_AUTOSCALER == "tracing" ]]; then
+  if [[ $OBSERVABILITY == "jaeger" ]]; then
     echo "Installing Jaeger All-in-One for tracing e2e tests..."
     ${REPO_ROOT}/hack/setup/infra/manage.jaeger-helm.sh
   fi

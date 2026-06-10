@@ -556,23 +556,16 @@ jobs:
           name: ${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
           path: ./tmp
 
-      - name: Load LLMISvc controller image into minikube
-        run: |
-          minikube image load ./tmp/${{ env.LLMISVC_CONTROLLER_IMG }}-${{ env.TAG }}
-          echo "Images in minikube:"
-          minikube image ls | grep ${{ env.LLMISVC_CONTROLLER_IMG }} || echo "No llmisvc-controller images found"
-
-      - name: Load storage-initializer image into minikube
-        run: |
-          minikube image load ./tmp/${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
-          echo "Images in minikube:"
-          minikube image ls | grep ${{ env.STORAGE_INIT_IMG }} || echo "No storage-initializer images found"
+      - name: Load docker images
+        uses: ./.github/actions/load-docker-images
+        with:
+          directory: ./tmp
 
       - name: KServe dependency setup (tracing)
         uses: ./.github/actions/kserve-dep-setup
         with:
           deploy-llmisvc: "true"
-          autoscaler: "tracing"
+          observability: "jaeger"
 
       - name: Install UV
         run: ./test/scripts/gh-actions/setup-uv.sh
