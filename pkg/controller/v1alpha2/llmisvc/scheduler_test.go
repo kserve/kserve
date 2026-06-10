@@ -32,6 +32,157 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 )
 
+func TestWithLoraAffinityScorer(t *testing.T) {
+	tests := []struct {
+		name       string
+		hasLoRA    bool
+		configYAML string
+		validate   func(g Gomega, obj map[string]interface{})
+	}{
+		{
+			name:    "no LoRA - no-op",
+			hasLoRA: false,
+			configYAML: `
+plugins:
+- type: single-profile-handler
+- type: queue-scorer
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: queue-scorer
+    weight: 2
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				g.Expect(plugins).To(HaveLen(2))
+				for _, p := range plugins {
+					g.Expect(p.(map[string]interface{})["type"]).NotTo(Equal(loraAffinityScorerPlugin))
+				}
+			},
+		},
+		{
+			name:    "with LoRA - injects plugin and default profile entry",
+			hasLoRA: true,
+			configYAML: `
+plugins:
+- type: single-profile-handler
+- type: queue-scorer
+- type: prefix-cache-scorer
+- type: max-score-picker
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: queue-scorer
+    weight: 2
+  - pluginRef: prefix-cache-scorer
+    weight: 3
+  - pluginRef: max-score-picker
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				types := make([]string, 0, len(plugins))
+				for _, p := range plugins {
+					types = append(types, p.(map[string]interface{})["type"].(string))
+				}
+				g.Expect(types).To(ContainElement(loraAffinityScorerPlugin))
+
+				profiles := obj["schedulingProfiles"].([]interface{})
+				defaultProfile := profiles[0].(map[string]interface{})
+				g.Expect(defaultProfile["name"]).To(Equal("default"))
+				refs := defaultProfile["plugins"].([]interface{})
+				g.Expect(refs[0].(map[string]interface{})["pluginRef"]).To(Equal(loraAffinityScorerPlugin))
+				g.Expect(refs[0].(map[string]interface{})["weight"]).To(Equal(int64(4)))
+			},
+		},
+		{
+			name:    "with LoRA - idempotent when plugin already present",
+			hasLoRA: true,
+			configYAML: `
+plugins:
+- type: lora-affinity-scorer
+- type: queue-scorer
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: lora-affinity-scorer
+    weight: 4
+  - pluginRef: queue-scorer
+    weight: 2
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				count := 0
+				for _, p := range plugins {
+					if p.(map[string]interface{})["type"] == loraAffinityScorerPlugin {
+						count++
+					}
+				}
+				g.Expect(count).To(Equal(1))
+			},
+		},
+		{
+			name:    "with LoRA - only injects into default profile, not others",
+			hasLoRA: true,
+			configYAML: `
+plugins:
+- type: queue-scorer
+schedulingProfiles:
+- name: prefill
+  plugins:
+  - pluginRef: queue-scorer
+- name: default
+  plugins:
+  - pluginRef: queue-scorer
+    weight: 2
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				profiles := obj["schedulingProfiles"].([]interface{})
+				for _, profile := range profiles {
+					pm := profile.(map[string]interface{})
+					refs := pm["plugins"].([]interface{})
+					if pm["name"] == "default" {
+						g.Expect(refs[0].(map[string]interface{})["pluginRef"]).To(Equal(loraAffinityScorerPlugin))
+					} else {
+						for _, ref := range refs {
+							g.Expect(ref.(map[string]interface{})["pluginRef"]).NotTo(Equal(loraAffinityScorerPlugin))
+						}
+					}
+				}
+			},
+		},
+		{
+			name:    "no LoRA - no-op (hasLoRA=false)",
+			hasLoRA: false,
+			configYAML: `
+plugins:
+- type: queue-scorer
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: queue-scorer
+    weight: 2
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				g.Expect(plugins).To(HaveLen(1))
+				g.Expect(plugins[0].(map[string]interface{})["type"]).To(Equal("queue-scorer"))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			var obj map[string]interface{}
+			g.Expect(yaml.Unmarshal([]byte(tt.configYAML), &obj)).To(Succeed())
+			u := unstructured.Unstructured{Object: obj}
+			fn := withLoraAffinityScorer(tt.hasLoRA)
+			g.Expect(fn(context.Background(), &u)).To(Succeed())
+			tt.validate(g, u.Object)
+		})
+	}
+}
+
 func TestPreserveSchedulerConfig(t *testing.T) {
 	defaultSvc := &v1alpha2.LLMInferenceService{}
 	inlineSvc := &v1alpha2.LLMInferenceService{
