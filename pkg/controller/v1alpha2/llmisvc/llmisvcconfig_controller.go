@@ -19,7 +19,6 @@ package llmisvc
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -34,6 +33,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
@@ -100,14 +101,15 @@ func (r *LLMISVCConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 }
 
 func (r *LLMISVCConfigReconciler) reconcile(ctx context.Context, config *v1alpha2.LLMInferenceServiceConfig) error {
-	inUse, referencing, err := r.isConfigInUse(ctx, config)
+	referencing, err := r.referencingServices(ctx, config)
 	if err != nil {
 		return fmt.Errorf("failed to check if config is in use: %w", err)
 	}
 
-	if inUse {
-		msg := "referenced by LLMInferenceService(s): " + strings.Join(referencing, ", ")
-		config.MarkConfigInUse("InUse", msg)
+	config.Status.ReferencedBy = referencing
+
+	if len(referencing) > 0 {
+		config.MarkConfigInUse("InUse", "referenced by %d LLMInferenceService(s)", len(referencing))
 	} else {
 		config.MarkConfigNotInUse("NotInUse", "not referenced by any LLMInferenceService")
 	}
@@ -122,21 +124,20 @@ func (r *LLMISVCConfigReconciler) reconcile(ctx context.Context, config *v1alpha
 func (r *LLMISVCConfigReconciler) reconcileDelete(ctx context.Context, config *v1alpha2.LLMInferenceServiceConfig, finalizerName string) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	inUse, referencing, err := r.isConfigInUse(ctx, config)
+	referencing, err := r.referencingServices(ctx, config)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to check if config is in use: %w", err)
 	}
 
-	if inUse {
-		msg := "referenced by LLMInferenceService(s): " + strings.Join(referencing, ", ")
-
+	if len(referencing) > 0 {
 		logger.Info("LLMInferenceServiceConfig is still referenced, blocking deletion",
 			"referencedBy", referencing)
 		r.Eventf(config, corev1.EventTypeWarning, "DeletionBlocked",
-			"Cannot delete LLMInferenceServiceConfig %s/%s: %s",
-			config.Namespace, config.Name, msg)
+			"Cannot delete LLMInferenceServiceConfig %s/%s: referenced by %d LLMInferenceService(s)",
+			config.Namespace, config.Name, len(referencing))
 
-		config.MarkConfigInUse("DeletionBlocked", msg)
+		config.Status.ReferencedBy = referencing
+		config.MarkConfigInUse("DeletionBlocked", "referenced by %d LLMInferenceService(s)", len(referencing))
 		if err := r.updateStatus(ctx, config); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -174,9 +175,8 @@ func (r *LLMISVCConfigReconciler) updateStatus(ctx context.Context, desired *v1a
 	})
 }
 
-// isConfigInUse checks if any LLMInferenceService references this config
+// referencingServices returns the LLMInferenceService instances that reference this config
 // via spec.baseRefs, status.annotations, or implicitly as a well-known default.
-// It returns whether the config is in use and a list of referencing service names.
 //
 // Well-known default configs (those in WellKnownDefaultConfigs) are treated as implicitly
 // referenced by all LLMInferenceService instances in the same namespace (or cluster-wide
@@ -184,9 +184,7 @@ func (r *LLMISVCConfigReconciler) updateStatus(ctx context.Context, desired *v1a
 // are resolved implicitly by the controller, so any existing service could depend on them
 // even without an explicit baseRef. Operators must drain all services before deleting a
 // well-known config.
-func (r *LLMISVCConfigReconciler) isConfigInUse(ctx context.Context, config *v1alpha2.LLMInferenceServiceConfig) (bool, []string, error) {
-	// System namespace configs can be used by services in any namespace as a fallback.
-	// Non-system namespace configs can only be used by services in the same namespace.
+func (r *LLMISVCConfigReconciler) referencingServices(ctx context.Context, config *v1alpha2.LLMInferenceServiceConfig) ([]v1alpha2.ReferencedLLMInferenceService, error) {
 	listNamespace := config.Namespace
 	if config.Namespace == constants.KServeNamespace {
 		listNamespace = corev1.NamespaceAll
@@ -194,32 +192,35 @@ func (r *LLMISVCConfigReconciler) isConfigInUse(ctx context.Context, config *v1a
 
 	isWellKnown := WellKnownDefaultConfigs.Has(config.Name)
 
-	var referencing []string
+	var referencing []v1alpha2.ReferencedLLMInferenceService
 	llmSvcList := &v1alpha2.LLMInferenceServiceList{}
 	if err := r.List(ctx, llmSvcList, &client.ListOptions{
 		Namespace: listNamespace,
 	}); err != nil {
-		return false, nil, fmt.Errorf("failed to list LLMInferenceService: %w", err)
+		return nil, fmt.Errorf("failed to list LLMInferenceService: %w", err)
 	}
 
 	for _, llmSvc := range llmSvcList.Items {
-		// Well-known default configs are implicitly used by all services in the
-		// same namespace (or all namespaces for system namespace configs).
-		// This early return is intentional: since the config is implicitly available to
-		// any service, we report one example and short-circuit to avoid scanning the entire list.
 		if isWellKnown && (config.Namespace == constants.KServeNamespace || config.Namespace == llmSvc.Namespace) {
-			return true, []string{fmt.Sprintf("%s/%s (and potentially others well-known config)", llmSvc.Namespace, llmSvc.Name)}, nil
+			referencing = append(referencing, svcRef(llmSvc))
+			continue
 		}
 
-		// Check explicit references via spec.baseRefs and status.annotations.
-		// Status.Annotations stores versioned config resolution as {key: annotation-key, value: config-name},
-		// so iterating values matches config names (consistent with IsUsingLLMInferenceServiceConfig).
-		if llmSvc.IsUsingLLMInferenceServiceConfig(config.Name) {
-			referencing = append(referencing, fmt.Sprintf("%s/%s", llmSvc.Namespace, llmSvc.Name))
+		if llmSvc.IsUsingLLMInferenceServiceConfigInNamespace(config.Name, config.Namespace) {
+			referencing = append(referencing, svcRef(llmSvc))
 		}
 	}
 
-	return len(referencing) > 0, referencing, nil
+	return referencing, nil
+}
+
+func svcRef(svc v1alpha2.LLMInferenceService) v1alpha2.ReferencedLLMInferenceService {
+	return v1alpha2.ReferencedLLMInferenceService{
+		UntypedObjectReference: v1alpha2.UntypedObjectReference{
+			Name:      gwapiv1.ObjectName(svc.Name),
+			Namespace: gwapiv1.Namespace(svc.Namespace),
+		},
+	}
 }
 
 // SetupWithManager sets up the controller with the Manager.

@@ -277,6 +277,15 @@ def test_config_deletion_blocked_when_referenced():
             assert in_use_cond.get("reason") == "DeletionBlocked", (
                 f"Expected reason=DeletionBlocked, got {in_use_cond.get('reason')}"
             )
+            # Verify referencedBy lists the referencing service
+            referenced_by = cfg.get("status", {}).get("referencedBy", [])
+            assert len(referenced_by) > 0, (
+                f"Expected referencedBy to list referencing services, got {referenced_by}"
+            )
+            svc_names = [ref.get("name") for ref in referenced_by]
+            assert service_name in svc_names, (
+                f"Expected {service_name} in referencedBy names, got {svc_names}"
+            )
             return True
 
         wait_for(assert_deletion_blocked, timeout=60, interval=2.0)

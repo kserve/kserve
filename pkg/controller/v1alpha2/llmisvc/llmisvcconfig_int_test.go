@@ -26,6 +26,7 @@ import (
 	"knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
@@ -61,6 +62,8 @@ var _ = Describe("LLMInferenceServiceConfig Controller", func() {
 				inUseCond := current.GetStatus().GetCondition("ConfigInUse")
 				g.Expect(inUseCond).ToNot(BeNil(), "expected ConfigInUse condition to be set")
 				g.Expect(inUseCond.IsFalse()).To(BeTrue(), "expected ConfigInUse=False when not referenced")
+
+				g.Expect(current.Status.ReferencedBy).To(BeEmpty(), "expected no ReferencedBy when not referenced")
 			}).WithContext(ctx).Should(Succeed())
 		})
 	})
@@ -115,7 +118,16 @@ var _ = Describe("LLMInferenceServiceConfig Controller", func() {
 				g.Expect(inUseCond).ToNot(BeNil(), "expected ConfigInUse condition to be set")
 				g.Expect(inUseCond.IsTrue()).To(BeTrue(), "expected ConfigInUse=True when deletion is blocked")
 				g.Expect(inUseCond.Reason).To(Equal("DeletionBlocked"))
-				g.Expect(inUseCond.Message).To(ContainSubstring(svcName))
+
+				g.Expect(current.Status.ReferencedBy).ToNot(BeEmpty(), "expected ReferencedBy to list referencing services")
+				g.Expect(current.Status.ReferencedBy).To(ContainElement(
+					v1alpha2.ReferencedLLMInferenceService{
+						UntypedObjectReference: v1alpha2.UntypedObjectReference{
+							Name:      gwapiv1.ObjectName(svcName),
+							Namespace: gwapiv1.Namespace(current.Namespace),
+						},
+					},
+				))
 			}).WithContext(ctx).Should(Succeed())
 		})
 

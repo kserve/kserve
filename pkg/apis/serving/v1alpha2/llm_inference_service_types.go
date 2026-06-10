@@ -71,6 +71,12 @@ type LLMInferenceServiceConfig struct {
 type LLMInferenceServiceConfigStatus struct {
 	// Conditions of the resource.
 	duckv1.Status `json:",inline"`
+
+	// ReferencedBy lists the LLMInferenceService instances that reference this config
+	// via spec.baseRefs, status.annotations, or implicitly as a well-known default.
+	// +optional
+	// +listType=atomic
+	ReferencedBy []ReferencedLLMInferenceService `json:"referencedBy,omitempty"`
 }
 
 type ReferencedLLMInferenceService struct {
