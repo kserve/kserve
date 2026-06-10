@@ -26,6 +26,7 @@ from .fixtures import (
     _create_or_update_llmisvc_config,
     inject_k8s_proxy,
 )
+from ..common.utils import KSERVE_NAMESPACE
 from .logging import log_execution
 from .test_llm_inference_service import (
     create_llmisvc,
@@ -36,6 +37,7 @@ from .test_llm_inference_service import (
 KSERVE_PLURAL_LLMINFERENCESERVICE = "llminferenceservices"
 CONFIG_FINALIZER = "serving.kserve.io/llmisvcconfig-finalizer"
 API_VERSION = "v1alpha1"
+WELL_KNOWN_CONFIG_SUFFIX = "-config-llm-template"
 
 
 def _kserve_client() -> KServeClient:
@@ -411,3 +413,120 @@ def test_config_deletion_unblocked_after_service_deleted():
         _cleanup_config_silent(kserve_client, config_name)
         for cfg_name in extra_configs:
             _cleanup_config_silent(kserve_client, cfg_name)
+
+
+def _find_well_known_config(kserve_client, suffix, namespace=KSERVE_NAMESPACE):
+    """Find a well-known config by name suffix in the given namespace."""
+    configs = kserve_client.api_instance.list_namespaced_custom_object(
+        constants.KSERVE_GROUP,
+        API_VERSION,
+        namespace,
+        KSERVE_PLURAL_LLMINFERENCESERVICECONFIG,
+    )
+    for cfg in configs.get("items", []):
+        name = cfg.get("metadata", {}).get("name", "")
+        if name.endswith(suffix):
+            return name
+    return None
+
+
+@pytest.mark.llminferenceservice
+@pytest.mark.cluster_cpu
+@pytest.mark.cluster_single_node
+@log_execution
+def test_well_known_config_deletion_blocked_by_implicit_reference():
+    """Test that a well-known config cannot be deleted while any LLMInferenceService exists."""
+    inject_k8s_proxy()
+    kserve_client = _kserve_client()
+    service_name = "e2e-wk-cfg-implicit-svc"
+    extra_configs = []
+    llm_svc = None
+
+    # Find the well-known config in the system namespace
+    config_name = _find_well_known_config(kserve_client, WELL_KNOWN_CONFIG_SUFFIX)
+    assert config_name is not None, (
+        f"No config ending with {WELL_KNOWN_CONFIG_SUFFIX!r} found in namespace {KSERVE_NAMESPACE}"
+    )
+    print(f"Found well-known config: {config_name} in namespace {KSERVE_NAMESPACE}")
+
+    try:
+        # Create an LLMInferenceService that does NOT explicitly reference the
+        # well-known config. The controller treats well-known configs as implicitly
+        # referenced by all services in scope.
+        model_config_name = f"{service_name}-model-cfg"
+        _create_config(kserve_client, model_config_name)
+        extra_configs.append(model_config_name)
+
+        llm_svc, svc_extra = _create_llmisvc_with_config_ref(
+            kserve_client,
+            service_name,
+            model_config_name,
+        )
+        extra_configs.extend(svc_extra)
+
+        # Wait for the well-known config to have a finalizer
+        def assert_finalizer_present():
+            cfg = _get_config(kserve_client, config_name, namespace=KSERVE_NAMESPACE)
+            assert _config_has_finalizer(cfg), (
+                "Finalizer not yet present on well-known config"
+            )
+            return True
+
+        wait_for(assert_finalizer_present, timeout=60, interval=2.0)
+
+        # Attempt to delete the well-known config
+        print(
+            f"Attempting to delete well-known config {config_name} (should be blocked)"
+        )
+        _delete_config(kserve_client, config_name, namespace=KSERVE_NAMESPACE)
+
+        # The well-known config should be blocked from deletion
+        def assert_deletion_blocked():
+            cfg = _get_config(kserve_client, config_name, namespace=KSERVE_NAMESPACE)
+            assert _config_has_deletion_timestamp(cfg), (
+                "Well-known config should have a deletionTimestamp after delete was called"
+            )
+            assert _config_has_finalizer(cfg), (
+                "Finalizer should still be present while any service exists"
+            )
+            in_use_cond = _get_condition(cfg, "ConfigInUse")
+            assert in_use_cond is not None, "Expected ConfigInUse condition to be set"
+            assert in_use_cond.get("status") == "True", (
+                f"Expected ConfigInUse=True, got {in_use_cond.get('status')}"
+            )
+            assert in_use_cond.get("reason") == "DeletionBlocked", (
+                f"Expected reason=DeletionBlocked, got {in_use_cond.get('reason')}"
+            )
+            referenced_by = cfg.get("status", {}).get("referencedBy", [])
+            assert len(referenced_by) > 0, (
+                f"Expected referencedBy to list services, got {referenced_by}"
+            )
+            return True
+
+        wait_for(assert_deletion_blocked, timeout=60, interval=2.0)
+        print(
+            f"Well-known config {config_name} deletion is correctly blocked "
+            f"(ConfigInUse=True, reason=DeletionBlocked)"
+        )
+
+        # Delete the service to unblock
+        print(f"Deleting service {service_name} to unblock well-known config deletion")
+        delete_llmisvc(kserve_client, llm_svc)
+        llm_svc = None
+
+        # The well-known config should now be deleted
+        def assert_config_gone():
+            return _config_is_gone(
+                kserve_client, config_name, namespace=KSERVE_NAMESPACE
+            )
+
+        wait_for(assert_config_gone, timeout=120, interval=2.0)
+        print(f"Well-known config {config_name} deleted after service removal")
+
+    finally:
+        if llm_svc is not None:
+            _cleanup_llmisvc_silent(kserve_client, llm_svc)
+        for cfg_name in extra_configs:
+            _cleanup_config_silent(kserve_client, cfg_name)
+        # Re-create the well-known config so later tests are not affected
+        _create_config(kserve_client, config_name, namespace=KSERVE_NAMESPACE)
