@@ -5777,3 +5777,47 @@ func TestCommonStorageInitializationWithOciNativeURI(t *testing.T) {
 		require.NoError(t, err)
 	})
 }
+
+// TestCommonStorageInitializationSkipsOciNativeURI is a regression test for the
+// bug where oci+native:// URIs were not matched by the strings.HasPrefix("oci://")
+// guard and fell through into CreateInitContainerWithConfig, causing
+// resource.MustParse("") to panic with an empty StorageInitializerConfig.
+func TestCommonStorageInitializationSkipsOciNativeURI(t *testing.T) {
+	cfg := &kserveTypes.StorageInitializerConfig{
+		Image:         "kserve/storage-initializer:latest",
+		CpuRequest:    "100m",
+		CpuLimit:      "1",
+		MemoryRequest: "200Mi",
+		MemoryLimit:   "1Gi",
+	}
+	podSpec := corev1.PodSpec{
+		Containers: []corev1.Container{
+			{Name: constants.InferenceServiceContainerName},
+		},
+	}
+	params := &StorageInitializerParams{
+		Namespace: "default",
+		StorageURIs: []v1beta1.StorageUri{
+			{Uri: constants.OciNativeURIPrefix + "registry.io/mymodel:v1", MountPath: constants.DefaultModelLocalMountPath},
+		},
+		PodSpec:         &podSpec,
+		Config:          cfg,
+		IsvcAnnotations: map[string]string{},
+		IsLegacyURI:     false,
+	}
+	require.NotPanics(t, func() {
+		err := CommonStorageInitialization(t.Context(), params)
+		require.NoError(t, err)
+	}, "CommonStorageInitialization must not panic for oci+native:// URIs")
+
+	// The URI must be routed to the native handler (ImageVolume), not an init container.
+	assert.Empty(t, podSpec.InitContainers, "oci+native:// must not produce a storage-initializer init container")
+	var imgVol *corev1.Volume
+	for i := range podSpec.Volumes {
+		if podSpec.Volumes[i].Image != nil {
+			imgVol = &podSpec.Volumes[i]
+			break
+		}
+	}
+	require.NotNil(t, imgVol, "oci+native:// must produce an ImageVolume on the pod spec")
+}
