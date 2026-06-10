@@ -522,6 +522,35 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
             ),
             marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
         ),
+        # Scheduler v0.6 → v0.7 migration tests.
+        # Deploy v0.6-style configs and verify the controller migrates them
+        # so the v0.7 scheduler boots successfully.
+        pytest.param(
+            TestCase(
+                base_refs=[
+                    "router-managed",
+                    "scheduler-v06-pd-config-migration",
+                    "workload-llmd-simulator-pd",
+                ],
+                prompt="KServe is a",
+                service_name="scheduler-v06-pd-migration-test",
+                response_assertion=assert_200_with_choices,
+            ),
+            marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
+        ),
+        pytest.param(
+            TestCase(
+                base_refs=[
+                    "router-managed",
+                    "scheduler-v06-nonzero-threshold-migration",
+                    "workload-llmd-simulator-pd",
+                ],
+                prompt="KServe is a",
+                service_name="scheduler-v06-threshold-migration-test",
+                response_assertion=assert_200_with_choices,
+            ),
+            marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
+        ),
         # Precise prefix KV cache routing test
         pytest.param(
             TestCase(
