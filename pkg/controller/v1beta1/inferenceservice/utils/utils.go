@@ -30,6 +30,7 @@ import (
 	goerrors "github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -223,7 +224,7 @@ case 2: serving.kserve.org/deploymentMode is set
 func GetDeploymentMode(statusDeploymentMode string, annotations map[string]string, deployConfig *v1beta1.DeployConfig) constants.DeploymentModeType {
 	// First priority is the deploymentMode recorded in the status
 	if len(statusDeploymentMode) != 0 {
-		return constants.DeploymentModeType(statusDeploymentMode)
+		return constants.ParseDeploymentMode(statusDeploymentMode)
 	}
 
 	// Second priority, if the status doesn't have the deploymentMode recorded, is explicit annotations
@@ -336,7 +337,7 @@ func GetServingRuntime(ctx context.Context, cl client.Client, name string, names
 	err = cl.Get(ctx, client.ObjectKey{Name: name}, clusterRuntime)
 	if err == nil {
 		return &clusterRuntime.Spec, clusterRuntime.Annotations, nil, true
-	} else if !apierrors.IsNotFound(err) {
+	} else if !apierrors.IsNotFound(err) && !apimeta.IsNoMatchError(err) {
 		return nil, nil, err, false
 	}
 	return nil, nil, goerrors.New("No ServingRuntimes or ClusterServingRuntimes with the name: " + name), false

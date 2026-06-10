@@ -67,6 +67,18 @@ spec:
                       properties:
                         adapters:
                           x-kubernetes-preserve-unknown-fields: true
+                        maxAdapters:
+                          format: int32
+                          minimum: 1
+                          type: integer
+                        maxCpuAdapters:
+                          format: int32
+                          minimum: 1
+                          type: integer
+                        maxRank:
+                          format: int32
+                          minimum: 1
+                          type: integer
                       type: object
                     name:
                       type: string
@@ -7941,6 +7953,11 @@ spec:
                                 minLength: 1
                                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                                 type: string
+                              sectionName:
+                                maxLength: 253
+                                minLength: 1
+                                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                type: string
                             type: object
                           type: array
                       type: object
@@ -9022,7 +9039,6 @@ spec:
                                                   name:
                                                     maxLength: 256
                                                     minLength: 1
-                                                    pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                     type: string
                                                   type:
                                                     default: Exact
@@ -20899,6 +20915,18 @@ spec:
                       properties:
                         adapters:
                           x-kubernetes-preserve-unknown-fields: true
+                        maxAdapters:
+                          format: int32
+                          minimum: 1
+                          type: integer
+                        maxCpuAdapters:
+                          format: int32
+                          minimum: 1
+                          type: integer
+                        maxRank:
+                          format: int32
+                          minimum: 1
+                          type: integer
                       type: object
                     name:
                       type: string
@@ -28753,8 +28781,6 @@ spec:
                   x-kubernetes-validations:
                     - message: replicas and scaling are mutually exclusive; use scaling for autoscaled deployments or replicas for static deployments
                       rule: '!(has(self.replicas) && has(self.scaling))'
-                    - message: autoscaling (scaling) is not supported for multi-node deployments (worker is set); remove scaling and use replicas instead to set a fixed replica count
-                      rule: '!(has(self.worker) && has(self.scaling))'
                 replicas:
                   format: int32
                   minimum: 0
@@ -28774,6 +28800,11 @@ spec:
                                 maxLength: 63
                                 minLength: 1
                                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                                type: string
+                              sectionName:
+                                maxLength: 253
+                                minLength: 1
+                                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                 type: string
                             type: object
                           type: array
@@ -29846,7 +29877,6 @@ spec:
                                                   name:
                                                     maxLength: 256
                                                     minLength: 1
-                                                    pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                     type: string
                                                   type:
                                                     default: Exact
@@ -41686,8 +41716,6 @@ spec:
               x-kubernetes-validations:
                 - message: replicas and scaling are mutually exclusive; use scaling for autoscaled deployments or replicas for static deployments
                   rule: '!(has(self.replicas) && has(self.scaling))'
-                - message: autoscaling (scaling) is not supported for multi-node deployments (worker is set); remove scaling and use replicas instead to set a fixed replica count
-                  rule: '!(has(self.worker) && has(self.scaling))'
           type: object
       served: true
       storage: true

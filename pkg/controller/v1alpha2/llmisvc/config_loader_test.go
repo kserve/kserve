@@ -21,8 +21,12 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
+	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/fixture"
 )
 
 func TestNewSchedulerConfig(t *testing.T) {
@@ -31,13 +35,11 @@ func TestNewSchedulerConfig(t *testing.T) {
 		configMapData             map[string]string
 		wantErr                   bool
 		wantExpirationAnnotations []string
-		wantRestartAnnotation     string
 	}{
 		{
 			name:                      "missing scheduler key uses defaults",
 			configMapData:             map[string]string{},
 			wantExpirationAnnotations: llmisvc.DefaultExpirationAnnotations,
-			wantRestartAnnotation:     llmisvc.DefaultRestartAnnotation,
 		},
 		{
 			name: "empty JSON object uses defaults",
@@ -45,7 +47,6 @@ func TestNewSchedulerConfig(t *testing.T) {
 				"scheduler": `{}`,
 			},
 			wantExpirationAnnotations: llmisvc.DefaultExpirationAnnotations,
-			wantRestartAnnotation:     llmisvc.DefaultRestartAnnotation,
 		},
 		{
 			name: "custom expiration annotations",
@@ -53,23 +54,6 @@ func TestNewSchedulerConfig(t *testing.T) {
 				"scheduler": `{"expirationAnnotations":["custom.io/expiration-v2","custom.io/expiration"]}`,
 			},
 			wantExpirationAnnotations: []string{"custom.io/expiration-v2", "custom.io/expiration"},
-			wantRestartAnnotation:     llmisvc.DefaultRestartAnnotation,
-		},
-		{
-			name: "custom restart annotation",
-			configMapData: map[string]string{
-				"scheduler": `{"restartAnnotation":"custom.io/cert-hash"}`,
-			},
-			wantExpirationAnnotations: llmisvc.DefaultExpirationAnnotations,
-			wantRestartAnnotation:     "custom.io/cert-hash",
-		},
-		{
-			name: "both fields set",
-			configMapData: map[string]string{
-				"scheduler": `{"expirationAnnotations":["a","b"],"restartAnnotation":"c"}`,
-			},
-			wantExpirationAnnotations: []string{"a", "b"},
-			wantRestartAnnotation:     "c",
 		},
 		{
 			name: "invalid JSON returns error",
@@ -106,9 +90,38 @@ func TestNewSchedulerConfig(t *testing.T) {
 					t.Errorf("ExpirationAnnotations[%d] = %q, want %q", i, got.ExpirationAnnotations[i], tt.wantExpirationAnnotations[i])
 				}
 			}
-			if got.RestartAnnotation != tt.wantRestartAnnotation {
-				t.Errorf("RestartAnnotation = %q, want %q", got.RestartAnnotation, tt.wantRestartAnnotation)
-			}
 		})
+	}
+}
+
+func TestLoadConfig(t *testing.T) {
+	cachedConfigMap := fixture.InferenceServiceCfgMapWithUrlScheme(constants.KServeNamespace, "https")
+	c := fake.NewClientBuilder().
+		WithScheme(clientgoscheme.Scheme).
+		WithObjects(cachedConfigMap).
+		Build()
+
+	got, err := llmisvc.LoadConfig(t.Context(), c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got.UrlScheme != "https" {
+		t.Fatalf("UrlScheme = %q, want %q", got.UrlScheme, "https")
+	}
+	if got.IngressGatewayNamespace != constants.KServeNamespace {
+		t.Fatalf("IngressGatewayNamespace = %q, want %q", got.IngressGatewayNamespace, constants.KServeNamespace)
+	}
+	if got.IngressGatewayName != "kserve-ingress-gateway" {
+		t.Fatalf("IngressGatewayName = %q, want %q", got.IngressGatewayName, "kserve-ingress-gateway")
+	}
+	if got.StorageConfig == nil {
+		t.Fatal("StorageConfig = nil, want populated config")
+	}
+	if got.CredentialConfig == nil {
+		t.Fatal("CredentialConfig = nil, want populated config")
+	}
+	if got.SchedulerConfig == nil {
+		t.Fatal("SchedulerConfig = nil, want populated config")
 	}
 }

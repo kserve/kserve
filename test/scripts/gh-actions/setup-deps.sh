@@ -32,6 +32,7 @@ DEPLOYMENT_MODE="${1:-serverless}"
 NETWORK_LAYER="${2:-istio}"
 ENABLE_KEDA="${3:-false}"
 ENABLE_LLMISVC="${4:-false}"
+LLMISVC_AUTOSCALER="${5:-none}"
 
 # Parse network layer configuration
 USES_GATEWAY_API=false
@@ -105,6 +106,19 @@ else
   kubectl scale deployment lws-controller-manager -n lws-system --replicas=1
   kubectl patch deployment lws-controller-manager -n lws-system --type=json -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/resources", "value": {"requests": {"cpu": "20m", "memory": "64Mi"}, "limits": {"cpu": "100m", "memory": "256Mi"}}}]'
   kubectl wait deployment lws-controller-manager -n lws-system --for condition=Available --timeout=300s
+
+  if [[ $LLMISVC_AUTOSCALER == "hpa" ]]; then
+    echo "Installing LLMISVC HPA autoscaling components (Prometheus, Prometheus Adapter, WVA)..."
+    ${REPO_ROOT}/hack/setup/infra/manage.prometheus-helm.sh
+    ${REPO_ROOT}/hack/setup/infra/manage.prometheus-adapter-helm.sh
+    ${REPO_ROOT}/hack/setup/infra/manage.wva-helm.sh
+
+  elif [[ $LLMISVC_AUTOSCALER == "keda" ]]; then
+    echo "Installing LLMISVC KEDA autoscaling components (Prometheus, KEDA, WVA)..."
+    ${REPO_ROOT}/hack/setup/infra/manage.prometheus-helm.sh
+    ${REPO_ROOT}/hack/setup/infra/manage.keda-helm.sh
+    ${REPO_ROOT}/hack/setup/infra/manage.wva-helm.sh
+  fi
   
 fi
 

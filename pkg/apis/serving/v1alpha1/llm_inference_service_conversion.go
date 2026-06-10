@@ -55,9 +55,14 @@ func (src *LLMInferenceService) ConvertTo(dstRaw conversion.Hub) error {
 
 	// Status conversion
 	dst.Status = v1alpha2.LLMInferenceServiceStatus{
-		URL:           src.Status.URL,
-		Status:        src.Status.Status,
-		AddressStatus: src.Status.AddressStatus,
+		URL:     src.Status.URL,
+		Status:  src.Status.Status,
+		Address: src.Status.Address,
+	}
+	for _, addr := range src.Status.Addresses {
+		dst.Status.Addresses = append(dst.Status.Addresses, v1alpha2.SourcedAddress{
+			Addressable: addr,
+		})
 	}
 
 	return nil
@@ -76,11 +81,15 @@ func (dst *LLMInferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 	// Restore criticality values from annotations
 	restoreCriticalityFromAnnotations(&dst.ObjectMeta, &dst.Spec.Model)
 
-	// Status conversion
+	// Status conversion - Origin is lost on this path (v1alpha1 doesn't have it),
+	// but status is controller-produced and gets re-populated on next reconcile.
 	dst.Status = LLMInferenceServiceStatus{
-		URL:           src.Status.URL,
-		Status:        src.Status.Status,
-		AddressStatus: src.Status.AddressStatus,
+		URL:    src.Status.URL,
+		Status: src.Status.Status,
+	}
+	dst.Status.Address = src.Status.Address //nolint:staticcheck // retained for schema compatibility
+	for _, sa := range src.Status.Addresses {
+		dst.Status.Addresses = append(dst.Status.Addresses, sa.Addressable)
 	}
 
 	return nil
@@ -279,7 +288,11 @@ func convertLoRASpecToV1Alpha2(src *LoRASpec) *v1alpha2.LoRASpec {
 		return nil
 	}
 
-	dst := &v1alpha2.LoRASpec{}
+	dst := &v1alpha2.LoRASpec{
+		MaxRank:        src.MaxRank,
+		MaxAdapters:    src.MaxAdapters,
+		MaxCpuAdapters: src.MaxCpuAdapters,
+	}
 	for _, adapter := range src.Adapters {
 		dst.Adapters = append(dst.Adapters, convertModelSpecToV1Alpha2(&adapter))
 	}
@@ -292,7 +305,11 @@ func convertLoRASpecFromV1Alpha2(src *v1alpha2.LoRASpec) *LoRASpec {
 		return nil
 	}
 
-	dst := &LoRASpec{}
+	dst := &LoRASpec{
+		MaxRank:        src.MaxRank,
+		MaxAdapters:    src.MaxAdapters,
+		MaxCpuAdapters: src.MaxCpuAdapters,
+	}
 	for _, adapter := range src.Adapters {
 		dst.Adapters = append(dst.Adapters, convertModelSpecFromV1Alpha2(&adapter))
 	}
@@ -374,9 +391,12 @@ func convertRouterSpecToV1Alpha2(src *RouterSpec) *v1alpha2.RouterSpec {
 	if src.Gateway != nil {
 		dst.Gateway = &v1alpha2.GatewaySpec{}
 		for _, ref := range src.Gateway.Refs {
-			dst.Gateway.Refs = append(dst.Gateway.Refs, v1alpha2.UntypedObjectReference{
-				Name:      ref.Name,
-				Namespace: ref.Namespace,
+			dst.Gateway.Refs = append(dst.Gateway.Refs, v1alpha2.GatewayObjectReference{
+				UntypedObjectReference: v1alpha2.UntypedObjectReference{
+					Name:      ref.Name,
+					Namespace: ref.Namespace,
+				},
+				SectionName: ref.SectionName,
 			})
 		}
 	}
@@ -455,9 +475,12 @@ func convertRouterSpecFromV1Alpha2(src *v1alpha2.RouterSpec) *RouterSpec {
 	if src.Gateway != nil {
 		dst.Gateway = &GatewaySpec{}
 		for _, ref := range src.Gateway.Refs {
-			dst.Gateway.Refs = append(dst.Gateway.Refs, UntypedObjectReference{
-				Name:      ref.Name,
-				Namespace: ref.Namespace,
+			dst.Gateway.Refs = append(dst.Gateway.Refs, GatewayObjectReference{
+				UntypedObjectReference: UntypedObjectReference{
+					Name:      ref.Name,
+					Namespace: ref.Namespace,
+				},
+				SectionName: ref.SectionName,
 			})
 		}
 	}

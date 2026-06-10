@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -52,6 +53,8 @@ import (
 // Once set to "v1", traffic will never fall back to v1alpha2 even during transient failures.
 const AnnotationInferencePoolMigrated = "serving.kserve.io/inference-pool-migrated"
 
+const AnnotationModelBasedRoutingEnabled = "serving.kserve.io/model-based-routing-enabled"
+
 // ErrPreconditionNotMet is a sentinel error returned by ensureGatewayPreconditions
 // when a non-transient precondition is not met (e.g. a required CRD is missing).
 // The caller should mark status but not propagate the error to avoid infinite requeue.
@@ -59,7 +62,7 @@ var ErrPreconditionNotMet = errors.New("precondition not met")
 
 // reconcileRouter handles the networking and routing components for the LLM service
 // This includes schedulers, HTTP routes, and various validation checks
-func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
+func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, cfg *Config) error {
 	logger := log.FromContext(ctx).WithName("reconcileRouter")
 	ctx = log.IntoContext(ctx, logger)
 
@@ -86,7 +89,7 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 	}
 
 	// Reconcile the scheduler component that manages inference pools
-	if err := r.reconcileScheduler(ctx, llmSvc, config.SchedulerConfig); err != nil {
+	if err := r.reconcileScheduler(ctx, llmSvc); err != nil {
 		llmSvc.MarkSchedulerWorkloadNotReady("SchedulerReconcileError", "Failed to reconcile scheduler: %v", err.Error())
 		return fmt.Errorf("failed to reconcile scheduler: %w", err)
 	}
@@ -94,9 +97,16 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 	// Reconcile HTTP routes for traffic routing
 	// We do not support Gateway's spec, when creating HTTPRoutes either the default gateway or those provided
 	// as refs are attached to reconciled routes
-	if err := r.reconcileHTTPRoutes(ctx, llmSvc); err != nil {
+	resolvedGWs, err := r.reconcileHTTPRoutes(ctx, llmSvc, cfg)
+	if err != nil {
 		llmSvc.MarkHTTPRoutesNotReady("HTTPRouteReconcileError", "Failed to reconcile HTTPRoute: %v", err.Error())
 		return fmt.Errorf("failed to reconcile HTTP routes: %w", err)
+	}
+
+	// Reconcile platform-specific networking resources
+	if err := r.reconcileRouterPlatformNetworking(ctx, llmSvc); err != nil {
+		llmSvc.MarkHTTPRoutesNotReady("PlatformNetworkingReconcileError", "Failed to reconcile platform networking: %v", err.Error())
+		return fmt.Errorf("failed to reconcile router platform networking: %w", err)
 	}
 
 	// Evaluate the subconditions to determine overall router health
@@ -104,35 +114,39 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 		return fmt.Errorf("failed to evaluate Inference Pool conditions: %w", err)
 	}
 
-	if err := r.EvaluateGatewayConditions(ctx, llmSvc); err != nil {
+	if err := r.EvaluateGatewayConditions(ctx, llmSvc, resolvedGWs); err != nil {
 		return fmt.Errorf("failed to evaluate gateway conditions: %w", err)
 	}
 
-	if err := r.EvaluateHTTPRouteConditions(ctx, llmSvc); err != nil {
+	if err := r.EvaluateHTTPRouteConditions(ctx, llmSvc, cfg); err != nil {
 		return fmt.Errorf("failed to evaluate HTTPRoute conditions: %w", err)
 	}
 
 	return nil
 }
 
-// reconcileHTTPRoutes manages HTTPRoute resources for traffic routing
-// It handles both custom routes (via refs) and generated routes (via spec)
-func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+// reconcileHTTPRoutes manages HTTPRoute resources for traffic routing.
+// It handles both custom routes (via refs) and generated routes (via spec).
+// Returns the resolved gateways discovered during URL assembly so the caller
+// can pass them to EvaluateGatewayConditions without re-fetching.
+func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, cfg *Config) ([]ResolvedGateway, error) {
 	logger := log.FromContext(ctx)
 	logger.Info("Reconciling HTTPRoute")
 
-	expectedHTTPRoute := r.expectedHTTPRoute(ctx, llmSvc)
+	expectedHTTPRoute := r.expectedHTTPRoute(ctx, llmSvc, cfg)
 
 	// Clean up if router or routes are not configured
 	if utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route == nil {
-		_ = r.updateRoutingStatus(ctx, llmSvc)
-		return Delete(ctx, r, llmSvc, expectedHTTPRoute)
+		if _, err := r.updateRoutingStatus(ctx, llmSvc); err != nil {
+			return nil, err
+		}
+		return nil, Delete(ctx, r, llmSvc, expectedHTTPRoute)
 	}
 
 	// Collect any explicitly referenced HTTPRoutes
 	referencedRoutes, err := r.collectReferencedRoutes(ctx, llmSvc)
 	if err != nil {
-		return fmt.Errorf("failed to collect referenced routes: %w", err)
+		return nil, fmt.Errorf("failed to collect referenced routes: %w", err)
 	}
 
 	route := llmSvc.Spec.Router.Route
@@ -140,13 +154,13 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 	// If using custom routes via refs, delete our own
 	if route.HTTP.HasRefs() {
 		if err := Delete(ctx, r, llmSvc, expectedHTTPRoute); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	if route.HTTP.HasSpec() {
 		if err := Reconcile(ctx, r, llmSvc, &gwapiv1.HTTPRoute{}, expectedHTTPRoute, semanticHTTPRouteIsEqual); err != nil {
-			return fmt.Errorf("failed to reconcile HTTPRoute %s/%s: %w", expectedHTTPRoute.GetNamespace(), expectedHTTPRoute.GetName(), err)
+			return nil, fmt.Errorf("failed to reconcile HTTPRoute %s/%s: %w", expectedHTTPRoute.GetNamespace(), expectedHTTPRoute.GetName(), err)
 		}
 		referencedRoutes = append(referencedRoutes, expectedHTTPRoute)
 	}
@@ -182,7 +196,7 @@ func (r *LLMISVCReconciler) collectReferencedRoutes(ctx context.Context, llmSvc 
 
 // expectedHTTPRoute creates the HTTPRoute specification for this service
 // This route is created when the service specifies inline routing configuration
-func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) *gwapiv1.HTTPRoute {
+func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, cfg *Config) *gwapiv1.HTTPRoute {
 	httpRoute := &gwapiv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve-route"),
@@ -194,8 +208,24 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 		},
 	}
 
-	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Route != nil && llmSvc.Spec.Router.Route.HTTP.Spec != nil {
+	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Route != nil && llmSvc.Spec.Router.Route.HTTP.HasSpec() {
 		httpRoute.Spec = *llmSvc.Spec.Router.Route.HTTP.Spec.DeepCopy()
+
+		if r.isModelBasedRoutingEnabled(ctx, llmSvc, cfg) {
+			if llmSvc.Spec.Model.LoRA != nil {
+				expandLoRAAdapterMatches(
+					httpRoute.Spec.Rules,
+					llmSvc.Namespace,
+					llmSvc.Spec.Model.LoRA.Adapters,
+					cfg.ModelBasedRoutingHeaderName,
+				)
+			}
+		} else {
+			httpRoute.Spec.Rules = stripModelBasedRoutingRules(
+				httpRoute.Spec.Rules,
+				cfg.ModelBasedRoutingHeaderName,
+			)
+		}
 	}
 
 	// Migration logic: check if we should switch from v1alpha2 to v1 InferencePool
@@ -271,67 +301,131 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 	return httpRoute
 }
 
-func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, routes ...*gwapiv1.HTTPRoute) error {
+func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, routes ...*gwapiv1.HTTPRoute) ([]ResolvedGateway, error) {
 	logger := log.FromContext(ctx)
 
 	if utils.GetForceStopRuntime(llmSvc) {
+		llmSvc.Status.Router = nil
+		llmSvc.Status.Address = nil //nolint:staticcheck // retained for schema compatibility
 		llmSvc.Status.Addresses = nil
-		llmSvc.Status.Address = nil
 		llmSvc.MarkHTTPRoutesNotReady("Stopped", "Service is stopped")
-		return nil
+		return nil, nil
 	}
 
 	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route == nil {
-		llmSvc.Status.Addresses = []duckv1.Addressable{{
-			URL: apis.HTTPS(network.GetServiceHostname(
-				kmeta.ChildName(llmSvc.GetName(), "-kserve-workload-svc"),
-				llmSvc.GetNamespace(),
-			)),
+		llmSvc.Status.Router = nil
+		urlFn := apis.HTTPS
+		statusCfg, err := r.loadConfig(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load config: %w", err)
+		}
+		if !statusCfg.EnableTLS {
+			urlFn = apis.HTTP
+		}
+		llmSvc.Status.Addresses = []v1alpha2.SourcedAddress{{
+			Addressable: duckv1.Addressable{
+				URL: urlFn(network.GetServiceHostname(
+					kmeta.ChildName(llmSvc.GetName(), "-kserve-workload-svc"),
+					llmSvc.GetNamespace(),
+				)),
+			},
 		}}
-		return nil
+		return nil, nil
 	}
 
-	// TODO: LoadConfig fetches the configmap from the API server on every
-	// reconciliation. Consider caching with an informer-based watch to reduce
-	// API server pressure under high reconciliation load.
-	cfg, err := LoadConfig(ctx, r.Clientset)
+	cfg, err := r.loadConfig(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	var urls []*apis.URL
+	var discovered []DiscoveredURL
+	var allResolved []ResolvedGateway
 	for _, route := range routes {
-		discoverURL, err := DiscoverURLs(ctx, r.Client, route, cfg.UrlScheme)
-		if IgnoreNoURLsDiscovered(err) != nil {
-			return fmt.Errorf("failed to discover URL for route %s/%s: %w", route.GetNamespace(), route.GetName(), err)
+		resolvedGWs, err := DiscoverGateways(ctx, r.Client, route)
+		if err != nil {
+			return nil, fmt.Errorf("failed to discover gateways for route %s/%s: %w", route.GetNamespace(), route.GetName(), err)
 		}
-		if discoverURL != nil {
-			urls = append(urls, discoverURL...)
+		allResolved = append(allResolved, resolvedGWs...)
+		urls, err := DiscoverURLs(ctx, r.Client, resolvedGWs, route, *cfg)
+		if IgnoreNoURLsDiscovered(err) != nil {
+			return nil, fmt.Errorf("failed to discover URL for route %s/%s: %w", route.GetNamespace(), route.GetName(), err)
+		}
+		discovered = append(discovered, urls...)
+	}
+
+	if len(routes) > 0 {
+		llmSvc.Status.Router = &v1alpha2.RouterStatus{
+			Gateways: BuildObservedGateways(routes),
 		}
 	}
 
-	slices.SortStableFunc(urls, func(a, b *apis.URL) int {
-		return cmp.Compare(a.String(), b.String())
+	additional, err := r.discoverAdditionalURLs(ctx, discovered)
+	if err != nil {
+		return nil, fmt.Errorf("failed to discover additional URLs: %w", err)
+	}
+	discovered = append(discovered, additional...)
+
+	slices.SortStableFunc(discovered, func(a, b DiscoveredURL) int {
+		return cmp.Compare(a.URL.String(), b.URL.String())
 	})
 
-	externalURLs := FilterExternalURLs(urls)
+	externalURLs := FilterExternalURLs(discovered)
 	if len(externalURLs) == 0 {
 		logger.Info("no public URL discovered")
-		llmSvc.Status.URL = nil
+		if len(discovered) > 0 {
+			// Promote first address to top-level status.URL as some "cluster external" addresses are technically within
+			// "virtual private networks" and we cannot detect that from just IPs. Even if it's a cluster-local URL, the
+			// status URL is just for discovery and easy access, and it's not a problem to have here while we prioritize
+			// external addresses.
+			//
+			// We prefer the path-based URL (/{ns}/{name}) over the model-routing
+			// root URL (/) for backward compatibility: status.URL was always the
+			// path-based URL before model-based routing was introduced, and
+			// existing clients may rely on that form.
+			llmSvc.Status.URL = preferPathBasedURL(discovered, llmSvc.Namespace, llmSvc.Name)
+		} else {
+			llmSvc.Status.URL = nil
+		}
 	} else {
-		llmSvc.Status.URL = externalURLs[0]
+		// Same path-based preference as above — see comment.
+		llmSvc.Status.URL = preferPathBasedURL(externalURLs, llmSvc.Namespace, llmSvc.Name)
 	}
 
-	llmSvc.Status.Addresses = make([]duckv1.Addressable, 0, len(urls))
-	for _, url := range urls {
-		addressType := AddressTypeName(url)
-		llmSvc.Status.Addresses = append(llmSvc.Status.Addresses, duckv1.Addressable{
-			Name: &addressType,
-			URL:  url,
-		})
+	llmSvc.Status.Addresses = make([]v1alpha2.SourcedAddress, 0, len(discovered))
+	for _, d := range discovered {
+		llmSvc.Status.Addresses = append(llmSvc.Status.Addresses, SourcedAddress(ctx, d, llmSvc))
 	}
 
-	return nil
+	// Deduplicate resolved gateways for downstream condition evaluation.
+	seen := make(map[string]struct{})
+	deduped := allResolved[:0]
+	for _, gw := range allResolved {
+		key := gw.Gateway.Namespace + "/" + gw.Gateway.Name
+		if _, ok := seen[key]; !ok {
+			seen[key] = struct{}{}
+			deduped = append(deduped, gw)
+		}
+	}
+
+	return deduped, nil
+}
+
+// preferPathBasedURL selects the URL whose path starts with /{namespace}/{name}
+// from the list, falling back to the first URL if none matches.
+//
+// With model-based routing enabled, DiscoverURLs returns both the path-based
+// URL (/{ns}/{name}, works without special headers) and the model-routing root
+// URL (/, requires the model-routing header). Alphabetical sorting puts "/" first,
+// but status.URL must remain the path-based URL for backward compatibility —
+// it's the form clients have always seen and the one that works unconditionally.
+func preferPathBasedURL(urls []DiscoveredURL, namespace, name string) *apis.URL {
+	prefix := "/" + namespace + "/" + name
+	for _, u := range urls {
+		if strings.HasPrefix(u.URL.Path, prefix) {
+			return u.URL
+		}
+	}
+	return urls[0].URL
 }
 
 func RouterLabels(llmSvc *v1alpha2.LLMInferenceService) map[string]string {
@@ -349,8 +443,9 @@ func semanticHTTPRouteIsEqual(e *gwapiv1.HTTPRoute, c *gwapiv1.HTTPRoute) bool {
 }
 
 // EvaluateGatewayConditions evaluates the readiness of all Gateways referenced by the LLMInferenceService
-// and updates the GatewaysReady condition accordingly
-func (r *LLMISVCReconciler) EvaluateGatewayConditions(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+// and updates the GatewaysReady condition accordingly. The resolved slice is provided by
+// updateRoutingStatus so that gateways are not re-fetched from the API server.
+func (r *LLMISVCReconciler) EvaluateGatewayConditions(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, resolved []ResolvedGateway) error {
 	logger := log.FromContext(ctx).WithName("evaluateGatewayConditions")
 
 	if utils.GetForceStopRuntime(llmSvc) {
@@ -365,17 +460,9 @@ func (r *LLMISVCReconciler) EvaluateGatewayConditions(ctx context.Context, llmSv
 		return nil
 	}
 
-	// Check if there's already a validation failure condition set
-	condition := llmSvc.GetStatus().GetCondition(v1alpha2.GatewaysReady)
-	if condition != nil && condition.IsFalse() && condition.Reason == RefsInvalidReason {
-		logger.Info("Gateway validation failed, skipping readiness evaluation", "reason", condition.Reason, "message", condition.Message)
-		return nil
-	}
-
-	gateways, err := r.CollectReferencedGateways(ctx, llmSvc)
-	if err != nil {
-		llmSvc.MarkGatewaysNotReady("GatewayFetchError", "Failed to fetch referenced Gateways: %v", err.Error())
-		return fmt.Errorf("failed to fetch referenced gateways: %w", err)
+	gateways := make([]*gwapiv1.Gateway, 0, len(resolved))
+	for _, resolvedGateway := range resolved {
+		gateways = append(gateways, resolvedGateway.Gateway)
 	}
 
 	notReadyGateways := EvaluateGatewayReadiness(ctx, gateways)
@@ -412,8 +499,8 @@ func (r *LLMISVCReconciler) CollectReferencedGateways(ctx context.Context, llmSv
 			return nil, fmt.Errorf("failed to discover gateways: %w", err)
 		}
 		for _, gateway := range discoveredGateways {
-			key := gateway.gateway.Namespace + "/" + gateway.gateway.Name
-			gatewayMap[key] = gateway.gateway
+			key := gateway.Gateway.Namespace + "/" + gateway.Gateway.Name
+			gatewayMap[key] = gateway.Gateway
 		}
 	}
 
@@ -449,7 +536,7 @@ func (r *LLMISVCReconciler) CollectReferencedGateways(ctx context.Context, llmSv
 
 // EvaluateHTTPRouteConditions evaluates the readiness of all HTTPRoutes referenced by the LLMInferenceService
 // and updates the HTTPRoutesReady condition accordingly. Also detects Gateway rejection of v1alpha2 backendRefs.
-func (r *LLMISVCReconciler) EvaluateHTTPRouteConditions(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+func (r *LLMISVCReconciler) EvaluateHTTPRouteConditions(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, cfg *Config) error {
 	logger := log.FromContext(ctx).WithName("evaluateHTTPRouteConditions")
 
 	if utils.GetForceStopRuntime(llmSvc) {
@@ -461,13 +548,6 @@ func (r *LLMISVCReconciler) EvaluateHTTPRouteConditions(ctx context.Context, llm
 	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route == nil || llmSvc.Spec.Router.Route.HTTP == nil {
 		logger.Info("No HTTPRoute configuration found, clearing HTTPRoutesReady condition")
 		llmSvc.MarkHTTPRoutesReadyUnset()
-		return nil
-	}
-
-	// Check if there's already a validation failure condition set
-	condition := llmSvc.GetStatus().GetCondition(v1alpha2.HTTPRoutesReady)
-	if condition != nil && condition.IsFalse() && condition.Reason == RefsInvalidReason {
-		logger.Info("HTTPRoute validation failed, skipping readiness evaluation", "reason", condition.Reason, "message", condition.Message)
 		return nil
 	}
 
@@ -484,7 +564,7 @@ func (r *LLMISVCReconciler) EvaluateHTTPRouteConditions(ctx context.Context, llm
 
 	// Get managed route if it exists
 	if llmSvc.Spec.Router.Route.HTTP.HasSpec() {
-		expectedHTTPRoute := r.expectedHTTPRoute(ctx, llmSvc)
+		expectedHTTPRoute := r.expectedHTTPRoute(ctx, llmSvc, cfg)
 		// Try to get the actual managed route from the cluster
 		managedRoute := &gwapiv1.HTTPRoute{}
 		if err := r.Get(ctx, types.NamespacedName{
@@ -553,6 +633,18 @@ func (r *LLMISVCReconciler) EvaluateInferencePoolConditions(ctx context.Context,
 			llmSvc.MarkInferencePoolNotReady("InferencePoolFetchError", err.Error())
 			return err
 		}
+		setRoutingPoolStatus(llmSvc,
+			gwapiv1.ObjectReference{
+				Group: gwapiv1.Group("inference.networking.k8s.io"),
+				Kind:  "InferencePool",
+				Name:  gwapiv1.ObjectName(poolRef.Name),
+			},
+			gwapiv1.ObjectReference{
+				Group: "",
+				Kind:  "Service",
+				Name:  gwapiv1.ObjectName(llmSvc.Spec.Router.EPPServiceName(llmSvc)),
+			},
+		)
 		return r.evaluateSingleInferencePoolCondition(ctx, llmSvc, curr)
 	}
 
@@ -572,6 +664,21 @@ func (r *LLMISVCReconciler) EvaluateInferencePoolConditions(ctx context.Context,
 	v1alpha2Pool := &igwapiv1alpha2.InferencePool{}
 	v1alpha2Err := r.Get(ctx, types.NamespacedName{Namespace: poolNamespace, Name: poolName}, v1alpha2Pool)
 	v1alpha2Ready := v1alpha2Err == nil && IsInferencePoolV1Alpha2Ready(v1alpha2Pool)
+
+	// Record the pool and EPP service refs in status - the pool name is deterministic
+	// regardless of whether the pool is ready or even exists yet.
+	setRoutingPoolStatus(llmSvc,
+		gwapiv1.ObjectReference{
+			Group: gwapiv1.Group("inference.networking.k8s.io"),
+			Kind:  "InferencePool",
+			Name:  gwapiv1.ObjectName(poolName),
+		},
+		gwapiv1.ObjectReference{
+			Group: "",
+			Kind:  "Service",
+			Name:  gwapiv1.ObjectName(llmSvc.Spec.Router.EPPServiceName(llmSvc)),
+		},
+	)
 
 	logger.V(2).Info("Checking InferencePool readiness",
 		"pool", poolNamespace+"/"+poolName,
@@ -660,4 +767,98 @@ func (r *LLMISVCReconciler) evaluateSingleInferencePoolCondition(ctx context.Con
 	llmSvc.MarkInferencePoolReady()
 	log.FromContext(ctx).V(2).Info("Inference Pool is ready", "pool", curr)
 	return nil
+}
+
+// BuildObservedGateways constructs the RouterStatus.Gateways slice from HTTPRoutes.
+// Gateway references are derived from each route's spec.parentRefs.
+// Gateways are deduplicated by namespace/name; listeners and HTTPRoutes
+// are aggregated per unique gateway and sorted for stable DeepEqual.
+func BuildObservedGateways(routes []*gwapiv1.HTTPRoute) []v1alpha2.ObservedGateway {
+	if len(routes) == 0 {
+		return nil
+	}
+
+	type accumulator struct {
+		gwName    string
+		gwNS      string
+		listeners []gwapiv1.SectionName
+		routes    []gwapiv1.ObjectReference
+	}
+
+	acc := map[string]*accumulator{}
+
+	for _, route := range routes {
+		ref := gwapiv1.ObjectReference{
+			Group:     gwapiv1.Group(gwapiv1.GroupName),
+			Kind:      "HTTPRoute",
+			Name:      gwapiv1.ObjectName(route.Name),
+			Namespace: ptr.To(gwapiv1.Namespace(route.Namespace)),
+		}
+
+		for _, parentRef := range route.Spec.ParentRefs {
+			gwNS := string(ptr.Deref(parentRef.Namespace, gwapiv1.Namespace(route.Namespace)))
+			gwName := string(parentRef.Name)
+			key := gwNS + "/" + gwName
+
+			if _, ok := acc[key]; !ok {
+				acc[key] = &accumulator{gwName: gwName, gwNS: gwNS}
+			}
+			a := acc[key]
+
+			if parentRef.SectionName != nil {
+				a.listeners = append(a.listeners, *parentRef.SectionName)
+			}
+
+			alreadyAdded := false
+			for _, existing := range a.routes {
+				if existing.Name == ref.Name {
+					alreadyAdded = true
+					break
+				}
+			}
+			if !alreadyAdded {
+				a.routes = append(a.routes, ref)
+			}
+		}
+	}
+
+	keys := make([]string, 0, len(acc))
+	for k := range acc {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+
+	result := make([]v1alpha2.ObservedGateway, 0, len(acc))
+	for _, key := range keys {
+		a := acc[key]
+
+		var listeners []gwapiv1.SectionName
+		if len(a.listeners) > 0 {
+			seen := map[gwapiv1.SectionName]struct{}{}
+			for _, l := range a.listeners {
+				if _, ok := seen[l]; !ok {
+					seen[l] = struct{}{}
+					listeners = append(listeners, l)
+				}
+			}
+			slices.SortFunc(listeners, cmp.Compare)
+		}
+
+		slices.SortFunc(a.routes, func(x, y gwapiv1.ObjectReference) int {
+			return cmp.Compare(string(x.Name), string(y.Name))
+		})
+
+		result = append(result, v1alpha2.ObservedGateway{
+			ObjectReference: gwapiv1.ObjectReference{
+				Group:     gwapiv1.Group(gwapiv1.GroupName),
+				Kind:      "Gateway",
+				Name:      gwapiv1.ObjectName(a.gwName),
+				Namespace: ptr.To(gwapiv1.Namespace(a.gwNS)),
+			},
+			Listeners:  listeners,
+			HTTPRoutes: a.routes,
+		})
+	}
+
+	return result
 }

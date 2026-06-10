@@ -100,8 +100,6 @@ type LLMInferenceServiceSpec struct {
 
 // WorkloadSpec defines the configuration for a deployment workload, such as replicas and pod specifications.
 // +kubebuilder:validation:XValidation:rule="!(has(self.replicas) && has(self.scaling))",message="replicas and scaling are mutually exclusive; use scaling for autoscaled deployments or replicas for static deployments"
-// +kubebuilder:validation:XValidation:rule="!(has(self.worker) && has(self.scaling))",message="autoscaling (scaling) is not supported for multi-node deployments (worker is set); remove scaling and use replicas instead to set a fixed replica count"
-// TODO: remove the worker+scaling restriction above once WVA supports LeaderWorkerSet as a scaling target.
 type WorkloadSpec struct {
 	// Number of replicas for the deployment.
 	// +optional
@@ -167,13 +165,33 @@ type LLMModelSpec struct {
 
 // LoRASpec defines the configuration for LoRA adapters.
 type LoRASpec struct {
-	// Adapters is the static specification for one or more LoRA adapters.
-	// Each adapter is defined by its own ModelSpec.
+	// Adapters is a list of LoRA (Low-Rank Adaptation) adapters to attach to the base model.
+	// Each adapter is specified by name and URI (supports hf://, s3://, and pvc:// schemes).
+	// The controller automatically downloads adapters and configures the runtime to use them.
 	// +optional
 	// This type is recursive https://github.com/kubernetes-sigs/controller-tools/issues/585
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless
 	Adapters []LLMModelSpec `json:"adapters,omitempty"`
+
+	// MaxRank is the maximum LoRA rank supported by the runtime (maps to vLLM --max-lora-rank).
+	// Higher values allow adapters with higher rank but increase memory usage.
+	// If not set, vLLM's default applies (16).
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	MaxRank *int32 `json:"maxRank,omitempty"`
+
+	// MaxAdapters is the maximum number of LoRA adapters that can be loaded simultaneously
+	// (maps to vLLM --max-loras). Defaults to the number of configured adapters.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	MaxAdapters *int32 `json:"maxAdapters,omitempty"`
+
+	// MaxCpuAdapters is the maximum number of LoRA adapters stored in CPU memory
+	// (maps to vLLM --max-cpu-loras). Defaults to the number of configured adapters.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	MaxCpuAdapters *int32 `json:"maxCpuAdapters,omitempty"`
 }
 
 // StorageInitializerSpec defines the configuration for the storage initializer.
@@ -250,7 +268,7 @@ type GatewaySpec struct {
 	// Refs provides references to existing, user-managed Gateway objects ("Bring Your Own" gateway).
 	// The controller will use the specified Gateway instead of creating one.
 	// +optional
-	Refs []UntypedObjectReference `json:"refs,omitempty"`
+	Refs []GatewayObjectReference `json:"refs,omitempty"`
 }
 
 // IngressSpec defines the configuration for a Kubernetes Ingress.
@@ -475,7 +493,7 @@ type ParallelismSpec struct {
 }
 
 // UntypedObjectReference is a reference to an object without a specific Group/Version/Kind.
-// It's used for referencing networking resources like Gateways and Ingresses where the exact type
+// It's used for referencing networking resources like Ingresses where the exact type
 // might be inferred or is not strictly required by this controller.
 type UntypedObjectReference struct {
 	// Name of the referenced object.
@@ -484,17 +502,182 @@ type UntypedObjectReference struct {
 	Namespace gwapiv1.Namespace `json:"namespace,omitempty"`
 }
 
+// GatewayObjectReference is a reference to a Gateway resource.
+// It extends UntypedObjectReference with Gateway-specific fields.
+type GatewayObjectReference struct {
+	UntypedObjectReference `json:",inline"`
+	// SectionName is the name of a section within the target resource. When
+	// set on a Gateway reference, it targets a specific listener by name.
+	// When unset, the route is attached to all listeners on the referenced
+	// Gateway that support the route type.
+	// +optional
+	SectionName *gwapiv1.SectionName `json:"sectionName,omitempty"`
+}
+
+// ObservedGateway is a Gateway reference with the listeners and HTTPRoutes
+// bound to this service through it. Used in status to record observed routing topology.
+type ObservedGateway struct {
+	// Embedded ObjectReference carries group, kind, name, namespace of the Gateway.
+	gwapiv1.ObjectReference `json:",inline"`
+
+	// Listeners lists the SectionNames of the Gateway listeners that accepted
+	// routes from this service. Nil means the route targets all listeners
+	// (no SectionName was specified on the parentRef).
+	// +optional
+	// +listType=atomic
+	Listeners []gwapiv1.SectionName `json:"listeners,omitempty"`
+
+	// HTTPRoutes lists the HTTPRoutes bound to this service through this Gateway.
+	// +optional
+	// +listType=atomic
+	HTTPRoutes []gwapiv1.ObjectReference `json:"httpRoutes,omitempty"`
+}
+
+// ObservedSchedulerStatus records the scheduler-related resources observed
+// during the last successful routing reconciliation.
+type ObservedSchedulerStatus struct {
+	// InferencePool is the InferencePool observed as active for this service.
+	// +optional
+	InferencePool *gwapiv1.ObjectReference `json:"inferencePool,omitempty"`
+
+	// Service is the EPP Service observed for this service.
+	// +optional
+	Service *gwapiv1.ObjectReference `json:"service,omitempty"`
+}
+
+// RouterStatus records the networking resources observed during the last
+// successful routing reconciliation. Nil when routing is not configured or
+// the service is stopped.
+type RouterStatus struct {
+	// Gateways lists the Gateway resources observed as attached to this service,
+	// each with the listeners and HTTPRoutes bound through them.
+	// +optional
+	// +listType=atomic
+	Gateways []ObservedGateway `json:"gateways,omitempty"`
+
+	// Scheduler records the observed scheduler topology.
+	// Nil when the scheduler is not configured.
+	// +optional
+	Scheduler *ObservedSchedulerStatus `json:"scheduler,omitempty"`
+}
+
+// WorkloadStatus records the workload resources observed during the last
+// successful reconciliation. Nil when no workload resources have been
+// created yet, or when the service is stopped.
+// +optional
+type WorkloadStatus struct {
+	// Primary is the main inference workload (Deployment or LeaderWorkerSet).
+	// When disaggregated serving is configured, this workload handles
+	// the decode phase; otherwise it handles both prefill and decode.
+	// +optional
+	Primary *corev1.TypedLocalObjectReference `json:"primary,omitempty"`
+
+	// Prefill is the prefill workload in disaggregated serving mode.
+	// Nil when disaggregated serving is not configured.
+	// +optional
+	Prefill *corev1.TypedLocalObjectReference `json:"prefill,omitempty"`
+
+	// Service is the Kubernetes Service fronting the primary inference workload.
+	// +optional
+	Service *corev1.TypedLocalObjectReference `json:"service,omitempty"`
+
+	// Scheduler is the EPP scheduler Deployment.
+	// Nil when the scheduler is not configured.
+	// +optional
+	Scheduler *corev1.TypedLocalObjectReference `json:"scheduler,omitempty"`
+}
+
+// SourcedAddress extends Addressable with the networking resource that
+// produced this address, enabling consumers to select endpoints by origin.
+type SourcedAddress struct {
+	duckv1.Addressable `json:",inline"`
+
+	// Origin identifies the networking resource (e.g., Gateway) that
+	// produced this address. Nil when the origin is unknown or when
+	// the address was converted from an older API version.
+	// +optional
+	Origin *gwapiv1.ObjectReference `json:"origin,omitempty"`
+
+	Models []ModelSourcedAddressStatus `json:"models,omitempty"`
+}
+
+// AppliedConfigSource identifies how a configuration was selected for merging.
+// +kubebuilder:validation:Enum=Preset;UserRef
+type AppliedConfigSource string
+
+const (
+	// AppliedConfigSourcePreset indicates the config was automatically injected
+	// by the controller based on the deployment pattern (single-node, multi-node,
+	// disaggregated, scheduler, router).
+	AppliedConfigSourcePreset AppliedConfigSource = "Preset"
+	// AppliedConfigSourceUserRef indicates the config was explicitly referenced
+	// by the user via spec.baseRefs.
+	AppliedConfigSourceUserRef AppliedConfigSource = "UserRef"
+)
+
+// AppliedConfigRef identifies an LLMInferenceServiceConfig resource that contributed
+// to the final merged configuration during reconciliation.
+type AppliedConfigRef struct {
+	// Name of the LLMInferenceServiceConfig resource that was applied.
+	// +required
+	Name gwapiv1.ObjectName `json:"name"`
+	// Namespace where the LLMInferenceServiceConfig was resolved from.
+	// +required
+	Namespace gwapiv1.Namespace `json:"namespace"`
+	// Source indicates how this config was selected - either automatically injected
+	// as a well-known default based on the deployment pattern, or explicitly
+	// referenced via spec.baseRefs.
+	// +required
+	Source AppliedConfigSource `json:"source"`
+}
+
 // LLMInferenceServiceStatus defines the observed state of LLMInferenceService.
 type LLMInferenceServiceStatus struct {
-	// URL of the publicly exposed service.
+	// URL is the primary address for accessing the service.
+	// It is set to an external (public) address when available, otherwise
+	// it is promoted from the first discovered address (which may be
+	// cluster-local or private) for easy discovery.
 	// +optional
 	URL *apis.URL `json:"url,omitempty"`
 
 	// Conditions of the resource.
 	duckv1.Status `json:",inline"`
 
-	// Addressable endpoint for the service, including cluster-local URLs.
-	duckv1.AddressStatus `json:",inline,omitempty"`
+	// Deprecated: Address is retained for CRD schema compatibility.
+	// It is never populated; use Addresses instead.
+	// +optional
+	Address *duckv1.Addressable `json:"address,omitempty"`
+
+	// Addresses lists the network endpoints where the service is reachable.
+	// Each address may include an origin reference identifying the networking
+	// resource that produced it.
+	// +optional
+	// +listType=atomic
+	Addresses []SourcedAddress `json:"addresses,omitempty"`
+
+	// Router records the observed networking topology for this service.
+	// Nil when routing is not configured or the service is stopped.
+	// +optional
+	Router *RouterStatus `json:"router,omitempty"`
+
+	// Workloads records the observed workload resources for this service.
+	// +optional
+	Workloads *WorkloadStatus `json:"workloads,omitempty"`
+
+	// AppliedConfigRefs records which LLMInferenceServiceConfig resources were applied
+	// during the last successful reconciliation, in merge precedence order.
+	// Well-known configs (determined by the deployment pattern) appear first with
+	// lower precedence, followed by explicitly referenced baseRefs with higher
+	// precedence. The service's own spec always takes the highest precedence but
+	// is not listed here.
+	// +optional
+	// Atomic because the controller always writes the full list and ordering encodes merge precedence.
+	// +listType=atomic
+	AppliedConfigRefs []AppliedConfigRef `json:"appliedConfigs,omitempty"`
+}
+
+type ModelSourcedAddressStatus struct {
+	Name string `json:"name"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

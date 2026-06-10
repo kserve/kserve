@@ -1,0 +1,65 @@
+name: Reset Stale Labels
+
+on:
+  issue_comment:
+    types: [created]
+  issues:
+    types: [labeled, assigned]
+  pull_request:
+    types: [synchronize, review_requested]
+  pull_request_review:
+    types: [submitted]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  reset-stale-labels:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        with:
+          script: |
+            const staleLabels = ['stale-warning-1', 'stale-warning-2', 'stale-warning-3', 'stale-closed'];
+            let issueNumber, currentLabels;
+
+            if (context.payload.issue) {
+              issueNumber = context.payload.issue.number;
+              currentLabels = context.payload.issue.labels.map(l => l.name);
+            } else if (context.payload.pull_request) {
+              issueNumber = context.payload.pull_request.number;
+              currentLabels = context.payload.pull_request.labels.map(l => l.name);
+            } else {
+              core.info('No issue or pull request found in payload, skipping.');
+              return;
+            }
+
+            // Skip if the comment was made by github-actions bot to avoid
+            // the stale bot's own comments from resetting the labels.
+            if (context.payload.comment && context.payload.comment.user.login === 'github-actions[bot]') {
+              core.info('Comment by github-actions bot, skipping label reset.');
+              return;
+            }
+
+            const labelsToRemove = currentLabels.filter(l => staleLabels.includes(l));
+            if (labelsToRemove.length === 0) {
+              core.info('No stale labels found, nothing to reset.');
+              return;
+            }
+
+            for (const label of labelsToRemove) {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  name: label
+                });
+                core.info(`Removed label: ${label}`);
+              } catch (error) {
+                core.warning(`Failed to remove label ${label}: ${error.message}`);
+              }
+            }

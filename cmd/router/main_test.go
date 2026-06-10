@@ -18,9 +18,10 @@ package main
 
 import (
 	"bytes"
+	crand "crypto/rand"
 	"encoding/json"
-	"fmt"
 	"io"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -32,15 +33,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"knative.dev/pkg/apis"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
+	pkgtest "github.com/kserve/kserve/pkg/testing"
 )
 
 func init() {
-	logf.SetLogger(zap.New())
+	pkgtest.SetupTestLogger()
 }
 
 func Int64Ptr(i int64) *int64 {
@@ -152,7 +152,7 @@ func TestSimpleModelChainer(t *testing.T) {
 	expectedResponse := map[string]interface{}{
 		"predictions": "2",
 	}
-	fmt.Printf("final response:%v\n", response)
+	t.Logf("final response:%v", response)
 	assert.Equal(t, expectedResponse, response)
 }
 
@@ -247,7 +247,7 @@ func TestSimpleModelEnsemble(t *testing.T) {
 			"predictions": "2",
 		},
 	}
-	fmt.Printf("final response:%v\n", response)
+	t.Logf("final response:%v", response)
 	assert.Equal(t, expectedResponse, response)
 }
 
@@ -472,7 +472,7 @@ func TestInferenceGraphWithCondition(t *testing.T) {
 			},
 		},
 	}
-	fmt.Printf("final response:%v\n", response)
+	t.Logf("final response:%v", response)
 	assert.Equal(t, expectedModel3Response, response["model3"])
 	assert.Equal(t, expectedModel4Response, response["model4"])
 }
@@ -561,7 +561,7 @@ func TestInferenceGraphSequenceWithUnmetCondition(t *testing.T) {
 			},
 		},
 	}
-	fmt.Printf("final response:%v\n", response)
+	t.Logf("final response:%v", response)
 	assert.Equal(t, expectedResponse, response)
 }
 
@@ -624,7 +624,7 @@ func TestCallServiceWhenNoneHeadersToPropagateIsEmpty(t *testing.T) {
 	expectedResponse := map[string]interface{}{
 		"predictions": "1",
 	}
-	fmt.Printf("final response:%v\n", response)
+	t.Logf("final response:%v", response)
 	assert.Equal(t, expectedResponse, response)
 }
 
@@ -689,7 +689,7 @@ func TestCallServiceWhen1HeaderToPropagate(t *testing.T) {
 		"predictions":     "1",
 		"Test-Header-Key": "Test-Header-Value",
 	}
-	fmt.Printf("final response:%v\n", response)
+	t.Logf("final response:%v", response)
 	assert.Equal(t, expectedResponse, response)
 }
 
@@ -757,7 +757,7 @@ func TestCallServiceWhenMultipleHeadersToPropagate(t *testing.T) {
 		"Test-Header-Key": "Test-Header-Value",
 		"Authorization":   "Bearer Token",
 	}
-	fmt.Printf("final response:%v\n", response)
+	t.Logf("final response:%v", response)
 	assert.Equal(t, expectedResponse, response)
 }
 
@@ -836,7 +836,7 @@ func TestCallServiceWhenMultipleHeadersToPropagateUsingPatterns(t *testing.T) {
 		"Test-Header-3": "Test-Header-3",
 		"Authorization": "Bearer Token",
 	}
-	fmt.Printf("final response:%v\n", response)
+	t.Logf("final response:%v", response)
 	require.Equal(t, expectedResponse, response)
 }
 
@@ -906,7 +906,7 @@ func TestCallServiceWhenMultipleHeadersToPropagateUsingInvalidPattern(t *testing
 		"predictions":   "1",
 		"Authorization": "Bearer Token",
 	}
-	fmt.Printf("final response:%v\n", response)
+	t.Logf("final response:%v", response)
 	require.Equal(t, expectedResponse, response)
 }
 
@@ -1034,5 +1034,64 @@ func TestServerTimeout(t *testing.T) {
 				assert.Equal(t, http.StatusOK, resp.StatusCode)
 			}
 		})
+	}
+}
+
+func TestPickupRouteNeverReturnsNil(t *testing.T) {
+	w1, w2 := int64(20), int64(80)
+	routes := []v1alpha1.InferenceStep{
+		{
+			StepName: "model1",
+			InferenceTarget: v1alpha1.InferenceTarget{
+				ServiceURL: "http://example.com/model1",
+			},
+			Weight: &w1,
+		},
+		{
+			StepName: "model2",
+			InferenceTarget: v1alpha1.InferenceTarget{
+				ServiceURL: "http://example.com/model2",
+			},
+			Weight: &w2,
+		},
+	}
+
+	for i := range 10000 {
+		route := pickupRoute(routes)
+		require.NotNil(t, route, "pickupRoute returned nil on iteration %d", i)
+	}
+}
+
+func TestPickupRouteAlwaysReturnsRouteForAllRandValues(t *testing.T) {
+	w1, w2 := int64(30), int64(70)
+	routes := []v1alpha1.InferenceStep{
+		{
+			StepName: "model1",
+			InferenceTarget: v1alpha1.InferenceTarget{
+				ServiceURL: "http://example.com/model1",
+			},
+			Weight: &w1,
+		},
+		{
+			StepName: "model2",
+			InferenceTarget: v1alpha1.InferenceTarget{
+				ServiceURL: "http://example.com/model2",
+			},
+			Weight: &w2,
+		},
+	}
+
+	for i := range 10000 {
+		route := pickupRoute(routes)
+		require.NotNil(t, route, "pickupRoute returned nil on iteration %d", i)
+	}
+}
+
+func TestCryptoRandIntUpperBoundWithFix(t *testing.T) {
+	for i := range 100_000 {
+		n, err := crand.Int(crand.Reader, big.NewInt(100))
+		require.NoError(t, err)
+		require.True(t, n.Int64() >= 0 && n.Int64() < 100,
+			"rand.Int(100) returned out-of-range value %d on iteration %d", n.Int64(), i)
 	}
 }

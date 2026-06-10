@@ -77,6 +77,18 @@ func WithDefaultServiceAccount() TestNamespaceOption {
 	}
 }
 
+// WithDefaultServiceAccountImagePullSecrets creates the default ServiceAccount
+// with the given ImagePullSecrets. This is used to test propagation of
+// ImagePullSecrets from the default SA to controller-created ServiceAccounts.
+func WithDefaultServiceAccountImagePullSecrets(secrets ...corev1.LocalObjectReference) TestNamespaceOption {
+	return func(ctx context.Context, tn *TestNamespace) {
+		sa := &corev1.ServiceAccount{}
+		gomega.Expect(tn.client.Get(ctx, client.ObjectKey{Name: "default", Namespace: tn.Name}, sa)).To(gomega.Succeed())
+		sa.ImagePullSecrets = secrets
+		gomega.Expect(tn.client.Update(ctx, sa)).To(gomega.Succeed())
+	}
+}
+
 // WithServiceAccount creates a custom ServiceAccount in the namespace.
 func WithServiceAccount(name string) TestNamespaceOption {
 	return func(ctx context.Context, tn *TestNamespace) {

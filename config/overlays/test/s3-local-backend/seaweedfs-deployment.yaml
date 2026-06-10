@@ -31,7 +31,7 @@ spec:
             secretKeyRef:
               name: mlpipeline-s3-artifact
               key: secretkey
-        image: docker.io/chrislusf/seaweedfs:4.07@sha256:10fa7df90911dd83439f4d3d792a1c5c6c630121cb2094ba209f42d4b0ca975d
+        image: quay.io/flysangel/chrislusf/seaweedfs@sha256:a27e9c432f1dfaafb5bb3f5b39065c0df7a15423a3894025c714b3f06f998aeb
         imagePullPolicy: Always
         name: seaweedfs
         readinessProbe:

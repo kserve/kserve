@@ -10,13 +10,17 @@ inputs:
     required: false
     default: 'serverless'
   enable-keda:
-    description: 'Enable KEDA for autoscaling'
+    description: 'Enable KEDA for autoscaling (standard KServe path only)'
     required: false
     default: 'false'
   deploy-llmisvc:
     description: 'Deploy LLM Inference Service Controller'
     required: false
-    default: 'false'    
+    default: 'false'
+  autoscaler:
+    description: 'LLMISvc autoscaler type: hpa, keda, or none'
+    required: false
+    default: 'none'
 runs:
   using: "composite"
   steps:
@@ -25,7 +29,7 @@ runs:
       run: |
         shopt -s nocasematch         
         echo "Selected network layer ${{ inputs.network-layer }}"
-        ./test/scripts/gh-actions/setup-deps.sh ${{ inputs.deployment-mode }} "${{ inputs.network-layer }}" "${{ inputs.enable-keda }}" "${{ inputs.deploy-llmisvc }}"
+        ./test/scripts/gh-actions/setup-deps.sh ${{ inputs.deployment-mode }} "${{ inputs.network-layer }}" "${{ inputs.enable-keda }}" "${{ inputs.deploy-llmisvc }}" "${{ inputs.autoscaler }}"
       
 
     - name: Update test overlays

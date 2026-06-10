@@ -365,6 +365,38 @@ func PathPrefixMatch(path string) gwapiv1.HTTPRouteMatch {
 	}
 }
 
+func ExactPathWithHeaderMatch(path, headerName, headerValue string) gwapiv1.HTTPRouteMatch {
+	return gwapiv1.HTTPRouteMatch{
+		Path: &gwapiv1.HTTPPathMatch{
+			Type:  ptr.To(gwapiv1.PathMatchExact),
+			Value: ptr.To(path),
+		},
+		Headers: []gwapiv1.HTTPHeaderMatch{
+			{
+				Type:  ptr.To(gwapiv1.HeaderMatchExact),
+				Name:  gwapiv1.HTTPHeaderName(headerName),
+				Value: headerValue,
+			},
+		},
+	}
+}
+
+func HeaderOnlyMatch(headerName, headerValue string) gwapiv1.HTTPRouteMatch {
+	return gwapiv1.HTTPRouteMatch{
+		Path: &gwapiv1.HTTPPathMatch{
+			Type:  ptr.To(gwapiv1.PathMatchPathPrefix),
+			Value: ptr.To("/"),
+		},
+		Headers: []gwapiv1.HTTPHeaderMatch{
+			{
+				Type:  ptr.To(gwapiv1.HeaderMatchExact),
+				Name:  gwapiv1.HTTPHeaderName(headerName),
+				Value: headerValue,
+			},
+		},
+	}
+}
+
 func ServiceRef(name string, port int32, weight int32) gwapiv1.HTTPBackendRef {
 	return gwapiv1.HTTPBackendRef{
 		BackendRef: gwapiv1.BackendRef{
@@ -400,6 +432,12 @@ func GatewayParentRef(name, namespace string) gwapiv1.ParentReference {
 		Name:      gwapiv1.ObjectName(name),
 		Namespace: ptr.To(gwapiv1.Namespace(namespace)),
 	}
+}
+
+func GatewayParentRefWithSection(name, namespace, sectionName string) gwapiv1.ParentReference {
+	ref := GatewayParentRef(name, namespace)
+	ref.SectionName = ptr.To(gwapiv1.SectionName(sectionName))
+	return ref
 }
 
 // WithGatewayCondition creates a GatewayOption that sets specific status conditions

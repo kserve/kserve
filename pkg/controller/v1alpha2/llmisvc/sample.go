@@ -170,10 +170,12 @@ func LLMInferenceServiceSample() *v1alpha2.LLMInferenceService {
 					},
 				},
 				Gateway: &v1alpha2.GatewaySpec{
-					Refs: []v1alpha2.UntypedObjectReference{
+					Refs: []v1alpha2.GatewayObjectReference{
 						{
-							Name:      "kserve-ingress-gateway",
-							Namespace: "kserve",
+							UntypedObjectReference: v1alpha2.UntypedObjectReference{
+								Name:      "kserve-ingress-gateway",
+								Namespace: "kserve",
+							},
 						},
 					},
 				},
@@ -187,7 +189,7 @@ func LLMInferenceServiceSample() *v1alpha2.LLMInferenceService {
 						Containers: []corev1.Container{
 							{
 								Name:  "scheduler",
-								Image: "ghcr.io/llm-d/llm-d-inference-scheduler:0.0.4",
+								Image: "ghcr.io/llm-d/llm-d-inference-scheduler:v0.7.1",
 								Ports: []corev1.ContainerPort{
 									{
 										ContainerPort: 9002,

@@ -5261,3 +5261,288 @@ func createTestPodForModelcarWithWorkerAndTransformer() *corev1.Pod {
 		},
 	}
 }
+
+// TestCommonStorageInitializationWithOciURI tests the fix for issue #5200:
+// storageUris with oci:// should inject modelcar and model volume mounts.
+func TestCommonStorageInitializationWithOciURI(t *testing.T) {
+	t.Run("OCI URI via storageUris injects modelcar", func(t *testing.T) {
+		podSpec := corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.InferenceServiceContainerName},
+			},
+		}
+
+		params := &StorageInitializerParams{
+			Namespace: "default",
+			StorageURIs: []v1beta1.StorageUri{
+				{Uri: "oci://rhuss/kserving-example-sklearn:1.0", MountPath: constants.DefaultModelLocalMountPath},
+			},
+			IsReadOnly:      true,
+			PodSpec:         &podSpec,
+			Config:          &kserveTypes.StorageInitializerConfig{EnableOciImageSource: true},
+			IsvcAnnotations: map[string]string{},
+			IsLegacyURI:     false,
+		}
+
+		err := CommonStorageInitialization(t.Context(), params)
+		require.NoError(t, err)
+
+		// Modelcar sidecar container should be injected
+		modelcarContainer := utils.GetContainerWithName(&podSpec, constants.ModelcarContainerName)
+		assert.NotNil(t, modelcarContainer, "modelcar sidecar container should be injected")
+
+		// Modelcar init container should be injected for pre-fetching
+		assert.Len(t, podSpec.InitContainers, 1, "modelcar init container should be injected")
+		assert.Equal(t, constants.ModelcarInitContainerName, podSpec.InitContainers[0].Name)
+
+		// ShareProcessNamespace should be enabled
+		assert.NotNil(t, podSpec.ShareProcessNamespace)
+		assert.True(t, *podSpec.ShareProcessNamespace, "ShareProcessNamespace should be true")
+
+		// User container should have async model init mode env var
+		userContainer := utils.GetContainerWithName(&podSpec, constants.InferenceServiceContainerName)
+		assert.NotNil(t, userContainer)
+		found := false
+		for _, env := range userContainer.Env {
+			if env.Name == constants.ModelInitModeEnvVarKey && env.Value == "async" {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "user container should have MODEL_INIT_MODE=async env var")
+
+		// Volume should exist
+		assert.NotEmpty(t, podSpec.Volumes, "shared volume should be added")
+	})
+
+	t.Run("OCI URI via storageUris with transformer injects modelcar for both", func(t *testing.T) {
+		podSpec := corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.InferenceServiceContainerName},
+				{Name: constants.TransformerContainerName},
+			},
+		}
+
+		params := &StorageInitializerParams{
+			Namespace: "default",
+			StorageURIs: []v1beta1.StorageUri{
+				{Uri: "oci://rhuss/kserving-example-sklearn:1.0", MountPath: constants.DefaultModelLocalMountPath},
+			},
+			IsReadOnly:      true,
+			PodSpec:         &podSpec,
+			Config:          &kserveTypes.StorageInitializerConfig{EnableOciImageSource: true},
+			IsvcAnnotations: map[string]string{},
+			IsLegacyURI:     false,
+		}
+
+		err := CommonStorageInitialization(t.Context(), params)
+		require.NoError(t, err)
+
+		// Both user container and transformer container should have volume mounts
+		userContainer := utils.GetContainerWithName(&podSpec, constants.InferenceServiceContainerName)
+		transformerContainer := utils.GetContainerWithName(&podSpec, constants.TransformerContainerName)
+		assert.NotNil(t, userContainer)
+		assert.NotNil(t, transformerContainer)
+		assert.NotEmpty(t, userContainer.VolumeMounts, "user container should have volume mounts")
+		assert.NotEmpty(t, transformerContainer.VolumeMounts, "transformer container should have volume mounts")
+	})
+
+	t.Run("Legacy OCI URI path still returns nil (handled by webhook)", func(t *testing.T) {
+		podSpec := corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.InferenceServiceContainerName},
+			},
+		}
+
+		params := &StorageInitializerParams{
+			Namespace: "default",
+			StorageURIs: []v1beta1.StorageUri{
+				{Uri: "oci://rhuss/kserving-example-sklearn:1.0", MountPath: constants.DefaultModelLocalMountPath},
+			},
+			IsReadOnly:      true,
+			PodSpec:         &podSpec,
+			Config:          &kserveTypes.StorageInitializerConfig{EnableOciImageSource: true},
+			IsvcAnnotations: map[string]string{},
+			IsLegacyURI:     true,
+		}
+
+		err := CommonStorageInitialization(t.Context(), params)
+		require.NoError(t, err)
+
+		// Should NOT inject modelcar — legacy path is handled by InjectModelcar webhook
+		modelcarContainer := utils.GetContainerWithName(&podSpec, constants.ModelcarContainerName)
+		assert.Nil(t, modelcarContainer, "legacy path should not inject modelcar directly")
+	})
+
+	t.Run("OCI URI via storageUris with worker container only", func(t *testing.T) {
+		podSpec := corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.WorkerContainerName},
+			},
+		}
+
+		params := &StorageInitializerParams{
+			Namespace: "default",
+			StorageURIs: []v1beta1.StorageUri{
+				{Uri: "oci://myrepo/mymodel:latest", MountPath: constants.DefaultModelLocalMountPath},
+			},
+			IsReadOnly:      true,
+			PodSpec:         &podSpec,
+			Config:          &kserveTypes.StorageInitializerConfig{EnableOciImageSource: true},
+			IsvcAnnotations: map[string]string{},
+			IsLegacyURI:     false,
+		}
+
+		err := CommonStorageInitialization(t.Context(), params)
+		require.NoError(t, err)
+
+		// Modelcar sidecar should be injected, targeting the worker container
+		modelcarContainer := utils.GetContainerWithName(&podSpec, constants.ModelcarContainerName)
+		assert.NotNil(t, modelcarContainer, "modelcar sidecar should be injected for worker container")
+
+		// Worker container should have the async env var
+		workerContainer := utils.GetContainerWithName(&podSpec, constants.WorkerContainerName)
+		assert.NotNil(t, workerContainer)
+		found := false
+		for _, env := range workerContainer.Env {
+			if env.Name == constants.ModelInitModeEnvVarKey && env.Value == "async" {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "worker container should have MODEL_INIT_MODE=async env var")
+	})
+}
+
+// findEnv returns the env var with the given name, or nil if not present.
+func findEnv(envs []corev1.EnvVar, name string) *corev1.EnvVar {
+	for i := range envs {
+		if envs[i].Name == name {
+			return &envs[i]
+		}
+	}
+	return nil
+}
+
+// TestMergeContainerSpecs_EnvHandling is a regression test for issue #5516:
+// when the storage-initializer init container's env (typically injected from
+// the ServiceAccount's storage secret) is merged with a ClusterStorageContainer's
+// env, no resulting entry may have both `value` and `valueFrom` set — Kubernetes
+// admission rejects such pods. The merge must reconcile by env name so that
+// CRD overrides cleanly replace the conflicting field on the target.
+func TestMergeContainerSpecs_EnvHandling(t *testing.T) {
+	secretKeyRef := func(secret, key string) *corev1.EnvVarSource {
+		return &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{Name: secret},
+				Key:                  key,
+			},
+		}
+	}
+	fieldRef := func(path string) *corev1.EnvVarSource {
+		return &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: path}}
+	}
+
+	scenarios := map[string]struct {
+		targetEnv []corev1.EnvVar
+		crdEnv    []corev1.EnvVar
+		assert    func(t *testing.T, merged []corev1.EnvVar)
+	}{
+		"valueFrom overrides value on same name": {
+			targetEnv: []corev1.EnvVar{
+				{Name: "AWS_ACCESS_KEY_ID", Value: "literal-from-sa-secret"},
+				{Name: "AWS_SECRET_ACCESS_KEY", Value: "literal-from-sa-secret"},
+			},
+			crdEnv: []corev1.EnvVar{
+				{Name: "AWS_ACCESS_KEY_ID", ValueFrom: secretKeyRef("my-creds", "access-key")},
+			},
+			assert: func(t *testing.T, merged []corev1.EnvVar) {
+				overridden := findEnv(merged, "AWS_ACCESS_KEY_ID")
+				require.NotNil(t, overridden)
+				assert.Empty(t, overridden.Value, "Value must be cleared when CRD supplies ValueFrom")
+				require.NotNil(t, overridden.ValueFrom)
+				require.NotNil(t, overridden.ValueFrom.SecretKeyRef)
+				assert.Equal(t, "my-creds", overridden.ValueFrom.SecretKeyRef.Name)
+				assert.Equal(t, "access-key", overridden.ValueFrom.SecretKeyRef.Key)
+
+				preserved := findEnv(merged, "AWS_SECRET_ACCESS_KEY")
+				require.NotNil(t, preserved)
+				assert.Equal(t, "literal-from-sa-secret", preserved.Value)
+				assert.Nil(t, preserved.ValueFrom)
+			},
+		},
+		"value overrides valueFrom on same name": {
+			targetEnv: []corev1.EnvVar{
+				{Name: "AWS_ACCESS_KEY_ID", ValueFrom: secretKeyRef("sa-creds", "access-key")},
+			},
+			crdEnv: []corev1.EnvVar{
+				{Name: "AWS_ACCESS_KEY_ID", Value: "literal-override"},
+			},
+			assert: func(t *testing.T, merged []corev1.EnvVar) {
+				overridden := findEnv(merged, "AWS_ACCESS_KEY_ID")
+				require.NotNil(t, overridden)
+				assert.Equal(t, "literal-override", overridden.Value)
+				assert.Nil(t, overridden.ValueFrom, "ValueFrom must be cleared when CRD supplies a literal Value")
+			},
+		},
+		"disjoint env names with valueFrom in CRD": {
+			targetEnv: []corev1.EnvVar{
+				{Name: "AWS_ACCESS_KEY_ID", Value: "literal-from-sa-secret"},
+				{Name: "AWS_SECRET_ACCESS_KEY", Value: "literal-from-sa-secret"},
+				{Name: "S3_ENDPOINT", Value: "https://s3.example.com"},
+			},
+			crdEnv: []corev1.EnvVar{
+				{Name: "CUSTOM_SECRET", ValueFrom: secretKeyRef("custom-secret", "token")},
+				{Name: "POD_IP", ValueFrom: fieldRef("status.podIP")},
+			},
+			assert: func(t *testing.T, merged []corev1.EnvVar) {
+				for _, name := range []string{"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "S3_ENDPOINT"} {
+					e := findEnv(merged, name)
+					require.NotNil(t, e, "credential env %q should be preserved after merge", name)
+					assert.NotEmpty(t, e.Value, "credential env %q should retain its literal Value", name)
+					assert.Nil(t, e.ValueFrom, "credential env %q must not have ValueFrom set", name)
+				}
+
+				customSecret := findEnv(merged, "CUSTOM_SECRET")
+				require.NotNil(t, customSecret)
+				assert.Empty(t, customSecret.Value)
+				require.NotNil(t, customSecret.ValueFrom)
+				require.NotNil(t, customSecret.ValueFrom.SecretKeyRef)
+				assert.Equal(t, "custom-secret", customSecret.ValueFrom.SecretKeyRef.Name)
+				assert.Equal(t, "token", customSecret.ValueFrom.SecretKeyRef.Key)
+
+				podIP := findEnv(merged, "POD_IP")
+				require.NotNil(t, podIP)
+				assert.Empty(t, podIP.Value)
+				require.NotNil(t, podIP.ValueFrom)
+				require.NotNil(t, podIP.ValueFrom.FieldRef)
+				assert.Equal(t, "status.podIP", podIP.ValueFrom.FieldRef.FieldPath)
+			},
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			target := &corev1.Container{
+				Name:  constants.StorageInitializerContainerName,
+				Image: "kserve/storage-initializer:latest",
+				Env:   scenario.targetEnv,
+			}
+			crd := &corev1.Container{
+				Name: "custom-storage-initializer",
+				Env:  scenario.crdEnv,
+			}
+
+			require.NoError(t, mergeContainerSpecs(target, crd))
+
+			for _, e := range target.Env {
+				if e.Value != "" && e.ValueFrom != nil {
+					t.Errorf("env %q has both Value=%q and ValueFrom set; "+
+						"Kubernetes admission will reject this", e.Name, e.Value)
+				}
+			}
+
+			scenario.assert(t, target.Env)
+		})
+	}
+}

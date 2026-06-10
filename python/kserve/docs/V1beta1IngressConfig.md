@@ -4,6 +4,7 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **additional_ingress_domains** | **list[str]** |  | [optional] 
+**disable_http_route_timeout** | **bool** |  | [optional] 
 **disable_ingress_creation** | **bool** |  | [optional] 
 **disable_istio_virtual_host** | **bool** |  | [optional] 
 **domain_template** | **str** |  | [optional] 
@@ -16,6 +17,8 @@ Name | Type | Description | Notes
 **kserve_ingress_gateway** | **str** |  | [optional] 
 **local_gateway** | **str** |  | [optional] 
 **local_gateway_service** | **str** |  | [optional] 
+**model_based_routing_header_name** | **str** |  | [optional] 
+**model_based_routing_mode** | **str** |  | [optional] 
 **path_template** | **str** |  | [optional] 
 **url_scheme** | **str** |  | [optional] 
 

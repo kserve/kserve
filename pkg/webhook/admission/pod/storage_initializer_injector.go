@@ -220,19 +220,19 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *corev1.Pod) error {
 			return fmt.Errorf("Invalid configuration: cannot find container: %s", constants.InferenceServiceContainerName)
 		} else {
 			// Use worker container for multi-node scenarios
-			if err := utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.WorkerContainerName, constants.DefaultModelLocalMountPath, mi.config); err != nil {
+			if err := utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.WorkerContainerName, constants.DefaultModelLocalMountPath, mi.config, 0); err != nil {
 				return err
 			}
 		}
 	} else {
-		if err := utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.InferenceServiceContainerName, constants.DefaultModelLocalMountPath, mi.config); err != nil {
+		if err := utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.InferenceServiceContainerName, constants.DefaultModelLocalMountPath, mi.config, 0); err != nil {
 			return err
 		}
 	}
 
 	// Configure modelcar for transformer container if it exists
 	if utils.GetContainerWithName(&pod.Spec, constants.TransformerContainerName) != nil {
-		return utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.TransformerContainerName, constants.DefaultModelLocalMountPath, mi.config)
+		return utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.TransformerContainerName, constants.DefaultModelLocalMountPath, mi.config, 0)
 	}
 
 	return nil
@@ -279,9 +279,64 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 		return nil
 	}
 
-	// Don't inject init-containers if a modelcar is used
-	if params.Config.EnableOciImageSource && len(params.StorageURIs) > 0 && strings.HasPrefix(params.StorageURIs[0].Uri, constants.OciURIPrefix) {
-		return nil
+	// Handle OCI URIs via modelcar injection instead of init-containers
+	if params.Config.EnableOciImageSource && len(params.StorageURIs) > 0 {
+		hasOciUri := false
+		for _, storageUri := range params.StorageURIs {
+			if strings.HasPrefix(storageUri.Uri, constants.OciURIPrefix) {
+				hasOciUri = true
+				break
+			}
+		}
+		if hasOciUri {
+			// For the storageUris path (IsLegacyURI == false), inject modelcar directly.
+			// For the legacy path (IsLegacyURI == true), the webhook's InjectModelcar() handles it via annotations.
+			if params.IsLegacyURI {
+				return nil
+			}
+
+			userContainer := utils.GetContainerWithName(params.PodSpec, constants.InferenceServiceContainerName)
+			workerContainer := utils.GetContainerWithName(params.PodSpec, constants.WorkerContainerName)
+			if userContainer == nil && workerContainer == nil {
+				return errors.New("Invalid configuration: cannot find container")
+			}
+
+			ociIndex := 0
+			// Collect OCI mount paths for collision check and count validation
+			var ociMountPaths []string
+			for _, storageUri := range params.StorageURIs {
+				if strings.HasPrefix(storageUri.Uri, constants.OciURIPrefix) {
+					ociMountPaths = append(ociMountPaths, storageUri.MountPath)
+				}
+			}
+			if len(ociMountPaths) > utils.MaxOCISourcesPerPod {
+				return fmt.Errorf("too many OCI sources (%d); maximum is %d per pod", len(ociMountPaths), utils.MaxOCISourcesPerPod)
+			}
+			if err := utils.ValidateOCIMountPaths(ociMountPaths); err != nil {
+				return err
+			}
+
+			for _, storageUri := range params.StorageURIs {
+				if !strings.HasPrefix(storageUri.Uri, constants.OciURIPrefix) {
+					continue
+				}
+				targetContainerName := constants.InferenceServiceContainerName
+				if userContainer == nil {
+					targetContainerName = constants.WorkerContainerName
+				}
+				if err := utils.ConfigureModelcarToContainer(storageUri.Uri, params.PodSpec, targetContainerName, storageUri.MountPath, params.Config, ociIndex); err != nil {
+					return err
+				}
+				// Also configure for transformer if present
+				if utils.GetContainerWithName(params.PodSpec, constants.TransformerContainerName) != nil {
+					if err := utils.ConfigureModelcarToContainer(storageUri.Uri, params.PodSpec, constants.TransformerContainerName, storageUri.MountPath, params.Config, ociIndex); err != nil {
+						return err
+					}
+				}
+				ociIndex++
+			}
+			// Fall through to handle any remaining non-OCI URIs in the list
+		}
 	}
 
 	// Don't inject if InitContainer already injected
@@ -332,6 +387,10 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 		// - PVC URIs are mounted directly as volumes (no download needed)
 		// - Other URIs require init container to download artifacts first
 		for _, storageUri := range params.StorageURIs {
+			if strings.HasPrefix(storageUri.Uri, constants.OciURIPrefix) {
+				// OCI URIs are already handled by modelcar injection above; skip.
+				continue
+			}
 			if strings.HasPrefix(storageUri.Uri, constants.PvcURIPrefix) {
 				pvcStorageURIs = append(pvcStorageURIs, storageUri)
 			} else {
@@ -803,10 +862,40 @@ func mergeContainerSpecs(targetContainer *corev1.Container, crdContainer *corev1
 		return err
 	}
 
-	if err := json.Unmarshal(jsonResult, targetContainer); err != nil {
+	// Unmarshal into a fresh Container rather than the existing targetContainer:
+	// json.Unmarshal does not clear struct fields absent from the JSON, so reusing
+	// the target's existing EnvVar slice elements lets stale Value/ValueFrom fields
+	// bleed into merged-in entries (issue #5516).
+	merged := corev1.Container{}
+	if err := json.Unmarshal(jsonResult, &merged); err != nil {
 		return err
 	}
 
+	// For env entries whose name is overridden by the ClusterStorageContainer, strategic
+	// merge patch performs a field-wise merge keyed on name, which can leave both
+	// Value and ValueFrom populated on a single entry — a state Kubernetes
+	// admission rejects. Reconcile by deferring to the ClusterStorageContainer's intent.
+	crdEnvByName := make(map[string]corev1.EnvVar, len(crdContainer.Env))
+	for _, e := range crdContainer.Env {
+		crdEnvByName[e.Name] = e
+	}
+	for i := range merged.Env {
+		e := &merged.Env[i]
+		if e.Value == "" || e.ValueFrom == nil {
+			continue
+		}
+		crdEntry, ok := crdEnvByName[e.Name]
+		if !ok {
+			continue
+		}
+		if crdEntry.ValueFrom != nil {
+			e.Value = ""
+		} else if crdEntry.Value != "" {
+			e.ValueFrom = nil
+		}
+	}
+
+	*targetContainer = merged
 	if targetContainer.Name == "" {
 		targetContainer.Name = containerName
 	}

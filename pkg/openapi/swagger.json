@@ -3710,6 +3710,9 @@
             "default": ""
           }
         },
+        "disableHTTPRouteTimeout": {
+          "type": "boolean"
+        },
         "disableIngressCreation": {
           "type": "boolean"
         },
@@ -3744,6 +3747,12 @@
           "type": "string"
         },
         "localGatewayService": {
+          "type": "string"
+        },
+        "modelBasedRoutingHeaderName": {
+          "type": "string"
+        },
+        "modelBasedRoutingMode": {
           "type": "string"
         },
         "pathTemplate": {

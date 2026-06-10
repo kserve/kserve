@@ -14,9 +14,15 @@ dependencies = [
     "setuptools>=70.0.0",
 ]
 name = "huggingfaceserver"
-version = "0.17.0"
+version = "0.19.0rc0"
 description = "Model Server implementation for huggingface. Not intended for use outside KServe Frameworks Images."
 readme = "README.md"
+
+# fixes CVE-2026-40192
+[tool.uv]
+override-dependencies = [
+    "pillow>=12.2.0",
+]
 
 [dependency-groups]
 test = [
@@ -26,7 +32,7 @@ test = [
     "pytest-asyncio<1.0.0,>=0.23.4",
     "pytest-httpx<1.0.0,>=0.30.0",
     "einops<1.0.0,>=0.8.0",
-    "openai<2.0.0,>=1.59.9",
+    "openai>=2.0.0",
 ]
 dev = [
     "black[colorama]~=24.3.0",

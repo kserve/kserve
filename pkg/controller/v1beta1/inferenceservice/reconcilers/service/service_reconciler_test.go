@@ -192,6 +192,30 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					PublishNotReadyAddresses: true,
 				},
 			},
+			&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default-workers-1",
+					Namespace: "default-predictor-namespace",
+					Labels: map[string]string{
+						constants.RawDeploymentAppLabel:                 "isvc.default-predictor",
+						constants.KServiceComponentLabel:                "predictor",
+						constants.InferenceServicePodLabelKey:           "default-predictor",
+						constants.InferenceServiceGenerationPodLabelKey: "1",
+						constants.MultiNodeRoleLabelKey:                 constants.MultiNodeWorker,
+					},
+					Annotations: map[string]string{
+						"annotation": "annotation-value",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Selector: map[string]string{
+						"app": "isvc.default-predictor-worker",
+						constants.InferenceServiceGenerationPodLabelKey: "1",
+					},
+					ClusterIP:                "None",
+					PublishNotReadyAddresses: true,
+				},
+			},
 		},
 	}
 

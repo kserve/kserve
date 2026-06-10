@@ -274,7 +274,7 @@ spec:
       value: "8080"
     - name: MLSERVER_GRPC_PORT
       value: "9000"
-    image: docker.io/seldonio/mlserver:1.5.0
+    image: docker.io/seldonio/mlserver:1.7.1
     name: kserve-container
     resources:
       limits:
