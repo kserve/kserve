@@ -787,6 +787,15 @@
         "persistentVolumeClaimSpec"
       ],
       "properties": {
+        "jobTolerations": {
+          "description": "Used to specify tolerations for download jobs",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.Toleration"
+          },
+          "x-kubernetes-list-type": "atomic"
+        },
         "persistentVolumeClaimSpec": {
           "description": "Used to create PersistentVolumeClaims for download and in inference service namespaces",
           "default": {},

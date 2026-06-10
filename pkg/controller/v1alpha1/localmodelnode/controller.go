@@ -114,7 +114,17 @@ func (c *LocalModelNodeReconciler) getNodeGroupFromNode(ctx context.Context, nod
 	return nil, fmt.Errorf("did not find matching nodegroup for node: %s", nodeName)
 }
 
+func (c *LocalModelNodeReconciler) getJobTolerationsFromNodeGroup(ctx context.Context, nodeGroupName string) ([]corev1.Toleration, error) {
+	nodeGroup := &v1alpha1.LocalModelNodeGroup{}
+	if err := c.Get(ctx, types.NamespacedName{Name: nodeGroupName}, nodeGroup); err != nil {
+		return nil, err
+	}
+
+	return nodeGroup.Spec.JobTolerations, nil
+}
+
 func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode v1alpha1.LocalModelNode, modelInfo v1alpha1.LocalModelInfo) (*batchv1.Job, error) {
+	var jobTolerations []corev1.Toleration
 	jobName := modelInfo.ModelName + "-" + localModelNode.Name
 
 	// Use NodeGroup from modelInfo if set, otherwise fall back to getNodeGroupFromNode
@@ -126,6 +136,15 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 			return nil, err
 		}
 		nodeGroupName = nodeGroup.Name
+		jobTolerations = nodeGroup.Spec.JobTolerations
+	} else {
+		tolerations, err := c.getJobTolerationsFromNodeGroup(ctx, nodeGroupName)
+		if err != nil {
+			c.Log.Error(err, "Failed to get job tolerations from node group", "node group name", nodeGroupName)
+			return nil, err
+		}
+
+		jobTolerations = tolerations
 	}
 
 	pvcName := modelInfo.ModelName + "-" + nodeGroupName
@@ -205,6 +224,7 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 					SecurityContext: &corev1.PodSecurityContext{
 						FSGroup: FSGroup,
 					},
+					Tolerations: jobTolerations,
 				},
 			},
 		},
