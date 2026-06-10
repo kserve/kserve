@@ -51,8 +51,8 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 OCI_NATIVE_TEST_IMAGE = "ghcr.io/kserve/oci-native-test-fixture:v1"
 
 # Custom-objects API coordinates for LLMInferenceService.
-KSERVE_GROUP = constants.KSERVE_GROUP                  # "serving.kserve.io"
-LLMISVC_VERSION = constants.KSERVE_V1ALPHA1_VERSION    # "v1alpha1"
+KSERVE_GROUP = constants.KSERVE_GROUP  # "serving.kserve.io"
+LLMISVC_VERSION = constants.KSERVE_V1ALPHA1_VERSION  # "v1alpha1"
 LLMISVC_PLURAL = "llminferenceservices"
 
 # Pod label keys set by the LLMInferenceService controller on every managed pod.
@@ -100,6 +100,7 @@ def _wait_for_pod(
 # Skip guards
 # ---------------------------------------------------------------------------
 
+
 def _skip_if_unsupported() -> None:
     minor = _get_k8s_minor()
     if minor < 0:
@@ -125,6 +126,7 @@ def _skip_if_unsupported() -> None:
 # ---------------------------------------------------------------------------
 # Test
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.storage
 def test_oci_native_image_volume_spec_llmisvc(tmp_path):
@@ -211,8 +213,7 @@ def test_oci_native_image_volume_spec_llmisvc(tmp_path):
 
         expected_ref = OCI_NATIVE_TEST_IMAGE
         matched = [
-            v for v in image_volumes
-            if v["image"].get("reference") == expected_ref
+            v for v in image_volumes if v["image"].get("reference") == expected_ref
         ]
         assert matched, (
             f"No ImageVolume with reference={expected_ref!r}. "
@@ -231,9 +232,7 @@ def test_oci_native_image_volume_spec_llmisvc(tmp_path):
         )
 
         mounts = kserve_container.get("volume_mounts", []) or []
-        image_mount = next(
-            (m for m in mounts if m.get("name") == image_vol_name), None
-        )
+        image_mount = next((m for m in mounts if m.get("name") == image_vol_name), None)
         assert image_mount is not None, (
             f"No VolumeMount for ImageVolume '{image_vol_name}' on {KSERVE_CONTAINER_NAME}. "
             f"Mounts present: {[m.get('name') for m in mounts]}"

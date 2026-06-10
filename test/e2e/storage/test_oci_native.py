@@ -95,6 +95,7 @@ def _wait_for_pod(
 # Skip guards — evaluated once when the module is collected
 # ---------------------------------------------------------------------------
 
+
 def _skip_if_unsupported() -> None:
     minor = _get_k8s_minor()
     if minor < 0:
@@ -119,6 +120,7 @@ def _skip_if_unsupported() -> None:
 # ---------------------------------------------------------------------------
 # Test
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.storage
 def test_oci_native_image_volume_spec(tmp_path):
@@ -189,8 +191,7 @@ def test_oci_native_image_volume_spec(tmp_path):
         # Verify the reference string matches our expected image.
         expected_ref = OCI_NATIVE_TEST_IMAGE
         matched = [
-            v for v in image_volumes
-            if v["image"].get("reference") == expected_ref
+            v for v in image_volumes if v["image"].get("reference") == expected_ref
         ]
         assert matched, (
             f"No ImageVolume with reference={expected_ref!r}. "
@@ -210,9 +211,7 @@ def test_oci_native_image_volume_spec(tmp_path):
         )
 
         mounts = kserve_container.get("volume_mounts", []) or []
-        image_mount = next(
-            (m for m in mounts if m.get("name") == image_vol_name), None
-        )
+        image_mount = next((m for m in mounts if m.get("name") == image_vol_name), None)
         assert image_mount is not None, (
             f"No VolumeMount for ImageVolume '{image_vol_name}' on kserve-container. "
             f"Mounts present: {[m.get('name') for m in mounts]}"
