@@ -57,6 +57,7 @@ kserve:
         createGateway: false
         gateway: knative-serving/knative-ingress-gateway
         className: istio
+        gatewayClassName: envoy
     nodeSelector: {}
     tolerations: []
     topologySpreadConstraints: []
@@ -74,4 +75,3 @@ kserve:
         memory: 300Mi
     knativeAddressableResolver:
       enabled: false
-

@@ -18,7 +18,7 @@ Meet the [LLMInferenceService minimum requirements](https://kserve.github.io/web
 - **Cert Manager**: 1.18.0+
 - **Gateway API**: 1.3.0+
 - **Gateway API Inference Extension (GIE)**: 1.2.0
-- **Gateway provider**: Envoy Gateway v1.5.0+
+- **Gateway provider**: any implementation that supports the required Gateway API and Gateway API Inference Extension resources
 - **LeaderWorkerSet**: 0.6.2+ (for multi-node deployments)
 - `kubectl` configured for your cluster, **cluster admin** permissions, **helm** v3+
 
@@ -27,7 +27,8 @@ For this guide you also need:
 - Kubernetes cluster with GPU nodes (`nvidia.com/gpu`)
 - KServe and LLM Inference Service CRDs installed (see [Kubernetes Deployment - LLMIsvc](https://kserve.github.io/website/docs/next/admin-guide/kubernetes-deployment-llmisvc))
 - [Hugging Face](https://huggingface.co/) account and token for `RedHatAI/gpt-oss-20b`
-- Optional: Envoy-based [Gateway API](https://gateway-api.sigs.k8s.io/) and AIGatewayRoute for the AI gateway
+- Optional: a [Gateway API](https://gateway-api.sigs.k8s.io/) provider for external exposure
+- Optional: Envoy AI Gateway if you want model-name routing via `AIGatewayRoute`
 - Optional: Prometheus + Grafana for metrics
 
 ---
@@ -113,7 +114,7 @@ The Job uses [kserve-storage-initializer](https://github.com/kserve/kserve/tree/
 
 LLMInferenceServiceConfig defines the **pod and router template** (containers, volumes, scheduler, probes). The actual inference service will reference this by name.
 
-### 6.1 Default config (intelligent inference scheduling)
+### 5.1 Default config (intelligent inference scheduling)
 
 Apply the default config:
 
@@ -126,7 +127,7 @@ This creates `LLMInferenceServiceConfig` named `llmisvc-intelligent-inference-sc
 - vLLM server container serving `/mnt/models`
 - Router with scheduler pointing at the EPP service
 
-### 6.2 Use this config in the Inference Service
+### 5.2 Use this config in the Inference Service
 
 The Inference Service (next step) references this config via `baseRefs` (e.g. `llmisvc-intelligent-inference-scheduling`).
 
@@ -158,32 +159,67 @@ kubectl get pods -n kserve-lab -l app.kubernetes.io/name=gpt-oss-20b
 
 ---
 
-## 7. AI Gateway and Route
+## 7. Gateway integration
 
-To expose the model behind an AI gateway and route by model name (e.g. for OpenAI-compatible clients), create a Gateway and an AIGatewayRoute.
+KServe's portable integration surface for `LLMInferenceService` routing is:
 
-### 7.1 Gateway
+- `Gateway` and `HTTPRoute` from Gateway API
+- `InferencePool` from Gateway API Inference Extension
+
+The `LLMInferenceService` created earlier already provisions the `InferencePool` and manages the `HTTPRoute` that points to it. To expose that route externally, create a `Gateway` backed by your cluster's GatewayClass.
+
+### 7.1 Provider matrix
+
+| Capability | Standard API | Portable across providers | Notes |
+|-----------|--------------|---------------------------|-------|
+| External listener | `Gateway` | Yes | Choose the `gatewayClassName` for your provider |
+| LLM routing path | `HTTPRoute` -> `InferencePool` | Yes | This is the standard KServe contract |
+| Scheduler / EPP integration | Gateway API Inference Extension | Yes | Requires provider support for `InferencePool` |
+| Model-name routing | `AIGatewayRoute` | No | Envoy AI Gateway-specific extension |
+
+### 7.2 Gateway provider examples
+
+- Provider-neutral template: [gateway.yaml](./gateway.yaml)
+- Agentgateway example: [gateway-agentgateway.yaml](./gateway-agentgateway.yaml)
+- Envoy AI Gateway extension: [ai-gateway-route.yaml](./ai-gateway-route.yaml)
+
+### 7.3 Gateway
 
 ```bash
 kubectl apply -f gateway.yaml -n kserve-lab
 ```
 
-[gateway.yaml](./gateway.yaml) defines an Envoy-based `Gateway` `ai-gateway` with an HTTP listener on port 80. Ensure the cluster has a Gateway controller that implements `gatewayClassName: envoy` (e.g. Envoy Gateway with AIGatewayRoute support).
+[gateway.yaml](./gateway.yaml) defines a `Gateway` named `ai-gateway` with an HTTP listener on port 80 and defaults `gatewayClassName` to `envoy`. Change it only if your cluster uses a different GatewayClass.
 
-### 7.2 AIGatewayRoute
+If you are using [Agentgateway's Kubernetes inference support](https://agentgateway.dev/docs/kubernetes/latest/inference/), you can apply the ready-to-use sample instead:
+
+```bash
+kubectl apply -f gateway-agentgateway.yaml -n kserve-lab
+```
+
+With that in place, the standard `LLMInferenceService` path is:
+
+- client -> `Gateway`
+- `Gateway` -> KServe-managed `HTTPRoute`
+- `HTTPRoute` -> `InferencePool`
+- `InferencePool` / scheduler -> selected inference pod
+
+### 7.4 Envoy AI Gateway extension
+
+If you also want model-name routing for OpenAI-compatible clients, apply the Envoy-specific `AIGatewayRoute` example below. This step is optional and only applies when your gateway provider supports `AIGatewayRoute`.
 
 ```bash
 kubectl apply -f ai-gateway-route.yaml -n kserve-lab
 ```
 
-[ai-gateway-route.yaml](./ai-gateway-route.yaml) defines an `AIGatewayRoute` that:
+[ai-gateway-route.yaml](./ai-gateway-route.yaml) defines an Envoy AI Gateway `AIGatewayRoute` that:
 
 - Attaches to `ai-gateway`
 - Matches requests with header `x-ai-eg-model: RedHatAI/gpt-oss-20b`
 - Backends to the LLMInferenceService’s `InferencePool`: `gpt-oss-20b-inference-pool`
 - Optionally tracks token usage via `llmRequestCosts`
 
-Clients should send the header `x-ai-eg-model: RedHatAI/gpt-oss-20b` when calling the gateway.
+Clients should send the header `x-ai-eg-model: RedHatAI/gpt-oss-20b` when calling the gateway through Envoy AI Gateway.
 
 ---
 
@@ -215,7 +251,7 @@ Either:
 
 - Or in [kustomization.yaml](./kustomization.yaml), comment out `inference_default.yaml` and uncomment `inference_prefix_cache.yaml`, then run `kubectl apply -k . -n kserve-lab`.
 
-The Gateway and Route from step 7 still apply; they reference the same `InferencePool` name.
+The Gateway and optional Envoy AI Gateway route from step 7 still apply; they reference the same `InferencePool` name.
 
 ---
 
@@ -251,7 +287,7 @@ Either:
 
 - Or in [kustomization.yaml](./kustomization.yaml), comment out `inference_default.yaml` and uncomment `inference_pd_disaggregation.yaml`, then run `kubectl apply -k . -n kserve-lab`.
 
-The Gateway and Route from step 7 still apply; they reference the same `InferencePool` name.
+The Gateway and optional Envoy AI Gateway route from step 7 still apply; they reference the same `InferencePool` name.
 
 ---
 
@@ -294,13 +330,14 @@ Import in Grafana: **Dashboards** → **New** → **Import** → upload the JSON
 1. `kubectl apply -f model_weights_job.yaml -n kserve-lab` → wait for completion
 1. `kubectl apply -f llmisvc_config_default.yaml -n kserve-lab`
 1. `kubectl apply -f inference_default.yaml -n kserve-lab`
-1. `kubectl apply -f gateway.yaml -n kserve-lab` and `kubectl apply -f ai-gateway-route.yaml -n kserve-lab`
+1. `kubectl apply -f gateway.yaml -n kserve-lab` or `kubectl apply -f gateway-agentgateway.yaml -n kserve-lab`
+1. (Optional, Envoy AI Gateway only) `kubectl apply -f ai-gateway-route.yaml -n kserve-lab`
 1. (Alternative) Prefix caching: `llmisvc_config_prefix_cache.yaml` then `inference_prefix_cache.yaml`
 1. (Alternative) Prefill Decode Disaggregation: `inference_pd_disaggregation.yaml`
 1. (Optional) `service_monitor.yaml` for Prometheus
 1. (Optional) Import Grafana dashboards
 
-Or use Kustomize from this directory (after fixing the HF token in the secret and choosing default vs prefix-cache inference):
+Or use Kustomize from this directory for the core llmisvc resources (after fixing the HF token in the secret and choosing default vs prefix-cache inference). Apply your gateway manifest separately:
 
 ```bash
 kubectl apply -k docs/samples/llmisvc/e2e-gpt-oss/ -n kserve-lab
