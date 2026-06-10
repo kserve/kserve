@@ -31,6 +31,10 @@ type LocalModelNodeGroupSpec struct {
 	PersistentVolumeSpec corev1.PersistentVolumeSpec `json:"persistentVolumeSpec"`
 	// Used to create PersistentVolumeClaims for download and in inference service namespaces
 	PersistentVolumeClaimSpec corev1.PersistentVolumeClaimSpec `json:"persistentVolumeClaimSpec"`
+	// Used to specify tolerations for download jobs
+	// +optional
+	// +listType=atomic
+	JobTolerations []corev1.Toleration `json:"jobTolerations,omitempty"`
 }
 
 // +k8s:openapi-gen=true
