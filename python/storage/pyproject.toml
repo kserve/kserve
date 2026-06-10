@@ -24,7 +24,10 @@ dependencies = [
     "pyasn1>=0.6.3",
     # CVE-2026-21226 Azure Core is vulnerable to deserialization of untrusted data
     # Pinning because it is a transitive dependency.
-    "azure-core>=1.38.0"
+    "azure-core>=1.38.0",
+    # CVE-2026-21441 GHSA-38jv-5279-wg99 decompression-bomb bypass via redirect drain
+    # Pinning because it is a transitive dependency.
+    "urllib3>=2.6.3"
 ]
 name = "kserve-storage"
 version = "0.19.0rc0"
