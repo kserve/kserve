@@ -53,6 +53,7 @@ type ServiceReconcilerParams struct {
 	PodSpec          *corev1.PodSpec
 	MultiNodeEnabled bool
 	ServiceConfig    *v1beta1.ServiceConfig
+	PodTemplateHash  string
 }
 
 // IngressReconcilerParams contains parameters for ingress reconciler creation
@@ -108,7 +109,7 @@ func (f *ReconcilerFactory) CreateServiceReconciler(
 	case constants.Standard, constants.LegacyRawDeployment:
 		return service.NewServiceReconciler(
 			params.Client, params.Scheme, params.ComponentMeta, params.ComponentExt,
-			params.PodSpec, params.MultiNodeEnabled, params.ServiceConfig,
+			params.PodSpec, params.MultiNodeEnabled, params.ServiceConfig, params.PodTemplateHash,
 		), nil
 
 	default:

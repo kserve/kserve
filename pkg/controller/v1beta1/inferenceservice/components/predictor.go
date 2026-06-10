@@ -89,13 +89,8 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	var sRuntime v1alpha1.ServingRuntimeSpec
 	var sRuntimeLabels map[string]string
 	var sRuntimeAnnotations map[string]string
-	multiNodeEnabled := false
-	isvcGeneration := strconv.FormatInt(isvc.Generation, 10)
-
+	multiNodeEnabled := isvc.Spec.Predictor.WorkerSpec != nil
 	// Set default value for multi-node
-	if isvc.Spec.Predictor.WorkerSpec != nil {
-		multiNodeEnabled = true
-	}
 
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(p.inferenceServiceConfig.ServiceAnnotationDisallowedList, key)
@@ -179,14 +174,15 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	objectMeta := p.buildObjectMeta(isvc, predictorName, sRuntimeLabels, predictorLabels, sRuntimeAnnotations, annotations, predictorAnnotations)
 
 	// Autoscaler should be ignored when multiNodeEnabled is true
+	var podTemplateHash string
 	if multiNodeEnabled {
 		var err error
-		workerObjectMeta, workerPodSpec, err = p.reconcileWorker(sRuntime, isvc, &podSpec, annotations, predictorAnnotations, isvcGeneration)
+		workerObjectMeta, workerPodSpec, podTemplateHash, err = p.reconcileWorker(sRuntime, isvc, &podSpec, annotations, predictorAnnotations)
 		if err != nil {
 			isvc.Status.PropagateRawStatusWithMessages(v1beta1.PredictorComponent, v1beta1.InvalidGPUAllocation, err.Error(), corev1.ConditionFalse)
 			return ctrl.Result{}, err
 		}
-		objectMeta.Labels[constants.InferenceServiceGenerationPodLabelKey] = isvcGeneration
+		objectMeta.Labels[constants.PodTemplateHashLabelKey] = podTemplateHash
 	}
 
 	p.Log.Info("Resolved container", "container", predContainer, "podSpec", podSpec)
@@ -200,7 +196,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		rawDeployment = true
 		podLabelKey = constants.RawDeploymentAppLabel
 		// This is main RawKubeReconciler to create objects (deployment, svc, scaler)
-		if err := p.reconcileRawDeployment(ctx, isvc, objectMeta, workerObjectMeta, &podSpec, workerPodSpec); err != nil {
+		if err := p.reconcileRawDeployment(ctx, isvc, objectMeta, workerObjectMeta, &podSpec, workerPodSpec, podTemplateHash); err != nil {
 			isvc.Status.PropagateRawStatusWithMessages(v1beta1.PredictorComponent, "ReconcileFailed", err.Error(), corev1.ConditionFalse)
 			return ctrl.Result{}, err
 		}
@@ -470,16 +466,23 @@ func (p *Predictor) buildObjectMeta(isvc *v1beta1.InferenceService, predictorNam
 	}
 }
 
-func (p *Predictor) reconcileWorker(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.InferenceService, podSpec *corev1.PodSpec, annotations, predictorAnnotations map[string]string, isvcGeneration string) (metav1.ObjectMeta, *corev1.PodSpec, error) {
+func (p *Predictor) reconcileWorker(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.InferenceService, podSpec *corev1.PodSpec, annotations, predictorAnnotations map[string]string) (metav1.ObjectMeta, *corev1.PodSpec, string, error) {
 	var workerObjectMeta metav1.ObjectMeta
 	var workerPodSpec *corev1.PodSpec
+	var podTemplateHash string
 	var err error
+
+	if sRuntime.WorkerSpec == nil {
+		errMsg := "you cannot set WorkerSpec in the InferenceService if the ServingRuntime does not have a WorkerSpec"
+		isvc.Status.PropagateRawStatusWithMessages(v1beta1.PredictorComponent, v1beta1.InvalidWorkerSpecNotSet, errMsg, corev1.ConditionFalse)
+		return workerObjectMeta, nil, "", errors.New(errMsg)
+	}
 
 	sRuntimeWorkerAnnotations := sRuntime.WorkerSpec.Annotations
 	sRuntimeWorkerLabels := sRuntime.WorkerSpec.Labels
 
-	if workerPodSpec, err = multiNodeProcess(sRuntime, isvc, podSpec, annotations, isvcGeneration); err != nil {
-		return workerObjectMeta, workerPodSpec, err
+	if workerPodSpec, podTemplateHash, err = multiNodeProcess(sRuntime, isvc, podSpec, annotations); err != nil {
+		return workerObjectMeta, workerPodSpec, "", err
 	}
 
 	workerObjectMeta = metav1.ObjectMeta{
@@ -490,9 +493,9 @@ func (p *Predictor) reconcileWorker(sRuntime v1alpha1.ServingRuntimeSpec, isvc *
 			isvc.Labels,
 			isvc.Spec.Predictor.Labels,
 			map[string]string{
-				constants.InferenceServiceGenerationPodLabelKey: isvcGeneration,
-				constants.InferenceServicePodLabelKey:           isvc.Name,
-				constants.KServiceComponentLabel:                string(v1beta1.PredictorComponent),
+				constants.PodTemplateHashLabelKey:     podTemplateHash,
+				constants.InferenceServicePodLabelKey: isvc.Name,
+				constants.KServiceComponentLabel:      string(v1beta1.PredictorComponent),
 			},
 		),
 		Annotations: utils.Union(
@@ -502,10 +505,10 @@ func (p *Predictor) reconcileWorker(sRuntime v1alpha1.ServingRuntimeSpec, isvc *
 		),
 	}
 
-	return workerObjectMeta, workerPodSpec, nil
+	return workerObjectMeta, workerPodSpec, podTemplateHash, nil
 }
 
-func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.InferenceService, podSpec *corev1.PodSpec, annotations map[string]string, isvcGeneration string) (*corev1.PodSpec, error) {
+func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.InferenceService, podSpec *corev1.PodSpec, annotations map[string]string) (*corev1.PodSpec, string, error) {
 	var workerContainer *corev1.Container
 	var mergedWorkerPodSpec *corev1.PodSpec
 	var err error
@@ -526,12 +529,6 @@ func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.Infere
 	if isvc.Spec.Predictor.WorkerSpec.TensorParallelSize != nil {
 		sRuntime.WorkerSpec.TensorParallelSize = isvc.Spec.Predictor.WorkerSpec.TensorParallelSize
 	}
-
-	if sRuntime.WorkerSpec == nil {
-		errMsg := "you cannot set WorkerSpec in the InferenceService if the ServingRuntime does not have a WorkerSpec"
-		isvc.Status.PropagateRawStatusWithMessages(v1beta1.PredictorComponent, v1beta1.InvalidWorkerSpecNotSet, errMsg, corev1.ConditionFalse)
-		return nil, errors.New(errMsg)
-	}
 	// Check if workerSpec in ServingRuntime does not have worker containers information, it should return errors
 	if len(sRuntime.WorkerSpec.Containers) == 0 {
 		errMsg := "No workerSpec container configuration found in selected serving runtime"
@@ -539,7 +536,7 @@ func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.Infere
 			Reason:  v1beta1.InvalidPredictorSpec,
 			Message: errMsg,
 		})
-		return nil, errors.New(errMsg)
+		return nil, "", errors.New(errMsg)
 	}
 
 	targetisvcContainer := corev1.Container{}
@@ -548,7 +545,7 @@ func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.Infere
 	}
 	_, workerContainer, mergedWorkerPodSpec, err = isvcutils.MergeServingRuntimeAndInferenceServiceSpecs(sRuntime.WorkerSpec.Containers, targetisvcContainer, isvc, constants.WorkerContainerName, sRuntime.WorkerSpec.ServingRuntimePodSpec, isvc.Spec.Predictor.WorkerSpec.PodSpec)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	mergedWorkerPodSpec.Containers = []corev1.Container{
@@ -569,28 +566,28 @@ func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.Infere
 		var err error
 		nodeCount, workerNodeGPUCount, headNodeGPUCount, err = computeRayNodeAndGPUs(mergedWorkerPodSpec, totalRequestGPUCount, podSpec)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 	}
 
 	// Add required environment variables: PipelineParallelSize, TensorParallelSize
 	// Deployment node deployement
 	if err := isvcutils.AddEnvVarToPodSpec(podSpec, constants.InferenceServiceContainerName, constants.PipelineParallelSizeEnvName, strconv.Itoa(*sRuntime.WorkerSpec.PipelineParallelSize)); err != nil {
-		return nil, errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.PipelineParallelSizeEnvName, constants.InferenceServiceContainerName)
+		return nil, "", errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.PipelineParallelSizeEnvName, constants.InferenceServiceContainerName)
 	}
 	if err := isvcutils.AddEnvVarToPodSpec(podSpec, constants.InferenceServiceContainerName, constants.TensorParallelSizeEnvName, strconv.Itoa(*sRuntime.WorkerSpec.TensorParallelSize)); err != nil {
-		return nil, errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.TensorParallelSizeEnvName, constants.InferenceServiceContainerName)
+		return nil, "", errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.TensorParallelSizeEnvName, constants.InferenceServiceContainerName)
 	}
 	if err := isvcutils.AddEnvVarToPodSpec(podSpec, constants.InferenceServiceContainerName, constants.RayNodeCountEnvName, strconv.Itoa(nodeCount)); err != nil {
-		return nil, errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.RayNodeCountEnvName, constants.InferenceServiceContainerName)
+		return nil, "", errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.RayNodeCountEnvName, constants.InferenceServiceContainerName)
 	}
 	if err := isvcutils.AddEnvVarToPodSpec(podSpec, constants.InferenceServiceContainerName, constants.RequestGPUCountEnvName, strconv.Itoa(headNodeGPUCount)); err != nil {
-		return nil, errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.RequestGPUCountEnvName, constants.InferenceServiceContainerName)
+		return nil, "", errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.RequestGPUCountEnvName, constants.InferenceServiceContainerName)
 	}
 
 	// Set the environment variable for "isvc name" to the MODEL_NAME when multiNodeEnabled is true.
 	if err := isvcutils.AddEnvVarToPodSpec(podSpec, constants.InferenceServiceContainerName, "MODEL_NAME", isvc.Name); err != nil {
-		return nil, errors.Wrapf(err, "failed to add MODEL_NAME environment to the container(%s)", constants.InferenceServiceContainerName)
+		return nil, "", errors.Wrapf(err, "failed to add MODEL_NAME environment to the container(%s)", constants.InferenceServiceContainerName)
 	}
 
 	deploymentAnnotations := annotations[constants.StorageInitializerSourceUriInternalAnnotationKey]
@@ -598,35 +595,42 @@ func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.Infere
 	if storageProtocol == "pvc" || storageProtocol == "oci" {
 		// Set the environment variable for "/mnt/models" to the MODEL_DIR when multiNodeEnabled is true.
 		if err := isvcutils.AddEnvVarToPodSpec(podSpec, constants.InferenceServiceContainerName, "MODEL_DIR", constants.DefaultModelLocalMountPath); err != nil {
-			return nil, errors.Wrapf(err, "failed to add MODEL_DIR environment to the container(%s)", constants.DefaultModelLocalMountPath)
+			return nil, "", errors.Wrapf(err, "failed to add MODEL_DIR environment to the container(%s)", constants.DefaultModelLocalMountPath)
 		}
 	}
-	// Worker node deployement
+
+	// Hash head podSpec + Predictor spec so any effective change (SR image, storage URI, etc.)
+	// produces a new value for correct headless service isolation during rolling updates.
+	podTemplateHash, err := utils.ComputeHash(podSpec, isvc.Spec.Predictor)
+	if err != nil {
+		return nil, "", err
+	}
+
+	// Worker node deployment
 	if err := isvcutils.AddEnvVarToPodSpec(mergedWorkerPodSpec, constants.WorkerContainerName, constants.RayNodeCountEnvName, strconv.Itoa(nodeCount)); err != nil {
-		return nil, errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.RayNodeCountEnvName, constants.WorkerContainerName)
+		return nil, "", errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.RayNodeCountEnvName, constants.WorkerContainerName)
 	}
 	if err := isvcutils.AddEnvVarToPodSpec(mergedWorkerPodSpec, constants.WorkerContainerName, constants.RequestGPUCountEnvName, strconv.Itoa(workerNodeGPUCount)); err != nil {
-		return nil, errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.RequestGPUCountEnvName, constants.WorkerContainerName)
+		return nil, "", errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.RequestGPUCountEnvName, constants.WorkerContainerName)
 	}
 	if err := isvcutils.AddEnvVarToPodSpec(mergedWorkerPodSpec, constants.WorkerContainerName, constants.PipelineParallelSizeEnvName, strconv.Itoa(*sRuntime.WorkerSpec.PipelineParallelSize)); err != nil {
-		return nil, errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.PipelineParallelSizeEnvName, constants.WorkerContainerName)
+		return nil, "", errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.PipelineParallelSizeEnvName, constants.WorkerContainerName)
 	}
 	if err := isvcutils.AddEnvVarToPodSpec(mergedWorkerPodSpec, constants.WorkerContainerName, constants.TensorParallelSizeEnvName, strconv.Itoa(*sRuntime.WorkerSpec.TensorParallelSize)); err != nil {
-		return nil, errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.TensorParallelSizeEnvName, constants.WorkerContainerName)
+		return nil, "", errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.TensorParallelSizeEnvName, constants.WorkerContainerName)
 	}
-	// Set the environment variable for "isvc name" to the ISVC_NAME when multiNodeEnabled is true.
 	if err := isvcutils.AddEnvVarToPodSpec(mergedWorkerPodSpec, constants.WorkerContainerName, "ISVC_NAME", isvc.Name); err != nil {
-		return nil, errors.Wrapf(err, "failed to add ISVC_NAME environment to the container(%s)", constants.WorkerContainerName)
+		return nil, "", errors.Wrapf(err, "failed to add ISVC_NAME environment to the container(%s)", constants.WorkerContainerName)
 	}
-	// Set the environment variable for "isvc name" to the HEAD_SVC when multiNodeEnabled is true.
-	if err := isvcutils.AddEnvVarToPodSpec(mergedWorkerPodSpec, constants.WorkerContainerName, "HEAD_SVC", constants.GetHeadServiceName(isvc.Name, isvcGeneration)); err != nil {
-		return nil, errors.Wrapf(err, "failed to add HEAD_SVC environment to the container(%s)", constants.WorkerContainerName)
+	// Set the HEAD_SVC using pod template hash so workers connect to the correct head service.
+	if err := isvcutils.AddEnvVarToPodSpec(mergedWorkerPodSpec, constants.WorkerContainerName, "HEAD_SVC", constants.GetHeadServiceName(isvc.Name, podTemplateHash)); err != nil {
+		return nil, "", errors.Wrapf(err, "failed to add HEAD_SVC environment to the container(%s)", constants.WorkerContainerName)
 	}
 	// Set the environment variable for worker headless service name to the WORKER_SVC when multiNodeEnabled is true.
-	if err := isvcutils.AddEnvVarToPodSpec(mergedWorkerPodSpec, constants.WorkerContainerName, "WORKER_SVC", constants.GetWorkerServiceName(constants.PredictorServiceName(isvc.Name), isvcGeneration)); err != nil {
-		return nil, errors.Wrapf(err, "failed to add WORKER_SVC environment to the container(%s)", constants.WorkerContainerName)
+	if err := isvcutils.AddEnvVarToPodSpec(mergedWorkerPodSpec, constants.WorkerContainerName, "WORKER_SVC", constants.GetWorkerServiceName(constants.PredictorServiceName(isvc.Name), podTemplateHash)); err != nil {
+		return nil, "", errors.Wrapf(err, "failed to add WORKER_SVC environment to the container(%s)", constants.WorkerContainerName)
 	}
-	return mergedWorkerPodSpec, nil
+	return mergedWorkerPodSpec, podTemplateHash, nil
 }
 
 // The `rayNodeCount` is determined based on the requested GPU count.
@@ -716,7 +720,7 @@ func computeMpNodeAndGPUs(pipelineParallelSize, tensorParallelSize int) (int, in
 	return nodeCount, gpuPerNode, gpuPerNode
 }
 
-func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.InferenceService, objectMeta, workerObjectMeta metav1.ObjectMeta, podSpec, workerPodSpec *corev1.PodSpec) error {
+func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.InferenceService, objectMeta, workerObjectMeta metav1.ObjectMeta, podSpec, workerPodSpec *corev1.PodSpec, podTemplateHash string) error {
 	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, p.clientset)
 	if err != nil {
 		return errors.Wrapf(err, "failed to get InferenceService ConfigMap")
@@ -744,7 +748,7 @@ func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.In
 	}
 
 	r, err := raw.NewRawKubeReconciler(ctx, p.client, p.clientset, p.scheme, objectMeta, workerObjectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
-		podSpec, workerPodSpec, &isvc.Spec.Predictor.StorageUris, storageInitializerConfig, storageSpec, credentialBuilder, storageContainerSpec)
+		podSpec, workerPodSpec, &isvc.Spec.Predictor.StorageUris, storageInitializerConfig, storageSpec, credentialBuilder, storageContainerSpec, podTemplateHash)
 	if err != nil {
 		return errors.Wrapf(err, "fails to create NewRawKubeReconciler for predictor")
 	}
