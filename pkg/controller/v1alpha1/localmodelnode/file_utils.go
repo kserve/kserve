@@ -28,6 +28,7 @@ type FileSystemInterface interface {
 	hasModelFolder(modelName string) (bool, error)
 	getModelFolders() ([]os.DirEntry, error)
 	ensureModelRootFolderExists() error
+	hasPermissionIssues() bool
 }
 
 type FileSystemHelper struct {
@@ -79,4 +80,24 @@ func (f *FileSystemHelper) ensureModelRootFolderExists() error {
 		return err
 	}
 	return nil
+}
+
+// hasPermissionIssues scans existing model subdirectories for permission errors.
+// A download job or prior agent run may have created subdirectories with different
+// ownership (e.g. root:root), leaving them inaccessible to the agent UID.
+func (f *FileSystemHelper) hasPermissionIssues() bool {
+	entries, err := os.ReadDir(f.modelsRootFolder)
+	if err != nil {
+		return os.IsPermission(err)
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		subdir := filepath.Join(f.modelsRootFolder, entry.Name())
+		if _, err := os.ReadDir(subdir); err != nil && os.IsPermission(err) {
+			return true
+		}
+	}
+	return false
 }

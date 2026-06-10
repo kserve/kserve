@@ -112,6 +112,49 @@ func TestFileSystemHelper_removeModel(t *testing.T) {
 	}
 }
 
+func TestFileSystemHelper_hasPermissionIssues(t *testing.T) {
+	// Case 1: No subdirectories — no issues
+	tempDir := t.TempDir()
+	helper := NewFileSystemHelper(tempDir)
+
+	if helper.hasPermissionIssues() {
+		t.Errorf("expected no permission issues on empty directory")
+	}
+
+	// Case 2: Accessible subdirectory — no issues
+	subDir := filepath.Join(tempDir, "model-a")
+	if err := os.Mkdir(subDir, 0o755); err != nil { //nolint:gosec
+		t.Fatalf("failed to create subdir: %v", err)
+	}
+	if helper.hasPermissionIssues() {
+		t.Errorf("expected no permission issues with accessible subdir")
+	}
+
+	// Case 3: Inaccessible subdirectory — permission issue detected
+	brokenDir := filepath.Join(tempDir, "model-b")
+	if err := os.Mkdir(brokenDir, 0o000); err != nil {
+		t.Fatalf("failed to create broken subdir: %v", err)
+	}
+	defer os.Chmod(brokenDir, 0o755) //nolint
+
+	if !helper.hasPermissionIssues() {
+		t.Errorf("expected permission issues when a subdir is inaccessible")
+	}
+
+	// Case 4: Non-directory entries are ignored
+	os.Chmod(brokenDir, 0o755) //nolint
+	os.RemoveAll(brokenDir)    //nolint
+	filePath := filepath.Join(tempDir, "regular-file")
+	if err := os.WriteFile(filePath, []byte("data"), 0o000); err != nil {
+		t.Fatalf("failed to create file: %v", err)
+	}
+	defer os.Chmod(filePath, 0o644) //nolint
+
+	if helper.hasPermissionIssues() {
+		t.Errorf("expected no permission issues — non-directory entries should be ignored")
+	}
+}
+
 func TestFileSystemHelper_ensureModelRootFolderExists(t *testing.T) {
 	// Case 1: Folder does not exist, should be created
 	tempDir := t.TempDir()

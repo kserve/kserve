@@ -20,7 +20,9 @@ package localmodelnode
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
 
 	batchv1 "k8s.io/api/batch/v1"
 
@@ -36,7 +38,13 @@ func ensureModelRootFolderExistsAndIsWritable(_ context.Context, _ *LocalModelNo
 	_ *v1beta1.LocalModelConfig,
 ) (*ensureModelRootFolderResult, error) {
 	if err := fsHelper.ensureModelRootFolderExists(); err != nil {
+		if os.IsPermission(err) {
+			return nil, fmt.Errorf("model root folder has permission issues: %w", err)
+		}
 		return nil, fmt.Errorf("failed to ensure model root folder: %w", err)
+	}
+	if fsHelper.hasPermissionIssues() {
+		return nil, errors.New("model subdirectories have permission issues")
 	}
 	return &ensureModelRootFolderResult{Continue: true}, nil
 }
