@@ -785,6 +785,118 @@ LLMINFERENCESERVICE_CONFIGS = {
             },
         },
     },
+    # Realistic v0.6-style PD config: old plugin names, deciderPluginName param,
+    # hashBlockSize, prefill/decode filters and profiles.
+    # Exercises the full #5433 migration: plugin renames, param restructure,
+    # hashBlockSize removal, decider ordering.
+    "scheduler-v06-pd-config-migration": {
+        "router": {
+            "scheduler": {
+                "config": {
+                    "inline": {
+                        "apiVersion": "inference.networking.x-k8s.io/v1alpha1",
+                        "kind": "EndpointPickerConfig",
+                        "plugins": [
+                            {"type": "prefill-header-handler"},
+                            {"type": "prefill-filter"},
+                            {"type": "decode-filter"},
+                            {"type": "always-disagg-pd-decider"},
+                            {
+                                "type": "pd-profile-handler",
+                                "parameters": {
+                                    "deciderPluginName": "always-disagg-pd-decider",
+                                },
+                            },
+                            {
+                                "type": "prefix-cache-scorer",
+                                "parameters": {
+                                    "hashBlockSize": 64,
+                                    "blockSizeTokens": 16,
+                                },
+                            },
+                            {"type": "queue-scorer"},
+                            {"type": "max-score-picker"},
+                        ],
+                        "schedulingProfiles": [
+                            {
+                                "name": "prefill",
+                                "plugins": [
+                                    {"pluginRef": "prefill-filter"},
+                                    {"pluginRef": "queue-scorer", "weight": 2},
+                                    {"pluginRef": "prefix-cache-scorer", "weight": 3},
+                                    {"pluginRef": "max-score-picker"},
+                                ],
+                            },
+                            {
+                                "name": "decode",
+                                "plugins": [
+                                    {"pluginRef": "decode-filter"},
+                                    {"pluginRef": "queue-scorer", "weight": 2},
+                                    {"pluginRef": "prefix-cache-scorer", "weight": 3},
+                                    {"pluginRef": "max-score-picker"},
+                                ],
+                            },
+                        ],
+                    },
+                },
+            },
+        },
+    },
+    # Realistic v0.6-style PD config with non-zero threshold (no deciderPluginName).
+    # Exercises #5560 migration: threshold -> prefix-based-pd-decider with
+    # nonCachedTokens = ceil(threshold / 4), plus all #5433 renames.
+    "scheduler-v06-nonzero-threshold-migration": {
+        "router": {
+            "scheduler": {
+                "config": {
+                    "inline": {
+                        "apiVersion": "inference.networking.x-k8s.io/v1alpha1",
+                        "kind": "EndpointPickerConfig",
+                        "plugins": [
+                            {"type": "prefill-header-handler"},
+                            {"type": "prefill-filter"},
+                            {"type": "decode-filter"},
+                            {
+                                "type": "pd-profile-handler",
+                                "parameters": {
+                                    "threshold": 100,
+                                },
+                            },
+                            {
+                                "type": "prefix-cache-scorer",
+                                "parameters": {
+                                    "hashBlockSize": 64,
+                                    "blockSizeTokens": 16,
+                                },
+                            },
+                            {"type": "queue-scorer"},
+                            {"type": "max-score-picker"},
+                        ],
+                        "schedulingProfiles": [
+                            {
+                                "name": "prefill",
+                                "plugins": [
+                                    {"pluginRef": "prefill-filter"},
+                                    {"pluginRef": "queue-scorer", "weight": 2},
+                                    {"pluginRef": "prefix-cache-scorer", "weight": 3},
+                                    {"pluginRef": "max-score-picker"},
+                                ],
+                            },
+                            {
+                                "name": "decode",
+                                "plugins": [
+                                    {"pluginRef": "decode-filter"},
+                                    {"pluginRef": "queue-scorer", "weight": 2},
+                                    {"pluginRef": "prefix-cache-scorer", "weight": 3},
+                                    {"pluginRef": "max-score-picker"},
+                                ],
+                            },
+                        ],
+                    },
+                },
+            },
+        },
+    },
     "scheduler-with-configmap-ref": {
         "router": {
             "scheduler": {
@@ -1029,7 +1141,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     "command": ["/app/llm-d-inference-sim"],
                     "args": [
                         "--port",
-                        "8000",
+                        "8001",
                         "--model",
                         "{{ .Spec.Model.Name }}",
                         "--mode",
