@@ -29,7 +29,8 @@ import (
 func TestInjectSchedulerTracing_NilSpec(t *testing.T) {
 	g := NewGomegaWithT(t)
 	container := &corev1.Container{Name: "main"}
-	injectSchedulerTracing(nil, "ns", "my-svc", container)
+	mutated := injectSchedulerTracing(nil, "ns", "my-svc", container)
+	g.Expect(mutated).To(BeFalse())
 	g.Expect(container.Args).To(BeEmpty())
 	g.Expect(container.Env).To(BeEmpty())
 }
@@ -37,7 +38,8 @@ func TestInjectSchedulerTracing_NilSpec(t *testing.T) {
 func TestInjectSchedulerTracing_EmptySpec(t *testing.T) {
 	g := NewGomegaWithT(t)
 	container := &corev1.Container{Name: "main"}
-	injectSchedulerTracing(&v1alpha2.TracingSpec{}, "test-ns", "my-svc", container)
+	mutated := injectSchedulerTracing(&v1alpha2.TracingSpec{}, "test-ns", "my-svc", container)
+	g.Expect(mutated).To(BeTrue())
 
 	g.Expect(container.Args).To(ContainElement("--tracing=true"))
 
@@ -105,7 +107,8 @@ func TestInjectSchedulerTracing_PreservesExistingEnv(t *testing.T) {
 func TestInjectServerTracing_NilSpec(t *testing.T) {
 	g := NewGomegaWithT(t)
 	container := &corev1.Container{Name: "main"}
-	injectServerTracing(nil, "ns", "svc", "-decode", container)
+	mutated := injectServerTracing(nil, "ns", "svc", "-decode", container)
+	g.Expect(mutated).To(BeFalse())
 	g.Expect(container.Args).To(BeEmpty())
 	g.Expect(container.Env).To(BeEmpty())
 }
@@ -113,8 +116,8 @@ func TestInjectServerTracing_NilSpec(t *testing.T) {
 func TestInjectServerTracing_EmptySpec_NoEndpoint_Skips(t *testing.T) {
 	g := NewGomegaWithT(t)
 	container := &corev1.Container{Name: "main"}
-	injectServerTracing(&v1alpha2.TracingSpec{}, "test-ns", "my-llm", "-decode", container)
-
+	mutated := injectServerTracing(&v1alpha2.TracingSpec{}, "test-ns", "my-llm", "-decode", container)
+	g.Expect(mutated).To(BeFalse())
 	g.Expect(container.Args).To(BeEmpty())
 	g.Expect(container.Env).To(BeEmpty())
 }
@@ -122,9 +125,10 @@ func TestInjectServerTracing_EmptySpec_NoEndpoint_Skips(t *testing.T) {
 func TestInjectServerTracing_WithEndpoint_Decode(t *testing.T) {
 	g := NewGomegaWithT(t)
 	container := &corev1.Container{Name: "main"}
-	injectServerTracing(&v1alpha2.TracingSpec{
+	mutated := injectServerTracing(&v1alpha2.TracingSpec{
 		ExporterEndpoint: ptr.To("http://collector:4317"),
 	}, "test-ns", "my-llm", "-decode", container)
+	g.Expect(mutated).To(BeTrue())
 
 	g.Expect(container.Args).To(ContainElements("--otlp-traces-endpoint", "http://collector:4317"))
 	g.Expect(container.Args).To(ContainElements("--collect-detailed-traces", "all"))
@@ -211,9 +215,10 @@ func TestInjectServerTracingIntoPodSpec_FindsMainContainer(t *testing.T) {
 			{Name: "main"},
 		},
 	}
-	injectServerTracingIntoPodSpec(&v1alpha2.TracingSpec{
+	mutated := injectServerTracingIntoPodSpec(&v1alpha2.TracingSpec{
 		ExporterEndpoint: ptr.To("http://collector:4317"),
 	}, "ns", "svc", "-decode", podSpec)
+	g.Expect(mutated).To(BeTrue())
 
 	g.Expect(podSpec.Containers[0].Env).To(BeEmpty())
 	g.Expect(podSpec.Containers[1].Env).NotTo(BeEmpty())
@@ -229,7 +234,8 @@ func TestInjectServerTracingIntoPodSpec_NoMainContainer(t *testing.T) {
 			{Name: "sidecar"},
 		},
 	}
-	injectServerTracingIntoPodSpec(&v1alpha2.TracingSpec{}, "ns", "svc", "-decode", podSpec)
+	mutated := injectServerTracingIntoPodSpec(&v1alpha2.TracingSpec{}, "ns", "svc", "-decode", podSpec)
+	g.Expect(mutated).To(BeFalse())
 	g.Expect(podSpec.Containers[0].Env).To(BeEmpty())
 }
 

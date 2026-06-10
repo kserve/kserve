@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,8 +17,6 @@ limitations under the License.
 package llmisvc
 
 import (
-	"slices"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 
@@ -65,18 +63,17 @@ func otelResourceAttributeEnvVars(namespace, llmisvcName string) []corev1.EnvVar
 
 // injectSchedulerTracing injects tracing args and env vars into the scheduler
 // (EPP) deployment's main container. The scheduler uses the --tracing=true flag
-// and standard OTEL_* env vars.
+// and standard OTEL_* env vars. Returns true if the container was mutated.
 //
 // TracingSpec field values are expected to be populated by the well-known config
 // merge (kserve-config-llm-tracing) before this function is called.
-func injectSchedulerTracing(t *v1alpha2.TracingSpec, namespace, llmisvcName string, container *corev1.Container) {
+func injectSchedulerTracing(t *v1alpha2.TracingSpec, namespace, llmisvcName string, container *corev1.Container) bool {
 	if t == nil {
-		return
+		return false
 	}
 
-	if !slices.Contains(container.Args, "--tracing=true") &&
-		!slices.Contains(container.Args, "-tracing=true") &&
-		!slices.Contains(container.Args, "--tracing") {
+	if !hasArg(container.Args, "--tracing") &&
+		!hasArg(container.Args, "-tracing") {
 		container.Args = append(container.Args, "--tracing=true")
 	}
 
@@ -92,23 +89,24 @@ func injectSchedulerTracing(t *v1alpha2.TracingSpec, namespace, llmisvcName stri
 	tracingEnvVars = append(tracingEnvVars, resourceAttrs...)
 
 	container.Env = mergeEnvVars(container.Env, tracingEnvVars)
+	return true
 }
 
 // injectServerTracing injects tracing args and env vars into the inference
 // server (vLLM) deployment's main container. The server uses
 // --otlp-traces-endpoint and --collect-detailed-traces args plus OTEL_* env vars.
-// roleSuffix should be "-decode" or "-prefill".
+// roleSuffix should be "-decode" or "-prefill". Returns true if the container was mutated.
 //
 // TracingSpec field values are expected to be populated by the well-known config
 // merge (kserve-config-llm-tracing) before this function is called.
-func injectServerTracing(t *v1alpha2.TracingSpec, namespace, llmisvcName, roleSuffix string, container *corev1.Container) {
+func injectServerTracing(t *v1alpha2.TracingSpec, namespace, llmisvcName, roleSuffix string, container *corev1.Container) bool {
 	if t == nil {
-		return
+		return false
 	}
 
 	endpoint := ptr.Deref(t.ExporterEndpoint, "")
 	if endpoint == "" {
-		return
+		return false
 	}
 
 	if !hasArg(container.Args, "--otlp-traces-endpoint") {
@@ -133,18 +131,18 @@ func injectServerTracing(t *v1alpha2.TracingSpec, namespace, llmisvcName, roleSu
 	tracingEnvVars = append(tracingEnvVars, resourceAttrs...)
 
 	container.Env = mergeEnvVars(container.Env, tracingEnvVars)
+	return true
 }
 
 // injectServerTracingIntoPodSpec finds the "main" container in a PodSpec and
-// injects server tracing into it. This is a convenience wrapper for multi-node
-// workloads where the caller works with PodSpecs directly.
-func injectServerTracingIntoPodSpec(t *v1alpha2.TracingSpec, namespace, llmisvcName, roleSuffix string, podSpec *corev1.PodSpec) {
+// injects server tracing into it. Returns true if the container was mutated.
+func injectServerTracingIntoPodSpec(t *v1alpha2.TracingSpec, namespace, llmisvcName, roleSuffix string, podSpec *corev1.PodSpec) bool {
 	for i := range podSpec.Containers {
 		if podSpec.Containers[i].Name == "main" {
-			injectServerTracing(t, namespace, llmisvcName, roleSuffix, &podSpec.Containers[i])
-			return
+			return injectServerTracing(t, namespace, llmisvcName, roleSuffix, &podSpec.Containers[i])
 		}
 	}
+	return false
 }
 
 // mergeEnvVars appends env vars from src into dst, skipping any that already
