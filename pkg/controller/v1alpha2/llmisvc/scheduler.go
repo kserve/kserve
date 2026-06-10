@@ -55,12 +55,13 @@ import (
 const (
 	tokenizerContainerName = "tokenizer"
 
-	precisePrefixCacheScorerPlugin = "precise-prefix-cache-scorer"
-	prefixCacheScorerPlugin        = "prefix-cache-scorer"
-	loraAffinityScorerPlugin       = "lora-affinity-scorer"
-	coreMetricsExtractorPlugin     = "model-server-protocol-metrics"
-	udsTokenizerBaseModelName      = "base"
-	udsTokenizerSocketFile         = "/tmp/tokenizer/tokenizer-uds.socket" //nolint:gosec // G101: not a credential, UDS socket path
+	precisePrefixCacheScorerPlugin    = "precise-prefix-cache-scorer"
+	prefixCacheScorerPlugin           = "prefix-cache-scorer"
+	loraAffinityScorerPlugin          = "lora-affinity-scorer"
+	coreMetricsExtractorPlugin        = "model-server-protocol-metrics"
+	coreMetricsExtractorPluginRenamed = "core-metrics-extractor"
+	udsTokenizerBaseModelName         = "base"
+	udsTokenizerSocketFile            = "/tmp/tokenizer/tokenizer-uds.socket" //nolint:gosec // G101: not a credential, UDS socket path
 )
 
 // reconcileScheduler manages the scheduler component and its related resources
@@ -1269,6 +1270,8 @@ func hasDeprecatedMetricFlags(d *appsv1.Deployment) bool {
 //     threshold>0 → prefix-based-pd-decider with nonCachedTokens = ceil(threshold/4))
 //  4. WithRemoveHashBlockSize – drop deprecated hashBlockSize from all plugins
 //  5. withCoreMetricsExtractorPlugin – inject core-metrics-extractor with extracted flag values
+//  6. withMigrateCoreMetricsExtractor – rename model-server-protocol-metrics → core-metrics-extractor
+//     (v0.8.0 only, runs after injection so freshly injected plugins are also renamed)
 func schedulerTransform(ctx context.Context, d *appsv1.Deployment) error {
 	version, ok := d.Spec.Template.Annotations["app.kubernetes.io/version"]
 	if !ok || version == "" {
@@ -1305,6 +1308,12 @@ func schedulerTransform(ctx context.Context, d *appsv1.Deployment) error {
 		opts = append(opts, withCoreMetricsExtractorPlugin(extracted))
 	}
 
+	// v0.8.0 plugin rename runs AFTER injection so freshly injected plugins
+	// (using the v0.7.x name) are also renamed to the v0.8.0+ name.
+	if v.Compare(*semver.New("0.8.0")) >= 0 {
+		opts = append(opts, withMigrateCoreMetricsExtractor)
+	}
+
 	return mutateSchedulerConfig(ctx, d, opts...)
 }
 
@@ -1312,6 +1321,12 @@ func schedulerTransform(ctx context.Context, d *appsv1.Deployment) error {
 // disagg-headers-handler (v0.7.0 rename).
 func withMigrateDisaggHeadersHandler(ctx context.Context, u *unstructured.Unstructured) error {
 	return WithRenamePlugin("prefill-header-handler", "disagg-headers-handler")(ctx, u)
+}
+
+// withMigrateCoreMetricsExtractor renames the model-server-protocol-metrics
+// plugin to core-metrics-extractor (v0.8.0 rename in GIE v1.5.0).
+func withMigrateCoreMetricsExtractor(ctx context.Context, u *unstructured.Unstructured) error {
+	return WithRenamePlugin(coreMetricsExtractorPlugin, coreMetricsExtractorPluginRenamed)(ctx, u)
 }
 
 // withMigrateDisaggProfileHandler renames the pd-profile-handler plugin to
@@ -1404,7 +1419,7 @@ func withCoreMetricsExtractorPlugin(extracted map[string]string) mutateScheduler
 
 		for _, plugin := range plugins {
 			pluginMap, ok := plugin.(map[string]interface{})
-			if ok && pluginMap["type"] == coreMetricsExtractorPlugin {
+			if ok && (pluginMap["type"] == coreMetricsExtractorPlugin || pluginMap["type"] == coreMetricsExtractorPluginRenamed) {
 				return nil
 			}
 		}
