@@ -242,7 +242,6 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
     }
 
 
-
 @pytest.mark.llminferenceservice
 @pytest.mark.asyncio(loop_scope="session")
 @pytest.mark.parametrize(
