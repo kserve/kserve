@@ -56,6 +56,7 @@ const (
 
 	precisePrefixCacheScorerPlugin = "precise-prefix-cache-scorer"
 	prefixCacheScorerPlugin        = "prefix-cache-scorer"
+	loraAffinityScorerPlugin       = "lora-affinity-scorer"
 	coreMetricsExtractorPlugin     = "model-server-protocol-metrics"
 	udsTokenizerBaseModelName      = "base"
 	udsTokenizerSocketFile         = "/tmp/tokenizer/tokenizer-uds.socket" //nolint:gosec // G101: not a credential, UDS socket path
@@ -494,6 +495,10 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 			}
 		}
 
+		if err := mutateSchedulerConfig(ctx, d, withLoraAffinityScorer(llmSvc.Spec.Model.LoRA != nil && len(llmSvc.Spec.Model.LoRA.Adapters) > 0)); err != nil {
+			return d, fmt.Errorf("failed to inject lora-affinity-scorer into scheduler config: %w", err)
+		}
+
 		// v0.7.0 migrations: version-gated (>= 0.7.0) because the v0.6 binary
 		// does not recognize the new plugin names. The v0.7 binary deprecates
 		// the old names but still accepts them.
@@ -877,6 +882,73 @@ func WithUdsTokenizerConfig(_ context.Context, u *unstructured.Unstructured) err
 	}
 
 	return nil
+}
+
+// withLoraAffinityScorer returns a mutateSchedulerConfigFunc that injects the
+// lora-affinity-scorer plugin when LoRA adapters are configured. It adds the
+// plugin to the top-level plugins list and to the default schedulingProfile so
+// requests are routed to endpoints that have the requested adapter loaded.
+// No-op when hasLoRA is false or the plugin is already present.
+//
+// Scope: only the "default" schedulingProfile is targeted. Prefill/decode
+// profiles used in P/D disaggregation are not modified; LoRA + P/D is a
+// separate concern tracked outside this function.
+//
+// Removal: once injected the scorer persists if LoRA adapters are later
+// removed, because preserveSchedulerConfig carries forward the existing
+// --config-text. The scorer is harmless when idle (no LoRA requests).
+func withLoraAffinityScorer(hasLoRA bool) mutateSchedulerConfigFunc {
+	return func(_ context.Context, u *unstructured.Unstructured) error {
+		if !hasLoRA {
+			return nil
+		}
+
+		val, _, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
+		if err != nil {
+			return err
+		}
+		plugins, _ := val.([]interface{})
+
+		for _, plugin := range plugins {
+			if pm, ok := plugin.(map[string]interface{}); ok && pm["type"] == loraAffinityScorerPlugin {
+				return nil
+			}
+		}
+
+		plugins = append(plugins, map[string]interface{}{"type": loraAffinityScorerPlugin})
+		if err := unstructured.SetNestedSlice(u.Object, plugins, "plugins"); err != nil {
+			return err
+		}
+
+		profiles, found, err := unstructured.NestedFieldNoCopy(u.Object, "schedulingProfiles")
+		if err != nil || !found {
+			return err
+		}
+		profileList, ok := profiles.([]interface{})
+		if !ok {
+			return nil
+		}
+		for _, profile := range profileList {
+			profileMap, ok := profile.(map[string]interface{})
+			if !ok || profileMap["name"] != "default" {
+				continue
+			}
+			pluginRefs, _, _ := unstructured.NestedFieldNoCopy(profileMap, "plugins")
+			refs, _ := pluginRefs.([]interface{})
+			for _, ref := range refs {
+				if rm, ok := ref.(map[string]interface{}); ok && rm["pluginRef"] == loraAffinityScorerPlugin {
+					return nil
+				}
+			}
+			newRef := map[string]interface{}{"pluginRef": loraAffinityScorerPlugin, "weight": int64(4)}
+			refs = append([]interface{}{newRef}, refs...)
+			if err := unstructured.SetNestedSlice(profileMap, refs, "plugins"); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
 }
 
 // WithMigrateTokenProcessorConfig migrates tokenProcessorConfig from inside
