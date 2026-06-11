@@ -112,6 +112,7 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.0 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
+	github.com/google/btree v1.1.3 // indirect
 	github.com/google/cel-go v0.26.0 // indirect
 	github.com/google/gnostic-models v0.7.0 // indirect
 	github.com/google/go-containerregistry v0.20.3 // indirect
@@ -218,9 +219,6 @@ require (
 // Instead of replacing the path directly, exclude the problematic package
 // This avoids "module used for two different module paths" error
 exclude google.golang.org/grpc/stats/opentelemetry v0.0.0-00010101000000-000000000000
-
-// Currently, KEDA requires 0.19 but GIE uses 0.21
-replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.19.7
 
 // CVE-2025-68156: Update expr-lang/expr to v1.17.7
 replace github.com/expr-lang/expr => github.com/expr-lang/expr v1.17.7
