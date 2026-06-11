@@ -61,6 +61,9 @@ if [[ $ENABLE_LLMISVC == "false" || $ENABLE_KSERVE_WITH_LLMISVC == "true" ]]; th
     export USE_LOCAL_CHARTS=true
     export INSTALL_RUNTIMES=true
     ${REPO_ROOT}/hack/setup/infra/manage.kserve-helm.sh
+
+    kubectl patch clusterservingruntime kserve-huggingfaceserver --type=json \
+      --patch-file config/overlays/test/clusterresources/huggingfaceserver-tokio-patch.yaml
     kustomize build config/overlays/test/s3-local-backend | kubectl apply --server-side --force-conflicts -f -
   else
     export SET_KSERVE_VERSION=${TAG}
