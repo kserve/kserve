@@ -23441,6 +23441,8 @@ spec:
                       workingDir:
                         type: string
                     type: object
+                  storageContainerName:
+                    type: string
                   storageUris:
                     items:
                       properties:
