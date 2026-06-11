@@ -173,4 +173,4 @@ spec:
             emptyDir: {}
         dnsPolicy: ClusterFirst
         restartPolicy: Always
-        terminationGracePeriodSeconds: 30
+        terminationGracePeriodSeconds: 60 # must be >= workload terminationGracePeriodSeconds
