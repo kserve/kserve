@@ -377,7 +377,7 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.EnqueueOnLLMInferenceServicePods),
 			builder.WithPredicates(PodStatusPredicate()))
 
-	if err := extendControllerSetup(r, mgr, b); err != nil {
+	if err := r.extendControllerSetup(mgr, b); err != nil {
 		return fmt.Errorf("failed to extend controller setup: %w", err)
 	}
 
