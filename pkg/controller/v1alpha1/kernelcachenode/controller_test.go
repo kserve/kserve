@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -421,7 +421,7 @@ var _ = Describe("KernelCacheNode Controller", func() {
 
 				kcNode := &v1alpha1.KernelCacheNode{
 					Status: v1alpha1.KernelCacheNodeStatus{
-						CacheStatus: map[string]v1alpha1.CacheNodeExtractionStatus{
+						CacheStatus: map[string]v1alpha1.CacheNodeCacheInfo{
 							"cache1": {
 								State: v1alpha1.NodeCacheStateRunning,
 								ServingNamespaces: map[string]v1alpha1.NamespaceServingCounts{
@@ -445,8 +445,8 @@ var _ = Describe("KernelCacheNode Controller", func() {
 				Expect(counts.CachesInUse).To(Equal(1))
 				Expect(counts.CachesNotInUse).To(Equal(1))
 				Expect(counts.CachesError).To(Equal(1))
-				Expect(counts.PodRunningCnt).To(Equal(3)) // 2 + 1
-				Expect(counts.PodDeletingCnt).To(Equal(0))
+				Expect(counts.TotalPodsUsing).To(Equal(3)) // 2 + 1
+				Expect(counts.TotalPodsTerminating).To(Equal(0))
 			})
 
 			It("Should count terminating pods correctly", func() {
@@ -458,7 +458,7 @@ var _ = Describe("KernelCacheNode Controller", func() {
 
 				kcNode := &v1alpha1.KernelCacheNode{
 					Status: v1alpha1.KernelCacheNodeStatus{
-						CacheStatus: map[string]v1alpha1.CacheNodeExtractionStatus{
+						CacheStatus: map[string]v1alpha1.CacheNodeCacheInfo{
 							"cache1": {
 								State: v1alpha1.NodeCacheStateRunning,
 								ServingNamespaces: map[string]v1alpha1.NamespaceServingCounts{
@@ -470,8 +470,8 @@ var _ = Describe("KernelCacheNode Controller", func() {
 				}
 
 				counts := reconciler.calculateAggregateCounts(kcNode)
-				Expect(counts.PodRunningCnt).To(Equal(3))
-				Expect(counts.PodDeletingCnt).To(Equal(1))
+				Expect(counts.TotalPodsUsing).To(Equal(3))
+				Expect(counts.TotalPodsTerminating).To(Equal(1))
 			})
 
 			It("Should return zero counts for empty CacheStatus", func() {
@@ -483,7 +483,7 @@ var _ = Describe("KernelCacheNode Controller", func() {
 
 				kcNode := &v1alpha1.KernelCacheNode{
 					Status: v1alpha1.KernelCacheNodeStatus{
-						CacheStatus: map[string]v1alpha1.CacheNodeExtractionStatus{},
+						CacheStatus: map[string]v1alpha1.CacheNodeCacheInfo{},
 					},
 				}
 
@@ -491,8 +491,8 @@ var _ = Describe("KernelCacheNode Controller", func() {
 				Expect(counts.CachesInUse).To(Equal(0))
 				Expect(counts.CachesNotInUse).To(Equal(0))
 				Expect(counts.CachesError).To(Equal(0))
-				Expect(counts.PodRunningCnt).To(Equal(0))
-				Expect(counts.PodDeletingCnt).To(Equal(0))
+				Expect(counts.TotalPodsUsing).To(Equal(0))
+				Expect(counts.TotalPodsTerminating).To(Equal(0))
 			})
 		})
 
@@ -502,15 +502,15 @@ var _ = Describe("KernelCacheNode Controller", func() {
 					CachesInUse:    1,
 					CachesNotInUse: 2,
 					CachesError:    0,
-					PodRunningCnt:  3,
-					PodDeletingCnt: 0,
+					TotalPodsUsing:  3,
+					TotalPodsTerminating: 0,
 				}
 				b := &v1alpha1.NodeCacheCounts{
 					CachesInUse:    1,
 					CachesNotInUse: 2,
 					CachesError:    0,
-					PodRunningCnt:  3,
-					PodDeletingCnt: 0,
+					TotalPodsUsing:  3,
+					TotalPodsTerminating: 0,
 				}
 				Expect(nodeCountsEqual(a, b)).To(BeTrue())
 			})
@@ -520,15 +520,15 @@ var _ = Describe("KernelCacheNode Controller", func() {
 					CachesInUse:    1,
 					CachesNotInUse: 2,
 					CachesError:    0,
-					PodRunningCnt:  3,
-					PodDeletingCnt: 0,
+					TotalPodsUsing:  3,
+					TotalPodsTerminating: 0,
 				}
 				b := &v1alpha1.NodeCacheCounts{
 					CachesInUse:    2,
 					CachesNotInUse: 2,
 					CachesError:    0,
-					PodRunningCnt:  3,
-					PodDeletingCnt: 0,
+					TotalPodsUsing:  3,
+					TotalPodsTerminating: 0,
 				}
 				Expect(nodeCountsEqual(a, b)).To(BeFalse())
 			})

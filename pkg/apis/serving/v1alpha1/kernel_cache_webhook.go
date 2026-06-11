@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -36,9 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/google/go-containerregistry/pkg/authn"
 	gcrname "github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 
 	"github.com/kserve/kserve/pkg/cosign"
@@ -303,8 +301,8 @@ func (kc *KernelCache) ValidateDelete(ctx context.Context, obj runtime.Object) (
 	// Check if cache is in use by pods (via ServingStatus)
 	// Phase 2: when ServingStatus is populated by agent
 	// For now, allow deletion (finalizer handles cleanup)
-	if cache.Status.ServingStatus != nil && cache.Status.ServingStatus.TotalPods > 0 {
-		return nil, fmt.Errorf("cannot delete KernelCache: in use by %d pods", cache.Status.ServingStatus.TotalPods)
+	if cache.Status.ServingStatus != nil && cache.Status.ServingStatus.TotalPodsUsing > 0 {
+		return nil, fmt.Errorf("cannot delete KernelCache: in use by %d pods", cache.Status.ServingStatus.TotalPodsUsing)
 	}
 
 	return nil, nil
@@ -342,9 +340,9 @@ func extractSizeFromImage(imageRef string) int64 {
 		return totalUncompressedSize
 	}
 
-	img, err := remote.Image(ref)
+	img, err := gcrremote.Image(ref)
 	if err != nil {
-		kernelcacheLog.Error(err, "remote.Image failed")
+		kernelcacheLog.Error(err, "gcrremote.Image failed")
 		return totalUncompressedSize
 	}
 
@@ -403,50 +401,19 @@ func verifyKyvernoAnnotation(annotations map[string]string) error {
 
 // isKyvernoVerificationEnabled checks if Kyverno verification is enabled.
 // It reads from the KYVERNO_VERIFICATION_ENABLED environment variable.
-// Defaults to false (disabled) if not set or invalid.
+// Accepts "true" or "false". Defaults to false (disabled) if not set or invalid.
 func isKyvernoVerificationEnabled() bool {
 	envValue := os.Getenv(EnvKyvernoEnabled)
 	if envValue == "" {
-		// Default to disabled
 		return false
 	}
 
-	// Parse the value - accept "true", "1", "yes" as enabled
-	switch strings.ToLower(envValue) {
-	case "true", "1", "yes":
-		return true
-	case "false", "0", "no":
-		return false
-	default:
-		// Invalid value, default to disabled and log a warning
-		kernelcacheLog.Info("Invalid value for KYVERNO_VERIFICATION_ENABLED, defaulting to disabled", "value", envValue)
-		return false
-	}
-}
-
-// resolveImageDigest resolves an image reference to its digest without verifying signatures.
-// This is used when Kyverno verification is disabled (development/testing mode).
-// It returns the image digest string (sha256:...) if successful.
-func resolveImageDigest(ctx context.Context, imageRef string) (string, error) {
-	// Parse the image reference (tag or digest)
-	ref, err := gcrname.ParseReference(imageRef)
+	enabled, err := strconv.ParseBool(envValue)
 	if err != nil {
-		return "", fmt.Errorf("parse image reference: %w", err)
+		kernelcacheLog.Info("Invalid value for KYVERNO_VERIFICATION_ENABLED, defaulting to disabled", "value", envValue, "error", err)
+		return false
 	}
-
-	// Registry access options (authn.DefaultKeychain covers most cases)
-	remoteOpts := []gcrremote.Option{
-		gcrremote.WithAuthFromKeychain(authn.DefaultKeychain),
-		gcrremote.WithContext(ctx),
-	}
-
-	// Get the image descriptor to retrieve the digest
-	descriptor, err := gcrremote.Get(ref, remoteOpts...)
-	if err != nil {
-		return "", fmt.Errorf("fetch image descriptor: %w", err)
-	}
-
-	return descriptor.Digest.String(), nil
+	return enabled
 }
 
 // mutationKeyFromEnv retrieves the HMAC secret from environment variable
