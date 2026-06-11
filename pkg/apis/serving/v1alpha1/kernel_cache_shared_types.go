@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import (
 )
 
 // KernelCachePodTemplate customizes extraction Job pods
+// +k8s:openapi-gen=true
 type KernelCachePodTemplate struct {
 	// NodeSelector for extraction Jobs
 	// +optional
@@ -39,6 +40,7 @@ type KernelCachePodTemplate struct {
 }
 
 // GPUTypeInfo describes GPU hardware on a node
+// +k8s:openapi-gen=true
 type GPUTypeInfo struct {
 	// GPU type identifier (from MCV detection)
 	// Examples: "Aldebaran/MI200", "nvidia-a100-80gb"

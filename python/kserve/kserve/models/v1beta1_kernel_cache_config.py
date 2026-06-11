@@ -50,6 +50,7 @@ class V1beta1KernelCacheConfig(object):
         'enable_permission_init_container': 'bool',
         'enabled': 'bool',
         'extract_image': 'str',
+        'fs_group': 'int',
         'job_namespace': 'str',
         'job_ttl_seconds_after_finished': 'int',
         'no_gpu': 'bool',
@@ -60,13 +61,14 @@ class V1beta1KernelCacheConfig(object):
         'enable_permission_init_container': 'enablePermissionInitContainer',
         'enabled': 'enabled',
         'extract_image': 'extractImage',
+        'fs_group': 'fsGroup',
         'job_namespace': 'jobNamespace',
         'job_ttl_seconds_after_finished': 'jobTTLSecondsAfterFinished',
         'no_gpu': 'noGPU',
         'reconcile_interval_seconds': 'reconcileIntervalSeconds'
     }
 
-    def __init__(self, enable_permission_init_container=None, enabled=False, extract_image=None, job_namespace='', job_ttl_seconds_after_finished=None, no_gpu=None, reconcile_interval_seconds=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, enable_permission_init_container=None, enabled=False, extract_image=None, fs_group=None, job_namespace='', job_ttl_seconds_after_finished=None, no_gpu=None, reconcile_interval_seconds=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1KernelCacheConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -75,6 +77,7 @@ class V1beta1KernelCacheConfig(object):
         self._enable_permission_init_container = None
         self._enabled = None
         self._extract_image = None
+        self._fs_group = None
         self._job_namespace = None
         self._job_ttl_seconds_after_finished = None
         self._no_gpu = None
@@ -86,6 +89,8 @@ class V1beta1KernelCacheConfig(object):
         self.enabled = enabled
         if extract_image is not None:
             self.extract_image = extract_image
+        if fs_group is not None:
+            self.fs_group = fs_group
         self.job_namespace = job_namespace
         if job_ttl_seconds_after_finished is not None:
             self.job_ttl_seconds_after_finished = job_ttl_seconds_after_finished
@@ -158,6 +163,27 @@ class V1beta1KernelCacheConfig(object):
         """
 
         self._extract_image = extract_image
+
+    @property
+    def fs_group(self):
+        """Gets the fs_group of this V1beta1KernelCacheConfig.  # noqa: E501
+
+
+        :return: The fs_group of this V1beta1KernelCacheConfig.  # noqa: E501
+        :rtype: int
+        """
+        return self._fs_group
+
+    @fs_group.setter
+    def fs_group(self, fs_group):
+        """Sets the fs_group of this V1beta1KernelCacheConfig.
+
+
+        :param fs_group: The fs_group of this V1beta1KernelCacheConfig.  # noqa: E501
+        :type: int
+        """
+
+        self._fs_group = fs_group
 
     @property
     def job_namespace(self):

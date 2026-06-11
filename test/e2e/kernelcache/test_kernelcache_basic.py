@@ -1,4 +1,4 @@
-# Copyright 2025 The KServe Authors.
+# Copyright 2026 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -83,56 +83,65 @@ async def test_kernelcache_basic():
         )
 
         # Wait for KernelCacheNode to be created (controller creates one per node)
-        await asyncio.sleep(10)
-
-        # Verify KernelCacheNode is created for each node
+        # Poll for KernelCacheNode existence (up to 30 seconds)
         for node_name in node_names:
             kcnode_name = f"kernel-cache-node-{node_name}"
-            try:
-                kcnode = k8s_client.get_cluster_custom_object(
-                    group=constants.KSERVE_GROUP,
-                    version=constants.KSERVE_V1ALPHA1_VERSION,
-                    plural=constants.KSERVE_PLURAL_KERNELCACHENODE,
-                    name=kcnode_name,
-                )
-
-                # Verify GPU detection populated GPUInfo (stub mode)
-                assert "status" in kcnode, (
-                    f"KernelCacheNode {kcnode_name} should have status"
-                )
-                assert "gpuInfo" in kcnode["status"], (
-                    f"KernelCacheNode {kcnode_name} should have gpuInfo"
-                )
-
-                # In stub mode (noGPU=true), we should see AMD MI210 GPUs
-                gpu_info = kcnode["status"]["gpuInfo"]
-                assert len(gpu_info) > 0, (
-                    f"KernelCacheNode {kcnode_name} should detect GPUs in stub mode"
-                )
-
-                # Verify GPU info structure
-                for gpu in gpu_info:
-                    assert "gpuType" in gpu, "GPU info should have gpuType"
-                    assert "ids" in gpu, "GPU info should have ids"
-                    assert "driverVersion" in gpu, "GPU info should have driverVersion"
-
-            except ApiException as e:
-                if e.status == 404:
-                    pytest.fail(
-                        f"KernelCacheNode {kcnode_name} was not created for node {node_name}"
+            kcnode = None
+            for _ in range(30):  # 30 * 1s = 30 seconds
+                try:
+                    kcnode = k8s_client.get_cluster_custom_object(
+                        group=constants.KSERVE_GROUP,
+                        version=constants.KSERVE_V1ALPHA1_VERSION,
+                        plural=constants.KSERVE_PLURAL_KERNELCACHENODE,
+                        name=kcnode_name,
                     )
-                raise
+                    # Check if status and gpuInfo are populated
+                    if "status" in kcnode and "gpuInfo" in kcnode["status"]:
+                        break
+                    await asyncio.sleep(1)
+                except ApiException as e:
+                    if e.status == 404:
+                        await asyncio.sleep(1)
+                        continue
+                    raise
+            else:
+                pytest.fail(
+                    f"KernelCacheNode {kcnode_name} not ready within 30 seconds for node {node_name}"
+                )
 
-        # Wait for extraction Job to be created
-        await asyncio.sleep(15)
+            # Verify GPU detection populated GPUInfo (stub mode)
+            assert "status" in kcnode, (
+                f"KernelCacheNode {kcnode_name} should have status"
+            )
+            assert "gpuInfo" in kcnode["status"], (
+                f"KernelCacheNode {kcnode_name} should have gpuInfo"
+            )
 
-        # Verify extraction Job exists
-        jobs = batch_v1.list_namespaced_job(
-            namespace=constants.INFERENCESERVICE_SYSTEM_NAMESPACE,
-            label_selector=f"cache={cache_name},cache-namespace={KSERVE_TEST_NAMESPACE}",
-        )
-        assert len(jobs.items) > 0, "Extraction Job should be created"
-        extraction_job = jobs.items[0]
+            # In stub mode (noGPU=true), we should see AMD MI210 GPUs
+            gpu_info = kcnode["status"]["gpuInfo"]
+            assert len(gpu_info) > 0, (
+                f"KernelCacheNode {kcnode_name} should detect GPUs in stub mode"
+            )
+
+            # Verify GPU info structure
+            for gpu in gpu_info:
+                assert "gpuType" in gpu, "GPU info should have gpuType"
+                assert "ids" in gpu, "GPU info should have ids"
+                assert "driverVersion" in gpu, "GPU info should have driverVersion"
+
+        # Wait for extraction Job to be created (poll up to 30 seconds)
+        extraction_job = None
+        for _ in range(30):  # 30 * 1s = 30 seconds
+            jobs = batch_v1.list_namespaced_job(
+                namespace=constants.INFERENCESERVICE_SYSTEM_NAMESPACE,
+                label_selector=f"cache={cache_name},cache-namespace={KSERVE_TEST_NAMESPACE}",
+            )
+            if len(jobs.items) > 0:
+                extraction_job = jobs.items[0]
+                break
+            await asyncio.sleep(1)
+        else:
+            pytest.fail(f"Extraction Job for cache {cache_name} was not created within 30 seconds")
 
         # Wait for extraction Job to complete (up to 2 minutes)
         for _ in range(24):  # 24 * 5s = 2 minutes
@@ -151,18 +160,27 @@ async def test_kernelcache_basic():
         else:
             pytest.fail("Extraction Job did not complete within 2 minutes")
 
-        # Wait for cache to become Ready
-        await asyncio.sleep(10)
+        # Poll for cache to become Ready (up to 30 seconds)
+        kc = None
+        for _ in range(30):  # 30 * 1s = 30 seconds
+            kc = k8s_client.get_namespaced_custom_object(
+                group=constants.KSERVE_GROUP,
+                version=constants.KSERVE_V1ALPHA1_VERSION,
+                namespace=KSERVE_TEST_NAMESPACE,
+                plural=constants.KSERVE_PLURAL_KERNELCACHE,
+                name=cache_name,
+            )
+            # Check if ready (has available copies, no failures)
+            if ("status" in kc and
+                "cacheCopies" in kc["status"] and
+                kc["status"]["cacheCopies"]["available"] > 0 and
+                kc["status"]["cacheCopies"]["failed"] == 0):
+                break
+            await asyncio.sleep(1)
+        else:
+            pytest.fail(f"KernelCache {cache_name} did not become ready within 30 seconds")
 
-        # Verify KernelCache is ready (all copies available, no failures)
-        kc = k8s_client.get_namespaced_custom_object(
-            group=constants.KSERVE_GROUP,
-            version=constants.KSERVE_V1ALPHA1_VERSION,
-            namespace=KSERVE_TEST_NAMESPACE,
-            plural=constants.KSERVE_PLURAL_KERNELCACHE,
-            name=cache_name,
-        )
-
+        # Verify KernelCache is ready
         assert "status" in kc, "KernelCache should have status"
         assert "cacheCopies" in kc["status"], (
             "KernelCache status should have cacheCopies"
@@ -211,5 +229,22 @@ async def test_kernelcache_basic():
         except ApiException:
             pass
 
-        # Wait for finalizer to clean up resources
-        await asyncio.sleep(30)
+        # Poll for finalizer to clean up resources (up to 60 seconds)
+        for _ in range(60):  # 60 * 1s = 60 seconds
+            try:
+                k8s_client.get_namespaced_custom_object(
+                    group=constants.KSERVE_GROUP,
+                    version=constants.KSERVE_V1ALPHA1_VERSION,
+                    namespace=KSERVE_TEST_NAMESPACE,
+                    plural=constants.KSERVE_PLURAL_KERNELCACHE,
+                    name=cache_name,
+                )
+                await asyncio.sleep(1)
+            except ApiException as e:
+                if e.status == 404:
+                    # Resource deleted successfully
+                    break
+                raise
+        else:
+            # Timeout - resource still exists but that's okay for cleanup
+            pass

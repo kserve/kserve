@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,6 +24,8 @@ import (
 
 // KernelCache packages GPU kernel caches (PyTorch, Triton, vLLM JIT-compiled kernels)
 // into OCI images and extracts them to PVCs for accelerated workload startup.
+// +genclient
+// +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=kc
@@ -32,8 +34,8 @@ import (
 // +kubebuilder:printcolumn:name="Node-In-Use",type=integer,JSONPath=".status.counts.nodeInUseCnt"
 // +kubebuilder:printcolumn:name="Node-Not-In-Use",type=integer,JSONPath=".status.counts.nodeNotInUseCnt"
 // +kubebuilder:printcolumn:name="Node-Error",type=integer,JSONPath=".status.counts.nodeErrorCnt"
-// +kubebuilder:printcolumn:name="Pod-Running",type=integer,JSONPath=".status.counts.podRunningCnt"
-// +kubebuilder:printcolumn:name="Pod-Deleting",type=integer,JSONPath=".status.counts.podDeletingCnt"
+// +kubebuilder:printcolumn:name="Pods-Using",type=integer,JSONPath=".status.servingStatus.totalPodsUsing"
+// +kubebuilder:printcolumn:name="Pods-Terminating",type=integer,JSONPath=".status.servingStatus.totalPodsTerminating"
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=".metadata.creationTimestamp"
 type KernelCache struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -43,6 +45,7 @@ type KernelCache struct {
 }
 
 // KernelCacheSpec defines the desired state of KernelCache
+// +k8s:openapi-gen=true
 type KernelCacheSpec struct {
 	// Image is the OCI image URL containing kernel cache
 	// +kubebuilder:validation:Required
@@ -84,6 +87,7 @@ type KernelCacheSpec struct {
 }
 
 // KernelCacheList contains a list of KernelCache
+// +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
 type KernelCacheList struct {
 	metav1.TypeMeta `json:",inline"`

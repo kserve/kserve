@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -47,10 +46,6 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/kernelcachecommon"
-)
-
-const (
-	KernelCacheFinalizerName = "kernelcache.kserve.io/finalizer"
 )
 
 // KernelCacheReconciler reconciles KernelCache resources (namespace-scoped)
@@ -93,10 +88,10 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	// Add finalizer if not present
-	if !controllerutil.ContainsFinalizer(kc, KernelCacheFinalizerName) {
-		controllerutil.AddFinalizer(kc, KernelCacheFinalizerName)
+	if !controllerutil.ContainsFinalizer(kc, kernelcachecommon.KernelCacheFinalizerName) {
+		controllerutil.AddFinalizer(kc, kernelcachecommon.KernelCacheFinalizerName)
 		if err := r.Update(ctx, kc); err != nil {
-			if strings.Contains(err.Error(), "object has been modified") {
+			if errors.IsConflict(err) {
 				r.Log.Info("Finalizer add conflict (will retry)",
 					"cache", kc.Name, "namespace", kc.Namespace)
 			} else {
@@ -173,7 +168,7 @@ func (r *KernelCacheReconciler) handleDeletion(
 	kc *v1alpha1.KernelCache,
 	kernelCacheConfig *v1beta1.KernelCacheConfig,
 ) (ctrl.Result, error) {
-	if !controllerutil.ContainsFinalizer(kc, KernelCacheFinalizerName) {
+	if !controllerutil.ContainsFinalizer(kc, kernelcachecommon.KernelCacheFinalizerName) {
 		return ctrl.Result{}, nil
 	}
 
@@ -190,40 +185,26 @@ func (r *KernelCacheReconciler) handleDeletion(
 	servingPVCName := kc.Name // Same name as KernelCache
 	servingPVName := kc.Namespace + "-" + kc.Name + "-serving-pv"
 
-	// Delete extraction Jobs and Pods first (PVC can't delete while Pods are using it)
+	// Delete extraction Jobs first (PVC can't delete while Pods are using it)
+	// Job deletion automatically deletes Pods via propagation policy
 	jobLabels := map[string]string{
 		"cache":           kc.Name,
 		"cache-namespace": kc.Namespace,
 	}
 
-	// Delete Pods (Job deletion doesn't immediately delete Pods)
-	podList := &corev1.PodList{}
-	if err := r.List(ctx, podList,
-		client.InNamespace(jobNamespace),
-		client.MatchingLabels(jobLabels),
-	); err == nil {
-		for i := range podList.Items {
-			pod := &podList.Items[i]
-			if err := r.Delete(ctx, pod); err != nil && !errors.IsNotFound(err) {
-				r.Log.Error(err, "Failed to delete extraction Pod", "pod", pod.Name)
-			} else {
-				r.Log.Info("Deleted extraction Pod", "pod", pod.Name)
-			}
-		}
-	}
-
-	// Delete Jobs
+	// Delete Jobs (Pods auto-delete via propagation policy)
 	jobList := &batchv1.JobList{}
 	if err := r.List(ctx, jobList,
 		client.InNamespace(jobNamespace),
 		client.MatchingLabels(jobLabels),
 	); err == nil {
+		propagationPolicy := metav1.DeletePropagationBackground
 		for i := range jobList.Items {
 			job := &jobList.Items[i]
-			if err := r.Delete(ctx, job); err != nil && !errors.IsNotFound(err) {
+			if err := r.Delete(ctx, job, &client.DeleteOptions{PropagationPolicy: &propagationPolicy}); err != nil && !errors.IsNotFound(err) {
 				r.Log.Error(err, "Failed to delete extraction Job", "job", job.Name)
 			} else {
-				r.Log.Info("Deleted extraction Job", "job", job.Name)
+				r.Log.Info("Deleted extraction Job (Pods will auto-delete)", "job", job.Name)
 			}
 		}
 	}
@@ -279,9 +260,9 @@ func (r *KernelCacheReconciler) handleDeletion(
 	}
 
 	// Remove finalizer
-	controllerutil.RemoveFinalizer(kc, KernelCacheFinalizerName)
+	controllerutil.RemoveFinalizer(kc, kernelcachecommon.KernelCacheFinalizerName)
 	if err := r.Update(ctx, kc); err != nil {
-		if strings.Contains(err.Error(), "object has been modified") {
+		if errors.IsConflict(err) {
 			r.Log.Info("Finalizer removal conflict (will retry)",
 				"cache", kc.Name, "namespace", kc.Namespace)
 		} else {
@@ -305,7 +286,7 @@ func (r *KernelCacheReconciler) ensureResolvedDigest(ctx context.Context, kc *v1
 		}
 		kc.Status.ResolvedDigest = annotationDigest
 		if err := r.Status().Update(ctx, kc); err != nil {
-			if strings.Contains(err.Error(), "object has been modified") {
+			if errors.IsConflict(err) {
 				r.Log.Info("Digest status update conflict (will retry)",
 					"cache", kc.Name, "namespace", kc.Namespace)
 			} else {
@@ -453,8 +434,13 @@ func (r *KernelCacheReconciler) ensureExtractionJob(
 		return err
 	}
 
-	// Only create if no Job exists OR Job failed
+	// Only create if no Job exists AND extraction not yet complete
+	// (TTL controller may delete completed Jobs, so check state)
 	if job == nil {
+		if kc.Status.State == v1alpha1.CacheStateExtracted {
+			// Extraction already succeeded, Job was deleted by TTL controller
+			return nil
+		}
 		return r.createExtractionJob(ctx, kc, pvcName, config)
 	} else if r.jobFailed(job) {
 		// Only recreate if failed job is old enough
@@ -576,7 +562,7 @@ func (r *KernelCacheReconciler) createExtractionJob(
 
 		initContainer := corev1.Container{
 			Name:  "fix-permissions",
-			Image: "quay.io/fedora/fedora-minimal",
+			Image: "registry.access.redhat.com/ubi9/ubi-micro:latest",
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser: &rootUser,
 			},
@@ -805,8 +791,6 @@ func (r *KernelCacheReconciler) updateAggregateStatus(
 		NodeErrorCnt:    0,
 		NodeInUseCnt:    0,
 		NodeNotInUseCnt: 0,
-		PodRunningCnt:   0,
-		PodDeletingCnt:  0,
 	}
 
 	// Aggregate GPU compatibility
@@ -870,17 +854,13 @@ func (r *KernelCacheReconciler) updateAggregateStatus(
 				aggCounts.PodsReady += nsCounts.PodsReady
 				aggCounts.PodsTerminating += nsCounts.PodsTerminating
 				servingStatus.NamespaceCounts[ns] = aggCounts
-
-				// Aggregate pod counts
-				counts.PodRunningCnt += nsCounts.PodsUsing
-				counts.PodDeletingCnt += nsCounts.PodsTerminating
 			}
 		}
 	}
 
 	// Calculate serving totals
 	for _, nsCounts := range servingStatus.NamespaceCounts {
-		servingStatus.TotalPods += nsCounts.PodsUsing
+		servingStatus.TotalPodsUsing += nsCounts.PodsUsing
 		servingStatus.TotalPodsReady += nsCounts.PodsReady
 		servingStatus.TotalPodsTerminating += nsCounts.PodsTerminating
 	}
@@ -904,7 +884,7 @@ func (r *KernelCacheReconciler) updateAggregateStatus(
 	state := v1alpha1.CacheStatePending
 	if counts.NodeErrorCnt > 0 {
 		state = v1alpha1.CacheStateError
-	} else if counts.NodeInUseCnt > 0 || counts.PodRunningCnt > 0 {
+	} else if counts.NodeInUseCnt > 0 || servingStatus.TotalPodsUsing > 0 {
 		state = v1alpha1.CacheStateRunning
 	} else if counts.NodeNotInUseCnt > 0 {
 		state = v1alpha1.CacheStateExtracted
@@ -920,7 +900,7 @@ func (r *KernelCacheReconciler) updateAggregateStatus(
 	kc.Status.ServingStatus = servingStatus
 
 	if err := r.Status().Update(ctx, kc); err != nil {
-		if strings.Contains(err.Error(), "object has been modified") {
+		if errors.IsConflict(err) {
 			r.Log.Info("Status update conflict (will retry)",
 				"cache", kc.Name, "namespace", kc.Namespace)
 		} else {
@@ -994,7 +974,6 @@ func (r *KernelCacheReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.KernelCache{}).
-		Owns(&corev1.PersistentVolume{}).      // Watch PV changes
 		Owns(&corev1.PersistentVolumeClaim{}). // Watch PVC changes
 		Watches(
 			&v1alpha1.KernelCacheNode{},
