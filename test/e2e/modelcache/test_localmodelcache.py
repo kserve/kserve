@@ -111,7 +111,7 @@ async def test_vllm_modelcache():
             ),
             args=[
                 "--model_name",
-                "hf-qwen-chat",
+                "qwen-chat",
                 "--max_model_len",
                 "512",
                 "--dtype",
