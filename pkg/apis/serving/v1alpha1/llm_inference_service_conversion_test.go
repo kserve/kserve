@@ -923,8 +923,8 @@ func TestLLMInferenceServiceConversion_StatusRoundtrip_V1Alpha1ToV1Alpha2(t *tes
 	require.NoError(t, src.ConvertTo(hub))
 
 	assert.Equal(t, src.Status.URL.String(), hub.Status.URL.String())
-	require.NotNil(t, hub.Status.Address, "Address (singular) should be preserved in ConvertTo")
-	assert.Equal(t, externalURL.String(), hub.Status.Address.URL.String())
+	require.NotNil(t, hub.Status.Address, "Address (singular) should be preserved in ConvertTo") //nolint:staticcheck // testing deprecated field
+	assert.Equal(t, externalURL.String(), hub.Status.Address.URL.String())                       //nolint:staticcheck // testing deprecated field
 	require.Len(t, hub.Status.Addresses, 2)
 	assert.Equal(t, "gateway-external", *hub.Status.Addresses[0].Name)
 	assert.Equal(t, "https://example.com/ns/m", hub.Status.Addresses[0].URL.String())
@@ -1037,8 +1037,8 @@ func TestLLMInferenceServiceConversion_StatusRoundtrip_V1Alpha2ToV1Alpha1(t *tes
 	require.NoError(t, spoke.ConvertTo(restored))
 
 	assert.Equal(t, hub.Status.URL.String(), restored.Status.URL.String())
-	require.NotNil(t, restored.Status.Address, "Address (singular) should survive roundtrip")
-	assert.Equal(t, externalURL.String(), restored.Status.Address.URL.String())
+	require.NotNil(t, restored.Status.Address, "Address (singular) should survive roundtrip") //nolint:staticcheck // testing deprecated field
+	assert.Equal(t, externalURL.String(), restored.Status.Address.URL.String())               //nolint:staticcheck // testing deprecated field
 	require.Len(t, restored.Status.Addresses, 1)
 	assert.Equal(t, "gateway-external", *restored.Status.Addresses[0].Name)
 	assert.Equal(t, "https://example.com/ns/m", restored.Status.Addresses[0].URL.String())

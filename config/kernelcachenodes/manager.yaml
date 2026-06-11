@@ -34,7 +34,7 @@ spec:
           type: RuntimeDefault
       initContainers:
       - name: fix-permissions
-        image: quay.io/fedora/fedora-minimal:latest
+        image: registry.access.redhat.com/ubi9/ubi-micro:latest
         command:
           - /bin/sh
           - -c

@@ -1,4 +1,4 @@
-# Copyright 2025 The KServe Authors.
+# Copyright 2026 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -68,14 +68,19 @@ async def test_kernelcache_deletion_with_finalizer():
             body=kernel_cache,
         )
 
-        # Wait for extraction Job to be created
-        await asyncio.sleep(15)
+        # Poll for extraction Job to be created (up to 30 seconds)
+        jobs = None
+        for _ in range(30):  # 30 * 1s = 30 seconds
+            jobs = batch_v1.list_namespaced_job(
+                namespace=constants.INFERENCESERVICE_SYSTEM_NAMESPACE,
+                label_selector=f"cache={cache_name},cache-namespace={KSERVE_TEST_NAMESPACE}",
+            )
+            if len(jobs.items) > 0:
+                break
+            await asyncio.sleep(1)
+        else:
+            pytest.fail(f"Extraction Job for cache {cache_name} was not created within 30 seconds")
 
-        # Verify resources exist before deletion
-        jobs = batch_v1.list_namespaced_job(
-            namespace=constants.INFERENCESERVICE_SYSTEM_NAMESPACE,
-            label_selector=f"cache={cache_name},cache-namespace={KSERVE_TEST_NAMESPACE}",
-        )
         assert len(jobs.items) > 0, "Extraction Job should exist before deletion"
 
         # Wait for job to complete
@@ -88,8 +93,20 @@ async def test_kernelcache_deletion_with_finalizer():
                 break
             await asyncio.sleep(5)
 
-        # Wait for cache to be Ready
-        await asyncio.sleep(10)
+        # Poll for cache to be Ready (up to 30 seconds)
+        for _ in range(30):  # 30 * 1s = 30 seconds
+            kc = k8s_client.get_namespaced_custom_object(
+                group=constants.KSERVE_GROUP,
+                version=constants.KSERVE_V1ALPHA1_VERSION,
+                namespace=KSERVE_TEST_NAMESPACE,
+                plural=constants.KSERVE_PLURAL_KERNELCACHE,
+                name=cache_name,
+            )
+            if ("status" in kc and
+                "cacheCopies" in kc["status"] and
+                kc["status"]["cacheCopies"]["available"] > 0):
+                break
+            await asyncio.sleep(1)
 
         # Delete the KernelCache
         k8s_client.delete_namespaced_custom_object(
@@ -100,14 +117,18 @@ async def test_kernelcache_deletion_with_finalizer():
             name=cache_name,
         )
 
-        # Wait for finalizer to clean up resources (up to 1 minute)
-        await asyncio.sleep(30)
+        # Poll for finalizer to clean up Job (up to 60 seconds)
+        for _ in range(60):  # 60 * 1s = 60 seconds
+            jobs = batch_v1.list_namespaced_job(
+                namespace=constants.INFERENCESERVICE_SYSTEM_NAMESPACE,
+                label_selector=f"cache={cache_name},cache-namespace={KSERVE_TEST_NAMESPACE}",
+            )
+            if len(jobs.items) == 0:
+                break
+            await asyncio.sleep(1)
+        else:
+            pytest.fail("Extraction Job was not deleted by finalizer within 60 seconds")
 
-        # Verify extraction Job is cleaned up
-        jobs = batch_v1.list_namespaced_job(
-            namespace=constants.INFERENCESERVICE_SYSTEM_NAMESPACE,
-            label_selector=f"cache={cache_name},cache-namespace={KSERVE_TEST_NAMESPACE}",
-        )
         assert len(jobs.items) == 0, "Extraction Job should be deleted by finalizer"
 
         # Verify ServingPVC is cleaned up (name matches cache name)
@@ -150,7 +171,21 @@ async def test_kernelcache_deletion_with_finalizer():
                 plural=constants.KSERVE_PLURAL_KERNELCACHE,
                 name=cache_name,
             )
-            await asyncio.sleep(30)
+            # Poll for deletion (up to 60 seconds)
+            for _ in range(60):
+                try:
+                    k8s_client.get_namespaced_custom_object(
+                        group=constants.KSERVE_GROUP,
+                        version=constants.KSERVE_V1ALPHA1_VERSION,
+                        namespace=KSERVE_TEST_NAMESPACE,
+                        plural=constants.KSERVE_PLURAL_KERNELCACHE,
+                        name=cache_name,
+                    )
+                    await asyncio.sleep(1)
+                except ApiException as e:
+                    if e.status == 404:
+                        break
+                    raise
         except ApiException:
             pass
 

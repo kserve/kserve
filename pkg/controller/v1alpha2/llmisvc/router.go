@@ -307,7 +307,7 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 
 	if utils.GetForceStopRuntime(llmSvc) {
 		llmSvc.Status.Router = nil
-		llmSvc.Status.Address = nil
+		llmSvc.Status.Address = nil //nolint:staticcheck // retained for schema compatibility
 		llmSvc.Status.Addresses = nil
 		llmSvc.MarkHTTPRoutesNotReady("Stopped", "Service is stopped")
 		return nil, nil

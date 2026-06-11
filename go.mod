@@ -378,5 +378,6 @@ replace google.golang.org/grpc => google.golang.org/grpc v1.79.3
 // github.com/lyft/protoc-gen-validate was moved to github.com/envoyproxy/protoc-gen-validate
 replace github.com/lyft/protoc-gen-validate => github.com/envoyproxy/protoc-gen-validate v1.0.4
 
-// Use local GKM mcv module until we decide to vendor or publish it
-replace github.com/redhat-et/GKM/mcv => /home/bmcfall/src/GKM/mcv
+// Use upstream GKM mcv at specific commit until proper releases are available
+// Commit eae0569a (2026-05-21 UTC): latest from redhat-et/GKM main branch
+replace github.com/redhat-et/GKM/mcv => github.com/redhat-et/GKM/mcv v0.0.0-20260521125357-eae0569a1aae

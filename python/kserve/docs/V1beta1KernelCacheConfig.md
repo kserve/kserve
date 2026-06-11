@@ -6,6 +6,7 @@ Name | Type | Description | Notes
 **enable_permission_init_container** | **bool** |  | [optional] 
 **enabled** | **bool** |  | [default to False]
 **extract_image** | **str** |  | [optional] 
+**fs_group** | **int** |  | [optional] 
 **job_namespace** | **str** |  | [default to '']
 **job_ttl_seconds_after_finished** | **int** |  | [optional] 
 **no_gpu** | **bool** |  | [optional] 

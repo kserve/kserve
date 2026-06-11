@@ -40,6 +40,10 @@ func (c *FakeServingV1alpha1) InferenceGraphs(namespace string) v1alpha1.Inferen
 	return newFakeInferenceGraphs(c, namespace)
 }
 
+func (c *FakeServingV1alpha1) KernelCaches(namespace string) v1alpha1.KernelCacheInterface {
+	return newFakeKernelCaches(c, namespace)
+}
+
 func (c *FakeServingV1alpha1) KernelCacheNodes() v1alpha1.KernelCacheNodeInterface {
 	return newFakeKernelCacheNodes(c)
 }

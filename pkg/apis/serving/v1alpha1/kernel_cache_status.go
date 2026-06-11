@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@ const (
 )
 
 // KernelCacheStatus defines the observed state of KernelCache
+// +k8s:openapi-gen=true
 type KernelCacheStatus struct {
 	// State represents overall cache state across all nodes
 	// Hierarchy: Error > Running > Extracted > Downloading > Pending
@@ -80,7 +81,8 @@ const (
 	NodeCacheStateError NodeCacheState = "Error"
 )
 
-// CacheCounts tracks aggregate node and pod counts for state calculation
+// CacheCounts tracks aggregate node counts for state calculation
+// +k8s:openapi-gen=true
 type CacheCounts struct {
 	// NodeCnt - total nodes with this cache tracked
 	NodeCnt int `json:"nodeCnt"`
@@ -90,13 +92,10 @@ type CacheCounts struct {
 	NodeInUseCnt int `json:"nodeInUseCnt"`
 	// NodeNotInUseCnt - nodes with cache extracted but not mounted
 	NodeNotInUseCnt int `json:"nodeNotInUseCnt"`
-	// PodRunningCnt - total pods using cache across all nodes
-	PodRunningCnt int `json:"podRunningCnt"`
-	// PodDeletingCnt - total pods terminating across all nodes
-	PodDeletingCnt int `json:"podDeletingCnt"`
 }
 
 // GPUCompatibilitySummary aggregates GPU compatibility across all nodes
+// +k8s:openapi-gen=true
 type GPUCompatibilitySummary struct {
 	// GPU types this cache is compatible with (from all nodes)
 	// +optional
@@ -114,10 +113,11 @@ type GPUCompatibilitySummary struct {
 }
 
 // ServingStatus tracks serving PVC usage (Phase 2)
+// +k8s:openapi-gen=true
 type ServingStatus struct {
 	// Aggregate counts across all nodes/namespaces (Phase 2)
 	TotalNamespaces      int `json:"totalNamespaces"`      // Namespaces with serving PVCs
-	TotalPods            int `json:"totalPods"`            // Total pods using cache
+	TotalPodsUsing       int `json:"totalPodsUsing"`       // Total pods using cache (any phase)
 	TotalPodsReady       int `json:"totalPodsReady"`       // Total ready pods
 	TotalPodsTerminating int `json:"totalPodsTerminating"` // Pods being deleted
 
@@ -125,6 +125,3 @@ type ServingStatus struct {
 	// +optional
 	NamespaceCounts map[string]NamespaceServingCounts `json:"namespaceCounts,omitempty"`
 }
-
-// NamespacedName is already defined in local_model_cache_status.go
-// Reusing that type to avoid duplication

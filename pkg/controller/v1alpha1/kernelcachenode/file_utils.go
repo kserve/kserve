@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -78,7 +78,8 @@ func (f *FileSystemHelper) hasCacheFolder(storageKey string) (bool, error) {
 
 func (f *FileSystemHelper) ensureCacheRootFolderExists() error {
 	// If the folder already exists, this will do nothing
-	if err := os.MkdirAll(f.cachesRootFolder, os.ModePerm); err != nil { //nolint:gosec // G301: kernel cache must be readable by model server running as a different UID
+	// 0755 allows owner (agent) to write, all users to read/traverse
+	if err := os.MkdirAll(f.cachesRootFolder, 0o755); err != nil {
 		return err
 	}
 	return nil

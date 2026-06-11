@@ -31,6 +31,7 @@ type ServingV1alpha1Interface interface {
 	ClusterServingRuntimesGetter
 	ClusterStorageContainersGetter
 	InferenceGraphsGetter
+	KernelCachesGetter
 	KernelCacheNodesGetter
 	LLMInferenceServicesGetter
 	LocalModelCachesGetter
@@ -56,6 +57,10 @@ func (c *ServingV1alpha1Client) ClusterStorageContainers(namespace string) Clust
 
 func (c *ServingV1alpha1Client) InferenceGraphs(namespace string) InferenceGraphInterface {
 	return newInferenceGraphs(c, namespace)
+}
+
+func (c *ServingV1alpha1Client) KernelCaches(namespace string) KernelCacheInterface {
+	return newKernelCaches(c, namespace)
 }
 
 func (c *ServingV1alpha1Client) KernelCacheNodes() KernelCacheNodeInterface {

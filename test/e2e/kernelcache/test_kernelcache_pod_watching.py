@@ -1,4 +1,4 @@
-# Copyright 2025 The KServe Authors.
+# Copyright 2026 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -122,7 +122,7 @@ async def test_kernelcache_state_transitions():
                 "containers": [
                     {
                         "name": "test-container",
-                        "image": "busybox:latest",
+                        "image": "registry.access.redhat.com/ubi9/ubi-micro:latest",
                         "command": ["sleep", "3600"],  # Sleep for 1 hour
                         "volumeMounts": [
                             {
@@ -355,7 +355,7 @@ async def test_kernelcache_multiple_pods_counting():
                     "containers": [
                         {
                             "name": "test-container",
-                            "image": "busybox:latest",
+                            "image": "registry.access.redhat.com/ubi9/ubi-micro:latest",
                             "command": ["sleep", "3600"],
                             "volumeMounts": [
                                 {

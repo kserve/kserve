@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -79,6 +79,12 @@ func main() {
 	options := GetOptions()
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&options.zapOpts)))
 
+	// Validate required environment variables
+	if os.Getenv("NODE_NAME") == "" {
+		setupLog.Error(nil, "NODE_NAME environment variable must be set")
+		os.Exit(1)
+	}
+
 	// Get a config to talk to the apiserver
 	setupLog.Info("Setting up client for manager")
 	cfg, err := config.GetConfig()
@@ -157,6 +163,13 @@ func main() {
 		Clientset: clientSet,
 		Log:       ctrl.Log.WithName("v1alpha1Controllers").WithName("KernelCacheNode"),
 		Scheme:    mgr.GetScheme(),
+	}
+
+	// Initialize filesystem helper
+	setupLog.Info("Initializing filesystem helper")
+	if err := reconciler.InitializeFileSystemHelper(); err != nil {
+		setupLog.Error(err, "failed to initialize filesystem helper")
+		os.Exit(1)
 	}
 
 	if err = reconciler.SetupWithManager(mgr); err != nil {

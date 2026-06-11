@@ -638,6 +638,8 @@ data:
          "jobNamespace": "kserve",
          # extractImage specifies the image used for the kernel cache extraction job.
          "extractImage" : "quay.io/gkm/gkm-extract:latest",
+         # Kubernetes modifies the filesystem group ID on the attached volume.
+         "fsGroup": 1000,
          # TTL for the extraction job after it is finished.
          "jobTTLSecondsAfterFinished": 3600,
          # The frequency at which the kernel cache agent reconciles the kernel caches
@@ -776,6 +778,7 @@ data:
       "enabled": false,
       "jobNamespace": "kserve",
       "extractImage": "quay.io/gkm/gkm-extract:latest",
+      "fsGroup": 1000,
       "jobTTLSecondsAfterFinished": 3600,
       "reconcileIntervalSeconds": 60,
       "noGPU": false,

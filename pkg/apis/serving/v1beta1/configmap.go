@@ -422,7 +422,7 @@ func NewKernelCacheConfig(isvcConfigMap *corev1.ConfigMap) (*KernelCacheConfig, 
 	if kernelCache, ok := isvcConfigMap.Data[KernelCacheConfigName]; ok {
 		err := json.Unmarshal([]byte(kernelCache), &kernelCacheConfig)
 		if err != nil {
-			return nil, fmt.Errorf("unable to unmarshall kernelcache: %w", err)
+			return nil, fmt.Errorf("unable to unmarshal kernelcache: %w", err)
 		}
 	}
 	return kernelCacheConfig, nil

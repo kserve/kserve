@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -58,7 +58,6 @@ import (
 var (
 	nodeName         = os.Getenv("NODE_NAME")
 	cachesRootFolder = filepath.Join(kernelcachecommon.MountPath, "kernel-cache")
-	fsHelper         FileSystemInterface
 )
 
 type KernelCacheNodeReconciler struct {
@@ -66,15 +65,21 @@ type KernelCacheNodeReconciler struct {
 	Clientset *kubernetes.Clientset
 	Log       logr.Logger
 	Scheme    *runtime.Scheme
+	fsHelper  FileSystemInterface
+}
+
+// InitializeFileSystemHelper initializes the filesystem helper and ensures cache root exists
+func (r *KernelCacheNodeReconciler) InitializeFileSystemHelper() error {
+	r.fsHelper = NewFileSystemHelper(cachesRootFolder)
+	if err := r.fsHelper.ensureCacheRootFolderExists(); err != nil {
+		return fmt.Errorf("failed to create cache root folder %s: %w", cachesRootFolder, err)
+	}
+	return nil
 }
 
 // EnsureKernelCacheNode creates the KernelCacheNode CR if it doesn't exist
 // Agent owns KernelCacheNode creation - operator never creates it
 func (r *KernelCacheNodeReconciler) EnsureKernelCacheNode(cfg *rest.Config) error {
-	if nodeName == "" {
-		return fmt.Errorf("NODE_NAME environment variable not set")
-	}
-
 	kcNodeName := nodeName
 
 	// Create client - can't use r.Client as manager hasn't started yet
@@ -154,15 +159,6 @@ func (r *KernelCacheNodeReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	reconcileInterval := time.Duration(*kernelCacheConfig.ReconcileIntervalSeconds) * time.Second
 
-	// Initialize filesystem helper and ensure cache root folder exists
-	if fsHelper == nil {
-		fsHelper = NewFileSystemHelper(cachesRootFolder)
-		if err := fsHelper.ensureCacheRootFolderExists(); err != nil {
-			r.Log.Error(err, "failed to create cache root folder", "path", cachesRootFolder)
-			return ctrl.Result{}, err
-		}
-	}
-
 	// Populate GPU info if not present (MCV detection or stub for KIND)
 	// This runs once per node - subsequent reconciles skip if GPUInfo already populated
 	gpuInfoChanged := false
@@ -194,11 +190,6 @@ func (r *KernelCacheNodeReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	if err := r.deleteCaches(kcNode); err != nil {
 		r.Log.Error(err, "failed to delete orphaned cache directories")
 		// Non-fatal - continue with reconciliation
-	}
-
-	// Cleanup old jobs
-	if err := r.cleanupJobs(ctx, kcNode, kernelCacheConfig); err != nil {
-		r.Log.Error(err, "failed to cleanup jobs")
 	}
 
 	// Update status (agent owns all KernelCacheNode writes)
@@ -271,7 +262,7 @@ func (r *KernelCacheNodeReconciler) deleteCaches(kcNode *v1alpha1.KernelCacheNod
 
 	// 1. Scan cache directory and get list of existing folders (storage keys)
 	foldersToRemove := make(map[string]struct{})
-	entries, err := fsHelper.getCacheFolders()
+	entries, err := r.fsHelper.getCacheFolders()
 	if err != nil {
 		r.Log.Error(err, "Failed to list cache folders", "path", cachesRootFolder)
 		return err
@@ -320,7 +311,7 @@ func (r *KernelCacheNodeReconciler) deleteCaches(kcNode *v1alpha1.KernelCacheNod
 
 		for storageKey := range foldersToRemove {
 			r.Log.Info("Removing cache directory", "storageKey", storageKey, "node", kcNode.Status.NodeName)
-			if err := fsHelper.removeCache(storageKey); err != nil {
+			if err := r.fsHelper.removeCache(storageKey); err != nil {
 				r.Log.Error(err, "Failed to remove cache directory",
 					"storageKey", storageKey,
 					"node", kcNode.Status.NodeName)
@@ -690,8 +681,8 @@ func (r *KernelCacheNodeReconciler) calculateAggregateCounts(kcNode *v1alpha1.Ke
 
 		// Aggregate pod counts across all namespaces for this cache
 		for _, nsCounts := range cacheStatus.ServingNamespaces {
-			counts.PodRunningCnt += nsCounts.PodsUsing
-			counts.PodDeletingCnt += nsCounts.PodsTerminating
+			counts.TotalPodsUsing += nsCounts.PodsUsing
+			counts.TotalPodsTerminating += nsCounts.PodsTerminating
 		}
 	}
 
@@ -709,8 +700,8 @@ func nodeCountsEqual(a, b *v1alpha1.NodeCacheCounts) bool {
 	return a.CachesInUse == b.CachesInUse &&
 		a.CachesNotInUse == b.CachesNotInUse &&
 		a.CachesError == b.CachesError &&
-		a.PodRunningCnt == b.PodRunningCnt &&
-		a.PodDeletingCnt == b.PodDeletingCnt
+		a.TotalPodsUsing == b.TotalPodsUsing &&
+		a.TotalPodsTerminating == b.TotalPodsTerminating
 }
 
 func (r *KernelCacheNodeReconciler) jobCompleted(job *batchv1.Job) bool {
@@ -720,17 +711,6 @@ func (r *KernelCacheNodeReconciler) jobCompleted(job *batchv1.Job) bool {
 		}
 	}
 	return false
-}
-
-func (r *KernelCacheNodeReconciler) cleanupJobs(
-	ctx context.Context,
-	kcNode *v1alpha1.KernelCacheNode,
-	config *v1beta1.KernelCacheConfig,
-) error {
-	// Agent no longer creates Jobs (operator creates them)
-	// Job cleanup handled by TTL and operator deletion handler
-	// This function is now a no-op but kept for compatibility
-	return nil
 }
 
 // kernelCacheToNodeMapper maps KernelCache changes to KernelCacheNode reconcile requests

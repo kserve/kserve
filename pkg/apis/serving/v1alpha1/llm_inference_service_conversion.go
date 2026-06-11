@@ -58,7 +58,7 @@ func (src *LLMInferenceService) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Status = v1alpha2.LLMInferenceServiceStatus{
 		URL:     src.Status.URL,
 		Status:  src.Status.Status,
-		Address: src.Status.Address,
+		Address: src.Status.Address, //nolint:staticcheck // preserving deprecated field for backward compatibility
 	}
 	for _, addr := range src.Status.Addresses {
 		dst.Status.Addresses = append(dst.Status.Addresses, v1alpha2.SourcedAddress{
@@ -88,7 +88,7 @@ func (dst *LLMInferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 		URL:    src.Status.URL,
 		Status: src.Status.Status,
 	}
-	dst.Status.Address = src.Status.Address
+	dst.Status.Address = src.Status.Address //nolint:staticcheck // preserving deprecated field for backward compatibility
 	for _, sa := range src.Status.Addresses {
 		dst.Status.Addresses = append(dst.Status.Addresses, sa.Addressable)
 	}
