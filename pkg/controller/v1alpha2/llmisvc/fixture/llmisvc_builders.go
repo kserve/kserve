@@ -155,6 +155,15 @@ func WithAnnotations(annotationsToAdd map[string]string) LLMInferenceServiceOpti
 	}
 }
 
+func WithSpecAnnotations(annotationsToAdd map[string]string) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha2.LLMInferenceService) {
+		if llmSvc.Spec.Annotations == nil {
+			llmSvc.Spec.Annotations = make(map[string]string)
+		}
+		maps.Copy(llmSvc.Spec.Annotations, annotationsToAdd)
+	}
+}
+
 func WithLabels(labelsToAdd map[string]string) LLMInferenceServiceOption {
 	return func(llmSvc *v1alpha2.LLMInferenceService) {
 		if llmSvc.Labels == nil {
@@ -448,6 +457,15 @@ func WithConfigManagedScheduler() LLMInferenceServiceConfigOption {
 			config.Spec.Router = &v1alpha2.RouterSpec{}
 		}
 		config.Spec.Router.Scheduler = &v1alpha2.SchedulerSpec{}
+	}
+}
+
+func WithConfigSpecAnnotations(annotationsToAdd map[string]string) LLMInferenceServiceConfigOption {
+	return func(config *v1alpha2.LLMInferenceServiceConfig) {
+		if config.Spec.Annotations == nil {
+			config.Spec.Annotations = make(map[string]string)
+		}
+		maps.Copy(config.Spec.Annotations, annotationsToAdd)
 	}
 }
 

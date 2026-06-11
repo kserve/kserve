@@ -21,28 +21,88 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
+// Top-level conditions. Ready aggregates WorkloadsReady and RouterReady via the
+// Knative LivingConditionSet. PresetsCombined is an independent gate that blocks
+// reconciliation when False but is not part of the Ready rollup.
 const (
+	// PresetsCombined is True when all referenced LLMInferenceServiceConfig resources
+	// have been found and merged successfully. False with reason ConfigNotFound when a
+	// referenced config does not exist, or CombineBaseError on merge failure.
+	// Set by the config reconciler (config_merge.go). Always present.
+	// Not part of the Ready rollup - blocks reconciliation instead.
 	PresetsCombined apis.ConditionType = "PresetsCombined"
-	WorkloadReady   apis.ConditionType = "WorkloadsReady"
-	RouterReady     apis.ConditionType = "RouterReady"
+
+	// WorkloadReady is True when all workload sub-conditions (MainWorkloadReady,
+	// WorkerWorkloadReady, PrefillWorkloadReady, PrefillWorkerWorkloadReady,
+	// ScalingReady, PrefillScalingReady) that are present are True.
+	// Aggregated by DetermineWorkloadReadiness. Always present.
+	WorkloadReady apis.ConditionType = "WorkloadsReady"
+
+	// RouterReady is True when all router sub-conditions (GatewaysReady,
+	// HTTPRoutesReady, InferencePoolReady, SchedulerWorkloadReady) that are
+	// present are True. Aggregated by DetermineRouterReadiness. Always present.
+	RouterReady apis.ConditionType = "RouterReady"
 )
 
+// Workload sub-conditions rolled up into WorkloadsReady.
 const (
-	MainWorkloadReady          apis.ConditionType = "MainWorkloadReady"
-	WorkerWorkloadReady        apis.ConditionType = "WorkerWorkloadReady"
-	PrefillWorkloadReady       apis.ConditionType = "PrefillWorkloadReady"
+	// MainWorkloadReady is True when the primary model-serving Deployment has
+	// reached its desired replica count and all pods are passing readiness probes.
+	// Set by the workload reconciler. Only present in single-node mode; cleared
+	// in multi-node mode where WorkerWorkloadReady tracks the primary workload.
+	MainWorkloadReady apis.ConditionType = "MainWorkloadReady"
+
+	// WorkerWorkloadReady is True when the LeaderWorkerSet workload is available
+	// (all groups ready). Set by the workload reconciler.
+	// Only present in multi-node mode; in this mode it replaces MainWorkloadReady
+	// as the primary workload condition.
+	WorkerWorkloadReady apis.ConditionType = "WorkerWorkloadReady"
+
+	// PrefillWorkloadReady is True when the prefill-phase workload is ready.
+	// Set by the workload reconciler. Only present for prefill/decode (P/D)
+	// disaggregated serving topologies.
+	PrefillWorkloadReady apis.ConditionType = "PrefillWorkloadReady"
+
+	// PrefillWorkerWorkloadReady is True when the multi-node worker pods for
+	// the prefill workload are ready. Set by the workload reconciler.
+	// Only present for multi-node P/D disaggregated serving topologies.
 	PrefillWorkerWorkloadReady apis.ConditionType = "PrefillWorkerWorkloadReady"
-	ScalingReady               apis.ConditionType = "ScalingReady"
-	PrefillScalingReady        apis.ConditionType = "PrefillScalingReady"
+
+	// ScalingReady is True when the autoscaler for the primary workload is
+	// configured and operational. Set by the scaling reconciler.
+	// Only present when autoscaling is configured; cleared (unset) otherwise,
+	// so it does not block WorkloadsReady.
+	ScalingReady apis.ConditionType = "ScalingReady"
+
+	// PrefillScalingReady is True when the autoscaler for the prefill workload
+	// is configured and operational. Set by the scaling reconciler.
+	// Only present when autoscaling is configured for the prefill workload in
+	// P/D disaggregated serving topologies; cleared (unset) otherwise.
+	PrefillScalingReady apis.ConditionType = "PrefillScalingReady"
 )
 
+// Router sub-conditions rolled up into RouterReady.
 const (
+	// SchedulerWorkloadReady is True when the Endpoint Picker (EPP) scheduler
+	// Deployment has reached its desired replica count. Set by the scheduler
+	// reconciler. Only present when the scheduler is enabled.
 	SchedulerWorkloadReady apis.ConditionType = "SchedulerWorkloadReady"
 )
 
 const (
-	GatewaysReady      apis.ConditionType = "GatewaysReady"
-	HTTPRoutesReady    apis.ConditionType = "HTTPRoutesReady"
+	// GatewaysReady is True when all referenced Gateway resources exist and
+	// report ready status. Set by the router reconciler.
+	// Only present when gateway refs are configured; cleared otherwise.
+	GatewaysReady apis.ConditionType = "GatewaysReady"
+
+	// HTTPRoutesReady is True when all HTTPRoute resources have been created
+	// and accepted by their parent Gateways. Set by the router reconciler.
+	// Only present when HTTP route configuration exists; cleared otherwise.
+	HTTPRoutesReady apis.ConditionType = "HTTPRoutesReady"
+
+	// InferencePoolReady is True when the InferencePool resource has been
+	// created and is ready. Set by the router reconciler.
+	// Only present when the scheduler is enabled.
 	InferencePoolReady apis.ConditionType = "InferencePoolReady"
 )
 

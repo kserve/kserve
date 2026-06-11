@@ -276,12 +276,18 @@ wait_for_deployment() {
     local timeout="${3:-180s}"
 
     log_info "Waiting for deployment '$deployment_name' in namespace '$namespace' to be available..."
-    kubectl wait --timeout="$timeout" -n "$namespace" deployment/"$deployment_name" --for=condition=Available
-
-    if [ $? -eq 0 ]; then
+    if kubectl wait --timeout="$timeout" -n "$namespace" deployment/"$deployment_name" --for=condition=Available; then
         log_success "Deployment '$deployment_name' in namespace '$namespace' is available!"
     else
         log_error "Deployment '$deployment_name' in namespace '$namespace' failed to become available within $timeout"
+        log_error "--- Deployment status ---"
+        kubectl get deployment "$deployment_name" -n "$namespace" -o wide 2>/dev/null || true
+        log_error "--- Pod status ---"
+        kubectl get pods -n "$namespace" -l "control-plane=$deployment_name" -o wide 2>/dev/null || true
+        log_error "--- Pod describe (last 50 lines) ---"
+        kubectl describe pods -n "$namespace" -l "control-plane=$deployment_name" 2>/dev/null | tail -50 || true
+        log_error "--- Recent events in namespace '$namespace' ---"
+        kubectl get events -n "$namespace" --sort-by='.lastTimestamp' 2>/dev/null | tail -20 || true
         return 1
     fi
 }
@@ -646,7 +652,7 @@ KNATIVE_SERVING_VERSION=1.21.1
 KEDA_OTEL_ADDON_VERSION=v0.0.6
 PROMETHEUS_VERSION=83.4.0
 PROMETHEUS_ADAPTER_VERSION=5.3.0
-KSERVE_VERSION=v0.18.0
+KSERVE_VERSION=v0.19.0-rc0
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.18.0
 OPENTELEMETRY_OPERATOR_VERSION=0.74.3
@@ -2074,6 +2080,8 @@ metadata:
   name: kserve-config-llm-decode-template
   namespace: kserve
 spec:
+  annotations:
+    serving.kserve.io/model-based-routing-enabled: "true"
   template:
     containers:
     - command:
@@ -2109,22 +2117,24 @@ spec:
               fi
           done
 
-          ucx_hcas=()
-          for hca in "${active_hcas[@]}"; do
-            ucx_hcas+=("${hca}:1")
-          done
-
           # Check if we found any active HCAs
           if [ ${#active_hcas[@]} -gt 0 ]; then
               # Join the array elements with a comma
-              hcas=$(IFS=,; echo "${active_hcas[*]}")
-              echo "[Infer RoCE] Setting active HCAs: ${hcas}"
-              export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
-              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
+              hca_port_pairs=()
+              for hca in "${active_hcas[@]}"; do
+                hca_port_pairs+=("${hca}:1")
+              done
+
+              active_hca_list=$(IFS=,; echo "${active_hcas[*]}")
+              hca_port_pairs_list=$(IFS=,; echo "${hca_port_pairs[*]}")
+              echo "[Infer RoCE] Setting active HCAs: ${active_hca_list}"
+              export NCCL_IB_HCA=${NCCL_IB_HCA:-${active_hca_list}}
+              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hca_port_pairs_list}}
+              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${hca_port_pairs_list}}
 
               echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
               echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+              echo "[Infer RoCE] UCX_NET_DEVICES=${UCX_NET_DEVICES}"
           else
               echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
           fi
@@ -2168,7 +2178,7 @@ spec:
                   fi
               done
 
-              # Use deterministic fallback if counts are equal - prefer lower index number
+              # Use deterministic fallback if tied - prefer index 3 (SR-IOV standard)
               if [ ${#gid_index_count[@]} -gt 1 ]; then
                   echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
                   # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
@@ -2183,7 +2193,7 @@ spec:
                   echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
                   export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
                   export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
-                  echo "[Infer RoCE] Using hardcoded GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+                  echo "[Infer RoCE] Using pre-configured GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
               elif [ -n "$best_gid_index" ]; then
                   echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
 
@@ -2210,10 +2220,17 @@ spec:
         fi
         echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
 
-        eval "vllm serve /mnt/models \
+        # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
+        SHUTDOWN_TIMEOUT_ARGS=""
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
+          SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Template 15 }}"
+        fi
+
+        eval "exec vllm serve /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8001 \
           ${ACCESS_LOG_ARGS} \
+          ${SHUTDOWN_TIMEOUT_ARGS} \
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -2366,6 +2383,8 @@ metadata:
   name: kserve-config-llm-decode-worker-data-parallel
   namespace: kserve
 spec:
+  annotations:
+    serving.kserve.io/model-based-routing-enabled: "true"
   template:
     containers:
     - command:
@@ -2421,22 +2440,24 @@ spec:
               fi
           done
 
-          ucx_hcas=()
-          for hca in "${active_hcas[@]}"; do
-            ucx_hcas+=("${hca}:1")
-          done
-
           # Check if we found any active HCAs
           if [ ${#active_hcas[@]} -gt 0 ]; then
               # Join the array elements with a comma
-              hcas=$(IFS=,; echo "${active_hcas[*]}")
-              echo "[Infer RoCE] Setting active HCAs: ${hcas}"
-              export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
-              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
+              hca_port_pairs=()
+              for hca in "${active_hcas[@]}"; do
+                hca_port_pairs+=("${hca}:1")
+              done
+
+              active_hca_list=$(IFS=,; echo "${active_hcas[*]}")
+              hca_port_pairs_list=$(IFS=,; echo "${hca_port_pairs[*]}")
+              echo "[Infer RoCE] Setting active HCAs: ${active_hca_list}"
+              export NCCL_IB_HCA=${NCCL_IB_HCA:-${active_hca_list}}
+              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hca_port_pairs_list}}
+              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${hca_port_pairs_list}}
 
               echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
               echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+              echo "[Infer RoCE] UCX_NET_DEVICES=${UCX_NET_DEVICES}"
           else
               echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
           fi
@@ -2480,7 +2501,7 @@ spec:
                   fi
               done
 
-              # Use deterministic fallback if counts are equal - prefer lower index number
+              # Use deterministic fallback if tied - prefer index 3 (SR-IOV standard)
               if [ ${#gid_index_count[@]} -gt 1 ]; then
                   echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
                   # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
@@ -2495,7 +2516,7 @@ spec:
                   echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
                   export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
                   export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
-                  echo "[Infer RoCE] Using hardcoded GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+                  echo "[Infer RoCE] Using pre-configured GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
               elif [ -n "$best_gid_index" ]; then
                   echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
 
@@ -2524,7 +2545,13 @@ spec:
         fi
         echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
 
-        eval "vllm serve \
+        # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
+        SHUTDOWN_TIMEOUT_ARGS=""
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
+          SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Template 15 }}"
+        fi
+
+        eval "exec vllm serve \
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8001 \
@@ -2537,6 +2564,7 @@ spec:
           --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
           --data-parallel-start-rank $START_RANK \
           ${ACCESS_LOG_ARGS} \
+          ${SHUTDOWN_TIMEOUT_ARGS} \
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -2742,22 +2770,24 @@ spec:
               fi
           done
 
-          ucx_hcas=()
-          for hca in "${active_hcas[@]}"; do
-            ucx_hcas+=("${hca}:1")
-          done
-
           # Check if we found any active HCAs
           if [ ${#active_hcas[@]} -gt 0 ]; then
               # Join the array elements with a comma
-              hcas=$(IFS=,; echo "${active_hcas[*]}")
-              echo "[Infer RoCE] Setting active HCAs: ${hcas}"
-              export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
-              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
+              hca_port_pairs=()
+              for hca in "${active_hcas[@]}"; do
+                hca_port_pairs+=("${hca}:1")
+              done
+
+              active_hca_list=$(IFS=,; echo "${active_hcas[*]}")
+              hca_port_pairs_list=$(IFS=,; echo "${hca_port_pairs[*]}")
+              echo "[Infer RoCE] Setting active HCAs: ${active_hca_list}"
+              export NCCL_IB_HCA=${NCCL_IB_HCA:-${active_hca_list}}
+              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hca_port_pairs_list}}
+              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${hca_port_pairs_list}}
 
               echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
               echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+              echo "[Infer RoCE] UCX_NET_DEVICES=${UCX_NET_DEVICES}"
           else
               echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
           fi
@@ -2801,7 +2831,7 @@ spec:
                   fi
               done
 
-              # Use deterministic fallback if counts are equal - prefer lower index number
+              # Use deterministic fallback if tied - prefer index 3 (SR-IOV standard)
               if [ ${#gid_index_count[@]} -gt 1 ]; then
                   echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
                   # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
@@ -2816,7 +2846,7 @@ spec:
                   echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
                   export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
                   export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
-                  echo "[Infer RoCE] Using hardcoded GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+                  echo "[Infer RoCE] Using pre-configured GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
               elif [ -n "$best_gid_index" ]; then
                   echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
 
@@ -2845,7 +2875,13 @@ spec:
         fi
         echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
 
-        eval "vllm serve \
+        # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
+        SHUTDOWN_TIMEOUT_ARGS=""
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
+          SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Worker 15 }}"
+        fi
+
+        eval "exec vllm serve \
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8001 \
@@ -2858,6 +2894,7 @@ spec:
           --data-parallel-start-rank $START_RANK \
           --headless \
           ${ACCESS_LOG_ARGS} \
+          ${SHUTDOWN_TIMEOUT_ARGS} \
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -2935,6 +2972,8 @@ metadata:
   namespace: kserve
 spec:
   prefill:
+    annotations:
+      serving.kserve.io/model-based-routing-enabled: "true"
     template:
       containers:
       - command:
@@ -2970,22 +3009,24 @@ spec:
                 fi
             done
 
-            ucx_hcas=()
-            for hca in "${active_hcas[@]}"; do
-              ucx_hcas+=("${hca}:1")
-            done
-
             # Check if we found any active HCAs
             if [ ${#active_hcas[@]} -gt 0 ]; then
                 # Join the array elements with a comma
-                hcas=$(IFS=,; echo "${active_hcas[*]}")
-                echo "[Infer RoCE] Setting active HCAs: ${hcas}"
-                export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-                export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
-                export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
+                hca_port_pairs=()
+                for hca in "${active_hcas[@]}"; do
+                  hca_port_pairs+=("${hca}:1")
+                done
+
+                active_hca_list=$(IFS=,; echo "${active_hcas[*]}")
+                hca_port_pairs_list=$(IFS=,; echo "${hca_port_pairs[*]}")
+                echo "[Infer RoCE] Setting active HCAs: ${active_hca_list}"
+                export NCCL_IB_HCA=${NCCL_IB_HCA:-${active_hca_list}}
+                export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hca_port_pairs_list}}
+                export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${hca_port_pairs_list}}
 
                 echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
                 echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+                echo "[Infer RoCE] UCX_NET_DEVICES=${UCX_NET_DEVICES}"
             else
                 echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
             fi
@@ -3029,7 +3070,7 @@ spec:
                     fi
                 done
 
-                # Use deterministic fallback if counts are equal - prefer lower index number
+                # Use deterministic fallback if tied - prefer index 3 (SR-IOV standard)
                 if [ ${#gid_index_count[@]} -gt 1 ]; then
                     echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
                     # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
@@ -3044,7 +3085,7 @@ spec:
                     echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
                     export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
                     export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
-                    echo "[Infer RoCE] Using hardcoded GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+                    echo "[Infer RoCE] Using pre-configured GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
                 elif [ -n "$best_gid_index" ]; then
                     echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
 
@@ -3071,10 +3112,17 @@ spec:
           fi
           echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
 
-          eval "vllm serve /mnt/models \
+          # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
+          SHUTDOWN_TIMEOUT_ARGS=""
+          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
+            SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Template 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"
+          fi
+
+          eval "exec vllm serve /mnt/models \
             --served-model-name "{{ .Spec.Model.Name }}" \
             --port 8000 \
             ${ACCESS_LOG_ARGS} \
+            ${SHUTDOWN_TIMEOUT_ARGS} \
             {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -3169,6 +3217,8 @@ metadata:
   namespace: kserve
 spec:
   prefill:
+    annotations:
+      serving.kserve.io/model-based-routing-enabled: "true"
     template:
       containers:
       - command:
@@ -3224,22 +3274,24 @@ spec:
                 fi
             done
 
-            ucx_hcas=()
-            for hca in "${active_hcas[@]}"; do
-              ucx_hcas+=("${hca}:1")
-            done
-
             # Check if we found any active HCAs
             if [ ${#active_hcas[@]} -gt 0 ]; then
                 # Join the array elements with a comma
-                hcas=$(IFS=,; echo "${active_hcas[*]}")
-                echo "[Infer RoCE] Setting active HCAs: ${hcas}"
-                export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-                export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
-                export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
+                hca_port_pairs=()
+                for hca in "${active_hcas[@]}"; do
+                  hca_port_pairs+=("${hca}:1")
+                done
+
+                active_hca_list=$(IFS=,; echo "${active_hcas[*]}")
+                hca_port_pairs_list=$(IFS=,; echo "${hca_port_pairs[*]}")
+                echo "[Infer RoCE] Setting active HCAs: ${active_hca_list}"
+                export NCCL_IB_HCA=${NCCL_IB_HCA:-${active_hca_list}}
+                export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hca_port_pairs_list}}
+                export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${hca_port_pairs_list}}
 
                 echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
                 echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+                echo "[Infer RoCE] UCX_NET_DEVICES=${UCX_NET_DEVICES}"
             else
                 echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
             fi
@@ -3283,7 +3335,7 @@ spec:
                     fi
                 done
 
-                # Use deterministic fallback if counts are equal - prefer lower index number
+                # Use deterministic fallback if tied - prefer index 3 (SR-IOV standard)
                 if [ ${#gid_index_count[@]} -gt 1 ]; then
                     echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
                     # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
@@ -3298,7 +3350,7 @@ spec:
                     echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
                     export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
                     export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
-                    echo "[Infer RoCE] Using hardcoded GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+                    echo "[Infer RoCE] Using pre-configured GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
                 elif [ -n "$best_gid_index" ]; then
                     echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
 
@@ -3327,7 +3379,13 @@ spec:
           fi
           echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
 
-          eval "vllm serve \
+          # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
+          SHUTDOWN_TIMEOUT_ARGS=""
+          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
+            SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Template 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"
+          fi
+
+          eval "exec vllm serve \
             /mnt/models \
             --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
             --port 8000 \
@@ -3340,6 +3398,7 @@ spec:
             --data-parallel-rpc-port {{ if .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
             --data-parallel-start-rank $START_RANK \
             ${ACCESS_LOG_ARGS} \
+            ${SHUTDOWN_TIMEOUT_ARGS} \
             {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -3485,22 +3544,24 @@ spec:
                 fi
             done
 
-            ucx_hcas=()
-            for hca in "${active_hcas[@]}"; do
-              ucx_hcas+=("${hca}:1")
-            done
-
             # Check if we found any active HCAs
             if [ ${#active_hcas[@]} -gt 0 ]; then
                 # Join the array elements with a comma
-                hcas=$(IFS=,; echo "${active_hcas[*]}")
-                echo "[Infer RoCE] Setting active HCAs: ${hcas}"
-                export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-                export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
-                export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
+                hca_port_pairs=()
+                for hca in "${active_hcas[@]}"; do
+                  hca_port_pairs+=("${hca}:1")
+                done
+
+                active_hca_list=$(IFS=,; echo "${active_hcas[*]}")
+                hca_port_pairs_list=$(IFS=,; echo "${hca_port_pairs[*]}")
+                echo "[Infer RoCE] Setting active HCAs: ${active_hca_list}"
+                export NCCL_IB_HCA=${NCCL_IB_HCA:-${active_hca_list}}
+                export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hca_port_pairs_list}}
+                export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${hca_port_pairs_list}}
 
                 echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
                 echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+                echo "[Infer RoCE] UCX_NET_DEVICES=${UCX_NET_DEVICES}"
             else
                 echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
             fi
@@ -3544,7 +3605,7 @@ spec:
                     fi
                 done
 
-                # Use deterministic fallback if counts are equal - prefer lower index number
+                # Use deterministic fallback if tied - prefer index 3 (SR-IOV standard)
                 if [ ${#gid_index_count[@]} -gt 1 ]; then
                     echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
                     # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
@@ -3559,7 +3620,7 @@ spec:
                     echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
                     export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
                     export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
-                    echo "[Infer RoCE] Using hardcoded GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+                    echo "[Infer RoCE] Using pre-configured GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
                 elif [ -n "$best_gid_index" ]; then
                     echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
 
@@ -3588,7 +3649,13 @@ spec:
           fi
           echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
 
-          eval "vllm serve \
+          # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
+          SHUTDOWN_TIMEOUT_ARGS=""
+          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
+            SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Worker 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"
+          fi
+
+          eval "exec vllm serve \
             /mnt/models \
             --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
             --port 8000 \
@@ -3601,6 +3668,7 @@ spec:
             --data-parallel-start-rank $START_RANK \
             --headless \
             ${ACCESS_LOG_ARGS} \
+            ${SHUTDOWN_TIMEOUT_ARGS} \
             {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -4040,6 +4108,8 @@ metadata:
   name: kserve-config-llm-template
   namespace: kserve
 spec:
+  annotations:
+    serving.kserve.io/model-based-routing-enabled: "true"
   template:
     containers:
     - command:
@@ -4075,22 +4145,24 @@ spec:
               fi
           done
 
-          ucx_hcas=()
-          for hca in "${active_hcas[@]}"; do
-            ucx_hcas+=("${hca}:1")
-          done
-
           # Check if we found any active HCAs
           if [ ${#active_hcas[@]} -gt 0 ]; then
               # Join the array elements with a comma
-              hcas=$(IFS=,; echo "${active_hcas[*]}")
-              echo "[Infer RoCE] Setting active HCAs: ${hcas}"
-              export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
-              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
+              hca_port_pairs=()
+              for hca in "${active_hcas[@]}"; do
+                hca_port_pairs+=("${hca}:1")
+              done
+
+              active_hca_list=$(IFS=,; echo "${active_hcas[*]}")
+              hca_port_pairs_list=$(IFS=,; echo "${hca_port_pairs[*]}")
+              echo "[Infer RoCE] Setting active HCAs: ${active_hca_list}"
+              export NCCL_IB_HCA=${NCCL_IB_HCA:-${active_hca_list}}
+              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hca_port_pairs_list}}
+              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${hca_port_pairs_list}}
 
               echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
               echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+              echo "[Infer RoCE] UCX_NET_DEVICES=${UCX_NET_DEVICES}"
           else
               echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
           fi
@@ -4134,7 +4206,7 @@ spec:
                   fi
               done
 
-              # Use deterministic fallback if counts are equal - prefer lower index number
+              # Use deterministic fallback if tied - prefer index 3 (SR-IOV standard)
               if [ ${#gid_index_count[@]} -gt 1 ]; then
                   echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
                   # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
@@ -4149,7 +4221,7 @@ spec:
                   echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
                   export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
                   export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
-                  echo "[Infer RoCE] Using hardcoded GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+                  echo "[Infer RoCE] Using pre-configured GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
               elif [ -n "$best_gid_index" ]; then
                   echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
 
@@ -4176,10 +4248,17 @@ spec:
         fi
         echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
 
-        eval "vllm serve /mnt/models \
+        # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
+        SHUTDOWN_TIMEOUT_ARGS=""
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
+          SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Template 15 }}"
+        fi
+
+        eval "exec vllm serve /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8000 \
           ${ACCESS_LOG_ARGS} \
+          ${SHUTDOWN_TIMEOUT_ARGS} \
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -4273,6 +4352,8 @@ metadata:
   name: kserve-config-llm-worker-data-parallel
   namespace: kserve
 spec:
+  annotations:
+    serving.kserve.io/model-based-routing-enabled: "true"
   template:
     containers:
     - command:
@@ -4328,22 +4409,24 @@ spec:
               fi
           done
 
-          ucx_hcas=()
-          for hca in "${active_hcas[@]}"; do
-            ucx_hcas+=("${hca}:1")
-          done
-
           # Check if we found any active HCAs
           if [ ${#active_hcas[@]} -gt 0 ]; then
               # Join the array elements with a comma
-              hcas=$(IFS=,; echo "${active_hcas[*]}")
-              echo "[Infer RoCE] Setting active HCAs: ${hcas}"
-              export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
-              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
+              hca_port_pairs=()
+              for hca in "${active_hcas[@]}"; do
+                hca_port_pairs+=("${hca}:1")
+              done
+
+              active_hca_list=$(IFS=,; echo "${active_hcas[*]}")
+              hca_port_pairs_list=$(IFS=,; echo "${hca_port_pairs[*]}")
+              echo "[Infer RoCE] Setting active HCAs: ${active_hca_list}"
+              export NCCL_IB_HCA=${NCCL_IB_HCA:-${active_hca_list}}
+              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hca_port_pairs_list}}
+              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${hca_port_pairs_list}}
 
               echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
               echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+              echo "[Infer RoCE] UCX_NET_DEVICES=${UCX_NET_DEVICES}"
           else
               echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
           fi
@@ -4387,7 +4470,7 @@ spec:
                   fi
               done
 
-              # Use deterministic fallback if counts are equal - prefer lower index number
+              # Use deterministic fallback if tied - prefer index 3 (SR-IOV standard)
               if [ ${#gid_index_count[@]} -gt 1 ]; then
                   echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
                   # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
@@ -4402,7 +4485,7 @@ spec:
                   echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
                   export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
                   export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
-                  echo "[Infer RoCE] Using hardcoded GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+                  echo "[Infer RoCE] Using pre-configured GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
               elif [ -n "$best_gid_index" ]; then
                   echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
 
@@ -4431,7 +4514,13 @@ spec:
         fi
         echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
 
-        eval "vllm serve \
+        # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
+        SHUTDOWN_TIMEOUT_ARGS=""
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
+          SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Template 15 }}"
+        fi
+
+        eval "exec vllm serve \
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8000 \
@@ -4444,6 +4533,7 @@ spec:
           --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
           --data-parallel-start-rank $START_RANK \
           ${ACCESS_LOG_ARGS} \
+          ${SHUTDOWN_TIMEOUT_ARGS} \
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -4589,22 +4679,24 @@ spec:
               fi
           done
 
-          ucx_hcas=()
-          for hca in "${active_hcas[@]}"; do
-            ucx_hcas+=("${hca}:1")
-          done
-
           # Check if we found any active HCAs
           if [ ${#active_hcas[@]} -gt 0 ]; then
               # Join the array elements with a comma
-              hcas=$(IFS=,; echo "${active_hcas[*]}")
-              echo "[Infer RoCE] Setting active HCAs: ${hcas}"
-              export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
-              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
+              hca_port_pairs=()
+              for hca in "${active_hcas[@]}"; do
+                hca_port_pairs+=("${hca}:1")
+              done
+
+              active_hca_list=$(IFS=,; echo "${active_hcas[*]}")
+              hca_port_pairs_list=$(IFS=,; echo "${hca_port_pairs[*]}")
+              echo "[Infer RoCE] Setting active HCAs: ${active_hca_list}"
+              export NCCL_IB_HCA=${NCCL_IB_HCA:-${active_hca_list}}
+              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hca_port_pairs_list}}
+              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${hca_port_pairs_list}}
 
               echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
               echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+              echo "[Infer RoCE] UCX_NET_DEVICES=${UCX_NET_DEVICES}"
           else
               echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
           fi
@@ -4648,7 +4740,7 @@ spec:
                   fi
               done
 
-              # Use deterministic fallback if counts are equal - prefer lower index number
+              # Use deterministic fallback if tied - prefer index 3 (SR-IOV standard)
               if [ ${#gid_index_count[@]} -gt 1 ]; then
                   echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
                   # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
@@ -4663,7 +4755,7 @@ spec:
                   echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
                   export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
                   export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
-                  echo "[Infer RoCE] Using hardcoded GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+                  echo "[Infer RoCE] Using pre-configured GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
               elif [ -n "$best_gid_index" ]; then
                   echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
 
@@ -4692,7 +4784,13 @@ spec:
         fi
         echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
 
-        eval "vllm serve \
+        # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
+        SHUTDOWN_TIMEOUT_ARGS=""
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
+          SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Worker 15 }}"
+        fi
+
+        eval "exec vllm serve \
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8000 \
@@ -4705,6 +4803,7 @@ spec:
           --data-parallel-start-rank $START_RANK \
           --headless \
           ${ACCESS_LOG_ARGS} \
+          ${SHUTDOWN_TIMEOUT_ARGS} \
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -22877,6 +22976,8 @@ spec:
                       workingDir:
                         type: string
                     type: object
+                  storageContainerName:
+                    type: string
                   storageUris:
                     items:
                       properties:

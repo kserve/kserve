@@ -21354,6 +21354,15 @@ spec:
                       type: string
                     audience:
                       type: string
+                    models:
+                      items:
+                        properties:
+                          name:
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      type: array
                     name:
                       type: string
                     origin:

@@ -47,7 +47,7 @@ def grpc_client(host, cluster_ip):
     logger.info("gRPC target host: %s", host)
     return InferenceGRPCClient(
         cluster_ip,
-        verbose=True,
+        verbose=False,
         channel_args=[
             ("grpc.ssl_target_name_override", host),
         ],
@@ -63,6 +63,7 @@ async def predict_isvc(
     model_name=None,
     is_batch=False,
     network_layer: str = "istio",
+    extra_headers: dict = None,
 ) -> Union[InferResponse, Dict, List[Union[Dict, InferResponse]]]:
     kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
@@ -84,6 +85,7 @@ async def predict_isvc(
         model_name=model_name,
         is_batch=is_batch,
         is_graph=False,
+        extra_headers=extra_headers,
     )
 
 
@@ -95,6 +97,7 @@ async def predict(
     model_name=None,
     is_batch=False,
     is_graph=False,
+    extra_headers: dict = None,
 ) -> Union[InferResponse, Dict, List[Union[Dict, InferResponse]]]:
     if isinstance(input, str):
         with open(input) as json_file:
@@ -102,6 +105,8 @@ async def predict(
     else:
         data = input
     headers = {"Host": host, "Content-Type": "application/json"}
+    if extra_headers:
+        headers.update(extra_headers)
     if is_batch:
         with futures.ThreadPoolExecutor(max_workers=4) as executor:
             loop = asyncio.get_running_loop()
