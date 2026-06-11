@@ -62,11 +62,6 @@ if [[ $ENABLE_LLMISVC == "false" || $ENABLE_KSERVE_WITH_LLMISVC == "true" ]]; th
     export INSTALL_RUNTIMES=true
     ${REPO_ROOT}/hack/setup/infra/manage.kserve-helm.sh
     kustomize build config/overlays/test/s3-local-backend | kubectl apply --server-side --force-conflicts -f -
-    echo "Applying test env patches to ClusterServingRuntimes..."
-    kubectl patch clusterservingruntime kserve-huggingfaceserver --type=json -p='[
-      {"op":"add","path":"/spec/containers/0/env/-","value":{"name":"TOKIO_WORKER_THREADS","value":"1"}},
-      {"op":"add","path":"/spec/containers/0/env/-","value":{"name":"HF_HUB_DISABLE_XET","value":"1"}}
-    ]'
   else
     export SET_KSERVE_VERSION=${TAG}
     export ENABLE_LOCALMODEL=true
@@ -82,6 +77,12 @@ if [[ $ENABLE_LLMISVC == "false" || $ENABLE_KSERVE_WITH_LLMISVC == "true" ]]; th
     echo "Installing KServe Runtimes..."
     kubectl apply --server-side=true -k config/overlays/test/clusterresources
   fi
+
+  echo "Applying test env patches to ClusterServingRuntimes..."
+  kubectl patch clusterservingruntime kserve-huggingfaceserver --type=json -p='[
+    {"op":"add","path":"/spec/containers/0/env/-","value":{"name":"TOKIO_WORKER_THREADS","value":"1"}},
+    {"op":"add","path":"/spec/containers/0/env/-","value":{"name":"HF_HUB_DISABLE_XET","value":"1"}}
+  ]'
 
   kubectl get events -A
 
