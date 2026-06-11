@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,15 +25,17 @@ import (
 // Cluster-scoped like LocalModelNode - one per physical node, tracks caches from all namespaces.
 // +genclient
 // +genclient:nonNamespaced
+// +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster
 // +kubebuilder:printcolumn:name="Caches-In-Use",type=integer,JSONPath=".status.counts.cachesInUse"
 // +kubebuilder:printcolumn:name="Caches-Not-In-Use",type=integer,JSONPath=".status.counts.cachesNotInUse"
 // +kubebuilder:printcolumn:name="Caches-Error",type=integer,JSONPath=".status.counts.cachesError"
-// +kubebuilder:printcolumn:name="Pod-Running",type=integer,JSONPath=".status.counts.podRunningCnt"
-// +kubebuilder:printcolumn:name="Pod-Deleting",type=integer,JSONPath=".status.counts.podDeletingCnt"
+// +kubebuilder:printcolumn:name="Pods-Using",type=integer,JSONPath=".status.counts.totalPodsUsing"
+// +kubebuilder:printcolumn:name="Pods-Terminating",type=integer,JSONPath=".status.counts.totalPodsTerminating"
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=".metadata.creationTimestamp"
+// +k8s:openapi-gen=true
 type KernelCacheNode struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -43,6 +45,7 @@ type KernelCacheNode struct {
 
 // KernelCacheNodeStatus defines per-node extraction and GPU compatibility status
 // Agent owns all writes to this structure
+// +k8s:openapi-gen=true
 type KernelCacheNodeStatus struct {
 	// NodeName is the Kubernetes node this tracks
 	NodeName string `json:"nodeName"`
@@ -64,6 +67,7 @@ type KernelCacheNodeStatus struct {
 }
 
 // NodeCacheCounts aggregates cache and pod counts across all caches on a node
+// +k8s:openapi-gen=true
 type NodeCacheCounts struct {
 	// CachesInUse - caches in Running state (mounted by pods)
 	CachesInUse int `json:"cachesInUse"`
@@ -71,15 +75,16 @@ type NodeCacheCounts struct {
 	CachesNotInUse int `json:"cachesNotInUse"`
 	// CachesError - caches in Error state
 	CachesError int `json:"cachesError"`
-	// PodRunningCnt - total pods using any cache on this node
-	PodRunningCnt int `json:"podRunningCnt"`
-	// PodDeletingCnt - total pods terminating
-	PodDeletingCnt int `json:"podDeletingCnt"`
+	// TotalPodsUsing - total pods using any cache on this node (any phase)
+	TotalPodsUsing int `json:"totalPodsUsing"`
+	// TotalPodsTerminating - total pods terminating
+	TotalPodsTerminating int `json:"totalPodsTerminating"`
 }
 
 // CacheNodeCacheInfo tracks full cache information and status on one node
 // Combines cache identity (name/namespace/image/digest) with extraction state
 // Agent populates all fields by watching KernelCache CRs and tracking extraction jobs
+// +k8s:openapi-gen=true
 type CacheNodeCacheInfo struct {
 	// Cache identity (agent reads from KernelCache CR)
 	Name      string `json:"name"`
@@ -111,11 +116,8 @@ type CacheNodeCacheInfo struct {
 	LastUpdate metav1.Time `json:"lastUpdate,omitempty"`
 }
 
-// CacheNodeExtractionStatus is deprecated - use CacheNodeCacheInfo
-// Kept for backward compatibility during migration
-type CacheNodeExtractionStatus = CacheNodeCacheInfo
-
 // NamespaceServingCounts tracks pod usage per namespace
+// +k8s:openapi-gen=true
 type NamespaceServingCounts struct {
 	PodsUsing       int `json:"podsUsing"`       // Total pods mounting cache in this namespace
 	PodsReady       int `json:"podsReady"`       // Pods in Ready state
@@ -124,6 +126,7 @@ type NamespaceServingCounts struct {
 
 // KernelCacheNodeList contains a list of KernelCacheNode
 // +kubebuilder:object:root=true
+// +k8s:openapi-gen=true
 type KernelCacheNodeList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

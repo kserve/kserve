@@ -152301,11 +152301,11 @@ spec:
     - jsonPath: .status.counts.cachesError
       name: Caches-Error
       type: integer
-    - jsonPath: .status.counts.podRunningCnt
-      name: Pod-Running
+    - jsonPath: .status.counts.totalPodsUsing
+      name: Pods-Using
       type: integer
-    - jsonPath: .status.counts.podDeletingCnt
-      name: Pod-Deleting
+    - jsonPath: .status.counts.totalPodsTerminating
+      name: Pods-Terminating
       type: integer
     - jsonPath: .metadata.creationTimestamp
       name: Age
@@ -152383,16 +152383,16 @@ spec:
                     type: integer
                   cachesNotInUse:
                     type: integer
-                  podDeletingCnt:
+                  totalPodsTerminating:
                     type: integer
-                  podRunningCnt:
+                  totalPodsUsing:
                     type: integer
                 required:
                 - cachesError
                 - cachesInUse
                 - cachesNotInUse
-                - podDeletingCnt
-                - podRunningCnt
+                - totalPodsTerminating
+                - totalPodsUsing
                 type: object
               gpuInfo:
                 items:
@@ -152458,11 +152458,11 @@ spec:
     - jsonPath: .status.counts.nodeErrorCnt
       name: Node-Error
       type: integer
-    - jsonPath: .status.counts.podRunningCnt
-      name: Pod-Running
+    - jsonPath: .status.servingStatus.totalPodsUsing
+      name: Pods-Using
       type: integer
-    - jsonPath: .status.counts.podDeletingCnt
-      name: Pod-Deleting
+    - jsonPath: .status.servingStatus.totalPodsTerminating
+      name: Pods-Terminating
       type: integer
     - jsonPath: .metadata.creationTimestamp
       name: Age
@@ -152543,17 +152543,11 @@ spec:
                     type: integer
                   nodeNotInUseCnt:
                     type: integer
-                  podDeletingCnt:
-                    type: integer
-                  podRunningCnt:
-                    type: integer
                 required:
                 - nodeCnt
                 - nodeErrorCnt
                 - nodeInUseCnt
                 - nodeNotInUseCnt
-                - podDeletingCnt
-                - podRunningCnt
                 type: object
               gpuCompatibility:
                 properties:
@@ -152603,17 +152597,17 @@ spec:
                     type: object
                   totalNamespaces:
                     type: integer
-                  totalPods:
-                    type: integer
                   totalPodsReady:
                     type: integer
                   totalPodsTerminating:
                     type: integer
+                  totalPodsUsing:
+                    type: integer
                 required:
                 - totalNamespaces
-                - totalPods
                 - totalPodsReady
                 - totalPodsTerminating
+                - totalPodsUsing
                 type: object
               state:
                 enum:

@@ -31,11 +31,11 @@ spec:
     - jsonPath: .status.counts.nodeErrorCnt
       name: Node-Error
       type: integer
-    - jsonPath: .status.counts.podRunningCnt
-      name: Pod-Running
+    - jsonPath: .status.servingStatus.totalPodsUsing
+      name: Pods-Using
       type: integer
-    - jsonPath: .status.counts.podDeletingCnt
-      name: Pod-Deleting
+    - jsonPath: .status.servingStatus.totalPodsTerminating
+      name: Pods-Terminating
       type: integer
     - jsonPath: .metadata.creationTimestamp
       name: Age

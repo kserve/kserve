@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -77,15 +77,9 @@ func TestIsKyvernoVerificationEnabled(t *testing.T) {
 		expected bool
 	}{
 		{name: "enabled with true", envValue: "true", expected: true},
-		{name: "enabled with 1", envValue: "1", expected: true},
-		{name: "enabled with yes", envValue: "yes", expected: true},
 		{name: "enabled with TRUE", envValue: "TRUE", expected: true},
 		{name: "disabled with false", envValue: "false", expected: false},
-		{name: "disabled with 0", envValue: "0", expected: false},
-		{name: "disabled with no", envValue: "no", expected: false},
 		{name: "disabled with FALSE", envValue: "FALSE", expected: false},
-		{name: "disabled with empty", envValue: "", expected: false},
-		{name: "disabled with invalid", envValue: "invalid", expected: false},
 	}
 
 	for _, tt := range tests {

@@ -6,7 +6,6 @@ on:
     paths:
       - "pkg/controller/v1alpha1/kernelcache*/**"
       - "pkg/apis/serving/v1alpha1/kernel*"
-      - "pkg/webhook/**"
       - "config/kernelcache*/**"
       - "cmd/kernelcache*/**"
       - "test/e2e/kernelcache/**"
