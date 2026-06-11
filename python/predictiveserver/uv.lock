@@ -1029,7 +1029,7 @@ wheels = [
 
 [[package]]
 name = "kserve"
-version = "0.19.0rc0"
+version = "0.19.0"
 source = { directory = "../kserve" }
 dependencies = [
     { name = "aiohttp" },
@@ -1122,7 +1122,7 @@ test = [
 
 [[package]]
 name = "kserve-storage"
-version = "0.19.0rc0"
+version = "0.19.0"
 source = { directory = "../storage" }
 dependencies = [
     { name = "aiohttp" },
@@ -1181,7 +1181,7 @@ wheels = [
 
 [[package]]
 name = "lgbserver"
-version = "0.19.0rc0"
+version = "0.19.0"
 source = { virtual = "../lgbserver" }
 dependencies = [
     { name = "kserve" },
@@ -1608,7 +1608,7 @@ wheels = [
 
 [[package]]
 name = "predictiveserver"
-version = "0.19.0rc0"
+version = "0.19.0"
 source = { editable = "." }
 dependencies = [
     { name = "kserve" },
@@ -2199,7 +2199,7 @@ wheels = [
 
 [[package]]
 name = "sklearnserver"
-version = "0.19.0rc0"
+version = "0.19.0"
 source = { virtual = "../sklearnserver" }
 dependencies = [
     { name = "joblib" },
@@ -2542,7 +2542,7 @@ wheels = [
 
 [[package]]
 name = "xgbserver"
-version = "0.19.0rc0"
+version = "0.19.0"
 source = { virtual = "../xgbserver" }
 dependencies = [
     { name = "kserve" },
