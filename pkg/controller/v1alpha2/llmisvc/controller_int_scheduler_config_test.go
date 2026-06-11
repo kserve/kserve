@@ -483,6 +483,10 @@ schedulingProfiles:
 			Expect(configText).To(ContainSubstring("disagg-profile-handler"))
 			Expect(configText).To(ContainSubstring("name: prefill"))
 			Expect(configText).To(ContainSubstring("name: decode"))
+			// Upstream optimized P/D baseline: prefill adds kv-cache-utilization-scorer,
+			// decode swaps queue-scorer for active-request-scorer.
+			Expect(configText).To(ContainSubstring("kv-cache-utilization-scorer"))
+			Expect(configText).To(ContainSubstring("active-request-scorer"))
 		})
 	})
 
