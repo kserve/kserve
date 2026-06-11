@@ -21,6 +21,7 @@ import sys
 
 class Colors:
     """ANSI color codes for terminal output."""
+
     BLUE = "\033[94m"
     GREEN = "\033[92m"
     RED = "\033[91m"

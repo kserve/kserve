@@ -116,7 +116,6 @@ class DummyStreamModel(Model):
 
 
 class TestStreamPredict:
-
     @pytest_asyncio.fixture(scope="class")
     async def app(self, server):  # pylint: disable=no-self-use
         model = DummyStreamModel("TestModel")
@@ -139,9 +138,9 @@ class TestStreamPredict:
                 data = value.decode()
                 assert fake_stream_data in data
                 all_data.append(data)
-        assert all(
-            [fake_stream_data in data for data in all_data]
-        ), "Unexpected number of streamed responses"
+        assert all([fake_stream_data in data for data in all_data]), (
+            "Unexpected number of streamed responses"
+        )
 
 
 class DummyModel(Model):
@@ -414,7 +413,6 @@ class TestModel:
 
 
 class TestV1Endpoints:
-
     @pytest_asyncio.fixture(scope="class", autouse=True)
     async def app(self, server):
         model = DummyModel("TestModel")
@@ -487,7 +485,6 @@ class TestV1Endpoints:
 
 
 class TestV2Endpoints:
-
     @pytest_asyncio.fixture(scope="class", autouse=True)
     async def app(self, server):
         model = DummyModel("TestModel")
@@ -873,7 +870,6 @@ class TestV2Endpoints:
 
 
 class TestRayServer:
-
     @pytest_asyncio.fixture(scope="class", autouse=True)
     async def app(self, server):  # pylint: disable=no-self-use
         serve.start(http_options={"host": "0.0.0.0", "port": 9071})
@@ -933,7 +929,6 @@ class TestRayServer:
 
 
 class TestTFHttpServerModelNotLoaded:
-
     @pytest_asyncio.fixture(scope="class", autouse=True)
     async def app(self, server):  # pylint: disable=no-self-use
         model = DummyModel("TestModel")
@@ -947,7 +942,6 @@ class TestTFHttpServerModelNotLoaded:
 
 
 class TestTFHttpServerCloudEvent:
-
     @pytest_asyncio.fixture(scope="class", autouse=True)
     async def app(self, server):  # pylint: disable=no-self-use
         model = DummyCEModel("TestModel")
@@ -1086,8 +1080,7 @@ class TestTFHttpServerCloudEvent:
 
         assert resp.status_code == 400
         error_regex = re.compile(
-            "Failed to decode or parse binary json cloudevent: "
-            "unexpected end of data:*"
+            "Failed to decode or parse binary json cloudevent: unexpected end of data:*"
         )
         response = json.loads(resp.content)
         assert error_regex.match(response["error"]) is not None
@@ -1110,7 +1103,6 @@ class TestTFHttpServerCloudEvent:
 
 
 class TestTFHttpServerAvroCloudEvent:
-
     @pytest_asyncio.fixture(scope="class", autouse=True)
     async def app(self, server):  # pylint: disable=no-self-use
         model = DummyAvroCEModel("TestModel")
@@ -1197,7 +1189,6 @@ class TestTFHttpServerLoadAndUnLoadFailure:
 
 
 class TestTFHttpServerModelNotReady:
-
     @pytest_asyncio.fixture(scope="class", autouse=True)
     async def app(self, server):  # pylint: disable=no-self-use
         model = DummyModel("TestModel")
@@ -1241,7 +1232,6 @@ class TestWithUnhealthyModel:
 
 
 class TestMutiProcessServer:
-
     @pytest.mark.asyncio
     async def test_rest_server_multiprocess(self):
         model_repository = ModelRepository()

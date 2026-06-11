@@ -169,16 +169,13 @@ async def mocked_openai_proxy_model(handler: Callable):
     transport = httpx.MockTransport(handler=handler)
     http_client = httpx.AsyncClient(transport=transport)
     try:
-        with patch.object(
-            OpenAIProxyModel, "preprocess_completion_request"
-        ), patch.object(OpenAIProxyModel, "postprocess_completion"), patch.object(
-            OpenAIProxyModel, "postprocess_completion_chunk"
-        ), patch.object(
-            OpenAIProxyModel, "preprocess_chat_completion_request"
-        ), patch.object(
-            OpenAIProxyModel, "postprocess_chat_completion"
-        ), patch.object(
-            OpenAIProxyModel, "postprocess_chat_completion_chunk"
+        with (
+            patch.object(OpenAIProxyModel, "preprocess_completion_request"),
+            patch.object(OpenAIProxyModel, "postprocess_completion"),
+            patch.object(OpenAIProxyModel, "postprocess_completion_chunk"),
+            patch.object(OpenAIProxyModel, "preprocess_chat_completion_request"),
+            patch.object(OpenAIProxyModel, "postprocess_chat_completion"),
+            patch.object(OpenAIProxyModel, "postprocess_chat_completion_chunk"),
         ):
             yield OpenAIProxyModel(
                 name="test-model",
@@ -329,7 +326,6 @@ class TestOpenAIParamsConversion:
 
 
 class TestOpenAIProxyModelCompletion:
-
     @pytest.mark.asyncio
     async def test_completion_upstream_connection_error(
         self,

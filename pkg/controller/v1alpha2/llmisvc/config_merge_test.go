@@ -556,7 +556,7 @@ func TestMergeSpecs(t *testing.T) {
 							},
 						},
 						Gateway: &v1alpha2.GatewaySpec{
-							Refs: []v1alpha2.UntypedObjectReference{{Name: "my-gateway"}},
+							Refs: []v1alpha2.GatewayObjectReference{{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "my-gateway"}}},
 						},
 					},
 				},
@@ -568,7 +568,7 @@ func TestMergeSpecs(t *testing.T) {
 							},
 						},
 						Gateway: &v1alpha2.GatewaySpec{
-							Refs: []v1alpha2.UntypedObjectReference{{Name: "my-second-gateway"}},
+							Refs: []v1alpha2.GatewayObjectReference{{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "my-second-gateway"}}},
 						},
 					},
 				},
@@ -645,7 +645,7 @@ func TestMergeSpecs(t *testing.T) {
 						},
 					},
 					Gateway: &v1alpha2.GatewaySpec{
-						Refs: []v1alpha2.UntypedObjectReference{{Name: "my-second-gateway"}},
+						Refs: []v1alpha2.GatewayObjectReference{{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "my-second-gateway"}}},
 					},
 					Scheduler: &v1alpha2.SchedulerSpec{
 						Pool: &v1alpha2.InferencePoolSpec{
@@ -942,7 +942,7 @@ func TestMergeSpecs(t *testing.T) {
 					},
 					Router: &v1alpha2.RouterSpec{
 						Gateway: &v1alpha2.GatewaySpec{
-							Refs: []v1alpha2.UntypedObjectReference{{Name: "base-gw"}},
+							Refs: []v1alpha2.GatewayObjectReference{{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "base-gw"}}},
 						},
 					},
 				},
@@ -991,7 +991,7 @@ func TestMergeSpecs(t *testing.T) {
 				},
 				Router: &v1alpha2.RouterSpec{
 					Gateway: &v1alpha2.GatewaySpec{
-						Refs: []v1alpha2.UntypedObjectReference{{Name: "base-gw"}},
+						Refs: []v1alpha2.GatewayObjectReference{{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "base-gw"}}},
 					},
 					Route: &v1alpha2.GatewayRoutesSpec{
 						HTTP: &v1alpha2.HTTPRouteSpec{
@@ -1282,6 +1282,136 @@ func TestMergeSpecs(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "custom pool selector overrides base empty selector",
+			cfgs: []v1alpha2.LLMInferenceServiceSpec{
+				// Base config with pool spec but no selector
+				{
+					Router: &v1alpha2.RouterSpec{
+						Route:   &v1alpha2.GatewayRoutesSpec{},
+						Gateway: &v1alpha2.GatewaySpec{},
+						Scheduler: &v1alpha2.SchedulerSpec{
+							Pool: &v1alpha2.InferencePoolSpec{
+								Spec: &igwapi.InferencePoolSpec{
+									TargetPorts: []igwapi.Port{{Number: 8000}},
+								},
+							},
+							Template: &corev1.PodSpec{
+								Containers: []corev1.Container{{Name: "main"}},
+							},
+						},
+					},
+				},
+				// Override with custom selector for multi-GPU-vendor pooling
+				{
+					Router: &v1alpha2.RouterSpec{
+						Scheduler: &v1alpha2.SchedulerSpec{
+							Pool: &v1alpha2.InferencePoolSpec{
+								Spec: &igwapi.InferencePoolSpec{
+									Selector: igwapi.LabelSelector{
+										MatchLabels: map[igwapi.LabelKey]igwapi.LabelValue{
+											"llm-pool":            "qwen2-7b",
+											"kserve.io/component": "workload",
+										},
+									},
+									TargetPorts: []igwapi.Port{{Number: 8000}},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: v1alpha2.LLMInferenceServiceSpec{
+				Router: &v1alpha2.RouterSpec{
+					Route:   &v1alpha2.GatewayRoutesSpec{},
+					Gateway: &v1alpha2.GatewaySpec{},
+					Scheduler: &v1alpha2.SchedulerSpec{
+						Pool: &v1alpha2.InferencePoolSpec{
+							Spec: &igwapi.InferencePoolSpec{
+								Selector: igwapi.LabelSelector{
+									MatchLabels: map[igwapi.LabelKey]igwapi.LabelValue{
+										"llm-pool":            "qwen2-7b",
+										"kserve.io/component": "workload",
+									},
+								},
+								TargetPorts: []igwapi.Port{{Number: 8000}},
+							},
+						},
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{{Name: "main"}},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "custom pool selector merge base selector",
+			cfgs: []v1alpha2.LLMInferenceServiceSpec{
+				// Base config with pool spec but no selector
+				{
+					Router: &v1alpha2.RouterSpec{
+						Route:   &v1alpha2.GatewayRoutesSpec{},
+						Gateway: &v1alpha2.GatewaySpec{},
+						Scheduler: &v1alpha2.SchedulerSpec{
+							Pool: &v1alpha2.InferencePoolSpec{
+								Spec: &igwapi.InferencePoolSpec{
+									Selector: igwapi.LabelSelector{
+										MatchLabels: map[igwapi.LabelKey]igwapi.LabelValue{
+											"x": "x",
+										},
+									},
+									TargetPorts: []igwapi.Port{{Number: 8000}},
+								},
+							},
+							Template: &corev1.PodSpec{
+								Containers: []corev1.Container{{Name: "main"}},
+							},
+						},
+					},
+				},
+				// Override with custom selector for multi-GPU-vendor pooling
+				{
+					Router: &v1alpha2.RouterSpec{
+						Scheduler: &v1alpha2.SchedulerSpec{
+							Pool: &v1alpha2.InferencePoolSpec{
+								Spec: &igwapi.InferencePoolSpec{
+									Selector: igwapi.LabelSelector{
+										MatchLabels: map[igwapi.LabelKey]igwapi.LabelValue{
+											"llm-pool":            "qwen2-7b",
+											"kserve.io/component": "workload",
+										},
+									},
+									TargetPorts: []igwapi.Port{{Number: 8000}},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: v1alpha2.LLMInferenceServiceSpec{
+				Router: &v1alpha2.RouterSpec{
+					Route:   &v1alpha2.GatewayRoutesSpec{},
+					Gateway: &v1alpha2.GatewaySpec{},
+					Scheduler: &v1alpha2.SchedulerSpec{
+						Pool: &v1alpha2.InferencePoolSpec{
+							Spec: &igwapi.InferencePoolSpec{
+								Selector: igwapi.LabelSelector{
+									MatchLabels: map[igwapi.LabelKey]igwapi.LabelValue{
+										"llm-pool":            "qwen2-7b",
+										"kserve.io/component": "workload",
+										"x":                   "x",
+									},
+								},
+								TargetPorts: []igwapi.Port{{Number: 8000}},
+							},
+						},
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{{Name: "main"}},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1298,6 +1428,21 @@ func TestMergeSpecs(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetWorkloadLabelSelectorUsedAsDefaultPoolSelector(t *testing.T) {
+	// Verify that GetWorkloadLabelSelector returns the labels used as default
+	// InferencePool selector in combineBaseRefsConfig (config_merge.go:232-244).
+	// When a user provides custom MatchLabels (e.g., for multi-GPU-vendor pooling),
+	// the default selector is not applied because MatchLabels is non-empty.
+	meta := metav1.ObjectMeta{Name: "test-svc", Namespace: "default"}
+	selector := llmisvc.GetWorkloadLabelSelector(meta, nil)
+
+	g := NewWithT(t)
+	g.Expect(selector).To(HaveKeyWithValue("app.kubernetes.io/name", "test-svc"))
+	g.Expect(selector).To(HaveKeyWithValue("app.kubernetes.io/part-of", "llminferenceservice"))
+	g.Expect(selector).To(HaveKeyWithValue("kserve.io/component", "workload"))
+	g.Expect(selector).To(HaveLen(3))
 }
 
 func TestReplaceVariables(t *testing.T) {
@@ -1537,8 +1682,8 @@ func TestReplaceVariables(t *testing.T) {
 							},
 						},
 						Gateway: &v1alpha2.GatewaySpec{
-							Refs: []v1alpha2.UntypedObjectReference{
-								{Name: "{{ .Name }}-gateway", Namespace: "{{ .Namespace }}"},
+							Refs: []v1alpha2.GatewayObjectReference{
+								{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "{{ .Name }}-gateway", Namespace: "{{ .Namespace }}"}},
 							},
 						},
 					},
@@ -1561,8 +1706,8 @@ func TestReplaceVariables(t *testing.T) {
 							},
 						},
 						Gateway: &v1alpha2.GatewaySpec{
-							Refs: []v1alpha2.UntypedObjectReference{
-								{Name: "router-test-gateway", Namespace: "routing-ns"},
+							Refs: []v1alpha2.GatewayObjectReference{
+								{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "router-test-gateway", Namespace: "routing-ns"}},
 							},
 						},
 					},
@@ -1661,6 +1806,252 @@ func TestReplaceVariables(t *testing.T) {
 					BaseRefs: []corev1.LocalObjectReference{
 						{Name: "base-ref-test-base-config"},
 						{Name: "template-ns-shared-config"},
+					},
+				},
+			},
+		},
+		{
+			name: "shutdownTimeout uses default when spec.template is nil",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout .Spec.Template 15 }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				// spec.template not set — shutdownTimeout falls back to default tgps=60: 60-15-min(5,60)=40
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "40"}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "shutdownTimeout uses spec.template.terminationGracePeriodSeconds when set",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout .Spec.Template 15 }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							TerminationGracePeriodSeconds: ptr.To(int64(120)),
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "100"}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "shutdownTimeout uses default when spec.worker is nil",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout .Spec.Worker 15 }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				// spec.worker not set — shutdownTimeout falls back to default tgps=60: 60-15-min(5,60)=40
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "40"}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "shutdownTimeout uses spec.worker.terminationGracePeriodSeconds when set",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout .Spec.Worker 15 }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Worker: &corev1.PodSpec{
+							TerminationGracePeriodSeconds: ptr.To(int64(120)),
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "100"}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "shutdownTimeout uses default when no spec provided (nil arg)",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout nil 15 }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "40"}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "shutdownTimeout uses spec.prefill.template.terminationGracePeriodSeconds when set",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "{{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Template 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Prefill: &v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							TerminationGracePeriodSeconds: ptr.To(int64(120)),
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "100"}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "shutdownTimeout uses spec.prefill.worker.terminationGracePeriodSeconds when set",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "{{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Worker 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Prefill: &v1alpha2.WorkloadSpec{
+						Worker: &corev1.PodSpec{
+							TerminationGracePeriodSeconds: ptr.To(int64(120)),
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "100"}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "shutdownTimeout uses default when spec.prefill is nil (prefill via base ref only)",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "{{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Template 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "40"}},
+							},
+						},
 					},
 				},
 			},
@@ -1767,13 +2158,13 @@ spec:
 func TestToParentRefs(t *testing.T) {
 	tests := []struct {
 		name string
-		refs []v1alpha2.UntypedObjectReference
+		refs []v1alpha2.GatewayObjectReference
 		want []gwapiv1.ParentReference
 	}{
 		{
 			name: "single gateway ref",
-			refs: []v1alpha2.UntypedObjectReference{
-				{Name: "my-gateway", Namespace: "my-ns"},
+			refs: []v1alpha2.GatewayObjectReference{
+				{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "my-gateway", Namespace: "my-ns"}},
 			},
 			want: []gwapiv1.ParentReference{
 				{
@@ -1786,9 +2177,9 @@ func TestToParentRefs(t *testing.T) {
 		},
 		{
 			name: "multiple gateway refs",
-			refs: []v1alpha2.UntypedObjectReference{
-				{Name: "gw-1", Namespace: "ns-1"},
-				{Name: "gw-2", Namespace: "ns-2"},
+			refs: []v1alpha2.GatewayObjectReference{
+				{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "gw-1", Namespace: "ns-1"}},
+				{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "gw-2", Namespace: "ns-2"}},
 			},
 			want: []gwapiv1.ParentReference{
 				{
@@ -1807,13 +2198,13 @@ func TestToParentRefs(t *testing.T) {
 		},
 		{
 			name: "gateway ref with empty namespace",
-			refs: []v1alpha2.UntypedObjectReference{
-				{Name: "my-gateway", Namespace: ""},
+			refs: []v1alpha2.GatewayObjectReference{
+				{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "my-gateway", Namespace: ""}},
 			},
 			want: []gwapiv1.ParentReference{
 				{
 					Name:      "my-gateway",
-					Namespace: ptr.To(gwapiv1.Namespace("")),
+					Namespace: nil,
 					Group:     ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
 					Kind:      ptr.To(gwapiv1.Kind("Gateway")),
 				},
@@ -1821,13 +2212,57 @@ func TestToParentRefs(t *testing.T) {
 		},
 		{
 			name: "empty refs returns empty slice",
-			refs: []v1alpha2.UntypedObjectReference{},
+			refs: []v1alpha2.GatewayObjectReference{},
 			want: []gwapiv1.ParentReference{},
 		},
 		{
 			name: "nil refs returns empty slice",
 			refs: nil,
 			want: []gwapiv1.ParentReference{},
+		},
+		{
+			name: "gateway ref with sectionName targets specific listener",
+			refs: []v1alpha2.GatewayObjectReference{
+				{
+					UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "shared-gateway", Namespace: "gw-ns"},
+					SectionName:            ptr.To(gwapiv1.SectionName("https")),
+				},
+			},
+			want: []gwapiv1.ParentReference{
+				{
+					Name:        "shared-gateway",
+					Namespace:   ptr.To(gwapiv1.Namespace("gw-ns")),
+					Group:       ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
+					Kind:        ptr.To(gwapiv1.Kind("Gateway")),
+					SectionName: ptr.To(gwapiv1.SectionName("https")),
+				},
+			},
+		},
+		{
+			name: "mixed refs - with and without sectionName",
+			refs: []v1alpha2.GatewayObjectReference{
+				{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "gw-all", Namespace: "ns-1"}},
+				{
+					UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "gw-specific", Namespace: "ns-2"},
+					SectionName:            ptr.To(gwapiv1.SectionName("http")),
+				},
+			},
+			want: []gwapiv1.ParentReference{
+				{
+					Name:        "gw-all",
+					Namespace:   ptr.To(gwapiv1.Namespace("ns-1")),
+					Group:       ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
+					Kind:        ptr.To(gwapiv1.Kind("Gateway")),
+					SectionName: nil,
+				},
+				{
+					Name:        "gw-specific",
+					Namespace:   ptr.To(gwapiv1.Namespace("ns-2")),
+					Group:       ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
+					Kind:        ptr.To(gwapiv1.Kind("Gateway")),
+					SectionName: ptr.To(gwapiv1.SectionName("http")),
+				},
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -1877,8 +2312,8 @@ func TestParentRefRewritingGuard(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			gateway := &v1alpha2.GatewaySpec{}
 			if tt.gatewayHasRefs {
-				gateway.Refs = []v1alpha2.UntypedObjectReference{
-					{Name: "my-gw", Namespace: "my-ns"},
+				gateway.Refs = []v1alpha2.GatewayObjectReference{
+					{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "my-gw", Namespace: "my-ns"}},
 				}
 			}
 
@@ -2217,6 +2652,137 @@ func TestWellKnownConfigResolver_Resolve(t *testing.T) {
 			got := wr.Resolve(tt.llmSvc, tt.inputName)
 			if got != tt.want {
 				t.Errorf("Resolve(%q) = %q, want %q", tt.inputName, got, tt.want)
+			}
+		})
+	}
+}
+
+const tlsTemplateFixture = `apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceServiceConfig
+metadata:
+  name: test
+spec:
+  router:
+    scheduler:
+      template:
+        containers:
+          - name: main
+            args:
+              - '{{ if .GlobalConfig.EnableTLS }}--enable-cert-reload=true{{- end }}'
+              - '{{ if .GlobalConfig.EnableTLS }}--secure-serving=true{{- end }}'
+              - '{{ if .GlobalConfig.EnableTLS }}--model-server-metrics-scheme=https{{- end }}'
+              - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
+`
+
+func TestReplaceVariables_TLSConditional(t *testing.T) {
+	tests := []struct {
+		name      string
+		enableTLS bool
+		wantArgs  []string
+	}{
+		{
+			name:      "TLS on: all flags render with TLS values",
+			enableTLS: true,
+			wantArgs: []string{
+				"--enable-cert-reload=true",
+				"--secure-serving=true",
+				"--model-server-metrics-scheme=https",
+				"--cert-path=/var/run/kserve/tls",
+			},
+		},
+		{
+			name:      "TLS off: all flags render empty",
+			enableTLS: false,
+			wantArgs: []string{
+				"",
+				"",
+				"",
+				"",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			preset := &v1alpha2.LLMInferenceServiceConfig{}
+			if err := yaml.Unmarshal([]byte(tlsTemplateFixture), preset); err != nil {
+				t.Fatalf("failed to unmarshal fixture: %v", err)
+			}
+
+			llmSvc := &v1alpha2.LLMInferenceService{}
+			cfg := &llmisvc.Config{EnableTLS: tt.enableTLS}
+
+			got, err := llmisvc.ReplaceVariables(llmSvc, preset, cfg)
+			if err != nil {
+				t.Fatalf("ReplaceVariables() error = %v", err)
+			}
+
+			containers := got.Spec.Router.Scheduler.Template.Containers
+			if len(containers) == 0 {
+				t.Fatal("expected at least one container in rendered config")
+			}
+			args := containers[0].Args
+			if len(args) != len(tt.wantArgs) {
+				t.Fatalf("got %d args, want %d: %q", len(args), len(tt.wantArgs), args)
+			}
+			for i, want := range tt.wantArgs {
+				if args[i] != want {
+					t.Errorf("arg[%d] = %q, want %q", i, args[i], want)
+				}
+			}
+		})
+	}
+}
+
+func TestReplaceVariables_PDSidecarTLSConditional(t *testing.T) {
+	const pdSidecarFixture = `apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceServiceConfig
+metadata:
+  name: test
+spec:
+  router:
+    scheduler:
+      template:
+        containers:
+          - name: sidecar
+            args:
+              - '{{ if .GlobalConfig.EnableTLS }}--decoder-use-tls=true{{- end }}'
+              - '{{ if .GlobalConfig.EnableTLS }}--prefiller-use-tls=true{{- end }}'
+`
+	tests := []struct {
+		name      string
+		enableTLS bool
+		wantArgs  []string
+	}{
+		{
+			name:      "TLS on",
+			enableTLS: true,
+			wantArgs:  []string{"--decoder-use-tls=true", "--prefiller-use-tls=true"},
+		},
+		{
+			name:      "TLS off",
+			enableTLS: false,
+			wantArgs:  []string{"", ""},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			preset := &v1alpha2.LLMInferenceServiceConfig{}
+			if err := yaml.Unmarshal([]byte(pdSidecarFixture), preset); err != nil {
+				t.Fatalf("unmarshal: %v", err)
+			}
+			got, err := llmisvc.ReplaceVariables(&v1alpha2.LLMInferenceService{}, preset, &llmisvc.Config{EnableTLS: tt.enableTLS})
+			if err != nil {
+				t.Fatalf("ReplaceVariables: %v", err)
+			}
+			args := got.Spec.Router.Scheduler.Template.Containers[0].Args
+			if len(args) != len(tt.wantArgs) {
+				t.Fatalf("got %d args, want %d: %q", len(args), len(tt.wantArgs), args)
+			}
+			for i, want := range tt.wantArgs {
+				if args[i] != want {
+					t.Errorf("arg[%d] = %q, want %q", i, args[i], want)
+				}
 			}
 		})
 	}

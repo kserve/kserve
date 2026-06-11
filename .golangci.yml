@@ -70,6 +70,9 @@ linters:
     # Detects nested contexts in loops. https://gabnotes.org/fat-contexts/
     - fatcontext
 
+    # Forbids specific identifiers in source code (scoped to test files via exclude-rules).
+    - forbidigo
+
     # Enforces standards of using ginkgo and gomega.
     - ginkgolinter
 
@@ -170,6 +173,12 @@ linters:
     - whitespace
 
   settings:
+    forbidigo:
+      forbid:
+        - pattern: '\.SetLogger\('
+          msg: "Use pkg/testing SetupTestLogger instead of calling SetLogger directly in tests"
+        - pattern: 'fmt\.(Printf|Println|Print)\('
+          msg: "Use t.Logf/t.Log for test output instead of fmt print functions"
     staticcheck:
       # In v2, gosimple and stylecheck are merged into staticcheck.
       # Stylecheck (ST*) was disabled in v1, so exclude those checks.
@@ -203,6 +212,11 @@ linters:
 
   exclusions:
     generated: lax
+    rules:
+      # Only enforce forbidigo in test files.
+      - path-except: "_test\\.go$"
+        linters:
+          - forbidigo
     paths:
       # skip auto gen folders
       - "client/"

@@ -18,10 +18,10 @@ package service
 import (
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -137,7 +137,6 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					},
 				},
 			},
-			nil,
 		},
 		"multiNode-service": {
 			&corev1.Service{
@@ -192,6 +191,30 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					PublishNotReadyAddresses: true,
 				},
 			},
+			&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default-workers-1",
+					Namespace: "default-predictor-namespace",
+					Labels: map[string]string{
+						constants.RawDeploymentAppLabel:                 "isvc.default-predictor",
+						constants.KServiceComponentLabel:                "predictor",
+						constants.InferenceServicePodLabelKey:           "default-predictor",
+						constants.InferenceServiceGenerationPodLabelKey: "1",
+						constants.MultiNodeRoleLabelKey:                 constants.MultiNodeWorker,
+					},
+					Annotations: map[string]string{
+						"annotation": "annotation-value",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Selector: map[string]string{
+						"app": "isvc.default-predictor-worker",
+						constants.InferenceServiceGenerationPodLabelKey: "1",
+					},
+					ClusterIP:                "None",
+					PublishNotReadyAddresses: true,
+				},
+			},
 		},
 	}
 
@@ -224,10 +247,12 @@ func TestCreateDefaultDeployment(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := createService(tt.args.componentMeta, tt.args.componentExt, tt.args.podSpec, tt.args.multiNodeEnabled, emptyServiceConfig)
-			for i, service := range got {
-				if diff := cmp.Diff(tt.expected[i], service); diff != "" {
-					t.Errorf("Test %q unexpected service (-want +got): %v", tt.name, diff)
-				}
+			require.Len(t, got, len(tt.expected))
+			for i, svc := range got {
+				// DeepDerivative checks that all non-zero fields in expected are present in actual,
+				// ignoring extra fields (e.g. annotations added by platform-specific hooks).
+				assert.True(t, equality.Semantic.DeepDerivative(tt.expected[i], svc),
+					"service[%d] mismatch: expected %+v, got %+v", i, tt.expected[i], svc)
 			}
 		})
 	}

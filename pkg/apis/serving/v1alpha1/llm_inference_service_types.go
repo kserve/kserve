@@ -183,13 +183,33 @@ type LLMModelSpec struct {
 
 // LoRASpec defines the configuration for LoRA adapters.
 type LoRASpec struct {
-	// Adapters is the static specification for one or more LoRA adapters.
-	// Each adapter is defined by its own ModelSpec.
+	// Adapters specifies one or more LoRA adapters to load alongside the base model.
+	// Supported URI schemes: hf://, s3://, pvc://.
+	// Each adapter must have a unique name that differs from the base model name.
 	// +optional
 	// This type is recursive https://github.com/kubernetes-sigs/controller-tools/issues/585
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless
 	Adapters []LLMModelSpec `json:"adapters,omitempty"`
+
+	// MaxRank is the maximum LoRA rank supported by the runtime (maps to vLLM --max-lora-rank).
+	// Higher values allow adapters with higher rank but increase memory usage.
+	// If not set, vLLM's default applies (16).
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	MaxRank *int32 `json:"maxRank,omitempty"`
+
+	// MaxAdapters is the maximum number of LoRA adapters that can be loaded simultaneously
+	// (maps to vLLM --max-loras). Defaults to the number of configured adapters.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	MaxAdapters *int32 `json:"maxAdapters,omitempty"`
+
+	// MaxCpuAdapters is the maximum number of LoRA adapters stored in CPU memory
+	// (maps to vLLM --max-cpu-loras). Defaults to the number of configured adapters.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	MaxCpuAdapters *int32 `json:"maxCpuAdapters,omitempty"`
 }
 
 // StorageInitializerSpec defines the configuration for the storage initializer.
@@ -266,7 +286,7 @@ type GatewaySpec struct {
 	// Refs provides references to existing, user-managed Gateway objects ("Bring Your Own" gateway).
 	// The controller will use the specified Gateway instead of creating one.
 	// +optional
-	Refs []UntypedObjectReference `json:"refs,omitempty"`
+	Refs []GatewayObjectReference `json:"refs,omitempty"`
 }
 
 // IngressSpec defines the configuration for a Kubernetes Ingress.
@@ -280,13 +300,13 @@ type IngressSpec struct {
 // SchedulerSpec defines the Inference Gateway extension configuration.
 //
 // The SchedulerSpec configures the connection from the Gateway to the model deployment leveraging the LLM optimized
-// request Scheduler, also known as the Endpoint Picker (EPP) which determines the exact pod that should handle the
-// request and responds back to Envoy with the target pod, Envoy will then forward the request to the chosen pod.
+// request Scheduler, also known as the Endpoint Picker (EPP). The EPP determines the exact pod that should handle the
+// request and responds back to the Gateway with the target pod. The Gateway will then forward the request to the chosen pod.
 //
 // The Scheduler is only effective when having multiple inference pod replicas.
 //
-// Step 1: Gateway (Envoy) &lt;-- ExtProc --&gt; EPP (select the optimal replica to handle the request)
-// Step 2: Gateway (Envoy) &lt;-- forward request --&gt; Inference Pod X
+// Step 1 (endpoint selection): Gateway <-- ExtProc --> EPP (select the optimal replica to handle the request)
+// Step 2 (endpoint routing): Gateway <-- forward request/response --> Inference Pod X
 type SchedulerSpec struct {
 	// Pool configuration for the InferencePool, which is part of the Inference Gateway extension.
 	// +optional
@@ -479,7 +499,7 @@ type ParallelismSpec struct {
 }
 
 // UntypedObjectReference is a reference to an object without a specific Group/Version/Kind.
-// It's used for referencing networking resources like Gateways and Ingresses where the exact type
+// It's used for referencing networking resources like Ingresses where the exact type
 // might be inferred or is not strictly required by this controller.
 type UntypedObjectReference struct {
 	// Name of the referenced object.
@@ -488,9 +508,71 @@ type UntypedObjectReference struct {
 	Namespace gwapiv1.Namespace `json:"namespace,omitempty"`
 }
 
+// GatewayObjectReference is a reference to a Gateway resource.
+// It extends UntypedObjectReference with Gateway-specific fields.
+type GatewayObjectReference struct {
+	UntypedObjectReference `json:",inline"`
+	// SectionName is the name of a section within the target resource. When
+	// set on a Gateway reference, it targets a specific listener by name.
+	// When unset, the route is attached to all listeners on the referenced
+	// Gateway that support the route type.
+	// +optional
+	SectionName *gwapiv1.SectionName `json:"sectionName,omitempty"`
+}
+
+// ObservedGateway is a Gateway reference with the listeners and HTTPRoutes
+// bound to this service through it. Used in status to record observed routing topology.
+type ObservedGateway struct {
+	// Embedded ObjectReference carries group, kind, name, namespace of the Gateway.
+	gwapiv1.ObjectReference `json:",inline"`
+
+	// Listeners lists the SectionNames of the Gateway listeners that accepted
+	// routes from this service. Nil means the route targets all listeners
+	// (no SectionName was specified on the parentRef).
+	// +optional
+	// +listType=atomic
+	Listeners []gwapiv1.SectionName `json:"listeners,omitempty"`
+
+	// HTTPRoutes lists the HTTPRoutes bound to this service through this Gateway.
+	// +optional
+	// +listType=atomic
+	HTTPRoutes []gwapiv1.ObjectReference `json:"httpRoutes,omitempty"`
+}
+
+// ObservedSchedulerStatus records the scheduler-related resources observed
+// during the last successful routing reconciliation.
+type ObservedSchedulerStatus struct {
+	// InferencePool is the InferencePool observed as active for this service.
+	// +optional
+	InferencePool *gwapiv1.ObjectReference `json:"inferencePool,omitempty"`
+
+	// Service is the EPP Service observed for this service.
+	// +optional
+	Service *gwapiv1.ObjectReference `json:"service,omitempty"`
+}
+
+// RouterStatus records the networking resources observed during the last
+// successful routing reconciliation. Nil when routing is not configured or
+// the service is stopped.
+type RouterStatus struct {
+	// Gateways lists the Gateway resources observed as attached to this service,
+	// each with the listeners and HTTPRoutes bound through them.
+	// +optional
+	// +listType=atomic
+	Gateways []ObservedGateway `json:"gateways,omitempty"`
+
+	// Scheduler records the observed scheduler topology.
+	// Nil when the scheduler is not configured.
+	// +optional
+	Scheduler *ObservedSchedulerStatus `json:"scheduler,omitempty"`
+}
+
 // LLMInferenceServiceStatus defines the observed state of LLMInferenceService.
 type LLMInferenceServiceStatus struct {
-	// URL of the publicly exposed service.
+	// URL is the primary address for accessing the service.
+	// It is set to an external (public) address when available, otherwise
+	// it is promoted from the first discovered address (which may be
+	// cluster-local or private) for easy discovery.
 	// +optional
 	URL *apis.URL `json:"url,omitempty"`
 
@@ -499,6 +581,11 @@ type LLMInferenceServiceStatus struct {
 
 	// Addressable endpoint for the service, including cluster-local URLs.
 	duckv1.AddressStatus `json:",inline,omitempty"`
+
+	// Router records the observed networking topology for this service.
+	// Nil when routing is not configured or the service is stopped.
+	// +optional
+	Router *RouterStatus `json:"router,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

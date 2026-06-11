@@ -27,7 +27,7 @@ func NewEnvTest(options ...Option) *Config {
 	testCRDs := WithCRDs(
 		filepath.Join(ProjectRoot(), "test", "crds"),
 	)
-	schemes := WithScheme(kservescheme.AddAll)
+	schemes := WithScheme(append([]AddToSchemeFunc{kservescheme.AddAll}, additionalTestSchemes()...)...)
 
 	return Configure(append(options, testCRDs, schemes)...)
 }

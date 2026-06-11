@@ -131,7 +131,7 @@ func (r *RawIngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infe
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	isvc.Status.Address, err = createAddress(ctx, r.client, isvc, r.ingressConfig)
+	isvc.Status.Address, err = createAddress(ctx, r.client, isvc)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -143,7 +143,7 @@ func (r *RawIngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infe
 	return ctrl.Result{}, nil
 }
 
-func createAddress(ctx context.Context, cl client.Client, isvc *v1beta1.InferenceService, ingressConfig *v1beta1.IngressConfig) (*duckv1.Addressable, error) {
+func createAddress(ctx context.Context, cl client.Client, isvc *v1beta1.InferenceService) (*duckv1.Addressable, error) {
 	host := getRawServiceHost(isvc)
 	// Determine the entry point service name.
 	// If a transformer exists, it becomes the entry point; otherwise, the predictor is.
@@ -165,7 +165,7 @@ func createAddress(ctx context.Context, cl client.Client, isvc *v1beta1.Inferenc
 	return &duckv1.Addressable{
 		URL: &apis.URL{
 			Host:   host,
-			Scheme: ingressConfig.UrlScheme,
+			Scheme: "http",
 			Path:   "",
 		},
 	}, nil

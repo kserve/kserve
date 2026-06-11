@@ -107,6 +107,18 @@ spec:
                     properties:
                       adapters:
                         x-kubernetes-preserve-unknown-fields: true
+                      maxAdapters:
+                        format: int32
+                        minimum: 1
+                        type: integer
+                      maxCpuAdapters:
+                        format: int32
+                        minimum: 1
+                        type: integer
+                      maxRank:
+                        format: int32
+                        minimum: 1
+                        type: integer
                     type: object
                   name:
                     type: string
@@ -7978,10 +7990,6 @@ spec:
                 - message: replicas and scaling are mutually exclusive; use scaling
                     for autoscaled deployments or replicas for static deployments
                   rule: '!(has(self.replicas) && has(self.scaling))'
-                - message: autoscaling (scaling) is not supported for multi-node deployments
-                    (worker is set); remove scaling and use replicas instead to set
-                    a fixed replica count
-                  rule: '!(has(self.worker) && has(self.scaling))'
               replicas:
                 format: int32
                 minimum: 0
@@ -8001,6 +8009,11 @@ spec:
                               maxLength: 63
                               minLength: 1
                               pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                              type: string
+                            sectionName:
+                              maxLength: 253
+                              minLength: 1
+                              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                               type: string
                           type: object
                         type: array
@@ -21241,10 +21254,6 @@ spec:
             - message: replicas and scaling are mutually exclusive; use scaling for
                 autoscaled deployments or replicas for static deployments
               rule: '!(has(self.replicas) && has(self.scaling))'
-            - message: autoscaling (scaling) is not supported for multi-node deployments
-                (worker is set); remove scaling and use replicas instead to set a
-                fixed replica count
-              rule: '!(has(self.worker) && has(self.scaling))'
           status:
             properties:
               address:
@@ -21265,16 +21274,75 @@ spec:
                       type: string
                     audience:
                       type: string
+                    models:
+                      items:
+                        properties:
+                          name:
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      type: array
                     name:
                       type: string
+                    origin:
+                      properties:
+                        group:
+                          maxLength: 253
+                          pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                        kind:
+                          maxLength: 63
+                          minLength: 1
+                          pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                          type: string
+                        name:
+                          maxLength: 253
+                          minLength: 1
+                          type: string
+                        namespace:
+                          maxLength: 63
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                          type: string
+                      required:
+                      - group
+                      - kind
+                      - name
+                      type: object
                     url:
                       type: string
                   type: object
                 type: array
+                x-kubernetes-list-type: atomic
               annotations:
                 additionalProperties:
                   type: string
                 type: object
+              appliedConfigs:
+                items:
+                  properties:
+                    name:
+                      maxLength: 253
+                      minLength: 1
+                      type: string
+                    namespace:
+                      maxLength: 63
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                      type: string
+                    source:
+                      enum:
+                      - Preset
+                      - UserRef
+                      type: string
+                  required:
+                  - name
+                  - namespace
+                  - source
+                  type: object
+                type: array
+                x-kubernetes-list-type: atomic
               conditions:
                 items:
                   properties:
@@ -21298,8 +21366,183 @@ spec:
               observedGeneration:
                 format: int64
                 type: integer
+              router:
+                properties:
+                  gateways:
+                    items:
+                      properties:
+                        group:
+                          maxLength: 253
+                          pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                        httpRoutes:
+                          items:
+                            properties:
+                              group:
+                                maxLength: 253
+                                pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                type: string
+                              kind:
+                                maxLength: 63
+                                minLength: 1
+                                pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                                type: string
+                              name:
+                                maxLength: 253
+                                minLength: 1
+                                type: string
+                              namespace:
+                                maxLength: 63
+                                minLength: 1
+                                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                                type: string
+                            required:
+                            - group
+                            - kind
+                            - name
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
+                        kind:
+                          maxLength: 63
+                          minLength: 1
+                          pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                          type: string
+                        listeners:
+                          items:
+                            maxLength: 253
+                            minLength: 1
+                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: atomic
+                        name:
+                          maxLength: 253
+                          minLength: 1
+                          type: string
+                        namespace:
+                          maxLength: 63
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                          type: string
+                      required:
+                      - group
+                      - kind
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  scheduler:
+                    properties:
+                      inferencePool:
+                        properties:
+                          group:
+                            maxLength: 253
+                            pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                            type: string
+                          kind:
+                            maxLength: 63
+                            minLength: 1
+                            pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                            type: string
+                          name:
+                            maxLength: 253
+                            minLength: 1
+                            type: string
+                          namespace:
+                            maxLength: 63
+                            minLength: 1
+                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                            type: string
+                        required:
+                        - group
+                        - kind
+                        - name
+                        type: object
+                      service:
+                        properties:
+                          group:
+                            maxLength: 253
+                            pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                            type: string
+                          kind:
+                            maxLength: 63
+                            minLength: 1
+                            pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                            type: string
+                          name:
+                            maxLength: 253
+                            minLength: 1
+                            type: string
+                          namespace:
+                            maxLength: 63
+                            minLength: 1
+                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                            type: string
+                        required:
+                        - group
+                        - kind
+                        - name
+                        type: object
+                    type: object
+                type: object
               url:
                 type: string
+              workloads:
+                properties:
+                  prefill:
+                    properties:
+                      apiGroup:
+                        type: string
+                      kind:
+                        type: string
+                      name:
+                        type: string
+                    required:
+                    - kind
+                    - name
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  primary:
+                    properties:
+                      apiGroup:
+                        type: string
+                      kind:
+                        type: string
+                      name:
+                        type: string
+                    required:
+                    - kind
+                    - name
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  scheduler:
+                    properties:
+                      apiGroup:
+                        type: string
+                      kind:
+                        type: string
+                      name:
+                        type: string
+                    required:
+                    - kind
+                    - name
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  service:
+                    properties:
+                      apiGroup:
+                        type: string
+                      kind:
+                        type: string
+                      name:
+                        type: string
+                    required:
+                    - kind
+                    - name
+                    type: object
+                    x-kubernetes-map-type: atomic
+                type: object
             type: object
         type: object
     served: true

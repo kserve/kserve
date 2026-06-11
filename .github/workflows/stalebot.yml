@@ -1,0 +1,123 @@
+name: Stale Bot
+
+on:
+  schedule:
+    # Run every day at midnight UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale-warning-1:
+    name: "First stale warning"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@5bef64f19d7facfb25b37b414482c7164d639639 # v9.1.0
+        with:
+          days-before-stale: 30
+          days-before-close: -1
+          stale-issue-label: stale-warning-1
+          stale-pr-label: stale-warning-1
+          exempt-issue-labels: ignore-stale,stale-warning-1,stale-warning-2,stale-warning-3
+          exempt-pr-labels: ignore-stale,stale-warning-1,stale-warning-2,stale-warning-3
+          stale-issue-message: >
+            This issue has been automatically detected as stale because it has
+            not had any activity for 30 days. It will receive two more warnings
+            before being automatically closed. If this issue is still relevant,
+            please comment or remove the stale label. Add the `ignore-stale`
+            label to keep this issue open indefinitely.
+            **Warning 1 of 3.**
+          stale-pr-message: >
+            This pull request has been automatically detected as stale because
+            it has not had any activity for 30 days. It will receive two more
+            warnings before being automatically closed. If this pull request is
+            still relevant, please comment or remove the stale label. Add the
+            `ignore-stale` label to keep this pull request open indefinitely.
+            **Warning 1 of 3.**
+          operations-per-run: 100
+
+  stale-warning-2:
+    name: "Second stale warning"
+    needs: stale-warning-1
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@5bef64f19d7facfb25b37b414482c7164d639639 # v9.1.0
+        with:
+          days-before-stale: 1
+          days-before-close: -1
+          only-labels: stale-warning-1
+          stale-issue-label: stale-warning-2
+          stale-pr-label: stale-warning-2
+          remove-stale-when-updated: true
+          exempt-issue-labels: ignore-stale,stale-warning-2,stale-warning-3
+          exempt-pr-labels: ignore-stale,stale-warning-2,stale-warning-3
+          stale-issue-message: >
+            This issue is still stale. It will receive one more warning before
+            being automatically closed. Please comment or remove the stale
+            labels if this issue is still relevant. Add the `ignore-stale` label
+            to keep this issue open indefinitely.
+            **Warning 2 of 3.**
+          stale-pr-message: >
+            This pull request is still stale. It will receive one more warning
+            before being automatically closed. Please comment or remove the
+            stale labels if this pull request is still relevant. Add the
+            `ignore-stale` label to keep this pull request open indefinitely.
+            **Warning 2 of 3.**
+          operations-per-run: 100
+
+  stale-warning-3:
+    name: "Third stale warning"
+    needs: stale-warning-2
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@5bef64f19d7facfb25b37b414482c7164d639639 # v9.1.0
+        with:
+          days-before-stale: 1
+          days-before-close: -1
+          only-labels: stale-warning-2
+          stale-issue-label: stale-warning-3
+          stale-pr-label: stale-warning-3
+          remove-stale-when-updated: true
+          exempt-issue-labels: ignore-stale,stale-warning-3
+          exempt-pr-labels: ignore-stale,stale-warning-3
+          stale-issue-message: >
+            This is the **final warning**. This issue will be automatically
+            closed if there is no activity within the next day. Please comment
+            or remove the stale labels if this issue is still relevant. Add the
+            `ignore-stale` label to keep this issue open indefinitely.
+            **Warning 3 of 3.**
+          stale-pr-message: >
+            This is the **final warning**. This pull request will be
+            automatically closed if there is no activity within the next day.
+            Please comment or remove the stale labels if this pull request is
+            still relevant. Add the `ignore-stale` label to keep this pull
+            request open indefinitely.
+            **Warning 3 of 3.**
+          operations-per-run: 100
+
+  close-stale:
+    name: "Close stale issues and PRs"
+    needs: stale-warning-3
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@5bef64f19d7facfb25b37b414482c7164d639639 # v9.1.0
+        with:
+          days-before-stale: 1
+          days-before-close: 0
+          only-labels: stale-warning-3
+          stale-issue-label: stale-closed
+          stale-pr-label: stale-closed
+          exempt-issue-labels: ignore-stale
+          exempt-pr-labels: ignore-stale
+          close-issue-message: >
+            This issue has been automatically closed after 3 warnings with no
+            activity. If you believe this issue is still relevant, feel free to
+            reopen it.
+          close-pr-message: >
+            This pull request has been automatically closed after 3 warnings
+            with no activity. If you believe this pull request is still
+            relevant, feel free to reopen it.
+          operations-per-run: 100

@@ -26,6 +26,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
@@ -33,9 +34,10 @@ import (
 	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 	. "github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/fixture"
 )
 
@@ -79,7 +81,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -89,6 +91,46 @@ schedulingProfiles:
 			Expect(found).To(BeTrue(), "Expected to find --config-text with inline config in scheduler deployment")
 			Expect(configText).To(ContainSubstring("custom-plugin"))
 			Expect(configText).To(ContainSubstring("customParam"))
+
+			// Verify status.workloads references include the scheduler
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, types.NamespacedName{Name: svcName, Namespace: testNs.Name}, current)).To(Succeed())
+				g.Expect(current.Status.Workloads).NotTo(BeNil())
+				g.Expect(current.Status.Workloads.Scheduler).To(Equal(&corev1.TypedLocalObjectReference{
+					APIGroup: ptr.To("apps"),
+					Kind:     "Deployment",
+					Name:     kmeta.ChildName(svcName, "-kserve-router-scheduler"),
+				}))
+			}).WithContext(ctx).Should(Succeed())
+
+			// when - remove managed scheduler
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				current := &v1alpha2.LLMInferenceService{}
+				if err := envTest.Get(ctx, types.NamespacedName{Name: svcName, Namespace: testNs.Name}, current); err != nil {
+					return err
+				}
+				current.Spec.Router.Scheduler = nil
+				return envTest.Update(ctx, current)
+			})).To(Succeed())
+
+			// then - scheduler deployment should be deleted
+			Eventually(func(ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
+					Namespace: testNs.Name,
+				}, &appsv1.Deployment{})
+			}).WithContext(ctx).Should(MatchError(ContainSubstring("not found")))
+
+			// status.workloads.scheduler should be nil, other refs preserved
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, types.NamespacedName{Name: svcName, Namespace: testNs.Name}, current)).To(Succeed())
+				g.Expect(current.Status.Workloads).NotTo(BeNil())
+				g.Expect(current.Status.Workloads.Scheduler).To(BeNil())
+				g.Expect(current.Status.Workloads.Primary).NotTo(BeNil())
+				g.Expect(current.Status.Workloads.Service).NotTo(BeNil())
+			}).WithContext(ctx).Should(Succeed())
 		})
 
 		It("should not override config when args already contain --config-text or --configFile", func(ctx SpecContext) {
@@ -114,7 +156,7 @@ schedulingProfiles:
 						Containers: []corev1.Container{
 							{
 								Name:  "main",
-								Image: "ghcr.io/llm-d/llm-d-inference-scheduler:v0.2.0",
+								Image: "ghcr.io/llm-d/llm-d-inference-scheduler:v0.7.1",
 								Args: []string{
 									"--config-text",
 									"existing-config-from-template",
@@ -154,7 +196,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -206,7 +248,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -255,7 +297,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -304,7 +346,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -340,7 +382,7 @@ schedulingProfiles:
 			Eventually(func(g Gomega, ctx context.Context) error {
 				updatedDeployment = &appsv1.Deployment{}
 				if err := envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, updatedDeployment); err != nil {
 					return err
@@ -380,7 +422,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -426,19 +468,19 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
-			// Verify P/D config (should contain prefill-filter, decode-filter, pd-profile-handler, etc.)
+			// Verify P/D config (should contain prefill-filter, decode-filter, disagg-profile-handler, etc.)
 			configText, found := getSchedulerConfigText(expectedDeployment)
 			Expect(found).To(BeTrue(), "Expected P/D config in scheduler deployment")
-			// P/D config should contain these plugins
-			Expect(configText).To(ContainSubstring("prefill-header-handler"))
+			// P/D config should contain these plugins (using new v0.7.0 names)
+			Expect(configText).To(ContainSubstring("disagg-headers-handler"))
 			Expect(configText).To(ContainSubstring("prefill-filter"))
 			Expect(configText).To(ContainSubstring("decode-filter"))
-			Expect(configText).To(ContainSubstring("pd-profile-handler"))
+			Expect(configText).To(ContainSubstring("disagg-profile-handler"))
 			Expect(configText).To(ContainSubstring("name: prefill"))
 			Expect(configText).To(ContainSubstring("name: decode"))
 		})
@@ -485,7 +527,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -522,7 +564,7 @@ schedulingProfiles:
 			Consistently(func(g Gomega, ctx context.Context) error {
 				deployment := &appsv1.Deployment{}
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, deployment)
 			}).WithContext(ctx).
@@ -559,7 +601,7 @@ schedulingProfiles:
 			Consistently(func(g Gomega, ctx context.Context) error {
 				deployment := &appsv1.Deployment{}
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, deployment)
 			}).WithContext(ctx).
@@ -621,7 +663,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -681,7 +723,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -730,7 +772,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: nsName,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -774,7 +816,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: nsName,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -818,7 +860,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: nsName,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -862,7 +904,7 @@ schedulingProfiles:
 						Containers: []corev1.Container{
 							{
 								Name:  "main",
-								Image: "ghcr.io/llm-d/llm-d-inference-scheduler:v0.2.0",
+								Image: "ghcr.io/llm-d/llm-d-inference-scheduler:v0.7.1",
 								Args: []string{
 									"--ha-enable-leader-election",
 									"--poolName",
@@ -901,126 +943,13 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: nsName,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
 			Expect(countLeaderElectionFlags(expectedDeployment)).To(Equal(1),
 				"Expected exactly one --ha-enable-leader-election flag (not duplicated)")
-		})
-	})
-
-	Context("Certificate hash annotation", func() {
-		It("should set cert-hash annotation on the scheduler pod template", func(ctx SpecContext) {
-			// given
-			svcName := "test-llm-scheduler-cert-hash"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
-
-			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
-				WithModelURI("hf://facebook/opt-125m"),
-				WithManagedRoute(),
-				WithManagedGateway(),
-				WithManagedScheduler(),
-			)
-
-			// when
-			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
-			defer func() {
-				testNs.DeleteAndWait(ctx, llmSvc)
-			}()
-
-			// then - verify the scheduler deployment has the cert-hash annotation
-			Eventually(func(g Gomega, ctx context.Context) error {
-				schedulerDeployment := &appsv1.Deployment{}
-				g.Expect(envTest.Get(ctx, types.NamespacedName{
-					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
-					Namespace: testNs.Name,
-				}, schedulerDeployment)).To(Succeed())
-
-				g.Expect(schedulerDeployment.Spec.Template.Annotations).To(
-					HaveKey(llmisvc.DefaultRestartAnnotation),
-					"Scheduler pod template should have cert-hash annotation to trigger restart on cert renewal",
-				)
-				g.Expect(schedulerDeployment.Spec.Template.Annotations[llmisvc.DefaultRestartAnnotation]).To(
-					MatchRegexp("^[0-9a-f]{64}$"), "cert-hash should be a SHA-256 hex string",
-				)
-
-				return nil
-			}).WithContext(ctx).Should(Succeed())
-		})
-
-		It("should skip cert-hash annotation when scheduler supports --enable-cert-reload", func(ctx SpecContext) {
-			// given
-			svcName := "test-llm-cert-reload-skip"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
-
-			modelConfig := LLMInferenceServiceConfig("model-cert-reload",
-				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
-				WithConfigModelName("facebook/opt-125m"),
-				WithConfigModelURI("hf://facebook/opt-125m"),
-			)
-
-			routerConfig := LLMInferenceServiceConfig("router-cert-reload",
-				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
-			)
-			routerConfig.Spec.Router = &v1alpha2.RouterSpec{
-				Gateway: &v1alpha2.GatewaySpec{},
-				Route:   &v1alpha2.GatewayRoutesSpec{},
-				Scheduler: &v1alpha2.SchedulerSpec{
-					Template: &corev1.PodSpec{
-						Containers: []corev1.Container{
-							{
-								Name:  "main",
-								Image: "ghcr.io/llm-d/llm-d-inference-scheduler:v0.3.0",
-								Args: []string{
-									"--enable-cert-reload",
-									"--poolName",
-									"test-pool",
-								},
-								Ports: []corev1.ContainerPort{
-									{Name: "grpc", ContainerPort: 9002, Protocol: corev1.ProtocolTCP},
-									{Name: "grpc-health", ContainerPort: 9003, Protocol: corev1.ProtocolTCP},
-									{Name: "metrics", ContainerPort: 9090, Protocol: corev1.ProtocolTCP},
-								},
-							},
-						},
-					},
-					Pool: &v1alpha2.InferencePoolSpec{},
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, modelConfig)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, routerConfig)).To(Succeed())
-
-			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
-				WithBaseRefs(
-					corev1.LocalObjectReference{Name: "model-cert-reload"},
-					corev1.LocalObjectReference{Name: "router-cert-reload"},
-				),
-			)
-
-			// when
-			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
-			defer func() {
-				testNs.DeleteAndWait(ctx, llmSvc)
-			}()
-
-			// then - the scheduler deployment must NOT have cert-hash annotation
-			schedulerDeployment := &appsv1.Deployment{}
-			Eventually(func(g Gomega, ctx context.Context) error {
-				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
-					Namespace: testNs.Name,
-				}, schedulerDeployment)
-			}).WithContext(ctx).Should(Succeed())
-
-			Expect(schedulerDeployment.Spec.Template.Annotations).NotTo(
-				HaveKey(llmisvc.DefaultRestartAnnotation),
-				"Scheduler with --enable-cert-reload should not have cert-hash annotation",
-			)
 		})
 	})
 
@@ -1131,7 +1060,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				if err := envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment); err != nil {
 					return err
@@ -1141,6 +1070,9 @@ schedulingProfiles:
 				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
 				g.Expect(configText).To(ContainSubstring("modelName: base"))
 				g.Expect(configText).To(ContainSubstring("socketFile: /tmp/tokenizer/tokenizer-uds.socket"))
+				// Verify tokenProcessorConfig was migrated from indexerConfig to top-level parameters
+				g.Expect(configText).To(ContainSubstring("tokenProcessorConfig"))
+				g.Expect(configText).To(ContainSubstring("blockSize: 16"))
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})
@@ -1194,7 +1126,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				if err := envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment); err != nil {
 					return err
@@ -1206,6 +1138,9 @@ schedulingProfiles:
 				g.Expect(configText).To(ContainSubstring("socketFile: /tmp/tokenizer/tokenizer-uds.socket"))
 				g.Expect(configText).NotTo(ContainSubstring("wrong-model-name"))
 				g.Expect(configText).NotTo(ContainSubstring("/wrong/path"))
+				// Verify tokenProcessorConfig was migrated from indexerConfig to top-level parameters
+				g.Expect(configText).To(ContainSubstring("tokenProcessorConfig"))
+				g.Expect(configText).To(ContainSubstring("blockSize: 16"))
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})
@@ -1252,7 +1187,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				if err := envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment); err != nil {
 					return err
@@ -1262,6 +1197,134 @@ schedulingProfiles:
 				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
 				g.Expect(configText).NotTo(ContainSubstring("tokenizersPoolConfig"))
 				g.Expect(configText).NotTo(ContainSubstring("modelName: base"))
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+		})
+	})
+
+	Context("tokenProcessorConfig migration from indexerConfig to top-level parameters", func() {
+		It("should migrate tokenProcessorConfig from indexerConfig to top-level plugin parameters", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-tpc-migrate"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			oldFormatConfig := `
+apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+- type: precise-prefix-cache-scorer
+  parameters:
+    indexerConfig:
+      tokenProcessorConfig:
+        blockSize: 64
+        hashSeed: "42"
+      kvBlockIndexConfig:
+        enableMetrics: true
+- type: max-score-picker
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: precise-prefix-cache-scorer
+    weight: 3
+  - pluginRef: max-score-picker
+`
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithSchedulerConfigInline(oldFormatConfig),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - verify tokenProcessorConfig was migrated to top-level parameters
+			expectedDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				if err := envTest.Get(ctx, types.NamespacedName{
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
+					Namespace: testNs.Name,
+				}, expectedDeployment); err != nil {
+					return err
+				}
+
+				configText, found := getSchedulerConfigText(expectedDeployment)
+				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
+				// tokenProcessorConfig should be at top-level parameters (sibling of indexerConfig)
+				g.Expect(configText).To(ContainSubstring("blockSize: 64"))
+				g.Expect(configText).To(ContainSubstring("hashSeed: \"42\""))
+				// indexerConfig should still have kvBlockIndexConfig but not tokenProcessorConfig
+				g.Expect(configText).To(ContainSubstring("kvBlockIndexConfig"))
+				g.Expect(configText).To(ContainSubstring("enableMetrics: true"))
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should not overwrite top-level tokenProcessorConfig if already present", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-tpc-no-overwrite"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			newFormatConfig := `
+apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+- type: precise-prefix-cache-scorer
+  parameters:
+    tokenProcessorConfig:
+      blockSize: 128
+      hashSeed: "99"
+    indexerConfig:
+      tokenProcessorConfig:
+        blockSize: 64
+        hashSeed: "42"
+- type: max-score-picker
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: precise-prefix-cache-scorer
+    weight: 3
+  - pluginRef: max-score-picker
+`
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithSchedulerConfigInline(newFormatConfig),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - verify top-level tokenProcessorConfig is preserved, not overwritten
+			expectedDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				if err := envTest.Get(ctx, types.NamespacedName{
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
+					Namespace: testNs.Name,
+				}, expectedDeployment); err != nil {
+					return err
+				}
+
+				configText, found := getSchedulerConfigText(expectedDeployment)
+				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
+				// Top-level values should be preserved
+				g.Expect(configText).To(ContainSubstring("blockSize: 128"))
+				g.Expect(configText).To(ContainSubstring("hashSeed: \"99\""))
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})
@@ -1462,6 +1525,97 @@ schedulingProfiles:
 					corev1.LocalObjectReference{Name: "new-secret"}))
 				return nil
 			}).WithContext(ctx).Should(Succeed())
+		})
+	})
+
+	Context("Multi-GPU-vendor pooling via workload label propagation", func() {
+		It("should create InferencePool with default workload labels that AMD pods can match", func(ctx SpecContext) {
+			// This test verifies the multi-GPU-vendor pooling pattern:
+			// 1. NVIDIA instance with default scheduler creates InferencePool with default workload labels
+			// 2. AMD instance with no router uses spec.labels to match the NVIDIA InferencePool selector
+			nvidiaSvcName := "test-llm-nvidia"
+			amdSvcName := "test-llm-amd"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(nvidiaSvcName))
+
+			// Create NVIDIA instance with default scheduler
+			nvidiaLLMSvc := LLMInferenceService(nvidiaSvcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+			)
+
+			Expect(envTest.Create(ctx, nvidiaLLMSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, nvidiaLLMSvc)
+			}()
+
+			// Verify InferencePool is created with default workload label selector
+			ip := &igwapi.InferencePool{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, client.ObjectKey{
+					Name:      nvidiaSvcName + "-inference-pool",
+					Namespace: testNs.Name,
+				}, ip)
+			}).WithContext(ctx).Should(Succeed())
+
+			Expect(ip.Spec.Selector.MatchLabels).To(HaveKeyWithValue(
+				igwapi.LabelKey("app.kubernetes.io/name"), igwapi.LabelValue(nvidiaSvcName)))
+			Expect(ip.Spec.Selector.MatchLabels).To(HaveKeyWithValue(
+				igwapi.LabelKey("kserve.io/component"), igwapi.LabelValue("workload")))
+			Expect(ip.Spec.Selector.MatchLabels).To(HaveKeyWithValue(
+				igwapi.LabelKey("app.kubernetes.io/part-of"), igwapi.LabelValue("llminferenceservice")))
+
+			// Create AMD instance with no router, using spec.labels to match NVIDIA's InferencePool
+			amdLLMSvc := LLMInferenceService(amdSvcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithWorkloadLabels(map[string]string{
+					"app.kubernetes.io/name":    nvidiaSvcName,
+					"app.kubernetes.io/part-of": "llminferenceservice",
+					"kserve.io/component":       "workload",
+				}),
+			)
+
+			Expect(envTest.Create(ctx, amdLLMSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, amdLLMSvc)
+			}()
+
+			// Verify AMD workload deployment is created and its pod template labels
+			// match the NVIDIA InferencePool selector
+			amdDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, client.ObjectKey{
+					Name:      amdSvcName + "-kserve",
+					Namespace: testNs.Name,
+				}, amdDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			podLabels := amdDeployment.Spec.Template.Labels
+			for labelKey, labelValue := range ip.Spec.Selector.MatchLabels {
+				Expect(podLabels).To(HaveKeyWithValue(string(labelKey), string(labelValue)),
+					"AMD pod template label %q should match NVIDIA InferencePool selector", labelKey)
+			}
+
+			// Verify no InferencePool was created for the AMD instance
+			amdIP := &igwapi.InferencePool{}
+			err := envTest.Get(ctx, client.ObjectKey{
+				Name:      amdSvcName + "-inference-pool",
+				Namespace: testNs.Name,
+			}, amdIP)
+			Expect(errors.IsNotFound(err)).To(BeTrue(),
+				"AMD instance should not create its own InferencePool")
+
+			// Verify no scheduler deployment was created for the AMD instance
+			amdScheduler := &appsv1.Deployment{}
+			err = envTest.Get(ctx, client.ObjectKey{
+				Name:      amdSvcName + "-kserve-epp",
+				Namespace: testNs.Name,
+			}, amdScheduler)
+			Expect(errors.IsNotFound(err)).To(BeTrue(),
+				"AMD instance should not create a scheduler deployment")
 		})
 	})
 })

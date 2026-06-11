@@ -337,7 +337,9 @@ func (ir *IngressReconciler) reconcileExternalService(ctx context.Context, isvc 
 			}
 
 			// Return if no differences to reconcile.
-			if equality.Semantic.DeepEqual(desired, existing) {
+			// DeepDerivative treats zero/nil fields in desired as "don't care",
+			// so server-populated metadata fields on existing don't cause false diffs.
+			if equality.Semantic.DeepDerivative(desired, existing) {
 				return nil
 			}
 
@@ -349,8 +351,22 @@ func (ir *IngressReconciler) reconcileExternalService(ctx context.Context, isvc 
 			log.Info("Reconciling external service diff (-desired, +observed):", "diff", diff)
 			log.Info("Updating external service", "namespace", existing.Namespace, "name", existing.Name)
 			existing.Spec = desired.Spec
-			existing.Labels = desired.Labels
-			existing.Annotations = desired.Annotations
+			if desired.Labels != nil {
+				if existing.Labels == nil {
+					existing.Labels = make(map[string]string)
+				}
+				for k, v := range desired.Labels {
+					existing.Labels[k] = v
+				}
+			}
+			if desired.Annotations != nil {
+				if existing.Annotations == nil {
+					existing.Annotations = make(map[string]string)
+				}
+				for k, v := range desired.Annotations {
+					existing.Annotations[k] = v
+				}
+			}
 			err = ir.client.Update(ctx, existing)
 			if err != nil {
 				return errors.Wrapf(err, "fails to update external name service")

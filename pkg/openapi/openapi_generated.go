@@ -6794,6 +6794,12 @@ func schema_pkg_apis_serving_v1beta1_IngressConfig(ref common.ReferenceCallback)
 							Format: "",
 						},
 					},
+					"enableLLMInferenceServiceTLS": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 					"disableIstioVirtualHost": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
@@ -6809,6 +6815,24 @@ func schema_pkg_apis_serving_v1beta1_IngressConfig(ref common.ReferenceCallback)
 					"disableIngressCreation": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"disableHTTPRouteTimeout": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"modelBasedRoutingHeaderName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"modelBasedRoutingMode": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
 							Format: "",
 						},
 					},
@@ -10051,6 +10075,13 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 									},
 								},
 							},
+						},
+					},
+					"storageContainerName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StorageContainerName specifies the name of the ClusterStorageContainer to use for downloading model artifacts. When set, this ClusterStorageContainer is used instead of auto-matching based on the storage URI scheme. This is similar to storageClassName on PersistentVolumeClaims.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"workerSpec": {

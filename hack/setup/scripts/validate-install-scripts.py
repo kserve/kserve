@@ -129,7 +129,10 @@ class ScriptValidator:
 
         for name, pattern in required_patterns.items():
             if not re.search(pattern, section):
-                self.add_error("TEMPLATE-03", f"INITIALIZE SECTION missing required element: {name}")
+                self.add_error(
+                    "TEMPLATE-03",
+                    f"INITIALIZE SECTION missing required element: {name}",
+                )
 
     def validate_required_functions(self):
         """Validate install/uninstall functions exist"""
@@ -158,11 +161,15 @@ class ScriptValidator:
             return
 
         if has_begin and not has_end:
-            self.add_error("VAR-01", "VARIABLES section has start marker but missing end marker")
+            self.add_error(
+                "VAR-01", "VARIABLES section has start marker but missing end marker"
+            )
             return
 
         if not has_begin and has_end:
-            self.add_error("VAR-02", "VARIABLES section has end marker but missing start marker")
+            self.add_error(
+                "VAR-02", "VARIABLES section has end marker but missing start marker"
+            )
             return
 
         # Both markers exist - validate content
@@ -170,15 +177,20 @@ class ScriptValidator:
         end_idx = self.content.index(end_marker)
 
         if begin_idx >= end_idx:
-            self.add_error("VAR-03", "VARIABLES END marker appears before VARIABLES marker")
+            self.add_error(
+                "VAR-03", "VARIABLES END marker appears before VARIABLES marker"
+            )
             return
 
         section = self.content[begin_idx:end_idx]
 
         # Check that VARIABLES section doesn't contain control flow (if/then/fi)
         # These should be in INCLUDE_IN_GENERATED_SCRIPT section instead
-        if re.search(r'\bif\s*\[', section):
-            self.add_warning("VAR-04", "VARIABLES section contains if statement - consider moving to INCLUDE_IN_GENERATED_SCRIPT section")
+        if re.search(r"\bif\s*\[", section):
+            self.add_warning(
+                "VAR-04",
+                "VARIABLES section contains if statement - consider moving to INCLUDE_IN_GENERATED_SCRIPT section",
+            )
 
         self.add_info("VAR-INFO", "Has VARIABLES section ✓")
 
@@ -195,11 +207,17 @@ class ScriptValidator:
             return
 
         if has_begin and not has_end:
-            self.add_error("INC-01", "INCLUDE_IN_GENERATED_SCRIPT section has start marker but missing end marker")
+            self.add_error(
+                "INC-01",
+                "INCLUDE_IN_GENERATED_SCRIPT section has start marker but missing end marker",
+            )
             return
 
         if not has_begin and has_end:
-            self.add_error("INC-02", "INCLUDE_IN_GENERATED_SCRIPT section has end marker but missing start marker")
+            self.add_error(
+                "INC-02",
+                "INCLUDE_IN_GENERATED_SCRIPT section has end marker but missing start marker",
+            )
             return
 
         # Both markers exist - validate position
@@ -207,14 +225,20 @@ class ScriptValidator:
         end_idx = self.content.index(end_marker)
 
         if begin_idx >= end_idx:
-            self.add_error("INC-03", "INCLUDE_IN_GENERATED_SCRIPT_END marker appears before START marker")
+            self.add_error(
+                "INC-03",
+                "INCLUDE_IN_GENERATED_SCRIPT_END marker appears before START marker",
+            )
             return
 
         # Check that it's after VARIABLES END
         if "# VARIABLES END" in self.content:
             var_end_idx = self.content.index("# VARIABLES END")
             if begin_idx < var_end_idx:
-                self.add_warning("INC-04", "INCLUDE_IN_GENERATED_SCRIPT section should appear after VARIABLES END")
+                self.add_warning(
+                    "INC-04",
+                    "INCLUDE_IN_GENERATED_SCRIPT section should appear after VARIABLES END",
+                )
 
         self.add_info("INC-INFO", "Has INCLUDE_IN_GENERATED_SCRIPT section ✓")
 
@@ -353,8 +377,16 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    parser.add_argument("paths", nargs="*", help="Files or directories to validate (default: all manage.*.sh in infra/)")
-    parser.add_argument("--strict", action="store_true", help="Exit with error code if any validation fails (for CI)")
+    parser.add_argument(
+        "paths",
+        nargs="*",
+        help="Files or directories to validate (default: all manage.*.sh in infra/)",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Exit with error code if any validation fails (for CI)",
+    )
 
     args = parser.parse_args()
 

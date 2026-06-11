@@ -1,5 +1,5 @@
 kserve:
-  version: v0.17.0-rc1
+  version: v0.19.0-rc0
   createSharedResources: true
   inferenceServiceConfig:
     enabled: ''
@@ -106,10 +106,11 @@ kserve:
     scaleUpStabilizationWindowSeconds: '0'
     scaleDownStabilizationWindowSeconds: '300'
   llmisvc:
+    createGIECRDs: true
     controller:
       image: kserve/llmisvc-controller
       tag: ''
-      imagePullPolicy: IfNotPresent
+      imagePullPolicy: Always
       imagePullSecrets: []
       labels: {}
       podLabels: {}
@@ -189,6 +190,7 @@ kserve:
       urlScheme: http
       disableIstioVirtualHost: false
       disableIngressCreation: false
+      disableHTTPRouteTimeout: false
       localGateway:
         gateway: knative-serving/knative-local-gateway
         gatewayService: knative-local-gateway.istio-system.svc.cluster.local

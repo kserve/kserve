@@ -20,8 +20,8 @@ ENV VIRTUAL_ENV=${VENV_PATH}
 RUN uv venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-# Copy storage directory for editable install
-COPY storage storage
+# Copy storage metadata for editable dependency resolution
+COPY storage/pyproject.toml storage/uv.lock storage/
 
 # Install kserve dependencies using uv
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
@@ -30,10 +30,7 @@ RUN cd kserve && uv sync --active --no-cache
 COPY kserve kserve
 RUN cd kserve && uv sync --active --no-cache
 
-# Copy and install dependencies for kserve-storage using uv
-COPY storage/pyproject.toml storage/uv.lock storage/
-RUN cd storage && uv sync --active --no-cache
-
+# Install kserve-storage
 COPY storage storage
 RUN cd storage && uv pip install . --no-cache
 

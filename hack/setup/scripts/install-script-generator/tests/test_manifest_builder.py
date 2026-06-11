@@ -36,7 +36,9 @@ def test_build_kserve_runtime_manifests_success(tmp_path, monkeypatch):
     def mock_run_kustomize_build(path):
         return expected_manifest
 
-    monkeypatch.setattr(manifest_builder, "run_kustomize_build", mock_run_kustomize_build)
+    monkeypatch.setattr(
+        manifest_builder, "run_kustomize_build", mock_run_kustomize_build
+    )
 
     result = manifest_builder.build_kserve_runtime_manifests(tmp_path)
 
@@ -59,7 +61,9 @@ def test_build_kserve_llmisvcconfig_manifests_success(tmp_path, monkeypatch):
     def mock_run_kustomize_build(path):
         return expected_manifest
 
-    monkeypatch.setattr(manifest_builder, "run_kustomize_build", mock_run_kustomize_build)
+    monkeypatch.setattr(
+        manifest_builder, "run_kustomize_build", mock_run_kustomize_build
+    )
 
     result = manifest_builder.build_kserve_llmisvcconfig_manifests(tmp_path)
 
@@ -90,7 +94,9 @@ def test_build_kserve_manifests_returns_four_values(tmp_path, monkeypatch):
             return "kind: ConfigMap\n"
         return ""
 
-    monkeypatch.setattr(manifest_builder, "run_kustomize_build", mock_run_kustomize_build)
+    monkeypatch.setattr(
+        manifest_builder, "run_kustomize_build", mock_run_kustomize_build
+    )
 
     config = {"global_env": {}}
     components = []
@@ -117,7 +123,9 @@ def test_build_kserve_manifests_without_optional_dirs(tmp_path, monkeypatch):
             return "kind: Deployment\n"
         return ""
 
-    monkeypatch.setattr(manifest_builder, "run_kustomize_build", mock_run_kustomize_build)
+    monkeypatch.setattr(
+        manifest_builder, "run_kustomize_build", mock_run_kustomize_build
+    )
 
     config = {"global_env": {}}
     components = []

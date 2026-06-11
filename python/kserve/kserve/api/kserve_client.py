@@ -32,7 +32,6 @@ from ..utils import utils
 
 
 class KServeClient(object):
-
     def __init__(
         self,
         config_file=None,
