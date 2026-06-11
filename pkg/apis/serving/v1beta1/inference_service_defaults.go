@@ -229,6 +229,13 @@ func disableAutomountServiceAccountToken(isvc *InferenceService) {
 }
 
 func (isvc *InferenceService) setPredictorModelDefaults() {
+	// Guard: assign*Runtime() overwrites Model with the legacy spec, which may lack storageUri.
+	var existingStorageURI *string
+	if isvc.Spec.Predictor.Model != nil && isvc.Spec.Predictor.Model.StorageURI != nil {
+		uri := *isvc.Spec.Predictor.Model.StorageURI
+		existingStorageURI = &uri
+	}
+
 	switch {
 	case isvc.Spec.Predictor.SKLearn != nil:
 		isvc.assignSKLearnRuntime()
@@ -262,6 +269,11 @@ func (isvc *InferenceService) setPredictorModelDefaults() {
 	}
 
 	if isvc.Spec.Predictor.Model != nil {
+		// Restore storageUri if it was lost during legacy-to-Model conversion.
+		if existingStorageURI != nil && isvc.Spec.Predictor.Model.StorageURI == nil {
+			isvc.Spec.Predictor.Model.StorageURI = existingStorageURI
+		}
+
 		// Set 'v2' as default protocol version for triton server
 		if isvc.Spec.Predictor.Model.ProtocolVersion == nil &&
 			isvc.Spec.Predictor.Model.ModelFormat.Name == constants.SupportedModelTriton {

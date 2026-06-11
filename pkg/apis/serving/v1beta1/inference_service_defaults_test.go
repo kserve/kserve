@@ -1766,3 +1766,146 @@ func TestDefaultInferenceServiceWithLocalModelNamespaceCache(t *testing.T) {
 	g.Expect(isvc.Labels).To(gomega.HaveKeyWithValue(constants.LocalModelLabel, "test-ns-cache"))
 	g.Expect(isvc.Labels).To(gomega.HaveKeyWithValue(constants.LocalModelNamespaceLabel, "default"))
 }
+
+func TestStorageUriPreservedDuringDefaults(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	deployConfig := &DeployConfig{
+		DefaultDeploymentMode: string(constants.Knative),
+	}
+
+	ociStorageUri := "oci://quay.io/example/model:latest"
+	s3StorageUri := "s3://bucket/model"
+
+	scenarios := map[string]struct {
+		isvc               InferenceService
+		expectedStorageURI string
+	}{
+		"Model-only predictor preserves storageUri": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "model-only",
+					Namespace: "default",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{Name: "sklearn"},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String(ociStorageUri),
+							},
+						},
+					},
+				},
+			},
+			expectedStorageURI: ociStorageUri,
+		},
+		"SKLearn legacy without storageUri does not strip Model storageUri": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "sklearn-dual",
+					Namespace: "default",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						SKLearn: &SKLearnSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{},
+						},
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{Name: "sklearn"},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String(ociStorageUri),
+							},
+						},
+						PodSpec: PodSpec{
+							ImagePullSecrets: []corev1.LocalObjectReference{
+								{Name: "some-secret"},
+							},
+						},
+					},
+				},
+			},
+			expectedStorageURI: ociStorageUri,
+		},
+		"Tensorflow legacy without storageUri does not strip Model storageUri": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tf-dual",
+					Namespace: "default",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{},
+						},
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{Name: "tensorflow"},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String(s3StorageUri),
+							},
+						},
+					},
+				},
+			},
+			expectedStorageURI: s3StorageUri,
+		},
+		"XGBoost legacy without storageUri does not strip Model storageUri": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "xgb-dual",
+					Namespace: "default",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						XGBoost: &XGBoostSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{},
+						},
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{Name: "xgboost"},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String(ociStorageUri),
+							},
+						},
+					},
+				},
+			},
+			expectedStorageURI: ociStorageUri,
+		},
+		"Legacy spec with own storageUri takes precedence over Model storageUri": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "legacy-wins",
+					Namespace: "default",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						SKLearn: &SKLearnSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String(s3StorageUri),
+							},
+						},
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{Name: "sklearn"},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String(ociStorageUri),
+							},
+						},
+					},
+				},
+			},
+			expectedStorageURI: s3StorageUri,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			isvc := scenario.isvc.DeepCopy()
+			isvc.DefaultInferenceService(nil, deployConfig, nil, nil, nil)
+
+			g.Expect(isvc.Spec.Predictor.Model).NotTo(gomega.BeNil(), "Model spec should be set after defaulting")
+			g.Expect(isvc.Spec.Predictor.Model.StorageURI).NotTo(gomega.BeNil(), "StorageURI should not be nil after defaulting")
+			g.Expect(*isvc.Spec.Predictor.Model.StorageURI).To(gomega.Equal(scenario.expectedStorageURI),
+				"StorageURI should be preserved regardless of imagePullSecrets changes")
+		})
+	}
+}
