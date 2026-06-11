@@ -242,6 +242,15 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
     }
 
 
+def messages_payload(test_case: TestCase) -> Dict[str, Any]:
+    """Payload formatter for the /v1/messages endpoint (Anthropic Messages API)."""
+    return {
+        "model": test_case.model_name,
+        "messages": [{"role": "user", "content": test_case.prompt}],
+        "max_tokens": test_case.max_tokens,
+    }
+
+
 @pytest.mark.llminferenceservice
 @pytest.mark.asyncio(loop_scope="session")
 @pytest.mark.parametrize(
@@ -484,6 +493,21 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 pytest.mark.cluster_single_node,
                 pytest.mark.llmd_simulator,
             ],
+        ),
+        # Messages endpoint coverage (Anthropic Messages API)
+        pytest.param(
+            TestCase(
+                base_refs=[
+                    "router-managed",
+                    "workload-single-cpu",
+                    "model-fb-opt-125m",
+                ],
+                endpoint="/v1/messages",
+                prompt="KServe is a",
+                payload_formatter=messages_payload,
+                response_assertion=create_response_assertion(with_field="content"),
+            ),
+            marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
         ),
         pytest.param(
             TestCase(
