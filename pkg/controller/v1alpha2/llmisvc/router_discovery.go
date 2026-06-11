@@ -86,10 +86,9 @@ func DiscoverGateways(ctx context.Context, c client.Client, route *gwapiv1.HTTPR
 	return gateways, nil
 }
 
-// DiscoverGatewayServiceHost attempts to find the cluster-local hostname
-// for the Service backing a Gateway.
-// Returns empty string if no backing service is found (not an error).
-func DiscoverGatewayServiceHost(ctx context.Context, c client.Client, gateway *gwapiv1.Gateway) (string, error) {
+// DiscoverGatewayService attempts to find the Service backing a Gateway.
+// Returns nil if no backing service is found (not an error).
+func DiscoverGatewayService(ctx context.Context, c client.Client, gateway *gwapiv1.Gateway) (*corev1.Service, error) {
 	logger := log.FromContext(ctx)
 
 	// Look for Service with known gateway label first
@@ -100,7 +99,7 @@ func DiscoverGatewayServiceHost(ctx context.Context, c client.Client, gateway *g
 			"gateway.networking.k8s.io/gateway-name": gateway.Name,
 		},
 	); err != nil {
-		return "", fmt.Errorf("failed to list services for gateway %s/%s: %w", gateway.Namespace, gateway.Name, err)
+		return nil, fmt.Errorf("failed to list services for gateway %s/%s: %w", gateway.Namespace, gateway.Name, err)
 	}
 	if len(svcList.Items) > 0 {
 		if len(svcList.Items) > 1 {
@@ -111,9 +110,8 @@ func DiscoverGatewayServiceHost(ctx context.Context, c client.Client, gateway *g
 			})
 		}
 		svc := &svcList.Items[0]
-		host := network.GetServiceHostname(svc.Name, svc.Namespace)
-		logger.V(1).Info("Discovered gateway service via label", "gateway", gateway.Name, "service", svc.Name, "host", host)
-		return host, nil
+		logger.V(1).Info("Discovered gateway service via label", "gateway", gateway.Name, "service", svc.Name)
+		return svc, nil
 	}
 
 	// Fallback: Look for Service with the same name as Gateway
@@ -123,23 +121,23 @@ func DiscoverGatewayServiceHost(ctx context.Context, c client.Client, gateway *g
 		Name:      gateway.Name,
 	}, svc)
 	if err == nil {
-		host := network.GetServiceHostname(svc.Name, svc.Namespace)
-		logger.V(1).Info("Discovered gateway service via name match", "gateway", gateway.Name, "service", svc.Name, "host", host)
-		return host, nil
+		logger.V(1).Info("Discovered gateway service via name match", "gateway", gateway.Name, "service", svc.Name)
+		return svc, nil
 	}
 	if !apierrors.IsNotFound(err) {
-		return "", fmt.Errorf("failed to get service %s/%s: %w", gateway.Namespace, gateway.Name, err)
+		return nil, fmt.Errorf("failed to get service %s/%s: %w", gateway.Namespace, gateway.Name, err)
 	}
 
-	// No backing service found - not an error - we are guessing here
 	logger.V(1).Info("No backing service found for gateway", "gateway", fmt.Sprintf("%s/%s", gateway.Namespace, gateway.Name))
-	return "", nil
+	return nil, nil
 }
 
 // DiscoverURLs extracts accessible URLs from an HTTPRoute by examining its gateways
 // It constructs URLs based on gateway listeners and addresses, and also discovers
 // internal URLs from backing services
 func DiscoverURLs(ctx context.Context, c client.Client, gateways []ResolvedGateway, route *gwapiv1.HTTPRoute, cfg Config) ([]DiscoveredURL, error) {
+	logger := log.FromContext(ctx)
+
 	var urls []DiscoveredURL
 
 	for _, g := range gateways {
@@ -158,11 +156,13 @@ func DiscoverURLs(ctx context.Context, c client.Client, gateways []ResolvedGatew
 		paths := extractRoutePaths(route, cfg.ModelBasedRoutingHeaderName)
 		addresses := g.Gateway.Status.Addresses
 
-		// Discover internal hostname from Gateway backing service (once per gateway).
-		internalHost, err := DiscoverGatewayServiceHost(ctx, c, g.Gateway)
+		// Discover backing Service for internal URL generation (once per gateway).
+		backingSvc, err := DiscoverGatewayService(ctx, c, g.Gateway)
 		if err != nil {
-			return nil, fmt.Errorf("failed to discover gateway service host for %s/%s: %w", g.Gateway.Namespace, g.Gateway.Name, err)
+			return nil, fmt.Errorf("failed to discover gateway backing service for %s/%s: %w", g.Gateway.Namespace, g.Gateway.Name, err)
 		}
+
+		seen := make(map[string]struct{})
 
 		for _, path := range paths {
 			// Discover external URLs from Gateway status addresses (if available)
@@ -180,29 +180,43 @@ func DiscoverURLs(ctx context.Context, c client.Client, gateways []ResolvedGatew
 						return nil, fmt.Errorf("failed to combine URLs for Gateway %s/%s: %w", g.Gateway.Namespace, g.Gateway.Name, err)
 					}
 					for _, u := range gatewayURLs {
+						seen[u.String()] = struct{}{}
 						urls = append(urls, DiscoveredURL{URL: u, Origin: origin})
 					}
 				}
 			}
 
-			// Skip if this host+path was already discovered through gateway status addresses.
-			// This happens when a ClusterIP-backed gateway reports its service hostname
-			// as its status address, making the backing-service lookup redundant.
-			if internalHost != "" && !slices.ContainsFunc(urls, func(d DiscoveredURL) bool {
-				u := d.URL.URL()
-				return u.Hostname() == internalHost && u.Path == path
-			}) {
-				// Use preferred (first) listener's scheme and port for the internal URL.
-				// Internal services typically expose a single protocol, so generating one
-				// URL (matching the preferred scheme) is sufficient. External URLs are
-				// generated for all listeners because clients may need either protocol.
-				listener := listeners[0]
-				internalURLs, err := combineIntoURLs([]string{internalHost}, schemeForProtocol(listener.Protocol), listener.Port, path)
-				if err != nil {
-					return nil, fmt.Errorf("failed to build internal URL for Gateway %s/%s: %w", g.Gateway.Namespace, g.Gateway.Name, err)
-				}
-				for _, u := range internalURLs {
-					urls = append(urls, DiscoveredURL{URL: u, Origin: origin})
+			// Generate internal URLs from the backing Service for each listener whose
+			// port is confirmed on the Service. Unlike external URLs (derived from
+			// authoritative gateway.status.addresses), internal URLs are discovered
+			// heuristically from the backing Service, so we validate listener ports
+			// against the Service's declared ports before emitting. When the Service
+			// declares no ports, all listeners are assumed to match (backward compat).
+			if backingSvc != nil {
+				internalHost := network.GetServiceHostname(backingSvc.Name, backingSvc.Namespace)
+				for _, listener := range listeners {
+					if !listenerMatchesServicePorts(listener, backingSvc.Spec.Ports) {
+						logger.V(1).Info("Skipping listener for internal URL: port not found on backing service",
+							"gateway", fmt.Sprintf("%s/%s", g.Gateway.Namespace, g.Gateway.Name),
+							"listener", listener.Name,
+							"listenerPort", listener.Port,
+							"service", fmt.Sprintf("%s/%s", backingSvc.Namespace, backingSvc.Name),
+						)
+						continue
+					}
+
+					candidateURLs, err := combineIntoURLs([]string{internalHost}, schemeForProtocol(listener.Protocol), listener.Port, path)
+					if err != nil {
+						return nil, fmt.Errorf("failed to build internal URL for Gateway %s/%s listener %s: %w",
+							g.Gateway.Namespace, g.Gateway.Name, listener.Name, err)
+					}
+					for _, u := range candidateURLs {
+						if _, exists := seen[u.String()]; exists {
+							continue
+						}
+						seen[u.String()] = struct{}{}
+						urls = append(urls, DiscoveredURL{URL: u, Origin: origin})
+					}
 				}
 			}
 		}
@@ -424,6 +438,21 @@ func selectListeners(gateway *gwapiv1.Gateway, sectionName *gwapiv1.SectionName,
 	})
 
 	return listeners, nil
+}
+
+// listenerMatchesServicePorts checks port number only, not protocol. Gateway
+// listeners use L7 protocols (HTTP, HTTPS) while Service ports are L4 (TCP) -
+// they operate at different layers and are not directly comparable.
+func listenerMatchesServicePorts(listener *gwapiv1.Listener, svcPorts []corev1.ServicePort) bool {
+	if len(svcPorts) == 0 {
+		return true
+	}
+	for _, sp := range svcPorts {
+		if listener.Port == sp.Port {
+			return true
+		}
+	}
+	return false
 }
 
 // resolveScheme returns the URL scheme derived from the listener's protocol.
