@@ -25,6 +25,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -171,12 +172,12 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 							graph.Spec.Nodes[node].Steps[i].ServiceURL = serviceUrl
 						} else {
 							r.Log.Info("inference service is not ready", "name", route.ServiceName)
-							return reconcile.Result{Requeue: true}, errors.Wrapf(err, "service %s is not ready", route.ServiceName)
+							return reconcile.Result{}, errors.Wrapf(err, "service %s is not ready", route.ServiceName)
 						}
 					}
 				} else {
 					r.Log.Info("inference service is not found", "name", route.ServiceName)
-					return reconcile.Result{Requeue: true}, errors.Wrapf(err, "Failed to find graph service %s", route.ServiceName)
+					return reconcile.Result{}, errors.Wrapf(err, "Failed to find graph service %s", route.ServiceName)
 				}
 			}
 		}
@@ -213,8 +214,8 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			}
 			if !igAvailable {
 				// If Deployment resource not yet available, IG is not available as well. Reconcile again.
-				return reconcile.Result{Requeue: true}, errors.Wrapf(err,
-					"Failed to find inference graph deployment  %s", graph.Name)
+				r.Log.Info("Inference graph deployment not yet available, requeuing", "name", graph.Name)
+				return reconcile.Result{RequeueAfter: 3 * time.Second}, nil
 			}
 		}
 
@@ -230,7 +231,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		if !ksvcAvailable {
 			r.Recorder.Event(graph, corev1.EventTypeWarning, "ServerlessModeRejected",
 				"It is not possible to use Knative deployment mode when Knative Services are not available")
-			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceGraph '%s' is Knative, but Knative Serving is not available", graph.Name))
+			return reconcile.Result{}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceGraph '%s' is Knative, but Knative Serving is not available", graph.Name))
 		}
 
 		// Retrieve the allow-zero-initial-scale value from the knative autoscaler configuration.
