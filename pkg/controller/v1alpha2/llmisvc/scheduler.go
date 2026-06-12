@@ -56,6 +56,7 @@ const (
 
 	precisePrefixCacheScorerPlugin = "precise-prefix-cache-scorer"
 	prefixCacheScorerPlugin        = "prefix-cache-scorer"
+	loraAffinityScorerPlugin       = "lora-affinity-scorer"
 	coreMetricsExtractorPlugin     = "model-server-protocol-metrics"
 	udsTokenizerBaseModelName      = "base"
 	udsTokenizerSocketFile         = "/tmp/tokenizer/tokenizer-uds.socket" //nolint:gosec // G101: not a credential, UDS socket path
@@ -164,6 +165,7 @@ func (r *LLMISVCReconciler) reconcileSchedulerServiceAccount(ctx context.Context
 }
 
 func (r *LLMISVCReconciler) reconcileSchedulerDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+	logger := log.FromContext(ctx)
 	scheduler, err := r.expectedSchedulerDeployment(ctx, llmSvc)
 	if err != nil {
 		return fmt.Errorf("failed to build expected scheduler deployment: %w", err)
@@ -176,10 +178,50 @@ func (r *LLMISVCReconciler) reconcileSchedulerDeployment(ctx context.Context, ll
 		}
 		return Delete(ctx, r, llmSvc, scheduler)
 	}
+	// Defer EPP spec updates until all workload pods have finished rolling out.
+	// The EPP is on the critical path for every response chunk; restarting it mid-stream
+	// truncates in-flight streaming responses on the client side.
+	if rolling, err := r.isWorkloadRolling(ctx, llmSvc); err != nil {
+		return err
+	} else if rolling {
+		logger.Info("Workload rollout in progress, deferring EPP deployment update")
+		return r.propagateSchedulerDeploymentStatus(ctx, scheduler, llmSvc.MarkSchedulerWorkloadReady, llmSvc.MarkSchedulerWorkloadNotReady)
+	}
 	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, scheduler, semanticDeploymentIsEqual, PreserveDeploymentReplicas()); err != nil {
 		return fmt.Errorf("failed to reconcile scheduler deployment %s/%s: %w", scheduler.GetNamespace(), scheduler.GetName(), err)
 	}
 	return r.propagateSchedulerDeploymentStatus(ctx, scheduler, llmSvc.MarkSchedulerWorkloadReady, llmSvc.MarkSchedulerWorkloadNotReady)
+}
+
+// isWorkloadRolling returns true if any workload Deployment for the LLMInferenceService is
+// explicitly unavailable (DeploymentAvailable condition present and not True). Deployments with
+// no Available condition (brand-new or not yet observed by the controller, e.g. in envtest) are
+// treated as not rolling so that initial EPP creation is not blocked. This is used to defer EPP
+// spec updates during active workload rollouts, preventing an EPP restart from truncating
+// in-flight streams while vLLM pods are still coming up.
+func (r *LLMISVCReconciler) isWorkloadRolling(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (bool, error) {
+	names := []string{mainDeploymentName(llmSvc)}
+	if llmSvc.Spec.Prefill != nil {
+		names = append(names, prefillDeploymentName(llmSvc))
+	}
+	for _, name := range names {
+		d := &appsv1.Deployment{}
+		if err := r.Get(ctx, client.ObjectKey{Namespace: llmSvc.GetNamespace(), Name: name}, d); err != nil {
+			if apierrors.IsNotFound(err) {
+				continue
+			}
+			return false, fmt.Errorf("failed to get workload deployment %s: %w", name, err)
+		}
+		for _, cond := range d.Status.Conditions {
+			if cond.Type == appsv1.DeploymentAvailable {
+				if cond.Status != corev1.ConditionTrue {
+					return true, nil
+				}
+				break
+			}
+		}
+	}
+	return false, nil
 }
 
 func (r *LLMISVCReconciler) reconcileSchedulerInferencePool(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
@@ -451,6 +493,10 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 			if err := mutateSchedulerConfig(ctx, d, WithUdsTokenizerConfig, WithMigrateTokenProcessorConfig, WithMigrateBlockSizeToBlockSizeTokens); err != nil {
 				return d, fmt.Errorf("failed to mutate scheduler config: %w", err)
 			}
+		}
+
+		if err := mutateSchedulerConfig(ctx, d, withLoraAffinityScorer(llmSvc.Spec.Model.LoRA != nil && len(llmSvc.Spec.Model.LoRA.Adapters) > 0)); err != nil {
+			return d, fmt.Errorf("failed to inject lora-affinity-scorer into scheduler config: %w", err)
 		}
 
 		// v0.7.0 migrations: version-gated (>= 0.7.0) because the v0.6 binary
@@ -836,6 +882,73 @@ func WithUdsTokenizerConfig(_ context.Context, u *unstructured.Unstructured) err
 	}
 
 	return nil
+}
+
+// withLoraAffinityScorer returns a mutateSchedulerConfigFunc that injects the
+// lora-affinity-scorer plugin when LoRA adapters are configured. It adds the
+// plugin to the top-level plugins list and to the default schedulingProfile so
+// requests are routed to endpoints that have the requested adapter loaded.
+// No-op when hasLoRA is false or the plugin is already present.
+//
+// Scope: only the "default" schedulingProfile is targeted. Prefill/decode
+// profiles used in P/D disaggregation are not modified; LoRA + P/D is a
+// separate concern tracked outside this function.
+//
+// Removal: once injected the scorer persists if LoRA adapters are later
+// removed, because preserveSchedulerConfig carries forward the existing
+// --config-text. The scorer is harmless when idle (no LoRA requests).
+func withLoraAffinityScorer(hasLoRA bool) mutateSchedulerConfigFunc {
+	return func(_ context.Context, u *unstructured.Unstructured) error {
+		if !hasLoRA {
+			return nil
+		}
+
+		val, _, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
+		if err != nil {
+			return err
+		}
+		plugins, _ := val.([]interface{})
+
+		for _, plugin := range plugins {
+			if pm, ok := plugin.(map[string]interface{}); ok && pm["type"] == loraAffinityScorerPlugin {
+				return nil
+			}
+		}
+
+		plugins = append(plugins, map[string]interface{}{"type": loraAffinityScorerPlugin})
+		if err := unstructured.SetNestedSlice(u.Object, plugins, "plugins"); err != nil {
+			return err
+		}
+
+		profiles, found, err := unstructured.NestedFieldNoCopy(u.Object, "schedulingProfiles")
+		if err != nil || !found {
+			return err
+		}
+		profileList, ok := profiles.([]interface{})
+		if !ok {
+			return nil
+		}
+		for _, profile := range profileList {
+			profileMap, ok := profile.(map[string]interface{})
+			if !ok || profileMap["name"] != "default" {
+				continue
+			}
+			pluginRefs, _, _ := unstructured.NestedFieldNoCopy(profileMap, "plugins")
+			refs, _ := pluginRefs.([]interface{})
+			for _, ref := range refs {
+				if rm, ok := ref.(map[string]interface{}); ok && rm["pluginRef"] == loraAffinityScorerPlugin {
+					return nil
+				}
+			}
+			newRef := map[string]interface{}{"pluginRef": loraAffinityScorerPlugin, "weight": int64(4)}
+			refs = append([]interface{}{newRef}, refs...)
+			if err := unstructured.SetNestedSlice(profileMap, refs, "plugins"); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
 }
 
 // WithMigrateTokenProcessorConfig migrates tokenProcessorConfig from inside

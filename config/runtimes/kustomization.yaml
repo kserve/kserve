@@ -15,6 +15,7 @@ resources:
 - kserve-huggingfaceserver.yaml
 - kserve-huggingfaceserver-multinode.yaml
 - kserve-autogluonserver.yaml
+- kserve-vllmserver.yaml
 
 images:
   # SMS Only Runtimes
@@ -69,3 +70,7 @@ images:
 - name: huggingfaceserver-gpu
   newName: kserve/huggingfaceserver
   newTag: latest-gpu
+  
+- name: vllmserver
+  newName: vllm/vllm-openai
+  newTag: latest

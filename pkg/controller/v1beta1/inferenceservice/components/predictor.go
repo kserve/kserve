@@ -132,11 +132,12 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	// If Model is specified, prioritize using that. Otherwise, we will assume a framework object was specified.
 	if isvc.Spec.Predictor.Model != nil {
 		var err error
-		sRuntime, err = p.reconcileModel(ctx, isvc, multiNodeEnabled)
+		var runtimeAnnotations map[string]string
+		sRuntime, runtimeAnnotations, err = p.reconcileModel(ctx, isvc, multiNodeEnabled)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		podSpec, err = p.buildPodSpec(isvc, sRuntime)
+		podSpec, err = p.buildPodSpec(isvc, sRuntime, runtimeAnnotations)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -280,26 +281,28 @@ func (p *Predictor) addStorageInitializerAnnotations(ctx context.Context, predic
 	return nil
 }
 
-func (p *Predictor) reconcileModel(ctx context.Context, isvc *v1beta1.InferenceService, multiNodeEnabled bool) (v1alpha1.ServingRuntimeSpec, error) {
+func (p *Predictor) reconcileModel(ctx context.Context, isvc *v1beta1.InferenceService, multiNodeEnabled bool) (v1alpha1.ServingRuntimeSpec, map[string]string, error) {
 	var sRuntime v1alpha1.ServingRuntimeSpec
+	var runtimeAnnotations map[string]string
 
 	if isvc.Spec.Predictor.Model.Runtime != nil {
 		// Get runtime and annotations
-		r, runtimeAnnotations, err, isClusterServingRuntime := isvcutils.GetServingRuntime(ctx, p.client, *isvc.Spec.Predictor.Model.Runtime, isvc.Namespace)
+		r, annotations, err, isClusterServingRuntime := isvcutils.GetServingRuntime(ctx, p.client, *isvc.Spec.Predictor.Model.Runtime, isvc.Namespace)
 		if err != nil {
 			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
 				Reason:  v1beta1.RuntimeNotRecognized,
 				Message: "Waiting for runtime to become available",
 			})
-			return sRuntime, err
+			return sRuntime, nil, err
 		}
+		runtimeAnnotations = annotations
 
 		if r.IsDisabled() {
 			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
 				Reason:  v1beta1.RuntimeDisabled,
 				Message: "Specified runtime is disabled",
 			})
-			return sRuntime, fmt.Errorf("specified runtime %s is disabled", *isvc.Spec.Predictor.Model.Runtime)
+			return sRuntime, nil, fmt.Errorf("specified runtime %s is disabled", *isvc.Spec.Predictor.Model.Runtime)
 		}
 
 		if isvc.Spec.Predictor.Model.ProtocolVersion != nil &&
@@ -308,7 +311,7 @@ func (p *Predictor) reconcileModel(ctx context.Context, isvc *v1beta1.InferenceS
 				Reason:  v1beta1.NoSupportingRuntime,
 				Message: "Specified runtime does not support specified protocol version",
 			})
-			return sRuntime, fmt.Errorf("specified runtime %s does not support specified protocol version", *isvc.Spec.Predictor.Model.Runtime)
+			return sRuntime, nil, fmt.Errorf("specified runtime %s does not support specified protocol version", *isvc.Spec.Predictor.Model.Runtime)
 		}
 
 		// Verify that the selected runtime supports the specified framework.
@@ -317,7 +320,7 @@ func (p *Predictor) reconcileModel(ctx context.Context, isvc *v1beta1.InferenceS
 				Reason:  v1beta1.NoSupportingRuntime,
 				Message: "Specified runtime does not support specified framework/version",
 			})
-			return sRuntime, fmt.Errorf("specified runtime %s does not support specified framework/version", *isvc.Spec.Predictor.Model.Runtime)
+			return sRuntime, nil, fmt.Errorf("specified runtime %s does not support specified framework/version", *isvc.Spec.Predictor.Model.Runtime)
 		}
 
 		// set runtime defaults after validation
@@ -334,19 +337,20 @@ func (p *Predictor) reconcileModel(ctx context.Context, isvc *v1beta1.InferenceS
 	} else {
 		runtimes, err := isvc.Spec.Predictor.Model.GetSupportingRuntimes(ctx, p.client, isvc.Namespace, false, multiNodeEnabled)
 		if err != nil {
-			return sRuntime, err
+			return sRuntime, nil, err
 		}
 		if len(runtimes) == 0 {
 			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
 				Reason:  v1beta1.NoSupportingRuntime,
 				Message: "No runtime found to support specified framework/version",
 			})
-			return sRuntime, fmt.Errorf("no runtime found to support predictor with model type: %v", isvc.Spec.Predictor.Model.ModelFormat)
+			return sRuntime, nil, fmt.Errorf("no runtime found to support predictor with model type: %v", isvc.Spec.Predictor.Model.ModelFormat)
 		}
 		// Get first supporting runtime.
 		sRuntime = runtimes[0].Spec
 		isvc.Spec.Predictor.Model.Runtime = &runtimes[0].Name
-		_, runtimeAnnotations, _, isClusterServingRuntime := isvcutils.GetServingRuntime(ctx, p.client, runtimes[0].Name, isvc.Namespace)
+		_, annotations, _, isClusterServingRuntime := isvcutils.GetServingRuntime(ctx, p.client, runtimes[0].Name, isvc.Namespace)
+		runtimeAnnotations = annotations
 		if isClusterServingRuntime {
 			isvc.Status.ClusterServingRuntimeName = runtimes[0].Name
 			isvc.Status.ServingRuntimeName = ""
@@ -368,10 +372,10 @@ func (p *Predictor) reconcileModel(ctx context.Context, isvc *v1beta1.InferenceS
 		isvc.Spec.Predictor.Model.ProtocolVersion = &protocolVersion
 	}
 
-	return sRuntime, nil
+	return sRuntime, runtimeAnnotations, nil
 }
 
-func (p *Predictor) buildPodSpec(isvc *v1beta1.InferenceService, sRuntime v1alpha1.ServingRuntimeSpec) (corev1.PodSpec, error) {
+func (p *Predictor) buildPodSpec(isvc *v1beta1.InferenceService, sRuntime v1alpha1.ServingRuntimeSpec, runtimeAnnotations map[string]string) (corev1.PodSpec, error) {
 	var podSpec corev1.PodSpec
 	var predContainer *corev1.Container
 	var err error
@@ -399,7 +403,7 @@ func (p *Predictor) buildPodSpec(isvc *v1beta1.InferenceService, sRuntime v1alph
 	}
 
 	// Update image tag if GPU is enabled or runtime version is provided
-	isvcutils.UpdateImageTag(predContainer, isvc.Spec.Predictor.Model.RuntimeVersion, isvc.Spec.Predictor.Model.Runtime)
+	isvcutils.UpdateImageTag(predContainer, isvc.Spec.Predictor.Model.RuntimeVersion, isvc.Spec.Predictor.Model.Runtime, runtimeAnnotations)
 
 	podSpec = *mergedPodSpec
 	podSpec.Containers = []corev1.Container{*predContainer}

@@ -652,7 +652,7 @@ KNATIVE_SERVING_VERSION=1.21.1
 KEDA_OTEL_ADDON_VERSION=v0.0.6
 PROMETHEUS_VERSION=83.4.0
 PROMETHEUS_ADAPTER_VERSION=5.3.0
-KSERVE_VERSION=v0.19.0-rc0
+KSERVE_VERSION=v0.19.0
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.18.0
 OPENTELEMETRY_OPERATOR_VERSION=0.74.3
@@ -2487,6 +2487,78 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
   annotations:
+    serving.kserve.io/server-type: vllmserver
+  name: kserve-vllmserver
+spec:
+  annotations:
+    prometheus.kserve.io/path: /metrics
+    prometheus.kserve.io/port: "8080"
+  containers:
+  - args:
+    - --port=8080
+    - --served-model-name={{.Name}}
+    - --model=/mnt/models
+    command:
+    - python
+    - -m
+    - vllm.entrypoints.openai.api_server
+    env:
+    - name: LMCACHE_USE_EXPERIMENTAL
+      value: "True"
+    - name: HF_HOME
+      value: /tmp
+    - name: VLLM_CONFIG_ROOT
+      value: /tmp
+    image: vllm/vllm-openai:latest
+    name: kserve-container
+    readinessProbe:
+      failureThreshold: 3
+      httpGet:
+        path: /v1/models
+        port: 8080
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 5
+    resources:
+      limits:
+        cpu: "1"
+        memory: 2Gi
+      requests:
+        cpu: "1"
+        memory: 2Gi
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      privileged: false
+    startupProbe:
+      failureThreshold: 60
+      httpGet:
+        path: /v1/models
+        port: 8080
+      initialDelaySeconds: 30
+      periodSeconds: 30
+      successThreshold: 1
+      timeoutSeconds: 10
+    volumeMounts:
+    - mountPath: /dev/shm
+      name: devshm
+  hostIPC: false
+  supportedModelFormats:
+  - autoSelect: true
+    name: vLLM
+    priority: 1
+    version: "1"
+  volumes:
+  - emptyDir:
+      medium: Memory
+    name: devshm
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  annotations:
     serving.kserve.io/server-type: xgbserver
   name: kserve-xgbserver
 spec:
@@ -2707,25 +2779,25 @@ spec:
             - /bin/sleep
             - "15"
       livenessProbe:
-        failureThreshold: 3
+        failureThreshold: 10
         httpGet:
           path: /health
           port: 8001
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 10
-        timeoutSeconds: 10
+        timeoutSeconds: 1
       name: main
       ports:
       - containerPort: 8001
         protocol: TCP
       readinessProbe:
-        failureThreshold: 60
+        failureThreshold: 1
         httpGet:
           path: /health
           port: 8001
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
-        periodSeconds: 10
-        timeoutSeconds: 5
+        periodSeconds: 1
+        timeoutSeconds: 1
       securityContext:
         allowPrivilegeEscalation: false
         capabilities:
@@ -3041,25 +3113,25 @@ spec:
             - /bin/sleep
             - "15"
       livenessProbe:
-        failureThreshold: 3
+        failureThreshold: 10
         httpGet:
           path: /health
           port: 8001
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 10
-        timeoutSeconds: 10
+        timeoutSeconds: 1
       name: main
       ports:
       - containerPort: 8001
         protocol: TCP
       readinessProbe:
-        failureThreshold: 60
+        failureThreshold: 1
         httpGet:
           path: /health
           port: 8001
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
-        periodSeconds: 30
-        timeoutSeconds: 5
+        periodSeconds: 1
+        timeoutSeconds: 1
       securityContext:
         allowPrivilegeEscalation: false
         capabilities:
@@ -3599,25 +3671,25 @@ spec:
               - /bin/sleep
               - "15"
         livenessProbe:
-          failureThreshold: 3
+          failureThreshold: 10
           httpGet:
             path: /health
             port: 8000
             scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
           periodSeconds: 10
-          timeoutSeconds: 10
+          timeoutSeconds: 1
         name: main
         ports:
         - containerPort: 8000
           protocol: TCP
         readinessProbe:
-          failureThreshold: 60
+          failureThreshold: 1
           httpGet:
             path: /health
             port: 8000
             scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
-          periodSeconds: 10
-          timeoutSeconds: 5
+          periodSeconds: 1
+          timeoutSeconds: 1
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -3875,25 +3947,25 @@ spec:
               - /bin/sleep
               - "15"
         livenessProbe:
-          failureThreshold: 3
+          failureThreshold: 10
           httpGet:
             path: /health
             port: 8000
             scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
           periodSeconds: 10
-          timeoutSeconds: 10
+          timeoutSeconds: 1
         name: main
         ports:
         - containerPort: 8000
           protocol: TCP
         readinessProbe:
-          failureThreshold: 60
+          failureThreshold: 1
           httpGet:
             path: /health
             port: 8000
             scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
-          periodSeconds: 30
-          timeoutSeconds: 5
+          periodSeconds: 1
+          timeoutSeconds: 1
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -4543,7 +4615,7 @@ spec:
           workingDir: /mnt/models
         dnsPolicy: ClusterFirst
         restartPolicy: Always
-        terminationGracePeriodSeconds: 30
+        terminationGracePeriodSeconds: 60
         volumes:
         - name: tls-certs
           secret:
@@ -4735,25 +4807,25 @@ spec:
             - /bin/sleep
             - "15"
       livenessProbe:
-        failureThreshold: 3
+        failureThreshold: 10
         httpGet:
           path: /health
           port: 8000
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 10
-        timeoutSeconds: 10
+        timeoutSeconds: 1
       name: main
       ports:
       - containerPort: 8000
         protocol: TCP
       readinessProbe:
-        failureThreshold: 60
+        failureThreshold: 1
         httpGet:
           path: /health
           port: 8000
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
-        periodSeconds: 10
-        timeoutSeconds: 5
+        periodSeconds: 1
+        timeoutSeconds: 1
       securityContext:
         allowPrivilegeEscalation: false
         capabilities:
@@ -5010,25 +5082,25 @@ spec:
             - /bin/sleep
             - "15"
       livenessProbe:
-        failureThreshold: 3
+        failureThreshold: 10
         httpGet:
           path: /health
           port: 8000
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 10
-        timeoutSeconds: 10
+        timeoutSeconds: 1
       name: main
       ports:
       - containerPort: 8000
         protocol: TCP
       readinessProbe:
-        failureThreshold: 60
+        failureThreshold: 1
         httpGet:
           path: /health
           port: 8000
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
-        periodSeconds: 30
-        timeoutSeconds: 5
+        periodSeconds: 1
+        timeoutSeconds: 1
       securityContext:
         allowPrivilegeEscalation: false
         capabilities:
