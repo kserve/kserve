@@ -39479,7 +39479,6 @@ metadata:
 spec:
   container:
     image: kserve/storage-initializer:latest
-    imagePullPolicy: IfNotPresent
     name: storage-initializer
     resources:
       limits:
