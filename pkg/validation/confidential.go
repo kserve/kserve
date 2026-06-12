@@ -47,6 +47,12 @@ func ValidateConfidentialSpec(enabled bool, resourceId *string, uri string, base
 			"confidential has no effect with OCI URIs; OCI image decryption is handled by the container runtime via runtimeClassName")
 	}
 
+	// Warn if PVC URI is used with confidential
+	if strings.HasPrefix(uri, "pvc://") {
+		warnings = append(warnings,
+			"confidential has no effect with PVC URIs; the storage-initializer is not injected for PVC volumes")
+	}
+
 	// Validate resourceId format if provided
 	if resourceId != nil && *resourceId != "" {
 		if !KBSResourceIdRegexp.MatchString(*resourceId) {

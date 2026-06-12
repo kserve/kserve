@@ -2277,6 +2277,25 @@ func TestValidateConfidential(t *testing.T) {
 			expectedErr:      gomega.BeNil(),
 			expectedWarnings: gomega.ContainElement(gomega.ContainSubstring("OCI URIs")),
 		},
+		"confidential enabled with PVC URI warns": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "default"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("pvc://my-pvc/model-dir"),
+								Confidential: &ConfidentialSpec{
+									Enabled: true,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErr:      gomega.BeNil(),
+			expectedWarnings: gomega.ContainElement(gomega.ContainSubstring("PVC URIs")),
+		},
 		"confidential with malformed resourceId": {
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "default"},

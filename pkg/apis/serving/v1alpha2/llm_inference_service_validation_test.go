@@ -1499,6 +1499,13 @@ func TestValidateConfidential(t *testing.T) {
 			wantWarnings: []string{"OCI URIs"},
 		},
 		{
+			name:         "confidential enabled with PVC URI warns",
+			confidential: &ConfidentialSpec{Enabled: true},
+			modelURI:     apis.URL{Scheme: "pvc", Host: "my-pvc/model-dir"},
+			wantErrCount: 0,
+			wantWarnings: []string{"PVC URIs"},
+		},
+		{
 			name:           "confidential with malformed resourceId",
 			confidential:   &ConfidentialSpec{Enabled: true, ResourceId: ptr.To("invalid-id")},
 			modelURI:       apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"},

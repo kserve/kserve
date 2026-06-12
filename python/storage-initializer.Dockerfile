@@ -59,11 +59,11 @@ COPY --from=builder --chown=kserve:kserve $VIRTUAL_ENV $VIRTUAL_ENV
 COPY --from=builder storage storage
 COPY ./storage-initializer /storage-initializer
 
-RUN chmod +x /storage-initializer/scripts/initializer-entrypoint-confidential
+RUN chmod +x /storage-initializer/scripts/initializer-entrypoint
 RUN mkdir /work
 WORKDIR /work
 
 # Set a writable /mnt folder to avoid permission issue on Huggingface download. See https://huggingface.co/docs/hub/spaces-sdks-docker#permissions
 RUN chown -R kserve:kserve /mnt
 USER 1000
-ENTRYPOINT ["/storage-initializer/scripts/initializer-entrypoint-confidential"]
+ENTRYPOINT ["/storage-initializer/scripts/initializer-entrypoint"]
