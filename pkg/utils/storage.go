@@ -633,7 +633,11 @@ func ConfigureOciNativeToContainer(modelUri string, podSpec *corev1.PodSpec, tar
 		}
 	}
 
-	// Idempotent: skip if the volume already exists (e.g. duplicate adapter path).
+	// Idempotent: skip if the pod-level Volume already exists.
+	// This is distinct from AddVolumeMountIfNotPresent, which deduplicates per-container
+	// VolumeMounts. Both layers need independent duplicate detection: duplicate pod Volumes
+	// are rejected by the API server, while duplicate container VolumeMounts are rejected
+	// by the kubelet. No shared helper covers pod-level Volumes, so this loop is necessary.
 	for _, v := range podSpec.Volumes {
 		if v.Name == volName {
 			return nil
