@@ -19,16 +19,14 @@ package inferenceservice
 import (
 	"context"
 	"fmt"
-	"strconv"
-	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/version"
 	"knative.dev/pkg/apis"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	kservetypes "github.com/kserve/kserve/pkg/types"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 // OciImageVolumeCompatible is an advisory condition surfaced on an InferenceService
@@ -43,59 +41,40 @@ type serverVersioner interface {
 	ServerVersion() (*version.Info, error)
 }
 
-// warnIfImageVolumeUnsupported sets an advisory condition on isvc when the
-// resolved storage mode is "native" and the cluster K8s minor version is below
-// the ImageVolume support threshold defined by KEP-4639:
-//
-//   - minor < 31  → ImageVolumeUnsupported  (no support at all)
-//   - minor ∈ [31,32] → ImageVolumeAlpha (alpha, feature-gate required)
-//   - minor ≥ 33  → condition cleared (beta, no warning needed)
-//
-// The function never blocks reconciliation: discovery and parse errors are
-// logged at V(1) and silently skipped.
+// warnIfImageVolumeUnsupported sets an advisory condition on isvc when the resolved
+// storage mode is "native" and the cluster does not have ImageVolume enabled by default.
+// The compatibility thresholds and version discovery are handled by the shared helper
+// utils.CheckImageVolumeCompatibility; this function translates the result into the
+// ISVC condition format.
 func warnIfImageVolumeUnsupported(ctx context.Context, sv serverVersioner, isvc *v1beta1.InferenceService, resolvedMode string) {
 	if resolvedMode != kservetypes.OciModelModeNative {
 		isvc.Status.ClearCondition(OciImageVolumeCompatible)
 		return
 	}
 
-	logger := log.FromContext(ctx)
-	v, err := sv.ServerVersion()
-	if err != nil {
-		logger.V(1).Info("Skipping ImageVolume cluster version check: discovery failed", "error", err)
-		return
-	}
+	result := utils.CheckImageVolumeCompatibility(ctx, sv)
 
-	minor, err := strconv.Atoi(strings.TrimSuffix(v.Minor, "+"))
-	if err != nil {
-		logger.V(1).Info("Skipping ImageVolume cluster version check: cannot parse minor version", "minor", v.Minor)
-		return
-	}
-
-	if minor < 31 {
+	switch result.Status {
+	case utils.ImageVolumeUnsupported:
 		isvc.Status.SetCondition(OciImageVolumeCompatible, &apis.Condition{
 			Type:   OciImageVolumeCompatible,
 			Status: corev1.ConditionFalse,
 			Reason: "ImageVolumeUnsupported",
 			Message: fmt.Sprintf(
-				"Cluster K8s %s.%s does not support ImageVolume (introduced in 1.31). Falling back to modelcar may be required.",
-				v.Major, v.Minor),
+				"Cluster K8s %s.%s does not support ImageVolume (introduced in 1.31 as alpha). Falling back to modelcar may be required.",
+				result.Major, result.Minor),
 		})
-		return
-	}
-
-	if minor < 33 {
+	case utils.ImageVolumeNeedsGate:
 		isvc.Status.SetCondition(OciImageVolumeCompatible, &apis.Condition{
 			Type:   OciImageVolumeCompatible,
 			Status: corev1.ConditionFalse,
 			Reason: "ImageVolumeAlpha",
 			Message: fmt.Sprintf(
-				"Cluster K8s %s.%s has ImageVolume only in alpha (feature-gated). Ensure --feature-gates=ImageVolume=true is set on kube-apiserver and kubelet.",
-				v.Major, v.Minor),
+				"Cluster K8s %s.%s has ImageVolume feature-gated (K8s 1.31–1.34). Ensure --feature-gates=ImageVolume=true is set on kube-apiserver and kubelet.",
+				result.Major, result.Minor),
 		})
-		return
+	default:
+		// ImageVolumeOK (≥ 1.35) or ImageVolumeUnknown — clear any previously set warning.
+		isvc.Status.ClearCondition(OciImageVolumeCompatible)
 	}
-
-	// minor >= 33: beta or later — clear any previously set warning.
-	isvc.Status.ClearCondition(OciImageVolumeCompatible)
 }

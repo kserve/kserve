@@ -53,11 +53,27 @@ func TestLLMWarnIfImageVolumeUnsupported(t *testing.T) {
 		wantCond     bool
 		wantReason   string
 	}{
+		// K8s ≥ 1.35: beta defaults-on — no warning needed.
 		{
-			name:     "k8s 1.34 native: beta support, no condition",
-			minor:    "34",
+			name:     "k8s 1.35 native: beta defaults-on, no condition",
+			minor:    "35",
 			mode:     kservetypes.OciModelModeNative,
 			wantCond: false,
+		},
+		// K8s 1.31–1.34: feature gate required.
+		{
+			name:       "k8s 1.34 native: feature-gated, ImageVolumeAlpha condition",
+			minor:      "34",
+			mode:       kservetypes.OciModelModeNative,
+			wantCond:   true,
+			wantReason: "ImageVolumeAlpha",
+		},
+		{
+			name:       "k8s 1.33 native: feature-gated, ImageVolumeAlpha condition",
+			minor:      "33",
+			mode:       kservetypes.OciModelModeNative,
+			wantCond:   true,
+			wantReason: "ImageVolumeAlpha",
 		},
 		{
 			name:       "k8s 1.32 native: alpha only, ImageVolumeAlpha condition",
@@ -67,18 +83,28 @@ func TestLLMWarnIfImageVolumeUnsupported(t *testing.T) {
 			wantReason: "ImageVolumeAlpha",
 		},
 		{
+			name:       "k8s 1.31 native: alpha only, ImageVolumeAlpha condition",
+			minor:      "31",
+			mode:       kservetypes.OciModelModeNative,
+			wantCond:   true,
+			wantReason: "ImageVolumeAlpha",
+		},
+		// K8s < 1.31: not supported.
+		{
 			name:       "k8s 1.30 native: unsupported, ImageVolumeUnsupported condition",
 			minor:      "30",
 			mode:       kservetypes.OciModelModeNative,
 			wantCond:   true,
 			wantReason: "ImageVolumeUnsupported",
 		},
+		// Non-native mode: no condition.
 		{
 			name:     "k8s 1.30 modelcar: mode is not native, no condition",
 			minor:    "30",
 			mode:     kservetypes.OciModelModeModelcar,
 			wantCond: false,
 		},
+		// Discovery failure: skip silently.
 		{
 			name:         "discovery error: skip silently, no condition",
 			discoveryErr: true,
