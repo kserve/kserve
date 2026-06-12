@@ -213,8 +213,8 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *corev1.Pod) error {
 
 	// Determine effective mode: explicit suffix wins; bare oci:// falls back to config.
 	// ResolveOciModelMode is guaranteed non-empty here: InjectModelcar is only registered
-	// when EnableOciImageSource=true, and ResolveOciModelMode checks EnableOciImageSource,
-	// so the else branch (defaulting to OciModelModeModelcar) is unreachable.
+	// when ResolveOciModelMode(config) != "" at the mutator setup site (mutator.go), so
+	// the else branch (defaulting to OciModelModeModelcar) is unreachable.
 	effectiveMode := parsedMode
 	if effectiveMode == "" {
 		effectiveMode = types.ResolveOciModelMode(mi.config)
