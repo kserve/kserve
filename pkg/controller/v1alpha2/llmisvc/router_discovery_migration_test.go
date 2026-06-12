@@ -166,6 +166,25 @@ func TestIsInferencePoolSupportedWithMultipleParents(t *testing.T) {
 			expected: metav1.ConditionFalse,
 		},
 		{
+			name: "route ignores status for a different Gateway parent",
+			route: HTTPRoute("test-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("test-gateway", RefInNamespace("test-ns"))),
+				WithHTTPRule(
+					WithBackendRefs(BackendRefInferencePool("my-pool")),
+				),
+				WithHTTPRouteMultipleControllerStatus(
+					GatewayRef("other-gateway", RefInNamespace("test-ns")),
+					GatewayAPIControllerStatusInvalidKind,
+				),
+				WithHTTPRouteMultipleControllerStatus(
+					GatewayRef("test-gateway", RefInNamespace("test-ns")),
+					GatewayAPIControllerStatus,
+				),
+			),
+			expected: metav1.ConditionTrue,
+		},
+		{
 			name: "route with only Kuadrant controller (no ResolvedRefs condition) returns Unknown",
 			route: HTTPRoute("test-route",
 				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
