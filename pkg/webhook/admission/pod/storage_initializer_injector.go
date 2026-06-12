@@ -209,14 +209,13 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *corev1.Pod) error {
 		return nil
 	}
 
-	// Determine effective mode: explicit suffix wins; bare oci:// falls back to config or modelcar default.
+	// Determine effective mode: explicit suffix wins; bare oci:// falls back to config.
+	// ResolveOciModelMode is guaranteed non-empty here: InjectModelcar is only registered
+	// when EnableOciImageSource=true, and ResolveOciModelMode checks EnableOciImageSource,
+	// so the else branch (defaulting to OciModelModeModelcar) is unreachable.
 	effectiveMode := parsedMode
 	if effectiveMode == "" {
-		if m := types.ResolveOciModelMode(mi.config); m != "" {
-			effectiveMode = m
-		} else {
-			effectiveMode = types.OciModelModeModelcar
-		}
+		effectiveMode = types.ResolveOciModelMode(mi.config)
 	}
 
 	// configureForContainer dispatches to the right materializer for a single container.
