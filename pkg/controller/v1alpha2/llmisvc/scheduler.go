@@ -181,11 +181,18 @@ func (r *LLMISVCReconciler) reconcileSchedulerDeployment(ctx context.Context, ll
 	// Defer EPP spec updates until all workload pods have finished rolling out.
 	// The EPP is on the critical path for every response chunk; restarting it mid-stream
 	// truncates in-flight streaming responses on the client side.
+	// Only defer if the scheduler deployment already exists — never block initial creation,
+	// as that would create a circular dependency (workloads wait for scheduler, scheduler
+	// waits for workloads).
 	if rolling, err := r.isWorkloadRolling(ctx, llmSvc); err != nil {
 		return err
 	} else if rolling {
-		logger.Info("Workload rollout in progress, deferring EPP deployment update")
-		return r.propagateSchedulerDeploymentStatus(ctx, scheduler, llmSvc.MarkSchedulerWorkloadReady, llmSvc.MarkSchedulerWorkloadNotReady)
+		curr := &appsv1.Deployment{}
+		if err := r.Get(ctx, client.ObjectKeyFromObject(scheduler), curr); err == nil {
+			logger.Info("Workload rollout in progress, deferring EPP deployment update")
+			return r.propagateSchedulerDeploymentStatus(ctx, scheduler, llmSvc.MarkSchedulerWorkloadReady, llmSvc.MarkSchedulerWorkloadNotReady)
+		}
+		logger.Info("Workload rollout in progress but scheduler deployment does not exist yet, proceeding with creation")
 	}
 	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, scheduler, semanticDeploymentIsEqual, PreserveDeploymentReplicas()); err != nil {
 		return fmt.Errorf("failed to reconcile scheduler deployment %s/%s: %w", scheduler.GetNamespace(), scheduler.GetName(), err)
