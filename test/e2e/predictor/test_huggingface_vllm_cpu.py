@@ -78,6 +78,10 @@ def test_huggingface_vllm_cpu_openai_chat_completions():
                     name="VLLM_ENABLE_V1_MULTIPROCESSING",
                     value="0",
                 ),
+                client.V1EnvVar(
+                    name="VLLM_USE_V1",
+                    value="0",
+                ),
             ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "2", "memory": "7Gi"},
@@ -141,6 +145,10 @@ def test_huggingface_vllm_cpu_text_completion_streaming():
                 ),
                 client.V1EnvVar(
                     name="VLLM_ENABLE_V1_MULTIPROCESSING",
+                    value="0",
+                ),
+                client.V1EnvVar(
+                    name="VLLM_USE_V1",
                     value="0",
                 ),
             ],
@@ -210,6 +218,10 @@ def test_huggingface_vllm_cpu_openai_completions():
                     name="VLLM_ENABLE_V1_MULTIPROCESSING",
                     value="0",
                 ),
+                client.V1EnvVar(
+                    name="VLLM_USE_V1",
+                    value="0",
+                ),
             ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "2", "memory": "7Gi"},
@@ -272,6 +284,10 @@ def test_huggingface_vllm_openai_chat_completions_streaming():
                 ),
                 client.V1EnvVar(
                     name="VLLM_ENABLE_V1_MULTIPROCESSING",
+                    value="0",
+                ),
+                client.V1EnvVar(
+                    name="VLLM_USE_V1",
                     value="0",
                 ),
             ],
