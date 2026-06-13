@@ -449,12 +449,12 @@ func TestValidateOCIMountPaths(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	t.Run("Single path is always valid", func(t *testing.T) {
-		err := ValidateOCIMountPaths([]string{"/mnt/models"})
+		err := ValidateOCIMountPaths([]string{"/mnt/models"}, types.OciModelModeModelcar)
 		g.Expect(err).ToNot(gomega.HaveOccurred())
 	})
 
 	t.Run("Empty paths are valid", func(t *testing.T) {
-		err := ValidateOCIMountPaths(nil)
+		err := ValidateOCIMountPaths(nil, types.OciModelModeModelcar)
 		g.Expect(err).ToNot(gomega.HaveOccurred())
 	})
 
@@ -462,7 +462,7 @@ func TestValidateOCIMountPaths(t *testing.T) {
 		err := ValidateOCIMountPaths([]string{
 			"/mnt/model-a/data",
 			"/mnt/model-b/data",
-		})
+		}, types.OciModelModeModelcar)
 		g.Expect(err).ToNot(gomega.HaveOccurred())
 	})
 
@@ -470,7 +470,7 @@ func TestValidateOCIMountPaths(t *testing.T) {
 		err := ValidateOCIMountPaths([]string{
 			"/mnt/models/model-a",
 			"/mnt/models/model-b",
-		})
+		}, types.OciModelModeModelcar)
 		g.Expect(err).To(gomega.HaveOccurred())
 		g.Expect(err.Error()).To(gomega.ContainSubstring("volume mount shadowing"))
 		g.Expect(err.Error()).To(gomega.ContainSubstring("/mnt/models"))
@@ -481,7 +481,7 @@ func TestValidateOCIMountPaths(t *testing.T) {
 			"/mnt/alpha/data",
 			"/mnt/beta/model-x",
 			"/mnt/beta/model-y", // collides with previous
-		})
+		}, types.OciModelModeModelcar)
 		g.Expect(err).To(gomega.HaveOccurred())
 		g.Expect(err.Error()).To(gomega.ContainSubstring("/mnt/beta"))
 	})
@@ -490,8 +490,34 @@ func TestValidateOCIMountPaths(t *testing.T) {
 		err := ValidateOCIMountPaths([]string{
 			constants.DefaultModelLocalMountPath,
 			constants.DefaultModelLocalMountPath,
-		})
+		}, types.OciModelModeModelcar)
 		g.Expect(err).To(gomega.HaveOccurred())
+	})
+
+	// Native mode: siblings under the same parent are fine; only exact duplicates fail.
+	t.Run("Native mode allows shared parent directory", func(t *testing.T) {
+		err := ValidateOCIMountPaths([]string{
+			"/mnt/models/adapter-a",
+			"/mnt/models/adapter-b",
+		}, types.OciModelModeNative)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+	})
+
+	t.Run("Native mode rejects exact path duplicate", func(t *testing.T) {
+		err := ValidateOCIMountPaths([]string{
+			"/mnt/models/adapter-a",
+			"/mnt/models/adapter-a",
+		}, types.OciModelModeNative)
+		g.Expect(err).To(gomega.HaveOccurred())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("unique mount path"))
+	})
+
+	t.Run("Native mode allows DefaultModelLocalMountPath used once with sibling", func(t *testing.T) {
+		err := ValidateOCIMountPaths([]string{
+			constants.DefaultModelLocalMountPath,
+			constants.DefaultModelLocalMountPath + "/adapter",
+		}, types.OciModelModeNative)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
 	})
 }
 
