@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/version"
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/cabundleconfigmap"
@@ -820,5 +821,44 @@ func PodStatusPredicate() predicate.Funcs {
 		CreateFunc:  func(e event.CreateEvent) bool { return false },
 		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
 		GenericFunc: func(e event.GenericEvent) bool { return false },
+	}
+}
+
+// ociImageVolumeCompatible is the advisory condition type surfaced on an
+// LLMInferenceService when native OCI ImageVolume mode is in use and the cluster
+// Kubernetes version may not support it.
+const ociImageVolumeCompatible apis.ConditionType = "OciImageVolumeCompatible"
+
+// serverVersioner is a single-method interface for K8s version discovery.
+type serverVersioner interface {
+	ServerVersion() (*version.Info, error)
+}
+
+// warnIfImageVolumeUnsupported mirrors the ISVC-controller helper for
+// LLMInferenceService. Compatibility thresholds are handled by the shared helper
+// utils.CheckImageVolumeCompatibility; this function translates the result into
+// the LLMInferenceService condition format (MarkFalse path on its conditionSet).
+func warnIfImageVolumeUnsupported(ctx context.Context, sv serverVersioner, llmSvc *v1alpha2.LLMInferenceService, resolvedMode string) {
+	mgr := llmSvc.GetConditionSet().Manage(llmSvc.GetStatus())
+
+	if resolvedMode != kserveTypes.OciModelModeNative {
+		_ = mgr.ClearCondition(ociImageVolumeCompatible)
+		return
+	}
+
+	result := utils.CheckImageVolumeCompatibility(ctx, sv)
+
+	switch result.Status {
+	case utils.ImageVolumeUnsupported:
+		mgr.MarkFalse(ociImageVolumeCompatible, "ImageVolumeUnsupported",
+			"Cluster K8s %s.%s does not support ImageVolume (introduced in 1.31 as alpha). Falling back to modelcar may be required.",
+			result.Major, result.Minor)
+	case utils.ImageVolumeNeedsGate:
+		mgr.MarkFalse(ociImageVolumeCompatible, "ImageVolumeAlpha",
+			"Cluster K8s %s.%s has ImageVolume feature-gated (K8s 1.31–1.34). Ensure --feature-gates=ImageVolume=true is set on kube-apiserver and kubelet.",
+			result.Major, result.Minor)
+	default:
+		// ImageVolumeOK (≥ 1.35) or ImageVolumeUnknown — clear any previous warning.
+		_ = mgr.ClearCondition(ociImageVolumeCompatible)
 	}
 }
