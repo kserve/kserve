@@ -336,7 +336,8 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 			if len(ociMountPaths) > utils.MaxOCISourcesPerPod {
 				return fmt.Errorf("too many OCI sources (%d); maximum is %d per pod", len(ociMountPaths), utils.MaxOCISourcesPerPod)
 			}
-			if err := utils.ValidateOCIMountPaths(ociMountPaths); err != nil {
+			configMode := types.ResolveOciModelMode(params.Config)
+			if err := utils.ValidateOCIMountPaths(ociMountPaths, configMode); err != nil {
 				return err
 			}
 

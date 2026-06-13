@@ -494,16 +494,37 @@ func ModelcarNames(ociIndex int) (sidecarName, initName, volumeName string) {
 }
 
 // ValidateOCIMountPaths checks that the given OCI mount paths will not cause volume
-// mount shadowing when injected. Each modelcar sidecar mounts an emptyDir at the
-// *parent directory* of its modelPath (via GetParentDirectory). If two OCI URIs share
-// the same parent directory, their volumes would be mounted at the same path on the
-// target container, causing the last mount to shadow all previous ones.
+// mount collisions when injected. The collision rules differ by mode:
+//
+//   - OciModelModeNative: the container runtime mounts OCI images directly at the
+//     requested path, so only exact-path duplicates are invalid; siblings under the
+//     same parent directory are perfectly fine.
+//
+//   - OciModelModeModelcar (and any other/empty mode, defensively): each modelcar
+//     sidecar mounts an emptyDir at the *parent directory* of its modelPath (via
+//     GetParentDirectory). Two URIs sharing a parent would mount volumes at the same
+//     path on the target container, causing the last mount to shadow all previous ones.
 //
 // Returns an error if a collision is detected.
-func ValidateOCIMountPaths(mountPaths []string) error {
+func ValidateOCIMountPaths(mountPaths []string, mode string) error {
 	if len(mountPaths) <= 1 {
 		return nil
 	}
+	if mode == types.OciModelModeNative {
+		// Native mode: only exact-path duplicates are invalid.
+		seen := make(map[string]struct{}, len(mountPaths))
+		for _, mp := range mountPaths {
+			if _, exists := seen[mp]; exists {
+				return fmt.Errorf(
+					"OCI mount path %q is specified more than once; each native ImageVolume must have a unique mount path",
+					mp,
+				)
+			}
+			seen[mp] = struct{}{}
+		}
+		return nil
+	}
+	// Modelcar mode (and defensive default): parent-directory collision check.
 	parentDirSeen := make(map[string]string, len(mountPaths)) // parentDir -> first modelPath that used it
 	for _, mp := range mountPaths {
 		parentDir := GetParentDirectory(mp)
