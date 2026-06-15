@@ -110,6 +110,78 @@ func TestSchedulerConfigTextLoRA(t *testing.T) {
 	}
 }
 
+func TestSchedulerConfigTextPDLoRA(t *testing.T) {
+	loraAdapters := []v1alpha2.LLMModelSpec{{}}
+
+	tests := []struct {
+		name     string
+		llmSvc   *v1alpha2.LLMInferenceService
+		wantLoRA bool
+	}{
+		{
+			name: "P/D without LoRA - no scorer",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Prefill: &v1alpha2.WorkloadSpec{},
+				},
+			},
+			wantLoRA: false,
+		},
+		{
+			name: "P/D with LoRA adapters - scorer in both profiles",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Prefill: &v1alpha2.WorkloadSpec{},
+					Model: v1alpha2.LLMModelSpec{
+						LoRA: &v1alpha2.LoRASpec{Adapters: loraAdapters},
+					},
+				},
+			},
+			wantLoRA: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			text := schedulerConfigText(tt.llmSvc)
+
+			var obj map[string]interface{}
+			g.Expect(yaml.Unmarshal([]byte(text), &obj)).To(Succeed())
+
+			plugins := obj["plugins"].([]interface{})
+			types := make([]string, 0, len(plugins))
+			for _, p := range plugins {
+				types = append(types, p.(map[string]interface{})["type"].(string))
+			}
+
+			profiles := obj["schedulingProfiles"].([]interface{})
+			g.Expect(profiles).To(HaveLen(2))
+
+			for _, profile := range profiles {
+				refs := profile.(map[string]interface{})["plugins"].([]interface{})
+				refNames := make([]string, 0, len(refs))
+				for _, r := range refs {
+					refNames = append(refNames, r.(map[string]interface{})["pluginRef"].(string))
+				}
+
+				if tt.wantLoRA {
+					g.Expect(types).To(ContainElement(loraAffinityScorerPlugin))
+					// scorer is second (after the profile's filter plugin)
+					g.Expect(refNames[1]).To(Equal(loraAffinityScorerPlugin))
+					g.Expect(refs[1].(map[string]interface{})["weight"]).To(BeNumerically("==", 4))
+				} else {
+					g.Expect(refNames).NotTo(ContainElement(loraAffinityScorerPlugin))
+				}
+			}
+
+			if !tt.wantLoRA {
+				g.Expect(types).NotTo(ContainElement(loraAffinityScorerPlugin))
+			}
+		})
+	}
+}
+
 func TestPreserveSchedulerConfig(t *testing.T) {
 	defaultSvc := &v1alpha2.LLMInferenceService{}
 	inlineSvc := &v1alpha2.LLMInferenceService{
