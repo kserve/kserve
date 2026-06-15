@@ -1,0 +1,185 @@
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-scheduler-latency-predictor
+  namespace: kserve
+spec:
+  router:
+    scheduler:
+      template:
+        containers:
+        - name: main
+          env:
+          - name: PREDICTION_SERVER_URL
+            value: http://localhost:8001
+          - name: TRAINING_SERVER_URL
+            value: http://localhost:8000
+          - name: LATENCY_MAX_SAMPLE_SIZE
+            value: "10000"
+          - name: LATENCY_MAX_CONCURRENT_DISPATCHES
+            value: "36"
+          - name: LATENCY_COALESCE_WINDOW_MS
+            value: "1"
+        - name: training-server
+          image: registry.k8s.io/gateway-api-inference-extension/latency-training-server:v1.5.0
+          imagePullPolicy: IfNotPresent
+          ports:
+          - containerPort: 8000
+            name: training-port
+          resources:
+            requests:
+              cpu: "2000m"
+              memory: "4Gi"
+            limits:
+              cpu: "4000m"
+              memory: "8Gi"
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            failureThreshold: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8000
+            initialDelaySeconds: 45
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          env:
+          - name: LATENCY_RETRAINING_INTERVAL_SEC
+            value: "10"
+          - name: LATENCY_MIN_SAMPLES_FOR_RETRAIN
+            value: "100"
+          - name: LATENCY_TTFT_MODEL_PATH
+            value: /models/ttft.joblib
+          - name: LATENCY_TPOT_MODEL_PATH
+            value: /models/tpot.joblib
+          - name: LATENCY_TTFT_SCALER_PATH
+            value: /models/ttft_scaler.joblib
+          - name: LATENCY_TPOT_SCALER_PATH
+            value: /models/tpot_scaler.joblib
+          - name: LATENCY_TTFT_GATED_MODEL_PATH
+            value: /models/ttft_gated.joblib
+          - name: LATENCY_TPOT_GATED_MODEL_PATH
+            value: /models/tpot_gated.joblib
+          - name: LATENCY_MODEL_TYPE
+            value: xgboost
+          - name: LATENCY_MAX_TRAINING_DATA_SIZE_PER_BUCKET
+            value: "500"
+          - name: LATENCY_OBJECTIVE_TYPE
+            value: mean
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: FallbackToLogsOnError
+          volumeMounts:
+          - name: training-server-storage
+            mountPath: /models
+          - name: training-server-tmp
+            mountPath: /tmp
+        - name: prediction-server
+          image: registry.k8s.io/gateway-api-inference-extension/latency-prediction-server:v1.5.0
+          imagePullPolicy: IfNotPresent
+          ports:
+          - containerPort: 8001
+            name: predict-port
+          resources:
+            requests:
+              cpu: "8000m"
+              memory: "4Gi"
+            limits:
+              cpu: "28000m"
+              memory: "8Gi"
+          startupProbe:
+            httpGet:
+              path: /readyz
+              port: 8001
+            failureThreshold: 60
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8001
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8001
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          env:
+          - name: TRAINING_SERVER_URL
+            value: http://localhost:8000
+          - name: LATENCY_MODEL_TYPE
+            value: xgboost
+          - name: PREDICT_HOST
+            value: 0.0.0.0
+          - name: PREDICT_PORT
+            value: "8001"
+          - name: LOCAL_TTFT_MODEL_PATH
+            value: /server_models/ttft.joblib
+          - name: LOCAL_TPOT_MODEL_PATH
+            value: /server_models/tpot.joblib
+          - name: LOCAL_TTFT_SCALER_PATH
+            value: /server_models/ttft_scaler.joblib
+          - name: LOCAL_TPOT_SCALER_PATH
+            value: /server_models/tpot_scaler.joblib
+          - name: LOCAL_TTFT_GATED_MODEL_PATH
+            value: /server_models/ttft_gated.joblib
+          - name: LOCAL_TPOT_GATED_MODEL_PATH
+            value: /server_models/tpot_gated.joblib
+          - name: UVICORN_WORKERS
+            value: "28"
+          - name: OMP_NUM_THREADS
+            value: "1"
+          - name: MODEL_SYNC_INTERVAL_SEC
+            value: "30"
+          - name: LATENCY_OBJECTIVE_TYPE
+            value: mean
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: FallbackToLogsOnError
+          volumeMounts:
+          - name: prediction-server-storage
+            mountPath: /server_models
+          - name: prediction-server-tmp
+            mountPath: /tmp
+        restartPolicy: Always
+        terminationGracePeriodSeconds: 60
+        volumes:
+        - name: training-server-storage
+          emptyDir:
+            sizeLimit: 20Gi
+        - name: prediction-server-storage
+          emptyDir:
+            sizeLimit: 10Gi
+        - name: training-server-tmp
+          emptyDir: {}
+        - name: prediction-server-tmp
+          emptyDir: {}
