@@ -104,6 +104,12 @@ type LLMInferenceServiceSpec struct {
 	// +optional
 	Prefill *WorkloadSpec `json:"prefill,omitempty"`
 
+	// Tracing configuration for distributed tracing across all managed components.
+	// When present (even as `{}`), distributed tracing is enabled with defaults.
+	// When omitted, no tracing instrumentation is injected.
+	// +optional
+	Tracing *TracingSpec `json:"tracing,omitempty"`
+
 	// BaseRefs allows inheriting and overriding configurations from one or more LLMInferenceServiceConfig instances.
 	// The controller merges these base configurations, with the current LLMInferenceService spec taking the highest precedence.
 	// When multiple baseRefs are provided, the last one in the list overrides previous ones.
@@ -468,6 +474,35 @@ type KEDAScalingSpec struct {
 	// This includes HPA behavior configuration and restore-to-original replica count settings.
 	// +optional
 	Advanced *kedav1alpha1.AdvancedConfig `json:"advanced,omitempty"`
+}
+
+// TracingSpec defines the distributed tracing configuration.
+// When present (even as an empty object `{}`), tracing is enabled with sensible defaults.
+// When omitted, no tracing instrumentation is injected.
+type TracingSpec struct {
+	// ExporterEndpoint is the OTLP exporter endpoint.
+	// Maps to the OTEL_EXPORTER_OTLP_ENDPOINT environment variable.
+	// Default: "http://otel-collector:4317"
+	// +optional
+	ExporterEndpoint *string `json:"exporterEndpoint,omitempty"`
+
+	// Sampler specifies the sampler to use for traces.
+	// Maps to the OTEL_TRACES_SAMPLER environment variable.
+	// Default: "parentbased_traceidratio"
+	// +optional
+	Sampler *string `json:"sampler,omitempty"`
+
+	// SamplerArg is an argument passed to the traces sampler (e.g. the sampling ratio).
+	// Maps to the OTEL_TRACES_SAMPLER_ARG environment variable.
+	// Default: "0.05" (5% sampling rate)
+	// +optional
+	SamplerArg *string `json:"samplerArg,omitempty"`
+
+	// Exporter specifies which exporter is used for traces.
+	// Maps to the OTEL_TRACES_EXPORTER environment variable.
+	// Default: "otlp"
+	// +optional
+	Exporter *string `json:"exporter,omitempty"`
 }
 
 // ParallelismSpec defines the parallelism parameters for distributed inference.

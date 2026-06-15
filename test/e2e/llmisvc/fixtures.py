@@ -1376,19 +1376,14 @@ def _setup_test_case_service(kserve_client, tc, test_node_name, peer_index=None)
         unique_config_name = generate_k8s_safe_suffix(base_ref, [tc.service_name])
         unique_base_refs.append(unique_config_name)
 
-        original_spec = LLMINFERENCESERVICE_CONFIGS[base_ref]
-        api_version = "serving.kserve.io/v1alpha1"
-        if "tracing" in original_spec:
-            api_version = "serving.kserve.io/v1alpha2"
-
         unique_config_body = {
-            "apiVersion": api_version,
+            "apiVersion": "serving.kserve.io/v1alpha1",
             "kind": "LLMInferenceServiceConfig",
             "metadata": {
                 "name": unique_config_name,
                 "namespace": KSERVE_TEST_NAMESPACE,
             },
-            "spec": original_spec,
+            "spec": LLMINFERENCESERVICE_CONFIGS[base_ref],
         }
 
         _create_or_update_llmisvc_config(
