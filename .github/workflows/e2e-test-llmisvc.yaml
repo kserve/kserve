@@ -19,6 +19,7 @@ on:
       - "hack/setup/infra/manage.prometheus-helm.sh"
       - "hack/setup/infra/manage.prometheus-adapter-helm.sh"
       - "hack/setup/infra/manage.wva-helm.sh"
+      - "hack/setup/infra/manage.jaeger-helm.sh"
   merge_group:
     types: [ checks_requested ]
 
@@ -280,7 +281,7 @@ jobs:
           # Run only CPU tests for now using pytest markers (cluster_)
           # Available GPU vendors: amd, nvidia, intel
           export PYTEST_MAXFAIL=3
-          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and cluster_cpu and not autoscaling" 0 "envoy-gateway"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and cluster_cpu and not autoscaling and not tracing" 0 "envoy-gateway"
 
       - name: Check system status
         if: always()
@@ -503,3 +504,98 @@ jobs:
         uses: ./.github/actions/upload-test-results
         with:
           name: test-results-llmisvc-autoscaling-keda-${{ matrix.install-method }}
+
+  test-llmisvc-tracing:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, llmisvc-image-build]
+    strategy:
+      fail-fast: false
+      matrix:
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.9"
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: Download LLMISvc controller image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.LLMISVC_CONTROLLER_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Download storage-initializer image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Load docker images
+        uses: ./.github/actions/load-docker-images
+        with:
+          directory: ./tmp
+
+      - name: KServe dependency setup (tracing)
+        uses: ./.github/actions/kserve-dep-setup
+        with:
+          deploy-llmisvc: "true"
+          observability: "jaeger"
+
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
+
+      - name: Install KServe
+        run: |
+          ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
+          ./test/scripts/gh-actions/setup-kserve.sh
+
+      - name: Verify Jaeger setup
+        run: |
+          echo "Verifying Jaeger All-in-One deployment..."
+          kubectl get pods -n observability
+          kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=jaeger -n observability --timeout=120s
+          echo "Jaeger is ready!"
+
+      - name: Run tracing E2E tests
+        id: tracing-tests
+        timeout-minutes: 30
+        run: |
+          export PYTEST_MAXFAIL=2
+          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and tracing and cluster_cpu" 0 "envoy-gateway"
+
+      - name: Check system status
+        if: always()
+        run: |
+          ./test/scripts/gh-actions/status-check.sh "llmisvc"
+
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-llmisvc-tracing-${{ matrix.install-method }}

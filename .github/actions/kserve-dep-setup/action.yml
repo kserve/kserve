@@ -21,6 +21,10 @@ inputs:
     description: 'LLMISvc autoscaler type: hpa, keda, or none'
     required: false
     default: 'none'
+  observability:
+    description: 'Observability backend to deploy (e.g. jaeger for tracing tests)'
+    required: false
+    default: 'none'
 runs:
   using: "composite"
   steps:
@@ -29,7 +33,7 @@ runs:
       run: |
         shopt -s nocasematch         
         echo "Selected network layer ${{ inputs.network-layer }}"
-        ./test/scripts/gh-actions/setup-deps.sh ${{ inputs.deployment-mode }} "${{ inputs.network-layer }}" "${{ inputs.enable-keda }}" "${{ inputs.deploy-llmisvc }}" "${{ inputs.autoscaler }}"
+        ./test/scripts/gh-actions/setup-deps.sh ${{ inputs.deployment-mode }} "${{ inputs.network-layer }}" "${{ inputs.enable-keda }}" "${{ inputs.deploy-llmisvc }}" "${{ inputs.autoscaler }}" "${{ inputs.observability }}"
       
 
     - name: Update test overlays
