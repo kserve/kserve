@@ -2,6 +2,9 @@
 Copyright 2025 The Kubernetes Authors.
 Copyright 2026 The KServe Authors.
 
+Vendored from sigs.k8s.io/gateway-api-inference-extension@v1.4.0/apix/v1alpha2/
+with modifications for KServe's local v1alpha2 InferencePool shim.
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -45,7 +48,7 @@ func (src *InferencePool) ConvertTo(dst *v1.InferencePool) error {
 		APIVersion: v1.GroupVersion.String(),
 	}
 	dst.TypeMeta = meta
-	dst.ObjectMeta = src.ObjectMeta
+	src.ObjectMeta.DeepCopyInto(&dst.ObjectMeta)
 	dst.Spec.TargetPorts = []v1.Port{{Number: v1.PortNumber(src.Spec.TargetPortNumber)}}
 	dst.Spec.EndpointPickerRef = endpointPickRef
 	dst.Status = *v1Status
@@ -78,7 +81,7 @@ func (dst *InferencePool) ConvertFrom(src *v1.InferencePool) error {
 		APIVersion: GroupVersion.String(),
 	}
 	dst.TypeMeta = meta
-	dst.ObjectMeta = src.ObjectMeta
+	src.ObjectMeta.DeepCopyInto(&dst.ObjectMeta)
 	dst.Spec.TargetPortNumber = int32(src.Spec.TargetPorts[0].Number)
 	dst.Spec.ExtensionRef = extensionRef
 	dst.Status = *status
@@ -202,10 +205,11 @@ func toV1ParentRef(in ParentGatewayReference) v1.ParentReference {
 		g := v1.Group(*in.Group)
 		out.Group = &g
 	}
+	k := v1.Kind("Gateway")
 	if in.Kind != nil {
-		k := v1.Kind(*in.Kind)
-		out.Kind = k
+		k = v1.Kind(*in.Kind)
 	}
+	out.Kind = k
 	if in.Namespace != nil {
 		ns := v1.Namespace(*in.Namespace)
 		out.Namespace = ns
@@ -221,10 +225,8 @@ func fromV1ParentRef(in v1.ParentReference) ParentGatewayReference {
 		g := Group(*in.Group)
 		out.Group = &g
 	}
-	if in.Kind != "" {
-		k := Kind(in.Kind)
-		out.Kind = &k
-	}
+	kk := Kind(in.Kind)
+	out.Kind = &kk
 	if in.Namespace != "" {
 		ns := Namespace(in.Namespace)
 		out.Namespace = &ns
@@ -240,16 +242,20 @@ func convertExtensionRefToV1(src *Extension) (v1.EndpointPickerRef, error) {
 	if src.Group != nil {
 		endpointPickerRef.Group = ptr.To(v1.Group(*src.Group))
 	}
+	kind := v1.Kind("Service")
 	if src.Kind != nil {
-		endpointPickerRef.Kind = v1.Kind(*src.Kind)
+		kind = v1.Kind(*src.Kind)
 	}
+	endpointPickerRef.Kind = kind
 	endpointPickerRef.Name = v1.ObjectName(src.Name)
 	if src.PortNumber != nil {
 		endpointPickerRef.Port = ptr.To(v1.Port{Number: v1.PortNumber(*src.PortNumber)})
 	}
+	failureMode := v1.EndpointPickerFailClose
 	if src.FailureMode != nil {
-		endpointPickerRef.FailureMode = v1.EndpointPickerFailureMode(*src.FailureMode)
+		failureMode = v1.EndpointPickerFailureMode(*src.FailureMode)
 	}
+	endpointPickerRef.FailureMode = failureMode
 
 	return endpointPickerRef, nil
 }
@@ -262,15 +268,11 @@ func convertEndpointPickerRefFromV1(src *v1.EndpointPickerRef) (Extension, error
 	if src.Group != nil {
 		extension.Group = ptr.To(Group(*src.Group))
 	}
-	if src.Kind != "" {
-		extension.Kind = ptr.To(Kind(src.Kind))
-	}
+	extension.Kind = ptr.To(Kind(src.Kind))
 	extension.Name = ObjectName(src.Name)
 	if src.Port != nil {
 		extension.PortNumber = ptr.To(PortNumber(src.Port.Number))
 	}
-	if src.FailureMode != "" {
-		extension.FailureMode = ptr.To(ExtensionFailureMode(src.FailureMode))
-	}
+	extension.FailureMode = ptr.To(ExtensionFailureMode(src.FailureMode))
 	return extension, nil
 }

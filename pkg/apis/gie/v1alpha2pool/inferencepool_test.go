@@ -144,6 +144,135 @@ func TestSchemeRegistration(t *testing.T) {
 	assert.Equal(t, "v1alpha2", SchemeGroupVersion.Version)
 }
 
+func TestConvertTo_NilFailureModeDefaultsToFailClose(t *testing.T) {
+	original := &InferencePool{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "InferencePool",
+			APIVersion: "inference.networking.x-k8s.io/v1alpha2",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pool",
+			Namespace: "default",
+		},
+		Spec: InferencePoolSpec{
+			Selector: map[LabelKey]LabelValue{
+				"app": "vllm",
+			},
+			TargetPortNumber: 8000,
+			ExtensionRef: Extension{
+				Group:       ptr.To(Group("")),
+				Kind:        ptr.To(Kind("Service")),
+				Name:        "my-epp",
+				PortNumber:  ptr.To(PortNumber(9002)),
+				FailureMode: nil,
+			},
+		},
+	}
+
+	v1Pool := &v1.InferencePool{}
+	err := original.ConvertTo(v1Pool)
+	require.NoError(t, err)
+
+	assert.Equal(t, v1.EndpointPickerFailClose, v1Pool.Spec.EndpointPickerRef.FailureMode)
+}
+
+func TestConvertTo_NilKindDefaultsToService(t *testing.T) {
+	original := &InferencePool{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "InferencePool",
+			APIVersion: "inference.networking.x-k8s.io/v1alpha2",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pool",
+			Namespace: "default",
+		},
+		Spec: InferencePoolSpec{
+			Selector:         map[LabelKey]LabelValue{"app": "vllm"},
+			TargetPortNumber: 8000,
+			ExtensionRef: Extension{
+				Name:        "my-epp",
+				Kind:        nil,
+				FailureMode: ptr.To(FailClose),
+			},
+		},
+	}
+
+	v1Pool := &v1.InferencePool{}
+	err := original.ConvertTo(v1Pool)
+	require.NoError(t, err)
+
+	assert.Equal(t, v1.Kind("Service"), v1Pool.Spec.EndpointPickerRef.Kind)
+}
+
+func TestConvertTo_NilParentKindDefaultsToGateway(t *testing.T) {
+	original := &InferencePool{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "InferencePool",
+			APIVersion: "inference.networking.x-k8s.io/v1alpha2",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pool",
+			Namespace: "default",
+		},
+		Spec: InferencePoolSpec{
+			Selector:         map[LabelKey]LabelValue{"app": "vllm"},
+			TargetPortNumber: 8000,
+			ExtensionRef: Extension{
+				Name:        "my-epp",
+				FailureMode: ptr.To(FailClose),
+			},
+		},
+		Status: InferencePoolStatus{
+			Parents: []PoolStatus{
+				{
+					GatewayRef: ParentGatewayReference{
+						Name: "my-gateway",
+						Kind: nil,
+					},
+					Conditions: []metav1.Condition{
+						{
+							Type:   string(InferencePoolConditionAccepted),
+							Status: metav1.ConditionTrue,
+							Reason: string(InferencePoolReasonAccepted),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	v1Pool := &v1.InferencePool{}
+	err := original.ConvertTo(v1Pool)
+	require.NoError(t, err)
+
+	assert.Equal(t, v1.Kind("Gateway"), v1Pool.Status.Parents[0].ParentRef.Kind)
+}
+
+func TestConvertTo_ObjectMetaDeepCopy(t *testing.T) {
+	original := &InferencePool{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pool",
+			Namespace: "default",
+			Labels:    map[string]string{"key": "value"},
+		},
+		Spec: InferencePoolSpec{
+			Selector:         map[LabelKey]LabelValue{"app": "vllm"},
+			TargetPortNumber: 8000,
+			ExtensionRef: Extension{
+				Name:        "my-epp",
+				FailureMode: ptr.To(FailClose),
+			},
+		},
+	}
+
+	v1Pool := &v1.InferencePool{}
+	err := original.ConvertTo(v1Pool)
+	require.NoError(t, err)
+
+	original.Labels["key"] = "mutated"
+	assert.Equal(t, "value", v1Pool.Labels["key"])
+}
+
 func TestDeepCopy(t *testing.T) {
 	pool := &InferencePool{
 		ObjectMeta: metav1.ObjectMeta{
