@@ -158,4 +158,4 @@ Edit that file to modify the release workflow.
 
 ## 8. Related Documents
 
-- [RELEASE_PROCESS_v3.md](./RELEASE_PROCESS_v3.md)
+- [RELEASE_PROCESS.md](./RELEASE_PROCESS.md)
