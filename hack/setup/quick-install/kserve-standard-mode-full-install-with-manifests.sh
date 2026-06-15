@@ -2337,7 +2337,7 @@ spec:
       - containerPort: 8001
         protocol: TCP
       readinessProbe:
-        failureThreshold: 1
+        failureThreshold: 2
         httpGet:
           path: /health
           port: 8001
@@ -2671,7 +2671,7 @@ spec:
       - containerPort: 8001
         protocol: TCP
       readinessProbe:
-        failureThreshold: 1
+        failureThreshold: 2
         httpGet:
           path: /health
           port: 8001
@@ -3229,7 +3229,7 @@ spec:
         - containerPort: 8000
           protocol: TCP
         readinessProbe:
-          failureThreshold: 1
+          failureThreshold: 2
           httpGet:
             path: /health
             port: 8000
@@ -3505,7 +3505,7 @@ spec:
         - containerPort: 8000
           protocol: TCP
         readinessProbe:
-          failureThreshold: 1
+          failureThreshold: 2
           httpGet:
             path: /health
             port: 8000
@@ -4051,6 +4051,12 @@ spec:
             value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
           image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.7.1
           imagePullPolicy: IfNotPresent
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                - /bin/sleep
+                - "15"
           livenessProbe:
             failureThreshold: 3
             grpc:
@@ -4365,7 +4371,7 @@ spec:
       - containerPort: 8000
         protocol: TCP
       readinessProbe:
-        failureThreshold: 1
+        failureThreshold: 2
         httpGet:
           path: /health
           port: 8000
@@ -4640,7 +4646,7 @@ spec:
       - containerPort: 8000
         protocol: TCP
       readinessProbe:
-        failureThreshold: 1
+        failureThreshold: 2
         httpGet:
           path: /health
           port: 8000
