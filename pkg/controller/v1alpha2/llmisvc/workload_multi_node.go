@@ -261,6 +261,14 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 	utils.PropagateMap(llmSvc.Spec.Labels, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Labels)
 	utils.PropagateMap(llmSvc.Spec.Annotations, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations, AnnotationModelBasedRoutingEnabled)
 
+	// Inject tracing instrumentation when spec.tracing is set
+	if llmSvc.Spec.Tracing != nil {
+		if expected.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
+			injectServerTracingIntoPodSpec(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), "-decode", &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec)
+		}
+		injectServerTracingIntoPodSpec(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), "-decode", &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec)
+	}
+
 	log.FromContext(ctx).V(2).Info("Expected main LWS", "leaderworkerset", expected)
 
 	return expected, nil
@@ -361,6 +369,14 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 	}
 
 	r.propagateTopLevelLeaderWorkerSetMetadata(llmSvc, expected)
+
+	// Inject tracing instrumentation when spec.tracing is set
+	if llmSvc.Spec.Tracing != nil {
+		if expected.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
+			injectServerTracingIntoPodSpec(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), "-prefill", &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec)
+		}
+		injectServerTracingIntoPodSpec(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), "-prefill", &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec)
+	}
 
 	if llmSvc.Spec.Prefill != nil {
 		if expected.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {

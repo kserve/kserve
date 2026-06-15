@@ -154,6 +154,16 @@ func convertSpecToV1Alpha2(src *LLMInferenceServiceSpec) v1alpha2.LLMInferenceSe
 		dst.Prefill = &prefill
 	}
 
+	// Tracing
+	if src.Tracing != nil {
+		dst.Tracing = &v1alpha2.TracingSpec{
+			ExporterEndpoint: src.Tracing.ExporterEndpoint,
+			Sampler:          src.Tracing.Sampler,
+			SamplerArg:       src.Tracing.SamplerArg,
+			Exporter:         src.Tracing.Exporter,
+		}
+	}
+
 	return dst
 }
 
@@ -182,6 +192,16 @@ func convertSpecFromV1Alpha2(src *v1alpha2.LLMInferenceServiceSpec) LLMInference
 	if src.Prefill != nil {
 		prefill := convertWorkloadSpecFromV1Alpha2(src.Prefill)
 		dst.Prefill = &prefill
+	}
+
+	// Tracing
+	if src.Tracing != nil {
+		dst.Tracing = &TracingSpec{
+			ExporterEndpoint: src.Tracing.ExporterEndpoint,
+			Sampler:          src.Tracing.Sampler,
+			SamplerArg:       src.Tracing.SamplerArg,
+			Exporter:         src.Tracing.Exporter,
+		}
 	}
 
 	return dst

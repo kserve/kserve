@@ -1043,3 +1043,103 @@ func TestLLMInferenceServiceConversion_StatusRoundtrip_V1Alpha2ToV1Alpha1(t *tes
 	assert.Equal(t, "https://example.com/ns/m", restored.Status.Addresses[0].URL.String())
 	assert.Nil(t, restored.Status.Addresses[0].Origin, "Origin is lost on v1alpha2 -> v1alpha1 -> v1alpha2 roundtrip")
 }
+
+func TestLLMInferenceServiceConversion_PreservesTracing(t *testing.T) {
+	endpoint := "http://my-collector:4317"
+	sampler := "parentbased_traceidratio"
+	samplerArg := "0.1"
+	exporter := "otlp"
+
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-tracing",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI: apis.URL{Scheme: "hf", Host: "Qwen/Qwen2.5-7B-Instruct"},
+			},
+			Tracing: &TracingSpec{
+				ExporterEndpoint: &endpoint,
+				Sampler:          &sampler,
+				SamplerArg:       &samplerArg,
+				Exporter:         &exporter,
+			},
+		},
+	}
+
+	// v1alpha1 -> v1alpha2
+	hub := &v1alpha2.LLMInferenceService{}
+	err := src.ConvertTo(hub)
+	require.NoError(t, err)
+
+	require.NotNil(t, hub.Spec.Tracing)
+	assert.Equal(t, endpoint, *hub.Spec.Tracing.ExporterEndpoint)
+	assert.Equal(t, sampler, *hub.Spec.Tracing.Sampler)
+	assert.Equal(t, samplerArg, *hub.Spec.Tracing.SamplerArg)
+	assert.Equal(t, exporter, *hub.Spec.Tracing.Exporter)
+
+	// v1alpha2 -> v1alpha1
+	restored := &LLMInferenceService{}
+	err = restored.ConvertFrom(hub)
+	require.NoError(t, err)
+
+	require.NotNil(t, restored.Spec.Tracing)
+	assert.Equal(t, endpoint, *restored.Spec.Tracing.ExporterEndpoint)
+	assert.Equal(t, sampler, *restored.Spec.Tracing.Sampler)
+	assert.Equal(t, samplerArg, *restored.Spec.Tracing.SamplerArg)
+	assert.Equal(t, exporter, *restored.Spec.Tracing.Exporter)
+}
+
+func TestLLMInferenceServiceConversion_TracingNilPreserved(t *testing.T) {
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-no-tracing",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI: apis.URL{Scheme: "hf", Host: "Qwen/Qwen2.5-7B-Instruct"},
+			},
+		},
+	}
+
+	// v1alpha1 -> v1alpha2
+	hub := &v1alpha2.LLMInferenceService{}
+	err := src.ConvertTo(hub)
+	require.NoError(t, err)
+	assert.Nil(t, hub.Spec.Tracing)
+
+	// v1alpha2 -> v1alpha1
+	restored := &LLMInferenceService{}
+	err = restored.ConvertFrom(hub)
+	require.NoError(t, err)
+	assert.Nil(t, restored.Spec.Tracing)
+}
+
+func TestLLMInferenceServiceConversion_TracingEmptyStruct(t *testing.T) {
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-tracing-defaults",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI: apis.URL{Scheme: "hf", Host: "Qwen/Qwen2.5-7B-Instruct"},
+			},
+			Tracing: &TracingSpec{},
+		},
+	}
+
+	// v1alpha1 -> v1alpha2
+	hub := &v1alpha2.LLMInferenceService{}
+	err := src.ConvertTo(hub)
+	require.NoError(t, err)
+	require.NotNil(t, hub.Spec.Tracing, "empty tracing struct should be preserved")
+
+	// v1alpha2 -> v1alpha1
+	restored := &LLMInferenceService{}
+	err = restored.ConvertFrom(hub)
+	require.NoError(t, err)
+	require.NotNil(t, restored.Spec.Tracing, "empty tracing struct should survive roundtrip")
+}
