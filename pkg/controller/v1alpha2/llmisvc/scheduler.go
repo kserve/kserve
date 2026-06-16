@@ -165,7 +165,6 @@ func (r *LLMISVCReconciler) reconcileSchedulerServiceAccount(ctx context.Context
 }
 
 func (r *LLMISVCReconciler) reconcileSchedulerDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
-	logger := log.FromContext(ctx)
 	scheduler, err := r.expectedSchedulerDeployment(ctx, llmSvc)
 	if err != nil {
 		return fmt.Errorf("failed to build expected scheduler deployment: %w", err)
@@ -178,57 +177,10 @@ func (r *LLMISVCReconciler) reconcileSchedulerDeployment(ctx context.Context, ll
 		}
 		return Delete(ctx, r, llmSvc, scheduler)
 	}
-	// Defer EPP spec updates until all workload pods have finished rolling out.
-	// The EPP is on the critical path for every response chunk; restarting it mid-stream
-	// truncates in-flight streaming responses on the client side.
-	// Only defer if the scheduler deployment already exists — never block initial creation,
-	// as that would create a circular dependency (workloads wait for scheduler, scheduler
-	// waits for workloads).
-	if rolling, err := r.isWorkloadRolling(ctx, llmSvc); err != nil {
-		return err
-	} else if rolling {
-		curr := &appsv1.Deployment{}
-		if err := r.Get(ctx, client.ObjectKeyFromObject(scheduler), curr); err == nil {
-			logger.Info("Workload rollout in progress, deferring EPP deployment update")
-			return r.propagateSchedulerDeploymentStatus(ctx, scheduler, llmSvc.MarkSchedulerWorkloadReady, llmSvc.MarkSchedulerWorkloadNotReady)
-		}
-		logger.Info("Workload rollout in progress but scheduler deployment does not exist yet, proceeding with creation")
-	}
 	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, scheduler, semanticDeploymentIsEqual, PreserveDeploymentReplicas()); err != nil {
 		return fmt.Errorf("failed to reconcile scheduler deployment %s/%s: %w", scheduler.GetNamespace(), scheduler.GetName(), err)
 	}
 	return r.propagateSchedulerDeploymentStatus(ctx, scheduler, llmSvc.MarkSchedulerWorkloadReady, llmSvc.MarkSchedulerWorkloadNotReady)
-}
-
-// isWorkloadRolling returns true if any workload Deployment for the LLMInferenceService is
-// explicitly unavailable (DeploymentAvailable condition present and not True). Deployments with
-// no Available condition (brand-new or not yet observed by the controller, e.g. in envtest) are
-// treated as not rolling so that initial EPP creation is not blocked. This is used to defer EPP
-// spec updates during active workload rollouts, preventing an EPP restart from truncating
-// in-flight streams while vLLM pods are still coming up.
-func (r *LLMISVCReconciler) isWorkloadRolling(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (bool, error) {
-	names := []string{mainDeploymentName(llmSvc)}
-	if llmSvc.Spec.Prefill != nil {
-		names = append(names, prefillDeploymentName(llmSvc))
-	}
-	for _, name := range names {
-		d := &appsv1.Deployment{}
-		if err := r.Get(ctx, client.ObjectKey{Namespace: llmSvc.GetNamespace(), Name: name}, d); err != nil {
-			if apierrors.IsNotFound(err) {
-				continue
-			}
-			return false, fmt.Errorf("failed to get workload deployment %s: %w", name, err)
-		}
-		for _, cond := range d.Status.Conditions {
-			if cond.Type == appsv1.DeploymentAvailable {
-				if cond.Status != corev1.ConditionTrue {
-					return true, nil
-				}
-				break
-			}
-		}
-	}
-	return false, nil
 }
 
 func (r *LLMISVCReconciler) reconcileSchedulerInferencePool(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
