@@ -372,8 +372,6 @@ spec:
         - mountPath: /mnt/models
           name: models
           readOnly: false
-      nodeSelector:
-        kserve/localmodel: worker
       securityContext:
         runAsNonRoot: true
         seccompProfile:
