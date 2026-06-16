@@ -27,6 +27,12 @@ spec:
       template:
         containers:
           - name: main
+            lifecycle:
+              preStop:
+                exec:
+                  command:
+                  - /bin/sleep
+                  - "15"
             ports:
               - containerPort: 9002
                 name: grpc

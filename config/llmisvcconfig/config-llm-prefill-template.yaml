@@ -207,7 +207,7 @@ spec:
               scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
             periodSeconds: 1
             timeoutSeconds: 1
-            failureThreshold: 1
+            failureThreshold: 2
           startupProbe:
             httpGet:
               path: /health

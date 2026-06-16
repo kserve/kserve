@@ -254,7 +254,7 @@ func TestPresetFiles(t *testing.T) {
 
 										TimeoutSeconds:   1,
 										PeriodSeconds:    1,
-										FailureThreshold: 1,
+										FailureThreshold: 2,
 									},
 									StartupProbe: &corev1.Probe{
 										ProbeHandler: corev1.ProbeHandler{
@@ -532,7 +532,7 @@ func TestPresetFiles(t *testing.T) {
 
 										TimeoutSeconds:   1,
 										PeriodSeconds:    1,
-										FailureThreshold: 1,
+										FailureThreshold: 2,
 									},
 									StartupProbe: &corev1.Probe{
 										ProbeHandler: corev1.ProbeHandler{
