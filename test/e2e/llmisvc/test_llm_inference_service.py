@@ -537,7 +537,11 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 service_name="scheduler-v06-pd-migration-test",
                 response_assertion=assert_200_with_choices,
             ),
-            marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
+            marks=[
+                pytest.mark.cluster_cpu,
+                pytest.mark.cluster_single_node,
+                pytest.mark.llmd_simulator,
+            ],
         ),
         pytest.param(
             TestCase(
@@ -550,7 +554,11 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 service_name="scheduler-v06-threshold-migration-test",
                 response_assertion=assert_200_with_choices,
             ),
-            marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
+            marks=[
+                pytest.mark.cluster_cpu,
+                pytest.mark.cluster_single_node,
+                pytest.mark.llmd_simulator,
+            ],
         ),
         # Precise prefix KV cache routing test
         pytest.param(

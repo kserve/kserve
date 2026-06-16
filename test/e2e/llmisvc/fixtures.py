@@ -1151,14 +1151,16 @@ LLMINFERENCESERVICE_CONFIGS = {
                 {
                     "name": "main",
                     "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.8.2",
-                    "command": ["/app/llm-d-inference-sim"],
+                    "command": ["/bin/sh", "-c"],
                     "args": [
-                        "--port",
-                        "8001",
-                        "--model",
-                        "{{ .Spec.Model.Name }}",
-                        "--mode",
-                        "random",
+                        "/app/llm-d-inference-sim"
+                        " --port 8001"
+                        " --model '{{ .Spec.Model.Name }}'"
+                        " --mode random"
+                        "{{ if .GlobalConfig.EnableTLS }}"
+                        " --ssl-certfile /var/run/kserve/tls/tls.crt"
+                        " --ssl-keyfile /var/run/kserve/tls/tls.key"
+                        "{{ end }}"
                     ],
                     "resources": {
                         "limits": {"cpu": "1", "memory": "2Gi"},
@@ -1174,14 +1176,16 @@ LLMINFERENCESERVICE_CONFIGS = {
                     {
                         "name": "main",
                         "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.8.2",
-                        "command": ["/app/llm-d-inference-sim"],
+                        "command": ["/bin/sh", "-c"],
                         "args": [
-                            "--port",
-                            "8000",
-                            "--model",
-                            "{{ .Spec.Model.Name }}",
-                            "--mode",
-                            "random",
+                            "/app/llm-d-inference-sim"
+                            " --port 8000"
+                            " --model '{{ .Spec.Model.Name }}'"
+                            " --mode random"
+                            "{{ if .GlobalConfig.EnableTLS }}"
+                            " --ssl-certfile /var/run/kserve/tls/tls.crt"
+                            " --ssl-keyfile /var/run/kserve/tls/tls.key"
+                            "{{ end }}"
                         ],
                         "resources": {
                             "limits": {"cpu": "1", "memory": "2Gi"},
