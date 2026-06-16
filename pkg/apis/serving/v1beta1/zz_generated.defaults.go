@@ -1266,6 +1266,838 @@ func SetObjectDefaults_InferenceService(in *InferenceService) {
 			}
 		}
 	}
+	for i := range in.Spec.Canary {
+		a := &in.Spec.Canary[i]
+		if a.Predictor.SKLearn != nil {
+			for j := range a.Predictor.SKLearn.PredictorExtensionSpec.Container.Ports {
+				b := &a.Predictor.SKLearn.PredictorExtensionSpec.Container.Ports[j]
+				if b.Protocol == "" {
+					b.Protocol = "TCP"
+				}
+			}
+			for j := range a.Predictor.SKLearn.PredictorExtensionSpec.Container.Env {
+				b := &a.Predictor.SKLearn.PredictorExtensionSpec.Container.Env[j]
+				if b.ValueFrom != nil {
+					if b.ValueFrom.FileKeyRef != nil {
+						if b.ValueFrom.FileKeyRef.Optional == nil {
+							var ptrVar1 bool = false
+							b.ValueFrom.FileKeyRef.Optional = &ptrVar1
+						}
+					}
+				}
+			}
+			if a.Predictor.SKLearn.PredictorExtensionSpec.Container.LivenessProbe != nil {
+				if a.Predictor.SKLearn.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.SKLearn.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.SKLearn.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if a.Predictor.SKLearn.PredictorExtensionSpec.Container.ReadinessProbe != nil {
+				if a.Predictor.SKLearn.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.SKLearn.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.SKLearn.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if a.Predictor.SKLearn.PredictorExtensionSpec.Container.StartupProbe != nil {
+				if a.Predictor.SKLearn.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.SKLearn.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.SKLearn.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+		}
+		if a.Predictor.XGBoost != nil {
+			for j := range a.Predictor.XGBoost.PredictorExtensionSpec.Container.Ports {
+				b := &a.Predictor.XGBoost.PredictorExtensionSpec.Container.Ports[j]
+				if b.Protocol == "" {
+					b.Protocol = "TCP"
+				}
+			}
+			for j := range a.Predictor.XGBoost.PredictorExtensionSpec.Container.Env {
+				b := &a.Predictor.XGBoost.PredictorExtensionSpec.Container.Env[j]
+				if b.ValueFrom != nil {
+					if b.ValueFrom.FileKeyRef != nil {
+						if b.ValueFrom.FileKeyRef.Optional == nil {
+							var ptrVar1 bool = false
+							b.ValueFrom.FileKeyRef.Optional = &ptrVar1
+						}
+					}
+				}
+			}
+			if a.Predictor.XGBoost.PredictorExtensionSpec.Container.LivenessProbe != nil {
+				if a.Predictor.XGBoost.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.XGBoost.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.XGBoost.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if a.Predictor.XGBoost.PredictorExtensionSpec.Container.ReadinessProbe != nil {
+				if a.Predictor.XGBoost.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.XGBoost.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.XGBoost.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if a.Predictor.XGBoost.PredictorExtensionSpec.Container.StartupProbe != nil {
+				if a.Predictor.XGBoost.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.XGBoost.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.XGBoost.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+		}
+		if a.Predictor.Tensorflow != nil {
+			for j := range a.Predictor.Tensorflow.PredictorExtensionSpec.Container.Ports {
+				b := &a.Predictor.Tensorflow.PredictorExtensionSpec.Container.Ports[j]
+				if b.Protocol == "" {
+					b.Protocol = "TCP"
+				}
+			}
+			for j := range a.Predictor.Tensorflow.PredictorExtensionSpec.Container.Env {
+				b := &a.Predictor.Tensorflow.PredictorExtensionSpec.Container.Env[j]
+				if b.ValueFrom != nil {
+					if b.ValueFrom.FileKeyRef != nil {
+						if b.ValueFrom.FileKeyRef.Optional == nil {
+							var ptrVar1 bool = false
+							b.ValueFrom.FileKeyRef.Optional = &ptrVar1
+						}
+					}
+				}
+			}
+			if a.Predictor.Tensorflow.PredictorExtensionSpec.Container.LivenessProbe != nil {
+				if a.Predictor.Tensorflow.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.Tensorflow.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.Tensorflow.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if a.Predictor.Tensorflow.PredictorExtensionSpec.Container.ReadinessProbe != nil {
+				if a.Predictor.Tensorflow.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.Tensorflow.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.Tensorflow.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if a.Predictor.Tensorflow.PredictorExtensionSpec.Container.StartupProbe != nil {
+				if a.Predictor.Tensorflow.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.Tensorflow.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.Tensorflow.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+		}
+		if a.Predictor.PyTorch != nil {
+			for j := range a.Predictor.PyTorch.PredictorExtensionSpec.Container.Ports {
+				b := &a.Predictor.PyTorch.PredictorExtensionSpec.Container.Ports[j]
+				if b.Protocol == "" {
+					b.Protocol = "TCP"
+				}
+			}
+			for j := range a.Predictor.PyTorch.PredictorExtensionSpec.Container.Env {
+				b := &a.Predictor.PyTorch.PredictorExtensionSpec.Container.Env[j]
+				if b.ValueFrom != nil {
+					if b.ValueFrom.FileKeyRef != nil {
+						if b.ValueFrom.FileKeyRef.Optional == nil {
+							var ptrVar1 bool = false
+							b.ValueFrom.FileKeyRef.Optional = &ptrVar1
+						}
+					}
+				}
+			}
+			if a.Predictor.PyTorch.PredictorExtensionSpec.Container.LivenessProbe != nil {
+				if a.Predictor.PyTorch.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.PyTorch.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.PyTorch.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if a.Predictor.PyTorch.PredictorExtensionSpec.Container.ReadinessProbe != nil {
+				if a.Predictor.PyTorch.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.PyTorch.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.PyTorch.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if a.Predictor.PyTorch.PredictorExtensionSpec.Container.StartupProbe != nil {
+				if a.Predictor.PyTorch.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.PyTorch.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.PyTorch.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+		}
+		if a.Predictor.Triton != nil {
+			for j := range a.Predictor.Triton.PredictorExtensionSpec.Container.Ports {
+				b := &a.Predictor.Triton.PredictorExtensionSpec.Container.Ports[j]
+				if b.Protocol == "" {
+					b.Protocol = "TCP"
+				}
+			}
+			for j := range a.Predictor.Triton.PredictorExtensionSpec.Container.Env {
+				b := &a.Predictor.Triton.PredictorExtensionSpec.Container.Env[j]
+				if b.ValueFrom != nil {
+					if b.ValueFrom.FileKeyRef != nil {
+						if b.ValueFrom.FileKeyRef.Optional == nil {
+							var ptrVar1 bool = false
+							b.ValueFrom.FileKeyRef.Optional = &ptrVar1
+						}
+					}
+				}
+			}
+			if a.Predictor.Triton.PredictorExtensionSpec.Container.LivenessProbe != nil {
+				if a.Predictor.Triton.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.Triton.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.Triton.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if a.Predictor.Triton.PredictorExtensionSpec.Container.ReadinessProbe != nil {
+				if a.Predictor.Triton.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.Triton.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.Triton.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if a.Predictor.Triton.PredictorExtensionSpec.Container.StartupProbe != nil {
+				if a.Predictor.Triton.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.Triton.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.Triton.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+		}
+		if a.Predictor.ONNX != nil {
+			for j := range a.Predictor.ONNX.PredictorExtensionSpec.Container.Ports {
+				b := &a.Predictor.ONNX.PredictorExtensionSpec.Container.Ports[j]
+				if b.Protocol == "" {
+					b.Protocol = "TCP"
+				}
+			}
+			for j := range a.Predictor.ONNX.PredictorExtensionSpec.Container.Env {
+				b := &a.Predictor.ONNX.PredictorExtensionSpec.Container.Env[j]
+				if b.ValueFrom != nil {
+					if b.ValueFrom.FileKeyRef != nil {
+						if b.ValueFrom.FileKeyRef.Optional == nil {
+							var ptrVar1 bool = false
+							b.ValueFrom.FileKeyRef.Optional = &ptrVar1
+						}
+					}
+				}
+			}
+			if a.Predictor.ONNX.PredictorExtensionSpec.Container.LivenessProbe != nil {
+				if a.Predictor.ONNX.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.ONNX.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.ONNX.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if a.Predictor.ONNX.PredictorExtensionSpec.Container.ReadinessProbe != nil {
+				if a.Predictor.ONNX.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.ONNX.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.ONNX.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if a.Predictor.ONNX.PredictorExtensionSpec.Container.StartupProbe != nil {
+				if a.Predictor.ONNX.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.ONNX.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.ONNX.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+		}
+		if a.Predictor.HuggingFace != nil {
+			for j := range a.Predictor.HuggingFace.PredictorExtensionSpec.Container.Ports {
+				b := &a.Predictor.HuggingFace.PredictorExtensionSpec.Container.Ports[j]
+				if b.Protocol == "" {
+					b.Protocol = "TCP"
+				}
+			}
+			for j := range a.Predictor.HuggingFace.PredictorExtensionSpec.Container.Env {
+				b := &a.Predictor.HuggingFace.PredictorExtensionSpec.Container.Env[j]
+				if b.ValueFrom != nil {
+					if b.ValueFrom.FileKeyRef != nil {
+						if b.ValueFrom.FileKeyRef.Optional == nil {
+							var ptrVar1 bool = false
+							b.ValueFrom.FileKeyRef.Optional = &ptrVar1
+						}
+					}
+				}
+			}
+			if a.Predictor.HuggingFace.PredictorExtensionSpec.Container.LivenessProbe != nil {
+				if a.Predictor.HuggingFace.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.HuggingFace.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.HuggingFace.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if a.Predictor.HuggingFace.PredictorExtensionSpec.Container.ReadinessProbe != nil {
+				if a.Predictor.HuggingFace.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.HuggingFace.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.HuggingFace.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if a.Predictor.HuggingFace.PredictorExtensionSpec.Container.StartupProbe != nil {
+				if a.Predictor.HuggingFace.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.HuggingFace.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.HuggingFace.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+		}
+		if a.Predictor.PMML != nil {
+			for j := range a.Predictor.PMML.PredictorExtensionSpec.Container.Ports {
+				b := &a.Predictor.PMML.PredictorExtensionSpec.Container.Ports[j]
+				if b.Protocol == "" {
+					b.Protocol = "TCP"
+				}
+			}
+			for j := range a.Predictor.PMML.PredictorExtensionSpec.Container.Env {
+				b := &a.Predictor.PMML.PredictorExtensionSpec.Container.Env[j]
+				if b.ValueFrom != nil {
+					if b.ValueFrom.FileKeyRef != nil {
+						if b.ValueFrom.FileKeyRef.Optional == nil {
+							var ptrVar1 bool = false
+							b.ValueFrom.FileKeyRef.Optional = &ptrVar1
+						}
+					}
+				}
+			}
+			if a.Predictor.PMML.PredictorExtensionSpec.Container.LivenessProbe != nil {
+				if a.Predictor.PMML.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.PMML.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.PMML.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if a.Predictor.PMML.PredictorExtensionSpec.Container.ReadinessProbe != nil {
+				if a.Predictor.PMML.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.PMML.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.PMML.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if a.Predictor.PMML.PredictorExtensionSpec.Container.StartupProbe != nil {
+				if a.Predictor.PMML.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.PMML.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.PMML.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+		}
+		if a.Predictor.LightGBM != nil {
+			for j := range a.Predictor.LightGBM.PredictorExtensionSpec.Container.Ports {
+				b := &a.Predictor.LightGBM.PredictorExtensionSpec.Container.Ports[j]
+				if b.Protocol == "" {
+					b.Protocol = "TCP"
+				}
+			}
+			for j := range a.Predictor.LightGBM.PredictorExtensionSpec.Container.Env {
+				b := &a.Predictor.LightGBM.PredictorExtensionSpec.Container.Env[j]
+				if b.ValueFrom != nil {
+					if b.ValueFrom.FileKeyRef != nil {
+						if b.ValueFrom.FileKeyRef.Optional == nil {
+							var ptrVar1 bool = false
+							b.ValueFrom.FileKeyRef.Optional = &ptrVar1
+						}
+					}
+				}
+			}
+			if a.Predictor.LightGBM.PredictorExtensionSpec.Container.LivenessProbe != nil {
+				if a.Predictor.LightGBM.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.LightGBM.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.LightGBM.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if a.Predictor.LightGBM.PredictorExtensionSpec.Container.ReadinessProbe != nil {
+				if a.Predictor.LightGBM.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.LightGBM.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.LightGBM.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if a.Predictor.LightGBM.PredictorExtensionSpec.Container.StartupProbe != nil {
+				if a.Predictor.LightGBM.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.LightGBM.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.LightGBM.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+		}
+		if a.Predictor.Paddle != nil {
+			for j := range a.Predictor.Paddle.PredictorExtensionSpec.Container.Ports {
+				b := &a.Predictor.Paddle.PredictorExtensionSpec.Container.Ports[j]
+				if b.Protocol == "" {
+					b.Protocol = "TCP"
+				}
+			}
+			for j := range a.Predictor.Paddle.PredictorExtensionSpec.Container.Env {
+				b := &a.Predictor.Paddle.PredictorExtensionSpec.Container.Env[j]
+				if b.ValueFrom != nil {
+					if b.ValueFrom.FileKeyRef != nil {
+						if b.ValueFrom.FileKeyRef.Optional == nil {
+							var ptrVar1 bool = false
+							b.ValueFrom.FileKeyRef.Optional = &ptrVar1
+						}
+					}
+				}
+			}
+			if a.Predictor.Paddle.PredictorExtensionSpec.Container.LivenessProbe != nil {
+				if a.Predictor.Paddle.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.Paddle.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.Paddle.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if a.Predictor.Paddle.PredictorExtensionSpec.Container.ReadinessProbe != nil {
+				if a.Predictor.Paddle.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.Paddle.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.Paddle.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if a.Predictor.Paddle.PredictorExtensionSpec.Container.StartupProbe != nil {
+				if a.Predictor.Paddle.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.Paddle.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.Paddle.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+		}
+		if a.Predictor.Model != nil {
+			for j := range a.Predictor.Model.PredictorExtensionSpec.Container.Ports {
+				b := &a.Predictor.Model.PredictorExtensionSpec.Container.Ports[j]
+				if b.Protocol == "" {
+					b.Protocol = "TCP"
+				}
+			}
+			for j := range a.Predictor.Model.PredictorExtensionSpec.Container.Env {
+				b := &a.Predictor.Model.PredictorExtensionSpec.Container.Env[j]
+				if b.ValueFrom != nil {
+					if b.ValueFrom.FileKeyRef != nil {
+						if b.ValueFrom.FileKeyRef.Optional == nil {
+							var ptrVar1 bool = false
+							b.ValueFrom.FileKeyRef.Optional = &ptrVar1
+						}
+					}
+				}
+			}
+			if a.Predictor.Model.PredictorExtensionSpec.Container.LivenessProbe != nil {
+				if a.Predictor.Model.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.Model.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.Model.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if a.Predictor.Model.PredictorExtensionSpec.Container.ReadinessProbe != nil {
+				if a.Predictor.Model.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.Model.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.Model.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if a.Predictor.Model.PredictorExtensionSpec.Container.StartupProbe != nil {
+				if a.Predictor.Model.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.Model.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.Model.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+		}
+		if a.Predictor.WorkerSpec != nil {
+			for j := range a.Predictor.WorkerSpec.PodSpec.Volumes {
+				b := &a.Predictor.WorkerSpec.PodSpec.Volumes[j]
+				if b.VolumeSource.ISCSI != nil {
+					if b.VolumeSource.ISCSI.ISCSIInterface == "" {
+						b.VolumeSource.ISCSI.ISCSIInterface = "default"
+					}
+				}
+				if b.VolumeSource.RBD != nil {
+					if b.VolumeSource.RBD.RBDPool == "" {
+						b.VolumeSource.RBD.RBDPool = "rbd"
+					}
+					if b.VolumeSource.RBD.RadosUser == "" {
+						b.VolumeSource.RBD.RadosUser = "admin"
+					}
+					if b.VolumeSource.RBD.Keyring == "" {
+						b.VolumeSource.RBD.Keyring = "/etc/ceph/keyring"
+					}
+				}
+				if b.VolumeSource.AzureDisk != nil {
+					if b.VolumeSource.AzureDisk.CachingMode == nil {
+						ptrVar1 := v1.AzureDataDiskCachingMode(v1.AzureDataDiskCachingReadWrite)
+						b.VolumeSource.AzureDisk.CachingMode = &ptrVar1
+					}
+					if b.VolumeSource.AzureDisk.FSType == nil {
+						var ptrVar1 string = "ext4"
+						b.VolumeSource.AzureDisk.FSType = &ptrVar1
+					}
+					if b.VolumeSource.AzureDisk.ReadOnly == nil {
+						var ptrVar1 bool = false
+						b.VolumeSource.AzureDisk.ReadOnly = &ptrVar1
+					}
+					if b.VolumeSource.AzureDisk.Kind == nil {
+						ptrVar1 := v1.AzureDataDiskKind(v1.AzureSharedBlobDisk)
+						b.VolumeSource.AzureDisk.Kind = &ptrVar1
+					}
+				}
+				if b.VolumeSource.ScaleIO != nil {
+					if b.VolumeSource.ScaleIO.StorageMode == "" {
+						b.VolumeSource.ScaleIO.StorageMode = "ThinProvisioned"
+					}
+					if b.VolumeSource.ScaleIO.FSType == "" {
+						b.VolumeSource.ScaleIO.FSType = "xfs"
+					}
+				}
+			}
+			for j := range a.Predictor.WorkerSpec.PodSpec.InitContainers {
+				b := &a.Predictor.WorkerSpec.PodSpec.InitContainers[j]
+				for k := range b.Ports {
+					c := &b.Ports[k]
+					if c.Protocol == "" {
+						c.Protocol = "TCP"
+					}
+				}
+				for k := range b.Env {
+					c := &b.Env[k]
+					if c.ValueFrom != nil {
+						if c.ValueFrom.FileKeyRef != nil {
+							if c.ValueFrom.FileKeyRef.Optional == nil {
+								var ptrVar1 bool = false
+								c.ValueFrom.FileKeyRef.Optional = &ptrVar1
+							}
+						}
+					}
+				}
+				if b.LivenessProbe != nil {
+					if b.LivenessProbe.ProbeHandler.GRPC != nil {
+						if b.LivenessProbe.ProbeHandler.GRPC.Service == nil {
+							var ptrVar1 string = ""
+							b.LivenessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+						}
+					}
+				}
+				if b.ReadinessProbe != nil {
+					if b.ReadinessProbe.ProbeHandler.GRPC != nil {
+						if b.ReadinessProbe.ProbeHandler.GRPC.Service == nil {
+							var ptrVar1 string = ""
+							b.ReadinessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+						}
+					}
+				}
+				if b.StartupProbe != nil {
+					if b.StartupProbe.ProbeHandler.GRPC != nil {
+						if b.StartupProbe.ProbeHandler.GRPC.Service == nil {
+							var ptrVar1 string = ""
+							b.StartupProbe.ProbeHandler.GRPC.Service = &ptrVar1
+						}
+					}
+				}
+			}
+			for j := range a.Predictor.WorkerSpec.PodSpec.Containers {
+				b := &a.Predictor.WorkerSpec.PodSpec.Containers[j]
+				for k := range b.Ports {
+					c := &b.Ports[k]
+					if c.Protocol == "" {
+						c.Protocol = "TCP"
+					}
+				}
+				for k := range b.Env {
+					c := &b.Env[k]
+					if c.ValueFrom != nil {
+						if c.ValueFrom.FileKeyRef != nil {
+							if c.ValueFrom.FileKeyRef.Optional == nil {
+								var ptrVar1 bool = false
+								c.ValueFrom.FileKeyRef.Optional = &ptrVar1
+							}
+						}
+					}
+				}
+				if b.LivenessProbe != nil {
+					if b.LivenessProbe.ProbeHandler.GRPC != nil {
+						if b.LivenessProbe.ProbeHandler.GRPC.Service == nil {
+							var ptrVar1 string = ""
+							b.LivenessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+						}
+					}
+				}
+				if b.ReadinessProbe != nil {
+					if b.ReadinessProbe.ProbeHandler.GRPC != nil {
+						if b.ReadinessProbe.ProbeHandler.GRPC.Service == nil {
+							var ptrVar1 string = ""
+							b.ReadinessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+						}
+					}
+				}
+				if b.StartupProbe != nil {
+					if b.StartupProbe.ProbeHandler.GRPC != nil {
+						if b.StartupProbe.ProbeHandler.GRPC.Service == nil {
+							var ptrVar1 string = ""
+							b.StartupProbe.ProbeHandler.GRPC.Service = &ptrVar1
+						}
+					}
+				}
+			}
+			for j := range a.Predictor.WorkerSpec.PodSpec.EphemeralContainers {
+				b := &a.Predictor.WorkerSpec.PodSpec.EphemeralContainers[j]
+				for k := range b.EphemeralContainerCommon.Ports {
+					c := &b.EphemeralContainerCommon.Ports[k]
+					if c.Protocol == "" {
+						c.Protocol = "TCP"
+					}
+				}
+				for k := range b.EphemeralContainerCommon.Env {
+					c := &b.EphemeralContainerCommon.Env[k]
+					if c.ValueFrom != nil {
+						if c.ValueFrom.FileKeyRef != nil {
+							if c.ValueFrom.FileKeyRef.Optional == nil {
+								var ptrVar1 bool = false
+								c.ValueFrom.FileKeyRef.Optional = &ptrVar1
+							}
+						}
+					}
+				}
+				if b.EphemeralContainerCommon.LivenessProbe != nil {
+					if b.EphemeralContainerCommon.LivenessProbe.ProbeHandler.GRPC != nil {
+						if b.EphemeralContainerCommon.LivenessProbe.ProbeHandler.GRPC.Service == nil {
+							var ptrVar1 string = ""
+							b.EphemeralContainerCommon.LivenessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+						}
+					}
+				}
+				if b.EphemeralContainerCommon.ReadinessProbe != nil {
+					if b.EphemeralContainerCommon.ReadinessProbe.ProbeHandler.GRPC != nil {
+						if b.EphemeralContainerCommon.ReadinessProbe.ProbeHandler.GRPC.Service == nil {
+							var ptrVar1 string = ""
+							b.EphemeralContainerCommon.ReadinessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+						}
+					}
+				}
+				if b.EphemeralContainerCommon.StartupProbe != nil {
+					if b.EphemeralContainerCommon.StartupProbe.ProbeHandler.GRPC != nil {
+						if b.EphemeralContainerCommon.StartupProbe.ProbeHandler.GRPC.Service == nil {
+							var ptrVar1 string = ""
+							b.EphemeralContainerCommon.StartupProbe.ProbeHandler.GRPC.Service = &ptrVar1
+						}
+					}
+				}
+			}
+		}
+		for j := range a.Predictor.PodSpec.Volumes {
+			b := &a.Predictor.PodSpec.Volumes[j]
+			if b.VolumeSource.ISCSI != nil {
+				if b.VolumeSource.ISCSI.ISCSIInterface == "" {
+					b.VolumeSource.ISCSI.ISCSIInterface = "default"
+				}
+			}
+			if b.VolumeSource.RBD != nil {
+				if b.VolumeSource.RBD.RBDPool == "" {
+					b.VolumeSource.RBD.RBDPool = "rbd"
+				}
+				if b.VolumeSource.RBD.RadosUser == "" {
+					b.VolumeSource.RBD.RadosUser = "admin"
+				}
+				if b.VolumeSource.RBD.Keyring == "" {
+					b.VolumeSource.RBD.Keyring = "/etc/ceph/keyring"
+				}
+			}
+			if b.VolumeSource.AzureDisk != nil {
+				if b.VolumeSource.AzureDisk.CachingMode == nil {
+					ptrVar1 := v1.AzureDataDiskCachingMode(v1.AzureDataDiskCachingReadWrite)
+					b.VolumeSource.AzureDisk.CachingMode = &ptrVar1
+				}
+				if b.VolumeSource.AzureDisk.FSType == nil {
+					var ptrVar1 string = "ext4"
+					b.VolumeSource.AzureDisk.FSType = &ptrVar1
+				}
+				if b.VolumeSource.AzureDisk.ReadOnly == nil {
+					var ptrVar1 bool = false
+					b.VolumeSource.AzureDisk.ReadOnly = &ptrVar1
+				}
+				if b.VolumeSource.AzureDisk.Kind == nil {
+					ptrVar1 := v1.AzureDataDiskKind(v1.AzureSharedBlobDisk)
+					b.VolumeSource.AzureDisk.Kind = &ptrVar1
+				}
+			}
+			if b.VolumeSource.ScaleIO != nil {
+				if b.VolumeSource.ScaleIO.StorageMode == "" {
+					b.VolumeSource.ScaleIO.StorageMode = "ThinProvisioned"
+				}
+				if b.VolumeSource.ScaleIO.FSType == "" {
+					b.VolumeSource.ScaleIO.FSType = "xfs"
+				}
+			}
+		}
+		for j := range a.Predictor.PodSpec.InitContainers {
+			b := &a.Predictor.PodSpec.InitContainers[j]
+			for k := range b.Ports {
+				c := &b.Ports[k]
+				if c.Protocol == "" {
+					c.Protocol = "TCP"
+				}
+			}
+			for k := range b.Env {
+				c := &b.Env[k]
+				if c.ValueFrom != nil {
+					if c.ValueFrom.FileKeyRef != nil {
+						if c.ValueFrom.FileKeyRef.Optional == nil {
+							var ptrVar1 bool = false
+							c.ValueFrom.FileKeyRef.Optional = &ptrVar1
+						}
+					}
+				}
+			}
+			if b.LivenessProbe != nil {
+				if b.LivenessProbe.ProbeHandler.GRPC != nil {
+					if b.LivenessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						b.LivenessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if b.ReadinessProbe != nil {
+				if b.ReadinessProbe.ProbeHandler.GRPC != nil {
+					if b.ReadinessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						b.ReadinessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if b.StartupProbe != nil {
+				if b.StartupProbe.ProbeHandler.GRPC != nil {
+					if b.StartupProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						b.StartupProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+		}
+		for j := range a.Predictor.PodSpec.Containers {
+			b := &a.Predictor.PodSpec.Containers[j]
+			for k := range b.Ports {
+				c := &b.Ports[k]
+				if c.Protocol == "" {
+					c.Protocol = "TCP"
+				}
+			}
+			for k := range b.Env {
+				c := &b.Env[k]
+				if c.ValueFrom != nil {
+					if c.ValueFrom.FileKeyRef != nil {
+						if c.ValueFrom.FileKeyRef.Optional == nil {
+							var ptrVar1 bool = false
+							c.ValueFrom.FileKeyRef.Optional = &ptrVar1
+						}
+					}
+				}
+			}
+			if b.LivenessProbe != nil {
+				if b.LivenessProbe.ProbeHandler.GRPC != nil {
+					if b.LivenessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						b.LivenessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if b.ReadinessProbe != nil {
+				if b.ReadinessProbe.ProbeHandler.GRPC != nil {
+					if b.ReadinessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						b.ReadinessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if b.StartupProbe != nil {
+				if b.StartupProbe.ProbeHandler.GRPC != nil {
+					if b.StartupProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						b.StartupProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+		}
+		for j := range a.Predictor.PodSpec.EphemeralContainers {
+			b := &a.Predictor.PodSpec.EphemeralContainers[j]
+			for k := range b.EphemeralContainerCommon.Ports {
+				c := &b.EphemeralContainerCommon.Ports[k]
+				if c.Protocol == "" {
+					c.Protocol = "TCP"
+				}
+			}
+			for k := range b.EphemeralContainerCommon.Env {
+				c := &b.EphemeralContainerCommon.Env[k]
+				if c.ValueFrom != nil {
+					if c.ValueFrom.FileKeyRef != nil {
+						if c.ValueFrom.FileKeyRef.Optional == nil {
+							var ptrVar1 bool = false
+							c.ValueFrom.FileKeyRef.Optional = &ptrVar1
+						}
+					}
+				}
+			}
+			if b.EphemeralContainerCommon.LivenessProbe != nil {
+				if b.EphemeralContainerCommon.LivenessProbe.ProbeHandler.GRPC != nil {
+					if b.EphemeralContainerCommon.LivenessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						b.EphemeralContainerCommon.LivenessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if b.EphemeralContainerCommon.ReadinessProbe != nil {
+				if b.EphemeralContainerCommon.ReadinessProbe.ProbeHandler.GRPC != nil {
+					if b.EphemeralContainerCommon.ReadinessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						b.EphemeralContainerCommon.ReadinessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if b.EphemeralContainerCommon.StartupProbe != nil {
+				if b.EphemeralContainerCommon.StartupProbe.ProbeHandler.GRPC != nil {
+					if b.EphemeralContainerCommon.StartupProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						b.EphemeralContainerCommon.StartupProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+		}
+	}
 }
 
 func SetObjectDefaults_InferenceServiceList(in *InferenceServiceList) {

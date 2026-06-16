@@ -784,7 +784,10 @@ func InferenceServiceHostName(name string, namespace string, domain string) stri
 	return fmt.Sprintf("%s.%s.%s", name, namespace, domain)
 }
 
-func PredictorServiceName(name string) string {
+func PredictorServiceName(name string, predictorName ...string) string {
+	if len(predictorName) > 0 && predictorName[0] != "" {
+		return name + "-" + predictorName[0] + "-" + string(Predictor)
+	}
 	return name + "-" + string(Predictor)
 }
 
