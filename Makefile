@@ -88,7 +88,10 @@ sync-img-env:
 	@python3 hack/setup/scripts/generate-images-sh.py
 
 go-lint: golangci-lint
+	@echo "Go-linting ."
 	@$(GOLANGCI_LINT) run --fix
+	@echo "Go-linting qpext/"
+	@cd qpext && $(GOLANGCI_LINT) run --fix
 
 py-lint: $(RUFF)
 	$(RUFF) check --config ruff.toml 
