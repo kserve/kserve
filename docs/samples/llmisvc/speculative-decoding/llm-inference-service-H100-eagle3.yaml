@@ -1,0 +1,50 @@
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceService
+metadata:
+  name: qwen3-32b-eagle3
+  annotations:
+    serving.kserve.io/secretName: hf-secret
+spec:
+  model:
+    uri: hf://RedHatAI/Qwen3-32B-FP8-dynamic
+    name: RedHatAI/Qwen3-32B-FP8-dynamic
+  speculator:
+    model:
+      uri: hf://RedHatAI/Qwen3-32B-speculator.eagle3
+    config:
+      method: eagle3
+      num_speculative_tokens: "6"
+      draft_tensor_parallel_size: "1"
+  replicas: 2
+  parallelism:
+    tensor: 2
+  router:
+    scheduler: {}
+    route: {}
+    gateway: {}
+  template:
+    containers:
+      - name: main
+        env:
+          - name: VLLM_USE_V1
+            value: "1"
+        resources:
+          limits:
+            nvidia.com/gpu: "2"
+          requests:
+            nvidia.com/gpu: "2"
+  prefill:
+    replicas: 2
+    parallelism:
+      tensor: 2
+    template:
+      containers:
+        - name: main
+          env:
+            - name: VLLM_USE_V1
+              value: "1"
+          resources:
+            limits:
+              nvidia.com/gpu: "2"
+            requests:
+              nvidia.com/gpu: "2"

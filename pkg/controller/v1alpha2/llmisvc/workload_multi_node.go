@@ -216,6 +216,9 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 		if llmSvc.Spec.KVCacheOffloading != nil {
 			attachKVCacheSecondaryTiers(&expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, llmSvc.Spec.KVCacheOffloading.Secondary, "main")
 		}
+		if err := r.attachSpeculatorModelArtifacts(ctx, serviceAccount, llmSvc, currLeaderSpec, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, config, "main"); err != nil {
+			return nil, fmt.Errorf("failed to attach speculator model artifacts to leader template: %w", err)
+		}
 
 		if hasRoutingSidecar(expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec) {
 			log.FromContext(ctx).V(2).Info("Main container has a routing sidecar")
@@ -243,6 +246,9 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 		}
 		if llmSvc.Spec.KVCacheOffloading != nil {
 			attachKVCacheSecondaryTiers(&expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, llmSvc.Spec.KVCacheOffloading.Secondary, "main")
+		}
+		if err := r.attachSpeculatorModelArtifacts(ctx, serviceAccount, llmSvc, currLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, config, "main"); err != nil {
+			return nil, fmt.Errorf("failed to attach speculator model artifacts to worker template: %w", err)
 		}
 
 		if hasRoutingSidecar(expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec) {

@@ -1,0 +1,30 @@
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceService
+metadata:
+  name: gemma3-4b-ngram
+spec:
+  model:
+    uri: hf://google/gemma-3-4b-it
+    name: google/gemma-3-4b-it
+  speculator:
+    config:
+      method: ngram
+      num_speculative_tokens: "4"
+      prompt_lookup_max: "5"
+      prompt_lookup_min: "2"
+  replicas: 4
+  router:
+    scheduler: {}
+    route: {}
+    gateway: {}
+  template:
+    containers:
+      - name: main
+        env:
+          - name: VLLM_USE_V1
+            value: "1"
+        resources:
+          limits:
+            nvidia.com/gpu: "1"
+          requests:
+            nvidia.com/gpu: "1"

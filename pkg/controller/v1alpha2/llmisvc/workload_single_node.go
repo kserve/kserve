@@ -172,6 +172,9 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 		if llmSvc.Spec.KVCacheOffloading != nil {
 			attachKVCacheSecondaryTiers(&d.Spec.Template.Spec, llmSvc.Spec.KVCacheOffloading.Secondary, "main")
 		}
+		if err := r.attachSpeculatorModelArtifacts(ctx, serviceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, "main"); err != nil {
+			return nil, fmt.Errorf("failed to attach speculator model artifacts to main deployment: %w", err)
+		}
 	}
 
 	r.propagateDeploymentMetadata(llmSvc, d)
