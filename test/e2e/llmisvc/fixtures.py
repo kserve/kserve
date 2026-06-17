@@ -1499,15 +1499,6 @@ LLMINFERENCESERVICE_CONFIGS = {
             "exporter": "otlp",
         }
     },
-    "speculator-ngram": {
-        "speculator": {
-            "config": {
-                "method": "ngram",
-                "num_speculative_tokens": "4",
-                "prompt_lookup_max": "5",
-            },
-        },
-    },
 }
 
 

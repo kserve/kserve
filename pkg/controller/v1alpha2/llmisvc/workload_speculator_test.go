@@ -36,7 +36,7 @@ func TestInjectSpeculativeDecodingArgs_Eagle3(t *testing.T) {
 	t.Parallel()
 	uri, _ := apis.ParseURL("hf://RedHatAI/Qwen3-32B-speculator.eagle3")
 	speculator := &v1alpha2.SpeculatorSpec{
-		Model: &v1alpha2.LLMModelSpec{URI: *uri},
+		Model: &v1alpha2.LLMSpeculatorModelSpec{URI: *uri},
 		Config: map[string]string{
 			"method":                     "eagle3",
 			"num_speculative_tokens":     "3",
@@ -154,7 +154,7 @@ func TestInjectSpeculativeDecodingArgs_DraftModel(t *testing.T) {
 	t.Parallel()
 	uri, _ := apis.ParseURL("hf://meta-llama/Llama-3.2-1B-Instruct")
 	speculator := &v1alpha2.SpeculatorSpec{
-		Model: &v1alpha2.LLMModelSpec{URI: *uri},
+		Model: &v1alpha2.LLMSpeculatorModelSpec{URI: *uri},
 		Config: map[string]string{
 			"method":                     "draft_model",
 			"num_speculative_tokens":     "5",
@@ -357,7 +357,7 @@ func TestAttachSpeculatorModelArtifacts_PvcURI(t *testing.T) {
 	llmSvc := &v1alpha2.LLMInferenceService{
 		Spec: v1alpha2.LLMInferenceServiceSpec{
 			Speculator: &v1alpha2.SpeculatorSpec{
-				Model:  &v1alpha2.LLMModelSpec{URI: *uri},
+				Model:  &v1alpha2.LLMSpeculatorModelSpec{URI: *uri},
 				Config: map[string]string{"method": "eagle3", "num_speculative_tokens": "3"},
 			},
 		},
@@ -401,7 +401,7 @@ func TestAttachSpeculatorModelArtifacts_InvalidURI(t *testing.T) {
 	llmSvc := &v1alpha2.LLMInferenceService{
 		Spec: v1alpha2.LLMInferenceServiceSpec{
 			Speculator: &v1alpha2.SpeculatorSpec{
-				Model:  &v1alpha2.LLMModelSpec{URI: *uri},
+				Model:  &v1alpha2.LLMSpeculatorModelSpec{URI: *uri},
 				Config: map[string]string{"method": "eagle3"},
 			},
 		},
@@ -422,7 +422,7 @@ func TestAttachSpeculatorModelArtifacts_UnsupportedScheme(t *testing.T) {
 	llmSvc := &v1alpha2.LLMInferenceService{
 		Spec: v1alpha2.LLMInferenceServiceSpec{
 			Speculator: &v1alpha2.SpeculatorSpec{
-				Model:  &v1alpha2.LLMModelSpec{URI: *uri},
+				Model:  &v1alpha2.LLMSpeculatorModelSpec{URI: *uri},
 				Config: map[string]string{"method": "eagle3"},
 			},
 		},
@@ -443,7 +443,7 @@ func TestAttachSpeculatorModelArtifacts_OciEnabled(t *testing.T) {
 	llmSvc := &v1alpha2.LLMInferenceService{
 		Spec: v1alpha2.LLMInferenceServiceSpec{
 			Speculator: &v1alpha2.SpeculatorSpec{
-				Model:  &v1alpha2.LLMModelSpec{URI: *uri},
+				Model:  &v1alpha2.LLMSpeculatorModelSpec{URI: *uri},
 				Config: map[string]string{"method": "eagle3"},
 			},
 		},
@@ -487,7 +487,7 @@ func TestAttachSpeculatorModelArtifacts_OciDisabled(t *testing.T) {
 	llmSvc := &v1alpha2.LLMInferenceService{
 		Spec: v1alpha2.LLMInferenceServiceSpec{
 			Speculator: &v1alpha2.SpeculatorSpec{
-				Model:  &v1alpha2.LLMModelSpec{URI: *uri},
+				Model:  &v1alpha2.LLMSpeculatorModelSpec{URI: *uri},
 				Config: map[string]string{"method": "eagle3"},
 			},
 		},
@@ -534,7 +534,7 @@ func TestAttachSpeculatorModelArtifacts_StorageInitializerDisabled(t *testing.T)
 				Enabled: &enabled,
 			},
 			Speculator: &v1alpha2.SpeculatorSpec{
-				Model:  &v1alpha2.LLMModelSpec{URI: *uri},
+				Model:  &v1alpha2.LLMSpeculatorModelSpec{URI: *uri},
 				Config: map[string]string{"method": "eagle3"},
 			},
 		},
@@ -559,7 +559,7 @@ func TestAttachSpeculatorModelArtifacts_S3StorageInitializerDisabled(t *testing.
 				Enabled: &enabled,
 			},
 			Speculator: &v1alpha2.SpeculatorSpec{
-				Model:  &v1alpha2.LLMModelSpec{URI: *uri},
+				Model:  &v1alpha2.LLMSpeculatorModelSpec{URI: *uri},
 				Config: map[string]string{"method": "draft_model"},
 			},
 		},

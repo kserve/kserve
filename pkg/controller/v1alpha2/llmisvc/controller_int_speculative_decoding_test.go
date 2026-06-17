@@ -58,7 +58,7 @@ var _ = Describe("LLMInferenceService Controller - Speculative Decoding", func()
 						URI:  *modelURL,
 					},
 					Speculator: &v1alpha2.SpeculatorSpec{
-						Model: &v1alpha2.LLMModelSpec{
+						Model: &v1alpha2.LLMSpeculatorModelSpec{
 							URI: *speculatorURL,
 						},
 						Config: map[string]string{
@@ -213,7 +213,7 @@ var _ = Describe("LLMInferenceService Controller - Speculative Decoding", func()
 						URI:  *modelURL,
 					},
 					Speculator: &v1alpha2.SpeculatorSpec{
-						Model: &v1alpha2.LLMModelSpec{
+						Model: &v1alpha2.LLMSpeculatorModelSpec{
 							URI: *speculatorURL,
 						},
 						Config: map[string]string{
@@ -280,7 +280,7 @@ var _ = Describe("LLMInferenceService Controller - Speculative Decoding", func()
 				WithTemplate(SimpleWorkerPodSpec()),
 				WithWorker(SimpleWorkerPodSpec()),
 				WithSpeculator(&v1alpha2.SpeculatorSpec{
-					Model: &v1alpha2.LLMModelSpec{
+					Model: &v1alpha2.LLMSpeculatorModelSpec{
 						URI: *speculatorURL,
 					},
 					Config: map[string]string{
@@ -336,7 +336,7 @@ var _ = Describe("LLMInferenceService Controller - Speculative Decoding", func()
 						URI:  *modelURL,
 					},
 					Speculator: &v1alpha2.SpeculatorSpec{
-						Model: &v1alpha2.LLMModelSpec{
+						Model: &v1alpha2.LLMSpeculatorModelSpec{
 							URI: *speculatorURL,
 						},
 						Config: map[string]string{
