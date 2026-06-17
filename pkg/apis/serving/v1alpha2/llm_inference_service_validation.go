@@ -22,11 +22,13 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
+	"strings"
 
 	"k8s.io/utils/ptr"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -34,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -100,6 +103,8 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, l.validateSchedulerConfig(llmSvc)...)
 
 	allErrs = append(allErrs, l.validateScaling(llmSvc)...)
+	allErrs = append(allErrs, l.validateLoRAAdapters(llmSvc)...)
+	allErrs = append(allErrs, l.validateManagedDRAAnnotations(llmSvc)...)
 
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
 
@@ -403,6 +408,75 @@ func (l *LLMInferenceServiceValidator) validateSchedulerConfig(svc *LLMInference
 	return allErrs
 }
 
+func (l *LLMInferenceServiceValidator) validateLoRAAdapters(llmSvc *LLMInferenceService) field.ErrorList {
+	var allErrs field.ErrorList
+
+	if llmSvc.Spec.Model.LoRA == nil {
+		return allErrs
+	}
+
+	loraPath := field.NewPath("spec").Child("model", "lora")
+	loraSpec := llmSvc.Spec.Model.LoRA
+
+	if loraSpec.MaxRank != nil && *loraSpec.MaxRank < 1 {
+		allErrs = append(allErrs, field.Invalid(loraPath.Child("maxRank"), *loraSpec.MaxRank, "maxRank must be at least 1"))
+	}
+	if loraSpec.MaxAdapters != nil && *loraSpec.MaxAdapters < 1 {
+		allErrs = append(allErrs, field.Invalid(loraPath.Child("maxAdapters"), *loraSpec.MaxAdapters, "maxAdapters must be at least 1"))
+	}
+	if loraSpec.MaxCpuAdapters != nil && *loraSpec.MaxCpuAdapters < 1 {
+		allErrs = append(allErrs, field.Invalid(loraPath.Child("maxCpuAdapters"), *loraSpec.MaxCpuAdapters, "maxCpuAdapters must be at least 1"))
+	}
+
+	if len(llmSvc.Spec.Model.LoRA.Adapters) == 0 {
+		return allErrs
+	}
+
+	adaptersPath := loraPath.Child("adapters")
+	baseModelName := ptr.Deref(llmSvc.Spec.Model.Name, llmSvc.Name)
+	seen := make(map[string]int, len(llmSvc.Spec.Model.LoRA.Adapters))
+
+	for i, adapter := range llmSvc.Spec.Model.LoRA.Adapters {
+		namePath := adaptersPath.Index(i).Child("name")
+
+		if adapter.Name == nil || *adapter.Name == "" {
+			allErrs = append(allErrs, field.Required(namePath, "adapter name is required"))
+			continue
+		}
+
+		adapterName := *adapter.Name
+
+		if adapterName == "." || adapterName == ".." {
+			allErrs = append(allErrs, field.Invalid(
+				namePath,
+				adapterName,
+				"adapter name must not include \".\" or \"..\" (path traversal risk)",
+			))
+			continue
+		}
+
+		if prevIdx, dup := seen[adapterName]; dup {
+			allErrs = append(allErrs, field.Invalid(
+				namePath,
+				adapterName,
+				fmt.Sprintf("duplicate name (same as adapters[%d])", prevIdx),
+			))
+		} else {
+			seen[adapterName] = i
+		}
+
+		if adapterName == baseModelName {
+			allErrs = append(allErrs, field.Invalid(
+				namePath,
+				adapterName,
+				fmt.Sprintf("adapter name must differ from base model name %q", baseModelName),
+			))
+		}
+	}
+
+	return allErrs
+}
+
 func (l *LLMInferenceServiceValidator) validateScaling(llmSvc *LLMInferenceService) field.ErrorList {
 	var allErrs field.ErrorList
 
@@ -590,4 +664,87 @@ func ValidateWorkloadScaling(basePath *field.Path, workload *WorkloadSpec) field
 // This is used to report unsupported mutation of values.
 func immutableField(path *field.Path, value interface{}, detail string) *field.Error {
 	return &field.Error{Type: field.ErrorTypeNotSupported, Field: path.String(), BadValue: value, Detail: detail}
+}
+
+// validateManagedDRAAnnotations performs admission-time validation of the
+// serving.kserve.io/exp-dra-* annotations to catch user mistakes early.
+func (l *LLMInferenceServiceValidator) validateManagedDRAAnnotations(llmSvc *LLMInferenceService) field.ErrorList {
+	var allErrs field.ErrorList
+	annotations := llmSvc.GetAnnotations()
+	if len(annotations) == 0 {
+		return allErrs
+	}
+
+	annotationsPath := field.NewPath("metadata").Child("annotations")
+
+	hasDeviceClass := llmSvc.HasManagedDRA()
+	_, hasDeviceCount := annotations[constants.ManagedDRADeviceCountAnnotationKey]
+	_, hasCelSelector := annotations[constants.ManagedDRACelSelectorAnnotationKey]
+	_, hasContainerName := annotations[constants.ManagedDRAContainerNameAnnotationKey]
+
+	// Require device-class if any other DRA annotation is set.
+	if !hasDeviceClass && (hasDeviceCount || hasCelSelector || hasContainerName) {
+		allErrs = append(allErrs, field.Required(
+			annotationsPath.Key(constants.ManagedDRADeviceClassAnnotationKey),
+			fmt.Sprintf("%s is required to enable managed DRA when %s, %s, or %s is set",
+				constants.ManagedDRADeviceClassAnnotationKey,
+				constants.ManagedDRADeviceCountAnnotationKey,
+				constants.ManagedDRACelSelectorAnnotationKey,
+				constants.ManagedDRAContainerNameAnnotationKey),
+		))
+	}
+
+	if trimmed, present := llmSvc.ManagedDRADeviceClass(); present {
+		raw := annotations[constants.ManagedDRADeviceClassAnnotationKey]
+		if trimmed == "" {
+			allErrs = append(allErrs, field.Invalid(
+				annotationsPath.Key(constants.ManagedDRADeviceClassAnnotationKey),
+				raw,
+				"device class must not be empty",
+			))
+		} else if errs := validation.IsDNS1123Subdomain(trimmed); len(errs) > 0 {
+			allErrs = append(allErrs, field.Invalid(
+				annotationsPath.Key(constants.ManagedDRADeviceClassAnnotationKey),
+				raw,
+				"device class must be a DNS subdomain: "+strings.Join(errs, "; "),
+			))
+		}
+	}
+
+	if hasDeviceCount {
+		if _, err := llmSvc.ManagedDRADeviceCount(); err != nil {
+			allErrs = append(allErrs, field.Invalid(
+				annotationsPath.Key(constants.ManagedDRADeviceCountAnnotationKey),
+				annotations[constants.ManagedDRADeviceCountAnnotationKey],
+				err.Error(),
+			))
+		}
+	}
+
+	if hasCelSelector && len(llmSvc.ManagedDRACelSelectors()) == 0 {
+		allErrs = append(allErrs, field.Invalid(
+			annotationsPath.Key(constants.ManagedDRACelSelectorAnnotationKey),
+			annotations[constants.ManagedDRACelSelectorAnnotationKey],
+			"cel selector must contain at least one non-empty CEL expression",
+		))
+	}
+
+	if trimmed, present := llmSvc.ManagedDRAContainerName(); present {
+		raw := annotations[constants.ManagedDRAContainerNameAnnotationKey]
+		if trimmed == "" {
+			allErrs = append(allErrs, field.Invalid(
+				annotationsPath.Key(constants.ManagedDRAContainerNameAnnotationKey),
+				raw,
+				"container name must not be empty",
+			))
+		} else if errs := validation.IsDNS1123Label(trimmed); len(errs) > 0 {
+			allErrs = append(allErrs, field.Invalid(
+				annotationsPath.Key(constants.ManagedDRAContainerNameAnnotationKey),
+				raw,
+				"container name must be a DNS label: "+strings.Join(errs, "; "),
+			))
+		}
+	}
+
+	return allErrs
 }

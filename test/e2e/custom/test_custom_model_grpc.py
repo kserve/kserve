@@ -279,7 +279,7 @@ async def test_predictor_grpc_with_transformer_http(rest_v2_client):
 
 @pytest.mark.transformer
 @pytest.mark.asyncio(scope="session")
-async def test_predictor_rest_with_transformer_rest(rest_v2_client):
+async def test_predictor_rest_with_transformer_rest(rest_v2_client, network_layer):
     service_name = "model-rest-trans-rest"
     model_name = "custom-model"
 
@@ -341,6 +341,7 @@ async def test_predictor_rest_with_transformer_rest(rest_v2_client):
         service_name,
         "./data/custom_model_input_v2.json",
         model_name=model_name,
+        network_layer=network_layer,
     )
     points = ["%.3f" % point for point in list(res.outputs[0].data)]
     assert points == ["14.976", "14.037", "13.966", "12.252", "12.086"]
@@ -365,6 +366,7 @@ async def test_predictor_rest_with_transformer_rest(rest_v2_client):
         service_name,
         infer_request,
         model_name=model_name,
+        network_layer=network_layer,
     )
     points = ["%.3f" % point for point in list(res.outputs[0].data)]
     assert points == ["14.976", "14.037", "13.966", "12.252", "12.086"]

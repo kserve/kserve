@@ -1,6 +1,6 @@
 # kserve-runtime-configs
 
-![Version: v0.18.0](https://img.shields.io/badge/Version-v0.18.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.18.0](https://img.shields.io/badge/AppVersion-v0.18.0-informational?style=flat-square)
+![Version: v0.19.0](https://img.shields.io/badge/Version-v0.19.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.19.0](https://img.shields.io/badge/AppVersion-v0.19.0-informational?style=flat-square)
 
 KServe Runtime Configurations - ClusterServingRuntimes and LLM Inference Configs
 
@@ -11,7 +11,7 @@ KServe Runtime Configurations - ClusterServingRuntimes and LLM Inference Configs
 To install the chart, run the following:
 
 ```console
-$ helm install kserve-runtime-configs oci://ghcr.io/kserve/charts/kserve-runtime-configs --set kserve.servingruntime.enabled=true --set kserve.llmisvcConfigs.enabled=true --version v0.18.0
+$ helm install kserve-runtime-configs oci://ghcr.io/kserve/charts/kserve-runtime-configs --set kserve.servingruntime.enabled=true --set kserve.llmisvcConfigs.enabled=true --version v0.19.0
 ```
 
 ## Maintainers
@@ -155,6 +155,18 @@ $ helm install kserve-runtime-configs oci://ghcr.io/kserve/charts/kserve-runtime
 | kserve.servingruntime.tritonserver.securityContext.runAsNonRoot | bool | `true` |  |
 | kserve.servingruntime.tritonserver.securityContext.runAsUser | int | `1000` |  |
 | kserve.servingruntime.tritonserver.tag | string | `"23.05-py3"` |  |
+| kserve.servingruntime.vllmserver.devShm.enabled | bool | `false` |  |
+| kserve.servingruntime.vllmserver.devShm.sizeLimit | string | `""` |  |
+| kserve.servingruntime.vllmserver.disabled | bool | `false` |  |
+| kserve.servingruntime.vllmserver.hostIPC.enabled | bool | `false` |  |
+| kserve.servingruntime.vllmserver.image | string | `"vllm/vllm-openai"` |  |
+| kserve.servingruntime.vllmserver.imagePullPolicy | string | `"IfNotPresent"` |  |
+| kserve.servingruntime.vllmserver.imagePullSecrets | list | `[]` |  |
+| kserve.servingruntime.vllmserver.lmcacheUseExperimental | string | `"True"` |  |
+| kserve.servingruntime.vllmserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
+| kserve.servingruntime.vllmserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
+| kserve.servingruntime.vllmserver.securityContext.privileged | bool | `false` |  |
+| kserve.servingruntime.vllmserver.tag | string | `"latest"` |  |
 | kserve.servingruntime.xgbserver.disabled | bool | `false` |  |
 | kserve.servingruntime.xgbserver.image | string | `"kserve/xgbserver"` |  |
 | kserve.servingruntime.xgbserver.imagePullPolicy | string | `"IfNotPresent"` |  |
@@ -164,4 +176,4 @@ $ helm install kserve-runtime-configs oci://ghcr.io/kserve/charts/kserve-runtime
 | kserve.servingruntime.xgbserver.securityContext.privileged | bool | `false` |  |
 | kserve.servingruntime.xgbserver.securityContext.runAsNonRoot | bool | `true` |  |
 | kserve.servingruntime.xgbserver.tag | string | `""` |  |
-| kserve.version | string | `"v0.18.0"` |  |
+| kserve.version | string | `"v0.19.0"` |  |

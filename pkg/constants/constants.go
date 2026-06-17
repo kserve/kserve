@@ -137,6 +137,13 @@ var (
 	DisableAutoUpdateAnnotationKey              = KServeAPIGroupName + "/disable-auto-update"
 	ModelFormatAnnotationKey                    = "modelFormat"
 	InferencePoolMigratedAnnotationKey          = KServeAPIGroupName + "/inferencepool-migrated"
+	// Managed DRA Experimental Annotations
+	// These annotations provide an intentionally limited-scope convenience feature for basic DRA use cases.
+	// Complex DRA topologies should use native Kubernetes ResourceClaimTemplate objects directly.
+	ManagedDRADeviceClassAnnotationKey   = KServeAPIGroupName + "/exp-dra-device-class"
+	ManagedDRACelSelectorAnnotationKey   = KServeAPIGroupName + "/exp-dra-cel-selector"
+	ManagedDRADeviceCountAnnotationKey   = KServeAPIGroupName + "/exp-dra-device-count"
+	ManagedDRAContainerNameAnnotationKey = KServeAPIGroupName + "/exp-dra-container-name"
 )
 
 // ServingRuntime Server Type Annotations
@@ -151,6 +158,7 @@ var (
 	StorageSpecAnnotationKey                         = InferenceServiceInternalAnnotationsPrefix + "/storage-spec"
 	StorageSpecParamAnnotationKey                    = InferenceServiceInternalAnnotationsPrefix + "/storage-spec-param"
 	StorageSpecKeyAnnotationKey                      = InferenceServiceInternalAnnotationsPrefix + "/storage-spec-key"
+	StorageContainerNameAnnotationKey                = InferenceServiceInternalAnnotationsPrefix + "/storage-container-name"
 	LoggerInternalAnnotationKey                      = InferenceServiceInternalAnnotationsPrefix + "/logger"
 	LoggerSinkUrlInternalAnnotationKey               = InferenceServiceInternalAnnotationsPrefix + "/logger-sink-url"
 	LoggerModeInternalAnnotationKey                  = InferenceServiceInternalAnnotationsPrefix + "/logger-mode"
@@ -431,6 +439,20 @@ const (
 	LLMComponentInference             = "inference" // used in sample/template resources
 )
 
+// LLMInferenceService constants
+const (
+	// LLMISVCRoutingSidecarContainerName is the name of the routing sidecar container
+	// that handles prefill disaggregation routing.
+	LLMISVCRoutingSidecarContainerName = "llm-d-routing-sidecar"
+
+	LLMISVCDefaultServiceAccountName = "default"
+
+	// LLMISVCSchedulerAttachesLoRA controls whether the scheduler's tokenizer sidecar
+	// receives LoRA adapter artifacts. The tokenizer only performs tokenization and does
+	// not run inference, so LoRA weights are never needed.
+	LLMISVCSchedulerAttachesLoRA = false
+)
+
 // InferenceService canary constants
 const (
 	InferenceServiceCanary = "canary"
@@ -560,6 +582,7 @@ const (
 	LGBServer         = "kserve-lgbserver"
 	PaddleServer      = "kserve-paddleserver"
 	HuggingFaceServer = "kserve-huggingfaceserver"
+	VLLMServer        = "kserve-vllmserver"
 )
 
 // Server type annotation values
@@ -577,6 +600,7 @@ const (
 	ServerTypePyTorchServer     = "pytorchserver"
 	ServerTypeSKLearnServer     = "sklearnserver"
 	ServerTypeXGBoostServer     = "xgbserver"
+	ServerTypeVLLMServer        = "vllmserver"
 )
 
 // GetServerTypeFromRuntimeName converts runtime name to server type for backward compatibility.
@@ -589,6 +613,12 @@ func GetServerTypeFromRuntimeName(runtimeName string) string {
 		return ServerTypeTorchServe
 	case TritonServer:
 		return ServerTypeTritonServer
+	case TFServing:
+		return ServerTypeTensorflowServing
+	case HuggingFaceServer:
+		return ServerTypeHuggingFaceServer
+	case VLLMServer:
+		return ServerTypeVLLMServer
 	default:
 		return ""
 	}
@@ -634,6 +664,7 @@ const (
 	SupportedModelPaddle      = "paddle"
 	SupportedModelTriton      = "triton"
 	SupportedModelMLFlow      = "mlflow"
+	SupportedModelVLLM        = "vLLM"
 )
 
 type ProtocolVersion int

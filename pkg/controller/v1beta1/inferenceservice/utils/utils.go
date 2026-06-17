@@ -359,7 +359,7 @@ func ReplacePlaceholders(container *corev1.Container, meta metav1.ObjectMeta) er
 }
 
 // UpdateImageTag Update image tag if GPU is enabled or runtime version is provided
-func UpdateImageTag(container *corev1.Container, runtimeVersion *string, servingRuntime *string) {
+func UpdateImageTag(container *corev1.Container, runtimeVersion *string, servingRuntime *string, runtimeAnnotations map[string]string) {
 	image := container.Image
 
 	// If image uses a digest (e.g. image@sha256:...), do not change it.
@@ -374,18 +374,39 @@ func UpdateImageTag(container *corev1.Container, runtimeVersion *string, serving
 		} else {
 			container.Image = re.ReplaceAllString(image, ":"+*runtimeVersion)
 		}
-	} else if utils.IsGPUEnabled(container.Resources) && len(strings.Split(image, ":")) > 0 {
-		re := regexp.MustCompile(`(:([\w.\-_]*))$`)
-		if len(re.FindString(image)) > 0 {
-			// For TFServing/TorchServe/HuggingFace the GPU image is tagged with suffix "-gpu", when the version is found in the tag
-			// and runtimeVersion is not specified, we default to append the "-gpu" suffix to the image tag
-			if servingRuntime != nil && (*servingRuntime == constants.TFServing || *servingRuntime == constants.TorchServe || *servingRuntime == constants.HuggingFaceServer) {
-				// check for the case when image field is specified directly with gpu tag
-				if !strings.HasSuffix(container.Image, "-gpu") {
-					container.Image = image + "-gpu"
-				}
+		return
+	}
+
+	// Resolve server type using the annotation-first, fallback to runtime name-based approach for backward compatibility.
+	serverType := runtimeAnnotations[constants.ServerTypeAnnotationKey]
+	if serverType == "" && servingRuntime != nil {
+		serverType = constants.GetServerTypeFromRuntimeName(*servingRuntime)
+	}
+	if serverType == "" {
+		return
+	}
+
+	re := regexp.MustCompile(`(:([\w.\-_]*))$`)
+	tag := re.FindString(image)
+	if tag == "" {
+		return
+	}
+	imageWithoutTag := strings.TrimSuffix(image, tag)
+
+	if utils.IsGPUEnabled(container.Resources) {
+		// For TFServing/TorchServe/HuggingFace the GPU build is published as the same image
+		// with a "-gpu" tag suffix; append it when runtimeVersion is not specified.
+		switch serverType {
+		case constants.ServerTypeTensorflowServing, constants.ServerTypeTorchServe, constants.ServerTypeHuggingFaceServer:
+			if !strings.HasSuffix(image, "-gpu") {
+				container.Image = image + "-gpu"
 			}
 		}
+	} else if serverType == constants.ServerTypeVLLMServer && !strings.HasSuffix(imageWithoutTag, "-cpu") {
+		// For vLLM the CPU build lives in a sibling repository named "<image>-cpu"
+		// (e.g. vllm/vllm-openai -> vllm/vllm-openai-cpu), so insert "-cpu" immediately
+		// before the tag separator instead of appending it to the tag.
+		container.Image = imageWithoutTag + "-cpu" + tag
 	}
 }
 
