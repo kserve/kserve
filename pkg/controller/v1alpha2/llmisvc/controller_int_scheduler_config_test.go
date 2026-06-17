@@ -1029,7 +1029,7 @@ schedulingProfiles:
 				for _, apiGroup := range rule.APIGroups {
 					if apiGroup == "inference.networking.k8s.io" {
 						Expect(rule.Resources).To(ContainElements("inferencepools", "inferenceobjectives", "inferencemodels"))
-						Expect(rule.Verbs).To(ContainElements("create", "delete", "get", "list", "patch", "update", "watch"))
+						Expect(rule.Verbs).To(ContainElements("get", "list", "watch"))
 						hasGIEPermission = true
 					}
 				}
