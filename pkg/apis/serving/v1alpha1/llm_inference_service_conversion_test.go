@@ -1155,7 +1155,7 @@ func TestLLMInferenceServiceConversion_Speculator_Eagle3(t *testing.T) {
 				URI: apis.URL{Scheme: "hf", Host: "RedHatAI/Qwen3-32B-FP8-dynamic"},
 			},
 			Speculator: &SpeculatorSpec{
-				Model: &LLMModelSpec{
+				Model: &LLMSpeculatorModelSpec{
 					URI: apis.URL{Scheme: "hf", Host: "RedHatAI/Qwen3-32B-speculator.eagle3"},
 				},
 				Config: map[string]string{
@@ -1257,7 +1257,7 @@ func TestLLMInferenceServiceConfigConversion_Speculator(t *testing.T) {
 		},
 		Spec: LLMInferenceServiceSpec{
 			Speculator: &SpeculatorSpec{
-				Model: &LLMModelSpec{
+				Model: &LLMSpeculatorModelSpec{
 					URI: apis.URL{Scheme: "hf", Host: "RedHatAI/Qwen3-32B-speculator.eagle3"},
 				},
 				Config: map[string]string{
