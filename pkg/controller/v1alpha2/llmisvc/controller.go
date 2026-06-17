@@ -55,8 +55,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
-	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	igwapiv1alpha2 "github.com/kserve/kserve/pkg/apis/gie/v1alpha2pool"
 
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	wvav1alpha1 "github.com/llm-d/llm-d-workload-variant-autoscaler/api/v1alpha1"
@@ -436,12 +437,13 @@ func (r *LLMISVCReconciler) enqueueOnGatewayChange(logger logr.Logger) handler.E
 			return reqs
 		}
 
+		// When a Gateway is modified, we need to find all LLMInferenceService instances that might
+		// depend on it and trigger their reconciliation.
 		llmSvcList := &v1alpha2.LLMInferenceServiceList{}
 		if err := r.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace}); err != nil {
 			logger.Error(err, "Failed to list LLMInferenceService")
 			return reqs
 		}
-
 		for _, llmSvc := range llmSvcList.Items {
 			if hasRoutingGatewayRef(&llmSvc, gwapiv1.ObjectName(sub.Name), gwapiv1.Namespace(sub.Namespace)) {
 				reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
@@ -511,12 +513,13 @@ func (r *LLMISVCReconciler) enqueueOnHttpRouteChange(logger logr.Logger) handler
 			return reqs
 		}
 
+		// When an HTTPRoute is modified, we need to find all LLMInferenceService instances that might
+		// depend on it and trigger their reconciliation.
 		llmSvcList := &v1alpha2.LLMInferenceServiceList{}
 		if err := r.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace}); err != nil {
 			logger.Error(err, "Failed to list LLMInferenceService")
 			return reqs
 		}
-
 		for _, llmSvc := range llmSvcList.Items {
 			if hasRoutingHTTPRouteRef(&llmSvc, gwapiv1.ObjectName(sub.Name), sub.Namespace) {
 				reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
@@ -575,12 +578,13 @@ func (r *LLMISVCReconciler) enqueueOnInferencePoolChange(logger logr.Logger) han
 			return reqs
 		}
 
+		// When an InferencePool is modified, we need to find all LLMInferenceService instances that might
+		// depend on it through scheduler.pool.ref and trigger their reconciliation.
 		llmSvcList := &v1alpha2.LLMInferenceServiceList{}
 		if err := r.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace}); err != nil {
 			logger.Error(err, "Failed to list LLMInferenceService")
 			return reqs
 		}
-
 		for _, llmSvc := range llmSvcList.Items {
 			llmSvcCopy := llmSvc.DeepCopy()
 			result, err := r.combineBaseRefsConfig(ctx, llmSvcCopy, cfg)
@@ -624,12 +628,12 @@ func (r *LLMISVCReconciler) enqueueOnLLMInferenceServiceConfigChange(logger logr
 			listNamespace = corev1.NamespaceAll
 		}
 
+		// Find all LLMInferenceService instances that depend on (or may depend on) this config.
 		llmSvcList := &v1alpha2.LLMInferenceServiceList{}
 		if err := r.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace}); err != nil {
 			logger.Error(err, "Failed to list LLMInferenceService")
 			return reqs
 		}
-
 		for _, llmSvc := range llmSvcList.Items {
 			// Check status.appliedConfigs first (populated on success, retained
 			// when stopped), then fall back to annotations/baseRefs.

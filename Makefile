@@ -138,6 +138,8 @@ manifests: controller-gen kustomize yq
 	# The llmisvc helm chart needs to be installed after the Envoy Gateway as well, so it needs to be created before the llmisvc helm chart.
 	$(KUSTOMIZE) build https://github.com/kubernetes-sigs/gateway-api-inference-extension.git/config/crd?ref=$(GIE_VERSION) > config/llmisvc/gateway-inference-extension.yaml
 	cp config/llmisvc/gateway-inference-extension.yaml test/crds/gateway-inference-extension.yaml
+	cat test/crds/gateway-inference-extension-v1alpha2pool.yaml >> config/llmisvc/gateway-inference-extension.yaml
+	cat test/crds/gateway-inference-extension-v1alpha2pool.yaml >> test/crds/gateway-inference-extension.yaml
 
 	# Move StorageContainer CRD to storagecontainer folder
 	mv config/crd/full/serving.kserve.io_clusterstoragecontainers.yaml config/crd/full/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml

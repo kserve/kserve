@@ -9324,6 +9324,12 @@ spec:
                               x-kubernetes-map-type: atomic
                             spec:
                               properties:
+                                appProtocol:
+                                  default: http
+                                  enum:
+                                    - http
+                                    - kubernetes.io/h2c
+                                  type: string
                                 endpointPickerRef:
                                   properties:
                                     failureMode:
