@@ -23373,31 +23373,6 @@ spec:
                     type: object
                   model:
                     properties:
-                      criticality:
-                        enum:
-                        - Critical
-                        - Standard
-                        - Sheddable
-                        type: string
-                      lora:
-                        properties:
-                          adapters:
-                            x-kubernetes-preserve-unknown-fields: true
-                          maxAdapters:
-                            format: int32
-                            minimum: 1
-                            type: integer
-                          maxCpuAdapters:
-                            format: int32
-                            minimum: 1
-                            type: integer
-                          maxRank:
-                            format: int32
-                            minimum: 1
-                            type: integer
-                        type: object
-                      name:
-                        type: string
                       uri:
                         type: string
                     required:
@@ -23405,9 +23380,6 @@ spec:
                     type: object
                 type: object
                 x-kubernetes-validations:
-                - message: speculator.model.lora is not supported; LoRA adapters apply
-                    only to the base model
-                  rule: '!has(self.model) || !has(self.model.lora)'
                 - message: speculator.config.method is required; it specifies the
                     speculative decoding strategy (e.g. eagle3, draft_model, ngram,
                     mtp)
@@ -48032,25 +48004,6 @@ spec:
                     type: object
                   model:
                     properties:
-                      lora:
-                        properties:
-                          adapters:
-                            x-kubernetes-preserve-unknown-fields: true
-                          maxAdapters:
-                            format: int32
-                            minimum: 1
-                            type: integer
-                          maxCpuAdapters:
-                            format: int32
-                            minimum: 1
-                            type: integer
-                          maxRank:
-                            format: int32
-                            minimum: 1
-                            type: integer
-                        type: object
-                      name:
-                        type: string
                       uri:
                         type: string
                     required:
@@ -48058,9 +48011,6 @@ spec:
                     type: object
                 type: object
                 x-kubernetes-validations:
-                - message: speculator.model.lora is not supported; LoRA adapters apply
-                    only to the base model
-                  rule: '!has(self.model) || !has(self.model.lora)'
                 - message: speculator.config.method is required; it specifies the
                     speculative decoding strategy (e.g. eagle3, draft_model, ngram,
                     mtp)
@@ -73130,31 +73080,6 @@ spec:
                     type: object
                   model:
                     properties:
-                      criticality:
-                        enum:
-                        - Critical
-                        - Standard
-                        - Sheddable
-                        type: string
-                      lora:
-                        properties:
-                          adapters:
-                            x-kubernetes-preserve-unknown-fields: true
-                          maxAdapters:
-                            format: int32
-                            minimum: 1
-                            type: integer
-                          maxCpuAdapters:
-                            format: int32
-                            minimum: 1
-                            type: integer
-                          maxRank:
-                            format: int32
-                            minimum: 1
-                            type: integer
-                        type: object
-                      name:
-                        type: string
                       uri:
                         type: string
                     required:
@@ -73162,9 +73087,6 @@ spec:
                     type: object
                 type: object
                 x-kubernetes-validations:
-                - message: speculator.model.lora is not supported; LoRA adapters apply
-                    only to the base model
-                  rule: '!has(self.model) || !has(self.model.lora)'
                 - message: speculator.config.method is required; it specifies the
                     speculative decoding strategy (e.g. eagle3, draft_model, ngram,
                     mtp)
@@ -98685,25 +98607,6 @@ spec:
                     type: object
                   model:
                     properties:
-                      lora:
-                        properties:
-                          adapters:
-                            x-kubernetes-preserve-unknown-fields: true
-                          maxAdapters:
-                            format: int32
-                            minimum: 1
-                            type: integer
-                          maxCpuAdapters:
-                            format: int32
-                            minimum: 1
-                            type: integer
-                          maxRank:
-                            format: int32
-                            minimum: 1
-                            type: integer
-                        type: object
-                      name:
-                        type: string
                       uri:
                         type: string
                     required:
@@ -98711,9 +98614,6 @@ spec:
                     type: object
                 type: object
                 x-kubernetes-validations:
-                - message: speculator.model.lora is not supported; LoRA adapters apply
-                    only to the base model
-                  rule: '!has(self.model) || !has(self.model.lora)'
                 - message: speculator.config.method is required; it specifies the
                     speculative decoding strategy (e.g. eagle3, draft_model, ngram,
                     mtp)

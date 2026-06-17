@@ -128,17 +128,22 @@ type LLMInferenceServiceSpec struct {
 }
 
 // SpeculatorSpec configures speculative decoding for the inference server.
-// +kubebuilder:validation:XValidation:rule="!has(self.model) || !has(self.model.lora)",message="speculator.model.lora is not supported; LoRA adapters apply only to the base model"
 // +kubebuilder:validation:XValidation:rule="!has(self.config) || (size(self.config) == 0) || ('method' in self.config)",message="speculator.config.method is required; it specifies the speculative decoding strategy (e.g. eagle3, draft_model, ngram, mtp)"
 type SpeculatorSpec struct {
 	// Model specification for the speculator or draft model.
 	// +optional
-	Model *LLMModelSpec `json:"model,omitempty"`
+	Model *LLMSpeculatorModelSpec `json:"model,omitempty"`
 
 	// Config provides the speculative decoding parameters passed directly to the
 	// vLLM --speculative-config JSON.
 	// +optional
 	Config map[string]string `json:"config,omitempty"`
+}
+
+// LLMSpeculatorModelSpec defines the model source for a speculator or draft model.
+type LLMSpeculatorModelSpec struct {
+	// URI of the speculator model, specifying its location.
+	URI apis.URL `json:"uri"`
 }
 
 // WorkloadSpec defines the configuration for a deployment workload, such as replicas and pod specifications.

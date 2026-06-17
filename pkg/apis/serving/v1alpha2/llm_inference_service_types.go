@@ -173,7 +173,6 @@ type LLMInferenceServiceSpec struct {
 //	    num_speculative_tokens: "4"
 //	    prompt_lookup_max: "5"
 //
-// +kubebuilder:validation:XValidation:rule="!has(self.model) || !has(self.model.lora)",message="speculator.model.lora is not supported; LoRA adapters apply only to the base model"
 // +kubebuilder:validation:XValidation:rule="!has(self.config) || (size(self.config) == 0) || ('method' in self.config)",message="speculator.config.method is required; it specifies the speculative decoding strategy (e.g. eagle3, draft_model, ngram, mtp)"
 type SpeculatorSpec struct {
 	// Model specification for the speculator or draft model.
@@ -181,7 +180,7 @@ type SpeculatorSpec struct {
 	// The controller creates a dedicated storage-initializer init container to fetch this model.
 	// Not required for methods that don't use a separate model (e.g., ngram, mtp).
 	// +optional
-	Model *LLMModelSpec `json:"model,omitempty"`
+	Model *LLMSpeculatorModelSpec `json:"model,omitempty"`
 
 	// Config provides the speculative decoding parameters passed directly to the
 	// vLLM --speculative-config JSON. Keys correspond to vLLM's speculative config schema.
@@ -189,6 +188,15 @@ type SpeculatorSpec struct {
 	// See https://docs.vllm.ai/en/latest/features/speculative_decoding/#-speculative-config-schema
 	// +optional
 	Config map[string]string `json:"config,omitempty"`
+}
+
+// LLMSpeculatorModelSpec defines the model source for a speculator or draft model.
+// Unlike LLMModelSpec, this type intentionally excludes LoRA since speculator models
+// do not support adapter configurations.
+type LLMSpeculatorModelSpec struct {
+	// URI of the speculator model, specifying its location.
+	// Supports hf://, s3://, pvc://, and oci:// schemes.
+	URI apis.URL `json:"uri"`
 }
 
 // WorkloadSpec defines the configuration for a deployment workload, such as replicas and pod specifications.

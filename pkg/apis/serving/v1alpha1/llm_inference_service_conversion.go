@@ -238,8 +238,9 @@ func convertSpeculatorToV1Alpha2(src *SpeculatorSpec) *v1alpha2.SpeculatorSpec {
 		}
 	}
 	if src.Model != nil {
-		model := convertModelSpecToV1Alpha2(src.Model)
-		dst.Model = &model
+		dst.Model = &v1alpha2.LLMSpeculatorModelSpec{
+			URI: src.Model.URI,
+		}
 	}
 	return dst
 }
@@ -253,8 +254,9 @@ func convertSpeculatorFromV1Alpha2(src *v1alpha2.SpeculatorSpec) *SpeculatorSpec
 		}
 	}
 	if src.Model != nil {
-		model := convertModelSpecFromV1Alpha2(src.Model)
-		dst.Model = &model
+		dst.Model = &LLMSpeculatorModelSpec{
+			URI: src.Model.URI,
+		}
 	}
 	return dst
 }
