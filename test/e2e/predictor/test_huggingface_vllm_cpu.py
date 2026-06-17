@@ -75,12 +75,8 @@ def test_huggingface_vllm_cpu_openai_chat_completions():
                     value="1",
                 ),
                 client.V1EnvVar(
-                    name="VLLM_ENABLE_V1_MULTIPROCESSING",
-                    value="0",
-                ),
-                client.V1EnvVar(
-                    name="VLLM_USE_V1",
-                    value="0",
+                    name="VLLM_WORKER_MULTIPROC_METHOD",
+                    value="spawn",
                 ),
             ],
             resources=V1ResourceRequirements(
@@ -144,12 +140,8 @@ def test_huggingface_vllm_cpu_text_completion_streaming():
                     value="1",
                 ),
                 client.V1EnvVar(
-                    name="VLLM_ENABLE_V1_MULTIPROCESSING",
-                    value="0",
-                ),
-                client.V1EnvVar(
-                    name="VLLM_USE_V1",
-                    value="0",
+                    name="VLLM_WORKER_MULTIPROC_METHOD",
+                    value="spawn",
                 ),
             ],
             resources=V1ResourceRequirements(
@@ -215,12 +207,8 @@ def test_huggingface_vllm_cpu_openai_completions():
                     value="1",
                 ),
                 client.V1EnvVar(
-                    name="VLLM_ENABLE_V1_MULTIPROCESSING",
-                    value="0",
-                ),
-                client.V1EnvVar(
-                    name="VLLM_USE_V1",
-                    value="0",
+                    name="VLLM_WORKER_MULTIPROC_METHOD",
+                    value="spawn",
                 ),
             ],
             resources=V1ResourceRequirements(
@@ -283,12 +271,8 @@ def test_huggingface_vllm_openai_chat_completions_streaming():
                     value="1",
                 ),
                 client.V1EnvVar(
-                    name="VLLM_ENABLE_V1_MULTIPROCESSING",
-                    value="0",
-                ),
-                client.V1EnvVar(
-                    name="VLLM_USE_V1",
-                    value="0",
+                    name="VLLM_WORKER_MULTIPROC_METHOD",
+                    value="spawn",
                 ),
             ],
             resources=V1ResourceRequirements(
@@ -357,8 +341,8 @@ def test_huggingface_vllm_cpu_rerank():
                     value="1",
                 ),
                 client.V1EnvVar(
-                    name="VLLM_ENABLE_V1_MULTIPROCESSING",
-                    value="0",
+                    name="VLLM_WORKER_MULTIPROC_METHOD",
+                    value="spawn",
                 ),
             ],
             resources=V1ResourceRequirements(
