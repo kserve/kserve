@@ -774,5 +774,25 @@ func TestConfigureOciNativeToContainer(t *testing.T) {
 		g.Expect(err.Error()).To(gomega.ContainSubstring("no container found"))
 	})
 
+	t.Run("multi-container: same image volume mounted on two target containers", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+		podSpec := &corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.InferenceServiceContainerName},
+				{Name: constants.TransformerContainerName},
+			},
+		}
+		uri := constants.OciURIPrefix + "registry.io/mymodel:v1"
+		err1 := ConfigureOciNativeToContainer(uri, podSpec, constants.InferenceServiceContainerName, constants.DefaultModelLocalMountPath, cfg)
+		err2 := ConfigureOciNativeToContainer(uri, podSpec, constants.TransformerContainerName, constants.DefaultModelLocalMountPath, cfg)
+		g.Expect(err1).ToNot(gomega.HaveOccurred())
+		g.Expect(err2).ToNot(gomega.HaveOccurred())
+		g.Expect(podSpec.Volumes).To(gomega.HaveLen(1), "shared volume should appear exactly once")
+		g.Expect(podSpec.Containers[0].VolumeMounts).To(gomega.HaveLen(1), "kserve-container should have the mount")
+		g.Expect(podSpec.Containers[1].VolumeMounts).To(gomega.HaveLen(1), "transformer should have the mount")
+		g.Expect(podSpec.Containers[0].VolumeMounts[0].MountPath).To(gomega.Equal(constants.DefaultModelLocalMountPath))
+		g.Expect(podSpec.Containers[1].VolumeMounts[0].MountPath).To(gomega.Equal(constants.DefaultModelLocalMountPath))
+	})
+
 	_ = g // suppress unused warning from outer scope
 }

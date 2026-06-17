@@ -665,27 +665,32 @@ func ConfigureOciNativeToContainer(modelUri string, podSpec *corev1.PodSpec, tar
 		}
 	}
 
-	// Idempotent: skip if the pod-level Volume already exists.
-	// This is distinct from AddVolumeMountIfNotPresent, which deduplicates per-container
-	// VolumeMounts. Both layers need independent duplicate detection: duplicate pod Volumes
-	// are rejected by the API server, while duplicate container VolumeMounts are rejected
-	// by the kubelet. No shared helper covers pod-level Volumes, so this loop is necessary.
+	// Guard against duplicate pod-level Volume entries (the API server rejects them).
+	// There is no shared helper for pod-level Volumes; AddVolumeMountIfNotPresent only
+	// covers per-container VolumeMounts. Unlike the previous early-return, we always
+	// call AddVolumeMountIfNotPresent below so that a second call for a different
+	// targetContainer (e.g., transformer) gets its VolumeMount even when the Volume
+	// already exists from the first call.
+	volumeExists := false
 	for _, v := range podSpec.Volumes {
 		if v.Name == volName {
-			return nil
+			volumeExists = true
+			break
 		}
 	}
-
-	podSpec.Volumes = append(podSpec.Volumes, corev1.Volume{
-		Name: volName,
-		VolumeSource: corev1.VolumeSource{
-			Image: &corev1.ImageVolumeSource{
-				Reference:  imageRef,
-				PullPolicy: corev1.PullIfNotPresent,
+	if !volumeExists {
+		podSpec.Volumes = append(podSpec.Volumes, corev1.Volume{
+			Name: volName,
+			VolumeSource: corev1.VolumeSource{
+				Image: &corev1.ImageVolumeSource{
+					Reference:  imageRef,
+					PullPolicy: corev1.PullIfNotPresent,
+				},
 			},
-		},
-	})
+		})
+	}
 
+	// Always add the VolumeMount; the helper skips if this container already has it.
 	AddVolumeMountIfNotPresent(targetContainer, volName, modelPath, true)
 
 	return nil
