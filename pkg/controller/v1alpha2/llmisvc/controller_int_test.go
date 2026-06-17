@@ -966,7 +966,9 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				// when - external pool becomes ready
 				updatedPool := &igwapi.InferencePool{}
 				Expect(envTest.Get(ctx, client.ObjectKeyFromObject(infPool), updatedPool)).To(Succeed())
-				WithInferencePoolReadyStatus()(updatedPool)
+				routes := &gwapiv1.HTTPRouteList{}
+				Expect(envTest.Client.List(ctx, routes, client.InNamespace(testNs.Name))).To(Succeed())
+				WithInferencePoolReadyStatus(InferencePoolParentRefsFromRoutes(routes.Items)...)(updatedPool)
 				Expect(envTest.Client.Status().Update(ctx, updatedPool)).To(Succeed())
 
 				// then - LLMInferenceService status should follow the external pool update.
@@ -2267,7 +2269,9 @@ func ensureHTTPRouteReady(ctx context.Context, c client.Client, route *gwapiv1.H
 	}).WithContext(ctx).Should(BeTrue())
 }
 
-// ensureInferencePoolReady sets up InferencePool status conditions to simulate a ready InferencePool
+// ensureInferencePoolReady sets up InferencePool status conditions to simulate a ready InferencePool.
+// Gateway parent refs are derived from HTTPRoutes in the pool's namespace so that the pool's
+// status parents match the gateways the reconciler actually resolves.
 func ensureInferencePoolReady(ctx context.Context, c client.Client, pool *igwapi.InferencePool) {
 	if envTest.UsingExistingCluster() {
 		return
@@ -2275,10 +2279,14 @@ func ensureInferencePoolReady(ctx context.Context, c client.Client, pool *igwapi
 
 	createdPool := &igwapi.InferencePool{}
 	Expect(c.Get(ctx, client.ObjectKeyFromObject(pool), createdPool)).To(Succeed())
-	WithInferencePoolReadyStatus()(createdPool)
+
+	routes := &gwapiv1.HTTPRouteList{}
+	Expect(c.List(ctx, routes, client.InNamespace(pool.Namespace))).To(Succeed())
+	gatewayRefs := InferencePoolParentRefsFromRoutes(routes.Items)
+
+	WithInferencePoolReadyStatus(gatewayRefs...)(createdPool)
 	Expect(c.Status().Update(ctx, createdPool)).To(Succeed())
 
-	// Verify the InferencePool is now ready
 	updatedPool := &igwapi.InferencePool{}
 	Eventually(func(g Gomega, ctx context.Context) bool {
 		updatedPool = &igwapi.InferencePool{}
@@ -2341,10 +2349,11 @@ func ensureRouterManagedResourcesAreReady(ctx context.Context, c client.Client, 
 		if err != nil && !errors.IsNotFound(err) {
 			g.Expect(err).NotTo(gomega.HaveOccurred())
 		}
-		logf.FromContext(ctx).Info("Marking InferencePool resources ready", "inferencepools", infPools)
+		gatewayRefs := InferencePoolParentRefsFromRoutes(httpRoutes.Items)
+		logf.FromContext(ctx).Info("Marking InferencePool resources ready", "inferencepools", infPools, "gatewayRefs", gatewayRefs)
 		for _, pool := range infPools.Items {
 			updatedPool := pool.DeepCopy()
-			WithInferencePoolReadyStatus()(updatedPool)
+			WithInferencePoolReadyStatus(gatewayRefs...)(updatedPool)
 			g.Expect(c.Status().Update(ctx, updatedPool)).To(gomega.Succeed())
 		}
 

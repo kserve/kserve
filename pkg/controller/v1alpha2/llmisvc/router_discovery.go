@@ -40,8 +40,6 @@ import (
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
-	igwapiv1alpha2 "github.com/kserve/kserve/pkg/apis/gie/v1alpha2pool"
-
 	"github.com/kserve/kserve/pkg/constants"
 )
 
@@ -748,54 +746,122 @@ func nonReadyInferencePoolTopLevelCondition(pool *igwapi.InferencePool) (*metav1
 	return nil, false
 }
 
-// IsInferencePoolV1Alpha2Ready checks if a v1alpha2 InferencePool has been accepted by all parents.
-// This mirrors IsInferencePoolReady but for the v1alpha2 InferencePool type, which has a different
-// status structure (PoolStatus instead of ParentStatus).
-func IsInferencePoolV1Alpha2Ready(pool *igwapiv1alpha2.InferencePool) bool {
-	if pool == nil {
+// IsInferencePoolReadyForGateways checks if an InferencePool is ready, considering only
+// parents that correspond to the given gateways. When gateway refs change on an
+// LLMInferenceService, the gateway controller may leave stale parent entries in the pool's
+// status for gateways that are no longer referenced. Without filtering, a rejected parent
+// from an old gateway blocks readiness even though the current gateway accepts the pool.
+//
+// When gateways is empty, the pool is not ready.
+func IsInferencePoolReadyForGateways(pool *igwapi.InferencePool, gateways []types.NamespacedName) bool {
+	if pool == nil || len(gateways) == 0 {
 		return false
 	}
 
-	// No Gateway has claimed this pool yet - not ready for traffic
-	if len(pool.Status.Parents) == 0 {
+	relevant := filterRelevantV1Parents(pool.Status.Parents, gateways, pool.Namespace)
+	if len(relevant) == 0 {
 		return false
 	}
 
-	if cond, missing := nonReadyInferencePoolV1Alpha2TopLevelCondition(pool); cond != nil || missing {
-		return false
+	for _, gw := range gateways {
+		if !hasMatchingV1PoolParent(gw, relevant, pool.Namespace) {
+			return false
+		}
+	}
+
+	for _, parent := range relevant {
+		cond := meta.FindStatusCondition(parent.Conditions, string(igwapi.InferencePoolConditionAccepted))
+		if cond == nil {
+			return false
+		}
+		staleCondition := cond.ObservedGeneration > 0 && cond.ObservedGeneration < pool.Generation
+		if cond.Status != metav1.ConditionTrue || staleCondition {
+			return false
+		}
 	}
 
 	return true
 }
 
-// nonReadyInferencePoolV1Alpha2TopLevelCondition checks for any non-ready conditions in a v1alpha2 InferencePool.
-// Returns the first problematic condition or indicates missing conditions.
-func nonReadyInferencePoolV1Alpha2TopLevelCondition(pool *igwapiv1alpha2.InferencePool) (*metav1.Condition, bool) {
-	if pool == nil {
-		return nil, true
-	}
-
-	for _, parent := range pool.Status.Parents {
-		cond := meta.FindStatusCondition(parent.Conditions, string(igwapiv1alpha2.InferencePoolConditionAccepted))
-		if cond == nil {
-			return nil, true
+// resolvedGatewayKeys extracts gateway name+namespace pairs from resolved gateways,
+// resolving nil parentRef namespaces to the gateway object's actual namespace.
+func resolvedGatewayKeys(resolved []ResolvedGateway) []types.NamespacedName {
+	keys := make([]types.NamespacedName, 0, len(resolved))
+	for _, rg := range resolved {
+		ns := rg.Gateway.Namespace
+		if rg.ParentRef.Namespace != nil {
+			ns = string(*rg.ParentRef.Namespace)
 		}
-		staleCondition := cond.ObservedGeneration > 0 && cond.ObservedGeneration < pool.Generation
-		if cond.Status != metav1.ConditionTrue || staleCondition {
-			return cond, false
-		}
+		keys = append(keys, types.NamespacedName{Name: string(rg.ParentRef.Name), Namespace: ns})
 	}
-
-	return nil, false
+	return keys
 }
 
-// IsInferencePoolV1Alpha2Supported checks if an HTTPRoute has been accepted by the Gateway, and it's using v1alpha2
-// InferencePool.
-func IsInferencePoolV1Alpha2Supported(route *gwapiv1.HTTPRoute) metav1.ConditionStatus {
-	if isHTTPRouteUsingInferencePool(route, constants.InferencePoolV1Alpha2APIGroupName) {
-		return isBackendSupported(route)
+func filterRelevantV1Parents(parents []igwapi.ParentStatus, gateways []types.NamespacedName, defaultNS string) []igwapi.ParentStatus {
+	relevant := make([]igwapi.ParentStatus, 0, len(parents))
+	for _, parent := range parents {
+		ns := string(parent.ParentRef.Namespace)
+		if ns == "" {
+			ns = defaultNS
+		}
+		key := types.NamespacedName{Name: string(parent.ParentRef.Name), Namespace: ns}
+		if matchesAnyGateway(key, gateways) {
+			relevant = append(relevant, parent)
+		}
 	}
-	return metav1.ConditionUnknown
+	return relevant
+}
+
+// allParentsAccepted returns true only when every parent has an Accepted condition set to True
+// with a current ObservedGeneration.
+func allParentsAccepted(parents []igwapi.ParentStatus, generation int64) bool {
+	for _, parent := range parents {
+		cond := meta.FindStatusCondition(parent.Conditions, string(igwapi.InferencePoolConditionAccepted))
+		if cond == nil {
+			return false
+		}
+		stale := cond.ObservedGeneration > 0 && cond.ObservedGeneration < generation
+		if cond.Status != metav1.ConditionTrue || stale {
+			return false
+		}
+	}
+	return true
+}
+
+func findNonReadyCondition(parents []igwapi.ParentStatus, conditionType string, generation int64) *metav1.Condition {
+	for _, parent := range parents {
+		cond := meta.FindStatusCondition(parent.Conditions, conditionType)
+		if cond == nil {
+			continue
+		}
+		stale := cond.ObservedGeneration > 0 && cond.ObservedGeneration < generation
+		if cond.Status != metav1.ConditionTrue || stale {
+			return cond
+		}
+	}
+	return nil
+}
+
+func matchesAnyGateway(key types.NamespacedName, gateways []types.NamespacedName) bool {
+	for _, gw := range gateways {
+		if key == gw {
+			return true
+		}
+	}
+	return false
+}
+
+func hasMatchingV1PoolParent(gw types.NamespacedName, parents []igwapi.ParentStatus, defaultNS string) bool {
+	for _, parent := range parents {
+		ns := string(parent.ParentRef.Namespace)
+		if ns == "" {
+			ns = defaultNS
+		}
+		if gw.Name == string(parent.ParentRef.Name) && gw.Namespace == ns {
+			return true
+		}
+	}
+	return false
 }
 
 // IsInferencePoolV1Supported checks if an HTTPRoute has been accepted by the Gateway, and it's using v1 InferencePool.
