@@ -746,7 +746,6 @@ func validateKEDAConfig(keda *KEDAScalingConfig, minReplicas *int32) error {
 		if (sm.Target != "" || sm.ActivationTarget != "" || sm.MetricType != "") && sm.Formula == "" {
 			return errors.New("advanced.scalingModifiers.formula must be set when using scaling modifiers")
 		}
-
 	}
 
 	return nil
