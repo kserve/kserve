@@ -176,6 +176,11 @@ func convertSpecToV1Alpha2(src *LLMInferenceServiceSpec) v1alpha2.LLMInferenceSe
 		}
 	}
 
+	// Speculator
+	if src.Speculator != nil {
+		dst.Speculator = convertSpeculatorToV1Alpha2(src.Speculator)
+	}
+
 	return dst
 }
 
@@ -216,6 +221,41 @@ func convertSpecFromV1Alpha2(src *v1alpha2.LLMInferenceServiceSpec) LLMInference
 		}
 	}
 
+	// Speculator
+	if src.Speculator != nil {
+		dst.Speculator = convertSpeculatorFromV1Alpha2(src.Speculator)
+	}
+
+	return dst
+}
+
+func convertSpeculatorToV1Alpha2(src *SpeculatorSpec) *v1alpha2.SpeculatorSpec {
+	dst := &v1alpha2.SpeculatorSpec{}
+	if len(src.Config) > 0 {
+		dst.Config = make(map[string]string, len(src.Config))
+		for k, v := range src.Config {
+			dst.Config[k] = v
+		}
+	}
+	if src.Model != nil {
+		model := convertModelSpecToV1Alpha2(src.Model)
+		dst.Model = &model
+	}
+	return dst
+}
+
+func convertSpeculatorFromV1Alpha2(src *v1alpha2.SpeculatorSpec) *SpeculatorSpec {
+	dst := &SpeculatorSpec{}
+	if len(src.Config) > 0 {
+		dst.Config = make(map[string]string, len(src.Config))
+		for k, v := range src.Config {
+			dst.Config[k] = v
+		}
+	}
+	if src.Model != nil {
+		model := convertModelSpecFromV1Alpha2(src.Model)
+		dst.Model = &model
+	}
 	return dst
 }
 
