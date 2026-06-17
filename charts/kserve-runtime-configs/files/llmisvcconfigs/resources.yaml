@@ -1991,9 +1991,12 @@ spec:
             successThreshold: 1
             timeoutSeconds: 1
           resources:
+            limits:
+              cpu: 6
+              memory: 16Gi
             requests:
-              cpu: 256m
-              memory: 500Mi
+              cpu: 1
+              memory: 2Gi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

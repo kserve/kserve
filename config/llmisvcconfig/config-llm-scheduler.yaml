@@ -86,9 +86,12 @@ spec:
               - name: SSL_CERT_DIR
                 value: "/var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs"
             resources:
+              limits:
+                cpu: 6
+                memory: 16Gi
               requests:
-                cpu: 256m
-                memory: 500Mi
+                cpu: 1
+                memory: 2Gi
             terminationMessagePath: /dev/termination-log
             terminationMessagePolicy: FallbackToLogsOnError
             securityContext:
