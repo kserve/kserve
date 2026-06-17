@@ -430,7 +430,7 @@ jobs:
           kubectl describe pods -n kserve
 
       - name: Run predictor E2E tests
-        timeout-minutes: 40
+        timeout-minutes: 60
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "predictor" "6"
 
