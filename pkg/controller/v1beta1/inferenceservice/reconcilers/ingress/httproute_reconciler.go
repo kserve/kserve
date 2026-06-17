@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -991,7 +992,7 @@ func (r *RawHTTPRouteReconciler) reconcileHTTPRouteStatus(ctx context.Context, i
 					Reason:  check.component + " Deployment NotReady",
 					Message: check.component + " HTTPRoute not created",
 				})
-				return ctrl.Result{Requeue: true}, nil
+				return ctrl.Result{RequeueAfter: time.Second}, nil
 			}
 			// Return any other errors
 			return ctrl.Result{}, err
@@ -1006,7 +1007,7 @@ func (r *RawHTTPRouteReconciler) reconcileHTTPRouteStatus(ctx context.Context, i
 				Reason:  *reason,
 				Message: fmt.Sprintf("%s %s", check.component, *message),
 			})
-			return ctrl.Result{Requeue: true}, nil
+			return ctrl.Result{RequeueAfter: time.Second}, nil
 		}
 	}
 
@@ -1058,7 +1059,7 @@ func (r *RawHTTPRouteReconciler) Reconcile(ctx context.Context, isvc *v1beta1.In
 		}
 
 		// Check HTTPRoute statuses for all components
-		if result, err := r.reconcileHTTPRouteStatus(ctx, isvc); err != nil || result.Requeue {
+		if result, err := r.reconcileHTTPRouteStatus(ctx, isvc); err != nil || result.RequeueAfter > 0 {
 			return result, err
 		}
 	} else {

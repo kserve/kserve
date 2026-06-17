@@ -9293,18 +9293,15 @@ spec:
                                 extensionRef:
                                   properties:
                                     failureMode:
-                                      default: FailClose
                                       enum:
                                         - FailOpen
                                         - FailClose
                                       type: string
                                     group:
-                                      default: ""
                                       maxLength: 253
                                       pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                       type: string
                                     kind:
-                                      default: Service
                                       maxLength: 63
                                       minLength: 1
                                       pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
@@ -9319,22 +9316,19 @@ spec:
                                       minimum: 1
                                       type: integer
                                   required:
+                                    - failureMode
                                     - name
                                   type: object
                                 selector:
                                   additionalProperties:
                                     maxLength: 63
                                     minLength: 0
-                                    pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                                     type: string
                                   type: object
                                 targetPortNumber:
                                   format: int32
-                                  maximum: 65535
-                                  minimum: 1
                                   type: integer
                               required:
-                                - extensionRef
                                 - selector
                                 - targetPortNumber
                               type: object
@@ -17124,6 +17118,17 @@ spec:
                       x-kubernetes-list-map-keys:
                         - name
                       x-kubernetes-list-type: map
+                  type: object
+                tracing:
+                  properties:
+                    exporter:
+                      type: string
+                    exporterEndpoint:
+                      type: string
+                    sampler:
+                      type: string
+                    samplerArg:
+                      type: string
                   type: object
                 worker:
                   properties:
@@ -30334,6 +30339,12 @@ spec:
                               x-kubernetes-map-type: atomic
                             spec:
                               properties:
+                                appProtocol:
+                                  default: http
+                                  enum:
+                                    - http
+                                    - kubernetes.io/h2c
+                                  type: string
                                 endpointPickerRef:
                                   properties:
                                     failureMode:
@@ -38197,6 +38208,17 @@ spec:
                       x-kubernetes-list-map-keys:
                         - name
                       x-kubernetes-list-type: map
+                  type: object
+                tracing:
+                  properties:
+                    exporter:
+                      type: string
+                    exporterEndpoint:
+                      type: string
+                    sampler:
+                      type: string
+                    samplerArg:
+                      type: string
                   type: object
                 worker:
                   properties:

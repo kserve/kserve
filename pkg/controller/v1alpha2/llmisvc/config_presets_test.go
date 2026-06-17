@@ -239,9 +239,9 @@ func TestPresetFiles(t *testing.T) {
 											},
 										},
 
-										TimeoutSeconds:   10,
+										TimeoutSeconds:   1,
 										PeriodSeconds:    10,
-										FailureThreshold: 3,
+										FailureThreshold: 10,
 									},
 									ReadinessProbe: &corev1.Probe{
 										ProbeHandler: corev1.ProbeHandler{
@@ -252,9 +252,9 @@ func TestPresetFiles(t *testing.T) {
 											},
 										},
 
-										TimeoutSeconds:   5,
-										PeriodSeconds:    30,
-										FailureThreshold: 60,
+										TimeoutSeconds:   1,
+										PeriodSeconds:    1,
+										FailureThreshold: 2,
 									},
 									StartupProbe: &corev1.Probe{
 										ProbeHandler: corev1.ProbeHandler{
@@ -517,9 +517,9 @@ func TestPresetFiles(t *testing.T) {
 											},
 										},
 
-										TimeoutSeconds:   10,
+										TimeoutSeconds:   1,
 										PeriodSeconds:    10,
-										FailureThreshold: 3,
+										FailureThreshold: 10,
 									},
 									ReadinessProbe: &corev1.Probe{
 										ProbeHandler: corev1.ProbeHandler{
@@ -530,9 +530,9 @@ func TestPresetFiles(t *testing.T) {
 											},
 										},
 
-										TimeoutSeconds:   5,
-										PeriodSeconds:    10,
-										FailureThreshold: 60,
+										TimeoutSeconds:   1,
+										PeriodSeconds:    1,
+										FailureThreshold: 2,
 									},
 									StartupProbe: &corev1.Probe{
 										ProbeHandler: corev1.ProbeHandler{

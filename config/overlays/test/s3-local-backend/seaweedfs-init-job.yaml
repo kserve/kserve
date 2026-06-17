@@ -16,6 +16,8 @@ spec:
         env:
         - name: HF_HUB_DISABLE_PROGRESS_BARS
           value: "1"
+        - name: TOKIO_WORKER_THREADS
+          value: "1"
         - name: STORAGE_IGNORE_PATTERNS
           value: "*.msgpack,*.h5,flax_model*,tf_model*,rust_model*"
         volumeMounts:

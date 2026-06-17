@@ -1209,3 +1209,251 @@ func TestValidateLoRAAdapters(t *testing.T) {
 		assert.Empty(t, errs)
 	})
 }
+
+func TestValidateManagedDRAAnnotations(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+
+	const (
+		deviceClassKey   = "serving.kserve.io/exp-dra-device-class"
+		deviceCountKey   = "serving.kserve.io/exp-dra-device-count"
+		celSelectorKey   = "serving.kserve.io/exp-dra-cel-selector"
+		containerNameKey = "serving.kserve.io/exp-dra-container-name"
+	)
+
+	tests := []struct {
+		name         string
+		annotations  map[string]string
+		wantErrCount int
+		wantErrField string
+	}{
+		{
+			name:         "no DRA annotations",
+			annotations:  nil,
+			wantErrCount: 0,
+		},
+		{
+			name: "valid: device class only",
+			annotations: map[string]string{
+				deviceClassKey: "gpu.nvidia.com",
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "valid: device class + device count + cel selectors",
+			annotations: map[string]string{
+				deviceClassKey: "gpu.nvidia.com",
+				deviceCountKey: "4",
+				celSelectorKey: "device.attributes['gpu.nvidia.com']['type'] == 'A100'\n" +
+					"device.capacity['gpu.nvidia.com']['memory'].compareTo(quantity('40Gi')) > 0",
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "valid: device class with dotted name",
+			annotations: map[string]string{
+				deviceClassKey: "mig-3g.40gb",
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "invalid: empty device class",
+			annotations: map[string]string{
+				deviceClassKey: "   ",
+			},
+			wantErrCount: 1,
+			wantErrField: deviceClassKey,
+		},
+		{
+			name: "invalid: device class with uppercase",
+			annotations: map[string]string{
+				deviceClassKey: "GPU.Nvidia.com",
+			},
+			wantErrCount: 1,
+			wantErrField: deviceClassKey,
+		},
+		{
+			name: "invalid: device count without device class",
+			annotations: map[string]string{
+				deviceCountKey: "2",
+			},
+			wantErrCount: 1,
+			wantErrField: deviceClassKey,
+		},
+		{
+			name: "invalid: cel selector without device class",
+			annotations: map[string]string{
+				celSelectorKey: "device.attributes['gpu.nvidia.com']['type'] == 'A100'",
+			},
+			wantErrCount: 1,
+			wantErrField: deviceClassKey,
+		},
+		{
+			name: "invalid: device count is non-numeric (the foot-gun the webhook is meant to catch)",
+			annotations: map[string]string{
+				deviceClassKey: "gpu.nvidia.com",
+				deviceCountKey: "abc",
+			},
+			wantErrCount: 1,
+			wantErrField: deviceCountKey,
+		},
+		{
+			name: "invalid: device count is zero",
+			annotations: map[string]string{
+				deviceClassKey: "gpu.nvidia.com",
+				deviceCountKey: "0",
+			},
+			wantErrCount: 1,
+			wantErrField: deviceCountKey,
+		},
+		{
+			name: "invalid: device count is negative",
+			annotations: map[string]string{
+				deviceClassKey: "gpu.nvidia.com",
+				deviceCountKey: "-1",
+			},
+			wantErrCount: 1,
+			wantErrField: deviceCountKey,
+		},
+		{
+			name: "invalid: cel selector annotation set but contains no expressions",
+			annotations: map[string]string{
+				deviceClassKey: "gpu.nvidia.com",
+				celSelectorKey: "\n  \n",
+			},
+			wantErrCount: 1,
+			wantErrField: celSelectorKey,
+		},
+		{
+			name: "invalid: multiple errors are surfaced together",
+			annotations: map[string]string{
+				deviceClassKey: "BAD CLASS",
+				deviceCountKey: "abc",
+			},
+			wantErrCount: 2,
+		},
+		{
+			name: "invalid: device class with consecutive dots (rejected by IsDNS1123Subdomain)",
+			annotations: map[string]string{
+				deviceClassKey: "gpu..nvidia.com",
+			},
+			wantErrCount: 1,
+			wantErrField: deviceClassKey,
+		},
+		{
+			name: "valid: device class + explicit container name",
+			annotations: map[string]string{
+				deviceClassKey:   "gpu.nvidia.com",
+				containerNameKey: "vllm",
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "invalid: container name without device class",
+			annotations: map[string]string{
+				containerNameKey: "vllm",
+			},
+			wantErrCount: 1,
+			wantErrField: deviceClassKey,
+		},
+		{
+			name: "invalid: empty container name",
+			annotations: map[string]string{
+				deviceClassKey:   "gpu.nvidia.com",
+				containerNameKey: "   ",
+			},
+			wantErrCount: 1,
+			wantErrField: containerNameKey,
+		},
+		{
+			name: "invalid: container name with uppercase (not a DNS label)",
+			annotations: map[string]string{
+				deviceClassKey:   "gpu.nvidia.com",
+				containerNameKey: "VLLM",
+			},
+			wantErrCount: 1,
+			wantErrField: containerNameKey,
+		},
+		{
+			name: "invalid: container name contains dots (DNS label disallows dots)",
+			annotations: map[string]string{
+				deviceClassKey:   "gpu.nvidia.com",
+				containerNameKey: "vllm.main",
+			},
+			wantErrCount: 1,
+			wantErrField: containerNameKey,
+		},
+		{
+			name: "valid: hyphenated container name (normal DNS label)",
+			annotations: map[string]string{
+				deviceClassKey:   "gpu.nvidia.com",
+				containerNameKey: "kserve-container",
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "valid: container name with surrounding whitespace is trimmed before validation",
+			annotations: map[string]string{
+				deviceClassKey:   "gpu.nvidia.com",
+				containerNameKey: "  vllm  ",
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "invalid: container name with embedded space",
+			annotations: map[string]string{
+				deviceClassKey:   "gpu.nvidia.com",
+				containerNameKey: "vllm main",
+			},
+			wantErrCount: 1,
+			wantErrField: containerNameKey,
+		},
+		{
+			name: "invalid: container name with underscore (DNS label disallows underscores)",
+			annotations: map[string]string{
+				deviceClassKey:   "gpu.nvidia.com",
+				containerNameKey: "vllm_main",
+			},
+			wantErrCount: 1,
+			wantErrField: containerNameKey,
+		},
+		{
+			name: "invalid: container name with trailing hyphen",
+			annotations: map[string]string{
+				deviceClassKey:   "gpu.nvidia.com",
+				containerNameKey: "vllm-",
+			},
+			wantErrCount: 1,
+			wantErrField: containerNameKey,
+		},
+		{
+			name: "invalid: container name longer than 63 characters",
+			annotations: map[string]string{
+				deviceClassKey:   "gpu.nvidia.com",
+				containerNameKey: strings.Repeat("a", 64),
+			},
+			wantErrCount: 1,
+			wantErrField: containerNameKey,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := newBaseLLMInferenceServiceV1Alpha2()
+			svc.Annotations = tt.annotations
+
+			errs := validator.validateManagedDRAAnnotations(svc)
+
+			require.Len(t, errs, tt.wantErrCount, "errors: %v", errs)
+			if tt.wantErrField != "" {
+				found := false
+				for _, e := range errs {
+					if strings.Contains(e.Field, tt.wantErrField) {
+						found = true
+						break
+					}
+				}
+				assert.True(t, found, "expected error on field %q, got: %v", tt.wantErrField, errs)
+			}
+		})
+	}
+}

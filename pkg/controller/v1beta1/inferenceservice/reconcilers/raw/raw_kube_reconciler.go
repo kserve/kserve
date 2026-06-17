@@ -236,6 +236,14 @@ func createRawURL(ingressConfig *v1beta1.IngressConfig, metadata metav1.ObjectMe
 
 // Reconcile ...
 func (r *RawKubeReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deployment, error) {
+	// reconcile Service first to avoid transient pod startup delays when
+	// platform-specific service annotations (e.g. serving-cert) trigger
+	// secret creation that the deployment's pods mount.
+	_, err := r.Service.Reconcile(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	// reconcile OTel Collector
 	if r.OtelCollector != nil {
 		err := r.OtelCollector.Reconcile(ctx)
@@ -243,14 +251,9 @@ func (r *RawKubeReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deployment
 			return nil, err
 		}
 	}
+
 	// reconcile Workload (Deployment)
 	deploymentList, err := r.Workload.Reconcile(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// reconcile Service
-	_, err = r.Service.Reconcile(ctx)
 	if err != nil {
 		return nil, err
 	}

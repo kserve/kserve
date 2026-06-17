@@ -85,6 +85,7 @@ func TestStripModelBasedRoutingRules(t *testing.T) {
 				{Matches: []gwapiv1.HTTPRouteMatch{
 					modelMatch("/v1/completions", "publishers/ns/models/m1"),
 					modelMatch("/v1/chat/completions", "publishers/ns/models/m1"),
+					modelMatch("/v1/messages", "publishers/ns/models/m1"),
 				}},
 			},
 			headerName: hdr,
@@ -111,6 +112,24 @@ func TestStripModelBasedRoutingRules(t *testing.T) {
 				{Matches: []gwapiv1.HTTPRouteMatch{
 					pathOnlyMatch("/ns/name/v1/completions"),
 					modelMatch("/v1/completions", "publishers/ns/models/m1"),
+				}},
+			},
+			headerName: hdr,
+			wantFn: func(t *testing.T, rules []gwapiv1.HTTPRouteRule) {
+				assert.Len(t, rules, 1)
+				assert.Len(t, rules[0].Matches, 1)
+				assert.Nil(t, rules[0].Matches[0].Headers)
+			},
+		},
+		{
+			name: "strips messages model-routing rule alongside other endpoints",
+			rules: []gwapiv1.HTTPRouteRule{
+				{Matches: []gwapiv1.HTTPRouteMatch{
+					pathOnlyMatch("/ns/name/v1/messages"),
+				}},
+				{Matches: []gwapiv1.HTTPRouteMatch{
+					modelMatch("/v1/messages", "publishers/ns/models/m1"),
+					modelMatch("/v1/messages/", "publishers/ns/models/m1"),
 				}},
 			},
 			headerName: hdr,
