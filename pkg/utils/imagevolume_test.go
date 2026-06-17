@@ -41,9 +41,10 @@ func TestCheckImageVolumeCompatibility(t *testing.T) {
 	}{
 		// Below the alpha introduction threshold.
 		{"k8s 1.30: unsupported", "30", false, ImageVolumeUnsupported},
-		// Boundary: first alpha release.
-		{"k8s 1.31: needs gate", "31", false, ImageVolumeNeedsGate},
-		{"k8s 1.32: needs gate", "32", false, ImageVolumeNeedsGate},
+		// Alpha (1.31-1.32): gate required, subPath forbidden.
+		{"k8s 1.31: subpath unsupported", "31", false, ImageVolumeSubPathUnsupported},
+		{"k8s 1.32: subpath unsupported", "32", false, ImageVolumeSubPathUnsupported},
+		// Beta (1.33-1.34): gate required, subPath supported.
 		{"k8s 1.33: needs gate", "33", false, ImageVolumeNeedsGate},
 		// Last version requiring the feature gate.
 		{"k8s 1.34: needs gate", "34", false, ImageVolumeNeedsGate},
@@ -51,7 +52,7 @@ func TestCheckImageVolumeCompatibility(t *testing.T) {
 		{"k8s 1.35: ok", "35", false, ImageVolumeOK},
 		{"k8s 1.36: ok (stable)", "36", false, ImageVolumeOK},
 		// Trailing "+" in GKE/EKS minor strings must be stripped.
-		{"k8s 1.31+: needs gate (plus stripped)", "31+", false, ImageVolumeNeedsGate},
+		{"k8s 1.31+: subpath unsupported (plus stripped)", "31+", false, ImageVolumeSubPathUnsupported},
 		{"k8s 1.35+: ok (plus stripped)", "35+", false, ImageVolumeOK},
 		// Failure modes.
 		{"discovery error: unknown", "", true, ImageVolumeUnknown},

@@ -54,34 +54,35 @@ func TestWarnIfImageVolumeUnsupported(t *testing.T) {
 			mode:     kservetypes.OciModelModeNative,
 			wantCond: false,
 		},
-		// K8s 1.31–1.34: alpha/beta, feature gate required.
+		// K8s 1.33–1.34: beta, feature gate required, subPath supported.
 		{
-			name:       "k8s 1.34 native: feature-gated, ImageVolumeAlpha condition",
+			name:       "k8s 1.34 native: beta feature-gated, ImageVolumeAlpha condition",
 			minor:      "34",
 			mode:       kservetypes.OciModelModeNative,
 			wantCond:   true,
 			wantReason: "ImageVolumeAlpha",
 		},
 		{
-			name:       "k8s 1.33 native: feature-gated, ImageVolumeAlpha condition",
+			name:       "k8s 1.33 native: beta feature-gated, ImageVolumeAlpha condition",
 			minor:      "33",
 			mode:       kservetypes.OciModelModeNative,
 			wantCond:   true,
 			wantReason: "ImageVolumeAlpha",
 		},
+		// K8s 1.31–1.32: alpha, feature gate required, subPath forbidden.
 		{
-			name:       "k8s 1.32 native: alpha only, ImageVolumeAlpha condition",
+			name:       "k8s 1.32 native: alpha, subPath forbidden, ImageVolumeSubPathUnsupported condition",
 			minor:      "32",
 			mode:       kservetypes.OciModelModeNative,
 			wantCond:   true,
-			wantReason: "ImageVolumeAlpha",
+			wantReason: "ImageVolumeSubPathUnsupported",
 		},
 		{
-			name:       "k8s 1.31 native: alpha only, ImageVolumeAlpha condition",
+			name:       "k8s 1.31 native: alpha, subPath forbidden, ImageVolumeSubPathUnsupported condition",
 			minor:      "31",
 			mode:       kservetypes.OciModelModeNative,
 			wantCond:   true,
-			wantReason: "ImageVolumeAlpha",
+			wantReason: "ImageVolumeSubPathUnsupported",
 		},
 		// K8s < 1.31: ImageVolume not present at all.
 		{

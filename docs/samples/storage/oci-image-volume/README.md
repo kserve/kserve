@@ -8,15 +8,28 @@ the `oci+native://` storageUri scheme (KServe issue [#4083](https://github.com/k
 
 | Requirement | Minimum version |
 |---|---|
-| Kubernetes | 1.33 (ImageVolume beta, gate on by default) |
-| Kubernetes (with manual gate) | 1.31–1.32 + `--feature-gates=ImageVolume=true` on apiserver and kubelet |
+| Kubernetes | 1.35+ (ImageVolume beta defaults-on; full support including subPath) |
+| Kubernetes (with manual gate, full support) | 1.33–1.34 + `--feature-gates=ImageVolume=true` on apiserver and kubelet |
+| Kubernetes (with manual gate, subPath unavailable) | 1.31–1.32 + `--feature-gates=ImageVolume=true` — subPath on ImageVolume VolumeMounts is forbidden; KServe surfaces an `OciImageVolumeCompatible` advisory condition |
 | Container runtime | containerd ≥ 2.0 or CRI-O ≥ 1.31 |
 | KServe | this branch or later |
+
+## OCI image layout convention
+
+KServe mounts the image volume with `subPath: "models"`, which means the container
+runtime exposes the `/models/` directory inside the image at the configured `modelPath`
+(default `/mnt/models`).  This matches the modelcar OCI image layout convention where
+model files are stored under `/models/` in the image.
+
+> **K8s 1.31–1.32 note**: `subPath` on `ImageVolume` VolumeMounts is not supported in the
+> 1.31–1.32 alpha.  KServe sets an advisory `OciImageVolumeCompatible=False` condition on
+> the InferenceService when this combination is detected.  Upgrade to K8s 1.33+ for full
+> `oci+native://` support.
 
 ## How to apply
 
 1. Replace the `storageUri` in `inference_service.yaml` with your OCI model image reference.
-   The image must contain model files at `/mnt/models`.
+   The image must contain model files under `/models/` (exposed at `/mnt/models` via `subPath: "models"`).
 
 2. Apply the manifest:
    ```bash
@@ -45,10 +58,10 @@ Volumes:
     ...
 ```
 
-And a container mount:
+And a container mount with `subPath: "models"`:
 ```
     Mounts:
-      /mnt/models from mnt-models (ro)
+      /mnt/models from mnt-models (ro, subPath=models)
 ```
 
 ## Global default vs explicit scheme

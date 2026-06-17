@@ -702,6 +702,7 @@ func TestConfigureOciNativeToContainer(t *testing.T) {
 		g.Expect(podSpec.Containers[0].VolumeMounts).To(gomega.HaveLen(1))
 		g.Expect(podSpec.Containers[0].VolumeMounts[0].ReadOnly).To(gomega.BeTrue())
 		g.Expect(podSpec.Containers[0].VolumeMounts[0].MountPath).To(gomega.Equal(constants.DefaultModelLocalMountPath))
+		g.Expect(podSpec.Containers[0].VolumeMounts[0].SubPath).To(gomega.Equal("models"))
 	})
 
 	t.Run("idempotent: second call with same path is a no-op", func(t *testing.T) {
@@ -737,6 +738,9 @@ func TestConfigureOciNativeToContainer(t *testing.T) {
 		g.Expect(err2).ToNot(gomega.HaveOccurred())
 		g.Expect(podSpec.Volumes).To(gomega.HaveLen(2))
 		g.Expect(podSpec.Containers[0].VolumeMounts).To(gomega.HaveLen(2))
+		for _, vm := range podSpec.Containers[0].VolumeMounts {
+			g.Expect(vm.SubPath).To(gomega.Equal("models"), "each ImageVolume mount should use subPath=models")
+		}
 	})
 
 	t.Run("mountPath collision: different volume already claims modelPath", func(t *testing.T) {
@@ -792,6 +796,8 @@ func TestConfigureOciNativeToContainer(t *testing.T) {
 		g.Expect(podSpec.Containers[1].VolumeMounts).To(gomega.HaveLen(1), "transformer should have the mount")
 		g.Expect(podSpec.Containers[0].VolumeMounts[0].MountPath).To(gomega.Equal(constants.DefaultModelLocalMountPath))
 		g.Expect(podSpec.Containers[1].VolumeMounts[0].MountPath).To(gomega.Equal(constants.DefaultModelLocalMountPath))
+		g.Expect(podSpec.Containers[0].VolumeMounts[0].SubPath).To(gomega.Equal("models"))
+		g.Expect(podSpec.Containers[1].VolumeMounts[0].SubPath).To(gomega.Equal("models"))
 	})
 
 	_ = g // suppress unused warning from outer scope
