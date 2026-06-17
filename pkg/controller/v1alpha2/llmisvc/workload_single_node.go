@@ -169,6 +169,9 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, "main", constants.DefaultModelLocalMountPath, len(config.ResolvedLoRAAdapters) > 0); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to main deployment: %w", err)
 		}
+		if err := r.attachSpeculatorModelArtifacts(ctx, serviceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, "main"); err != nil {
+			return nil, fmt.Errorf("failed to attach speculator model artifacts to main deployment: %w", err)
+		}
 	}
 
 	r.propagateDeploymentMetadata(llmSvc, d)

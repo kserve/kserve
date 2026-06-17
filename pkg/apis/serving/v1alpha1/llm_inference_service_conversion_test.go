@@ -1143,3 +1143,142 @@ func TestLLMInferenceServiceConversion_TracingEmptyStruct(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, restored.Spec.Tracing, "empty tracing struct should survive roundtrip")
 }
+
+func TestLLMInferenceServiceConversion_Speculator_Eagle3(t *testing.T) {
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-speculator-eagle3",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI: apis.URL{Scheme: "hf", Host: "RedHatAI/Qwen3-32B-FP8-dynamic"},
+			},
+			Speculator: &SpeculatorSpec{
+				Model: &LLMModelSpec{
+					URI: apis.URL{Scheme: "hf", Host: "RedHatAI/Qwen3-32B-speculator.eagle3"},
+				},
+				Config: map[string]string{
+					"method":                 "eagle3",
+					"num_speculative_tokens": "3",
+				},
+			},
+		},
+	}
+
+	// v1alpha1 -> v1alpha2
+	hub := &v1alpha2.LLMInferenceService{}
+	err := src.ConvertTo(hub)
+	require.NoError(t, err)
+	require.NotNil(t, hub.Spec.Speculator)
+	require.NotNil(t, hub.Spec.Speculator.Model)
+	assert.Equal(t, src.Spec.Speculator.Model.URI, hub.Spec.Speculator.Model.URI)
+	assert.Equal(t, "eagle3", hub.Spec.Speculator.Config["method"])
+	assert.Equal(t, "3", hub.Spec.Speculator.Config["num_speculative_tokens"])
+
+	// v1alpha2 -> v1alpha1
+	restored := &LLMInferenceService{}
+	err = restored.ConvertFrom(hub)
+	require.NoError(t, err)
+	require.NotNil(t, restored.Spec.Speculator)
+	require.NotNil(t, restored.Spec.Speculator.Model)
+	assert.Equal(t, src.Spec.Speculator.Model.URI, restored.Spec.Speculator.Model.URI)
+	assert.Equal(t, src.Spec.Speculator.Config, restored.Spec.Speculator.Config)
+}
+
+func TestLLMInferenceServiceConversion_Speculator_NgramNoModel(t *testing.T) {
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-speculator-ngram",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI: apis.URL{Scheme: "hf", Host: "google/gemma-3-4b-it"},
+			},
+			Speculator: &SpeculatorSpec{
+				Config: map[string]string{
+					"method":                 "ngram",
+					"num_speculative_tokens": "4",
+					"prompt_lookup_max":      "5",
+				},
+			},
+		},
+	}
+
+	// v1alpha1 -> v1alpha2
+	hub := &v1alpha2.LLMInferenceService{}
+	err := src.ConvertTo(hub)
+	require.NoError(t, err)
+	require.NotNil(t, hub.Spec.Speculator)
+	assert.Nil(t, hub.Spec.Speculator.Model)
+	assert.Equal(t, "ngram", hub.Spec.Speculator.Config["method"])
+
+	// v1alpha2 -> v1alpha1
+	restored := &LLMInferenceService{}
+	err = restored.ConvertFrom(hub)
+	require.NoError(t, err)
+	require.NotNil(t, restored.Spec.Speculator)
+	assert.Nil(t, restored.Spec.Speculator.Model)
+	assert.Equal(t, src.Spec.Speculator.Config, restored.Spec.Speculator.Config)
+}
+
+func TestLLMInferenceServiceConversion_Speculator_Nil(t *testing.T) {
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-no-speculator",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI: apis.URL{Scheme: "hf", Host: "meta-llama/Llama-3.1-8B"},
+			},
+		},
+	}
+
+	// v1alpha1 -> v1alpha2
+	hub := &v1alpha2.LLMInferenceService{}
+	err := src.ConvertTo(hub)
+	require.NoError(t, err)
+	assert.Nil(t, hub.Spec.Speculator)
+
+	// v1alpha2 -> v1alpha1
+	restored := &LLMInferenceService{}
+	err = restored.ConvertFrom(hub)
+	require.NoError(t, err)
+	assert.Nil(t, restored.Spec.Speculator)
+}
+
+func TestLLMInferenceServiceConfigConversion_Speculator(t *testing.T) {
+	src := &LLMInferenceServiceConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-config-speculator",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Speculator: &SpeculatorSpec{
+				Model: &LLMModelSpec{
+					URI: apis.URL{Scheme: "hf", Host: "RedHatAI/Qwen3-32B-speculator.eagle3"},
+				},
+				Config: map[string]string{
+					"method":                 "eagle3",
+					"num_speculative_tokens": "6",
+				},
+			},
+		},
+	}
+
+	// v1alpha1 -> v1alpha2
+	hub := &v1alpha2.LLMInferenceServiceConfig{}
+	err := src.ConvertTo(hub)
+	require.NoError(t, err)
+	require.NotNil(t, hub.Spec.Speculator)
+	assert.Equal(t, "eagle3", hub.Spec.Speculator.Config["method"])
+
+	// v1alpha2 -> v1alpha1
+	restored := &LLMInferenceServiceConfig{}
+	err = restored.ConvertFrom(hub)
+	require.NoError(t, err)
+	require.NotNil(t, restored.Spec.Speculator)
+	assert.Equal(t, src.Spec.Speculator.Config, restored.Spec.Speculator.Config)
+}
