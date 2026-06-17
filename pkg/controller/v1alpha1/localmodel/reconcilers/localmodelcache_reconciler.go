@@ -39,6 +39,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	controllerutils "github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
+	"github.com/kserve/kserve/pkg/localmodelcache"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -170,27 +171,24 @@ func (c *LocalModelReconciler) isvcFunc(ctx context.Context, obj client.Object) 
 // Reconciles corresponding model cache CR when we found an update on an LLMInferenceService
 func (c *LocalModelReconciler) llmIsvcFunc(ctx context.Context, obj client.Object) []reconcile.Request {
 	llmSvc := obj.(*v1alpha2.LLMInferenceService)
-	if llmSvc.Labels == nil {
-		return []reconcile.Request{}
-	}
-	var modelName string
-	var ok bool
-	if modelName, ok = llmSvc.Labels[constants.LocalModelLabel]; !ok {
-		return []reconcile.Request{}
-	}
-	localModel := &v1alpha1.LocalModelCache{}
-	if err := c.Get(ctx, types.NamespacedName{Name: modelName}, localModel); err != nil {
-		c.Log.Error(err, "error getting localModel", "name", modelName)
+	cacheNames := localmodelcache.LLMISVCClusterCacheNames(llmSvc.Labels, llmSvc.Annotations)
+	if len(cacheNames) == 0 {
 		return []reconcile.Request{}
 	}
 
-	c.Log.Info("Reconcile localModel from LLM inference services", "name", modelName)
-
-	return []reconcile.Request{{
-		NamespacedName: types.NamespacedName{
-			Name: modelName,
-		},
-	}}
+	requests := make([]reconcile.Request, 0, len(cacheNames))
+	for _, modelName := range cacheNames {
+		localModel := &v1alpha1.LocalModelCache{}
+		if err := c.Get(ctx, types.NamespacedName{Name: modelName}, localModel); err != nil {
+			c.Log.Error(err, "error getting localModel", "name", modelName)
+			continue
+		}
+		c.Log.Info("Reconcile localModel from LLM inference services", "name", modelName)
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{Name: modelName},
+		})
+	}
+	return requests
 }
 
 // Given a node object, checks if it matches any node group CR, then reconcile all local models that has this node group to create download jobs.
@@ -287,10 +285,7 @@ func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if hasLLMISvcCRD {
 		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha2.LLMInferenceService{}, LocalModelKey, func(rawObj client.Object) []string {
 			llmSvc := rawObj.(*v1alpha2.LLMInferenceService)
-			if model, ok := llmSvc.GetLabels()[constants.LocalModelLabel]; ok {
-				return []string{model}
-			}
-			return nil
+			return localmodelcache.LLMISVCClusterCacheNames(llmSvc.Labels, llmSvc.Annotations)
 		}); err != nil {
 			return err
 		}
@@ -342,15 +337,20 @@ func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	llmIsvcPredicates := predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			return e.ObjectOld.GetLabels()[constants.LocalModelLabel] != e.ObjectNew.GetLabels()[constants.LocalModelLabel]
+			old := e.ObjectOld.(*v1alpha2.LLMInferenceService)
+			new := e.ObjectNew.(*v1alpha2.LLMInferenceService)
+			return !localmodelcache.ClusterCacheNamesEqual(
+				localmodelcache.LLMISVCClusterCacheNames(old.Labels, old.Annotations),
+				localmodelcache.LLMISVCClusterCacheNames(new.Labels, new.Annotations),
+			)
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
-			_, ok := e.Object.GetLabels()[constants.LocalModelLabel]
-			return ok
+			llmSvc := e.Object.(*v1alpha2.LLMInferenceService)
+			return len(localmodelcache.LLMISVCClusterCacheNames(llmSvc.Labels, llmSvc.Annotations)) > 0
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			_, ok := e.Object.GetLabels()[constants.LocalModelLabel]
-			return ok
+			llmSvc := e.Object.(*v1alpha2.LLMInferenceService)
+			return len(localmodelcache.LLMISVCClusterCacheNames(llmSvc.Labels, llmSvc.Annotations)) > 0
 		},
 	}
 
