@@ -40,6 +40,7 @@ from kserve.models.v1beta1_predictor_spec import V1beta1PredictorSpec
 from kserve.models.v1beta1_model_spec import V1beta1ModelSpec
 from kserve.models.v1beta1_model_format import V1beta1ModelFormat
 from ..common.utils import KSERVE_TEST_NAMESPACE, generate
+from . import assert_pv_deleted, assert_pvc_deleted
 
 
 @pytest.mark.modelcache
@@ -192,4 +193,12 @@ async def test_vllm_modelcache():
     # Wait for the isvc to be deleted to avoid modelcache still in use error when deleting the model cache
     await asyncio.sleep(30)
     kserve_client.delete_local_model_cache(model_cache.metadata.name)
+
+    # Verify PV/PVC are cleaned up after LocalModelCache deletion
+    core_api = client.CoreV1Api()
+    serving_pv = f"{model_cache.metadata.name}-{node_group.metadata.name}-{KSERVE_TEST_NAMESPACE}"
+    serving_pvc = f"{model_cache.metadata.name}-{node_group.metadata.name}"
+    await assert_pv_deleted(core_api, serving_pv)
+    await assert_pvc_deleted(core_api, serving_pvc, KSERVE_TEST_NAMESPACE)
+
     kserve_client.delete_local_model_node_group(node_group.metadata.name)

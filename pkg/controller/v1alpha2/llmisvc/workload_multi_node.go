@@ -41,6 +41,10 @@ import (
 func (r *LLMISVCReconciler) reconcileMultiNodeWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
 	log.FromContext(ctx).Info("Reconciling multi-node workload")
 
+	if err := r.reconcileManagedDRA(ctx, llmSvc); err != nil {
+		return fmt.Errorf("failed to reconcile managed DRA: %w", err)
+	}
+
 	if err := r.reconcileMultiNodeMainServiceAccount(ctx, llmSvc, config); err != nil {
 		return fmt.Errorf("failed to reconcile multi-node service account: %w", err)
 	}
@@ -257,6 +261,14 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 	utils.PropagateMap(llmSvc.Spec.Labels, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Labels)
 	utils.PropagateMap(llmSvc.Spec.Annotations, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations, AnnotationModelBasedRoutingEnabled)
 
+	// Inject tracing instrumentation when spec.tracing is set
+	if llmSvc.Spec.Tracing != nil {
+		if expected.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
+			injectServerTracingIntoPodSpec(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), "-decode", &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec)
+		}
+		injectServerTracingIntoPodSpec(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), "-decode", &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec)
+	}
+
 	log.FromContext(ctx).V(2).Info("Expected main LWS", "leaderworkerset", expected)
 
 	return expected, nil
@@ -327,6 +339,7 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 				},
 				Spec: *llmSvc.Spec.Prefill.Template.DeepCopy(),
 			}
+
 			expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
 
 			var currLeaderSpec corev1.PodSpec
@@ -340,6 +353,7 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 		}
 		if llmSvc.Spec.Prefill.Worker != nil {
 			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec = *llmSvc.Spec.Prefill.Worker.DeepCopy()
+
 			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
 
 			if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, config, "main", constants.DefaultModelLocalMountPath, len(config.ResolvedLoRAAdapters) > 0); err != nil {
@@ -355,6 +369,14 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 	}
 
 	r.propagateTopLevelLeaderWorkerSetMetadata(llmSvc, expected)
+
+	// Inject tracing instrumentation when spec.tracing is set
+	if llmSvc.Spec.Tracing != nil {
+		if expected.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
+			injectServerTracingIntoPodSpec(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), "-prefill", &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec)
+		}
+		injectServerTracingIntoPodSpec(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), "-prefill", &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec)
+	}
 
 	if llmSvc.Spec.Prefill != nil {
 		if expected.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {

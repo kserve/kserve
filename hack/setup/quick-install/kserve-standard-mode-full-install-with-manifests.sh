@@ -652,6 +652,7 @@ KNATIVE_SERVING_VERSION=1.21.1
 KEDA_OTEL_ADDON_VERSION=v0.0.6
 PROMETHEUS_VERSION=83.4.0
 PROMETHEUS_ADAPTER_VERSION=5.3.0
+JAEGER_VERSION=4.7.0
 KSERVE_VERSION=v0.19.0
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.18.0
@@ -2337,7 +2338,7 @@ spec:
       - containerPort: 8001
         protocol: TCP
       readinessProbe:
-        failureThreshold: 1
+        failureThreshold: 2
         httpGet:
           path: /health
           port: 8001
@@ -2671,7 +2672,7 @@ spec:
       - containerPort: 8001
         protocol: TCP
       readinessProbe:
-        failureThreshold: 1
+        failureThreshold: 2
         httpGet:
           path: /health
           port: 8001
@@ -3229,7 +3230,7 @@ spec:
         - containerPort: 8000
           protocol: TCP
         readinessProbe:
-          failureThreshold: 1
+          failureThreshold: 2
           httpGet:
             path: /health
             port: 8000
@@ -3505,7 +3506,7 @@ spec:
         - containerPort: 8000
           protocol: TCP
         readinessProbe:
-          failureThreshold: 1
+          failureThreshold: 2
           httpGet:
             path: /health
             port: 8000
@@ -3967,6 +3968,53 @@ spec:
               backendRequest: 0s
               request: 0s
           - backendRefs:
+            - group: inference.networking.k8s.io
+              kind: InferencePool
+              name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
+              port: 8000
+              weight: 1
+            filters:
+            - type: URLRewrite
+              urlRewrite:
+                path:
+                  replacePrefixMatch: /v1/messages
+                  type: ReplacePrefixMatch
+            matches:
+            - path:
+                type: PathPrefix
+                value: /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }}/v1/messages
+            name: v1-messages-path
+            timeouts:
+              backendRequest: 0s
+              request: 0s
+          - backendRefs:
+            - group: inference.networking.k8s.io
+              kind: InferencePool
+              name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
+              port: 8000
+              weight: 1
+            matches:
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/messages
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/messages/
+            name: v1-messages-model-routing
+            timeouts:
+              backendRequest: 0s
+              request: 0s
+          - backendRefs:
             - kind: Service
               name: '{{ ChildName .ObjectMeta.Name `-kserve-workload-svc` }}'
               port: 8000
@@ -4051,6 +4099,12 @@ spec:
             value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
           image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.7.1
           imagePullPolicy: IfNotPresent
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                - /bin/sleep
+                - "15"
           livenessProbe:
             failureThreshold: 3
             grpc:
@@ -4365,7 +4419,7 @@ spec:
       - containerPort: 8000
         protocol: TCP
       readinessProbe:
-        failureThreshold: 1
+        failureThreshold: 2
         httpGet:
           path: /health
           port: 8000
@@ -4417,6 +4471,18 @@ spec:
     - name: tls-certs
       secret:
         secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}'
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-tracing
+  namespace: kserve
+spec:
+  tracing:
+    exporter: otlp
+    exporterEndpoint: http://otel-collector:4317
+    sampler: parentbased_traceidratio
+    samplerArg: "0.05"
 ---
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
@@ -4640,7 +4706,7 @@ spec:
       - containerPort: 8000
         protocol: TCP
       readinessProbe:
-        failureThreshold: 1
+        failureThreshold: 2
         httpGet:
           path: /health
           port: 8000
