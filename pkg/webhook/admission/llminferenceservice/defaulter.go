@@ -19,7 +19,6 @@ package llminferenceservice
 import (
 	"context"
 	"fmt"
-	"slices"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -31,6 +30,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/localmodelcache"
 )
 
 var defaulterLogger = logf.Log.WithName("llminferenceservice-defaulter")
@@ -173,89 +173,82 @@ func applyDefaults(
 
 // SetLocalModelLabel sets local model labels on the LLMInferenceService if a matching cache exists.
 // Namespace-scoped LocalModelNamespaceCache takes precedence over cluster-scoped LocalModelCache.
+// LoRA adapter URIs are matched independently and recorded in the LoRA JSON annotation.
 func SetLocalModelLabel(llmSvc *v1alpha2.LLMInferenceService, models *v1alpha1.LocalModelCacheList, nsModels *v1alpha1.LocalModelNamespaceCacheList) {
-	modelUri := llmSvc.Spec.Model.URI.String()
-	if modelUri == "" {
-		return
-	}
-
 	isvcNodeGroup, isvcNodeGroupExists := llmSvc.Annotations[constants.NodeGroupAnnotationKey]
 
-	// Check namespace-scoped LocalModelNamespaceCache first (higher priority)
-	if nsModels != nil {
-		for i, nsModel := range nsModels.Items {
-			if nsModel.Spec.MatchStorageURI(modelUri) {
-				var localModelPVCName string
-				if isvcNodeGroupExists {
-					if slices.Contains(nsModel.Spec.NodeGroups, isvcNodeGroup) {
-						localModelPVCName = nsModel.Name + "-" + isvcNodeGroup
-					} else {
-						continue
-					}
-				} else {
-					localModelPVCName = nsModel.Name + "-" + nsModel.Spec.NodeGroups[0]
-				}
-				if llmSvc.Labels == nil {
-					llmSvc.Labels = make(map[string]string)
-				}
-				if llmSvc.Annotations == nil {
-					llmSvc.Annotations = make(map[string]string)
-				}
-				llmSvc.Labels[constants.LocalModelLabel] = nsModels.Items[i].Name
-				llmSvc.Labels[constants.LocalModelNamespaceLabel] = nsModels.Items[i].Namespace
-				llmSvc.Annotations[constants.LocalModelSourceUriAnnotationKey] = nsModels.Items[i].Spec.SourceModelUri
-				llmSvc.Annotations[constants.LocalModelPVCNameAnnotationKey] = localModelPVCName
-
-				defaulterLogger.Info("LocalModelNamespaceCache found", "model", nsModels.Items[i].Name,
-					"modelNamespace", nsModels.Items[i].Namespace, "llmSvcNamespace", llmSvc.Namespace, "llmSvc", llmSvc.Name)
-				return
-			}
-		}
+	modelUri := llmSvc.Spec.Model.URI.String()
+	if match := localmodelcache.MatchCacheForURI(modelUri, isvcNodeGroup, isvcNodeGroupExists, models, nsModels); match != nil {
+		applyBaseLocalModelCache(llmSvc, match)
+	} else {
+		clearBaseLocalModelMetadata(llmSvc)
 	}
 
-	// Fall back to cluster-scoped LocalModelCache
-	if models == nil {
-		DeleteLocalModelMetadata(llmSvc)
-		return
-	}
-	var localModel *v1alpha1.LocalModelCache
-	var localModelPVCName string
-	for i, model := range models.Items {
-		if model.Spec.MatchStorageURI(modelUri) {
-			if isvcNodeGroupExists {
-				if slices.Contains(model.Spec.NodeGroups, isvcNodeGroup) {
-					localModelPVCName = model.Name + "-" + isvcNodeGroup
-				} else {
-					continue
-				}
-			} else {
-				localModelPVCName = model.Name + "-" + model.Spec.NodeGroups[0]
-			}
-			localModel = &models.Items[i]
-			break
-		}
-	}
-	if localModel == nil {
-		DeleteLocalModelMetadata(llmSvc)
-		return
-	}
+	setLoRALocalModelMetadata(llmSvc, models, nsModels, isvcNodeGroup, isvcNodeGroupExists)
+}
+
+func applyBaseLocalModelCache(llmSvc *v1alpha2.LLMInferenceService, match *localmodelcache.CacheMatch) {
 	if llmSvc.Labels == nil {
 		llmSvc.Labels = make(map[string]string)
 	}
 	if llmSvc.Annotations == nil {
 		llmSvc.Annotations = make(map[string]string)
 	}
-	llmSvc.Labels[constants.LocalModelLabel] = localModel.Name
-	// Remove namespace label for cluster-scoped model (in case it was previously set)
-	delete(llmSvc.Labels, constants.LocalModelNamespaceLabel)
-	llmSvc.Annotations[constants.LocalModelSourceUriAnnotationKey] = localModel.Spec.SourceModelUri
-	llmSvc.Annotations[constants.LocalModelPVCNameAnnotationKey] = localModelPVCName
-
-	defaulterLogger.Info("LocalModelCache found", "model", localModel.Name, "namespace", llmSvc.Namespace, "llmSvc", llmSvc.Name)
+	llmSvc.Labels[constants.LocalModelLabel] = match.Name
+	if match.Namespace != "" {
+		llmSvc.Labels[constants.LocalModelNamespaceLabel] = match.Namespace
+		defaulterLogger.Info("LocalModelNamespaceCache found", "model", match.Name,
+			"modelNamespace", match.Namespace, "llmSvcNamespace", llmSvc.Namespace, "llmSvc", llmSvc.Name)
+	} else {
+		delete(llmSvc.Labels, constants.LocalModelNamespaceLabel)
+		defaulterLogger.Info("LocalModelCache found", "model", match.Name, "namespace", llmSvc.Namespace, "llmSvc", llmSvc.Name)
+	}
+	llmSvc.Annotations[constants.LocalModelSourceUriAnnotationKey] = match.SourceURI
+	llmSvc.Annotations[constants.LocalModelPVCNameAnnotationKey] = match.PVCName
 }
 
-// DeleteLocalModelMetadata removes local model cache internal labels and annotations
-func DeleteLocalModelMetadata(llmSvc *v1alpha2.LLMInferenceService) {
+func setLoRALocalModelMetadata(
+	llmSvc *v1alpha2.LLMInferenceService,
+	models *v1alpha1.LocalModelCacheList,
+	nsModels *v1alpha1.LocalModelNamespaceCacheList,
+	nodeGroup string,
+	nodeGroupExists bool,
+) {
+	if llmSvc.Spec.Model.LoRA == nil || len(llmSvc.Spec.Model.LoRA.Adapters) == 0 {
+		clearLoRALocalModelMetadata(llmSvc)
+		return
+	}
+
+	entries := make(map[string]localmodelcache.LoRACacheEntry)
+	for _, adapter := range llmSvc.Spec.Model.LoRA.Adapters {
+		if adapter.Name == nil {
+			continue
+		}
+		adapterURI := adapter.URI.String()
+		if match := localmodelcache.MatchCacheForURI(adapterURI, nodeGroup, nodeGroupExists, models, nsModels); match != nil {
+			entries[*adapter.Name] = localmodelcache.LoRACacheEntryFromMatch(match)
+			defaulterLogger.Info("LocalModelCache found for LoRA adapter", "adapter", *adapter.Name,
+				"cache", match.Name, "llmSvc", llmSvc.Name)
+		}
+	}
+
+	if len(entries) == 0 {
+		clearLoRALocalModelMetadata(llmSvc)
+		return
+	}
+
+	raw, err := localmodelcache.MarshalLoRACacheAnnotation(entries)
+	if err != nil {
+		defaulterLogger.Error(err, "Failed to marshal LoRA local model cache annotation", "llmSvc", llmSvc.Name)
+		return
+	}
+	if llmSvc.Annotations == nil {
+		llmSvc.Annotations = make(map[string]string)
+	}
+	llmSvc.Annotations[constants.LocalModelLoRAAnnotationKey] = raw
+}
+
+func clearBaseLocalModelMetadata(llmSvc *v1alpha2.LLMInferenceService) {
 	if llmSvc.Labels != nil {
 		delete(llmSvc.Labels, constants.LocalModelLabel)
 		delete(llmSvc.Labels, constants.LocalModelNamespaceLabel)
@@ -264,4 +257,16 @@ func DeleteLocalModelMetadata(llmSvc *v1alpha2.LLMInferenceService) {
 		delete(llmSvc.Annotations, constants.LocalModelSourceUriAnnotationKey)
 		delete(llmSvc.Annotations, constants.LocalModelPVCNameAnnotationKey)
 	}
+}
+
+func clearLoRALocalModelMetadata(llmSvc *v1alpha2.LLMInferenceService) {
+	if llmSvc.Annotations != nil {
+		delete(llmSvc.Annotations, constants.LocalModelLoRAAnnotationKey)
+	}
+}
+
+// DeleteLocalModelMetadata removes local model cache internal labels and annotations.
+func DeleteLocalModelMetadata(llmSvc *v1alpha2.LLMInferenceService) {
+	clearBaseLocalModelMetadata(llmSvc)
+	clearLoRALocalModelMetadata(llmSvc)
 }
