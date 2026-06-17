@@ -39,8 +39,12 @@ type ImageVolumeStatus int
 const (
 	// ImageVolumeOK — K8s ≥ 1.35: beta defaults-on (1.35) or stable (≥ 1.36).
 	ImageVolumeOK ImageVolumeStatus = iota
-	// ImageVolumeNeedsGate — K8s 1.31–1.34: alpha/beta, requires --feature-gates=ImageVolume=true.
+	// ImageVolumeNeedsGate — K8s 1.33–1.34: beta, requires --feature-gates=ImageVolume=true.
+	// subPath on ImageVolume VolumeMounts is supported at this level.
 	ImageVolumeNeedsGate
+	// ImageVolumeSubPathUnsupported — K8s 1.31–1.32: alpha, requires --feature-gates=ImageVolume=true.
+	// subPath on ImageVolume VolumeMounts is explicitly forbidden at this level.
+	ImageVolumeSubPathUnsupported
 	// ImageVolumeUnsupported — K8s < 1.31: ImageVolume not available at all.
 	ImageVolumeUnsupported
 	// ImageVolumeUnknown — discovery or minor-version parse failure; callers should not warn.
@@ -62,7 +66,8 @@ type ImageVolumeCheckResult struct {
 // Thresholds (aligned with the KEP-4639 graduation schedule):
 //
 //   - minor < 31  → ImageVolumeUnsupported (feature not present)
-//   - 31 ≤ minor ≤ 34 → ImageVolumeNeedsGate (alpha/beta, feature gate required)
+//   - 31 ≤ minor ≤ 32 → ImageVolumeSubPathUnsupported (alpha gate required; subPath forbidden)
+//   - 33 ≤ minor ≤ 34 → ImageVolumeNeedsGate (beta gate required; subPath supported)
 //   - minor ≥ 35  → ImageVolumeOK (beta defaults-on in 1.35, stable in 1.36)
 //
 // Discovery and parse errors are logged at V(1) and return ImageVolumeUnknown
@@ -85,6 +90,8 @@ func CheckImageVolumeCompatibility(ctx context.Context, sv ServerVersioner) Imag
 	switch {
 	case minor < 31:
 		return ImageVolumeCheckResult{Status: ImageVolumeUnsupported, Major: v.Major, Minor: v.Minor}
+	case minor < 33:
+		return ImageVolumeCheckResult{Status: ImageVolumeSubPathUnsupported, Major: v.Major, Minor: v.Minor}
 	case minor < 35:
 		return ImageVolumeCheckResult{Status: ImageVolumeNeedsGate, Major: v.Major, Minor: v.Minor}
 	default:

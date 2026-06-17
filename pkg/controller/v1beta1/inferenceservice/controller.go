@@ -807,13 +807,22 @@ func warnIfImageVolumeUnsupported(ctx context.Context, sv serverVersioner, isvc 
 				"Cluster K8s %s.%s does not support ImageVolume (introduced in 1.31 as alpha). Falling back to modelcar may be required.",
 				result.Major, result.Minor),
 		})
+	case utils.ImageVolumeSubPathUnsupported:
+		isvc.Status.SetCondition(OciImageVolumeCompatible, &apis.Condition{
+			Type:   OciImageVolumeCompatible,
+			Status: corev1.ConditionFalse,
+			Reason: "ImageVolumeSubPathUnsupported",
+			Message: fmt.Sprintf(
+				"Cluster K8s %s.%s (alpha) does not support subPath on ImageVolume VolumeMounts. Upgrade to K8s 1.33+ (beta) for full oci+native:// support.",
+				result.Major, result.Minor),
+		})
 	case utils.ImageVolumeNeedsGate:
 		isvc.Status.SetCondition(OciImageVolumeCompatible, &apis.Condition{
 			Type:   OciImageVolumeCompatible,
 			Status: corev1.ConditionFalse,
 			Reason: "ImageVolumeAlpha",
 			Message: fmt.Sprintf(
-				"Cluster K8s %s.%s has ImageVolume feature-gated (K8s 1.31–1.34). Ensure --feature-gates=ImageVolume=true is set on kube-apiserver and kubelet.",
+				"Cluster K8s %s.%s has ImageVolume feature-gated (K8s 1.33–1.34 beta). Ensure --feature-gates=ImageVolume=true is set on kube-apiserver and kubelet.",
 				result.Major, result.Minor),
 		})
 	default:

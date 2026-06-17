@@ -634,6 +634,11 @@ func ParseOciScheme(uri string) (mode string, normalizedURI string, isOci bool) 
 // can coexist without collision (each path produces a unique name via GetVolumeNameFromPath).
 // If another VolumeMount already uses modelPath the call is rejected to avoid silent
 // mount shadowing.
+//
+// The mount uses subPath="models" so that existing modelcar OCI images (which store model
+// files under /models/ inside the image) continue to work without re-building. K8s 1.31–1.32
+// alpha does not support subPath on ImageVolume VolumeMounts; the controller's warn helper
+// surfaces an advisory condition on those clusters.
 func ConfigureOciNativeToContainer(modelUri string, podSpec *corev1.PodSpec, targetContainerName, modelPath string, _ *types.StorageInitializerConfig) error {
 	targetContainer := GetContainerWithName(podSpec, targetContainerName)
 	if targetContainer == nil {
@@ -680,7 +685,8 @@ func ConfigureOciNativeToContainer(modelUri string, podSpec *corev1.PodSpec, tar
 	}
 
 	// Always add the VolumeMount; the helper skips if this container already has it.
-	AddVolumeMountIfNotPresent(targetContainer, volName, modelPath, true)
+	// subPath="models" matches the modelcar OCI image layout convention (/models/ inside the image).
+	AddVolumeMountIfNotPresentWithSubPath(targetContainer, volName, modelPath, "models", true)
 
 	return nil
 }

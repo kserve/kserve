@@ -853,9 +853,13 @@ func warnIfImageVolumeUnsupported(ctx context.Context, sv serverVersioner, llmSv
 		mgr.MarkFalse(ociImageVolumeCompatible, "ImageVolumeUnsupported",
 			"Cluster K8s %s.%s does not support ImageVolume (introduced in 1.31 as alpha). Falling back to modelcar may be required.",
 			result.Major, result.Minor)
+	case utils.ImageVolumeSubPathUnsupported:
+		mgr.MarkFalse(ociImageVolumeCompatible, "ImageVolumeSubPathUnsupported",
+			"Cluster K8s %s.%s (alpha) does not support subPath on ImageVolume VolumeMounts. Upgrade to K8s 1.33+ (beta) for full oci+native:// support.",
+			result.Major, result.Minor)
 	case utils.ImageVolumeNeedsGate:
 		mgr.MarkFalse(ociImageVolumeCompatible, "ImageVolumeAlpha",
-			"Cluster K8s %s.%s has ImageVolume feature-gated (K8s 1.31–1.34). Ensure --feature-gates=ImageVolume=true is set on kube-apiserver and kubelet.",
+			"Cluster K8s %s.%s has ImageVolume feature-gated (K8s 1.33–1.34 beta). Ensure --feature-gates=ImageVolume=true is set on kube-apiserver and kubelet.",
 			result.Major, result.Minor)
 	default:
 		// ImageVolumeOK (≥ 1.35) or ImageVolumeUnknown — clear any previous warning.
