@@ -144,7 +144,7 @@ manifests: controller-gen kustomize yq
 	# Pull upstream GIE v1 CRDs (InferencePool, etc.) from release artifact
 	curl -sL https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/$(GIE_VERSION)/v1-manifests.yaml > config/llmisvc/gateway-inference-extension.yaml
 	# Append llm-d.ai CRDs (InferenceObjective, InferenceModelRewrite) from llm-d-router
-	# TODO: once 0.9.0 is released we should switch to use release artifacts
+	# TODO: switch to release artifacts once llm-d-router publishes CRD manifests in its GitHub releases
 	@echo "---" >> config/llmisvc/gateway-inference-extension.yaml
 	curl -sL https://raw.githubusercontent.com/llm-d/llm-d-router/$(LLMD_ROUTER_VERSION)/config/crd/bases/llm-d.ai_inferencemodelrewrites.yaml >> config/llmisvc/gateway-inference-extension.yaml
 	@echo "---" >> config/llmisvc/gateway-inference-extension.yaml

@@ -659,6 +659,7 @@ OPENTELEMETRY_OPERATOR_VERSION=0.74.3
 LWS_VERSION=v0.8.0
 GATEWAY_API_VERSION=v1.4.1
 GIE_VERSION=v1.3.1
+LLMD_ROUTER_VERSION=v0.9.0
 WVA_VERSION=v0.7.0
 
 #================================================
@@ -1023,13 +1024,21 @@ install_gateway_api_extension_crd() {
     log_info "Installing Gateway Inference Extension CRDs ${GIE_VERSION}..."
     kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/${GIE_VERSION}/manifests.yaml"
 
-    log_success "Successfully installed Gateway Inference Extension CRDs ${GIE_VERSION}"
-
     wait_for_crds "60s" \
         "inferencepools.inference.networking.x-k8s.io" \
-        "inferenceobjectives.inference.networking.x-k8s.io"
+        "inferencepoolimports.inference.networking.x-k8s.io"
+    
+    log_success "Gateway Inference Extension CRDs ${GIE_VERSION} are ready!"
+ 
+    log_info "Installing llm-d.ai CRDs from llm-d-router ${LLMD_ROUTER_VERSION}..."
+    kubectl apply -f "https://raw.githubusercontent.com/llm-d/llm-d-router/${LLMD_ROUTER_VERSION}/config/crd/bases/llm-d.ai_inferenceobjectives.yaml"
+    kubectl apply -f "https://raw.githubusercontent.com/llm-d/llm-d-router/${LLMD_ROUTER_VERSION}/config/crd/bases/llm-d.ai_inferencemodelrewrites.yaml"
 
-    log_success "Gateway Inference Extension CRDs are ready!"
+    wait_for_crds "60s" \
+        "inferenceobjectives.llm-d.ai" \
+        "inferencemodelrewrites.llm-d.ai"
+
+    log_success "llm-d.ai CRDs ${LLMD_ROUTER_VERSION} are ready!"
 }
 
 # ----------------------------------------

@@ -326,7 +326,7 @@ def main():
         f"LWS_VERSION={versions['LWS_VERSION']}\n",
         f"GATEWAY_API_VERSION={versions['GATEWAY_API_VERSION']}\n",
         f"GIE_VERSION={versions['GIE_VERSION']}\n",
-        "LLMD_ROUTER_VERSION=main\n",
+        f"LLMD_ROUTER_VERSION={existing_versions.get('LLMD_ROUTER_VERSION', 'main')}\n",
         f"WVA_VERSION={versions['WVA_VERSION']}\n",
         "# END\n",
     ]
@@ -334,7 +334,9 @@ def main():
     output_file.write_text("".join(lines[:start] + new_section + lines[end + 1 :]))
 
     print(f"\n✅ Updated {output_file.name}\n")
-    print("  LLMD_ROUTER_VERSION=main (manually managed)")
+    print(
+        f"  LLMD_ROUTER_VERSION={existing_versions.get('LLMD_ROUTER_VERSION', 'main')} (manually managed in kserve-deps.env)"
+    )
     for var in [
         "ISTIO_VERSION",
         "KEDA_VERSION",
