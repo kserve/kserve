@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    inference.networking.k8s.io/bundle-version: v1.3.1
+    inference.networking.k8s.io/bundle-version: v1.5.0
   name: inferencemodelrewrites.inference.networking.x-k8s.io
 spec:
   group: inference.networking.x-k8s.io
@@ -238,7 +238,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    inference.networking.k8s.io/bundle-version: v1.3.1
+    inference.networking.k8s.io/bundle-version: v1.5.0
   name: inferenceobjectives.inference.networking.x-k8s.io
 spec:
   group: inference.networking.x-k8s.io
@@ -331,7 +331,7 @@ spec:
                   Fairness is only enforced and tracked between requests of the same priority.
 
                   Example: requests with Priority 10 will always be served before
-                  requests with Priority of 0 (the value used if Priority is unset or no InfereneceObjective is specified).
+                  requests with Priority of 0 (the value used if Priority is unset or no InferenceObjective is specified).
                   Similarly requests with a Priority of -10 will always be served after requests with Priority of 0.
                 type: integer
             required:
@@ -429,7 +429,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    inference.networking.k8s.io/bundle-version: v1.3.1
+    inference.networking.k8s.io/bundle-version: v1.5.0
   name: inferencepoolimports.inference.networking.x-k8s.io
 spec:
   group: inference.networking.x-k8s.io
@@ -761,7 +761,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api-inference-extension/pull/1173
-    inference.networking.k8s.io/bundle-version: v1.3.1
+    inference.networking.k8s.io/bundle-version: v1.5.0
   name: inferencepools.inference.networking.k8s.io
 spec:
   group: inference.networking.k8s.io
@@ -800,6 +800,20 @@ spec:
           spec:
             description: Spec defines the desired state of the InferencePool.
             properties:
+              appProtocol:
+                default: http
+                description: |-
+                  AppProtocol describes the application protocol for all the target ports.
+
+                  If unspecified, the protocol defaults to HTTP/1.1.
+
+                  Supported values include:
+                  * "http": HTTP/1.1. This is the default.
+                  * "kubernetes.io/h2c": HTTP/2 over cleartext.
+                enum:
+                - http
+                - kubernetes.io/h2c
+                type: string
               endpointPickerRef:
                 description: |-
                   EndpointPickerRef is a reference to the Endpoint Picker extension and its

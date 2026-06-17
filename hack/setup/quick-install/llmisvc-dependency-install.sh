@@ -659,7 +659,7 @@ KEDA_VERSION=2.18.0
 OPENTELEMETRY_OPERATOR_VERSION=0.74.3
 LWS_VERSION=v0.8.0
 GATEWAY_API_VERSION=v1.4.1
-GIE_VERSION=v1.3.1
+GIE_VERSION=v1.5.0
 WVA_VERSION=v0.7.0
 
 #================================================
@@ -1011,7 +1011,7 @@ uninstall_gateway_api_extension_crd() {
 }
 
 install_gateway_api_extension_crd() {
-    if kubectl get crd inferencepools.inference.networking.x-k8s.io &>/dev/null; then
+    if kubectl get crd inferencepools.inference.networking.k8s.io &>/dev/null; then
         if [ "$REINSTALL" = false ]; then
             log_info "Gateway Inference Extension CRDs are already installed. Use --reinstall to reinstall."
             return 0
@@ -1027,7 +1027,7 @@ install_gateway_api_extension_crd() {
     log_success "Successfully installed Gateway Inference Extension CRDs ${GIE_VERSION}"
 
     wait_for_crds "60s" \
-        "inferencepools.inference.networking.x-k8s.io" \
+        "inferencepools.inference.networking.k8s.io" \
         "inferenceobjectives.inference.networking.x-k8s.io"
 
     log_success "Gateway Inference Extension CRDs are ready!"

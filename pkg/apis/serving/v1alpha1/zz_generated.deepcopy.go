@@ -22,13 +22,13 @@ package v1alpha1
 
 import (
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/gie/v1alpha2pool"
 	"github.com/kserve/kserve/pkg/constants"
 	"k8s.io/api/autoscaling/v2"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
-	"sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 	apisv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -496,7 +496,7 @@ func (in *InferencePoolSpec) DeepCopyInto(out *InferencePoolSpec) {
 	*out = *in
 	if in.Spec != nil {
 		in, out := &in.Spec, &out.Spec
-		*out = new(v1alpha2.InferencePoolSpec)
+		*out = new(v1alpha2pool.InferencePoolSpec)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.Ref != nil {
