@@ -32,12 +32,12 @@ import (
 
 // specWithArgs builds a minimal LLMInferenceServiceSpec with a single
 // container in the main template carrying the given args.
-func specWithArgs(containerName string, args []string) v1alpha2.LLMInferenceServiceSpec {
+func specWithArgs(args []string) v1alpha2.LLMInferenceServiceSpec {
 	return v1alpha2.LLMInferenceServiceSpec{
 		WorkloadSpec: v1alpha2.WorkloadSpec{
 			Template: &corev1.PodSpec{
 				Containers: []corev1.Container{
-					{Name: containerName, Args: args},
+					{Name: "main", Args: args},
 				},
 			},
 		},
@@ -46,7 +46,7 @@ func specWithArgs(containerName string, args []string) v1alpha2.LLMInferenceServ
 
 // mustParseFieldPaths parses multiple Kustomize-style paths, panicking on error.
 func mustParseFieldPaths(paths ...string) []fieldPath {
-	var result []fieldPath
+	result := make([]fieldPath, 0, len(paths))
 	for _, p := range paths {
 		segments, err := v1alpha2.ParseFieldPath(p)
 		if err != nil {
@@ -62,7 +62,7 @@ func mustParseFieldPaths(paths ...string) []fieldPath {
 // ---------------------------------------------------------------------------
 
 func TestMergeAnnotatedSpecs(t *testing.T) {
-	const argsPath = "template.containers.[name=kserve-container].args"
+	const argsPath = "template.containers.[name=main].args"
 
 	tests := []struct {
 		name     string
@@ -72,13 +72,13 @@ func TestMergeAnnotatedSpecs(t *testing.T) {
 		{
 			name: "3 configs, all append: cumulative concatenation",
 			specs: []annotatedSpec{
-				{spec: specWithArgs("kserve-container", []string{"--a"})},
+				{spec: specWithArgs([]string{"--a"})},
 				{
-					spec:        specWithArgs("kserve-container", []string{"--b"}),
+					spec:        specWithArgs([]string{"--b"}),
 					annotations: map[string]string{v1alpha2.MergeAppendFieldsAnnotation: argsPath},
 				},
 				{
-					spec:        specWithArgs("kserve-container", []string{"--c"}),
+					spec:        specWithArgs([]string{"--c"}),
 					annotations: map[string]string{v1alpha2.MergeAppendFieldsAnnotation: argsPath},
 				},
 			},
@@ -87,22 +87,22 @@ func TestMergeAnnotatedSpecs(t *testing.T) {
 		{
 			name: "append then replace: final config without annotation replaces",
 			specs: []annotatedSpec{
-				{spec: specWithArgs("kserve-container", []string{"--a"})},
+				{spec: specWithArgs([]string{"--a"})},
 				{
-					spec:        specWithArgs("kserve-container", []string{"--b"}),
+					spec:        specWithArgs([]string{"--b"}),
 					annotations: map[string]string{v1alpha2.MergeAppendFieldsAnnotation: argsPath},
 				},
-				{spec: specWithArgs("kserve-container", []string{"--c"})},
+				{spec: specWithArgs([]string{"--c"})},
 			},
 			wantArgs: []string{"--c"},
 		},
 		{
 			name: "replace then append: appends only to the latest base",
 			specs: []annotatedSpec{
-				{spec: specWithArgs("kserve-container", []string{"--a"})},
-				{spec: specWithArgs("kserve-container", []string{"--b"})},
+				{spec: specWithArgs([]string{"--a"})},
+				{spec: specWithArgs([]string{"--b"})},
 				{
-					spec:        specWithArgs("kserve-container", []string{"--c"}),
+					spec:        specWithArgs([]string{"--c"}),
 					annotations: map[string]string{v1alpha2.MergeAppendFieldsAnnotation: argsPath},
 				},
 			},
@@ -112,16 +112,16 @@ func TestMergeAnnotatedSpecs(t *testing.T) {
 			name: "first config annotation is a no-op (nothing to append to)",
 			specs: []annotatedSpec{
 				{
-					spec:        specWithArgs("kserve-container", []string{"--a"}),
+					spec:        specWithArgs([]string{"--a"}),
 					annotations: map[string]string{v1alpha2.MergeAppendFieldsAnnotation: argsPath},
 				},
-				{spec: specWithArgs("kserve-container", []string{"--b"})},
+				{spec: specWithArgs([]string{"--b"})},
 			},
 			wantArgs: []string{"--b"},
 		},
 		{
 			name:     "single config returns as-is",
-			specs:    []annotatedSpec{{spec: specWithArgs("kserve-container", []string{"--a"})}},
+			specs:    []annotatedSpec{{spec: specWithArgs([]string{"--a"})}},
 			wantArgs: []string{"--a"},
 		},
 	}
@@ -155,7 +155,7 @@ func TestMergeAnnotatedSpecs_OtherFieldsPreserved(t *testing.T) {
 					Replicas: ptr.To[int32](1),
 					Template: &corev1.PodSpec{
 						Containers: []corev1.Container{
-							{Name: "kserve-container", Image: "base-image:v1", Args: []string{"--base-flag"}},
+							{Name: "main", Image: "base-image:v1", Args: []string{"--base-flag"}},
 						},
 					},
 				},
@@ -167,13 +167,13 @@ func TestMergeAnnotatedSpecs_OtherFieldsPreserved(t *testing.T) {
 					Replicas: ptr.To[int32](3),
 					Template: &corev1.PodSpec{
 						Containers: []corev1.Container{
-							{Name: "kserve-container", Args: []string{"--override-flag"}},
+							{Name: "main", Args: []string{"--override-flag"}},
 						},
 					},
 				},
 			},
 			annotations: map[string]string{
-				v1alpha2.MergeAppendFieldsAnnotation: "template.containers.[name=kserve-container].args",
+				v1alpha2.MergeAppendFieldsAnnotation: "template.containers.[name=main].args",
 			},
 		},
 	}
@@ -208,23 +208,23 @@ func TestMergeSpecsWithAppend(t *testing.T) {
 	}{
 		{
 			name:        "append container args",
-			base:        specWithArgs("kserve-container", []string{"--base-flag"}),
-			override:    specWithArgs("kserve-container", []string{"--override-flag"}),
-			appendPaths: []string{"template.containers.[name=kserve-container].args"},
+			base:        specWithArgs([]string{"--base-flag"}),
+			override:    specWithArgs([]string{"--override-flag"}),
+			appendPaths: []string{"template.containers.[name=main].args"},
 			wantArgs:    []string{"--base-flag", "--override-flag"},
 		},
 		{
 			name:        "no append paths preserves replace behavior",
-			base:        specWithArgs("kserve-container", []string{"--base-flag"}),
-			override:    specWithArgs("kserve-container", []string{"--override-flag"}),
+			base:        specWithArgs([]string{"--base-flag"}),
+			override:    specWithArgs([]string{"--override-flag"}),
 			appendPaths: nil,
 			wantArgs:    []string{"--override-flag"},
 		},
 		{
 			name:        "append with multiple base args",
-			base:        specWithArgs("kserve-container", []string{"--model-name=llama", "--max-len=4096"}),
-			override:    specWithArgs("kserve-container", []string{"--enable-lora"}),
-			appendPaths: []string{"template.containers.[name=kserve-container].args"},
+			base:        specWithArgs([]string{"--model-name=llama", "--max-len=4096"}),
+			override:    specWithArgs([]string{"--enable-lora"}),
+			appendPaths: []string{"template.containers.[name=main].args"},
 			wantArgs:    []string{"--model-name=llama", "--max-len=4096", "--enable-lora"},
 		},
 		{
@@ -232,12 +232,12 @@ func TestMergeSpecsWithAppend(t *testing.T) {
 			base: v1alpha2.LLMInferenceServiceSpec{
 				WorkloadSpec: v1alpha2.WorkloadSpec{
 					Template: &corev1.PodSpec{
-						Containers: []corev1.Container{{Name: "kserve-container"}},
+						Containers: []corev1.Container{{Name: "main"}},
 					},
 				},
 			},
-			override:    specWithArgs("kserve-container", []string{"--flag"}),
-			appendPaths: []string{"template.containers.[name=kserve-container].args"},
+			override:    specWithArgs([]string{"--flag"}),
+			appendPaths: []string{"template.containers.[name=main].args"},
 			wantArgs:    []string{"--flag"},
 		},
 	}
@@ -329,19 +329,19 @@ func TestMergeSpecsWithAppend_PrefillArgs(t *testing.T) {
 	base := v1alpha2.LLMInferenceServiceSpec{
 		Prefill: &v1alpha2.WorkloadSpec{
 			Template: &corev1.PodSpec{
-				Containers: []corev1.Container{{Name: "kserve-container", Args: []string{"--prefill-base"}}},
+				Containers: []corev1.Container{{Name: "main", Args: []string{"--prefill-base"}}},
 			},
 		},
 	}
 	override := v1alpha2.LLMInferenceServiceSpec{
 		Prefill: &v1alpha2.WorkloadSpec{
 			Template: &corev1.PodSpec{
-				Containers: []corev1.Container{{Name: "kserve-container", Args: []string{"--prefill-override"}}},
+				Containers: []corev1.Container{{Name: "main", Args: []string{"--prefill-override"}}},
 			},
 		},
 	}
 
-	got, err := mergeSpecsWithAppend(ctx, base, override, mustParseFieldPaths("prefill.template.containers.[name=kserve-container].args"))
+	got, err := mergeSpecsWithAppend(ctx, base, override, mustParseFieldPaths("prefill.template.containers.[name=main].args"))
 	if err != nil {
 		t.Fatalf("error: %v", err)
 	}
