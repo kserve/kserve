@@ -206,6 +206,39 @@ spec:
 apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
+  name: kserve-autogluonserver
+  annotations:
+    serving.kserve.io/server-type: autogluonserver
+spec:
+  disabled: {{ .Values.kserve.servingruntime.autogluonserver.disabled }}
+  containers:
+    - name: kserve-container
+      image: "{{ .Values.kserve.servingruntime.autogluonserver.image }}:{{ .Values.kserve.servingruntime.autogluonserver.tag | default .Values.kserve.version }}"
+      imagePullPolicy: {{ .Values.kserve.servingruntime.autogluonserver.imagePullPolicy }}
+      args:
+        - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
+        - --model_dir=/mnt/models
+        - --http_port=8080
+      securityContext:
+          {{- with .Values.kserve.servingruntime.autogluonserver.securityContext}}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi
+  {{- with .Values.kserve.servingruntime.autogluonserver.imagePullSecrets }}
+  imagePullSecrets:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
   name: kserve-tensorflow-serving
   annotations:
     serving.kserve.io/server-type: tensorflow-serving
