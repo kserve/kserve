@@ -2097,6 +2097,8 @@ spec:
       value: /tmp
     - name: VLLM_CONFIG_ROOT
       value: /tmp
+    - name: VLLM_WORKER_MULTIPROC_METHOD
+      value: spawn
     image: vllm/vllm-openai:latest
     name: kserve-container
     readinessProbe:
