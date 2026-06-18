@@ -5546,3 +5546,79 @@ func TestMergeContainerSpecs_EnvHandling(t *testing.T) {
 		})
 	}
 }
+
+// TestCustomStorageContainerImagePullPolicyPropagation is a regression test for
+// kserve/kserve#834. It verifies that a ClusterStorageContainer's
+// container.imagePullPolicy reaches the final storage initializer init
+// container after mergeContainerSpecs runs. Cluster admins on clusters that
+// require imagePullPolicy=Always (e.g. via the AlwaysPullImages admission
+// plugin or a PodSecurityPolicy) rely on this path to declaratively configure
+// the storage initializer without overriding the configmap default.
+//
+// The reciprocal case (an unset value on the CSC must not clobber an existing
+// value on the init container) is implicitly covered by strategic merge patch
+// semantics: corev1.Container.ImagePullPolicy has json:"omitempty", so a zero
+// value is omitted from the patch and never overrides the target.
+func TestCustomStorageContainerImagePullPolicyPropagation(t *testing.T) {
+	scenarios := map[string]corev1.PullPolicy{
+		"Always":       corev1.PullAlways,
+		"IfNotPresent": corev1.PullIfNotPresent,
+		"Never":        corev1.PullNever,
+	}
+
+	for name, policy := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			customStorageContainer := &v1alpha1.StorageContainerSpec{
+				Container: corev1.Container{
+					Name:            "storage-initializer",
+					Image:           "custom/storage-initializer:v1",
+					ImagePullPolicy: policy,
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("1Gi"),
+							corev1.ResourceCPU:    resource.MustParse("1"),
+						},
+						Requests: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("100Mi"),
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+						},
+					},
+				},
+				SupportsMultiModelDownload: ptr.Bool(true),
+			}
+
+			podSpec := &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  constants.InferenceServiceContainerName,
+						Image: "test-image",
+						Env: []corev1.EnvVar{
+							{Name: constants.CustomSpecStorageUriEnvVarKey, Value: "placeholder"},
+						},
+					},
+				},
+			}
+
+			params := &StorageInitializerParams{
+				Namespace: "default",
+				StorageURIs: []v1beta1.StorageUri{
+					{Uri: "s3://bucket/model", MountPath: "/mnt/models"},
+				},
+				IsReadOnly:           false,
+				IsLegacyURI:          false,
+				PodSpec:              podSpec,
+				CredentialBuilder:    credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{Data: map[string]string{}}),
+				Client:               c,
+				Config:               storageInitializerConfig,
+				IsvcAnnotations:      map[string]string{},
+				StorageContainerSpec: customStorageContainer,
+			}
+
+			err := CommonStorageInitialization(t.Context(), params)
+			require.NoError(t, err)
+			require.Len(t, podSpec.InitContainers, 1, "exactly one storage initializer init container should be injected")
+			assert.Equal(t, policy, podSpec.InitContainers[0].ImagePullPolicy,
+				"ClusterStorageContainer.container.imagePullPolicy must propagate to the final init container")
+		})
+	}
+}
