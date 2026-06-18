@@ -170,7 +170,7 @@ func GetWorkloadLabelSelector(meta metav1.ObjectMeta, _ *v1alpha2.LLMInferenceSe
 		constants.KServeComponentLabelKey:   constants.KServeComponentWorkload,
 	}
 
-	// TODO https://github.com/llm-d/llm-d-inference-scheduler/issues/220 and DP template
+	// TODO https://github.com/llm-d/llm-d-router/issues/220 and DP template
 
 	return s
 }

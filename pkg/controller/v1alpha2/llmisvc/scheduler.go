@@ -857,7 +857,7 @@ func WithUdsTokenizerConfig(_ context.Context, u *unstructured.Unstructured) err
 // WithMigrateTokenProcessorConfig migrates tokenProcessorConfig from inside
 // indexerConfig to the top level of the plugin parameters for the
 // precise-prefix-cache-scorer plugin. This handles the schema change in
-// llm-d-inference-scheduler v0.6.0 where tokenProcessorConfig was promoted
+// llm-d-router v0.6.0 where tokenProcessorConfig was promoted
 // from indexerConfig to a top-level plugin parameter.
 func WithMigrateTokenProcessorConfig(ctx context.Context, u *unstructured.Unstructured) error {
 	val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
@@ -903,7 +903,7 @@ func WithMigrateTokenProcessorConfig(ctx context.Context, u *unstructured.Unstru
 
 // WithMigrateBlockSizeToBlockSizeTokens migrates the deprecated blockSize
 // field to blockSizeTokens in the prefix-cache-scorer plugin parameters.
-// In llm-d-inference-scheduler v0.6.0 the prefix-cache-scorer plugin renamed
+// In llm-d-router v0.6.0 the prefix-cache-scorer plugin renamed
 // blockSize (characters) to blockSizeTokens (tokens). If only blockSize is
 // set the plugin refuses to start. This migration copies blockSize to
 // blockSizeTokens when blockSizeTokens is not already present.
@@ -1014,7 +1014,7 @@ func WithRenamePlugin(oldType, newType string) mutateSchedulerConfigFunc {
 
 // WithMigrateDisaggProfileParams migrates the disagg-profile-handler (formerly
 // pd-profile-handler) from the old flat deciderPluginName/threshold parameters
-// to the new deciders map structure introduced in llm-d-inference-scheduler v0.7.0.
+// to the new deciders map structure introduced in llm-d-router v0.7.0.
 //
 // Migration paths:
 //
@@ -1186,7 +1186,7 @@ func thresholdToNonCachedTokens(val interface{}) int64 {
 }
 
 // WithRemoveHashBlockSize removes the deprecated hashBlockSize field from
-// all plugin parameters. This field was removed in llm-d-inference-scheduler v0.7.0.
+// all plugin parameters. This field was removed in llm-d-router v0.7.0.
 func WithRemoveHashBlockSize(_ context.Context, u *unstructured.Unstructured) error {
 	val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
 	if err != nil || !found {
