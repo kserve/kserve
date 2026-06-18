@@ -109,7 +109,7 @@ func (l *LLMInferenceServiceConfigValidator) ValidateDelete(ctx context.Context,
 	// Warn if deleting a well-known config
 	if l.WellKnownConfigChecker != nil && l.WellKnownConfigChecker(config.Name) && constants.KServeNamespace == config.Namespace {
 		if l.PreventWellKnownConfigDeletion {
-			return warnings, fmt.Errorf("well-known config %s cannot be deleted", config.Name)
+			return warnings, fmt.Errorf("well-known config %s/%s cannot be deleted", config.Namespace, config.Name)
 		}
 		warning := fmt.Sprintf("deleting well-known config %s/%s is not recommended", config.Namespace, config.Name)
 		logger.Info(warning)

@@ -59,7 +59,7 @@ var _ = Describe("LLMInferenceServiceConfig Controller", func() {
 				g.Expect(readyCond).ToNot(BeNil(), "expected Ready condition to be set")
 				g.Expect(readyCond.IsTrue()).To(BeTrue(), "expected Ready condition to be True")
 
-				inUseCond := current.GetStatus().GetCondition("ConfigInUse")
+				inUseCond := current.GetStatus().GetCondition(v1alpha2.ConfigInUseConditionType)
 				g.Expect(inUseCond).ToNot(BeNil(), "expected ConfigInUse condition to be set")
 				g.Expect(inUseCond.IsFalse()).To(BeTrue(), "expected ConfigInUse=False when not referenced")
 
@@ -114,18 +114,16 @@ var _ = Describe("LLMInferenceServiceConfig Controller", func() {
 				g.Expect(readyCond).ToNot(BeNil(), "expected Ready condition to be set")
 				g.Expect(readyCond.IsTrue()).To(BeTrue(), "expected Ready=True even when deletion is blocked")
 
-				inUseCond := current.GetStatus().GetCondition("ConfigInUse")
+				inUseCond := current.GetStatus().GetCondition(v1alpha2.ConfigInUseConditionType)
 				g.Expect(inUseCond).ToNot(BeNil(), "expected ConfigInUse condition to be set")
 				g.Expect(inUseCond.IsTrue()).To(BeTrue(), "expected ConfigInUse=True when deletion is blocked")
 				g.Expect(inUseCond.Reason).To(Equal("DeletionBlocked"))
 
 				g.Expect(current.Status.ReferencedBy).ToNot(BeEmpty(), "expected ReferencedBy to list referencing services")
 				g.Expect(current.Status.ReferencedBy).To(ContainElement(
-					v1alpha2.ReferencedLLMInferenceService{
-						UntypedObjectReference: v1alpha2.UntypedObjectReference{
-							Name:      gwapiv1.ObjectName(svcName),
-							Namespace: gwapiv1.Namespace(current.Namespace),
-						},
+					v1alpha2.UntypedObjectReference{
+						Name:      gwapiv1.ObjectName(svcName),
+						Namespace: gwapiv1.Namespace(current.Namespace),
 					},
 				))
 			}).WithContext(ctx).Should(Succeed())
@@ -186,7 +184,7 @@ var _ = Describe("LLMInferenceServiceConfig Controller", func() {
 				g.Expect(readyCond).ToNot(BeNil(), "expected Ready condition to be set")
 				g.Expect(readyCond.IsTrue()).To(BeTrue(), "expected Ready=True even when deletion is blocked")
 
-				inUseCond := current.GetStatus().GetCondition("ConfigInUse")
+				inUseCond := current.GetStatus().GetCondition(v1alpha2.ConfigInUseConditionType)
 				g.Expect(inUseCond).ToNot(BeNil(), "expected ConfigInUse condition to be set")
 				g.Expect(inUseCond.IsTrue()).To(BeTrue(), "expected ConfigInUse=True when deletion is blocked")
 				g.Expect(inUseCond.Reason).To(Equal("DeletionBlocked"))

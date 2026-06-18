@@ -21,8 +21,8 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
-// llmInferenceServiceConfigCondSet defines the living condition set for LLMInferenceServiceConfig.
-// The Ready condition is the top-level aggregate that reflects the overall state of the config.
+const ConfigInUseConditionType apis.ConditionType = "ConfigInUse"
+
 var llmInferenceServiceConfigCondSet = apis.NewLivingConditionSet()
 
 func (in *LLMInferenceServiceConfig) GetStatus() *duckv1.Status {
@@ -37,10 +37,10 @@ func (in *LLMInferenceServiceConfig) MarkReady() {
 	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(apis.ConditionReady)
 }
 
-func (in *LLMInferenceServiceConfig) MarkConfigInUse(reason, messageFormat string, messageA ...interface{}) {
-	in.GetConditionSet().Manage(in.GetStatus()).MarkTrueWithReason("ConfigInUse", reason, messageFormat, messageA...)
+func (in *LLMInferenceServiceConfig) MarkConfigInUse(reason, messageFormat string, messageA ...any) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkTrueWithReason(ConfigInUseConditionType, reason, messageFormat, messageA...)
 }
 
-func (in *LLMInferenceServiceConfig) MarkConfigNotInUse(reason, messageFormat string, messageA ...interface{}) {
-	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse("ConfigInUse", reason, messageFormat, messageA...)
+func (in *LLMInferenceServiceConfig) MarkConfigNotInUse(reason, messageFormat string, messageA ...any) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(ConfigInUseConditionType, reason, messageFormat, messageA...)
 }

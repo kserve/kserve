@@ -245,7 +245,8 @@ func main() {
 		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceservice-v1alpha1")
 		os.Exit(1)
 	}
-	preventWellKnownConfigDeletion, _ := strconv.ParseBool(constants.GetEnvOrDefault("PREVENT_WELK_KNOWN_CONFIG_DELETION", "true"))
+	const preventWellKnownConfigDeletionEnv = "PREVENT_WELL_KNOWN_CONFIG_DELETION"
+	preventWellKnownConfigDeletion, _ := strconv.ParseBool(constants.GetEnvOrDefault(preventWellKnownConfigDeletionEnv, "true"))
 	v1alpha1ConfigValidator := &v1alpha1.LLMInferenceServiceConfigValidator{
 		ConfigValidationFunc:           createV1Alpha1ConfigValidationFunc(mgr.GetAPIReader()),
 		WellKnownConfigChecker:         wellKnownConfigChecker,

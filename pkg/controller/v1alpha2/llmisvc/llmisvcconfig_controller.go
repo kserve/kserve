@@ -19,6 +19,7 @@ package llmisvc
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -74,6 +75,7 @@ func (r *LLMISVCConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			if err := r.Update(ctx, original); err != nil {
 				return ctrl.Result{}, err
 			}
+			return ctrl.Result{}, nil
 		}
 	} else {
 		if controllerutil.ContainsFinalizer(original, finalizerName) {
@@ -184,7 +186,7 @@ func (r *LLMISVCConfigReconciler) updateStatus(ctx context.Context, desired *v1a
 // are resolved implicitly by the controller, so any existing service could depend on them
 // even without an explicit baseRef. Operators must drain all services before deleting a
 // well-known config.
-func (r *LLMISVCConfigReconciler) referencingServices(ctx context.Context, config *v1alpha2.LLMInferenceServiceConfig) ([]v1alpha2.ReferencedLLMInferenceService, error) {
+func (r *LLMISVCConfigReconciler) referencingServices(ctx context.Context, config *v1alpha2.LLMInferenceServiceConfig) ([]v1alpha2.UntypedObjectReference, error) {
 	listNamespace := config.Namespace
 	if config.Namespace == constants.KServeNamespace {
 		listNamespace = corev1.NamespaceAll
@@ -192,7 +194,7 @@ func (r *LLMISVCConfigReconciler) referencingServices(ctx context.Context, confi
 
 	isWellKnown := WellKnownDefaultConfigs.Has(config.Name)
 
-	var referencing []v1alpha2.ReferencedLLMInferenceService
+	var referencing []v1alpha2.UntypedObjectReference
 	llmSvcList := &v1alpha2.LLMInferenceServiceList{}
 	if err := r.List(ctx, llmSvcList, &client.ListOptions{
 		Namespace: listNamespace,
@@ -200,7 +202,8 @@ func (r *LLMISVCConfigReconciler) referencingServices(ctx context.Context, confi
 		return nil, fmt.Errorf("failed to list LLMInferenceService: %w", err)
 	}
 
-	for _, llmSvc := range llmSvcList.Items {
+	for i := range llmSvcList.Items {
+		llmSvc := &llmSvcList.Items[i]
 		if isWellKnown && (config.Namespace == constants.KServeNamespace || config.Namespace == llmSvc.Namespace) {
 			referencing = append(referencing, svcRef(llmSvc))
 			continue
@@ -211,15 +214,20 @@ func (r *LLMISVCConfigReconciler) referencingServices(ctx context.Context, confi
 		}
 	}
 
+	sort.Slice(referencing, func(i, j int) bool {
+		if referencing[i].Namespace != referencing[j].Namespace {
+			return referencing[i].Namespace < referencing[j].Namespace
+		}
+		return referencing[i].Name < referencing[j].Name
+	})
+
 	return referencing, nil
 }
 
-func svcRef(svc v1alpha2.LLMInferenceService) v1alpha2.ReferencedLLMInferenceService {
-	return v1alpha2.ReferencedLLMInferenceService{
-		UntypedObjectReference: v1alpha2.UntypedObjectReference{
-			Name:      gwapiv1.ObjectName(svc.Name),
-			Namespace: gwapiv1.Namespace(svc.Namespace),
-		},
+func svcRef(svc *v1alpha2.LLMInferenceService) v1alpha2.UntypedObjectReference {
+	return v1alpha2.UntypedObjectReference{
+		Name:      gwapiv1.ObjectName(svc.Name),
+		Namespace: gwapiv1.Namespace(svc.Namespace),
 	}
 }
 
@@ -258,41 +266,27 @@ func (r *LLMISVCConfigReconciler) enqueueOnLLMInferenceServiceChange(logger logr
 		seen := make(map[types.NamespacedName]struct{})
 		var reqs []reconcile.Request
 
-		enqueue := func(namespace, name string) {
-			key := types.NamespacedName{Namespace: namespace, Name: name}
-			if _, exists := seen[key]; exists {
-				return
+		enqueue := func(name string) {
+			for _, ns := range []string{llmSvc.Namespace, constants.KServeNamespace} {
+				key := types.NamespacedName{Namespace: ns, Name: name}
+				if _, exists := seen[key]; exists {
+					continue
+				}
+				seen[key] = struct{}{}
+				reqs = append(reqs, reconcile.Request{NamespacedName: key})
 			}
-			seen[key] = struct{}{}
-			reqs = append(reqs, reconcile.Request{NamespacedName: key})
 		}
 
-		// Enqueue configs referenced in spec.baseRefs.
-		// The config could be in the service's namespace or the system namespace.
 		for _, ref := range llmSvc.Spec.BaseRefs {
-			enqueue(llmSvc.Namespace, ref.Name)
-			if llmSvc.Namespace != constants.KServeNamespace {
-				enqueue(constants.KServeNamespace, ref.Name)
-			}
+			enqueue(ref.Name)
 		}
 
-		// Enqueue configs referenced in status.annotations (versioned config resolution).
-		// Status.Annotations is map[string]string where values are config names
-		// (e.g., "kserve-config-llm-template"), consistent with IsUsingLLMInferenceServiceConfig.
 		for _, name := range llmSvc.Status.Annotations {
-			enqueue(llmSvc.Namespace, name)
-			if llmSvc.Namespace != constants.KServeNamespace {
-				enqueue(constants.KServeNamespace, name)
-			}
+			enqueue(name)
 		}
 
-		// Enqueue well-known default configs so that pending-deletion configs
-		// are re-evaluated when any service in their scope changes.
-		for name := range WellKnownDefaultConfigs {
-			enqueue(llmSvc.Namespace, name)
-			if llmSvc.Namespace != constants.KServeNamespace {
-				enqueue(constants.KServeNamespace, name)
-			}
+		for _, name := range WellKnownDefaultConfigs.UnsortedList() {
+			enqueue(name)
 		}
 
 		if len(reqs) > 0 {

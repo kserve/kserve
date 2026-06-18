@@ -76,11 +76,7 @@ type LLMInferenceServiceConfigStatus struct {
 	// via spec.baseRefs, status.annotations, or implicitly as a well-known default.
 	// +optional
 	// +listType=atomic
-	ReferencedBy []ReferencedLLMInferenceService `json:"referencedBy,omitempty"`
-}
-
-type ReferencedLLMInferenceService struct {
-	UntypedObjectReference `json:",inline"`
+	ReferencedBy []UntypedObjectReference `json:"referencedBy,omitempty"`
 }
 
 // LLMInferenceServiceSpec defines the desired state of LLMInferenceService.
