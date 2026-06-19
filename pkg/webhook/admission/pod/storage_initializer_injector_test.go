@@ -5687,3 +5687,106 @@ func TestGetStorageContainerSpecCRDNotInstalled(t *testing.T) {
 	assert.Nil(t, spec)
 	assert.NoError(t, err)
 }
+
+// TestGetStorageContainerSpecNamespaceScoped verifies the two-tier lookup:
+// namespace-scoped StorageContainer is found first; falls back to ClusterStorageContainer
+// when no namespace-scoped match; returns nil when neither tier matches.
+func TestGetStorageContainerSpecNamespaceScoped(t *testing.T) {
+	ctx := context.Background()
+
+	namespacedSC := &v1alpha1.StorageContainer{
+		ObjectMeta: metav1.ObjectMeta{Name: "ns-sc", Namespace: "team-a"},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container:           corev1.Container{Name: "custom", Image: "custom:latest"},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "custom://"}},
+			WorkloadType:        v1alpha1.InitContainer,
+		},
+	}
+	clusterSC := &v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster-sc"},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container:           corev1.Container{Name: "s3", Image: "s3:latest"},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "s3://"}},
+			WorkloadType:        v1alpha1.InitContainer,
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	_ = v1alpha1.AddToScheme(scheme)
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(namespacedSC, clusterSC).Build()
+
+	// Namespace-scoped "custom://" found in team-a
+	spec, err := GetStorageContainerSpec(ctx, "team-a", "custom://bucket/model", nil, c)
+	require.NoError(t, err)
+	require.NotNil(t, spec)
+	assert.Equal(t, "custom", spec.Container.Name)
+
+	// "s3://" not in team-a namespace → falls back to ClusterStorageContainer
+	spec, err = GetStorageContainerSpec(ctx, "team-a", "s3://bucket/model", nil, c)
+	require.NoError(t, err)
+	require.NotNil(t, spec)
+	assert.Equal(t, "s3", spec.Container.Name)
+
+	// team-b has no namespace-scoped SC; "custom://" not found in cluster either → nil
+	spec, err = GetStorageContainerSpec(ctx, "team-b", "custom://bucket/model", nil, c)
+	require.NoError(t, err)
+	assert.Nil(t, spec)
+}
+
+// TestGetStorageContainerSpecByNameNamespaceScoped verifies named lookup finds
+// a namespace-scoped SC in the correct namespace and returns an error when
+// the SC does not exist in the requested namespace (no cluster fallback for named lookup).
+func TestGetStorageContainerSpecByNameNamespaceScoped(t *testing.T) {
+	ctx := context.Background()
+
+	namespacedSC := &v1alpha1.StorageContainer{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-sc", Namespace: "team-a"},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container:           corev1.Container{Name: "custom", Image: "custom:latest"},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "custom://"}},
+			WorkloadType:        v1alpha1.InitContainer,
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	_ = v1alpha1.AddToScheme(scheme)
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(namespacedSC).Build()
+
+	// Named lookup in correct namespace → success
+	spec, err := GetStorageContainerSpecByName(ctx, "team-a", "my-sc", "custom://bucket", c)
+	require.NoError(t, err)
+	require.NotNil(t, spec)
+	assert.Equal(t, "custom", spec.Container.Name)
+
+	// Named lookup in wrong namespace → falls through to ClusterStorageContainer → not found
+	spec, err = GetStorageContainerSpecByName(ctx, "team-b", "my-sc", "custom://bucket", c)
+	assert.Nil(t, spec)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+}
+
+// TestGetStorageContainerSpecDisabledNamespacedSC verifies that a disabled
+// namespace-scoped StorageContainer is skipped and does not produce a match.
+func TestGetStorageContainerSpecDisabledNamespacedSC(t *testing.T) {
+	ctx := context.Background()
+	disabled := true
+
+	disabledSC := &v1alpha1.StorageContainer{
+		ObjectMeta: metav1.ObjectMeta{Name: "disabled-sc", Namespace: "team-a"},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container:           corev1.Container{Name: "custom", Image: "custom:latest"},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "custom://"}},
+			WorkloadType:        v1alpha1.InitContainer,
+		},
+		Disabled: &disabled,
+	}
+
+	scheme := runtime.NewScheme()
+	_ = v1alpha1.AddToScheme(scheme)
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(disabledSC).Build()
+
+	// Disabled namespace-scoped SC → should not match, returns nil (no cluster fallback either)
+	spec, err := GetStorageContainerSpec(ctx, "team-a", "custom://bucket", nil, c)
+	require.NoError(t, err)
+	assert.Nil(t, spec, "disabled SC should not match")
+}
