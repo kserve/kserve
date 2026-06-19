@@ -1076,6 +1076,96 @@ plugins:
 	}
 }
 
+func TestWithRemovePrefixCacheScorerParametersV09(t *testing.T) {
+	tests := []struct {
+		name       string
+		configYAML string
+		validate   func(g Gomega, obj map[string]interface{})
+	}{
+		{
+			name: "removes all parameters except prefixMatchInfoProducerName",
+			configYAML: `
+plugins:
+- type: prefix-cache-scorer
+  parameters:
+    blockSizeTokens: 16
+    hashBlockSize: 64
+    prefixMatchInfoProducerName: my-producer
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				params := plugins[0].(map[string]interface{})["parameters"].(map[string]interface{})
+				g.Expect(params).To(HaveKey("prefixMatchInfoProducerName"))
+				g.Expect(params).NotTo(HaveKey("blockSizeTokens"))
+				g.Expect(params).NotTo(HaveKey("hashBlockSize"))
+			},
+		},
+		{
+			name: "removes parameters entirely when no prefixMatchInfoProducerName",
+			configYAML: `
+plugins:
+- type: prefix-cache-scorer
+  parameters:
+    blockSizeTokens: 16
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				g.Expect(plugins[0].(map[string]interface{})).NotTo(HaveKey("parameters"))
+			},
+		},
+		{
+			name: "no parameters - no-op",
+			configYAML: `
+plugins:
+- type: prefix-cache-scorer
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				g.Expect(plugins[0].(map[string]interface{})).NotTo(HaveKey("parameters"))
+			},
+		},
+		{
+			name: "does not affect other plugins",
+			configYAML: `
+plugins:
+- type: prefix-cache-scorer
+  parameters:
+    blockSizeTokens: 16
+- type: queue-scorer
+  parameters:
+    someParam: value
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				g.Expect(plugins[0].(map[string]interface{})).NotTo(HaveKey("parameters"))
+				queueParams := plugins[1].(map[string]interface{})["parameters"].(map[string]interface{})
+				g.Expect(queueParams).To(HaveKeyWithValue("someParam", "value"))
+			},
+		},
+		{
+			name: "no plugins - no-op",
+			configYAML: `
+schedulingProfiles:
+- name: default
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				g.Expect(obj).NotTo(HaveKey("plugins"))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			var obj map[string]interface{}
+			g.Expect(yaml.Unmarshal([]byte(tt.configYAML), &obj)).To(Succeed())
+			u := unstructured.Unstructured{Object: obj}
+			g.Expect(withRemovePrefixCacheScorerParametersV09(context.Background(), &u)).To(Succeed())
+			tt.validate(g, u.Object)
+		})
+	}
+}
+
 func TestWithCoreMetricsExtractorPlugin(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -1115,6 +1205,22 @@ plugins:
 			configYAML: `
 plugins:
 - type: model-server-protocol-metrics
+  parameters:
+    defaultEngine: vllm
+`,
+			extracted: map[string]string{
+				"kv-cache-usage-percentage-metric": "vllm:kv_cache_usage_perc",
+			},
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				g.Expect(plugins).To(HaveLen(1))
+			},
+		},
+		{
+			name: "skips when renamed plugin already exists",
+			configYAML: `
+plugins:
+- type: core-metrics-extractor
   parameters:
     defaultEngine: vllm
 `,
@@ -1445,6 +1551,39 @@ schedulingProfiles:
 					g.Expect(a).NotTo(ContainSubstring("kv-cache-usage-percentage-metric"))
 				}
 				// Non-metric flags preserved
+				g.Expect(args).To(ContainElement("--grpc-port"))
+				g.Expect(args).To(ContainElement("9002"))
+			},
+		},
+		{
+			name:    "v0.8.0 renames model-server-protocol-metrics to core-metrics-extractor",
+			version: "0.8.0",
+			extraArgs: []string{
+				"--total-queued-requests-metric", "vllm:num_requests_waiting",
+				"--total-running-requests-metric", "vllm:num_requests_running",
+				"--kv-cache-usage-percentage-metric", "vllm:kv_cache_usage_perc",
+				"--grpc-port", "9002",
+			},
+			validateConfig: func(g Gomega, configText string) {
+				// v0.8.0 plugin name used
+				g.Expect(configText).To(ContainSubstring("core-metrics-extractor"))
+				g.Expect(configText).NotTo(ContainSubstring("model-server-protocol-metrics"))
+
+				// Metric values present
+				g.Expect(configText).To(ContainSubstring("vllm:num_requests_waiting"))
+				g.Expect(configText).To(ContainSubstring("vllm:num_requests_running"))
+				g.Expect(configText).To(ContainSubstring("vllm:kv_cache_usage_perc"))
+
+				// v0.7 renames also applied
+				g.Expect(configText).To(ContainSubstring("disagg-headers-handler"))
+				g.Expect(configText).NotTo(ContainSubstring("prefill-header-handler"))
+			},
+			validateArgs: func(g Gomega, args []string) {
+				for _, a := range args {
+					g.Expect(a).NotTo(ContainSubstring("total-queued-requests-metric"))
+					g.Expect(a).NotTo(ContainSubstring("total-running-requests-metric"))
+					g.Expect(a).NotTo(ContainSubstring("kv-cache-usage-percentage-metric"))
+				}
 				g.Expect(args).To(ContainElement("--grpc-port"))
 				g.Expect(args).To(ContainElement("9002"))
 			},
