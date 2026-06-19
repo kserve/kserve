@@ -2298,7 +2298,7 @@ func TestValidateStorageURIForDefaultStorageInitializer(t *testing.T) {
 	}
 	mockClient := fake.NewClientBuilder().WithScheme(s).Build()
 	for _, uri := range validUris {
-		if err := ValidateStorageURI(t.Context(), &uri, mockClient); err != nil {
+		if err := ValidateStorageURI(t.Context(), "", &uri, nil, mockClient); err != nil {
 			t.Errorf("%q validation failed: %s", uri, err)
 		}
 	}
@@ -2315,7 +2315,7 @@ func TestValidateStorageURIForCustomPrefix(t *testing.T) {
 	}
 	mockClient := fake.NewClientBuilder().WithScheme(s).Build()
 	for _, uri := range invalidUris {
-		if err := ValidateStorageURI(t.Context(), &uri, mockClient); err == nil {
+		if err := ValidateStorageURI(t.Context(), "", &uri, nil, mockClient); err == nil {
 			t.Errorf("%q validation failed: error expected", uri)
 		}
 	}
@@ -2353,9 +2353,48 @@ func TestValidateStorageURIForDefaultStorageInitializerCRD(t *testing.T) {
 	}
 	mockClient := fake.NewClientBuilder().WithLists(storageContainerSpecs).WithScheme(s).Build()
 	for _, uri := range validUris {
-		if err := ValidateStorageURI(t.Context(), &uri, mockClient); err != nil {
+		if err := ValidateStorageURI(t.Context(), "", &uri, nil, mockClient); err != nil {
 			t.Errorf("%q validation failed: %s", uri, err)
 		}
+	}
+}
+
+func TestValidateStorageURINamedNamespacedStorageContainer(t *testing.T) {
+	// A URI "custom://bucket" is only supported by a namespace-scoped StorageContainer "custom-sc".
+	// With an explicit correct name hint, ValidateStorageURI must pass.
+	// With a wrong name hint (non-existent), it must fail even though auto-scan could find the SC.
+	customSC := &v1alpha1.StorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "custom-sc",
+			Namespace: "test-ns",
+		},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: corev1.Container{Name: "custom-downloader", Image: "custom:latest"},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{
+				{Prefix: "custom://"},
+			},
+			WorkloadType: v1alpha1.InitContainer,
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add v1alpha1 to scheme: %s", err)
+	}
+	mockClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(customSC).Build()
+
+	uri := "custom://bucket/model"
+	scName := "custom-sc"
+	wrongName := "nonexistent-sc"
+
+	// With correct name hint → should pass (named lookup finds custom-sc in test-ns)
+	if err := ValidateStorageURI(t.Context(), "test-ns", &uri, &scName, mockClient); err != nil {
+		t.Errorf("expected no error with correct name hint, got: %s", err)
+	}
+
+	// With wrong name hint → should fail (named lookup can't find nonexistent-sc)
+	if err := ValidateStorageURI(t.Context(), "test-ns", &uri, &wrongName, mockClient); err == nil {
+		t.Errorf("expected error when name hint points to a non-existent StorageContainer")
 	}
 }
 
