@@ -954,6 +954,8 @@ LLMINFERENCESERVICE_CONFIGS = {
                             "args": [
                                 "--cert-path",
                                 "/var/run/kserve/tls",
+                                "--pool-group",
+                                "inference.networking.x-k8s.io",
                                 "--pool-name",
                                 "{{ ChildName .ObjectMeta.Name `-inference-pool` }}",
                                 "--pool-namespace",
