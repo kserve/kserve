@@ -238,8 +238,8 @@ func GetStorageContainerSpecByName(ctx context.Context, namespace, name, storage
 	return &csc.Spec, nil
 }
 
-func GetContainerSpecForStorageUri(ctx context.Context, namespace string, storageUri string, client client.Client) (*corev1.Container, error) {
-	supported, err := GetStorageContainerSpec(ctx, namespace, storageUri, nil, client)
+func GetContainerSpecForStorageUri(ctx context.Context, namespace string, storageUri string, storageContainerName *string, client client.Client) (*corev1.Container, error) {
+	supported, err := GetStorageContainerSpec(ctx, namespace, storageUri, storageContainerName, client)
 	if err != nil {
 		return nil, fmt.Errorf("error resolving storage container for %q: %w", storageUri, err)
 	}

@@ -2759,7 +2759,7 @@ func TestGetStorageContainerSpec(t *testing.T) {
 		var container *corev1.Container
 		var err error
 
-		if container, err = GetContainerSpecForStorageUri(t.Context(), "", scenario.storageUri, c); err != nil {
+		if container, err = GetContainerSpecForStorageUri(t.Context(), "", scenario.storageUri, nil, c); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 		g.Expect(container).To(gomega.Equal(scenario.expectedSpec))
