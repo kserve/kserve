@@ -790,8 +790,17 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 	}
 
 	ctrlBuilder = ctrlBuilder.Watches(&v1alpha1.ServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.servingRuntimeFunc), builder.WithPredicates(servingRuntimesPredicate())).
-		Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(r.podInitContainersFunc), builder.WithPredicates(podInitContainersPredicate())).
-		Watches(&v1alpha1.StorageContainer{}, handler.EnqueueRequestsFromMapFunc(r.storageContainerFunc), builder.WithPredicates(storageContainerPredicate()))
+		Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(r.podInitContainersFunc), builder.WithPredicates(podInitContainersPredicate()))
+
+	scFound, err := utils.IsCrdAvailable(r.ClientConfig, v1alpha1.SchemeGroupVersion.String(), "StorageContainer")
+	if err != nil {
+		return err
+	}
+	if scFound {
+		ctrlBuilder = ctrlBuilder.Watches(&v1alpha1.StorageContainer{}, handler.EnqueueRequestsFromMapFunc(r.storageContainerFunc), builder.WithPredicates(storageContainerPredicate()))
+	} else {
+		r.Log.Info("The InferenceService controller won't watch serving.kserve.io/v1alpha1/StorageContainer resources because the CRD is not available.")
+	}
 
 	csrFound, err := utils.IsCrdAvailable(r.ClientConfig, v1alpha1.SchemeGroupVersion.String(), "ClusterServingRuntime")
 	if err != nil {
