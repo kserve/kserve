@@ -18,6 +18,7 @@ package fetcher
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -36,7 +37,7 @@ type podmanFetcher struct {
 func newPodmanFetcher() (*podmanFetcher, error) {
 	socket := getPodmanSock()
 	if socket == "" {
-		return nil, fmt.Errorf("could not determine Podman socket")
+		return nil, errors.New("could not determine Podman socket")
 	}
 
 	ctx, err := bindings.NewConnection(context.Background(), socket)
@@ -56,8 +57,8 @@ func (p *podmanFetcher) FetchImg(imgName string) (v1.Image, error) {
 	}
 
 	imageFunc := func(w io.Writer) error {
-		var compress = true
-		var format = "docker-archive"
+		compress := true
+		format := "docker-archive"
 		return p.client.Export(context.Background(), []string{imgName}, w, &images.ExportOptions{
 			Compress: &compress,
 			Format:   &format,
@@ -86,15 +87,15 @@ func getPodmanSock() string {
 }
 
 type realPodmanClient struct {
-	ctx context.Context
+	ctx context.Context //nolint:containedctx // Podman bindings API embeds connection info in context
 }
 
 func (r *realPodmanClient) Exists(ctx context.Context, name string, opts *images.ExistsOptions) (bool, error) {
-	return images.Exists(r.ctx, name, opts)
+	return images.Exists(r.ctx, name, opts) //nolint:contextcheck // Podman bindings API embeds connection info in context
 }
 
 func (r *realPodmanClient) Export(ctx context.Context, names []string, w io.Writer, opts *images.ExportOptions) error {
-	return images.Export(r.ctx, names, w, opts)
+	return images.Export(r.ctx, names, w, opts) //nolint:contextcheck // Podman bindings API embeds connection info in context
 }
 
 var _ Fetcher = (*podmanFetcher)(nil)

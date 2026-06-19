@@ -20,6 +20,7 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -89,7 +90,7 @@ func WriteManifest(path string, manifest Manifest) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal manifest: %w", err)
 	}
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := os.WriteFile(path, data, 0o640); err != nil {
 		return fmt.Errorf("failed to write manifest file: %w", err)
 	}
 	return nil
@@ -106,13 +107,13 @@ func CopyDir(srcDir, dstDir string) error {
 		if err != nil {
 			return err
 		}
-		target := filepath.Join(dstDir, relPath)
+		target := filepath.Clean(filepath.Join(dstDir, relPath))
 
 		if info.IsDir() {
 			return os.MkdirAll(target, info.Mode())
 		}
 
-		srcFile, err := os.Open(path)
+		srcFile, err := os.Open(filepath.Clean(path))
 		if err != nil {
 			return err
 		}
@@ -164,7 +165,7 @@ func GetTagsFromCaches(caches []Cache) (manifestTag, cacheTag string, err error)
 			return c.ManifestTag(), c.CacheTag(), nil
 		}
 	}
-	return "", "", fmt.Errorf("no supported cache type found")
+	return "", "", errors.New("no supported cache type found")
 }
 
 // SetCachesBuildDir sets a common tmp/staging path for all cache instances
@@ -178,7 +179,7 @@ func SetCachesBuildDir(caches []Cache, path string) {
 
 func ExtractCacheDirectory(r io.Reader, cacheType string) ([]string, error) {
 	if cacheType == "" {
-		return nil, fmt.Errorf("cache type is empty")
+		return nil, errors.New("cache type is empty")
 	}
 	switch cacheType {
 	case constants.Triton:
@@ -198,17 +199,17 @@ func extractCacheAndManifestDirectory(
 	var extractedDirs []string
 	gr, err := gzip.NewReader(r)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse layer as tar.gz: %v", err)
+		return nil, fmt.Errorf("failed to parse layer as tar.gz: %w", err)
 	}
 	defer gr.Close()
 
 	tr := tar.NewReader(gr)
 
 	// Ensure top-level output directories exist once
-	if err = os.MkdirAll(extractCacheDir, 0o755); err != nil {
+	if err = os.MkdirAll(extractCacheDir, 0o750); err != nil {
 		return nil, fmt.Errorf("failed to create cache directory: %w", err)
 	}
-	if err = os.MkdirAll(extractManifestDir, 0o755); err != nil {
+	if err = os.MkdirAll(extractManifestDir, 0o750); err != nil {
 		return nil, fmt.Errorf("failed to create manifest directory: %w", err)
 	}
 
@@ -245,17 +246,18 @@ func extractCacheAndManifestDirectory(
 		}
 
 		// Ensure parent dir exists
-		if err = os.MkdirAll(filepath.Dir(filePath), 0o755); err != nil {
+		if err = os.MkdirAll(filepath.Dir(filePath), 0o750); err != nil {
 			return nil, fmt.Errorf("failed to create directory for %s: %w", filePath, err)
 		}
 
+		mode := h.FileInfo().Mode().Perm()
 		switch h.Typeflag {
 		case tar.TypeDir:
-			if err = os.MkdirAll(filePath, os.FileMode(h.Mode)); err != nil {
+			if err = os.MkdirAll(filePath, mode); err != nil {
 				return nil, fmt.Errorf("failed to create directory %s: %w", filePath, err)
 			}
 		case tar.TypeReg:
-			if err = writeFile(filePath, tr, os.FileMode(h.Mode)); err != nil {
+			if err = writeFile(filePath, tr, mode); err != nil {
 				return nil, fmt.Errorf("failed to write file %s: %w", filePath, err)
 			}
 		default:
@@ -277,11 +279,11 @@ func stringInSlice(str string, list []string) bool {
 
 func writeFile(filePath string, tarReader io.Reader, mode os.FileMode) error {
 	// Create any parent directories if needed
-	if err := os.MkdirAll(filepath.Dir(filePath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(filePath), 0o750); err != nil {
 		return fmt.Errorf("failed to create parent directories for %s: %w", filePath, err)
 	}
 
-	outFile, err := os.Create(filePath)
+	outFile, err := os.Create(filepath.Clean(filePath))
 	if err != nil {
 		return fmt.Errorf("failed to create file %s: %w", filePath, err)
 	}

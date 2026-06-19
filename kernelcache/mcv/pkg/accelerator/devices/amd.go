@@ -28,6 +28,7 @@ import (
 
 	"github.com/kserve/kserve/mcv/pkg/config"
 	"github.com/kserve/kserve/mcv/pkg/utils"
+
 	logging "github.com/sirupsen/logrus"
 )
 
@@ -200,7 +201,7 @@ type AMDVRAM struct {
 }
 
 type AMDVRAMSize struct {
-	Value int    `json:"value"`
+	Value uint64 `json:"value"`
 	Unit  string `json:"unit"`
 }
 
@@ -327,7 +328,7 @@ func (r *gpuAMD) Init() error {
 	defer cancel()
 	gpuInfoList, err := getAllAMDGPUInfo(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get GPU information: %v", err)
+		return fmt.Errorf("failed to get GPU information: %w", err)
 	}
 
 	r.devices = make(map[int]GPUDevice, len(gpuInfoList.GPUInfo))
@@ -358,16 +359,20 @@ func (r *gpuAMD) Init() error {
 }
 
 // Converts VRAM size to MB, handling different units
-func calculateMemoryMB(value int, unit string) uint64 {
+func calculateMemoryMB(value uint64, unit string) uint64 {
+	if value == 0 {
+		return 0
+	}
 	switch unit {
 	case "GB":
-		return uint64(value * 1024)
+		return value * 1024
 	case "KB":
-		return uint64(value / 1024)
+		return value / 1024
 	default: // Default to MB
-		return uint64(value)
+		return value
 	}
 }
+
 func (r *gpuAMD) Shutdown() bool {
 	return true
 }
@@ -375,11 +380,11 @@ func (r *gpuAMD) Shutdown() bool {
 func getAllAMDGPUInfo(ctx context.Context) (*AMDGPUInfo, error) {
 	gpus, err := getAMDGPUInfo(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("could not get GPU info")
+		return nil, errors.New("could not get GPU info")
 	}
 	list, err := getAMDListInfo(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("could not get system info")
+		return nil, errors.New("could not get system info")
 	}
 	return &AMDGPUInfo{
 		GPUInfo:  gpus,
@@ -392,7 +397,7 @@ func getAMDGPUInfo(ctx context.Context) (map[int]*AMDCardInfo, error) {
 	output, err := cmd.Output()
 	if err != nil {
 		logging.Debugf("failed to execute amd-smi: %v", err)
-		return nil, fmt.Errorf("failed to execute amd-smi: %v", err)
+		return nil, fmt.Errorf("failed to execute amd-smi: %w", err)
 	}
 
 	// Define a wrapper struct to match the new JSON structure
@@ -403,7 +408,7 @@ func getAMDGPUInfo(ctx context.Context) (map[int]*AMDCardInfo, error) {
 	if err := json.Unmarshal(output, &wrapper); err != nil {
 		logging.Debugf("failed to parse amd-smi output going to try compat mode")
 		if err := json.Unmarshal(output, &wrapper.GPUData); err != nil {
-			return nil, fmt.Errorf("failed to parse amd-smi output: %v", err)
+			return nil, fmt.Errorf("failed to parse amd-smi output: %w", err)
 		}
 	}
 
@@ -418,12 +423,12 @@ func getAMDListInfo(ctx context.Context) (map[int]*AMDListInfo, error) {
 	cmd := exec.CommandContext(ctx, "amd-smi", "list", "--json")
 	output, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute amd-smi: %v", err)
+		return nil, fmt.Errorf("failed to execute amd-smi: %w", err)
 	}
 
 	var listInfo []*AMDListInfo
 	if err = json.Unmarshal(output, &listInfo); err != nil {
-		return nil, fmt.Errorf("failed to parse amd-smi output: %v", err)
+		return nil, fmt.Errorf("failed to parse amd-smi output: %w", err)
 	}
 
 	parsedGPUs := make(map[int]*AMDListInfo)
@@ -434,7 +439,7 @@ func getAMDListInfo(ctx context.Context) (map[int]*AMDListInfo, error) {
 }
 
 func (r *gpuAMD) GetAllGPUInfo() ([]TritonGPUInfo, error) {
-	var allTritonInfo []TritonGPUInfo
+	allTritonInfo := make([]TritonGPUInfo, 0, len(r.devices))
 	for gpuID := range r.devices {
 		dev := r.devices[gpuID]
 		allTritonInfo = append(allTritonInfo, dev.TritonInfo)

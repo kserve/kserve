@@ -33,8 +33,8 @@ const (
 // writeTestFile is a test helper that creates parent dirs and writes content.
 func writeTestFile(t *testing.T, path string, content []byte) {
 	t.Helper()
-	assert.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
-	assert.NoError(t, os.WriteFile(path, content, 0o644))
+	assert.NoError(t, os.MkdirAll(filepath.Dir(path), 0o750))
+	assert.NoError(t, os.WriteFile(path, content, 0o640))
 }
 
 // newMegaAOTCache builds a fake mega-AOT cache tree rooted at cacheDir with
@@ -105,7 +105,7 @@ func TestDetectVLLMCache_MegaAOTSkipsRankWithoutModel(t *testing.T) {
 	hashDir := filepath.Join(cacheDir, "torch_compile_cache", torchAOTCompileDirName, megaAOTHash)
 	// rank_0_0 has model; rank_1_0 is an empty dir (e.g. partial write).
 	writeTestFile(t, filepath.Join(hashDir, testRank00, "model"), []byte("blob"))
-	assert.NoError(t, os.MkdirAll(filepath.Join(hashDir, "rank_1_0"), 0o755))
+	assert.NoError(t, os.MkdirAll(filepath.Join(hashDir, "rank_1_0"), 0o750))
 	writeTestFile(t, filepath.Join(hashDir, "inductor_cache", "fxgraph", "key"), []byte("x"))
 
 	got := DetectVLLMCache(cacheDir)

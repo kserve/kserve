@@ -49,7 +49,7 @@ func GenerateDockerfile(imageName, cacheDir, manifestDir, outputPath string) err
 		return fmt.Errorf("error parsing template: %w", err)
 	}
 
-	file, err := os.Create(outputPath)
+	file, err := os.Create(filepath.Clean(outputPath))
 	if err != nil {
 		return fmt.Errorf("error creating Dockerfile: %w", err)
 	}
@@ -59,7 +59,7 @@ func GenerateDockerfile(imageName, cacheDir, manifestDir, outputPath string) err
 		return fmt.Errorf("error executing template: %w", err)
 	}
 
-	content, err := os.ReadFile(outputPath)
+	content, err := os.ReadFile(filepath.Clean(outputPath))
 	if err != nil {
 		return fmt.Errorf("error reading generated Dockerfile: %w", err)
 	}
@@ -81,7 +81,7 @@ func prepareBuildContext(buildType, cacheDir string) (*buildContext, error) {
 
 	manifestTag, cacheTag, err := cache.GetTagsFromCaches(caches)
 	if err != nil {
-		return nil, fmt.Errorf("error retrieving manifest/cache tags: %v", err)
+		return nil, fmt.Errorf("error retrieving manifest/cache tags: %w", err)
 	}
 	logging.Debugf("manifestTag: %s", manifestTag)
 	logging.Debugf("cacheTag: %s", cacheTag)
@@ -91,18 +91,18 @@ func prepareBuildContext(buildType, cacheDir string) (*buildContext, error) {
 	cacheBuildDir := filepath.Join(buildRoot, cacheTag)
 	manifestBuildDir := filepath.Join(buildRoot, manifestTag)
 
-	if err := os.MkdirAll(cacheBuildDir, 0o755); err != nil {
+	if err := os.MkdirAll(cacheBuildDir, 0o750); err != nil {
 		return nil, err
 	}
 	logging.Debugf("cache build dir: %s", cacheBuildDir)
 
-	if err := os.MkdirAll(manifestBuildDir, 0o755); err != nil {
+	if err := os.MkdirAll(manifestBuildDir, 0o750); err != nil {
 		return nil, err
 	}
 	logging.Debugf("manifest build dir: %s", manifestBuildDir)
 
 	if err := cache.CopyDir(cacheDir, cacheBuildDir); err != nil {
-		return nil, fmt.Errorf("error copying contents: %v", err)
+		return nil, fmt.Errorf("error copying contents: %w", err)
 	}
 
 	cache.SetCachesBuildDir(caches, cacheBuildDir)
@@ -141,11 +141,11 @@ func CleanupWithTimeout() error {
 	return utils.CleanupMCVDirs(ctx, "")
 }
 
-func NormalizeImageTag(imageName string) string {
-	if !strings.Contains(imageName, ":") {
-		return fmt.Sprintf("%s:latest", imageName)
+func NormalizeImageTag(imgName string) string {
+	if !strings.Contains(imgName, ":") {
+		return imgName + ":latest"
 	}
-	return imageName
+	return imgName
 }
 
 func DockerfilePath(buildRoot string) string {
