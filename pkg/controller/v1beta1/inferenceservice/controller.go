@@ -647,8 +647,11 @@ func (r *InferenceServiceReconciler) clusterStorageContainerFunc(ctx context.Con
 func storageContainerPredicate() predicate.Funcs {
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			oldSC := e.ObjectOld.(*v1alpha1.StorageContainer)
-			newSC := e.ObjectNew.(*v1alpha1.StorageContainer)
+			oldSC, ok1 := e.ObjectOld.(*v1alpha1.StorageContainer)
+			newSC, ok2 := e.ObjectNew.(*v1alpha1.StorageContainer)
+			if !ok1 || !ok2 || oldSC == nil || newSC == nil {
+				return false
+			}
 			return !reflect.DeepEqual(oldSC.Spec, newSC.Spec) || !reflect.DeepEqual(oldSC.Disabled, newSC.Disabled)
 		},
 		CreateFunc:  func(e event.CreateEvent) bool { return true },
@@ -662,8 +665,11 @@ func storageContainerPredicate() predicate.Funcs {
 func clusterStorageContainerPredicate() predicate.Funcs {
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			oldCSC := e.ObjectOld.(*v1alpha1.ClusterStorageContainer)
-			newCSC := e.ObjectNew.(*v1alpha1.ClusterStorageContainer)
+			oldCSC, ok1 := e.ObjectOld.(*v1alpha1.ClusterStorageContainer)
+			newCSC, ok2 := e.ObjectNew.(*v1alpha1.ClusterStorageContainer)
+			if !ok1 || !ok2 || oldCSC == nil || newCSC == nil {
+				return false
+			}
 			return !reflect.DeepEqual(oldCSC.Spec, newCSC.Spec) || !reflect.DeepEqual(oldCSC.Disabled, newCSC.Disabled)
 		},
 		CreateFunc:  func(e event.CreateEvent) bool { return true },
