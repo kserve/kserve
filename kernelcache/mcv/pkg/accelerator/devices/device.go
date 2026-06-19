@@ -19,7 +19,10 @@ package devices
 import (
 	"encoding/json"
 	"errors"
+	"maps"
 	"os"
+	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"sync"
@@ -27,8 +30,8 @@ import (
 
 	"github.com/kserve/kserve/mcv/pkg/config"
 	"github.com/kserve/kserve/mcv/pkg/constants"
+
 	logging "github.com/sirupsen/logrus"
-	"golang.org/x/exp/maps"
 )
 
 const (
@@ -189,8 +192,7 @@ func (r *Registry) Unregister(d DeviceType) {
 
 // GetAllDeviceTypes returns a slice with all the registered devices.
 func (r *Registry) GetAllDeviceTypes() []string {
-	devices := append([]string{}, maps.Keys(r.Registry)...)
-	return devices
+	return slices.Collect(maps.Keys(r.Registry))
 }
 
 func addDeviceInterface(registry *Registry, dtype DeviceType, accType string, deviceStartup deviceStartupFunc) error {
@@ -224,7 +226,7 @@ func loadCache() (*DeviceCache, error) {
 	}
 
 	logging.Debugf("Loading device cache from %s", cacheFilePath)
-	file, err := os.Open(cacheFilePath)
+	file, err := os.Open(filepath.Clean(cacheFilePath))
 	if err != nil {
 		return nil, err
 	}
@@ -275,7 +277,7 @@ func saveCache(devices map[string]Device) error {
 		}
 	}
 
-	file, err := os.Create(cacheFilePath)
+	file, err := os.Create(filepath.Clean(cacheFilePath))
 	if err != nil {
 		return err
 	}
@@ -345,7 +347,10 @@ func Startup(a string, registry *Registry) Device {
 		registry.Registry[a][d] = deviceInfo
 
 		// Save the device to the cache
-		saveCache(map[string]Device{a: device})
+		err1 := saveCache(map[string]Device{a: device})
+		if err1 != nil {
+			logging.Errorf("Failed to save device %s to cache: %v", d.String(), err1)
+		}
 
 		return device
 	}

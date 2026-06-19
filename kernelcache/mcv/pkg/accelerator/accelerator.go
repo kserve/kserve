@@ -145,7 +145,7 @@ func New(atype string, sleep bool) (Accelerator, error) {
 	logging.Debugf("Found %d device(s): %v", numDevs, devs)
 	logging.Debugf("Initializing the Accelerator of type %v", atype)
 
-	for i := 0; i < maxDeviceInitRetry; i++ {
+	for range maxDeviceInitRetry {
 		if d = devices.Startup(atype, r); d == nil {
 			logging.Errorf("Could not init the %s device going to try again", atype)
 			if sleep {

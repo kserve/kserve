@@ -18,8 +18,10 @@ package preflightcheck
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	logging "github.com/sirupsen/logrus"
 
@@ -30,7 +32,7 @@ import (
 // CompareVLLMCacheManifestToGPU compares VLLM manifest entries to GPU info
 // Handles both triton cache (legacy) and binary cache (new) formats
 func CompareVLLMCacheManifestToGPU(manifestPath string, devInfo []devices.TritonGPUInfo) error {
-	data, err := os.ReadFile(manifestPath)
+	data, err := os.ReadFile(filepath.Clean(manifestPath))
 	if err != nil {
 		return fmt.Errorf("failed to read VLLM manifest file: %w", err)
 	}
@@ -94,12 +96,12 @@ func compareAOTCompileCacheEntriesToGPU(entries []cache.AOTCompileCacheMetadata,
 	//
 	// Here we just verify the entries exist and log for debugging.
 	if len(entries) == 0 {
-		return fmt.Errorf("no AOT compile cache entries found")
+		return errors.New("no AOT compiled cache entries found")
 	}
 
 	// Log the AOT cache entries for debugging
 	for _, entry := range entries {
-		logging.Debugf("AOT compile cache: hash=%s, rank=%s, size=%d bytes",
+		logging.Debugf("AOT compiled cache: hash=%s, rank=%s, size=%d bytes",
 			entry.Hash, entry.Rank, entry.FileSize)
 	}
 

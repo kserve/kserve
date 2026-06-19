@@ -18,6 +18,7 @@ package cache
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -106,7 +107,7 @@ func processHashEntry(hashDir, entryName string, tc **TritonCache) (*VLLMCacheMe
 		return nil
 	})
 	if err != nil || tritonCachePath == "" {
-		return nil, fmt.Errorf("neither binary cache nor triton cache found")
+		return nil, errors.New("neither binary cache nor triton cache found")
 	}
 
 	// Check if tritonCachePath exists
@@ -117,7 +118,7 @@ func processHashEntry(hashDir, entryName string, tc **TritonCache) (*VLLMCacheMe
 	logging.Debugf("Inspecting potential Triton cache at: %s", tritonCachePath)
 	_tc := DetectTritonCache(tritonCachePath)
 	if _tc == nil {
-		return nil, fmt.Errorf("failed to detect Triton cache")
+		return nil, errors.New("failed to detect Triton cache")
 	}
 	*tc = _tc
 	return &VLLMCacheMetadata{
@@ -306,7 +307,7 @@ func detectBinaryCache(hashDir string) ([]BinaryCacheMetadata, error) {
 
 			// Read cache key factors
 			var keyFactors CacheKeyFactors
-			data, err := os.ReadFile(cacheKeyPath)
+			data, err := os.ReadFile(filepath.Clean(cacheKeyPath))
 			if err != nil {
 				logging.Warnf("Failed to read cache_key_factors.json: %v", err)
 				continue
@@ -377,7 +378,7 @@ func detectBinaryCache(hashDir string) ([]BinaryCacheMetadata, error) {
 	}
 
 	if len(binaryCaches) == 0 {
-		return nil, fmt.Errorf("no binary cache detected")
+		return nil, errors.New("no binary cache detected")
 	}
 
 	return binaryCaches, nil
@@ -445,7 +446,7 @@ func detectMegaAOTCache(hashDir string) ([]BinaryCacheMetadata, error) {
 		})
 	}
 	if len(out) == 0 {
-		return nil, fmt.Errorf("no mega-AOT artifacts detected")
+		return nil, errors.New("no mega-AOT artifacts detected")
 	}
 	return out, nil
 }
@@ -511,7 +512,7 @@ func detectAOTCompileCache(aotPath string) ([]AOTCompileCacheMetadata, error) {
 	}
 
 	if len(aotCaches) == 0 {
-		return nil, fmt.Errorf("no AOT compile cache detected")
+		return nil, errors.New("no AOT compile cache detected")
 	}
 
 	return aotCaches, nil
@@ -718,7 +719,7 @@ func buildBinaryCacheSummary(metadata []VLLMCacheMetadata) (*Summary, error) {
 			// AMD/ROCm already has gfx prefix (e.g., gfx1151)
 			// Apply sm_ prefix AFTER fallback logic so arch is properly set
 			if backend == CUDABackend && !strings.HasPrefix(arch, "sm_") {
-				arch = fmt.Sprintf("sm_%s", arch)
+				arch = "sm_" + arch
 			}
 
 			// Extract toolkit version info from environment
@@ -765,7 +766,7 @@ func buildBinaryCacheSummary(metadata []VLLMCacheMetadata) (*Summary, error) {
 	}
 
 	if len(targets) == 0 {
-		return nil, fmt.Errorf("no targets found in binary cache metadata")
+		return nil, errors.New("no targets found in binary cache metadata")
 	}
 
 	return &Summary{Targets: targets}, nil
@@ -814,11 +815,11 @@ func (v *VLLMCache) Metadata() []CacheEntry {
 }
 
 func (v *VLLMCache) ManifestTag() string {
-	return fmt.Sprintf("./%s", constants.MCVVLLMManifestDir)
+	return "./" + constants.MCVVLLMManifestDir
 }
 
 func (v *VLLMCache) CacheTag() string {
-	return fmt.Sprintf("./%s", constants.MCVVLLMCacheDir)
+	return "./" + constants.MCVVLLMCacheDir
 }
 
 func (v *VLLMCache) SetTmpPath(path string) {

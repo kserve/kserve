@@ -144,12 +144,12 @@ func NewImgFetcher() ImgFetcher {
 func (i *imgFetcher) FetchImg(imgName string) (v1.Image, error) {
 	if i.fetcher == nil {
 		logging.Error("Error with fetcher!!!!!!!!")
-		return nil, fmt.Errorf("failed to configure fetcher")
+		return nil, errors.New("failed to configure fetcher")
 	}
 
 	imageWithTag := imgName
 	if !strings.Contains(imgName, ":") {
-		imageWithTag = fmt.Sprintf("%s:latest", imgName)
+		imageWithTag = imgName + ":latest"
 	}
 
 	img, err := i.fetcher.FetchImg(imageWithTag)
@@ -175,7 +175,7 @@ func (i *imgFetcher) FetchImg(imgName string) (v1.Image, error) {
 
 func (e *cacheExtractor) ExtractCache(img v1.Image) error {
 	var extractedDirs []string
-	ct := ""
+	var ct string
 
 	// Fetch image manifest
 	manifest, err := img.Manifest()
@@ -195,7 +195,7 @@ func (e *cacheExtractor) ExtractCache(img v1.Image) error {
 
 	// Ensure manifest output directory exists
 	constants.ExtractManifestDir = filepath.Join(constants.MCVBuildDir, constants.ManifestDir)
-	if err = os.MkdirAll(constants.ExtractManifestDir, 0o755); err != nil {
+	if err = os.MkdirAll(constants.ExtractManifestDir, 0o750); err != nil {
 		logging.Warnf("Failed to create manifest directory %s: %v", constants.ExtractManifestDir, err)
 	}
 	logging.Debugf("Extracting manifest to directory: %s", constants.ExtractManifestDir)
@@ -302,12 +302,12 @@ func (i *imgMgr) FetchAndExtractCache(imgName string) error {
 // *oci* variant Kernel Cache image:  //TODO ADD URL
 func extractOCIArtifactImg(img v1.Image, cacheType string) ([]string, error) {
 	if cacheType == "" {
-		return nil, fmt.Errorf("cache type is empty")
+		return nil, errors.New("cache type is empty")
 	}
 
 	layers, err := img.Layers()
 	if err != nil {
-		return nil, fmt.Errorf("could not fetch layers: %v", err)
+		return nil, fmt.Errorf("could not fetch layers: %w", err)
 	}
 
 	// The image must be single-layered.
@@ -323,7 +323,7 @@ func extractOCIArtifactImg(img v1.Image, cacheType string) ([]string, error) {
 	for _, l := range layers {
 		mt, ret := l.MediaType()
 		if ret != nil {
-			return nil, fmt.Errorf("could not retrieve the media type: %v", ret)
+			return nil, fmt.Errorf("could not retrieve the media type: %w", ret)
 		}
 		if string(mt) == cacheLayerMediaType {
 			layer = l
@@ -341,13 +341,13 @@ func extractOCIArtifactImg(img v1.Image, cacheType string) ([]string, error) {
 	// since internally it tries to umcompress it as gzipped blob.
 	r, err := layer.Compressed()
 	if err != nil {
-		return nil, fmt.Errorf("could not get layer content: %v", err)
+		return nil, fmt.Errorf("could not get layer content: %w", err)
 	}
 	defer r.Close()
 
 	dirs, err := cache.ExtractCacheDirectory(r, cacheType)
 	if err != nil {
-		return nil, fmt.Errorf("could not extract %s Kernel Cache: %v", cacheType, err)
+		return nil, fmt.Errorf("could not extract %s Kernel Cache: %w", cacheType, err)
 	}
 	return dirs, nil
 }
@@ -358,12 +358,12 @@ func extractOCIArtifactImg(img v1.Image, cacheType string) ([]string, error) {
 // https://github.com/maryamtahhan/mcv/blob/main/spec-compat.md
 func extractDockerImg(img v1.Image, cacheType string) ([]string, error) {
 	if cacheType == "" {
-		return nil, fmt.Errorf("cache type is empty")
+		return nil, errors.New("cache type is empty")
 	}
 
 	layers, err := img.Layers()
 	if err != nil {
-		return nil, fmt.Errorf("could not fetch layers: %v", err)
+		return nil, fmt.Errorf("could not fetch layers: %w", err)
 	}
 
 	// The image must have at least one layer.
@@ -376,7 +376,7 @@ func extractDockerImg(img v1.Image, cacheType string) ([]string, error) {
 	for _, layer := range layers {
 		mt, err := layer.MediaType()
 		if err != nil {
-			return nil, fmt.Errorf("could not get media type: %v", err)
+			return nil, fmt.Errorf("could not get media type: %w", err)
 		}
 
 		// Media type must be application/vnd.docker.image.rootfs.diff.tar.gzip.
@@ -386,13 +386,13 @@ func extractDockerImg(img v1.Image, cacheType string) ([]string, error) {
 
 		r, err := layer.Compressed()
 		if err != nil {
-			return nil, fmt.Errorf("could not get layer content: %v", err)
+			return nil, fmt.Errorf("could not get layer content: %w", err)
 		}
 
 		dirs, err := cache.ExtractCacheDirectory(r, cacheType)
-		r.Close()
+		_ = r.Close()
 		if err != nil {
-			return nil, fmt.Errorf("could not extract %s Kernel Cache: %v", cacheType, err)
+			return nil, fmt.Errorf("could not extract %s Kernel Cache: %w", cacheType, err)
 		}
 		allDirs = append(allDirs, dirs...)
 	}
@@ -404,23 +404,23 @@ func extractDockerImg(img v1.Image, cacheType string) ([]string, error) {
 // https://github.com/maryamtahhan/mcv/blob/main/spec-compat.md
 func extractOCIStandardImg(img v1.Image, cacheType string) ([]string, error) {
 	if cacheType == "" {
-		return nil, fmt.Errorf("cache type is empty")
+		return nil, errors.New("cache type is empty")
 	}
 
 	layers, err := img.Layers()
 	if err != nil {
-		return nil, fmt.Errorf("could not fetch layers: %v", err)
+		return nil, fmt.Errorf("could not fetch layers: %w", err)
 	}
 
 	// The image must have at least one layer.
 	if len(layers) == 0 {
-		return nil, fmt.Errorf("number of layers must be greater than zero")
+		return nil, errors.New("number of layers must be greater than zero")
 	}
 
 	layer := layers[len(layers)-1]
 	mt, err := layer.MediaType()
 	if err != nil {
-		return nil, fmt.Errorf("could not get media type: %v", err)
+		return nil, fmt.Errorf("could not get media type: %w", err)
 	}
 
 	// Check if the layer is "application/vnd.oci.image.layer.v1.tar+gzip".
@@ -430,13 +430,13 @@ func extractOCIStandardImg(img v1.Image, cacheType string) ([]string, error) {
 
 	r, err := layer.Compressed()
 	if err != nil {
-		return nil, fmt.Errorf("could not get layer content: %v", err)
+		return nil, fmt.Errorf("could not get layer content: %w", err)
 	}
 	defer r.Close()
 
 	dirs, err := cache.ExtractCacheDirectory(r, cacheType)
 	if err != nil {
-		return nil, fmt.Errorf("could not extract %s Kernel Cache: %v", cacheType, err)
+		return nil, fmt.Errorf("could not extract %s Kernel Cache: %w", cacheType, err)
 	}
 	return dirs, nil
 }
@@ -460,7 +460,7 @@ func validateExtractedCacheSize(labels map[string]string, cacheType, extractedDi
 
 	expectedSize, err := strconv.ParseInt(expectedSizeStr, 10, 64)
 	if err != nil {
-		return fmt.Errorf("invalid cache size in label: %v", err)
+		return fmt.Errorf("invalid cache size in label: %w", err)
 	}
 
 	// Calculate actual extracted cache size

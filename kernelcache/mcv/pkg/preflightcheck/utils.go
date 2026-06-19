@@ -105,7 +105,7 @@ func CompareCacheSummaryLabelToGPU(img v1.Image, labels map[string]string, devIn
 	}
 
 	if len(matched) == 0 {
-		err = fmt.Errorf("no compatible GPU found from summary preflight check")
+		err = errors.New("no compatible GPU found from summary preflight check")
 	}
 
 	return matched, unmatched, err
@@ -114,7 +114,7 @@ func CompareCacheSummaryLabelToGPU(img v1.Image, labels map[string]string, devIn
 // DetectCacheTypeFromLabels inspects image labels to determine cache type ("triton" or "vllm")
 func DetectCacheTypeFromLabels(labels map[string]string) (string, error) {
 	if labels == nil {
-		return "", fmt.Errorf("no labels provided")
+		return "", errors.New("no labels provided")
 	}
 	if _, ok := labels["cache.triton.image/summary"]; ok {
 		return constants.Triton, nil
@@ -122,13 +122,13 @@ func DetectCacheTypeFromLabels(labels map[string]string) (string, error) {
 	if _, ok := labels["cache.vllm.image/summary"]; ok {
 		return constants.VLLM, nil
 	}
-	return "", fmt.Errorf("unknown cache type from labels")
+	return "", errors.New("unknown cache type from labels")
 }
 
 // CompareCacheManifestToGPU dispatches manifest comparison based on cache type
 func CompareCacheManifestToGPU(manifestPath, cacheType string, devInfo []devices.TritonGPUInfo) error {
 	if cacheType == "" {
-		return fmt.Errorf("cache type is empty")
+		return errors.New("cache type is empty")
 	}
 	switch cacheType {
 	case constants.Triton:
@@ -142,14 +142,14 @@ func CompareCacheManifestToGPU(manifestPath, cacheType string, devInfo []devices
 
 func GetAllGPUInfo(acc accelerator.Accelerator) ([]devices.TritonGPUInfo, error) {
 	if acc == nil {
-		return nil, fmt.Errorf("accelerator is nil")
+		return nil, errors.New("accelerator is nil")
 	}
 	if !config.IsGPUEnabled() {
 		return nil, nil
 	}
 	gpu := accelerator.GetActiveAcceleratorByType(config.GPU)
 	if gpu == nil {
-		return nil, fmt.Errorf("no active GPU accelerator found")
+		return nil, errors.New("no active GPU accelerator found")
 	}
 	device := gpu.Device()
 	return device.GetAllGPUInfo()

@@ -32,7 +32,7 @@ func TestGenerateDockerfile(t *testing.T) {
 	err := GenerateDockerfile("myorg/myimage:1.0", "cacheLayer", "manifestLayer", outputPath)
 	assert.NoError(t, err)
 
-	content, err := os.ReadFile(outputPath)
+	content, err := os.ReadFile(filepath.Clean(outputPath))
 	assert.NoError(t, err)
 	assert.Contains(t, string(content), "FROM scratch")
 	assert.Contains(t, string(content), "COPY \"./cacheLayer\" \"./cacheLayer\"")
@@ -42,7 +42,7 @@ func TestGenerateDockerfile(t *testing.T) {
 func TestCleanupDirs(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "dummy.txt")
-	err := os.WriteFile(testFile, []byte("dummy"), 0644)
+	err := os.WriteFile(testFile, []byte("dummy"), 0o640)
 	assert.NoError(t, err)
 
 	CleanupDirs(tmpDir)

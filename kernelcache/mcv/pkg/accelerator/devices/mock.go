@@ -22,9 +22,7 @@ import (
 	logging "github.com/sirupsen/logrus"
 )
 
-var (
-	mockDevice = MOCK
-)
+var mockDevice = MOCK
 
 type MockDevice struct {
 	mockDevice          DeviceType

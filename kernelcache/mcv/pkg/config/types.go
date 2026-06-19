@@ -31,5 +31,7 @@ const (
 	GPU               = "gpu"
 )
 
-var ConfDir string = "/tmp/mcv/"
-var ConfFile string = "mcv.config"
+var (
+	ConfDir  string = "/tmp/mcv/"
+	ConfFile string = "mcv.config"
+)

@@ -27,6 +27,7 @@ import (
 
 	"github.com/kserve/kserve/mcv/pkg/config"
 	"github.com/kserve/kserve/mcv/pkg/utils"
+
 	logging "github.com/sirupsen/logrus"
 )
 
@@ -185,7 +186,7 @@ func (r *gpuROCm) Init() error {
 	defer cancel()
 	gpuInfoList, err := getAllROCmGPUInfo(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get GPU information: %v", err)
+		return fmt.Errorf("failed to get GPU information: %w", err)
 	}
 
 	// Populate the devices map
@@ -225,11 +226,11 @@ func (r *gpuROCm) Shutdown() bool {
 func getAllROCmGPUInfo(ctx context.Context) (*ROCMGPUInfo, error) {
 	gpus, err := getROCmGPUInfo(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("could not get GPU info")
+		return nil, errors.New("could not get GPU info")
 	}
 	system, err := getROCmSystemInfo(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("could not get system info")
+		return nil, errors.New("could not get system info")
 	}
 
 	return &ROCMGPUInfo{
@@ -243,17 +244,17 @@ func getROCmGPUInfo(ctx context.Context) (map[int]*ROCMCardInfo, error) {
 	cmd := exec.CommandContext(ctx, "rocm-smi", "--json", "--showproductname", "--showuniqueid", "--showserial", "--showmeminfo", "all")
 	output, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute rocm-smi: %v", err)
+		return nil, fmt.Errorf("failed to execute rocm-smi: %w", err)
 	}
 
 	var gpuInfo map[string]*ROCMCardInfo
 	if err = json.Unmarshal(output, &gpuInfo); err != nil {
-		return nil, fmt.Errorf("failed to parse rocm-smi output: %v", err)
+		return nil, fmt.Errorf("failed to parse rocm-smi output: %w", err)
 	}
 
 	prettyJSON, err := json.MarshalIndent(gpuInfo, "", "  ")
 	if err != nil {
-		return nil, fmt.Errorf("failed to pretty print JSON: %v", err)
+		return nil, fmt.Errorf("failed to pretty print JSON: %w", err)
 	}
 
 	logging.Debugf("ROCM JSON output:\n%s", string(prettyJSON))
@@ -276,17 +277,17 @@ func getROCmSystemInfo(ctx context.Context) (*ROCMSystemInfo, error) {
 	cmd := exec.CommandContext(ctx, "rocm-smi", "--json", "--showdriverversion")
 	output, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute rocm-smi: %v", err)
+		return nil, fmt.Errorf("failed to execute rocm-smi: %w", err)
 	}
 
 	var systemInfo ROCMSystemInfo
 	if err = json.Unmarshal(output, &systemInfo); err != nil {
-		return nil, fmt.Errorf("failed to parse rocm-smi output: %v", err)
+		return nil, fmt.Errorf("failed to parse rocm-smi output: %w", err)
 	}
 
 	prettyJSON, err := json.MarshalIndent(systemInfo, "", "  ")
 	if err != nil {
-		return nil, fmt.Errorf("failed to pretty print JSON: %v", err)
+		return nil, fmt.Errorf("failed to pretty print JSON: %w", err)
 	}
 
 	logging.Debugf("ROCM JSON output:\n%s", string(prettyJSON))
@@ -296,7 +297,7 @@ func getROCmSystemInfo(ctx context.Context) (*ROCMSystemInfo, error) {
 
 // GetAllGPUInfo returns a list of GPU info for all devices
 func (r *gpuROCm) GetAllGPUInfo() ([]TritonGPUInfo, error) {
-	var allTritonInfo []TritonGPUInfo
+	allTritonInfo := make([]TritonGPUInfo, 0, len(r.devices))
 	for gpuID := range r.devices {
 		dev := r.devices[gpuID]
 		allTritonInfo = append(allTritonInfo, dev.TritonInfo)

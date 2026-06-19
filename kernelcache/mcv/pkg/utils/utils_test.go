@@ -24,11 +24,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFilePathExists(t *testing.T) {
 	tmpFile := filepath.Join(os.TempDir(), "test_file_exists")
-	os.WriteFile(tmpFile, []byte("test"), 0644)
+	require.NoError(t, os.WriteFile(tmpFile, []byte("test"), 0o640))
 	defer os.Remove(tmpFile)
 
 	exists, err := FilePathExists(tmpFile)
@@ -61,7 +62,7 @@ func TestSanitizeGroupJSON(t *testing.T) {
 		"two": ".triton/cache/b",
 	}
 
-	err := os.WriteFile(testFile, []byte(originalJSON), 0644)
+	err := os.WriteFile(testFile, []byte(originalJSON), 0o640)
 	assert.NoError(t, err)
 
 	err = SanitizeGroupJSON(testFile)
@@ -69,7 +70,7 @@ func TestSanitizeGroupJSON(t *testing.T) {
 
 	// Read back and verify
 	sanitized := map[string]map[string]string{}
-	content, err := os.ReadFile(testFile)
+	content, err := os.ReadFile(filepath.Clean(testFile))
 	assert.NoError(t, err)
 	assert.NoError(t, json.Unmarshal(content, &sanitized))
 	assert.Equal(t, expectedSanitized, sanitized["child_paths"])
@@ -78,7 +79,7 @@ func TestSanitizeGroupJSON(t *testing.T) {
 func TestCleanupMCVDirs(t *testing.T) {
 	testDir := filepath.Join(os.TempDir(), "mcv_test_cleanup")
 
-	os.MkdirAll(testDir, 0755)
+	require.NoError(t, os.MkdirAll(testDir, 0o750))
 
 	err := CleanupMCVDirs(context.Background(), testDir)
 	assert.NoError(t, err)

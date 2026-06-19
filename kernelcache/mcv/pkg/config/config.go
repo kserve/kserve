@@ -58,13 +58,14 @@ func newConfig(baseDir string) (*Config, error) {
 	}
 
 	s, err := os.Stat(absBaseDir)
-	if os.IsNotExist(err) {
-		if err = os.MkdirAll(absBaseDir, 0755); err != nil {
+	switch {
+	case os.IsNotExist(err):
+		if err = os.MkdirAll(absBaseDir, 0o750); err != nil {
 			return nil, fmt.Errorf("failed to create config-dir %s: %w", absBaseDir, err)
 		}
-	} else if err != nil {
+	case err != nil:
 		return nil, fmt.Errorf("failed to stat config-dir %s: %w", absBaseDir, err)
-	} else if !s.IsDir() {
+	case !s.IsDir():
 		return nil, fmt.Errorf("config-dir %s is not a directory", absBaseDir)
 	}
 
@@ -116,7 +117,7 @@ func getConfig(key, defaultValue, confDir string) string {
 		return envValue
 	}
 	configFile := filepath.Join(confDir, key)
-	if value, err := os.ReadFile(configFile); err == nil {
+	if value, err := os.ReadFile(filepath.Clean(configFile)); err == nil {
 		return strings.TrimSpace(bytes.NewBuffer(value).String())
 	}
 	return defaultValue

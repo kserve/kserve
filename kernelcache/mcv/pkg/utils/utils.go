@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	logging "github.com/sirupsen/logrus"
@@ -61,7 +62,7 @@ func CleanupMCVDirs(ctx context.Context, path string) error {
 
 // SanitizeGroupJSON strips leading paths before ".triton/cache" in __grp__*.json child_paths.
 func SanitizeGroupJSON(filePath string) error {
-	data, err := os.ReadFile(filePath)
+	data, err := os.ReadFile(filepath.Clean(filePath))
 	if err != nil {
 		return fmt.Errorf("failed to read %s: %w", filePath, err)
 	}
@@ -86,7 +87,7 @@ func writeFormattedJSON(filePath string, data interface{}) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal JSON: %w", err)
 	}
-	if err := os.WriteFile(filePath, formatted, 0o644); err != nil {
+	if err := os.WriteFile(filePath, formatted, 0o640); err != nil {
 		return fmt.Errorf("failed to write JSON to %s: %w", filePath, err)
 	}
 	return nil

@@ -134,7 +134,7 @@ func generateTritonCacheKey(sourceHash string, data *TritonCacheData) (string, C
 
 	tritonKey, err := getTritonInstallationKey()
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to get Triton installation fingerprint: %v", err)
+		return "", nil, fmt.Errorf("failed to get Triton installation fingerprint: %w", err)
 	}
 	components["triton_key"] = tritonKey
 
@@ -153,7 +153,7 @@ func generateTritonCacheKey(sourceHash string, data *TritonCacheData) (string, C
 	} else {
 		backendInfo, err = getCurrentTarget()
 		if err != nil {
-			return "", nil, fmt.Errorf("failed to get backend info: %v", err)
+			return "", nil, fmt.Errorf("failed to get backend info: %w", err)
 		}
 	}
 	components["backend"] = map[string]string{
@@ -190,7 +190,7 @@ func generateTritonCacheKey(sourceHash string, data *TritonCacheData) (string, C
 
 	envVars, err := getCacheInvalidatingEnvVars()
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to get environment variables: %v", err)
+		return "", nil, fmt.Errorf("failed to get environment variables: %w", err)
 	}
 	sortedEnvVars := sortJSON(envVars)
 	components["environment"] = map[string]string{
@@ -217,7 +217,7 @@ func ComputeOneDummyTritonKey() (string, error) {
 	logging.Debug("Generating Triton cache key...")
 	cacheKey, components, err := generateTritonCacheKey("", nil)
 	if err != nil {
-		return "", fmt.Errorf("critical error during cache key generation: %v", err)
+		return "", fmt.Errorf("critical error during cache key generation: %w", err)
 	}
 
 	logging.Debug("\nCache Key Components Breakdown:")
@@ -234,7 +234,7 @@ func ComputeDummyTritonKey(data *TritonCacheData) (string, error) {
 
 	cacheKey, components, err := generateTritonCacheKey("", data)
 	if err != nil {
-		return "", fmt.Errorf("critical error during cache key generation: %v", err)
+		return "", fmt.Errorf("critical error during cache key generation: %w", err)
 	}
 
 	logging.Debug("\nPer-Cache Dummy Key Components Breakdown:")

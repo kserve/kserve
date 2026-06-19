@@ -195,7 +195,7 @@ func (t *TritonCache) Metadata() []CacheEntry {
 }
 
 func GetTritonCacheJSONData(filePath string) (*TritonCacheData, error) {
-	content, err := os.ReadFile(filePath)
+	content, err := os.ReadFile(filepath.Clean(filePath))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file %s: %w", filePath, err)
 	}
@@ -272,7 +272,7 @@ func CompareTritonCacheToGPU(cacheData *TritonCacheData, acc accelerator.Acceler
 		}).Debug("Triton cache entry mismatch")
 	}
 
-	return fmt.Errorf("no compatible GPU found for Triton cache metadata")
+	return errors.New("no compatible GPU found for Triton cache metadata")
 }
 
 // checkFirstKeyHash checks if the first key in the JSON file is "Hash": "hashvalue"
@@ -280,7 +280,7 @@ func checkFirstKeyHash(filePath string) (bool, error) {
 	logging.Debugf("checkFirstKeyHash:%v", filePath)
 
 	// Read the JSON file
-	data, err := os.ReadFile(filePath)
+	data, err := os.ReadFile(filepath.Clean(filePath))
 	if err != nil {
 		return false, err
 	}

@@ -43,17 +43,17 @@ func (b *buildahBuilder) CreateImage(imageName, cacheDir string) error {
 
 	conf, err := config.Default()
 	if err != nil {
-		return fmt.Errorf("error configuring buildah: %v", err)
+		return fmt.Errorf("error configuring buildah: %w", err)
 	}
 
 	capabilitiesForRoot, err := conf.Capabilities("root", nil, nil)
 	if err != nil {
-		return fmt.Errorf("capabilitiesForRoot error: %v", err)
+		return fmt.Errorf("capabilitiesForRoot error: %w", err)
 	}
 
 	buildStore, err := storage.GetStore(buildStoreOptions)
 	if err != nil {
-		return fmt.Errorf("failed to init storage: %v", err)
+		return fmt.Errorf("failed to init storage: %w", err)
 	}
 
 	defer func() {
@@ -66,7 +66,7 @@ func (b *buildahBuilder) CreateImage(imageName, cacheDir string) error {
 
 	imageRef, err := is.Transport.ParseStoreReference(buildStore, imageWithTag)
 	if err != nil {
-		return fmt.Errorf("error creating the image reference: %v", err)
+		return fmt.Errorf("error creating the image reference: %w", err)
 	}
 
 	builderOpts := buildah.BuilderOptions{
@@ -78,7 +78,7 @@ func (b *buildahBuilder) CreateImage(imageName, cacheDir string) error {
 	// Initialize Buildah
 	builder, err := buildah.NewBuilder(ctx, buildStore, builderOpts)
 	if err != nil {
-		return fmt.Errorf("error creating Buildah builder: %v", err)
+		return fmt.Errorf("error creating Buildah builder: %w", err)
 	}
 
 	defer func() {
@@ -90,12 +90,12 @@ func (b *buildahBuilder) CreateImage(imageName, cacheDir string) error {
 	addOptions := buildah.AddAndCopyOptions{}
 	err = builder.Add(prep.ManifestTag, false, addOptions, prep.ManifestBuildDir+"/.")
 	if err != nil {
-		return fmt.Errorf("error adding manifest %s to builder: %v", prep.ManifestBuildDir, err)
+		return fmt.Errorf("error adding manifest %s to builder: %w", prep.ManifestBuildDir, err)
 	}
 
 	err = builder.Add(prep.CacheTag, false, addOptions, prep.CacheBuildDir+"/.")
 	if err != nil {
-		return fmt.Errorf("error adding %s to builder: %v", prep.CacheBuildDir, err)
+		return fmt.Errorf("error adding %s to builder: %w", prep.CacheBuildDir, err)
 	}
 
 	for k, v := range prep.Labels {
