@@ -598,6 +598,80 @@ func clusterServingRuntimesPredicate() predicate.Funcs {
 	}
 }
 
+func (r *InferenceServiceReconciler) storageContainerFunc(ctx context.Context, obj client.Object) []reconcile.Request {
+	sc, ok := obj.(*v1alpha1.StorageContainer)
+	if !ok || sc == nil {
+		return nil
+	}
+	var isvcList v1beta1.InferenceServiceList
+	if err := r.List(ctx, &isvcList, client.InNamespace(sc.Namespace)); err != nil {
+		r.Log.Error(err, "unable to list InferenceServices", "storageContainer", sc.Name)
+		return nil
+	}
+	requests := make([]reconcile.Request, 0, len(isvcList.Items))
+	for _, isvc := range isvcList.Items {
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: isvc.Namespace,
+				Name:      isvc.Name,
+			},
+		})
+	}
+	return requests
+}
+
+func (r *InferenceServiceReconciler) clusterStorageContainerFunc(ctx context.Context, obj client.Object) []reconcile.Request {
+	csc, ok := obj.(*v1alpha1.ClusterStorageContainer)
+	if !ok || csc == nil {
+		return nil
+	}
+	var isvcList v1beta1.InferenceServiceList
+	if err := r.List(ctx, &isvcList); err != nil {
+		r.Log.Error(err, "unable to list InferenceServices", "clusterStorageContainer", csc.Name)
+		return nil
+	}
+	requests := make([]reconcile.Request, 0, len(isvcList.Items))
+	for _, isvc := range isvcList.Items {
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: isvc.Namespace,
+				Name:      isvc.Name,
+			},
+		})
+	}
+	return requests
+}
+
+// storageContainerPredicate returns a predicate that triggers on StorageContainer
+// spec changes, disabled field changes, creation, and deletion.
+func storageContainerPredicate() predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldSC := e.ObjectOld.(*v1alpha1.StorageContainer)
+			newSC := e.ObjectNew.(*v1alpha1.StorageContainer)
+			return !reflect.DeepEqual(oldSC.Spec, newSC.Spec) || !reflect.DeepEqual(oldSC.Disabled, newSC.Disabled)
+		},
+		CreateFunc:  func(e event.CreateEvent) bool { return true },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return true },
+		GenericFunc: func(e event.GenericEvent) bool { return false },
+	}
+}
+
+// clusterStorageContainerPredicate returns a predicate that triggers on ClusterStorageContainer
+// spec changes, disabled field changes, creation, and deletion.
+func clusterStorageContainerPredicate() predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldCSC := e.ObjectOld.(*v1alpha1.ClusterStorageContainer)
+			newCSC := e.ObjectNew.(*v1alpha1.ClusterStorageContainer)
+			return !reflect.DeepEqual(oldCSC.Spec, newCSC.Spec) || !reflect.DeepEqual(oldCSC.Disabled, newCSC.Disabled)
+		},
+		CreateFunc:  func(e event.CreateEvent) bool { return true },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return true },
+		GenericFunc: func(e event.GenericEvent) bool { return false },
+	}
+}
+
 // podInitContainersPredicate returns a predicate that filters pod updates to only
 // include those where InitContainerStatuses have changed for pods with the InferenceService label.
 func podInitContainersPredicate() predicate.Funcs {
@@ -721,7 +795,8 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 	}
 
 	ctrlBuilder = ctrlBuilder.Watches(&v1alpha1.ServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.servingRuntimeFunc), builder.WithPredicates(servingRuntimesPredicate())).
-		Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(r.podInitContainersFunc), builder.WithPredicates(podInitContainersPredicate()))
+		Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(r.podInitContainersFunc), builder.WithPredicates(podInitContainersPredicate())).
+		Watches(&v1alpha1.StorageContainer{}, handler.EnqueueRequestsFromMapFunc(r.storageContainerFunc), builder.WithPredicates(storageContainerPredicate()))
 
 	csrFound, err := utils.IsCrdAvailable(r.ClientConfig, v1alpha1.SchemeGroupVersion.String(), "ClusterServingRuntime")
 	if err != nil {
@@ -731,6 +806,16 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		ctrlBuilder = ctrlBuilder.Watches(&v1alpha1.ClusterServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.clusterServingRuntimeFunc), builder.WithPredicates(clusterServingRuntimesPredicate()))
 	} else {
 		r.Log.Info("The InferenceService controller won't watch serving.kserve.io/v1alpha1/ClusterServingRuntime resources because the CRD is not available.")
+	}
+
+	cscFound, err := utils.IsCrdAvailable(r.ClientConfig, v1alpha1.SchemeGroupVersion.String(), "ClusterStorageContainer")
+	if err != nil {
+		return err
+	}
+	if cscFound {
+		ctrlBuilder = ctrlBuilder.Watches(&v1alpha1.ClusterStorageContainer{}, handler.EnqueueRequestsFromMapFunc(r.clusterStorageContainerFunc), builder.WithPredicates(clusterStorageContainerPredicate()))
+	} else {
+		r.Log.Info("The InferenceService controller won't watch serving.kserve.io/v1alpha1/ClusterStorageContainer resources because the CRD is not available.")
 	}
 
 	return ctrlBuilder.Complete(r)
