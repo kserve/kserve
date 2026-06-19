@@ -81,7 +81,7 @@ func (e *Explainer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	// StorageInitializer injector to mutate the underlying deployment to provision model data
 	if sourceURI != nil {
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
-		err := isvcutils.ValidateStorageURI(ctx, sourceURI, e.client)
+		err := isvcutils.ValidateStorageURI(ctx, isvc.Namespace, sourceURI, nil, e.client)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("StorageURI not supported: %w", err)
 		}
@@ -175,7 +175,7 @@ func (e *Explainer) reconcileExplainerRawDeployment(ctx context.Context, isvc *v
 
 	var storageContainerSpec *v1alpha1.StorageContainerSpec
 	if len(isvc.Spec.Explainer.StorageUris) > 0 {
-		storageContainerSpec, err = pod.GetStorageContainerSpec(ctx, isvc.Spec.Explainer.StorageUris[0].Uri, nil, e.client)
+		storageContainerSpec, err = pod.GetStorageContainerSpec(ctx, isvc.Namespace, isvc.Spec.Explainer.StorageUris[0].Uri, nil, e.client)
 		if err != nil {
 			return errors.Wrapf(err, "failed to get storage container spec")
 		}
@@ -231,7 +231,7 @@ func (e *Explainer) reconcileExplainerKnativeDeployment(ctx context.Context, isv
 
 	var storageContainerSpec *v1alpha1.StorageContainerSpec
 	if len(isvc.Spec.Explainer.StorageUris) > 0 {
-		storageContainerSpec, err = pod.GetStorageContainerSpec(ctx, isvc.Spec.Explainer.StorageUris[0].Uri, nil, e.client)
+		storageContainerSpec, err = pod.GetStorageContainerSpec(ctx, isvc.Namespace, isvc.Spec.Explainer.StorageUris[0].Uri, nil, e.client)
 		if err != nil {
 			return errors.Wrapf(err, "failed to get storage container spec")
 		}

@@ -83,7 +83,7 @@ func (p *Transformer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServ
 	// StorageInitializer injector to mutate the underlying deployment to provision model data
 	if sourceURI != nil {
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
-		err := isvcutils.ValidateStorageURI(ctx, sourceURI, p.client)
+		err := isvcutils.ValidateStorageURI(ctx, isvc.Namespace, sourceURI, nil, p.client)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("StorageURI not supported: %w", err)
 		}
@@ -211,7 +211,7 @@ func (p *Transformer) reconcileTransformerRawDeployment(ctx context.Context, isv
 
 	var storageContainerSpec *v1alpha1.StorageContainerSpec
 	if len(isvc.Spec.Transformer.StorageUris) > 0 {
-		storageContainerSpec, err = pod.GetStorageContainerSpec(ctx, isvc.Spec.Transformer.StorageUris[0].Uri, nil, p.client)
+		storageContainerSpec, err = pod.GetStorageContainerSpec(ctx, isvc.Namespace, isvc.Spec.Transformer.StorageUris[0].Uri, nil, p.client)
 		if err != nil {
 			return errors.Wrapf(err, "failed to get storage container spec")
 		}
@@ -267,7 +267,7 @@ func (p *Transformer) reconcileTransformerKnativeDeployment(ctx context.Context,
 
 	var storageContainerSpec *v1alpha1.StorageContainerSpec
 	if len(isvc.Spec.Transformer.StorageUris) > 0 {
-		storageContainerSpec, err = pod.GetStorageContainerSpec(ctx, isvc.Spec.Transformer.StorageUris[0].Uri, nil, p.client)
+		storageContainerSpec, err = pod.GetStorageContainerSpec(ctx, isvc.Namespace, isvc.Spec.Transformer.StorageUris[0].Uri, nil, p.client)
 		if err != nil {
 			return errors.Wrapf(err, "failed to get storage container spec")
 		}
