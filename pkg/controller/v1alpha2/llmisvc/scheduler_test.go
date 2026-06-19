@@ -1076,6 +1076,96 @@ plugins:
 	}
 }
 
+func TestWithRemovePrefixCacheScorerParametersV09(t *testing.T) {
+	tests := []struct {
+		name       string
+		configYAML string
+		validate   func(g Gomega, obj map[string]interface{})
+	}{
+		{
+			name: "removes all parameters except prefixMatchInfoProducerName",
+			configYAML: `
+plugins:
+- type: prefix-cache-scorer
+  parameters:
+    blockSizeTokens: 16
+    hashBlockSize: 64
+    prefixMatchInfoProducerName: my-producer
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				params := plugins[0].(map[string]interface{})["parameters"].(map[string]interface{})
+				g.Expect(params).To(HaveKey("prefixMatchInfoProducerName"))
+				g.Expect(params).NotTo(HaveKey("blockSizeTokens"))
+				g.Expect(params).NotTo(HaveKey("hashBlockSize"))
+			},
+		},
+		{
+			name: "removes parameters entirely when no prefixMatchInfoProducerName",
+			configYAML: `
+plugins:
+- type: prefix-cache-scorer
+  parameters:
+    blockSizeTokens: 16
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				g.Expect(plugins[0].(map[string]interface{})).NotTo(HaveKey("parameters"))
+			},
+		},
+		{
+			name: "no parameters - no-op",
+			configYAML: `
+plugins:
+- type: prefix-cache-scorer
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				g.Expect(plugins[0].(map[string]interface{})).NotTo(HaveKey("parameters"))
+			},
+		},
+		{
+			name: "does not affect other plugins",
+			configYAML: `
+plugins:
+- type: prefix-cache-scorer
+  parameters:
+    blockSizeTokens: 16
+- type: queue-scorer
+  parameters:
+    someParam: value
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				g.Expect(plugins[0].(map[string]interface{})).NotTo(HaveKey("parameters"))
+				queueParams := plugins[1].(map[string]interface{})["parameters"].(map[string]interface{})
+				g.Expect(queueParams).To(HaveKeyWithValue("someParam", "value"))
+			},
+		},
+		{
+			name: "no plugins - no-op",
+			configYAML: `
+schedulingProfiles:
+- name: default
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				g.Expect(obj).NotTo(HaveKey("plugins"))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			var obj map[string]interface{}
+			g.Expect(yaml.Unmarshal([]byte(tt.configYAML), &obj)).To(Succeed())
+			u := unstructured.Unstructured{Object: obj}
+			g.Expect(withRemovePrefixCacheScorerParametersV09(context.Background(), &u)).To(Succeed())
+			tt.validate(g, u.Object)
+		})
+	}
+}
+
 func TestWithCoreMetricsExtractorPlugin(t *testing.T) {
 	tests := []struct {
 		name       string

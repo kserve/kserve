@@ -1528,6 +1528,172 @@ schedulingProfiles:
 		})
 	})
 
+	Context("v0.9.0 prefix-cache-scorer parameter removal", func() {
+		It("should remove all parameters except prefixMatchInfoProducerName from prefix-cache-scorer", func(ctx SpecContext) {
+			svcName := "test-llm-pcs-param-removal"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			configWithPrefixCacheParams := `
+apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+- type: prefix-cache-scorer
+  parameters:
+    blockSizeTokens: 16
+    prefixMatchInfoProducerName: my-producer
+- type: queue-scorer
+- type: max-score-picker
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: queue-scorer
+    weight: 2
+  - pluginRef: prefix-cache-scorer
+    weight: 3
+  - pluginRef: max-score-picker
+`
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithSchedulerConfigInline(configWithPrefixCacheParams),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			expectedDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				if err := envTest.Get(ctx, types.NamespacedName{
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
+					Namespace: testNs.Name,
+				}, expectedDeployment); err != nil {
+					return err
+				}
+
+				configText, found := getSchedulerConfigText(expectedDeployment)
+				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
+				g.Expect(configText).To(ContainSubstring("prefixMatchInfoProducerName: my-producer"))
+				g.Expect(configText).NotTo(ContainSubstring("blockSizeTokens"))
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should remove parameters entirely when no prefixMatchInfoProducerName is present", func(ctx SpecContext) {
+			svcName := "test-llm-pcs-param-all-removed"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			configWithOnlyDeprecatedParams := `
+apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+- type: prefix-cache-scorer
+  parameters:
+    blockSizeTokens: 16
+- type: queue-scorer
+- type: max-score-picker
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: queue-scorer
+    weight: 2
+  - pluginRef: prefix-cache-scorer
+    weight: 3
+  - pluginRef: max-score-picker
+`
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithSchedulerConfigInline(configWithOnlyDeprecatedParams),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			expectedDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				if err := envTest.Get(ctx, types.NamespacedName{
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
+					Namespace: testNs.Name,
+				}, expectedDeployment); err != nil {
+					return err
+				}
+
+				configText, found := getSchedulerConfigText(expectedDeployment)
+				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
+				g.Expect(configText).NotTo(ContainSubstring("blockSizeTokens"))
+				g.Expect(configText).NotTo(ContainSubstring("parameters"))
+				g.Expect(configText).To(ContainSubstring("prefix-cache-scorer"))
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should not touch prefix-cache-scorer without parameters", func(ctx SpecContext) {
+			svcName := "test-llm-pcs-no-params"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			configWithNoParams := `
+apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+- type: prefix-cache-scorer
+- type: queue-scorer
+- type: max-score-picker
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: queue-scorer
+    weight: 2
+  - pluginRef: prefix-cache-scorer
+    weight: 3
+  - pluginRef: max-score-picker
+`
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithSchedulerConfigInline(configWithNoParams),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			expectedDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				if err := envTest.Get(ctx, types.NamespacedName{
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
+					Namespace: testNs.Name,
+				}, expectedDeployment); err != nil {
+					return err
+				}
+
+				configText, found := getSchedulerConfigText(expectedDeployment)
+				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
+				g.Expect(configText).To(ContainSubstring("prefix-cache-scorer"))
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+		})
+	})
+
 	Context("Multi-GPU-vendor pooling via workload label propagation", func() {
 		It("should create InferencePool with default workload labels that AMD pods can match", func(ctx SpecContext) {
 			// This test verifies the multi-GPU-vendor pooling pattern:

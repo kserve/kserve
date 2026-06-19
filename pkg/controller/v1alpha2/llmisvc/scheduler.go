@@ -1313,8 +1313,15 @@ func schedulerTransform(ctx context.Context, d *appsv1.Deployment) error {
 	if v.Compare(*semver.New("0.8.0")) >= 0 {
 		opts = append(opts, withMigrateCoreMetricsExtractor)
 	}
+	if v.Compare(*semver.New("0.9.0")) >= 0 {
+		opts = append(opts, withRemovePrefixCacheScorerParametersV09)
+		opts = append(opts, withRemoveUnnecessaryTokenizer(d))
+	}
 
-	return mutateSchedulerConfig(ctx, d, opts...)
+	if err := mutateSchedulerConfig(ctx, d, opts...); err != nil {
+		return fmt.Errorf("failed to mutate config: %w", err)
+	}
+	return nil
 }
 
 // withMigrateDisaggHeadersHandler renames the prefill-header-handler plugin to
@@ -1327,6 +1334,80 @@ func withMigrateDisaggHeadersHandler(ctx context.Context, u *unstructured.Unstru
 // plugin to core-metrics-extractor (v0.8.0 rename in GIE v1.5.0).
 func withMigrateCoreMetricsExtractor(ctx context.Context, u *unstructured.Unstructured) error {
 	return WithRenamePlugin(coreMetricsExtractorPlugin, coreMetricsExtractorPluginRenamed)(ctx, u)
+}
+
+// withRemovePrefixCacheScorerParametersV09 removes all parameters from the
+// prefix-cache-scorer plugin except prefixMatchInfoProducerName.
+func withRemovePrefixCacheScorerParametersV09(ctx context.Context, u *unstructured.Unstructured) error {
+	val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
+	if err != nil || !found {
+		return err
+	}
+	plugins, ok := val.([]interface{})
+	if !ok {
+		return nil
+	}
+
+	for _, plugin := range plugins {
+		pluginMap, ok := plugin.(map[string]interface{})
+		if !ok || pluginMap["type"] != prefixCacheScorerPlugin {
+			continue
+		}
+
+		params, found, _ := unstructured.NestedFieldNoCopy(pluginMap, "parameters")
+		if !found {
+			continue
+		}
+		paramsMap, ok := params.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		for key := range paramsMap {
+			if key != "prefixMatchInfoProducerName" {
+				log.FromContext(ctx).V(2).Info("Removing deprecated prefix-cache-scorer parameter", "key", key)
+				delete(paramsMap, key)
+			}
+		}
+
+		if len(paramsMap) == 0 {
+			delete(pluginMap, "parameters")
+		}
+	}
+
+	return nil
+}
+
+func withRemoveUnnecessaryTokenizer(d *appsv1.Deployment) mutateSchedulerConfigFunc {
+	return func(ctx context.Context, u *unstructured.Unstructured) error {
+		val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
+		if err != nil || !found {
+			return err
+		}
+		plugins, ok := val.([]interface{})
+		if !ok {
+			return nil
+		}
+
+		hasPrecisePrefix := false
+		for _, plugin := range plugins {
+			pluginMap, ok := plugin.(map[string]interface{})
+			if ok && pluginMap["type"] == precisePrefixCacheScorerPlugin {
+				hasPrecisePrefix = true
+				break
+			}
+		}
+		if !hasPrecisePrefix {
+			for i := range d.Spec.Template.Spec.Containers {
+				if d.Spec.Template.Spec.Containers[i].Name == tokenizerContainerName {
+					d.Spec.Template.Spec.Containers = append(d.Spec.Template.Spec.Containers[:i], d.Spec.Template.Spec.Containers[i+1:]...)
+					break
+				}
+			}
+		}
+
+		return nil
+	}
 }
 
 // withMigrateDisaggProfileHandler renames the pd-profile-handler plugin to

@@ -4060,7 +4060,7 @@ spec:
   router:
     scheduler:
       annotations:
-        app.kubernetes.io/version: 0.9.0-rc.2
+        app.kubernetes.io/version: 0.9.0
       pool:
         spec:
           endpointPickerRef:

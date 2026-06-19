@@ -23,7 +23,7 @@ spec:
           targetPorts:
             - number: 8000
       annotations:
-        "app.kubernetes.io/version": "0.9.0-rc.2"
+        "app.kubernetes.io/version": "0.9.0"
       template:
         containers:
           - name: main
