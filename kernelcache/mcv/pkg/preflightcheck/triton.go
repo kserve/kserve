@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	logging "github.com/sirupsen/logrus"
 
@@ -30,7 +31,7 @@ import (
 )
 
 func CompareTritonCacheManifestToGPU(manifestPath string, devInfo []devices.TritonGPUInfo) error {
-	data, err := os.ReadFile(manifestPath)
+	data, err := os.ReadFile(filepath.Clean(manifestPath))
 	if err != nil {
 		return fmt.Errorf("failed to read manifest file: %w", err)
 	}
@@ -108,7 +109,7 @@ func CompareTritonEntriesToGPU(entries []cache.TritonCacheMetadata, devInfo []de
 		return nil
 	}
 	if backendMismatch {
-		return fmt.Errorf("incompatibility detected: backend mismatch")
+		return errors.New("incompatibility detected: backend mismatch")
 	}
-	return fmt.Errorf("no compatible GPU found")
+	return errors.New("no compatible GPU found")
 }

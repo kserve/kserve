@@ -17,6 +17,7 @@ limitations under the License.
 package imgbuild
 
 import (
+	"errors"
 	"fmt"
 
 	logging "github.com/sirupsen/logrus"
@@ -43,7 +44,7 @@ func New() (ImageBuilder, error) {
 		logging.Infof("Using docker to build the image")
 		return &dockerBuilder{}, nil
 	}
-	return nil, fmt.Errorf("unsupported builder: neither buildah nor docker found")
+	return nil, errors.New("unsupported builder: neither buildah nor docker found")
 }
 
 func NewWithBuilder(builder string) (ImageBuilder, error) {
@@ -53,13 +54,13 @@ func NewWithBuilder(builder string) (ImageBuilder, error) {
 			logging.Infof("Using buildah to build the image")
 			return &buildahBuilder{}, nil
 		}
-		return nil, fmt.Errorf("buildah is not available on this system")
+		return nil, errors.New("buildah is not available on this system")
 	case Docker:
 		if HasApp(Docker) {
 			logging.Infof("Using docker to build the image")
 			return &dockerBuilder{}, nil
 		}
-		return nil, fmt.Errorf("docker is not available on this system")
+		return nil, errors.New("docker is not available on this system")
 	case "":
 		return New() // Fallback to auto-detection
 	default:

@@ -82,7 +82,10 @@ func staticDeviceStartup() Device {
 			summaries:  cachedDevice.Summaries,
 		}
 	}
-	saveCache(convertedDevices) // Call saveCache to persist the cache
+	err := saveCache(convertedDevices) // Call saveCache to persist the cache
+	if err != nil {
+		logging.Fatalf("Failed to save static device: %v", err)
+	}
 	// Use the first device from the stubbed cache
 	for _, cachedDevice := range cache.Devices {
 		return &StaticDevice{

@@ -88,19 +88,19 @@ func (f *fetcher) FetchImg(imgName string) (v1.Image, error) {
 func fetchToTempTar(fetchFn func(io.Writer) error) (v1.Image, error) {
 	tmpDir := filepath.Join(constants.MCVBuildDir, constants.CacheDir)
 
-	if err := os.MkdirAll(tmpDir, 0o755); err != nil {
+	if err := os.MkdirAll(tmpDir, 0o750); err != nil {
 		return nil, err
 	}
 	logging.Debugf("cache tmp extract dir: %s", tmpDir)
 
 	tarballFilePath := path.Join(tmpDir, "tmp.tar")
-	tarballFile, err := os.Create(tarballFilePath)
+	tarballFile, err := os.Create(filepath.Clean(tarballFilePath))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create tarball file: %v", err)
+		return nil, fmt.Errorf("failed to create tarball file: %w", err)
 	}
 
 	if err := fetchFn(tarballFile); err != nil {
-		tarballFile.Close() // Close on error too
+		_ = tarballFile.Close() // best-effort close on error path
 		return nil, fmt.Errorf("error writing image to tarball: %w", err)
 	}
 

@@ -17,7 +17,6 @@ require (
 	go.podman.io/common v0.66.1-0.20251111134650-36964d15757a
 	go.podman.io/image/v5 v5.38.1-0.20251111134650-36964d15757a
 	go.podman.io/storage v1.61.1-0.20251111134650-36964d15757a
-	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b
 )
 
 require (

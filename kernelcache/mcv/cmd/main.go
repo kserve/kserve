@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -171,34 +172,34 @@ func validateFlagCombinations(createFlag, extractFlag, gpuInfoFlag, checkCompatF
 	}
 
 	if actionCount > 1 {
-		return fmt.Errorf("only one action flag can be specified at a time")
+		return errors.New("only one action flag can be specified at a time")
 	}
 
 	if actionCount == 0 {
-		return fmt.Errorf("no action specified. Use --help to see available options")
+		return errors.New("no action specified. Use --help to see available options")
 	}
 
 	// Image name requirements
 	if (createFlag || extractFlag || checkCompatFlag) && imageName == "" {
-		return fmt.Errorf("--image is required when using --create, --extract, or --check-compat")
+		return errors.New("--image is required when using --create, --extract, or --check-compat")
 	}
 
 	// Validate imageName against imageNameRegex
 	if imageName != "" {
 		_, err := name.ParseReference(imageName, name.StrictValidation)
 		if err != nil {
-			return fmt.Errorf("error validating image name: %v", err)
+			return fmt.Errorf("error validating image name: %w", err)
 		}
 	}
 
 	// Cache directory requirements
 	if createFlag && cacheDirName == "" {
-		return fmt.Errorf("--dir is required when using --create")
+		return errors.New("--dir is required when using --create")
 	}
 
 	// Stub flag validation
 	if stubFlag && !gpuInfoFlag {
-		return fmt.Errorf("--stub can only be used with --gpu-info")
+		return errors.New("--stub can only be used with --gpu-info")
 	}
 
 	return nil

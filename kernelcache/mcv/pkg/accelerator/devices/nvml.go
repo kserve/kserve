@@ -17,6 +17,7 @@ limitations under the License.
 package devices
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -180,7 +181,7 @@ func (n *gpuNvml) Init() (err error) {
 	logging.Debugf("Found %d GPU devices\n", count)
 
 	n.devices = make(map[int]GPUDevice, count)
-	for gpuID := 0; gpuID < count; gpuID++ {
+	for gpuID := range count {
 		device, ret := nvml.DeviceGetHandleByIndex(gpuID)
 		if ret != nvml.SUCCESS {
 			var errs []string
@@ -204,9 +205,11 @@ func (n *gpuNvml) Init() (err error) {
 		dev := GPUDevice{
 			ID:         gpuID,
 			TritonInfo: tritonInfo,
-			Summary: DeviceSummary{ID: strconv.Itoa(gpuID),
+			Summary: DeviceSummary{
+				ID:            strconv.Itoa(gpuID),
 				ProductName:   prodName,
-				DriverVersion: driverVersion},
+				DriverVersion: driverVersion,
+			},
 		}
 
 		n.devices[gpuID] = dev
@@ -237,13 +240,13 @@ func getNVMLTritonGPUInfo(device nvml.Device) (TritonGPUInfo, error) {
 	// Split the version string to extract the major version
 	versionParts := strings.Split(driverVersion, ".")
 	if len(versionParts) < 1 {
-		return TritonGPUInfo{}, fmt.Errorf("invalid driver version format")
+		return TritonGPUInfo{}, errors.New("invalid driver version format")
 	}
 
 	// Convert the major version part to an integer (this corresponds to the PTX version)
 	ptxVersion, err := strconv.Atoi(versionParts[0])
 	if err != nil {
-		return TritonGPUInfo{}, fmt.Errorf("failed to parse PTX version: %v", err)
+		return TritonGPUInfo{}, fmt.Errorf("failed to parse PTX version: %w", err)
 	}
 
 	return TritonGPUInfo{
@@ -271,7 +274,7 @@ func (n *gpuNvml) GetGPUInfo(gpuID int) (TritonGPUInfo, error) {
 // GetAllGPUInfo retrieves the stored GPU info for all devices on the host.
 // It returns a slice of TritonGPUInfo for all GPUs.
 func (n *gpuNvml) GetAllGPUInfo() ([]TritonGPUInfo, error) {
-	var allTritonInfo []TritonGPUInfo
+	allTritonInfo := make([]TritonGPUInfo, 0, len(n.devices))
 
 	for gpuID := range n.devices {
 		dev := n.devices[gpuID]

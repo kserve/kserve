@@ -17,7 +17,7 @@ limitations under the License.
 package devices
 
 import (
-	"fmt"
+	"errors"
 
 	"github.com/jaypipes/ghw"
 	"github.com/jaypipes/ghw/pkg/accelerator"
@@ -39,7 +39,7 @@ func GetProductName(id int) (name string, err error) {
 			}
 		}
 	}
-	return "", fmt.Errorf("PCI device information unavailable")
+	return "", errors.New("PCI device information unavailable")
 }
 
 // DetectAccelerators detects hardware accelerators and enables GPU logic if supported hardware is found.
