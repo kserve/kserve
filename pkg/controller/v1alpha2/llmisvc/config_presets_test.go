@@ -107,6 +107,8 @@ func TestPresetFiles(t *testing.T) {
 										"--vllm-port=8001",
 										"--kv-connector=nixlv2",
 										"--enable-ssrf-protection=true",
+										"--pool-group=inference.networking.x-k8s.io",
+										"--inference-pool=test-llm-preset-test/test-llm-preset-inference-pool",
 										"--secure-proxy=false",
 										"",
 										"",
