@@ -1618,6 +1618,208 @@ schedulingProfiles:
 				"AMD instance should not create a scheduler deployment")
 		})
 	})
+
+	Context("EPP port defaulting for upgrade compatibility", func() {
+		// These tests simulate an upgrade scenario where the
+		// well-known kserve-config-llm-scheduler config was created before GIE v1.2.0
+		// and omits the port field in endpointPickerRef. The v1 InferencePool CRD now
+		// requires port when kind is "Service" or unspecified. The fix in
+		// combineBaseRefsConfig defaults port to 9002 after merging all config layers.
+		//
+		// To simulate, each test creates a kserve-config-llm-scheduler override in the
+		// test namespace (shadowing the system-namespace preset) with Template but no port.
+
+		It("should default EPP port to 9002 when well-known config omits port with kind Service", func(ctx SpecContext) {
+			svcName := "test-llm-port-default-kind-svc"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			// Override the well-known scheduler config in the test namespace,
+			// simulating a pre-GIE-v1.2.0 config that lacks the port field.
+			oldSchedulerCfg := LLMInferenceServiceConfig("kserve-config-llm-scheduler",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+			)
+			oldSchedulerCfg.Spec.Router = &v1alpha2.RouterSpec{
+				Scheduler: &v1alpha2.SchedulerSpec{
+					Pool: &v1alpha2.InferencePoolSpec{
+						Spec: &igwapi.InferencePoolSpec{
+							EndpointPickerRef: igwapi.EndpointPickerRef{
+								Kind:        "Service",
+								Name:        igwapi.ObjectName(kmeta.ChildName(svcName, "-epp-service")),
+								FailureMode: igwapi.EndpointPickerFailOpen,
+							},
+							Selector: igwapi.LabelSelector{
+								MatchLabels: map[igwapi.LabelKey]igwapi.LabelValue{
+									"app": "placeholder",
+								},
+							},
+							TargetPorts: []igwapi.Port{{Number: 8000}},
+						},
+					},
+					Template: &corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Name:  "main",
+							Image: "ghcr.io/llm-d/llm-d-inference-scheduler:v0.7.1",
+							Ports: []corev1.ContainerPort{
+								{Name: "grpc", ContainerPort: 9002, Protocol: corev1.ProtocolTCP},
+								{Name: "grpc-health", ContainerPort: 9003, Protocol: corev1.ProtocolTCP},
+								{Name: "metrics", ContainerPort: 9090, Protocol: corev1.ProtocolTCP},
+							},
+						}},
+					},
+				},
+			}
+			Expect(envTest.Client.Create(ctx, oldSchedulerCfg)).To(Succeed())
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			ip := &igwapi.InferencePool{}
+			Eventually(func(g Gomega, ctx context.Context) {
+				g.Expect(envTest.Get(ctx, client.ObjectKey{
+					Name:      svcName + "-inference-pool",
+					Namespace: testNs.Name,
+				}, ip)).To(Succeed())
+				g.Expect(ip.Spec.EndpointPickerRef.Port).NotTo(BeNil())
+				g.Expect(ip.Spec.EndpointPickerRef.Port.Number).To(Equal(igwapi.PortNumber(9002)))
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should default EPP port to 9002 when well-known config omits port with kind unspecified", func(ctx SpecContext) {
+			svcName := "test-llm-port-default-kind-empty"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			oldSchedulerCfg := LLMInferenceServiceConfig("kserve-config-llm-scheduler",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+			)
+			oldSchedulerCfg.Spec.Router = &v1alpha2.RouterSpec{
+				Scheduler: &v1alpha2.SchedulerSpec{
+					Pool: &v1alpha2.InferencePoolSpec{
+						Spec: &igwapi.InferencePoolSpec{
+							EndpointPickerRef: igwapi.EndpointPickerRef{
+								Name:        igwapi.ObjectName(kmeta.ChildName(svcName, "-epp-service")),
+								FailureMode: igwapi.EndpointPickerFailOpen,
+							},
+							Selector: igwapi.LabelSelector{
+								MatchLabels: map[igwapi.LabelKey]igwapi.LabelValue{
+									"app": "placeholder",
+								},
+							},
+							TargetPorts: []igwapi.Port{{Number: 8000}},
+						},
+					},
+					Template: &corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Name:  "main",
+							Image: "ghcr.io/llm-d/llm-d-inference-scheduler:v0.7.1",
+							Ports: []corev1.ContainerPort{
+								{Name: "grpc", ContainerPort: 9002, Protocol: corev1.ProtocolTCP},
+								{Name: "grpc-health", ContainerPort: 9003, Protocol: corev1.ProtocolTCP},
+								{Name: "metrics", ContainerPort: 9090, Protocol: corev1.ProtocolTCP},
+							},
+						}},
+					},
+				},
+			}
+			Expect(envTest.Client.Create(ctx, oldSchedulerCfg)).To(Succeed())
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			ip := &igwapi.InferencePool{}
+			Eventually(func(g Gomega, ctx context.Context) {
+				g.Expect(envTest.Get(ctx, client.ObjectKey{
+					Name:      svcName + "-inference-pool",
+					Namespace: testNs.Name,
+				}, ip)).To(Succeed())
+				g.Expect(ip.Spec.EndpointPickerRef.Port).NotTo(BeNil())
+				g.Expect(ip.Spec.EndpointPickerRef.Port.Number).To(Equal(igwapi.PortNumber(9002)))
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should not override explicitly set EPP port", func(ctx SpecContext) {
+			svcName := "test-llm-port-explicit"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			schedulerCfg := LLMInferenceServiceConfig("kserve-config-llm-scheduler",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+			)
+			schedulerCfg.Spec.Router = &v1alpha2.RouterSpec{
+				Scheduler: &v1alpha2.SchedulerSpec{
+					Pool: &v1alpha2.InferencePoolSpec{
+						Spec: &igwapi.InferencePoolSpec{
+							EndpointPickerRef: igwapi.EndpointPickerRef{
+								Kind:        "Service",
+								Name:        igwapi.ObjectName(kmeta.ChildName(svcName, "-epp-service")),
+								Port:        ptr.To(igwapi.Port{Number: 8080}),
+								FailureMode: igwapi.EndpointPickerFailOpen,
+							},
+							Selector: igwapi.LabelSelector{
+								MatchLabels: map[igwapi.LabelKey]igwapi.LabelValue{
+									"app": "placeholder",
+								},
+							},
+							TargetPorts: []igwapi.Port{{Number: 8000}},
+						},
+					},
+					Template: &corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Name:  "main",
+							Image: "ghcr.io/llm-d/llm-d-inference-scheduler:v0.7.1",
+							Ports: []corev1.ContainerPort{
+								{Name: "grpc", ContainerPort: 8080, Protocol: corev1.ProtocolTCP},
+								{Name: "grpc-health", ContainerPort: 9003, Protocol: corev1.ProtocolTCP},
+								{Name: "metrics", ContainerPort: 9090, Protocol: corev1.ProtocolTCP},
+							},
+						}},
+					},
+				},
+			}
+			Expect(envTest.Client.Create(ctx, schedulerCfg)).To(Succeed())
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			ip := &igwapi.InferencePool{}
+			Eventually(func(g Gomega, ctx context.Context) {
+				g.Expect(envTest.Get(ctx, client.ObjectKey{
+					Name:      svcName + "-inference-pool",
+					Namespace: testNs.Name,
+				}, ip)).To(Succeed())
+				g.Expect(ip.Spec.EndpointPickerRef.Port).NotTo(BeNil())
+				g.Expect(ip.Spec.EndpointPickerRef.Port.Number).To(Equal(igwapi.PortNumber(8080)))
+			}).WithContext(ctx).Should(Succeed())
+		})
+	})
 })
 
 // schedulerContainerName is the expected name of the main container in the scheduler deployment
