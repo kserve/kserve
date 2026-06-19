@@ -210,7 +210,9 @@ func GetStorageContainerSpecByName(ctx context.Context, namespace, name, storage
 		if !apierrors.IsNotFound(err) && !apimeta.IsNoMatchError(err) {
 			return nil, fmt.Errorf("failed to fetch StorageContainer %q: %w", name, err)
 		}
-		// Not found in namespace (or CRD not installed) — fall through to ClusterStorageContainer
+		// Not found in namespace (or CRD not installed) — fall through to ClusterStorageContainer.
+		// Note: this allows a ClusterStorageContainer with the same name to substitute.
+		log.V(1).Info("StorageContainer not found in namespace, falling through to ClusterStorageContainer", "name", name, "namespace", namespace)
 	}
 
 	// Fall back to ClusterStorageContainer
