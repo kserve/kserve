@@ -37,6 +37,11 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    deprecated: true
+    deprecationWarning: VariantAutoscaling is deprecated and will be removed in a
+      future release. Migrate to the annotation-based path (add llm-d.ai/managed=true
+      to your HPA or ScaledObject). See docs/developer-guide/migrating-from-va-crd.md
+      for migration steps.
     name: v1alpha1
     schema:
       openAPIV3Schema:

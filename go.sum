@@ -3440,8 +3440,8 @@ github.com/lightstep/lightstep-tracer-common/golang/gogo v0.0.0-20190605223551-b
 github.com/lightstep/lightstep-tracer-go v0.18.1/go.mod h1:jlF1pusYV4pidLvZ+XD0UBX0ZE6WURAspgAczcDHrL4=
 github.com/linode/linodego v1.59.0 h1:kYz6sQH9g0u21gbI1UUFjZmFLirtc39JPybygrW76Q0=
 github.com/linode/linodego v1.59.0/go.mod h1:1+Bt0oTz5rBnDOJbGhccxn7LYVytXTIIfAy7QYmijDs=
-github.com/llm-d/llm-d-workload-variant-autoscaler v0.7.0 h1:tubrh9eoBR7lLhOyFyvW5/F2ws97b/sl5ogqwJtVEc8=
-github.com/llm-d/llm-d-workload-variant-autoscaler v0.7.0/go.mod h1:CC4Xh7HuMiqCWcOOKwU/AYFBj2m1qwuODDLoRdZkBRI=
+github.com/llm-d/llm-d-workload-variant-autoscaler v0.8.0-rc4 h1:KI9dEWIKjh6LKlxomy+wZr+yuypwZ7oWIc74TnAtZ+w=
+github.com/llm-d/llm-d-workload-variant-autoscaler v0.8.0-rc4/go.mod h1:kjN+bh2sawec5YEruc4SgxmHdECiYNRtBrpzy79AET4=
 github.com/lyft/protoc-gen-star v0.6.0/go.mod h1:TGAoBVkt8w7MPG72TrKIu85MIdXwDuzJYeZuUPFPNwA=
 github.com/lyft/protoc-gen-star v0.6.1/go.mod h1:TGAoBVkt8w7MPG72TrKIu85MIdXwDuzJYeZuUPFPNwA=
 github.com/lyft/protoc-gen-star/v2 v2.0.1/go.mod h1:RcCdONR2ScXaYnQC5tUzxzlpA3WVYF7/opLeUgcQs/o=
