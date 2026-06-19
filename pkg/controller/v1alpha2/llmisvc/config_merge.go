@@ -30,6 +30,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/utils/ptr"
@@ -557,6 +558,10 @@ type templateGlobalConfig struct {
 	// shared-gateway deployments (e.g. "X-Gateway-Model-Name"). Exposed here so
 	// that HTTPRoute templates can reference it via {{ .GlobalConfig.ModelBasedRoutingHeaderName }}.
 	ModelBasedRoutingHeaderName string
+
+	// InferencePoolNamespacedName represents the inference pool namespaced reference in the format "<namespace>/<name>",
+	// or simply `<name>`.
+	InferencePoolNamespacedName string
 }
 
 // ReplaceVariables processes the configuration as a Go template to substitute
@@ -576,6 +581,14 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 			EnableTLS:                   reconcilerConfig.EnableTLS,
 			ModelBasedRoutingHeaderName: reconcilerConfig.ModelBasedRoutingHeaderName,
 		}
+		infPoolNamespacedName := types.NamespacedName{
+			Name:      (&v1alpha2.SchedulerSpec{}).InferencePoolName(llmSvc),
+			Namespace: llmSvc.GetNamespace(),
+		}
+		if llmSvcCfg.Spec.Router != nil {
+			infPoolNamespacedName.Name = llmSvcCfg.Spec.Router.Scheduler.InferencePoolName(llmSvc)
+		}
+		gc.InferencePoolNamespacedName = infPoolNamespacedName.String()
 	}
 	config := struct {
 		*v1alpha2.LLMInferenceService
