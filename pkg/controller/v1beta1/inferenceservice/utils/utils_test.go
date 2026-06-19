@@ -2398,6 +2398,39 @@ func TestValidateStorageURINamedNamespacedStorageContainer(t *testing.T) {
 	}
 }
 
+// TestValidateStorageURINamespaceScopedFallback verifies that a namespace-scoped
+// StorageContainer makes a custom URI valid for the owning namespace but invalid
+// for other namespaces that have no matching StorageContainer.
+func TestValidateStorageURINamespaceScopedFallback(t *testing.T) {
+	// Namespace-scoped SC covers "custom://" in "team-a"
+	customSC := &v1alpha1.StorageContainer{
+		ObjectMeta: metav1.ObjectMeta{Name: "custom-sc", Namespace: "team-a"},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container:           corev1.Container{Name: "custom", Image: "custom:latest"},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "custom://"}},
+			WorkloadType:        v1alpha1.InitContainer,
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add v1alpha1 to scheme: %s", err)
+	}
+	mockClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(customSC).Build()
+
+	uri := "custom://bucket/model"
+
+	// team-a: namespace-scoped SC matches → valid
+	if err := ValidateStorageURI(t.Context(), "team-a", &uri, nil, mockClient); err != nil {
+		t.Errorf("expected no error for team-a (has namespace-scoped SC), got: %s", err)
+	}
+
+	// team-b: no namespace SC, no cluster SC → invalid
+	if err := ValidateStorageURI(t.Context(), "team-b", &uri, nil, mockClient); err == nil {
+		t.Errorf("expected error for team-b (no matching StorageContainer), got nil")
+	}
+}
+
 func TestAddEnvVarToPodSpec(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
