@@ -28,6 +28,7 @@ from .diagnostic import (
     collect_pod_logs,
     kinds_matching_by_labels,
     print_all_events_table,
+    strip_managed_fields,
 )
 from .fixtures import (
     KSERVE_TEST_NAMESPACE,
@@ -969,8 +970,9 @@ def _wait_for_llmisvc_pods_deleted(
 
     def assert_no_pods():
         pods = core_v1.list_namespaced_pod(namespace, label_selector=label_selector)
-        assert not pods.items, (
-            f"{len(pods.items)} pod(s) for {service_name} still terminating"
+        pod_names = [p.metadata.name for p in pods.items]
+        assert not pod_names, (
+            f"{len(pod_names)} pod(s) for {service_name} still terminating: {pod_names}"
         )
 
     try:
@@ -1238,4 +1240,6 @@ def _collect_diagnostics(
     all_resources = kinds_matching_by_labels(ns, labels)
     for obj in all_resources:
         logger.info(f"{log_prefix} ---")
-        logger.info(yaml.safe_dump(obj.to_dict(), sort_keys=False))
+        logger.info(
+            yaml.safe_dump(strip_managed_fields(obj.to_dict()), sort_keys=False)
+        )
