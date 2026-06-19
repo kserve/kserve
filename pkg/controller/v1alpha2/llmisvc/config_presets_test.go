@@ -123,8 +123,10 @@ func TestPresetFiles(t *testing.T) {
 											},
 										},
 										{
+											// kserveSystemConfig in this test has EnableTLS=false (zero value),
+											// so the conditional /var/run/kserve/tls prefix is omitted.
 											Name:  "SSL_CERT_DIR",
-											Value: "/var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs",
+											Value: "/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs",
 										},
 									},
 									Ports: []corev1.ContainerPort{
