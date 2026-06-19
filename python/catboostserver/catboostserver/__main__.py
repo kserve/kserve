@@ -1,4 +1,4 @@
-# Copyright 2021 The KServe Authors.
+# Copyright 2026 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,8 +20,6 @@ import kserve
 from kserve import logging
 from kserve.errors import ModelMissingError
 from kserve.logging import logger
-
-DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
 
 parser = argparse.ArgumentParser(
     parents=[kserve.model_server.parser]

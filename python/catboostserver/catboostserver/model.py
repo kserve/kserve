@@ -1,4 +1,4 @@
-# Copyright 2021 The KServe Authors.
+# Copyright 2026 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ from typing import Dict, Union
 
 import catboost as cb
 from kserve.errors import InferenceError, ModelMissingError
+from kserve.logging import logger
 from kserve.protocol.infer_type import InferRequest, InferResponse
 from kserve.utils.utils import get_predict_input, get_predict_response
 
@@ -53,8 +54,16 @@ class CatBoostModel(Model):
             else:
                 model_files = [model_files[0]]  # Use first available file
 
+        model_file = model_files[0]
         self._model = cb.CatBoost()
-        self._model.load_model(model_files[0])
+        try:
+            self._model.load_model(model_file)
+        except Exception as e:
+            logger.error(f"Failed to load CatBoost model from {model_file}: {e}")
+            raise InferenceError(
+                f"Failed to load CatBoost model from {model_file}. "
+                f"The file may not be a valid CatBoost model: {e}"
+            )
         self.ready = True
         return self.ready
 

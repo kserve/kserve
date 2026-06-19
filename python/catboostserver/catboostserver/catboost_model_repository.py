@@ -1,4 +1,4 @@
-# Copyright 2021 The KServe Authors.
+# Copyright 2026 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+from kserve.logging import logger
 from kserve.model_repository import ModelRepository, MODEL_MOUNT_DIRS
 from catboostserver import CatBoostModel
 
@@ -31,6 +32,7 @@ class CatBoostModelRepository(ModelRepository):
             if model.load():
                 self.update(model)
             return model.ready
-        except Exception:
+        except Exception as e:
+            logger.error(f"Failed to load model {name}: {e}", exc_info=True)
             # Return False if model loading fails
             return False

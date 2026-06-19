@@ -5,7 +5,8 @@
 To start the server locally for development needs, run the following command under this folder in your github repository.
 
 ```bash
-python -m catboostserver --model_dir /path/to/model_dir --model_name catboost-model
+uv venv
+uv run --active python -m catboostserver --model_dir /path/to/model_dir --model_name catboost-model
 ```
 
 ## Development
@@ -13,19 +14,19 @@ python -m catboostserver --model_dir /path/to/model_dir --model_name catboost-mo
 Install the development dependencies with:
 
 ```bash
-pip install -e .[test]
+make dev_install
 ```
 
 To run tests:
 
 ```bash
-python -m pytest
+make test
 ```
 
 To run static type checks:
 
-```bash  
-python -m mypy --ignore-missing-imports catboostserver
+```bash
+mypy --ignore-missing-imports catboostserver
 ```
 
 ## Building your own CatBoost image
