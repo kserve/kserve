@@ -25,11 +25,11 @@ import (
 	"strconv"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/util/strategicpatch"
-
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	k8stypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"knative.dev/pkg/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -122,18 +122,47 @@ type StorageInitializerParams struct {
 // Returns:
 //   - *v1alpha1.StorageContainerSpec: The container specification that supports the URI, or nil if none found
 //   - error: Error if the lookup or eligibility checks fail
-func GetStorageContainerSpec(ctx context.Context, storageUri string, storageContainerName *string, client client.Client) (*v1alpha1.StorageContainerSpec, error) {
-	// If a specific ClusterStorageContainer is requested by name, fetch it directly
+func GetStorageContainerSpec(ctx context.Context, namespace string, storageUri string, storageContainerName *string, c client.Client) (*v1alpha1.StorageContainerSpec, error) {
+	// Named lookup takes priority — skip auto-match entirely
 	if storageContainerName != nil && *storageContainerName != "" {
-		return GetStorageContainerSpecByName(ctx, *storageContainerName, storageUri, client)
+		return GetStorageContainerSpecByName(ctx, namespace, *storageContainerName, storageUri, c)
 	}
 
-	// Otherwise, auto-match by URI scheme
+	// Auto-match: check namespace-scoped StorageContainer first
+	namespacedList := &v1alpha1.StorageContainerList{}
+	if err := c.List(ctx, namespacedList, client.InNamespace(namespace)); err != nil {
+		if apimeta.IsNoMatchError(err) {
+			// CRD not installed — skip namespace-scoped containers, fall through to cluster
+			namespacedList = &v1alpha1.StorageContainerList{}
+		} else {
+			return nil, err
+		}
+	}
+	for _, sc := range namespacedList.Items {
+		if sc.IsDisabled() {
+			continue
+		}
+		if sc.Spec.WorkloadType != v1alpha1.InitContainer {
+			continue
+		}
+		supported, err := sc.Spec.IsStorageUriSupported(storageUri)
+		if err != nil {
+			return nil, fmt.Errorf("error checking storage container %s/%s: %w", sc.Namespace, sc.Name, err)
+		}
+		if supported {
+			return &sc.Spec, nil
+		}
+	}
+
+	// Auto-match: fall back to ClusterStorageContainer
 	storageContainers := &v1alpha1.ClusterStorageContainerList{}
-	if err := client.List(ctx, storageContainers); err != nil {
+	if err := c.List(ctx, storageContainers); err != nil {
+		if apimeta.IsNoMatchError(err) {
+			// CRD not installed — no cluster containers, graceful fallback
+			return nil, nil
+		}
 		return nil, err
 	}
-
 	for _, sc := range storageContainers.Items {
 		if sc.IsDisabled() {
 			continue
@@ -153,39 +182,64 @@ func GetStorageContainerSpec(ctx context.Context, storageUri string, storageCont
 	return nil, nil
 }
 
-// GetStorageContainerSpecByName looks up a ClusterStorageContainer by name and
-// verifies it is eligible: not disabled, workloadType == initContainer, and
-// supports the given storageUri. Returns an error on any eligibility failure
-// rather than falling back to scheme-based auto-match.
-func GetStorageContainerSpecByName(ctx context.Context, name, storageUri string, client client.Client) (*v1alpha1.StorageContainerSpec, error) {
-	sc := &v1alpha1.ClusterStorageContainer{}
-	if err := client.Get(ctx, k8stypes.NamespacedName{Name: name}, sc); err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil, fmt.Errorf("ClusterStorageContainer %q not found", name)
+// GetStorageContainerSpecByName looks up a StorageContainer by name, checking
+// namespace-scoped StorageContainer first, then falling back to ClusterStorageContainer.
+// Returns an error on any eligibility failure rather than falling back further.
+func GetStorageContainerSpecByName(ctx context.Context, namespace, name, storageUri string, c client.Client) (*v1alpha1.StorageContainerSpec, error) {
+	// Try namespace-scoped StorageContainer first
+	if namespace != "" {
+		sc := &v1alpha1.StorageContainer{}
+		err := c.Get(ctx, k8stypes.NamespacedName{Namespace: namespace, Name: name}, sc)
+		if err == nil {
+			if sc.IsDisabled() {
+				return nil, fmt.Errorf("StorageContainer %q in namespace %q is disabled", name, namespace)
+			}
+			if sc.Spec.WorkloadType != v1alpha1.InitContainer {
+				return nil, fmt.Errorf("StorageContainer %q has workloadType %q; explicit selection requires %q",
+					name, sc.Spec.WorkloadType, v1alpha1.InitContainer)
+			}
+			supported, err := sc.Spec.IsStorageUriSupported(storageUri)
+			if err != nil {
+				return nil, fmt.Errorf("StorageContainer %q URI check failed for %q: %w", name, storageUri, err)
+			}
+			if !supported {
+				return nil, fmt.Errorf("StorageContainer %q does not support storageUri %q", name, storageUri)
+			}
+			return &sc.Spec, nil
+		}
+		if !apierrors.IsNotFound(err) && !apimeta.IsNoMatchError(err) {
+			return nil, fmt.Errorf("failed to fetch StorageContainer %q: %w", name, err)
+		}
+		// Not found in namespace (or CRD not installed) — fall through to ClusterStorageContainer
+	}
+
+	// Fall back to ClusterStorageContainer
+	csc := &v1alpha1.ClusterStorageContainer{}
+	if err := c.Get(ctx, k8stypes.NamespacedName{Name: name}, csc); err != nil {
+		if apierrors.IsNotFound(err) || apimeta.IsNoMatchError(err) {
+			return nil, fmt.Errorf("StorageContainer/ClusterStorageContainer %q not found", name)
 		}
 		return nil, fmt.Errorf("failed to fetch ClusterStorageContainer %q: %w", name, err)
 	}
-	if sc.IsDisabled() {
+	if csc.IsDisabled() {
 		return nil, fmt.Errorf("ClusterStorageContainer %q is disabled", name)
 	}
-	if sc.Spec.WorkloadType != v1alpha1.InitContainer {
-		return nil, fmt.Errorf(
-			"ClusterStorageContainer %q has workloadType %q; explicit selection requires %q",
-			name, sc.Spec.WorkloadType, v1alpha1.InitContainer,
-		)
+	if csc.Spec.WorkloadType != v1alpha1.InitContainer {
+		return nil, fmt.Errorf("ClusterStorageContainer %q has workloadType %q; explicit selection requires %q",
+			name, csc.Spec.WorkloadType, v1alpha1.InitContainer)
 	}
-	supported, err := sc.Spec.IsStorageUriSupported(storageUri)
+	supported, err := csc.Spec.IsStorageUriSupported(storageUri)
 	if err != nil {
 		return nil, fmt.Errorf("ClusterStorageContainer %q URI check failed for %q: %w", name, storageUri, err)
 	}
 	if !supported {
 		return nil, fmt.Errorf("ClusterStorageContainer %q does not support storageUri %q", name, storageUri)
 	}
-	return &sc.Spec, nil
+	return &csc.Spec, nil
 }
 
-func GetContainerSpecForStorageUri(ctx context.Context, storageUri string, client client.Client) (*corev1.Container, error) {
-	supported, err := GetStorageContainerSpec(ctx, storageUri, nil, client)
+func GetContainerSpecForStorageUri(ctx context.Context, namespace string, storageUri string, client client.Client) (*corev1.Container, error) {
+	supported, err := GetStorageContainerSpec(ctx, namespace, storageUri, nil, client)
 	if err != nil {
 		return nil, fmt.Errorf("error resolving storage container for %q: %w", storageUri, err)
 	}
@@ -713,7 +767,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(ctx context.Conte
 	if name, ok := pod.Annotations[constants.StorageContainerNameAnnotationKey]; ok {
 		storageContainerName = &name
 	}
-	storageContainerSpec, err := GetStorageContainerSpec(ctx, srcURI, storageContainerName, mi.client)
+	storageContainerSpec, err := GetStorageContainerSpec(ctx, pod.Namespace, srcURI, storageContainerName, mi.client)
 	if err != nil {
 		return err
 	}
