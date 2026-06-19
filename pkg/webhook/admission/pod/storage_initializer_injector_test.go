@@ -2759,6 +2759,168 @@ func TestGetStorageContainerSpec(t *testing.T) {
 	}
 }
 
+func TestExplicitStorageContainerName(t *testing.T) {
+	// Create two CSCs that both match "hf://" - "default" and "hf-custom"
+	// Without explicit selection, "default" wins alphabetically (the bug in #5299)
+	defaultCSC := &v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "default",
+		},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: corev1.Container{
+				Name:  "storage-initializer",
+				Image: "kserve/storage-initializer:latest",
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("100Mi"),
+						corev1.ResourceCPU:    resource.MustParse("100m"),
+					},
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("1Gi"),
+						corev1.ResourceCPU:    resource.MustParse("1"),
+					},
+				},
+			},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{
+				{Prefix: "gs://"},
+				{Prefix: "s3://"},
+				{Prefix: "hf://"},
+			},
+		},
+	}
+	hfCustomCSC := &v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "hf-custom",
+		},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: corev1.Container{
+				Name:  "storage-initializer",
+				Image: "kserve/hf-custom:latest",
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("2Gi"),
+					},
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("4Gi"),
+					},
+				},
+				Env: []corev1.EnvVar{
+					{Name: "HF_TOKEN", Value: "test-token"},
+				},
+			},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{
+				{Prefix: "hf://"},
+			},
+		},
+	}
+	disabledCSC := &v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "disabled-csc",
+		},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: corev1.Container{
+				Name:  "storage-initializer",
+				Image: "kserve/disabled:latest",
+			},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{
+				{Prefix: "hf://"},
+			},
+		},
+		Disabled: ptr.Bool(true),
+	}
+	s3OnlyCSC := &v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "s3-only",
+		},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: corev1.Container{
+				Name:  "storage-initializer",
+				Image: "kserve/s3-only:latest",
+			},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{
+				{Prefix: "s3://"},
+			},
+		},
+	}
+	downloadJobCSC := &v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "download-job",
+		},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: corev1.Container{
+				Name:  "storage-initializer",
+				Image: "kserve/download-job:latest",
+			},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{
+				{Prefix: "hf://"},
+			},
+			WorkloadType: v1alpha1.LocalModelDownloadJob,
+		},
+	}
+
+	require.NoError(t, c.Create(t.Context(), defaultCSC))
+	require.NoError(t, c.Create(t.Context(), hfCustomCSC))
+	require.NoError(t, c.Create(t.Context(), disabledCSC))
+	require.NoError(t, c.Create(t.Context(), s3OnlyCSC))
+	require.NoError(t, c.Create(t.Context(), downloadJobCSC))
+	defer func() {
+		_ = c.Delete(t.Context(), defaultCSC)
+		_ = c.Delete(t.Context(), hfCustomCSC)
+		_ = c.Delete(t.Context(), disabledCSC)
+		_ = c.Delete(t.Context(), s3OnlyCSC)
+		_ = c.Delete(t.Context(), downloadJobCSC)
+	}()
+
+	t.Run("auto-match returns first alphabetical CSC when name not specified", func(t *testing.T) {
+		spec, err := GetStorageContainerSpec(t.Context(), "hf://my-model", nil, c)
+		require.NoError(t, err)
+		require.NotNil(t, spec)
+		// "default" sorts before "hf-custom", so auto-match returns default
+		assert.Equal(t, "kserve/storage-initializer:latest", spec.Container.Image)
+	})
+
+	t.Run("explicit name returns the correct CSC", func(t *testing.T) {
+		name := "hf-custom"
+		spec, err := GetStorageContainerSpec(t.Context(), "hf://my-model", &name, c)
+		require.NoError(t, err)
+		require.NotNil(t, spec)
+		assert.Equal(t, "kserve/hf-custom:latest", spec.Container.Image)
+		assert.Equal(t, resource.MustParse("2Gi"), spec.Container.Resources.Requests[corev1.ResourceMemory])
+	})
+
+	t.Run("explicit name for non-existent CSC returns error", func(t *testing.T) {
+		name := "does-not-exist"
+		spec, err := GetStorageContainerSpec(t.Context(), "hf://my-model", &name, c)
+		assert.Error(t, err)
+		assert.Nil(t, spec)
+		assert.Contains(t, err.Error(), "not found")
+	})
+
+	t.Run("explicit name for disabled CSC returns error", func(t *testing.T) {
+		name := "disabled-csc"
+		spec, err := GetStorageContainerSpec(t.Context(), "hf://my-model", &name, c)
+		assert.Error(t, err)
+		assert.Nil(t, spec)
+		assert.Contains(t, err.Error(), "disabled")
+	})
+
+	t.Run("explicit name for CSC that does not support the URI returns error", func(t *testing.T) {
+		name := "s3-only"
+		spec, err := GetStorageContainerSpec(t.Context(), "hf://my-model", &name, c)
+		assert.Error(t, err)
+		assert.Nil(t, spec)
+		assert.Contains(t, err.Error(), "does not support")
+	})
+
+	t.Run("explicit name for CSC with wrong workloadType returns error", func(t *testing.T) {
+		name := "download-job"
+		spec, err := GetStorageContainerSpec(t.Context(), "hf://my-model", &name, c)
+		assert.Error(t, err)
+		assert.Nil(t, spec)
+		assert.Contains(t, err.Error(), "workloadType")
+	})
+}
+
 func TestStorageContainerCRDInjection(t *testing.T) {
 	customSpec := v1alpha1.ClusterStorageContainer{
 		ObjectMeta: metav1.ObjectMeta{
@@ -5381,6 +5543,77 @@ func TestMergeContainerSpecs_EnvHandling(t *testing.T) {
 			}
 
 			scenario.assert(t, target.Env)
+		})
+	}
+}
+
+func TestApplyConfidentialConfig(t *testing.T) {
+	scenarios := map[string]struct {
+		initContainer corev1.Container
+		annotations   map[string]string
+		expectedImage string
+		expectedEnvs  map[string]string
+	}{
+		"no confidential annotation": {
+			initContainer: corev1.Container{
+				Name:  constants.StorageInitializerContainerName,
+				Image: "kserve/storage-initializer:latest",
+			},
+			annotations:   map[string]string{},
+			expectedImage: "kserve/storage-initializer:latest",
+			expectedEnvs:  map[string]string{},
+		},
+		"confidential enabled sets env vars without swapping image": {
+			initContainer: corev1.Container{
+				Name:  constants.StorageInitializerContainerName,
+				Image: "kserve/storage-initializer:latest",
+			},
+			annotations: map[string]string{
+				constants.ConfidentialEnabledAnnotationKey:    "true",
+				constants.ConfidentialResourceIdAnnotationKey: "kbs:///default/key/model-key",
+			},
+			expectedImage: "kserve/storage-initializer:latest",
+			expectedEnvs: map[string]string{
+				constants.ConfidentialEnabledEnvVar:    "true",
+				constants.ConfidentialResourceIdEnvVar: "kbs:///default/key/model-key",
+			},
+		},
+		"confidential enabled without resourceId": {
+			initContainer: corev1.Container{
+				Name:  constants.StorageInitializerContainerName,
+				Image: "kserve/storage-initializer:latest",
+			},
+			annotations: map[string]string{
+				constants.ConfidentialEnabledAnnotationKey: "true",
+			},
+			expectedImage: "kserve/storage-initializer:latest",
+			expectedEnvs: map[string]string{
+				constants.ConfidentialEnabledEnvVar: "true",
+			},
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			container := scenario.initContainer.DeepCopy()
+			applyConfidentialConfig(container, scenario.annotations)
+
+			assert.Equal(t, scenario.expectedImage, container.Image, "unexpected image")
+
+			envMap := make(map[string]string)
+			for _, env := range container.Env {
+				envMap[env.Name] = env.Value
+			}
+			for key, expectedVal := range scenario.expectedEnvs {
+				assert.Equal(t, expectedVal, envMap[key], "unexpected env var %s", key)
+			}
+			// Ensure no unexpected confidential env vars
+			for _, env := range container.Env {
+				if env.Name == constants.ConfidentialEnabledEnvVar || env.Name == constants.ConfidentialResourceIdEnvVar {
+					_, expected := scenario.expectedEnvs[env.Name]
+					assert.True(t, expected, "unexpected env var %s", env.Name)
+				}
+			}
 		})
 	}
 }

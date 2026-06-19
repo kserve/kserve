@@ -17,8 +17,14 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"fmt"
+	"strconv"
+	"strings"
+
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmeta"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func (s *SchedulerSpec) InferencePoolName(llmSvc *LLMInferenceService) string {
@@ -131,4 +137,78 @@ func (s *LLMInferenceService) IsUsingLLMInferenceServiceConfigInNamespace(name, 
 	}
 
 	return false
+}
+
+// HasManagedDRA reports whether managed DRA is enabled via annotations.
+func (s *LLMInferenceService) HasManagedDRA() bool {
+	if s == nil {
+		return false
+	}
+	_, ok := s.Annotations[constants.ManagedDRADeviceClassAnnotationKey]
+	return ok
+}
+
+// ManagedDRADeviceClass returns the trimmed device-class annotation value and
+// whether it is set.
+func (s *LLMInferenceService) ManagedDRADeviceClass() (string, bool) {
+	if s == nil {
+		return "", false
+	}
+	raw, ok := s.Annotations[constants.ManagedDRADeviceClassAnnotationKey]
+	if !ok {
+		return "", false
+	}
+	return strings.TrimSpace(raw), true
+}
+
+// ManagedDRADeviceCount returns the requested device count, defaulting to 1.
+func (s *LLMInferenceService) ManagedDRADeviceCount() (int, error) {
+	if s == nil {
+		return 1, nil
+	}
+	raw, ok := s.Annotations[constants.ManagedDRADeviceCountAnnotationKey]
+	if !ok || strings.TrimSpace(raw) == "" {
+		return 1, nil
+	}
+	count, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s value %q: %w", constants.ManagedDRADeviceCountAnnotationKey, raw, err)
+	}
+	if count < 1 {
+		return 0, fmt.Errorf("invalid %s value %q: must be >= 1", constants.ManagedDRADeviceCountAnnotationKey, raw)
+	}
+	return count, nil
+}
+
+// ManagedDRACelSelectors returns the newline-separated CEL expressions, with
+// empty lines and surrounding whitespace stripped.
+func (s *LLMInferenceService) ManagedDRACelSelectors() []string {
+	if s == nil {
+		return nil
+	}
+	raw, ok := s.Annotations[constants.ManagedDRACelSelectorAnnotationKey]
+	if !ok || strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	parts := strings.Split(raw, "\n")
+	selectors := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if v := strings.TrimSpace(p); v != "" {
+			selectors = append(selectors, v)
+		}
+	}
+	return selectors
+}
+
+// ManagedDRAContainerName returns the trimmed container-name annotation value
+// and whether it is set.
+func (s *LLMInferenceService) ManagedDRAContainerName() (string, bool) {
+	if s == nil {
+		return "", false
+	}
+	raw, ok := s.Annotations[constants.ManagedDRAContainerNameAnnotationKey]
+	if !ok {
+		return "", false
+	}
+	return strings.TrimSpace(raw), true
 }

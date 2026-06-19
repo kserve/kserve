@@ -27,6 +27,12 @@ spec:
       template:
         containers:
           - name: main
+            lifecycle:
+              preStop:
+                exec:
+                  command:
+                  - /bin/sleep
+                  - "15"
             ports:
               - containerPort: 9002
                 name: grpc
@@ -173,4 +179,4 @@ spec:
             emptyDir: {}
         dnsPolicy: ClusterFirst
         restartPolicy: Always
-        terminationGracePeriodSeconds: 30
+        terminationGracePeriodSeconds: 60 # must be >= workload terminationGracePeriodSeconds
