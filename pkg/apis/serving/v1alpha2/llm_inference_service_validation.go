@@ -38,6 +38,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
+	kservevalidation "github.com/kserve/kserve/pkg/validation"
 )
 
 // variantCostPattern is compiled once at package init to avoid recompilation on every webhook call.
@@ -107,6 +108,10 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, l.validateManagedDRAAnnotations(llmSvc)...)
 
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
+
+	confidentialWarnings, confidentialErrs := l.validateConfidential(llmSvc)
+	warnings = append(warnings, confidentialWarnings...)
+	allErrs = append(allErrs, confidentialErrs...)
 
 	if len(allErrs) == 0 {
 		logger.V(2).Info("LLMInferenceService v1alpha2 is valid", "llmisvc", llmSvc)
@@ -747,4 +752,24 @@ func (l *LLMInferenceServiceValidator) validateManagedDRAAnnotations(llmSvc *LLM
 	}
 
 	return allErrs
+}
+
+// validateConfidential validates the confidential spec on the model.
+func (l *LLMInferenceServiceValidator) validateConfidential(llmSvc *LLMInferenceService) (admission.Warnings, field.ErrorList) {
+	confidential := llmSvc.Spec.Model.Confidential
+	if confidential == nil {
+		return nil, nil
+	}
+
+	var resourceId *string
+	if confidential.ResourceId != nil {
+		resourceId = confidential.ResourceId
+	}
+
+	return kservevalidation.ValidateConfidentialSpec(
+		confidential.Enabled,
+		resourceId,
+		llmSvc.Spec.Model.URI.String(),
+		field.NewPath("spec", "model"),
+	)
 }
