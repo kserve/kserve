@@ -21,9 +21,6 @@ test = [
     "mypy<1.0,>=0.991",
     "pytest-asyncio<1.0.0,>=0.23.4",
 ]
-dev = [
-    "black[colorama]~=24.3.0",
-]
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
