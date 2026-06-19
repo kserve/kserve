@@ -1863,3 +1863,154 @@ plugins:
 		})
 	}
 }
+
+// schedulerTemplateWithPorts builds a scheduler PodSpec exposing the supplied
+// container port names on a single container, used by TestMissingSchedulerPorts
+// and TestExpectedSchedulerService_PopulatesPresentPorts.
+func schedulerTemplateWithPorts(portNames ...string) *corev1.PodSpec {
+	ports := make([]corev1.ContainerPort, 0, len(portNames))
+	port := int32(9000)
+	for _, name := range portNames {
+		ports = append(ports, corev1.ContainerPort{
+			Name:          name,
+			ContainerPort: port,
+			Protocol:      corev1.ProtocolTCP,
+		})
+		port++
+	}
+	return &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{Name: "main", Ports: ports},
+		},
+	}
+}
+
+func TestMissingSchedulerPorts(t *testing.T) {
+	tests := []struct {
+		name        string
+		template    *corev1.PodSpec
+		wantMissing []string
+	}{
+		{
+			name:        "all required ports present",
+			template:    schedulerTemplateWithPorts("grpc", "grpc-health", "metrics", "zmq"),
+			wantMissing: nil,
+		},
+		{
+			name:        "missing zmq",
+			template:    schedulerTemplateWithPorts("grpc", "grpc-health", "metrics"),
+			wantMissing: []string{"zmq"},
+		},
+		{
+			name:        "missing multiple ports",
+			template:    schedulerTemplateWithPorts("grpc", "metrics"),
+			wantMissing: []string{"grpc-health", "zmq"},
+		},
+		{
+			name:        "all required ports missing",
+			template:    schedulerTemplateWithPorts(),
+			wantMissing: []string{"grpc", "grpc-health", "metrics", "zmq"},
+		},
+		{
+			name:        "extra non-required port alongside the required set - extras ignored",
+			template:    schedulerTemplateWithPorts("grpc", "grpc-health", "metrics", "zmq", "debug"),
+			wantMissing: nil,
+		},
+		{
+			name: "required ports split across multiple containers - union counts",
+			template: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{Name: "main", Ports: []corev1.ContainerPort{
+						{Name: "grpc", ContainerPort: 9000, Protocol: corev1.ProtocolTCP},
+						{Name: "grpc-health", ContainerPort: 9001, Protocol: corev1.ProtocolTCP},
+					}},
+					{Name: "sidecar", Ports: []corev1.ContainerPort{
+						{Name: "metrics", ContainerPort: 9002, Protocol: corev1.ProtocolTCP},
+						{Name: "zmq", ContainerPort: 9003, Protocol: corev1.ProtocolTCP},
+					}},
+				},
+			},
+			wantMissing: nil,
+		},
+		{
+			name:        "nil template treated as all ports missing",
+			template:    nil,
+			wantMissing: []string{"grpc", "grpc-health", "metrics", "zmq"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			g.Expect(missingSchedulerPorts(tt.template)).To(Equal(tt.wantMissing))
+		})
+	}
+}
+
+// TestExpectedSchedulerService_PopulatesPresentPorts confirms that
+// expectedSchedulerService is now non-validating: it always returns a
+// Service shell and populates whatever required ports happen to be on
+// the template (the validation lives upstream in reconcileScheduler).
+func TestExpectedSchedulerService_PopulatesPresentPorts(t *testing.T) {
+	tests := []struct {
+		name             string
+		llmSvc           *v1alpha2.LLMInferenceService
+		wantServicePorts []string
+	}{
+		{
+			name: "all required ports present - all surfaced on Service",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-llm", Namespace: "default"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Router: &v1alpha2.RouterSpec{
+						Scheduler: &v1alpha2.SchedulerSpec{
+							Template: schedulerTemplateWithPorts("grpc", "grpc-health", "metrics", "zmq"),
+						},
+					},
+				},
+			},
+			wantServicePorts: []string{"grpc", "grpc-health", "metrics", "zmq"},
+		},
+		{
+			name: "partial ports present - only those surfaced, no error",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-llm", Namespace: "default"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Router: &v1alpha2.RouterSpec{
+						Scheduler: &v1alpha2.SchedulerSpec{
+							Template: schedulerTemplateWithPorts("grpc", "metrics"),
+						},
+					},
+				},
+			},
+			wantServicePorts: []string{"grpc", "metrics"},
+		},
+		{
+			name: "no scheduler template - Service shell only",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-llm", Namespace: "default"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Router: &v1alpha2.RouterSpec{},
+				},
+			},
+			wantServicePorts: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			svc := (&LLMISVCReconciler{}).expectedSchedulerService(context.Background(), tt.llmSvc)
+			g.Expect(svc).NotTo(BeNil())
+			if len(tt.wantServicePorts) == 0 {
+				g.Expect(svc.Spec.Ports).To(BeEmpty())
+				return
+			}
+			gotNames := make([]string, 0, len(svc.Spec.Ports))
+			for _, p := range svc.Spec.Ports {
+				gotNames = append(gotNames, p.Name)
+			}
+			g.Expect(gotNames).To(Equal(tt.wantServicePorts))
+		})
+	}
+}
