@@ -43,6 +43,14 @@ const (
 )
 
 func main() {
+	// InitReexec must run before anything else. When buildah re-executes the
+	// binary as a copier subprocess, it enters here, does its work, and returns
+	// true — so we exit immediately. For the normal (non-reexec) path it
+	// returns false and execution continues as usual.
+	if buildah.InitReexec() {
+		return
+	}
+
 	initializeLogging()
 
 	if _, err := config.Initialize(config.ConfDir); err != nil {
@@ -263,17 +271,9 @@ func configureBoolFlags(baremetalFlag, noGPUFlag, stub bool) {
 }
 
 func runCreate(imageName, cacheDir, builder string) {
-	// buildah.InitReexec and unshare.MaybeReexecUsingUserNamespace are only needed for
-	// image creation via buildah, which requires re-executing the binary inside a new
-	// user namespace to perform rootless container storage operations (mount, overlay, etc.).
-	// These calls must NOT run unconditionally at startup because they will fail with
-	// "Error during reexec(...): No such file or directory" in environments where user
-	// namespace creation is restricted (e.g., running inside a container without the
-	// required privileges). Other operations (--extract, --gpu-info, --check-compat) do
-	// not need container storage and should not be blocked by this limitation.
-	if buildah.InitReexec() {
-		return
-	}
+	// MaybeReexecUsingUserNamespace is only needed for image creation via buildah,
+	// which requires re-executing the binary inside a new user namespace to perform
+	// rootless container storage operations (mount, overlay, etc.).
 	unshare.MaybeReexecUsingUserNamespace(false)
 
 	// Check if the cache directory exists
