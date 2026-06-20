@@ -79,8 +79,12 @@ py-fmt: $(RUFF)
 # Run go vet against code
 vet:
 	go vet ./pkg/... ./cmd/... && cd qpext && go vet ./...
-	@echo "Vetting kernelcache/mcv..."
-	@(cd kernelcache/mcv && CGO_ENABLED=1 go vet ./...) || exit 1
+	@if pkg-config --exists gpgme 2>/dev/null; then \
+		echo "Vetting kernelcache/mcv..."; \
+		(cd kernelcache/mcv && CGO_ENABLED=1 go vet ./...) || exit 1; \
+	else \
+		echo "Skipping kernelcache/mcv vet (CGO dependencies not installed, covered by mcv-build-test CI)"; \
+	fi
 
 tidy:
 	@for dir in . qpext kernelcache/mcv; do \
@@ -101,8 +105,12 @@ go-lint: golangci-lint
 	  echo "Linting $$dir..."; \
 	  (cd $$dir && $(GOLANGCI_LINT) run --fix) || exit 1; \
 	done
-	@echo "Linting kernelcache/mcv..."
-	@(cd kernelcache/mcv && CGO_ENABLED=1 $(GOLANGCI_LINT) run --fix) || exit 1
+	@if pkg-config --exists gpgme 2>/dev/null; then \
+		echo "Linting kernelcache/mcv..."; \
+		(cd kernelcache/mcv && CGO_ENABLED=1 $(GOLANGCI_LINT) run --fix) || exit 1; \
+	else \
+		echo "Skipping kernelcache/mcv lint (CGO dependencies not installed, covered by mcv-build-test CI)"; \
+	fi
 
 py-lint: $(RUFF)
 	$(RUFF) check --config ruff.toml 
