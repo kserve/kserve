@@ -50,6 +50,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pciutils \
     hwdata \
     buildah \
+    netavark aardvark-dns \
     rsync \
     wget \
     fuse-overlayfs fuse3 \

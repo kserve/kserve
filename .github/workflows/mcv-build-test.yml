@@ -94,7 +94,7 @@ jobs:
 
           for entry in "${images[@]}"; do
             IFS="|" read -r tag cache_dir <<< "${entry}"
-            image="localhost/mcv-test:${tag}"
+            image="localhost:5000/mcv-test:${tag}"
 
             echo "::group::Building ${image} from ${cache_dir}"
             docker run --rm --privileged \
