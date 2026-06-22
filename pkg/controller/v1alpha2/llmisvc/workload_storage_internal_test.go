@@ -24,7 +24,21 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
+
+// mergeStorageInitForTest wraps utils.MergeContainerWithPatch with the same
+// Name/Args/Command restoration that the production code applies.
+func mergeStorageInitForTest(ctrl *corev1.Container, user corev1.Container) (*corev1.Container, error) {
+	merged, err := utils.MergeContainerWithPatch(*ctrl, user)
+	if err != nil {
+		return nil, err
+	}
+	merged.Name = ctrl.Name
+	merged.Args = ctrl.Args
+	merged.Command = ctrl.Command
+	return &merged, nil
+}
 
 func TestExtractAndStripStorageInitializer(t *testing.T) {
 	t.Parallel()
@@ -124,7 +138,7 @@ func TestMergeStorageInitializerContainer(t *testing.T) {
 			},
 		}
 
-		merged, err := mergeStorageInitializerContainer(ctrl, user)
+		merged, err := mergeStorageInitForTest(ctrl, user)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -154,7 +168,7 @@ func TestMergeStorageInitializerContainer(t *testing.T) {
 			Image: "my-registry/custom-storage:v2",
 		}
 
-		merged, err := mergeStorageInitializerContainer(ctrl, user)
+		merged, err := mergeStorageInitForTest(ctrl, user)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -172,7 +186,7 @@ func TestMergeStorageInitializerContainer(t *testing.T) {
 			Env:  []corev1.EnvVar{{Name: "CUSTOM_VAR", Value: "custom"}},
 		}
 
-		merged, err := mergeStorageInitializerContainer(ctrl, user)
+		merged, err := mergeStorageInitForTest(ctrl, user)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -202,7 +216,7 @@ func TestMergeStorageInitializerContainer(t *testing.T) {
 			},
 		}
 
-		merged, err := mergeStorageInitializerContainer(ctrl, user)
+		merged, err := mergeStorageInitForTest(ctrl, user)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -228,7 +242,7 @@ func TestMergeStorageInitializerContainer(t *testing.T) {
 			Env:  []corev1.EnvVar{{Name: "SHARED_VAR", Value: "overridden"}},
 		}
 
-		merged, err := mergeStorageInitializerContainer(ctrl, user)
+		merged, err := mergeStorageInitForTest(ctrl, user)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -255,7 +269,7 @@ func TestMergeStorageInitializerContainer(t *testing.T) {
 			Args: []string{"should-be-ignored", "/wrong/path"},
 		}
 
-		merged, err := mergeStorageInitializerContainer(ctrl, user)
+		merged, err := mergeStorageInitForTest(ctrl, user)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -273,7 +287,7 @@ func TestMergeStorageInitializerContainer(t *testing.T) {
 			Image: "custom:v1",
 		}
 
-		merged, err := mergeStorageInitializerContainer(ctrl, user)
+		merged, err := mergeStorageInitForTest(ctrl, user)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -295,7 +309,7 @@ func TestMergeStorageInitializerContainer(t *testing.T) {
 			},
 		}
 
-		merged, err := mergeStorageInitializerContainer(ctrl, user)
+		merged, err := mergeStorageInitForTest(ctrl, user)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

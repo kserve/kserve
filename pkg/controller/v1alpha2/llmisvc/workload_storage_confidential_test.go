@@ -109,7 +109,9 @@ func TestAttachStorageInitializerConfidential(t *testing.T) {
 				},
 			}
 
+			llmSvc := &v1alpha2.LLMInferenceService{}
 			err := r.attachStorageInitializer(
+				llmSvc,
 				"s3://bucket/model",
 				curr,
 				podSpec,

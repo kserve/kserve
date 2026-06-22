@@ -92,7 +92,9 @@ func TestAttachStorageInitializer_TargetContainer(t *testing.T) {
 				},
 			}
 
+			llmSvc := &v1alpha2.LLMInferenceService{}
 			err := r.attachStorageInitializer(
+				llmSvc,
 				"hf://meta-llama/Llama-2-7b",
 				corev1.PodSpec{}, // empty curr
 				podSpec,

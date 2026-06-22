@@ -18,7 +18,6 @@ package llmisvc
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -27,7 +26,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -71,36 +69,6 @@ func extractAndStripStorageInitializer(podSpec *corev1.PodSpec) *corev1.Containe
 	}
 	podSpec.InitContainers = keptInit
 	return extracted
-}
-
-// mergeStorageInitializerContainer merges user customizations onto the controller-generated
-// default storage-initializer container using strategic merge patch. The controller's Name
-// and Args are always preserved regardless of user overrides.
-func mergeStorageInitializerContainer(controllerDefault *corev1.Container, userOverride corev1.Container) (*corev1.Container, error) {
-	baseJSON, err := json.Marshal(controllerDefault)
-	if err != nil {
-		return nil, fmt.Errorf("could not marshal controller default container: %w", err)
-	}
-
-	overrideJSON, err := json.Marshal(userOverride)
-	if err != nil {
-		return nil, fmt.Errorf("could not marshal user override container: %w", err)
-	}
-
-	mergedJSON, err := strategicpatch.StrategicMergePatch(baseJSON, overrideJSON, corev1.Container{})
-	if err != nil {
-		return nil, fmt.Errorf("could not apply strategic merge patch: %w", err)
-	}
-
-	var merged corev1.Container
-	if err := json.Unmarshal(mergedJSON, &merged); err != nil {
-		return nil, fmt.Errorf("could not unmarshal merged container: %w", err)
-	}
-
-	merged.Name = controllerDefault.Name
-	merged.Args = controllerDefault.Args
-
-	return &merged, nil
 }
 
 // attachModelArtifacts configures a PodSpec to fetch and use a model from a provided URI in the LLMInferenceService.
@@ -294,7 +262,7 @@ func (r *LLMISVCReconciler) attachPVCModelArtifact(modelUri string, podSpec *cor
 //
 //	An error if the configuration fails, otherwise nil.
 func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig, containerName string, modelPath string) error {
-	if err := r.attachStorageInitializer(modelUri, curr, podSpec, storageConfig, llmSvc.Spec.Model.Confidential, containerName, modelPath); err != nil {
+	if err := r.attachStorageInitializer(llmSvc, modelUri, curr, podSpec, storageConfig, llmSvc.Spec.Model.Confidential, containerName, modelPath); err != nil {
 		return err
 	}
 	if initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName); initContainer != nil {
@@ -345,7 +313,7 @@ func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAc
 //
 //	An error if the configuration fails, otherwise nil.
 func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig, containerName string, modelPath string) error {
-	if err := r.attachStorageInitializer(modelUri, curr, podSpec, storageConfig, llmSvc.Spec.Model.Confidential, containerName, modelPath); err != nil {
+	if err := r.attachStorageInitializer(llmSvc, modelUri, curr, podSpec, storageConfig, llmSvc.Spec.Model.Confidential, containerName, modelPath); err != nil {
 		return err
 	}
 	if initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName); initContainer != nil {
@@ -400,7 +368,7 @@ func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAc
 // Returns:
 //
 //	An error if the configuration fails, otherwise nil.
-func (r *LLMISVCReconciler) attachStorageInitializer(modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, confidential *v1alpha2.ConfidentialSpec, containerName string, modelPath string) error {
+func (r *LLMISVCReconciler) attachStorageInitializer(llmSvc *v1alpha2.LLMInferenceService, modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, confidential *v1alpha2.ConfidentialSpec, containerName string, modelPath string) error {
 	userOverride := extractAndStripStorageInitializer(podSpec)
 
 	containerArgs := []string{
@@ -436,11 +404,18 @@ func (r *LLMISVCReconciler) attachStorageInitializer(modelUri string, curr corev
 	}
 
 	if userOverride != nil {
-		var err error
-		initContainer, err = mergeStorageInitializerContainer(initContainer, *userOverride)
+		if len(userOverride.Args) > 0 || len(userOverride.Command) > 0 {
+			r.Eventf(llmSvc, corev1.EventTypeWarning, "StorageInitializerOverride",
+				"User-specified Args/Command on storage-initializer were overridden by controller")
+		}
+		merged, err := utils.MergeContainerWithPatch(*initContainer, *userOverride)
 		if err != nil {
 			return fmt.Errorf("failed to merge user storage-initializer customizations: %w", err)
 		}
+		merged.Name = initContainer.Name
+		merged.Args = initContainer.Args
+		merged.Command = initContainer.Command
+		initContainer = &merged
 	}
 
 	podSpec.InitContainers = append(podSpec.InitContainers, *initContainer)
@@ -502,11 +477,14 @@ func (r *LLMISVCReconciler) attachMultiStorageDownloads(
 	initC := utils.CreateInitContainerWithConfig(&copied, args)
 
 	if userOverride != nil {
-		var err error
-		initC, err = mergeStorageInitializerContainer(initC, *userOverride)
+		merged, err := utils.MergeContainerWithPatch(*initC, *userOverride)
 		if err != nil {
 			return fmt.Errorf("failed to merge user storage-initializer customizations: %w", err)
 		}
+		merged.Name = initC.Name
+		merged.Args = initC.Args
+		merged.Command = initC.Command
+		initC = &merged
 	}
 
 	podSpec.InitContainers = append(podSpec.InitContainers, *initC)
