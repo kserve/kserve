@@ -198,7 +198,6 @@ rules:
   - inferenceservices/finalizers
   - servingruntimes
   - servingruntimes/finalizers
-  - storagecontainers
   - trainedmodels
   verbs:
   - create
@@ -225,6 +224,7 @@ rules:
   resources:
   - localmodelcaches
   - localmodelnamespacecaches
+  - storagecontainers
   verbs:
   - get
   - list

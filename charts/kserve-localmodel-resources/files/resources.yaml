@@ -157,6 +157,7 @@ rules:
   resources:
   - clusterstoragecontainers
   - localmodelnodegroups
+  - storagecontainers
   verbs:
   - get
   - list
