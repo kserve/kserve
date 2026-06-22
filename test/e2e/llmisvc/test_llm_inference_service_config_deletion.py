@@ -434,25 +434,71 @@ def _find_well_known_config(kserve_client, suffix, namespace=KSERVE_NAMESPACE):
 @pytest.mark.cluster_cpu
 @pytest.mark.cluster_single_node
 @log_execution
-def test_well_known_config_deletion_blocked_by_implicit_reference():
-    """Test that a well-known config cannot be deleted while any LLMInferenceService exists."""
+def test_well_known_config_deletion_prevented_by_webhook():
+    """Test that the webhook prevents deletion of well-known configs in the kserve namespace."""
     inject_k8s_proxy()
     kserve_client = _kserve_client()
-    service_name = "e2e-wk-cfg-implicit-svc"
-    extra_configs = []
-    llm_svc = None
 
-    # Find the well-known config in the system namespace
     config_name = _find_well_known_config(kserve_client, WELL_KNOWN_CONFIG_SUFFIX)
     assert config_name is not None, (
         f"No config ending with {WELL_KNOWN_CONFIG_SUFFIX!r} found in namespace {KSERVE_NAMESPACE}"
     )
     print(f"Found well-known config: {config_name} in namespace {KSERVE_NAMESPACE}")
 
+    with pytest.raises(client.rest.ApiException) as exc_info:
+        _delete_config(kserve_client, config_name, namespace=KSERVE_NAMESPACE)
+
+    assert exc_info.value.status == 403, (
+        f"Expected 403 Forbidden, got {exc_info.value.status}"
+    )
+    assert "cannot be deleted" in str(exc_info.value.body), (
+        f"Expected 'cannot be deleted' in error body, got: {exc_info.value.body}"
+    )
+    print(
+        f"Well-known config {config_name} deletion correctly prevented by webhook (403)"
+    )
+
+    cfg = _get_config(kserve_client, config_name, namespace=KSERVE_NAMESPACE)
+    assert not _config_has_deletion_timestamp(cfg), (
+        "Config should NOT have deletionTimestamp since the webhook rejected the request"
+    )
+    print(f"Well-known config {config_name} is intact (no deletionTimestamp)")
+
+
+@pytest.mark.llminferenceservice
+@pytest.mark.cluster_cpu
+@pytest.mark.cluster_single_node
+@log_execution
+def test_well_known_config_deletion_blocked_by_implicit_reference():
+    """Test that a well-known config is blocked from deletion by the finalizer while any
+    LLMInferenceService exists in the same namespace.
+
+    Uses a well-known-named config in the test namespace to avoid the webhook that
+    prevents deletion of well-known configs in the kserve namespace.
+    """
+    inject_k8s_proxy()
+    kserve_client = _kserve_client()
+    service_name = "e2e-wk-cfg-implicit-svc"
+    extra_configs = []
+    llm_svc = None
+
+    # Discover the well-known config name (handles custom prefixes)
+    wk_config_name = _find_well_known_config(kserve_client, WELL_KNOWN_CONFIG_SUFFIX)
+    assert wk_config_name is not None, (
+        f"No config ending with {WELL_KNOWN_CONFIG_SUFFIX!r} found in namespace {KSERVE_NAMESPACE}"
+    )
+    print(f"Discovered well-known config name: {wk_config_name}")
+
     try:
+        # Create a config with the well-known name in the test namespace.
+        _create_config(kserve_client, wk_config_name)
+        print(
+            f"Created well-known config {wk_config_name} in namespace {KSERVE_TEST_NAMESPACE}"
+        )
+
         # Create an LLMInferenceService that does NOT explicitly reference the
         # well-known config. The controller treats well-known configs as implicitly
-        # referenced by all services in scope.
+        # referenced by all services in the same namespace.
         model_config_name = f"{service_name}-model-cfg"
         _create_config(kserve_client, model_config_name)
         extra_configs.append(model_config_name)
@@ -466,7 +512,7 @@ def test_well_known_config_deletion_blocked_by_implicit_reference():
 
         # Wait for the well-known config to have a finalizer
         def assert_finalizer_present():
-            cfg = _get_config(kserve_client, config_name, namespace=KSERVE_NAMESPACE)
+            cfg = _get_config(kserve_client, wk_config_name)
             assert _config_has_finalizer(cfg), (
                 "Finalizer not yet present on well-known config"
             )
@@ -474,15 +520,16 @@ def test_well_known_config_deletion_blocked_by_implicit_reference():
 
         wait_for(assert_finalizer_present, timeout=60, interval=2.0)
 
-        # Attempt to delete the well-known config
+        # Attempt to delete the well-known config (webhook allows it in test
+        # namespace, but the finalizer should block it)
         print(
-            f"Attempting to delete well-known config {config_name} (should be blocked)"
+            f"Attempting to delete well-known config {wk_config_name} (should be blocked by finalizer)"
         )
-        _delete_config(kserve_client, config_name, namespace=KSERVE_NAMESPACE)
+        _delete_config(kserve_client, wk_config_name)
 
         # The well-known config should be blocked from deletion
         def assert_deletion_blocked():
-            cfg = _get_config(kserve_client, config_name, namespace=KSERVE_NAMESPACE)
+            cfg = _get_config(kserve_client, wk_config_name)
             assert _config_has_deletion_timestamp(cfg), (
                 "Well-known config should have a deletionTimestamp after delete was called"
             )
@@ -505,7 +552,7 @@ def test_well_known_config_deletion_blocked_by_implicit_reference():
 
         wait_for(assert_deletion_blocked, timeout=60, interval=2.0)
         print(
-            f"Well-known config {config_name} deletion is correctly blocked "
+            f"Well-known config {wk_config_name} deletion is correctly blocked "
             f"(ConfigInUse=True, reason=DeletionBlocked)"
         )
 
@@ -516,17 +563,14 @@ def test_well_known_config_deletion_blocked_by_implicit_reference():
 
         # The well-known config should now be deleted
         def assert_config_gone():
-            return _config_is_gone(
-                kserve_client, config_name, namespace=KSERVE_NAMESPACE
-            )
+            return _config_is_gone(kserve_client, wk_config_name)
 
         wait_for(assert_config_gone, timeout=120, interval=2.0)
-        print(f"Well-known config {config_name} deleted after service removal")
+        print(f"Well-known config {wk_config_name} deleted after service removal")
 
     finally:
         if llm_svc is not None:
             _cleanup_llmisvc_silent(kserve_client, llm_svc)
+        _cleanup_config_silent(kserve_client, wk_config_name)
         for cfg_name in extra_configs:
             _cleanup_config_silent(kserve_client, cfg_name)
-        # Re-create the well-known config so later tests are not affected
-        _create_config(kserve_client, config_name, namespace=KSERVE_NAMESPACE)
