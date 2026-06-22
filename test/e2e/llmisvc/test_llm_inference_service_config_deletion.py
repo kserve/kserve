@@ -36,7 +36,7 @@ from .test_llm_inference_service import (
 
 KSERVE_PLURAL_LLMINFERENCESERVICE = "llminferenceservices"
 CONFIG_FINALIZER = "serving.kserve.io/llmisvcconfig-finalizer"
-API_VERSION = "v1alpha1"
+API_VERSION = "v1alpha2"
 WELL_KNOWN_CONFIG_SUFFIX = "-config-llm-template"
 
 
