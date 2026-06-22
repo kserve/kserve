@@ -163,14 +163,6 @@ type KVCacheOffloadingSpec struct {
 	// +kubebuilder:validation:Enum=lru;arc
 	// +kubebuilder:default=lru
 	EvictionPolicy string `json:"evictionPolicy,omitempty"`
-
-	// SecondaryTiers lists optional additional storage tiers for KV cache cascading.
-	// Each entry is an opaque object with at minimum a "type" field identifying the tier
-	// implementation (e.g. {"type":"fs_python","path":"/mnt/kv-cache"}).
-	// +optional
-	// +kubebuilder:pruning:PreserveUnknownFields
-	// +kubebuilder:validation:Schemaless
-	SecondaryTiers []runtime.RawExtension `json:"secondaryTiers,omitempty"`
 }
 
 // LLMModelSpec defines the model source and its characteristics.

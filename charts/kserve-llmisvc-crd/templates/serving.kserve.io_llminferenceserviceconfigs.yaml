@@ -20917,8 +20917,6 @@ spec:
                         - lru
                         - arc
                       type: string
-                    secondaryTiers:
-                      x-kubernetes-preserve-unknown-fields: true
                   required:
                     - cpuBytesToUse
                   type: object
@@ -20996,8 +20994,6 @@ spec:
                             - lru
                             - arc
                           type: string
-                        secondaryTiers:
-                          x-kubernetes-preserve-unknown-fields: true
                       required:
                         - cpuBytesToUse
                       type: object

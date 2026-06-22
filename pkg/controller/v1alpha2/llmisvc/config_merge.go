@@ -599,13 +599,6 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 				if kv.EvictionPolicy != "" {
 					extraConfig["eviction_policy"] = kv.EvictionPolicy
 				}
-				if len(kv.SecondaryTiers) > 0 {
-					tiers := make([]json.RawMessage, len(kv.SecondaryTiers))
-					for i, t := range kv.SecondaryTiers {
-						tiers[i] = json.RawMessage(t.Raw)
-					}
-					extraConfig["secondary_tiers"] = tiers
-				}
 				kvConfig := map[string]any{
 					"kv_connector":              "OffloadingConnector",
 					"kv_role":                   "kv_both",
