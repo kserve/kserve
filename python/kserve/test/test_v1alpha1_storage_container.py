@@ -29,6 +29,7 @@ from __future__ import absolute_import
 import unittest
 import datetime
 
+from kubernetes.client import V1Container
 import kserve
 from kserve.models.v1alpha1_storage_container import V1alpha1StorageContainer  # noqa: E501
 from kserve.rest import ApiException
@@ -55,7 +56,7 @@ class TestV1alpha1StorageContainer(unittest.TestCase):
                 kind = '0', 
                 metadata = None, 
                 spec = kserve.models.v1alpha1_storage_container_spec.V1alpha1StorageContainerSpec(
-                    container = None, 
+                    container = V1Container(name="storage-initializer", image="kserve/storage-initializer:latest"),
                     supported_uri_formats = [
                         kserve.models.v1alpha1_supported_uri_format.V1alpha1SupportedUriFormat(
                             prefix = '0', 
