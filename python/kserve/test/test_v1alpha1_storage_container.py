@@ -45,29 +45,30 @@ class TestV1alpha1StorageContainer(unittest.TestCase):
 
     def make_instance(self, include_optional):
         """Test V1alpha1StorageContainer
-            include_option is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_option is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # model = kserve.models.v1alpha1_storage_container.V1alpha1StorageContainer()  # noqa: E501
-        if include_optional :
+        if include_optional:
             return V1alpha1StorageContainer(
-                api_version = '0', 
-                disabled = True, 
-                kind = '0', 
-                metadata = None, 
-                spec = kserve.models.v1alpha1_storage_container_spec.V1alpha1StorageContainerSpec(
-                    container = V1Container(name="storage-initializer", image="kserve/storage-initializer:latest"),
-                    supported_uri_formats = [
+                api_version="0",
+                disabled=True,
+                kind="0",
+                metadata=None,
+                spec=kserve.models.v1alpha1_storage_container_spec.V1alpha1StorageContainerSpec(
+                    container=V1Container(
+                        name="storage-initializer", image="kserve/storage-initializer:latest"
+                    ),
+                    supported_uri_formats=[
                         kserve.models.v1alpha1_supported_uri_format.V1alpha1SupportedUriFormat(
-                            prefix = '0', 
-                            regex = '0', )
-                        ], 
-                    supports_multi_model_download = True, 
-                    workload_type = '0', )
+                            prefix="0",
+                            regex="0",
+                        )
+                    ],
+                ),
             )
-        else :
-            return V1alpha1StorageContainer(
-        )
+        else:
+            return V1alpha1StorageContainer()
 
     def testV1alpha1StorageContainer(self):
         """Test V1alpha1StorageContainer"""
