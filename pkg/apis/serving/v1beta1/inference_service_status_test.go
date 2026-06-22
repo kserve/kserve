@@ -58,8 +58,10 @@ func TestPropagateRawStatus(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	scenarios := map[string]struct {
-		deploymentConditions []appsv1.DeploymentCondition
-		expectedReadyStatus  bool
+		deploymentConditions       []appsv1.DeploymentCondition
+		expectedReadyStatus        bool
+		expectedProgressingStatus  *corev1.ConditionStatus // nil means condition should not exist
+		expectedProgressingReason  string
 	}{
 		"Available true": {
 			deploymentConditions: []appsv1.DeploymentCondition{
@@ -73,7 +75,9 @@ func TestPropagateRawStatus(t *testing.T) {
 					},
 				},
 			},
-			expectedReadyStatus: true,
+			expectedReadyStatus:       true,
+			expectedProgressingStatus: nil, // Should be cleared when ready
+			expectedProgressingReason: "",
 		},
 		"Available true, Progressing succeeded": {
 			deploymentConditions: []appsv1.DeploymentCondition{
@@ -96,7 +100,9 @@ func TestPropagateRawStatus(t *testing.T) {
 					},
 				},
 			},
-			expectedReadyStatus: true,
+			expectedReadyStatus:       true,
+			expectedProgressingStatus: nil, // Should be cleared when ready
+			expectedProgressingReason: "",
 		},
 		"Available true, Progressing failed": {
 			deploymentConditions: []appsv1.DeploymentCondition{
@@ -119,7 +125,9 @@ func TestPropagateRawStatus(t *testing.T) {
 					},
 				},
 			},
-			expectedReadyStatus: false,
+			expectedReadyStatus:       false,
+			expectedProgressingStatus: nil, // Progress failed, no progressing condition
+			expectedProgressingReason: "",
 		},
 		"Available false, Progressing failed": {
 			deploymentConditions: []appsv1.DeploymentCondition{
@@ -142,7 +150,9 @@ func TestPropagateRawStatus(t *testing.T) {
 					},
 				},
 			},
-			expectedReadyStatus: false,
+			expectedReadyStatus:       false,
+			expectedProgressingStatus: nil, // Progress failed, no progressing condition
+			expectedProgressingReason: "",
 		},
 		"Available false, Progressing completed": {
 			deploymentConditions: []appsv1.DeploymentCondition{
@@ -165,7 +175,9 @@ func TestPropagateRawStatus(t *testing.T) {
 					},
 				},
 			},
-			expectedReadyStatus: false,
+			expectedReadyStatus:       false,
+			expectedProgressingStatus: nil, // Progressing completed but available still false
+			expectedProgressingReason: "",
 		},
 		"Available false, Progressing ongoing": {
 			deploymentConditions: []appsv1.DeploymentCondition{
@@ -188,7 +200,9 @@ func TestPropagateRawStatus(t *testing.T) {
 					},
 				},
 			},
-			expectedReadyStatus: false,
+			expectedReadyStatus:       false,
+			expectedProgressingStatus: &corev1.ConditionTrue, // Should set progressing condition
+			expectedProgressingReason: "NewReplicaSetCreated",
 		},
 		"Available true, ReplicaFailure true": {
 			deploymentConditions: []appsv1.DeploymentCondition{
@@ -211,7 +225,40 @@ func TestPropagateRawStatus(t *testing.T) {
 					},
 				},
 			},
-			expectedReadyStatus: false,
+			expectedReadyStatus:       false,
+			expectedProgressingStatus: nil, // Replica failure, no progressing
+			expectedProgressingReason: "",
+		},
+		"Available false, Progressing in progress - sets DeploymentProgressing": {
+			deploymentConditions: []appsv1.DeploymentCondition{
+				{
+					Type:    appsv1.DeploymentAvailable,
+					Status:  corev1.ConditionFalse,
+					Reason:  "MinimumReplicasUnavailable",
+					Message: "Deployment does not have minimum availability.",
+					LastTransitionTime: metav1.Time{
+						Time: time.Now(),
+					},
+				},
+				{
+					Type:    appsv1.DeploymentProgressing,
+					Status:  corev1.ConditionTrue,
+					Reason:  "ReplicaSetUpdated",
+					Message: "Deployment is progressing",
+					LastTransitionTime: metav1.Time{
+						Time: time.Now(),
+					},
+				},
+			},
+			expectedReadyStatus:       false,
+			expectedProgressingStatus: &corev1.ConditionTrue, // Should set progressing condition
+			expectedProgressingReason: "ReplicaSetUpdated",
+		},
+		"No deployment conditions - sets DeploymentProgressing": {
+			deploymentConditions:      []appsv1.DeploymentCondition{},
+			expectedReadyStatus:       false,
+			expectedProgressingStatus: &corev1.ConditionTrue, // Should set progressing condition
+			expectedProgressingReason: "DeploymentStarting",
 		},
 	}
 
@@ -242,6 +289,21 @@ func TestPropagateRawStatus(t *testing.T) {
 			res := status.IsConditionReady(PredictorReady)
 
 			g.Expect(res).To(gomega.Equal(scenario.expectedReadyStatus))
+
+			// Check DeploymentProgressing condition
+			progressingCond := status.GetCondition(DeploymentProgressing)
+			if scenario.expectedProgressingStatus != nil {
+				g.Expect(progressingCond).ToNot(gomega.BeNil(), "Expected DeploymentProgressing condition to be set")
+				g.Expect(progressingCond.Status).To(gomega.Equal(*scenario.expectedProgressingStatus))
+				if scenario.expectedProgressingReason != "" {
+					g.Expect(progressingCond.Reason).To(gomega.Equal(scenario.expectedProgressingReason))
+				}
+			} else {
+				if progressingCond != nil {
+					// If condition exists but should be cleared, verify it's not True
+					g.Expect(progressingCond.Status).ToNot(gomega.Equal(corev1.ConditionTrue), "DeploymentProgressing should not be True when deployment is ready or failed")
+				}
+			}
 		})
 	}
 }
