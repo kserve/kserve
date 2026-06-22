@@ -90,6 +90,14 @@ type ServingRuntimeListerExpansion interface{}
 // ServingRuntimeNamespaceLister.
 type ServingRuntimeNamespaceListerExpansion interface{}
 
+// StorageContainerListerExpansion allows custom methods to be added to
+// StorageContainerLister.
+type StorageContainerListerExpansion interface{}
+
+// StorageContainerNamespaceListerExpansion allows custom methods to be added to
+// StorageContainerNamespaceLister.
+type StorageContainerNamespaceListerExpansion interface{}
+
 // TrainedModelListerExpansion allows custom methods to be added to
 // TrainedModelLister.
 type TrainedModelListerExpansion interface{}
