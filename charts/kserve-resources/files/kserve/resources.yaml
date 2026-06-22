@@ -256,6 +256,7 @@ rules:
   - inferenceservices/finalizers
   - servingruntimes
   - servingruntimes/finalizers
+  - storagecontainers
   - trainedmodels
   verbs:
   - create
