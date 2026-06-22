@@ -652,13 +652,14 @@ KNATIVE_SERVING_VERSION=1.21.1
 KEDA_OTEL_ADDON_VERSION=v0.0.6
 PROMETHEUS_VERSION=83.4.0
 PROMETHEUS_ADAPTER_VERSION=5.3.0
-KSERVE_VERSION=v0.19.0-rc0
+JAEGER_VERSION=4.7.0
+KSERVE_VERSION=v0.19.0
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.18.0
 OPENTELEMETRY_OPERATOR_VERSION=0.74.3
 LWS_VERSION=v0.8.0
 GATEWAY_API_VERSION=v1.4.1
-GIE_VERSION=v1.3.1
+GIE_VERSION=v1.5.0
 WVA_VERSION=v0.7.0
 
 #================================================
@@ -1373,6 +1374,46 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
   annotations:
+    serving.kserve.io/server-type: autogluonserver
+  name: kserve-autogluonserver
+spec:
+  annotations:
+    prometheus.kserve.io/path: /metrics
+    prometheus.kserve.io/port: "8080"
+  containers:
+  - args:
+    - --model_name={{.Name}}
+    - --model_dir=/mnt/models
+    - --http_port=8080
+    image: kserve/autogluonserver:latest
+    name: kserve-container
+    resources:
+      limits:
+        cpu: "1"
+        memory: 2Gi
+      requests:
+        cpu: "1"
+        memory: 2Gi
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      privileged: false
+      runAsNonRoot: true
+  protocolVersions:
+  - v1
+  - v2
+  supportedModelFormats:
+  - autoSelect: true
+    name: autogluon
+    priority: 1
+    version: "1"
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  annotations:
     serving.kserve.io/server-type: huggingfaceserver
   name: kserve-huggingfaceserver
 spec:
@@ -2033,6 +2074,78 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
   annotations:
+    serving.kserve.io/server-type: vllmserver
+  name: kserve-vllmserver
+spec:
+  annotations:
+    prometheus.kserve.io/path: /metrics
+    prometheus.kserve.io/port: "8080"
+  containers:
+  - args:
+    - --port=8080
+    - --served-model-name={{.Name}}
+    - --model=/mnt/models
+    command:
+    - python
+    - -m
+    - vllm.entrypoints.openai.api_server
+    env:
+    - name: LMCACHE_USE_EXPERIMENTAL
+      value: "True"
+    - name: HF_HOME
+      value: /tmp
+    - name: VLLM_CONFIG_ROOT
+      value: /tmp
+    image: vllm/vllm-openai:latest
+    name: kserve-container
+    readinessProbe:
+      failureThreshold: 3
+      httpGet:
+        path: /v1/models
+        port: 8080
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 5
+    resources:
+      limits:
+        cpu: "1"
+        memory: 2Gi
+      requests:
+        cpu: "1"
+        memory: 2Gi
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      privileged: false
+    startupProbe:
+      failureThreshold: 60
+      httpGet:
+        path: /v1/models
+        port: 8080
+      initialDelaySeconds: 30
+      periodSeconds: 30
+      successThreshold: 1
+      timeoutSeconds: 10
+    volumeMounts:
+    - mountPath: /dev/shm
+      name: devshm
+  hostIPC: false
+  supportedModelFormats:
+  - autoSelect: true
+    name: vLLM
+    priority: 1
+    version: "1"
+  volumes:
+  - emptyDir:
+      medium: Memory
+    name: devshm
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  annotations:
     serving.kserve.io/server-type: xgbserver
   name: kserve-xgbserver
 spec:
@@ -2117,22 +2230,24 @@ spec:
               fi
           done
 
-          ucx_hcas=()
-          for hca in "${active_hcas[@]}"; do
-            ucx_hcas+=("${hca}:1")
-          done
-
           # Check if we found any active HCAs
           if [ ${#active_hcas[@]} -gt 0 ]; then
               # Join the array elements with a comma
-              hcas=$(IFS=,; echo "${active_hcas[*]}")
-              echo "[Infer RoCE] Setting active HCAs: ${hcas}"
-              export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
-              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
+              hca_port_pairs=()
+              for hca in "${active_hcas[@]}"; do
+                hca_port_pairs+=("${hca}:1")
+              done
+
+              active_hca_list=$(IFS=,; echo "${active_hcas[*]}")
+              hca_port_pairs_list=$(IFS=,; echo "${hca_port_pairs[*]}")
+              echo "[Infer RoCE] Setting active HCAs: ${active_hca_list}"
+              export NCCL_IB_HCA=${NCCL_IB_HCA:-${active_hca_list}}
+              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hca_port_pairs_list}}
+              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${hca_port_pairs_list}}
 
               echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
               echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+              echo "[Infer RoCE] UCX_NET_DEVICES=${UCX_NET_DEVICES}"
           else
               echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
           fi
@@ -2176,7 +2291,7 @@ spec:
                   fi
               done
 
-              # Use deterministic fallback if counts are equal - prefer lower index number
+              # Use deterministic fallback if tied - prefer index 3 (SR-IOV standard)
               if [ ${#gid_index_count[@]} -gt 1 ]; then
                   echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
                   # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
@@ -2191,7 +2306,7 @@ spec:
                   echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
                   export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
                   export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
-                  echo "[Infer RoCE] Using hardcoded GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+                  echo "[Infer RoCE] Using pre-configured GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
               elif [ -n "$best_gid_index" ]; then
                   echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
 
@@ -2242,7 +2357,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.7.0
       imagePullPolicy: IfNotPresent
       lifecycle:
         preStop:
@@ -2251,25 +2366,25 @@ spec:
             - /bin/sleep
             - "15"
       livenessProbe:
-        failureThreshold: 3
+        failureThreshold: 10
         httpGet:
           path: /health
           port: 8001
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 10
-        timeoutSeconds: 10
+        timeoutSeconds: 1
       name: main
       ports:
       - containerPort: 8001
         protocol: TCP
       readinessProbe:
-        failureThreshold: 60
+        failureThreshold: 2
         httpGet:
           path: /health
           port: 8001
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
-        periodSeconds: 10
-        timeoutSeconds: 5
+        periodSeconds: 1
+        timeoutSeconds: 1
       securityContext:
         allowPrivilegeEscalation: false
         capabilities:
@@ -2308,6 +2423,7 @@ spec:
       - --kv-connector=nixlv2
       - --enable-ssrf-protection=true
       - --pool-group=inference.networking.x-k8s.io
+      - --inference-pool={{ .GlobalConfig.InferencePoolNamespacedName }}
       - '{{ if .GlobalConfig.EnableTLS }}--secure-proxy=true{{else}}--secure-proxy=false{{-
         end }}'
       - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
@@ -2320,7 +2436,7 @@ spec:
             fieldPath: metadata.namespace
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.7.1
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.9.0-rc.2
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -2438,22 +2554,24 @@ spec:
               fi
           done
 
-          ucx_hcas=()
-          for hca in "${active_hcas[@]}"; do
-            ucx_hcas+=("${hca}:1")
-          done
-
           # Check if we found any active HCAs
           if [ ${#active_hcas[@]} -gt 0 ]; then
               # Join the array elements with a comma
-              hcas=$(IFS=,; echo "${active_hcas[*]}")
-              echo "[Infer RoCE] Setting active HCAs: ${hcas}"
-              export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
-              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
+              hca_port_pairs=()
+              for hca in "${active_hcas[@]}"; do
+                hca_port_pairs+=("${hca}:1")
+              done
+
+              active_hca_list=$(IFS=,; echo "${active_hcas[*]}")
+              hca_port_pairs_list=$(IFS=,; echo "${hca_port_pairs[*]}")
+              echo "[Infer RoCE] Setting active HCAs: ${active_hca_list}"
+              export NCCL_IB_HCA=${NCCL_IB_HCA:-${active_hca_list}}
+              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hca_port_pairs_list}}
+              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${hca_port_pairs_list}}
 
               echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
               echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+              echo "[Infer RoCE] UCX_NET_DEVICES=${UCX_NET_DEVICES}"
           else
               echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
           fi
@@ -2497,7 +2615,7 @@ spec:
                   fi
               done
 
-              # Use deterministic fallback if counts are equal - prefer lower index number
+              # Use deterministic fallback if tied - prefer index 3 (SR-IOV standard)
               if [ ${#gid_index_count[@]} -gt 1 ]; then
                   echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
                   # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
@@ -2512,7 +2630,7 @@ spec:
                   echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
                   export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
                   export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
-                  echo "[Infer RoCE] Using hardcoded GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+                  echo "[Infer RoCE] Using pre-configured GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
               elif [ -n "$best_gid_index" ]; then
                   echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
 
@@ -2574,7 +2692,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.7.0
       imagePullPolicy: IfNotPresent
       lifecycle:
         preStop:
@@ -2583,25 +2701,25 @@ spec:
             - /bin/sleep
             - "15"
       livenessProbe:
-        failureThreshold: 3
+        failureThreshold: 10
         httpGet:
           path: /health
           port: 8001
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 10
-        timeoutSeconds: 10
+        timeoutSeconds: 1
       name: main
       ports:
       - containerPort: 8001
         protocol: TCP
       readinessProbe:
-        failureThreshold: 60
+        failureThreshold: 2
         httpGet:
           path: /health
           port: 8001
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
-        periodSeconds: 30
-        timeoutSeconds: 5
+        periodSeconds: 1
+        timeoutSeconds: 1
       securityContext:
         allowPrivilegeEscalation: false
         capabilities:
@@ -2644,6 +2762,7 @@ spec:
       - --kv-connector=nixlv2
       - --enable-ssrf-protection=true
       - --pool-group=inference.networking.x-k8s.io
+      - --inference-pool={{ .GlobalConfig.InferencePoolNamespacedName }}
       - '{{ if .GlobalConfig.EnableTLS }}--secure-proxy=true{{else}}--secure-proxy=false{{-
         end }}'
       - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
@@ -2656,7 +2775,7 @@ spec:
             fieldPath: metadata.namespace
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.7.1
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.9.0-rc.2
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -2766,22 +2885,24 @@ spec:
               fi
           done
 
-          ucx_hcas=()
-          for hca in "${active_hcas[@]}"; do
-            ucx_hcas+=("${hca}:1")
-          done
-
           # Check if we found any active HCAs
           if [ ${#active_hcas[@]} -gt 0 ]; then
               # Join the array elements with a comma
-              hcas=$(IFS=,; echo "${active_hcas[*]}")
-              echo "[Infer RoCE] Setting active HCAs: ${hcas}"
-              export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
-              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
+              hca_port_pairs=()
+              for hca in "${active_hcas[@]}"; do
+                hca_port_pairs+=("${hca}:1")
+              done
+
+              active_hca_list=$(IFS=,; echo "${active_hcas[*]}")
+              hca_port_pairs_list=$(IFS=,; echo "${hca_port_pairs[*]}")
+              echo "[Infer RoCE] Setting active HCAs: ${active_hca_list}"
+              export NCCL_IB_HCA=${NCCL_IB_HCA:-${active_hca_list}}
+              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hca_port_pairs_list}}
+              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${hca_port_pairs_list}}
 
               echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
               echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+              echo "[Infer RoCE] UCX_NET_DEVICES=${UCX_NET_DEVICES}"
           else
               echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
           fi
@@ -2825,7 +2946,7 @@ spec:
                   fi
               done
 
-              # Use deterministic fallback if counts are equal - prefer lower index number
+              # Use deterministic fallback if tied - prefer index 3 (SR-IOV standard)
               if [ ${#gid_index_count[@]} -gt 1 ]; then
                   echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
                   # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
@@ -2840,7 +2961,7 @@ spec:
                   echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
                   export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
                   export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
-                  echo "[Infer RoCE] Using hardcoded GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+                  echo "[Infer RoCE] Using pre-configured GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
               elif [ -n "$best_gid_index" ]; then
                   echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
 
@@ -2904,7 +3025,7 @@ spec:
         value: /models
       - name: VLLM_RANDOMIZE_DP_DUMMY_INPUTS
         value: "1"
-      image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.7.0
       imagePullPolicy: IfNotPresent
       lifecycle:
         preStop:
@@ -3003,22 +3124,24 @@ spec:
                 fi
             done
 
-            ucx_hcas=()
-            for hca in "${active_hcas[@]}"; do
-              ucx_hcas+=("${hca}:1")
-            done
-
             # Check if we found any active HCAs
             if [ ${#active_hcas[@]} -gt 0 ]; then
                 # Join the array elements with a comma
-                hcas=$(IFS=,; echo "${active_hcas[*]}")
-                echo "[Infer RoCE] Setting active HCAs: ${hcas}"
-                export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-                export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
-                export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
+                hca_port_pairs=()
+                for hca in "${active_hcas[@]}"; do
+                  hca_port_pairs+=("${hca}:1")
+                done
+
+                active_hca_list=$(IFS=,; echo "${active_hcas[*]}")
+                hca_port_pairs_list=$(IFS=,; echo "${hca_port_pairs[*]}")
+                echo "[Infer RoCE] Setting active HCAs: ${active_hca_list}"
+                export NCCL_IB_HCA=${NCCL_IB_HCA:-${active_hca_list}}
+                export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hca_port_pairs_list}}
+                export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${hca_port_pairs_list}}
 
                 echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
                 echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+                echo "[Infer RoCE] UCX_NET_DEVICES=${UCX_NET_DEVICES}"
             else
                 echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
             fi
@@ -3062,7 +3185,7 @@ spec:
                     fi
                 done
 
-                # Use deterministic fallback if counts are equal - prefer lower index number
+                # Use deterministic fallback if tied - prefer index 3 (SR-IOV standard)
                 if [ ${#gid_index_count[@]} -gt 1 ]; then
                     echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
                     # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
@@ -3077,7 +3200,7 @@ spec:
                     echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
                     export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
                     export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
-                    echo "[Infer RoCE] Using hardcoded GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+                    echo "[Infer RoCE] Using pre-configured GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
                 elif [ -n "$best_gid_index" ]; then
                     echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
 
@@ -3128,7 +3251,7 @@ spec:
           value: INFO
         - name: HF_HUB_CACHE
           value: /models
-        image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
+        image: ghcr.io/llm-d/llm-d-cuda:v0.7.0
         imagePullPolicy: IfNotPresent
         lifecycle:
           preStop:
@@ -3137,25 +3260,25 @@ spec:
               - /bin/sleep
               - "15"
         livenessProbe:
-          failureThreshold: 3
+          failureThreshold: 10
           httpGet:
             path: /health
             port: 8000
             scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
           periodSeconds: 10
-          timeoutSeconds: 10
+          timeoutSeconds: 1
         name: main
         ports:
         - containerPort: 8000
           protocol: TCP
         readinessProbe:
-          failureThreshold: 60
+          failureThreshold: 2
           httpGet:
             path: /health
             port: 8000
             scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
-          periodSeconds: 10
-          timeoutSeconds: 5
+          periodSeconds: 1
+          timeoutSeconds: 1
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -3266,22 +3389,24 @@ spec:
                 fi
             done
 
-            ucx_hcas=()
-            for hca in "${active_hcas[@]}"; do
-              ucx_hcas+=("${hca}:1")
-            done
-
             # Check if we found any active HCAs
             if [ ${#active_hcas[@]} -gt 0 ]; then
                 # Join the array elements with a comma
-                hcas=$(IFS=,; echo "${active_hcas[*]}")
-                echo "[Infer RoCE] Setting active HCAs: ${hcas}"
-                export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-                export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
-                export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
+                hca_port_pairs=()
+                for hca in "${active_hcas[@]}"; do
+                  hca_port_pairs+=("${hca}:1")
+                done
+
+                active_hca_list=$(IFS=,; echo "${active_hcas[*]}")
+                hca_port_pairs_list=$(IFS=,; echo "${hca_port_pairs[*]}")
+                echo "[Infer RoCE] Setting active HCAs: ${active_hca_list}"
+                export NCCL_IB_HCA=${NCCL_IB_HCA:-${active_hca_list}}
+                export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hca_port_pairs_list}}
+                export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${hca_port_pairs_list}}
 
                 echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
                 echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+                echo "[Infer RoCE] UCX_NET_DEVICES=${UCX_NET_DEVICES}"
             else
                 echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
             fi
@@ -3325,7 +3450,7 @@ spec:
                     fi
                 done
 
-                # Use deterministic fallback if counts are equal - prefer lower index number
+                # Use deterministic fallback if tied - prefer index 3 (SR-IOV standard)
                 if [ ${#gid_index_count[@]} -gt 1 ]; then
                     echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
                     # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
@@ -3340,7 +3465,7 @@ spec:
                     echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
                     export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
                     export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
-                    echo "[Infer RoCE] Using hardcoded GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+                    echo "[Infer RoCE] Using pre-configured GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
                 elif [ -n "$best_gid_index" ]; then
                     echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
 
@@ -3402,7 +3527,7 @@ spec:
           value: INFO
         - name: HF_HUB_CACHE
           value: /models
-        image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
+        image: ghcr.io/llm-d/llm-d-cuda:v0.7.0
         imagePullPolicy: IfNotPresent
         lifecycle:
           preStop:
@@ -3411,25 +3536,25 @@ spec:
               - /bin/sleep
               - "15"
         livenessProbe:
-          failureThreshold: 3
+          failureThreshold: 10
           httpGet:
             path: /health
             port: 8000
             scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
           periodSeconds: 10
-          timeoutSeconds: 10
+          timeoutSeconds: 1
         name: main
         ports:
         - containerPort: 8000
           protocol: TCP
         readinessProbe:
-          failureThreshold: 60
+          failureThreshold: 2
           httpGet:
             path: /health
             port: 8000
             scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
-          periodSeconds: 30
-          timeoutSeconds: 5
+          periodSeconds: 1
+          timeoutSeconds: 1
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -3534,22 +3659,24 @@ spec:
                 fi
             done
 
-            ucx_hcas=()
-            for hca in "${active_hcas[@]}"; do
-              ucx_hcas+=("${hca}:1")
-            done
-
             # Check if we found any active HCAs
             if [ ${#active_hcas[@]} -gt 0 ]; then
                 # Join the array elements with a comma
-                hcas=$(IFS=,; echo "${active_hcas[*]}")
-                echo "[Infer RoCE] Setting active HCAs: ${hcas}"
-                export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-                export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
-                export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
+                hca_port_pairs=()
+                for hca in "${active_hcas[@]}"; do
+                  hca_port_pairs+=("${hca}:1")
+                done
+
+                active_hca_list=$(IFS=,; echo "${active_hcas[*]}")
+                hca_port_pairs_list=$(IFS=,; echo "${hca_port_pairs[*]}")
+                echo "[Infer RoCE] Setting active HCAs: ${active_hca_list}"
+                export NCCL_IB_HCA=${NCCL_IB_HCA:-${active_hca_list}}
+                export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hca_port_pairs_list}}
+                export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${hca_port_pairs_list}}
 
                 echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
                 echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+                echo "[Infer RoCE] UCX_NET_DEVICES=${UCX_NET_DEVICES}"
             else
                 echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
             fi
@@ -3593,7 +3720,7 @@ spec:
                     fi
                 done
 
-                # Use deterministic fallback if counts are equal - prefer lower index number
+                # Use deterministic fallback if tied - prefer index 3 (SR-IOV standard)
                 if [ ${#gid_index_count[@]} -gt 1 ]; then
                     echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
                     # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
@@ -3608,7 +3735,7 @@ spec:
                     echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
                     export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
                     export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
-                    echo "[Infer RoCE] Using hardcoded GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+                    echo "[Infer RoCE] Using pre-configured GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
                 elif [ -n "$best_gid_index" ]; then
                     echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
 
@@ -3670,7 +3797,7 @@ spec:
           value: INFO
         - name: HF_HUB_CACHE
           value: /models
-        image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
+        image: ghcr.io/llm-d/llm-d-cuda:v0.7.0
         imagePullPolicy: IfNotPresent
         lifecycle:
           preStop:
@@ -3883,6 +4010,53 @@ spec:
               backendRequest: 0s
               request: 0s
           - backendRefs:
+            - group: inference.networking.k8s.io
+              kind: InferencePool
+              name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
+              port: 8000
+              weight: 1
+            filters:
+            - type: URLRewrite
+              urlRewrite:
+                path:
+                  replacePrefixMatch: /v1/messages
+                  type: ReplacePrefixMatch
+            matches:
+            - path:
+                type: PathPrefix
+                value: /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }}/v1/messages
+            name: v1-messages-path
+            timeouts:
+              backendRequest: 0s
+              request: 0s
+          - backendRefs:
+            - group: inference.networking.k8s.io
+              kind: InferencePool
+              name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
+              port: 8000
+              weight: 1
+            matches:
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/messages
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/messages/
+            name: v1-messages-model-routing
+            timeouts:
+              backendRequest: 0s
+              request: 0s
+          - backendRefs:
             - kind: Service
               name: '{{ ChildName .ObjectMeta.Name `-kserve-workload-svc` }}'
               port: 8000
@@ -3926,7 +4100,7 @@ spec:
   router:
     scheduler:
       annotations:
-        app.kubernetes.io/version: 0.7.0
+        app.kubernetes.io/version: 0.9.0
       pool:
         spec:
           endpointPickerRef:
@@ -3965,8 +4139,14 @@ spec:
           env:
           - name: SSL_CERT_DIR
             value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-          image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.7.1
+          image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0-rc.2
           imagePullPolicy: IfNotPresent
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                - /bin/sleep
+                - "15"
           livenessProbe:
             failureThreshold: 3
             grpc:
@@ -4023,7 +4203,7 @@ spec:
         - env:
           - name: TOKENIZERS_DIR
             value: /mnt/models
-          image: ghcr.io/llm-d/llm-d-uds-tokenizer:v0.7.1
+          image: ghcr.io/llm-d/llm-d-uds-tokenizer:vllm-v0.19.1
           imagePullPolicy: IfNotPresent
           livenessProbe:
             failureThreshold: 3
@@ -4077,7 +4257,7 @@ spec:
           workingDir: /mnt/models
         dnsPolicy: ClusterFirst
         restartPolicy: Always
-        terminationGracePeriodSeconds: 30
+        terminationGracePeriodSeconds: 60
         volumes:
         - name: tls-certs
           secret:
@@ -4133,22 +4313,24 @@ spec:
               fi
           done
 
-          ucx_hcas=()
-          for hca in "${active_hcas[@]}"; do
-            ucx_hcas+=("${hca}:1")
-          done
-
           # Check if we found any active HCAs
           if [ ${#active_hcas[@]} -gt 0 ]; then
               # Join the array elements with a comma
-              hcas=$(IFS=,; echo "${active_hcas[*]}")
-              echo "[Infer RoCE] Setting active HCAs: ${hcas}"
-              export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
-              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
+              hca_port_pairs=()
+              for hca in "${active_hcas[@]}"; do
+                hca_port_pairs+=("${hca}:1")
+              done
+
+              active_hca_list=$(IFS=,; echo "${active_hcas[*]}")
+              hca_port_pairs_list=$(IFS=,; echo "${hca_port_pairs[*]}")
+              echo "[Infer RoCE] Setting active HCAs: ${active_hca_list}"
+              export NCCL_IB_HCA=${NCCL_IB_HCA:-${active_hca_list}}
+              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hca_port_pairs_list}}
+              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${hca_port_pairs_list}}
 
               echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
               echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+              echo "[Infer RoCE] UCX_NET_DEVICES=${UCX_NET_DEVICES}"
           else
               echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
           fi
@@ -4192,7 +4374,7 @@ spec:
                   fi
               done
 
-              # Use deterministic fallback if counts are equal - prefer lower index number
+              # Use deterministic fallback if tied - prefer index 3 (SR-IOV standard)
               if [ ${#gid_index_count[@]} -gt 1 ]; then
                   echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
                   # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
@@ -4207,7 +4389,7 @@ spec:
                   echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
                   export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
                   export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
-                  echo "[Infer RoCE] Using hardcoded GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+                  echo "[Infer RoCE] Using pre-configured GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
               elif [ -n "$best_gid_index" ]; then
                   echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
 
@@ -4258,7 +4440,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.7.0
       imagePullPolicy: IfNotPresent
       lifecycle:
         preStop:
@@ -4267,25 +4449,25 @@ spec:
             - /bin/sleep
             - "15"
       livenessProbe:
-        failureThreshold: 3
+        failureThreshold: 10
         httpGet:
           path: /health
           port: 8000
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 10
-        timeoutSeconds: 10
+        timeoutSeconds: 1
       name: main
       ports:
       - containerPort: 8000
         protocol: TCP
       readinessProbe:
-        failureThreshold: 60
+        failureThreshold: 2
         httpGet:
           path: /health
           port: 8000
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
-        periodSeconds: 10
-        timeoutSeconds: 5
+        periodSeconds: 1
+        timeoutSeconds: 1
       securityContext:
         allowPrivilegeEscalation: false
         capabilities:
@@ -4331,6 +4513,18 @@ spec:
     - name: tls-certs
       secret:
         secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}'
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-tracing
+  namespace: kserve
+spec:
+  tracing:
+    exporter: otlp
+    exporterEndpoint: http://otel-collector:4317
+    sampler: parentbased_traceidratio
+    samplerArg: "0.05"
 ---
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
@@ -4395,22 +4589,24 @@ spec:
               fi
           done
 
-          ucx_hcas=()
-          for hca in "${active_hcas[@]}"; do
-            ucx_hcas+=("${hca}:1")
-          done
-
           # Check if we found any active HCAs
           if [ ${#active_hcas[@]} -gt 0 ]; then
               # Join the array elements with a comma
-              hcas=$(IFS=,; echo "${active_hcas[*]}")
-              echo "[Infer RoCE] Setting active HCAs: ${hcas}"
-              export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
-              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
+              hca_port_pairs=()
+              for hca in "${active_hcas[@]}"; do
+                hca_port_pairs+=("${hca}:1")
+              done
+
+              active_hca_list=$(IFS=,; echo "${active_hcas[*]}")
+              hca_port_pairs_list=$(IFS=,; echo "${hca_port_pairs[*]}")
+              echo "[Infer RoCE] Setting active HCAs: ${active_hca_list}"
+              export NCCL_IB_HCA=${NCCL_IB_HCA:-${active_hca_list}}
+              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hca_port_pairs_list}}
+              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${hca_port_pairs_list}}
 
               echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
               echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+              echo "[Infer RoCE] UCX_NET_DEVICES=${UCX_NET_DEVICES}"
           else
               echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
           fi
@@ -4454,7 +4650,7 @@ spec:
                   fi
               done
 
-              # Use deterministic fallback if counts are equal - prefer lower index number
+              # Use deterministic fallback if tied - prefer index 3 (SR-IOV standard)
               if [ ${#gid_index_count[@]} -gt 1 ]; then
                   echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
                   # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
@@ -4469,7 +4665,7 @@ spec:
                   echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
                   export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
                   export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
-                  echo "[Infer RoCE] Using hardcoded GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+                  echo "[Infer RoCE] Using pre-configured GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
               elif [ -n "$best_gid_index" ]; then
                   echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
 
@@ -4531,7 +4727,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.7.0
       imagePullPolicy: IfNotPresent
       lifecycle:
         preStop:
@@ -4540,25 +4736,25 @@ spec:
             - /bin/sleep
             - "15"
       livenessProbe:
-        failureThreshold: 3
+        failureThreshold: 10
         httpGet:
           path: /health
           port: 8000
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 10
-        timeoutSeconds: 10
+        timeoutSeconds: 1
       name: main
       ports:
       - containerPort: 8000
         protocol: TCP
       readinessProbe:
-        failureThreshold: 60
+        failureThreshold: 2
         httpGet:
           path: /health
           port: 8000
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
-        periodSeconds: 30
-        timeoutSeconds: 5
+        periodSeconds: 1
+        timeoutSeconds: 1
       securityContext:
         allowPrivilegeEscalation: false
         capabilities:
@@ -4663,22 +4859,24 @@ spec:
               fi
           done
 
-          ucx_hcas=()
-          for hca in "${active_hcas[@]}"; do
-            ucx_hcas+=("${hca}:1")
-          done
-
           # Check if we found any active HCAs
           if [ ${#active_hcas[@]} -gt 0 ]; then
               # Join the array elements with a comma
-              hcas=$(IFS=,; echo "${active_hcas[*]}")
-              echo "[Infer RoCE] Setting active HCAs: ${hcas}"
-              export NCCL_IB_HCA=${NCCL_IB_HCA:-${hcas}}
-              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${ucx_hcas}}
-              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${ucx_hcas}}
+              hca_port_pairs=()
+              for hca in "${active_hcas[@]}"; do
+                hca_port_pairs+=("${hca}:1")
+              done
+
+              active_hca_list=$(IFS=,; echo "${active_hcas[*]}")
+              hca_port_pairs_list=$(IFS=,; echo "${hca_port_pairs[*]}")
+              echo "[Infer RoCE] Setting active HCAs: ${active_hca_list}"
+              export NCCL_IB_HCA=${NCCL_IB_HCA:-${active_hca_list}}
+              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hca_port_pairs_list}}
+              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${hca_port_pairs_list}}
 
               echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
               echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+              echo "[Infer RoCE] UCX_NET_DEVICES=${UCX_NET_DEVICES}"
           else
               echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
           fi
@@ -4722,7 +4920,7 @@ spec:
                   fi
               done
 
-              # Use deterministic fallback if counts are equal - prefer lower index number
+              # Use deterministic fallback if tied - prefer index 3 (SR-IOV standard)
               if [ ${#gid_index_count[@]} -gt 1 ]; then
                   echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
                   # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
@@ -4737,7 +4935,7 @@ spec:
                   echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
                   export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
                   export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
-                  echo "[Infer RoCE] Using hardcoded GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+                  echo "[Infer RoCE] Using pre-configured GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
               elif [ -n "$best_gid_index" ]; then
                   echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
 
@@ -4799,7 +4997,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.7.0
       imagePullPolicy: IfNotPresent
       lifecycle:
         preStop:
@@ -16121,6 +16319,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -17585,6 +17792,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -18358,6 +18574,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -19105,6 +19330,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -19847,6 +20081,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -20576,6 +20819,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -21312,6 +21564,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -22220,6 +22481,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -22937,6 +23207,8 @@ spec:
                       workingDir:
                         type: string
                     type: object
+                  storageContainerName:
+                    type: string
                   storageUris:
                     items:
                       properties:
@@ -22968,6 +23240,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -23777,6 +24058,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -29058,6 +29348,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:

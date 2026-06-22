@@ -1,7 +1,7 @@
 //go:build !distro
 
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,6 +25,6 @@ import (
 
 // extendControllerSetup is a hook for distribution-specific controller setup such as
 // registering additional API schemes or adding ownership watches for platform-specific resources.
-func extendControllerSetup(_ *LLMISVCReconciler, _ manager.Manager, _ *builder.Builder) error {
+func (r *LLMISVCReconciler) extendControllerSetup(_ manager.Manager, _ *builder.Builder) error {
 	return nil
 }

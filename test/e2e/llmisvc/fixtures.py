@@ -15,6 +15,7 @@
 import hashlib
 import os
 import re
+import time
 
 import pytest
 from ..common.gw_api import (
@@ -35,6 +36,15 @@ SCHEDULER_CONFIGMAP_NAME = "scheduler-config-e2e"
 SCHEDULER_CONFIGMAP_KEY = "epp"
 
 OPT_125M_MODEL_URI = os.environ.get("OPT_125M_MODEL_URI", "hf://facebook/opt-125m")
+
+# PVC storage test constants
+PVC_STORAGE_NAME = "e2e-pvc-model-storage"
+STORAGE_INITIALIZER_IMAGE = os.environ.get(
+    "STORAGE_INITIALIZER_IMAGE",
+    f"kserve/storage-initializer:{os.environ.get('TAG', 'latest')}",
+)
+MODEL_DOWNLOAD_JOB_NAME = "e2e-pvc-model-download"
+S3_CREDENTIALS_SECRET = os.environ.get("S3_CREDENTIALS_SECRET", "seaweedfs-s3-creds")
 
 # Vanilla Kubernetes rejects runAsNonRoot-only containers when the image does not declare a USER.
 # Keep the templates OpenShift-safe and use an explicit non-root UID only in upstream CI test overrides.
@@ -158,6 +168,9 @@ LLMINFERENCESERVICE_CONFIGS = {
     },
     "model-fb-opt-125m": {
         "model": {"uri": OPT_125M_MODEL_URI, "name": "facebook/opt-125m"},
+    },
+    "model-pvc": {
+        "model": {"uri": f"pvc://{PVC_STORAGE_NAME}", "name": "facebook/opt-125m"},
     },
     "model-qwen2.5-0.5b": {
         "model": {
@@ -801,6 +814,118 @@ LLMINFERENCESERVICE_CONFIGS = {
             },
         },
     },
+    # Realistic v0.6-style PD config: old plugin names, deciderPluginName param,
+    # hashBlockSize, prefill/decode filters and profiles.
+    # Exercises the full #5433 migration: plugin renames, param restructure,
+    # hashBlockSize removal, decider ordering.
+    "scheduler-v06-pd-config-migration": {
+        "router": {
+            "scheduler": {
+                "config": {
+                    "inline": {
+                        "apiVersion": "inference.networking.x-k8s.io/v1alpha1",
+                        "kind": "EndpointPickerConfig",
+                        "plugins": [
+                            {"type": "prefill-header-handler"},
+                            {"type": "prefill-filter"},
+                            {"type": "decode-filter"},
+                            {"type": "always-disagg-pd-decider"},
+                            {
+                                "type": "pd-profile-handler",
+                                "parameters": {
+                                    "deciderPluginName": "always-disagg-pd-decider",
+                                },
+                            },
+                            {
+                                "type": "prefix-cache-scorer",
+                                "parameters": {
+                                    "hashBlockSize": 64,
+                                    "blockSizeTokens": 16,
+                                },
+                            },
+                            {"type": "queue-scorer"},
+                            {"type": "max-score-picker"},
+                        ],
+                        "schedulingProfiles": [
+                            {
+                                "name": "prefill",
+                                "plugins": [
+                                    {"pluginRef": "prefill-filter"},
+                                    {"pluginRef": "queue-scorer", "weight": 2},
+                                    {"pluginRef": "prefix-cache-scorer", "weight": 3},
+                                    {"pluginRef": "max-score-picker"},
+                                ],
+                            },
+                            {
+                                "name": "decode",
+                                "plugins": [
+                                    {"pluginRef": "decode-filter"},
+                                    {"pluginRef": "queue-scorer", "weight": 2},
+                                    {"pluginRef": "prefix-cache-scorer", "weight": 3},
+                                    {"pluginRef": "max-score-picker"},
+                                ],
+                            },
+                        ],
+                    },
+                },
+            },
+        },
+    },
+    # Realistic v0.6-style PD config with non-zero threshold (no deciderPluginName).
+    # Exercises #5560 migration: threshold -> prefix-based-pd-decider with
+    # nonCachedTokens = ceil(threshold / 4), plus all #5433 renames.
+    "scheduler-v06-nonzero-threshold-migration": {
+        "router": {
+            "scheduler": {
+                "config": {
+                    "inline": {
+                        "apiVersion": "inference.networking.x-k8s.io/v1alpha1",
+                        "kind": "EndpointPickerConfig",
+                        "plugins": [
+                            {"type": "prefill-header-handler"},
+                            {"type": "prefill-filter"},
+                            {"type": "decode-filter"},
+                            {
+                                "type": "pd-profile-handler",
+                                "parameters": {
+                                    "threshold": 100,
+                                },
+                            },
+                            {
+                                "type": "prefix-cache-scorer",
+                                "parameters": {
+                                    "hashBlockSize": 64,
+                                    "blockSizeTokens": 16,
+                                },
+                            },
+                            {"type": "queue-scorer"},
+                            {"type": "max-score-picker"},
+                        ],
+                        "schedulingProfiles": [
+                            {
+                                "name": "prefill",
+                                "plugins": [
+                                    {"pluginRef": "prefill-filter"},
+                                    {"pluginRef": "queue-scorer", "weight": 2},
+                                    {"pluginRef": "prefix-cache-scorer", "weight": 3},
+                                    {"pluginRef": "max-score-picker"},
+                                ],
+                            },
+                            {
+                                "name": "decode",
+                                "plugins": [
+                                    {"pluginRef": "decode-filter"},
+                                    {"pluginRef": "queue-scorer", "weight": 2},
+                                    {"pluginRef": "prefix-cache-scorer", "weight": 3},
+                                    {"pluginRef": "max-score-picker"},
+                                ],
+                            },
+                        ],
+                    },
+                },
+            },
+        },
+    },
     "scheduler-with-configmap-ref": {
         "router": {
             "scheduler": {
@@ -1045,7 +1170,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     "command": ["/app/llm-d-inference-sim"],
                     "args": [
                         "--port",
-                        "8000",
+                        "8001",
                         "--model",
                         "{{ .Spec.Model.Name }}",
                         "--mode",
@@ -1232,6 +1357,14 @@ LLMINFERENCESERVICE_CONFIGS = {
                 }
             ],
         },
+    },
+    "tracing-enabled": {
+        "tracing": {
+            "exporterEndpoint": "http://jaeger.observability.svc.cluster.local:4317",
+            "sampler": "parentbased_traceidratio",
+            "samplerArg": "1.0",
+            "exporter": "otlp",
+        }
     },
 }
 
@@ -1548,3 +1681,259 @@ def delete_scheduler_configmap():
     except client.rest.ApiException as e:
         if e.status != 404:  # Ignore not found
             raise
+
+
+def create_pvc(
+    pvc_name=PVC_STORAGE_NAME,
+    namespace=KSERVE_TEST_NAMESPACE,
+    storage="2Gi",
+):
+    """Create a PersistentVolumeClaim for PVC storage tests.
+
+    Uses ReadWriteOnce (universally supported) and no explicit StorageClass
+    so it works on KinD, Minikube, and OpenShift with the cluster default.
+    """
+    inject_k8s_proxy()
+    core_v1 = client.CoreV1Api()
+
+    pvc = client.V1PersistentVolumeClaim(
+        api_version="v1",
+        kind="PersistentVolumeClaim",
+        metadata=client.V1ObjectMeta(
+            name=pvc_name,
+            namespace=namespace,
+        ),
+        spec=client.V1PersistentVolumeClaimSpec(
+            access_modes=["ReadWriteOnce"],
+            resources=client.V1VolumeResourceRequirements(
+                requests={"storage": storage},
+            ),
+        ),
+    )
+
+    try:
+        core_v1.create_namespaced_persistent_volume_claim(
+            namespace=namespace,
+            body=pvc,
+        )
+        logger.info(f"Created PVC {pvc_name} in namespace {namespace}")
+    except client.rest.ApiException as e:
+        if e.status == 409:
+            logger.info(f"PVC {pvc_name} already exists in namespace {namespace}")
+        else:
+            raise
+
+
+def delete_pvc(
+    pvc_name=PVC_STORAGE_NAME,
+    namespace=KSERVE_TEST_NAMESPACE,
+):
+    """Delete a PersistentVolumeClaim."""
+    inject_k8s_proxy()
+    core_v1 = client.CoreV1Api()
+
+    try:
+        core_v1.delete_namespaced_persistent_volume_claim(
+            name=pvc_name,
+            namespace=namespace,
+        )
+        logger.info(f"Deleted PVC {pvc_name} from namespace {namespace}")
+    except client.rest.ApiException as e:
+        if e.status != 404:
+            raise
+
+
+def _s3_env_from_secret(namespace):
+    """Read the S3 credentials secret and return (env_from, env) for a container."""
+    core_v1 = client.CoreV1Api()
+    try:
+        secret = core_v1.read_namespaced_secret(
+            name=S3_CREDENTIALS_SECRET,
+            namespace=namespace,
+        )
+    except client.rest.ApiException as e:
+        if e.status == 404:
+            logger.info(
+                f"S3 credentials secret {S3_CREDENTIALS_SECRET} not found, skipping"
+            )
+            return [], []
+        raise
+
+    annotations = secret.metadata.annotations or {}
+    env = []
+    endpoint = annotations.get("serving.kserve.io/s3-endpoint", "")
+    if endpoint:
+        scheme = (
+            "https"
+            if annotations.get("serving.kserve.io/s3-usehttps", "1") != "0"
+            else "http"
+        )
+        env.append(
+            client.V1EnvVar(name="AWS_ENDPOINT_URL", value=f"{scheme}://{endpoint}")
+        )
+    use_https = annotations.get("serving.kserve.io/s3-usehttps")
+    if use_https is not None:
+        env.append(client.V1EnvVar(name="S3_USE_HTTPS", value=use_https))
+    verify_ssl = annotations.get("serving.kserve.io/s3-verifyssl")
+    if verify_ssl is not None:
+        env.append(client.V1EnvVar(name="S3_VERIFY_SSL", value=verify_ssl))
+
+    env_from = [
+        client.V1EnvFromSource(
+            secret_ref=client.V1SecretEnvSource(name=S3_CREDENTIALS_SECRET),
+        ),
+    ]
+    return env_from, env
+
+
+def create_model_download_job(
+    job_name=MODEL_DOWNLOAD_JOB_NAME,
+    pvc_name=PVC_STORAGE_NAME,
+    namespace=KSERVE_TEST_NAMESPACE,
+    model_uri=None,
+):
+    """Create a Kubernetes Job to download model files into a PVC.
+
+    Uses the KServe storage-initializer image with the same args format
+    used internally by LocalModelNode. No explicit security context is set
+    so the Job works under OpenShift restricted SCCs, KinD, and Minikube.
+    """
+    if model_uri is None:
+        model_uri = OPT_125M_MODEL_URI
+
+    inject_k8s_proxy()
+    batch_v1 = client.BatchV1Api()
+
+    env_from, env = [], []
+    if model_uri.startswith("s3://"):
+        env_from, env = _s3_env_from_secret(namespace)
+
+    job = client.V1Job(
+        api_version="batch/v1",
+        kind="Job",
+        metadata=client.V1ObjectMeta(
+            name=job_name,
+            namespace=namespace,
+        ),
+        spec=client.V1JobSpec(
+            ttl_seconds_after_finished=3600,
+            backoff_limit=3,
+            template=client.V1PodTemplateSpec(
+                spec=client.V1PodSpec(
+                    restart_policy="Never",
+                    containers=[
+                        client.V1Container(
+                            name="storage-initializer",
+                            image=STORAGE_INITIALIZER_IMAGE,
+                            args=[model_uri, "/mnt/models"],
+                            env=env or None,
+                            env_from=env_from or None,
+                            volume_mounts=[
+                                client.V1VolumeMount(
+                                    name="model-storage",
+                                    mount_path="/mnt/models",
+                                ),
+                            ],
+                        ),
+                    ],
+                    volumes=[
+                        client.V1Volume(
+                            name="model-storage",
+                            persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(
+                                claim_name=pvc_name,
+                            ),
+                        ),
+                    ],
+                ),
+            ),
+        ),
+    )
+
+    try:
+        batch_v1.create_namespaced_job(
+            namespace=namespace,
+            body=job,
+        )
+        logger.info(f"Created model download Job {job_name} in namespace {namespace}")
+    except client.rest.ApiException as e:
+        if e.status == 409:
+            logger.info(
+                f"Model download Job {job_name} already exists in namespace {namespace}"
+            )
+        else:
+            raise
+
+
+def wait_for_job_completion(
+    job_name=MODEL_DOWNLOAD_JOB_NAME,
+    namespace=KSERVE_TEST_NAMESPACE,
+    timeout=600,
+):
+    """Wait for a Kubernetes Job to complete successfully."""
+    inject_k8s_proxy()
+    batch_v1 = client.BatchV1Api()
+
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        job = batch_v1.read_namespaced_job(name=job_name, namespace=namespace)
+
+        if job.status.succeeded and job.status.succeeded >= 1:
+            logger.info(f"Model download Job {job_name} completed successfully")
+            return
+
+        if job.status.failed and job.status.failed >= job.spec.backoff_limit:
+            raise RuntimeError(
+                f"Model download Job {job_name} failed after {job.status.failed} attempts"
+            )
+
+        time.sleep(10)
+
+    raise TimeoutError(
+        f"Model download Job {job_name} did not complete within {timeout}s"
+    )
+
+
+def delete_model_download_job(
+    job_name=MODEL_DOWNLOAD_JOB_NAME,
+    namespace=KSERVE_TEST_NAMESPACE,
+):
+    """Delete the model download Job and its pods."""
+    inject_k8s_proxy()
+    batch_v1 = client.BatchV1Api()
+
+    try:
+        batch_v1.delete_namespaced_job(
+            name=job_name,
+            namespace=namespace,
+            body=client.V1DeleteOptions(propagation_policy="Background"),
+        )
+        logger.info(f"Deleted model download Job {job_name} from namespace {namespace}")
+    except client.rest.ApiException as e:
+        if e.status != 404:
+            raise
+
+
+def ensure_pvc_with_model():
+    """Idempotent setup: create PVC and download model if not already done.
+
+    Safe to call from multiple test cases -- skips work that is already complete.
+    """
+    inject_k8s_proxy()
+    batch_v1 = client.BatchV1Api()
+
+    create_pvc()
+
+    try:
+        job = batch_v1.read_namespaced_job(
+            name=MODEL_DOWNLOAD_JOB_NAME,
+            namespace=KSERVE_TEST_NAMESPACE,
+        )
+        if job.status.succeeded and job.status.succeeded >= 1:
+            logger.info("Model download Job already completed, skipping")
+            return
+    except client.rest.ApiException as e:
+        if e.status != 404:
+            raise
+
+    create_model_download_job()
+    wait_for_job_completion()

@@ -24,8 +24,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
-	igwapi "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	igwapi "github.com/kserve/kserve/pkg/apis/gie/v1alpha2pool"
 )
 
 // Criticality defines how important it is to serve the model compared to other models.
@@ -103,6 +104,12 @@ type LLMInferenceServiceSpec struct {
 	// This allows for independent scaling and hardware allocation for prefill and decode steps.
 	// +optional
 	Prefill *WorkloadSpec `json:"prefill,omitempty"`
+
+	// Tracing configuration for distributed tracing across all managed components.
+	// When present (even as `{}`), distributed tracing is enabled with defaults.
+	// When omitted, no tracing instrumentation is injected.
+	// +optional
+	Tracing *TracingSpec `json:"tracing,omitempty"`
 
 	// BaseRefs allows inheriting and overriding configurations from one or more LLMInferenceServiceConfig instances.
 	// The controller merges these base configurations, with the current LLMInferenceService spec taking the highest precedence.
@@ -300,13 +307,13 @@ type IngressSpec struct {
 // SchedulerSpec defines the Inference Gateway extension configuration.
 //
 // The SchedulerSpec configures the connection from the Gateway to the model deployment leveraging the LLM optimized
-// request Scheduler, also known as the Endpoint Picker (EPP) which determines the exact pod that should handle the
-// request and responds back to Envoy with the target pod, Envoy will then forward the request to the chosen pod.
+// request Scheduler, also known as the Endpoint Picker (EPP). The EPP determines the exact pod that should handle the
+// request and responds back to the Gateway with the target pod. The Gateway will then forward the request to the chosen pod.
 //
 // The Scheduler is only effective when having multiple inference pod replicas.
 //
-// Step 1: Gateway (Envoy) &lt;-- ExtProc --&gt; EPP (select the optimal replica to handle the request)
-// Step 2: Gateway (Envoy) &lt;-- forward request --&gt; Inference Pod X
+// Step 1 (endpoint selection): Gateway <-- ExtProc --> EPP (select the optimal replica to handle the request)
+// Step 2 (endpoint routing): Gateway <-- forward request/response --> Inference Pod X
 type SchedulerSpec struct {
 	// Pool configuration for the InferencePool, which is part of the Inference Gateway extension.
 	// +optional
@@ -468,6 +475,35 @@ type KEDAScalingSpec struct {
 	// This includes HPA behavior configuration and restore-to-original replica count settings.
 	// +optional
 	Advanced *kedav1alpha1.AdvancedConfig `json:"advanced,omitempty"`
+}
+
+// TracingSpec defines the distributed tracing configuration.
+// When present (even as an empty object `{}`), tracing is enabled with sensible defaults.
+// When omitted, no tracing instrumentation is injected.
+type TracingSpec struct {
+	// ExporterEndpoint is the OTLP exporter endpoint.
+	// Maps to the OTEL_EXPORTER_OTLP_ENDPOINT environment variable.
+	// Default: "http://otel-collector:4317"
+	// +optional
+	ExporterEndpoint *string `json:"exporterEndpoint,omitempty"`
+
+	// Sampler specifies the sampler to use for traces.
+	// Maps to the OTEL_TRACES_SAMPLER environment variable.
+	// Default: "parentbased_traceidratio"
+	// +optional
+	Sampler *string `json:"sampler,omitempty"`
+
+	// SamplerArg is an argument passed to the traces sampler (e.g. the sampling ratio).
+	// Maps to the OTEL_TRACES_SAMPLER_ARG environment variable.
+	// Default: "0.05" (5% sampling rate)
+	// +optional
+	SamplerArg *string `json:"samplerArg,omitempty"`
+
+	// Exporter specifies which exporter is used for traces.
+	// Maps to the OTEL_TRACES_EXPORTER environment variable.
+	// Default: "otlp"
+	// +optional
+	Exporter *string `json:"exporter,omitempty"`
 }
 
 // ParallelismSpec defines the parallelism parameters for distributed inference.

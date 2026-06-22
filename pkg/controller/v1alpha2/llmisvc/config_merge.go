@@ -30,6 +30,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/utils/ptr"
@@ -63,6 +64,8 @@ const (
 	// Router and scheduler configurations
 	configRouterSchedulerNameSuffix = "config-llm-scheduler"
 	configRouterRouteNameSuffix     = "config-llm-router-route"
+	// Tracing configurations
+	configTracingNameSuffix = "config-llm-tracing"
 )
 
 var (
@@ -78,6 +81,7 @@ var (
 	configPrefillWorkerDataParallelName     = configPrefix + configPrefillWorkerDataParallelNameSuffix
 	configRouterSchedulerName               = configPrefix + configRouterSchedulerNameSuffix
 	configRouterRouteName                   = configPrefix + configRouterRouteNameSuffix
+	configTracingName                       = configPrefix + configTracingNameSuffix
 )
 
 // FIXME move those presets to well-known when they're finally known :)
@@ -98,6 +102,7 @@ var WellKnownDefaultConfigs = sets.New[string](
 	configPrefillWorkerDataParallelName,
 	configRouterSchedulerName,
 	configRouterRouteName,
+	configTracingName,
 )
 
 const (
@@ -208,6 +213,10 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		// GW API provider version.
 		refs = append(refs, corev1.LocalObjectReference{Name: configRouterRouteName})
 	}
+	// Inject tracing default configs when tracing is enabled (field is non-nil)
+	if resolvedSpec.Tracing != nil {
+		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configTracingName)})
+	}
 
 	if resolvedSpec.Prefill != nil { // P/D
 		// Prefill
@@ -307,6 +316,8 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	if err != nil {
 		return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, err
 	}
+
+	injectManagedDRAIntoConfig(llmSvc, llmSvcCfg)
 
 	// Update HTTPRoute parentRefs to point to the custom gateway if Gateway.Refs is specified.
 	// This ensures the managed HTTPRoute references the correct gateway instead of the default one from presets.
@@ -547,6 +558,10 @@ type templateGlobalConfig struct {
 	// shared-gateway deployments (e.g. "X-Gateway-Model-Name"). Exposed here so
 	// that HTTPRoute templates can reference it via {{ .GlobalConfig.ModelBasedRoutingHeaderName }}.
 	ModelBasedRoutingHeaderName string
+
+	// InferencePoolNamespacedName represents the inference pool namespaced reference in the format "<namespace>/<name>",
+	// or simply `<name>`.
+	InferencePoolNamespacedName string
 }
 
 // ReplaceVariables processes the configuration as a Go template to substitute
@@ -566,6 +581,14 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 			EnableTLS:                   reconcilerConfig.EnableTLS,
 			ModelBasedRoutingHeaderName: reconcilerConfig.ModelBasedRoutingHeaderName,
 		}
+		infPoolNamespacedName := types.NamespacedName{
+			Name:      (&v1alpha2.SchedulerSpec{}).InferencePoolName(llmSvc),
+			Namespace: llmSvc.GetNamespace(),
+		}
+		if llmSvcCfg.Spec.Router != nil {
+			infPoolNamespacedName.Name = llmSvcCfg.Spec.Router.Scheduler.InferencePoolName(llmSvc)
+		}
+		gc.InferencePoolNamespacedName = infPoolNamespacedName.String()
 	}
 	config := struct {
 		*v1alpha2.LLMInferenceService

@@ -38,8 +38,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/kmeta"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
-	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	igwapiv1alpha2 "github.com/kserve/kserve/pkg/apis/gie/v1alpha2pool"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -314,9 +315,17 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 
 	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route == nil {
 		llmSvc.Status.Router = nil
+		urlFn := apis.HTTPS
+		statusCfg, err := r.loadConfig(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load config: %w", err)
+		}
+		if !statusCfg.EnableTLS {
+			urlFn = apis.HTTP
+		}
 		llmSvc.Status.Addresses = []v1alpha2.SourcedAddress{{
 			Addressable: duckv1.Addressable{
-				URL: apis.HTTPS(network.GetServiceHostname(
+				URL: urlFn(network.GetServiceHostname(
 					kmeta.ChildName(llmSvc.GetName(), "-kserve-workload-svc"),
 					llmSvc.GetNamespace(),
 				)),
