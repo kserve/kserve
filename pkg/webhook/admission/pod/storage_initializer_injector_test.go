@@ -5618,6 +5618,7 @@ func TestApplyConfidentialConfig(t *testing.T) {
 			}
 		})
 	}
+}
 
 // TestInjectModelcarOciNative verifies that InjectModelcar dispatches oci+native:// URIs
 // to the ImageVolume materializer and produces the expected pod mutations.
