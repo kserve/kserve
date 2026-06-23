@@ -16,7 +16,8 @@ spec:
             protocol: TCP
         securityContext:
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
+          # nvidia-cdi-hook requires a writable root filesystem
+          readOnlyRootFilesystem: false
           runAsNonRoot: true
           capabilities:
             drop:
@@ -268,7 +269,8 @@ spec:
             value: /models
         securityContext:
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
+          # nvidia-cdi-hook requires a writable root filesystem
+          readOnlyRootFilesystem: false
           runAsNonRoot: true
           capabilities:
             add:
@@ -542,7 +544,8 @@ spec:
             value: "1"
         securityContext:
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
+          # nvidia-cdi-hook requires a writable root filesystem
+          readOnlyRootFilesystem: false
           runAsNonRoot: true
           capabilities:
             add:
