@@ -32,6 +32,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -199,7 +200,7 @@ func (r *LLMISVCReconciler) reconcileSchedulerInferencePool(ctx context.Context,
 	return nil
 }
 
-// reconcileV1InferencePool reconciles the v1 InferencePool if the CRD is available.
+// reconcileV1InferencePool reconciles the v1 InferencePool.
 func (r *LLMISVCReconciler) reconcileV1InferencePool(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, shouldDelete bool) error {
 	expected := r.expectedSchedulerInferencePool(ctx, llmSvc)
 	if shouldDelete {
@@ -209,12 +210,30 @@ func (r *LLMISVCReconciler) reconcileV1InferencePool(ctx context.Context, llmSvc
 }
 
 // reconcileV1Alpha2InferencePool reconciles the v1alpha2 InferencePool if the CRD is available.
+// If the CRD is not installed (meta.NoKindMatchError) and Config.AllowSkippingV1Alpha2InferencePool
+// is true, the reconciliation is skipped gracefully. When the flag is false (default),
+// the error is returned to preserve backward-compatible behavior.
 func (r *LLMISVCReconciler) reconcileV1Alpha2InferencePool(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, shouldDelete bool) error {
 	expected := r.expectedSchedulerInferencePoolV1Alpha2(ctx, llmSvc)
+	var err error
 	if shouldDelete {
-		return Delete(ctx, r, llmSvc, expected)
+		err = Delete(ctx, r, llmSvc, expected)
+	} else {
+		err = Reconcile(ctx, r, llmSvc, &igwapiv1alpha2.InferencePool{}, expected, semanticInferencePoolV1Alpha2IsEqual)
 	}
-	return Reconcile(ctx, r, llmSvc, &igwapiv1alpha2.InferencePool{}, expected, semanticInferencePoolV1Alpha2IsEqual)
+	if meta.IsNoMatchError(err) {
+		cfg, cfgErr := r.loadConfig(ctx)
+		if cfgErr != nil {
+			log.FromContext(ctx).Error(cfgErr, "Failed to load config while checking AllowSkippingV1Alpha2InferencePool")
+			return err
+		}
+		if cfg.SchedulerConfig != nil && cfg.SchedulerConfig.AllowSkippingV1Alpha2InferencePool {
+			log.FromContext(ctx).V(2).Info("v1alpha2 InferencePool CRD not available, skipping (AllowSkippingV1Alpha2InferencePool=true)",
+				"group", igwapiv1alpha2.SchemeGroupVersion.Group, "version", igwapiv1alpha2.SchemeGroupVersion.Version)
+			return nil
+		}
+	}
+	return err
 }
 
 func (r *LLMISVCReconciler) reconcileSchedulerService(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
