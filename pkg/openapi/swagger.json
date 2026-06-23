@@ -464,6 +464,10 @@
         "spec": {
           "default": {},
           "$ref": "#/definitions/v1alpha1.LLMInferenceServiceSpec"
+        },
+        "status": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.LLMInferenceServiceConfigStatus"
         }
       }
     },
@@ -1357,6 +1361,10 @@
         "spec": {
           "default": {},
           "$ref": "#/definitions/v1alpha2.LLMInferenceServiceSpec"
+        },
+        "status": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha2.LLMInferenceServiceConfigStatus"
         }
       }
     },
