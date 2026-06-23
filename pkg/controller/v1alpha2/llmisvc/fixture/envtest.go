@@ -68,6 +68,15 @@ func SetupTestEnv(ctx context.Context) *pkgtest.Client {
 		return llmCtrl.SetupWithManager(mgr)
 	}
 
+	llmConfigCtrlFunc := func(_ *rest.Config, mgr ctrl.Manager) error {
+		eventBroadcaster := record.NewBroadcaster()
+		llmConfigCtrl := llmisvc.LLMISVCConfigReconciler{
+			Client:        mgr.GetClient(),
+			EventRecorder: eventBroadcaster.NewRecorder(mgr.GetScheme(), corev1.EventSource{Component: "LLMInferenceServiceConfigController"}),
+		}
+		return llmConfigCtrl.SetupWithManager(mgr)
+	}
+
 	webhookManifests := pkgtest.WithWebhookManifests(filepath.Join(pkgtest.ProjectRoot(), "test", "webhooks"))
 	webhooks := func(_ *rest.Config, mgr ctrl.Manager) error {
 		// Create validation function for config template validation
@@ -114,7 +123,7 @@ func SetupTestEnv(ctx context.Context) *pkgtest.Client {
 
 	envTest := pkgtest.NewEnvTest(append([]pkgtest.Option{webhookManifests}, additionalEnvTestOptions()...)...).
 		WithWebhooks(webhooks).
-		WithControllers(llmCtrlFunc).
+		WithControllers(llmCtrlFunc, llmConfigCtrlFunc).
 		// The suite manager/webhook must outlive BeforeSuite node context.
 		Start(context.Background()) //nolint:contextcheck // intentional: manager context must not be tied to BeforeSuite
 

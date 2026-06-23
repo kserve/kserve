@@ -113,9 +113,9 @@ var _ = Describe("LLMInferenceService Config resolution", func() {
 				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
 			)
 			Expect(envTest.Create(ctx, cfg)).To(Succeed())
-			defer func() {
-				testNs.DeleteAndWait(ctx, cfg)
-			}()
+			// No explicit DeleteAndWait for the config: the service's DeleteAndWait
+			// (above) runs first in LIFO order and releases the finalizer reference,
+			// then namespace cleanup handles the config deletion.
 
 			// then - watch fires, reconcile runs, condition recovers to True
 			Eventually(func(g Gomega, ctx context.Context) error {

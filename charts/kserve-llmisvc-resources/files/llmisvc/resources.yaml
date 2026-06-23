@@ -1709,6 +1709,7 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - llminferenceserviceconfigs/status
   - llminferenceservices/status
   verbs:
   - get
