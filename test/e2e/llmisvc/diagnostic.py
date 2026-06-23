@@ -22,6 +22,16 @@ from typing import Callable, Optional
 _log = logging.getLogger(__name__)
 
 
+def strip_managed_fields(d):
+    """Remove managed_fields from a K8s object dict to reduce log noise."""
+    if isinstance(d, dict):
+        d.pop("managed_fields", None)
+        metadata = d.get("metadata")
+        if isinstance(metadata, dict):
+            metadata.pop("managed_fields", None)
+    return d
+
+
 def print_all_events_table(
     namespace: str,
     max_events: int = 50,
