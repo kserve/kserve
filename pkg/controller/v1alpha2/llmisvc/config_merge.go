@@ -577,13 +577,6 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 	t, err := template.New("config").
 		Funcs(map[string]any{
 			"ChildName": kmeta.ChildName,
-			// shutdownTimeout computes the vLLM --shutdown-timeout value from a *corev1.PodSpec
-			// (or nil): max(0, tgps - preStop - min(5, tgps)), defaulting tgps to 60 when unset.
-			// The 5-second buffer reserves time for signal propagation and final process cleanup
-			// before Kubernetes sends SIGKILL.
-			// kvTransferConfig renders the --kv-transfer-config flag value for vLLM's
-			// OffloadingConnector from spec.kvCacheOffloading. Returns an empty string when
-			// kvCacheOffloading is not set, so the bash version gate can skip the flag safely.
 			"kvTransferConfig": func(spec any) string {
 				if spec == nil {
 					return ""
@@ -612,6 +605,10 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 				// assignment and in the JSON template string that ReplaceVariables renders.
 				return "--kv-transfer-config '" + strings.ReplaceAll(string(b), `"`, `\"`) + "'"
 			},
+			// shutdownTimeout computes the vLLM --shutdown-timeout value from a *corev1.PodSpec
+			// (or nil): max(0, tgps - preStop - min(5, tgps)), defaulting tgps to 60 when unset.
+			// The 5-second buffer reserves time for signal propagation and final process cleanup
+			// before Kubernetes sends SIGKILL.
 			"shutdownTimeout": func(spec any, preStop int64) int64 {
 				const defaultTGPS = int64(60)
 				var tgpsVal int64
