@@ -594,7 +594,7 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 				}
 				extraConfig := map[string]any{
 					"spec_name":        "TieringOffloadingSpec",
-					"cpu_bytes_to_use": kv.CPUBytesToUse,
+					"cpu_bytes_to_use": kv.CPU.Value(),
 				}
 				if kv.EvictionPolicy != "" {
 					extraConfig["eviction_policy"] = kv.EvictionPolicy

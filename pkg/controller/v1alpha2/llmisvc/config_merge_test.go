@@ -2099,7 +2099,7 @@ func TestReplaceVariables(t *testing.T) {
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
-							CPUBytesToUse: 10737418240,
+							CPU: resource.MustParse("10Gi"),
 						},
 					},
 				},
@@ -2135,7 +2135,7 @@ func TestReplaceVariables(t *testing.T) {
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
-							CPUBytesToUse:  5368709120,
+							CPU:            resource.MustParse("5Gi"),
 							EvictionPolicy: "arc",
 						},
 					},

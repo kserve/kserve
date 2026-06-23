@@ -20907,10 +20907,12 @@ spec:
                   type: array
                 kvCacheOffloading:
                   properties:
-                    cpuBytesToUse:
-                      format: int64
-                      minimum: 1
-                      type: integer
+                    cpu:
+                      anyOf:
+                        - type: integer
+                        - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
                     evictionPolicy:
                       default: lru
                       enum:
@@ -20918,7 +20920,7 @@ spec:
                         - arc
                       type: string
                   required:
-                    - cpuBytesToUse
+                    - cpu
                   type: object
                 labels:
                   additionalProperties:
@@ -20984,10 +20986,12 @@ spec:
                       type: object
                     kvCacheOffloading:
                       properties:
-                        cpuBytesToUse:
-                          format: int64
-                          minimum: 1
-                          type: integer
+                        cpu:
+                          anyOf:
+                            - type: integer
+                            - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
                         evictionPolicy:
                           default: lru
                           enum:
@@ -20995,7 +20999,7 @@ spec:
                             - arc
                           type: string
                       required:
-                        - cpuBytesToUse
+                        - cpu
                       type: object
                     labels:
                       additionalProperties:

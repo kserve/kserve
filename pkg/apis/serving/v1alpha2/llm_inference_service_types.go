@@ -20,6 +20,7 @@ import (
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
@@ -153,10 +154,10 @@ type WorkloadSpec struct {
 
 // KVCacheOffloadingSpec configures KV cache offloading via vLLM's OffloadingConnector.
 type KVCacheOffloadingSpec struct {
-	// CPUBytesToUse is the number of CPU RAM bytes to allocate as the primary KV cache tier
-	// (maps to vLLM kv_connector_extra_config.cpu_bytes_to_use).
-	// +kubebuilder:validation:Minimum=1
-	CPUBytesToUse int64 `json:"cpuBytesToUse"`
+	// CPU is the amount of CPU RAM to allocate as the primary KV cache tier
+	// (maps to vLLM kv_connector_extra_config.cpu_bytes_to_use). Accepts standard
+	// Kubernetes quantity notation, e.g. "10Gi".
+	CPU resource.Quantity `json:"cpu"`
 
 	// EvictionPolicy for the primary CPU KV cache tier. Defaults to "lru".
 	// +optional
