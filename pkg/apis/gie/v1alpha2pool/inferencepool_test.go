@@ -273,6 +273,95 @@ func TestConvertTo_ObjectMetaDeepCopy(t *testing.T) {
 	assert.Equal(t, "value", v1Pool.Labels["key"])
 }
 
+func TestConvertTo_NilPortDefaultsTo9002WhenKindIsService(t *testing.T) {
+	original := &InferencePool{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "InferencePool",
+			APIVersion: "inference.networking.x-k8s.io/v1alpha2",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pool",
+			Namespace: "default",
+		},
+		Spec: InferencePoolSpec{
+			Selector:         map[LabelKey]LabelValue{"app": "vllm"},
+			TargetPortNumber: 8000,
+			ExtensionRef: Extension{
+				Kind:        ptr.To(Kind("Service")),
+				Name:        "my-epp",
+				FailureMode: ptr.To(FailOpen),
+			},
+		},
+	}
+
+	v1Pool := &v1.InferencePool{}
+	err := original.ConvertTo(v1Pool)
+	require.NoError(t, err)
+
+	require.NotNil(t, v1Pool.Spec.EndpointPickerRef.Port)
+	assert.Equal(t, v1.PortNumber(9002), v1Pool.Spec.EndpointPickerRef.Port.Number)
+}
+
+func TestConvertTo_NilPortDefaultsTo9002WhenKindIsNil(t *testing.T) {
+	original := &InferencePool{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "InferencePool",
+			APIVersion: "inference.networking.x-k8s.io/v1alpha2",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pool",
+			Namespace: "default",
+		},
+		Spec: InferencePoolSpec{
+			Selector:         map[LabelKey]LabelValue{"app": "vllm"},
+			TargetPortNumber: 8000,
+			ExtensionRef: Extension{
+				Kind:        nil,
+				Name:        "my-epp",
+				FailureMode: ptr.To(FailClose),
+			},
+		},
+	}
+
+	v1Pool := &v1.InferencePool{}
+	err := original.ConvertTo(v1Pool)
+	require.NoError(t, err)
+
+	assert.Equal(t, v1.Kind("Service"), v1Pool.Spec.EndpointPickerRef.Kind)
+	require.NotNil(t, v1Pool.Spec.EndpointPickerRef.Port)
+	assert.Equal(t, v1.PortNumber(9002), v1Pool.Spec.EndpointPickerRef.Port.Number)
+}
+
+func TestConvertTo_ExplicitPortIsPreserved(t *testing.T) {
+	original := &InferencePool{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "InferencePool",
+			APIVersion: "inference.networking.x-k8s.io/v1alpha2",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pool",
+			Namespace: "default",
+		},
+		Spec: InferencePoolSpec{
+			Selector:         map[LabelKey]LabelValue{"app": "vllm"},
+			TargetPortNumber: 8000,
+			ExtensionRef: Extension{
+				Kind:        ptr.To(Kind("Service")),
+				Name:        "my-epp",
+				PortNumber:  ptr.To(PortNumber(8080)),
+				FailureMode: ptr.To(FailClose),
+			},
+		},
+	}
+
+	v1Pool := &v1.InferencePool{}
+	err := original.ConvertTo(v1Pool)
+	require.NoError(t, err)
+
+	require.NotNil(t, v1Pool.Spec.EndpointPickerRef.Port)
+	assert.Equal(t, v1.PortNumber(8080), v1Pool.Spec.EndpointPickerRef.Port.Number)
+}
+
 func TestDeepCopy(t *testing.T) {
 	pool := &InferencePool{
 		ObjectMeta: metav1.ObjectMeta{
