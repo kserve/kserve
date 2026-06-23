@@ -371,24 +371,14 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 
 	externalURLs := FilterExternalURLs(discovered)
 	if len(externalURLs) == 0 {
-		logger.Info("no public URL discovered")
+		logger.Info("no external URL discovered, using internal address")
 		if len(discovered) > 0 {
-			// Promote first address to top-level status.URL as some "cluster external" addresses are technically within
-			// "virtual private networks" and we cannot detect that from just IPs. Even if it's a cluster-local URL, the
-			// status URL is just for discovery and easy access, and it's not a problem to have here while we prioritize
-			// external addresses.
-			//
-			// We prefer the path-based URL (/{ns}/{name}) over the model-routing
-			// root URL (/) for backward compatibility: status.URL was always the
-			// path-based URL before model-based routing was introduced, and
-			// existing clients may rely on that form.
-			llmSvc.Status.URL = preferPathBasedURL(discovered, llmSvc.Namespace, llmSvc.Name)
+			llmSvc.Status.URL = preferPathBasedURL(discovered, llmSvc.Namespace, llmSvc.Name, cfg.UrlScheme)
 		} else {
 			llmSvc.Status.URL = nil
 		}
 	} else {
-		// Same path-based preference as above — see comment.
-		llmSvc.Status.URL = preferPathBasedURL(externalURLs, llmSvc.Namespace, llmSvc.Name)
+		llmSvc.Status.URL = preferPathBasedURL(externalURLs, llmSvc.Namespace, llmSvc.Name, "")
 	}
 
 	llmSvc.Status.Addresses = make([]v1alpha2.SourcedAddress, 0, len(discovered))
@@ -410,20 +400,24 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 	return deduped, nil
 }
 
-// preferPathBasedURL selects the URL whose path starts with /{namespace}/{name}
-// from the list, falling back to the first URL if none matches.
-//
-// With model-based routing enabled, DiscoverURLs returns both the path-based
-// URL (/{ns}/{name}, works without special headers) and the model-routing root
-// URL (/, requires the model-routing header). Alphabetical sorting puts "/" first,
-// but status.URL must remain the path-based URL for backward compatibility —
-// it's the form clients have always seen and the one that works unconditionally.
-func preferPathBasedURL(urls []DiscoveredURL, namespace, name string) *apis.URL {
+// preferPathBasedURL selects the first URL whose path starts with
+// /{namespace}/{name}, preferring the one matching preferredScheme
+// when multiple candidates exist.
+func preferPathBasedURL(urls []DiscoveredURL, namespace, name, preferredScheme string) *apis.URL {
 	prefix := "/" + namespace + "/" + name
+	var firstPathMatch *apis.URL
 	for _, u := range urls {
 		if strings.HasPrefix(u.URL.Path, prefix) {
-			return u.URL
+			if preferredScheme != "" && u.URL.Scheme == preferredScheme {
+				return u.URL
+			}
+			if firstPathMatch == nil {
+				firstPathMatch = u.URL
+			}
 		}
+	}
+	if firstPathMatch != nil {
+		return firstPathMatch
 	}
 	return urls[0].URL
 }
