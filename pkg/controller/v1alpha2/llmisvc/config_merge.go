@@ -398,6 +398,22 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		}
 	}
 
+	// The v1 InferencePool CRD requires port when endpointPickerRef.kind is "Service" (or
+	// unspecified, which defaults to "Service"). Configs created before GIE v1.2.0
+	// omit the port field entirely. Without this default the controller's
+	// dry-run update fails the CEL rule: "port is required when kind is 'Service' or
+	// unspecified (defaults to 'Service')". We check both Kind=="Service" and Kind==""
+	// because the kubebuilder default is only applied server-side during admission, not
+	// during in-process deserialization.
+	if llmSvcCfg.Spec.Router != nil &&
+		llmSvcCfg.Spec.Router.Scheduler != nil &&
+		llmSvcCfg.Spec.Router.Scheduler.Pool != nil &&
+		llmSvcCfg.Spec.Router.Scheduler.Pool.Spec != nil &&
+		(llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef.Port == nil || llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef.Port.Number == 0) &&
+		(llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef.Kind == "Service" || llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef.Kind == "") {
+		llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef.Port = ptr.To(igwapi.Port{Number: 9002})
+	}
+
 	// Skip validation when we're only using the result for matching (not for reconciliation).
 	// When skipClearSchedulerConfigRef is true, both Inline and Ref may be set, which would fail validation.
 	if !options.skipClearSchedulerConfigRef {
