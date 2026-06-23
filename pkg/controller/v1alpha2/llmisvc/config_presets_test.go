@@ -140,7 +140,7 @@ func TestPresetFiles(t *testing.T) {
 										Capabilities: &corev1.Capabilities{
 											Drop: []corev1.Capability{"ALL"},
 										},
-										ReadOnlyRootFilesystem: ptr.To(true),
+										ReadOnlyRootFilesystem: ptr.To(false),
 										SeccompProfile: &corev1.SeccompProfile{
 											Type: corev1.SeccompProfileTypeRuntimeDefault,
 										},
@@ -289,7 +289,7 @@ func TestPresetFiles(t *testing.T) {
 										},
 										AllowPrivilegeEscalation: ptr.To(false),
 										RunAsNonRoot:             ptr.To(true),
-										ReadOnlyRootFilesystem:   ptr.To(true),
+										ReadOnlyRootFilesystem:   ptr.To(false),
 										SeccompProfile: &corev1.SeccompProfile{
 											Type: corev1.SeccompProfileTypeRuntimeDefault,
 										},
@@ -377,7 +377,7 @@ func TestPresetFiles(t *testing.T) {
 										},
 										AllowPrivilegeEscalation: ptr.To(false),
 										RunAsNonRoot:             ptr.To(true),
-										ReadOnlyRootFilesystem:   ptr.To(true),
+										ReadOnlyRootFilesystem:   ptr.To(false),
 										SeccompProfile: &corev1.SeccompProfile{
 											Type: corev1.SeccompProfileTypeRuntimeDefault,
 										},
@@ -562,7 +562,7 @@ func TestPresetFiles(t *testing.T) {
 										},
 										AllowPrivilegeEscalation: ptr.To(false),
 										RunAsNonRoot:             ptr.To(true),
-										ReadOnlyRootFilesystem:   ptr.To(true),
+										ReadOnlyRootFilesystem:   ptr.To(false),
 										SeccompProfile: &corev1.SeccompProfile{
 											Type: corev1.SeccompProfileTypeRuntimeDefault,
 										},
