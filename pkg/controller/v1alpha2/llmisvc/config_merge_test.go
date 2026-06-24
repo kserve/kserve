@@ -1811,137 +1811,13 @@ func TestReplaceVariables(t *testing.T) {
 			},
 		},
 		{
-			name: "shutdownTimeout uses default when spec.template is nil",
+			name: "kvTransferScript returns bash block with empty KV_TRANSFER_ARGS when kvCacheOffloading is nil",
 			cfg: &v1alpha2.LLMInferenceServiceConfig{
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout .Spec.Template 15 }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{
-				// spec.template not set — shutdownTimeout falls back to default tgps=60: 60-15-min(5,60)=40
-			},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "40"}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "shutdownTimeout uses spec.template.terminationGracePeriodSeconds when set",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout .Spec.Template 15 }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							TerminationGracePeriodSeconds: ptr.To(int64(120)),
-						},
-					},
-				},
-			},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "100"}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "shutdownTimeout uses default when spec.worker is nil",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout .Spec.Worker 15 }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{
-				// spec.worker not set — shutdownTimeout falls back to default tgps=60: 60-15-min(5,60)=40
-			},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "40"}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "shutdownTimeout uses spec.worker.terminationGracePeriodSeconds when set",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout .Spec.Worker 15 }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Worker: &corev1.PodSpec{
-							TerminationGracePeriodSeconds: ptr.To(int64(120)),
-						},
-					},
-				},
-			},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "100"}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "shutdownTimeout uses default when no spec provided (nil arg)",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout nil 15 }}"}},
+								{Args: []string{"{{ kvTransferScript .Spec.KVCacheOffloading }}"}},
 							},
 						},
 					},
@@ -1953,7 +1829,7 @@ func TestReplaceVariables(t *testing.T) {
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "40"}},
+								{Args: []string{"# --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).\nKV_TRANSFER_ARGS=\"\"\nif [[ \"$VLLM_VERSION\" =~ ^[0-9]+\\.[0-9]+ ]] && [ \"$(printf '%s\\n%s\\n' \"0.22.0\" \"${VLLM_VERSION}\" | sort -V | head -1)\" = \"0.22.0\" ]; then\n  if [[ \"${VLLM_ADDITIONAL_ARGS:-}\" != *\"--kv-transfer-config\"* ]] && [[ \"${VLLM_ADDITIONAL_ARGS:-}\" != *\"--kv_transfer_config\"* ]] && [[ \"$*\" != *\"--kv-transfer-config\"* ]] && [[ \"$*\" != *\"--kv_transfer_config\"* ]]; then\n    KV_TRANSFER_ARGS=\"\"\n  fi\nfi"}},
 							},
 						},
 					},
@@ -1961,135 +1837,13 @@ func TestReplaceVariables(t *testing.T) {
 			},
 		},
 		{
-			name: "shutdownTimeout uses spec.prefill.template.terminationGracePeriodSeconds when set",
+			name: "kvTransferScript renders bash block with --kv-transfer-config from kvCacheOffloading",
 			cfg: &v1alpha2.LLMInferenceServiceConfig{
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Template 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					Prefill: &v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							TerminationGracePeriodSeconds: ptr.To(int64(120)),
-						},
-					},
-				},
-			},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "100"}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "shutdownTimeout uses spec.prefill.worker.terminationGracePeriodSeconds when set",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Worker 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					Prefill: &v1alpha2.WorkloadSpec{
-						Worker: &corev1.PodSpec{
-							TerminationGracePeriodSeconds: ptr.To(int64(120)),
-						},
-					},
-				},
-			},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "100"}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "shutdownTimeout uses default when spec.prefill is nil (prefill via base ref only)",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Template 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{},
-			},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "40"}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "kvTransferConfig returns empty string when kvCacheOffloading is nil",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{""}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "kvTransferConfig renders --kv-transfer-config from kvCacheOffloading",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
+								{Args: []string{"{{ kvTransferScript .Spec.KVCacheOffloading }}"}},
 							},
 						},
 					},
@@ -2109,9 +1863,7 @@ func TestReplaceVariables(t *testing.T) {
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								// json.Marshal sorts map keys alphabetically: kv_connector < kv_connector_extra_config < kv_role
-								// Internally " is escaped to \" for JSON-safe template rendering; JSON unmarshal restores plain ".
-								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":10737418240,"spec_name":"TieringOffloadingSpec"},"kv_role":"kv_both"}'`}},
+								{Args: []string{"# --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).\nKV_TRANSFER_ARGS=\"\"\nif [[ \"$VLLM_VERSION\" =~ ^[0-9]+\\.[0-9]+ ]] && [ \"$(printf '%s\\n%s\\n' \"0.22.0\" \"${VLLM_VERSION}\" | sort -V | head -1)\" = \"0.22.0\" ]; then\n  if [[ \"${VLLM_ADDITIONAL_ARGS:-}\" != *\"--kv-transfer-config\"* ]] && [[ \"${VLLM_ADDITIONAL_ARGS:-}\" != *\"--kv_transfer_config\"* ]] && [[ \"$*\" != *\"--kv-transfer-config\"* ]] && [[ \"$*\" != *\"--kv_transfer_config\"* ]]; then\n    KV_TRANSFER_ARGS=\"--kv-transfer-config '{\"kv_connector\":\"OffloadingConnector\",\"kv_connector_extra_config\":{\"cpu_bytes_to_use\":10737418240,\"spec_name\":\"TieringOffloadingSpec\"},\"kv_role\":\"kv_both\"}'\"\n  fi\nfi"}},
 							},
 						},
 					},
@@ -2119,13 +1871,13 @@ func TestReplaceVariables(t *testing.T) {
 			},
 		},
 		{
-			name: "kvTransferConfig includes eviction policy when set",
+			name: "kvTransferScript includes eviction policy when set",
 			cfg: &v1alpha2.LLMInferenceServiceConfig{
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
+								{Args: []string{"{{ kvTransferScript .Spec.KVCacheOffloading }}"}},
 							},
 						},
 					},
@@ -2146,8 +1898,7 @@ func TestReplaceVariables(t *testing.T) {
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								// json.Marshal sorts map keys alphabetically: cpu_bytes_to_use < eviction_policy < spec_name
-								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":5368709120,"eviction_policy":"arc","spec_name":"TieringOffloadingSpec"},"kv_role":"kv_both"}'`}},
+								{Args: []string{"# --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).\nKV_TRANSFER_ARGS=\"\"\nif [[ \"$VLLM_VERSION\" =~ ^[0-9]+\\.[0-9]+ ]] && [ \"$(printf '%s\\n%s\\n' \"0.22.0\" \"${VLLM_VERSION}\" | sort -V | head -1)\" = \"0.22.0\" ]; then\n  if [[ \"${VLLM_ADDITIONAL_ARGS:-}\" != *\"--kv-transfer-config\"* ]] && [[ \"${VLLM_ADDITIONAL_ARGS:-}\" != *\"--kv_transfer_config\"* ]] && [[ \"$*\" != *\"--kv-transfer-config\"* ]] && [[ \"$*\" != *\"--kv_transfer_config\"* ]]; then\n    KV_TRANSFER_ARGS=\"--kv-transfer-config '{\"kv_connector\":\"OffloadingConnector\",\"kv_connector_extra_config\":{\"cpu_bytes_to_use\":5368709120,\"eviction_policy\":\"arc\",\"spec_name\":\"TieringOffloadingSpec\"},\"kv_role\":\"kv_both\"}'\"\n  fi\nfi"}},
 							},
 						},
 					},

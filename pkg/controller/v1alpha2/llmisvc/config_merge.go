@@ -615,58 +615,25 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 	}
 	t, err := template.New("config").
 		Funcs(map[string]any{
+			"rdmaDetectScript": func() string {
+				return escapeForJSON(rdmaDetectStr)
+			},
+			"dpAddressResolveScript": func() string {
+				return escapeForJSON(dpAddressResolveStr)
+			},
+			"vllmVersionScript": func() string {
+				return escapeForJSON(vllmVersionStr)
+			},
+			"vllmAccessLogDetectScript": func() string {
+				return escapeForJSON(vllmAccessLogStr)
+			},
+			"shutdownTimeoutScript": func(spec any, preStop int64) string {
+				return escapeForJSON(strings.Replace(shutdownTimeoutStr, "SHUTDOWN_TIMEOUT_VALUE", strconv.FormatInt(computeShutdownTimeout(spec, preStop), 10), 1))
+			},
+			"kvTransferScript": func(spec any) string {
+				return escapeForJSON(strings.Replace(kvTransferStr, "KV_TRANSFER_CONFIG_VALUE", computeKVTransferConfig(spec), 1))
+			},
 			"ChildName": kmeta.ChildName,
-			"kvTransferConfig": func(spec any) string {
-				if spec == nil {
-					return ""
-				}
-				kv, ok := spec.(*v1alpha2.KVCacheOffloadingSpec)
-				if !ok || kv == nil {
-					return ""
-				}
-				extraConfig := map[string]any{
-					"spec_name":        "TieringOffloadingSpec",
-					"cpu_bytes_to_use": kv.CPU.Value(),
-				}
-				if kv.EvictionPolicy != "" {
-					extraConfig["eviction_policy"] = kv.EvictionPolicy
-				}
-				kvConfig := map[string]any{
-					"kv_connector":              "OffloadingConnector",
-					"kv_role":                   "kv_both",
-					"kv_connector_extra_config": extraConfig,
-				}
-				b, err := json.Marshal(kvConfig)
-				if err != nil {
-					return ""
-				}
-				// Escape " as \" so the value embeds safely in a bash double-quoted
-				// assignment and in the JSON template string that ReplaceVariables renders.
-				return "--kv-transfer-config '" + strings.ReplaceAll(string(b), `"`, `\"`) + "'"
-			},
-			// shutdownTimeout computes the vLLM --shutdown-timeout value from a *corev1.PodSpec
-			// (or nil): max(0, tgps - preStop - min(5, tgps)), defaulting tgps to 60 when unset.
-			// The 5-second buffer reserves time for signal propagation and final process cleanup
-			// before Kubernetes sends SIGKILL.
-			"shutdownTimeout": func(spec any, preStop int64) int64 {
-				const defaultTGPS = int64(60)
-				var tgpsVal int64
-				if spec != nil {
-					if ps, ok := spec.(*corev1.PodSpec); ok && ps != nil && ps.TerminationGracePeriodSeconds != nil {
-						tgpsVal = *ps.TerminationGracePeriodSeconds
-					} else {
-						tgpsVal = defaultTGPS
-					}
-				} else {
-					tgpsVal = defaultTGPS
-				}
-				buf := min(int64(5), tgpsVal)
-				result := tgpsVal - preStop - buf
-				if result < 0 {
-					return 0
-				}
-				return result
-			},
 		}).
 		Option("missingkey=error").
 		Parse(string(templateBytes))
