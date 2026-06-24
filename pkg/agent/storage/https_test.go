@@ -17,9 +17,19 @@ limitations under the License.
 package storage
 
 import (
+	"io"
+	"net/http"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
 
 func TestCreateNewFileValidation(t *testing.T) {
 	tests := []struct {
@@ -235,5 +245,125 @@ func TestCreateNewFileValidation(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestValidateHTTPURLRejectsUnsafeDestinations(t *testing.T) {
+	tests := []struct {
+		name       string
+		storageURI string
+	}{
+		{
+			name:       "IPv4 loopback",
+			storageURI: "http://127.0.0.1/model.joblib",
+		},
+		{
+			name:       "localhost",
+			storageURI: "http://localhost/model.joblib",
+		},
+		{
+			name:       "cloud metadata endpoint",
+			storageURI: "http://169.254.169.254/latest/meta-data",
+		},
+		{
+			name:       "private IPv4",
+			storageURI: "https://10.0.0.1/model.joblib",
+		},
+		{
+			name:       "IPv6 loopback",
+			storageURI: "http://[::1]/model.joblib",
+		},
+		{
+			name:       "IPv6 unique local",
+			storageURI: "http://[fd00::1]/model.joblib",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			provider, err := GetProvider(map[Protocol]Provider{}, HTTP)
+			if err != nil {
+				t.Fatalf("failed to get HTTP provider: %v", err)
+			}
+
+			err = provider.DownloadModel(t.TempDir(), "model", tt.storageURI)
+			if err == nil {
+				t.Fatalf("expected %s to be rejected", tt.storageURI)
+			}
+			if !strings.Contains(err.Error(), "blocked unsafe HTTP(S) storage destination") {
+				t.Fatalf("expected unsafe destination error, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestRestrictedHTTPTransportAllowsPublicDestination(t *testing.T) {
+	const (
+		modelContents = "model contents"
+		storageURI    = "http://93.184.216.34/model.joblib"
+	)
+
+	client := &http.Client{
+		Transport: restrictedHTTPTransport{
+			base: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				if req.URL.String() != storageURI {
+					t.Fatalf("request URL = %q, want %q", req.URL.String(), storageURI)
+				}
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     http.Header{"Content-Type": []string{"application/octet-stream"}},
+					Body:       io.NopCloser(strings.NewReader(modelContents)),
+					Request:    req,
+				}, nil
+			}),
+		},
+		CheckRedirect: checkHTTPStorageRedirect,
+	}
+
+	provider := &HTTPSProvider{Client: client}
+	modelDir := t.TempDir()
+	if err := provider.DownloadModel(modelDir, "model", storageURI); err != nil {
+		t.Fatalf("expected public destination download to succeed: %v", err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(modelDir, "model", "model.joblib"))
+	if err != nil {
+		t.Fatalf("failed to read downloaded model: %v", err)
+	}
+	if string(got) != modelContents {
+		t.Fatalf("downloaded contents = %q, want %q", string(got), modelContents)
+	}
+}
+
+func TestHTTPStorageClientRejectsRedirectToUnsafeDestination(t *testing.T) {
+	const storageURI = "http://93.184.216.34/model.joblib"
+	requests := 0
+	client := &http.Client{
+		Transport: restrictedHTTPTransport{
+			base: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				requests++
+				return &http.Response{
+					StatusCode: http.StatusFound,
+					Header:     http.Header{"Location": []string{"http://127.0.0.1/metadata"}},
+					Body:       io.NopCloser(strings.NewReader("")),
+					Request:    req,
+				}, nil
+			}),
+		},
+		CheckRedirect: checkHTTPStorageRedirect,
+	}
+
+	resp, err := client.Get(storageURI)
+	if resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
+	if err == nil {
+		t.Fatal("expected redirect to unsafe destination to be rejected")
+	}
+	if !strings.Contains(err.Error(), "blocked unsafe HTTP(S) storage destination") {
+		t.Fatalf("expected unsafe destination error, got: %v", err)
+	}
+	if requests != 1 {
+		t.Fatalf("request count = %d, want 1", requests)
 	}
 }
