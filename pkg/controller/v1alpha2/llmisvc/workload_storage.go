@@ -137,6 +137,8 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 			if err := r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, loraPairs); err != nil {
 				return err
 			}
+		} else {
+			extractAndStripStorageInitializer(podSpec)
 		}
 
 	case constants.OciURIPrefix:
@@ -152,6 +154,8 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 			if err := r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, loraPairs); err != nil {
 				return err
 			}
+		} else {
+			extractAndStripStorageInitializer(podSpec)
 		}
 
 	case constants.HfURIPrefix:
