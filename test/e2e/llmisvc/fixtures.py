@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 import hashlib
 import os
 import re
@@ -1367,14 +1368,32 @@ def _setup_test_case_service(kserve_client, tc, test_node_name, peer_index=None)
     if not tc.service_name:
         suffix = f"-peer-{peer_index}" if peer_index is not None else ""
         tc.service_name = generate_service_name(test_node_name + suffix, tc.base_refs)
+    config_model_name = _get_model_name_from_configs(tc.base_refs)
+    if tc.url_getter is not None:
+        model_name_suffix = hashlib.sha256(tc.service_name.encode()).hexdigest()[:6]
+        unique_model_name = f"{config_model_name}-{model_name_suffix}"
+    else:
+        unique_model_name = config_model_name
     if tc.model_name == "default/model":
-        tc.model_name = _get_model_name_from_configs(tc.base_refs)
+        tc.model_name = unique_model_name
+
+    if tc.url_getter is not None and tc.extra_headers is None:
+        tc.extra_headers = {
+            "X-Gateway-Model-Name": f"publishers/{KSERVE_TEST_NAMESPACE}/models/{tc.model_name}",
+        }
+
+    if tc.response_assertion_factory is not None:
+        tc.response_assertion = tc.response_assertion_factory(tc.model_name)
 
     created_configs = []
     unique_base_refs = []
     for base_ref in tc.base_refs:
         unique_config_name = generate_k8s_safe_suffix(base_ref, [tc.service_name])
         unique_base_refs.append(unique_config_name)
+
+        spec = copy.deepcopy(LLMINFERENCESERVICE_CONFIGS[base_ref])
+        if "model" in spec and "name" in spec["model"]:
+            spec["model"]["name"] = unique_model_name
 
         unique_config_body = {
             "apiVersion": "serving.kserve.io/v1alpha1",
@@ -1383,7 +1402,7 @@ def _setup_test_case_service(kserve_client, tc, test_node_name, peer_index=None)
                 "name": unique_config_name,
                 "namespace": KSERVE_TEST_NAMESPACE,
             },
-            "spec": LLMINFERENCESERVICE_CONFIGS[base_ref],
+            "spec": spec,
         }
 
         _create_or_update_llmisvc_config(
