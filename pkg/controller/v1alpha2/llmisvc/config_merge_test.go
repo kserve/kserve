@@ -1810,101 +1810,6 @@ func TestReplaceVariables(t *testing.T) {
 				},
 			},
 		},
-		{
-			name: "kvTransferScript returns bash block with empty KV_TRANSFER_ARGS when kvCacheOffloading is nil",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"{{ kvTransferScript .Spec.KVCacheOffloading }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"# --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).\nKV_TRANSFER_ARGS=\"\"\nif [[ \"$VLLM_VERSION\" =~ ^[0-9]+\\.[0-9]+ ]] && [ \"$(printf '%s\\n%s\\n' \"0.22.0\" \"${VLLM_VERSION}\" | sort -V | head -1)\" = \"0.22.0\" ]; then\n  if [[ \"${VLLM_ADDITIONAL_ARGS:-}\" != *\"--kv-transfer-config\"* ]] && [[ \"${VLLM_ADDITIONAL_ARGS:-}\" != *\"--kv_transfer_config\"* ]] && [[ \"$*\" != *\"--kv-transfer-config\"* ]] && [[ \"$*\" != *\"--kv_transfer_config\"* ]]; then\n    KV_TRANSFER_ARGS=\"\"\n  fi\nfi"}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "kvTransferScript renders bash block with --kv-transfer-config from kvCacheOffloading",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"{{ kvTransferScript .Spec.KVCacheOffloading }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
-							CPU: resource.MustParse("10Gi"),
-						},
-					},
-				},
-			},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"# --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).\nKV_TRANSFER_ARGS=\"\"\nif [[ \"$VLLM_VERSION\" =~ ^[0-9]+\\.[0-9]+ ]] && [ \"$(printf '%s\\n%s\\n' \"0.22.0\" \"${VLLM_VERSION}\" | sort -V | head -1)\" = \"0.22.0\" ]; then\n  if [[ \"${VLLM_ADDITIONAL_ARGS:-}\" != *\"--kv-transfer-config\"* ]] && [[ \"${VLLM_ADDITIONAL_ARGS:-}\" != *\"--kv_transfer_config\"* ]] && [[ \"$*\" != *\"--kv-transfer-config\"* ]] && [[ \"$*\" != *\"--kv_transfer_config\"* ]]; then\n    KV_TRANSFER_ARGS=\"--kv-transfer-config '{\"kv_connector\":\"OffloadingConnector\",\"kv_connector_extra_config\":{\"cpu_bytes_to_use\":10737418240,\"spec_name\":\"TieringOffloadingSpec\"},\"kv_role\":\"kv_both\"}'\"\n  fi\nfi"}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "kvTransferScript includes eviction policy when set",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"{{ kvTransferScript .Spec.KVCacheOffloading }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
-							CPU:            resource.MustParse("5Gi"),
-							EvictionPolicy: "arc",
-						},
-					},
-				},
-			},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"# --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).\nKV_TRANSFER_ARGS=\"\"\nif [[ \"$VLLM_VERSION\" =~ ^[0-9]+\\.[0-9]+ ]] && [ \"$(printf '%s\\n%s\\n' \"0.22.0\" \"${VLLM_VERSION}\" | sort -V | head -1)\" = \"0.22.0\" ]; then\n  if [[ \"${VLLM_ADDITIONAL_ARGS:-}\" != *\"--kv-transfer-config\"* ]] && [[ \"${VLLM_ADDITIONAL_ARGS:-}\" != *\"--kv_transfer_config\"* ]] && [[ \"$*\" != *\"--kv-transfer-config\"* ]] && [[ \"$*\" != *\"--kv_transfer_config\"* ]]; then\n    KV_TRANSFER_ARGS=\"--kv-transfer-config '{\"kv_connector\":\"OffloadingConnector\",\"kv_connector_extra_config\":{\"cpu_bytes_to_use\":5368709120,\"eviction_policy\":\"arc\",\"spec_name\":\"TieringOffloadingSpec\"},\"kv_role\":\"kv_both\"}'\"\n  fi\nfi"}},
-							},
-						},
-					},
-				},
-			},
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1920,6 +1825,171 @@ func TestReplaceVariables(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestReplaceVariables_EntrypointScriptFunctions(t *testing.T) {
+	t.Run("all hardcoded gotemp functions are registered", func(t *testing.T) {
+		cfg := &v1alpha2.LLMInferenceServiceConfig{
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: v1alpha2.WorkloadSpec{
+					Template: &corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Args: []string{
+								"{{ rdmaDetectScript }}",
+								"{{ dpAddressResolveScript }}",
+								"{{ vllmVersionScript }}",
+								"{{ vllmAccessLogDetectScript }}",
+							},
+						}},
+					},
+				},
+			},
+		}
+		got, err := llmisvc.ReplaceVariables(&v1alpha2.LLMInferenceService{}, cfg, nil)
+		if err != nil {
+			t.Fatalf("ReplaceVariables() error = %v", err)
+		}
+		args := got.Spec.Template.Containers[0].Args
+		for _, check := range []struct {
+			idx    int
+			substr string
+		}{
+			{0, "KSERVE_INFER_ROCE"},
+			{1, "DP_ADDRESS"},
+			{2, "VLLM_VERSION"},
+			{3, "ACCESS_LOG_ARGS"},
+		} {
+			if !strings.Contains(args[check.idx], check.substr) {
+				t.Errorf("args[%d] should contain %q, got: %.100s", check.idx, check.substr, args[check.idx])
+			}
+		}
+	})
+
+	t.Run("shutdownTimeoutScript embeds computed timeout", func(t *testing.T) {
+		cfg := &v1alpha2.LLMInferenceServiceConfig{
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: v1alpha2.WorkloadSpec{
+					Template: &corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Args: []string{"{{ shutdownTimeoutScript .Spec.Template 15 }}"},
+						}},
+					},
+				},
+			},
+		}
+		llmSvc := &v1alpha2.LLMInferenceService{
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: v1alpha2.WorkloadSpec{
+					Template: &corev1.PodSpec{
+						TerminationGracePeriodSeconds: ptr.To(int64(90)),
+					},
+				},
+			},
+		}
+		got, err := llmisvc.ReplaceVariables(llmSvc, cfg, nil)
+		if err != nil {
+			t.Fatalf("ReplaceVariables() error = %v", err)
+		}
+		// 90 - 15 - min(5,90) = 70
+		arg := got.Spec.Template.Containers[0].Args[0]
+		if !strings.Contains(arg, "--shutdown-timeout 70") {
+			t.Errorf("shutdownTimeoutScript should embed --shutdown-timeout 70, got: %s", arg)
+		}
+	})
+
+	t.Run("kvTransferScript returns empty KV_TRANSFER_ARGS when kvCacheOffloading is nil", func(t *testing.T) {
+		cfg := &v1alpha2.LLMInferenceServiceConfig{
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: v1alpha2.WorkloadSpec{
+					Template: &corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Args: []string{"{{ kvTransferScript .Spec.KVCacheOffloading }}"},
+						}},
+					},
+				},
+			},
+		}
+		got, err := llmisvc.ReplaceVariables(&v1alpha2.LLMInferenceService{}, cfg, nil)
+		if err != nil {
+			t.Fatalf("ReplaceVariables() error = %v", err)
+		}
+		arg := got.Spec.Template.Containers[0].Args[0]
+		if !strings.Contains(arg, "KV_TRANSFER_ARGS") {
+			t.Errorf("kvTransferScript should contain KV_TRANSFER_ARGS, got: %.100s", arg)
+		}
+	})
+
+	t.Run("kvTransferScript embeds kv-transfer-config from kvCacheOffloading", func(t *testing.T) {
+		cfg := &v1alpha2.LLMInferenceServiceConfig{
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: v1alpha2.WorkloadSpec{
+					Template: &corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Args: []string{"{{ kvTransferScript .Spec.KVCacheOffloading }}"},
+						}},
+					},
+				},
+			},
+		}
+		llmSvc := &v1alpha2.LLMInferenceService{
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: v1alpha2.WorkloadSpec{
+					KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+						CPU: resource.MustParse("10Gi"),
+					},
+				},
+			},
+		}
+		got, err := llmisvc.ReplaceVariables(llmSvc, cfg, nil)
+		if err != nil {
+			t.Fatalf("ReplaceVariables() error = %v", err)
+		}
+		arg := got.Spec.Template.Containers[0].Args[0]
+		if !strings.Contains(arg, "--kv-transfer-config") {
+			t.Errorf("kvTransferScript should contain --kv-transfer-config, got: %.100s", arg)
+		}
+		if !strings.Contains(arg, "OffloadingConnector") {
+			t.Errorf("kvTransferScript should contain OffloadingConnector, got: %.100s", arg)
+		}
+		if !strings.Contains(arg, "10737418240") { // size of 10Gi
+			t.Errorf("kvTransferScript should contain cpu_bytes_to_use=10737418240, got: %.100s", arg)
+		}
+	})
+
+	t.Run("kvTransferScript includes eviction policy when set", func(t *testing.T) {
+		cfg := &v1alpha2.LLMInferenceServiceConfig{
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: v1alpha2.WorkloadSpec{
+					Template: &corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Args: []string{"{{ kvTransferScript .Spec.KVCacheOffloading }}"},
+						}},
+					},
+				},
+			},
+		}
+		llmSvc := &v1alpha2.LLMInferenceService{
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: v1alpha2.WorkloadSpec{
+					KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+						CPU:            resource.MustParse("5Gi"),
+						EvictionPolicy: "arc",
+					},
+				},
+			},
+		}
+		got, err := llmisvc.ReplaceVariables(llmSvc, cfg, nil)
+		if err != nil {
+			t.Fatalf("ReplaceVariables() error = %v", err)
+		}
+		arg := got.Spec.Template.Containers[0].Args[0]
+		if !strings.Contains(arg, "eviction_policy") {
+			t.Errorf("kvTransferScript should contain eviction_policy, got: %.100s", arg)
+		}
+		if !strings.Contains(arg, "arc") {
+			t.Errorf("kvTransferScript should contain arc eviction policy, got: %.100s", arg)
+		}
+	})
 }
 
 func mustParseURL(s string) apis.URL {

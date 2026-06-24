@@ -133,7 +133,6 @@ const rdmaDetectStr = `if [ "$KSERVE_INFER_ROCE" = "true" ]; then
   fi
 fi`
 
-
 // dpAddressResolveStr retries DNS for LWS_LEADER_ADDRESS into DP_ADDRESS for ZMQ
 const dpAddressResolveStr = `# In some versions, ZMQ bind doesn't resolve the address through DNS
 # Retry DP_ADDRESS resolution (configurable attempts, default 30)
@@ -212,7 +211,7 @@ if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "
   fi
 fi`
 
-// computeKVTransferConfig builds the --kv-transfer-config on vllm 
+// computeKVTransferConfig builds the --kv-transfer-config on vllm
 // return "" when kv cache offloading is not configured.
 func computeKVTransferConfig(spec any) string {
 	if spec == nil {
