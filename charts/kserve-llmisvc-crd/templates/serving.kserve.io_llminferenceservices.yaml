@@ -21125,6 +21125,23 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                   type: array
+                kvCacheOffloading:
+                  properties:
+                    cpu:
+                      anyOf:
+                        - type: integer
+                        - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    evictionPolicy:
+                      default: lru
+                      enum:
+                        - lru
+                        - arc
+                      type: string
+                  required:
+                    - cpu
+                  type: object
                 labels:
                   additionalProperties:
                     type: string
@@ -21195,6 +21212,23 @@ spec:
                     annotations:
                       additionalProperties:
                         type: string
+                      type: object
+                    kvCacheOffloading:
+                      properties:
+                        cpu:
+                          anyOf:
+                            - type: integer
+                            - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        evictionPolicy:
+                          default: lru
+                          enum:
+                            - lru
+                            - arc
+                          type: string
+                      required:
+                        - cpu
                       type: object
                     labels:
                       additionalProperties:
