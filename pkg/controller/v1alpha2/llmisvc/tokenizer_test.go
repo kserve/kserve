@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/yaml"
 
@@ -383,5 +384,74 @@ plugins:
 		pluginMap := plugin.(map[string]interface{})
 		g.Expect(pluginMap["type"]).NotTo(Equal("token-producer"), "no token-producer should be added")
 		g.Expect(pluginMap["type"]).NotTo(Equal("precise-prefix-cache-producer"), "no producer should be added")
+	}
+}
+
+func TestHasPrefixCachePlugin(t *testing.T) {
+	tests := []struct {
+		name string
+		spec v1alpha2.LLMInferenceServiceSpec
+		want bool
+	}{
+		{
+			name: "nil router defaults to true",
+			spec: v1alpha2.LLMInferenceServiceSpec{},
+			want: true,
+		},
+		{
+			name: "nil config defaults to true",
+			spec: v1alpha2.LLMInferenceServiceSpec{
+				Router: &v1alpha2.RouterSpec{
+					Scheduler: &v1alpha2.SchedulerSpec{},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "inline config with precise-prefix-cache-scorer",
+			spec: specWithInlineConfig(`{"plugins":[{"type":"queue-scorer"},{"type":"precise-prefix-cache-scorer"}]}`),
+			want: true,
+		},
+		{
+			name: "inline config without precise-prefix-cache-scorer",
+			spec: specWithInlineConfig(`{"plugins":[{"type":"queue-scorer"},{"type":"max-score-picker"}]}`),
+			want: false,
+		},
+		{
+			name: "inline config with empty plugins",
+			spec: specWithInlineConfig(`{"plugins":[]}`),
+			want: false,
+		},
+		{
+			name: "inline config with no plugins field",
+			spec: specWithInlineConfig(`{"apiVersion":"v1alpha1"}`),
+			want: false,
+		},
+		{
+			name: "invalid JSON defaults to true",
+			spec: specWithInlineConfig(`not valid json`),
+			want: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := hasPrefixCachePlugin(tc.spec)
+			if got != tc.want {
+				t.Errorf("hasPrefixCachePlugin() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func specWithInlineConfig(rawJSON string) v1alpha2.LLMInferenceServiceSpec {
+	return v1alpha2.LLMInferenceServiceSpec{
+		Router: &v1alpha2.RouterSpec{
+			Scheduler: &v1alpha2.SchedulerSpec{
+				Config: &v1alpha2.SchedulerConfigSpec{
+					Inline: &runtime.RawExtension{Raw: []byte(rawJSON)},
+				},
+			},
+		},
 	}
 }

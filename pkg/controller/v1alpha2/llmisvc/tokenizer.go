@@ -18,6 +18,7 @@ package llmisvc
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path"
 
@@ -90,6 +91,31 @@ func shouldDeployStandaloneTokenizer(spec v1alpha2.LLMInferenceServiceSpec) bool
 		schedulerVersionAtLeast(spec, tokenizerVersionGate)
 }
 
+// hasPrefixCachePlugin reports whether the scheduler's EndpointPickerConfig
+// contains the precise-prefix-cache-scorer plugin. It returns true when the
+// plugin is present or when the config cannot be inspected (e.g. ConfigMap ref),
+// so callers default to deploying the tokenizer in ambiguous cases.
+func hasPrefixCachePlugin(spec v1alpha2.LLMInferenceServiceSpec) bool {
+	if spec.Router == nil || spec.Router.Scheduler == nil ||
+		spec.Router.Scheduler.Config == nil || spec.Router.Scheduler.Config.Inline == nil {
+		return true
+	}
+	var cfg struct {
+		Plugins []struct {
+			Type string `json:"type"`
+		} `json:"plugins"`
+	}
+	if err := json.Unmarshal(spec.Router.Scheduler.Config.Inline.Raw, &cfg); err != nil {
+		return true
+	}
+	for _, p := range cfg.Plugins {
+		if p.Type == precisePrefixCacheScorerPlugin {
+			return true
+		}
+	}
+	return false
+}
+
 // reconcileTokenizer creates or deletes the standalone tokenizer Deployment and
 // its associated ClusterIP Service. It is called from reconcileScheduler.
 func (r *LLMISVCReconciler) reconcileTokenizer(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
@@ -105,7 +131,7 @@ func (r *LLMISVCReconciler) reconcileTokenizerDeployment(ctx context.Context, ll
 		return fmt.Errorf("failed to build expected tokenizer deployment: %w", err)
 	}
 
-	if isStopped := utils.GetForceStopRuntime(llmSvc); isStopped || !shouldDeployStandaloneTokenizer(llmSvc.Spec) {
+	if isStopped := utils.GetForceStopRuntime(llmSvc); isStopped || !shouldDeployStandaloneTokenizer(llmSvc.Spec) || !hasPrefixCachePlugin(llmSvc.Spec) {
 		return Delete(ctx, r, llmSvc, expected)
 	}
 
@@ -118,7 +144,7 @@ func (r *LLMISVCReconciler) reconcileTokenizerDeployment(ctx context.Context, ll
 func (r *LLMISVCReconciler) reconcileTokenizerService(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
 	expected := r.expectedTokenizerService(llmSvc)
 
-	if isStopped := utils.GetForceStopRuntime(llmSvc); isStopped || !shouldDeployStandaloneTokenizer(llmSvc.Spec) {
+	if isStopped := utils.GetForceStopRuntime(llmSvc); isStopped || !shouldDeployStandaloneTokenizer(llmSvc.Spec) || !hasPrefixCachePlugin(llmSvc.Spec) {
 		return Delete(ctx, r, llmSvc, expected)
 	}
 
