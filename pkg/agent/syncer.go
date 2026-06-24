@@ -71,7 +71,7 @@ func SyncModelDir(modelDir string, logger *zap.SugaredLogger) (map[string]modelW
 		return nil
 	})
 	if err != nil {
-		return nil, errors.Wrapf(err, "error in syncing model dir")
+		return modelTracker, errors.Wrapf(err, "error in syncing model dir")
 	}
 	return modelTracker, nil
 }
