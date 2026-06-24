@@ -317,6 +317,8 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, err
 	}
 
+	migrateTokenizerToExplicitField(&llmSvcCfg.Spec)
+
 	injectManagedDRAIntoConfig(llmSvc, llmSvcCfg)
 
 	// Update HTTPRoute parentRefs to point to the custom gateway if Gateway.Refs is specified.
@@ -446,6 +448,60 @@ func isUsingTokenizerSidecar(spec v1alpha2.LLMInferenceServiceSpec) bool {
 		return false
 	}
 	return utils.GetContainerWithName(spec.Router.Scheduler.Template, tokenizerContainerName) != nil
+}
+
+// migrateTokenizerToExplicitField strips any legacy tokenizer sidecar from the
+// scheduler template when the scheduler version is >= 0.9.0. The standalone
+// tokenizer Deployment is driven entirely by the explicit scheduler.tokenizer
+// field (populated by the system config); this function only cleans up old
+// configs that still embed the tokenizer container in the scheduler template.
+func migrateTokenizerToExplicitField(spec *v1alpha2.LLMInferenceServiceSpec) {
+	if spec.Router == nil || spec.Router.Scheduler == nil {
+		return
+	}
+	if !schedulerVersionAtLeast(*spec, tokenizerVersionGate) {
+		return
+	}
+	stripTokenizerFromTemplate(spec)
+}
+
+// stripTokenizerFromTemplate removes the tokenizer container and its exclusive
+// volumes from the scheduler template. Used during migration to the explicit field.
+func stripTokenizerFromTemplate(spec *v1alpha2.LLMInferenceServiceSpec) {
+	tmpl := spec.Router.Scheduler.Template
+	if tmpl == nil {
+		return
+	}
+	idx := -1
+	for i := range tmpl.Containers {
+		if tmpl.Containers[i].Name == tokenizerContainerName {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 {
+		return
+	}
+
+	mountNames := make(map[string]bool)
+	for _, vm := range tmpl.Containers[idx].VolumeMounts {
+		mountNames[vm.Name] = true
+	}
+	tmpl.Containers = append(tmpl.Containers[:idx], tmpl.Containers[idx+1:]...)
+
+	usedByOthers := make(map[string]bool)
+	for _, c := range tmpl.Containers {
+		for _, vm := range c.VolumeMounts {
+			usedByOthers[vm.Name] = true
+		}
+	}
+	var filtered []corev1.Volume
+	for _, v := range tmpl.Volumes {
+		if !mountNames[v.Name] || usedByOthers[v.Name] {
+			filtered = append(filtered, v)
+		}
+	}
+	tmpl.Volumes = filtered
 }
 
 func (r *LLMISVCReconciler) isModelBasedRoutingEnabled(

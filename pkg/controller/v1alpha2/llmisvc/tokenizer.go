@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"path"
-	"slices"
 
 	"github.com/coreos/go-semver/semver"
 	appsv1 "k8s.io/api/apps/v1"
@@ -79,49 +78,16 @@ func schedulerVersionAtLeast(spec v1alpha2.LLMInferenceServiceSpec, threshold se
 	return v.Compare(threshold) >= 0
 }
 
-// shouldDeployStandaloneTokenizer returns true when the tokenizer container in
-// the scheduler template should be extracted into a separate Deployment rather
-// than kept as a sidecar. This is the case when:
-//  1. A scheduler with a pod template is configured (not an external pool ref)
-//  2. The template contains a container named "tokenizer"
-//  3. The scheduler version annotation is >= tokenizerVersionGate
+// shouldDeployStandaloneTokenizer returns true when the explicit Tokenizer field
+// is set on the scheduler spec AND the scheduler version is >= 0.9.0. The version
+// gate ensures that old scheduler binaries (which only understand UDS sidecars)
+// are not paired with a standalone tokenizer Deployment.
 func shouldDeployStandaloneTokenizer(spec v1alpha2.LLMInferenceServiceSpec) bool {
-	if !isUsingTokenizerSidecar(spec) {
-		return false
-	}
-	return schedulerVersionAtLeast(spec, tokenizerVersionGate)
-}
-
-// extractTokenizerContainer returns a deep copy of the tokenizer container and
-// its associated volumes from the scheduler template. Returns nil if not found.
-func extractTokenizerContainer(spec v1alpha2.LLMInferenceServiceSpec) (*corev1.Container, []corev1.Volume) {
-	if spec.Router == nil || spec.Router.Scheduler == nil || spec.Router.Scheduler.Template == nil {
-		return nil, nil
-	}
-	tmpl := spec.Router.Scheduler.Template
-
-	idx := slices.IndexFunc(tmpl.Containers, func(c corev1.Container) bool {
-		return c.Name == tokenizerContainerName
-	})
-	if idx < 0 {
-		return nil, nil
-	}
-
-	container := tmpl.Containers[idx].DeepCopy()
-
-	// Collect volumes referenced by the tokenizer container's volume mounts.
-	mountNames := make(map[string]bool, len(container.VolumeMounts))
-	for _, vm := range container.VolumeMounts {
-		mountNames[vm.Name] = true
-	}
-	var volumes []corev1.Volume
-	for _, v := range tmpl.Volumes {
-		if mountNames[v.Name] {
-			volumes = append(volumes, *v.DeepCopy())
-		}
-	}
-
-	return container, volumes
+	return spec.Router != nil &&
+		spec.Router.Scheduler != nil &&
+		spec.Router.Scheduler.Tokenizer != nil &&
+		spec.Router.Scheduler.Tokenizer.Template != nil &&
+		schedulerVersionAtLeast(spec, tokenizerVersionGate)
 }
 
 // reconcileTokenizer creates or deletes the standalone tokenizer Deployment and
@@ -186,26 +152,23 @@ func (r *LLMISVCReconciler) expectedTokenizerDeployment(ctx context.Context, llm
 		},
 	}
 
-	if !shouldDeployStandaloneTokenizer(llmSvc.Spec) {
+	tokSpec := llmSvc.Spec.Router.Scheduler.Tokenizer
+	if !shouldDeployStandaloneTokenizer(llmSvc.Spec) || tokSpec == nil {
 		return d, nil
 	}
 
-	container, volumes := extractTokenizerContainer(llmSvc.Spec)
-	if container == nil {
-		return d, nil
+	d.Spec.Template.Spec = *tokSpec.Template.DeepCopy()
+	if tokSpec.Replicas != nil {
+		d.Spec.Replicas = tokSpec.Replicas
 	}
+	d.Spec.Template.Labels = labels
 
-	d.Spec.Template.Spec.Containers = []corev1.Container{*container}
-	d.Spec.Template.Spec.Volumes = volumes
-
-	// Reuse the scheduler SA which has credentials propagated from the main workload SA.
 	sa, _, saErr := r.expectedSchedulerServiceAccount(ctx, llmSvc)
 	if saErr != nil {
 		return d, fmt.Errorf("failed to get scheduler service account for tokenizer: %w", saErr)
 	}
 	d.Spec.Template.Spec.ServiceAccountName = sa.GetName()
 
-	// Attach model artifacts so the tokenizer can download the model tokenizer files.
 	config, err := r.loadConfig(ctx)
 	if err != nil {
 		return d, fmt.Errorf("failed to load config for tokenizer deployment: %w", err)

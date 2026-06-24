@@ -104,69 +104,73 @@ spec:
               - mountPath: /var/run/kserve/tls
                 name: tls-certs
                 readOnly: true
-          - name: tokenizer
-            image: vllm/vllm-openai-cpu:v0.23.0
-            imagePullPolicy: IfNotPresent
-            command: ["vllm"]
-            args: ["launch", "render", "--port=8000"]
-            workingDir: /mnt/models
-            env:
-              - name: USER
-                value: "vllm"
-            ports:
-              - containerPort: 8000
-                name: http
-                protocol: TCP
-            livenessProbe:
-              httpGet:
-                path: /health
-                port: 8000
-              periodSeconds: 15
-              timeoutSeconds: 5
-              failureThreshold: 3
-            readinessProbe:
-              httpGet:
-                path: /health
-                port: 8000
-              periodSeconds: 10
-              timeoutSeconds: 5
-              failureThreshold: 3
-            startupProbe:
-              httpGet:
-                path: /health
-                port: 8000
-              periodSeconds: 10
-              initialDelaySeconds: 5
-              timeoutSeconds: 5
-              failureThreshold: 60
-            resources:
-              requests:
-                cpu: 256m
-                memory: 500Mi
-            terminationMessagePath: /dev/termination-log
-            terminationMessagePolicy: FallbackToLogsOnError
-            securityContext:
-              allowPrivilegeEscalation: false
-              runAsNonRoot: true
-              runAsUser: 1000
-              capabilities:
-                drop:
-                  - ALL
-              seccompProfile:
-                type: RuntimeDefault
-            volumeMounts:
-              - mountPath: /tmp
-                name: tokenizer-tmp
-              - mountPath: /.cache
-                name: tokenizer-cache
         volumes:
           - name: tls-certs
             secret:
               secretName: "{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}"
-          - name: tokenizer-tmp
-            emptyDir: {}
-          - name: tokenizer-cache
-            emptyDir: {}
         dnsPolicy: ClusterFirst
         restartPolicy: Always
         terminationGracePeriodSeconds: 60 # must be >= workload terminationGracePeriodSeconds
+      tokenizer:
+        template:
+          containers:
+            - name: tokenizer
+              image: vllm/vllm-openai-cpu:v0.23.0
+              imagePullPolicy: IfNotPresent
+              command: ["vllm"]
+              args: ["launch", "render", "--port=8000"]
+              workingDir: /mnt/models
+              env:
+                - name: USER
+                  value: "vllm"
+              ports:
+                - containerPort: 8000
+                  name: http
+                  protocol: TCP
+              livenessProbe:
+                httpGet:
+                  path: /health
+                  port: 8000
+                periodSeconds: 15
+                timeoutSeconds: 5
+                failureThreshold: 3
+              readinessProbe:
+                httpGet:
+                  path: /health
+                  port: 8000
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 3
+              startupProbe:
+                httpGet:
+                  path: /health
+                  port: 8000
+                periodSeconds: 10
+                initialDelaySeconds: 5
+                timeoutSeconds: 5
+                failureThreshold: 60
+              resources:
+                requests:
+                  cpu: 256m
+                  memory: 500Mi
+              terminationMessagePath: /dev/termination-log
+              terminationMessagePolicy: FallbackToLogsOnError
+              securityContext:
+                allowPrivilegeEscalation: false
+                runAsNonRoot: true
+                runAsUser: 1000
+                capabilities:
+                  drop:
+                    - ALL
+                seccompProfile:
+                  type: RuntimeDefault
+              volumeMounts:
+                - mountPath: /tmp
+                  name: tokenizer-tmp
+                - mountPath: /.cache
+                  name: tokenizer-cache
+          volumes:
+            - name: tokenizer-tmp
+              emptyDir: {}
+            - name: tokenizer-cache
+              emptyDir: {}

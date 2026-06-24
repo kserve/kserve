@@ -417,57 +417,52 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 			injectSchedulerTracing(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), mainContainer)
 		}
 
-		if isUsingTokenizerSidecar(llmSvc.Spec) {
-			if shouldDeployStandaloneTokenizer(llmSvc.Spec) {
-				// Standalone tokenizer Deployment path (>= 0.9.0): the tokenizer
-				// container is extracted into its own Deployment by reconcileTokenizer.
-				// Strip it from the scheduler pod and decompose the precise-prefix-cache-scorer
-				// plugin into the new 3-plugin pipeline (token-producer + precise-prefix-cache-producer
-				// + prefix-cache-scorer) that the v0.9.0+ router expects.
-				stripTokenizerSidecar(d)
-				endpointURL := tokenizerEndpointURL(llmSvc)
-				if err := mutateSchedulerConfig(ctx, d, WithTokenProducerPlugin(endpointURL)); err != nil {
-					return d, fmt.Errorf("failed to mutate scheduler config with token-producer plugin: %w", err)
+		if shouldDeployStandaloneTokenizer(llmSvc.Spec) {
+			// Standalone tokenizer path: the tokenizer is in the explicit Tokenizer
+			// field (populated by migration or set directly). Decompose the
+			// precise-prefix-cache-scorer into the 3-plugin pipeline.
+			endpointURL := tokenizerEndpointURL(llmSvc)
+			if err := mutateSchedulerConfig(ctx, d, WithTokenProducerPlugin(endpointURL)); err != nil {
+				return d, fmt.Errorf("failed to mutate scheduler config with token-producer plugin: %w", err)
+			}
+		} else if isUsingTokenizerSidecar(llmSvc.Spec) {
+			// Legacy UDS tokenizer sidecar path (scheduler version < 0.9.0).
+			var existingServiceAccount *corev1.ServiceAccount
+			if llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName != "" {
+				existingServiceAccount = &corev1.ServiceAccount{}
+				err := r.Get(ctx, types.NamespacedName{Name: llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
+				if err != nil {
+					if !apierrors.IsNotFound(err) {
+						return d, fmt.Errorf("failed to fetch existing scheduler service account %s/%s: %w", llmSvc.Namespace, llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName, err)
+					}
+					existingServiceAccount = nil
 				}
 			} else {
-				// Legacy UDS tokenizer sidecar path (backward compatibility).
-				var existingServiceAccount *corev1.ServiceAccount
-				if llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName != "" {
-					existingServiceAccount = &corev1.ServiceAccount{}
-					err := r.Get(ctx, types.NamespacedName{Name: llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
-					if err != nil {
-						if !apierrors.IsNotFound(err) {
-							return d, fmt.Errorf("failed to fetch existing scheduler service account %s/%s: %w", llmSvc.Namespace, llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName, err)
-						}
-						existingServiceAccount = nil
-					}
-				} else {
-					sa, _, saErr := r.expectedSchedulerServiceAccount(ctx, llmSvc)
-					if saErr != nil {
-						return d, fmt.Errorf("failed to get expected scheduler service account: %w", saErr)
-					}
-					existingServiceAccount = sa
+				sa, _, saErr := r.expectedSchedulerServiceAccount(ctx, llmSvc)
+				if saErr != nil {
+					return d, fmt.Errorf("failed to get expected scheduler service account: %w", saErr)
 				}
+				existingServiceAccount = sa
+			}
 
-				curr := &appsv1.Deployment{}
-				if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
-					return d, fmt.Errorf("failed to get current scheduler deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
-				}
+			curr := &appsv1.Deployment{}
+			if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
+				return d, fmt.Errorf("failed to get current scheduler deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
+			}
 
-				config, err := r.loadConfig(ctx)
-				if err != nil {
-					return d, fmt.Errorf("failed to load config for scheduler deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
-				}
+			config, err := r.loadConfig(ctx)
+			if err != nil {
+				return d, fmt.Errorf("failed to load config for scheduler deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
+			}
 
-				modelPath := path.Join(constants.DefaultModelLocalMountPath, "base")
+			modelPath := path.Join(constants.DefaultModelLocalMountPath, "base")
 
-				if err := r.attachModelArtifacts(ctx, existingServiceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, tokenizerContainerName, modelPath, constants.LLMISVCSchedulerAttachesLoRA); err != nil {
-					return d, fmt.Errorf("failed to attach model artifacts to scheduler deployment: %w", err)
-				}
+			if err := r.attachModelArtifacts(ctx, existingServiceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, tokenizerContainerName, modelPath, constants.LLMISVCSchedulerAttachesLoRA); err != nil {
+				return d, fmt.Errorf("failed to attach model artifacts to scheduler deployment: %w", err)
+			}
 
-				if err := mutateSchedulerConfig(ctx, d, WithUdsTokenizerConfig, WithMigrateTokenProcessorConfig, WithMigrateBlockSizeToBlockSizeTokens); err != nil {
-					return d, fmt.Errorf("failed to mutate scheduler config: %w", err)
-				}
+			if err := mutateSchedulerConfig(ctx, d, WithUdsTokenizerConfig, WithMigrateTokenProcessorConfig, WithMigrateBlockSizeToBlockSizeTokens); err != nil {
+				return d, fmt.Errorf("failed to mutate scheduler config: %w", err)
 			}
 		}
 
@@ -1572,42 +1567,6 @@ func withRemoveUnnecessaryTokenizer(d *appsv1.Deployment) mutateSchedulerConfigF
 		}
 
 		return nil
-	}
-}
-
-// stripTokenizerSidecar removes the tokenizer container and its associated
-// UDS-related volumes from the scheduler Deployment. Called when the standalone
-// tokenizer Deployment path is active, so the scheduler doesn't carry a
-// now-unnecessary sidecar.
-func stripTokenizerSidecar(d *appsv1.Deployment) {
-	containers := d.Spec.Template.Spec.Containers
-	for i := range containers {
-		if containers[i].Name == tokenizerContainerName {
-			containers = append(containers[:i], containers[i+1:]...)
-			d.Spec.Template.Spec.Containers = containers
-			break
-		}
-	}
-
-	udsVolumeNames := sets.New("tokenizer-uds", "tokenizer-tmp", "tokenizer-cache")
-	var filteredVolumes []corev1.Volume
-	for _, v := range d.Spec.Template.Spec.Volumes {
-		if !udsVolumeNames.Has(v.Name) {
-			filteredVolumes = append(filteredVolumes, v)
-		}
-	}
-	d.Spec.Template.Spec.Volumes = filteredVolumes
-
-	// Also clean up UDS volume mounts from the main container.
-	for ci := range d.Spec.Template.Spec.Containers {
-		c := &d.Spec.Template.Spec.Containers[ci]
-		var filteredMounts []corev1.VolumeMount
-		for _, vm := range c.VolumeMounts {
-			if !udsVolumeNames.Has(vm.Name) {
-				filteredMounts = append(filteredMounts, vm)
-			}
-		}
-		c.VolumeMounts = filteredMounts
 	}
 }
 

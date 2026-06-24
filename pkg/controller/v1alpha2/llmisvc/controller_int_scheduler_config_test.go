@@ -1336,6 +1336,47 @@ schedulingProfiles:
 		})
 	})
 
+	Context("Standalone tokenizer with custom replicas", func() {
+		It("should honor TokenizerSpec.Replicas in the tokenizer Deployment", func(ctx SpecContext) {
+			svcName := "test-llm-tok-replicas"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+			)
+			llmSvc.Spec.Router.Scheduler.Tokenizer = &v1alpha2.TokenizerSpec{
+				Replicas: ptr.To(int32(3)),
+			}
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			tokenizerDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				if err := envTest.Get(ctx, types.NamespacedName{
+					Name:      kmeta.ChildName(svcName, "-kserve-tokenizer"),
+					Namespace: testNs.Name,
+				}, tokenizerDeployment); err != nil {
+					return err
+				}
+
+				g.Expect(tokenizerDeployment.Spec.Replicas).NotTo(BeNil())
+				g.Expect(*tokenizerDeployment.Spec.Replicas).To(Equal(int32(3)),
+					"tokenizer Deployment should use the Replicas value from TokenizerSpec")
+				g.Expect(tokenizerDeployment.Spec.Template.Spec.Containers).To(HaveLen(1))
+				g.Expect(tokenizerDeployment.Spec.Template.Spec.Containers[0].Name).To(Equal("tokenizer"))
+
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+		})
+	})
+
 	Context("Standalone tokenizer cleanup on force-stop", func() {
 		It("should delete tokenizer Deployment and Service when stop annotation is set", func(ctx SpecContext) {
 			// given
@@ -1468,9 +1509,16 @@ schedulingProfiles:
 				WithManagedScheduler(),
 				WithSchedulerConfigInline(precisePrefixConfig),
 			)
-			// Override the scheduler version to below the gate
+			// Override the scheduler version to below the gate and add the
+			// tokenizer container as a sidecar in the template (old format).
 			llmSvc.Spec.Router.Scheduler.Annotations = map[string]string{
 				"app.kubernetes.io/version": "0.8.0",
+			}
+			llmSvc.Spec.Router.Scheduler.Tokenizer = nil
+			llmSvc.Spec.Router.Scheduler.Template = &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{Name: "tokenizer", Image: "vllm/vllm-openai-cpu:v0.23.0"},
+				},
 			}
 
 			// when
