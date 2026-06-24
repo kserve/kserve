@@ -47,6 +47,27 @@ import (
 	s3credential "github.com/kserve/kserve/pkg/credentials/s3"
 )
 
+func safeLocalModelPath(baseDir string, objectPath string) (string, error) {
+	baseDir = filepath.Clean(baseDir)
+	normalizedObjectPath := strings.ReplaceAll(objectPath, "\\", "/")
+	trimmedObjectPath := strings.TrimLeft(normalizedObjectPath, "/")
+	for _, segment := range strings.Split(trimmedObjectPath, "/") {
+		if segment == ".." {
+			return "", fmt.Errorf("path traversal detected in object path: %s", objectPath)
+		}
+	}
+
+	candidate := filepath.Clean(filepath.Join(baseDir, filepath.FromSlash(trimmedObjectPath)))
+	relativePath, err := filepath.Rel(baseDir, candidate)
+	if err != nil {
+		return "", fmt.Errorf("unable to validate object path %s: %w", objectPath, err)
+	}
+	if relativePath == ".." || strings.HasPrefix(relativePath, ".."+string(os.PathSeparator)) || filepath.IsAbs(relativePath) {
+		return "", fmt.Errorf("object path escapes model directory: %s", objectPath)
+	}
+	return candidate, nil
+}
+
 func FileExists(filename string) bool {
 	info, err := os.Stat(filename)
 	if os.IsNotExist(err) {
