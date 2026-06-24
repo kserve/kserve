@@ -13,12 +13,13 @@ spec:
   replicas: 2
   router:
     scheduler:
-      template:
-        containers:
-          - name: tokenizer
-            env:
-              - name: LOG_LEVEL
-                value: DEBUG
+      tokenizer:
+        template:
+          containers:
+            - name: tokenizer
+              env:
+                - name: LOG_LEVEL
+                  value: DEBUG
       config:
         inline:
           apiVersion: inference.networking.x-k8s.io/v1alpha1

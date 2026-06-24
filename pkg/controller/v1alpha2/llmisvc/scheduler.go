@@ -418,15 +418,22 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 		}
 
 		if shouldDeployStandaloneTokenizer(llmSvc.Spec) {
-			// Standalone tokenizer path: the tokenizer is in the explicit Tokenizer
-			// field (populated by migration or set directly). Decompose the
-			// precise-prefix-cache-scorer into the 3-plugin pipeline.
+			// Standalone tokenizer Deployment path (>= 0.9.0): the tokenizer runs
+			// as its own Deployment (reconciled by reconcileTokenizer) using the
+			// explicit scheduler.tokenizer field. Decompose the
+			// precise-prefix-cache-scorer plugin into the new 3-plugin pipeline
+			// (token-producer + precise-prefix-cache-producer + prefix-cache-scorer)
+			// that the v0.9.0+ router expects, with the token-producer pointing
+			// at the tokenizer Service URL.
 			endpointURL := tokenizerEndpointURL(llmSvc)
 			if err := mutateSchedulerConfig(ctx, d, WithTokenProducerPlugin(endpointURL)); err != nil {
 				return d, fmt.Errorf("failed to mutate scheduler config with token-producer plugin: %w", err)
 			}
 		} else if isUsingTokenizerSidecar(llmSvc.Spec) {
-			// Legacy UDS tokenizer sidecar path (scheduler version < 0.9.0).
+			// Legacy UDS tokenizer sidecar path (backward compatibility for
+			// scheduler version < 0.9.0): inject UDS tokenizer settings, migrate
+			// tokenProcessorConfig from indexerConfig to top-level parameters, and
+			// rename deprecated blockSize to blockSizeTokens (schema changes in v0.6.0).
 			var existingServiceAccount *corev1.ServiceAccount
 			if llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName != "" {
 				existingServiceAccount = &corev1.ServiceAccount{}
@@ -1475,7 +1482,6 @@ func schedulerTransform(ctx context.Context, d *appsv1.Deployment) error {
 	}
 	if v.Compare(*semver.New("0.9.0")) >= 0 {
 		opts = append(opts, withRemovePrefixCacheScorerParametersV09)
-		opts = append(opts, withRemoveUnnecessaryTokenizer(d))
 	}
 
 	if err := mutateSchedulerConfig(ctx, d, opts...); err != nil {
@@ -1536,38 +1542,6 @@ func withRemovePrefixCacheScorerParametersV09(ctx context.Context, u *unstructur
 	}
 
 	return nil
-}
-
-func withRemoveUnnecessaryTokenizer(d *appsv1.Deployment) mutateSchedulerConfigFunc {
-	return func(ctx context.Context, u *unstructured.Unstructured) error {
-		val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
-		if err != nil || !found {
-			return err
-		}
-		plugins, ok := val.([]interface{})
-		if !ok {
-			return nil
-		}
-
-		hasPrecisePrefix := false
-		for _, plugin := range plugins {
-			pluginMap, ok := plugin.(map[string]interface{})
-			if ok && pluginMap["type"] == precisePrefixCacheScorerPlugin {
-				hasPrecisePrefix = true
-				break
-			}
-		}
-		if !hasPrecisePrefix {
-			for i := range d.Spec.Template.Spec.Containers {
-				if d.Spec.Template.Spec.Containers[i].Name == tokenizerContainerName {
-					d.Spec.Template.Spec.Containers = append(d.Spec.Template.Spec.Containers[:i], d.Spec.Template.Spec.Containers[i+1:]...)
-					break
-				}
-			}
-		}
-
-		return nil
-	}
 }
 
 // withMigrateDisaggProfileHandler renames the pd-profile-handler plugin to
