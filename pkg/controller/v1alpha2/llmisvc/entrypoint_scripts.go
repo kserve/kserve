@@ -194,10 +194,6 @@ fi`
 // *corev1.PodSpec (or nil): max(0, tgps - preStop - min(5, tgps)).
 // tgps defaults to 60 when unset. The 5-second buffer reserves time for signal
 // propagation and final process cleanup before Kubernetes sends SIGKILL.
-// escapeForJSON returns s with characters escaped for safe embedding inside
-// a JSON string value (without the surrounding quotes). This is necessary
-// because ReplaceVariables renders Go templates over the JSON-marshalled config,
-// so template output lands inside JSON string literals.
 func computeShutdownTimeout(spec any, preStop int64) int64 {
 	const defaultTGPS = int64(60)
 	var tgpsVal int64
