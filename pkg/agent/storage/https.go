@@ -150,6 +150,11 @@ func createNewFile(fileFullName string) (*os.File, error) {
 	protectedPaths := []string{"/etc", "/bin", "/dev", "/usr/bin", "/sbin", "/usr/sbin"}
 	fileFullName = filepath.Clean(fileFullName)
 
+	// Reject root, current directory, and empty paths
+	if fileFullName == "." || fileFullName == "" || fileFullName == "/" {
+		return nil, fmt.Errorf("please provide the full file path. The provided path [%s] is not valid", fileFullName)
+	}
+
 	// Check if path starts with any protected directory
 	for _, protectedPath := range protectedPaths {
 		if strings.HasPrefix(fileFullName, protectedPath+"/") || fileFullName == protectedPath {
@@ -157,13 +162,10 @@ func createNewFile(fileFullName string) (*os.File, error) {
 		}
 	}
 
-	// Reject any path containing traversal sequences upfront
-	if strings.Contains(fileFullName, "..") {
+	// Reject relative paths that escape upward. After filepath.Clean,
+	// ".." components can only remain at the start of a relative path.
+	if strings.HasPrefix(fileFullName, "..") {
 		return nil, fmt.Errorf("path traversal detected in file path: %s", fileFullName)
-	}
-	// Reject paths that resolve to current directory or empty
-	if fileFullName == "." || fileFullName == "" {
-		return nil, fmt.Errorf("please provide the full file path. The provided path [%s] is not valid", fileFullName)
 	}
 
 	if FileExists(fileFullName) {

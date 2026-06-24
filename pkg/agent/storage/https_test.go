@@ -59,6 +59,12 @@ func TestCreateNewFileValidation(t *testing.T) {
 			description:   "Should reject empty paths",
 		},
 		{
+			name:          "Root path",
+			inputPath:     "/",
+			shouldSucceed: false,
+			description:   "Should reject root filesystem path",
+		},
+		{
 			name:          "Path that resolves to current dir",
 			inputPath:     "./././.",
 			shouldSucceed: false,
@@ -71,10 +77,10 @@ func TestCreateNewFileValidation(t *testing.T) {
 			description:   "Should reject paths that resolve to parent directory",
 		},
 		{
-			name:          "Path with traversal but valid destination",
-			inputPath:     "/tmp/../model.bin",
-			shouldSucceed: false,
-			description:   "Should reject any path containing '..' even if it resolves to valid location",
+			name:          "Path with traversal resolving to valid absolute path",
+			inputPath:     "/tmp/foo/../model.bin",
+			shouldSucceed: true,
+			description:   "filepath.Clean resolves /tmp/foo/../model.bin to /tmp/model.bin which is a valid path",
 		},
 		// Protected paths test cases
 		{
