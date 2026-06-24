@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 
@@ -281,8 +282,49 @@ func semanticScaledObjectEquals(desired, existing *kedav1alpha1.ScaledObject) bo
 	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec)
 }
 
+// cleanupLegacyHPA deletes a KServe-owned HPA with the same name as the ScaledObject, if one exists.
+// This handles the migration case: when the autoscalerClass annotation is changed from "hpa" to "keda",
+// the HPA reconciler is no longer invoked (a KedaReconciler is created instead), so the old HPA would
+// never be cleaned up. The old HPA must be removed before KEDA's admission webhook will accept the
+// new ScaledObject targeting the same Deployment.
+func (r *KedaReconciler) cleanupLegacyHPA(ctx context.Context, name, namespace string) error {
+	existingHPA := &autoscalingv2.HorizontalPodAutoscaler{}
+	err := r.client.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, existingHPA)
+	if apierr.IsNotFound(err) {
+		return nil // nothing to clean up
+	}
+	if err != nil {
+		return fmt.Errorf("failed to get legacy HPA %s/%s: %w", namespace, name, err)
+	}
+
+	// Only delete HPAs that are owned by an InferenceService to avoid touching user-managed HPAs.
+	isOwnedByKServe := false
+	for _, ref := range existingHPA.OwnerReferences {
+		if strings.HasPrefix(ref.APIVersion, "serving.kserve.io") && ref.Kind == "InferenceService" {
+			isOwnedByKServe = true
+			break
+		}
+	}
+	if !isOwnedByKServe {
+		return nil
+	}
+
+	log.Info("Deleting legacy HPA before creating KEDA ScaledObject", "namespace", namespace, "name", name)
+	if err := r.client.Delete(ctx, existingHPA); err != nil && !apierr.IsNotFound(err) {
+		return fmt.Errorf("failed to delete legacy HPA %s/%s: %w", namespace, name, err)
+	}
+	return nil
+}
+
 func (r *KedaReconciler) Reconcile(ctx context.Context) error {
 	desired := r.ScaledObject
+
+	// Clean up any legacy KServe-managed HPA left over from before the autoscalerClass was changed
+	// to "keda". The HPA reconciler is not called when autoscalerClass=keda, so without this step
+	// the old HPA would block KEDA's admission webhook from accepting the new ScaledObject.
+	if err := r.cleanupLegacyHPA(ctx, desired.Name, desired.Namespace); err != nil {
+		return err
+	}
 
 	existing := &kedav1alpha1.ScaledObject{}
 	getExistingErr := r.client.Get(ctx, types.NamespacedName{
