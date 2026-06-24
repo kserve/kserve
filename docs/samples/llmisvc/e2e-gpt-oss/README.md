@@ -233,8 +233,8 @@ for an in depth description.
 
 This creates `llmisvc-config-pd-disagg`. It adds:
 
-- Decode container with vLLM args: `--kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_both\"}'"`
-- Prefill container with 2 replicas and same vLLM args 
+- Decode container with vLLM args: `--kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_consumer\"}'"`
+- Prefill container with 2 replicas and vLLM args: `--kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_producer\"}'"`
 - Scheduler needs `hf-token` secret for tokenizer download (already created above)
 
 ### 9.2 Switch Inference to prefill/decode disaggregation
