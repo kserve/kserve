@@ -172,24 +172,97 @@ type WorkloadSpec struct {
 	// +optional
 	Worker *corev1.PodSpec `json:"worker,omitempty"`
 
-	// KVCacheOffloading configures multi-tier KV cache CPU offloading for this workload.
+	// KVCacheOffloading configures multi-tier KV cache offloading for this workload.
 	// The controller translates this into --kv-transfer-config for the vLLM serve command.
+	// Requires vLLM 0.22 or llm-d 0.8
 	// +optional
 	KVCacheOffloading *KVCacheOffloadingSpec `json:"kvCacheOffloading,omitempty"`
 }
 
-// KVCacheOffloadingSpec configures KV cache offloading via vLLM's OffloadingConnector.
-type KVCacheOffloadingSpec struct {
-	// CPU is the amount of CPU RAM to allocate as the primary KV cache tier
-	// (maps to vLLM kv_connector_extra_config.cpu_bytes_to_use). Accepts standard
-	// Kubernetes quantity notation, e.g. "10Gi".
-	CPU resource.Quantity `json:"cpu"`
+// KVCacheOffloadingMode set offloading strategy.
+// +kubebuilder:validation:Enum=cpu;fs;obj
+type KVCacheOffloadingMode string
 
-	// EvictionPolicy for the primary CPU KV cache tier. Defaults to "lru".
+const (
+	KVCacheOffloadingModeCPU KVCacheOffloadingMode = "cpu"
+	KVCacheOffloadingModeFS  KVCacheOffloadingMode = "fs"
+	KVCacheOffloadingModeObj KVCacheOffloadingMode = "obj"
+)
+
+// KVCacheOffloadingSpec configures KV cache offloading via vLLM's OffloadingConnector.
+// +kubebuilder:validation:XValidation:rule="has(self.cpu)",message="cpu is required for all offloading modes"
+// +kubebuilder:validation:XValidation:rule="self.mode == 'cpu' || self.mode == ” || has(self.fileSystem)",message="fileSystem is required when mode is 'fs'"
+// +kubebuilder:validation:XValidation:rule="self.mode != 'obj' || has(self.objectStore)",message="objectStore is required when mode is 'obj'"
+type KVCacheOffloadingSpec struct {
+	// Mode selects the offloading strategy:
+	// - cpu (GPU -> CPU RAM)
+	// - fs  (GPU -> CPU -> filesystem)
+	// - obj (GPU -> CPU -> objectstore)
 	// +optional
+	// +kubebuilder:default=cpu
+	Mode KVCacheOffloadingMode `json:"mode,omitempty"`
+
+	// CPU tier configuration. Used for all modes.
+	// +optional
+	CPU *KVCacheOffloadingCPUSpec `json:"cpu,omitempty"`
+
+	// Filesystem tier configuration. Required when mode is "fs".
+	// +optional
+	FS *KVCacheOffloadingFSSpec `json:"fileSystem,omitempty"`
+
+	// Objectstore tier configuration. Required when mode is "obj".
+	// +optional
+	ObjectStore *KVCacheOffloadingObjSpec `json:"objectStore,omitempty"`
+}
+
+// KVCacheOffloadingCPUSpec configures the CPU RAM tier.
+type KVCacheOffloadingCPUSpec struct {
+	// Size is the amount of CPU RAM to allocate as the KV cache tier (maps to vLLM kv_connector_extra_config.cpu_bytes_to_use).
+	// Accepts standard Kubernetes quantity notation, e.g. "10Gi".
+	Size resource.Quantity `json:"size"`
+
+	// EvictionPolicy for the primary CPU KV cache tier (maps to vLLM kv_connector_extra_config.eviction_policy). Defaults to "lru".
 	// +kubebuilder:validation:Enum=lru;arc
 	// +kubebuilder:default=lru
+	// +optional
 	EvictionPolicy string `json:"evictionPolicy,omitempty"`
+
+	// BlockSize is the offloaded block size in tokens. Must be a multiple of the GPU block size.
+	// When not set, defaults to the GPU block size (maps to vLLM kv_connector_extra_config.block_size).
+	// +optional
+	BlockSize *int32 `json:"blockSize,omitempty"`
+}
+
+// KVCacheOffloadingFSSpec configures the filesystem secondary tier.
+type KVCacheOffloadingFSSpec struct {
+	// Path is the directory for KV cache block files (maps to vLLM secondary_tiers[].root_dir).
+	// Mount a shared PVC for cross-pod reuse, or use a local path for node-local only.
+	Path string `json:"path"`
+
+	// ReadThreads is the number of I/O threads for reading from storage (maps to vLLM secondary_tiers[].n_read_threads). Defaults to 16.
+	// +kubebuilder:default=16
+	// +optional
+	ReadThreads *int32 `json:"readThreads,omitempty"`
+
+	// WriteThreads is the number of I/O threads for writing to storage (maps to vLLM secondary_tiers[].n_write_threads). Defaults to 16.
+	// +kubebuilder:default=16
+	// +optional
+	WriteThreads *int32 `json:"writeThreads,omitempty"`
+}
+
+// KVCacheOffloadingObjSpec configures the object store secondary tier.
+type KVCacheOffloadingObjSpec struct {
+	// StoreConfig is the object store connection configuration (maps to vLLM secondary_tiers[].store_config).
+	StoreConfig map[string]string `json:"storeConfig"`
+
+	// Prefix is the key prefix for stored objects (maps to vLLM secondary_tiers[].prefix).
+	// +optional
+	Prefix string `json:"prefix,omitempty"`
+
+	// IOThreads is the number of I/O threads for the object store (maps to vLLM secondary_tiers[].io_threads). Defaults to 4.
+	// +kubebuilder:default=4
+	// +optional
+	IOThreads *int32 `json:"ioThreads,omitempty"`
 }
 
 // ConfidentialSpec enables confidential model serving with encrypted model artifacts.

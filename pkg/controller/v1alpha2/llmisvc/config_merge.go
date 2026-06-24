@@ -630,34 +630,6 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 	t, err := template.New("config").
 		Funcs(map[string]any{
 			"ChildName": kmeta.ChildName,
-			"kvTransferConfig": func(spec any) string {
-				if spec == nil {
-					return ""
-				}
-				kv, ok := spec.(*v1alpha2.KVCacheOffloadingSpec)
-				if !ok || kv == nil {
-					return ""
-				}
-				extraConfig := map[string]any{
-					"spec_name":        "TieringOffloadingSpec",
-					"cpu_bytes_to_use": kv.CPU.Value(),
-				}
-				if kv.EvictionPolicy != "" {
-					extraConfig["eviction_policy"] = kv.EvictionPolicy
-				}
-				kvConfig := map[string]any{
-					"kv_connector":              "OffloadingConnector",
-					"kv_role":                   "kv_both",
-					"kv_connector_extra_config": extraConfig,
-				}
-				b, err := json.Marshal(kvConfig)
-				if err != nil {
-					return ""
-				}
-				// Escape " as \" so the value embeds safely in a bash double-quoted
-				// assignment and in the JSON template string that ReplaceVariables renders.
-				return "--kv-transfer-config '" + strings.ReplaceAll(string(b), `"`, `\"`) + "'"
-			},
 			// shutdownTimeout computes the vLLM --shutdown-timeout value from a *corev1.PodSpec
 			// (or nil): max(0, tgps - preStop - min(5, tgps)), defaulting tgps to 60 when unset.
 			// The 5-second buffer reserves time for signal propagation and final process cleanup
@@ -680,6 +652,74 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 					return 0
 				}
 				return result
+			},
+			"kvTransferConfig": func(spec any) string {
+				if spec == nil {
+					return ""
+				}
+				kv, ok := spec.(*v1alpha2.KVCacheOffloadingSpec)
+				if !ok || kv == nil {
+					return ""
+				}
+
+				if kv.CPU == nil {
+					return ""
+				}
+
+				// common CPU config for all modes
+				extraConfig := map[string]any{
+					"cpu_bytes_to_use": kv.CPU.Size.Value(),
+				}
+				if kv.CPU.EvictionPolicy != "" {
+					extraConfig["eviction_policy"] = kv.CPU.EvictionPolicy
+				}
+				if kv.CPU.BlockSize != nil {
+					extraConfig["block_size"] = *kv.CPU.BlockSize
+				}
+
+				switch kv.Mode {
+				case v1alpha2.KVCacheOffloadingModeFS:
+					fsTier := map[string]any{
+						"type":     "fs",
+						"root_dir": kv.FS.Path,
+					}
+					if kv.FS.ReadThreads != nil {
+						fsTier["n_read_threads"] = *kv.FS.ReadThreads
+					}
+					if kv.FS.WriteThreads != nil {
+						fsTier["n_write_threads"] = *kv.FS.WriteThreads
+					}
+					extraConfig["spec_name"] = "TieringOffloadingSpec"
+					extraConfig["secondary_tiers"] = []any{fsTier}
+
+				case v1alpha2.KVCacheOffloadingModeObj:
+					objTier := map[string]any{
+						"type":         "obj",
+						"store_config": kv.ObjectStore.StoreConfig,
+					}
+					if kv.ObjectStore.Prefix != "" {
+						objTier["prefix"] = kv.ObjectStore.Prefix
+					}
+					if kv.ObjectStore.IOThreads != nil {
+						objTier["io_threads"] = *kv.ObjectStore.IOThreads
+					}
+					extraConfig["spec_name"] = "TieringOffloadingSpec"
+					extraConfig["secondary_tiers"] = []any{objTier}
+
+				default: // for "" and v1alpha2.KVCacheOffloadingModeCPU
+				}
+
+				kvConfig := map[string]any{
+					"kv_connector":              "OffloadingConnector",
+					"kv_role":                   "kv_both",
+					"kv_connector_extra_config": extraConfig,
+				}
+
+				b, err := json.Marshal(kvConfig)
+				if err != nil {
+					return ""
+				}
+				return "--kv-transfer-config '" + strings.ReplaceAll(string(b), `"`, `\"`) + "'"
 			},
 		}).
 		Option("missingkey=error").

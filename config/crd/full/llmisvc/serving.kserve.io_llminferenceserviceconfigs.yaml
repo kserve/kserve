@@ -20982,20 +20982,70 @@ spec:
                 kvCacheOffloading:
                   properties:
                     cpu:
-                      anyOf:
-                        - type: integer
-                        - type: string
-                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                      x-kubernetes-int-or-string: true
-                    evictionPolicy:
-                      default: lru
+                      properties:
+                        blockSize:
+                          format: int32
+                          type: integer
+                        evictionPolicy:
+                          default: lru
+                          enum:
+                            - lru
+                            - arc
+                          type: string
+                        size:
+                          anyOf:
+                            - type: integer
+                            - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                      required:
+                        - size
+                      type: object
+                    fileSystem:
+                      properties:
+                        path:
+                          type: string
+                        readThreads:
+                          default: 16
+                          format: int32
+                          type: integer
+                        writeThreads:
+                          default: 16
+                          format: int32
+                          type: integer
+                      required:
+                        - path
+                      type: object
+                    mode:
+                      default: cpu
                       enum:
-                        - lru
-                        - arc
+                        - cpu
+                        - fs
+                        - obj
                       type: string
-                  required:
-                    - cpu
+                    objectStore:
+                      properties:
+                        ioThreads:
+                          default: 4
+                          format: int32
+                          type: integer
+                        prefix:
+                          type: string
+                        storeConfig:
+                          additionalProperties:
+                            type: string
+                          type: object
+                      required:
+                        - storeConfig
+                      type: object
                   type: object
+                  x-kubernetes-validations:
+                    - message: cpu is required for all offloading modes
+                      rule: has(self.cpu)
+                    - message: fileSystem is required when mode is 'fs'
+                      rule: self.mode == 'cpu' || self.mode == ” || has(self.fileSystem)
+                    - message: objectStore is required when mode is 'obj'
+                      rule: self.mode != 'obj' || has(self.objectStore)
                 labels:
                   additionalProperties:
                     type: string
@@ -21070,20 +21120,70 @@ spec:
                     kvCacheOffloading:
                       properties:
                         cpu:
-                          anyOf:
-                            - type: integer
-                            - type: string
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                          x-kubernetes-int-or-string: true
-                        evictionPolicy:
-                          default: lru
+                          properties:
+                            blockSize:
+                              format: int32
+                              type: integer
+                            evictionPolicy:
+                              default: lru
+                              enum:
+                                - lru
+                                - arc
+                              type: string
+                            size:
+                              anyOf:
+                                - type: integer
+                                - type: string
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                          required:
+                            - size
+                          type: object
+                        fileSystem:
+                          properties:
+                            path:
+                              type: string
+                            readThreads:
+                              default: 16
+                              format: int32
+                              type: integer
+                            writeThreads:
+                              default: 16
+                              format: int32
+                              type: integer
+                          required:
+                            - path
+                          type: object
+                        mode:
+                          default: cpu
                           enum:
-                            - lru
-                            - arc
+                            - cpu
+                            - fs
+                            - obj
                           type: string
-                      required:
-                        - cpu
+                        objectStore:
+                          properties:
+                            ioThreads:
+                              default: 4
+                              format: int32
+                              type: integer
+                            prefix:
+                              type: string
+                            storeConfig:
+                              additionalProperties:
+                                type: string
+                              type: object
+                          required:
+                            - storeConfig
+                          type: object
                       type: object
+                      x-kubernetes-validations:
+                        - message: cpu is required for all offloading modes
+                          rule: has(self.cpu)
+                        - message: fileSystem is required when mode is 'fs'
+                          rule: self.mode == 'cpu' || self.mode == ” || has(self.fileSystem)
+                        - message: objectStore is required when mode is 'obj'
+                          rule: self.mode != 'obj' || has(self.objectStore)
                     labels:
                       additionalProperties:
                         type: string

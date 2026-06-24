@@ -2083,7 +2083,7 @@ func TestReplaceVariables(t *testing.T) {
 			},
 		},
 		{
-			name: "kvTransferConfig renders --kv-transfer-config from kvCacheOffloading",
+			name: "kvTransferConfig renders --kv-transfer-config for cpu mode",
 			cfg: &v1alpha2.LLMInferenceServiceConfig{
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					WorkloadSpec: v1alpha2.WorkloadSpec{
@@ -2099,7 +2099,10 @@ func TestReplaceVariables(t *testing.T) {
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
-							CPU: resource.MustParse("10Gi"),
+							Mode: v1alpha2.KVCacheOffloadingModeCPU,
+							CPU: &v1alpha2.KVCacheOffloadingCPUSpec{
+								Size: resource.MustParse("10Gi"),
+							},
 						},
 					},
 				},
@@ -2109,9 +2112,7 @@ func TestReplaceVariables(t *testing.T) {
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								// json.Marshal sorts map keys alphabetically: kv_connector < kv_connector_extra_config < kv_role
-								// Internally " is escaped to \" for JSON-safe template rendering; JSON unmarshal restores plain ".
-								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":10737418240,"spec_name":"TieringOffloadingSpec"},"kv_role":"kv_both"}'`}},
+								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":10737418240},"kv_role":"kv_both"}'`}},
 							},
 						},
 					},
@@ -2135,8 +2136,11 @@ func TestReplaceVariables(t *testing.T) {
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
-							CPU:            resource.MustParse("5Gi"),
-							EvictionPolicy: "arc",
+							Mode: v1alpha2.KVCacheOffloadingModeCPU,
+							CPU: &v1alpha2.KVCacheOffloadingCPUSpec{
+								Size:           resource.MustParse("5Gi"),
+								EvictionPolicy: "arc",
+							},
 						},
 					},
 				},
@@ -2146,8 +2150,129 @@ func TestReplaceVariables(t *testing.T) {
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								// json.Marshal sorts map keys alphabetically: cpu_bytes_to_use < eviction_policy < spec_name
-								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":5368709120,"eviction_policy":"arc","spec_name":"TieringOffloadingSpec"},"kv_role":"kv_both"}'`}},
+								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":5368709120,"eviction_policy":"arc"},"kv_role":"kv_both"}'`}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "kvTransferConfig includes block_size when set",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+							Mode: v1alpha2.KVCacheOffloadingModeCPU,
+							CPU: &v1alpha2.KVCacheOffloadingCPUSpec{
+								Size:      resource.MustParse("10Gi"),
+								BlockSize: ptr.To[int32](16),
+							},
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"block_size":16,"cpu_bytes_to_use":10737418240},"kv_role":"kv_both"}'`}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "kvTransferConfig renders fs mode with filesystem tier",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+							Mode: v1alpha2.KVCacheOffloadingModeFS,
+							CPU: &v1alpha2.KVCacheOffloadingCPUSpec{
+								Size: resource.MustParse("10Gi"),
+							},
+							FS: &v1alpha2.KVCacheOffloadingFSSpec{
+								Path:         "/mnt/kv-cache",
+								ReadThreads:  ptr.To[int32](16),
+								WriteThreads: ptr.To[int32](16),
+							},
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":10737418240,"secondary_tiers":[{"n_read_threads":16,"n_write_threads":16,"root_dir":"/mnt/kv-cache","type":"fs"}],"spec_name":"TieringOffloadingSpec"},"kv_role":"kv_both"}'`}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "kvTransferConfig renders obj mode with objectstore tier",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+							Mode: v1alpha2.KVCacheOffloadingModeObj,
+							CPU: &v1alpha2.KVCacheOffloadingCPUSpec{
+								Size: resource.MustParse("10Gi"),
+							},
+							ObjectStore: &v1alpha2.KVCacheOffloadingObjSpec{
+								StoreConfig: map[string]string{"endpoint": "s3.example.com"},
+								Prefix:      "kv/",
+								IOThreads:   ptr.To[int32](8),
+							},
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":10737418240,"secondary_tiers":[{"io_threads":8,"prefix":"kv/","store_config":{"endpoint":"s3.example.com"},"type":"obj"}],"spec_name":"TieringOffloadingSpec"},"kv_role":"kv_both"}'`}},
 							},
 						},
 					},
