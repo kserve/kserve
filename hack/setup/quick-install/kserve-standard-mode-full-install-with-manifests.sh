@@ -4267,7 +4267,7 @@ spec:
             value: "500"
           - name: LATENCY_OBJECTIVE_TYPE
             value: mean
-          image: registry.k8s.io/gateway-api-inference-extension/latency-training-server:v1.5.0
+          image: ghcr.io/llm-d/llm-d-latency-predictor-training-server:v0.8.0
           imagePullPolicy: IfNotPresent
           livenessProbe:
             httpGet:
@@ -4343,7 +4343,7 @@ spec:
             value: "30"
           - name: LATENCY_OBJECTIVE_TYPE
             value: mean
-          image: registry.k8s.io/gateway-api-inference-extension/latency-prediction-server:v1.5.0
+          image: ghcr.io/llm-d/llm-d-latency-predictor-prediction-server:v0.8.0
           imagePullPolicy: IfNotPresent
           livenessProbe:
             failureThreshold: 5
