@@ -55,7 +55,9 @@ import (
 const (
 	tokenizerContainerName = "tokenizer"
 
+	tokenProducerPlugin               = "token-producer"
 	precisePrefixCacheScorerPlugin    = "precise-prefix-cache-scorer"
+	precisePrefixCacheProducerPlugin  = "precise-prefix-cache-producer"
 	prefixCacheScorerPlugin           = "prefix-cache-scorer"
 	loraAffinityScorerPlugin          = "lora-affinity-scorer"
 	coreMetricsExtractorPlugin        = "model-server-protocol-metrics"
@@ -70,6 +72,9 @@ func (r *LLMISVCReconciler) reconcileScheduler(ctx context.Context, llmSvc *v1al
 	log.FromContext(ctx).Info("Reconciling Scheduler")
 
 	if err := r.reconcileSchedulerServiceAccount(ctx, llmSvc); err != nil {
+		return err
+	}
+	if err := r.reconcileTokenizer(ctx, llmSvc); err != nil {
 		return err
 	}
 	if err := r.reconcileSchedulerDeployment(ctx, llmSvc); err != nil {
@@ -413,49 +418,56 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 		}
 
 		if isUsingTokenizerSidecar(llmSvc.Spec) {
-			var existingServiceAccount *corev1.ServiceAccount
-			if llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName != "" {
-				existingServiceAccount = &corev1.ServiceAccount{}
-				err := r.Get(ctx, types.NamespacedName{Name: llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
-				if err != nil {
-					if !apierrors.IsNotFound(err) {
-						return d, fmt.Errorf("failed to fetch existing scheduler service account %s/%s: %w", llmSvc.Namespace, llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName, err)
-					}
-					// The service account may not exist yet (first reconciliation, cache lag)
-					// or may have already been deleted (stop flow). Let attachModelArtifacts
-					// handle credential injection with the default service account fallback.
-					existingServiceAccount = nil
+			if shouldDeployStandaloneTokenizer(llmSvc.Spec) {
+				// Standalone tokenizer Deployment path (>= 0.9.0): the tokenizer
+				// container is extracted into its own Deployment by reconcileTokenizer.
+				// Strip it from the scheduler pod and decompose the precise-prefix-cache-scorer
+				// plugin into the new 3-plugin pipeline (token-producer + precise-prefix-cache-producer
+				// + prefix-cache-scorer) that the v0.9.0+ router expects.
+				stripTokenizerSidecar(d)
+				endpointURL := tokenizerEndpointURL(llmSvc)
+				if err := mutateSchedulerConfig(ctx, d, WithTokenProducerPlugin(endpointURL)); err != nil {
+					return d, fmt.Errorf("failed to mutate scheduler config with token-producer plugin: %w", err)
 				}
 			} else {
-				// Use the generated scheduler SA which has credentials propagated from the main workload SA.
-				sa, _, saErr := r.expectedSchedulerServiceAccount(ctx, llmSvc)
-				if saErr != nil {
-					return d, fmt.Errorf("failed to get expected scheduler service account: %w", saErr)
+				// Legacy UDS tokenizer sidecar path (backward compatibility).
+				var existingServiceAccount *corev1.ServiceAccount
+				if llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName != "" {
+					existingServiceAccount = &corev1.ServiceAccount{}
+					err := r.Get(ctx, types.NamespacedName{Name: llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
+					if err != nil {
+						if !apierrors.IsNotFound(err) {
+							return d, fmt.Errorf("failed to fetch existing scheduler service account %s/%s: %w", llmSvc.Namespace, llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName, err)
+						}
+						existingServiceAccount = nil
+					}
+				} else {
+					sa, _, saErr := r.expectedSchedulerServiceAccount(ctx, llmSvc)
+					if saErr != nil {
+						return d, fmt.Errorf("failed to get expected scheduler service account: %w", saErr)
+					}
+					existingServiceAccount = sa
 				}
-				existingServiceAccount = sa
-			}
 
-			curr := &appsv1.Deployment{}
-			if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
-				return d, fmt.Errorf("failed to get current scheduler deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
-			}
+				curr := &appsv1.Deployment{}
+				if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
+					return d, fmt.Errorf("failed to get current scheduler deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
+				}
 
-			config, err := r.loadConfig(ctx)
-			if err != nil {
-				return d, fmt.Errorf("failed to load config for scheduler deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
-			}
+				config, err := r.loadConfig(ctx)
+				if err != nil {
+					return d, fmt.Errorf("failed to load config for scheduler deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
+				}
 
-			modelPath := path.Join(constants.DefaultModelLocalMountPath, "base")
+				modelPath := path.Join(constants.DefaultModelLocalMountPath, "base")
 
-			if err := r.attachModelArtifacts(ctx, existingServiceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, tokenizerContainerName, modelPath, constants.LLMISVCSchedulerAttachesLoRA); err != nil {
-				return d, fmt.Errorf("failed to attach model artifacts to scheduler deployment: %w", err)
-			}
+				if err := r.attachModelArtifacts(ctx, existingServiceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, tokenizerContainerName, modelPath, constants.LLMISVCSchedulerAttachesLoRA); err != nil {
+					return d, fmt.Errorf("failed to attach model artifacts to scheduler deployment: %w", err)
+				}
 
-			// Mutate scheduler config: inject UDS tokenizer settings, migrate
-			// tokenProcessorConfig from indexerConfig to top-level parameters, and
-			// rename deprecated blockSize to blockSizeTokens (schema changes in v0.6.0).
-			if err := mutateSchedulerConfig(ctx, d, WithUdsTokenizerConfig, WithMigrateTokenProcessorConfig, WithMigrateBlockSizeToBlockSizeTokens); err != nil {
-				return d, fmt.Errorf("failed to mutate scheduler config: %w", err)
+				if err := mutateSchedulerConfig(ctx, d, WithUdsTokenizerConfig, WithMigrateTokenProcessorConfig, WithMigrateBlockSizeToBlockSizeTokens); err != nil {
+					return d, fmt.Errorf("failed to mutate scheduler config: %w", err)
+				}
 			}
 		}
 
@@ -852,6 +864,159 @@ func WithUdsTokenizerConfig(_ context.Context, u *unstructured.Unstructured) err
 	}
 
 	return nil
+}
+
+// WithTokenProducerPlugin decomposes the deprecated precise-prefix-cache-scorer
+// plugin into the 3-plugin pipeline that llm-d-router v0.9.0+ requires:
+//
+//  1. token-producer        – tokenizes via the vLLM render HTTP endpoint
+//  2. precise-prefix-cache-producer – builds prefix match info from KV events
+//  3. prefix-cache-scorer   – scores endpoints using the produced match info
+//
+// It migrates all user-specified parameters (tokenProcessorConfig, indexerConfig,
+// kvEventsConfig) from the old scorer to the new producer. If kvEventsConfig is
+// not present, it defaults to {discoverPods: true}. The schedulingProfiles are
+// updated to reference prefix-cache-scorer instead of the removed scorer.
+func WithTokenProducerPlugin(endpointURL string) mutateSchedulerConfigFunc {
+	return func(_ context.Context, u *unstructured.Unstructured) error {
+		val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
+		if err != nil || !found {
+			return err
+		}
+		plugins, ok := val.([]interface{})
+		if !ok {
+			return nil
+		}
+
+		scorerIdx := -1
+		for i, plugin := range plugins {
+			pluginMap, ok := plugin.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			if pluginMap["type"] == precisePrefixCacheScorerPlugin {
+				scorerIdx = i
+				break
+			}
+		}
+		if scorerIdx < 0 {
+			return nil
+		}
+
+		scorerPlugin := plugins[scorerIdx].(map[string]interface{})
+
+		// Extract parameters from the old scorer to migrate into the new producer.
+		var tokenProcessorConfig, indexerConfig, kvEventsConfig interface{}
+
+		// tokenProcessorConfig: prefer top-level (already migrated), fall back to inside indexerConfig (old format)
+		if tpc, f, _ := unstructured.NestedFieldCopy(scorerPlugin, "parameters", "tokenProcessorConfig"); f {
+			tokenProcessorConfig = tpc
+		} else if tpc, f, _ := unstructured.NestedFieldCopy(scorerPlugin, "parameters", "indexerConfig", "tokenProcessorConfig"); f {
+			tokenProcessorConfig = tpc
+		}
+
+		// indexerConfig: copy, then remove tokenProcessorConfig and tokenizersPoolConfig (both deprecated)
+		if ic, f, _ := unstructured.NestedFieldCopy(scorerPlugin, "parameters", "indexerConfig"); f {
+			if icMap, ok := ic.(map[string]interface{}); ok {
+				delete(icMap, "tokenProcessorConfig")
+				delete(icMap, "tokenizersPoolConfig")
+				if len(icMap) > 0 {
+					indexerConfig = icMap
+				}
+			}
+		}
+
+		// kvEventsConfig
+		if kv, f, _ := unstructured.NestedFieldCopy(scorerPlugin, "parameters", "kvEventsConfig"); f {
+			kvEventsConfig = kv
+		}
+
+		// Remove the old scorer from the plugins list.
+		plugins = append(plugins[:scorerIdx], plugins[scorerIdx+1:]...)
+
+		// Build the three replacement plugins.
+		tokenProducer := map[string]interface{}{
+			"type": tokenProducerPlugin,
+			"parameters": map[string]interface{}{
+				"modelName": udsTokenizerBaseModelName,
+				"vllm": map[string]interface{}{
+					"url": endpointURL,
+				},
+			},
+		}
+
+		producerParams := map[string]interface{}{}
+		if tokenProcessorConfig != nil {
+			producerParams["tokenProcessorConfig"] = tokenProcessorConfig
+		}
+		if indexerConfig != nil {
+			producerParams["indexerConfig"] = indexerConfig
+		}
+		if kvEventsConfig != nil {
+			producerParams["kvEventsConfig"] = kvEventsConfig
+		} else {
+			producerParams["kvEventsConfig"] = map[string]interface{}{
+				"discoverPods": true,
+			}
+		}
+		prefixCacheProducer := map[string]interface{}{
+			"type":       precisePrefixCacheProducerPlugin,
+			"parameters": producerParams,
+		}
+
+		prefixCacheScorer := map[string]interface{}{
+			"type": prefixCacheScorerPlugin,
+			"parameters": map[string]interface{}{
+				"prefixMatchInfoProducerName": precisePrefixCacheProducerPlugin,
+			},
+		}
+
+		// Insert the three plugins where the old scorer was. token-producer must
+		// precede precise-prefix-cache-producer (the loader registers in order).
+		newPlugins := make([]interface{}, 0, len(plugins)+3)
+		newPlugins = append(newPlugins, plugins[:scorerIdx]...)
+		newPlugins = append(newPlugins, tokenProducer, prefixCacheProducer, prefixCacheScorer)
+		newPlugins = append(newPlugins, plugins[scorerIdx:]...)
+
+		if err := unstructured.SetNestedSlice(u.Object, newPlugins, "plugins"); err != nil {
+			return err
+		}
+
+		// Update schedulingProfiles: rename precise-prefix-cache-scorer → prefix-cache-scorer.
+		profiles, found, err := unstructured.NestedFieldNoCopy(u.Object, "schedulingProfiles")
+		if err != nil || !found {
+			return err
+		}
+		profileList, ok := profiles.([]interface{})
+		if !ok {
+			return nil
+		}
+		for _, profile := range profileList {
+			profileMap, ok := profile.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			pluginRefs, f, _ := unstructured.NestedFieldNoCopy(profileMap, "plugins")
+			if !f {
+				continue
+			}
+			refList, ok := pluginRefs.([]interface{})
+			if !ok {
+				continue
+			}
+			for _, ref := range refList {
+				refMap, ok := ref.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				if refMap["pluginRef"] == precisePrefixCacheScorerPlugin {
+					refMap["pluginRef"] = prefixCacheScorerPlugin
+				}
+			}
+		}
+
+		return nil
+	}
 }
 
 // WithMigrateTokenProcessorConfig migrates tokenProcessorConfig from inside
@@ -1407,6 +1572,42 @@ func withRemoveUnnecessaryTokenizer(d *appsv1.Deployment) mutateSchedulerConfigF
 		}
 
 		return nil
+	}
+}
+
+// stripTokenizerSidecar removes the tokenizer container and its associated
+// UDS-related volumes from the scheduler Deployment. Called when the standalone
+// tokenizer Deployment path is active, so the scheduler doesn't carry a
+// now-unnecessary sidecar.
+func stripTokenizerSidecar(d *appsv1.Deployment) {
+	containers := d.Spec.Template.Spec.Containers
+	for i := range containers {
+		if containers[i].Name == tokenizerContainerName {
+			containers = append(containers[:i], containers[i+1:]...)
+			d.Spec.Template.Spec.Containers = containers
+			break
+		}
+	}
+
+	udsVolumeNames := sets.New("tokenizer-uds", "tokenizer-tmp", "tokenizer-cache")
+	var filteredVolumes []corev1.Volume
+	for _, v := range d.Spec.Template.Spec.Volumes {
+		if !udsVolumeNames.Has(v.Name) {
+			filteredVolumes = append(filteredVolumes, v)
+		}
+	}
+	d.Spec.Template.Spec.Volumes = filteredVolumes
+
+	// Also clean up UDS volume mounts from the main container.
+	for ci := range d.Spec.Template.Spec.Containers {
+		c := &d.Spec.Template.Spec.Containers[ci]
+		var filteredMounts []corev1.VolumeMount
+		for _, vm := range c.VolumeMounts {
+			if !udsVolumeNames.Has(vm.Name) {
+				filteredMounts = append(filteredMounts, vm)
+			}
+		}
+		c.VolumeMounts = filteredMounts
 	}
 }
 

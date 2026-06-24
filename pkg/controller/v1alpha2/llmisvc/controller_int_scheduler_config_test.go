@@ -32,6 +32,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmeta"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
@@ -1012,10 +1013,10 @@ schedulingProfiles:
 		})
 	})
 
-	Context("UDS tokenizer config injection", func() {
-		It("should inject tokenizersPoolConfig when precise-prefix-cache-scorer has indexerConfig", func(ctx SpecContext) {
+	Context("Token-producer plugin injection (v0.9.0+ pipeline)", func() {
+		It("should decompose precise-prefix-cache-scorer into 3-plugin pipeline", func(ctx SpecContext) {
 			// given
-			svcName := "test-llm-uds-tokenizer-inject"
+			svcName := "test-llm-tokenizer-endpoint-inject"
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			precisePrefixConfig := `
@@ -1056,7 +1057,7 @@ schedulingProfiles:
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			// then - verify the scheduler deployment has injected tokenizersPoolConfig
+			// then - verify the config was decomposed into the 3-plugin pipeline
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				if err := envTest.Get(ctx, types.NamespacedName{
@@ -1068,18 +1069,31 @@ schedulingProfiles:
 
 				configText, found := getSchedulerConfigText(expectedDeployment)
 				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
+				// New pipeline plugins
+				g.Expect(configText).To(ContainSubstring("token-producer"))
+				g.Expect(configText).To(ContainSubstring("precise-prefix-cache-producer"))
+				g.Expect(configText).To(ContainSubstring("prefix-cache-scorer"))
 				g.Expect(configText).To(ContainSubstring("modelName: base"))
-				g.Expect(configText).To(ContainSubstring("socketFile: /tmp/tokenizer/tokenizer-uds.socket"))
-				// Verify tokenProcessorConfig was migrated from indexerConfig to top-level parameters
+				// Old plugin should be gone
+				g.Expect(configText).NotTo(ContainSubstring("precise-prefix-cache-scorer"))
+				g.Expect(configText).NotTo(ContainSubstring("tokenizersPoolConfig"))
+				g.Expect(configText).NotTo(ContainSubstring("socketFile"))
+				// tokenProcessorConfig should be migrated to producer parameters
 				g.Expect(configText).To(ContainSubstring("tokenProcessorConfig"))
-				g.Expect(configText).To(ContainSubstring("blockSize: 16"))
+				g.Expect(configText).To(ContainSubstring("blockSize"))
+
+				// Verify the tokenizer sidecar was stripped from the scheduler pod
+				for _, c := range expectedDeployment.Spec.Template.Spec.Containers {
+					g.Expect(c.Name).NotTo(Equal("tokenizer"), "tokenizer sidecar should be stripped from scheduler")
+				}
+
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})
 
-		It("should override existing tokenizersPoolConfig values", func(ctx SpecContext) {
+		It("should migrate old tokenizersPoolConfig and UDS params to new pipeline", func(ctx SpecContext) {
 			// given
-			svcName := "test-llm-uds-tokenizer-override"
+			svcName := "test-llm-tokenizer-ep-override"
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			//nolint:gosec // G101: not a credential, scheduler config YAML
@@ -1122,7 +1136,7 @@ schedulingProfiles:
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			// then - verify the values are overridden with the correct ones
+			// then - verify old params are cleaned and new pipeline is in place
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				if err := envTest.Get(ctx, types.NamespacedName{
@@ -1134,20 +1148,23 @@ schedulingProfiles:
 
 				configText, found := getSchedulerConfigText(expectedDeployment)
 				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
+				g.Expect(configText).To(ContainSubstring("token-producer"))
+				g.Expect(configText).To(ContainSubstring("precise-prefix-cache-producer"))
 				g.Expect(configText).To(ContainSubstring("modelName: base"))
-				g.Expect(configText).To(ContainSubstring("socketFile: /tmp/tokenizer/tokenizer-uds.socket"))
 				g.Expect(configText).NotTo(ContainSubstring("wrong-model-name"))
 				g.Expect(configText).NotTo(ContainSubstring("/wrong/path"))
-				// Verify tokenProcessorConfig was migrated from indexerConfig to top-level parameters
+				g.Expect(configText).NotTo(ContainSubstring("socketFile"))
+				g.Expect(configText).NotTo(ContainSubstring("tokenizersPoolConfig"))
+				// tokenProcessorConfig should be migrated to producer
 				g.Expect(configText).To(ContainSubstring("tokenProcessorConfig"))
-				g.Expect(configText).To(ContainSubstring("blockSize: 16"))
+				g.Expect(configText).To(ContainSubstring("blockSize"))
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})
 
-		It("should not inject tokenizersPoolConfig when no precise-prefix-cache-scorer plugin", func(ctx SpecContext) {
+		It("should not inject token-producer when no precise-prefix-cache-scorer plugin", func(ctx SpecContext) {
 			// given
-			svcName := "test-llm-uds-no-precise-prefix"
+			svcName := "test-llm-no-precise-prefix"
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			configWithoutPrecisePrefix := `
@@ -1183,7 +1200,7 @@ schedulingProfiles:
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			// then - verify no tokenizersPoolConfig is injected
+			// then - verify no token-producer pipeline is injected
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				if err := envTest.Get(ctx, types.NamespacedName{
@@ -1195,6 +1212,8 @@ schedulingProfiles:
 
 				configText, found := getSchedulerConfigText(expectedDeployment)
 				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
+				g.Expect(configText).NotTo(ContainSubstring("token-producer"))
+				g.Expect(configText).NotTo(ContainSubstring("precise-prefix-cache-producer"))
 				g.Expect(configText).NotTo(ContainSubstring("tokenizersPoolConfig"))
 				g.Expect(configText).NotTo(ContainSubstring("modelName: base"))
 				return nil
@@ -1202,8 +1221,319 @@ schedulingProfiles:
 		})
 	})
 
-	Context("tokenProcessorConfig migration from indexerConfig to top-level parameters", func() {
-		It("should migrate tokenProcessorConfig from indexerConfig to top-level plugin parameters", func(ctx SpecContext) {
+	Context("Standalone tokenizer Deployment and Service creation", func() {
+		It("should create a tokenizer Deployment and Service when scheduler version >= 0.9.0", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-tokenizer-deploy"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			precisePrefixConfig := `
+apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+- type: precise-prefix-cache-scorer
+  parameters:
+    indexerConfig:
+      tokenProcessorConfig:
+        blockSize: 16
+        hashSeed: "42"
+- type: queue-scorer
+- type: max-score-picker
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: queue-scorer
+    weight: 2
+  - pluginRef: precise-prefix-cache-scorer
+    weight: 3
+  - pluginRef: max-score-picker
+`
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithSchedulerConfigInline(precisePrefixConfig),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - verify tokenizer Deployment is created
+			tokenizerDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				if err := envTest.Get(ctx, types.NamespacedName{
+					Name:      kmeta.ChildName(svcName, "-kserve-tokenizer"),
+					Namespace: testNs.Name,
+				}, tokenizerDeployment); err != nil {
+					return err
+				}
+
+				g.Expect(tokenizerDeployment.Spec.Template.Spec.Containers).To(HaveLen(1))
+				g.Expect(tokenizerDeployment.Spec.Template.Spec.Containers[0].Name).To(Equal("tokenizer"))
+
+				// Verify labels
+				g.Expect(tokenizerDeployment.Labels).To(HaveKeyWithValue(
+					constants.KubernetesComponentLabelKey, constants.LLMComponentTokenizer))
+				g.Expect(tokenizerDeployment.Labels).To(HaveKeyWithValue(
+					constants.KubernetesAppNameLabelKey, svcName))
+
+				// Verify owner reference
+				g.Expect(tokenizerDeployment.OwnerReferences).To(HaveLen(1))
+				g.Expect(tokenizerDeployment.OwnerReferences[0].Name).To(Equal(svcName))
+
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+
+			// verify tokenizer Service is created
+			tokenizerService := &corev1.Service{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				if err := envTest.Get(ctx, types.NamespacedName{
+					Name:      kmeta.ChildName(svcName, "-tokenizer-service"),
+					Namespace: testNs.Name,
+				}, tokenizerService); err != nil {
+					return err
+				}
+
+				g.Expect(tokenizerService.Spec.Type).To(Equal(corev1.ServiceTypeClusterIP))
+				g.Expect(tokenizerService.Spec.Ports).To(HaveLen(1))
+				g.Expect(tokenizerService.Spec.Ports[0].Port).To(Equal(int32(8000)))
+
+				// Verify labels match
+				g.Expect(tokenizerService.Labels).To(HaveKeyWithValue(
+					constants.KubernetesComponentLabelKey, constants.LLMComponentTokenizer))
+
+				// Verify owner reference
+				g.Expect(tokenizerService.OwnerReferences).To(HaveLen(1))
+				g.Expect(tokenizerService.OwnerReferences[0].Name).To(Equal(svcName))
+
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+
+			// verify the scheduler deployment does NOT contain the tokenizer sidecar
+			schedulerDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				if err := envTest.Get(ctx, types.NamespacedName{
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
+					Namespace: testNs.Name,
+				}, schedulerDeployment); err != nil {
+					return err
+				}
+
+				for _, c := range schedulerDeployment.Spec.Template.Spec.Containers {
+					g.Expect(c.Name).NotTo(Equal("tokenizer"),
+						"tokenizer sidecar should be stripped from scheduler deployment")
+				}
+
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+		})
+	})
+
+	Context("Standalone tokenizer cleanup on force-stop", func() {
+		It("should delete tokenizer Deployment and Service when stop annotation is set", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-tokenizer-stop"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			precisePrefixConfig := `
+apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+- type: precise-prefix-cache-scorer
+  parameters:
+    indexerConfig:
+      tokenProcessorConfig:
+        blockSize: 16
+        hashSeed: "42"
+- type: queue-scorer
+- type: max-score-picker
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: queue-scorer
+    weight: 2
+  - pluginRef: precise-prefix-cache-scorer
+    weight: 3
+  - pluginRef: max-score-picker
+`
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithSchedulerConfigInline(precisePrefixConfig),
+			)
+
+			// when - Create LLMInferenceService
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - wait for tokenizer Deployment to be created
+			tokenizerDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      kmeta.ChildName(svcName, "-kserve-tokenizer"),
+					Namespace: testNs.Name,
+				}, tokenizerDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			// wait for tokenizer Service to be created
+			tokenizerService := &corev1.Service{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      kmeta.ChildName(svcName, "-tokenizer-service"),
+					Namespace: testNs.Name,
+				}, tokenizerService)
+			}).WithContext(ctx).Should(Succeed())
+
+			// when - Set stop annotation
+			errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				_, errUpdate := ctrl.CreateOrUpdate(ctx, envTest.Client, llmSvc, func() error {
+					if llmSvc.Annotations == nil {
+						llmSvc.Annotations = make(map[string]string)
+					}
+					llmSvc.Annotations[constants.StopAnnotationKey] = "true"
+					return nil
+				})
+				return errUpdate
+			})
+			Expect(errRetry).ToNot(HaveOccurred())
+
+			// then - verify tokenizer Deployment is deleted
+			Eventually(func(g Gomega, ctx context.Context) bool {
+				err := envTest.Get(ctx, types.NamespacedName{
+					Name:      kmeta.ChildName(svcName, "-kserve-tokenizer"),
+					Namespace: testNs.Name,
+				}, tokenizerDeployment)
+				return err != nil && errors.IsNotFound(err)
+			}).WithContext(ctx).Should(BeTrue(), "tokenizer deployment should be deleted when service is stopped")
+
+			// verify tokenizer Service is deleted
+			Eventually(func(g Gomega, ctx context.Context) bool {
+				err := envTest.Get(ctx, types.NamespacedName{
+					Name:      kmeta.ChildName(svcName, "-tokenizer-service"),
+					Namespace: testNs.Name,
+				}, tokenizerService)
+				return err != nil && errors.IsNotFound(err)
+			}).WithContext(ctx).Should(BeTrue(), "tokenizer service should be deleted when service is stopped")
+		})
+	})
+
+	Context("Legacy UDS tokenizer backward compatibility", func() {
+		It("should keep tokenizer sidecar and inject socketFile for scheduler version < 0.9.0", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-legacy-uds"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			precisePrefixConfig := `
+apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+- type: precise-prefix-cache-scorer
+  parameters:
+    indexerConfig:
+      tokenProcessorConfig:
+        blockSize: 16
+        hashSeed: "42"
+- type: queue-scorer
+- type: max-score-picker
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: queue-scorer
+    weight: 2
+  - pluginRef: precise-prefix-cache-scorer
+    weight: 3
+  - pluginRef: max-score-picker
+`
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithSchedulerConfigInline(precisePrefixConfig),
+			)
+			// Override the scheduler version to below the gate
+			llmSvc.Spec.Router.Scheduler.Annotations = map[string]string{
+				"app.kubernetes.io/version": "0.8.0",
+			}
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - verify the scheduler deployment retains the tokenizer sidecar
+			schedulerDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				if err := envTest.Get(ctx, types.NamespacedName{
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
+					Namespace: testNs.Name,
+				}, schedulerDeployment); err != nil {
+					return err
+				}
+
+				// Verify tokenizer container is present as a sidecar
+				hasTokenizer := false
+				for _, c := range schedulerDeployment.Spec.Template.Spec.Containers {
+					if c.Name == "tokenizer" {
+						hasTokenizer = true
+						break
+					}
+				}
+				g.Expect(hasTokenizer).To(BeTrue(), "tokenizer sidecar should be present for legacy version")
+
+				// Verify UDS socketFile is injected (not httpEndpoint)
+				configText, found := getSchedulerConfigText(schedulerDeployment)
+				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
+				g.Expect(configText).To(ContainSubstring("socketFile"))
+				g.Expect(configText).NotTo(ContainSubstring("httpEndpoint"))
+
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+
+			// verify no standalone tokenizer Deployment is created
+			tokenizerDeployment := &appsv1.Deployment{}
+			Consistently(func(ctx context.Context) bool {
+				err := envTest.Get(ctx, types.NamespacedName{
+					Name:      kmeta.ChildName(svcName, "-kserve-tokenizer"),
+					Namespace: testNs.Name,
+				}, tokenizerDeployment)
+				return err != nil && errors.IsNotFound(err)
+			}, 3*time.Second, 500*time.Millisecond).WithContext(ctx).Should(BeTrue(),
+				"standalone tokenizer deployment should NOT be created for legacy version")
+
+			// verify no standalone tokenizer Service is created
+			tokenizerService := &corev1.Service{}
+			Consistently(func(ctx context.Context) bool {
+				err := envTest.Get(ctx, types.NamespacedName{
+					Name:      kmeta.ChildName(svcName, "-tokenizer-service"),
+					Namespace: testNs.Name,
+				}, tokenizerService)
+				return err != nil && errors.IsNotFound(err)
+			}, 3*time.Second, 500*time.Millisecond).WithContext(ctx).Should(BeTrue(),
+				"standalone tokenizer service should NOT be created for legacy version")
+		})
+	})
+
+	Context("tokenProcessorConfig migration to precise-prefix-cache-producer", func() {
+		It("should migrate tokenProcessorConfig from indexerConfig into precise-prefix-cache-producer", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-tpc-migrate"
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
@@ -1245,7 +1575,7 @@ schedulingProfiles:
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			// then - verify tokenProcessorConfig was migrated to top-level parameters
+			// then - verify tokenProcessorConfig was migrated into precise-prefix-cache-producer
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				if err := envTest.Get(ctx, types.NamespacedName{
@@ -1257,17 +1587,21 @@ schedulingProfiles:
 
 				configText, found := getSchedulerConfigText(expectedDeployment)
 				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
-				// tokenProcessorConfig should be at top-level parameters (sibling of indexerConfig)
+				// precise-prefix-cache-scorer should be decomposed
+				g.Expect(configText).To(ContainSubstring("precise-prefix-cache-producer"))
+				g.Expect(configText).To(ContainSubstring("token-producer"))
+				g.Expect(configText).NotTo(ContainSubstring("precise-prefix-cache-scorer"))
+				// tokenProcessorConfig should be at top-level of producer parameters
 				g.Expect(configText).To(ContainSubstring("blockSize: 64"))
 				g.Expect(configText).To(ContainSubstring("hashSeed: \"42\""))
-				// indexerConfig should still have kvBlockIndexConfig but not tokenProcessorConfig
+				// indexerConfig should still have kvBlockIndexConfig
 				g.Expect(configText).To(ContainSubstring("kvBlockIndexConfig"))
 				g.Expect(configText).To(ContainSubstring("enableMetrics: true"))
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})
 
-		It("should not overwrite top-level tokenProcessorConfig if already present", func(ctx SpecContext) {
+		It("should prefer top-level tokenProcessorConfig over indexerConfig copy", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-tpc-no-overwrite"
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
@@ -1310,7 +1644,7 @@ schedulingProfiles:
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			// then - verify top-level tokenProcessorConfig is preserved, not overwritten
+			// then - verify top-level tokenProcessorConfig is preserved in the producer
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				if err := envTest.Get(ctx, types.NamespacedName{
@@ -1322,7 +1656,7 @@ schedulingProfiles:
 
 				configText, found := getSchedulerConfigText(expectedDeployment)
 				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
-				// Top-level values should be preserved
+				// Top-level values should be preferred
 				g.Expect(configText).To(ContainSubstring("blockSize: 128"))
 				g.Expect(configText).To(ContainSubstring("hashSeed: \"99\""))
 				return nil
