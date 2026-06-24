@@ -178,8 +178,11 @@ func (r *LLMISVCReconciler) expectedTokenizerDeployment(ctx context.Context, llm
 		},
 	}
 
+	if !shouldDeployStandaloneTokenizer(llmSvc.Spec) {
+		return d, nil
+	}
 	tokSpec := llmSvc.Spec.Router.Scheduler.Tokenizer
-	if !shouldDeployStandaloneTokenizer(llmSvc.Spec) || tokSpec == nil {
+	if tokSpec == nil {
 		return d, nil
 	}
 
