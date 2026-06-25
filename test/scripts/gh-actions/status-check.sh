@@ -200,8 +200,6 @@ if [[ $# -eq 1 && "$1" == "llmisvc" ]]; then
   echo "::group::Autoscaling pipeline diagnostics"
   echo "--- ServiceMonitors ---"
   kubectl get servicemonitors -A 2>/dev/null || true
-  echo "--- VariantAutoscalings ---"
-  kubectl get variantautoscalings -n kserve-ci-e2e-test -o yaml 2>/dev/null || true
   echo "--- HPAs ---"
   kubectl get hpa -n kserve-ci-e2e-test -o yaml 2>/dev/null || true
   echo "--- ScaledObjects ---"

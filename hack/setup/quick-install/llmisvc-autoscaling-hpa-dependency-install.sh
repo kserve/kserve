@@ -660,7 +660,7 @@ OPENTELEMETRY_OPERATOR_VERSION=0.74.3
 LWS_VERSION=v0.8.0
 GATEWAY_API_VERSION=v1.5.1
 GIE_VERSION=v1.5.0
-WVA_VERSION=v0.7.0
+WVA_VERSION=v0.8.0
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -696,8 +696,8 @@ PROMETHEUS_RELEASE_NAME="${PROMETHEUS_RELEASE_NAME:-prometheus}"
 PROMETHEUS_ADAPTER_NAMESPACE="${PROMETHEUS_ADAPTER_NAMESPACE:-monitoring}"
 PROMETHEUS_URL="${PROMETHEUS_URL:-https://prometheus-kube-prometheus-prometheus.monitoring}"
 WVA_NAMESPACE="${WVA_NAMESPACE:-wva-system}"
-WVA_RELEASE_NAME="${WVA_RELEASE_NAME:-llm-d-wva}"
 WVA_PROMETHEUS_URL="${WVA_PROMETHEUS_URL:-https://prometheus-kube-prometheus-prometheus.monitoring:9090}"
+WVA_REPO_URL="${WVA_REPO_URL:-https://github.com/llm-d/llm-d-workload-variant-autoscaler.git}"
 
 #================================================
 # Template Functions (EMBED_TEMPLATES MODE)
@@ -953,56 +953,97 @@ install_prometheus_adapter_helm() {
 }
 
 # ----------------------------------------
-# CLI/Component: wva-helm
+# CLI/Component: wva-kustomize
 # ----------------------------------------
 
-uninstall_wva_helm() {
+uninstall_wva_kustomize() {
     log_info "Uninstalling WVA..."
 
-    helm uninstall "${WVA_RELEASE_NAME}" -n "${WVA_NAMESPACE}" 2>/dev/null || true
+    kubectl delete deployment -l control-plane=controller-manager -n "${WVA_NAMESPACE}" 2>/dev/null || true
     kubectl delete all --all -n "${WVA_NAMESPACE}" --force --grace-period=0 2>/dev/null || true
+    kubectl delete clusterrole -l app.kubernetes.io/name=workload-variant-autoscaler 2>/dev/null || true
+    kubectl delete clusterrolebinding -l app.kubernetes.io/name=workload-variant-autoscaler 2>/dev/null || true
     kubectl delete namespace "${WVA_NAMESPACE}" --wait=true --timeout=60s --force --grace-period=0 2>/dev/null || true
 
     log_success "WVA uninstalled"
 }
 
-install_wva_helm() {
-    if helm list -n "${WVA_NAMESPACE}" 2>/dev/null | grep -q "${WVA_RELEASE_NAME}"; then
+install_wva_kustomize() {
+    if kubectl get deployment -n "${WVA_NAMESPACE}" -l control-plane=controller-manager 2>/dev/null | grep -q "controller-manager"; then
         if [ "$REINSTALL" = false ]; then
             log_info "WVA is already installed. Use --reinstall to reinstall."
             return 0
         else
             log_info "Reinstalling WVA..."
-            uninstall_wva_helm
+            uninstall_wva_kustomize
         fi
     fi
 
-    # Strip leading 'v' from WVA_VERSION if present (chart uses semver without prefix)
-    local chart_version="${WVA_VERSION#v}"
+    local wva_version="${WVA_VERSION}"
 
-    log_info "Installing WVA ${chart_version}..."
-    helm install "${WVA_RELEASE_NAME}" oci://ghcr.io/llm-d/workload-variant-autoscaler \
-        --namespace "${WVA_NAMESPACE}" \
-        --create-namespace \
-        --version "${chart_version}" \
-        --set controller.enabled=true \
-        --set wva.enabled=true \
-        --set wva.replicaCount=1 \
-        --set wva.namespaceScoped=false \
-        --set wva.prometheus.baseURL="${WVA_PROMETHEUS_URL}" \
-        --set wva.prometheus.tls.insecureSkipVerify=true \
-        --set wva.prometheus.serviceAccountName="prometheus-kube-prometheus-prometheus" \
-        --set wva.prometheus.monitoringNamespace="${PROMETHEUS_NAMESPACE:-monitoring}" \
-        --set wva.metrics.secure=false \
-        --set va.enabled=false \
-        --set hpa.enabled=false \
-        --set vllmService.enabled=false \
-        --set llmd.namespace="${WVA_NAMESPACE}" \
-        --wait \
-        --timeout 5m \
-        ${WVA_EXTRA_ARGS:-}
+    log_info "Installing WVA ${wva_version} via Kustomize..."
 
-    log_success "Successfully installed WVA ${chart_version} via Helm"
+    local tmp_overlay
+    tmp_overlay=$(mktemp -d)
+    # Trap ensures cleanup on exit or error
+    trap 'rm -rf "$tmp_overlay"' RETURN
+
+    # Build a kustomization overlay that references the upstream WVA config
+    # at the pinned version tag and patches in our Prometheus URL.
+    cat > "$tmp_overlay/kustomization.yaml" <<EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- ${WVA_REPO_URL}/config/overlays/cluster-scoped/kubernetes?ref=${wva_version}
+
+images:
+- name: ghcr.io/llm-d/llm-d-workload-variant-autoscaler
+  newTag: "${wva_version}"
+
+patches:
+# Patch the WVA config to point at our Prometheus instance
+- target:
+    kind: ConfigMap
+    name: wva-manager-config
+  patch: |-
+    - op: replace
+      path: /data/config.yaml
+      value: |
+        PROMETHEUS_BASE_URL: "${WVA_PROMETHEUS_URL}"
+        PROMETHEUS_TLS_INSECURE_SKIP_VERIFY: "true"
+        GLOBAL_OPT_INTERVAL: "15s"
+        WVA_SCALE_TO_ZERO: "false"
+# Disable metrics TLS (Prometheus scrapes over plain HTTP in the CI setup)
+- target:
+    kind: Deployment
+    name: wva-controller-manager
+  patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/args
+      value:
+        - --leader-elect=true
+        - --health-probe-bind-address=:8081
+        - --config-file=/etc/wva/config.yaml
+        - --metrics-bind-address=:8443
+        - --metrics-secure=false
+# Match ServiceMonitor to use HTTP (since metrics-secure=false)
+- target:
+    kind: ServiceMonitor
+    name: wva-controller-manager-metrics-monitor
+  patch: |-
+    - op: replace
+      path: /spec/endpoints
+      value:
+        - interval: 10s
+          path: /metrics
+          port: https
+          scheme: http
+EOF
+
+    kubectl apply --server-side --force-conflicts -k "$tmp_overlay"
+
+    log_success "Successfully installed WVA ${wva_version} via Kustomize"
 
     wait_for_pods "${WVA_NAMESPACE}" "control-plane=controller-manager" "300s"
 
@@ -1020,7 +1061,7 @@ main() {
         echo "=========================================="
         echo "Uninstalling components..."
         echo "=========================================="
-        uninstall_wva_helm
+        uninstall_wva_kustomize
         uninstall_prometheus_adapter_helm
         uninstall_prometheus_helm
         
@@ -1039,7 +1080,7 @@ main() {
     install_helm
     install_prometheus_helm
     install_prometheus_adapter_helm
-    install_wva_helm
+    install_wva_kustomize
 
     echo "=========================================="
     echo "✅ Installation completed successfully!"

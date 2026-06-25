@@ -217,7 +217,7 @@ uninstall_all() {
   local scripts=(
     "hack/setup/infra/manage.kserve-helm.sh"
     "hack/setup/infra/manage.kserve-kustomize.sh"
-    "hack/setup/infra/manage.wva-helm.sh"
+    "hack/setup/infra/manage.wva-kustomize.sh"
     "hack/setup/infra/manage.prometheus-adapter-helm.sh"
     "hack/setup/infra/manage.prometheus-helm.sh"
     "hack/setup/infra/manage.keda-otel-addon-helm.sh"
