@@ -1042,8 +1042,7 @@ uninstall_gateway_api_extension_crd() {
     log_info "Uninstalling Gateway Inference Extension CRD..."
     kubectl delete -f "https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/${GIE_VERSION}/v1-manifests.yaml" --ignore-not-found=true 2>/dev/null || true
     log_info "Uninstalling llm-d CRDs from llm-d-router ${LLMD_ROUTER_VERSION}..."
-    kubectl delete -f "https://raw.githubusercontent.com/llm-d/llm-d-router/${LLMD_ROUTER_VERSION}/config/crd/bases/llm-d.ai_inferenceobjectives.yaml" --ignore-not-found=true 2>/dev/null || true
-    kubectl delete -f "https://raw.githubusercontent.com/llm-d/llm-d-router/${LLMD_ROUTER_VERSION}/config/crd/bases/llm-d.ai_inferencemodelrewrites.yaml" --ignore-not-found=true 2>/dev/null || true
+    kubectl delete -f "https://github.com/llm-d/llm-d-router/releases/download/${LLMD_ROUTER_VERSION}/manifests.yaml" --ignore-not-found=true 2>/dev/null || true
     log_success "Gateway Inference Extension CRDs uninstalled"
 }
 
@@ -1064,10 +1063,7 @@ install_gateway_api_extension_crd() {
     log_success "Successfully installed Gateway Inference Extension CRDs ${GIE_VERSION}"
 
     log_info "Installing llm-d.ai CRDs from llm-d-router ${LLMD_ROUTER_VERSION}..."
-    # TODO: once 0.9.0 is released switch to use release artifacts
-    kubectl apply -f "https://raw.githubusercontent.com/llm-d/llm-d-router/${LLMD_ROUTER_VERSION}/config/crd/bases/llm-d.ai_inferenceobjectives.yaml"
-    kubectl apply -f "https://raw.githubusercontent.com/llm-d/llm-d-router/${LLMD_ROUTER_VERSION}/config/crd/bases/llm-d.ai_inferencemodelrewrites.yaml"
-
+    kubectl apply -f "https://github.com/llm-d/llm-d-router/releases/download/${LLMD_ROUTER_VERSION}/manifests.yaml"
 
     wait_for_crds "60s" \
         "inferencepools.inference.networking.k8s.io" \

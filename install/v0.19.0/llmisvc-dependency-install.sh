@@ -1031,8 +1031,7 @@ install_gateway_api_extension_crd() {
     log_success "Gateway Inference Extension CRDs ${GIE_VERSION} are ready!"
  
     log_info "Installing llm-d.ai CRDs from llm-d-router ${LLMD_ROUTER_VERSION}..."
-    kubectl apply -f "https://raw.githubusercontent.com/llm-d/llm-d-router/${LLMD_ROUTER_VERSION}/config/crd/bases/llm-d.ai_inferenceobjectives.yaml"
-    kubectl apply -f "https://raw.githubusercontent.com/llm-d/llm-d-router/${LLMD_ROUTER_VERSION}/config/crd/bases/llm-d.ai_inferencemodelrewrites.yaml"
+    kubectl apply -f "https://github.com/llm-d/llm-d-router/releases/download/${LLMD_ROUTER_VERSION}/manifests.yaml"
 
     wait_for_crds "60s" \
         "inferenceobjectives.llm-d.ai" \
