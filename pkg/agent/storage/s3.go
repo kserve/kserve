@@ -114,6 +114,13 @@ func (s *S3ObjectDownloader) GetAllObjects(s3Svc s3iface.S3API) ([]s3manager.Bat
 		if strings.HasSuffix(*object.Key, "/") {
 			continue
 		}
+		// S3's ListObjects Prefix is a plain string match, not a path-segment
+		// match, so a prefix like "model-a" also matches keys under the
+		// sibling "model-a-2/" directory. Require the key to be the prefix
+		// itself (single-object case) or to continue at a "/" boundary.
+		if s.Prefix != "" && *object.Key != s.Prefix && !strings.HasPrefix(*object.Key, s.Prefix+"/") {
+			continue
+		}
 		subObjectKey := strings.TrimPrefix(*object.Key, s.Prefix)
 		fileName := filepath.Join(s.ModelDir, s.ModelName, subObjectKey)
 
