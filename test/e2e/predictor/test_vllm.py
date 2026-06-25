@@ -257,6 +257,11 @@ def test_vllm_openai_text_completion_qwen2():
 
 
 @pytest.mark.vllm_runtime
+@pytest.mark.skip(
+    reason="vLLM AOT compilation (~130s on CPU) exceeds shm_broadcast EngineCore "
+    "init timeout (120s); re-enable when GPU runner is available or the upstream "
+    "race is fixed. See PR #5558 Round 13 comment for context."
+)
 def test_vllm_openai_text_completion_streaming():
     service_name = "vllm-qwen-cmpl-stream"
     predictor = V1beta1PredictorSpec(
