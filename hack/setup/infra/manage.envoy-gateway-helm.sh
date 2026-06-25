@@ -34,7 +34,7 @@ elif [[ "$*" == *"--reinstall"* ]]; then
 fi
 # INIT END
 
-check_cli_exist helm
+check_cli_exist helm kubectl yq
 
 uninstall() {
     log_info "Uninstalling Envoy Gateway..."
@@ -56,11 +56,28 @@ install() {
         fi
     fi
 
+    log_info "Installing Envoy Gateway CRDs ${ENVOY_GATEWAY_VERSION}..."
+    helm show crds oci://docker.io/envoyproxy/gateway-helm \
+        --version "${ENVOY_GATEWAY_VERSION}" \
+        | yq 'select(.spec.group == "gateway.envoyproxy.io")' \
+        | kubectl apply --server-side --force-conflicts -f -
+
+    wait_for_crds "60s" \
+        "backends.gateway.envoyproxy.io" \
+        "backendtrafficpolicies.gateway.envoyproxy.io" \
+        "clienttrafficpolicies.gateway.envoyproxy.io" \
+        "envoyextensionpolicies.gateway.envoyproxy.io" \
+        "envoypatchpolicies.gateway.envoyproxy.io" \
+        "envoyproxies.gateway.envoyproxy.io" \
+        "httproutefilters.gateway.envoyproxy.io" \
+        "securitypolicies.gateway.envoyproxy.io"
+
     log_info "Installing Envoy Gateway ${ENVOY_GATEWAY_VERSION}..."
     helm upgrade -i eg oci://docker.io/envoyproxy/gateway-helm \
         --version "${ENVOY_GATEWAY_VERSION}" \
         -n envoy-gateway-system \
         --create-namespace \
+        --skip-crds \
         --wait
     
     log_success "Successfully installed Envoy Gateway ${ENVOY_GATEWAY_VERSION} via Helm"
