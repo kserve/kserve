@@ -82,7 +82,7 @@ The two Deployments do not conflict despite sharing label values because Kuberne
 kubectl apply -f llm-inference-service-qwen2-7b-nvidia-with-scheduler.yaml
 
 # 2. Deploy the AMD instance (pods join the existing InferencePool via shared labels)
-kubectl apply -f llm-inference-service-qwen2-7b-amd-no-scheduler.yaml
+kubectl apply -f llm-inference-service-qwen2-7b-amd-scheduler-ref.yaml
 ```
 
 ## Configuration Summary
