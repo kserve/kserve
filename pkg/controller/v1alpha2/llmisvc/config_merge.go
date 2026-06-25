@@ -62,8 +62,9 @@ const (
 	configDecodeWorkerDataParallelNameSuffix  = "config-llm-decode-worker-data-parallel"
 	configPrefillWorkerDataParallelNameSuffix = "config-llm-prefill-worker-data-parallel"
 	// Router and scheduler configurations
-	configRouterSchedulerNameSuffix = "config-llm-scheduler"
-	configRouterRouteNameSuffix     = "config-llm-router-route"
+	configRouterSchedulerNameSuffix           = "config-llm-scheduler"
+	configRouterRouteNameSuffix               = "config-llm-router-route"
+	configSchedulerLatencyPredictorNameSuffix = "config-llm-scheduler-latency-predictor"
 	// Tracing configurations
 	configTracingNameSuffix = "config-llm-tracing"
 )
@@ -81,6 +82,7 @@ var (
 	configPrefillWorkerDataParallelName     = configPrefix + configPrefillWorkerDataParallelNameSuffix
 	configRouterSchedulerName               = configPrefix + configRouterSchedulerNameSuffix
 	configRouterRouteName                   = configPrefix + configRouterRouteNameSuffix
+	configSchedulerLatencyPredictorName     = configPrefix + configSchedulerLatencyPredictorNameSuffix
 	configTracingName                       = configPrefix + configTracingNameSuffix
 )
 
@@ -102,6 +104,7 @@ var WellKnownDefaultConfigs = sets.New[string](
 	configPrefillWorkerDataParallelName,
 	configRouterSchedulerName,
 	configRouterRouteName,
+	configSchedulerLatencyPredictorName,
 	configTracingName,
 )
 
@@ -207,6 +210,9 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	refs := make([]corev1.LocalObjectReference, 0, len(llmSvc.Spec.BaseRefs))
 	if resolvedSpec.Router != nil && resolvedSpec.Router.Scheduler != nil && !resolvedSpec.Router.Scheduler.Pool.HasRef() {
 		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configRouterSchedulerName)})
+	}
+	if hasLatencyProducerInSpec(resolvedSpec) {
+		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configSchedulerLatencyPredictorName)})
 	}
 	if resolvedSpec.Router != nil && resolvedSpec.Router.Route != nil && !resolvedSpec.Router.Route.HTTP.HasRefs() {
 		// For the HTTP route configuration we don't use versioned defaults since this configuration depends on the
@@ -395,6 +401,14 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		// Skip clearing if the caller needs to check which ConfigMap was referenced.
 		if !options.skipClearSchedulerConfigRef {
 			llmSvcCfg.Spec.Router.Scheduler.Config.Ref = nil
+		}
+
+		// Warn if the resolved ConfigMap contains predicted-latency-producer but the
+		// well-known config was not injected (because detection runs before Ref resolution).
+		if hasLatencyProducerInSpec(llmSvcCfg.Spec) {
+			r.Eventf(llmSvc, corev1.EventTypeWarning, "LatencyPredictorConfigRef",
+				"predicted-latency-producer plugin detected in Config.Ref ConfigMap %q; "+
+					"latency predictor sidecar injection requires Config.Inline instead of Config.Ref", cmName)
 		}
 	}
 
