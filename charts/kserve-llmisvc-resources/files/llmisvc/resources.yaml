@@ -1132,8 +1132,9 @@ rules:
   - ""
   resources:
   - configmaps
-  - pods
   verbs:
+  - create
+  - delete
   - get
   - list
   - watch
@@ -1145,6 +1146,14 @@ rules:
   - create
   - patch
   - update
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - ""
   resources:
