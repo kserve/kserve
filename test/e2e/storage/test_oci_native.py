@@ -36,7 +36,7 @@ import os
 import time
 
 import pytest
-from kubernetes import client
+from kubernetes import client, config as k8s_config
 from kserve import (
     KServeClient,
     V1beta1InferenceService,
@@ -69,6 +69,12 @@ def _get_k8s_minor() -> int:
     Returns -1 on any error so callers can decide whether to skip or proceed.
     """
     try:
+        try:
+            k8s_config.load_kube_config(
+                config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+            )
+        except Exception:  # noqa: BLE001
+            k8s_config.load_incluster_config()
         version_info = client.VersionApi().get_code()
         return int(version_info.minor.rstrip("+"))
     except Exception:  # noqa: BLE001
