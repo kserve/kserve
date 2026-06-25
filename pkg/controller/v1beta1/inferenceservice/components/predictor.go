@@ -947,6 +947,49 @@ func (p *Predictor) reconcileCanaryDeployments(ctx context.Context, isvc *v1beta
 		p.Log.Info("Reconciled canary deployment", "canary", canary.Predictor.Name, "trafficPercent", canary.TrafficPercent)
 	}
 
+	// Update canary status
+	var canaryStatuses []v1beta1.CanaryStatus
+	allReady := true
+	for i := range isvc.Spec.Canary {
+		canary := &isvc.Spec.Canary[i]
+		canaryName := constants.PredictorServiceName(isvc.Name, canary.Predictor.Name)
+
+		deploy := &appsv1.Deployment{}
+		ready := false
+		if err := p.client.Get(ctx, client.ObjectKey{Name: canaryName, Namespace: isvc.Namespace}, deploy); err == nil {
+			ready = deploy.Status.AvailableReplicas > 0
+		}
+		if !ready {
+			allReady = false
+		}
+
+		canaryStatuses = append(canaryStatuses, v1beta1.CanaryStatus{
+			Name:           canary.Predictor.Name,
+			Ready:          ready,
+			TrafficPercent: canary.TrafficPercent,
+		})
+	}
+	isvc.Status.CanaryStatuses = canaryStatuses
+
+	if len(isvc.Spec.Canary) > 0 {
+		status := corev1.ConditionTrue
+		reason := "AllCanariesReady"
+		if utils.GetForceStopRuntime(isvc) {
+			status = corev1.ConditionFalse
+			reason = string(v1beta1.StoppedISVCReason)
+		} else if !allReady {
+			status = corev1.ConditionFalse
+			reason = "CanariesNotReady"
+		}
+		isvc.Status.SetCondition(v1beta1.CanaryReady, &apis.Condition{
+			Type:   v1beta1.CanaryReady,
+			Status: status,
+			Reason: reason,
+		})
+	} else {
+		isvc.Status.ClearCondition(v1beta1.CanaryReady)
+	}
+
 	// Cleanup orphaned predictor deployments and services
 	deployList := &appsv1.DeploymentList{}
 	if err := p.client.List(ctx, deployList, client.InNamespace(isvc.Namespace), client.MatchingLabels{
