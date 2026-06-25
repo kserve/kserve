@@ -202,7 +202,7 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 //
 //	An error if the configuration fails, otherwise nil.
 func (r *LLMISVCReconciler) attachOciModelArtifact(modelUri string, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, containerName string, modelPath string) error {
-	if err := utils.ConfigureModelcarToContainer(modelUri, podSpec, containerName, modelPath, storageConfig); err != nil {
+	if err := utils.ConfigureModelcarToContainer(modelUri, podSpec, containerName, modelPath, storageConfig, 0); err != nil {
 		return err
 	}
 
@@ -259,7 +259,7 @@ func (r *LLMISVCReconciler) attachPVCModelArtifact(modelUri string, podSpec *cor
 //
 //	An error if the configuration fails, otherwise nil.
 func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig, containerName string, modelPath string) error {
-	if err := r.attachStorageInitializer(modelUri, curr, podSpec, storageConfig, containerName, modelPath); err != nil {
+	if err := r.attachStorageInitializer(modelUri, curr, podSpec, storageConfig, llmSvc.Spec.Model.Confidential, containerName, modelPath); err != nil {
 		return err
 	}
 	if initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName); initContainer != nil {
@@ -310,7 +310,7 @@ func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAc
 //
 //	An error if the configuration fails, otherwise nil.
 func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig, containerName string, modelPath string) error {
-	if err := r.attachStorageInitializer(modelUri, curr, podSpec, storageConfig, containerName, modelPath); err != nil {
+	if err := r.attachStorageInitializer(modelUri, curr, podSpec, storageConfig, llmSvc.Spec.Model.Confidential, containerName, modelPath); err != nil {
 		return err
 	}
 	if initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName); initContainer != nil {
@@ -365,7 +365,7 @@ func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAc
 // Returns:
 //
 //	An error if the configuration fails, otherwise nil.
-func (r *LLMISVCReconciler) attachStorageInitializer(modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, containerName string, modelPath string) error {
+func (r *LLMISVCReconciler) attachStorageInitializer(modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, confidential *v1alpha2.ConfidentialSpec, containerName string, modelPath string) error {
 	stripPriorControllerStorageInitializer(podSpec)
 
 	containerArgs := []string{
@@ -378,10 +378,11 @@ func (r *LLMISVCReconciler) attachStorageInitializer(modelUri string, curr corev
 		ReadOnly:   false,
 	}
 
+	copied := *storageConfig
+
 	// Preserve the existing storage-initializer image from the current deployment
 	// to avoid unnecessary pod restarts during operator upgrades when the model
 	// hasn't changed.
-	copied := *storageConfig
 	for _, initContainer := range curr.InitContainers {
 		if initContainer.Name == constants.StorageInitializerContainerName {
 			copied.Image = initContainer.Image
@@ -389,6 +390,16 @@ func (r *LLMISVCReconciler) attachStorageInitializer(modelUri string, curr corev
 	}
 
 	initContainer := utils.CreateInitContainerWithConfig(&copied, containerArgs)
+
+	// Inject confidential env vars before appending to the pod spec
+	if confidential != nil && confidential.Enabled {
+		resourceId := ""
+		if confidential.ResourceId != nil {
+			resourceId = *confidential.ResourceId
+		}
+		utils.ApplyConfidentialContainerConfig(initContainer, resourceId)
+	}
+
 	podSpec.InitContainers = append(podSpec.InitContainers, *initContainer)
 
 	if err := utils.AddModelMount(storageMountParams, initContainer.Name, podSpec); err != nil {

@@ -22,6 +22,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -29,6 +30,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apixclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -51,6 +53,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 	kservescheme "github.com/kserve/kserve/pkg/scheme"
 	llmisvcwebhook "github.com/kserve/kserve/pkg/webhook/admission/llminferenceservice"
@@ -197,7 +200,16 @@ func main() {
 					Label: llmSvcCacheSelector,
 				},
 				&corev1.ConfigMap{}: {
-					Label: llmSvcCacheSelector,
+					Namespaces: map[string]cache.Config{
+						cache.AllNamespaces: {
+							LabelSelector: llmSvcCacheSelector,
+						},
+						constants.KServeNamespace: {
+							// Namespace-specific cache configs do not merge with AllNamespaces.
+							// Keep the system namespace scope limited to the global config read by LLMISVC.
+							FieldSelector: fields.OneTermEqualSelector("metadata.name", constants.InferenceServiceConfigMapName),
+						},
+					},
 				},
 				&appsv1.Deployment{}: {
 					Label: llmSvcCacheSelector,
@@ -233,17 +245,21 @@ func main() {
 		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceservice-v1alpha1")
 		os.Exit(1)
 	}
+	const preventWellKnownConfigDeletionEnv = "PREVENT_WELL_KNOWN_CONFIG_DELETION"
+	preventWellKnownConfigDeletion, _ := strconv.ParseBool(constants.GetEnvOrDefault(preventWellKnownConfigDeletionEnv, "true"))
 	v1alpha1ConfigValidator := &v1alpha1.LLMInferenceServiceConfigValidator{
-		ConfigValidationFunc:   createV1Alpha1ConfigValidationFunc(clientSet),
-		WellKnownConfigChecker: wellKnownConfigChecker,
+		ConfigValidationFunc:           createV1Alpha1ConfigValidationFunc(mgr.GetAPIReader()),
+		WellKnownConfigChecker:         wellKnownConfigChecker,
+		PreventWellKnownConfigDeletion: preventWellKnownConfigDeletion,
 	}
 	if err = v1alpha1ConfigValidator.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceserviceconfig-v1alpha1")
 		os.Exit(1)
 	}
 	v1alpha2ConfigValidator := &v1alpha2.LLMInferenceServiceConfigValidator{
-		ConfigValidationFunc:   createV1Alpha2ConfigValidationFunc(clientSet),
-		WellKnownConfigChecker: wellKnownConfigChecker,
+		ConfigValidationFunc:           createV1Alpha2ConfigValidationFunc(mgr.GetAPIReader()),
+		WellKnownConfigChecker:         wellKnownConfigChecker,
+		PreventWellKnownConfigDeletion: preventWellKnownConfigDeletion,
 	}
 	if err = v1alpha2ConfigValidator.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceserviceconfig-v1alpha2")
@@ -298,10 +314,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha2.LLMInferenceServiceConfig{}).
-		Complete(); err != nil {
-		setupLog.Error(err, "unable to create conversion webhook", "webhook", "llminferenceserviceconfig")
+	setupLog.Info("Setting up LLMInferenceServiceConfig controller")
+	if err = (&llmisvc.LLMISVCConfigReconciler{
+		Client:        mgr.GetClient(),
+		EventRecorder: llmEventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: "LLMInferenceServiceConfigController"}),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "LLMInferenceServiceConfig")
 		os.Exit(1)
 	}
 
@@ -370,8 +388,8 @@ func wellKnownConfigChecker(name string) bool {
 
 // validateLLMISVCConfig validates a v1alpha2 LLMInferenceServiceConfig by loading the controller
 // config and validating the template variables.
-func validateLLMISVCConfig(ctx context.Context, clientSet kubernetes.Interface, config *v1alpha2.LLMInferenceServiceConfig) error {
-	cfg, err := llmisvc.LoadConfig(ctx, clientSet)
+func validateLLMISVCConfig(ctx context.Context, reader client.Reader, config *v1alpha2.LLMInferenceServiceConfig) error {
+	cfg, err := llmisvc.LoadConfig(ctx, reader)
 	if err != nil {
 		return err
 	}
@@ -381,19 +399,19 @@ func validateLLMISVCConfig(ctx context.Context, clientSet kubernetes.Interface, 
 
 // createV1Alpha1ConfigValidationFunc creates a validation function for v1alpha1 LLMInferenceServiceConfig.
 // It converts the config to v1alpha2 and validates using the v1alpha2 llmisvc package.
-func createV1Alpha1ConfigValidationFunc(clientSet kubernetes.Interface) func(ctx context.Context, config *v1alpha1.LLMInferenceServiceConfig) error {
+func createV1Alpha1ConfigValidationFunc(reader client.Reader) func(ctx context.Context, config *v1alpha1.LLMInferenceServiceConfig) error {
 	return func(ctx context.Context, config *v1alpha1.LLMInferenceServiceConfig) error {
 		v2Config := &v1alpha2.LLMInferenceServiceConfig{}
 		if err := config.ConvertTo(v2Config); err != nil {
 			return err
 		}
-		return validateLLMISVCConfig(ctx, clientSet, v2Config)
+		return validateLLMISVCConfig(ctx, reader, v2Config)
 	}
 }
 
 // createV1Alpha2ConfigValidationFunc creates a validation function for v1alpha2 LLMInferenceServiceConfig.
-func createV1Alpha2ConfigValidationFunc(clientSet kubernetes.Interface) func(ctx context.Context, config *v1alpha2.LLMInferenceServiceConfig) error {
+func createV1Alpha2ConfigValidationFunc(reader client.Reader) func(ctx context.Context, config *v1alpha2.LLMInferenceServiceConfig) error {
 	return func(ctx context.Context, config *v1alpha2.LLMInferenceServiceConfig) error {
-		return validateLLMISVCConfig(ctx, clientSet, config)
+		return validateLLMISVCConfig(ctx, reader, config)
 	}
 }

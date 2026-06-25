@@ -1,4 +1,4 @@
-# Copyright 2025 The KServe Authors.
+# Copyright 2026 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ from .fixtures import (
     inject_k8s_proxy,
     KSERVE_TEST_NAMESPACE,
     KSERVE_PLURAL_LLMINFERENCESERVICECONFIG,
+    OPT_125M_MODEL_URI,
 )
 from .logging import logger
 
@@ -131,7 +132,7 @@ class TestStorageVersionMigration:
                 "namespace": self.namespace,
             },
             "spec": {
-                "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},
+                "model": {"uri": OPT_125M_MODEL_URI, "name": "facebook/opt-125m"},
                 "router": {"route": {}},
                 "template": {
                     "containers": [

@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -116,7 +117,7 @@ func PropagatePrefixedMap(source map[string]string, dest *map[string]string, pre
 
 // PropagateMap copies all key-value pairs from source to dest.
 // Initializes dest if nil. No-op if source is empty.
-func PropagateMap(source map[string]string, dest *map[string]string) {
+func PropagateMap(source map[string]string, dest *map[string]string, skipKeys ...string) {
 	if len(source) == 0 {
 		return
 	}
@@ -124,6 +125,9 @@ func PropagateMap(source map[string]string, dest *map[string]string) {
 		*dest = make(map[string]string, len(source))
 	}
 	for k, v := range source {
+		if slices.Contains(skipKeys, k) {
+			continue
+		}
 		(*dest)[k] = v
 	}
 }

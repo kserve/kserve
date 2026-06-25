@@ -43,7 +43,7 @@ import (
 // These permissions are needed to discover and monitor inference pools and pods.
 var sidecarSSRFProtectionRules = []rbacv1.PolicyRule{
 	{APIGroups: []string{""}, Resources: []string{"pods"}, Verbs: []string{"get", "list", "watch"}},
-	{APIGroups: []string{"inference.networking.x-k8s.io"}, Resources: []string{"inferencepools"}, Verbs: []string{"get", "list", "watch"}},
+	{APIGroups: []string{"inference.networking.x-k8s.io", "inference.networking.k8s.io"}, Resources: []string{"inferencepools"}, Verbs: []string{"get", "list", "watch"}},
 }
 
 // reconcileWorkload manages the Deployments and Services for the LLM.
@@ -156,7 +156,7 @@ func (r *LLMISVCReconciler) reconcileWorkloadService(ctx context.Context, llmSvc
 	}
 
 	utils.PropagateMap(llmSvc.Spec.Labels, &expected.Labels)
-	utils.PropagateMap(llmSvc.Spec.Annotations, &expected.Annotations)
+	utils.PropagateMap(llmSvc.Spec.Annotations, &expected.Annotations, AnnotationModelBasedRoutingEnabled)
 
 	if utils.GetForceStopRuntime(llmSvc) {
 		return Delete(ctx, r, llmSvc, expected)
@@ -172,7 +172,7 @@ func GetWorkloadLabelSelector(meta metav1.ObjectMeta, _ *v1alpha2.LLMInferenceSe
 		constants.KServeComponentLabelKey:   constants.KServeComponentWorkload,
 	}
 
-	// TODO https://github.com/llm-d/llm-d-inference-scheduler/issues/220 and DP template
+	// TODO https://github.com/llm-d/llm-d-router/issues/220 and DP template
 
 	return s
 }

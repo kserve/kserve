@@ -1,6 +1,6 @@
 # HTTPRoute template for LLMInferenceService routing.
 #
-# Each endpoint (completions, chat/completions, responses) is split into two
+# Each endpoint (completions, chat/completions, responses, messages) is split into two
 # rules because Gateway API requires exactly one PathPrefix match per rule
 # when using URLRewrite with replacePrefixMatch:
 #
@@ -168,6 +168,54 @@ spec:
                 - path:
                     type: Exact
                     value: /v1/responses/
+                  headers:
+                    - type: Exact
+                      name: "{{ .GlobalConfig.ModelBasedRoutingHeaderName }}"
+                      value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}
+              timeouts:
+                backendRequest: 0s
+                request: 0s
+            - name: v1-messages-path
+              backendRefs:
+                - group: inference.networking.k8s.io
+                  kind: InferencePool
+                  name: |-
+                    {{ ChildName .ObjectMeta.Name `-inference-pool` }}
+                  port: 8000
+                  weight: 1
+              matches:
+                - path:
+                    type: PathPrefix
+                    value: |-
+                      /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }}/v1/messages
+              filters:
+                - type: URLRewrite
+                  urlRewrite:
+                    path:
+                      type: ReplacePrefixMatch
+                      replacePrefixMatch: /v1/messages
+              timeouts:
+                backendRequest: 0s
+                request: 0s
+            - name: v1-messages-model-routing
+              backendRefs:
+                - group: inference.networking.k8s.io
+                  kind: InferencePool
+                  name: |-
+                    {{ ChildName .ObjectMeta.Name `-inference-pool` }}
+                  port: 8000
+                  weight: 1
+              matches:
+                - path:
+                    type: Exact
+                    value: /v1/messages
+                  headers:
+                    - type: Exact
+                      name: "{{ .GlobalConfig.ModelBasedRoutingHeaderName }}"
+                      value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}
+                - path:
+                    type: Exact
+                    value: /v1/messages/
                   headers:
                     - type: Exact
                       name: "{{ .GlobalConfig.ModelBasedRoutingHeaderName }}"

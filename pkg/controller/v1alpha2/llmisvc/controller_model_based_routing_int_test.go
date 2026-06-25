@@ -144,13 +144,41 @@ var _ = Describe("Model Based Routing", func() {
 				g.Expect(&routes[0]).To(HaveHeaderMatch(headerName, "publishers/"+testNs.Name+"/models/facebook/opt-125m"))
 
 				rules := routes[0].Spec.Rules
-				g.Expect(countModelRoutingRules(rules)).To(BeNumerically(">=", 4),
-					"should have at least 4 model-routing rules")
+				g.Expect(countModelRoutingRules(rules)).To(BeNumerically(">=", 5),
+					"should have at least 5 model-routing rules")
 			}).WithContext(ctx).Should(Succeed())
 
 			ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvc)
 
 			Eventually(LLMInferenceServiceIsReady(llmSvc)).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should reconcile existing services when inferenceservice-config changes", func(ctx SpecContext) {
+			DeferCleanup(restoreIngressModelBasedRoutingMode)
+
+			svcName := "test-mbr-config-update"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := createModelRoutingTestService(ctx, svcName, testNs)
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				routes, err := managedRoutes(ctx, llmSvc)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(routes).To(HaveLen(1))
+				g.Expect(&routes[0]).To(HaveHeaderMatch(headerName, "publishers/"+testNs.Name+"/models/facebook/opt-125m"))
+			}).WithContext(ctx).Should(Succeed())
+
+			patchIngressModelBasedRoutingMode(ctx, "disabled")
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				routes, err := managedRoutes(ctx, llmSvc)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(routes).To(HaveLen(1))
+				g.Expect(&routes[0]).NotTo(HaveHeaderMatch(headerName, "publishers/"+testNs.Name+"/models/facebook/opt-125m"))
+			}).WithContext(ctx).Should(Succeed())
 		})
 	})
 
@@ -225,7 +253,7 @@ var _ = Describe("Model Based Routing", func() {
 				g.Expect(&routes[0]).To(HaveHeaderMatch(headerName, "publishers/"+testNs.Name+"/models/facebook/opt-125m"))
 
 				rules := routes[0].Spec.Rules
-				g.Expect(countModelRoutingRules(rules)).To(BeNumerically(">=", 4),
+				g.Expect(countModelRoutingRules(rules)).To(BeNumerically(">=", 5),
 					"forced mode should keep model-routing rules despite Gateway opt-out")
 			}).WithContext(ctx).Should(Succeed())
 
@@ -274,6 +302,44 @@ var _ = Describe("Model Based Routing", func() {
 				rules := routes[0].Spec.Rules
 				g.Expect(countModelRoutingRules(rules)).To(Equal(0),
 					"should have no model-routing rules when Gateway opts out")
+			}).WithContext(ctx).Should(Succeed())
+
+			ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvc)
+
+			Eventually(LLMInferenceServiceIsReady(llmSvc)).WithContext(ctx).Should(Succeed())
+		})
+	})
+
+	Context("Disabled via explicit Spec annotation override", func() {
+		It("should strip model-routing rules when Spec.Annotations overrides the annotation to false", func(ctx SpecContext) {
+			svcName := "test-mbr-no-annotation"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithModelName("facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithSpecAnnotations(map[string]string{
+					llmisvc.AnnotationModelBasedRoutingEnabled: "false",
+				}),
+			)
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				routes, err := managedRoutes(ctx, llmSvc)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(routes).To(HaveLen(1))
+
+				g.Expect(&routes[0]).NotTo(HaveHeaderMatch(headerName, "publishers/"+testNs.Name+"/models/facebook/opt-125m"))
+
+				rules := routes[0].Spec.Rules
+				g.Expect(countModelRoutingRules(rules)).To(Equal(0),
+					"should have no model-routing rules when Spec annotation overrides to false")
 			}).WithContext(ctx).Should(Succeed())
 
 			ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvc)

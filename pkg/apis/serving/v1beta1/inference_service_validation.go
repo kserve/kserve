@@ -31,6 +31,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -141,6 +142,12 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 	}
 
 	if err := validateMultipleStorageURIs(isvc); err != nil {
+		return allWarnings, err
+	}
+
+	confidentialWarnings, err := validateConfidential(isvc)
+	allWarnings = append(allWarnings, confidentialWarnings...)
+	if err != nil {
 		return allWarnings, err
 	}
 
@@ -720,4 +727,70 @@ func validateMultipleStorageURIs(isvc *InferenceService) error {
 	}
 
 	return nil
+}
+
+// validateConfidential validates the confidential spec on the predictor's implementation.
+func validateConfidential(isvc *InferenceService) (admission.Warnings, error) {
+	var warnings admission.Warnings
+
+	// Find the confidential spec from whichever predictor implementation is set
+	confidential := GetConfidentialSpecFromPredictor(&isvc.Spec.Predictor)
+	if confidential == nil || !confidential.Enabled {
+		return warnings, nil
+	}
+
+	// Confidential requires a storageUri to be set
+	implementations := isvc.Spec.Predictor.GetImplementations()
+	if len(implementations) == 0 {
+		return warnings, errors.New("confidential model serving requires storageUri to be set")
+	}
+	storageUri := implementations[0].GetStorageUri()
+	if storageUri == nil || *storageUri == "" {
+		return warnings, errors.New("confidential model serving requires storageUri to be set")
+	}
+
+	// Delegate OCI warning and resourceId validation to the shared helper
+	w, errs := validation.ValidateConfidentialSpec(
+		confidential.Enabled,
+		confidential.ResourceId,
+		*storageUri,
+		field.NewPath("spec", "predictor"),
+	)
+	warnings = append(warnings, w...)
+	if len(errs) > 0 {
+		return warnings, errs.ToAggregate()
+	}
+
+	return warnings, nil
+}
+
+// GetConfidentialSpecFromPredictor extracts the ConfidentialSpec from any predictor implementation
+// that embeds PredictorExtensionSpec.
+func GetConfidentialSpecFromPredictor(predictor *PredictorSpec) *ConfidentialSpec {
+	switch {
+	case predictor.SKLearn != nil:
+		return predictor.SKLearn.Confidential
+	case predictor.XGBoost != nil:
+		return predictor.XGBoost.Confidential
+	case predictor.Tensorflow != nil:
+		return predictor.Tensorflow.Confidential
+	case predictor.PyTorch != nil:
+		return predictor.PyTorch.Confidential
+	case predictor.Triton != nil:
+		return predictor.Triton.Confidential
+	case predictor.ONNX != nil:
+		return predictor.ONNX.Confidential
+	case predictor.HuggingFace != nil:
+		return predictor.HuggingFace.Confidential
+	case predictor.PMML != nil:
+		return predictor.PMML.Confidential
+	case predictor.LightGBM != nil:
+		return predictor.LightGBM.Confidential
+	case predictor.Paddle != nil:
+		return predictor.Paddle.Confidential
+	case predictor.Model != nil:
+		return predictor.Model.Confidential
+	default:
+		return nil
+	}
 }

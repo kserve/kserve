@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,10 +18,12 @@ package llmisvc_test
 
 import (
 	"context"
+	"strings"
 
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -202,4 +204,122 @@ var _ = Describe("Routing Status", func() {
 			}).WithContext(ctx).Should(Succeed())
 		})
 	})
+
+	Context("Status addresses contain model names", func() {
+		It("populates status.addresses[].models with the base model name", func(ctx SpecContext) {
+			svcName := "test-llm-addr-models"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			gwName := "addr-models-gw"
+			gw := Gateway(gwName,
+				InNamespace[*gwapiv1.Gateway](testNs.Name),
+				WithListener(gwapiv1.HTTPProtocolType),
+			)
+			Expect(envTest.Client.Create(ctx, gw)).To(Succeed())
+			ensureGatewayReady(ctx, envTest.Client, gw)
+			setGatewayStatusAddresses(ctx, envTest.Client, gw, "203.0.113.50")
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithModelName("facebook/opt-125m"),
+				WithManagedRoute(),
+				WithGatewayRefs(LLMGatewayRef(gwName, testNs.Name)),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvc)
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Status.Addresses).ToNot(BeEmpty(), "status.addresses should be populated")
+
+				for _, addr := range current.Status.Addresses {
+					g.Expect(addr.Models).ToNot(BeEmpty(), "each address should have models")
+
+					modelNames := make([]string, 0, len(addr.Models))
+					for _, m := range addr.Models {
+						modelNames = append(modelNames, m.Name)
+					}
+
+					if addr.Name != nil && strings.HasSuffix(*addr.Name, "-model-routing") {
+						g.Expect(modelNames).To(ContainElement("publishers/"+testNs.Name+"/models/facebook/opt-125m"),
+							"model-routing address should use publishers format")
+					} else {
+						g.Expect(modelNames).To(ContainElement("facebook/opt-125m"),
+							"path-based address should use plain model name")
+					}
+				}
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("includes LoRA adapter model names in status.addresses", func(ctx SpecContext) {
+			svcName := "test-llm-addr-lora"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			gwName := "addr-lora-gw"
+			gw := Gateway(gwName,
+				InNamespace[*gwapiv1.Gateway](testNs.Name),
+				WithListener(gwapiv1.HTTPProtocolType),
+			)
+			Expect(envTest.Client.Create(ctx, gw)).To(Succeed())
+			ensureGatewayReady(ctx, envTest.Client, gw)
+			setGatewayStatusAddresses(ctx, envTest.Client, gw, "203.0.113.51")
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithModelName("facebook/opt-125m"),
+				WithLoRAAdapters("adapter-1"),
+				WithManagedRoute(),
+				WithGatewayRefs(LLMGatewayRef(gwName, testNs.Name)),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvc)
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Status.Addresses).ToNot(BeEmpty(), "status.addresses should be populated")
+
+				for _, addr := range current.Status.Addresses {
+					g.Expect(addr.Models).ToNot(BeEmpty(), "each address should have models")
+
+					modelNames := make([]string, 0, len(addr.Models))
+					for _, m := range addr.Models {
+						modelNames = append(modelNames, m.Name)
+					}
+
+					if addr.Name != nil && strings.HasSuffix(*addr.Name, "-model-routing") {
+						g.Expect(modelNames).To(ContainElement("publishers/" + testNs.Name + "/models/facebook/opt-125m"))
+						g.Expect(modelNames).To(ContainElement("publishers/" + testNs.Name + "/models/adapter-1"))
+					} else {
+						g.Expect(modelNames).To(ContainElement("facebook/opt-125m"))
+						g.Expect(modelNames).To(ContainElement("adapter-1"))
+					}
+				}
+			}).WithContext(ctx).Should(Succeed())
+		})
+	})
 })
+
+func setGatewayStatusAddresses(ctx context.Context, c client.Client, gw *gwapiv1.Gateway, addresses ...string) {
+	current := &gwapiv1.Gateway{}
+	Expect(c.Get(ctx, client.ObjectKeyFromObject(gw), current)).To(Succeed())
+
+	current.Status.Addresses = make([]gwapiv1.GatewayStatusAddress, len(addresses))
+	for i, addr := range addresses {
+		current.Status.Addresses[i] = gwapiv1.GatewayStatusAddress{Value: addr}
+	}
+	Expect(c.Status().Update(ctx, current)).To(Succeed())
+}

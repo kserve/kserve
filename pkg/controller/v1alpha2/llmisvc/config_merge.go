@@ -30,6 +30,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/utils/ptr"
@@ -63,6 +64,8 @@ const (
 	// Router and scheduler configurations
 	configRouterSchedulerNameSuffix = "config-llm-scheduler"
 	configRouterRouteNameSuffix     = "config-llm-router-route"
+	// Tracing configurations
+	configTracingNameSuffix = "config-llm-tracing"
 )
 
 var (
@@ -78,6 +81,7 @@ var (
 	configPrefillWorkerDataParallelName     = configPrefix + configPrefillWorkerDataParallelNameSuffix
 	configRouterSchedulerName               = configPrefix + configRouterSchedulerNameSuffix
 	configRouterRouteName                   = configPrefix + configRouterRouteNameSuffix
+	configTracingName                       = configPrefix + configTracingNameSuffix
 )
 
 // FIXME move those presets to well-known when they're finally known :)
@@ -98,6 +102,7 @@ var WellKnownDefaultConfigs = sets.New[string](
 	configPrefillWorkerDataParallelName,
 	configRouterSchedulerName,
 	configRouterRouteName,
+	configTracingName,
 )
 
 const (
@@ -208,6 +213,10 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		// GW API provider version.
 		refs = append(refs, corev1.LocalObjectReference{Name: configRouterRouteName})
 	}
+	// Inject tracing default configs when tracing is enabled (field is non-nil)
+	if resolvedSpec.Tracing != nil {
+		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configTracingName)})
+	}
 
 	if resolvedSpec.Prefill != nil { // P/D
 		// Prefill
@@ -308,25 +317,7 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, err
 	}
 
-	if llmSvcCfg.Spec.Router != nil &&
-		llmSvcCfg.Spec.Router.Route != nil &&
-		llmSvcCfg.Spec.Router.Route.HTTP.HasSpec() {
-		if r.isModelBasedRoutingEnabled(ctx, llmSvc, reconcilerConfig) {
-			if llmSvcCfg.Spec.Model.LoRA != nil {
-				expandLoRAAdapterMatches(
-					llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules,
-					llmSvc.Namespace,
-					llmSvcCfg.Spec.Model.LoRA.Adapters,
-					reconcilerConfig.ModelBasedRoutingHeaderName,
-				)
-			}
-		} else {
-			llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules = stripModelBasedRoutingRules(
-				llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules,
-				reconcilerConfig.ModelBasedRoutingHeaderName,
-			)
-		}
-	}
+	injectManagedDRAIntoConfig(llmSvc, llmSvcCfg)
 
 	// Update HTTPRoute parentRefs to point to the custom gateway if Gateway.Refs is specified.
 	// This ensures the managed HTTPRoute references the correct gateway instead of the default one from presets.
@@ -407,6 +398,22 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		}
 	}
 
+	// The v1 InferencePool CRD requires port when endpointPickerRef.kind is "Service" (or
+	// unspecified, which defaults to "Service"). Configs created before GIE v1.2.0
+	// omit the port field entirely. Without this default the controller's
+	// dry-run update fails the CEL rule: "port is required when kind is 'Service' or
+	// unspecified (defaults to 'Service')". We check both Kind=="Service" and Kind==""
+	// because the kubebuilder default is only applied server-side during admission, not
+	// during in-process deserialization.
+	if llmSvcCfg.Spec.Router != nil &&
+		llmSvcCfg.Spec.Router.Scheduler != nil &&
+		llmSvcCfg.Spec.Router.Scheduler.Pool != nil &&
+		llmSvcCfg.Spec.Router.Scheduler.Pool.Spec != nil &&
+		(llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef.Port == nil || llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef.Port.Number == 0) &&
+		(llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef.Kind == "Service" || llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef.Kind == "") {
+		llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef.Port = ptr.To(igwapi.Port{Number: 9002})
+	}
+
 	// Skip validation when we're only using the result for matching (not for reconciliation).
 	// When skipClearSchedulerConfigRef is true, both Inline and Ref may be set, which would fail validation.
 	if !options.skipClearSchedulerConfigRef {
@@ -449,6 +456,13 @@ func (r *LLMISVCReconciler) isModelBasedRoutingEnabled(
 	if cfg.ModelBasedRoutingHeaderName == "" {
 		return false
 	}
+
+	// Ensure the workload has been deployed with the alternative served model name for model-based routing.
+	// Older presets associated with the previous version will have this unset.
+	if v, ok := llmSvc.Spec.Annotations[AnnotationModelBasedRoutingEnabled]; !ok || v != "true" {
+		return false
+	}
+
 	switch cfg.ModelBasedRoutingMode {
 	case ModelBasedRoutingDisabled:
 		return false
@@ -457,7 +471,8 @@ func (r *LLMISVCReconciler) isModelBasedRoutingEnabled(
 	default:
 		gateways, err := r.CollectReferencedGateways(ctx, llmSvc)
 		if err != nil {
-			return true
+			log.FromContext(ctx).Error(err, "failed to collect reference gateways to establish model-based routing enabled, defaulting to ModelBasedRoutingMode", "ModelBasedRoutingMode", cfg.ModelBasedRoutingMode)
+			return cfg.ModelBasedRoutingMode != ModelBasedRoutingDisabled
 		}
 		for _, gw := range gateways {
 			if gw.Annotations[AnnotationModelBasedRoutingEnabled] == "false" {
@@ -559,6 +574,10 @@ type templateGlobalConfig struct {
 	// shared-gateway deployments (e.g. "X-Gateway-Model-Name"). Exposed here so
 	// that HTTPRoute templates can reference it via {{ .GlobalConfig.ModelBasedRoutingHeaderName }}.
 	ModelBasedRoutingHeaderName string
+
+	// InferencePoolNamespacedName represents the inference pool namespaced reference in the format "<namespace>/<name>",
+	// or simply `<name>`.
+	InferencePoolNamespacedName string
 }
 
 // ReplaceVariables processes the configuration as a Go template to substitute
@@ -578,6 +597,14 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 			EnableTLS:                   reconcilerConfig.EnableTLS,
 			ModelBasedRoutingHeaderName: reconcilerConfig.ModelBasedRoutingHeaderName,
 		}
+		infPoolNamespacedName := types.NamespacedName{
+			Name:      (&v1alpha2.SchedulerSpec{}).InferencePoolName(llmSvc),
+			Namespace: llmSvc.GetNamespace(),
+		}
+		if llmSvcCfg.Spec.Router != nil {
+			infPoolNamespacedName.Name = llmSvcCfg.Spec.Router.Scheduler.InferencePoolName(llmSvc)
+		}
+		gc.InferencePoolNamespacedName = infPoolNamespacedName.String()
 	}
 	config := struct {
 		*v1alpha2.LLMInferenceService
@@ -589,6 +616,57 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 	t, err := template.New("config").
 		Funcs(map[string]any{
 			"ChildName": kmeta.ChildName,
+			"kvTransferConfig": func(spec any) string {
+				if spec == nil {
+					return ""
+				}
+				kv, ok := spec.(*v1alpha2.KVCacheOffloadingSpec)
+				if !ok || kv == nil {
+					return ""
+				}
+				extraConfig := map[string]any{
+					"spec_name":        "TieringOffloadingSpec",
+					"cpu_bytes_to_use": kv.CPU.Value(),
+				}
+				if kv.EvictionPolicy != "" {
+					extraConfig["eviction_policy"] = kv.EvictionPolicy
+				}
+				kvConfig := map[string]any{
+					"kv_connector":              "OffloadingConnector",
+					"kv_role":                   "kv_both",
+					"kv_connector_extra_config": extraConfig,
+				}
+				b, err := json.Marshal(kvConfig)
+				if err != nil {
+					return ""
+				}
+				// Escape " as \" so the value embeds safely in a bash double-quoted
+				// assignment and in the JSON template string that ReplaceVariables renders.
+				return "--kv-transfer-config '" + strings.ReplaceAll(string(b), `"`, `\"`) + "'"
+			},
+			// shutdownTimeout computes the vLLM --shutdown-timeout value from a *corev1.PodSpec
+			// (or nil): max(0, tgps - preStop - min(5, tgps)), defaulting tgps to 60 when unset.
+			// The 5-second buffer reserves time for signal propagation and final process cleanup
+			// before Kubernetes sends SIGKILL.
+			"shutdownTimeout": func(spec any, preStop int64) int64 {
+				const defaultTGPS = int64(60)
+				var tgpsVal int64
+				if spec != nil {
+					if ps, ok := spec.(*corev1.PodSpec); ok && ps != nil && ps.TerminationGracePeriodSeconds != nil {
+						tgpsVal = *ps.TerminationGracePeriodSeconds
+					} else {
+						tgpsVal = defaultTGPS
+					}
+				} else {
+					tgpsVal = defaultTGPS
+				}
+				buf := min(int64(5), tgpsVal)
+				result := tgpsVal - preStop - buf
+				if result < 0 {
+					return 0
+				}
+				return result
+			},
 		}).
 		Option("missingkey=error").
 		Parse(string(templateBytes))
