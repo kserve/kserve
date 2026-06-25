@@ -199,9 +199,8 @@ adopt_existing_crds_for_release() {
 
 # GIE CRDs that are bundled in the kserve-llmisvc-resources chart
 GIE_CRDS=(
-    "inferencemodelrewrites.inference.networking.x-k8s.io"
-    "inferenceobjectives.inference.networking.x-k8s.io"
-    "inferencepoolimports.inference.networking.x-k8s.io"
+    "inferencemodelrewrites.llm-d.ai"
+    "inferenceobjectives.llm-d.ai"
     "inferencepools.inference.networking.k8s.io"
     "inferencepools.inference.networking.x-k8s.io"
 )
