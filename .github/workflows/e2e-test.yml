@@ -1336,7 +1336,7 @@ jobs:
           name: test-results-kourier-${{ matrix.install-method }}
 
   test-llm:
-    runs-on: ubuntu-latest
+    runs-on: cncf-ubuntu-16-64-x86
     needs: [detect-changes, kserve-image-build, predictor-runtime-build]
     strategy:
       fail-fast: false
@@ -1419,7 +1419,7 @@ jobs:
           name: test-results-llm-${{ matrix.install-method }}
 
   test-huggingface-server-vllm:
-    runs-on: ubuntu-latest
+    runs-on: cncf-ubuntu-16-64-x86
     needs: [detect-changes, kserve-image-build, predictor-runtime-build]
     strategy:
       fail-fast: false
@@ -1503,7 +1503,7 @@ jobs:
           name: test-results-vllm-${{ matrix.install-method }}
 
   test-vllm-runtime:
-    runs-on: ubuntu-latest
+    runs-on: cncf-ubuntu-16-64-x86
     needs: [detect-changes, kserve-image-build, predictor-runtime-build]
     strategy:
       fail-fast: false
