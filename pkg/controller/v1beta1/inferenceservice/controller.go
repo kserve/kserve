@@ -340,6 +340,19 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1.LatestDeploymentReady)
 		}
 	}
+	// reconcile LatestDeploymentReady condition for standard deployment
+	if deploymentMode == constants.Standard {
+		componentList := []v1beta1.ComponentType{v1beta1.PredictorComponent}
+		if isvc.Spec.Transformer != nil {
+			componentList = append(componentList, v1beta1.TransformerComponent)
+		}
+		if isvc.Spec.Explainer != nil {
+			componentList = append(componentList, v1beta1.ExplainerComponent)
+		}
+		if !forceStopRuntime {
+			isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1.LatestDeploymentReady)
+		}
+	}
 	// Reconcile ingress
 	ingressConfig, err := v1beta1.NewIngressConfig(isvcConfigMap)
 	if err != nil {
