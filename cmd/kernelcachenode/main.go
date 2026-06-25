@@ -177,10 +177,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Agent creates its own KernelCacheNode on startup
+	// Agent creates its own KernelCacheNode on startup (non-fatal if fails)
+	// Reconcile loop will retry creation if feature enabled later
 	if err := reconciler.EnsureKernelCacheNode(cfg); err != nil {
-		setupLog.Error(err, "failed to ensure KernelCacheNode exists")
-		os.Exit(1)
+		setupLog.Info("Failed to create KernelCacheNode at startup (will retry in reconcile loop)", "error", err)
 	}
 
 	// Start the Cmd
