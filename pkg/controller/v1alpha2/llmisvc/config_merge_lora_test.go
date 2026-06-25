@@ -230,6 +230,25 @@ func TestExpandLoRAAdapterMatches(t *testing.T) {
 				assert.Equal(t, "publishers/prod/models/lora-1", rules[0].Matches[1].Headers[0].Value)
 			},
 		},
+		{
+			name: "adapter order is stable regardless of input order",
+			rules: []gwapiv1.HTTPRouteRule{
+				ruleWithMatches(
+					exactPathWithHeaderMatch("/v1/completions", "publishers/ns/models/base-model"),
+				),
+			},
+			namespace: "ns",
+			adapters: []v1alpha2.LLMModelSpec{
+				{Name: ptr.To("zebra")},
+				{Name: ptr.To("alpha")},
+			},
+			headerName: headerName,
+			wantFn: func(t *testing.T, rules []gwapiv1.HTTPRouteRule) {
+				assert.Len(t, rules[0].Matches, 3)
+				assert.Equal(t, "publishers/ns/models/alpha", rules[0].Matches[1].Headers[0].Value)
+				assert.Equal(t, "publishers/ns/models/zebra", rules[0].Matches[2].Headers[0].Value)
+			},
+		},
 	}
 
 	for _, tt := range tests {
