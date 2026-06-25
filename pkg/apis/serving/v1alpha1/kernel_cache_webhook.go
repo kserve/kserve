@@ -30,7 +30,9 @@ import (
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -197,6 +199,16 @@ func (kc *KernelCache) ValidateCreate(ctx context.Context, obj runtime.Object) (
 	}
 
 	kernelcacheLog.Info("Validating KernelCache create", "name", cache.Name, "namespace", cache.Namespace)
+
+	// Check if KernelCache feature enabled
+	enabled, err := isKernelCacheEnabled(ctx)
+	if err != nil {
+		kernelcacheLog.Error(err, "failed to check KernelCache enabled state")
+		return nil, fmt.Errorf("failed to check KernelCache configuration: %w", err)
+	}
+	if !enabled {
+		return nil, errors.New("KernelCache feature is disabled in inferenceservice-config ConfigMap (kernelcache.enabled=false)")
+	}
 
 	// Validate required fields
 	if cache.Spec.Image == "" {
@@ -414,6 +426,44 @@ func isKyvernoVerificationEnabled() bool {
 		return false
 	}
 	return enabled
+}
+
+// isKernelCacheEnabled checks if KernelCache feature is enabled in ConfigMap
+// isKernelCacheEnabled checks if KernelCache feature enabled in ConfigMap
+// Reads ConfigMap directly to avoid import cycle with v1beta1
+func isKernelCacheEnabled(ctx context.Context) (bool, error) {
+	cfg, err := ctrl.GetConfig()
+	if err != nil {
+		return false, fmt.Errorf("failed to get kubeconfig: %w", err)
+	}
+
+	clientset, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		return false, fmt.Errorf("failed to create clientset: %w", err)
+	}
+
+	// Read ConfigMap directly
+	cm, err := clientset.CoreV1().ConfigMaps("kserve").Get(ctx, "inferenceservice-config", metav1.GetOptions{})
+	if err != nil {
+		return false, fmt.Errorf("failed to get inferenceservice-config: %w", err)
+	}
+
+	// Parse kernelcache config (avoid importing v1beta1 by using raw JSON)
+	kernelcacheData, ok := cm.Data["kernelcache"]
+	if !ok {
+		// No config section - default to disabled for safety
+		return false, nil
+	}
+
+	// Simple JSON parse for enabled field
+	var config struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := json.Unmarshal([]byte(kernelcacheData), &config); err != nil {
+		return false, fmt.Errorf("failed to parse kernelcache config: %w", err)
+	}
+
+	return config.Enabled, nil
 }
 
 // mutationKeyFromEnv retrieves the HMAC secret from environment variable
