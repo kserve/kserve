@@ -4,7 +4,7 @@ kind: MutatingWebhookConfiguration
 metadata:
   name: kernelcache.serving.kserve.io
   annotations:
-    cert-manager.io/inject-ca-from: $(kserveNamespace)/kernelcache-serving-cert
+    cert-manager.io/inject-ca-from: $(kserveNamespace)/localmodel-serving-cert
 webhooks:
   - name: kernelcache.kserve-webhook-server.defaulter
 ---
@@ -13,6 +13,6 @@ kind: ValidatingWebhookConfiguration
 metadata:
   name: kernelcache.serving.kserve.io
   annotations:
-    cert-manager.io/inject-ca-from: $(kserveNamespace)/kernelcache-serving-cert
+    cert-manager.io/inject-ca-from: $(kserveNamespace)/localmodel-serving-cert
 webhooks:
   - name: kernelcache.kserve-webhook-server.validator

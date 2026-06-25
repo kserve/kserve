@@ -430,11 +430,11 @@ var _ = Describe("KernelCacheNode Controller", func() {
 								},
 							},
 							"cache2": {
-								State: v1alpha1.NodeCacheStateExtracted,
+								State:             v1alpha1.NodeCacheStateExtracted,
 								ServingNamespaces: map[string]v1alpha1.NamespaceServingCounts{},
 							},
 							"cache3": {
-								State: v1alpha1.NodeCacheStateError,
+								State:             v1alpha1.NodeCacheStateError,
 								ServingNamespaces: map[string]v1alpha1.NamespaceServingCounts{},
 							},
 						},
@@ -499,17 +499,17 @@ var _ = Describe("KernelCacheNode Controller", func() {
 		Describe("nodeCountsEqual", func() {
 			It("Should return true for equal counts", func() {
 				a := &v1alpha1.NodeCacheCounts{
-					CachesInUse:    1,
-					CachesNotInUse: 2,
-					CachesError:    0,
-					TotalPodsUsing:  3,
+					CachesInUse:          1,
+					CachesNotInUse:       2,
+					CachesError:          0,
+					TotalPodsUsing:       3,
 					TotalPodsTerminating: 0,
 				}
 				b := &v1alpha1.NodeCacheCounts{
-					CachesInUse:    1,
-					CachesNotInUse: 2,
-					CachesError:    0,
-					TotalPodsUsing:  3,
+					CachesInUse:          1,
+					CachesNotInUse:       2,
+					CachesError:          0,
+					TotalPodsUsing:       3,
 					TotalPodsTerminating: 0,
 				}
 				Expect(nodeCountsEqual(a, b)).To(BeTrue())
@@ -517,17 +517,17 @@ var _ = Describe("KernelCacheNode Controller", func() {
 
 			It("Should return false for different counts", func() {
 				a := &v1alpha1.NodeCacheCounts{
-					CachesInUse:    1,
-					CachesNotInUse: 2,
-					CachesError:    0,
-					TotalPodsUsing:  3,
+					CachesInUse:          1,
+					CachesNotInUse:       2,
+					CachesError:          0,
+					TotalPodsUsing:       3,
 					TotalPodsTerminating: 0,
 				}
 				b := &v1alpha1.NodeCacheCounts{
-					CachesInUse:    2,
-					CachesNotInUse: 2,
-					CachesError:    0,
-					TotalPodsUsing:  3,
+					CachesInUse:          2,
+					CachesNotInUse:       2,
+					CachesError:          0,
+					TotalPodsUsing:       3,
 					TotalPodsTerminating: 0,
 				}
 				Expect(nodeCountsEqual(a, b)).To(BeFalse())
@@ -565,17 +565,17 @@ var _ = Describe("KernelCacheNode Controller", func() {
 				// Mock filesystem helper
 				mockFS := &mockFileSystemHelper{
 					folders: []string{
-						storageKey1,  // Cache that exists in CacheStatus
-						orphanedKey,  // Orphaned cache (not in CacheStatus)
-						storageKey2,  // Another cache in CacheStatus
+						storageKey1, // Cache that exists in CacheStatus
+						orphanedKey, // Orphaned cache (not in CacheStatus)
+						storageKey2, // Another cache in CacheStatus
 					},
 					removedFolders: []string{},
 				}
 
-				// Temporarily replace global fsHelper
-				oldFsHelper := fsHelper
-				fsHelper = mockFS
-				defer func() { fsHelper = oldFsHelper }()
+				// Temporarily replace reconciler's fsHelper
+				oldFsHelper := reconciler.fsHelper
+				reconciler.fsHelper = mockFS
+				defer func() { reconciler.fsHelper = oldFsHelper }()
 
 				kcNode := &v1alpha1.KernelCacheNode{
 					Status: v1alpha1.KernelCacheNodeStatus{
@@ -620,9 +620,9 @@ var _ = Describe("KernelCacheNode Controller", func() {
 					removedFolders: []string{},
 				}
 
-				oldFsHelper := fsHelper
-				fsHelper = mockFS
-				defer func() { fsHelper = oldFsHelper }()
+				oldFsHelper := reconciler.fsHelper
+				reconciler.fsHelper = mockFS
+				defer func() { reconciler.fsHelper = oldFsHelper }()
 
 				kcNode := &v1alpha1.KernelCacheNode{
 					Status: v1alpha1.KernelCacheNodeStatus{

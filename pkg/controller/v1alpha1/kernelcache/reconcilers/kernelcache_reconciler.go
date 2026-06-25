@@ -82,6 +82,12 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
+	// Early return if KernelCache feature disabled
+	if !kernelCacheConfig.Enabled {
+		r.Log.Info("KernelCache feature disabled in config, skipping reconciliation")
+		return reconcile.Result{}, nil
+	}
+
 	// Step 1: Handle deletion
 	if !kc.DeletionTimestamp.IsZero() {
 		return r.handleDeletion(ctx, kc, kernelCacheConfig)
