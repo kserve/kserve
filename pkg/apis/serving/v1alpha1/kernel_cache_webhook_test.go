@@ -414,7 +414,7 @@ func TestKernelCacheValidateDelete(t *testing.T) {
 				},
 				Status: KernelCacheStatus{
 					ServingStatus: &ServingStatus{
-						TotalPods: 3,
+						TotalPodsUsing: 3,
 					},
 				},
 			},
@@ -432,7 +432,7 @@ func TestKernelCacheValidateDelete(t *testing.T) {
 				},
 				Status: KernelCacheStatus{
 					ServingStatus: &ServingStatus{
-						TotalPods: 0,
+						TotalPodsUsing: 0,
 					},
 				},
 			},

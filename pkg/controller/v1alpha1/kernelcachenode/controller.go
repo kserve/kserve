@@ -17,7 +17,7 @@ limitations under the License.
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=kernelcaches,verbs=get;list;watch
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=kernelcachenodes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=kernelcachenodes/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get
+// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=persistentvolumeclaims,verbs=get;list;watch
@@ -88,7 +88,7 @@ func (r *KernelCacheNodeReconciler) EnsureKernelCacheNode(cfg *rest.Config) erro
 		return err
 	}
 
-	// Check if KernelCacheNode already exists
+	// Check if KernelCacheNode already exists first
 	kcNode := &v1alpha1.KernelCacheNode{}
 	err = c.Get(context.Background(), types.NamespacedName{Name: kcNodeName}, kcNode)
 
@@ -139,22 +139,65 @@ func (r *KernelCacheNodeReconciler) EnsureKernelCacheNode(cfg *rest.Config) erro
 
 // Reconcile implements controller-runtime Reconciler
 func (r *KernelCacheNodeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	// Load config first to check if feature enabled
+	kernelCacheConfig, err := kernelcachecommon.LoadKernelCacheConfig(ctx, r.Clientset)
+	if err != nil {
+		r.Log.Error(err, "unable to load kernel cache config", "name", constants.InferenceServiceConfigMapName)
+		return ctrl.Result{}, err
+	}
+
 	kcNode := &v1alpha1.KernelCacheNode{}
 	if err := r.Get(ctx, req.NamespacedName, kcNode); err != nil {
 		if errors.IsNotFound(err) {
-			// Resource deleted between watch trigger and reconcile - normal during deletion
-			return reconcile.Result{}, nil
+			// KernelCacheNode doesn't exist - create if feature enabled
+			if !kernelCacheConfig.Enabled {
+				r.Log.V(1).Info("KernelCacheNode doesn't exist and feature disabled, skipping")
+				return reconcile.Result{}, nil
+			}
+
+			// Feature enabled but KernelCacheNode missing - create it
+			r.Log.Info("Creating missing KernelCacheNode (feature was enabled after startup)", "name", req.Name)
+			kcNode = &v1alpha1.KernelCacheNode{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: req.Name,
+				},
+			}
+
+			if err := r.Create(ctx, kcNode); err != nil {
+				if !errors.IsAlreadyExists(err) {
+					r.Log.Error(err, "failed to create KernelCacheNode", "name", req.Name)
+					return ctrl.Result{}, err
+				}
+				// Already exists - fetch it
+				if err := r.Get(ctx, req.NamespacedName, kcNode); err != nil {
+					return ctrl.Result{}, err
+				}
+			}
+
+			// Initialize status with NodeName
+			kcNode.Status = v1alpha1.KernelCacheNodeStatus{
+				NodeName:    nodeName,
+				CacheStatus: make(map[string]v1alpha1.CacheNodeCacheInfo),
+			}
+
+			if err := r.Status().Update(ctx, kcNode); err != nil {
+				r.Log.Error(err, "failed to initialize KernelCacheNode status", "name", req.Name)
+				return ctrl.Result{}, err
+			}
+
+			r.Log.Info("Created KernelCacheNode", "name", req.Name, "node", nodeName)
+			// Requeue to proceed with normal reconciliation
+			return reconcile.Result{Requeue: true}, nil
 		}
 		return reconcile.Result{}, err
 	}
 
 	r.Log.Info("Reconciling KernelCacheNode", "name", req.Name, "namespace", req.Namespace)
 
-	// Load config from inferenceservice-config ConfigMap
-	kernelCacheConfig, err := kernelcachecommon.LoadKernelCacheConfig(ctx, r.Clientset)
-	if err != nil {
-		r.Log.Error(err, "unable to load kernel cache config", "name", constants.InferenceServiceConfigMapName)
-		return ctrl.Result{}, err
+	// Early return if KernelCache feature disabled
+	if !kernelCacheConfig.Enabled {
+		r.Log.Info("KernelCache feature disabled, skipping reconciliation")
+		return reconcile.Result{}, nil
 	}
 
 	reconcileInterval := time.Duration(*kernelCacheConfig.ReconcileIntervalSeconds) * time.Second
@@ -812,6 +855,28 @@ func podHasPVCVolume(pod *corev1.Pod) bool {
 	return false
 }
 
+// configMapToNodeMapper watches inferenceservice-config for changes
+// Triggers reconcile when feature enabled/disabled to create/skip KernelCacheNode
+func (r *KernelCacheNodeReconciler) configMapToNodeMapper(ctx context.Context, obj client.Object) []reconcile.Request {
+	cm := obj.(*corev1.ConfigMap)
+
+	// Only watch inferenceservice-config in kserve namespace
+	if cm.Name != constants.InferenceServiceConfigMapName || cm.Namespace != constants.KServeNamespace {
+		return []reconcile.Request{}
+	}
+
+	// Reconcile this node's KernelCacheNode when config changes
+	// Reconcile will create KernelCacheNode if enabled and doesn't exist
+	kcNodeName := nodeName
+	return []reconcile.Request{
+		{
+			NamespacedName: types.NamespacedName{
+				Name: kcNodeName,
+			},
+		},
+	}
+}
+
 // SetupWithManager sets up the controller with the Manager
 func (r *KernelCacheNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Set up field indexer for pods by node name
@@ -840,6 +905,10 @@ func (r *KernelCacheNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(
 			&corev1.Pod{},
 			handler.EnqueueRequestsFromMapFunc(r.podToNodeMapper),
+		).
+		Watches(
+			&corev1.ConfigMap{},
+			handler.EnqueueRequestsFromMapFunc(r.configMapToNodeMapper),
 		).
 		WithEventFilter(predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {

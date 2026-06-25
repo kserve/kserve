@@ -14,6 +14,7 @@ rules:
   - ""
   resources:
   - nodes
+  - pods
   verbs:
   - get
   - list
@@ -39,6 +40,24 @@ rules:
   - update
   - watch
 - apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - jobs/status
+  verbs:
+  - get
+- apiGroups:
   - serving.kserve.io
   resources:
   - inferenceservices
@@ -51,6 +70,8 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - kernelcachenodes
+  - kernelcaches
   - localmodelcaches
   - localmodelnamespacecaches
   - localmodelnodes
@@ -65,6 +86,8 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - kernelcachenodes/status
+  - kernelcaches/status
   - localmodelcaches/status
   - localmodelnamespacecaches/status
   verbs:

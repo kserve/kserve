@@ -8,4 +8,4 @@ spec:
     - port: 443
       targetPort: webhook-server
   selector:
-    control-plane: kserve-kernelcache-controller-manager
+    control-plane: kserve-localmodel-controller-manager

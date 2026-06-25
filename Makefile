@@ -390,9 +390,9 @@ router: fmt vet
 kernelcachenode: fmt vet
 	go build -o bin/kernelcachenode ./cmd/kernelcachenode
 
-# Build kernelcache controller binary
-kernelcache: fmt vet
-	go build -o bin/kernelcache ./cmd/kernelcache
+# Build LocalModel + KernelCache controller binary
+localmodel: fmt vet
+	go build -o bin/localmodel ./cmd/localmodel
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet go-lint
@@ -492,33 +492,47 @@ deploy-dev-storageInitializer: docker-push-storageInitializer
 	./hack/storageInitializer_patch_dev.sh ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
 	kubectl apply --server-side=true -k config/overlays/dev-image-config
 
-# Deploy KernelCache (general - works on any cluster)
-deploy-kernelcache: kernelcache-webhook-secret-file
+# Deploy LocalModel + KernelCache (unified controller)
+deploy-localmodel: kernelcache-webhook-secret-file
+	kubectl apply --server-side=true --force-conflicts -k config/crd/full/localmodel
 	kubectl apply --server-side=true --force-conflicts -k config/crd/full/kernelcache
-	kubectl apply -k config/kernelcaches
+	kubectl apply -k config/localmodels
 	kubectl apply -k config/kernelcachenodes
 
-# Undeploy KernelCache
-undeploy-kernelcache:
+# Undeploy LocalModel + KernelCache
+undeploy-localmodel:
 	kubectl delete -k config/kernelcachenodes
-	kubectl delete -k config/kernelcaches
+	kubectl delete -k config/localmodels
 	kubectl delete -k config/crd/full/kernelcache
+	kubectl delete -k config/crd/full/localmodel
 
-# Deploy KernelCache to kind cluster for local testing
-deploy-dev-kernelcache-kind: docker-build-kernelcache docker-build-kernelcachenode-agent kernelcache-webhook-secret-file
-	kind load docker-image ${KO_DOCKER_REPO}/${KERNELCACHE_CONTROLLER_IMG}:${TAG} --name kind
+# Deploy LocalModel + KernelCache to kind cluster for local testing
+deploy-dev-localmodel-kind: docker-build-localmodel docker-build-kernelcachenode-agent kernelcache-webhook-secret-file
+	kind load docker-image ${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${TAG} --name kind
 	kind load docker-image ${KO_DOCKER_REPO}/${KERNELCACHE_AGENT_IMG}:${TAG} --name kind
-	kubectl apply -k config/kernelcaches
+	kubectl apply -k config/localmodels
 	kubectl apply -k config/kernelcachenodes
-	kubectl patch deployment kserve-kernelcache-controller-manager -n kserve --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"${KO_DOCKER_REPO}/${KERNELCACHE_CONTROLLER_IMG}:${TAG}"},{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value":"Never"}]'
+	kubectl patch deployment kserve-localmodel-controller-manager -n kserve --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${TAG}"},{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value":"Never"}]'
 	kubectl patch daemonset kserve-kernelcachenode-agent -n kserve --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"${KO_DOCKER_REPO}/${KERNELCACHE_AGENT_IMG}:${TAG}"},{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value":"Never"},{"op": "replace", "path": "/spec/template/spec/initContainers/0/env/0/value", "value":"true"}]'
+	@echo "Forcing rollout restart to pick up new images..."
+	kubectl rollout restart deployment kserve-localmodel-controller-manager -n kserve
+	kubectl rollout restart daemonset kserve-kernelcachenode-agent -n kserve
+	@echo "Waiting for deployment to be ready..."
+	kubectl rollout status deployment kserve-localmodel-controller-manager -n kserve --timeout=60s
+	kubectl rollout status daemonset kserve-kernelcachenode-agent -n kserve --timeout=60s
 
-# Rebuild and reload KernelCache for local testing
-redeploy-dev-kernelcache-kind: docker-build-kernelcache docker-build-kernelcachenode-agent
-	kind load docker-image ${KO_DOCKER_REPO}/${KERNELCACHE_CONTROLLER_IMG}:${TAG} --name kind
+# Rebuild and reload LocalModel + KernelCache for local testing
+redeploy-dev-localmodel-kind: docker-build-localmodel docker-build-kernelcachenode-agent
+	kind load docker-image ${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${TAG} --name kind
 	kind load docker-image ${KO_DOCKER_REPO}/${KERNELCACHE_AGENT_IMG}:${TAG} --name kind
-	kubectl patch deployment kserve-kernelcache-controller-manager -n kserve --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"${KO_DOCKER_REPO}/${KERNELCACHE_CONTROLLER_IMG}:${TAG}"},{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value":"Never"}]'
+	kubectl patch deployment kserve-localmodel-controller-manager -n kserve --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${TAG}"},{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value":"Never"}]'
 	kubectl patch daemonset kserve-kernelcachenode-agent -n kserve --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"${KO_DOCKER_REPO}/${KERNELCACHE_AGENT_IMG}:${TAG}"},{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value":"Never"},{"op": "replace", "path": "/spec/template/spec/initContainers/0/env/0/value", "value":"true"}]'
+	@echo "Forcing rollout restart to pick up new images..."
+	kubectl rollout restart deployment kserve-localmodel-controller-manager -n kserve
+	kubectl rollout restart daemonset kserve-kernelcachenode-agent -n kserve
+	@echo "Waiting for rollout to complete..."
+	kubectl rollout status deployment kserve-localmodel-controller-manager -n kserve --timeout=60s
+	kubectl rollout status daemonset kserve-kernelcachenode-agent -n kserve --timeout=60s
 
 deploy-helm:
 	USE_LOCAL_CHARTS=true ./hack/setup/infra/manage.kserve-helm.sh
@@ -563,12 +577,6 @@ docker-build-localmodelnode-agent:
 
 docker-push-localmodelnode-agent: docker-build-localmodelnode-agent
 	${ENGINE} buildx build ${ARCH} --push --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LOCALMODEL_AGENT_IMG} -f localmodel-agent.Dockerfile .
-
-docker-build-kernelcache:
-	${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${KERNELCACHE_CONTROLLER_IMG} -f kernelcache.Dockerfile .
-
-docker-push-kernelcache: docker-build-kernelcache
-	${ENGINE} buildx build ${ARCH} --push -t ${KO_DOCKER_REPO}/${KERNELCACHE_CONTROLLER_IMG} -f kernelcache.Dockerfile .
 
 docker-build-kernelcachenode-agent:
 	${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${KERNELCACHE_AGENT_IMG} -f kernelcache-agent.Dockerfile .
