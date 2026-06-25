@@ -21,8 +21,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 
@@ -31,9 +31,7 @@ import (
 )
 
 var _ = Describe("Merge Append Lists", func() {
-
 	Context("when an LLMInferenceServiceConfig carries the merge-append-fields annotation", func() {
-
 		It("should append container args from the override config to the base config args", func(ctx SpecContext) {
 			// given
 			svcName := "append-args"

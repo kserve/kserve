@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -303,7 +304,7 @@ func ParseMergeAppendFieldPaths(annotations map[string]string) ([][]string, erro
 //	  -> ["template", "containers", "[name=main]", "args"]
 func ParseFieldPath(path string) ([]string, error) {
 	if path == "" {
-		return nil, fmt.Errorf("path must not be empty")
+		return nil, errors.New("path must not be empty")
 	}
 	var segments []string
 	for _, s := range strings.Split(path, ".") {
