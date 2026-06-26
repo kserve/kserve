@@ -18,6 +18,7 @@ package pod
 
 import (
 	"encoding/json"
+	"os"
 	"sort"
 	"testing"
 
@@ -316,6 +317,140 @@ func TestMutator_Handle(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMutator_HandleWithAffinityInjection(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	// Set affinity injector env vars
+	os.Setenv(DefaultNodepoolEnvVar, "gpu-pool")
+	os.Setenv(DefaultNodepoolLabelKey, "cloud.google.com/gke-nodepool")
+	defer os.Unsetenv(DefaultNodepoolEnvVar)
+	defer os.Unsetenv(DefaultNodepoolLabelKey)
+
+	mutator := Mutator{Client: c, Clientset: clientset, Decoder: admission.NewDecoder(c.Scheme())}
+
+	configMap := corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ConfigMap",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.InferenceServiceConfigMapName,
+			Namespace: constants.KServeNamespace,
+		},
+		Data: map[string]string{
+			v1beta1.StorageInitializerConfigMapKeyName: `{
+				"image" : "kserve/storage-initializer:latest",
+				"memoryRequest": "100Mi",
+				"memoryLimit": "1Gi",
+				"cpuRequest": "100m",
+				"cpuLimit": "1",
+				"cpuModelcar": "100m",
+				"memoryModelcar": "50Mi",
+				"storageSpecSecretName": "storage-config"
+			}`,
+			LoggerConfigMapKeyName: `{
+				"image" : "kserve/agent:latest",
+				"memoryRequest": "100Mi",
+				"memoryLimit": "1Gi",
+				"cpuRequest": "100m",
+				"cpuLimit": "1",
+				"defaultUrl": "http://default-broker"
+			}`,
+			BatcherConfigMapKeyName: `{
+				"image" : "kserve/agent:latest",
+				"memoryRequest": "1Gi",
+				"memoryLimit": "1Gi",
+				"cpuRequest": "1",
+				"cpuLimit": "1"
+			}`,
+			constants.AgentConfigMapKeyName: `{
+				"image" : "kserve/agent:latest",
+				"memoryRequest": "100Mi",
+				"memoryLimit": "1Gi",
+				"cpuRequest": "100m",
+				"cpuLimit": "1"
+			}`,
+		},
+	}
+
+	if err := c.Create(t.Context(), &configMap); err != nil {
+		t.Fatalf("failed to create config map: %v", err)
+	}
+	defer c.Delete(t.Context(), &configMap)
+
+	pod := corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Pod",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{
+				constants.InferenceServicePodLabelKey: "",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: constants.InferenceServiceContainerName,
+				},
+			},
+		},
+	}
+
+	byteData, err := json.Marshal(pod)
+	if err != nil {
+		t.Fatalf("failed to marshal pod data: %v", err)
+	}
+
+	request := admission.Request{
+		AdmissionRequest: admissionv1.AdmissionRequest{
+			UID: types.UID(uuid.NewString()),
+			Kind: metav1.GroupVersionKind{
+				Group:   "",
+				Version: "v1",
+				Kind:    "Pod",
+			},
+			Resource: metav1.GroupVersionResource{
+				Group:    "",
+				Version:  "v1",
+				Resource: "pods",
+			},
+			RequestKind: &metav1.GroupVersionKind{
+				Group:   "",
+				Version: "v1",
+				Kind:    "Pod",
+			},
+			RequestResource: &metav1.GroupVersionResource{
+				Group:    "",
+				Version:  "v1",
+				Resource: "pods",
+			},
+			Name:      "",
+			Namespace: "default",
+			Operation: admissionv1.Create,
+			Object:    runtime.RawExtension{Raw: byteData},
+		},
+	}
+
+	res := mutator.Handle(t.Context(), request)
+	g.Expect(res.Allowed).To(gomega.BeTrue(), "expected pod to be allowed")
+
+	// Verify that the affinity patch is present
+	var hasAffinityPatch bool
+	for _, patch := range res.Patches {
+		if patch.Path == "/spec/affinity" && patch.Operation == "add" {
+			hasAffinityPatch = true
+			// Verify the patch value contains the expected affinity structure
+			affinityJSON, err := json.Marshal(patch.Value)
+			g.Expect(err).ToNot(gomega.HaveOccurred())
+			g.Expect(string(affinityJSON)).To(gomega.ContainSubstring("cloud.google.com/gke-nodepool"))
+			g.Expect(string(affinityJSON)).To(gomega.ContainSubstring("gpu-pool"))
+			g.Expect(string(affinityJSON)).To(gomega.ContainSubstring("preferredDuringSchedulingIgnoredDuringExecution"))
+		}
+	}
+	g.Expect(hasAffinityPatch).To(gomega.BeTrue(), "expected affinity patch to be present")
 }
 
 // sortPatches sorts the slice of patches by Path so that the comparison works
