@@ -174,7 +174,7 @@ type WorkloadSpec struct {
 
 	// KVCacheOffloading configures multi-tier KV cache offloading for this workload.
 	// The controller translates this into --kv-transfer-config for the vLLM serve command.
-	// Requires vLLM 0.22 or llm-d 0.8
+	// Requires vLLM 0.11 for cpu mode, 0.22 for fs mode, 0.23 for obj mode
 	// +optional
 	KVCacheOffloading *KVCacheOffloadingSpec `json:"kvCacheOffloading,omitempty"`
 }
