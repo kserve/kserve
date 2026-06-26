@@ -1315,6 +1315,13 @@ rules:
   - list
   - watch
 - apiGroups:
+  - llmd.ai
+  resources:
+  - variantautoscalings
+  verbs:
+  - delete
+  - get
+- apiGroups:
   - networking.k8s.io
   resources:
   - ingresses
