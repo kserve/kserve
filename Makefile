@@ -492,6 +492,22 @@ deploy-dev-storageInitializer: docker-push-storageInitializer
 	./hack/storageInitializer_patch_dev.sh ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
 	kubectl apply --server-side=true -k config/overlays/dev-image-config
 
+# Deploy KernelCache to kind cluster for local testing
+deploy-dev-kernelcache-kind: docker-build-kernelcache docker-build-kernelcachenode-agent kernelcache-webhook-secret-file
+	kind load docker-image ${KO_DOCKER_REPO}/${KERNELCACHE_CONTROLLER_IMG}:${TAG} --name kind
+	kind load docker-image ${KO_DOCKER_REPO}/${KERNELCACHE_AGENT_IMG}:${TAG} --name kind
+	kubectl apply -k config/kernelcaches
+	kubectl apply -k config/kernelcachenodes
+	kubectl patch deployment kserve-kernelcache-controller-manager -n kserve --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"${KO_DOCKER_REPO}/${KERNELCACHE_CONTROLLER_IMG}:${TAG}"},{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value":"Never"}]'
+	kubectl patch daemonset kserve-kernelcachenode-agent -n kserve --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"${KO_DOCKER_REPO}/${KERNELCACHE_AGENT_IMG}:${TAG}"},{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value":"Never"}]'
+
+# Rebuild and reload KernelCache for local testing
+redeploy-dev-kernelcache-kind: docker-build-kernelcache docker-build-kernelcachenode-agent
+	kind load docker-image ${KO_DOCKER_REPO}/${KERNELCACHE_CONTROLLER_IMG}:${TAG} --name kind
+	kind load docker-image ${KO_DOCKER_REPO}/${KERNELCACHE_AGENT_IMG}:${TAG} --name kind
+	kubectl patch deployment kserve-kernelcache-controller-manager -n kserve --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"${KO_DOCKER_REPO}/${KERNELCACHE_CONTROLLER_IMG}:${TAG}"},{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value":"Never"}]'
+	kubectl patch daemonset kserve-kernelcachenode-agent -n kserve --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"${KO_DOCKER_REPO}/${KERNELCACHE_AGENT_IMG}:${TAG}"},{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value":"Never"}]'
+
 deploy-helm:
 	USE_LOCAL_CHARTS=true ./hack/setup/infra/manage.kserve-helm.sh
 
@@ -691,3 +707,21 @@ manifests-distro:
 
 # Optional local/downstream overrides (ignored if absent)
 -include Makefile.overrides.mk
+
+# KernelCache webhook secret management
+.PHONY: kernelcache-webhook-secret-file
+kernelcache-webhook-secret-file:
+	@mkdir -p config/secret
+	@[ -s config/secret/mutation.env ] || \
+	  (echo 'Generating config/secret/mutation.env'; \
+	   printf 'MUTATION_SIGNING_KEY=%s\n' "$$(head -c 32 /dev/urandom | base64 | tr -d '\n')" > config/secret/mutation.env)
+
+.PHONY: delete-kernelcache-webhook-secret-file
+delete-kernelcache-webhook-secret-file:
+	@rm -f config/secret/mutation.env
+
+.PHONY: rotate-kernelcache-webhook-secret
+rotate-kernelcache-webhook-secret:
+	@printf 'MUTATION_SIGNING_KEY=%s\n' "$$(head -c 32 /dev/urandom | base64 | tr -d '\n')" > config/secret/mutation.env
+	$(KUSTOMIZE) build config/secret | kubectl apply -f -
+
