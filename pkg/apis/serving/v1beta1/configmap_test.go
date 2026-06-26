@@ -51,7 +51,7 @@ var (
 		AdditionalDomain, AdditionalDomainExtra)
 	ServiceConfigData = fmt.Sprintf(`{
 		"serviceClusterIPNone" : %t
-	}`, true)
+	}`, false)
 
 	ISCVWithData = fmt.Sprintf(`{
 		"serviceAnnotationDisallowedList": ["%s","%s"],
@@ -211,6 +211,7 @@ func TestNewServiceConfig(t *testing.T) {
 	emp, err := NewServiceConfig(isvcConfigMap)
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	g.Expect(emp).ShouldNot(gomega.BeNil())
+	g.Expect(emp.ServiceClusterIPNone).Should(gomega.BeTrue()) // In ODH the default is <true>
 
 	// with value
 	withTrue := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
@@ -225,7 +226,7 @@ func TestNewServiceConfig(t *testing.T) {
 
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	g.Expect(wt).ShouldNot(gomega.BeNil())
-	g.Expect(wt.ServiceClusterIPNone).Should(gomega.BeTrue())
+	g.Expect(wt.ServiceClusterIPNone).Should(gomega.BeFalse())
 
 	// no value, should be nil
 	noValue := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
@@ -239,7 +240,7 @@ func TestNewServiceConfig(t *testing.T) {
 	nv, err := NewServiceConfig(isvcConfigMap)
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	g.Expect(nv).ShouldNot(gomega.BeNil())
-	g.Expect(nv.ServiceClusterIPNone).Should(gomega.BeFalse())
+	g.Expect(nv.ServiceClusterIPNone).Should(gomega.BeTrue()) // In ODH the default is <true>
 }
 
 func TestInferenceServiceDisallowedLists(t *testing.T) {
@@ -530,6 +531,37 @@ func TestNewLocalModelConfig(t *testing.T) {
 		cfg, err := NewLocalModelConfig(cm)
 		g.Expect(err).Should(gomega.HaveOccurred())
 		g.Expect(cfg).To(gomega.BeNil())
+	})
+}
+
+func TestGetInferenceServiceConfigMap_OptionalNamespace(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	t.Run("uses explicit namespace when provided", func(t *testing.T) {
+		clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      constants.InferenceServiceConfigMapName,
+				Namespace: "app-ns",
+			},
+			Data: map[string]string{LocalModelConfigName: `{}`},
+		})
+
+		cm, err := GetInferenceServiceConfigMap(t.Context(), clientset, "app-ns")
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(cm.Namespace).To(gomega.Equal("app-ns"))
+	})
+
+	t.Run("defaults to KServeNamespace when namespace omitted", func(t *testing.T) {
+		clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      constants.InferenceServiceConfigMapName,
+				Namespace: constants.KServeNamespace,
+			},
+		})
+
+		cm, err := GetInferenceServiceConfigMap(t.Context(), clientset)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(cm.Namespace).To(gomega.Equal(constants.KServeNamespace))
 	})
 }
 
