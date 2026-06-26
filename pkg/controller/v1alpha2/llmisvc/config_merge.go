@@ -86,13 +86,6 @@ var (
 	configTracingName                       = configPrefix + configTracingNameSuffix
 )
 
-// FIXME move those presets to well-known when they're finally known :)
-var _ = sets.New[string](
-	configPrefillWorkerPipelineParallelName,
-	configDecodeWorkerPipelineParallelName,
-	configWorkerPipelineParallelName,
-)
-
 // WellKnownDefaultConfigs contains the set of default configuration templates
 // that are automatically applied based on the LLM service deployment pattern
 var WellKnownDefaultConfigs = sets.New[string](
@@ -100,8 +93,11 @@ var WellKnownDefaultConfigs = sets.New[string](
 	configDecodeTemplateName,
 	configWorkerDataParallelName,
 	configDecodeWorkerDataParallelName,
+	configWorkerPipelineParallelName,
+	configDecodeWorkerPipelineParallelName,
 	configPrefillTemplateName,
 	configPrefillWorkerDataParallelName,
+	configPrefillWorkerPipelineParallelName,
 	configRouterSchedulerName,
 	configRouterRouteName,
 	configSchedulerLatencyPredictorName,
