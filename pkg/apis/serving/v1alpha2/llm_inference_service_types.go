@@ -144,6 +144,12 @@ type WorkloadSpec struct {
 	// In a multi-node deployment, this configures the "head" or "master" pod.
 	// In a disaggregated deployment, this configures the "decode" pod if it's the top-level template,
 	// or the "prefill" pod if it's within the Prefill block.
+	//
+	// For the storage-initializer init container (named "storage-initializer"), users may
+	// customize fields such as env, resources, volumeMounts, and image. The container's
+	// name, args, and command are controller-managed and any user-provided values for
+	// these fields will be overridden. To disable the storage-initializer entirely, use
+	// spec.storageInitializer.enabled=false.
 	// +optional
 	Template *corev1.PodSpec `json:"template,omitempty"`
 
