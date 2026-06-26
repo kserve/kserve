@@ -30,11 +30,15 @@ type MockS3Client struct {
 	s3iface.S3API
 }
 
-func (m *MockS3Client) ListObjects(*s3.ListObjectsInput) (*s3.ListObjectsOutput, error) {
+func (m *MockS3Client) ListObjects(input *s3.ListObjectsInput) (*s3.ListObjectsOutput, error) {
+	key := "model.pt"
+	if input.Prefix != nil && *input.Prefix != "" {
+		key = *input.Prefix + "/model.pt"
+	}
 	return &s3.ListObjectsOutput{
 		Contents: []*s3.Object{
 			{
-				Key: proto.String("model.pt"),
+				Key: proto.String(key),
 			},
 		},
 	}, nil
