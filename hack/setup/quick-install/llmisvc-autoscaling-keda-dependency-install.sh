@@ -970,6 +970,11 @@ install_wva_kustomize() {
 
     log_info "Installing WVA ${wva_version} via Kustomize..."
 
+    # WVA requires the VariantAutoscaling CRD even when using annotation-based discovery
+    log_info "Installing WVA CRDs..."
+    kubectl apply --server-side --force-conflicts \
+        -k "${WVA_REPO_URL}/config/base/crd?ref=${wva_version}"
+
     local tmp_overlay
     tmp_overlay=$(mktemp -d)
     # Trap ensures cleanup on exit or error
