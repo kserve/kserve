@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
+
 	"github.com/kserve/kserve/pkg/constants"
 )
 
