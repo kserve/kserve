@@ -724,4 +724,71 @@ func TestNewIngressConfig_Validation(t *testing.T) {
 		g.Expect(cfg.IngressDomain).To(gomega.Equal("mydomain.com"))
 		g.Expect(cfg.UrlScheme).To(gomega.Equal("https"))
 	})
+
+	t.Run("pathTemplate without / should return error", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"kserveIngressGateway": "kserve/kserve-ingress-gateway",
+					"ingressGateway": "knative-serving/knative-ingress-gateway",
+					"ingressDomain": "mydomain.com",
+					"pathTemplate": "foo/bar"
+				}`,
+			},
+		}
+		cfg, err := NewIngressConfig(cm)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(cfg).To(gomega.BeNil())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("is not a valid URI path"))
+	})
+
+	t.Run("pathTemplate without .Name should return error", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"kserveIngressGateway": "kserve/kserve-ingress-gateway",
+					"ingressGateway": "knative-serving/knative-ingress-gateway",
+					"ingressDomain": "mydomain.com",
+					"pathTemplate": "/{{ .Namespace }}/inference"
+				}`,
+			},
+		}
+		cfg, err := NewIngressConfig(cm)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(cfg).To(gomega.BeNil())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("invalid pathTemplate - must include both {{ .Name }} and {{ .Namespace }} to avoid route collisions"))
+	})
+
+	t.Run("pathTemplate without .Namespace should return error", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"kserveIngressGateway": "kserve/kserve-ingress-gateway",
+					"ingressGateway": "knative-serving/knative-ingress-gateway",
+					"ingressDomain": "mydomain.com",
+					"pathTemplate": "/{{ .Name }}/inference"
+				}`,
+			},
+		}
+		cfg, err := NewIngressConfig(cm)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(cfg).To(gomega.BeNil())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("invalid pathTemplate - must include both {{ .Name }} and {{ .Namespace }} to avoid route collisions"))
+	})
+
+	t.Run("pathTemplate valid with .Name and .Namespace starting with /", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"kserveIngressGateway": "kserve/kserve-ingress-gateway",
+					"ingressGateway": "knative-serving/knative-ingress-gateway",
+					"ingressDomain": "mydomain.com",
+					"pathTemplate": "/{{ .Name }}/{{ .Namespace }}/inference"
+				}`,
+			},
+		}
+		cfg, err := NewIngressConfig(cm)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(cfg).ShouldNot(gomega.BeNil())
+	})
 }
