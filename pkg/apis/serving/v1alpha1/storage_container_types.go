@@ -106,9 +106,11 @@ func init() {
 func (sc *ClusterStorageContainer) IsDisabled() bool {
 	return sc.Disabled != nil && *sc.Disabled
 }
+
 func (sc *StorageContainer) IsDisabled() bool {
 	return sc.Disabled != nil && *sc.Disabled
 }
+
 func (spec *StorageContainerSpec) IsStorageUriSupported(storageUri string) (bool, error) {
 	for _, supportedUriFormat := range spec.SupportedUriFormats {
 		if supportedUriFormat.Prefix != "" {
