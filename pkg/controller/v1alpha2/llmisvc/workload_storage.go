@@ -373,9 +373,10 @@ func (r *LLMISVCReconciler) attachStorageInitializer(modelUri string, curr corev
 		constants.DefaultModelLocalMountPath,
 	}
 	storageMountParams := utils.StorageMountParams{
-		MountPath:  constants.DefaultModelLocalMountPath,
-		VolumeName: constants.StorageInitializerVolumeName,
-		ReadOnly:   false,
+		MountPath:           constants.DefaultModelLocalMountPath,
+		VolumeName:          constants.StorageInitializerVolumeName,
+		ReadOnly:            false,
+		DefaultVolumeSource: storageConfig.ModelVolumeSource,
 	}
 
 	copied := *storageConfig
@@ -461,16 +462,18 @@ func (r *LLMISVCReconciler) attachMultiStorageDownloads(
 	iname := initC.Name
 
 	if err := utils.AddModelMount(utils.StorageMountParams{
-		MountPath:  parent,
-		VolumeName: constants.StorageInitializerVolumeName,
-		ReadOnly:   false,
+		MountPath:           parent,
+		VolumeName:          constants.StorageInitializerVolumeName,
+		ReadOnly:            false,
+		DefaultVolumeSource: storageConfig.ModelVolumeSource,
 	}, iname, podSpec); err != nil {
 		return err
 	}
 	if err := utils.AddModelMount(utils.StorageMountParams{
-		MountPath:  parent,
-		VolumeName: constants.StorageInitializerVolumeName,
-		ReadOnly:   true,
+		MountPath:           parent,
+		VolumeName:          constants.StorageInitializerVolumeName,
+		ReadOnly:            true,
+		DefaultVolumeSource: storageConfig.ModelVolumeSource,
 	}, containerName, podSpec); err != nil {
 		return err
 	}
