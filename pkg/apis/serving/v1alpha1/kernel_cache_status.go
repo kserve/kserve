@@ -18,7 +18,9 @@ package v1alpha1
 
 // KernelCacheStatus defines the observed state of KernelCache
 type KernelCacheStatus struct {
-	// ResolvedDigest is the image digest (from webhook validation, Phase 2)
+	// ResolvedDigest is the image digest (sha256:...) resolved by mutating webhook
+	// This field is immutable once set - copied from annotation on first reconcile
+	// Controller ALWAYS uses this field (not annotation) to prevent tampering
 	// +optional
 	ResolvedDigest string `json:"resolvedDigest,omitempty"`
 

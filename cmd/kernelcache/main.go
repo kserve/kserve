@@ -31,7 +31,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	kernelcachecontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/kernelcache"
 	kservescheme "github.com/kserve/kserve/pkg/scheme"
 )
@@ -47,6 +49,7 @@ type Options struct {
 	metricsAddr          string
 	enableLeaderElection bool
 	probeAddr            string
+	webhookPort          int
 	zapOpts              zap.Options
 }
 
@@ -56,6 +59,7 @@ func DefaultOptions() Options {
 		metricsAddr:          ":8080",
 		enableLeaderElection: false,
 		probeAddr:            ":8081",
+		webhookPort:          9443,
 		zapOpts:              zap.Options{},
 	}
 }
@@ -68,6 +72,7 @@ func GetOptions() Options {
 		"Enable leader election for kernelcache controller manager. "+
 			"Enabling this will ensure there is only one active kernelcache controller manager.")
 	flag.StringVar(&opts.probeAddr, "health-probe-addr", opts.probeAddr, "The address the probe endpoint binds to.")
+	flag.IntVar(&opts.webhookPort, "webhook-port", opts.webhookPort, "The port that the webhook server binds to.")
 	opts.zapOpts.BindFlags(flag.CommandLine)
 	flag.Parse()
 	return opts
@@ -101,6 +106,9 @@ func main() {
 		LeaderElection:         options.enableLeaderElection,
 		LeaderElectionID:       LeaderLockName,
 		HealthProbeBindAddress: options.probeAddr,
+		WebhookServer: webhook.NewServer(webhook.Options{
+			Port: options.webhookPort,
+		}),
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to set up overall controller manager")
@@ -126,6 +134,13 @@ func main() {
 		Scheme:    mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "KernelCache")
+		os.Exit(1)
+	}
+
+	// Setup KernelCache webhook
+	setupLog.Info("Setting up v1alpha1 KernelCache webhook")
+	if err = (&v1alpha1.KernelCache{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "v1alpha1.KernelCache")
 		os.Exit(1)
 	}
 

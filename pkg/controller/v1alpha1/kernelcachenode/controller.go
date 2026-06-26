@@ -141,10 +141,7 @@ func (r *KernelCacheNodeReconciler) checkCacheAvailability(
 	// 1. Job exists and completed successfully
 	// 2. PVC is bound (RWX storage distributes data)
 	// Future: could add actual mount/file check
-	available := false
-	if job != nil && r.jobCompleted(job) && pvc.Status.Phase == corev1.ClaimBound {
-		available = true
-	}
+	available := job != nil && r.jobCompleted(job) && pvc.Status.Phase == corev1.ClaimBound
 
 	// Update status in updateStatus() function
 	// Store availability state for status update

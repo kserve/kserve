@@ -7,5 +7,6 @@ spec:
   template:
     spec:
       containers:
-      - name: manager
-        image: ${KO_DOCKER_REPO}/kserve-kernelcachenode-agent:${KSERVE_TAG}
+      # Change the value of image field below to your agent image URL
+      - image: kserve/kserve-kernelcachenode-agent:latest
+        name: manager

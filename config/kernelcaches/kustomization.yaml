@@ -3,15 +3,96 @@ kind: Kustomization
 
 namespace: kserve
 
+labels:
+- pairs:
+    app.kubernetes.io/name: kserve
+    app.kubernetes.io/component: kernelcache
+
 resources:
-- manager.yaml
-- ../rbac/kernelcache
 - ../crd/full/kernelcache
+- ../certmanager/kernelcache
+- ../rbac/kernelcache
+- ../secret
+- manager.yaml
+- ../webhook/kernelcache
 
 patches:
+- path: webhook_cainjection_patch.yaml
 - path: kernelcache_manager_image_patch.yaml
   target:
     group: apps
     version: v1
     kind: Deployment
     name: kserve-kernelcache-controller-manager
+
+replacements:
+# Replace the namespace with the namespace of the controller manager
+- source:
+    fieldPath: metadata.namespace
+    kind: Deployment
+    name: kserve-kernelcache-controller-manager
+    version: v1
+  targets:
+  - fieldPaths:
+    - webhooks.*.clientConfig.service.namespace
+    select:
+      kind: MutatingWebhookConfiguration
+      name: kernelcache.serving.kserve.io
+  - fieldPaths:
+    - webhooks.*.clientConfig.service.namespace
+    select:
+      kind: ValidatingWebhookConfiguration
+      name: kernelcache.serving.kserve.io
+  - fieldPaths:
+    - metadata.annotations.[cert-manager.io/inject-ca-from]
+    options:
+      delimiter: '/'
+      index: 0
+    select:
+      kind: MutatingWebhookConfiguration
+      name: kernelcache.serving.kserve.io
+  - fieldPaths:
+    - metadata.annotations.[cert-manager.io/inject-ca-from]
+    options:
+      delimiter: '/'
+      index: 0
+    select:
+      kind: ValidatingWebhookConfiguration
+      name: kernelcache.serving.kserve.io
+  - fieldPaths:
+    - spec.commonName
+    - spec.dnsNames.0
+    options:
+      delimiter: '.'
+      index: 1
+    select:
+      kind: Certificate
+      name: kernelcache-serving-cert
+      namespace: kserve
+# Replace kernelcache webhook service name
+- source:
+    fieldPath: metadata.name
+    kind: Service
+    name: kernelcache-webhook-server-service
+    version: v1
+  targets:
+  - fieldPaths:
+    - webhooks.*.clientConfig.service.name
+    select:
+      kind: MutatingWebhookConfiguration
+      name: kernelcache.serving.kserve.io
+  - fieldPaths:
+    - webhooks.*.clientConfig.service.name
+    select:
+      kind: ValidatingWebhookConfiguration
+      name: kernelcache.serving.kserve.io
+  - fieldPaths:
+    - spec.commonName
+    - spec.dnsNames.0
+    options:
+      delimiter: '.'
+      index: 0
+    select:
+      kind: Certificate
+      name: kernelcache-serving-cert
+      namespace: kserve
