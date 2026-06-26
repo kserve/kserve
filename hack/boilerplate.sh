@@ -33,3 +33,11 @@ do
       sed "s/ YEAR/ ${CURRENT_YEAR}/g" hack/boilerplate.python.txt | cat - "$file" > "$file".new && mv "$file".new "$file"
     fi
 done <   <(find ./python -name '*.py' -print0)
+
+while IFS= read -r -d '' file
+do
+  if ! grep -q Copyright "$file"
+    then
+      cat hack/boilerplate.go.txt "$file" > "$file".new && mv "$file".new "$file"
+    fi
+done <   <(find ./kernelcache/mcv/pkg ./kernelcache/mcv/cmd -name '*.go' -print0)

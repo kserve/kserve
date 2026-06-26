@@ -1,0 +1,48 @@
+@startuml
+actor User
+participant "MCV CLI" as CLI
+participant "ImageBuilder" as Builder
+participant "PreflightCheck" as Check
+participant "Filesystem" as FS
+participant "Docker/Buildah" as Backend
+participant "Registry" as Registry
+
+User -> CLI : mcv -c -i <image> -d <cacheDir>
+CLI -> Builder : CreateImage(image, cacheDir)
+
+Builder -> FS : Copy cacheDir to temp build context
+FS --> Builder : Success
+
+Builder -> Check : FindAllTritonCacheJSON(tempDir)
+Check --> Builder : [paths]
+
+loop for each cache JSON
+    Builder -> Check : GetTritonCacheJSONData(path)
+    Check --> Builder : TritonCacheData
+
+    Builder -> Check : ComputeDummyTritonKey(data)
+    Check --> Builder : dummyKey
+
+    Builder -> Builder : Append metadata entry
+end
+
+Builder -> Check : BuildTritonSummary(metadata)
+Check --> Builder : Summary struct
+
+Builder -> FS : write manifest.json
+FS --> Builder : Success
+
+Builder -> FS : Generate Dockerfile (COPY + LABELS)
+FS --> Builder : Dockerfile path
+
+Builder -> Backend : Build image (Docker/Buildah)
+Backend --> Builder : OCI image with labels
+
+Builder -> Registry : Tag and store image
+Registry --> Builder : Image tagged
+
+Builder -> FS : Cleanup temp dirs
+FS --> Builder : Success
+
+Builder --> CLI : Image build complete
+@enduml

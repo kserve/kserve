@@ -68,7 +68,10 @@ setup-envtest: envtest
 
 # Run go fmt against code
 fmt:
-	go fmt ./pkg/... ./cmd/... && cd qpext && go fmt ./...
+	@for dir in . qpext kernelcache/mcv; do \
+	  echo "Formatting $$dir..."; \
+	  (cd $$dir && go fmt ./...) || exit 1; \
+	done
 
 py-fmt: $(RUFF)
 	$(RUFF) format --config ruff.toml ./python ./docs ./test ./hack
@@ -76,10 +79,18 @@ py-fmt: $(RUFF)
 # Run go vet against code
 vet:
 	go vet ./pkg/... ./cmd/... && cd qpext && go vet ./...
+	@if pkg-config --exists gpgme 2>/dev/null; then \
+		echo "Vetting kernelcache/mcv..."; \
+		(cd kernelcache/mcv && CGO_ENABLED=1 go vet ./...) || exit 1; \
+	else \
+		echo "Skipping kernelcache/mcv vet (CGO dependencies not installed, covered by mcv-build-test CI)"; \
+	fi
 
 tidy:
-	go mod tidy
-	cd qpext && go mod tidy
+	@for dir in . qpext kernelcache/mcv; do \
+	  echo "Tidying $$dir..."; \
+	  (cd $$dir && go mod tidy) || exit 1; \
+	done
 
 .PHONY: sync-deps
 sync-deps:
@@ -90,10 +101,16 @@ sync-img-env:
 	@python3 hack/setup/scripts/generate-images-sh.py
 
 go-lint: golangci-lint
-	@echo "Go-linting ."
-	@$(GOLANGCI_LINT) run --fix
-	@echo "Go-linting qpext/"
-	@cd qpext && $(GOLANGCI_LINT) run --fix
+	@for dir in . qpext; do \
+	  echo "Linting $$dir..."; \
+	  (cd $$dir && $(GOLANGCI_LINT) run --fix) || exit 1; \
+	done
+	@if pkg-config --exists gpgme 2>/dev/null; then \
+		echo "Linting kernelcache/mcv..."; \
+		(cd kernelcache/mcv && CGO_ENABLED=1 $(GOLANGCI_LINT) run --fix) || exit 1; \
+	else \
+		echo "Skipping kernelcache/mcv lint (CGO dependencies not installed, covered by mcv-build-test CI)"; \
+	fi
 
 py-lint: $(RUFF)
 	$(RUFF) check --config ruff.toml 
@@ -617,6 +634,12 @@ docker-build-qpext:
 
 docker-build-push-qpext: docker-build-qpext
 	${ENGINE} push ${KO_DOCKER_REPO}/${QPEXT_IMG}
+
+docker-build-mcv:
+	${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${MCV_IMG} -f kernelcache/mcv/mcv.Dockerfile kernelcache/mcv
+
+docker-push-mcv: docker-build-mcv
+	${ENGINE} push ${KO_DOCKER_REPO}/${MCV_IMG}
 
 deploy-dev-qpext: docker-build-push-qpext
 	kubectl patch cm config-deployment -n knative-serving --type merge --patch '{"data": {"queue-sidecar-image": "${KO_DOCKER_REPO}/${QPEXT_IMG}"}}'
