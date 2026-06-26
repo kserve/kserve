@@ -700,16 +700,20 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 
 // configNotFoundError is returned by getConfig when an LLMInferenceServiceConfig
 // cannot be found in either the service namespace or the system namespace.
-// It carries the config name and the ordered list of namespaces that were searched.
-// TODO: extend Error() to list the LLMInferenceServiceConfig resources that do exist
-// in the searched namespaces, so the operator can see available alternatives at a glance.
+// It carries the config name, the ordered list of namespaces that were searched,
+// and the namespace/name of configs that do exist so the operator can see
+// alternatives. An empty Available slice renders as "[]", which by itself is a
+// useful signal that no LLMInferenceServiceConfig resources were found in any
+// of the searched namespaces.
 type configNotFoundError struct {
 	Name       string
 	Namespaces []string
+	Available  []string
 }
 
 func (e *configNotFoundError) Error() string {
-	return fmt.Sprintf("LLMInferenceServiceConfig %q not found in namespaces %v", e.Name, e.Namespaces)
+	return fmt.Sprintf("LLMInferenceServiceConfig %q not found in namespaces %v; available configs: %v",
+		e.Name, e.Namespaces, e.Available)
 }
 
 // getConfig retrieves kserveapis.LLMInferenceServiceConfig with the given name from either the kserveapis.LLMInferenceService
@@ -724,7 +728,9 @@ func (r *LLMISVCReconciler) getConfig(ctx context.Context, llmSvc *v1alpha2.LLMI
 		cfg = &v1alpha2.LLMInferenceServiceConfig{}
 		if err := r.Get(ctx, client.ObjectKey{Name: name, Namespace: constants.KServeNamespace}, cfg); err != nil {
 			if apierrors.IsNotFound(err) {
-				return nil, &configNotFoundError{Name: name, Namespaces: []string{llmSvc.Namespace, constants.KServeNamespace}}
+				searchedNamespaces := []string{llmSvc.Namespace, constants.KServeNamespace}
+				available := r.listAvailableConfigs(ctx, searchedNamespaces)
+				return nil, &configNotFoundError{Name: name, Namespaces: searchedNamespaces, Available: available}
 			}
 			return nil, fmt.Errorf("failed to get LLMInferenceServiceConfig %q from namespaces [%q, %q]: %w",
 				name, llmSvc.Namespace, constants.KServeNamespace, err)
@@ -732,6 +738,26 @@ func (r *LLMISVCReconciler) getConfig(ctx context.Context, llmSvc *v1alpha2.LLMI
 		return cfg, nil
 	}
 	return cfg, nil
+}
+
+// listAvailableConfigs returns the sorted, deduplicated namespace/name pairs
+// of LLMInferenceServiceConfig resources across the given namespaces, so that
+// a config named "foo" in two different namespaces is not ambiguous.
+// Best-effort: namespaces that fail to list are skipped with a log line.
+func (r *LLMISVCReconciler) listAvailableConfigs(ctx context.Context, namespaces []string) []string {
+	logger := log.FromContext(ctx).WithName("listAvailableConfigs")
+	seen := sets.New[string]()
+	for _, ns := range namespaces {
+		cfgList := &v1alpha2.LLMInferenceServiceConfigList{}
+		if err := r.List(ctx, cfgList, client.InNamespace(ns)); err != nil {
+			logger.Error(err, "failed to list LLMInferenceServiceConfigs", "namespace", ns)
+			continue
+		}
+		for i := range cfgList.Items {
+			seen.Insert(fmt.Sprintf("%s/%s", ns, cfgList.Items[i].Name))
+		}
+	}
+	return sets.List(seen)
 }
 
 func MergeSpecs(ctx context.Context, cfgs ...v1alpha2.LLMInferenceServiceSpec) (v1alpha2.LLMInferenceServiceSpec, error) {

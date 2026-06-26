@@ -18,6 +18,7 @@ package llmisvc_test
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/constants"
 	. "github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/fixture"
 	. "github.com/kserve/kserve/pkg/testing"
 )
@@ -61,7 +63,12 @@ var _ = Describe("LLMInferenceService Config resolution", func() {
 				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.PresetsCombined), "False"))
 				cond := current.Status.GetCondition(v1alpha2.PresetsCombined)
 				g.Expect(cond.Reason).To(Equal("ConfigNotFound"))
-				g.Expect(cond.Message).To(ContainSubstring("does-not-exist"))
+				g.Expect(cond.Message).To(ContainSubstring(`"does-not-exist"`),
+					"message should quote the missing config name")
+				g.Expect(cond.Message).To(ContainSubstring("not found in namespaces"),
+					"message should name the searched namespaces")
+				g.Expect(cond.Message).To(ContainSubstring("available configs:"),
+					"message should include the available-configs hint (even if empty)")
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 
@@ -122,6 +129,121 @@ var _ = Describe("LLMInferenceService Config resolution", func() {
 				current := &v1alpha2.LLMInferenceService{}
 				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
 				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.PresetsCombined), "True"))
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should list available configs across service and system namespaces in the message", func(ctx SpecContext) {
+			// given - configs seeded in BOTH the service namespace and the
+			// system (KServe) namespace; the user-facing payoff of the
+			// configNotFoundError Available list is that it surfaces both
+			// scopes so operators can see what they could have referenced.
+			svcName := "test-llm-cfg-available-list"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			userCfgName := svcName + "-user-cfg"
+			systemCfgName := svcName + "-system-cfg"
+
+			userCfg := LLMInferenceServiceConfig(userCfgName,
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+			)
+			Expect(envTest.Create(ctx, userCfg)).To(Succeed())
+			defer func() {
+				Expect(envTest.Delete(ctx, userCfg)).To(Succeed())
+			}()
+
+			systemCfg := LLMInferenceServiceConfig(systemCfgName,
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](constants.KServeNamespace),
+			)
+			Expect(envTest.Create(ctx, systemCfg)).To(Succeed())
+			defer func() {
+				Expect(envTest.Delete(ctx, systemCfg)).To(Succeed())
+			}()
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithModelName("facebook/opt-125m"),
+				WithBaseRefs(corev1.LocalObjectReference{Name: "does-not-exist"}),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - the rendered Available list carries both configs in
+			// namespace/name form. Other tests in the suite may have left
+			// unrelated configs in KServeNamespace, so we only assert that
+			// OUR configs are present, not that they are the only entries.
+			Eventually(func(g Gomega, ctx context.Context) error {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+
+				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.PresetsCombined), "False"))
+				cond := current.Status.GetCondition(v1alpha2.PresetsCombined)
+				g.Expect(cond.Reason).To(Equal("ConfigNotFound"))
+				g.Expect(cond.Message).To(ContainSubstring(
+					fmt.Sprintf("%s/%s", testNs.Name, userCfgName)),
+					"message should list the service-namespace config in ns/name form")
+				g.Expect(cond.Message).To(ContainSubstring(
+					fmt.Sprintf("%s/%s", constants.KServeNamespace, systemCfgName)),
+					"message should list the system-namespace config in ns/name form")
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should disambiguate same-named configs in different namespaces", func(ctx SpecContext) {
+			// given - identical config names in two namespaces; without the
+			// namespace qualifier the operator could not tell which one is
+			// which from the error message.
+			svcName := "test-llm-cfg-same-name-disambig"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			sharedName := svcName + "-shared"
+
+			userCfg := LLMInferenceServiceConfig(sharedName,
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+			)
+			Expect(envTest.Create(ctx, userCfg)).To(Succeed())
+			defer func() {
+				Expect(envTest.Delete(ctx, userCfg)).To(Succeed())
+			}()
+
+			systemCfg := LLMInferenceServiceConfig(sharedName,
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](constants.KServeNamespace),
+			)
+			Expect(envTest.Create(ctx, systemCfg)).To(Succeed())
+			defer func() {
+				Expect(envTest.Delete(ctx, systemCfg)).To(Succeed())
+			}()
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithModelName("facebook/opt-125m"),
+				WithBaseRefs(corev1.LocalObjectReference{Name: "does-not-exist"}),
+			)
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - both occurrences appear in the message, distinguished
+			// by their namespace prefix.
+			Eventually(func(g Gomega, ctx context.Context) error {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+
+				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.PresetsCombined), "False"))
+				cond := current.Status.GetCondition(v1alpha2.PresetsCombined)
+				g.Expect(cond.Reason).To(Equal("ConfigNotFound"))
+				g.Expect(cond.Message).To(ContainSubstring(
+					fmt.Sprintf("%s/%s", testNs.Name, sharedName)),
+					"message should carry the service-namespace copy")
+				g.Expect(cond.Message).To(ContainSubstring(
+					fmt.Sprintf("%s/%s", constants.KServeNamespace, sharedName)),
+					"message should carry the system-namespace copy")
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})

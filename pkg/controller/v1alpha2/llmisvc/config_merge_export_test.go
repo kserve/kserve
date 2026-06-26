@@ -16,6 +16,10 @@ limitations under the License.
 
 package llmisvc
 
+import (
+	"context"
+)
+
 // SetUseVersionedConfigForTest overrides the useVersionedConfig flag for testing
 // and returns a cleanup function that restores the original value.
 func SetUseVersionedConfigForTest(enabled bool) func() {
@@ -24,4 +28,19 @@ func SetUseVersionedConfigForTest(enabled bool) func() {
 	return func() {
 		useVersionedConfig = original
 	}
+}
+
+// ConfigNotFoundError exposes the package-internal configNotFoundError type
+// to the llmisvc_test black-box package so the Error()-format unit tests
+// can construct fixtures directly, without leaking the type into the
+// production API surface.
+type ConfigNotFoundError = configNotFoundError
+
+// ListAvailableConfigsForTest exposes the package-internal
+// listAvailableConfigs helper to the llmisvc_test black-box package so
+// the best-effort-skip-failing-namespace case (which needs per-namespace
+// LIST error injection that envtest can't easily reproduce) can be
+// exercised via a fake client + interceptor.Funcs.
+func (r *LLMISVCReconciler) ListAvailableConfigsForTest(ctx context.Context, namespaces []string) []string {
+	return r.listAvailableConfigs(ctx, namespaces)
 }
