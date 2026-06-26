@@ -18,6 +18,7 @@ package reconcilers
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"path/filepath"
 	"reflect"
@@ -95,6 +96,12 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if !controllerutil.ContainsFinalizer(kc, KernelCacheFinalizerName) {
 		controllerutil.AddFinalizer(kc, KernelCacheFinalizerName)
 		return ctrl.Result{}, r.Update(ctx, kc)
+	}
+
+	// Ensure ResolvedDigest is copied from annotation to Status (immutability)
+	// This prevents annotation tampering attacks - Status is RBAC-protected subresource
+	if err := r.ensureResolvedDigest(ctx, kc); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	jobNamespace := kernelCacheConfig.JobNamespace
@@ -307,6 +314,30 @@ func (r *KernelCacheReconciler) handleDeletion(
 	// Remove finalizer
 	controllerutil.RemoveFinalizer(kc, KernelCacheFinalizerName)
 	return ctrl.Result{}, r.Update(ctx, kc)
+}
+
+// ensureResolvedDigest copies digest from annotation to Status field (one-time, immutable)
+// This prevents annotation tampering - Status is RBAC-protected subresource
+func (r *KernelCacheReconciler) ensureResolvedDigest(ctx context.Context, kc *v1alpha1.KernelCache) error {
+	annotationDigest := kc.Annotations[v1alpha1.AnnotationResolvedDigest]
+
+	// First reconcile: copy annotation → Status (one-way, one-time)
+	if kc.Status.ResolvedDigest == "" {
+		if annotationDigest == "" {
+			return fmt.Errorf("webhook must set %s annotation before reconcile", v1alpha1.AnnotationResolvedDigest)
+		}
+		kc.Status.ResolvedDigest = annotationDigest
+		return r.Status().Update(ctx, kc)
+	}
+
+	// Detect tampering: annotation changed but Status is immutable
+	if kc.Status.ResolvedDigest != annotationDigest {
+		r.Log.Info("Annotation digest differs from Status (ignoring annotation - possible tampering)",
+			"status", kc.Status.ResolvedDigest,
+			"annotation", annotationDigest)
+	}
+
+	return nil
 }
 
 // ensureKernelCacheNode creates or updates KernelCacheNode for a specific node
@@ -588,8 +619,19 @@ func (r *KernelCacheReconciler) createExtractionJob(
 	// Deterministic name
 	jobName := fmt.Sprintf("%s-%s-extract", kc.Namespace, kc.Name)
 
+	// Use Status field (immutable, RBAC-protected) instead of annotation
+	// This prevents annotation tampering attacks
+	resolvedDigest := kc.Status.ResolvedDigest
+	imageWithDigest := kernelcachecommon.ReplaceUrlTag(kc.Spec.Image, resolvedDigest)
+	if imageWithDigest == "" {
+		err := stderrors.New("unable to update image tag with digest")
+		r.Log.Error(err, "invalid image or digest", "image", kc.Spec.Image, "digest", resolvedDigest)
+		return err
+	}
+
 	// Hash-based storage key for deduplication
-	storageKey := v1alpha1.GetKernelCacheStorageKey(kc.Spec.Image)
+	// Use image with digest to ensure same content = same storage key
+	storageKey := v1alpha1.GetKernelCacheStorageKey(imageWithDigest)
 
 	noGPU := "false"
 	if config.NoGPU {
@@ -601,7 +643,7 @@ func (r *KernelCacheReconciler) createExtractionJob(
 		Image: config.ExtractImage,
 		Env: []corev1.EnvVar{
 			{Name: "GKM_CACHE_DIR", Value: kernelcachecommon.MountPath},
-			{Name: "GKM_IMAGE_URL", Value: kc.Spec.Image},
+			{Name: "GKM_IMAGE_URL", Value: imageWithDigest}, // Use image with digest, not tag
 			{Name: "GO_LOG", Value: "info"},
 			{Name: "NO_GPU", Value: noGPU},
 		},
@@ -634,6 +676,7 @@ func (r *KernelCacheReconciler) createExtractionJob(
 					Name:      kernelcachecommon.CachePVCMountName,
 					MountPath: kernelcachecommon.MountPath,
 					ReadOnly:  false,
+					SubPath:   filepath.Join("kernel-cache", storageKey), // Same SubPath as extraction container
 				},
 			},
 			Command: []string{"/bin/sh"},
@@ -729,94 +772,6 @@ func (r *KernelCacheReconciler) extractionComplete(
 	return r.jobCompleted(job)
 }
 
-// allExtractionsComplete checks if all nodes have completed extraction for this cache
-// DEPRECATED: Use extractionComplete() instead (single Job pattern)
-func (r *KernelCacheReconciler) allExtractionsComplete(
-	ctx context.Context,
-	kc *v1alpha1.KernelCache,
-	jobNamespace string,
-) bool {
-	// Get nodes where agent pods are running
-	agentPods := &corev1.PodList{}
-	if err := r.List(ctx, agentPods,
-		client.InNamespace(jobNamespace),
-		client.MatchingLabels{"app": "kserve-kernelcachenode-agent"},
-	); err != nil {
-		r.Log.Error(err, "failed to list agent pods")
-		return false
-	}
-
-	// Extract unique node names from running agent pods
-	agentNodes := make(map[string]bool)
-	for _, pod := range agentPods.Items {
-		if pod.Spec.NodeName != "" {
-			agentNodes[pod.Spec.NodeName] = true
-		}
-	}
-
-	if len(agentNodes) == 0 {
-		r.Log.V(1).Info("No agent nodes found", "cache", kc.Name)
-		return false
-	}
-
-	// List all KernelCacheNodes
-	kcNodes := &v1alpha1.KernelCacheNodeList{}
-	if err := r.List(ctx, kcNodes); err != nil {
-		r.Log.Error(err, "failed to list KernelCacheNodes")
-		return false
-	}
-
-	// Track if we found this cache on any agent node
-	foundOnAnyNode := false
-
-	// Check if all agent nodes that have this cache have completed extraction
-	for _, kcNode := range kcNodes.Items {
-		// Only check nodes where agent is running
-		if !agentNodes[kcNode.Status.NodeName] {
-			continue
-		}
-
-		// Check if this node has this cache
-		hasCache := false
-		for _, cacheInfo := range kcNode.Status.Caches {
-			if cacheInfo.Name == kc.Name && cacheInfo.Namespace == kc.Namespace {
-				hasCache = true
-				foundOnAnyNode = true
-				break
-			}
-		}
-
-		if !hasCache {
-			continue // This node doesn't have this cache, skip
-		}
-
-		// Node has this cache - check extraction status
-		cacheStatus, ok := kcNode.Status.CacheStatus[kc.Name]
-		if !ok {
-			// Cache in Caches array but no status yet - still initializing
-			return false
-		}
-
-		if cacheStatus.DownloadStatus != v1alpha1.NodeExtractionCompleted {
-			// At least one node hasn't completed extraction
-			r.Log.V(1).Info("Extraction not complete on node",
-				"node", kcNode.Status.NodeName,
-				"status", cacheStatus.DownloadStatus,
-				"cache", kc.Name)
-			return false
-		}
-	}
-
-	// All agent nodes with this cache have completed extraction
-	// Only return true if we found at least one agent node with this cache
-	if !foundOnAnyNode {
-		r.Log.V(1).Info("Cache not found on any agent node yet", "cache", kc.Name)
-		return false
-	}
-
-	r.Log.Info("All extractions complete for cache", "cache", kc.Name, "namespace", kc.Namespace)
-	return true
-}
 
 // ensureServingPVC creates Serving PV and PVC in KernelCache's namespace
 // Serving PV points to same HostPath as Download PV (shares disk space)
