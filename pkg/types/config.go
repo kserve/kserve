@@ -16,6 +16,8 @@ limitations under the License.
 
 package types
 
+import corev1 "k8s.io/api/core/v1"
+
 // OCI model mode constants for OciModelMode field.
 const (
 	OciModelModeModelcar = "modelcar"
@@ -47,6 +49,12 @@ type StorageInitializerConfig struct {
 	// opt-in, never inferred from the registry host. Wired to the init container via
 	// the KSERVE_OCI_INSECURE_REGISTRY env var (see ConfigureOciFetchToContainer).
 	OciInsecureRegistry bool `json:"ociInsecureRegistry"`
+	// ModelVolumeSource overrides the default emptyDir volume used as the shared
+	// model staging area between the storage-initializer init container and the
+	// serving container. When nil, emptyDir is used. Any valid corev1.VolumeSource
+	// that supports ReadWriteOnce (or better) may be specified — e.g. ephemeral,
+	// persistentVolumeClaim, or hostPath.
+	ModelVolumeSource *corev1.VolumeSource `json:"modelVolumeSource,omitempty"`
 }
 
 // ResolveOciModelMode returns the effective OCI model mode for the given config.
