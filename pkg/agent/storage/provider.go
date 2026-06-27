@@ -33,7 +33,7 @@ const (
 	HTTP  Protocol = "http://"
 )
 
-var SupportedProtocols = []Protocol{S3, GCS, HTTPS, HTTP}
+var SupportedProtocols = []Protocol{S3, GCS, HTTPS, HTTP, AZURE}
 
 func GetAllProtocol() (protocols []string) {
 	for _, protocol := range SupportedProtocols {
