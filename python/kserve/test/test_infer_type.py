@@ -621,6 +621,68 @@ class TestInferRequest:
         assert infer_request.inputs[0].data == [1, 2, 3]
         assert infer_request.request_outputs is None
 
+    def test_as_dataframe_with_binary_bytes(self):
+        """Test that as_dataframe handles non-UTF-8 binary BYTES inputs without raising UnicodeDecodeError.
+
+        Regression test for https://github.com/kserve/kserve/issues/3731
+        """
+        binary_data = [b"\xff\x00\xfe", b"\x80\x81\x82"]
+        infer_req = InferRequest(
+            model_name="TestModel",
+            infer_inputs=[
+                InferInput(
+                    name="input-0",
+                    datatype="BYTES",
+                    shape=[2],
+                    data=binary_data,
+                )
+            ],
+        )
+        # Should not raise UnicodeDecodeError
+        df = infer_req.as_dataframe()
+        assert list(df.columns) == ["input-0"]
+        assert len(df) == 2
+        # Binary data that can't be decoded as UTF-8 should be preserved as raw bytes
+        assert df["input-0"].iloc[0] == b"\xff\x00\xfe"
+        assert df["input-0"].iloc[1] == b"\x80\x81\x82"
+
+    def test_as_dataframe_with_utf8_bytes(self):
+        """Test that as_dataframe still correctly decodes valid UTF-8 BYTES inputs."""
+        utf8_data = [b"hello", b"world"]
+        infer_req = InferRequest(
+            model_name="TestModel",
+            infer_inputs=[
+                InferInput(
+                    name="input-0",
+                    datatype="BYTES",
+                    shape=[2],
+                    data=utf8_data,
+                )
+            ],
+        )
+        df = infer_req.as_dataframe()
+        assert list(df.columns) == ["input-0"]
+        assert df["input-0"].iloc[0] == "hello"
+        assert df["input-0"].iloc[1] == "world"
+
+    def test_as_dataframe_with_mixed_bytes(self):
+        """Test that as_dataframe handles a mix of valid UTF-8 and raw binary BYTES inputs."""
+        mixed_data = [b"hello", b"\xff\x00"]
+        infer_req = InferRequest(
+            model_name="TestModel",
+            infer_inputs=[
+                InferInput(
+                    name="input-0",
+                    datatype="BYTES",
+                    shape=[2],
+                    data=mixed_data,
+                )
+            ],
+        )
+        df = infer_req.as_dataframe()
+        assert df["input-0"].iloc[0] == "hello"
+        assert df["input-0"].iloc[1] == b"\xff\x00"
+
 
 class TestInferResponse:
     def test_to_grpc(self):

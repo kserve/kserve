@@ -856,10 +856,15 @@ class InferRequest:
         for input in self.inputs:
             input_data = input.data
             if input.datatype == "BYTES":
-                input_data = [
-                    str(val, "utf-8") if isinstance(val, bytes) else val
-                    for val in input.data
-                ]
+                input_data = []
+                for val in input.data:
+                    if isinstance(val, bytes):
+                        try:
+                            input_data.append(val.decode("utf-8"))
+                        except UnicodeDecodeError:
+                            input_data.append(val)
+                    else:
+                        input_data.append(val)
             dfs.append(pd.DataFrame(input_data, columns=[input.name]))
         return pd.concat(dfs, axis=1)
 
