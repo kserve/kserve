@@ -302,8 +302,12 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 			case ensembleStepOutput = <-resultChan:
 				if !isSuccessFul(ensembleStepOutput.StepStatusCode) && currentNode.Steps[i].Dependency == v1alpha1.Hard {
 					log.Info("This step is a hard dependency and it is unsuccessful", "stepName", currentNode.Steps[i].StepName, "statusCode", ensembleStepOutput.StepStatusCode)
-					stepResponse, _ := json.Marshal(ensembleStepOutput.StepResponse) // TODO check if you need err handling for Marshalling
-					return stepResponse, ensembleStepOutput.StepStatusCode, nil      // First failed hard dependency will decide the response and response code for ensemble node
+					stepResponse, err := json.Marshal(ensembleStepOutput.StepResponse)
+					if err != nil {
+						log.Error(err, "failed to marshal step response", "stepName", currentNode.Steps[i].StepName)
+						return nil, 500, fmt.Errorf("marshal step response: %w", err)
+					}
+					return stepResponse, ensembleStepOutput.StepStatusCode, nil // First failed hard dependency will decide the response and response code for ensemble node
 				} else {
 					response[key] = ensembleStepOutput.StepResponse
 				}
@@ -312,7 +316,11 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 			}
 		}
 		// return json.Marshal(response)
-		combinedResponse, _ := json.Marshal(response) // TODO check if you need err handling for Marshalling
+		combinedResponse, err := json.Marshal(response) // TODO check if you need err handling for Marshalling
+		if err != nil {
+			log.Error(err, "failed to marshal combined ensemble response")
+			return nil, 500, fmt.Errorf("marshal ensemble response: %w", err)
+		}
 		return combinedResponse, 200, nil
 	}
 	if currentNode.RouterType == v1alpha1.Sequence {
@@ -341,7 +349,11 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 				if err == nil && len(decoded.Predictions) > 0 {
 					decoded.Instances = decoded.Predictions
 					decoded.Predictions = []interface{}{}
-					request, _ = json.Marshal(decoded) // TODO check if you need err handling for Marshalling
+					request, err = json.Marshal(decoded) // TODO check if you need err handling for Marshalling
+					if err != nil {
+						log.Error(err, "failed to marshal modified request", "stepName", step.StepName)
+						return nil, http.StatusInternalServerError, fmt.Errorf("marshal mapped request: %w", err)
+					}
 				}
 			}
 
