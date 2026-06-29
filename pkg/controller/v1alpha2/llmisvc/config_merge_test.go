@@ -2154,6 +2154,131 @@ func TestReplaceVariables(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "kvTransferConfig renders single emptyDir secondary tier",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+							CPU: resource.MustParse("10Gi"),
+							Secondary: []v1alpha2.SecondaryTierSpec{
+								{FileSystem: &v1alpha2.FileSystemTierSpec{
+									EmptyDir: &v1alpha2.EmptyDirTierSpec{Size: resource.MustParse("100Gi")},
+								}},
+							},
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								// secondary_tiers[0]: path defaults to /mnt/kv-cache-0, disk_bytes_to_use from emptyDir size
+								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":10737418240,"secondary_tiers":[{"disk_bytes_to_use":107374182400,"path":"/mnt/kv-cache-0","spec_name":"DiskOffloadingSpec"}],"spec_name":"TieringOffloadingSpec"},"kv_role":"kv_both"}'`}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "kvTransferConfig renders multiple secondary tiers with custom mountPaths",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+							CPU: resource.MustParse("10Gi"),
+							Secondary: []v1alpha2.SecondaryTierSpec{
+								{FileSystem: &v1alpha2.FileSystemTierSpec{
+									MountPath: "/mnt/nvme0",
+									EmptyDir:  &v1alpha2.EmptyDirTierSpec{Size: resource.MustParse("200Gi")},
+								}},
+								{FileSystem: &v1alpha2.FileSystemTierSpec{
+									MountPath: "/mnt/nvme1",
+									EmptyDir:  &v1alpha2.EmptyDirTierSpec{Size: resource.MustParse("200Gi")},
+								}},
+							},
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":10737418240,"secondary_tiers":[{"disk_bytes_to_use":214748364800,"path":"/mnt/nvme0","spec_name":"DiskOffloadingSpec"},{"disk_bytes_to_use":214748364800,"path":"/mnt/nvme1","spec_name":"DiskOffloadingSpec"}],"spec_name":"TieringOffloadingSpec"},"kv_role":"kv_both"}'`}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "kvTransferConfig ref tier omits disk_bytes_to_use",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+							CPU: resource.MustParse("10Gi"),
+							Secondary: []v1alpha2.SecondaryTierSpec{
+								{FileSystem: &v1alpha2.FileSystemTierSpec{
+									MountPath: "/mnt/shared",
+									Ref:       &v1alpha2.PVCRefTierSpec{Name: "my-pvc"},
+								}},
+							},
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								// ref tier has no declared size, so disk_bytes_to_use is omitted
+								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":10737418240,"secondary_tiers":[{"path":"/mnt/shared","spec_name":"DiskOffloadingSpec"}],"spec_name":"TieringOffloadingSpec"},"kv_role":"kv_both"}'`}},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

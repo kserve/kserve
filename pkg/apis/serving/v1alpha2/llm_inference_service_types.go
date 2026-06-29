@@ -190,6 +190,78 @@ type KVCacheOffloadingSpec struct {
 	// +kubebuilder:validation:Enum=lru;arc
 	// +kubebuilder:default=lru
 	EvictionPolicy string `json:"evictionPolicy,omitempty"`
+
+	// Secondary is an ordered list of secondary KV cache tiers. vLLM cascades
+	// through tiers in the order listed. Currently only fileSystem tiers are
+	// supported; the array shape is designed to accommodate object store tiers
+	// in a future follow-up without an API break.
+	// +optional
+	Secondary []SecondaryTierSpec `json:"secondary,omitempty"`
+}
+
+// SecondaryTierSpec defines one secondary KV cache tier.
+// Exactly one field must be set.
+type SecondaryTierSpec struct {
+	// FileSystem configures a POSIX disk tier backed by a Kubernetes volume.
+	// +optional
+	FileSystem *FileSystemTierSpec `json:"fileSystem,omitempty"`
+}
+
+// FileSystemTierSpec configures a POSIX disk secondary tier.
+// Exactly one of EmptyDir, PVC, or Ref must be set.
+type FileSystemTierSpec struct {
+	// MountPath is the path inside the container where the volume is mounted and
+	// the path passed to vLLM as secondary_tiers[i].path. Defaults to
+	// /mnt/kv-cache-<index> when not specified.
+	// +optional
+	MountPath string `json:"mountPath,omitempty"`
+
+	// EmptyDir uses a node-local ephemeral volume. No StorageClass required.
+	// Each pod gets its own independent disk cache.
+	// +optional
+	EmptyDir *EmptyDirTierSpec `json:"emptyDir,omitempty"`
+
+	// PVC causes the controller to create a generic ephemeral PVC per pod
+	// (one PVC per pod, pod-lifetime). Safe for multi-replica and multi-node.
+	// +optional
+	PVC *PVCTierSpec `json:"pvc,omitempty"`
+
+	// Ref mounts a pre-existing user-managed PVC. Use an RWX PVC to share
+	// the disk cache across replicas.
+	// +optional
+	Ref *PVCRefTierSpec `json:"ref,omitempty"`
+}
+
+// EmptyDirTierSpec configures a node-local ephemeral emptyDir volume as a KV cache tier.
+type EmptyDirTierSpec struct {
+	// Size is the maximum storage capacity for this tier (maps to emptyDir.sizeLimit).
+	Size resource.Quantity `json:"size"`
+}
+
+// PVCTierSpec configures a controller-managed generic ephemeral PVC as a KV cache tier.
+// One PVC is created per pod automatically; PVCs are deleted when the pod is deleted.
+type PVCTierSpec struct {
+	// AccessModes for the ephemeral PVC, e.g. [ReadWriteOnce].
+	// +optional
+	AccessModes []corev1.PersistentVolumeAccessMode `json:"accessModes,omitempty"`
+
+	// StorageClassName selects the StorageClass for the ephemeral PVC.
+	// +optional
+	StorageClassName *string `json:"storageClassName,omitempty"`
+
+	// Resources specifies the storage request for the ephemeral PVC.
+	Resources corev1.VolumeResourceRequirements `json:"resources"`
+}
+
+// PVCRefTierSpec mounts a pre-existing user-managed PVC as a KV cache tier.
+type PVCRefTierSpec struct {
+	// Name of the pre-existing PersistentVolumeClaim.
+	Name string `json:"name"`
+
+	// Path is a subdirectory within the PVC used as VolumeMount.subPath.
+	// Distinct from MountPath (where the volume lands in the container).
+	// +optional
+	Path string `json:"path,omitempty"`
 }
 
 // ConfidentialSpec enables confidential model serving with encrypted model artifacts.

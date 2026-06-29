@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
@@ -1554,4 +1555,127 @@ func TestValidateConfidential(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidateKVCacheOffloading(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+
+	makeSvc := func(kv *KVCacheOffloadingSpec) *LLMInferenceService {
+		return &LLMInferenceService{
+			Spec: LLMInferenceServiceSpec{
+				WorkloadSpec: WorkloadSpec{KVCacheOffloading: kv},
+			},
+		}
+	}
+
+	t.Run("nil spec produces no errors", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(nil))
+		assert.Empty(t, errs)
+	})
+
+	t.Run("cpu-only (no secondary) produces no errors", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
+			CPU: resource.MustParse("10Gi"),
+		}))
+		assert.Empty(t, errs)
+	})
+
+	t.Run("valid emptyDir secondary tier", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
+			CPU: resource.MustParse("10Gi"),
+			Secondary: []SecondaryTierSpec{
+				{FileSystem: &FileSystemTierSpec{
+					EmptyDir: &EmptyDirTierSpec{Size: resource.MustParse("100Gi")},
+				}},
+			},
+		}))
+		assert.Empty(t, errs)
+	})
+
+	t.Run("secondary without cpu produces error", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
+			Secondary: []SecondaryTierSpec{
+				{FileSystem: &FileSystemTierSpec{
+					EmptyDir: &EmptyDirTierSpec{Size: resource.MustParse("100Gi")},
+				}},
+			},
+		}))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeRequired, errs[0].Type)
+		assert.Contains(t, errs[0].Field, "cpu")
+	})
+
+	t.Run("nil fileSystem produces error", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
+			CPU:       resource.MustParse("10Gi"),
+			Secondary: []SecondaryTierSpec{{FileSystem: nil}},
+		}))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeRequired, errs[0].Type)
+		assert.Contains(t, errs[0].Field, "fileSystem")
+	})
+
+	t.Run("both emptyDir and pvc set produces error", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
+			CPU: resource.MustParse("10Gi"),
+			Secondary: []SecondaryTierSpec{
+				{FileSystem: &FileSystemTierSpec{
+					EmptyDir: &EmptyDirTierSpec{Size: resource.MustParse("100Gi")},
+					PVC:      &PVCTierSpec{},
+				}},
+			},
+		}))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeInvalid, errs[0].Type)
+		assert.Contains(t, errs[0].Field, "fileSystem")
+	})
+
+	t.Run("none of emptyDir/pvc/ref set produces error", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
+			CPU:       resource.MustParse("10Gi"),
+			Secondary: []SecondaryTierSpec{{FileSystem: &FileSystemTierSpec{}}},
+		}))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeRequired, errs[0].Type)
+	})
+
+	t.Run("ref with empty name produces error", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
+			CPU: resource.MustParse("10Gi"),
+			Secondary: []SecondaryTierSpec{
+				{FileSystem: &FileSystemTierSpec{
+					Ref: &PVCRefTierSpec{Name: ""},
+				}},
+			},
+		}))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeRequired, errs[0].Type)
+		assert.Contains(t, errs[0].Field, "name")
+	})
+
+	t.Run("prefill kvCacheOffloading is also validated", func(t *testing.T) {
+		svc := &LLMInferenceService{
+			Spec: LLMInferenceServiceSpec{
+				WorkloadSpec: WorkloadSpec{
+					KVCacheOffloading: &KVCacheOffloadingSpec{
+						CPU: resource.MustParse("10Gi"),
+					},
+				},
+				Prefill: &WorkloadSpec{
+					KVCacheOffloading: &KVCacheOffloadingSpec{
+						// secondary set but cpu is zero
+						Secondary: []SecondaryTierSpec{
+							{FileSystem: &FileSystemTierSpec{
+								EmptyDir: &EmptyDirTierSpec{Size: resource.MustParse("100Gi")},
+							}},
+						},
+					},
+				},
+			},
+		}
+		errs := validator.validateKVCacheOffloading(svc)
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "prefill")
+		assert.Contains(t, errs[0].Field, "cpu")
+	})
 }

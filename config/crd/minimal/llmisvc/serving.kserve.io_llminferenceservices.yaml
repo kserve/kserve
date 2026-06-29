@@ -111,6 +111,66 @@ spec:
                     - lru
                     - arc
                     type: string
+                  secondary:
+                    items:
+                      properties:
+                        fileSystem:
+                          properties:
+                            emptyDir:
+                              properties:
+                                size:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                              required:
+                              - size
+                              type: object
+                            mountPath:
+                              type: string
+                            pvc:
+                              properties:
+                                accessModes:
+                                  items:
+                                    type: string
+                                  type: array
+                                resources:
+                                  properties:
+                                    limits:
+                                      additionalProperties:
+                                        anyOf:
+                                        - type: integer
+                                        - type: string
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                      type: object
+                                    requests:
+                                      additionalProperties:
+                                        anyOf:
+                                        - type: integer
+                                        - type: string
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                      type: object
+                                  type: object
+                                storageClassName:
+                                  type: string
+                              required:
+                              - resources
+                              type: object
+                            ref:
+                              properties:
+                                name:
+                                  type: string
+                                path:
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                          type: object
+                      type: object
+                    type: array
                 required:
                 - cpu
                 type: object
@@ -199,6 +259,66 @@ spec:
                         - lru
                         - arc
                         type: string
+                      secondary:
+                        items:
+                          properties:
+                            fileSystem:
+                              properties:
+                                emptyDir:
+                                  properties:
+                                    size:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                  required:
+                                  - size
+                                  type: object
+                                mountPath:
+                                  type: string
+                                pvc:
+                                  properties:
+                                    accessModes:
+                                      items:
+                                        type: string
+                                      type: array
+                                    resources:
+                                      properties:
+                                        limits:
+                                          additionalProperties:
+                                            anyOf:
+                                            - type: integer
+                                            - type: string
+                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                            x-kubernetes-int-or-string: true
+                                          type: object
+                                        requests:
+                                          additionalProperties:
+                                            anyOf:
+                                            - type: integer
+                                            - type: string
+                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                            x-kubernetes-int-or-string: true
+                                          type: object
+                                      type: object
+                                    storageClassName:
+                                      type: string
+                                  required:
+                                  - resources
+                                  type: object
+                                ref:
+                                  properties:
+                                    name:
+                                      type: string
+                                    path:
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                              type: object
+                          type: object
+                        type: array
                     required:
                     - cpu
                     type: object
