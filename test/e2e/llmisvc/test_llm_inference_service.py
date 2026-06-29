@@ -959,9 +959,9 @@ def _wait_for_llmisvc_pods_deleted(
     def assert_no_pods():
         pods = core_v1.list_namespaced_pod(namespace, label_selector=label_selector)
         pod_names = [p.metadata.name for p in pods.items]
-        assert not pod_names, (
-            f"{len(pod_names)} pod(s) for {service_name} still terminating: {pod_names}"
-        )
+        assert (
+            not pod_names
+        ), f"{len(pod_names)} pod(s) for {service_name} still terminating: {pod_names}"
 
     try:
         wait_for(assert_no_pods, timeout=timeout, interval=5.0)
