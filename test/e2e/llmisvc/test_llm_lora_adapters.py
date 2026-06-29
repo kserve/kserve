@@ -58,7 +58,7 @@ class LoRATestCase:
     expected_adapter_names: List[str]
     service_name: Optional[str] = None
     endpoint: str = "/v1/completions"
-    max_tokens: int = 100
+    max_tokens: int = 20
     wait_timeout: int = 900
     response_timeout: int = 60
 
