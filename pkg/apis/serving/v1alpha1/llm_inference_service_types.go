@@ -24,8 +24,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
-	igwapi "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	igwapi "github.com/kserve/kserve/pkg/apis/gie/v1alpha2pool"
 )
 
 // Criticality defines how important it is to serve the model compared to other models.
@@ -68,11 +69,16 @@ type LLMInferenceService struct {
 // It acts as a template to provide base configurations that can be inherited by multiple LLMInferenceService instances.
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
+// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type LLMInferenceServiceConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec LLMInferenceServiceSpec `json:"spec,omitempty"`
+	Spec   LLMInferenceServiceSpec         `json:"spec,omitempty"`
+	Status LLMInferenceServiceConfigStatus `json:"status,omitempty"`
 }
 
 // LLMInferenceServiceSpec defines the desired state of LLMInferenceService.
@@ -103,6 +109,12 @@ type LLMInferenceServiceSpec struct {
 	// This allows for independent scaling and hardware allocation for prefill and decode steps.
 	// +optional
 	Prefill *WorkloadSpec `json:"prefill,omitempty"`
+
+	// Tracing configuration for distributed tracing across all managed components.
+	// When present (even as `{}`), distributed tracing is enabled with defaults.
+	// When omitted, no tracing instrumentation is injected.
+	// +optional
+	Tracing *TracingSpec `json:"tracing,omitempty"`
 
 	// BaseRefs allows inheriting and overriding configurations from one or more LLMInferenceServiceConfig instances.
 	// The controller merges these base configurations, with the current LLMInferenceService spec taking the highest precedence.
@@ -470,6 +482,35 @@ type KEDAScalingSpec struct {
 	Advanced *kedav1alpha1.AdvancedConfig `json:"advanced,omitempty"`
 }
 
+// TracingSpec defines the distributed tracing configuration.
+// When present (even as an empty object `{}`), tracing is enabled with sensible defaults.
+// When omitted, no tracing instrumentation is injected.
+type TracingSpec struct {
+	// ExporterEndpoint is the OTLP exporter endpoint.
+	// Maps to the OTEL_EXPORTER_OTLP_ENDPOINT environment variable.
+	// Default: "http://otel-collector:4317"
+	// +optional
+	ExporterEndpoint *string `json:"exporterEndpoint,omitempty"`
+
+	// Sampler specifies the sampler to use for traces.
+	// Maps to the OTEL_TRACES_SAMPLER environment variable.
+	// Default: "parentbased_traceidratio"
+	// +optional
+	Sampler *string `json:"sampler,omitempty"`
+
+	// SamplerArg is an argument passed to the traces sampler (e.g. the sampling ratio).
+	// Maps to the OTEL_TRACES_SAMPLER_ARG environment variable.
+	// Default: "0.05" (5% sampling rate)
+	// +optional
+	SamplerArg *string `json:"samplerArg,omitempty"`
+
+	// Exporter specifies which exporter is used for traces.
+	// Maps to the OTEL_TRACES_EXPORTER environment variable.
+	// Default: "otlp"
+	// +optional
+	Exporter *string `json:"exporter,omitempty"`
+}
+
 // ParallelismSpec defines the parallelism parameters for distributed inference.
 type ParallelismSpec struct {
 	// Tensor parallelism size.
@@ -565,6 +606,12 @@ type RouterStatus struct {
 	// Nil when the scheduler is not configured.
 	// +optional
 	Scheduler *ObservedSchedulerStatus `json:"scheduler,omitempty"`
+}
+
+// LLMInferenceServiceConfigStatus defines the observed state of LLMInferenceServiceConfig.
+type LLMInferenceServiceConfigStatus struct {
+	// Conditions of the resource.
+	duckv1.Status `json:",inline"`
 }
 
 // LLMInferenceServiceStatus defines the observed state of LLMInferenceService.

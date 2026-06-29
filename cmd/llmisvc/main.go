@@ -22,6 +22,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -244,17 +245,21 @@ func main() {
 		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceservice-v1alpha1")
 		os.Exit(1)
 	}
+	const preventWellKnownConfigDeletionEnv = "PREVENT_WELL_KNOWN_CONFIG_DELETION"
+	preventWellKnownConfigDeletion, _ := strconv.ParseBool(constants.GetEnvOrDefault(preventWellKnownConfigDeletionEnv, "true"))
 	v1alpha1ConfigValidator := &v1alpha1.LLMInferenceServiceConfigValidator{
-		ConfigValidationFunc:   createV1Alpha1ConfigValidationFunc(mgr.GetAPIReader()),
-		WellKnownConfigChecker: wellKnownConfigChecker,
+		ConfigValidationFunc:           createV1Alpha1ConfigValidationFunc(mgr.GetAPIReader()),
+		WellKnownConfigChecker:         wellKnownConfigChecker,
+		PreventWellKnownConfigDeletion: preventWellKnownConfigDeletion,
 	}
 	if err = v1alpha1ConfigValidator.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceserviceconfig-v1alpha1")
 		os.Exit(1)
 	}
 	v1alpha2ConfigValidator := &v1alpha2.LLMInferenceServiceConfigValidator{
-		ConfigValidationFunc:   createV1Alpha2ConfigValidationFunc(mgr.GetAPIReader()),
-		WellKnownConfigChecker: wellKnownConfigChecker,
+		ConfigValidationFunc:           createV1Alpha2ConfigValidationFunc(mgr.GetAPIReader()),
+		WellKnownConfigChecker:         wellKnownConfigChecker,
+		PreventWellKnownConfigDeletion: preventWellKnownConfigDeletion,
 	}
 	if err = v1alpha2ConfigValidator.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceserviceconfig-v1alpha2")
@@ -309,10 +314,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha2.LLMInferenceServiceConfig{}).
-		Complete(); err != nil {
-		setupLog.Error(err, "unable to create conversion webhook", "webhook", "llminferenceserviceconfig")
+	setupLog.Info("Setting up LLMInferenceServiceConfig controller")
+	if err = (&llmisvc.LLMISVCConfigReconciler{
+		Client:        mgr.GetClient(),
+		EventRecorder: llmEventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: "LLMInferenceServiceConfigController"}),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "LLMInferenceServiceConfig")
 		os.Exit(1)
 	}
 

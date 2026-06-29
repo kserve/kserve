@@ -992,7 +992,7 @@ func (r *RawHTTPRouteReconciler) reconcileHTTPRouteStatus(ctx context.Context, i
 					Reason:  check.component + " Deployment NotReady",
 					Message: check.component + " HTTPRoute not created",
 				})
-				return ctrl.Result{RequeueAfter: 3 * time.Second}, nil
+				return ctrl.Result{RequeueAfter: time.Second}, nil
 			}
 			// Return any other errors
 			return ctrl.Result{}, err
@@ -1007,7 +1007,7 @@ func (r *RawHTTPRouteReconciler) reconcileHTTPRouteStatus(ctx context.Context, i
 				Reason:  *reason,
 				Message: fmt.Sprintf("%s %s", check.component, *message),
 			})
-			return ctrl.Result{RequeueAfter: 3 * time.Second}, nil
+			return ctrl.Result{RequeueAfter: time.Second}, nil
 		}
 	}
 

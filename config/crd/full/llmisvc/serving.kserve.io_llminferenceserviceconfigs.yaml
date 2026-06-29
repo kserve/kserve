@@ -14,7 +14,17 @@ spec:
     singular: llminferenceserviceconfig
   scope: Namespaced
   versions:
-    - name: v1alpha1
+    - additionalPrinterColumns:
+        - jsonPath: .status.conditions[?(@.type=='Ready')].status
+          name: Ready
+          type: string
+        - jsonPath: .status.conditions[?(@.type=='Ready')].reason
+          name: Reason
+          type: string
+        - jsonPath: .metadata.creationTimestamp
+          name: Age
+          type: date
+      name: v1alpha1
       schema:
         openAPIV3Schema:
           properties:
@@ -8088,6 +8098,9 @@ spec:
                                                         maxItems: 64
                                                         type: array
                                                         x-kubernetes-list-type: set
+                                                        x-kubernetes-validations:
+                                                          - message: AllowHeaders cannot contain '*' alongside other methods
+                                                            rule: '!(''*'' in self && self.size() > 1)'
                                                       allowMethods:
                                                         items:
                                                           enum:
@@ -8112,7 +8125,7 @@ spec:
                                                         items:
                                                           maxLength: 253
                                                           minLength: 1
-                                                          pattern: (^\*$)|(^([a-zA-Z][a-zA-Z0-9+\-.]+):\/\/([^:/?#]+)(:([0-9]{1,5}))?$)
+                                                          pattern: (^\*$)|(^(http(s)?):\/\/(((\*\.)?([a-zA-Z0-9\-]+\.)*[a-zA-Z0-9-]+|\*)(:([0-9]{1,5}))?)$)
                                                           type: string
                                                         maxItems: 64
                                                         type: array
@@ -8402,6 +8415,9 @@ spec:
                                                         enum:
                                                           - 301
                                                           - 302
+                                                          - 303
+                                                          - 307
+                                                          - 308
                                                         type: integer
                                                     type: object
                                                   responseHeaderModifier:
@@ -8463,6 +8479,7 @@ spec:
                                                       - RequestRedirect
                                                       - URLRewrite
                                                       - ExtensionRef
+                                                      - CORS
                                                     type: string
                                                   urlRewrite:
                                                     properties:
@@ -8501,6 +8518,10 @@ spec:
                                                   - type
                                                 type: object
                                                 x-kubernetes-validations:
+                                                  - message: filter.cors must be nil if the filter.type is not CORS
+                                                    rule: '!(has(self.cors) && self.type != ''CORS'')'
+                                                  - message: filter.cors must be specified for CORS filter.type
+                                                    rule: '!(!has(self.cors) && self.type == ''CORS'')'
                                                   - message: filter.requestHeaderModifier must be nil if the filter.type is not RequestHeaderModifier
                                                     rule: '!(has(self.requestHeaderModifier) && self.type != ''RequestHeaderModifier'')'
                                                   - message: filter.requestHeaderModifier must be specified for RequestHeaderModifier filter.type
@@ -8531,6 +8552,8 @@ spec:
                                               x-kubernetes-validations:
                                                 - message: May specify either httpRouteFilterRequestRedirect or httpRouteFilterRequestRewrite, but not both
                                                   rule: '!(self.exists(f, f.type == ''RequestRedirect'') && self.exists(f, f.type == ''URLRewrite''))'
+                                                - message: CORS filter cannot be repeated
+                                                  rule: self.filter(f, f.type == 'CORS').size() <= 1
                                                 - message: RequestHeaderModifier filter cannot be repeated
                                                   rule: self.filter(f, f.type == 'RequestHeaderModifier').size() <= 1
                                                 - message: ResponseHeaderModifier filter cannot be repeated
@@ -8595,6 +8618,9 @@ spec:
                                                   maxItems: 64
                                                   type: array
                                                   x-kubernetes-list-type: set
+                                                  x-kubernetes-validations:
+                                                    - message: AllowHeaders cannot contain '*' alongside other methods
+                                                      rule: '!(''*'' in self && self.size() > 1)'
                                                 allowMethods:
                                                   items:
                                                     enum:
@@ -8619,7 +8645,7 @@ spec:
                                                   items:
                                                     maxLength: 253
                                                     minLength: 1
-                                                    pattern: (^\*$)|(^([a-zA-Z][a-zA-Z0-9+\-.]+):\/\/([^:/?#]+)(:([0-9]{1,5}))?$)
+                                                    pattern: (^\*$)|(^(http(s)?):\/\/(((\*\.)?([a-zA-Z0-9\-]+\.)*[a-zA-Z0-9-]+|\*)(:([0-9]{1,5}))?)$)
                                                     type: string
                                                   maxItems: 64
                                                   type: array
@@ -8909,6 +8935,9 @@ spec:
                                                   enum:
                                                     - 301
                                                     - 302
+                                                    - 303
+                                                    - 307
+                                                    - 308
                                                   type: integer
                                               type: object
                                             responseHeaderModifier:
@@ -8970,6 +8999,7 @@ spec:
                                                 - RequestRedirect
                                                 - URLRewrite
                                                 - ExtensionRef
+                                                - CORS
                                               type: string
                                             urlRewrite:
                                               properties:
@@ -9008,6 +9038,10 @@ spec:
                                             - type
                                           type: object
                                           x-kubernetes-validations:
+                                            - message: filter.cors must be nil if the filter.type is not CORS
+                                              rule: '!(has(self.cors) && self.type != ''CORS'')'
+                                            - message: filter.cors must be specified for CORS filter.type
+                                              rule: '!(!has(self.cors) && self.type == ''CORS'')'
                                             - message: filter.requestHeaderModifier must be nil if the filter.type is not RequestHeaderModifier
                                               rule: '!(has(self.requestHeaderModifier) && self.type != ''RequestHeaderModifier'')'
                                             - message: filter.requestHeaderModifier must be specified for RequestHeaderModifier filter.type
@@ -9038,6 +9072,8 @@ spec:
                                         x-kubernetes-validations:
                                           - message: May specify either httpRouteFilterRequestRedirect or httpRouteFilterRequestRewrite, but not both
                                             rule: '!(self.exists(f, f.type == ''RequestRedirect'') && self.exists(f, f.type == ''URLRewrite''))'
+                                          - message: CORS filter cannot be repeated
+                                            rule: self.filter(f, f.type == 'CORS').size() <= 1
                                           - message: RequestHeaderModifier filter cannot be repeated
                                             rule: self.filter(f, f.type == 'RequestHeaderModifier').size() <= 1
                                           - message: ResponseHeaderModifier filter cannot be repeated
@@ -9212,6 +9248,8 @@ spec:
                                         x-kubernetes-validations:
                                           - message: AbsoluteTimeout must be specified when cookie lifetimeType is Permanent
                                             rule: '!has(self.cookieConfig) || !has(self.cookieConfig.lifetimeType) || self.cookieConfig.lifetimeType != ''Permanent'' || has(self.absoluteTimeout)'
+                                          - message: cookieConfig can only be set with type Cookie
+                                            rule: '!has(self.cookieConfig) || self.type == ''Cookie'''
                                       timeouts:
                                         properties:
                                           backendRequest:
@@ -9237,6 +9275,7 @@ spec:
                                       - message: Within backendRefs, When using URLRewrite filter with path.replacePrefixMatch, exactly one PathPrefix match must be specified
                                         rule: '(has(self.backendRefs) && self.backendRefs.exists_one(b, (has(b.filters) && b.filters.exists_one(f, has(f.urlRewrite) && has(f.urlRewrite.path) && f.urlRewrite.path.type == ''ReplacePrefixMatch'' && has(f.urlRewrite.path.replacePrefixMatch))) )) ? ((size(self.matches) != 1 || !has(self.matches[0].path) || self.matches[0].path.type != ''PathPrefix'') ? false : true) : true'
                                   maxItems: 16
+                                  minItems: 1
                                   type: array
                                   x-kubernetes-list-type: atomic
                                   x-kubernetes-validations:
@@ -9293,18 +9332,15 @@ spec:
                                 extensionRef:
                                   properties:
                                     failureMode:
-                                      default: FailClose
                                       enum:
                                         - FailOpen
                                         - FailClose
                                       type: string
                                     group:
-                                      default: ""
                                       maxLength: 253
                                       pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                       type: string
                                     kind:
-                                      default: Service
                                       maxLength: 63
                                       minLength: 1
                                       pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
@@ -9319,22 +9355,19 @@ spec:
                                       minimum: 1
                                       type: integer
                                   required:
+                                    - failureMode
                                     - name
                                   type: object
                                 selector:
                                   additionalProperties:
                                     maxLength: 63
                                     minLength: 0
-                                    pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                                     type: string
                                   type: object
                                 targetPortNumber:
                                   format: int32
-                                  maximum: 65535
-                                  minimum: 1
                                   type: integer
                               required:
-                                - extensionRef
                                 - selector
                                 - targetPortNumber
                               type: object
@@ -17157,6 +17190,17 @@ spec:
                         - podGroup
                       type: object
                   type: object
+                tracing:
+                  properties:
+                    exporter:
+                      type: string
+                    exporterEndpoint:
+                      type: string
+                    sampler:
+                      type: string
+                    samplerArg:
+                      type: string
+                  type: object
                 worker:
                   properties:
                     activeDeadlineSeconds:
@@ -20945,10 +20989,52 @@ spec:
               x-kubernetes-validations:
                 - message: replicas and scaling are mutually exclusive; use scaling for autoscaled deployments or replicas for static deployments
                   rule: '!(has(self.replicas) && has(self.scaling))'
+            status:
+              properties:
+                annotations:
+                  additionalProperties:
+                    type: string
+                  type: object
+                conditions:
+                  items:
+                    properties:
+                      lastTransitionTime:
+                        type: string
+                      message:
+                        type: string
+                      reason:
+                        type: string
+                      severity:
+                        type: string
+                      status:
+                        type: string
+                      type:
+                        type: string
+                    required:
+                      - status
+                      - type
+                    type: object
+                  type: array
+                observedGeneration:
+                  format: int64
+                  type: integer
+              type: object
           type: object
       served: true
       storage: false
-    - name: v1alpha2
+      subresources:
+        status: {}
+    - additionalPrinterColumns:
+        - jsonPath: .status.conditions[?(@.type=='Ready')].status
+          name: Ready
+          type: string
+        - jsonPath: .status.conditions[?(@.type=='Ready')].reason
+          name: Reason
+          type: string
+        - jsonPath: .metadata.creationTimestamp
+          name: Age
+          type: date
+      name: v1alpha2
       schema:
         openAPIV3Schema:
           properties:
@@ -20973,12 +21059,38 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                   type: array
+                kvCacheOffloading:
+                  properties:
+                    cpu:
+                      anyOf:
+                        - type: integer
+                        - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    evictionPolicy:
+                      default: lru
+                      enum:
+                        - lru
+                        - arc
+                      type: string
+                  required:
+                    - cpu
+                  type: object
                 labels:
                   additionalProperties:
                     type: string
                   type: object
                 model:
                   properties:
+                    confidential:
+                      properties:
+                        enabled:
+                          type: boolean
+                        resourceId:
+                          type: string
+                      required:
+                        - enabled
+                      type: object
                     lora:
                       properties:
                         adapters:
@@ -21034,6 +21146,23 @@ spec:
                     annotations:
                       additionalProperties:
                         type: string
+                      type: object
+                    kvCacheOffloading:
+                      properties:
+                        cpu:
+                          anyOf:
+                            - type: integer
+                            - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        evictionPolicy:
+                          default: lru
+                          enum:
+                            - lru
+                            - arc
+                          type: string
+                      required:
+                        - cpu
                       type: object
                     labels:
                       additionalProperties:
@@ -29015,6 +29144,9 @@ spec:
                                                         maxItems: 64
                                                         type: array
                                                         x-kubernetes-list-type: set
+                                                        x-kubernetes-validations:
+                                                          - message: AllowHeaders cannot contain '*' alongside other methods
+                                                            rule: '!(''*'' in self && self.size() > 1)'
                                                       allowMethods:
                                                         items:
                                                           enum:
@@ -29039,7 +29171,7 @@ spec:
                                                         items:
                                                           maxLength: 253
                                                           minLength: 1
-                                                          pattern: (^\*$)|(^([a-zA-Z][a-zA-Z0-9+\-.]+):\/\/([^:/?#]+)(:([0-9]{1,5}))?$)
+                                                          pattern: (^\*$)|(^(http(s)?):\/\/(((\*\.)?([a-zA-Z0-9\-]+\.)*[a-zA-Z0-9-]+|\*)(:([0-9]{1,5}))?)$)
                                                           type: string
                                                         maxItems: 64
                                                         type: array
@@ -29329,6 +29461,9 @@ spec:
                                                         enum:
                                                           - 301
                                                           - 302
+                                                          - 303
+                                                          - 307
+                                                          - 308
                                                         type: integer
                                                     type: object
                                                   responseHeaderModifier:
@@ -29390,6 +29525,7 @@ spec:
                                                       - RequestRedirect
                                                       - URLRewrite
                                                       - ExtensionRef
+                                                      - CORS
                                                     type: string
                                                   urlRewrite:
                                                     properties:
@@ -29428,6 +29564,10 @@ spec:
                                                   - type
                                                 type: object
                                                 x-kubernetes-validations:
+                                                  - message: filter.cors must be nil if the filter.type is not CORS
+                                                    rule: '!(has(self.cors) && self.type != ''CORS'')'
+                                                  - message: filter.cors must be specified for CORS filter.type
+                                                    rule: '!(!has(self.cors) && self.type == ''CORS'')'
                                                   - message: filter.requestHeaderModifier must be nil if the filter.type is not RequestHeaderModifier
                                                     rule: '!(has(self.requestHeaderModifier) && self.type != ''RequestHeaderModifier'')'
                                                   - message: filter.requestHeaderModifier must be specified for RequestHeaderModifier filter.type
@@ -29458,6 +29598,8 @@ spec:
                                               x-kubernetes-validations:
                                                 - message: May specify either httpRouteFilterRequestRedirect or httpRouteFilterRequestRewrite, but not both
                                                   rule: '!(self.exists(f, f.type == ''RequestRedirect'') && self.exists(f, f.type == ''URLRewrite''))'
+                                                - message: CORS filter cannot be repeated
+                                                  rule: self.filter(f, f.type == 'CORS').size() <= 1
                                                 - message: RequestHeaderModifier filter cannot be repeated
                                                   rule: self.filter(f, f.type == 'RequestHeaderModifier').size() <= 1
                                                 - message: ResponseHeaderModifier filter cannot be repeated
@@ -29522,6 +29664,9 @@ spec:
                                                   maxItems: 64
                                                   type: array
                                                   x-kubernetes-list-type: set
+                                                  x-kubernetes-validations:
+                                                    - message: AllowHeaders cannot contain '*' alongside other methods
+                                                      rule: '!(''*'' in self && self.size() > 1)'
                                                 allowMethods:
                                                   items:
                                                     enum:
@@ -29546,7 +29691,7 @@ spec:
                                                   items:
                                                     maxLength: 253
                                                     minLength: 1
-                                                    pattern: (^\*$)|(^([a-zA-Z][a-zA-Z0-9+\-.]+):\/\/([^:/?#]+)(:([0-9]{1,5}))?$)
+                                                    pattern: (^\*$)|(^(http(s)?):\/\/(((\*\.)?([a-zA-Z0-9\-]+\.)*[a-zA-Z0-9-]+|\*)(:([0-9]{1,5}))?)$)
                                                     type: string
                                                   maxItems: 64
                                                   type: array
@@ -29836,6 +29981,9 @@ spec:
                                                   enum:
                                                     - 301
                                                     - 302
+                                                    - 303
+                                                    - 307
+                                                    - 308
                                                   type: integer
                                               type: object
                                             responseHeaderModifier:
@@ -29897,6 +30045,7 @@ spec:
                                                 - RequestRedirect
                                                 - URLRewrite
                                                 - ExtensionRef
+                                                - CORS
                                               type: string
                                             urlRewrite:
                                               properties:
@@ -29926,6 +30075,10 @@ spec:
                                             - type
                                           type: object
                                           x-kubernetes-validations:
+                                            - message: filter.cors must be nil if the filter.type is not CORS
+                                              rule: '!(has(self.cors) && self.type != ''CORS'')'
+                                            - message: filter.cors must be specified for CORS filter.type
+                                              rule: '!(!has(self.cors) && self.type == ''CORS'')'
                                             - message: filter.requestHeaderModifier must be nil if the filter.type is not RequestHeaderModifier
                                               rule: '!(has(self.requestHeaderModifier) && self.type != ''RequestHeaderModifier'')'
                                             - message: filter.requestHeaderModifier must be specified for RequestHeaderModifier filter.type
@@ -29956,6 +30109,8 @@ spec:
                                         x-kubernetes-validations:
                                           - message: May specify either httpRouteFilterRequestRedirect or httpRouteFilterRequestRewrite, but not both
                                             rule: '!(self.exists(f, f.type == ''RequestRedirect'') && self.exists(f, f.type == ''URLRewrite''))'
+                                          - message: CORS filter cannot be repeated
+                                            rule: self.filter(f, f.type == 'CORS').size() <= 1
                                           - message: RequestHeaderModifier filter cannot be repeated
                                             rule: self.filter(f, f.type == 'RequestHeaderModifier').size() <= 1
                                           - message: ResponseHeaderModifier filter cannot be repeated
@@ -30107,6 +30262,8 @@ spec:
                                         x-kubernetes-validations:
                                           - message: AbsoluteTimeout must be specified when cookie lifetimeType is Permanent
                                             rule: '!has(self.cookieConfig) || !has(self.cookieConfig.lifetimeType) || self.cookieConfig.lifetimeType != ''Permanent'' || has(self.absoluteTimeout)'
+                                          - message: cookieConfig can only be set with type Cookie
+                                            rule: '!has(self.cookieConfig) || self.type == ''Cookie'''
                                       timeouts:
                                         properties:
                                           backendRequest:
@@ -30132,6 +30289,7 @@ spec:
                                       - message: Within backendRefs, When using URLRewrite filter with path.replacePrefixMatch, exactly one PathPrefix match must be specified
                                         rule: '(has(self.backendRefs) && self.backendRefs.exists_one(b, (has(b.filters) && b.filters.exists_one(f, has(f.urlRewrite) && has(f.urlRewrite.path) && f.urlRewrite.path.type == ''ReplacePrefixMatch'' && has(f.urlRewrite.path.replacePrefixMatch))) )) ? ((size(self.matches) != 1 || !has(self.matches[0].path) || self.matches[0].path.type != ''PathPrefix'') ? false : true) : true'
                                   maxItems: 16
+                                  minItems: 1
                                   type: array
                                   x-kubernetes-list-type: atomic
                                   x-kubernetes-validations:
@@ -30185,6 +30343,12 @@ spec:
                               x-kubernetes-map-type: atomic
                             spec:
                               properties:
+                                appProtocol:
+                                  default: http
+                                  enum:
+                                    - http
+                                    - kubernetes.io/h2c
+                                  type: string
                                 endpointPickerRef:
                                   properties:
                                     failureMode:
@@ -38076,6 +38240,17 @@ spec:
                         - podGroup
                       type: object
                   type: object
+                tracing:
+                  properties:
+                    exporter:
+                      type: string
+                    exporterEndpoint:
+                      type: string
+                    sampler:
+                      type: string
+                    samplerArg:
+                      type: string
+                  type: object
                 worker:
                   properties:
                     activeDeadlineSeconds:
@@ -41864,6 +42039,53 @@ spec:
               x-kubernetes-validations:
                 - message: replicas and scaling are mutually exclusive; use scaling for autoscaled deployments or replicas for static deployments
                   rule: '!(has(self.replicas) && has(self.scaling))'
+            status:
+              properties:
+                annotations:
+                  additionalProperties:
+                    type: string
+                  type: object
+                conditions:
+                  items:
+                    properties:
+                      lastTransitionTime:
+                        type: string
+                      message:
+                        type: string
+                      reason:
+                        type: string
+                      severity:
+                        type: string
+                      status:
+                        type: string
+                      type:
+                        type: string
+                    required:
+                      - status
+                      - type
+                    type: object
+                  type: array
+                observedGeneration:
+                  format: int64
+                  type: integer
+                referencedBy:
+                  items:
+                    properties:
+                      name:
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      namespace:
+                        maxLength: 63
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                        type: string
+                    type: object
+                  type: array
+                  x-kubernetes-list-type: atomic
+              type: object
           type: object
       served: true
       storage: true
+      subresources:
+        status: {}

@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -606,4 +606,237 @@ func TestDetermineWorkloadReadiness_ScalingConditions(t *testing.T) {
 		cond := svc.GetStatus().GetCondition(WorkloadReady)
 		assert.Equal(t, "DeploymentUnavailable", cond.Reason, "MainWorkloadReady comes first in order")
 	})
+}
+
+func TestHasManagedDRA(t *testing.T) {
+	tests := []struct {
+		name        string
+		llmSvc      *LLMInferenceService
+		annotations map[string]string
+		want        bool
+	}{
+		{name: "nil receiver", llmSvc: nil, want: false},
+		{name: "no annotations", annotations: nil, want: false},
+		{name: "unrelated annotation", annotations: map[string]string{"foo": "bar"}, want: false},
+		{
+			name:        "device class set",
+			annotations: map[string]string{"serving.kserve.io/exp-dra-device-class": "gpu.nvidia.com"},
+			want:        true,
+		},
+		{
+			name: "only ancillary annotations set is not enough",
+			annotations: map[string]string{
+				"serving.kserve.io/exp-dra-device-count":   "2",
+				"serving.kserve.io/exp-dra-container-name": "main",
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := tt.llmSvc
+			if svc == nil && tt.name != "nil receiver" {
+				svc = &LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Annotations: tt.annotations}}
+			}
+			if got := svc.HasManagedDRA(); got != tt.want {
+				t.Errorf("HasManagedDRA() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestManagedDRADeviceClass(t *testing.T) {
+	tests := []struct {
+		name        string
+		nilReceiver bool
+		annotations map[string]string
+		wantValue   string
+		wantPresent bool
+	}{
+		{name: "nil receiver", nilReceiver: true, wantValue: "", wantPresent: false},
+		{name: "annotation not set", wantValue: "", wantPresent: false},
+		{
+			name:        "set with normal value",
+			annotations: map[string]string{"serving.kserve.io/exp-dra-device-class": "gpu.nvidia.com"},
+			wantValue:   "gpu.nvidia.com",
+			wantPresent: true,
+		},
+		{
+			name:        "set with surrounding whitespace is trimmed",
+			annotations: map[string]string{"serving.kserve.io/exp-dra-device-class": "  gpu.nvidia.com  "},
+			wantValue:   "gpu.nvidia.com",
+			wantPresent: true,
+		},
+		{
+			name:        "set to whitespace only is present but empty",
+			annotations: map[string]string{"serving.kserve.io/exp-dra-device-class": "   "},
+			wantValue:   "",
+			wantPresent: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var svc *LLMInferenceService
+			if !tt.nilReceiver {
+				svc = &LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Annotations: tt.annotations}}
+			}
+			gotValue, gotPresent := svc.ManagedDRADeviceClass()
+			if gotValue != tt.wantValue || gotPresent != tt.wantPresent {
+				t.Errorf("ManagedDRADeviceClass() = (%q, %v), want (%q, %v)",
+					gotValue, gotPresent, tt.wantValue, tt.wantPresent)
+			}
+		})
+	}
+}
+
+func TestManagedDRADeviceCount(t *testing.T) {
+	tests := []struct {
+		name        string
+		nilReceiver bool
+		value       string
+		wantCount   int
+		wantErr     bool
+	}{
+		{name: "nil receiver returns default", nilReceiver: true, wantCount: 1},
+		{name: "annotation not set returns default", value: "", wantCount: 1},
+		{name: "annotation set to whitespace returns default", value: "   ", wantCount: 1},
+		{name: "valid value 1", value: "1", wantCount: 1},
+		{name: "valid value 2", value: "2", wantCount: 2},
+		{name: "valid value 8 with surrounding whitespace", value: " 8 ", wantCount: 8},
+		{name: "invalid: zero", value: "0", wantErr: true},
+		{name: "invalid: negative", value: "-1", wantErr: true},
+		{name: "invalid: non-numeric", value: "abc", wantErr: true},
+		{name: "invalid: float", value: "1.5", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var svc *LLMInferenceService
+			if !tt.nilReceiver {
+				ann := map[string]string{}
+				if tt.value != "" {
+					ann["serving.kserve.io/exp-dra-device-count"] = tt.value
+				}
+				svc = &LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Annotations: ann}}
+			}
+			gotCount, gotErr := svc.ManagedDRADeviceCount()
+			if (gotErr != nil) != tt.wantErr {
+				t.Fatalf("ManagedDRADeviceCount() err = %v, wantErr = %v", gotErr, tt.wantErr)
+			}
+			if !tt.wantErr && gotCount != tt.wantCount {
+				t.Errorf("ManagedDRADeviceCount() count = %d, want %d", gotCount, tt.wantCount)
+			}
+		})
+	}
+}
+
+func TestManagedDRACelSelectors(t *testing.T) {
+	tests := []struct {
+		name        string
+		nilReceiver bool
+		value       string
+		set         bool
+		want        []string
+	}{
+		{name: "nil receiver", nilReceiver: true, want: nil},
+		{name: "annotation not set", want: nil},
+		{name: "annotation set to empty", set: true, value: "", want: nil},
+		{name: "annotation set to whitespace only", set: true, value: "   \n  \n", want: nil},
+		{
+			name:  "single expression",
+			set:   true,
+			value: "device.attributes['gpu.nvidia.com']['type'] == 'A100'",
+			want:  []string{"device.attributes['gpu.nvidia.com']['type'] == 'A100'"},
+		},
+		{
+			name: "multiple expressions newline-separated",
+			set:  true,
+			value: "device.attributes['gpu.nvidia.com']['type'] == 'A100'\n" +
+				"device.capacity['gpu.nvidia.com']['memory'].compareTo(quantity('40Gi')) > 0",
+			want: []string{
+				"device.attributes['gpu.nvidia.com']['type'] == 'A100'",
+				"device.capacity['gpu.nvidia.com']['memory'].compareTo(quantity('40Gi')) > 0",
+			},
+		},
+		{
+			name: "blank lines and indentation are stripped",
+			set:  true,
+			value: "\n  device.attributes['gpu.nvidia.com']['type'] == 'A100'  \n" +
+				"\n  device.capacity['gpu.nvidia.com']['memory'].compareTo(quantity('40Gi')) > 0\n",
+			want: []string{
+				"device.attributes['gpu.nvidia.com']['type'] == 'A100'",
+				"device.capacity['gpu.nvidia.com']['memory'].compareTo(quantity('40Gi')) > 0",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var svc *LLMInferenceService
+			if !tt.nilReceiver {
+				ann := map[string]string{}
+				if tt.set {
+					ann["serving.kserve.io/exp-dra-cel-selector"] = tt.value
+				}
+				svc = &LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Annotations: ann}}
+			}
+			got := svc.ManagedDRACelSelectors()
+			if len(got) != len(tt.want) {
+				t.Fatalf("ManagedDRACelSelectors() = %v (len=%d), want %v (len=%d)",
+					got, len(got), tt.want, len(tt.want))
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("ManagedDRACelSelectors()[%d] = %q, want %q", i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
+func TestManagedDRAContainerName(t *testing.T) {
+	tests := []struct {
+		name        string
+		nilReceiver bool
+		annotations map[string]string
+		wantValue   string
+		wantPresent bool
+	}{
+		{name: "nil receiver", nilReceiver: true, wantValue: "", wantPresent: false},
+		{name: "annotation not set", wantValue: "", wantPresent: false},
+		{
+			name:        "set with normal value",
+			annotations: map[string]string{"serving.kserve.io/exp-dra-container-name": "main"},
+			wantValue:   "main",
+			wantPresent: true,
+		},
+		{
+			name:        "set with surrounding whitespace is trimmed",
+			annotations: map[string]string{"serving.kserve.io/exp-dra-container-name": "  worker  "},
+			wantValue:   "worker",
+			wantPresent: true,
+		},
+		{
+			name:        "set to whitespace only is present but empty",
+			annotations: map[string]string{"serving.kserve.io/exp-dra-container-name": "   "},
+			wantValue:   "",
+			wantPresent: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var svc *LLMInferenceService
+			if !tt.nilReceiver {
+				svc = &LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Annotations: tt.annotations}}
+			}
+			gotValue, gotPresent := svc.ManagedDRAContainerName()
+			if gotValue != tt.wantValue || gotPresent != tt.wantPresent {
+				t.Errorf("ManagedDRAContainerName() = (%q, %v), want (%q, %v)",
+					gotValue, gotPresent, tt.wantValue, tt.wantPresent)
+			}
+		})
+	}
 }

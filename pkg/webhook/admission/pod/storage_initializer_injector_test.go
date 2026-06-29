@@ -5546,3 +5546,74 @@ func TestMergeContainerSpecs_EnvHandling(t *testing.T) {
 		})
 	}
 }
+
+func TestApplyConfidentialConfig(t *testing.T) {
+	scenarios := map[string]struct {
+		initContainer corev1.Container
+		annotations   map[string]string
+		expectedImage string
+		expectedEnvs  map[string]string
+	}{
+		"no confidential annotation": {
+			initContainer: corev1.Container{
+				Name:  constants.StorageInitializerContainerName,
+				Image: "kserve/storage-initializer:latest",
+			},
+			annotations:   map[string]string{},
+			expectedImage: "kserve/storage-initializer:latest",
+			expectedEnvs:  map[string]string{},
+		},
+		"confidential enabled sets env vars without swapping image": {
+			initContainer: corev1.Container{
+				Name:  constants.StorageInitializerContainerName,
+				Image: "kserve/storage-initializer:latest",
+			},
+			annotations: map[string]string{
+				constants.ConfidentialEnabledAnnotationKey:    "true",
+				constants.ConfidentialResourceIdAnnotationKey: "kbs:///default/key/model-key",
+			},
+			expectedImage: "kserve/storage-initializer:latest",
+			expectedEnvs: map[string]string{
+				constants.ConfidentialEnabledEnvVar:    "true",
+				constants.ConfidentialResourceIdEnvVar: "kbs:///default/key/model-key",
+			},
+		},
+		"confidential enabled without resourceId": {
+			initContainer: corev1.Container{
+				Name:  constants.StorageInitializerContainerName,
+				Image: "kserve/storage-initializer:latest",
+			},
+			annotations: map[string]string{
+				constants.ConfidentialEnabledAnnotationKey: "true",
+			},
+			expectedImage: "kserve/storage-initializer:latest",
+			expectedEnvs: map[string]string{
+				constants.ConfidentialEnabledEnvVar: "true",
+			},
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			container := scenario.initContainer.DeepCopy()
+			applyConfidentialConfig(container, scenario.annotations)
+
+			assert.Equal(t, scenario.expectedImage, container.Image, "unexpected image")
+
+			envMap := make(map[string]string)
+			for _, env := range container.Env {
+				envMap[env.Name] = env.Value
+			}
+			for key, expectedVal := range scenario.expectedEnvs {
+				assert.Equal(t, expectedVal, envMap[key], "unexpected env var %s", key)
+			}
+			// Ensure no unexpected confidential env vars
+			for _, env := range container.Env {
+				if env.Name == constants.ConfidentialEnabledEnvVar || env.Name == constants.ConfidentialResourceIdEnvVar {
+					_, expected := scenario.expectedEnvs[env.Name]
+					assert.True(t, expected, "unexpected env var %s", env.Name)
+				}
+			}
+		})
+	}
+}
