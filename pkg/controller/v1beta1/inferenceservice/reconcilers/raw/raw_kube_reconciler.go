@@ -28,6 +28,7 @@ import (
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/autoscaler"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/otel"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/pdb"
 	"github.com/kserve/kserve/pkg/credentials"
 	kserveTypes "github.com/kserve/kserve/pkg/types"
 	"github.com/kserve/kserve/pkg/webhook/admission/pod"
@@ -52,6 +53,7 @@ type RawKubeReconciler struct {
 	Service       reconcilers.ServiceReconciler
 	Scaler        *autoscaler.AutoscalerReconciler
 	OtelCollector *otel.OtelReconciler
+	PDB           *pdb.PDBReconciler
 	URL           *knapis.URL
 }
 
@@ -101,6 +103,11 @@ func NewRawKubeReconciler(ctx context.Context,
 	}
 
 	as, err := autoscaler.NewAutoscalerReconciler(client, scheme, componentMeta, componentExt, isvcConfigMap)
+	if err != nil {
+		return nil, err
+	}
+
+	pdbReconciler, err := pdb.NewPDBReconciler(client, scheme, componentMeta, componentExt)
 	if err != nil {
 		return nil, err
 	}
@@ -221,6 +228,7 @@ func NewRawKubeReconciler(ctx context.Context,
 		Service:       serviceRec,
 		Scaler:        as,
 		OtelCollector: otelCollector,
+		PDB:           pdbReconciler,
 		URL:           url,
 	}, nil
 }
@@ -260,6 +268,9 @@ func (r *RawKubeReconciler) Reconcile(ctx context.Context, owner metav1.Object) 
 	if err := r.Scaler.Autoscaler.SetControllerReferences(owner, r.scheme); err != nil {
 		return nil, fmt.Errorf("fails to set autoscaler owner reference: %w", err)
 	}
+	if err := r.PDB.SetControllerReferences(owner, r.scheme); err != nil {
+		return nil, fmt.Errorf("fails to set PDB owner reference: %w", err)
+	}
 
 	// reconcile Service first to avoid transient pod startup delays when
 	// platform-specific service annotations (e.g. serving-cert) trigger
@@ -286,6 +297,11 @@ func (r *RawKubeReconciler) Reconcile(ctx context.Context, owner metav1.Object) 
 	// reconcile HPA
 	err = r.Scaler.Reconcile(ctx)
 	if err != nil {
+		return nil, err
+	}
+
+	// reconcile PDB
+	if err := r.PDB.Reconcile(ctx); err != nil {
 		return nil, err
 	}
 

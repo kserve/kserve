@@ -19,13 +19,17 @@ package v1beta1
 import (
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
+	"strconv"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
@@ -36,6 +40,10 @@ const (
 	MinReplicasShouldBeLessThanMaxError              = "'MinReplicas' cannot be greater than MaxReplicas"
 	MinReplicasLowerBoundExceededError               = "'MinReplicas' cannot be less than 0"
 	MaxReplicasLowerBoundExceededError               = "'MaxReplicas' cannot be less than 0"
+	PDBMinAvailableGEMinReplicasError                = "'PodDisruptionBudget.MinAvailable' must be less than 'MinReplicas', otherwise all voluntary disruptions will be blocked"
+	PDBMaxUnavailableZeroError                       = "'PodDisruptionBudget.MaxUnavailable' must be greater than 0, otherwise all voluntary disruptions will be blocked"
+	PDBWithScaleToZeroError                          = "'PodDisruptionBudget' cannot be used with scale-to-zero (MinReplicas=0)"
+	PDBMutualExclusionError                          = "'PodDisruptionBudget.MinAvailable' and 'PodDisruptionBudget.MaxUnavailable' are mutually exclusive"
 	ParallelismLowerBoundExceededError               = "parallelism cannot be less than 0"
 	UnsupportedStorageURIFormatError                 = "storageUri, must be one of: [%s] or match https://{}.blob.core.windows.net/{}/{} or be an absolute or relative local path. StorageUri [%s] is not supported"
 	UnsupportedStorageSpecFormatError                = "storage.spec.type, must be one of: [%s]. storage.spec.type [%s] is not supported"
@@ -129,6 +137,11 @@ type ComponentExtensionSpec struct {
 	// The deployment strategy to use to replace existing pods with new ones. Only applicable for raw deployment mode.
 	// +optional
 	DeploymentStrategy *appsv1.DeploymentStrategy `json:"deploymentStrategy,omitempty"`
+	// Configures a PodDisruptionBudget for the component to ensure availability during voluntary disruptions
+	// such as node drains or cluster upgrades. Only applicable for Raw (standard Kubernetes) deployment mode.
+	// Not supported for Knative (serverless) deployment mode.
+	// +optional
+	PodDisruptionBudget *policyv1.PodDisruptionBudgetSpec `json:"podDisruptionBudget,omitempty"`
 }
 
 type AutoScalingSpec struct {
@@ -343,6 +356,7 @@ func (s *ComponentExtensionSpec) Validate() error {
 		validateContainerConcurrency(s.ContainerConcurrency),
 		validateReplicas(s.MinReplicas, s.MaxReplicas),
 		validateLogger(s.Logger),
+		validatePodDisruptionBudget(s.PodDisruptionBudget, s.MinReplicas),
 	})
 }
 
@@ -410,6 +424,70 @@ func validateLogger(logger *LoggerSpec) error {
 	}
 
 	return nil
+}
+
+func validatePodDisruptionBudget(pdb *policyv1.PodDisruptionBudgetSpec, minReplicas *int32) error {
+	if pdb == nil {
+		return nil
+	}
+
+	effectiveMinReplicas := constants.DefaultMinReplicas
+	if minReplicas != nil {
+		effectiveMinReplicas = *minReplicas
+	}
+
+	// PDB with scale-to-zero is unsupported: idle pods don't exist, so PDB can never be satisfied.
+	if effectiveMinReplicas == 0 {
+		return errors.New(PDBWithScaleToZeroError)
+	}
+
+	// MinAvailable and MaxUnavailable are mutually exclusive.
+	if pdb.MinAvailable != nil && pdb.MaxUnavailable != nil {
+		return errors.New(PDBMutualExclusionError)
+	}
+
+	if pdb.MaxUnavailable != nil {
+		switch pdb.MaxUnavailable.Type {
+		case intstr.Int:
+			if pdb.MaxUnavailable.IntValue() == 0 {
+				return errors.New(PDBMaxUnavailableZeroError)
+			}
+		case intstr.String:
+			if pctBlocksAllDisruptions(pdb.MaxUnavailable.String(), effectiveMinReplicas, false) {
+				return errors.New(PDBMaxUnavailableZeroError)
+			}
+		}
+	}
+
+	if pdb.MinAvailable != nil {
+		switch pdb.MinAvailable.Type {
+		case intstr.Int:
+			if int32(pdb.MinAvailable.IntValue()) >= effectiveMinReplicas { //nolint:gosec
+				return errors.New(PDBMinAvailableGEMinReplicasError)
+			}
+		case intstr.String:
+			if pctBlocksAllDisruptions(pdb.MinAvailable.String(), effectiveMinReplicas, true) {
+				return errors.New(PDBMinAvailableGEMinReplicasError)
+			}
+		}
+	}
+
+	return nil
+}
+
+// pctBlocksAllDisruptions reports whether a percentage value blocks all voluntary disruptions.
+// For minAvailable "P%": ceil(P/100 * replicas) >= replicas → no pod can be disrupted.
+// For maxUnavailable "P%": ceil(P/100 * replicas) == 0 → no pod can be disrupted.
+func pctBlocksAllDisruptions(pct string, replicas int32, isMinAvailable bool) bool {
+	s := strings.TrimSuffix(pct, "%")
+	p, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return false
+	}
+	if isMinAvailable {
+		return int32(math.Ceil(p/100*float64(replicas))) >= replicas
+	}
+	return int32(math.Ceil(p/100*float64(replicas))) == 0
 }
 
 func validateExactlyOneImplementation(component Component) error {

@@ -1,0 +1,13 @@
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "isvc-pdb-maxunavailable"
+  annotations:
+    serving.kserve.io/deploymentMode: RawDeployment
+spec:
+  predictor:
+    minReplicas: 2
+    podDisruptionBudget:
+      maxUnavailable: 1
+    sklearn:
+      storageUri: "gs://kfserving-examples/models/sklearn/1.0/model"
