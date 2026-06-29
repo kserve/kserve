@@ -11,10 +11,8 @@ spec:
     scheduler: { }
     route: { }
     gateway: { }
-  # Multi-tier KV cache offloading: GPU -> CPU RAM -> secondary tiers.
-  # All fileSystem entries are appended to vLLM's secondary_tiers array first,
-  # then objectStore entries. vLLM's TieringManager internally manages eviction
-  # and promotion across tiers.
+  # Multi-tier KV cache offloading: GPU -> CPU RAM -> filesystem secondary tiers.
+  # vLLM's TieringManager internally manages eviction and promotion across tiers.
   kvCacheOffloading:
     cpu:
       size: 10Gi
@@ -29,27 +27,9 @@ spec:
       - path: /mnt/ceph-rwx
         readThreads: 8
         writeThreads: 8
-    objectStore:
-      # URI encodes endpoint, bucket, and optional prefix: s3://endpoint/bucket[/prefix]
-      # Credentials are resolved via NIXL's AWS credential chain (env vars, IAM roles, credential files).
-      - uri: "s3://s3.example.com/kv-cache/kv/"
-        ioThreads: 8
   template:
     containers:
       - name: main
-        # Mount S3 credentials from a Secret so they don't appear in --kv-transfer-config.
-        # NIXL picks up these env vars automatically when access_key/secret_key are not in storeConfig.
-        # env:
-        #   - name: AWS_ACCESS_KEY_ID
-        #     valueFrom:
-        #       secretKeyRef:
-        #         name: kv-cache-s3-creds
-        #         key: access_key
-        #   - name: AWS_SECRET_ACCESS_KEY
-        #     valueFrom:
-        #       secretKeyRef:
-        #         name: kv-cache-s3-creds
-        #         key: secret_key
         resources:
           limits:
             cpu: '4'

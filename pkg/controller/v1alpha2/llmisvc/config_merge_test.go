@@ -2163,48 +2163,6 @@ func TestReplaceVariables(t *testing.T) {
 				},
 			},
 		},
-		{
-			name: "kvTransferConfig renders with objectstore tier",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
-							CPU: &v1alpha2.KVCacheOffloadingCPUSpec{
-								Size: resource.MustParse("10Gi"),
-							},
-							ObjectStores: []v1alpha2.KVCacheOffloadingObjSpec{
-								{
-									URI:       "s3://s3.example.com/kv-cache/kv/",
-									IOThreads: ptr.To[int32](8),
-								},
-							},
-						},
-					},
-				},
-			},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":10737418240,"secondary_tiers":[{"io_threads":8,"prefix":"kv/","store_config":{"bucket":"kv-cache","endpoint":"s3.example.com"},"type":"obj"}],"spec_name":"TieringOffloadingSpec"},"kv_role":"kv_both"}'`}},
-							},
-						},
-					},
-				},
-			},
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

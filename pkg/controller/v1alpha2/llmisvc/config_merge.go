@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
 	"strconv"
 	"strings"
 	"text/template"
@@ -692,39 +691,6 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 						fsTier["n_write_threads"] = *fs.WriteThreads
 					}
 					secondaryTiers = append(secondaryTiers, fsTier)
-				}
-				// objectstore loop
-				for _, obj := range kv.ObjectStores {
-					storeConfig := make(map[string]string)
-					var prefix string
-
-					u, err := url.Parse(obj.URI)
-					if err == nil {
-						storeConfig["endpoint"] = u.Host
-						path := strings.TrimPrefix(u.Path, "/")
-						if parts := strings.SplitN(path, "/", 2); len(parts) > 0 && parts[0] != "" {
-							storeConfig["bucket"] = parts[0]
-							if len(parts) == 2 && parts[1] != "" {
-								prefix = parts[1]
-							}
-						}
-					}
-
-					for k, v := range obj.StoreConfig {
-						storeConfig[k] = v
-					}
-
-					objTier := map[string]any{
-						"type":         "obj",
-						"store_config": storeConfig,
-					}
-					if prefix != "" {
-						objTier["prefix"] = prefix
-					}
-					if obj.IOThreads != nil {
-						objTier["io_threads"] = *obj.IOThreads
-					}
-					secondaryTiers = append(secondaryTiers, objTier)
 				}
 				if len(secondaryTiers) > 0 {
 					extraConfig["spec_name"] = "TieringOffloadingSpec"

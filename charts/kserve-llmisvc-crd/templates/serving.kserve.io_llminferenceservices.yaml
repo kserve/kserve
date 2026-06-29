@@ -21194,24 +21194,6 @@ spec:
                         type: object
                       type: array
                       x-kubernetes-list-type: atomic
-                    objectStore:
-                      items:
-                        properties:
-                          ioThreads:
-                            default: 4
-                            format: int32
-                            type: integer
-                          storeConfig:
-                            additionalProperties:
-                              type: string
-                            type: object
-                          uri:
-                            type: string
-                        required:
-                          - uri
-                        type: object
-                      type: array
-                      x-kubernetes-list-type: atomic
                   type: object
                   x-kubernetes-validations:
                     - message: cpu is required for all offloading modes
@@ -21324,24 +21306,6 @@ spec:
                                 type: integer
                             required:
                               - path
-                            type: object
-                          type: array
-                          x-kubernetes-list-type: atomic
-                        objectStore:
-                          items:
-                            properties:
-                              ioThreads:
-                                default: 4
-                                format: int32
-                                type: integer
-                              storeConfig:
-                                additionalProperties:
-                                  type: string
-                                type: object
-                              uri:
-                                type: string
-                            required:
-                              - uri
                             type: object
                           type: array
                           x-kubernetes-list-type: atomic

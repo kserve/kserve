@@ -13,18 +13,17 @@ translates it into the `--kv-transfer-config` argument for the vLLM serve comman
 The tier hierarchy is:
 
 ```
-GPU VRAM -> CPU RAM (primary, always required) -> secondary tiers (filesystem, object store)
+GPU VRAM -> CPU RAM (primary, always required) -> filesystem secondary tiers
 ```
 
 When the CPU tier fills up, blocks are evicted to secondary tiers. vLLM's TieringManager
-internally manages eviction and promotion across tiers. Multiple secondary tiers can be
-configured — both `fileSystem` and `objectStore` accept arrays.
+internally manages eviction and promotion across tiers. Multiple filesystem secondary
+tiers can be configured — `fileSystem` accepts an array.
 
 | Tier           | Minimum vLLM | When to use                                                   |
 |----------------|--------------|---------------------------------------------------------------|
 | CPU RAM        | 0.11         | Always required; simplest setup when host has spare RAM       |
 | Filesystem     | 0.22         | Need more capacity than RAM alone; fast NVMe or shared PVC    |
-| Object Store   | 0.23         | Very large caches, cross-node sharing via S3-compatible store |
 
 > **Note:** `kvCacheOffloading` is only available in the `v1alpha2` API. Samples in this
 > directory use `apiVersion: serving.kserve.io/v1alpha2`.
@@ -34,14 +33,13 @@ configured — both `fileSystem` and `objectStore` accept arrays.
 - KServe with `LLMInferenceService` CRD v1alpha2 installed
 - A GPU node with sufficient host memory for the CPU tier
 - For filesystem tiers: **vLLM 0.22 or later**; a volume mounted at the configured path
-- For object store tiers: **vLLM 0.23 or later**; an S3-compatible object store reachable from the pod
 
 ## Examples
 
 ### 1. CPU-only offloading ([llm-inference-service-kv-cache-offloading-cpu.yaml](llm-inference-service-kv-cache-offloading-cpu.yaml))
 
 The simplest configuration: spill KV cache blocks from GPU VRAM into host CPU RAM.
-No secondary tiers — just omit `fileSystem` and `objectStore`.
+No secondary tiers — just omit `fileSystem`.
 
 **Use Case:**
 - Host has spare RAM and you want longer sequences without a second GPU
@@ -63,15 +61,14 @@ kvCacheOffloading:
 
 ### 2. Multi-tier offloading ([llm-inference-service-kv-cache-offloading-tiered.yaml](llm-inference-service-kv-cache-offloading-tiered.yaml))
 
-Full tiered offloading: GPU -> CPU RAM -> filesystem and/or object store. You can use any
-combination of filesystem and object store entries — the controller appends all entries into
-vLLM's `secondary_tiers` array. vLLM's TieringManager internally manages eviction and
-promotion across tiers.
+Tiered offloading: GPU -> CPU RAM -> filesystem. You can configure multiple filesystem
+entries — the controller appends all entries into vLLM's `secondary_tiers` array.
+vLLM's TieringManager internally manages eviction and promotion across tiers.
 
 **Use Case:**
 - Long-context workloads that exceed available host RAM
-- Cross-replica or cross-node KV cache sharing
-- Combining fast local NVMe with large-capacity S3
+- Cross-replica KV cache sharing via shared PVC
+- Combining fast local NVMe with shared filesystem
 
 **Deployment:**
 ```bash
@@ -89,9 +86,9 @@ kvCacheOffloading:
     - path: /mnt/kv-cache-nvme
       readThreads: 16
       writeThreads: 16
-  objectStore:
-    - uri: "s3://s3.example.com/kv-cache/kv/"
-      ioThreads: 8
+    - path: /mnt/ceph-rwx
+      readThreads: 8
+      writeThreads: 8
 ```
 
 #### Volume options for filesystem tiers
@@ -121,9 +118,6 @@ The controller translates the `kvCacheOffloading` spec into vLLM's `--kv-transfe
 | `fileSystem[].path`            | `secondary_tiers[N].root_dir`                            | (required)       |
 | `fileSystem[].readThreads`     | `secondary_tiers[N].n_read_threads`                      | `16`             |
 | `fileSystem[].writeThreads`    | `secondary_tiers[N].n_write_threads`                     | `16`             |
-| `objectStore[].uri`            | Parsed into `store_config.endpoint`, `.bucket`, and `prefix` | (required)  |
-| `objectStore[].storeConfig`    | Extra entries merged into `secondary_tiers[N].store_config`  | (optional)  |
-| `objectStore[].ioThreads`      | `secondary_tiers[N].io_threads`                              | `4`         |
 
 When any secondary tiers are present, the controller sets `kv_connector_extra_config.spec_name` = `"TieringOffloadingSpec"`.
 
@@ -136,8 +130,6 @@ When any secondary tiers are present, the controller sets `kv_connector_extra_co
 - **Block size:** Must be a multiple of the GPU block size. Defaults to the GPU block size when omitted.
 - **I/O threads (fs):** Increase `readThreads`/`writeThreads` on fast NVMe storage.
   Decrease them on slower media to avoid saturating I/O bandwidth.
-- **I/O threads (obj):** `ioThreads` controls concurrency to the object store. Increase
-  for high-bandwidth connections; keep low for shared or throttled endpoints.
 
 ## Verification
 
@@ -162,15 +154,7 @@ The container template must mount a volume at the configured `fileSystem[].path`
 volume exists and the mount is present in the pod spec. Check events with
 `kubectl describe pod`.
 
-### Object store connection failures
-
-Verify that the `storeConfig` values are correct and the endpoint is reachable from the
-pod network. Check pod logs for connection errors:
-```bash
-kubectl logs deployment/<name> -c main | grep -i "s3\|object.*store\|connection"
-```
-
 ### vLLM reports "unknown kv_connector"
 
 The vLLM version does not support `OffloadingConnector`. Upgrade to vLLM 0.11 or later
-for CPU-only, 0.22 or later for filesystem tiers, or 0.23 or later for object store tiers.
+for CPU-only, or 0.22 or later for filesystem tiers.

@@ -174,7 +174,7 @@ type WorkloadSpec struct {
 
 	// KVCacheOffloading configures multi-tier KV cache offloading for this workload.
 	// The controller translates this into --kv-transfer-config for the vLLM serve command.
-	// Requires vLLM release 0.11 for cpu mode, 0.22 for fs mode, 0.23 for obj mode
+	// Requires vLLM release 0.11 for cpu mode, 0.22 for fs mode
 	// +optional
 	KVCacheOffloading *KVCacheOffloadingSpec `json:"kvCacheOffloading,omitempty"`
 }
@@ -182,7 +182,7 @@ type WorkloadSpec struct {
 // KVCacheOffloadingSpec configures KV cache offloading via vLLM's OffloadingConnector.
 // The CPU tier is always required as the primary spill target. Optionally, one or more
 // filesystem and/or object store entries can be added as secondary tiers. The controller
-// appends all fileSystem and objectStore entries into vLLM's secondary_tiers array.
+// appends all fileSystem entries into vLLM's secondary_tiers array.
 // vLLM's TieringManager internally manages eviction and promotion across tiers.
 // When no secondary tiers are specified, the connector operates in CPU-only mode (GPU -> CPU RAM).
 // +kubebuilder:validation:XValidation:rule="has(self.cpu)",message="cpu is required for all offloading modes"
@@ -197,12 +197,6 @@ type KVCacheOffloadingSpec struct {
 	// +optional
 	// +listType=atomic
 	FileSystems []KVCacheOffloadingFSSpec `json:"fileSystem,omitempty"`
-
-	// Object store secondary tiers. Each entry becomes a secondary tier, appended after any filesystem tiers.
-	// Requires vLLM 0.23+.
-	// +optional
-	// +listType=atomic
-	ObjectStores []KVCacheOffloadingObjSpec `json:"objectStore,omitempty"`
 }
 
 // KVCacheOffloadingCPUSpec configures the CPU RAM tier.
@@ -240,24 +234,6 @@ type KVCacheOffloadingFSSpec struct {
 	WriteThreads *int32 `json:"writeThreads,omitempty"`
 }
 
-// KVCacheOffloadingObjSpec configures the object store secondary tier.
-// URI is required and encodes the endpoint, bucket, and optional key prefix.
-// Credentials are resolved by NIXL's AWS credential chain (env vars, IAM roles, credential files).
-type KVCacheOffloadingObjSpec struct {
-	// URI is an S3-style URI in the form s3://endpoint/bucket[/prefix].
-	// The controller parses endpoint, bucket, and optional prefix from it.
-	URI string `json:"uri"`
-
-	// StoreConfig holds additional NIXL backend parameters (e.g. region, scheme, ca_bundle).
-	// These are merged into vLLM's secondary_tiers[].store_config alongside values parsed from the URI.
-	// +optional
-	StoreConfig map[string]string `json:"storeConfig,omitempty"`
-
-	// IOThreads is the number of I/O threads for the object store (maps to vLLM secondary_tiers[].io_threads). Defaults to 4.
-	// +kubebuilder:default=4
-	// +optional
-	IOThreads *int32 `json:"ioThreads,omitempty"`
-}
 
 // ConfidentialSpec enables confidential model serving with encrypted model artifacts.
 // When enabled, the storage initializer will decrypt model files using keys obtained
