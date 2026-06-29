@@ -1,0 +1,88 @@
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceService
+metadata:
+  name: qwen2-7b-kv-offload-tiered
+spec:
+  model:
+    uri: hf://Qwen/Qwen2.5-7B-Instruct
+    name: Qwen/Qwen2.5-7B-Instruct
+  replicas: 1
+  router:
+    scheduler: { }
+    route: { }
+    gateway: { }
+  # Multi-tier KV cache offloading: GPU -> CPU RAM -> secondary tiers.
+  # All fileSystem entries are appended to vLLM's secondary_tiers array first,
+  # then objectStore entries. vLLM's TieringManager internally manages eviction
+  # and promotion across tiers.
+  kvCacheOffloading:
+    cpu:
+      size: 10Gi
+      evictionPolicy: lru
+      blockSize: 64
+    fileSystem:
+      # Fast node-local NVMe
+      - path: /mnt/kv-cache-nvme
+        readThreads: 16
+        writeThreads: 16
+      # Shared filesystem for cross-replica
+      - path: /mnt/ceph-rwx
+        readThreads: 8
+        writeThreads: 8
+    objectStore:
+      # URI encodes endpoint, bucket, and optional prefix: s3://endpoint/bucket[/prefix]
+      # Credentials are resolved via NIXL's AWS credential chain (env vars, IAM roles, credential files).
+      - uri: "s3://s3.example.com/kv-cache/kv/"
+        ioThreads: 8
+  template:
+    containers:
+      - name: main
+        # Mount S3 credentials from a Secret so they don't appear in --kv-transfer-config.
+        # NIXL picks up these env vars automatically when access_key/secret_key are not in storeConfig.
+        # env:
+        #   - name: AWS_ACCESS_KEY_ID
+        #     valueFrom:
+        #       secretKeyRef:
+        #         name: kv-cache-s3-creds
+        #         key: access_key
+        #   - name: AWS_SECRET_ACCESS_KEY
+        #     valueFrom:
+        #       secretKeyRef:
+        #         name: kv-cache-s3-creds
+        #         key: secret_key
+        resources:
+          limits:
+            cpu: '4'
+            memory: 32Gi
+            nvidia.com/gpu: "1"
+          requests:
+            cpu: '2'
+            memory: 16Gi
+            nvidia.com/gpu: "1"
+        volumeMounts:
+          - name: local-nvme
+            mountPath: /mnt/kv-cache-nvme
+          - name: ceph-rwx
+            mountPath: /mnt/ceph-rwx
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTPS
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          timeoutSeconds: 30
+          failureThreshold: 5
+    volumes:
+      # Per-replica ephemeral storage on node disk.
+      # For persistent node-local storage, replace with hostPath:
+      #   hostPath:
+      #     path: /data/kv-cache
+      #     type: DirectoryOrCreate
+      - name: local-nvme
+        emptyDir:
+          sizeLimit: 50Gi
+      # Shared-filesystem PVC for cross-replica KV cache reuse.
+      - name: ceph-rwx
+        persistentVolumeClaim:
+          claimName: kv-cache-pvc

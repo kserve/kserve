@@ -370,15 +370,19 @@ func (in *KVCacheOffloadingSpec) DeepCopyInto(out *KVCacheOffloadingSpec) {
 		*out = new(KVCacheOffloadingCPUSpec)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.FS != nil {
-		in, out := &in.FS, &out.FS
-		*out = new(KVCacheOffloadingFSSpec)
-		(*in).DeepCopyInto(*out)
+	if in.FileSystems != nil {
+		in, out := &in.FileSystems, &out.FileSystems
+		*out = make([]KVCacheOffloadingFSSpec, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
-	if in.ObjectStore != nil {
-		in, out := &in.ObjectStore, &out.ObjectStore
-		*out = new(KVCacheOffloadingObjSpec)
-		(*in).DeepCopyInto(*out)
+	if in.ObjectStores != nil {
+		in, out := &in.ObjectStores, &out.ObjectStores
+		*out = make([]KVCacheOffloadingObjSpec, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 }
 

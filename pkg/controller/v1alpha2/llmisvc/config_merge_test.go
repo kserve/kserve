@@ -2083,7 +2083,7 @@ func TestReplaceVariables(t *testing.T) {
 			},
 		},
 		{
-			name: "kvTransferConfig renders --kv-transfer-config for cpu mode",
+			name: "kvTransferConfig renders cpu-only with all cpu fields",
 			cfg: &v1alpha2.LLMInferenceServiceConfig{
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					WorkloadSpec: v1alpha2.WorkloadSpec{
@@ -2099,47 +2099,10 @@ func TestReplaceVariables(t *testing.T) {
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
-							Mode: v1alpha2.KVCacheOffloadingModeCPU,
 							CPU: &v1alpha2.KVCacheOffloadingCPUSpec{
-								Size: resource.MustParse("10Gi"),
-							},
-						},
-					},
-				},
-			},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":10737418240},"kv_role":"kv_both"}'`}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "kvTransferConfig includes eviction policy when set",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
-							Mode: v1alpha2.KVCacheOffloadingModeCPU,
-							CPU: &v1alpha2.KVCacheOffloadingCPUSpec{
-								Size:           resource.MustParse("5Gi"),
+								Size:           resource.MustParse("10Gi"),
 								EvictionPolicy: "arc",
+								BlockSize:      ptr.To[int32](16),
 							},
 						},
 					},
@@ -2150,7 +2113,7 @@ func TestReplaceVariables(t *testing.T) {
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":5368709120,"eviction_policy":"arc"},"kv_role":"kv_both"}'`}},
+								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"block_size":16,"cpu_bytes_to_use":10737418240,"eviction_policy":"arc"},"kv_role":"kv_both"}'`}},
 							},
 						},
 					},
@@ -2158,7 +2121,7 @@ func TestReplaceVariables(t *testing.T) {
 			},
 		},
 		{
-			name: "kvTransferConfig includes block_size when set",
+			name: "kvTransferConfig renders with filesystem tier",
 			cfg: &v1alpha2.LLMInferenceServiceConfig{
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					WorkloadSpec: v1alpha2.WorkloadSpec{
@@ -2174,52 +2137,15 @@ func TestReplaceVariables(t *testing.T) {
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
-							Mode: v1alpha2.KVCacheOffloadingModeCPU,
-							CPU: &v1alpha2.KVCacheOffloadingCPUSpec{
-								Size:      resource.MustParse("10Gi"),
-								BlockSize: ptr.To[int32](16),
-							},
-						},
-					},
-				},
-			},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"block_size":16,"cpu_bytes_to_use":10737418240},"kv_role":"kv_both"}'`}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "kvTransferConfig renders fs mode with filesystem tier",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
-							Mode: v1alpha2.KVCacheOffloadingModeFS,
 							CPU: &v1alpha2.KVCacheOffloadingCPUSpec{
 								Size: resource.MustParse("10Gi"),
 							},
-							FS: &v1alpha2.KVCacheOffloadingFSSpec{
-								Path:         "/mnt/kv-cache",
-								ReadThreads:  ptr.To[int32](16),
-								WriteThreads: ptr.To[int32](16),
+							FileSystems: []v1alpha2.KVCacheOffloadingFSSpec{
+								{
+									Path:         "/mnt/kv-cache",
+									ReadThreads:  ptr.To[int32](16),
+									WriteThreads: ptr.To[int32](16),
+								},
 							},
 						},
 					},
@@ -2238,7 +2164,7 @@ func TestReplaceVariables(t *testing.T) {
 			},
 		},
 		{
-			name: "kvTransferConfig renders obj mode with objectstore tier",
+			name: "kvTransferConfig renders with objectstore tier",
 			cfg: &v1alpha2.LLMInferenceServiceConfig{
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					WorkloadSpec: v1alpha2.WorkloadSpec{
@@ -2254,14 +2180,14 @@ func TestReplaceVariables(t *testing.T) {
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
-							Mode: v1alpha2.KVCacheOffloadingModeObj,
 							CPU: &v1alpha2.KVCacheOffloadingCPUSpec{
 								Size: resource.MustParse("10Gi"),
 							},
-							ObjectStore: &v1alpha2.KVCacheOffloadingObjSpec{
-								StoreConfig: map[string]string{"endpoint": "s3.example.com"},
-								Prefix:      "kv/",
-								IOThreads:   ptr.To[int32](8),
+							ObjectStores: []v1alpha2.KVCacheOffloadingObjSpec{
+								{
+									URI:       "s3://s3.example.com/kv-cache/kv/",
+									IOThreads: ptr.To[int32](8),
+								},
 							},
 						},
 					},
@@ -2272,7 +2198,7 @@ func TestReplaceVariables(t *testing.T) {
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":10737418240,"secondary_tiers":[{"io_threads":8,"prefix":"kv/","store_config":{"endpoint":"s3.example.com"},"type":"obj"}],"spec_name":"TieringOffloadingSpec"},"kv_role":"kv_both"}'`}},
+								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":10737418240,"secondary_tiers":[{"io_threads":8,"prefix":"kv/","store_config":{"bucket":"kv-cache","endpoint":"s3.example.com"},"type":"obj"}],"spec_name":"TieringOffloadingSpec"},"kv_role":"kv_both"}'`}},
 							},
 						},
 					},

@@ -13,7 +13,6 @@ spec:
     gateway: { }
   # GPU -> CPU RAM offloading: spills KV cache blocks from GPU VRAM to host memory
   kvCacheOffloading:
-    mode: cpu
     cpu:
       size: 10Gi
       evictionPolicy: lru

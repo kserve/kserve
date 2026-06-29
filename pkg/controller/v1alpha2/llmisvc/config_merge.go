@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 	"text/template"
@@ -677,36 +678,57 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 					extraConfig["block_size"] = *kv.CPU.BlockSize
 				}
 
-				switch kv.Mode {
-				case v1alpha2.KVCacheOffloadingModeFS:
+				var secondaryTiers []any
+				// filesystem loop
+				for _, fs := range kv.FileSystems {
 					fsTier := map[string]any{
 						"type":     "fs",
-						"root_dir": kv.FS.Path,
+						"root_dir": fs.Path,
 					}
-					if kv.FS.ReadThreads != nil {
-						fsTier["n_read_threads"] = *kv.FS.ReadThreads
+					if fs.ReadThreads != nil {
+						fsTier["n_read_threads"] = *fs.ReadThreads
 					}
-					if kv.FS.WriteThreads != nil {
-						fsTier["n_write_threads"] = *kv.FS.WriteThreads
+					if fs.WriteThreads != nil {
+						fsTier["n_write_threads"] = *fs.WriteThreads
 					}
-					extraConfig["spec_name"] = "TieringOffloadingSpec"
-					extraConfig["secondary_tiers"] = []any{fsTier}
+					secondaryTiers = append(secondaryTiers, fsTier)
+				}
+				// objectstore loop
+				for _, obj := range kv.ObjectStores {
+					storeConfig := make(map[string]string)
+					var prefix string
 
-				case v1alpha2.KVCacheOffloadingModeObj:
+					u, err := url.Parse(obj.URI)
+					if err == nil {
+						storeConfig["endpoint"] = u.Host
+						path := strings.TrimPrefix(u.Path, "/")
+						if parts := strings.SplitN(path, "/", 2); len(parts) > 0 && parts[0] != "" {
+							storeConfig["bucket"] = parts[0]
+							if len(parts) == 2 && parts[1] != "" {
+								prefix = parts[1]
+							}
+						}
+					}
+
+					for k, v := range obj.StoreConfig {
+						storeConfig[k] = v
+					}
+
 					objTier := map[string]any{
 						"type":         "obj",
-						"store_config": kv.ObjectStore.StoreConfig,
+						"store_config": storeConfig,
 					}
-					if kv.ObjectStore.Prefix != "" {
-						objTier["prefix"] = kv.ObjectStore.Prefix
+					if prefix != "" {
+						objTier["prefix"] = prefix
 					}
-					if kv.ObjectStore.IOThreads != nil {
-						objTier["io_threads"] = *kv.ObjectStore.IOThreads
+					if obj.IOThreads != nil {
+						objTier["io_threads"] = *obj.IOThreads
 					}
+					secondaryTiers = append(secondaryTiers, objTier)
+				}
+				if len(secondaryTiers) > 0 {
 					extraConfig["spec_name"] = "TieringOffloadingSpec"
-					extraConfig["secondary_tiers"] = []any{objTier}
-
-				default: // for "" and v1alpha2.KVCacheOffloadingModeCPU
+					extraConfig["secondary_tiers"] = secondaryTiers
 				}
 
 				kvConfig := map[string]any{

@@ -21014,50 +21014,45 @@ spec:
                         - size
                       type: object
                     fileSystem:
-                      properties:
-                        path:
-                          type: string
-                        readThreads:
-                          default: 16
-                          format: int32
-                          type: integer
-                        writeThreads:
-                          default: 16
-                          format: int32
-                          type: integer
-                      required:
-                        - path
-                      type: object
-                    mode:
-                      default: cpu
-                      enum:
-                        - cpu
-                        - fs
-                        - obj
-                      type: string
-                    objectStore:
-                      properties:
-                        ioThreads:
-                          default: 4
-                          format: int32
-                          type: integer
-                        prefix:
-                          type: string
-                        storeConfig:
-                          additionalProperties:
+                      items:
+                        properties:
+                          path:
                             type: string
-                          type: object
-                      required:
-                        - storeConfig
-                      type: object
+                          readThreads:
+                            default: 16
+                            format: int32
+                            type: integer
+                          writeThreads:
+                            default: 16
+                            format: int32
+                            type: integer
+                        required:
+                          - path
+                        type: object
+                      type: array
+                      x-kubernetes-list-type: atomic
+                    objectStore:
+                      items:
+                        properties:
+                          ioThreads:
+                            default: 4
+                            format: int32
+                            type: integer
+                          storeConfig:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          uri:
+                            type: string
+                        required:
+                          - uri
+                        type: object
+                      type: array
+                      x-kubernetes-list-type: atomic
                   type: object
                   x-kubernetes-validations:
                     - message: cpu is required for all offloading modes
                       rule: has(self.cpu)
-                    - message: fileSystem is required when mode is 'fs'
-                      rule: self.mode == 'cpu' || self.mode == ” || has(self.fileSystem)
-                    - message: objectStore is required when mode is 'obj'
-                      rule: self.mode != 'obj' || has(self.objectStore)
                 labels:
                   additionalProperties:
                     type: string
@@ -21152,50 +21147,45 @@ spec:
                             - size
                           type: object
                         fileSystem:
-                          properties:
-                            path:
-                              type: string
-                            readThreads:
-                              default: 16
-                              format: int32
-                              type: integer
-                            writeThreads:
-                              default: 16
-                              format: int32
-                              type: integer
-                          required:
-                            - path
-                          type: object
-                        mode:
-                          default: cpu
-                          enum:
-                            - cpu
-                            - fs
-                            - obj
-                          type: string
-                        objectStore:
-                          properties:
-                            ioThreads:
-                              default: 4
-                              format: int32
-                              type: integer
-                            prefix:
-                              type: string
-                            storeConfig:
-                              additionalProperties:
+                          items:
+                            properties:
+                              path:
                                 type: string
-                              type: object
-                          required:
-                            - storeConfig
-                          type: object
+                              readThreads:
+                                default: 16
+                                format: int32
+                                type: integer
+                              writeThreads:
+                                default: 16
+                                format: int32
+                                type: integer
+                            required:
+                              - path
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
+                        objectStore:
+                          items:
+                            properties:
+                              ioThreads:
+                                default: 4
+                                format: int32
+                                type: integer
+                              storeConfig:
+                                additionalProperties:
+                                  type: string
+                                type: object
+                              uri:
+                                type: string
+                            required:
+                              - uri
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
                       type: object
                       x-kubernetes-validations:
                         - message: cpu is required for all offloading modes
                           rule: has(self.cpu)
-                        - message: fileSystem is required when mode is 'fs'
-                          rule: self.mode == 'cpu' || self.mode == ” || has(self.fileSystem)
-                        - message: objectStore is required when mode is 'obj'
-                          rule: self.mode != 'obj' || has(self.objectStore)
                     labels:
                       additionalProperties:
                         type: string

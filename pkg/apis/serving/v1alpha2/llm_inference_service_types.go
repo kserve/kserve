@@ -174,45 +174,35 @@ type WorkloadSpec struct {
 
 	// KVCacheOffloading configures multi-tier KV cache offloading for this workload.
 	// The controller translates this into --kv-transfer-config for the vLLM serve command.
-	// Requires vLLM 0.11 for cpu mode, 0.22 for fs mode, 0.23 for obj mode
+	// Requires vLLM release 0.11 for cpu mode, 0.22 for fs mode, 0.23 for obj mode
 	// +optional
 	KVCacheOffloading *KVCacheOffloadingSpec `json:"kvCacheOffloading,omitempty"`
 }
 
-// KVCacheOffloadingMode set offloading strategy.
-// +kubebuilder:validation:Enum=cpu;fs;obj
-type KVCacheOffloadingMode string
-
-const (
-	KVCacheOffloadingModeCPU KVCacheOffloadingMode = "cpu"
-	KVCacheOffloadingModeFS  KVCacheOffloadingMode = "fs"
-	KVCacheOffloadingModeObj KVCacheOffloadingMode = "obj"
-)
-
 // KVCacheOffloadingSpec configures KV cache offloading via vLLM's OffloadingConnector.
+// The CPU tier is always required as the primary spill target. Optionally, one or more
+// filesystem and/or object store entries can be added as secondary tiers. The controller
+// appends all fileSystem and objectStore entries into vLLM's secondary_tiers array.
+// vLLM's TieringManager internally manages eviction and promotion across tiers.
+// When no secondary tiers are specified, the connector operates in CPU-only mode (GPU -> CPU RAM).
 // +kubebuilder:validation:XValidation:rule="has(self.cpu)",message="cpu is required for all offloading modes"
-// +kubebuilder:validation:XValidation:rule="self.mode == 'cpu' || self.mode == ” || has(self.fileSystem)",message="fileSystem is required when mode is 'fs'"
-// +kubebuilder:validation:XValidation:rule="self.mode != 'obj' || has(self.objectStore)",message="objectStore is required when mode is 'obj'"
 type KVCacheOffloadingSpec struct {
-	// Mode selects the offloading strategy:
-	// - cpu (GPU -> CPU RAM)
-	// - fs  (GPU -> CPU -> filesystem)
-	// - obj (GPU -> CPU -> objectstore)
-	// +optional
-	// +kubebuilder:default=cpu
-	Mode KVCacheOffloadingMode `json:"mode,omitempty"`
-
-	// CPU tier configuration. Used for all modes.
+	// CPU tier configuration (primary tier). Required for all offloading modes.
 	// +optional
 	CPU *KVCacheOffloadingCPUSpec `json:"cpu,omitempty"`
 
-	// Filesystem tier configuration. Required when mode is "fs".
+	// Filesystem secondary tiers. Each entry becomes a secondary tier in the order listed.
+	// Mount a volume at each path (shared PVC for cross-replica reuse, emptyDir or hostPath for node-local).
+	// Requires vLLM 0.22+.
 	// +optional
-	FS *KVCacheOffloadingFSSpec `json:"fileSystem,omitempty"`
+	// +listType=atomic
+	FileSystems []KVCacheOffloadingFSSpec `json:"fileSystem,omitempty"`
 
-	// Objectstore tier configuration. Required when mode is "obj".
+	// Object store secondary tiers. Each entry becomes a secondary tier, appended after any filesystem tiers.
+	// Requires vLLM 0.23+.
 	// +optional
-	ObjectStore *KVCacheOffloadingObjSpec `json:"objectStore,omitempty"`
+	// +listType=atomic
+	ObjectStores []KVCacheOffloadingObjSpec `json:"objectStore,omitempty"`
 }
 
 // KVCacheOffloadingCPUSpec configures the CPU RAM tier.
@@ -251,13 +241,17 @@ type KVCacheOffloadingFSSpec struct {
 }
 
 // KVCacheOffloadingObjSpec configures the object store secondary tier.
+// URI is required and encodes the endpoint, bucket, and optional key prefix.
+// Credentials are resolved by NIXL's AWS credential chain (env vars, IAM roles, credential files).
 type KVCacheOffloadingObjSpec struct {
-	// StoreConfig is the object store connection configuration (maps to vLLM secondary_tiers[].store_config).
-	StoreConfig map[string]string `json:"storeConfig"`
+	// URI is an S3-style URI in the form s3://endpoint/bucket[/prefix].
+	// The controller parses endpoint, bucket, and optional prefix from it.
+	URI string `json:"uri"`
 
-	// Prefix is the key prefix for stored objects (maps to vLLM secondary_tiers[].prefix).
+	// StoreConfig holds additional NIXL backend parameters (e.g. region, scheme, ca_bundle).
+	// These are merged into vLLM's secondary_tiers[].store_config alongside values parsed from the URI.
 	// +optional
-	Prefix string `json:"prefix,omitempty"`
+	StoreConfig map[string]string `json:"storeConfig,omitempty"`
 
 	// IOThreads is the number of I/O threads for the object store (maps to vLLM secondary_tiers[].io_threads). Defaults to 4.
 	// +kubebuilder:default=4
