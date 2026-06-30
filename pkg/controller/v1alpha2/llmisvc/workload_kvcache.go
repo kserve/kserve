@@ -58,7 +58,7 @@ func attachFileSystemKVCacheTier(podSpec *corev1.PodSpec, fs *v1alpha2.FileSyste
 			Ephemeral: &corev1.EphemeralVolumeSource{
 				VolumeClaimTemplate: &corev1.PersistentVolumeClaimTemplate{
 					Spec: corev1.PersistentVolumeClaimSpec{
-						AccessModes:      fs.PVC.AccessModes,
+						AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 						StorageClassName: fs.PVC.StorageClassName,
 						Resources:        fs.PVC.Resources,
 					},
@@ -84,21 +84,18 @@ func attachFileSystemKVCacheTier(podSpec *corev1.PodSpec, fs *v1alpha2.FileSyste
 		if podSpec.Containers[i].Name == containerName {
 			podSpec.Containers[i].VolumeMounts = append(podSpec.Containers[i].VolumeMounts,
 				corev1.VolumeMount{Name: volumeName, MountPath: mountPath, SubPath: subPath})
+			if fs.EmptyDir != nil {
+				// Request ephemeral-storage equal to the emptyDir size so the scheduler
+				// accounts for the disk space and avoids placing the pod on a node with
+				// insufficient local storage.
+				if podSpec.Containers[i].Resources.Requests == nil {
+					podSpec.Containers[i].Resources.Requests = corev1.ResourceList{}
+				}
+				existing := podSpec.Containers[i].Resources.Requests[corev1.ResourceEphemeralStorage]
+				existing.Add(fs.EmptyDir.Size)
+				podSpec.Containers[i].Resources.Requests[corev1.ResourceEphemeralStorage] = existing
+			}
 			break
 		}
 	}
-}
-
-// kvCacheFileSystemSize returns the storage size in bytes for a filesystem tier,
-// or 0 if the size cannot be determined (e.g. for a Ref tier with no declared size).
-func kvCacheFileSystemSize(fs *v1alpha2.FileSystemTierSpec) int64 {
-	switch {
-	case fs.EmptyDir != nil:
-		return fs.EmptyDir.Size.Value()
-	case fs.PVC != nil:
-		if storage, ok := fs.PVC.Resources.Requests[corev1.ResourceStorage]; ok {
-			return storage.Value()
-		}
-	}
-	return 0
 }

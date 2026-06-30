@@ -782,26 +782,28 @@ func validateKVCacheOffloadingSpec(kv *KVCacheOffloadingSpec, fldPath *field.Pat
 			continue
 		}
 		fs := s.FileSystem
-		set := 0
+		fsp := p.Child("fileSystem")
+		var backends []string
 		if fs.EmptyDir != nil {
-			set++
+			backends = append(backends, "emptyDir")
 		}
 		if fs.PVC != nil {
-			set++
+			backends = append(backends, "pvc")
 		}
 		if fs.Ref != nil {
-			set++
+			backends = append(backends, "ref")
 		}
-		fsp := p.Child("fileSystem")
-		if set == 0 {
+		switch len(backends) {
+		case 0:
 			allErrs = append(allErrs, field.Required(fsp,
 				"exactly one of emptyDir, pvc, or ref must be set"))
-		} else if set > 1 {
+		case 1:
+			if fs.Ref != nil && fs.Ref.Name == "" {
+				allErrs = append(allErrs, field.Required(fsp.Child("ref").Child("name"), "name is required"))
+			}
+		default:
 			allErrs = append(allErrs, field.Invalid(fsp, fs,
 				"exactly one of emptyDir, pvc, or ref must be set; multiple are set"))
-		}
-		if fs.Ref != nil && fs.Ref.Name == "" {
-			allErrs = append(allErrs, field.Required(fsp.Child("ref", "name"), "name is required"))
 		}
 	}
 	return allErrs

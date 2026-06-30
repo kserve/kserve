@@ -211,23 +211,30 @@ type SecondaryTierSpec struct {
 // Exactly one of EmptyDir, PVC, or Ref must be set.
 type FileSystemTierSpec struct {
 	// MountPath is the path inside the container where the volume is mounted and
-	// the path passed to vLLM as secondary_tiers[i].path. Defaults to
-	// /mnt/kv-cache-<index> when not specified.
+	// the path passed to vLLM as secondary_tiers[i].path. When omitted, defaults
+	// to /mnt/kv-cache-N where N is the zero-based position of this entry in the
+	// secondary array.
 	// +optional
 	MountPath string `json:"mountPath,omitempty"`
 
-	// EmptyDir uses a node-local ephemeral volume. No StorageClass required.
-	// Each pod gets its own independent disk cache.
+	// EmptyDir uses a node-local ephemeral emptyDir volume. No StorageClass required.
+	// Each pod gets its own independent, node-local disk cache. The controller also
+	// adds an ephemeral-storage resource request to the main container equal to the
+	// size so the scheduler accounts for the disk space when placing the pod.
 	// +optional
 	EmptyDir *EmptyDirTierSpec `json:"emptyDir,omitempty"`
 
-	// PVC causes the controller to create a generic ephemeral PVC per pod
-	// (one PVC per pod, pod-lifetime). Safe for multi-replica and multi-node.
+	// PVC causes the controller to create a generic ephemeral PVC per pod.
+	// Each PVC is owned by the pod and deleted when the pod is deleted — it does
+	// not survive pod restarts. Use ReadWriteOnce access mode. For a cache that
+	// survives restarts, use Ref with a pre-existing persistent PVC instead.
 	// +optional
 	PVC *PVCTierSpec `json:"pvc,omitempty"`
 
-	// Ref mounts a pre-existing user-managed PVC. Use an RWX PVC to share
-	// the disk cache across replicas.
+	// Ref mounts a pre-existing user-managed PVC as the disk cache. The PVC must
+	// already exist. For a cache shared across replicas, provision an RWX PVC;
+	// for per-pod persistent cache, provision a separate PVC per pod and reference
+	// it by name.
 	// +optional
 	Ref *PVCRefTierSpec `json:"ref,omitempty"`
 }
@@ -235,16 +242,14 @@ type FileSystemTierSpec struct {
 // EmptyDirTierSpec configures a node-local ephemeral emptyDir volume as a KV cache tier.
 type EmptyDirTierSpec struct {
 	// Size is the maximum storage capacity for this tier (maps to emptyDir.sizeLimit).
+	// The controller also requests this amount as ephemeral-storage on the main container.
 	Size resource.Quantity `json:"size"`
 }
 
 // PVCTierSpec configures a controller-managed generic ephemeral PVC as a KV cache tier.
-// One PVC is created per pod automatically; PVCs are deleted when the pod is deleted.
+// One PVC is created per pod automatically with ReadWriteOnce access mode; PVCs are
+// deleted when the pod is deleted.
 type PVCTierSpec struct {
-	// AccessModes for the ephemeral PVC, e.g. [ReadWriteOnce].
-	// +optional
-	AccessModes []corev1.PersistentVolumeAccessMode `json:"accessModes,omitempty"`
-
 	// StorageClassName selects the StorageClass for the ephemeral PVC.
 	// +optional
 	StorageClassName *string `json:"storageClassName,omitempty"`

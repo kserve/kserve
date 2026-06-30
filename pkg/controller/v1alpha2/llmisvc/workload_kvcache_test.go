@@ -95,12 +95,11 @@ func TestAttachKVCacheSecondaryTiers(t *testing.T) {
 			},
 		},
 		{
-			name:          "pvc tier creates ephemeral volume",
+			name:          "pvc tier creates ephemeral volume with hardcoded RWO",
 			containerName: "main",
 			secondary: []v1alpha2.SecondaryTierSpec{
 				{FileSystem: &v1alpha2.FileSystemTierSpec{
 					PVC: &v1alpha2.PVCTierSpec{
-						AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 						StorageClassName: ptr.To("fast-nvme"),
 						Resources: corev1.VolumeResourceRequirements{
 							Requests: corev1.ResourceList{

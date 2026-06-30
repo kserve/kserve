@@ -2186,8 +2186,8 @@ func TestReplaceVariables(t *testing.T) {
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								// secondary_tiers[0]: path defaults to /mnt/kv-cache-0, disk_bytes_to_use from emptyDir size
-								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":10737418240,"secondary_tiers":[{"disk_bytes_to_use":107374182400,"path":"/mnt/kv-cache-0","spec_name":"DiskOffloadingSpec"}],"spec_name":"TieringOffloadingSpec"},"kv_role":"kv_both"}'`}},
+								// secondary_tiers[0]: root_dir defaults to /mnt/kv-cache-0
+								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":10737418240,"secondary_tiers":[{"root_dir":"/mnt/kv-cache-0","type":"fs"}],"spec_name":"TieringOffloadingSpec"},"kv_role":"kv_both"}'`}},
 							},
 						},
 					},
@@ -2231,7 +2231,7 @@ func TestReplaceVariables(t *testing.T) {
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":10737418240,"secondary_tiers":[{"disk_bytes_to_use":214748364800,"path":"/mnt/nvme0","spec_name":"DiskOffloadingSpec"},{"disk_bytes_to_use":214748364800,"path":"/mnt/nvme1","spec_name":"DiskOffloadingSpec"}],"spec_name":"TieringOffloadingSpec"},"kv_role":"kv_both"}'`}},
+								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":10737418240,"secondary_tiers":[{"root_dir":"/mnt/nvme0","type":"fs"},{"root_dir":"/mnt/nvme1","type":"fs"}],"spec_name":"TieringOffloadingSpec"},"kv_role":"kv_both"}'`}},
 							},
 						},
 					},
@@ -2239,7 +2239,7 @@ func TestReplaceVariables(t *testing.T) {
 			},
 		},
 		{
-			name: "kvTransferConfig ref tier omits disk_bytes_to_use",
+			name: "kvTransferConfig ref tier renders fs type with root_dir",
 			cfg: &v1alpha2.LLMInferenceServiceConfig{
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					WorkloadSpec: v1alpha2.WorkloadSpec{
@@ -2271,8 +2271,8 @@ func TestReplaceVariables(t *testing.T) {
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								// ref tier has no declared size, so disk_bytes_to_use is omitted
-								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":10737418240,"secondary_tiers":[{"path":"/mnt/shared","spec_name":"DiskOffloadingSpec"}],"spec_name":"TieringOffloadingSpec"},"kv_role":"kv_both"}'`}},
+								// ref tier: root_dir from MountPath
+								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":10737418240,"secondary_tiers":[{"root_dir":"/mnt/shared","type":"fs"}],"spec_name":"TieringOffloadingSpec"},"kv_role":"kv_both"}'`}},
 							},
 						},
 					},

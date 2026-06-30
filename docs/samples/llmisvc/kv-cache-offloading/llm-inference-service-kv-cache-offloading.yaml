@@ -24,25 +24,32 @@ spec:
             nvidia.com/gpu: "1"
   workload:
     kvCacheOffloading:
-      # Primary tier: CPU RAM (GPU overflows here first)
+      # Primary tier: CPU RAM. GPU overflows here first.
       cpu: "10Gi"
       evictionPolicy: lru
-      # Secondary tiers: disk (GPU -> CPU -> disk cascade)
+      # Secondary tiers: disk. GPU -> CPU -> disk cascade.
+      # Multiple entries are allowed; each becomes an independent disk tier at its
+      # own mount path. The example below shows one emptyDir tier. Uncomment the
+      # pvc or ref entries to add additional tiers, or combine them freely.
       secondary:
-      # Option A: node-local ephemeral disk, no StorageClass required
-      - fileSystem:
-          emptyDir:
-            size: "100Gi"
-      # Option B: controller-managed ephemeral PVC per pod (uncomment to use)
-      # - fileSystem:
-      #     pvc:
-      #       accessModes: [ReadWriteOnce]
-      #       storageClassName: fast-local-nvme
-      #       resources:
-      #         requests:
-      #           storage: 100Gi
-      # Option C: pre-existing RWX PVC shared across replicas (uncomment to use)
-      # - fileSystem:
-      #     ref:
-      #       name: my-shared-kv-cache-pvc
-      #       path: kv-cache/   # subdirectory within the PVC
+        # emptyDir: node-local ephemeral disk. No StorageClass required. Each pod
+        # gets its own cache that exists only for the lifetime of the pod.
+        - fileSystem:
+            emptyDir:
+              size: "100Gi"
+        # pvc: controller-managed ephemeral PVC per pod. The PVC is deleted when
+        # the pod terminates. Useful when you need a dedicated StorageClass (e.g.
+        # NVMe-backed) without managing PVCs yourself.
+        # - fileSystem:
+        #     pvc:
+        #       storageClassName: fast-local-nvme
+        #       resources:
+        #         requests:
+        #           storage: 100Gi
+        # ref: pre-existing user-managed PVC. The PVC must exist before the service
+        # is created. For a cache shared across replicas, provision an RWX PVC;
+        # for per-pod persistent cache, provision a separate PVC per pod.
+        # - fileSystem:
+        #     ref:
+        #       name: my-shared-kv-cache-pvc
+        #       path: kv-cache/   # optional subdirectory within the PVC

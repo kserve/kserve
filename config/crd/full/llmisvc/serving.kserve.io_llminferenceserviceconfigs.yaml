@@ -21013,10 +21013,6 @@ spec:
                                 type: string
                               pvc:
                                 properties:
-                                  accessModes:
-                                    items:
-                                      type: string
-                                    type: array
                                   resources:
                                     properties:
                                       limits:
@@ -21161,10 +21157,6 @@ spec:
                                     type: string
                                   pvc:
                                     properties:
-                                      accessModes:
-                                        items:
-                                          type: string
-                                        type: array
                                       resources:
                                         properties:
                                           limits:

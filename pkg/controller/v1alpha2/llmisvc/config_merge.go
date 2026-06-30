@@ -650,16 +650,13 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 					if s.FileSystem == nil {
 						continue
 					}
-					mountPath := s.FileSystem.MountPath
-					if mountPath == "" {
-						mountPath = fmt.Sprintf("/mnt/kv-cache-%d", i)
+					rootDir := s.FileSystem.MountPath
+					if rootDir == "" {
+						rootDir = fmt.Sprintf("/mnt/kv-cache-%d", i)
 					}
 					entry := map[string]any{
-						"spec_name": "DiskOffloadingSpec",
-						"path":      mountPath,
-					}
-					if size := kvCacheFileSystemSize(s.FileSystem); size > 0 {
-						entry["disk_bytes_to_use"] = size
+						"type":     "fs",
+						"root_dir": rootDir,
 					}
 					secondaryTiers = append(secondaryTiers, entry)
 				}
