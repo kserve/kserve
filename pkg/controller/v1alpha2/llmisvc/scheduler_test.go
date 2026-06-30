@@ -2050,7 +2050,7 @@ schedulingProfiles:
 		g.Expect(sources).ToNot(BeEmpty())
 	})
 
-	t.Run("orphan_removal/tokenProcessorConfig_removed_from_indexerConfig", func(t *testing.T) {
+	t.Run("orphan_removal/promote_only_does_not_delete_from_indexerConfig", func(t *testing.T) {
 		g := NewGomegaWithT(t)
 
 		configYAML := `apiVersion: inference.networking.x-k8s.io/v1alpha1
@@ -2080,12 +2080,11 @@ plugins:
 		}
 
 		ctx := context.Background()
+		// WithMigrateTokenProcessorConfig only promotes — does NOT delete from indexerConfig.
+		// Deletion is handled by withSplitPrecisePrefixCacheScorerV09 (v0.9-gated).
 		g.Expect(mutateSchedulerConfig(ctx, d, WithMigrateTokenProcessorConfig)).To(Succeed())
 
 		configText := d.Spec.Template.Spec.Containers[0].Args[1]
-
-		g.Expect(configText).To(ContainSubstring("tokenProcessorConfig"))
-		g.Expect(configText).To(ContainSubstring("blockSize"))
 
 		u := unstructured.Unstructured{}
 		g.Expect(yaml.Unmarshal([]byte(configText), &u)).To(Succeed())
@@ -2096,11 +2095,66 @@ plugins:
 			if !ok || pm["type"] != "precise-prefix-cache-scorer" {
 				continue
 			}
+			// Field remains in indexerConfig (valid for v0.7/v0.8 kvcache.Config)
 			_, found, _ := unstructured.NestedFieldNoCopy(pm, "parameters", "indexerConfig", "tokenProcessorConfig")
-			g.Expect(found).To(BeFalse(), "tokenProcessorConfig should be removed from indexerConfig")
+			g.Expect(found).To(BeTrue(), "tokenProcessorConfig should remain in indexerConfig for v0.7/v0.8 compat")
+
+			// Field is also promoted to top level
+			_, found, _ = unstructured.NestedFieldNoCopy(pm, "parameters", "tokenProcessorConfig")
+			g.Expect(found).To(BeTrue(), "tokenProcessorConfig should exist at top level after promotion")
+		}
+	})
+
+	t.Run("orphan_removal/v09_split_removes_from_indexerConfig", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+
+		configYAML := `apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: precise-prefix-cache-scorer
+  parameters:
+    indexerConfig:
+      tokenProcessorConfig:
+        blockSize: 64
+        hashSeed: "42"
+      kvBlockIndexConfig:
+        enableMetrics: true
+    kvEventsConfig:
+      topicFilter: kv
+`
+		d := &appsv1.Deployment{
+			Spec: appsv1.DeploymentSpec{
+				Template: corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{Name: "main", Args: []string{"--config-text", configYAML}},
+						},
+					},
+				},
+			},
+		}
+
+		ctx := context.Background()
+		// Full v0.9 pipeline: promote then split (which removes orphan)
+		g.Expect(mutateSchedulerConfig(ctx, d, WithMigrateTokenProcessorConfig, withSplitPrecisePrefixCacheScorerV09)).To(Succeed())
+
+		configText := d.Spec.Template.Spec.Containers[0].Args[1]
+
+		u := unstructured.Unstructured{}
+		g.Expect(yaml.Unmarshal([]byte(configText), &u)).To(Succeed())
+
+		// After split, precise-prefix-cache-producer gets indexerConfig without tokenProcessorConfig
+		plugins, _, _ := unstructured.NestedSlice(u.Object, "plugins")
+		for _, p := range plugins {
+			pm, ok := p.(map[string]interface{})
+			if !ok || pm["type"] != "precise-prefix-cache-producer" {
+				continue
+			}
+			_, found, _ := unstructured.NestedFieldNoCopy(pm, "parameters", "indexerConfig", "tokenProcessorConfig")
+			g.Expect(found).To(BeFalse(), "tokenProcessorConfig must be removed from indexerConfig in v0.9 split")
 
 			_, found, _ = unstructured.NestedFieldNoCopy(pm, "parameters", "tokenProcessorConfig")
-			g.Expect(found).To(BeTrue(), "tokenProcessorConfig should exist at top level")
+			g.Expect(found).To(BeTrue(), "tokenProcessorConfig should exist at producer top level")
 		}
 	})
 

@@ -863,9 +863,9 @@ func WithUdsTokenizerConfig(_ context.Context, u *unstructured.Unstructured) err
 // llm-d-router v0.6.0 where tokenProcessorConfig was promoted
 // from indexerConfig to a top-level plugin parameter.
 //
-// The field is always removed from indexerConfig because kvcache.Config no
-// longer defines it — the strict JSON decoder in the router rejects unknown
-// fields.
+// The field is NOT removed from indexerConfig here because v0.7/v0.8
+// kvcache.Config still defines it. Removal is handled by
+// withSplitPrecisePrefixCacheScorerV09 which is gated on v0.9+.
 func WithMigrateTokenProcessorConfig(ctx context.Context, u *unstructured.Unstructured) error {
 	val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
 	if err != nil || !found {
@@ -897,10 +897,6 @@ func WithMigrateTokenProcessorConfig(ctx context.Context, u *unstructured.Unstru
 					return err
 				}
 			}
-
-			// Always remove from indexerConfig — kvcache.Config no longer has this
-			// field and the strict decoder rejects it.
-			unstructured.RemoveNestedField(pluginMap, "parameters", "indexerConfig", "tokenProcessorConfig")
 		}
 	}
 
@@ -1322,12 +1318,13 @@ func schedulerTransform(ctx context.Context, d *appsv1.Deployment) error {
 	if v.Compare(*semver.New("0.9.0")) >= 0 {
 		opts = append(opts, withSplitPrecisePrefixCacheScorerV09)
 		opts = append(opts, withRemovePrefixCacheScorerParametersV09)
+		// Last within the v0.9 gate: remove the tokenizer sidecar if no plugin
+		// needs it. Only relevant after the split migration creates token-producer.
+		// For v0.7/v0.8, the monolithic precise-prefix-cache-scorer always needs
+		// the sidecar, so running this earlier would be a no-op but risks
+		// unnecessary deployment mutations on reconciliation.
+		opts = append(opts, withRemoveUnnecessaryTokenizer(d))
 	}
-
-	// Always last: remove the tokenizer sidecar if no plugin needs it.
-	// Must run after all plugin transformations (especially the v0.9 split
-	// which creates token-producer with UDS).
-	opts = append(opts, withRemoveUnnecessaryTokenizer(d))
 
 	if err := mutateSchedulerConfig(ctx, d, opts...); err != nil {
 		return fmt.Errorf("failed to mutate config: %w", err)
