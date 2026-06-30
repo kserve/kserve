@@ -798,6 +798,69 @@ LLMINFERENCESERVICE_CONFIGS = {
             },
         },
     },
+    # Reproducer for the Jenkins AMD/ROCm failure: tokenProcessorConfig nested
+    # inside indexerConfig (the v0.5/v0.6 placement). The controller must:
+    #   1. Promote tokenProcessorConfig to the top-level parameters
+    #   2. Remove the orphan from indexerConfig (strict decoder rejects it)
+    #   3. Split into the v0.9 plugin architecture
+    # Without the fix, the EPP scheduler crashes with:
+    #   json: unknown field "tokenProcessorConfig"
+    "scheduler-precise-prefix-tokenprocessor-in-indexer": {
+        "router": {
+            "scheduler": {
+                "config": {
+                    "inline": {
+                        "apiVersion": "inference.networking.x-k8s.io/v1alpha1",
+                        "kind": "EndpointPickerConfig",
+                        "plugins": [
+                            {"type": "single-profile-handler"},
+                            {
+                                "type": "precise-prefix-cache-scorer",
+                                "parameters": {
+                                    "kvEventsConfig": {
+                                        "zmqEndpoint": "tcp://*:5557",
+                                    },
+                                    "indexerConfig": {
+                                        "tokenProcessorConfig": {
+                                            "blockSize": 16,
+                                            "hashSeed": "42",
+                                        },
+                                        "tokenizersPoolConfig": {
+                                            "modelName": "facebook/opt-125m",
+                                        },
+                                        "kvBlockIndexConfig": {
+                                            "enableMetrics": True,
+                                            "metricsLoggingInterval": 60000000000,
+                                        },
+                                    },
+                                },
+                            },
+                            {"type": "queue-scorer"},
+                            {"type": "kv-cache-utilization-scorer"},
+                            {"type": "max-score-picker"},
+                        ],
+                        "schedulingProfiles": [
+                            {
+                                "name": "default",
+                                "plugins": [
+                                    {"pluginRef": "queue-scorer", "weight": 2},
+                                    {
+                                        "pluginRef": "kv-cache-utilization-scorer",
+                                        "weight": 2,
+                                    },
+                                    {
+                                        "pluginRef": "precise-prefix-cache-scorer",
+                                        "weight": 3,
+                                    },
+                                    {"pluginRef": "max-score-picker"},
+                                ],
+                            },
+                        ],
+                    },
+                },
+            },
+        },
+    },
     # Realistic v0.6-style PD config: old plugin names, deciderPluginName param,
     # hashBlockSize, prefill/decode filters and profiles.
     # Exercises the full #5433 migration: plugin renames, param restructure,
