@@ -63,6 +63,7 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-lo
 | kserve.localmodel.jobTTLSecondsAfterFinished | int | `3600` |  |
 | kserve.localmodel.securityContext.fsGroup | int | `1000` |  |
 | kserve.localmodelnode.controller.affinity | object | `{}` |  |
+| kserve.localmodelnode.controller.hostPath | string | `"/models"` |  |
 | kserve.localmodelnode.controller.image | string | `"kserve/kserve-localmodelnode-agent"` |  |
 | kserve.localmodelnode.controller.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.localmodelnode.controller.nodeSelector.kserve/localmodel | string | `"worker"` |  |
