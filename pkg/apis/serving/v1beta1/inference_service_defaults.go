@@ -26,12 +26,11 @@ import (
 	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"k8s.io/client-go/kubernetes/scheme"
 
@@ -54,7 +53,7 @@ var mutatorLogger = logf.Log.WithName("inferenceservice-v1beta1-mutating-webhook
 type InferenceServiceDefaulter struct{}
 
 // +kubebuilder:webhook:path=/mutate-inferenceservices,mutating=true,failurePolicy=fail,groups=serving.kserve.io,resources=inferenceservices,verbs=create;update,versions=v1beta1,name=inferenceservice.kserve-webhook-server.defaulter
-var _ webhook.CustomDefaulter = &InferenceServiceDefaulter{}
+var _ admission.Defaulter[*InferenceService] = &InferenceServiceDefaulter{}
 
 func setResourceRequirementDefaults(config *InferenceServicesConfig, requirements *corev1.ResourceRequirements) {
 	defaultResourceRequests := corev1.ResourceList{}
@@ -95,12 +94,7 @@ func setResourceRequirementDefaults(config *InferenceServicesConfig, requirement
 	logf.Log.Info("Setting default resource requirements ", "requests", requirements.Requests, "limits", requirements.Limits)
 }
 
-func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Object) error {
-	isvc, err := utils.Convert[*InferenceService](obj)
-	if err != nil {
-		validatorLogger.Error(err, "Unable to convert object to InferenceService")
-		return err
-	}
+func (d *InferenceServiceDefaulter) Default(ctx context.Context, isvc *InferenceService) error {
 	mutatorLogger.Info("Defaulting InferenceService", "namespace", isvc.Namespace, "isvc", isvc.Spec.Predictor)
 	cfg, err := config.GetConfig()
 	if err != nil {

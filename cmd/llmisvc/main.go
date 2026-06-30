@@ -265,14 +265,12 @@ func main() {
 		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceserviceconfig-v1alpha2")
 		os.Exit(1)
 	}
-	if err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha2.LLMInferenceService{}).
+	if err = ctrl.NewWebhookManagedBy(mgr, &v1alpha2.LLMInferenceService{}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create conversion webhook", "webhook", "llminferenceservice")
 		os.Exit(1)
 	}
-	if err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha2.LLMInferenceServiceConfig{}).
+	if err = ctrl.NewWebhookManagedBy(mgr, &v1alpha2.LLMInferenceServiceConfig{}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create conversion webhook", "webhook", "llminferenceserviceconfig")
 		os.Exit(1)
@@ -298,16 +296,14 @@ func main() {
 	// Register version-specific mutating webhooks.
 	// This ensures admission decoding matches request version (v1alpha1 or v1alpha2)
 	// before shared defaulting logic is applied.
-	if err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha1.LLMInferenceService{}).
+	if err = ctrl.NewWebhookManagedBy(mgr, &v1alpha1.LLMInferenceService{}).
 		WithDefaulter(&llmisvcwebhook.LLMInferenceServiceDefaulterV1Alpha1{Client: mgr.GetClient(), Clientset: clientSet}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create defaulting webhook", "webhook", "llminferenceservice-v1alpha1")
 		os.Exit(1)
 	}
 
-	if err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha2.LLMInferenceService{}).
+	if err = ctrl.NewWebhookManagedBy(mgr, &v1alpha2.LLMInferenceService{}).
 		WithDefaulter(&llmisvcwebhook.LLMInferenceServiceDefaulterV1Alpha2{Client: mgr.GetClient(), Clientset: clientSet}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create defaulting webhook", "webhook", "llminferenceservice-v1alpha2")

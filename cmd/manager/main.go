@@ -243,24 +243,21 @@ func main() {
 		Handler: &servingruntime.ServingRuntimeValidator{Client: mgr.GetClient(), Decoder: admission.NewDecoder(mgr.GetScheme())},
 	})
 
-	if err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha1.TrainedModel{}).
+	if err = ctrl.NewWebhookManagedBy(mgr, &v1alpha1.TrainedModel{}).
 		WithValidator(&v1alpha1.TrainedModelValidator{}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "v1alpha1")
 		os.Exit(1)
 	}
 
-	if err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha1.InferenceGraph{}).
+	if err = ctrl.NewWebhookManagedBy(mgr, &v1alpha1.InferenceGraph{}).
 		WithValidator(&v1alpha1.InferenceGraphValidator{}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "v1alpha1")
 		os.Exit(1)
 	}
 
-	if err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1beta1.InferenceService{}).
+	if err = ctrl.NewWebhookManagedBy(mgr, &v1beta1.InferenceService{}).
 		WithDefaulter(&v1beta1.InferenceServiceDefaulter{}).
 		WithValidator(&v1beta1.InferenceServiceValidator{}).
 		Complete(); err != nil {

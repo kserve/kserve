@@ -351,4 +351,10 @@ type PodSpec struct {
 	// +featureGate=HostnameOverride
 	// +optional
 	HostnameOverride *string `json:"hostnameOverride,omitempty" protobuf:"bytes,41,opt,name=hostnameOverride"`
+	// SchedulingGroup defines a group label to use when scheduling the pods for a workload.
+	// Requires the GenericWorkload feature gate to be enabled.
+	//
+	// +featureGate=GenericWorkload
+	// +optional
+	SchedulingGroup *corev1.PodSchedulingGroup `json:"schedulingGroup,omitempty" protobuf:"bytes,43,opt,name=schedulingGroup"`
 }

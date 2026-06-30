@@ -20,13 +20,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kserve/kserve/pkg/utils"
-
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -50,15 +46,10 @@ type LocalModelCacheValidator struct {
 }
 
 // +kubebuilder:webhook:verbs=create;update;delete,path=/validate-localmodelcaches,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=localmodelcaches,versions=v1alpha1,name=localmodelcache.kserve-webhook-server.validator
-var _ webhook.CustomValidator = &LocalModelCacheValidator{}
+var _ admission.Validator[*v1alpha1.LocalModelCache] = &LocalModelCacheValidator{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (v *LocalModelCacheValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	localModelCache, err := utils.Convert[*v1alpha1.LocalModelCache](obj)
-	if err != nil {
-		localModelCacheValidatorLogger.Error(err, "Unable to convert object to LocalModelCache")
-		return nil, err
-	}
+func (v *LocalModelCacheValidator) ValidateCreate(ctx context.Context, localModelCache *v1alpha1.LocalModelCache) (admission.Warnings, error) {
 	localModelCacheValidatorLogger.Info("validate create", "name", localModelCache.Name)
 	localModelCacheWithSameStorageURI, err := v.validateUniqueStorageURI(ctx, localModelCache)
 	if err != nil {
@@ -72,12 +63,7 @@ func (v *LocalModelCacheValidator) ValidateCreate(ctx context.Context, obj runti
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (v *LocalModelCacheValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	localModelCache, err := utils.Convert[*v1alpha1.LocalModelCache](newObj)
-	if err != nil {
-		localModelCacheValidatorLogger.Error(err, "Unable to convert object to LocalModelCache")
-		return nil, err
-	}
+func (v *LocalModelCacheValidator) ValidateUpdate(ctx context.Context, _, localModelCache *v1alpha1.LocalModelCache) (admission.Warnings, error) {
 	if localModelCache.GetDeletionTimestamp() != nil {
 		return nil, nil
 	}
@@ -94,12 +80,7 @@ func (v *LocalModelCacheValidator) ValidateUpdate(ctx context.Context, oldObj, n
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (v *LocalModelCacheValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	localModelCache, err := utils.Convert[*v1alpha1.LocalModelCache](obj)
-	if err != nil {
-		localModelCacheValidatorLogger.Error(err, "Unable to convert object to LocalModelCache")
-		return nil, err
-	}
+func (v *LocalModelCacheValidator) ValidateDelete(ctx context.Context, localModelCache *v1alpha1.LocalModelCache) (admission.Warnings, error) {
 	localModelCacheValidatorLogger.Info("validate delete", "name", localModelCache.Name)
 
 	// Check if current LocalModelCache is being used

@@ -655,8 +655,8 @@ PROMETHEUS_ADAPTER_VERSION=5.3.0
 JAEGER_VERSION=4.7.0
 KSERVE_VERSION=v0.19.0
 ISTIO_VERSION=1.27.1
-KEDA_VERSION=2.18.0
-OPENTELEMETRY_OPERATOR_VERSION=0.74.3
+KEDA_VERSION=2.20.1
+OPENTELEMETRY_OPERATOR_VERSION=0.117.0
 LWS_VERSION=v0.8.0
 GATEWAY_API_VERSION=v1.5.1
 GIE_VERSION=v1.5.0
@@ -7314,6 +7314,10 @@ spec:
                                     type: integer
                                   signerName:
                                     type: string
+                                  userAnnotations:
+                                    additionalProperties:
+                                      type: string
+                                    type: object
                                 required:
                                 - keyType
                                 - signerName
@@ -9322,6 +9326,10 @@ spec:
                                         type: integer
                                       signerName:
                                         type: string
+                                      userAnnotations:
+                                        additionalProperties:
+                                          type: string
+                                        type: object
                                     required:
                                     - keyType
                                     - signerName
@@ -14110,6 +14118,11 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
+                  schedulingGroup:
+                    properties:
+                      podGroupName:
+                        type: string
+                    type: object
                   securityContext:
                     properties:
                       appArmorProfile:
@@ -14905,6 +14918,10 @@ spec:
                                         type: integer
                                       signerName:
                                         type: string
+                                      userAnnotations:
+                                        additionalProperties:
+                                          type: string
+                                        type: object
                                     required:
                                     - keyType
                                     - signerName
@@ -22649,6 +22666,11 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
+                  schedulingGroup:
+                    properties:
+                      podGroupName:
+                        type: string
+                    type: object
                   securityContext:
                     properties:
                       appArmorProfile:
@@ -25660,6 +25682,10 @@ spec:
                                         type: integer
                                       signerName:
                                         type: string
+                                      userAnnotations:
+                                        additionalProperties:
+                                          type: string
+                                        type: object
                                     required:
                                     - keyType
                                     - signerName
@@ -28634,6 +28660,11 @@ spec:
                         x-kubernetes-list-map-keys:
                         - name
                         x-kubernetes-list-type: map
+                      schedulingGroup:
+                        properties:
+                          podGroupName:
+                            type: string
+                        type: object
                       securityContext:
                         properties:
                           appArmorProfile:
@@ -29411,6 +29442,10 @@ spec:
                                             type: integer
                                           signerName:
                                             type: string
+                                          userAnnotations:
+                                            additionalProperties:
+                                              type: string
+                                            type: object
                                         required:
                                         - keyType
                                         - signerName
@@ -32717,6 +32752,11 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
+                  schedulingGroup:
+                    properties:
+                      podGroupName:
+                        type: string
+                    type: object
                   securityContext:
                     properties:
                       appArmorProfile:
@@ -33512,6 +33552,10 @@ spec:
                                         type: integer
                                       signerName:
                                         type: string
+                                      userAnnotations:
+                                        additionalProperties:
+                                          type: string
+                                        type: object
                                     required:
                                     - keyType
                                     - signerName
@@ -35867,6 +35911,10 @@ spec:
                                     type: integer
                                   signerName:
                                     type: string
+                                  userAnnotations:
+                                    additionalProperties:
+                                      type: string
+                                    type: object
                                 required:
                                 - keyType
                                 - signerName
@@ -37875,6 +37923,10 @@ spec:
                                         type: integer
                                       signerName:
                                         type: string
+                                      userAnnotations:
+                                        additionalProperties:
+                                          type: string
+                                        type: object
                                     required:
                                     - keyType
                                     - signerName

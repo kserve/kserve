@@ -27,17 +27,14 @@ import (
 	"k8s.io/utils/ptr"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 	kservevalidation "github.com/kserve/kserve/pkg/validation"
 )
 
@@ -51,33 +48,19 @@ var variantCostPattern = regexp.MustCompile(`^\d+(\.\d+)?$`)
 // +kubebuilder:object:generate=false
 type LLMInferenceServiceValidator struct{}
 
-var _ webhook.CustomValidator = &LLMInferenceServiceValidator{}
+var _ admission.Validator[*LLMInferenceService] = &LLMInferenceServiceValidator{}
 
 func (l *LLMInferenceServiceValidator) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&LLMInferenceService{}).
+	return ctrl.NewWebhookManagedBy(mgr, &LLMInferenceService{}).
 		WithValidator(l).
 		Complete()
 }
 
-func (l *LLMInferenceServiceValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	llmSvc, err := utils.Convert[*LLMInferenceService](obj)
-	if err != nil {
-		return nil, err
-	}
-
+func (l *LLMInferenceServiceValidator) ValidateCreate(ctx context.Context, llmSvc *LLMInferenceService) (admission.Warnings, error) {
 	return l.validate(ctx, nil, llmSvc)
 }
 
-func (l *LLMInferenceServiceValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	llmSvc, err := utils.Convert[*LLMInferenceService](newObj)
-	if err != nil {
-		return nil, err
-	}
-	prev, err := utils.Convert[*LLMInferenceService](oldObj)
-	if err != nil {
-		return nil, err
-	}
+func (l *LLMInferenceServiceValidator) ValidateUpdate(ctx context.Context, prev, llmSvc *LLMInferenceService) (admission.Warnings, error) {
 	if llmSvc.GetDeletionTimestamp() != nil {
 		return nil, nil
 	}
@@ -85,7 +68,7 @@ func (l *LLMInferenceServiceValidator) ValidateUpdate(ctx context.Context, oldOb
 	return l.validate(ctx, prev, llmSvc)
 }
 
-func (l *LLMInferenceServiceValidator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+func (l *LLMInferenceServiceValidator) ValidateDelete(_ context.Context, _ *LLMInferenceService) (admission.Warnings, error) {
 	// No validation needed for deletion
 	return admission.Warnings{}, nil
 }
