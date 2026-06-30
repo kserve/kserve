@@ -1957,6 +1957,7 @@ dependencies = [
     { name = "google-cloud-storage" },
     { name = "hf-xet" },
     { name = "huggingface-hub", extra = ["hf-transfer"] },
+    { name = "modelscope-hub" },
     { name = "pyasn1" },
     { name = "pyjwt" },
     { name = "requests" },
@@ -1976,6 +1977,7 @@ requires-dist = [
     { name = "hf-xet", specifier = ">=1.5.0" },
     { name = "huggingface-hub", extras = ["hf-transfer"], specifier = ">=0.32.0" },
     { name = "jwcrypto", marker = "extra == 'confidential'", specifier = ">=1.5.0" },
+    { name = "modelscope-hub", specifier = ">=0.1.4" },
     { name = "pyasn1", specifier = ">=0.6.3" },
     { name = "pyjwt", specifier = ">=2.12.0" },
     { name = "requests", specifier = ">=2.32.2,<3.0.0" },
@@ -2221,6 +2223,21 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/07/0a/77e006902069864d3f658e32e68de77ad756a49ebec524fa87181750bb3f/mlforecast-0.14.0.tar.gz", hash = "sha256:2bc11ad747d82e08107444939bf292c7eb20d6d951ad3109697233588e7be4d8", size = 71787, upload-time = "2024-11-11T19:22:44.774Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a7/a6/e6a02d4f9da35cf1df821f54b5168e9f325578ce4c7d609e3f40d99e2501/mlforecast-0.14.0-py3-none-any.whl", hash = "sha256:7418fc8a97cf505e2b33f859bdc0b336da64cc034f10acab260a5a19f47fa9e5", size = 71964, upload-time = "2024-11-11T19:22:42.42Z" },
+]
+
+[[package]]
+name = "modelscope-hub"
+version = "0.1.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "filelock" },
+    { name = "requests" },
+    { name = "tqdm" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/65/a5/e57b25a993ad268b7a9176e0b39e4f9f21ec3d841aca39995e514f286fd9/modelscope_hub-0.1.4.tar.gz", hash = "sha256:6fdf3e80ff4586e4d2e3b124dbecdfc97c655e3ecf5b789a83ade3a237b46568", size = 124621, upload-time = "2026-06-26T04:45:23.967Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f8/5c/3b30573e155c0698cb343a9cdd3d0d9530e43ea2687d74832ae389ef7868/modelscope_hub-0.1.4-py3-none-any.whl", hash = "sha256:a5b53e2104c5e860b67f95b06a3fd1c1d38c1a6472012dcc0efc1c557bc4dc6f", size = 133870, upload-time = "2026-06-26T04:45:22.761Z" },
 ]
 
 [[package]]
