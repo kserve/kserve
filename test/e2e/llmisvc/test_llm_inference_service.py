@@ -51,9 +51,9 @@ KSERVE_PLURAL_LLMINFERENCESERVICE = "llminferenceservices"
 
 def assert_200(response: requests.Response) -> None:
     """Default response assertion that checks for 200 status code."""
-    assert (
-        response.status_code == 200
-    ), f"Service returned {response.status_code}: {response.text}"
+    assert response.status_code == 200, (
+        f"Service returned {response.status_code}: {response.text}"
+    )
 
 
 def assert_200_with_choices(response: requests.Response) -> None:
@@ -71,15 +71,15 @@ def create_response_assertion(
     """Factory for creating flexible response assertions with arbitrary status codes and field checks."""
 
     def response_assertion(response: requests.Response) -> None:
-        assert (
-            response.status_code == status_code
-        ), f"Expected status code {status_code}, but service returned {response.status_code}: {response.text}"
+        assert response.status_code == status_code, (
+            f"Expected status code {status_code}, but service returned {response.status_code}: {response.text}"
+        )
         if with_field:
             body = response.json()
             field_value = body.get(with_field)
-            assert (
-                field_value is not None and len(field_value) > 0
-            ), f"Expected response body to contain non empty field '{with_field}': {response.text}"
+            assert field_value is not None and len(field_value) > 0, (
+                f"Expected response body to contain non empty field '{with_field}': {response.text}"
+            )
 
     return response_assertion
 
@@ -90,18 +90,18 @@ def assert_model_field_matches(
     """Assert 200 with choices and response model field matching expected_model."""
 
     def response_assertion(response: requests.Response) -> None:
-        assert (
-            response.status_code == 200
-        ), f"Expected 200, got {response.status_code}: {response.text}"
+        assert response.status_code == 200, (
+            f"Expected 200, got {response.status_code}: {response.text}"
+        )
         body = response.json()
         choices = body.get("choices")
-        assert (
-            choices and len(choices) > 0
-        ), f"Expected non-empty choices: {response.text}"
+        assert choices and len(choices) > 0, (
+            f"Expected non-empty choices: {response.text}"
+        )
         got_model = body.get("model", "")
-        assert (
-            got_model == expected_model
-        ), f"Expected model {expected_model!r}, got {got_model!r}"
+        assert got_model == expected_model, (
+            f"Expected model {expected_model!r}, got {got_model!r}"
+        )
 
     return response_assertion
 
@@ -110,17 +110,17 @@ def assert_models_contains(*model_ids: str) -> Callable[[requests.Response], Non
     """Assert 200 with data[] containing entries whose ids match all given model_ids."""
 
     def response_assertion(response: requests.Response) -> None:
-        assert (
-            response.status_code == 200
-        ), f"Expected 200, got {response.status_code}: {response.text}"
+        assert response.status_code == 200, (
+            f"Expected 200, got {response.status_code}: {response.text}"
+        )
         body = response.json()
         data = body.get("data", [])
         assert data, f"Expected non-empty data[], got: {response.text}"
         ids = [m.get("id") for m in data]
         for model_id in model_ids:
-            assert (
-                model_id in ids
-            ), f"Expected model {model_id!r} in data[].id, found: {ids}"
+            assert model_id in ids, (
+                f"Expected model {model_id!r} in data[].id, found: {ids}"
+            )
 
     return response_assertion
 
@@ -853,29 +853,29 @@ def assert_address_origins(
     )
 
     addresses = svc.get("status", {}).get("addresses", [])
-    assert (
-        len(addresses) > 0
-    ), f"Expected at least one address in status, got: {svc.get('status')}"
+    assert len(addresses) > 0, (
+        f"Expected at least one address in status, got: {svc.get('status')}"
+    )
 
     gw_meta = expected_gateway.get("metadata", {}) if expected_gateway else {}
 
     for addr in addresses:
         origin = addr.get("origin")
         assert origin is not None, f"Address {addr.get('url')} is missing origin"
-        assert (
-            origin.get("kind") == "Gateway"
-        ), f"Expected origin kind 'Gateway', got '{origin.get('kind')}' for {addr.get('url')}"
-        assert (
-            origin.get("group") == "gateway.networking.k8s.io"
-        ), f"Expected origin group 'gateway.networking.k8s.io', got '{origin.get('group')}'"
+        assert origin.get("kind") == "Gateway", (
+            f"Expected origin kind 'Gateway', got '{origin.get('kind')}' for {addr.get('url')}"
+        )
+        assert origin.get("group") == "gateway.networking.k8s.io", (
+            f"Expected origin group 'gateway.networking.k8s.io', got '{origin.get('group')}'"
+        )
 
         if gw_meta:
-            assert (
-                origin.get("name") == gw_meta["name"]
-            ), f"Expected origin gateway '{gw_meta['name']}', got '{origin.get('name')}'"
-            assert (
-                origin.get("namespace") == gw_meta["namespace"]
-            ), f"Expected origin namespace '{gw_meta['namespace']}', got '{origin.get('namespace')}'"
+            assert origin.get("name") == gw_meta["name"], (
+                f"Expected origin gateway '{gw_meta['name']}', got '{origin.get('name')}'"
+            )
+            assert origin.get("namespace") == gw_meta["namespace"], (
+                f"Expected origin namespace '{gw_meta['namespace']}', got '{origin.get('namespace')}'"
+            )
 
     logger.info(f"All {len(addresses)} addresses have valid origin references")
 
@@ -900,9 +900,9 @@ def assert_address_models(
     )
 
     addresses = svc.get("status", {}).get("addresses", [])
-    assert (
-        len(addresses) > 0
-    ), f"Expected at least one address in status, got: {svc.get('status')}"
+    assert len(addresses) > 0, (
+        f"Expected at least one address in status, got: {svc.get('status')}"
+    )
 
     namespace = llm_isvc.metadata.namespace
 
@@ -959,9 +959,9 @@ def _wait_for_llmisvc_pods_deleted(
     def assert_no_pods():
         pods = core_v1.list_namespaced_pod(namespace, label_selector=label_selector)
         pod_names = [p.metadata.name for p in pods.items]
-        assert (
-            not pod_names
-        ), f"{len(pod_names)} pod(s) for {service_name} still terminating: {pod_names}"
+        assert not pod_names, (
+            f"{len(pod_names)} pod(s) for {service_name} still terminating: {pod_names}"
+        )
 
     try:
         wait_for(assert_no_pods, timeout=timeout, interval=5.0)
