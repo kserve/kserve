@@ -84,6 +84,7 @@ class V1beta1PredictorSpec(object):
         'overhead': 'dict(str, ResourceQuantity)',
         'paddle': 'V1beta1PaddleServerSpec',
         'pmml': 'V1beta1PMMLSpec',
+        'pod_disruption_budget': 'K8sIoApiPolicyV1PodDisruptionBudgetSpec',
         'preemption_policy': 'str',
         'priority': 'int',
         'priority_class_name': 'str',
@@ -156,6 +157,7 @@ class V1beta1PredictorSpec(object):
         'overhead': 'overhead',
         'paddle': 'paddle',
         'pmml': 'pmml',
+        'pod_disruption_budget': 'podDisruptionBudget',
         'preemption_policy': 'preemptionPolicy',
         'priority': 'priority',
         'priority_class_name': 'priorityClassName',
@@ -190,7 +192,7 @@ class V1beta1PredictorSpec(object):
         'xgboost': 'xgboost'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, annotations=None, auto_scaling=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, deployment_strategy=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, hostname_override=None, huggingface=None, image_pull_secrets=None, init_containers=None, labels=None, lightgbm=None, logger=None, max_replicas=None, min_replicas=None, model=None, node_name=None, node_selector=None, onnx=None, os=None, overhead=None, paddle=None, pmml=None, preemption_policy=None, priority=None, priority_class_name=None, pytorch=None, readiness_gates=None, resource_claims=None, resources=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_metric_type=None, scale_target=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, sklearn=None, storage_container_name=None, storage_uris=None, subdomain=None, tensorflow=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, triton=None, volumes=None, worker_spec=None, xgboost=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, annotations=None, auto_scaling=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, deployment_strategy=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, hostname_override=None, huggingface=None, image_pull_secrets=None, init_containers=None, labels=None, lightgbm=None, logger=None, max_replicas=None, min_replicas=None, model=None, node_name=None, node_selector=None, onnx=None, os=None, overhead=None, paddle=None, pmml=None, pod_disruption_budget=None, preemption_policy=None, priority=None, priority_class_name=None, pytorch=None, readiness_gates=None, resource_claims=None, resources=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_metric_type=None, scale_target=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, sklearn=None, storage_container_name=None, storage_uris=None, subdomain=None, tensorflow=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, triton=None, volumes=None, worker_spec=None, xgboost=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1PredictorSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -233,6 +235,7 @@ class V1beta1PredictorSpec(object):
         self._overhead = None
         self._paddle = None
         self._pmml = None
+        self._pod_disruption_budget = None
         self._preemption_policy = None
         self._priority = None
         self._priority_class_name = None
@@ -341,6 +344,8 @@ class V1beta1PredictorSpec(object):
             self.paddle = paddle
         if pmml is not None:
             self.pmml = pmml
+        if pod_disruption_budget is not None:
+            self.pod_disruption_budget = pod_disruption_budget
         if preemption_policy is not None:
             self.preemption_policy = preemption_policy
         if priority is not None:
@@ -1230,6 +1235,27 @@ class V1beta1PredictorSpec(object):
         """
 
         self._pmml = pmml
+
+    @property
+    def pod_disruption_budget(self):
+        """Gets the pod_disruption_budget of this V1beta1PredictorSpec.  # noqa: E501
+
+
+        :return: The pod_disruption_budget of this V1beta1PredictorSpec.  # noqa: E501
+        :rtype: K8sIoApiPolicyV1PodDisruptionBudgetSpec
+        """
+        return self._pod_disruption_budget
+
+    @pod_disruption_budget.setter
+    def pod_disruption_budget(self, pod_disruption_budget):
+        """Sets the pod_disruption_budget of this V1beta1PredictorSpec.
+
+
+        :param pod_disruption_budget: The pod_disruption_budget of this V1beta1PredictorSpec.  # noqa: E501
+        :type: K8sIoApiPolicyV1PodDisruptionBudgetSpec
+        """
+
+        self._pod_disruption_budget = pod_disruption_budget
 
     @property
     def preemption_policy(self):

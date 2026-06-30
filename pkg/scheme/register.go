@@ -27,6 +27,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	resourcev1 "k8s.io/api/resource/v1"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -64,6 +65,7 @@ func AddCoreKubernetesAPIs(s *runtime.Scheme) error {
 		appsv1.AddToScheme,
 		batchv1.AddToScheme,
 		autoscalingv2.AddToScheme,
+		policyv1.AddToScheme,
 		apiextv1.AddToScheme,
 		netv1.AddToScheme,
 		resourcev1.AddToScheme,
