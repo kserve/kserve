@@ -1862,7 +1862,7 @@ schedulingProfiles:
 
 		// token-producer has UDS config
 		g.Expect(configText).To(ContainSubstring("socketFile"))
-		g.Expect(configText).To(ContainSubstring("modelName"))
+		g.Expect(configText).NotTo(ContainSubstring("modelName"))
 
 		// prefix-cache-scorer references the producer
 		g.Expect(configText).To(ContainSubstring("prefixMatchInfoProducerName: precise-prefix-cache-producer"))
@@ -2168,7 +2168,6 @@ plugins:
 - name: token-producer
   type: token-producer
   parameters:
-    modelName: base
     udsTokenizerConfig:
       socketFile: /tmp/tokenizer/tokenizer-uds.socket
 - name: endpoint-notification-source

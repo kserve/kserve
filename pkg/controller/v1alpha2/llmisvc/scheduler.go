@@ -1463,7 +1463,6 @@ func withSplitPrecisePrefixCacheScorerV09(ctx context.Context, u *unstructured.U
 	tokenProducer := map[string]interface{}{
 		"type": tokenProducerPlugin,
 		"parameters": map[string]interface{}{
-			"modelName": udsTokenizerBaseModelName,
 			"udsTokenizerConfig": map[string]interface{}{
 				"socketFile": udsTokenizerSocketFile,
 			},

@@ -1070,9 +1070,11 @@ schedulingProfiles:
 
 				configText, found := getSchedulerConfigText(expectedDeployment)
 				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
-				g.Expect(configText).To(ContainSubstring("modelName: base"))
+				// After v0.9 split: tokenizersPoolConfig is removed, token-producer uses UDS
 				g.Expect(configText).To(ContainSubstring("socketFile: /tmp/tokenizer/tokenizer-uds.socket"))
-				// Verify tokenProcessorConfig was migrated from indexerConfig to top-level parameters
+				g.Expect(configText).To(ContainSubstring("token-producer"))
+				g.Expect(configText).NotTo(ContainSubstring("tokenizersPoolConfig"))
+				// tokenProcessorConfig should be at producer top-level (promoted from indexerConfig)
 				g.Expect(configText).To(ContainSubstring("tokenProcessorConfig"))
 				g.Expect(configText).To(ContainSubstring("blockSize: 16"))
 				return nil
@@ -1136,11 +1138,13 @@ schedulingProfiles:
 
 				configText, found := getSchedulerConfigText(expectedDeployment)
 				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
-				g.Expect(configText).To(ContainSubstring("modelName: base"))
+				// After v0.9 split: token-producer uses UDS
 				g.Expect(configText).To(ContainSubstring("socketFile: /tmp/tokenizer/tokenizer-uds.socket"))
+				g.Expect(configText).To(ContainSubstring("token-producer"))
 				g.Expect(configText).NotTo(ContainSubstring("wrong-model-name"))
 				g.Expect(configText).NotTo(ContainSubstring("/wrong/path"))
-				// Verify tokenProcessorConfig was migrated from indexerConfig to top-level parameters
+				g.Expect(configText).NotTo(ContainSubstring("tokenizersPoolConfig"))
+				// tokenProcessorConfig at producer top-level
 				g.Expect(configText).To(ContainSubstring("tokenProcessorConfig"))
 				g.Expect(configText).To(ContainSubstring("blockSize: 16"))
 				return nil
