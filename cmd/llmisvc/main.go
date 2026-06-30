@@ -83,7 +83,6 @@ type Options struct {
 	enableLeaderElection  bool
 	probeAddr             string
 	metricsSecure         bool
-	enableHTTP2           bool
 	migrationTimeout      time.Duration
 	migrationPollInterval time.Duration
 	zapOpts               zap.Options
@@ -96,7 +95,6 @@ func DefaultOptions() Options {
 		enableLeaderElection:  false,
 		probeAddr:             ":8081",
 		metricsSecure:         true,
-		enableHTTP2:           false,
 		migrationTimeout:      1 * time.Hour,
 		migrationPollInterval: 30 * time.Second,
 		zapOpts:               zap.Options{},
@@ -113,7 +111,6 @@ func GetOptions() Options {
 			"Enabling this will ensure there is only one active kserve controller manager.")
 	flag.StringVar(&opts.probeAddr, "health-probe-addr", opts.probeAddr, "The address the probe endpoint binds to.")
 	flag.BoolVar(&opts.metricsSecure, "metrics-secure", opts.metricsSecure, "Whether to serve metric via HTTPS.")
-	flag.BoolVar(&opts.enableHTTP2, "enable-http2", false, "If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	flag.DurationVar(&opts.migrationTimeout, "storage-migration-timeout", opts.migrationTimeout, "Total retry budget for storage version migration.")
 	flag.DurationVar(&opts.migrationPollInterval, "storage-migration-poll-interval", opts.migrationPollInterval, "Polling interval for storage version migration retries after initial backoff.")
 	opts.zapOpts.BindFlags(flag.CommandLine)
@@ -153,19 +150,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	// http/2 should be disabled due to its vulnerabilities. More specifically, disabling http/2 will
-	// prevent from being vulnerable to the HTTP/2 Stream Cancellation and
-	// Rapid Reset CVEs. For more information see:
-	// - https://github.com/advisories/GHSA-qppj-fm5r-hxr3
-	// - https://github.com/advisories/GHSA-4374-p667-p6c8
-	disableHTTP2 := func(c *tls.Config) {
-		setupLog.Info("disabling http/2")
-		c.NextProtos = []string{"http/1.1"}
-	}
-
-	var tlsOpts []func(*tls.Config)
-	if !options.enableHTTP2 {
-		tlsOpts = append(tlsOpts, disableHTTP2)
+	tlsOpts := []func(*tls.Config){
+		func(c *tls.Config) {
+			c.NextProtos = []string{"h2", "http/1.1"}
+		},
 	}
 	// Metrics endpoint is enabled in 'config/default/kustomization.yaml'. The Metrics options configure the server.
 	// More info:

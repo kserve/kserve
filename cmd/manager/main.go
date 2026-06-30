@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"flag"
 	"net/http"
 	"os"
@@ -124,12 +125,20 @@ func main() {
 		os.Exit(1)
 	}
 
+	tlsOpts := []func(*tls.Config){
+		func(c *tls.Config) {
+			c.NextProtos = []string{"h2", "http/1.1"}
+		},
+	}
+
 	mgr, err := manager.New(cfg, manager.Options{
 		Metrics: metricsserver.Options{
 			BindAddress: options.metricsAddr,
+			TLSOpts:     tlsOpts,
 		},
 		WebhookServer: webhook.NewServer(webhook.Options{
-			Port: options.webhookPort,
+			Port:    options.webhookPort,
+			TLSOpts: tlsOpts,
 		}),
 		LeaderElection:         options.enableLeaderElection,
 		LeaderElectionID:       LeaderLockName,

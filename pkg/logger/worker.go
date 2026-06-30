@@ -107,6 +107,7 @@ func (w *Worker) sendHttpCloudEvent(logReq LogRequest) error {
 					RootCAs:            clientCertPool,
 					MinVersion:         tls.VersionTLS12,
 					InsecureSkipVerify: logReq.TlsSkipVerify, // #nosec G402
+					NextProtos:         []string{"h2", "http/1.1"},
 				},
 			}
 			t.Client.Transport = tlsTransport

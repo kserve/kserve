@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"os"
 
@@ -92,14 +93,22 @@ func main() {
 		os.Exit(1)
 	}
 
+	tlsOpts := []func(*tls.Config){
+		func(c *tls.Config) {
+			c.NextProtos = []string{"h2", "http/1.1"}
+		},
+	}
+
 	// Create a new Cmd to provide shared dependencies and start components
 	setupLog.Info("Setting up manager")
 	mgr, err := manager.New(cfg, manager.Options{
 		Metrics: metricsserver.Options{
 			BindAddress: options.metricsAddr,
+			TLSOpts:     tlsOpts,
 		},
 		WebhookServer: webhook.NewServer(webhook.Options{
-			Port: options.webhookPort,
+			Port:    options.webhookPort,
+			TLSOpts: tlsOpts,
 		}),
 		LeaderElection:         options.enableLeaderElection,
 		LeaderElectionID:       LeaderLockName,
