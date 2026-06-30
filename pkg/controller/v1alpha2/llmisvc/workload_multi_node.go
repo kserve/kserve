@@ -145,6 +145,11 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 		// When there is no leader template, workers become part of the InferencePool selector.
 		workerLabels[constants.KServeComponentLabelKey] = constants.KServeComponentWorkload
 		workerLabels[constants.LLMDRoleLabelKey] = constants.LLMDRoleDecode
+
+		err := r.propagateInferencePoolRefLabelSelector(ctx, llmSvc, workerLabels)
+		if err != nil {
+			return nil, fmt.Errorf("failed to propagate InferencePool reference labels: %w", err)
+		}
 	}
 	role := constants.LLMDRoleDecode
 	if llmSvc.Spec.Prefill == nil {
@@ -192,6 +197,11 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 	}
 
 	if llmSvc.Spec.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
+		err := r.propagateInferencePoolRefLabelSelector(ctx, llmSvc, leaderLabels)
+		if err != nil {
+			return nil, fmt.Errorf("failed to propagate InferencePool reference labels: %w", err)
+		}
+
 		expected.Spec.LeaderWorkerTemplate.LeaderTemplate = &corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: leaderLabels,
@@ -284,6 +294,11 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 		// When there is no leader template, workers become part of the InferencePool selector.
 		workerLabels[constants.KServeComponentLabelKey] = constants.KServeComponentWorkload
 		workerLabels[constants.LLMDRoleLabelKey] = constants.LLMDRolePrefill
+
+		err := r.propagateInferencePoolRefLabelSelector(ctx, llmSvc, workerLabels)
+		if err != nil {
+			return nil, fmt.Errorf("failed to propagate InferencePool reference labels: %w", err)
+		}
 	}
 	leaderLabels := map[string]string{
 		constants.KubernetesComponentLabelKey: constants.LLMComponentWorkloadLeaderPrefill,
@@ -333,6 +348,11 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 		}
 
 		if llmSvc.Spec.Prefill.Template != nil {
+			err := r.propagateInferencePoolRefLabelSelector(ctx, llmSvc, leaderLabels)
+			if err != nil {
+				return nil, fmt.Errorf("failed to propagate InferencePool reference labels: %w", err)
+			}
+
 			expected.Spec.LeaderWorkerTemplate.LeaderTemplate = &corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: leaderLabels,
