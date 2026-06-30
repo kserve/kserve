@@ -818,6 +818,7 @@ dependencies = [
     { name = "google-cloud-storage" },
     { name = "hf-xet" },
     { name = "huggingface-hub", extra = ["hf-transfer"] },
+    { name = "modelscope-hub" },
     { name = "pyasn1" },
     { name = "pyjwt" },
     { name = "requests" },
@@ -843,11 +844,27 @@ requires-dist = [
     { name = "hf-xet", specifier = ">=1.5.0" },
     { name = "huggingface-hub", extras = ["hf-transfer"], specifier = ">=0.32.0" },
     { name = "jwcrypto", marker = "extra == 'confidential'", specifier = ">=1.5.0" },
+    { name = "modelscope-hub", specifier = ">=0.1.4" },
     { name = "pyasn1", specifier = ">=0.6.3" },
     { name = "pyjwt", specifier = ">=2.12.0" },
     { name = "requests", specifier = ">=2.32.2,<3.0.0" },
 ]
 provides-extras = ["confidential"]
+
+[[package]]
+name = "modelscope-hub"
+version = "0.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "filelock" },
+    { name = "requests" },
+    { name = "tqdm" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/76/9d/3fabfd2b147d94e1980d670fecd3c183999db04a71b80a546bcf37cc6f89/modelscope_hub-0.2.0.tar.gz", hash = "sha256:00288d3e08ad7fadfdd7539f4dffa9d75f9006c43c73abd33ea51767317f001c", size = 163316, upload-time = "2026-08-01T15:00:08.694Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ab/be/3b0e14c296a622c920287fc6d2c1b5a8668c8e0d98662f7b2bd8f3fcc779/modelscope_hub-0.2.0-py3-none-any.whl", hash = "sha256:84668c80c1d36d1fb1ea1ce17b707d77e044b92255288618c3b7de5b13834418", size = 156023, upload-time = "2026-08-01T15:00:07.335Z" },
+]
 
 [[package]]
 name = "msal"

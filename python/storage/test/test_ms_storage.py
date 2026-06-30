@@ -21,7 +21,7 @@ from kserve_storage import Storage
 
 @mock.patch("kserve_storage.kserve_storage.ms_snapshot_download")
 def test_download_model(mock_snapshot_download):
-    uri = "ms://example.com/model:hash_value"
+    uri = "modelscope://example.com/model:hash_value"
     repo = "example.com"
     model = "model"
     revision = "hash_value"
@@ -37,7 +37,7 @@ def test_download_model(mock_snapshot_download):
 
 @mock.patch("kserve_storage.kserve_storage.ms_snapshot_download")
 def test_download_model_with_allow_patterns(mock_snapshot_download):
-    uri = "ms://example.com/model"
+    uri = "modelscope://example.com/model"
 
     Storage._download_ms(uri, "/tmp/out", allow_patterns=["*.safetensors", "*.json"])
 
@@ -51,7 +51,7 @@ def test_download_model_with_allow_patterns(mock_snapshot_download):
 
 @mock.patch("kserve_storage.kserve_storage.ms_snapshot_download")
 def test_download_model_with_ignore_patterns(mock_snapshot_download):
-    uri = "ms://example.com/model"
+    uri = "modelscope://example.com/model"
 
     Storage._download_ms(uri, "/tmp/out", ignore_patterns=["*.bin", "*.gguf"])
 
@@ -65,7 +65,7 @@ def test_download_model_with_ignore_patterns(mock_snapshot_download):
 
 @mock.patch("kserve_storage.kserve_storage.ms_snapshot_download")
 def test_download_model_with_both_patterns(mock_snapshot_download):
-    uri = "ms://example.com/model"
+    uri = "modelscope://example.com/model"
 
     Storage._download_ms(
         uri,
@@ -85,7 +85,7 @@ def test_download_model_with_both_patterns(mock_snapshot_download):
 
 @mock.patch("kserve_storage.kserve_storage.ms_snapshot_download")
 def test_download_model_no_patterns_omits_kwargs(mock_snapshot_download):
-    uri = "ms://example.com/model"
+    uri = "modelscope://example.com/model"
 
     Storage._download_ms(uri, "/tmp/out")
 
@@ -97,12 +97,12 @@ def test_download_model_no_patterns_omits_kwargs(mock_snapshot_download):
 
 
 @mock.patch("kserve_storage.kserve_storage.ms_snapshot_download")
-def test_download_model_uses_modelscope_sdk_token(mock_snapshot_download):
-    uri = "ms://example.com/model"
+def test_download_model_uses_modelscope_api_token(mock_snapshot_download):
+    uri = "modelscope://example.com/model"
 
     with mock.patch.dict(
         os.environ,
-        {"MODELSCOPE_SDK_TOKEN": "sdk-token"},
+        {"MODELSCOPE_API_TOKEN": "api-token"},
         clear=True,
     ):
         Storage._download_ms(uri, "/tmp/out")
@@ -111,13 +111,13 @@ def test_download_model_uses_modelscope_sdk_token(mock_snapshot_download):
         repo_id="example.com/model",
         revision=None,
         local_dir="/tmp/out",
-        token="sdk-token",
+        token="api-token",
     )
 
 
 @mock.patch("kserve_storage.kserve_storage.ms_snapshot_download")
 def test_download_reads_env_patterns(mock_snapshot_download):
-    uri = "ms://example.com/model"
+    uri = "modelscope://example.com/model"
 
     with mock.patch.dict(
         os.environ,
@@ -136,7 +136,7 @@ def test_download_reads_env_patterns(mock_snapshot_download):
 
 @mock.patch("kserve_storage.kserve_storage.ms_snapshot_download")
 def test_explicit_patterns_override_env(mock_snapshot_download):
-    uri = "ms://example.com/model"
+    uri = "modelscope://example.com/model"
 
     with mock.patch.dict(
         os.environ,
@@ -153,16 +153,19 @@ def test_explicit_patterns_override_env(mock_snapshot_download):
     "invalid_uri, error_message",
     [
         (
-            "ms://",
+            "modelscope://",
             "Invalid ModelScope URI format",
         ),  # Missing repo and model
         (
-            "ms://repo_only",
+            "modelscope://repo_only",
             "Invalid ModelScope URI format",
         ),  # Missing model
-        ("ms:///model_only", "repository owner cannot be empty"),  # Missing repo
         (
-            "ms://repo/:hash_value",
+            "modelscope:///model_only",
+            "repository owner cannot be empty",
+        ),  # Missing repo
+        (
+            "modelscope://repo/:hash_value",
             "model name cannot be empty",
         ),  # Missing model name, hash exists
     ],

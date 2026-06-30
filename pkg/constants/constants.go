@@ -201,7 +201,7 @@ var (
 
 const (
 	HfURIPrefix        = "hf://"
-	MsURIPrefix        = "ms://"
+	MsURIPrefix        = "modelscope://"
 	OciURIPrefix       = "oci://"
 	OciNativeURIPrefix = "oci+native://"
 	PvcURIPrefix       = "pvc://"
