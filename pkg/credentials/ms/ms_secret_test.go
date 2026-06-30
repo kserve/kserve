@@ -24,8 +24,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestMSTokenKeyUsesOfficialSDKTokenName(t *testing.T) {
-	assert.Equal(t, "MODELSCOPE_SDK_TOKEN", MSTokenKey)
+func TestMSTokenKeyUsesOfficialTokenName(t *testing.T) {
+	assert.Equal(t, "MODELSCOPE_API_TOKEN", MSTokenKey)
 }
 
 func TestBuildSecretEnvs_WithToken(t *testing.T) {

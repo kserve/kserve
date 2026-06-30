@@ -44,21 +44,13 @@ from kserve_storage.storage_errors import (
 
 # ModelScope imports - module level for testability
 try:
-    from modelscope.hub.snapshot_download import (
+    from modelscope_hub.compat import (
         snapshot_download as ms_snapshot_download,
     )
-    from modelscope.hub.errors import (
-        NotExistError as MsNotExistError,
-        NoValidRevisionError as MsNoValidRevisionError,
-        NotLoginException as MsNotLoginException,
-        RequestError as MsRequestError,
-    )
+    from modelscope_hub.errors import HubError as MsHubError
 except ImportError:
     ms_snapshot_download = None
-    MsNotExistError = None
-    MsNoValidRevisionError = None
-    MsNotLoginException = None
-    MsRequestError = None
+    MsHubError = None
 
 MODEL_MOUNT_DIRS = "/mnt/models"
 
@@ -80,7 +72,7 @@ _HTTP_PREFIX = "http(s)://"
 _HEADERS_SUFFIX = "-headers"
 _PVC_PREFIX = "/mnt/pvc"
 _HF_PREFIX = "hf://"
-_MS_PREFIX = "ms://"
+_MS_PREFIX = "modelscope://"
 _GIT_RE = r"https://.+\.git"
 
 _HDFS_SECRET_DIRECTORY = "/var/secrets/kserve-hdfscreds"
@@ -713,7 +705,7 @@ class Storage(object):
     ) -> str:
         if ms_snapshot_download is None:
             raise RuntimeError(
-                "ModelScope is not installed. Please install it with: pip install modelscope"
+                "ModelScope is not installed. Please install it with: pip install modelscope-hub"
             )
 
         components = uri[len(_MS_PREFIX) :].split("/")
@@ -721,7 +713,7 @@ class Storage(object):
         # Validate that the URI has two parts: repo and model (optional revision)
         if len(components) != 2:
             raise RuntimeError(
-                "Invalid ModelScope URI format. Expected 'ms://owner/model[:revision]', got '%s'"
+                "Invalid ModelScope URI format. Expected 'modelscope://owner/model[:revision]', got '%s'"
                 % uri
             )
 
@@ -749,16 +741,11 @@ class Storage(object):
                 kwargs["allow_patterns"] = allow_patterns
             if ignore_patterns:
                 kwargs["ignore_patterns"] = ignore_patterns
-            token = os.environ.get("MODELSCOPE_SDK_TOKEN")
+            token = os.environ.get("MODELSCOPE_API_TOKEN")
             if token:
                 kwargs["token"] = token
             ms_snapshot_download(**kwargs)
-        except (
-            MsNotExistError,
-            MsNoValidRevisionError,
-            MsNotLoginException,
-            MsRequestError,
-        ) as e:
+        except MsHubError as e:
             raise_storage_error("ModelScope", uri, e, repo_id)
 
         return temp_dir
