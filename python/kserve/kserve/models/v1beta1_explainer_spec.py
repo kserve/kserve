@@ -79,6 +79,7 @@ class V1beta1ExplainerSpec(object):
         'node_selector': 'dict(str, str)',
         'os': 'V1PodOS',
         'overhead': 'dict(str, ResourceQuantity)',
+        'pod_disruption_budget': 'K8sIoApiPolicyV1PodDisruptionBudgetSpec',
         'preemption_policy': 'str',
         'priority': 'int',
         'priority_class_name': 'str',
@@ -139,6 +140,7 @@ class V1beta1ExplainerSpec(object):
         'node_selector': 'nodeSelector',
         'os': 'os',
         'overhead': 'overhead',
+        'pod_disruption_budget': 'podDisruptionBudget',
         'preemption_policy': 'preemptionPolicy',
         'priority': 'priority',
         'priority_class_name': 'priorityClassName',
@@ -166,7 +168,7 @@ class V1beta1ExplainerSpec(object):
         'volumes': 'volumes'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, annotations=None, art=None, auto_scaling=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, deployment_strategy=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, hostname_override=None, image_pull_secrets=None, init_containers=None, labels=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, resources=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_metric_type=None, scale_target=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, storage_uris=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, annotations=None, art=None, auto_scaling=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, deployment_strategy=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, hostname_override=None, image_pull_secrets=None, init_containers=None, labels=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, os=None, overhead=None, pod_disruption_budget=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, resources=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_metric_type=None, scale_target=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, storage_uris=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ExplainerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -204,6 +206,7 @@ class V1beta1ExplainerSpec(object):
         self._node_selector = None
         self._os = None
         self._overhead = None
+        self._pod_disruption_budget = None
         self._preemption_policy = None
         self._priority = None
         self._priority_class_name = None
@@ -295,6 +298,8 @@ class V1beta1ExplainerSpec(object):
             self.os = os
         if overhead is not None:
             self.overhead = overhead
+        if pod_disruption_budget is not None:
+            self.pod_disruption_budget = pod_disruption_budget
         if preemption_policy is not None:
             self.preemption_policy = preemption_policy
         if priority is not None:
@@ -1065,6 +1070,27 @@ class V1beta1ExplainerSpec(object):
         """
 
         self._overhead = overhead
+
+    @property
+    def pod_disruption_budget(self):
+        """Gets the pod_disruption_budget of this V1beta1ExplainerSpec.  # noqa: E501
+
+
+        :return: The pod_disruption_budget of this V1beta1ExplainerSpec.  # noqa: E501
+        :rtype: K8sIoApiPolicyV1PodDisruptionBudgetSpec
+        """
+        return self._pod_disruption_budget
+
+    @pod_disruption_budget.setter
+    def pod_disruption_budget(self, pod_disruption_budget):
+        """Sets the pod_disruption_budget of this V1beta1ExplainerSpec.
+
+
+        :param pod_disruption_budget: The pod_disruption_budget of this V1beta1ExplainerSpec.  # noqa: E501
+        :type: K8sIoApiPolicyV1PodDisruptionBudgetSpec
+        """
+
+        self._pod_disruption_budget = pod_disruption_budget
 
     @property
     def preemption_policy(self):
