@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -58,6 +59,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		deployConfig := &v1beta1.DeployConfig{DefaultDeploymentMode: "Knative"}
 
 		eventBroadcaster := record.NewBroadcaster()
+		eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientset.CoreV1().Events("")})
 		return (&InferenceGraphReconciler{
 			Client:    mgr.GetClient(),
 			Clientset: clientset,
