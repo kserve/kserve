@@ -47,6 +47,11 @@ ISVC_READY_TIMEOUT_S = 900
 # finish.
 ISVC_ANNOTATIONS = {"serving.knative.dev/progress-deadline": "20m"}
 
+# CNCF bare-metal runners route HuggingFace downloads via xet-bridge CDN which
+# returns 403 from outside Azure. Disabling xet forces the standard HTTP download
+# path which works from any network.
+HF_DISABLE_XET = client.V1EnvVar(name="HF_HUB_DISABLE_XET", value="1")
+
 
 @pytest.mark.vllm
 def test_huggingface_vllm_cpu_openai_chat_completions():
@@ -78,6 +83,7 @@ def test_huggingface_vllm_cpu_openai_chat_completions():
                     name="VLLM_ENABLE_V1_MULTIPROCESSING",
                     value="0",
                 ),
+                HF_DISABLE_XET,
             ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "2", "memory": "7Gi"},
@@ -143,6 +149,7 @@ def test_huggingface_vllm_cpu_text_completion_streaming():
                     name="VLLM_ENABLE_V1_MULTIPROCESSING",
                     value="0",
                 ),
+                HF_DISABLE_XET,
             ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "2", "memory": "7Gi"},
@@ -210,6 +217,7 @@ def test_huggingface_vllm_cpu_openai_completions():
                     name="VLLM_ENABLE_V1_MULTIPROCESSING",
                     value="0",
                 ),
+                HF_DISABLE_XET,
             ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "2", "memory": "7Gi"},
@@ -274,6 +282,7 @@ def test_huggingface_vllm_openai_chat_completions_streaming():
                     name="VLLM_ENABLE_V1_MULTIPROCESSING",
                     value="0",
                 ),
+                HF_DISABLE_XET,
             ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "2", "memory": "7Gi"},
@@ -344,6 +353,7 @@ def test_huggingface_vllm_cpu_rerank():
                     name="VLLM_ENABLE_V1_MULTIPROCESSING",
                     value="0",
                 ),
+                HF_DISABLE_XET,
             ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "2", "memory": "6Gi"},
