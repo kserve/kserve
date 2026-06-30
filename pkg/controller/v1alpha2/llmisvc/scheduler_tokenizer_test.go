@@ -99,7 +99,6 @@ func TestAttachStorageInitializer_TargetContainer(t *testing.T) {
 				corev1.PodSpec{}, // empty curr
 				podSpec,
 				testStorageConfig(),
-				nil, // no confidential
 				tc.containerName,
 				tc.modelPath,
 			)
