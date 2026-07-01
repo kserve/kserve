@@ -1589,6 +1589,44 @@ schedulingProfiles:
 			},
 		},
 		{
+			name:    "v0.9.0 disagg config gets params stripped from prefix-cache-scorer",
+			version: "0.9.0",
+			extraArgs: []string{
+				"--total-queued-requests-metric", "vllm:num_requests_waiting",
+				"--total-running-requests-metric", "vllm:num_requests_running",
+				"--kv-cache-usage-percentage-metric", "vllm:kv_cache_usage_perc",
+				"--grpc-port", "9002",
+			},
+			validateConfig: func(g Gomega, configText string) {
+				// v0.7 + v0.8 renames applied
+				g.Expect(configText).To(ContainSubstring("disagg-headers-handler"))
+				g.Expect(configText).NotTo(ContainSubstring("prefill-header-handler"))
+				g.Expect(configText).To(ContainSubstring("core-metrics-extractor"))
+				g.Expect(configText).NotTo(ContainSubstring("model-server-protocol-metrics"))
+
+				// prefix-cache-scorer params stripped (blockSizeTokens removed)
+				g.Expect(configText).NotTo(ContainSubstring("blockSizeTokens"))
+				g.Expect(configText).NotTo(ContainSubstring("hashBlockSize"))
+
+				// No split happened (no precise-prefix-cache-scorer in input)
+				g.Expect(configText).NotTo(ContainSubstring("precise-prefix-cache-producer"))
+				g.Expect(configText).NotTo(ContainSubstring("token-producer"))
+				g.Expect(configText).NotTo(ContainSubstring("endpoint-notification-source"))
+
+				// prefix-cache-scorer plugin itself still exists
+				g.Expect(configText).To(ContainSubstring("prefix-cache-scorer"))
+			},
+			validateArgs: func(g Gomega, args []string) {
+				for _, a := range args {
+					g.Expect(a).NotTo(ContainSubstring("total-queued-requests-metric"))
+					g.Expect(a).NotTo(ContainSubstring("total-running-requests-metric"))
+					g.Expect(a).NotTo(ContainSubstring("kv-cache-usage-percentage-metric"))
+				}
+				g.Expect(args).To(ContainElement("--grpc-port"))
+				g.Expect(args).To(ContainElement("9002"))
+			},
+		},
+		{
 			name:    "old config left untouched for v0.6.0",
 			version: "0.6.0",
 			extraArgs: []string{
@@ -1661,6 +1699,8 @@ schedulingProfiles:
 }
 
 func TestFullMigrationPipelineNonZeroThreshold(t *testing.T) {
+	// This tests a different input config (with threshold:100) so it stays
+	// as its own top-level test but is logically part of the pipeline suite.
 	oldConfigYAML := `apiVersion: inference.networking.x-k8s.io/v1alpha1
 kind: EndpointPickerConfig
 plugins:
@@ -1737,6 +1777,468 @@ schedulingProfiles:
 
 	// Decider ordering invariant
 	validateDeciderOrderFromYAML(g, configText)
+}
+
+// TestPrecisePrefixCacheMigrationV09 is the unified test suite for all v0.9
+// precise-prefix-cache migration scenarios. It covers the split migration,
+// schema validation, orphan removal, idempotency, and edge cases.
+func TestPrecisePrefixCacheMigrationV09(t *testing.T) {
+	// Shared RHOAI-style old config used by multiple subtests
+	oldConfigYAML := `apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+- type: precise-prefix-cache-scorer
+  parameters:
+    indexerConfig:
+      tokenProcessorConfig:
+        blockSize: 64
+        hashSeed: "42"
+      kvBlockIndexConfig:
+        enableMetrics: true
+      tokenizersPoolConfig:
+        modelName: base
+        uds:
+          socketFile: /tmp/tokenizer/tokenizer-uds.socket
+    kvEventsConfig:
+      topicFilter: kv
+      zmqEndpoint: tcp://*:5557
+- type: max-score-picker
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: precise-prefix-cache-scorer
+    weight: 3
+  - pluginRef: max-score-picker
+`
+
+	// Helper: build a v0.9 deployment from config YAML with optional tokenizer sidecar
+	makeDeployment := func(configYAML string, withTokenizer bool) *appsv1.Deployment {
+		containers := []corev1.Container{
+			{Name: "main", Args: []string{"--config-text", configYAML}},
+		}
+		if withTokenizer {
+			containers = append(containers, corev1.Container{Name: "tokenizer"})
+		}
+		return &appsv1.Deployment{
+			Spec: appsv1.DeploymentSpec{
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"app.kubernetes.io/version": "0.9.0",
+						},
+					},
+					Spec: corev1.PodSpec{Containers: containers},
+				},
+			},
+		}
+	}
+
+	// Helper: run the full production pipeline (Stage 1 + Stage 2)
+	runFullPipeline := func(g Gomega, d *appsv1.Deployment) string {
+		ctx := context.Background()
+		g.Expect(mutateSchedulerConfig(ctx, d,
+			WithUdsTokenizerConfig,
+			WithMigrateTokenProcessorConfig,
+			WithMigrateBlockSizeToBlockSizeTokens,
+		)).To(Succeed())
+		g.Expect(schedulerTransform(ctx, d)).To(Succeed())
+		return d.Spec.Template.Spec.Containers[0].Args[1]
+	}
+
+	t.Run("split_migration/full_pipeline_converts_old_config", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		d := makeDeployment(oldConfigYAML, true)
+		configText := runFullPipeline(g, d)
+
+		// Deprecated plugin replaced
+		g.Expect(configText).NotTo(ContainSubstring("precise-prefix-cache-scorer"))
+
+		// New split plugins present
+		g.Expect(configText).To(ContainSubstring("precise-prefix-cache-producer"))
+		g.Expect(configText).To(ContainSubstring("prefix-cache-scorer"))
+		g.Expect(configText).To(ContainSubstring("token-producer"))
+		g.Expect(configText).To(ContainSubstring("endpoint-notification-source"))
+
+		// token-producer has UDS config
+		g.Expect(configText).To(ContainSubstring("socketFile"))
+		g.Expect(configText).NotTo(ContainSubstring("modelName"))
+
+		// prefix-cache-scorer references the producer
+		g.Expect(configText).To(ContainSubstring("prefixMatchInfoProducerName: precise-prefix-cache-producer"))
+
+		// tokenProcessorConfig at top level of producer params
+		g.Expect(configText).To(ContainSubstring("tokenProcessorConfig"))
+		g.Expect(configText).To(ContainSubstring("blockSize"))
+		g.Expect(configText).To(ContainSubstring("hashSeed"))
+
+		// tokenizersPoolConfig removed from indexerConfig
+		g.Expect(configText).NotTo(ContainSubstring("tokenizersPoolConfig"))
+
+		// kvEventsConfig preserved
+		g.Expect(configText).To(ContainSubstring("kvEventsConfig"))
+		g.Expect(configText).To(ContainSubstring("topicFilter"))
+
+		// dataLayer wired
+		g.Expect(configText).To(ContainSubstring("dataLayer"))
+
+		// schedulingProfiles updated
+		g.Expect(configText).To(ContainSubstring("pluginRef: prefix-cache-scorer"))
+
+		// apiVersion updated
+		g.Expect(configText).To(ContainSubstring("llm-d.ai/v1alpha1"))
+
+		// tokenizer sidecar kept (token-producer uses UDS)
+		hasTokenizer := false
+		for _, c := range d.Spec.Template.Spec.Containers {
+			if c.Name == "tokenizer" {
+				hasTokenizer = true
+			}
+		}
+		g.Expect(hasTokenizer).To(BeTrue(), "tokenizer sidecar should be kept for UDS token-producer")
+	})
+
+	t.Run("split_migration/no_op_when_precise_prefix_not_present", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+
+		basicConfig := `apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+- type: queue-scorer
+- type: prefix-cache-scorer
+- type: max-score-picker
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: queue-scorer
+    weight: 2
+  - pluginRef: prefix-cache-scorer
+    weight: 3
+  - pluginRef: max-score-picker
+`
+		d := makeDeployment(basicConfig, true)
+		ctx := context.Background()
+		g.Expect(schedulerTransform(ctx, d)).To(Succeed())
+
+		configText := d.Spec.Template.Spec.Containers[0].Args[1]
+
+		// No split happened
+		g.Expect(configText).NotTo(ContainSubstring("precise-prefix-cache-producer"))
+		g.Expect(configText).NotTo(ContainSubstring("token-producer"))
+
+		// Tokenizer sidecar removed (no UDS plugins)
+		hasTokenizer := false
+		for _, c := range d.Spec.Template.Spec.Containers {
+			if c.Name == "tokenizer" {
+				hasTokenizer = true
+			}
+		}
+		g.Expect(hasTokenizer).To(BeFalse(), "tokenizer sidecar should be removed when no UDS plugins exist")
+	})
+
+	t.Run("schema_validation/output_matches_v09_strict_decoder", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+
+		schemaTestConfig := `apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+- type: precise-prefix-cache-scorer
+  parameters:
+    indexerConfig:
+      tokenProcessorConfig:
+        blockSize: 64
+        hashSeed: "42"
+      kvBlockIndexConfig:
+        enableMetrics: true
+        metricsLoggingInterval: 60000000000
+      tokenizersPoolConfig:
+        modelName: base
+        uds:
+          socketFile: /tmp/tokenizer/tokenizer-uds.socket
+    kvEventsConfig:
+      topicFilter: kv
+      zmqEndpoint: tcp://*:5557
+- type: max-score-picker
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: precise-prefix-cache-scorer
+    weight: 3
+  - pluginRef: max-score-picker
+`
+		d := makeDeployment(schemaTestConfig, true)
+		configText := runFullPipeline(g, d)
+
+		u := unstructured.Unstructured{}
+		g.Expect(yaml.Unmarshal([]byte(configText), &u)).To(Succeed())
+
+		plugins, found, _ := unstructured.NestedSlice(u.Object, "plugins")
+		g.Expect(found).To(BeTrue(), "plugins must exist in output")
+
+		validIndexerFields := map[string]bool{
+			"kvBlockIndexConfig":    true,
+			"kvCacheBackendConfigs": true,
+			"tokenizersPoolConfig":  true,
+		}
+		validProducerParams := map[string]bool{
+			"tokenProcessorConfig": true,
+			"indexerConfig":        true,
+			"kvEventsConfig":       true,
+			"speculativeIndexing":  true,
+			"speculativeTTL":       true,
+		}
+		validTokenProducerParams := map[string]bool{
+			"modelName":          true,
+			"vllm":               true,
+			"udsTokenizerConfig": true,
+			"estimate":           true,
+		}
+
+		for _, p := range plugins {
+			pm, ok := p.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			pluginType, _ := pm["type"].(string)
+			params, _ := pm["parameters"].(map[string]interface{})
+
+			switch pluginType {
+			case "precise-prefix-cache-producer":
+				for key := range params {
+					g.Expect(validProducerParams).To(HaveKey(key),
+						"producer parameter %q would be rejected by v0.9 strict decoder", key)
+				}
+				ic, _ := params["indexerConfig"].(map[string]interface{})
+				for key := range ic {
+					g.Expect(validIndexerFields).To(HaveKey(key),
+						"indexerConfig field %q would be rejected by v0.9 strict decoder", key)
+				}
+				_, found, _ := unstructured.NestedFieldNoCopy(pm, "parameters", "indexerConfig", "tokenProcessorConfig")
+				g.Expect(found).To(BeFalse(), "tokenProcessorConfig inside indexerConfig would crash v0.9")
+				_, found, _ = unstructured.NestedFieldNoCopy(pm, "parameters", "indexerConfig", "tokenizersPoolConfig")
+				g.Expect(found).To(BeFalse(), "tokenizersPoolConfig inside indexerConfig would be rejected at v0.9")
+				_, found, _ = unstructured.NestedFieldNoCopy(pm, "parameters", "tokenProcessorConfig")
+				g.Expect(found).To(BeTrue(), "tokenProcessorConfig must be at top level")
+
+			case "token-producer":
+				for key := range params {
+					g.Expect(validTokenProducerParams).To(HaveKey(key),
+						"token-producer parameter %q would be rejected by v0.9 strict decoder", key)
+				}
+				_, hasUDS := params["udsTokenizerConfig"]
+				g.Expect(hasUDS).To(BeTrue(), "token-producer must have udsTokenizerConfig")
+
+			case "prefix-cache-scorer":
+				for key := range params {
+					g.Expect(key).To(Equal("prefixMatchInfoProducerName"),
+						"prefix-cache-scorer should only have prefixMatchInfoProducerName at v0.9, got %q", key)
+				}
+
+			case "precise-prefix-cache-scorer":
+				t.Fatal("deprecated precise-prefix-cache-scorer must not exist in v0.9 output")
+			}
+		}
+
+		dl, found, _ := unstructured.NestedFieldNoCopy(u.Object, "dataLayer")
+		g.Expect(found).To(BeTrue(), "dataLayer must be present")
+		dlMap, ok := dl.(map[string]interface{})
+		g.Expect(ok).To(BeTrue())
+		sources, ok := dlMap["sources"].([]interface{})
+		g.Expect(ok).To(BeTrue())
+		g.Expect(sources).ToNot(BeEmpty())
+	})
+
+	t.Run("orphan_removal/promote_only_does_not_delete_from_indexerConfig", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+
+		configYAML := `apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: precise-prefix-cache-scorer
+  parameters:
+    indexerConfig:
+      tokenProcessorConfig:
+        blockSize: 64
+        hashSeed: "42"
+      kvBlockIndexConfig:
+        enableMetrics: true
+    kvEventsConfig:
+      topicFilter: kv
+`
+		d := &appsv1.Deployment{
+			Spec: appsv1.DeploymentSpec{
+				Template: corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{Name: "main", Args: []string{"--config-text", configYAML}},
+						},
+					},
+				},
+			},
+		}
+
+		ctx := context.Background()
+		// WithMigrateTokenProcessorConfig only promotes — does NOT delete from indexerConfig.
+		// Deletion is handled by withSplitPrecisePrefixCacheScorerV09 (v0.9-gated).
+		g.Expect(mutateSchedulerConfig(ctx, d, WithMigrateTokenProcessorConfig)).To(Succeed())
+
+		configText := d.Spec.Template.Spec.Containers[0].Args[1]
+
+		u := unstructured.Unstructured{}
+		g.Expect(yaml.Unmarshal([]byte(configText), &u)).To(Succeed())
+
+		plugins, _, _ := unstructured.NestedSlice(u.Object, "plugins")
+		for _, p := range plugins {
+			pm, ok := p.(map[string]interface{})
+			if !ok || pm["type"] != "precise-prefix-cache-scorer" {
+				continue
+			}
+			// Field remains in indexerConfig (valid for v0.7/v0.8 kvcache.Config)
+			_, found, _ := unstructured.NestedFieldNoCopy(pm, "parameters", "indexerConfig", "tokenProcessorConfig")
+			g.Expect(found).To(BeTrue(), "tokenProcessorConfig should remain in indexerConfig for v0.7/v0.8 compat")
+
+			// Field is also promoted to top level
+			_, found, _ = unstructured.NestedFieldNoCopy(pm, "parameters", "tokenProcessorConfig")
+			g.Expect(found).To(BeTrue(), "tokenProcessorConfig should exist at top level after promotion")
+		}
+	})
+
+	t.Run("orphan_removal/v09_split_removes_from_indexerConfig", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+
+		configYAML := `apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: precise-prefix-cache-scorer
+  parameters:
+    indexerConfig:
+      tokenProcessorConfig:
+        blockSize: 64
+        hashSeed: "42"
+      kvBlockIndexConfig:
+        enableMetrics: true
+    kvEventsConfig:
+      topicFilter: kv
+`
+		d := &appsv1.Deployment{
+			Spec: appsv1.DeploymentSpec{
+				Template: corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{Name: "main", Args: []string{"--config-text", configYAML}},
+						},
+					},
+				},
+			},
+		}
+
+		ctx := context.Background()
+		// Full v0.9 pipeline: promote then split (which removes orphan)
+		g.Expect(mutateSchedulerConfig(ctx, d, WithMigrateTokenProcessorConfig, withSplitPrecisePrefixCacheScorerV09)).To(Succeed())
+
+		configText := d.Spec.Template.Spec.Containers[0].Args[1]
+
+		u := unstructured.Unstructured{}
+		g.Expect(yaml.Unmarshal([]byte(configText), &u)).To(Succeed())
+
+		// After split, precise-prefix-cache-producer gets indexerConfig without tokenProcessorConfig
+		plugins, _, _ := unstructured.NestedSlice(u.Object, "plugins")
+		for _, p := range plugins {
+			pm, ok := p.(map[string]interface{})
+			if !ok || pm["type"] != "precise-prefix-cache-producer" {
+				continue
+			}
+			_, found, _ := unstructured.NestedFieldNoCopy(pm, "parameters", "indexerConfig", "tokenProcessorConfig")
+			g.Expect(found).To(BeFalse(), "tokenProcessorConfig must be removed from indexerConfig in v0.9 split")
+
+			_, found, _ = unstructured.NestedFieldNoCopy(pm, "parameters", "tokenProcessorConfig")
+			g.Expect(found).To(BeTrue(), "tokenProcessorConfig should exist at producer top level")
+		}
+	})
+
+	t.Run("idempotency/already_migrated_config_unchanged", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+
+		migratedConfigYAML := `apiVersion: llm-d.ai/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+- name: token-producer
+  type: token-producer
+  parameters:
+    udsTokenizerConfig:
+      socketFile: /tmp/tokenizer/tokenizer-uds.socket
+- name: endpoint-notification-source
+  type: endpoint-notification-source
+- name: precise-prefix-cache-producer
+  type: precise-prefix-cache-producer
+  parameters:
+    tokenProcessorConfig:
+      blockSize: 64
+      hashSeed: "42"
+    indexerConfig:
+      kvBlockIndexConfig:
+        enableMetrics: true
+    kvEventsConfig:
+      topicFilter: kv
+      zmqEndpoint: tcp://*:5557
+- name: prefix-cache-scorer
+  type: prefix-cache-scorer
+  parameters:
+    prefixMatchInfoProducerName: precise-prefix-cache-producer
+- type: max-score-picker
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: prefix-cache-scorer
+    weight: 3
+  - pluginRef: max-score-picker
+dataLayer:
+  sources:
+  - pluginRef: endpoint-notification-source
+    extractors:
+    - pluginRef: precise-prefix-cache-producer
+`
+		d := makeDeployment(migratedConfigYAML, true)
+		resultConfig := runFullPipeline(g, d)
+
+		// Critical: no duplicates or breakage introduced
+		g.Expect(resultConfig).To(ContainSubstring("precise-prefix-cache-producer"))
+		g.Expect(resultConfig).To(ContainSubstring("token-producer"))
+		g.Expect(resultConfig).To(ContainSubstring("prefix-cache-scorer"))
+		g.Expect(resultConfig).To(ContainSubstring("endpoint-notification-source"))
+		g.Expect(resultConfig).To(ContainSubstring("prefixMatchInfoProducerName: precise-prefix-cache-producer"))
+		g.Expect(resultConfig).NotTo(ContainSubstring("precise-prefix-cache-scorer"))
+
+		// Structural validation
+		result := unstructured.Unstructured{}
+		g.Expect(yaml.Unmarshal([]byte(resultConfig), &result)).To(Succeed())
+
+		plugins, _, _ := unstructured.NestedSlice(result.Object, "plugins")
+		for _, p := range plugins {
+			pm, ok := p.(map[string]interface{})
+			if !ok || pm["type"] != "precise-prefix-cache-producer" {
+				continue
+			}
+			_, found, _ := unstructured.NestedFieldNoCopy(pm, "parameters", "indexerConfig", "tokenProcessorConfig")
+			g.Expect(found).To(BeFalse(), "tokenProcessorConfig must not appear inside indexerConfig after re-run")
+			_, found, _ = unstructured.NestedFieldNoCopy(pm, "parameters", "tokenProcessorConfig")
+			g.Expect(found).To(BeTrue(), "tokenProcessorConfig must remain at top level")
+		}
+
+		// Tokenizer sidecar preserved
+		hasTokenizer := false
+		for _, c := range d.Spec.Template.Spec.Containers {
+			if c.Name == "tokenizer" {
+				hasTokenizer = true
+			}
+		}
+		g.Expect(hasTokenizer).To(BeTrue(), "tokenizer sidecar must be kept on re-run")
+
+		g.Expect(resultConfig).To(ContainSubstring("llm-d.ai/v1alpha1"))
+	})
 }
 
 func TestExtractDeprecatedMetricFlags(t *testing.T) {

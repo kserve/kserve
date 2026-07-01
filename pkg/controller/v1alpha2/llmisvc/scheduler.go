@@ -56,7 +56,10 @@ const (
 	tokenizerContainerName = "tokenizer"
 
 	precisePrefixCacheScorerPlugin    = "precise-prefix-cache-scorer"
+	precisePrefixCacheProducerPlugin  = "precise-prefix-cache-producer"
 	prefixCacheScorerPlugin           = "prefix-cache-scorer"
+	tokenProducerPlugin               = "token-producer"
+	endpointNotificationSourcePlugin  = "endpoint-notification-source"
 	loraAffinityScorerPlugin          = "lora-affinity-scorer"
 	coreMetricsExtractorPlugin        = "model-server-protocol-metrics"
 	coreMetricsExtractorPluginRenamed = "core-metrics-extractor"
@@ -859,6 +862,10 @@ func WithUdsTokenizerConfig(_ context.Context, u *unstructured.Unstructured) err
 // precise-prefix-cache-scorer plugin. This handles the schema change in
 // llm-d-router v0.6.0 where tokenProcessorConfig was promoted
 // from indexerConfig to a top-level plugin parameter.
+//
+// The field is NOT removed from indexerConfig here because v0.7/v0.8
+// kvcache.Config still defines it. Removal is handled by
+// withSplitPrecisePrefixCacheScorerV09 which is gated on v0.9+.
 func WithMigrateTokenProcessorConfig(ctx context.Context, u *unstructured.Unstructured) error {
 	val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
 	if err != nil || !found {
@@ -875,26 +882,21 @@ func WithMigrateTokenProcessorConfig(ctx context.Context, u *unstructured.Unstru
 			continue
 		}
 
-		// Skip if tokenProcessorConfig already exists at the top level
-		if _, exists, _ := unstructured.NestedFieldNoCopy(pluginMap, "parameters", "tokenProcessorConfig"); exists {
-			log.FromContext(ctx).V(2).Info("tokenProcessorConfig already at top-level parameters, skipping migration")
-			continue
-		}
-
 		// Check if tokenProcessorConfig exists inside indexerConfig (old location)
 		tpc, found, err := unstructured.NestedFieldCopy(pluginMap, "parameters", "indexerConfig", "tokenProcessorConfig")
 		if err != nil {
 			log.FromContext(ctx).Error(err, "Failed to read tokenProcessorConfig from indexerConfig")
 			continue
 		}
-		if !found {
-			continue
-		}
 
-		log.FromContext(ctx).Info("Migrating tokenProcessorConfig from indexerConfig to top-level plugin parameters")
-		// Move to top-level parameters
-		if err := unstructured.SetNestedField(pluginMap, tpc, "parameters", "tokenProcessorConfig"); err != nil {
-			return err
+		if found {
+			// Promote to top-level parameters if not already present
+			if _, exists, _ := unstructured.NestedFieldNoCopy(pluginMap, "parameters", "tokenProcessorConfig"); !exists {
+				log.FromContext(ctx).Info("Migrating tokenProcessorConfig from indexerConfig to top-level plugin parameters")
+				if err := unstructured.SetNestedField(pluginMap, tpc, "parameters", "tokenProcessorConfig"); err != nil {
+					return err
+				}
+			}
 		}
 	}
 
@@ -1314,7 +1316,13 @@ func schedulerTransform(ctx context.Context, d *appsv1.Deployment) error {
 		opts = append(opts, withMigrateCoreMetricsExtractor)
 	}
 	if v.Compare(*semver.New("0.9.0")) >= 0 {
+		opts = append(opts, withSplitPrecisePrefixCacheScorerV09)
 		opts = append(opts, withRemovePrefixCacheScorerParametersV09)
+		// Last within the v0.9 gate: remove the tokenizer sidecar if no plugin
+		// needs it. Only relevant after the split migration creates token-producer.
+		// For v0.7/v0.8, the monolithic precise-prefix-cache-scorer always needs
+		// the sidecar, so running this earlier would be a no-op but risks
+		// unnecessary deployment mutations on reconciliation.
 		opts = append(opts, withRemoveUnnecessaryTokenizer(d))
 	}
 
@@ -1378,6 +1386,180 @@ func withRemovePrefixCacheScorerParametersV09(ctx context.Context, u *unstructur
 	return nil
 }
 
+// withSplitPrecisePrefixCacheScorerV09 converts the deprecated
+// precise-prefix-cache-scorer plugin into the new split architecture:
+//   - token-producer (UDS backend for tokenization via sidecar)
+//   - precise-prefix-cache-producer (indexing + KV events)
+//   - prefix-cache-scorer (scoring using producer data)
+//   - endpoint-notification-source (per-pod ZMQ subscriber lifecycle)
+//
+// It also wires the dataLayer section and updates schedulingProfiles.
+func withSplitPrecisePrefixCacheScorerV09(ctx context.Context, u *unstructured.Unstructured) error {
+	val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
+	if err != nil || !found {
+		return err
+	}
+	plugins, ok := val.([]interface{})
+	if !ok {
+		return nil
+	}
+
+	// Find the deprecated precise-prefix-cache-scorer plugin
+	scorerIdx := -1
+	var scorerParams map[string]interface{}
+	for i, plugin := range plugins {
+		pluginMap, ok := plugin.(map[string]interface{})
+		if !ok || pluginMap["type"] != precisePrefixCacheScorerPlugin {
+			continue
+		}
+		scorerIdx = i
+		if params, ok := pluginMap["parameters"].(map[string]interface{}); ok {
+			scorerParams = params
+		}
+		break
+	}
+
+	if scorerIdx < 0 {
+		return nil
+	}
+
+	log.FromContext(ctx).Info("Splitting deprecated precise-prefix-cache-scorer into producer + scorer + token-producer")
+
+	// Build precise-prefix-cache-producer parameters from the old scorer parameters.
+	producerParams := map[string]interface{}{}
+	if scorerParams != nil {
+		if tpc, ok := scorerParams["tokenProcessorConfig"]; ok {
+			producerParams["tokenProcessorConfig"] = tpc
+		}
+		if ic, ok := scorerParams["indexerConfig"]; ok {
+			icMap, _ := ic.(map[string]interface{})
+			if icMap != nil {
+				// Remove tokenizersPoolConfig — tokenization is now external via token-producer
+				delete(icMap, "tokenizersPoolConfig")
+				// Remove tokenProcessorConfig from indexerConfig — kvcache.Config no longer
+				// has this field. Normally removed by WithMigrateTokenProcessorConfig (Stage 1),
+				// but that stage is gated behind isUsingTokenizerSidecar.
+				if _, hasTP := icMap["tokenProcessorConfig"]; hasTP {
+					if _, topExists := scorerParams["tokenProcessorConfig"]; !topExists {
+						producerParams["tokenProcessorConfig"] = icMap["tokenProcessorConfig"]
+					}
+					delete(icMap, "tokenProcessorConfig")
+				}
+			}
+			producerParams["indexerConfig"] = ic
+		}
+		if kv, ok := scorerParams["kvEventsConfig"]; ok {
+			producerParams["kvEventsConfig"] = kv
+		}
+		if si, ok := scorerParams["speculativeIndexing"]; ok {
+			producerParams["speculativeIndexing"] = si
+		}
+		if st, ok := scorerParams["speculativeTTL"]; ok {
+			producerParams["speculativeTTL"] = st
+		}
+	}
+
+	// Build new plugins to replace the deprecated scorer
+	tokenProducer := map[string]interface{}{
+		"type": tokenProducerPlugin,
+		"parameters": map[string]interface{}{
+			"udsTokenizerConfig": map[string]interface{}{
+				"socketFile": udsTokenizerSocketFile,
+			},
+		},
+	}
+
+	producer := map[string]interface{}{
+		"type": precisePrefixCacheProducerPlugin,
+	}
+	if len(producerParams) > 0 {
+		producer["parameters"] = producerParams
+	}
+
+	scorer := map[string]interface{}{
+		"type": prefixCacheScorerPlugin,
+		"parameters": map[string]interface{}{
+			"prefixMatchInfoProducerName": precisePrefixCacheProducerPlugin,
+		},
+	}
+
+	notificationSource := map[string]interface{}{
+		"type": endpointNotificationSourcePlugin,
+	}
+
+	// Replace the deprecated plugin with the new set.
+	// Insert token-producer and endpoint-notification-source before the producer+scorer.
+	newPlugins := make([]interface{}, 0, len(plugins)+3)
+	for i, p := range plugins {
+		if i == scorerIdx {
+			newPlugins = append(newPlugins, tokenProducer, notificationSource, producer, scorer)
+			continue
+		}
+		newPlugins = append(newPlugins, p)
+	}
+
+	if err := unstructured.SetNestedSlice(u.Object, newPlugins, "plugins"); err != nil {
+		return err
+	}
+
+	// Update schedulingProfiles to reference prefix-cache-scorer instead of precise-prefix-cache-scorer
+	profiles, found, _ := unstructured.NestedFieldNoCopy(u.Object, "schedulingProfiles")
+	if found {
+		profileList, ok := profiles.([]interface{})
+		if ok {
+			for _, profile := range profileList {
+				profileMap, ok := profile.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				profilePlugins, ok := profileMap["plugins"].([]interface{})
+				if !ok {
+					continue
+				}
+				for _, pp := range profilePlugins {
+					ppMap, ok := pp.(map[string]interface{})
+					if !ok {
+						continue
+					}
+					if ppMap["pluginRef"] == precisePrefixCacheScorerPlugin {
+						ppMap["pluginRef"] = prefixCacheScorerPlugin
+					}
+				}
+			}
+		}
+	}
+
+	// Wire the dataLayer section for endpoint-notification-source → precise-prefix-cache-producer
+	dataLayer, _, _ := unstructured.NestedFieldNoCopy(u.Object, "dataLayer")
+	dlMap, _ := dataLayer.(map[string]interface{})
+	if dlMap == nil {
+		dlMap = map[string]interface{}{}
+	}
+
+	sources, _ := dlMap["sources"].([]interface{})
+
+	// Add endpoint-notification-source with precise-prefix-cache-producer as extractor
+	notifSource := map[string]interface{}{
+		"pluginRef": endpointNotificationSourcePlugin,
+		"extractors": []interface{}{
+			map[string]interface{}{
+				"pluginRef": precisePrefixCacheProducerPlugin,
+			},
+		},
+	}
+	sources = append(sources, notifSource)
+	dlMap["sources"] = sources
+
+	if err := unstructured.SetNestedField(u.Object, dlMap, "dataLayer"); err != nil {
+		return err
+	}
+
+	// Update apiVersion to llm-d.ai/v1alpha1
+	u.Object["apiVersion"] = "llm-d.ai/v1alpha1"
+
+	return nil
+}
+
 func withRemoveUnnecessaryTokenizer(d *appsv1.Deployment) mutateSchedulerConfigFunc {
 	return func(ctx context.Context, u *unstructured.Unstructured) error {
 		val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
@@ -1389,15 +1571,27 @@ func withRemoveUnnecessaryTokenizer(d *appsv1.Deployment) mutateSchedulerConfigF
 			return nil
 		}
 
-		hasPrecisePrefix := false
+		needsTokenizer := false
 		for _, plugin := range plugins {
 			pluginMap, ok := plugin.(map[string]interface{})
-			if ok && pluginMap["type"] == precisePrefixCacheScorerPlugin {
-				hasPrecisePrefix = true
+			if !ok {
+				continue
+			}
+			pluginType, _ := pluginMap["type"].(string)
+			switch pluginType {
+			case precisePrefixCacheScorerPlugin:
+				needsTokenizer = true
+			case tokenProducerPlugin:
+				// token-producer with UDS backend requires the tokenizer sidecar
+				if _, hasUDS, _ := unstructured.NestedFieldNoCopy(pluginMap, "parameters", "udsTokenizerConfig"); hasUDS {
+					needsTokenizer = true
+				}
+			}
+			if needsTokenizer {
 				break
 			}
 		}
-		if !hasPrecisePrefix {
+		if !needsTokenizer {
 			for i := range d.Spec.Template.Spec.Containers {
 				if d.Spec.Template.Spec.Containers[i].Name == tokenizerContainerName {
 					d.Spec.Template.Spec.Containers = append(d.Spec.Template.Spec.Containers[:i], d.Spec.Template.Spec.Containers[i+1:]...)

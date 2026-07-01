@@ -570,6 +570,27 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 pytest.mark.llmd_simulator,
             ],
         ),
+        # Reproducer: tokenProcessorConfig nested inside indexerConfig (Jenkins
+        # AMD/ROCm failure). Verifies migration promotes the field, removes the
+        # orphan, splits to v0.9 architecture, and scheduler boots without
+        # "json: unknown field" crash.
+        pytest.param(
+            TestCase(
+                base_refs=[
+                    "router-managed",
+                    "scheduler-precise-prefix-tokenprocessor-in-indexer",
+                    "workload-llmd-simulator-kvcache",
+                ],
+                prompt="KServe is a",
+                service_name="precise-prefix-orphan-migration-test",
+                response_assertion=assert_200_with_choices,
+            ),
+            marks=[
+                pytest.mark.cluster_cpu,
+                pytest.mark.cluster_single_node,
+                pytest.mark.llmd_simulator,
+            ],
+        ),
         # Models endpoint coverage
         pytest.param(
             TestCase(
