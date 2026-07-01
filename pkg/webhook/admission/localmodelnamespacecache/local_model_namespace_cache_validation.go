@@ -33,6 +33,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/localmodelcache"
 )
 
 // logger for the validation webhook.
@@ -124,12 +125,13 @@ func (v *LocalModelNamespaceCacheValidator) ValidateDelete(ctx context.Context, 
 			localModelNamespaceCacheValidatorLogger.Error(err, "Error getting LLMInferenceService", "name", llmIsvcMeta.Name, "namespace", llmIsvcMeta.Namespace)
 			return nil, err
 		}
-		modelName, ok := llmIsvc.Labels[constants.LocalModelLabel]
-		if !ok {
-			continue
-		}
-		modelNamespace := llmIsvc.Labels[constants.LocalModelNamespaceLabel]
-		if modelName == localModelNamespaceCache.Name && modelNamespace == localModelNamespaceCache.Namespace {
+		if localmodelcache.LLMISVCReferencesNamespaceCache(
+			localModelNamespaceCache.Name,
+			localModelNamespaceCache.Namespace,
+			llmIsvc.Namespace,
+			llmIsvc.Labels,
+			llmIsvc.Annotations,
+		) {
 			return admission.Warnings{}, fmt.Errorf("LocalModelNamespaceCache %s/%s is being used by LLMInferenceService %s/%s",
 				localModelNamespaceCache.Namespace, localModelNamespaceCache.Name, llmIsvcMeta.Namespace, llmIsvcMeta.Name)
 		}

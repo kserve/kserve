@@ -29,11 +29,11 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/credentials/s3"
+	"github.com/kserve/kserve/pkg/localmodelcache"
 	kserveTypes "github.com/kserve/kserve/pkg/types"
 	"github.com/kserve/kserve/pkg/utils"
 )
@@ -110,18 +110,19 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 		if !ok {
 			return fmt.Errorf("LLMInferenceService %s/%s: annotation %s not found", llmSvc.Namespace, llmSvc.Name, constants.LocalModelPVCNameAnnotationKey)
 		}
-		subPath, _ := strings.CutPrefix(modelUri, sourceUri)
-		if !strings.HasPrefix(subPath, "/") {
-			subPath = "/" + subPath
-		}
-		storageKey := v1alpha1.GetStorageKey(sourceUri)
-		modelUri = "pvc://" + pvcName + "/models/" + storageKey + subPath
+		modelUri = localmodelcache.BuildCachedPVCURI(sourceUri, pvcName, modelUri)
 		schema = "pvc"
 	}
 
+	var resolvedLoRAAdapters []resolvedLoRAAdapter
 	var loraPairs []storageDownloadPair
 	if attachLoRA {
-		loraPairs = collectLoRADownloadPairs(config.ResolvedLoRAAdapters)
+		var err error
+		resolvedLoRAAdapters, err = rewriteLoRAAdaptersFromLocalModelCache(llmSvc, config.ResolvedLoRAAdapters)
+		if err != nil {
+			return fmt.Errorf("rewrite LoRA adapters from local model cache: %w", err)
+		}
+		loraPairs = collectLoRADownloadPairs(resolvedLoRAAdapters)
 	}
 
 	// Handle model artifact downloads based on URI scheme
@@ -181,7 +182,7 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 
 	// Attach LoRA adapters (PVC mounts + vLLM flag injection) after model downloads
 	if attachLoRA {
-		if err := r.attachLoRAAdapters(ctx, llmSvc, podSpec, config.ResolvedLoRAAdapters); err != nil {
+		if err := r.attachLoRAAdapters(ctx, llmSvc, podSpec, resolvedLoRAAdapters); err != nil {
 			return err
 		}
 	}

@@ -1,0 +1,70 @@
+# Example: LLMInferenceService with base model and LoRA adapter served from LocalModelCache.
+#
+# Prerequisites:
+#   - LocalModelNodeGroup targeting worker nodes
+#   - LocalModelCache CRs for the base model URI and each adapter URI
+#
+# When adapter URIs match a LocalModelCache, the controller mounts cached PVCs
+# instead of downloading artifacts at pod startup.
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceService
+metadata:
+  name: llm-lora-localmodelcache
+spec:
+  model:
+    uri: hf://my-org/my-base-model
+    lora:
+      adapters:
+        - name: sql-adapter
+          uri: hf://my-org/my-sql-lora-adapter
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: LocalModelNodeGroup
+metadata:
+  name: llm-lora-nodegroup
+spec:
+  storageLimit: 50Gi
+  persistentVolumeSpec:
+    accessModes:
+      - ReadWriteOnce
+    storageClassName: standard
+    capacity:
+      storage: 50Gi
+    local:
+      path: /models
+    persistentVolumeReclaimPolicy: Delete
+    nodeAffinity:
+      required:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node.kubernetes.io/instance-type
+                operator: In
+                values:
+                  - gpu-node
+  persistentVolumeClaimSpec:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 50Gi
+    storageClassName: standard
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: LocalModelCache
+metadata:
+  name: base-model-cache
+spec:
+  sourceModelUri: hf://my-org/my-base-model
+  modelSize: 20Gi
+  nodeGroups:
+    - llm-lora-nodegroup
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: LocalModelCache
+metadata:
+  name: sql-adapter-cache
+spec:
+  sourceModelUri: hf://my-org/my-sql-lora-adapter
+  modelSize: 1Gi
+  nodeGroups:
+    - llm-lora-nodegroup

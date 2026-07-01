@@ -32,6 +32,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/localmodelcache"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -118,6 +119,37 @@ func enumerateLoRAAdapters(spec v1alpha2.LLMInferenceServiceSpec) ([]resolvedLoR
 			uri:       uri,
 			scheme:    scheme,
 		})
+	}
+	return out, nil
+}
+
+// rewriteLoRAAdaptersFromLocalModelCache rewrites cached adapter URIs to pvc:// paths
+// using the localmodel-lora annotation set by the defaulter webhook.
+func rewriteLoRAAdaptersFromLocalModelCache(llmSvc *v1alpha2.LLMInferenceService, adapters []resolvedLoRAAdapter) ([]resolvedLoRAAdapter, error) {
+	if len(adapters) == 0 {
+		return adapters, nil
+	}
+	raw := llmSvc.Annotations[constants.LocalModelLoRAAnnotationKey]
+	if raw == "" {
+		return adapters, nil
+	}
+	entries, err := localmodelcache.ParseLoRACacheAnnotation(raw)
+	if err != nil {
+		return nil, err
+	}
+	if len(entries) == 0 {
+		return adapters, nil
+	}
+
+	out := make([]resolvedLoRAAdapter, len(adapters))
+	copy(out, adapters)
+	for i := range out {
+		entry, ok := entries[out[i].name]
+		if !ok {
+			continue
+		}
+		out[i].uri = localmodelcache.BuildCachedPVCURI(entry.SourceURI, entry.PVCName, out[i].uri)
+		out[i].scheme = constants.PvcURIPrefix
 	}
 	return out, nil
 }

@@ -141,7 +141,43 @@ kubectl create secret generic s3-config \
 kubectl apply -f llm-inference-service-lora-s3.yaml
 ```
 
-### 4. PVC-Based LoRA Adapter ([llm-inference-service-lora-pvc.yaml](llm-inference-service-lora-pvc.yaml))
+### 4. LocalModelCache LoRA Adapter ([llm-inference-service-lora-localmodelcache.yaml](llm-inference-service-lora-localmodelcache.yaml))
+
+Deploy a base model and LoRA adapter from LocalModelCache when both URIs match cache entries.
+
+**Configuration:**
+- Base Model: HuggingFace URI cached via LocalModelCache
+- Adapter: HuggingFace URI cached via a separate LocalModelCache
+- Node group: targets GPU worker nodes
+
+**Use Case:**
+- Fast pod startup without downloading base model or adapters
+- Platform-managed local model distribution for multi-adapter LLM services
+- Adapter caching independent of base model caching
+
+**Deployment:**
+```bash
+kubectl apply -f llm-inference-service-lora-localmodelcache.yaml
+```
+
+**YAML snippet:**
+```yaml
+spec:
+  model:
+    uri: hf://my-org/my-base-model
+    lora:
+      adapters:
+        - name: sql-adapter
+          uri: hf://my-org/my-sql-lora-adapter
+```
+
+When the URIs match LocalModelCache CRs, the controller:
+- Sets local model metadata on the LLMInferenceService (base label + `localmodel-lora` annotation)
+- Mounts cached PVCs for the base model and adapters
+- Skips storage-initializer downloads for cached URIs
+- Blocks LocalModelCache deletion while the service references cached adapters
+
+### 5. PVC-Based LoRA Adapter ([llm-inference-service-lora-pvc.yaml](llm-inference-service-lora-pvc.yaml))
 
 Deploy with a LoRA adapter stored in a PersistentVolumeClaim.
 
