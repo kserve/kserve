@@ -22,12 +22,8 @@ import (
 	"fmt"
 	"regexp"
 
-	utils "github.com/kserve/kserve/pkg/utils"
-
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -71,26 +67,16 @@ type InferenceGraphValidator struct{}
 
 // +kubebuilder:webhook:verbs=create;update,path=/validate-inferencegraph,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=pods,versions=v1alpha1,name=inferencegraph.kserve-webhook-server.validator
 
-var _ webhook.CustomValidator = &InferenceGraphValidator{}
+var _ admission.Validator[*InferenceGraph] = &InferenceGraphValidator{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (v *InferenceGraphValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	ig, err := utils.Convert[*InferenceGraph](obj)
-	if err != nil {
-		validatorLogger.Error(err, "Unable to convert object to InferenceGraph")
-		return nil, err
-	}
+func (v *InferenceGraphValidator) ValidateCreate(ctx context.Context, ig *InferenceGraph) (admission.Warnings, error) {
 	validatorLogger.Info("validate create", "name", ig.Name)
 	return validateInferenceGraph(ig)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (v *InferenceGraphValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	ig, err := utils.Convert[*InferenceGraph](newObj)
-	if err != nil {
-		validatorLogger.Error(err, "Unable to convert object to InferenceGraph")
-		return nil, err
-	}
+func (v *InferenceGraphValidator) ValidateUpdate(ctx context.Context, oldIG, ig *InferenceGraph) (admission.Warnings, error) {
 	if ig.GetDeletionTimestamp() != nil {
 		return nil, nil
 	}
@@ -99,12 +85,7 @@ func (v *InferenceGraphValidator) ValidateUpdate(ctx context.Context, oldObj, ne
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (v *InferenceGraphValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	ig, err := utils.Convert[*InferenceGraph](obj)
-	if err != nil {
-		validatorLogger.Error(err, "Unable to convert object to InferenceGraph")
-		return nil, err
-	}
+func (v *InferenceGraphValidator) ValidateDelete(ctx context.Context, ig *InferenceGraph) (admission.Warnings, error) {
 	validatorLogger.Info("validate delete", "name", ig.Name)
 	return nil, nil
 }
