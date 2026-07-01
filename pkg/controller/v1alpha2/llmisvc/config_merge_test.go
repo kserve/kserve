@@ -1810,350 +1810,6 @@ func TestReplaceVariables(t *testing.T) {
 				},
 			},
 		},
-		{
-			name: "shutdownTimeout uses default when spec.template is nil",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout .Spec.Template 15 }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{
-				// spec.template not set — shutdownTimeout falls back to default tgps=60: 60-15-min(5,60)=40
-			},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "40"}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "shutdownTimeout uses spec.template.terminationGracePeriodSeconds when set",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout .Spec.Template 15 }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							TerminationGracePeriodSeconds: ptr.To(int64(120)),
-						},
-					},
-				},
-			},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "100"}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "shutdownTimeout uses default when spec.worker is nil",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout .Spec.Worker 15 }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{
-				// spec.worker not set — shutdownTimeout falls back to default tgps=60: 60-15-min(5,60)=40
-			},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "40"}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "shutdownTimeout uses spec.worker.terminationGracePeriodSeconds when set",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout .Spec.Worker 15 }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Worker: &corev1.PodSpec{
-							TerminationGracePeriodSeconds: ptr.To(int64(120)),
-						},
-					},
-				},
-			},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "100"}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "shutdownTimeout uses default when no spec provided (nil arg)",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout nil 15 }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "40"}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "shutdownTimeout uses spec.prefill.template.terminationGracePeriodSeconds when set",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Template 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					Prefill: &v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							TerminationGracePeriodSeconds: ptr.To(int64(120)),
-						},
-					},
-				},
-			},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "100"}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "shutdownTimeout uses spec.prefill.worker.terminationGracePeriodSeconds when set",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Worker 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					Prefill: &v1alpha2.WorkloadSpec{
-						Worker: &corev1.PodSpec{
-							TerminationGracePeriodSeconds: ptr.To(int64(120)),
-						},
-					},
-				},
-			},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "100"}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "shutdownTimeout uses default when spec.prefill is nil (prefill via base ref only)",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Template 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{},
-			},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "40"}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "kvTransferConfig returns empty string when kvCacheOffloading is nil",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{""}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "kvTransferConfig renders --kv-transfer-config from kvCacheOffloading",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
-							CPU: resource.MustParse("10Gi"),
-						},
-					},
-				},
-			},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								// json.Marshal sorts map keys alphabetically: kv_connector < kv_connector_extra_config < kv_role
-								// Internally " is escaped to \" for JSON-safe template rendering; JSON unmarshal restores plain ".
-								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":10737418240,"spec_name":"TieringOffloadingSpec"},"kv_role":"kv_both"}'`}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "kvTransferConfig includes eviction policy when set",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
-							CPU:            resource.MustParse("5Gi"),
-							EvictionPolicy: "arc",
-						},
-					},
-				},
-			},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								// json.Marshal sorts map keys alphabetically: cpu_bytes_to_use < eviction_policy < spec_name
-								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":5368709120,"eviction_policy":"arc","spec_name":"TieringOffloadingSpec"},"kv_role":"kv_both"}'`}},
-							},
-						},
-					},
-				},
-			},
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -2169,6 +1825,171 @@ func TestReplaceVariables(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestReplaceVariables_EntrypointScriptFunctions(t *testing.T) {
+	t.Run("all hardcoded gotemp functions are registered", func(t *testing.T) {
+		cfg := &v1alpha2.LLMInferenceServiceConfig{
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: v1alpha2.WorkloadSpec{
+					Template: &corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Args: []string{
+								"{{ rdmaDetectScript }}",
+								"{{ dpAddressResolveScript }}",
+								"{{ vllmVersionScript }}",
+								"{{ vllmAccessLogDetectScript }}",
+							},
+						}},
+					},
+				},
+			},
+		}
+		got, err := llmisvc.ReplaceVariables(&v1alpha2.LLMInferenceService{}, cfg, nil)
+		if err != nil {
+			t.Fatalf("ReplaceVariables() error = %v", err)
+		}
+		args := got.Spec.Template.Containers[0].Args
+		for _, check := range []struct {
+			idx    int
+			substr string
+		}{
+			{0, "KSERVE_INFER_ROCE"},
+			{1, "DP_ADDRESS"},
+			{2, "VLLM_VERSION"},
+			{3, "ACCESS_LOG_ARGS"},
+		} {
+			if !strings.Contains(args[check.idx], check.substr) {
+				t.Errorf("args[%d] should contain %q, got: %.100s", check.idx, check.substr, args[check.idx])
+			}
+		}
+	})
+
+	t.Run("shutdownTimeoutScript embeds computed timeout", func(t *testing.T) {
+		cfg := &v1alpha2.LLMInferenceServiceConfig{
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: v1alpha2.WorkloadSpec{
+					Template: &corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Args: []string{"{{ shutdownTimeoutScript .Spec.Template 15 }}"},
+						}},
+					},
+				},
+			},
+		}
+		llmSvc := &v1alpha2.LLMInferenceService{
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: v1alpha2.WorkloadSpec{
+					Template: &corev1.PodSpec{
+						TerminationGracePeriodSeconds: ptr.To(int64(90)),
+					},
+				},
+			},
+		}
+		got, err := llmisvc.ReplaceVariables(llmSvc, cfg, nil)
+		if err != nil {
+			t.Fatalf("ReplaceVariables() error = %v", err)
+		}
+		// 90 - 15 - min(5,90) = 70
+		arg := got.Spec.Template.Containers[0].Args[0]
+		if !strings.Contains(arg, "--shutdown-timeout 70") {
+			t.Errorf("shutdownTimeoutScript should embed --shutdown-timeout 70, got: %s", arg)
+		}
+	})
+
+	t.Run("kvTransferScript returns empty KV_TRANSFER_ARGS when kvCacheOffloading is nil", func(t *testing.T) {
+		cfg := &v1alpha2.LLMInferenceServiceConfig{
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: v1alpha2.WorkloadSpec{
+					Template: &corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Args: []string{"{{ kvTransferScript .Spec.KVCacheOffloading }}"},
+						}},
+					},
+				},
+			},
+		}
+		got, err := llmisvc.ReplaceVariables(&v1alpha2.LLMInferenceService{}, cfg, nil)
+		if err != nil {
+			t.Fatalf("ReplaceVariables() error = %v", err)
+		}
+		arg := got.Spec.Template.Containers[0].Args[0]
+		if !strings.Contains(arg, "KV_TRANSFER_ARGS") {
+			t.Errorf("kvTransferScript should contain KV_TRANSFER_ARGS, got: %.100s", arg)
+		}
+	})
+
+	t.Run("kvTransferScript embeds kv-transfer-config from kvCacheOffloading", func(t *testing.T) {
+		cfg := &v1alpha2.LLMInferenceServiceConfig{
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: v1alpha2.WorkloadSpec{
+					Template: &corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Args: []string{"{{ kvTransferScript .Spec.KVCacheOffloading }}"},
+						}},
+					},
+				},
+			},
+		}
+		llmSvc := &v1alpha2.LLMInferenceService{
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: v1alpha2.WorkloadSpec{
+					KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+						CPU: resource.MustParse("10Gi"),
+					},
+				},
+			},
+		}
+		got, err := llmisvc.ReplaceVariables(llmSvc, cfg, nil)
+		if err != nil {
+			t.Fatalf("ReplaceVariables() error = %v", err)
+		}
+		arg := got.Spec.Template.Containers[0].Args[0]
+		if !strings.Contains(arg, "--kv-transfer-config") {
+			t.Errorf("kvTransferScript should contain --kv-transfer-config, got: %.100s", arg)
+		}
+		if !strings.Contains(arg, "OffloadingConnector") {
+			t.Errorf("kvTransferScript should contain OffloadingConnector, got: %.100s", arg)
+		}
+		if !strings.Contains(arg, "10737418240") { // size of 10Gi
+			t.Errorf("kvTransferScript should contain cpu_bytes_to_use=10737418240, got: %.100s", arg)
+		}
+	})
+
+	t.Run("kvTransferScript includes eviction policy when set", func(t *testing.T) {
+		cfg := &v1alpha2.LLMInferenceServiceConfig{
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: v1alpha2.WorkloadSpec{
+					Template: &corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Args: []string{"{{ kvTransferScript .Spec.KVCacheOffloading }}"},
+						}},
+					},
+				},
+			},
+		}
+		llmSvc := &v1alpha2.LLMInferenceService{
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: v1alpha2.WorkloadSpec{
+					KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+						CPU:            resource.MustParse("5Gi"),
+						EvictionPolicy: "arc",
+					},
+				},
+			},
+		}
+		got, err := llmisvc.ReplaceVariables(llmSvc, cfg, nil)
+		if err != nil {
+			t.Fatalf("ReplaceVariables() error = %v", err)
+		}
+		arg := got.Spec.Template.Containers[0].Args[0]
+		if !strings.Contains(arg, "eviction_policy") {
+			t.Errorf("kvTransferScript should contain eviction_policy, got: %.100s", arg)
+		}
+		if !strings.Contains(arg, "arc") {
+			t.Errorf("kvTransferScript should contain arc eviction policy, got: %.100s", arg)
+		}
+	})
 }
 
 func mustParseURL(s string) apis.URL {
