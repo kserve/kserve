@@ -118,11 +118,85 @@ type LLMInferenceServiceSpec struct {
 	// +optional
 	Tracing *TracingSpec `json:"tracing,omitempty"`
 
+	// Speculator configures speculative decoding for the model server.
+	// When specified with a model URI, the controller creates a second storage-initializer
+	// init container to download the speculator (or draft) model and mounts it into the
+	// inference container. The config map is passed directly to vLLM's --speculative-config.
+	// +optional
+	Speculator *SpeculatorSpec `json:"speculator,omitempty"`
+
 	// BaseRefs allows inheriting and overriding configurations from one or more LLMInferenceServiceConfig instances.
 	// The controller merges these base configurations, with the current LLMInferenceService spec taking the highest precedence.
 	// When multiple baseRefs are provided, the last one in the list overrides previous ones.
 	// +optional
 	BaseRefs []corev1.LocalObjectReference `json:"baseRefs,omitempty"`
+}
+
+// SpeculatorSpec configures speculative decoding for the inference server.
+// Speculative decoding uses a fast draft mechanism (either a small draft model or a purpose-trained
+// speculator head like Eagle3) to propose candidate tokens that the target model verifies in parallel,
+// reducing the number of sequential decode steps and improving token generation throughput.
+//
+// When configured with a model, the controller:
+//  1. Creates a second storage-initializer init container to download the speculator/draft model
+//  2. Mounts the downloaded model into the inference container at /mnt/speculator/model
+//  3. Injects the appropriate --speculative-config arguments into the vLLM command line
+//
+// The Config map keys correspond directly to vLLM's --speculative-config JSON schema
+// (see https://docs.vllm.ai/en/latest/features/speculative_decoding/#-speculative-config-schema).
+//
+// Example - Eagle3 speculator head:
+//
+//	speculator:
+//	  model:
+//	    uri: hf://RedHatAI/Qwen3-32B-speculator.eagle3
+//	  config:
+//	    method: eagle3
+//	    num_speculative_tokens: "3"
+//
+// Example - Draft-target model pair:
+//
+//	speculator:
+//	  model:
+//	    uri: hf://meta-llama/Llama-3.2-1B-Instruct
+//	  config:
+//	    method: draft_model
+//	    num_speculative_tokens: "5"
+//	    max_model_len: "8192"
+//	    draft_tensor_parallel_size: "1"
+//
+// Example - N-gram (no model needed):
+//
+//	speculator:
+//	  config:
+//	    method: ngram
+//	    num_speculative_tokens: "4"
+//	    prompt_lookup_max: "5"
+//
+// +kubebuilder:validation:XValidation:rule="!has(self.config) || (size(self.config) == 0) || ('method' in self.config)",message="speculator.config.method is required; it specifies the speculative decoding strategy (e.g. eagle3, draft_model, ngram, mtp)"
+type SpeculatorSpec struct {
+	// Model specification for the speculator or draft model.
+	// The URI specifies the location of the model to download (e.g., hf://RedHatAI/Qwen3-32B-speculator.eagle3).
+	// The controller creates a dedicated storage-initializer init container to fetch this model.
+	// Not required for methods that don't use a separate model (e.g., ngram, mtp).
+	// +optional
+	Model *LLMSpeculatorModelSpec `json:"model,omitempty"`
+
+	// Config provides the speculative decoding parameters passed directly to the
+	// vLLM --speculative-config JSON. Keys correspond to vLLM's speculative config schema.
+	// Common keys: method, num_speculative_tokens, max_model_len, draft_tensor_parallel_size.
+	// See https://docs.vllm.ai/en/latest/features/speculative_decoding/#-speculative-config-schema
+	// +optional
+	Config map[string]string `json:"config,omitempty"`
+}
+
+// LLMSpeculatorModelSpec defines the model source for a speculator or draft model.
+// Unlike LLMModelSpec, this type intentionally excludes LoRA since speculator models
+// do not support adapter configurations.
+type LLMSpeculatorModelSpec struct {
+	// URI of the speculator model, specifying its location.
+	// Supports hf://, s3://, pvc://, and oci:// schemes.
+	URI apis.URL `json:"uri"`
 }
 
 // WorkloadSpec defines the configuration for a deployment workload, such as replicas and pod specifications.
