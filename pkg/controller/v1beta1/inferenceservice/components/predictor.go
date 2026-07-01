@@ -112,6 +112,10 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	// Add agent annotations so mutator will mount model agent to multi-model InferenceService's predictor
 	addAgentAnnotations(isvc, annotations)
 
+	predictorName := constants.PredictorServiceName(isvc.Name)
+
+	addOtelSidecarAnnotation(isvc.Spec.Predictor.AutoScaling, predictorName, annotations)
+
 	// Reconcile modelConfig
 	if err := p.reconcileModelConfig(ctx, isvc); err != nil {
 		return ctrl.Result{}, err
@@ -166,8 +170,6 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 			return ctrl.Result{}, errors.Wrapf(err, "failed to add INFERENCE_SERVICE_NAME environment variable to container %s", containerName)
 		}
 	}
-
-	predictorName := constants.PredictorServiceName(isvc.Name)
 
 	// Labels and annotations from predictor component
 	// Label filter will be handled in ksvc_reconciler

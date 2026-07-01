@@ -224,6 +224,7 @@ var (
 	IstioInterceptionModeAnnotation       = "sidecar.istio.io/interceptionMode"
 	IstioSidecarUIDAnnotationKey          = KServeAPIGroupName + "/storage-initializer-uid"
 	IstioSidecarStatusAnnotation          = "sidecar.istio.io/status"
+	OTelSidecarInjectAnnotationKey        = "sidecar.opentelemetry.io/inject"
 )
 
 var OTelBackend = "opentelemetry"

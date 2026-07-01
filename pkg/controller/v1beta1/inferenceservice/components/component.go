@@ -103,3 +103,17 @@ func addAgentAnnotations(isvc *v1beta1.InferenceService, annotations map[string]
 	}
 	return false
 }
+
+func addOtelSidecarAnnotation(autoScaling *v1beta1.AutoScalingSpec, collectorName string, annotations map[string]string) {
+	if autoScaling == nil {
+		return
+	}
+	for _, metric := range autoScaling.Metrics {
+		if metric.Type == v1beta1.PodMetricSourceType && metric.PodMetric != nil && metric.PodMetric.Metric.Backend == v1beta1.OpenTelemetryBackend {
+			if _, exists := annotations[constants.OTelSidecarInjectAnnotationKey]; !exists {
+				annotations[constants.OTelSidecarInjectAnnotationKey] = collectorName
+			}
+			return
+		}
+	}
+}
