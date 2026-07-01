@@ -19,6 +19,7 @@ package pod
 import (
 	"encoding/json"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -29,13 +30,81 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 )
+
+// baseConfigMapData returns the minimum configmap data required for the pod mutator.
+func baseConfigMapData() map[string]string {
+	return map[string]string{
+		v1beta1.StorageInitializerConfigMapKeyName: `{
+			"image" : "kserve/storage-initializer:latest",
+			"memoryRequest": "100Mi",
+			"memoryLimit": "1Gi",
+			"cpuRequest": "100m",
+			"cpuLimit": "1",
+			"cpuModelcar": "100m",
+			"memoryModelcar": "50Mi",
+			"storageSpecSecretName": "storage-config"
+		}`,
+		LoggerConfigMapKeyName: `{
+			"image" : "kserve/agent:latest",
+			"memoryRequest": "100Mi",
+			"memoryLimit": "1Gi",
+			"cpuRequest": "100m",
+			"cpuLimit": "1",
+			"defaultUrl": "http://default-broker"
+		}`,
+		BatcherConfigMapKeyName: `{
+			"image" : "kserve/agent:latest",
+			"memoryRequest": "1Gi",
+			"memoryLimit": "1Gi",
+			"cpuRequest": "1",
+			"cpuLimit": "1"
+		}`,
+		constants.AgentConfigMapKeyName: `{
+			"image" : "kserve/agent:latest",
+			"memoryRequest": "100Mi",
+			"memoryLimit": "1Gi",
+			"cpuRequest": "100m",
+			"cpuLimit": "1"
+		}`,
+	}
+}
+
+// baseAdmissionRequest returns a pod admission request for namespace "default".
+func baseAdmissionRequest() admission.Request {
+	return admission.Request{
+		AdmissionRequest: admissionv1.AdmissionRequest{
+			UID: types.UID(uuid.NewString()),
+			Kind: metav1.GroupVersionKind{
+				Group:   "",
+				Version: "v1",
+				Kind:    "Pod",
+			},
+			Resource: metav1.GroupVersionResource{
+				Group:    "",
+				Version:  "v1",
+				Resource: "pods",
+			},
+			RequestKind: &metav1.GroupVersionKind{
+				Group:   "",
+				Version: "v1",
+				Kind:    "Pod",
+			},
+			RequestResource: &metav1.GroupVersionResource{
+				Group:    "",
+				Version:  "v1",
+				Resource: "pods",
+			},
+			Namespace: "default",
+			Operation: admissionv1.Create,
+		},
+	}
+}
 
 func TestMutator_Handle(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
@@ -64,85 +133,11 @@ func TestMutator_Handle(t *testing.T) {
 	}{
 		"should not mutate non isvc pods": {
 			configMap: corev1.ConfigMap{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "ConfigMap",
-					APIVersion: "v1",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.InferenceServiceConfigMapName,
-					Namespace: constants.KServeNamespace,
-				},
-				Immutable: nil,
-				Data: map[string]string{
-					v1beta1.StorageInitializerConfigMapKeyName: `{
-						"image" : "kserve/storage-initializer:latest",
-						"memoryRequest": "100Mi",
-						"memoryLimit": "1Gi",
-						"cpuRequest": "100m",
-						"cpuLimit": "1",
-						"cpuModelcar": "100m",
-						"memoryModelcar": "50Mi",
-						"storageSpecSecretName": "storage-config"
-					}`,
-					LoggerConfigMapKeyName: `{
-        				"image" : "kserve/agent:latest",
-        				"memoryRequest": "100Mi",
-        				"memoryLimit": "1Gi",
-        				"cpuRequest": "100m",
-        				"cpuLimit": "1",
-        				"defaultUrl": "http://default-broker"
-    				}`,
-					BatcherConfigMapKeyName: `{
-        				"image" : "kserve/agent:latest",
-        				"memoryRequest": "1Gi",
-        				"memoryLimit": "1Gi",
-        				"cpuRequest": "1",
-        				"cpuLimit": "1"
-    				}`,
-					constants.AgentConfigMapKeyName: `{
-        				"image" : "kserve/agent:latest",
-        				"memoryRequest": "100Mi",
-        				"memoryLimit": "1Gi",
-        				"cpuRequest": "100m",
-        				"cpuLimit": "1"
-    				}`,
-				},
-				BinaryData: nil,
+				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
+				ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+				Data:       baseConfigMapData(),
 			},
-			request: admission.Request{
-				AdmissionRequest: admissionv1.AdmissionRequest{
-					UID: types.UID(uuid.NewString()),
-					Kind: metav1.GroupVersionKind{
-						Group:   "",
-						Version: "v1",
-						Kind:    "Pod",
-					},
-					Resource: metav1.GroupVersionResource{
-						Group:    "",
-						Version:  "v1",
-						Resource: "pods",
-					},
-					SubResource: "",
-					RequestKind: &metav1.GroupVersionKind{
-						Group:   "",
-						Version: "v1",
-						Kind:    "Pod",
-					},
-					RequestResource: &metav1.GroupVersionResource{
-						Group:    "",
-						Version:  "v1",
-						Resource: "pods",
-					},
-					RequestSubResource: "",
-					Name:               "",
-					Namespace:          "default",
-					Operation:          admissionv1.Create,
-					Object:             runtime.RawExtension{},
-					OldObject:          runtime.RawExtension{},
-					DryRun:             nil,
-					Options:            runtime.RawExtension{},
-				},
-			},
+			request: baseAdmissionRequest(),
 			pod: corev1.Pod{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Pod",
@@ -172,85 +167,11 @@ func TestMutator_Handle(t *testing.T) {
 		},
 		"should mutate isvc pods": {
 			configMap: corev1.ConfigMap{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "ConfigMap",
-					APIVersion: "v1",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.InferenceServiceConfigMapName,
-					Namespace: constants.KServeNamespace,
-				},
-				Immutable: nil,
-				Data: map[string]string{
-					v1beta1.StorageInitializerConfigMapKeyName: `{
-						"image" : "kserve/storage-initializer:latest",
-						"memoryRequest": "100Mi",
-						"memoryLimit": "1Gi",
-						"cpuRequest": "100m",
-						"cpuLimit": "1",
-						"cpuModelcar": "100m",
-						"memoryModelcar": "50Mi",
-						"storageSpecSecretName": "storage-config"
-					}`,
-					LoggerConfigMapKeyName: `{
-        				"image" : "kserve/agent:latest",
-        				"memoryRequest": "100Mi",
-        				"memoryLimit": "1Gi",
-        				"cpuRequest": "100m",
-        				"cpuLimit": "1",
-        				"defaultUrl": "http://default-broker"
-    				}`,
-					BatcherConfigMapKeyName: `{
-        				"image" : "kserve/agent:latest",
-        				"memoryRequest": "1Gi",
-        				"memoryLimit": "1Gi",
-        				"cpuRequest": "1",
-        				"cpuLimit": "1"
-    				}`,
-					constants.AgentConfigMapKeyName: `{
-        				"image" : "kserve/agent:latest",
-        				"memoryRequest": "100Mi",
-        				"memoryLimit": "1Gi",
-        				"cpuRequest": "100m",
-        				"cpuLimit": "1"
-    				}`,
-				},
-				BinaryData: nil,
+				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
+				ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+				Data:       baseConfigMapData(),
 			},
-			request: admission.Request{
-				AdmissionRequest: admissionv1.AdmissionRequest{
-					UID: types.UID(uuid.NewString()),
-					Kind: metav1.GroupVersionKind{
-						Group:   "",
-						Version: "v1",
-						Kind:    "Pod",
-					},
-					Resource: metav1.GroupVersionResource{
-						Group:    "",
-						Version:  "v1",
-						Resource: "pods",
-					},
-					SubResource: "",
-					RequestKind: &metav1.GroupVersionKind{
-						Group:   "",
-						Version: "v1",
-						Kind:    "Pod",
-					},
-					RequestResource: &metav1.GroupVersionResource{
-						Group:    "",
-						Version:  "v1",
-						Resource: "pods",
-					},
-					RequestSubResource: "",
-					Name:               "",
-					Namespace:          "default",
-					Operation:          admissionv1.Create,
-					Object:             runtime.RawExtension{},
-					OldObject:          runtime.RawExtension{},
-					DryRun:             nil,
-					Options:            runtime.RawExtension{},
-				},
-			},
+			request: baseAdmissionRequest(),
 			pod: corev1.Pod{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Pod",
@@ -294,6 +215,44 @@ func TestMutator_Handle(t *testing.T) {
 					AuditAnnotations: nil,
 					Warnings:         nil,
 				},
+			}),
+		},
+		"should inject OVMS versioning container when annotation is present": {
+			configMap: corev1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
+				ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+				Data:       baseConfigMapData(),
+			},
+			request: baseAdmissionRequest(),
+			pod: corev1.Pod{
+				TypeMeta: metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						constants.InferenceServicePodLabelKey: "",
+					},
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo/model.xml",
+						constants.OVMSAutoVersioningAnnotationKey:                  "1",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{Name: constants.InferenceServiceContainerName}},
+				},
+			},
+			// The response will contain many patches (init containers, volumes, volume mounts, etc.).
+			// We only assert that the OVMS versioning init container appears in the patches, leaving
+			// the detailed injection assertions to the unit tests in storage_initializer_injector_ovms_test.go.
+			matcher: gomega.Satisfy(func(res admission.Response) bool {
+				if !res.Allowed {
+					return false
+				}
+				for _, patch := range res.Patches {
+					raw, _ := json.Marshal(patch.Value)
+					if strings.Contains(string(raw), constants.OVMSVersioningContainerName) {
+						return true
+					}
+				}
+				return false
 			}),
 		},
 	}
