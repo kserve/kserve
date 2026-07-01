@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -211,4 +212,109 @@ func (s *LLMInferenceService) ManagedDRAContainerName() (string, bool) {
 		return "", false
 	}
 	return strings.TrimSpace(raw), true
+}
+
+// MergeAppendFieldsAnnotation is the annotation key on LLMInferenceServiceConfig
+// (or LLMInferenceService) that lists Kustomize-style field paths whose arrays
+// should be concatenated (base + override) instead of replaced during strategic
+// merge. Paths use dot notation with bracket element matching.
+//
+// Any JSON array field in the spec can be targeted. The most common candidates are the
+// Kubernetes +listType=atomic fields that strategic merge replaces entirely.
+//
+// Example annotation enumerating all supported PodSpec locations and atomic fields.
+// Container names match the defaults from config/llmisvcconfig/:
+//
+//   - "main" for workload containers (template, worker, prefill) and the EPP scheduler
+//
+//   - "tokenizer" for the scheduler tokenizer sidecar
+//
+//   - "llm-d-routing-sidecar" for the disaggregated decode routing sidecar
+//
+//     serving.kserve.io/merge-append-fields: |
+//     template.containers.[name=main].args
+//     template.containers.[name=main].command
+//     template.initContainers.[name=main].args
+//     template.initContainers.[name=main].command
+//     worker.containers.[name=main].args
+//     worker.containers.[name=main].command
+//     worker.initContainers.[name=main].args
+//     worker.initContainers.[name=main].command
+//     prefill.template.containers.[name=main].args
+//     prefill.template.containers.[name=main].command
+//     prefill.template.initContainers.[name=main].args
+//     prefill.template.initContainers.[name=main].command
+//     prefill.worker.containers.[name=main].args
+//     prefill.worker.containers.[name=main].command
+//     prefill.worker.initContainers.[name=main].args
+//     prefill.worker.initContainers.[name=main].command
+//     router.scheduler.template.containers.[name=main].args
+//     router.scheduler.template.containers.[name=main].command
+//     router.scheduler.template.containers.[name=tokenizer].args
+//     router.scheduler.template.containers.[name=tokenizer].command
+//     template.containers.[name=llm-d-routing-sidecar].args
+//     template.containers.[name=llm-d-routing-sidecar].command
+//     template.tolerations
+//     worker.tolerations
+//     prefill.template.tolerations
+//     prefill.worker.tolerations
+//     router.scheduler.template.tolerations
+const MergeAppendFieldsAnnotation = "serving.kserve.io/merge-append-fields"
+
+// ParseMergeAppendFieldPaths reads MergeAppendFieldsAnnotation from the given
+// annotations and returns each path split into kyaml Lookup segments.
+// Returns nil when the annotation is absent or empty.
+func ParseMergeAppendFieldPaths(annotations map[string]string) ([][]string, error) {
+	val, ok := annotations[MergeAppendFieldsAnnotation]
+	if !ok || val == "" {
+		return nil, nil
+	}
+
+	rawPaths := strings.FieldsFunc(val, func(r rune) bool {
+		return r == ',' || r == '\n'
+	})
+
+	var paths [][]string
+	var errs []string
+	entryIdx := 0
+	for _, raw := range rawPaths {
+		raw = strings.TrimSpace(raw)
+		if raw == "" {
+			continue
+		}
+		entryIdx++
+		segments, err := ParseFieldPath(raw)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("entry %d (%q): %v", entryIdx, raw, err))
+			continue
+		}
+		paths = append(paths, segments)
+	}
+	if len(errs) > 0 {
+		return paths, fmt.Errorf("invalid merge-append-fields paths: %s", strings.Join(errs, "; "))
+	}
+	return paths, nil
+}
+
+// ParseFieldPath splits a Kustomize-style dot-delimited field path into
+// segments suitable for kyaml.Lookup. Empty segments (from leading/trailing
+// dots or double dots) are silently dropped.
+//
+//	"template.containers.[name=main].args"
+//	  -> ["template", "containers", "[name=main]", "args"]
+func ParseFieldPath(path string) ([]string, error) {
+	if path == "" {
+		return nil, errors.New("path must not be empty")
+	}
+	var segments []string
+	for _, s := range strings.Split(path, ".") {
+		s = strings.TrimSpace(s)
+		if s != "" {
+			segments = append(segments, s)
+		}
+	}
+	if len(segments) == 0 {
+		return nil, fmt.Errorf("path %q resolves to zero segments", path)
+	}
+	return segments, nil
 }

@@ -267,7 +267,7 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	wellKnownCount := len(refs)
 	refs = append(refs, llmSvc.Spec.BaseRefs...)
 
-	specs := make([]v1alpha2.LLMInferenceServiceSpec, 0, len(refs))
+	mergeInputs := make([]annotatedSpec, 0, len(refs)+1)
 	appliedRefs := make([]v1alpha2.AppliedConfigRef, 0, len(refs))
 	for i, ref := range refs {
 		cfg, err := r.getConfig(ctx, llmSvc, ref.Name)
@@ -275,7 +275,10 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 			return nil, err
 		}
 		if cfg != nil {
-			specs = append(specs, cfg.Spec)
+			mergeInputs = append(mergeInputs, annotatedSpec{
+				spec:        cfg.Spec,
+				annotations: cfg.Annotations,
+			})
 			source := v1alpha2.AppliedConfigSourcePreset
 			if i >= wellKnownCount {
 				source = v1alpha2.AppliedConfigSourceUserRef
@@ -287,7 +290,11 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 			})
 		}
 	}
-	spec, err := MergeSpecs(ctx, append(specs, llmSvc.Spec)...)
+	mergeInputs = append(mergeInputs, annotatedSpec{
+		spec:        llmSvc.Spec,
+		annotations: llmSvc.Annotations,
+	})
+	spec, err := mergeAnnotatedSpecs(ctx, mergeInputs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to merge specs: %w", err)
 	}

@@ -460,6 +460,15 @@ func WithConfigManagedScheduler() LLMInferenceServiceConfigOption {
 	}
 }
 
+func WithConfigAnnotations(annotationsToAdd map[string]string) LLMInferenceServiceConfigOption {
+	return func(config *v1alpha2.LLMInferenceServiceConfig) {
+		if config.Annotations == nil {
+			config.Annotations = make(map[string]string)
+		}
+		maps.Copy(config.Annotations, annotationsToAdd)
+	}
+}
+
 func WithConfigSpecAnnotations(annotationsToAdd map[string]string) LLMInferenceServiceConfigOption {
 	return func(config *v1alpha2.LLMInferenceServiceConfig) {
 		if config.Spec.Annotations == nil {

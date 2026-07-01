@@ -108,6 +108,8 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, l.validateManagedDRAAnnotations(llmSvc)...)
 
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
+	allErrs = append(allErrs, validateMergeAppendFieldsAnnotation(llmSvc.Annotations,
+		field.NewPath("metadata").Child("annotations"))...)
 
 	confidentialWarnings, confidentialErrs := l.validateConfidential(llmSvc)
 	warnings = append(warnings, confidentialWarnings...)
