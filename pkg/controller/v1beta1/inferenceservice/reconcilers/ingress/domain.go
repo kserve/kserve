@@ -58,12 +58,15 @@ func GenerateDomainName(name string, obj metav1.ObjectMeta, ingressConfig *v1bet
 		return "", fmt.Errorf("error rendering the domain template: %w", err)
 	}
 
-	urlErrs := validation.IsFullyQualifiedDomainName(field.NewPath("url"), buf.String())
-	if urlErrs != nil {
-		return "", fmt.Errorf("invalid domain name %q: %w", buf.String(), urlErrs.ToAggregate())
+	domainName := buf.String()
+	if !ingressConfig.DisableIngressCreation {
+		urlErrs := validation.IsFullyQualifiedDomainName(field.NewPath("url"), domainName)
+		if urlErrs != nil {
+			return "", fmt.Errorf("invalid domain name %q: %w", domainName, urlErrs.ToAggregate())
+		}
 	}
 
-	return buf.String(), nil
+	return domainName, nil
 }
 
 func GenerateInternalDomainName(name string, obj metav1.ObjectMeta, ingressConfig *v1beta1.IngressConfig) (string, error) {
@@ -85,12 +88,15 @@ func GenerateInternalDomainName(name string, obj metav1.ObjectMeta, ingressConfi
 		return "", fmt.Errorf("error rendering the domain template: %w", err)
 	}
 
-	urlErrs := validation.IsFullyQualifiedDomainName(field.NewPath("url"), buf.String())
-	if urlErrs != nil {
-		return "", fmt.Errorf("invalid domain name %q: %w", buf.String(), urlErrs.ToAggregate())
+	domainName := buf.String()
+	if !ingressConfig.DisableIngressCreation {
+		urlErrs := validation.IsFullyQualifiedDomainName(field.NewPath("url"), domainName)
+		if urlErrs != nil {
+			return "", fmt.Errorf("invalid domain name %q: %w", domainName, urlErrs.ToAggregate())
+		}
 	}
 
-	return buf.String(), nil
+	return domainName, nil
 }
 
 // GetAdditionalHosts generates additional hostnames for an InferenceService based on the configured
