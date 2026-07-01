@@ -22,6 +22,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 var _ apis.Defaultable = &LLMInferenceService{}
@@ -30,6 +32,16 @@ func (in *LLMInferenceService) SetDefaults(ctx context.Context) {
 	if in.Spec.Model.Name == nil || *in.Spec.Model.Name == "" {
 		in.Spec.Model.Name = ptr.To(in.GetName())
 	}
+
+	if in.Labels == nil {
+		in.Labels = make(map[string]string)
+	}
+	if in.Spec.Router.HasGroup() {
+		in.Labels[constants.LLMRoutingGroupLabelKey] = *in.Spec.Router.Route.Group
+	} else {
+		delete(in.Labels, constants.LLMRoutingGroupLabelKey)
+	}
+
 	in.Spec.SetDefaults(ctx)
 }
 
