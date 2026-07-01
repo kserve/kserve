@@ -2687,12 +2687,12 @@ spec:
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8001 \
           --api-server-count ${VLLM_API_SERVER_COUNT:-8} \
-          {{- if .Spec.Parallelism.Expert -}}--enable-expert-parallel{{- end }} \
-          {{- if .Spec.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
-          --data-parallel-size {{ or .Spec.Parallelism.Data 1 }} \
-          --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal 1 }} \
+          {{- with .Spec.Parallelism }}{{- if .Expert -}}--enable-expert-parallel{{- end }}{{- end }} \
+          {{- with .Spec.Parallelism }}{{- if .Tensor -}}--tensor-parallel-size {{ .Tensor }}{{- end }}{{- end }} \
+          --data-parallel-size {{ with .Spec.Parallelism }}{{ or .Data 1 }}{{ else }}1{{ end }} \
+          --data-parallel-size-local {{ with .Spec.Parallelism }}{{ or .DataLocal 1 }}{{ else }}1{{ end }} \
           --data-parallel-address ${DP_ADDRESS} \
-          --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
+          --data-parallel-rpc-port {{ with .Spec.Parallelism }}{{ if .DataRPCPort }}{{ .DataRPCPort }}{{ else }}5555{{ end }}{{ else }}5555{{ end }} \
           --data-parallel-start-rank $START_RANK \
           ${ACCESS_LOG_ARGS} \
           ${SHUTDOWN_TIMEOUT_ARGS} \
@@ -2996,7 +2996,7 @@ spec:
           fi
         fi
 
-        START_RANK=$(( ${LWS_WORKER_INDEX:-0} * {{ or .Spec.Parallelism.DataLocal 1 }} ))
+        START_RANK=$(( ${LWS_WORKER_INDEX:-0} * {{ with .Spec.Parallelism }}{{ or .DataLocal 1 }}{{ else }}1{{ end }} ))
 
         # --disable-access-log-for-endpoints landed in vLLM 0.16.0 (vllm-project/vllm#30011).
         # Older versions still need the blanket --disable-uvicorn-access-log.
@@ -3026,12 +3026,12 @@ spec:
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8001 \
-          {{- if .Spec.Parallelism.Expert }}--enable-expert-parallel{{- end }} \
-          {{- if .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
-          --data-parallel-size {{ or .Spec.Parallelism.Data 1 }} \
-          --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal 1 }} \
+          {{- with .Spec.Parallelism }}{{- if .Expert }}--enable-expert-parallel{{- end }}{{- end }} \
+          {{- with .Spec.Parallelism }}{{- if .Tensor }}--tensor-parallel-size {{ .Tensor }}{{- end }}{{- end }} \
+          --data-parallel-size {{ with .Spec.Parallelism }}{{ or .Data 1 }}{{ else }}1{{ end }} \
+          --data-parallel-size-local {{ with .Spec.Parallelism }}{{ or .DataLocal 1 }}{{ else }}1{{ end }} \
           --data-parallel-address ${DP_ADDRESS} \
-          --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
+          --data-parallel-rpc-port {{ with .Spec.Parallelism }}{{ if .DataRPCPort }}{{ .DataRPCPort }}{{ else }}5555{{ end }}{{ else }}5555{{ end }} \
           --data-parallel-start-rank $START_RANK \
           --headless \
           ${ACCESS_LOG_ARGS} \
@@ -3549,12 +3549,12 @@ spec:
             --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
             --port 8000 \
             --api-server-count ${VLLM_API_SERVER_COUNT:-8} \
-            {{- if .Spec.Prefill.Parallelism.Expert -}}--enable-expert-parallel{{- end }} \
-            {{- if .Spec.Prefill.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }} \
-            --data-parallel-size {{ or .Spec.Prefill.Parallelism.Data 1 }} \
-            --data-parallel-size-local {{ or .Spec.Prefill.Parallelism.DataLocal 1 }} \
+            {{- with .Spec.Prefill }}{{- with .Parallelism }}{{- if .Expert -}}--enable-expert-parallel{{- end }}{{- end }}{{- end }} \
+            {{- with .Spec.Prefill }}{{- with .Parallelism }}{{- if .Tensor -}}--tensor-parallel-size {{ .Tensor }}{{- end }}{{- end }}{{- end }} \
+            --data-parallel-size {{ with .Spec.Prefill }}{{ with .Parallelism }}{{ or .Data 1 }}{{ else }}1{{ end }}{{ else }}1{{ end }} \
+            --data-parallel-size-local {{ with .Spec.Prefill }}{{ with .Parallelism }}{{ or .DataLocal 1 }}{{ else }}1{{ end }}{{ else }}1{{ end }} \
             --data-parallel-address ${DP_ADDRESS} \
-            --data-parallel-rpc-port {{ if .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
+            --data-parallel-rpc-port {{ with .Spec.Prefill }}{{ with .Parallelism }}{{ if .DataRPCPort }}{{ .DataRPCPort }}{{ else }}5555{{ end }}{{ else }}5555{{ end }}{{ else }}5555{{ end }} \
             --data-parallel-start-rank $START_RANK \
             ${ACCESS_LOG_ARGS} \
             ${SHUTDOWN_TIMEOUT_ARGS} \
@@ -3797,8 +3797,7 @@ spec:
             fi
           fi
 
-          START_RANK=$(( ${LWS_WORKER_INDEX:-0} * {{ or .Spec.Prefill.Parallelism.DataLocal 1 }} ))
-
+          START_RANK=$(( ${LWS_WORKER_INDEX:-0} * {{ if and .Spec.Prefill .Spec.Prefill.Parallelism }}{{ or .Spec.Prefill.Parallelism.DataLocal 1 }}{{ else }}1{{ end }} ))
           # --disable-access-log-for-endpoints landed in vLLM 0.16.0 (vllm-project/vllm#30011).
           # Older versions still need the blanket --disable-uvicorn-access-log.
           ACCESS_LOG_ARGS="--disable-uvicorn-access-log"
@@ -3827,12 +3826,12 @@ spec:
             /mnt/models \
             --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
             --port 8000 \
-            {{- if .Spec.Prefill.Parallelism.Expert }}--enable-expert-parallel{{- end }} \
-            {{- if .Spec.Prefill.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }} \
-            --data-parallel-size {{ or .Spec.Prefill.Parallelism.Data 1 }} \
-            --data-parallel-size-local {{ or .Spec.Prefill.Parallelism.DataLocal 1 }} \
+            {{- with .Spec.Prefill }}{{- with .Parallelism }}{{- if .Expert }}--enable-expert-parallel{{- end }}{{- end }}{{- end }} \
+            {{- with .Spec.Prefill }}{{- with .Parallelism }}{{- if .Tensor }}--tensor-parallel-size {{ .Tensor }}{{- end }}{{- end }}{{- end }} \
+            --data-parallel-size {{ with .Spec.Prefill }}{{ with .Parallelism }}{{ or .Data 1 }}{{ else }}1{{ end }}{{ else }}1{{ end }} \
+            --data-parallel-size-local {{ with .Spec.Prefill }}{{ with .Parallelism }}{{ or .DataLocal 1 }}{{ else }}1{{ end }}{{ else }}1{{ end }} \
             --data-parallel-address ${DP_ADDRESS} \
-            --data-parallel-rpc-port {{ if .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
+            --data-parallel-rpc-port {{ with .Spec.Prefill }}{{ with .Parallelism }}{{ if .DataRPCPort }}{{ .DataRPCPort }}{{ else }}5555{{ end }}{{ else }}5555{{ end }}{{ else }}5555{{ end }} \
             --data-parallel-start-rank $START_RANK \
             --headless \
             ${ACCESS_LOG_ARGS} \
@@ -4962,12 +4961,12 @@ spec:
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8000 \
           --api-server-count ${VLLM_API_SERVER_COUNT:-8} \
-          {{- if .Spec.Parallelism.Expert -}}--enable-expert-parallel{{- end }} \
-          {{- if .Spec.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
-          --data-parallel-size {{ or .Spec.Parallelism.Data 1 }} \
-          --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal 1 }} \
+          {{- with .Spec.Parallelism }}{{- if .Expert -}}--enable-expert-parallel{{- end }}{{- end }} \
+          {{- with .Spec.Parallelism }}{{- if .Tensor -}}--tensor-parallel-size {{ .Tensor }}{{- end }}{{- end }} \
+          --data-parallel-size {{ with .Spec.Parallelism }}{{ or .Data 1 }}{{ else }}1{{ end }} \
+          --data-parallel-size-local {{ with .Spec.Parallelism }}{{ or .DataLocal 1 }}{{ else }}1{{ end }} \
           --data-parallel-address ${DP_ADDRESS} \
-          --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
+          --data-parallel-rpc-port {{ with .Spec.Parallelism }}{{ if .DataRPCPort }}{{ .DataRPCPort }}{{ else }}5555{{ end }}{{ else }}5555{{ end }} \
           --data-parallel-start-rank $START_RANK \
           ${ACCESS_LOG_ARGS} \
           ${SHUTDOWN_TIMEOUT_ARGS} \
@@ -5210,7 +5209,7 @@ spec:
           fi
         fi
 
-        START_RANK=$(( ${LWS_WORKER_INDEX:-0} * {{ or .Spec.Parallelism.DataLocal 1 }} ))
+        START_RANK=$(( ${LWS_WORKER_INDEX:-0} * {{ with .Spec.Parallelism }}{{ or .DataLocal 1 }}{{ else }}1{{ end }} ))
 
         # --disable-access-log-for-endpoints landed in vLLM 0.16.0 (vllm-project/vllm#30011).
         # Older versions still need the blanket --disable-uvicorn-access-log.
@@ -5240,12 +5239,12 @@ spec:
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8000 \
-          {{- if .Spec.Parallelism.Expert }}--enable-expert-parallel{{- end }} \
-          {{- if .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
-          --data-parallel-size {{ or .Spec.Parallelism.Data 1 }} \
-          --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal 1 }} \
+          {{- with .Spec.Parallelism }}{{- if .Expert }}--enable-expert-parallel{{- end }}{{- end }} \
+          {{- with .Spec.Parallelism }}{{- if .Tensor }}--tensor-parallel-size {{ .Tensor }}{{- end }}{{- end }} \
+          --data-parallel-size {{ with .Spec.Parallelism }}{{ or .Data 1 }}{{ else }}1{{ end }} \
+          --data-parallel-size-local {{ with .Spec.Parallelism }}{{ or .DataLocal 1 }}{{ else }}1{{ end }} \
           --data-parallel-address ${DP_ADDRESS} \
-          --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
+          --data-parallel-rpc-port {{ with .Spec.Parallelism }}{{ if .DataRPCPort }}{{ .DataRPCPort }}{{ else }}5555{{ end }}{{ else }}5555{{ end }} \
           --data-parallel-start-rank $START_RANK \
           --headless \
           ${ACCESS_LOG_ARGS} \
