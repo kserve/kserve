@@ -48,6 +48,27 @@ ISVC_READY_TIMEOUT_S = 900
 ISVC_ANNOTATIONS = {"serving.knative.dev/progress-deadline": "20m"}
 
 
+def vllm_env():
+    return [
+        client.V1EnvVar(
+            name="VLLM_CPU_KVCACHE_SPACE",
+            value="1",
+        ),
+        client.V1EnvVar(
+            name="VLLM_ENABLE_V1_MULTIPROCESSING",
+            value="0",
+        ),
+        client.V1EnvVar(
+            name="HF_HUB_DISABLE_XET",
+            value="1",
+        ),
+        client.V1EnvVar(
+            name="HF_HUB_ENABLE_HF_TRANSFER",
+            value="0",
+        ),
+    ]
+
+
 @pytest.mark.vllm
 def test_huggingface_vllm_cpu_openai_chat_completions():
     service_name = "hf-qwen-chat-vllm"
@@ -69,16 +90,7 @@ def test_huggingface_vllm_cpu_openai_chat_completions():
                 "--dtype",
                 "bfloat16",
             ],
-            env=[
-                client.V1EnvVar(
-                    name="VLLM_CPU_KVCACHE_SPACE",
-                    value="1",
-                ),
-                client.V1EnvVar(
-                    name="VLLM_ENABLE_V1_MULTIPROCESSING",
-                    value="0",
-                ),
-            ],
+            env=vllm_env(),
             resources=V1ResourceRequirements(
                 requests={"cpu": "2", "memory": "7Gi"},
                 limits={"cpu": "2", "memory": "7Gi"},
@@ -134,16 +146,7 @@ def test_huggingface_vllm_cpu_text_completion_streaming():
                 "--dtype",
                 "bfloat16",
             ],
-            env=[
-                client.V1EnvVar(
-                    name="VLLM_CPU_KVCACHE_SPACE",
-                    value="1",
-                ),
-                client.V1EnvVar(
-                    name="VLLM_ENABLE_V1_MULTIPROCESSING",
-                    value="0",
-                ),
-            ],
+            env=vllm_env(),
             resources=V1ResourceRequirements(
                 requests={"cpu": "2", "memory": "7Gi"},
                 limits={"cpu": "2", "memory": "7Gi"},
@@ -201,16 +204,7 @@ def test_huggingface_vllm_cpu_openai_completions():
                 "--dtype",
                 "bfloat16",
             ],
-            env=[
-                client.V1EnvVar(
-                    name="VLLM_CPU_KVCACHE_SPACE",
-                    value="1",
-                ),
-                client.V1EnvVar(
-                    name="VLLM_ENABLE_V1_MULTIPROCESSING",
-                    value="0",
-                ),
-            ],
+            env=vllm_env(),
             resources=V1ResourceRequirements(
                 requests={"cpu": "2", "memory": "7Gi"},
                 limits={"cpu": "2", "memory": "7Gi"},
@@ -265,16 +259,7 @@ def test_huggingface_vllm_openai_chat_completions_streaming():
                 "--dtype",
                 "bfloat16",
             ],
-            env=[
-                client.V1EnvVar(
-                    name="VLLM_CPU_KVCACHE_SPACE",
-                    value="1",
-                ),
-                client.V1EnvVar(
-                    name="VLLM_ENABLE_V1_MULTIPROCESSING",
-                    value="0",
-                ),
-            ],
+            env=vllm_env(),
             resources=V1ResourceRequirements(
                 requests={"cpu": "2", "memory": "7Gi"},
                 limits={"cpu": "2", "memory": "7Gi"},
@@ -335,16 +320,7 @@ def test_huggingface_vllm_cpu_rerank():
                 "bfloat16",
                 "--enforce-eager",
             ],
-            env=[
-                client.V1EnvVar(
-                    name="VLLM_CPU_KVCACHE_SPACE",
-                    value="1",
-                ),
-                client.V1EnvVar(
-                    name="VLLM_ENABLE_V1_MULTIPROCESSING",
-                    value="0",
-                ),
-            ],
+            env=vllm_env(),
             resources=V1ResourceRequirements(
                 requests={"cpu": "2", "memory": "6Gi"},
                 limits={"cpu": "2", "memory": "6Gi"},
