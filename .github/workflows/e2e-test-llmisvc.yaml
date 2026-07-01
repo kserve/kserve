@@ -270,6 +270,7 @@ jobs:
         uses: ./.github/actions/kserve-dep-setup
         with:
           deploy-llmisvc: "true"
+          network-layer: "envoy-gateway"
 
       - name: Install UV
         run: ./test/scripts/gh-actions/setup-uv.sh
@@ -321,6 +322,117 @@ jobs:
         uses: ./.github/actions/upload-test-results
         with:
           name: test-results-llmisvc-${{ matrix.install-method }}
+
+  test-llmisvc-istio:
+    runs-on: cncf-ubuntu-16-64-x86
+    needs: [detect-changes, llmisvc-image-build, seed-model-cache, seed-image-cache]
+    strategy:
+      fail-fast: false
+      matrix:
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.9"
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+        with:
+          addons: metallb
+
+      - name: Download LLMISvc controller image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.LLMISVC_CONTROLLER_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Download storage-initializer image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Load docker images
+        uses: ./.github/actions/load-docker-images
+        with:
+          directory: ./tmp
+
+      - name: Download model cache artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: opt-125m-model-cache-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Load model cache into minikube
+        run: |
+          minikube image load ./tmp/opt-125m-cache.tar
+          echo "OPT_125M_CACHE_IMAGE=kserve/opt-125m-cache:${{ env.TAG }}" >> $GITHUB_ENV
+
+      - name: KServe dependency setup (Istio)
+        uses: ./.github/actions/kserve-dep-setup
+        with:
+          deploy-llmisvc: "true"
+          network-layer: "istio-gatewayapi"
+        env:
+          ISTIO_VERSION_OVERRIDE: "1.29.6"
+
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
+
+      - name: Install KServe
+        run: |
+          ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
+          ./test/scripts/gh-actions/setup-kserve.sh
+
+      - name: Verify LLMISvc setup (Istio)
+        run: |
+          echo "Verifying LLMISvc controller setup (Istio)..."
+          kubectl get pods -n kserve -l app.kubernetes.io/component=controller || true
+          kubectl get pods -n istio-system || true
+          kubectl get gateways -A || true
+          kubectl get crd | grep inference || true
+
+      - name: Run LLMInferenceService E2E tests (Istio)
+        id: llmisvc-e2e-tests-istio
+        timeout-minutes: 90
+        run: |
+          export PYTEST_MAXFAIL=3
+          ./test/scripts/gh-actions/run-e2e-tests.sh "traffic and cluster_cpu" 0 "istio"
+
+      - name: Check system status
+        if: always()
+        run: |
+          ./test/scripts/gh-actions/status-check.sh "llmisvc"
+
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-llmisvc-istio-${{ matrix.install-method }}
 
   test-llmisvc-wva-autoscaling-hpa:
     runs-on: cncf-ubuntu-16-64-x86
@@ -393,6 +505,7 @@ jobs:
         uses: ./.github/actions/kserve-dep-setup
         with:
           deploy-llmisvc: "true"
+          network-layer: "envoy-gateway"
           autoscaler: "hpa"
 
       - name: Install UV
@@ -499,6 +612,7 @@ jobs:
         with:
           deploy-llmisvc: "true"
           autoscaler: "keda"
+          network-layer: "envoy-gateway"
 
       - name: Install UV
         run: ./test/scripts/gh-actions/setup-uv.sh
@@ -594,6 +708,7 @@ jobs:
         with:
           deploy-llmisvc: "true"
           observability: "jaeger"
+          network-layer: "envoy-gateway"
 
       - name: Install UV
         run: ./test/scripts/gh-actions/setup-uv.sh
