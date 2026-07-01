@@ -491,7 +491,15 @@ func schedulerConfigText(llmSvc *v1alpha2.LLMInferenceService) string {
 
 	switch {
 	case llmSvc.Spec.Prefill != nil:
-		// Always do P/D by default (threshold 0)
+		// Always do P/D by default (threshold 0).
+		// Profiles follow the llm-d optimized P/D baseline:
+		//   prefill - prefix-cache + queue + kv-cache-utilization scorers
+		//   decode  - active-request + prefix-cache scorers (active request count
+		//             is a better signal than queue depth for ongoing generation).
+		// kv-cache-utilization-scorer and active-request-scorer are declared in the
+		// top-level plugins list so the profiles' pluginRefs resolve; queue-scorer
+		// stays declared because the prefill profile still references it.
+		// lora-affinity-scorer is injected into both profiles when LoRA adapters exist.
 		var loraPlugin, loraProfileEntry string
 		if llmSvc.Spec.Model.LoRA != nil && len(llmSvc.Spec.Model.LoRA.Adapters) > 0 {
 			loraPlugin = fmt.Sprintf("- type: %s\n", loraAffinityScorerPlugin)
@@ -505,6 +513,8 @@ plugins:
 - type: prefill-filter
 - type: decode-filter
 - type: queue-scorer
+- type: kv-cache-utilization-scorer
+- type: active-request-scorer
 - type: prefix-cache-scorer
 - type: max-score-picker
 - type: always-disagg-pd-decider
@@ -516,15 +526,17 @@ plugins:
 - name: prefill
   plugins:
   - pluginRef: prefill-filter
-%s  - pluginRef: queue-scorer
-    weight: 2
-  - pluginRef: prefix-cache-scorer
+%s  - pluginRef: prefix-cache-scorer
     weight: 3
+  - pluginRef: queue-scorer
+    weight: 2
+  - pluginRef: kv-cache-utilization-scorer
+    weight: 2
   - pluginRef: max-score-picker
 - name: decode
   plugins:
   - pluginRef: decode-filter
-%s  - pluginRef: queue-scorer
+%s  - pluginRef: active-request-scorer
     weight: 2
   - pluginRef: prefix-cache-scorer
     weight: 3
