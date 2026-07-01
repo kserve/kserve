@@ -66,6 +66,13 @@ type SchedulerConfig struct {
 	// determining whether a certificate secret has expired. The first entry is the
 	// write key (set on newly created secrets); all entries are read keys.
 	ExpirationAnnotations []string `json:"expirationAnnotations,omitempty"`
+
+	// AllowSkippingV1Alpha2InferencePool controls whether the scheduler silently skips
+	// the v1alpha2 InferencePool reconciliation when the CRD is not installed.
+	// When false (default), a missing v1alpha2 CRD causes a reconciliation error,
+	// preserving backward-compatible behavior. Set to true in environments where
+	// only the stable v1 InferencePool CRD is installed.
+	AllowSkippingV1Alpha2InferencePool bool `json:"allowSkippingV1Alpha2InferencePool,omitempty"`
 }
 
 // NewSchedulerConfig parses the "scheduler" key from the inferenceservice-config
