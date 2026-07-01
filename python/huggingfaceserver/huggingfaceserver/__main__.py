@@ -161,6 +161,11 @@ output_format_group.add_argument(
     help="Return raw logits without processing. Supported only classification tasks such as token classification, text classification and fill-mask.",
 )
 parser.add_argument(
+    "--use_id2label",
+    action="store_true",
+    help="Use id2label mapping from model config to return human-readable labels instead of numeric indices for classification tasks.",
+)
+parser.add_argument(
     "--disable_log_requests", action="store_true", help="Disable logging requests"
 )
 
@@ -321,6 +326,7 @@ def load_model():
                 return_offsets_mapping=kwargs.get("return_offsets_mapping", False),
                 return_probabilities=kwargs.get("return_probabilities", False),
                 return_raw_logits=kwargs.get("return_raw_logits", False),
+                use_id2label=kwargs.get("use_id2label", False),
             )
     model.load()
     return model
