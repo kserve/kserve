@@ -51,6 +51,7 @@ const (
 const (
 	InferencePoolV1APIGroupName       = "inference.networking.k8s.io"
 	InferencePoolV1Alpha2APIGroupName = "inference.networking.x-k8s.io"
+	LLMDAIAPIGroupName                = "llm-d.ai"
 )
 
 // InferenceService Constants

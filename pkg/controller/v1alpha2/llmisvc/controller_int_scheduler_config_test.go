@@ -1009,6 +1009,32 @@ schedulingProfiles:
 				}
 			}
 			Expect(hasLeasesPermission).To(BeTrue(), "Expected scheduler role to have leases permission for leader election")
+
+			// Verify llm-d.ai API group permission exists for inferenceobjectives and inferencemodelrewrites
+			hasLLMDAIPermission := false
+			for _, rule := range expectedRole.Rules {
+				for _, apiGroup := range rule.APIGroups {
+					if apiGroup == "llm-d.ai" {
+						Expect(rule.Resources).To(ContainElements("inferenceobjectives", "inferencemodelrewrites"))
+						Expect(rule.Verbs).To(ContainElements("get", "list", "watch"))
+						hasLLMDAIPermission = true
+					}
+				}
+			}
+			Expect(hasLLMDAIPermission).To(BeTrue(), "Expected scheduler role to have llm-d.ai API group permission for inferenceobjectives and inferencemodelrewrites")
+
+			// Verify inference.networking.k8s.io API group permission exists for inferencepools, inferenceobjectives, and inferencemodels
+			hasGIEPermission := false
+			for _, rule := range expectedRole.Rules {
+				for _, apiGroup := range rule.APIGroups {
+					if apiGroup == "inference.networking.k8s.io" {
+						Expect(rule.Resources).To(ContainElements("inferencepools", "inferenceobjectives", "inferencemodels"))
+						Expect(rule.Verbs).To(ContainElements("get", "list", "watch"))
+						hasGIEPermission = true
+					}
+				}
+			}
+			Expect(hasGIEPermission).To(BeTrue(), "Expected scheduler role to have inference.networking.k8s.io API group permission for inferencepools, inferenceobjectives, and inferencemodels")
 		})
 	})
 
