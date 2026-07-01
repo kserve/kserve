@@ -44,7 +44,16 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
             "v2",
             "gs://seldon-models/sklearn/mms/lr_model",
         ),
+        (
+            "v1",
+            "https://storage.googleapis.com/kfserving-examples/models/sklearn/1.0/model/model.joblib",
+        ),
+        (
+            "v2",
+            "https://storage.googleapis.com/seldon-models/sklearn/mms/lr_model/model.joblib",
+        ),
     ],
+    ids=["v1-gcs", "v2-gcs", "v1-http", "v2-http"],
 )
 @pytest.mark.mms
 @pytest.mark.asyncio(scope="session")
@@ -165,7 +174,16 @@ async def test_mms_sklearn_kserve(
             "v2",
             "gs://seldon-models/xgboost/mms/iris",
         ),
+        (
+            "v1",
+            "https://storage.googleapis.com/kfserving-examples/models/xgboost/1.5/model/model.bst",
+        ),
+        (
+            "v2",
+            "https://storage.googleapis.com/seldon-models/xgboost/mms/iris/model.bst",
+        ),
     ],
+    ids=["v1-gcs", "v2-gcs", "v1-http", "v2-http"],
 )
 @pytest.mark.mms
 @pytest.mark.asyncio(scope="session")
