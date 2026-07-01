@@ -11,6 +11,7 @@ Name | Type | Description | Notes
 **automount_service_account_token** | **bool** | AutomountServiceAccountToken indicates whether a service account token should be automatically mounted. | [optional] 
 **batcher** | [**V1beta1Batcher**](V1beta1Batcher.md) |  | [optional] 
 **canary_traffic_percent** | **int** | CanaryTrafficPercent defines the traffic split percentage between the candidate revision and the last ready revision | [optional] 
+**catboost** | [**V1beta1CatBoostSpec**](V1beta1CatBoostSpec.md) |  | [optional] 
 **container_concurrency** | **int** | ContainerConcurrency specifies how many requests can be processed concurrently, this sets the hard limit of the container concurrency(https://knative.dev/docs/serving/autoscaling/concurrency). | [optional] 
 **containers** | [**list[V1Container]**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1Container.md) | List of containers belonging to the pod. Containers cannot currently be added or removed. There must be at least one container in a Pod. Cannot be updated. | [optional] 
 **deployment_strategy** | [**K8sIoApiAppsV1DeploymentStrategy**](K8sIoApiAppsV1DeploymentStrategy.md) |  | [optional] 
