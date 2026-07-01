@@ -4666,63 +4666,6 @@ spec:
           - mountPath: /var/run/kserve/tls
             name: tls-certs
             readOnly: true
-          - mountPath: /tmp/tokenizer
-            name: tokenizer-uds
-        - env:
-          - name: TOKENIZERS_DIR
-            value: /mnt/models
-          image: ghcr.io/llm-d/llm-d-uds-tokenizer:vllm-v0.19.1
-          imagePullPolicy: IfNotPresent
-          livenessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /healthz
-              port: 8082
-            periodSeconds: 15
-            timeoutSeconds: 5
-          name: tokenizer
-          ports:
-          - containerPort: 8082
-            name: health
-            protocol: TCP
-          readinessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /healthz
-              port: 8082
-            periodSeconds: 10
-            timeoutSeconds: 5
-          resources:
-            requests:
-              cpu: 256m
-              memory: 500Mi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-              - ALL
-            readOnlyRootFilesystem: true
-            runAsNonRoot: true
-            seccompProfile:
-              type: RuntimeDefault
-          startupProbe:
-            failureThreshold: 60
-            httpGet:
-              path: /healthz
-              port: 8082
-            initialDelaySeconds: 5
-            periodSeconds: 10
-            timeoutSeconds: 5
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: FallbackToLogsOnError
-          volumeMounts:
-          - mountPath: /tmp
-            name: tokenizer-tmp
-          - mountPath: /.cache
-            name: tokenizer-cache
-          - mountPath: /tmp/tokenizer
-            name: tokenizer-uds
-          workingDir: /mnt/models
         dnsPolicy: ClusterFirst
         restartPolicy: Always
         terminationGracePeriodSeconds: 60
@@ -4731,12 +4674,76 @@ spec:
           secret:
             secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs`
               }}'
-        - emptyDir: {}
-          name: tokenizer-uds
-        - emptyDir: {}
-          name: tokenizer-tmp
-        - emptyDir: {}
-          name: tokenizer-cache
+      tokenizer:
+        template:
+          containers:
+          - args:
+            - launch
+            - render
+            - --port=8000
+            command:
+            - vllm
+            env:
+            - name: USER
+              value: vllm
+            image: vllm/vllm-openai-cpu:v0.23.0
+            imagePullPolicy: IfNotPresent
+            livenessProbe:
+              failureThreshold: 3
+              httpGet:
+                path: /health
+                port: 8000
+              periodSeconds: 15
+              timeoutSeconds: 5
+            name: tokenizer
+            ports:
+            - containerPort: 8000
+              name: http
+              protocol: TCP
+            readinessProbe:
+              failureThreshold: 3
+              httpGet:
+                path: /health
+                port: 8000
+              periodSeconds: 10
+              timeoutSeconds: 5
+            resources:
+              limits:
+                cpu: "4"
+                memory: 12Gi
+              requests:
+                cpu: "1"
+                memory: 4Gi
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                - ALL
+              runAsNonRoot: true
+              runAsUser: 1000
+              seccompProfile:
+                type: RuntimeDefault
+            startupProbe:
+              failureThreshold: 60
+              httpGet:
+                path: /health
+                port: 8000
+              initialDelaySeconds: 5
+              periodSeconds: 10
+              timeoutSeconds: 5
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: FallbackToLogsOnError
+            volumeMounts:
+            - mountPath: /tmp
+              name: tokenizer-tmp
+            - mountPath: /.cache
+              name: tokenizer-cache
+            workingDir: /mnt/models
+          volumes:
+          - emptyDir: {}
+            name: tokenizer-tmp
+          - emptyDir: {}
+            name: tokenizer-cache
 ---
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig

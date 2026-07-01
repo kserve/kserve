@@ -438,6 +438,7 @@ const (
 	// LLMInferenceService component label values (for KubernetesComponentLabelKey)
 	LLMComponentRouter                = "llminferenceservice-router"
 	LLMComponentRouterScheduler       = "llminferenceservice-router-scheduler"
+	LLMComponentTokenizer             = "llminferenceservice-tokenizer"
 	LLMComponentWorkload              = "llminferenceservice-workload"
 	LLMComponentWorkloadPrefill       = "llminferenceservice-workload-prefill"
 	LLMComponentWorkloadWorker        = "llminferenceservice-workload-worker"

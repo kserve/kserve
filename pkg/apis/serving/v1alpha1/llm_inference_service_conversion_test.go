@@ -79,6 +79,111 @@ func TestLLMInferenceServiceConversion_PreservesCriticality(t *testing.T) {
 	assert.False(t, hasAnnotation, "Annotation should be cleaned up after restoration")
 }
 
+func TestLLMInferenceServiceConversion_PreservesTokenizerSpec(t *testing.T) {
+	modelName := "test-model"
+
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-isvc-tokenizer",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI:  apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"},
+				Name: &modelName,
+			},
+			Router: &RouterSpec{
+				Scheduler: &SchedulerSpec{
+					Tokenizer: &TokenizerSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "tokenizer",
+									Image: "vllm/vllm-openai-cpu:v0.23.0",
+									Ports: []corev1.ContainerPort{
+										{ContainerPort: 8000, Name: "http"},
+									},
+								},
+							},
+						},
+						Replicas: ptr.To(int32(3)),
+					},
+				},
+			},
+		},
+	}
+
+	// Convert to v1alpha2 (hub)
+	dst := &v1alpha2.LLMInferenceService{}
+	err := src.ConvertTo(dst)
+	require.NoError(t, err)
+
+	require.NotNil(t, dst.Spec.Router)
+	require.NotNil(t, dst.Spec.Router.Scheduler)
+	require.NotNil(t, dst.Spec.Router.Scheduler.Tokenizer, "Tokenizer must not be nil after ConvertTo")
+	require.NotNil(t, dst.Spec.Router.Scheduler.Tokenizer.Template)
+	assert.Len(t, dst.Spec.Router.Scheduler.Tokenizer.Template.Containers, 1)
+	assert.Equal(t, "tokenizer", dst.Spec.Router.Scheduler.Tokenizer.Template.Containers[0].Name)
+	assert.Equal(t, "vllm/vllm-openai-cpu:v0.23.0", dst.Spec.Router.Scheduler.Tokenizer.Template.Containers[0].Image)
+	require.NotNil(t, dst.Spec.Router.Scheduler.Tokenizer.Replicas)
+	assert.Equal(t, int32(3), *dst.Spec.Router.Scheduler.Tokenizer.Replicas)
+
+	// Convert back to v1alpha1
+	restored := &LLMInferenceService{}
+	err = restored.ConvertFrom(dst)
+	require.NoError(t, err)
+
+	require.NotNil(t, restored.Spec.Router)
+	require.NotNil(t, restored.Spec.Router.Scheduler)
+	require.NotNil(t, restored.Spec.Router.Scheduler.Tokenizer, "Tokenizer must survive round-trip")
+	require.NotNil(t, restored.Spec.Router.Scheduler.Tokenizer.Template)
+	assert.Len(t, restored.Spec.Router.Scheduler.Tokenizer.Template.Containers, 1)
+	assert.Equal(t, "tokenizer", restored.Spec.Router.Scheduler.Tokenizer.Template.Containers[0].Name)
+	assert.Equal(t, "vllm/vllm-openai-cpu:v0.23.0", restored.Spec.Router.Scheduler.Tokenizer.Template.Containers[0].Image)
+	require.NotNil(t, restored.Spec.Router.Scheduler.Tokenizer.Replicas)
+	assert.Equal(t, int32(3), *restored.Spec.Router.Scheduler.Tokenizer.Replicas)
+}
+
+func TestLLMInferenceServiceConversion_NilTokenizerPreserved(t *testing.T) {
+	modelName := "test-model"
+
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-isvc-no-tokenizer",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI:  apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"},
+				Name: &modelName,
+			},
+			Router: &RouterSpec{
+				Scheduler: &SchedulerSpec{
+					Replicas: ptr.To(int32(1)),
+				},
+			},
+		},
+	}
+
+	// Convert to v1alpha2 (hub)
+	dst := &v1alpha2.LLMInferenceService{}
+	err := src.ConvertTo(dst)
+	require.NoError(t, err)
+
+	require.NotNil(t, dst.Spec.Router)
+	require.NotNil(t, dst.Spec.Router.Scheduler)
+	assert.Nil(t, dst.Spec.Router.Scheduler.Tokenizer, "Tokenizer must remain nil when not set")
+
+	// Convert back to v1alpha1
+	restored := &LLMInferenceService{}
+	err = restored.ConvertFrom(dst)
+	require.NoError(t, err)
+
+	require.NotNil(t, restored.Spec.Router)
+	require.NotNil(t, restored.Spec.Router.Scheduler)
+	assert.Nil(t, restored.Spec.Router.Scheduler.Tokenizer, "Tokenizer must remain nil after round-trip")
+}
+
 func TestLLMInferenceServiceConversion_PreservesLoRACriticalities(t *testing.T) {
 	modelCriticality := Critical
 	adapter1Criticality := Standard

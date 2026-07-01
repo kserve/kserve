@@ -380,6 +380,24 @@ type SchedulerSpec struct {
 
 	// Replicas is the number of replicas for the scheduler.
 	Replicas *int32 `json:"replicas,omitempty"`
+
+	// Tokenizer configuration for a standalone tokenizer Deployment.
+	// When set, the controller creates a separate Deployment and ClusterIP Service
+	// for the tokenizer instead of running it as a sidecar in the scheduler pod.
+	// +optional
+	Tokenizer *TokenizerSpec `json:"tokenizer,omitempty"`
+}
+
+// TokenizerSpec defines the configuration for a standalone tokenizer Deployment.
+type TokenizerSpec struct {
+	// Template for the tokenizer pod spec.
+	// +optional
+	Template *corev1.PodSpec `json:"template,omitempty"`
+
+	// Replicas is the number of replicas for the tokenizer deployment.
+	// Defaults to 1 if not specified.
+	// +optional
+	Replicas *int32 `json:"replicas,omitempty"`
 }
 
 type SchedulerConfigSpec struct {
