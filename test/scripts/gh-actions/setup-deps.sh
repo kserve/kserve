@@ -112,13 +112,13 @@ else
     echo "Installing LLMISVC HPA autoscaling components (Prometheus, Prometheus Adapter, WVA)..."
     ${REPO_ROOT}/hack/setup/infra/manage.prometheus-helm.sh
     ${REPO_ROOT}/hack/setup/infra/manage.prometheus-adapter-helm.sh
-    ${REPO_ROOT}/hack/setup/infra/manage.wva-helm.sh
+    ${REPO_ROOT}/hack/setup/infra/manage.wva-kustomize.sh
 
   elif [[ $LLMISVC_AUTOSCALER == "keda" ]]; then
     echo "Installing LLMISVC KEDA autoscaling components (Prometheus, KEDA, WVA)..."
     ${REPO_ROOT}/hack/setup/infra/manage.prometheus-helm.sh
     ${REPO_ROOT}/hack/setup/infra/manage.keda-helm.sh
-    ${REPO_ROOT}/hack/setup/infra/manage.wva-helm.sh
+    ${REPO_ROOT}/hack/setup/infra/manage.wva-kustomize.sh
   fi
 
   if [[ $OBSERVABILITY == "jaeger" ]]; then
