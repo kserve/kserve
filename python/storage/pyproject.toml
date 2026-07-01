@@ -15,6 +15,8 @@ dependencies = [
     "boto3<2.0.0,>=1.29.0",
     "huggingface-hub[hf-transfer]>=0.32.0",
     "hf-xet>=1.5.0",
+    # Lightweight ModelScope download-only SDK (4 runtime deps), analogous to huggingface-hub.
+    "modelscope-hub>=0.1.4",
     "dulwich>=0.21.0",
     "cryptography>=46.0.5", # CVE-2026-26007 cryptography Subgroup Attack Due to Missing Subgroup Validation for SECT Curves
     # CVE-2026-32597 PyJWT accepts unknown `crit` header extensions (RFC 7515 §4.1.11 MUST violation)
