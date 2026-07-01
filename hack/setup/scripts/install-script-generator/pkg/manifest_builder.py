@@ -182,6 +182,7 @@ def select_kserve_directories(
         crd_dirs = [
             repo_root / "config/crd/full/clusterstoragecontainer",
             repo_root / "config/crd/full/llmisvc",
+            repo_root / "config/crd/full/gie",
         ]
         config_dirs = [repo_root / "config/overlays/standalone/llmisvc"]
     elif localmodel == "true":
