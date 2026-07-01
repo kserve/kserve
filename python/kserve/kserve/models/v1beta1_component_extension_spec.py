@@ -57,6 +57,7 @@ class V1beta1ComponentExtensionSpec(object):
         'logger': 'V1beta1LoggerSpec',
         'max_replicas': 'int',
         'min_replicas': 'int',
+        'pod_disruption_budget': 'K8sIoApiPolicyV1PodDisruptionBudgetSpec',
         'scale_metric': 'str',
         'scale_metric_type': 'str',
         'scale_target': 'int',
@@ -74,13 +75,14 @@ class V1beta1ComponentExtensionSpec(object):
         'logger': 'logger',
         'max_replicas': 'maxReplicas',
         'min_replicas': 'minReplicas',
+        'pod_disruption_budget': 'podDisruptionBudget',
         'scale_metric': 'scaleMetric',
         'scale_metric_type': 'scaleMetricType',
         'scale_target': 'scaleTarget',
         'timeout': 'timeout'
     }
 
-    def __init__(self, annotations=None, auto_scaling=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, deployment_strategy=None, labels=None, logger=None, max_replicas=None, min_replicas=None, scale_metric=None, scale_metric_type=None, scale_target=None, timeout=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, annotations=None, auto_scaling=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, deployment_strategy=None, labels=None, logger=None, max_replicas=None, min_replicas=None, pod_disruption_budget=None, scale_metric=None, scale_metric_type=None, scale_target=None, timeout=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ComponentExtensionSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -96,6 +98,7 @@ class V1beta1ComponentExtensionSpec(object):
         self._logger = None
         self._max_replicas = None
         self._min_replicas = None
+        self._pod_disruption_budget = None
         self._scale_metric = None
         self._scale_metric_type = None
         self._scale_target = None
@@ -122,6 +125,8 @@ class V1beta1ComponentExtensionSpec(object):
             self.max_replicas = max_replicas
         if min_replicas is not None:
             self.min_replicas = min_replicas
+        if pod_disruption_budget is not None:
+            self.pod_disruption_budget = pod_disruption_budget
         if scale_metric is not None:
             self.scale_metric = scale_metric
         if scale_metric_type is not None:
@@ -352,6 +357,27 @@ class V1beta1ComponentExtensionSpec(object):
         """
 
         self._min_replicas = min_replicas
+
+    @property
+    def pod_disruption_budget(self):
+        """Gets the pod_disruption_budget of this V1beta1ComponentExtensionSpec.  # noqa: E501
+
+
+        :return: The pod_disruption_budget of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :rtype: K8sIoApiPolicyV1PodDisruptionBudgetSpec
+        """
+        return self._pod_disruption_budget
+
+    @pod_disruption_budget.setter
+    def pod_disruption_budget(self, pod_disruption_budget):
+        """Sets the pod_disruption_budget of this V1beta1ComponentExtensionSpec.
+
+
+        :param pod_disruption_budget: The pod_disruption_budget of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :type: K8sIoApiPolicyV1PodDisruptionBudgetSpec
+        """
+
+        self._pod_disruption_budget = pod_disruption_budget
 
     @property
     def scale_metric(self):
