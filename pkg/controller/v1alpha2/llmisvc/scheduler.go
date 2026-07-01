@@ -188,12 +188,16 @@ func (r *LLMISVCReconciler) reconcileSchedulerDeployment(ctx context.Context, ll
 func (r *LLMISVCReconciler) reconcileSchedulerInferencePool(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
 	shouldDelete := utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef()
 
-	if err := r.reconcileV1InferencePool(ctx, llmSvc, shouldDelete); err != nil {
-		return err
+	if ok, err := utils.IsCrdAvailable(r.Config, igwapi.GroupVersion.String(), "InferencePool"); ok && err == nil {
+		if err := r.reconcileV1InferencePool(ctx, llmSvc, shouldDelete); err != nil {
+			return err
+		}
 	}
 
-	if err := r.reconcileV1Alpha2InferencePool(ctx, llmSvc, shouldDelete); err != nil {
-		return err
+	if ok, err := utils.IsCrdAvailable(r.Config, igwapiv1alpha2.GroupVersion.String(), "InferencePool"); ok && err == nil {
+		if err := r.reconcileV1Alpha2InferencePool(ctx, llmSvc, shouldDelete); err != nil {
+			return err
+		}
 	}
 
 	return nil
