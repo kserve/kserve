@@ -384,6 +384,59 @@ func TestPreserveSchedulerConfig(t *testing.T) {
 	}
 }
 
+// TestSchedulerConfigTextDefault asserts the default (non-prefill, single-profile)
+// scheduler config matches the llm-d optimized baseline: queue + kv-cache-utilization +
+// prefix-cache + no-hit-lru scorers. Kept self-contained (no shared helpers) so it does
+// not collide with the P/D config test added in a separate change.
+func TestSchedulerConfigTextDefault(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	// No Prefill selects the default branch of schedulerConfigText.
+	svc := &v1alpha2.LLMInferenceService{}
+
+	var cfg map[string]interface{}
+	g.Expect(yaml.Unmarshal([]byte(schedulerConfigText(svc)), &cfg)).To(Succeed())
+
+	// Every profile pluginRef must be declared in the top-level plugins list.
+	topLevel := map[string]struct{}{}
+	for _, p := range cfg["plugins"].([]interface{}) {
+		topLevel[p.(map[string]interface{})["type"].(string)] = struct{}{}
+	}
+	g.Expect(topLevel).To(SatisfyAll(
+		HaveKey("single-profile-handler"),
+		HaveKey("queue-scorer"),
+		HaveKey("kv-cache-utilization-scorer"),
+		HaveKey("prefix-cache-scorer"),
+		HaveKey("no-hit-lru-scorer"),
+		HaveKey("max-score-picker"),
+	))
+
+	// Exactly one "default" profile with the baseline pluginRef/weight sequence.
+	// sigs.k8s.io/yaml decodes numbers as float64; an absent weight is nil.
+	profiles := cfg["schedulingProfiles"].([]interface{})
+	g.Expect(profiles).To(HaveLen(1))
+	def := profiles[0].(map[string]interface{})
+	g.Expect(def["name"]).To(Equal("default"))
+
+	type refWeight struct {
+		ref    string
+		weight interface{}
+	}
+	defPlugins := def["plugins"].([]interface{})
+	got := make([]refWeight, 0, len(defPlugins))
+	for _, r := range defPlugins {
+		rm := r.(map[string]interface{})
+		got = append(got, refWeight{ref: rm["pluginRef"].(string), weight: rm["weight"]})
+	}
+	g.Expect(got).To(Equal([]refWeight{
+		{ref: "queue-scorer", weight: float64(2)},
+		{ref: "kv-cache-utilization-scorer", weight: float64(2)},
+		{ref: "prefix-cache-scorer", weight: float64(3)},
+		{ref: "no-hit-lru-scorer", weight: float64(2)},
+		{ref: "max-score-picker", weight: nil},
+	}))
+}
+
 func TestFilterArgs(t *testing.T) {
 	tests := []struct {
 		name              string

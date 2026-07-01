@@ -531,6 +531,11 @@ plugins:
   - pluginRef: max-score-picker
 `, loraPlugin, loraProfileEntry, loraProfileEntry)
 	default:
+		// Single-profile default follows the llm-d optimized baseline:
+		// queue + kv-cache-utilization + prefix-cache + no-hit-lru scorers, plus
+		// lora-affinity-scorer injected when LoRA adapters are configured.
+		// kv-cache-utilization-scorer and no-hit-lru-scorer are declared in the
+		// top-level plugins list so the profile pluginRefs resolve.
 		var loraPlugin, loraProfileEntry string
 		if llmSvc.Spec.Model.LoRA != nil && len(llmSvc.Spec.Model.LoRA.Adapters) > 0 {
 			loraPlugin = fmt.Sprintf("- type: %s\n", loraAffinityScorerPlugin)
@@ -542,15 +547,21 @@ kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler
 - type: queue-scorer
+- type: kv-cache-utilization-scorer
 - type: prefix-cache-scorer
+- type: no-hit-lru-scorer
 - type: max-score-picker
 %sschedulingProfiles:
 - name: default
   plugins:
 %s  - pluginRef: queue-scorer
     weight: 2
+  - pluginRef: kv-cache-utilization-scorer
+    weight: 2
   - pluginRef: prefix-cache-scorer
     weight: 3
+  - pluginRef: no-hit-lru-scorer
+    weight: 2
   - pluginRef: max-score-picker
 `, loraPlugin, loraProfileEntry)
 	}

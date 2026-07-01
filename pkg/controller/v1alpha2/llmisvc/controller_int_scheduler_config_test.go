@@ -427,12 +427,16 @@ schedulingProfiles:
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
-			// Verify default config for non-prefill mode (should contain queue-scorer, kv-cache-utilization-scorer, etc.)
+			// Verify default config for non-prefill mode. The default single-profile
+			// config follows the llm-d optimized baseline: queue-scorer,
+			// kv-cache-utilization-scorer, prefix-cache-scorer, no-hit-lru-scorer, max-score-picker.
 			configText, found := getSchedulerConfigText(expectedDeployment)
 			Expect(found).To(BeTrue(), "Expected default config in scheduler deployment")
 			// Default non-prefill config should contain these plugins
 			Expect(configText).To(ContainSubstring("queue-scorer"))
+			Expect(configText).To(ContainSubstring("kv-cache-utilization-scorer"))
 			Expect(configText).To(ContainSubstring("prefix-cache-scorer"))
+			Expect(configText).To(ContainSubstring("no-hit-lru-scorer"))
 			Expect(configText).To(ContainSubstring("max-score-picker"))
 			Expect(configText).To(ContainSubstring("name: default"))
 		})
