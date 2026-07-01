@@ -1811,214 +1811,6 @@ func TestReplaceVariables(t *testing.T) {
 			},
 		},
 		{
-			name: "nil Parallelism should not cause template error",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{
-									Name: "main",
-									Args: []string{
-										"vllm",
-										"serve",
-										"{{- if and .Spec.Parallelism .Spec.Parallelism.Expert -}}--enable-expert-parallel{{- end }}",
-										"{{- if and .Spec.Parallelism .Spec.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }}",
-										"--data-parallel-size {{ if and .Spec.Parallelism }}{{ or .Spec.Parallelism.Data 1 }}{{ else }}1{{ end }}",
-										"--data-parallel-size-local {{ if and .Spec.Parallelism }}{{ or .Spec.Parallelism.DataLocal 1 }}{{ else }}1{{ end }}",
-										"--data-parallel-rpc-port {{ if and .Spec.Parallelism .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{ end }}",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-llm",
-					Namespace: "test-ns",
-				},
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					// Parallelism is nil - should not cause template execution error
-				},
-			},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{
-									Name: "main",
-									Args: []string{
-										"vllm",
-										"serve",
-										"--data-parallel-size 1",        // Default to 1 when Parallelism is nil
-										"--data-parallel-size-local 1",  // Default to 1 when Parallelism is nil
-										"--data-parallel-rpc-port 5555", // Default to 5555 when Parallelism is nil
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "nil Prefill.Parallelism should not cause template error",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					Prefill: &v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{
-									Name: "main",
-									Args: []string{
-										"vllm",
-										"serve",
-										"{{- if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Expert -}}--enable-expert-parallel{{- end }}",
-										"{{- if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }}",
-										"--data-parallel-size {{ if and .Spec.Prefill .Spec.Prefill.Parallelism }}{{ or .Spec.Prefill.Parallelism.Data 1 }}{{ else }}1{{ end }}",
-										"--data-parallel-size-local {{ if and .Spec.Prefill .Spec.Prefill.Parallelism }}{{ or .Spec.Prefill.Parallelism.DataLocal 1 }}{{ else }}1{{ end }}",
-										"--data-parallel-rpc-port {{ if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{ else }}5555{{ end }}",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-llm",
-					Namespace: "test-ns",
-				},
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					Prefill: &v1alpha2.WorkloadSpec{
-						// Prefill.Parallelism is nil - should not cause template execution error
-					},
-				},
-			},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					Prefill: &v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{
-									Name: "main",
-									Args: []string{
-										"vllm",
-										"serve",
-										"--data-parallel-size 1",        // Default to 1 when Prefill.Parallelism is nil
-										"--data-parallel-size-local 1",  // Default to 1 when Prefill.Parallelism is nil
-										"--data-parallel-rpc-port 5555", // Default to 5555 when Prefill.Parallelism is nil
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "kvTransferConfig returns empty string when kvCacheOffloading is nil",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{""}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "kvTransferConfig renders --kv-transfer-config from kvCacheOffloading",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
-							CPU: resource.MustParse("10Gi"),
-						},
-					},
-				},
-			},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								// json.Marshal sorts map keys alphabetically: kv_connector < kv_connector_extra_config < kv_role
-								// Internally " is escaped to \" for JSON-safe template rendering; JSON unmarshal restores plain ".
-								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":10737418240,"spec_name":"TieringOffloadingSpec"},"kv_role":"kv_both"}'`}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "kvTransferConfig includes eviction policy when set",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
-							CPU:            resource.MustParse("5Gi"),
-							EvictionPolicy: "arc",
-						},
-					},
-				},
-			},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								// json.Marshal sorts map keys alphabetically: cpu_bytes_to_use < eviction_policy < spec_name
-								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":5368709120,"eviction_policy":"arc","spec_name":"TieringOffloadingSpec"},"kv_role":"kv_both"}'`}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
 			name: "shutdownTimeout uses default when spec.template is nil",
 			cfg: &v1alpha2.LLMInferenceServiceConfig{
 				Spec: v1alpha2.LLMInferenceServiceSpec{
@@ -2258,6 +2050,104 @@ func TestReplaceVariables(t *testing.T) {
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
 								{Args: []string{"--shutdown-timeout", "40"}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "kvTransferConfig returns empty string when kvCacheOffloading is nil",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{""}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "kvTransferConfig renders --kv-transfer-config from kvCacheOffloading",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+							CPU: resource.MustParse("10Gi"),
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								// json.Marshal sorts map keys alphabetically: kv_connector < kv_connector_extra_config < kv_role
+								// Internally " is escaped to \" for JSON-safe template rendering; JSON unmarshal restores plain ".
+								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":10737418240,"spec_name":"TieringOffloadingSpec"},"kv_role":"kv_both"}'`}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "kvTransferConfig includes eviction policy when set",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+							CPU:            resource.MustParse("5Gi"),
+							EvictionPolicy: "arc",
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								// json.Marshal sorts map keys alphabetically: cpu_bytes_to_use < eviction_policy < spec_name
+								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":5368709120,"eviction_policy":"arc","spec_name":"TieringOffloadingSpec"},"kv_role":"kv_both"}'`}},
 							},
 						},
 					},
