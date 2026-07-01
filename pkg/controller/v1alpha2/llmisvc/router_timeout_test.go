@@ -14,45 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package llmisvc
+package llmisvc_test
 
 import (
-	"context"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
+	. "github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/fixture"
 )
-
-// ruleWithTimeouts builds a managed HTTPRoute rule carrying timeouts, mirroring the
-// shape produced by the config-llm-router-route preset (timeouts: 0s on every rule).
-func ruleWithTimeouts(path string) gwapiv1.HTTPRouteRule {
-	return gwapiv1.HTTPRouteRule{
-		BackendRefs: []gwapiv1.HTTPBackendRef{{
-			BackendRef: gwapiv1.BackendRef{
-				BackendObjectReference: gwapiv1.BackendObjectReference{
-					Kind: ptr.To(gwapiv1.Kind("Service")),
-					Name: gwapiv1.ObjectName("svc"),
-					Port: ptr.To(gwapiv1.PortNumber(8000)),
-				},
-				Weight: ptr.To(int32(1)),
-			},
-		}},
-		Matches: []gwapiv1.HTTPRouteMatch{{
-			Path: &gwapiv1.HTTPPathMatch{
-				Type:  ptr.To(gwapiv1.PathMatchPathPrefix),
-				Value: ptr.To(path),
-			},
-		}},
-		Timeouts: &gwapiv1.HTTPRouteTimeouts{
-			BackendRequest: ptr.To(gwapiv1.Duration("0s")),
-			Request:        ptr.To(gwapiv1.Duration("0s")),
-		},
-	}
-}
 
 // TestExpectedHTTPRouteDisableTimeout verifies that the v1alpha2 LLMISVC router
 // honors the disableHTTPRouteTimeout ingress flag by stripping spec.rules.timeouts
@@ -78,6 +51,8 @@ func TestExpectedHTTPRouteDisableTimeout(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Managed rules carry timeouts (0s on every rule), mirroring the shape
+			// produced by the config-llm-router-route preset.
 			llmSvc := &v1alpha2.LLMInferenceService{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-llm", Namespace: "default"},
 				Spec: v1alpha2.LLMInferenceServiceSpec{
@@ -86,8 +61,16 @@ func TestExpectedHTTPRouteDisableTimeout(t *testing.T) {
 							HTTP: &v1alpha2.HTTPRouteSpec{
 								Spec: &gwapiv1.HTTPRouteSpec{
 									Rules: []gwapiv1.HTTPRouteRule{
-										ruleWithTimeouts("/v1/completions"),
-										ruleWithTimeouts("/v1/chat/completions"),
+										HTTPRouteRule(
+											WithMatches(PathPrefixMatch("/v1/completions")),
+											WithBackendRefs(BackendRefService("svc")),
+											WithTimeouts("0s", "0s"),
+										),
+										HTTPRouteRule(
+											WithMatches(PathPrefixMatch("/v1/chat/completions")),
+											WithBackendRefs(BackendRefService("svc")),
+											WithTimeouts("0s", "0s"),
+										),
 									},
 								},
 							},
@@ -96,10 +79,10 @@ func TestExpectedHTTPRouteDisableTimeout(t *testing.T) {
 				},
 			}
 
-			r := &LLMISVCReconciler{}
-			cfg := &Config{DisableHTTPRouteTimeout: tt.disableHTTPRouteTimeout}
+			r := &llmisvc.LLMISVCReconciler{}
+			cfg := &llmisvc.Config{DisableHTTPRouteTimeout: tt.disableHTTPRouteTimeout}
 
-			route := r.expectedHTTPRoute(context.Background(), llmSvc, cfg)
+			route := r.ExpectedHTTPRouteForTest(t.Context(), llmSvc, cfg)
 
 			if len(route.Spec.Rules) == 0 {
 				t.Fatalf("expected generated HTTPRoute to have rules, got none")
