@@ -19,10 +19,12 @@ package utils
 import (
 	"context"
 	"fmt"
+	"os"
 	"strconv"
 
-	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+
+	"github.com/go-logr/logr"
 	"k8s.io/client-go/kubernetes"
 	"knative.dev/serving/pkg/apis/autoscaling"
 
@@ -32,6 +34,19 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1helpers "k8s.io/component-helpers/scheduling/corev1"
 )
+
+// KServeConfigNamespaceEnv is set on localmodel/localmodelnode workloads when they run outside the
+// application namespace so they can read inferenceservice-config from the operator namespace.
+const KServeConfigNamespaceEnv = "KSERVE_CONFIG_NAMESPACE"
+
+// InferenceServiceConfigNamespace returns the namespace of the inferenceservice-config ConfigMap
+// for modelcache controllers.
+func InferenceServiceConfigNamespace() string {
+	if ns := os.Getenv(KServeConfigNamespaceEnv); ns != "" {
+		return ns
+	}
+	return constants.KServeNamespace
+}
 
 // CheckNodeAffinity returns true if the node matches the node affinity specified in the PV Spec
 func CheckNodeAffinity(pvSpec *corev1.PersistentVolumeSpec, node corev1.Node) (bool, error) {
@@ -111,7 +126,7 @@ func CheckZeroInitialScaleAllowed(ctx context.Context, clientset kubernetes.Inte
 // When the annotation is set validation is performed. If any of this validation fails, the annotation will
 // be removed and the default initial scale behavior will be used.
 func ValidateInitialScaleAnnotation(annotations map[string]string, allowZeroInitialScale bool, log logr.Logger) {
-	// Check that the annoation is set.
+	// Check that the annotation is set.
 	_, set := annotations[autoscaling.InitialScaleAnnotationKey]
 	if !set {
 		return

@@ -136,6 +136,16 @@ type IngressConfig struct {
 }
 
 // +kubebuilder:object:generate=false
+type OauthConfig struct {
+	Image                  string `json:"image"`
+	CpuLimit               string `json:"cpuLimit"`
+	CpuRequest             string `json:"cpuRequest"`
+	MemoryLimit            string `json:"memoryLimit"`
+	MemoryRequest          string `json:"memoryRequest"`
+	UpstreamTimeoutSeconds string `json:"upstreamTimeoutSeconds,omitempty"`
+}
+
+// +kubebuilder:object:generate=false
 type DeployConfig struct {
 	DefaultDeploymentMode     string                     `json:"defaultDeploymentMode,omitempty"`
 	DeploymentRolloutStrategy *DeploymentRolloutStrategy `json:"deploymentRolloutStrategy,omitempty"`
@@ -189,13 +199,13 @@ type ServiceConfig struct {
 	ServiceClusterIPNone bool `json:"serviceClusterIPNone,omitempty"`
 }
 
-func GetInferenceServiceConfigMap(ctx context.Context, clientset kubernetes.Interface) (*corev1.ConfigMap, error) {
-	if configMap, err := clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(
-		ctx, constants.InferenceServiceConfigMapName, metav1.GetOptions{}); err != nil {
-		return nil, err
-	} else {
-		return configMap, nil
+func GetInferenceServiceConfigMap(ctx context.Context, clientset kubernetes.Interface, namespace ...string) (*corev1.ConfigMap, error) {
+	ns := constants.KServeNamespace
+	if len(namespace) > 0 && namespace[0] != "" {
+		ns = namespace[0]
 	}
+	return clientset.CoreV1().ConfigMaps(ns).Get(
+		ctx, constants.InferenceServiceConfigMapName, metav1.GetOptions{})
 }
 
 func NewOtelCollectorConfig(isvcConfigMap *corev1.ConfigMap) (*OtelCollectorConfig, error) {
@@ -416,7 +426,7 @@ func NewSecurityConfig(isvcConfigMap *corev1.ConfigMap) (*SecurityConfig, error)
 }
 
 func NewServiceConfig(isvcConfigMap *corev1.ConfigMap) (*ServiceConfig, error) {
-	serviceConfig := &ServiceConfig{}
+	serviceConfig := &ServiceConfig{ServiceClusterIPNone: true}
 	if service, ok := isvcConfigMap.Data[ServiceConfigName]; ok {
 		err := json.Unmarshal([]byte(service), &serviceConfig)
 		if err != nil {
