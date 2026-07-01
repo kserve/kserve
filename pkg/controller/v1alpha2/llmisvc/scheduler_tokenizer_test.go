@@ -17,7 +17,6 @@ limitations under the License.
 package llmisvc
 
 import (
-	"fmt"
 	"path"
 	"testing"
 
@@ -236,9 +235,7 @@ func TestAttachOciModelArtifact_TargetContainer(t *testing.T) {
 			},
 			wantModelcarArgs: []string{
 				"sh", "-c",
-				fmt.Sprintf("mkdir -p '%s' && ln -sf /proc/$$$$/root/models '%s' && sleep infinity",
-					constants.DefaultModelLocalMountPath,
-					path.Join(constants.DefaultModelLocalMountPath, "my-llama")),
+				"mkdir -p /mnt/models && ln -sf /proc/$$$$/root/models /mnt/models/my-llama && sleep infinity",
 			},
 		},
 		{
@@ -252,9 +249,7 @@ func TestAttachOciModelArtifact_TargetContainer(t *testing.T) {
 			},
 			wantModelcarArgs: []string{
 				"sh", "-c",
-				fmt.Sprintf("mkdir -p '%s' && ln -sf /proc/$$$$/root/models '%s' && sleep infinity",
-					path.Join(constants.DefaultModelLocalMountPath, "meta-llama"),
-					path.Join(constants.DefaultModelLocalMountPath, "meta-llama/Llama-2-7b")),
+				"mkdir -p /mnt/models/meta-llama && ln -sf /proc/$$$$/root/models /mnt/models/meta-llama/Llama-2-7b && sleep infinity",
 			},
 		},
 		{
@@ -268,8 +263,7 @@ func TestAttachOciModelArtifact_TargetContainer(t *testing.T) {
 			},
 			wantModelcarArgs: []string{
 				"sh", "-c",
-				fmt.Sprintf("ln -sf /proc/$$$$/root/models '%s' && sleep infinity",
-					constants.DefaultModelLocalMountPath),
+				"ln -sf /proc/$$$$/root/models /mnt/models && sleep infinity",
 			},
 		},
 	}

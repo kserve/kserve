@@ -26,6 +26,107 @@ import (
 	"github.com/kserve/kserve/pkg/types"
 )
 
+func TestShellQuote(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		input    string
+		expected string
+	}{
+		"SafeAbsolutePath": {
+			input:    "/mnt/models",
+			expected: "/mnt/models",
+		},
+		"SafeNestedPath": {
+			input:    "/mnt/models/base",
+			expected: "/mnt/models/base",
+		},
+		"SafePathWithDash": {
+			input:    "/mnt/my-models/v1.0",
+			expected: "/mnt/my-models/v1.0",
+		},
+		"SafePathWithUnderscore": {
+			input:    "/mnt/my_models",
+			expected: "/mnt/my_models",
+		},
+		"PathWithSpace": {
+			input:    "/mnt/my models",
+			expected: "'/mnt/my models'",
+		},
+		"PathWithSingleQuote": {
+			input:    "/mnt/it's",
+			expected: "'/mnt/it'\\''s'",
+		},
+		"PathWithSemicolon": {
+			input:    "/mnt/models;rm -rf /",
+			expected: "'/mnt/models;rm -rf /'",
+		},
+		"PathWithPlus": {
+			input:    "/mnt/models/llama-3.1+quant",
+			expected: "'/mnt/models/llama-3.1+quant'",
+		},
+		"PathWithTilde": {
+			input:    "~/models",
+			expected: "'~/models'",
+		},
+		"EmptyString": {
+			input:    "",
+			expected: "''",
+		},
+		"PathWithDollarParens": {
+			input:    "/mnt/$(rm -rf /)",
+			expected: "'/mnt/$(rm -rf /)'",
+		},
+		"PathWithBackticks": {
+			input:    "/mnt/`id`",
+			expected: "'/mnt/`id`'",
+		},
+		"PathWithPipe": {
+			input:    "/mnt/models|cat /etc/passwd",
+			expected: "'/mnt/models|cat /etc/passwd'",
+		},
+		"PathWithAmpersand": {
+			input:    "/mnt/models&rm -rf /",
+			expected: "'/mnt/models&rm -rf /'",
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			result := ShellQuote(scenario.input)
+			g.Expect(result).To(gomega.Equal(scenario.expected))
+		})
+	}
+}
+
+func TestModelcarCommand(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	t.Run("DefaultPath produces unquoted command", func(t *testing.T) {
+		cmd := modelcarCommand(constants.DefaultModelLocalMountPath)
+		g.Expect(cmd).To(gomega.Equal(
+			"ln -sf /proc/$$$$/root/models /mnt/models && sleep infinity"))
+	})
+
+	t.Run("NonDefaultSafePath produces mkdir with unquoted paths", func(t *testing.T) {
+		cmd := modelcarCommand("/mnt/models/base")
+		g.Expect(cmd).To(gomega.Equal(
+			"mkdir -p /mnt/models && ln -sf /proc/$$$$/root/models /mnt/models/base && sleep infinity"))
+	})
+
+	t.Run("NonDefaultUnsafePath produces mkdir with quoted paths", func(t *testing.T) {
+		cmd := modelcarCommand("/mnt/my models/base")
+		g.Expect(cmd).To(gomega.Equal(
+			"mkdir -p '/mnt/my models' && ln -sf /proc/$$$$/root/models '/mnt/my models/base' && sleep infinity"))
+	})
+
+	t.Run("NonDefaultPathWithSingleQuote produces correctly escaped command", func(t *testing.T) {
+		cmd := modelcarCommand("/mnt/it's/model")
+		g.Expect(cmd).To(gomega.Equal(
+			"mkdir -p '/mnt/it'\\''s' && ln -sf /proc/$$$$/root/models '/mnt/it'\\''s/model' && sleep infinity"))
+	})
+}
+
 func TestFindCommonParentPath(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 

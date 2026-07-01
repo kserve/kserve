@@ -333,12 +333,23 @@ func CreateInitContainerWithConfig(storageConfig *types.StorageInitializerConfig
 	}
 }
 
-// shellQuote wraps s in single quotes for safe interpolation into a sh -c
-// command string. Any embedded single quotes are escaped using the standard
-// POSIX sequence: close the current quote, emit an escaped literal quote,
-// and re-open a new quoted segment ('\\"). This is safe for all byte values.
-func shellQuote(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+// ShellQuote returns s quoted for safe interpolation into a sh -c command
+// string. Strings that consist entirely of shell-safe characters (letters,
+// digits, '/', '.', '_', '-') are returned unchanged to avoid altering
+// previously generated command strings (which would cause unnecessary pod
+// restarts on upgrade). All other strings are wrapped in single quotes with
+// embedded single quotes escaped via the standard POSIX sequence.
+func ShellQuote(s string) string {
+	if len(s) == 0 {
+		return "''"
+	}
+	for _, c := range s {
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+			c == '/' || c == '.' || c == '_' || c == '-') {
+			return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+		}
+	}
+	return s
 }
 
 // modelcarCommand returns the shell command for the modelcar container.
@@ -347,16 +358,16 @@ func shellQuote(s string) string {
 // the command is kept identical to the original to avoid unnecessary pod restarts
 // on upgrade.
 //
-// Paths are shell-quoted using shellQuote to prevent metacharacter injection.
+// Paths are shell-quoted using ShellQuote to prevent metacharacter injection.
 // The upstream validation (validateStorageURISpec) ensures paths are absolute
 // and contain no "..", but quoting provides defense-in-depth.
 func modelcarCommand(modelPath string) string {
 	// $$$$ gets escaped by YAML to $$, which is the current PID
 	if modelPath != constants.DefaultModelLocalMountPath {
 		return fmt.Sprintf("mkdir -p %s && ln -sf /proc/$$$$/root/models %s && sleep infinity",
-			shellQuote(path.Dir(modelPath)), shellQuote(modelPath))
+			ShellQuote(path.Dir(modelPath)), ShellQuote(modelPath))
 	}
-	return fmt.Sprintf("ln -sf /proc/$$$$/root/models %s && sleep infinity", shellQuote(modelPath))
+	return fmt.Sprintf("ln -sf /proc/$$$$/root/models %s && sleep infinity", ShellQuote(modelPath))
 }
 
 // CreateModelcarContainer creates the definition of a container holding a model intended to be used as a sidecar (modelcar).
