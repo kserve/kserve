@@ -924,6 +924,29 @@ func TestMergePodSpec(t *testing.T) {
 				SchedulerName: "isvc-scheduler",
 			},
 		},
+		"MergeWithRuntimeClassName": {
+			podSpecBase: &v1alpha1.ServingRuntimePodSpec{
+				RuntimeClassName: ptr.To("nvidia"),
+			},
+			podSpecOverride: &PodSpec{
+				ServiceAccountName: "testAccount",
+			},
+			expected: &corev1.PodSpec{
+				ServiceAccountName: "testAccount",
+				RuntimeClassName:   ptr.To("nvidia"),
+			},
+		},
+		"OverrideRuntimeClassName": {
+			podSpecBase: &v1alpha1.ServingRuntimePodSpec{
+				RuntimeClassName: ptr.To("nvidia"),
+			},
+			podSpecOverride: &PodSpec{
+				RuntimeClassName: ptr.To("gvisor"),
+			},
+			expected: &corev1.PodSpec{
+				RuntimeClassName: ptr.To("gvisor"),
+			},
+		},
 	}
 
 	for name, scenario := range scenarios {

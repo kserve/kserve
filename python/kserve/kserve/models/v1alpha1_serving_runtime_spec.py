@@ -62,6 +62,7 @@ class V1alpha1ServingRuntimeSpec(object):
         'node_selector': 'dict(str, str)',
         'protocol_versions': 'list[str]',
         'replicas': 'int',
+        'runtime_class_name': 'str',
         'scheduler_name': 'str',
         'storage_helper': 'V1alpha1StorageHelper',
         'supported_model_formats': 'list[V1alpha1SupportedModelFormat]',
@@ -86,6 +87,7 @@ class V1alpha1ServingRuntimeSpec(object):
         'node_selector': 'nodeSelector',
         'protocol_versions': 'protocolVersions',
         'replicas': 'replicas',
+        'runtime_class_name': 'runtimeClassName',
         'scheduler_name': 'schedulerName',
         'storage_helper': 'storageHelper',
         'supported_model_formats': 'supportedModelFormats',
@@ -94,7 +96,7 @@ class V1alpha1ServingRuntimeSpec(object):
         'worker_spec': 'workerSpec'
     }
 
-    def __init__(self, affinity=None, annotations=None, built_in_adapter=None, containers=None, disabled=None, grpc_data_endpoint=None, grpc_endpoint=None, host_ipc=None, http_data_endpoint=None, image_pull_secrets=None, labels=None, multi_model=None, node_selector=None, protocol_versions=None, replicas=None, scheduler_name=None, storage_helper=None, supported_model_formats=None, tolerations=None, volumes=None, worker_spec=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, affinity=None, annotations=None, built_in_adapter=None, containers=None, disabled=None, grpc_data_endpoint=None, grpc_endpoint=None, host_ipc=None, http_data_endpoint=None, image_pull_secrets=None, labels=None, multi_model=None, node_selector=None, protocol_versions=None, replicas=None, runtime_class_name=None, scheduler_name=None, storage_helper=None, supported_model_formats=None, tolerations=None, volumes=None, worker_spec=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1ServingRuntimeSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -115,6 +117,7 @@ class V1alpha1ServingRuntimeSpec(object):
         self._node_selector = None
         self._protocol_versions = None
         self._replicas = None
+        self._runtime_class_name = None
         self._scheduler_name = None
         self._storage_helper = None
         self._supported_model_formats = None
@@ -152,6 +155,8 @@ class V1alpha1ServingRuntimeSpec(object):
             self.protocol_versions = protocol_versions
         if replicas is not None:
             self.replicas = replicas
+        if runtime_class_name is not None:
+            self.runtime_class_name = runtime_class_name
         if scheduler_name is not None:
             self.scheduler_name = scheduler_name
         if storage_helper is not None:
@@ -507,6 +512,29 @@ class V1alpha1ServingRuntimeSpec(object):
         """
 
         self._replicas = replicas
+
+    @property
+    def runtime_class_name(self):
+        """Gets the runtime_class_name of this V1alpha1ServingRuntimeSpec.  # noqa: E501
+
+        RuntimeClassName is the name of the RuntimeClass to use for this pod. More info: https://kubernetes.io/docs/concepts/containers/runtime-class/  # noqa: E501
+
+        :return: The runtime_class_name of this V1alpha1ServingRuntimeSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._runtime_class_name
+
+    @runtime_class_name.setter
+    def runtime_class_name(self, runtime_class_name):
+        """Sets the runtime_class_name of this V1alpha1ServingRuntimeSpec.
+
+        RuntimeClassName is the name of the RuntimeClass to use for this pod. More info: https://kubernetes.io/docs/concepts/containers/runtime-class/  # noqa: E501
+
+        :param runtime_class_name: The runtime_class_name of this V1alpha1ServingRuntimeSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._runtime_class_name = runtime_class_name
 
     @property
     def scheduler_name(self):
