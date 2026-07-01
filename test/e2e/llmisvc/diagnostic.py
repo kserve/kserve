@@ -36,7 +36,6 @@ def llmisvc_labels(service_name: str) -> dict:
     }
 
 
-
 def strip_managed_fields(d):
     """Remove managed_fields from a K8s object dict to reduce log noise."""
     if isinstance(d, dict):
@@ -45,6 +44,7 @@ def strip_managed_fields(d):
         if isinstance(metadata, dict):
             metadata.pop("managed_fields", None)
     return d
+
 
 def print_all_events_table(
     namespace: str,
