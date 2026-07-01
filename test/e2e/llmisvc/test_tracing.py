@@ -19,6 +19,7 @@ import pytest
 from kserve import KServeClient
 from kubernetes import client
 
+from .diagnostic import collect_diagnostics
 from .fixtures import generate_test_id, inject_k8s_proxy
 from .logging import log_execution, logger
 from .test_llm_inference_service import (
@@ -30,7 +31,6 @@ from .test_llm_inference_service import (
     wait_for_llm_isvc_ready,
     wait_for_model_response,
     wait_for,
-    _collect_diagnostics,
 )
 
 JAEGER_NAMESPACE = os.getenv("JAEGER_NAMESPACE", "observability")
@@ -239,7 +239,11 @@ def test_tracing_spans_collected(test_case: TestCase):  # noqa: F811
     except Exception as e:
         test_failed = True
         logger.error("ERROR: Tracing test failed for %s: %s", service_name, e)
-        _collect_diagnostics(kserve_client, test_case.llm_service)
+        collect_diagnostics(
+            service_name,
+            test_case.llm_service.metadata.namespace,
+            kserve_client=kserve_client,
+        )
         raise
     finally:
         maybe_delete_llmisvc(kserve_client, test_case.llm_service, test_failed)
