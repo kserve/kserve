@@ -55,6 +55,7 @@ def _create_predictor(
     return V1beta1PredictorSpec(min_replicas=1, model=model)
 
 
+@pytest.mark.autogluon
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
 async def test_autogluon_runtime_kserve_v1(rest_v1_client):
@@ -70,6 +71,7 @@ async def test_autogluon_runtime_kserve_v1(rest_v1_client):
     assert len(response["predictions"]) > 0
 
 
+@pytest.mark.autogluon
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
 async def test_autogluon_runtime_kserve_v2(rest_v2_client):
@@ -85,6 +87,7 @@ async def test_autogluon_runtime_kserve_v2(rest_v2_client):
     assert len(response.outputs[0].data) > 0
 
 
+@pytest.mark.autogluon
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
 async def test_autogluon_runtime_kserve_v2_input_variants(rest_v2_client):
@@ -101,6 +104,7 @@ async def test_autogluon_runtime_kserve_v2_input_variants(rest_v2_client):
             assert len(response.outputs[0].data) > 0
 
 
+@pytest.mark.autogluon
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
 async def test_autogluon_runtime_kserve_v2_storage_uri_without_trailing_slash(

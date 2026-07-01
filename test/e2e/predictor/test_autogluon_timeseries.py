@@ -66,6 +66,7 @@ async def _deploy_and_predict_v1(
     return await deploy_and_predict(service_name, predictor, rest_v1_client, input_path)
 
 
+@pytest.mark.autogluon
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
 async def test_autogluon_timeseries_runtime_kserve_v1(rest_v1_client):
@@ -79,6 +80,7 @@ async def test_autogluon_timeseries_runtime_kserve_v1(rest_v1_client):
     assert len(response["predictions"]) > 0
 
 
+@pytest.mark.autogluon
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
 async def test_autogluon_timeseries_runtime_kserve_v1_storage_uri_without_trailing_slash(
