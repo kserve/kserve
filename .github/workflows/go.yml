@@ -58,7 +58,7 @@ jobs:
                 chmod +x $GOPATH/bin/yq
                 make test
                 ./coverage.sh
-                echo ::set-output name=coverage::$(./coverage.sh | tr -s '\t' | cut -d$'\t' -f 3)
+                echo "coverage=$(./coverage.sh | tr -s '\t' | cut -d$'\t' -f 3)" >> $GITHUB_OUTPUT
             
             - name: Print coverage
               run: |
@@ -132,18 +132,6 @@ jobs:
                   echo "coverage=0" >> $GITHUB_OUTPUT
                 fi
 
-            - name: Generate full coverage breakdown
-              id: full_coverage_report
-              run: |
-                if [ -f coverage.out ]; then
-                  REPORT_CONTENT=$(go tool cover -func=coverage.out) # This command outputs function-level coverage [5]
-                  echo "report<<EOF" >> $GITHUB_OUTPUT # Start HERE-doc for multi-line output [3]
-                  echo "$REPORT_CONTENT" >> $GITHUB_OUTPUT
-                  echo "EOF" >> $GITHUB_OUTPUT # End HERE-doc
-                else
-                  echo "report=No coverage report found." >> $GITHUB_OUTPUT
-                fi
-
             - name: check test coverage
               id: coverage
               uses: vladopajic/go-test-coverage@f190f667e23b4441202d0bab0f8c2e7bce8925b6 # v2.18.4
@@ -170,8 +158,7 @@ jobs:
                 echo "Current Coverage ${{ steps.current-coverage.outputs.coverage }}"
 
             - name: post coverage report
-              # this has evalated permission to post back the coverage, only restricted to this step.
-              if: github.event_name == 'pull_request_target'
+              if: github.event_name == 'pull_request'
               uses: thollander/actions-comment-pull-request@65f9e5c9a1f2cd378bd74b2e057c9736982a8e74 # v3
               with:
                 github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -192,14 +179,7 @@ jobs:
                   - **Pull Request Coverage:** `${{ steps.current-coverage.outputs.coverage }}%`
                   - **Main Branch Coverage:** `${{ steps.master-coverage.outputs.coverage }}%`
 
-                  <details>
-                  <summary>📄 Click to expand full coverage breakdown</summary>
-
-                  ```
-                  ${{ steps.full_coverage_report.outputs.report }}
-                  ```
-
-                  </details>
+                  > 📎 Full function-level report is available in the `coverage.out` build artifact.
 
             - name: Rename and upload master coverage
               if: github.ref_name == 'master'
