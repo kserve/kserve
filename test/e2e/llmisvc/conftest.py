@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pytest
+
 # Fixture factory - not called explicitly, but must be imported for pytest to discover it.
 from .fixtures import test_case  # noqa: F401
 
@@ -59,3 +61,23 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "tracing: mark test as a distributed tracing test"
     )
+    config.addinivalue_line("markers", "flow_control: mark test as a flow control test")
+
+
+@pytest.fixture
+def flow_control_auth():
+    """Auth provider hook for downstream deployments.
+
+    Override this fixture in a downstream conftest.py to enable auth pipeline
+    testing. Return a dict with:
+
+        {
+            "annotations": dict,   # LLMISVC metadata annotations to enable auth
+            "setup": callable,     # (kserve_client, service_name) -> token_str
+            "cleanup": callable,   # (kserve_client, service_name) -> None
+        }
+
+    When this fixture returns None (upstream default), the auth verification
+    section is skipped.
+    """
+    return None
