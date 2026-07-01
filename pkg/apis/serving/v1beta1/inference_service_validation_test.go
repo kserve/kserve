@@ -25,6 +25,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -2324,6 +2325,256 @@ func TestValidateConfidential(t *testing.T) {
 			warnings, err := validator.ValidateCreate(t.Context(), &scenario.isvc)
 			g.Expect(err).To(scenario.expectedErr)
 			g.Expect(warnings).To(scenario.expectedWarnings)
+		})
+	}
+}
+
+func TestValidateKEDAConfig(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		keda        *KEDAScalingConfig
+		minReplicas *int32
+		errMatcher  gomega.OmegaMatcher
+	}{
+		"Valid KEDA config": {
+			keda: &KEDAScalingConfig{
+				PollingInterval:  ptr.To(int32(15)),
+				CooldownPeriod:   ptr.To(int32(60)),
+				IdleReplicaCount: ptr.To(int32(0)),
+			},
+			minReplicas: ptr.To(int32(1)),
+			errMatcher:  gomega.BeNil(),
+		},
+		"Valid KEDA config with fallback": {
+			keda: &KEDAScalingConfig{
+				Fallback: &kedav1alpha1.Fallback{
+					FailureThreshold: 3,
+					Replicas:         2,
+					Behavior:         "static",
+				},
+			},
+			minReplicas: ptr.To(int32(1)),
+			errMatcher:  gomega.BeNil(),
+		},
+		"IdleReplicaCount equal to MinReplicas - should error": {
+			keda: &KEDAScalingConfig{
+				IdleReplicaCount: ptr.To(int32(5)),
+			},
+			minReplicas: ptr.To(int32(5)),
+			errMatcher:  gomega.MatchError(gomega.ContainSubstring("idleReplicaCount (5) must be less than minReplicas (5)")),
+		},
+		"IdleReplicaCount greater than MinReplicas - should error": {
+			keda: &KEDAScalingConfig{
+				IdleReplicaCount: ptr.To(int32(10)),
+			},
+			minReplicas: ptr.To(int32(5)),
+			errMatcher:  gomega.MatchError(gomega.ContainSubstring("idleReplicaCount (10) must be less than minReplicas (5)")),
+		},
+		"IdleReplicaCount less than MinReplicas - should pass": {
+			keda: &KEDAScalingConfig{
+				IdleReplicaCount: ptr.To(int32(0)),
+			},
+			minReplicas: ptr.To(int32(1)),
+			errMatcher:  gomega.BeNil(),
+		},
+		"Fallback with negative FailureThreshold": {
+			keda: &KEDAScalingConfig{
+				Fallback: &kedav1alpha1.Fallback{
+					FailureThreshold: -1,
+					Replicas:         2,
+				},
+			},
+			minReplicas: ptr.To(int32(1)),
+			errMatcher:  gomega.MatchError(gomega.ContainSubstring("fallback.failureThreshold must be >= 0")),
+		},
+		"Fallback with negative Replicas": {
+			keda: &KEDAScalingConfig{
+				Fallback: &kedav1alpha1.Fallback{
+					FailureThreshold: 3,
+					Replicas:         -1,
+				},
+			},
+			minReplicas: ptr.To(int32(1)),
+			errMatcher:  gomega.MatchError(gomega.ContainSubstring("fallback.replicas must be >= 0")),
+		},
+		"Advanced config with HPA name set - should error": {
+			keda: &KEDAScalingConfig{
+				Advanced: &kedav1alpha1.AdvancedConfig{
+					HorizontalPodAutoscalerConfig: &kedav1alpha1.HorizontalPodAutoscalerConfig{
+						Name: "custom-hpa-name",
+					},
+				},
+			},
+			minReplicas: ptr.To(int32(1)),
+			errMatcher:  gomega.MatchError(gomega.ContainSubstring("advanced.horizontalPodAutoscalerConfig.name should not be set")),
+		},
+		"Scaling modifiers without formula - should error": {
+			keda: &KEDAScalingConfig{
+				Advanced: &kedav1alpha1.AdvancedConfig{
+					ScalingModifiers: kedav1alpha1.ScalingModifiers{
+						Target:     "100",
+						MetricType: "AverageValue",
+					},
+				},
+			},
+			minReplicas: ptr.To(int32(1)),
+			errMatcher:  gomega.MatchError(gomega.ContainSubstring("advanced.scalingModifiers.formula must be set when using scaling modifiers")),
+		},
+		"Scaling modifiers with formula - should pass": {
+			keda: &KEDAScalingConfig{
+				Advanced: &kedav1alpha1.AdvancedConfig{
+					ScalingModifiers: kedav1alpha1.ScalingModifiers{
+						Formula:    "custom_formula",
+						Target:     "100",
+						MetricType: "AverageValue",
+					},
+				},
+			},
+			minReplicas: ptr.To(int32(1)),
+			errMatcher:  gomega.BeNil(),
+		},
+		"Nil KEDA config - should pass": {
+			keda:        nil,
+			minReplicas: ptr.To(int32(1)),
+			errMatcher:  gomega.BeNil(),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			err := validateKEDAConfig(scenario.keda, scenario.minReplicas)
+			g.Expect(err).To(scenario.errMatcher)
+		})
+	}
+}
+
+func TestValidateScalingKedaCompExtension_WithKEDAConfig(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		compExtSpec *ComponentExtensionSpec
+		errMatcher  gomega.OmegaMatcher
+	}{
+		"Valid KEDA config with metrics": {
+			compExtSpec: &ComponentExtensionSpec{
+				MinReplicas: ptr.To(int32(1)),
+				AutoScaling: &AutoScalingSpec{
+					Metrics: []MetricsSpec{
+						{
+							Type: ResourceMetricSourceType,
+							Resource: &ResourceMetricSource{
+								Name: ResourceMetricCPU,
+								Target: MetricTarget{
+									Type:               UtilizationMetricType,
+									AverageUtilization: ptr.To(int32(80)),
+								},
+							},
+						},
+					},
+					KEDA: &KEDAScalingConfig{
+						PollingInterval:  ptr.To(int32(30)),
+						IdleReplicaCount: ptr.To(int32(0)),
+					},
+				},
+			},
+			errMatcher: gomega.BeNil(),
+		},
+		"Duplicate trigger names - should error": {
+			compExtSpec: &ComponentExtensionSpec{
+				MinReplicas: ptr.To(int32(1)),
+				AutoScaling: &AutoScalingSpec{
+					Metrics: []MetricsSpec{
+						{
+							Type: ResourceMetricSourceType,
+							Name: "cpu-trigger",
+							Resource: &ResourceMetricSource{
+								Name: ResourceMetricCPU,
+								Target: MetricTarget{
+									Type:               UtilizationMetricType,
+									AverageUtilization: ptr.To(int32(80)),
+								},
+							},
+						},
+						{
+							Type: ResourceMetricSourceType,
+							Name: "cpu-trigger",
+							Resource: &ResourceMetricSource{
+								Name: ResourceMetricMemory,
+								Target: MetricTarget{
+									Type:               UtilizationMetricType,
+									AverageUtilization: ptr.To(int32(85)),
+								},
+							},
+						},
+					},
+					KEDA: &KEDAScalingConfig{},
+				},
+			},
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("duplicate trigger name: cpu-trigger")),
+		},
+		"Unique trigger names - should pass": {
+			compExtSpec: &ComponentExtensionSpec{
+				MinReplicas: ptr.To(int32(1)),
+				AutoScaling: &AutoScalingSpec{
+					Metrics: []MetricsSpec{
+						{
+							Type: ResourceMetricSourceType,
+							Name: "cpu-trigger",
+							Resource: &ResourceMetricSource{
+								Name: ResourceMetricCPU,
+								Target: MetricTarget{
+									Type:               UtilizationMetricType,
+									AverageUtilization: ptr.To(int32(80)),
+								},
+							},
+						},
+						{
+							Type: ResourceMetricSourceType,
+							Name: "memory-trigger",
+							Resource: &ResourceMetricSource{
+								Name: ResourceMetricMemory,
+								Target: MetricTarget{
+									Type:               UtilizationMetricType,
+									AverageUtilization: ptr.To(int32(85)),
+								},
+							},
+						},
+					},
+					KEDA: &KEDAScalingConfig{},
+				},
+			},
+			errMatcher: gomega.BeNil(),
+		},
+		"Invalid IdleReplicaCount in KEDA config": {
+			compExtSpec: &ComponentExtensionSpec{
+				MinReplicas: ptr.To(int32(2)),
+				AutoScaling: &AutoScalingSpec{
+					Metrics: []MetricsSpec{
+						{
+							Type: ResourceMetricSourceType,
+							Resource: &ResourceMetricSource{
+								Name: ResourceMetricCPU,
+								Target: MetricTarget{
+									Type:               UtilizationMetricType,
+									AverageUtilization: ptr.To(int32(80)),
+								},
+							},
+						},
+					},
+					KEDA: &KEDAScalingConfig{
+						IdleReplicaCount: ptr.To(int32(5)),
+					},
+				},
+			},
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("idleReplicaCount (5) must be less than minReplicas (2)")),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			err := validateScalingKedaCompExtension(scenario.compExtSpec)
+			g.Expect(err).To(scenario.errMatcher)
 		})
 	}
 }
