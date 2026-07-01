@@ -22,7 +22,7 @@ from kserve import KServeClient, V1alpha1LLMInferenceService, constants
 from kubernetes import client
 from typing import List, Optional
 
-from .diagnostic import print_all_events_table
+from .diagnostic import collect_diagnostics
 from .fixtures import (
     KSERVE_TEST_NAMESPACE,
     LLMINFERENCESERVICE_CONFIGS,
@@ -170,6 +170,13 @@ def run_lora_test(test_case: LoRATestCase):
             logger.info("✓ LoRA adapter %s inference successful", adapter_name)
 
     finally:
+        # Collect diagnostics before cleanup deletes the pods
+        collect_diagnostics(
+            service_name,
+            KSERVE_TEST_NAMESPACE,
+            kserve_client=kserve_client,
+        )
+
         # Cleanup service
         if llm_service is not None:
             try:
@@ -191,9 +198,6 @@ def run_lora_test(test_case: LoRATestCase):
                 )
             except Exception as e:
                 logger.warning(f"Config cleanup failed for {config_name}: {e}")
-
-        # Print diagnostics
-        print_all_events_table(KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.parametrize(
