@@ -231,6 +231,91 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			validateStorageInitializerIsConfigured(expectedPrefillDeployment, "hf://user-id/repo-id:tag")
 		})
 
+		It("should merge user-provided env vars into storage-initializer for hf:// URI", func(ctx SpecContext) {
+			svcName := "test-llm-storage-hf-user-envs"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			modelURL, err := apis.ParseURL("hf://user-id/repo-id:tag")
+			Expect(err).ToNot(HaveOccurred())
+
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      svcName,
+					Namespace: testNs.Name,
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{
+						Name: ptr.To("foo"),
+						URI:  *modelURL,
+					},
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							InitContainers: []corev1.Container{
+								{
+									Name: constants.StorageInitializerContainerName,
+									Env: []corev1.EnvVar{
+										{Name: "HF_XET_HIGH_PERFORMANCE", Value: "0"},
+										{Name: "TOKIO_WORKER_THREADS", Value: "1"},
+									},
+								},
+							},
+						},
+					},
+					Router: &v1alpha2.RouterSpec{
+						Route:     &v1alpha2.GatewayRoutesSpec{},
+						Gateway:   &v1alpha2.GatewaySpec{},
+						Scheduler: &v1alpha2.SchedulerSpec{},
+					},
+					Prefill: &v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							InitContainers: []corev1.Container{
+								{
+									Name: constants.StorageInitializerContainerName,
+									Env: []corev1.EnvVar{
+										{Name: "HF_XET_HIGH_PERFORMANCE", Value: "0"},
+										{Name: "TOKIO_WORKER_THREADS", Value: "1"},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			expectedMainDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve",
+					Namespace: testNs.Name,
+				}, expectedMainDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			expectedPrefillDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve-prefill",
+					Namespace: testNs.Name,
+				}, expectedPrefillDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			// Validate storage-initializer is fully configured (args, volume mounts)
+			validateStorageInitializerIsConfigured(expectedMainDeployment, "hf://user-id/repo-id:tag")
+			validateStorageInitializerIsConfigured(expectedPrefillDeployment, "hf://user-id/repo-id:tag")
+
+			// Validate user-provided env vars survived the merge
+			userEnvVars := []corev1.EnvVar{
+				{Name: "HF_XET_HIGH_PERFORMANCE", Value: "0"},
+				{Name: "TOKIO_WORKER_THREADS", Value: "1"},
+			}
+			validateStorageInitializerCredentials(expectedMainDeployment, userEnvVars)
+			validateStorageInitializerCredentials(expectedPrefillDeployment, userEnvVars)
+		})
+
 		It("should use storage-initializer and set proper env variables when uri starts with hf:// and credentials are configured", func(ctx SpecContext) {
 			// setup test dependencies
 			svcName := "test-llm-storage-hf-with-credentials"

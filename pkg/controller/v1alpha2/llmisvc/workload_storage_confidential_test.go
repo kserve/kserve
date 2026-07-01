@@ -109,12 +109,19 @@ func TestAttachStorageInitializerConfidential(t *testing.T) {
 				},
 			}
 
+			llmSvc := &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{
+						Confidential: tc.confidential,
+					},
+				},
+			}
 			err := r.attachStorageInitializer(
+				llmSvc,
 				"s3://bucket/model",
 				curr,
 				podSpec,
 				baseConfig,
-				tc.confidential,
 				"kserve-container",
 				"/mnt/models",
 			)

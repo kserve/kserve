@@ -5533,7 +5533,9 @@ func TestMergeContainerSpecs_EnvHandling(t *testing.T) {
 				Env:  scenario.crdEnv,
 			}
 
-			require.NoError(t, mergeContainerSpecs(target, crd))
+			merged, err := utils.MergeContainerWithPatch(*target, *crd)
+			require.NoError(t, err)
+			*target = merged
 
 			for _, e := range target.Env {
 				if e.Value != "" && e.ValueFrom != nil {

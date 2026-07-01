@@ -25,8 +25,6 @@ import (
 	"strconv"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/util/strategicpatch"
-
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	k8stypes "k8s.io/apimachinery/pkg/types"
@@ -577,10 +575,11 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 
 		// Merge any customizations from the storage container spec into the init container
 		if params.StorageContainerSpec != nil {
-			err := mergeContainerSpecs(initContainer, &params.StorageContainerSpec.Container)
+			merged, err := utils.MergeContainerWithPatch(*initContainer, params.StorageContainerSpec.Container)
 			if err != nil {
 				return err
 			}
+			*initContainer = merged
 		}
 
 		// Add CA bundle env vars and volume mount after merge to avoid conflicts with user-defined env vars
@@ -849,71 +848,6 @@ func (mi *StorageInitializerInjector) SetIstioCniSecurityContext(pod *corev1.Pod
 
 			log.V(1).Info("Storage initializer UID is set", "pod", pod.Name, "uid", storageInitializerContainer.SecurityContext.RunAsUser)
 		}
-	}
-
-	return nil
-}
-
-// Use JSON Marshal/Unmarshal to merge Container structs using strategic merge patch.
-// Use container name from defaultContainer spec, crdContainer takes precedence for other fields.
-func mergeContainerSpecs(targetContainer *corev1.Container, crdContainer *corev1.Container) error {
-	if targetContainer == nil {
-		return errors.New("targetContainer is nil")
-	}
-
-	containerName := targetContainer.Name
-
-	defaultContainerJson, err := json.Marshal(*targetContainer)
-	if err != nil {
-		return err
-	}
-
-	overrides, err := json.Marshal(*crdContainer)
-	if err != nil {
-		return err
-	}
-
-	jsonResult, err := strategicpatch.StrategicMergePatch(defaultContainerJson, overrides, corev1.Container{})
-	if err != nil {
-		return err
-	}
-
-	// Unmarshal into a fresh Container rather than the existing targetContainer:
-	// json.Unmarshal does not clear struct fields absent from the JSON, so reusing
-	// the target's existing EnvVar slice elements lets stale Value/ValueFrom fields
-	// bleed into merged-in entries (issue #5516).
-	merged := corev1.Container{}
-	if err := json.Unmarshal(jsonResult, &merged); err != nil {
-		return err
-	}
-
-	// For env entries whose name is overridden by the ClusterStorageContainer, strategic
-	// merge patch performs a field-wise merge keyed on name, which can leave both
-	// Value and ValueFrom populated on a single entry — a state Kubernetes
-	// admission rejects. Reconcile by deferring to the ClusterStorageContainer's intent.
-	crdEnvByName := make(map[string]corev1.EnvVar, len(crdContainer.Env))
-	for _, e := range crdContainer.Env {
-		crdEnvByName[e.Name] = e
-	}
-	for i := range merged.Env {
-		e := &merged.Env[i]
-		if e.Value == "" || e.ValueFrom == nil {
-			continue
-		}
-		crdEntry, ok := crdEnvByName[e.Name]
-		if !ok {
-			continue
-		}
-		if crdEntry.ValueFrom != nil {
-			e.Value = ""
-		} else if crdEntry.Value != "" {
-			e.ValueFrom = nil
-		}
-	}
-
-	*targetContainer = merged
-	if targetContainer.Name == "" {
-		targetContainer.Name = containerName
 	}
 
 	return nil
