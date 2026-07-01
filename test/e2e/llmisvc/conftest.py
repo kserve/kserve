@@ -26,6 +26,8 @@ from .namespace import (
 )
 from .fixtures import inject_k8s_proxy
 
+from .traffic import TrafficDriver
+
 _LLMISVC_DIR = Path(__file__).parent
 _AUTOSCALING_STEM_PREFIX = "test_llm_autoscaling_"
 
@@ -33,6 +35,24 @@ _AUTOSCALING_STEM_PREFIX = "test_llm_autoscaling_"
 # Autoscaling files (``test_llm_autoscaling_<variant>.py``) are handled
 # separately below; add other special-case filenames here.
 _LLMISVC_CORE_EXCLUDED = {"test_llm_tracing.py"}
+
+
+@pytest.fixture
+def traffic_driver():
+    """Factory fixture - creates TrafficDrivers, auto-starts, auto-stops on teardown."""
+    drivers: list[TrafficDriver] = []
+
+    def factory(url: str, *, warmup: bool = False, **kwargs) -> TrafficDriver:
+        driver = TrafficDriver(url, **kwargs)
+        drivers.append(driver)
+        driver.start(warmup=warmup)
+        return driver
+
+    yield factory
+
+    for d in reversed(drivers):
+        if d.is_running:
+            d.stop()
 
 
 def _auto_assign_group_markers(items):
@@ -76,6 +96,10 @@ def pytest_configure(config):
             "markers",
             f"autoscaling_{variant}: auto-discovered autoscaling variant marker",
         )
+    config.addinivalue_line(
+        "markers",
+        "traffic: continuous traffic test (uses TrafficDriver)",
+    )
 
 
 def pytest_collection_modifyitems(config, items):
