@@ -17,6 +17,7 @@ limitations under the License.
 package s3
 
 import (
+	"strconv"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -175,13 +176,21 @@ func getEndpointConfiguration(configuredS3Endpoint string, annotations map[strin
 	default:
 		s3UseHttps = getEnvValue(annotations, secretData, InferenceServiceS3SecretHttpsAnnotation, S3UseHttps, s3Config.S3UseHttps)
 		s3Endpoint = configuredS3Endpoint
-		if s3UseHttps == "0" {
-			s3EndpointUrl = "http://" + configuredS3Endpoint
-		} else {
+		if parseBoolOrDefault(s3UseHttps, true) {
 			// https by default.
 			s3EndpointUrl = "https://" + configuredS3Endpoint
+		} else {
+			s3EndpointUrl = "http://" + configuredS3Endpoint
 		}
 	}
 
 	return s3UseHttps, s3Endpoint, s3EndpointUrl
+}
+
+func parseBoolOrDefault(value string, defaultValue bool) bool {
+	parsed, err := strconv.ParseBool(strings.TrimSpace(value))
+	if err != nil {
+		return defaultValue
+	}
+	return parsed
 }

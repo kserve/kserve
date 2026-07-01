@@ -262,22 +262,26 @@ data:
               "s3Endpoint": "",
 
               # s3UseHttps controls whether to use secure https or unsecure http to download models.
-              # Allowed values are 0 and 1.
+              # Allowed boolean values include 0/1 and false/true.
               "s3UseHttps": "",
 
               # s3Region specifies the region of the bucket.
               "s3Region": "",
 
               # s3VerifySSL controls whether to verify the tls/ssl certificate.
+              # Allowed boolean values include 0/1 and false/true.
               "s3VerifySSL": "",
 
               # s3UseVirtualBucket configures whether it is a virtual bucket or not.
+              # Allowed boolean values include 0/1 and false/true.
               "s3UseVirtualBucket": "",
 
               # s3UseAccelerate configures whether to use transfer acceleration.
+              # Allowed boolean values include 0/1 and false/true.
               "s3UseAccelerate": "",
 
               # s3UseAnonymousCredential configures whether to use anonymous credentials to download the model or not.
+              # Allowed boolean values include 0/1 and false/true.
               "s3UseAnonymousCredential": "",
 
               # s3CABundleConfigMap specifies the mounted CA bundle config map name.

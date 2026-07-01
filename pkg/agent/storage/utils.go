@@ -212,16 +212,8 @@ func GetProvider(providers map[Protocol]Provider, protocol Protocol) (Provider, 
 		var err error
 
 		region, _ := os.LookupEnv(s3credential.AWSRegion)
-		useVirtualBucketString, ok := os.LookupEnv(s3credential.S3UseVirtualBucket)
-		useVirtualBucket := true
-		if ok && strings.ToLower(useVirtualBucketString) == "false" {
-			useVirtualBucket = false
-		}
-		useAccelerateString, ok := os.LookupEnv(s3credential.S3UseAccelerate)
-		useAccelerate := false
-		if ok && strings.ToLower(useAccelerateString) == "true" {
-			useAccelerate = true
-		}
+		useVirtualBucket := parseBoolEnvOrDefault(s3credential.S3UseVirtualBucket, true)
+		useAccelerate := parseBoolEnvOrDefault(s3credential.S3UseAccelerate, false)
 
 		awsConfig := aws.Config{
 			Region:           aws.String(region),
@@ -233,7 +225,7 @@ func GetProvider(providers map[Protocol]Provider, protocol Protocol) (Provider, 
 			awsConfig.Endpoint = aws.String(endpoint)
 		}
 
-		if useAnonCred, ok := os.LookupEnv(s3credential.AWSAnonymousCredential); ok && strings.ToLower(useAnonCred) == "true" {
+		if parseBoolEnvOrDefault(s3credential.AWSAnonymousCredential, false) {
 			awsConfig.Credentials = credentials.AnonymousCredentials
 		}
 
@@ -261,4 +253,20 @@ func GetProvider(providers map[Protocol]Provider, protocol Protocol) (Provider, 
 	}
 
 	return providers[protocol], nil
+}
+
+func parseBoolEnvOrDefault(envVar string, defaultValue bool) bool {
+	value, ok := os.LookupEnv(envVar)
+	if !ok {
+		return defaultValue
+	}
+	return parseBoolOrDefault(value, defaultValue)
+}
+
+func parseBoolOrDefault(value string, defaultValue bool) bool {
+	parsed, err := strconv.ParseBool(strings.TrimSpace(value))
+	if err != nil {
+		return defaultValue
+	}
+	return parsed
 }

@@ -107,6 +107,8 @@ These are all handled by the `huggingface_hub` package, you can see all the avai
 
 ### AWS/S3 Configuration / Environments variables
 
+Boolean S3 environment variables accept `0`/`1` and `false`/`true` values.
+
 - `AWS_ENDPOINT_URL`: Custom endpoint URL for S3-compatible storage
 - `AWS_ACCESS_KEY_ID`: Access key for S3
 - `AWS_SECRET_ACCESS_KEY`: Secret access key for S3

@@ -74,6 +74,26 @@ _AZURE_MAX_FILE_CONCURRENCY = int(os.getenv("AZURE_MAX_FILE_CONCURRENCY", "4"))
 _AZURE_MAX_CHUNK_CONCURRENCY = int(os.getenv("AZURE_MAX_CHUNK_CONCURRENCY", "4"))
 
 
+def _parse_bool(value: Optional[str]) -> Optional[bool]:
+    if value is None:
+        return None
+
+    normalized = value.strip().lower()
+    if normalized in {"1", "t", "true"}:
+        return True
+    if normalized in {"0", "f", "false"}:
+        return False
+
+    return None
+
+
+def _parse_bool_or_default(value: Optional[str], default: bool) -> bool:
+    parsed = _parse_bool(value)
+    if parsed is None:
+        return default
+    return parsed
+
+
 def _should_download(
     relative_path: str,
     allow_patterns: Optional[List[str]] = None,
@@ -294,18 +314,20 @@ class Storage(object):
         )
 
         # anon environment variable defined in s3_secret.go
-        anon = "true" == os.getenv("awsAnonymousCredential", "false").lower()
+        anon = _parse_bool_or_default(os.getenv("awsAnonymousCredential"), False)
         # S3UseVirtualBucket environment variable defined in s3_secret.go
         # use virtual hosted-style URLs if enabled
-        virtual = "true" == os.getenv("S3_USER_VIRTUAL_BUCKET", "false").lower()
+        virtual_env = os.getenv("S3_USER_VIRTUAL_BUCKET")
+        virtual = _parse_bool(virtual_env)
         # S3UseAccelerate environment variable defined in s3_secret.go
         # use transfer acceleration if enabled
-        accelerate = "true" == os.getenv("S3_USE_ACCELERATE", "false").lower()
+        accelerate = _parse_bool_or_default(os.getenv("S3_USE_ACCELERATE"), False)
 
         if anon:
             c = c.merge(Config(signature_version=UNSIGNED))
-        if virtual:
-            c = c.merge(Config(s3={"addressing_style": "virtual"}))
+        if virtual is not None:
+            addressing_style = "virtual" if virtual else "path"
+            c = c.merge(Config(s3={"addressing_style": addressing_style}))
         if accelerate:
             c = c.merge(Config(s3={"use_accelerate_endpoint": accelerate}))
 
@@ -334,12 +356,10 @@ class Storage(object):
         endpoint_url = os.getenv("AWS_ENDPOINT_URL")
         if endpoint_url:
             kwargs.update({"endpoint_url": endpoint_url})
-        verify_ssl = os.getenv("S3_VERIFY_SSL")
-        if verify_ssl:
-            verify_ssl = verify_ssl.lower() not in ["0", "false"]
+        verify_ssl_env = os.getenv("S3_VERIFY_SSL")
+        verify_ssl = _parse_bool_or_default(verify_ssl_env, True)
+        if verify_ssl_env:
             kwargs.update({"verify": verify_ssl})
-        else:
-            verify_ssl = True
 
         # If verify_ssl is true, then check there is custom ca bundle cert
         # The CA bundle can be any local file in the container under the path

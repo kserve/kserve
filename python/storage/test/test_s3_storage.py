@@ -280,6 +280,10 @@ def test_get_S3_config():
         config4 = Storage.get_S3_config()
     assert config4.signature_version == ANON_CONFIG.signature_version
 
+    with mock.patch.dict(os.environ, {"awsAnonymousCredential": "1"}):
+        config4_numeric = Storage.get_S3_config()
+    assert config4_numeric.signature_version == ANON_CONFIG.signature_version
+
     # assuming Python 3.5 or greater for joining dictionaries
     credentials_and_anon = {**AWS_TEST_CREDENTIALS, "awsAnonymousCredential": "True"}
     with mock.patch.dict(os.environ, credentials_and_anon):
@@ -288,20 +292,41 @@ def test_get_S3_config():
 
     with mock.patch.dict(os.environ, {"S3_USER_VIRTUAL_BUCKET": "False"}, clear=True):
         config6 = Storage.get_S3_config()
-    assert config6.connect_timeout == DEFAULT_CONFIG.connect_timeout
+    assert config6.s3["addressing_style"] == "path"
+
+    with mock.patch.dict(os.environ, {"S3_USER_VIRTUAL_BUCKET": "0"}, clear=True):
+        config6_numeric = Storage.get_S3_config()
+    assert config6_numeric.s3["addressing_style"] == "path"
 
     with mock.patch.dict(os.environ, {"S3_USER_VIRTUAL_BUCKET": "True"}, clear=True):
         config7 = Storage.get_S3_config()
     assert config7.s3["addressing_style"] == VIRTUAL_CONFIG.s3["addressing_style"]
 
+    with mock.patch.dict(os.environ, {"S3_USER_VIRTUAL_BUCKET": "1"}, clear=True):
+        config7_numeric = Storage.get_S3_config()
+    assert (
+        config7_numeric.s3["addressing_style"] == VIRTUAL_CONFIG.s3["addressing_style"]
+    )
+
     with mock.patch.dict(os.environ, {"S3_USE_ACCELERATE": "False"}, clear=True):
         config6 = Storage.get_S3_config()
     assert config6.connect_timeout == DEFAULT_CONFIG.connect_timeout
+
+    with mock.patch.dict(os.environ, {"S3_USE_ACCELERATE": "0"}, clear=True):
+        config6_numeric = Storage.get_S3_config()
+    assert config6_numeric.connect_timeout == DEFAULT_CONFIG.connect_timeout
 
     with mock.patch.dict(os.environ, {"S3_USE_ACCELERATE": "True"}):
         config7 = Storage.get_S3_config()
     assert (
         config7.s3["use_accelerate_endpoint"]
+        == USE_ACCELERATE_CONFIG.s3["use_accelerate_endpoint"]
+    )
+
+    with mock.patch.dict(os.environ, {"S3_USE_ACCELERATE": "1"}):
+        config7_numeric = Storage.get_S3_config()
+    assert (
+        config7_numeric.s3["use_accelerate_endpoint"]
         == USE_ACCELERATE_CONFIG.s3["use_accelerate_endpoint"]
     )
 
@@ -330,6 +355,28 @@ def test_get_S3_config():
     assert config9.connect_timeout == 5
     assert config9.read_timeout == 10
     assert config9.retries["max_attempts"] == 5
+
+
+def test_s3_client_kwargs_verify_ssl_bool_values():
+    scenarios = {
+        "0": False,
+        "false": False,
+        "FALSE": False,
+        "f": False,
+        "1": True,
+        "true": True,
+        "TRUE": True,
+        "t": True,
+        "invalid": True,
+    }
+    for value, expected in scenarios.items():
+        with mock.patch.dict(os.environ, {"S3_VERIFY_SSL": value}, clear=True):
+            kwargs = Storage._get_s3_client_kwargs()
+        assert kwargs["verify"] is expected
+
+    with mock.patch.dict(os.environ, {}, clear=True):
+        kwargs = Storage._get_s3_client_kwargs()
+    assert "verify" not in kwargs
 
 
 def test_update_with_storage_spec_s3(monkeypatch):
