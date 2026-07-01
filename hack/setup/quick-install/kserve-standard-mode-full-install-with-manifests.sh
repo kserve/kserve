@@ -33832,6 +33832,8 @@ spec:
                         format: date-time
                         type: string
                     type: object
+                  modelName:
+                    type: string
                   states:
                     properties:
                       activeModelState:
@@ -33857,6 +33859,11 @@ spec:
                     required:
                     - activeModelState
                     type: object
+                  supportedProtocols:
+                    items:
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: atomic
                   transitionStatus:
                     default: UpToDate
                     enum:

@@ -204,6 +204,7 @@ func getExpectedIsvcStatusWithPort(serviceKey types.NamespacedName, port string)
 			TransitionStatus:    "InProgress",
 			ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
 			ModelCopies:         &v1beta1.ModelCopies{},
+			ModelName:           serviceKey.Name,
 		},
 		DeploymentMode:     string(constants.Standard),
 		ServingRuntimeName: "tf-serving-raw",

@@ -148,6 +148,19 @@ type ModelStatus struct {
 	// Model copy information of the predictor's model.
 	// +optional
 	ModelCopies *ModelCopies `json:"copies,omitempty"`
+
+	// The effective model name used in inference endpoint paths, which may differ
+	// from the InferenceService name. Resolved from the model server container args,
+	// environment variables, or falls back to the InferenceService name.
+	// +optional
+	ModelName string `json:"modelName,omitempty"`
+
+	// Inference protocols supported by the serving runtime backing this model
+	// (e.g. ["v1", "v2"]). Lets consumers construct inference endpoint paths without
+	// separately looking up the ServingRuntime.
+	// +optional
+	// +listType=atomic
+	SupportedProtocols []constants.InferenceServiceProtocol `json:"supportedProtocols,omitempty"`
 }
 
 type ModelRevisionStates struct {
