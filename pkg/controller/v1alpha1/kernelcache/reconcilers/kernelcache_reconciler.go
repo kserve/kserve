@@ -194,8 +194,8 @@ func (r *KernelCacheReconciler) handleDeletion(
 	// Delete extraction Jobs first (PVC can't delete while Pods are using it)
 	// Job deletion automatically deletes Pods via propagation policy
 	jobLabels := map[string]string{
-		"cache":           kc.Name,
-		"cache-namespace": kc.Namespace,
+		"kernelcache.kserve.io/cache":     kc.Name,
+		"kernelcache.kserve.io/namespace": kc.Namespace,
 	}
 
 	// Delete Jobs (Pods auto-delete via propagation policy)
@@ -467,9 +467,9 @@ func (r *KernelCacheReconciler) getExtractionJob(
 ) (*batchv1.Job, error) {
 	jobList := &batchv1.JobList{}
 	labels := map[string]string{
-		"cache":           kc.Name,
-		"cache-namespace": kc.Namespace,
-		"app":             "kernel-cache-extract",
+		"kernelcache.kserve.io/cache":     kc.Name,
+		"kernelcache.kserve.io/namespace": kc.Namespace,
+		"app.kubernetes.io/component":     "extract",
 	}
 
 	if err := r.List(ctx, jobList,
@@ -591,9 +591,10 @@ func (r *KernelCacheReconciler) createExtractionJob(
 			Name:      jobName,
 			Namespace: jobNamespace,
 			Labels: map[string]string{
-				"app":             "kernel-cache-extract",
-				"cache":           kc.Name,
-				"cache-namespace": kc.Namespace,
+				"app.kubernetes.io/name":          "kernelcache",
+				"app.kubernetes.io/component":     "extract",
+				"kernelcache.kserve.io/cache":     kc.Name,
+				"kernelcache.kserve.io/namespace": kc.Namespace,
 			},
 		},
 		Spec: batchv1.JobSpec{
@@ -601,9 +602,10 @@ func (r *KernelCacheReconciler) createExtractionJob(
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app":             "kernel-cache-extract",
-						"cache":           kc.Name,
-						"cache-namespace": kc.Namespace,
+						"app.kubernetes.io/name":          "kernelcache",
+						"app.kubernetes.io/component":     "extract",
+						"kernelcache.kserve.io/cache":     kc.Name,
+						"kernelcache.kserve.io/namespace": kc.Namespace,
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -941,8 +943,8 @@ func (r *KernelCacheReconciler) jobMapper(ctx context.Context, obj client.Object
 	job := obj.(*batchv1.Job)
 
 	// Extract cache info from Job labels
-	cacheName := job.Labels["cache"]
-	cacheNamespace := job.Labels["cache-namespace"]
+	cacheName := job.Labels["kernelcache.kserve.io/cache"]
+	cacheNamespace := job.Labels["kernelcache.kserve.io/namespace"]
 
 	if cacheName == "" || cacheNamespace == "" {
 		return []reconcile.Request{}
