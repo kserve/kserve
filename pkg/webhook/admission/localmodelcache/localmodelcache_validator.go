@@ -18,10 +18,12 @@ package localmodelcache
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/kserve/kserve/pkg/utils"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -60,6 +62,17 @@ func (v *LocalModelCacheValidator) ValidateCreate(ctx context.Context, obj runti
 		return nil, err
 	}
 	localModelCacheValidatorLogger.Info("validate create", "name", localModelCache.Name)
+
+	// Check if LocalModel feature enabled
+	enabled, err := v.isLocalModelEnabled(ctx)
+	if err != nil {
+		localModelCacheValidatorLogger.Error(err, "failed to check LocalModel enabled state")
+		return nil, fmt.Errorf("failed to check LocalModel configuration: %w", err)
+	}
+	if !enabled {
+		return nil, fmt.Errorf("LocalModel feature is disabled in inferenceservice-config ConfigMap (localModel.enabled=false)")
+	}
+
 	localModelCacheWithSameStorageURI, err := v.validateUniqueStorageURI(ctx, localModelCache)
 	if err != nil {
 		localModelCacheValidatorLogger.Error(err, "Unable to check LocalModelCache with the same storage URI")
@@ -158,4 +171,34 @@ func (v *LocalModelCacheValidator) validateUniqueStorageURI(ctx context.Context,
 		}
 	}
 	return nil, nil
+}
+
+// isLocalModelEnabled checks if LocalModel feature enabled in ConfigMap
+// Uses injected client to avoid import cycle with v1beta1
+func (v *LocalModelCacheValidator) isLocalModelEnabled(ctx context.Context) (bool, error) {
+	configMap := &corev1.ConfigMap{}
+	err := v.Get(ctx, client.ObjectKey{
+		Namespace: constants.KServeNamespace,
+		Name:      constants.InferenceServiceConfigMapName,
+	}, configMap)
+	if err != nil {
+		return false, fmt.Errorf("failed to get inferenceservice-config: %w", err)
+	}
+
+	// Parse localModel config (avoid importing v1beta1 by using raw JSON)
+	localModelData, ok := configMap.Data["localModel"]
+	if !ok {
+		// No config section - default to disabled for safety
+		return false, nil
+	}
+
+	// Simple JSON parse for enabled field
+	var config struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := json.Unmarshal([]byte(localModelData), &config); err != nil {
+		return false, fmt.Errorf("failed to parse localModel config: %w", err)
+	}
+
+	return config.Enabled, nil
 }

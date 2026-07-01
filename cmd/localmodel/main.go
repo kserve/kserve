@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	kernelcachecontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/kernelcache"
 	localmodelcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/localmodel"
 	kservescheme "github.com/kserve/kserve/pkg/scheme"
 	localmodelwebhook "github.com/kserve/kserve/pkg/webhook/admission/localmodelcache"
@@ -151,6 +152,20 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Setup KernelCache controller
+	kernelCacheEventBroadcaster := record.NewBroadcaster()
+	setupLog.Info("Setting up v1alpha1 KernelCache controller")
+	kernelCacheEventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
+	if err = (&kernelcachecontroller.KernelCacheReconciler{
+		Client:    mgr.GetClient(),
+		Clientset: clientSet,
+		Log:       ctrl.Log.WithName("v1alpha1Controllers").WithName("KernelCache"),
+		Scheme:    mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "KernelCache")
+		os.Exit(1)
+	}
+
 	// Setup webhook
 	setupLog.Info("setting up webhook server")
 	if err = ctrl.NewWebhookManagedBy(mgr).
@@ -166,6 +181,13 @@ func main() {
 		WithValidator(&localmodelnamespacecachewebhook.LocalModelNamespaceCacheValidator{Client: mgr.GetClient()}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "LocalModelNamespaceCache")
+		os.Exit(1)
+	}
+
+	// Setup KernelCache webhook
+	setupLog.Info("Setting up v1alpha1 KernelCache webhook")
+	if err = (&v1alpha1.KernelCache{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "v1alpha1.KernelCache")
 		os.Exit(1)
 	}
 

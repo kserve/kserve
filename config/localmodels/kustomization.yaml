@@ -10,14 +10,20 @@ labels:
 
 resources:
 - ../crd/full/localmodel
+- ../crd/full/kernelcache
 - ../certmanager/localmodel
+- ../certmanager/kernelcache
 - ../rbac/localmodel
+- ../rbac/kernelcache
+- ../secret
 - manager.yaml
 - ../localmodelnodes
 - ../webhook/localmodel
+- ../webhook/kernelcache
 
 patches:
 - path: webhook_cainjection_patch.yaml
+- path: kernelcache_webhook_cainjection_patch.yaml
 - path: localmodel_manager_image_patch.yaml
 
 
@@ -35,6 +41,16 @@ replacements:
       kind: ValidatingWebhookConfiguration
       name: localmodelcache.serving.kserve.io
   - fieldPaths:
+    - webhooks.*.clientConfig.service.namespace
+    select:
+      kind: MutatingWebhookConfiguration
+      name: kernelcache.serving.kserve.io
+  - fieldPaths:
+    - webhooks.*.clientConfig.service.namespace
+    select:
+      kind: ValidatingWebhookConfiguration
+      name: kernelcache.serving.kserve.io
+  - fieldPaths:
     - metadata.annotations.[cert-manager.io/inject-ca-from]
     options:
       delimiter: '/'
@@ -42,6 +58,32 @@ replacements:
     select:
       kind: ValidatingWebhookConfiguration
       name: localmodelcache.serving.kserve.io
+  - fieldPaths:
+    - metadata.annotations.[cert-manager.io/inject-ca-from]
+    options:
+      delimiter: '/'
+      index: 0
+    select:
+      kind: MutatingWebhookConfiguration
+      name: kernelcache.serving.kserve.io
+  - fieldPaths:
+    - metadata.annotations.[cert-manager.io/inject-ca-from]
+    options:
+      delimiter: '/'
+      index: 0
+    select:
+      kind: ValidatingWebhookConfiguration
+      name: kernelcache.serving.kserve.io
+  - fieldPaths:
+    - spec.commonName
+    - spec.dnsNames.0
+    options:
+      delimiter: '.'
+      index: 1
+    select:
+      kind: Certificate
+      name: localmodel-serving-cert
+      namespace: kserve
   - fieldPaths:
     - spec.commonName
     - spec.dnsNames.0
@@ -64,6 +106,33 @@ replacements:
     select:
       kind: ValidatingWebhookConfiguration
       name: localmodelcache.serving.kserve.io
+  - fieldPaths:
+    - spec.commonName
+    - spec.dnsNames.0
+    options:
+      delimiter: '.'
+      index: 0
+    select:
+      kind: Certificate
+      name: localmodel-serving-cert
+      namespace: kserve
+# Replace kernelcache webhook service name (use localmodel service since same pod)
+- source:
+    fieldPath: metadata.name
+    kind: Service
+    name: localmodel-webhook-server-service
+    version: v1
+  targets:
+  - fieldPaths:
+    - webhooks.*.clientConfig.service.name
+    select:
+      kind: MutatingWebhookConfiguration
+      name: kernelcache.serving.kserve.io
+  - fieldPaths:
+    - webhooks.*.clientConfig.service.name
+    select:
+      kind: ValidatingWebhookConfiguration
+      name: kernelcache.serving.kserve.io
   - fieldPaths:
     - spec.commonName
     - spec.dnsNames.0

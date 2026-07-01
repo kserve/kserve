@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kserve-kernelcachenode-agent
+  namespace: kserve
+  labels:
+    app.kubernetes.io/name: kserve-kernelcachenode-agent
+    app: kserve-kernelcachenode-agent
+    control-plane: kserve-kernelcachenode-agent
+    controller-tools.k8s.io: "1.0"
+spec:
+  selector:
+    matchLabels:
+      control-plane: kserve-kernelcachenode-agent
+      controller-tools.k8s.io: "1.0"
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kserve-kernelcachenode-agent
+        app: kserve-kernelcachenode-agent
+        control-plane: kserve-kernelcachenode-agent
+        controller-tools.k8s.io: "1.0"
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+    spec:
+      # Runs on all nodes by default. To restrict to specific nodes, add a Kustomize patch.
+      # See kustomization.yaml for nodeSelector patch example
+      serviceAccountName: kserve-kernelcachenode-agent
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+      - name: fix-permissions
+        image: registry.access.redhat.com/ubi9/ubi-micro:latest
+        command:
+          - /bin/sh
+          - -c
+          - |
+            if [ "$ENABLE_PERMISSION_INIT_CONTAINER" = "true" ]; then
+              echo "Permission init container enabled - fixing /mnt/kernel-cache permissions"
+              mkdir -p /mnt/kernel-cache/kernel-cache
+              chown -R 1000:1000 /mnt/kernel-cache
+              chmod -R 775 /mnt/kernel-cache
+              echo "Permissions fixed on /mnt/kernel-cache"
+            else
+              echo "Permission init container disabled - skipping"
+            fi
+        env:
+          - name: ENABLE_PERMISSION_INIT_CONTAINER
+            value: "false"  # Disabled by default - enabled for KIND via Makefile patch
+        securityContext:
+          runAsUser: 0
+          runAsNonRoot: false
+        volumeMounts:
+          - mountPath: /mnt/kernel-cache
+            name: kernel-caches
+      containers:
+      - command:
+        - /manager
+        image: ko://github.com/kserve/kserve/cmd/kernelcachenode
+        imagePullPolicy: Always
+        name: manager
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+        env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          - name: NO_GPU
+            value: "false"
+        volumeMounts:
+          - mountPath: /mnt/kernel-cache
+            name: kernel-caches
+            readOnly: false
+        resources:
+          limits:
+            cpu: 100m
+            memory: 300Mi
+          requests:
+            cpu: 100m
+            memory: 200Mi
+      volumes:
+        - name: kernel-caches
+          hostPath:
+            path: /kernel-caches
+            type: DirectoryOrCreate
+      terminationGracePeriodSeconds: 10

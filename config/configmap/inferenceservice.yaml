@@ -629,6 +629,27 @@ data:
          "disableVolumeManagement": false
        }
 
+     # ====================================== KERNELCACHE CONFIGURATION ======================================
+     # Example
+     kernelcache: |-
+       {
+         "enabled": false,
+         # jobNamespace specifies the namespace where the kernel cache extraction jobs and download PV/PVC will be created.
+         "jobNamespace": "kserve",
+         # extractImage specifies the image used for the kernel cache extraction job.
+         "extractImage" : "quay.io/gkm/gkm-extract:latest",
+         # Kubernetes modifies the filesystem group ID on the attached volume.
+         "fsGroup": 1000,
+         # TTL for the extraction job after it is finished.
+         "jobTTLSecondsAfterFinished": 3600,
+         # The frequency at which the kernel cache agent reconciles the kernel caches
+         "reconcileIntervalSeconds": 60,
+         # Disable GPU detection for testing (uses MCV GPU detection by default)
+         "noGPU": false,
+         # Enable permission fix init container for extraction Jobs (needed for KIND clusters and environments where kubelet can't change volume ownership)
+         "enablePermissionInitContainer": false
+       }
+
   explainers: |-
     {
         "art": {
@@ -750,6 +771,18 @@ data:
       "jobTTLSecondsAfterFinished": 3600,
       "reconcilationFrequencyInSecs": 60,
       "disableVolumeManagement": false
+    }
+
+  kernelcache: |-
+    {
+      "enabled": false,
+      "jobNamespace": "kserve",
+      "extractImage": "quay.io/gkm/gkm-extract:latest",
+      "fsGroup": 1000,
+      "jobTTLSecondsAfterFinished": 3600,
+      "reconcileIntervalSeconds": 60,
+      "noGPU": false,
+      "enablePermissionInitContainer": false
     }
 
   security: |-
