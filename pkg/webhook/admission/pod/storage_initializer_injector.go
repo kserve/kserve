@@ -206,9 +206,30 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *corev1.Pod) error {
 		return nil
 	}
 
-	// Only inject modelcar if requested
-	if !strings.HasPrefix(srcURI, constants.OciURIPrefix) {
+	parsedMode, normalizedURI, isOci := utils.ParseOciScheme(srcURI)
+	if !isOci {
 		return nil
+	}
+
+	// Determine effective mode: explicit suffix wins; bare oci:// falls back to config.
+	// ResolveOciModelMode is guaranteed non-empty here: InjectModelcar is only registered
+	// when ResolveOciModelMode(config) != "" at the mutator setup site (mutator.go), so
+	// the else branch (defaulting to OciModelModeModelcar) is unreachable.
+	effectiveMode := parsedMode
+	if effectiveMode == "" {
+		effectiveMode = types.ResolveOciModelMode(mi.config)
+	}
+
+	// configureForContainer dispatches to the right materializer for a single container.
+	configureForContainer := func(containerName string) error {
+		switch effectiveMode {
+		case types.OciModelModeNative:
+			return utils.ConfigureOciNativeToContainer(normalizedURI, &pod.Spec, containerName, constants.DefaultModelLocalMountPath, mi.config)
+		case types.OciModelModeFetch:
+			return ConfigureOciFetchToContainer(normalizedURI, &pod.Spec, containerName, constants.DefaultModelLocalMountPath, mi.config, pod.Namespace)
+		default:
+			return utils.ConfigureModelcarToContainer(normalizedURI, &pod.Spec, containerName, constants.DefaultModelLocalMountPath, mi.config, 0)
+		}
 	}
 
 	// Find the kserve-container (this is the model inference server) and worker-container
@@ -218,21 +239,19 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *corev1.Pod) error {
 	if userContainer == nil {
 		if workerContainer == nil {
 			return fmt.Errorf("Invalid configuration: cannot find container: %s", constants.InferenceServiceContainerName)
-		} else {
-			// Use worker container for multi-node scenarios
-			if err := utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.WorkerContainerName, constants.DefaultModelLocalMountPath, mi.config, 0); err != nil {
-				return err
-			}
+		}
+		if err := configureForContainer(constants.WorkerContainerName); err != nil {
+			return err
 		}
 	} else {
-		if err := utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.InferenceServiceContainerName, constants.DefaultModelLocalMountPath, mi.config, 0); err != nil {
+		if err := configureForContainer(constants.InferenceServiceContainerName); err != nil {
 			return err
 		}
 	}
 
-	// Configure modelcar for transformer container if it exists
+	// Configure for transformer container if it exists
 	if utils.GetContainerWithName(&pod.Spec, constants.TransformerContainerName) != nil {
-		return utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.TransformerContainerName, constants.DefaultModelLocalMountPath, mi.config, 0)
+		return configureForContainer(constants.TransformerContainerName)
 	}
 
 	return nil
@@ -279,17 +298,26 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 		return nil
 	}
 
-	// Handle OCI URIs via modelcar injection instead of init-containers
-	if params.Config.EnableOciImageSource && len(params.StorageURIs) > 0 {
+	// Handle OCI URIs via OCI-mode injection instead of init-containers.
+	// Covers both oci+native:// (explicit native mode) and oci:// (mode from config).
+	if len(params.StorageURIs) > 0 {
 		hasOciUri := false
 		for _, storageUri := range params.StorageURIs {
-			if strings.HasPrefix(storageUri.Uri, constants.OciURIPrefix) {
+			parsedMode, _, isOci := utils.ParseOciScheme(storageUri.Uri)
+			if !isOci {
+				continue
+			}
+			effectiveMode := parsedMode
+			if effectiveMode == "" {
+				effectiveMode = types.ResolveOciModelMode(params.Config)
+			}
+			if effectiveMode != "" {
 				hasOciUri = true
 				break
 			}
 		}
 		if hasOciUri {
-			// For the storageUris path (IsLegacyURI == false), inject modelcar directly.
+			// For the storageUris path (IsLegacyURI == false), inject directly.
 			// For the legacy path (IsLegacyURI == true), the webhook's InjectModelcar() handles it via annotations.
 			if params.IsLegacyURI {
 				return nil
@@ -312,25 +340,56 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 			if len(ociMountPaths) > utils.MaxOCISourcesPerPod {
 				return fmt.Errorf("too many OCI sources (%d); maximum is %d per pod", len(ociMountPaths), utils.MaxOCISourcesPerPod)
 			}
-			if err := utils.ValidateOCIMountPaths(ociMountPaths); err != nil {
+			configMode := types.ResolveOciModelMode(params.Config)
+			if err := utils.ValidateOCIMountPaths(ociMountPaths, configMode); err != nil {
 				return err
 			}
 
 			for _, storageUri := range params.StorageURIs {
-				if !strings.HasPrefix(storageUri.Uri, constants.OciURIPrefix) {
+				parsedMode, normalizedURI, isOci := utils.ParseOciScheme(storageUri.Uri)
+				if !isOci {
 					continue
 				}
+				effectiveMode := parsedMode
+				if effectiveMode == "" {
+					effectiveMode = types.ResolveOciModelMode(params.Config)
+				}
+				if effectiveMode == "" {
+					continue
+				}
+
 				targetContainerName := constants.InferenceServiceContainerName
 				if userContainer == nil {
 					targetContainerName = constants.WorkerContainerName
 				}
-				if err := utils.ConfigureModelcarToContainer(storageUri.Uri, params.PodSpec, targetContainerName, storageUri.MountPath, params.Config, ociIndex); err != nil {
-					return err
-				}
-				// Also configure for transformer if present
-				if utils.GetContainerWithName(params.PodSpec, constants.TransformerContainerName) != nil {
-					if err := utils.ConfigureModelcarToContainer(storageUri.Uri, params.PodSpec, constants.TransformerContainerName, storageUri.MountPath, params.Config, ociIndex); err != nil {
+
+				switch effectiveMode {
+				case types.OciModelModeNative:
+					if err := utils.ConfigureOciNativeToContainer(normalizedURI, params.PodSpec, targetContainerName, storageUri.MountPath, params.Config); err != nil {
 						return err
+					}
+					if utils.GetContainerWithName(params.PodSpec, constants.TransformerContainerName) != nil {
+						if err := utils.ConfigureOciNativeToContainer(normalizedURI, params.PodSpec, constants.TransformerContainerName, storageUri.MountPath, params.Config); err != nil {
+							return err
+						}
+					}
+				case types.OciModelModeFetch:
+					if err := ConfigureOciFetchToContainer(normalizedURI, params.PodSpec, targetContainerName, storageUri.MountPath, params.Config, params.Namespace); err != nil {
+						return err
+					}
+					if utils.GetContainerWithName(params.PodSpec, constants.TransformerContainerName) != nil {
+						if err := ConfigureOciFetchToContainer(normalizedURI, params.PodSpec, constants.TransformerContainerName, storageUri.MountPath, params.Config, params.Namespace); err != nil {
+							return err
+						}
+					}
+				default: // "modelcar"
+					if err := utils.ConfigureModelcarToContainer(normalizedURI, params.PodSpec, targetContainerName, storageUri.MountPath, params.Config, ociIndex); err != nil {
+						return err
+					}
+					if utils.GetContainerWithName(params.PodSpec, constants.TransformerContainerName) != nil {
+						if err := utils.ConfigureModelcarToContainer(normalizedURI, params.PodSpec, constants.TransformerContainerName, storageUri.MountPath, params.Config, ociIndex); err != nil {
+							return err
+						}
 					}
 				}
 				ociIndex++
@@ -387,8 +446,9 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 		// - PVC URIs are mounted directly as volumes (no download needed)
 		// - Other URIs require init container to download artifacts first
 		for _, storageUri := range params.StorageURIs {
-			if strings.HasPrefix(storageUri.Uri, constants.OciURIPrefix) {
-				// OCI URIs are already handled by modelcar injection above; skip.
+			if _, _, isOci := utils.ParseOciScheme(storageUri.Uri); isOci {
+				// All OCI-scheme URIs (oci://, oci+native://, oci+fetch://, …) are
+				// already handled by the dispatch block above; skip here.
 				continue
 			}
 			if strings.HasPrefix(storageUri.Uri, constants.PvcURIPrefix) {

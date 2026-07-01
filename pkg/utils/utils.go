@@ -305,12 +305,27 @@ func AddVolumeMountIfNotPresent(container *corev1.Container, mountName, mountPat
 			return
 		}
 	}
-	modelMount := corev1.VolumeMount{
+	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
 		Name:      mountName,
 		MountPath: mountPath,
 		ReadOnly:  readOnly,
+	})
+}
+
+// AddVolumeMountIfNotPresentWithSubPath is like AddVolumeMountIfNotPresent but also sets SubPath
+// on the added VolumeMount. Container must not be nil.
+func AddVolumeMountIfNotPresentWithSubPath(container *corev1.Container, mountName, mountPath, subPath string, readOnly bool) {
+	for _, v := range container.VolumeMounts {
+		if v.Name == mountName {
+			return
+		}
 	}
-	container.VolumeMounts = append(container.VolumeMounts, modelMount)
+	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+		Name:      mountName,
+		MountPath: mountPath,
+		SubPath:   subPath,
+		ReadOnly:  readOnly,
+	})
 }
 
 // Returns the value of the stop annotation
