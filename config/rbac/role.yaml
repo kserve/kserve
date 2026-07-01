@@ -224,6 +224,7 @@ rules:
   resources:
   - localmodelcaches
   - localmodelnamespacecaches
+  - storagecontainers
   verbs:
   - get
   - list

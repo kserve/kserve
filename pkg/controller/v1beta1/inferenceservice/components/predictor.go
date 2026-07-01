@@ -125,7 +125,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	// StorageInitializer injector to mutate the underlying deployment to provision model data
 	// Only add annotations for single storage URI case. Multiple storage URIs are handled directly by reconcilers.
 	if sourceURI != nil {
-		if err := p.addStorageInitializerAnnotations(ctx, predictor, annotations, isvc.Spec.Predictor.StorageContainerName); err != nil {
+		if err := p.addStorageInitializerAnnotations(ctx, isvc.Namespace, predictor, annotations, isvc.Spec.Predictor.StorageContainerName); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -268,13 +268,13 @@ func (p *Predictor) reconcileModelConfig(ctx context.Context, isvc *v1beta1.Infe
 	return configMapReconciler.Reconcile(ctx, isvc)
 }
 
-func (p *Predictor) addStorageInitializerAnnotations(ctx context.Context, predictor v1beta1.ComponentImplementation, annotations map[string]string, storageContainerName *string) error {
+func (p *Predictor) addStorageInitializerAnnotations(ctx context.Context, namespace string, predictor v1beta1.ComponentImplementation, annotations map[string]string, storageContainerName *string) error {
 	if sourceURI := predictor.GetStorageUri(); sourceURI != nil {
 		if _, ok := annotations[constants.StorageInitializerSourceUriInternalAnnotationKey]; ok {
 			return errors.New("must provide only one of storageUri and storage.path")
 		}
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
-		err := isvcutils.ValidateStorageURI(ctx, sourceURI, p.client)
+		err := isvcutils.ValidateStorageURI(ctx, namespace, sourceURI, storageContainerName, p.client)
 		if err != nil {
 			return fmt.Errorf("StorageURI not supported: %w", err)
 		}
@@ -757,7 +757,7 @@ func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.In
 
 	var storageContainerSpec *v1alpha1.StorageContainerSpec
 	if len(isvc.Spec.Predictor.StorageUris) > 0 {
-		storageContainerSpec, err = pod.GetStorageContainerSpec(ctx, isvc.Spec.Predictor.StorageUris[0].Uri, isvc.Spec.Predictor.StorageContainerName, p.client)
+		storageContainerSpec, err = pod.GetStorageContainerSpec(ctx, isvc.Namespace, isvc.Spec.Predictor.StorageUris[0].Uri, isvc.Spec.Predictor.StorageContainerName, p.client)
 		if err != nil {
 			return errors.Wrapf(err, "failed to get storage container spec")
 		}
@@ -822,7 +822,7 @@ func (p *Predictor) reconcileKnativeDeployment(ctx context.Context, isvc *v1beta
 
 	var storageContainerSpec *v1alpha1.StorageContainerSpec
 	if len(isvc.Spec.Predictor.StorageUris) > 0 {
-		storageContainerSpec, err = pod.GetStorageContainerSpec(ctx, isvc.Spec.Predictor.StorageUris[0].Uri, isvc.Spec.Predictor.StorageContainerName, p.client)
+		storageContainerSpec, err = pod.GetStorageContainerSpec(ctx, isvc.Namespace, isvc.Spec.Predictor.StorageUris[0].Uri, isvc.Spec.Predictor.StorageContainerName, p.client)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to get storage container spec")
 		}
