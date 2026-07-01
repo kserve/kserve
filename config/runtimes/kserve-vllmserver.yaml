@@ -1,0 +1,76 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-vllmserver
+  annotations:
+    serving.kserve.io/server-type: vllmserver
+spec:
+  annotations:
+    prometheus.kserve.io/port: "8080"
+    prometheus.kserve.io/path: "/metrics"
+  supportedModelFormats:
+    - name: vLLM
+      version: "1"
+      autoSelect: true
+      priority: 1
+  containers:
+    - name: kserve-container
+      # Default image is the GPU build. When the InferenceService does not request a GPU,
+      # the controller rewrites this to the sibling "-cpu" repository (e.g.
+      # vllm/vllm-openai -> vllm/vllm-openai-cpu) via isvcutils.UpdateImageTag.
+      image: vllmserver:replace
+      command:
+        - python
+        - -m
+        - vllm.entrypoints.openai.api_server
+      args:
+        - "--port=8080"
+        - "--served-model-name={{.Name}}"
+        - "--model=/mnt/models"
+      env:
+        - name: LMCACHE_USE_EXPERIMENTAL
+          value: "True"
+        - name: HF_HOME
+          value: /tmp
+        - name: VLLM_CONFIG_ROOT
+          value: /tmp
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        capabilities:
+          drop:
+            - ALL
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi
+      readinessProbe:
+        # `/v1/models` only returns 200 once the model is registered.
+        httpGet:
+          path: /v1/models
+          port: 8080
+        failureThreshold: 3
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 5
+      startupProbe:
+        # ~30 min grace for large model loads (60 * 30s).
+        httpGet:
+          path: /v1/models
+          port: 8080
+        failureThreshold: 60
+        periodSeconds: 30
+        successThreshold: 1
+        timeoutSeconds: 10
+        initialDelaySeconds: 30
+      volumeMounts:
+        - name: devshm
+          mountPath: /dev/shm
+  volumes:
+    - name: devshm
+      emptyDir:
+        medium: Memory
+  hostIPC: false

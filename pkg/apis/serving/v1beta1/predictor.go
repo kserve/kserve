@@ -59,6 +59,13 @@ type PredictorSpec struct {
 	// +kubebuilder:validation:MinItems=1
 	StorageUris []StorageUri `json:"storageUris,omitempty"`
 
+	// StorageContainerName specifies the name of the ClusterStorageContainer to use
+	// for downloading model artifacts. When set, this ClusterStorageContainer is used
+	// instead of auto-matching based on the storage URI scheme.
+	// This is similar to storageClassName on PersistentVolumeClaims.
+	// +optional
+	StorageContainerName *string `json:"storageContainerName,omitempty"`
+
 	// WorkerSpec for enabling multi-node/multi-gpu
 	WorkerSpec *WorkerSpec `json:"workerSpec,omitempty"`
 
@@ -123,6 +130,11 @@ type PredictorExtensionSpec struct {
 	// Storage Spec for model location
 	// +optional
 	Storage *ModelStorageSpec `json:"storage,omitempty"`
+	// Confidential enables confidential model serving with encrypted model artifacts.
+	// When enabled, the storage initializer decrypts model files using keys obtained
+	// from a Key Broker Service (KBS) via TEE attestation.
+	// +optional
+	Confidential *ConfidentialSpec `json:"confidential,omitempty"`
 }
 
 type ModelStorageSpec struct {
@@ -130,6 +142,20 @@ type ModelStorageSpec struct {
 	// The path to the model schema file in the storage.
 	// +optional
 	SchemaPath *string `json:"schemaPath,omitempty"`
+}
+
+// ConfidentialSpec enables confidential model serving with encrypted model artifacts.
+// When enabled, the storage initializer will decrypt model files using keys obtained
+// from a Key Broker Service (KBS) via TEE attestation.
+type ConfidentialSpec struct {
+	// Enabled controls whether confidential model serving is active.
+	// When true, the confidential storage initializer image is used and
+	// encrypted model artifacts are decrypted after download.
+	Enabled bool `json:"enabled"`
+	// ResourceId is the KBS resource identifier for the decryption key,
+	// in the format kbs:///<repo>/<type>/<tag>.
+	// +optional
+	ResourceId *string `json:"resourceId,omitempty"`
 }
 
 // GetImplementations returns the implementations for the component

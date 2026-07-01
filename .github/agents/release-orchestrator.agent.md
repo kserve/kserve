@@ -31,6 +31,7 @@ Two checkpoint patterns:
 mkdir -p ~/.kserve_release
 cat > ~/.kserve_release/checkpoint.json << EOF
 {
+  "workspace": "{RELEASE_WORKSPACE}",
   "version": "{VERSION}",
   "prior_version": "{PRIOR_VERSION}",
   "pr_repo": "{PR_REPO}",
@@ -49,14 +50,14 @@ EOF
 cat ~/.kserve_release/checkpoint.json
 ```
 If found, show contents and ask: "Resume from checkpoint? (y/n)"
-- **y**: Skip completed phases, resume using the mapping below
+- **y**: Change to the saved workspace directory (`cd {workspace}`), then skip completed phases and resume using the mapping below
 - **n**: Start fresh, delete checkpoint
 
 **Resume mapping** (phase → next action):
 
 | Checkpoint phase | Pattern | Resume from |
 |---|---|---|
-| `CONFIRMED` | after completion | Phase 2: create bump branch, run bump, create PR |
+| `CONFIRMED` | after completion | Phase 1B: detect existing bump work, then Phase 2 if needed |
 | `BUMP_PR_CREATED` | before external wait | Phase 3: check CI status on `bump_pr`, watch if still running |
 | `CI_PASSED` | after completion | Phase 4: merge PR (verify not already merged first) |
 | `BUMP_MERGED` | after completion | RC0 → Phase 5 (branch/tag). RC1+/Final → Phase 2B (cherry-pick). Check `release_type` |
@@ -82,7 +83,92 @@ rm -f ~/.kserve_release/checkpoint.json
 - `SMOKE_TESTED` — after smoke test passed, before publish
 - `PUBLISHED` — after release published, before downstream validation
 
+## Progress Tracker
+
+Show remaining steps so the user knows where they are and what's left.
+
+**Format** — adapt to the current release type (RC0 vs RC1+/Final). Mark completed phases with ✅, current with 👉, and remaining with ⬚:
+
+```
+Release v{VERSION} — Progress
+──────────────────────────────
+✅ Phase 0:  Setup workspace
+✅ Phase 1:  Prepare (version confirmed)
+✅ Phase 2:  Version bump PR created
+👉 Phase 3:  Monitor CI ← you are here
+⬚ Phase 4:  Merge PR
+⬚ Phase 5:  Create branch & tag
+⬚ Phase 6:  Create draft release
+⬚ Phase 7:  Image validation
+⬚ Phase 8:  Smoke test
+⬚ Phase 9:  Publish release
+⬚ Phase 10: Full validation
+⬚ Phase 11: Release report
+──────────────────────────────
+```
+
+For RC1+/Final, include Phase 2B (cherry-pick) between Phase 2 and Phase 3.
+Omit Phase 2B for RC0.
+
+**When to show** — display the progress tracker at these moments only:
+
+| Trigger | Why |
+|---|---|
+| Session resume from checkpoint | User needs orientation after being away |
+| After a long external wait completes (CI, image build) | User likely returned after a break |
+| After a major milestone (merge, branch/tag created, publish) | Phase boundary — good moment to show what's ahead |
+| User asks ("what's left?", "status", "progress", "remaining steps") | Explicit request |
+
+**When NOT to show** — skip the tracker to avoid noise:
+
+- Consecutive steps within the same phase (e.g., multiple CI retries)
+- Immediately after showing it (don't repeat within the same interaction turn)
+- When moving to the very next step without a wait (user is already in flow)
+
+**Resumable prompt** — when the tracker is shown after a long wait or session resume, append:
+
+```
+💡 Type "next" to continue, or "status" to see progress anytime.
+```
+
 ## What to do
+
+### Phase 0: Setup Release Workspace
+
+Separate the agent file location (where Copilot reads this agent) from the release working directory.
+This allows editing the agent file without interfering with in-progress release branches.
+
+1. Always create a separate worktree for release work. Never use the current directory (it contains the agent file and may be on a feature branch).
+
+   ```bash
+   RELEASE_WORKSPACE="$HOME/.kserve_release/kserve"
+   ```
+
+2. If the worktree already exists, remove it first to start clean:
+
+   ```bash
+   if [ -d "$RELEASE_WORKSPACE" ]; then
+     git worktree remove "$RELEASE_WORKSPACE" --force
+   fi
+   git fetch upstream master
+   git worktree add "$RELEASE_WORKSPACE" upstream/master
+   ```
+
+   `git worktree add` accepts any absolute path — the worktree does not need to live inside the repo.
+   It shares remotes (origin, upstream), history, and fetch state with the current repo.
+   No additional remote configuration is needed.
+
+2. Change to the release workspace:
+
+   ```bash
+   cd "$RELEASE_WORKSPACE"
+   ```
+
+   All subsequent phases run here. Relative paths (`kserve-deps.env`, `./hack/release/`) resolve correctly.
+
+3. Ask user to confirm: "Release workspace: {RELEASE_WORKSPACE}. OK? (y/n)"
+   - **y**: proceed to Phase 1
+   - **n**: ask for a custom path and create worktree there instead
 
 ### Phase 1: Prepare
 
@@ -137,9 +223,46 @@ rm -f ~/.kserve_release/checkpoint.json
    ```bash
    mkdir -p ~/.kserve_release
    cat > ~/.kserve_release/checkpoint.json << EOF
-   {"version":"{VERSION}","prior_version":"{CURRENT_VERSION}","pr_repo":"{PR_REPO}","branch_repo":"{BRANCH_REPO}","release_type":"{TYPE}","phase":"CONFIRMED","bump_pr":null,"cherrypick_pr":null,"timestamp":"$(date -u +%Y-%m-%dT%H:%M:%SZ)"}
+   {"workspace":"{RELEASE_WORKSPACE}","version":"{VERSION}","prior_version":"{CURRENT_VERSION}","pr_repo":"{PR_REPO}","branch_repo":"{BRANCH_REPO}","release_type":"{TYPE}","phase":"CONFIRMED","bump_pr":null,"cherrypick_pr":null,"timestamp":"$(date -u +%Y-%m-%dT%H:%M:%SZ)"}
    EOF
    ```
+
+### Phase 1B: Detect Existing Bump Work
+
+Before creating a new bump branch, check if the version bump was already done
+(e.g., by the `bump-version` agent via a release issue, or manually through the UI).
+
+1. Search for an existing bump PR targeting v{VERSION}:
+   ```bash
+   gh pr list --repo {PR_REPO} --state all \
+     --search "release: prepare release v{VERSION} in:title" \
+     --json number,title,state,mergeCommit,headRefName,url \
+     --jq '.[] | select(.title == "release: prepare release v{VERSION}")'
+   ```
+
+2. If a PR is found, report its state and ask:
+
+   - **Open (CI pending/passing)**: "Bump PR #{number} already exists: {url}. Skip to Phase 3 (Monitor CI)? (y/n)"
+     - **y**: save checkpoint with `bump_pr: {number}`, `phase: BUMP_PR_CREATED`, skip to Phase 3
+     - **n**: proceed to Phase 2 as normal (create a new bump branch)
+
+   - **Merged**: "Bump PR #{number} already merged. Skip to Phase 4/5? (y/n)"
+     - **y**: save checkpoint with `bump_pr: {number}`, `phase: BUMP_MERGED`, skip to Phase 5 (RC0) or Phase 2B (RC1+)
+     - **n**: proceed to Phase 2
+
+   - **Closed (not merged)**: "Found closed bump PR #{number} (not merged). Starting fresh."
+     → proceed to Phase 2
+
+3. If no PR found, also check for a release issue with the target version:
+   ```bash
+   gh issue list --repo {PR_REPO} --state all \
+     --search "release: prepare release {VERSION} in:title" \
+     --json number,title,state,url \
+     --jq '.[] | select(.title | test("release.*prepare.*{VERSION}"))'
+   ```
+   If an issue exists (e.g., created for `bump-version` agent), note its number for linking in the bump PR body later.
+
+4. If nothing found, proceed to Phase 2 as normal.
 
 ### Phase 2: Version Bump
 

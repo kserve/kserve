@@ -144,8 +144,8 @@ var _ = Describe("Model Based Routing", func() {
 				g.Expect(&routes[0]).To(HaveHeaderMatch(headerName, "publishers/"+testNs.Name+"/models/facebook/opt-125m"))
 
 				rules := routes[0].Spec.Rules
-				g.Expect(countModelRoutingRules(rules)).To(BeNumerically(">=", 4),
-					"should have at least 4 model-routing rules")
+				g.Expect(countModelRoutingRules(rules)).To(BeNumerically(">=", 5),
+					"should have at least 5 model-routing rules")
 			}).WithContext(ctx).Should(Succeed())
 
 			ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvc)
@@ -253,7 +253,7 @@ var _ = Describe("Model Based Routing", func() {
 				g.Expect(&routes[0]).To(HaveHeaderMatch(headerName, "publishers/"+testNs.Name+"/models/facebook/opt-125m"))
 
 				rules := routes[0].Spec.Rules
-				g.Expect(countModelRoutingRules(rules)).To(BeNumerically(">=", 4),
+				g.Expect(countModelRoutingRules(rules)).To(BeNumerically(">=", 5),
 					"forced mode should keep model-routing rules despite Gateway opt-out")
 			}).WithContext(ctx).Should(Succeed())
 

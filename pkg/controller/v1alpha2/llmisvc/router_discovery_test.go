@@ -180,6 +180,10 @@ func TestDiscoverURLs(t *testing.T) {
 					WithBackendRefs(BackendRefInferencePool("pool")),
 				),
 				WithHTTPRule(
+					Matches(PathPrefixMatch("/ns/name/v1/messages")),
+					WithBackendRefs(BackendRefInferencePool("pool")),
+				),
+				WithHTTPRule(
 					Matches(PathPrefixMatch("/ns/name")),
 					WithBackendRefs(BackendRefService("svc")),
 				),
@@ -206,6 +210,10 @@ func TestDiscoverURLs(t *testing.T) {
 					Matches(PathPrefixMatch("/ns/name/v1/chat/completions")),
 					WithBackendRefs(BackendRefInferencePool("pool")),
 				),
+				WithHTTPRule(
+					Matches(PathPrefixMatch("/ns/name/v1/messages")),
+					WithBackendRefs(BackendRefInferencePool("pool")),
+				),
 			),
 			gateways: []*gwapiv1.Gateway{
 				Gateway("no-svc-gateway",
@@ -214,7 +222,7 @@ func TestDiscoverURLs(t *testing.T) {
 					WithAddresses("203.0.113.1"),
 				),
 			},
-			assert: expectURLs("http://203.0.113.1/ns/name/v1/completions"),
+			assert: expectURLs("http://203.0.113.1/ns/name/v1/messages"),
 		},
 		{
 			name: "multi-rule path extraction - Service with default Kind (nil)",
@@ -378,6 +386,10 @@ func TestDiscoverURLs(t *testing.T) {
 				),
 				WithHTTPRule(
 					Matches(PathPrefixMatch("/ns/name/v1/chat/completions")),
+					WithBackendRefs(BackendRefInferencePool("pool")),
+				),
+				WithHTTPRule(
+					Matches(PathPrefixMatch("/ns/name/v1/messages")),
 					WithBackendRefs(BackendRefInferencePool("pool")),
 				),
 				WithHTTPRule(

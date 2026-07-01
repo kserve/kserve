@@ -28,12 +28,14 @@ from .diagnostic import (
     collect_pod_logs,
     kinds_matching_by_labels,
     print_all_events_table,
+    strip_managed_fields,
 )
 from .fixtures import (
     KSERVE_TEST_NAMESPACE,
     create_router_resources,
     create_scheduler_configmap,
     delete_scheduler_configmap,
+    ensure_pvc_with_model,
     generate_test_id,
     inject_k8s_proxy,
 )
@@ -522,6 +524,35 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
             ),
             marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
         ),
+        # Scheduler v0.6 → v0.7 migration tests.
+        # Deploy v0.6-style configs and verify the controller migrates them
+        # so the v0.7 scheduler boots successfully.
+        pytest.param(
+            TestCase(
+                base_refs=[
+                    "router-managed",
+                    "scheduler-v06-pd-config-migration",
+                    "workload-llmd-simulator-pd",
+                ],
+                prompt="KServe is a",
+                service_name="scheduler-v06-pd-migration-test",
+                response_assertion=assert_200_with_choices,
+            ),
+            marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
+        ),
+        pytest.param(
+            TestCase(
+                base_refs=[
+                    "router-managed",
+                    "scheduler-v06-nonzero-threshold-migration",
+                    "workload-llmd-simulator-pd",
+                ],
+                prompt="KServe is a",
+                service_name="scheduler-v06-threshold-migration-test",
+                response_assertion=assert_200_with_choices,
+            ),
+            marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
+        ),
         # Precise prefix KV cache routing test
         pytest.param(
             TestCase(
@@ -691,6 +722,57 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 pytest.mark.cluster_single_node,
                 pytest.mark.model_routing,
                 pytest.mark.lora,
+            ],
+        ),
+        # PVC storage tests -- validate direct PVC volume mount with real vLLM serving
+        pytest.param(
+            TestCase(
+                base_refs=[
+                    "router-managed",
+                    "workload-single-cpu",
+                    "model-pvc",
+                ],
+                prompt="KServe is a",
+                response_assertion=assert_200_with_choices,
+                before_test=[ensure_pvc_with_model],
+            ),
+            marks=[
+                pytest.mark.cluster_cpu,
+                pytest.mark.cluster_single_node,
+                pytest.mark.pvc_storage,
+            ],
+        ),
+        pytest.param(
+            TestCase(
+                base_refs=[
+                    "router-managed",
+                    "workload-pd-cpu",
+                    "model-pvc",
+                ],
+                prompt="KServe is a",
+                response_assertion=assert_200_with_choices,
+                before_test=[ensure_pvc_with_model],
+            ),
+            marks=[
+                pytest.mark.cluster_cpu,
+                pytest.mark.cluster_single_node,
+                pytest.mark.pvc_storage,
+            ],
+        ),
+        pytest.param(
+            TestCase(
+                base_refs=[
+                    "router-managed",
+                    "workload-simulated-dp-ep-cpu",
+                    "model-pvc",
+                ],
+                prompt="KServe is a",
+                before_test=[ensure_pvc_with_model],
+            ),
+            marks=[
+                pytest.mark.cluster_cpu,
+                pytest.mark.cluster_multi_node,
+                pytest.mark.pvc_storage,
             ],
         ),
     ],
@@ -888,8 +970,9 @@ def _wait_for_llmisvc_pods_deleted(
 
     def assert_no_pods():
         pods = core_v1.list_namespaced_pod(namespace, label_selector=label_selector)
-        assert not pods.items, (
-            f"{len(pods.items)} pod(s) for {service_name} still terminating"
+        pod_names = [p.metadata.name for p in pods.items]
+        assert not pod_names, (
+            f"{len(pod_names)} pod(s) for {service_name} still terminating: {pod_names}"
         )
 
     try:
@@ -1157,4 +1240,6 @@ def _collect_diagnostics(
     all_resources = kinds_matching_by_labels(ns, labels)
     for obj in all_resources:
         logger.info(f"{log_prefix} ---")
-        logger.info(yaml.safe_dump(obj.to_dict(), sort_keys=False))
+        logger.info(
+            yaml.safe_dump(strip_managed_fields(obj.to_dict()), sort_keys=False)
+        )

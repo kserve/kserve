@@ -19,6 +19,7 @@ package llmisvc_test
 import (
 	"context"
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -163,7 +164,10 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			}).WithContext(ctx).Should(Succeed())
 		})
 
-		It("should clear status.appliedConfigs when a referenced config is deleted", func(ctx SpecContext) {
+		It("should retain status.appliedConfigs when a referenced config deletion is blocked by finalizer", func(ctx SpecContext) {
+			// The LLMISVCConfigReconciler adds a finalizer to configs referenced by services,
+			// preventing deletion while in use. This test verifies that appliedConfigs remain
+			// stable when a config deletion is requested but blocked.
 			// given
 			svcName := "test-llm-applied-cleared"
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
@@ -198,19 +202,27 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				g.Expect(current.Status.AppliedConfigRefs).NotTo(BeEmpty(), "appliedConfigs should be populated after successful reconciliation")
 			})).WithContext(ctx).Should(Succeed())
 
-			// when - delete the referenced config to trigger a ConfigNotFound error
+			// when - request deletion of the config (finalizer blocks actual removal)
 			Expect(envTest.Delete(ctx, ephemeralCfg)).To(Succeed())
 
-			// then - appliedConfigs should be cleared and condition should reflect the error
+			// then - config should still exist with DeletionTimestamp (finalizer blocks)
 			Eventually(func(g Gomega, ctx context.Context) {
+				cfg := &v1alpha2.LLMInferenceServiceConfig{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(ephemeralCfg), cfg)).To(Succeed())
+				g.Expect(cfg.DeletionTimestamp).NotTo(BeNil(), "config should have DeletionTimestamp")
+			}).WithContext(ctx).Should(Succeed())
+
+			// and - appliedConfigs should remain populated since the config is still available
+			Consistently(func(g Gomega, ctx context.Context) {
 				current := &v1alpha2.LLMInferenceService{}
 				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
-				g.Expect(current.Status.AppliedConfigRefs).To(BeEmpty(), "appliedConfigs should be cleared when config is missing")
-
-				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.PresetsCombined), "False"))
-				cond := current.Status.GetCondition(v1alpha2.PresetsCombined)
-				g.Expect(cond.Reason).To(Equal("ConfigNotFound"))
-			}).WithContext(ctx).Should(Succeed())
+				g.Expect(current.Status.AppliedConfigRefs).NotTo(BeEmpty(),
+					"appliedConfigs should remain populated when config deletion is blocked by finalizer")
+				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.PresetsCombined), "True"))
+			}).WithContext(ctx).
+				WithTimeout(2 * time.Second).
+				WithPolling(300 * time.Millisecond).
+				Should(Succeed())
 		})
 	})
 })
