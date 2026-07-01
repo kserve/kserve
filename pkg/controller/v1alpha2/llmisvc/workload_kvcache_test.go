@@ -72,38 +72,18 @@ func TestAttachKVCacheSecondaryTiers(t *testing.T) {
 			},
 		},
 		{
-			name:          "emptyDir tier respects custom mountPath",
-			containerName: "main",
-			secondary: []v1alpha2.SecondaryTierSpec{
-				{FileSystem: &v1alpha2.FileSystemTierSpec{
-					MountPath: "/mnt/nvme",
-					EmptyDir:  &v1alpha2.EmptyDirTierSpec{Size: resource.MustParse("50Gi")},
-				}},
-			},
-			wantVolumes: []corev1.Volume{
-				{
-					Name: "kv-cache-secondary-0",
-					VolumeSource: corev1.VolumeSource{
-						EmptyDir: &corev1.EmptyDirVolumeSource{
-							SizeLimit: ptr.To(resource.MustParse("50Gi")),
-						},
-					},
-				},
-			},
-			wantMounts: []corev1.VolumeMount{
-				{Name: "kv-cache-secondary-0", MountPath: "/mnt/nvme"},
-			},
-		},
-		{
-			name:          "pvc tier creates ephemeral volume with hardcoded RWO",
+			name:          "pvc.spec tier creates ephemeral volume using full PVC spec",
 			containerName: "main",
 			secondary: []v1alpha2.SecondaryTierSpec{
 				{FileSystem: &v1alpha2.FileSystemTierSpec{
 					PVC: &v1alpha2.PVCTierSpec{
-						StorageClassName: ptr.To("fast-nvme"),
-						Resources: corev1.VolumeResourceRequirements{
-							Requests: corev1.ResourceList{
-								corev1.ResourceStorage: resource.MustParse("100Gi"),
+						Spec: &corev1.PersistentVolumeClaimSpec{
+							StorageClassName: ptr.To("fast-nvme"),
+							AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+							Resources: corev1.VolumeResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceStorage: resource.MustParse("100Gi"),
+								},
 							},
 						},
 					},
@@ -116,8 +96,8 @@ func TestAttachKVCacheSecondaryTiers(t *testing.T) {
 						Ephemeral: &corev1.EphemeralVolumeSource{
 							VolumeClaimTemplate: &corev1.PersistentVolumeClaimTemplate{
 								Spec: corev1.PersistentVolumeClaimSpec{
-									AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 									StorageClassName: ptr.To("fast-nvme"),
+									AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 									Resources: corev1.VolumeResourceRequirements{
 										Requests: corev1.ResourceList{
 											corev1.ResourceStorage: resource.MustParse("100Gi"),
@@ -134,12 +114,13 @@ func TestAttachKVCacheSecondaryTiers(t *testing.T) {
 			},
 		},
 		{
-			name:          "ref tier creates PVC volume with subPath",
+			name:          "pvc.ref tier creates PVC volume with subPath",
 			containerName: "main",
 			secondary: []v1alpha2.SecondaryTierSpec{
 				{FileSystem: &v1alpha2.FileSystemTierSpec{
-					MountPath: "/mnt/shared",
-					Ref:       &v1alpha2.PVCRefTierSpec{Name: "my-pvc", Path: "kv-cache/"},
+					PVC: &v1alpha2.PVCTierSpec{
+						Ref: &v1alpha2.PVCRefTierSpec{Name: "my-pvc", Path: "kv-cache/"},
+					},
 				}},
 			},
 			wantVolumes: []corev1.Volume{
@@ -153,7 +134,7 @@ func TestAttachKVCacheSecondaryTiers(t *testing.T) {
 				},
 			},
 			wantMounts: []corev1.VolumeMount{
-				{Name: "kv-cache-secondary-0", MountPath: "/mnt/shared", SubPath: "kv-cache/"},
+				{Name: "kv-cache-secondary-0", MountPath: "/mnt/kv-cache-0", SubPath: "kv-cache/"},
 			},
 		},
 		{
@@ -191,19 +172,23 @@ func TestAttachKVCacheSecondaryTiers(t *testing.T) {
 			},
 		},
 		{
-			name:          "mixed backends: ref at index 0 and pvc at index 1",
+			name:          "mixed backends: pvc.ref at index 0 and pvc.spec at index 1",
 			containerName: "main",
 			secondary: []v1alpha2.SecondaryTierSpec{
 				{FileSystem: &v1alpha2.FileSystemTierSpec{
-					MountPath: "/mnt/shared",
-					Ref:       &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv/"},
+					PVC: &v1alpha2.PVCTierSpec{
+						Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv/"},
+					},
 				}},
 				{FileSystem: &v1alpha2.FileSystemTierSpec{
 					PVC: &v1alpha2.PVCTierSpec{
-						StorageClassName: ptr.To("fast-nvme"),
-						Resources: corev1.VolumeResourceRequirements{
-							Requests: corev1.ResourceList{
-								corev1.ResourceStorage: resource.MustParse("50Gi"),
+						Spec: &corev1.PersistentVolumeClaimSpec{
+							StorageClassName: ptr.To("fast-nvme"),
+							AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+							Resources: corev1.VolumeResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceStorage: resource.MustParse("50Gi"),
+								},
 							},
 						},
 					},
@@ -224,8 +209,8 @@ func TestAttachKVCacheSecondaryTiers(t *testing.T) {
 						Ephemeral: &corev1.EphemeralVolumeSource{
 							VolumeClaimTemplate: &corev1.PersistentVolumeClaimTemplate{
 								Spec: corev1.PersistentVolumeClaimSpec{
-									AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 									StorageClassName: ptr.To("fast-nvme"),
+									AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 									Resources: corev1.VolumeResourceRequirements{
 										Requests: corev1.ResourceList{
 											corev1.ResourceStorage: resource.MustParse("50Gi"),
@@ -238,7 +223,7 @@ func TestAttachKVCacheSecondaryTiers(t *testing.T) {
 				},
 			},
 			wantMounts: []corev1.VolumeMount{
-				{Name: "kv-cache-secondary-0", MountPath: "/mnt/shared", SubPath: "kv/"},
+				{Name: "kv-cache-secondary-0", MountPath: "/mnt/kv-cache-0", SubPath: "kv/"},
 				{Name: "kv-cache-secondary-1", MountPath: "/mnt/kv-cache-1"},
 			},
 		},

@@ -8,16 +8,17 @@ more concurrent requests without increasing GPU count.
 
 ### I have a Ceph cluster (e.g. ODF on OpenShift)
 
-Use **`ref`** with a pre-existing RWX PVC backed by CephFS. The PVC is shared
+Use **`pvc.ref`** with a pre-existing RWX PVC backed by CephFS. The PVC is shared
 across all replicas, so cache built by one pod is available to others — useful
 for multi-replica deployments.
 
 ```yaml
 secondary:
   - fileSystem:
-      ref:
-        name: my-cephfs-pvc   # provision this PVC with ocs-storagecluster-cephfs
-        path: kv-cache/
+      pvc:
+        ref:
+          name: my-cephfs-pvc   # provision this PVC with ocs-storagecluster-cephfs
+          path: kv-cache/
 ```
 
 ### I have a single replica and don't need the cache to survive pod restarts
@@ -39,21 +40,23 @@ secondary:
 
 ### I need a dedicated StorageClass (e.g. local NVMe) but don't want to manage PVCs myself
 
-Use **`pvc`**. The controller creates one ephemeral PVC per pod automatically
-using `ReadWriteOnce`. The PVC is deleted when the pod is deleted.
+Use **`pvc.spec`**. The controller creates one ephemeral PVC per pod automatically.
+The PVC is deleted when the pod is deleted.
 
 ```yaml
 secondary:
   - fileSystem:
       pvc:
-        storageClassName: fast-local-nvme
-        resources:
-          requests:
-            storage: 100Gi
+        spec:
+          storageClassName: fast-local-nvme
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 100Gi
 ```
 
 > Because the PVC is pod-lifetime, the cache does not survive pod restarts.
-> For a persistent cache, use `ref` instead.
+> For a persistent cache, use `pvc.ref` with a pre-existing PVC instead.
 
 ## Mixing tiers
 
@@ -63,9 +66,10 @@ the CPU tier is full. You can mix backends freely:
 ```yaml
 secondary:
   - fileSystem:
-      ref:
-        name: shared-cephfs-pvc   # tier 0: shared across replicas
+      pvc:
+        ref:
+          name: shared-cephfs-pvc   # tier 0: shared across replicas
   - fileSystem:
       emptyDir:
-        size: "200Gi"             # tier 1: fast node-local spill
+        size: "200Gi"               # tier 1: fast node-local spill
 ```

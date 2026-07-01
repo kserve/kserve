@@ -1630,7 +1630,7 @@ func TestValidateKVCacheOffloading(t *testing.T) {
 		assert.Contains(t, errs[0].Field, "fileSystem")
 	})
 
-	t.Run("none of emptyDir/pvc/ref set produces error", func(t *testing.T) {
+	t.Run("none of emptyDir/pvc set produces error", func(t *testing.T) {
 		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
 			CPU:       resource.MustParse("10Gi"),
 			Secondary: []SecondaryTierSpec{{FileSystem: &FileSystemTierSpec{}}},
@@ -1639,18 +1639,47 @@ func TestValidateKVCacheOffloading(t *testing.T) {
 		assert.Equal(t, field.ErrorTypeRequired, errs[0].Type)
 	})
 
-	t.Run("ref with empty name produces error", func(t *testing.T) {
+	t.Run("pvc with neither spec nor ref produces error", func(t *testing.T) {
 		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
 			CPU: resource.MustParse("10Gi"),
 			Secondary: []SecondaryTierSpec{
 				{FileSystem: &FileSystemTierSpec{
-					Ref: &PVCRefTierSpec{Name: ""},
+					PVC: &PVCTierSpec{},
+				}},
+			},
+		}))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeRequired, errs[0].Type)
+	})
+
+	t.Run("pvc.ref with empty name produces error", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
+			CPU: resource.MustParse("10Gi"),
+			Secondary: []SecondaryTierSpec{
+				{FileSystem: &FileSystemTierSpec{
+					PVC: &PVCTierSpec{Ref: &PVCRefTierSpec{Name: ""}},
 				}},
 			},
 		}))
 		require.Len(t, errs, 1)
 		assert.Equal(t, field.ErrorTypeRequired, errs[0].Type)
 		assert.Contains(t, errs[0].Field, "name")
+	})
+
+	t.Run("pvc with both spec and ref produces error", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
+			CPU: resource.MustParse("10Gi"),
+			Secondary: []SecondaryTierSpec{
+				{FileSystem: &FileSystemTierSpec{
+					PVC: &PVCTierSpec{
+						Spec: &corev1.PersistentVolumeClaimSpec{},
+						Ref:  &PVCRefTierSpec{Name: "my-pvc"},
+					},
+				}},
+			},
+		}))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeInvalid, errs[0].Type)
 	})
 
 	t.Run("prefill kvCacheOffloading is also validated", func(t *testing.T) {

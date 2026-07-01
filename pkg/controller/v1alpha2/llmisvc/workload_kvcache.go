@@ -34,10 +34,7 @@ func attachKVCacheSecondaryTiers(podSpec *corev1.PodSpec, secondary []v1alpha2.S
 			continue
 		}
 		volumeName := fmt.Sprintf("kv-cache-secondary-%d", i)
-		mountPath := s.FileSystem.MountPath
-		if mountPath == "" {
-			mountPath = fmt.Sprintf("/mnt/kv-cache-%d", i)
-		}
+		mountPath := fmt.Sprintf("/mnt/kv-cache-%d", i)
 		attachFileSystemKVCacheTier(podSpec, s.FileSystem, volumeName, mountPath, containerName)
 	}
 }
@@ -53,25 +50,21 @@ func attachFileSystemKVCacheTier(podSpec *corev1.PodSpec, fs *v1alpha2.FileSyste
 		volumeSource = corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{SizeLimit: &sizeLimit},
 		}
-	case fs.PVC != nil:
+	case fs.PVC != nil && fs.PVC.Spec != nil:
 		volumeSource = corev1.VolumeSource{
 			Ephemeral: &corev1.EphemeralVolumeSource{
 				VolumeClaimTemplate: &corev1.PersistentVolumeClaimTemplate{
-					Spec: corev1.PersistentVolumeClaimSpec{
-						AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-						StorageClassName: fs.PVC.StorageClassName,
-						Resources:        fs.PVC.Resources,
-					},
+					Spec: *fs.PVC.Spec,
 				},
 			},
 		}
-	case fs.Ref != nil:
+	case fs.PVC != nil && fs.PVC.Ref != nil:
 		volumeSource = corev1.VolumeSource{
 			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-				ClaimName: fs.Ref.Name,
+				ClaimName: fs.PVC.Ref.Name,
 			},
 		}
-		subPath = fs.Ref.Path
+		subPath = fs.PVC.Ref.Path
 	default:
 		return
 	}

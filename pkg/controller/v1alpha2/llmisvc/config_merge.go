@@ -650,13 +650,9 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 					if s.FileSystem == nil {
 						continue
 					}
-					rootDir := s.FileSystem.MountPath
-					if rootDir == "" {
-						rootDir = fmt.Sprintf("/mnt/kv-cache-%d", i)
-					}
 					entry := map[string]any{
 						"type":     "fs",
-						"root_dir": rootDir,
+						"root_dir": fmt.Sprintf("/mnt/kv-cache-%d", i),
 					}
 					secondaryTiers = append(secondaryTiers, entry)
 				}

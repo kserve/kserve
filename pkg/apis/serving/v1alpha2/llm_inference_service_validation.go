@@ -790,20 +790,36 @@ func validateKVCacheOffloadingSpec(kv *KVCacheOffloadingSpec, fldPath *field.Pat
 		if fs.PVC != nil {
 			backends = append(backends, "pvc")
 		}
-		if fs.Ref != nil {
-			backends = append(backends, "ref")
-		}
 		switch len(backends) {
 		case 0:
 			allErrs = append(allErrs, field.Required(fsp,
-				"exactly one of emptyDir, pvc, or ref must be set"))
+				"exactly one of emptyDir or pvc must be set"))
 		case 1:
-			if fs.Ref != nil && fs.Ref.Name == "" {
-				allErrs = append(allErrs, field.Required(fsp.Child("ref").Child("name"), "name is required"))
+			if fs.PVC != nil {
+				pvcp := fsp.Child("pvc")
+				var pvcBackends []string
+				if fs.PVC.Spec != nil {
+					pvcBackends = append(pvcBackends, "spec")
+				}
+				if fs.PVC.Ref != nil {
+					pvcBackends = append(pvcBackends, "ref")
+				}
+				switch len(pvcBackends) {
+				case 0:
+					allErrs = append(allErrs, field.Required(pvcp,
+						"exactly one of spec or ref must be set"))
+				case 1:
+					if fs.PVC.Ref != nil && fs.PVC.Ref.Name == "" {
+						allErrs = append(allErrs, field.Required(pvcp.Child("ref").Child("name"), "name is required"))
+					}
+				default:
+					allErrs = append(allErrs, field.Invalid(pvcp, fs.PVC,
+						"exactly one of spec or ref must be set; multiple are set"))
+				}
 			}
 		default:
 			allErrs = append(allErrs, field.Invalid(fsp, fs,
-				"exactly one of emptyDir, pvc, or ref must be set; multiple are set"))
+				"exactly one of emptyDir or pvc must be set; multiple are set"))
 		}
 	}
 	return allErrs

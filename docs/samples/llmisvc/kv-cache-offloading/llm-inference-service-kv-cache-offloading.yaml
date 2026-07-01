@@ -37,19 +37,22 @@ spec:
         - fileSystem:
             emptyDir:
               size: "100Gi"
-        # pvc: controller-managed ephemeral PVC per pod. The PVC is deleted when
-        # the pod terminates. Useful when you need a dedicated StorageClass (e.g.
-        # NVMe-backed) without managing PVCs yourself.
+        # pvc.spec: controller-managed ephemeral PVC per pod. The PVC is deleted
+        # when the pod terminates. Useful when you need a dedicated StorageClass
+        # (e.g. NVMe-backed) without managing PVCs yourself.
         # - fileSystem:
         #     pvc:
-        #       storageClassName: fast-local-nvme
-        #       resources:
-        #         requests:
-        #           storage: 100Gi
-        # ref: pre-existing user-managed PVC. The PVC must exist before the service
-        # is created. For a cache shared across replicas, provision an RWX PVC;
-        # for per-pod persistent cache, provision a separate PVC per pod.
+        #       spec:
+        #         storageClassName: fast-local-nvme
+        #         accessModes: [ReadWriteOnce]
+        #         resources:
+        #           requests:
+        #             storage: 100Gi
+        # pvc.ref: pre-existing user-managed PVC. The PVC must exist before the
+        # service is created. For a cache shared across replicas, provision an
+        # RWX PVC; for per-pod persistent cache, provision a separate PVC per pod.
         # - fileSystem:
-        #     ref:
-        #       name: my-shared-kv-cache-pvc
-        #       path: kv-cache/   # optional subdirectory within the PVC
+        #     pvc:
+        #       ref:
+        #         name: my-shared-kv-cache-pvc
+        #         path: kv-cache/   # optional subdirectory within the PVC
