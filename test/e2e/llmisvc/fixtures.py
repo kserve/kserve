@@ -382,7 +382,25 @@ LLMINFERENCESERVICE_CONFIGS = {
         },
     },
     "router-managed": {
-        "router": {"scheduler": {}, "route": {}, "gateway": {}},
+        "router": {
+            "scheduler": {
+                "template": {
+                    "containers": [
+                        {
+                            "name": "main",
+                            "resources": {
+                                "requests": {
+                                    "cpu": "256m",
+                                    "memory": "500Mi",
+                                },
+                            },
+                        }
+                    ],
+                },
+            },
+            "route": {},
+            "gateway": {},
+        },
     },
     "router-no-scheduler": {
         "router": {"route": {}},
@@ -714,7 +732,21 @@ LLMINFERENCESERVICE_CONFIGS = {
     },
     "scheduler-managed": {
         "router": {
-            "scheduler": {},
+            "scheduler": {
+                "template": {
+                    "containers": [
+                        {
+                            "name": "main",
+                            "resources": {
+                                "requests": {
+                                    "cpu": "256m",
+                                    "memory": "500Mi",
+                                },
+                            },
+                        }
+                    ],
+                },
+            },
         },
     },
     "scheduler-with-inline-config": {
@@ -929,6 +961,19 @@ LLMINFERENCESERVICE_CONFIGS = {
         "router": {
             "scheduler": {
                 "replicas": 2,
+                "template": {
+                    "containers": [
+                        {
+                            "name": "main",
+                            "resources": {
+                                "requests": {
+                                    "cpu": "256m",
+                                    "memory": "500Mi",
+                                },
+                            },
+                        }
+                    ],
+                },
             },
         },
     },
