@@ -61,9 +61,10 @@ def verify_json_object(data: bytes, expected_records: int):
     for record in records:
         assert "id" in record, "Record missing 'id' field"
         assert "reqType" in record, "Record missing 'reqType' field"
-        assert record["reqType"] in ("request", "response"), (
-            f"Unexpected reqType: {record['reqType']}"
-        )
+        assert record["reqType"] in (
+            "request",
+            "response",
+        ), f"Unexpected reqType: {record['reqType']}"
         assert "contentType" in record, "Record missing 'contentType' field"
 
     return records
@@ -95,9 +96,7 @@ def verify_csv_object(data: bytes, expected_records: int):
             f"Row has {len(row)} fields, expected {len(LOG_RECORD_COLUMNS)}"
         )
         # reqType is column index 3
-        assert row[3] in ("request", "response"), (
-            f"Unexpected reqType: {row[3]}"
-        )
+        assert row[3] in ("request", "response"), f"Unexpected reqType: {row[3]}"
         # bytes is column index 1 — must be valid base64
         if row[1]:
             base64.b64decode(row[1])
@@ -124,9 +123,7 @@ def verify_parquet_object(data: bytes, expected_records: int):
 
     req_types = table.column("reqType").to_pylist()
     for rt in req_types:
-        assert rt in ("request", "response"), (
-            f"Unexpected reqType: {rt}"
-        )
+        assert rt in ("request", "response"), f"Unexpected reqType: {rt}"
 
     # Verify bytes column contains valid base64
     bytes_col = table.column("bytes").to_pylist()

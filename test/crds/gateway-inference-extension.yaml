@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    inference.networking.k8s.io/bundle-version: v1.3.0
+    inference.networking.k8s.io/bundle-version: v1.5.0
   name: inferencemodelrewrites.inference.networking.x-k8s.io
 spec:
   group: inference.networking.x-k8s.io
@@ -238,7 +238,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    inference.networking.k8s.io/bundle-version: v1.3.0
+    inference.networking.k8s.io/bundle-version: v1.5.0
   name: inferenceobjectives.inference.networking.x-k8s.io
 spec:
   group: inference.networking.x-k8s.io
@@ -331,7 +331,7 @@ spec:
                   Fairness is only enforced and tracked between requests of the same priority.
 
                   Example: requests with Priority 10 will always be served before
-                  requests with Priority of 0 (the value used if Priority is unset or no InfereneceObjective is specified).
+                  requests with Priority of 0 (the value used if Priority is unset or no InferenceObjective is specified).
                   Similarly requests with a Priority of -10 will always be served after requests with Priority of 0.
                 type: integer
             required:
@@ -429,7 +429,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    inference.networking.k8s.io/bundle-version: v1.3.0
+    inference.networking.k8s.io/bundle-version: v1.5.0
   name: inferencepoolimports.inference.networking.x-k8s.io
 spec:
   group: inference.networking.x-k8s.io
@@ -761,7 +761,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api-inference-extension/pull/1173
-    inference.networking.k8s.io/bundle-version: v1.3.0
+    inference.networking.k8s.io/bundle-version: v1.5.0
   name: inferencepools.inference.networking.k8s.io
 spec:
   group: inference.networking.k8s.io
@@ -800,6 +800,20 @@ spec:
           spec:
             description: Spec defines the desired state of the InferencePool.
             properties:
+              appProtocol:
+                default: http
+                description: |-
+                  AppProtocol describes the application protocol for all the target ports.
+
+                  If unspecified, the protocol defaults to HTTP/1.1.
+
+                  Supported values include:
+                  * "http": HTTP/1.1. This is the default.
+                  * "kubernetes.io/h2c": HTTP/2 over cleartext.
+                enum:
+                - http
+                - kubernetes.io/h2c
+                type: string
               endpointPickerRef:
                 description: |-
                   EndpointPickerRef is a reference to the Endpoint Picker extension and its
@@ -1121,7 +1135,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: unapproved, experimental-only
-    inference.networking.k8s.io/bundle-version: v1.3.0
+    inference.networking.k8s.io/bundle-version: v1.3.1
   name: inferencepools.inference.networking.x-k8s.io
 spec:
   group: inference.networking.x-k8s.io
@@ -1140,19 +1154,28 @@ spec:
         description: InferencePool is the Schema for the InferencePools API.
         properties:
           apiVersion:
-            description: |-
-              APIVersion defines the versioned schema of this representation of an object.
-              Servers should convert recognized schemas to the latest internal value, and
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object.
+
+              Servers should convert recognized schemas to the latest internal value,
+              and
+
               may reject unrecognized values.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: |-
-              Kind is a string value representing the REST resource this object represents.
-              Servers may infer this from the endpoint the client submits requests to.
+            description: 'Kind is a string value representing the REST resource this
+              object represents.
+
+              Servers may infer this from the endpoint the client submits requests
+              to.
+
               Cannot be updated.
+
               In CamelCase.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -1165,33 +1188,42 @@ spec:
                 properties:
                   failureMode:
                     default: FailClose
-                    description: |-
-                      Configures how the gateway handles the case when the extension is not responsive.
-                      Defaults to failClose.
+                    description: 'Configures how the gateway handles the case when
+                      the extension is not responsive.
+
+                      Defaults to failClose.'
                     enum:
                     - FailOpen
                     - FailClose
                     type: string
                   group:
-                    default: ""
-                    description: |-
-                      Group is the group of the referent.
-                      The default value is "", representing the Core API group.
+                    default: ''
+                    description: 'Group is the group of the referent.
+
+                      The default value is "", representing the Core API group.'
                     maxLength: 253
                     pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                     type: string
                   kind:
                     default: Service
-                    description: |-
-                      Kind is the Kubernetes resource kind of the referent.
+                    description: 'Kind is the Kubernetes resource kind of the referent.
+
 
                       Defaults to "Service" when not specified.
 
-                      ExternalName services can refer to CNAME DNS records that may live
-                      outside of the cluster and as such are difficult to reason about in
-                      terms of conformance. They also may not be safe to forward to (see
+
+                      ExternalName services can refer to CNAME DNS records that may
+                      live
+
+                      outside of the cluster and as such are difficult to reason about
+                      in
+
+                      terms of conformance. They also may not be safe to forward to
+                      (see
+
                       CVE-2021-25740 for more information). Implementations MUST NOT
-                      support ExternalName Services.
+
+                      support ExternalName Services.'
                     maxLength: 63
                     minLength: 1
                     pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
@@ -1202,10 +1234,13 @@ spec:
                     minLength: 1
                     type: string
                   portNumber:
-                    description: |-
-                      The port number on the service running the extension. When unspecified,
-                      implementations SHOULD infer a default value of 9002 when the Kind is
-                      Service.
+                    description: 'The port number on the service running the extension.
+                      When unspecified,
+
+                      implementations SHOULD infer a default value of 9002 when the
+                      Kind is
+
+                      Service.'
                     format: int32
                     maximum: 65535
                     minimum: 1
@@ -1215,34 +1250,53 @@ spec:
                 type: object
               selector:
                 additionalProperties:
-                  description: |-
-                    LabelValue is the value of a label. This is used for validation
+                  description: 'LabelValue is the value of a label. This is used for
+                    validation
+
                     of maps. This matches the Kubernetes label validation rules:
+
                     * must be 63 characters or less (can be empty),
-                    * unless empty, must begin and end with an alphanumeric character ([a-z0-9A-Z]),
-                    * could contain dashes (-), underscores (_), dots (.), and alphanumerics between.
+
+                    * unless empty, must begin and end with an alphanumeric character
+                    ([a-z0-9A-Z]),
+
+                    * could contain dashes (-), underscores (_), dots (.), and alphanumerics
+                    between.
+
 
                     Valid values include:
 
+
                     * MyValue
+
                     * my.name
-                    * 123-my-value
+
+                    * 123-my-value'
                   maxLength: 63
                   minLength: 0
                   pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                   type: string
-                description: |-
-                  Selector defines a map of labels to watch model server Pods
+                description: 'Selector defines a map of labels to watch model server
+                  Pods
+
                   that should be included in the InferencePool.
-                  In some cases, implementations may translate this field to a Service selector, so this matches the simple
-                  map used for Service selectors instead of the full Kubernetes LabelSelector type.
-                  If specified, it will be applied to match the model server pods in the same namespace as the InferencePool.
-                  Cross namesoace selector is not supported.
+
+                  In some cases, implementations may translate this field to a Service
+                  selector, so this matches the simple
+
+                  map used for Service selectors instead of the full Kubernetes LabelSelector
+                  type.
+
+                  If specified, it will be applied to match the model server pods
+                  in the same namespace as the InferencePool.
+
+                  Cross namesoace selector is not supported.'
                 type: object
               targetPortNumber:
-                description: |-
-                  TargetPortNumber defines the port number to access the selected model server Pods.
-                  The number must be in the range 1 to 65535.
+                description: 'TargetPortNumber defines the port number to access the
+                  selected model server Pods.
+
+                  The number must be in the range 1 to 65535.'
                 format: int32
                 maximum: 65535
                 minimum: 1
@@ -1256,7 +1310,7 @@ spec:
             default:
               parent:
               - conditions:
-                - lastTransitionTime: "1970-01-01T00:00:00Z"
+                - lastTransitionTime: '1970-01-01T00:00:00Z'
                   message: Waiting for controller
                   reason: Pending
                   status: Unknown
@@ -1267,67 +1321,79 @@ spec:
             description: Status defines the observed state of InferencePool.
             properties:
               parent:
-                description: |-
-                  Parents is a list of parent resources (usually Gateways) that are
-                  associated with the InferencePool, and the status of the InferencePool with respect to
-                  each parent.
-
-                  A maximum of 32 Gateways will be represented in this list. When the list contains
-                  `kind: Status, name: default`, it indicates that the InferencePool is not
-                  associated with any Gateway and a controller must perform the following:
-
-                   - Remove the parent when setting the "Accepted" condition.
-                   - Add the parent when the controller will no longer manage the InferencePool
-                     and no other parents exist.
+                description: "Parents is a list of parent resources (usually Gateways)\
+                  \ that are\nassociated with the InferencePool, and the status of\
+                  \ the InferencePool with respect to\neach parent.\n\nA maximum of\
+                  \ 32 Gateways will be represented in this list. When the list contains\n\
+                  `kind: Status, name: default`, it indicates that the InferencePool\
+                  \ is not\nassociated with any Gateway and a controller must perform\
+                  \ the following:\n\n - Remove the parent when setting the \"Accepted\"\
+                  \ condition.\n - Add the parent when the controller will no longer\
+                  \ manage the InferencePool\n   and no other parents exist."
                 items:
                   description: PoolStatus defines the observed state of InferencePool
                     from a Gateway.
                   properties:
                     conditions:
                       default:
-                      - lastTransitionTime: "1970-01-01T00:00:00Z"
+                      - lastTransitionTime: '1970-01-01T00:00:00Z'
                         message: Waiting for controller
                         reason: Pending
                         status: Unknown
                         type: Accepted
-                      description: |-
-                        Conditions track the state of the InferencePool.
+                      description: 'Conditions track the state of the InferencePool.
+
 
                         Known condition types are:
 
+
                         * "Accepted"
-                        * "ResolvedRefs"
+
+                        * "ResolvedRefs"'
                       items:
                         description: Condition contains details for one aspect of
                           the current state of this API Resource.
                         properties:
                           lastTransitionTime:
-                            description: |-
-                              lastTransitionTime is the last time the condition transitioned from one status to another.
-                              This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                            description: 'lastTransitionTime is the last time the
+                              condition transitioned from one status to another.
+
+                              This should be when the underlying condition changed.  If
+                              that is not known, then using the time when the API
+                              field changed is acceptable.'
                             format: date-time
                             type: string
                           message:
-                            description: |-
-                              message is a human readable message indicating details about the transition.
-                              This may be an empty string.
+                            description: 'message is a human readable message indicating
+                              details about the transition.
+
+                              This may be an empty string.'
                             maxLength: 32768
                             type: string
                           observedGeneration:
-                            description: |-
-                              observedGeneration represents the .metadata.generation that the condition was set based upon.
-                              For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
-                              with respect to the current state of the instance.
+                            description: 'observedGeneration represents the .metadata.generation
+                              that the condition was set based upon.
+
+                              For instance, if .metadata.generation is currently 12,
+                              but the .status.conditions[x].observedGeneration is
+                              9, the condition is out of date
+
+                              with respect to the current state of the instance.'
                             format: int64
                             minimum: 0
                             type: integer
                           reason:
-                            description: |-
-                              reason contains a programmatic identifier indicating the reason for the condition's last transition.
-                              Producers of specific condition types may define expected values and meanings for this field,
+                            description: 'reason contains a programmatic identifier
+                              indicating the reason for the condition''s last transition.
+
+                              Producers of specific condition types may define expected
+                              values and meanings for this field,
+
                               and whether the values are considered a guaranteed API.
+
                               The value should be a CamelCase string.
-                              This field may not be empty.
+
+                              This field may not be empty.'
                             maxLength: 1024
                             minLength: 1
                             pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
@@ -1336,8 +1402,8 @@ spec:
                             description: status of the condition, one of True, False,
                               Unknown.
                             enum:
-                            - "True"
-                            - "False"
+                            - 'True'
+                            - 'False'
                             - Unknown
                             type: string
                           type:
@@ -1380,10 +1446,13 @@ spec:
                           minLength: 1
                           type: string
                         namespace:
-                          description: |-
-                            Namespace is the namespace of the referent.  If not present,
-                            the namespace of the referent is assumed to be the same as
-                            the namespace of the referring object.
+                          description: 'Namespace is the namespace of the referent.  If
+                            not present,
+
+                            the namespace of the referent is assumed to be the same
+                            as
+
+                            the namespace of the referring object.'
                           maxLength: 63
                           minLength: 1
                           pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
@@ -1404,7 +1473,7 @@ spec:
       status: {}
 status:
   acceptedNames:
-    kind: ""
-    plural: ""
+    kind: ''
+    plural: ''
   conditions: null
   storedVersions: null

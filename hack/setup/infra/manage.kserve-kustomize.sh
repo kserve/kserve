@@ -32,6 +32,7 @@
 #                        If set, uses specified overlay instead of auto-selected ones
 #                        Special overlays:
 #                          - test: KServe + LocalModel (for testing)
+#                          - test-modelcache: KServe + LocalModel + LLMISVC (for modelcache testing)
 #
 #   DEPLOYMENT_MODE - Default deployment mode (default: Knative)
 #
@@ -45,7 +46,7 @@
 #   INSTALL_LLMISVC_CONFIGS - Install LLMISVC configs (default: same as ENABLE_LLMISVC)
 #
 # This script installs KServe directly from the local config directories
-# using kubectl kustomize. 
+# using kustomize build.
 #
 # Examples:
 #   # Install KServe only (default)
@@ -184,9 +185,32 @@ if [ -n "${KSERVE_OVERLAY_DIR}" ]; then
         TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/localmodel")
         TARGET_CRDS_TO_VERIFY+=("${KSERVE_CRDS}")
         TARGET_CRDS_TO_VERIFY+=("${LOCALMODEL_CRDS}")
-        TARGET_DEPLOYMENT_NAMES+=("kserve-controller-manager")
-        TARGET_DEPLOYMENT_NAMES+=("kserve-localmodel-controller-manager")
+        test_overlay_deployments="kserve-controller-manager kserve-localmodel-controller-manager"
+        if is_positive "${ENABLE_LLMISVC}"; then
+            TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/llmisvc")
+            TARGET_CRDS_TO_VERIFY+=("${LLMISVC_CRDS}")
+            test_overlay_deployments+=" llmisvc-controller-manager"
+        fi
+        TARGET_DEPLOYMENT_NAMES+=("${test_overlay_deployments}")
+    elif [ "${KSERVE_OVERLAY_DIR}" == "test-modelcache" ]; then
+        ENABLE_LOCALMODEL="true"
+        ENABLE_LLMISVC="true"
+        INSTALL_LLMISVC_CONFIGS="true"
+
+        TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full")
+        TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/localmodel")
+        TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/llmisvc")
+        TARGET_CRDS_TO_VERIFY+=("${KSERVE_CRDS}")
+        TARGET_CRDS_TO_VERIFY+=("${LOCALMODEL_CRDS}")
+        TARGET_CRDS_TO_VERIFY+=("${LLMISVC_CRDS}")
+        TARGET_DEPLOYMENT_NAMES+=("kserve-controller-manager kserve-localmodel-controller-manager llmisvc-controller-manager")
     elif [ "${KSERVE_OVERLAY_DIR}" == "test-llmisvc" ]; then
+        # Update test-llmisvc overlay image tags if version is set
+        if [ -n "${SET_KSERVE_VERSION}" ]; then
+            log_info "Updating test-llmisvc overlay image tags to ${SET_KSERVE_VERSION}..."
+            sed -i -e "s/latest/${SET_KSERVE_VERSION}/g" config/overlays/test-llmisvc/llmisvc_image_patch.yaml
+            sed -i -e "s/latest/${SET_KSERVE_VERSION}/g" config/configmap/inferenceservice.yaml
+        fi
         TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/llmisvc")
         TARGET_CRDS_TO_VERIFY+=("${LLMISVC_CRDS}")
         TARGET_DEPLOYMENT_NAMES+=("llmisvc-controller-manager")
@@ -270,13 +294,13 @@ uninstall() {
         # Uninstall overlay resources in reverse order
         for ((i=${#TARGET_OVERLAY_DIRS[@]}-1; i>=0; i--)); do
             log_info "Uninstalling resources from ${TARGET_OVERLAY_DIRS[$i]}..."
-            kubectl kustomize "${TARGET_OVERLAY_DIRS[$i]}" | kubectl delete -f - --force --grace-period=0 2>/dev/null || true
+            kustomize build "${TARGET_OVERLAY_DIRS[$i]}" | kubectl delete -f - --force --grace-period=0 2>/dev/null || true
         done
 
         # Uninstall CRDs in reverse order
         for ((i=${#TARGET_CRD_DIRS[@]}-1; i>=0; i--)); do
             log_info "Uninstalling CRDs from ${TARGET_CRD_DIRS[$i]}..."
-            kubectl kustomize "${TARGET_CRD_DIRS[$i]}" | kubectl delete -f - --force --grace-period=0 2>/dev/null || true
+            kustomize build "${TARGET_CRD_DIRS[$i]}" | kubectl delete -f - --force --grace-period=0 2>/dev/null || true
         done
     fi
 
@@ -355,12 +379,6 @@ install() {
                 done
             fi
         done
-
-        # Cleanup temporary overlay
-        if [ "${KSERVE_OVERLAY_DIR}" = "temp" ]; then
-            rm -rf "${REPO_ROOT}/config/overlays/temp"
-            log_info "Temporary overlay directory cleaned up"
-        fi
     fi
 
     if ! is_positive "${USE_LOCAL_CONFIGMAP}"; then
@@ -442,6 +460,12 @@ install() {
         else
             retry_command 3 5 kubectl apply --server-side=true -k "${REPO_ROOT}/config/llmisvcconfig"
         fi
+    fi
+
+    # Cleanup temporary overlay after all resources are installed
+    if [ "${KSERVE_OVERLAY_DIR}" = "temp" ]; then
+        rm -rf "${REPO_ROOT}/config/overlays/temp"
+        log_info "Temporary overlay directory cleaned up"
     fi
 
 }

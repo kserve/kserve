@@ -20,11 +20,10 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/hex"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"maps"
 	"math/big"
@@ -69,12 +68,10 @@ func (r *LLMISVCReconciler) reconcileSelfSignedCertsSecret(ctx context.Context, 
 
 	// Generating a new certificate is quite slow and expensive as it generates a new certificate, check if the current
 	// self-signed certificate (if any) is expired before creating a new one.
-	var certFunc createCertFunc = func() ([]byte, []byte, error) {
-		return createSelfSignedTLSCertificate(dnsNames, ips)
-	}
+	certFunc := r.createWorkloadCertificate(ctx, dnsNames, ips)
 	if curr := r.getExistingSelfSignedCertificate(ctx, llmSvc); curr != nil && !ShouldRecreateCertificate(curr, dnsNames, ips, schedulerConfig.ExpirationAnnotations) {
-		certFunc = func() ([]byte, []byte, error) {
-			return curr.Data["tls.key"], curr.Data["tls.crt"], nil
+		certFunc = func() (*certBundle, error) {
+			return &certBundle{Key: curr.Data["tls.key"], Cert: curr.Data["tls.crt"], CACert: curr.Data["ca.crt"]}, nil
 		}
 	}
 
@@ -93,12 +90,42 @@ func (r *LLMISVCReconciler) reconcileSelfSignedCertsSecret(ctx context.Context, 
 	return nil
 }
 
-type createCertFunc func() ([]byte, []byte, error)
+// certBundle holds TLS certificate material.
+// CACert holds the CA certificate. For self-signed certs it equals Cert (the cert is its own CA).
+// Distro hooks may supply a separate CA cert.
+type certBundle struct {
+	Key    []byte
+	Cert   []byte
+	CACert []byte
+}
+
+func (b *certBundle) Validate() error {
+	if len(b.Key) == 0 {
+		return errors.New("certificate bundle is missing private key")
+	}
+	if len(b.Cert) == 0 {
+		return errors.New("certificate bundle is missing certificate")
+	}
+	return nil
+}
+
+type createCertFunc func() (*certBundle, error)
 
 func (r *LLMISVCReconciler) expectedSelfSignedCertsSecret(llmSvc *v1alpha2.LLMInferenceService, certFunc createCertFunc, schedulerConfig *SchedulerConfig) (*corev1.Secret, error) {
-	keyBytes, certBytes, err := certFunc()
+	bundle, err := certFunc()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create self-signed TLS certificate: %w", err)
+	}
+	if err := bundle.Validate(); err != nil {
+		return nil, err
+	}
+
+	secretData := map[string][]byte{
+		"tls.key": bundle.Key,
+		"tls.crt": bundle.Cert,
+	}
+	if len(bundle.CACert) > 0 {
+		secretData["ca.crt"] = bundle.CACert
 	}
 
 	expected := &corev1.Secret{
@@ -119,10 +146,7 @@ func (r *LLMISVCReconciler) expectedSelfSignedCertsSecret(llmSvc *v1alpha2.LLMIn
 				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
 			},
 		},
-		Data: map[string][]byte{
-			"tls.crt": certBytes,
-			"tls.key": keyBytes,
-		},
+		Data: secretData,
 		Type: corev1.SecretTypeTLS,
 	}
 	return expected, nil
@@ -186,24 +210,6 @@ func (r *LLMISVCReconciler) getExistingSelfSignedCertificate(ctx context.Context
 		return nil
 	}
 	return curr
-}
-
-// getSelfSignedCertHash returns the SHA-256 hash of the current self-signed certificate data.
-// It returns an empty string when the secret does not exist yet.
-func (r *LLMISVCReconciler) getSelfSignedCertHash(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) string {
-	secret := r.getExistingSelfSignedCertificate(ctx, llmSvc)
-	if secret == nil {
-		return ""
-	}
-	return certDataHash(secret)
-}
-
-// certDataHash computes a SHA-256 hash over the certificate data in a TLS secret.
-func certDataHash(secret *corev1.Secret) string {
-	h := sha256.New()
-	h.Write(secret.Data["tls.crt"])
-	h.Write(secret.Data["tls.key"])
-	return hex.EncodeToString(h.Sum(nil))
 }
 
 // isCertificateExpired checks all configured expiration annotation keys (first match wins).
@@ -301,9 +307,7 @@ func (r *LLMISVCReconciler) collectIPAddresses(ctx context.Context, llmSvc *v1al
 
 	// Exclude scheduler pods from IP collection. Scheduler pods connect via
 	// Service DNS (already covered by collectDNSNames), so their pod IPs are
-	// not needed in the certificate SANs. Not doing it would result in reconciliation
-	// storm: schedulers pod IP added to certs results in cert-hash changes that
-	// will restart scheduler with new pod (and IP), goto 1.
+	// not needed in the certificate SANs.
 	excludeScheduler, errReq := labels.NewRequirement(
 		constants.KubernetesComponentLabelKey,
 		selection.NotIn,

@@ -24,9 +24,7 @@ from kserve.logging import logger
 
 DEFAULT_NTHREAD = 1
 
-parser = argparse.ArgumentParser(
-    parents=[kserve.model_server.parser]
-)  # pylint:disable=c-extension-no-member
+parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])  # pylint:disable=c-extension-no-member
 parser.add_argument(
     "--model_dir", required=True, help="A local path to the model directory"
 )

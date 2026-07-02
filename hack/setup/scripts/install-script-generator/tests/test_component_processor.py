@@ -97,7 +97,9 @@ def test_find_component_script_method_fallback(tmp_path):
     base_script.write_text("#!/bin/bash\n")
 
     # Should fall back to base script even when method is specified
-    result = component_processor.find_component_script("cert-manager", infra_dir, "helm")
+    result = component_processor.find_component_script(
+        "cert-manager", infra_dir, "helm"
+    )
     assert result == base_script
 
 
@@ -188,7 +190,7 @@ uninstall() {
 
     comp_config = {
         "name": "test",
-        "env": {"NAMESPACE": "custom-ns", "VERSION": "v1.0.0"}
+        "env": {"NAMESPACE": "custom-ns", "VERSION": "v1.0.0"},
     }
     result = component_processor.process_component(comp_config, infra_dir)
 

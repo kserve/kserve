@@ -25,6 +25,7 @@ import (
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 
@@ -48,15 +49,17 @@ func SetupTestEnv(ctx context.Context) *pkgtest.Client {
 	systemNs := constants.KServeNamespace
 
 	llmCtrlFunc := func(cfg *rest.Config, mgr ctrl.Manager) error {
-		eventBroadcaster := record.NewBroadcaster()
 		clientSet, err := kubernetes.NewForConfig(cfg)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
+		eventBroadcaster := record.NewBroadcaster()
+		eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
+
 		llmCtrl := llmisvc.LLMISVCReconciler{
-			Client:    mgr.GetClient(),
-			Clientset: clientSet,
-			// TODO fix it to be set up similar to main.go, for now it's stub
-			EventRecorder: eventBroadcaster.NewRecorder(mgr.GetScheme(), corev1.EventSource{Component: "v1beta1Controllers"}),
+			Client:        mgr.GetClient(),
+			Config:        cfg,
+			Clientset:     clientSet,
+			EventRecorder: eventBroadcaster.NewRecorder(mgr.GetScheme(), corev1.EventSource{Component: "LLMInferenceServiceController"}),
 			Validator: func(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
 				_, err := (&v1alpha2.LLMInferenceServiceValidator{}).ValidateCreate(ctx, llmSvc)
 				return err
@@ -65,16 +68,20 @@ func SetupTestEnv(ctx context.Context) *pkgtest.Client {
 		return llmCtrl.SetupWithManager(mgr)
 	}
 
-	webhookManifests := pkgtest.WithWebhookManifests(filepath.Join(pkgtest.ProjectRoot(), "test", "webhooks"))
-	webhooks := func(cfg *rest.Config, mgr ctrl.Manager) error {
-		clientSet, err := kubernetes.NewForConfig(cfg)
-		if err != nil {
-			return err
+	llmConfigCtrlFunc := func(_ *rest.Config, mgr ctrl.Manager) error {
+		eventBroadcaster := record.NewBroadcaster()
+		llmConfigCtrl := llmisvc.LLMISVCConfigReconciler{
+			Client:        mgr.GetClient(),
+			EventRecorder: eventBroadcaster.NewRecorder(mgr.GetScheme(), corev1.EventSource{Component: "LLMInferenceServiceConfigController"}),
 		}
+		return llmConfigCtrl.SetupWithManager(mgr)
+	}
 
+	webhookManifests := pkgtest.WithWebhookManifests(filepath.Join(pkgtest.ProjectRoot(), "test", "webhooks"))
+	webhooks := func(_ *rest.Config, mgr ctrl.Manager) error {
 		// Create validation function for config template validation
 		v2ConfigValidationFunc := func(ctx context.Context, config *v1alpha2.LLMInferenceServiceConfig) error {
-			llmisvcConfig, err := llmisvc.LoadConfig(ctx, clientSet)
+			llmisvcConfig, err := llmisvc.LoadConfig(ctx, mgr.GetAPIReader())
 			if err != nil {
 				return err
 			}
@@ -114,9 +121,9 @@ func SetupTestEnv(ctx context.Context) *pkgtest.Client {
 		return v1alpha2ConfigValidator.SetupWithManager(mgr)
 	}
 
-	envTest := pkgtest.NewEnvTest(webhookManifests).
+	envTest := pkgtest.NewEnvTest(append([]pkgtest.Option{webhookManifests}, additionalEnvTestOptions()...)...).
 		WithWebhooks(webhooks).
-		WithControllers(llmCtrlFunc).
+		WithControllers(llmCtrlFunc, llmConfigCtrlFunc).
 		// The suite manager/webhook must outlive BeforeSuite node context.
 		Start(context.Background()) //nolint:contextcheck // intentional: manager context must not be tied to BeforeSuite
 

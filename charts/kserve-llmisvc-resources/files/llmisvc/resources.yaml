@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    inference.networking.k8s.io/bundle-version: v1.3.0
+    inference.networking.k8s.io/bundle-version: v1.5.0
   name: inferencemodelrewrites.inference.networking.x-k8s.io
 spec:
   group: inference.networking.x-k8s.io
@@ -238,7 +238,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    inference.networking.k8s.io/bundle-version: v1.3.0
+    inference.networking.k8s.io/bundle-version: v1.5.0
   name: inferenceobjectives.inference.networking.x-k8s.io
 spec:
   group: inference.networking.x-k8s.io
@@ -331,7 +331,7 @@ spec:
                   Fairness is only enforced and tracked between requests of the same priority.
 
                   Example: requests with Priority 10 will always be served before
-                  requests with Priority of 0 (the value used if Priority is unset or no InfereneceObjective is specified).
+                  requests with Priority of 0 (the value used if Priority is unset or no InferenceObjective is specified).
                   Similarly requests with a Priority of -10 will always be served after requests with Priority of 0.
                 type: integer
             required:
@@ -429,7 +429,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    inference.networking.k8s.io/bundle-version: v1.3.0
+    inference.networking.k8s.io/bundle-version: v1.5.0
   name: inferencepoolimports.inference.networking.x-k8s.io
 spec:
   group: inference.networking.x-k8s.io
@@ -761,7 +761,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api-inference-extension/pull/1173
-    inference.networking.k8s.io/bundle-version: v1.3.0
+    inference.networking.k8s.io/bundle-version: v1.5.0
   name: inferencepools.inference.networking.k8s.io
 spec:
   group: inference.networking.k8s.io
@@ -800,6 +800,20 @@ spec:
           spec:
             description: Spec defines the desired state of the InferencePool.
             properties:
+              appProtocol:
+                default: http
+                description: |-
+                  AppProtocol describes the application protocol for all the target ports.
+
+                  If unspecified, the protocol defaults to HTTP/1.1.
+
+                  Supported values include:
+                  * "http": HTTP/1.1. This is the default.
+                  * "kubernetes.io/h2c": HTTP/2 over cleartext.
+                enum:
+                - http
+                - kubernetes.io/h2c
+                type: string
               endpointPickerRef:
                 description: |-
                   EndpointPickerRef is a reference to the Endpoint Picker extension and its
@@ -1121,7 +1135,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: unapproved, experimental-only
-    inference.networking.k8s.io/bundle-version: v1.3.0
+    inference.networking.k8s.io/bundle-version: v1.3.1
   name: inferencepools.inference.networking.x-k8s.io
 spec:
   group: inference.networking.x-k8s.io
@@ -1476,6 +1490,27 @@ rules:
   - update
   - watch
 - apiGroups:
+  - apiextensions.k8s.io
+  resourceNames:
+  - llminferenceserviceconfigs.serving.kserve.io
+  - llminferenceservices.serving.kserve.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apiextensions.k8s.io
+  resourceNames:
+  - llminferenceserviceconfigs.serving.kserve.io
+  - llminferenceservices.serving.kserve.io
+  resources:
+  - customresourcedefinitions/status
+  verbs:
+  - patch
+  - update
+- apiGroups:
   - apps
   resources:
   - deployments
@@ -1500,6 +1535,18 @@ rules:
   - subjectaccessreviews
   verbs:
   - create
+- apiGroups:
+  - autoscaling
+  resources:
+  - horizontalpodautoscalers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - coordination.k8s.io
   resources:
@@ -1536,7 +1583,6 @@ rules:
   - watch
 - apiGroups:
   - inference.networking.k8s.io
-  - inference.networking.x-k8s.io
   resources:
   - inferencemodels
   - inferenceobjectives
@@ -1550,9 +1596,49 @@ rules:
   - update
   - watch
 - apiGroups:
+  - inference.networking.x-k8s.io
+  resources:
+  - inferencemodelrewrites
+  - inferencemodels
+  - inferenceobjectives
+  - inferencepoolimports
+  - inferencepools
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - keda.sh
+  resources:
+  - scaledobjects
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - leaderworkerset.x-k8s.io
   resources:
   - leaderworkersets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - llmd.ai
+  resources:
+  - variantautoscalings
   verbs:
   - create
   - delete
@@ -1588,6 +1674,19 @@ rules:
   - update
   - watch
 - apiGroups:
+  - resource.k8s.io
+  resources:
+  - resourceclaims
+  - resourceclaimtemplates
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - serving.kserve.io
   resources:
   - llminferenceserviceconfigs
@@ -1610,11 +1709,21 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - llminferenceserviceconfigs/status
   - llminferenceservices/status
   verbs:
   - get
   - patch
   - update
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - localmodelcaches
+  - localmodelnamespacecaches
+  verbs:
+  - get
+  - list
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -1784,6 +1893,59 @@ spec:
     kind: Issuer
     name: selfsigned-issuer
   secretName: llmisvc-webhook-server-cert
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: kserve/llmisvc-serving-cert
+  creationTimestamp: null
+  name: llminferenceservice.serving.kserve.io
+webhooks:
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: llmisvc-webhook-server-service
+      namespace: kserve
+      path: /mutate-serving-kserve-io-v1alpha1-llminferenceservice
+  failurePolicy: Fail
+  matchPolicy: Exact
+  name: llminferenceservice.kserve-webhook-server.v1alpha1.defaulter
+  rules:
+  - apiGroups:
+    - serving.kserve.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - llminferenceservices
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: llmisvc-webhook-server-service
+      namespace: kserve
+      path: /mutate-serving-kserve-io-v1alpha2-llminferenceservice
+  failurePolicy: Fail
+  matchPolicy: Exact
+  name: llminferenceservice.kserve-webhook-server.v1alpha2.defaulter
+  rules:
+  - apiGroups:
+    - serving.kserve.io
+    apiVersions:
+    - v1alpha2
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - llminferenceservices
+  sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration

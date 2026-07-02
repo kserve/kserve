@@ -22,11 +22,13 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
+	"strings"
 
 	"k8s.io/utils/ptr"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -34,7 +36,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
+	kservevalidation "github.com/kserve/kserve/pkg/validation"
 )
 
 // variantCostPattern is compiled once at package init to avoid recompilation on every webhook call.
@@ -74,6 +78,9 @@ func (l *LLMInferenceServiceValidator) ValidateUpdate(ctx context.Context, oldOb
 	if err != nil {
 		return nil, err
 	}
+	if llmSvc.GetDeletionTimestamp() != nil {
+		return nil, nil
+	}
 
 	return l.validate(ctx, prev, llmSvc)
 }
@@ -97,8 +104,14 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, l.validateSchedulerConfig(llmSvc)...)
 
 	allErrs = append(allErrs, l.validateScaling(llmSvc)...)
+	allErrs = append(allErrs, l.validateLoRAAdapters(llmSvc)...)
+	allErrs = append(allErrs, l.validateManagedDRAAnnotations(llmSvc)...)
 
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
+
+	confidentialWarnings, confidentialErrs := l.validateConfidential(llmSvc)
+	warnings = append(warnings, confidentialWarnings...)
+	allErrs = append(allErrs, confidentialErrs...)
 
 	if len(allErrs) == 0 {
 		logger.V(2).Info("LLMInferenceService v1alpha2 is valid", "llmisvc", llmSvc)
@@ -183,32 +196,39 @@ func (l *LLMInferenceServiceValidator) validateRouterCrossFieldConstraints(llmSv
 
 // parentRefsMatchGatewayRefs checks whether the parentRefs on an HTTPRoute are
 // consistent with the gateway refs. A parentRef matches a gateway ref if the
-// name and namespace are equal (Group and Kind are always Gateway).
+// name, namespace, and sectionName are equal (Group and Kind are always Gateway).
 // Both slices are sorted before comparison so order does not matter.
-func parentRefsMatchGatewayRefs(parentRefs []gwapiv1.ParentReference, gatewayRefs []UntypedObjectReference) bool {
+func parentRefsMatchGatewayRefs(parentRefs []gwapiv1.ParentReference, gatewayRefs []GatewayObjectReference) bool {
 	if len(parentRefs) != len(gatewayRefs) {
 		return false
 	}
 
 	// Build comparable keys and sort so that order-independent matching works.
-	type key struct{ ns, name string }
-	toKey := func(name gwapiv1.ObjectName, ns gwapiv1.Namespace) key {
-		return key{ns: string(ns), name: string(name)}
+	type key struct{ ns, name, sectionName string }
+	toKey := func(name gwapiv1.ObjectName, ns gwapiv1.Namespace, sn *gwapiv1.SectionName) key {
+		sectionName := ""
+		if sn != nil {
+			sectionName = string(*sn)
+		}
+		return key{ns: string(ns), name: string(name), sectionName: sectionName}
 	}
 	cmpKey := func(a, b key) int {
 		if c := cmp.Compare(a.ns, b.ns); c != 0 {
 			return c
 		}
-		return cmp.Compare(a.name, b.name)
+		if c := cmp.Compare(a.name, b.name); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.sectionName, b.sectionName)
 	}
 
 	pKeys := make([]key, len(parentRefs))
 	for i, ref := range parentRefs {
-		pKeys[i] = toKey(ref.Name, ptr.Deref(ref.Namespace, ""))
+		pKeys[i] = toKey(ref.Name, ptr.Deref(ref.Namespace, ""), ref.SectionName)
 	}
 	gKeys := make([]key, len(gatewayRefs))
 	for i, ref := range gatewayRefs {
-		gKeys[i] = toKey(ref.Name, ref.Namespace)
+		gKeys[i] = toKey(ref.Name, ref.Namespace, ref.SectionName)
 	}
 
 	slices.SortFunc(pKeys, cmpKey)
@@ -393,6 +413,75 @@ func (l *LLMInferenceServiceValidator) validateSchedulerConfig(svc *LLMInference
 	return allErrs
 }
 
+func (l *LLMInferenceServiceValidator) validateLoRAAdapters(llmSvc *LLMInferenceService) field.ErrorList {
+	var allErrs field.ErrorList
+
+	if llmSvc.Spec.Model.LoRA == nil {
+		return allErrs
+	}
+
+	loraPath := field.NewPath("spec").Child("model", "lora")
+	loraSpec := llmSvc.Spec.Model.LoRA
+
+	if loraSpec.MaxRank != nil && *loraSpec.MaxRank < 1 {
+		allErrs = append(allErrs, field.Invalid(loraPath.Child("maxRank"), *loraSpec.MaxRank, "maxRank must be at least 1"))
+	}
+	if loraSpec.MaxAdapters != nil && *loraSpec.MaxAdapters < 1 {
+		allErrs = append(allErrs, field.Invalid(loraPath.Child("maxAdapters"), *loraSpec.MaxAdapters, "maxAdapters must be at least 1"))
+	}
+	if loraSpec.MaxCpuAdapters != nil && *loraSpec.MaxCpuAdapters < 1 {
+		allErrs = append(allErrs, field.Invalid(loraPath.Child("maxCpuAdapters"), *loraSpec.MaxCpuAdapters, "maxCpuAdapters must be at least 1"))
+	}
+
+	if len(llmSvc.Spec.Model.LoRA.Adapters) == 0 {
+		return allErrs
+	}
+
+	adaptersPath := loraPath.Child("adapters")
+	baseModelName := ptr.Deref(llmSvc.Spec.Model.Name, llmSvc.Name)
+	seen := make(map[string]int, len(llmSvc.Spec.Model.LoRA.Adapters))
+
+	for i, adapter := range llmSvc.Spec.Model.LoRA.Adapters {
+		namePath := adaptersPath.Index(i).Child("name")
+
+		if adapter.Name == nil || *adapter.Name == "" {
+			allErrs = append(allErrs, field.Required(namePath, "adapter name is required"))
+			continue
+		}
+
+		adapterName := *adapter.Name
+
+		if adapterName == "." || adapterName == ".." {
+			allErrs = append(allErrs, field.Invalid(
+				namePath,
+				adapterName,
+				"adapter name must not include \".\" or \"..\" (path traversal risk)",
+			))
+			continue
+		}
+
+		if prevIdx, dup := seen[adapterName]; dup {
+			allErrs = append(allErrs, field.Invalid(
+				namePath,
+				adapterName,
+				fmt.Sprintf("duplicate name (same as adapters[%d])", prevIdx),
+			))
+		} else {
+			seen[adapterName] = i
+		}
+
+		if adapterName == baseModelName {
+			allErrs = append(allErrs, field.Invalid(
+				namePath,
+				adapterName,
+				fmt.Sprintf("adapter name must differ from base model name %q", baseModelName),
+			))
+		}
+	}
+
+	return allErrs
+}
+
 func (l *LLMInferenceServiceValidator) validateScaling(llmSvc *LLMInferenceService) field.ErrorList {
 	var allErrs field.ErrorList
 
@@ -476,25 +565,6 @@ func ValidateWorkloadScaling(basePath *field.Path, workload *WorkloadSpec) field
 
 	scalingPath := basePath.Child("scaling")
 
-	// Autoscaling is not supported for multi-node deployments (worker is set).
-	// When worker is set, the controller creates a LeaderWorkerSet which does not
-	// integrate with WVA/HPA/KEDA — the scaling block would be silently ignored.
-	//
-	// Note: LWS itself can be targeted by an HPA, so the hardware capability exists.
-	// This is a current limitation of WVA, which only knows how to reconcile against
-	// a Deployment. When WVA gains LWS support, this validation should be revisited.
-	// TODO: remove this restriction once WVA supports LeaderWorkerSet as a scaling target.
-	if workload.Worker != nil {
-		allErrs = append(allErrs, field.Invalid(
-			scalingPath,
-			scaling,
-			"autoscaling (scaling) is not supported for multi-node deployments; "+
-				"worker is set, which uses a LeaderWorkerSet that does not integrate with WVA/HPA/KEDA — "+
-				"remove scaling and use replicas instead to set a fixed replica count",
-		))
-		return allErrs
-	}
-
 	// Replicas and scaling are mutually exclusive
 	if workload.Replicas != nil {
 		allErrs = append(allErrs, field.Invalid(
@@ -504,23 +574,13 @@ func ValidateWorkloadScaling(basePath *field.Path, workload *WorkloadSpec) field
 		))
 	}
 
-	// MaxReplicas is required when scaling is configured
-	if scaling.MaxReplicas == nil {
-		allErrs = append(allErrs, field.Required(
-			scalingPath.Child("maxReplicas"),
-			"maxReplicas is required when scaling is configured",
-		))
-	}
-
 	// Validate replica bounds
-	if scaling.MinReplicas != nil && scaling.MaxReplicas != nil {
-		if *scaling.MinReplicas > *scaling.MaxReplicas {
-			allErrs = append(allErrs, field.Invalid(
-				scalingPath.Child("minReplicas"),
-				*scaling.MinReplicas,
-				fmt.Sprintf("minReplicas (%d) cannot exceed maxReplicas (%d)", *scaling.MinReplicas, *scaling.MaxReplicas),
-			))
-		}
+	if scaling.MinReplicas != nil && *scaling.MinReplicas > scaling.MaxReplicas {
+		allErrs = append(allErrs, field.Invalid(
+			scalingPath.Child("minReplicas"),
+			*scaling.MinReplicas,
+			fmt.Sprintf("minReplicas (%d) cannot exceed maxReplicas (%d)", *scaling.MinReplicas, scaling.MaxReplicas),
+		))
 	}
 
 	// WVA is required when scaling is configured — it provides the scaling mechanism
@@ -609,4 +669,107 @@ func ValidateWorkloadScaling(basePath *field.Path, workload *WorkloadSpec) field
 // This is used to report unsupported mutation of values.
 func immutableField(path *field.Path, value interface{}, detail string) *field.Error {
 	return &field.Error{Type: field.ErrorTypeNotSupported, Field: path.String(), BadValue: value, Detail: detail}
+}
+
+// validateManagedDRAAnnotations performs admission-time validation of the
+// serving.kserve.io/exp-dra-* annotations to catch user mistakes early.
+func (l *LLMInferenceServiceValidator) validateManagedDRAAnnotations(llmSvc *LLMInferenceService) field.ErrorList {
+	var allErrs field.ErrorList
+	annotations := llmSvc.GetAnnotations()
+	if len(annotations) == 0 {
+		return allErrs
+	}
+
+	annotationsPath := field.NewPath("metadata").Child("annotations")
+
+	hasDeviceClass := llmSvc.HasManagedDRA()
+	_, hasDeviceCount := annotations[constants.ManagedDRADeviceCountAnnotationKey]
+	_, hasCelSelector := annotations[constants.ManagedDRACelSelectorAnnotationKey]
+	_, hasContainerName := annotations[constants.ManagedDRAContainerNameAnnotationKey]
+
+	// Require device-class if any other DRA annotation is set.
+	if !hasDeviceClass && (hasDeviceCount || hasCelSelector || hasContainerName) {
+		allErrs = append(allErrs, field.Required(
+			annotationsPath.Key(constants.ManagedDRADeviceClassAnnotationKey),
+			fmt.Sprintf("%s is required to enable managed DRA when %s, %s, or %s is set",
+				constants.ManagedDRADeviceClassAnnotationKey,
+				constants.ManagedDRADeviceCountAnnotationKey,
+				constants.ManagedDRACelSelectorAnnotationKey,
+				constants.ManagedDRAContainerNameAnnotationKey),
+		))
+	}
+
+	if trimmed, present := llmSvc.ManagedDRADeviceClass(); present {
+		raw := annotations[constants.ManagedDRADeviceClassAnnotationKey]
+		if trimmed == "" {
+			allErrs = append(allErrs, field.Invalid(
+				annotationsPath.Key(constants.ManagedDRADeviceClassAnnotationKey),
+				raw,
+				"device class must not be empty",
+			))
+		} else if errs := validation.IsDNS1123Subdomain(trimmed); len(errs) > 0 {
+			allErrs = append(allErrs, field.Invalid(
+				annotationsPath.Key(constants.ManagedDRADeviceClassAnnotationKey),
+				raw,
+				"device class must be a DNS subdomain: "+strings.Join(errs, "; "),
+			))
+		}
+	}
+
+	if hasDeviceCount {
+		if _, err := llmSvc.ManagedDRADeviceCount(); err != nil {
+			allErrs = append(allErrs, field.Invalid(
+				annotationsPath.Key(constants.ManagedDRADeviceCountAnnotationKey),
+				annotations[constants.ManagedDRADeviceCountAnnotationKey],
+				err.Error(),
+			))
+		}
+	}
+
+	if hasCelSelector && len(llmSvc.ManagedDRACelSelectors()) == 0 {
+		allErrs = append(allErrs, field.Invalid(
+			annotationsPath.Key(constants.ManagedDRACelSelectorAnnotationKey),
+			annotations[constants.ManagedDRACelSelectorAnnotationKey],
+			"cel selector must contain at least one non-empty CEL expression",
+		))
+	}
+
+	if trimmed, present := llmSvc.ManagedDRAContainerName(); present {
+		raw := annotations[constants.ManagedDRAContainerNameAnnotationKey]
+		if trimmed == "" {
+			allErrs = append(allErrs, field.Invalid(
+				annotationsPath.Key(constants.ManagedDRAContainerNameAnnotationKey),
+				raw,
+				"container name must not be empty",
+			))
+		} else if errs := validation.IsDNS1123Label(trimmed); len(errs) > 0 {
+			allErrs = append(allErrs, field.Invalid(
+				annotationsPath.Key(constants.ManagedDRAContainerNameAnnotationKey),
+				raw,
+				"container name must be a DNS label: "+strings.Join(errs, "; "),
+			))
+		}
+	}
+
+	return allErrs
+}
+
+// validateConfidential validates the confidential spec on the model.
+func (l *LLMInferenceServiceValidator) validateConfidential(llmSvc *LLMInferenceService) (admission.Warnings, field.ErrorList) {
+	confidential := llmSvc.Spec.Model.Confidential
+	if confidential == nil {
+		return nil, nil
+	}
+
+	var resourceId *string
+	if confidential.ResourceId != nil {
+		resourceId = confidential.ResourceId
+	}
+
+	return kservevalidation.ValidateConfidentialSpec(
+		confidential.Enabled,
+		resourceId,
+		llmSvc.Spec.Model.URI.String(),
+		field.NewPath("spec", "model"),
+	)
 }

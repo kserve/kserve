@@ -82,7 +82,10 @@ async def test_sklearn_kserve_concurrency(rest_v1_client):
     # Knative Serving v1.21+ no longer propagates autoscaling annotations to pods.
     # Check the Knative Service revision template annotations instead.
     ksvc = kserve_client.api_instance.get_namespaced_custom_object(
-        "serving.knative.dev", "v1", KSERVE_TEST_NAMESPACE, "services",
+        "serving.knative.dev",
+        "v1",
+        KSERVE_TEST_NAMESPACE,
+        "services",
         f"{service_name}-predictor",
     )
     ksvc_annotations = ksvc["spec"]["template"]["metadata"]["annotations"]
@@ -129,7 +132,10 @@ async def test_sklearn_kserve_rps(rest_v1_client):
     # Knative Serving v1.21+ no longer propagates autoscaling annotations to pods.
     # Check the Knative Service revision template annotations instead.
     ksvc = kserve_client.api_instance.get_namespaced_custom_object(
-        "serving.knative.dev", "v1", KSERVE_TEST_NAMESPACE, "services",
+        "serving.knative.dev",
+        "v1",
+        KSERVE_TEST_NAMESPACE,
+        "services",
         f"{service_name}-predictor",
     )
     annotations = ksvc["spec"]["template"]["metadata"]["annotations"]
@@ -178,7 +184,10 @@ async def test_sklearn_kserve_cpu(rest_v1_client):
     # Knative Serving v1.21+ no longer propagates autoscaling annotations to pods.
     # Check the Knative Service revision template annotations instead.
     ksvc = kserve_client.api_instance.get_namespaced_custom_object(
-        "serving.knative.dev", "v1", KSERVE_TEST_NAMESPACE, "services",
+        "serving.knative.dev",
+        "v1",
+        KSERVE_TEST_NAMESPACE,
+        "services",
         f"{service_name}-predictor",
     )
     ksvc_annotations = ksvc["spec"]["template"]["metadata"]["annotations"]
@@ -229,7 +238,7 @@ async def test_sklearn_scale_raw(rest_v1_client, network_layer):
         group="autoscaling",
         version="v1",
         namespace=KSERVE_TEST_NAMESPACE,
-        label_selector=f"serving.kserve.io/inferenceservice=" f"{service_name}",
+        label_selector=f"serving.kserve.io/inferenceservice={service_name}",
         plural="horizontalpodautoscalers",
     )
 

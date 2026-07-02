@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -35,21 +35,20 @@ import (
 
 func TestGatewayConditionsEvaluation(t *testing.T) {
 	tests := []struct {
-		name             string
-		llmSvc           *v1alpha2.LLMInferenceService
-		gateways         []*gwapiv1.Gateway
-		expectedErrorMsg string
-		assertCondition  func(routerCondition, gatewayCondition *apis.Condition) assertConditionsFunc
+		name            string
+		llmSvc          *v1alpha2.LLMInferenceService
+		gateways        []*gwapiv1.Gateway
+		assertCondition func(routerCondition, gatewayCondition *apis.Condition) assertConditionsFunc
 	}{
 		{
 			name: "single ready gateway - router should be ready",
 			llmSvc: LLMInferenceService("test-llm",
 				InNamespace[*v1alpha2.LLMInferenceService]("test-ns"),
 				WithModelURI("hf://test/model"),
-				WithGatewayRefs(v1alpha2.UntypedObjectReference{
+				WithGatewayRefs(v1alpha2.GatewayObjectReference{UntypedObjectReference: v1alpha2.UntypedObjectReference{
 					Name:      "ready-gateway",
 					Namespace: "test-ns",
-				}),
+				}}),
 			),
 			gateways: []*gwapiv1.Gateway{
 				Gateway("ready-gateway",
@@ -66,10 +65,10 @@ func TestGatewayConditionsEvaluation(t *testing.T) {
 			llmSvc: LLMInferenceService("test-llm",
 				InNamespace[*v1alpha2.LLMInferenceService]("test-ns"),
 				WithModelURI("hf://test/model"),
-				WithGatewayRefs(v1alpha2.UntypedObjectReference{
+				WithGatewayRefs(v1alpha2.GatewayObjectReference{UntypedObjectReference: v1alpha2.UntypedObjectReference{
 					Name:      "not-ready-gateway",
 					Namespace: "test-ns",
-				}),
+				}}),
 			),
 			gateways: []*gwapiv1.Gateway{
 				Gateway("not-ready-gateway",
@@ -89,8 +88,8 @@ func TestGatewayConditionsEvaluation(t *testing.T) {
 				InNamespace[*v1alpha2.LLMInferenceService]("test-ns"),
 				WithModelURI("hf://test/model"),
 				WithGatewayRefs(
-					v1alpha2.UntypedObjectReference{Name: "gateway-1", Namespace: "test-ns"},
-					v1alpha2.UntypedObjectReference{Name: "gateway-2", Namespace: "test-ns"},
+					v1alpha2.GatewayObjectReference{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "gateway-1", Namespace: "test-ns"}},
+					v1alpha2.GatewayObjectReference{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "gateway-2", Namespace: "test-ns"}},
 				),
 			),
 			gateways: []*gwapiv1.Gateway{
@@ -113,8 +112,8 @@ func TestGatewayConditionsEvaluation(t *testing.T) {
 				InNamespace[*v1alpha2.LLMInferenceService]("test-ns"),
 				WithModelURI("hf://test/model"),
 				WithGatewayRefs(
-					v1alpha2.UntypedObjectReference{Name: "ready-gateway", Namespace: "test-ns"},
-					v1alpha2.UntypedObjectReference{Name: "not-ready-gateway", Namespace: "test-ns"},
+					v1alpha2.GatewayObjectReference{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "ready-gateway", Namespace: "test-ns"}},
+					v1alpha2.GatewayObjectReference{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "not-ready-gateway", Namespace: "test-ns"}},
 				),
 			),
 			gateways: []*gwapiv1.Gateway{
@@ -138,10 +137,10 @@ func TestGatewayConditionsEvaluation(t *testing.T) {
 			llmSvc: LLMInferenceService("test-llm",
 				InNamespace[*v1alpha2.LLMInferenceService]("test-ns"),
 				WithModelURI("hf://test/model"),
-				WithGatewayRefs(v1alpha2.UntypedObjectReference{
+				WithGatewayRefs(v1alpha2.GatewayObjectReference{UntypedObjectReference: v1alpha2.UntypedObjectReference{
 					Name:      "no-condition-gateway",
 					Namespace: "test-ns",
-				}),
+				}}),
 			),
 			gateways: []*gwapiv1.Gateway{
 				Gateway("no-condition-gateway",
@@ -153,19 +152,6 @@ func TestGatewayConditionsEvaluation(t *testing.T) {
 			assertCondition: func(routerCondition, gatewayCondition *apis.Condition) assertConditionsFunc {
 				return assertRouterNotReadyWithReason(routerCondition, gatewayCondition, "GatewaysNotReady")
 			},
-		},
-		{
-			name: "gateway not found - should return error",
-			llmSvc: LLMInferenceService("test-llm",
-				InNamespace[*v1alpha2.LLMInferenceService]("test-ns"),
-				WithModelURI("hf://test/model"),
-				WithGatewayRefs(v1alpha2.UntypedObjectReference{
-					Name:      "missing-gateway",
-					Namespace: "test-ns",
-				}),
-			),
-			gateways:         []*gwapiv1.Gateway{},
-			expectedErrorMsg: "failed to get Gateway",
 		},
 		{
 			name: "no gateway refs - should skip evaluation",
@@ -182,10 +168,10 @@ func TestGatewayConditionsEvaluation(t *testing.T) {
 			llmSvc: LLMInferenceService("test-llm",
 				InNamespace[*v1alpha2.LLMInferenceService]("test-ns"),
 				WithModelURI("hf://test/model"),
-				WithGatewayRefs(v1alpha2.UntypedObjectReference{
+				WithGatewayRefs(v1alpha2.GatewayObjectReference{UntypedObjectReference: v1alpha2.UntypedObjectReference{
 					Name: "same-ns-gateway",
 					// Namespace omitted - should use test-ns
-				}),
+				}}),
 			),
 			gateways: []*gwapiv1.Gateway{
 				Gateway("same-ns-gateway",
@@ -224,13 +210,12 @@ func TestGatewayConditionsEvaluation(t *testing.T) {
 				Client: fakeClient,
 			}
 
-			err = reconciler.EvaluateGatewayConditions(ctx, tt.llmSvc)
-
-			if tt.expectedErrorMsg != "" {
-				g.Expect(err).To(HaveOccurred())
-				g.Expect(err.Error()).To(ContainSubstring(tt.expectedErrorMsg))
-				return
+			resolved := make([]llmisvc.ResolvedGateway, len(tt.gateways))
+			for i, gw := range tt.gateways {
+				resolved[i] = llmisvc.ResolvedGateway{Gateway: gw}
 			}
+
+			err = reconciler.EvaluateGatewayConditions(ctx, tt.llmSvc, resolved)
 
 			g.Expect(err).ToNot(HaveOccurred())
 
@@ -408,6 +393,39 @@ func TestHTTPRouteConditionsEvaluation(t *testing.T) {
 			},
 		},
 		{
+			name: "HTTPRoute with NoMatchingParent - should surface raw Gateway API reason",
+			llmSvc: LLMInferenceService("test-llm",
+				InNamespace[*v1alpha2.LLMInferenceService]("test-ns"),
+				WithModelURI("hf://test/model"),
+				WithHTTPRouteRefs(HTTPRouteRef("no-matching-parent-route")),
+			),
+			httpRoutes: []*gwapiv1.HTTPRoute{
+				HTTPRoute("no-matching-parent-route",
+					InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+					WithParentRefs(GatewayParentRef("test-gateway", "test-ns")),
+					WithHTTPRouteParentStatus(
+						GatewayParentRef("test-gateway", "test-ns"),
+						"gateway-controller/v1",
+						metav1.Condition{
+							Type:               string(gwapiv1.RouteConditionAccepted),
+							Status:             metav1.ConditionFalse,
+							Reason:             string(gwapiv1.RouteReasonNoMatchingParent),
+							Message:            "No matching parent",
+							LastTransitionTime: metav1.Now(),
+						},
+					),
+				),
+			},
+			createAssertion: func(routerCondition, httpRouteCondition *apis.Condition) assertConditionsFunc {
+				return func(g *WithT) {
+					g.Expect(httpRouteCondition).ToNot(BeNil(), "HTTPRoute condition should be set")
+					g.Expect(httpRouteCondition.IsFalse()).To(BeTrue(), "HTTPRoutes should not be ready")
+					g.Expect(httpRouteCondition.Reason).To(Equal("HTTPRoutesNotReady"), "Top-level condition reason should be HTTPRoutesNotReady")
+					g.Expect(httpRouteCondition.Message).To(ContainSubstring(string(gwapiv1.RouteReasonNoMatchingParent)), "Embedded reason should preserve the raw Gateway API NoMatchingParent reason")
+				}
+			},
+		},
+		{
 			name: "HTTPRoute with Accepted=True but ResolvedRefs missing - should not be ready",
 			llmSvc: LLMInferenceService("test-llm",
 				InNamespace[*v1alpha2.LLMInferenceService]("test-ns"),
@@ -464,7 +482,7 @@ func TestHTTPRouteConditionsEvaluation(t *testing.T) {
 				Client: fakeClient,
 			}
 
-			err = reconciler.EvaluateHTTPRouteConditions(ctx, tt.llmSvc)
+			err = reconciler.EvaluateHTTPRouteConditions(ctx, tt.llmSvc, &llmisvc.Config{})
 
 			if tt.expectedErrorMsg != "" {
 				g.Expect(err).To(HaveOccurred())
@@ -620,10 +638,10 @@ func TestFetchReferencedGateways(t *testing.T) {
 			name: "fetch single gateway successfully",
 			llmSvc: LLMInferenceService("test-llm",
 				InNamespace[*v1alpha2.LLMInferenceService]("test-ns"),
-				WithGatewayRefs(v1alpha2.UntypedObjectReference{
+				WithGatewayRefs(v1alpha2.GatewayObjectReference{UntypedObjectReference: v1alpha2.UntypedObjectReference{
 					Name:      "test-gateway",
 					Namespace: "test-ns",
-				}),
+				}}),
 			),
 			gateways: []*gwapiv1.Gateway{
 				Gateway("test-gateway", InNamespace[*gwapiv1.Gateway]("test-ns")),
@@ -635,8 +653,8 @@ func TestFetchReferencedGateways(t *testing.T) {
 			llmSvc: LLMInferenceService("test-llm",
 				InNamespace[*v1alpha2.LLMInferenceService]("test-ns"),
 				WithGatewayRefs(
-					v1alpha2.UntypedObjectReference{Name: "gateway-1", Namespace: "test-ns"},
-					v1alpha2.UntypedObjectReference{Name: "gateway-2", Namespace: "other-ns"},
+					v1alpha2.GatewayObjectReference{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "gateway-1", Namespace: "test-ns"}},
+					v1alpha2.GatewayObjectReference{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "gateway-2", Namespace: "other-ns"}},
 				),
 			),
 			gateways: []*gwapiv1.Gateway{
@@ -649,10 +667,10 @@ func TestFetchReferencedGateways(t *testing.T) {
 			name: "gateway not found - should return error",
 			llmSvc: LLMInferenceService("test-llm",
 				InNamespace[*v1alpha2.LLMInferenceService]("test-ns"),
-				WithGatewayRefs(v1alpha2.UntypedObjectReference{
+				WithGatewayRefs(v1alpha2.GatewayObjectReference{UntypedObjectReference: v1alpha2.UntypedObjectReference{
 					Name:      "missing-gateway",
 					Namespace: "test-ns",
-				}),
+				}}),
 			),
 			gateways:      []*gwapiv1.Gateway{},
 			expectedCount: 0,

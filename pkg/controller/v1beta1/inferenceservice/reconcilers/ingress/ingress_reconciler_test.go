@@ -2245,3 +2245,66 @@ func TestIngressReconciler_Reconcile_SkipVirtualService(t *testing.T) {
 	err = client.Get(t.Context(), types.NamespacedName{Name: "skip-vs", Namespace: "default"}, existingVS)
 	g.Expect(apierr.IsNotFound(err)).To(gomega.BeTrue())
 }
+
+func TestReconcileExternalService_NoUpdateWhenUnchanged(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scheme := runtime.NewScheme()
+	_ = v1beta1.AddToScheme(scheme)
+	_ = corev1.AddToScheme(scheme)
+	_ = istioclientv1beta1.AddToScheme(scheme)
+
+	localGatewayService := "knative-local-gateway.istio-system.svc.cluster.local"
+	ingressConfig := &v1beta1.IngressConfig{
+		IngressGateway:             constants.KnativeIngressGateway,
+		KnativeLocalGatewayService: localGatewayService,
+		LocalGateway:               constants.KnativeLocalGateway,
+		LocalGatewayServiceName:    localGatewayService,
+		DisableIstioVirtualHost:    false,
+	}
+
+	isvc := &v1beta1.InferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-model", Namespace: "test"},
+	}
+
+	// Simulate an existing ExternalName service with labels and annotations
+	// set by another controller - this is the state after initial creation
+	// and external controller reconciliation.
+	existingSvc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-model",
+			Namespace: "test",
+			Labels: map[string]string{
+				"opendatahub.io/managed": "true",
+				"some-other-label":       "value",
+			},
+			Annotations: map[string]string{
+				"serving.cert-manager.io/certificate": "some-cert",
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(isvc, v1beta1.SchemeGroupVersion.WithKind("InferenceService")),
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			ExternalName:    localGatewayService,
+			Type:            corev1.ServiceTypeExternalName,
+			SessionAffinity: corev1.ServiceAffinityNone,
+		},
+	}
+
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(isvc, existingSvc).Build()
+	isvcConfig := &v1beta1.InferenceServicesConfig{}
+	reconciler := NewIngressReconciler(cl, kubernetesfake.NewSimpleClientset(), scheme, ingressConfig, isvcConfig, true)
+
+	// Reconcile - this should be a no-op since the spec hasn't changed
+	err := reconciler.reconcileExternalService(t.Context(), isvc, ingressConfig)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	// Verify the service still has its original labels and annotations
+	svc := &corev1.Service{}
+	err = cl.Get(t.Context(), types.NamespacedName{Name: "my-model", Namespace: "test"}, svc)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(svc.Labels).To(gomega.HaveKeyWithValue("opendatahub.io/managed", "true"), "labels from other controllers should be preserved")
+	g.Expect(svc.Labels).To(gomega.HaveKeyWithValue("some-other-label", "value"), "labels from other controllers should be preserved")
+	g.Expect(svc.Annotations).To(gomega.HaveKeyWithValue("serving.cert-manager.io/certificate", "some-cert"), "annotations from other controllers should be preserved")
+}

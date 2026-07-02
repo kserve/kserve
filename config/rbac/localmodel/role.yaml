@@ -32,6 +32,7 @@ rules:
   - persistentvolumes
   verbs:
   - create
+  - delete
   - get
   - list
   - patch
@@ -41,6 +42,7 @@ rules:
   - serving.kserve.io
   resources:
   - inferenceservices
+  - llminferenceservices
   - localmodelnodegroups
   verbs:
   - get

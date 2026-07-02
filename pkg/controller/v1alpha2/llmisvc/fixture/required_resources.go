@@ -130,6 +130,7 @@ func InferenceServiceCfgMapWithUrlScheme(ns, urlScheme string) *corev1.ConfigMap
 	configs := map[string]string{
 		"ingress": `{
 				"enableGatewayApi": true,
+				"enableLLMInferenceServiceTLS": true,
 				"kserveIngressGateway": "kserve/kserve-ingress-gateway",
 				"ingressGateway": "knative-serving/knative-ingress-gateway",
 				"localGateway": "knative-serving/knative-local-gateway",
@@ -149,6 +150,11 @@ func InferenceServiceCfgMapWithUrlScheme(ns, urlScheme string) *corev1.ConfigMap
 				"s3": {
 					"s3AccessKeyIDName": "AWS_ACCESS_KEY_ID",
 					"s3SecretAccessKeyName": "AWS_SECRET_ACCESS_KEY"
+				}
+			}`,
+		"autoscaling-wva-controller-config": `{
+				"prometheus": {
+					"url": "http://prometheus.monitoring:9090"
 				}
 			}`,
 	} // #nosec G101

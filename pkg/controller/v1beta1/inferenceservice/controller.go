@@ -289,7 +289,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			}
 			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile component")
 		}
-		if result.Requeue || result.RequeueAfter > 0 {
+		if result.RequeueAfter > 0 {
 			return result, nil
 		}
 	}
@@ -382,7 +382,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 		return result, errors.Wrapf(err, "fails to reconcile ingress")
 	}
-	if result.Requeue || result.RequeueAfter > 0 {
+	if result.RequeueAfter > 0 {
 		// Persist status before requeue so deployment errors are visible on the ISVC
 		if err := r.updateStatus(ctx, isvc, deploymentMode); err != nil {
 			r.Log.Error(err, "Error updating status before requeue")
@@ -416,7 +416,7 @@ func (r *InferenceServiceReconciler) updateStatus(ctx context.Context, desiredSe
 	existingService := &v1beta1.InferenceService{}
 	namespacedName := types.NamespacedName{Name: desiredService.Name, Namespace: desiredService.Namespace}
 	if err := r.Get(ctx, namespacedName, existingService); err != nil {
-		return err
+		return client.IgnoreNotFound(err)
 	}
 	wasReady := inferenceServiceReadiness(existingService.Status)
 	if inferenceServiceStatusEqual(existingService.Status, desiredService.Status, deploymentMode) {
@@ -709,10 +709,20 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		ctrlBuilder = ctrlBuilder.Owns(&netv1.Ingress{})
 	}
 
-	return ctrlBuilder.Watches(&v1alpha1.ServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.servingRuntimeFunc), builder.WithPredicates(servingRuntimesPredicate())).
-		Watches(&v1alpha1.ClusterServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.clusterServingRuntimeFunc), builder.WithPredicates(clusterServingRuntimesPredicate())).
-		Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(r.podInitContainersFunc), builder.WithPredicates(podInitContainersPredicate())).
-		Complete(r)
+	ctrlBuilder = ctrlBuilder.Watches(&v1alpha1.ServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.servingRuntimeFunc), builder.WithPredicates(servingRuntimesPredicate())).
+		Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(r.podInitContainersFunc), builder.WithPredicates(podInitContainersPredicate()))
+
+	csrFound, err := utils.IsCrdAvailable(r.ClientConfig, v1alpha1.SchemeGroupVersion.String(), "ClusterServingRuntime")
+	if err != nil {
+		return err
+	}
+	if csrFound {
+		ctrlBuilder = ctrlBuilder.Watches(&v1alpha1.ClusterServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.clusterServingRuntimeFunc), builder.WithPredicates(clusterServingRuntimesPredicate()))
+	} else {
+		r.Log.Info("The InferenceService controller won't watch serving.kserve.io/v1alpha1/ClusterServingRuntime resources because the CRD is not available.")
+	}
+
+	return ctrlBuilder.Complete(r)
 }
 
 func (r *InferenceServiceReconciler) deleteExternalResources(ctx context.Context, isvc *v1beta1.InferenceService) error {

@@ -206,12 +206,12 @@ http_uri_path_testparams = [
     ),
     (
         "https://foo.bar/download?path=/20210530/model.zip",
-        MockHttpResponse(200, FILE_ZIP_RAW, "application/x-zip" "-compressed"),
+        MockHttpResponse(200, FILE_ZIP_RAW, "application/x-zip-compressed"),
         None,
     ),
     (
         "https://foo.bar/download?path=/20210530/model.zip",
-        MockHttpResponse(200, FILE_ZIP_RAW, "application/zip" "-compressed"),
+        MockHttpResponse(200, FILE_ZIP_RAW, "application/zip-compressed"),
         None,
     ),
 ]

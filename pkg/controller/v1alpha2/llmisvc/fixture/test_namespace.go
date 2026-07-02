@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -74,6 +74,18 @@ func WithDefaultServiceAccount() TestNamespaceOption {
 		if err == nil {
 			tn.resources = append(tn.resources, sa)
 		}
+	}
+}
+
+// WithDefaultServiceAccountImagePullSecrets creates the default ServiceAccount
+// with the given ImagePullSecrets. This is used to test propagation of
+// ImagePullSecrets from the default SA to controller-created ServiceAccounts.
+func WithDefaultServiceAccountImagePullSecrets(secrets ...corev1.LocalObjectReference) TestNamespaceOption {
+	return func(ctx context.Context, tn *TestNamespace) {
+		sa := &corev1.ServiceAccount{}
+		gomega.Expect(tn.client.Get(ctx, client.ObjectKey{Name: "default", Namespace: tn.Name}, sa)).To(gomega.Succeed())
+		sa.ImagePullSecrets = secrets
+		gomega.Expect(tn.client.Update(ctx, sa)).To(gomega.Succeed())
 	}
 }
 

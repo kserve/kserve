@@ -1,0 +1,147 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": true,
+      "title": "Kserve – P/D Disaggregation",
+      "tooltip": "",
+      "type": "link",
+      "url": "https://github.com/llm-d/llm-d/blob/main/docs/monitoring/example-promQL-queries.md#path-d-pd-disaggregation"
+    }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "gridPos": { "h": 2, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "options": {
+        "content": "## P/D Disaggregation\n\nPrefill and decode worker utilization, queue lengths, and P/D decision rates. Reference: [Kserve – P/D Disaggregation](https://github.com/llm-d/llm-d/blob/main/docs/monitoring/example-promQL-queries.md#path-d-pd-disaggregation).",
+        "mode": "markdown"
+      },
+      "title": "Reference",
+      "type": "text"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "Prefill worker utilization.",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "short" } },
+      "gridPos": { "h": 5, "w": 12, "x": 0, "y": 2 },
+      "id": 2,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "avg by(pod) (vllm:num_requests_running{pod=~\".*prefill.*\"})", "legendFormat": "{{pod}}", "refId": "A" }
+      ],
+      "title": "Prefill worker utilization",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "Decode worker utilization (KV cache usage). Uses the metric set by --kv-cache-usage-percentage-metric in LLM inference service config (e.g. vllm:kv_cache_usage_perc).",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "max": 1, "min": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "percentunit" } },
+      "gridPos": { "h": 5, "w": 12, "x": 12, "y": 2 },
+      "id": 3,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "avg by(pod) (vllm:kv_cache_usage_perc{pod=~\".*decode.*\"})", "legendFormat": "{{pod}}", "refId": "A" }
+      ],
+      "title": "Decode worker utilization",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "Prefill queue length.",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "short" } },
+      "gridPos": { "h": 5, "w": 12, "x": 0, "y": 7 },
+      "id": 4,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by(pod) (vllm:num_requests_waiting{pod=~\".*prefill.*\"})", "legendFormat": "{{pod}}", "refId": "A" }
+      ],
+      "title": "Prefill queue length",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "P/D decision rate by decision type.",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "reqps" } },
+      "gridPos": { "h": 5, "w": 12, "x": 12, "y": 7 },
+      "id": 5,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by(decision_type) (rate(llm_d_inference_scheduler_pd_decision_total[5m]))", "legendFormat": "{{decision_type}}", "refId": "A" }
+      ],
+      "title": "P/D decision rate by type",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "Decode-only request rate.",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "reqps" } },
+      "gridPos": { "h": 5, "w": 12, "x": 0, "y": 12 },
+      "id": 6,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(llm_d_inference_scheduler_pd_decision_total{decision_type=\"decode-only\"}[5m]))", "legendFormat": "decode-only", "refId": "A" }
+      ],
+      "title": "Decode-only request rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "Prefill-decode request rate.",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "reqps" } },
+      "gridPos": { "h": 5, "w": 12, "x": 12, "y": 12 },
+      "id": 7,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(llm_d_inference_scheduler_pd_decision_total{decision_type=\"prefill-decode\"}[5m]))", "legendFormat": "prefill-decode", "refId": "A" }
+      ],
+      "title": "Prefill-decode request rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "description": "Ratio of prefill-decode decisions to all P/D decisions.",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "max": 1, "min": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "percentunit" } },
+      "gridPos": { "h": 5, "w": 12, "x": 0, "y": 17 },
+      "id": 8,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(llm_d_inference_scheduler_pd_decision_total{decision_type=\"prefill-decode\"}[5m])) / sum(rate(llm_d_inference_scheduler_pd_decision_total[5m]))", "refId": "A" }
+      ],
+      "title": "P/D decision ratio (prefill-decode)",
+      "type": "gauge"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["llm-d", "pd-disaggregation", "prefill", "decode", "epp", "kserve"],
+  "templating": {
+    "list": [
+      { "current": { "selected": false, "text": "Prometheus", "value": "Prometheus" }, "hide": 0, "includeAll": false, "label": "Datasource", "multi": false, "name": "datasource", "options": [], "query": "prometheus", "refresh": 1, "regex": "", "skipUrlSync": false, "type": "datasource" }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Kserve EPP metrics – P/D Disaggregation",
+  "uid": "kserve-epp-pd-disaggregation",
+  "version": 1,
+  "weekStart": ""
+}

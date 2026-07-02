@@ -18,6 +18,7 @@ package utils
 
 import (
 	"fmt"
+	"path"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -256,18 +257,22 @@ func AddDefaultHuggingFaceEnvVars(container *corev1.Container) {
 		},
 	}
 
-	for _, defaultEnvVar := range defaultHFEnvVars {
+	AddEnvVars(container, defaultHFEnvVars)
+}
+
+func AddEnvVars(container *corev1.Container, vars []corev1.EnvVar) {
+	for _, envVar := range vars {
 		// Check if the environment variable already exists
 		exists := false
 		for _, existingEnvVar := range container.Env {
-			if existingEnvVar.Name == defaultEnvVar.Name {
+			if existingEnvVar.Name == envVar.Name {
 				exists = true
 				break
 			}
 		}
 		// Only add if it doesn't already exist
 		if !exists {
-			container.Env = append(container.Env, defaultEnvVar)
+			container.Env = append(container.Env, envVar)
 		}
 	}
 }
@@ -328,17 +333,45 @@ func CreateInitContainerWithConfig(storageConfig *types.StorageInitializerConfig
 	}
 }
 
+// shellQuote wraps s in single quotes for safe interpolation into a sh -c
+// command string. Any embedded single quotes are escaped using the standard
+// POSIX sequence: close the current quote, emit an escaped literal quote,
+// and re-open a new quoted segment ('\\"). This is safe for all byte values.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+}
+
+// modelcarCommand returns the shell command for the modelcar container.
+// When modelPath differs from the default, it prepends "mkdir -p" to create
+// the parent directory so that the symlink target exists. For the default path
+// the command is kept identical to the original to avoid unnecessary pod restarts
+// on upgrade.
+//
+// Paths are shell-quoted using shellQuote to prevent metacharacter injection.
+// The upstream validation (validateStorageURISpec) ensures paths are absolute
+// and contain no "..", but quoting provides defense-in-depth.
+func modelcarCommand(modelPath string) string {
+	// $$$$ gets escaped by YAML to $$, which is the current PID
+	if modelPath != constants.DefaultModelLocalMountPath {
+		return fmt.Sprintf("mkdir -p %s && ln -sf /proc/$$$$/root/models %s && sleep infinity",
+			shellQuote(path.Dir(modelPath)), shellQuote(modelPath))
+	}
+	return fmt.Sprintf("ln -sf /proc/$$$$/root/models %s && sleep infinity", shellQuote(modelPath))
+}
+
 // CreateModelcarContainer creates the definition of a container holding a model intended to be used as a sidecar (modelcar).
 // The container is configured with CPU, memory, and UID settings from the storage initializer configuration.
 //
 // Parameters:
+//   - containerName: The name to assign to the modelcar container.
 //   - image: The container image to use for the modelcar.
 //   - modelPath: The path where the model should be mounted inside the container.
+//   - volumeName: The name of the shared volume for model data.
 //   - storageConfig: The storage initializer configuration.
 //
 // Returns:
 //   - *corev1.Container: The modelcar container definition.
-func CreateModelcarContainer(image string, modelPath string, storageConfig *types.StorageInitializerConfig) *corev1.Container {
+func CreateModelcarContainer(containerName string, image string, modelPath string, volumeName string, storageConfig *types.StorageInitializerConfig) *corev1.Container {
 	cpu := storageConfig.CpuModelcar
 	if cpu == "" {
 		cpu = constants.CpuModelcarDefault
@@ -349,11 +382,11 @@ func CreateModelcarContainer(image string, modelPath string, storageConfig *type
 	}
 
 	modelContainer := &corev1.Container{
-		Name:  constants.ModelcarContainerName,
+		Name:  containerName,
 		Image: image,
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      constants.StorageInitializerVolumeName,
+				Name:      volumeName,
 				MountPath: GetParentDirectory(modelPath),
 				ReadOnly:  false,
 			},
@@ -361,8 +394,7 @@ func CreateModelcarContainer(image string, modelPath string, storageConfig *type
 		Args: []string{
 			"sh",
 			"-c",
-			// $$$$ gets escaped by YAML to $$, which is the current PID
-			fmt.Sprintf("ln -sf /proc/$$$$/root/models %s && sleep infinity", modelPath),
+			modelcarCommand(modelPath),
 		},
 		Resources: corev1.ResourceRequirements{
 			Limits: map[corev1.ResourceName]resource.Quantity{
@@ -391,12 +423,13 @@ func CreateModelcarContainer(image string, modelPath string, storageConfig *type
 // This init container is intended to run before the main containers to pre-fetch and validate the modelcar image.
 //
 // Parameters:
+//   - containerName: The name to assign to the modelcar init container.
 //   - image: The container image to use for the modelcar init container.
 //   - storageConfig: The storage initializer configuration.
 //
 // Returns:
 //   - *corev1.Container: The modelcar init container definition.
-func CreateModelcarInitContainer(image string, storageConfig *types.StorageInitializerConfig) *corev1.Container {
+func CreateModelcarInitContainer(containerName string, image string, storageConfig *types.StorageInitializerConfig) *corev1.Container {
 	cpu := storageConfig.CpuModelcar
 	if cpu == "" {
 		cpu = constants.CpuModelcarDefault
@@ -407,7 +440,7 @@ func CreateModelcarInitContainer(image string, storageConfig *types.StorageIniti
 	}
 
 	modelContainer := &corev1.Container{
-		Name:  constants.ModelcarInitContainerName,
+		Name:  containerName,
 		Image: image,
 		Args: []string{
 			"sh",
@@ -432,6 +465,49 @@ func CreateModelcarInitContainer(image string, storageConfig *types.StorageIniti
 	return modelContainer
 }
 
+// MaxOCISourcesPerPod is the maximum number of OCI modelcar sidecars that can be
+// injected into a single pod. This prevents resource exhaustion from unbounded
+// sidecar injection — each OCI URI adds 2 containers (sidecar + init) and 1 volume.
+const MaxOCISourcesPerPod = 10
+
+// ModelcarNames generates unique container and volume names for a modelcar at the given OCI index.
+// When ociIndex is 0, the original constant names are returned for backward compatibility.
+func ModelcarNames(ociIndex int) (sidecarName, initName, volumeName string) {
+	if ociIndex == 0 {
+		return constants.ModelcarContainerName, constants.ModelcarInitContainerName, constants.StorageInitializerVolumeName
+	}
+	suffix := fmt.Sprintf("-%d", ociIndex)
+	return constants.ModelcarContainerName + suffix,
+		constants.ModelcarInitContainerName + suffix,
+		constants.StorageInitializerVolumeName + suffix
+}
+
+// ValidateOCIMountPaths checks that the given OCI mount paths will not cause volume
+// mount shadowing when injected. Each modelcar sidecar mounts an emptyDir at the
+// *parent directory* of its modelPath (via GetParentDirectory). If two OCI URIs share
+// the same parent directory, their volumes would be mounted at the same path on the
+// target container, causing the last mount to shadow all previous ones.
+//
+// Returns an error if a collision is detected.
+func ValidateOCIMountPaths(mountPaths []string) error {
+	if len(mountPaths) <= 1 {
+		return nil
+	}
+	parentDirSeen := make(map[string]string, len(mountPaths)) // parentDir -> first modelPath that used it
+	for _, mp := range mountPaths {
+		parentDir := GetParentDirectory(mp)
+		if prev, exists := parentDirSeen[parentDir]; exists {
+			return fmt.Errorf(
+				"OCI mount paths %q and %q share parent directory %q, which would cause volume mount shadowing; "+
+					"use mount paths with distinct parent directories",
+				prev, mp, parentDir,
+			)
+		}
+		parentDirSeen[parentDir] = mp
+	}
+	return nil
+}
+
 // ConfigureModelcarToContainer configures the OCI image specified in modelUri as a modelcar to the
 // specified target container of a given PodSpec. The configuration includes:
 //   - Adding an environment variable `async` to indicate to the runtime that the model directory may not be available immediately.
@@ -444,25 +520,36 @@ func CreateModelcarInitContainer(image string, storageConfig *types.StorageIniti
 //   - modelUri: The URI specifying the model image location.
 //   - podSpec: The PodSpec to modify.
 //   - targetContainerName: The name of the container to configure the modelcar for.
+//   - modelPath: The path where the model symlink should be created inside the container
+//     (e.g. /mnt/models or /mnt/models/my-llama for a model-name subdirectory).
 //   - storageConfig: The storage initializer configuration.
+//   - ociIndex: The index of this OCI URI within the storageUris list. Used to generate
+//     unique container/volume names when multiple OCI URIs are specified. Use 0 for
+//     single-URI or legacy scenarios to preserve backward compatibility.
 //
 // Returns:
 //   - error: An error if the target container is not found or if configuration fails; otherwise, nil.
-func ConfigureModelcarToContainer(modelUri string, podSpec *corev1.PodSpec, targetContainerName string, storageConfig *types.StorageInitializerConfig) error {
+func ConfigureModelcarToContainer(modelUri string, podSpec *corev1.PodSpec, targetContainerName string, modelPath string, storageConfig *types.StorageInitializerConfig, ociIndex int) error {
 	targetContainer := GetContainerWithName(podSpec, targetContainerName)
 	if targetContainer == nil {
 		return fmt.Errorf("no container found with name %s", targetContainerName)
 	}
+
+	sidecarName, initName, volumeName := ModelcarNames(ociIndex)
 
 	// Indicate to the runtime that it the model directory could be
 	// available a bit later only so that it should wait and retry when
 	// starting up
 	AddOrReplaceEnv(targetContainer, constants.ModelInitModeEnvVarKey, "async")
 
-	// Mount volume initialized by the modelcar container to the target container
-	modelParentDir := GetParentDirectory(constants.DefaultModelLocalMountPath)
-	AddEmptyDirVolumeIfNotPresent(podSpec, constants.StorageInitializerVolumeName)
-	AddVolumeMountIfNotPresent(targetContainer, constants.StorageInitializerVolumeName, modelParentDir, false)
+	// Mount volume initialized by the modelcar container to the target container.
+	// Each OCI URI gets its own emptyDir volume because the modelcar sidecar creates
+	// a symlink (via /proc/<PID>/root) that is specific to its container image.
+	// Sharing a single volume between multiple modelcar sidecars would cause symlink
+	// conflicts.
+	modelParentDir := GetParentDirectory(modelPath)
+	AddEmptyDirVolumeIfNotPresent(podSpec, volumeName)
+	AddVolumeMountIfNotPresent(targetContainer, volumeName, modelParentDir, false)
 
 	// If configured, run as the given user. There might be certain installations
 	// of Kubernetes where sharing the filesystem via the process namespace only works
@@ -476,16 +563,16 @@ func ConfigureModelcarToContainer(modelUri string, podSpec *corev1.PodSpec, targ
 
 	// Create the modelcar that is used as a sidecar in Pod and add it to the end
 	// of the containers (but only if not already have been added)
-	if GetContainerWithName(podSpec, constants.ModelcarContainerName) == nil {
+	if GetContainerWithName(podSpec, sidecarName) == nil {
 		// Extract image reference for modelcar from URI
 		image := strings.TrimPrefix(modelUri, constants.OciURIPrefix)
 
-		modelContainer := CreateModelcarContainer(image, constants.DefaultModelLocalMountPath, storageConfig)
+		modelContainer := CreateModelcarContainer(sidecarName, image, modelPath, volumeName, storageConfig)
 		podSpec.Containers = append(podSpec.Containers, *modelContainer)
 
 		// Add the model container as an init-container to pre-fetch the model before
 		// the runtimes starts.
-		modelInitContainer := CreateModelcarInitContainer(image, storageConfig)
+		modelInitContainer := CreateModelcarInitContainer(initName, image, storageConfig)
 		podSpec.InitContainers = append(podSpec.InitContainers, *modelInitContainer)
 	}
 

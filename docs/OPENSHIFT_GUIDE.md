@@ -38,7 +38,7 @@ pod/knative-openshift-ingress-6546869495-tfg2b condition met
 pod/knative-operator-webhook-86c5f88574-8vckn condition met
 ```
 
-These three pods must be ready and running. If for some reason the pods dont get ready, investigating the logs  
+These three pods must be ready and running. If for some reason the pods don't get ready, investigating the logs  
 is a good start point.
 
 
@@ -188,7 +188,7 @@ Key points:
 - Enables external access to KServe model serving endpoints
 - Supports features like traffic splitting and canary deployments
 
-Let's naviagate through the installation steps:
+Let's navigate through the installation steps:
 
 The Knative Kourier plugin version used at the time being is `knative-v1.17.0`
 

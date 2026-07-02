@@ -27,8 +27,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	igwapiv1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
-	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	igwapiv1alpha2 "github.com/kserve/kserve/pkg/apis/gie/v1alpha2pool"
 
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 
@@ -487,7 +490,7 @@ func TestLLMInferenceServiceConversion_ScalingSpecWithHPA(t *testing.T) {
 			WorkloadSpec: WorkloadSpec{
 				Scaling: &ScalingSpec{
 					MinReplicas: ptr.To(int32(2)),
-					MaxReplicas: ptr.To(int32(10)),
+					MaxReplicas: 10,
 					WVA: &WVASpec{
 						VariantCost: "15.0",
 						ActuatorSpec: ActuatorSpec{
@@ -516,7 +519,7 @@ func TestLLMInferenceServiceConversion_ScalingSpecWithHPA(t *testing.T) {
 	// Verify the scaling spec is converted
 	require.NotNil(t, dst.Spec.Scaling)
 	assert.Equal(t, int32(2), *dst.Spec.Scaling.MinReplicas)
-	assert.Equal(t, int32(10), *dst.Spec.Scaling.MaxReplicas)
+	assert.Equal(t, int32(10), dst.Spec.Scaling.MaxReplicas)
 	require.NotNil(t, dst.Spec.Scaling.WVA)
 	assert.Equal(t, "15.0", dst.Spec.Scaling.WVA.VariantCost)
 	require.NotNil(t, dst.Spec.Scaling.WVA.HPA)
@@ -533,7 +536,7 @@ func TestLLMInferenceServiceConversion_ScalingSpecWithHPA(t *testing.T) {
 	// Verify round-trip
 	require.NotNil(t, restored.Spec.Scaling)
 	assert.Equal(t, int32(2), *restored.Spec.Scaling.MinReplicas)
-	assert.Equal(t, int32(10), *restored.Spec.Scaling.MaxReplicas)
+	assert.Equal(t, int32(10), restored.Spec.Scaling.MaxReplicas)
 	require.NotNil(t, restored.Spec.Scaling.WVA)
 	assert.Equal(t, "15.0", restored.Spec.Scaling.WVA.VariantCost)
 	require.NotNil(t, restored.Spec.Scaling.WVA.HPA)
@@ -558,7 +561,7 @@ func TestLLMInferenceServiceConversion_ScalingSpecWithKEDA(t *testing.T) {
 			WorkloadSpec: WorkloadSpec{
 				Scaling: &ScalingSpec{
 					MinReplicas: ptr.To(int32(3)),
-					MaxReplicas: ptr.To(int32(20)),
+					MaxReplicas: 20,
 					WVA: &WVASpec{
 						VariantCost: "5.5",
 						ActuatorSpec: ActuatorSpec{
@@ -587,7 +590,7 @@ func TestLLMInferenceServiceConversion_ScalingSpecWithKEDA(t *testing.T) {
 	// Verify the scaling spec is converted
 	require.NotNil(t, dst.Spec.Scaling)
 	assert.Equal(t, int32(3), *dst.Spec.Scaling.MinReplicas)
-	assert.Equal(t, int32(20), *dst.Spec.Scaling.MaxReplicas)
+	assert.Equal(t, int32(20), dst.Spec.Scaling.MaxReplicas)
 	require.NotNil(t, dst.Spec.Scaling.WVA)
 	assert.Equal(t, "5.5", dst.Spec.Scaling.WVA.VariantCost)
 	assert.Nil(t, dst.Spec.Scaling.WVA.HPA)
@@ -608,7 +611,7 @@ func TestLLMInferenceServiceConversion_ScalingSpecWithKEDA(t *testing.T) {
 	// Verify round-trip
 	require.NotNil(t, restored.Spec.Scaling)
 	assert.Equal(t, int32(3), *restored.Spec.Scaling.MinReplicas)
-	assert.Equal(t, int32(20), *restored.Spec.Scaling.MaxReplicas)
+	assert.Equal(t, int32(20), restored.Spec.Scaling.MaxReplicas)
 	require.NotNil(t, restored.Spec.Scaling.WVA)
 	assert.Equal(t, "5.5", restored.Spec.Scaling.WVA.VariantCost)
 	assert.Nil(t, restored.Spec.Scaling.WVA.HPA)
@@ -679,7 +682,7 @@ func TestLLMInferenceServiceConversion_ScalingOnPrefill(t *testing.T) {
 			Prefill: &WorkloadSpec{
 				Scaling: &ScalingSpec{
 					MinReplicas: ptr.To(int32(1)),
-					MaxReplicas: ptr.To(int32(8)),
+					MaxReplicas: 8,
 					WVA: &WVASpec{
 						VariantCost: "10.0",
 						ActuatorSpec: ActuatorSpec{
@@ -704,7 +707,7 @@ func TestLLMInferenceServiceConversion_ScalingOnPrefill(t *testing.T) {
 	require.NotNil(t, dst.Spec.Prefill)
 	require.NotNil(t, dst.Spec.Prefill.Scaling)
 	assert.Equal(t, int32(1), *dst.Spec.Prefill.Scaling.MinReplicas)
-	assert.Equal(t, int32(8), *dst.Spec.Prefill.Scaling.MaxReplicas)
+	assert.Equal(t, int32(8), dst.Spec.Prefill.Scaling.MaxReplicas)
 	require.NotNil(t, dst.Spec.Prefill.Scaling.WVA)
 	assert.Equal(t, "10.0", dst.Spec.Prefill.Scaling.WVA.VariantCost)
 	require.NotNil(t, dst.Spec.Prefill.Scaling.WVA.HPA)
@@ -720,7 +723,7 @@ func TestLLMInferenceServiceConversion_ScalingOnPrefill(t *testing.T) {
 	require.NotNil(t, restored.Spec.Prefill)
 	require.NotNil(t, restored.Spec.Prefill.Scaling)
 	assert.Equal(t, int32(1), *restored.Spec.Prefill.Scaling.MinReplicas)
-	assert.Equal(t, int32(8), *restored.Spec.Prefill.Scaling.MaxReplicas)
+	assert.Equal(t, int32(8), restored.Spec.Prefill.Scaling.MaxReplicas)
 	require.NotNil(t, restored.Spec.Prefill.Scaling.WVA)
 	require.NotNil(t, restored.Spec.Prefill.Scaling.WVA.HPA)
 }
@@ -741,7 +744,7 @@ func TestLLMInferenceServiceConversion_DecodeAndPrefillWithDifferentScaling(t *t
 			WorkloadSpec: WorkloadSpec{
 				Scaling: &ScalingSpec{
 					MinReplicas: ptr.To(int32(2)),
-					MaxReplicas: ptr.To(int32(10)),
+					MaxReplicas: 10,
 					WVA: &WVASpec{
 						VariantCost: "10.0",
 						ActuatorSpec: ActuatorSpec{
@@ -753,7 +756,7 @@ func TestLLMInferenceServiceConversion_DecodeAndPrefillWithDifferentScaling(t *t
 			Prefill: &WorkloadSpec{
 				Scaling: &ScalingSpec{
 					MinReplicas: ptr.To(int32(4)),
-					MaxReplicas: ptr.To(int32(20)),
+					MaxReplicas: 20,
 					WVA: &WVASpec{
 						VariantCost: "5.0",
 						ActuatorSpec: ActuatorSpec{
@@ -782,7 +785,7 @@ func TestLLMInferenceServiceConversion_DecodeAndPrefillWithDifferentScaling(t *t
 	// Verify decode scaling
 	require.NotNil(t, dst.Spec.Scaling)
 	assert.Equal(t, int32(2), *dst.Spec.Scaling.MinReplicas)
-	assert.Equal(t, int32(10), *dst.Spec.Scaling.MaxReplicas)
+	assert.Equal(t, int32(10), dst.Spec.Scaling.MaxReplicas)
 	assert.Equal(t, "10.0", dst.Spec.Scaling.WVA.VariantCost)
 	require.NotNil(t, dst.Spec.Scaling.WVA.HPA)
 	assert.Nil(t, dst.Spec.Scaling.WVA.KEDA)
@@ -791,7 +794,7 @@ func TestLLMInferenceServiceConversion_DecodeAndPrefillWithDifferentScaling(t *t
 	require.NotNil(t, dst.Spec.Prefill)
 	require.NotNil(t, dst.Spec.Prefill.Scaling)
 	assert.Equal(t, int32(4), *dst.Spec.Prefill.Scaling.MinReplicas)
-	assert.Equal(t, int32(20), *dst.Spec.Prefill.Scaling.MaxReplicas)
+	assert.Equal(t, int32(20), dst.Spec.Prefill.Scaling.MaxReplicas)
 	assert.Equal(t, "5.0", dst.Spec.Prefill.Scaling.WVA.VariantCost)
 	assert.Nil(t, dst.Spec.Prefill.Scaling.WVA.HPA)
 	require.NotNil(t, dst.Spec.Prefill.Scaling.WVA.KEDA)
@@ -810,7 +813,7 @@ func TestLLMInferenceServiceConversion_DecodeAndPrefillWithDifferentScaling(t *t
 	// Verify decode round-trip
 	require.NotNil(t, restored.Spec.Scaling)
 	assert.Equal(t, int32(2), *restored.Spec.Scaling.MinReplicas)
-	assert.Equal(t, int32(10), *restored.Spec.Scaling.MaxReplicas)
+	assert.Equal(t, int32(10), restored.Spec.Scaling.MaxReplicas)
 	assert.Equal(t, "10.0", restored.Spec.Scaling.WVA.VariantCost)
 	require.NotNil(t, restored.Spec.Scaling.WVA.HPA)
 	assert.Nil(t, restored.Spec.Scaling.WVA.KEDA)
@@ -819,7 +822,7 @@ func TestLLMInferenceServiceConversion_DecodeAndPrefillWithDifferentScaling(t *t
 	require.NotNil(t, restored.Spec.Prefill)
 	require.NotNil(t, restored.Spec.Prefill.Scaling)
 	assert.Equal(t, int32(4), *restored.Spec.Prefill.Scaling.MinReplicas)
-	assert.Equal(t, int32(20), *restored.Spec.Prefill.Scaling.MaxReplicas)
+	assert.Equal(t, int32(20), restored.Spec.Prefill.Scaling.MaxReplicas)
 	assert.Equal(t, "5.0", restored.Spec.Prefill.Scaling.WVA.VariantCost)
 	assert.Nil(t, restored.Spec.Prefill.Scaling.WVA.HPA)
 	require.NotNil(t, restored.Spec.Prefill.Scaling.WVA.KEDA)
@@ -830,4 +833,314 @@ func TestLLMInferenceServiceConversion_DecodeAndPrefillWithDifferentScaling(t *t
 	require.NotNil(t, restored.Spec.Prefill.Scaling.WVA.KEDA.Fallback)
 	assert.Equal(t, int32(5), restored.Spec.Prefill.Scaling.WVA.KEDA.Fallback.FailureThreshold)
 	assert.Equal(t, int32(3), restored.Spec.Prefill.Scaling.WVA.KEDA.Fallback.Replicas)
+}
+
+func TestLLMInferenceServiceConversion_PreservesLoRASpecFields(t *testing.T) {
+	modelName := "base-model"
+	adapterName := "my-adapter"
+
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-isvc-lora-fields",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI:  apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"},
+				Name: &modelName,
+				LoRA: &LoRASpec{
+					Adapters: []LLMModelSpec{
+						{
+							URI:  apis.URL{Scheme: "hf", Host: "my-org/my-adapter"},
+							Name: &adapterName,
+						},
+					},
+					MaxRank:        ptr.To(int32(128)),
+					MaxAdapters:    ptr.To(int32(4)),
+					MaxCpuAdapters: ptr.To(int32(8)),
+				},
+			},
+		},
+	}
+
+	// Convert to v1alpha2 (hub)
+	dst := &v1alpha2.LLMInferenceService{}
+	err := src.ConvertTo(dst)
+	require.NoError(t, err)
+
+	// Verify LoRA fields in v1alpha2
+	require.NotNil(t, dst.Spec.Model.LoRA)
+	assert.Len(t, dst.Spec.Model.LoRA.Adapters, 1)
+	require.NotNil(t, dst.Spec.Model.LoRA.MaxRank)
+	assert.Equal(t, int32(128), *dst.Spec.Model.LoRA.MaxRank)
+	require.NotNil(t, dst.Spec.Model.LoRA.MaxAdapters)
+	assert.Equal(t, int32(4), *dst.Spec.Model.LoRA.MaxAdapters)
+	require.NotNil(t, dst.Spec.Model.LoRA.MaxCpuAdapters)
+	assert.Equal(t, int32(8), *dst.Spec.Model.LoRA.MaxCpuAdapters)
+
+	// Convert back to v1alpha1
+	restored := &LLMInferenceService{}
+	err = restored.ConvertFrom(dst)
+	require.NoError(t, err)
+
+	// Verify LoRA fields round-trip correctly
+	require.NotNil(t, restored.Spec.Model.LoRA)
+	assert.Len(t, restored.Spec.Model.LoRA.Adapters, 1)
+	assert.Equal(t, adapterName, *restored.Spec.Model.LoRA.Adapters[0].Name)
+	require.NotNil(t, restored.Spec.Model.LoRA.MaxRank)
+	assert.Equal(t, int32(128), *restored.Spec.Model.LoRA.MaxRank)
+	require.NotNil(t, restored.Spec.Model.LoRA.MaxAdapters)
+	assert.Equal(t, int32(4), *restored.Spec.Model.LoRA.MaxAdapters)
+	require.NotNil(t, restored.Spec.Model.LoRA.MaxCpuAdapters)
+	assert.Equal(t, int32(8), *restored.Spec.Model.LoRA.MaxCpuAdapters)
+}
+
+func TestLLMInferenceServiceConversion_StatusRoundtrip_V1Alpha1ToV1Alpha2(t *testing.T) {
+	externalName := "gateway-external"
+	internalName := "gateway-internal"
+	externalURL, _ := apis.ParseURL("https://example.com/ns/m")
+	internalURL, _ := apis.ParseURL("https://gw.ns.svc.cluster.local/ns/m")
+
+	addressSingular := &duckv1.Addressable{URL: externalURL}
+
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+		Spec:       LLMInferenceServiceSpec{Model: LLMModelSpec{URI: *apis.HTTPS("example.com")}},
+		Status: LLMInferenceServiceStatus{
+			URL: apis.HTTPS("example.com"),
+			AddressStatus: duckv1.AddressStatus{
+				Address: addressSingular,
+				Addresses: []duckv1.Addressable{
+					{Name: &externalName, URL: externalURL},
+					{Name: &internalName, URL: internalURL},
+				},
+			},
+		},
+	}
+
+	// v1alpha1 -> v1alpha2
+	hub := &v1alpha2.LLMInferenceService{}
+	require.NoError(t, src.ConvertTo(hub))
+
+	assert.Equal(t, src.Status.URL.String(), hub.Status.URL.String())
+	require.NotNil(t, hub.Status.Address, "Address (singular) should be preserved in ConvertTo") //nolint:staticcheck // testing deprecated field
+	assert.Equal(t, externalURL.String(), hub.Status.Address.URL.String())                       //nolint:staticcheck // testing deprecated field
+	require.Len(t, hub.Status.Addresses, 2)
+	assert.Equal(t, "gateway-external", *hub.Status.Addresses[0].Name)
+	assert.Equal(t, "https://example.com/ns/m", hub.Status.Addresses[0].URL.String())
+	assert.Nil(t, hub.Status.Addresses[0].Origin, "Origin should be nil when coming from v1alpha1")
+	assert.Nil(t, hub.Status.Addresses[1].Origin)
+
+	// v1alpha2 -> v1alpha1 (roundtrip)
+	restored := &LLMInferenceService{}
+	require.NoError(t, restored.ConvertFrom(hub))
+
+	assert.Equal(t, src.Status.URL.String(), restored.Status.URL.String())
+	require.NotNil(t, restored.Status.Address, "Address (singular) should survive roundtrip")
+	assert.Equal(t, externalURL.String(), restored.Status.Address.URL.String())
+	require.Len(t, restored.Status.Addresses, 2)
+	assert.Equal(t, "gateway-external", *restored.Status.AddressStatus.Addresses[0].Name)
+	assert.Equal(t, src.Status.Addresses[0].URL.String(), restored.Status.Addresses[0].URL.String())
+}
+
+func TestLLMInferenceServiceConversion_NilLoRASpecFields(t *testing.T) {
+	modelName := "base-model"
+	adapterName := "my-adapter"
+
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-isvc-lora-nil-fields",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI:  apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"},
+				Name: &modelName,
+				LoRA: &LoRASpec{
+					Adapters: []LLMModelSpec{
+						{
+							URI:  apis.URL{Scheme: "hf", Host: "my-org/my-adapter"},
+							Name: &adapterName,
+						},
+					},
+					// MaxRank, MaxAdapters, MaxCpuAdapters all nil (defaults)
+				},
+			},
+		},
+	}
+
+	// Convert to v1alpha2 (hub)
+	dst := &v1alpha2.LLMInferenceService{}
+	err := src.ConvertTo(dst)
+	require.NoError(t, err)
+
+	// Verify nil fields remain nil in v1alpha2
+	require.NotNil(t, dst.Spec.Model.LoRA)
+	assert.Nil(t, dst.Spec.Model.LoRA.MaxRank)
+	assert.Nil(t, dst.Spec.Model.LoRA.MaxAdapters)
+	assert.Nil(t, dst.Spec.Model.LoRA.MaxCpuAdapters)
+
+	// Convert back to v1alpha1
+	restored := &LLMInferenceService{}
+	err = restored.ConvertFrom(dst)
+	require.NoError(t, err)
+
+	// Verify nil fields remain nil after round-trip
+	require.NotNil(t, restored.Spec.Model.LoRA)
+	assert.Nil(t, restored.Spec.Model.LoRA.MaxRank)
+	assert.Nil(t, restored.Spec.Model.LoRA.MaxAdapters)
+	assert.Nil(t, restored.Spec.Model.LoRA.MaxCpuAdapters)
+}
+
+func TestLLMInferenceServiceConversion_StatusRoundtrip_V1Alpha2ToV1Alpha1(t *testing.T) {
+	externalName := "gateway-external"
+	externalURL, _ := apis.ParseURL("https://example.com/ns/m")
+
+	addressSingular := &duckv1.Addressable{URL: externalURL}
+
+	hub := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+		Spec:       v1alpha2.LLMInferenceServiceSpec{Model: v1alpha2.LLMModelSpec{URI: *apis.HTTPS("example.com")}},
+		Status: v1alpha2.LLMInferenceServiceStatus{
+			URL:     apis.HTTPS("example.com"),
+			Address: addressSingular,
+			Addresses: []v1alpha2.SourcedAddress{
+				{
+					Addressable: duckv1.Addressable{
+						Name: &externalName,
+						URL:  externalURL,
+					},
+					Origin: &gwapiv1.ObjectReference{
+						Group:     "gateway.networking.k8s.io",
+						Kind:      "Gateway",
+						Name:      "my-gateway",
+						Namespace: ptr.To(gwapiv1.Namespace("istio-system")),
+					},
+				},
+			},
+		},
+	}
+
+	// v1alpha2 -> v1alpha1
+	spoke := &LLMInferenceService{}
+	require.NoError(t, spoke.ConvertFrom(hub))
+
+	assert.Equal(t, hub.Status.URL.String(), spoke.Status.URL.String())
+	require.NotNil(t, spoke.Status.Address, "Address (singular) should be preserved in ConvertFrom")
+	assert.Equal(t, externalURL.String(), spoke.Status.Address.URL.String())
+	require.Len(t, spoke.Status.Addresses, 1)
+	assert.Equal(t, "gateway-external", *spoke.Status.AddressStatus.Addresses[0].Name)
+	assert.Equal(t, "https://example.com/ns/m", spoke.Status.Addresses[0].URL.String())
+
+	// v1alpha1 -> v1alpha2 (roundtrip) - Origin is lost
+	restored := &v1alpha2.LLMInferenceService{}
+	require.NoError(t, spoke.ConvertTo(restored))
+
+	assert.Equal(t, hub.Status.URL.String(), restored.Status.URL.String())
+	require.NotNil(t, restored.Status.Address, "Address (singular) should survive roundtrip") //nolint:staticcheck // testing deprecated field
+	assert.Equal(t, externalURL.String(), restored.Status.Address.URL.String())               //nolint:staticcheck // testing deprecated field
+	require.Len(t, restored.Status.Addresses, 1)
+	assert.Equal(t, "gateway-external", *restored.Status.Addresses[0].Name)
+	assert.Equal(t, "https://example.com/ns/m", restored.Status.Addresses[0].URL.String())
+	assert.Nil(t, restored.Status.Addresses[0].Origin, "Origin is lost on v1alpha2 -> v1alpha1 -> v1alpha2 roundtrip")
+}
+
+func TestLLMInferenceServiceConversion_PreservesTracing(t *testing.T) {
+	endpoint := "http://my-collector:4317"
+	sampler := "parentbased_traceidratio"
+	samplerArg := "0.1"
+	exporter := "otlp"
+
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-tracing",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI: apis.URL{Scheme: "hf", Host: "Qwen/Qwen2.5-7B-Instruct"},
+			},
+			Tracing: &TracingSpec{
+				ExporterEndpoint: &endpoint,
+				Sampler:          &sampler,
+				SamplerArg:       &samplerArg,
+				Exporter:         &exporter,
+			},
+		},
+	}
+
+	// v1alpha1 -> v1alpha2
+	hub := &v1alpha2.LLMInferenceService{}
+	err := src.ConvertTo(hub)
+	require.NoError(t, err)
+
+	require.NotNil(t, hub.Spec.Tracing)
+	assert.Equal(t, endpoint, *hub.Spec.Tracing.ExporterEndpoint)
+	assert.Equal(t, sampler, *hub.Spec.Tracing.Sampler)
+	assert.Equal(t, samplerArg, *hub.Spec.Tracing.SamplerArg)
+	assert.Equal(t, exporter, *hub.Spec.Tracing.Exporter)
+
+	// v1alpha2 -> v1alpha1
+	restored := &LLMInferenceService{}
+	err = restored.ConvertFrom(hub)
+	require.NoError(t, err)
+
+	require.NotNil(t, restored.Spec.Tracing)
+	assert.Equal(t, endpoint, *restored.Spec.Tracing.ExporterEndpoint)
+	assert.Equal(t, sampler, *restored.Spec.Tracing.Sampler)
+	assert.Equal(t, samplerArg, *restored.Spec.Tracing.SamplerArg)
+	assert.Equal(t, exporter, *restored.Spec.Tracing.Exporter)
+}
+
+func TestLLMInferenceServiceConversion_TracingNilPreserved(t *testing.T) {
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-no-tracing",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI: apis.URL{Scheme: "hf", Host: "Qwen/Qwen2.5-7B-Instruct"},
+			},
+		},
+	}
+
+	// v1alpha1 -> v1alpha2
+	hub := &v1alpha2.LLMInferenceService{}
+	err := src.ConvertTo(hub)
+	require.NoError(t, err)
+	assert.Nil(t, hub.Spec.Tracing)
+
+	// v1alpha2 -> v1alpha1
+	restored := &LLMInferenceService{}
+	err = restored.ConvertFrom(hub)
+	require.NoError(t, err)
+	assert.Nil(t, restored.Spec.Tracing)
+}
+
+func TestLLMInferenceServiceConversion_TracingEmptyStruct(t *testing.T) {
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-tracing-defaults",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI: apis.URL{Scheme: "hf", Host: "Qwen/Qwen2.5-7B-Instruct"},
+			},
+			Tracing: &TracingSpec{},
+		},
+	}
+
+	// v1alpha1 -> v1alpha2
+	hub := &v1alpha2.LLMInferenceService{}
+	err := src.ConvertTo(hub)
+	require.NoError(t, err)
+	require.NotNil(t, hub.Spec.Tracing, "empty tracing struct should be preserved")
+
+	// v1alpha2 -> v1alpha1
+	restored := &LLMInferenceService{}
+	err = restored.ConvertFrom(hub)
+	require.NoError(t, err)
+	require.NotNil(t, restored.Spec.Tracing, "empty tracing struct should survive roundtrip")
 }

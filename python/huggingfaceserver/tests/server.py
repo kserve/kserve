@@ -37,7 +37,6 @@ class RemoteOpenAIServer:
         env_dict: Optional[Dict[str, str]] = None,
         max_wait_seconds: Optional[float] = None,
     ) -> None:
-
         parser = FlexibleArgumentParser(description="huggingface server")
         parser = make_arg_parser(parser)
         args = parser.parse_args(["--model", model, *vllm_serve_args])

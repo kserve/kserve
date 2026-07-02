@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 	. "github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
@@ -1202,6 +1203,79 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			// Validate NO storage-initializer was created
 			validateNoStorageInitializer(expectedMainDeployment)
 			validateNoStorageInitializer(expectedPrefillDeployment)
+		})
+
+		It("should rewrite model URI to PVC when local model cache labels are present", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-storage-local-cache"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			sourceUri := "hf://meta-llama/Llama-3.2-1B"
+			modelURL, err := apis.ParseURL(sourceUri)
+			Expect(err).ToNot(HaveOccurred())
+
+			storageKey := v1alpha1.GetStorageKey(sourceUri)
+			pvcName := "test-cache-gpu1"
+
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      svcName,
+					Namespace: testNs.Name,
+					Labels: map[string]string{
+						constants.LocalModelLabel: "test-cache",
+					},
+					Annotations: map[string]string{
+						constants.LocalModelSourceUriAnnotationKey: sourceUri,
+						constants.LocalModelPVCNameAnnotationKey:   pvcName,
+					},
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{
+						Name: ptr.To("foo"),
+						URI:  *modelURL,
+					},
+					WorkloadSpec: v1alpha2.WorkloadSpec{},
+					Router: &v1alpha2.RouterSpec{
+						Route:     &v1alpha2.GatewayRoutesSpec{},
+						Gateway:   &v1alpha2.GatewaySpec{},
+						Scheduler: &v1alpha2.SchedulerSpec{},
+					},
+					Prefill: &v1alpha2.WorkloadSpec{},
+				},
+			}
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - verify main deployment uses PVC mount with rewritten URI
+			expectedMainDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve",
+					Namespace: testNs.Name,
+				}, expectedMainDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			mainContainer := utils.GetContainerWithName(&expectedMainDeployment.Spec.Template.Spec, "main")
+			Expect(mainContainer).ToNot(BeNil())
+
+			Expect(expectedMainDeployment.Spec.Template.Spec.Volumes).To(ContainElement(And(
+				HaveField("Name", constants.PvcSourceMountName),
+				HaveField("VolumeSource.PersistentVolumeClaim.ClaimName", pvcName),
+			)))
+
+			Expect(mainContainer.VolumeMounts).To(ContainElement(And(
+				HaveField("Name", constants.PvcSourceMountName),
+				HaveField("MountPath", constants.DefaultModelLocalMountPath),
+				HaveField("ReadOnly", BeTrue()),
+				HaveField("SubPath", "models/"+storageKey+"/"),
+			)))
+
+			// Verify NO storage-initializer was created (model comes from local cache PVC)
+			validateNoStorageInitializer(expectedMainDeployment)
 		})
 	})
 

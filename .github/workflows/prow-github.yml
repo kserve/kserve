@@ -5,11 +5,16 @@ on:
   issue_comment:
     types: [created]
 
+# Required for the prow action to manage labels, assignees, milestones, etc.
+permissions:
+  issues: write
+  pull-requests: write
+
 jobs:
   prow-execute:
     runs-on: ubuntu-latest
     steps:
-      - uses: jpmcb/prow-github-actions@v2.0.0
+      - uses: jpmcb/prow-github-actions@c44ac3a57d67639e39e4a4988b52049ef45b80dd # v2.0.0
         with:
           prow-commands: '/assign 
             /unassign 
