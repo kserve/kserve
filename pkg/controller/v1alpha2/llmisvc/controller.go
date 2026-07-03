@@ -65,7 +65,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/utils"
 
-	kserveapiv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	kserveTypes "github.com/kserve/kserve/pkg/types"
 )
@@ -461,13 +461,13 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// deletes are ignored because they can't retroactively affect existing services
 	// (a new runtime has no consumers yet; a deleted runtime falls through silently
 	// during merge).
-	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), kserveapiv1alpha1.SchemeGroupVersion.String(), "ClusterServingRuntime"); ok && err == nil {
-		b = b.Watches(&kserveapiv1alpha1.ClusterServingRuntime{},
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), v1alpha1.SchemeGroupVersion.String(), "ClusterServingRuntime"); ok && err == nil {
+		b = b.Watches(&v1alpha1.ClusterServingRuntime{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueOnClusterServingRuntimeChange(logger)),
 			builder.WithPredicates(servingRuntimeSpecChangedPredicate()))
 	}
-	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), kserveapiv1alpha1.SchemeGroupVersion.String(), "ServingRuntime"); ok && err == nil {
-		b = b.Watches(&kserveapiv1alpha1.ServingRuntime{},
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), v1alpha1.SchemeGroupVersion.String(), "ServingRuntime"); ok && err == nil {
+		b = b.Watches(&v1alpha1.ServingRuntime{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueOnServingRuntimeChange(logger)),
 			builder.WithPredicates(servingRuntimeSpecChangedPredicate()))
 	}
