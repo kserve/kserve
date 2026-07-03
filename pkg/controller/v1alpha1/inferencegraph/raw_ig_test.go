@@ -85,6 +85,69 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 				},
 			},
 		},
+		"with nodeselector": {
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "nodeselector-ig",
+				Namespace: "nodeselector-ig-namespace",
+			},
+			Spec: InferenceGraphSpec{
+				NodeSelector: map[string]string{"disktype": "ssd"},
+				Nodes: map[string]InferenceRouter{
+					GraphRootNodeName: {
+						RouterType: Sequence,
+						Steps: []InferenceStep{
+							{
+								InferenceTarget: InferenceTarget{
+									ServiceURL: "http://someservice.example.com",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"with nodename": {
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "nodename-ig",
+				Namespace: "nodename-ig-namespace",
+			},
+			Spec: InferenceGraphSpec{
+				NodeName: "worker-node-1",
+				Nodes: map[string]InferenceRouter{
+					GraphRootNodeName: {
+						RouterType: Sequence,
+						Steps: []InferenceStep{
+							{
+								InferenceTarget: InferenceTarget{
+									ServiceURL: "http://someservice.example.com",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"with serviceaccountname": {
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "serviceaccountname-ig",
+				Namespace: "serviceaccountname-ig-namespace",
+			},
+			Spec: InferenceGraphSpec{
+				ServiceAccountName: "custom-service-account",
+				Nodes: map[string]InferenceRouter{
+					GraphRootNodeName: {
+						RouterType: Sequence,
+						Steps: []InferenceStep{
+							{
+								InferenceTarget: InferenceTarget{
+									ServiceURL: "http://someservice.example.com",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 		"withresource": {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "resource-ig",
@@ -224,6 +287,111 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 			AutomountServiceAccountToken: proto.Bool(false),
 			ImagePullSecrets:             []corev1.LocalObjectReference{},
 		},
+		"with nodeselector": {
+			Containers: []corev1.Container{
+				{
+					Image: "kserve/router:v0.10.0",
+					Name:  "nodeselector-ig",
+					Args: []string{
+						"--graph-json",
+						"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.example.com\"}]}},\"resources\":{},\"nodeSelector\":{\"disktype\":\"ssd\"}}",
+					},
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+							corev1.ResourceMemory: resource.MustParse("500Mi"),
+						},
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+							corev1.ResourceMemory: resource.MustParse("100Mi"),
+						},
+					},
+					ReadinessProbe: expectedReadinessProbe,
+					SecurityContext: &corev1.SecurityContext{
+						Privileged:               proto.Bool(false),
+						RunAsNonRoot:             proto.Bool(true),
+						ReadOnlyRootFilesystem:   proto.Bool(true),
+						AllowPrivilegeEscalation: proto.Bool(false),
+						Capabilities: &corev1.Capabilities{
+							Drop: []corev1.Capability{corev1.Capability("ALL")},
+						},
+					},
+				},
+			},
+			NodeSelector:                 map[string]string{"disktype": "ssd"},
+			AutomountServiceAccountToken: proto.Bool(false),
+			ImagePullSecrets:             []corev1.LocalObjectReference{},
+		},
+		"with nodename": {
+			Containers: []corev1.Container{
+				{
+					Image: "kserve/router:v0.10.0",
+					Name:  "nodename-ig",
+					Args: []string{
+						"--graph-json",
+						"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.example.com\"}]}},\"resources\":{},\"nodeName\":\"worker-node-1\"}",
+					},
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+							corev1.ResourceMemory: resource.MustParse("500Mi"),
+						},
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+							corev1.ResourceMemory: resource.MustParse("100Mi"),
+						},
+					},
+					ReadinessProbe: expectedReadinessProbe,
+					SecurityContext: &corev1.SecurityContext{
+						Privileged:               proto.Bool(false),
+						RunAsNonRoot:             proto.Bool(true),
+						ReadOnlyRootFilesystem:   proto.Bool(true),
+						AllowPrivilegeEscalation: proto.Bool(false),
+						Capabilities: &corev1.Capabilities{
+							Drop: []corev1.Capability{corev1.Capability("ALL")},
+						},
+					},
+				},
+			},
+			NodeName:                     "worker-node-1",
+			AutomountServiceAccountToken: proto.Bool(false),
+			ImagePullSecrets:             []corev1.LocalObjectReference{},
+		},
+		"with serviceaccountname": {
+			Containers: []corev1.Container{
+				{
+					Image: "kserve/router:v0.10.0",
+					Name:  "serviceaccountname-ig",
+					Args: []string{
+						"--graph-json",
+						"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.example.com\"}]}},\"resources\":{},\"serviceAccountName\":\"custom-service-account\"}",
+					},
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+							corev1.ResourceMemory: resource.MustParse("500Mi"),
+						},
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+							corev1.ResourceMemory: resource.MustParse("100Mi"),
+						},
+					},
+					ReadinessProbe: expectedReadinessProbe,
+					SecurityContext: &corev1.SecurityContext{
+						Privileged:               proto.Bool(false),
+						RunAsNonRoot:             proto.Bool(true),
+						ReadOnlyRootFilesystem:   proto.Bool(true),
+						AllowPrivilegeEscalation: proto.Bool(false),
+						Capabilities: &corev1.Capabilities{
+							Drop: []corev1.Capability{corev1.Capability("ALL")},
+						},
+					},
+				},
+			},
+			ServiceAccountName:           "custom-service-account",
+			AutomountServiceAccountToken: proto.Bool(false),
+			ImagePullSecrets:             []corev1.LocalObjectReference{},
+		},
 		"basicgraphwithheaders": {
 			Containers: []corev1.Container{
 				{
@@ -354,6 +522,21 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 				config: &routerConfig,
 			},
 			expected: expectedPodSpecs["basicgraph"],
+		},
+		{
+			name:     "Inference graph with node selector",
+			args:     args{testIGSpecs["with nodeselector"], &routerConfig},
+			expected: expectedPodSpecs["with nodeselector"],
+		},
+		{
+			name:     "Inference graph with node name",
+			args:     args{testIGSpecs["with nodename"], &routerConfig},
+			expected: expectedPodSpecs["with nodename"],
+		},
+		{
+			name:     "Inference graph with service account name",
+			args:     args{testIGSpecs["with serviceaccountname"], &routerConfig},
+			expected: expectedPodSpecs["with serviceaccountname"],
 		},
 		{
 			name:     "Inference graph with resource requirements",
