@@ -1267,19 +1267,21 @@ func TestLLMInferenceServiceConversion_PreservesRuntime(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "test-llm-isvc", Namespace: "default"},
 		Spec: LLMInferenceServiceSpec{
 			Model:   LLMModelSpec{URI: apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"}, Name: &modelName},
-			Runtime: LLMRuntimeSGLang,
+			Runtime: ptr.To("kserve-llm-sglang"),
 		},
 	}
 
 	// Convert to v1alpha2
 	dst := &v1alpha2.LLMInferenceService{}
 	require.NoError(t, src.ConvertTo(dst))
-	assert.Equal(t, v1alpha2.LLMRuntimeSGLang, dst.Spec.Runtime)
+	require.NotNil(t, dst.Spec.Runtime)
+	assert.Equal(t, "kserve-llm-sglang", *dst.Spec.Runtime)
 
 	// Convert back to v1alpha1
 	restored := &LLMInferenceService{}
 	require.NoError(t, restored.ConvertFrom(dst))
-	assert.Equal(t, LLMRuntimeSGLang, restored.Spec.Runtime)
+	require.NotNil(t, restored.Spec.Runtime)
+	assert.Equal(t, "kserve-llm-sglang", *restored.Spec.Runtime)
 }
 
 func TestLLMInferenceServiceConversion_EmptyRuntimeRoundTrips(t *testing.T) {
@@ -1294,9 +1296,9 @@ func TestLLMInferenceServiceConversion_EmptyRuntimeRoundTrips(t *testing.T) {
 
 	dst := &v1alpha2.LLMInferenceService{}
 	require.NoError(t, src.ConvertTo(dst))
-	assert.Equal(t, v1alpha2.LLMRuntime(""), dst.Spec.Runtime)
+	assert.Nil(t, dst.Spec.Runtime)
 
 	restored := &LLMInferenceService{}
 	require.NoError(t, restored.ConvertFrom(dst))
-	assert.Equal(t, LLMRuntime(""), restored.Spec.Runtime)
+	assert.Nil(t, restored.Spec.Runtime)
 }

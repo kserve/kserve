@@ -3,7 +3,7 @@ kind: LLMInferenceService
 metadata:
   name: sglang-opt-125m-single
 spec:
-  runtime: sglang
+  runtime: kserve-llm-sglang
   model:
     uri: hf://facebook/opt-125m
     name: facebook/opt-125m

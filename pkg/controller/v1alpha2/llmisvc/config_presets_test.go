@@ -619,7 +619,7 @@ func TestPresetFiles(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:  "main",
-									Image: "lmsysorg/sglang:latest",
+									Image: "",
 									Command: []string{
 										"/bin/bash",
 										"-c",
@@ -713,8 +713,6 @@ func TestPresetFiles(t *testing.T) {
 											Drop: []corev1.Capability{"ALL"},
 										},
 										AllowPrivilegeEscalation: ptr.To(false),
-										RunAsNonRoot:             ptr.To(false),
-										RunAsUser:                ptr.To(int64(0)),
 										ReadOnlyRootFilesystem:   ptr.To(true),
 										SeccompProfile: &corev1.SeccompProfile{
 											Type: corev1.SeccompProfileTypeRuntimeDefault,
