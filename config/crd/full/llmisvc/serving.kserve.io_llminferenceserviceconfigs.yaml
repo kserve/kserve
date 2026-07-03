@@ -16763,10 +16763,6 @@ spec:
                       type: object
                   type: object
                 runtime:
-                  default: vllm
-                  enum:
-                    - vllm
-                    - sglang
                   type: string
                 scaling:
                   properties:
@@ -41838,10 +41834,6 @@ spec:
                       type: object
                   type: object
                 runtime:
-                  default: vllm
-                  enum:
-                    - vllm
-                    - sglang
                   type: string
                 scaling:
                   properties:

@@ -16,6 +16,12 @@ limitations under the License.
 
 package llmisvc
 
+import (
+	"context"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+)
+
 // SetUseVersionedConfigForTest overrides the useVersionedConfig flag for testing
 // and returns a cleanup function that restores the original value.
 func SetUseVersionedConfigForTest(enabled bool) func() {
@@ -28,3 +34,8 @@ func SetUseVersionedConfigForTest(enabled bool) func() {
 
 // SelectSingleNodeTemplateName exposes selectSingleNodeTemplateName for testing.
 var SelectSingleNodeTemplateName = selectSingleNodeTemplateName
+
+// ResolveRuntimeSpec exposes (*LLMISVCReconciler).resolveRuntimeSpec for testing.
+func (r *LLMISVCReconciler) ResolveRuntimeSpec(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*v1alpha2.LLMInferenceServiceSpec, error) {
+	return r.resolveRuntimeSpec(ctx, llmSvc)
+}

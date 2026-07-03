@@ -17849,10 +17849,6 @@ spec:
                     type: object
                 type: object
               runtime:
-                default: vllm
-                enum:
-                - vllm
-                - sglang
                 type: string
               scaling:
                 properties:
@@ -25970,6 +25966,7 @@ spec:
                       enum:
                       - Preset
                       - UserRef
+                      - ServingRuntime
                       type: string
                   required:
                   - name

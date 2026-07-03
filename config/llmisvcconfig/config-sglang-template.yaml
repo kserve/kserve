@@ -5,8 +5,11 @@ metadata:
 spec:
   template:
     containers:
-      - image: lmsysorg/sglang:latest
-        imagePullPolicy: IfNotPresent
+      # image is intentionally omitted — the ClusterServingRuntime (or ServingRuntime)
+      # named by spec.runtime supplies it, so operators pin the SGLang version in one
+      # place. spec.template.containers[].image on the LLMInferenceService still
+      # wins if the user sets one explicitly.
+      - imagePullPolicy: IfNotPresent
         name: main
         ports:
           - containerPort: 8000
@@ -35,8 +38,6 @@ spec:
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
-          runAsNonRoot: false
-          runAsUser: 0
           capabilities:
             drop:
               - ALL
