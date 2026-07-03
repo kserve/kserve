@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	kserveapiv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 )
 
@@ -41,14 +41,14 @@ func servingRuntimeSpecChangedPredicate() predicate.Funcs {
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			switch oldObj := e.ObjectOld.(type) {
-			case *kserveapiv1alpha1.ClusterServingRuntime:
-				newObj, ok := e.ObjectNew.(*kserveapiv1alpha1.ClusterServingRuntime)
+			case *v1alpha1.ClusterServingRuntime:
+				newObj, ok := e.ObjectNew.(*v1alpha1.ClusterServingRuntime)
 				if !ok {
 					return false
 				}
 				return !reflect.DeepEqual(oldObj.Spec, newObj.Spec)
-			case *kserveapiv1alpha1.ServingRuntime:
-				newObj, ok := e.ObjectNew.(*kserveapiv1alpha1.ServingRuntime)
+			case *v1alpha1.ServingRuntime:
+				newObj, ok := e.ObjectNew.(*v1alpha1.ServingRuntime)
 				if !ok {
 					return false
 				}
@@ -69,7 +69,7 @@ func servingRuntimeSpecChangedPredicate() predicate.Funcs {
 func (r *LLMISVCReconciler) enqueueOnClusterServingRuntimeChange(logger logr.Logger) handler.MapFunc {
 	logger = logger.WithName("enqueueOnClusterServingRuntimeChange")
 	return func(ctx context.Context, obj client.Object) []reconcile.Request {
-		csr, ok := obj.(*kserveapiv1alpha1.ClusterServingRuntime)
+		csr, ok := obj.(*v1alpha1.ClusterServingRuntime)
 		if !ok || csr == nil {
 			return nil
 		}
@@ -82,7 +82,7 @@ func (r *LLMISVCReconciler) enqueueOnClusterServingRuntimeChange(logger logr.Log
 func (r *LLMISVCReconciler) enqueueOnServingRuntimeChange(logger logr.Logger) handler.MapFunc {
 	logger = logger.WithName("enqueueOnServingRuntimeChange")
 	return func(ctx context.Context, obj client.Object) []reconcile.Request {
-		sr, ok := obj.(*kserveapiv1alpha1.ServingRuntime)
+		sr, ok := obj.(*v1alpha1.ServingRuntime)
 		if !ok || sr == nil {
 			return nil
 		}

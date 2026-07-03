@@ -27,29 +27,29 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	kserveapiv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 )
 
 func TestResolveRuntimeSpec(t *testing.T) {
 	scheme := runtime.NewScheme()
-	require.NoError(t, kserveapiv1alpha1.AddToScheme(scheme))
+	require.NoError(t, v1alpha1.AddToScheme(scheme))
 	require.NoError(t, v1alpha2.AddToScheme(scheme))
 
-	csr := &kserveapiv1alpha1.ClusterServingRuntime{
+	csr := &v1alpha1.ClusterServingRuntime{
 		ObjectMeta: metav1.ObjectMeta{Name: "kserve-llm-sglang"},
-		Spec: kserveapiv1alpha1.ServingRuntimeSpec{
-			ServingRuntimePodSpec: kserveapiv1alpha1.ServingRuntimePodSpec{
+		Spec: v1alpha1.ServingRuntimeSpec{
+			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
 				Containers: []corev1.Container{
 					{Name: "main", Image: "lmsysorg/sglang:v0.5.14"},
 				},
 			},
 		},
 	}
-	sr := &kserveapiv1alpha1.ServingRuntime{
+	sr := &v1alpha1.ServingRuntime{
 		ObjectMeta: metav1.ObjectMeta{Name: "kserve-llm-sglang", Namespace: "team-a"},
-		Spec: kserveapiv1alpha1.ServingRuntimeSpec{
-			ServingRuntimePodSpec: kserveapiv1alpha1.ServingRuntimePodSpec{
+		Spec: v1alpha1.ServingRuntimeSpec{
+			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
 				Containers: []corev1.Container{
 					{Name: "main", Image: "team-a/sglang:custom"},
 				},
