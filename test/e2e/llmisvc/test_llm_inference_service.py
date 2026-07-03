@@ -18,18 +18,12 @@ from urllib.parse import urlparse
 import os
 import pytest
 import requests
-import yaml
 from dataclasses import dataclass, field
 from kserve import KServeClient, V1alpha1LLMInferenceService, constants
 from kubernetes import client
 from typing import Any, Callable, Dict, List, Optional
 
-from .diagnostic import (
-    collect_pod_logs,
-    kinds_matching_by_labels,
-    print_all_events_table,
-    strip_managed_fields,
-)
+from .diagnostic import collect_diagnostics
 from .fixtures import (
     KSERVE_TEST_NAMESPACE,
     create_router_resources,
@@ -820,7 +814,12 @@ def test_llm_inference_service(test_case: TestCase):  # noqa: F811
             service_name,
             e,
         )
-        _collect_diagnostics(kserve_client, test_case.llm_service)
+        collect_diagnostics(
+            service_name,
+            test_case.llm_service.metadata.namespace,
+            kserve_client=kserve_client,
+            log=logger.info,
+        )
         raise
     finally:
         maybe_delete_llmisvc(kserve_client, test_case.llm_service, test_failed)
@@ -1210,36 +1209,3 @@ def wait_for(
                 logger.info("Waiting: %s", e)
                 last_msg = msg
             time.sleep(interval)
-
-
-def _collect_diagnostics(
-    kserve_client: KServeClient,
-    llm_isvc: V1alpha1LLMInferenceService,
-    log_prefix: str = "",
-):
-    name = llm_isvc.metadata.name
-    ns = llm_isvc.metadata.namespace
-
-    labels = {
-        "app.kubernetes.io/part-of": "llminferenceservice",
-        "app.kubernetes.io/name": name,
-    }
-
-    logger.info(f"{log_prefix}🔍 # Diagnostics for %r in %r", name, ns)
-    logger.info(f"{log_prefix} ---")
-    logger.info(f"{log_prefix} # LLMInferenceService %s", name)
-    try:
-        svc = get_llmisvc(kserve_client, name, ns)
-        logger.info(yaml.safe_dump(svc, sort_keys=False))
-    except Exception as e:
-        logger.info(f"{log_prefix} # ❌ failed to dump LLMInferenceService: %s", e)
-
-    print_all_events_table(ns, log=logger.info)
-    collect_pod_logs(ns, labels, log=logger.info)
-
-    all_resources = kinds_matching_by_labels(ns, labels)
-    for obj in all_resources:
-        logger.info(f"{log_prefix} ---")
-        logger.info(
-            yaml.safe_dump(strip_managed_fields(obj.to_dict()), sort_keys=False)
-        )
