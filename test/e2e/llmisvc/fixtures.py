@@ -31,6 +31,9 @@ from .logging import logger
 
 KSERVE_PLURAL_LLMINFERENCESERVICECONFIG = "llminferenceserviceconfigs"
 KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
+DEFAULT_TEST_NAMESPACE = KSERVE_TEST_NAMESPACE
+TEST_NAMESPACE_LABEL_KEY = "kserve.io/e2e-test"
+TEST_NAMESPACE_LABEL_VALUE = "true"
 
 # Scheduler config constants
 SCHEDULER_CONFIGMAP_NAME = "scheduler-config-e2e"
@@ -1415,11 +1418,17 @@ LLMINFERENCESERVICE_CONFIGS = {
 }
 
 
-def _setup_test_case_service(kserve_client, tc, test_node_name, peer_index=None):
+def _setup_test_case_service(
+    kserve_client, tc, test_node_name, peer_index=None, namespace=None
+):
     """Create LLMInferenceServiceConfigs and build the LLMInferenceService for a TestCase.
 
     Returns a list of created config names for cleanup tracking.
     """
+    if namespace is None:
+        namespace = KSERVE_TEST_NAMESPACE
+    tc.namespace = namespace
+
     missing_refs = [
         ref for ref in tc.base_refs if ref not in LLMINFERENCESERVICE_CONFIGS
     ]
@@ -1430,22 +1439,30 @@ def _setup_test_case_service(kserve_client, tc, test_node_name, peer_index=None)
     if not tc.service_name:
         suffix = f"-peer-{peer_index}" if peer_index is not None else ""
         tc.service_name = generate_service_name(test_node_name + suffix, tc.base_refs)
+
     config_model_name = _get_model_name_from_configs(tc.base_refs)
-    if tc.url_getter is not None:
-        model_name_suffix = hashlib.sha256(tc.service_name.encode()).hexdigest()[:6]
-        unique_model_name = f"{config_model_name}-{model_name_suffix}"
-    else:
-        unique_model_name = config_model_name
     if tc.model_name == "default/model":
-        tc.model_name = unique_model_name
+        tc.model_name = config_model_name
+    elif KSERVE_TEST_NAMESPACE in tc.model_name:
+        tc.model_name = tc.model_name.replace(KSERVE_TEST_NAMESPACE, namespace)
+
+    if tc.response_assertion_factory is not None:
+        tc.response_assertion = tc.response_assertion_factory(tc.model_name, namespace)
 
     if tc.url_getter is not None and tc.extra_headers is None:
         tc.extra_headers = {
-            "X-Gateway-Model-Name": f"publishers/{KSERVE_TEST_NAMESPACE}/models/{tc.model_name}",
+            "X-Gateway-Model-Name": f"publishers/{namespace}/models/{tc.model_name}",
         }
 
-    if tc.response_assertion_factory is not None:
-        tc.response_assertion = tc.response_assertion_factory(tc.model_name)
+    if tc.extra_headers is not None:
+        tc.extra_headers = _substitute_namespace(
+            tc.extra_headers, KSERVE_TEST_NAMESPACE, namespace
+        )
+
+    if tc.expected_gateway is not None:
+        tc.expected_gateway = _substitute_namespace(
+            copy.deepcopy(tc.expected_gateway), KSERVE_TEST_NAMESPACE, namespace
+        )
 
     created_configs = []
     unique_base_refs = []
@@ -1454,21 +1471,20 @@ def _setup_test_case_service(kserve_client, tc, test_node_name, peer_index=None)
         unique_base_refs.append(unique_config_name)
 
         spec = copy.deepcopy(LLMINFERENCESERVICE_CONFIGS[base_ref])
-        if "model" in spec and "name" in spec["model"]:
-            spec["model"]["name"] = unique_model_name
+        spec = _substitute_namespace(spec, KSERVE_TEST_NAMESPACE, namespace)
 
         unique_config_body = {
             "apiVersion": "serving.kserve.io/v1alpha1",
             "kind": "LLMInferenceServiceConfig",
             "metadata": {
                 "name": unique_config_name,
-                "namespace": KSERVE_TEST_NAMESPACE,
+                "namespace": namespace,
             },
             "spec": spec,
         }
 
         _create_or_update_llmisvc_config(
-            kserve_client, unique_config_body, KSERVE_TEST_NAMESPACE
+            kserve_client, unique_config_body, namespace
         )
         created_configs.append(unique_config_name)
 
@@ -1476,7 +1492,7 @@ def _setup_test_case_service(kserve_client, tc, test_node_name, peer_index=None)
         api_version="serving.kserve.io/v1alpha1",
         kind="LLMInferenceService",
         metadata=client.V1ObjectMeta(
-            name=tc.service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=tc.service_name, namespace=namespace
         ),
         spec={
             "baseRefs": [{"name": base_ref} for base_ref in unique_base_refs],
@@ -1497,20 +1513,38 @@ def test_case(request):
         client_configuration=client.Configuration(),
     )
 
+    if not tc.service_name:
+        tc.service_name = generate_service_name(request.node.name, tc.base_refs)
+
+    # Model-routing tests get a per-test namespace to avoid cross-test
+    # routing collisions on the shared gateway.
+    created_namespace = False
+    if tc.url_getter is not None:
+        ns = create_test_namespace(tc.service_name)
+        tc.namespace = ns
+        created_namespace = True
+    else:
+        ns = KSERVE_TEST_NAMESPACE
+        tc.namespace = ns
+
     # Execute before test hooks
     try:
         for func in tc.before_test:
             func()
     except Exception as before_test_error:
+        if created_namespace:
+            delete_test_namespace(ns)
         raise RuntimeError(
             f"Failed to execute before test hook: {before_test_error}"
         ) from before_test_error
 
     try:
-        _setup_test_case_service(kserve_client, tc, request.node.name)
+        _setup_test_case_service(
+            kserve_client, tc, request.node.name, namespace=ns
+        )
         for i, peer in enumerate(tc.peers):
             _setup_test_case_service(
-                kserve_client, peer, request.node.name, peer_index=i
+                kserve_client, peer, request.node.name, peer_index=i, namespace=ns
             )
 
         yield tc
@@ -1520,11 +1554,16 @@ def test_case(request):
             logger.info("Skipping resource deletion after test execution.")
             return  # noqa: B012
 
-        for func in tc.after_test:
-            try:
-                func()
-            except Exception as after_test_error:
-                logger.warning(f"Failed to execute after test hook: {after_test_error}")
+        if created_namespace:
+            delete_test_namespace(ns)
+        else:
+            for func in tc.after_test:
+                try:
+                    func()
+                except Exception as after_test_error:
+                    logger.warning(
+                        f"Failed to execute after test hook: {after_test_error}"
+                    )
 
 
 def _get_model_name_from_configs(config_names):
@@ -1543,6 +1582,17 @@ _NON_DNS_CHARS = re.compile(r"[^a-z0-9]+")
 def _sanitize_for_dns(s: str) -> str:
     """Replace non-DNS characters with hyphens, mirrors sanitizeForDNS in test_namespace.go."""
     return _NON_DNS_CHARS.sub("-", s.lower()).strip("-")
+
+
+def _substitute_namespace(obj, old_ns: str, new_ns: str):
+    """Recursively replace old_ns with new_ns in all string values of a dict/list tree."""
+    if isinstance(obj, dict):
+        return {k: _substitute_namespace(v, old_ns, new_ns) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_substitute_namespace(v, old_ns, new_ns) for v in obj]
+    if isinstance(obj, str) and old_ns in obj:
+        return obj.replace(old_ns, new_ns)
+    return obj
 
 
 def generate_k8s_safe_suffix(
@@ -1671,6 +1721,68 @@ def inject_k8s_proxy():
         logger.info("No HTTP proxy configured for k8s client")
 
 
+def create_test_namespace(service_name: str) -> str:
+    """Create a per-test namespace with the e2e-test label."""
+    ns_name = f"e2e-{service_name}"[:63].rstrip("-")
+    core_v1 = client.CoreV1Api()
+
+    ns = client.V1Namespace(
+        metadata=client.V1ObjectMeta(
+            name=ns_name,
+            labels={TEST_NAMESPACE_LABEL_KEY: TEST_NAMESPACE_LABEL_VALUE},
+        )
+    )
+    try:
+        core_v1.create_namespace(ns)
+        logger.info(f"Created test namespace {ns_name}")
+    except client.rest.ApiException as e:
+        if e.status == 409:
+            logger.info(f"Test namespace {ns_name} already exists")
+        else:
+            raise
+
+    _copy_secret(core_v1, S3_CREDENTIALS_SECRET, DEFAULT_TEST_NAMESPACE, ns_name)
+    return ns_name
+
+
+def delete_test_namespace(ns_name: str):
+    """Delete a test namespace (cascades all resource cleanup)."""
+    core_v1 = client.CoreV1Api()
+    try:
+        core_v1.delete_namespace(ns_name)
+        logger.info(f"Deleted test namespace {ns_name}")
+    except client.rest.ApiException as e:
+        if e.status != 404:
+            raise
+
+
+def _copy_secret(
+    core_v1: client.CoreV1Api, secret_name: str, src_ns: str, dst_ns: str
+):
+    """Copy a secret from one namespace to another, skipping if source doesn't exist."""
+    try:
+        secret = core_v1.read_namespaced_secret(secret_name, src_ns)
+    except client.rest.ApiException as e:
+        if e.status == 404:
+            logger.info(
+                f"Secret {secret_name} not found in {src_ns}, skipping copy"
+            )
+            return
+        raise
+
+    secret.metadata = client.V1ObjectMeta(
+        name=secret_name, namespace=dst_ns
+    )
+    try:
+        core_v1.create_namespaced_secret(dst_ns, secret)
+        logger.info(f"Copied secret {secret_name} from {src_ns} to {dst_ns}")
+    except client.rest.ApiException as e:
+        if e.status == 409:
+            logger.info(f"Secret {secret_name} already exists in {dst_ns}")
+        else:
+            raise
+
+
 # Scheduler config YAML used for ConfigMap ref tests
 SCHEDULER_CONFIG_YAML = """apiVersion: inference.networking.x-k8s.io/v1alpha1
 kind: EndpointPickerConfig
@@ -1690,7 +1802,7 @@ schedulingProfiles:
 """
 
 
-def create_scheduler_configmap():
+def create_scheduler_configmap(namespace=KSERVE_TEST_NAMESPACE):
     """Create ConfigMap with scheduler configuration."""
     inject_k8s_proxy()
     core_v1 = client.CoreV1Api()
@@ -1700,7 +1812,7 @@ def create_scheduler_configmap():
         kind="ConfigMap",
         metadata=client.V1ObjectMeta(
             name=SCHEDULER_CONFIGMAP_NAME,
-            namespace=KSERVE_TEST_NAMESPACE,
+            namespace=namespace,
         ),
         data={
             SCHEDULER_CONFIGMAP_KEY: SCHEDULER_CONFIG_YAML,
@@ -1709,21 +1821,21 @@ def create_scheduler_configmap():
 
     try:
         core_v1.create_namespaced_config_map(
-            namespace=KSERVE_TEST_NAMESPACE,
+            namespace=namespace,
             body=configmap,
         )
         logger.info(
-            f"Created ConfigMap {SCHEDULER_CONFIGMAP_NAME} in namespace {KSERVE_TEST_NAMESPACE}"
+            f"Created ConfigMap {SCHEDULER_CONFIGMAP_NAME} in namespace {namespace}"
         )
     except client.rest.ApiException as e:
         if e.status == 409:  # Already exists
             core_v1.replace_namespaced_config_map(
                 name=SCHEDULER_CONFIGMAP_NAME,
-                namespace=KSERVE_TEST_NAMESPACE,
+                namespace=namespace,
                 body=configmap,
             )
             logger.info(
-                f"Updated ConfigMap {SCHEDULER_CONFIGMAP_NAME} in namespace {KSERVE_TEST_NAMESPACE}"
+                f"Updated ConfigMap {SCHEDULER_CONFIGMAP_NAME} in namespace {namespace}"
             )
         else:
             raise
@@ -1977,7 +2089,7 @@ def delete_model_download_job(
             raise
 
 
-def ensure_pvc_with_model():
+def ensure_pvc_with_model(namespace=KSERVE_TEST_NAMESPACE):
     """Idempotent setup: create PVC and download model if not already done.
 
     Safe to call from multiple test cases -- skips work that is already complete.
@@ -1985,12 +2097,12 @@ def ensure_pvc_with_model():
     inject_k8s_proxy()
     batch_v1 = client.BatchV1Api()
 
-    create_pvc()
+    create_pvc(namespace=namespace)
 
     try:
         job = batch_v1.read_namespaced_job(
             name=MODEL_DOWNLOAD_JOB_NAME,
-            namespace=KSERVE_TEST_NAMESPACE,
+            namespace=namespace,
         )
         if job.status.succeeded and job.status.succeeded >= 1:
             logger.info("Model download Job already completed, skipping")
@@ -1999,5 +2111,5 @@ def ensure_pvc_with_model():
         if e.status != 404:
             raise
 
-    create_model_download_job()
-    wait_for_job_completion()
+    create_model_download_job(namespace=namespace)
+    wait_for_job_completion(namespace=namespace)

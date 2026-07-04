@@ -172,40 +172,36 @@ if [[ $# -eq 1 && "$1" == "llmisvc" ]]; then
   echo "::group::Enhanced LLMISvc system status check... Resources"
   kubectl get gateways -A -o yaml
   kubectl get httproutes -A
-  kubectl get httproute -n kserve-ci-e2e-test -o yaml
   kubectl get inferencepools -A
   kubectl get inferenceobjectives -A
-  kubectl get inferenceobjectives -n kserve-ci-e2e-test -o yaml
-  kubectl get inferencepools -n kserve-ci-e2e-test -o yaml
-  kubectl get llminferenceservices -n kserve-ci-e2e-test -o yaml
+  kubectl get llminferenceservices -A -o yaml
   kubectl get llminferenceserviceconfigs -A
   kubectl get validatingwebhookconfiguration | grep llm
   kubectl get gatewayclasses -A
   kubectl get svc -A
   kubectl get certificate -A
   echo "::endgroup::"
-  echo "::group::Describing LLMInferenceServices in kserve-ci-e2e-test namespace"
-  if ! kubectl get namespace kserve-ci-e2e-test &>/dev/null; then
-    echo "⚠️ Namespace kserve-ci-e2e-test does not exist, skipping..."
-    return
-  fi
-  
-  for llmisvc in $(kubectl get llminferenceservices -n kserve-ci-e2e-test -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
-    echo "=== LLMInferenceService: $llmisvc ==="
-    kubectl describe llminferenceservices -n kserve-ci-e2e-test $llmisvc 2>&1
-  done
 
+  echo "::group::Describing LLMInferenceServices across e2e-test namespaces"
+  for ns in $(kubectl get ns -l kserve.io/e2e-test=true -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+    for llmisvc in $(kubectl get llminferenceservices -n "$ns" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+      echo "=== [$ns] LLMInferenceService: $llmisvc ==="
+      kubectl describe llminferenceservices -n "$ns" "$llmisvc" 2>&1
+    done
+  done
   echo "::endgroup::"
 
   echo "::group::Autoscaling pipeline diagnostics"
   echo "--- ServiceMonitors ---"
   kubectl get servicemonitors -A 2>/dev/null || true
-  echo "--- VariantAutoscalings ---"
-  kubectl get variantautoscalings -n kserve-ci-e2e-test -o yaml 2>/dev/null || true
-  echo "--- HPAs ---"
-  kubectl get hpa -n kserve-ci-e2e-test -o yaml 2>/dev/null || true
-  echo "--- ScaledObjects ---"
-  kubectl get scaledobjects -n kserve-ci-e2e-test -o yaml 2>/dev/null || true
+  for ns in $(kubectl get ns -l kserve.io/e2e-test=true -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+    echo "--- [$ns] VariantAutoscalings ---"
+    kubectl get variantautoscalings -n "$ns" -o yaml 2>/dev/null || true
+    echo "--- [$ns] HPAs ---"
+    kubectl get hpa -n "$ns" -o yaml 2>/dev/null || true
+    echo "--- [$ns] ScaledObjects ---"
+    kubectl get scaledobjects -n "$ns" -o yaml 2>/dev/null || true
+  done
   echo "--- External Metrics APIService ---"
   kubectl get apiservice v1beta1.external.metrics.k8s.io -o yaml 2>/dev/null || true
   echo "--- WVA Controller Logs ---"
@@ -242,3 +238,7 @@ if [[ $# -eq 1 && "$1" == "llmisvc" ]]; then
   echo "::endgroup::"  
 fi
 shopt -u nocasematch
+
+echo "::group::Cleanup e2e-test namespaces"
+kubectl delete ns -l kserve.io/e2e-test=true,kubernetes.io/metadata.name!=kserve-ci-e2e-test --ignore-not-found --wait=false 2>/dev/null || true
+echo "::endgroup::"

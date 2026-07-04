@@ -122,6 +122,7 @@ kubectl wait --for=condition=complete --timeout=30s job/s3-init -n kserve
 
 echo "Creating a namespace kserve-ci-test ..."
 kubectl create namespace kserve-ci-e2e-test
+kubectl label namespace kserve-ci-e2e-test kserve.io/e2e-test=true --overwrite
 
 echo "Add storageSpec testing secrets ..."
 kubectl apply -f config/overlays/test/s3-local-backend/storage-config-secret.yaml -n kserve-ci-e2e-test

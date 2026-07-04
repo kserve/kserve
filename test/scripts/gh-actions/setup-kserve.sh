@@ -42,6 +42,7 @@ echo "Installing KServe using ${INSTALL_METHOD^}..."
 
 echo "Creating a namespace kserve-ci-e2e-test ..."
 kubectl get namespace kserve-ci-e2e-test || kubectl create namespace kserve-ci-e2e-test
+kubectl label namespace kserve-ci-e2e-test kserve.io/e2e-test=true --overwrite
 
 echo "Installing KServe Python SDK ..."
 pushd python/kserve >/dev/null
