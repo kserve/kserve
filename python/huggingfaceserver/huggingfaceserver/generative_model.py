@@ -509,7 +509,7 @@ class HuggingfaceGenerativeModel(OpenAIChatAdapterModel):  # pylint:disable=c-ex
     def apply_chat_template(
         self,
         request: ChatCompletionRequest,
-    ) -> ChatPrompt:  # TODO: Does not supprot multi-modal, also does not solve mistral tokenizer issue.
+    ) -> ChatPrompt:  # TODO: Does not support multi-modal, also does not solve mistral tokenizer issue.
         """
         Given a list of chat completion messages, convert them to a prompt.
         """
