@@ -8,16 +8,12 @@ To start the server locally for development needs, run the following command und
 make dev_install
 ```
 
-After poetry has installed dependencies you should see:
-
-```
-	      Successfully installed alibiexplainer
-```
+After uv has installed dependencies you should see the environment synced with `alibiexplainer` and its dependencies.
 
 You can check for successful installation by running the following command
 
 ```
-$ python alibiexplainer/__main__.py {AnchorTabular|AnchorText|AnchorImages}  
+$ uv run python alibiexplainer/__main__.py {AnchorTabular|AnchorText|AnchorImages}  
 ...
 2024-10-17 15:48:59.751 51916 kserve INFO [explainer.py:__init__():54] Predict URL set to None
 ```
@@ -34,18 +30,12 @@ Install the development dependencies with:
 make dev_install
 ```
 
-The following indicates a successful install:
-
-```
-      Successfully installed alibiexplainer
-	      
-```
+A successful `uv sync` finishes without errors and leaves a `.venv` with the project installed.
 
 To run static type checks:
 
 ```bash
-mypy --ignore-missing-imports alibiexplainer
+uv run mypy --ignore-missing-imports alibiexplainer
 ```
 An empty result will indicate success.
-
 

@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package llmisvc
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -30,6 +31,156 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 )
+
+func TestSchedulerConfigTextLoRA(t *testing.T) {
+	loraAdapters := []v1alpha2.LLMModelSpec{{}}
+
+	tests := []struct {
+		name     string
+		llmSvc   *v1alpha2.LLMInferenceService
+		wantLoRA bool
+	}{
+		{
+			name:     "no LoRA - standard default config",
+			llmSvc:   &v1alpha2.LLMInferenceService{},
+			wantLoRA: false,
+		},
+		{
+			name: "LoRA nil pointer - no scorer",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{LoRA: nil},
+				},
+			},
+			wantLoRA: false,
+		},
+		{
+			name: "LoRA spec with empty adapters - no scorer",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{LoRA: &v1alpha2.LoRASpec{}},
+				},
+			},
+			wantLoRA: false,
+		},
+		{
+			name: "LoRA adapters present - scorer included",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{
+						LoRA: &v1alpha2.LoRASpec{Adapters: loraAdapters},
+					},
+				},
+			},
+			wantLoRA: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			text := schedulerConfigText(tt.llmSvc)
+
+			var obj map[string]interface{}
+			g.Expect(yaml.Unmarshal([]byte(text), &obj)).To(Succeed())
+
+			plugins := obj["plugins"].([]interface{})
+			types := make([]string, 0, len(plugins))
+			for _, p := range plugins {
+				types = append(types, p.(map[string]interface{})["type"].(string))
+			}
+
+			profiles := obj["schedulingProfiles"].([]interface{})
+			defaultProfile := profiles[0].(map[string]interface{})
+			refs := defaultProfile["plugins"].([]interface{})
+			refNames := make([]string, 0, len(refs))
+			for _, r := range refs {
+				refNames = append(refNames, r.(map[string]interface{})["pluginRef"].(string))
+			}
+
+			if tt.wantLoRA {
+				g.Expect(types).To(ContainElement(loraAffinityScorerPlugin))
+				g.Expect(refNames[0]).To(Equal(loraAffinityScorerPlugin))
+				g.Expect(refs[0].(map[string]interface{})["weight"]).To(BeNumerically("==", 4))
+			} else {
+				g.Expect(types).NotTo(ContainElement(loraAffinityScorerPlugin))
+				g.Expect(refNames).NotTo(ContainElement(loraAffinityScorerPlugin))
+			}
+		})
+	}
+}
+
+func TestSchedulerConfigTextPDLoRA(t *testing.T) {
+	loraAdapters := []v1alpha2.LLMModelSpec{{}}
+
+	tests := []struct {
+		name     string
+		llmSvc   *v1alpha2.LLMInferenceService
+		wantLoRA bool
+	}{
+		{
+			name: "P/D without LoRA - no scorer",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Prefill: &v1alpha2.WorkloadSpec{},
+				},
+			},
+			wantLoRA: false,
+		},
+		{
+			name: "P/D with LoRA adapters - scorer in both profiles",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Prefill: &v1alpha2.WorkloadSpec{},
+					Model: v1alpha2.LLMModelSpec{
+						LoRA: &v1alpha2.LoRASpec{Adapters: loraAdapters},
+					},
+				},
+			},
+			wantLoRA: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			text := schedulerConfigText(tt.llmSvc)
+
+			var obj map[string]interface{}
+			g.Expect(yaml.Unmarshal([]byte(text), &obj)).To(Succeed())
+
+			plugins := obj["plugins"].([]interface{})
+			types := make([]string, 0, len(plugins))
+			for _, p := range plugins {
+				types = append(types, p.(map[string]interface{})["type"].(string))
+			}
+
+			profiles := obj["schedulingProfiles"].([]interface{})
+			g.Expect(profiles).To(HaveLen(2))
+
+			for _, profile := range profiles {
+				refs := profile.(map[string]interface{})["plugins"].([]interface{})
+				refNames := make([]string, 0, len(refs))
+				for _, r := range refs {
+					refNames = append(refNames, r.(map[string]interface{})["pluginRef"].(string))
+				}
+
+				if tt.wantLoRA {
+					g.Expect(types).To(ContainElement(loraAffinityScorerPlugin))
+					// scorer is second (after the profile's filter plugin)
+					g.Expect(refNames[1]).To(Equal(loraAffinityScorerPlugin))
+					g.Expect(refs[1].(map[string]interface{})["weight"]).To(BeNumerically("==", 4))
+				} else {
+					g.Expect(refNames).NotTo(ContainElement(loraAffinityScorerPlugin))
+				}
+			}
+
+			if !tt.wantLoRA {
+				g.Expect(types).NotTo(ContainElement(loraAffinityScorerPlugin))
+			}
+		})
+	}
+}
 
 func TestPreserveSchedulerConfig(t *testing.T) {
 	defaultSvc := &v1alpha2.LLMInferenceService{}
@@ -401,6 +552,71 @@ schedulingProfiles:
 	}
 }
 
+// validateDeciderOrder checks the GIE loader ordering invariant: every plugin
+// referenced in a handler's "deciders" map must appear earlier in the plugins
+// list. The GIE loader registers plugins in list order, so a handler that
+// references a decider declared later will fail with "plugin not found".
+func validateDeciderOrder(g Gomega, obj map[string]interface{}) {
+	val, ok := obj["plugins"]
+	if !ok {
+		return
+	}
+	plugins, ok := val.([]interface{})
+	if !ok {
+		return
+	}
+
+	typeIndex := map[string]int{}
+	for i, p := range plugins {
+		pm, ok := p.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if t, ok := pm["type"].(string); ok {
+			typeIndex[t] = i
+		}
+	}
+
+	for i, p := range plugins {
+		pm, ok := p.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		pluginType, _ := pm["type"].(string)
+		params, ok := pm["parameters"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		deciders, ok := params["deciders"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		for role, ref := range deciders {
+			refName, ok := ref.(string)
+			if !ok {
+				continue
+			}
+			refIdx, exists := typeIndex[refName]
+			if !exists {
+				// Decider not in the plugins list — may be externally
+				// declared (e.g. Path A where the user manages it).
+				continue
+			}
+			g.Expect(refIdx).To(BeNumerically("<", i),
+				fmt.Sprintf("%s at index %d references decider %q (role %s) at index %d — decider must appear before handler",
+					pluginType, i, refName, role, refIdx))
+		}
+	}
+}
+
+// validateDeciderOrderFromYAML is a convenience wrapper that unmarshals a
+// config-text YAML string and then runs validateDeciderOrder on the result.
+func validateDeciderOrderFromYAML(g Gomega, configText string) {
+	var obj map[string]interface{}
+	g.Expect(yaml.Unmarshal([]byte(configText), &obj)).To(Succeed())
+	validateDeciderOrder(g, obj)
+}
+
 func TestWithMigrateDisaggProfileParams(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -478,30 +694,31 @@ plugins:
 `,
 			validate: func(g Gomega, obj map[string]interface{}) {
 				plugins := obj["plugins"].([]interface{})
-				params := plugins[0].(map[string]interface{})["parameters"].(map[string]interface{})
+				g.Expect(plugins).To(HaveLen(3))
+				g.Expect(plugins[0].(map[string]interface{})["type"]).To(Equal("always-disagg-pd-decider"))
+				params := plugins[1].(map[string]interface{})["parameters"].(map[string]interface{})
 				g.Expect(params).NotTo(HaveKey("threshold"))
 				deciders := params["deciders"].(map[string]interface{})
 				g.Expect(deciders).To(HaveKeyWithValue("prefill", "always-disagg-pd-decider"))
-				g.Expect(plugins).To(HaveLen(3))
-				g.Expect(plugins[2].(map[string]interface{})["type"]).To(Equal("always-disagg-pd-decider"))
 			},
 		},
 		{
 			name: "migrates threshold 0 when decider plugin already exists",
 			configYAML: `
 plugins:
+- type: always-disagg-pd-decider
 - type: pd-profile-handler
   parameters:
     threshold: 0
-- type: always-disagg-pd-decider
 `,
 			validate: func(g Gomega, obj map[string]interface{}) {
 				plugins := obj["plugins"].([]interface{})
-				params := plugins[0].(map[string]interface{})["parameters"].(map[string]interface{})
+				g.Expect(plugins).To(HaveLen(2))
+				g.Expect(plugins[0].(map[string]interface{})["type"]).To(Equal("always-disagg-pd-decider"))
+				params := plugins[1].(map[string]interface{})["parameters"].(map[string]interface{})
 				g.Expect(params).NotTo(HaveKey("threshold"))
 				deciders := params["deciders"].(map[string]interface{})
 				g.Expect(deciders).To(HaveKeyWithValue("prefill", "always-disagg-pd-decider"))
-				g.Expect(plugins).To(HaveLen(2))
 			},
 		},
 		{
@@ -522,6 +739,130 @@ plugins:
 				g.Expect(deciders).To(HaveKeyWithValue("prefill", "prefix-based-pd-decider"))
 			},
 		},
+		{
+			name: "migrates non-zero threshold 100 to prefix-based-pd-decider",
+			configYAML: `
+plugins:
+- type: pd-profile-handler
+  parameters:
+    threshold: 100
+- type: prefill-filter
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				g.Expect(plugins).To(HaveLen(3))
+				deciderPlugin := plugins[0].(map[string]interface{})
+				g.Expect(deciderPlugin["type"]).To(Equal("prefix-based-pd-decider"))
+				deciderParams := deciderPlugin["parameters"].(map[string]interface{})
+				g.Expect(deciderParams["nonCachedTokens"]).To(Equal(int64(25)))
+				params := plugins[1].(map[string]interface{})["parameters"].(map[string]interface{})
+				g.Expect(params).NotTo(HaveKey("threshold"))
+				deciders := params["deciders"].(map[string]interface{})
+				g.Expect(deciders).To(HaveKeyWithValue("prefill", "prefix-based-pd-decider"))
+			},
+		},
+		{
+			name: "migrates non-zero threshold 5 to prefix-based-pd-decider with ceil",
+			configYAML: `
+plugins:
+- type: pd-profile-handler
+  parameters:
+    threshold: 5
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				deciderPlugin := plugins[0].(map[string]interface{})
+				g.Expect(deciderPlugin["type"]).To(Equal("prefix-based-pd-decider"))
+				deciderParams := deciderPlugin["parameters"].(map[string]interface{})
+				g.Expect(deciderParams["nonCachedTokens"]).To(Equal(int64(2)))
+				params := plugins[1].(map[string]interface{})["parameters"].(map[string]interface{})
+				g.Expect(params).NotTo(HaveKey("threshold"))
+				deciders := params["deciders"].(map[string]interface{})
+				g.Expect(deciders).To(HaveKeyWithValue("prefill", "prefix-based-pd-decider"))
+			},
+		},
+		{
+			name: "migrates non-zero threshold 1 to prefix-based-pd-decider minimum 1 token",
+			configYAML: `
+plugins:
+- type: pd-profile-handler
+  parameters:
+    threshold: 1
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				deciderPlugin := plugins[0].(map[string]interface{})
+				g.Expect(deciderPlugin["type"]).To(Equal("prefix-based-pd-decider"))
+				deciderParams := deciderPlugin["parameters"].(map[string]interface{})
+				g.Expect(deciderParams["nonCachedTokens"]).To(Equal(int64(1)))
+				params := plugins[1].(map[string]interface{})["parameters"].(map[string]interface{})
+				g.Expect(params).NotTo(HaveKey("threshold"))
+				deciders := params["deciders"].(map[string]interface{})
+				g.Expect(deciders).To(HaveKeyWithValue("prefill", "prefix-based-pd-decider"))
+			},
+		},
+		{
+			name: "non-zero threshold idempotent when prefix-based-pd-decider already exists",
+			configYAML: `
+plugins:
+- type: prefix-based-pd-decider
+  parameters:
+    nonCachedTokens: 50
+- type: pd-profile-handler
+  parameters:
+    threshold: 100
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				g.Expect(plugins).To(HaveLen(2))
+				g.Expect(plugins[0].(map[string]interface{})["type"]).To(Equal("prefix-based-pd-decider"))
+				params := plugins[1].(map[string]interface{})["parameters"].(map[string]interface{})
+				g.Expect(params).NotTo(HaveKey("threshold"))
+				deciders := params["deciders"].(map[string]interface{})
+				g.Expect(deciders).To(HaveKeyWithValue("prefill", "prefix-based-pd-decider"))
+			},
+		},
+		{
+			name: "decider inserted before handler not after - load order matters",
+			configYAML: `
+plugins:
+- type: queue-scorer
+- type: pd-profile-handler
+  parameters:
+    threshold: 100
+- type: prefill-filter
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				g.Expect(plugins).To(HaveLen(4))
+				g.Expect(plugins[0].(map[string]interface{})["type"]).To(Equal("queue-scorer"))
+				deciderPlugin := plugins[1].(map[string]interface{})
+				g.Expect(deciderPlugin["type"]).To(Equal("prefix-based-pd-decider"))
+				handlerPlugin := plugins[2].(map[string]interface{})
+				g.Expect(handlerPlugin["type"]).To(Equal("pd-profile-handler"))
+				g.Expect(plugins[3].(map[string]interface{})["type"]).To(Equal("prefill-filter"))
+			},
+		},
+		{
+			name: "always-disagg decider inserted before handler not after",
+			configYAML: `
+plugins:
+- type: queue-scorer
+- type: pd-profile-handler
+  parameters:
+    threshold: 0
+- type: prefill-filter
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				g.Expect(plugins).To(HaveLen(4))
+				g.Expect(plugins[0].(map[string]interface{})["type"]).To(Equal("queue-scorer"))
+				g.Expect(plugins[1].(map[string]interface{})["type"]).To(Equal("always-disagg-pd-decider"))
+				handlerPlugin := plugins[2].(map[string]interface{})
+				g.Expect(handlerPlugin["type"]).To(Equal("pd-profile-handler"))
+				g.Expect(plugins[3].(map[string]interface{})["type"]).To(Equal("prefill-filter"))
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -532,95 +873,30 @@ plugins:
 			u := unstructured.Unstructured{Object: obj}
 			g.Expect(WithMigrateDisaggProfileParams(context.Background(), &u)).To(Succeed())
 			tt.validate(g, u.Object)
+			validateDeciderOrder(g, u.Object)
 		})
 	}
 }
 
-func TestHasNonZeroThreshold(t *testing.T) {
+func TestThresholdToNonCachedTokens(t *testing.T) {
 	tests := []struct {
-		name       string
-		configYAML string
-		expected   bool
+		name     string
+		val      interface{}
+		expected int64
 	}{
-		{
-			name: "no threshold - returns false",
-			configYAML: `
-plugins:
-- type: pd-profile-handler
-  parameters:
-    deciderPluginName: always-disagg-pd-decider
-`,
-			expected: false,
-		},
-		{
-			name: "threshold 0 - returns false",
-			configYAML: `
-plugins:
-- type: pd-profile-handler
-  parameters:
-    threshold: 0
-`,
-			expected: false,
-		},
-		{
-			name: "threshold 0.5 - returns true",
-			configYAML: `
-plugins:
-- type: pd-profile-handler
-  parameters:
-    threshold: 0.5
-`,
-			expected: true,
-		},
-		{
-			name: "threshold 1 - returns true",
-			configYAML: `
-plugins:
-- type: pd-profile-handler
-  parameters:
-    threshold: 1
-`,
-			expected: true,
-		},
-		{
-			name: "deciders already present - returns false even with threshold",
-			configYAML: `
-plugins:
-- type: disagg-profile-handler
-  parameters:
-    deciders:
-      prefill: always-disagg-pd-decider
-    threshold: 0.5
-`,
-			expected: false,
-		},
-		{
-			name: "non-profile plugin with threshold - returns false",
-			configYAML: `
-plugins:
-- type: some-other-plugin
-  parameters:
-    threshold: 0.5
-`,
-			expected: false,
-		},
-		{
-			name: "no plugins - returns false",
-			configYAML: `
-schedulingProfiles:
-- name: prefill
-`,
-			expected: false,
-		},
+		{name: "int64 100", val: int64(100), expected: 25},
+		{name: "int64 5", val: int64(5), expected: 2},
+		{name: "int64 1", val: int64(1), expected: 1},
+		{name: "int64 3", val: int64(3), expected: 1},
+		{name: "float64 100.0", val: float64(100.0), expected: 25},
+		{name: "float64 0.5", val: float64(0.5), expected: 1},
+		{name: "float64 7.0", val: float64(7.0), expected: 2},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewGomegaWithT(t)
-			var obj map[string]interface{}
-			g.Expect(yaml.Unmarshal([]byte(tt.configYAML), &obj)).To(Succeed())
-			u := unstructured.Unstructured{Object: obj}
-			g.Expect(hasNonZeroThreshold(&u)).To(Equal(tt.expected))
+			g.Expect(thresholdToNonCachedTokens(tt.val)).To(Equal(tt.expected))
 		})
 	}
 }
@@ -632,7 +908,7 @@ func TestWithMigrateDisaggProfileHandlerThreshold(t *testing.T) {
 		validate   func(g Gomega, obj map[string]interface{})
 	}{
 		{
-			name: "skips all migration for non-zero threshold",
+			name: "migrates non-zero threshold with rename and prefix-based-pd-decider",
 			configYAML: `
 plugins:
 - type: pd-profile-handler
@@ -641,11 +917,17 @@ plugins:
 `,
 			validate: func(g Gomega, obj map[string]interface{}) {
 				plugins := obj["plugins"].([]interface{})
-				pluginMap := plugins[0].(map[string]interface{})
-				g.Expect(pluginMap["type"]).To(Equal("pd-profile-handler"))
+				g.Expect(plugins).To(HaveLen(2))
+				deciderPlugin := plugins[0].(map[string]interface{})
+				g.Expect(deciderPlugin["type"]).To(Equal("prefix-based-pd-decider"))
+				deciderParams := deciderPlugin["parameters"].(map[string]interface{})
+				g.Expect(deciderParams["nonCachedTokens"]).To(Equal(int64(1)))
+				pluginMap := plugins[1].(map[string]interface{})
+				g.Expect(pluginMap["type"]).To(Equal("disagg-profile-handler"))
 				params := pluginMap["parameters"].(map[string]interface{})
-				g.Expect(params).NotTo(HaveKey("deciders"))
-				g.Expect(params).To(HaveKey("threshold"))
+				g.Expect(params).NotTo(HaveKey("threshold"))
+				deciders := params["deciders"].(map[string]interface{})
+				g.Expect(deciders).To(HaveKeyWithValue("prefill", "prefix-based-pd-decider"))
 			},
 		},
 		{
@@ -659,38 +941,39 @@ plugins:
 `,
 			validate: func(g Gomega, obj map[string]interface{}) {
 				plugins := obj["plugins"].([]interface{})
-				pluginMap := plugins[0].(map[string]interface{})
+				g.Expect(plugins).To(HaveLen(3))
+				g.Expect(plugins[0].(map[string]interface{})["type"]).To(Equal("always-disagg-pd-decider"))
+				pluginMap := plugins[1].(map[string]interface{})
 				g.Expect(pluginMap["type"]).To(Equal("disagg-profile-handler"))
 				params := pluginMap["parameters"].(map[string]interface{})
 				g.Expect(params).NotTo(HaveKey("threshold"))
 				deciders := params["deciders"].(map[string]interface{})
 				g.Expect(deciders).To(HaveKeyWithValue("prefill", "always-disagg-pd-decider"))
-				g.Expect(plugins).To(HaveLen(3))
-				g.Expect(plugins[2].(map[string]interface{})["type"]).To(Equal("always-disagg-pd-decider"))
 			},
 		},
 		{
 			name: "handles threshold 0 when decider plugin already present",
 			configYAML: `
 plugins:
+- type: always-disagg-pd-decider
 - type: pd-profile-handler
   parameters:
     threshold: 0
-- type: always-disagg-pd-decider
 `,
 			validate: func(g Gomega, obj map[string]interface{}) {
 				plugins := obj["plugins"].([]interface{})
-				pluginMap := plugins[0].(map[string]interface{})
+				g.Expect(plugins).To(HaveLen(2))
+				g.Expect(plugins[0].(map[string]interface{})["type"]).To(Equal("always-disagg-pd-decider"))
+				pluginMap := plugins[1].(map[string]interface{})
 				g.Expect(pluginMap["type"]).To(Equal("disagg-profile-handler"))
 				params := pluginMap["parameters"].(map[string]interface{})
 				g.Expect(params).NotTo(HaveKey("threshold"))
 				deciders := params["deciders"].(map[string]interface{})
 				g.Expect(deciders).To(HaveKeyWithValue("prefill", "always-disagg-pd-decider"))
-				g.Expect(plugins).To(HaveLen(2))
 			},
 		},
 		{
-			name: "handles non-zero threshold with deciderPluginName - skips all",
+			name: "migrates non-zero threshold with deciderPluginName - uses specified decider",
 			configYAML: `
 plugins:
 - type: pd-profile-handler
@@ -701,11 +984,12 @@ plugins:
 			validate: func(g Gomega, obj map[string]interface{}) {
 				plugins := obj["plugins"].([]interface{})
 				pluginMap := plugins[0].(map[string]interface{})
-				g.Expect(pluginMap["type"]).To(Equal("pd-profile-handler"))
+				g.Expect(pluginMap["type"]).To(Equal("disagg-profile-handler"))
 				params := pluginMap["parameters"].(map[string]interface{})
-				g.Expect(params).To(HaveKey("deciderPluginName"))
-				g.Expect(params).To(HaveKey("threshold"))
-				g.Expect(params).NotTo(HaveKey("deciders"))
+				g.Expect(params).NotTo(HaveKey("deciderPluginName"))
+				g.Expect(params).NotTo(HaveKey("threshold"))
+				deciders := params["deciders"].(map[string]interface{})
+				g.Expect(deciders).To(HaveKeyWithValue("prefill", "prefix-based-pd-decider"))
 			},
 		},
 	}
@@ -718,6 +1002,7 @@ plugins:
 			u := unstructured.Unstructured{Object: obj}
 			g.Expect(withMigrateDisaggProfileHandler(context.Background(), &u)).To(Succeed())
 			tt.validate(g, u.Object)
+			validateDeciderOrder(g, u.Object)
 		})
 	}
 }
@@ -791,6 +1076,96 @@ plugins:
 	}
 }
 
+func TestWithRemovePrefixCacheScorerParametersV09(t *testing.T) {
+	tests := []struct {
+		name       string
+		configYAML string
+		validate   func(g Gomega, obj map[string]interface{})
+	}{
+		{
+			name: "removes all parameters except prefixMatchInfoProducerName",
+			configYAML: `
+plugins:
+- type: prefix-cache-scorer
+  parameters:
+    blockSizeTokens: 16
+    hashBlockSize: 64
+    prefixMatchInfoProducerName: my-producer
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				params := plugins[0].(map[string]interface{})["parameters"].(map[string]interface{})
+				g.Expect(params).To(HaveKey("prefixMatchInfoProducerName"))
+				g.Expect(params).NotTo(HaveKey("blockSizeTokens"))
+				g.Expect(params).NotTo(HaveKey("hashBlockSize"))
+			},
+		},
+		{
+			name: "removes parameters entirely when no prefixMatchInfoProducerName",
+			configYAML: `
+plugins:
+- type: prefix-cache-scorer
+  parameters:
+    blockSizeTokens: 16
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				g.Expect(plugins[0].(map[string]interface{})).NotTo(HaveKey("parameters"))
+			},
+		},
+		{
+			name: "no parameters - no-op",
+			configYAML: `
+plugins:
+- type: prefix-cache-scorer
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				g.Expect(plugins[0].(map[string]interface{})).NotTo(HaveKey("parameters"))
+			},
+		},
+		{
+			name: "does not affect other plugins",
+			configYAML: `
+plugins:
+- type: prefix-cache-scorer
+  parameters:
+    blockSizeTokens: 16
+- type: queue-scorer
+  parameters:
+    someParam: value
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				g.Expect(plugins[0].(map[string]interface{})).NotTo(HaveKey("parameters"))
+				queueParams := plugins[1].(map[string]interface{})["parameters"].(map[string]interface{})
+				g.Expect(queueParams).To(HaveKeyWithValue("someParam", "value"))
+			},
+		},
+		{
+			name: "no plugins - no-op",
+			configYAML: `
+schedulingProfiles:
+- name: default
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				g.Expect(obj).NotTo(HaveKey("plugins"))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			var obj map[string]interface{}
+			g.Expect(yaml.Unmarshal([]byte(tt.configYAML), &obj)).To(Succeed())
+			u := unstructured.Unstructured{Object: obj}
+			g.Expect(withRemovePrefixCacheScorerParametersV09(context.Background(), &u)).To(Succeed())
+			tt.validate(g, u.Object)
+		})
+	}
+}
+
 func TestWithCoreMetricsExtractorPlugin(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -827,6 +1202,22 @@ plugins:
 		},
 		{
 			name: "skips when plugin already exists",
+			configYAML: `
+plugins:
+- type: model-server-protocol-metrics
+  parameters:
+    defaultEngine: vllm
+`,
+			extracted: map[string]string{
+				"kv-cache-usage-percentage-metric": "vllm:kv_cache_usage_perc",
+			},
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				g.Expect(plugins).To(HaveLen(1))
+			},
+		},
+		{
+			name: "skips when renamed plugin already exists",
 			configYAML: `
 plugins:
 - type: core-metrics-extractor
@@ -962,7 +1353,7 @@ func TestSchedulerTransformThreshold(t *testing.T) {
 		validateConfig func(g Gomega, configText string)
 	}{
 		{
-			name: "skips profile handler rename for non-zero threshold",
+			name: "migrates non-zero threshold in full transform",
 			configYAML: `apiVersion: inference.networking.x-k8s.io/v1alpha1
 kind: EndpointPickerConfig
 plugins:
@@ -979,14 +1370,17 @@ plugins:
 			validateConfig: func(g Gomega, configText string) {
 				g.Expect(configText).To(ContainSubstring("disagg-headers-handler"))
 				g.Expect(configText).NotTo(ContainSubstring("prefill-header-handler"))
-				g.Expect(configText).To(ContainSubstring("pd-profile-handler"))
-				g.Expect(configText).NotTo(ContainSubstring("disagg-profile-handler"))
-				g.Expect(configText).To(ContainSubstring("threshold"))
+				g.Expect(configText).To(ContainSubstring("disagg-profile-handler"))
+				g.Expect(configText).NotTo(ContainSubstring("pd-profile-handler"))
+				g.Expect(configText).To(ContainSubstring("prefix-based-pd-decider"))
+				g.Expect(configText).To(ContainSubstring("nonCachedTokens"))
+				g.Expect(configText).NotTo(ContainSubstring("threshold"))
 				g.Expect(configText).NotTo(ContainSubstring("hashBlockSize"))
+				g.Expect(configText).To(ContainSubstring("blockSizeTokens"))
 			},
 		},
 		{
-			name: "skips profile handler for non-zero threshold with deciderPluginName",
+			name: "migrates non-zero threshold with deciderPluginName in full transform",
 			configYAML: `apiVersion: inference.networking.x-k8s.io/v1alpha1
 kind: EndpointPickerConfig
 plugins:
@@ -1002,10 +1396,12 @@ plugins:
 			version: "0.7.0",
 			validateConfig: func(g Gomega, configText string) {
 				g.Expect(configText).To(ContainSubstring("disagg-headers-handler"))
-				g.Expect(configText).To(ContainSubstring("pd-profile-handler"))
-				g.Expect(configText).NotTo(ContainSubstring("disagg-profile-handler"))
-				g.Expect(configText).To(ContainSubstring("deciderPluginName"))
-				g.Expect(configText).To(ContainSubstring("threshold"))
+				g.Expect(configText).NotTo(ContainSubstring("prefill-header-handler"))
+				g.Expect(configText).To(ContainSubstring("disagg-profile-handler"))
+				g.Expect(configText).NotTo(ContainSubstring("pd-profile-handler"))
+				g.Expect(configText).NotTo(ContainSubstring("deciderPluginName"))
+				g.Expect(configText).NotTo(ContainSubstring("threshold"))
+				g.Expect(configText).To(ContainSubstring("prefill: prefix-based-pd-decider"))
 				g.Expect(configText).NotTo(ContainSubstring("hashBlockSize"))
 			},
 		},
@@ -1062,6 +1458,7 @@ plugins:
 
 			configText := d.Spec.Template.Spec.Containers[0].Args[1]
 			tt.validateConfig(g, configText)
+			validateDeciderOrderFromYAML(g, configText)
 		})
 	}
 }
@@ -1134,8 +1531,8 @@ schedulingProfiles:
 				// Pre-existing migrations applied
 				g.Expect(configText).To(ContainSubstring("blockSizeTokens"))
 
-				// CLI flag values moved to core-metrics-extractor plugin
-				g.Expect(configText).To(ContainSubstring("core-metrics-extractor"))
+				// CLI flag values moved to model-server-protocol-metrics plugin
+				g.Expect(configText).To(ContainSubstring("model-server-protocol-metrics"))
 				g.Expect(configText).To(ContainSubstring("vllm:num_requests_waiting"))
 				g.Expect(configText).To(ContainSubstring("vllm:num_requests_running"))
 				g.Expect(configText).To(ContainSubstring("vllm:kv_cache_usage_perc"))
@@ -1159,6 +1556,39 @@ schedulingProfiles:
 			},
 		},
 		{
+			name:    "v0.8.0 renames model-server-protocol-metrics to core-metrics-extractor",
+			version: "0.8.0",
+			extraArgs: []string{
+				"--total-queued-requests-metric", "vllm:num_requests_waiting",
+				"--total-running-requests-metric", "vllm:num_requests_running",
+				"--kv-cache-usage-percentage-metric", "vllm:kv_cache_usage_perc",
+				"--grpc-port", "9002",
+			},
+			validateConfig: func(g Gomega, configText string) {
+				// v0.8.0 plugin name used
+				g.Expect(configText).To(ContainSubstring("core-metrics-extractor"))
+				g.Expect(configText).NotTo(ContainSubstring("model-server-protocol-metrics"))
+
+				// Metric values present
+				g.Expect(configText).To(ContainSubstring("vllm:num_requests_waiting"))
+				g.Expect(configText).To(ContainSubstring("vllm:num_requests_running"))
+				g.Expect(configText).To(ContainSubstring("vllm:kv_cache_usage_perc"))
+
+				// v0.7 renames also applied
+				g.Expect(configText).To(ContainSubstring("disagg-headers-handler"))
+				g.Expect(configText).NotTo(ContainSubstring("prefill-header-handler"))
+			},
+			validateArgs: func(g Gomega, args []string) {
+				for _, a := range args {
+					g.Expect(a).NotTo(ContainSubstring("total-queued-requests-metric"))
+					g.Expect(a).NotTo(ContainSubstring("total-running-requests-metric"))
+					g.Expect(a).NotTo(ContainSubstring("kv-cache-usage-percentage-metric"))
+				}
+				g.Expect(args).To(ContainElement("--grpc-port"))
+				g.Expect(args).To(ContainElement("9002"))
+			},
+		},
+		{
 			name:    "old config left untouched for v0.6.0",
 			version: "0.6.0",
 			extraArgs: []string{
@@ -1171,8 +1601,8 @@ schedulingProfiles:
 				g.Expect(configText).To(ContainSubstring("deciderPluginName"))
 				g.Expect(configText).To(ContainSubstring("hashBlockSize"))
 
-				// No core-metrics-extractor injected
-				g.Expect(configText).NotTo(ContainSubstring("core-metrics-extractor"))
+				// No model-server-protocol-metrics injected
+				g.Expect(configText).NotTo(ContainSubstring("model-server-protocol-metrics"))
 
 				// Pre-existing migrations still applied (unconditional)
 				g.Expect(configText).To(ContainSubstring("blockSizeTokens"))
@@ -1222,11 +1652,91 @@ schedulingProfiles:
 			for i, a := range resultArgs {
 				if a == "--config-text" && i+1 < len(resultArgs) {
 					tt.validateConfig(g, resultArgs[i+1])
+					validateDeciderOrderFromYAML(g, resultArgs[i+1])
 				}
 			}
 			tt.validateArgs(g, resultArgs)
 		})
 	}
+}
+
+func TestFullMigrationPipelineNonZeroThreshold(t *testing.T) {
+	oldConfigYAML := `apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: prefill-header-handler
+- type: prefill-filter
+- type: decode-filter
+- type: queue-scorer
+- type: prefix-cache-scorer
+  parameters:
+    hashBlockSize: 64
+    blockSizeTokens: 16
+- type: max-score-picker
+- type: pd-profile-handler
+  parameters:
+    threshold: 100
+schedulingProfiles:
+- name: prefill
+  plugins:
+  - pluginRef: prefill-filter
+  - pluginRef: queue-scorer
+  - pluginRef: max-score-picker
+- name: decode
+  plugins:
+  - pluginRef: decode-filter
+  - pluginRef: prefix-cache-scorer
+  - pluginRef: queue-scorer
+  - pluginRef: max-score-picker
+`
+	g := NewGomegaWithT(t)
+
+	d := &appsv1.Deployment{
+		Spec: appsv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"app.kubernetes.io/version": "0.7.0",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{Name: "main", Args: []string{"--config-text", oldConfigYAML}},
+					},
+				},
+			},
+		},
+	}
+
+	ctx := context.Background()
+	g.Expect(schedulerTransform(ctx, d)).To(Succeed())
+
+	configText := d.Spec.Template.Spec.Containers[0].Args[1]
+
+	// Plugin renames applied
+	g.Expect(configText).To(ContainSubstring("disagg-headers-handler"))
+	g.Expect(configText).NotTo(ContainSubstring("prefill-header-handler"))
+	g.Expect(configText).To(ContainSubstring("disagg-profile-handler"))
+	g.Expect(configText).NotTo(ContainSubstring("pd-profile-handler"))
+
+	// Non-zero threshold migrated to prefix-based-pd-decider
+	g.Expect(configText).NotTo(ContainSubstring("threshold"))
+	g.Expect(configText).To(ContainSubstring("prefix-based-pd-decider"))
+	g.Expect(configText).To(ContainSubstring("nonCachedTokens"))
+	g.Expect(configText).To(ContainSubstring("prefill: prefix-based-pd-decider"))
+
+	// Deprecated field removed
+	g.Expect(configText).NotTo(ContainSubstring("hashBlockSize"))
+	g.Expect(configText).To(ContainSubstring("blockSizeTokens"))
+
+	// Unchanged plugins preserved
+	g.Expect(configText).To(ContainSubstring("prefill-filter"))
+	g.Expect(configText).To(ContainSubstring("decode-filter"))
+	g.Expect(configText).To(ContainSubstring("queue-scorer"))
+	g.Expect(configText).To(ContainSubstring("max-score-picker"))
+
+	// Decider ordering invariant
+	validateDeciderOrderFromYAML(g, configText)
 }
 
 func TestExtractDeprecatedMetricFlags(t *testing.T) {
@@ -1363,7 +1873,7 @@ plugins:
 			validateConfig: func(g Gomega, args []string) {
 				for i, a := range args {
 					if a == "--configText" && i+1 < len(args) {
-						g.Expect(args[i+1]).To(ContainSubstring("core-metrics-extractor"))
+						g.Expect(args[i+1]).To(ContainSubstring("model-server-protocol-metrics"))
 						g.Expect(args[i+1]).To(ContainSubstring("vllm:num_requests_waiting"))
 						g.Expect(args[i+1]).To(ContainSubstring("vllm:kv_cache_usage_perc"))
 						return
@@ -1389,7 +1899,7 @@ plugins:
 			validateConfig: func(g Gomega, args []string) {
 				for i, a := range args {
 					if a == "--config-text" && i+1 < len(args) {
-						g.Expect(args[i+1]).To(ContainSubstring("core-metrics-extractor"))
+						g.Expect(args[i+1]).To(ContainSubstring("model-server-protocol-metrics"))
 						g.Expect(args[i+1]).To(ContainSubstring("vllm:num_requests_waiting"))
 						return
 					}
@@ -1414,7 +1924,7 @@ plugins:
 			validateConfig: func(g Gomega, args []string) {
 				for i, a := range args {
 					if a == "-config-text" && i+1 < len(args) {
-						g.Expect(args[i+1]).To(ContainSubstring("core-metrics-extractor"))
+						g.Expect(args[i+1]).To(ContainSubstring("model-server-protocol-metrics"))
 						g.Expect(args[i+1]).To(ContainSubstring("vllm:num_requests_waiting"))
 						return
 					}
@@ -1439,7 +1949,7 @@ plugins:
 			validateConfig: func(g Gomega, args []string) {
 				for i, a := range args {
 					if a == "-configText" && i+1 < len(args) {
-						g.Expect(args[i+1]).To(ContainSubstring("core-metrics-extractor"))
+						g.Expect(args[i+1]).To(ContainSubstring("model-server-protocol-metrics"))
 						g.Expect(args[i+1]).To(ContainSubstring("vllm:num_requests_waiting"))
 						return
 					}

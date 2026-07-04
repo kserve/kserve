@@ -97,6 +97,7 @@ func TestAttachStorageInitializer_TargetContainer(t *testing.T) {
 				corev1.PodSpec{}, // empty curr
 				podSpec,
 				testStorageConfig(),
+				nil, // no confidential
 				tc.containerName,
 				tc.modelPath,
 			)
@@ -235,7 +236,7 @@ func TestAttachOciModelArtifact_TargetContainer(t *testing.T) {
 			},
 			wantModelcarArgs: []string{
 				"sh", "-c",
-				fmt.Sprintf("mkdir -p %s && ln -sf /proc/$$$$/root/models %s && sleep infinity",
+				fmt.Sprintf("mkdir -p '%s' && ln -sf /proc/$$$$/root/models '%s' && sleep infinity",
 					constants.DefaultModelLocalMountPath,
 					path.Join(constants.DefaultModelLocalMountPath, "my-llama")),
 			},
@@ -251,7 +252,7 @@ func TestAttachOciModelArtifact_TargetContainer(t *testing.T) {
 			},
 			wantModelcarArgs: []string{
 				"sh", "-c",
-				fmt.Sprintf("mkdir -p %s && ln -sf /proc/$$$$/root/models %s && sleep infinity",
+				fmt.Sprintf("mkdir -p '%s' && ln -sf /proc/$$$$/root/models '%s' && sleep infinity",
 					path.Join(constants.DefaultModelLocalMountPath, "meta-llama"),
 					path.Join(constants.DefaultModelLocalMountPath, "meta-llama/Llama-2-7b")),
 			},
@@ -267,7 +268,7 @@ func TestAttachOciModelArtifact_TargetContainer(t *testing.T) {
 			},
 			wantModelcarArgs: []string{
 				"sh", "-c",
-				fmt.Sprintf("ln -sf /proc/$$$$/root/models %s && sleep infinity",
+				fmt.Sprintf("ln -sf /proc/$$$$/root/models '%s' && sleep infinity",
 					constants.DefaultModelLocalMountPath),
 			},
 		},

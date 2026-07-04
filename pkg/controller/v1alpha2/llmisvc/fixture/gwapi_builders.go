@@ -17,6 +17,9 @@ limitations under the License.
 package fixture
 
 import (
+	"cmp"
+	"slices"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -365,6 +368,38 @@ func PathPrefixMatch(path string) gwapiv1.HTTPRouteMatch {
 	}
 }
 
+func ExactPathWithHeaderMatch(path, headerName, headerValue string) gwapiv1.HTTPRouteMatch {
+	return gwapiv1.HTTPRouteMatch{
+		Path: &gwapiv1.HTTPPathMatch{
+			Type:  ptr.To(gwapiv1.PathMatchExact),
+			Value: ptr.To(path),
+		},
+		Headers: []gwapiv1.HTTPHeaderMatch{
+			{
+				Type:  ptr.To(gwapiv1.HeaderMatchExact),
+				Name:  gwapiv1.HTTPHeaderName(headerName),
+				Value: headerValue,
+			},
+		},
+	}
+}
+
+func HeaderOnlyMatch(headerName, headerValue string) gwapiv1.HTTPRouteMatch {
+	return gwapiv1.HTTPRouteMatch{
+		Path: &gwapiv1.HTTPPathMatch{
+			Type:  ptr.To(gwapiv1.PathMatchPathPrefix),
+			Value: ptr.To("/"),
+		},
+		Headers: []gwapiv1.HTTPHeaderMatch{
+			{
+				Type:  ptr.To(gwapiv1.HeaderMatchExact),
+				Name:  gwapiv1.HTTPHeaderName(headerName),
+				Value: headerValue,
+			},
+		},
+	}
+}
+
 func ServiceRef(name string, port int32, weight int32) gwapiv1.HTTPBackendRef {
 	return gwapiv1.HTTPBackendRef{
 		BackendRef: gwapiv1.BackendRef{
@@ -698,15 +733,19 @@ func WithExtensionRef(group, kind, name string, port int32) InferencePoolOption 
 	return WithEndpointPickerRef(group, kind, name, port)
 }
 
-func WithInferencePoolReadyStatus() InferencePoolOption {
+func WithInferencePoolReadyStatus(gatewayRefs ...igwapi.ParentReference) InferencePoolOption {
 	return func(pool *igwapi.InferencePool) {
-		pool.Status.Parents = []igwapi.ParentStatus{
-			{
-				ParentRef: igwapi.ParentReference{
-					Group: ptr.To(igwapi.Group("gateway.networking.k8s.io")),
-					Kind:  igwapi.Kind("Gateway"),
-					Name:  igwapi.ObjectName("gateway"),
-				},
+		if len(gatewayRefs) == 0 {
+			gatewayRefs = []igwapi.ParentReference{{
+				Group: ptr.To(igwapi.Group("gateway.networking.k8s.io")),
+				Kind:  igwapi.Kind("Gateway"),
+				Name:  igwapi.ObjectName("gateway"),
+			}}
+		}
+		pool.Status.Parents = make([]igwapi.ParentStatus, 0, len(gatewayRefs))
+		for _, ref := range gatewayRefs {
+			pool.Status.Parents = append(pool.Status.Parents, igwapi.ParentStatus{
+				ParentRef: ref,
 				Conditions: []metav1.Condition{
 					{
 						Type:               string(igwapi.InferencePoolConditionAccepted),
@@ -715,7 +754,36 @@ func WithInferencePoolReadyStatus() InferencePoolOption {
 						LastTransitionTime: metav1.Now(),
 					},
 				},
-			},
+			})
+		}
+		slices.SortFunc(pool.Status.Parents, func(a, b igwapi.ParentStatus) int {
+			if c := cmp.Compare(string(a.ParentRef.Namespace), string(b.ParentRef.Namespace)); c != 0 {
+				return c
+			}
+			return cmp.Compare(string(a.ParentRef.Name), string(b.ParentRef.Name))
+		})
+	}
+}
+
+// InferencePoolParentRefsFromRoutes converts HTTPRoute parentRefs to InferencePool ParentReferences.
+// Namespace is resolved to the route's namespace when omitted, matching Gateway API defaulting.
+func InferencePoolParentRefsFromRoutes(routes []gwapiv1.HTTPRoute) []igwapi.ParentReference {
+	var refs []igwapi.ParentReference
+	for _, route := range routes {
+		for _, pr := range route.Spec.ParentRefs {
+			ref := igwapi.ParentReference{
+				Name:      igwapi.ObjectName(pr.Name),
+				Namespace: igwapi.Namespace(ptr.Deref(pr.Namespace, gwapiv1.Namespace(route.Namespace))),
+			}
+			if pr.Group != nil {
+				g := igwapi.Group(*pr.Group)
+				ref.Group = &g
+			}
+			if pr.Kind != nil {
+				ref.Kind = igwapi.Kind(*pr.Kind)
+			}
+			refs = append(refs, ref)
 		}
 	}
+	return refs
 }

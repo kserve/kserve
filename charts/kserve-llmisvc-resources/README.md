@@ -1,6 +1,6 @@
 # kserve-llmisvc-resources
 
-![Version: v0.18.0](https://img.shields.io/badge/Version-v0.18.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.18.0](https://img.shields.io/badge/AppVersion-v0.18.0-informational?style=flat-square)
+![Version: v0.19.0](https://img.shields.io/badge/Version-v0.19.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.19.0](https://img.shields.io/badge/AppVersion-v0.19.0-informational?style=flat-square)
 
 Helm chart for deploying KServe LLMInferenceService resources
 
@@ -11,7 +11,7 @@ Helm chart for deploying KServe LLMInferenceService resources
 To install the chart, run the following:
 
 ```console
-$ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmisvc-resources --version v0.18.0
+$ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmisvc-resources --version v0.19.0
 ```
 
 ## Maintainers
@@ -113,6 +113,7 @@ $ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmis
 | kserve.llmisvc.controller.terminationGracePeriodSeconds | int | `10` |  |
 | kserve.llmisvc.controller.tolerations | list | `[]` |  |
 | kserve.llmisvc.controller.topologySpreadConstraints | list | `[]` |  |
+| kserve.llmisvc.createGIECRDs | bool | `true` |  |
 | kserve.localmodel.agent.affinity | object | `{}` |  |
 | kserve.localmodel.agent.hostPath | string | `"/mnt/models"` |  |
 | kserve.localmodel.agent.image | string | `"kserve/kserve-localmodelnode-agent"` |  |
@@ -177,4 +178,4 @@ $ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmis
 | kserve.storage.tag | string | `""` |  |
 | kserve.storage.uidModelcar | int | `1010` |  |
 | kserve.storagecontainer.enabled | string | `""` |  |
-| kserve.version | string | `"v0.18.0"` |  |
+| kserve.version | string | `"v0.19.0"` |  |

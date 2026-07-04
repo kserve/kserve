@@ -11,13 +11,14 @@ This list is a copy of the active maintainers from [MAINTAINERS.md file in kserv
 | Lize Cai               | [lizzzcai](https://github.com/lizzzcai)               | Approver - KServe    | SAP         |
 | Sivanantham Chinnaiyan | [sivanantha321](https://github.com/sivanantha321)     | Approver - KServe    | Ideas2IT    |
 | Jooho Lee              | [Jooho](https://github.com/Jooho)                     | Approver - KServe    | Red Hat     |
+| Cory Johannsen         | [cjohannsen-cloudera](https://github.com/cjohannsen-cloudera) | Approver - KServe | Cloudera |
+| Filippe Spolti         | [spolti](https://github.com/spolti)                   | Approver - KServe    | Red Hat     |
 | Andrews Arokiam        | [andyi2it](https://github.com/andyi2it)               | Reviewer - KServe    | Ideas2IT    |
-| Cory Johannsen         | [cjohannsen-cloudera](https://github.com/cjohannsen-cloudera) | Reviewer - KServe | Cloudera |
 | Curtis Maddalozzo      | [cmaddalozzo](https://github.com/cmaddalozzo)         | Reviewer - KServe    | Bloomberg   |
 | Datta Nimmaturi        | [Datta0](https://github.com/Datta0)                   | Reviewer - KServe    | Nutanix     |
 | Gavrish Prabhu         | [gavrissh](https://github.com/gavrissh)               | Reviewer - KServe    | Nutanix     |
 | Jin Dong               | [greenmoon55](https://github.com/greenmoon55)         | Reviewer - KServe    | Bloomberg   |
 | Edgar Hernández        | [israel-hdez](https://github.com/israel-hdez)         | Reviewer - KServe    | Red Hat     |
 | Johnu George           | [johnugeorge](https://github.com/johnugeorge)         | Reviewer - KServe    | Nutanix     |
-| Filippe Spolti         | [spolti](https://github.com/spolti)                   | Reviewer - KServe    | Red Hat     |
 | Pierangelo Di Pilato   | [pierDipi](https://github.com/pierDipi)               | Reviewer - KServe    | Red Hat     |
+| Bartosz Majsak         | [bartoszmajsak](https://github.com/bartoszmajsak)     | Reviewer - KServe    | Red Hat     |

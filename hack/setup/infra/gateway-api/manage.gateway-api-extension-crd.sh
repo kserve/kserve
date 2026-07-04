@@ -41,7 +41,7 @@ uninstall() {
 }
 
 install() {
-    if kubectl get crd inferencepools.inference.networking.x-k8s.io &>/dev/null; then
+    if kubectl get crd inferencepools.inference.networking.k8s.io &>/dev/null; then
         if [ "$REINSTALL" = false ]; then
             log_info "Gateway Inference Extension CRDs are already installed. Use --reinstall to reinstall."
             return 0
@@ -57,7 +57,7 @@ install() {
     log_success "Successfully installed Gateway Inference Extension CRDs ${GIE_VERSION}"
 
     wait_for_crds "60s" \
-        "inferencepools.inference.networking.x-k8s.io" \
+        "inferencepools.inference.networking.k8s.io" \
         "inferenceobjectives.inference.networking.x-k8s.io"
 
     log_success "Gateway Inference Extension CRDs are ready!"

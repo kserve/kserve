@@ -20,6 +20,7 @@ from typing import Union, List, Dict
 from urllib.parse import urlparse
 
 import portforward
+import requests
 from kubernetes import client as k8s_client
 from orjson import orjson
 
@@ -34,6 +35,9 @@ from .http_retry import post_with_retry
 
 KSERVE_NAMESPACE = os.environ.get("KSERVE_NAMESPACE", "kserve")
 KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
+# autogluonserver: large image + storage init + predictor load often exceeds default
+# KServeClient.wait_isvc_ready (600s) under parallel e2e; override via env if needed.
+AUTOGLUON_ISVC_WAIT_TIMEOUT = int(os.getenv("AUTOGLUON_ISVC_WAIT_TIMEOUT", "1200"))
 MODEL_CLASS_NAME = "modelClass"
 INFERENCESERVICE_CONTAINER = "kserve-container"
 TRANSFORMER_CONTAINER = "transformer-container"
@@ -47,7 +51,7 @@ def grpc_client(host, cluster_ip):
     logger.info("gRPC target host: %s", host)
     return InferenceGRPCClient(
         cluster_ip,
-        verbose=True,
+        verbose=False,
         channel_args=[
             ("grpc.ssl_target_name_override", host),
         ],
@@ -63,6 +67,7 @@ async def predict_isvc(
     model_name=None,
     is_batch=False,
     network_layer: str = "istio",
+    extra_headers: dict = None,
 ) -> Union[InferResponse, Dict, List[Union[Dict, InferResponse]]]:
     kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
@@ -84,6 +89,7 @@ async def predict_isvc(
         model_name=model_name,
         is_batch=is_batch,
         is_graph=False,
+        extra_headers=extra_headers,
     )
 
 
@@ -95,6 +101,7 @@ async def predict(
     model_name=None,
     is_batch=False,
     is_graph=False,
+    extra_headers: dict = None,
 ) -> Union[InferResponse, Dict, List[Union[Dict, InferResponse]]]:
     if isinstance(input, str):
         with open(input) as json_file:
@@ -102,6 +109,8 @@ async def predict(
     else:
         data = input
     headers = {"Host": host, "Content-Type": "application/json"}
+    if extra_headers:
+        headers.update(extra_headers)
     if is_batch:
         with futures.ThreadPoolExecutor(max_workers=4) as executor:
             loop = asyncio.get_running_loop()
@@ -329,14 +338,44 @@ async def predict_modelmesh(
         return response
 
 
+def _get_gateway_from_config():
+    """Read the gateway namespace and name from kserveIngressGateway in the inferenceservice-config ConfigMap.
+
+    The controller stores the gateway reference as "namespace/name" in the ingress config.
+    This follows the same parsing logic used by the Go controller in configmap.go.
+    Returns (namespace, name).
+    """
+    api = k8s_client.CoreV1Api(k8s_client.ApiClient())
+    cm = api.read_namespaced_config_map(
+        name="inferenceservice-config", namespace=KSERVE_NAMESPACE
+    )
+    ingress_config = json.loads(cm.data.get("ingress", "{}"))
+    gateway = ingress_config.get("kserveIngressGateway", "")
+    parts = gateway.split("/")
+    if len(parts) == 2:
+        return parts[0], parts[1]
+    return KSERVE_NAMESPACE, "kserve-ingress-gateway"
+
+
 def get_isvc_endpoint(isvc, network_layer: str = "istio"):
     scheme = urlparse(isvc["status"]["url"]).scheme
     host = urlparse(isvc["status"]["url"]).netloc
     path = urlparse(isvc["status"]["url"]).path
-    if os.environ.get("CI_USE_ISVC_HOST") == "1":
+    logger.info(f"Host from isvc status URL = {host}")
+    logger.info(f"Network layer = {network_layer}")
+    if network_layer == "openshift-route":
         cluster_ip = host
+        logger.info(f"Using external route host: {cluster_ip}")
     elif network_layer == "istio" or network_layer == "istio-ingress":
         cluster_ip = get_cluster_ip()
+        logger.info(f"Using internal cluster IP: {cluster_ip}")
+    elif network_layer == "gateway-api":
+        gw_ns, gw_name = _get_gateway_from_config()
+        logger.info(f"Using gateway from config: {gw_ns}/{gw_name}")
+        cluster_ip = get_cluster_ip(
+            namespace=gw_ns,
+            labels={"serving.kserve.io/gateway": gw_name},
+        )
     elif network_layer == "envoy-gatewayapi":
         cluster_ip = get_cluster_ip(
             namespace="envoy-gateway-system",
@@ -357,9 +396,12 @@ def generate(
     input_json,
     version=constants.KSERVE_V1BETA1_VERSION,
     chat_completions=True,
+    network_layer: str = "istio",
 ):
     url_suffix = "v1/chat/completions" if chat_completions else "v1/completions"
-    res = _openai_request(service_name, input_json, version, url_suffix)
+    res = _openai_request(
+        service_name, input_json, version, url_suffix, network_layer=network_layer
+    )
     return _process_non_streaming_response(res)
 
 
@@ -367,8 +409,11 @@ def embed(
     service_name,
     input_json,
     version=constants.KSERVE_V1BETA1_VERSION,
+    network_layer: str = "istio",
 ):
-    res = _openai_request(service_name, input_json, version, "v1/embeddings")
+    res = _openai_request(
+        service_name, input_json, version, "v1/embeddings", network_layer=network_layer
+    )
     return _process_non_streaming_response(res)
 
 
@@ -376,13 +421,80 @@ def rerank(
     service_name,
     input_json,
     version=constants.KSERVE_V1BETA1_VERSION,
+    network_layer: str = "istio",
 ):
-    res = _openai_request(service_name, input_json, version, "v1/rerank")
+    res = _openai_request(
+        service_name, input_json, version, "v1/rerank", network_layer=network_layer
+    )
     return _process_non_streaming_response(res)
 
 
-def _get_openai_endpoint_and_host(
+def classify(
+    service_name,
+    input_json,
+    version=constants.KSERVE_V1BETA1_VERSION,
+):
+    """Call vLLM's /classify endpoint for classification tasks"""
+    res = _vllm_request(service_name, input_json, version, "classify")
+    return _process_non_streaming_response(res)
+
+
+def _get_vllm_endpoint_and_host(
     service_name, url_suffix, version=constants.KSERVE_V1BETA1_VERSION
+):
+    """
+    Get the vLLM endpoint for the given service name (without /openai prefix).
+    Args:
+        service_name: The name of the inference service
+        url_suffix: The suffix for the vLLM endpoint (e.g., "classify")
+        version: The version of the inference service. Defaults to v1beta1
+    Returns:
+        A tuple containing the vLLM endpoint URL and the host name
+    """
+    kfs_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    isvc = kfs_client.get(
+        service_name, namespace=KSERVE_TEST_NAMESPACE, version=version
+    )
+    scheme, cluster_ip, host, path = get_isvc_endpoint(isvc)
+    return f"{scheme}://{cluster_ip}{path}/{url_suffix}", host
+
+
+def _vllm_request(
+    service_name,
+    input_json,
+    version=constants.KSERVE_V1BETA1_VERSION,
+    url_suffix="",
+):
+    """Make a request to vLLM's /classify endpoint"""
+    with open(input_json) as json_file:
+        data = json.load(json_file)
+
+        # If input is in v2 format, convert to vLLM classify endpoint format. Classify endpoint expects 'input' (not 'inputs') as a list of texts
+        if "inputs" in data and isinstance(data["inputs"], list):
+            text = data["inputs"][0]["data"][0]
+            data = {"input": [text]}
+
+        url, host = _get_vllm_endpoint_and_host(service_name, url_suffix, version)
+        headers = {"Host": host, "Content-Type": "application/json"}
+
+        logger.info("Sending Header = %s", headers)
+        logger.info("Sending url = %s", url)
+        logger.info("Sending request data: %s", data)
+
+        response = requests.post(url, json.dumps(data), headers=headers)
+        logger.info("Got response code %s", response.status_code)
+        if not response.status_code == 200:
+            response.raise_for_status()
+        return response
+
+
+def _get_openai_endpoint_and_host(
+    service_name,
+    url_suffix,
+    version=constants.KSERVE_V1BETA1_VERSION,
+    network_layer: str = "istio",
 ):
     """
     Get the OpenAI endpoint for the given service name.
@@ -390,6 +502,7 @@ def _get_openai_endpoint_and_host(
         service_name: The name of the inference service
         url_suffix: The suffix for the OpenAI endpoint (e.g., "v1/chat/completions")
         version: The version of the inference service. Defaults to v1beta1
+        network_layer: The network layer to use for endpoint resolution
     Returns:
         A tuple containing the OpenAI endpoint URL and the host name
     """
@@ -399,8 +512,20 @@ def _get_openai_endpoint_and_host(
     isvc = kfs_client.get(
         service_name, namespace=KSERVE_TEST_NAMESPACE, version=version
     )
-    scheme, cluster_ip, host, path = get_isvc_endpoint(isvc)
-    return f"{scheme}://{cluster_ip}{path}/openai/{url_suffix}", host
+    scheme, cluster_ip, host, path = get_isvc_endpoint(isvc, network_layer)
+
+    # vLLM runtime does not use /openai prefix, others do
+    model_format = (
+        isvc.get("spec", {})
+        .get("predictor", {})
+        .get("model", {})
+        .get("modelFormat", {})
+        .get("name", "")
+    )
+    if model_format == "vLLM":
+        return f"{scheme}://{cluster_ip}{path}/{url_suffix}", host
+    else:
+        return f"{scheme}://{cluster_ip}{path}/openai/{url_suffix}", host
 
 
 def _openai_request(
@@ -409,11 +534,14 @@ def _openai_request(
     version=constants.KSERVE_V1BETA1_VERSION,
     url_suffix="",
     stream=False,
+    network_layer: str = "istio",
 ):
     with open(input_json) as json_file:
         data = json.load(json_file)
 
-        url, host = _get_openai_endpoint_and_host(service_name, url_suffix, version)
+        url, host = _get_openai_endpoint_and_host(
+            service_name, url_suffix, version, network_layer
+        )
         headers = {"Host": host, "Content-Type": "application/json"}
 
         logger.info("Sending Header = %s", headers)
@@ -441,13 +569,19 @@ def chat_completion_stream(
     service_name,
     input_json,
     version=constants.KSERVE_V1BETA1_VERSION,
+    network_layer: str = "istio",
 ):
     """
     Make a chat completion streaming request to the inference service and collect all chunks.
     Returns a tuple containing full response text and all chunks received.
     """
     res = _openai_request(
-        service_name, input_json, version, "v1/chat/completions", stream=True
+        service_name,
+        input_json,
+        version,
+        "v1/chat/completions",
+        stream=True,
+        network_layer=network_layer,
     )
 
     chunks = []
@@ -472,13 +606,19 @@ def completion_stream(
     service_name,
     input_json,
     version=constants.KSERVE_V1BETA1_VERSION,
+    network_layer: str = "istio",
 ):
     """
     Make a streaming request to the text completion inference service and collect all chunks.
     Returns a tuple containing full response text and all chunks received.
     """
     res = _openai_request(
-        service_name, input_json, version, "v1/completions", stream=True
+        service_name,
+        input_json,
+        version,
+        "v1/completions",
+        stream=True,
+        network_layer=network_layer,
     )
     chunks = []
     full_content = ""

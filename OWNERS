@@ -3,16 +3,19 @@ project-leads:
   - yuzisun
 
 approvers:
+  - cjohannsen-cloudera
   - Jooho
   - lizzzcai
   - sivanantha321
+  - spolti
 
 reviewers:
+  - cjohannsen-cloudera
   - Jooho
   - lizzzcai
   - sivanantha321
+  - spolti
   - andyi2it
-  - cjohannsen-cloudera
   - cmaddalozzo
   - Datta0
   - gavrissh
@@ -20,4 +23,4 @@ reviewers:
   - israel-hdez
   - johnugeorge
   - pierDipi
-  - spolti
+  - bartoszmajsak
