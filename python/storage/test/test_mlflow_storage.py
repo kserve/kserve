@@ -68,6 +68,7 @@ class TestDownloadMlflow:
         with pytest.raises(ValueError, match="Model uri cannot be empty"):
             Storage._download_mlflow(uri, out_dir)
 
+    @mock.patch("mlflow.artifacts.download_artifacts")
     @mock.patch("mlflow.set_tracking_uri")
     @mock.patch.dict(
         os.environ,
@@ -79,15 +80,20 @@ class TestDownloadMlflow:
         },
         clear=True,
     )
-    def test_token_with_credentials_raises_error(self, mock_set_tracking_uri, tmp_path):
-        """Should raise ValueError when token is set along with username/password."""
+    def test_download_with_token_and_credentials(
+        self, mock_set_tracking_uri, mock_download_artifacts, tmp_path
+    ):
+        """Should succeed when both token and username/password are set; MLflow handles auth."""
         uri = "mlflow://models:/my-model/1"
         out_dir = str(tmp_path)
 
-        with pytest.raises(
-            ValueError, match="Tracking Token cannot be set with Username/Password"
-        ):
-            Storage._download_mlflow(uri, out_dir)
+        result = Storage._download_mlflow(uri, out_dir)
+
+        mock_set_tracking_uri.assert_called_once_with("http://mlflow.example.com")
+        mock_download_artifacts.assert_called_once_with(
+            artifact_uri="models:/my-model/1", dst_path=out_dir
+        )
+        assert result == out_dir
 
     @mock.patch("mlflow.artifacts.download_artifacts")
     @mock.patch("mlflow.set_tracking_uri")
