@@ -1299,10 +1299,14 @@ class Storage(object):
             raise ValueError("Cannot find MLFlow tracking Uri")
         mlflow.set_tracking_uri(mlflow_tracking_uri)
 
-        model_uri = uri[len(_MLFLOW_PREFIX) :]
-        logger.info(f"Downloading {model_uri} from {mlflow_tracking_uri}")
+        model_uri = uri[len(_MLFLOW_PREFIX) :]  # Stripping mlflow prefix
         if not model_uri:
             raise ValueError("Model uri cannot be empty")
+        prefix, rest = model_uri.split("/", 1)  # Spliting on the first `/`
+        model_uri = f"{prefix}:/{rest}"  # reconstruing mlflow model_uri from `model/` to `model:/`
+        logger.info(f"Downloading {model_uri} from {mlflow_tracking_uri}")
+        logger.error(f"model_uri = {model_uri}")
+
         try:
             mlflow.artifacts.download_artifacts(
                 artifact_uri=model_uri, dst_path=out_dir

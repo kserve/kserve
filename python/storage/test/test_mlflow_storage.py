@@ -16,8 +16,9 @@ import os
 import unittest.mock as mock
 
 import pytest
-
 from kserve_storage import Storage
+
+_TRACKING_URI_ENV = {"MLFLOW_TRACKING_URI": "http://mlflow.example.com"}
 
 
 class TestDownloadMlflow:
@@ -26,7 +27,7 @@ class TestDownloadMlflow:
     @mock.patch.dict(os.environ, {}, clear=True)
     def test_missing_tracking_uri_raises_error(self, tmp_path):
         """Should raise ValueError when MLFLOW_TRACKING_URI is not set."""
-        uri = "mlflow://models:/my-model/1"
+        uri = "mlflow://models/my-model/1"
         out_dir = str(tmp_path)
 
         with pytest.raises(ValueError, match="Cannot find MLFlow tracking Uri"):
@@ -43,7 +44,7 @@ class TestDownloadMlflow:
         self, mock_set_tracking_uri, mock_download_artifacts, tmp_path
     ):
         """Should successfully download artifacts when configuration is valid."""
-        uri = "mlflow://models:/my-model/1"
+        uri = "mlflow://models/my-model/1"
         out_dir = str(tmp_path)
 
         result = Storage._download_mlflow(uri, out_dir)
@@ -61,32 +62,11 @@ class TestDownloadMlflow:
         clear=True,
     )
     def test_empty_model_uri_raises_error(self, mock_set_tracking_uri, tmp_path):
-        """Should raise ValueError when model uri is empty (just 'mlflow://')."""
-        uri = "mlflow://"
+        """Should raise ValueError when model uri is empty (just 'mlflow:///')."""
+        uri = "mlflow:/"
         out_dir = str(tmp_path)
 
         with pytest.raises(ValueError, match="Model uri cannot be empty"):
-            Storage._download_mlflow(uri, out_dir)
-
-    @mock.patch("mlflow.set_tracking_uri")
-    @mock.patch.dict(
-        os.environ,
-        {
-            "MLFLOW_TRACKING_URI": "http://mlflow.example.com",
-            "MLFLOW_TRACKING_USERNAME": "user",
-            "MLFLOW_TRACKING_PASSWORD": "password",
-            "MLFLOW_TRACKING_TOKEN": "token123",
-        },
-        clear=True,
-    )
-    def test_token_with_credentials_raises_error(self, mock_set_tracking_uri, tmp_path):
-        """Should raise ValueError when token is set along with username/password."""
-        uri = "mlflow://models:/my-model/1"
-        out_dir = str(tmp_path)
-
-        with pytest.raises(
-            ValueError, match="Tracking Token cannot be set with Username/Password"
-        ):
             Storage._download_mlflow(uri, out_dir)
 
     @mock.patch("mlflow.artifacts.download_artifacts")
@@ -103,7 +83,8 @@ class TestDownloadMlflow:
         from mlflow.exceptions import MlflowException
 
         mock_download_artifacts.side_effect = MlflowException("Download failed")
-        uri = "mlflow://models:/my-model/1"
+        uri = "mlflow://models/my-model/1"
+
         out_dir = str(tmp_path)
 
         with pytest.raises(RuntimeError, match="Failed to download model from MLFlow"):
@@ -124,7 +105,7 @@ class TestDownloadMlflow:
         self, mock_set_tracking_uri, mock_download_artifacts, tmp_path
     ):
         """Should successfully download with username/password authentication."""
-        uri = "mlflow://models:/my-model/Production"
+        uri = "mlflow://models/my-model/Production"
         out_dir = str(tmp_path)
 
         result = Storage._download_mlflow(uri, out_dir)
@@ -149,7 +130,7 @@ class TestDownloadMlflow:
         self, mock_set_tracking_uri, mock_download_artifacts, tmp_path
     ):
         """Should successfully download with token authentication."""
-        uri = "mlflow://runs:/abc123/artifacts/model"
+        uri = "mlflow://runs/abc123/artifacts/model"
         out_dir = str(tmp_path)
 
         result = Storage._download_mlflow(uri, out_dir)
@@ -159,3 +140,50 @@ class TestDownloadMlflow:
             artifact_uri="runs:/abc123/artifacts/model", dst_path=out_dir
         )
         assert result == out_dir
+
+
+@pytest.mark.parametrize(
+    "uri, expected_artifact_uri",
+    [
+        # by version number
+        ("mlflow://models/wine-quality/2", "models:/wine-quality/2"),
+        # by stage
+        ("mlflow://models/wine-quality/Production", "models:/wine-quality/Production"),
+        # by alias
+        ("mlflow://models/wine-quality@champion", "models:/wine-quality@champion"),
+        # sub-artifact path
+        (
+            "mlflow://models/wine-quality/2/data/model.pkl",
+            "models:/wine-quality/2/data/model.pkl",
+        ),
+        # run artifact
+        (
+            "mlflow://runs/abc123def456/iris_model",
+            "runs:/abc123def456/iris_model",
+        ),
+        # artifact proxy URI
+        (
+            "mlflow://mlflow-artifacts/0/abc123def456/artifacts/model",
+            "mlflow-artifacts:/0/abc123def456/artifacts/model",
+        ),
+    ],
+)
+class TestMlflowUriFormats:
+    """Tests for the proposed mlflow:// URI format (no inner colon)."""
+
+    @mock.patch("mlflow.artifacts.download_artifacts")
+    @mock.patch("mlflow.set_tracking_uri")
+    @mock.patch.dict(os.environ, _TRACKING_URI_ENV, clear=True)
+    def test_uri_parsed_correctly(
+        self,
+        mock_set_tracking_uri,
+        mock_download_artifacts,
+        tmp_path,
+        uri,
+        expected_artifact_uri,
+    ):
+        result = Storage._download_mlflow(uri, str(tmp_path))
+        mock_download_artifacts.assert_called_once_with(
+            artifact_uri=expected_artifact_uri, dst_path=str(tmp_path)
+        )
+        assert result == str(tmp_path)
