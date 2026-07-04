@@ -163,7 +163,7 @@ These are all handled by the `huggingface_hub` package, you can see all the avai
 - `MLFLOW_TRACKING_PASSWORD`: Password for MLFlow authentication (optional)
 - `MLFLOW_TRACKING_TOKEN`: Authentication token for MLFlow (optional)
 
-**Note**: `MLFLOW_TRACKING_TOKEN` cannot be set together with `MLFLOW_TRACKING_USERNAME` and `MLFLOW_TRACKING_PASSWORD`. Use either token-based or username/password authentication, not both.
+**Note**: If `MLFLOW_TRACKING_TOKEN` and `MLFLOW_TRACKING_USERNAME` / `MLFLOW_TRACKING_PASSWORD` are set, MLFlow Client will default to basic auth (username/password).
 
 ## Storage Configuration
 
