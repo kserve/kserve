@@ -1855,6 +1855,19 @@ func TestValidateStorageUri(t *testing.T) {
 			},
 			expected: gomega.MatchError(gomega.ContainSubstring("storage paths must have a common parent directory")),
 		},
+		"MultipleStorageUrisWithRootMountPath": {
+			storageUris: []StorageUri{
+				{
+					Uri:       "gs://bucket/model1",
+					MountPath: "///",
+				},
+				{
+					Uri:       "s3://bucket/model2",
+					MountPath: "/mnt/models",
+				},
+			},
+			expected: gomega.MatchError(gomega.ContainSubstring("storage paths must have a common parent directory")),
+		},
 		"InvalidStorageUriInList": {
 			storageUris: []StorageUri{
 				{

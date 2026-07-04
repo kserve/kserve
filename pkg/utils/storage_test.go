@@ -71,6 +71,27 @@ func TestFindCommonParentPath(t *testing.T) {
 			},
 			expected: "/",
 		},
+		"RootOnlyPath": {
+			paths: []string{
+				"///",
+				"/mnt/models",
+			},
+			expected: "/",
+		},
+		"RootOnlyPathFirst": {
+			paths: []string{
+				"/mnt/models",
+				"///",
+			},
+			expected: "/",
+		},
+		"AllRootPaths": {
+			paths: []string{
+				"/",
+				"//",
+			},
+			expected: "/",
+		},
 	}
 
 	for name, scenario := range scenarios {
