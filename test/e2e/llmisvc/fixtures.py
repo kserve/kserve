@@ -1786,9 +1786,7 @@ def _patch_default_sa_secret(
                 namespace,
                 {"secrets": [{"name": secret_name}]},
             )
-            logger.info(
-                f"Patched default SA in {namespace} with secret {secret_name}"
-            )
+            logger.info(f"Patched default SA in {namespace} with secret {secret_name}")
             return
         except client.rest.ApiException as e:
             if e.status == 404 and attempt < 4:
