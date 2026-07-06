@@ -227,6 +227,15 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 				cfg.ModelBasedRoutingHeaderName,
 			)
 		}
+
+		// Some Gateway implementations (e.g. GKE Gateway) reject HTTPRoutes that
+		// set spec.rules[*].timeouts. When disableHTTPRouteTimeout is configured,
+		// omit timeouts from every rule. Mirrors the v1beta1 ingress reconciler.
+		if cfg.DisableHTTPRouteTimeout {
+			for i := range httpRoute.Spec.Rules {
+				httpRoute.Spec.Rules[i].Timeouts = nil
+			}
+		}
 	}
 
 	// Migration logic: check if we should switch from v1alpha2 to v1 InferencePool
