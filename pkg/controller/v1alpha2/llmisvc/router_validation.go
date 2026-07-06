@@ -24,6 +24,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -31,7 +32,8 @@ import (
 )
 
 const (
-	RefsInvalidReason = "RefsInvalid"
+	RefsInvalidReason                 = "RefsInvalid"
+	SchedulerBackendRefMismatchReason = "SchedulerBackendRefMismatch"
 )
 
 // ValidationError represents a validation failure that should be reported via conditions
@@ -91,6 +93,12 @@ func (r *LLMISVCReconciler) validateRouterReferences(ctx context.Context, llmSvc
 			return err
 		}
 		return fmt.Errorf("managed HTTPRoute spec validation failed: %w", err)
+	}
+
+	if err := r.validateSchedulerBackendRefConsistency(llmSvc); err != nil {
+		llmSvc.MarkSchedulerWorkloadNotReady(SchedulerBackendRefMismatchReason, err.Error())
+		logger.Info("Scheduler/backendRef consistency validation failed", "error", err)
+		return nil
 	}
 
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Route != nil && llmSvc.Spec.Router.Route.HTTP.HasRefs() {
@@ -266,4 +274,52 @@ func (r *LLMISVCReconciler) validateManagedHTTPRouteSpec(ctx context.Context, ll
 	}
 
 	return nil
+}
+
+// httpRouteReferencesInferencePool reports whether the effective HTTPRoute spec
+// has at least one backendRef targeting the managed InferencePool. Returns true
+// when there is no route spec (controller-generated defaults always target the pool).
+// Callers must check Scheduler != nil before calling - the pool name is derived from it.
+func (r *LLMISVCReconciler) httpRouteReferencesInferencePool(llmSvc *v1alpha2.LLMInferenceService) bool {
+	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route == nil || !llmSvc.Spec.Router.Route.HTTP.HasSpec() {
+		return true
+	}
+	return rulesReferencePool(llmSvc.Spec.Router.Route.HTTP.Spec.Rules, llmSvc.Spec.Router.Scheduler.InferencePoolName(llmSvc))
+}
+
+// rulesReferencePool returns true when at least one backendRef across all rules
+// targets an InferencePool with the given name. Group is ignored because the pool
+// can be v1 or v1alpha2 during migration.
+func rulesReferencePool(rules []gwapiv1.HTTPRouteRule, poolName string) bool {
+	for _, rule := range rules {
+		for _, ref := range rule.BackendRefs {
+			if ptr.Deref(ref.Kind, "") == "InferencePool" && string(ref.Name) == poolName {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// validateSchedulerBackendRefConsistency rejects specs where a scheduler is configured
+// but the effective HTTPRoute backendRefs do not reference the managed InferencePool.
+// This runs after preset merging, so the spec reflects the combined configuration.
+func (r *LLMISVCReconciler) validateSchedulerBackendRefConsistency(llmSvc *v1alpha2.LLMInferenceService) error {
+	// Nothing to validate when scheduler is absent or the combined route spec has no rules.
+	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil ||
+		llmSvc.Spec.Router.Route == nil || !llmSvc.Spec.Router.Route.HTTP.HasSpec() {
+		return nil
+	}
+
+	poolName := llmSvc.Spec.Router.Scheduler.InferencePoolName(llmSvc)
+	if rulesReferencePool(llmSvc.Spec.Router.Route.HTTP.Spec.Rules, poolName) {
+		return nil
+	}
+
+	return NewValidationError(
+		fmt.Sprintf("spec.router.scheduler is configured but no HTTPRoute backendRef references "+
+			"the managed InferencePool %q; the scheduler (EPP deployment and InferencePool) would not "+
+			"be in the data path - either remove spec.router.scheduler or update backendRefs to "+
+			"reference the InferencePool", poolName),
+	)
 }

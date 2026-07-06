@@ -69,6 +69,11 @@ const (
 func (r *LLMISVCReconciler) reconcileScheduler(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
 	log.FromContext(ctx).Info("Reconciling Scheduler")
 
+	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil &&
+		!r.httpRouteReferencesInferencePool(llmSvc) {
+		llmSvc.MarkSchedulerWorkloadUnset()
+	}
+
 	if err := r.reconcileSchedulerServiceAccount(ctx, llmSvc); err != nil {
 		return err
 	}
