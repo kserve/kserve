@@ -233,7 +233,7 @@ func IsCrdAvailable(config *rest.Config, groupVersion, kind string) (bool, error
 }
 
 // GetAvailableResourcesForApi returns the list of discovered resources that belong
-// to the API specified in groupVersion. The first query to a specifig groupVersion will
+// to the API specified in groupVersion. The first query to a specific groupVersion will
 // query the cluster API server to discover the available resources and the discovered
 // resources will be cached and returned to subsequent invocations to prevent additional
 // queries to the API server.
@@ -259,7 +259,7 @@ func GetAvailableResourcesForApi(config *rest.Config, groupVersion string) (*met
 	return gvResources, nil
 }
 
-// SetAvailableResourcesForApi stores the value fo resources argument in the global cache
+// SetAvailableResourcesForApi stores the value of resources argument in the global cache
 // of discovered API resources. This function should never be called directly. It is exported
 // for usage in tests.
 func SetAvailableResourcesForApi(groupVersion string, resources *metav1.APIResourceList) {

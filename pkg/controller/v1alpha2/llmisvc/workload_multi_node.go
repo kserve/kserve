@@ -324,7 +324,7 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 
 		serviceAccount, _, err := r.expectedMultiNodePrefillServiceAccount(ctx, llmSvc)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create exptected multi node service account: %w", err)
+			return nil, fmt.Errorf("failed to create expected multi node service account: %w", err)
 		}
 
 		currLWS := &lwsapi.LeaderWorkerSet{}
