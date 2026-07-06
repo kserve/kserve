@@ -1736,6 +1736,8 @@ def create_test_namespace(service_name: str) -> str:
             raise
 
     _copy_secret(core_v1, S3_CREDENTIALS_SECRET, DEFAULT_TEST_NAMESPACE, ns_name)
+    _copy_secret(core_v1, "storage-config", DEFAULT_TEST_NAMESPACE, ns_name)
+    _patch_default_sa_secret(core_v1, ns_name, S3_CREDENTIALS_SECRET)
     return ns_name
 
 
@@ -1768,6 +1770,30 @@ def _copy_secret(core_v1: client.CoreV1Api, secret_name: str, src_ns: str, dst_n
         if e.status == 409:
             logger.info(f"Secret {secret_name} already exists in {dst_ns}")
         else:
+            raise
+
+
+def _patch_default_sa_secret(
+    core_v1: client.CoreV1Api, namespace: str, secret_name: str
+):
+    """Patch the default ServiceAccount to reference a secret for KServe credential injection."""
+    import time
+
+    for attempt in range(5):
+        try:
+            core_v1.patch_namespaced_service_account(
+                "default",
+                namespace,
+                {"secrets": [{"name": secret_name}]},
+            )
+            logger.info(
+                f"Patched default SA in {namespace} with secret {secret_name}"
+            )
+            return
+        except client.rest.ApiException as e:
+            if e.status == 404 and attempt < 4:
+                time.sleep(1)
+                continue
             raise
 
 
