@@ -68,7 +68,7 @@ func TestStorageContainerSpec_IsStorageUriSupported(t *testing.T) {
 		},
 		{
 			name:       "custom spec does not support Azure",
-			spec:       s3AzureSpec,
+			spec:       customSpec,
 			storageUri: "https://account.blob.core.windows.net/myblob",
 			supported:  false,
 		},
