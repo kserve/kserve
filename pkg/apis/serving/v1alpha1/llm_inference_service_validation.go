@@ -403,7 +403,7 @@ func (l *LLMInferenceServiceValidator) validateTrafficFields(
 	if router.Ingress != nil {
 		return field.ErrorList{field.Invalid(
 			routePath.Child("group"),
-			ptr.Deref(route.Group, "")
+			ptr.Deref(route.Group, ""),
 			"traffic splitting requires Gateway API routing; the controller manages HTTPRoutes, not Ingress resources",
 		)}
 	}
