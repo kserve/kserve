@@ -188,30 +188,12 @@ func (r *LLMISVCReconciler) reconcileSchedulerDeployment(ctx context.Context, ll
 func (r *LLMISVCReconciler) reconcileSchedulerInferencePool(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
 	shouldDelete := utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef()
 
-	v1Available, err := utils.IsCrdAvailable(r.Config, igwapi.GroupVersion.String(), "InferencePool")
-	if err != nil {
-		return fmt.Errorf("failed to check InferencePool v1 CRD availability: %w", err)
+	if err := r.reconcileV1InferencePool(ctx, llmSvc, shouldDelete); err != nil {
+		return err
 	}
 
-	v1alpha2Available, err := utils.IsCrdAvailable(r.Config, igwapiv1alpha2.GroupVersion.String(), "InferencePool")
-	if err != nil {
-		return fmt.Errorf("failed to check InferencePool v1alpha2 CRD availability: %w", err)
-	}
-
-	if !v1Available && !v1alpha2Available {
-		return fmt.Errorf("no InferencePool CRD available (checked %s and %s)", igwapi.GroupVersion.String(), igwapiv1alpha2.GroupVersion.String())
-	}
-
-	if v1Available {
-		if err := r.reconcileV1InferencePool(ctx, llmSvc, shouldDelete); err != nil {
-			return err
-		}
-	}
-
-	if v1alpha2Available {
-		if err := r.reconcileV1Alpha2InferencePool(ctx, llmSvc, shouldDelete); err != nil {
-			return err
-		}
+	if err := r.reconcileV1Alpha2InferencePool(ctx, llmSvc, shouldDelete); err != nil {
+		return err
 	}
 
 	return nil
