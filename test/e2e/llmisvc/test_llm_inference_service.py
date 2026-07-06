@@ -603,9 +603,8 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                         endpoint="/v1/completions",
                         prompt="KServe is a",
                         payload_formatter=completions_payload,
-                        response_assertion_factory=lambda m, ns: assert_model_field_matches(
-                            m
-                        ),
+                        response_assertion_factory=lambda m,
+                        ns: assert_model_field_matches(m),
                         url_getter=get_model_routing_url,
                     ),
                 ],
@@ -639,9 +638,8 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                         endpoint="/v1/chat/completions",
                         prompt="What is KServe?",
                         payload_formatter=chat_completions_payload,
-                        response_assertion_factory=lambda m, ns: assert_model_field_matches(
-                            m
-                        ),
+                        response_assertion_factory=lambda m,
+                        ns: assert_model_field_matches(m),
                         url_getter=get_model_routing_url,
                     ),
                 ],

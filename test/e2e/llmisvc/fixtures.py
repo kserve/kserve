@@ -1483,17 +1483,13 @@ def _setup_test_case_service(
             "spec": spec,
         }
 
-        _create_or_update_llmisvc_config(
-            kserve_client, unique_config_body, namespace
-        )
+        _create_or_update_llmisvc_config(kserve_client, unique_config_body, namespace)
         created_configs.append(unique_config_name)
 
     tc.llm_service = V1alpha1LLMInferenceService(
         api_version="serving.kserve.io/v1alpha1",
         kind="LLMInferenceService",
-        metadata=client.V1ObjectMeta(
-            name=tc.service_name, namespace=namespace
-        ),
+        metadata=client.V1ObjectMeta(name=tc.service_name, namespace=namespace),
         spec={
             "baseRefs": [{"name": base_ref} for base_ref in unique_base_refs],
         },
@@ -1539,9 +1535,7 @@ def test_case(request):
         ) from before_test_error
 
     try:
-        _setup_test_case_service(
-            kserve_client, tc, request.node.name, namespace=ns
-        )
+        _setup_test_case_service(kserve_client, tc, request.node.name, namespace=ns)
         for i, peer in enumerate(tc.peers):
             _setup_test_case_service(
                 kserve_client, peer, request.node.name, peer_index=i, namespace=ns
@@ -1756,23 +1750,17 @@ def delete_test_namespace(ns_name: str):
             raise
 
 
-def _copy_secret(
-    core_v1: client.CoreV1Api, secret_name: str, src_ns: str, dst_ns: str
-):
+def _copy_secret(core_v1: client.CoreV1Api, secret_name: str, src_ns: str, dst_ns: str):
     """Copy a secret from one namespace to another, skipping if source doesn't exist."""
     try:
         secret = core_v1.read_namespaced_secret(secret_name, src_ns)
     except client.rest.ApiException as e:
         if e.status == 404:
-            logger.info(
-                f"Secret {secret_name} not found in {src_ns}, skipping copy"
-            )
+            logger.info(f"Secret {secret_name} not found in {src_ns}, skipping copy")
             return
         raise
 
-    secret.metadata = client.V1ObjectMeta(
-        name=secret_name, namespace=dst_ns
-    )
+    secret.metadata = client.V1ObjectMeta(name=secret_name, namespace=dst_ns)
     try:
         core_v1.create_namespaced_secret(dst_ns, secret)
         logger.info(f"Copied secret {secret_name} from {src_ns} to {dst_ns}")
