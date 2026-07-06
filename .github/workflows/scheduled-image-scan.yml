@@ -19,11 +19,11 @@ jobs:
         image:
           [
             { name: kserve-controller, file: Dockerfile },
-            { name: agent, file: agent.Dockerfile },
+            { name: agent, file: Dockerfile },
             { name: storage-initializer, file: python/storage-initializer.Dockerfile },
-            { name: router, file: router.Dockerfile },
-            { name: kserve-localmodel-controller, file: localmodel.Dockerfile },
-            { name: kserve-localmodelnode-agent, file: localmodel-agent.Dockerfile },
+            { name: router, file: Dockerfile },
+            { name: kserve-localmodel-controller, file: Dockerfile },
+            { name: kserve-localmodelnode-agent, file: Dockerfile },
           ]
 
     steps:
