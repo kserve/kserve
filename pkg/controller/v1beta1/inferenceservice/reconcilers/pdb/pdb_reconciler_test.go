@@ -220,7 +220,6 @@ func TestCheckPDBExist(t *testing.T) {
 
 			r := &PDBReconciler{
 				client:             c,
-				scheme:             s,
 				PDB:                tt.desired,
 				componentName:      testMeta.Name,
 				componentNamespace: testMeta.Namespace,
@@ -313,7 +312,6 @@ func TestReconcile(t *testing.T) {
 
 			r := &PDBReconciler{
 				client:             tracker,
-				scheme:             s,
 				PDB:                tt.desired,
 				componentName:      testMeta.Name,
 				componentNamespace: testMeta.Namespace,
@@ -352,7 +350,7 @@ func TestSetControllerReferences(t *testing.T) {
 	}
 
 	t.Run("nil PDB returns nil", func(t *testing.T) {
-		r := &PDBReconciler{scheme: s, PDB: nil}
+		r := &PDBReconciler{PDB: nil}
 		err := r.SetControllerReferences(owner, s)
 		assert.NoError(t, err)
 	})
@@ -364,7 +362,7 @@ func TestSetControllerReferences(t *testing.T) {
 				Namespace: "default",
 			},
 		}
-		r := &PDBReconciler{scheme: s, PDB: pdbObj}
+		r := &PDBReconciler{PDB: pdbObj}
 		err := r.SetControllerReferences(owner, s)
 		require.NoError(t, err)
 		require.Len(t, pdbObj.OwnerReferences, 1)

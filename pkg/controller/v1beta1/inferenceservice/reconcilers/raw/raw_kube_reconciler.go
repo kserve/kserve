@@ -106,10 +106,7 @@ func NewRawKubeReconciler(ctx context.Context,
 		return nil, err
 	}
 
-	pdbReconciler, err := pdb.NewPDBReconciler(client, scheme, componentMeta, componentExt)
-	if err != nil {
-		return nil, err
-	}
+	pdbReconciler := pdb.NewPDBReconciler(client, componentMeta, componentExt)
 	ingressConfig, err := v1beta1.NewIngressConfig(isvcConfigMap)
 	if err != nil {
 		return nil, err

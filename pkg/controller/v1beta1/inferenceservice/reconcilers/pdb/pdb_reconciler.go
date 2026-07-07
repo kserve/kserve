@@ -41,7 +41,6 @@ var log = logf.Log.WithName("PDBReconciler")
 // can be looked up and deleted even when PDB is nil.
 type PDBReconciler struct {
 	client             client.Client
-	scheme             *runtime.Scheme
 	PDB                *policyv1.PodDisruptionBudget
 	componentName      string
 	componentNamespace string
@@ -49,17 +48,15 @@ type PDBReconciler struct {
 
 func NewPDBReconciler(
 	client client.Client,
-	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-) (*PDBReconciler, error) {
+) *PDBReconciler {
 	return &PDBReconciler{
 		client:             client,
-		scheme:             scheme,
 		PDB:                createPDB(componentMeta, componentExt),
 		componentName:      componentMeta.Name,
 		componentNamespace: componentMeta.Namespace,
-	}, nil
+	}
 }
 
 func createPDB(componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec) *policyv1.PodDisruptionBudget {
