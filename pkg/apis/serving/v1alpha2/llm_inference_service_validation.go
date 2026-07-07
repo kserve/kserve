@@ -105,6 +105,7 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 
 	allErrs = append(allErrs, l.validateScaling(llmSvc)...)
 	allErrs = append(allErrs, l.validateLoRAAdapters(llmSvc)...)
+	allErrs = append(allErrs, l.validateKVCacheOffloading(llmSvc)...)
 	allErrs = append(allErrs, l.validateManagedDRAAnnotations(llmSvc)...)
 
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
@@ -751,6 +752,76 @@ func (l *LLMInferenceServiceValidator) validateManagedDRAAnnotations(llmSvc *LLM
 		}
 	}
 
+	return allErrs
+}
+
+// validateKVCacheOffloading validates KVCacheOffloading secondary tier specs.
+func (l *LLMInferenceServiceValidator) validateKVCacheOffloading(llmSvc *LLMInferenceService) field.ErrorList {
+	var allErrs field.ErrorList
+	allErrs = append(allErrs, validateKVCacheOffloadingSpec(llmSvc.Spec.KVCacheOffloading, field.NewPath("spec", "kvCacheOffloading"))...)
+	if llmSvc.Spec.Prefill != nil {
+		allErrs = append(allErrs, validateKVCacheOffloadingSpec(llmSvc.Spec.Prefill.KVCacheOffloading, field.NewPath("spec", "prefill", "kvCacheOffloading"))...)
+	}
+	return allErrs
+}
+
+func validateKVCacheOffloadingSpec(kv *KVCacheOffloadingSpec, fldPath *field.Path) field.ErrorList {
+	if kv == nil || len(kv.Secondary) == 0 {
+		return nil
+	}
+	var allErrs field.ErrorList
+	if kv.CPU.IsZero() {
+		allErrs = append(allErrs, field.Required(fldPath.Child("cpu"),
+			"cpu must be set when secondary tiers are configured"))
+	}
+	for i, s := range kv.Secondary {
+		p := fldPath.Child("secondary").Index(i)
+		if s.FileSystem == nil {
+			allErrs = append(allErrs, field.Required(p.Child("fileSystem"),
+				"only fileSystem tiers are supported; fileSystem must be set"))
+			continue
+		}
+		fs := s.FileSystem
+		fsp := p.Child("fileSystem")
+		var backends []string
+		if fs.EmptyDir != nil {
+			backends = append(backends, "emptyDir")
+		}
+		if fs.PVC != nil {
+			backends = append(backends, "pvc")
+		}
+		switch len(backends) {
+		case 0:
+			allErrs = append(allErrs, field.Required(fsp,
+				"exactly one of emptyDir or pvc must be set"))
+		case 1:
+			if fs.PVC != nil {
+				pvcp := fsp.Child("pvc")
+				var pvcBackends []string
+				if fs.PVC.Spec != nil {
+					pvcBackends = append(pvcBackends, "spec")
+				}
+				if fs.PVC.Ref != nil {
+					pvcBackends = append(pvcBackends, "ref")
+				}
+				switch len(pvcBackends) {
+				case 0:
+					allErrs = append(allErrs, field.Required(pvcp,
+						"exactly one of spec or ref must be set"))
+				case 1:
+					if fs.PVC.Ref != nil && fs.PVC.Ref.Name == "" {
+						allErrs = append(allErrs, field.Required(pvcp.Child("ref").Child("name"), "name is required"))
+					}
+				default:
+					allErrs = append(allErrs, field.Invalid(pvcp, fs.PVC,
+						"exactly one of spec or ref must be set; multiple are set"))
+				}
+			}
+		default:
+			allErrs = append(allErrs, field.Invalid(fsp, fs,
+				"exactly one of emptyDir or pvc must be set; multiple are set"))
+		}
+	}
 	return allErrs
 }
 
