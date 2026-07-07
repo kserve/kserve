@@ -38,7 +38,6 @@ STOP_ANNOTATION_KEY = "serving.kserve.io/stop"
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.llmisvc_core
 @pytest.mark.asyncio(loop_scope="session")
 @pytest.mark.parametrize(
     "test_case",

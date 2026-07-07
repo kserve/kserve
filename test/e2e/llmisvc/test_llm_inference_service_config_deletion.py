@@ -191,7 +191,6 @@ def _config_is_gone(kserve_client, config_name, namespace=KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.llmisvc_core
 @pytest.mark.cluster_cpu
 @pytest.mark.cluster_single_node
 @log_execution
@@ -226,7 +225,6 @@ def test_config_finalizer_added():
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.llmisvc_core
 @pytest.mark.cluster_cpu
 @pytest.mark.cluster_single_node
 @log_execution
@@ -315,7 +313,6 @@ def test_config_deletion_blocked_when_referenced():
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.llmisvc_core
 @pytest.mark.cluster_cpu
 @pytest.mark.cluster_single_node
 @log_execution
@@ -352,7 +349,6 @@ def test_config_deletion_allowed_when_unreferenced():
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.llmisvc_core
 @pytest.mark.cluster_cpu
 @pytest.mark.cluster_single_node
 @log_execution
@@ -435,7 +431,6 @@ def _find_well_known_config(kserve_client, suffix, namespace=KSERVE_NAMESPACE):
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.llmisvc_core
 @pytest.mark.cluster_cpu
 @pytest.mark.cluster_single_node
 @log_execution
@@ -471,7 +466,6 @@ def test_well_known_config_deletion_prevented_by_webhook():
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.llmisvc_core
 @pytest.mark.cluster_cpu
 @pytest.mark.cluster_single_node
 @log_execution

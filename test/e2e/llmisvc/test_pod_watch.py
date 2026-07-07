@@ -313,7 +313,6 @@ def delete_llmisvc_config(kserve_client: KServeClient, name: str, namespace: str
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.llmisvc_core
 @pytest.mark.asyncio(scope="session")
 async def test_event_storm_prevention_init_container_isolation():
     """
@@ -513,7 +512,6 @@ async def test_event_storm_prevention_init_container_isolation():
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.llmisvc_core
 @pytest.mark.asyncio(scope="session")
 async def test_quick_reconciliation_on_init_container_failure():
     """

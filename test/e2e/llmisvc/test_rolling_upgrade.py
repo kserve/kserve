@@ -39,7 +39,6 @@ from .test_llm_inference_service import (
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.llmisvc_core
 @pytest.mark.parametrize(
     "test_case",
     [
