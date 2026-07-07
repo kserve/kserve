@@ -4,4 +4,28 @@
   "patchFile" "files/common/storagecontainer-patch.yaml"
   "replaceNamespace" false
   "context" .) -}}
+{{- if .Values.kserve.storage.enableModelcar }}
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterStorageContainer
+metadata:
+  name: modelcar
+spec:
+  container:
+    name: modelcar
+    resources:
+      requests:
+        cpu: "{{ .Values.kserve.storage.cpuModelcar }}"
+        memory: "{{ .Values.kserve.storage.memoryModelcar }}"
+      limits:
+        cpu: "{{ .Values.kserve.storage.cpuModelcar }}"
+        memory: "{{ .Values.kserve.storage.memoryModelcar }}"
+    {{- if .Values.kserve.storage.uidModelcar }}
+    securityContext:
+      runAsUser: {{ .Values.kserve.storage.uidModelcar }}
+    {{- end }}
+  supportedUriFormats:
+    - prefix: oci://
+  workloadType: initContainer
+{{- end }}
 {{- end }}

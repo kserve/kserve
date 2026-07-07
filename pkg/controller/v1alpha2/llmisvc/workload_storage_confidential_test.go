@@ -22,20 +22,30 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/ptr"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
-	kserveTypes "github.com/kserve/kserve/pkg/types"
 )
 
 func TestAttachStorageInitializerConfidential(t *testing.T) {
-	baseConfig := &kserveTypes.StorageInitializerConfig{
-		Image:         "kserve/storage-initializer:latest",
-		CpuRequest:    "100m",
-		CpuLimit:      "1",
-		MemoryRequest: "256Mi",
-		MemoryLimit:   "1Gi",
+	baseConfig := &v1alpha1.StorageContainerSpec{
+		Container: corev1.Container{
+			Name:  "storage-initializer",
+			Image: "kserve/storage-initializer:latest",
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("100m"),
+					corev1.ResourceMemory: resource.MustParse("256Mi"),
+				},
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("1"),
+					corev1.ResourceMemory: resource.MustParse("1Gi"),
+				},
+			},
+		},
 	}
 
 	tests := []struct {

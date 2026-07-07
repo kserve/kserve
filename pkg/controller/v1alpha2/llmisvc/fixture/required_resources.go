@@ -24,10 +24,12 @@ import (
 
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/kmeta"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 
@@ -59,6 +61,75 @@ func RequiredResources(ctx context.Context, c client.Client, ns string) {
 
 	gomega.Expect(c.Create(ctx, DefaultGateway(ns))).To(gomega.Succeed())
 	gomega.Expect(c.Create(ctx, DefaultGatewayClass())).To(gomega.Succeed())
+	gomega.Expect(c.Create(ctx, DefaultClusterStorageContainer())).To(gomega.Succeed())
+	gomega.Expect(c.Create(ctx, DefaultModelcarClusterStorageContainer())).To(gomega.Succeed())
+}
+
+// DefaultClusterStorageContainer returns a cluster-scoped CSC covering the
+// download-based URI schemes (s3://, hf://, https://, …) exercised by the
+// storage integration tests.
+func DefaultClusterStorageContainer() *v1alpha1.ClusterStorageContainer {
+	return &v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "default",
+		},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: corev1.Container{
+				Name:  "storage-initializer",
+				Image: "kserve/storage-initializer:latest",
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("100m"),
+						corev1.ResourceMemory: resource.MustParse("100Mi"),
+					},
+					Limits: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceMemory: resource.MustParse("1Gi"),
+					},
+				},
+			},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{
+				{Prefix: "s3://"},
+				{Prefix: "gs://"},
+				{Prefix: "hf://"},
+				{Prefix: "https://"},
+				{Prefix: "http://"},
+			},
+			WorkloadType:               v1alpha1.InitContainer,
+			SupportsMultiModelDownload: ptr.To(true),
+		},
+	}
+}
+
+// DefaultModelcarClusterStorageContainer returns a cluster-scoped CSC that
+// matches oci:// URIs. The container spec supplies modelcar-sized resources;
+// the image and args are overridden at pod-injection time (image from the
+// oci:// URI, args to the shared-namespace symlink command).
+func DefaultModelcarClusterStorageContainer() *v1alpha1.ClusterStorageContainer {
+	return &v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "modelcar",
+		},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: corev1.Container{
+				Name: "modelcar",
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("10m"),
+						corev1.ResourceMemory: resource.MustParse("15Mi"),
+					},
+					Limits: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("10m"),
+						corev1.ResourceMemory: resource.MustParse("15Mi"),
+					},
+				},
+			},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{
+				{Prefix: "oci://"},
+			},
+			WorkloadType: v1alpha1.InitContainer,
+		},
+	}
 }
 
 func IstioShadowService(name, ns string) *corev1.Service {

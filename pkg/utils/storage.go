@@ -17,12 +17,15 @@ limitations under the License.
 package utils
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"path"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/utils/ptr"
 
 	"github.com/kserve/kserve/pkg/constants"
@@ -359,6 +362,12 @@ func modelcarCommand(modelPath string) string {
 	return fmt.Sprintf("ln -sf /proc/$$$$/root/models %s && sleep infinity", shellQuote(modelPath))
 }
 
+// modelcarInitCommand returns the shell command for the modelcar init
+// container: fail-fast when the OCI image doesn't carry a /models directory.
+func modelcarInitCommand(image string) string {
+	return "echo 'Pre-fetching modelcar " + image + ": ' && [ -d /models ] && [ \"$$(ls -A /models)\" ] && echo 'OK ... Prefetched and valid (/models exists)' || (echo 'NOK ... Prefetched but modelcar is invalid (/models does not exist or is empty)' && exit 1)"
+}
+
 // CreateModelcarContainer creates the definition of a container holding a model intended to be used as a sidecar (modelcar).
 // The container is configured with CPU, memory, and UID settings from the storage initializer configuration.
 //
@@ -445,8 +454,7 @@ func CreateModelcarInitContainer(containerName string, image string, storageConf
 		Args: []string{
 			"sh",
 			"-c",
-			// Check that the expected models directory exists
-			"echo 'Pre-fetching modelcar " + image + ": ' && [ -d /models ] && [ \"$$(ls -A /models)\" ] && echo 'OK ... Prefetched and valid (/models exists)' || (echo 'NOK ... Prefetched but modelcar is invalid (/models does not exist or is empty)' && exit 1)",
+			modelcarInitCommand(image),
 		},
 		Resources: corev1.ResourceRequirements{
 			Limits: map[corev1.ResourceName]resource.Quantity{
@@ -580,5 +588,142 @@ func ConfigureModelcarToContainer(modelUri string, podSpec *corev1.PodSpec, targ
 	// can be reached by the user container
 	podSpec.ShareProcessNamespace = ptr.To(true)
 
+	return nil
+}
+
+// MergeContainerSpecs strategic-merge-patches crdContainer onto targetContainer.
+// The container name from targetContainer is preserved. When strategic merge
+// leaves a field-wise merged env entry with both Value and ValueFrom populated
+// (a state Kubernetes rejects), the entry is reconciled by deferring to the
+// intent of crdContainer.
+func MergeContainerSpecs(targetContainer *corev1.Container, crdContainer *corev1.Container) error {
+	if targetContainer == nil {
+		return errors.New("targetContainer is nil")
+	}
+	if crdContainer == nil {
+		return nil
+	}
+
+	containerName := targetContainer.Name
+
+	defaultContainerJson, err := json.Marshal(*targetContainer)
+	if err != nil {
+		return err
+	}
+
+	overrides, err := json.Marshal(*crdContainer)
+	if err != nil {
+		return err
+	}
+
+	jsonResult, err := strategicpatch.StrategicMergePatch(defaultContainerJson, overrides, corev1.Container{})
+	if err != nil {
+		return err
+	}
+
+	// Unmarshal into a fresh Container rather than reusing targetContainer:
+	// json.Unmarshal does not clear struct fields absent from the JSON, so reusing
+	// existing EnvVar slice elements lets stale Value/ValueFrom fields bleed into
+	// merged-in entries (issue #5516).
+	merged := corev1.Container{}
+	if err := json.Unmarshal(jsonResult, &merged); err != nil {
+		return err
+	}
+
+	crdEnvByName := make(map[string]corev1.EnvVar, len(crdContainer.Env))
+	for _, e := range crdContainer.Env {
+		crdEnvByName[e.Name] = e
+	}
+	for i := range merged.Env {
+		e := &merged.Env[i]
+		if e.Value == "" || e.ValueFrom == nil {
+			continue
+		}
+		crdEntry, ok := crdEnvByName[e.Name]
+		if !ok {
+			continue
+		}
+		if crdEntry.ValueFrom != nil {
+			e.Value = ""
+		} else if crdEntry.Value != "" {
+			e.ValueFrom = nil
+		}
+	}
+
+	*targetContainer = merged
+	if targetContainer.Name == "" {
+		targetContainer.Name = containerName
+	}
+	return nil
+}
+
+// modelcarFromCSC returns a copy of the CSC's container spec with the
+// modelcar-owned fields (name, image, args) hard-set. The caller is
+// responsible for prepending any mandatory volume mount.
+func modelcarFromCSC(csc *corev1.Container, name, image string, args []string) *corev1.Container {
+	var c corev1.Container
+	if csc != nil {
+		c = *csc.DeepCopy()
+	}
+	c.Name = name
+	c.Image = image
+	c.Args = args
+	if c.TerminationMessagePolicy == "" {
+		c.TerminationMessagePolicy = corev1.TerminationMessageFallbackToLogsOnError
+	}
+	return &c
+}
+
+// CreateModelcarContainerFromCSC builds the modelcar sidecar. The CSC's whole
+// container spec is used verbatim; the code only owns name, image (from the
+// oci:// URI), args (the shared-namespace symlink command), and the mandatory
+// volume mount for reaching the model through /proc/PID/root.
+func CreateModelcarContainerFromCSC(containerName, image, modelPath, volumeName string, csc *corev1.Container) *corev1.Container {
+	c := modelcarFromCSC(csc, containerName, image, []string{"sh", "-c", modelcarCommand(modelPath)})
+	c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{
+		Name:      volumeName,
+		MountPath: GetParentDirectory(modelPath),
+		ReadOnly:  false,
+	})
+	return c
+}
+
+// CreateModelcarInitContainerFromCSC builds the modelcar init container. Its
+// only job is to fail-fast if the OCI image doesn't carry a /models directory.
+func CreateModelcarInitContainerFromCSC(containerName, image string, csc *corev1.Container) *corev1.Container {
+	return modelcarFromCSC(csc, containerName, image, []string{"sh", "-c", modelcarInitCommand(image)})
+}
+
+// ConfigureModelcarToContainerFromCSC configures the OCI image specified in
+// modelUri as a modelcar for targetContainerName on podSpec. See
+// ConfigureModelcarToContainer for behavior details.
+func ConfigureModelcarToContainerFromCSC(modelUri string, podSpec *corev1.PodSpec, targetContainerName string, modelPath string, csc *corev1.Container, ociIndex int) error {
+	targetContainer := GetContainerWithName(podSpec, targetContainerName)
+	if targetContainer == nil {
+		return fmt.Errorf("no container found with name %s", targetContainerName)
+	}
+
+	sidecarName, initName, volumeName := ModelcarNames(ociIndex)
+
+	AddOrReplaceEnv(targetContainer, constants.ModelInitModeEnvVarKey, "async")
+
+	modelParentDir := GetParentDirectory(modelPath)
+	AddEmptyDirVolumeIfNotPresent(podSpec, volumeName)
+	AddVolumeMountIfNotPresent(targetContainer, volumeName, modelParentDir, false)
+
+	if csc != nil && csc.SecurityContext != nil && csc.SecurityContext.RunAsUser != nil {
+		if targetContainer.SecurityContext == nil {
+			targetContainer.SecurityContext = &corev1.SecurityContext{}
+		}
+		targetContainer.SecurityContext.RunAsUser = csc.SecurityContext.RunAsUser
+	}
+
+	if GetContainerWithName(podSpec, sidecarName) == nil {
+		image := strings.TrimPrefix(modelUri, constants.OciURIPrefix)
+		podSpec.Containers = append(podSpec.Containers, *CreateModelcarContainerFromCSC(sidecarName, image, modelPath, volumeName, csc))
+		podSpec.InitContainers = append(podSpec.InitContainers, *CreateModelcarInitContainerFromCSC(initName, image, csc))
+	}
+
+	podSpec.ShareProcessNamespace = ptr.To(true)
 	return nil
 }

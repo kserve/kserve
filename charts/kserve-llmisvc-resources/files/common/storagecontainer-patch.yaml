@@ -13,3 +13,16 @@ spec:
       {{- with .Values.kserve.storage.containerSecurityContext}}
       {{- toYaml . | nindent 6 }}
       {{- end }}
+    {{- $caCM := .Values.kserve.storage.caBundleConfigMapName }}
+    {{- $caPath := .Values.kserve.storage.caBundleVolumeMountPath }}
+    {{- if or $caCM $caPath }}
+    env:
+      {{- if $caCM }}
+      - name: CA_BUNDLE_CONFIGMAP_NAME
+        value: "{{ $caCM }}"
+      {{- end }}
+      {{- if $caPath }}
+      - name: CA_BUNDLE_VOLUME_MOUNT_POINT
+        value: "{{ $caPath }}"
+      {{- end }}
+    {{- end }}

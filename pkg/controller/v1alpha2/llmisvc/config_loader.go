@@ -29,7 +29,6 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
-	"github.com/kserve/kserve/pkg/types"
 )
 
 const (
@@ -101,11 +100,10 @@ type Config struct {
 	// nil when the "autoscaling-wva-controller-config" key is not present in inferenceservice-config.
 	WVAAutoscalingConfig *WVAAutoscalingConfig `json:"-"`
 
-	// Storage and credential configs are excluded from JSON serialization
-	// as they contain sensitive information
-	StorageConfig    *types.StorageInitializerConfig `json:"-"`
-	CredentialConfig *credentials.CredentialConfig   `json:"-"`
-	SchedulerConfig  *SchedulerConfig                `json:"-"`
+	// Credential and scheduler configs are excluded from JSON serialization
+	// as they contain sensitive information.
+	CredentialConfig *credentials.CredentialConfig `json:"-"`
+	SchedulerConfig  *SchedulerConfig              `json:"-"`
 
 	// ResolvedLoRAAdapters holds the resolved LoRA adapter list derived from the final merged spec.
 	// Populated inside combineBaseRefsConfig (after all spec overlays and variable substitution)
@@ -153,7 +151,7 @@ const autoscalingConfigName = "autoscaling-wva-controller-config"
 
 // NewConfig creates an instance of llm-specific config based on predefined values
 // in IngressConfig struct
-func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig, schedulerConfig *SchedulerConfig) *Config {
+func NewConfig(ingressConfig *v1beta1.IngressConfig, credentialConfig *credentials.CredentialConfig, schedulerConfig *SchedulerConfig) *Config {
 	igwNs := constants.KServeNamespace
 	igwName := ingressConfig.KserveIngressGateway
 	// Parse gateway name to extract namespace and name components
@@ -172,7 +170,6 @@ func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.Storag
 		EnableTLS:                   ingressConfig.EnableLLMInferenceServiceTLS,
 		ModelBasedRoutingHeaderName: ingressConfig.ModelBasedRoutingHeaderName,
 		ModelBasedRoutingMode:       parseModelBasedRoutingMode(ingressConfig.ModelBasedRoutingMode),
-		StorageConfig:               storageConfig,
 		CredentialConfig:            credentialConfig,
 		SchedulerConfig:             schedulerConfig,
 	}
@@ -211,11 +208,6 @@ func toConfig(isvcConfigMap *corev1.ConfigMap) (*Config, error) {
 		return nil, fmt.Errorf("failed to convert InferenceServiceConfigMap to IngressConfig: %w", errConvert)
 	}
 
-	storageInitializerConfig, errConvert := v1beta1.GetStorageInitializerConfigs(isvcConfigMap)
-	if errConvert != nil {
-		return nil, fmt.Errorf("failed to convert InferenceServiceConfigMap to StorageInitializerConfig: %w", errConvert)
-	}
-
 	credentialConfig, errConvert := credentials.GetCredentialConfig(isvcConfigMap)
 	if errConvert != nil {
 		return nil, fmt.Errorf("failed to convert InferenceServiceConfigMap to CredentialConfig: %w", errConvert)
@@ -226,7 +218,7 @@ func toConfig(isvcConfigMap *corev1.ConfigMap) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse scheduler config: %w", errConvert)
 	}
 
-	config := NewConfig(ingressConfig, storageInitializerConfig, &credentialConfig, schedulerConfig)
+	config := NewConfig(ingressConfig, &credentialConfig, schedulerConfig)
 
 	if autoscalingData, ok := isvcConfigMap.Data[autoscalingConfigName]; ok {
 		asCfg := &WVAAutoscalingConfig{}

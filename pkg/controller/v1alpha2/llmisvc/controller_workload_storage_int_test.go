@@ -355,9 +355,14 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 				Expect(envTest.Client.Delete(ctx, globalS3CaBundleconfigMap)).To(Succeed())
 			}()
 
-			// patch the infernceservice-config configmap
-			patchInferenceServiceConfig(ctx, "storageInitializer", isvcConfigPatchStorageInit)
-			defer restoreInferenceServiceConfig(ctx)
+			// Advertise the CA bundle expectation via env vars on the default
+			// ClusterStorageContainer so the storage-initializer mounts the
+			// copied ConfigMap and the CA bundle reconciler is triggered.
+			patchClusterStorageContainerEnv(ctx,
+				corev1.EnvVar{Name: constants.CaBundleConfigMapNameEnvVarKey, Value: "global-s3-custom-certs"},
+				corev1.EnvVar{Name: constants.CaBundleVolumeMountPathEnvVarKey, Value: "/path/to/globalcerts"},
+			)
+			defer restoreClusterStorageContainer(ctx)
 
 			// setup test dependencies
 			svcName := "test-llm-storage-s3"
@@ -636,10 +641,6 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 				Expect(envTest.Client.Delete(ctx, globalS3CaBundleconfigMap)).To(Succeed())
 			}()
 
-			// patch the infernceservice-config configmap
-			patchInferenceServiceConfig(ctx, "storageInitializer", isvcConfigPatchStorageInit)
-			defer restoreInferenceServiceConfig(ctx)
-
 			// setup test dependencies
 			svcName := "test-llm-storage-s3-with-credentials"
 			testNs := NewTestNamespace(ctx, envTest)
@@ -810,10 +811,6 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			defer func() {
 				Expect(envTest.Client.Delete(ctx, globalS3CaBundleconfigMap)).To(Succeed())
 			}()
-
-			// patch the infernceservice-config configmap
-			patchInferenceServiceConfig(ctx, "storageInitializer", isvcConfigPatchStorageInit)
-			defer restoreInferenceServiceConfig(ctx)
 
 			// setup test dependencies
 			svcName := "test-llm-storage-s3-with-iam-credentials"
@@ -1627,9 +1624,14 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 				Expect(envTest.Client.Delete(ctx, globalS3CaBundleconfigMap)).To(Succeed())
 			}()
 
-			// patch the infernceservice-config configmap
-			patchInferenceServiceConfig(ctx, "storageInitializer", isvcConfigPatchStorageInit)
-			defer restoreInferenceServiceConfig(ctx)
+			// Advertise the CA bundle expectation via env vars on the default
+			// ClusterStorageContainer so the storage-initializer mounts the
+			// copied ConfigMap and the CA bundle reconciler is triggered.
+			patchClusterStorageContainerEnv(ctx,
+				corev1.EnvVar{Name: constants.CaBundleConfigMapNameEnvVarKey, Value: "global-s3-custom-certs"},
+				corev1.EnvVar{Name: constants.CaBundleVolumeMountPathEnvVarKey, Value: "/path/to/globalcerts"},
+			)
+			defer restoreClusterStorageContainer(ctx)
 
 			// setup test dependencies
 			svcName := "test-llm-storage-s3-mn"
@@ -1936,10 +1938,6 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 				Expect(envTest.Client.Delete(ctx, globalS3CaBundleconfigMap)).To(Succeed())
 			}()
 
-			// patch the infernceservice-config configmap
-			patchInferenceServiceConfig(ctx, "storageInitializer", isvcConfigPatchStorageInit)
-			defer restoreInferenceServiceConfig(ctx)
-
 			// setup test dependencies
 			svcName := "test-llm-storage-s3-mn-with-credentials"
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
@@ -2127,10 +2125,6 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			defer func() {
 				Expect(envTest.Client.Delete(ctx, globalS3CaBundleconfigMap)).To(Succeed())
 			}()
-
-			// patch the infernceservice-config configmap
-			patchInferenceServiceConfig(ctx, "storageInitializer", isvcConfigPatchStorageInit)
-			defer restoreInferenceServiceConfig(ctx)
 
 			// setup test dependencies
 			svcName := "test-llm-storage-s3-mn-with-iam-credentials"
@@ -2534,6 +2528,27 @@ func restoreInferenceServiceConfig(ctx context.Context) {
 	restoredIsvcConfigMap := client.MergeFrom(isvcConfigMap.DeepCopy())
 	isvcConfigMap.Data = InferenceServiceCfgMap(constants.KServeNamespace).Data
 	Expect(envTest.Client.Patch(ctx, isvcConfigMap, restoredIsvcConfigMap)).To(Succeed())
+}
+
+// patchClusterStorageContainerEnv appends env vars to the default
+// ClusterStorageContainer's container spec so the storage-initializer
+// receives them. Restore with restoreClusterStorageContainer.
+func patchClusterStorageContainerEnv(ctx context.Context, envs ...corev1.EnvVar) {
+	csc := &v1alpha1.ClusterStorageContainer{}
+	Expect(envTest.Client.Get(ctx, types.NamespacedName{Name: "default"}, csc)).To(Succeed())
+	patch := client.MergeFrom(csc.DeepCopy())
+	csc.Spec.Container.Env = append(csc.Spec.Container.Env, envs...)
+	Expect(envTest.Client.Patch(ctx, csc, patch)).To(Succeed())
+}
+
+// restoreClusterStorageContainer reverts the default ClusterStorageContainer
+// to the fixture baseline (no env vars).
+func restoreClusterStorageContainer(ctx context.Context) {
+	csc := &v1alpha1.ClusterStorageContainer{}
+	Expect(envTest.Client.Get(ctx, types.NamespacedName{Name: "default"}, csc)).To(Succeed())
+	patch := client.MergeFrom(csc.DeepCopy())
+	csc.Spec.Container.Env = nil
+	Expect(envTest.Client.Patch(ctx, csc, patch)).To(Succeed())
 }
 
 //nolint:unparam // keeping params for test flexibility

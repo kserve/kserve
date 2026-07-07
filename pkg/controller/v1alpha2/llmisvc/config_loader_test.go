@@ -115,9 +115,6 @@ func TestLoadConfig(t *testing.T) {
 	if got.IngressGatewayName != "kserve-ingress-gateway" {
 		t.Fatalf("IngressGatewayName = %q, want %q", got.IngressGatewayName, "kserve-ingress-gateway")
 	}
-	if got.StorageConfig == nil {
-		t.Fatal("StorageConfig = nil, want populated config")
-	}
 	if got.CredentialConfig == nil {
 		t.Fatal("CredentialConfig = nil, want populated config")
 	}

@@ -21,6 +21,7 @@ import (
 
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/types"
@@ -500,4 +501,112 @@ func TestMaxOCISourcesPerPod(t *testing.T) {
 	// Ensure the constant is reasonable and matches documented limit
 	g.Expect(MaxOCISourcesPerPod).To(gomega.Equal(10),
 		"MaxOCISourcesPerPod should be 10 — each URI adds 2 containers + 1 volume")
+}
+
+// TestCreateModelcarContainerFromCSC verifies that the CSC-derived modelcar
+// helper copies operator-supplied container fields (env, envFrom, resources,
+// securityContext, imagePullPolicy, lifecycle) verbatim while hard-setting
+// the modelcar-owned fields (name, image, args) and prepending the mandatory
+// sidecar volume mount.
+func TestCreateModelcarContainerFromCSC(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	cscUID := int64(1234)
+	csc := &corev1.Container{
+		Name:            "cluster-storage-container-name", // must be overridden
+		Image:           "cluster-storage-container-image", // must be overridden
+		Command:         []string{"ignored"},
+		Args:            []string{"csc-arg-must-be-overridden"},
+		ImagePullPolicy: corev1.PullAlways,
+		Env: []corev1.EnvVar{
+			{Name: "FOO", Value: "bar"},
+			{Name: "SECRET", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{Name: "secret"},
+				Key:                  "key",
+			}}},
+		},
+		EnvFrom: []corev1.EnvFromSource{
+			{ConfigMapRef: &corev1.ConfigMapEnvSource{LocalObjectReference: corev1.LocalObjectReference{Name: "cm"}}},
+		},
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m")},
+			Limits:   corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("200m")},
+		},
+		SecurityContext: &corev1.SecurityContext{RunAsUser: &cscUID},
+		Lifecycle: &corev1.Lifecycle{
+			PostStart: &corev1.LifecycleHandler{Exec: &corev1.ExecAction{Command: []string{"echo", "started"}}},
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{Name: "extra-mount", MountPath: "/extra"},
+		},
+	}
+
+	sidecarName := "modelcar"
+	image := "ghcr.io/example/llama:v1"
+	modelPath := constants.DefaultModelLocalMountPath
+	volumeName := constants.StorageInitializerVolumeName
+
+	c := CreateModelcarContainerFromCSC(sidecarName, image, modelPath, volumeName, csc)
+
+	// Modelcar-owned fields — always overridden by code.
+	g.Expect(c.Name).To(gomega.Equal(sidecarName))
+	g.Expect(c.Image).To(gomega.Equal(image))
+	g.Expect(c.Args).To(gomega.Equal([]string{"sh", "-c", modelcarCommand(modelPath)}))
+
+	// The sidecar's mandatory volume mount is appended alongside any CSC-supplied mounts.
+	g.Expect(c.VolumeMounts).To(gomega.ContainElements(
+		corev1.VolumeMount{Name: "extra-mount", MountPath: "/extra"},
+		corev1.VolumeMount{Name: volumeName, MountPath: GetParentDirectory(modelPath), ReadOnly: false},
+	))
+
+	// Everything else must flow through from the CSC.
+	g.Expect(c.ImagePullPolicy).To(gomega.Equal(corev1.PullAlways))
+	g.Expect(c.Env).To(gomega.Equal(csc.Env))
+	g.Expect(c.EnvFrom).To(gomega.Equal(csc.EnvFrom))
+	g.Expect(c.Resources).To(gomega.Equal(csc.Resources))
+	g.Expect(c.SecurityContext).To(gomega.Equal(csc.SecurityContext))
+	g.Expect(c.Lifecycle).To(gomega.Equal(csc.Lifecycle))
+	g.Expect(c.TerminationMessagePolicy).To(gomega.Equal(corev1.TerminationMessageFallbackToLogsOnError))
+}
+
+// TestCreateModelcarContainerFromCSC_NilCSC verifies that the helper is
+// nil-safe: callers that reach the modelcar path without a matching CSC still
+// get a functional sidecar with modelcar-owned fields set.
+func TestCreateModelcarContainerFromCSC_NilCSC(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	c := CreateModelcarContainerFromCSC("modelcar", "img", constants.DefaultModelLocalMountPath, "vol", nil)
+
+	g.Expect(c.Name).To(gomega.Equal("modelcar"))
+	g.Expect(c.Image).To(gomega.Equal("img"))
+	g.Expect(c.Args).To(gomega.Equal([]string{"sh", "-c", modelcarCommand(constants.DefaultModelLocalMountPath)}))
+	g.Expect(c.VolumeMounts).To(gomega.HaveLen(1))
+	g.Expect(c.VolumeMounts[0].Name).To(gomega.Equal("vol"))
+	g.Expect(c.TerminationMessagePolicy).To(gomega.Equal(corev1.TerminationMessageFallbackToLogsOnError))
+}
+
+// TestCreateModelcarInitContainerFromCSC verifies the init-container variant
+// applies the same CSC-verbatim + modelcar-owned override policy.
+func TestCreateModelcarInitContainerFromCSC(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	csc := &corev1.Container{
+		Name:  "cluster-storage-container-name",
+		Image: "cluster-storage-container-image",
+		Env:   []corev1.EnvVar{{Name: "FOO", Value: "bar"}},
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("10m")},
+		},
+	}
+
+	image := "ghcr.io/example/llama:v1"
+	c := CreateModelcarInitContainerFromCSC("modelcar-init", image, csc)
+
+	g.Expect(c.Name).To(gomega.Equal("modelcar-init"))
+	g.Expect(c.Image).To(gomega.Equal(image))
+	g.Expect(c.Args).To(gomega.Equal([]string{"sh", "-c", modelcarInitCommand(image)}))
+	g.Expect(c.Env).To(gomega.Equal(csc.Env))
+	g.Expect(c.Resources).To(gomega.Equal(csc.Resources))
+	// No sidecar volume mount on the init container.
+	g.Expect(c.VolumeMounts).To(gomega.BeEmpty())
 }

@@ -22,21 +22,32 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
-	kserveTypes "github.com/kserve/kserve/pkg/types"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
-func testStorageConfig() *kserveTypes.StorageInitializerConfig {
-	return &kserveTypes.StorageInitializerConfig{
-		CpuRequest:     "100m",
-		CpuLimit:       "1",
-		MemoryRequest:  "100Mi",
-		MemoryLimit:    "1Gi",
-		CpuModelcar:    "10m",
-		MemoryModelcar: "15Mi",
+// testCSC returns a minimal ClusterStorageContainer spec with reasonable
+// resource defaults, shared by tests that only need "a CSC" without caring
+// about its exact contents.
+func testCSC() *v1alpha1.StorageContainerSpec {
+	return &v1alpha1.StorageContainerSpec{
+		Container: corev1.Container{
+			Name: "storage-initializer",
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("100m"),
+					corev1.ResourceMemory: resource.MustParse("100Mi"),
+				},
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("1"),
+					corev1.ResourceMemory: resource.MustParse("1Gi"),
+				},
+			},
+		},
 	}
 }
 
@@ -96,7 +107,7 @@ func TestAttachStorageInitializer_TargetContainer(t *testing.T) {
 				"hf://meta-llama/Llama-2-7b",
 				corev1.PodSpec{}, // empty curr
 				podSpec,
-				testStorageConfig(),
+				testCSC(),
 				nil, // no confidential
 				tc.containerName,
 				tc.modelPath,
@@ -283,7 +294,7 @@ func TestAttachOciModelArtifact_TargetContainer(t *testing.T) {
 				},
 			}
 
-			err := r.attachOciModelArtifact("oci://ghcr.io/test/model:v1", podSpec, testStorageConfig(), tc.containerName, tc.modelPath)
+			err := r.attachOciModelArtifact("oci://ghcr.io/test/model:v1", podSpec, testCSC(), tc.containerName, tc.modelPath)
 			if err != nil {
 				t.Fatalf("attachOciModelArtifact returned error: %v", err)
 			}

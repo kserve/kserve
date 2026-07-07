@@ -66,14 +66,16 @@ func (c *CaBundleConfigMapReconciler) Reconcile(ctx context.Context, namespace s
 		}
 	}
 
-	var newCaBundleConfigMap *corev1.ConfigMap
-	if storageInitializerConfig.CaBundleConfigMapName == "" {
+	return c.ReconcileForSource(ctx, namespace, storageInitializerConfig.CaBundleConfigMapName)
+}
+
+func (c *CaBundleConfigMapReconciler) ReconcileForSource(ctx context.Context, namespace, sourceConfigMapName string) error {
+	if sourceConfigMapName == "" {
 		return nil
-	} else {
-		newCaBundleConfigMap, err = c.getCabundleConfigMapForUserNS(ctx, storageInitializerConfig.CaBundleConfigMapName, constants.KServeNamespace, namespace)
-		if err != nil {
-			return fmt.Errorf("fails to get cabundle configmap for creating to user namespace: %w", err)
-		}
+	}
+	newCaBundleConfigMap, err := c.getCabundleConfigMapForUserNS(ctx, sourceConfigMapName, constants.KServeNamespace, namespace)
+	if err != nil {
+		return fmt.Errorf("fails to get cabundle configmap for creating to user namespace: %w", err)
 	}
 
 	if err := c.ReconcileCaBundleConfigMap(ctx, newCaBundleConfigMap); err != nil {
