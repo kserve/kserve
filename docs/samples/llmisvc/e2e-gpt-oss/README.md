@@ -337,7 +337,7 @@ Import in Grafana: **Dashboards** → **New** → **Import** → upload the JSON
 1. (Optional) `service_monitor.yaml` for Prometheus
 1. (Optional) Import Grafana dashboards
 
-Or use Kustomize from this directory for the core llmisvc resources (after fixing the HF token in the secret and choosing default vs prefix-cache inference). Apply your gateway manifest separately:
+Or use Kustomize from this directory. It applies the core llmisvc resources (after fixing the HF token in the secret and choosing default vs prefix-cache inference) and the default Envoy Gateway. To use a different gateway provider, swap `gateway.yaml` with `gateway-agentgateway.yaml` in [kustomization.yaml](./kustomization.yaml):
 
 ```bash
 kubectl apply -k docs/samples/llmisvc/e2e-gpt-oss/ -n kserve-lab
