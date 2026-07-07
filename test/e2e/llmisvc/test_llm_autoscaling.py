@@ -499,7 +499,8 @@ def _new_kserve_client():
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.autoscaling
+@pytest.mark.autoscaling_wva
+@pytest.mark.llmisvc_autoscaling
 @pytest.mark.autoscaling_hpa
 @pytest.mark.parametrize(
     "test_case",
@@ -564,7 +565,8 @@ def test_llm_autoscaling_hpa_deployment(test_case: TestCase):
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.autoscaling
+@pytest.mark.autoscaling_wva
+@pytest.mark.llmisvc_autoscaling
 @pytest.mark.autoscaling_keda
 @pytest.mark.parametrize(
     "test_case",
@@ -629,7 +631,8 @@ def test_llm_autoscaling_keda_deployment(test_case: TestCase):
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.autoscaling
+@pytest.mark.autoscaling_wva
+@pytest.mark.llmisvc_autoscaling
 @pytest.mark.autoscaling_hpa
 @pytest.mark.parametrize(
     "test_case",
@@ -688,7 +691,8 @@ def test_llm_autoscaling_hpa_lws(test_case: TestCase):
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.autoscaling
+@pytest.mark.autoscaling_wva
+@pytest.mark.llmisvc_autoscaling
 @pytest.mark.autoscaling_keda
 @pytest.mark.parametrize(
     "test_case",
@@ -747,7 +751,8 @@ def test_llm_autoscaling_keda_lws(test_case: TestCase):
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.autoscaling
+@pytest.mark.autoscaling_wva
+@pytest.mark.llmisvc_autoscaling
 @pytest.mark.autoscaling_hpa
 @pytest.mark.parametrize(
     "test_case",
@@ -797,7 +802,8 @@ def test_llm_autoscaling_prefill_hpa(test_case: TestCase):
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.autoscaling
+@pytest.mark.autoscaling_wva
+@pytest.mark.llmisvc_autoscaling
 @pytest.mark.autoscaling_keda
 @pytest.mark.parametrize(
     "test_case",
@@ -847,7 +853,8 @@ def test_llm_autoscaling_prefill_keda(test_case: TestCase):
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.autoscaling
+@pytest.mark.autoscaling_wva
+@pytest.mark.llmisvc_autoscaling
 @pytest.mark.autoscaling_hpa
 @pytest.mark.parametrize(
     "test_case",
@@ -911,7 +918,8 @@ def test_llm_autoscaling_cleanup_hpa(test_case: TestCase):
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.autoscaling
+@pytest.mark.autoscaling_wva
+@pytest.mark.llmisvc_autoscaling
 @pytest.mark.autoscaling_keda
 @pytest.mark.parametrize(
     "test_case",
@@ -974,7 +982,8 @@ def test_llm_autoscaling_cleanup_keda(test_case: TestCase):
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.autoscaling
+@pytest.mark.autoscaling_wva
+@pytest.mark.llmisvc_autoscaling
 @pytest.mark.autoscaling_hpa
 @pytest.mark.parametrize(
     "test_case",
@@ -1036,7 +1045,8 @@ def test_llm_autoscaling_stop_hpa(test_case: TestCase):
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.autoscaling
+@pytest.mark.autoscaling_wva
+@pytest.mark.llmisvc_autoscaling
 @pytest.mark.autoscaling_keda
 @pytest.mark.parametrize(
     "test_case",
@@ -1098,7 +1108,8 @@ def test_llm_autoscaling_stop_keda(test_case: TestCase):
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.autoscaling
+@pytest.mark.autoscaling_wva
+@pytest.mark.llmisvc_autoscaling
 @pytest.mark.autoscaling_hpa
 @pytest.mark.parametrize(
     "test_case",
@@ -1175,7 +1186,8 @@ def test_llm_autoscaling_update_hpa(test_case: TestCase):
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.autoscaling
+@pytest.mark.autoscaling_wva
+@pytest.mark.llmisvc_autoscaling
 @pytest.mark.autoscaling_keda
 @pytest.mark.parametrize(
     "test_case",

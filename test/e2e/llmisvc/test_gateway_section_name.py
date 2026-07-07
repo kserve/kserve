@@ -130,6 +130,7 @@ def _cleanup_llmisvc(kserve_client, name, namespace, version="v1alpha1"):
 
 
 @pytest.mark.llminferenceservice
+@pytest.mark.llmisvc_core
 @pytest.mark.cluster_cpu
 @pytest.mark.cluster_single_node
 @pytest.mark.llmd_simulator

@@ -39,6 +39,7 @@ _PRESTOP_TOLERANCE_SECONDS = 3
 
 
 @pytest.mark.llminferenceservice
+@pytest.mark.llmisvc_core
 @pytest.mark.parametrize(
     "test_case",
     [
