@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 func newBaseLLMInferenceService() *LLMInferenceService {
@@ -738,4 +739,99 @@ func TestValidateScaling_PrefillWorkload(t *testing.T) {
 		assert.True(t, foundDecodeErr, "expected error on spec.scaling path for decode workload")
 		assert.True(t, foundPrefillErr, "expected error on spec.prefill.scaling path for prefill workload")
 	})
+}
+
+func TestValidateTrafficFields_V1Alpha1(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+
+	tests := []struct {
+		name      string
+		llmSvc    *LLMInferenceService
+		wantErr   bool
+		errFields []string
+	}{
+		{
+			name: "valid: group + weight + http",
+			llmSvc: &LLMInferenceService{
+				Spec: LLMInferenceServiceSpec{
+					Router: &RouterSpec{
+						Route: &GatewayRoutesSpec{
+							Group:  ptr.To("llama-70b"),
+							Weight: ptr.To(int32(9)),
+							HTTP:   &HTTPRouteSpec{Spec: &gwapiv1.HTTPRouteSpec{}},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid: weight without group",
+			llmSvc: &LLMInferenceService{
+				Spec: LLMInferenceServiceSpec{
+					Router: &RouterSpec{
+						Route: &GatewayRoutesSpec{
+							Weight: ptr.To(int32(9)),
+							HTTP:   &HTTPRouteSpec{Spec: &gwapiv1.HTTPRouteSpec{}},
+						},
+					},
+				},
+			},
+			wantErr:   true,
+			errFields: []string{"spec.router.route.group"},
+		},
+		{
+			name: "invalid: group without weight",
+			llmSvc: &LLMInferenceService{
+				Spec: LLMInferenceServiceSpec{
+					Router: &RouterSpec{
+						Route: &GatewayRoutesSpec{
+							Group: ptr.To("llama-70b"),
+							HTTP:  &HTTPRouteSpec{Spec: &gwapiv1.HTTPRouteSpec{}},
+						},
+					},
+				},
+			},
+			wantErr:   true,
+			errFields: []string{"spec.router.route.weight"},
+		},
+		{
+			name: "invalid: group + weight with ingress",
+			llmSvc: &LLMInferenceService{
+				Spec: LLMInferenceServiceSpec{
+					Router: &RouterSpec{
+						Route: &GatewayRoutesSpec{
+							Group:  ptr.To("llama-70b"),
+							Weight: ptr.To(int32(9)),
+							HTTP:   &HTTPRouteSpec{Spec: &gwapiv1.HTTPRouteSpec{}},
+						},
+						Ingress: &IngressSpec{},
+					},
+				},
+			},
+			wantErr:   true,
+			errFields: []string{"spec.router.route.group"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := validator.validateTrafficFields(tt.llmSvc)
+			if tt.wantErr {
+				require.NotEmpty(t, errs, "expected validation errors")
+				for _, expectedField := range tt.errFields {
+					found := false
+					for _, err := range errs {
+						if err.Field == expectedField {
+							found = true
+							break
+						}
+					}
+					assert.True(t, found, "expected error on field %s, got errors: %v", expectedField, errs)
+				}
+			} else {
+				assert.Empty(t, errs)
+			}
+		})
+	}
 }

@@ -384,6 +384,22 @@ type GatewayRoutesSpec struct {
 	// HTTP route configuration.
 	// +optional
 	HTTP *HTTPRouteSpec `json:"http,omitempty"`
+
+	// Group identifies the routing group this LLMISVC belongs to.
+	// All members with the same group share weighted traffic distribution.
+	// Must be explicit - not inferred from spec.model.name.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`
+	Group *string `json:"group,omitempty"`
+
+	// Weight is the proportional traffic share for this member.
+	// Follows Gateway API backendRef weight semantics (proportional, not percentage).
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=1000000
+	Weight *int32 `json:"weight,omitempty"`
 }
 
 // HTTPRouteSpec defines configurations for a Gateway API HTTPRoute.
@@ -737,6 +753,44 @@ type RouterStatus struct {
 	// Nil when the scheduler is not configured.
 	// +optional
 	Scheduler *ObservedSchedulerStatus `json:"scheduler,omitempty"`
+
+	// Group reports the observed routing group topology.
+	// Nil when this LLMISVC is not part of a routing group.
+	// +optional
+	Group *GroupStatus `json:"group,omitempty"`
+}
+
+// GroupStatus reports the observed state of the routing group this LLMISVC belongs to.
+type GroupStatus struct {
+	// Name of the routing group.
+	Name string `json:"name"`
+
+	// Members lists all observed members of the group with their weights
+	// and resolved backend references.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	Members []GroupMemberStatus `json:"members,omitempty"`
+}
+
+// GroupMemberStatus reports the observed state of a single group member.
+type GroupMemberStatus struct {
+	// Name of the group member (LLMInferenceService name).
+	Name string `json:"name"`
+
+	// Weight is the effective traffic weight for this member.
+	Weight int32 `json:"weight"`
+
+	// Stopped is true when the member has the force-stop annotation set.
+	// A stopped member remains in the group but receives no traffic (weight
+	// is overridden to 0 regardless of the spec value).
+	// +optional
+	Stopped bool `json:"stopped,omitempty"`
+
+	// BackendRef is the resolved backend for this member
+	// (InferencePool or Service).
+	// +optional
+	BackendRef *gwapiv1.BackendObjectReference `json:"backendRef,omitempty"`
 }
 
 // WorkloadStatus records the workload resources observed during the last

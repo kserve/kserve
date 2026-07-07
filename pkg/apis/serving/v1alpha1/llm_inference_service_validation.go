@@ -89,6 +89,7 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	var allErrs field.ErrorList
 
 	allErrs = append(allErrs, l.validateRouterCrossFieldConstraints(llmSvc)...)
+	allErrs = append(allErrs, l.validateTrafficFields(llmSvc)...)
 	allErrs = append(allErrs, l.validateParallelismConstraints(llmSvc)...)
 	allErrs = append(allErrs, l.validateSchedulerConfig(llmSvc)...)
 	allErrs = append(allErrs, l.validateScaling(llmSvc)...)
@@ -378,4 +379,59 @@ func (l *LLMInferenceServiceValidator) validateWorkloadScaling(basePath *field.P
 // This is used to report unsupported mutation of values.
 func immutable(path *field.Path, value interface{}, detail string) *field.Error {
 	return &field.Error{Type: field.ErrorTypeNotSupported, Field: path.String(), BadValue: value, Detail: detail}
+}
+
+func (l *LLMInferenceServiceValidator) validateTrafficFields(
+	llmSvc *LLMInferenceService,
+) field.ErrorList {
+	router := llmSvc.Spec.Router
+	if router == nil || router.Route == nil {
+		return nil
+	}
+
+	route := router.Route
+	routePath := field.NewPath("spec", "router", "route")
+	var allErrs field.ErrorList
+
+	hasGroup := route.Group != nil
+	hasWeight := route.Weight != nil
+
+	if !hasGroup && !hasWeight {
+		return nil
+	}
+
+	if router.Ingress != nil {
+		return field.ErrorList{field.Invalid(
+			routePath.Child("group"),
+			ptr.Deref(route.Group, ""),
+			"traffic splitting requires Gateway API routing; the controller manages HTTPRoutes, not Ingress resources",
+		)}
+	}
+
+	if hasWeight && !hasGroup {
+		allErrs = append(allErrs, field.Required(
+			routePath.Child("group"),
+			"weight requires group",
+		))
+	}
+	if hasGroup && !hasWeight {
+		allErrs = append(allErrs, field.Required(
+			routePath.Child("weight"),
+			"group requires weight",
+		))
+	}
+
+	if len(allErrs) > 0 {
+		return allErrs
+	}
+
+	if route.HTTP != nil && route.HTTP.HasRefs() {
+		allErrs = append(allErrs, field.Invalid(
+			routePath.Child("group"),
+			*route.Group,
+			"traffic splitting cannot be used with custom HTTPRoute refs; controller-managed routes (route.http.spec or route.http: {}) are required",
+		))
+	}
+
+	return allErrs
 }

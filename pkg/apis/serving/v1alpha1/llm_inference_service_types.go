@@ -277,6 +277,21 @@ type GatewayRoutesSpec struct {
 	// HTTP route configuration.
 	// +optional
 	HTTP *HTTPRouteSpec `json:"http,omitempty"`
+
+	// Group identifies the routing group this LLMISVC belongs to.
+	// All members with the same group share weighted traffic distribution.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`
+	Group *string `json:"group,omitempty"`
+
+	// Weight is the proportional traffic share for this member.
+	// Follows Gateway API backendRef weight semantics (proportional, not percentage).
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=1000000
+	Weight *int32 `json:"weight,omitempty"`
 }
 
 // HTTPRouteSpec defines configurations for a Gateway API HTTPRoute.

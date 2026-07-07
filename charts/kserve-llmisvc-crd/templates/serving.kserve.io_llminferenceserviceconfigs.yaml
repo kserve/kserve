@@ -7990,6 +7990,11 @@ spec:
                       type: object
                     route:
                       properties:
+                        group:
+                          maxLength: 63
+                          minLength: 1
+                          pattern: ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$
+                          type: string
                         http:
                           properties:
                             refs:
@@ -9268,6 +9273,11 @@ spec:
                                   type: string
                               type: object
                           type: object
+                        weight:
+                          format: int32
+                          maximum: 1000000
+                          minimum: 0
+                          type: integer
                       type: object
                     scheduler:
                       properties:
@@ -29195,6 +29205,11 @@ spec:
                       type: object
                     route:
                       properties:
+                        group:
+                          maxLength: 63
+                          minLength: 1
+                          pattern: ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$
+                          type: string
                         http:
                           properties:
                             refs:
@@ -30440,6 +30455,11 @@ spec:
                                   type: string
                               type: object
                           type: object
+                        weight:
+                          format: int32
+                          maximum: 1000000
+                          minimum: 0
+                          type: integer
                       type: object
                     scheduler:
                       properties:
