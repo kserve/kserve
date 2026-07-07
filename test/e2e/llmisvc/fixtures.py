@@ -64,9 +64,17 @@ LLMD_SIMULATOR_SECURITY_CONTEXT = {
     "runAsGroup": 65532,
 }
 
+STORAGE_INITIALIZER_INIT_CONTAINER = {
+    "name": "storage-initializer",
+    "env": [
+        {"name": "TOKIO_WORKER_THREADS", "value": "1"},
+    ],
+}
+
 LLMINFERENCESERVICE_CONFIGS = {
     "workload-single-cpu": {
         "template": {
+            "initContainers": [STORAGE_INITIALIZER_INIT_CONTAINER],
             "containers": [
                 {
                     "name": "main",
@@ -83,11 +91,12 @@ LLMINFERENCESERVICE_CONFIGS = {
                     },
                     "securityContext": UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT.copy(),
                 }
-            ]
+            ],
         },
     },
     "workload-pd-cpu": {
         "template": {
+            "initContainers": [STORAGE_INITIALIZER_INIT_CONTAINER],
             "containers": [
                 {
                     "name": "main",
@@ -118,10 +127,11 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "failureThreshold": 3,
                     },
                 }
-            ]
+            ],
         },
         "prefill": {
             "template": {
+                "initContainers": [STORAGE_INITIALIZER_INIT_CONTAINER],
                 "containers": [
                     {
                         "name": "main",
@@ -152,7 +162,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                         },
                         "securityContext": UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT.copy(),
                     }
-                ]
+                ],
             }
         },
     },
@@ -218,6 +228,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "tensor": 1,
         },
         "template": {
+            "initContainers": [STORAGE_INITIALIZER_INIT_CONTAINER],
             "containers": [
                 {
                     "name": "main",
@@ -255,9 +266,10 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "failureThreshold": 3,
                     },
                 }
-            ]
+            ],
         },
         "worker": {
+            "initContainers": [STORAGE_INITIALIZER_INIT_CONTAINER],
             "containers": [
                 {
                     "name": "main",
@@ -288,7 +300,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                         },
                     },
                 }
-            ]
+            ],
         },
     },
     "workload-dp-ep-prefill-gpu": {
@@ -300,6 +312,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                 "tensor": 1,
             },
             "template": {
+                "initContainers": [STORAGE_INITIALIZER_INIT_CONTAINER],
                 "containers": [
                     {
                         "name": "main",
@@ -341,9 +354,10 @@ LLMINFERENCESERVICE_CONFIGS = {
                             "failureThreshold": 3,
                         },
                     }
-                ]
+                ],
             },
             "worker": {
+                "initContainers": [STORAGE_INITIALIZER_INIT_CONTAINER],
                 "containers": [
                     {
                         "name": "main",
@@ -374,7 +388,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                             },
                         },
                     }
-                ]
+                ],
             },
         },
     },
@@ -413,6 +427,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "tensor": 1,
         },
         "template": {
+            "initContainers": [STORAGE_INITIALIZER_INIT_CONTAINER],
             "containers": [
                 {
                     "name": "main",
@@ -435,9 +450,10 @@ LLMINFERENCESERVICE_CONFIGS = {
                     },
                     "securityContext": UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT.copy(),
                 }
-            ]
+            ],
         },
         "worker": {
+            "initContainers": [STORAGE_INITIALIZER_INIT_CONTAINER],
             "containers": [
                 {
                     "name": "main",
@@ -460,7 +476,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     },
                     "securityContext": UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT.copy(),
                 }
-            ]
+            ],
         },
     },
     "router-custom-route-timeout": {
@@ -1344,6 +1360,7 @@ LLMINFERENCESERVICE_CONFIGS = {
         "model": {"uri": OPT_125M_MODEL_URI, "name": "facebook/opt-125m"},
         # Important: storage initializer is required for precise-prefix-scorer
         "template": {
+            "initContainers": [STORAGE_INITIALIZER_INIT_CONTAINER],
             "containers": [
                 {
                     "name": "main",
@@ -1383,7 +1400,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     },
                     "securityContext": LLMD_SIMULATOR_SECURITY_CONTEXT.copy(),
                 }
-            ]
+            ],
         },
     },
     "tracing-enabled": {
