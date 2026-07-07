@@ -57,17 +57,7 @@ spec:
                 items:
                   type: string
                 type: array
-              framework:
-                type: string
-              frameworkVersion:
-                type: string
-              gpuType:
-                type: string
               image:
-                type: string
-              minCUDAVersion:
-                type: string
-              minDriverVersion:
                 type: string
               podTemplate:
                 properties:
@@ -141,15 +131,6 @@ spec:
                 - totalCompatibleGPUs
                 - totalIncompatibleGPUs
                 type: object
-              inferenceServices:
-                items:
-                  properties:
-                    name:
-                      type: string
-                    namespace:
-                      type: string
-                  type: object
-                type: array
               resolvedDigest:
                 type: string
               servingStatus:

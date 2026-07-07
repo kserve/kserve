@@ -72,9 +72,13 @@ func TestDiscoverCaches(t *testing.T) {
 			},
 		}
 
-		err := reconciler.discoverCaches(context.Background(), kcNode)
+		cachesChanged, err := reconciler.discoverCaches(context.Background(), kcNode)
 		if err != nil {
 			t.Fatalf("discoverCaches failed: %v", err)
+		}
+
+		if !cachesChanged {
+			t.Errorf("expected cachesChanged=true when adding new cache")
 		}
 
 		cacheKey := "default/test-cache"
@@ -126,9 +130,13 @@ func TestDiscoverCaches(t *testing.T) {
 			},
 		}
 
-		err := reconciler.discoverCaches(context.Background(), kcNode)
+		cachesChanged, err := reconciler.discoverCaches(context.Background(), kcNode)
 		if err != nil {
 			t.Fatalf("discoverCaches failed: %v", err)
+		}
+
+		if !cachesChanged {
+			t.Errorf("expected cachesChanged=true when removing deleted cache")
 		}
 
 		// Cache should be removed from CacheStatus
@@ -155,9 +163,13 @@ func TestDiscoverCaches(t *testing.T) {
 			},
 		}
 
-		err := reconciler.discoverCaches(context.Background(), kcNode)
+		cachesChanged, err := reconciler.discoverCaches(context.Background(), kcNode)
 		if err != nil {
 			t.Fatalf("discoverCaches failed: %v", err)
+		}
+
+		if cachesChanged {
+			t.Errorf("expected cachesChanged=false when cluster is empty and CacheStatus already empty")
 		}
 
 		if len(kcNode.Status.CacheStatus) != 0 {
@@ -208,9 +220,14 @@ func TestDiscoverCaches(t *testing.T) {
 			},
 		}
 
-		err := reconciler.discoverCaches(context.Background(), kcNode)
+		cachesChanged, err := reconciler.discoverCaches(context.Background(), kcNode)
 		if err != nil {
 			t.Fatalf("discoverCaches failed: %v", err)
+		}
+
+		// Image/digest updates don't set cachesChanged (only add/remove do)
+		if cachesChanged {
+			t.Errorf("expected cachesChanged=false when only updating image/digest of existing cache")
 		}
 
 		cacheInfo := kcNode.Status.CacheStatus["default/test-cache"]

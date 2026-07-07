@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -54,6 +55,29 @@ type KernelCacheReconciler struct {
 	Clientset kubernetes.Interface
 	Log       logr.Logger
 	Scheme    *runtime.Scheme
+}
+
+// resolveStorageSize determines PVC storage size with priority:
+// 1. Spec.StorageSize (user override)
+// 2. Annotation from webhook (OCI image labels)
+// 3. 10Gi default
+func (r *KernelCacheReconciler) resolveStorageSize(kc *v1alpha1.KernelCache) resource.Quantity {
+	// Priority 1: User-specified size (allows override for rebuild headroom)
+	if kc.Spec.StorageSize != nil {
+		return *kc.Spec.StorageSize
+	}
+
+	// Priority 2: Size from OCI image labels (set by mutating webhook)
+	if sizeStr := kc.Annotations[v1alpha1.AnnotationCacheSizeBytes]; sizeStr != "" {
+		bytes, err := strconv.ParseInt(sizeStr, 10, 64)
+		if err == nil && bytes > 0 {
+			return *resource.NewQuantity(bytes, resource.BinarySI)
+		}
+		r.Log.V(1).Info("Invalid cache-size-bytes annotation", "value", sizeStr, "error", err)
+	}
+
+	// Priority 3: Default fallback
+	return resource.MustParse("10Gi")
 }
 
 // Reconcile
@@ -111,11 +135,10 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	// Ensure ResolvedDigest is copied from annotation to Status (immutability)
 	// This prevents annotation tampering attacks - Status is RBAC-protected subresource
-	if err := r.ensureResolvedDigest(ctx, kc); err != nil {
+	jobNamespace := kernelCacheConfig.JobNamespace
+	if err := r.ensureResolvedDigest(ctx, kc, jobNamespace); err != nil {
 		return ctrl.Result{}, err
 	}
-
-	jobNamespace := kernelCacheConfig.JobNamespace
 
 	// Step 2: Create Download PVC (RWX)
 	if err := r.ensureDownloadPVC(ctx, kc, jobNamespace); err != nil {
@@ -280,9 +303,9 @@ func (r *KernelCacheReconciler) handleDeletion(
 	return ctrl.Result{}, nil
 }
 
-// ensureResolvedDigest copies digest from annotation to Status field (one-time, immutable)
+// ensureResolvedDigest handles digest synchronization and image change detection
 // This prevents annotation tampering - Status is RBAC-protected subresource
-func (r *KernelCacheReconciler) ensureResolvedDigest(ctx context.Context, kc *v1alpha1.KernelCache) error {
+func (r *KernelCacheReconciler) ensureResolvedDigest(ctx context.Context, kc *v1alpha1.KernelCache, jobNamespace string) error {
 	annotationDigest := kc.Annotations[v1alpha1.AnnotationResolvedDigest]
 
 	// First reconcile: copy annotation → Status (one-way, one-time)
@@ -291,6 +314,7 @@ func (r *KernelCacheReconciler) ensureResolvedDigest(ctx context.Context, kc *v1
 			return fmt.Errorf("webhook must set %s annotation before reconcile", v1alpha1.AnnotationResolvedDigest)
 		}
 		kc.Status.ResolvedDigest = annotationDigest
+		r.Log.Info("Initial digest set", "cache", kc.Name, "digest", annotationDigest)
 		if err := r.Status().Update(ctx, kc); err != nil {
 			if errors.IsConflict(err) {
 				r.Log.Info("Digest status update conflict (will retry)",
@@ -304,11 +328,45 @@ func (r *KernelCacheReconciler) ensureResolvedDigest(ctx context.Context, kc *v1
 		return nil
 	}
 
-	// Detect tampering: annotation changed but Status is immutable
+	// Detect digest change (legitimate image update or tampering)
 	if kc.Status.ResolvedDigest != annotationDigest {
-		r.Log.Info("Annotation digest differs from Status (ignoring annotation - possible tampering)",
-			"status", kc.Status.ResolvedDigest,
-			"annotation", annotationDigest)
+		// Image was updated through webhook (webhook validates it's safe)
+		// Update Status to match and trigger cleanup + re-extraction
+		r.Log.Info("Image change detected - updating digest and triggering re-extraction",
+			"cache", kc.Name,
+			"oldDigest", kc.Status.ResolvedDigest,
+			"newDigest", annotationDigest)
+
+		// Update Status.ResolvedDigest to new value
+		kc.Status.ResolvedDigest = annotationDigest
+
+		// Reset state to trigger re-extraction
+		kc.Status.State = v1alpha1.CacheStatePending
+		kc.Status.Counts = &v1alpha1.CacheCounts{
+			NodeCnt:         0,
+			NodeErrorCnt:    0,
+			NodeInUseCnt:    0,
+			NodeNotInUseCnt: 0,
+		}
+
+		if err := r.Status().Update(ctx, kc); err != nil {
+			if errors.IsConflict(err) {
+				r.Log.Info("Digest update conflict (will retry)",
+					"cache", kc.Name, "namespace", kc.Namespace)
+			} else {
+				r.Log.Error(err, "Failed to update digest after image change",
+					"cache", kc.Name, "namespace", kc.Namespace)
+			}
+			return err
+		}
+
+		// Trigger cleanup of old cache content from KernelCacheNodes and PVCs
+		// This removes the old cache from all nodes and deletes PVCs so re-extraction can begin
+		if err := r.cleanupOldCacheFromNodes(ctx, kc, jobNamespace); err != nil {
+			r.Log.Error(err, "Failed to cleanup old cache from nodes",
+				"cache", kc.Name, "namespace", kc.Namespace)
+			// Non-fatal - continue with reconciliation
+		}
 	}
 
 	return nil
@@ -328,11 +386,8 @@ func (r *KernelCacheReconciler) ensureDownloadPVC(
 	pvName := kc.Namespace + "-" + kc.Name + "-download-pv"
 	pvcName := kc.Namespace + "-" + kc.Name + "-download"
 
-	// Storage size from CRD or default
-	storageSize := resource.MustParse("10Gi") // Default
-	if kc.Spec.StorageSize != nil {
-		storageSize = *kc.Spec.StorageSize
-	}
+	// Resolve storage size: user override > webhook annotation > 10Gi default
+	storageSize := r.resolveStorageSize(kc)
 
 	// Default access mode: ReadWriteMany for Phase 1 (multi-node sharing)
 	accessModes := kc.Spec.AccessModes
@@ -441,12 +496,30 @@ func (r *KernelCacheReconciler) ensureExtractionJob(
 	}
 
 	// Only create if no Job exists AND extraction not yet complete
-	// (TTL controller may delete completed Jobs, so check state)
+	// (TTL controller may delete completed Jobs, so check multiple indicators)
 	if job == nil {
-		if kc.Status.State == v1alpha1.CacheStateExtracted {
+		// Check 1: Status shows extraction complete
+		if kc.Status.State == v1alpha1.CacheStateExtracted || kc.Status.State == v1alpha1.CacheStateRunning {
 			// Extraction already succeeded, Job was deleted by TTL controller
 			return nil
 		}
+
+		// Check 2: Serving PVC exists (only created after extraction completes)
+		servingPVC := &corev1.PersistentVolumeClaim{}
+		servingPVCName := kc.Name
+		err := r.Get(ctx, types.NamespacedName{
+			Name:      servingPVCName,
+			Namespace: kc.Namespace,
+		}, servingPVC)
+		if err == nil {
+			// Serving PVC exists, extraction already complete
+			r.Log.V(1).Info("Extraction already complete (Serving PVC exists), skipping Job creation",
+				"cache", kc.Name, "namespace", kc.Namespace)
+			return nil
+		} else if !errors.IsNotFound(err) {
+			return err
+		}
+
 		return r.createExtractionJob(ctx, kc, pvcName, config)
 	} else if r.jobFailed(job) {
 		// Only recreate if failed job is old enough
@@ -687,11 +760,8 @@ func (r *KernelCacheReconciler) ensureServingPVC(
 	servingPVName := kc.Namespace + "-" + kc.Name + "-serving-pv"
 	servingPVCName := kc.Name // Same name as KernelCache
 
-	// Storage size from CRD or default
-	storageSize := resource.MustParse("10Gi") // Default
-	if kc.Spec.StorageSize != nil {
-		storageSize = *kc.Spec.StorageSize
-	}
+	// Resolve storage size: user override > webhook annotation > 10Gi default
+	storageSize := r.resolveStorageSize(kc)
 
 	// Step 1: Create Serving PV (separate from Download PV)
 	// Uses same HostPath but different PV resource (PV binds to one PVC only)
@@ -993,4 +1063,117 @@ func (r *KernelCacheReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.jobMapper),
 		).
 		Complete(r)
+}
+
+// cleanupOldCacheFromNodes removes old cache entries from KernelCacheNodes
+// when image changes, allowing re-extraction with new image/digest
+func (r *KernelCacheReconciler) cleanupOldCacheFromNodes(ctx context.Context, kc *v1alpha1.KernelCache, jobNamespace string) error {
+	// Step 1: Remove cache entries from KernelCacheNodes
+	kcNodeList := &v1alpha1.KernelCacheNodeList{}
+	if err := r.List(ctx, kcNodeList); err != nil {
+		return fmt.Errorf("failed to list KernelCacheNodes: %w", err)
+	}
+
+	cacheKey := kc.Namespace + "/" + kc.Name
+
+	for i := range kcNodeList.Items {
+		kcNode := &kcNodeList.Items[i]
+		needsUpdate := false
+
+		// Remove this cache from CacheStatus map
+		if kcNode.Status.CacheStatus != nil {
+			if _, exists := kcNode.Status.CacheStatus[cacheKey]; exists {
+				delete(kcNode.Status.CacheStatus, cacheKey)
+				needsUpdate = true
+				r.Log.Info("Removed old cache from node after image change",
+					"node", kcNode.Name,
+					"cache", cacheKey)
+			}
+		}
+
+		if needsUpdate {
+			if err := r.Status().Update(ctx, kcNode); err != nil {
+				r.Log.Error(err, "Failed to update KernelCacheNode during cleanup",
+					"node", kcNode.Name,
+					"cache", cacheKey)
+				// Continue with other nodes
+			}
+		}
+	}
+
+	// Step 2: Delete extraction Jobs (must delete before PVCs - pods mount them)
+	jobLabelSelector := metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"kernelcache.kserve.io/cache":     kc.Name,
+			"kernelcache.kserve.io/namespace": kc.Namespace,
+		},
+	}
+	selector, err := metav1.LabelSelectorAsSelector(&jobLabelSelector)
+	if err != nil {
+		r.Log.Error(err, "Failed to create job selector")
+		// Non-fatal - continue
+	} else {
+		jobList := &batchv1.JobList{}
+		if err := r.List(ctx, jobList, client.InNamespace(jobNamespace), client.MatchingLabelsSelector{Selector: selector}); err != nil {
+			r.Log.Error(err, "Failed to list extraction Jobs")
+			// Non-fatal - continue
+		} else {
+			for i := range jobList.Items {
+				job := &jobList.Items[i]
+				propagationPolicy := metav1.DeletePropagationBackground
+				if err := r.Clientset.BatchV1().Jobs(jobNamespace).Delete(ctx, job.Name, metav1.DeleteOptions{
+					PropagationPolicy: &propagationPolicy,
+				}); err != nil && !errors.IsNotFound(err) {
+					r.Log.Error(err, "Failed to delete extraction Job", "job", job.Name)
+					// Non-fatal - continue
+				} else if err == nil {
+					r.Log.Info("Deleted old extraction Job", "job", job.Name)
+				}
+			}
+		}
+	}
+
+	// Step 3: Delete old PVCs/PVs so they can be recreated with new image's storage size
+
+	// Delete download PVC
+	downloadPVCName := kc.Namespace + "-" + kc.Name + "-download"
+	if err := r.Clientset.CoreV1().PersistentVolumeClaims(jobNamespace).Delete(
+		ctx, downloadPVCName, metav1.DeleteOptions{}); err != nil && !errors.IsNotFound(err) {
+		r.Log.Error(err, "Failed to delete download PVC", "pvc", downloadPVCName)
+		// Non-fatal - continue
+	} else if err == nil {
+		r.Log.Info("Deleted old download PVC", "pvc", downloadPVCName)
+	}
+
+	// Delete serving PVC (in KC's namespace, not jobNamespace)
+	servingPVCName := kc.Name // Serving PVC name is same as KC name
+	if err := r.Clientset.CoreV1().PersistentVolumeClaims(kc.Namespace).Delete(
+		ctx, servingPVCName, metav1.DeleteOptions{}); err != nil && !errors.IsNotFound(err) {
+		r.Log.Error(err, "Failed to delete serving PVC", "pvc", servingPVCName, "namespace", kc.Namespace)
+		// Non-fatal - continue
+	} else if err == nil {
+		r.Log.Info("Deleted old serving PVC", "pvc", servingPVCName, "namespace", kc.Namespace)
+	}
+
+	// Delete download PV (cluster-scoped)
+	downloadPVName := kc.Namespace + "-" + kc.Name + "-download-pv"
+	if err := r.Clientset.CoreV1().PersistentVolumes().Delete(
+		ctx, downloadPVName, metav1.DeleteOptions{}); err != nil && !errors.IsNotFound(err) {
+		r.Log.Error(err, "Failed to delete download PV", "pv", downloadPVName)
+		// Non-fatal - continue
+	} else if err == nil {
+		r.Log.Info("Deleted old download PV", "pv", downloadPVName)
+	}
+
+	// Delete serving PV (cluster-scoped)
+	servingPVName := kc.Namespace + "-" + kc.Name + "-serving-pv"
+	if err := r.Clientset.CoreV1().PersistentVolumes().Delete(
+		ctx, servingPVName, metav1.DeleteOptions{}); err != nil && !errors.IsNotFound(err) {
+		r.Log.Error(err, "Failed to delete serving PV", "pv", servingPVName)
+		// Non-fatal - continue
+	} else if err == nil {
+		r.Log.Info("Deleted old serving PV", "pv", servingPVName)
+	}
+
+	return nil
 }

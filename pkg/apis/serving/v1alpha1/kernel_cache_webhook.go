@@ -112,6 +112,13 @@ func (kc *KernelCache) Default(ctx context.Context, obj runtime.Object) error {
 	}
 	kernelcacheLog.V(1).Info("Decoded KernelCache object", "name", cache.Name, "namespace", cache.Namespace)
 
+	// Skip webhook processing during deletion (when finalizer is being removed)
+	// The controller calls Update() to remove finalizers, which triggers this webhook
+	if !cache.DeletionTimestamp.IsZero() {
+		kernelcacheLog.V(1).Info("Object is being deleted, skipping webhook processing")
+		return nil
+	}
+
 	if cache.Annotations == nil {
 		cache.Annotations = map[string]string{}
 	}
@@ -267,36 +274,65 @@ func (kc *KernelCache) ValidateUpdate(ctx context.Context, oldObj, newObj runtim
 
 	oldDigest := oldCache.Annotations[AnnotationResolvedDigest]
 	newDigest := newCache.Annotations[AnnotationResolvedDigest]
-	oldSize := oldCache.Annotations[AnnotationCacheSizeBytes]
-	newSize := newCache.Annotations[AnnotationCacheSizeBytes]
 
-	// If image didn't change, digest must not change
-	if oldImg == newImg {
-		if oldDigest != newDigest {
-			kernelcacheLog.Info("Digests don't match", "oldDigest", oldDigest, "newDigest", newDigest, "oldSize", oldSize, "newSize", newSize)
-			return nil, fmt.Errorf("%s is immutable when spec.image is unchanged", AnnotationResolvedDigest)
+	// Handle image changes
+	if oldImg != newImg {
+		// Rule 1: Block image changes if cache in use by pods
+		if newCache.Status.ServingStatus != nil && newCache.Status.ServingStatus.TotalPodsUsing > 0 {
+			return nil, fmt.Errorf(
+				"cannot change spec.image: cache in use by %d pod(s) (delete InferenceServices first)",
+				newCache.Status.ServingStatus.TotalPodsUsing)
 		}
+
+		// Image changed -> new digest must be present (from mutating webhook)
+		if newImg == "" {
+			return nil, errors.New("spec.image must be set")
+		}
+		if newDigest == "" {
+			return nil, fmt.Errorf("%s must be set by mutating webhook when spec.image changes",
+				AnnotationResolvedDigest)
+		}
+
+		// Validate Kyverno verification if enabled
+		if isKyvernoVerificationEnabled() {
+			if _, exists := newCache.Annotations[KyvernoVerifyImagesAnnotation]; !exists {
+				return nil, fmt.Errorf("%s must be set by Kyverno", KyvernoVerifyImagesAnnotation)
+			}
+
+			if err := verifyKyvernoAnnotation(newCache.Annotations); err != nil {
+				return nil, fmt.Errorf("Kyverno verification failed: %w", err)
+			}
+		}
+
+		// Image change allowed - controller will handle cleanup and re-extraction
+		kernelcacheLog.Info("Image change detected",
+			"oldImage", oldImg,
+			"newImage", newImg,
+			"oldDigest", oldDigest,
+			"newDigest", newDigest)
 		return nil, nil
 	}
 
-	// Image changed -> new digest must be present
-	if newImg == "" {
-		return nil, errors.New("spec.image must be set")
-	}
-	if newDigest == "" {
-		return nil, fmt.Errorf("%s must be set by mutating webhook when spec.image changes", AnnotationResolvedDigest)
+	// Rule 2: Image unchanged -> digest must not change
+	if oldDigest != newDigest {
+		kernelcacheLog.Info("Digests don't match with unchanged image",
+			"oldDigest", oldDigest,
+			"newDigest", newDigest)
+		return nil, fmt.Errorf("%s is immutable when spec.image is unchanged",
+			AnnotationResolvedDigest)
 	}
 
-	// Validate Kyverno verification if enabled
-	if isKyvernoVerificationEnabled() {
-		if _, exists := newCache.Annotations[KyvernoVerifyImagesAnnotation]; !exists {
-			return nil, fmt.Errorf("%s must be set by Kyverno", KyvernoVerifyImagesAnnotation)
-		}
-
-		if err := verifyKyvernoAnnotation(newCache.Annotations); err != nil {
-			return nil, fmt.Errorf("Kyverno verification failed: %w", err)
+	// Rule 3: Storage fields immutable after extraction starts
+	if isExtractionStarted(newCache) {
+		if !storageFieldsEqual(oldCache.Spec, newCache.Spec) {
+			return nil, errors.New(
+				"spec.storageClassName, spec.storageSize, and spec.accessModes " +
+					"are immutable after extraction begins")
 		}
 	}
+
+	// Rule 4: PodTemplate always mutable (no validation needed)
+	// Rule 5: User metadata always mutable (no validation needed)
 
 	return nil, nil
 }
@@ -499,4 +535,55 @@ func verifyMutation(secret, image, digest, sigB64 string) bool {
 		return false
 	}
 	return hmac.Equal(want, got)
+}
+
+// isExtractionStarted checks if extraction has started on any node
+// Extraction is considered started if any node is in InProgress, Extracted, or Running state
+func isExtractionStarted(kc *KernelCache) bool {
+	if kc.Status.Counts == nil {
+		return false
+	}
+	// If any node has extracted or is using the cache, extraction has started
+	return kc.Status.Counts.NodeInUseCnt > 0 ||
+		kc.Status.Counts.NodeNotInUseCnt > 0
+}
+
+// storageFieldsEqual compares storage-related fields between two KernelCacheSpecs
+func storageFieldsEqual(oldSpec, newSpec KernelCacheSpec) bool {
+	// Compare storageClassName (handle nil pointers)
+	if (oldSpec.StorageClassName == nil) != (newSpec.StorageClassName == nil) {
+		return false
+	}
+	if oldSpec.StorageClassName != nil && newSpec.StorageClassName != nil {
+		if *oldSpec.StorageClassName != *newSpec.StorageClassName {
+			return false
+		}
+	}
+
+	// Compare storageSize (handle nil pointers)
+	if (oldSpec.StorageSize == nil) != (newSpec.StorageSize == nil) {
+		return false
+	}
+	if oldSpec.StorageSize != nil && newSpec.StorageSize != nil {
+		if !oldSpec.StorageSize.Equal(*newSpec.StorageSize) {
+			return false
+		}
+	}
+
+	// Compare accessModes (slice comparison)
+	if len(oldSpec.AccessModes) != len(newSpec.AccessModes) {
+		return false
+	}
+	// Create maps for order-independent comparison
+	oldModes := make(map[string]bool)
+	for _, mode := range oldSpec.AccessModes {
+		oldModes[string(mode)] = true
+	}
+	for _, mode := range newSpec.AccessModes {
+		if !oldModes[string(mode)] {
+			return false
+		}
+	}
+
+	return true
 }

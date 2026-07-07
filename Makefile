@@ -427,7 +427,7 @@ deploy: manifests
 	git checkout HEAD -- config/certmanager/certificate.yaml config/certmanager/llmisvc/certificate.yaml
 
 
-deploy-dev: manifests
+deploy-dev: manifests kernelcache-webhook-secret-file
 	kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml
 	# Given that llmisvc CRs and CRDs are packaged together, when using kustomize build a race condition will occur.
 	# This is because before the CRD is registered to the api server, kustomize will attempt to create the CR.
