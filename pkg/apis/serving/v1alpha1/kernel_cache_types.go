@@ -51,24 +51,6 @@ type KernelCacheSpec struct {
 	// +kubebuilder:validation:Required
 	Image string `json:"image"`
 
-	// GPU metadata for automatic ISVC matching (Phase 2 webhook uses this)
-	// Populated from MCV GPU detection or sidecar auto-creation
-	// +optional
-	GPUType string `json:"gpuType,omitempty"` // "nvidia-a100", "amd-mi300x" (from MCV)
-
-	// +optional
-	Framework string `json:"framework,omitempty"` // "vllm", "pytorch", "triton"
-
-	// +optional
-	FrameworkVersion string `json:"frameworkVersion,omitempty"` // "0.6.0"
-
-	// +optional
-	MinCUDAVersion string `json:"minCUDAVersion,omitempty"` // "12.0" (compatibility check)
-
-	// +optional
-	MinDriverVersion string `json:"minDriverVersion,omitempty"` // "535" (compatibility check)
-
-	// Phase 1 simple mode storage fields (removed in Phase 2 when NodeGroups added)
 	// StorageClassName for PV/PVC (optional, uses cluster default if unset)
 	// +optional
 	StorageClassName *string `json:"storageClassName,omitempty"`
@@ -77,7 +59,7 @@ type KernelCacheSpec struct {
 	// +optional
 	StorageSize *resource.Quantity `json:"storageSize,omitempty"`
 
-	// AccessModes for PV/PVC (optional, default: [ReadWriteMany] for Phase 1)
+	// AccessModes for PV/PVC (optional, default: [ReadWriteMany])
 	// +optional
 	AccessModes []corev1.PersistentVolumeAccessMode `json:"accessModes,omitempty"`
 

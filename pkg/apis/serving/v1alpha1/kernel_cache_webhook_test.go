@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -445,6 +446,285 @@ func TestKernelCacheValidateDelete(t *testing.T) {
 			_, err := tt.cache.ValidateDelete(context.Background(), tt.cache)
 			if tt.shouldError {
 				g.Expect(err).To(gomega.HaveOccurred())
+			} else {
+				g.Expect(err).ToNot(gomega.HaveOccurred())
+			}
+		})
+	}
+}
+
+func TestKernelCacheEditPolicy(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	storageSize10Gi := resource.MustParse("10Gi")
+	storageSize20Gi := resource.MustParse("20Gi")
+	storageClassStandard := "standard"
+	storageClassFast := "fast"
+
+	tests := []struct {
+		name        string
+		oldCache    *KernelCache
+		newCache    *KernelCache
+		shouldError bool
+		errorMsg    string
+	}{
+		{
+			name: "image change blocked - cache in use by pods",
+			oldCache: &KernelCache{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-cache",
+					Namespace: "default",
+					Annotations: map[string]string{
+						AnnotationResolvedDigest: "sha256:old",
+					},
+				},
+				Spec: KernelCacheSpec{
+					Image: "quay.io/repo/image:v1.0",
+				},
+				Status: KernelCacheStatus{
+					ServingStatus: &ServingStatus{
+						TotalPodsUsing: 5,
+					},
+				},
+			},
+			newCache: &KernelCache{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-cache",
+					Namespace: "default",
+					Annotations: map[string]string{
+						AnnotationResolvedDigest: "sha256:new",
+					},
+				},
+				Spec: KernelCacheSpec{
+					Image: "quay.io/repo/image:v2.0",
+				},
+				Status: KernelCacheStatus{
+					ServingStatus: &ServingStatus{
+						TotalPodsUsing: 5,
+					},
+				},
+			},
+			shouldError: true,
+			errorMsg:    "cache in use by 5 pod(s)",
+		},
+		{
+			name: "image change allowed - no pods using cache",
+			oldCache: &KernelCache{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-cache",
+					Namespace: "default",
+					Annotations: map[string]string{
+						AnnotationResolvedDigest: "sha256:old",
+					},
+				},
+				Spec: KernelCacheSpec{
+					Image: "quay.io/repo/image:v1.0",
+				},
+				Status: KernelCacheStatus{
+					ServingStatus: &ServingStatus{
+						TotalPodsUsing: 0,
+					},
+				},
+			},
+			newCache: &KernelCache{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-cache",
+					Namespace: "default",
+					Annotations: map[string]string{
+						AnnotationResolvedDigest: "sha256:new",
+					},
+				},
+				Spec: KernelCacheSpec{
+					Image: "quay.io/repo/image:v2.0",
+				},
+				Status: KernelCacheStatus{
+					ServingStatus: &ServingStatus{
+						TotalPodsUsing: 0,
+					},
+				},
+			},
+			shouldError: false,
+		},
+		{
+			name: "storage fields blocked - extraction started",
+			oldCache: &KernelCache{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-cache",
+					Namespace: "default",
+					Annotations: map[string]string{
+						AnnotationResolvedDigest: "sha256:abc",
+					},
+				},
+				Spec: KernelCacheSpec{
+					Image:            "quay.io/repo/image:v1.0",
+					StorageClassName: &storageClassStandard,
+					StorageSize:      &storageSize10Gi,
+				},
+				Status: KernelCacheStatus{
+					Counts: &CacheCounts{
+						NodeNotInUseCnt: 2,
+					},
+				},
+			},
+			newCache: &KernelCache{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-cache",
+					Namespace: "default",
+					Annotations: map[string]string{
+						AnnotationResolvedDigest: "sha256:abc",
+					},
+				},
+				Spec: KernelCacheSpec{
+					Image:            "quay.io/repo/image:v1.0",
+					StorageClassName: &storageClassStandard,
+					StorageSize:      &storageSize20Gi,
+				},
+				Status: KernelCacheStatus{
+					Counts: &CacheCounts{
+						NodeNotInUseCnt: 2,
+					},
+				},
+			},
+			shouldError: true,
+			errorMsg:    "are immutable after extraction begins",
+		},
+		{
+			name: "storage class change blocked - extraction started",
+			oldCache: &KernelCache{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-cache",
+					Namespace: "default",
+					Annotations: map[string]string{
+						AnnotationResolvedDigest: "sha256:abc",
+					},
+				},
+				Spec: KernelCacheSpec{
+					Image:            "quay.io/repo/image:v1.0",
+					StorageClassName: &storageClassStandard,
+				},
+				Status: KernelCacheStatus{
+					Counts: &CacheCounts{
+						NodeInUseCnt: 1,
+					},
+				},
+			},
+			newCache: &KernelCache{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-cache",
+					Namespace: "default",
+					Annotations: map[string]string{
+						AnnotationResolvedDigest: "sha256:abc",
+					},
+				},
+				Spec: KernelCacheSpec{
+					Image:            "quay.io/repo/image:v1.0",
+					StorageClassName: &storageClassFast,
+				},
+				Status: KernelCacheStatus{
+					Counts: &CacheCounts{
+						NodeInUseCnt: 1,
+					},
+				},
+			},
+			shouldError: true,
+			errorMsg:    "are immutable after extraction begins",
+		},
+		{
+			name: "storage fields allowed - extraction not started",
+			oldCache: &KernelCache{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-cache",
+					Namespace: "default",
+					Annotations: map[string]string{
+						AnnotationResolvedDigest: "sha256:abc",
+					},
+				},
+				Spec: KernelCacheSpec{
+					Image:            "quay.io/repo/image:v1.0",
+					StorageClassName: &storageClassStandard,
+					StorageSize:      &storageSize10Gi,
+				},
+				Status: KernelCacheStatus{
+					Counts: &CacheCounts{
+						NodeCnt: 0,
+					},
+				},
+			},
+			newCache: &KernelCache{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-cache",
+					Namespace: "default",
+					Annotations: map[string]string{
+						AnnotationResolvedDigest: "sha256:abc",
+					},
+				},
+				Spec: KernelCacheSpec{
+					Image:            "quay.io/repo/image:v1.0",
+					StorageClassName: &storageClassFast,
+					StorageSize:      &storageSize20Gi,
+				},
+				Status: KernelCacheStatus{
+					Counts: &CacheCounts{
+						NodeCnt: 0,
+					},
+				},
+			},
+			shouldError: false,
+		},
+		{
+			name: "podTemplate change allowed - always",
+			oldCache: &KernelCache{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-cache",
+					Namespace: "default",
+					Annotations: map[string]string{
+						AnnotationResolvedDigest: "sha256:abc",
+					},
+				},
+				Spec: KernelCacheSpec{
+					Image: "quay.io/repo/image:v1.0",
+					PodTemplate: &KernelCachePodTemplate{
+						NodeSelector: map[string]string{"gpu": "true"},
+					},
+				},
+				Status: KernelCacheStatus{
+					Counts: &CacheCounts{
+						NodeInUseCnt: 3,
+					},
+				},
+			},
+			newCache: &KernelCache{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-cache",
+					Namespace: "default",
+					Annotations: map[string]string{
+						AnnotationResolvedDigest: "sha256:abc",
+					},
+				},
+				Spec: KernelCacheSpec{
+					Image: "quay.io/repo/image:v1.0",
+					PodTemplate: &KernelCachePodTemplate{
+						NodeSelector: map[string]string{"gpu": "nvidia"},
+					},
+				},
+				Status: KernelCacheStatus{
+					Counts: &CacheCounts{
+						NodeInUseCnt: 3,
+					},
+				},
+			},
+			shouldError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := tt.newCache.ValidateUpdate(context.Background(), tt.oldCache, tt.newCache)
+			if tt.shouldError {
+				g.Expect(err).To(gomega.HaveOccurred())
+				if tt.errorMsg != "" {
+					g.Expect(err.Error()).To(gomega.ContainSubstring(tt.errorMsg))
+				}
 			} else {
 				g.Expect(err).ToNot(gomega.HaveOccurred())
 			}

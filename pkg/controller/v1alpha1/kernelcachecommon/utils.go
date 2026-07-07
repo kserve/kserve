@@ -49,6 +49,10 @@ func LoadKernelCacheConfig(ctx context.Context, clientset kubernetes.Interface) 
 	}
 	if kernelCacheConfig.JobTTLSecondsAfterFinished == nil {
 		kernelCacheConfig.JobTTLSecondsAfterFinished = ptr.To(DefaultJobTTLSecondsAfterFinished)
+	} else if *kernelCacheConfig.JobTTLSecondsAfterFinished < MinJobTTLSecondsAfterFinished {
+		// Enforce minimum TTL for state propagation from Job completion
+		// to KernelCacheNode agents before TTL cleanup (2x reconcile interval)
+		kernelCacheConfig.JobTTLSecondsAfterFinished = ptr.To(MinJobTTLSecondsAfterFinished)
 	}
 	if kernelCacheConfig.ReconcileIntervalSeconds == nil {
 		kernelCacheConfig.ReconcileIntervalSeconds = ptr.To(DefaultReconcileIntervalSeconds)

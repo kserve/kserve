@@ -23,6 +23,7 @@ import (
 	"github.com/go-logr/logr"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
@@ -165,6 +166,106 @@ func TestJobCompleted(t *testing.T) {
 
 		if reconciler.jobCompleted(job) {
 			t.Error("expected jobCompleted to return false when complete condition status is false")
+		}
+	})
+}
+
+func TestResolveStorageSize(t *testing.T) {
+	reconciler := &KernelCacheReconciler{
+		Log: logr.Discard(),
+	}
+
+	t.Run("uses spec.storageSize when provided", func(t *testing.T) {
+		size := resource.MustParse("5Gi")
+		kc := &v1alpha1.KernelCache{
+			Spec: v1alpha1.KernelCacheSpec{
+				StorageSize: &size,
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					v1alpha1.AnnotationCacheSizeBytes: "2147483648", // 2Gi in bytes
+				},
+			},
+		}
+
+		result := reconciler.resolveStorageSize(kc)
+		if !result.Equal(size) {
+			t.Errorf("expected %s, got %s", size.String(), result.String())
+		}
+	})
+
+	t.Run("uses annotation when spec.storageSize is nil", func(t *testing.T) {
+		kc := &v1alpha1.KernelCache{
+			Spec: v1alpha1.KernelCacheSpec{
+				StorageSize: nil,
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					v1alpha1.AnnotationCacheSizeBytes: "3221225472", // 3Gi in bytes
+				},
+			},
+		}
+
+		result := reconciler.resolveStorageSize(kc)
+		expected := resource.MustParse("3Gi")
+		// Use Cmp to handle binary vs decimal differences
+		if result.Cmp(expected) != 0 {
+			t.Errorf("expected ~%s, got %s", expected.String(), result.String())
+		}
+	})
+
+	t.Run("uses 10Gi default when both are missing", func(t *testing.T) {
+		kc := &v1alpha1.KernelCache{
+			Spec: v1alpha1.KernelCacheSpec{
+				StorageSize: nil,
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{},
+			},
+		}
+
+		result := reconciler.resolveStorageSize(kc)
+		expected := resource.MustParse("10Gi")
+		if !result.Equal(expected) {
+			t.Errorf("expected %s, got %s", expected.String(), result.String())
+		}
+	})
+
+	t.Run("uses 10Gi default when annotation is invalid", func(t *testing.T) {
+		kc := &v1alpha1.KernelCache{
+			Spec: v1alpha1.KernelCacheSpec{
+				StorageSize: nil,
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					v1alpha1.AnnotationCacheSizeBytes: "not-a-number",
+				},
+			},
+		}
+
+		result := reconciler.resolveStorageSize(kc)
+		expected := resource.MustParse("10Gi")
+		if !result.Equal(expected) {
+			t.Errorf("expected %s, got %s", expected.String(), result.String())
+		}
+	})
+
+	t.Run("uses 10Gi default when annotation is zero", func(t *testing.T) {
+		kc := &v1alpha1.KernelCache{
+			Spec: v1alpha1.KernelCacheSpec{
+				StorageSize: nil,
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					v1alpha1.AnnotationCacheSizeBytes: "0",
+				},
+			},
+		}
+
+		result := reconciler.resolveStorageSize(kc)
+		expected := resource.MustParse("10Gi")
+		if !result.Equal(expected) {
+			t.Errorf("expected %s, got %s", expected.String(), result.String())
 		}
 	})
 }

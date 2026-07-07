@@ -32,4 +32,8 @@ const (
 	DefaultExtractImage                     = "quay.io/gkm/gkm-extract:latest"
 	DefaultJobTTLSecondsAfterFinished int32 = 3600
 	DefaultReconcileIntervalSeconds   int64 = 60
+
+	// Minimum TTL to allow state propagation from Job completion to KernelCacheNode agents
+	// Must be > 2x reconcile interval (60s) to ensure at least 2 reconcile cycles
+	MinJobTTLSecondsAfterFinished int32 = 120
 )
