@@ -1762,7 +1762,12 @@ def _copy_secret(core_v1: client.CoreV1Api, secret_name: str, src_ns: str, dst_n
             return
         raise
 
-    secret.metadata = client.V1ObjectMeta(name=secret_name, namespace=dst_ns)
+    secret.metadata = client.V1ObjectMeta(
+        name=secret_name,
+        namespace=dst_ns,
+        annotations=secret.metadata.annotations,
+        labels=secret.metadata.labels,
+    )
     try:
         core_v1.create_namespaced_secret(dst_ns, secret)
         logger.info(f"Copied secret {secret_name} from {src_ns} to {dst_ns}")
