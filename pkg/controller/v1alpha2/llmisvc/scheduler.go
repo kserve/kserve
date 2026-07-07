@@ -506,7 +506,7 @@ func schedulerConfigText(llmSvc *v1alpha2.LLMInferenceService) string {
 			loraProfileEntry = fmt.Sprintf("  - pluginRef: %s\n    weight: 4\n", loraAffinityScorerPlugin)
 		}
 		return fmt.Sprintf(`
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: disagg-headers-handler
@@ -554,7 +554,7 @@ plugins:
 			loraProfileEntry = fmt.Sprintf("  - pluginRef: %s\n    weight: 4\n", loraAffinityScorerPlugin)
 		}
 		return fmt.Sprintf(`
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler

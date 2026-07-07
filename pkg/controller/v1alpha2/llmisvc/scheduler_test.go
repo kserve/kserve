@@ -1404,7 +1404,7 @@ plugins:
 }
 
 func TestSchedulerTransform(t *testing.T) {
-	oldConfigYAML := `apiVersion: inference.networking.x-k8s.io/v1alpha1
+	oldConfigYAML := `apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: prefill-header-handler
@@ -1498,7 +1498,7 @@ func TestSchedulerTransformThreshold(t *testing.T) {
 	}{
 		{
 			name: "migrates non-zero threshold in full transform",
-			configYAML: `apiVersion: inference.networking.x-k8s.io/v1alpha1
+			configYAML: `apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: prefill-header-handler
@@ -1525,7 +1525,7 @@ plugins:
 		},
 		{
 			name: "migrates non-zero threshold with deciderPluginName in full transform",
-			configYAML: `apiVersion: inference.networking.x-k8s.io/v1alpha1
+			configYAML: `apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: prefill-header-handler
@@ -1551,7 +1551,7 @@ plugins:
 		},
 		{
 			name: "migrates threshold 0 in full transform",
-			configYAML: `apiVersion: inference.networking.x-k8s.io/v1alpha1
+			configYAML: `apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: prefill-header-handler
@@ -1609,7 +1609,7 @@ plugins:
 
 func TestFullMigrationPipeline(t *testing.T) {
 	// Realistic old v0.6 config with all deprecated features.
-	oldConfigYAML := `apiVersion: inference.networking.x-k8s.io/v1alpha1
+	oldConfigYAML := `apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: prefill-header-handler
@@ -1805,7 +1805,7 @@ schedulingProfiles:
 }
 
 func TestFullMigrationPipelineNonZeroThreshold(t *testing.T) {
-	oldConfigYAML := `apiVersion: inference.networking.x-k8s.io/v1alpha1
+	oldConfigYAML := `apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: prefill-header-handler
@@ -1952,7 +1952,7 @@ func TestExtractDeprecatedMetricFlags(t *testing.T) {
 }
 
 func TestSchedulerTransformGatesMetricFlagExtraction(t *testing.T) {
-	configYAML := `apiVersion: inference.networking.x-k8s.io/v1alpha1
+	configYAML := `apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: queue-scorer
