@@ -10,17 +10,25 @@ spec:
   router:
     scheduler:
       config:
-        inline:
-          apiVersion: inference.networking.x-k8s.io/v1alpha1
+        inline: |
+          apiVersion: llm-d.ai/v1alpha1
           kind: EndpointPickerConfig
           plugins:
+            - type: approx-prefix-cache-producer
+              parameters:
+                maxPrefixTokensToMatch: 262144
             - type: predicted-latency-producer
+            - type: prefix-cache-affinity-filter
+              name: loose-affinity-filter
+              parameters:
+                affinityThreshold: 0.8
             - type: latency-scorer
             - type: weighted-random-picker
           schedulingProfiles:
             - name: default
               plugins:
                 - pluginRef: predicted-latency-producer
+                - pluginRef: loose-affinity-filter
                 - pluginRef: latency-scorer
                 - pluginRef: weighted-random-picker
     route: { }

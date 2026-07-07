@@ -28,7 +28,9 @@ For the upstream llm-d guide on this feature, see [predicted-latency-routing](ht
 
 | Plugin | Purpose |
 |---|---|
+| `approx-prefix-cache-producer` | Computes approximate prefix cache hit ratios for each endpoint |
 | `predicted-latency-producer` | Produces predicted TTFT/TPOT for each endpoint |
+| `prefix-cache-affinity-filter` | Filters endpoints based on prefix cache affinity threshold |
 | `latency-scorer` | Scores endpoints using the predicted latency |
 | `weighted-random-picker` | Selects an endpoint using weighted random selection |
 
