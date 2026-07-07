@@ -55,13 +55,9 @@ type KernelCacheStatus struct {
 	// +optional
 	GPUCompatibility *GPUCompatibilitySummary `json:"gpuCompatibility,omitempty"`
 
-	// Phase 2: Serving PVC usage (aggregate across all nodes/namespaces)
+	// Serving PVC usage (aggregate across all nodes/namespaces)
 	// +optional
 	ServingStatus *ServingStatus `json:"servingStatus,omitempty"`
-
-	// Phase 2: ISVCs referencing this cache
-	// +optional
-	InferenceServices []NamespacedName `json:"inferenceServices,omitempty"`
 }
 
 // NodeCacheState represents per-node cache state
@@ -112,10 +108,10 @@ type GPUCompatibilitySummary struct {
 	TotalIncompatibleGPUs int `json:"totalIncompatibleGPUs"`
 }
 
-// ServingStatus tracks serving PVC usage (Phase 2)
+// ServingStatus tracks serving PVC usage across namespaces
 // +k8s:openapi-gen=true
 type ServingStatus struct {
-	// Aggregate counts across all nodes/namespaces (Phase 2)
+	// Aggregate counts across all nodes/namespaces
 	TotalNamespaces      int `json:"totalNamespaces"`      // Namespaces with serving PVCs
 	TotalPodsUsing       int `json:"totalPodsUsing"`       // Total pods using cache (any phase)
 	TotalPodsReady       int `json:"totalPodsReady"`       // Total ready pods

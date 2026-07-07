@@ -216,7 +216,8 @@ func (r *KernelCacheNodeReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	// Discover caches by watching KernelCache CRs
-	if err := r.discoverCaches(ctx, kcNode); err != nil {
+	cachesDiscoveryChanged, err := r.discoverCaches(ctx, kcNode)
+	if err != nil {
 		r.Log.Error(err, "failed to discover caches")
 		return ctrl.Result{}, err
 	}
@@ -236,23 +237,34 @@ func (r *KernelCacheNodeReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	// Update status (agent owns all KernelCacheNode writes)
-	if err := r.updateStatus(ctx, kcNode, kernelCacheConfig, gpuInfoChanged); err != nil {
+	r.Log.Info("Calling updateStatus", "node", kcNode.Status.NodeName, "cacheCount", len(kcNode.Status.CacheStatus))
+	if err := r.updateStatus(ctx, kcNode, kernelCacheConfig, gpuInfoChanged || cachesDiscoveryChanged); err != nil {
+		r.Log.Error(err, "updateStatus failed", "node", kcNode.Status.NodeName)
 		return ctrl.Result{}, err
 	}
+	r.Log.Info("updateStatus completed", "node", kcNode.Status.NodeName)
 
 	return ctrl.Result{RequeueAfter: reconcileInterval}, nil
 }
 
 // discoverCaches lists all KernelCache CRs and populates CacheStatus map
 // Agent owns cache discovery
+// Returns true if caches were added/removed
 func (r *KernelCacheNodeReconciler) discoverCaches(
 	ctx context.Context,
 	kcNode *v1alpha1.KernelCacheNode,
-) error {
+) (bool, error) {
+	cachesChanged := false
 	// List all KernelCache CRs across all namespaces
 	kcList := &v1alpha1.KernelCacheList{}
 	if err := r.List(ctx, kcList); err != nil {
-		return err
+		r.Log.Error(err, "Failed to list KernelCaches")
+		return cachesChanged, err
+	}
+
+	r.Log.Info("Discovered KernelCaches", "count", len(kcList.Items), "node", kcNode.Status.NodeName)
+	for i, kc := range kcList.Items {
+		r.Log.V(1).Info("KernelCache found", "index", i, "name", kc.Name, "namespace", kc.Namespace, "image", kc.Spec.Image)
 	}
 
 	// Initialize CacheStatus map if needed
@@ -276,6 +288,7 @@ func (r *KernelCacheNodeReconciler) discoverCaches(
 			cacheInfo = v1alpha1.CacheNodeCacheInfo{
 				State: v1alpha1.NodeCacheStatePending,
 			}
+			cachesChanged = true // New cache added
 		}
 
 		// Update cache identity from KernelCache CR
@@ -291,11 +304,12 @@ func (r *KernelCacheNodeReconciler) discoverCaches(
 	for cacheKey := range kcNode.Status.CacheStatus {
 		if !activeCaches[cacheKey] {
 			delete(kcNode.Status.CacheStatus, cacheKey)
+			cachesChanged = true // Cache removed
 			r.Log.Info("Removed deleted cache", "cache", cacheKey, "node", kcNode.Status.NodeName)
 		}
 	}
 
-	return nil
+	return cachesChanged, nil
 }
 
 // deleteCaches removes cache directories from filesystem that are no longer in CacheStatus
@@ -482,12 +496,11 @@ func (r *KernelCacheNodeReconciler) updateStatus(
 	ctx context.Context,
 	kcNode *v1alpha1.KernelCacheNode,
 	config *v1beta1.KernelCacheConfig,
-	gpuInfoChanged bool,
+	statusChanged bool,
 ) error {
 	jobNamespace := config.JobNamespace
 
-	// Track if status changed
-	statusChanged := gpuInfoChanged
+	// Track if status changed (passed in: gpuInfoChanged || cachesDiscoveryChanged)
 
 	// Update extraction state for each cache
 	// Check extraction Job status (operator creates ONE Job per cache)
@@ -502,6 +515,7 @@ func (r *KernelCacheNodeReconciler) updateStatus(
 		oldMessage := cacheInfo.Message
 
 		// Check Job status and PVC availability
+		// Determine state from Job if exists, otherwise determine state from PVC
 		if job != nil {
 			switch {
 			case r.jobCompleted(job):
@@ -527,6 +541,41 @@ func (r *KernelCacheNodeReconciler) updateStatus(
 				cacheInfo.State = v1alpha1.NodeCacheStateDownloading
 				cacheInfo.Message = ""
 			}
+		} else {
+			// Job not found (TTL deleted or never created)
+			// Check if extraction completed by looking at PVC status
+			pvcName := cacheInfo.Namespace + "-" + cacheInfo.Name + "-download"
+			pvc := &corev1.PersistentVolumeClaim{}
+			if err := r.Get(ctx, types.NamespacedName{
+				Name:      pvcName,
+				Namespace: jobNamespace,
+			}, pvc); err == nil {
+				// PVC exists - check if extraction completed based on phase
+				if pvc.Status.Phase == corev1.ClaimBound {
+					// PVC bound = extraction completed (Job deleted by TTL)
+					// Transition to Extracted unless already in a later state
+					if cacheInfo.State != v1alpha1.NodeCacheStateExtracted &&
+						cacheInfo.State != v1alpha1.NodeCacheStateRunning {
+						r.Log.Info("PVC bound, transitioning to Extracted",
+							"cache", cacheKey, "oldState", cacheInfo.State, "pvc", pvcName)
+						cacheInfo.State = v1alpha1.NodeCacheStateExtracted
+						cacheInfo.Message = ""
+					}
+				} else {
+					// PVC exists but not bound yet
+					if cacheInfo.State == v1alpha1.NodeCacheStatePending {
+						cacheInfo.State = v1alpha1.NodeCacheStateDownloading
+						cacheInfo.Message = "Waiting for PVC to bind"
+					}
+				}
+			} else if errors.IsNotFound(err) {
+				// No PVC = Job/extraction not started yet
+				if cacheInfo.State == "" {
+					cacheInfo.State = v1alpha1.NodeCacheStatePending
+					cacheInfo.Message = "Waiting for extraction Job"
+				}
+			}
+			// Keep existing state if PVC Get fails with transient error
 		}
 
 		// Update timestamp if state or message changed
