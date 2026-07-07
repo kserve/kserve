@@ -453,7 +453,7 @@ func validatePodDisruptionBudget(pdb *policyv1.PodDisruptionBudgetSpec, minRepli
 				return errors.New(PDBMaxUnavailableZeroError)
 			}
 		case intstr.String:
-			if pctBlocksAllDisruptions(pdb.MaxUnavailable.String(), effectiveMinReplicas, false) {
+			if pctMaxUnavailableBlocksAll(pdb.MaxUnavailable.String(), effectiveMinReplicas) {
 				return errors.New(PDBMaxUnavailableZeroError)
 			}
 		}
@@ -466,7 +466,7 @@ func validatePodDisruptionBudget(pdb *policyv1.PodDisruptionBudgetSpec, minRepli
 				return errors.New(PDBMinAvailableGEMinReplicasError)
 			}
 		case intstr.String:
-			if pctBlocksAllDisruptions(pdb.MinAvailable.String(), effectiveMinReplicas, true) {
+			if pctMinAvailableBlocksAll(pdb.MinAvailable.String(), effectiveMinReplicas) {
 				return errors.New(PDBMinAvailableGEMinReplicasError)
 			}
 		}
@@ -475,19 +475,28 @@ func validatePodDisruptionBudget(pdb *policyv1.PodDisruptionBudgetSpec, minRepli
 	return nil
 }
 
-// pctBlocksAllDisruptions reports whether a percentage value blocks all voluntary disruptions.
-// For minAvailable "P%": ceil(P/100 * replicas) >= replicas → no pod can be disrupted.
-// For maxUnavailable "P%": ceil(P/100 * replicas) == 0 → no pod can be disrupted.
-func pctBlocksAllDisruptions(pct string, replicas int32, isMinAvailable bool) bool {
-	s := strings.TrimSuffix(pct, "%")
-	p, err := strconv.ParseFloat(s, 64)
+// pctMinAvailableBlocksAll reports whether a minAvailable percentage prevents all voluntary disruptions.
+// ceil(P/100 * replicas) >= replicas means no pod can be disrupted.
+func pctMinAvailableBlocksAll(pct string, replicas int32) bool {
+	p, err := parsePct(pct)
 	if err != nil {
 		return false
 	}
-	if isMinAvailable {
-		return int32(math.Ceil(p/100*float64(replicas))) >= replicas
+	return int32(math.Ceil(p/100*float64(replicas))) >= replicas
+}
+
+// pctMaxUnavailableBlocksAll reports whether a maxUnavailable percentage prevents all voluntary disruptions.
+// ceil(P/100 * replicas) == 0 means no pod can be disrupted.
+func pctMaxUnavailableBlocksAll(pct string, replicas int32) bool {
+	p, err := parsePct(pct)
+	if err != nil {
+		return false
 	}
 	return int32(math.Ceil(p/100*float64(replicas))) == 0
+}
+
+func parsePct(pct string) (float64, error) {
+	return strconv.ParseFloat(strings.TrimSuffix(pct, "%"), 64)
 }
 
 func validateExactlyOneImplementation(component Component) error {
