@@ -1105,7 +1105,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.8.2",
+                    "image": "ghcr.io/llm-d/llm-d-inference-sim-dev:1d5ad96",
                     "command": ["/app/llm-d-inference-sim"],
                     "args": [
                         "--port",
@@ -1114,6 +1114,8 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "{{ .Spec.Model.Name }}",
                         "--mode",
                         "random",
+                        "{{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }}",
+                        "{{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }}",
                     ],
                     "resources": {
                         "limits": {"cpu": "1", "memory": "2Gi"},
@@ -1131,7 +1133,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.8.2",
+                    "image": "ghcr.io/llm-d/llm-d-inference-sim-dev:1d5ad96",
                     "command": ["/app/llm-d-inference-sim"],
                     "args": [
                         "--port",
@@ -1140,6 +1142,8 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "{{ .Spec.Model.Name }}",
                         "--mode",
                         "random",
+                        "{{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }}",
+                        "{{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }}",
                     ],
                     "resources": {
                         "limits": {"cpu": "1", "memory": "2Gi"},
@@ -1163,7 +1167,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.8.2",
+                    "image": "ghcr.io/llm-d/llm-d-inference-sim-dev:1d5ad96",
                     "command": ["/app/llm-d-inference-sim"],
                     "args": [
                         "--port",
@@ -1172,6 +1176,8 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "{{ .Spec.Model.Name }}",
                         "--mode",
                         "random",
+                        "{{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }}",
+                        "{{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }}",
                     ],
                     "resources": {
                         "limits": {"cpu": "1", "memory": "2Gi"},
@@ -1185,7 +1191,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.8.2",
+                    "image": "ghcr.io/llm-d/llm-d-inference-sim-dev:1d5ad96",
                     "command": ["/app/llm-d-inference-sim"],
                     "args": [
                         "--port",
@@ -1194,6 +1200,8 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "{{ .Spec.Model.Name }}",
                         "--mode",
                         "random",
+                        "{{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }}",
+                        "{{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }}",
                     ],
                     "resources": {
                         "limits": {"cpu": "1", "memory": "2Gi"},
@@ -1211,7 +1219,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.8.2",
+                    "image": "ghcr.io/llm-d/llm-d-inference-sim-dev:1d5ad96",
                     "command": ["/app/llm-d-inference-sim"],
                     "args": [
                         "--port",
@@ -1220,6 +1228,8 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "{{ .Spec.Model.Name }}",
                         "--mode",
                         "random",
+                        "{{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }}",
+                        "{{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }}",
                     ],
                     "resources": {
                         "limits": {"cpu": "1", "memory": "2Gi"},
@@ -1234,7 +1244,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                 "containers": [
                     {
                         "name": "main",
-                        "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.8.2",
+                        "image": "ghcr.io/llm-d/llm-d-inference-sim-dev:1d5ad96",
                         "command": ["/app/llm-d-inference-sim"],
                         "args": [
                             "--port",
@@ -1243,6 +1253,8 @@ LLMINFERENCESERVICE_CONFIGS = {
                             "{{ .Spec.Model.Name }}",
                             "--mode",
                             "random",
+                            "{{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }}",
+                            "{{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }}",
                         ],
                         "resources": {
                             "limits": {"cpu": "1", "memory": "2Gi"},
@@ -1364,7 +1376,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.8.2",
+                    "image": "ghcr.io/llm-d/llm-d-inference-sim-dev:1d5ad96",
                     "command": ["/app/llm-d-inference-sim"],
                     "args": [
                         "--port",
@@ -1382,6 +1394,8 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "42",
                         "--event-batch-size",
                         "1",
+                        "{{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }}",
+                        "{{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }}",
                     ],
                     "env": [
                         {
