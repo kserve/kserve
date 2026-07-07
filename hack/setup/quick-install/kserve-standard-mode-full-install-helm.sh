@@ -1093,6 +1093,22 @@ install_kserve_helm() {
 
     log_success "Successfully installed KServe"
 
+    # Helm's sortManifestsByKind applies the llmisvc-controller-manager Deployment
+    # (a known kind) before cert-manager's Certificate CR (a custom kind, sorted
+    # last), so the pod can be scheduled and attempt to mount
+    # llmisvc-webhook-server-cert before cert-manager has issued it, hitting
+    # FailedMount and kubelet's mount-retry backoff. Wait for the Certificate to
+    # be issued and restart the deployment to reset that backoff before waiting
+    # for it to become ready.
+    if is_positive "${ENABLE_LLMISVC}"; then
+        log_info "Waiting for llmisvc webhook Certificate to be ready..."
+        kubectl wait --for=condition=Ready certificate/llmisvc-serving-cert \
+            -n "${KSERVE_NAMESPACE}" --timeout=180s
+
+        log_info "Restarting llmisvc-controller-manager to pick up the freshly-issued cert..."
+        kubectl rollout restart deployment/llmisvc-controller-manager -n "${KSERVE_NAMESPACE}"
+    fi
+
     # Wait for all controller managers to be ready
     log_info "Waiting for KServe controllers to be ready..."
     for deploy in "${TARGET_DEPLOYMENT_NAMES[@]}"; do
