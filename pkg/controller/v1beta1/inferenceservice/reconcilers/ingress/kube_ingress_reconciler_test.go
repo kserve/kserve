@@ -25,6 +25,7 @@ import (
 	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"knative.dev/pkg/apis"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -62,6 +63,41 @@ func predictorHost() string {
 
 func transformerHost() string {
 	return fmt.Sprintf("%s-transformer.%s.svc.cluster.local", testIsvcName, testNamespace)
+}
+
+func readyISVC(name, ns string) *v1beta1.InferenceService {
+	isvc := &v1beta1.InferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+		Spec: v1beta1.InferenceServiceSpec{Predictor: v1beta1.PredictorSpec{}},
+	}
+
+	isvc.Status.SetCondition(v1beta1.PredictorReady, &apis.Condition{
+		Type:   v1beta1.PredictorReady,
+		Status: corev1.ConditionTrue,
+	})
+	return isvc
+}
+
+func baseIngressConfig() *v1beta1.IngressConfig {
+	class := "nginx"
+	return &v1beta1.IngressConfig{
+		KserveIngressGateway:       "kserve/kserve-ingress-gateway",
+		IngressGateway:             "knative-serving/knative-ingress-gateway",
+		KnativeLocalGatewayService: "knative-local-gateway.istio-system.svc.cluster.local",
+		LocalGateway:               "knative-serving/knative-local-gateway",
+		LocalGatewayServiceName:    "knative-local-gateway",
+		IngressDomain:              "example.com",
+		UrlScheme:                  "https",
+		IngressClassName:           &class,
+		DomainTemplate:             "{{ .Name }}.{{ .Namespace }}.{{ .IngressDomain }}",
+	}
+}
+
+func minimalIsvcConfig() *v1beta1.InferenceServicesConfig {
+	return &v1beta1.InferenceServicesConfig{}
 }
 
 // ---------------------------------------------------------------------------
@@ -311,4 +347,134 @@ func TestRawIngressReconciler_ClusterLocal(t *testing.T) {
 	cond := isvc.Status.GetCondition(v1beta1.IngressReady)
 	g.Expect(cond).ToNot(BeNil())
 	g.Expect(cond.Status).To(Equal(corev1.ConditionTrue))
+}
+
+func TestCreateRawIngress_Templates_Rendered(t *testing.T) {
+	scheme := testScheme()
+	isvc := readyISVC("my-model", "ml")
+
+	ingCfg := baseIngressConfig()
+	ingCfg.AnnotationsTemplate = map[string]string{
+		"external-dns.alpha.kubernetes.io/hostname": "{{ .Name }}.{{ .Namespace }}.{{ .IngressDomain }}",
+	}
+	ingCfg.TLSTemplate = []v1beta1.IngressTLSItem{
+		{
+			Hosts:      []string{"{{ .Name }}.{{ .Namespace }}.{{ .IngressDomain }}"},
+			SecretName: "tls-{{ .Namespace }}",
+		},
+	}
+
+	ing, err := createRawIngress(scheme, isvc, ingCfg, minimalIsvcConfig())
+	if err != nil {
+		t.Fatalf("createRawIngress returned error: %v", err)
+	}
+	if ing == nil {
+		t.Fatalf("createRawIngress returned nil ingress")
+	}
+
+	gotAnno := ing.Annotations["external-dns.alpha.kubernetes.io/hostname"]
+	wantAnno := "my-model.ml.example.com"
+	if gotAnno != wantAnno {
+		t.Fatalf("annotation mismatch: got %q want %q", gotAnno, wantAnno)
+	}
+
+	if len(ing.Spec.TLS) != 1 {
+		t.Fatalf("expected 1 TLS entry, got %d", len(ing.Spec.TLS))
+	}
+	tls := ing.Spec.TLS[0]
+	if len(tls.Hosts) != 1 || tls.Hosts[0] != "my-model.ml.example.com" {
+		t.Fatalf("TLS hosts mismatch: got %#v", tls.Hosts)
+	}
+	if tls.SecretName != "tls-ml" {
+		t.Fatalf("TLS secretName mismatch: got %q want %q", tls.SecretName, "tls-ml")
+	}
+}
+
+func TestCreateRawIngress_Templates_Malformed_Skips(t *testing.T) {
+	scheme := testScheme()
+	isvc := readyISVC("bad", "ns")
+
+	ingCfg := baseIngressConfig()
+	ingCfg.AnnotationsTemplate = map[string]string{
+		"external-dns.alpha.kubernetes.io/hostname": "{{ .Name ",
+	}
+	ingCfg.TLSTemplate = []v1beta1.IngressTLSItem{
+		{
+			Hosts:      []string{"{{ .Name ", "{{ .Namespace }}.{{ .IngressDomain }}"},
+			SecretName: "tls-{{ .Namespace }}",
+		},
+	}
+
+	ing, err := createRawIngress(scheme, isvc, ingCfg, minimalIsvcConfig())
+	if err != nil {
+		t.Fatalf("createRawIngress returned error: %v", err)
+	}
+	if ing == nil {
+		t.Fatalf("createRawIngress returned nil ingress")
+	}
+
+	if _, ok := ing.Annotations["external-dns.alpha.kubernetes.io/hostname"]; ok {
+		t.Fatalf("expected malformed annotation to be skipped")
+	}
+
+	if len(ing.Spec.TLS) != 1 {
+		t.Fatalf("expected 1 TLS entry, got %d", len(ing.Spec.TLS))
+	}
+	tls := ing.Spec.TLS[0]
+
+	foundGood := false
+	for _, h := range tls.Hosts {
+		if h == "ns.example.com" {
+			foundGood = true
+		}
+	}
+	if !foundGood {
+		t.Fatalf("expected at least one rendered TLS host, got %#v", tls.Hosts)
+	}
+	if tls.SecretName != "tls-ns" {
+		t.Fatalf("TLS secretName mismatch: got %q want %q", tls.SecretName, "tls-ns")
+	}
+}
+
+func TestCreateRawIngress_NoTemplates_NoTLS_NoExtraAnno(t *testing.T) {
+	scheme := testScheme()
+	isvc := readyISVC("plain", "default")
+	isvc.Annotations = map[string]string{"keep": "me"}
+
+	ing, err := createRawIngress(scheme, isvc, baseIngressConfig(), minimalIsvcConfig())
+	if err != nil {
+		t.Fatalf("createRawIngress returned error: %v", err)
+	}
+	if ing == nil {
+		t.Fatalf("createRawIngress returned nil ingress")
+	}
+
+	if len(ing.Spec.TLS) != 0 {
+		t.Fatalf("expected no TLS entries, got %d", len(ing.Spec.TLS))
+	}
+	if len(ing.Annotations) != 1 || ing.Annotations["keep"] != "me" {
+		t.Fatalf("unexpected annotations: %#v", ing.Annotations)
+	}
+}
+
+func TestCreateRawIngress_DoesNotChangeClassName(t *testing.T) {
+	scheme := testScheme()
+	isvc := readyISVC("classy", "ns")
+
+	class := "nginx"
+	ingCfg := baseIngressConfig()
+	ingCfg.IngressClassName = &class
+	ingCfg.AnnotationsTemplate = map[string]string{"foo/bar": "{{ .Name }}"}
+
+	ing, err := createRawIngress(scheme, isvc, ingCfg, minimalIsvcConfig())
+	if err != nil {
+		t.Fatalf("createRawIngress returned error: %v", err)
+	}
+	if ing == nil {
+		t.Fatalf("createRawIngress returned nil ingress")
+	}
+	if ing.Spec.IngressClassName == nil || *ing.Spec.IngressClassName != "nginx" {
+		t.Fatalf("IngressClassName changed or missing; got %#v", ing.Spec.IngressClassName)
+	}
+	_ = []netv1.IngressTLS(ing.Spec.TLS)
 }
