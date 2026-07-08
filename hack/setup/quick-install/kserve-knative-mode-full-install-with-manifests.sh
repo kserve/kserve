@@ -2511,6 +2511,8 @@ spec:
       value: /tmp
     - name: VLLM_CONFIG_ROOT
       value: /tmp
+    - name: VLLM_WORKER_MULTIPROC_METHOD
+      value: spawn
     image: vllm/vllm-openai:latest
     name: kserve-container
     readinessProbe:
@@ -39131,6 +39133,8 @@ data:
            "caBundleConfigMapName": "",
            "caBundleVolumeMountPath": "/etc/ssl/custom-certs",
            "enableModelcar": false,
+           "enableOciModelSupport": false,
+           "ociModelMode": "modelcar",
            "cpuModelcar": "10m",
            "memoryModelcar": "15Mi"
        }
@@ -39160,6 +39164,14 @@ data:
            # enableModelcar enabled allows you to directly access an OCI container image by
            # using a source URL with an "oci://" schema.
            "enableModelcar": false,
+
+           # enableOciModelSupport enables any OCI-backed model storage path (modelcar, native ImageVolume, or fetch).
+           # This is the newer master switch; enableModelcar is kept as a backcompat alias for the "modelcar" mode.
+           "enableOciModelSupport": false,
+
+           # ociModelMode selects the materialization strategy when a storageUri uses oci:// without an explicit
+           # suffix. Valid values: "modelcar" (default sidecar), "native" (K8s ImageVolume), "fetch" (init-container).
+           "ociModelMode": "modelcar",
 
            # cpuModelcar is the cpu request and limit that is used for the passive modelcar container. It can be
            # set very low, but should be allowed by any Kubernetes LimitRange that might apply.

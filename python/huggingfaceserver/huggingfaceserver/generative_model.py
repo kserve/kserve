@@ -234,7 +234,7 @@ class HuggingfaceGenerativeModel(OpenAIChatAdapterModel):  # pylint:disable=c-ex
             model_kwargs["trust_remote_code"] = True
             tokenizer_kwargs["trust_remote_code"] = True
 
-        model_kwargs["torch_dtype"] = self.dtype
+        model_kwargs["dtype"] = self.dtype
 
         # load huggingface tokenizer
         self._tokenizer = AutoTokenizer.from_pretrained(
