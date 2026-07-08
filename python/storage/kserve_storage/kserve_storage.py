@@ -22,19 +22,26 @@ import json
 import mimetypes
 import multiprocessing
 import os
+import platform
 import re
 import shutil
 import ssl
 import tarfile
 import tempfile
 import time
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 import zipfile
 from pathlib import Path
 from typing import Tuple
 from urllib.parse import urlparse
 import certifi
 import requests
+
+if TYPE_CHECKING:
+    # oras is imported lazily inside _download_oci; this guarded import makes the
+    # "oras.client.OrasClient" annotation on _login_from_docker_config resolvable
+    # for type checkers/linters without pulling oras in at module import time.
+    import oras.client
 
 from kserve_storage.logging import logger
 from kserve_storage.storage_errors import (
@@ -62,7 +69,25 @@ _HTTP_PREFIX = "http(s)://"
 _HEADERS_SUFFIX = "-headers"
 _PVC_PREFIX = "/mnt/pvc"
 _HF_PREFIX = "hf://"
+_OCI_PREFIX = "oci://"
 _GIT_RE = r"https://.+\.git"
+
+# Env var by which the Go webhook (ConfigureOciFetchToContainer) signals where it mounted
+# the docker config.json. oras-py ignores DOCKER_CONFIG and only reads ~/.docker/config.json,
+# so the handler reads this path and passes it as an explicit config_path.
+_OCI_DOCKER_CONFIG_PATH_ENV = "KSERVE_OCI_DOCKER_CONFIG"
+# Default docker config.json path if the env var is unset (e.g. direct CLI invocation). Kept
+# in sync with ociFetchDockerConfigDir in pkg/webhook/admission/pod/oci_fetch.go. It is under
+# /mnt, not /root, because the storage-initializer runs as UID 1000 and cannot read /root.
+_OCI_DOCKER_CONFIG_PATH = "/mnt/oci-fetch-auth/config.json"
+
+# OCI image index (a.k.a. manifest list) media types. A pull target whose manifest is an
+# index must be resolved to a per-platform image manifest before pulling, since oras-py
+# does not select a platform from an index (it would otherwise extract zero layers).
+_OCI_INDEX_MEDIA_TYPES = {
+    "application/vnd.oci.image.index.v1+json",
+    "application/vnd.docker.distribution.manifest.list.v2+json",
+}
 
 _HDFS_SECRET_DIRECTORY = "/var/secrets/kserve-hdfscreds"
 _HDFS_FILE_SECRETS = ["KERBEROS_KEYTAB", "TLS_CERT", "TLS_KEY", "TLS_CA"]
@@ -125,6 +150,110 @@ def _parse_patterns_from_env(env_var_name: str) -> Optional[List[str]]:
     except (json.JSONDecodeError, TypeError):
         patterns = [p.strip() for p in value.split(",") if p.strip()]
         return patterns if patterns else None
+
+
+def _detect_goarch() -> str:
+    """Map platform.machine() to the Go GOARCH used in OCI image-index platform
+    entries, so the right per-architecture manifest is selected. Unknown values
+    pass through unchanged."""
+    machine = platform.machine().lower()
+    return {
+        "x86_64": "amd64",
+        "amd64": "amd64",
+        "aarch64": "arm64",
+        "arm64": "arm64",
+    }.get(machine, machine)
+
+
+def _pick_platform(manifests: list, arch: str, os_name: str) -> Optional[dict]:
+    """Return the first index entry matching linux/<arch>, or None. Attestation and
+    "unknown" entries (architecture/os == "unknown") are naturally skipped."""
+    for entry in manifests:
+        platform_info = entry.get("platform", {})
+        if (
+            platform_info.get("architecture") == arch
+            and platform_info.get("os") == os_name
+        ):
+            return entry
+    return None
+
+
+def _rewrite_with_digest(target: str, digest: str) -> str:
+    """Replace the tag/digest in an image reference with the given digest, yielding
+    "<registry>/<repo>@<digest>". A registry port (host:5000) is preserved because
+    the tag/digest separator is only stripped from the final path segment."""
+    registry, sep, image = target.rpartition("/")
+    if not sep:
+        # No path separator: target is a bare "image:tag" with no registry host.
+        image = target
+        registry = ""
+    for marker in ("@", ":"):
+        if marker in image:
+            image = image.split(marker, 1)[0]
+            break
+    prefix = f"{registry}/" if registry else ""
+    return f"{prefix}{image}@{digest}"
+
+
+def _setup_oci_tls() -> None:
+    """Honor a custom CA bundle for oras-py's underlying requests calls. The Go webhook
+    (mountCaBundleForFetch) mounts the bundle and sets CA_BUNDLE_VOLUME_MOUNT_POINT; we
+    point requests at <mount>/cabundle.crt via REQUESTS_CA_BUNDLE. This mirrors the S3
+    handler's CA bundle consumption. No-op when no CA bundle is configured."""
+    ca_mount = os.environ.get("CA_BUNDLE_VOLUME_MOUNT_POINT")
+    if not ca_mount:
+        return
+    ca_cert = os.path.join(ca_mount, "cabundle.crt")
+    if os.path.exists(ca_cert):
+        os.environ["REQUESTS_CA_BUNDLE"] = ca_cert
+
+
+def _login_from_docker_config(
+    client: "oras.client.OrasClient",
+    target: str,
+    config_path: str,
+) -> None:
+    """Read docker config.json and login to the target's registry if creds exist.
+    oras-py's get_manifest doesn't accept auth params, so login must happen
+    on the client BEFORE manifest/blob fetches. Silent no-op on malformed config
+    shapes (non-dict config/auths/entry, non-string auth), no matching registry
+    entry, or auth via a credential helper we can't invoke; preserves the
+    'anonymous fallback' contract in every case."""
+    try:
+        with open(config_path) as f:
+            cfg = json.load(f)
+    except (OSError, ValueError):
+        return
+    if not isinstance(cfg, dict):
+        return
+    auths = cfg.get("auths", {})
+    if not isinstance(auths, dict) or not auths:
+        return
+    # Resolve the target's registry hostname (first path segment)
+    registry = target.split("/", 1)[0]
+    # Try multiple lookup keys docker config can use
+    entry = None
+    for key in (registry, f"https://{registry}", registry.split(":", 1)[0]):
+        entry = auths.get(key)
+        if entry:
+            break
+    if not isinstance(entry, dict):
+        return
+    encoded = entry.get("auth")
+    if not isinstance(encoded, str):
+        # Missing, credential helper, or unsupported auth scheme — anonymous fallback
+        return
+    try:
+        decoded = base64.b64decode(encoded).decode("utf-8")
+        username, password = decoded.split(":", 1)
+    except (ValueError, UnicodeDecodeError):
+        return
+    try:
+        client.login(username=username, password=password, hostname=registry)
+    except Exception:  # noqa: BLE001
+        # Login failed (network, bad creds) — fall to anonymous; the
+        # subsequent get_manifest/pull will surface a clear error
+        return
 
 
 class Storage(object):
@@ -227,6 +356,8 @@ class Storage(object):
                 model_dir = Storage._download_hf(
                     uri, out_dir, allow_patterns, ignore_patterns
                 )
+            elif uri.startswith(_OCI_PREFIX):
+                model_dir = Storage._download_oci(uri, out_dir)
             elif re.search(_GIT_RE, uri):
                 model_dir = Storage._download_git_repo(uri, out_dir)
             # "catch-all" pattern, should always be last
@@ -1160,6 +1291,85 @@ class Storage(object):
     @staticmethod
     def _get_azure_storage_access_key():
         return os.getenv("AZURE_STORAGE_ACCESS_KEY")
+
+    @staticmethod
+    def _download_oci(uri: str, out_dir: str) -> str:
+        """
+        Pull an OCI container image (e.g. a modelcar) and stage its /models/
+        contents at out_dir. Designed for oci+fetch://; the Go webhook normalizes
+        the scheme to oci:// before passing it as the storage URI to this handler.
+
+        - Multi-arch image index -> resolve to the platform manifest matching the
+          init container's architecture (linux/<GOARCH>). Without this, modelcars
+          built via "docker buildx" (which produce indexes) would pull zero files.
+        - Layers are extracted by oras-py (it untars tar+gzip layers).
+        - Only the /models/ subtree is staged into out_dir; the remaining container
+          rootfs (bin/, lib/, etc/) is discarded with the temp dir.
+        - Auth: oras-py's get_manifest() takes no auth param, so credentials from
+          the mounted docker config.json are applied via client.login() before any
+          manifest/blob fetch (see _login_from_docker_config); pull() additionally
+          receives config_path as defense-in-depth. The config path is read from the
+          KSERVE_OCI_DOCKER_CONFIG env var set by the Go webhook and works regardless
+          of $HOME or $DOCKER_CONFIG (oras-py ignores DOCKER_CONFIG); a missing config
+          file falls back to an anonymous pull (suitable for public registries).
+        - TLS: a mounted custom CA bundle (CA_BUNDLE_VOLUME_MOUNT_POINT) is honored for
+          private-registry HTTPS via REQUESTS_CA_BUNDLE.
+        """
+        import oras.client
+
+        if not uri.startswith(_OCI_PREFIX):
+            raise RuntimeError(
+                "Invalid OCI URI; expected 'oci://<registry>/<repo>[:tag|@digest]', got '%s'"
+                % uri
+            )
+        target = uri[len(_OCI_PREFIX) :]
+        if not target:
+            raise RuntimeError("OCI image reference cannot be empty in URI: %s" % uri)
+
+        _setup_oci_tls()
+
+        config_path = os.environ.get(
+            _OCI_DOCKER_CONFIG_PATH_ENV, _OCI_DOCKER_CONFIG_PATH
+        )
+        if not os.path.exists(config_path):
+            config_path = None
+
+        client = oras.client.OrasClient()
+        if config_path:
+            _login_from_docker_config(client, target, config_path)
+
+        # Resolve a multi-arch image index to the per-platform image manifest before
+        # pulling; oras-py does not select a platform from an index on its own.
+        # oras-py get_manifest() has no auth param — pre-establish auth via
+        # client.login() for private images. pull() accepts config_path as
+        # defense-in-depth.
+        manifest = client.get_manifest(target)
+        if manifest.get("mediaType") in _OCI_INDEX_MEDIA_TYPES:
+            arch = _detect_goarch()
+            entry = _pick_platform(
+                manifest.get("manifests", []), arch=arch, os_name="linux"
+            )
+            if entry is None:
+                raise RuntimeError(
+                    "OCI image index for %s has no manifest for linux/%s" % (uri, arch)
+                )
+            target = _rewrite_with_digest(target, entry["digest"])
+
+        with tempfile.TemporaryDirectory() as tmp:
+            client.pull(target=target, outdir=tmp, config_path=config_path)
+            models_subdir = os.path.join(tmp, "models")
+            if not os.path.isdir(models_subdir):
+                raise RuntimeError(
+                    "OCI image at %s has no /models/ directory; this handler expects a "
+                    "modelcar layout. Found top-level entries: %s"
+                    % (uri, sorted(os.listdir(tmp))[:10])
+                )
+            os.makedirs(out_dir, exist_ok=True)
+            for entry in os.listdir(models_subdir):
+                shutil.move(
+                    os.path.join(models_subdir, entry), os.path.join(out_dir, entry)
+                )
+        return out_dir
 
     @staticmethod
     def _download_git_repo(uri: str, out_dir: str) -> str:
