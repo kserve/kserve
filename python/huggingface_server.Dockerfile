@@ -74,6 +74,7 @@ ENV NV_LIBCUBLAS_DEV_VERSION=13.4.0.1-1
 ENV NV_CUDA_NSIGHT_COMPUTE_VERSION=13.2.1-1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    cuda-compiler-13-2=${NV_CUDA_LIB_VERSION} \
     cuda-cudart-dev-13-2=${NV_CUDA_CUDART_DEV_VERSION} \
     cuda-command-line-tools-13-2=${NV_CUDA_LIB_VERSION} \
     cuda-minimal-build-13-2=${NV_CUDA_LIB_VERSION} \
