@@ -30,10 +30,10 @@ override-dependencies = [
     "pillow>=12.2.0", # CVE-2026-40192
     "azure-core>=1.38.0", # CVE-2026-21226
     "dulwich>=1.2.5", # CVE-2026-42305
-    "cbor2>=5.9.0", # CVE-2025-68131 (DSE-57403)
-    "sentencepiece>=0.2.1", # CVE-2026-26209, CVE-2026-1260 (DSE-57403)
-    "jaraco.context>=6.1.0", # CVE-2026-23949 (DSE-57404)
-    "black>=26.3.1", # CVE-2026-32274 (DSE-57404)
+    "cbor2>=5.9.0", # CVE-2025-68131
+    "sentencepiece>=0.2.1", # CVE-2026-26209, CVE-2026-1260
+    "jaraco.context>=6.1.0", # CVE-2026-23949
+    "black>=26.3.1", # CVE-2026-32274
 ]
 
 [dependency-groups]
