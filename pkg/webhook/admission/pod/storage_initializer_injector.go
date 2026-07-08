@@ -443,11 +443,12 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 
 			// Create shared volume mount for non-PVC storage URIs
 			storageMountParams := utils.StorageMountParams{
-				MountPath:  nonPVCMountPath,
-				SubPath:    "",
-				VolumeName: utils.GetVolumeNameFromPath(nonPVCMountPath),
-				PVCName:    "",
-				ReadOnly:   params.IsReadOnly,
+				MountPath:           nonPVCMountPath,
+				SubPath:             "",
+				VolumeName:          utils.GetVolumeNameFromPath(nonPVCMountPath),
+				PVCName:             "",
+				ReadOnly:            params.IsReadOnly,
+				DefaultVolumeSource: params.Config.ModelVolumeSource,
 			}
 
 			// Apply volume mount to all relevant containers
@@ -462,11 +463,12 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 		storageURI := params.StorageURIs[0]
 
 		storageMountParams := utils.StorageMountParams{
-			MountPath:  constants.DefaultModelLocalMountPath,
-			SubPath:    "",
-			VolumeName: constants.StorageInitializerVolumeName,
-			PVCName:    "",
-			ReadOnly:   params.IsReadOnly,
+			MountPath:           constants.DefaultModelLocalMountPath,
+			SubPath:             "",
+			VolumeName:          constants.StorageInitializerVolumeName,
+			PVCName:             "",
+			ReadOnly:            params.IsReadOnly,
+			DefaultVolumeSource: params.Config.ModelVolumeSource,
 		}
 
 		mountContainerNames = append(mountContainerNames, userContainer.Name)

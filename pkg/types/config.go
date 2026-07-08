@@ -16,6 +16,8 @@ limitations under the License.
 
 package types
 
+import corev1 "k8s.io/api/core/v1"
+
 type StorageInitializerConfig struct {
 	Image                   string `json:"image"`
 	CpuRequest              string `json:"cpuRequest"`
@@ -28,4 +30,10 @@ type StorageInitializerConfig struct {
 	MemoryModelcar          string `json:"memoryModelcar"`
 	EnableOciImageSource    bool   `json:"enableModelcar"`
 	UidModelcar             *int64 `json:"uidModelcar"`
+	// ModelVolumeSource overrides the default emptyDir volume used as the shared
+	// model staging area between the storage-initializer init container and the
+	// serving container. When nil, emptyDir is used. Any valid corev1.VolumeSource
+	// that supports ReadWriteOnce (or better) may be specified — e.g. ephemeral,
+	// persistentVolumeClaim, or hostPath.
+	ModelVolumeSource *corev1.VolumeSource `json:"modelVolumeSource,omitempty"`
 }
