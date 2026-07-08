@@ -20,7 +20,7 @@ limitations under the License.
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=services/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;update
-// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch;delete
 package trainedmodel
@@ -47,6 +47,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/controllernamespace"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/reconcilers/modelconfig"
 	v1beta1utils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/utils"
@@ -80,6 +81,10 @@ func (r *TrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			// For additional cleanup logic use finalizers.
 			return reconcile.Result{}, nil
 		}
+		return reconcile.Result{}, err
+	}
+
+	if err := controllernamespace.ReconcileKServeControllerSecretRBAC(ctx, r.Client, tm.Namespace); err != nil {
 		return reconcile.Result{}, err
 	}
 

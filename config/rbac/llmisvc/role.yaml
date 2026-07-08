@@ -28,7 +28,6 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - secrets
   - serviceaccounts
   - services
   verbs:
