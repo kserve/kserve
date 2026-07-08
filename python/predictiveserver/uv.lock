@@ -1032,14 +1032,11 @@ name = "kserve"
 version = "0.19.0"
 source = { directory = "../kserve" }
 dependencies = [
-    { name = "aiohttp" },
     { name = "cloudevents" },
-    { name = "cryptography" },
     { name = "fastapi" },
     { name = "grpc-interceptor" },
     { name = "grpcio" },
     { name = "grpcio-tools" },
-    { name = "h11" },
     { name = "httpx" },
     { name = "kubernetes" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -1049,11 +1046,8 @@ dependencies = [
     { name = "prometheus-client" },
     { name = "protobuf" },
     { name = "psutil" },
-    { name = "pyasn1" },
     { name = "pydantic" },
-    { name = "pyjwt" },
     { name = "python-dateutil" },
-    { name = "python-multipart" },
     { name = "pyyaml" },
     { name = "six" },
     { name = "starlette" },
@@ -1065,38 +1059,32 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aiohttp", specifier = ">=3.13.3" },
     { name = "asgi-logger", marker = "extra == 'logging'", specifier = ">=0.1.0,<1.0.0" },
     { name = "cloudevents", specifier = ">=1.6.2,<2.0.0" },
-    { name = "cryptography", specifier = ">=46.0.5" },
     { name = "fastapi", specifier = ">=0.115.3,<1.0.0" },
     { name = "grpc-interceptor", specifier = ">=0.15.4,<1.0.0" },
     { name = "grpcio", specifier = ">=1.73.0,<2.0.0" },
     { name = "grpcio-tools", specifier = ">=1.73.0,<2.0.0" },
-    { name = "h11", specifier = ">=0.16.0" },
     { name = "httpx", specifier = ">=0.27.2,<1.0.0" },
     { name = "kserve-storage", marker = "extra == 'storage'", editable = "../storage" },
     { name = "kubernetes", specifier = ">=23.3.0" },
     { name = "numpy", specifier = ">=1.26.0,<3.0.0" },
-    { name = "orjson", specifier = ">=3.10.15,<4.0.0" },
+    { name = "orjson", specifier = ">=3.11.6,<4.0.0" },
     { name = "pandas", specifier = ">=2.2.0,<3.0.0" },
     { name = "prometheus-client", specifier = ">=0.20.0,<1.0.0" },
     { name = "protobuf", specifier = ">=6.33.5,<7.0.0" },
     { name = "psutil", specifier = ">=5.9.6,<6.0.0" },
-    { name = "pyasn1", specifier = ">=0.6.3" },
     { name = "pydantic", specifier = ">=2.5.0,<3.0.0" },
-    { name = "pyjwt", specifier = ">=2.12.0" },
     { name = "python-dateutil", specifier = ">=2.8.0,<3.0.0" },
-    { name = "python-multipart", specifier = ">=0.0.22" },
     { name = "pyyaml", specifier = ">=6.0.0,<7.0.0" },
     { name = "ray", extras = ["serve"], marker = "extra == 'ray'", specifier = ">=2.43.0" },
     { name = "six", specifier = ">=1.16.0,<2.0.0" },
     { name = "starlette", specifier = ">=1.0.1" },
     { name = "tabulate", specifier = ">=0.9.0,<1.0.0" },
     { name = "timing-asgi", specifier = ">=0.3.0,<1.0.0" },
-    { name = "urllib3", specifier = ">=2.6.0" },
+    { name = "urllib3", specifier = ">=2.7.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30.6,<1.0.0" },
-    { name = "vllm", marker = "extra == 'llm'", specifier = "==0.20.0" },
+    { name = "vllm", marker = "extra == 'llm'", specifier = "==0.24.0" },
 ]
 provides-extras = ["storage", "logging", "ray", "llm"]
 
@@ -1959,15 +1947,6 @@ wheels = [
 ]
 
 [[package]]
-name = "python-multipart"
-version = "0.0.27"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/69/9b/f23807317a113dc36e74e75eb265a02dd1a4d9082abc3c1064acd22997c4/python_multipart-0.0.27.tar.gz", hash = "sha256:9870a6a8c5a20a5bf4f07c017bd1489006ff8836cff097b6933355ee2b49b602", size = 44043, upload-time = "2026-04-27T10:51:26.649Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/99/78/4126abcbdbd3c559d43e0db7f7b9173fc6befe45d39a2856cc0b8ec2a5a6/python_multipart-0.0.27-py3-none-any.whl", hash = "sha256:6fccfad17a27334bd0193681b369f476eda3409f17381a2d65aa7df3f7275645", size = 29254, upload-time = "2026-04-27T10:51:24.997Z" },
-]
-
-[[package]]
 name = "pytz"
 version = "2026.1.post1"
 source = { registry = "https://pypi.org/simple" }
@@ -2355,11 +2334,11 @@ wheels = [
 
 [[package]]
 name = "urllib3"
-version = "2.6.3"
+version = "2.7.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/c7/24/5f1b3bdffd70275f6661c76461e25f024d5a38a46f04aaca912426a2b1d3/urllib3-2.6.3.tar.gz", hash = "sha256:1b62b6884944a57dbe321509ab94fd4d3b307075e0c2eae991ac71ee15ad38ed", size = 435556, upload-time = "2026-01-07T16:24:43.925Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/53/0c/06f8b233b8fd13b9e5ee11424ef85419ba0d8ba0b3138bf360be2ff56953/urllib3-2.7.0.tar.gz", hash = "sha256:231e0ec3b63ceb14667c67be60f2f2c40a518cb38b03af60abc813da26505f4c", size = 433602, upload-time = "2026-05-07T16:13:18.596Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/39/08/aaaad47bc4e9dc8c725e68f9d04865dbcb2052843ff09c97b08904852d84/urllib3-2.6.3-py3-none-any.whl", hash = "sha256:bf272323e553dfb2e87d9bfd225ca7b0f467b919d7bbd355436d3fd37cb0acd4", size = 131584, upload-time = "2026-01-07T16:24:42.685Z" },
+    { url = "https://files.pythonhosted.org/packages/7f/3e/5db95bcf282c52709639744ca2a8b149baccf648e39c8cc87553df9eae0c/urllib3-2.7.0-py3-none-any.whl", hash = "sha256:9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897", size = 131087, upload-time = "2026-05-07T16:13:17.151Z" },
 ]
 
 [[package]]
