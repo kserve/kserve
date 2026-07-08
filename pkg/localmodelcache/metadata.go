@@ -111,11 +111,12 @@ func pvcNameForNodeGroup(nodeGroups []string, nodeGroup string, nodeGroupExists 
 // BuildCachedPVCURI rewrites storageURI to a local model cache PVC path.
 // subPath under sourceURI is preserved (e.g. hf://org/model/subdir).
 func BuildCachedPVCURI(sourceURI, pvcName, storageURI string) string {
-	subPath, _ := strings.CutPrefix(storageURI, sourceURI)
+	normalizedSourceURI := strings.TrimSuffix(sourceURI, "/")
+	subPath, _ := strings.CutPrefix(storageURI, normalizedSourceURI)
 	if !strings.HasPrefix(subPath, "/") {
 		subPath = "/" + subPath
 	}
-	storageKey := v1alpha1.GetStorageKey(sourceURI)
+	storageKey := v1alpha1.GetStorageKey(normalizedSourceURI)
 	return "pvc://" + pvcName + "/models/" + storageKey + subPath
 }
 
@@ -156,8 +157,16 @@ func LoRACacheEntryFromMatch(match *CacheMatch) LoRACacheEntry {
 	}
 }
 
+func loRACacheAnnotationRaw(annotations map[string]string) string {
+	if annotations == nil {
+		return ""
+	}
+	return annotations[constants.LocalModelLoRAAnnotationKey]
+}
+
 // LLMISVCClusterCacheNames returns cluster-scoped LocalModelCache names referenced by an
 // LLMInferenceService via the base-model label or LoRA adapter annotation.
+// Malformed LoRA annotation JSON is ignored here; LLMISVCReferencesClusterCache fails closed instead.
 func LLMISVCClusterCacheNames(labels, annotations map[string]string) []string {
 	var names []string
 	if labels != nil {
@@ -167,7 +176,7 @@ func LLMISVCClusterCacheNames(labels, annotations map[string]string) []string {
 			}
 		}
 	}
-	if entries, err := ParseLoRACacheAnnotation(annotations[constants.LocalModelLoRAAnnotationKey]); err == nil {
+	if entries, err := ParseLoRACacheAnnotation(loRACacheAnnotationRaw(annotations)); err == nil {
 		for _, entry := range entries {
 			if entry.Cache != "" && entry.Namespace == "" {
 				names = append(names, entry.Cache)
@@ -179,6 +188,7 @@ func LLMISVCClusterCacheNames(labels, annotations map[string]string) []string {
 
 // LLMISVCNamespaceCacheNames returns LocalModelNamespaceCache names in llmSvcNamespace
 // referenced by an LLMInferenceService via the base-model labels or LoRA adapter annotation.
+// Malformed LoRA annotation JSON is ignored here; LLMISVCReferencesNamespaceCache fails closed instead.
 func LLMISVCNamespaceCacheNames(llmSvcNamespace string, labels, annotations map[string]string) []string {
 	var names []string
 	if labels != nil {
@@ -188,7 +198,7 @@ func LLMISVCNamespaceCacheNames(llmSvcNamespace string, labels, annotations map[
 			names = append(names, name)
 		}
 	}
-	if entries, err := ParseLoRACacheAnnotation(annotations[constants.LocalModelLoRAAnnotationKey]); err == nil {
+	if entries, err := ParseLoRACacheAnnotation(loRACacheAnnotationRaw(annotations)); err == nil {
 		for _, entry := range entries {
 			if entry.Cache != "" && entry.Namespace == llmSvcNamespace {
 				names = append(names, entry.Cache)
@@ -204,16 +214,40 @@ func ClusterCacheNamesEqual(a, b []string) bool {
 }
 
 // LLMISVCReferencesClusterCache reports whether labels/annotations reference a cluster-scoped cache.
+// A non-empty but malformed LoRA annotation is treated as a reference (fail-closed) so cache
+// deletion stays blocked until the annotation is fixed or removed.
 func LLMISVCReferencesClusterCache(cacheName string, labels, annotations map[string]string) bool {
-	return slices.Contains(LLMISVCClusterCacheNames(labels, annotations), cacheName)
+	if slices.Contains(LLMISVCClusterCacheNames(labels, annotations), cacheName) {
+		return true
+	}
+	raw := loRACacheAnnotationRaw(annotations)
+	if raw == "" {
+		return false
+	}
+	if _, err := ParseLoRACacheAnnotation(raw); err != nil {
+		return true
+	}
+	return false
 }
 
 // LLMISVCReferencesNamespaceCache reports whether labels/annotations reference a namespace-scoped cache.
+// A non-empty but malformed LoRA annotation is treated as a reference (fail-closed) so cache
+// deletion stays blocked until the annotation is fixed or removed.
 func LLMISVCReferencesNamespaceCache(cacheName, cacheNamespace, llmSvcNamespace string, labels, annotations map[string]string) bool {
 	if llmSvcNamespace != cacheNamespace {
 		return false
 	}
-	return slices.Contains(LLMISVCNamespaceCacheNames(llmSvcNamespace, labels, annotations), cacheName)
+	if slices.Contains(LLMISVCNamespaceCacheNames(llmSvcNamespace, labels, annotations), cacheName) {
+		return true
+	}
+	raw := loRACacheAnnotationRaw(annotations)
+	if raw == "" {
+		return false
+	}
+	if _, err := ParseLoRACacheAnnotation(raw); err != nil {
+		return true
+	}
+	return false
 }
 
 func uniqueSorted(names []string) []string {

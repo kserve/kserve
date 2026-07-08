@@ -103,6 +103,38 @@ func TestBuildCachedPVCURI(t *testing.T) {
 	assert.Contains(t, subdir, "/adapter-subdir")
 }
 
+func TestBuildCachedPVCURI_TrailingSlashSourceURI(t *testing.T) {
+	sourceURI := "hf://org/model/"
+	pvcName := "my-cache-gpu1"
+	got := BuildCachedPVCURI(sourceURI, pvcName, "hf://org/model/extra")
+	assert.True(t, strings.HasPrefix(got, "pvc://my-cache-gpu1/models/"))
+	assert.True(t, strings.HasSuffix(got, "/extra"))
+	assert.NotContains(t, got, "hf://")
+}
+
+func TestLLMISVCReferencesClusterCache_MalformedLoRAAnnotation(t *testing.T) {
+	assert.True(t, LLMISVCReferencesClusterCache(
+		"any-cache",
+		nil,
+		map[string]string{constants.LocalModelLoRAAnnotationKey: `{invalid`},
+	))
+	assert.False(t, LLMISVCReferencesClusterCache(
+		"any-cache",
+		nil,
+		map[string]string{constants.LocalModelLoRAAnnotationKey: ""},
+	))
+}
+
+func TestLLMISVCReferencesNamespaceCache_MalformedLoRAAnnotation(t *testing.T) {
+	assert.True(t, LLMISVCReferencesNamespaceCache(
+		"any-cache",
+		"default",
+		"default",
+		nil,
+		map[string]string{constants.LocalModelLoRAAnnotationKey: `{invalid`},
+	))
+}
+
 func TestLLMISVCClusterCacheNames(t *testing.T) {
 	baseOnly := LLMISVCClusterCacheNames(
 		map[string]string{constants.LocalModelLabel: "base-cache"},

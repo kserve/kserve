@@ -22,12 +22,95 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/localmodelcache"
 )
+
+func TestSanitizeLoRAPathSegment(t *testing.T) {
+	t.Parallel()
+	if got, want := sanitizeLoRAPathSegment("k8s-lora"), "k8s-lora"; got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+	if got, want := sanitizeLoRAPathSegment("a/b"), "a-b"; got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+	if got, want := sanitizeLoRAPathSegment("@@@"), "---"; got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+	if got, want := sanitizeLoRAPathSegment(""), "adapter"; got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+}
+
+func TestAddLoRAVLLMArgs(t *testing.T) {
+	t.Parallel()
+
+	t.Run("all params set", func(t *testing.T) {
+		c := &corev1.Container{Name: "main", Args: []string{"--user-flag"}}
+		addLoRAVLLMArgs(c, []string{"a=/mnt/lora/a", "b=/mnt/lora/b"}, ptr.To(int32(64)), ptr.To(int32(2)), ptr.To(int32(4)))
+		want := []string{
+			"--enable-lora",
+			"--max-lora-rank=64",
+			"--max-loras=2",
+			"--max-cpu-loras=4",
+			"--lora-modules",
+			"'a=/mnt/lora/a'",
+			"'b=/mnt/lora/b'",
+			"--user-flag",
+		}
+		if len(c.Args) != len(want) {
+			t.Fatalf("len(args)=%d want %d: %v", len(c.Args), len(want), c.Args)
+		}
+		for i := range want {
+			if c.Args[i] != want[i] {
+				t.Fatalf("args[%d]=%q want %q (full %v)", i, c.Args[i], want[i], c.Args)
+			}
+		}
+	})
+
+	t.Run("no optional params — vLLM uses its own defaults", func(t *testing.T) {
+		c := &corev1.Container{Name: "main", Args: []string{"--user-flag"}}
+		addLoRAVLLMArgs(c, []string{"a=/mnt/lora/a"}, nil, nil, nil)
+		want := []string{
+			"--enable-lora",
+			"--lora-modules",
+			"'a=/mnt/lora/a'",
+			"--user-flag",
+		}
+		if len(c.Args) != len(want) {
+			t.Fatalf("len(args)=%d want %d: %v", len(c.Args), len(want), c.Args)
+		}
+		for i := range want {
+			if c.Args[i] != want[i] {
+				t.Fatalf("args[%d]=%q want %q (full %v)", i, c.Args[i], want[i], c.Args)
+			}
+		}
+	})
+}
+
+func TestUserSuppliedLoRAConfig(t *testing.T) {
+	t.Parallel()
+	if !userSuppliedLoRAConfig(&corev1.Container{
+		Env: []corev1.EnvVar{{Name: "VLLM_ADDITIONAL_ARGS", Value: "x --lora-modules y"}},
+	}) {
+		t.Fatal("expected true when VLLM_ADDITIONAL_ARGS has --lora-modules")
+	}
+	if userSuppliedLoRAConfig(&corev1.Container{
+		Env: []corev1.EnvVar{{Name: "VLLM_ADDITIONAL_ARGS", Value: "--enable-lora"}},
+	}) {
+		t.Fatal("expected false without --lora-modules")
+	}
+	if !userSuppliedLoRAConfig(&corev1.Container{
+		Args: []string{"--lora-modules", "x=y"},
+	}) {
+		t.Fatal("expected true when Args contains --lora-modules")
+	}
+}
 
 func TestRewriteLoRAAdaptersFromLocalModelCache(t *testing.T) {
 	t.Parallel()

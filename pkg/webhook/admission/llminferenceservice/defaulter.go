@@ -240,6 +240,7 @@ func setLoRALocalModelMetadata(
 	raw, err := localmodelcache.MarshalLoRACacheAnnotation(entries)
 	if err != nil {
 		defaulterLogger.Error(err, "Failed to marshal LoRA local model cache annotation", "llmSvc", llmSvc.Name)
+		clearLoRALocalModelMetadata(llmSvc)
 		return
 	}
 	if llmSvc.Annotations == nil {
