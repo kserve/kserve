@@ -20,6 +20,7 @@ dependencies = [
     # CVE-2026-42563 Dulwich arbitrary code execution via malicious Git file paths during merge
     # CVE-2026-42305 Dulwich remote code execution via malicious Git repository (Windows path validation)
     "dulwich>=1.2.5",
+    "oras<1.0.0,>=0.2.42",
     "cryptography>=48.0.1", # GHSA-537c-gmf6-5ccf, PYSEC-2026-36
     # CVE-2026-32597 PyJWT accepts unknown `crit` header extensions (RFC 7515 §4.1.11 MUST violation)
     # Pinning because it is a transitive dependency.
