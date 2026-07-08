@@ -1,28 +1,26 @@
-ARG CUDA_VERSION=13.2.1
+ARG CUDA_VERSION=13.3.1
 ARG VENV_PATH=prod_venv
 ARG WORKSPACE_DIR=/kserve-workspace
 
-#################### CUDA RUNTIME (Ubuntu 25.10) ####################
-# Custom CUDA runtime image since NVIDIA doesn't publish Ubuntu 25.10 images.
-# Uses the ubuntu2404 apt repo — packages are compatible across Ubuntu versions.
-FROM ubuntu:25.10 AS cuda-runtime
+#################### CUDA RUNTIME (Ubuntu 26.04) ####################
+FROM ubuntu:26.04 AS cuda-runtime
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV NVARCH=x86_64
-ENV NV_CUDA_CUDART_VERSION=13.2.75-1
-ENV CUDA_VERSION=13.2.1
-ENV NV_CUDA_LIB_VERSION=13.2.1-1
-ENV NV_NVTX_VERSION=13.2.75-1
-ENV NV_LIBNPP_VERSION=13.1.0.48-1
-ENV NV_LIBCUSPARSE_VERSION=12.7.10.1-1
-ENV NV_LIBCUBLAS_VERSION=13.4.0.1-1
+ENV NV_CUDA_CUDART_VERSION=13.3.29-1
+ENV CUDA_VERSION=13.3.1
+ENV NV_CUDA_LIB_VERSION=13.3.1-1
+ENV NV_NVTX_VERSION=13.3.29-1
+ENV NV_LIBNPP_VERSION=13.1.2.81-1
+ENV NV_LIBCUSPARSE_VERSION=12.8.2.51-1
+ENV NV_LIBCUBLAS_VERSION=13.6.0.2-1
 
-ENV NVIDIA_REQUIRE_CUDA="cuda>=13.2 brand=tesla,driver>=535,driver<536 brand=tesla,driver>=570,driver<571 brand=tesla,driver>=580,driver<581 brand=tesla,driver>=590,driver<591 brand=nvidia,driver>=535,driver<536 brand=nvidia,driver>=570,driver<571 brand=nvidia,driver>=580,driver<581 brand=nvidia,driver>=590,driver<591 brand=nvidiartx,driver>=535,driver<536 brand=nvidiartx,driver>=570,driver<571 brand=nvidiartx,driver>=580,driver<581 brand=nvidiartx,driver>=590,driver<591"
+ENV NVIDIA_REQUIRE_CUDA="cuda>=13.3 brand=tesla,driver>=535,driver<536 brand=tesla,driver>=570,driver<571 brand=tesla,driver>=580,driver<581 brand=tesla,driver>=590,driver<591 brand=nvidia,driver>=535,driver<536 brand=nvidia,driver>=570,driver<571 brand=nvidia,driver>=580,driver<581 brand=nvidia,driver>=590,driver<591 brand=nvidiartx,driver>=535,driver<536 brand=nvidiartx,driver>=570,driver<571 brand=nvidiartx,driver>=580,driver<581 brand=nvidiartx,driver>=590,driver<591"
 
-# Add NVIDIA CUDA apt repo (ubuntu2404 — no 2510 repo exists)
+# Add NVIDIA CUDA apt repo (ubuntu2604)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gnupg2 curl ca-certificates && \
-    curl -fsSLO https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/${NVARCH}/cuda-keyring_1.1-1_all.deb && \
+    curl -fsSLO https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2604/${NVARCH}/cuda-keyring_1.1-1_all.deb && \
     dpkg -i cuda-keyring_1.1-1_all.deb && \
     rm cuda-keyring_1.1-1_all.deb && \
     apt-get purge --autoremove -y curl && \
@@ -30,29 +28,29 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # CUDA base packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    cuda-cudart-13-2=${NV_CUDA_CUDART_VERSION} \
-    cuda-toolkit-13-2-config-common=${NV_CUDA_CUDART_VERSION} \
+    cuda-cudart-13-3=${NV_CUDA_CUDART_VERSION} \
+    cuda-toolkit-13-3-config-common=${NV_CUDA_CUDART_VERSION} \
     cuda-toolkit-13-config-common=${NV_CUDA_CUDART_VERSION} \
     cuda-toolkit-config-common=${NV_CUDA_CUDART_VERSION} \
     && rm -rf /var/lib/apt/lists/*
 
 RUN apt-get update && \
-    if apt-cache policy cuda-compat-13-2 2>/dev/null | grep -q "Candidate:"; then \
-        apt-get install -y --no-install-recommends cuda-compat-13-2; \
+    if apt-cache policy cuda-compat-13-3 2>/dev/null | grep -q "Candidate:"; then \
+        apt-get install -y --no-install-recommends cuda-compat-13-3; \
     fi && \
     rm -rf /var/lib/apt/lists/*
 
 # CUDA runtime libraries
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    cuda-libraries-13-2=${NV_CUDA_LIB_VERSION} \
-    libnpp-13-2=${NV_LIBNPP_VERSION} \
-    cuda-nvtx-13-2=${NV_NVTX_VERSION} \
-    libcusparse-13-2=${NV_LIBCUSPARSE_VERSION} \
-    libcublas-13-2=${NV_LIBCUBLAS_VERSION} \
+    cuda-libraries-13-3=${NV_CUDA_LIB_VERSION} \
+    libnpp-13-3=${NV_LIBNPP_VERSION} \
+    cuda-nvtx-13-3=${NV_NVTX_VERSION} \
+    libcusparse-13-3=${NV_LIBCUSPARSE_VERSION} \
+    libcublas-13-3=${NV_LIBCUBLAS_VERSION} \
     libnccl2 \
     && rm -rf /var/lib/apt/lists/*
 
-RUN apt-mark hold libcublas-13-2 libnccl2
+RUN apt-mark hold libcublas-13-3 libnccl2
 
 RUN echo "/usr/local/cuda/lib64" >> /etc/ld.so.conf.d/nvidia.conf
 
@@ -61,43 +59,43 @@ ENV LD_LIBRARY_PATH=/usr/local/nvidia/lib:/usr/local/nvidia/lib64:/usr/local/cud
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
-#################### CUDA RUNTIME (Ubuntu 25.10) ####################
+#################### CUDA RUNTIME (Ubuntu 26.04) ####################
 
-#################### CUDA DEVEL (Ubuntu 25.10) ####################
+#################### CUDA DEVEL (Ubuntu 26.04) ####################
 FROM cuda-runtime AS cuda-devel
 
-ENV NV_CUDA_CUDART_DEV_VERSION=13.2.75-1
-ENV NV_NVML_DEV_VERSION=13.2.82-1
-ENV NV_LIBCUSPARSE_DEV_VERSION=12.7.10.1-1
-ENV NV_LIBNPP_DEV_VERSION=13.1.0.48-1
-ENV NV_LIBCUBLAS_DEV_VERSION=13.4.0.1-1
-ENV NV_CUDA_NSIGHT_COMPUTE_VERSION=13.2.1-1
+ENV NV_CUDA_CUDART_DEV_VERSION=13.3.29-1
+ENV NV_NVML_DEV_VERSION=13.3.29-1
+ENV NV_LIBCUSPARSE_DEV_VERSION=12.8.2.51-1
+ENV NV_LIBNPP_DEV_VERSION=13.1.2.81-1
+ENV NV_LIBCUBLAS_DEV_VERSION=13.6.0.2-1
+ENV NV_CUDA_NSIGHT_COMPUTE_VERSION=13.3.1-1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    cuda-compiler-13-2=${NV_CUDA_LIB_VERSION} \
-    cuda-cudart-dev-13-2=${NV_CUDA_CUDART_DEV_VERSION} \
-    cuda-command-line-tools-13-2=${NV_CUDA_LIB_VERSION} \
-    cuda-minimal-build-13-2=${NV_CUDA_LIB_VERSION} \
-    cuda-libraries-dev-13-2=${NV_CUDA_LIB_VERSION} \
-    cuda-nvml-dev-13-2=${NV_NVML_DEV_VERSION} \
-    libnpp-dev-13-2=${NV_LIBNPP_DEV_VERSION} \
-    libcusparse-dev-13-2=${NV_LIBCUSPARSE_DEV_VERSION} \
-    libcublas-dev-13-2=${NV_LIBCUBLAS_DEV_VERSION} \
-    cuda-nsight-compute-13-2=${NV_CUDA_NSIGHT_COMPUTE_VERSION} \
+    cuda-compiler-13-3=${NV_CUDA_LIB_VERSION} \
+    cuda-cudart-dev-13-3=${NV_CUDA_CUDART_DEV_VERSION} \
+    cuda-command-line-tools-13-3=${NV_CUDA_LIB_VERSION} \
+    cuda-minimal-build-13-3=${NV_CUDA_LIB_VERSION} \
+    cuda-libraries-dev-13-3=${NV_CUDA_LIB_VERSION} \
+    cuda-nvml-dev-13-3=${NV_NVML_DEV_VERSION} \
+    libnpp-dev-13-3=${NV_LIBNPP_DEV_VERSION} \
+    libcusparse-dev-13-3=${NV_LIBCUSPARSE_DEV_VERSION} \
+    libcublas-dev-13-3=${NV_LIBCUBLAS_DEV_VERSION} \
+    cuda-nsight-compute-13-3=${NV_CUDA_NSIGHT_COMPUTE_VERSION} \
     libnccl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-RUN apt-mark hold libcublas-dev-13-2 libnccl-dev
+RUN apt-mark hold libcublas-dev-13-3 libnccl-dev
 
 ENV LIBRARY_PATH=/usr/local/cuda/lib64/stubs
 
-#################### CUDA DEVEL (Ubuntu 25.10) ####################
+#################### CUDA DEVEL (Ubuntu 26.04) ####################
 
 #################### BASE BUILD IMAGE ####################
 FROM cuda-devel AS base
 
 ARG WORKSPACE_DIR
-ARG CUDA_VERSION=13.2.1
+ARG CUDA_VERSION=13.3.1
 
 RUN apt-get update -y \
     && apt-get install -y ccache software-properties-common git curl sudo gcc python3 python3-venv python3-pip python-is-python3 \
@@ -183,7 +181,7 @@ RUN mkdir -p third_party/library && python3 pip-licenses.py
 FROM cuda-runtime AS prod
 
 ARG WORKSPACE_DIR
-ARG CUDA_VERSION=13.2.1
+ARG CUDA_VERSION=13.3.1
 ENV DEBIAN_FRONTEND=noninteractive
 
 WORKDIR ${WORKSPACE_DIR}
