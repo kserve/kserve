@@ -2139,63 +2139,6 @@ spec:
           - mountPath: /var/run/kserve/tls
             name: tls-certs
             readOnly: true
-          - mountPath: /tmp/tokenizer
-            name: tokenizer-uds
-        - env:
-          - name: TOKENIZERS_DIR
-            value: /mnt/models
-          image: ghcr.io/llm-d/llm-d-uds-tokenizer:vllm-v0.19.1
-          imagePullPolicy: IfNotPresent
-          livenessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /healthz
-              port: 8082
-            periodSeconds: 15
-            timeoutSeconds: 5
-          name: tokenizer
-          ports:
-          - containerPort: 8082
-            name: health
-            protocol: TCP
-          readinessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /healthz
-              port: 8082
-            periodSeconds: 10
-            timeoutSeconds: 5
-          resources:
-            requests:
-              cpu: 256m
-              memory: 500Mi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-              - ALL
-            readOnlyRootFilesystem: true
-            runAsNonRoot: true
-            seccompProfile:
-              type: RuntimeDefault
-          startupProbe:
-            failureThreshold: 60
-            httpGet:
-              path: /healthz
-              port: 8082
-            initialDelaySeconds: 5
-            periodSeconds: 10
-            timeoutSeconds: 5
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: FallbackToLogsOnError
-          volumeMounts:
-          - mountPath: /tmp
-            name: tokenizer-tmp
-          - mountPath: /.cache
-            name: tokenizer-cache
-          - mountPath: /tmp/tokenizer
-            name: tokenizer-uds
-          workingDir: /mnt/models
         dnsPolicy: ClusterFirst
         restartPolicy: Always
         terminationGracePeriodSeconds: 60
@@ -2204,12 +2147,6 @@ spec:
           secret:
             secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs`
               }}'
-        - emptyDir: {}
-          name: tokenizer-uds
-        - emptyDir: {}
-          name: tokenizer-tmp
-        - emptyDir: {}
-          name: tokenizer-cache
 ---
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
@@ -2650,6 +2587,72 @@ spec:
     - name: tls-certs
       secret:
         secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}'
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-tokenizer
+  namespace: kserve
+spec:
+  router:
+    scheduler:
+      tokenizer:
+        template:
+          automountServiceAccountToken: false
+          containers:
+          - args:
+            - /mnt/models/base
+            - --port=8000
+            command:
+            - vllm
+            - launch
+            - render
+            env:
+            - name: HF_HOME
+              value: /tmp/hf
+            - name: DO_NOT_TRACK
+              value: "1"
+            image: docker.io/vllm/vllm-openai-cpu:v0.23.0
+            imagePullPolicy: IfNotPresent
+            name: vllm-render
+            ports:
+            - containerPort: 8000
+              name: render-http
+              protocol: TCP
+            readinessProbe:
+              failureThreshold: 60
+              httpGet:
+                path: /health
+                port: render-http
+              initialDelaySeconds: 30
+              periodSeconds: 10
+              timeoutSeconds: 5
+            resources:
+              limits:
+                cpu: "4"
+                memory: 12Gi
+              requests:
+                cpu: "1"
+                memory: 4Gi
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                - ALL
+              readOnlyRootFilesystem: true
+              runAsNonRoot: true
+              seccompProfile:
+                type: RuntimeDefault
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: FallbackToLogsOnError
+            volumeMounts:
+            - mountPath: /tmp/hf
+              name: hf-cache
+          dnsPolicy: ClusterFirst
+          restartPolicy: Always
+          volumes:
+          - emptyDir: {}
+            name: hf-cache
 ---
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig

@@ -13,29 +13,18 @@ spec:
   replicas: 2
   router:
     scheduler:
-      template:
-        containers:
-          - name: tokenizer
-            env:
-              - name: LOG_LEVEL
-                value: DEBUG
+      tokenizer: {}
       config:
         inline:
           apiVersion: llm-d.ai/v1alpha1
           kind: EndpointPickerConfig
           plugins:
             - type: single-profile-handler
-            - type: precise-prefix-cache-scorer
+            - type: token-producer
+            - type: precise-prefix-cache-producer
+            - type: prefix-cache-scorer
               parameters:
-                tokenProcessorConfig:
-                  blockSize: 16
-                  hashSeed: "42"
-                kvEventsConfig:
-                  zmqEndpoint: "tcp://*:5557"
-                indexerConfig:
-                  kvBlockIndexConfig:
-                    enableMetrics: true
-                    metricsLoggingInterval: 60000000000
+                prefixMatchInfoProducerName: precise-prefix-cache-producer
             - type: kv-cache-utilization-scorer
             - type: queue-scorer
             - type: active-request-scorer
@@ -47,7 +36,7 @@ spec:
           schedulingProfiles:
             - name: default
               plugins:
-                - pluginRef: precise-prefix-cache-scorer
+                - pluginRef: prefix-cache-scorer
                   weight: 3
                 - pluginRef: kv-cache-utilization-scorer
                   weight: 2

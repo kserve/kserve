@@ -1481,7 +1481,7 @@ plugins:
 				},
 			}
 
-			g.Expect(schedulerTransform(context.Background(), d)).To(Succeed())
+			g.Expect(schedulerTransform(context.Background(), d, &v1alpha2.LLMInferenceService{})).To(Succeed())
 
 			configText := d.Spec.Template.Spec.Containers[0].Args[1]
 			tt.validateConfig(g, configText)
@@ -1678,7 +1678,7 @@ plugins:
 				},
 			}
 
-			g.Expect(schedulerTransform(context.Background(), d)).To(Succeed())
+			g.Expect(schedulerTransform(context.Background(), d, &v1alpha2.LLMInferenceService{})).To(Succeed())
 
 			configText := d.Spec.Template.Spec.Containers[0].Args[1]
 			tt.validateConfig(g, configText)
@@ -1870,7 +1870,7 @@ schedulingProfiles:
 			)).To(Succeed())
 
 			// Stage 2: version-gated v0.7 migrations (single pass)
-			g.Expect(schedulerTransform(ctx, d)).To(Succeed())
+			g.Expect(schedulerTransform(ctx, d, &v1alpha2.LLMInferenceService{})).To(Succeed())
 
 			resultArgs := d.Spec.Template.Spec.Containers[0].Args
 			for i, a := range resultArgs {
@@ -1933,7 +1933,7 @@ schedulingProfiles:
 	}
 
 	ctx := context.Background()
-	g.Expect(schedulerTransform(ctx, d)).To(Succeed())
+	g.Expect(schedulerTransform(ctx, d, &v1alpha2.LLMInferenceService{})).To(Succeed())
 
 	configText := d.Spec.Template.Spec.Containers[0].Args[1]
 
@@ -2208,7 +2208,7 @@ plugins:
 				},
 			}
 
-			err := schedulerTransform(context.Background(), d)
+			err := schedulerTransform(context.Background(), d, &v1alpha2.LLMInferenceService{})
 			if tt.expectErr {
 				g.Expect(err).To(HaveOccurred())
 				g.Expect(err.Error()).To(ContainSubstring(tt.errSubstring))

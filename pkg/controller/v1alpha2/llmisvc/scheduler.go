@@ -57,6 +57,8 @@ const (
 
 	precisePrefixCacheScorerPlugin    = "precise-prefix-cache-scorer"
 	prefixCacheScorerPlugin           = "prefix-cache-scorer"
+	tokenProducerPlugin               = "token-producer"
+	precisePrefixCacheProducerPlugin  = "precise-prefix-cache-producer"
 	loraAffinityScorerPlugin          = "lora-affinity-scorer"
 	coreMetricsExtractorPlugin        = "model-server-protocol-metrics"
 	coreMetricsExtractorPluginRenamed = "core-metrics-extractor"
@@ -72,6 +74,33 @@ func (r *LLMISVCReconciler) reconcileScheduler(ctx context.Context, llmSvc *v1al
 	if err := r.reconcileSchedulerServiceAccount(ctx, llmSvc); err != nil {
 		return err
 	}
+
+	// Emit a deprecation warning when the tokenizer is auto-provisioned via
+	// legacy precise-prefix-cache-scorer detection rather than an explicit
+	// spec.router.scheduler.tokenizer field. We check hasPrecisePrefixCachePlugin
+	// because by this point the well-known config merge may have already
+	// populated Scheduler.Tokenizer from the injected config.
+	if hasPrecisePrefixCachePlugin(llmSvc.Spec) {
+		log.FromContext(ctx).Info("DEPRECATION: precise-prefix-cache-scorer plugin detected in config.inline. " +
+			"A standalone tokenizer is being auto-provisioned. " +
+			"Please add 'tokenizer: {}' to spec.router.scheduler and remove the precise-prefix-cache-scorer " +
+			"plugin from config.inline. This implicit migration will be removed in a future release.")
+		r.Eventf(llmSvc, corev1.EventTypeWarning, "DeprecatedTokenizerConfig",
+			"LLMInferenceService %q uses precise-prefix-cache-scorer in config.inline. "+
+				"Add 'tokenizer: {}' to spec.router.scheduler and remove precise-prefix-cache-scorer from config.inline. "+
+				"This implicit migration will be removed in a future release.", llmSvc.Name)
+	}
+
+	// Reconcile the tokenizer before the scheduler so that the tokenizer
+	// Service DNS is resolvable by the time EPP's token-producer plugin
+	// attempts its first connection.
+	if err := r.reconcileTokenizerDeployment(ctx, llmSvc); err != nil {
+		return err
+	}
+	if err := r.reconcileTokenizerService(ctx, llmSvc); err != nil {
+		return err
+	}
+
 	if err := r.reconcileSchedulerDeployment(ctx, llmSvc); err != nil {
 		return err
 	}
@@ -412,7 +441,11 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 			injectSchedulerTracing(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), mainContainer)
 		}
 
-		if isUsingTokenizerSidecar(llmSvc.Spec) {
+		if isTokenizerEnabled(llmSvc.Spec) {
+			// Strip the legacy UDS tokenizer sidecar if it was included via
+			// the well-known config or versioned config pinning.
+			withStripUdsTokenizerSidecar(d)
+		} else if isUsingTokenizerSidecar(llmSvc.Spec) {
 			var existingServiceAccount *corev1.ServiceAccount
 			if llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName != "" {
 				existingServiceAccount = &corev1.ServiceAccount{}
@@ -421,13 +454,9 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 					if !apierrors.IsNotFound(err) {
 						return d, fmt.Errorf("failed to fetch existing scheduler service account %s/%s: %w", llmSvc.Namespace, llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName, err)
 					}
-					// The service account may not exist yet (first reconciliation, cache lag)
-					// or may have already been deleted (stop flow). Let attachModelArtifacts
-					// handle credential injection with the default service account fallback.
 					existingServiceAccount = nil
 				}
 			} else {
-				// Use the generated scheduler SA which has credentials propagated from the main workload SA.
 				sa, _, saErr := r.expectedSchedulerServiceAccount(ctx, llmSvc)
 				if saErr != nil {
 					return d, fmt.Errorf("failed to get expected scheduler service account: %w", saErr)
@@ -459,11 +488,10 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 			}
 		}
 
-		// v0.7.0 migrations: version-gated (>= 0.7.0) because the v0.6 binary
-		// does not recognize the new plugin names. The v0.7 binary deprecates
-		// the old names but still accepts them.
-		if err := schedulerTransform(ctx, d); err != nil {
-			return d, fmt.Errorf("failed to apply v0.7.0 scheduler migrations: %w", err)
+		// Version-gated migrations: each migration is gated to the minimum EPP
+		// version that recognizes the new plugin names / config shapes.
+		if err := schedulerTransform(ctx, d, llmSvc); err != nil {
+			return d, fmt.Errorf("failed to apply scheduler migrations: %w", err)
 		}
 	}
 
@@ -543,16 +571,45 @@ plugins:
   - pluginRef: max-score-picker
 `, loraPlugin, loraProfileEntry, loraProfileEntry)
 	default:
-		// Single-profile default follows the llm-d optimized baseline:
-		// queue + kv-cache-utilization + prefix-cache + no-hit-lru scorers, plus
-		// lora-affinity-scorer injected when LoRA adapters are configured.
-		// kv-cache-utilization-scorer and no-hit-lru-scorer are declared in the
-		// top-level plugins list so the profile pluginRefs resolve.
 		var loraPlugin, loraProfileEntry string
 		if llmSvc.Spec.Model.LoRA != nil && len(llmSvc.Spec.Model.LoRA.Adapters) > 0 {
 			loraPlugin = fmt.Sprintf("- type: %s\n", loraAffinityScorerPlugin)
 			loraProfileEntry = fmt.Sprintf("  - pluginRef: %s\n    weight: 4\n", loraAffinityScorerPlugin)
 		}
+
+		if isTokenizerEnabled(llmSvc.Spec) {
+			return fmt.Sprintf(`
+apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+- type: token-producer
+  parameters:
+    vllm:
+      url: %s
+- type: precise-prefix-cache-producer
+- type: prefix-cache-scorer
+  parameters:
+    prefixMatchInfoProducerName: precise-prefix-cache-producer
+- type: kv-cache-utilization-scorer
+- type: queue-scorer
+- type: max-score-picker
+%sschedulingProfiles:
+- name: default
+  plugins:
+%s  - pluginRef: prefix-cache-scorer
+    weight: 3
+  - pluginRef: kv-cache-utilization-scorer
+    weight: 2
+  - pluginRef: queue-scorer
+    weight: 2
+  - pluginRef: max-score-picker
+`, tokenizerServiceURL(llmSvc), loraPlugin, loraProfileEntry)
+		}
+
+		// Single-profile default follows the llm-d optimized baseline:
+		// queue + kv-cache-utilization + prefix-cache + no-hit-lru scorers, plus
+		// lora-affinity-scorer injected when LoRA adapters are configured.
 		return fmt.Sprintf(`
 apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
@@ -1296,7 +1353,7 @@ func hasDeprecatedMetricFlags(d *appsv1.Deployment) bool {
 //  5. withCoreMetricsExtractorPlugin – inject core-metrics-extractor with extracted flag values
 //  6. withMigrateCoreMetricsExtractor – rename model-server-protocol-metrics → core-metrics-extractor
 //     (v0.8.0 only, runs after injection so freshly injected plugins are also renamed)
-func schedulerTransform(ctx context.Context, d *appsv1.Deployment) error {
+func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alpha2.LLMInferenceService) error {
 	version, ok := d.Spec.Template.Annotations["app.kubernetes.io/version"]
 	if !ok || version == "" {
 		version = "0.0.0"
@@ -1341,6 +1398,14 @@ func schedulerTransform(ctx context.Context, d *appsv1.Deployment) error {
 		opts = append(opts, withRemovePrefixCacheScorerParametersV09)
 		opts = append(opts, withRemoveUnnecessaryTokenizer(d))
 		opts = append(opts, withMigrateLLMDAPIVersion)
+
+		// Decompose precise-prefix-cache-scorer into the 3-plugin pipeline
+		// when the standalone tokenizer is enabled. Gated to >= 0.9.0 because
+		// older EPP binaries do not recognize token-producer /
+		// precise-prefix-cache-producer plugin types.
+		if isTokenizerEnabled(llmSvc.Spec) {
+			opts = append(opts, withDecomposePluginPipeline(tokenizerServiceURL(llmSvc)))
+		}
 	}
 
 	if err := mutateSchedulerConfig(ctx, d, opts...); err != nil {
@@ -1442,6 +1507,167 @@ func withRemoveUnnecessaryTokenizer(d *appsv1.Deployment) mutateSchedulerConfigF
 		}
 
 		return nil
+	}
+}
+
+// withDecomposePluginPipeline replaces the monolithic precise-prefix-cache-scorer
+// plugin with the new 3-plugin pipeline: token-producer, precise-prefix-cache-producer,
+// and prefix-cache-scorer. The token-producer is wired to the standalone tokenizer
+// Service URL, and prefix-cache-scorer gets prefixMatchInfoProducerName set.
+func withDecomposePluginPipeline(tokenizerURL string) mutateSchedulerConfigFunc {
+	return func(ctx context.Context, u *unstructured.Unstructured) error {
+		val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
+		if err != nil || !found {
+			return err
+		}
+		plugins, ok := val.([]interface{})
+		if !ok {
+			return nil
+		}
+
+		idx := -1
+		for i, plugin := range plugins {
+			pluginMap, ok := plugin.(map[string]interface{})
+			if ok && pluginMap["type"] == precisePrefixCacheScorerPlugin {
+				idx = i
+				break
+			}
+		}
+		if idx < 0 {
+			return nil
+		}
+
+		log.FromContext(ctx).Info("Decomposing precise-prefix-cache-scorer into 3-plugin pipeline",
+			"tokenizerURL", tokenizerURL)
+
+		newPlugins := []interface{}{
+			map[string]interface{}{
+				"type": tokenProducerPlugin,
+				"parameters": map[string]interface{}{
+					"vllm": map[string]interface{}{
+						"url": tokenizerURL,
+					},
+				},
+			},
+			map[string]interface{}{
+				"type": precisePrefixCacheProducerPlugin,
+			},
+			map[string]interface{}{
+				"type": prefixCacheScorerPlugin,
+				"parameters": map[string]interface{}{
+					"prefixMatchInfoProducerName": precisePrefixCacheProducerPlugin,
+				},
+			},
+		}
+
+		// Remove any existing prefix-cache-scorer to avoid duplicates after
+		// the decomposed pipeline injects its own prefix-cache-scorer.
+		remaining := make([]interface{}, 0, len(plugins))
+		for i, plugin := range plugins {
+			if i == idx {
+				continue
+			}
+			pluginMap, ok := plugin.(map[string]interface{})
+			if ok && pluginMap["type"] == prefixCacheScorerPlugin {
+				continue
+			}
+			remaining = append(remaining, plugin)
+		}
+
+		result := make([]interface{}, 0, len(remaining)+len(newPlugins))
+		// Find where the old precise-prefix-cache-scorer was (before any
+		// removals shifted indices) and insert the new plugins there.
+		insertIdx := idx
+		if insertIdx > len(remaining) {
+			insertIdx = len(remaining)
+		}
+		result = append(result, remaining[:insertIdx]...)
+		result = append(result, newPlugins...)
+		result = append(result, remaining[insertIdx:]...)
+		if err := unstructured.SetNestedSlice(u.Object, result, "plugins"); err != nil {
+			return fmt.Errorf("failed to set decomposed plugins: %w", err)
+		}
+
+		// Update schedulingProfiles: rename precise-prefix-cache-scorer refs
+		// and deduplicate any existing prefix-cache-scorer refs.
+		profiles, found, err := unstructured.NestedFieldNoCopy(u.Object, "schedulingProfiles")
+		if err != nil || !found {
+			return err
+		}
+		if profileList, ok := profiles.([]interface{}); ok {
+			for _, profile := range profileList {
+				profileMap, ok := profile.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				pluginRefs, found, _ := unstructured.NestedFieldNoCopy(profileMap, "plugins")
+				if !found {
+					continue
+				}
+				refList, ok := pluginRefs.([]interface{})
+				if !ok {
+					continue
+				}
+
+				// First pass: rename precise-prefix-cache-scorer → prefix-cache-scorer
+				for _, ref := range refList {
+					refMap, ok := ref.(map[string]interface{})
+					if !ok {
+						continue
+					}
+					if refMap["pluginRef"] == precisePrefixCacheScorerPlugin {
+						refMap["pluginRef"] = prefixCacheScorerPlugin
+					}
+				}
+
+				// Second pass: deduplicate prefix-cache-scorer refs
+				seen := false
+				deduped := make([]interface{}, 0, len(refList))
+				for _, ref := range refList {
+					refMap, ok := ref.(map[string]interface{})
+					if ok && refMap["pluginRef"] == prefixCacheScorerPlugin {
+						if seen {
+							continue
+						}
+						seen = true
+					}
+					deduped = append(deduped, ref)
+				}
+				profileMap["plugins"] = deduped
+			}
+		}
+
+		return nil
+	}
+}
+
+// withStripUdsTokenizerSidecar removes the UDS tokenizer sidecar container and
+// associated volumes/volumeMounts from the scheduler deployment. This is called
+// during migration from UDS tokenizer to standalone tokenizer.
+func withStripUdsTokenizerSidecar(d *appsv1.Deployment) {
+	for i := range d.Spec.Template.Spec.Containers {
+		if d.Spec.Template.Spec.Containers[i].Name == tokenizerContainerName {
+			d.Spec.Template.Spec.Containers = append(d.Spec.Template.Spec.Containers[:i], d.Spec.Template.Spec.Containers[i+1:]...)
+			break
+		}
+	}
+
+	udsVolumeName := "tokenizer-uds"
+	for i := range d.Spec.Template.Spec.Volumes {
+		if d.Spec.Template.Spec.Volumes[i].Name == udsVolumeName {
+			d.Spec.Template.Spec.Volumes = append(d.Spec.Template.Spec.Volumes[:i], d.Spec.Template.Spec.Volumes[i+1:]...)
+			break
+		}
+	}
+
+	for ci := range d.Spec.Template.Spec.Containers {
+		c := &d.Spec.Template.Spec.Containers[ci]
+		for vi := range c.VolumeMounts {
+			if c.VolumeMounts[vi].Name == udsVolumeName {
+				c.VolumeMounts = append(c.VolumeMounts[:vi], c.VolumeMounts[vi+1:]...)
+				break
+			}
+		}
 	}
 }
 
