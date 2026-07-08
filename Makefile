@@ -278,7 +278,7 @@ generate: controller-gen helm-docs
 	hack/python-sdk/client-gen.sh
 	@while read -r line; do \
 		f=$$(echo "$$line" | cut -f1); year=$$(echo "$$line" | cut -f2); \
-		if [ -f "$$f" ]; then sed -i "s/Copyright [0-9]\{4\} The KServe Authors/Copyright $$year The KServe Authors/" "$$f"; fi; \
+		if [ -f "$$f" ]; then perl -pi -e "s/Copyright [0-9]{4} The KServe Authors/Copyright $$year The KServe Authors/" "$$f"; fi; \
 	done < /tmp/copyright_years_cache
 	@rm -f /tmp/copyright_years_cache
 	$(HELM_DOCS) --chart-search-root=charts --output-file=README.md

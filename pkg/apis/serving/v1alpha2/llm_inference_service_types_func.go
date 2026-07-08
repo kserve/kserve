@@ -130,6 +130,10 @@ func (s *LLMInferenceService) IsUsingLLMInferenceServiceConfigInNamespace(name, 
 	// Use applied configs from the last successful reconciliation when available.
 	if len(s.Status.AppliedConfigRefs) > 0 {
 		for i := range s.Status.AppliedConfigRefs {
+			if s.Status.AppliedConfigRefs[i].Source == AppliedConfigSourceServingRuntime {
+				continue
+			}
+
 			if string(s.Status.AppliedConfigRefs[i].Name) != name {
 				continue
 			}
