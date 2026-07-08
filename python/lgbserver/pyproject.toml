@@ -9,9 +9,6 @@ dependencies = [
     "kserve-storage @ file:///${PROJECT_ROOT}/../storage",
     "lightgbm[scikit-learn]~=4.6.0",
     "pandas<3.0.0,>=2.2.0",
-    "scikit-learn>=1.6.1",
-    "scipy>=1.15.2",
-    "google-crc32c>=1.7.1"
 ]
 name = "lgbserver"
 version = "0.19.0"
@@ -27,66 +24,4 @@ test = [
 ]
 dev = [
     "black[colorama]~=24.3.0",
-]
-
-
-[tool.uv]
-index-strategy = "unsafe-best-match"
-
-[[tool.uv.index]]
-name = "pypi"
-url = "https://pypi.org/simple"
-default = true
-
-[[tool.uv.index]]
-name = "ppc64le-wheels"
-url = "https://wheels.developerfirst.ibm.com/ppc64le/linux"
-
-# UV workspace source for local dependency resolution
-[tool.uv.sources]
-kserve-storage = { path = "../storage", editable = true }
-
-grpcio = [
-    { index = "pypi", marker = "platform_machine != 'ppc64le'" },
-    { index = "ppc64le-wheels", marker = "platform_machine == 'ppc64le'" },
-]
-grpcio_tools = [
-    { index = "pypi", marker = "platform_machine != 'ppc64le'" },
-    { index = "ppc64le-wheels", marker = "platform_machine == 'ppc64le'" },
-]
-numpy = [
-    { index = "pypi", marker = "platform_machine != 'ppc64le'" },
-    { index = "ppc64le-wheels", marker = "platform_machine == 'ppc64le'" },
-]
-pandas = [
-    { index = "pypi", marker = "platform_machine != 'ppc64le'" },
-    { index = "ppc64le-wheels", marker = "platform_machine == 'ppc64le'" },
-]
-psutil = [
-    { index = "pypi", marker = "platform_machine != 'ppc64le'" },
-    { index = "ppc64le-wheels", marker = "platform_machine == 'ppc64le'" },
-]
-pyyaml = [
-    { index = "pypi", marker = "platform_machine != 'ppc64le'" },
-    { index = "ppc64le-wheels", marker = "platform_machine == 'ppc64le'" },
-]
-httptools = [
-    { index = "pypi", marker = "platform_machine != 'ppc64le'" },
-    { index = "ppc64le-wheels", marker = "platform_machine == 'ppc64le'" },
-]
-uvloop = [
-    { index = "pypi", marker = "platform_machine != 'ppc64le'" },
-    { index = "ppc64le-wheels", marker = "platform_machine == 'ppc64le'" },
-]
-scikit-learn = [
-    { index = "pypi", marker = "platform_machine != 'ppc64le'" },
-    { index = "ppc64le-wheels", marker = "platform_machine == 'ppc64le'" },
-]
-google-crc32c = [
-    { index = "pypi", marker = "platform_machine != 'ppc64le'" },
-    { index = "ppc64le-wheels", marker = "platform_machine == 'ppc64le'" },
-]
-scipy = [
-    { index = "pypi", marker = "platform_machine != 'ppc64le'" },
-    { index = "ppc64le-wheels", marker = "platform_machine == 'ppc64le'" },
 ]
