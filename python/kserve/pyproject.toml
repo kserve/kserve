@@ -29,16 +29,6 @@ dependencies = [
     "pydantic<3.0.0,>=2.5.0",
     "pyyaml<7.0.0,>=6.0.0",
     "urllib3>=2.7.0", # CVE-2026-21441
-    "aiohttp>=3.13.4", # CVE-2026-34520
-    "h11>=0.16.0", # CVE-2025-43859 h11 accepts some malformed Chunked-Encoding bodies
-    "cryptography>=46.0.7", # CVE-2026-39892
-    "python-multipart>=0.0.27", # CVE-2026-42561
-    # CVE-2026-48526 PyJWT accepts unknown `crit` header extensions (RFC 7515 §4.1.11 MUST violation)
-    # Pinning because it is a transitive dependency.
-    "pyjwt>=2.13.0",
-    # CVE-2026-30922 pyasn1 Vulnerable to Denial of Service via Unbounded Recursion
-    # Pinning because it is a transitive dependency.
-    "pyasn1>=0.6.3"
 ]
 name = "kserve"
 version = "0.19.0"
@@ -102,6 +92,14 @@ dev = [
 
 [tool.uv]
 index-strategy = "unsafe-best-match"
+override-dependencies = [
+    "aiohttp>=3.13.4", # CVE-2026-34520
+    "h11>=0.16.0", # CVE-2025-43859
+    "cryptography>=46.0.7", # CVE-2026-39892
+    "python-multipart>=0.0.27", # CVE-2026-42561
+    "pyjwt>=2.13.0", # CVE-2026-48526
+    "pyasn1>=0.6.3", # CVE-2026-30922
+]
 
 [build-system]
 requires = ["setuptools>=61.0"]

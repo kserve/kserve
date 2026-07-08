@@ -13,6 +13,16 @@ resolution-markers = [
     "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
 ]
 
+[manifest]
+overrides = [
+    { name = "aiohttp", specifier = ">=3.13.4" },
+    { name = "cryptography", specifier = ">=46.0.7" },
+    { name = "h11", specifier = ">=0.16.0" },
+    { name = "pyasn1", specifier = ">=0.6.3" },
+    { name = "pyjwt", specifier = ">=2.13.0" },
+    { name = "python-multipart", specifier = ">=0.0.27" },
+]
+
 [[package]]
 name = "aiohappyeyeballs"
 version = "2.6.1"
@@ -1880,14 +1890,11 @@ name = "kserve"
 version = "0.19.0"
 source = { editable = "." }
 dependencies = [
-    { name = "aiohttp" },
     { name = "cloudevents" },
-    { name = "cryptography" },
     { name = "fastapi" },
     { name = "grpc-interceptor" },
     { name = "grpcio" },
     { name = "grpcio-tools" },
-    { name = "h11" },
     { name = "httpx" },
     { name = "kubernetes" },
     { name = "numpy" },
@@ -1896,11 +1903,8 @@ dependencies = [
     { name = "prometheus-client" },
     { name = "protobuf" },
     { name = "psutil" },
-    { name = "pyasn1" },
     { name = "pydantic" },
-    { name = "pyjwt" },
     { name = "python-dateutil" },
-    { name = "python-multipart" },
     { name = "pyyaml" },
     { name = "six" },
     { name = "starlette" },
@@ -1948,15 +1952,12 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aiohttp", specifier = ">=3.13.4" },
     { name = "asgi-logger", marker = "extra == 'logging'", specifier = ">=0.1.0,<1.0.0" },
     { name = "cloudevents", specifier = ">=1.6.2,<2.0.0" },
-    { name = "cryptography", specifier = ">=46.0.7" },
     { name = "fastapi", specifier = ">=0.115.3,<1.0.0" },
     { name = "grpc-interceptor", specifier = ">=0.15.4,<1.0.0" },
     { name = "grpcio", specifier = ">=1.73.0,<2.0.0" },
     { name = "grpcio-tools", specifier = ">=1.73.0,<2.0.0" },
-    { name = "h11", specifier = ">=0.16.0" },
     { name = "httpx", specifier = ">=0.27.2,<1.0.0" },
     { name = "kserve-storage", marker = "extra == 'storage'", editable = "../storage" },
     { name = "kubernetes", specifier = ">=23.3.0" },
@@ -1966,11 +1967,8 @@ requires-dist = [
     { name = "prometheus-client", specifier = ">=0.20.0,<1.0.0" },
     { name = "protobuf", specifier = ">=6.33.5,<7.0.0" },
     { name = "psutil", specifier = ">=5.9.6,<6.0.0" },
-    { name = "pyasn1", specifier = ">=0.6.3" },
     { name = "pydantic", specifier = ">=2.5.0,<3.0.0" },
-    { name = "pyjwt", specifier = ">=2.13.0" },
     { name = "python-dateutil", specifier = ">=2.8.0,<3.0.0" },
-    { name = "python-multipart", specifier = ">=0.0.27" },
     { name = "pyyaml", specifier = ">=6.0.0,<7.0.0" },
     { name = "ray", extras = ["serve"], marker = "extra == 'ray'", specifier = ">=2.43.0" },
     { name = "six", specifier = ">=1.16.0,<2.0.0" },
@@ -2197,7 +2195,7 @@ dependencies = [
     { name = "jsonschema" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
-    { name = "pyjwt", extra = ["crypto"] },
+    { name = "pyjwt" },
     { name = "python-multipart" },
     { name = "pywin32", marker = "sys_platform == 'win32'" },
     { name = "sse-starlette" },
@@ -2302,7 +2300,7 @@ version = "1.37.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
-    { name = "pyjwt", extra = ["crypto"] },
+    { name = "pyjwt" },
     { name = "requests" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/9a/99/d840198ecf6e8057bbc937f129ae940404485d736cda73253bbff9537f01/msal-1.37.0.tar.gz", hash = "sha256:1b1672a33ee467c1d70b341bb16cafd51bb3c817147a95b93263794b03971bec", size = 182444, upload-time = "2026-05-29T19:49:05.561Z" }
@@ -3371,15 +3369,15 @@ wheels = [
 
 [[package]]
 name = "prometheus-fastapi-instrumentator"
-version = "100.0.0"
-source = { registry = "https://test.pypi.org/simple/" }
+version = "8.0.2"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "fastapi" },
     { name = "prometheus-client" },
+    { name = "starlette" },
 ]
-sdist = { url = "https://test-files.pythonhosted.org/packages/0c/07/90c058c3c1c0b1b37c6ccaaf9708e8cb8aa20bfc46b279580f1af9fff751/prometheus_fastapi_instrumentator-100.0.0.tar.gz", hash = "sha256:f94e5db3e20ce36bdf114014929f7945c6249bc50c5d84eab0eeaca1abddc16f", size = 20866, upload-time = "2023-02-25T22:37:56.397Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/1b/e9/2065686d1dfa62296fdc158b6e8fd25b0cb3dca09b0632cabeb5ae81fe4d/prometheus_fastapi_instrumentator-8.0.2.tar.gz", hash = "sha256:3c252e748151768a7aefd66824a04a870144f71de48a67aed211749a9ca2a548", size = 21342, upload-time = "2026-06-23T09:39:31.611Z" }
 wheels = [
-    { url = "https://test-files.pythonhosted.org/packages/2a/7a/ea546d9cdcf90c3e04b8c984ccf127d34eced7d81f44f26fb89100e4b51d/prometheus_fastapi_instrumentator-100.0.0-py3-none-any.whl", hash = "sha256:046a545a5091d465a8e887fb6b41fc1f7b8b92cf40965ba041120012cbd67b70", size = 18186, upload-time = "2023-02-25T22:37:54.824Z" },
+    { url = "https://files.pythonhosted.org/packages/c6/c7/fa2b3f469a2e6001b829e0d6bc8680755349aa1329a87bf48731e9d5d30a/prometheus_fastapi_instrumentator-8.0.2-py3-none-any.whl", hash = "sha256:746002ec1e2c58b93f61444e1d104de959a9463a6a3f1c8909ac3757e16c3866", size = 20549, upload-time = "2026-06-23T09:39:32.616Z" },
 ]
 
 [[package]]
@@ -3799,11 +3797,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/3b/81/58d0ac84e1ef3a3843791d6954d94c0b33d526c75eeb1efbce9d0a4c4077/pyjwt-2.13.0.tar.gz", hash = "sha256:41571c89ca91598c79e8ef18a2d07367d4810fbbd6f637794879baf1b7703423", size = 107515, upload-time = "2026-05-21T19:54:36.618Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a3/5e/ecf12fdb62546d64385c158514e9b2b671f7832108ef2ecd2020ce0af2d1/pyjwt-2.13.0-py3-none-any.whl", hash = "sha256:66adcc2aff09b3f1bbd95fc1e1577df8ac8723c978552fd43304c8a290ac5728", size = 31274, upload-time = "2026-05-21T19:54:35.362Z" },
-]
-
-[package.optional-dependencies]
-crypto = [
-    { name = "cryptography" },
 ]
 
 [[package]]
@@ -4738,15 +4731,15 @@ wheels = [
 
 [[package]]
 name = "tokenspeed-triton"
-version = "3.8.10.post20260621"
-source = { registry = "https://test.pypi.org/simple/" }
+version = "3.7.10.post20260531"
+source = { registry = "https://pypi.org/simple" }
 wheels = [
-    { url = "https://test-files.pythonhosted.org/packages/b8/b5/7a42c7410417a0fc548dba6f7eb8a09bc5dca09dd67d3872d8e102bc70c1/tokenspeed_triton-3.8.10.post20260621-cp310-cp310-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:bd17f17ff70ea52b0403e9c9efb067261cbb45e62a0e0435fd1ff9c8125d6b91", size = 82126707, upload-time = "2026-06-22T20:04:01.749Z" },
-    { url = "https://test-files.pythonhosted.org/packages/81/b5/2c7e6bd6bbbcbfde0cbf7cac3658073f08b55612b1e008d0c85da6b6b174/tokenspeed_triton-3.8.10.post20260621-cp310-cp310-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:9064eda43ea9cc64c54db7d0264027fde5871413d86f57f0fb77f70d2a82accf", size = 86242040, upload-time = "2026-06-22T20:04:07.193Z" },
-    { url = "https://test-files.pythonhosted.org/packages/21/97/f1ce1ecb210cb1c0fdb6137fa510d7c49d613e16aff68f54e2cf32e22b85/tokenspeed_triton-3.8.10.post20260621-cp311-cp311-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:82f5c32abd744de5f1eff3bdf092027f7ef4837437e8ea7d21a43021dfd93ed1", size = 82126677, upload-time = "2026-06-22T20:04:11.922Z" },
-    { url = "https://test-files.pythonhosted.org/packages/4c/f8/5d3f33beb5fa7e6d5453ff8a72347c0c218bec7ef274dd663f92a81d5330/tokenspeed_triton-3.8.10.post20260621-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:932112ed9c9fde73cd4fa32936b02e93ec6eb54c4affad74d9902c9cf23cd663", size = 86242139, upload-time = "2026-06-22T20:04:16.54Z" },
-    { url = "https://test-files.pythonhosted.org/packages/c8/9c/f36c7c2d9f1dcf67d171ccc28283582223a4412cf9772539f07bb49a3884/tokenspeed_triton-3.8.10.post20260621-cp312-abi3-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:19e9c7404b37dd6c159a026de88fc0c67cdce806057ecf6c5be53db4a9febd22", size = 82129442, upload-time = "2026-06-22T20:04:22.019Z" },
-    { url = "https://test-files.pythonhosted.org/packages/3d/45/c31f6820f4e03c964f9de713cc68cccba52e2d3594c38878f7e5459ad331/tokenspeed_triton-3.8.10.post20260621-cp312-abi3-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:4564fad26a5fd5709b16e9522e5116462d003e87c134afca72bc196bfc9b21f5", size = 86243393, upload-time = "2026-06-22T20:04:26.357Z" },
+    { url = "https://files.pythonhosted.org/packages/ef/07/eff1bac50bc568cc12dec89aa04a9cc79591af0a87a252cfa3921eb1f37a/tokenspeed_triton-3.7.10.post20260531-cp310-cp310-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:ad17b1d18f2fbceb0bb093be831799364445fa24ffefd2164394a1bf06499b76", size = 81632378, upload-time = "2026-05-31T01:28:48.605Z" },
+    { url = "https://files.pythonhosted.org/packages/33/42/7b3042e937c00b6689537ebe0f0e7129687ef27815af9e35e9c1853fb0d8/tokenspeed_triton-3.7.10.post20260531-cp310-cp310-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:186adc96af2a1565b5676ec922f61265d7febb9a4ae8a2bfe62a138a060c27b6", size = 85882529, upload-time = "2026-05-31T01:28:55.409Z" },
+    { url = "https://files.pythonhosted.org/packages/af/b7/f16915e64e038a2b1fc83e6d405c2dfc56e40111a2e6de13ab2dd8b76b95/tokenspeed_triton-3.7.10.post20260531-cp311-cp311-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:0ecdd8d7ea3add9d7d7241b835c80c12d842652bd6b20dcd84db18a235e16084", size = 81632129, upload-time = "2026-05-31T01:29:03.204Z" },
+    { url = "https://files.pythonhosted.org/packages/5b/ce/2069485cd8b4a8d8468ab65322416de1ecd0b1d7676441b4c3a69fc8d53e/tokenspeed_triton-3.7.10.post20260531-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:52be096ddc5225c6f2345e0d090ad2b56466a85bbeb866cc11a20e0fe3dde1bf", size = 85883121, upload-time = "2026-05-31T01:29:10.452Z" },
+    { url = "https://files.pythonhosted.org/packages/84/58/fdb5fb70d99c1f18f01c2198420fa2a0f7e5301bd7dd5b5f34b22a3cb87b/tokenspeed_triton-3.7.10.post20260531-cp312-abi3-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:16cd0a3fc1cffeb458a7e03e8688714f49fdf0b5a108bfca999f46597c3faabb", size = 81636010, upload-time = "2026-05-31T01:29:17.699Z" },
+    { url = "https://files.pythonhosted.org/packages/d7/49/7bae94729bfd7a3f331795251302f0b0c8e54a7ec25b3af5d5bfe133367c/tokenspeed_triton-3.7.10.post20260531-cp312-abi3-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:b90ac41e7f15933797545ff1a9e803a9d8beb4ca9ba70f6d41a9e0fc26484f5c", size = 85888791, upload-time = "2026-05-31T01:29:25.584Z" },
 ]
 
 [[package]]

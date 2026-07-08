@@ -18,13 +18,21 @@ resolution-markers = [
 
 [manifest]
 overrides = [
+    { name = "aiohttp", specifier = ">=3.13.4" },
     { name = "azure-core", specifier = ">=1.38.0" },
     { name = "black", specifier = ">=26.3.1" },
     { name = "cbor2", specifier = ">=5.9.0" },
+    { name = "cryptography", specifier = ">=46.0.7" },
     { name = "dulwich", specifier = ">=1.2.5" },
+    { name = "h11", specifier = ">=0.16.0" },
     { name = "jaraco-context", specifier = ">=6.1.0" },
+    { name = "modelscope", specifier = ">=1.27.0" },
     { name = "pillow", specifier = ">=12.2.0" },
+    { name = "pyasn1", specifier = ">=0.6.3" },
+    { name = "pyjwt", specifier = ">=2.13.0" },
+    { name = "python-multipart", specifier = ">=0.0.27" },
     { name = "sentencepiece", specifier = ">=0.2.1" },
+    { name = "setuptools", specifier = ">=78.1.1" },
 ]
 
 [[package]]
@@ -1805,7 +1813,6 @@ dependencies = [
     { name = "kserve", extra = ["llm"] },
     { name = "kserve-storage" },
     { name = "modelscope" },
-    { name = "setuptools" },
     { name = "transformers" },
 ]
 
@@ -1829,13 +1836,12 @@ requires-dist = [
     { name = "bitsandbytes", specifier = ">=0.45.3" },
     { name = "kserve", extras = ["llm"], directory = "../kserve" },
     { name = "kserve-storage", directory = "../storage" },
-    { name = "modelscope", specifier = ">=1.27.0,<2.0.0" },
-    { name = "setuptools", specifier = ">=78.1.1" },
+    { name = "modelscope", specifier = ">=1.16.0,<2.0.0" },
     { name = "transformers", specifier = ">=5.5.3" },
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "black", extras = ["colorama"], specifier = "~=24.3.0" }]
+dev = [{ name = "black", extras = ["colorama"], specifier = ">=26.3.1" }]
 test = [
     { name = "einops", specifier = ">=0.8.0,<1.0.0" },
     { name = "mypy", specifier = ">=0.991,<1.0" },
@@ -2118,14 +2124,11 @@ name = "kserve"
 version = "0.19.0"
 source = { directory = "../kserve" }
 dependencies = [
-    { name = "aiohttp" },
     { name = "cloudevents" },
-    { name = "cryptography" },
     { name = "fastapi" },
     { name = "grpc-interceptor" },
     { name = "grpcio" },
     { name = "grpcio-tools" },
-    { name = "h11" },
     { name = "httpx" },
     { name = "kubernetes" },
     { name = "numpy" },
@@ -2134,11 +2137,8 @@ dependencies = [
     { name = "prometheus-client" },
     { name = "protobuf" },
     { name = "psutil" },
-    { name = "pyasn1" },
     { name = "pydantic" },
-    { name = "pyjwt" },
     { name = "python-dateutil" },
-    { name = "python-multipart" },
     { name = "pyyaml" },
     { name = "six" },
     { name = "starlette" },
@@ -2155,15 +2155,12 @@ llm = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aiohttp", specifier = ">=3.13.4" },
     { name = "asgi-logger", marker = "extra == 'logging'", specifier = ">=0.1.0,<1.0.0" },
     { name = "cloudevents", specifier = ">=1.6.2,<2.0.0" },
-    { name = "cryptography", specifier = ">=46.0.7" },
     { name = "fastapi", specifier = ">=0.115.3,<1.0.0" },
     { name = "grpc-interceptor", specifier = ">=0.15.4,<1.0.0" },
     { name = "grpcio", specifier = ">=1.73.0,<2.0.0" },
     { name = "grpcio-tools", specifier = ">=1.73.0,<2.0.0" },
-    { name = "h11", specifier = ">=0.16.0" },
     { name = "httpx", specifier = ">=0.27.2,<1.0.0" },
     { name = "kserve-storage", marker = "extra == 'storage'", editable = "../storage" },
     { name = "kubernetes", specifier = ">=23.3.0" },
@@ -2173,11 +2170,8 @@ requires-dist = [
     { name = "prometheus-client", specifier = ">=0.20.0,<1.0.0" },
     { name = "protobuf", specifier = ">=6.33.5,<7.0.0" },
     { name = "psutil", specifier = ">=5.9.6,<6.0.0" },
-    { name = "pyasn1", specifier = ">=0.6.3" },
     { name = "pydantic", specifier = ">=2.5.0,<3.0.0" },
-    { name = "pyjwt", specifier = ">=2.13.0" },
     { name = "python-dateutil", specifier = ">=2.8.0,<3.0.0" },
-    { name = "python-multipart", specifier = ">=0.0.27" },
     { name = "pyyaml", specifier = ">=6.0.0,<7.0.0" },
     { name = "ray", extras = ["serve"], marker = "extra == 'ray'", specifier = ">=2.43.0" },
     { name = "six", specifier = ">=1.16.0,<2.0.0" },
@@ -2428,7 +2422,7 @@ dependencies = [
     { name = "jsonschema" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
-    { name = "pyjwt", extra = ["crypto"] },
+    { name = "pyjwt" },
     { name = "python-multipart" },
     { name = "pywin32", marker = "sys_platform == 'win32'" },
     { name = "sse-starlette" },
@@ -2576,7 +2570,7 @@ version = "1.37.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
-    { name = "pyjwt", extra = ["crypto"] },
+    { name = "pyjwt" },
     { name = "requests" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/9a/99/d840198ecf6e8057bbc937f129ae940404485d736cda73253bbff9537f01/msal-1.37.0.tar.gz", hash = "sha256:1b1672a33ee467c1d70b341bb16cafd51bb3c817147a95b93263794b03971bec", size = 182444, upload-time = "2026-05-29T19:49:05.561Z" }
@@ -4128,11 +4122,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/a3/5e/ecf12fdb62546d64385c158514e9b2b671f7832108ef2ecd2020ce0af2d1/pyjwt-2.13.0-py3-none-any.whl", hash = "sha256:66adcc2aff09b3f1bbd95fc1e1577df8ac8723c978552fd43304c8a290ac5728", size = 31274, upload-time = "2026-05-21T19:54:35.362Z" },
 ]
 
-[package.optional-dependencies]
-crypto = [
-    { name = "cryptography" },
-]
-
 [[package]]
 name = "pytest"
 version = "7.4.4"
@@ -5074,7 +5063,7 @@ dependencies = [
     { name = "ml-dtypes" },
     { name = "numpy" },
     { name = "psutil" },
-    { name = "setuptools", marker = "sys_platform == 'darwin'" },
+    { name = "setuptools" },
     { name = "torch" },
     { name = "torch-c-dlpack-ext" },
     { name = "tqdm" },
@@ -5540,7 +5529,7 @@ dependencies = [
     { name = "safetensors" },
     { name = "sentencepiece" },
     { name = "setproctitle" },
-    { name = "setuptools", marker = "python_full_version >= '3.12'" },
+    { name = "setuptools" },
     { name = "six", marker = "python_full_version >= '3.12'" },
     { name = "starlette" },
     { name = "tiktoken" },
