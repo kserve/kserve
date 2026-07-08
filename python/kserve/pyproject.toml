@@ -21,21 +21,21 @@ dependencies = [
     "grpc-interceptor<1.0.0,>=0.15.4",
     "protobuf<7.0.0,>=6.33.5",
     "prometheus-client<1.0.0,>=0.20.0",
-    "orjson<4.0.0,>=3.10.15",
+    "orjson<4.0.0,>=3.11.6", # CVE-2025-67221
     "httpx<1.0.0,>=0.27.2",
     "timing-asgi<1.0.0,>=0.3.0",
     "tabulate<1.0.0,>=0.9.0",
     "pandas<3.0.0,>=2.2.0",
     "pydantic<3.0.0,>=2.5.0",
     "pyyaml<7.0.0,>=6.0.0",
-    "urllib3>=2.6.0", # CVE-2025-66418 https://github.com/urllib3/urllib3/security/advisories/GHSA-gm62-xv2j-4w53
-    "aiohttp>=3.13.3", # CVE-2025-69223 AIOHTTP's HTTP Parser auto_decompress feature is vulnerable to zip bomb
+    "urllib3>=2.7.0", # CVE-2026-21441
+    "aiohttp>=3.13.4", # CVE-2026-34520
     "h11>=0.16.0", # CVE-2025-43859 h11 accepts some malformed Chunked-Encoding bodies
-    "cryptography>=46.0.5", # CVE-2026-26007 cryptography Subgroup Attack Due to Missing Subgroup Validation for SECT Curves
-    "python-multipart>=0.0.22", # CVE-2026-24486 Python-Multipart has Arbitrary File Write via Non-Default Configuration
-    # CVE-2026-32597 PyJWT accepts unknown `crit` header extensions (RFC 7515 §4.1.11 MUST violation)
+    "cryptography>=46.0.7", # CVE-2026-39892
+    "python-multipart>=0.0.27", # CVE-2026-42561
+    # CVE-2026-48526 PyJWT accepts unknown `crit` header extensions (RFC 7515 §4.1.11 MUST violation)
     # Pinning because it is a transitive dependency.
-    "pyjwt>=2.12.0",
+    "pyjwt>=2.13.0",
     # CVE-2026-30922 pyasn1 Vulnerable to Denial of Service via Unbounded Recursion
     # Pinning because it is a transitive dependency.
     "pyasn1>=0.6.3"
@@ -101,9 +101,6 @@ dev = [
 ]
 
 [tool.uv]
-# TODO remove later
-index-url = "https://test.pypi.org/simple/"
-extra-index-url = ["https://pypi.org/simple"]
 index-strategy = "unsafe-best-match"
 
 [build-system]

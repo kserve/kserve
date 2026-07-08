@@ -10,18 +10,23 @@ dependencies = [
     "transformers>=5.5.3",
     "accelerate<2.0.0,>=1.6.0",
     "bitsandbytes>=0.45.3",
-    "modelscope<2.0.0,>=1.16.0",
-    "setuptools>=70.0.0",
+    "modelscope<2.0.0,>=1.27.0", # CVE-2025-51427
+    "setuptools>=78.1.1", # CVE-2025-47273
 ]
 name = "huggingfaceserver"
 version = "0.19.0"
 description = "Model Server implementation for huggingface. Not intended for use outside KServe Frameworks Images."
 readme = "README.md"
 
-# fixes CVE-2026-40192
 [tool.uv]
 override-dependencies = [
-    "pillow>=12.2.0",
+    "pillow>=12.2.0", # CVE-2026-40192
+    "azure-core>=1.38.0", # CVE-2026-21226
+    "dulwich>=1.2.5", # CVE-2026-42305
+    "cbor2>=5.9.0", # CVE-2025-68131 (DSE-57403)
+    "sentencepiece>=0.2.1", # CVE-2026-26209, CVE-2026-1260 (DSE-57403)
+    "jaraco.context>=6.1.0", # CVE-2026-23949 (DSE-57404)
+    "black>=26.3.1", # CVE-2026-32274 (DSE-57404)
 ]
 
 [dependency-groups]

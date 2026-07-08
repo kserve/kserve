@@ -165,10 +165,10 @@ RUN --mount=type=cache,target=/root/.cache/uv cd huggingfaceserver && uv sync --
 # Install vllm
 # https://docs.vllm.ai/en/latest/models/extensions/runai_model_streamer.html, https://docs.vllm.ai/en/latest/models/extensions/tensorizer.html
 # https://docs.vllm.ai/en/latest/models/extensions/fastsafetensor.html
-RUN --mount=type=cache,target=/root/.cache/uv uv pip install vllm[runai,tensorizer,fastsafetensors]==${VLLM_VERSION}
+RUN --mount=type=cache,target=/root/.cache/uv cd huggingfaceserver && uv pip install vllm[runai,tensorizer,fastsafetensors]==${VLLM_VERSION}
 
 # Install lmcache
-RUN --mount=type=cache,target=/root/.cache/uv uv pip install lmcache==${LMCACHE_VERSION}
+RUN --mount=type=cache,target=/root/.cache/uv cd huggingfaceserver && uv pip install lmcache==${LMCACHE_VERSION}
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
