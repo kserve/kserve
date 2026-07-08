@@ -96,7 +96,11 @@ go-lint: golangci-lint
 	@cd qpext && $(GOLANGCI_LINT) run --fix
 
 py-lint: $(RUFF)
-	$(RUFF) check --config ruff.toml 
+	$(RUFF) check --config ruff.toml
+
+# Verify e2e test files parse and collect without errors (catches import errors, syntax errors, fixture issues).
+e2e-collect:
+	python3 -m pytest --collect-only test/e2e/ -q
 
 pin-actions: pinact
 	GITHUB_TOKEN=$$(gh auth token 2>/dev/null) $(PINACT) run .github/workflows/*.yml .github/workflows/*.yaml
@@ -339,7 +343,7 @@ boilerplate:
 	hack/boilerplate.sh
 
 # This runs all necessary steps to prepare for a commit.
-precommit: ensure-go-version-upgrade sync-deps sync-img-env vet go-lint py-fmt py-lint generate tidy manifests uv-lock generate-quick-install-scripts generate-chart-manifests sync-helm-common-helpers sync-helm-common-resource-helpers sync-helm-multi-resource-helpers verify-pinned-actions verify-minimal-crd-sync boilerplate
+precommit: ensure-go-version-upgrade sync-deps sync-img-env vet go-lint py-fmt py-lint e2e-collect generate tidy manifests uv-lock generate-quick-install-scripts generate-chart-manifests sync-helm-common-helpers sync-helm-common-resource-helpers sync-helm-multi-resource-helpers verify-pinned-actions verify-minimal-crd-sync boilerplate
 
 # This is used by CI to ensure that the precommit checks are met.
 check: precommit
