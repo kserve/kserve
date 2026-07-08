@@ -108480,7 +108480,6 @@ spec:
                       type: string
                   required:
                   - name
-                  - namespace
                   - source
                   type: object
                 type: array
@@ -109049,6 +109048,17 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - clusterservingruntimes
+  - localmodelcaches
+  - localmodelnamespacecaches
+  - servingruntimes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
   - llminferenceserviceconfigs
   - llminferenceservices
   verbs:
@@ -109075,15 +109085,6 @@ rules:
   - get
   - patch
   - update
-- apiGroups:
-  - serving.kserve.io
-  resources:
-  - localmodelcaches
-  - localmodelnamespacecaches
-  verbs:
-  - get
-  - list
-  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

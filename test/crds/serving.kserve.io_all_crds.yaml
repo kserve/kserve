@@ -151611,7 +151611,6 @@ spec:
                       type: string
                   required:
                   - name
-                  - namespace
                   - source
                   type: object
                 type: array
