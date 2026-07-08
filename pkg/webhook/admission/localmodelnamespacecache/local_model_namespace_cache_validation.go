@@ -101,6 +101,9 @@ func (v *LocalModelNamespaceCacheValidator) ValidateDelete(ctx context.Context, 
 	for _, isvcMeta := range localModelNamespaceCache.Status.InferenceServices {
 		isvc := v1beta1.InferenceService{}
 		if err := v.Get(ctx, client.ObjectKey(isvcMeta), &isvc); err != nil {
+			if apierrors.IsNotFound(err) {
+				continue
+			}
 			localModelNamespaceCacheValidatorLogger.Error(err, "Error getting InferenceService", "name", isvcMeta.Name, "namespace", isvcMeta.Namespace)
 			return nil, err
 		}
