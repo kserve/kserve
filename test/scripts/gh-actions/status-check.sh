@@ -52,31 +52,28 @@ echo "::group::List Pods in all other namespaces"
 kubectl get pods -A --field-selector=metadata.namespace!=kserve,metadata.namespace!=kserve-ci-e2e-test
 echo "::endgroup::"
 
-echo "::group::List Pods in kserve-ci-e2e-test namespace"
-kubectl get pods -n kserve-ci-e2e-test
-echo "::endgroup::"
+for ns in $(kubectl get ns -l kserve.io/e2e-test=true -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+  echo "::group::List Pods in $ns namespace"
+  kubectl get pods -n "$ns"
+  echo "::endgroup::"
 
-echo "::group::Describe Pods in kserve-ci-e2e-test namespace"
-kubectl describe pods -n kserve-ci-e2e-test
-echo "::endgroup::"
+  echo "::group::Describe Pods in $ns namespace"
+  kubectl describe pods -n "$ns"
+  echo "::endgroup::"
 
-echo "::group::K8s Events in kserve-ci-e2e-test namespace"
-kubectl get events -n kserve-ci-e2e-test
-echo "::endgroup::"
+  echo "::group::K8s Events in $ns namespace"
+  kubectl get events -n "$ns"
+  echo "::endgroup::"
 
-echo "::group::Gather logs in kserve-ci-e2e-test namespace"
-if ! kubectl get namespace kserve-ci-e2e-test &>/dev/null; then
-  echo "⚠️ Namespace kserve-ci-e2e-test does not exist, skipping..."
-  return
-fi
-
-for pod in $(kubectl get pods -n  kserve-ci-e2e-test -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
-  echo "--- Pod: $pod ---"
-  kubectl describe pods -n kserve-ci-e2e-test $pod
-  kubectl logs -n kserve-ci-e2e-test $pod --all-containers=true --tail=1000 2>&1
-  echo "--- End Pod: $pod ---"
+  echo "::group::Gather logs in $ns namespace"
+  for pod in $(kubectl get pods -n "$ns" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+    echo "--- Pod: $pod ---"
+    kubectl describe pods -n "$ns" "$pod"
+    kubectl logs -n "$ns" "$pod" --all-containers=true --tail=1000 2>&1
+    echo "--- End Pod: $pod ---"
+  done
+  echo "::endgroup::"
 done
-echo "::endgroup::"
 
 echo "::group::K8s Events in kserve-localmodel-jobs namespace"
 kubectl get events -n kserve-localmodel-jobs
@@ -98,38 +95,39 @@ for pod in $(kubectl get pods -l control-plane=kserve-localmodelnode-agent -o js
 done
 echo "::endgroup::"
 
-echo "::group::Predictor Pod logs"
-for pod in $(kubectl get pods -l 'component in (predictor)' -o jsonpath='{.items[*].metadata.name}' -n kserve-ci-e2e-test); do
-    echo "=====================================  Logs for Predictor Pod: $pod  ========================================="
-    kubectl logs "$pod" -c kserve-container -n kserve-ci-e2e-test --tail 500
-    echo "================================================================================================================"
-done
-echo "::endgroup::"
+for ns in $(kubectl get ns -l kserve.io/e2e-test=true -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+  echo "::group::Predictor Pod logs in $ns"
+  for pod in $(kubectl get pods -l 'component in (predictor)' -o jsonpath='{.items[*].metadata.name}' -n "$ns" 2>/dev/null); do
+      echo "=====================================  Logs for Predictor Pod: $pod  ========================================="
+      kubectl logs "$pod" -c kserve-container -n "$ns" --tail 500
+      echo "================================================================================================================"
+  done
+  echo "::endgroup::"
 
+  echo "::group::Transformer Pod logs in $ns"
+  for pod in $(kubectl get pods -l 'component in (transformer)' -o jsonpath='{.items[*].metadata.name}' -n "$ns" 2>/dev/null); do
+      echo "=====================================  Logs for Transformer Pod: $pod  ======================================="
+      kubectl logs "$pod" -c kserve-container -n "$ns" --tail 500
+      echo "================================================================================================================"
+  done
+  echo "::endgroup::"
 
-echo "::group::Transformer Pod logs"
-for pod in $(kubectl get pods -l 'component in (transformer)' -o jsonpath='{.items[*].metadata.name}' -n kserve-ci-e2e-test); do
-    echo "=====================================  Logs for Transformer Pod: $pod  ======================================="
-    kubectl logs "$pod" -c kserve-container -n kserve-ci-e2e-test --tail 500
-    echo "================================================================================================================"
-done
-echo "::endgroup::"
+  echo "::group::Explainer Pod logs in $ns"
+  for pod in $(kubectl get pods -l 'component in (explainer)' -o jsonpath='{.items[*].metadata.name}' -n "$ns" 2>/dev/null); do
+      echo "=====================================  Logs for Explainer Pod: $pod  ========================================="
+      kubectl logs "$pod" -c kserve-container -n "$ns" --tail 500
+      echo "================================================================================================================"
+  done
+  echo "::endgroup::"
 
-echo "::group::Explainer Pod logs"
-for pod in $(kubectl get pods -l 'component in (explainer)' -o jsonpath='{.items[*].metadata.name}' -n kserve-ci-e2e-test); do
-    echo "=====================================  Logs for Explainer Pod: $pod  ========================================="
-    kubectl logs "$pod" -c kserve-container -n kserve-ci-e2e-test --tail 500
-    echo "================================================================================================================"
+  echo "::group::InferenceGraph Pod logs in $ns"
+  for pod in $(kubectl get pods -l 'serving.kserve.io/inferencegraph=model-chainer' -o jsonpath='{.items[*].metadata.name}' -n "$ns" 2>/dev/null); do
+      echo "=====================================  Logs for Graph Pod: $pod  ========================================="
+      kubectl logs "$pod" -c user-container -n "$ns" --tail 500
+      echo "================================================================================================================"
+  done
+  echo "::endgroup::"
 done
-echo "::endgroup::"
-
-echo "::group::InferenceGraph Pod logs"
-for pod in $(kubectl get pods -l 'serving.kserve.io/inferencegraph=model-chainer' -o jsonpath='{.items[*].metadata.name}' -n kserve-ci-e2e-test); do
-    echo "=====================================  Logs for Graph Pod: $pod  ========================================="
-    kubectl logs "$pod" -c user-container -n kserve-ci-e2e-test --tail 500
-    echo "================================================================================================================"
-done
-echo "::endgroup::"
 
 echo "::group::KEDA Pod logs"
 for pod in $(kubectl get pods -o jsonpath='{.items[*].metadata.name}' -n keda); do
@@ -239,6 +237,3 @@ if [[ $# -eq 1 && "$1" == "llmisvc" ]]; then
 fi
 shopt -u nocasematch
 
-echo "::group::Cleanup e2e-test namespaces"
-kubectl delete ns -l kserve.io/e2e-test=true,kubernetes.io/metadata.name!=kserve-ci-e2e-test --ignore-not-found --wait=false 2>/dev/null || true
-echo "::endgroup::"
