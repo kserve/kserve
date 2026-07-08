@@ -726,12 +726,20 @@ func ReconcileLocalModelNode(
 					ObjectMeta: metav1.ObjectMeta{Name: node.Name},
 					Spec:       v1alpha1.LocalModelNodeSpec{LocalModels: []v1alpha1.LocalModelInfo{modelInfo}},
 				}
-				if err := c.Create(ctx, localModelNode); apierr.IsAlreadyExists(err) {
-					if err := c.Get(ctx, nn, localModelNode); err != nil {
-						return err
+				if err := c.Create(ctx, localModelNode); err != nil {
+					if apierr.IsAlreadyExists(err) {
+						if err := c.Get(ctx, nn, localModelNode); err != nil {
+							log.Error(err, "Get existing localmodelnode", "name", node.Name)
+							return err
+						}
+						if err := UpdateLocalModelNode(ctx, c, log, localModelNode, localModelCache, localModelNamespaceCache, nodeGroupName); err != nil {
+							return err
+						}
+						modelStatus := localModelNode.Status.ModelStatus[statusKey]
+						nodeStatus[node.Name] = NodeStatusFromLocalModelStatus(modelStatus)
+						continue
 					}
-					found = true
-				} else if err != nil {
+					log.Error(err, "Create localmodelnode", "name", node.Name)
 					return err
 				}
 			}

@@ -74,7 +74,7 @@ class V1beta1ExtMetricAuthentication(object):
     def auth_modes(self):
         """Gets the auth_modes of this V1beta1ExtMetricAuthentication.  # noqa: E501
 
-        authModes defines the authentication modes for the metrics backend possible values are bearer, basic, tls. for more information see: https://keda.sh/docs/2.17/scalers/prometheus/#authentication-parameters  # noqa: E501
+        authModes defines the authentication modes for the metrics backend possible values are bearer, basic, tls. for more information see: https://keda.sh/docs/2.19/scalers/prometheus/#authentication-parameters  # noqa: E501
 
         :return: The auth_modes of this V1beta1ExtMetricAuthentication.  # noqa: E501
         :rtype: str
@@ -85,7 +85,7 @@ class V1beta1ExtMetricAuthentication(object):
     def auth_modes(self, auth_modes):
         """Sets the auth_modes of this V1beta1ExtMetricAuthentication.
 
-        authModes defines the authentication modes for the metrics backend possible values are bearer, basic, tls. for more information see: https://keda.sh/docs/2.17/scalers/prometheus/#authentication-parameters  # noqa: E501
+        authModes defines the authentication modes for the metrics backend possible values are bearer, basic, tls. for more information see: https://keda.sh/docs/2.19/scalers/prometheus/#authentication-parameters  # noqa: E501
 
         :param auth_modes: The auth_modes of this V1beta1ExtMetricAuthentication.  # noqa: E501
         :type: str
