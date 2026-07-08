@@ -203,6 +203,7 @@ const (
 	HfURIPrefix        = "hf://"
 	OciURIPrefix       = "oci://"
 	OciNativeURIPrefix = "oci+native://"
+	OciFetchURIPrefix  = "oci+fetch://"
 	PvcURIPrefix       = "pvc://"
 	S3URIPrefix        = "s3://"
 

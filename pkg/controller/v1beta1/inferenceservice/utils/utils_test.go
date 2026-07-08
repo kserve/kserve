@@ -2173,6 +2173,7 @@ func TestValidateStorageURIForDefaultStorageInitializer(t *testing.T) {
 		"hdfs://",
 		"webhdfs://",
 		"oci+native://ghcr.io/kserve/oci-native-test-fixture:v1",
+		"oci+fetch://ghcr.io/kserve/oci-fetch-test-fixture:v1",
 		"some/relative/path",
 		"/",
 		"foo",
