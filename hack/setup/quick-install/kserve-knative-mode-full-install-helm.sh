@@ -645,20 +645,22 @@ RUFF_VERSION=0.14.13
 PINACT_VERSION=v3.9.0
 KIND_VERSION=v0.30.0
 CERT_MANAGER_VERSION=v1.17.0
-ENVOY_GATEWAY_VERSION=v1.7.0
-ENVOY_AI_GATEWAY_VERSION=v0.6.0
+ENVOY_GATEWAY_VERSION=v1.8.1
+ENVOY_AI_GATEWAY_VERSION=v1.0.0
 KNATIVE_OPERATOR_VERSION=v1.21.1
 KNATIVE_SERVING_VERSION=1.21.1
 KEDA_OTEL_ADDON_VERSION=v0.0.6
 PROMETHEUS_VERSION=83.4.0
 PROMETHEUS_ADAPTER_VERSION=5.3.0
-KSERVE_VERSION=v0.19.0-rc0
+JAEGER_VERSION=4.7.0
+KSERVE_VERSION=v0.19.0
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.18.0
 OPENTELEMETRY_OPERATOR_VERSION=0.74.3
 LWS_VERSION=v0.8.0
-GATEWAY_API_VERSION=v1.4.1
-GIE_VERSION=v1.3.1
+GATEWAY_API_VERSION=v1.5.1
+GIE_VERSION=v1.5.0
+LLMD_ROUTER_VERSION=v0.9.0
 WVA_VERSION=v0.7.0
 
 #================================================
@@ -1499,6 +1501,22 @@ install_kserve_helm() {
     done
 
     log_success "Successfully installed KServe"
+
+    # Helm's sortManifestsByKind applies the llmisvc-controller-manager Deployment
+    # (a known kind) before cert-manager's Certificate CR (a custom kind, sorted
+    # last), so the pod can be scheduled and attempt to mount
+    # llmisvc-webhook-server-cert before cert-manager has issued it, hitting
+    # FailedMount and kubelet's mount-retry backoff. Wait for the Certificate to
+    # be issued and restart the deployment to reset that backoff before waiting
+    # for it to become ready.
+    if is_positive "${ENABLE_LLMISVC}"; then
+        log_info "Waiting for llmisvc webhook Certificate to be ready..."
+        kubectl wait --for=condition=Ready certificate/llmisvc-serving-cert \
+            -n "${KSERVE_NAMESPACE}" --timeout=180s
+
+        log_info "Restarting llmisvc-controller-manager to pick up the freshly-issued cert..."
+        kubectl rollout restart deployment/llmisvc-controller-manager -n "${KSERVE_NAMESPACE}"
+    fi
 
     # Wait for all controller managers to be ready
     log_info "Waiting for KServe controllers to be ready..."

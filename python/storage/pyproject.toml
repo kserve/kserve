@@ -14,6 +14,7 @@ dependencies = [
     "azure-identity<2.0.0,>=1.15.0",
     "boto3<2.0.0,>=1.29.0",
     "huggingface-hub[hf-transfer]>=0.32.0",
+    "hf-xet>=1.5.0",
     "dulwich>=0.21.0",
     "cryptography>=46.0.5", # CVE-2026-26007 cryptography Subgroup Attack Due to Missing Subgroup Validation for SECT Curves
     # CVE-2026-32597 PyJWT accepts unknown `crit` header extensions (RFC 7515 §4.1.11 MUST violation)
@@ -27,7 +28,7 @@ dependencies = [
     "azure-core>=1.38.0"
 ]
 name = "kserve-storage"
-version = "0.19.0rc0"
+version = "0.19.0"
 readme = "README.md"
 description = "KServe Storage Handler. This module is responsible to download the models from the provided source"
 classifiers = [
@@ -37,28 +38,9 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
-[tool.uv]
-index-strategy = "unsafe-best-match"
-# TODO remove later
-[[tool.uv.index]]
-name = "pypi"
-url = "https://pypi.org/simple"
-default = true
+[project.optional-dependencies]
+confidential = ["jwcrypto>=1.5.0"]
 
-[[tool.uv.index]]
-name = "ppc64le-wheels"
-url = "https://wheels.developerfirst.ibm.com/ppc64le/linux"
-index-strategy = "unsafe-best-match"
-
-[build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
-
-[tool.uv.sources]
-kserve-storage = { path = "../storage", editable = true }
-
-google-crc32c = [
-    { index = "pypi", marker = "platform_machine != 'ppc64le'" },
-    { index = "ppc64le-wheels", marker = "platform_machine == 'ppc64le'" },
-]
+[project.scripts]
+kserve-decrypt = "kserve_storage.confidential.cli:main"
 

@@ -645,20 +645,22 @@ RUFF_VERSION=0.14.13
 PINACT_VERSION=v3.9.0
 KIND_VERSION=v0.30.0
 CERT_MANAGER_VERSION=v1.17.0
-ENVOY_GATEWAY_VERSION=v1.7.0
-ENVOY_AI_GATEWAY_VERSION=v0.6.0
+ENVOY_GATEWAY_VERSION=v1.8.1
+ENVOY_AI_GATEWAY_VERSION=v1.0.0
 KNATIVE_OPERATOR_VERSION=v1.21.1
 KNATIVE_SERVING_VERSION=1.21.1
 KEDA_OTEL_ADDON_VERSION=v0.0.6
 PROMETHEUS_VERSION=83.4.0
 PROMETHEUS_ADAPTER_VERSION=5.3.0
-KSERVE_VERSION=v0.19.0-rc0
+JAEGER_VERSION=4.7.0
+KSERVE_VERSION=v0.19.0
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.18.0
 OPENTELEMETRY_OPERATOR_VERSION=0.74.3
 LWS_VERSION=v0.8.0
-GATEWAY_API_VERSION=v1.4.1
-GIE_VERSION=v1.3.1
+GATEWAY_API_VERSION=v1.5.1
+GIE_VERSION=v1.5.0
+LLMD_ROUTER_VERSION=v0.9.0
 WVA_VERSION=v0.7.0
 
 #================================================
@@ -1000,17 +1002,52 @@ install_cert_manager() {
 }
 
 # ----------------------------------------
+# CLI/Component: gateway-api-crd
+# ----------------------------------------
+
+uninstall_gateway_api_crd() {
+    log_info "Uninstalling Gateway API CRDs..."
+    kubectl delete -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml" --ignore-not-found=true 2>/dev/null || true
+    log_success "Gateway API CRDs uninstalled"
+}
+
+install_gateway_api_crd() {
+    if kubectl get crd gateways.gateway.networking.k8s.io &>/dev/null; then
+        if [ "$REINSTALL" = false ]; then
+            log_info "Gateway API CRDs are already installed. Use --reinstall to reinstall."
+            return 0
+        else
+            log_info "Reinstalling Gateway API CRDs..."
+            uninstall_gateway_api_crd
+        fi
+    fi
+
+    log_info "Installing Gateway API CRDs ${GATEWAY_API_VERSION}..."
+    kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml"
+
+    log_success "Successfully installed Gateway API CRDs ${GATEWAY_API_VERSION}"
+
+    wait_for_crds "60s" \
+        "gateways.gateway.networking.k8s.io" \
+        "gatewayclasses.gateway.networking.k8s.io"
+
+    log_success "Gateway API CRDs are ready!"
+}
+
+# ----------------------------------------
 # CLI/Component: gateway-api-extension-crd
 # ----------------------------------------
 
 uninstall_gateway_api_extension_crd() {
-    log_info "Uninstalling Gateway Inference Extension CRDs..."
-    kubectl delete -f "https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/${GIE_VERSION}/manifests.yaml" --ignore-not-found=true 2>/dev/null || true
+    log_info "Uninstalling Gateway Inference Extension CRD..."
+    kubectl delete -f "https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/${GIE_VERSION}/v1-manifests.yaml" --ignore-not-found=true 2>/dev/null || true
+    log_info "Uninstalling llm-d CRDs from llm-d-router ${LLMD_ROUTER_VERSION}..."
+    kubectl delete -f "https://github.com/llm-d/llm-d-router/releases/download/${LLMD_ROUTER_VERSION}/manifests.yaml" --ignore-not-found=true 2>/dev/null || true
     log_success "Gateway Inference Extension CRDs uninstalled"
 }
 
 install_gateway_api_extension_crd() {
-    if kubectl get crd inferencepools.inference.networking.x-k8s.io &>/dev/null; then
+    if kubectl get crd inferencepools.inference.networking.k8s.io &>/dev/null; then
         if [ "$REINSTALL" = false ]; then
             log_info "Gateway Inference Extension CRDs are already installed. Use --reinstall to reinstall."
             return 0
@@ -1020,14 +1057,18 @@ install_gateway_api_extension_crd() {
         fi
     fi
 
-    log_info "Installing Gateway Inference Extension CRDs ${GIE_VERSION}..."
-    kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/${GIE_VERSION}/manifests.yaml"
+    log_info "Installing Gateway Inference Extension CRD ${GIE_VERSION}..."
+    kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/${GIE_VERSION}/v1-manifests.yaml"
 
     log_success "Successfully installed Gateway Inference Extension CRDs ${GIE_VERSION}"
 
+    log_info "Installing llm-d.ai CRDs from llm-d-router ${LLMD_ROUTER_VERSION}..."
+    kubectl apply -f "https://github.com/llm-d/llm-d-router/releases/download/${LLMD_ROUTER_VERSION}/manifests.yaml"
+
     wait_for_crds "60s" \
-        "inferencepools.inference.networking.x-k8s.io" \
-        "inferenceobjectives.inference.networking.x-k8s.io"
+        "inferencepools.inference.networking.k8s.io" \
+        "inferenceobjectives.llm-d.ai" \
+        "inferencemodelrewrites.llm-d.ai"
 
     log_success "Gateway Inference Extension CRDs are ready!"
 }
@@ -1056,11 +1097,28 @@ install_envoy_gateway() {
         fi
     fi
 
+    log_info "Installing Envoy Gateway CRDs ${ENVOY_GATEWAY_VERSION}..."
+    helm show crds oci://docker.io/envoyproxy/gateway-helm \
+        --version "${ENVOY_GATEWAY_VERSION}" \
+        | yq 'select(.spec.group == "gateway.envoyproxy.io")' \
+        | kubectl apply --server-side --force-conflicts -f -
+
+    wait_for_crds "60s" \
+        "backends.gateway.envoyproxy.io" \
+        "backendtrafficpolicies.gateway.envoyproxy.io" \
+        "clienttrafficpolicies.gateway.envoyproxy.io" \
+        "envoyextensionpolicies.gateway.envoyproxy.io" \
+        "envoypatchpolicies.gateway.envoyproxy.io" \
+        "envoyproxies.gateway.envoyproxy.io" \
+        "httproutefilters.gateway.envoyproxy.io" \
+        "securitypolicies.gateway.envoyproxy.io"
+
     log_info "Installing Envoy Gateway ${ENVOY_GATEWAY_VERSION}..."
     helm upgrade -i eg oci://docker.io/envoyproxy/gateway-helm \
         --version "${ENVOY_GATEWAY_VERSION}" \
         -n envoy-gateway-system \
         --create-namespace \
+        --skip-crds \
         --wait
 
     log_success "Successfully installed Envoy Gateway ${ENVOY_GATEWAY_VERSION} via Helm"
@@ -1101,6 +1159,7 @@ install_envoy_ai_gateway() {
         --version "${ENVOY_GATEWAY_VERSION}" \
         -n envoy-gateway-system \
         --create-namespace \
+        --skip-crds \
         -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/${ENVOY_AI_GATEWAY_VERSION}/manifests/envoy-gateway-values.yaml \
         -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/${ENVOY_AI_GATEWAY_VERSION}/examples/inference-pool/envoy-gateway-values-addon.yaml \
         --wait
@@ -1252,6 +1311,7 @@ main() {
         uninstall_envoy_ai_gateway
         uninstall_envoy_gateway
         uninstall_gateway_api_extension_crd
+        uninstall_gateway_api_crd
         uninstall_cert_manager
         uninstall_external_lb
         
@@ -1272,6 +1332,7 @@ main() {
     install_yq
     install_external_lb
     install_cert_manager
+    install_gateway_api_crd
     install_gateway_api_extension_crd
     install_envoy_gateway
     install_envoy_ai_gateway

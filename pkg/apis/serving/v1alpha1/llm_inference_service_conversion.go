@@ -22,7 +22,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 	igwapiv1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
-	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
+
+	igwapiv1alpha2 "github.com/kserve/kserve/pkg/apis/gie/v1alpha2pool"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 )
@@ -108,6 +109,11 @@ func (src *LLMInferenceServiceConfig) ConvertTo(dstRaw conversion.Hub) error {
 	// Spec conversion
 	dst.Spec = convertSpecToV1Alpha2(&src.Spec)
 
+	// Status conversion (controller-managed, only duckv1.Status)
+	dst.Status = v1alpha2.LLMInferenceServiceConfigStatus{
+		Status: src.Status.Status,
+	}
+
 	return nil
 }
 
@@ -120,6 +126,12 @@ func (dst *LLMInferenceServiceConfig) ConvertFrom(srcRaw conversion.Hub) error {
 
 	// Spec conversion
 	dst.Spec = convertSpecFromV1Alpha2(&src.Spec)
+
+	// ReferencedBy is intentionally not converted: v1alpha1 has no equivalent field,
+	// and the controller re-populates it on the next reconciliation of the hub type.
+	dst.Status = LLMInferenceServiceConfigStatus{
+		Status: src.Status.Status,
+	}
 
 	// Restore criticality values from annotations
 	restoreCriticalityFromAnnotations(&dst.ObjectMeta, &dst.Spec.Model)
@@ -154,6 +166,16 @@ func convertSpecToV1Alpha2(src *LLMInferenceServiceSpec) v1alpha2.LLMInferenceSe
 		dst.Prefill = &prefill
 	}
 
+	// Tracing
+	if src.Tracing != nil {
+		dst.Tracing = &v1alpha2.TracingSpec{
+			ExporterEndpoint: src.Tracing.ExporterEndpoint,
+			Sampler:          src.Tracing.Sampler,
+			SamplerArg:       src.Tracing.SamplerArg,
+			Exporter:         src.Tracing.Exporter,
+		}
+	}
+
 	return dst
 }
 
@@ -182,6 +204,16 @@ func convertSpecFromV1Alpha2(src *v1alpha2.LLMInferenceServiceSpec) LLMInference
 	if src.Prefill != nil {
 		prefill := convertWorkloadSpecFromV1Alpha2(src.Prefill)
 		dst.Prefill = &prefill
+	}
+
+	// Tracing
+	if src.Tracing != nil {
+		dst.Tracing = &TracingSpec{
+			ExporterEndpoint: src.Tracing.ExporterEndpoint,
+			Sampler:          src.Tracing.Sampler,
+			SamplerArg:       src.Tracing.SamplerArg,
+			Exporter:         src.Tracing.Exporter,
+		}
 	}
 
 	return dst
@@ -386,6 +418,8 @@ func convertRouterSpecToV1Alpha2(src *RouterSpec) *v1alpha2.RouterSpec {
 				Spec: src.Route.HTTP.Spec,
 			}
 		}
+		dst.Route.Group = src.Route.Group
+		dst.Route.Weight = src.Route.Weight
 	}
 
 	if src.Gateway != nil {
@@ -470,6 +504,8 @@ func convertRouterSpecFromV1Alpha2(src *v1alpha2.RouterSpec) *RouterSpec {
 				Spec: src.Route.HTTP.Spec,
 			}
 		}
+		dst.Route.Group = src.Route.Group
+		dst.Route.Weight = src.Route.Weight
 	}
 
 	if src.Gateway != nil {

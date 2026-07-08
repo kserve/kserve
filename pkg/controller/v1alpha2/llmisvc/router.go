@@ -38,8 +38,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/kmeta"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
-	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	igwapiv1alpha2 "github.com/kserve/kserve/pkg/apis/gie/v1alpha2pool"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -110,7 +111,7 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 	}
 
 	// Evaluate the subconditions to determine overall router health
-	if err := r.EvaluateInferencePoolConditions(ctx, llmSvc); err != nil {
+	if err := r.EvaluateInferencePoolConditions(ctx, llmSvc, resolvedGWs); err != nil {
 		return fmt.Errorf("failed to evaluate Inference Pool conditions: %w", err)
 	}
 
@@ -314,9 +315,17 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 
 	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route == nil {
 		llmSvc.Status.Router = nil
+		urlFn := apis.HTTPS
+		statusCfg, err := r.loadConfig(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load config: %w", err)
+		}
+		if !statusCfg.EnableTLS {
+			urlFn = apis.HTTP
+		}
 		llmSvc.Status.Addresses = []v1alpha2.SourcedAddress{{
 			Addressable: duckv1.Addressable{
-				URL: apis.HTTPS(network.GetServiceHostname(
+				URL: urlFn(network.GetServiceHostname(
 					kmeta.ChildName(llmSvc.GetName(), "-kserve-workload-svc"),
 					llmSvc.GetNamespace(),
 				)),
@@ -363,24 +372,14 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 
 	externalURLs := FilterExternalURLs(discovered)
 	if len(externalURLs) == 0 {
-		logger.Info("no public URL discovered")
+		logger.Info("no external URL discovered, using internal address")
 		if len(discovered) > 0 {
-			// Promote first address to top-level status.URL as some "cluster external" addresses are technically within
-			// "virtual private networks" and we cannot detect that from just IPs. Even if it's a cluster-local URL, the
-			// status URL is just for discovery and easy access, and it's not a problem to have here while we prioritize
-			// external addresses.
-			//
-			// We prefer the path-based URL (/{ns}/{name}) over the model-routing
-			// root URL (/) for backward compatibility: status.URL was always the
-			// path-based URL before model-based routing was introduced, and
-			// existing clients may rely on that form.
-			llmSvc.Status.URL = preferPathBasedURL(discovered, llmSvc.Namespace, llmSvc.Name)
+			llmSvc.Status.URL = preferPathBasedURL(discovered, llmSvc.Namespace, llmSvc.Name, cfg.UrlScheme)
 		} else {
 			llmSvc.Status.URL = nil
 		}
 	} else {
-		// Same path-based preference as above — see comment.
-		llmSvc.Status.URL = preferPathBasedURL(externalURLs, llmSvc.Namespace, llmSvc.Name)
+		llmSvc.Status.URL = preferPathBasedURL(externalURLs, llmSvc.Namespace, llmSvc.Name, "")
 	}
 
 	llmSvc.Status.Addresses = make([]v1alpha2.SourcedAddress, 0, len(discovered))
@@ -402,20 +401,24 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 	return deduped, nil
 }
 
-// preferPathBasedURL selects the URL whose path starts with /{namespace}/{name}
-// from the list, falling back to the first URL if none matches.
-//
-// With model-based routing enabled, DiscoverURLs returns both the path-based
-// URL (/{ns}/{name}, works without special headers) and the model-routing root
-// URL (/, requires the model-routing header). Alphabetical sorting puts "/" first,
-// but status.URL must remain the path-based URL for backward compatibility —
-// it's the form clients have always seen and the one that works unconditionally.
-func preferPathBasedURL(urls []DiscoveredURL, namespace, name string) *apis.URL {
+// preferPathBasedURL selects the first URL whose path starts with
+// /{namespace}/{name}, preferring the one matching preferredScheme
+// when multiple candidates exist.
+func preferPathBasedURL(urls []DiscoveredURL, namespace, name, preferredScheme string) *apis.URL {
 	prefix := "/" + namespace + "/" + name
+	var firstPathMatch *apis.URL
 	for _, u := range urls {
 		if strings.HasPrefix(u.URL.Path, prefix) {
-			return u.URL
+			if preferredScheme != "" && u.URL.Scheme == preferredScheme {
+				return u.URL
+			}
+			if firstPathMatch == nil {
+				firstPathMatch = u.URL
+			}
 		}
+	}
+	if firstPathMatch != nil {
+		return firstPathMatch
 	}
 	return urls[0].URL
 }
@@ -600,7 +603,7 @@ func (r *LLMISVCReconciler) EvaluateHTTPRouteConditions(ctx context.Context, llm
 // and updates the InferencePoolReady condition accordingly.
 // During the v1alpha2 to v1 migration, it checks both pool versions for managed pools
 // and considers the pool ready if at least one is ready.
-func (r *LLMISVCReconciler) EvaluateInferencePoolConditions(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+func (r *LLMISVCReconciler) EvaluateInferencePoolConditions(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, resolvedGWs []ResolvedGateway) error {
 	logger := log.FromContext(ctx).WithName("EvaluateInferencePoolConditions")
 
 	if utils.GetForceStopRuntime(llmSvc) {
@@ -614,6 +617,9 @@ func (r *LLMISVCReconciler) EvaluateInferencePoolConditions(ctx context.Context,
 		llmSvc.MarkInferencePoolReadyUnset()
 		return nil
 	}
+
+	// Resolve gateway identities once for pool parent matching.
+	gatewayKeys := resolvedGatewayKeys(resolvedGWs)
 
 	// For referenced pools (external), only check that pool
 	if llmSvc.Spec.Router.Scheduler.Pool != nil && llmSvc.Spec.Router.Scheduler.Pool.Ref != nil && llmSvc.Spec.Router.Scheduler.Pool.Ref.Name != "" {
@@ -637,7 +643,7 @@ func (r *LLMISVCReconciler) EvaluateInferencePoolConditions(ctx context.Context,
 				Name:  gwapiv1.ObjectName(llmSvc.Spec.Router.EPPServiceName(llmSvc)),
 			},
 		)
-		return r.evaluateSingleInferencePoolCondition(ctx, llmSvc, curr)
+		return r.evaluateInferencePoolCondition(ctx, llmSvc, curr, gatewayKeys)
 	}
 
 	// For managed pools, check both v1 and v1alpha2 pools during migration.
@@ -647,15 +653,16 @@ func (r *LLMISVCReconciler) EvaluateInferencePoolConditions(ctx context.Context,
 	poolName := expected.Name
 	poolNamespace := expected.Namespace
 
-	// Check v1 pool
+	// Check v1 pool - scoped to only the gateways currently in use. Without this,
+	// stale parent entries from previously-referenced gateways can block readiness.
 	v1Pool := &igwapi.InferencePool{}
 	v1Err := r.Get(ctx, types.NamespacedName{Namespace: poolNamespace, Name: poolName}, v1Pool)
-	v1Ready := v1Err == nil && IsInferencePoolReady(v1Pool)
+	v1Ready := v1Err == nil && IsInferencePoolReadyForGateways(v1Pool, gatewayKeys)
 
 	// Check v1alpha2 pool - treat CRD-not-installed as "version unavailable" (not an error)
 	v1alpha2Pool := &igwapiv1alpha2.InferencePool{}
 	v1alpha2Err := r.Get(ctx, types.NamespacedName{Namespace: poolNamespace, Name: poolName}, v1alpha2Pool)
-	v1alpha2Ready := v1alpha2Err == nil && IsInferencePoolV1Alpha2Ready(v1alpha2Pool)
+	v1alpha2Ready := v1alpha2Err == nil && IsInferencePoolV1Alpha2ReadyForGateways(v1alpha2Pool, gatewayKeys)
 
 	// Record the pool and EPP service refs in status - the pool name is deterministic
 	// regardless of whether the pool is ready or even exists yet.
@@ -689,25 +696,33 @@ func (r *LLMISVCReconciler) EvaluateInferencePoolConditions(ctx context.Context,
 
 	// Neither is ready - report status from the one that exists (prefer v1 since it's the target)
 	if v1Err == nil {
-		return r.evaluateSingleInferencePoolCondition(ctx, llmSvc, v1Pool)
+		return r.evaluateInferencePoolCondition(ctx, llmSvc, v1Pool, gatewayKeys)
 	}
 
 	if v1alpha2Err == nil {
-		if len(v1alpha2Pool.Status.Parents) == 0 {
+		relevant := filterRelevantV1Alpha2Parents(v1alpha2Pool.Status.Parents, gatewayKeys, v1alpha2Pool.Namespace)
+		if len(relevant) == 0 {
 			llmSvc.MarkInferencePoolNotReady("WaitingForGateway",
 				"Inference Pool %s/%s exists but no Gateway controller has accepted it yet", poolNamespace, poolName)
 			return nil
 		}
-		topLevelCondition, _ := nonReadyInferencePoolV1Alpha2TopLevelCondition(v1alpha2Pool)
-		if topLevelCondition != nil {
+		for _, gw := range gatewayKeys {
+			if !hasMatchingV1Alpha2PoolParent(gw, relevant, v1alpha2Pool.Namespace) {
+				llmSvc.MarkInferencePoolNotReady("WaitingForGateway",
+					"Inference Pool %s/%s is not yet accepted by gateway %s/%s",
+					poolNamespace, poolName, gw.Namespace, gw.Name)
+				return nil
+			}
+		}
+		if cond := findNonReadyV1Alpha2Condition(relevant, string(igwapiv1alpha2.InferencePoolConditionAccepted), v1alpha2Pool.Generation); cond != nil {
 			llmSvc.MarkInferencePoolNotReady("InferencePoolNotReady", fmt.Sprintf(
 				"%s/%s: %v=%#v (reason %q, message %q)",
 				poolNamespace,
 				poolName,
-				topLevelCondition.Type,
-				topLevelCondition.Status,
-				topLevelCondition.Reason,
-				topLevelCondition.Message,
+				cond.Type,
+				cond.Status,
+				cond.Reason,
+				cond.Message,
 			))
 		} else {
 			llmSvc.MarkInferencePoolNotReady("InferencePoolNotReady", fmt.Sprintf("The inference pool %s/%s is not ready", poolNamespace, poolName))
@@ -729,29 +744,39 @@ func (r *LLMISVCReconciler) EvaluateInferencePoolConditions(ctx context.Context,
 	return err
 }
 
-// evaluateSingleInferencePoolCondition evaluates a single v1 InferencePool and updates the condition.
-func (r *LLMISVCReconciler) evaluateSingleInferencePoolCondition(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, curr *igwapi.InferencePool) error {
-	if !IsInferencePoolReady(curr) {
-		if len(curr.Status.Parents) == 0 {
-			// Pool exists but no Gateway controller has claimed it yet.
-			// The Owns() watch will trigger re-reconciliation when the Gateway updates the pool's status.
+// evaluateInferencePoolCondition evaluates a single v1 InferencePool and updates the condition.
+// Only pool parents matching the given gateway keys are considered.
+func (r *LLMISVCReconciler) evaluateInferencePoolCondition(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, curr *igwapi.InferencePool, gateways []types.NamespacedName) error {
+	relevant := filterRelevantV1Parents(curr.Status.Parents, gateways, curr.Namespace)
+	if len(relevant) == 0 {
+		llmSvc.MarkInferencePoolNotReady("WaitingForGateway",
+			"Inference Pool %s/%s exists but no Gateway controller has accepted it yet", curr.Namespace, curr.Name)
+		return nil
+	}
+
+	for _, gw := range gateways {
+		if !hasMatchingV1PoolParent(gw, relevant, curr.Namespace) {
 			llmSvc.MarkInferencePoolNotReady("WaitingForGateway",
-				"Inference Pool %s/%s exists but no Gateway controller has accepted it yet", curr.Namespace, curr.Name)
+				"Inference Pool %s/%s is not yet accepted by gateway %s/%s",
+				curr.Namespace, curr.Name, gw.Namespace, gw.Name)
 			return nil
 		}
-		topLevelCondition, _ := nonReadyInferencePoolTopLevelCondition(curr)
-		if topLevelCondition != nil {
+	}
+
+	if !allParentsAccepted(relevant, curr.Generation) {
+		if cond := findNonReadyCondition(relevant, string(igwapi.InferencePoolConditionAccepted), curr.Generation); cond != nil {
 			llmSvc.MarkInferencePoolNotReady("InferencePoolNotReady", fmt.Sprintf(
 				"%s/%s: %v=%#v (reason %q, message %q)",
 				curr.Namespace,
 				curr.Name,
-				topLevelCondition.Type,
-				topLevelCondition.Status,
-				topLevelCondition.Reason,
-				topLevelCondition.Message,
+				cond.Type,
+				cond.Status,
+				cond.Reason,
+				cond.Message,
 			))
 		} else {
-			llmSvc.MarkInferencePoolNotReady("InferencePoolNotReady", fmt.Sprintf("The inference pool %s/%s is not ready", curr.Namespace, curr.Name))
+			llmSvc.MarkInferencePoolNotReady("InferencePoolNotReady",
+				fmt.Sprintf("The inference pool %s/%s is not ready", curr.Namespace, curr.Name))
 		}
 		return nil
 	}
