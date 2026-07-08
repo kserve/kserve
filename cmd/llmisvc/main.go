@@ -151,9 +151,8 @@ func main() {
 	}
 
 	tlsOpts := []func(*tls.Config){
-		func(c *tls.Config) {
-			c.NextProtos = []string{"h2", "http/1.1"}
-		},
+		func(c *tls.Config) { c.MinVersion = tls.VersionTLS12 },
+		func(c *tls.Config) { c.NextProtos = []string{"h2", "http/1.1"} },
 	}
 	// Metrics endpoint is enabled in 'config/default/kustomization.yaml'. The Metrics options configure the server.
 	// More info:

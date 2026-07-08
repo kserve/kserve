@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/tls"
 	"encoding/json"
 	goerrors "errors"
 	"fmt"
@@ -513,6 +514,7 @@ func main() {
 	server := &http.Server{
 		Addr:         ":" + strconv.Itoa(constants.RouterPort),
 		Handler:      nil,                                                      // default server mux
+		TLSConfig:    &tls.Config{MinVersion: tls.VersionTLS12},
 		ReadTimeout:  time.Duration(*routerTimeouts.ServerRead) * time.Second,  // set the maximum duration for reading the entire request, including the body
 		WriteTimeout: time.Duration(*routerTimeouts.ServerWrite) * time.Second, // set the maximum duration before timing out writes of the response
 		IdleTimeout:  time.Duration(*routerTimeouts.ServerIdle) * time.Second,  // set the maximum amount of time to wait for the next request when keep-alives are enabled
