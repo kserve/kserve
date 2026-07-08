@@ -29,7 +29,7 @@ from vllm.tool_parsers import ToolParserManager
 from vllm.entrypoints.openai.models.protocol import BaseModelPath
 from vllm.entrypoints.openai.models.serving import OpenAIServingModels
 from vllm.entrypoints.openai.cli_args import validate_parsed_serve_args
-from vllm.entrypoints.chat_utils import load_chat_template
+from vllm.entrypoints.chat_utils import ChatTemplateConfig, load_chat_template
 from vllm.entrypoints.openai.engine.protocol import ErrorResponse as engineError
 from vllm.reasoning import ReasoningParserManager
 
@@ -129,6 +129,11 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
             supported_tasks = await self.engine_client.get_supported_tasks()
 
             resolved_chat_template = load_chat_template(self.args.chat_template)
+            chat_template_config = ChatTemplateConfig(
+                chat_template=resolved_chat_template,
+                chat_template_content_format=self.args.chat_template_content_format,
+                trust_request_chat_template=self.args.trust_request_chat_template,
+            )
 
             self.openai_serving_models = OpenAIServingModels(
                 engine_client=self.engine_client,
@@ -196,9 +201,7 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
                     self.engine_client,
                     self.openai_serving_models,
                     request_logger=self.request_logger,
-                    chat_template=resolved_chat_template,
-                    chat_template_content_format=self.args.chat_template_content_format,
-                    trust_request_chat_template=self.args.trust_request_chat_template,
+                    chat_template_config=chat_template_config,
                     log_error_stack=self.args.log_error_stack,
                 )
                 if "embed" in supported_tasks
@@ -209,7 +212,12 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
                 ServingScores(
                     self.engine_client,
                     self.openai_serving_models,
+                    supported_tasks=supported_tasks,
                     request_logger=self.request_logger,
+                    chat_template_config=chat_template_config,
+                    enable_flash_late_interaction=getattr(
+                        self.args, "enable_flash_late_interaction", True
+                    ),
                     log_error_stack=self.args.log_error_stack,
                 )
                 if ("embed" in supported_tasks or "classify" in supported_tasks)
