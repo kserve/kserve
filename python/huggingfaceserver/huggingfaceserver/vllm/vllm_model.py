@@ -19,7 +19,7 @@ from http import HTTPStatus
 import torch
 from fastapi import Request
 from vllm import AsyncEngineArgs
-from vllm.entrypoints.logger import RequestLogger
+from vllm.entrypoints.serve.utils.request_logger import RequestLogger
 from vllm.engine.protocol import EngineClient
 from vllm.entrypoints.openai.completion.serving import OpenAIServingCompletion
 from vllm.entrypoints.openai.chat_completion.serving import OpenAIServingChat
