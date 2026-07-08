@@ -66,6 +66,7 @@ var (
 const (
 	RouterHeadersPropagateEnvVar = "PROPAGATE_HEADERS"
 	InferenceGraphLabel          = "serving.kserve.io/inferencegraph"
+	LLMISvcSchedulerAuthCRBName  = "kserve-llmisvc-scheduler-auth-delegators"
 	RouterReadinessEndpoint      = "/readyz"
 	RouterPort                   = 8080
 	RouterTimeoutsServerRead     = 60

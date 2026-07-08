@@ -89,20 +89,93 @@ func (r *LLMISVCReconciler) reconcileScheduler(ctx context.Context, llmSvc *v1al
 	return nil
 }
 
-// reconcileSchedulerAuthDelegatorBinding manages RBAC for authentication delegation
-// This allows the scheduler to authenticate requests to `/metrics`
+// reconcileSchedulerAuthDelegatorBinding manages RBAC for authentication delegation.
+// Scheduler service accounts are added as subjects to a single shared ClusterRoleBinding
+// so the controller only needs permission to manage that named binding.
 func (r *LLMISVCReconciler) reconcileSchedulerAuthDelegatorBinding(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, sa *corev1.ServiceAccount) error {
-	authDelegatorBinding := r.expectedSchedulerAuthDelegatorBinding(llmSvc, sa)
-	// Clean up binding if scheduler is not configured or uses external pool
-	if utils.GetForceStopRuntime(llmSvc) || !llmSvc.DeletionTimestamp.IsZero() || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
-		return Delete(ctx, r, llmSvc, authDelegatorBinding)
+	shouldRemove := utils.GetForceStopRuntime(llmSvc) || !llmSvc.DeletionTimestamp.IsZero() || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef()
+	if shouldRemove {
+		return r.removeSchedulerAuthDelegatorSubject(ctx, sa)
 	}
 
-	if err := Reconcile(ctx, r, llmSvc, &rbacv1.ClusterRoleBinding{}, authDelegatorBinding, semanticClusterRoleBindingIsEqual); err != nil {
-		return fmt.Errorf("failed to reconcile scheduler clusterrolebinding %s: %w", authDelegatorBinding.GetName(), err)
-	}
+	return r.addSchedulerAuthDelegatorSubject(ctx, sa)
+}
 
-	return nil
+func schedulerAuthDelegatorSubject(sa *corev1.ServiceAccount) rbacv1.Subject {
+	return rbacv1.Subject{
+		Kind:      rbacv1.ServiceAccountKind,
+		Name:      sa.GetName(),
+		Namespace: sa.GetNamespace(),
+	}
+}
+
+func (r *LLMISVCReconciler) expectedSharedSchedulerAuthDelegatorBinding() *rbacv1.ClusterRoleBinding {
+	return &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: constants.LLMISvcSchedulerAuthCRBName,
+			Labels: map[string]string{
+				constants.KubernetesPartOfLabelKey: constants.LLMInferenceServicePartOfValue,
+				"app.kubernetes.io/component":      "llm-scheduler-auth",
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: rbacv1.GroupName,
+			Kind:     "ClusterRole",
+			Name:     "system:auth-delegator",
+		},
+	}
+}
+
+func (r *LLMISVCReconciler) addSchedulerAuthDelegatorSubject(ctx context.Context, sa *corev1.ServiceAccount) error {
+	subject := schedulerAuthDelegatorSubject(sa)
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		crb := &rbacv1.ClusterRoleBinding{}
+		err := r.Get(ctx, client.ObjectKey{Name: constants.LLMISvcSchedulerAuthCRBName}, crb)
+		if apierrors.IsNotFound(err) {
+			crb = r.expectedSharedSchedulerAuthDelegatorBinding()
+			crb.Subjects = []rbacv1.Subject{subject}
+			return r.Create(ctx, crb)
+		}
+		if err != nil {
+			return err
+		}
+
+		for _, existing := range crb.Subjects {
+			if existing.Kind == subject.Kind && existing.Name == subject.Name && existing.Namespace == subject.Namespace {
+				return nil
+			}
+		}
+
+		crb.Subjects = append(crb.Subjects, subject)
+		return r.Update(ctx, crb)
+	})
+}
+
+func (r *LLMISVCReconciler) removeSchedulerAuthDelegatorSubject(ctx context.Context, sa *corev1.ServiceAccount) error {
+	subject := schedulerAuthDelegatorSubject(sa)
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		crb := &rbacv1.ClusterRoleBinding{}
+		err := r.Get(ctx, client.ObjectKey{Name: constants.LLMISvcSchedulerAuthCRBName}, crb)
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+
+		filtered := slices.DeleteFunc(slices.Clone(crb.Subjects), func(s rbacv1.Subject) bool {
+			return s.Kind == subject.Kind && s.Name == subject.Name && s.Namespace == subject.Namespace
+		})
+		if len(filtered) == len(crb.Subjects) {
+			return nil
+		}
+		if len(filtered) == 0 {
+			return client.IgnoreNotFound(r.Delete(ctx, crb))
+		}
+
+		crb.Subjects = filtered
+		return r.Update(ctx, crb)
+	})
 }
 
 // reconcileSchedulerRole manages the RBAC role for scheduler permissions
@@ -679,26 +752,6 @@ func (r *LLMISVCReconciler) expectedSchedulerServiceAccount(ctx context.Context,
 	}
 
 	return sa, useExistingServiceAccount, nil
-}
-
-func (r *LLMISVCReconciler) expectedSchedulerAuthDelegatorBinding(llmSvc *v1alpha2.LLMInferenceService, sa *corev1.ServiceAccount) *rbacv1.ClusterRoleBinding {
-	crb := &rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   kmeta.ChildName(llmSvc.GetNamespace(), "-"+llmSvc.GetName()+"-epp-auth-rb"),
-			Labels: SchedulerLabels(llmSvc),
-		},
-		Subjects: []rbacv1.Subject{{
-			Kind:      "ServiceAccount",
-			Name:      sa.GetName(),
-			Namespace: sa.GetNamespace(),
-		}},
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "ClusterRole",
-			Name:     "system:auth-delegator",
-		},
-	}
-	return crb
 }
 
 func (r *LLMISVCReconciler) expectedSchedulerRole(llmSvc *v1alpha2.LLMInferenceService) *rbacv1.Role {
@@ -1558,13 +1611,6 @@ func semanticServiceAccountIsEqual(expected *corev1.ServiceAccount, current *cor
 
 func semanticRoleIsEqual(expected *rbacv1.Role, curr *rbacv1.Role) bool {
 	return equality.Semantic.DeepDerivative(expected.Rules, curr.Rules) &&
-		equality.Semantic.DeepDerivative(expected.Labels, curr.Labels) &&
-		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
-}
-
-func semanticClusterRoleBindingIsEqual(expected *rbacv1.ClusterRoleBinding, curr *rbacv1.ClusterRoleBinding) bool {
-	return equality.Semantic.DeepDerivative(expected.Subjects, curr.Subjects) &&
-		equality.Semantic.DeepDerivative(expected.RoleRef, curr.RoleRef) &&
 		equality.Semantic.DeepDerivative(expected.Labels, curr.Labels) &&
 		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
 }

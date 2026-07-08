@@ -1661,8 +1661,18 @@ rules:
   - watch
 - apiGroups:
   - rbac.authorization.k8s.io
+  resourceNames:
+  - kserve-llmisvc-scheduler-auth-delegators
   resources:
   - clusterrolebindings
+  verbs:
+  - create
+  - get
+  - patch
+  - update
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
   - rolebindings
   - roles
   verbs:
