@@ -70,7 +70,7 @@ build_one() {
   local build_dir="${PROJECT_ROOT}/${context_dir}"
 
   echo "Building ${name} image (${dockerfile} in ${context_dir}/ -> ${img_basename})"
-  docker buildx build -f "${dockerfile}" "${build_dir}" -t "${img_tag}" \
+  docker buildx build -f "${build_dir}/${dockerfile}" "${build_dir}" -t "${img_tag}" \
     -o "type=docker,dest=${output},compression-level=0"
   echo "Disk usage after building ${name}:"
   df -hT
