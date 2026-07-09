@@ -1449,11 +1449,6 @@ def _setup_test_case_service(
     if tc.response_assertion_factory is not None:
         tc.response_assertion = tc.response_assertion_factory(tc.model_name, namespace)
 
-    if tc.url_getter is not None and tc.extra_headers is None:
-        tc.extra_headers = {
-            "X-Gateway-Model-Name": f"publishers/{namespace}/models/{tc.model_name}",
-        }
-
     if tc.extra_headers is not None:
         tc.extra_headers = _substitute_namespace(
             tc.extra_headers, KSERVE_TEST_NAMESPACE, namespace
@@ -1515,7 +1510,7 @@ def test_case(request):
     # Model-routing tests get a per-test namespace to avoid cross-test
     # routing collisions on the shared gateway.
     created_namespace = False
-    if tc.url_getter is not None:
+    if getattr(tc.routing, "needs_own_namespace", False):
         ns = create_test_namespace(tc.service_name)
         tc.namespace = ns
         created_namespace = True

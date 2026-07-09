@@ -120,10 +120,18 @@ MODEL_ROUTING_ADDRESS_SUFFIX = "-model-routing"
 MODEL_ROUTING_HEADER = "X-Gateway-Model-Name"
 
 
+@dataclass
+class ResolvedRoute:
+    """Result of a routing strategy: base URL and any routing-specific headers."""
+
+    url: str
+    headers: Dict[str, str] = field(default_factory=dict)
+
+
 @log_execution
-def get_model_routing_url(
+def _get_model_routing_url(
     kserve_client: KServeClient, llm_isvc: V1alpha1LLMInferenceService
-):
+) -> str:
     """Get the model-routing base URL from status.addresses.
 
     Model-routing addresses are identified by their name ending with
@@ -187,6 +195,35 @@ def get_model_routing_url(
         ) from e
 
 
+def header_based_routing(
+    kserve_client: KServeClient,
+    llm_isvc: V1alpha1LLMInferenceService,
+    model_name: str,
+) -> ResolvedRoute:
+    """Route via X-Gateway-Model-Name header on the shared gateway address."""
+    namespace = llm_isvc.metadata.namespace
+    return ResolvedRoute(
+        url=_get_model_routing_url(kserve_client, llm_isvc),
+        headers={
+            MODEL_ROUTING_HEADER: f"publishers/{namespace}/models/{model_name}",
+        },
+    )
+
+
+header_based_routing.needs_own_namespace = True
+
+
+def path_based_routing(
+    kserve_client: KServeClient,
+    llm_isvc: V1alpha1LLMInferenceService,
+    model_name: str,
+) -> ResolvedRoute:
+    """Route via /{namespace}/{name}/... path prefix."""
+    return ResolvedRoute(
+        url=get_llm_service_url(kserve_client, llm_isvc),
+    )
+
+
 @dataclass
 class TestCase:
     """Test case configuration for LLM inference service tests."""
@@ -202,7 +239,7 @@ class TestCase:
     wait_timeout: int = 900
     response_timeout: int = 60
     extra_headers: Optional[Dict[str, str]] = None
-    url_getter: Optional[Callable] = None
+    routing: Optional[Callable[..., ResolvedRoute]] = None
     expected_gateway: Optional[Dict[str, Any]] = None
     before_test: List[Callable[[], Any]] = field(default_factory=list)
     after_test: List[Callable[[], Any]] = field(default_factory=list)
@@ -592,7 +629,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 prompt="KServe is a",
                 payload_formatter=completions_payload,
                 response_assertion_factory=lambda m, ns: assert_model_field_matches(m),
-                url_getter=get_model_routing_url,
+                routing=header_based_routing,
                 peers=[
                     TestCase(
                         base_refs=[
@@ -603,9 +640,10 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                         endpoint="/v1/completions",
                         prompt="KServe is a",
                         payload_formatter=completions_payload,
-                        response_assertion_factory=lambda m,
-                        ns: assert_model_field_matches(m),
-                        url_getter=get_model_routing_url,
+                        response_assertion_factory=lambda m, ns: (
+                            assert_model_field_matches(m)
+                        ),
+                        routing=header_based_routing,
                     ),
                 ],
             ),
@@ -616,7 +654,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 pytest.mark.model_routing,
             ],
         ),
-        # Model-based routing via X-Gateway-Model-Name header -- /v1/chat/completions
+        # Model-based routing via X-Gateway-Model-Name header — /v1/chat/completions
         pytest.param(
             TestCase(
                 base_refs=[
@@ -627,7 +665,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 prompt="What is KServe?",
                 payload_formatter=chat_completions_payload,
                 response_assertion_factory=lambda m, ns: assert_model_field_matches(m),
-                url_getter=get_model_routing_url,
+                routing=header_based_routing,
                 peers=[
                     TestCase(
                         base_refs=[
@@ -638,9 +676,10 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                         endpoint="/v1/chat/completions",
                         prompt="What is KServe?",
                         payload_formatter=chat_completions_payload,
-                        response_assertion_factory=lambda m,
-                        ns: assert_model_field_matches(m),
-                        url_getter=get_model_routing_url,
+                        response_assertion_factory=lambda m, ns: (
+                            assert_model_field_matches(m)
+                        ),
+                        routing=header_based_routing,
                     ),
                 ],
             ),
@@ -651,7 +690,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 pytest.mark.model_routing,
             ],
         ),
-        # Model-based routing via X-Gateway-Model-Name header -- LoRA adapter
+        # Model-based routing via X-Gateway-Model-Name header — LoRA adapter
         pytest.param(
             TestCase(
                 base_refs=[
@@ -664,10 +703,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 model_name=f"publishers/{KSERVE_TEST_NAMESPACE}/models/lora-adapter-1",
                 payload_formatter=completions_payload,
                 response_assertion_factory=lambda m, ns: assert_model_field_matches(m),
-                url_getter=get_model_routing_url,
-                extra_headers={
-                    MODEL_ROUTING_HEADER: f"publishers/{KSERVE_TEST_NAMESPACE}/models/lora-adapter-1",
-                },
+                routing=header_based_routing,
             ),
             marks=[
                 pytest.mark.cluster_cpu,
@@ -676,7 +712,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 pytest.mark.lora,
             ],
         ),
-        # Model-based routing via X-Gateway-Model-Name header -- /v1/models (base + LoRA)
+        # Model-based routing via X-Gateway-Model-Name header — /v1/models (base + LoRA)
         pytest.param(
             TestCase(
                 base_refs=[
@@ -691,7 +727,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                     "lora-adapter-1",
                     f"publishers/{ns}/models/lora-adapter-1",
                 ),
-                url_getter=get_model_routing_url,
+                routing=header_based_routing,
             ),
             marks=[
                 pytest.mark.cluster_cpu,
@@ -1032,16 +1068,21 @@ def wait_for_model_response(
 ) -> str:
     def get_successful_response():
         try:
-            if test_case.url_getter:
-                service_url = test_case.url_getter(kserve_client, test_case.llm_service)
+            if test_case.routing:
+                route = test_case.routing(
+                    kserve_client, test_case.llm_service, test_case.model_name
+                )
             else:
-                service_url = get_llm_service_url(kserve_client, test_case.llm_service)
+                route = ResolvedRoute(
+                    url=get_llm_service_url(kserve_client, test_case.llm_service)
+                )
         except Exception as e:
             raise AssertionError(f"❌ Failed to get service URL: {e}") from e
 
-        model_url = service_url + test_case.endpoint
+        model_url = route.url + test_case.endpoint
 
         headers = {"Content-Type": "application/json"}
+        headers.update(route.headers)
         if extra_headers:
             headers.update(extra_headers)
 
