@@ -99,8 +99,10 @@ py-lint: $(RUFF)
 	$(RUFF) check --config ruff.toml
 
 # Verify e2e test files parse and collect without errors (catches import errors, syntax errors, fixture issues).
-e2e-collect:
-	python3 -m pytest --collect-only test/e2e/ -q
+e2e-collect: $(PYTEST)
+	$(UV) pip install --python $(PYTHON_BIN)/python -e ./python/kserve -q
+	$(UV) pip install --python $(PYTHON_BIN)/python --group test --directory ./python/kserve -q
+	$(PYTEST) --collect-only test/e2e/ -q
 
 pin-actions: pinact
 	GITHUB_TOKEN=$$(gh auth token 2>/dev/null) $(PINACT) run .github/workflows/*.yml .github/workflows/*.yaml
