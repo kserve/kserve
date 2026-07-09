@@ -1,24 +1,26 @@
-ARG CUDA_VERSION=13.3.1
+ARG CUDA_VERSION=13.3.0
 ARG VENV_PATH=prod_venv
 ARG WORKSPACE_DIR=/kserve-workspace
 
 #################### CUDA RUNTIME (Ubuntu 26.04) ####################
+# Replicates nvidia/cuda:13.3.0-base-ubuntu26.04 and
+# nvidia/cuda:13.3.0-runtime-ubuntu26.04, plus libnccl2, ninja-build and cuda-compiler for vLLM.
 FROM ubuntu:26.04 AS cuda-runtime
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV NVARCH=x86_64
 ENV NV_CUDA_CUDART_VERSION=13.3.29-1
-ENV CUDA_VERSION=13.3.1
-ENV NV_CUDA_LIB_VERSION=13.3.1-1
+ENV CUDA_VERSION=13.3.0
+ENV NV_CUDA_LIB_VERSION=13.3.0-1
 ENV NV_NVTX_VERSION=13.3.29-1
-ENV NV_LIBNPP_VERSION=13.1.2.81-1
-ENV NV_LIBCUSPARSE_VERSION=12.8.2.51-1
-ENV NV_LIBCUBLAS_VERSION=13.6.0.2-1
+ENV NV_LIBNPP_VERSION=13.1.2.48-1
+ENV NV_LIBCUSPARSE_VERSION=12.8.1.7-1
+ENV NV_LIBCUBLAS_VERSION=13.5.1.27-1
 
-ENV NVIDIA_REQUIRE_CUDA="cuda>=13.3 brand=tesla,driver>=535,driver<536 brand=tesla,driver>=570,driver<571 brand=tesla,driver>=580,driver<581 brand=tesla,driver>=590,driver<591 brand=nvidia,driver>=535,driver<536 brand=nvidia,driver>=570,driver<571 brand=nvidia,driver>=580,driver<581 brand=nvidia,driver>=590,driver<591 brand=nvidiartx,driver>=535,driver<536 brand=nvidiartx,driver>=570,driver<571 brand=nvidiartx,driver>=580,driver<581 brand=nvidiartx,driver>=590,driver<591"
+ENV NVIDIA_REQUIRE_CUDA="cuda>=13.3 brand=unknown,driver>=535,driver<536 brand=grid,driver>=535,driver<536 brand=tesla,driver>=535,driver<536 brand=nvidia,driver>=535,driver<536 brand=quadro,driver>=535,driver<536 brand=quadrortx,driver>=535,driver<536 brand=nvidiartx,driver>=535,driver<536 brand=vapps,driver>=535,driver<536 brand=vpc,driver>=535,driver<536 brand=vcs,driver>=535,driver<536 brand=vws,driver>=535,driver<536 brand=cloudgaming,driver>=535,driver<536 brand=unknown,driver>=550,driver<551 brand=grid,driver>=550,driver<551 brand=tesla,driver>=550,driver<551 brand=nvidia,driver>=550,driver<551 brand=quadro,driver>=550,driver<551 brand=quadrortx,driver>=550,driver<551 brand=nvidiartx,driver>=550,driver<551 brand=vapps,driver>=550,driver<551 brand=vpc,driver>=550,driver<551 brand=vcs,driver>=550,driver<551 brand=vws,driver>=550,driver<551 brand=cloudgaming,driver>=550,driver<551 brand=unknown,driver>=560,driver<561 brand=grid,driver>=560,driver<561 brand=tesla,driver>=560,driver<561 brand=nvidia,driver>=560,driver<561 brand=quadro,driver>=560,driver<561 brand=quadrortx,driver>=560,driver<561 brand=nvidiartx,driver>=560,driver<561 brand=vapps,driver>=560,driver<561 brand=vpc,driver>=560,driver<561 brand=vcs,driver>=560,driver<561 brand=vws,driver>=560,driver<561 brand=cloudgaming,driver>=560,driver<561 brand=unknown,driver>=565,driver<566 brand=grid,driver>=565,driver<566 brand=tesla,driver>=565,driver<566 brand=nvidia,driver>=565,driver<566 brand=quadro,driver>=565,driver<566 brand=quadrortx,driver>=565,driver<566 brand=nvidiartx,driver>=565,driver<566 brand=vapps,driver>=565,driver<566 brand=vpc,driver>=565,driver<566 brand=vcs,driver>=565,driver<566 brand=vws,driver>=565,driver<566 brand=cloudgaming,driver>=565,driver<566 brand=unknown,driver>=570,driver<571 brand=grid,driver>=570,driver<571 brand=tesla,driver>=570,driver<571 brand=nvidia,driver>=570,driver<571 brand=quadro,driver>=570,driver<571 brand=quadrortx,driver>=570,driver<571 brand=nvidiartx,driver>=570,driver<571 brand=vapps,driver>=570,driver<571 brand=vpc,driver>=570,driver<571 brand=vcs,driver>=570,driver<571 brand=vws,driver>=570,driver<571 brand=cloudgaming,driver>=570,driver<571 brand=unknown,driver>=580,driver<581 brand=grid,driver>=580,driver<581 brand=tesla,driver>=580,driver<581 brand=nvidia,driver>=580,driver<581 brand=quadro,driver>=580,driver<581 brand=quadrortx,driver>=580,driver<581 brand=nvidiartx,driver>=580,driver<581 brand=vapps,driver>=580,driver<581 brand=vpc,driver>=580,driver<581 brand=vcs,driver>=580,driver<581 brand=vws,driver>=580,driver<581 brand=cloudgaming,driver>=580,driver<581"
 
 # Add NVIDIA CUDA apt repo (ubuntu2604)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     gnupg2 curl ca-certificates && \
     curl -fsSLO https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2604/${NVARCH}/cuda-keyring_1.1-1_all.deb && \
     dpkg -i cuda-keyring_1.1-1_all.deb && \
@@ -40,6 +42,12 @@ RUN apt-get update && \
     fi && \
     rm -rf /var/lib/apt/lists/*
 
+RUN apt-get update && \
+    if apt-cache policy cuda-compat-orin-13-3 2>/dev/null | grep -q "Candidate:"; then \
+        apt-get install -y --no-install-recommends cuda-compat-orin-13-3; \
+    fi && \
+    rm -rf /var/lib/apt/lists/*
+
 # CUDA runtime libraries
 RUN apt-get update && apt-get install -y --no-install-recommends \
     cuda-libraries-13-3=${NV_CUDA_LIB_VERSION} \
@@ -48,6 +56,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libcusparse-13-3=${NV_LIBCUSPARSE_VERSION} \
     libcublas-13-3=${NV_LIBCUBLAS_VERSION} \
     libnccl2 \
+    cuda-compiler-13-3 \
+    ninja-build \
     && rm -rf /var/lib/apt/lists/*
 
 RUN apt-mark hold libcublas-13-3 libnccl2
@@ -62,17 +72,18 @@ ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 #################### CUDA RUNTIME (Ubuntu 26.04) ####################
 
 #################### CUDA DEVEL (Ubuntu 26.04) ####################
+# Replicates nvidia/cuda:13.3.0-devel-ubuntu26.04, plus cuda-compiler and
+# libnccl-dev for vLLM builds.
 FROM cuda-runtime AS cuda-devel
 
 ENV NV_CUDA_CUDART_DEV_VERSION=13.3.29-1
 ENV NV_NVML_DEV_VERSION=13.3.29-1
-ENV NV_LIBCUSPARSE_DEV_VERSION=12.8.2.51-1
-ENV NV_LIBNPP_DEV_VERSION=13.1.2.81-1
-ENV NV_LIBCUBLAS_DEV_VERSION=13.6.0.2-1
-ENV NV_CUDA_NSIGHT_COMPUTE_VERSION=13.3.1-1
+ENV NV_LIBCUSPARSE_DEV_VERSION=12.8.1.7-1
+ENV NV_LIBNPP_DEV_VERSION=13.1.2.48-1
+ENV NV_LIBCUBLAS_DEV_VERSION=13.5.1.27-1
+ENV NV_CUDA_NSIGHT_COMPUTE_VERSION=13.3.0-1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    cuda-compiler-13-3=${NV_CUDA_LIB_VERSION} \
     cuda-cudart-dev-13-3=${NV_CUDA_CUDART_DEV_VERSION} \
     cuda-command-line-tools-13-3=${NV_CUDA_LIB_VERSION} \
     cuda-minimal-build-13-3=${NV_CUDA_LIB_VERSION} \
@@ -85,6 +96,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libnccl-dev \
     && rm -rf /var/lib/apt/lists/*
 
+RUN NSYS_PATH=$(find /opt/nvidia/nsight-compute -type f -name "nsys" 2>/dev/null | head -n 1); \
+    if [ -n "$NSYS_PATH" ] && [ ! -f /usr/local/bin/nsys ]; then \
+        ln -s "$NSYS_PATH" /usr/local/bin/nsys; \
+    fi
+
 RUN apt-mark hold libcublas-dev-13-3 libnccl-dev
 
 ENV LIBRARY_PATH=/usr/local/cuda/lib64/stubs
@@ -95,7 +111,7 @@ ENV LIBRARY_PATH=/usr/local/cuda/lib64/stubs
 FROM cuda-devel AS base
 
 ARG WORKSPACE_DIR
-ARG CUDA_VERSION=13.3.1
+ARG CUDA_VERSION=13.3.0
 
 RUN apt-get update -y \
     && apt-get install -y ccache software-properties-common git curl sudo gcc python3 python3-venv python3-pip python-is-python3 \
@@ -181,7 +197,7 @@ RUN mkdir -p third_party/library && python3 pip-licenses.py
 FROM cuda-runtime AS prod
 
 ARG WORKSPACE_DIR
-ARG CUDA_VERSION=13.3.1
+ARG CUDA_VERSION=13.3.0
 ENV DEBIAN_FRONTEND=noninteractive
 
 WORKDIR ${WORKSPACE_DIR}
