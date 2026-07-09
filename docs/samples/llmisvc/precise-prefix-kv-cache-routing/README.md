@@ -53,11 +53,12 @@ This example demonstrates precise prefix cache routing with cache block tracking
 The example uses a custom scheduler configuration with the following plugins:
 
 - **single-profile-handler**: Single scheduling profile for all requests
-- **precise-prefix-cache-scorer**:
-  - Real-time tracking of KV cache blocks via ZMQ
+- **token-producer**: Tokenizes prompts via the standalone tokenizer Service (vLLM render over HTTP)
+- **precise-prefix-cache-producer**: Indexes real KV cache blocks via ZMQ events and produces prefix match info
   - Block size: 64 tokens (must match vLLM `--block-size`)
   - Hash seed: 42 (must match `PYTHONHASHSEED`)
   - Metrics enabled with 60-second logging interval
+- **prefix-cache-scorer**: Scores endpoints based on prefix match info from the producer (weight: 3)
 - **kv-cache-utilization-scorer**: Considers KV cache memory pressure per endpoint
 - **queue-scorer**: Balances load across endpoints based on queue depth
 - **active-request-scorer**: Prefers idle pods (binary mode: idle pods score 1.0, busy pods score 0.0) to distribute prefix caches across endpoints during cold starts

@@ -454,9 +454,13 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 					if !apierrors.IsNotFound(err) {
 						return d, fmt.Errorf("failed to fetch existing scheduler service account %s/%s: %w", llmSvc.Namespace, llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName, err)
 					}
+					// The service account may not exist yet (first reconciliation, cache lag)
+					// or may have already been deleted (stop flow). Let attachModelArtifacts
+					// handle credential injection with the default service account fallback.
 					existingServiceAccount = nil
 				}
 			} else {
+				// Use the generated scheduler SA which has credentials propagated from the main workload SA.
 				sa, _, saErr := r.expectedSchedulerServiceAccount(ctx, llmSvc)
 				if saErr != nil {
 					return d, fmt.Errorf("failed to get expected scheduler service account: %w", saErr)
@@ -488,8 +492,10 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 			}
 		}
 
-		// Version-gated migrations: each migration is gated to the minimum EPP
-		// version that recognizes the new plugin names / config shapes.
+		// Version-gated migrations (>= v0.7.0, >= v0.9.0, etc.): each migration
+		// is gated to the minimum EPP version that recognizes the new plugin
+		// names / config shapes. The v0.7 binary deprecates old names but still
+		// accepts them; v0.9 introduces the 3-plugin precise-prefix pipeline.
 		if err := schedulerTransform(ctx, d, llmSvc); err != nil {
 			return d, fmt.Errorf("failed to apply scheduler migrations: %w", err)
 		}
@@ -588,6 +594,17 @@ plugins:
     vllm:
       url: %s
 - type: precise-prefix-cache-producer
+  parameters:
+    tokenProcessorConfig:
+      blockSize: 64
+    kvEventsConfig:
+      topicFilter: "kv@"
+      discoverPods: true
+      podDiscoveryConfig:
+        socketPort: 5557
+    indexerConfig:
+      kvBlockIndexConfig:
+        enableMetrics: true
 - type: prefix-cache-scorer
   parameters:
     prefixMatchInfoProducerName: precise-prefix-cache-producer
@@ -1510,10 +1527,50 @@ func withRemoveUnnecessaryTokenizer(d *appsv1.Deployment) mutateSchedulerConfigF
 	}
 }
 
+// migrateProducerParams extracts parameters from the old monolithic
+// precise-prefix-cache-scorer plugin and returns them in a form suitable for
+// the new precise-prefix-cache-producer. tokenizersPoolConfig is removed from
+// indexerConfig because tokenization is now served by the standalone
+// token-producer plugin over HTTP.
+func migrateProducerParams(oldPlugin map[string]interface{}) map[string]interface{} {
+	params, ok := oldPlugin["parameters"].(map[string]interface{})
+	if !ok || len(params) == 0 {
+		return nil
+	}
+
+	migrated := make(map[string]interface{}, len(params))
+
+	for k, v := range params {
+		if k == "indexerConfig" {
+			if ic, ok := v.(map[string]interface{}); ok {
+				cleaned := make(map[string]interface{}, len(ic))
+				for ik, iv := range ic {
+					if ik == "tokenizersPoolConfig" {
+						continue
+					}
+					cleaned[ik] = iv
+				}
+				if len(cleaned) > 0 {
+					migrated[k] = cleaned
+				}
+			}
+			continue
+		}
+		migrated[k] = v
+	}
+	if len(migrated) == 0 {
+		return nil
+	}
+	return migrated
+}
+
 // withDecomposePluginPipeline replaces the monolithic precise-prefix-cache-scorer
 // plugin with the new 3-plugin pipeline: token-producer, precise-prefix-cache-producer,
 // and prefix-cache-scorer. The token-producer is wired to the standalone tokenizer
 // Service URL, and prefix-cache-scorer gets prefixMatchInfoProducerName set.
+// User-specified parameters (tokenProcessorConfig, kvEventsConfig,
+// indexerConfig.kvBlockIndexConfig) are preserved on the producer plugin;
+// only tokenizersPoolConfig is dropped (handled by token-producer over HTTP).
 func withDecomposePluginPipeline(tokenizerURL string) mutateSchedulerConfigFunc {
 	return func(ctx context.Context, u *unstructured.Unstructured) error {
 		val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
@@ -1540,6 +1597,21 @@ func withDecomposePluginPipeline(tokenizerURL string) mutateSchedulerConfigFunc 
 		log.FromContext(ctx).Info("Decomposing precise-prefix-cache-scorer into 3-plugin pipeline",
 			"tokenizerURL", tokenizerURL)
 
+		// Extract the old plugin's parameters so they can be migrated to
+		// the new precise-prefix-cache-producer. Parameters like
+		// tokenProcessorConfig, kvEventsConfig, and indexerConfig belong
+		// on the producer; only tokenizersPoolConfig is removed because
+		// tokenization is now handled by the standalone token-producer.
+		oldPlugin := plugins[idx].(map[string]interface{})
+		producerParams := migrateProducerParams(oldPlugin)
+
+		producerPlugin := map[string]interface{}{
+			"type": precisePrefixCacheProducerPlugin,
+		}
+		if len(producerParams) > 0 {
+			producerPlugin["parameters"] = producerParams
+		}
+
 		newPlugins := []interface{}{
 			map[string]interface{}{
 				"type": tokenProducerPlugin,
@@ -1549,9 +1621,7 @@ func withDecomposePluginPipeline(tokenizerURL string) mutateSchedulerConfigFunc 
 					},
 				},
 			},
-			map[string]interface{}{
-				"type": precisePrefixCacheProducerPlugin,
-			},
+			producerPlugin,
 			map[string]interface{}{
 				"type": prefixCacheScorerPlugin,
 				"parameters": map[string]interface{}{

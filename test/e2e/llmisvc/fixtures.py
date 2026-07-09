@@ -755,7 +755,7 @@ LLMINFERENCESERVICE_CONFIGS = {
     },
     # Clean-path: explicit tokenizer:{} with 3-plugin pipeline.
     # The controller generates token-producer URL from the standalone tokenizer
-    # Service when tokenizer:{} is set. No legacy precise-prefix-cache-scorer.
+    # Service when tokenizer:{} is set.
     "scheduler-with-tokenizer-kvcache": {
         "router": {
             "scheduler": {
@@ -767,7 +767,26 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "plugins": [
                             {"type": "single-profile-handler"},
                             {"type": "token-producer"},
-                            {"type": "precise-prefix-cache-producer"},
+                            {
+                                "type": "precise-prefix-cache-producer",
+                                "parameters": {
+                                    "tokenProcessorConfig": {
+                                        "blockSize": 64,
+                                    },
+                                    "kvEventsConfig": {
+                                        "topicFilter": "kv@",
+                                        "discoverPods": True,
+                                        "podDiscoveryConfig": {
+                                            "socketPort": 5557,
+                                        },
+                                    },
+                                    "indexerConfig": {
+                                        "kvBlockIndexConfig": {
+                                            "enableMetrics": True,
+                                        },
+                                    },
+                                },
+                            },
                             {
                                 "type": "prefix-cache-scorer",
                                 "parameters": {

@@ -1047,8 +1047,8 @@ schedulingProfiles:
 		})
 	})
 
-	Context("UDS tokenizer config injection", func() {
-		It("should inject tokenizersPoolConfig when precise-prefix-cache-scorer has indexerConfig", func(ctx SpecContext) {
+	Context("Standalone tokenizer plugin decomposition", func() {
+		It("should decompose precise-prefix-cache-scorer into 3-plugin pipeline with tokenizer URL", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-uds-tokenizer-inject"
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
@@ -1091,7 +1091,7 @@ schedulingProfiles:
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			// then - verify the scheduler deployment has injected tokenizersPoolConfig
+			// then - verify the scheduler config has the decomposed 3-plugin pipeline
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				if err := envTest.Get(ctx, types.NamespacedName{
@@ -1103,16 +1103,16 @@ schedulingProfiles:
 
 				configText, found := getSchedulerConfigText(expectedDeployment)
 				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
-				g.Expect(configText).To(ContainSubstring("modelName: base"))
-				g.Expect(configText).To(ContainSubstring("socketFile: /tmp/tokenizer/tokenizer-uds.socket"))
-				// Verify tokenProcessorConfig was migrated from indexerConfig to top-level parameters
-				g.Expect(configText).To(ContainSubstring("tokenProcessorConfig"))
-				g.Expect(configText).To(ContainSubstring("blockSize: 16"))
+				g.Expect(configText).To(ContainSubstring("token-producer"))
+				g.Expect(configText).To(ContainSubstring("precise-prefix-cache-producer"))
+				g.Expect(configText).To(ContainSubstring("prefix-cache-scorer"))
+				g.Expect(configText).To(ContainSubstring(kmeta.ChildName(svcName, "-tokenizer")))
+				g.Expect(configText).NotTo(ContainSubstring("precise-prefix-cache-scorer"))
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})
 
-		It("should override existing tokenizersPoolConfig values", func(ctx SpecContext) {
+		It("should strip legacy UDS tokenizer fields after decomposition", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-uds-tokenizer-override"
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
@@ -1157,7 +1157,7 @@ schedulingProfiles:
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			// then - verify the values are overridden with the correct ones
+			// then - legacy UDS fields should be gone, replaced by standalone tokenizer
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				if err := envTest.Get(ctx, types.NamespacedName{
@@ -1169,13 +1169,12 @@ schedulingProfiles:
 
 				configText, found := getSchedulerConfigText(expectedDeployment)
 				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
-				g.Expect(configText).To(ContainSubstring("modelName: base"))
-				g.Expect(configText).To(ContainSubstring("socketFile: /tmp/tokenizer/tokenizer-uds.socket"))
+				g.Expect(configText).To(ContainSubstring("token-producer"))
+				g.Expect(configText).To(ContainSubstring(kmeta.ChildName(svcName, "-tokenizer")))
 				g.Expect(configText).NotTo(ContainSubstring("wrong-model-name"))
 				g.Expect(configText).NotTo(ContainSubstring("/wrong/path"))
-				// Verify tokenProcessorConfig was migrated from indexerConfig to top-level parameters
-				g.Expect(configText).To(ContainSubstring("tokenProcessorConfig"))
-				g.Expect(configText).To(ContainSubstring("blockSize: 16"))
+				g.Expect(configText).NotTo(ContainSubstring("socketFile"))
+				g.Expect(configText).NotTo(ContainSubstring("tokenizersPoolConfig"))
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})
@@ -1238,7 +1237,7 @@ schedulingProfiles:
 	})
 
 	Context("tokenProcessorConfig migration from indexerConfig to top-level parameters", func() {
-		It("should migrate tokenProcessorConfig from indexerConfig to top-level plugin parameters", func(ctx SpecContext) {
+		It("should decompose precise-prefix-cache-scorer and preserve tokenProcessorConfig", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-tpc-migrate"
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
@@ -1280,7 +1279,7 @@ schedulingProfiles:
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			// then - verify tokenProcessorConfig was migrated to top-level parameters
+			// then - precise-prefix-cache-scorer is decomposed into 3-plugin pipeline
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				if err := envTest.Get(ctx, types.NamespacedName{
@@ -1292,17 +1291,16 @@ schedulingProfiles:
 
 				configText, found := getSchedulerConfigText(expectedDeployment)
 				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
-				// tokenProcessorConfig should be at top-level parameters (sibling of indexerConfig)
-				g.Expect(configText).To(ContainSubstring("blockSize: 64"))
-				g.Expect(configText).To(ContainSubstring("hashSeed: \"42\""))
-				// indexerConfig should still have kvBlockIndexConfig but not tokenProcessorConfig
-				g.Expect(configText).To(ContainSubstring("kvBlockIndexConfig"))
-				g.Expect(configText).To(ContainSubstring("enableMetrics: true"))
+				g.Expect(configText).To(ContainSubstring("token-producer"))
+				g.Expect(configText).To(ContainSubstring("precise-prefix-cache-producer"))
+				g.Expect(configText).To(ContainSubstring("prefix-cache-scorer"))
+				g.Expect(configText).NotTo(ContainSubstring("precise-prefix-cache-scorer"))
+				g.Expect(configText).To(ContainSubstring(kmeta.ChildName(svcName, "-tokenizer")))
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})
 
-		It("should not overwrite top-level tokenProcessorConfig if already present", func(ctx SpecContext) {
+		It("should decompose precise-prefix-cache-scorer even with top-level tokenProcessorConfig", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-tpc-no-overwrite"
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
@@ -1345,7 +1343,7 @@ schedulingProfiles:
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			// then - verify top-level tokenProcessorConfig is preserved, not overwritten
+			// then - plugin decomposition happens regardless of tokenProcessorConfig placement
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				if err := envTest.Get(ctx, types.NamespacedName{
@@ -1357,9 +1355,10 @@ schedulingProfiles:
 
 				configText, found := getSchedulerConfigText(expectedDeployment)
 				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
-				// Top-level values should be preserved
-				g.Expect(configText).To(ContainSubstring("blockSize: 128"))
-				g.Expect(configText).To(ContainSubstring("hashSeed: \"99\""))
+				g.Expect(configText).To(ContainSubstring("token-producer"))
+				g.Expect(configText).To(ContainSubstring("precise-prefix-cache-producer"))
+				g.Expect(configText).NotTo(ContainSubstring("precise-prefix-cache-scorer"))
+				g.Expect(configText).To(ContainSubstring(kmeta.ChildName(svcName, "-tokenizer")))
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})

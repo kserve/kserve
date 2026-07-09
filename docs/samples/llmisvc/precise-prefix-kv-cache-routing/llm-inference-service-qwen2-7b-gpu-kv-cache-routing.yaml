@@ -20,6 +20,17 @@ spec:
             - type: single-profile-handler
             - type: token-producer
             - type: precise-prefix-cache-producer
+              parameters:
+                tokenProcessorConfig:
+                  blockSize: 64          # Must match vLLM --block-size
+                kvEventsConfig:
+                  topicFilter: "kv@"
+                  discoverPods: true
+                  podDiscoveryConfig:
+                    socketPort: 5557
+                indexerConfig:
+                  kvBlockIndexConfig:
+                    enableMetrics: true
             - type: prefix-cache-scorer
               parameters:
                 prefixMatchInfoProducerName: precise-prefix-cache-producer

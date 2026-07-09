@@ -5245,8 +5245,7 @@ spec:
               capabilities:
                 drop:
                 - ALL
-              readOnlyRootFilesystem: true
-              runAsNonRoot: true
+              readOnlyRootFilesystem: false
               seccompProfile:
                 type: RuntimeDefault
             terminationMessagePath: /dev/termination-log

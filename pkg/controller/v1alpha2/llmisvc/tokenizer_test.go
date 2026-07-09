@@ -176,7 +176,15 @@ func TestExpectedTokenizerService(t *testing.T) {
 }
 
 func TestDecomposePluginPipeline(t *testing.T) {
-	oldConfigYAML := `apiVersion: inference.networking.x-k8s.io/v1alpha1
+	tests := []struct {
+		name           string
+		configYAML     string
+		tokenizerURL   string
+		validateConfig func(g Gomega, configText string)
+	}{
+		{
+			name: "decomposes and strips tokenizersPoolConfig-only indexerConfig",
+			configYAML: `apiVersion: inference.networking.x-k8s.io/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: queue-scorer
@@ -196,15 +204,7 @@ schedulingProfiles:
   - pluginRef: queue-scorer
     weight: 2
   - pluginRef: max-score-picker
-`
-
-	tests := []struct {
-		name           string
-		tokenizerURL   string
-		validateConfig func(g Gomega, configText string)
-	}{
-		{
-			name:         "decomposes precise-prefix-cache-scorer into 3 plugins",
+`,
 			tokenizerURL: "http://my-llm-tokenizer.default.svc.cluster.local:8000",
 			validateConfig: func(g Gomega, configText string) {
 				g.Expect(configText).NotTo(ContainSubstring(precisePrefixCacheScorerPlugin))
@@ -213,6 +213,11 @@ schedulingProfiles:
 				g.Expect(configText).To(ContainSubstring(prefixCacheScorerPlugin))
 				g.Expect(configText).To(ContainSubstring("http://my-llm-tokenizer.default.svc.cluster.local:8000"))
 				g.Expect(configText).To(ContainSubstring("prefixMatchInfoProducerName"))
+
+				// tokenizersPoolConfig should be gone, and since it was the only
+				// entry in indexerConfig the producer should have no parameters.
+				g.Expect(configText).NotTo(ContainSubstring("tokenizersPoolConfig"))
+				g.Expect(configText).NotTo(ContainSubstring("socketFile"))
 
 				u := unstructured.Unstructured{}
 				g.Expect(yaml.Unmarshal([]byte(configText), &u)).To(Succeed())
@@ -246,6 +251,79 @@ schedulingProfiles:
 				g.Expect(refNames).NotTo(ContainElement(precisePrefixCacheScorerPlugin))
 			},
 		},
+		{
+			name: "preserves tokenProcessorConfig, kvEventsConfig, and kvBlockIndexConfig on producer",
+			configYAML: `apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+- type: precise-prefix-cache-scorer
+  parameters:
+    tokenProcessorConfig:
+      blockSize: 64
+      hashSeed: "42"
+    kvEventsConfig:
+      topicFilter: "kv@"
+      concurrency: 8
+      discoverPods: true
+      podDiscoveryConfig:
+        socketPort: 5556
+    indexerConfig:
+      tokenizersPoolConfig:
+        modelName: base
+        uds:
+          socketFile: /tmp/tokenizer/tokenizer-uds.socket
+      kvBlockIndexConfig:
+        enableMetrics: true
+        metricsLoggingInterval: 60000000000
+- type: max-score-picker
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: precise-prefix-cache-scorer
+    weight: 3
+  - pluginRef: max-score-picker
+`,
+			tokenizerURL: "http://my-llm-tokenizer.default.svc.cluster.local:8000",
+			validateConfig: func(g Gomega, configText string) {
+				g.Expect(configText).NotTo(ContainSubstring(precisePrefixCacheScorerPlugin))
+				g.Expect(configText).To(ContainSubstring(tokenProducerPlugin))
+				g.Expect(configText).To(ContainSubstring(precisePrefixCacheProducerPlugin))
+
+				// tokenizersPoolConfig must be stripped
+				g.Expect(configText).NotTo(ContainSubstring("tokenizersPoolConfig"))
+				g.Expect(configText).NotTo(ContainSubstring("socketFile"))
+
+				// All other parameters must be preserved on the producer.
+				// YAML marshaling may or may not quote simple strings, so
+				// match the unquoted form.
+				g.Expect(configText).To(ContainSubstring("blockSize: 64"))
+				g.Expect(configText).To(ContainSubstring("hashSeed:"))
+				g.Expect(configText).To(ContainSubstring("42"))
+				g.Expect(configText).To(ContainSubstring("topicFilter:"))
+				g.Expect(configText).To(ContainSubstring("kv@"))
+				g.Expect(configText).To(ContainSubstring("concurrency: 8"))
+				g.Expect(configText).To(ContainSubstring("discoverPods: true"))
+				g.Expect(configText).To(ContainSubstring("socketPort: 5556"))
+				g.Expect(configText).To(ContainSubstring("enableMetrics: true"))
+				g.Expect(configText).To(ContainSubstring("metricsLoggingInterval: 60000000000"))
+
+				u := unstructured.Unstructured{}
+				g.Expect(yaml.Unmarshal([]byte(configText), &u)).To(Succeed())
+				val, _, _ := unstructured.NestedFieldNoCopy(u.Object, "plugins")
+				plugins := val.([]interface{})
+				producerPlugin := plugins[2].(map[string]interface{})
+				g.Expect(producerPlugin["type"]).To(Equal(precisePrefixCacheProducerPlugin))
+				params := producerPlugin["parameters"].(map[string]interface{})
+				g.Expect(params).To(HaveKey("tokenProcessorConfig"))
+				g.Expect(params).To(HaveKey("kvEventsConfig"))
+				g.Expect(params).To(HaveKey("indexerConfig"))
+
+				indexerConfig := params["indexerConfig"].(map[string]interface{})
+				g.Expect(indexerConfig).To(HaveKey("kvBlockIndexConfig"))
+				g.Expect(indexerConfig).NotTo(HaveKey("tokenizersPoolConfig"))
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -257,7 +335,7 @@ schedulingProfiles:
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
 							Containers: []corev1.Container{
-								{Name: "main", Args: []string{"--config-text", oldConfigYAML}},
+								{Name: "main", Args: []string{"--config-text", tt.configYAML}},
 							},
 						},
 					},
@@ -310,6 +388,8 @@ plugins:
 - type: queue-scorer
 - type: precise-prefix-cache-scorer
   parameters:
+    tokenProcessorConfig:
+      blockSize: 64
     indexerConfig:
       tokenizersPoolConfig:
         modelName: base

@@ -42,8 +42,7 @@ spec:
                 failureThreshold: 60
               securityContext:
                 allowPrivilegeEscalation: false
-                readOnlyRootFilesystem: true
-                runAsNonRoot: true
+                readOnlyRootFilesystem: false
                 capabilities:
                   drop:
                     - ALL
