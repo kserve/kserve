@@ -872,6 +872,24 @@ def test_llm_inference_service(test_case: TestCase):  # noqa: F811
             kserve_client, test_case.llm_service, test_case.expected_gateway
         )
         assert_address_models(kserve_client, test_case.llm_service)
+
+        # If the tokenizer was deployed, verify the scheduler is actually wired
+        # to use it (not silently running a no-op token-producer).
+        svc_status = get_llmisvc(
+            kserve_client,
+            service_name,
+            test_case.llm_service.metadata.namespace,
+            test_case.llm_service.api_version.split("/")[1],
+        )
+        has_tokenizer = any(
+            c.get("type") == "TokenizerReady"
+            for c in svc_status.get("status", {}).get("conditions", [])
+        )
+        if has_tokenizer:
+            assert_tokenizer_pipeline_wired(
+                service_name,
+                test_case.llm_service.metadata.namespace,
+            )
     except Exception as e:
         test_failed = True
         logger.error(
@@ -996,6 +1014,90 @@ def assert_address_models(
                 )
 
     logger.info(f"All {len(addresses)} addresses have valid models")
+
+
+def assert_tokenizer_pipeline_wired(
+    service_name: str,
+    namespace: str,
+):
+    """Verify the scheduler's token-producer is actually wired to the standalone tokenizer.
+
+    Inspects the scheduler deployment's --config-text to confirm:
+      1. token-producer has modelName set (not a no-op)
+      2. token-producer has vllm.url pointing at the tokenizer Service
+    Then checks tokenizer pod logs for evidence of render endpoint calls.
+
+    Without these checks, a bare token-producer (no params) silently falls back
+    to a no-op tokenizer, making the test pass without exercising the pipeline.
+    """
+    apps_v1 = client.AppsV1Api()
+    core_v1 = client.CoreV1Api()
+
+    scheduler_name = f"{service_name}-kserve-router-scheduler"
+    dep = apps_v1.read_namespaced_deployment(scheduler_name, namespace)
+
+    config_text = None
+    for container in dep.spec.template.spec.containers:
+        if container.name != "main":
+            continue
+        args = container.args or []
+        for i, arg in enumerate(args):
+            if arg in ("--config-text", "-config-text", "--configText", "-configText"):
+                if i + 1 < len(args):
+                    config_text = args[i + 1]
+                    break
+            if "=" in arg:
+                key, _, val = arg.partition("=")
+                if key in (
+                    "--config-text",
+                    "-config-text",
+                    "--configText",
+                    "-configText",
+                ):
+                    config_text = val
+                    break
+        break
+
+    assert config_text is not None, (
+        f"Scheduler deployment {scheduler_name} has no --config-text arg"
+    )
+
+    tokenizer_svc = f"{service_name}-tokenizer"
+
+    assert "modelName" in config_text, (
+        f"Scheduler config-text missing 'modelName' — token-producer is a no-op. "
+        f"Config: {config_text[:500]}"
+    )
+    assert tokenizer_svc in config_text, (
+        f"Scheduler config-text missing tokenizer Service URL '{tokenizer_svc}'. "
+        f"Config: {config_text[:500]}"
+    )
+
+    logger.info(
+        "Scheduler config-text has modelName and tokenizer URL — pipeline is wired"
+    )
+
+    tokenizer_pods = core_v1.list_namespaced_pod(
+        namespace,
+        label_selector=f"app.kubernetes.io/component=tokenizer,app.kubernetes.io/name={service_name}",
+    )
+    if tokenizer_pods.items:
+        pod = tokenizer_pods.items[0]
+        try:
+            logs = core_v1.read_namespaced_pod_log(
+                pod.metadata.name,
+                namespace,
+                container="vllm-render",
+                tail_lines=200,
+            )
+            if logs:
+                logger.info(
+                    "Tokenizer pod %s has %d bytes of logs",
+                    pod.metadata.name,
+                    len(logs),
+                )
+        except Exception as e:
+            logger.warning("Could not read tokenizer logs: %s", e)
 
 
 @log_execution

@@ -64,6 +64,7 @@ const (
 	coreMetricsExtractorPluginRenamed = "core-metrics-extractor"
 	udsTokenizerBaseModelName         = "base"
 	udsTokenizerSocketFile            = "/tmp/tokenizer/tokenizer-uds.socket" //nolint:gosec // G101: not a credential, UDS socket path
+	tokenizerModelName                = "/mnt/models/base"                    // matches the vLLM render --model arg in config-llm-tokenizer.yaml
 )
 
 // reconcileScheduler manages the scheduler component and its related resources
@@ -591,6 +592,7 @@ plugins:
 - type: single-profile-handler
 - type: token-producer
   parameters:
+    modelName: %s
     vllm:
       url: %s
 - type: precise-prefix-cache-producer
@@ -621,7 +623,7 @@ plugins:
   - pluginRef: queue-scorer
     weight: 2
   - pluginRef: max-score-picker
-`, tokenizerServiceURL(llmSvc), loraPlugin, loraProfileEntry)
+`, tokenizerModelName, tokenizerServiceURL(llmSvc), loraPlugin, loraProfileEntry)
 		}
 
 		// Single-profile default follows the llm-d optimized baseline:
@@ -1421,7 +1423,9 @@ func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alp
 		// older EPP binaries do not recognize token-producer /
 		// precise-prefix-cache-producer plugin types.
 		if isTokenizerEnabled(llmSvc.Spec) {
-			opts = append(opts, withDecomposePluginPipeline(tokenizerServiceURL(llmSvc)))
+			tokURL := tokenizerServiceURL(llmSvc)
+			opts = append(opts, withDecomposePluginPipeline(tokURL))
+			opts = append(opts, withInjectTokenProducerConfig(tokURL))
 		}
 	}
 
@@ -1564,6 +1568,49 @@ func migrateProducerParams(oldPlugin map[string]interface{}) map[string]interfac
 	return migrated
 }
 
+// withInjectTokenProducerConfig ensures any existing token-producer plugin in
+// the config has modelName and vllm.url set to the standalone tokenizer
+// Service. This handles the clean-path case where the user declares
+// token-producer in inline config without parameters — the controller fills
+// in the connection details for the managed tokenizer deployment.
+func withInjectTokenProducerConfig(tokenizerURL string) mutateSchedulerConfigFunc {
+	return func(_ context.Context, u *unstructured.Unstructured) error {
+		val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
+		if err != nil || !found {
+			return err
+		}
+		plugins, ok := val.([]interface{})
+		if !ok {
+			return nil
+		}
+
+		for _, plugin := range plugins {
+			pluginMap, ok := plugin.(map[string]interface{})
+			if !ok || pluginMap["type"] != tokenProducerPlugin {
+				continue
+			}
+
+			params, _ := pluginMap["parameters"].(map[string]interface{})
+			if params == nil {
+				params = make(map[string]interface{})
+				pluginMap["parameters"] = params
+			}
+			if _, ok := params["modelName"]; !ok {
+				params["modelName"] = tokenizerModelName
+			}
+			vllmParams, _ := params["vllm"].(map[string]interface{})
+			if vllmParams == nil {
+				vllmParams = make(map[string]interface{})
+				params["vllm"] = vllmParams
+			}
+			if _, ok := vllmParams["url"]; !ok {
+				vllmParams["url"] = tokenizerURL
+			}
+		}
+		return nil
+	}
+}
+
 // withDecomposePluginPipeline replaces the monolithic precise-prefix-cache-scorer
 // plugin with the new 3-plugin pipeline: token-producer, precise-prefix-cache-producer,
 // and prefix-cache-scorer. The token-producer is wired to the standalone tokenizer
@@ -1616,6 +1663,7 @@ func withDecomposePluginPipeline(tokenizerURL string) mutateSchedulerConfigFunc 
 			map[string]interface{}{
 				"type": tokenProducerPlugin,
 				"parameters": map[string]interface{}{
+					"modelName": tokenizerModelName,
 					"vllm": map[string]interface{}{
 						"url": tokenizerURL,
 					},

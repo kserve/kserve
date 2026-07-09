@@ -1107,6 +1107,7 @@ schedulingProfiles:
 				g.Expect(configText).To(ContainSubstring("precise-prefix-cache-producer"))
 				g.Expect(configText).To(ContainSubstring("prefix-cache-scorer"))
 				g.Expect(configText).To(ContainSubstring(kmeta.ChildName(svcName, "-tokenizer")))
+				g.Expect(configText).To(ContainSubstring("modelName: /mnt/models/base"))
 				g.Expect(configText).NotTo(ContainSubstring("precise-prefix-cache-scorer"))
 				return nil
 			}).WithContext(ctx).Should(Succeed())
@@ -1171,6 +1172,7 @@ schedulingProfiles:
 				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
 				g.Expect(configText).To(ContainSubstring("token-producer"))
 				g.Expect(configText).To(ContainSubstring(kmeta.ChildName(svcName, "-tokenizer")))
+				g.Expect(configText).To(ContainSubstring("modelName: /mnt/models/base"))
 				g.Expect(configText).NotTo(ContainSubstring("wrong-model-name"))
 				g.Expect(configText).NotTo(ContainSubstring("/wrong/path"))
 				g.Expect(configText).NotTo(ContainSubstring("socketFile"))
@@ -1296,6 +1298,7 @@ schedulingProfiles:
 				g.Expect(configText).To(ContainSubstring("prefix-cache-scorer"))
 				g.Expect(configText).NotTo(ContainSubstring("precise-prefix-cache-scorer"))
 				g.Expect(configText).To(ContainSubstring(kmeta.ChildName(svcName, "-tokenizer")))
+				g.Expect(configText).To(ContainSubstring("modelName: /mnt/models/base"))
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})
@@ -1359,6 +1362,7 @@ schedulingProfiles:
 				g.Expect(configText).To(ContainSubstring("precise-prefix-cache-producer"))
 				g.Expect(configText).NotTo(ContainSubstring("precise-prefix-cache-scorer"))
 				g.Expect(configText).To(ContainSubstring(kmeta.ChildName(svcName, "-tokenizer")))
+				g.Expect(configText).To(ContainSubstring("modelName: /mnt/models/base"))
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})

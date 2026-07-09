@@ -123,6 +123,7 @@ var _ = Describe("LLMInferenceService Controller — Standalone Tokenizer", func
 				g.Expect(configText).To(ContainSubstring("precise-prefix-cache-producer"))
 				g.Expect(configText).To(ContainSubstring("prefix-cache-scorer"))
 				g.Expect(configText).To(ContainSubstring(kmeta.ChildName(svcName, "-tokenizer")))
+				g.Expect(configText).To(ContainSubstring("modelName: /mnt/models/base"))
 
 				// Verify sensible defaults on precise-prefix-cache-producer
 				g.Expect(configText).To(ContainSubstring("blockSize: 64"))

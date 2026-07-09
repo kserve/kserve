@@ -213,6 +213,7 @@ schedulingProfiles:
 				g.Expect(configText).To(ContainSubstring(prefixCacheScorerPlugin))
 				g.Expect(configText).To(ContainSubstring("http://my-llm-tokenizer.default.svc.cluster.local:8000"))
 				g.Expect(configText).To(ContainSubstring("prefixMatchInfoProducerName"))
+				g.Expect(configText).To(ContainSubstring("modelName: /mnt/models/base"))
 
 				// tokenizersPoolConfig should be gone, and since it was the only
 				// entry in indexerConfig the producer should have no parameters.
@@ -289,6 +290,7 @@ schedulingProfiles:
 				g.Expect(configText).NotTo(ContainSubstring(precisePrefixCacheScorerPlugin))
 				g.Expect(configText).To(ContainSubstring(tokenProducerPlugin))
 				g.Expect(configText).To(ContainSubstring(precisePrefixCacheProducerPlugin))
+				g.Expect(configText).To(ContainSubstring("modelName: /mnt/models/base"))
 
 				// tokenizersPoolConfig must be stripped
 				g.Expect(configText).NotTo(ContainSubstring("tokenizersPoolConfig"))
@@ -466,6 +468,78 @@ schedulingProfiles:
 
 	// Verify no precise-prefix-cache-scorer remains
 	g.Expect(configText).NotTo(ContainSubstring(precisePrefixCacheScorerPlugin))
+
+	// Verify modelName was set on the token-producer
+	g.Expect(configText).To(ContainSubstring("modelName: /mnt/models/base"))
+}
+
+func TestInjectTokenProducerConfig(t *testing.T) {
+	tests := []struct {
+		name         string
+		configYAML   string
+		tokenizerURL string
+		wantURL      bool
+		wantModel    bool
+	}{
+		{
+			name: "injects modelName and vllm.url when token-producer has no params",
+			configYAML: `apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: token-producer
+- type: queue-scorer
+`,
+			tokenizerURL: "http://my-llm-tokenizer.default.svc.cluster.local:8000",
+			wantURL:      true,
+			wantModel:    true,
+		},
+		{
+			name: "does not overwrite existing modelName or vllm.url",
+			configYAML: `apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: token-producer
+  parameters:
+    modelName: custom-model
+    vllm:
+      url: http://custom-url:9999
+- type: queue-scorer
+`,
+			tokenizerURL: "http://my-llm-tokenizer.default.svc.cluster.local:8000",
+			wantURL:      false,
+			wantModel:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+
+			d := &appsv1.Deployment{
+				Spec: appsv1.DeploymentSpec{
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Name: "main", Args: []string{"--config-text", tt.configYAML}},
+							},
+						},
+					},
+				},
+			}
+
+			g.Expect(mutateSchedulerConfig(context.Background(), d, withInjectTokenProducerConfig(tt.tokenizerURL))).To(Succeed())
+
+			configText := d.Spec.Template.Spec.Containers[0].Args[1]
+			if tt.wantURL {
+				g.Expect(configText).To(ContainSubstring(tt.tokenizerURL))
+				g.Expect(configText).To(ContainSubstring("modelName: /mnt/models/base"))
+			} else {
+				g.Expect(configText).To(ContainSubstring("custom-model"))
+				g.Expect(configText).To(ContainSubstring("http://custom-url:9999"))
+				g.Expect(configText).NotTo(ContainSubstring(tt.tokenizerURL))
+			}
+		})
+	}
 }
 
 func TestStripUdsTokenizerSidecar(t *testing.T) {
