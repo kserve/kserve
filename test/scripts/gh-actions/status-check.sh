@@ -217,6 +217,15 @@ if [[ $# -eq 1 && "$1" == "llmisvc" ]]; then
   echo "::endgroup::"
   done
 
+  echo "::group::Standalone Tokenizer Pod logs"
+  for pod in $(kubectl get pods -n kserve-ci-e2e-test -l 'app.kubernetes.io/component=tokenizer' -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+    echo "===== Tokenizer Pod: $pod ====="
+    kubectl describe pod -n kserve-ci-e2e-test "$pod" 2>&1
+    kubectl logs -n kserve-ci-e2e-test "$pod" --all-containers=true --tail=200 2>&1
+    echo "================================================"
+  done
+  echo "::endgroup::"
+
   echo "::group::Autoscaling pipeline diagnostics"
   echo "--- ServiceMonitors ---"
   kubectl get servicemonitors -A 2>/dev/null || true

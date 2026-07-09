@@ -753,6 +753,50 @@ LLMINFERENCESERVICE_CONFIGS = {
             },
         },
     },
+    # Clean-path: explicit tokenizer:{} with 3-plugin pipeline.
+    # The controller generates token-producer URL from the standalone tokenizer
+    # Service when tokenizer:{} is set. No legacy precise-prefix-cache-scorer.
+    "scheduler-with-tokenizer-kvcache": {
+        "router": {
+            "scheduler": {
+                "tokenizer": {},
+                "config": {
+                    "inline": {
+                        "apiVersion": "inference.networking.x-k8s.io/v1alpha1",
+                        "kind": "EndpointPickerConfig",
+                        "plugins": [
+                            {"type": "single-profile-handler"},
+                            {"type": "token-producer"},
+                            {"type": "precise-prefix-cache-producer"},
+                            {
+                                "type": "prefix-cache-scorer",
+                                "parameters": {
+                                    "prefixMatchInfoProducerName": "precise-prefix-cache-producer",
+                                },
+                            },
+                            {"type": "kv-cache-utilization-scorer"},
+                            {"type": "queue-scorer"},
+                            {"type": "max-score-picker"},
+                        ],
+                        "schedulingProfiles": [
+                            {
+                                "name": "default",
+                                "plugins": [
+                                    {"pluginRef": "prefix-cache-scorer", "weight": 3},
+                                    {
+                                        "pluginRef": "kv-cache-utilization-scorer",
+                                        "weight": 2,
+                                    },
+                                    {"pluginRef": "queue-scorer", "weight": 2},
+                                    {"pluginRef": "max-score-picker"},
+                                ],
+                            },
+                        ],
+                    },
+                },
+            },
+        },
+    },
     # Realistic v0.6-style PD config: old plugin names, deciderPluginName param,
     # hashBlockSize, prefill/decode filters and profiles.
     # Exercises the full #5433 migration: plugin renames, param restructure,

@@ -594,7 +594,25 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
             ),
             marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
         ),
-        # Precise prefix KV cache routing test
+        # Standalone tokenizer — clean path: tokenizer:{} with 3-plugin pipeline
+        pytest.param(
+            TestCase(
+                base_refs=[
+                    "router-managed",
+                    "scheduler-with-tokenizer-kvcache",
+                    "workload-llmd-simulator-kvcache",
+                ],
+                prompt="KServe is a",
+                service_name="tokenizer-clean-path-test",
+            ),
+            marks=[
+                pytest.mark.cluster_cpu,
+                pytest.mark.cluster_single_node,
+                pytest.mark.llmd_simulator,
+            ],
+        ),
+        # Standalone tokenizer — migration path: legacy precise-prefix-cache-scorer
+        # triggers auto-provisioned tokenizer without explicit tokenizer:{} field
         pytest.param(
             TestCase(
                 base_refs=[
@@ -603,7 +621,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                     "workload-llmd-simulator-kvcache",
                 ],
                 prompt="KServe is a",
-                service_name="precise-prefix-cache-test",
+                service_name="tokenizer-migration-path-test",
             ),
             marks=[
                 pytest.mark.cluster_cpu,
@@ -1224,12 +1242,19 @@ def wait_for_llm_isvc_ready(
 
         expected_true_conditions = {"Ready", "WorkloadsReady", "RouterReady"}
         got_true_conditions = set()
+        all_condition_types = set()
 
         conditions = status["conditions"]
 
         for condition in conditions:
+            ctype = condition.get("type")
+            all_condition_types.add(ctype)
             if condition.get("status") == "True":
-                got_true_conditions.add(condition.get("type"))
+                got_true_conditions.add(ctype)
+
+        # When TokenizerReady is present, it must also be True
+        if "TokenizerReady" in all_condition_types:
+            expected_true_conditions.add("TokenizerReady")
 
         missing_conditions = expected_true_conditions - got_true_conditions
         if missing_conditions:
