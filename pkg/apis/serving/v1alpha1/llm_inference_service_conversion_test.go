@@ -1144,3 +1144,118 @@ func TestLLMInferenceServiceConversion_TracingEmptyStruct(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, restored.Spec.Tracing, "empty tracing struct should survive roundtrip")
 }
+
+func TestLLMInferenceServiceConversion_PreservesTokenizer(t *testing.T) {
+	tests := []struct {
+		name      string
+		tokenizer *TokenizerSpec
+	}{
+		{
+			name:      "empty tokenizer spec",
+			tokenizer: &TokenizerSpec{},
+		},
+		{
+			name: "tokenizer with custom template",
+			tokenizer: &TokenizerSpec{
+				Template: &corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "vllm-render",
+							Image: "custom-tokenizer:v1",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			src := &LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-llm-isvc-tokenizer",
+					Namespace: "default",
+				},
+				Spec: LLMInferenceServiceSpec{
+					Model: LLMModelSpec{
+						URI: apis.URL{Scheme: "hf", Host: "facebook/opt-125m"},
+					},
+					Router: &RouterSpec{
+						Scheduler: &SchedulerSpec{
+							Tokenizer: tt.tokenizer,
+						},
+					},
+				},
+			}
+
+			// v1alpha1 -> v1alpha2
+			dst := &v1alpha2.LLMInferenceService{}
+			err := src.ConvertTo(dst)
+			require.NoError(t, err)
+
+			require.NotNil(t, dst.Spec.Router)
+			require.NotNil(t, dst.Spec.Router.Scheduler)
+			require.NotNil(t, dst.Spec.Router.Scheduler.Tokenizer,
+				"Scheduler.Tokenizer must not be lost during conversion to v1alpha2")
+
+			if tt.tokenizer.Template != nil {
+				require.NotNil(t, dst.Spec.Router.Scheduler.Tokenizer.Template)
+				assert.Equal(t, tt.tokenizer.Template.Containers[0].Image,
+					dst.Spec.Router.Scheduler.Tokenizer.Template.Containers[0].Image)
+			}
+
+			// v1alpha2 -> v1alpha1
+			restored := &LLMInferenceService{}
+			err = restored.ConvertFrom(dst)
+			require.NoError(t, err)
+
+			require.NotNil(t, restored.Spec.Router)
+			require.NotNil(t, restored.Spec.Router.Scheduler)
+			require.NotNil(t, restored.Spec.Router.Scheduler.Tokenizer,
+				"Scheduler.Tokenizer must not be lost during round-trip")
+
+			if tt.tokenizer.Template != nil {
+				require.NotNil(t, restored.Spec.Router.Scheduler.Tokenizer.Template)
+				assert.Equal(t, tt.tokenizer.Template.Containers[0].Image,
+					restored.Spec.Router.Scheduler.Tokenizer.Template.Containers[0].Image)
+			}
+		})
+	}
+}
+
+func TestLLMInferenceServiceConversion_NilTokenizerPreserved(t *testing.T) {
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-isvc-no-tokenizer",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI: apis.URL{Scheme: "hf", Host: "facebook/opt-125m"},
+			},
+			Router: &RouterSpec{
+				Scheduler: &SchedulerSpec{},
+			},
+		},
+	}
+
+	// v1alpha1 -> v1alpha2
+	dst := &v1alpha2.LLMInferenceService{}
+	err := src.ConvertTo(dst)
+	require.NoError(t, err)
+
+	require.NotNil(t, dst.Spec.Router)
+	require.NotNil(t, dst.Spec.Router.Scheduler)
+	assert.Nil(t, dst.Spec.Router.Scheduler.Tokenizer,
+		"nil Tokenizer should remain nil after conversion")
+
+	// v1alpha2 -> v1alpha1
+	restored := &LLMInferenceService{}
+	err = restored.ConvertFrom(dst)
+	require.NoError(t, err)
+
+	require.NotNil(t, restored.Spec.Router)
+	require.NotNil(t, restored.Spec.Router.Scheduler)
+	assert.Nil(t, restored.Spec.Router.Scheduler.Tokenizer,
+		"nil Tokenizer should remain nil after round-trip")
+}
