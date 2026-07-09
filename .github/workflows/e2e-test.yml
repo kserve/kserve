@@ -151,6 +151,21 @@ jobs:
 
   predictor-runtime-build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - {name: sklearn,                 artifact_prefix: pred,  image_env: SKLEARN_IMG}
+          - {name: xgb,                     artifact_prefix: pred,  image_env: XGB_IMG}
+          - {name: lgb,                     artifact_prefix: pred,  image_env: LGB_IMG}
+          - {name: pmml,                    artifact_prefix: pred,  image_env: PMML_IMG}
+          - {name: paddle,                  artifact_prefix: pred,  image_env: PADDLE_IMG}
+          - {name: predictive,              artifact_prefix: pred,  image_env: PREDICTIVE_IMG}
+          - {name: autogluon,               artifact_prefix: pred,  image_env: AUTOGLUON_IMG}
+          - {name: custom-model-grpc,       artifact_prefix: pred,  image_env: CUSTOM_MODEL_GRPC_IMG}
+          - {name: huggingface,             artifact_prefix: "",    image_env: HUGGINGFACE_IMG}
+          - {name: image-transformer,       artifact_prefix: trans, image_env: IMAGE_TRANSFORMER_IMG}
+          - {name: custom-transformer-grpc, artifact_prefix: trans, image_env: CUSTOM_TRANSFORMER_GRPC_IMG}
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -175,99 +190,17 @@ jobs:
         with:
           cache-binary: true
 
-      - name: Build runtime server images
+      - name: Build ${{ matrix.image.name }} image
         run: |
           sudo mkdir -p ${DOCKER_IMAGES_PATH}
           sudo chown -R $USER ${DOCKER_IMAGES_PATH}
-          ./test/scripts/gh-actions/build-server-runtimes.sh predictor,transformer
-          docker image ls
-          sudo ls -lh ${DOCKER_IMAGES_PATH}
+          ./test/scripts/gh-actions/build-server-runtimes.sh ${{ matrix.image.name }}
 
-      - name: Upload sklearn artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ env.TAG }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.SKLEARN_IMG }}-${{ env.TAG }}
-          compression-level: 0
-          if-no-files-found: error
-
-      - name: Upload xgb server image
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.XGB_IMG }}-${{ env.TAG }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.XGB_IMG }}-${{ env.TAG }}
-          compression-level: 0
-          if-no-files-found: error
-
-      - name: Upload lgb server image
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.LGB_IMG }}-${{ env.TAG }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.LGB_IMG }}-${{ env.TAG }}
-          compression-level: 0
-          if-no-files-found: error
-
-      - name: Upload pmml server image
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.PMML_IMG }}-${{ env.TAG }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.PMML_IMG }}-${{ env.TAG }}
-          compression-level: 0
-          if-no-files-found: error
-
-      - name: Upload paddle image
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.PADDLE_IMG }}-${{ env.TAG }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.PADDLE_IMG }}-${{ env.TAG }}
-          compression-level: 0
-          if-no-files-found: error
-
-      - name: Upload predictiveserver image
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.PREDICTIVE_IMG }}-${{ env.TAG }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.PREDICTIVE_IMG }}-${{ env.TAG }}
-          compression-level: 0
-          if-no-files-found: error
-
-      - name: Upload autogluon image
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.AUTOGLUON_IMG }}-${{ env.TAG }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.AUTOGLUON_IMG }}-${{ env.TAG }}
-          compression-level: 0
-          if-no-files-found: error
-
-      - name: Upload image transformer image
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: ${{ env.TRANSFORMER_ARTIFACT_PREFIX }}-${{ env.IMAGE_TRANSFORMER_IMG }}-${{ env.TAG }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.IMAGE_TRANSFORMER_IMG }}-${{ env.TAG }}
-          compression-level: 0
-          if-no-files-found: error
-
-      - name: Upload custom model grpc image
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.CUSTOM_MODEL_GRPC_IMG }}-${{ env.TAG }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.CUSTOM_MODEL_GRPC_IMG }}-${{ env.TAG }}
-          compression-level: 0
-          if-no-files-found: error
-
-      - name: Upload custom model transformer grpc image
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: ${{ env.TRANSFORMER_ARTIFACT_PREFIX }}-${{ env.CUSTOM_TRANSFORMER_GRPC_IMG }}-${{ env.TAG }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.CUSTOM_TRANSFORMER_GRPC_IMG }}-${{ env.TAG }}
-          compression-level: 0
-          if-no-files-found: error
-
-      - name: Upload huggingface image
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: ${{ env.HUGGINGFACE_IMG }}-${{ env.TAG }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.HUGGINGFACE_IMG }}-${{ env.TAG }}
+          name: ${{ matrix.image.artifact_prefix && format('{0}-', matrix.image.artifact_prefix) || '' }}${{ env[matrix.image.image_env] }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env[matrix.image.image_env] }}-${{ env.TAG }}
           compression-level: 0
           if-no-files-found: error
 
