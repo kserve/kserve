@@ -14,9 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# The script is used to build all the KServe images.
-
-# TODO: Implement selective building and tag replacement based on modified code.
+# Build KServe core images.
+#
+# Usage:
+#   build-images.sh              # build all kserve images (default)
+#   build-images.sh kserve       # build all kserve images (explicit)
+#   build-images.sh llmisvc      # build llmisvc controller only
+#   build-images.sh controller   # build a single image by name
 
 set -o errexit
 set -o nounset
@@ -27,58 +31,63 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 source "${PROJECT_ROOT}/kserve-images.sh"
 
-if [ -d "${DOCKER_IMAGES_PATH}" ]; then
-  mkdir -p "${DOCKER_IMAGES_PATH}"  
-fi
+KO_DOCKER_REPO="${KO_DOCKER_REPO:-kserve}"
+
+mkdir -p "${DOCKER_IMAGES_PATH}"
 
 echo "Github SHA ${TAG}"
-CONTROLLER_IMG_TAG=${KO_DOCKER_REPO}/${CONTROLLER_IMG}:${TAG}
-LOCALMODEL_CONTROLLER_IMG_TAG=${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${TAG}
-LOCALMODEL_AGENT_IMG_TAG=${KO_DOCKER_REPO}/${LOCALMODEL_AGENT_IMG}:${TAG}
-STORAGE_INIT_IMG_TAG=${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}:${TAG}
-AGENT_IMG_TAG=${KO_DOCKER_REPO}/${AGENT_IMG}:${TAG}
-ROUTER_IMG_TAG=${KO_DOCKER_REPO}/${ROUTER_IMG}:${TAG}
-LLMISVC_CONTROLLER_IMG_TAG=${KO_DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}:${TAG}
 
-types=("${1:-kserve}")
+# Image registry: name -> "dockerfile|context_dir|env_var"
+# context_dir is relative to PROJECT_ROOT ("." for repo root, "python" for python/)
+declare -A IMAGE_REGISTRY=(
+  [controller]="Dockerfile|.|CONTROLLER_IMG"
+  [localmodel-controller]="localmodel.Dockerfile|.|LOCALMODEL_CONTROLLER_IMG"
+  [localmodel-agent]="localmodel-agent.Dockerfile|.|LOCALMODEL_AGENT_IMG"
+  [agent]="agent.Dockerfile|.|AGENT_IMG"
+  [router]="router.Dockerfile|.|ROUTER_IMG"
+  [storage-initializer]="storage-initializer.Dockerfile|python|STORAGE_INIT_IMG"
+  [llmisvc-controller]="llmisvc-controller.Dockerfile|.|LLMISVC_CONTROLLER_IMG"
+)
 
+# Group definitions
+KSERVE_IMAGES=(controller localmodel-controller localmodel-agent agent router storage-initializer)
+LLMISVC_IMAGES=(llmisvc-controller)
 
-if [[ " ${types[*]} " =~ "llmisvc" ]]; then
-  echo "Building LLMISvc controller image: ${LLMISVC_CONTROLLER_IMG_TAG}"
-  docker buildx build -f llmisvc-controller.Dockerfile . -t "${LLMISVC_CONTROLLER_IMG_TAG}" \
-    -o type=docker,dest="${DOCKER_IMAGES_PATH}/${LLMISVC_CONTROLLER_IMG}-${TAG}",compression-level=0
-  echo "Disk usage after Building LLMIsvc controller image:"
-      df -hT
-else
-  echo "Building Kserve controller image"
-  docker buildx build . -t "${CONTROLLER_IMG_TAG}" \
-    -o type=docker,dest="${DOCKER_IMAGES_PATH}/${CONTROLLER_IMG}-${TAG}",compression-level=0
+build_one() {
+  local name="$1"
+  local entry="${IMAGE_REGISTRY[$name]:-}"
 
-  echo "Building localmodel controller image"
-  docker buildx build -f localmodel.Dockerfile . -t "${LOCALMODEL_CONTROLLER_IMG_TAG}" \
-    -o type=docker,dest="${DOCKER_IMAGES_PATH}/${LOCALMODEL_CONTROLLER_IMG}-${TAG}",compression-level=0
+  if [[ -z "$entry" ]]; then
+    echo "ERROR: Unknown image name: $name"
+    echo "Available images: ${!IMAGE_REGISTRY[*]}"
+    exit 1
+  fi
 
-  echo "Building localmodel agent image"
-  docker buildx build -f localmodel-agent.Dockerfile . -t "${LOCALMODEL_AGENT_IMG_TAG}" \
-    -o type=docker,dest="${DOCKER_IMAGES_PATH}/${LOCALMODEL_AGENT_IMG}-${TAG}",compression-level=0
+  IFS='|' read -r dockerfile context_dir envvar <<< "$entry"
+  local img_basename="${!envvar}"
+  local img_tag="${KO_DOCKER_REPO}/${img_basename}:${TAG}"
+  local output="${DOCKER_IMAGES_PATH}/${img_basename}-${TAG}"
+  local build_dir="${PROJECT_ROOT}/${context_dir}"
 
-  echo "Building agent image"
-  docker buildx build -f agent.Dockerfile . -t "${AGENT_IMG_TAG}" \
-    -o type=docker,dest="${DOCKER_IMAGES_PATH}/${AGENT_IMG}-${TAG}",compression-level=0
+  echo "Building ${name} image (${dockerfile} in ${context_dir}/ -> ${img_basename})"
+  docker buildx build -f "${dockerfile}" "${build_dir}" -t "${img_tag}" \
+    -o "type=docker,dest=${output},compression-level=0"
+  echo "Disk usage after building ${name}:"
+  df -hT
+}
 
-  echo "Building router image"
-  docker buildx build -f router.Dockerfile . -t "${ROUTER_IMG_TAG}" \
-    -o type=docker,dest="${DOCKER_IMAGES_PATH}/${ROUTER_IMG}-${TAG}",compression-level=0
+target="${1:-kserve}"
 
-  echo "Disk usage before Building storage initializer:"
-          df -hT
-fi
-
-
-pushd python >/dev/null
-  echo "Building storage initializer"
-  docker buildx build -f storage-initializer.Dockerfile . -t "${STORAGE_INIT_IMG_TAG}" \
-    -o type=docker,dest="${DOCKER_IMAGES_PATH}/${STORAGE_INIT_IMG}-${TAG}",compression-level=0
-popd
+case "$target" in
+  kserve)
+    for img in "${KSERVE_IMAGES[@]}"; do build_one "$img"; done
+    ;;
+  llmisvc)
+    for img in "${LLMISVC_IMAGES[@]}"; do build_one "$img"; done
+    ;;
+  *)
+    build_one "$target"
+    ;;
+esac
 
 echo "Done building images"

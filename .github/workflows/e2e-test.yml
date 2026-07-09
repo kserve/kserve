@@ -69,6 +69,16 @@ jobs:
 
   kserve-image-build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - {name: controller,            image_env: CONTROLLER_IMG}
+          - {name: localmodel-controller, image_env: LOCALMODEL_CONTROLLER_IMG}
+          - {name: localmodel-agent,      image_env: LOCALMODEL_AGENT_IMG}
+          - {name: agent,                 image_env: AGENT_IMG}
+          - {name: storage-initializer,   image_env: STORAGE_INIT_IMG}
+          - {name: router,                image_env: ROUTER_IMG}
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -93,59 +103,17 @@ jobs:
         with:
           cache-binary: true
 
-      - name: Build KServe images
+      - name: Build ${{ matrix.image.name }} image
         run: |
           sudo mkdir -p ${DOCKER_IMAGES_PATH}
           sudo chown -R $USER ${DOCKER_IMAGES_PATH}
-          ./test/scripts/gh-actions/build-images.sh
-          docker image ls
-          sudo ls -lh ${DOCKER_IMAGES_PATH}
+          ./test/scripts/gh-actions/build-images.sh ${{ matrix.image.name }}
 
-      - name: Upload controller image
+      - name: Upload artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.CONTROLLER_IMG }}-${{ env.TAG }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.CONTROLLER_IMG }}-${{ env.TAG }}
-          compression-level: 0
-          if-no-files-found: error
-
-      - name: Upload localmodel controller image
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.LOCALMODEL_CONTROLLER_IMG }}-${{ env.TAG }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.LOCALMODEL_CONTROLLER_IMG }}-${{ env.TAG }}
-          compression-level: 0
-          if-no-files-found: error
-
-      - name: Upload localmodel agent image
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.LOCALMODEL_AGENT_IMG }}-${{ env.TAG }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.LOCALMODEL_AGENT_IMG }}-${{ env.TAG }}
-          compression-level: 0
-          if-no-files-found: error
-
-      - name: Upload agent image
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.AGENT_IMG }}-${{ env.TAG }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.AGENT_IMG }}-${{ env.TAG }}
-          compression-level: 0
-          if-no-files-found: error
-
-      - name: Upload storage initializer image
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
-          compression-level: 0
-          if-no-files-found: error
-
-      - name: Upload router image
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.ROUTER_IMG }}-${{ env.TAG }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.ROUTER_IMG }}-${{ env.TAG }}
+          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env[matrix.image.image_env] }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env[matrix.image.image_env] }}-${{ env.TAG }}
           compression-level: 0
           if-no-files-found: error
 
