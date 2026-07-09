@@ -2768,6 +2768,7 @@ spec:
           ${ACCESS_LOG_ARGS} \
           ${SHUTDOWN_TIMEOUT_ARGS} \
           ${KV_TRANSFER_ARGS} \
+          {{- if and .Spec.Parallelism .Spec.Parallelism.Tensor }} --tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -3689,6 +3690,7 @@ spec:
             ${ACCESS_LOG_ARGS} \
             ${SHUTDOWN_TIMEOUT_ARGS} \
             ${KV_TRANSFER_ARGS} \
+            {{- if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Tensor }} --tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -5094,6 +5096,7 @@ spec:
           ${ACCESS_LOG_ARGS} \
           ${SHUTDOWN_TIMEOUT_ARGS} \
           ${KV_TRANSFER_ARGS} \
+          {{- if and .Spec.Parallelism .Spec.Parallelism.Tensor }} --tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
