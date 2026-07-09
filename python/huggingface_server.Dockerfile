@@ -4,7 +4,7 @@ ARG WORKSPACE_DIR=/kserve-workspace
 
 #################### CUDA RUNTIME (Ubuntu 26.04) ####################
 # Replicates nvidia/cuda:13.3.0-base-ubuntu26.04 and
-# nvidia/cuda:13.3.0-runtime-ubuntu26.04, plus libnccl2, ninja-build and cuda-compiler for vLLM.
+# nvidia/cuda:13.3.0-runtime-ubuntu26.04, plus libnccl2 for vLLM.
 FROM ubuntu:26.04 AS cuda-runtime
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -56,8 +56,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libcusparse-13-3=${NV_LIBCUSPARSE_VERSION} \
     libcublas-13-3=${NV_LIBCUBLAS_VERSION} \
     libnccl2 \
-    cuda-compiler-13-3 \
-    ninja-build \
     && rm -rf /var/lib/apt/lists/*
 
 RUN apt-mark hold libcublas-13-3 libnccl2
@@ -71,9 +69,27 @@ ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
 #################### CUDA RUNTIME (Ubuntu 26.04) ####################
 
+#################### CUDA RUNTIME + JIT (Ubuntu 26.04) ####################
+# Minimal devel subset for vLLM/flashinfer runtime CUDA source recompilation.
+# Package pins follow nvidia/cuda:13.3.0-devel-ubuntu26.04; meta-packages use
+# NV_CUDA_LIB_VERSION (13.3.0-1), component packages use NV_CUDA_CUDART_DEV_VERSION.
+FROM cuda-runtime AS cuda-runtime-jit
+
+ENV NV_CUDA_CUDART_DEV_VERSION=13.3.29-1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    cuda-cudart-dev-13-3=${NV_CUDA_CUDART_DEV_VERSION} \
+    cuda-command-line-tools-13-3=${NV_CUDA_LIB_VERSION} \
+    cuda-minimal-build-13-3=${NV_CUDA_LIB_VERSION} \
+    ninja-build \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV LIBRARY_PATH=/usr/local/cuda/lib64/stubs
+
+#################### CUDA RUNTIME + JIT (Ubuntu 26.04) ####################
+
 #################### CUDA DEVEL (Ubuntu 26.04) ####################
-# Replicates nvidia/cuda:13.3.0-devel-ubuntu26.04, plus cuda-compiler and
-# libnccl-dev for vLLM builds.
+# Replicates nvidia/cuda:13.3.0-devel-ubuntu26.04, plus libnccl-dev for vLLM builds.
 FROM cuda-runtime AS cuda-devel
 
 ENV NV_CUDA_CUDART_DEV_VERSION=13.3.29-1
@@ -194,7 +210,7 @@ RUN mkdir -p third_party/library && python3 pip-licenses.py
 #################### WHEEL BUILD IMAGE ####################
 
 #################### PROD IMAGE ####################
-FROM cuda-runtime AS prod
+FROM cuda-runtime-jit AS prod
 
 ARG WORKSPACE_DIR
 ARG CUDA_VERSION=13.3.0
