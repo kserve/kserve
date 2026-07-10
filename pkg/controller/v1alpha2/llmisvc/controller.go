@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"k8s.io/client-go/kubernetes"
@@ -140,6 +141,10 @@ type LLMISVCReconciler struct {
 	Clientset kubernetes.Interface
 
 	Validator func(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error
+
+	// legacyVACRDAbsent is set when the VariantAutoscaling CRD is confirmed
+	// absent, allowing subsequent reconciles to skip the cleanup API call.
+	legacyVACRDAbsent atomic.Bool
 }
 
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceservices,verbs=get;list;watch;create;update;patch;delete

@@ -171,25 +171,8 @@ func (r *LLMISVCReconciler) deleteHPAIfExists(ctx context.Context, llmSvc *v1alp
 // The HPA uses an external metric (wva_desired_replicas) with target=1 so that it acts as a
 // direct actuator for WVA's decisions rather than an independent scaling algorithm.
 func expectedHPA(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, scaleTargetRef autoscalingv2.CrossVersionObjectReference, hpaName string, workloadLabels map[string]string) *autoscalingv2.HorizontalPodAutoscaler {
-	labels := scalingLabels(llmSvc)
-	accelerator := "unknown"
-	if val, ok := workloadLabels[acceleratorNameLabelKey]; ok && val != "" {
-		accelerator = val
-	}
-	labels[acceleratorNameLabelKey] = accelerator
-
-	modelID := llmSvc.Spec.Model.URI.String()
-	if llmSvc.Spec.Model.Name != nil {
-		modelID = *llmSvc.Spec.Model.Name
-	}
-
-	annotations := map[string]string{
-		wvaManagedAnnotation: "true",
-		wvaModelIDAnnotation: modelID,
-	}
-	if scaling.WVA.VariantCost != "" {
-		annotations[wvaVariantCostAnnotation] = scaling.WVA.VariantCost
-	}
+	labels := wvaLabels(llmSvc, workloadLabels)
+	annotations := wvaAnnotations(llmSvc, scaling)
 
 	minReplicas := ptr.To(ptr.Deref(scaling.MinReplicas, 1))
 
@@ -397,25 +380,8 @@ func (r *LLMISVCReconciler) deleteScaledObjectIfExists(ctx context.Context, llmS
 // The Prometheus query uses scaledObjectName as variant_name because WVA uses the ScaledObject's
 // own name as the synthetic VA name when emitting wva_desired_replicas.
 func expectedScaledObject(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, config *Config, scaleTargetRef autoscalingv2.CrossVersionObjectReference, scaledObjectName string, workloadLabels map[string]string) *kedav1alpha1.ScaledObject {
-	labels := scalingLabels(llmSvc)
-	accelerator := "unknown"
-	if val, ok := workloadLabels[acceleratorNameLabelKey]; ok && val != "" {
-		accelerator = val
-	}
-	labels[acceleratorNameLabelKey] = accelerator
-
-	modelID := llmSvc.Spec.Model.URI.String()
-	if llmSvc.Spec.Model.Name != nil {
-		modelID = *llmSvc.Spec.Model.Name
-	}
-
-	annotations := map[string]string{
-		wvaManagedAnnotation: "true",
-		wvaModelIDAnnotation: modelID,
-	}
-	if scaling.WVA.VariantCost != "" {
-		annotations[wvaVariantCostAnnotation] = scaling.WVA.VariantCost
-	}
+	labels := wvaLabels(llmSvc, workloadLabels)
+	annotations := wvaAnnotations(llmSvc, scaling)
 
 	keda := scaling.WVA.KEDA
 	minReplicas := ptr.To(ptr.Deref(scaling.MinReplicas, 1))
@@ -490,8 +456,13 @@ func prometheusTrigger(cfg *WVAAutoscalingConfig, query string) kedav1alpha1.Sca
 
 // cleanupLegacyVA deletes a deprecated VariantAutoscaling CR if it exists.
 // Uses unstructured delete to avoid importing WVA API types.
+// Caches the CRD-absent state so that clusters where the CRD was never
+// installed skip the API call after the first reconcile.
 // This is a temporary migration step; remove after one release cycle.
 func (r *LLMISVCReconciler) cleanupLegacyVA(ctx context.Context, namespace, vaName string) error {
+	if r.legacyVACRDAbsent.Load() {
+		return nil
+	}
 	logger := log.FromContext(ctx).WithName("cleanupLegacyVA")
 	va := &unstructured.Unstructured{}
 	va.SetGroupVersionKind(schema.GroupVersionKind{
@@ -502,7 +473,11 @@ func (r *LLMISVCReconciler) cleanupLegacyVA(ctx context.Context, namespace, vaNa
 	va.SetName(vaName)
 	va.SetNamespace(namespace)
 	err := r.Delete(ctx, va)
-	if apierrors.IsNotFound(err) || apimeta.IsNoMatchError(err) {
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	if apimeta.IsNoMatchError(err) {
+		r.legacyVACRDAbsent.Store(true)
 		return nil
 	}
 	if err == nil {
@@ -554,6 +529,34 @@ func scalingLabels(llmSvc *v1alpha2.LLMInferenceService) map[string]string {
 		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
 		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 	}
+}
+
+// wvaLabels builds the label set for an HPA or ScaledObject, including the
+// standard scaling labels and the accelerator name from workload labels.
+func wvaLabels(llmSvc *v1alpha2.LLMInferenceService, workloadLabels map[string]string) map[string]string {
+	labels := scalingLabels(llmSvc)
+	accelerator := "unknown"
+	if val, ok := workloadLabels[acceleratorNameLabelKey]; ok && val != "" {
+		accelerator = val
+	}
+	labels[acceleratorNameLabelKey] = accelerator
+	return labels
+}
+
+// wvaAnnotations builds the WVA discovery annotations for an HPA or ScaledObject.
+func wvaAnnotations(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec) map[string]string {
+	modelID := llmSvc.Spec.Model.URI.String()
+	if llmSvc.Spec.Model.Name != nil {
+		modelID = *llmSvc.Spec.Model.Name
+	}
+	annotations := map[string]string{
+		wvaManagedAnnotation: "true",
+		wvaModelIDAnnotation: modelID,
+	}
+	if scaling.WVA.VariantCost != "" {
+		annotations[wvaVariantCostAnnotation] = scaling.WVA.VariantCost
+	}
+	return annotations
 }
 
 func mainScaleTargetRef(llmSvc *v1alpha2.LLMInferenceService) autoscalingv2.CrossVersionObjectReference {

@@ -25,12 +25,17 @@ import (
 	"github.com/stretchr/testify/require"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
@@ -991,6 +996,72 @@ func TestScaleTargetRefHelpers(t *testing.T) {
 		assert.Equal(t, "apps/v1", ref.APIVersion)
 		assert.Equal(t, "Deployment", ref.Kind)
 		assert.Equal(t, prefillDeploymentName(svc), ref.Name)
+	})
+}
+
+func TestCleanupLegacyVA(t *testing.T) {
+	vaGVK := schema.GroupVersionKind{
+		Group:   "llmd.ai",
+		Version: "v1alpha1",
+		Kind:    "VariantAutoscaling",
+	}
+
+	newVA := func(name, namespace string) *unstructured.Unstructured {
+		va := &unstructured.Unstructured{}
+		va.SetGroupVersionKind(vaGVK)
+		va.SetName(name)
+		va.SetNamespace(namespace)
+		return va
+	}
+
+	newReconcilerForVA := func(va *unstructured.Unstructured) *LLMISVCReconciler {
+		s := runtime.NewScheme()
+		mapper := apimeta.NewDefaultRESTMapper([]schema.GroupVersion{
+			{Group: "llmd.ai", Version: "v1alpha1"},
+		})
+		mapper.Add(vaGVK, apimeta.RESTScopeNamespace)
+
+		cb := fake.NewClientBuilder().WithScheme(s).WithRESTMapper(mapper)
+		if va != nil {
+			cb = cb.WithObjects(va)
+		}
+		return &LLMISVCReconciler{
+			Client:        cb.Build(),
+			EventRecorder: record.NewFakeRecorder(10),
+		}
+	}
+
+	t.Run("deletes existing legacy VA", func(t *testing.T) {
+		va := newVA("test-svc-kserve-va", "test-ns")
+		r := newReconcilerForVA(va)
+
+		err := r.cleanupLegacyVA(context.Background(), "test-ns", "test-svc-kserve-va")
+		require.NoError(t, err)
+
+		got := newVA("test-svc-kserve-va", "test-ns")
+		err = r.Get(context.Background(), client.ObjectKeyFromObject(got), got)
+		assert.True(t, apierrors.IsNotFound(err), "VA should be deleted")
+	})
+
+	t.Run("returns nil when VA does not exist", func(t *testing.T) {
+		r := newReconcilerForVA(nil)
+		err := r.cleanupLegacyVA(context.Background(), "test-ns", "nonexistent-va")
+		assert.NoError(t, err)
+	})
+
+	t.Run("skips API call when CRD known absent", func(t *testing.T) {
+		r := newReconcilerForVA(nil)
+		r.legacyVACRDAbsent.Store(true)
+		err := r.cleanupLegacyVA(context.Background(), "test-ns", "test-svc-kserve-va")
+		assert.NoError(t, err)
+	})
+
+	t.Run("does not set CRD-absent flag on NotFound", func(t *testing.T) {
+		r := newReconcilerForVA(nil)
+		err := r.cleanupLegacyVA(context.Background(), "test-ns", "nonexistent-va")
+		require.NoError(t, err)
+		assert.False(t, r.legacyVACRDAbsent.Load(),
+			"NotFound should not set CRD-absent flag (CRD exists, VA just doesn't)")
 	})
 }
 

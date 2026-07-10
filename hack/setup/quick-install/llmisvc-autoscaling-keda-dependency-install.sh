@@ -952,6 +952,7 @@ uninstall_wva_kustomize() {
     kubectl delete clusterrole -l app.kubernetes.io/name=workload-variant-autoscaler 2>/dev/null || true
     kubectl delete clusterrolebinding -l app.kubernetes.io/name=workload-variant-autoscaler 2>/dev/null || true
     kubectl delete namespace "${WVA_NAMESPACE}" --wait=true --timeout=60s --force --grace-period=0 2>/dev/null || true
+    kubectl delete crd variantautoscalings.llmd.ai 2>/dev/null || true
 
     log_success "WVA uninstalled"
 }
@@ -971,7 +972,8 @@ install_wva_kustomize() {
 
     log_info "Installing WVA ${wva_version} via Kustomize..."
 
-    # WVA requires the VariantAutoscaling CRD even when using annotation-based discovery
+    # WVA's controller requires the VariantAutoscaling CRD registered for its
+    # internal informers, even though KServe no longer creates VA instances.
     log_info "Installing WVA CRDs..."
     kubectl apply --server-side --force-conflicts \
         -k "${WVA_REPO_URL}/config/base/crd?ref=${wva_version}"
