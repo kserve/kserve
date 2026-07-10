@@ -3,8 +3,7 @@ ARG VENV_PATH=prod_venv
 ARG WORKSPACE_DIR=/kserve-workspace
 
 #################### CUDA RUNTIME (Ubuntu 26.04) ####################
-# Replicates nvidia/cuda:13.3.0-base-ubuntu26.04 and
-# nvidia/cuda:13.3.0-runtime-ubuntu26.04, plus libnccl2 for vLLM.
+# Replicates nvidia/cuda:13.3.0-base-ubuntu26.04 and nvidia/cuda:13.3.0-runtime-ubuntu26.04
 FROM ubuntu:26.04 AS cuda-runtime
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -55,10 +54,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     cuda-nvtx-13-3=${NV_NVTX_VERSION} \
     libcusparse-13-3=${NV_LIBCUSPARSE_VERSION} \
     libcublas-13-3=${NV_LIBCUBLAS_VERSION} \
-    libnccl2 \
     && rm -rf /var/lib/apt/lists/*
 
-RUN apt-mark hold libcublas-13-3 libnccl2
+RUN apt-mark hold libcublas-13-3
 
 RUN echo "/usr/local/cuda/lib64" >> /etc/ld.so.conf.d/nvidia.conf
 
@@ -76,12 +74,15 @@ ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 FROM cuda-runtime AS cuda-runtime-jit
 
 ENV NV_CUDA_CUDART_DEV_VERSION=13.3.29-1
+ENV NV_LIBCURAND_DEV_VERSION=10.4.3.29-1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     cuda-cudart-dev-13-3=${NV_CUDA_CUDART_DEV_VERSION} \
     cuda-command-line-tools-13-3=${NV_CUDA_LIB_VERSION} \
     cuda-minimal-build-13-3=${NV_CUDA_LIB_VERSION} \
+    libcurand-dev-13-3=${NV_LIBCURAND_DEV_VERSION} \
     ninja-build \
+    libnccl2 \
     && rm -rf /var/lib/apt/lists/*
 
 ENV LIBRARY_PATH=/usr/local/cuda/lib64/stubs
