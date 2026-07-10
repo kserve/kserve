@@ -49,7 +49,7 @@ RUN if [ "$(uname -m)" = "ppc64le" ]; then \
             kserve/pyproject.toml && \
         cd kserve && uv lock && \
         cp uv.lock /tmp/kserve_ppc64le_uv.lock && \
-        cp pyproject.toml /tmp/kserve_ppc64le_pyproject.toml
+        cp pyproject.toml /tmp/kserve_ppc64le_pyproject.toml; \
     fi
 
 RUN cd kserve && uv sync --active --no-cache
@@ -61,7 +61,7 @@ RUN if [ "$(uname -m)" = "ppc64le" ]; then \
         rm -f kserve/pyproject.toml kserve/uv.lock && \
         cp /tmp/kserve_ppc64le_pyproject.toml kserve/pyproject.toml && \
         cp /tmp/kserve_ppc64le_uv.lock kserve/uv.lock && \
-        rm -f /tmp/kserve_ppc64le_pyproject.toml /tmp/kserve_ppc64le_uv.lock
+        rm -f /tmp/kserve_ppc64le_pyproject.toml /tmp/kserve_ppc64le_uv.lock; \
     fi
 
 RUN cd kserve && uv sync --active --no-cache
@@ -73,7 +73,7 @@ COPY artexplainer/pyproject.toml artexplainer/uv.lock artexplainer/
 # then regenerate uv.lock before syncing.
 RUN if [ "$(uname -m)" = "ppc64le" ]; then \
         sed -i \
-            -e '/^    "h5py/a\    "scikit-learn==1.6.1",' \
+            -e '/^    "h5py/a\    "scikit-learn>=1.6.1,<=1.8.0",' \
             -e '/^    "h5py/a\    "scipy==1.15.2",' \
             -e '/^    "h5py/a\    "ml-dtypes==0.5.1",' \
             artexplainer/pyproject.toml && \
@@ -101,7 +101,7 @@ RUN if [ "$(uname -m)" = "ppc64le" ]; then \
             >> artexplainer/pyproject.toml && \
         cd artexplainer && uv lock && \
         cp uv.lock /tmp/artexplainer_ppc64le_uv.lock && \
-        cp pyproject.toml /tmp/artexplainer_ppc64le_pyproject.toml
+        cp pyproject.toml /tmp/artexplainer_ppc64le_pyproject.toml; \
     fi
 
 RUN cd artexplainer && uv sync --active --no-cache
@@ -113,7 +113,7 @@ RUN if [ "$(uname -m)" = "ppc64le" ]; then \
         rm -f artexplainer/pyproject.toml artexplainer/uv.lock && \
         cp /tmp/artexplainer_ppc64le_pyproject.toml artexplainer/pyproject.toml && \
         cp /tmp/artexplainer_ppc64le_uv.lock artexplainer/uv.lock && \
-        rm -f /tmp/artexplainer_ppc64le_pyproject.toml /tmp/artexplainer_ppc64le_uv.lock
+        rm -f /tmp/artexplainer_ppc64le_pyproject.toml /tmp/artexplainer_ppc64le_uv.lock; \
     fi
 
 RUN cd artexplainer && uv sync --active --no-cache
