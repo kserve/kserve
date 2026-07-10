@@ -111,7 +111,7 @@ COPY lgbserver/pyproject.toml lgbserver/uv.lock lgbserver/
 # then regenerate uv.lock before syncing.
 RUN if [ "$(uname -m)" = "ppc64le" ]; then \
         sed -i \
-            -e '/^    "lightgbm\[scikit-learn\]/a\    "scikit-learn==1.6.1",' \
+            -e '/^    "lightgbm\[scikit-learn\]/a\    "scikit-learn>=1.6.1,<=1.8.0",' \
             -e '/^    "lightgbm\[scikit-learn\]/a\    "scipy==1.15.2",' \
             -e '/^    "lightgbm\[scikit-learn\]/a\    "hf-xet",' \
             -e '/^    "lightgbm\[scikit-learn\]/a\    "google-crc32c==1.8.0",' \
