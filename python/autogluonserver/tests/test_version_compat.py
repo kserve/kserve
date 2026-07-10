@@ -106,6 +106,11 @@ def _make_mock_cls():
 def test_matching_versions_load_normally(tmp_path, monkeypatch):
     (tmp_path / "version.txt").write_text("1.5.0")
     mock_cls = _make_mock_cls()
+    scanned = []
+    monkeypatch.setattr(
+        "autogluonserver.version_compat.assert_safe_autogluon_artifact",
+        lambda path: scanned.append(path),
+    )
     monkeypatch.setattr(
         "autogluonserver.version_compat.importlib.metadata.version",
         lambda _: "1.5.0",
@@ -113,6 +118,7 @@ def test_matching_versions_load_normally(tmp_path, monkeypatch):
 
     load_predictor_tolerating_patch_mismatch(mock_cls, str(tmp_path))
 
+    assert scanned == [str(tmp_path)]
     mock_cls.load.assert_called_once_with(str(tmp_path))
 
 

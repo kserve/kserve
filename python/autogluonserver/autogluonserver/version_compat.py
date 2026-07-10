@@ -21,6 +21,8 @@ from typing import Any, Optional, Protocol, TypeVar
 from kserve.errors import InferenceError
 from packaging.version import InvalidVersion, Version
 
+from autogluonserver.safe_deserialize import assert_safe_autogluon_artifact
+
 _T = TypeVar("_T", covariant=True)
 
 
@@ -55,6 +57,8 @@ def load_predictor_tolerating_patch_mismatch(
     * Version file absent or unreadable: delegates to ``load()`` unchanged so
       AutoGluon's own version-check logic runs as normal.
     """
+    assert_safe_autogluon_artifact(path)
+
     saved_v = _read_saved_version(path)
     current_v = _get_installed_version(predictor_cls) if saved_v is not None else None
 
