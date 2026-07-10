@@ -123,7 +123,13 @@ spec:
 
 - **`PREDICT_PROBA`** (tabular): set to `"true"` to return [class probabilities](#classification-probabilities-predict_proba) via `predict_proba()` instead of predicted labels via `predict()`.
 - **`AUTOGLUON_TS_ID_COLUMN`**, **`AUTOGLUON_TS_TIMESTAMP_COLUMN`** (time series): override id and timestamp column names in JSON requests. Defaults are `item_id` and `timestamp` when `predictor_metadata.json` is absent, or the values from that file when present. Non-empty values override after stripping whitespace.
-- **`AUTOGLUON_SAFE_PICKLE_SCAN`** (tabular/time series): defaults to `"true"`. Before deserialization, the server scans `*.pkl` files in the downloaded model artifact and blocks known-dangerous pickle `GLOBAL` references such as `os.system` or `subprocess.Popen`. Set to `"false"` only if you fully trust the artifact source.
+- **`AUTOGLUON_SAFE_LOAD_MODE`** (tabular/time series): safe-load policy for pickle artifacts.
+  - `off` (default): skip pre-load artifact scan.
+  - `permissive`: scan and log violations, but still load.
+  - `enforce`: scan and reject on violations.
+- **`AUTOGLUON_SAFE_LOAD_ALLOWED_MODULES`**: optional extra allowlist entries for pickle module prefixes (comma-separated string or JSON list). These are appended to the built-in defaults.
+- **`AUTOGLUON_SAFE_LOAD_SCAN_PATTERNS`**: optional glob patterns for files to scan (comma-separated string or JSON list). Default: `["*.pkl", "*.pickle", "*.joblib"]`.
+- **`AUTOGLUON_SAFE_LOAD_LOG_DENIED_MAX`**: max number of denied references to include in warning/error details (default `10`).
 - **Target column** (time series): always taken from `TimeSeriesPredictor.target` on the loaded model. There is no environment variable to override it; use the same column name in `instances` / `known_covariates` as at training time.
 
 ## Inference stack and dependency versions
