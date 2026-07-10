@@ -1073,8 +1073,8 @@ def wait_for_model_response(
                     kserve_client, test_case.llm_service, test_case.model_name
                 )
             else:
-                route = ResolvedRoute(
-                    url=get_llm_service_url(kserve_client, test_case.llm_service)
+                route = path_based_routing(
+                    kserve_client, test_case.llm_service, test_case.model_name
                 )
         except Exception as e:
             raise AssertionError(f"❌ Failed to get service URL: {e}") from e
