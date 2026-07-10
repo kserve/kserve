@@ -5,9 +5,7 @@ ARG WORKSPACE_DIR=/kserve-workspace
 #################### CUDA BASE (Ubuntu 26.04) ####################
 # Clone of nvidia/cuda:13.3.0-base-ubuntu26.04
 # (https://gitlab.com/nvidia/container-images/cuda/-/tree/master/dist/13.3.0/ubuntu2604/base).
-# Maintained in-tree because NVIDIA does not publish image updates between Ubuntu
-# LTS releases. Omits NGC-DL-CONTAINER-LICENSE and nvidia_entrypoint.sh.
-# x86_64 only; official images select arch via TARGETARCH.
+# Maintained in-tree because NVIDIA does not publish image updates between Ubuntu LTS releases.
 FROM ubuntu:26.04 AS cuda-base
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -57,7 +55,6 @@ ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 #################### CUDA RUNTIME (Ubuntu 26.04) ####################
 # Clone of nvidia/cuda:13.3.0-runtime-ubuntu26.04
 # (https://gitlab.com/nvidia/container-images/cuda/-/tree/master/dist/13.3.0/ubuntu2604/runtime).
-# Layers on cuda-base; omits nvidia_entrypoint.sh and NVIDIA_PRODUCT_NAME.
 FROM cuda-base AS cuda-runtime
 
 ENV NV_CUDA_LIB_VERSION=13.3.0-1
@@ -85,8 +82,6 @@ RUN apt-mark hold ${NV_LIBCUBLAS_PACKAGE_NAME}
 #################### CUDA DEVEL (Ubuntu 26.04) ####################
 # Clone of nvidia/cuda:13.3.0-devel-ubuntu26.04
 # (https://gitlab.com/nvidia/container-images/cuda/-/tree/master/dist/13.3.0/ubuntu2604/devel).
-# Used as the build stage base for compiling Python wheels (vLLM, etc.).
-# Extension beyond the official image: libnccl-dev (official 13.3 ubuntu2604 omits NCCL).
 FROM cuda-runtime AS cuda-devel
 
 ENV NV_CUDA_CUDART_DEV_VERSION=13.3.29-1
@@ -110,7 +105,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libcusparse-dev-13-3=${NV_LIBCUSPARSE_DEV_VERSION} \
     ${NV_LIBCUBLAS_DEV_PACKAGE} \
     ${NV_CUDA_NSIGHT_COMPUTE_DEV_PACKAGE} \
-    libnccl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 RUN NSYS_PATH=$(find /opt/nvidia/nsight-compute -type f -name "nsys" 2>/dev/null | head -n 1); \
@@ -119,7 +113,6 @@ RUN NSYS_PATH=$(find /opt/nvidia/nsight-compute -type f -name "nsys" 2>/dev/null
     fi
 
 RUN apt-mark hold ${NV_LIBCUBLAS_DEV_PACKAGE_NAME}
-RUN apt-mark hold libnccl-dev
 
 ENV LIBRARY_PATH=/usr/local/cuda/lib64/stubs
 
@@ -132,9 +125,19 @@ FROM cuda-devel AS base
 ARG WORKSPACE_DIR
 ARG CUDA_VERSION=13.3.0
 
-RUN apt-get update -y \
-    && apt-get install -y ccache software-properties-common git curl sudo gcc python3 python3-venv python3-pip python-is-python3 \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN apt-get update -y && apt-get install -y --no-install-recommends \
+    libnccl-dev \
+    ccache \
+    software-properties-common \
+    git \
+    curl \
+    sudo \
+    gcc \
+    python3 \
+    python3-venv \
+    python3-pip \
+    python-is-python3 \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install uv and ensure it's in PATH
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
