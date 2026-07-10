@@ -1471,6 +1471,48 @@ func TestDeploymentModeUpdate(t *testing.T) {
 	// During deletion, deploymentMode mismatch should be allowed
 	g.Expect(warnings).Should(gomega.BeEmpty())
 	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: Empty Status.DeploymentMode with a non-Standard annotation should be accepted.
+	// This is the first-reconcile finalizer patch case: the controller adds a finalizer via
+	// r.Patch(...) before updateStatus runs, so oldIsvc.Status.DeploymentMode is "". The
+	// validator must treat that as "no prior state" and not synthesize "Standard" from it.
+	// Regression test for issue #5793.
+	oldIsvcEmptyStatus := makeTestInferenceService()
+	oldIsvcEmptyStatus.Status = InferenceServiceStatus{
+		DeploymentMode: "",
+	}
+	updatedIsvcKnativeAnnotation := oldIsvcEmptyStatus.DeepCopy()
+	updatedIsvcKnativeAnnotation.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.Knative),
+	}
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcEmptyStatus, updatedIsvcKnativeAnnotation)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: Empty Status.DeploymentMode with a legacy Serverless annotation should also be accepted.
+	updatedIsvcLegacySlAnnotation := oldIsvcEmptyStatus.DeepCopy()
+	updatedIsvcLegacySlAnnotation.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.LegacyServerless),
+	}
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcEmptyStatus, updatedIsvcLegacySlAnnotation)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: Empty Status.DeploymentMode with a Standard annotation should also be accepted.
+	updatedIsvcStandardAnnotation := oldIsvcEmptyStatus.DeepCopy()
+	updatedIsvcStandardAnnotation.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.Standard),
+	}
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcEmptyStatus, updatedIsvcStandardAnnotation)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: Empty Status.DeploymentMode with no deploymentMode annotation should be accepted.
+	updatedIsvcNoAnnotation := oldIsvcEmptyStatus.DeepCopy()
+	updatedIsvcNoAnnotation.Annotations = map[string]string{}
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcEmptyStatus, updatedIsvcNoAnnotation)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
 }
 
 func TestValidateUpdateDuringDeletion(t *testing.T) {
