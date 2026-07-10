@@ -127,29 +127,32 @@ func GetStorageContainerSpec(ctx context.Context, namespace string, storageUri s
 		return GetStorageContainerSpecByName(ctx, namespace, *storageContainerName, storageUri, c)
 	}
 
-	// Auto-match: check namespace-scoped StorageContainer first
+	// Auto-match: check namespace-scoped StorageContainer first.
+	// Guard on namespace != "" — InNamespace("") would list across all namespaces.
 	namespacedList := &v1alpha1.StorageContainerList{}
-	if err := c.List(ctx, namespacedList, client.InNamespace(namespace)); err != nil {
-		if apimeta.IsNoMatchError(err) {
-			// CRD not installed — skip namespace-scoped containers, fall through to cluster
-			namespacedList = &v1alpha1.StorageContainerList{}
-		} else {
-			return nil, err
+	if namespace != "" {
+		if err := c.List(ctx, namespacedList, client.InNamespace(namespace)); err != nil {
+			if apimeta.IsNoMatchError(err) {
+				// CRD not installed — skip namespace-scoped containers, fall through to cluster
+				namespacedList = &v1alpha1.StorageContainerList{}
+			} else {
+				return nil, err
+			}
 		}
-	}
-	for _, sc := range namespacedList.Items {
-		if sc.IsDisabled() {
-			continue
-		}
-		if sc.Spec.WorkloadType != v1alpha1.InitContainer {
-			continue
-		}
-		supported, err := sc.Spec.IsStorageUriSupported(storageUri)
-		if err != nil {
-			return nil, fmt.Errorf("error checking storage container %s/%s: %w", sc.Namespace, sc.Name, err)
-		}
-		if supported {
-			return &sc.Spec, nil
+		for _, sc := range namespacedList.Items {
+			if sc.IsDisabled() {
+				continue
+			}
+			if sc.Spec.WorkloadType != v1alpha1.InitContainer {
+				continue
+			}
+			supported, err := sc.Spec.IsStorageUriSupported(storageUri)
+			if err != nil {
+				return nil, fmt.Errorf("error checking storage container %s/%s: %w", sc.Namespace, sc.Name, err)
+			}
+			if supported {
+				return &sc.Spec, nil
+			}
 		}
 	}
 
