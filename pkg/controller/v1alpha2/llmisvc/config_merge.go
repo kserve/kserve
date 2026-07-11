@@ -645,6 +645,20 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 				if kv.EvictionPolicy != "" {
 					extraConfig["eviction_policy"] = kv.EvictionPolicy
 				}
+				var secondaryTiers []map[string]any
+				for i, s := range kv.Secondary {
+					if s.FileSystem == nil {
+						continue
+					}
+					entry := map[string]any{
+						"type":     "fs",
+						"root_dir": fmt.Sprintf("/mnt/kv-cache-%d", i),
+					}
+					secondaryTiers = append(secondaryTiers, entry)
+				}
+				if len(secondaryTiers) > 0 {
+					extraConfig["secondary_tiers"] = secondaryTiers
+				}
 				kvConfig := map[string]any{
 					"kv_connector":              "OffloadingConnector",
 					"kv_role":                   "kv_both",

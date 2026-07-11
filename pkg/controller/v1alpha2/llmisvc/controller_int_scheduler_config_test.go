@@ -156,7 +156,7 @@ schedulingProfiles:
 						Containers: []corev1.Container{
 							{
 								Name:  "main",
-								Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0-rc.2",
+								Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0",
 								Args: []string{
 									"--config-text",
 									"existing-config-from-template",
@@ -427,12 +427,16 @@ schedulingProfiles:
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
-			// Verify default config for non-prefill mode (should contain queue-scorer, kv-cache-utilization-scorer, etc.)
+			// Verify default config for non-prefill mode. The default single-profile
+			// config follows the llm-d optimized baseline: queue-scorer,
+			// kv-cache-utilization-scorer, prefix-cache-scorer, no-hit-lru-scorer, max-score-picker.
 			configText, found := getSchedulerConfigText(expectedDeployment)
 			Expect(found).To(BeTrue(), "Expected default config in scheduler deployment")
 			// Default non-prefill config should contain these plugins
 			Expect(configText).To(ContainSubstring("queue-scorer"))
+			Expect(configText).To(ContainSubstring("kv-cache-utilization-scorer"))
 			Expect(configText).To(ContainSubstring("prefix-cache-scorer"))
+			Expect(configText).To(ContainSubstring("no-hit-lru-scorer"))
 			Expect(configText).To(ContainSubstring("max-score-picker"))
 			Expect(configText).To(ContainSubstring("name: default"))
 		})
@@ -483,6 +487,10 @@ schedulingProfiles:
 			Expect(configText).To(ContainSubstring("disagg-profile-handler"))
 			Expect(configText).To(ContainSubstring("name: prefill"))
 			Expect(configText).To(ContainSubstring("name: decode"))
+			// Upstream optimized P/D baseline: prefill adds kv-cache-utilization-scorer,
+			// decode swaps queue-scorer for active-request-scorer.
+			Expect(configText).To(ContainSubstring("kv-cache-utilization-scorer"))
+			Expect(configText).To(ContainSubstring("active-request-scorer"))
 		})
 	})
 
@@ -904,7 +912,7 @@ schedulingProfiles:
 						Containers: []corev1.Container{
 							{
 								Name:  "main",
-								Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0-rc.2",
+								Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0",
 								Args: []string{
 									"--ha-enable-leader-election",
 									"--poolName",
@@ -1009,6 +1017,32 @@ schedulingProfiles:
 				}
 			}
 			Expect(hasLeasesPermission).To(BeTrue(), "Expected scheduler role to have leases permission for leader election")
+
+			// Verify llm-d.ai API group permission exists for inferenceobjectives and inferencemodelrewrites
+			hasLLMDAIPermission := false
+			for _, rule := range expectedRole.Rules {
+				for _, apiGroup := range rule.APIGroups {
+					if apiGroup == "llm-d.ai" {
+						Expect(rule.Resources).To(ContainElements("inferenceobjectives", "inferencemodelrewrites"))
+						Expect(rule.Verbs).To(ContainElements("get", "list", "watch"))
+						hasLLMDAIPermission = true
+					}
+				}
+			}
+			Expect(hasLLMDAIPermission).To(BeTrue(), "Expected scheduler role to have llm-d.ai API group permission for inferenceobjectives and inferencemodelrewrites")
+
+			// Verify inference.networking.k8s.io API group permission exists for inferencepools, inferenceobjectives, and inferencemodels
+			hasGIEPermission := false
+			for _, rule := range expectedRole.Rules {
+				for _, apiGroup := range rule.APIGroups {
+					if apiGroup == "inference.networking.k8s.io" {
+						Expect(rule.Resources).To(ContainElements("inferencepools", "inferenceobjectives", "inferencemodels"))
+						Expect(rule.Verbs).To(ContainElements("get", "list", "watch"))
+						hasGIEPermission = true
+					}
+				}
+			}
+			Expect(hasGIEPermission).To(BeTrue(), "Expected scheduler role to have inference.networking.k8s.io API group permission for inferencepools, inferenceobjectives, and inferencemodels")
 		})
 	})
 
