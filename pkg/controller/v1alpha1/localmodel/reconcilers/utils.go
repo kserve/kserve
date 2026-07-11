@@ -715,29 +715,29 @@ func ReconcileLocalModelNode(
 
 		for _, node := range readyNodes.Items {
 			localModelNode := &v1alpha1.LocalModelNode{}
-			err := c.Get(ctx, types.NamespacedName{Name: node.Name}, localModelNode)
-			found := true
-			if err != nil {
-				if apierr.IsNotFound(err) {
-					found = false
-					log.Info("localmodelNode not found")
-				} else {
-					log.Error(err, "Failed to get localmodelnode", "name", node.Name)
-					return err
-				}
+			nn := types.NamespacedName{Name: node.Name}
+			err := c.Get(ctx, nn, localModelNode)
+			found := err == nil
+			if err != nil && !apierr.IsNotFound(err) {
+				return err
 			}
 			if !found {
 				localModelNode = &v1alpha1.LocalModelNode{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: node.Name,
-					},
-					Spec: v1alpha1.LocalModelNodeSpec{LocalModels: []v1alpha1.LocalModelInfo{modelInfo}},
+					ObjectMeta: metav1.ObjectMeta{Name: node.Name},
+					Spec:       v1alpha1.LocalModelNodeSpec{LocalModels: []v1alpha1.LocalModelInfo{modelInfo}},
 				}
-				if err := c.Create(ctx, localModelNode); err != nil {
-					log.Error(err, "Create localmodelnode", "name", node.Name)
+				if err := c.Create(ctx, localModelNode); apierr.IsAlreadyExists(err) {
+					if err := c.Get(ctx, nn, localModelNode); err != nil {
+						return err
+					}
+					found = true
+				} else if err != nil {
 					return err
 				}
-			} else {
+			}
+			// Newly created LocalModelNode already includes modelInfo in Spec.
+			// UpdateLocalModelNode is only needed for pre-existing objects.
+			if found {
 				if err := UpdateLocalModelNode(ctx, c, log, localModelNode, localModelCache, localModelNamespaceCache, nodeGroupName); err != nil {
 					return err
 				}

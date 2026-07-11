@@ -141,7 +141,13 @@ manifests: controller-gen kustomize yq
 
 	# DO NOT COPY to helm chart. It needs to be created before the Envoy Gateway or you will need to restart the Envoy Gateway controller.
 	# The llmisvc helm chart needs to be installed after the Envoy Gateway as well, so it needs to be created before the llmisvc helm chart.
-	$(KUSTOMIZE) build https://github.com/kubernetes-sigs/gateway-api-inference-extension.git/config/crd?ref=$(GIE_VERSION) > config/llmisvc/gateway-inference-extension.yaml
+	# Pull upstream GIE v1 CRDs (InferencePool, etc.) from release artifact
+	curl -sL https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/$(GIE_VERSION)/v1-manifests.yaml > config/llmisvc/gateway-inference-extension.yaml
+	# Append llm-d.ai CRDs (InferenceObjective, InferenceModelRewrite) from llm-d-router release
+	@echo "---" >> config/llmisvc/gateway-inference-extension.yaml
+	curl -sL https://github.com/llm-d/llm-d-router/releases/download/$(LLMD_ROUTER_VERSION)/manifests.yaml >> config/llmisvc/gateway-inference-extension.yaml
+	# Workaround to update main-dev version from llm-d-router release as annotation
+	sed -i 's|llm-d.ai/bundle-version: main-dev|llm-d.ai/bundle-version: $(LLMD_ROUTER_VERSION)|' config/llmisvc/gateway-inference-extension.yaml
 	cp config/llmisvc/gateway-inference-extension.yaml test/crds/gateway-inference-extension.yaml
 	cat test/crds/gateway-inference-extension-v1alpha2pool.yaml >> config/llmisvc/gateway-inference-extension.yaml
 	cat test/crds/gateway-inference-extension-v1alpha2pool.yaml >> test/crds/gateway-inference-extension.yaml

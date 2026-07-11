@@ -20,6 +20,8 @@ from kserve.errors import InferenceError
 
 from autogluonserver.predictor_detect import detect_and_load_predictor
 
+pytestmark = pytest.mark.autogluon
+
 
 def _timeseries_predictor():
     return TimeSeriesPredictor.__new__(TimeSeriesPredictor)

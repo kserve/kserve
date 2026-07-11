@@ -28,6 +28,8 @@ from autogluonserver.timeseries_model import (
     _load_ts_metadata,
 )
 
+pytestmark = pytest.mark.autogluon
+
 
 def _write_predictor_metadata(
     tmp_path,

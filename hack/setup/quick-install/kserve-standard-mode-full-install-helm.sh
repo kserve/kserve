@@ -645,8 +645,8 @@ RUFF_VERSION=0.14.13
 PINACT_VERSION=v3.9.0
 KIND_VERSION=v0.30.0
 CERT_MANAGER_VERSION=v1.17.0
-ENVOY_GATEWAY_VERSION=v1.7.0
-ENVOY_AI_GATEWAY_VERSION=v0.6.0
+ENVOY_GATEWAY_VERSION=v1.8.1
+ENVOY_AI_GATEWAY_VERSION=v1.0.0
 KNATIVE_OPERATOR_VERSION=v1.21.1
 KNATIVE_SERVING_VERSION=1.21.1
 KEDA_OTEL_ADDON_VERSION=v0.0.6
@@ -660,6 +660,7 @@ OPENTELEMETRY_OPERATOR_VERSION=0.74.3
 LWS_VERSION=v0.8.0
 GATEWAY_API_VERSION=v1.5.1
 GIE_VERSION=v1.5.0
+LLMD_ROUTER_VERSION=v0.9.0
 WVA_VERSION=v0.7.0
 
 #================================================
@@ -1091,6 +1092,41 @@ install_kserve_helm() {
     done
 
     log_success "Successfully installed KServe"
+
+    # Helm's sortManifestsByKind applies the llmisvc-controller-manager Deployment
+    # (a known kind) before cert-manager's Certificate CR (a custom kind, sorted
+    # last), so the pod can be scheduled and attempt to mount
+    # llmisvc-webhook-server-cert before cert-manager has issued it, hitting
+    # FailedMount and kubelet's mount-retry backoff. Wait for the Certificate to
+    # be issued and restart the deployment to reset that backoff before waiting
+    # for it to become ready.
+    if is_positive "${ENABLE_LLMISVC}"; then
+        log_info "Waiting for llmisvc webhook Certificate to be ready..."
+        kubectl wait --for=condition=Ready certificate/llmisvc-serving-cert \
+            -n "${KSERVE_NAMESPACE}" --timeout=180s
+
+        log_info "Restarting llmisvc-controller-manager to pick up the freshly-issued cert..."
+        kubectl rollout restart deployment/llmisvc-controller-manager -n "${KSERVE_NAMESPACE}"
+
+        # Wait for the NEW ReplicaSet to be fully rolled out. The wait_for_deployment
+        # helper below uses --for=condition=Available, which is satisfied by the OLD
+        # ReplicaSet's Ready pod during the rolling restart: it returns instantly but
+        # does not guarantee the new pod is serving the webhook. The subsequent
+        # kserve-runtime-configs install then applies LLMInferenceServiceConfig presets
+        # whose validating webhook must authorize each, and can hit the webhook Service
+        # before the new pod is a ready endpoint (dial ...:443: connect: connection refused).
+        log_info "Waiting for llmisvc-controller-manager rollout to complete..."
+        kubectl rollout status deployment/llmisvc-controller-manager \
+            -n "${KSERVE_NAMESPACE}" --timeout=300s
+
+        # Additionally wait for the webhook Service to have ready endpoints, covering the
+        # window between pod-ready and kube-proxy programming the Service endpoints.
+        log_info "Waiting for llmisvc webhook Service endpoints..."
+        kubectl wait --for=jsonpath='{.subsets[0].addresses}' \
+            endpoints/llmisvc-webhook-server-service \
+            -n "${KSERVE_NAMESPACE}" --timeout=60s
+        log_info "llmisvc webhook is ready."
+    fi
 
     # Wait for all controller managers to be ready
     log_info "Waiting for KServe controllers to be ready..."

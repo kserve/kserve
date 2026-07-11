@@ -64,9 +64,17 @@ LLMD_SIMULATOR_SECURITY_CONTEXT = {
     "runAsGroup": 65532,
 }
 
+STORAGE_INITIALIZER_INIT_CONTAINER = {
+    "name": "storage-initializer",
+    "env": [
+        {"name": "TOKIO_WORKER_THREADS", "value": "1"},
+    ],
+}
+
 LLMINFERENCESERVICE_CONFIGS = {
     "workload-single-cpu": {
         "template": {
+            "initContainers": [STORAGE_INITIALIZER_INIT_CONTAINER],
             "containers": [
                 {
                     "name": "main",
@@ -83,11 +91,12 @@ LLMINFERENCESERVICE_CONFIGS = {
                     },
                     "securityContext": UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT.copy(),
                 }
-            ]
+            ],
         },
     },
     "workload-pd-cpu": {
         "template": {
+            "initContainers": [STORAGE_INITIALIZER_INIT_CONTAINER],
             "containers": [
                 {
                     "name": "main",
@@ -118,10 +127,11 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "failureThreshold": 3,
                     },
                 }
-            ]
+            ],
         },
         "prefill": {
             "template": {
+                "initContainers": [STORAGE_INITIALIZER_INIT_CONTAINER],
                 "containers": [
                     {
                         "name": "main",
@@ -152,7 +162,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                         },
                         "securityContext": UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT.copy(),
                     }
-                ]
+                ],
             }
         },
     },
@@ -218,6 +228,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "tensor": 1,
         },
         "template": {
+            "initContainers": [STORAGE_INITIALIZER_INIT_CONTAINER],
             "containers": [
                 {
                     "name": "main",
@@ -255,9 +266,10 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "failureThreshold": 3,
                     },
                 }
-            ]
+            ],
         },
         "worker": {
+            "initContainers": [STORAGE_INITIALIZER_INIT_CONTAINER],
             "containers": [
                 {
                     "name": "main",
@@ -288,7 +300,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                         },
                     },
                 }
-            ]
+            ],
         },
     },
     "workload-dp-ep-prefill-gpu": {
@@ -300,6 +312,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                 "tensor": 1,
             },
             "template": {
+                "initContainers": [STORAGE_INITIALIZER_INIT_CONTAINER],
                 "containers": [
                     {
                         "name": "main",
@@ -341,9 +354,10 @@ LLMINFERENCESERVICE_CONFIGS = {
                             "failureThreshold": 3,
                         },
                     }
-                ]
+                ],
             },
             "worker": {
+                "initContainers": [STORAGE_INITIALIZER_INIT_CONTAINER],
                 "containers": [
                     {
                         "name": "main",
@@ -374,7 +388,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                             },
                         },
                     }
-                ]
+                ],
             },
         },
     },
@@ -413,6 +427,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "tensor": 1,
         },
         "template": {
+            "initContainers": [STORAGE_INITIALIZER_INIT_CONTAINER],
             "containers": [
                 {
                     "name": "main",
@@ -435,9 +450,10 @@ LLMINFERENCESERVICE_CONFIGS = {
                     },
                     "securityContext": UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT.copy(),
                 }
-            ]
+            ],
         },
         "worker": {
+            "initContainers": [STORAGE_INITIALIZER_INIT_CONTAINER],
             "containers": [
                 {
                     "name": "main",
@@ -460,7 +476,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     },
                     "securityContext": UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT.copy(),
                 }
-            ]
+            ],
         },
     },
     "router-custom-route-timeout": {
@@ -1089,7 +1105,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.8.2",
+                    "image": "ghcr.io/llm-d/llm-d-inference-sim-dev:1d5ad96",
                     "command": ["/app/llm-d-inference-sim"],
                     "args": [
                         "--port",
@@ -1098,6 +1114,11 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "{{ .Spec.Model.Name }}",
                         "--mode",
                         "random",
+                        "--force-dummy-tokenizer",
+                        "{{ if .GlobalConfig.EnableTLS }}--ssl-certfile{{- end }}",
+                        "{{ if .GlobalConfig.EnableTLS }}/var/run/kserve/tls/tls.crt{{- end }}",
+                        "{{ if .GlobalConfig.EnableTLS }}--ssl-keyfile{{- end }}",
+                        "{{ if .GlobalConfig.EnableTLS }}/var/run/kserve/tls/tls.key{{- end }}",
                     ],
                     "resources": {
                         "limits": {"cpu": "1", "memory": "2Gi"},
@@ -1115,7 +1136,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.8.2",
+                    "image": "ghcr.io/llm-d/llm-d-inference-sim-dev:1d5ad96",
                     "command": ["/app/llm-d-inference-sim"],
                     "args": [
                         "--port",
@@ -1124,6 +1145,11 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "{{ .Spec.Model.Name }}",
                         "--mode",
                         "random",
+                        "--force-dummy-tokenizer",
+                        "{{ if .GlobalConfig.EnableTLS }}--ssl-certfile{{- end }}",
+                        "{{ if .GlobalConfig.EnableTLS }}/var/run/kserve/tls/tls.crt{{- end }}",
+                        "{{ if .GlobalConfig.EnableTLS }}--ssl-keyfile{{- end }}",
+                        "{{ if .GlobalConfig.EnableTLS }}/var/run/kserve/tls/tls.key{{- end }}",
                     ],
                     "resources": {
                         "limits": {"cpu": "1", "memory": "2Gi"},
@@ -1147,7 +1173,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.8.2",
+                    "image": "ghcr.io/llm-d/llm-d-inference-sim-dev:1d5ad96",
                     "command": ["/app/llm-d-inference-sim"],
                     "args": [
                         "--port",
@@ -1156,6 +1182,11 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "{{ .Spec.Model.Name }}",
                         "--mode",
                         "random",
+                        "--force-dummy-tokenizer",
+                        "{{ if .GlobalConfig.EnableTLS }}--ssl-certfile{{- end }}",
+                        "{{ if .GlobalConfig.EnableTLS }}/var/run/kserve/tls/tls.crt{{- end }}",
+                        "{{ if .GlobalConfig.EnableTLS }}--ssl-keyfile{{- end }}",
+                        "{{ if .GlobalConfig.EnableTLS }}/var/run/kserve/tls/tls.key{{- end }}",
                     ],
                     "resources": {
                         "limits": {"cpu": "1", "memory": "2Gi"},
@@ -1169,7 +1200,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.8.2",
+                    "image": "ghcr.io/llm-d/llm-d-inference-sim-dev:1d5ad96",
                     "command": ["/app/llm-d-inference-sim"],
                     "args": [
                         "--port",
@@ -1178,6 +1209,11 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "{{ .Spec.Model.Name }}",
                         "--mode",
                         "random",
+                        "--force-dummy-tokenizer",
+                        "{{ if .GlobalConfig.EnableTLS }}--ssl-certfile{{- end }}",
+                        "{{ if .GlobalConfig.EnableTLS }}/var/run/kserve/tls/tls.crt{{- end }}",
+                        "{{ if .GlobalConfig.EnableTLS }}--ssl-keyfile{{- end }}",
+                        "{{ if .GlobalConfig.EnableTLS }}/var/run/kserve/tls/tls.key{{- end }}",
                     ],
                     "resources": {
                         "limits": {"cpu": "1", "memory": "2Gi"},
@@ -1195,7 +1231,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.8.2",
+                    "image": "ghcr.io/llm-d/llm-d-inference-sim-dev:1d5ad96",
                     "command": ["/app/llm-d-inference-sim"],
                     "args": [
                         "--port",
@@ -1204,6 +1240,11 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "{{ .Spec.Model.Name }}",
                         "--mode",
                         "random",
+                        "--force-dummy-tokenizer",
+                        "{{ if .GlobalConfig.EnableTLS }}--ssl-certfile{{- end }}",
+                        "{{ if .GlobalConfig.EnableTLS }}/var/run/kserve/tls/tls.crt{{- end }}",
+                        "{{ if .GlobalConfig.EnableTLS }}--ssl-keyfile{{- end }}",
+                        "{{ if .GlobalConfig.EnableTLS }}/var/run/kserve/tls/tls.key{{- end }}",
                     ],
                     "resources": {
                         "limits": {"cpu": "1", "memory": "2Gi"},
@@ -1218,7 +1259,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                 "containers": [
                     {
                         "name": "main",
-                        "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.8.2",
+                        "image": "ghcr.io/llm-d/llm-d-inference-sim-dev:1d5ad96",
                         "command": ["/app/llm-d-inference-sim"],
                         "args": [
                             "--port",
@@ -1227,6 +1268,11 @@ LLMINFERENCESERVICE_CONFIGS = {
                             "{{ .Spec.Model.Name }}",
                             "--mode",
                             "random",
+                            "--force-dummy-tokenizer",
+                            "{{ if .GlobalConfig.EnableTLS }}--ssl-certfile{{- end }}",
+                            "{{ if .GlobalConfig.EnableTLS }}/var/run/kserve/tls/tls.crt{{- end }}",
+                            "{{ if .GlobalConfig.EnableTLS }}--ssl-keyfile{{- end }}",
+                            "{{ if .GlobalConfig.EnableTLS }}/var/run/kserve/tls/tls.key{{- end }}",
                         ],
                         "resources": {
                             "limits": {"cpu": "1", "memory": "2Gi"},
@@ -1344,10 +1390,11 @@ LLMINFERENCESERVICE_CONFIGS = {
         "model": {"uri": OPT_125M_MODEL_URI, "name": "facebook/opt-125m"},
         # Important: storage initializer is required for precise-prefix-scorer
         "template": {
+            "initContainers": [STORAGE_INITIALIZER_INIT_CONTAINER],
             "containers": [
                 {
                     "name": "main",
-                    "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.8.2",
+                    "image": "ghcr.io/llm-d/llm-d-inference-sim-dev:1d5ad96",
                     "command": ["/app/llm-d-inference-sim"],
                     "args": [
                         "--port",
@@ -1356,6 +1403,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "{{ .Spec.Model.Name }}",
                         "--mode",
                         "random",
+                        "--force-dummy-tokenizer",
                         "--enable-kvcache",
                         "--block-size",
                         "16",
@@ -1365,6 +1413,10 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "42",
                         "--event-batch-size",
                         "1",
+                        "{{ if .GlobalConfig.EnableTLS }}--ssl-certfile{{- end }}",
+                        "{{ if .GlobalConfig.EnableTLS }}/var/run/kserve/tls/tls.crt{{- end }}",
+                        "{{ if .GlobalConfig.EnableTLS }}--ssl-keyfile{{- end }}",
+                        "{{ if .GlobalConfig.EnableTLS }}/var/run/kserve/tls/tls.key{{- end }}",
                     ],
                     "env": [
                         {
@@ -1383,7 +1435,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     },
                     "securityContext": LLMD_SIMULATOR_SECURITY_CONTEXT.copy(),
                 }
-            ]
+            ],
         },
     },
     "tracing-enabled": {

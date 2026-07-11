@@ -418,6 +418,8 @@ func convertRouterSpecToV1Alpha2(src *RouterSpec) *v1alpha2.RouterSpec {
 				Spec: src.Route.HTTP.Spec,
 			}
 		}
+		dst.Route.Group = src.Route.Group
+		dst.Route.Weight = src.Route.Weight
 	}
 
 	if src.Gateway != nil {
@@ -502,6 +504,8 @@ func convertRouterSpecFromV1Alpha2(src *v1alpha2.RouterSpec) *RouterSpec {
 				Spec: src.Route.HTTP.Spec,
 			}
 		}
+		dst.Route.Group = src.Route.Group
+		dst.Route.Weight = src.Route.Weight
 	}
 
 	if src.Gateway != nil {

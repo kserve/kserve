@@ -20,6 +20,8 @@ on:
       - "hack/setup/infra/manage.prometheus-adapter-helm.sh"
       - "hack/setup/infra/manage.wva-helm.sh"
       - "hack/setup/infra/manage.jaeger-helm.sh"
+      - "hack/setup/infra/manage.kserve-helm.sh"
+      - "hack/setup/quick-install/*-helm.sh"
   merge_group:
     types: [ checks_requested ]
 

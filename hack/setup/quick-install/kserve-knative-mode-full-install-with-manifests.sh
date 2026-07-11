@@ -645,8 +645,8 @@ RUFF_VERSION=0.14.13
 PINACT_VERSION=v3.9.0
 KIND_VERSION=v0.30.0
 CERT_MANAGER_VERSION=v1.17.0
-ENVOY_GATEWAY_VERSION=v1.7.0
-ENVOY_AI_GATEWAY_VERSION=v0.6.0
+ENVOY_GATEWAY_VERSION=v1.8.1
+ENVOY_AI_GATEWAY_VERSION=v1.0.0
 KNATIVE_OPERATOR_VERSION=v1.21.1
 KNATIVE_SERVING_VERSION=1.21.1
 KEDA_OTEL_ADDON_VERSION=v0.0.6
@@ -660,6 +660,7 @@ OPENTELEMETRY_OPERATOR_VERSION=0.74.3
 LWS_VERSION=v0.8.0
 GATEWAY_API_VERSION=v1.5.1
 GIE_VERSION=v1.5.0
+LLMD_ROUTER_VERSION=v0.9.0
 WVA_VERSION=v0.7.0
 
 #================================================
@@ -2510,6 +2511,8 @@ spec:
       value: /tmp
     - name: VLLM_CONFIG_ROOT
       value: /tmp
+    - name: VLLM_WORKER_MULTIPROC_METHOD
+      value: spawn
     image: vllm/vllm-openai:latest
     name: kserve-container
     readinessProbe:
@@ -2780,7 +2783,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.7.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
       imagePullPolicy: IfNotPresent
       lifecycle:
         preStop:
@@ -2859,7 +2862,7 @@ spec:
             fieldPath: metadata.namespace
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.9.0-rc.2
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.9.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -3124,7 +3127,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.7.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
       imagePullPolicy: IfNotPresent
       lifecycle:
         preStop:
@@ -3207,7 +3210,7 @@ spec:
             fieldPath: metadata.namespace
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.9.0-rc.2
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.9.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -3466,7 +3469,7 @@ spec:
         value: /models
       - name: VLLM_RANDOMIZE_DP_DUMMY_INPUTS
         value: "1"
-      image: ghcr.io/llm-d/llm-d-cuda:v0.7.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
       imagePullPolicy: IfNotPresent
       lifecycle:
         preStop:
@@ -3701,7 +3704,7 @@ spec:
           value: INFO
         - name: HF_HUB_CACHE
           value: /models
-        image: ghcr.io/llm-d/llm-d-cuda:v0.7.0
+        image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
         imagePullPolicy: IfNotPresent
         lifecycle:
           preStop:
@@ -3986,7 +3989,7 @@ spec:
           value: INFO
         - name: HF_HUB_CACHE
           value: /models
-        image: ghcr.io/llm-d/llm-d-cuda:v0.7.0
+        image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
         imagePullPolicy: IfNotPresent
         lifecycle:
           preStop:
@@ -4265,7 +4268,7 @@ spec:
           value: INFO
         - name: HF_HUB_CACHE
           value: /models
-        image: ghcr.io/llm-d/llm-d-cuda:v0.7.0
+        image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
         imagePullPolicy: IfNotPresent
         lifecycle:
           preStop:
@@ -4607,7 +4610,7 @@ spec:
           env:
           - name: SSL_CERT_DIR
             value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-          image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0-rc.2
+          image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -5106,7 +5109,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.7.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
       imagePullPolicy: IfNotPresent
       lifecycle:
         preStop:
@@ -5402,7 +5405,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.7.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
       imagePullPolicy: IfNotPresent
       lifecycle:
         preStop:
@@ -5681,7 +5684,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.7.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
       imagePullPolicy: IfNotPresent
       lifecycle:
         preStop:
@@ -39130,6 +39133,8 @@ data:
            "caBundleConfigMapName": "",
            "caBundleVolumeMountPath": "/etc/ssl/custom-certs",
            "enableModelcar": false,
+           "enableOciModelSupport": false,
+           "ociModelMode": "modelcar",
            "cpuModelcar": "10m",
            "memoryModelcar": "15Mi"
        }
@@ -39159,6 +39164,14 @@ data:
            # enableModelcar enabled allows you to directly access an OCI container image by
            # using a source URL with an "oci://" schema.
            "enableModelcar": false,
+
+           # enableOciModelSupport enables any OCI-backed model storage path (modelcar, native ImageVolume, or fetch).
+           # This is the newer master switch; enableModelcar is kept as a backcompat alias for the "modelcar" mode.
+           "enableOciModelSupport": false,
+
+           # ociModelMode selects the materialization strategy when a storageUri uses oci:// without an explicit
+           # suffix. Valid values: "modelcar" (default sidecar), "native" (K8s ImageVolume), "fetch" (init-container).
+           "ociModelMode": "modelcar",
 
            # cpuModelcar is the cpu request and limit that is used for the passive modelcar container. It can be
            # set very low, but should be allowed by any Kubernetes LimitRange that might apply.

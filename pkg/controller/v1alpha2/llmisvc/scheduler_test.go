@@ -384,6 +384,59 @@ func TestPreserveSchedulerConfig(t *testing.T) {
 	}
 }
 
+// TestSchedulerConfigTextDefault asserts the default (non-prefill, single-profile)
+// scheduler config matches the llm-d optimized baseline: queue + kv-cache-utilization +
+// prefix-cache + no-hit-lru scorers. Kept self-contained (no shared helpers) so it does
+// not collide with the P/D config test added in a separate change.
+func TestSchedulerConfigTextDefault(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	// No Prefill selects the default branch of schedulerConfigText.
+	svc := &v1alpha2.LLMInferenceService{}
+
+	var cfg map[string]interface{}
+	g.Expect(yaml.Unmarshal([]byte(schedulerConfigText(svc)), &cfg)).To(Succeed())
+
+	// Every profile pluginRef must be declared in the top-level plugins list.
+	topLevel := map[string]struct{}{}
+	for _, p := range cfg["plugins"].([]interface{}) {
+		topLevel[p.(map[string]interface{})["type"].(string)] = struct{}{}
+	}
+	g.Expect(topLevel).To(SatisfyAll(
+		HaveKey("single-profile-handler"),
+		HaveKey("queue-scorer"),
+		HaveKey("kv-cache-utilization-scorer"),
+		HaveKey("prefix-cache-scorer"),
+		HaveKey("no-hit-lru-scorer"),
+		HaveKey("max-score-picker"),
+	))
+
+	// Exactly one "default" profile with the baseline pluginRef/weight sequence.
+	// sigs.k8s.io/yaml decodes numbers as float64; an absent weight is nil.
+	profiles := cfg["schedulingProfiles"].([]interface{})
+	g.Expect(profiles).To(HaveLen(1))
+	def := profiles[0].(map[string]interface{})
+	g.Expect(def["name"]).To(Equal("default"))
+
+	type refWeight struct {
+		ref    string
+		weight interface{}
+	}
+	defPlugins := def["plugins"].([]interface{})
+	got := make([]refWeight, 0, len(defPlugins))
+	for _, r := range defPlugins {
+		rm := r.(map[string]interface{})
+		got = append(got, refWeight{ref: rm["pluginRef"].(string), weight: rm["weight"]})
+	}
+	g.Expect(got).To(Equal([]refWeight{
+		{ref: "queue-scorer", weight: float64(2)},
+		{ref: "kv-cache-utilization-scorer", weight: float64(2)},
+		{ref: "prefix-cache-scorer", weight: float64(3)},
+		{ref: "no-hit-lru-scorer", weight: float64(2)},
+		{ref: "max-score-picker", weight: nil},
+	}))
+}
+
 func TestFilterArgs(t *testing.T) {
 	tests := []struct {
 		name              string
@@ -462,6 +515,97 @@ func TestFilterArgs(t *testing.T) {
 			g.Expect(extracted).To(Equal(tt.expectedExtracted))
 		})
 	}
+}
+
+// pluginRefWeight is an ordered (pluginRef, weight) pair from a scheduling
+// profile. Weight is 0 when unset; the P/D baseline only uses weights 2 and 3,
+// so 0 unambiguously means "no weight".
+type pluginRefWeight struct {
+	Ref    string
+	Weight int
+}
+
+// pluginTypeSet returns the set of top-level plugin "type" values in a parsed
+// EndpointPickerConfig.
+func pluginTypeSet(cfg map[string]interface{}) map[string]struct{} {
+	out := map[string]struct{}{}
+	for _, p := range cfg["plugins"].([]interface{}) {
+		out[p.(map[string]interface{})["type"].(string)] = struct{}{}
+	}
+	return out
+}
+
+// profilePluginRefs returns the ordered pluginRef/weight pairs for the named
+// scheduling profile. Numbers are decoded as float64 by sigs.k8s.io/yaml.
+// found is false when no profile with that name exists.
+func profilePluginRefs(cfg map[string]interface{}, name string) (refs []pluginRefWeight, found bool) {
+	for _, p := range cfg["schedulingProfiles"].([]interface{}) {
+		pm := p.(map[string]interface{})
+		if pm["name"] != name {
+			continue
+		}
+		for _, r := range pm["plugins"].([]interface{}) {
+			rm := r.(map[string]interface{})
+			rw := pluginRefWeight{Ref: rm["pluginRef"].(string)}
+			if w, ok := rm["weight"]; ok {
+				rw.Weight = int(w.(float64))
+			}
+			refs = append(refs, rw)
+		}
+		return refs, true
+	}
+	return nil, false
+}
+
+// TestSchedulerConfigTextPD asserts the default prefill/decode (P/D) scheduling
+// profiles match the upstream llm-d optimized baseline: prefill gains
+// kv-cache-utilization-scorer, decode swaps queue-scorer for active-request-scorer.
+func TestSchedulerConfigTextPD(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	// A non-nil Prefill selects the P/D branch of schedulerConfigText.
+	svc := &v1alpha2.LLMInferenceService{
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Prefill: &v1alpha2.WorkloadSpec{},
+		},
+	}
+
+	var cfg map[string]interface{}
+	g.Expect(yaml.Unmarshal([]byte(schedulerConfigText(svc)), &cfg)).To(Succeed())
+
+	// Every profile pluginRef must be declared in the top-level plugins list. The
+	// two new scorers are added there; queue-scorer stays (prefill still uses it).
+	g.Expect(pluginTypeSet(cfg)).To(SatisfyAll(
+		HaveKey("kv-cache-utilization-scorer"),
+		HaveKey("active-request-scorer"),
+		HaveKey("queue-scorer"),
+		HaveKey("prefix-cache-scorer"),
+		HaveKey("prefill-filter"),
+		HaveKey("decode-filter"),
+		HaveKey("max-score-picker"),
+	))
+
+	// Prefill profile: prefix-cache(3) + queue(2) + kv-cache-utilization(2).
+	prefill, found := profilePluginRefs(cfg, "prefill")
+	g.Expect(found).To(BeTrue(), "prefill profile should exist")
+	g.Expect(prefill).To(Equal([]pluginRefWeight{
+		{Ref: "prefill-filter"},
+		{Ref: "prefix-cache-scorer", Weight: 3},
+		{Ref: "queue-scorer", Weight: 2},
+		{Ref: "kv-cache-utilization-scorer", Weight: 2},
+		{Ref: "max-score-picker"},
+	}))
+
+	// Decode profile: active-request(2) replaces queue-scorer; prefix-cache(3).
+	// The exact match also guarantees queue-scorer is no longer referenced here.
+	decode, found := profilePluginRefs(cfg, "decode")
+	g.Expect(found).To(BeTrue(), "decode profile should exist")
+	g.Expect(decode).To(Equal([]pluginRefWeight{
+		{Ref: "decode-filter"},
+		{Ref: "active-request-scorer", Weight: 2},
+		{Ref: "prefix-cache-scorer", Weight: 3},
+		{Ref: "max-score-picker"},
+	}))
 }
 
 func TestWithRenamePlugin(t *testing.T) {
