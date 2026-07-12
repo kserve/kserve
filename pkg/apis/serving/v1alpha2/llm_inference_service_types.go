@@ -863,6 +863,19 @@ type AppliedConfigRef struct {
 	Source AppliedConfigSource `json:"source"`
 }
 
+// ObservedModelStatus records the model identity resolved by the controller
+// after applying base configurations and service-specific overrides.
+type ObservedModelStatus struct {
+	// Name is the effective model name configured for the inference runtime.
+	Name string `json:"name"`
+
+	// Adapters lists the effective names of the configured LoRA adapters,
+	// sorted lexicographically for stable identity comparisons.
+	// +optional
+	// +listType=atomic
+	Adapters []string `json:"adapters,omitempty"`
+}
+
 // LLMInferenceServiceStatus defines the observed state of LLMInferenceService.
 type LLMInferenceServiceStatus struct {
 	// URL is the primary address for accessing the service.
@@ -886,6 +899,16 @@ type LLMInferenceServiceStatus struct {
 	// +optional
 	// +listType=atomic
 	Addresses []SourcedAddress `json:"addresses,omitempty"`
+
+	// Model records the effective model identity (short runtime name and sorted
+	// adapter set) after configuration merge. Authoritative when PresetsCombined
+	// is True. Nil when merge has never completed successfully (ConfigNotFound,
+	// CombineBaseError). May retain the last successful value when the service is
+	// force-stopped, since the runtime may still be serving with that identity.
+	// Distinguished from addresses[].models which lists routable aliases including
+	// publisher-qualified forms.
+	// +optional
+	Model *ObservedModelStatus `json:"model,omitempty"`
 
 	// Router records the observed networking topology for this service.
 	// Nil when routing is not configured or the service is stopped.

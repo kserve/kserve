@@ -250,7 +250,6 @@ func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
 	logger := log.FromContext(ctx).WithName("reconcile")
 	ctx = log.IntoContext(ctx, logger)
-
 	// Load global configuration from KServe configmap.
 	config, configErr := r.loadConfig(ctx)
 	if configErr != nil {
@@ -274,6 +273,9 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 	// Replace the spec with the merged configuration for reconciliation
 	// We are only writing to status, so we can safely use the original object.
 	llmSvc.Spec = baseCfg.Spec
+	if cond := llmSvc.Status.GetCondition(v1alpha2.PresetsCombined); cond != nil && cond.IsTrue() {
+		observeModelStatus(llmSvc, &baseCfg.Spec.Model)
+	}
 
 	if err := r.reconcileWorkload(ctx, llmSvc, config); err != nil {
 		return fmt.Errorf("failed to reconcile workload: %w", err)

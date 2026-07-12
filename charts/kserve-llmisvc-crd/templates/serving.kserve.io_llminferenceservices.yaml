@@ -42460,6 +42460,18 @@ spec:
                       - type
                     type: object
                   type: array
+                model:
+                  properties:
+                    adapters:
+                      items:
+                        type: string
+                      type: array
+                      x-kubernetes-list-type: atomic
+                    name:
+                      type: string
+                  required:
+                    - name
+                  type: object
                 observedGeneration:
                   format: int64
                   type: integer

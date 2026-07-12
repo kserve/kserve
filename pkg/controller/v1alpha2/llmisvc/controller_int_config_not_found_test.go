@@ -62,6 +62,7 @@ var _ = Describe("LLMInferenceService Config resolution", func() {
 				cond := current.Status.GetCondition(v1alpha2.PresetsCombined)
 				g.Expect(cond.Reason).To(Equal("ConfigNotFound"))
 				g.Expect(cond.Message).To(ContainSubstring("does-not-exist"))
+				g.Expect(current.Status.Model).To(BeNil(), "status.model must be nil when merge has not completed")
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 
@@ -122,6 +123,8 @@ var _ = Describe("LLMInferenceService Config resolution", func() {
 				current := &v1alpha2.LLMInferenceService{}
 				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
 				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.PresetsCombined), "True"))
+				g.Expect(current.Status.Model).ToNot(BeNil(), "status.model must be populated after successful merge")
+				g.Expect(current.Status.Model.Name).To(Equal("facebook/opt-125m"))
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})

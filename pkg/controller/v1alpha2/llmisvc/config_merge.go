@@ -152,6 +152,7 @@ func (r *LLMISVCReconciler) reconcileBaseRefs(ctx context.Context, llmSvc *v1alp
 		}
 
 		llmSvc.Status.AppliedConfigRefs = nil
+		llmSvc.Status.Model = nil
 
 		var cfgNotFound *configNotFoundError
 		if errors.As(err, &cfgNotFound) {
