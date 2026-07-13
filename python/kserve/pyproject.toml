@@ -29,6 +29,16 @@ dependencies = [
     "pydantic<3.0.0,>=2.5.0",
     "pyyaml<7.0.0,>=6.0.0",
     "urllib3>=2.7.0", # CVE-2026-21441
+    # Security floors on transitive dependencies. Kept here (not only in
+    # [tool.uv] override-dependencies) so consumers installing kserve from PyPI
+    # also inherit the CVE fixes; override-dependencies applies to this
+    # workspace's resolver only and is stripped from the published wheel.
+    "aiohttp>=3.13.4", # CVE-2026-34520
+    "h11>=0.16.0", # CVE-2025-43859
+    "cryptography>=46.0.7", # CVE-2026-39892
+    "python-multipart>=0.0.27", # CVE-2026-42561
+    "pyjwt>=2.13.0", # CVE-2026-48526
+    "pyasn1>=0.6.3", # CVE-2026-30922
 ]
 name = "kserve"
 version = "0.19.0"
@@ -92,7 +102,10 @@ dev = [
 
 [tool.uv]
 index-strategy = "unsafe-best-match"
+# These are the same CVE fixes as with dependencies.
+# Keeping these here too unconditionally overrides versions even if a sub-dependency strictly requires an older version.
 override-dependencies = [
+    "urllib3>=2.7.0", # CVE-2026-21441
     "aiohttp>=3.13.4", # CVE-2026-34520
     "h11>=0.16.0", # CVE-2025-43859
     "cryptography>=46.0.7", # CVE-2026-39892
