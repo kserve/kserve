@@ -189,13 +189,13 @@ type ServiceConfig struct {
 	ServiceClusterIPNone bool `json:"serviceClusterIPNone,omitempty"`
 }
 
-func GetInferenceServiceConfigMap(ctx context.Context, clientset kubernetes.Interface) (*corev1.ConfigMap, error) {
-	if configMap, err := clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(
-		ctx, constants.InferenceServiceConfigMapName, metav1.GetOptions{}); err != nil {
-		return nil, err
-	} else {
-		return configMap, nil
+func GetInferenceServiceConfigMap(ctx context.Context, clientset kubernetes.Interface, namespace ...string) (*corev1.ConfigMap, error) {
+	ns := constants.KServeNamespace
+	if len(namespace) > 0 && namespace[0] != "" {
+		ns = namespace[0]
 	}
+	return clientset.CoreV1().ConfigMaps(ns).Get(
+		ctx, constants.InferenceServiceConfigMapName, metav1.GetOptions{})
 }
 
 func NewOtelCollectorConfig(isvcConfigMap *corev1.ConfigMap) (*OtelCollectorConfig, error) {
