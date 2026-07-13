@@ -40,12 +40,11 @@ from kserve.models.v1beta1_predictor_spec import V1beta1PredictorSpec
 from kserve.models.v1beta1_model_spec import V1beta1ModelSpec
 from kserve.models.v1beta1_model_format import V1beta1ModelFormat
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc
-from . import assert_pv_deleted, assert_pvc_deleted
 
 
 @pytest.mark.modelcache
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_modelcache(rest_v1_client, network_layer):
+async def test_sklearn_modelcache(rest_v1_client):
     """
     Test LocalModelCache with sklearn predictor.
     This test is ARM64 compatible as sklearn server has multi-arch images.
@@ -175,24 +174,11 @@ async def test_sklearn_modelcache(rest_v1_client, network_layer):
         )
 
     # Test inference with the cached model
-    res = await predict_isvc(
-        rest_v1_client,
-        service_name,
-        "./data/iris_input.json",
-        network_layer=network_layer,
-    )
+    res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
     assert res["predictions"] == [1, 1]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
     # Wait for the isvc to be deleted to avoid modelcache still in use error when deleting the model cache
     await asyncio.sleep(30)
     kserve_client.delete_local_model_cache(model_cache.metadata.name)
-
-    # Verify PV/PVC are cleaned up after LocalModelCache deletion
-    core_api = client.CoreV1Api()
-    serving_pv = f"{model_cache.metadata.name}-{node_group.metadata.name}-{KSERVE_TEST_NAMESPACE}"
-    serving_pvc = f"{model_cache.metadata.name}-{node_group.metadata.name}"
-    await assert_pv_deleted(core_api, serving_pv)
-    await assert_pvc_deleted(core_api, serving_pvc, KSERVE_TEST_NAMESPACE)
-
     kserve_client.delete_local_model_node_group(node_group.metadata.name)

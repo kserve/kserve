@@ -2,11 +2,10 @@ commonLabels: {}
 commonAnnotations: {}
 kserve:
   llmisvc:
-    createGIECRDs: true
     controller:
       image: kserve/llmisvc-controller
       tag: ''
-      imagePullPolicy: Always
+      imagePullPolicy: IfNotPresent
       imagePullSecrets: []
       labels: {}
       podLabels: {}

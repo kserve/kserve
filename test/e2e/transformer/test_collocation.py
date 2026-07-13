@@ -40,7 +40,7 @@ from ..common.utils import (
 
 @pytest.mark.collocation
 @pytest.mark.asyncio(scope="session")
-async def test_transformer_collocation(rest_v1_client, network_layer):
+async def test_transformer_collocation(rest_v1_client):
     service_name = "custom-model-transformer-collocation"
     model_name = "mnist"
     predictor = V1beta1PredictorSpec(
@@ -126,11 +126,7 @@ async def test_transformer_collocation(rest_v1_client, network_layer):
     is_ready = await is_model_ready(rest_v1_client, service_name, model_name) is True
     assert is_ready is True
     res = await predict_isvc(
-        rest_v1_client,
-        service_name,
-        "./data/transformer.json",
-        model_name=model_name,
-        network_layer=network_layer,
+        rest_v1_client, service_name, "./data/transformer.json", model_name=model_name
     )
     assert res["predictions"][0] == 2
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -138,7 +134,7 @@ async def test_transformer_collocation(rest_v1_client, network_layer):
 
 @pytest.mark.collocation
 @pytest.mark.asyncio(scope="session")
-async def test_transformer_collocation_runtime(rest_v1_client, network_layer):
+async def test_transformer_collocation_runtime(rest_v1_client):
     service_name = "custom-model-trans-collocation-runtime"
     model_name = "mnist"
     predictor = V1beta1PredictorSpec(
@@ -214,11 +210,7 @@ async def test_transformer_collocation_runtime(rest_v1_client, network_layer):
     is_ready = await is_model_ready(rest_v1_client, service_name, model_name) is True
     assert is_ready is True
     res = await predict_isvc(
-        rest_v1_client,
-        service_name,
-        "./data/transformer.json",
-        model_name=model_name,
-        network_layer=network_layer,
+        rest_v1_client, service_name, "./data/transformer.json", model_name=model_name
     )
     assert res["predictions"][0] == 2
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

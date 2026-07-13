@@ -1,5 +1,5 @@
 /*
-Copyright 2026 The KServe Authors.
+Copyright 2025 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -35,10 +35,11 @@ import (
 
 func TestGatewayConditionsEvaluation(t *testing.T) {
 	tests := []struct {
-		name            string
-		llmSvc          *v1alpha2.LLMInferenceService
-		gateways        []*gwapiv1.Gateway
-		assertCondition func(routerCondition, gatewayCondition *apis.Condition) assertConditionsFunc
+		name             string
+		llmSvc           *v1alpha2.LLMInferenceService
+		gateways         []*gwapiv1.Gateway
+		expectedErrorMsg string
+		assertCondition  func(routerCondition, gatewayCondition *apis.Condition) assertConditionsFunc
 	}{
 		{
 			name: "single ready gateway - router should be ready",
@@ -154,6 +155,19 @@ func TestGatewayConditionsEvaluation(t *testing.T) {
 			},
 		},
 		{
+			name: "gateway not found - should return error",
+			llmSvc: LLMInferenceService("test-llm",
+				InNamespace[*v1alpha2.LLMInferenceService]("test-ns"),
+				WithModelURI("hf://test/model"),
+				WithGatewayRefs(v1alpha2.GatewayObjectReference{UntypedObjectReference: v1alpha2.UntypedObjectReference{
+					Name:      "missing-gateway",
+					Namespace: "test-ns",
+				}}),
+			),
+			gateways:         []*gwapiv1.Gateway{},
+			expectedErrorMsg: "failed to get Gateway",
+		},
+		{
 			name: "no gateway refs - should skip evaluation",
 			llmSvc: LLMInferenceService("test-llm",
 				InNamespace[*v1alpha2.LLMInferenceService]("test-ns"),
@@ -210,12 +224,13 @@ func TestGatewayConditionsEvaluation(t *testing.T) {
 				Client: fakeClient,
 			}
 
-			resolved := make([]llmisvc.ResolvedGateway, len(tt.gateways))
-			for i, gw := range tt.gateways {
-				resolved[i] = llmisvc.ResolvedGateway{Gateway: gw}
-			}
+			err = reconciler.EvaluateGatewayConditions(ctx, tt.llmSvc)
 
-			err = reconciler.EvaluateGatewayConditions(ctx, tt.llmSvc, resolved)
+			if tt.expectedErrorMsg != "" {
+				g.Expect(err).To(HaveOccurred())
+				g.Expect(err.Error()).To(ContainSubstring(tt.expectedErrorMsg))
+				return
+			}
 
 			g.Expect(err).ToNot(HaveOccurred())
 
@@ -482,7 +497,7 @@ func TestHTTPRouteConditionsEvaluation(t *testing.T) {
 				Client: fakeClient,
 			}
 
-			err = reconciler.EvaluateHTTPRouteConditions(ctx, tt.llmSvc, &llmisvc.Config{})
+			err = reconciler.EvaluateHTTPRouteConditions(ctx, tt.llmSvc)
 
 			if tt.expectedErrorMsg != "" {
 				g.Expect(err).To(HaveOccurred())

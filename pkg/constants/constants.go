@@ -51,7 +51,6 @@ const (
 const (
 	InferencePoolV1APIGroupName       = "inference.networking.k8s.io"
 	InferencePoolV1Alpha2APIGroupName = "inference.networking.x-k8s.io"
-	LLMDAIAPIGroupName                = "llm-d.ai"
 )
 
 // InferenceService Constants
@@ -138,13 +137,6 @@ var (
 	DisableAutoUpdateAnnotationKey              = KServeAPIGroupName + "/disable-auto-update"
 	ModelFormatAnnotationKey                    = "modelFormat"
 	InferencePoolMigratedAnnotationKey          = KServeAPIGroupName + "/inferencepool-migrated"
-	// Managed DRA Experimental Annotations
-	// These annotations provide an intentionally limited-scope convenience feature for basic DRA use cases.
-	// Complex DRA topologies should use native Kubernetes ResourceClaimTemplate objects directly.
-	ManagedDRADeviceClassAnnotationKey   = KServeAPIGroupName + "/exp-dra-device-class"
-	ManagedDRACelSelectorAnnotationKey   = KServeAPIGroupName + "/exp-dra-cel-selector"
-	ManagedDRADeviceCountAnnotationKey   = KServeAPIGroupName + "/exp-dra-device-count"
-	ManagedDRAContainerNameAnnotationKey = KServeAPIGroupName + "/exp-dra-container-name"
 )
 
 // ServingRuntime Server Type Annotations
@@ -159,7 +151,6 @@ var (
 	StorageSpecAnnotationKey                         = InferenceServiceInternalAnnotationsPrefix + "/storage-spec"
 	StorageSpecParamAnnotationKey                    = InferenceServiceInternalAnnotationsPrefix + "/storage-spec-param"
 	StorageSpecKeyAnnotationKey                      = InferenceServiceInternalAnnotationsPrefix + "/storage-spec-key"
-	StorageContainerNameAnnotationKey                = InferenceServiceInternalAnnotationsPrefix + "/storage-container-name"
 	LoggerInternalAnnotationKey                      = InferenceServiceInternalAnnotationsPrefix + "/logger"
 	LoggerSinkUrlInternalAnnotationKey               = InferenceServiceInternalAnnotationsPrefix + "/logger-sink-url"
 	LoggerModeInternalAnnotationKey                  = InferenceServiceInternalAnnotationsPrefix + "/logger-mode"
@@ -178,8 +169,6 @@ var (
 	LocalModelNamespaceLabel                         = InferenceServiceInternalAnnotationsPrefix + "/localmodel-namespace"
 	LocalModelSourceUriAnnotationKey                 = InferenceServiceInternalAnnotationsPrefix + "/localmodel-sourceuri"
 	LocalModelPVCNameAnnotationKey                   = InferenceServiceInternalAnnotationsPrefix + "/localmodel-pvc-name"
-	ConfidentialEnabledAnnotationKey                 = InferenceServiceInternalAnnotationsPrefix + "/confidential-enabled"
-	ConfidentialResourceIdAnnotationKey              = InferenceServiceInternalAnnotationsPrefix + "/confidential-resource-id"
 )
 
 // kserve networking constants
@@ -200,11 +189,10 @@ var (
 )
 
 const (
-	HfURIPrefix        = "hf://"
-	OciURIPrefix       = "oci://"
-	OciNativeURIPrefix = "oci+native://"
-	PvcURIPrefix       = "pvc://"
-	S3URIPrefix        = "s3://"
+	HfURIPrefix  = "hf://"
+	OciURIPrefix = "oci://"
+	PvcURIPrefix = "pvc://"
+	S3URIPrefix  = "s3://"
 
 	PvcSourceMountName           = "kserve-pvc-source"
 	StorageInitializerVolumeName = "kserve-provision-location"
@@ -321,12 +309,6 @@ var DefaultGPUResourceTypeList = []string{
 	IntelGPUResourceType,
 	GaudiGPUResourceType,
 }
-
-// Confidential model serving environment variables
-const (
-	ConfidentialEnabledEnvVar    = "CONFIDENTIAL_ENABLED"
-	ConfidentialResourceIdEnvVar = "CONFIDENTIAL_RESOURCE_ID"
-)
 
 // InferenceService Environment Variables
 const (
@@ -447,30 +429,6 @@ const (
 	LLMComponentWorkloadWorkerPrefill = "llminferenceservice-workload-worker-prefill"
 	LLMComponentWorkloadLeaderPrefill = "llminferenceservice-workload-leader-prefill"
 	LLMComponentInference             = "inference" // used in sample/template resources
-)
-
-// LLMInferenceService routing group label
-const (
-	// LLMRoutingGroupLabelKey identifies which traffic splitting group an LLMInferenceService belongs to.
-	LLMRoutingGroupLabelKey = "serving.kserve.io/routing-group"
-
-	// LLMServedByAnnotationKey enables the x-served-by response header middleware.
-	// Set to "true" on an LLMInferenceService to inject the middleware.
-	LLMServedByAnnotationKey = "serving.kserve.io/enable-served-by-header"
-)
-
-// LLMInferenceService constants
-const (
-	// LLMISVCRoutingSidecarContainerName is the name of the routing sidecar container
-	// that handles prefill disaggregation routing.
-	LLMISVCRoutingSidecarContainerName = "llm-d-routing-sidecar"
-
-	LLMISVCDefaultServiceAccountName = "default"
-
-	// LLMISVCSchedulerAttachesLoRA controls whether the scheduler's tokenizer sidecar
-	// receives LoRA adapter artifacts. The tokenizer only performs tokenization and does
-	// not run inference, so LoRA weights are never needed.
-	LLMISVCSchedulerAttachesLoRA = false
 )
 
 // InferenceService canary constants
@@ -602,7 +560,6 @@ const (
 	LGBServer         = "kserve-lgbserver"
 	PaddleServer      = "kserve-paddleserver"
 	HuggingFaceServer = "kserve-huggingfaceserver"
-	VLLMServer        = "kserve-vllmserver"
 )
 
 // Server type annotation values
@@ -620,7 +577,6 @@ const (
 	ServerTypePyTorchServer     = "pytorchserver"
 	ServerTypeSKLearnServer     = "sklearnserver"
 	ServerTypeXGBoostServer     = "xgbserver"
-	ServerTypeVLLMServer        = "vllmserver"
 )
 
 // GetServerTypeFromRuntimeName converts runtime name to server type for backward compatibility.
@@ -633,12 +589,6 @@ func GetServerTypeFromRuntimeName(runtimeName string) string {
 		return ServerTypeTorchServe
 	case TritonServer:
 		return ServerTypeTritonServer
-	case TFServing:
-		return ServerTypeTensorflowServing
-	case HuggingFaceServer:
-		return ServerTypeHuggingFaceServer
-	case VLLMServer:
-		return ServerTypeVLLMServer
 	default:
 		return ""
 	}
@@ -684,7 +634,6 @@ const (
 	SupportedModelPaddle      = "paddle"
 	SupportedModelTriton      = "triton"
 	SupportedModelMLFlow      = "mlflow"
-	SupportedModelVLLM        = "vLLM"
 )
 
 type ProtocolVersion int

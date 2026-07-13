@@ -28,10 +28,8 @@ Example:
       {{- $canMergeByName := false -}}
       {{- if gt (len $value) 0 -}}
         {{- $firstElem := index $value 0 -}}
-        {{- if kindIs "map" $firstElem -}}
-          {{- if hasKey $firstElem "name" -}}
-            {{- $canMergeByName = true -}}
-          {{- end -}}
+        {{- if and (kindIs "map" $firstElem) (hasKey $firstElem "name") -}}
+          {{- $canMergeByName = true -}}
         {{- end -}}
       {{- end -}}
       {{- if $canMergeByName -}}

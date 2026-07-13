@@ -15,7 +15,7 @@ spec:
   template:
     containers:
       - name: main
-        image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
+        image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
         env:
           # Enable RDMA for KV cache transfer
           - name: KSERVE_INFER_ROCE
@@ -27,7 +27,7 @@ spec:
                 fieldPath: status.podIP
           # Enable KV cache transfer via NixlConnector (RDMA-based)
           - name: VLLM_ADDITIONAL_ARGS
-            value: "--kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_consumer\"}'"
+            value: "--kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_both\"}'"
           # UCX configuration for RDMA transport
           - name: UCX_PROTO_INFO
             value: "y"
@@ -57,7 +57,7 @@ spec:
     template:
       containers:
         - name: main
-          image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
+          image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
           env:
             - name: KSERVE_INFER_ROCE
               value: "false"
@@ -66,7 +66,7 @@ spec:
                 fieldRef:
                   fieldPath: status.podIP
             - name: VLLM_ADDITIONAL_ARGS
-              value: "--kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_producer\"}'"
+              value: "--kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_both\"}'"
             - name: UCX_PROTO_INFO
               value: "y"
             - name: UCX_TLS

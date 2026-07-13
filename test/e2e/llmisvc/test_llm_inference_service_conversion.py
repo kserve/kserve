@@ -32,7 +32,6 @@ from .fixtures import (
     inject_k8s_proxy,
     KSERVE_TEST_NAMESPACE,
     KSERVE_PLURAL_LLMINFERENCESERVICECONFIG,
-    OPT_125M_MODEL_URI,
     UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT,
     UPSTREAM_K8S_VLLM_ENV_OVERRIDES,
 )
@@ -226,7 +225,7 @@ class TestLLMInferenceServiceConversion:
                 "namespace": self.namespace,
             },
             "spec": {
-                "model": {"uri": OPT_125M_MODEL_URI, "name": "facebook/opt-125m"},
+                "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},
                 "router": {"route": {}},
                 "template": {
                     "containers": [
@@ -317,7 +316,7 @@ class TestLLMInferenceServiceConversion:
                 "namespace": self.namespace,
             },
             "spec": {
-                "model": {"uri": OPT_125M_MODEL_URI, "name": "facebook/opt-125m"},
+                "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},
                 "router": {"route": {}},
                 "template": {
                     "containers": [
@@ -414,7 +413,7 @@ class TestLLMInferenceServiceConversion:
             },
             "spec": {
                 "model": {
-                    "uri": OPT_125M_MODEL_URI,
+                    "uri": "hf://facebook/opt-125m",
                     "name": "facebook/opt-125m",
                     "criticality": "Critical",  # v1alpha1-specific field
                 },
@@ -452,7 +451,7 @@ class TestLLMInferenceServiceConversion:
             },
             "spec": {
                 "model": {
-                    "uri": OPT_125M_MODEL_URI,
+                    "uri": "hf://facebook/opt-125m",
                     "name": "facebook/opt-125m",
                     "criticality": "Critical",
                 },
@@ -737,7 +736,7 @@ class TestLLMInferenceServiceConversion:
             },
             "spec": {
                 "model": {
-                    "uri": OPT_125M_MODEL_URI,
+                    "uri": "hf://facebook/opt-125m",
                     "name": "test-model",
                 },
                 "replicas": 1,

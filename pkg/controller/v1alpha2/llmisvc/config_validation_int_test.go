@@ -20,7 +20,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -52,13 +51,6 @@ var _ = Describe("Validating config configs", func() {
 				fixture.WithConfigModelName("{{ ChildName .ObjectMeta.Name `-inference-pool` }}"),
 			)
 			Expect(envTest.Client.Create(ctx, preset)).To(Succeed())
-
-			// Wait for the controller to add the finalizer so the
-			// resourceVersion is stable before we attempt the update.
-			Eventually(func(g Gomega) {
-				g.Expect(envTest.Client.Get(ctx, types.NamespacedName{Name: preset.Name, Namespace: preset.Namespace}, preset)).To(Succeed())
-				g.Expect(preset.Finalizers).NotTo(BeEmpty())
-			}).Should(Succeed())
 
 			// when
 			preset.Spec.Model.Name = ptr.To("{{ ChildName .ObjectMeta.Name \"-inference-pool\" }}")

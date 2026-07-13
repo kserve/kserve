@@ -4,7 +4,7 @@
 3. If you want *faster* PR reviews, read how: https://git.k8s.io/community/contributors/guide/pull-requests.md#best-practices-for-faster-reviews
 4. Follow the instructions for writing a release note: https://git.k8s.io/community/contributors/guide/release-notes.md
 5. If the PR is unfinished, see how to mark it: https://git.k8s.io/community/contributors/guide/pull-requests.md#marking-unfinished-pull-requests
-6. Re-running failed tests: `/rerun-failed` reruns only failed jobs, `/rerun-all` reruns all jobs, `/rerun-workflow <name>` reruns a specific workflow.
+6. Re-running failed tests: comment `/rerun-all` to rerun all failed workflows.
 -->
 
 **What this PR does / why we need it**:

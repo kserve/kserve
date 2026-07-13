@@ -188,7 +188,7 @@ Key points:
 - Enables external access to KServe model serving endpoints
 - Supports features like traffic splitting and canary deployments
 
-Let's navigate through the installation steps:
+Let's naviagate through the installation steps:
 
 The Knative Kourier plugin version used at the time being is `knative-v1.17.0`
 

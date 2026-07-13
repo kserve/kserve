@@ -333,56 +333,31 @@ func CreateInitContainerWithConfig(storageConfig *types.StorageInitializerConfig
 	}
 }
 
-// ShellQuote returns s quoted for safe interpolation into a sh -c command
-// string. Strings that consist entirely of shell-safe characters (letters,
-// digits, '/', '.', '_', '-') are returned unchanged to avoid altering
-// previously generated command strings (which would cause unnecessary pod
-// restarts on upgrade). All other strings are wrapped in single quotes with
-// embedded single quotes escaped via the standard POSIX sequence.
-func ShellQuote(s string) string {
-	if len(s) == 0 {
-		return "''"
-	}
-	for _, c := range s {
-		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
-			c == '/' || c == '.' || c == '_' || c == '-') {
-			return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
-		}
-	}
-	return s
-}
-
 // modelcarCommand returns the shell command for the modelcar container.
 // When modelPath differs from the default, it prepends "mkdir -p" to create
 // the parent directory so that the symlink target exists. For the default path
 // the command is kept identical to the original to avoid unnecessary pod restarts
 // on upgrade.
-//
-// Paths are shell-quoted using ShellQuote to prevent metacharacter injection.
-// The upstream validation (validateStorageURISpec) ensures paths are absolute
-// and contain no "..", but quoting provides defense-in-depth.
 func modelcarCommand(modelPath string) string {
 	// $$$$ gets escaped by YAML to $$, which is the current PID
 	if modelPath != constants.DefaultModelLocalMountPath {
 		return fmt.Sprintf("mkdir -p %s && ln -sf /proc/$$$$/root/models %s && sleep infinity",
-			ShellQuote(path.Dir(modelPath)), ShellQuote(modelPath))
+			path.Dir(modelPath), modelPath)
 	}
-	return fmt.Sprintf("ln -sf /proc/$$$$/root/models %s && sleep infinity", ShellQuote(modelPath))
+	return fmt.Sprintf("ln -sf /proc/$$$$/root/models %s && sleep infinity", modelPath)
 }
 
 // CreateModelcarContainer creates the definition of a container holding a model intended to be used as a sidecar (modelcar).
 // The container is configured with CPU, memory, and UID settings from the storage initializer configuration.
 //
 // Parameters:
-//   - containerName: The name to assign to the modelcar container.
 //   - image: The container image to use for the modelcar.
 //   - modelPath: The path where the model should be mounted inside the container.
-//   - volumeName: The name of the shared volume for model data.
 //   - storageConfig: The storage initializer configuration.
 //
 // Returns:
 //   - *corev1.Container: The modelcar container definition.
-func CreateModelcarContainer(containerName string, image string, modelPath string, volumeName string, storageConfig *types.StorageInitializerConfig) *corev1.Container {
+func CreateModelcarContainer(image string, modelPath string, storageConfig *types.StorageInitializerConfig) *corev1.Container {
 	cpu := storageConfig.CpuModelcar
 	if cpu == "" {
 		cpu = constants.CpuModelcarDefault
@@ -393,11 +368,11 @@ func CreateModelcarContainer(containerName string, image string, modelPath strin
 	}
 
 	modelContainer := &corev1.Container{
-		Name:  containerName,
+		Name:  constants.ModelcarContainerName,
 		Image: image,
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      volumeName,
+				Name:      constants.StorageInitializerVolumeName,
 				MountPath: GetParentDirectory(modelPath),
 				ReadOnly:  false,
 			},
@@ -434,13 +409,12 @@ func CreateModelcarContainer(containerName string, image string, modelPath strin
 // This init container is intended to run before the main containers to pre-fetch and validate the modelcar image.
 //
 // Parameters:
-//   - containerName: The name to assign to the modelcar init container.
 //   - image: The container image to use for the modelcar init container.
 //   - storageConfig: The storage initializer configuration.
 //
 // Returns:
 //   - *corev1.Container: The modelcar init container definition.
-func CreateModelcarInitContainer(containerName string, image string, storageConfig *types.StorageInitializerConfig) *corev1.Container {
+func CreateModelcarInitContainer(image string, storageConfig *types.StorageInitializerConfig) *corev1.Container {
 	cpu := storageConfig.CpuModelcar
 	if cpu == "" {
 		cpu = constants.CpuModelcarDefault
@@ -451,7 +425,7 @@ func CreateModelcarInitContainer(containerName string, image string, storageConf
 	}
 
 	modelContainer := &corev1.Container{
-		Name:  containerName,
+		Name:  constants.ModelcarInitContainerName,
 		Image: image,
 		Args: []string{
 			"sh",
@@ -476,70 +450,6 @@ func CreateModelcarInitContainer(containerName string, image string, storageConf
 	return modelContainer
 }
 
-// MaxOCISourcesPerPod is the maximum number of OCI modelcar sidecars that can be
-// injected into a single pod. This prevents resource exhaustion from unbounded
-// sidecar injection — each OCI URI adds 2 containers (sidecar + init) and 1 volume.
-const MaxOCISourcesPerPod = 10
-
-// ModelcarNames generates unique container and volume names for a modelcar at the given OCI index.
-// When ociIndex is 0, the original constant names are returned for backward compatibility.
-func ModelcarNames(ociIndex int) (sidecarName, initName, volumeName string) {
-	if ociIndex == 0 {
-		return constants.ModelcarContainerName, constants.ModelcarInitContainerName, constants.StorageInitializerVolumeName
-	}
-	suffix := fmt.Sprintf("-%d", ociIndex)
-	return constants.ModelcarContainerName + suffix,
-		constants.ModelcarInitContainerName + suffix,
-		constants.StorageInitializerVolumeName + suffix
-}
-
-// ValidateOCIMountPaths checks that the given OCI mount paths will not cause volume
-// mount collisions when injected. The collision rules differ by mode:
-//
-//   - OciModelModeNative: the container runtime mounts OCI images directly at the
-//     requested path, so only exact-path duplicates are invalid; siblings under the
-//     same parent directory are perfectly fine.
-//
-//   - OciModelModeModelcar (and any other/empty mode, defensively): each modelcar
-//     sidecar mounts an emptyDir at the *parent directory* of its modelPath (via
-//     GetParentDirectory). Two URIs sharing a parent would mount volumes at the same
-//     path on the target container, causing the last mount to shadow all previous ones.
-//
-// Returns an error if a collision is detected.
-func ValidateOCIMountPaths(mountPaths []string, mode string) error {
-	if len(mountPaths) <= 1 {
-		return nil
-	}
-	if mode == types.OciModelModeNative {
-		// Native mode: only exact-path duplicates are invalid.
-		seen := make(map[string]struct{}, len(mountPaths))
-		for _, mp := range mountPaths {
-			if _, exists := seen[mp]; exists {
-				return fmt.Errorf(
-					"OCI mount path %q is specified more than once; each native ImageVolume must have a unique mount path",
-					mp,
-				)
-			}
-			seen[mp] = struct{}{}
-		}
-		return nil
-	}
-	// Modelcar mode (and defensive default): parent-directory collision check.
-	parentDirSeen := make(map[string]string, len(mountPaths)) // parentDir -> first modelPath that used it
-	for _, mp := range mountPaths {
-		parentDir := GetParentDirectory(mp)
-		if prev, exists := parentDirSeen[parentDir]; exists {
-			return fmt.Errorf(
-				"OCI mount paths %q and %q share parent directory %q, which would cause volume mount shadowing; "+
-					"use mount paths with distinct parent directories",
-				prev, mp, parentDir,
-			)
-		}
-		parentDirSeen[parentDir] = mp
-	}
-	return nil
-}
-
 // ConfigureModelcarToContainer configures the OCI image specified in modelUri as a modelcar to the
 // specified target container of a given PodSpec. The configuration includes:
 //   - Adding an environment variable `async` to indicate to the runtime that the model directory may not be available immediately.
@@ -555,33 +465,24 @@ func ValidateOCIMountPaths(mountPaths []string, mode string) error {
 //   - modelPath: The path where the model symlink should be created inside the container
 //     (e.g. /mnt/models or /mnt/models/my-llama for a model-name subdirectory).
 //   - storageConfig: The storage initializer configuration.
-//   - ociIndex: The index of this OCI URI within the storageUris list. Used to generate
-//     unique container/volume names when multiple OCI URIs are specified. Use 0 for
-//     single-URI or legacy scenarios to preserve backward compatibility.
 //
 // Returns:
 //   - error: An error if the target container is not found or if configuration fails; otherwise, nil.
-func ConfigureModelcarToContainer(modelUri string, podSpec *corev1.PodSpec, targetContainerName string, modelPath string, storageConfig *types.StorageInitializerConfig, ociIndex int) error {
+func ConfigureModelcarToContainer(modelUri string, podSpec *corev1.PodSpec, targetContainerName string, modelPath string, storageConfig *types.StorageInitializerConfig) error {
 	targetContainer := GetContainerWithName(podSpec, targetContainerName)
 	if targetContainer == nil {
 		return fmt.Errorf("no container found with name %s", targetContainerName)
 	}
-
-	sidecarName, initName, volumeName := ModelcarNames(ociIndex)
 
 	// Indicate to the runtime that it the model directory could be
 	// available a bit later only so that it should wait and retry when
 	// starting up
 	AddOrReplaceEnv(targetContainer, constants.ModelInitModeEnvVarKey, "async")
 
-	// Mount volume initialized by the modelcar container to the target container.
-	// Each OCI URI gets its own emptyDir volume because the modelcar sidecar creates
-	// a symlink (via /proc/<PID>/root) that is specific to its container image.
-	// Sharing a single volume between multiple modelcar sidecars would cause symlink
-	// conflicts.
+	// Mount volume initialized by the modelcar container to the target container
 	modelParentDir := GetParentDirectory(modelPath)
-	AddEmptyDirVolumeIfNotPresent(podSpec, volumeName)
-	AddVolumeMountIfNotPresent(targetContainer, volumeName, modelParentDir, false)
+	AddEmptyDirVolumeIfNotPresent(podSpec, constants.StorageInitializerVolumeName)
+	AddVolumeMountIfNotPresent(targetContainer, constants.StorageInitializerVolumeName, modelParentDir, false)
 
 	// If configured, run as the given user. There might be certain installations
 	// of Kubernetes where sharing the filesystem via the process namespace only works
@@ -595,109 +496,22 @@ func ConfigureModelcarToContainer(modelUri string, podSpec *corev1.PodSpec, targ
 
 	// Create the modelcar that is used as a sidecar in Pod and add it to the end
 	// of the containers (but only if not already have been added)
-	if GetContainerWithName(podSpec, sidecarName) == nil {
+	if GetContainerWithName(podSpec, constants.ModelcarContainerName) == nil {
 		// Extract image reference for modelcar from URI
 		image := strings.TrimPrefix(modelUri, constants.OciURIPrefix)
 
-		modelContainer := CreateModelcarContainer(sidecarName, image, modelPath, volumeName, storageConfig)
+		modelContainer := CreateModelcarContainer(image, modelPath, storageConfig)
 		podSpec.Containers = append(podSpec.Containers, *modelContainer)
 
 		// Add the model container as an init-container to pre-fetch the model before
 		// the runtimes starts.
-		modelInitContainer := CreateModelcarInitContainer(initName, image, storageConfig)
+		modelInitContainer := CreateModelcarInitContainer(image, storageConfig)
 		podSpec.InitContainers = append(podSpec.InitContainers, *modelInitContainer)
 	}
 
 	// Enable process namespace sharing so that the modelcar's root filesystem
 	// can be reached by the user container
 	podSpec.ShareProcessNamespace = ptr.To(true)
-
-	return nil
-}
-
-// ParseOciScheme splits any OCI storageUri into its mode, a normalized oci:// URI, and
-// whether it is an OCI URI at all.
-//
-//   - "oci+native://reg/img:tag" → ("native", "oci://reg/img:tag", true)
-//   - "oci+modelcar://reg/img:tag" → ("modelcar", "oci://reg/img:tag", true)
-//   - "oci+fetch://reg/img:tag"   → ("fetch",    "oci://reg/img:tag", true)
-//   - "oci://reg/img:tag"         → ("",         "oci://reg/img:tag", true)  // mode resolved later
-//   - "s3://bucket/key"           → ("",         "s3://bucket/key",  false)
-func ParseOciScheme(uri string) (mode string, normalizedURI string, isOci bool) {
-	const ociPlus = "oci+"
-	if strings.HasPrefix(uri, ociPlus) {
-		rest := uri[len(ociPlus):]
-		sepIdx := strings.Index(rest, "://")
-		if sepIdx > 0 {
-			return rest[:sepIdx], constants.OciURIPrefix + rest[sepIdx+3:], true
-		}
-	}
-	if strings.HasPrefix(uri, constants.OciURIPrefix) {
-		return "", uri, true
-	}
-	return "", uri, false
-}
-
-// ConfigureOciNativeToContainer mounts a Kubernetes ImageVolume (alpha/beta gated by
-// +featureGate=ImageVolume) for an oci:// storageUri onto targetContainerName at modelPath.
-//
-// The volume name is derived from modelPath so that multiple adapters at different paths
-// can coexist without collision (each path produces a unique name via GetVolumeNameFromPath).
-// If another VolumeMount already uses modelPath the call is rejected to avoid silent
-// mount shadowing.
-//
-// The mount uses subPath="models" so that existing modelcar OCI images (which store model
-// files under /models/ inside the image) continue to work without re-building. K8s 1.31–1.32
-// alpha does not support subPath on ImageVolume VolumeMounts; the controller's warn helper
-// surfaces an advisory condition on those clusters.
-func ConfigureOciNativeToContainer(modelUri string, podSpec *corev1.PodSpec, targetContainerName, modelPath string, _ *types.StorageInitializerConfig) error {
-	targetContainer := GetContainerWithName(podSpec, targetContainerName)
-	if targetContainer == nil {
-		return fmt.Errorf("no container found with name %s", targetContainerName)
-	}
-
-	imageRef := strings.TrimPrefix(modelUri, constants.OciURIPrefix)
-
-	volName := GetVolumeNameFromPath(modelPath)
-	if volName == "" {
-		volName = "oci-model"
-	}
-
-	// Reject if modelPath is already claimed by a different mount.
-	for _, m := range targetContainer.VolumeMounts {
-		if m.MountPath == modelPath && m.Name != volName {
-			return fmt.Errorf("mountPath %q already used by volume %q", modelPath, m.Name)
-		}
-	}
-
-	// Guard against duplicate pod-level Volume entries (the API server rejects them).
-	// There is no shared helper for pod-level Volumes; AddVolumeMountIfNotPresent only
-	// covers per-container VolumeMounts. Unlike the previous early-return, we always
-	// call AddVolumeMountIfNotPresent below so that a second call for a different
-	// targetContainer (e.g., transformer) gets its VolumeMount even when the Volume
-	// already exists from the first call.
-	volumeExists := false
-	for _, v := range podSpec.Volumes {
-		if v.Name == volName {
-			volumeExists = true
-			break
-		}
-	}
-	if !volumeExists {
-		podSpec.Volumes = append(podSpec.Volumes, corev1.Volume{
-			Name: volName,
-			VolumeSource: corev1.VolumeSource{
-				Image: &corev1.ImageVolumeSource{
-					Reference:  imageRef,
-					PullPolicy: corev1.PullIfNotPresent,
-				},
-			},
-		})
-	}
-
-	// Always add the VolumeMount; the helper skips if this container already has it.
-	// subPath="models" matches the modelcar OCI image layout convention (/models/ inside the image).
-	AddVolumeMountIfNotPresentWithSubPath(targetContainer, volName, modelPath, "models", true)
 
 	return nil
 }

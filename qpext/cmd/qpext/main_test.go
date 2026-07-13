@@ -17,20 +17,17 @@ limitations under the License.
 package main
 
 import (
-	"context"
+	logger "github.com/kserve/kserve/qpext"
+	io_prometheus_client "github.com/prometheus/client_model/go"
+	"github.com/prometheus/common/expfmt"
+	"github.com/prometheus/common/model"
+	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"reflect"
 	"strings"
 	"testing"
-
-	io_prometheus_client "github.com/prometheus/client_model/go"
-	"github.com/prometheus/common/expfmt"
-	"github.com/prometheus/common/model"
-	"github.com/stretchr/testify/assert"
-
-	logger "github.com/kserve/kserve/qpext"
 )
 
 var testEnvVarVal = "something"
@@ -73,7 +70,7 @@ func TestAddServerlessLabels(t *testing.T) {
 			{Name: &labelTwo, Value: &labelTwoVal},
 		},
 	}
-	assert.Equal(t, result.GetLabel(), expected.GetLabel())
+	assert.Equal(t, result.Label, expected.Label)
 }
 
 func TestGetHeaderTimeout(t *testing.T) {
@@ -125,7 +122,7 @@ func TestScrapeHeaders(t *testing.T) {
 			req := &http.Request{
 				Header: map[string][]string{timeoutHeader: {test.headerVal}},
 			}
-			queueProxy, queueProxyCancel, _, err := scrape(context.Background(), url, req.Header, zapLogger)
+			queueProxy, queueProxyCancel, _, err := scrape(url, req.Header, zapLogger)
 			assert.NoError(t, err)
 			assert.NotNil(t, queueProxy)
 			if test.expectNilCancel {
@@ -150,7 +147,8 @@ func TestScrapeErr(t *testing.T) {
 
 	url := "not-a-real-url"
 
-	queueProxy, _, _, err := scrape(context.Background(), url, http.Header{}, zapLogger)
+	req := &http.Request{}
+	queueProxy, _, _, err := scrape(url, req.Header, zapLogger)
 	assert.Error(t, err)
 	assert.Nil(t, queueProxy)
 }
@@ -298,7 +296,7 @@ request_preprocess_seconds_count{model_name="custom-server-test",service_name="s
 				QueueProxyPort: strings.Split(qp.URL, ":")[2],
 				AppPort:        strings.Split(app.URL, ":")[2],
 			}
-			req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+			req := &http.Request{}
 			psc.handleStats(rec, req)
 			assert.Equal(t, rec.Code, 200)
 			assert.Contains(t, rec.Body.String(), test.output)
@@ -312,6 +310,7 @@ request_preprocess_seconds_count{model_name="custom-server-test",service_name="s
 			}
 		})
 	}
+
 }
 
 func TestHandleStats(t *testing.T) {
@@ -399,7 +398,7 @@ request_preprocess_seconds_count{model_name="custom-server-test",service_name="s
 				QueueProxyPort: strings.Split(qp.URL, ":")[2],
 				AppPort:        strings.Split(app.URL, ":")[2],
 			}
-			req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+			req := &http.Request{}
 			psc.handleStats(rec, req)
 			assert.Equal(t, rec.Code, 200)
 			assert.Contains(t, rec.Body.String(), test.output)
@@ -413,6 +412,7 @@ request_preprocess_seconds_count{model_name="custom-server-test",service_name="s
 			}
 		})
 	}
+
 }
 
 func TestHandleStatsErr(t *testing.T) {
@@ -441,7 +441,7 @@ func TestHandleStatsErr(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			sc := NewScrapeConfigs(zapLogger, test.queueproxy, test.app, DefaultQueueProxyMetricsPath)
-			req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+			req := &http.Request{}
 			rec := httptest.NewRecorder()
 			sc.handleStats(rec, req)
 			assert.Equal(t, 200, rec.Code)

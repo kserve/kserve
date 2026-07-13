@@ -30,7 +30,6 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
-	kservetypes "github.com/kserve/kserve/pkg/types"
 )
 
 // +kubebuilder:webhook:path=/mutate-pods,mutating=true,failurePolicy=fail,groups="",resources=pods,verbs=create,versions=v1,name=inferenceservice.kserve-webhook-server.pod-mutator,reinvocationPolicy=IfNeeded
@@ -138,7 +137,7 @@ func (mutator *Mutator) mutate(ctx context.Context, pod *corev1.Pod, configMap *
 		metricsAggregator.InjectMetricsAggregator,
 	}
 
-	if kservetypes.ResolveOciModelMode(storageInitializer.config) != "" {
+	if storageInitializer.config.EnableOciImageSource {
 		mutators = append(mutators, storageInitializer.InjectModelcar)
 	}
 

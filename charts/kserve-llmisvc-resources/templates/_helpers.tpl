@@ -68,6 +68,12 @@ Return the proper image name
 {{- printf "%s:%s" $repositoryName $tag -}}
 {{- end }}
 
+{{/*
+Return the proper image pull policy
+*/}}
+{{- define "llm-isvc-resources.imagePullPolicy" -}}
+{{- .Values.kserve.llmisvc.controller.imagePullPolicy | default "IfNotPresent" }}
+{{- end }}
 
 {{/*
 Return the proper image pull secrets
@@ -79,15 +85,5 @@ imagePullSecrets:
   - name: {{ . }}
 {{- end }}
 {{- end }}
-{{- end }}
-
-{{/*
-Names of the GIE CRDs bundled with this chart.
-*/}}
-{{- define "llm-isvc-resources.gieCRDNames" -}}
-- inferencemodelrewrites.llm-d.ai
-- inferenceobjectives.llm-d.ai
-- inferencepools.inference.networking.k8s.io
-- inferencepools.inference.networking.x-k8s.io
 {{- end }}
 

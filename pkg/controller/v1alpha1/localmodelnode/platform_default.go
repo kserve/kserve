@@ -29,12 +29,10 @@ import (
 
 const MountPath = "/mnt/models"
 
-func (c *LocalModelNodeReconciler) enhanceDownloadJob(_ context.Context, _ *batchv1.Job, _ string) error {
-	return nil
-}
+func enhanceDownloadJob(_ *batchv1.Job, _ string) error { return nil }
 
 // TODO we need a way to ensure that the local path on persistent volume is the same as the local path of the node agent DaemonSet.
-func (c *LocalModelNodeReconciler) ensureModelRootFolderExistsAndIsWritable(_ context.Context,
+func ensureModelRootFolderExistsAndIsWritable(_ context.Context, _ *LocalModelNodeReconciler,
 	_ *v1beta1.LocalModelConfig,
 ) (*ensureModelRootFolderResult, error) {
 	if err := fsHelper.ensureModelRootFolderExists(); err != nil {

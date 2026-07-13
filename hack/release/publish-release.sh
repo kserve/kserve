@@ -70,14 +70,6 @@ fi
 
 echo -e "${GREEN}Publishing release: $VERSION${NC}"
 
-# Compute previous GA version for release notes comparison
-# All releases (rc0, rc1, final) compare against the previous GA (vX.(Y-1).0)
-VERSION_NO_V="${VERSION#v}"
-MAJOR=$(echo "$VERSION_NO_V" | cut -d. -f1)
-MINOR=$(echo "$VERSION_NO_V" | cut -d. -f2)
-PREV_MINOR=$((MINOR - 1))
-PREV_GA_TAG="v${MAJOR}.${PREV_MINOR}.0"
-
 # Step 1: Check gh auth
 echo -e "\n${YELLOW}[1/6] Checking gh authentication...${NC}"
 GH_USER=$(gh api user --jq '.login' 2>/dev/null || true)
@@ -144,9 +136,8 @@ if [[ "$DRY_RUN" == "true" ]]; then
     echo -e "\n${YELLOW}[DRY-RUN] Would create release with:${NC}"
     echo "  gh release create $VERSION"
     echo "    --repo $REPO"
-    echo "    --title \"$VERSION\""
+    echo "    --title \"KServe $VERSION\""
     echo "    --generate-notes"
-    echo "    --notes-start-tag $PREV_GA_TAG"
     echo "    $FLAGS"
     echo "    $INSTALL_DIR/*"
     echo -e "\n${GREEN}Dry-run complete. No changes made.${NC}"
@@ -157,9 +148,8 @@ fi
 echo -e "\n${YELLOW}[6/6] Creating release...${NC}"
 gh release create "$VERSION" \
     --repo "$REPO" \
-    --title "$VERSION" \
+    --title "KServe $VERSION" \
     --generate-notes \
-    --notes-start-tag "$PREV_GA_TAG" \
     $FLAGS \
     "$INSTALL_DIR"/*
 

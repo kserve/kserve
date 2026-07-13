@@ -24,7 +24,7 @@ from vllm.engine.protocol import EngineClient
 from vllm.entrypoints.openai.completion.serving import OpenAIServingCompletion
 from vllm.entrypoints.openai.chat_completion.serving import OpenAIServingChat
 from vllm.entrypoints.pooling.embed.serving import ServingEmbedding
-from vllm.entrypoints.pooling.scoring.serving import ServingScores
+from vllm.entrypoints.pooling.score.serving import ServingScores
 from vllm.tool_parsers import ToolParserManager
 from vllm.entrypoints.openai.models.protocol import BaseModelPath
 from vllm.entrypoints.openai.models.serving import OpenAIServingModels
@@ -142,6 +142,7 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
             openai_serving_render = OpenAIServingRender(
                 model_config=vllm_config.model_config,
                 renderer=self.engine_client.renderer,
+                io_processor=self.engine_client.io_processor,
                 model_registry=self.openai_serving_models.registry,
                 request_logger=self.request_logger,
                 chat_template=resolved_chat_template,
@@ -150,7 +151,6 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
                 enable_auto_tools=self.args.enable_auto_tool_choice,
                 exclude_tools_when_tool_choice_none=self.args.exclude_tools_when_tool_choice_none,
                 tool_parser=self.args.tool_call_parser,
-                reasoning_parser=self.args.structured_outputs_config.reasoning_parser,
                 log_error_stack=self.args.log_error_stack,
             )
 
@@ -298,7 +298,9 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
                 message="The model does not support Embeddings API",
                 status_code=HTTPStatus.BAD_REQUEST,
             )
-        response = await self.openai_serving_embedding(request, raw_request)
+        response = await self.openai_serving_embedding.create_embedding(
+            request, raw_request
+        )
 
         if isinstance(response, engineError):
             return create_error_response(
@@ -321,7 +323,7 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
                 message="The model does not support Rerank API",
                 status_code=HTTPStatus.BAD_REQUEST,
             )
-        response = await self.serving_reranking(request, raw_request)
+        response = await self.serving_reranking.do_rerank(request, raw_request)
 
         if isinstance(response, engineError):
             return create_error_response(

@@ -1,8 +1,6 @@
 ## Supported Versions
 
-KServe provides security updates for the **latest minor release and the preceding minor release** (e.g., v0.19 and v0.18). Older releases do not receive security patches. Users are encouraged to upgrade to the latest release.
-
-For the full release policy including cadence, versioning, and support windows, see [RELEASES.md](RELEASES.md).
+KServe actively maintains and provides security updates for the latest major release and the preceding major release. Users are encouraged to stay updated with the latest releases to benefit from security patches and improvements.
 
 ## Reporting a Vulnerability
 

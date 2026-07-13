@@ -1,5 +1,5 @@
 /*
-Copyright 2026 The KServe Authors.
+Copyright 2025 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -164,25 +164,6 @@ func TestIsInferencePoolSupportedWithMultipleParents(t *testing.T) {
 				),
 			),
 			expected: metav1.ConditionFalse,
-		},
-		{
-			name: "route ignores status for a different Gateway parent",
-			route: HTTPRoute("test-route",
-				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
-				WithParentRef(GatewayRef("test-gateway", RefInNamespace("test-ns"))),
-				WithHTTPRule(
-					WithBackendRefs(BackendRefInferencePool("my-pool")),
-				),
-				WithHTTPRouteMultipleControllerStatus(
-					GatewayRef("other-gateway", RefInNamespace("test-ns")),
-					GatewayAPIControllerStatusInvalidKind,
-				),
-				WithHTTPRouteMultipleControllerStatus(
-					GatewayRef("test-gateway", RefInNamespace("test-ns")),
-					GatewayAPIControllerStatus,
-				),
-			),
-			expected: metav1.ConditionTrue,
 		},
 		{
 			name: "route with only Kuadrant controller (no ResolvedRefs condition) returns Unknown",

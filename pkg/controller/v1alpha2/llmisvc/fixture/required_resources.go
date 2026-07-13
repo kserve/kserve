@@ -130,7 +130,6 @@ func InferenceServiceCfgMapWithUrlScheme(ns, urlScheme string) *corev1.ConfigMap
 	configs := map[string]string{
 		"ingress": `{
 				"enableGatewayApi": true,
-				"enableLLMInferenceServiceTLS": true,
 				"kserveIngressGateway": "kserve/kserve-ingress-gateway",
 				"ingressGateway": "knative-serving/knative-ingress-gateway",
 				"localGateway": "knative-serving/knative-local-gateway",

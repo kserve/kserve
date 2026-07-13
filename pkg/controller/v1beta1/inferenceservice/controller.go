@@ -35,7 +35,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
@@ -61,7 +60,6 @@ import (
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/cabundleconfigmap"
 	modelconfig "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/modelconfig"
 	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
-	kservetypes "github.com/kserve/kserve/pkg/types"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -227,15 +225,6 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		isvc.Status.InitializeConditions()
 	}
 
-	// Advisory warning: if oci+native:// mode is configured, check the cluster K8s version
-	// and surface an OciImageVolumeCompatible condition when ImageVolume support may be absent.
-	if storageInitializerConfig, siErr := v1beta1.GetStorageInitializerConfigs(isvcConfigMap); siErr != nil {
-		r.Log.V(1).Info("Skipping OCI version check: failed to parse storageInitializer config", "error", siErr)
-	} else {
-		warnIfImageVolumeUnsupported(ctx, r.Clientset.Discovery(),
-			isvc, kservetypes.ResolveOciModelMode(storageInitializerConfig))
-	}
-
 	// Abort early if the resolved deployment mode is Knative, but Knative Services are not available
 	if deploymentMode == constants.Knative {
 		ksvcAvailable, checkKsvcErr := utils.IsCrdAvailable(r.ClientConfig, knservingv1.SchemeGroupVersion.String(), constants.KnativeServiceKind)
@@ -300,7 +289,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			}
 			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile component")
 		}
-		if result.RequeueAfter > 0 {
+		if result.Requeue || result.RequeueAfter > 0 {
 			return result, nil
 		}
 	}
@@ -393,7 +382,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 		return result, errors.Wrapf(err, "fails to reconcile ingress")
 	}
-	if result.RequeueAfter > 0 {
+	if result.Requeue || result.RequeueAfter > 0 {
 		// Persist status before requeue so deployment errors are visible on the ISVC
 		if err := r.updateStatus(ctx, isvc, deploymentMode); err != nil {
 			r.Log.Error(err, "Error updating status before requeue")
@@ -469,7 +458,7 @@ func inferenceServiceReadinessFalse(status v1beta1.InferenceServiceStatus) bool 
 func inferenceServiceStatusEqual(s1, s2 v1beta1.InferenceServiceStatus, deploymentMode constants.DeploymentModeType) bool {
 	if deploymentMode == constants.ModelMeshDeployment {
 		// If the deployment mode is ModelMesh, reduce the status scope to compare.
-		// Exclude Predictor and ModelStatus which are managed by ModelMesh controllers
+		// Exclude Predictor and ModelStatus which are mananged by ModelMesh controllers
 		return equality.Semantic.DeepEqual(s1.Address, s2.Address) &&
 			equality.Semantic.DeepEqual(s1.URL, s2.URL) &&
 			equality.Semantic.DeepEqual(s1.Status, s2.Status) &&
@@ -720,20 +709,10 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		ctrlBuilder = ctrlBuilder.Owns(&netv1.Ingress{})
 	}
 
-	ctrlBuilder = ctrlBuilder.Watches(&v1alpha1.ServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.servingRuntimeFunc), builder.WithPredicates(servingRuntimesPredicate())).
-		Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(r.podInitContainersFunc), builder.WithPredicates(podInitContainersPredicate()))
-
-	csrFound, err := utils.IsCrdAvailable(r.ClientConfig, v1alpha1.SchemeGroupVersion.String(), "ClusterServingRuntime")
-	if err != nil {
-		return err
-	}
-	if csrFound {
-		ctrlBuilder = ctrlBuilder.Watches(&v1alpha1.ClusterServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.clusterServingRuntimeFunc), builder.WithPredicates(clusterServingRuntimesPredicate()))
-	} else {
-		r.Log.Info("The InferenceService controller won't watch serving.kserve.io/v1alpha1/ClusterServingRuntime resources because the CRD is not available.")
-	}
-
-	return ctrlBuilder.Complete(r)
+	return ctrlBuilder.Watches(&v1alpha1.ServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.servingRuntimeFunc), builder.WithPredicates(servingRuntimesPredicate())).
+		Watches(&v1alpha1.ClusterServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.clusterServingRuntimeFunc), builder.WithPredicates(clusterServingRuntimesPredicate())).
+		Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(r.podInitContainersFunc), builder.WithPredicates(podInitContainersPredicate())).
+		Complete(r)
 }
 
 func (r *InferenceServiceReconciler) deleteExternalResources(ctx context.Context, isvc *v1beta1.InferenceService) error {
@@ -770,63 +749,4 @@ func (r *InferenceServiceReconciler) GetFailConditions(isvc *v1beta1.InferenceSe
 		}
 	}
 	return msg
-}
-
-// OciImageVolumeCompatible is an advisory condition surfaced on an InferenceService
-// when native OCI ImageVolume mode is in use and the cluster Kubernetes version may
-// not support it. It never affects the Ready condition (not in conditionSet).
-const OciImageVolumeCompatible apis.ConditionType = "OciImageVolumeCompatible"
-
-// serverVersioner is the subset of discovery.DiscoveryInterface required by
-// warnIfImageVolumeUnsupported. Using a minimal interface enables injection of
-// a lightweight fake in unit tests without implementing all ~30 discovery methods.
-type serverVersioner interface {
-	ServerVersion() (*version.Info, error)
-}
-
-// warnIfImageVolumeUnsupported sets an advisory condition on isvc when the resolved
-// storage mode is "native" and the cluster does not have ImageVolume enabled by default.
-// The compatibility thresholds and version discovery are handled by the shared helper
-// utils.CheckImageVolumeCompatibility; this function translates the result into the
-// ISVC condition format.
-func warnIfImageVolumeUnsupported(ctx context.Context, sv serverVersioner, isvc *v1beta1.InferenceService, resolvedMode string) {
-	if resolvedMode != kservetypes.OciModelModeNative {
-		isvc.Status.ClearCondition(OciImageVolumeCompatible)
-		return
-	}
-
-	result := utils.CheckImageVolumeCompatibility(ctx, sv)
-
-	switch result.Status {
-	case utils.ImageVolumeUnsupported:
-		isvc.Status.SetCondition(OciImageVolumeCompatible, &apis.Condition{
-			Type:   OciImageVolumeCompatible,
-			Status: corev1.ConditionFalse,
-			Reason: "ImageVolumeUnsupported",
-			Message: fmt.Sprintf(
-				"Cluster K8s %s.%s does not support ImageVolume (introduced in 1.31 as alpha). Falling back to modelcar may be required.",
-				result.Major, result.Minor),
-		})
-	case utils.ImageVolumeSubPathUnsupported:
-		isvc.Status.SetCondition(OciImageVolumeCompatible, &apis.Condition{
-			Type:   OciImageVolumeCompatible,
-			Status: corev1.ConditionFalse,
-			Reason: "ImageVolumeSubPathUnsupported",
-			Message: fmt.Sprintf(
-				"Cluster K8s %s.%s (alpha) does not support subPath on ImageVolume VolumeMounts. Upgrade to K8s 1.33+ (beta) for full oci+native:// support.",
-				result.Major, result.Minor),
-		})
-	case utils.ImageVolumeNeedsGate:
-		isvc.Status.SetCondition(OciImageVolumeCompatible, &apis.Condition{
-			Type:   OciImageVolumeCompatible,
-			Status: corev1.ConditionFalse,
-			Reason: "ImageVolumeAlpha",
-			Message: fmt.Sprintf(
-				"Cluster K8s %s.%s has ImageVolume feature-gated (K8s 1.33–1.34 beta). Ensure --feature-gates=ImageVolume=true is set on kube-apiserver and kubelet.",
-				result.Major, result.Minor),
-		})
-	default:
-		// ImageVolumeOK (≥ 1.35) or ImageVolumeUnknown — clear any previously set warning.
-		isvc.Status.ClearCondition(OciImageVolumeCompatible)
-	}
 }

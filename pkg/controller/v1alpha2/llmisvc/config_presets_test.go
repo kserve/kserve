@@ -100,15 +100,14 @@ func TestPresetFiles(t *testing.T) {
 							InitContainers: []corev1.Container{
 								{
 									Name:  "llm-d-routing-sidecar",
-									Image: "ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.9.0",
+									Image: "ghcr.io/llm-d/llm-d-routing-sidecar:v0.7.1",
 									Command: []string{
 										"/app/pd-sidecar",
 										"--port=8000",
 										"--vllm-port=8001",
-										"--kv-connector=nixlv2",
+										"--connector=nixlv2",
 										"--enable-ssrf-protection=true",
 										"--pool-group=inference.networking.x-k8s.io",
-										"--inference-pool=test-llm-preset-test/test-llm-preset-inference-pool",
 										"--secure-proxy=false",
 										"",
 										"",
@@ -140,7 +139,7 @@ func TestPresetFiles(t *testing.T) {
 										Capabilities: &corev1.Capabilities{
 											Drop: []corev1.Capability{"ALL"},
 										},
-										ReadOnlyRootFilesystem: ptr.To(false),
+										ReadOnlyRootFilesystem: ptr.To(true),
 										SeccompProfile: &corev1.SeccompProfile{
 											Type: corev1.SeccompProfileTypeRuntimeDefault,
 										},
@@ -187,7 +186,7 @@ func TestPresetFiles(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:  "main",
-									Image: "ghcr.io/llm-d/llm-d-cuda:v0.8.0",
+									Image: "ghcr.io/llm-d/llm-d-cuda:v0.6.0",
 									Ports: []corev1.ContainerPort{
 										{
 											ContainerPort: 8001,
@@ -240,9 +239,9 @@ func TestPresetFiles(t *testing.T) {
 											},
 										},
 
-										TimeoutSeconds:   1,
+										TimeoutSeconds:   10,
 										PeriodSeconds:    10,
-										FailureThreshold: 10,
+										FailureThreshold: 3,
 									},
 									ReadinessProbe: &corev1.Probe{
 										ProbeHandler: corev1.ProbeHandler{
@@ -253,9 +252,9 @@ func TestPresetFiles(t *testing.T) {
 											},
 										},
 
-										TimeoutSeconds:   1,
-										PeriodSeconds:    1,
-										FailureThreshold: 2,
+										TimeoutSeconds:   5,
+										PeriodSeconds:    30,
+										FailureThreshold: 60,
 									},
 									StartupProbe: &corev1.Probe{
 										ProbeHandler: corev1.ProbeHandler{
@@ -267,13 +266,6 @@ func TestPresetFiles(t *testing.T) {
 										},
 										FailureThreshold: 60,
 										PeriodSeconds:    10,
-									},
-									Lifecycle: &corev1.Lifecycle{
-										PreStop: &corev1.LifecycleHandler{
-											Exec: &corev1.ExecAction{
-												Command: []string{"/bin/sleep", "15"},
-											},
-										},
 									},
 									TerminationMessagePath:   "/dev/termination-log",
 									TerminationMessagePolicy: "FallbackToLogsOnError",
@@ -289,14 +281,14 @@ func TestPresetFiles(t *testing.T) {
 										},
 										AllowPrivilegeEscalation: ptr.To(false),
 										RunAsNonRoot:             ptr.To(true),
-										ReadOnlyRootFilesystem:   ptr.To(false),
+										ReadOnlyRootFilesystem:   ptr.To(true),
 										SeccompProfile: &corev1.SeccompProfile{
 											Type: corev1.SeccompProfileTypeRuntimeDefault,
 										},
 									},
 								},
 							},
-							TerminationGracePeriodSeconds: ptr.To(int64(60)),
+							TerminationGracePeriodSeconds: ptr.To(int64(30)),
 						},
 						Worker: &corev1.PodSpec{
 							Volumes: []corev1.Volume{
@@ -332,11 +324,11 @@ func TestPresetFiles(t *testing.T) {
 									VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: "test-llm-preset-kserve-self-signed-certs"}},
 								},
 							},
-							TerminationGracePeriodSeconds: ptr.To(int64(60)),
+							TerminationGracePeriodSeconds: ptr.To(int64(30)),
 							Containers: []corev1.Container{
 								{
 									Name:  "main",
-									Image: "ghcr.io/llm-d/llm-d-cuda:v0.8.0",
+									Image: "ghcr.io/llm-d/llm-d-cuda:v0.6.0",
 									Ports: []corev1.ContainerPort{
 										{
 											ContainerPort: 8001,
@@ -377,7 +369,7 @@ func TestPresetFiles(t *testing.T) {
 										},
 										AllowPrivilegeEscalation: ptr.To(false),
 										RunAsNonRoot:             ptr.To(true),
-										ReadOnlyRootFilesystem:   ptr.To(false),
+										ReadOnlyRootFilesystem:   ptr.To(true),
 										SeccompProfile: &corev1.SeccompProfile{
 											Type: corev1.SeccompProfileTypeRuntimeDefault,
 										},
@@ -398,13 +390,6 @@ func TestPresetFiles(t *testing.T) {
 										{
 											Name:  "VLLM_RANDOMIZE_DP_DUMMY_INPUTS",
 											Value: "1",
-										},
-									},
-									Lifecycle: &corev1.Lifecycle{
-										PreStop: &corev1.LifecycleHandler{
-											Exec: &corev1.ExecAction{
-												Command: []string{"/bin/sleep", "15"},
-											},
 										},
 									},
 									TerminationMessagePath:   "/dev/termination-log",
@@ -465,7 +450,7 @@ func TestPresetFiles(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:  "main",
-									Image: "ghcr.io/llm-d/llm-d-cuda:v0.8.0",
+									Image: "ghcr.io/llm-d/llm-d-cuda:v0.6.0",
 									Ports: []corev1.ContainerPort{
 										{
 											ContainerPort: 8000,
@@ -518,9 +503,9 @@ func TestPresetFiles(t *testing.T) {
 											},
 										},
 
-										TimeoutSeconds:   1,
+										TimeoutSeconds:   10,
 										PeriodSeconds:    10,
-										FailureThreshold: 10,
+										FailureThreshold: 3,
 									},
 									ReadinessProbe: &corev1.Probe{
 										ProbeHandler: corev1.ProbeHandler{
@@ -531,9 +516,9 @@ func TestPresetFiles(t *testing.T) {
 											},
 										},
 
-										TimeoutSeconds:   1,
-										PeriodSeconds:    1,
-										FailureThreshold: 2,
+										TimeoutSeconds:   5,
+										PeriodSeconds:    10,
+										FailureThreshold: 60,
 									},
 									StartupProbe: &corev1.Probe{
 										ProbeHandler: corev1.ProbeHandler{
@@ -546,13 +531,6 @@ func TestPresetFiles(t *testing.T) {
 										FailureThreshold: 60,
 										PeriodSeconds:    10,
 									},
-									Lifecycle: &corev1.Lifecycle{
-										PreStop: &corev1.LifecycleHandler{
-											Exec: &corev1.ExecAction{
-												Command: []string{"/bin/sleep", "15"},
-											},
-										},
-									},
 									TerminationMessagePath:   "/dev/termination-log",
 									TerminationMessagePolicy: "FallbackToLogsOnError",
 									ImagePullPolicy:          "IfNotPresent",
@@ -562,14 +540,14 @@ func TestPresetFiles(t *testing.T) {
 										},
 										AllowPrivilegeEscalation: ptr.To(false),
 										RunAsNonRoot:             ptr.To(true),
-										ReadOnlyRootFilesystem:   ptr.To(false),
+										ReadOnlyRootFilesystem:   ptr.To(true),
 										SeccompProfile: &corev1.SeccompProfile{
 											Type: corev1.SeccompProfileTypeRuntimeDefault,
 										},
 									},
 								},
 							},
-							TerminationGracePeriodSeconds: ptr.To(int64(60)),
+							TerminationGracePeriodSeconds: ptr.To(int64(30)),
 						},
 					},
 				},
@@ -631,6 +609,10 @@ func TestPresetFiles(t *testing.T) {
 
 func loadConfig(t *testing.T, data []byte, filePath string) *v1alpha2.LLMInferenceServiceConfig {
 	config := &v1alpha2.LLMInferenceServiceConfig{}
+	if err := yaml.Unmarshal(data, config); err != nil {
+		t.Errorf("Failed to unmarshal YAML from %s: %v", filePath, err)
+		return nil
+	}
 	if err := yaml.Unmarshal(data, config); err != nil {
 		t.Errorf("Failed to unmarshal YAML from %s: %v", filePath, err)
 		return nil

@@ -22,18 +22,18 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strconv"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	apixclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -53,10 +53,8 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 	kservescheme "github.com/kserve/kserve/pkg/scheme"
-	llmisvcwebhook "github.com/kserve/kserve/pkg/webhook/admission/llminferenceservice"
 )
 
 var (
@@ -78,28 +76,24 @@ func init() {
 }
 
 type Options struct {
-	metricsAddr           string
-	webhookPort           int
-	enableLeaderElection  bool
-	probeAddr             string
-	metricsSecure         bool
-	enableHTTP2           bool
-	migrationTimeout      time.Duration
-	migrationPollInterval time.Duration
-	zapOpts               zap.Options
+	metricsAddr          string
+	webhookPort          int
+	enableLeaderElection bool
+	probeAddr            string
+	metricsSecure        bool
+	enableHTTP2          bool
+	zapOpts              zap.Options
 }
 
 func DefaultOptions() Options {
 	return Options{
-		metricsAddr:           ":8443",
-		webhookPort:           9443,
-		enableLeaderElection:  false,
-		probeAddr:             ":8081",
-		metricsSecure:         true,
-		enableHTTP2:           false,
-		migrationTimeout:      1 * time.Hour,
-		migrationPollInterval: 30 * time.Second,
-		zapOpts:               zap.Options{},
+		metricsAddr:          ":8443",
+		webhookPort:          9443,
+		enableLeaderElection: false,
+		probeAddr:            ":8081",
+		metricsSecure:        true,
+		enableHTTP2:          false,
+		zapOpts:              zap.Options{},
 	}
 }
 
@@ -114,8 +108,6 @@ func GetOptions() Options {
 	flag.StringVar(&opts.probeAddr, "health-probe-addr", opts.probeAddr, "The address the probe endpoint binds to.")
 	flag.BoolVar(&opts.metricsSecure, "metrics-secure", opts.metricsSecure, "Whether to serve metric via HTTPS.")
 	flag.BoolVar(&opts.enableHTTP2, "enable-http2", false, "If set, HTTP/2 will be enabled for the metrics and webhook servers")
-	flag.DurationVar(&opts.migrationTimeout, "storage-migration-timeout", opts.migrationTimeout, "Total retry budget for storage version migration.")
-	flag.DurationVar(&opts.migrationPollInterval, "storage-migration-poll-interval", opts.migrationPollInterval, "Polling interval for storage version migration retries after initial backoff.")
 	opts.zapOpts.BindFlags(flag.CommandLine)
 	flag.Parse()
 	return opts
@@ -125,18 +117,6 @@ func main() {
 	ctx := signals.SetupSignalHandler()
 	options := GetOptions()
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&options.zapOpts)))
-
-	defaults := DefaultOptions()
-	if options.migrationTimeout <= 0 {
-		setupLog.Info("--storage-migration-timeout must be positive, using default",
-			"invalid", options.migrationTimeout, "default", defaults.migrationTimeout)
-		options.migrationTimeout = defaults.migrationTimeout
-	}
-	if options.migrationPollInterval <= 0 {
-		setupLog.Info("--storage-migration-poll-interval must be positive, using default",
-			"invalid", options.migrationPollInterval, "default", defaults.migrationPollInterval)
-		options.migrationPollInterval = defaults.migrationPollInterval
-	}
 
 	// Get a config to talk to the apiserver
 	setupLog.Info("Setting up client for manager")
@@ -200,16 +180,7 @@ func main() {
 					Label: llmSvcCacheSelector,
 				},
 				&corev1.ConfigMap{}: {
-					Namespaces: map[string]cache.Config{
-						cache.AllNamespaces: {
-							LabelSelector: llmSvcCacheSelector,
-						},
-						constants.KServeNamespace: {
-							// Namespace-specific cache configs do not merge with AllNamespaces.
-							// Keep the system namespace scope limited to the global config read by LLMISVC.
-							FieldSelector: fields.OneTermEqualSelector("metadata.name", constants.InferenceServiceConfigMapName),
-						},
-					},
+					Label: llmSvcCacheSelector,
 				},
 				&appsv1.Deployment{}: {
 					Label: llmSvcCacheSelector,
@@ -245,21 +216,17 @@ func main() {
 		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceservice-v1alpha1")
 		os.Exit(1)
 	}
-	const preventWellKnownConfigDeletionEnv = "PREVENT_WELL_KNOWN_CONFIG_DELETION"
-	preventWellKnownConfigDeletion, _ := strconv.ParseBool(constants.GetEnvOrDefault(preventWellKnownConfigDeletionEnv, "true"))
 	v1alpha1ConfigValidator := &v1alpha1.LLMInferenceServiceConfigValidator{
-		ConfigValidationFunc:           createV1Alpha1ConfigValidationFunc(mgr.GetAPIReader()),
-		WellKnownConfigChecker:         wellKnownConfigChecker,
-		PreventWellKnownConfigDeletion: preventWellKnownConfigDeletion,
+		ConfigValidationFunc:   createV1Alpha1ConfigValidationFunc(clientSet),
+		WellKnownConfigChecker: wellKnownConfigChecker,
 	}
 	if err = v1alpha1ConfigValidator.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceserviceconfig-v1alpha1")
 		os.Exit(1)
 	}
 	v1alpha2ConfigValidator := &v1alpha2.LLMInferenceServiceConfigValidator{
-		ConfigValidationFunc:           createV1Alpha2ConfigValidationFunc(mgr.GetAPIReader()),
-		WellKnownConfigChecker:         wellKnownConfigChecker,
-		PreventWellKnownConfigDeletion: preventWellKnownConfigDeletion,
+		ConfigValidationFunc:   createV1Alpha2ConfigValidationFunc(clientSet),
+		WellKnownConfigChecker: wellKnownConfigChecker,
 	}
 	if err = v1alpha2ConfigValidator.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceserviceconfig-v1alpha2")
@@ -295,34 +262,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Register version-specific mutating webhooks.
-	// This ensures admission decoding matches request version (v1alpha1 or v1alpha2)
-	// before shared defaulting logic is applied.
-	if err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha1.LLMInferenceService{}).
-		WithDefaulter(&llmisvcwebhook.LLMInferenceServiceDefaulterV1Alpha1{Client: mgr.GetClient(), Clientset: clientSet}).
-		Complete(); err != nil {
-		setupLog.Error(err, "unable to create defaulting webhook", "webhook", "llminferenceservice-v1alpha1")
-		os.Exit(1)
-	}
-
-	if err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha2.LLMInferenceService{}).
-		WithDefaulter(&llmisvcwebhook.LLMInferenceServiceDefaulterV1Alpha2{Client: mgr.GetClient(), Clientset: clientSet}).
-		Complete(); err != nil {
-		setupLog.Error(err, "unable to create defaulting webhook", "webhook", "llminferenceservice-v1alpha2")
-		os.Exit(1)
-	}
-
-	setupLog.Info("Setting up LLMInferenceServiceConfig controller")
-	if err = (&llmisvc.LLMISVCConfigReconciler{
-		Client:        mgr.GetClient(),
-		EventRecorder: llmEventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: "LLMInferenceServiceConfigController"}),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "LLMInferenceServiceConfig")
-		os.Exit(1)
-	}
-
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
 		os.Exit(1)
@@ -336,35 +275,37 @@ func main() {
 	// after the webhook server and cache sync are ready. This avoids the
 	// chicken-and-egg problem where migration patches trigger validating webhooks
 	// that aren't serving yet.
-	// Local copies pin the values into the closure by value. If Options were ever
-	// mutated after mgr.Add returns (it is not today, but nothing prevents it),
-	// closures capturing options directly would see stale or live values depending
-	// on timing. Copies make the intent explicit and safe.
-	migrationTimeout := options.migrationTimeout
-	migrationPollInterval := options.migrationPollInterval
+	// migrationBackoff allows enough time for Service endpoints to propagate
+	// after the webhook server starts.
+	migrationBackoff := wait.Backoff{
+		Duration: 2 * time.Second,
+		Factor:   1.5,
+		Jitter:   0.1,
+		Steps:    10,
+	}
 	if err := mgr.Add(leaderRunnable(func(ctx context.Context) error {
-		setupLog.Info("running storage version migration",
-			"timeout", migrationTimeout, "pollInterval", migrationPollInterval)
-		// Single context bounds the total migration budget across all resource groups.
-		// runMigrationWithRetry inherits this deadline via context.WithTimeout, which
-		// takes min(parent deadline, now+timeout), so each group draws from the same pool.
-		migrationCtx, cancel := context.WithTimeout(ctx, migrationTimeout)
-		defer cancel()
+		setupLog.Info("running storage version migration")
 		migrator := storageversion.NewMigrator(dynamic.NewForConfigOrDie(cfg), apixclient.NewForConfigOrDie(cfg))
 		for _, gr := range []schema.GroupResource{
 			{Group: v1alpha2.SchemeGroupVersion.Group, Resource: "llminferenceservices"},
 			{Group: v1alpha2.SchemeGroupVersion.Group, Resource: "llminferenceserviceconfigs"},
 		} {
-			// Pre-key the logger with the resource name so per-attempt retry messages
-			// are identifiable without grep. The error message reports the full
-			// migrationTimeout, not the remaining time, because retryCtx inside
-			// runMigrationWithRetry inherits migrationCtx's narrowed deadline via
-			// context.WithTimeout's min(parent, now+d) semantics.
-			grLog := setupLog.WithValues("resource", gr)
-			if err := runMigrationWithRetry(migrationCtx, migrationTimeout, migrationPollInterval, grLog, func(ctx context.Context) error {
-				return migrator.Migrate(ctx, gr)
+			var lastErr error
+			if err := wait.ExponentialBackoffWithContext(ctx, migrationBackoff, func(ctx context.Context) (bool, error) {
+				if err := migrator.Migrate(ctx, gr); err != nil {
+					lastErr = err
+					if apierrors.IsForbidden(err) || apierrors.IsUnauthorized(err) || apierrors.IsNotFound(err) {
+						return false, err
+					}
+					setupLog.Error(err, "storage version migration attempt failed, retrying", "resource", gr)
+					return false, nil
+				}
+				return true, nil
 			}); err != nil {
-				return fmt.Errorf("storage version migration for %s: %w", gr, err)
+				if lastErr != nil && wait.Interrupted(err) {
+					return fmt.Errorf("storage version migration for %s timed out: %w", gr, lastErr)
+				}
+				return fmt.Errorf("storage version migration for %s failed: %w", gr, err)
 			}
 		}
 		setupLog.Info("storage version migration completed")
@@ -388,8 +329,8 @@ func wellKnownConfigChecker(name string) bool {
 
 // validateLLMISVCConfig validates a v1alpha2 LLMInferenceServiceConfig by loading the controller
 // config and validating the template variables.
-func validateLLMISVCConfig(ctx context.Context, reader client.Reader, config *v1alpha2.LLMInferenceServiceConfig) error {
-	cfg, err := llmisvc.LoadConfig(ctx, reader)
+func validateLLMISVCConfig(ctx context.Context, clientSet kubernetes.Interface, config *v1alpha2.LLMInferenceServiceConfig) error {
+	cfg, err := llmisvc.LoadConfig(ctx, clientSet)
 	if err != nil {
 		return err
 	}
@@ -399,19 +340,19 @@ func validateLLMISVCConfig(ctx context.Context, reader client.Reader, config *v1
 
 // createV1Alpha1ConfigValidationFunc creates a validation function for v1alpha1 LLMInferenceServiceConfig.
 // It converts the config to v1alpha2 and validates using the v1alpha2 llmisvc package.
-func createV1Alpha1ConfigValidationFunc(reader client.Reader) func(ctx context.Context, config *v1alpha1.LLMInferenceServiceConfig) error {
+func createV1Alpha1ConfigValidationFunc(clientSet kubernetes.Interface) func(ctx context.Context, config *v1alpha1.LLMInferenceServiceConfig) error {
 	return func(ctx context.Context, config *v1alpha1.LLMInferenceServiceConfig) error {
 		v2Config := &v1alpha2.LLMInferenceServiceConfig{}
 		if err := config.ConvertTo(v2Config); err != nil {
 			return err
 		}
-		return validateLLMISVCConfig(ctx, reader, v2Config)
+		return validateLLMISVCConfig(ctx, clientSet, v2Config)
 	}
 }
 
 // createV1Alpha2ConfigValidationFunc creates a validation function for v1alpha2 LLMInferenceServiceConfig.
-func createV1Alpha2ConfigValidationFunc(reader client.Reader) func(ctx context.Context, config *v1alpha2.LLMInferenceServiceConfig) error {
+func createV1Alpha2ConfigValidationFunc(clientSet kubernetes.Interface) func(ctx context.Context, config *v1alpha2.LLMInferenceServiceConfig) error {
 	return func(ctx context.Context, config *v1alpha2.LLMInferenceServiceConfig) error {
-		return validateLLMISVCConfig(ctx, reader, config)
+		return validateLLMISVCConfig(ctx, clientSet, config)
 	}
 }

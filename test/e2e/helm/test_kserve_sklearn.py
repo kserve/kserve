@@ -33,7 +33,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc
 
 @pytest.mark.helm
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_kserve(rest_v2_client, network_layer):
+async def test_sklearn_kserve(rest_v2_client):
     service_name = "isvc-sklearn-helm"
     protocol_version = "v2"
 
@@ -78,7 +78,6 @@ async def test_sklearn_kserve(rest_v2_client, network_layer):
         rest_v2_client,
         service_name,
         "./data/iris_input_v2.json",
-        network_layer=network_layer,
     )
     assert res.outputs[0].data == [1, 1]
 

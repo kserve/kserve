@@ -380,7 +380,7 @@ func (ss *InferenceServiceStatus) PropagateRawStatus(
 				}
 			}
 		} else {
-			// If progressing condition is True, and the reason is NewReplicaSetAvailable, override component as ready.
+			// If progressing condition is True, and the reason is set to NewReplicaSetAvailable, override component as ready.
 			// This is because progressing condition doesn't get set to false when deployment is complete.
 			// See https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#complete-deployment
 			if progressingCondition.IsTrue() {
@@ -391,12 +391,7 @@ func (ss *InferenceServiceStatus) PropagateRawStatus(
 						Reason:  progressingCondition.Reason,
 						Message: progressingCondition.Message,
 					}
-				} else if availableCondition == nil || availableCondition.Status != corev1.ConditionTrue {
-					// Only mark Unknown when Available has NOT confirmed readiness.
-					// For multi-node deployments, there is a transient mismatch during rollout
-					// where Progressing=True with a non-"NewReplicaSetAvailable" reason while
-					// Available=True for all deployments.
-					// In that case the component IS ready and should not be downgraded.
+				} else {
 					componentReadyCondition = &apis.Condition{
 						Type:    readyCondition,
 						Status:  corev1.ConditionUnknown,
@@ -454,12 +449,12 @@ func getDeploymentCondition(deploymentList []*appsv1.Deployment, conditionType a
 				if con.Type == conditionType {
 					statuses = append(statuses, con.Status)
 					messages = append(messages, containerName+con.Message)
-					reasons = append(reasons, containerName+con.Reason)
 					lastTransitionTime = append(lastTransitionTime, apis.VolatileTime{
 						Inner: con.LastTransitionTime,
 					})
 					break
 				}
+				reasons = append(reasons, containerName+con.Reason)
 			}
 		}
 		// If the status of both the head node and worker node deployments matches the conditionType
@@ -468,31 +463,8 @@ func getDeploymentCondition(deploymentList []*appsv1.Deployment, conditionType a
 			condition.Status = allStatusesTrue(statuses)
 			condition.Message = strings.Join(messages, ", ")
 			condition.LastTransitionTime = lastTransitionTime[0] // used head node one
-			// When all deployments share the same reason, emit it without container prefixes
-			// so that downstream comparisons (e.g. == "NewReplicaSetAvailable") work
-			// identically to the single-deployment path.
-			rawReasons := make([]string, 0, len(deploymentList))
-			for _, deployment := range deploymentList {
-				for _, con := range deployment.Status.Conditions {
-					if con.Type == conditionType {
-						rawReasons = append(rawReasons, con.Reason)
-						break
-					}
-				}
-			}
-			allSame := len(rawReasons) > 0
-			for i := 1; i < len(rawReasons); i++ {
-				if rawReasons[i] != rawReasons[0] {
-					allSame = false
-					break
-				}
-			}
-			if allSame {
-				condition.Reason = rawReasons[0]
-			} else {
-				condition.Reason = strings.Join(reasons, ", ")
-			}
 		}
+		condition.Reason = strings.Join(reasons, ", ")
 	} else if len(deploymentList) == 1 {
 		// Usual rawDeployment case
 		for _, con := range deploymentList[0].Status.Conditions {

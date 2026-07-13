@@ -6,7 +6,7 @@ metadata:
 spec:
   template:
     containers:
-      - image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
+      - image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
         name: main
         command: ["/bin/sh", "-c"]
         args:
@@ -14,7 +14,7 @@ spec:
             vllm serve /mnt/models
             --served-model-name "{{ .Spec.Model.Name }}"
             --port 8000
-            --disable-access-log-for-endpoints /health,/metrics,/ping
+            --disable-uvicorn-access-log
             --disable-log-requests
             --prefix-caching-hash-algo sha256_cbor
             --block-size 64
@@ -68,24 +68,17 @@ spec:
                     modelName: "{{ .Spec.Model.Name }}"
                     hf:
                       tokenizersCacheDir: "/mnt/tokenizers"
-            - type: kv-cache-utilization-scorer
             - type: queue-scorer
-            - type: active-request-scorer
-              parameters:
-                requestTimeout: "2m"
-                idleThreshold: 0        # Pods with ≤0 requests are idle
-                maxBusyScore: 0         # Busy pods score 0, idle pods score 1.0
+            - type: kv-cache-utilization-scorer
             - type: max-score-picker
           schedulingProfiles:
             - name: default
               plugins:
-                - pluginRef: precise-prefix-cache-scorer
-                  weight: 3
-                - pluginRef: kv-cache-utilization-scorer
-                  weight: 2
                 - pluginRef: queue-scorer
                   weight: 2
-                - pluginRef: active-request-scorer
+                - pluginRef: kv-cache-utilization-scorer
+                  weight: 2
+                - pluginRef: precise-prefix-cache-scorer
                   weight: 3
                 - pluginRef: max-score-picker
       pool:
@@ -103,7 +96,7 @@ spec:
             emptyDir: {}
         containers:
           - name: main
-            image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0
+            image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.7.1
             ports:
               - containerPort: 5557
                 name: zmq

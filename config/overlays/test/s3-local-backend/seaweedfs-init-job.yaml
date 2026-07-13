@@ -3,26 +3,8 @@ kind: Job
 metadata:
   name: s3-init
 spec:
-  activeDeadlineSeconds: 900
   template:
     spec:
-      initContainers:
-      - name: download-hf-model
-        image: kserve/storage-initializer:latest
-        imagePullPolicy: IfNotPresent
-        args:
-        - "hf://facebook/opt-125m"
-        - "/shared/facebook/opt-125m"
-        env:
-        - name: HF_HUB_DISABLE_PROGRESS_BARS
-          value: "1"
-        - name: TOKIO_WORKER_THREADS
-          value: "1"
-        - name: STORAGE_IGNORE_PATTERNS
-          value: "*.msgpack,*.h5,flax_model*,tf_model*,rust_model*"
-        volumeMounts:
-        - name: model-cache
-          mountPath: /shared
       containers:
       - name: s3-init
         image: docker.io/amazon/aws-cli:2.33.11@sha256:88ea087837da1b31a3afeeb4538888244a3087a867ddb1909848643fcc4b324e
@@ -32,9 +14,8 @@ spec:
         - |
           aws s3 mb s3://logger-output || true
           aws s3 mb s3://example-models || true
-          curl -L https://storage.googleapis.com/kfserving-examples/models/sklearn/1.0/model/model.joblib -o /tmp/sklearn-model.joblib
-          aws s3 cp /tmp/sklearn-model.joblib s3://example-models/sklearn/model.joblib --no-verify-ssl
-          aws s3 sync /shared/facebook/opt-125m s3://example-models/facebook/opt-125m/ --no-verify-ssl
+          curl -L https://storage.googleapis.com/kfserving-examples/models/sklearn/1.0/model/model.joblib -o sklearn-model.joblib
+          aws s3 cp sklearn-model.joblib s3://example-models/sklearn/model.joblib  --no-verify-ssl
         env:
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
@@ -50,11 +31,5 @@ spec:
           value: "us-east-1"
         - name: AWS_ENDPOINT_URL_S3
           value: "http://s3-service.kserve:8333"
-        volumeMounts:
-        - name: model-cache
-          mountPath: /shared
-      volumes:
-      - name: model-cache
-        emptyDir: {}
       restartPolicy: Never
   backoffLimit: 3

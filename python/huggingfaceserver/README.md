@@ -247,6 +247,6 @@ spec:
 
 **Points to note**:
 
-- The Hugging Face vLLM Runtime CPU image is compatible with all x86-64 CPUs that support at least the AVX2 instruction set architecture (ISA). On CPUs lacking at least AVX2 support, model loading will fail.
+- The Hugging Face vLLM Runtime CPU image is compatible with all x86-64 CPUs that support at least the AVX2 instruction set architecture (ISA). On CPUs lacking atleast AVX2 support, model loading will fail.
 - LoRA serving is not supported.
 - Tensor and pipeline parallelism are not currently enabled in vLLM integration.

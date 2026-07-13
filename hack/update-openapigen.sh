@@ -64,16 +64,11 @@ fi
 
 echo "Discovered serving API packages: ${SERVING_APIS[*]}"
 
-# Render boilerplate with current year for openapi-gen.
-BOILERPLATE_RENDERED=$(mktemp)
-trap "rm -f ${BOILERPLATE_RENDERED}" EXIT
-sed "s/ YEAR/ $(date +%Y)/g" hack/boilerplate.go.txt > "${BOILERPLATE_RENDERED}"
-
 # Generating OpenAPI specification
 go run k8s.io/kube-openapi/cmd/openapi-gen \
     --output-pkg github.com/kserve/kserve/pkg/openapi --output-dir "./pkg/openapi" \
     --output-file "openapi_generated.go" \
-    -v 5 --go-header-file "${BOILERPLATE_RENDERED}" \
+    -v 5 --go-header-file hack/boilerplate.go.txt \
     -r $CURRENT_VIOLATION_EXCEPTIONS \
     "knative.dev/pkg/apis" \
     "knative.dev/pkg/apis/duck/v1" \

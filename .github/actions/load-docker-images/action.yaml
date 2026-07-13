@@ -1,5 +1,5 @@
 name: 'Load docker images'
-description: 'Loads docker images from the tar files in specified directory, verifies integrity, retries corrupted downloads, and deletes the directory'
+description: 'Loads docker images from the tar files in specified director and deletes the directory'
 
 inputs:
   directory:
@@ -9,51 +9,13 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Verify and retry corrupted tar files
-      shell: bash
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: |
-        max_retries=3
-        while IFS= read -r file; do
-          filename=$(basename "${file}")
-          echo "Verifying ${filename} ($(du -h "${file}" | cut -f1))"
-          if tar tf "${file}" > /dev/null 2>&1; then
-            continue
-          fi
-          echo "::warning::${filename} is corrupted or truncated, attempting re-download"
-          for attempt in $(seq 1 ${max_retries}); do
-            echo "Re-downloading artifact matching ${filename} (attempt ${attempt}/${max_retries})"
-            rm -f "${file}"
-            retry_dir=$(mktemp -d)
-            # Artifact names follow the convention "<prefix>-<tar filename>"
-            dl_stderr=$(mktemp)
-            if gh run download "${GITHUB_RUN_ID}" --pattern "*-${filename}" -D "${retry_dir}" 2>"${dl_stderr}"; then
-              found_file=$(find "${retry_dir}" -name "${filename}" -type f | head -1)
-              if [ -n "${found_file}" ] && tar tf "${found_file}" > /dev/null 2>&1; then
-                mv "${found_file}" "${file}"
-                rm -rf "${retry_dir}" "${dl_stderr}"
-                echo "Successfully re-downloaded ${filename}"
-                break
-              fi
-            else
-              echo "Download failed: $(cat "${dl_stderr}")"
-            fi
-            rm -rf "${retry_dir}" "${dl_stderr}"
-            if [ "${attempt}" -eq "${max_retries}" ]; then
-              echo "::error::Failed to download a valid ${filename} after ${max_retries} attempts"
-              exit 1
-            fi
-            sleep $((attempt * 5))
-          done
-        done < <(find "${{ inputs.directory }}" -maxdepth 1 -type f)
-
     - name: Load docker images
       shell: bash
       run: |
-        while IFS= read -r file; do
-          echo "Loading image $(basename "${file}")"
-          docker image load -i "${file}"
-        done < <(find "${{ inputs.directory }}" -maxdepth 1 -type f)
-        rm -rf "${{ inputs.directory }}"
+        files=$(find ${{ inputs.directory }} -maxdepth 1 -type f)
+        for file in ${files[@]};do
+          echo "Loading image $(basename ${file})"
+          docker image load -i ${file}
+        done
+        rm -rf ${{ inputs.directory }}
         docker image ls

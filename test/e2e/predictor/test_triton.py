@@ -33,7 +33,7 @@ from ..common.utils import predict_isvc
 @pytest.mark.predictor
 @pytest.mark.path_based_routing
 @pytest.mark.asyncio(scope="session")
-async def test_triton(rest_v2_client, network_layer):
+async def test_triton(rest_v2_client):
     service_name = "isvc-triton"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -85,7 +85,6 @@ async def test_triton(rest_v2_client, network_layer):
         service_name,
         "./data/cifar10_input_v2.json",
         model_name="cifar10",
-        network_layer=network_layer,
     )
     assert np.argmax(res.outputs[0].data) == 3
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -94,7 +93,7 @@ async def test_triton(rest_v2_client, network_layer):
 @pytest.mark.transformer
 @pytest.mark.path_based_routing
 @pytest.mark.asyncio(scope="session")
-async def test_triton_runtime_with_transformer(rest_v1_client, network_layer):
+async def test_triton_runtime_with_transformer(rest_v1_client):
     service_name = "isvc-triton-runtime"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -160,11 +159,7 @@ async def test_triton_runtime_with_transformer(rest_v1_client, network_layer):
             print(deployment)
         raise e
     res = await predict_isvc(
-        rest_v1_client,
-        service_name,
-        "./data/image.json",
-        model_name="cifar10",
-        network_layer=network_layer,
+        rest_v1_client, service_name, "./data/image.json", model_name="cifar10"
     )
     assert np.argmax(res["predictions"][0]) == 5
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

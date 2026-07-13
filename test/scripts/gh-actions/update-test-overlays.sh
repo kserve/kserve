@@ -35,4 +35,3 @@ sed -i -e "s/latest/${TAG}/g" config/overlays/test/localmodelnode_agent_image_pa
 
 # Update llmisvc controller image tag
 sed -i -e "s/latest/${TAG}/g" config/overlays/test-llmisvc/llmisvc_image_patch.yaml
-sed -i -e "s/latest/${TAG}/g" config/overlays/test-modelcache/llmisvc_image_patch.yaml

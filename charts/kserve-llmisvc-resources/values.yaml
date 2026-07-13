@@ -1,5 +1,5 @@
 kserve:
-  version: v0.19.0
+  version: v0.18.1
   createSharedResources: true
   inferenceServiceConfig:
     enabled: ''
@@ -106,11 +106,10 @@ kserve:
     scaleUpStabilizationWindowSeconds: '0'
     scaleDownStabilizationWindowSeconds: '300'
   llmisvc:
-    createGIECRDs: true
     controller:
       image: kserve/llmisvc-controller
       tag: ''
-      imagePullPolicy: Always
+      imagePullPolicy: IfNotPresent
       imagePullSecrets: []
       labels: {}
       podLabels: {}

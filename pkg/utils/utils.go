@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -117,7 +116,7 @@ func PropagatePrefixedMap(source map[string]string, dest *map[string]string, pre
 
 // PropagateMap copies all key-value pairs from source to dest.
 // Initializes dest if nil. No-op if source is empty.
-func PropagateMap(source map[string]string, dest *map[string]string, skipKeys ...string) {
+func PropagateMap(source map[string]string, dest *map[string]string) {
 	if len(source) == 0 {
 		return
 	}
@@ -125,9 +124,6 @@ func PropagateMap(source map[string]string, dest *map[string]string, skipKeys ..
 		*dest = make(map[string]string, len(source))
 	}
 	for k, v := range source {
-		if slices.Contains(skipKeys, k) {
-			continue
-		}
 		(*dest)[k] = v
 	}
 }
@@ -233,7 +229,7 @@ func IsCrdAvailable(config *rest.Config, groupVersion, kind string) (bool, error
 }
 
 // GetAvailableResourcesForApi returns the list of discovered resources that belong
-// to the API specified in groupVersion. The first query to a specific groupVersion will
+// to the API specified in groupVersion. The first query to a specifig groupVersion will
 // query the cluster API server to discover the available resources and the discovered
 // resources will be cached and returned to subsequent invocations to prevent additional
 // queries to the API server.
@@ -259,7 +255,7 @@ func GetAvailableResourcesForApi(config *rest.Config, groupVersion string) (*met
 	return gvResources, nil
 }
 
-// SetAvailableResourcesForApi stores the value of resources argument in the global cache
+// SetAvailableResourcesForApi stores the value fo resources argument in the global cache
 // of discovered API resources. This function should never be called directly. It is exported
 // for usage in tests.
 func SetAvailableResourcesForApi(groupVersion string, resources *metav1.APIResourceList) {
@@ -305,27 +301,12 @@ func AddVolumeMountIfNotPresent(container *corev1.Container, mountName, mountPat
 			return
 		}
 	}
-	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+	modelMount := corev1.VolumeMount{
 		Name:      mountName,
 		MountPath: mountPath,
 		ReadOnly:  readOnly,
-	})
-}
-
-// AddVolumeMountIfNotPresentWithSubPath is like AddVolumeMountIfNotPresent but also sets SubPath
-// on the added VolumeMount. Container must not be nil.
-func AddVolumeMountIfNotPresentWithSubPath(container *corev1.Container, mountName, mountPath, subPath string, readOnly bool) {
-	for _, v := range container.VolumeMounts {
-		if v.Name == mountName {
-			return
-		}
 	}
-	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
-		Name:      mountName,
-		MountPath: mountPath,
-		SubPath:   subPath,
-		ReadOnly:  readOnly,
-	})
+	container.VolumeMounts = append(container.VolumeMounts, modelMount)
 }
 
 // Returns the value of the stop annotation

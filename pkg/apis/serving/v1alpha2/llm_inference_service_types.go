@@ -20,7 +20,6 @@ import (
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
@@ -55,29 +54,12 @@ type LLMInferenceService struct {
 // It acts as a template to provide base configurations that can be inherited by multiple LLMInferenceService instances.
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
-// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason"
-// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:storageversion
 type LLMInferenceServiceConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   LLMInferenceServiceSpec         `json:"spec,omitempty"`
-	Status LLMInferenceServiceConfigStatus `json:"status,omitempty"`
-}
-
-// LLMInferenceServiceConfigStatus defines the observed state of LLMInferenceServiceConfig.
-type LLMInferenceServiceConfigStatus struct {
-	// Conditions of the resource.
-	duckv1.Status `json:",inline"`
-
-	// ReferencedBy lists the LLMInferenceService instances that reference this config
-	// via spec.baseRefs, status.annotations, or implicitly as a well-known default.
-	// +optional
-	// +listType=atomic
-	ReferencedBy []UntypedObjectReference `json:"referencedBy,omitempty"`
+	Spec LLMInferenceServiceSpec `json:"spec,omitempty"`
 }
 
 // LLMInferenceServiceSpec defines the desired state of LLMInferenceService.
@@ -108,15 +90,6 @@ type LLMInferenceServiceSpec struct {
 	// This allows for independent scaling and hardware allocation for prefill and decode steps.
 	// +optional
 	Prefill *WorkloadSpec `json:"prefill,omitempty"`
-
-	// Tracing configuration for distributed tracing across all managed components.
-	// When present (even as `{}`), distributed tracing is enabled with defaults.
-	// When omitted, no tracing instrumentation is injected.
-	// The controller propagates this configuration to every managed component (inference server and scheduler),
-	// automatically adjusting the service name per component (e.g. "-decode"/"-prefill" suffix for inference servers,
-	// "inference-scheduler" for the scheduler).
-	// +optional
-	Tracing *TracingSpec `json:"tracing,omitempty"`
 
 	// BaseRefs allows inheriting and overriding configurations from one or more LLMInferenceServiceConfig instances.
 	// The controller merges these base configurations, with the current LLMInferenceService spec taking the highest precedence.
@@ -162,12 +135,6 @@ type WorkloadSpec struct {
 	// In a multi-node deployment, this configures the "head" or "master" pod.
 	// In a disaggregated deployment, this configures the "decode" pod if it's the top-level template,
 	// or the "prefill" pod if it's within the Prefill block.
-	//
-	// For the storage-initializer init container (named "storage-initializer"), users may
-	// customize fields such as env, resources, volumeMounts, and image. The container's
-	// name, args, and command are controller-managed and any user-provided values for
-	// these fields will be overridden. To disable the storage-initializer entirely, use
-	// spec.storageInitializer.enabled=false.
 	// +optional
 	Template *corev1.PodSpec `json:"template,omitempty"`
 
@@ -177,104 +144,6 @@ type WorkloadSpec struct {
 	// The controller is responsible for enabling discovery between head and worker pods.
 	// +optional
 	Worker *corev1.PodSpec `json:"worker,omitempty"`
-
-	// KVCacheOffloading configures multi-tier KV cache CPU offloading for this workload.
-	// The controller translates this into --kv-transfer-config for the vLLM serve command.
-	// +optional
-	KVCacheOffloading *KVCacheOffloadingSpec `json:"kvCacheOffloading,omitempty"`
-}
-
-// KVCacheOffloadingSpec configures KV cache offloading via vLLM's OffloadingConnector.
-type KVCacheOffloadingSpec struct {
-	// CPU is the amount of CPU RAM to allocate as the primary KV cache tier
-	// (maps to vLLM kv_connector_extra_config.cpu_bytes_to_use). Accepts standard
-	// Kubernetes quantity notation, e.g. "10Gi".
-	CPU resource.Quantity `json:"cpu"`
-
-	// EvictionPolicy for the primary CPU KV cache tier. Defaults to "lru".
-	// +optional
-	// +kubebuilder:validation:Enum=lru;arc
-	// +kubebuilder:default=lru
-	EvictionPolicy string `json:"evictionPolicy,omitempty"`
-
-	// Secondary is an ordered list of secondary KV cache tiers. vLLM cascades
-	// through tiers in the order listed. Currently only fileSystem tiers are
-	// supported; the array shape is designed to accommodate object store tiers
-	// in a future follow-up without an API break.
-	// +optional
-	Secondary []SecondaryTierSpec `json:"secondary,omitempty"`
-}
-
-// SecondaryTierSpec defines one secondary KV cache tier.
-// Exactly one field must be set.
-type SecondaryTierSpec struct {
-	// FileSystem configures a POSIX disk tier backed by a Kubernetes volume.
-	// +optional
-	FileSystem *FileSystemTierSpec `json:"fileSystem,omitempty"`
-}
-
-// FileSystemTierSpec configures a POSIX disk secondary tier.
-// Exactly one of EmptyDir or PVC must be set.
-type FileSystemTierSpec struct {
-	// EmptyDir uses a node-local ephemeral emptyDir volume. No StorageClass required.
-	// Each pod gets its own independent, node-local disk cache. The controller also
-	// adds an ephemeral-storage resource request to the main container equal to the
-	// size so the scheduler accounts for the disk space when placing the pod.
-	// +optional
-	EmptyDir *EmptyDirTierSpec `json:"emptyDir,omitempty"`
-
-	// PVC configures a PVC-backed disk cache tier. Either Spec (for a controller-managed
-	// ephemeral PVC per pod) or Ref (for a pre-existing user-managed PVC) must be set,
-	// but not both.
-	// +optional
-	PVC *PVCTierSpec `json:"pvc,omitempty"`
-}
-
-// EmptyDirTierSpec configures a node-local ephemeral emptyDir volume as a KV cache tier.
-type EmptyDirTierSpec struct {
-	// Size is the maximum storage capacity for this tier (maps to emptyDir.sizeLimit).
-	// The controller also requests this amount as ephemeral-storage on the main container.
-	Size resource.Quantity `json:"size"`
-}
-
-// PVCTierSpec configures a PVC-backed KV cache tier.
-// Exactly one of Spec or Ref must be set.
-type PVCTierSpec struct {
-	// Spec creates one ephemeral PVC per pod automatically. The PVC is owned by the pod
-	// and deleted when the pod is deleted — it does not survive pod restarts.
-	// +optional
-	Spec *corev1.PersistentVolumeClaimSpec `json:"spec,omitempty"`
-
-	// Ref mounts a pre-existing user-managed PVC as the disk cache. The PVC must
-	// already exist. For a cache shared across replicas, provision an RWX PVC;
-	// for per-pod persistent cache, provision a separate PVC per pod and reference
-	// it by name.
-	// +optional
-	Ref *PVCRefTierSpec `json:"ref,omitempty"`
-}
-
-// PVCRefTierSpec mounts a pre-existing user-managed PVC as a KV cache tier.
-type PVCRefTierSpec struct {
-	// Name of the pre-existing PersistentVolumeClaim.
-	Name string `json:"name"`
-
-	// Path is a subdirectory within the PVC used as VolumeMount.subPath.
-	// +optional
-	Path string `json:"path,omitempty"`
-}
-
-// ConfidentialSpec enables confidential model serving with encrypted model artifacts.
-// When enabled, the storage initializer will decrypt model files using keys obtained
-// from a Key Broker Service (KBS) via TEE attestation.
-type ConfidentialSpec struct {
-	// Enabled controls whether confidential model serving is active.
-	// When true, the confidential storage initializer image is used and
-	// encrypted model artifacts are decrypted after download.
-	Enabled bool `json:"enabled"`
-	// ResourceId is the KBS resource identifier for the decryption key,
-	// in the format kbs:///<repo>/<type>/<tag>.
-	// +optional
-	ResourceId *string `json:"resourceId,omitempty"`
 }
 
 // LLMModelSpec defines the model source and its characteristics.
@@ -292,43 +161,17 @@ type LLMModelSpec struct {
 	// Allows for specifying one or more LoRA adapters to be applied to the base model.
 	// +optional
 	LoRA *LoRASpec `json:"lora,omitempty"`
-
-	// Confidential enables confidential model serving with encrypted model artifacts.
-	// When enabled, the storage initializer decrypts model files using keys obtained
-	// from a Key Broker Service (KBS) via TEE attestation.
-	// +optional
-	Confidential *ConfidentialSpec `json:"confidential,omitempty"`
 }
 
 // LoRASpec defines the configuration for LoRA adapters.
 type LoRASpec struct {
-	// Adapters is a list of LoRA (Low-Rank Adaptation) adapters to attach to the base model.
-	// Each adapter is specified by name and URI (supports hf://, s3://, and pvc:// schemes).
-	// The controller automatically downloads adapters and configures the runtime to use them.
+	// Adapters is the static specification for one or more LoRA adapters.
+	// Each adapter is defined by its own ModelSpec.
 	// +optional
 	// This type is recursive https://github.com/kubernetes-sigs/controller-tools/issues/585
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless
 	Adapters []LLMModelSpec `json:"adapters,omitempty"`
-
-	// MaxRank is the maximum LoRA rank supported by the runtime (maps to vLLM --max-lora-rank).
-	// Higher values allow adapters with higher rank but increase memory usage.
-	// If not set, vLLM's default applies (16).
-	// +optional
-	// +kubebuilder:validation:Minimum=1
-	MaxRank *int32 `json:"maxRank,omitempty"`
-
-	// MaxAdapters is the maximum number of LoRA adapters that can be loaded simultaneously
-	// (maps to vLLM --max-loras). Defaults to the number of configured adapters.
-	// +optional
-	// +kubebuilder:validation:Minimum=1
-	MaxAdapters *int32 `json:"maxAdapters,omitempty"`
-
-	// MaxCpuAdapters is the maximum number of LoRA adapters stored in CPU memory
-	// (maps to vLLM --max-cpu-loras). Defaults to the number of configured adapters.
-	// +optional
-	// +kubebuilder:validation:Minimum=1
-	MaxCpuAdapters *int32 `json:"maxCpuAdapters,omitempty"`
 }
 
 // StorageInitializerSpec defines the configuration for the storage initializer.
@@ -384,22 +227,6 @@ type GatewayRoutesSpec struct {
 	// HTTP route configuration.
 	// +optional
 	HTTP *HTTPRouteSpec `json:"http,omitempty"`
-
-	// Group identifies the routing group this LLMISVC belongs to.
-	// All members with the same group share weighted traffic distribution.
-	// Must be explicit - not inferred from spec.model.name.
-	// +optional
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=63
-	// +kubebuilder:validation:Pattern=`^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`
-	Group *string `json:"group,omitempty"`
-
-	// Weight is the proportional traffic share for this member.
-	// Follows Gateway API backendRef weight semantics (proportional, not percentage).
-	// +optional
-	// +kubebuilder:validation:Minimum=0
-	// +kubebuilder:validation:Maximum=1000000
-	Weight *int32 `json:"weight,omitempty"`
 }
 
 // HTTPRouteSpec defines configurations for a Gateway API HTTPRoute.
@@ -435,13 +262,13 @@ type IngressSpec struct {
 // SchedulerSpec defines the Inference Gateway extension configuration.
 //
 // The SchedulerSpec configures the connection from the Gateway to the model deployment leveraging the LLM optimized
-// request Scheduler, also known as the Endpoint Picker (EPP). The EPP determines the exact pod that should handle the
-// request and responds back to the Gateway with the target pod. The Gateway will then forward the request to the chosen pod.
+// request Scheduler, also known as the Endpoint Picker (EPP) which determines the exact pod that should handle the
+// request and responds back to Envoy with the target pod, Envoy will then forward the request to the chosen pod.
 //
 // The Scheduler is only effective when having multiple inference pod replicas.
 //
-// Step 1 (endpoint selection): Gateway <-- ExtProc --> EPP (select the optimal replica to handle the request)
-// Step 2 (endpoint routing): Gateway <-- forward request/response --> Inference Pod X
+// Step 1: Gateway (Envoy) &lt;-- ExtProc --&gt; EPP (select the optimal replica to handle the request)
+// Step 2: Gateway (Envoy) &lt;-- forward request --&gt; Inference Pod X
 type SchedulerSpec struct {
 	// Pool configuration for the InferencePool, which is part of the Inference Gateway extension.
 	// +optional
@@ -617,47 +444,6 @@ type KEDAScalingSpec struct {
 	Advanced *kedav1alpha1.AdvancedConfig `json:"advanced,omitempty"`
 }
 
-// TracingSpec defines the distributed tracing configuration.
-// When present (even as an empty object `{}`), tracing is enabled with sensible defaults.
-// When omitted, no tracing instrumentation is injected.
-//
-// Example - Enable tracing with defaults:
-//
-//	tracing: {}
-//
-// Example - Custom configuration:
-//
-//	tracing:
-//	  exporterEndpoint: "http://my-collector:4317"
-//	  sampler: "parentbased_traceidratio"
-//	  samplerArg: "0.1"
-//	  exporter: "otlp"
-type TracingSpec struct {
-	// ExporterEndpoint is the OTLP exporter endpoint.
-	// Maps to the OTEL_EXPORTER_OTLP_ENDPOINT environment variable.
-	// Default: "http://otel-collector:4317"
-	// +optional
-	ExporterEndpoint *string `json:"exporterEndpoint,omitempty"`
-
-	// Sampler specifies the sampler to use for traces.
-	// Maps to the OTEL_TRACES_SAMPLER environment variable.
-	// Default: "parentbased_traceidratio"
-	// +optional
-	Sampler *string `json:"sampler,omitempty"`
-
-	// SamplerArg is an argument passed to the traces sampler (e.g. the sampling ratio).
-	// Maps to the OTEL_TRACES_SAMPLER_ARG environment variable.
-	// Default: "0.05" (5% sampling rate)
-	// +optional
-	SamplerArg *string `json:"samplerArg,omitempty"`
-
-	// Exporter specifies which exporter is used for traces.
-	// Maps to the OTEL_TRACES_EXPORTER environment variable.
-	// Default: "otlp"
-	// +optional
-	Exporter *string `json:"exporter,omitempty"`
-}
-
 // ParallelismSpec defines the parallelism parameters for distributed inference.
 type ParallelismSpec struct {
 	// Tensor parallelism size.
@@ -708,161 +494,6 @@ type GatewayObjectReference struct {
 	SectionName *gwapiv1.SectionName `json:"sectionName,omitempty"`
 }
 
-// ObservedGateway is a Gateway reference with the listeners and HTTPRoutes
-// bound to this service through it. Used in status to record observed routing topology.
-type ObservedGateway struct {
-	// Embedded ObjectReference carries group, kind, name, namespace of the Gateway.
-	gwapiv1.ObjectReference `json:",inline"`
-
-	// Listeners lists the SectionNames of the Gateway listeners that accepted
-	// routes from this service. Nil means the route targets all listeners
-	// (no SectionName was specified on the parentRef).
-	// +optional
-	// +listType=atomic
-	Listeners []gwapiv1.SectionName `json:"listeners,omitempty"`
-
-	// HTTPRoutes lists the HTTPRoutes bound to this service through this Gateway.
-	// +optional
-	// +listType=atomic
-	HTTPRoutes []gwapiv1.ObjectReference `json:"httpRoutes,omitempty"`
-}
-
-// ObservedSchedulerStatus records the scheduler-related resources observed
-// during the last successful routing reconciliation.
-type ObservedSchedulerStatus struct {
-	// InferencePool is the InferencePool observed as active for this service.
-	// +optional
-	InferencePool *gwapiv1.ObjectReference `json:"inferencePool,omitempty"`
-
-	// Service is the EPP Service observed for this service.
-	// +optional
-	Service *gwapiv1.ObjectReference `json:"service,omitempty"`
-}
-
-// RouterStatus records the networking resources observed during the last
-// successful routing reconciliation. Nil when routing is not configured or
-// the service is stopped.
-type RouterStatus struct {
-	// Gateways lists the Gateway resources observed as attached to this service,
-	// each with the listeners and HTTPRoutes bound through them.
-	// +optional
-	// +listType=atomic
-	Gateways []ObservedGateway `json:"gateways,omitempty"`
-
-	// Scheduler records the observed scheduler topology.
-	// Nil when the scheduler is not configured.
-	// +optional
-	Scheduler *ObservedSchedulerStatus `json:"scheduler,omitempty"`
-
-	// Group reports the observed routing group topology.
-	// Nil when this LLMISVC is not part of a routing group.
-	// +optional
-	Group *GroupStatus `json:"group,omitempty"`
-}
-
-// GroupStatus reports the observed state of the routing group this LLMISVC belongs to.
-type GroupStatus struct {
-	// Name of the routing group.
-	Name string `json:"name"`
-
-	// Members lists all observed members of the group with their weights
-	// and resolved backend references.
-	// +optional
-	// +listType=map
-	// +listMapKey=name
-	Members []GroupMemberStatus `json:"members,omitempty"`
-}
-
-// GroupMemberStatus reports the observed state of a single group member.
-type GroupMemberStatus struct {
-	// Name of the group member (LLMInferenceService name).
-	Name string `json:"name"`
-
-	// Weight is the effective traffic weight for this member.
-	Weight int32 `json:"weight"`
-
-	// Stopped is true when the member has the force-stop annotation set.
-	// A stopped member remains in the group but receives no traffic (weight
-	// is overridden to 0 regardless of the spec value).
-	// +optional
-	Stopped bool `json:"stopped,omitempty"`
-
-	// BackendRef is the resolved backend for this member
-	// (InferencePool or Service).
-	// +optional
-	BackendRef *gwapiv1.BackendObjectReference `json:"backendRef,omitempty"`
-}
-
-// WorkloadStatus records the workload resources observed during the last
-// successful reconciliation. Nil when no workload resources have been
-// created yet, or when the service is stopped.
-// +optional
-type WorkloadStatus struct {
-	// Primary is the main inference workload (Deployment or LeaderWorkerSet).
-	// When disaggregated serving is configured, this workload handles
-	// the decode phase; otherwise it handles both prefill and decode.
-	// +optional
-	Primary *corev1.TypedLocalObjectReference `json:"primary,omitempty"`
-
-	// Prefill is the prefill workload in disaggregated serving mode.
-	// Nil when disaggregated serving is not configured.
-	// +optional
-	Prefill *corev1.TypedLocalObjectReference `json:"prefill,omitempty"`
-
-	// Service is the Kubernetes Service fronting the primary inference workload.
-	// +optional
-	Service *corev1.TypedLocalObjectReference `json:"service,omitempty"`
-
-	// Scheduler is the EPP scheduler Deployment.
-	// Nil when the scheduler is not configured.
-	// +optional
-	Scheduler *corev1.TypedLocalObjectReference `json:"scheduler,omitempty"`
-}
-
-// SourcedAddress extends Addressable with the networking resource that
-// produced this address, enabling consumers to select endpoints by origin.
-type SourcedAddress struct {
-	duckv1.Addressable `json:",inline"`
-
-	// Origin identifies the networking resource (e.g., Gateway) that
-	// produced this address. Nil when the origin is unknown or when
-	// the address was converted from an older API version.
-	// +optional
-	Origin *gwapiv1.ObjectReference `json:"origin,omitempty"`
-
-	Models []ModelSourcedAddressStatus `json:"models,omitempty"`
-}
-
-// AppliedConfigSource identifies how a configuration was selected for merging.
-// +kubebuilder:validation:Enum=Preset;UserRef
-type AppliedConfigSource string
-
-const (
-	// AppliedConfigSourcePreset indicates the config was automatically injected
-	// by the controller based on the deployment pattern (single-node, multi-node,
-	// disaggregated, scheduler, router).
-	AppliedConfigSourcePreset AppliedConfigSource = "Preset"
-	// AppliedConfigSourceUserRef indicates the config was explicitly referenced
-	// by the user via spec.baseRefs.
-	AppliedConfigSourceUserRef AppliedConfigSource = "UserRef"
-)
-
-// AppliedConfigRef identifies an LLMInferenceServiceConfig resource that contributed
-// to the final merged configuration during reconciliation.
-type AppliedConfigRef struct {
-	// Name of the LLMInferenceServiceConfig resource that was applied.
-	// +required
-	Name gwapiv1.ObjectName `json:"name"`
-	// Namespace where the LLMInferenceServiceConfig was resolved from.
-	// +required
-	Namespace gwapiv1.Namespace `json:"namespace"`
-	// Source indicates how this config was selected - either automatically injected
-	// as a well-known default based on the deployment pattern, or explicitly
-	// referenced via spec.baseRefs.
-	// +required
-	Source AppliedConfigSource `json:"source"`
-}
-
 // LLMInferenceServiceStatus defines the observed state of LLMInferenceService.
 type LLMInferenceServiceStatus struct {
 	// URL is the primary address for accessing the service.
@@ -875,41 +506,8 @@ type LLMInferenceServiceStatus struct {
 	// Conditions of the resource.
 	duckv1.Status `json:",inline"`
 
-	// Deprecated: Address is retained for CRD schema compatibility.
-	// It is never populated; use Addresses instead.
-	// +optional
-	Address *duckv1.Addressable `json:"address,omitempty"`
-
-	// Addresses lists the network endpoints where the service is reachable.
-	// Each address may include an origin reference identifying the networking
-	// resource that produced it.
-	// +optional
-	// +listType=atomic
-	Addresses []SourcedAddress `json:"addresses,omitempty"`
-
-	// Router records the observed networking topology for this service.
-	// Nil when routing is not configured or the service is stopped.
-	// +optional
-	Router *RouterStatus `json:"router,omitempty"`
-
-	// Workloads records the observed workload resources for this service.
-	// +optional
-	Workloads *WorkloadStatus `json:"workloads,omitempty"`
-
-	// AppliedConfigRefs records which LLMInferenceServiceConfig resources were applied
-	// during the last successful reconciliation, in merge precedence order.
-	// Well-known configs (determined by the deployment pattern) appear first with
-	// lower precedence, followed by explicitly referenced baseRefs with higher
-	// precedence. The service's own spec always takes the highest precedence but
-	// is not listed here.
-	// +optional
-	// Atomic because the controller always writes the full list and ordering encodes merge precedence.
-	// +listType=atomic
-	AppliedConfigRefs []AppliedConfigRef `json:"appliedConfigs,omitempty"`
-}
-
-type ModelSourcedAddressStatus struct {
-	Name string `json:"name"`
+	// Addressable endpoint for the service, including cluster-local URLs.
+	duckv1.AddressStatus `json:",inline,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

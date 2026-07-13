@@ -19,9 +19,6 @@ images:
 
 - name: kserve/predictiveserver
   newTag: latest
-
-- name: kserve/autogluonserver
-  newTag: latest
   
 - name: kserve/lgbserver
   newTag: latest
@@ -31,9 +28,3 @@ images:
 
 - name: kserve/huggingfaceserver
   newTag: latest
-
-patches:
-- path: kserve-vllmserver-test-patch.yaml
-  target:
-    kind: ClusterServingRuntime
-    name: kserve-vllmserver

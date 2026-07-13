@@ -28,7 +28,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	resourcev1 "k8s.io/api/resource/v1"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -41,8 +40,6 @@ import (
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
-
-	igwv1alpha2pool "github.com/kserve/kserve/pkg/apis/gie/v1alpha2pool"
 )
 
 type addToSchemeFunc func(scheme *runtime.Scheme) error
@@ -66,7 +63,6 @@ func AddCoreKubernetesAPIs(s *runtime.Scheme) error {
 		autoscalingv2.AddToScheme,
 		apiextv1.AddToScheme,
 		netv1.AddToScheme,
-		resourcev1.AddToScheme,
 	)
 }
 
@@ -76,7 +72,6 @@ func AddGatewayAPIs(s *runtime.Scheme) error {
 		gwapiv1.Install,
 		igwapi.Install,
 		igwapiv1alpha2.Install,
-		igwv1alpha2pool.Install,
 	)
 }
 

@@ -69,7 +69,7 @@ async def rest_v1_client():
         config=RESTConfig(
             transport=transport,
             timeout=180,
-            verbose=False,
+            verbose=True,
             protocol=PredictorProtocol.REST_V1,
         )
     )
@@ -97,7 +97,7 @@ async def rest_v2_client():
         config=RESTConfig(
             transport=transport,
             timeout=180,
-            verbose=False,
+            verbose=True,
             protocol=PredictorProtocol.REST_V2,
         )
     )
@@ -110,7 +110,7 @@ def pytest_addoption(parser):
         "--network-layer",
         default="istio",
         type=str,
-        help="Network layer to used for testing. Default is istio. Allowed values are istio, istio-ingress, envoy-gatewayapi, istio-gatewayapi, openshift-route, gateway-api",
+        help="Network layer to used for testing. Default is istio. Allowed values are istio-ingress, envoy-gatewayapi, istio-gatewayapi",
     )
 
 

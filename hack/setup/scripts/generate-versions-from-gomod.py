@@ -106,8 +106,7 @@ def check_url_exists(url, timeout=5):
         req = Request(url, method="HEAD")
         with urllib.request.urlopen(req, timeout=timeout) as response:
             return 200 <= response.status < 400
-    except Exception as e:
-        print(f"    HEAD {url} failed: {e}")
+    except Exception:
         return False
 
 
@@ -115,17 +114,8 @@ def build_release_url(github_repo, version, filename):
     return f"https://github.com/{github_repo}/releases/download/{version}/{filename}"
 
 
-def find_available_version_with_url(
-    base_version, github_repo, filename, existing_version=None
-):
-    """Find closest version in same minor version (X.Y.z) with existing URL.
-
-    When base_version is a pseudo-version that doesn't have a release artifact,
-    the existing kserve-deps.env value is checked first - if it's in the same
-    minor series and its URL still works, it's reused without querying the
-    GitHub releases API. This avoids flaky HEAD-request failures in CI causing
-    version downgrades.
-    """
+def find_available_version_with_url(base_version, github_repo, filename):
+    """Find closest version in same minor version (X.Y.z) with existing URL"""
     if check_url_exists(build_release_url(github_repo, base_version, filename)):
         return base_version, True
 
@@ -133,16 +123,6 @@ def find_available_version_with_url(
         major, minor, patch = parse_semver(base_version)
     except Exception:
         return base_version, False
-
-    if existing_version:
-        try:
-            e_major, e_minor, _ = parse_semver(existing_version)
-            if (e_major, e_minor) == (major, minor) and check_url_exists(
-                build_release_url(github_repo, existing_version, filename)
-            ):
-                return existing_version, True
-        except Exception:
-            pass
 
     try:
         api_url = f"https://api.github.com/repos/{github_repo}/releases"
@@ -275,17 +255,11 @@ def main():
         else:
             raw_version = f"v{app_version}"
             base_version = strip_pseudo_version(raw_version)
-            is_pseudo = base_version != raw_version
 
             if url_verify:
                 github_repo, filename = url_verify
                 final_version, url_found = find_available_version_with_url(
-                    base_version,
-                    github_repo,
-                    filename,
-                    existing_version=existing_versions.get(var_name)
-                    if is_pseudo
-                    else None,
+                    base_version, github_repo, filename
                 )
                 if url_found:
                     if final_version == base_version:
@@ -309,13 +283,6 @@ def main():
             else:
                 versions[var_name] = base_version
 
-    llmd_router_version = existing_versions.get("LLMD_ROUTER_VERSION")
-    if not llmd_router_version:
-        raise ValueError(
-            "LLMD_ROUTER_VERSION is not set in kserve-deps.env. "
-            "It is manually managed and must be pinned to an explicit version "
-        )
-
     lines = output_file.read_text().splitlines(keepends=True)
     start = next(i for i, line in enumerate(lines) if "# START" in line)
     end = next(i for i, line in enumerate(lines) if "# END" in line)
@@ -333,7 +300,6 @@ def main():
         f"LWS_VERSION={versions['LWS_VERSION']}\n",
         f"GATEWAY_API_VERSION={versions['GATEWAY_API_VERSION']}\n",
         f"GIE_VERSION={versions['GIE_VERSION']}\n",
-        f"LLMD_ROUTER_VERSION={llmd_router_version}\n",
         f"WVA_VERSION={versions['WVA_VERSION']}\n",
         "# END\n",
     ]
@@ -341,9 +307,6 @@ def main():
     output_file.write_text("".join(lines[:start] + new_section + lines[end + 1 :]))
 
     print(f"\n✅ Updated {output_file.name}\n")
-    print(
-        f"  LLMD_ROUTER_VERSION={llmd_router_version} (manually managed in kserve-deps.env)"
-    )
     for var in [
         "ISTIO_VERSION",
         "KEDA_VERSION",

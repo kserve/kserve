@@ -55,9 +55,6 @@ const (
 	DefaultDomainTemplate = "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"
 	DefaultIngressDomain  = "example.com"
 	DefaultUrlScheme      = "http"
-
-	DefaultModelBasedRoutingHeaderName = "X-Gateway-Model-Name"
-	DefaultModelBasedRoutingMode       = "enabled"
 )
 
 // Error messages
@@ -130,9 +127,6 @@ type IngressConfig struct {
 	PathTemplate                 string    `json:"pathTemplate,omitempty"`
 	DisableIngressCreation       bool      `json:"disableIngressCreation,omitempty"`
 	DisableHTTPRouteTimeout      bool      `json:"disableHTTPRouteTimeout,omitempty"`
-
-	ModelBasedRoutingHeaderName string `json:"modelBasedRoutingHeaderName,omitempty"`
-	ModelBasedRoutingMode       string `json:"modelBasedRoutingMode,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -341,14 +335,6 @@ func NewIngressConfig(isvcConfigMap *corev1.ConfigMap) (*IngressConfig, error) {
 		ingressConfig.UrlScheme = DefaultUrlScheme
 	}
 
-	if ingressConfig.ModelBasedRoutingHeaderName == "" {
-		ingressConfig.ModelBasedRoutingHeaderName = DefaultModelBasedRoutingHeaderName
-	}
-
-	if ingressConfig.ModelBasedRoutingMode == "" {
-		ingressConfig.ModelBasedRoutingMode = DefaultModelBasedRoutingMode
-	}
-
 	return ingressConfig, nil
 }
 
@@ -466,17 +452,6 @@ func GetStorageInitializerConfigs(configMap *corev1.ConfigMap) (*types.StorageIn
 		_, err := resource.ParseQuantity(value)
 		if err != nil {
 			return storageInitializerConfig, fmt.Errorf("failed to parse resource configuration for %q.%q: %w", StorageInitializerConfigMapKeyName, key, err)
-		}
-	}
-
-	if storageInitializerConfig.OciModelMode != "" {
-		switch storageInitializerConfig.OciModelMode {
-		case types.OciModelModeModelcar, types.OciModelModeNative, types.OciModelModeFetch:
-		default:
-			return nil, fmt.Errorf("invalid %q.ociModelMode %q: must be one of %q, %q, %q",
-				StorageInitializerConfigMapKeyName,
-				storageInitializerConfig.OciModelMode,
-				types.OciModelModeModelcar, types.OciModelModeNative, types.OciModelModeFetch)
 		}
 	}
 

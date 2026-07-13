@@ -63,7 +63,6 @@ install() {
         --version "${ENVOY_GATEWAY_VERSION}" \
         -n envoy-gateway-system \
         --create-namespace \
-        --skip-crds \
         -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/${ENVOY_AI_GATEWAY_VERSION}/manifests/envoy-gateway-values.yaml \
         -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/${ENVOY_AI_GATEWAY_VERSION}/examples/inference-pool/envoy-gateway-values-addon.yaml \
         --wait

@@ -33,10 +33,8 @@ from kubernetes import client
 
 from kserve import KServeClient, V1alpha1LLMInferenceService, constants
 
-from .diagnostic import strip_managed_fields
 from .fixtures import (
     KSERVE_TEST_NAMESPACE,
-    OPT_125M_MODEL_URI,
     UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT,
     UPSTREAM_K8S_VLLM_ENV_OVERRIDES,
     inject_k8s_proxy,
@@ -96,7 +94,7 @@ def get_pods_for_llmisvc(name: str, namespace: str) -> list[dict]:
             namespace=namespace,
             label_selector=f"{LLMISVC_POD_LABEL_PART_OF}={LLMISVC_POD_LABEL_PART_OF_VALUE},{LLMISVC_POD_LABEL_NAME}={name}",
         )
-        return [strip_managed_fields(pod.to_dict()) for pod in pods.items]
+        return [pod.to_dict() for pod in pods.items]
     except Exception as e:
         return [{"error": f"Failed to list pods for LLMISVC {name}: {e}"}]
 
@@ -109,7 +107,7 @@ def get_deployments_for_llmisvc(name: str, namespace: str) -> list[dict]:
             namespace=namespace,
             label_selector=f"{LLMISVC_POD_LABEL_PART_OF}={LLMISVC_POD_LABEL_PART_OF_VALUE},{LLMISVC_POD_LABEL_NAME}={name}",
         )
-        return [strip_managed_fields(dep.to_dict()) for dep in deployments.items]
+        return [dep.to_dict() for dep in deployments.items]
     except Exception as e:
         return [{"error": f"Failed to list deployments for LLMISVC {name}: {e}"}]
 
@@ -325,7 +323,7 @@ async def test_event_storm_prevention_init_container_isolation():
     LLMISVC to be MODIFIED (resourceVersion change).
 
     Test flow:
-    1. Creates a "primary" LLMISVC with a valid model (facebook/opt-125m)
+    1. Creates a "primary" LLMISVC with a valid model (hf://facebook/opt-125m)
     2. Waits for the primary LLMISVC to become ready
     3. Records baseline resourceVersion
     4. Creates a "secondary" LLMISVC with invalid S3 credentials that will fail
@@ -357,7 +355,7 @@ async def test_event_storm_prevention_init_container_isolation():
             kserve_client,
             model_config_name,
             KSERVE_TEST_NAMESPACE,
-            {"model": {"uri": OPT_125M_MODEL_URI, "name": "facebook/opt-125m"}},
+            {"model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"}},
         )
 
         create_llmisvc_config(

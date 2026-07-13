@@ -31,7 +31,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 
 @pytest.mark.transformer
 @pytest.mark.asyncio(scope="session")
-async def test_transformer(rest_v1_client, network_layer):
+async def test_transformer(rest_v1_client):
     service_name = "isvc-transformer"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -98,11 +98,7 @@ async def test_transformer(rest_v1_client, network_layer):
             print(pod)
         raise e
     res = await predict_isvc(
-        rest_v1_client,
-        service_name,
-        "./data/transformer.json",
-        model_name="mnist",
-        network_layer=network_layer,
+        rest_v1_client, service_name, "./data/transformer.json", model_name="mnist"
     )
     assert res["predictions"][0] == 2
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

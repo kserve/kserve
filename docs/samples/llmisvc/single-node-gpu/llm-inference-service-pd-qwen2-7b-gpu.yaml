@@ -43,7 +43,7 @@ spec:
                 fieldPath: status.podIP
           # Enable KV cache transfer via NixlConnector (RDMA-based)
           - name: VLLM_ADDITIONAL_ARGS
-            value: "--kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_consumer\"}'"
+            value: "--kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_both\"}'"
           # UCX configuration for RDMA transport
           - name: UCX_PROTO_INFO
             value: "y"
@@ -97,7 +97,7 @@ spec:
                 fieldRef:
                   fieldPath: status.podIP
             - name: VLLM_ADDITIONAL_ARGS
-              value: "--kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_producer\"}'"
+              value: "--kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_both\"}'"
             - name: UCX_PROTO_INFO
               value: "y"
             - name: UCX_TLS

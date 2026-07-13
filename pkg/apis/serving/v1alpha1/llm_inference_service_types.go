@@ -24,9 +24,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	igwapi "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
-
-	igwapi "github.com/kserve/kserve/pkg/apis/gie/v1alpha2pool"
 )
 
 // Criticality defines how important it is to serve the model compared to other models.
@@ -69,16 +68,11 @@ type LLMInferenceService struct {
 // It acts as a template to provide base configurations that can be inherited by multiple LLMInferenceService instances.
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
-// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason"
-// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type LLMInferenceServiceConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   LLMInferenceServiceSpec         `json:"spec,omitempty"`
-	Status LLMInferenceServiceConfigStatus `json:"status,omitempty"`
+	Spec LLMInferenceServiceSpec `json:"spec,omitempty"`
 }
 
 // LLMInferenceServiceSpec defines the desired state of LLMInferenceService.
@@ -109,12 +103,6 @@ type LLMInferenceServiceSpec struct {
 	// This allows for independent scaling and hardware allocation for prefill and decode steps.
 	// +optional
 	Prefill *WorkloadSpec `json:"prefill,omitempty"`
-
-	// Tracing configuration for distributed tracing across all managed components.
-	// When present (even as `{}`), distributed tracing is enabled with defaults.
-	// When omitted, no tracing instrumentation is injected.
-	// +optional
-	Tracing *TracingSpec `json:"tracing,omitempty"`
 
 	// BaseRefs allows inheriting and overriding configurations from one or more LLMInferenceServiceConfig instances.
 	// The controller merges these base configurations, with the current LLMInferenceService spec taking the highest precedence.
@@ -195,33 +183,13 @@ type LLMModelSpec struct {
 
 // LoRASpec defines the configuration for LoRA adapters.
 type LoRASpec struct {
-	// Adapters specifies one or more LoRA adapters to load alongside the base model.
-	// Supported URI schemes: hf://, s3://, pvc://.
-	// Each adapter must have a unique name that differs from the base model name.
+	// Adapters is the static specification for one or more LoRA adapters.
+	// Each adapter is defined by its own ModelSpec.
 	// +optional
 	// This type is recursive https://github.com/kubernetes-sigs/controller-tools/issues/585
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless
 	Adapters []LLMModelSpec `json:"adapters,omitempty"`
-
-	// MaxRank is the maximum LoRA rank supported by the runtime (maps to vLLM --max-lora-rank).
-	// Higher values allow adapters with higher rank but increase memory usage.
-	// If not set, vLLM's default applies (16).
-	// +optional
-	// +kubebuilder:validation:Minimum=1
-	MaxRank *int32 `json:"maxRank,omitempty"`
-
-	// MaxAdapters is the maximum number of LoRA adapters that can be loaded simultaneously
-	// (maps to vLLM --max-loras). Defaults to the number of configured adapters.
-	// +optional
-	// +kubebuilder:validation:Minimum=1
-	MaxAdapters *int32 `json:"maxAdapters,omitempty"`
-
-	// MaxCpuAdapters is the maximum number of LoRA adapters stored in CPU memory
-	// (maps to vLLM --max-cpu-loras). Defaults to the number of configured adapters.
-	// +optional
-	// +kubebuilder:validation:Minimum=1
-	MaxCpuAdapters *int32 `json:"maxCpuAdapters,omitempty"`
 }
 
 // StorageInitializerSpec defines the configuration for the storage initializer.
@@ -277,21 +245,6 @@ type GatewayRoutesSpec struct {
 	// HTTP route configuration.
 	// +optional
 	HTTP *HTTPRouteSpec `json:"http,omitempty"`
-
-	// Group identifies the routing group this LLMISVC belongs to.
-	// All members with the same group share weighted traffic distribution.
-	// +optional
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=63
-	// +kubebuilder:validation:Pattern=`^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`
-	Group *string `json:"group,omitempty"`
-
-	// Weight is the proportional traffic share for this member.
-	// Follows Gateway API backendRef weight semantics (proportional, not percentage).
-	// +optional
-	// +kubebuilder:validation:Minimum=0
-	// +kubebuilder:validation:Maximum=1000000
-	Weight *int32 `json:"weight,omitempty"`
 }
 
 // HTTPRouteSpec defines configurations for a Gateway API HTTPRoute.
@@ -327,13 +280,13 @@ type IngressSpec struct {
 // SchedulerSpec defines the Inference Gateway extension configuration.
 //
 // The SchedulerSpec configures the connection from the Gateway to the model deployment leveraging the LLM optimized
-// request Scheduler, also known as the Endpoint Picker (EPP). The EPP determines the exact pod that should handle the
-// request and responds back to the Gateway with the target pod. The Gateway will then forward the request to the chosen pod.
+// request Scheduler, also known as the Endpoint Picker (EPP) which determines the exact pod that should handle the
+// request and responds back to Envoy with the target pod, Envoy will then forward the request to the chosen pod.
 //
 // The Scheduler is only effective when having multiple inference pod replicas.
 //
-// Step 1 (endpoint selection): Gateway <-- ExtProc --> EPP (select the optimal replica to handle the request)
-// Step 2 (endpoint routing): Gateway <-- forward request/response --> Inference Pod X
+// Step 1: Gateway (Envoy) &lt;-- ExtProc --&gt; EPP (select the optimal replica to handle the request)
+// Step 2: Gateway (Envoy) &lt;-- forward request --&gt; Inference Pod X
 type SchedulerSpec struct {
 	// Pool configuration for the InferencePool, which is part of the Inference Gateway extension.
 	// +optional
@@ -497,35 +450,6 @@ type KEDAScalingSpec struct {
 	Advanced *kedav1alpha1.AdvancedConfig `json:"advanced,omitempty"`
 }
 
-// TracingSpec defines the distributed tracing configuration.
-// When present (even as an empty object `{}`), tracing is enabled with sensible defaults.
-// When omitted, no tracing instrumentation is injected.
-type TracingSpec struct {
-	// ExporterEndpoint is the OTLP exporter endpoint.
-	// Maps to the OTEL_EXPORTER_OTLP_ENDPOINT environment variable.
-	// Default: "http://otel-collector:4317"
-	// +optional
-	ExporterEndpoint *string `json:"exporterEndpoint,omitempty"`
-
-	// Sampler specifies the sampler to use for traces.
-	// Maps to the OTEL_TRACES_SAMPLER environment variable.
-	// Default: "parentbased_traceidratio"
-	// +optional
-	Sampler *string `json:"sampler,omitempty"`
-
-	// SamplerArg is an argument passed to the traces sampler (e.g. the sampling ratio).
-	// Maps to the OTEL_TRACES_SAMPLER_ARG environment variable.
-	// Default: "0.05" (5% sampling rate)
-	// +optional
-	SamplerArg *string `json:"samplerArg,omitempty"`
-
-	// Exporter specifies which exporter is used for traces.
-	// Maps to the OTEL_TRACES_EXPORTER environment variable.
-	// Default: "otlp"
-	// +optional
-	Exporter *string `json:"exporter,omitempty"`
-}
-
 // ParallelismSpec defines the parallelism parameters for distributed inference.
 type ParallelismSpec struct {
 	// Tensor parallelism size.
@@ -576,59 +500,6 @@ type GatewayObjectReference struct {
 	SectionName *gwapiv1.SectionName `json:"sectionName,omitempty"`
 }
 
-// ObservedGateway is a Gateway reference with the listeners and HTTPRoutes
-// bound to this service through it. Used in status to record observed routing topology.
-type ObservedGateway struct {
-	// Embedded ObjectReference carries group, kind, name, namespace of the Gateway.
-	gwapiv1.ObjectReference `json:",inline"`
-
-	// Listeners lists the SectionNames of the Gateway listeners that accepted
-	// routes from this service. Nil means the route targets all listeners
-	// (no SectionName was specified on the parentRef).
-	// +optional
-	// +listType=atomic
-	Listeners []gwapiv1.SectionName `json:"listeners,omitempty"`
-
-	// HTTPRoutes lists the HTTPRoutes bound to this service through this Gateway.
-	// +optional
-	// +listType=atomic
-	HTTPRoutes []gwapiv1.ObjectReference `json:"httpRoutes,omitempty"`
-}
-
-// ObservedSchedulerStatus records the scheduler-related resources observed
-// during the last successful routing reconciliation.
-type ObservedSchedulerStatus struct {
-	// InferencePool is the InferencePool observed as active for this service.
-	// +optional
-	InferencePool *gwapiv1.ObjectReference `json:"inferencePool,omitempty"`
-
-	// Service is the EPP Service observed for this service.
-	// +optional
-	Service *gwapiv1.ObjectReference `json:"service,omitempty"`
-}
-
-// RouterStatus records the networking resources observed during the last
-// successful routing reconciliation. Nil when routing is not configured or
-// the service is stopped.
-type RouterStatus struct {
-	// Gateways lists the Gateway resources observed as attached to this service,
-	// each with the listeners and HTTPRoutes bound through them.
-	// +optional
-	// +listType=atomic
-	Gateways []ObservedGateway `json:"gateways,omitempty"`
-
-	// Scheduler records the observed scheduler topology.
-	// Nil when the scheduler is not configured.
-	// +optional
-	Scheduler *ObservedSchedulerStatus `json:"scheduler,omitempty"`
-}
-
-// LLMInferenceServiceConfigStatus defines the observed state of LLMInferenceServiceConfig.
-type LLMInferenceServiceConfigStatus struct {
-	// Conditions of the resource.
-	duckv1.Status `json:",inline"`
-}
-
 // LLMInferenceServiceStatus defines the observed state of LLMInferenceService.
 type LLMInferenceServiceStatus struct {
 	// URL is the primary address for accessing the service.
@@ -643,11 +514,6 @@ type LLMInferenceServiceStatus struct {
 
 	// Addressable endpoint for the service, including cluster-local URLs.
 	duckv1.AddressStatus `json:",inline,omitempty"`
-
-	// Router records the observed networking topology for this service.
-	// Nil when routing is not configured or the service is stopped.
-	// +optional
-	Router *RouterStatus `json:"router,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

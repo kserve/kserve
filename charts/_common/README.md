@@ -112,7 +112,7 @@ The specific values override/extend common values when keys overlap.
 ```yaml
 # charts/_common/common-sections.yaml
 kserve:
-  version: v0.19.0
+  version: v0.18.1
   newCommonField: value  # Add here
   agent:
     image: kserve/agent

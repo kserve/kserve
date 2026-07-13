@@ -52,7 +52,7 @@ pushd istio_tmp >/dev/null
 popd
 
 echo "Waiting for istio started ..."
-kubectl wait --for=condition=Ready pods --field-selector=status.phase=Running --all --timeout=180s -n istio-system
+kubectl wait --for=condition=Ready pods --all --timeout=180s -n istio-system
 
 # Necessary since istio is the default ingressClassName in kserve.yaml
 echo "Creating istio ingress class"
@@ -84,7 +84,7 @@ EOF
 
 echo "Waiting for knative started ..."
 kubectl wait --for=condition=Ready knativeservings -n knative-serving knative-serving --timeout=180s
-kubectl wait --for=condition=Ready pods --field-selector=status.phase=Running --all --timeout=180s -n knative-serving -l 'app in (activator,autoscaler,autoscaler-hpa,controller,net-istio-controller,net-istio-webhook)'
+kubectl wait --for=condition=Ready pods --all --timeout=180s -n knative-serving -l 'app in (activator,autoscaler,autoscaler-hpa,controller,net-istio-controller,net-istio-webhook)'
 
 # skip nvcr.io for tag resolution due to auth issue
 kubectl patch cm config-deployment --patch '{"data":{"registriesSkippingTagResolving":"nvcr.io"}}' -n knative-serving
@@ -113,7 +113,7 @@ sed -i -e "s/latest/${PULL_BASE_SHA}/g" config/overlays/test/localmodel_manager_
 make deploy-ci
 
 echo "Waiting for KServe started ..."
-kubectl wait --for=condition=Ready pods --field-selector=status.phase=Running --all --timeout=180s -n kserve
+kubectl wait --for=condition=Ready pods --all --timeout=180s -n kserve
 kubectl get events -A
 
 echo "Add testing models to s3 storage ..."

@@ -22,8 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 	igwapiv1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
-
-	igwapiv1alpha2 "github.com/kserve/kserve/pkg/apis/gie/v1alpha2pool"
+	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 )
@@ -56,14 +55,9 @@ func (src *LLMInferenceService) ConvertTo(dstRaw conversion.Hub) error {
 
 	// Status conversion
 	dst.Status = v1alpha2.LLMInferenceServiceStatus{
-		URL:     src.Status.URL,
-		Status:  src.Status.Status,
-		Address: src.Status.Address,
-	}
-	for _, addr := range src.Status.Addresses {
-		dst.Status.Addresses = append(dst.Status.Addresses, v1alpha2.SourcedAddress{
-			Addressable: addr,
-		})
+		URL:           src.Status.URL,
+		Status:        src.Status.Status,
+		AddressStatus: src.Status.AddressStatus,
 	}
 
 	return nil
@@ -82,15 +76,11 @@ func (dst *LLMInferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 	// Restore criticality values from annotations
 	restoreCriticalityFromAnnotations(&dst.ObjectMeta, &dst.Spec.Model)
 
-	// Status conversion - Origin is lost on this path (v1alpha1 doesn't have it),
-	// but status is controller-produced and gets re-populated on next reconcile.
+	// Status conversion
 	dst.Status = LLMInferenceServiceStatus{
-		URL:    src.Status.URL,
-		Status: src.Status.Status,
-	}
-	dst.Status.Address = src.Status.Address //nolint:staticcheck // retained for schema compatibility
-	for _, sa := range src.Status.Addresses {
-		dst.Status.Addresses = append(dst.Status.Addresses, sa.Addressable)
+		URL:           src.Status.URL,
+		Status:        src.Status.Status,
+		AddressStatus: src.Status.AddressStatus,
 	}
 
 	return nil
@@ -109,11 +99,6 @@ func (src *LLMInferenceServiceConfig) ConvertTo(dstRaw conversion.Hub) error {
 	// Spec conversion
 	dst.Spec = convertSpecToV1Alpha2(&src.Spec)
 
-	// Status conversion (controller-managed, only duckv1.Status)
-	dst.Status = v1alpha2.LLMInferenceServiceConfigStatus{
-		Status: src.Status.Status,
-	}
-
 	return nil
 }
 
@@ -126,12 +111,6 @@ func (dst *LLMInferenceServiceConfig) ConvertFrom(srcRaw conversion.Hub) error {
 
 	// Spec conversion
 	dst.Spec = convertSpecFromV1Alpha2(&src.Spec)
-
-	// ReferencedBy is intentionally not converted: v1alpha1 has no equivalent field,
-	// and the controller re-populates it on the next reconciliation of the hub type.
-	dst.Status = LLMInferenceServiceConfigStatus{
-		Status: src.Status.Status,
-	}
 
 	// Restore criticality values from annotations
 	restoreCriticalityFromAnnotations(&dst.ObjectMeta, &dst.Spec.Model)
@@ -166,16 +145,6 @@ func convertSpecToV1Alpha2(src *LLMInferenceServiceSpec) v1alpha2.LLMInferenceSe
 		dst.Prefill = &prefill
 	}
 
-	// Tracing
-	if src.Tracing != nil {
-		dst.Tracing = &v1alpha2.TracingSpec{
-			ExporterEndpoint: src.Tracing.ExporterEndpoint,
-			Sampler:          src.Tracing.Sampler,
-			SamplerArg:       src.Tracing.SamplerArg,
-			Exporter:         src.Tracing.Exporter,
-		}
-	}
-
 	return dst
 }
 
@@ -204,16 +173,6 @@ func convertSpecFromV1Alpha2(src *v1alpha2.LLMInferenceServiceSpec) LLMInference
 	if src.Prefill != nil {
 		prefill := convertWorkloadSpecFromV1Alpha2(src.Prefill)
 		dst.Prefill = &prefill
-	}
-
-	// Tracing
-	if src.Tracing != nil {
-		dst.Tracing = &TracingSpec{
-			ExporterEndpoint: src.Tracing.ExporterEndpoint,
-			Sampler:          src.Tracing.Sampler,
-			SamplerArg:       src.Tracing.SamplerArg,
-			Exporter:         src.Tracing.Exporter,
-		}
 	}
 
 	return dst
@@ -320,11 +279,7 @@ func convertLoRASpecToV1Alpha2(src *LoRASpec) *v1alpha2.LoRASpec {
 		return nil
 	}
 
-	dst := &v1alpha2.LoRASpec{
-		MaxRank:        src.MaxRank,
-		MaxAdapters:    src.MaxAdapters,
-		MaxCpuAdapters: src.MaxCpuAdapters,
-	}
+	dst := &v1alpha2.LoRASpec{}
 	for _, adapter := range src.Adapters {
 		dst.Adapters = append(dst.Adapters, convertModelSpecToV1Alpha2(&adapter))
 	}
@@ -337,11 +292,7 @@ func convertLoRASpecFromV1Alpha2(src *v1alpha2.LoRASpec) *LoRASpec {
 		return nil
 	}
 
-	dst := &LoRASpec{
-		MaxRank:        src.MaxRank,
-		MaxAdapters:    src.MaxAdapters,
-		MaxCpuAdapters: src.MaxCpuAdapters,
-	}
+	dst := &LoRASpec{}
 	for _, adapter := range src.Adapters {
 		dst.Adapters = append(dst.Adapters, convertModelSpecFromV1Alpha2(&adapter))
 	}
@@ -418,8 +369,6 @@ func convertRouterSpecToV1Alpha2(src *RouterSpec) *v1alpha2.RouterSpec {
 				Spec: src.Route.HTTP.Spec,
 			}
 		}
-		dst.Route.Group = src.Route.Group
-		dst.Route.Weight = src.Route.Weight
 	}
 
 	if src.Gateway != nil {
@@ -504,8 +453,6 @@ func convertRouterSpecFromV1Alpha2(src *v1alpha2.RouterSpec) *RouterSpec {
 				Spec: src.Route.HTTP.Spec,
 			}
 		}
-		dst.Route.Group = src.Route.Group
-		dst.Route.Weight = src.Route.Weight
 	}
 
 	if src.Gateway != nil {

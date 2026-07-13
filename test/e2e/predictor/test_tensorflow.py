@@ -31,7 +31,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_tensorflow_kserve(rest_v1_client, network_layer):
+async def test_tensorflow_kserve(rest_v1_client):
     service_name = "isvc-tensorflow"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -58,12 +58,7 @@ async def test_tensorflow_kserve(rest_v1_client, network_layer):
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    res = await predict_isvc(
-        rest_v1_client,
-        service_name,
-        "./data/flower_input.json",
-        network_layer=network_layer,
-    )
+    res = await predict_isvc(rest_v1_client, service_name, "./data/flower_input.json")
     assert np.argmax(res["predictions"][0].get("scores")) == 0
 
     # Delete the InferenceService
@@ -72,7 +67,7 @@ async def test_tensorflow_kserve(rest_v1_client, network_layer):
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_tensorflow_runtime_kserve(rest_v1_client, network_layer):
+async def test_tensorflow_runtime_kserve(rest_v1_client):
     service_name = "isvc-tensorflow-runtime"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -102,12 +97,7 @@ async def test_tensorflow_runtime_kserve(rest_v1_client, network_layer):
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    res = await predict_isvc(
-        rest_v1_client,
-        service_name,
-        "./data/flower_input.json",
-        network_layer=network_layer,
-    )
+    res = await predict_isvc(rest_v1_client, service_name, "./data/flower_input.json")
     assert np.argmax(res["predictions"][0].get("scores")) == 0
 
     # Delete the InferenceService

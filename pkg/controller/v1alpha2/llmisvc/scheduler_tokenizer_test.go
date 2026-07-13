@@ -17,6 +17,7 @@ limitations under the License.
 package llmisvc
 
 import (
+	"fmt"
 	"path"
 	"testing"
 
@@ -91,9 +92,7 @@ func TestAttachStorageInitializer_TargetContainer(t *testing.T) {
 				},
 			}
 
-			llmSvc := &v1alpha2.LLMInferenceService{}
 			err := r.attachStorageInitializer(
-				llmSvc,
 				"hf://meta-llama/Llama-2-7b",
 				corev1.PodSpec{}, // empty curr
 				podSpec,
@@ -236,7 +235,9 @@ func TestAttachOciModelArtifact_TargetContainer(t *testing.T) {
 			},
 			wantModelcarArgs: []string{
 				"sh", "-c",
-				"mkdir -p /mnt/models && ln -sf /proc/$$$$/root/models /mnt/models/my-llama && sleep infinity",
+				fmt.Sprintf("mkdir -p %s && ln -sf /proc/$$$$/root/models %s && sleep infinity",
+					constants.DefaultModelLocalMountPath,
+					path.Join(constants.DefaultModelLocalMountPath, "my-llama")),
 			},
 		},
 		{
@@ -250,7 +251,9 @@ func TestAttachOciModelArtifact_TargetContainer(t *testing.T) {
 			},
 			wantModelcarArgs: []string{
 				"sh", "-c",
-				"mkdir -p /mnt/models/meta-llama && ln -sf /proc/$$$$/root/models /mnt/models/meta-llama/Llama-2-7b && sleep infinity",
+				fmt.Sprintf("mkdir -p %s && ln -sf /proc/$$$$/root/models %s && sleep infinity",
+					path.Join(constants.DefaultModelLocalMountPath, "meta-llama"),
+					path.Join(constants.DefaultModelLocalMountPath, "meta-llama/Llama-2-7b")),
 			},
 		},
 		{
@@ -264,7 +267,8 @@ func TestAttachOciModelArtifact_TargetContainer(t *testing.T) {
 			},
 			wantModelcarArgs: []string{
 				"sh", "-c",
-				"ln -sf /proc/$$$$/root/models /mnt/models && sleep infinity",
+				fmt.Sprintf("ln -sf /proc/$$$$/root/models %s && sleep infinity",
+					constants.DefaultModelLocalMountPath),
 			},
 		},
 	}

@@ -111,7 +111,7 @@ func CheckZeroInitialScaleAllowed(ctx context.Context, clientset kubernetes.Inte
 // When the annotation is set validation is performed. If any of this validation fails, the annotation will
 // be removed and the default initial scale behavior will be used.
 func ValidateInitialScaleAnnotation(annotations map[string]string, allowZeroInitialScale bool, log logr.Logger) {
-	// Check that the annotation is set.
+	// Check that the annoation is set.
 	_, set := annotations[autoscaling.InitialScaleAnnotationKey]
 	if !set {
 		return

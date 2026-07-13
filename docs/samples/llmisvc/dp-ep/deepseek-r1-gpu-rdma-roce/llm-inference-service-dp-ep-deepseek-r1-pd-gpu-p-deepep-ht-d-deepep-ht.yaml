@@ -42,7 +42,7 @@ spec:
           #- name: VLLM_MOE_DP_CHUNK_SIZE
           #  value: "32"
           - name: VLLM_ADDITIONAL_ARGS
-            value: "--gpu-memory-utilization 0.99 --max-model-len 4096 --enforce-eager --kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_consumer\"}'"
+            value: "--gpu-memory-utilization 0.99 --max-model-len 4096 --enforce-eager --kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_both\"}'"
           - name: VLLM_NIXL_SIDE_CHANNEL_HOST
             valueFrom:
               fieldRef:
@@ -145,7 +145,7 @@ spec:
           #- name: VLLM_MOE_DP_CHUNK_SIZE
           #  value: "32"
           - name: VLLM_ADDITIONAL_ARGS
-            value: "--gpu-memory-utilization 0.99 --max-model-len 4096 --enforce-eager --kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_consumer\"}'"
+            value: "--gpu-memory-utilization 0.99 --max-model-len 4096 --enforce-eager --kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_both\"}'"
           - name: VLLM_NIXL_SIDE_CHANNEL_HOST
             valueFrom:
               fieldRef:
@@ -232,7 +232,7 @@ spec:
               value: "PCI_BUS_ID"
             # Memory optimizations
             - name: VLLM_ADDITIONAL_ARGS
-              value: "--gpu-memory-utilization 0.97 --max-model-len 4096 --enforce-eager --kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_producer\"}'"
+              value: "--gpu-memory-utilization 0.97 --max-model-len 4096 --enforce-eager --kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_both\"}'"
             - name: VLLM_NIXL_SIDE_CHANNEL_HOST
               valueFrom:
                 fieldRef:
@@ -321,7 +321,7 @@ spec:
               value: "PCI_BUS_ID"
             # Memory optimizations
             - name: VLLM_ADDITIONAL_ARGS
-              value: "--gpu-memory-utilization 0.97 --max-model-len 4096 --enforce-eager --kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_producer\"}'"
+              value: "--gpu-memory-utilization 0.97 --max-model-len 4096 --enforce-eager --kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_both\"}'"
             - name: VLLM_NIXL_SIDE_CHANNEL_HOST
               valueFrom:
                 fieldRef:

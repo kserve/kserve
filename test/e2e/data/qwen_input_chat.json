@@ -1,5 +1,5 @@
 {
-    "model": "qwen-chat",
+    "model": "hf-qwen-chat",
     "messages": [
         {
             "role": "system",

@@ -34,7 +34,7 @@ from ..common.utils import predict_isvc
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_pmml_kserve(rest_v1_client, network_layer):
+async def test_pmml_kserve(rest_v1_client):
     service_name = "isvc-pmml"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -62,12 +62,7 @@ async def test_pmml_kserve(rest_v1_client, network_layer):
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     start = time.perf_counter()
-    res = await predict_isvc(
-        rest_v1_client,
-        service_name,
-        "./data/pmml_input.json",
-        network_layer=network_layer,
-    )
+    res = await predict_isvc(rest_v1_client, service_name, "./data/pmml_input.json")
     end = time.perf_counter()
     print(f"Time taken: {end - start}")
     logger.info(f"Time taken: {end - start}")
@@ -85,7 +80,7 @@ async def test_pmml_kserve(rest_v1_client, network_layer):
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_pmml_runtime_kserve(rest_v1_client, network_layer):
+async def test_pmml_runtime_kserve(rest_v1_client):
     service_name = "isvc-pmml-runtime"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -115,12 +110,7 @@ async def test_pmml_runtime_kserve(rest_v1_client, network_layer):
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    res = await predict_isvc(
-        rest_v1_client,
-        service_name,
-        "./data/pmml_input.json",
-        network_layer=network_layer,
-    )
+    res = await predict_isvc(rest_v1_client, service_name, "./data/pmml_input.json")
     assert res["predictions"] == [
         {
             "Species": "setosa",
@@ -135,7 +125,7 @@ async def test_pmml_runtime_kserve(rest_v1_client, network_layer):
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_pmml_v2_kserve(rest_v2_client, network_layer):
+async def test_pmml_v2_kserve(rest_v2_client):
     service_name = "isvc-pmml-v2-kserve"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -170,7 +160,6 @@ async def test_pmml_v2_kserve(rest_v2_client, network_layer):
         rest_v2_client,
         service_name,
         "./data/pmml-input-v2.json",
-        network_layer=network_layer,
     )
     assert res.outputs == [
         InferOutput(

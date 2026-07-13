@@ -91,9 +91,6 @@ func (v *InferenceGraphValidator) ValidateUpdate(ctx context.Context, oldObj, ne
 		validatorLogger.Error(err, "Unable to convert object to InferenceGraph")
 		return nil, err
 	}
-	if ig.GetDeletionTimestamp() != nil {
-		return nil, nil
-	}
 	validatorLogger.Info("validate update", "name", ig.Name)
 	return validateInferenceGraph(ig)
 }

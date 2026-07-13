@@ -500,7 +500,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			orphanedStorageKey := "abc123def456"
 			fsMock.mockModel(&MockFileInfo{name: orphanedStorageKey, isDir: true})
 
-			nodeName = "worker" // Defined in controller.go, representing the name of the current node
+			nodeName = "worker" // Definied in controller.go, representing the name of the current node
 			node := &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: nodeName,
@@ -571,7 +571,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
 			defer k8sClient.Delete(ctx, nodeGroup)
 
-			nodeName = "test3" // Defined in controller.go, representing the name of the current node
+			nodeName = "test3" // Definied in controller.go, representing the name of the current node
 			node := &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: nodeName,
@@ -1190,12 +1190,6 @@ var _ = Describe("LocalModelNode controller", func() {
 			Expect(pvcVolume.PersistentVolumeClaim).NotTo(BeNil())
 			Expect(pvcVolume.PersistentVolumeClaim.ClaimName).To(Equal("sklearn-model-sklearn-nodegroup"),
 				"PVC name should use NodeGroup from modelInfo, not the first matching nodegroup from getNodeGroupFromNode")
-
-			Expect(job.Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{
-				"kubernetes.io/hostname": nodeName,
-			}), "Job should use NodeSelector for scheduler-based placement")
-			Expect(job.Spec.Template.Spec.NodeName).To(BeEmpty(),
-				"Job should not use NodeName to allow the scheduler to establish PVC-to-node binding")
 		})
 
 		It("Should append -download suffix to PVC name for namespace-scoped models", func() {

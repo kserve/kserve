@@ -18,10 +18,8 @@ package main
 
 import (
 	"bytes"
-	crand "crypto/rand"
 	"encoding/json"
 	"io"
-	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -1034,64 +1032,5 @@ func TestServerTimeout(t *testing.T) {
 				assert.Equal(t, http.StatusOK, resp.StatusCode)
 			}
 		})
-	}
-}
-
-func TestPickupRouteNeverReturnsNil(t *testing.T) {
-	w1, w2 := int64(20), int64(80)
-	routes := []v1alpha1.InferenceStep{
-		{
-			StepName: "model1",
-			InferenceTarget: v1alpha1.InferenceTarget{
-				ServiceURL: "http://example.com/model1",
-			},
-			Weight: &w1,
-		},
-		{
-			StepName: "model2",
-			InferenceTarget: v1alpha1.InferenceTarget{
-				ServiceURL: "http://example.com/model2",
-			},
-			Weight: &w2,
-		},
-	}
-
-	for i := range 10000 {
-		route := pickupRoute(routes)
-		require.NotNil(t, route, "pickupRoute returned nil on iteration %d", i)
-	}
-}
-
-func TestPickupRouteAlwaysReturnsRouteForAllRandValues(t *testing.T) {
-	w1, w2 := int64(30), int64(70)
-	routes := []v1alpha1.InferenceStep{
-		{
-			StepName: "model1",
-			InferenceTarget: v1alpha1.InferenceTarget{
-				ServiceURL: "http://example.com/model1",
-			},
-			Weight: &w1,
-		},
-		{
-			StepName: "model2",
-			InferenceTarget: v1alpha1.InferenceTarget{
-				ServiceURL: "http://example.com/model2",
-			},
-			Weight: &w2,
-		},
-	}
-
-	for i := range 10000 {
-		route := pickupRoute(routes)
-		require.NotNil(t, route, "pickupRoute returned nil on iteration %d", i)
-	}
-}
-
-func TestCryptoRandIntUpperBoundWithFix(t *testing.T) {
-	for i := range 100_000 {
-		n, err := crand.Int(crand.Reader, big.NewInt(100))
-		require.NoError(t, err)
-		require.True(t, n.Int64() >= 0 && n.Int64() < 100,
-			"rand.Int(100) returned out-of-range value %d on iteration %d", n.Int64(), i)
 	}
 }

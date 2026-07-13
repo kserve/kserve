@@ -1,4 +1,4 @@
-# Copyright 2026 The KServe Authors.
+# Copyright 2025 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,7 +36,6 @@ from .fixtures import (
     inject_k8s_proxy,
     KSERVE_TEST_NAMESPACE,
     KSERVE_PLURAL_LLMINFERENCESERVICECONFIG,
-    OPT_125M_MODEL_URI,
 )
 from .logging import logger
 
@@ -132,7 +131,7 @@ class TestStorageVersionMigration:
                 "namespace": self.namespace,
             },
             "spec": {
-                "model": {"uri": OPT_125M_MODEL_URI, "name": "facebook/opt-125m"},
+                "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},
                 "router": {"route": {}},
                 "template": {
                     "containers": [
@@ -227,11 +226,10 @@ class TestStorageVersionMigration:
                     f"got {crd.status.stored_versions} for {crd_name}"
                 )
 
-        # Match the controller's total migration budget so the test never times out
-        # before the controller does. The controller defaults to 1 hour (3600s);
-        # phase 1 (exponential backoff) takes ~150s per resource group worst case,
-        # phase 2 (steady-state polling) consumes the remaining budget.
-        migration_timeout = float(os.getenv("STORAGE_MIGRATION_TIMEOUT", "3600"))
+        # Allow enough time for the controller's exponential backoff to exhaust
+        # on slow clusters: 10 steps at 2s*1.5^n gives ~150s per resource group,
+        # two groups sequential = ~300s worst case. Default 360s adds buffer.
+        migration_timeout = float(os.getenv("STORAGE_MIGRATION_TIMEOUT", "360"))
         wait_for(
             assert_stored_versions_migrated, timeout=migration_timeout, interval=5.0
         )

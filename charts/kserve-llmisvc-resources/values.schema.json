@@ -21,11 +21,6 @@
                 "llmisvc": {
                     "type": "object",
                     "properties": {
-                        "createGIECRDs": {
-                            "type": "boolean",
-                            "default": true,
-                            "description": "Create the Gateway API Inference Extension (GIE) CRDs bundled with this chart. Set to false if these CRDs are managed by another component to avoid Helm release-ownership conflicts. The LLMInferenceService controller still requires the CRDs to exist on the cluster at runtime."
-                        },
                         "controller": {
                             "type": "object",
                             "properties": {

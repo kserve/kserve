@@ -1,5 +1,5 @@
 /*
-Copyright 2026 The KServe Authors.
+Copyright 2025 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,12 +21,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
-	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/fixture"
 )
 
 func TestNewSchedulerConfig(t *testing.T) {
@@ -91,37 +87,5 @@ func TestNewSchedulerConfig(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-func TestLoadConfig(t *testing.T) {
-	cachedConfigMap := fixture.InferenceServiceCfgMapWithUrlScheme(constants.KServeNamespace, "https")
-	c := fake.NewClientBuilder().
-		WithScheme(clientgoscheme.Scheme).
-		WithObjects(cachedConfigMap).
-		Build()
-
-	got, err := llmisvc.LoadConfig(t.Context(), c)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if got.UrlScheme != "https" {
-		t.Fatalf("UrlScheme = %q, want %q", got.UrlScheme, "https")
-	}
-	if got.IngressGatewayNamespace != constants.KServeNamespace {
-		t.Fatalf("IngressGatewayNamespace = %q, want %q", got.IngressGatewayNamespace, constants.KServeNamespace)
-	}
-	if got.IngressGatewayName != "kserve-ingress-gateway" {
-		t.Fatalf("IngressGatewayName = %q, want %q", got.IngressGatewayName, "kserve-ingress-gateway")
-	}
-	if got.StorageConfig == nil {
-		t.Fatal("StorageConfig = nil, want populated config")
-	}
-	if got.CredentialConfig == nil {
-		t.Fatal("CredentialConfig = nil, want populated config")
-	}
-	if got.SchedulerConfig == nil {
-		t.Fatal("SchedulerConfig = nil, want populated config")
 	}
 }

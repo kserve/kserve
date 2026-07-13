@@ -2,14 +2,14 @@
 
 Helm chart for deploying kserve resources
 
-![Version: v0.19.0](https://img.shields.io/badge/Version-v0.19.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.19.0](https://img.shields.io/badge/AppVersion-v0.19.0-informational?style=flat-square)
+![Version: v0.18.1](https://img.shields.io/badge/Version-v0.18.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.18.1](https://img.shields.io/badge/AppVersion-v0.18.1-informational?style=flat-square)
 
 ## Installing the Chart
 
 To install the chart, run the following:
 
 ```console
-$ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --version v0.19.0
+$ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --version v0.18.1
 ```
 
 ## Values
@@ -46,7 +46,6 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.controller.gateway.pathTemplate | string | `""` |  |
 | kserve.controller.gateway.urlScheme | string | `"http"` |  |
 | kserve.controller.image | string | `"kserve/kserve-controller"` |  |
-| kserve.controller.imagePullPolicy | string | `"Always"` |  |
 | kserve.controller.imagePullSecrets | list | `[]` |  |
 | kserve.controller.knativeAddressableResolver.enabled | bool | `false` |  |
 | kserve.controller.labels | object | `{}` |  |
@@ -64,7 +63,7 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.controller.rbacProxy.securityContext.privileged | bool | `false` |  |
 | kserve.controller.rbacProxy.securityContext.readOnlyRootFilesystem | bool | `true` |  |
 | kserve.controller.rbacProxy.securityContext.runAsNonRoot | bool | `true` |  |
-| kserve.controller.rbacProxyImage | string | `"quay.io/brancz/kube-rbac-proxy:v0.18.0"` |  |
+| kserve.controller.rbacProxyImage | string | `"quay.io/brancz/kube-rbac-proxy:v0.18.1"` |  |
 | kserve.controller.resources.limits.cpu | string | `"100m"` |  |
 | kserve.controller.resources.limits.memory | string | `"300Mi"` |  |
 | kserve.controller.resources.requests.cpu | string | `"100m"` |  |
@@ -146,4 +145,4 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.storage.tag | string | `""` |  |
 | kserve.storage.uidModelcar | int | `1010` |  |
 | kserve.storagecontainer.enabled | string | `""` |  |
-| kserve.version | string | `"v0.19.0"` |  |
+| kserve.version | string | `"v0.18.1"` |  |

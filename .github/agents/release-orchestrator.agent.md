@@ -8,30 +8,20 @@ You guide the user through the entire release process step by step, asking for a
 
 ## STRICT RULES
 
-1. NEVER delete remote resources: `master` branch, `release-*` branches, tags, or GitHub releases. If deletion is truly needed, instruct user to do it manually via GitHub UI
-2. Minimize remote destructive operations. Only delete local branches. Remote branch/PR cleanup should be offered as an option, never done automatically
+1. Do NOT run `make test`, `make lint`, `make py-lint`, or any validation/build commands
+2. ALWAYS ask for user approval before merge, publish, and destructive actions
 3. Do NOT skip approval points even if the user says "do everything automatically"
-4. Do NOT run `make test`, `make lint`, `make py-lint`, or any validation/build commands
-5. ALWAYS ask for user approval before merge, publish, and destructive actions
-6. ALWAYS `git fetch upstream master && git checkout upstream/master` before running `create-branch-tag.sh` or `validate-release.sh`. These scripts must run from the latest upstream master
-
 
 ## Checkpoint System
 
-Save state after each completed step so the session can be resumed from the next step.
+Save state before long-running operations so the session can be resumed after interruption.
 
-Two checkpoint patterns:
-- **After completion** (default): save after a local action finishes (PR created, merged, published, etc.)
-- **Before external wait** (exception): save before entering a long external wait (CI check ~30min, image build ~1-2hr). Resume checks the external status first, then continues or keeps waiting.
+**Checkpoint file**: `/tmp/kserve-release-checkpoint.json` in the repo root
 
-**Checkpoint file**: `~/.kserve_release/checkpoint.json` in the repo root
-
-**Save checkpoint** (write this file at each checkpoint phase):
+**Save checkpoint** (write this file before any long-running step):
 ```bash
-mkdir -p ~/.kserve_release
-cat > ~/.kserve_release/checkpoint.json << EOF
+cat > /tmp/kserve-release-checkpoint.json << EOF
 {
-  "workspace": "{RELEASE_WORKSPACE}",
   "version": "{VERSION}",
   "prior_version": "{PRIOR_VERSION}",
   "pr_repo": "{PR_REPO}",
@@ -47,128 +37,27 @@ EOF
 
 **On session start**: Check if checkpoint exists:
 ```bash
-cat ~/.kserve_release/checkpoint.json
+cat /tmp/kserve-release-checkpoint.json
 ```
 If found, show contents and ask: "Resume from checkpoint? (y/n)"
-- **y**: Change to the saved workspace directory (`cd {workspace}`), then skip completed phases and resume using the mapping below
+- **y**: Skip completed phases, continue from `phase` field
 - **n**: Start fresh, delete checkpoint
-
-**Resume mapping** (phase → next action):
-
-| Checkpoint phase | Pattern | Resume from |
-|---|---|---|
-| `CONFIRMED` | after completion | Phase 1B: detect existing bump work, then Phase 2 if needed |
-| `BUMP_PR_CREATED` | before external wait | Phase 3: check CI status on `bump_pr`, watch if still running |
-| `CI_PASSED` | after completion | Phase 4: merge PR (verify not already merged first) |
-| `BUMP_MERGED` | after completion | RC0 → Phase 5 (branch/tag). RC1+/Final → Phase 2B (cherry-pick). Check `release_type` |
-| `CHERRYPICK_PR_CREATED` | before external wait | Phase 3: check CI status on `cherrypick_pr`, watch if still running |
-| `BRANCH_TAG_DONE` | before external wait | Phase 7: check image build status, wait if still running |
-| `DRAFT_CREATED` | after completion | Phase 7: image validation |
-| `SMOKE_TESTED` | after completion | Phase 9: publish release |
-| `PUBLISHED` | after completion | Phase 10: full validation |
 
 **Delete checkpoint** after successful completion:
 ```bash
-rm -f ~/.kserve_release/checkpoint.json
+rm -f /tmp/kserve-release-checkpoint.json
 ```
 
 **Checkpoint phases** (save at these points):
 - `CONFIRMED` — after version/repo confirmed, before bump PR
-- `BUMP_PR_CREATED` — after bump PR created, **before CI wait** (external wait)
+- `BUMP_PR_CREATED` — after bump PR created, before CI watch
 - `CI_PASSED` — after CI passes, before merge
 - `BUMP_MERGED` — after bump PR merged, before cherry-pick (RC1+ only)
-- `CHERRYPICK_PR_CREATED` — after cherry-pick PR created, **before CI wait** (external wait)
-- `BRANCH_TAG_DONE` — after branch/tag created, **before image build wait** (external wait, ~1-2hr)
-- `DRAFT_CREATED` — after draft release created, before image validation
-- `SMOKE_TESTED` — after smoke test passed, before publish
+- `CHERRYPICK_PR_CREATED` — after cherry-pick PR created, before CI watch
+- `BRANCH_TAG_DONE` — after branch/tag verified, before publish
 - `PUBLISHED` — after release published, before downstream validation
 
-## Progress Tracker
-
-Show remaining steps so the user knows where they are and what's left.
-
-**Format** — adapt to the current release type (RC0 vs RC1+/Final). Mark completed phases with ✅, current with 👉, and remaining with ⬚:
-
-```
-Release v{VERSION} — Progress
-──────────────────────────────
-✅ Phase 0:  Setup workspace
-✅ Phase 1:  Prepare (version confirmed)
-✅ Phase 2:  Version bump PR created
-👉 Phase 3:  Monitor CI ← you are here
-⬚ Phase 4:  Merge PR
-⬚ Phase 5:  Create branch & tag
-⬚ Phase 6:  Create draft release
-⬚ Phase 7:  Image validation
-⬚ Phase 8:  Smoke test
-⬚ Phase 9:  Publish release
-⬚ Phase 10: Full validation
-⬚ Phase 11: Release report
-──────────────────────────────
-```
-
-For RC1+/Final, include Phase 2B (cherry-pick) between Phase 2 and Phase 3.
-Omit Phase 2B for RC0.
-
-**When to show** — display the progress tracker at these moments only:
-
-| Trigger | Why |
-|---|---|
-| Session resume from checkpoint | User needs orientation after being away |
-| After a long external wait completes (CI, image build) | User likely returned after a break |
-| After a major milestone (merge, branch/tag created, publish) | Phase boundary — good moment to show what's ahead |
-| User asks ("what's left?", "status", "progress", "remaining steps") | Explicit request |
-
-**When NOT to show** — skip the tracker to avoid noise:
-
-- Consecutive steps within the same phase (e.g., multiple CI retries)
-- Immediately after showing it (don't repeat within the same interaction turn)
-- When moving to the very next step without a wait (user is already in flow)
-
-**Resumable prompt** — when the tracker is shown after a long wait or session resume, append:
-
-```
-💡 Type "next" to continue, or "status" to see progress anytime.
-```
-
 ## What to do
-
-### Phase 0: Setup Release Workspace
-
-Separate the agent file location (where Copilot reads this agent) from the release working directory.
-This allows editing the agent file without interfering with in-progress release branches.
-
-1. Always create a separate worktree for release work. Never use the current directory (it contains the agent file and may be on a feature branch).
-
-   ```bash
-   RELEASE_WORKSPACE="$HOME/.kserve_release/kserve"
-   ```
-
-2. If the worktree already exists, remove it first to start clean:
-
-   ```bash
-   if [ -d "$RELEASE_WORKSPACE" ]; then
-     git worktree remove "$RELEASE_WORKSPACE" --force
-   fi
-   git fetch upstream master
-   git worktree add "$RELEASE_WORKSPACE" upstream/master
-   ```
-
-   `git worktree add` accepts any absolute path — the worktree does not need to live inside the repo.
-   It shares remotes (origin, upstream), history, and fetch state with the current repo.
-   No additional remote configuration is needed.
-
-2. Change to the release workspace:
-
-   ```bash
-   cd "$RELEASE_WORKSPACE"
-   ```
-
-   All subsequent phases run here. Relative paths (`kserve-deps.env`, `./hack/release/`) resolve correctly.
-
-3. Ask user to confirm: "Release workspace: {RELEASE_WORKSPACE}. OK? (y/n)"
-   - **y**: proceed to Phase 1
-   - **n**: ask for a custom path and create worktree there instead
 
 ### Phase 1: Prepare
 
@@ -219,98 +108,58 @@ This allows editing the agent file without interfering with in-progress release 
 
 5. **APPROVAL POINT**: "Release v{VERSION} from v{CURRENT_VERSION}. PR target: {PR_REPO}, branch push: {BRANCH_REPO}. Proceed? (y/n)"
 
-6. **Save checkpoint** after version confirmed:
-   ```bash
-   mkdir -p ~/.kserve_release
-   cat > ~/.kserve_release/checkpoint.json << EOF
-   {"workspace":"{RELEASE_WORKSPACE}","version":"{VERSION}","prior_version":"{CURRENT_VERSION}","pr_repo":"{PR_REPO}","branch_repo":"{BRANCH_REPO}","release_type":"{TYPE}","phase":"CONFIRMED","bump_pr":null,"cherrypick_pr":null,"timestamp":"$(date -u +%Y-%m-%dT%H:%M:%SZ)"}
-   EOF
-   ```
-
-### Phase 1B: Detect Existing Bump Work
-
-Before creating a new bump branch, check if the version bump was already done
-(e.g., by the `bump-version` agent via a release issue, or manually through the UI).
-
-1. Search for an existing bump PR targeting v{VERSION}:
-   ```bash
-   gh pr list --repo {PR_REPO} --state all \
-     --search "release: prepare release v{VERSION} in:title" \
-     --json number,title,state,mergeCommit,headRefName,url \
-     --jq '.[] | select(.title == "release: prepare release v{VERSION}")'
-   ```
-
-2. If a PR is found, report its state and ask:
-
-   - **Open (CI pending/passing)**: "Bump PR #{number} already exists: {url}. Skip to Phase 3 (Monitor CI)? (y/n)"
-     - **y**: save checkpoint with `bump_pr: {number}`, `phase: BUMP_PR_CREATED`, skip to Phase 3
-     - **n**: proceed to Phase 2 as normal (create a new bump branch)
-
-   - **Merged**: "Bump PR #{number} already merged. Skip to Phase 4/5? (y/n)"
-     - **y**: save checkpoint with `bump_pr: {number}`, `phase: BUMP_MERGED`, skip to Phase 5 (RC0) or Phase 2B (RC1+)
-     - **n**: proceed to Phase 2
-
-   - **Closed (not merged)**: "Found closed bump PR #{number} (not merged). Starting fresh."
-     → proceed to Phase 2
-
-3. If no PR found, also check for a release issue with the target version:
-   ```bash
-   gh issue list --repo {PR_REPO} --state all \
-     --search "release: prepare release {VERSION} in:title" \
-     --json number,title,state,url \
-     --jq '.[] | select(.title | test("release.*prepare.*{VERSION}"))'
-   ```
-   If an issue exists (e.g., created for `bump-version` agent), note its number for linking in the bump PR body later.
-
-4. If nothing found, proceed to Phase 2 as normal.
-
 ### Phase 2: Version Bump
 
-1. Fetch latest upstream master and create bump branch:
-   ```bash
-   git fetch upstream master
-   git checkout -b release-bump-v{VERSION} upstream/master
-   ```
-
-2. Get prior version and detect release type:
+1. Get prior version and detect release type:
    ```bash
    PRIOR_VERSION=$(grep "KSERVE_VERSION=" kserve-deps.env | cut -d'=' -f2 | sed 's/^v//')
    ```
    - If VERSION ends with `-rc0` → **RC0 flow**
    - If VERSION ends with `-rc1`, `-rc2`, etc., or has no `-rcN` suffix → **RC1+ / Final flow**
 
-3. Run bump:
+2. Run bump:
    ```bash
    yes "" | make bump-version NEW_VERSION={VERSION} PRIOR_VERSION={PRIOR_VERSION}
    ```
    This is the ONLY make command you should run.
 
+3. **Save checkpoint** before creating PR:
+   ```bash
+   cat > /tmp/kserve-release-checkpoint.json << EOF
+   {"version":"{VERSION}","prior_version":"{PRIOR_VERSION}","pr_repo":"{PR_REPO}","branch_repo":"{BRANCH_REPO}","release_type":"{TYPE}","phase":"CONFIRMED","bump_pr":null,"cherrypick_pr":null,"timestamp":"$(date -u +%Y-%m-%dT%H:%M:%SZ)"}
+   EOF
+   ```
+
 4. Commit and create PR:
-   Title: `release: prepare release v{VERSION}` (all release types)
+   - **RC0**: title `release: prepare release v{VERSION}` (triggers `release-branch-tag.yml` on merge)
+   - **RC1+ / Final**: title `chore: bump version to v{VERSION}` (does NOT trigger `release-branch-tag.yml`)
 
    ```bash
+   git checkout -b release-bump-v{VERSION}
    git add -A
    git commit -S -s -m "{TITLE}"
    git push origin release-bump-v{VERSION}
-   gh pr create --repo {PR_REPO} --base master \
-     --head {BRANCH_OWNER}:release-bump-v{VERSION} \
+   gh pr create --repo {UPSTREAM_REPO} --base master \
+     --head {FORK_OWNER}:release-bump-v{VERSION} \
      --title "{TITLE}" \
      --label release \
-     [--label cherrypick-approved]  # RC1+ and Final — NOT for RC0
+     [--label cherrypick-approved]  # RC1+ only — DO NOT add for Final release
      --body "Automated version bump from v{PRIOR_VERSION} to v{VERSION}."
    ```
+   > `{FORK_OWNER}` is extracted from `{FORK_REPO}` (e.g., `jooho` from `jooho/kserve`).
 
 5. **Save checkpoint** after PR created:
    ```bash
-   # Update ~/.kserve_release/checkpoint.json with bump_pr number and phase
+   # Update /tmp/kserve-release-checkpoint.json with bump_pr number and phase
    # phase: BUMP_PR_CREATED, bump_pr: {PR_NUMBER}
    ```
 
-### Phase 2B: Cherry-pick (RC1+ and Final — skip only for RC0)
+### Phase 2B: Cherry-pick (RC1+ only — skip entirely for Final)
 
 Skip this phase for RC0. After the bump PR (Phase 2) merges to master:
 
-1. Find all PRs merged to master with `cherrypick-approved` label but NOT `cherrypicked`:
+1. Find all PRs merged to master with `cherrypick-approved` label but NOT `cherrypicked`.
+   PRs already labeled `cherrypicked` have been backported before — skip them:
    ```bash
    gh pr list --repo {PR_REPO} --state merged \
      --label cherrypick-approved \
@@ -319,36 +168,18 @@ Skip this phase for RC0. After the bump PR (Phase 2) merges to master:
    ```
    > `sort_by(.mergedAt)` = ascending = oldest commit first. Apply in this order to minimize conflicts.
 
-   **Bump PR (#{BUMP_PR_NUMBER}) must always be included.** If it's missing from the search results,
-   fetch it explicitly and add it:
-   ```bash
-   gh pr view {BUMP_PR_NUMBER} --repo {PR_REPO} --json number,title,mergeCommit,mergedAt
-   ```
-
-   Sort the final list by `mergedAt` ascending. Bump PR will naturally appear near the end since it was just merged.
-
 2. Fetch the release branch and create a cherry-pick branch:
    ```bash
-   git fetch upstream release-{MAJOR}.{MINOR}
-   git checkout -b cherrypick/v{VERSION} upstream/release-{MAJOR}.{MINOR}
+   git fetch origin release-{MAJOR}.{MINOR}
+   git checkout -b cherrypick/v{VERSION} origin/release-{MAJOR}.{MINOR}
    ```
 
-3. Cherry-pick each PR's merge commit in `mergedAt` order:
+3. Cherry-pick each PR's merge commit in order (oldest first):
    ```bash
-   git cherry-pick -x -S -s {MERGE_COMMIT_SHA}
+   git cherry-pick -x {MERGE_COMMIT_SHA}
    ```
-   - **On conflict**: first try automatic resolution:
-
-     ```bash
-     # Delete conflicted uv.lock files (common conflict source)
-     git diff --name-only --diff-filter=U | grep "uv.lock" | xargs rm -f
-     # Regenerate dependencies and fix formatting
-     make precommit
-     git add -A
-     git cherry-pick --continue
-     ```
-
-   - If conflicts persist: report conflict details and ask user to resolve manually, then `git cherry-pick --continue`
+   - On conflict: attempt auto-resolve
+   - If not confident: report conflict details and ask user to resolve, then `git cherry-pick --continue`
 
 4. Push and create PR targeting the release branch:
    ```bash
@@ -360,7 +191,7 @@ Skip this phase for RC0. After the bump PR (Phase 2) merges to master:
      --label release \
      --body "Cherry-pick backport for v{VERSION}.\n\nPRs included:\n{PR_LIST}"
    ```
-   > Title starts with `release: prepare` for consistency with existing release PRs
+   > Title starts with `release: prepare` — merging this PR triggers `release-branch-tag.yml`
 
 5. **Save checkpoint** after cherry-pick PR created:
    ```bash
@@ -378,58 +209,21 @@ Skip this phase for RC0. After the bump PR (Phase 2) merges to master:
    ```
    `--watch` blocks automatically until all checks conclude. No manual polling needed.
 
-2. If `pre-commit` check fails, fix locally instead of waiting for a rerun:
-   ```bash
-   make precommit
-   git add -A
-   git commit --amend --no-edit -S -s
-   git push --force-with-lease
-   ```
-   Then re-watch CI from step 1.
-
-3. If any other check fails, post `/rerun-all` comment and watch again:
+2. If any check fails, post `/rerun-all` comment and watch again:
    ```bash
    gh pr comment {PR_NUMBER} --repo {PR_REPO} --body "/rerun-all"
    gh pr checks {PR_NUMBER} --repo {PR_REPO} --watch
    ```
 
-4. If checks still fail after re-run, check how many e2e tests failed.
+3. If checks still fail after re-run, check how many e2e tests failed.
    E2e test checks are from workflows named `E2E Tests` or `LLMInferenceService E2E Tests`.
 
    - 3 or more e2e failures: report to user as likely flaky infrastructure.
    - Fewer than 3: show failed check names and log excerpts.
 
-   Ask: "CI still failing. Retry or abort? (retry/abort)"
+   Ask: "CI still failing. Retry, skip, or abort? (retry/skip/abort)"
 
-   - **retry**: post `/rerun-all` comment again → `--watch` again. Repeat up to 3 times total.
-   - **abort**: stop the release process. Explain available cleanup options and let user choose:
-
-     > "Release aborted. The following resources were created:
-     > - PR #{PR_NUMBER}: {PR_URL}
-     > - Remote branch: release-bump-v{VERSION} on {BRANCH_REPO}
-     > - Local branch: release-bump-v{VERSION}
-     > - Checkpoint: ~/.kserve_release/checkpoint.json
-     >
-     > What would you like to clean up?
-     >
-     > 1. Close PR + delete local branch
-     >    ```
-     >    gh pr close {PR_NUMBER} --repo {PR_REPO}
-     >    git branch -D release-bump-v{VERSION}
-     >    ```
-     >
-     > 2. Keep PR open (resume later), delete local branch only
-     >    ```
-     >    git branch -D release-bump-v{VERSION}
-     >    ```
-     >
-     > 3. Keep everything as-is (no cleanup)
-     >
-     > Checkpoint is always preserved for restart."
-
-     Execute only what the user selected.
-
-5. When all checks pass:
+4. When all checks pass:
    - **Save checkpoint**: `phase: CI_PASSED`
    - Report: "All CI checks passed."
 
@@ -444,242 +238,172 @@ gh pr merge {PR_NUMBER} --repo {PR_REPO} --squash
 Report: "PR #{PR_NUMBER} merged."
 **Save checkpoint**: `phase: BUMP_MERGED`
 
-**RC1+ only**: After cherry-pick PR merges, add `cherrypicked` label to **all** cherry-picked PRs (including the bump PR):
+**RC1+ / Final only**: After cherry-pick PR merges, add `cherrypicked` label to all PRs that were cherry-picked:
 ```bash
 gh pr edit {CHERRY_PICKED_PR_NUMBER} --repo {PR_REPO} --add-label cherrypicked
 ```
-Repeat for every PR in the cherry-pick list.
+Repeat for each PR in the cherry-pick list.
 
-### Phase 5: Create Branch & Tag
+### Phase 5: Verify Branch & Tag
 
-After bump PR (RC0) or cherry-pick PR (RC1+) is merged, run the script locally.
-This pushes tag with user credentials, which triggers Docker Publisher workflows automatically.
+**RC0**: workflow triggers automatically on bump PR merge.
 
-1. Fetch latest upstream and run dry-run (default):
+**RC1+ / Final**: cherry-pick PR targets `release-X.Y` (not master) → does NOT auto-trigger. Manually trigger:
+```bash
+gh workflow run release-branch-tag.yml \
+  --repo {PR_REPO} \
+  -f version=v{VERSION} \
+  -f dry_run=false
+```
+
+1. Wait for `Prepare Release (Branch & Tag)` workflow (poll every 30s, max 10min):
    ```bash
-   git fetch upstream master
-   git checkout upstream/master
-   ./hack/release/create-branch-tag.sh v{VERSION}
-   ```
-   Review the execution plan. If everything looks correct, ask user: "Dry-run passed. Execute? (y/n)"
-
-2. On approval, execute:
-   ```bash
-   ./hack/release/create-branch-tag.sh v{VERSION} --execute
+   gh run list --repo {PR_REPO} --workflow=release-branch-tag.yml --limit 1 --json status,conclusion
    ```
 
-3. Verify branch exists (rc0 only):
+2. Verify branch exists (rc0 only):
    ```bash
    gh api repos/{PR_REPO}/branches/release-{MAJOR}.{MINOR}
    ```
 
-4. Verify tag exists:
+3. Verify tag exists:
    ```bash
    gh api repos/{PR_REPO}/git/ref/tags/v{VERSION}
    ```
 
-5. Report: "Branch and tag created. Docker image builds triggered (takes ~1-2 hours)."
+4. Report: "Branch `release-{MAJOR}.{MINOR}` and tag `v{VERSION}` created."
    **Save checkpoint**: `phase: BRANCH_TAG_DONE`
 
-6. Ask: "Image builds take 1-2 hours. Continue now or resume later? (continue/later)"
-   - **later**: keep checkpoint, exit. User can restart session to resume.
-   - **continue**: proceed to Phase 6.
-
-### Phase 6: Create Draft Release
+### Phase 6: Publish Release
 
 1. **APPROVAL POINT**: "Ready to create draft release v{VERSION}? (y/n)"
 
-2. On approval (release notes always compare against the previous GA version, e.g. v0.18.0-rc1 compares with v0.17.0):
+2. On approval:
    ```bash
    ./hack/release/publish-release.sh v{VERSION} --repo={PR_REPO} --draft
    ```
 
 3. Show draft release URL.
-   **Save checkpoint**: `phase: DRAFT_CREATED`
 
-### Phase 7: Image Validation
+4. **APPROVAL POINT**: "Draft looks good? Publish it? (y/n)"
 
-Wait for Docker image builds to complete before proceeding.
-
-```bash
-./hack/release/validate-release.sh v{VERSION} --repo={PR_REPO} --images-only
-```
-
-If images not ready, diagnose:
-
-1. Check tag exists on remote:
+5. On approval:
    ```bash
-   gh api repos/{PR_REPO}/git/ref/tags/v{VERSION}
-   ```
-   If missing → re-run `./hack/release/create-branch-tag.sh v{VERSION} --execute`
-
-2. Check Docker Publisher workflows were triggered:
-   ```bash
-   gh run list --repo {PR_REPO} --limit 20 --json name,status,conclusion,event,headBranch \
-     --jq '[.[] | select(.name | test("Docker|Publisher")) | select(.headBranch == "v{VERSION}")]'
-   ```
-   - Empty → workflows never triggered. Re-push tag with user credentials.
-   - Has entries → check each workflow's conclusion.
-
-3. For any failed workflows, show the error:
-   ```bash
-   gh run list --repo {PR_REPO} --limit 20 --json name,conclusion,url,event \
-     --jq '[.[] | select(.name | test("Docker|Publisher")) | select(.conclusion == "failure")]'
-   ```
-   Report failed workflow names and URLs to user.
-
-4. Report findings and ask: "How would you like to proceed?"
-
-### Phase 8: Smoke Test (Pre-release Verification)
-
-Verify the release works end-to-end before publishing.
-The script creates a kind cluster, installs KServe with local charts, deploys sample workloads,
-and verifies inference responses via curl.
-
-Test data and sample YAMLs are in `hack/release/smoke-test-data/`.
-
-**APPROVAL POINT**: "Run pre-release smoke test with kind? (y/n)"
-
-On approval:
-
-1. Dry-run first to confirm the plan:
-
-   ```bash
-   ./hack/release/smoke-test.sh --dry-run
+   gh release edit v{VERSION} --repo={PR_REPO} --draft=false
    ```
 
-2. Execute:
+6. Report final release URL.
+   **Save checkpoint**: `phase: PUBLISHED`
 
+### Phase 7: Validate Downstream
+
+1. Poll downstream workflows (every 60s, max 15min):
    ```bash
-   ./hack/release/smoke-test.sh
+   gh run list --repo {PR_REPO} --workflow=python-publish.yml --limit 1 --json status,conclusion
+   gh run list --repo {PR_REPO} --workflow=helm-publish.yml --limit 1 --json status,conclusion
    ```
 
-   Options: `--skip-cluster-create` (reuse existing), `--skip-cluster-delete` (keep cluster), `--skip-llmisvc` (ISVC only).
+2. Report:
+   - PyPI publish: pass/fail
+   - Helm publish: pass/fail
 
-3. If the script exits 0 → report "Smoke test passed. Safe to publish release."
-   If non-zero → report failure details, ask user how to proceed.
+### Phase 8: Artifact Validation
 
-**Save checkpoint**: `phase: SMOKE_TESTED`
-
-### Phase 9: Publish Release
-
-**APPROVAL POINT**: "Smoke test passed. Publish release v{VERSION}? (y/n)"
-
-On approval:
-
-```bash
-gh release edit v{VERSION} --repo={PR_REPO} --draft=false
-```
-
-Report final release URL.
-**Save checkpoint**: `phase: PUBLISHED`
-
-### Phase 10: Full Artifact Validation
-
-Checkout latest upstream master before validating:
-
-```bash
-git fetch upstream master
-git checkout upstream/master
-```
-
-Run full validation (install files, branch, tag, release, PyPI, Helm, images):
-
+Run validation:
 ```bash
 ./hack/release/validate-release.sh v{VERSION} --repo={PR_REPO}
 ```
 
 Report pass/fail per item.
 
-If PyPI/Helm not yet available, poll downstream workflows:
+### Phase 9: Smoke Test
 
+**APPROVAL POINT**: "Run installation smoke test with kind? (y/n)"
+
+On approval, execute the following steps autonomously:
+
+**Step 1: Check image availability before proceeding**
+
+Check that the KServe controller image is available on Docker Hub:
 ```bash
-gh run list --repo {PR_REPO} --workflow=python-publish.yml --limit 1 --json status,conclusion
-gh run list --repo {PR_REPO} --workflow=helm-publish.yml --limit 1 --json status,conclusion
+docker manifest inspect docker.io/kserve/kserve-controller:v{VERSION}
 ```
+- If image exists → proceed to Step 2
+- If image does not exist → notify user:
+  > "⏳ Docker images for v{VERSION} are not yet available (image build pipeline still running, typically takes a few hours after release publish).
+  > Please say **'smoke test 실행해줘'** when you're ready to run it later.
+  > You can also ask me to wait and poll automatically."
 
-Re-run validation after downstream completes.
+  If user asks to wait/poll: re-check every 5 minutes, up to 4 hours, then notify when image is available and proceed automatically.
 
-**Delete checkpoint** (release fully complete):
-
+**Step 2: Create kind cluster**
 ```bash
-rm -f ~/.kserve_release/checkpoint.json
+./hack/setup/dev/manage.kind-with-registry.sh
 ```
 
-### Phase 11: Release Report
-
-Generate a release announcement in English for sharing with the community (Slack, mailing list, etc.).
-
-Gather validation data:
-
-1. Run full validation and capture results:
-
-   ```bash
-   ./hack/release/validate-release.sh v{VERSION} --repo={PR_REPO} 2>&1
-   ```
-
-2. Get release URL:
-
-   ```bash
-   gh release view v{VERSION} --repo {PR_REPO} --json url --jq '.url'
-   ```
-
-3. Get image count from validation output.
-
-4. Determine release type for the GitHub Release row:
-   - If VERSION contains `-rc` → `(pre-release)`
-   - Otherwise → `(latest)`
-
-Build the report using this template. Replace `{...}` placeholders with actual values.
-Mark each row ✅ if validation passed, ❌ if failed.
-
-```
-:tada: KServe {VERSION} is out!
-
-We're happy to announce that KServe {VERSION} has been published and is ready for testing!
-
-:package: Release: {RELEASE_URL}
-
-:white_check_mark: Validation Summary
-┌────────────────────────────────────────────┬────────┐
-│ Artifact                                   │ Status │
-├────────────────────────────────────────────┼────────┤
-│ Install manifests (install/{VERSION}/)     │ ✅     │
-├────────────────────────────────────────────┼────────┤
-│ Git branch release-{MAJOR}.{MINOR}        │ ✅     │
-├────────────────────────────────────────────┼────────┤
-│ Git tag {VERSION}                          │ ✅     │
-├────────────────────────────────────────────┼────────┤
-│ GitHub Release {(pre-release) or (latest)} │ ✅     │
-├────────────────────────────────────────────┼────────┤
-│ PyPI: kserve=={PYPI_VERSION}              │ ✅     │
-├────────────────────────────────────────────┼────────┤
-│ PyPI: kserve-storage=={PYPI_VERSION}      │ ✅     │
-├────────────────────────────────────────────┼────────┤
-│ Docker images ({PASS_COUNT}/{TOTAL_COUNT}) │ ✅     │
-├────────────────────────────────────────────┼────────┤
-│ Smoke test (sklearn-iris ISVC)             │ ✅     │
-├────────────────────────────────────────────┼────────┤
-│ Smoke test (LLMIsvc opt-125m)             │ ✅     │
-└────────────────────────────────────────────┴────────┘
-
-Thank you to all contributors who made this release possible! 🚀
+**Step 3: Install KServe**
+```bash
+./hack/kserve-install.sh --type kserve,localmodel,llmisvc --raw --kserve-version v{VERSION}
 ```
 
-Notes:
-- PyPI version format: `0.18.0rc1` (no dot before rc, no `v` prefix)
-- If any item failed, mark it ❌ and add a footnote explaining the failure
-- Present the report to the user for review before sharing
+**Step 4: Test ISVC (sklearn-iris) — then cleanup before LLMIsvc**
+
+Deploy and wait for ISVC to be Ready (poll every 30s, timeout 10min):
+```bash
+kubectl apply -f docs/samples/v1beta1/sklearn/v1/sklearn.yaml -n kserve
+```
+Poll until Ready:
+```bash
+kubectl get isvc sklearn-iris -n kserve -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
+```
+- If `True` → report "✅ ISVC sklearn-iris is Ready" then delete it:
+  ```bash
+  kubectl delete isvc sklearn-iris -n kserve
+  kubectl wait --for=delete pod -l serving.kserve.io/inferenceservice=sklearn-iris -n kserve --timeout=120s
+  ```
+- If timeout (10min) → report failure with:
+  ```bash
+  kubectl get pods -n kserve
+  kubectl describe isvc sklearn-iris -n kserve
+  ```
+  Ask: "ISVC smoke test timed out. Abort or wait longer? (abort/wait)"
+
+**Step 4: Test LLMIsvc (facebook-opt-125m) — after ISVC cleanup**
+
+Deploy and wait for LLMIsvc to be Ready (poll every 30s, timeout 20min):
+```bash
+kubectl apply -f docs/samples/llmisvc/opt-125m-cpu/llm-inference-service-facebook-opt-125m-cpu.yaml -n kserve
+```
+Poll until Ready:
+```bash
+kubectl get llmisvc facebook-opt-125m-single -n kserve -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
+```
+- If `True` → report "✅ LLMIsvc facebook-opt-125m-single is Ready" then delete it:
+  ```bash
+  kubectl delete llmisvc facebook-opt-125m-single -n kserve
+  ```
+  Then notify user: "✅ Smoke test passed! ISVC and LLMIsvc both verified. v{VERSION} release complete!"
+
+  **Delete checkpoint** (release fully complete):
+  ```bash
+  rm -f /tmp/kserve-release-checkpoint.json
+  ```
+- If timeout (20min) → report failure with:
+  ```bash
+  kubectl get pods -n kserve
+  kubectl describe llmisvc facebook-opt-125m-single -n kserve
+  ```
+  Ask: "LLMIsvc smoke test timed out. Abort or wait longer? (abort/wait)"
+
+To clean up: `./hack/setup/dev/manage.kind-with-registry.sh --uninstall`
 
 ## Approval Points Summary
 
 1. **Phase 1** — Confirm version and target repo
 2. **Phase 4** — Merge PR after CI passes
-3. **Phase 5** — Dry-run passed → execute branch/tag
-4. **Phase 5** — Continue now or resume later (image builds)
-5. **Phase 6** — Create draft release
-6. **Phase 8** — Run pre-release smoke test
-7. **Phase 9** — Publish release
+3. **Phase 6** — Create draft release
+4. **Phase 6** — Publish draft release
+5. **Phase 9** — Run smoke test
 
 ## Error Handling
 
@@ -687,9 +411,6 @@ Notes:
 |-----------|--------|
 | bump-version fails | Show error, ask user how to proceed |
 | CI timeout (60min) | Report, ask retry or abort |
-| CI failure after rerun | Show logs, ask retry or abort |
-| Abort chosen | Offer cleanup options (local only), keep checkpoint |
-| Restart after abort | Fetch upstream/master, create new branch, re-bump, new PR |
-| Branch/tag missing | Re-run `./hack/release/create-branch-tag.sh v{VERSION} --execute` |
-| Image build not triggered | Diagnose tag, check Docker Publisher workflows, report to user |
+| CI failure after rerun | Show logs, ask retry/skip/abort |
+| Branch/tag missing | Suggest re-running release-branch-tag.yml manually |
 | Publish fails | Show error, provide manual command |

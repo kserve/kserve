@@ -234,7 +234,7 @@ class HuggingfaceGenerativeModel(OpenAIChatAdapterModel):  # pylint:disable=c-ex
             model_kwargs["trust_remote_code"] = True
             tokenizer_kwargs["trust_remote_code"] = True
 
-        model_kwargs["dtype"] = self.dtype
+        model_kwargs["torch_dtype"] = self.dtype
 
         # load huggingface tokenizer
         self._tokenizer = AutoTokenizer.from_pretrained(
@@ -509,7 +509,7 @@ class HuggingfaceGenerativeModel(OpenAIChatAdapterModel):  # pylint:disable=c-ex
     def apply_chat_template(
         self,
         request: ChatCompletionRequest,
-    ) -> ChatPrompt:  # TODO: Does not support multi-modal, also does not solve mistral tokenizer issue.
+    ) -> ChatPrompt:  # TODO: Does not supprot multi-modal, also does not solve mistral tokenizer issue.
         """
         Given a list of chat completion messages, convert them to a prompt.
         """

@@ -142,22 +142,11 @@ if [ "${SET_KSERVE_VERSION}" != "" ]; then
 fi
 
 # Build chart arrays based on ENABLE_* flags
-# When a specific version is set, override imagePullPolicy to IfNotPresent
-# to match kustomize version-template overlay behavior for dev/test scenarios
-PULL_POLICY_KSERVE=""
-PULL_POLICY_LLMISVC=""
-PULL_POLICY_LOCALMODEL=""
-if [ -n "${SET_KSERVE_VERSION}" ]; then
-    PULL_POLICY_KSERVE="--set kserve.controller.imagePullPolicy=IfNotPresent"
-    PULL_POLICY_LLMISVC="--set kserve.llmisvc.controller.imagePullPolicy=IfNotPresent"
-    PULL_POLICY_LOCALMODEL="--set kserve.localmodel.controller.imagePullPolicy=IfNotPresent --set kserve.localmodelnode.controller.imagePullPolicy=IfNotPresent"
-fi
-
 if is_positive "${ENABLE_KSERVE}"; then
     log_info "KServe is enabled"
     CRD_CHARTS+=("kserve-crd")
     RESOURCE_CHARTS+=("kserve-resources")
-    RESOURCE_EXTRA_ARGS_LIST+=("${KSERVE_EXTRA_ARGS:-} ${PULL_POLICY_KSERVE}")
+    RESOURCE_EXTRA_ARGS_LIST+=("${KSERVE_EXTRA_ARGS:-}")
     TARGET_DEPLOYMENT_NAMES+=("kserve-controller-manager")
 fi
 
@@ -165,7 +154,7 @@ if is_positive "${ENABLE_LLMISVC}"; then
     log_info "LLMIsvc is enabled"
     CRD_CHARTS+=("kserve-llmisvc-crd")
     RESOURCE_CHARTS+=("kserve-llmisvc-resources")
-    RESOURCE_EXTRA_ARGS_LIST+=("${LLMISVC_EXTRA_ARGS:-} ${PULL_POLICY_LLMISVC}")
+    RESOURCE_EXTRA_ARGS_LIST+=("${LLMISVC_EXTRA_ARGS:-}")
     TARGET_DEPLOYMENT_NAMES+=("llmisvc-controller-manager")
 fi
 
@@ -173,7 +162,7 @@ if is_positive "${ENABLE_LOCALMODEL}"; then
     log_info "LocalModel is enabled"
     CRD_CHARTS+=("kserve-localmodel-crd")
     RESOURCE_CHARTS+=("kserve-localmodel-resources")
-    RESOURCE_EXTRA_ARGS_LIST+=("${LOCALMODEL_EXTRA_ARGS:-} ${PULL_POLICY_LOCALMODEL}")
+    RESOURCE_EXTRA_ARGS_LIST+=("${LOCALMODEL_EXTRA_ARGS:-}")
     TARGET_DEPLOYMENT_NAMES+=("kserve-localmodel-controller-manager")
 fi
 # INCLUDE_IN_GENERATED_SCRIPT_END
@@ -199,8 +188,9 @@ adopt_existing_crds_for_release() {
 
 # GIE CRDs that are bundled in the kserve-llmisvc-resources chart
 GIE_CRDS=(
-    "inferencemodelrewrites.llm-d.ai"
-    "inferenceobjectives.llm-d.ai"
+    "inferencemodelrewrites.inference.networking.x-k8s.io"
+    "inferenceobjectives.inference.networking.x-k8s.io"
+    "inferencepoolimports.inference.networking.x-k8s.io"
     "inferencepools.inference.networking.k8s.io"
     "inferencepools.inference.networking.x-k8s.io"
 )
@@ -254,9 +244,9 @@ install() {
         fi
 
         if is_positive "${ENABLE_LOCALMODEL}"; then
-            config_args+=(--set "kserve.localmodel.enabled=true")
-            config_args+=(--set "kserve.localmodel.defaultJobImage=kserve/storage-initializer")
-            config_args+=(--set "kserve.localmodel.defaultJobImageTag=${KSERVE_VERSION}")
+            config_args+=(--set "kserve.localModel.enabled=true")
+            config_args+=(--set "kserve.localModel.defaultJobImage=kserve/storage-initializer")
+            config_args+=(--set "kserve.localModel.defaultJobImageTag=${KSERVE_VERSION}")
         fi
         # Add custom configurations if provided
         if [ -n "${KSERVE_CUSTOM_ISVC_CONFIGS}" ]; then
@@ -363,41 +353,6 @@ install() {
     done
 
     log_success "Successfully installed KServe"
-
-    # Helm's sortManifestsByKind applies the llmisvc-controller-manager Deployment
-    # (a known kind) before cert-manager's Certificate CR (a custom kind, sorted
-    # last), so the pod can be scheduled and attempt to mount
-    # llmisvc-webhook-server-cert before cert-manager has issued it, hitting
-    # FailedMount and kubelet's mount-retry backoff. Wait for the Certificate to
-    # be issued and restart the deployment to reset that backoff before waiting
-    # for it to become ready.
-    if is_positive "${ENABLE_LLMISVC}"; then
-        log_info "Waiting for llmisvc webhook Certificate to be ready..."
-        kubectl wait --for=condition=Ready certificate/llmisvc-serving-cert \
-            -n "${KSERVE_NAMESPACE}" --timeout=180s
-
-        log_info "Restarting llmisvc-controller-manager to pick up the freshly-issued cert..."
-        kubectl rollout restart deployment/llmisvc-controller-manager -n "${KSERVE_NAMESPACE}"
-
-        # Wait for the NEW ReplicaSet to be fully rolled out. The wait_for_deployment
-        # helper below uses --for=condition=Available, which is satisfied by the OLD
-        # ReplicaSet's Ready pod during the rolling restart: it returns instantly but
-        # does not guarantee the new pod is serving the webhook. The subsequent
-        # kserve-runtime-configs install then applies LLMInferenceServiceConfig presets
-        # whose validating webhook must authorize each, and can hit the webhook Service
-        # before the new pod is a ready endpoint (dial ...:443: connect: connection refused).
-        log_info "Waiting for llmisvc-controller-manager rollout to complete..."
-        kubectl rollout status deployment/llmisvc-controller-manager \
-            -n "${KSERVE_NAMESPACE}" --timeout=300s
-
-        # Additionally wait for the webhook Service to have ready endpoints, covering the
-        # window between pod-ready and kube-proxy programming the Service endpoints.
-        log_info "Waiting for llmisvc webhook Service endpoints..."
-        kubectl wait --for=jsonpath='{.subsets[0].addresses}' \
-            endpoints/llmisvc-webhook-server-service \
-            -n "${KSERVE_NAMESPACE}" --timeout=60s
-        log_info "llmisvc webhook is ready."
-    fi
 
     # Wait for all controller managers to be ready
     log_info "Waiting for KServe controllers to be ready..."

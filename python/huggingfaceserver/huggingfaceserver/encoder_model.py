@@ -154,7 +154,7 @@ class HuggingfaceEncoderModel(Model, OpenAIEncoderModel):  # pylint:disable=c-ex
         self.max_length = _get_and_verify_max_len(self.model_config, self.max_length)
         model_cls = get_model_class_for_task(self.task)
 
-        # device_map = "auto" enables model parallelism but all model architecture dont support it.
+        # device_map = "auto" enables model parallelism but all model architcture dont support it.
         # For pre-check we initialize the model class without weights to check the `_no_split_modules`
         # device_map = "auto" for models that support this else set to either cuda/cpu
         with init_empty_weights():
@@ -174,7 +174,7 @@ class HuggingfaceEncoderModel(Model, OpenAIEncoderModel):  # pylint:disable=c-ex
             model_kwargs["trust_remote_code"] = True
             tokenizer_kwargs["trust_remote_code"] = True
 
-        model_kwargs["dtype"] = self.dtype
+        model_kwargs["torch_dtype"] = self.dtype
 
         # load huggingface tokenizer
         self._tokenizer = AutoTokenizer.from_pretrained(

@@ -13,48 +13,9 @@ pytest.param(
 
 The `llm_config_factory` fixture automatically creates/cleans up `LLMInferenceServiceConfig` objects.
 
-## Test Markers
+## Test Filtering
 
-Tests carry two kinds of markers: **group markers** (what the test covers) and
-**cluster markers** (what hardware/environment it needs). Group markers are
-assigned automatically from the filename; cluster markers are set explicitly
-via `pytest.param(..., marks=...)`.
-
-### Auto-assigned group markers (implicit, from file naming)
-
-`conftest.py` hooks into `pytest_collection_modifyitems` and assigns group
-markers based on the test file name. No `@pytest.mark` decorator is needed on
-individual tests for these — the filename alone decides the group.
-
-| File pattern | Assigned markers | Example file |
-|---|---|---|
-| `test_llm_autoscaling_<variant>.py` | `llmisvc_autoscaling` + `autoscaling_<variant>` | `test_llm_autoscaling_wva.py` → `llmisvc_autoscaling`, `autoscaling_wva` |
-| Files in `_LLMISVC_CORE_EXCLUDED` | *none* (manually marked) | `test_llm_tracing.py` has its own `tracing` marker |
-| Everything else | `llmisvc_core` | `test_llm_inference_service.py`, `test_pod_watch.py` |
-
-**Key rules:**
-
-1. **Autoscaling variants** — name the file `test_llm_autoscaling_<variant>.py`
-   and the variant marker (`autoscaling_<variant>`) is derived automatically.
-   Adding `test_llm_autoscaling_keda.py` creates the `autoscaling_keda` marker
-   with no further code changes.
-2. **Excluded files** — files in `_LLMISVC_CORE_EXCLUDED` (currently
-   `test_llm_tracing.py`) opt out of automatic `llmisvc_core` and must carry
-   their own explicit markers.
-3. **Default** — every other `test_*.py` under `test/e2e/llmisvc/` receives
-   `llmisvc_core` automatically.
-
-When adding a new test file, decide which group it belongs to:
-
-- Core LLMISVC functionality → just name it `test_*.py` (auto-gets `llmisvc_core`).
-- New autoscaling backend → name it `test_llm_autoscaling_<backend>.py`.
-- Completely new category → add the file to `_LLMISVC_CORE_EXCLUDED` and apply
-  an explicit marker; register the marker in `pytest_configure` and `pytest.ini`.
-
-### Cluster capability markers (explicit, per test param)
-
-These are set on individual `pytest.param(...)` entries and describe what
-hardware or environment the test needs:
+Tests are marked with both general and cluster-specific capability markers:
 
 - `@pytest.mark.llminferenceservice` - All LLM inference service tests
 - `@pytest.mark.cluster_cpu` - CPU-only tests
@@ -62,24 +23,11 @@ hardware or environment the test needs:
 - `@pytest.mark.cluster_nvidia` - NVIDIA GPU tests
 - `@pytest.mark.cluster_nvidia_roce` - NVIDIA ROCe tests
 - `@pytest.mark.cluster_intel` - Intel GPU tests
-- `@pytest.mark.cluster_single_node` / `cluster_multi_node` - topology
 
 Examples:
 
 ```bash
-# Run all core LLMISVC tests
-pytest -m "llmisvc_core" test/e2e/llmisvc/
-
-# Run only WVA autoscaling tests
-pytest -m "autoscaling_wva" test/e2e/llmisvc/
-
-# Run all LLMISVC autoscaling variants
-pytest -m "llmisvc_autoscaling" test/e2e/llmisvc/
-
-# Run core tests on CPU clusters only
-pytest -m "llmisvc_core and cluster_cpu" test/e2e/llmisvc/
-
-# Run all LLM inference service tests (any group)
+# Run all LLM inference service tests
 pytest -m "llminferenceservice" test/e2e/llmisvc/
 
 # Run only CPU tests

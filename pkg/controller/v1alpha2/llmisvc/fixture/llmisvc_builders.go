@@ -29,7 +29,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
-	"github.com/kserve/kserve/pkg/constants"
 )
 
 type LLMInferenceServiceOption ObjectOption[*v1alpha2.LLMInferenceService]
@@ -62,24 +61,6 @@ func WithModelURI(uri string) LLMInferenceServiceOption {
 func WithModelName(name string) LLMInferenceServiceOption {
 	return func(llmSvc *v1alpha2.LLMInferenceService) {
 		llmSvc.Spec.Model.Name = &name
-	}
-}
-
-func WithLoRAAdapters(adapterNames ...string) LLMInferenceServiceOption {
-	return func(llmSvc *v1alpha2.LLMInferenceService) {
-		if llmSvc.Spec.Model.LoRA == nil {
-			llmSvc.Spec.Model.LoRA = &v1alpha2.LoRASpec{}
-		}
-		for _, name := range adapterNames {
-			adapterURL, err := apis.ParseURL("hf://test-org/" + name)
-			if err != nil {
-				panic(err)
-			}
-			llmSvc.Spec.Model.LoRA.Adapters = append(llmSvc.Spec.Model.LoRA.Adapters, v1alpha2.LLMModelSpec{
-				Name: ptr.To(name),
-				URI:  *adapterURL,
-			})
-		}
 	}
 }
 
@@ -147,56 +128,12 @@ func WithManagedRoute() LLMInferenceServiceOption {
 	}
 }
 
-func WithGroup(group string) LLMInferenceServiceOption {
-	return func(llmSvc *v1alpha2.LLMInferenceService) {
-		if llmSvc.Spec.Router == nil {
-			llmSvc.Spec.Router = &v1alpha2.RouterSpec{}
-		}
-		if llmSvc.Spec.Router.Route == nil {
-			llmSvc.Spec.Router.Route = &v1alpha2.GatewayRoutesSpec{}
-		}
-		// Group routing requires managed HTTP routes (route.http must be non-nil).
-		if llmSvc.Spec.Router.Route.HTTP == nil {
-			llmSvc.Spec.Router.Route.HTTP = &v1alpha2.HTTPRouteSpec{}
-		}
-		llmSvc.Spec.Router.Route.Group = &group
-		// Mirror what the defaulting webhook does: sync the routing-group label
-		// so field indexers and label selectors work correctly in envtest
-		// (where the defaulting webhook is not installed).
-		if llmSvc.Labels == nil {
-			llmSvc.Labels = make(map[string]string)
-		}
-		llmSvc.Labels[constants.LLMRoutingGroupLabelKey] = group
-	}
-}
-
-func WithWeight(weight int32) LLMInferenceServiceOption {
-	return func(llmSvc *v1alpha2.LLMInferenceService) {
-		if llmSvc.Spec.Router == nil {
-			llmSvc.Spec.Router = &v1alpha2.RouterSpec{}
-		}
-		if llmSvc.Spec.Router.Route == nil {
-			llmSvc.Spec.Router.Route = &v1alpha2.GatewayRoutesSpec{}
-		}
-		llmSvc.Spec.Router.Route.Weight = &weight
-	}
-}
-
 func WithAnnotations(annotationsToAdd map[string]string) LLMInferenceServiceOption {
 	return func(llmSvc *v1alpha2.LLMInferenceService) {
 		if llmSvc.Annotations == nil {
 			llmSvc.Annotations = make(map[string]string)
 		}
 		maps.Copy(llmSvc.Annotations, annotationsToAdd)
-	}
-}
-
-func WithSpecAnnotations(annotationsToAdd map[string]string) LLMInferenceServiceOption {
-	return func(llmSvc *v1alpha2.LLMInferenceService) {
-		if llmSvc.Spec.Annotations == nil {
-			llmSvc.Spec.Annotations = make(map[string]string)
-		}
-		maps.Copy(llmSvc.Spec.Annotations, annotationsToAdd)
 	}
 }
 
@@ -493,15 +430,6 @@ func WithConfigManagedScheduler() LLMInferenceServiceConfigOption {
 			config.Spec.Router = &v1alpha2.RouterSpec{}
 		}
 		config.Spec.Router.Scheduler = &v1alpha2.SchedulerSpec{}
-	}
-}
-
-func WithConfigSpecAnnotations(annotationsToAdd map[string]string) LLMInferenceServiceConfigOption {
-	return func(config *v1alpha2.LLMInferenceServiceConfig) {
-		if config.Spec.Annotations == nil {
-			config.Spec.Annotations = make(map[string]string)
-		}
-		maps.Copy(config.Spec.Annotations, annotationsToAdd)
 	}
 }
 
