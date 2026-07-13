@@ -72,9 +72,10 @@ func TokenizerLabels(llmSvc *v1alpha2.LLMInferenceService) map[string]string {
 }
 
 // isTokenizerEnabled returns true if the standalone tokenizer should be deployed.
-// This is the case when either:
-//   - spec.router.scheduler.tokenizer is explicitly set (fresh install), or
-//   - legacy precise-prefix-cache-scorer plugin is detected (migration path)
+// The tokenizer is inferred from plugin presence in the scheduler config:
+//   - token-producer plugin detected (primary trigger — directly calls the tokenizer)
+//   - legacy precise-prefix-cache-scorer plugin detected (migration path — will be decomposed)
+//   - spec.router.scheduler.tokenizer is explicitly set (operational override)
 func isTokenizerEnabled(spec v1alpha2.LLMInferenceServiceSpec) bool {
 	if spec.Router == nil || spec.Router.Scheduler == nil {
 		return false
@@ -82,7 +83,17 @@ func isTokenizerEnabled(spec v1alpha2.LLMInferenceServiceSpec) bool {
 	if spec.Router.Scheduler.Tokenizer != nil {
 		return true
 	}
-	return hasPrecisePrefixCachePlugin(spec)
+	return hasTokenProducerPlugin(spec) || hasPrecisePrefixCachePlugin(spec)
+}
+
+// hasTokenProducerPlugin checks if the scheduler config contains the token-producer
+// plugin, which requires a standalone tokenizer deployment to serve tokenization
+// requests over HTTP (vLLM render endpoint).
+func hasTokenProducerPlugin(spec v1alpha2.LLMInferenceServiceSpec) bool {
+	if spec.Router == nil || spec.Router.Scheduler == nil || spec.Router.Scheduler.Config == nil || spec.Router.Scheduler.Config.Inline == nil {
+		return false
+	}
+	return bytes.Contains(spec.Router.Scheduler.Config.Inline.Raw, []byte(tokenProducerPlugin))
 }
 
 // hasPrecisePrefixCachePlugin checks if the scheduler config contains the legacy

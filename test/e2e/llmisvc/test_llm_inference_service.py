@@ -594,7 +594,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
             ),
             marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
         ),
-        # Standalone tokenizer — clean path: tokenizer:{} with 3-plugin pipeline
+        # Standalone tokenizer — clean path: token-producer in inline config
         pytest.param(
             TestCase(
                 base_refs=[

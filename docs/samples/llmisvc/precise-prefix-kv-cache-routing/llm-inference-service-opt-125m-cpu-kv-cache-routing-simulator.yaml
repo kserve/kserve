@@ -13,7 +13,6 @@ spec:
   replicas: 2
   router:
     scheduler:
-      tokenizer: {}
       config:
         inline:
           apiVersion: llm-d.ai/v1alpha1

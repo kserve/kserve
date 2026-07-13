@@ -753,13 +753,12 @@ LLMINFERENCESERVICE_CONFIGS = {
             },
         },
     },
-    # Clean-path: explicit tokenizer:{} with 3-plugin pipeline.
-    # The controller generates token-producer URL from the standalone tokenizer
-    # Service when tokenizer:{} is set.
+    # Clean-path: token-producer in inline config triggers standalone tokenizer
+    # deployment automatically. The controller injects modelName and vllm.url
+    # into the token-producer plugin parameters.
     "scheduler-with-tokenizer-kvcache": {
         "router": {
             "scheduler": {
-                "tokenizer": {},
                 "config": {
                     "inline": {
                         "apiVersion": "inference.networking.x-k8s.io/v1alpha1",

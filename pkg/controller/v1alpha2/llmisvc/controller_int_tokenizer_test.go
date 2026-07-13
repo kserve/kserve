@@ -38,7 +38,7 @@ import (
 )
 
 var _ = Describe("LLMInferenceService Controller — Standalone Tokenizer", func() {
-	Context("When tokenizer is explicitly configured via spec.router.scheduler.tokenizer", func() {
+	Context("When standalone tokenizer should be deployed", func() {
 		It("should create tokenizer Deployment and Service from well-known config", func(ctx SpecContext) {
 			svcName := "test-llm-tokenizer-explicit"
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
@@ -89,7 +89,7 @@ var _ = Describe("LLMInferenceService Controller — Standalone Tokenizer", func
 			}).WithContext(ctx).Should(Succeed())
 		})
 
-		It("should generate 3-plugin pipeline in default scheduler config", func(ctx SpecContext) {
+		It("should deploy tokenizer when token-producer plugin is in inline config", func(ctx SpecContext) {
 			svcName := "test-llm-tok-3plugin"
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
@@ -99,7 +99,41 @@ var _ = Describe("LLMInferenceService Controller — Standalone Tokenizer", func
 				WithManagedRoute(),
 				WithManagedGateway(),
 				WithManagedScheduler(),
-				WithManagedTokenizer(),
+				WithSchedulerConfigInline(`
+apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+- type: token-producer
+- type: precise-prefix-cache-producer
+  parameters:
+    tokenProcessorConfig:
+      blockSize: 64
+    kvEventsConfig:
+      topicFilter: "kv@"
+      discoverPods: true
+      podDiscoveryConfig:
+        socketPort: 5557
+    indexerConfig:
+      kvBlockIndexConfig:
+        enableMetrics: true
+- type: prefix-cache-scorer
+  parameters:
+    prefixMatchInfoProducerName: precise-prefix-cache-producer
+- type: kv-cache-utilization-scorer
+- type: queue-scorer
+- type: max-score-picker
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: prefix-cache-scorer
+    weight: 3
+  - pluginRef: kv-cache-utilization-scorer
+    weight: 2
+  - pluginRef: queue-scorer
+    weight: 2
+  - pluginRef: max-score-picker
+`),
 			)
 
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
@@ -107,7 +141,22 @@ var _ = Describe("LLMInferenceService Controller — Standalone Tokenizer", func
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			// Verify scheduler config contains the 3-plugin pipeline
+			tokenizerName := kmeta.ChildName(svcName, "-tokenizer")
+
+			// Verify tokenizer Deployment is auto-deployed from plugin detection
+			Eventually(func(g Gomega, ctx context.Context) {
+				dep := &appsv1.Deployment{}
+				g.Expect(envTest.Get(ctx, types.NamespacedName{
+					Name:      tokenizerName,
+					Namespace: testNs.Name,
+				}, dep)).To(Succeed())
+
+				g.Expect(dep).To(BeOwnedBy(llmSvc))
+				containerNames := containerNameList(dep)
+				g.Expect(containerNames).To(ContainElement("vllm-render"))
+			}).WithContext(ctx).Should(Succeed())
+
+			// Verify token-producer gets wired with tokenizer URL
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				if err := envTest.Get(ctx, types.NamespacedName{
@@ -120,16 +169,7 @@ var _ = Describe("LLMInferenceService Controller — Standalone Tokenizer", func
 				configText, found := getSchedulerConfigText(expectedDeployment)
 				g.Expect(found).To(BeTrue(), "Expected --config-text in scheduler deployment")
 				g.Expect(configText).To(ContainSubstring("token-producer"))
-				g.Expect(configText).To(ContainSubstring("precise-prefix-cache-producer"))
-				g.Expect(configText).To(ContainSubstring("prefix-cache-scorer"))
 				g.Expect(configText).To(ContainSubstring(kmeta.ChildName(svcName, "-tokenizer")))
-				g.Expect(configText).To(ContainSubstring("modelName: /mnt/models/base"))
-
-				// Verify sensible defaults on precise-prefix-cache-producer
-				g.Expect(configText).To(ContainSubstring("blockSize: 64"))
-				g.Expect(configText).To(ContainSubstring("discoverPods: true"))
-				g.Expect(configText).To(ContainSubstring("socketPort: 5557"))
-				g.Expect(configText).To(ContainSubstring("enableMetrics: true"))
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})
@@ -270,7 +310,7 @@ schedulingProfiles:
 	})
 
 	Context("Tokenizer cleanup on spec change", func() {
-		It("should delete tokenizer resources when tokenizer is removed from spec", func(ctx SpecContext) {
+		It("should delete tokenizer resources when tokenizer field is removed from spec", func(ctx SpecContext) {
 			svcName := "test-llm-tok-cleanup"
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
@@ -325,6 +365,84 @@ schedulingProfiles:
 					Namespace: testNs.Name,
 				}, svc)
 				g.Expect(errors.IsNotFound(err)).To(BeTrue(), "tokenizer Service should be deleted")
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should delete tokenizer resources when token-producer plugin is removed from inline config", func(ctx SpecContext) {
+			svcName := "test-llm-tok-cleanup-plugin"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithSchedulerConfigInline(`
+apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+- type: token-producer
+- type: precise-prefix-cache-producer
+- type: prefix-cache-scorer
+  parameters:
+    prefixMatchInfoProducerName: precise-prefix-cache-producer
+- type: queue-scorer
+- type: max-score-picker
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: prefix-cache-scorer
+    weight: 3
+  - pluginRef: queue-scorer
+    weight: 2
+  - pluginRef: max-score-picker
+`),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			tokenizerName := kmeta.ChildName(svcName, "-tokenizer")
+
+			// Wait for tokenizer Deployment to exist (triggered by token-producer in config)
+			Eventually(func(g Gomega, ctx context.Context) {
+				dep := &appsv1.Deployment{}
+				g.Expect(envTest.Get(ctx, types.NamespacedName{
+					Name:      tokenizerName,
+					Namespace: testNs.Name,
+				}, dep)).To(Succeed())
+			}).WithContext(ctx).Should(Succeed())
+
+			// Remove token-producer from inline config (switch to simple config)
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				current := &v1alpha2.LLMInferenceService{}
+				Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				current.Spec.Router.Scheduler.Config = nil
+				return envTest.Update(ctx, current)
+			})).To(Succeed())
+
+			// Tokenizer Deployment should be deleted
+			Eventually(func(g Gomega, ctx context.Context) {
+				dep := &appsv1.Deployment{}
+				err := envTest.Get(ctx, types.NamespacedName{
+					Name:      tokenizerName,
+					Namespace: testNs.Name,
+				}, dep)
+				g.Expect(errors.IsNotFound(err)).To(BeTrue(), "tokenizer Deployment should be deleted after removing token-producer plugin")
+			}).WithContext(ctx).Should(Succeed())
+
+			// Tokenizer Service should also be deleted
+			Eventually(func(g Gomega, ctx context.Context) {
+				svc := &corev1.Service{}
+				err := envTest.Get(ctx, types.NamespacedName{
+					Name:      tokenizerName,
+					Namespace: testNs.Name,
+				}, svc)
+				g.Expect(errors.IsNotFound(err)).To(BeTrue(), "tokenizer Service should be deleted after removing token-producer plugin")
 			}).WithContext(ctx).Should(Succeed())
 		})
 	})

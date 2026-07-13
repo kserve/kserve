@@ -62,6 +62,21 @@ func TestIsTokenizerEnabled(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "token-producer plugin present",
+			spec: v1alpha2.LLMInferenceServiceSpec{
+				Router: &v1alpha2.RouterSpec{
+					Scheduler: &v1alpha2.SchedulerSpec{
+						Config: &v1alpha2.SchedulerConfigSpec{
+							Inline: &runtime.RawExtension{
+								Raw: []byte(`{"plugins":[{"type":"token-producer"},{"type":"precise-prefix-cache-producer"}]}`),
+							},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
 			name: "legacy precise-prefix-cache-scorer present",
 			spec: v1alpha2.LLMInferenceServiceSpec{
 				Router: &v1alpha2.RouterSpec{
@@ -77,7 +92,7 @@ func TestIsTokenizerEnabled(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "no tokenizer, no precise-prefix-cache-scorer",
+			name: "no tokenizer, no precise-prefix-cache-scorer, no token-producer",
 			spec: v1alpha2.LLMInferenceServiceSpec{
 				Router: &v1alpha2.RouterSpec{
 					Scheduler: &v1alpha2.SchedulerSpec{
@@ -344,7 +359,7 @@ schedulingProfiles:
 				},
 			}
 
-			g.Expect(mutateSchedulerConfig(context.Background(), d, withDecomposePluginPipeline(tt.tokenizerURL))).To(Succeed())
+			g.Expect(mutateSchedulerConfig(context.Background(), d, withDecomposePrecisePrefixCacheScorer(tt.tokenizerURL))).To(Succeed())
 
 			configText := d.Spec.Template.Spec.Containers[0].Args[1]
 			tt.validateConfig(g, configText)
@@ -375,7 +390,7 @@ plugins:
 		},
 	}
 
-	g.Expect(mutateSchedulerConfig(context.Background(), d, withDecomposePluginPipeline("http://tokenizer:8000"))).To(Succeed())
+	g.Expect(mutateSchedulerConfig(context.Background(), d, withDecomposePrecisePrefixCacheScorer("http://tokenizer:8000"))).To(Succeed())
 
 	configText := d.Spec.Template.Spec.Containers[0].Args[1]
 	g.Expect(configText).NotTo(ContainSubstring(tokenProducerPlugin))
@@ -425,7 +440,7 @@ schedulingProfiles:
 		},
 	}
 
-	g.Expect(mutateSchedulerConfig(context.Background(), d, withDecomposePluginPipeline("http://tokenizer:8000"))).To(Succeed())
+	g.Expect(mutateSchedulerConfig(context.Background(), d, withDecomposePrecisePrefixCacheScorer("http://tokenizer:8000"))).To(Succeed())
 
 	configText := d.Spec.Template.Spec.Containers[0].Args[1]
 

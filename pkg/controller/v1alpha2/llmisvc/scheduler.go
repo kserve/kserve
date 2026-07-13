@@ -76,19 +76,20 @@ func (r *LLMISVCReconciler) reconcileScheduler(ctx context.Context, llmSvc *v1al
 		return err
 	}
 
-	// Emit a deprecation warning when the tokenizer is auto-provisioned via
-	// legacy precise-prefix-cache-scorer detection rather than an explicit
-	// spec.router.scheduler.tokenizer field. We check hasPrecisePrefixCachePlugin
-	// because by this point the well-known config merge may have already
-	// populated Scheduler.Tokenizer from the injected config.
+	// Emit a deprecation warning when the legacy monolithic precise-prefix-cache-scorer
+	// plugin is detected. It will be automatically decomposed into the 3-plugin pipeline
+	// (token-producer + precise-prefix-cache-producer + prefix-cache-scorer) during
+	// version-gated migration. Users should migrate their inline config to use the
+	// decomposed plugins directly.
 	if hasPrecisePrefixCachePlugin(llmSvc.Spec) {
 		log.FromContext(ctx).Info("DEPRECATION: precise-prefix-cache-scorer plugin detected in config.inline. " +
-			"A standalone tokenizer is being auto-provisioned. " +
-			"Please add 'tokenizer: {}' to spec.router.scheduler and remove the precise-prefix-cache-scorer " +
-			"plugin from config.inline. This implicit migration will be removed in a future release.")
-		r.Eventf(llmSvc, corev1.EventTypeWarning, "DeprecatedTokenizerConfig",
+			"This monolithic plugin will be automatically decomposed into token-producer, " +
+			"precise-prefix-cache-producer, and prefix-cache-scorer. " +
+			"Please update your config.inline to use the decomposed plugins directly. " +
+			"This implicit migration will be removed in a future release.")
+		r.Eventf(llmSvc, corev1.EventTypeWarning, "DeprecatedPlugin",
 			"LLMInferenceService %q uses precise-prefix-cache-scorer in config.inline. "+
-				"Add 'tokenizer: {}' to spec.router.scheduler and remove precise-prefix-cache-scorer from config.inline. "+
+				"Update config.inline to use token-producer, precise-prefix-cache-producer, and prefix-cache-scorer directly. "+
 				"This implicit migration will be removed in a future release.", llmSvc.Name)
 	}
 
@@ -584,51 +585,11 @@ plugins:
 			loraProfileEntry = fmt.Sprintf("  - pluginRef: %s\n    weight: 4\n", loraAffinityScorerPlugin)
 		}
 
-		if isTokenizerEnabled(llmSvc.Spec) {
-			return fmt.Sprintf(`
-apiVersion: inference.networking.x-k8s.io/v1alpha1
-kind: EndpointPickerConfig
-plugins:
-- type: single-profile-handler
-- type: token-producer
-  parameters:
-    modelName: %s
-    vllm:
-      url: %s
-- type: precise-prefix-cache-producer
-  parameters:
-    tokenProcessorConfig:
-      blockSize: 64
-    kvEventsConfig:
-      topicFilter: "kv@"
-      discoverPods: true
-      podDiscoveryConfig:
-        socketPort: 5557
-    indexerConfig:
-      kvBlockIndexConfig:
-        enableMetrics: true
-- type: prefix-cache-scorer
-  parameters:
-    prefixMatchInfoProducerName: precise-prefix-cache-producer
-- type: kv-cache-utilization-scorer
-- type: queue-scorer
-- type: max-score-picker
-%sschedulingProfiles:
-- name: default
-  plugins:
-%s  - pluginRef: prefix-cache-scorer
-    weight: 3
-  - pluginRef: kv-cache-utilization-scorer
-    weight: 2
-  - pluginRef: queue-scorer
-    weight: 2
-  - pluginRef: max-score-picker
-`, tokenizerModelName, tokenizerServiceURL(llmSvc), loraPlugin, loraProfileEntry)
-		}
-
 		// Single-profile default follows the llm-d optimized baseline:
 		// queue + kv-cache-utilization + prefix-cache + no-hit-lru scorers, plus
 		// lora-affinity-scorer injected when LoRA adapters are configured.
+		// Users who want precise prefix routing must explicitly declare
+		// token-producer and precise-prefix-cache-producer in their inline config.
 		return fmt.Sprintf(`
 apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
@@ -1424,7 +1385,7 @@ func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alp
 		// precise-prefix-cache-producer plugin types.
 		if isTokenizerEnabled(llmSvc.Spec) {
 			tokURL := tokenizerServiceURL(llmSvc)
-			opts = append(opts, withDecomposePluginPipeline(tokURL))
+			opts = append(opts, withDecomposePrecisePrefixCacheScorer(tokURL))
 			opts = append(opts, withInjectTokenProducerConfig(tokURL))
 		}
 	}
@@ -1611,14 +1572,14 @@ func withInjectTokenProducerConfig(tokenizerURL string) mutateSchedulerConfigFun
 	}
 }
 
-// withDecomposePluginPipeline replaces the monolithic precise-prefix-cache-scorer
+// withDecomposePrecisePrefixCacheScorer replaces the monolithic precise-prefix-cache-scorer
 // plugin with the new 3-plugin pipeline: token-producer, precise-prefix-cache-producer,
 // and prefix-cache-scorer. The token-producer is wired to the standalone tokenizer
 // Service URL, and prefix-cache-scorer gets prefixMatchInfoProducerName set.
 // User-specified parameters (tokenProcessorConfig, kvEventsConfig,
 // indexerConfig.kvBlockIndexConfig) are preserved on the producer plugin;
 // only tokenizersPoolConfig is dropped (handled by token-producer over HTTP).
-func withDecomposePluginPipeline(tokenizerURL string) mutateSchedulerConfigFunc {
+func withDecomposePrecisePrefixCacheScorer(tokenizerURL string) mutateSchedulerConfigFunc {
 	return func(ctx context.Context, u *unstructured.Unstructured) error {
 		val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
 		if err != nil || !found {
