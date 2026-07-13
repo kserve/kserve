@@ -73,7 +73,7 @@ func expectedKServeControllerSecretsRole(namespace string) *rbacv1.Role {
 			Namespace: namespace,
 			Labels: map[string]string{
 				constants.KubernetesPartOfLabelKey: "kserve",
-				"app.kubernetes.io/component":    "controller-namespace-rbac",
+				"app.kubernetes.io/component":      "controller-namespace-rbac",
 			},
 		},
 		Rules: []rbacv1.PolicyRule{{
@@ -91,7 +91,7 @@ func expectedKServeControllerSecretsRoleBinding(namespace string) *rbacv1.RoleBi
 			Namespace: namespace,
 			Labels: map[string]string{
 				constants.KubernetesPartOfLabelKey: "kserve",
-				"app.kubernetes.io/component":    "controller-namespace-rbac",
+				"app.kubernetes.io/component":      "controller-namespace-rbac",
 			},
 		},
 		Subjects: []rbacv1.Subject{{

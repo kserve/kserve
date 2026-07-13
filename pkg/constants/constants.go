@@ -48,8 +48,8 @@ const (
 	LLMISvcControllerServiceAccountName     = "llmisvc-controller-manager"
 	KServeControllerSecretsRoleName         = "kserve-controller-secrets"
 	KServeControllerSecretsRoleBindingName  = "kserve-controller-secrets"
-	LLMISvcControllerSecretsRoleName        = "kserve-llmisvc-controller-secrets"
-	LLMISvcControllerSecretsRoleBindingName = "kserve-llmisvc-controller-secrets"
+	LLMISvcControllerSecretsRoleName        = "kserve-llmisvc-controller-secrets" //nolint:gosec // G101: RBAC resource name, not a credential
+	LLMISvcControllerSecretsRoleBindingName = "kserve-llmisvc-controller-secrets" //nolint:gosec // G101: RBAC resource name, not a credential
 )
 
 // Kueue Constants

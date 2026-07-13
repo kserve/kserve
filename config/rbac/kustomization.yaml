@@ -5,6 +5,8 @@ resources:
 - service_account.yaml
 - role.yaml
 - role_binding.yaml
+- controller_namespace_secrets_role.yaml
+- controller_namespace_secrets_role_binding.yaml
 - leader_election_role.yaml
 - leader_election_role_binding.yaml
 # Comment the following 3 lines if you want to disable

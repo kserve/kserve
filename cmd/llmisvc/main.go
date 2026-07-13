@@ -28,6 +28,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	apixclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -194,10 +195,28 @@ func main() {
 		HealthProbeBindAddress: options.probeAddr,
 		LeaderElection:         options.enableLeaderElection,
 		LeaderElectionID:       "llminferenceservice-kserve-controller-manager",
+		Client: client.Options{
+			// Secret reads bypass the cache so the reconciler can use namespace-scoped
+			// Roles created per LLMInferenceService namespace instead of cluster-wide
+			// secret list permissions.
+			Cache: &client.CacheOptions{
+				DisableFor: []client.Object{
+					&corev1.Secret{},
+					&rbacv1.ClusterRoleBinding{},
+				},
+			},
+		},
 		Cache: cache.Options{
 			ByObject: map[client.Object]cache.ByObject{
 				&corev1.Secret{}: {
-					Label: llmSvcCacheSelector,
+					// Limit the secret informer to the controller namespace where bootstrap
+					// RBAC is installed. Workload namespaces are accessed via the API reader
+					// after namespace-scoped Roles are reconciled.
+					Namespaces: map[string]cache.Config{
+						constants.KServeNamespace: {
+							LabelSelector: llmSvcCacheSelector,
+						},
+					},
 				},
 				&corev1.ConfigMap{}: {
 					Namespaces: map[string]cache.Config{

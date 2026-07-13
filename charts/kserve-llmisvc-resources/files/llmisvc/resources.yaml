@@ -1436,6 +1436,29 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
+  labels:
+    app.kubernetes.io/component: controller-namespace-rbac
+    app.kubernetes.io/name: kserve
+    app.kubernetes.io/part-of: llminferenceservice
+  name: kserve-llmisvc-controller-secrets
+  namespace: kserve
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
   name: llmisvc-leader-election-role
   namespace: kserve
 rules:
@@ -1665,7 +1688,6 @@ rules:
   resources:
   - clusterrolebindings
   verbs:
-  - create
   - get
   - patch
   - update
@@ -1675,8 +1697,10 @@ rules:
   - rolebindings
   - roles
   verbs:
+  - bind
   - create
   - delete
+  - escalate
   - get
   - list
   - patch
@@ -1737,6 +1761,24 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
+  labels:
+    app.kubernetes.io/component: controller-namespace-rbac
+    app.kubernetes.io/name: kserve
+    app.kubernetes.io/part-of: llminferenceservice
+  name: kserve-llmisvc-controller-secrets
+  namespace: kserve
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kserve-llmisvc-controller-secrets
+subjects:
+- kind: ServiceAccount
+  name: llmisvc-controller-manager
+  namespace: kserve
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
   name: llmisvc-leader-election-rolebinding
   namespace: kserve
 roleRef:
@@ -1747,6 +1789,18 @@ subjects:
 - kind: ServiceAccount
   name: llmisvc-controller-manager
   namespace: kserve
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: llm-scheduler-auth
+    app.kubernetes.io/part-of: llminferenceservice
+  name: kserve-llmisvc-scheduler-auth-delegators
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

@@ -38444,6 +38444,23 @@ metadata:
   labels:
     app.kubernetes.io/component: kserve
     app.kubernetes.io/name: kserve
+    app.kubernetes.io/part-of: kserve
+  name: kserve-controller-secrets
+  namespace: kserve
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/component: kserve
+    app.kubernetes.io/name: kserve
   name: kserve-leader-election-role
   namespace: kserve
 rules:
@@ -38524,23 +38541,9 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - secrets
   - serviceaccounts
   verbs:
   - get
-- apiGroups:
-  - admissionregistration.k8s.io
-  resources:
-  - mutatingwebhookconfigurations
-  - validatingwebhookconfigurations
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
 - apiGroups:
   - apps
   resources:
@@ -38653,6 +38656,21 @@ rules:
   - patch
   - update
 - apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  - roles
+  verbs:
+  - bind
+  - create
+  - delete
+  - escalate
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - serving.knative.dev
   resources:
   - services
@@ -38736,6 +38754,24 @@ rules:
   - subjectaccessreviews
   verbs:
   - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: kserve
+    app.kubernetes.io/name: kserve
+    app.kubernetes.io/part-of: kserve
+  name: kserve-controller-secrets
+  namespace: kserve
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kserve-controller-secrets
+subjects:
+- kind: ServiceAccount
+  name: kserve-controller-manager
+  namespace: kserve
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

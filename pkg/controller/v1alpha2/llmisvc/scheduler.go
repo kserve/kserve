@@ -132,9 +132,7 @@ func (r *LLMISVCReconciler) addSchedulerAuthDelegatorSubject(ctx context.Context
 		crb := &rbacv1.ClusterRoleBinding{}
 		err := r.Get(ctx, client.ObjectKey{Name: constants.LLMISvcSchedulerAuthCRBName}, crb)
 		if apierrors.IsNotFound(err) {
-			crb = r.expectedSharedSchedulerAuthDelegatorBinding()
-			crb.Subjects = []rbacv1.Subject{subject}
-			return r.Create(ctx, crb)
+			return fmt.Errorf("scheduler auth delegator ClusterRoleBinding %q not found: install bootstrap RBAC", constants.LLMISvcSchedulerAuthCRBName)
 		}
 		if err != nil {
 			return err
@@ -168,9 +166,6 @@ func (r *LLMISVCReconciler) removeSchedulerAuthDelegatorSubject(ctx context.Cont
 		})
 		if len(filtered) == len(crb.Subjects) {
 			return nil
-		}
-		if len(filtered) == 0 {
-			return client.IgnoreNotFound(r.Delete(ctx, crb))
 		}
 
 		crb.Subjects = filtered

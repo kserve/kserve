@@ -51,7 +51,7 @@ func expectedControllerNamespaceSecretsRole(llmSvc *v1alpha2.LLMInferenceService
 			Namespace: llmSvc.GetNamespace(),
 			Labels: map[string]string{
 				constants.KubernetesPartOfLabelKey: constants.LLMInferenceServicePartOfValue,
-				"app.kubernetes.io/component":    "controller-namespace-rbac",
+				"app.kubernetes.io/component":      "controller-namespace-rbac",
 			},
 		},
 		Rules: []rbacv1.PolicyRule{{
@@ -69,7 +69,7 @@ func expectedControllerNamespaceSecretsRoleBinding(llmSvc *v1alpha2.LLMInference
 			Namespace: llmSvc.GetNamespace(),
 			Labels: map[string]string{
 				constants.KubernetesPartOfLabelKey: constants.LLMInferenceServicePartOfValue,
-				"app.kubernetes.io/component":    "controller-namespace-rbac",
+				"app.kubernetes.io/component":      "controller-namespace-rbac",
 			},
 		},
 		Subjects: []rbacv1.Subject{{

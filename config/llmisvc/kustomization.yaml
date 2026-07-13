@@ -119,6 +119,11 @@ replacements:
       kind: RoleBinding
       name: llmisvc-leader-election-rolebinding
   - fieldPaths:
+    - subjects.*.name
+    select:
+      kind: RoleBinding
+      name: kserve-llmisvc-controller-secrets
+  - fieldPaths:
     - spec.template.spec.serviceAccountName
     select:
       kind: Deployment
