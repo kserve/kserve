@@ -191,7 +191,7 @@ func validateCanarySpecs(isvc *InferenceService) error {
 	}
 
 	if isvc.Spec.Predictor.GetImplementation().GetStorageUri() == nil && isvc.Spec.Predictor.Model == nil {
-		return fmt.Errorf("canary requires a stable predictor with a model (multi-model serving is not supported with canary)")
+		return errors.New("canary requires a stable predictor with a model (multi-model serving is not supported with canary)")
 	}
 
 	names := make(map[string]bool, len(isvc.Spec.Canary))
