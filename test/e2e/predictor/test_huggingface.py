@@ -57,6 +57,11 @@ ISVC_READY_TIMEOUT_S = 900
 ISVC_ANNOTATIONS = {"serving.knative.dev/progress-deadline": "20m"}
 
 
+def assert_answers_four(text: str):
+    """Gracefully handle if the answer slightly changes between model/lib updates"""
+    assert text is not None, "expected a completion, got no text field"
+    assert "4" in text, f"expected the answer to contain '4', got: {text!r}"
+
 @pytest.mark.llm
 def test_huggingface_openai_chat_completions():
     service_name = "hf-qwen-chat"
@@ -107,7 +112,7 @@ def test_huggingface_openai_chat_completions():
     )
 
     res = generate(service_name, "./data/qwen_input_chat.json")
-    assert res["choices"][0]["message"]["content"] == "The result of 2 + 2 is 4."
+    assert_answers_four(res["choices"][0]["message"]["content"])
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
@@ -174,7 +179,7 @@ def test_huggingface_openai_chat_completions_streaming():
     trace_logger.info(f"Full response: {full_response}")
 
     # Verify we got a valid response
-    assert full_response.strip() == "The result of 2 + 2 is 4."
+    assert_answers_four(full_response)
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
@@ -229,7 +234,7 @@ def test_huggingface_openai_text_completion_qwen2():
     )
 
     res = generate(service_name, "./data/qwen_input_cmpl.json", chat_completions=False)
-    assert res["choices"][0].get("text").strip() == "The result of 2 + 2 is 4."
+    assert_answers_four(res["choices"][0].get("text"))
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
@@ -287,7 +292,7 @@ def test_huggingface_openai_text_completion_streaming():
         service_name, "./data/qwen_input_cmpl_stream.json"
     )
     trace_logger.info(f"Full response: {full_response}")
-    assert full_response.strip() == "The result of 2 + 2 is 4."
+    assert_answers_four(full_response)
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
