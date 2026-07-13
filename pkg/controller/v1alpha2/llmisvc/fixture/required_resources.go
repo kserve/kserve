@@ -24,6 +24,7 @@ import (
 
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/kmeta"
@@ -59,6 +60,25 @@ func RequiredResources(ctx context.Context, c client.Client, ns string) {
 
 	gomega.Expect(c.Create(ctx, DefaultGateway(ns))).To(gomega.Succeed())
 	gomega.Expect(c.Create(ctx, DefaultGatewayClass())).To(gomega.Succeed())
+	gomega.Expect(c.Create(ctx, SchedulerAuthDelegatorClusterRoleBinding())).To(gomega.Succeed())
+}
+
+// SchedulerAuthDelegatorClusterRoleBinding mirrors config/rbac/llmisvc/scheduler_auth_delegator_clusterrolebinding.yaml.
+func SchedulerAuthDelegatorClusterRoleBinding() *rbacv1.ClusterRoleBinding {
+	return &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: constants.LLMISvcSchedulerAuthCRBName,
+			Labels: map[string]string{
+				"app.kubernetes.io/component":      "llm-scheduler-auth",
+				constants.KubernetesPartOfLabelKey: constants.LLMInferenceServicePartOfValue,
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: rbacv1.GroupName,
+			Kind:     "ClusterRole",
+			Name:     "system:auth-delegator",
+		},
+	}
 }
 
 func IstioShadowService(name, ns string) *corev1.Service {
