@@ -27,3 +27,7 @@ import (
 func UpdateRoutingStatusForTest(ctx context.Context, r *LLMISVCReconciler, llmSvc *v1alpha2.LLMInferenceService, routes ...*gwapiv1.HTTPRoute) ([]ResolvedGateway, error) {
 	return r.updateRoutingStatus(ctx, llmSvc, routes...)
 }
+
+func ValidateSchedulerBackendRefConsistencyForTest(r *LLMISVCReconciler, llmSvc *v1alpha2.LLMInferenceService) error {
+	return r.validateSchedulerBackendRefConsistency(llmSvc)
+}

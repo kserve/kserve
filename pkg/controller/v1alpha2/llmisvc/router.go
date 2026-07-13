@@ -89,7 +89,6 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 		return err
 	}
 
-	// Reconcile the scheduler component that manages inference pools
 	if err := r.reconcileScheduler(ctx, llmSvc); err != nil {
 		llmSvc.MarkSchedulerWorkloadNotReady("SchedulerReconcileError", "Failed to reconcile scheduler: %v", err.Error())
 		return fmt.Errorf("failed to reconcile scheduler: %w", err)
