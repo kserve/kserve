@@ -33,6 +33,18 @@ ENV_SCAN_PATTERNS = "AUTOGLUON_SAFE_LOAD_SCAN_PATTERNS"
 ENV_LOG_DENIED_MAX = "AUTOGLUON_SAFE_LOAD_LOG_DENIED_MAX"
 
 DEFAULT_SCAN_PATTERNS: tuple[str, ...] = ("*.pkl", "*.pickle", "*.joblib")
+# Default module-prefix allowlist for legitimate AutoGluon artifacts.
+# These prefixes are intentionally broad enough to cover common tabular/time-series
+# stacks shipped in the runtime image.
+#
+# Notes on sensitive-looking entries:
+# - "cloudpickle": required because AutoGluon may persist objects serialized
+#   through cloudpickle in some training flows.
+# - "inspect": used by parts of AutoGluon/fastai internals during object restore.
+# - "pathlib": appears in persisted path objects.
+# - "random": used by model components/state in some pipelines.
+# They remain allowlisted for compatibility; operators can still tighten policy by
+# combining restrictive model sources with AUTOGLUON_SAFE_LOAD_MODE=enforce.
 DEFAULT_ALLOWED_MODULE_PREFIXES: tuple[str, ...] = (
     "autogluon",
     "numpy",
@@ -275,6 +287,15 @@ def _scan_zip_container(
 def _scan_pickle_bytes(
     payload: bytes, source: Path
 ) -> tuple[list[tuple[str, str]], list[str]]:
+    """
+    Scan pickle bytecode for explicit GLOBAL/STACK_GLOBAL module references.
+
+    This is static analysis over pickle opcodes. It can detect direct module/name
+    references embedded in the stream, but it is not a full sandbox and cannot
+    prove deserialization safety. In particular, it does not detect malicious
+    behavior hidden in legitimate objects (e.g. custom __reduce__/__setstate__
+    logic) or exploits inside allowed third-party modules.
+    """
     refs: list[tuple[str, str]] = []
     errors: list[str] = []
     stack: list[object] = []

@@ -128,9 +128,33 @@ spec:
   - `permissive`: scan and log violations, but still load.
   - `enforce`: scan and reject on violations.
 - **`AUTOGLUON_SAFE_LOAD_ALLOWED_MODULES`**: optional extra allowlist entries for pickle module prefixes (comma-separated string or JSON list). These are appended to the built-in defaults.
+  - The built-in defaults include modules required by common AutoGluon stacks, including `cloudpickle`, `inspect`, `pathlib`, and `random`, because legitimate artifacts may reference them.
+  - Treat these as compatibility defaults, not a complete security boundary.
 - **`AUTOGLUON_SAFE_LOAD_SCAN_PATTERNS`**: optional glob patterns for files to scan (comma-separated string or JSON list). Default: `["*.pkl", "*.pickle", "*.joblib"]`.
 - **`AUTOGLUON_SAFE_LOAD_LOG_DENIED_MAX`**: max number of denied references to include in warning/error details (default `10`).
 - **Target column** (time series): always taken from `TimeSeriesPredictor.target` on the loaded model. There is no environment variable to override it; use the same column name in `instances` / `known_covariates` as at training time.
+
+## Security considerations
+
+The safe-load feature is a pre-deserialization guardrail for pickle-based artifacts.
+
+### Threat model
+
+What it helps mitigate:
+- Detection/blocking of explicit unexpected module references in pickle bytecode (`GLOBAL`, `STACK_GLOBAL`)
+- Early rejection in `enforce` mode before predictor deserialization
+- Operational visibility in `permissive` mode via warning logs
+
+What it does **not** guarantee:
+- Full prevention of arbitrary code execution from all possible pickle payload styles
+- Detection of malicious behavior hidden in otherwise allowed objects (for example `__reduce__` / `__setstate__`)
+- Protection against vulnerabilities in legitimate allowed dependencies
+
+### Mode guidance
+
+- `off`: compatibility only; no artifact scanning
+- `permissive`: recommended rollout mode to measure/monitor violations before hard enforcement
+- `enforce`: production mode when your artifact sources and allowlist are validated
 
 ## Inference stack and dependency versions
 
