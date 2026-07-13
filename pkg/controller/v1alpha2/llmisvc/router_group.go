@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"slices"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	kmeta "knative.dev/pkg/kmeta"
@@ -228,7 +229,10 @@ func (r *LLMISVCReconciler) finalizeGroupMembership(ctx context.Context, llmSvc 
 			Namespace: peers[i].GetNamespace(),
 		}
 		if err := r.Get(ctx, routeKey, route); err != nil {
-			continue
+			if apierrors.IsNotFound(err) {
+				continue
+			}
+			return false, fmt.Errorf("checking peer route %s for stale backendRefs: %w", routeKey.Name, err)
 		}
 		if routeReferencesBackend(route, poolName) || routeReferencesBackend(route, svcName) {
 			logger.Info("Waiting for peer to remove backendRef before deletion",
