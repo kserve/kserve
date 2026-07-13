@@ -146,6 +146,9 @@ func (p *Predictor) buildPredictorResources(ctx context.Context, isvc *v1beta1.I
 		}
 	}
 
+	// Add InferenceService name as environment variable to all containers
+	// In collocation mode, there may be multiple containers (predictor + transformer)
+	// https://kserve.github.io/website/docs/model-serving/predictive-inference/transformers/collocation
 	for i := range podSpec.Containers {
 		containerName := podSpec.Containers[i].Name
 		if err := isvcutils.AddEnvVarToPodSpec(&podSpec, containerName, constants.InferenceServiceNameEnvVarKey, isvc.Name); err != nil {
@@ -154,10 +157,14 @@ func (p *Predictor) buildPredictorResources(ctx context.Context, isvc *v1beta1.I
 	}
 
 	predictorName := constants.PredictorServiceName(isvc.Name, isvc.Spec.Predictor.Name)
+
+	// Labels and annotations from predictor component
+	// Label filter will be handled in ksvc_reconciler
 	predictorLabels := isvc.Spec.Predictor.Labels
 	predictorAnnotations := utils.Filter(isvc.Spec.Predictor.Annotations, func(key string) bool {
 		return !utils.Includes(p.inferenceServiceConfig.ServiceAnnotationDisallowedList, key)
 	})
+	// Label filter will be handled in ksvc_reconciler
 	sRuntimeLabels := sRuntime.Labels
 	sRuntimeAnnotations := utils.Filter(sRuntime.Annotations, func(key string) bool {
 		return !utils.Includes(p.inferenceServiceConfig.ServiceAnnotationDisallowedList, key)
