@@ -103,20 +103,28 @@ func (p *Predictor) buildPredictorResources(ctx context.Context, isvc *v1beta1.I
 
 	addLoggerAnnotations(isvc.Spec.Predictor.Logger, annotations)
 	addBatcherAnnotations(isvc.Spec.Predictor.Batcher, annotations)
+	// Add ModelStorageSpec annotations so mutator will mount storage credentials to InferenceService's predictor
 	addStorageSpecAnnotations(isvc.Spec.Predictor.GetImplementation().GetStorageSpec(), annotations)
+	// Add agent annotations so mutator will mount model agent to multi-model InferenceService's predictor
 	addAgentAnnotations(isvc, annotations)
 
 	predictor := isvc.Spec.Predictor.GetImplementation()
+
+	// Knative does not support INIT containers or mounting, so we add annotations that trigger the
+	// StorageInitializer injector to mutate the underlying deployment to provision model data
+	// Only add annotations for single storage URI case. Multiple storage URIs are handled directly by reconcilers.
 	if sourceURI := predictor.GetStorageUri(); sourceURI != nil {
 		if err := p.addStorageInitializerAnnotations(ctx, predictor, annotations, isvc.Spec.Predictor.StorageContainerName); err != nil {
 			return nil, err
 		}
 	}
+	// Add confidential annotations if enabled on the predictor
 	addConfidentialAnnotations(&isvc.Spec.Predictor, annotations)
 
 	var podSpec corev1.PodSpec
 	var sRuntime v1alpha1.ServingRuntimeSpec
 
+	// If Model is specified, prioritize using that. Otherwise, we will assume a framework object was specified.
 	if isvc.Spec.Predictor.Model != nil {
 		var runtimeAnnotations map[string]string
 		var err error
@@ -175,7 +183,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	p.Log.V(1).Info("Predictor custom annotations", "annotations", p.inferenceServiceConfig.ServiceAnnotationDisallowedList)
 	p.Log.V(1).Info("Predictor custom labels", "labels", p.inferenceServiceConfig.ServiceLabelDisallowedList)
 
-	// Reconcile modelConfig (MMS only — canary does not use this)
+	// Reconcile modelConfig
 	if err := p.reconcileModelConfig(ctx, isvc); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -199,7 +207,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		objectMeta.Labels[constants.InferenceServiceGenerationPodLabelKey] = isvcGeneration
 	}
 
-	p.Log.Info("Resolved podSpec", "podSpec", podSpec)
+	p.Log.Info("Resolved main predictor container", "podSpec", podSpec)
 	var rawDeployment bool
 	var podLabelKey string
 	var podLabelValue string
@@ -783,9 +791,7 @@ func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.In
 			totalCanaryReplicas += canaryReplicaCount(isvc, &isvc.Spec.Canary[i])
 		}
 		adjusted := *componentExt.MinReplicas - totalCanaryReplicas
-		if adjusted < 1 {
-			adjusted = 1
-		}
+		adjusted = max(adjusted, 1)
 		componentExt.MinReplicas = &adjusted
 	}
 
@@ -981,13 +987,13 @@ func (p *Predictor) reconcileCanaryDeployments(ctx context.Context, isvc *v1beta
 			status = corev1.ConditionFalse
 			reason = "CanariesNotReady"
 		}
-		isvc.Status.SetCondition(v1beta1.CanaryReady, &apis.Condition{
-			Type:   v1beta1.CanaryReady,
+		isvc.Status.SetCondition(v1beta1.CanaryPredictorReady, &apis.Condition{
+			Type:   v1beta1.CanaryPredictorReady,
 			Status: status,
 			Reason: reason,
 		})
 	} else {
-		isvc.Status.ClearCondition(v1beta1.CanaryReady)
+		isvc.Status.ClearCondition(v1beta1.CanaryPredictorReady)
 	}
 
 	// Cleanup orphaned predictor deployments and services

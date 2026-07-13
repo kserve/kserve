@@ -145,8 +145,8 @@ const (
 	RoutesReady apis.ConditionType = "RoutesReady"
 	// LatestDeploymentReady is set when underlying configurations for all components have reported readiness.
 	LatestDeploymentReady apis.ConditionType = "LatestDeploymentReady"
-	// CanaryReady is set when all canary deployments have reported readiness.
-	CanaryReady apis.ConditionType = "CanaryReady"
+	// CanaryPredictorReady is set when all canary predictor deployments have reported readiness.
+	CanaryPredictorReady apis.ConditionType = "CanaryPredictorReady"
 	// Stopped is set when the inference service has been stopped and all related objects are deleted
 	Stopped apis.ConditionType = "Stopped"
 )
