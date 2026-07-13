@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -202,9 +203,17 @@ func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		// Resource is being deleted, perform cleanup
 		logger.Info("Marked for deletion, finalizing resources")
 		if controllerutil.ContainsFinalizer(original, finalizerName) {
-			if cleanupErr := r.finalize(ctx, original); cleanupErr != nil {
+			done, cleanupErr := r.finalize(ctx, original)
+			if cleanupErr != nil {
 				logger.Error(cleanupErr, "Finalization failed")
 				return ctrl.Result{}, cleanupErr
+			}
+			if !done {
+				logger.Info("Finalization incomplete, requeueing")
+				if statusErr := r.updateStatus(ctx, original); statusErr != nil {
+					logger.Error(statusErr, "Failed to persist finalization status")
+				}
+				return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 			}
 
 			// Cleanup successful, remove finalizer to allow deletion
@@ -288,13 +297,23 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 	return nil
 }
 
-// finalize performs cleanup operations when the LLMInferenceService is being deleted
-func (r *LLMISVCReconciler) finalize(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
-	if err := r.reconcileSchedulerServiceAccount(ctx, llmSvc); err != nil {
-		return fmt.Errorf("failed to finalize scheduler service account: %w", err)
+// finalize performs cleanup operations when the LLMInferenceService is being deleted.
+// Returns (done, err): done=false signals that cleanup is still in progress and the
+// caller should requeue.
+func (r *LLMISVCReconciler) finalize(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (bool, error) {
+	done, err := r.finalizeGroupMembership(ctx, llmSvc)
+	if err != nil {
+		return false, err
+	}
+	if !done {
+		return false, nil
 	}
 
-	return nil
+	if err := r.reconcileSchedulerServiceAccount(ctx, llmSvc); err != nil {
+		return false, fmt.Errorf("failed to finalize scheduler service account: %w", err)
+	}
+
+	return true, nil
 }
 
 // updateStatus updates the status of the LLMInferenceService with retry on conflict.
@@ -376,6 +395,10 @@ func GetFailConditions(svc *v1alpha2.LLMInferenceService) string {
 func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	logger := mgr.GetLogger().WithName("LLMInferenceService.SetupWithManager")
 
+	if err := setupGroupFieldIndex(context.Background(), mgr.GetFieldIndexer()); err != nil {
+		return fmt.Errorf("failed to set up field indexer for routing group: %w", err)
+	}
+
 	b := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha2.LLMInferenceService{}).
 		Watches(&v1alpha2.LLMInferenceServiceConfig{}, r.enqueueOnLLMInferenceServiceConfigChange(logger)).
@@ -389,6 +412,12 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&corev1.Pod{},
 			handler.EnqueueRequestsFromMapFunc(r.EnqueueOnLLMInferenceServicePods),
 			builder.WithPredicates(PodStatusPredicate()))
+
+	b = b.Watches(
+		&v1alpha2.LLMInferenceService{},
+		&groupMemberEventHandler{reconciler: r},
+		builder.WithPredicates(groupMemberChangePredicate()),
+	)
 
 	if err := r.extendControllerSetup(mgr, b); err != nil {
 		return fmt.Errorf("failed to extend controller setup: %w", err)
