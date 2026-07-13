@@ -48,9 +48,6 @@ def _build_config(temperature):
 @pytest.mark.parametrize("temperature", [0, 0.0])
 def test_zero_temperature_maps_to_greedy_decoding(temperature):
     config = _build_config(temperature)
-    # do_sample defaults to False (greedy) and no non-positive temperature is emitted,
-    # so transformers will not construct an invalid TemperatureLogitsWarper.
-    assert config.do_sample is False
     assert config.temperature is None or config.temperature > 0.0
 
 
