@@ -1405,7 +1405,7 @@ jobs:
       - name: Run E2E tests
         timeout-minutes: 45
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "llm" "1"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "llm" "2"
 
       - name: Check system status
         if: always()
