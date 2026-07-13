@@ -97,7 +97,8 @@ schedulingProfiles:
 				current := &v1alpha2.LLMInferenceService{}
 				g.Expect(envTest.Get(ctx, types.NamespacedName{Name: svcName, Namespace: testNs.Name}, current)).To(Succeed())
 				g.Expect(current.Status.Workloads).NotTo(BeNil())
-				g.Expect(current.Status.Workloads.Scheduler).To(Equal(&corev1.TypedLocalObjectReference{
+				g.Expect(current.Status.Workloads.Scheduler).NotTo(BeNil())
+				g.Expect(current.Status.Workloads.Scheduler.TypedLocalObjectReference).To(Equal(corev1.TypedLocalObjectReference{
 					APIGroup: ptr.To("apps"),
 					Kind:     "Deployment",
 					Name:     kmeta.ChildName(svcName, "-kserve-router-scheduler"),

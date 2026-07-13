@@ -164,7 +164,8 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				}
 			}, func(g Gomega, current *v1alpha2.LLMInferenceService) {
 				g.Expect(current.Status.Workloads).NotTo(BeNil())
-				g.Expect(current.Status.Workloads.Primary).To(Equal(&corev1.TypedLocalObjectReference{
+				g.Expect(current.Status.Workloads.Primary).NotTo(BeNil())
+				g.Expect(current.Status.Workloads.Primary.TypedLocalObjectReference).To(Equal(corev1.TypedLocalObjectReference{
 					APIGroup: ptr.To("apps"),
 					Kind:     "Deployment",
 					Name:     kmeta.ChildName(svcName, "-kserve"),
@@ -177,7 +178,8 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				// Scheduler is populated because "router-managed" config includes a
 				// scheduler spec and the well-known kserve-config-llm-scheduler preset
 				// provides the template.
-				g.Expect(current.Status.Workloads.Scheduler).To(Equal(&corev1.TypedLocalObjectReference{
+				g.Expect(current.Status.Workloads.Scheduler).NotTo(BeNil())
+				g.Expect(current.Status.Workloads.Scheduler.TypedLocalObjectReference).To(Equal(corev1.TypedLocalObjectReference{
 					APIGroup: ptr.To("apps"),
 					Kind:     "Deployment",
 					Name:     kmeta.ChildName(svcName, "-kserve-router-scheduler"),
@@ -2358,6 +2360,7 @@ func ensureRouterManagedResourcesAreReady(ctx context.Context, c client.Client, 
 		}
 
 		ensureSchedulerDeploymentReady(ctx, c, llmSvc)
+		ensureMainDeploymentAvailable(ctx, c, llmSvc)
 	}).WithContext(ctx).Should(gomega.Succeed())
 }
 
@@ -2379,6 +2382,40 @@ func ensureSchedulerDeploymentReady(ctx context.Context, c client.Client, llmSvc
 	logf.FromContext(ctx).Info("Marking scheduler ready (if any)", "deployments", deployments)
 	for _, d := range deployments.Items {
 		dep := d.DeepCopy()
+		dep.Status.Replicas = 1
+		dep.Status.ReadyReplicas = 1
+		dep.Status.AvailableReplicas = 1
+		dep.Status.Conditions = append(dep.Status.Conditions, appsv1.DeploymentCondition{
+			Type:   appsv1.DeploymentAvailable,
+			Status: corev1.ConditionTrue,
+		})
+		Expect(c.Status().Update(ctx, dep)).To(gomega.Succeed())
+	}
+}
+
+func ensureMainDeploymentAvailable(ctx context.Context, c client.Client, llmSvc *v1alpha2.LLMInferenceService) {
+	if envTest.UsingExistingCluster() {
+		return
+	}
+
+	workloadListOpts := &client.ListOptions{
+		Namespace: llmSvc.Namespace,
+		LabelSelector: labels.SelectorFromSet(map[string]string{
+			constants.KubernetesAppNameLabelKey: llmSvc.Name,
+			constants.KServeComponentLabelKey:   constants.KServeComponentWorkload,
+		}),
+	}
+	deployments := &appsv1.DeploymentList{}
+	err := c.List(ctx, deployments, workloadListOpts)
+	if err != nil && !errors.IsNotFound(err) {
+		Expect(err).NotTo(gomega.HaveOccurred())
+	}
+
+	for _, d := range deployments.Items {
+		dep := d.DeepCopy()
+		dep.Status.Replicas = 1
+		dep.Status.ReadyReplicas = 1
+		dep.Status.AvailableReplicas = 1
 		dep.Status.Conditions = append(dep.Status.Conditions, appsv1.DeploymentCondition{
 			Type:   appsv1.DeploymentAvailable,
 			Status: corev1.ConditionTrue,

@@ -292,7 +292,9 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 		return fmt.Errorf("failed to reconcile networking: %w", err)
 	}
 
-	observeWorkloadStatus(llmSvc)
+	if err := r.observeWorkloadStatus(ctx, llmSvc); err != nil {
+		return fmt.Errorf("failed to observe workload status: %w", err)
+	}
 
 	return nil
 }
