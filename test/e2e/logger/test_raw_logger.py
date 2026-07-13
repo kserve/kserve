@@ -12,12 +12,10 @@
 # limitations under the License.
 
 import asyncio
-import os
 import uuid
 from kubernetes import client
 
 from kserve import (
-    KServeClient,
     constants,
     V1beta1PredictorSpec,
     V1beta1SKLearnSpec,
@@ -32,16 +30,15 @@ from ..common.utils import predict_isvc
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
-kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 annotations = {"serving.kserve.io/deploymentMode": "Standard"}
 
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_kserve_logger(rest_v1_client, network_layer):
+async def test_kserve_logger(kserve_client, rest_v1_client, network_layer):
     suffix = str(uuid.uuid4())[1:6]
     msg_dumper = "message-dumper-raw-" + suffix
-    before(msg_dumper)
+    before(kserve_client, msg_dumper)
 
     service_name = "isvc-logger-raw-" + suffix
     predictor = V1beta1PredictorSpec(
@@ -63,14 +60,14 @@ async def test_kserve_logger(rest_v1_client, network_layer):
             ),
         ),
     )
-    await base_test(msg_dumper, service_name, predictor, rest_v1_client, network_layer)
+    await base_test(kserve_client, msg_dumper, service_name, predictor, rest_v1_client, network_layer)
 
 
 @pytest.mark.asyncio(scope="session")
 @pytest.mark.rawcipn
-async def test_kserve_logger_cipn(rest_v1_client, network_layer):
+async def test_kserve_logger_cipn(kserve_client, rest_v1_client, network_layer):
     msg_dumper = "message-dumper-raw-cipn"
-    before(msg_dumper)
+    before(kserve_client, msg_dumper)
 
     # Verify msg_dumper's status.address.url includes :8080 for headless mode
     isvc_status = kserve_client.get(
@@ -104,10 +101,10 @@ async def test_kserve_logger_cipn(rest_v1_client, network_layer):
             ),
         ),
     )
-    await base_test(msg_dumper, service_name, predictor, rest_v1_client, network_layer)
+    await base_test(kserve_client, msg_dumper, service_name, predictor, rest_v1_client, network_layer)
 
 
-def before(msg_dumper):
+def before(kserve_client, msg_dumper):
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         containers=[
@@ -135,7 +132,7 @@ def before(msg_dumper):
     kserve_client.wait_isvc_ready(msg_dumper, namespace=KSERVE_TEST_NAMESPACE)
 
 
-async def base_test(msg_dumper, service_name, predictor, rest_v1_client, network_layer):
+async def base_test(kserve_client, msg_dumper, service_name, predictor, rest_v1_client, network_layer):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,

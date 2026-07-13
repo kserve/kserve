@@ -11,10 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 from kubernetes import client
 
-from kserve import KServeClient
 from kserve import constants
 from kserve import V1beta1PredictorSpec
 from kserve import V1beta1Batcher
@@ -27,12 +25,10 @@ import pytest
 from ..common.utils import predict_isvc
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
-kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
-
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_batcher_custom_port(rest_v1_client, network_layer):
+async def test_batcher_custom_port(kserve_client, rest_v1_client, network_layer):
     service_name = "isvc-sklearn-batcher-custom"
 
     predictor = V1beta1PredictorSpec(

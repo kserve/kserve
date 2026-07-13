@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import os
 
 import pytest
 import pytest_asyncio
@@ -20,7 +21,7 @@ from httpx_retries import Retry, RetryTransport
 import httpx
 
 import kserve
-from kserve import InferenceRESTClient, RESTConfig
+from kserve import KServeClient, InferenceRESTClient, RESTConfig
 from kserve.constants.constants import PredictorProtocol
 from kserve.logging import logger, KSERVE_LOG_CONFIG
 
@@ -103,6 +104,13 @@ async def rest_v2_client():
     )
     yield v2_client
     await v2_client.close()
+
+
+@pytest.fixture(scope="session")
+def kserve_client():
+    return KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
 
 
 def pytest_addoption(parser):

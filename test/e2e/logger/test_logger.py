@@ -12,10 +12,8 @@
 # limitations under the License.
 
 import asyncio
-import os
 from kubernetes import client
 
-from kserve import KServeClient
 from kserve import constants
 from kserve import V1beta1PredictorSpec
 from kserve import V1beta1SKLearnSpec
@@ -28,13 +26,11 @@ import pytest
 from ..common.utils import predict_isvc
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
-kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
-
 
 @pytest.mark.predictor
 @pytest.mark.path_based_routing
 @pytest.mark.asyncio(scope="session")
-async def test_kserve_logger(rest_v1_client, network_layer):
+async def test_kserve_logger(kserve_client, rest_v1_client, network_layer):
     msg_dumper = "message-dumper"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
