@@ -24,6 +24,7 @@ import (
 	"slices"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"knative.dev/pkg/apis"
@@ -176,6 +177,24 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 	}
 
 	if route.HTTP.HasSpec() {
+		// Intentionally conservative: does not check per-peer enablement since that
+		// can change at any time (annotation flip, gateway config), silently
+		// activating a dormant collision.
+		if r.isModelBasedRoutingEnabled(ctx, llmSvc, cfg) {
+			others := &v1alpha2.LLMInferenceServiceList{}
+			if err := r.List(ctx, others, client.InNamespace(llmSvc.Namespace)); err != nil {
+				logger.Error(err, "failed to list LLMISVCs for model name collision check")
+			} else if collisions := findModelNameCollisions(llmSvc, others.Items); len(collisions) > 0 {
+				r.Eventf(llmSvc, corev1.EventTypeWarning, "ModelNameCollision",
+					"model-routing header values overlap with %s in namespace %s; "+
+						"identical header matches cause the gateway to shadow one service. "+
+						"The service is still reachable at its own address %s/%s "+
+						"and this warning is safe to ignore if you plan to enable traffic splitting later",
+					strings.Join(collisions, ", "), llmSvc.Namespace,
+					llmSvc.Namespace, llmSvc.Name)
+			}
+		}
+
 		if err := Reconcile(ctx, r, llmSvc, &gwapiv1.HTTPRoute{}, expectedHTTPRoute, semanticHTTPRouteIsEqual); err != nil {
 			return nil, fmt.Errorf("failed to reconcile HTTPRoute %s/%s: %w", expectedHTTPRoute.GetNamespace(), expectedHTTPRoute.GetName(), err)
 		}
