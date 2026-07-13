@@ -62,6 +62,7 @@ def assert_answers_four(text: str):
     assert text is not None, "expected a completion, got no text field"
     assert "4" in text, f"expected the answer to contain '4', got: {text!r}"
 
+
 @pytest.mark.llm
 def test_huggingface_openai_chat_completions():
     service_name = "hf-qwen-chat"
