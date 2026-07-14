@@ -814,7 +814,70 @@ func mergeSpecs(ctx context.Context, base, override v1alpha2.LLMInferenceService
 	if err := json.Unmarshal(mergedJSON, &finalSpec); err != nil {
 		return v1alpha2.LLMInferenceServiceSpec{}, fmt.Errorf("could not unmarshal merged spec: %w", err)
 	}
+
+	// Strategic merge replaces the entire HTTPRoute Rules list whenever Rules is present in
+	// the override. Timeout-only rule patches (common for long-running LLM inference) should
+	// overlay onto the preset rules instead of wiping backendRefs/matches.
+	overlayHTTPRouteTimeoutOnlyRules(&base, &override, &finalSpec)
+
 	return finalSpec, nil
+}
+
+func httpRouteSpecFrom(spec *v1alpha2.LLMInferenceServiceSpec) *gwapiv1.HTTPRouteSpec {
+	if spec == nil || spec.Router == nil || spec.Router.Route == nil || spec.Router.Route.HTTP == nil {
+		return nil
+	}
+	return spec.Router.Route.HTTP.Spec
+}
+
+// isTimeoutOnlyHTTPRouteRule reports whether a rule carries only timeouts and no routing
+// identity (matches, backends, filters, name, etc.). These are treated as overlays onto
+// preset-generated rules rather than a full Rules replacement.
+func isTimeoutOnlyHTTPRouteRule(rule gwapiv1.HTTPRouteRule) bool {
+	if rule.Timeouts == nil {
+		return false
+	}
+	return rule.Name == nil &&
+		len(rule.Matches) == 0 &&
+		len(rule.Filters) == 0 &&
+		len(rule.BackendRefs) == 0 &&
+		rule.SessionPersistence == nil &&
+		rule.Retry == nil
+}
+
+func rulesAreTimeoutOnlyOverlay(rules []gwapiv1.HTTPRouteRule) bool {
+	if len(rules) == 0 {
+		return false
+	}
+	for _, rule := range rules {
+		if !isTimeoutOnlyHTTPRouteRule(rule) {
+			return false
+		}
+	}
+	return true
+}
+
+// overlayHTTPRouteTimeoutOnlyRules restores base HTTPRoute rules when the override only
+// supplied timeout-only rules, then applies those timeouts to every restored rule.
+func overlayHTTPRouteTimeoutOnlyRules(base, override, merged *v1alpha2.LLMInferenceServiceSpec) {
+	baseHTTP := httpRouteSpecFrom(base)
+	overrideHTTP := httpRouteSpecFrom(override)
+	mergedHTTP := httpRouteSpecFrom(merged)
+	if baseHTTP == nil || overrideHTTP == nil || mergedHTTP == nil {
+		return
+	}
+	if !rulesAreTimeoutOnlyOverlay(overrideHTTP.Rules) || len(baseHTTP.Rules) == 0 {
+		return
+	}
+
+	timeouts := overrideHTTP.Rules[0].Timeouts
+	mergedHTTP.Rules = make([]gwapiv1.HTTPRouteRule, len(baseHTTP.Rules))
+	for i := range baseHTTP.Rules {
+		mergedHTTP.Rules[i] = *baseHTTP.Rules[i].DeepCopy()
+		if timeouts != nil {
+			mergedHTTP.Rules[i].Timeouts = timeouts.DeepCopy()
+		}
+	}
 }
 
 func isDefaultBackendRef(llmSvc *v1alpha2.LLMInferenceService, ref gwapiv1.BackendRef) bool {
