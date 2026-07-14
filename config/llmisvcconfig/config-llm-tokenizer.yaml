@@ -12,7 +12,15 @@ spec:
             - name: main
               image: docker.io/vllm/vllm-openai-cpu:v0.23.0@sha256:89e1fbe829038b1a560601990c8ec89625c622a969fcbc8f10ce48b6139795be
               imagePullPolicy: IfNotPresent
-              command: ["vllm", "launch", "render", "/mnt/models/base", "--port=8000"]
+              command:
+                - vllm
+                - launch
+                - render
+                - /mnt/models/base
+                - "--port=8000"
+                - '{{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }}'
+                - '{{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }}'
+                - '{{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }}'
               args: []
               ports:
                 - name: render-http
@@ -34,6 +42,7 @@ spec:
                 httpGet:
                   path: /health
                   port: render-http
+                  scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
                 initialDelaySeconds: 30
                 periodSeconds: 10
                 timeoutSeconds: 5
@@ -51,8 +60,14 @@ spec:
               volumeMounts:
                 - mountPath: /tmp/hf
                   name: hf-cache
+                - mountPath: /var/run/kserve/tls
+                  name: tls-certs
+                  readOnly: true
           volumes:
             - name: hf-cache
               emptyDir: {}
+            - name: tls-certs
+              secret:
+                secretName: "{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}"
           dnsPolicy: ClusterFirst
           restartPolicy: Always

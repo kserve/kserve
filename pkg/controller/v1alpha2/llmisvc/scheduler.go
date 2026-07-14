@@ -494,7 +494,11 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 		// is gated to the minimum EPP version that recognizes the new plugin
 		// names / config shapes. The v0.7 binary deprecates old names but still
 		// accepts them; v0.9 introduces the 3-plugin precise-prefix pipeline.
-		if err := schedulerTransform(ctx, d, llmSvc); err != nil {
+		reconcilerCfg, err := r.loadConfig(ctx)
+		if err != nil {
+			return d, fmt.Errorf("failed to load config for scheduler transform: %w", err)
+		}
+		if err := schedulerTransform(ctx, d, llmSvc, reconcilerCfg.EnableTLS); err != nil {
 			return d, fmt.Errorf("failed to apply scheduler migrations: %w", err)
 		}
 	}
@@ -1329,7 +1333,7 @@ func hasDeprecatedMetricFlags(d *appsv1.Deployment) bool {
 //  5. withCoreMetricsExtractorPlugin – inject core-metrics-extractor with extracted flag values
 //  6. withMigrateCoreMetricsExtractor – rename model-server-protocol-metrics → core-metrics-extractor
 //     (v0.8.0 only, runs after injection so freshly injected plugins are also renamed)
-func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alpha2.LLMInferenceService) error {
+func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alpha2.LLMInferenceService, enableTLS bool) error {
 	version, ok := d.Spec.Template.Annotations["app.kubernetes.io/version"]
 	if !ok || version == "" {
 		version = "0.0.0"
@@ -1380,7 +1384,7 @@ func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alp
 		// older EPP binaries do not recognize token-producer /
 		// precise-prefix-cache-producer plugin types.
 		if isTokenizerEnabled(llmSvc.Spec) {
-			tokURL := tokenizerServiceURL(llmSvc)
+			tokURL := tokenizerServiceURL(llmSvc, enableTLS)
 			opts = append(opts, withDecomposePrecisePrefixCacheScorer(tokURL))
 			opts = append(opts, withInjectTokenProducerConfig(tokURL))
 		}

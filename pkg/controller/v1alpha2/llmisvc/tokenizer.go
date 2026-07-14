@@ -53,8 +53,13 @@ func tokenizerServiceName(llmSvc *v1alpha2.LLMInferenceService) string {
 	return kmeta.ChildName(llmSvc.GetName(), "-tokenizer")
 }
 
-func tokenizerServiceURL(llmSvc *v1alpha2.LLMInferenceService) string {
-	return fmt.Sprintf("http://%s.%s.svc.%s:%d",
+func tokenizerServiceURL(llmSvc *v1alpha2.LLMInferenceService, enableTLS bool) string {
+	scheme := "http"
+	if enableTLS {
+		scheme = "https"
+	}
+	return fmt.Sprintf("%s://%s.%s.svc.%s:%d",
+		scheme,
 		tokenizerServiceName(llmSvc),
 		llmSvc.GetNamespace(),
 		network.GetClusterDomainName(),

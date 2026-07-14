@@ -5213,6 +5213,11 @@ spec:
             - render
             - /mnt/models/base
             - --port=8000
+            - '{{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }}'
+            - '{{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{-
+              end }}'
+            - '{{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{-
+              end }}'
             env:
             - name: HF_HOME
               value: /tmp/hf
@@ -5230,6 +5235,8 @@ spec:
               httpGet:
                 path: /health
                 port: render-http
+                scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end
+                  }}'
               initialDelaySeconds: 30
               periodSeconds: 10
               timeoutSeconds: 5
@@ -5253,11 +5260,18 @@ spec:
             volumeMounts:
             - mountPath: /tmp/hf
               name: hf-cache
+            - mountPath: /var/run/kserve/tls
+              name: tls-certs
+              readOnly: true
           dnsPolicy: ClusterFirst
           restartPolicy: Always
           volumes:
           - emptyDir: {}
             name: hf-cache
+          - name: tls-certs
+            secret:
+              secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs`
+                }}'
 ---
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig

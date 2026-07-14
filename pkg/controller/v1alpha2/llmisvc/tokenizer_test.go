@@ -147,12 +147,17 @@ func TestTokenizerServiceURL(t *testing.T) {
 		},
 	}
 
-	url := tokenizerServiceURL(llmSvc)
 	g := NewGomegaWithT(t)
+
+	url := tokenizerServiceURL(llmSvc, false)
 	g.Expect(url).To(ContainSubstring("my-llm-tokenizer"))
 	g.Expect(url).To(ContainSubstring("default"))
 	g.Expect(url).To(ContainSubstring(":8000"))
 	g.Expect(url).To(HavePrefix("http://"))
+
+	tlsURL := tokenizerServiceURL(llmSvc, true)
+	g.Expect(tlsURL).To(HavePrefix("https://"))
+	g.Expect(tlsURL).To(ContainSubstring("my-llm-tokenizer"))
 }
 
 func TestTokenizerLabels(t *testing.T) {
