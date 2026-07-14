@@ -193,9 +193,15 @@ func TestExpandLoRAAdapterMatches(t *testing.T) {
 			},
 		},
 		{
-			name: "expands messages model-routing matches for each adapter",
+			name: "expands consolidated model-routing rule with all endpoints",
 			rules: []gwapiv1.HTTPRouteRule{
 				ruleWithMatches(
+					exactPathWithHeaderMatch("/v1/completions", "publishers/ns/models/base-model"),
+					exactPathWithHeaderMatch("/v1/completions/", "publishers/ns/models/base-model"),
+					exactPathWithHeaderMatch("/v1/chat/completions", "publishers/ns/models/base-model"),
+					exactPathWithHeaderMatch("/v1/chat/completions/", "publishers/ns/models/base-model"),
+					exactPathWithHeaderMatch("/v1/responses", "publishers/ns/models/base-model"),
+					exactPathWithHeaderMatch("/v1/responses/", "publishers/ns/models/base-model"),
 					exactPathWithHeaderMatch("/v1/messages", "publishers/ns/models/base-model"),
 					exactPathWithHeaderMatch("/v1/messages/", "publishers/ns/models/base-model"),
 				),
@@ -204,16 +210,23 @@ func TestExpandLoRAAdapterMatches(t *testing.T) {
 			adapters:   adapters,
 			headerName: headerName,
 			wantFn: func(t *testing.T, rules []gwapiv1.HTTPRouteRule) {
-				// 2 base matches + 2 matches × 2 adapters = 6 total
-				assert.Len(t, rules[0].Matches, 6)
-				assert.Equal(t, "publishers/ns/models/adapter-a", rules[0].Matches[2].Headers[0].Value)
-				assert.Equal(t, "/v1/messages", *rules[0].Matches[2].Path.Value)
-				assert.Equal(t, "publishers/ns/models/adapter-b", rules[0].Matches[3].Headers[0].Value)
-				assert.Equal(t, "/v1/messages", *rules[0].Matches[3].Path.Value)
-				assert.Equal(t, "publishers/ns/models/adapter-a", rules[0].Matches[4].Headers[0].Value)
-				assert.Equal(t, "/v1/messages/", *rules[0].Matches[4].Path.Value)
-				assert.Equal(t, "publishers/ns/models/adapter-b", rules[0].Matches[5].Headers[0].Value)
-				assert.Equal(t, "/v1/messages/", *rules[0].Matches[5].Path.Value)
+				// 8 base matches + 8 matches x 2 adapters = 24 total
+				assert.Len(t, rules[0].Matches, 24)
+				for i, adapter := range []string{"adapter-a", "adapter-b"} {
+					for j, path := range []string{
+						"/v1/completions", "/v1/completions/",
+						"/v1/chat/completions", "/v1/chat/completions/",
+						"/v1/responses", "/v1/responses/",
+						"/v1/messages", "/v1/messages/",
+					} {
+						idx := 8 + i + j*2
+						m := rules[0].Matches[idx]
+						assert.Equal(t, "publishers/ns/models/"+adapter, m.Headers[0].Value,
+							"match[%d] adapter header", idx)
+						assert.Equal(t, path, *m.Path.Value,
+							"match[%d] path", idx)
+					}
+				}
 			},
 		},
 		{

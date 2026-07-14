@@ -4365,33 +4365,6 @@ spec:
               name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
               port: 8000
               weight: 1
-            matches:
-            - headers:
-              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
-                type: Exact
-                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
-                  }}
-              path:
-                type: Exact
-                value: /v1/completions
-            - headers:
-              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
-                type: Exact
-                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
-                  }}
-              path:
-                type: Exact
-                value: /v1/completions/
-            name: v1-completions-model-routing
-            timeouts:
-              backendRequest: 0s
-              request: 0s
-          - backendRefs:
-            - group: inference.networking.k8s.io
-              kind: InferencePool
-              name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
-              port: 8000
-              weight: 1
             filters:
             - type: URLRewrite
               urlRewrite:
@@ -4412,33 +4385,6 @@ spec:
               name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
               port: 8000
               weight: 1
-            matches:
-            - headers:
-              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
-                type: Exact
-                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
-                  }}
-              path:
-                type: Exact
-                value: /v1/chat/completions
-            - headers:
-              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
-                type: Exact
-                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
-                  }}
-              path:
-                type: Exact
-                value: /v1/chat/completions/
-            name: v1-chat-completions-model-routing
-            timeouts:
-              backendRequest: 0s
-              request: 0s
-          - backendRefs:
-            - group: inference.networking.k8s.io
-              kind: InferencePool
-              name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
-              port: 8000
-              weight: 1
             filters:
             - type: URLRewrite
               urlRewrite:
@@ -4450,33 +4396,6 @@ spec:
                 type: PathPrefix
                 value: /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }}/v1/responses
             name: v1-responses-path
-            timeouts:
-              backendRequest: 0s
-              request: 0s
-          - backendRefs:
-            - group: inference.networking.k8s.io
-              kind: InferencePool
-              name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
-              port: 8000
-              weight: 1
-            matches:
-            - headers:
-              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
-                type: Exact
-                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
-                  }}
-              path:
-                type: Exact
-                value: /v1/responses
-            - headers:
-              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
-                type: Exact
-                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
-                  }}
-              path:
-                type: Exact
-                value: /v1/responses/
-            name: v1-responses-model-routing
             timeouts:
               backendRequest: 0s
               request: 0s
@@ -4514,6 +4433,54 @@ spec:
                   }}
               path:
                 type: Exact
+                value: /v1/completions
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/completions/
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/chat/completions
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/chat/completions/
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/responses
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/responses/
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
                 value: /v1/messages
             - headers:
               - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
@@ -4523,7 +4490,7 @@ spec:
               path:
                 type: Exact
                 value: /v1/messages/
-            name: v1-messages-model-routing
+            name: v1-model-routing
             timeouts:
               backendRequest: 0s
               request: 0s
