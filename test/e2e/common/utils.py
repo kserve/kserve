@@ -31,7 +31,7 @@ from kserve import constants
 from kserve.inference_client import InferenceGRPCClient, InferenceRESTClient
 from kserve.protocol.grpc import grpc_predict_v2_pb2 as pb
 from kserve.logging import trace_logger as logger
-from .http_retry import post_with_retry
+from .http_retry import DEFAULT_TIMEOUT_SECONDS, post_with_retry
 
 KSERVE_NAMESPACE = os.environ.get("KSERVE_NAMESPACE", "kserve")
 KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
@@ -483,7 +483,9 @@ def _vllm_request(
         logger.info("Sending url = %s", url)
         logger.info("Sending request data: %s", data)
 
-        response = requests.post(url, json.dumps(data), headers=headers)
+        response = requests.post(
+            url, json.dumps(data), headers=headers, timeout=DEFAULT_TIMEOUT_SECONDS
+        )
         logger.info("Got response code %s", response.status_code)
         if not response.status_code == 200:
             response.raise_for_status()
