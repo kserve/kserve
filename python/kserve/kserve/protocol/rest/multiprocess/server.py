@@ -20,8 +20,8 @@ from socket import socket
 import threading
 from typing import Any, Callable, List, Optional, Union
 
-from kserve import logging
-from kserve.logging import logger
+from kserve import log_config
+from kserve.log_config import logger
 from kserve.protocol.dataplane import DataPlane
 from kserve.protocol.model_repository_extension import ModelRepositoryExtension
 from kserve.protocol.rest.server import RESTServer
@@ -70,7 +70,7 @@ class RESTServerProcess:
                 lambda sig, frame: signal.raise_signal(signal.SIGTERM),
             )
         # Configure logging for every child
-        logging.configure_logging(self._log_config_file)
+        log_config.configure_logging(self._log_config_file)
         threading.Thread(target=self.always_pong, daemon=True).start()
         try:
             return self._real_target(sockets=sockets)

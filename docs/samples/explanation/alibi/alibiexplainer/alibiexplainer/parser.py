@@ -17,7 +17,7 @@ import kserve
 import os
 from alibiexplainer.explainer import ExplainerMethod
 
-from kserve.logging import logger
+from kserve.log_config import logger
 
 DEFAULT_EXPLAINER_NAME = "explainer"
 ENV_STORAGE_URI = "STORAGE_URI"

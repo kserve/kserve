@@ -20,7 +20,7 @@ from os.path import expanduser
 from kubernetes import client
 from ..constants import constants
 
-from kserve.logging import logger
+from kserve.log_config import logger
 
 
 def set_gcs_credentials(namespace, credentials_file, service_account):

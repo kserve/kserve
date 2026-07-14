@@ -21,7 +21,7 @@ from art.estimators.classification import BlackBoxClassifierNeuralNetwork
 import nest_asyncio
 
 import kserve
-from kserve.logging import logger
+from kserve.log_config import logger
 
 
 nest_asyncio.apply()

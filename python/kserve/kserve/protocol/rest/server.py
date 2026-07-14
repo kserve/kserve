@@ -44,7 +44,7 @@ from kserve.errors import (
     server_not_ready_handler,
     unsupported_protocol_error_handler,
 )
-from kserve.logging import trace_logger, logger
+from kserve.log_config import trace_logger, logger
 from kserve.protocol.dataplane import DataPlane
 from kserve.protocol.rest.timeseries.config import maybe_register_time_series_endpoints
 
