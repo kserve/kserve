@@ -1,0 +1,58 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceService
+metadata:
+  name: qwen2-7b-kv-cache-offloading
+spec:
+  model:
+    uri: hf://Qwen/Qwen2.5-7B-Instruct
+    name: Qwen/Qwen2.5-7B-Instruct
+  router:
+    scheduler: {}
+    route: {}
+    gateway: {}
+  template:
+    containers:
+      - name: main
+        resources:
+          limits:
+            cpu: '8'
+            memory: 64Gi
+            nvidia.com/gpu: "1"
+          requests:
+            cpu: '4'
+            memory: 32Gi
+            nvidia.com/gpu: "1"
+  workload:
+    kvCacheOffloading:
+      # Primary tier: CPU RAM. GPU overflows here first.
+      cpu: "10Gi"
+      evictionPolicy: lru
+      # Secondary tiers: disk. GPU -> CPU -> disk cascade.
+      # Multiple entries are allowed; each becomes an independent disk tier at its
+      # own mount path. The example below shows one emptyDir tier. Uncomment the
+      # pvc or ref entries to add additional tiers, or combine them freely.
+      secondary:
+        # emptyDir: node-local ephemeral disk. No StorageClass required. Each pod
+        # gets its own cache that exists only for the lifetime of the pod.
+        - fileSystem:
+            emptyDir:
+              size: "100Gi"
+        # pvc.spec: controller-managed ephemeral PVC per pod. The PVC is deleted
+        # when the pod terminates. Useful when you need a dedicated StorageClass
+        # (e.g. NVMe-backed) without managing PVCs yourself.
+        # - fileSystem:
+        #     pvc:
+        #       spec:
+        #         storageClassName: fast-local-nvme
+        #         accessModes: [ReadWriteOnce]
+        #         resources:
+        #           requests:
+        #             storage: 100Gi
+        # pvc.ref: pre-existing user-managed PVC. The PVC must exist before the
+        # service is created. For a cache shared across replicas, provision an
+        # RWX PVC; for per-pod persistent cache, provision a separate PVC per pod.
+        # - fileSystem:
+        #     pvc:
+        #       ref:
+        #         name: my-shared-kv-cache-pvc
+        #         path: kv-cache/   # optional subdirectory within the PVC

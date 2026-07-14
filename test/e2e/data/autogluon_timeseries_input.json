@@ -1,0 +1,7 @@
+{
+  "instances": [
+    { "item_id": "0", "timestamp": "2020-01-01", "target": 100.0 },
+    { "item_id": "0", "timestamp": "2020-01-02", "target": 102.0 },
+    { "item_id": "0", "timestamp": "2020-01-03", "target": 101.0 }
+  ]
+}

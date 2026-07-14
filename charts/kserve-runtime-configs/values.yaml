@@ -157,6 +157,19 @@ kserve:
         capabilities:
           drop:
             - ALL
+    autogluonserver:
+      disabled: false
+      image: kserve/autogluonserver
+      tag: ""
+      imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
     torchserve:
       disabled: false
       image: pytorch/torchserve-kfs

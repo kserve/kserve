@@ -645,8 +645,8 @@ RUFF_VERSION=0.14.13
 PINACT_VERSION=v3.9.0
 KIND_VERSION=v0.30.0
 CERT_MANAGER_VERSION=v1.17.0
-ENVOY_GATEWAY_VERSION=v1.7.0
-ENVOY_AI_GATEWAY_VERSION=v0.6.0
+ENVOY_GATEWAY_VERSION=v1.8.1
+ENVOY_AI_GATEWAY_VERSION=v1.0.0
 KNATIVE_OPERATOR_VERSION=v1.21.1
 KNATIVE_SERVING_VERSION=1.21.1
 KEDA_OTEL_ADDON_VERSION=v0.0.6
@@ -658,8 +658,9 @@ ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.18.0
 OPENTELEMETRY_OPERATOR_VERSION=0.74.3
 LWS_VERSION=v0.8.0
-GATEWAY_API_VERSION=v1.4.1
+GATEWAY_API_VERSION=v1.5.1
 GIE_VERSION=v1.5.0
+LLMD_ROUTER_VERSION=v0.9.0
 WVA_VERSION=v0.7.0
 
 #================================================
@@ -1374,6 +1375,46 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
   annotations:
+    serving.kserve.io/server-type: autogluonserver
+  name: kserve-autogluonserver
+spec:
+  annotations:
+    prometheus.kserve.io/path: /metrics
+    prometheus.kserve.io/port: "8080"
+  containers:
+  - args:
+    - --model_name={{.Name}}
+    - --model_dir=/mnt/models
+    - --http_port=8080
+    image: kserve/autogluonserver:latest
+    name: kserve-container
+    resources:
+      limits:
+        cpu: "1"
+        memory: 2Gi
+      requests:
+        cpu: "1"
+        memory: 2Gi
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      privileged: false
+      runAsNonRoot: true
+  protocolVersions:
+  - v1
+  - v2
+  supportedModelFormats:
+  - autoSelect: true
+    name: autogluon
+    priority: 1
+    version: "1"
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  annotations:
     serving.kserve.io/server-type: huggingfaceserver
   name: kserve-huggingfaceserver
 spec:
@@ -2056,6 +2097,8 @@ spec:
       value: /tmp
     - name: VLLM_CONFIG_ROOT
       value: /tmp
+    - name: VLLM_WORKER_MULTIPROC_METHOD
+      value: spawn
     image: vllm/vllm-openai:latest
     name: kserve-container
     readinessProbe:
@@ -2299,11 +2342,20 @@ spec:
           SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Template 15 }}"
         fi
 
+        # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+        KV_TRANSFER_ARGS=""
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+            KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+          fi
+        fi
+
         eval "exec vllm serve /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8001 \
           ${ACCESS_LOG_ARGS} \
           ${SHUTDOWN_TIMEOUT_ARGS} \
+          ${KV_TRANSFER_ARGS} \
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -2317,7 +2369,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
       imagePullPolicy: IfNotPresent
       lifecycle:
         preStop:
@@ -2350,7 +2402,7 @@ spec:
         capabilities:
           drop:
           - ALL
-        readOnlyRootFilesystem: true
+        readOnlyRootFilesystem: false
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
@@ -2383,6 +2435,7 @@ spec:
       - --kv-connector=nixlv2
       - --enable-ssrf-protection=true
       - --pool-group=inference.networking.x-k8s.io
+      - --inference-pool={{ .GlobalConfig.InferencePoolNamespacedName }}
       - '{{ if .GlobalConfig.EnableTLS }}--secure-proxy=true{{else}}--secure-proxy=false{{-
         end }}'
       - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
@@ -2395,7 +2448,7 @@ spec:
             fieldPath: metadata.namespace
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.7.1
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.9.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -2426,7 +2479,7 @@ spec:
         capabilities:
           drop:
           - ALL
-        readOnlyRootFilesystem: true
+        readOnlyRootFilesystem: false
         runAsNonRoot: true
       terminationMessagePath: /dev/termination-log
       terminationMessagePolicy: FallbackToLogsOnError
@@ -2624,6 +2677,14 @@ spec:
           SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Template 15 }}"
         fi
 
+        # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+        KV_TRANSFER_ARGS=""
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+            KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+          fi
+        fi
+
         eval "exec vllm serve \
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
@@ -2638,6 +2699,7 @@ spec:
           --data-parallel-start-rank $START_RANK \
           ${ACCESS_LOG_ARGS} \
           ${SHUTDOWN_TIMEOUT_ARGS} \
+          ${KV_TRANSFER_ARGS} \
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -2651,7 +2713,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
       imagePullPolicy: IfNotPresent
       lifecycle:
         preStop:
@@ -2688,7 +2750,7 @@ spec:
           - NET_RAW
           drop:
           - ALL
-        readOnlyRootFilesystem: true
+        readOnlyRootFilesystem: false
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
@@ -2721,6 +2783,7 @@ spec:
       - --kv-connector=nixlv2
       - --enable-ssrf-protection=true
       - --pool-group=inference.networking.x-k8s.io
+      - --inference-pool={{ .GlobalConfig.InferencePoolNamespacedName }}
       - '{{ if .GlobalConfig.EnableTLS }}--secure-proxy=true{{else}}--secure-proxy=false{{-
         end }}'
       - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
@@ -2733,7 +2796,7 @@ spec:
             fieldPath: metadata.namespace
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.7.1
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.9.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -2763,7 +2826,7 @@ spec:
         capabilities:
           drop:
           - ALL
-        readOnlyRootFilesystem: true
+        readOnlyRootFilesystem: false
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
@@ -2954,6 +3017,14 @@ spec:
           SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Worker 15 }}"
         fi
 
+        # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+        KV_TRANSFER_ARGS=""
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+            KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+          fi
+        fi
+
         eval "exec vllm serve \
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
@@ -2968,6 +3039,7 @@ spec:
           --headless \
           ${ACCESS_LOG_ARGS} \
           ${SHUTDOWN_TIMEOUT_ARGS} \
+          ${KV_TRANSFER_ARGS} \
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -2983,7 +3055,7 @@ spec:
         value: /models
       - name: VLLM_RANDOMIZE_DP_DUMMY_INPUTS
         value: "1"
-      image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
       imagePullPolicy: IfNotPresent
       lifecycle:
         preStop:
@@ -3004,7 +3076,7 @@ spec:
           - NET_RAW
           drop:
           - ALL
-        readOnlyRootFilesystem: true
+        readOnlyRootFilesystem: false
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
@@ -3191,11 +3263,20 @@ spec:
             SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Template 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"
           fi
 
+          # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+          KV_TRANSFER_ARGS=""
+          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+            if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+              KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
+            fi
+          fi
+
           eval "exec vllm serve /mnt/models \
             --served-model-name "{{ .Spec.Model.Name }}" \
             --port 8000 \
             ${ACCESS_LOG_ARGS} \
             ${SHUTDOWN_TIMEOUT_ARGS} \
+            ${KV_TRANSFER_ARGS} \
             {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -3209,7 +3290,7 @@ spec:
           value: INFO
         - name: HF_HUB_CACHE
           value: /models
-        image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
+        image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
         imagePullPolicy: IfNotPresent
         lifecycle:
           preStop:
@@ -3242,7 +3323,7 @@ spec:
           capabilities:
             drop:
             - ALL
-          readOnlyRootFilesystem: true
+          readOnlyRootFilesystem: false
           runAsNonRoot: true
           seccompProfile:
             type: RuntimeDefault
@@ -3458,6 +3539,14 @@ spec:
             SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Template 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"
           fi
 
+          # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+          KV_TRANSFER_ARGS=""
+          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+            if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+              KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
+            fi
+          fi
+
           eval "exec vllm serve \
             /mnt/models \
             --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
@@ -3472,6 +3561,7 @@ spec:
             --data-parallel-start-rank $START_RANK \
             ${ACCESS_LOG_ARGS} \
             ${SHUTDOWN_TIMEOUT_ARGS} \
+            ${KV_TRANSFER_ARGS} \
             {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -3485,7 +3575,7 @@ spec:
           value: INFO
         - name: HF_HUB_CACHE
           value: /models
-        image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
+        image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
         imagePullPolicy: IfNotPresent
         lifecycle:
           preStop:
@@ -3522,7 +3612,7 @@ spec:
             - NET_RAW
             drop:
             - ALL
-          readOnlyRootFilesystem: true
+          readOnlyRootFilesystem: false
           runAsNonRoot: true
           seccompProfile:
             type: RuntimeDefault
@@ -3728,6 +3818,14 @@ spec:
             SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Worker 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"
           fi
 
+          # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+          KV_TRANSFER_ARGS=""
+          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+            if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+              KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
+            fi
+          fi
+
           eval "exec vllm serve \
             /mnt/models \
             --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
@@ -3742,6 +3840,7 @@ spec:
             --headless \
             ${ACCESS_LOG_ARGS} \
             ${SHUTDOWN_TIMEOUT_ARGS} \
+            ${KV_TRANSFER_ARGS} \
             {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -3755,7 +3854,7 @@ spec:
           value: INFO
         - name: HF_HUB_CACHE
           value: /models
-        image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
+        image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
         imagePullPolicy: IfNotPresent
         lifecycle:
           preStop:
@@ -3776,7 +3875,7 @@ spec:
             - NET_RAW
             drop:
             - ALL
-          readOnlyRootFilesystem: true
+          readOnlyRootFilesystem: false
           runAsNonRoot: true
           seccompProfile:
             type: RuntimeDefault
@@ -4058,7 +4157,7 @@ spec:
   router:
     scheduler:
       annotations:
-        app.kubernetes.io/version: 0.7.0
+        app.kubernetes.io/version: 0.9.0
       pool:
         spec:
           endpointPickerRef:
@@ -4097,7 +4196,7 @@ spec:
           env:
           - name: SSL_CERT_DIR
             value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-          image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.7.1
+          image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -4138,9 +4237,12 @@ spec:
             successThreshold: 1
             timeoutSeconds: 1
           resources:
+            limits:
+              cpu: 6
+              memory: 16Gi
             requests:
-              cpu: 256m
-              memory: 500Mi
+              cpu: 1
+              memory: 2Gi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -4161,7 +4263,7 @@ spec:
         - env:
           - name: TOKENIZERS_DIR
             value: /mnt/models
-          image: ghcr.io/llm-d/llm-d-uds-tokenizer:v0.7.1
+          image: ghcr.io/llm-d/llm-d-uds-tokenizer:vllm-v0.19.1
           imagePullPolicy: IfNotPresent
           livenessProbe:
             failureThreshold: 3
@@ -4227,6 +4329,192 @@ spec:
           name: tokenizer-tmp
         - emptyDir: {}
           name: tokenizer-cache
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-scheduler-latency-predictor
+  namespace: kserve
+spec:
+  router:
+    scheduler:
+      template:
+        containers:
+        - env:
+          - name: PREDICTION_SERVER_URL
+            value: http://localhost:8001
+          - name: TRAINING_SERVER_URL
+            value: http://localhost:8000
+          - name: LATENCY_MAX_SAMPLE_SIZE
+            value: "10000"
+          - name: LATENCY_MAX_CONCURRENT_DISPATCHES
+            value: "36"
+          - name: LATENCY_COALESCE_WINDOW_MS
+            value: "1"
+          name: main
+        - env:
+          - name: LATENCY_RETRAINING_INTERVAL_SEC
+            value: "10"
+          - name: LATENCY_MIN_SAMPLES_FOR_RETRAIN
+            value: "100"
+          - name: LATENCY_TTFT_MODEL_PATH
+            value: /models/ttft.joblib
+          - name: LATENCY_TPOT_MODEL_PATH
+            value: /models/tpot.joblib
+          - name: LATENCY_TTFT_SCALER_PATH
+            value: /models/ttft_scaler.joblib
+          - name: LATENCY_TPOT_SCALER_PATH
+            value: /models/tpot_scaler.joblib
+          - name: LATENCY_TTFT_GATED_MODEL_PATH
+            value: /models/ttft_gated.joblib
+          - name: LATENCY_TPOT_GATED_MODEL_PATH
+            value: /models/tpot_gated.joblib
+          - name: LATENCY_MODEL_TYPE
+            value: xgboost
+          - name: LATENCY_MAX_TRAINING_DATA_SIZE_PER_BUCKET
+            value: "500"
+          - name: LATENCY_OBJECTIVE_TYPE
+            value: mean
+          image: ghcr.io/llm-d/llm-d-latency-predictor-training-server:v0.8.0
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          name: training-server
+          ports:
+          - containerPort: 8000
+            name: training-port
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8000
+            initialDelaySeconds: 45
+            periodSeconds: 10
+          resources:
+            limits:
+              cpu: 4000m
+              memory: 8Gi
+            requests:
+              cpu: 2000m
+              memory: 4Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          startupProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /healthz
+              port: 8000
+            periodSeconds: 10
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: FallbackToLogsOnError
+          volumeMounts:
+          - mountPath: /models
+            name: training-server-storage
+          - mountPath: /tmp
+            name: training-server-tmp
+        - env:
+          - name: TRAINING_SERVER_URL
+            value: http://localhost:8000
+          - name: LATENCY_MODEL_TYPE
+            value: xgboost
+          - name: PREDICT_HOST
+            value: 0.0.0.0
+          - name: PREDICT_PORT
+            value: "8001"
+          - name: LOCAL_TTFT_MODEL_PATH
+            value: /server_models/ttft.joblib
+          - name: LOCAL_TPOT_MODEL_PATH
+            value: /server_models/tpot.joblib
+          - name: LOCAL_TTFT_SCALER_PATH
+            value: /server_models/ttft_scaler.joblib
+          - name: LOCAL_TPOT_SCALER_PATH
+            value: /server_models/tpot_scaler.joblib
+          - name: LOCAL_TTFT_GATED_MODEL_PATH
+            value: /server_models/ttft_gated.joblib
+          - name: LOCAL_TPOT_GATED_MODEL_PATH
+            value: /server_models/tpot_gated.joblib
+          - name: UVICORN_WORKERS
+            value: "28"
+          - name: OMP_NUM_THREADS
+            value: "1"
+          - name: MODEL_SYNC_INTERVAL_SEC
+            value: "30"
+          - name: LATENCY_OBJECTIVE_TYPE
+            value: mean
+          image: ghcr.io/llm-d/llm-d-latency-predictor-prediction-server:v0.8.0
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 5
+            httpGet:
+              path: /healthz
+              port: 8001
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 5
+          name: prediction-server
+          ports:
+          - containerPort: 8001
+            name: predict-port
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /readyz
+              port: 8001
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            limits:
+              cpu: 28000m
+              memory: 8Gi
+            requests:
+              cpu: 8000m
+              memory: 4Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          startupProbe:
+            failureThreshold: 60
+            httpGet:
+              path: /readyz
+              port: 8001
+            periodSeconds: 10
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: FallbackToLogsOnError
+          volumeMounts:
+          - mountPath: /server_models
+            name: prediction-server-storage
+          - mountPath: /tmp
+            name: prediction-server-tmp
+        restartPolicy: Always
+        terminationGracePeriodSeconds: 60
+        volumes:
+        - emptyDir:
+            sizeLimit: 20Gi
+          name: training-server-storage
+        - emptyDir:
+            sizeLimit: 10Gi
+          name: prediction-server-storage
+        - emptyDir: {}
+          name: training-server-tmp
+        - emptyDir: {}
+          name: prediction-server-tmp
 ---
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
@@ -4380,11 +4668,20 @@ spec:
           SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Template 15 }}"
         fi
 
+        # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+        KV_TRANSFER_ARGS=""
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+            KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+          fi
+        fi
+
         eval "exec vllm serve /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8000 \
           ${ACCESS_LOG_ARGS} \
           ${SHUTDOWN_TIMEOUT_ARGS} \
+          ${KV_TRANSFER_ARGS} \
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -4398,7 +4695,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
       imagePullPolicy: IfNotPresent
       lifecycle:
         preStop:
@@ -4431,7 +4728,7 @@ spec:
         capabilities:
           drop:
           - ALL
-        readOnlyRootFilesystem: true
+        readOnlyRootFilesystem: false
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
@@ -4658,6 +4955,14 @@ spec:
           SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Template 15 }}"
         fi
 
+        # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+        KV_TRANSFER_ARGS=""
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+            KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+          fi
+        fi
+
         eval "exec vllm serve \
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
@@ -4672,6 +4977,7 @@ spec:
           --data-parallel-start-rank $START_RANK \
           ${ACCESS_LOG_ARGS} \
           ${SHUTDOWN_TIMEOUT_ARGS} \
+          ${KV_TRANSFER_ARGS} \
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -4685,7 +4991,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
       imagePullPolicy: IfNotPresent
       lifecycle:
         preStop:
@@ -4722,7 +5028,7 @@ spec:
           - NET_RAW
           drop:
           - ALL
-        readOnlyRootFilesystem: true
+        readOnlyRootFilesystem: false
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
@@ -4928,6 +5234,14 @@ spec:
           SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Worker 15 }}"
         fi
 
+        # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+        KV_TRANSFER_ARGS=""
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+            KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+          fi
+        fi
+
         eval "exec vllm serve \
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
@@ -4942,6 +5256,7 @@ spec:
           --headless \
           ${ACCESS_LOG_ARGS} \
           ${SHUTDOWN_TIMEOUT_ARGS} \
+          ${KV_TRANSFER_ARGS} \
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -4955,7 +5270,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
       imagePullPolicy: IfNotPresent
       lifecycle:
         preStop:
@@ -4976,7 +5291,7 @@ spec:
           - NET_RAW
           drop:
           - ALL
-        readOnlyRootFilesystem: true
+        readOnlyRootFilesystem: false
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
@@ -16277,6 +16592,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -17741,6 +18065,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -18514,6 +18847,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -19261,6 +19603,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -20003,6 +20354,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -20732,6 +21092,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -21468,6 +21837,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -22376,6 +22754,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -23126,6 +23513,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -23935,6 +24331,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -29216,6 +29621,15 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: atomic
+                      confidential:
+                        properties:
+                          enabled:
+                            type: boolean
+                          resourceId:
+                            type: string
+                        required:
+                        - enabled
+                        type: object
                       env:
                         items:
                           properties:
@@ -38305,6 +38719,8 @@ data:
            "caBundleConfigMapName": "",
            "caBundleVolumeMountPath": "/etc/ssl/custom-certs",
            "enableModelcar": false,
+           "enableOciModelSupport": false,
+           "ociModelMode": "modelcar",
            "cpuModelcar": "10m",
            "memoryModelcar": "15Mi"
        }
@@ -38334,6 +38750,14 @@ data:
            # enableModelcar enabled allows you to directly access an OCI container image by
            # using a source URL with an "oci://" schema.
            "enableModelcar": false,
+
+           # enableOciModelSupport enables any OCI-backed model storage path (modelcar, native ImageVolume, or fetch).
+           # This is the newer master switch; enableModelcar is kept as a backcompat alias for the "modelcar" mode.
+           "enableOciModelSupport": false,
+
+           # ociModelMode selects the materialization strategy when a storageUri uses oci:// without an explicit
+           # suffix. Valid values: "modelcar" (default sidecar), "native" (K8s ImageVolume), "fetch" (init-container).
+           "ociModelMode": "modelcar",
 
            # cpuModelcar is the cpu request and limit that is used for the passive modelcar container. It can be
            # set very low, but should be allowed by any Kubernetes LimitRange that might apply.

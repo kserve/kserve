@@ -1,8 +1,8 @@
 # gRPC Performance test
 
-This tutorial demonstrates performance testing for KServe inference services using gRPC. We will use [Iter8](https://iter8.tools) for generating load and validing service-level objectives (SLOs) for the inference service. [Iter8](https://iter8.tools) is an open-source Kubernetes release optimizer that makes it easy to ensure that your ML models perform well and maximize business value.
+This tutorial demonstrates performance testing for KServe inference services using gRPC. We will use [Iter8](https://iter8.tools) for generating load and validating service-level objectives (SLOs) for the inference service. [Iter8](https://iter8.tools) is an open-source Kubernetes release optimizer that makes it easy to ensure that your ML models perform well and maximize business value.
 
-![Iter8 gRPC performanc test](grpc.png)
+![Iter8 gRPC performance test](grpc.png)
 
 ***
 

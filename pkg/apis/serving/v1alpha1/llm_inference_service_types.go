@@ -69,11 +69,16 @@ type LLMInferenceService struct {
 // It acts as a template to provide base configurations that can be inherited by multiple LLMInferenceService instances.
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
+// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type LLMInferenceServiceConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec LLMInferenceServiceSpec `json:"spec,omitempty"`
+	Spec   LLMInferenceServiceSpec         `json:"spec,omitempty"`
+	Status LLMInferenceServiceConfigStatus `json:"status,omitempty"`
 }
 
 // LLMInferenceServiceSpec defines the desired state of LLMInferenceService.
@@ -272,6 +277,21 @@ type GatewayRoutesSpec struct {
 	// HTTP route configuration.
 	// +optional
 	HTTP *HTTPRouteSpec `json:"http,omitempty"`
+
+	// Group identifies the routing group this LLMISVC belongs to.
+	// All members with the same group share weighted traffic distribution.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`
+	Group *string `json:"group,omitempty"`
+
+	// Weight is the proportional traffic share for this member.
+	// Follows Gateway API backendRef weight semantics (proportional, not percentage).
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=1000000
+	Weight *int32 `json:"weight,omitempty"`
 }
 
 // HTTPRouteSpec defines configurations for a Gateway API HTTPRoute.
@@ -601,6 +621,12 @@ type RouterStatus struct {
 	// Nil when the scheduler is not configured.
 	// +optional
 	Scheduler *ObservedSchedulerStatus `json:"scheduler,omitempty"`
+}
+
+// LLMInferenceServiceConfigStatus defines the observed state of LLMInferenceServiceConfig.
+type LLMInferenceServiceConfigStatus struct {
+	// Conditions of the resource.
+	duckv1.Status `json:",inline"`
 }
 
 // LLMInferenceServiceStatus defines the observed state of LLMInferenceService.

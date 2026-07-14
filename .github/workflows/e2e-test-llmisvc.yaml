@@ -20,6 +20,8 @@ on:
       - "hack/setup/infra/manage.prometheus-adapter-helm.sh"
       - "hack/setup/infra/manage.wva-helm.sh"
       - "hack/setup/infra/manage.jaeger-helm.sh"
+      - "hack/setup/infra/manage.kserve-helm.sh"
+      - "hack/setup/quick-install/*-helm.sh"
   merge_group:
     types: [ checks_requested ]
 
@@ -172,7 +174,7 @@ jobs:
           if-no-files-found: error
 
   test-llmisvc:
-    runs-on: ubuntu-latest
+    runs-on: cncf-ubuntu-16-64-x86
     needs: [detect-changes, llmisvc-image-build, seed-model-cache]
     strategy:
       fail-fast: false
@@ -281,7 +283,7 @@ jobs:
           # Run only CPU tests for now using pytest markers (cluster_)
           # Available GPU vendors: amd, nvidia, intel
           export PYTEST_MAXFAIL=3
-          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and cluster_cpu and not autoscaling and not tracing" 0 "envoy-gateway"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and llmisvc_core and cluster_cpu" 0 "envoy-gateway"
 
       - name: Check system status
         if: always()
@@ -295,7 +297,7 @@ jobs:
           name: test-results-llmisvc-${{ matrix.install-method }}
 
   test-llmisvc-wva-autoscaling-hpa:
-    runs-on: ubuntu-latest
+    runs-on: cncf-ubuntu-16-64-x86
     needs: [detect-changes, llmisvc-image-build, seed-model-cache]
     strategy:
       fail-fast: false
@@ -400,7 +402,7 @@ jobs:
           name: test-results-llmisvc-autoscaling-hpa-${{ matrix.install-method }}
 
   test-llmisvc-wva-autoscaling-keda:
-    runs-on: ubuntu-latest
+    runs-on: cncf-ubuntu-16-64-x86
     needs: [detect-changes, llmisvc-image-build, seed-model-cache]
     strategy:
       fail-fast: false
@@ -506,7 +508,7 @@ jobs:
           name: test-results-llmisvc-autoscaling-keda-${{ matrix.install-method }}
 
   test-llmisvc-tracing:
-    runs-on: ubuntu-latest
+    runs-on: cncf-ubuntu-16-64-x86
     needs: [detect-changes, llmisvc-image-build]
     strategy:
       fail-fast: false

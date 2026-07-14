@@ -51,6 +51,7 @@ const (
 const (
 	InferencePoolV1APIGroupName       = "inference.networking.k8s.io"
 	InferencePoolV1Alpha2APIGroupName = "inference.networking.x-k8s.io"
+	LLMDAIAPIGroupName                = "llm-d.ai"
 )
 
 // InferenceService Constants
@@ -177,6 +178,8 @@ var (
 	LocalModelNamespaceLabel                         = InferenceServiceInternalAnnotationsPrefix + "/localmodel-namespace"
 	LocalModelSourceUriAnnotationKey                 = InferenceServiceInternalAnnotationsPrefix + "/localmodel-sourceuri"
 	LocalModelPVCNameAnnotationKey                   = InferenceServiceInternalAnnotationsPrefix + "/localmodel-pvc-name"
+	ConfidentialEnabledAnnotationKey                 = InferenceServiceInternalAnnotationsPrefix + "/confidential-enabled"
+	ConfidentialResourceIdAnnotationKey              = InferenceServiceInternalAnnotationsPrefix + "/confidential-resource-id"
 )
 
 // kserve networking constants
@@ -197,10 +200,11 @@ var (
 )
 
 const (
-	HfURIPrefix  = "hf://"
-	OciURIPrefix = "oci://"
-	PvcURIPrefix = "pvc://"
-	S3URIPrefix  = "s3://"
+	HfURIPrefix        = "hf://"
+	OciURIPrefix       = "oci://"
+	OciNativeURIPrefix = "oci+native://"
+	PvcURIPrefix       = "pvc://"
+	S3URIPrefix        = "s3://"
 
 	PvcSourceMountName           = "kserve-pvc-source"
 	StorageInitializerVolumeName = "kserve-provision-location"
@@ -317,6 +321,12 @@ var DefaultGPUResourceTypeList = []string{
 	IntelGPUResourceType,
 	GaudiGPUResourceType,
 }
+
+// Confidential model serving environment variables
+const (
+	ConfidentialEnabledEnvVar    = "CONFIDENTIAL_ENABLED"
+	ConfidentialResourceIdEnvVar = "CONFIDENTIAL_RESOURCE_ID"
+)
 
 // InferenceService Environment Variables
 const (
@@ -437,6 +447,16 @@ const (
 	LLMComponentWorkloadWorkerPrefill = "llminferenceservice-workload-worker-prefill"
 	LLMComponentWorkloadLeaderPrefill = "llminferenceservice-workload-leader-prefill"
 	LLMComponentInference             = "inference" // used in sample/template resources
+)
+
+// LLMInferenceService routing group label
+const (
+	// LLMRoutingGroupLabelKey identifies which traffic splitting group an LLMInferenceService belongs to.
+	LLMRoutingGroupLabelKey = "serving.kserve.io/routing-group"
+
+	// LLMServedByAnnotationKey enables the x-served-by response header middleware.
+	// Set to "true" on an LLMInferenceService to inject the middleware.
+	LLMServedByAnnotationKey = "serving.kserve.io/enable-served-by-header"
 )
 
 // LLMInferenceService constants

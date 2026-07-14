@@ -331,16 +331,20 @@ def assert_metrics_pipeline_ready(actuator="hpa"):
             namespace=PROMETHEUS_NAMESPACE,
             label_selector="app.kubernetes.io/name=prometheus-adapter",
         )
-        running = [p for p in pods.items if p.status.phase == "Running"]
-        assert len(running) > 0, "No running Prometheus Adapter pods found"
+        running_names = [
+            p.metadata.name for p in pods.items if p.status.phase == "Running"
+        ]
+        assert running_names, "No running Prometheus Adapter pods found"
     elif actuator == "keda":
         v1 = client.CoreV1Api()
         pods = v1.list_namespaced_pod(
             namespace=KEDA_NAMESPACE,
             label_selector="app.kubernetes.io/name=keda-operator",
         )
-        running = [p for p in pods.items if p.status.phase == "Running"]
-        assert len(running) > 0, "No running KEDA operator pods found"
+        running_names = [
+            p.metadata.name for p in pods.items if p.status.phase == "Running"
+        ]
+        assert running_names, "No running KEDA operator pods found"
 
 
 def assert_wva_metric_exists(service_name, namespace=KSERVE_TEST_NAMESPACE):
@@ -495,7 +499,6 @@ def _new_kserve_client():
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.autoscaling
 @pytest.mark.autoscaling_hpa
 @pytest.mark.parametrize(
     "test_case",
@@ -560,7 +563,6 @@ def test_llm_autoscaling_hpa_deployment(test_case: TestCase):
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.autoscaling
 @pytest.mark.autoscaling_keda
 @pytest.mark.parametrize(
     "test_case",
@@ -625,7 +627,6 @@ def test_llm_autoscaling_keda_deployment(test_case: TestCase):
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.autoscaling
 @pytest.mark.autoscaling_hpa
 @pytest.mark.parametrize(
     "test_case",
@@ -684,7 +685,6 @@ def test_llm_autoscaling_hpa_lws(test_case: TestCase):
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.autoscaling
 @pytest.mark.autoscaling_keda
 @pytest.mark.parametrize(
     "test_case",
@@ -743,7 +743,6 @@ def test_llm_autoscaling_keda_lws(test_case: TestCase):
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.autoscaling
 @pytest.mark.autoscaling_hpa
 @pytest.mark.parametrize(
     "test_case",
@@ -793,7 +792,6 @@ def test_llm_autoscaling_prefill_hpa(test_case: TestCase):
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.autoscaling
 @pytest.mark.autoscaling_keda
 @pytest.mark.parametrize(
     "test_case",
@@ -843,7 +841,6 @@ def test_llm_autoscaling_prefill_keda(test_case: TestCase):
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.autoscaling
 @pytest.mark.autoscaling_hpa
 @pytest.mark.parametrize(
     "test_case",
@@ -907,7 +904,6 @@ def test_llm_autoscaling_cleanup_hpa(test_case: TestCase):
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.autoscaling
 @pytest.mark.autoscaling_keda
 @pytest.mark.parametrize(
     "test_case",
@@ -970,7 +966,6 @@ def test_llm_autoscaling_cleanup_keda(test_case: TestCase):
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.autoscaling
 @pytest.mark.autoscaling_hpa
 @pytest.mark.parametrize(
     "test_case",
@@ -1032,7 +1027,6 @@ def test_llm_autoscaling_stop_hpa(test_case: TestCase):
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.autoscaling
 @pytest.mark.autoscaling_keda
 @pytest.mark.parametrize(
     "test_case",
@@ -1094,7 +1088,6 @@ def test_llm_autoscaling_stop_keda(test_case: TestCase):
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.autoscaling
 @pytest.mark.autoscaling_hpa
 @pytest.mark.parametrize(
     "test_case",
@@ -1171,7 +1164,6 @@ def test_llm_autoscaling_update_hpa(test_case: TestCase):
 
 
 @pytest.mark.llminferenceservice
-@pytest.mark.autoscaling
 @pytest.mark.autoscaling_keda
 @pytest.mark.parametrize(
     "test_case",

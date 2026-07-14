@@ -143,8 +143,11 @@ def wait_for_workload_pod_running(
             if p.status.phase == "Running"
             and all(cs.ready for cs in (p.status.container_statuses or []))
         ]
-        assert running, f"No Running pods found for {label_selector} in {namespace}"
-        return running[0].metadata.name
+        running_names = [p.metadata.name for p in running]
+        assert running_names, (
+            f"No Running pods found for {label_selector} in {namespace}"
+        )
+        return running_names[0]
 
     return wait_for(assert_pod_running, timeout=timeout_seconds, interval=5.0)
 
