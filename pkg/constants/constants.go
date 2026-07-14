@@ -181,6 +181,9 @@ var (
 	ConfidentialEnabledAnnotationKey                 = InferenceServiceInternalAnnotationsPrefix + "/confidential-enabled"
 	ConfidentialResourceIdAnnotationKey              = InferenceServiceInternalAnnotationsPrefix + "/confidential-resource-id"
 	LocalModelLoRAAnnotationKey                      = InferenceServiceInternalAnnotationsPrefix + "/localmodel-lora"
+	KernelCacheLabel                                 = InferenceServiceInternalAnnotationsPrefix + "/kernelcache"
+	KernelCachePVCNameAnnotationKey                  = InferenceServiceInternalAnnotationsPrefix + "/kernelcache-pvc-name"
+	DisableKernelCacheKey                            = KServeAPIGroupName + "/disable-kernelcache"
 )
 
 // kserve networking constants
