@@ -17,7 +17,7 @@ import os
 from transformers import PretrainedConfig
 from typing import Optional, Union, List, Any
 
-from kserve.logging import logger
+from kserve.log_config import logger
 
 
 ALLOW_LONG_MAX_MODEL_LEN = "ALLOW_LONG_MAX_MODEL_LEN"

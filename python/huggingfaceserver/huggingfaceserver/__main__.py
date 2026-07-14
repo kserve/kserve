@@ -19,8 +19,8 @@ from typing import cast, Union
 import torch
 import kserve
 from huggingfaceserver.request_logger import RequestLogger
-from kserve import logging
-from kserve.logging import logger
+from kserve import log_config
+from kserve.log_config import logger
 from kserve_storage import Storage
 
 from transformers import AutoConfig
@@ -328,7 +328,7 @@ def load_model():
 
 if __name__ == "__main__":
     if args.configure_logging:
-        logging.configure_logging(args.log_config_file)
+        log_config.configure_logging(args.log_config_file)
     try:
         model_server = kserve.ModelServer()
         model = load_model()

@@ -15,7 +15,7 @@
 from typing import Union
 from http import HTTPStatus
 from fastapi.responses import JSONResponse
-from kserve.logging import logger
+from kserve.log_config import logger
 from .types import Error, ErrorResponse
 
 

@@ -18,7 +18,7 @@ from concurrent import futures
 
 from grpc import aio
 
-from kserve.logging import logger
+from kserve.log_config import logger
 from kserve.protocol.dataplane import DataPlane
 from kserve.protocol.model_repository_extension import ModelRepositoryExtension
 

@@ -14,7 +14,7 @@
 
 from typing import Optional, List, Union, Any
 
-from kserve.logging import trace_logger
+from kserve.log_config import trace_logger
 
 
 class RequestLogger:

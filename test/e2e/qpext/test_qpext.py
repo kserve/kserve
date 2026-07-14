@@ -26,7 +26,7 @@ from kserve import (
     V1beta1PredictorSpec,
     V1beta1SKLearnSpec,
 )
-from kserve.logging import logger
+from kserve.log_config import logger
 from kubernetes.client import V1ResourceRequirements
 
 from ..common.utils import KSERVE_TEST_NAMESPACE, get_cluster_ip

@@ -17,7 +17,7 @@ from kserve import (
     V1alpha1InferenceStep,
     V1beta1XGBoostSpec,
 )
-from kserve.logging import trace_logger as logger
+from kserve.log_config import trace_logger as logger
 from kubernetes import client, config
 from kubernetes.client import V1Container
 from kubernetes.client import V1ResourceRequirements

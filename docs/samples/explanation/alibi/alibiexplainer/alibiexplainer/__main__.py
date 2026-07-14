@@ -21,8 +21,8 @@ from alibiexplainer.explainer import ExplainerMethod  # pylint:disable=no-name-i
 from alibiexplainer.parser import parse_args
 
 import kserve
-from kserve import logging
-from kserve.logging import logger
+from kserve import log_config
+from kserve.log_config import logger
 from kserve_storage import Storage
 
 EXPLAINER_FILENAME = "explainer.dill"
@@ -57,5 +57,5 @@ def main():
 
 if __name__ == "__main__":
     if args.configure_logging:
-        logging.configure_logging(args.log_config_file)
+        log_config.configure_logging(args.log_config_file)
     main()

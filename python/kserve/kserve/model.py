@@ -28,7 +28,7 @@ from .constants.constants import (
 )
 from .errors import InvalidInput
 from .inference_client import RESTConfig, InferenceRESTClient, InferenceGRPCClient
-from .logging import trace_logger
+from .log_config import trace_logger
 from .metrics import (
     EXPLAIN_HIST_TIME,
     POST_HIST_TIME,

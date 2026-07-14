@@ -25,7 +25,7 @@ from autogluon.timeseries import TimeSeriesDataFrame, TimeSeriesPredictor
 
 from kserve import Model
 from kserve.errors import InferenceError, ModelMissingError
-from kserve.logging import logger
+from kserve.log_config import logger
 from kserve.protocol.infer_type import InferRequest, InferResponse
 from kserve.utils.utils import get_predict_response
 from kserve_storage import Storage
