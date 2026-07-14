@@ -402,7 +402,7 @@ wheels = [
 
 [[package]]
 name = "custom-model"
-version = "0.18.0"
+version = "0.18.1"
 source = { virtual = "." }
 dependencies = [
     { name = "kserve", extra = ["ray"] },
@@ -825,7 +825,7 @@ wheels = [
 
 [[package]]
 name = "kserve"
-version = "0.18.0"
+version = "0.18.1"
 source = { directory = "../kserve" }
 dependencies = [
     { name = "aiohttp" },
