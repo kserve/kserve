@@ -793,6 +793,16 @@ type GroupMemberStatus struct {
 	BackendRef *gwapiv1.BackendObjectReference `json:"backendRef,omitempty"`
 }
 
+// ObservedWorkloadStatus identifies a workload resource and its observed replica state.
+type ObservedWorkloadStatus struct {
+	corev1.TypedLocalObjectReference `json:",inline"`
+
+	// ReadyReplicas is the number of pods available to serve traffic.
+	// Copied from the workload's status on each reconcile.
+	// +optional
+	ReadyReplicas *int32 `json:"readyReplicas,omitempty"`
+}
+
 // WorkloadStatus records the workload resources observed during the last
 // successful reconciliation. Nil when no workload resources have been
 // created yet, or when the service is stopped.
@@ -802,12 +812,12 @@ type WorkloadStatus struct {
 	// When disaggregated serving is configured, this workload handles
 	// the decode phase; otherwise it handles both prefill and decode.
 	// +optional
-	Primary *corev1.TypedLocalObjectReference `json:"primary,omitempty"`
+	Primary *ObservedWorkloadStatus `json:"primary,omitempty"`
 
 	// Prefill is the prefill workload in disaggregated serving mode.
 	// Nil when disaggregated serving is not configured.
 	// +optional
-	Prefill *corev1.TypedLocalObjectReference `json:"prefill,omitempty"`
+	Prefill *ObservedWorkloadStatus `json:"prefill,omitempty"`
 
 	// Service is the Kubernetes Service fronting the primary inference workload.
 	// +optional
@@ -816,7 +826,7 @@ type WorkloadStatus struct {
 	// Scheduler is the EPP scheduler Deployment.
 	// Nil when the scheduler is not configured.
 	// +optional
-	Scheduler *corev1.TypedLocalObjectReference `json:"scheduler,omitempty"`
+	Scheduler *ObservedWorkloadStatus `json:"scheduler,omitempty"`
 }
 
 // SourcedAddress extends Addressable with the networking resource that

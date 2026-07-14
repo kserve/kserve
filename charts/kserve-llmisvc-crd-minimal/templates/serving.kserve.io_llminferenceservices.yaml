@@ -21599,6 +21599,9 @@ spec:
                           type: string
                         name:
                           type: string
+                        readyReplicas:
+                          format: int32
+                          type: integer
                       required:
                         - kind
                         - name
@@ -21612,6 +21615,9 @@ spec:
                           type: string
                         name:
                           type: string
+                        readyReplicas:
+                          format: int32
+                          type: integer
                       required:
                         - kind
                         - name
@@ -21625,6 +21631,9 @@ spec:
                           type: string
                         name:
                           type: string
+                        readyReplicas:
+                          format: int32
+                          type: integer
                       required:
                         - kind
                         - name

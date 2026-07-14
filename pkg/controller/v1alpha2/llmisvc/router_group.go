@@ -80,7 +80,7 @@ func (r *LLMISVCReconciler) injectGroupBackendRefs(
 		return nil, nil, fmt.Errorf("injecting group backends: %w", err)
 	}
 
-	resolved, err := r.resolveGroupMembers(filterActiveMembers(members))
+	resolved, err := r.resolveGroupMembers(filterEligibleMembers(members, llmSvc.Name))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -201,9 +201,9 @@ func resolveMemberBackendRef(
 		member.Namespace, member.Name)
 }
 
-// finalizeGroupMembership ensures peer routes no longer reference this member's
-// backend before allowing deletion to proceed. Returns true when all peers have
-// converged (no backendRefs pointing to this member), false when still waiting.
+// finalizeGroupMembership ensures other members' routes no longer reference
+// this member's backend before allowing deletion to proceed. Returns true when
+// all members have converged, false when still waiting.
 func (r *LLMISVCReconciler) finalizeGroupMembership(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (bool, error) {
 	if !llmSvc.Spec.Router.HasGroup() {
 		return true, nil
@@ -211,7 +211,7 @@ func (r *LLMISVCReconciler) finalizeGroupMembership(ctx context.Context, llmSvc 
 
 	logger := log.FromContext(ctx)
 
-	peers, err := r.listGroupMembers(ctx, llmSvc)
+	members, err := r.listGroupMembers(ctx, llmSvc)
 	if err != nil {
 		return false, fmt.Errorf("finalizing group membership: %w", err)
 	}
@@ -219,26 +219,26 @@ func (r *LLMISVCReconciler) finalizeGroupMembership(ctx context.Context, llmSvc 
 	poolName := (&v1alpha2.SchedulerSpec{}).InferencePoolName(llmSvc)
 	svcName := workloadServiceName(llmSvc)
 
-	for i := range peers {
-		if peers[i].Name == llmSvc.Name || peers[i].DeletionTimestamp != nil {
+	for i := range members {
+		if members[i].Name == llmSvc.Name || !members[i].DeletionTimestamp.IsZero() {
 			continue
 		}
 		route := &gwapiv1.HTTPRoute{}
 		routeKey := types.NamespacedName{
-			Name:      kmeta.ChildName(peers[i].GetName(), "-kserve-route"),
-			Namespace: peers[i].GetNamespace(),
+			Name:      kmeta.ChildName(members[i].GetName(), "-kserve-route"),
+			Namespace: members[i].GetNamespace(),
 		}
 		if err := r.Get(ctx, routeKey, route); err != nil {
 			if apierrors.IsNotFound(err) {
 				continue
 			}
-			return false, fmt.Errorf("checking peer route %s for stale backendRefs: %w", routeKey.Name, err)
+			return false, fmt.Errorf("checking member route %s for stale backendRefs: %w", routeKey.Name, err)
 		}
 		if routeReferencesBackend(route, poolName) || routeReferencesBackend(route, svcName) {
-			logger.Info("Waiting for peer to remove backendRef before deletion",
-				"peer", peers[i].Name, "pool", poolName)
+			logger.Info("Waiting for member to remove backendRef before deletion",
+				"member", members[i].Name, "pool", poolName)
 			llmSvc.MarkGroupNotReady(reasonFinalizationPending,
-				"waiting for peer %s to remove backendRef before deletion", peers[i].Name)
+				"waiting for member %s to remove backendRef before deletion", members[i].Name)
 			return false, nil
 		}
 	}
@@ -276,12 +276,40 @@ func (r *LLMISVCReconciler) listGroupMembers(
 	return list.Items, nil
 }
 
-func filterActiveMembers(members []v1alpha2.LLMInferenceService) []v1alpha2.LLMInferenceService {
-	active := make([]v1alpha2.LLMInferenceService, 0, len(members))
+// filterEligibleMembers returns non-terminating members that are routable or
+// force-stopped. Self always passes. Force-stopped members bypass the routable
+// check so they remain visible in group status with stopped=true.
+func filterEligibleMembers(members []v1alpha2.LLMInferenceService, selfName string) []v1alpha2.LLMInferenceService {
+	eligible := make([]v1alpha2.LLMInferenceService, 0, len(members))
 	for i := range members {
-		if members[i].DeletionTimestamp == nil {
-			active = append(active, members[i])
+		if !members[i].DeletionTimestamp.IsZero() {
+			continue
+		}
+		if members[i].Name != selfName &&
+			!utils.GetForceStopRuntime(&members[i]) &&
+			!isMemberRoutable(&members[i]) {
+			continue
+		}
+		eligible = append(eligible, members[i])
+	}
+	return eligible
+}
+
+// isMemberRoutable reports whether a member has routing infrastructure ready
+// and at least one available replica on every configured workload.
+func isMemberRoutable(member *v1alpha2.LLMInferenceService) bool {
+	cond := member.Status.GetCondition(v1alpha2.RouterReady)
+	if cond == nil || !cond.IsTrue() {
+		return false
+	}
+	ws := member.Status.Workloads
+	if ws == nil || ws.Primary == nil {
+		return false
+	}
+	for _, w := range []*v1alpha2.ObservedWorkloadStatus{ws.Primary, ws.Prefill, ws.Scheduler} {
+		if w != nil && (w.ReadyReplicas == nil || *w.ReadyReplicas == 0) {
+			return false
 		}
 	}
-	return active
+	return true
 }

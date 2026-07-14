@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	"knative.dev/pkg/apis"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	v1alpha2 "github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -85,28 +86,103 @@ func TestRouterSpecHasGroup(t *testing.T) {
 	}
 }
 
-func TestFilterActiveMembers(t *testing.T) {
+func TestFilterEligibleMembers(t *testing.T) {
 	now := metav1.Now()
 
 	t.Run("excludes terminating members", func(t *testing.T) {
-		m := memberSvc("v1", "llama-70b", 9, false, now)
+		m := routableMember("v1", "llama-70b", 9, now)
 		m.DeletionTimestamp = &now
 		members := []v1alpha2.LLMInferenceService{
 			m,
-			memberSvc("v2", "llama-70b", 1, false, now),
+			routableMember("v2", "llama-70b", 1, now),
 		}
-		active := filterActiveMembers(members)
-		require.Len(t, active, 1)
-		assert.Equal(t, "v2", active[0].Name)
+		eligible := filterEligibleMembers(members, "self")
+		require.Len(t, eligible, 1)
+		assert.Equal(t, "v2", eligible[0].Name)
 	})
 
-	t.Run("keeps all active members", func(t *testing.T) {
+	t.Run("excludes peer without RouterReady", func(t *testing.T) {
+		peer := memberSvc("v2", "llama-70b", 1, false, now)
 		members := []v1alpha2.LLMInferenceService{
-			memberSvc("v1", "llama-70b", 9, false, now),
-			memberSvc("v2", "llama-70b", 1, false, now),
+			routableMember("v1", "llama-70b", 9, now),
+			peer,
 		}
-		active := filterActiveMembers(members)
-		assert.Len(t, active, 2)
+		eligible := filterEligibleMembers(members, "self")
+		require.Len(t, eligible, 1)
+		assert.Equal(t, "v1", eligible[0].Name)
+	})
+
+	t.Run("excludes peer with zero available replicas", func(t *testing.T) {
+		peer := routableMember("v2", "llama-70b", 1, now)
+		peer.Status.Workloads.Primary.ReadyReplicas = ptr.To(int32(0))
+		members := []v1alpha2.LLMInferenceService{
+			routableMember("v1", "llama-70b", 9, now),
+			peer,
+		}
+		eligible := filterEligibleMembers(members, "self")
+		require.Len(t, eligible, 1)
+		assert.Equal(t, "v1", eligible[0].Name)
+	})
+
+	t.Run("self always included regardless of status", func(t *testing.T) {
+		self := memberSvc("self", "llama-70b", 9, false, now)
+		members := []v1alpha2.LLMInferenceService{self}
+		eligible := filterEligibleMembers(members, "self")
+		require.Len(t, eligible, 1)
+		assert.Equal(t, "self", eligible[0].Name)
+	})
+
+	t.Run("excludes peer with zero prefill replicas", func(t *testing.T) {
+		peer := routableMember("v2", "llama-70b", 1, now)
+		peer.Status.Workloads.Prefill = &v1alpha2.ObservedWorkloadStatus{
+			TypedLocalObjectReference: corev1.TypedLocalObjectReference{
+				APIGroup: ptr.To("apps"), Kind: "Deployment", Name: "v2-prefill",
+			},
+			ReadyReplicas: ptr.To(int32(0)),
+		}
+		members := []v1alpha2.LLMInferenceService{
+			routableMember("v1", "llama-70b", 9, now),
+			peer,
+		}
+		eligible := filterEligibleMembers(members, "self")
+		require.Len(t, eligible, 1)
+		assert.Equal(t, "v1", eligible[0].Name)
+	})
+
+	t.Run("excludes peer with nil scheduler replicas", func(t *testing.T) {
+		peer := routableMember("v2", "llama-70b", 1, now)
+		peer.Status.Workloads.Scheduler = &v1alpha2.ObservedWorkloadStatus{
+			TypedLocalObjectReference: corev1.TypedLocalObjectReference{
+				APIGroup: ptr.To("apps"), Kind: "Deployment", Name: "v2-scheduler",
+			},
+		}
+		members := []v1alpha2.LLMInferenceService{
+			routableMember("v1", "llama-70b", 9, now),
+			peer,
+		}
+		eligible := filterEligibleMembers(members, "self")
+		require.Len(t, eligible, 1)
+		assert.Equal(t, "v1", eligible[0].Name)
+	})
+
+	t.Run("includes force-stopped peer for group status visibility", func(t *testing.T) {
+		peer := memberSvc("v2", "llama-70b", 1, true, now)
+		peer.Status.Workloads = nil
+		members := []v1alpha2.LLMInferenceService{
+			routableMember("v1", "llama-70b", 9, now),
+			peer,
+		}
+		eligible := filterEligibleMembers(members, "self")
+		require.Len(t, eligible, 2)
+	})
+
+	t.Run("includes routable peers", func(t *testing.T) {
+		members := []v1alpha2.LLMInferenceService{
+			routableMember("v1", "llama-70b", 9, now),
+			routableMember("v2", "llama-70b", 1, now),
+		}
+		eligible := filterEligibleMembers(members, "v1")
+		assert.Len(t, eligible, 2)
 	})
 }
 
@@ -457,6 +533,32 @@ func TestTrafficFieldsChanged(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "peer becomes routable",
+			old:  func() *v1alpha2.LLMInferenceService { s := memberSvc("v1", "g", 9, false, now); return &s }(),
+			new:  func() *v1alpha2.LLMInferenceService { s := routableMember("v1", "g", 9, now); return &s }(),
+			want: true,
+		},
+		{
+			name: "peer becomes unroutable (replicas drop to 0)",
+			old:  func() *v1alpha2.LLMInferenceService { s := routableMember("v1", "g", 9, now); return &s }(),
+			new: func() *v1alpha2.LLMInferenceService {
+				s := routableMember("v1", "g", 9, now)
+				s.Status.Workloads.Primary.ReadyReplicas = ptr.To(int32(0))
+				return &s
+			}(),
+			want: true,
+		},
+		{
+			name: "replica count change without routable transition",
+			old:  func() *v1alpha2.LLMInferenceService { s := routableMember("v1", "g", 9, now); return &s }(),
+			new: func() *v1alpha2.LLMInferenceService {
+				s := routableMember("v1", "g", 9, now)
+				s.Status.Workloads.Primary.ReadyReplicas = ptr.To(int32(3))
+				return &s
+			}(),
+			want: false,
+		},
+		{
 			name: "non-traffic change on grouped member",
 			old:  func() *v1alpha2.LLMInferenceService { s := memberSvc("v1", "g", 9, false, now); return &s }(),
 			new:  func() *v1alpha2.LLMInferenceService { s := memberSvc("v1", "g", 9, false, now); return &s }(),
@@ -612,6 +714,23 @@ func TestRouteReferencesBackend(t *testing.T) {
 }
 
 // memberSvc creates a minimal LLMInferenceService for group testing.
+func routableMember(name, group string, weight int32, ts metav1.Time) v1alpha2.LLMInferenceService {
+	svc := memberSvc(name, group, weight, false, ts)
+	svc.Status.SetConditions(apis.Conditions{{
+		Type:   v1alpha2.RouterReady,
+		Status: corev1.ConditionTrue,
+	}})
+	svc.Status.Workloads = &v1alpha2.WorkloadStatus{
+		Primary: &v1alpha2.ObservedWorkloadStatus{
+			TypedLocalObjectReference: corev1.TypedLocalObjectReference{
+				APIGroup: ptr.To("apps"), Kind: "Deployment", Name: name + "-kserve",
+			},
+			ReadyReplicas: ptr.To(int32(1)),
+		},
+	}
+	return svc
+}
+
 func memberSvc(name, group string, weight int32, stopped bool, ts metav1.Time) v1alpha2.LLMInferenceService {
 	svc := v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{

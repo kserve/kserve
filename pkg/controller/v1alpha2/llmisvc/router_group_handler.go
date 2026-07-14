@@ -172,5 +172,9 @@ func trafficFieldsChanged(old, new *v1alpha2.LLMInferenceService) bool {
 		return true
 	}
 
+	if isMemberRoutable(old) != isMemberRoutable(new) {
+		return true
+	}
+
 	return false
 }
