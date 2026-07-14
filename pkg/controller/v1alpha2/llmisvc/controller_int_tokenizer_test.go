@@ -69,9 +69,9 @@ var _ = Describe("LLMInferenceService Controller — Standalone Tokenizer", func
 
 				g.Expect(dep).To(BeOwnedBy(llmSvc))
 
-				// Well-known config should provide the vllm-render container
+				// Well-known config should provide the main container
 				containerNames := containerNameList(dep)
-				g.Expect(containerNames).To(ContainElement("vllm-render"))
+				g.Expect(containerNames).To(ContainElement("main"))
 			}).WithContext(ctx).Should(Succeed())
 
 			// Verify tokenizer Service is created with correct port
@@ -153,7 +153,7 @@ schedulingProfiles:
 
 				g.Expect(dep).To(BeOwnedBy(llmSvc))
 				containerNames := containerNameList(dep)
-				g.Expect(containerNames).To(ContainElement("vllm-render"))
+				g.Expect(containerNames).To(ContainElement("main"))
 			}).WithContext(ctx).Should(Succeed())
 
 			// Verify token-producer gets wired with tokenizer URL
@@ -294,7 +294,7 @@ schedulingProfiles:
 
 				g.Expect(dep).To(BeOwnedBy(llmSvc))
 				containerNames := containerNameList(dep)
-				g.Expect(containerNames).To(ContainElement("vllm-render"))
+				g.Expect(containerNames).To(ContainElement("main"))
 			}).WithContext(ctx).Should(Succeed())
 
 			// Tokenizer Service should also exist

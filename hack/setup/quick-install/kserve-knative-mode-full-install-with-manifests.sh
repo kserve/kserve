@@ -5220,7 +5220,7 @@ spec:
               value: "1"
             image: docker.io/vllm/vllm-openai-cpu:v0.23.0@sha256:89e1fbe829038b1a560601990c8ec89625c622a969fcbc8f10ce48b6139795be
             imagePullPolicy: IfNotPresent
-            name: vllm-render
+            name: main
             ports:
             - containerPort: 8000
               name: render-http

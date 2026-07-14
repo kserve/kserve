@@ -1087,7 +1087,7 @@ def assert_tokenizer_pipeline_wired(
             logs = core_v1.read_namespaced_pod_log(
                 pod.metadata.name,
                 namespace,
-                container="vllm-render",
+                container="main",
                 tail_lines=200,
             )
             if logs:

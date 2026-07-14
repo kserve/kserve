@@ -40,9 +40,9 @@ import (
 )
 
 const (
-	tokenizerRenderContainerName = "vllm-render" // #nosec G101
-	tokenizerServicePort         = 8000
-	tokenizerPortName            = "render-http"
+	tokenizerDeploymentContainerName = "main"
+	tokenizerServicePort             = 8000
+	tokenizerPortName                = "render-http"
 )
 
 func tokenizerDeploymentName(llmSvc *v1alpha2.LLMInferenceService) string {
@@ -202,7 +202,7 @@ func (r *LLMISVCReconciler) expectedTokenizerDeployment(ctx context.Context, llm
 	}
 
 	modelPath := path.Join(constants.DefaultModelLocalMountPath, "base")
-	if err := r.attachModelArtifacts(ctx, existingServiceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, tokenizerRenderContainerName, modelPath, constants.LLMISVCSchedulerAttachesLoRA); err != nil {
+	if err := r.attachModelArtifacts(ctx, existingServiceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, tokenizerDeploymentContainerName, modelPath, constants.LLMISVCSchedulerAttachesLoRA); err != nil {
 		return d, fmt.Errorf("failed to attach model artifacts to tokenizer deployment: %w", err)
 	}
 

@@ -1160,7 +1160,7 @@ func TestLLMInferenceServiceConversion_PreservesTokenizer(t *testing.T) {
 				Template: &corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name:  "vllm-render",
+							Name:  "main",
 							Image: "custom-tokenizer:v1",
 						},
 					},
