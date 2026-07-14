@@ -56,7 +56,6 @@ spec:
               parameters:
                 tokenProcessorConfig:
                   blockSize: 64
-                  hashSeed: "42"
                 kvEventsConfig:
                   zmqEndpoint: "tcp://*:5557"
                   topicFilter: "kv@"
@@ -64,7 +63,6 @@ spec:
                 indexerConfig:
                   kvBlockIndexConfig:
                     enableMetrics: true
-                    metricsLoggingInterval: 60000000000
             - type: prefix-cache-scorer
               parameters:
                 prefixMatchInfoProducerName: precise-prefix-cache-producer
