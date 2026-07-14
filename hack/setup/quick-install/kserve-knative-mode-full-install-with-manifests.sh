@@ -4528,6 +4528,110 @@ spec:
               backendRequest: 0s
               request: 0s
           - backendRefs:
+            - group: inference.networking.k8s.io
+              kind: InferencePool
+              name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
+              port: 8000
+              weight: 1
+            filters:
+            - type: URLRewrite
+              urlRewrite:
+                path:
+                  replacePrefixMatch: /v1/completions
+                  type: ReplacePrefixMatch
+            matches:
+            - path:
+                type: PathPrefix
+                value: /publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}/v1/completions
+            name: v1-completions-publisher-path
+            timeouts:
+              backendRequest: 0s
+              request: 0s
+          - backendRefs:
+            - group: inference.networking.k8s.io
+              kind: InferencePool
+              name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
+              port: 8000
+              weight: 1
+            filters:
+            - type: URLRewrite
+              urlRewrite:
+                path:
+                  replacePrefixMatch: /v1/chat/completions
+                  type: ReplacePrefixMatch
+            matches:
+            - path:
+                type: PathPrefix
+                value: /publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}/v1/chat/completions
+            name: v1-chat-completions-publisher-path
+            timeouts:
+              backendRequest: 0s
+              request: 0s
+          - backendRefs:
+            - group: inference.networking.k8s.io
+              kind: InferencePool
+              name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
+              port: 8000
+              weight: 1
+            filters:
+            - type: URLRewrite
+              urlRewrite:
+                path:
+                  replacePrefixMatch: /v1/responses
+                  type: ReplacePrefixMatch
+            matches:
+            - path:
+                type: PathPrefix
+                value: /publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}/v1/responses
+            name: v1-responses-publisher-path
+            timeouts:
+              backendRequest: 0s
+              request: 0s
+          - backendRefs:
+            - group: inference.networking.k8s.io
+              kind: InferencePool
+              name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
+              port: 8000
+              weight: 1
+            filters:
+            - type: URLRewrite
+              urlRewrite:
+                path:
+                  replacePrefixMatch: /v1/messages
+                  type: ReplacePrefixMatch
+            matches:
+            - path:
+                type: PathPrefix
+                value: /publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}/v1/messages
+            name: v1-messages-publisher-path
+            timeouts:
+              backendRequest: 0s
+              request: 0s
+          - backendRefs:
+            - kind: Service
+              name: '{{ ChildName .ObjectMeta.Name `-kserve-workload-svc` }}'
+              port: 8000
+              weight: 1
+            filters:
+            - type: URLRewrite
+              urlRewrite:
+                path:
+                  replacePrefixMatch: /
+                  type: ReplacePrefixMatch
+            matches:
+            - path:
+                type: PathPrefix
+                value: /publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+            name: v1-publisher-path-catch-all
+            timeouts:
+              backendRequest: 0s
+              request: 0s
+          - backendRefs:
             - kind: Service
               name: '{{ ChildName .ObjectMeta.Name `-kserve-workload-svc` }}'
               port: 8000

@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"text/template"
@@ -528,13 +529,20 @@ func expandLoRAAdapterMatches(rules []gwapiv1.HTTPRouteRule, namespace string, a
 	if headerName == "" || len(adapters) == 0 {
 		return
 	}
+
+	sorted := make([]v1alpha2.LLMModelSpec, len(adapters))
+	copy(sorted, adapters)
+	slices.SortFunc(sorted, func(a, b v1alpha2.LLMModelSpec) int {
+		return strings.Compare(ptr.Deref(a.Name, ""), ptr.Deref(b.Name, ""))
+	})
+
 	for i := range rules {
 		var adapterMatches []gwapiv1.HTTPRouteMatch
 		for _, match := range rules[i].Matches {
 			if !isModelBasedRoutingMatch(match, headerName) {
 				continue
 			}
-			for _, adapter := range adapters {
+			for _, adapter := range sorted {
 				if adapter.Name == nil {
 					continue
 				}
