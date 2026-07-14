@@ -5206,13 +5206,13 @@ spec:
         template:
           automountServiceAccountToken: false
           containers:
-          - args:
-            - /mnt/models/base
-            - --port=8000
+          - args: []
             command:
             - vllm
             - launch
             - render
+            - /mnt/models/base
+            - --port=8000
             env:
             - name: HF_HOME
               value: /tmp/hf
