@@ -39570,6 +39570,7 @@ spec:
   - prefix: hdfs://
   - prefix: hf://
   - prefix: webhdfs://
+  - prefix: mlflow://
   - regex: https://(.+?).blob.core.windows.net/(.+)
   - regex: https://(.+?).file.core.windows.net/(.+)
   - regex: https?://(.+)/(.+)
