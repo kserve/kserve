@@ -924,6 +924,100 @@ func TestMergePodSpec(t *testing.T) {
 				SchedulerName: "isvc-scheduler",
 			},
 		},
+		"RuntimeOnlyResourceClaims": {
+			podSpecBase: &v1alpha1.ServingRuntimePodSpec{
+				ResourceClaims: []corev1.PodResourceClaim{
+					{
+						Name:              "gpu-resource",
+						ResourceClaimName: ptr.To("gpu-l4-claim"),
+					},
+				},
+			},
+			podSpecOverride: &PodSpec{},
+			expected: &corev1.PodSpec{
+				ResourceClaims: []corev1.PodResourceClaim{
+					{
+						Name:              "gpu-resource",
+						ResourceClaimName: ptr.To("gpu-l4-claim"),
+					},
+				},
+			},
+		},
+		"IsvcOnlyResourceClaims": {
+			podSpecBase: &v1alpha1.ServingRuntimePodSpec{},
+			podSpecOverride: &PodSpec{
+				ResourceClaims: []corev1.PodResourceClaim{
+					{
+						Name:              "gpu-hardware",
+						ResourceClaimName: ptr.To("gpu-l4-claim"),
+					},
+				},
+			},
+			expected: &corev1.PodSpec{
+				ResourceClaims: []corev1.PodResourceClaim{
+					{
+						Name:              "gpu-hardware",
+						ResourceClaimName: ptr.To("gpu-l4-claim"),
+					},
+				},
+			},
+		},
+		"BothDistinctResourceClaims": {
+			podSpecBase: &v1alpha1.ServingRuntimePodSpec{
+				ResourceClaims: []corev1.PodResourceClaim{
+					{
+						Name:              "gpu-a",
+						ResourceClaimName: ptr.To("claim-a"),
+					},
+				},
+			},
+			podSpecOverride: &PodSpec{
+				ResourceClaims: []corev1.PodResourceClaim{
+					{
+						Name:              "gpu-b",
+						ResourceClaimName: ptr.To("claim-b"),
+					},
+				},
+			},
+			expected: &corev1.PodSpec{
+				ResourceClaims: []corev1.PodResourceClaim{
+					{
+						Name:              "gpu-b",
+						ResourceClaimName: ptr.To("claim-b"),
+					},
+					{
+						Name:              "gpu-a",
+						ResourceClaimName: ptr.To("claim-a"),
+					},
+				},
+			},
+		},
+		"OverrideSameNameResourceClaims": {
+			podSpecBase: &v1alpha1.ServingRuntimePodSpec{
+				ResourceClaims: []corev1.PodResourceClaim{
+					{
+						Name:              "gpu",
+						ResourceClaimName: ptr.To("runtime-claim"),
+					},
+				},
+			},
+			podSpecOverride: &PodSpec{
+				ResourceClaims: []corev1.PodResourceClaim{
+					{
+						Name:              "gpu",
+						ResourceClaimName: ptr.To("isvc-claim"),
+					},
+				},
+			},
+			expected: &corev1.PodSpec{
+				ResourceClaims: []corev1.PodResourceClaim{
+					{
+						Name:              "gpu",
+						ResourceClaimName: ptr.To("isvc-claim"),
+					},
+				},
+			},
+		},
 	}
 
 	for name, scenario := range scenarios {

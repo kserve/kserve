@@ -118,7 +118,23 @@ type ServingRuntimePodSpec struct {
 	// +optional
 	SchedulerName string `json:"schedulerName,omitempty"`
 
-	// Possibly other things here
+	// ResourceClaims defines which ResourceClaims must be allocated
+	// and reserved before the Pod is allowed to start. The resources
+	// will be made available to those containers which consume them
+	// by name.
+	//
+	// This is an alpha field and requires enabling the
+	// DynamicResourceAllocation feature gate.
+	//
+	// This field is immutable.
+	//
+	// +patchMergeKey=name
+	// +patchStrategy=merge,retainKeys
+	// +listType=map
+	// +listMapKey=name
+	// +featureGate=DynamicResourceAllocation
+	// +optional
+	ResourceClaims []corev1.PodResourceClaim `json:"resourceClaims,omitempty" patchStrategy:"merge,retainKeys" patchMergeKey:"name" protobuf:"bytes,39,rep,name=resourceClaims"`
 }
 
 // ServingRuntimeSpec defines the desired state of ServingRuntime. This spec is currently provisional

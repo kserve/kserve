@@ -54,6 +54,7 @@ class V1alpha1ServingRuntimePodSpec(object):
         'image_pull_secrets': 'list[V1LocalObjectReference]',
         'labels': 'dict(str, str)',
         'node_selector': 'dict(str, str)',
+        'resource_claims': 'list[V1PodResourceClaim]',
         'scheduler_name': 'str',
         'tolerations': 'list[V1Toleration]',
         'volumes': 'list[V1Volume]'
@@ -67,12 +68,13 @@ class V1alpha1ServingRuntimePodSpec(object):
         'image_pull_secrets': 'imagePullSecrets',
         'labels': 'labels',
         'node_selector': 'nodeSelector',
+        'resource_claims': 'resourceClaims',
         'scheduler_name': 'schedulerName',
         'tolerations': 'tolerations',
         'volumes': 'volumes'
     }
 
-    def __init__(self, affinity=None, annotations=None, containers=None, host_ipc=None, image_pull_secrets=None, labels=None, node_selector=None, scheduler_name=None, tolerations=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, affinity=None, annotations=None, containers=None, host_ipc=None, image_pull_secrets=None, labels=None, node_selector=None, resource_claims=None, scheduler_name=None, tolerations=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1ServingRuntimePodSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -85,6 +87,7 @@ class V1alpha1ServingRuntimePodSpec(object):
         self._image_pull_secrets = None
         self._labels = None
         self._node_selector = None
+        self._resource_claims = None
         self._scheduler_name = None
         self._tolerations = None
         self._volumes = None
@@ -103,6 +106,8 @@ class V1alpha1ServingRuntimePodSpec(object):
             self.labels = labels
         if node_selector is not None:
             self.node_selector = node_selector
+        if resource_claims is not None:
+            self.resource_claims = resource_claims
         if scheduler_name is not None:
             self.scheduler_name = scheduler_name
         if tolerations is not None:
@@ -270,6 +275,29 @@ class V1alpha1ServingRuntimePodSpec(object):
         """
 
         self._node_selector = node_selector
+
+    @property
+    def resource_claims(self):
+        """Gets the resource_claims of this V1alpha1ServingRuntimePodSpec.  # noqa: E501
+
+        ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.  This is an alpha field and requires enabling the DynamicResourceAllocation feature gate.  This field is immutable.  # noqa: E501
+
+        :return: The resource_claims of this V1alpha1ServingRuntimePodSpec.  # noqa: E501
+        :rtype: list[V1PodResourceClaim]
+        """
+        return self._resource_claims
+
+    @resource_claims.setter
+    def resource_claims(self, resource_claims):
+        """Sets the resource_claims of this V1alpha1ServingRuntimePodSpec.
+
+        ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.  This is an alpha field and requires enabling the DynamicResourceAllocation feature gate.  This field is immutable.  # noqa: E501
+
+        :param resource_claims: The resource_claims of this V1alpha1ServingRuntimePodSpec.  # noqa: E501
+        :type: list[V1PodResourceClaim]
+        """
+
+        self._resource_claims = resource_claims
 
     @property
     def scheduler_name(self):
