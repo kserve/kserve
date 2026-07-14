@@ -228,6 +228,10 @@ func validateCanarySpecs(isvc *InferenceService) error {
 			return fmt.Errorf("canary %q predictor: %w", canary.Predictor.Name, err)
 		}
 
+		if canary.Predictor.WorkerSpec != nil {
+			return fmt.Errorf("canary %q must not set workerSpec (multi-node is not yet supported for canary)", canary.Predictor.Name)
+		}
+
 		ext := canary.Predictor.GetExtensions()
 		if ext.MaxReplicas > 0 {
 			return fmt.Errorf("canary %q must not set maxReplicas (canary uses fixed replicas)", canary.Predictor.Name)

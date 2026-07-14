@@ -2471,6 +2471,42 @@ func TestValidateCanarySpecs(t *testing.T) {
 			}}),
 			errMatcher: gomega.MatchError(gomega.ContainSubstring("must be less than stable")),
 		},
+		"Canary with workerSpec rejected": {
+			isvc: makeISVC([]CanarySpec{{
+				TrafficPercent: 10,
+				Predictor: PredictorSpec{
+					Name:       "v2",
+					WorkerSpec: &WorkerSpec{},
+					Model: &ModelSpec{
+						ModelFormat:            ModelFormat{Name: "sklearn"},
+						PredictorExtensionSpec: PredictorExtensionSpec{StorageURI: proto.String("gs://test/v2")},
+					},
+				},
+			}}),
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("must not set workerSpec")),
+		},
+		"Canary rejected when stable uses custom container (no model)": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo", Namespace: "default",
+					Annotations: map[string]string{
+						constants.DeploymentMode: string(constants.Standard),
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						PodSpec: PodSpec{
+							Containers: []corev1.Container{{
+								Name:  "kserve-container",
+								Image: "custom-server:latest",
+							}},
+						},
+					},
+					Canary: []CanarySpec{validCanary("v2", 10)},
+				},
+			},
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("requires a stable predictor with a model")),
+		},
 	}
 
 	for name, scenario := range scenarios {

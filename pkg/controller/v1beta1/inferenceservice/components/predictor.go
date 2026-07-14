@@ -910,10 +910,6 @@ func buildCanaryPredictor(stable v1beta1.PredictorSpec, canary v1beta1.CanarySpe
 	return canaryPredictor, nil
 }
 
-// Multi-node (WorkerSpec) is not supported for canary deployments. Multi-node
-// allocates leader+worker pod groups across GPU nodes for a single inference
-// instance — canary replica scaling doesn't map to that model. This should
-// be designed separately if needed.
 func (p *Predictor) reconcileCanaryDeployments(ctx context.Context, isvc *v1beta1.InferenceService) error {
 	stableName := constants.PredictorServiceName(isvc.Name, isvc.Spec.Predictor.Name)
 	expectedNames := map[string]bool{stableName: true}
