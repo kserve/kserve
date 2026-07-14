@@ -21,9 +21,46 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Install Python dependencies
 COPY storage/pyproject.toml storage/uv.lock storage/
+
+# On ppc64le: patch pyproject.toml to add the ppc64le package index and sources,
+# then regenerate uv.lock before syncing.
+RUN if [ "$(uname -m)" = "ppc64le" ]; then \
+        sed -i \
+            -e '/^    "hf-xet/a\    "google-crc32c==1.7.1",' \
+            -e '/^    "hf-xet/a\    "pyyaml==6.0.2",' \
+            storage/pyproject.toml && \
+        printf '%s\n' \
+            '' \
+            '[tool.uv]' \
+            'index-strategy = "unsafe-best-match"' \
+            '' \
+            '[[tool.uv.index]]' \
+            'name = "ppc64le-wheels"' \
+            'url = "https://wheels.developerfirst.ibm.com/ppc64le/linux"' \
+            'explicit = true' \
+            '' \
+            '[tool.uv.sources]' \
+            'pyyaml = { index = "ppc64le-wheels" }' \
+            'google-crc32c = { index = "ppc64le-wheels" }' \
+            'hf-xet = { index = "ppc64le-wheels" }' \
+            >> storage/pyproject.toml && \
+        cd storage && uv lock && \
+        cp uv.lock /tmp/storage_ppc64le_uv.lock && \
+        cp pyproject.toml /tmp/storage_ppc64le_pyproject.toml; \
+    fi
+
 RUN cd storage && uv sync --active --extra confidential --no-cache
 
 COPY storage storage
+
+# On ppc64le: restore the patched pyproject.toml + uv.lock after COPY overwrites them, then clean up
+RUN if [ "$(uname -m)" = "ppc64le" ]; then \
+        rm -f storage/pyproject.toml storage/uv.lock && \
+        cp /tmp/storage_ppc64le_pyproject.toml storage/pyproject.toml && \
+        cp /tmp/storage_ppc64le_uv.lock storage/uv.lock && \
+        rm -f /tmp/storage_ppc64le_pyproject.toml /tmp/storage_ppc64le_uv.lock; \
+    fi
+
 RUN cd storage && uv pip install ".[confidential]" --no-cache
 
 ARG DEBIAN_FRONTEND=noninteractive
