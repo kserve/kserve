@@ -26,7 +26,7 @@ from alibiexplainer.anchor_text import AnchorText
 from alibiexplainer.explainer_wrapper import ExplainerWrapper
 
 import kserve
-from kserve.logging import logger
+from kserve.log_config import logger
 
 nest_asyncio.apply()
 

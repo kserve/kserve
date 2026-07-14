@@ -22,7 +22,7 @@ import httpx
 import kserve
 from kserve import InferenceRESTClient, RESTConfig
 from kserve.constants.constants import PredictorProtocol
-from kserve.logging import logger, KSERVE_LOG_CONFIG
+from kserve.log_config import logger, KSERVE_LOG_CONFIG
 
 from .common.http_retry import (
     DEFAULT_RETRY_BACKOFF_FACTOR,
@@ -35,7 +35,7 @@ from .common.http_retry import (
 def configure_logger():
     KSERVE_LOG_CONFIG["loggers"]["kserve"]["propagate"] = True
     KSERVE_LOG_CONFIG["loggers"]["kserve.trace"]["propagate"] = True
-    kserve.logging.configure_logging(KSERVE_LOG_CONFIG)
+    kserve.log_config.configure_logging(KSERVE_LOG_CONFIG)
     logger.info("Logger configured")
 
 

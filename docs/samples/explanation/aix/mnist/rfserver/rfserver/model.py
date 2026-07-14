@@ -22,7 +22,7 @@ from kserve.protocol.grpc.grpc_predict_v2_pb2 import (
     ModelInferRequest,
     ModelInferResponse,
 )
-from kserve.logging import logger
+from kserve.log_config import logger
 
 
 class PipeStep(object):

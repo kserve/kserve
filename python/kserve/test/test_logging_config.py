@@ -53,7 +53,7 @@ def _isolate_logging(monkeypatch):
 
 def _get_kserve_logging_module():
     # Import from the installed editable package
-    from kserve import logging as klog_mod  # type: ignore
+    from kserve import log_config as klog_mod  # type: ignore
 
     return klog_mod
 

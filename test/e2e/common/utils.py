@@ -30,7 +30,7 @@ from kserve import KServeClient, InferResponse, InferRequest
 from kserve import constants
 from kserve.inference_client import InferenceGRPCClient, InferenceRESTClient
 from kserve.protocol.grpc import grpc_predict_v2_pb2 as pb
-from kserve.logging import trace_logger as logger
+from kserve.log_config import trace_logger as logger
 from .http_retry import post_with_retry
 
 KSERVE_NAMESPACE = os.environ.get("KSERVE_NAMESPACE", "kserve")
