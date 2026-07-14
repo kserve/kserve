@@ -1,0 +1,7 @@
+# Patch to add cert-manager CA injection annotation to InferenceService CRD
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: kserve/serving-cert
+  name: inferenceservices.serving.kserve.io

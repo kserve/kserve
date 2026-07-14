@@ -480,6 +480,7 @@ deploy-dev: manifests kernelcache-webhook-secret-file
 	# The below kubectl apply and kubectl wait commands are necessary to avoid this race condition.
 	kubectl apply --server-side=true --force-conflicts -k config/crd/full
 	kubectl apply --server-side=true --force-conflicts -k config/crd/full/localmodel
+	kubectl apply --server-side=true --force-conflicts -k config/crd/full/kernelcache
 	kubectl apply --server-side=true --force-conflicts -k config/crd/full/llmisvc
 	kubectl wait --for=condition=established --timeout=60s crd/llminferenceserviceconfigs.serving.kserve.io
 	./hack/image_patch_dev.sh development
@@ -537,20 +538,6 @@ deploy-dev-huggingface: docker-push-huggingface
 deploy-dev-storageInitializer: docker-push-storageInitializer
 	./hack/storageInitializer_patch_dev.sh ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
 	kubectl apply --server-side=true -k config/overlays/dev-image-config
-
-# Deploy LocalModel + KernelCache (unified controller)
-deploy-localmodel: kernelcache-webhook-secret-file
-	kubectl apply --server-side=true --force-conflicts -k config/crd/full/localmodel
-	kubectl apply --server-side=true --force-conflicts -k config/crd/full/kernelcache
-	kubectl apply -k config/localmodels
-	kubectl apply -k config/kernelcachenodes
-
-# Undeploy LocalModel + KernelCache
-undeploy-localmodel:
-	kubectl delete -k config/kernelcachenodes
-	kubectl delete -k config/localmodels
-	kubectl delete -k config/crd/full/kernelcache
-	kubectl delete -k config/crd/full/localmodel
 
 # Deploy LocalModel + KernelCache to kind cluster for local testing
 deploy-dev-localmodel-kind: docker-build-localmodel docker-build-kernelcachenode-agent kernelcache-webhook-secret-file
