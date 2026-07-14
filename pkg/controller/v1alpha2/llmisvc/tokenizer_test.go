@@ -557,54 +557,6 @@ plugins:
 	}
 }
 
-func TestStripUdsTokenizerSidecar(t *testing.T) {
-	d := &appsv1.Deployment{
-		Spec: appsv1.DeploymentSpec{
-			Template: corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name: "main",
-							VolumeMounts: []corev1.VolumeMount{
-								{Name: "tls-certs", MountPath: "/var/run/kserve/tls"},
-								{Name: "tokenizer-uds", MountPath: "/tmp/tokenizer"},
-							},
-						},
-						{
-							Name: tokenizerContainerName,
-							VolumeMounts: []corev1.VolumeMount{
-								{Name: "tokenizer-uds", MountPath: "/tmp/tokenizer"},
-								{Name: "tokenizer-tmp", MountPath: "/tmp"},
-							},
-						},
-					},
-					Volumes: []corev1.Volume{
-						{Name: "tls-certs"},
-						{Name: "tokenizer-uds"},
-						{Name: "tokenizer-tmp"},
-					},
-				},
-			},
-		},
-	}
-
-	withStripUdsTokenizerSidecar(d)
-
-	g := NewGomegaWithT(t)
-	g.Expect(d.Spec.Template.Spec.Containers).To(HaveLen(1))
-	g.Expect(d.Spec.Template.Spec.Containers[0].Name).To(Equal("main"))
-
-	g.Expect(d.Spec.Template.Spec.Volumes).To(HaveLen(2))
-	for _, v := range d.Spec.Template.Spec.Volumes {
-		g.Expect(v.Name).NotTo(Equal("tokenizer-uds"))
-	}
-
-	mainContainer := d.Spec.Template.Spec.Containers[0]
-	for _, vm := range mainContainer.VolumeMounts {
-		g.Expect(vm.Name).NotTo(Equal("tokenizer-uds"))
-	}
-}
-
 func TestShouldDeleteTokenizer(t *testing.T) {
 	tests := []struct {
 		name   string

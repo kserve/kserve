@@ -443,11 +443,7 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 			injectSchedulerTracing(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), mainContainer)
 		}
 
-		if isTokenizerEnabled(llmSvc.Spec) {
-			// Strip the legacy UDS tokenizer sidecar if it was included via
-			// the well-known config or versioned config pinning.
-			withStripUdsTokenizerSidecar(d)
-		} else if isUsingTokenizerSidecar(llmSvc.Spec) {
+		if isUsingTokenizerSidecar(llmSvc.Spec) {
 			var existingServiceAccount *corev1.ServiceAccount
 			if llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName != "" {
 				existingServiceAccount = &corev1.ServiceAccount{}
@@ -1717,36 +1713,6 @@ func withDecomposePrecisePrefixCacheScorer(tokenizerURL string) mutateSchedulerC
 		}
 
 		return nil
-	}
-}
-
-// withStripUdsTokenizerSidecar removes the UDS tokenizer sidecar container and
-// associated volumes/volumeMounts from the scheduler deployment. This is called
-// during migration from UDS tokenizer to standalone tokenizer.
-func withStripUdsTokenizerSidecar(d *appsv1.Deployment) {
-	for i := range d.Spec.Template.Spec.Containers {
-		if d.Spec.Template.Spec.Containers[i].Name == tokenizerContainerName {
-			d.Spec.Template.Spec.Containers = append(d.Spec.Template.Spec.Containers[:i], d.Spec.Template.Spec.Containers[i+1:]...)
-			break
-		}
-	}
-
-	udsVolumeName := "tokenizer-uds"
-	for i := range d.Spec.Template.Spec.Volumes {
-		if d.Spec.Template.Spec.Volumes[i].Name == udsVolumeName {
-			d.Spec.Template.Spec.Volumes = append(d.Spec.Template.Spec.Volumes[:i], d.Spec.Template.Spec.Volumes[i+1:]...)
-			break
-		}
-	}
-
-	for ci := range d.Spec.Template.Spec.Containers {
-		c := &d.Spec.Template.Spec.Containers[ci]
-		for vi := range c.VolumeMounts {
-			if c.VolumeMounts[vi].Name == udsVolumeName {
-				c.VolumeMounts = append(c.VolumeMounts[:vi], c.VolumeMounts[vi+1:]...)
-				break
-			}
-		}
 	}
 }
 
