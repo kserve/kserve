@@ -59,6 +59,19 @@ kserve:
         capabilities:
           drop:
             - ALL
+    catboostserver:
+      disabled: false
+      image: kserve/catboostserver
+      tag: ""
+      imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
     huggingfaceserver:
       disabled: false
       image: kserve/huggingfaceserver

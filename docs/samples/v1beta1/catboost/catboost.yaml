@@ -1,0 +1,8 @@
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "catboost-iris"
+spec:
+  predictor:
+    catboost:
+      storageUri: "gs://kfserving-examples/models/catboost/iris"

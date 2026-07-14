@@ -55,6 +55,15 @@ $ helm install kserve-runtime-configs oci://ghcr.io/kserve/charts/kserve-runtime
 | kserve.servingruntime.autogluonserver.securityContext.privileged | bool | `false` |  |
 | kserve.servingruntime.autogluonserver.securityContext.runAsNonRoot | bool | `true` |  |
 | kserve.servingruntime.autogluonserver.tag | string | `""` |  |
+| kserve.servingruntime.catboostserver.disabled | bool | `false` |  |
+| kserve.servingruntime.catboostserver.image | string | `"kserve/catboostserver"` |  |
+| kserve.servingruntime.catboostserver.imagePullPolicy | string | `"IfNotPresent"` |  |
+| kserve.servingruntime.catboostserver.imagePullSecrets | list | `[]` |  |
+| kserve.servingruntime.catboostserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
+| kserve.servingruntime.catboostserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
+| kserve.servingruntime.catboostserver.securityContext.privileged | bool | `false` |  |
+| kserve.servingruntime.catboostserver.securityContext.runAsNonRoot | bool | `true` |  |
+| kserve.servingruntime.catboostserver.tag | string | `""` |  |
 | kserve.servingruntime.enabled | bool | `false` |  |
 | kserve.servingruntime.huggingfaceserver.devShm.enabled | bool | `false` |  |
 | kserve.servingruntime.huggingfaceserver.devShm.sizeLimit | string | `""` |  |

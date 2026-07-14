@@ -381,6 +381,38 @@ spec:
 apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
+  name: kserve-catboostserver
+  annotations:
+    serving.kserve.io/server-type: catboostserver
+spec:
+  disabled: {{ .Values.kserve.servingruntime.catboostserver.disabled }}
+  containers:
+    - name: kserve-container
+      image: "{{ .Values.kserve.servingruntime.catboostserver.image }}:{{ .Values.kserve.servingruntime.catboostserver.tag | default .Values.kserve.version }}"
+      imagePullPolicy: {{ .Values.kserve.servingruntime.catboostserver.imagePullPolicy }}
+      args:
+        - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
+        - --model_dir=/mnt/models
+        - --http_port=8080
+      securityContext:
+          {{- with .Values.kserve.servingruntime.catboostserver.securityContext}}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi
+  {{- with .Values.kserve.servingruntime.catboostserver.imagePullSecrets }}
+  imagePullSecrets:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
   name: kserve-huggingfaceserver
   annotations:
     serving.kserve.io/server-type: huggingfaceserver
