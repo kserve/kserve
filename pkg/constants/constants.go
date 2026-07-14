@@ -177,8 +177,12 @@ var (
 	LocalModelNamespaceLabel                         = InferenceServiceInternalAnnotationsPrefix + "/localmodel-namespace"
 	LocalModelSourceUriAnnotationKey                 = InferenceServiceInternalAnnotationsPrefix + "/localmodel-sourceuri"
 	LocalModelPVCNameAnnotationKey                   = InferenceServiceInternalAnnotationsPrefix + "/localmodel-pvc-name"
-	ConfidentialEnabledAnnotationKey                 = InferenceServiceInternalAnnotationsPrefix + "/confidential-enabled"
-	ConfidentialResourceIdAnnotationKey              = InferenceServiceInternalAnnotationsPrefix + "/confidential-resource-id"
+	// KernelCache labels and annotations for mounting kernel caches into predictor pods
+	KernelCacheLabel                    = InferenceServiceInternalAnnotationsPrefix + "/kernelcache"
+	KernelCachePVCNameAnnotationKey     = InferenceServiceInternalAnnotationsPrefix + "/kernelcache-pvc-name"
+	DisableKernelCacheKey               = KServeAPIGroupName + "/disable-kernelcache"
+	ConfidentialEnabledAnnotationKey    = InferenceServiceInternalAnnotationsPrefix + "/confidential-enabled"
+	ConfidentialResourceIdAnnotationKey = InferenceServiceInternalAnnotationsPrefix + "/confidential-resource-id"
 )
 
 // kserve networking constants

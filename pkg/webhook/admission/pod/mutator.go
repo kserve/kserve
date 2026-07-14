@@ -133,6 +133,7 @@ func (mutator *Mutator) mutate(ctx context.Context, pod *corev1.Pod, configMap *
 			return storageInitializer.InjectStorageInitializer(ctx, pod)
 		},
 		storageInitializer.SetIstioCniSecurityContext,
+		storageInitializer.InjectKernelCache,
 		agentInjector.InjectAgent,
 		metricsAggregator.InjectMetricsAggregator,
 	}

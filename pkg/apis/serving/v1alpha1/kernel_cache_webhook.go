@@ -54,6 +54,12 @@ const (
 	// Extracted from OCI image labels during mutation
 	AnnotationCacheSizeBytes = "internal.serving.kserve.io/cache-size-bytes"
 
+	// Generic mounting annotations - extracted from OCI image labels
+	// These enable the pod mutator to mount caches without framework-specific code
+	AnnotationCacheHash         = "internal.serving.kserve.io/cache-hash"          // Hash(es) identifying cached kernels
+	AnnotationCacheMountSubpath = "internal.serving.kserve.io/cache-mount-subpath" // Relative path from cache root
+	AnnotationCacheRootEnv      = "internal.serving.kserve.io/cache-root-env"      // Environment variable assignment (NAME=VALUE)
+
 	// AnnotationDigestError stores digest resolution error for debugging
 	// Set when digest resolution fails (non-fatal in mutating webhook)
 	AnnotationDigestError = "internal.serving.kserve.io/digest-error"
@@ -65,6 +71,12 @@ const (
 	// ImageLabelCacheSizeBytesSubstring is the substring in OCI image labels that contains cache size
 	// MCV tool sets labels like "io.kserve.cache-size-bytes.<layer>" with size values
 	ImageLabelCacheSizeBytesSubstring = "cache-size-bytes"
+
+	// OCI image label keys for generic mounting (set by MCV tool)
+	// These travel with the OCI image and enable framework-agnostic cache mounting
+	ImageLabelCacheHash         = "io.kserve.km/cache-hash"          // Single hash or comma-separated list
+	ImageLabelCacheMountSubpath = "io.kserve.km/cache-mount-subpath" // Relative mount path
+	ImageLabelCacheRootEnv      = "io.kserve.km/cache-root-env"      // Environment variable (NAME=VALUE)
 
 	// EnvKyvernoEnabled is the environment variable to enable/disable Kyverno verification
 	// Defaults to false if not set
@@ -176,9 +188,23 @@ func (kc *KernelCache) Default(ctx context.Context, obj runtime.Object) error {
 	size := extractSizeFromImage(cache.Spec.Image)
 	kernelcacheLog.Info("Extracted cache size", "bytes", size, "MB", float64(size)/(1024*1024))
 
-	// Store digest and size in annotations
+	// Extract generic mounting metadata from OCI image labels
+	mountingMeta := extractMountingMetadataFromImage(cache.Spec.Image)
+
+	// Store digest, size, and mounting metadata in annotations
 	cache.Annotations[AnnotationResolvedDigest] = digest
 	cache.Annotations[AnnotationCacheSizeBytes] = strconv.FormatInt(size, 10)
+
+	// Store mounting metadata if present (backwards compatible - won't be set for older images)
+	if hash := mountingMeta["cache-hash"]; hash != "" {
+		cache.Annotations[AnnotationCacheHash] = hash
+	}
+	if subpath := mountingMeta["cache-mount-subpath"]; subpath != "" {
+		cache.Annotations[AnnotationCacheMountSubpath] = subpath
+	}
+	if rootEnv := mountingMeta["cache-root-env"]; rootEnv != "" {
+		cache.Annotations[AnnotationCacheRootEnv] = rootEnv
+	}
 
 	// Generate mutation signature to prevent digest tampering
 	// Only the mutating webhook can create a valid signature
@@ -346,9 +372,7 @@ func (kc *KernelCache) ValidateDelete(ctx context.Context, obj runtime.Object) (
 
 	kernelcacheLog.Info("Validating KernelCache delete", "name", cache.Name, "namespace", cache.Namespace)
 
-	// Check if cache is in use by pods (via ServingStatus)
-	// Phase 2: when ServingStatus is populated by agent
-	// For now, allow deletion (finalizer handles cleanup)
+	// Check if cache is in use by pods (via ServingStatus populated by agent)
 	if cache.Status.ServingStatus != nil && cache.Status.ServingStatus.TotalPodsUsing > 0 {
 		return nil, fmt.Errorf("cannot delete KernelCache: in use by %d pods", cache.Status.ServingStatus.TotalPodsUsing)
 	}
@@ -420,6 +444,66 @@ func extractSizeFromImage(imageRef string) int64 {
 	}
 
 	return totalUncompressedSize
+}
+
+// extractMountingMetadataFromImage reads the OCI image labels and extracts
+// generic mounting instructions (framework-agnostic).
+// Returns a map with keys: "cache-hash", "cache-mount-subpath", "cache-root-env"
+// Returns empty map if unable to extract metadata.
+func extractMountingMetadataFromImage(imageRef string) map[string]string {
+	result := make(map[string]string)
+
+	ref, err := gcrname.ParseReference(imageRef)
+	if err != nil {
+		kernelcacheLog.Error(err, "ParseReference failed for mounting metadata extraction")
+		return result
+	}
+
+	img, err := gcrremote.Image(ref)
+	if err != nil {
+		kernelcacheLog.Error(err, "gcrremote.Image failed for mounting metadata extraction")
+		return result
+	}
+
+	cfg, err := img.ConfigFile()
+	if err != nil {
+		kernelcacheLog.Error(err, "ConfigFile failed for mounting metadata extraction")
+		return result
+	}
+
+	labels := cfg.Config.Labels
+	if len(labels) == 0 {
+		kernelcacheLog.V(1).Info("No labels found in image for mounting metadata")
+		return result
+	}
+
+	// Extract the 3 generic mounting labels (set by MCV tool)
+	if hash, ok := labels[ImageLabelCacheHash]; ok {
+		result["cache-hash"] = hash
+		kernelcacheLog.V(1).Info("Extracted cache hash", "hash", hash)
+	}
+	if subpath, ok := labels[ImageLabelCacheMountSubpath]; ok {
+		result["cache-mount-subpath"] = subpath
+		kernelcacheLog.V(1).Info("Extracted cache mount subpath", "subpath", subpath)
+	}
+	if rootEnv, ok := labels[ImageLabelCacheRootEnv]; ok {
+		result["cache-root-env"] = rootEnv
+		kernelcacheLog.V(1).Info("Extracted cache root env", "rootEnv", rootEnv)
+	}
+
+	// Log if any mounting metadata is missing (expected for older images)
+	if len(result) == 0 {
+		kernelcacheLog.V(1).Info("No mounting metadata labels found in image (this is expected for images created before generic mounting support)")
+	} else if len(result) < 3 {
+		kernelcacheLog.Info("Incomplete mounting metadata found in image", "found", len(result), "expected", 3)
+	} else {
+		kernelcacheLog.Info("Extracted complete mounting metadata from image",
+			"hash", result["cache-hash"],
+			"subpath", result["cache-mount-subpath"],
+			"rootEnv", result["cache-root-env"])
+	}
+
+	return result
 }
 
 // verifyKyvernoAnnotation checks the kyverno.io/verify-images annotation to ensure

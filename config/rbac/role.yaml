@@ -222,6 +222,8 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - kernelcachenodes
+  - kernelcaches
   - localmodelcaches
   - localmodelnamespacecaches
   verbs:
