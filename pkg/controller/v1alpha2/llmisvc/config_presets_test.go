@@ -100,7 +100,7 @@ func TestPresetFiles(t *testing.T) {
 							InitContainers: []corev1.Container{
 								{
 									Name:  "llm-d-routing-sidecar",
-									Image: "ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.9.0-rc.2",
+									Image: "ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.9.0",
 									Command: []string{
 										"/app/pd-sidecar",
 										"--port=8000",
@@ -187,7 +187,7 @@ func TestPresetFiles(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:  "main",
-									Image: "ghcr.io/llm-d/llm-d-cuda:v0.7.0",
+									Image: "ghcr.io/llm-d/llm-d-cuda:v0.8.0",
 									Ports: []corev1.ContainerPort{
 										{
 											ContainerPort: 8001,
@@ -336,7 +336,7 @@ func TestPresetFiles(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:  "main",
-									Image: "ghcr.io/llm-d/llm-d-cuda:v0.7.0",
+									Image: "ghcr.io/llm-d/llm-d-cuda:v0.8.0",
 									Ports: []corev1.ContainerPort{
 										{
 											ContainerPort: 8001,
@@ -465,7 +465,7 @@ func TestPresetFiles(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:  "main",
-									Image: "ghcr.io/llm-d/llm-d-cuda:v0.7.0",
+									Image: "ghcr.io/llm-d/llm-d-cuda:v0.8.0",
 									Ports: []corev1.ContainerPort{
 										{
 											ContainerPort: 8000,

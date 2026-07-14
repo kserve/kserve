@@ -162,6 +162,12 @@ type WorkloadSpec struct {
 	// In a multi-node deployment, this configures the "head" or "master" pod.
 	// In a disaggregated deployment, this configures the "decode" pod if it's the top-level template,
 	// or the "prefill" pod if it's within the Prefill block.
+	//
+	// For the storage-initializer init container (named "storage-initializer"), users may
+	// customize fields such as env, resources, volumeMounts, and image. The container's
+	// name, args, and command are controller-managed and any user-provided values for
+	// these fields will be overridden. To disable the storage-initializer entirely, use
+	// spec.storageInitializer.enabled=false.
 	// +optional
 	Template *corev1.PodSpec `json:"template,omitempty"`
 
@@ -190,6 +196,71 @@ type KVCacheOffloadingSpec struct {
 	// +kubebuilder:validation:Enum=lru;arc
 	// +kubebuilder:default=lru
 	EvictionPolicy string `json:"evictionPolicy,omitempty"`
+
+	// Secondary is an ordered list of secondary KV cache tiers. vLLM cascades
+	// through tiers in the order listed. Currently only fileSystem tiers are
+	// supported; the array shape is designed to accommodate object store tiers
+	// in a future follow-up without an API break.
+	// +optional
+	Secondary []SecondaryTierSpec `json:"secondary,omitempty"`
+}
+
+// SecondaryTierSpec defines one secondary KV cache tier.
+// Exactly one field must be set.
+type SecondaryTierSpec struct {
+	// FileSystem configures a POSIX disk tier backed by a Kubernetes volume.
+	// +optional
+	FileSystem *FileSystemTierSpec `json:"fileSystem,omitempty"`
+}
+
+// FileSystemTierSpec configures a POSIX disk secondary tier.
+// Exactly one of EmptyDir or PVC must be set.
+type FileSystemTierSpec struct {
+	// EmptyDir uses a node-local ephemeral emptyDir volume. No StorageClass required.
+	// Each pod gets its own independent, node-local disk cache. The controller also
+	// adds an ephemeral-storage resource request to the main container equal to the
+	// size so the scheduler accounts for the disk space when placing the pod.
+	// +optional
+	EmptyDir *EmptyDirTierSpec `json:"emptyDir,omitempty"`
+
+	// PVC configures a PVC-backed disk cache tier. Either Spec (for a controller-managed
+	// ephemeral PVC per pod) or Ref (for a pre-existing user-managed PVC) must be set,
+	// but not both.
+	// +optional
+	PVC *PVCTierSpec `json:"pvc,omitempty"`
+}
+
+// EmptyDirTierSpec configures a node-local ephemeral emptyDir volume as a KV cache tier.
+type EmptyDirTierSpec struct {
+	// Size is the maximum storage capacity for this tier (maps to emptyDir.sizeLimit).
+	// The controller also requests this amount as ephemeral-storage on the main container.
+	Size resource.Quantity `json:"size"`
+}
+
+// PVCTierSpec configures a PVC-backed KV cache tier.
+// Exactly one of Spec or Ref must be set.
+type PVCTierSpec struct {
+	// Spec creates one ephemeral PVC per pod automatically. The PVC is owned by the pod
+	// and deleted when the pod is deleted — it does not survive pod restarts.
+	// +optional
+	Spec *corev1.PersistentVolumeClaimSpec `json:"spec,omitempty"`
+
+	// Ref mounts a pre-existing user-managed PVC as the disk cache. The PVC must
+	// already exist. For a cache shared across replicas, provision an RWX PVC;
+	// for per-pod persistent cache, provision a separate PVC per pod and reference
+	// it by name.
+	// +optional
+	Ref *PVCRefTierSpec `json:"ref,omitempty"`
+}
+
+// PVCRefTierSpec mounts a pre-existing user-managed PVC as a KV cache tier.
+type PVCRefTierSpec struct {
+	// Name of the pre-existing PersistentVolumeClaim.
+	Name string `json:"name"`
+
+	// Path is a subdirectory within the PVC used as VolumeMount.subPath.
+	// +optional
+	Path string `json:"path,omitempty"`
 }
 
 // ConfidentialSpec enables confidential model serving with encrypted model artifacts.
@@ -313,6 +384,22 @@ type GatewayRoutesSpec struct {
 	// HTTP route configuration.
 	// +optional
 	HTTP *HTTPRouteSpec `json:"http,omitempty"`
+
+	// Group identifies the routing group this LLMISVC belongs to.
+	// All members with the same group share weighted traffic distribution.
+	// Must be explicit - not inferred from spec.model.name.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`
+	Group *string `json:"group,omitempty"`
+
+	// Weight is the proportional traffic share for this member.
+	// Follows Gateway API backendRef weight semantics (proportional, not percentage).
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=1000000
+	Weight *int32 `json:"weight,omitempty"`
 }
 
 // HTTPRouteSpec defines configurations for a Gateway API HTTPRoute.
@@ -666,6 +753,54 @@ type RouterStatus struct {
 	// Nil when the scheduler is not configured.
 	// +optional
 	Scheduler *ObservedSchedulerStatus `json:"scheduler,omitempty"`
+
+	// Group reports the observed routing group topology.
+	// Nil when this LLMISVC is not part of a routing group.
+	// +optional
+	Group *GroupStatus `json:"group,omitempty"`
+}
+
+// GroupStatus reports the observed state of the routing group this LLMISVC belongs to.
+type GroupStatus struct {
+	// Name of the routing group.
+	Name string `json:"name"`
+
+	// Members lists all observed members of the group with their weights
+	// and resolved backend references.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	Members []GroupMemberStatus `json:"members,omitempty"`
+}
+
+// GroupMemberStatus reports the observed state of a single group member.
+type GroupMemberStatus struct {
+	// Name of the group member (LLMInferenceService name).
+	Name string `json:"name"`
+
+	// Weight is the effective traffic weight for this member.
+	Weight int32 `json:"weight"`
+
+	// Stopped is true when the member has the force-stop annotation set.
+	// A stopped member remains in the group but receives no traffic (weight
+	// is overridden to 0 regardless of the spec value).
+	// +optional
+	Stopped bool `json:"stopped,omitempty"`
+
+	// BackendRef is the resolved backend for this member
+	// (InferencePool or Service).
+	// +optional
+	BackendRef *gwapiv1.BackendObjectReference `json:"backendRef,omitempty"`
+}
+
+// ObservedWorkloadStatus identifies a workload resource and its observed replica state.
+type ObservedWorkloadStatus struct {
+	corev1.TypedLocalObjectReference `json:",inline"`
+
+	// ReadyReplicas is the number of pods available to serve traffic.
+	// Copied from the workload's status on each reconcile.
+	// +optional
+	ReadyReplicas *int32 `json:"readyReplicas,omitempty"`
 }
 
 // WorkloadStatus records the workload resources observed during the last
@@ -677,12 +812,12 @@ type WorkloadStatus struct {
 	// When disaggregated serving is configured, this workload handles
 	// the decode phase; otherwise it handles both prefill and decode.
 	// +optional
-	Primary *corev1.TypedLocalObjectReference `json:"primary,omitempty"`
+	Primary *ObservedWorkloadStatus `json:"primary,omitempty"`
 
 	// Prefill is the prefill workload in disaggregated serving mode.
 	// Nil when disaggregated serving is not configured.
 	// +optional
-	Prefill *corev1.TypedLocalObjectReference `json:"prefill,omitempty"`
+	Prefill *ObservedWorkloadStatus `json:"prefill,omitempty"`
 
 	// Service is the Kubernetes Service fronting the primary inference workload.
 	// +optional
@@ -691,7 +826,7 @@ type WorkloadStatus struct {
 	// Scheduler is the EPP scheduler Deployment.
 	// Nil when the scheduler is not configured.
 	// +optional
-	Scheduler *corev1.TypedLocalObjectReference `json:"scheduler,omitempty"`
+	Scheduler *ObservedWorkloadStatus `json:"scheduler,omitempty"`
 }
 
 // SourcedAddress extends Addressable with the networking resource that

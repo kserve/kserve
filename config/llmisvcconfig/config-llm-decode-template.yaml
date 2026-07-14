@@ -7,7 +7,7 @@ spec:
     serving.kserve.io/model-based-routing-enabled: "true"
   template:
     containers:
-      - image: ghcr.io/llm-d/llm-d-cuda:v0.7.0
+      - image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
         imagePullPolicy: IfNotPresent
         name: main
         ports:
@@ -239,7 +239,7 @@ spec:
     initContainers:
       - name: llm-d-routing-sidecar
         imagePullPolicy: IfNotPresent
-        image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.9.0-rc.2
+        image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.9.0
         restartPolicy: Always
         ports:
           - containerPort: 8000

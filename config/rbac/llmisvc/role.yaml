@@ -186,6 +186,15 @@ rules:
   - update
   - watch
 - apiGroups:
+  - llm-d.ai
+  resources:
+  - inferencemodelrewrites
+  - inferenceobjectives
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - llmd.ai
   resources:
   - variantautoscalings

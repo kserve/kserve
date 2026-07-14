@@ -102,7 +102,8 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 				current := &v1alpha2.LLMInferenceService{}
 				g.Expect(envTest.Get(ctx, types.NamespacedName{Name: svcName, Namespace: testNs.Name}, current)).To(Succeed())
 				g.Expect(current.Status.Workloads).NotTo(BeNil())
-				g.Expect(current.Status.Workloads.Primary).To(Equal(&corev1.TypedLocalObjectReference{
+				g.Expect(current.Status.Workloads.Primary).NotTo(BeNil())
+				g.Expect(current.Status.Workloads.Primary.TypedLocalObjectReference).To(Equal(corev1.TypedLocalObjectReference{
 					APIGroup: ptr.To("leaderworkerset.x-k8s.io"),
 					Kind:     "LeaderWorkerSet",
 					Name:     kmeta.ChildName(svcName, "-kserve-mn"),
@@ -111,7 +112,8 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 					Kind: "Service",
 					Name: kmeta.ChildName(svcName, "-kserve-workload-svc"),
 				}))
-				g.Expect(current.Status.Workloads.Prefill).To(Equal(&corev1.TypedLocalObjectReference{
+				g.Expect(current.Status.Workloads.Prefill).NotTo(BeNil())
+				g.Expect(current.Status.Workloads.Prefill.TypedLocalObjectReference).To(Equal(corev1.TypedLocalObjectReference{
 					APIGroup: ptr.To("apps"),
 					Kind:     "Deployment",
 					Name:     kmeta.ChildName(svcName, "-kserve-prefill"),
