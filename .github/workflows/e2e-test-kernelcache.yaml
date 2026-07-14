@@ -70,11 +70,11 @@ jobs:
           compression-level: 0
           if-no-files-found: error
 
-      - name: Upload kernelcache controller image
+      - name: Upload localmodel controller image
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.KERNELCACHE_CONTROLLER_IMG }}-${{ env.TAG }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.KERNELCACHE_CONTROLLER_IMG }}-${{ env.TAG }}
+          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.LOCALMODEL_CONTROLLER_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.LOCALMODEL_CONTROLLER_IMG }}-${{ env.TAG }}
           compression-level: 0
           if-no-files-found: error
 
