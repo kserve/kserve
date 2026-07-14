@@ -19,7 +19,7 @@ from alibi.utils.wrappers import ArgmaxTransformer
 from alibiexplainer.explainer_wrapper import ExplainerWrapper
 from typing import Callable, List, Optional, Dict
 
-from kserve.logging import logger
+from kserve.log_config import logger
 
 
 class AnchorImages(ExplainerWrapper):
