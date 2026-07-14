@@ -55,14 +55,14 @@ spec:
             - type: precise-prefix-cache-producer
               parameters:
                 tokenProcessorConfig:
-                  blockSize: 64
+                  blockSize: 64          # Must match vLLM --block-size
                 kvEventsConfig:
                   zmqEndpoint: "tcp://*:5557"
                   topicFilter: "kv@"
                   discoverPods: false
                 indexerConfig:
                   kvBlockIndexConfig:
-                    enableMetrics: true
+                    enableMetrics: true   # Enable Prometheus metrics for KV cache index
             - type: prefix-cache-scorer
               parameters:
                 prefixMatchInfoProducerName: precise-prefix-cache-producer

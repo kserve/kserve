@@ -31,7 +31,7 @@ spec:
                     socketPort: 5557
                 indexerConfig:
                   kvBlockIndexConfig:
-                    enableMetrics: true
+                    enableMetrics: true   # Enable Prometheus metrics for KV cache index
             - type: prefix-cache-scorer
               parameters:
                 prefixMatchInfoProducerName: precise-prefix-cache-producer
