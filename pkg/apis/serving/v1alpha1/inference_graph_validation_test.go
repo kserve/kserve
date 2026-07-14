@@ -283,8 +283,8 @@ func TestInferenceGraph_ValidateCreate(t *testing.T) {
 
 func TestInferenceGraph_ValidateUpdate(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	temptIg := makeTestTrainModel()
-	old := temptIg.DeepCopyObject()
+	temptIg := makeTestInferenceGraph()
+	old := temptIg.DeepCopy()
 	scenarios := map[string]struct {
 		ig              InferenceGraph
 		update          map[string]string
