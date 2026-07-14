@@ -28,14 +28,13 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 source "${PROJECT_ROOT}/kserve-images.sh"
 
 if [ -d "${DOCKER_IMAGES_PATH}" ]; then
-  mkdir -p "${DOCKER_IMAGES_PATH}"  
+  mkdir -p "${DOCKER_IMAGES_PATH}"
 fi
 
 echo "Github SHA ${TAG}"
 CONTROLLER_IMG_TAG=${KO_DOCKER_REPO}/${CONTROLLER_IMG}:${TAG}
 LOCALMODEL_CONTROLLER_IMG_TAG=${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${TAG}
 LOCALMODEL_AGENT_IMG_TAG=${KO_DOCKER_REPO}/${LOCALMODEL_AGENT_IMG}:${TAG}
-KERNELCACHE_CONTROLLER_IMG_TAG=${KO_DOCKER_REPO}/${KERNELCACHE_CONTROLLER_IMG}:${TAG}
 KERNELCACHE_AGENT_IMG_TAG=${KO_DOCKER_REPO}/${KERNELCACHE_AGENT_IMG}:${TAG}
 STORAGE_INIT_IMG_TAG=${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}:${TAG}
 AGENT_IMG_TAG=${KO_DOCKER_REPO}/${AGENT_IMG}:${TAG}
@@ -64,17 +63,12 @@ else
   docker buildx build -f localmodel-agent.Dockerfile . -t "${LOCALMODEL_AGENT_IMG_TAG}" \
     -o type=docker,dest="${DOCKER_IMAGES_PATH}/${LOCALMODEL_AGENT_IMG}-${TAG}",compression-level=0
 
-  # Prepare MCV source for kernelcache builds
+  # Prepare MCV source for kernelcache agent builds
   echo "Cloning GKM repository for MCV source..."
   if [ ! -d "/tmp/GKM" ]; then
     git clone --depth 1 https://github.com/redhat-et/GKM.git /tmp/GKM
   fi
   MCV_PATH=/tmp/GKM/mcv
-
-  echo "Building kernelcache controller image"
-  docker buildx build -f kernelcache.Dockerfile . -t "${KERNELCACHE_CONTROLLER_IMG_TAG}" \
-    --build-context mcv=${MCV_PATH} \
-    -o type=docker,dest="${DOCKER_IMAGES_PATH}/${KERNELCACHE_CONTROLLER_IMG}-${TAG}",compression-level=0
 
   echo "Building kernelcachenode agent image"
   docker buildx build -f kernelcache-agent.Dockerfile . -t "${KERNELCACHE_AGENT_IMG_TAG}" \

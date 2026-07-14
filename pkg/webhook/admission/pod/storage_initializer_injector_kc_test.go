@@ -410,3 +410,125 @@ func TestInjectKernelCache_Idempotent(t *testing.T) {
 	assert.Equal(t, mountsAfterFirst, len(pod.Spec.Containers[0].VolumeMounts), "No duplicate mounts should be added")
 	assert.Equal(t, envsAfterFirst, len(pod.Spec.Containers[0].Env), "No duplicate env vars should be added")
 }
+
+// TestInjectKernelCache_CacheMissWritability verifies the mount configuration allows vLLM to rebuild caches on cache miss.
+// This is a DESIGN verification test - actual filesystem writability requires integration testing.
+func TestInjectKernelCache_CacheMissWritability(t *testing.T) {
+	// REQUIREMENT: vLLM must be able to rebuild caches on cache miss, even though KernelCache PVC is read-only.
+	//
+	// DESIGN: Mount KernelCache PVC at a SPECIFIC SUBDIRECTORY under VLLM_CACHE_ROOT, not at the root itself.
+	// This allows:
+	// 1. Precompiled caches from PVC are readable (RO mount)
+	// 2. Parent directories are container filesystem (RW by default)
+	// 3. vLLM can write new caches to SIBLING directories of the mount
+	//
+	// Example filesystem after mount:
+	//   /home/kserve/.cache/vllm/              ← Container FS (RW) - VLLM_CACHE_ROOT points here
+	//     torch_compile_cache/                 ← Container FS (RW)
+	//       torch_aot_compile/                 ← PVC mount (RO) - precompiled caches
+	//         hashA/rank_0_0/model
+	//         hashB/rank_0_0/model
+	//       newHash/                           ← Container FS (RW) - vLLM writes here on cache miss!
+	//
+	// This test verifies the CONFIGURATION is correct. Actual writability requires integration tests.
+
+	resolvedDigest := "sha256:abc123def456"
+	imageSpec := "quay.io/test/vllm-cache:v1"
+
+	// Use parent directory mounting (exposes multiple hashes, supports cache rebuilds)
+	cacheMountSubpath := "torch_compile_cache/torch_aot_compile"
+
+	kcCR := &v1alpha1.KernelCache{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "multi-hash-cache",
+			Namespace: "default",
+			Annotations: map[string]string{
+				v1alpha1.AnnotationCacheHash:         "hashA,hashB,hashC", // Multi-hash image
+				v1alpha1.AnnotationCacheMountSubpath: cacheMountSubpath,
+				v1alpha1.AnnotationCacheRootEnv:      "VLLM_CACHE_ROOT=/home/kserve/.cache/vllm",
+				v1alpha1.AnnotationResolvedDigest:    resolvedDigest,
+			},
+		},
+		Spec: v1alpha1.KernelCacheSpec{
+			Image: imageSpec,
+		},
+	}
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pod",
+			Namespace: "default",
+			Labels: map[string]string{
+				constants.KernelCacheLabel: "multi-hash-cache",
+			},
+			Annotations: map[string]string{
+				constants.KernelCachePVCNameAnnotationKey: "kernel-cache-pvc",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: constants.InferenceServiceContainerName,
+				},
+			},
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+	_ = v1alpha1.AddToScheme(scheme)
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(kcCR).Build()
+
+	injector := &StorageInitializerInjector{
+		credentialBuilder: credentials.NewCredentialBuilder(fakeClient, clientset, &corev1.ConfigMap{
+			Data: map[string]string{},
+		}),
+		config: storageInitializerConfig,
+		client: fakeClient,
+	}
+
+	err := injector.InjectKernelCache(pod)
+	assert.NoError(t, err)
+
+	// CRITICAL ASSERTIONS for cache-miss writability:
+
+	// 1. Mount is at SPECIFIC SUBDIRECTORY, not at VLLM_CACHE_ROOT itself
+	expectedMountPath := "/home/kserve/.cache/vllm/torch_compile_cache/torch_aot_compile"
+	actualMountPath := pod.Spec.Containers[0].VolumeMounts[0].MountPath
+	assert.Equal(t, expectedMountPath, actualMountPath,
+		"Mount must be at specific subdirectory, not at VLLM_CACHE_ROOT")
+
+	// 2. VLLM_CACHE_ROOT points to PARENT of mount, not the mount itself
+	var vllmCacheRoot string
+	for _, env := range pod.Spec.Containers[0].Env {
+		if env.Name == "VLLM_CACHE_ROOT" {
+			vllmCacheRoot = env.Value
+			break
+		}
+	}
+	assert.Equal(t, "/home/kserve/.cache/vllm", vllmCacheRoot,
+		"VLLM_CACHE_ROOT must point to parent directory")
+
+	// 3. Verify mount path is UNDER VLLM_CACHE_ROOT (not equal or outside)
+	assert.True(t, len(actualMountPath) > len(vllmCacheRoot),
+		"Mount path must be under VLLM_CACHE_ROOT (subdirectory)")
+	assert.True(t, actualMountPath[:len(vllmCacheRoot)] == vllmCacheRoot,
+		"Mount path must start with VLLM_CACHE_ROOT")
+
+	// 4. Mount is ReadOnly (precompiled caches)
+	assert.True(t, pod.Spec.Containers[0].VolumeMounts[0].ReadOnly,
+		"KernelCache mount must be ReadOnly")
+
+	// 5. No conflicting RW mounts on parent directories
+	// (This test has only one mount, so no conflicts)
+	assert.Len(t, pod.Spec.Containers[0].VolumeMounts, 1,
+		"Should have exactly one mount (no conflicting mounts on parents)")
+
+	// CONCLUSION:
+	// ✅ Precompiled caches (hashA, hashB, hashC) readable from RO mount
+	// ✅ Parent directories (/home/kserve/.cache/vllm/torch_compile_cache/) are container FS (RW)
+	// ✅ vLLM can write new caches to siblings: /home/kserve/.cache/vllm/torch_compile_cache/newHash/
+	//
+	// This design supports cache-miss rebuilds WITHOUT requiring emptyDir or additional RW mounts.
+	// The container's root filesystem provides writability for sibling directories.
+}

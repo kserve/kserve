@@ -3,5 +3,4 @@ kind: Component
 
 resources:
 - ../../crd/full/kernelcache
-- ../../kernelcaches
 - ../../kernelcachenodes
