@@ -60,7 +60,14 @@ async def test_kserve_logger(kserve_client, rest_v1_client, network_layer):
             ),
         ),
     )
-    await base_test(kserve_client, msg_dumper, service_name, predictor, rest_v1_client, network_layer)
+    await base_test(
+        kserve_client,
+        msg_dumper,
+        service_name,
+        predictor,
+        rest_v1_client,
+        network_layer,
+    )
 
 
 @pytest.mark.asyncio(scope="session")
@@ -101,7 +108,14 @@ async def test_kserve_logger_cipn(kserve_client, rest_v1_client, network_layer):
             ),
         ),
     )
-    await base_test(kserve_client, msg_dumper, service_name, predictor, rest_v1_client, network_layer)
+    await base_test(
+        kserve_client,
+        msg_dumper,
+        service_name,
+        predictor,
+        rest_v1_client,
+        network_layer,
+    )
 
 
 def before(kserve_client, msg_dumper):
@@ -132,7 +146,9 @@ def before(kserve_client, msg_dumper):
     kserve_client.wait_isvc_ready(msg_dumper, namespace=KSERVE_TEST_NAMESPACE)
 
 
-async def base_test(kserve_client, msg_dumper, service_name, predictor, rest_v1_client, network_layer):
+async def base_test(
+    kserve_client, msg_dumper, service_name, predictor, rest_v1_client, network_layer
+):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,

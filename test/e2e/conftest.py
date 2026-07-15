@@ -108,9 +108,7 @@ async def rest_v2_client():
 
 @pytest.fixture(scope="session")
 def kserve_client():
-    return KServeClient(
-        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
-    )
+    return KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
 def pytest_addoption(parser):
