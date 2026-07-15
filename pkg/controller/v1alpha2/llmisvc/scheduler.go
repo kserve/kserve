@@ -1340,6 +1340,7 @@ func schedulerTransform(ctx context.Context, d *appsv1.Deployment) error {
 	if v.Compare(*semver.New("0.9.0")) >= 0 {
 		opts = append(opts, withRemovePrefixCacheScorerParametersV09)
 		opts = append(opts, withRemoveUnnecessaryTokenizer(d))
+		opts = append(opts, withMigrateLLMDAPIVersion)
 	}
 
 	if err := mutateSchedulerConfig(ctx, d, opts...); err != nil {
@@ -1352,6 +1353,16 @@ func schedulerTransform(ctx context.Context, d *appsv1.Deployment) error {
 // disagg-headers-handler (v0.7.0 rename).
 func withMigrateDisaggHeadersHandler(ctx context.Context, u *unstructured.Unstructured) error {
 	return WithRenamePlugin("prefill-header-handler", "disagg-headers-handler")(ctx, u)
+}
+
+// withMigrateLLMDAPIVersion rewrites the deprecated EndpointPickerConfig
+// apiVersion inference.networking.x-k8s.io/v1alpha1 to llm-d.ai/v1alpha1, which
+// is the apiVersion accepted by the scheduler binary from v0.9.0 onward.
+func withMigrateLLMDAPIVersion(_ context.Context, u *unstructured.Unstructured) error {
+	if u.GetAPIVersion() == "inference.networking.x-k8s.io/v1alpha1" {
+		u.SetAPIVersion("llm-d.ai/v1alpha1")
+	}
+	return nil
 }
 
 // withMigrateCoreMetricsExtractor renames the model-server-protocol-metrics
