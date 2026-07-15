@@ -44,7 +44,6 @@ FC_OBJECTIVES = [
 FC_OBJECTIVE_NAMES = [o["name"] for o in FC_OBJECTIVES]
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.asyncio(loop_scope="session")
 @pytest.mark.parametrize(
     "test_case",

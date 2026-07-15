@@ -190,7 +190,6 @@ def _config_is_gone(kserve_client, config_name, namespace=KSERVE_TEST_NAMESPACE)
         ) from e
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.cluster_cpu
 @pytest.mark.cluster_single_node
 @log_execution
@@ -224,7 +223,6 @@ def test_config_finalizer_added():
         _cleanup_config_silent(kserve_client, config_name)
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.cluster_cpu
 @pytest.mark.cluster_single_node
 @log_execution
@@ -312,7 +310,6 @@ def test_config_deletion_blocked_when_referenced():
             _cleanup_config_silent(kserve_client, cfg_name)
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.cluster_cpu
 @pytest.mark.cluster_single_node
 @log_execution
@@ -348,7 +345,6 @@ def test_config_deletion_allowed_when_unreferenced():
         _cleanup_config_silent(kserve_client, config_name)
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.cluster_cpu
 @pytest.mark.cluster_single_node
 @log_execution
@@ -430,7 +426,6 @@ def _find_well_known_config(kserve_client, suffix, namespace=KSERVE_NAMESPACE):
     return None
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.cluster_cpu
 @pytest.mark.cluster_single_node
 @log_execution
@@ -465,7 +460,6 @@ def test_well_known_config_deletion_prevented_by_webhook():
     print(f"Well-known config {config_name} is intact (no deletionTimestamp)")
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.cluster_cpu
 @pytest.mark.cluster_single_node
 @log_execution

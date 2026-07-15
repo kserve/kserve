@@ -38,7 +38,6 @@ _PRESTOP_SLEEP_SECONDS = 15
 _PRESTOP_TOLERANCE_SECONDS = 3
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.parametrize(
     "test_case",
     [

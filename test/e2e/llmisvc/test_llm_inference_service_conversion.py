@@ -172,7 +172,6 @@ def delete_llmisvc_config_raw(
         ) from e
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.conversion
 class TestLLMInferenceServiceConversion:
     """Test suite for LLMInferenceService API version conversion."""
