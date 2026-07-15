@@ -118,6 +118,7 @@ generate-quick-install-scripts: validate-infra-scripts $(PYTHON_VENV)
 generate-chart-manifests:
 	@bash hack/setup/scripts/generate_chart_manifests.sh
 	make lint-helm-charts
+	make verify-helm-storage-overrides
 	make verify-helm-helpers-consistency
 
 lint-helm-charts:
@@ -125,6 +126,9 @@ lint-helm-charts:
 
 verify-helm-helpers-consistency:
 	@bash hack/setup/scripts/verify-helm-helpers.sh
+
+verify-helm-storage-overrides:
+	@bash hack/setup/scripts/verify-helm-storage-overrides.sh
 
 verify-minimal-crd-sync:
 	@bash hack/verify-minimal-crd-sync.sh
