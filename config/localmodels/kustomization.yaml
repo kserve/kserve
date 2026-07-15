@@ -9,7 +9,6 @@ labels:
     app.kubernetes.io/component: localmodel
 
 resources:
-- ../crd/full/localmodel
 - ../certmanager/localmodel
 - ../rbac/localmodel
 - manager.yaml

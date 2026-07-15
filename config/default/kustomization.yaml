@@ -11,7 +11,6 @@ labels:
     app.kubernetes.io/component: kserve
 resources:
 - ../certmanager/kserve
-- ../crd
 - ../rbac
 - ../manager
 - ../webhook
@@ -120,14 +119,6 @@ replacements:
       delimiter: '/'
       index: 0
     select:
-      kind: CustomResourceDefinition
-      name: inferenceservices.serving.kserve.io
-  - fieldPaths:
-    - metadata.annotations.[cert-manager.io/inject-ca-from]
-    options:
-      delimiter: '/'
-      index: 0
-    select:
       kind: MutatingWebhookConfiguration
       name: inferenceservice.serving.kserve.io
   - fieldPaths:
@@ -189,4 +180,3 @@ patches:
 - path: clusterservingruntime_validatingwebhook_cainjection_patch.yaml
 - path: servingruntime_validationwebhook_cainjection_patch.yaml
 - path: manager_resources_patch.yaml
-- path: cainjection_conversion_webhook.yaml

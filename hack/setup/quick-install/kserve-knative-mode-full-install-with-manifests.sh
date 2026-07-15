@@ -11479,6 +11479,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
+    cert-manager.io/inject-ca-from: kserve/serving-cert
     controller-gen.kubebuilder.io/version: v0.19.0
   name: inferenceservices.serving.kserve.io
 spec:
