@@ -92,6 +92,9 @@ lint-helm-charts:
 verify-helm-helpers-consistency:
 	@bash hack/setup/scripts/verify-helm-helpers.sh
 
+verify-helm-storage-overrides:
+	@bash hack/setup/scripts/verify-helm-storage-overrides.sh
+
 verify-minimal-crd-sync:
 	@bash hack/verify-minimal-crd-sync.sh
 
