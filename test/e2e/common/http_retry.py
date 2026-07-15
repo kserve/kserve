@@ -7,6 +7,10 @@ from urllib3.util.retry import Retry
 DEFAULT_RETRY_STATUS_CODES = (404, 429, 502, 503, 504)
 DEFAULT_RETRY_TOTAL = 8
 DEFAULT_RETRY_BACKOFF_FACTOR = 2.0
+# Per-request timeout (seconds). A stalled server that accepts the connection but
+# never responds must not block a single request indefinitely; without this a hung
+# predictor consumes the entire CI job budget instead of failing the test.
+DEFAULT_TIMEOUT_SECONDS = 300.0
 
 
 def _retry_session(
@@ -32,7 +36,7 @@ def get_with_retry(
     url: str,
     *,
     headers: Dict = None,
-    timeout: float = None,
+    timeout: float = DEFAULT_TIMEOUT_SECONDS,
     total_retries: int = DEFAULT_RETRY_TOTAL,
     backoff_factor: float = DEFAULT_RETRY_BACKOFF_FACTOR,
     retry_status_codes=DEFAULT_RETRY_STATUS_CODES,
@@ -53,7 +57,7 @@ def post_with_retry(
     json_data: Union[Dict, List] = None,
     data: Union[str, bytes] = None,
     stream: bool = False,
-    timeout: float = None,
+    timeout: float = DEFAULT_TIMEOUT_SECONDS,
     total_retries: int = DEFAULT_RETRY_TOTAL,
     backoff_factor: float = DEFAULT_RETRY_BACKOFF_FACTOR,
     retry_status_codes=DEFAULT_RETRY_STATUS_CODES,

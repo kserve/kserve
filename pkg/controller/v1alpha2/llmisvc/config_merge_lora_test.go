@@ -193,6 +193,30 @@ func TestExpandLoRAAdapterMatches(t *testing.T) {
 			},
 		},
 		{
+			name: "expands messages model-routing matches for each adapter",
+			rules: []gwapiv1.HTTPRouteRule{
+				ruleWithMatches(
+					exactPathWithHeaderMatch("/v1/messages", "publishers/ns/models/base-model"),
+					exactPathWithHeaderMatch("/v1/messages/", "publishers/ns/models/base-model"),
+				),
+			},
+			namespace:  "ns",
+			adapters:   adapters,
+			headerName: headerName,
+			wantFn: func(t *testing.T, rules []gwapiv1.HTTPRouteRule) {
+				// 2 base matches + 2 matches × 2 adapters = 6 total
+				assert.Len(t, rules[0].Matches, 6)
+				assert.Equal(t, "publishers/ns/models/adapter-a", rules[0].Matches[2].Headers[0].Value)
+				assert.Equal(t, "/v1/messages", *rules[0].Matches[2].Path.Value)
+				assert.Equal(t, "publishers/ns/models/adapter-b", rules[0].Matches[3].Headers[0].Value)
+				assert.Equal(t, "/v1/messages", *rules[0].Matches[3].Path.Value)
+				assert.Equal(t, "publishers/ns/models/adapter-a", rules[0].Matches[4].Headers[0].Value)
+				assert.Equal(t, "/v1/messages/", *rules[0].Matches[4].Path.Value)
+				assert.Equal(t, "publishers/ns/models/adapter-b", rules[0].Matches[5].Headers[0].Value)
+				assert.Equal(t, "/v1/messages/", *rules[0].Matches[5].Path.Value)
+			},
+		},
+		{
 			name: "uses correct namespace in header value",
 			rules: []gwapiv1.HTTPRouteRule{
 				ruleWithMatches(
@@ -204,6 +228,25 @@ func TestExpandLoRAAdapterMatches(t *testing.T) {
 			headerName: headerName,
 			wantFn: func(t *testing.T, rules []gwapiv1.HTTPRouteRule) {
 				assert.Equal(t, "publishers/prod/models/lora-1", rules[0].Matches[1].Headers[0].Value)
+			},
+		},
+		{
+			name: "adapter order is stable regardless of input order",
+			rules: []gwapiv1.HTTPRouteRule{
+				ruleWithMatches(
+					exactPathWithHeaderMatch("/v1/completions", "publishers/ns/models/base-model"),
+				),
+			},
+			namespace: "ns",
+			adapters: []v1alpha2.LLMModelSpec{
+				{Name: ptr.To("zebra")},
+				{Name: ptr.To("alpha")},
+			},
+			headerName: headerName,
+			wantFn: func(t *testing.T, rules []gwapiv1.HTTPRouteRule) {
+				assert.Len(t, rules[0].Matches, 3)
+				assert.Equal(t, "publishers/ns/models/alpha", rules[0].Matches[1].Headers[0].Value)
+				assert.Equal(t, "publishers/ns/models/zebra", rules[0].Matches[2].Headers[0].Value)
 			},
 		},
 	}

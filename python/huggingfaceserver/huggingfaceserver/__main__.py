@@ -188,7 +188,7 @@ else:
 
     # auto for vLLM uses FP16 even for an FP32 model while HF uses FP32 causing inconsistency.
     # To ensure consistency b/w vLLM and HF,
-    # we use FP16 or the Model Config "torch_dtype" for auto as the default dtype in HF backend
+    # we use FP16 or the Model Config "dtype" for auto as the default dtype in HF backend
     # auto would use FP32 for CPU only instances.
     # FP16, BF16 and FP32 if explicitly mentioned would use those data types
     default_dtype = "float16" if torch.cuda.is_available() else "float32"
@@ -248,11 +248,8 @@ def load_model():
         # Convert dtype from string to torch dtype. Default to float16
         dtype = kwargs.get("dtype", default_dtype)
         if dtype == "auto":
-            if (
-                hasattr(model_config, "torch_dtype")
-                and model_config.torch_dtype is not None
-            ):
-                dtype = model_config.torch_dtype
+            if hasattr(model_config, "dtype") and model_config.dtype is not None:
+                dtype = model_config.dtype
             else:
                 dtype = default_dtype
 

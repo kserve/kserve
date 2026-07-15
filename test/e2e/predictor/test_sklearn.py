@@ -76,6 +76,7 @@ async def test_sklearn_kserve(rest_v1_client, network_layer):
         network_layer=network_layer,
     )
     assert res["predictions"] == [1, 1]
+
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 

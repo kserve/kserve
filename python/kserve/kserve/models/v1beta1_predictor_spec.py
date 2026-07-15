@@ -104,6 +104,7 @@ class V1beta1PredictorSpec(object):
         'set_hostname_as_fqdn': 'bool',
         'share_process_namespace': 'bool',
         'sklearn': 'V1beta1SKLearnSpec',
+        'storage_container_name': 'str',
         'storage_uris': 'list[V1beta1StorageUri]',
         'subdomain': 'str',
         'tensorflow': 'V1beta1TFServingSpec',
@@ -175,6 +176,7 @@ class V1beta1PredictorSpec(object):
         'set_hostname_as_fqdn': 'setHostnameAsFQDN',
         'share_process_namespace': 'shareProcessNamespace',
         'sklearn': 'sklearn',
+        'storage_container_name': 'storageContainerName',
         'storage_uris': 'storageUris',
         'subdomain': 'subdomain',
         'tensorflow': 'tensorflow',
@@ -188,7 +190,7 @@ class V1beta1PredictorSpec(object):
         'xgboost': 'xgboost'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, annotations=None, auto_scaling=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, deployment_strategy=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, hostname_override=None, huggingface=None, image_pull_secrets=None, init_containers=None, labels=None, lightgbm=None, logger=None, max_replicas=None, min_replicas=None, model=None, node_name=None, node_selector=None, onnx=None, os=None, overhead=None, paddle=None, pmml=None, preemption_policy=None, priority=None, priority_class_name=None, pytorch=None, readiness_gates=None, resource_claims=None, resources=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_metric_type=None, scale_target=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, sklearn=None, storage_uris=None, subdomain=None, tensorflow=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, triton=None, volumes=None, worker_spec=None, xgboost=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, annotations=None, auto_scaling=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, deployment_strategy=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, hostname_override=None, huggingface=None, image_pull_secrets=None, init_containers=None, labels=None, lightgbm=None, logger=None, max_replicas=None, min_replicas=None, model=None, node_name=None, node_selector=None, onnx=None, os=None, overhead=None, paddle=None, pmml=None, preemption_policy=None, priority=None, priority_class_name=None, pytorch=None, readiness_gates=None, resource_claims=None, resources=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_metric_type=None, scale_target=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, sklearn=None, storage_container_name=None, storage_uris=None, subdomain=None, tensorflow=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, triton=None, volumes=None, worker_spec=None, xgboost=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1PredictorSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -251,6 +253,7 @@ class V1beta1PredictorSpec(object):
         self._set_hostname_as_fqdn = None
         self._share_process_namespace = None
         self._sklearn = None
+        self._storage_container_name = None
         self._storage_uris = None
         self._subdomain = None
         self._tensorflow = None
@@ -378,6 +381,8 @@ class V1beta1PredictorSpec(object):
             self.share_process_namespace = share_process_namespace
         if sklearn is not None:
             self.sklearn = sklearn
+        if storage_container_name is not None:
+            self.storage_container_name = storage_container_name
         if storage_uris is not None:
             self.storage_uris = storage_uris
         if subdomain is not None:
@@ -1677,6 +1682,29 @@ class V1beta1PredictorSpec(object):
         """
 
         self._sklearn = sklearn
+
+    @property
+    def storage_container_name(self):
+        """Gets the storage_container_name of this V1beta1PredictorSpec.  # noqa: E501
+
+        StorageContainerName specifies the name of the ClusterStorageContainer to use for downloading model artifacts. When set, this ClusterStorageContainer is used instead of auto-matching based on the storage URI scheme. This is similar to storageClassName on PersistentVolumeClaims.  # noqa: E501
+
+        :return: The storage_container_name of this V1beta1PredictorSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._storage_container_name
+
+    @storage_container_name.setter
+    def storage_container_name(self, storage_container_name):
+        """Sets the storage_container_name of this V1beta1PredictorSpec.
+
+        StorageContainerName specifies the name of the ClusterStorageContainer to use for downloading model artifacts. When set, this ClusterStorageContainer is used instead of auto-matching based on the storage URI scheme. This is similar to storageClassName on PersistentVolumeClaims.  # noqa: E501
+
+        :param storage_container_name: The storage_container_name of this V1beta1PredictorSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._storage_container_name = storage_container_name
 
     @property
     def storage_uris(self):

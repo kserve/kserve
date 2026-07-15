@@ -20,10 +20,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -266,4 +268,74 @@ func (r *LLMISVCReconciler) validateManagedHTTPRouteSpec(ctx context.Context, ll
 	}
 
 	return nil
+}
+
+// findModelNameCollisions returns the names of LLMISVCs whose model-routing
+// header values overlap with self's. Compares self's effective model names
+// (from post-merge spec) against each peer's status.addresses[].models[].name
+// which reflects the peer's resolved state including baseRef overrides.
+// Falls back to spec.model.name for peers not yet reconciled (empty status).
+func findModelNameCollisions(self *v1alpha2.LLMInferenceService, others []v1alpha2.LLMInferenceService) []string {
+	selfModels := modelRoutingNames(self)
+	if len(selfModels) == 0 {
+		return nil
+	}
+
+	var collisions []string
+	for i := range others {
+		other := &others[i]
+		if other.Name == self.Name ||
+			other.DeletionTimestamp != nil ||
+			sameRoutingGroup(self, other) {
+			continue
+		}
+		if otherModelNamesOverlap(selfModels, other) {
+			collisions = append(collisions, other.Name)
+		}
+	}
+
+	slices.Sort(collisions)
+
+	return collisions
+}
+
+func otherModelNamesOverlap(selfModels map[string]struct{}, other *v1alpha2.LLMInferenceService) bool {
+	for _, addr := range other.Status.Addresses {
+		for _, m := range addr.Models {
+			if _, ok := selfModels[m.Name]; ok {
+				return true
+			}
+		}
+	}
+	// Fallback: peer not yet reconciled (empty status) - check spec directly.
+	if len(other.Status.Addresses) == 0 {
+		for name := range modelRoutingNames(other) {
+			if _, ok := selfModels[name]; ok {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func modelRoutingNames(svc *v1alpha2.LLMInferenceService) map[string]struct{} {
+	baseName := ptr.Deref(svc.Spec.Model.Name, svc.Name)
+	names := map[string]struct{}{
+		fullyQualifiedModelName(svc.Namespace, baseName): {},
+	}
+	if svc.Spec.Model.LoRA != nil {
+		for _, adapter := range svc.Spec.Model.LoRA.Adapters {
+			if adapter.Name != nil {
+				names[fullyQualifiedModelName(svc.Namespace, *adapter.Name)] = struct{}{}
+			}
+		}
+	}
+
+	return names
+}
+
+func sameRoutingGroup(a, b *v1alpha2.LLMInferenceService) bool {
+	return a.Spec.Router.HasGroup() && b.Spec.Router.HasGroup() &&
+		*a.Spec.Router.Group() == *b.Spec.Router.Group()
 }

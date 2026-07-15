@@ -25,9 +25,9 @@ import (
 	"strconv"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/util/strategicpatch"
-
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -100,22 +100,33 @@ type StorageInitializerParams struct {
 }
 
 // GetStorageContainerSpec finds and returns a ClusterStorageContainer specification
-// that supports the given storage URI. This function searches through all available
-// ClusterStorageContainer resources in the cluster and returns the first one that
+// that supports the given storage URI.
+//
+// When storageContainerName is provided (non-nil and non-empty), the function
+// performs a direct lookup by name via GetStorageContainerSpecByName, which
+// applies full eligibility checks (not disabled, correct workload type, URI
+// support). No fallback to URI-based matching occurs in this case.
+//
+// When storageContainerName is nil or empty, the function searches through all
+// available ClusterStorageContainer resources and returns the first one that
 // can handle the specified URI format.
 //
 // Parameters:
 //   - ctx: Context for the Kubernetes API call
 //   - storageUri: The storage URI to find a compatible container for (e.g., "s3://bucket/path")
-//   - client: Kubernetes client for listing ClusterStorageContainer resources
+//   - storageContainerName: Optional name of a specific ClusterStorageContainer to use
+//   - client: Kubernetes client for accessing ClusterStorageContainer resources
 //
 // Returns:
 //   - *v1alpha1.StorageContainerSpec: The container specification that supports the URI, or nil if none found
-//   - error: Error if the Kubernetes API call fails or URI format checking fails
-//
-// The function iterates through ClusterStorageContainer resources and uses their
-// IsStorageUriSupported method to determine compatibility with the provided URI.
-func GetStorageContainerSpec(ctx context.Context, storageUri string, client client.Client) (*v1alpha1.StorageContainerSpec, error) {
+//   - error: Error if the lookup or eligibility checks fail
+func GetStorageContainerSpec(ctx context.Context, storageUri string, storageContainerName *string, client client.Client) (*v1alpha1.StorageContainerSpec, error) {
+	// If a specific ClusterStorageContainer is requested by name, fetch it directly
+	if storageContainerName != nil && *storageContainerName != "" {
+		return GetStorageContainerSpecByName(ctx, *storageContainerName, storageUri, client)
+	}
+
+	// Otherwise, auto-match by URI scheme
 	storageContainers := &v1alpha1.ClusterStorageContainerList{}
 	if err := client.List(ctx, storageContainers); err != nil {
 		return nil, err
@@ -140,10 +151,41 @@ func GetStorageContainerSpec(ctx context.Context, storageUri string, client clie
 	return nil, nil
 }
 
-func GetContainerSpecForStorageUri(ctx context.Context, storageUri string, client client.Client) (*corev1.Container, error) {
-	supported, err := GetStorageContainerSpec(ctx, storageUri, client)
+// GetStorageContainerSpecByName looks up a ClusterStorageContainer by name and
+// verifies it is eligible: not disabled, workloadType == initContainer, and
+// supports the given storageUri. Returns an error on any eligibility failure
+// rather than falling back to scheme-based auto-match.
+func GetStorageContainerSpecByName(ctx context.Context, name, storageUri string, client client.Client) (*v1alpha1.StorageContainerSpec, error) {
+	sc := &v1alpha1.ClusterStorageContainer{}
+	if err := client.Get(ctx, k8stypes.NamespacedName{Name: name}, sc); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, fmt.Errorf("ClusterStorageContainer %q not found", name)
+		}
+		return nil, fmt.Errorf("failed to fetch ClusterStorageContainer %q: %w", name, err)
+	}
+	if sc.IsDisabled() {
+		return nil, fmt.Errorf("ClusterStorageContainer %q is disabled", name)
+	}
+	if sc.Spec.WorkloadType != v1alpha1.InitContainer {
+		return nil, fmt.Errorf(
+			"ClusterStorageContainer %q has workloadType %q; explicit selection requires %q",
+			name, sc.Spec.WorkloadType, v1alpha1.InitContainer,
+		)
+	}
+	supported, err := sc.Spec.IsStorageUriSupported(storageUri)
 	if err != nil {
-		return nil, fmt.Errorf("error checking storage container %s: %w", supported.Container.Name, err)
+		return nil, fmt.Errorf("ClusterStorageContainer %q URI check failed for %q: %w", name, storageUri, err)
+	}
+	if !supported {
+		return nil, fmt.Errorf("ClusterStorageContainer %q does not support storageUri %q", name, storageUri)
+	}
+	return &sc.Spec, nil
+}
+
+func GetContainerSpecForStorageUri(ctx context.Context, storageUri string, client client.Client) (*corev1.Container, error) {
+	supported, err := GetStorageContainerSpec(ctx, storageUri, nil, client)
+	if err != nil {
+		return nil, fmt.Errorf("error resolving storage container for %q: %w", storageUri, err)
 	}
 	if supported != nil {
 		return &supported.Container, nil
@@ -162,9 +204,28 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *corev1.Pod) error {
 		return nil
 	}
 
-	// Only inject modelcar if requested
-	if !strings.HasPrefix(srcURI, constants.OciURIPrefix) {
+	parsedMode, normalizedURI, isOci := utils.ParseOciScheme(srcURI)
+	if !isOci {
 		return nil
+	}
+
+	// Determine effective mode: explicit suffix wins; bare oci:// falls back to config.
+	// ResolveOciModelMode is guaranteed non-empty here: InjectModelcar is only registered
+	// when ResolveOciModelMode(config) != "" at the mutator setup site (mutator.go), so
+	// the else branch (defaulting to OciModelModeModelcar) is unreachable.
+	effectiveMode := parsedMode
+	if effectiveMode == "" {
+		effectiveMode = types.ResolveOciModelMode(mi.config)
+	}
+
+	// configureForContainer dispatches to the right materializer for a single container.
+	configureForContainer := func(containerName string) error {
+		switch effectiveMode {
+		case types.OciModelModeNative:
+			return utils.ConfigureOciNativeToContainer(normalizedURI, &pod.Spec, containerName, constants.DefaultModelLocalMountPath, mi.config)
+		default:
+			return utils.ConfigureModelcarToContainer(normalizedURI, &pod.Spec, containerName, constants.DefaultModelLocalMountPath, mi.config, 0)
+		}
 	}
 
 	// Find the kserve-container (this is the model inference server) and worker-container
@@ -174,21 +235,19 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *corev1.Pod) error {
 	if userContainer == nil {
 		if workerContainer == nil {
 			return fmt.Errorf("Invalid configuration: cannot find container: %s", constants.InferenceServiceContainerName)
-		} else {
-			// Use worker container for multi-node scenarios
-			if err := utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.WorkerContainerName, constants.DefaultModelLocalMountPath, mi.config, 0); err != nil {
-				return err
-			}
+		}
+		if err := configureForContainer(constants.WorkerContainerName); err != nil {
+			return err
 		}
 	} else {
-		if err := utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.InferenceServiceContainerName, constants.DefaultModelLocalMountPath, mi.config, 0); err != nil {
+		if err := configureForContainer(constants.InferenceServiceContainerName); err != nil {
 			return err
 		}
 	}
 
-	// Configure modelcar for transformer container if it exists
+	// Configure for transformer container if it exists
 	if utils.GetContainerWithName(&pod.Spec, constants.TransformerContainerName) != nil {
-		return utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.TransformerContainerName, constants.DefaultModelLocalMountPath, mi.config, 0)
+		return configureForContainer(constants.TransformerContainerName)
 	}
 
 	return nil
@@ -235,17 +294,26 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 		return nil
 	}
 
-	// Handle OCI URIs via modelcar injection instead of init-containers
-	if params.Config.EnableOciImageSource && len(params.StorageURIs) > 0 {
+	// Handle OCI URIs via OCI-mode injection instead of init-containers.
+	// Covers both oci+native:// (explicit native mode) and oci:// (mode from config).
+	if len(params.StorageURIs) > 0 {
 		hasOciUri := false
 		for _, storageUri := range params.StorageURIs {
-			if strings.HasPrefix(storageUri.Uri, constants.OciURIPrefix) {
+			parsedMode, _, isOci := utils.ParseOciScheme(storageUri.Uri)
+			if !isOci {
+				continue
+			}
+			effectiveMode := parsedMode
+			if effectiveMode == "" {
+				effectiveMode = types.ResolveOciModelMode(params.Config)
+			}
+			if effectiveMode != "" {
 				hasOciUri = true
 				break
 			}
 		}
 		if hasOciUri {
-			// For the storageUris path (IsLegacyURI == false), inject modelcar directly.
+			// For the storageUris path (IsLegacyURI == false), inject directly.
 			// For the legacy path (IsLegacyURI == true), the webhook's InjectModelcar() handles it via annotations.
 			if params.IsLegacyURI {
 				return nil
@@ -268,25 +336,47 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 			if len(ociMountPaths) > utils.MaxOCISourcesPerPod {
 				return fmt.Errorf("too many OCI sources (%d); maximum is %d per pod", len(ociMountPaths), utils.MaxOCISourcesPerPod)
 			}
-			if err := utils.ValidateOCIMountPaths(ociMountPaths); err != nil {
+			configMode := types.ResolveOciModelMode(params.Config)
+			if err := utils.ValidateOCIMountPaths(ociMountPaths, configMode); err != nil {
 				return err
 			}
 
 			for _, storageUri := range params.StorageURIs {
-				if !strings.HasPrefix(storageUri.Uri, constants.OciURIPrefix) {
+				parsedMode, normalizedURI, isOci := utils.ParseOciScheme(storageUri.Uri)
+				if !isOci {
 					continue
 				}
+				effectiveMode := parsedMode
+				if effectiveMode == "" {
+					effectiveMode = types.ResolveOciModelMode(params.Config)
+				}
+				if effectiveMode == "" {
+					continue
+				}
+
 				targetContainerName := constants.InferenceServiceContainerName
 				if userContainer == nil {
 					targetContainerName = constants.WorkerContainerName
 				}
-				if err := utils.ConfigureModelcarToContainer(storageUri.Uri, params.PodSpec, targetContainerName, storageUri.MountPath, params.Config, ociIndex); err != nil {
-					return err
-				}
-				// Also configure for transformer if present
-				if utils.GetContainerWithName(params.PodSpec, constants.TransformerContainerName) != nil {
-					if err := utils.ConfigureModelcarToContainer(storageUri.Uri, params.PodSpec, constants.TransformerContainerName, storageUri.MountPath, params.Config, ociIndex); err != nil {
+
+				switch effectiveMode {
+				case types.OciModelModeNative:
+					if err := utils.ConfigureOciNativeToContainer(normalizedURI, params.PodSpec, targetContainerName, storageUri.MountPath, params.Config); err != nil {
 						return err
+					}
+					if utils.GetContainerWithName(params.PodSpec, constants.TransformerContainerName) != nil {
+						if err := utils.ConfigureOciNativeToContainer(normalizedURI, params.PodSpec, constants.TransformerContainerName, storageUri.MountPath, params.Config); err != nil {
+							return err
+						}
+					}
+				default: // "modelcar" (and "fetch" handled in a future commit)
+					if err := utils.ConfigureModelcarToContainer(normalizedURI, params.PodSpec, targetContainerName, storageUri.MountPath, params.Config, ociIndex); err != nil {
+						return err
+					}
+					if utils.GetContainerWithName(params.PodSpec, constants.TransformerContainerName) != nil {
+						if err := utils.ConfigureModelcarToContainer(normalizedURI, params.PodSpec, constants.TransformerContainerName, storageUri.MountPath, params.Config, ociIndex); err != nil {
+							return err
+						}
 					}
 				}
 				ociIndex++
@@ -343,8 +433,9 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 		// - PVC URIs are mounted directly as volumes (no download needed)
 		// - Other URIs require init container to download artifacts first
 		for _, storageUri := range params.StorageURIs {
-			if strings.HasPrefix(storageUri.Uri, constants.OciURIPrefix) {
-				// OCI URIs are already handled by modelcar injection above; skip.
+			if _, _, isOci := utils.ParseOciScheme(storageUri.Uri); isOci {
+				// All OCI-scheme URIs (oci://, oci+native://, oci+fetch://, …) are
+				// already handled by the dispatch block above; skip here.
 				continue
 			}
 			if strings.HasPrefix(storageUri.Uri, constants.PvcURIPrefix) {
@@ -533,10 +624,11 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 
 		// Merge any customizations from the storage container spec into the init container
 		if params.StorageContainerSpec != nil {
-			err := mergeContainerSpecs(initContainer, &params.StorageContainerSpec.Container)
+			merged, err := utils.MergeContainerWithPatch(*initContainer, params.StorageContainerSpec.Container)
 			if err != nil {
 				return err
 			}
+			*initContainer = merged
 		}
 
 		// Add CA bundle env vars and volume mount after merge to avoid conflicts with user-defined env vars
@@ -593,9 +685,25 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 		// This is done after merging to avoid conflicts with user-defined environment variables.
 		// See https://github.com/kserve/kserve/issues/4761
 		utils.AddDefaultHuggingFaceEnvVars(initContainer)
+
+		// Apply confidential model serving configuration if enabled via annotations
+		applyConfidentialConfig(initContainer, params.IsvcAnnotations)
 	}
 
 	return nil
+}
+
+// applyConfidentialConfig injects environment variables for confidential model
+// serving when enabled via pod annotations.
+func applyConfidentialConfig(initContainer *corev1.Container, annotations map[string]string) {
+	if annotations[constants.ConfidentialEnabledAnnotationKey] != "true" {
+		return
+	}
+
+	utils.ApplyConfidentialContainerConfig(
+		initContainer,
+		annotations[constants.ConfidentialResourceIdAnnotationKey],
+	)
 }
 
 // InjectStorageInitializer injects an init container to provision model data
@@ -649,7 +757,11 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(ctx context.Conte
 	storageURIs := []v1beta1.StorageUri{{Uri: srcURI, MountPath: constants.DefaultModelLocalMountPath}}
 
 	// Get storage container spec for the URI
-	storageContainerSpec, err := GetStorageContainerSpec(ctx, srcURI, mi.client)
+	var storageContainerName *string
+	if name, ok := pod.Annotations[constants.StorageContainerNameAnnotationKey]; ok {
+		storageContainerName = &name
+	}
+	storageContainerSpec, err := GetStorageContainerSpec(ctx, srcURI, storageContainerName, mi.client)
 	if err != nil {
 		return err
 	}
@@ -785,71 +897,6 @@ func (mi *StorageInitializerInjector) SetIstioCniSecurityContext(pod *corev1.Pod
 
 			log.V(1).Info("Storage initializer UID is set", "pod", pod.Name, "uid", storageInitializerContainer.SecurityContext.RunAsUser)
 		}
-	}
-
-	return nil
-}
-
-// Use JSON Marshal/Unmarshal to merge Container structs using strategic merge patch.
-// Use container name from defaultContainer spec, crdContainer takes precedence for other fields.
-func mergeContainerSpecs(targetContainer *corev1.Container, crdContainer *corev1.Container) error {
-	if targetContainer == nil {
-		return errors.New("targetContainer is nil")
-	}
-
-	containerName := targetContainer.Name
-
-	defaultContainerJson, err := json.Marshal(*targetContainer)
-	if err != nil {
-		return err
-	}
-
-	overrides, err := json.Marshal(*crdContainer)
-	if err != nil {
-		return err
-	}
-
-	jsonResult, err := strategicpatch.StrategicMergePatch(defaultContainerJson, overrides, corev1.Container{})
-	if err != nil {
-		return err
-	}
-
-	// Unmarshal into a fresh Container rather than the existing targetContainer:
-	// json.Unmarshal does not clear struct fields absent from the JSON, so reusing
-	// the target's existing EnvVar slice elements lets stale Value/ValueFrom fields
-	// bleed into merged-in entries (issue #5516).
-	merged := corev1.Container{}
-	if err := json.Unmarshal(jsonResult, &merged); err != nil {
-		return err
-	}
-
-	// For env entries whose name is overridden by the ClusterStorageContainer, strategic
-	// merge patch performs a field-wise merge keyed on name, which can leave both
-	// Value and ValueFrom populated on a single entry — a state Kubernetes
-	// admission rejects. Reconcile by deferring to the ClusterStorageContainer's intent.
-	crdEnvByName := make(map[string]corev1.EnvVar, len(crdContainer.Env))
-	for _, e := range crdContainer.Env {
-		crdEnvByName[e.Name] = e
-	}
-	for i := range merged.Env {
-		e := &merged.Env[i]
-		if e.Value == "" || e.ValueFrom == nil {
-			continue
-		}
-		crdEntry, ok := crdEnvByName[e.Name]
-		if !ok {
-			continue
-		}
-		if crdEntry.ValueFrom != nil {
-			e.Value = ""
-		} else if crdEntry.Value != "" {
-			e.ValueFrom = nil
-		}
-	}
-
-	*targetContainer = merged
-	if targetContainer.Name == "" {
-		targetContainer.Name = containerName
 	}
 
 	return nil

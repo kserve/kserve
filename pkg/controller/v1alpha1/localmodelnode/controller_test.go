@@ -500,7 +500,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			orphanedStorageKey := "abc123def456"
 			fsMock.mockModel(&MockFileInfo{name: orphanedStorageKey, isDir: true})
 
-			nodeName = "worker" // Definied in controller.go, representing the name of the current node
+			nodeName = "worker" // Defined in controller.go, representing the name of the current node
 			node := &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: nodeName,
@@ -571,7 +571,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
 			defer k8sClient.Delete(ctx, nodeGroup)
 
-			nodeName = "test3" // Definied in controller.go, representing the name of the current node
+			nodeName = "test3" // Defined in controller.go, representing the name of the current node
 			node := &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: nodeName,

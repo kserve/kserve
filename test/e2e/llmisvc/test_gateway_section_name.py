@@ -1,4 +1,4 @@
-# Copyright 2025 The KServe Authors.
+# Copyright 2026 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,9 +36,9 @@ from .fixtures import (
     generate_k8s_safe_suffix,
     inject_k8s_proxy,
 )
+from .diagnostic import collect_diagnostics
 from .test_llm_inference_service import (
     KSERVE_PLURAL_LLMINFERENCESERVICE,
-    _collect_diagnostics,
     wait_for,
 )
 from .test_resources import ROUTER_GATEWAYS
@@ -211,7 +211,11 @@ def test_gateway_section_name_propagation(gateway_config_key, expected_section_n
 
     except Exception:
         if llm_service is not None:
-            _collect_diagnostics(kserve_client, llm_service)
+            collect_diagnostics(
+                service_name,
+                KSERVE_TEST_NAMESPACE,
+                kserve_client=kserve_client,
+            )
         raise
 
     finally:

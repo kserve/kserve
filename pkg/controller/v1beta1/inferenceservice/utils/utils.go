@@ -39,13 +39,13 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
+	kserveutils "github.com/kserve/kserve/pkg/utils"
 	"github.com/kserve/kserve/pkg/webhook/admission/pod"
 )
 
 // Constants
 var (
-	SupportedStorageURIPrefixList = []string{"gs://", "s3://", "pvc://", "file://", "https://", "http://", "hdfs://", "webhdfs://", "oci://", "hf://"}
+	SupportedStorageURIPrefixList = []string{"gs://", "s3://", "pvc://", "file://", "https://", "http://", "hdfs://", "webhdfs://", "oci://", "oci+native://", "hf://"}
 )
 
 const (
@@ -247,42 +247,19 @@ func GetDeploymentMode(statusDeploymentMode string, annotations map[string]strin
 	return constants.DeploymentModeType(deployConfig.DefaultDeploymentMode)
 }
 
-// MergeRuntimeContainers Merge the predictor or transformer Container struct with the runtime Container struct, allowing users
-// to override runtime container settings from the predictor spec.
+// MergeRuntimeContainers merges the runtime Container with the InferenceService Container,
+// allowing users to override runtime container settings from the predictor spec.
+// Args are concatenated (runtime + isvc) rather than replaced.
 func MergeRuntimeContainers(runtimeContainer *corev1.Container, isvcContainer *corev1.Container) (*corev1.Container, error) {
-	// Save runtime container name, as the name can be overridden as empty string during the Unmarshal below
-	// since the Name field does not have the 'omitempty' struct tag.
-	runtimeContainerName := runtimeContainer.Name
-
-	// Use JSON Marshal/Unmarshal to merge Container structs using strategic merge patch
-	runtimeContainerJson, err := json.Marshal(runtimeContainer)
+	merged, err := kserveutils.MergeContainerWithPatch(*runtimeContainer, *isvcContainer)
 	if err != nil {
 		return nil, err
 	}
 
-	overrides, err := json.Marshal(isvcContainer)
-	if err != nil {
-		return nil, err
-	}
+	// Concatenate args rather than replacing — isvc extends runtime flags
+	merged.Args = append(append([]string{}, runtimeContainer.Args...), isvcContainer.Args...)
 
-	mergedContainer := corev1.Container{}
-	jsonResult, err := strategicpatch.StrategicMergePatch(runtimeContainerJson, overrides, mergedContainer)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := json.Unmarshal(jsonResult, &mergedContainer); err != nil {
-		return nil, err
-	}
-
-	if mergedContainer.Name == "" {
-		mergedContainer.Name = runtimeContainerName
-	}
-
-	// Strategic merge patch will replace args but more useful behaviour here is to concatenate
-	mergedContainer.Args = append(append([]string{}, runtimeContainer.Args...), isvcContainer.Args...)
-
-	return &mergedContainer, nil
+	return &merged, nil
 }
 
 // MergePodSpec Merge the predictor PodSpec struct with the runtime PodSpec struct, allowing users
@@ -360,7 +337,7 @@ func ReplacePlaceholders(container *corev1.Container, meta metav1.ObjectMeta) er
 }
 
 // UpdateImageTag Update image tag if GPU is enabled or runtime version is provided
-func UpdateImageTag(container *corev1.Container, runtimeVersion *string, servingRuntime *string) {
+func UpdateImageTag(container *corev1.Container, runtimeVersion *string, servingRuntime *string, runtimeAnnotations map[string]string) {
 	image := container.Image
 
 	// If image uses a digest (e.g. image@sha256:...), do not change it.
@@ -375,18 +352,39 @@ func UpdateImageTag(container *corev1.Container, runtimeVersion *string, serving
 		} else {
 			container.Image = re.ReplaceAllString(image, ":"+*runtimeVersion)
 		}
-	} else if utils.IsGPUEnabled(container.Resources) && len(strings.Split(image, ":")) > 0 {
-		re := regexp.MustCompile(`(:([\w.\-_]*))$`)
-		if len(re.FindString(image)) > 0 {
-			// For TFServing/TorchServe/HuggingFace the GPU image is tagged with suffix "-gpu", when the version is found in the tag
-			// and runtimeVersion is not specified, we default to append the "-gpu" suffix to the image tag
-			if servingRuntime != nil && (*servingRuntime == constants.TFServing || *servingRuntime == constants.TorchServe || *servingRuntime == constants.HuggingFaceServer) {
-				// check for the case when image field is specified directly with gpu tag
-				if !strings.HasSuffix(container.Image, "-gpu") {
-					container.Image = image + "-gpu"
-				}
+		return
+	}
+
+	// Resolve server type using the annotation-first, fallback to runtime name-based approach for backward compatibility.
+	serverType := runtimeAnnotations[constants.ServerTypeAnnotationKey]
+	if serverType == "" && servingRuntime != nil {
+		serverType = constants.GetServerTypeFromRuntimeName(*servingRuntime)
+	}
+	if serverType == "" {
+		return
+	}
+
+	re := regexp.MustCompile(`(:([\w.\-_]*))$`)
+	tag := re.FindString(image)
+	if tag == "" {
+		return
+	}
+	imageWithoutTag := strings.TrimSuffix(image, tag)
+
+	if kserveutils.IsGPUEnabled(container.Resources) {
+		// For TFServing/TorchServe/HuggingFace the GPU build is published as the same image
+		// with a "-gpu" tag suffix; append it when runtimeVersion is not specified.
+		switch serverType {
+		case constants.ServerTypeTensorflowServing, constants.ServerTypeTorchServe, constants.ServerTypeHuggingFaceServer:
+			if !strings.HasSuffix(image, "-gpu") {
+				container.Image = image + "-gpu"
 			}
 		}
+	} else if serverType == constants.ServerTypeVLLMServer && !strings.HasSuffix(imageWithoutTag, "-cpu") {
+		// For vLLM the CPU build lives in a sibling repository named "<image>-cpu"
+		// (e.g. vllm/vllm-openai -> vllm/vllm-openai-cpu), so insert "-cpu" immediately
+		// before the tag separator instead of appending it to the tag.
+		container.Image = imageWithoutTag + "-cpu" + tag
 	}
 }
 
@@ -437,7 +435,7 @@ func ValidateStorageURI(ctx context.Context, storageURI *string, client client.C
 		if parts := azureURIMatcher.FindStringSubmatch(*storageURI); parts != nil {
 			return nil
 		}
-	} else if utils.IsPrefixSupported(*storageURI, SupportedStorageURIPrefixList) {
+	} else if kserveutils.IsPrefixSupported(*storageURI, SupportedStorageURIPrefixList) {
 		return nil
 	}
 
@@ -451,7 +449,7 @@ func AddEnvVarToPodSpec(podSpec *corev1.PodSpec, containerName, envName, envValu
 	for i, container := range podSpec.Containers {
 		if container.Name == containerName {
 			updatedResult = true
-			if _, exists := utils.GetEnvVarValue(container.Env, envName); exists {
+			if _, exists := kserveutils.GetEnvVarValue(container.Env, envName); exists {
 				// Overwrite the environment variable
 				for j, envVar := range container.Env {
 					if envVar.Name == envName {

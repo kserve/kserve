@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"text/template"
@@ -30,6 +31,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/utils/ptr"
@@ -61,8 +63,11 @@ const (
 	configDecodeWorkerDataParallelNameSuffix  = "config-llm-decode-worker-data-parallel"
 	configPrefillWorkerDataParallelNameSuffix = "config-llm-prefill-worker-data-parallel"
 	// Router and scheduler configurations
-	configRouterSchedulerNameSuffix = "config-llm-scheduler"
-	configRouterRouteNameSuffix     = "config-llm-router-route"
+	configRouterSchedulerNameSuffix           = "config-llm-scheduler"
+	configRouterRouteNameSuffix               = "config-llm-router-route"
+	configSchedulerLatencyPredictorNameSuffix = "config-llm-scheduler-latency-predictor"
+	// Tracing configurations
+	configTracingNameSuffix = "config-llm-tracing"
 )
 
 var (
@@ -78,6 +83,8 @@ var (
 	configPrefillWorkerDataParallelName     = configPrefix + configPrefillWorkerDataParallelNameSuffix
 	configRouterSchedulerName               = configPrefix + configRouterSchedulerNameSuffix
 	configRouterRouteName                   = configPrefix + configRouterRouteNameSuffix
+	configSchedulerLatencyPredictorName     = configPrefix + configSchedulerLatencyPredictorNameSuffix
+	configTracingName                       = configPrefix + configTracingNameSuffix
 )
 
 // FIXME move those presets to well-known when they're finally known :)
@@ -98,6 +105,8 @@ var WellKnownDefaultConfigs = sets.New[string](
 	configPrefillWorkerDataParallelName,
 	configRouterSchedulerName,
 	configRouterRouteName,
+	configSchedulerLatencyPredictorName,
+	configTracingName,
 )
 
 const (
@@ -203,10 +212,17 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	if resolvedSpec.Router != nil && resolvedSpec.Router.Scheduler != nil && !resolvedSpec.Router.Scheduler.Pool.HasRef() {
 		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configRouterSchedulerName)})
 	}
+	if hasLatencyProducerInSpec(resolvedSpec) {
+		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configSchedulerLatencyPredictorName)})
+	}
 	if resolvedSpec.Router != nil && resolvedSpec.Router.Route != nil && !resolvedSpec.Router.Route.HTTP.HasRefs() {
 		// For the HTTP route configuration we don't use versioned defaults since this configuration depends on the
 		// GW API provider version.
 		refs = append(refs, corev1.LocalObjectReference{Name: configRouterRouteName})
+	}
+	// Inject tracing default configs when tracing is enabled (field is non-nil)
+	if resolvedSpec.Tracing != nil {
+		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configTracingName)})
 	}
 
 	if resolvedSpec.Prefill != nil { // P/D
@@ -308,6 +324,8 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, err
 	}
 
+	injectManagedDRAIntoConfig(llmSvc, llmSvcCfg)
+
 	// Update HTTPRoute parentRefs to point to the custom gateway if Gateway.Refs is specified.
 	// This ensures the managed HTTPRoute references the correct gateway instead of the default one from presets.
 	if llmSvcCfg.Spec.Router != nil &&
@@ -385,6 +403,30 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		if !options.skipClearSchedulerConfigRef {
 			llmSvcCfg.Spec.Router.Scheduler.Config.Ref = nil
 		}
+
+		// Warn if the resolved ConfigMap contains predicted-latency-producer but the
+		// well-known config was not injected (because detection runs before Ref resolution).
+		if hasLatencyProducerInSpec(llmSvcCfg.Spec) {
+			r.Eventf(llmSvc, corev1.EventTypeWarning, "LatencyPredictorConfigRef",
+				"predicted-latency-producer plugin detected in Config.Ref ConfigMap %q; "+
+					"latency predictor sidecar injection requires Config.Inline instead of Config.Ref", cmName)
+		}
+	}
+
+	// The v1 InferencePool CRD requires port when endpointPickerRef.kind is "Service" (or
+	// unspecified, which defaults to "Service"). Configs created before GIE v1.2.0
+	// omit the port field entirely. Without this default the controller's
+	// dry-run update fails the CEL rule: "port is required when kind is 'Service' or
+	// unspecified (defaults to 'Service')". We check both Kind=="Service" and Kind==""
+	// because the kubebuilder default is only applied server-side during admission, not
+	// during in-process deserialization.
+	if llmSvcCfg.Spec.Router != nil &&
+		llmSvcCfg.Spec.Router.Scheduler != nil &&
+		llmSvcCfg.Spec.Router.Scheduler.Pool != nil &&
+		llmSvcCfg.Spec.Router.Scheduler.Pool.Spec != nil &&
+		(llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef.Port == nil || llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef.Port.Number == 0) &&
+		(llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef.Kind == "Service" || llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef.Kind == "") {
+		llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef.Port = ptr.To(igwapi.Port{Number: 9002})
 	}
 
 	// Skip validation when we're only using the result for matching (not for reconciliation).
@@ -487,20 +529,27 @@ func expandLoRAAdapterMatches(rules []gwapiv1.HTTPRouteRule, namespace string, a
 	if headerName == "" || len(adapters) == 0 {
 		return
 	}
+
+	sorted := make([]v1alpha2.LLMModelSpec, len(adapters))
+	copy(sorted, adapters)
+	slices.SortFunc(sorted, func(a, b v1alpha2.LLMModelSpec) int {
+		return strings.Compare(ptr.Deref(a.Name, ""), ptr.Deref(b.Name, ""))
+	})
+
 	for i := range rules {
 		var adapterMatches []gwapiv1.HTTPRouteMatch
 		for _, match := range rules[i].Matches {
 			if !isModelBasedRoutingMatch(match, headerName) {
 				continue
 			}
-			for _, adapter := range adapters {
+			for _, adapter := range sorted {
 				if adapter.Name == nil {
 					continue
 				}
 				am := *match.DeepCopy()
 				for h := range am.Headers {
 					if string(am.Headers[h].Name) == headerName {
-						am.Headers[h].Value = fmt.Sprintf("publishers/%s/models/%s", namespace, *adapter.Name)
+						am.Headers[h].Value = fullyQualifiedModelName(namespace, *adapter.Name)
 					}
 				}
 				adapterMatches = append(adapterMatches, am)
@@ -547,6 +596,10 @@ type templateGlobalConfig struct {
 	// shared-gateway deployments (e.g. "X-Gateway-Model-Name"). Exposed here so
 	// that HTTPRoute templates can reference it via {{ .GlobalConfig.ModelBasedRoutingHeaderName }}.
 	ModelBasedRoutingHeaderName string
+
+	// InferencePoolNamespacedName represents the inference pool namespaced reference in the format "<namespace>/<name>",
+	// or simply `<name>`.
+	InferencePoolNamespacedName string
 }
 
 // ReplaceVariables processes the configuration as a Go template to substitute
@@ -566,6 +619,14 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 			EnableTLS:                   reconcilerConfig.EnableTLS,
 			ModelBasedRoutingHeaderName: reconcilerConfig.ModelBasedRoutingHeaderName,
 		}
+		infPoolNamespacedName := types.NamespacedName{
+			Name:      (&v1alpha2.SchedulerSpec{}).InferencePoolName(llmSvc),
+			Namespace: llmSvc.GetNamespace(),
+		}
+		if llmSvcCfg.Spec.Router != nil {
+			infPoolNamespacedName.Name = llmSvcCfg.Spec.Router.Scheduler.InferencePoolName(llmSvc)
+		}
+		gc.InferencePoolNamespacedName = infPoolNamespacedName.String()
 	}
 	config := struct {
 		*v1alpha2.LLMInferenceService
@@ -577,6 +638,48 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 	t, err := template.New("config").
 		Funcs(map[string]any{
 			"ChildName": kmeta.ChildName,
+			"kvTransferConfig": func(spec any) string {
+				if spec == nil {
+					return ""
+				}
+				kv, ok := spec.(*v1alpha2.KVCacheOffloadingSpec)
+				if !ok || kv == nil {
+					return ""
+				}
+				extraConfig := map[string]any{
+					"spec_name":        "TieringOffloadingSpec",
+					"cpu_bytes_to_use": kv.CPU.Value(),
+				}
+				if kv.EvictionPolicy != "" {
+					extraConfig["eviction_policy"] = kv.EvictionPolicy
+				}
+				var secondaryTiers []map[string]any
+				for i, s := range kv.Secondary {
+					if s.FileSystem == nil {
+						continue
+					}
+					entry := map[string]any{
+						"type":     "fs",
+						"root_dir": fmt.Sprintf("/mnt/kv-cache-%d", i),
+					}
+					secondaryTiers = append(secondaryTiers, entry)
+				}
+				if len(secondaryTiers) > 0 {
+					extraConfig["secondary_tiers"] = secondaryTiers
+				}
+				kvConfig := map[string]any{
+					"kv_connector":              "OffloadingConnector",
+					"kv_role":                   "kv_both",
+					"kv_connector_extra_config": extraConfig,
+				}
+				b, err := json.Marshal(kvConfig)
+				if err != nil {
+					return ""
+				}
+				// Escape " as \" so the value embeds safely in a bash double-quoted
+				// assignment and in the JSON template string that ReplaceVariables renders.
+				return "--kv-transfer-config '" + strings.ReplaceAll(string(b), `"`, `\"`) + "'"
+			},
 			// shutdownTimeout computes the vLLM --shutdown-timeout value from a *corev1.PodSpec
 			// (or nil): max(0, tgps - preStop - min(5, tgps)), defaulting tgps to 60 when unset.
 			// The 5-second buffer reserves time for signal propagation and final process cleanup

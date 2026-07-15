@@ -33,6 +33,7 @@ from kubernetes import client
 
 from kserve import KServeClient, V1alpha1LLMInferenceService, constants
 
+from .diagnostic import strip_managed_fields
 from .fixtures import (
     KSERVE_TEST_NAMESPACE,
     OPT_125M_MODEL_URI,
@@ -95,7 +96,7 @@ def get_pods_for_llmisvc(name: str, namespace: str) -> list[dict]:
             namespace=namespace,
             label_selector=f"{LLMISVC_POD_LABEL_PART_OF}={LLMISVC_POD_LABEL_PART_OF_VALUE},{LLMISVC_POD_LABEL_NAME}={name}",
         )
-        return [pod.to_dict() for pod in pods.items]
+        return [strip_managed_fields(pod.to_dict()) for pod in pods.items]
     except Exception as e:
         return [{"error": f"Failed to list pods for LLMISVC {name}: {e}"}]
 
@@ -108,7 +109,7 @@ def get_deployments_for_llmisvc(name: str, namespace: str) -> list[dict]:
             namespace=namespace,
             label_selector=f"{LLMISVC_POD_LABEL_PART_OF}={LLMISVC_POD_LABEL_PART_OF_VALUE},{LLMISVC_POD_LABEL_NAME}={name}",
         )
-        return [dep.to_dict() for dep in deployments.items]
+        return [strip_managed_fields(dep.to_dict()) for dep in deployments.items]
     except Exception as e:
         return [{"error": f"Failed to list deployments for LLMISVC {name}: {e}"}]
 

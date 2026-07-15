@@ -464,6 +464,10 @@
         "spec": {
           "default": {},
           "$ref": "#/definitions/v1alpha1.LLMInferenceServiceSpec"
+        },
+        "status": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.LLMInferenceServiceConfigStatus"
         }
       }
     },
@@ -1365,6 +1369,10 @@
         "spec": {
           "default": {},
           "$ref": "#/definitions/v1alpha2.LLMInferenceServiceSpec"
+        },
+        "status": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha2.LLMInferenceServiceConfigStatus"
         }
       }
     },
@@ -1805,6 +1813,24 @@
         "url": {
           "description": "URL holds the primary url that will distribute traffic over the provided traffic targets. This will be one the REST or gRPC endpoints that are available. It generally has the form http[s]://{route-name}.{route-namespace}.{cluster-level-suffix}",
           "$ref": "#/definitions/knative.URL"
+        }
+      }
+    },
+    "v1beta1.ConfidentialSpec": {
+      "description": "ConfidentialSpec enables confidential model serving with encrypted model artifacts. When enabled, the storage initializer will decrypt model files using keys obtained from a Key Broker Service (KBS) via TEE attestation.",
+      "type": "object",
+      "required": [
+        "enabled"
+      ],
+      "properties": {
+        "enabled": {
+          "description": "Enabled controls whether confidential model serving is active. When true, the confidential storage initializer image is used and encrypted model artifacts are decrypted after download.",
+          "type": "boolean",
+          "default": false
+        },
+        "resourceId": {
+          "description": "ResourceId is the KBS resource identifier for the decryption key, in the format kbs:///\u003crepo\u003e/\u003ctype\u003e/\u003ctag\u003e.",
+          "type": "string"
         }
       }
     },
@@ -3359,6 +3385,10 @@
           },
           "x-kubernetes-list-type": "atomic"
         },
+        "confidential": {
+          "description": "Confidential enables confidential model serving with encrypted model artifacts. When enabled, the storage initializer decrypts model files using keys obtained from a Key Broker Service (KBS) via TEE attestation.",
+          "$ref": "#/definitions/v1beta1.ConfidentialSpec"
+        },
         "env": {
           "description": "List of environment variables to set in the container. Cannot be updated.",
           "type": "array",
@@ -3793,6 +3823,10 @@
           },
           "x-kubernetes-list-type": "atomic"
         },
+        "confidential": {
+          "description": "Confidential enables confidential model serving with encrypted model artifacts. When enabled, the storage initializer decrypts model files using keys obtained from a Key Broker Service (KBS) via TEE attestation.",
+          "$ref": "#/definitions/v1beta1.ConfidentialSpec"
+        },
         "env": {
           "description": "List of environment variables to set in the container. Cannot be updated.",
           "type": "array",
@@ -4190,6 +4224,10 @@
           },
           "x-kubernetes-list-type": "atomic"
         },
+        "confidential": {
+          "description": "Confidential enables confidential model serving with encrypted model artifacts. When enabled, the storage initializer decrypts model files using keys obtained from a Key Broker Service (KBS) via TEE attestation.",
+          "$ref": "#/definitions/v1beta1.ConfidentialSpec"
+        },
         "env": {
           "description": "List of environment variables to set in the container. Cannot be updated.",
           "type": "array",
@@ -4452,6 +4490,10 @@
           },
           "x-kubernetes-list-type": "atomic"
         },
+        "confidential": {
+          "description": "Confidential enables confidential model serving with encrypted model artifacts. When enabled, the storage initializer decrypts model files using keys obtained from a Key Broker Service (KBS) via TEE attestation.",
+          "$ref": "#/definitions/v1beta1.ConfidentialSpec"
+        },
         "env": {
           "description": "List of environment variables to set in the container. Cannot be updated.",
           "type": "array",
@@ -4660,6 +4702,10 @@
           },
           "x-kubernetes-list-type": "atomic"
         },
+        "confidential": {
+          "description": "Confidential enables confidential model serving with encrypted model artifacts. When enabled, the storage initializer decrypts model files using keys obtained from a Key Broker Service (KBS) via TEE attestation.",
+          "$ref": "#/definitions/v1beta1.ConfidentialSpec"
+        },
         "env": {
           "description": "List of environment variables to set in the container. Cannot be updated.",
           "type": "array",
@@ -4848,6 +4894,10 @@
             "default": ""
           },
           "x-kubernetes-list-type": "atomic"
+        },
+        "confidential": {
+          "description": "Confidential enables confidential model serving with encrypted model artifacts. When enabled, the storage initializer decrypts model files using keys obtained from a Key Broker Service (KBS) via TEE attestation.",
+          "$ref": "#/definitions/v1beta1.ConfidentialSpec"
         },
         "env": {
           "description": "List of environment variables to set in the container. Cannot be updated.",
@@ -5345,6 +5395,10 @@
           },
           "x-kubernetes-list-type": "atomic"
         },
+        "confidential": {
+          "description": "Confidential enables confidential model serving with encrypted model artifacts. When enabled, the storage initializer decrypts model files using keys obtained from a Key Broker Service (KBS) via TEE attestation.",
+          "$ref": "#/definitions/v1beta1.ConfidentialSpec"
+        },
         "env": {
           "description": "List of environment variables to set in the container. Cannot be updated.",
           "type": "array",
@@ -5822,6 +5876,10 @@
           "description": "Spec for SKLearn model server",
           "$ref": "#/definitions/v1beta1.SKLearnSpec"
         },
+        "storageContainerName": {
+          "description": "StorageContainerName specifies the name of the ClusterStorageContainer to use for downloading model artifacts. When set, this ClusterStorageContainer is used instead of auto-matching based on the storage URI scheme. This is similar to storageClassName on PersistentVolumeClaims.",
+          "type": "string"
+        },
         "storageUris": {
           "description": "Spec for multiple storage uris.",
           "type": "array",
@@ -5973,6 +6031,10 @@
             "default": ""
           },
           "x-kubernetes-list-type": "atomic"
+        },
+        "confidential": {
+          "description": "Confidential enables confidential model serving with encrypted model artifacts. When enabled, the storage initializer decrypts model files using keys obtained from a Key Broker Service (KBS) via TEE attestation.",
+          "$ref": "#/definitions/v1beta1.ConfidentialSpec"
         },
         "env": {
           "description": "List of environment variables to set in the container. Cannot be updated.",
@@ -6224,6 +6286,10 @@
           },
           "x-kubernetes-list-type": "atomic"
         },
+        "confidential": {
+          "description": "Confidential enables confidential model serving with encrypted model artifacts. When enabled, the storage initializer decrypts model files using keys obtained from a Key Broker Service (KBS) via TEE attestation.",
+          "$ref": "#/definitions/v1beta1.ConfidentialSpec"
+        },
         "env": {
           "description": "List of environment variables to set in the container. Cannot be updated.",
           "type": "array",
@@ -6413,6 +6479,10 @@
             "default": ""
           },
           "x-kubernetes-list-type": "atomic"
+        },
+        "confidential": {
+          "description": "Confidential enables confidential model serving with encrypted model artifacts. When enabled, the storage initializer decrypts model files using keys obtained from a Key Broker Service (KBS) via TEE attestation.",
+          "$ref": "#/definitions/v1beta1.ConfidentialSpec"
         },
         "env": {
           "description": "List of environment variables to set in the container. Cannot be updated.",
@@ -6939,6 +7009,10 @@
           },
           "x-kubernetes-list-type": "atomic"
         },
+        "confidential": {
+          "description": "Confidential enables confidential model serving with encrypted model artifacts. When enabled, the storage initializer decrypts model files using keys obtained from a Key Broker Service (KBS) via TEE attestation.",
+          "$ref": "#/definitions/v1beta1.ConfidentialSpec"
+        },
         "env": {
           "description": "List of environment variables to set in the container. Cannot be updated.",
           "type": "array",
@@ -7393,6 +7467,10 @@
             "default": ""
           },
           "x-kubernetes-list-type": "atomic"
+        },
+        "confidential": {
+          "description": "Confidential enables confidential model serving with encrypted model artifacts. When enabled, the storage initializer decrypts model files using keys obtained from a Key Broker Service (KBS) via TEE attestation.",
+          "$ref": "#/definitions/v1beta1.ConfidentialSpec"
         },
         "env": {
           "description": "List of environment variables to set in the container. Cannot be updated.",

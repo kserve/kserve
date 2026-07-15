@@ -1,0 +1,106 @@
+name: Re-Run PR Workflows
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  rerun:
+    name: rerun
+    if: >-
+      github.event.issue.pull_request != '' &&
+      (contains(github.event.comment.body, '/rerun-all') ||
+       contains(github.event.comment.body, '/rerun-failed') ||
+       contains(github.event.comment.body, '/rerun-workflow ')) &&
+      (github.event.comment.author_association == 'OWNER' ||
+       github.event.comment.author_association == 'COLLABORATOR' ||
+       github.event.comment.author_association == 'CONTRIBUTOR' ||
+       github.event.comment.author_association == 'MEMBER')
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      pull-requests: read
+    steps:
+      - name: Rerun workflows
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          HEAD_SHA=$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)
+          if [ -z "$HEAD_SHA" ]; then
+            echo "::error::Failed to resolve HEAD SHA for PR #${PR_NUMBER}"
+            exit 1
+          fi
+          echo "PR #${PR_NUMBER} HEAD SHA: ${HEAD_SHA}"
+
+          FAILURES=0
+          rerun_workflow() {
+            local run_id=$1 mode=$2
+            local name
+            name=$(gh run view "$run_id" --json name -q .name)
+            echo "Rerunning ${mode:-all} jobs in '${name}' (run ${run_id})..."
+            # shellcheck disable=SC2086 # $mode must be unquoted: empty string should vanish, not pass ""
+            if ! gh run rerun "$run_id" $mode; then
+              echo "::warning::Failed to rerun ${run_id}"
+              FAILURES=$((FAILURES + 1))
+            fi
+          }
+
+          # Note: only covers pull_request runs. Workflows using pull_request_target
+          # (e.g. pr-style-check) are excluded - those validate PR metadata, not code.
+          RUNS=$(gh api --paginate "repos/${GH_REPO}/actions/runs?head_sha=${HEAD_SHA}&event=pull_request&status=failure" \
+            --jq '.workflow_runs[].id')
+
+          if [ -z "$RUNS" ]; then
+            echo "No failed workflow runs found for PR #${PR_NUMBER} (SHA: ${HEAD_SHA})"
+            exit 0
+          fi
+
+          echo "Found failed runs: $(echo "$RUNS" | tr '\n' ' ')"
+
+          COMMAND=$(echo "$COMMENT_BODY" | grep -m1 '^/rerun-' || true)
+          if [ -z "$COMMAND" ]; then
+            echo "::error::No /rerun command found at start of any line"
+            exit 1
+          fi
+
+          if echo "$COMMAND" | grep -q '^/rerun-failed'; then
+            MODE="--failed"
+            echo "Mode: rerun failed jobs only"
+          elif echo "$COMMAND" | grep -q '^/rerun-workflow'; then
+            TARGET_WORKFLOW=$(echo "$COMMAND" | sed -n 's|^/rerun-workflow "\([^"]*\)".*|\1|p; t; s|^/rerun-workflow \(.*\)|\1|p' | sed 's/[[:space:]]*$//')
+            if [ -z "$TARGET_WORKFLOW" ]; then
+              echo "::error::Usage: /rerun-workflow <name> or /rerun-workflow \"<name with spaces>\""
+              exit 1
+            fi
+            MODE=""
+            echo "Mode: rerun workflow '${TARGET_WORKFLOW}'"
+          else
+            MODE=""
+            echo "Mode: rerun all jobs"
+          fi
+
+          RERUN_COUNT=0
+          for RUN_ID in $RUNS; do
+            if [ -n "${TARGET_WORKFLOW:-}" ]; then
+              WORKFLOW_NAME=$(gh run view "$RUN_ID" --json name -q .name)
+              if [ "$WORKFLOW_NAME" != "$TARGET_WORKFLOW" ]; then
+                echo "Skipping '${WORKFLOW_NAME}' (not '${TARGET_WORKFLOW}')"
+                continue
+              fi
+            fi
+            rerun_workflow "$RUN_ID" "$MODE"
+            RERUN_COUNT=$((RERUN_COUNT + 1))
+          done
+
+          if [ "$RERUN_COUNT" -eq 0 ] && [ -n "${TARGET_WORKFLOW:-}" ]; then
+            echo "::error::No failed workflow matching '${TARGET_WORKFLOW}' found"
+            exit 1
+          fi
+
+          if [ "$FAILURES" -gt 0 ]; then
+            echo "::error::${FAILURES} out of ${RERUN_COUNT} rerun(s) failed"
+            exit 1
+          fi

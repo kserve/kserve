@@ -22,11 +22,13 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
+	"strings"
 
 	"k8s.io/utils/ptr"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -34,7 +36,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
+	kservevalidation "github.com/kserve/kserve/pkg/validation"
 )
 
 // variantCostPattern is compiled once at package init to avoid recompilation on every webhook call.
@@ -96,13 +100,22 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	routerWarnings, routerErrs := l.validateRouterCrossFieldConstraints(llmSvc)
 	warnings = append(warnings, routerWarnings...)
 	allErrs = append(allErrs, routerErrs...)
+
+	allErrs = append(allErrs, l.validateTrafficFields(llmSvc)...)
+
 	allErrs = append(allErrs, l.validateParallelismConstraints(llmSvc)...)
 	allErrs = append(allErrs, l.validateSchedulerConfig(llmSvc)...)
 
 	allErrs = append(allErrs, l.validateScaling(llmSvc)...)
 	allErrs = append(allErrs, l.validateLoRAAdapters(llmSvc)...)
+	allErrs = append(allErrs, l.validateKVCacheOffloading(llmSvc)...)
+	allErrs = append(allErrs, l.validateManagedDRAAnnotations(llmSvc)...)
 
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
+
+	confidentialWarnings, confidentialErrs := l.validateConfidential(llmSvc)
+	warnings = append(warnings, confidentialWarnings...)
+	allErrs = append(allErrs, confidentialErrs...)
 
 	if len(allErrs) == 0 {
 		logger.V(2).Info("LLMInferenceService v1alpha2 is valid", "llmisvc", llmSvc)
@@ -660,4 +673,232 @@ func ValidateWorkloadScaling(basePath *field.Path, workload *WorkloadSpec) field
 // This is used to report unsupported mutation of values.
 func immutableField(path *field.Path, value interface{}, detail string) *field.Error {
 	return &field.Error{Type: field.ErrorTypeNotSupported, Field: path.String(), BadValue: value, Detail: detail}
+}
+
+// validateManagedDRAAnnotations performs admission-time validation of the
+// serving.kserve.io/exp-dra-* annotations to catch user mistakes early.
+func (l *LLMInferenceServiceValidator) validateManagedDRAAnnotations(llmSvc *LLMInferenceService) field.ErrorList {
+	var allErrs field.ErrorList
+	annotations := llmSvc.GetAnnotations()
+	if len(annotations) == 0 {
+		return allErrs
+	}
+
+	annotationsPath := field.NewPath("metadata").Child("annotations")
+
+	hasDeviceClass := llmSvc.HasManagedDRA()
+	_, hasDeviceCount := annotations[constants.ManagedDRADeviceCountAnnotationKey]
+	_, hasCelSelector := annotations[constants.ManagedDRACelSelectorAnnotationKey]
+	_, hasContainerName := annotations[constants.ManagedDRAContainerNameAnnotationKey]
+
+	// Require device-class if any other DRA annotation is set.
+	if !hasDeviceClass && (hasDeviceCount || hasCelSelector || hasContainerName) {
+		allErrs = append(allErrs, field.Required(
+			annotationsPath.Key(constants.ManagedDRADeviceClassAnnotationKey),
+			fmt.Sprintf("%s is required to enable managed DRA when %s, %s, or %s is set",
+				constants.ManagedDRADeviceClassAnnotationKey,
+				constants.ManagedDRADeviceCountAnnotationKey,
+				constants.ManagedDRACelSelectorAnnotationKey,
+				constants.ManagedDRAContainerNameAnnotationKey),
+		))
+	}
+
+	if trimmed, present := llmSvc.ManagedDRADeviceClass(); present {
+		raw := annotations[constants.ManagedDRADeviceClassAnnotationKey]
+		if trimmed == "" {
+			allErrs = append(allErrs, field.Invalid(
+				annotationsPath.Key(constants.ManagedDRADeviceClassAnnotationKey),
+				raw,
+				"device class must not be empty",
+			))
+		} else if errs := validation.IsDNS1123Subdomain(trimmed); len(errs) > 0 {
+			allErrs = append(allErrs, field.Invalid(
+				annotationsPath.Key(constants.ManagedDRADeviceClassAnnotationKey),
+				raw,
+				"device class must be a DNS subdomain: "+strings.Join(errs, "; "),
+			))
+		}
+	}
+
+	if hasDeviceCount {
+		if _, err := llmSvc.ManagedDRADeviceCount(); err != nil {
+			allErrs = append(allErrs, field.Invalid(
+				annotationsPath.Key(constants.ManagedDRADeviceCountAnnotationKey),
+				annotations[constants.ManagedDRADeviceCountAnnotationKey],
+				err.Error(),
+			))
+		}
+	}
+
+	if hasCelSelector && len(llmSvc.ManagedDRACelSelectors()) == 0 {
+		allErrs = append(allErrs, field.Invalid(
+			annotationsPath.Key(constants.ManagedDRACelSelectorAnnotationKey),
+			annotations[constants.ManagedDRACelSelectorAnnotationKey],
+			"cel selector must contain at least one non-empty CEL expression",
+		))
+	}
+
+	if trimmed, present := llmSvc.ManagedDRAContainerName(); present {
+		raw := annotations[constants.ManagedDRAContainerNameAnnotationKey]
+		if trimmed == "" {
+			allErrs = append(allErrs, field.Invalid(
+				annotationsPath.Key(constants.ManagedDRAContainerNameAnnotationKey),
+				raw,
+				"container name must not be empty",
+			))
+		} else if errs := validation.IsDNS1123Label(trimmed); len(errs) > 0 {
+			allErrs = append(allErrs, field.Invalid(
+				annotationsPath.Key(constants.ManagedDRAContainerNameAnnotationKey),
+				raw,
+				"container name must be a DNS label: "+strings.Join(errs, "; "),
+			))
+		}
+	}
+
+	return allErrs
+}
+
+// validateKVCacheOffloading validates KVCacheOffloading secondary tier specs.
+func (l *LLMInferenceServiceValidator) validateKVCacheOffloading(llmSvc *LLMInferenceService) field.ErrorList {
+	var allErrs field.ErrorList
+	allErrs = append(allErrs, validateKVCacheOffloadingSpec(llmSvc.Spec.KVCacheOffloading, field.NewPath("spec", "kvCacheOffloading"))...)
+	if llmSvc.Spec.Prefill != nil {
+		allErrs = append(allErrs, validateKVCacheOffloadingSpec(llmSvc.Spec.Prefill.KVCacheOffloading, field.NewPath("spec", "prefill", "kvCacheOffloading"))...)
+	}
+	return allErrs
+}
+
+func validateKVCacheOffloadingSpec(kv *KVCacheOffloadingSpec, fldPath *field.Path) field.ErrorList {
+	if kv == nil || len(kv.Secondary) == 0 {
+		return nil
+	}
+	var allErrs field.ErrorList
+	if kv.CPU.IsZero() {
+		allErrs = append(allErrs, field.Required(fldPath.Child("cpu"),
+			"cpu must be set when secondary tiers are configured"))
+	}
+	for i, s := range kv.Secondary {
+		p := fldPath.Child("secondary").Index(i)
+		if s.FileSystem == nil {
+			allErrs = append(allErrs, field.Required(p.Child("fileSystem"),
+				"only fileSystem tiers are supported; fileSystem must be set"))
+			continue
+		}
+		fs := s.FileSystem
+		fsp := p.Child("fileSystem")
+		var backends []string
+		if fs.EmptyDir != nil {
+			backends = append(backends, "emptyDir")
+		}
+		if fs.PVC != nil {
+			backends = append(backends, "pvc")
+		}
+		switch len(backends) {
+		case 0:
+			allErrs = append(allErrs, field.Required(fsp,
+				"exactly one of emptyDir or pvc must be set"))
+		case 1:
+			if fs.PVC != nil {
+				pvcp := fsp.Child("pvc")
+				var pvcBackends []string
+				if fs.PVC.Spec != nil {
+					pvcBackends = append(pvcBackends, "spec")
+				}
+				if fs.PVC.Ref != nil {
+					pvcBackends = append(pvcBackends, "ref")
+				}
+				switch len(pvcBackends) {
+				case 0:
+					allErrs = append(allErrs, field.Required(pvcp,
+						"exactly one of spec or ref must be set"))
+				case 1:
+					if fs.PVC.Ref != nil && fs.PVC.Ref.Name == "" {
+						allErrs = append(allErrs, field.Required(pvcp.Child("ref").Child("name"), "name is required"))
+					}
+				default:
+					allErrs = append(allErrs, field.Invalid(pvcp, fs.PVC,
+						"exactly one of spec or ref must be set; multiple are set"))
+				}
+			}
+		default:
+			allErrs = append(allErrs, field.Invalid(fsp, fs,
+				"exactly one of emptyDir or pvc must be set; multiple are set"))
+		}
+	}
+	return allErrs
+}
+
+// validateConfidential validates the confidential spec on the model.
+func (l *LLMInferenceServiceValidator) validateConfidential(llmSvc *LLMInferenceService) (admission.Warnings, field.ErrorList) {
+	confidential := llmSvc.Spec.Model.Confidential
+	if confidential == nil {
+		return nil, nil
+	}
+
+	var resourceId *string
+	if confidential.ResourceId != nil {
+		resourceId = confidential.ResourceId
+	}
+
+	return kservevalidation.ValidateConfidentialSpec(
+		confidential.Enabled,
+		resourceId,
+		llmSvc.Spec.Model.URI.String(),
+		field.NewPath("spec", "model"),
+	)
+}
+
+func (l *LLMInferenceServiceValidator) validateTrafficFields(
+	llmSvc *LLMInferenceService,
+) field.ErrorList {
+	router := llmSvc.Spec.Router
+	if router == nil || router.Route == nil {
+		return nil
+	}
+
+	route := router.Route
+	routePath := field.NewPath("spec", "router", "route")
+	var allErrs field.ErrorList
+
+	hasGroup := route.Group != nil
+	hasWeight := route.Weight != nil
+
+	if !hasGroup && !hasWeight {
+		return nil
+	}
+
+	if router.Ingress != nil {
+		return field.ErrorList{field.Invalid(
+			routePath.Child("group"),
+			ptr.Deref(route.Group, ""),
+			"traffic splitting requires Gateway API routing; the controller manages HTTPRoutes, not Ingress resources",
+		)}
+	}
+
+	if hasWeight && !hasGroup {
+		allErrs = append(allErrs, field.Required(
+			routePath.Child("group"),
+			"weight requires group",
+		))
+	}
+	if hasGroup && !hasWeight {
+		allErrs = append(allErrs, field.Required(
+			routePath.Child("weight"),
+			"group requires weight",
+		))
+	}
+
+	if len(allErrs) > 0 {
+		return allErrs
+	}
+
+	if route.HTTP != nil && route.HTTP.HasRefs() {
+		allErrs = append(allErrs, field.Invalid(
+			routePath.Child("group"),
+			*route.Group,
+			"traffic splitting cannot be used with custom HTTPRoute refs; controller-managed routes (route.http.spec or route.http: {}) are required",
+		))
+	}
+
+	return allErrs
 }
