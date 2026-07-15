@@ -33,6 +33,7 @@ import (
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 
@@ -1103,12 +1104,14 @@ schedulingProfiles:
 
 				configText, found := getSchedulerConfigText(expectedDeployment)
 				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
-				g.Expect(configText).To(ContainSubstring("token-producer"))
-				g.Expect(configText).To(ContainSubstring("precise-prefix-cache-producer"))
-				g.Expect(configText).To(ContainSubstring("prefix-cache-scorer"))
+				g.Expect(configText).NotTo(ContainSubstring("precise-prefix-cache-scorer"))
 				g.Expect(configText).To(ContainSubstring(kmeta.ChildName(svcName, "-tokenizer")))
 				g.Expect(configText).To(ContainSubstring("modelName: /mnt/models/base"))
-				g.Expect(configText).NotTo(ContainSubstring("precise-prefix-cache-scorer"))
+
+				pluginTypes, err := pluginTypesFromConfig(configText)
+				g.Expect(err).NotTo(HaveOccurred())
+				assertPipelineOrder(g, pluginTypes)
+
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})
@@ -1958,4 +1961,48 @@ func countLeaderElectionFlags(deployment *appsv1.Deployment) int {
 		}
 	}
 	return count
+}
+
+// pluginTypesFromConfig parses the scheduler config YAML and returns the
+// ordered list of plugin type strings.
+func pluginTypesFromConfig(configText string) ([]string, error) {
+	var parsed struct {
+		Plugins []struct {
+			Type string `json:"type"`
+		} `json:"plugins"`
+	}
+	if err := yaml.Unmarshal([]byte(configText), &parsed); err != nil {
+		return nil, err
+	}
+	pluginTypes := make([]string, len(parsed.Plugins))
+	for i, p := range parsed.Plugins {
+		pluginTypes[i] = p.Type
+	}
+	return pluginTypes, nil
+}
+
+// assertPipelineOrder verifies that the 3-plugin pipeline appears in the
+// correct relative order: token-producer < precise-prefix-cache-producer < prefix-cache-scorer.
+func assertPipelineOrder(g Gomega, pluginTypes []string) {
+	tokenIdx, producerIdx, scorerIdx := -1, -1, -1
+	for i, t := range pluginTypes {
+		switch t {
+		case "token-producer":
+			g.Expect(tokenIdx).To(Equal(-1), "duplicate token-producer in plugin list")
+			tokenIdx = i
+		case "precise-prefix-cache-producer":
+			g.Expect(producerIdx).To(Equal(-1), "duplicate precise-prefix-cache-producer in plugin list")
+			producerIdx = i
+		case "prefix-cache-scorer":
+			g.Expect(scorerIdx).To(Equal(-1), "duplicate prefix-cache-scorer in plugin list")
+			scorerIdx = i
+		}
+	}
+	g.Expect(tokenIdx).NotTo(Equal(-1), "token-producer not found")
+	g.Expect(producerIdx).NotTo(Equal(-1), "precise-prefix-cache-producer not found")
+	g.Expect(scorerIdx).NotTo(Equal(-1), "prefix-cache-scorer not found")
+	g.Expect(tokenIdx).To(BeNumerically("<", producerIdx),
+		"token-producer must appear before precise-prefix-cache-producer")
+	g.Expect(producerIdx).To(BeNumerically("<", scorerIdx),
+		"precise-prefix-cache-producer must appear before prefix-cache-scorer")
 }
