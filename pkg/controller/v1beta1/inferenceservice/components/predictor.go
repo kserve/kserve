@@ -793,6 +793,10 @@ func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.In
 	if err := r.Scaler.Autoscaler.SetControllerReferences(isvc, p.scheme); err != nil {
 		return errors.Wrapf(err, "fails to set autoscaler owner references for predictor")
 	}
+	// set PDB Controller
+	if err := r.PDB.SetControllerReferences(isvc, p.scheme); err != nil {
+		return errors.Wrapf(err, "fails to set PDB owner reference for predictor")
+	}
 
 	deploymentList, err := r.Reconcile(ctx)
 	if err != nil {

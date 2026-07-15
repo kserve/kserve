@@ -553,6 +553,9 @@ func validateScalingKPACompExtension(compExtSpec *ComponentExtensionSpec) error 
 	if compExtSpec.DeploymentStrategy != nil {
 		return errors.New("customizing deploymentStrategy is only supported for raw deployment mode")
 	}
+	if compExtSpec.PodDisruptionBudget != nil {
+		return errors.New("customizing podDisruptionBudget is only supported for raw deployment mode")
+	}
 	metric := MetricConcurrency
 	if compExtSpec.ScaleMetric != nil {
 		metric = *compExtSpec.ScaleMetric

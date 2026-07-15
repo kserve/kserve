@@ -27,6 +27,7 @@ import (
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/autoscaler"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/otel"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/pdb"
 	"github.com/kserve/kserve/pkg/credentials"
 	kserveTypes "github.com/kserve/kserve/pkg/types"
 	"github.com/kserve/kserve/pkg/webhook/admission/pod"
@@ -51,6 +52,7 @@ type RawKubeReconciler struct {
 	Service       reconcilers.ServiceReconciler
 	Scaler        *autoscaler.AutoscalerReconciler
 	OtelCollector *otel.OtelReconciler
+	PDB           *pdb.PDBReconciler
 	URL           *knapis.URL
 }
 
@@ -103,6 +105,8 @@ func NewRawKubeReconciler(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
+
+	pdbReconciler := pdb.NewPDBReconciler(client, componentMeta, componentExt)
 	ingressConfig, err := v1beta1.NewIngressConfig(isvcConfigMap)
 	if err != nil {
 		return nil, err
@@ -220,6 +224,7 @@ func NewRawKubeReconciler(ctx context.Context,
 		Service:       serviceRec,
 		Scaler:        as,
 		OtelCollector: otelCollector,
+		PDB:           pdbReconciler,
 		URL:           url,
 	}, nil
 }
@@ -261,6 +266,11 @@ func (r *RawKubeReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deployment
 	// reconcile HPA
 	err = r.Scaler.Reconcile(ctx)
 	if err != nil {
+		return nil, err
+	}
+
+	// reconcile PDB
+	if err := r.PDB.Reconcile(ctx); err != nil {
 		return nil, err
 	}
 

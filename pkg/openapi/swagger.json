@@ -1742,6 +1742,10 @@
           "type": "integer",
           "format": "int32"
         },
+        "podDisruptionBudget": {
+          "description": "Configures a PodDisruptionBudget for the component to ensure availability during voluntary disruptions such as node drains or cluster upgrades. Only applicable for Raw (standard Kubernetes) deployment mode. Not supported for Knative (serverless) deployment mode.",
+          "$ref": "#/definitions/k8s.io.api.policy.v1.PodDisruptionBudgetSpec"
+        },
         "scaleMetric": {
           "description": "ScaleMetric defines the scaling metric type watched by autoscaler. possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
           "type": "string"
@@ -3097,6 +3101,10 @@
           "additionalProperties": {
             "$ref": "#/definitions/resource.Quantity"
           }
+        },
+        "podDisruptionBudget": {
+          "description": "Configures a PodDisruptionBudget for the component to ensure availability during voluntary disruptions such as node drains or cluster upgrades. Only applicable for Raw (standard Kubernetes) deployment mode. Not supported for Knative (serverless) deployment mode.",
+          "$ref": "#/definitions/k8s.io.api.policy.v1.PodDisruptionBudgetSpec"
         },
         "preemptionPolicy": {
           "description": "PreemptionPolicy is the Policy for preempting pods with lower priority. One of Never, PreemptLowerPriority. Defaults to PreemptLowerPriority if unset.",
@@ -5762,6 +5770,10 @@
           "description": "Spec for PMML (http://dmg.org/pmml/v4-1/GeneralStructure.html)",
           "$ref": "#/definitions/v1beta1.PMMLSpec"
         },
+        "podDisruptionBudget": {
+          "description": "Configures a PodDisruptionBudget for the component to ensure availability during voluntary disruptions such as node drains or cluster upgrades. Only applicable for Raw (standard Kubernetes) deployment mode. Not supported for Knative (serverless) deployment mode.",
+          "$ref": "#/definitions/k8s.io.api.policy.v1.PodDisruptionBudgetSpec"
+        },
         "preemptionPolicy": {
           "description": "PreemptionPolicy is the Policy for preempting pods with lower priority. One of Never, PreemptLowerPriority. Defaults to PreemptLowerPriority if unset.",
           "type": "string"
@@ -6822,6 +6834,10 @@
           "additionalProperties": {
             "$ref": "#/definitions/resource.Quantity"
           }
+        },
+        "podDisruptionBudget": {
+          "description": "Configures a PodDisruptionBudget for the component to ensure availability during voluntary disruptions such as node drains or cluster upgrades. Only applicable for Raw (standard Kubernetes) deployment mode. Not supported for Knative (serverless) deployment mode.",
+          "$ref": "#/definitions/k8s.io.api.policy.v1.PodDisruptionBudgetSpec"
         },
         "preemptionPolicy": {
           "description": "PreemptionPolicy is the Policy for preempting pods with lower priority. One of Never, PreemptLowerPriority. Defaults to PreemptLowerPriority if unset.",

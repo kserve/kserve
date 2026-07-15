@@ -28,8 +28,10 @@ import (
 	"github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 )
 
@@ -601,6 +603,20 @@ func TestCustomizeDeploymentStrategyUnsupportedForServerless(t *testing.T) {
 	validator := InferenceServiceValidator{}
 	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError("customizing deploymentStrategy is only supported for raw deployment mode"))
+	g.Expect(warnings).Should(gomega.BeEmpty())
+}
+
+func TestCustomizePodDisruptionBudgetUnsupportedForServerless(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	minAvailable := intstr.FromInt32(1)
+	isvc := makeTestInferenceService()
+	isvc.Spec.Predictor.MinReplicas = proto.Int32(2)
+	isvc.Spec.Predictor.PodDisruptionBudget = &policyv1.PodDisruptionBudgetSpec{
+		MinAvailable: &minAvailable,
+	}
+	validator := InferenceServiceValidator{}
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
+	g.Expect(err).Should(gomega.MatchError("customizing podDisruptionBudget is only supported for raw deployment mode"))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
 

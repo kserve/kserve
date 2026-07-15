@@ -240,6 +240,10 @@ func (p *Transformer) reconcileTransformerRawDeployment(ctx context.Context, isv
 	if err := r.Scaler.Autoscaler.SetControllerReferences(isvc, p.scheme); err != nil {
 		return errors.Wrapf(err, "fails to set autoscaler owner references for transformer")
 	}
+	// set PDB Controller
+	if err := r.PDB.SetControllerReferences(isvc, p.scheme); err != nil {
+		return errors.Wrapf(err, "fails to set PDB owner reference for transformer")
+	}
 
 	deployment, err := r.Reconcile(ctx)
 	if err != nil {

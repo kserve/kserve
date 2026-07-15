@@ -25,6 +25,7 @@ import (
 	"k8s.io/api/apps/v1"
 	"k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -204,6 +205,11 @@ func (in *ComponentExtensionSpec) DeepCopyInto(out *ComponentExtensionSpec) {
 	if in.DeploymentStrategy != nil {
 		in, out := &in.DeploymentStrategy, &out.DeploymentStrategy
 		*out = new(v1.DeploymentStrategy)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.PodDisruptionBudget != nil {
+		in, out := &in.PodDisruptionBudget, &out.PodDisruptionBudget
+		*out = new(policyv1.PodDisruptionBudgetSpec)
 		(*in).DeepCopyInto(*out)
 	}
 }

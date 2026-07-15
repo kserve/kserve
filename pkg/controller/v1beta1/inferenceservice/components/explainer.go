@@ -204,6 +204,10 @@ func (e *Explainer) reconcileExplainerRawDeployment(ctx context.Context, isvc *v
 	if err := r.Scaler.Autoscaler.SetControllerReferences(isvc, e.scheme); err != nil {
 		return errors.Wrapf(err, "fails to set autoscaler owner references for explainer")
 	}
+	// set PDB Controller
+	if err := r.PDB.SetControllerReferences(isvc, e.scheme); err != nil {
+		return errors.Wrapf(err, "fails to set PDB owner reference for explainer")
+	}
 
 	deployment, err := r.Reconcile(ctx)
 	if err != nil {
