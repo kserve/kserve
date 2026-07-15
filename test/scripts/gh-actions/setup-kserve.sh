@@ -78,6 +78,13 @@ if [[ $ENABLE_LLMISVC == "false" || $ENABLE_KSERVE_WITH_LLMISVC == "true" ]]; th
     kubectl apply --server-side=true -k config/overlays/test/clusterresources
   fi
 
+  echo "Applying test env patches to ClusterServingRuntimes..."
+  kubectl patch clusterservingruntime kserve-huggingfaceserver --type=json -p='[
+    {"op":"add","path":"/spec/containers/0/env/-","value":{"name":"TOKIO_WORKER_THREADS","value":"1"}},
+    {"op":"add","path":"/spec/containers/0/env/-","value":{"name":"HF_HUB_DISABLE_XET","value":"1"}},
+    {"op":"add","path":"/spec/containers/0/env/-","value":{"name":"HF_HUB_ENABLE_HF_TRANSFER","value":"0"}}
+  ]'
+
   kubectl get events -A
 
   echo "Waiting for seaweedfs to be ready ..."

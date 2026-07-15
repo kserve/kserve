@@ -100,7 +100,7 @@ func TestPresetFiles(t *testing.T) {
 							InitContainers: []corev1.Container{
 								{
 									Name:  "llm-d-routing-sidecar",
-									Image: "ghcr.io/llm-d/llm-d-routing-sidecar:v0.7.1",
+									Image: "ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.9.0",
 									Command: []string{
 										"/app/pd-sidecar",
 										"--port=8000",
@@ -108,6 +108,7 @@ func TestPresetFiles(t *testing.T) {
 										"--kv-connector=nixlv2",
 										"--enable-ssrf-protection=true",
 										"--pool-group=inference.networking.x-k8s.io",
+										"--inference-pool=test-llm-preset-test/test-llm-preset-inference-pool",
 										"--secure-proxy=false",
 										"",
 										"",
@@ -139,7 +140,7 @@ func TestPresetFiles(t *testing.T) {
 										Capabilities: &corev1.Capabilities{
 											Drop: []corev1.Capability{"ALL"},
 										},
-										ReadOnlyRootFilesystem: ptr.To(true),
+										ReadOnlyRootFilesystem: ptr.To(false),
 										SeccompProfile: &corev1.SeccompProfile{
 											Type: corev1.SeccompProfileTypeRuntimeDefault,
 										},
@@ -186,7 +187,7 @@ func TestPresetFiles(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:  "main",
-									Image: "ghcr.io/llm-d/llm-d-cuda:v0.6.0",
+									Image: "ghcr.io/llm-d/llm-d-cuda:v0.8.0",
 									Ports: []corev1.ContainerPort{
 										{
 											ContainerPort: 8001,
@@ -239,9 +240,9 @@ func TestPresetFiles(t *testing.T) {
 											},
 										},
 
-										TimeoutSeconds:   10,
+										TimeoutSeconds:   1,
 										PeriodSeconds:    10,
-										FailureThreshold: 3,
+										FailureThreshold: 10,
 									},
 									ReadinessProbe: &corev1.Probe{
 										ProbeHandler: corev1.ProbeHandler{
@@ -252,9 +253,9 @@ func TestPresetFiles(t *testing.T) {
 											},
 										},
 
-										TimeoutSeconds:   5,
-										PeriodSeconds:    30,
-										FailureThreshold: 60,
+										TimeoutSeconds:   1,
+										PeriodSeconds:    1,
+										FailureThreshold: 2,
 									},
 									StartupProbe: &corev1.Probe{
 										ProbeHandler: corev1.ProbeHandler{
@@ -288,7 +289,7 @@ func TestPresetFiles(t *testing.T) {
 										},
 										AllowPrivilegeEscalation: ptr.To(false),
 										RunAsNonRoot:             ptr.To(true),
-										ReadOnlyRootFilesystem:   ptr.To(true),
+										ReadOnlyRootFilesystem:   ptr.To(false),
 										SeccompProfile: &corev1.SeccompProfile{
 											Type: corev1.SeccompProfileTypeRuntimeDefault,
 										},
@@ -335,7 +336,7 @@ func TestPresetFiles(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:  "main",
-									Image: "ghcr.io/llm-d/llm-d-cuda:v0.6.0",
+									Image: "ghcr.io/llm-d/llm-d-cuda:v0.8.0",
 									Ports: []corev1.ContainerPort{
 										{
 											ContainerPort: 8001,
@@ -376,7 +377,7 @@ func TestPresetFiles(t *testing.T) {
 										},
 										AllowPrivilegeEscalation: ptr.To(false),
 										RunAsNonRoot:             ptr.To(true),
-										ReadOnlyRootFilesystem:   ptr.To(true),
+										ReadOnlyRootFilesystem:   ptr.To(false),
 										SeccompProfile: &corev1.SeccompProfile{
 											Type: corev1.SeccompProfileTypeRuntimeDefault,
 										},
@@ -464,7 +465,7 @@ func TestPresetFiles(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:  "main",
-									Image: "ghcr.io/llm-d/llm-d-cuda:v0.6.0",
+									Image: "ghcr.io/llm-d/llm-d-cuda:v0.8.0",
 									Ports: []corev1.ContainerPort{
 										{
 											ContainerPort: 8000,
@@ -517,9 +518,9 @@ func TestPresetFiles(t *testing.T) {
 											},
 										},
 
-										TimeoutSeconds:   10,
+										TimeoutSeconds:   1,
 										PeriodSeconds:    10,
-										FailureThreshold: 3,
+										FailureThreshold: 10,
 									},
 									ReadinessProbe: &corev1.Probe{
 										ProbeHandler: corev1.ProbeHandler{
@@ -530,9 +531,9 @@ func TestPresetFiles(t *testing.T) {
 											},
 										},
 
-										TimeoutSeconds:   5,
-										PeriodSeconds:    10,
-										FailureThreshold: 60,
+										TimeoutSeconds:   1,
+										PeriodSeconds:    1,
+										FailureThreshold: 2,
 									},
 									StartupProbe: &corev1.Probe{
 										ProbeHandler: corev1.ProbeHandler{
@@ -561,7 +562,7 @@ func TestPresetFiles(t *testing.T) {
 										},
 										AllowPrivilegeEscalation: ptr.To(false),
 										RunAsNonRoot:             ptr.To(true),
-										ReadOnlyRootFilesystem:   ptr.To(true),
+										ReadOnlyRootFilesystem:   ptr.To(false),
 										SeccompProfile: &corev1.SeccompProfile{
 											Type: corev1.SeccompProfileTypeRuntimeDefault,
 										},

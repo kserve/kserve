@@ -87,15 +87,18 @@ Stage any formatting changes before committing.
 
 ### 6. Commit and PR
 
-- **PR base branch**: Use the base branch determined in Step 2 (`master` or `release-X.Y`)
 - Commit message: `release: prepare release v{VERSION}`
-- PR title: `release: prepare release v{VERSION}`
-- PR body:
-  ```
-  Automated version bump from v{PRIOR_VERSION} to v{VERSION}.
+- Create the PR using `gh pr create` with an explicit `--base` flag:
+  ```bash
+  gh pr create \
+    --base {TARGET_BRANCH} \
+    --title "release: prepare release v{VERSION}" \
+    --body "Automated version bump from v{PRIOR_VERSION} to v{VERSION}.
 
-  Triggered by #{ISSUE_NUMBER}.
+  Triggered by #{ISSUE_NUMBER}."
   ```
+  `{TARGET_BRANCH}` is the branch determined in Step 2 (`master` or `release-X.Y`).
+  Do NOT omit `--base` — omitting it defaults to `master` and breaks micro-release PRs.
 - Labels:
   - Always add: `release`
   - Add `cherrypick-approved` for RC1+, RC2+, and Final (Z=0) — NOT for RC0 or Z-release

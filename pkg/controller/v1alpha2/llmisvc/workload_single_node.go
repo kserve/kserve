@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"slices"
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
@@ -41,6 +42,10 @@ import (
 
 func (r *LLMISVCReconciler) reconcileSingleNodeWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
 	log.FromContext(ctx).Info("Reconciling single-node workload")
+
+	if err := r.reconcileManagedDRA(ctx, llmSvc); err != nil {
+		return fmt.Errorf("failed to reconcile managed DRA: %w", err)
+	}
 
 	if err := r.reconcileSingleNodeMainServiceAccount(ctx, llmSvc, config); err != nil {
 		return fmt.Errorf("failed to reconcile service account: %w", err)
@@ -164,12 +169,25 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, "main", constants.DefaultModelLocalMountPath, len(config.ResolvedLoRAAdapters) > 0); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to main deployment: %w", err)
 		}
+		if llmSvc.Spec.KVCacheOffloading != nil {
+			attachKVCacheSecondaryTiers(&d.Spec.Template.Spec, llmSvc.Spec.KVCacheOffloading.Secondary, "main")
+		}
 	}
 
 	r.propagateDeploymentMetadata(llmSvc, d)
 
 	utils.PropagateMap(llmSvc.Spec.Labels, &d.Spec.Template.Labels)
 	utils.PropagateMap(llmSvc.Spec.Annotations, &d.Spec.Template.Annotations, AnnotationModelBasedRoutingEnabled)
+
+	// Inject tracing instrumentation when spec.tracing is set
+	if llmSvc.Spec.Tracing != nil {
+		mainIdx := slices.IndexFunc(d.Spec.Template.Spec.Containers, func(c corev1.Container) bool {
+			return c.Name == "main"
+		})
+		if mainIdx >= 0 {
+			injectServerTracing(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), "-decode", &d.Spec.Template.Spec.Containers[mainIdx])
+		}
+	}
 
 	log.FromContext(ctx).V(2).Info("Expected main deployment", "deployment", d)
 
@@ -254,6 +272,9 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 		if err := r.attachModelArtifacts(ctx, existingServiceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, "main", constants.DefaultModelLocalMountPath, len(config.ResolvedLoRAAdapters) > 0); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to prefill deployment: %w", err)
 		}
+		if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.KVCacheOffloading != nil {
+			attachKVCacheSecondaryTiers(&d.Spec.Template.Spec, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, "main")
+		}
 	}
 
 	r.propagateDeploymentMetadata(llmSvc, d)
@@ -261,6 +282,16 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 	if llmSvc.Spec.Prefill != nil {
 		utils.PropagateMap(llmSvc.Spec.Prefill.Labels, &d.Spec.Template.Labels)
 		utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &d.Spec.Template.Annotations, AnnotationModelBasedRoutingEnabled)
+	}
+
+	// Inject tracing instrumentation when spec.tracing is set
+	if llmSvc.Spec.Tracing != nil {
+		mainIdx := slices.IndexFunc(d.Spec.Template.Spec.Containers, func(c corev1.Container) bool {
+			return c.Name == "main"
+		})
+		if mainIdx >= 0 {
+			injectServerTracing(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), "-prefill", &d.Spec.Template.Spec.Containers[mainIdx])
+		}
 	}
 
 	log.FromContext(ctx).V(2).Info("Expected prefill deployment", "deployment", d)

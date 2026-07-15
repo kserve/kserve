@@ -2056,6 +2056,227 @@ func TestReplaceVariables(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "kvTransferConfig returns empty string when kvCacheOffloading is nil",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{""}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "kvTransferConfig renders --kv-transfer-config from kvCacheOffloading",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+							CPU: resource.MustParse("10Gi"),
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								// json.Marshal sorts map keys alphabetically: kv_connector < kv_connector_extra_config < kv_role
+								// Internally " is escaped to \" for JSON-safe template rendering; JSON unmarshal restores plain ".
+								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":10737418240,"spec_name":"TieringOffloadingSpec"},"kv_role":"kv_both"}'`}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "kvTransferConfig includes eviction policy when set",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+							CPU:            resource.MustParse("5Gi"),
+							EvictionPolicy: "arc",
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								// json.Marshal sorts map keys alphabetically: cpu_bytes_to_use < eviction_policy < spec_name
+								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":5368709120,"eviction_policy":"arc","spec_name":"TieringOffloadingSpec"},"kv_role":"kv_both"}'`}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "kvTransferConfig renders single emptyDir secondary tier",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+							CPU: resource.MustParse("10Gi"),
+							Secondary: []v1alpha2.SecondaryTierSpec{
+								{FileSystem: &v1alpha2.FileSystemTierSpec{
+									EmptyDir: &v1alpha2.EmptyDirTierSpec{Size: resource.MustParse("100Gi")},
+								}},
+							},
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								// secondary_tiers[0]: root_dir defaults to /mnt/kv-cache-0
+								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":10737418240,"secondary_tiers":[{"root_dir":"/mnt/kv-cache-0","type":"fs"}],"spec_name":"TieringOffloadingSpec"},"kv_role":"kv_both"}'`}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "kvTransferConfig renders multiple secondary tiers with indexed root_dirs",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+							CPU: resource.MustParse("10Gi"),
+							Secondary: []v1alpha2.SecondaryTierSpec{
+								{FileSystem: &v1alpha2.FileSystemTierSpec{
+									EmptyDir: &v1alpha2.EmptyDirTierSpec{Size: resource.MustParse("200Gi")},
+								}},
+								{FileSystem: &v1alpha2.FileSystemTierSpec{
+									EmptyDir: &v1alpha2.EmptyDirTierSpec{Size: resource.MustParse("200Gi")},
+								}},
+							},
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":10737418240,"secondary_tiers":[{"root_dir":"/mnt/kv-cache-0","type":"fs"},{"root_dir":"/mnt/kv-cache-1","type":"fs"}],"spec_name":"TieringOffloadingSpec"},"kv_role":"kv_both"}'`}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "kvTransferConfig pvc.ref tier renders fs type with index-based root_dir",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+							CPU: resource.MustParse("10Gi"),
+							Secondary: []v1alpha2.SecondaryTierSpec{
+								{FileSystem: &v1alpha2.FileSystemTierSpec{
+									PVC: &v1alpha2.PVCTierSpec{
+										Ref: &v1alpha2.PVCRefTierSpec{Name: "my-pvc"},
+									},
+								}},
+							},
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{`--kv-transfer-config '{"kv_connector":"OffloadingConnector","kv_connector_extra_config":{"cpu_bytes_to_use":10737418240,"secondary_tiers":[{"root_dir":"/mnt/kv-cache-0","type":"fs"}],"spec_name":"TieringOffloadingSpec"},"kv_role":"kv_both"}'`}},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -2652,6 +2873,137 @@ func TestWellKnownConfigResolver_Resolve(t *testing.T) {
 			got := wr.Resolve(tt.llmSvc, tt.inputName)
 			if got != tt.want {
 				t.Errorf("Resolve(%q) = %q, want %q", tt.inputName, got, tt.want)
+			}
+		})
+	}
+}
+
+const tlsTemplateFixture = `apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceServiceConfig
+metadata:
+  name: test
+spec:
+  router:
+    scheduler:
+      template:
+        containers:
+          - name: main
+            args:
+              - '{{ if .GlobalConfig.EnableTLS }}--enable-cert-reload=true{{- end }}'
+              - '{{ if .GlobalConfig.EnableTLS }}--secure-serving=true{{- end }}'
+              - '{{ if .GlobalConfig.EnableTLS }}--model-server-metrics-scheme=https{{- end }}'
+              - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
+`
+
+func TestReplaceVariables_TLSConditional(t *testing.T) {
+	tests := []struct {
+		name      string
+		enableTLS bool
+		wantArgs  []string
+	}{
+		{
+			name:      "TLS on: all flags render with TLS values",
+			enableTLS: true,
+			wantArgs: []string{
+				"--enable-cert-reload=true",
+				"--secure-serving=true",
+				"--model-server-metrics-scheme=https",
+				"--cert-path=/var/run/kserve/tls",
+			},
+		},
+		{
+			name:      "TLS off: all flags render empty",
+			enableTLS: false,
+			wantArgs: []string{
+				"",
+				"",
+				"",
+				"",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			preset := &v1alpha2.LLMInferenceServiceConfig{}
+			if err := yaml.Unmarshal([]byte(tlsTemplateFixture), preset); err != nil {
+				t.Fatalf("failed to unmarshal fixture: %v", err)
+			}
+
+			llmSvc := &v1alpha2.LLMInferenceService{}
+			cfg := &llmisvc.Config{EnableTLS: tt.enableTLS}
+
+			got, err := llmisvc.ReplaceVariables(llmSvc, preset, cfg)
+			if err != nil {
+				t.Fatalf("ReplaceVariables() error = %v", err)
+			}
+
+			containers := got.Spec.Router.Scheduler.Template.Containers
+			if len(containers) == 0 {
+				t.Fatal("expected at least one container in rendered config")
+			}
+			args := containers[0].Args
+			if len(args) != len(tt.wantArgs) {
+				t.Fatalf("got %d args, want %d: %q", len(args), len(tt.wantArgs), args)
+			}
+			for i, want := range tt.wantArgs {
+				if args[i] != want {
+					t.Errorf("arg[%d] = %q, want %q", i, args[i], want)
+				}
+			}
+		})
+	}
+}
+
+func TestReplaceVariables_PDSidecarTLSConditional(t *testing.T) {
+	const pdSidecarFixture = `apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceServiceConfig
+metadata:
+  name: test
+spec:
+  router:
+    scheduler:
+      template:
+        containers:
+          - name: sidecar
+            args:
+              - '{{ if .GlobalConfig.EnableTLS }}--decoder-use-tls=true{{- end }}'
+              - '{{ if .GlobalConfig.EnableTLS }}--prefiller-use-tls=true{{- end }}'
+`
+	tests := []struct {
+		name      string
+		enableTLS bool
+		wantArgs  []string
+	}{
+		{
+			name:      "TLS on",
+			enableTLS: true,
+			wantArgs:  []string{"--decoder-use-tls=true", "--prefiller-use-tls=true"},
+		},
+		{
+			name:      "TLS off",
+			enableTLS: false,
+			wantArgs:  []string{"", ""},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			preset := &v1alpha2.LLMInferenceServiceConfig{}
+			if err := yaml.Unmarshal([]byte(pdSidecarFixture), preset); err != nil {
+				t.Fatalf("unmarshal: %v", err)
+			}
+			got, err := llmisvc.ReplaceVariables(&v1alpha2.LLMInferenceService{}, preset, &llmisvc.Config{EnableTLS: tt.enableTLS})
+			if err != nil {
+				t.Fatalf("ReplaceVariables: %v", err)
+			}
+			args := got.Spec.Router.Scheduler.Template.Containers[0].Args
+			if len(args) != len(tt.wantArgs) {
+				t.Fatalf("got %d args, want %d: %q", len(args), len(tt.wantArgs), args)
+			}
+			for i, want := range tt.wantArgs {
+				if args[i] != want {
+					t.Errorf("arg[%d] = %q, want %q", i, args[i], want)
+				}
 			}
 		})
 	}

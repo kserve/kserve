@@ -185,6 +185,28 @@ jobs:
           source xgbserver/.venv/bin/activate
           pytest --cov=xgbserver --junitxml=/tmp/junit_unit_xgbserver.xml ./xgbserver
 
+      # ----------------------------------------AutoGluon Server Unit Tests---------------------------------------------
+      - name: Load cached autogluon venv
+        id: cached-autogluon-dependencies
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: python/autogluonserver/.venv
+          key: autogluon-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock', '**/autogluonserver/uv.lock', '**/autogluonserver/pyproject.toml') }}
+      - name: Install autogluon dependencies
+        if: steps.cached-autogluon-dependencies.outputs.cache-hit != 'true'
+        run: |
+          cd python/autogluonserver
+          make install_dependencies
+      - name: Install autogluonserver
+        run: |
+          cd python/autogluonserver
+          make dev_install
+      - name: Test autogluonserver
+        run: |
+          cd python
+          source autogluonserver/.venv/bin/activate
+          pytest --cov=autogluonserver ./autogluonserver
+
       # ----------------------------------------Pmml Server Unit Tests------------------------------------------------
       # load cached pmml venv if cache exists
       - name: Load cached pmml venv

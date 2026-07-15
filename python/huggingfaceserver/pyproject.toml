@@ -7,21 +7,33 @@ requires-python = ">=3.10,<3.14"
 dependencies = [
     "kserve[llm] @ file:///${PROJECT_ROOT}/../kserve",
     "kserve-storage @ file:///${PROJECT_ROOT}/../storage",
-    "transformers>=4.53.2",
+    "transformers>=5.5.3",
     "accelerate<2.0.0,>=1.6.0",
     "bitsandbytes>=0.45.3",
     "modelscope<2.0.0,>=1.16.0",
-    "setuptools>=70.0.0",
 ]
 name = "huggingfaceserver"
-version = "0.19.0rc0"
+version = "0.19.0"
 description = "Model Server implementation for huggingface. Not intended for use outside KServe Frameworks Images."
 readme = "README.md"
 
-# fixes CVE-2026-40192
 [tool.uv]
 override-dependencies = [
-    "pillow>=12.2.0",
+    "aiohttp>=3.13.4", # CVE-2026-34520
+    "h11>=0.16.0", # CVE-2025-43859
+    "cryptography>=46.0.7", # CVE-2026-39892
+    "python-multipart>=0.0.27", # CVE-2026-42561
+    "pyjwt>=2.13.0", # CVE-2026-48526
+    "pyasn1>=0.6.3", # CVE-2026-30922
+    "setuptools>=78.1.1", # CVE-2025-47273
+    "modelscope>=1.27.0", # CVE-2025-51427
+    "pillow>=12.2.0", # CVE-2026-40192
+    "azure-core>=1.38.0", # CVE-2026-21226
+    "dulwich>=1.2.5", # CVE-2026-42305
+    "cbor2>=5.9.0", # CVE-2025-68131
+    "sentencepiece>=0.2.1", # CVE-2026-26209, CVE-2026-1260
+    "jaraco.context>=6.1.0", # CVE-2026-23949
+    "black>=26.3.1", # CVE-2026-32274
 ]
 
 [dependency-groups]
@@ -35,5 +47,5 @@ test = [
     "openai>=2.0.0",
 ]
 dev = [
-    "black[colorama]~=24.3.0",
+    "black[colorama]>=26.3.1", # CVE-2026-32274
 ]

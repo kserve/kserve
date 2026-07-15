@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -29,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/version"
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/cabundleconfigmap"
@@ -41,6 +43,7 @@ import (
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
+	resourcev1 "k8s.io/api/resource/v1"
 
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
@@ -54,8 +57,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
-	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	igwapiv1alpha2 "github.com/kserve/kserve/pkg/apis/gie/v1alpha2pool"
 
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	wvav1alpha1 "github.com/llm-d/llm-d-workload-variant-autoscaler/api/v1alpha1"
@@ -63,6 +67,7 @@ import (
 	"github.com/kserve/kserve/pkg/utils"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	kserveTypes "github.com/kserve/kserve/pkg/types"
 )
 
 // ChildResourcesLabelSelector matches resources belonging to LLMInferenceService.
@@ -151,6 +156,8 @@ type LLMISVCReconciler struct {
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=httproutes;gateways;gatewayclasses,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=inference.networking.x-k8s.io,resources=inferencepools;inferenceobjectives;inferencemodels;inferencemodelrewrites;inferencepoolimports,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=inference.networking.k8s.io,resources=inferencepools;inferenceobjectives;inferencemodels,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=resource.k8s.io,resources=resourceclaims;resourceclaimtemplates,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=llm-d.ai,resources=inferenceobjectives;inferencemodelrewrites,verbs=get;list;watch
 //+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
 //+kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings;clusterrolebindings,verbs=get;list;watch;create;update;patch;delete
@@ -196,9 +203,17 @@ func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		// Resource is being deleted, perform cleanup
 		logger.Info("Marked for deletion, finalizing resources")
 		if controllerutil.ContainsFinalizer(original, finalizerName) {
-			if cleanupErr := r.finalize(ctx, original); cleanupErr != nil {
+			done, cleanupErr := r.finalize(ctx, original)
+			if cleanupErr != nil {
 				logger.Error(cleanupErr, "Finalization failed")
 				return ctrl.Result{}, cleanupErr
+			}
+			if !done {
+				logger.Info("Finalization incomplete, requeueing")
+				if statusErr := r.updateStatus(ctx, original); statusErr != nil {
+					logger.Error(statusErr, "Failed to persist finalization status")
+				}
+				return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 			}
 
 			// Cleanup successful, remove finalizer to allow deletion
@@ -251,6 +266,13 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 		return fmt.Errorf("failed to load ingress config: %w", configErr)
 	}
 
+	// Advisory warning: if oci+native:// mode is configured, check the cluster K8s version
+	// and surface an OciImageVolumeCompatible condition when ImageVolume support may be absent.
+	if config.StorageConfig != nil {
+		warnIfImageVolumeUnsupported(ctx, r.Clientset.Discovery(),
+			llmSvc, kserveTypes.ResolveOciModelMode(config.StorageConfig))
+	}
+
 	// nil baseCfg means config resolution set a condition (e.g. ConfigNotFound) and there's nothing more to do.
 	baseCfg, err := r.reconcileBaseRefs(ctx, llmSvc, config)
 	if err != nil || baseCfg == nil {
@@ -270,18 +292,30 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 		return fmt.Errorf("failed to reconcile networking: %w", err)
 	}
 
-	observeWorkloadStatus(llmSvc)
+	if err := r.observeWorkloadStatus(ctx, llmSvc); err != nil {
+		return fmt.Errorf("failed to observe workload status: %w", err)
+	}
 
 	return nil
 }
 
-// finalize performs cleanup operations when the LLMInferenceService is being deleted
-func (r *LLMISVCReconciler) finalize(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
-	if err := r.reconcileSchedulerServiceAccount(ctx, llmSvc); err != nil {
-		return fmt.Errorf("failed to finalize scheduler service account: %w", err)
+// finalize performs cleanup operations when the LLMInferenceService is being deleted.
+// Returns (done, err): done=false signals that cleanup is still in progress and the
+// caller should requeue.
+func (r *LLMISVCReconciler) finalize(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (bool, error) {
+	done, err := r.finalizeGroupMembership(ctx, llmSvc)
+	if err != nil {
+		return false, err
+	}
+	if !done {
+		return false, nil
 	}
 
-	return nil
+	if err := r.reconcileSchedulerServiceAccount(ctx, llmSvc); err != nil {
+		return false, fmt.Errorf("failed to finalize scheduler service account: %w", err)
+	}
+
+	return true, nil
 }
 
 // updateStatus updates the status of the LLMInferenceService with retry on conflict.
@@ -363,6 +397,10 @@ func GetFailConditions(svc *v1alpha2.LLMInferenceService) string {
 func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	logger := mgr.GetLogger().WithName("LLMInferenceService.SetupWithManager")
 
+	if err := setupGroupFieldIndex(context.Background(), mgr.GetFieldIndexer()); err != nil {
+		return fmt.Errorf("failed to set up field indexer for routing group: %w", err)
+	}
+
 	b := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha2.LLMInferenceService{}).
 		Watches(&v1alpha2.LLMInferenceServiceConfig{}, r.enqueueOnLLMInferenceServiceConfigChange(logger)).
@@ -377,7 +415,13 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.EnqueueOnLLMInferenceServicePods),
 			builder.WithPredicates(PodStatusPredicate()))
 
-	if err := extendControllerSetup(r, mgr, b); err != nil {
+	b = b.Watches(
+		&v1alpha2.LLMInferenceService{},
+		&groupMemberEventHandler{reconciler: r},
+		builder.WithPredicates(groupMemberChangePredicate()),
+	)
+
+	if err := r.extendControllerSetup(mgr, b); err != nil {
 		return fmt.Errorf("failed to extend controller setup: %w", err)
 	}
 
@@ -411,6 +455,10 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		b = b.Owns(&lwsapi.LeaderWorkerSet{}, builder.WithPredicates(childResourcesPredicate))
 	}
 
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), resourcev1.SchemeGroupVersion.String(), "ResourceClaimTemplate"); ok && err == nil {
+		b = b.Owns(&resourcev1.ResourceClaimTemplate{}, builder.WithPredicates(childResourcesPredicate))
+	}
+
 	return b.Complete(r)
 }
 
@@ -430,12 +478,13 @@ func (r *LLMISVCReconciler) enqueueOnGatewayChange(logger logr.Logger) handler.E
 			return reqs
 		}
 
+		// When a Gateway is modified, we need to find all LLMInferenceService instances that might
+		// depend on it and trigger their reconciliation.
 		llmSvcList := &v1alpha2.LLMInferenceServiceList{}
 		if err := r.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace}); err != nil {
 			logger.Error(err, "Failed to list LLMInferenceService")
 			return reqs
 		}
-
 		for _, llmSvc := range llmSvcList.Items {
 			if hasRoutingGatewayRef(&llmSvc, gwapiv1.ObjectName(sub.Name), gwapiv1.Namespace(sub.Namespace)) {
 				reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
@@ -505,12 +554,13 @@ func (r *LLMISVCReconciler) enqueueOnHttpRouteChange(logger logr.Logger) handler
 			return reqs
 		}
 
+		// When an HTTPRoute is modified, we need to find all LLMInferenceService instances that might
+		// depend on it and trigger their reconciliation.
 		llmSvcList := &v1alpha2.LLMInferenceServiceList{}
 		if err := r.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace}); err != nil {
 			logger.Error(err, "Failed to list LLMInferenceService")
 			return reqs
 		}
-
 		for _, llmSvc := range llmSvcList.Items {
 			if hasRoutingHTTPRouteRef(&llmSvc, gwapiv1.ObjectName(sub.Name), sub.Namespace) {
 				reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
@@ -569,12 +619,13 @@ func (r *LLMISVCReconciler) enqueueOnInferencePoolChange(logger logr.Logger) han
 			return reqs
 		}
 
+		// When an InferencePool is modified, we need to find all LLMInferenceService instances that might
+		// depend on it through scheduler.pool.ref and trigger their reconciliation.
 		llmSvcList := &v1alpha2.LLMInferenceServiceList{}
 		if err := r.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace}); err != nil {
 			logger.Error(err, "Failed to list LLMInferenceService")
 			return reqs
 		}
-
 		for _, llmSvc := range llmSvcList.Items {
 			llmSvcCopy := llmSvc.DeepCopy()
 			result, err := r.combineBaseRefsConfig(ctx, llmSvcCopy, cfg)
@@ -618,12 +669,12 @@ func (r *LLMISVCReconciler) enqueueOnLLMInferenceServiceConfigChange(logger logr
 			listNamespace = corev1.NamespaceAll
 		}
 
+		// Find all LLMInferenceService instances that depend on (or may depend on) this config.
 		llmSvcList := &v1alpha2.LLMInferenceServiceList{}
 		if err := r.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace}); err != nil {
 			logger.Error(err, "Failed to list LLMInferenceService")
 			return reqs
 		}
-
 		for _, llmSvc := range llmSvcList.Items {
 			// Check status.appliedConfigs first (populated on success, retained
 			// when stopped), then fall back to annotations/baseRefs.
@@ -802,5 +853,48 @@ func PodStatusPredicate() predicate.Funcs {
 		CreateFunc:  func(e event.CreateEvent) bool { return false },
 		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
 		GenericFunc: func(e event.GenericEvent) bool { return false },
+	}
+}
+
+// ociImageVolumeCompatible is the advisory condition type surfaced on an
+// LLMInferenceService when native OCI ImageVolume mode is in use and the cluster
+// Kubernetes version may not support it.
+const ociImageVolumeCompatible apis.ConditionType = "OciImageVolumeCompatible"
+
+// serverVersioner is a single-method interface for K8s version discovery.
+type serverVersioner interface {
+	ServerVersion() (*version.Info, error)
+}
+
+// warnIfImageVolumeUnsupported mirrors the ISVC-controller helper for
+// LLMInferenceService. Compatibility thresholds are handled by the shared helper
+// utils.CheckImageVolumeCompatibility; this function translates the result into
+// the LLMInferenceService condition format (MarkFalse path on its conditionSet).
+func warnIfImageVolumeUnsupported(ctx context.Context, sv serverVersioner, llmSvc *v1alpha2.LLMInferenceService, resolvedMode string) {
+	mgr := llmSvc.GetConditionSet().Manage(llmSvc.GetStatus())
+
+	if resolvedMode != kserveTypes.OciModelModeNative {
+		_ = mgr.ClearCondition(ociImageVolumeCompatible)
+		return
+	}
+
+	result := utils.CheckImageVolumeCompatibility(ctx, sv)
+
+	switch result.Status {
+	case utils.ImageVolumeUnsupported:
+		mgr.MarkFalse(ociImageVolumeCompatible, "ImageVolumeUnsupported",
+			"Cluster K8s %s.%s does not support ImageVolume (introduced in 1.31 as alpha). Falling back to modelcar may be required.",
+			result.Major, result.Minor)
+	case utils.ImageVolumeSubPathUnsupported:
+		mgr.MarkFalse(ociImageVolumeCompatible, "ImageVolumeSubPathUnsupported",
+			"Cluster K8s %s.%s (alpha) does not support subPath on ImageVolume VolumeMounts. Upgrade to K8s 1.33+ (beta) for full oci+native:// support.",
+			result.Major, result.Minor)
+	case utils.ImageVolumeNeedsGate:
+		mgr.MarkFalse(ociImageVolumeCompatible, "ImageVolumeAlpha",
+			"Cluster K8s %s.%s has ImageVolume feature-gated (K8s 1.33–1.34 beta). Ensure --feature-gates=ImageVolume=true is set on kube-apiserver and kubelet.",
+			result.Major, result.Minor)
+	default:
+		// ImageVolumeOK (≥ 1.35) or ImageVolumeUnknown — clear any previous warning.
+		_ = mgr.ClearCondition(ociImageVolumeCompatible)
 	}
 }
