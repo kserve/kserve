@@ -131,7 +131,9 @@ def get_allowed_module_prefixes() -> tuple[str, ...]:
     return tuple(deduped)
 
 
-def validate_model_artifacts_for_safe_load(model_dir: str, *, context: str = "") -> None:
+def validate_model_artifacts_for_safe_load(
+    model_dir: str, *, context: str = ""
+) -> None:
     mode = get_safe_load_mode()
     if mode is SafeLoadMode.OFF:
         return
@@ -313,8 +315,10 @@ def _scan_pickle_bytes(
                 stack.append(_strip_py2_string_quotes(str(arg)))
                 continue
             if name == "STACK_GLOBAL":
-                if len(stack) >= 2 and isinstance(stack[-2], str) and isinstance(
-                    stack[-1], str
+                if (
+                    len(stack) >= 2
+                    and isinstance(stack[-2], str)
+                    and isinstance(stack[-1], str)
                 ):
                     refs.append((stack[-2], stack[-1]))
                 continue
