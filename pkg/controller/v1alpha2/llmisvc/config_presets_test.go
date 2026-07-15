@@ -629,6 +629,111 @@ func TestPresetFiles(t *testing.T) {
 	}
 }
 
+// TestSingleNodeTensorParallelRendered verifies that spec.parallelism.tensor
+// is rendered into --tensor-parallel-size for single-node (no Worker) templates.
+// Regression test for https://github.com/kserve/kserve/issues/5773
+func TestSingleNodeTensorParallelRendered(t *testing.T) {
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
+
+	tests := []struct {
+		name     string
+		file     string
+		llmSvc   *v1alpha2.LLMInferenceService
+		wantFlag string // substring to find; empty means --tensor-parallel-size must be absent
+	}{
+		{
+			name: "single-node base template",
+			file: "config-llm-template.yaml",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{Name: ptr.To("model")},
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Parallelism: &v1alpha2.ParallelismSpec{Tensor: ptr.To[int32](2)},
+					},
+				},
+			},
+			wantFlag: "--tensor-parallel-size 2",
+		},
+		{
+			name: "single-node decode template (P/D)",
+			file: "config-llm-decode-template.yaml",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{Name: ptr.To("model")},
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Parallelism: &v1alpha2.ParallelismSpec{Tensor: ptr.To[int32](4)},
+					},
+				},
+			},
+			wantFlag: "--tensor-parallel-size 4",
+		},
+		{
+			name: "single-node prefill template (P/D)",
+			file: "config-llm-prefill-template.yaml",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{Name: ptr.To("model")},
+					Prefill: &v1alpha2.WorkloadSpec{
+						Parallelism: &v1alpha2.ParallelismSpec{Tensor: ptr.To[int32](2)},
+					},
+				},
+			},
+			wantFlag: "--tensor-parallel-size 2",
+		},
+		{
+			name: "single-node base template - no parallelism omits flag",
+			file: "config-llm-template.yaml",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{Name: ptr.To("model")},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			filePath := filepath.Join(presetsDir, tt.file)
+			data, err := os.ReadFile(filepath.Clean(filePath))
+			if err != nil {
+				t.Fatalf("read %s: %v", tt.file, err)
+			}
+			config := loadConfig(t, data, tt.file)
+
+			got, err := llmisvc.ReplaceVariables(tt.llmSvc, config, &llmisvc.Config{})
+			if err != nil {
+				t.Fatalf("ReplaceVariables: %v", err)
+			}
+
+			var containers []corev1.Container
+			switch {
+			case got.Spec.Prefill != nil && got.Spec.Prefill.Template != nil:
+				containers = got.Spec.Prefill.Template.Containers
+			case got.Spec.Template != nil:
+				containers = got.Spec.Template.Containers
+			}
+			if len(containers) == 0 {
+				t.Fatal("expected at least one container")
+			}
+
+			cmd := strings.Join(containers[0].Command, " ")
+			if tt.wantFlag != "" {
+				if !strings.Contains(cmd, tt.wantFlag) {
+					t.Errorf("rendered command does not contain %q:\n%s", tt.wantFlag, cmd)
+				}
+			} else {
+				if strings.Contains(cmd, "--tensor-parallel-size") {
+					t.Errorf("rendered command should not contain --tensor-parallel-size:\n%s", cmd)
+				}
+			}
+		})
+	}
+}
+
 func loadConfig(t *testing.T, data []byte, filePath string) *v1alpha2.LLMInferenceServiceConfig {
 	config := &v1alpha2.LLMInferenceServiceConfig{}
 	if err := yaml.Unmarshal(data, config); err != nil {
