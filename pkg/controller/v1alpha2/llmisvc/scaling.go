@@ -52,9 +52,10 @@ const (
 	wvaVariantCostAnnotation = "llm-d.ai/variant-cost"
 )
 
-// reconcileScaling manages the autoscaling actuators (HPA or KEDA ScaledObject) for the LLM workload.
-// Each actuator carries WVA discovery annotations (llm-d.ai/managed, llm-d.ai/model-id) so that
-// WVA discovers it, synthesizes an in-memory VariantAutoscaling, and emits wva_desired_replicas.
+// reconcileScaling manages autoscaling for the LLM workload.
+// WVA path: HPA or KEDA ScaledObject with WVA discovery annotations (llm-d.ai/managed, llm-d.ai/model-id)
+// so WVA synthesizes an in-memory VariantAutoscaling and emits wva_desired_replicas.
+// Direct KEDA path: ScaledObject with user-defined triggers (no WVA annotations).
 // When scaling is removed (or the workload is stopped), it cleans up any existing autoscaling resources.
 func (r *LLMISVCReconciler) reconcileScaling(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
 	logger := log.FromContext(ctx).WithName("reconcileScaling")
@@ -225,7 +226,22 @@ func (r *LLMISVCReconciler) reconcileActuator(ctx context.Context, llmSvc *v1alp
 func (r *LLMISVCReconciler) propagateScalingStatus(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, hpaName, scaledObjectName string, ready func(), notReady func(reason, messageFormat string, messageA ...interface{}), unset func()) error {
 	isStopped := utils.GetForceStopRuntime(llmSvc)
 
-	if scaling == nil || scaling.WVA == nil || isStopped {
+	if scaling == nil || isStopped {
+		unset()
+		return nil
+	}
+
+	if scaling.KEDA != nil {
+		expected := &kedav1alpha1.ScaledObject{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      scaledObjectName,
+				Namespace: llmSvc.GetNamespace(),
+			},
+		}
+		return r.propagateScaledObjectStatus(ctx, expected, ready, notReady)
+	}
+
+	if scaling.WVA == nil {
 		unset()
 		return nil
 	}
@@ -338,9 +354,21 @@ func validateAutoscalingConfig(cfg *WVAAutoscalingConfig) error {
 }
 
 // reconcileKEDAScaledObject creates or updates a KEDA ScaledObject, or deletes it when not needed.
-// The ScaledObject carries WVA discovery annotations for annotation-based VA synthesis.
+// Direct KEDA (scaling.keda): user-defined triggers, no WVA annotations.
+// WVA path (scaling.wva.keda): ScaledObject carries WVA discovery annotations for annotation-based VA synthesis.
 func (r *LLMISVCReconciler) reconcileKEDAScaledObject(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, isStopped bool, config *Config, scaleTargetRef autoscalingv2.CrossVersionObjectReference, scaledObjectName string, workloadLabels map[string]string) error {
-	if scaling == nil || scaling.WVA == nil || isStopped || scaling.WVA.KEDA == nil {
+	if scaling == nil || isStopped {
+		return r.deleteScaledObjectIfExists(ctx, llmSvc, scaledObjectName)
+	}
+
+	if scaling.KEDA != nil {
+		expected := expectedDirectScaledObject(llmSvc, scaling, scaleTargetRef, scaledObjectName)
+		return Reconcile(ctx, r, llmSvc, &kedav1alpha1.ScaledObject{}, expected, semanticScaledObjectIsEqual,
+			PreserveKEDAManagedMetadata(),
+		)
+	}
+
+	if scaling.WVA == nil || scaling.WVA.KEDA == nil {
 		return r.deleteScaledObjectIfExists(ctx, llmSvc, scaledObjectName)
 	}
 
@@ -352,6 +380,42 @@ func (r *LLMISVCReconciler) reconcileKEDAScaledObject(ctx context.Context, llmSv
 	return Reconcile(ctx, r, llmSvc, &kedav1alpha1.ScaledObject{}, expected, semanticScaledObjectIsEqual,
 		PreserveKEDAManagedMetadata(),
 	)
+}
+
+// expectedDirectScaledObject constructs a ScaledObject for direct KEDA scaling (no WVA).
+// Triggers come from the user spec; the controller does not inject a wva_desired_replicas trigger
+// and does not set WVA discovery annotations.
+func expectedDirectScaledObject(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, scaleTargetRef autoscalingv2.CrossVersionObjectReference, scaledObjectName string) *kedav1alpha1.ScaledObject {
+	labels := scalingLabels(llmSvc)
+	keda := scaling.KEDA
+	minReplicas := ptr.To(ptr.Deref(scaling.MinReplicas, 1))
+
+	return &kedav1alpha1.ScaledObject{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      scaledObjectName,
+			Namespace: llmSvc.GetNamespace(),
+			Labels:    labels,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
+			},
+		},
+		Spec: kedav1alpha1.ScaledObjectSpec{
+			ScaleTargetRef: &kedav1alpha1.ScaleTarget{
+				APIVersion: scaleTargetRef.APIVersion,
+				Kind:       scaleTargetRef.Kind,
+				Name:       scaleTargetRef.Name,
+			},
+			MinReplicaCount:       minReplicas,
+			MaxReplicaCount:       &scaling.MaxReplicas,
+			PollingInterval:       keda.PollingInterval,
+			CooldownPeriod:        keda.CooldownPeriod,
+			IdleReplicaCount:      keda.IdleReplicaCount,
+			Fallback:              keda.Fallback,
+			Advanced:              keda.Advanced,
+			InitialCooldownPeriod: keda.InitialCooldownPeriod,
+			Triggers:              keda.Triggers,
+		},
+	}
 }
 
 // deleteScaledObjectIfExists deletes the ScaledObject if it exists.

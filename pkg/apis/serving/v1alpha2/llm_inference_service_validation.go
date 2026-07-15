@@ -507,14 +507,8 @@ func (l *LLMInferenceServiceValidator) validateActuatorConsistency(llmSvc *LLMIn
 }
 
 // ValidateActuatorConsistency ensures that when both decode and prefill workloads
-// have autoscaling configured, they use the same actuator backend (both HPA or both KEDA).
-// Mixing backends is not supported because:
-//   - HPA requires a Prometheus Adapter to expose metrics to the Kubernetes Metrics API
-//   - KEDA queries Prometheus directly without an adapter
-//
-// Using different backends forces operators to maintain two different metric pipelines
-// and results in independent, unsynchronised scaling decisions across the two sides
-// of a disaggregated deployment.
+// have autoscaling configured, they use the same scaling mode and actuator backend.
+// Mixing WVA with direct KEDA, or mixing HPA with KEDA under WVA, is not supported.
 //
 // It is exported so that v1alpha1 can reuse it via conversion.
 func ValidateActuatorConsistency(decode *WorkloadSpec, prefill *WorkloadSpec) field.ErrorList {
@@ -522,10 +516,35 @@ func ValidateActuatorConsistency(decode *WorkloadSpec, prefill *WorkloadSpec) fi
 		return nil
 	}
 
-	// Both sides must have scaling.wva configured for a mismatch to be possible.
 	decodeScaling := decode.Scaling
 	prefillScaling := prefill.Scaling
-	if decodeScaling == nil || decodeScaling.WVA == nil || prefillScaling == nil || prefillScaling.WVA == nil {
+	if decodeScaling == nil || prefillScaling == nil {
+		return nil
+	}
+
+	decodeUsesDirectKEDA := decodeScaling.KEDA != nil
+	prefillUsesDirectKEDA := prefillScaling.KEDA != nil
+	if decodeUsesDirectKEDA != prefillUsesDirectKEDA {
+		decodeMode := "wva"
+		prefillMode := "direct keda"
+		if decodeUsesDirectKEDA {
+			decodeMode = "direct keda"
+			prefillMode = "wva"
+		}
+		return field.ErrorList{
+			field.Invalid(
+				field.NewPath("spec").Child("prefill", "scaling"),
+				prefillScaling,
+				fmt.Sprintf(
+					"decode and prefill must use the same scaling mode; decode uses %s but prefill uses %s",
+					decodeMode, prefillMode,
+				),
+			),
+		}
+	}
+
+	// Both sides must have scaling.wva configured for an actuator mismatch to be possible.
+	if decodeScaling.WVA == nil || prefillScaling.WVA == nil {
 		return nil
 	}
 
@@ -587,13 +606,26 @@ func ValidateWorkloadScaling(basePath *field.Path, workload *WorkloadSpec) field
 		))
 	}
 
-	// WVA is required when scaling is configured — it provides the scaling mechanism
-	if scaling.WVA == nil {
-		allErrs = append(allErrs, field.Required(
-			scalingPath.Child("wva"),
-			"wva is required when scaling is configured; it provides the autoscaling mechanism",
+	// Must specify exactly one scaling mechanism.
+	if scaling.WVA != nil && scaling.KEDA != nil {
+		allErrs = append(allErrs, field.Invalid(
+			scalingPath,
+			scaling,
+			"wva and keda are mutually exclusive; choose one scaling mechanism",
 		))
 		return allErrs
+	}
+
+	if scaling.WVA == nil && scaling.KEDA == nil {
+		allErrs = append(allErrs, field.Required(
+			scalingPath,
+			"either wva or keda must be specified when scaling is configured",
+		))
+		return allErrs
+	}
+
+	if scaling.KEDA != nil {
+		return append(allErrs, validateDirectKEDA(scalingPath, scaling)...)
 	}
 
 	// Validate WVA configuration
@@ -627,43 +659,82 @@ func ValidateWorkloadScaling(basePath *field.Path, workload *WorkloadSpec) field
 		}
 	}
 
-	// Validate KEDA advanced fields that are controller-owned and must not be set by users
-	if scaling.WVA.KEDA != nil && scaling.WVA.KEDA.Advanced != nil {
-		kedaPath := wvaPath.Child("keda")
-		sm := scaling.WVA.KEDA.Advanced.ScalingModifiers
-		if sm.Formula != "" || sm.Target != "" || sm.ActivationTarget != "" || string(sm.MetricType) != "" {
-			allErrs = append(allErrs, field.Forbidden(
-				kedaPath.Child("advanced", "scalingModifiers"),
-				"scalingModifiers must not be set; WVA controls the scaling metric formula and logic",
-			))
-		}
-		if scaling.WVA.KEDA.Advanced.HorizontalPodAutoscalerConfig != nil &&
-			scaling.WVA.KEDA.Advanced.HorizontalPodAutoscalerConfig.Name != "" {
-			allErrs = append(allErrs, field.Forbidden(
-				kedaPath.Child("advanced", "horizontalPodAutoscalerConfig", "name"),
-				"horizontalPodAutoscalerConfig.name must not be set; the controller manages the HPA name",
-			))
-		}
+	if scaling.WVA.KEDA != nil {
+		allErrs = append(allErrs, validateKEDAAdvancedFields(wvaPath.Child("keda"), scaling.WVA.KEDA)...)
+		allErrs = append(allErrs, validateKEDAIdleReplicaCount(scalingPath, wvaPath.Child("keda"), scaling, scaling.WVA.KEDA)...)
 	}
 
-	// Validate KEDA idleReplicaCount requires minReplicas and must be less than it
-	if scaling.WVA.KEDA != nil && scaling.WVA.KEDA.IdleReplicaCount != nil {
-		if scaling.MinReplicas == nil {
-			allErrs = append(allErrs, field.Required(
-				scalingPath.Child("minReplicas"),
-				fmt.Sprintf("minReplicas is required when idleReplicaCount is set; "+
-					"idleReplicaCount (%d) must be less than minReplicas",
-					*scaling.WVA.KEDA.IdleReplicaCount),
-			))
-		} else if *scaling.WVA.KEDA.IdleReplicaCount >= *scaling.MinReplicas {
-			allErrs = append(allErrs, field.Invalid(
-				wvaPath.Child("keda").Child("idleReplicaCount"),
-				*scaling.WVA.KEDA.IdleReplicaCount,
-				fmt.Sprintf("idleReplicaCount (%d) must be less than minReplicas (%d); "+
-					"idleReplicaCount defines the replica floor when no triggers are active",
-					*scaling.WVA.KEDA.IdleReplicaCount, *scaling.MinReplicas),
-			))
-		}
+	return allErrs
+}
+
+func validateDirectKEDA(scalingPath *field.Path, scaling *ScalingSpec) field.ErrorList {
+	var allErrs field.ErrorList
+	kedaPath := scalingPath.Child("keda")
+	keda := scaling.KEDA
+
+	if len(keda.Triggers) == 0 {
+		allErrs = append(allErrs, field.Required(
+			kedaPath.Child("triggers"),
+			"at least one trigger is required when using direct KEDA scaling",
+		))
+	}
+
+	allErrs = append(allErrs, validateKEDAAdvancedFields(kedaPath, &keda.KEDAScalingSpec)...)
+	allErrs = append(allErrs, validateKEDAIdleReplicaCount(scalingPath, kedaPath, scaling, &keda.KEDAScalingSpec)...)
+
+	return allErrs
+}
+
+func validateKEDAAdvancedFields(kedaPath *field.Path, keda *KEDAScalingSpec) field.ErrorList {
+	var allErrs field.ErrorList
+	if keda == nil || keda.Advanced == nil {
+		return allErrs
+	}
+
+	sm := keda.Advanced.ScalingModifiers
+	if sm.Formula != "" || sm.Target != "" || sm.ActivationTarget != "" || string(sm.MetricType) != "" {
+		allErrs = append(allErrs, field.Forbidden(
+			kedaPath.Child("advanced", "scalingModifiers"),
+			"scalingModifiers must not be set; WVA controls the scaling metric formula and logic",
+		))
+	}
+	if keda.Advanced.HorizontalPodAutoscalerConfig != nil &&
+		keda.Advanced.HorizontalPodAutoscalerConfig.Name != "" {
+		allErrs = append(allErrs, field.Forbidden(
+			kedaPath.Child("advanced", "horizontalPodAutoscalerConfig", "name"),
+			"horizontalPodAutoscalerConfig.name must not be set; the controller manages the HPA name",
+		))
+	}
+
+	return allErrs
+}
+
+func validateKEDAIdleReplicaCount(
+	scalingPath *field.Path,
+	kedaPath *field.Path,
+	scaling *ScalingSpec,
+	keda *KEDAScalingSpec,
+) field.ErrorList {
+	var allErrs field.ErrorList
+	if keda == nil || keda.IdleReplicaCount == nil {
+		return allErrs
+	}
+
+	if scaling.MinReplicas == nil {
+		allErrs = append(allErrs, field.Required(
+			scalingPath.Child("minReplicas"),
+			fmt.Sprintf("minReplicas is required when idleReplicaCount is set; "+
+				"idleReplicaCount (%d) must be less than minReplicas",
+				*keda.IdleReplicaCount),
+		))
+	} else if *keda.IdleReplicaCount >= *scaling.MinReplicas {
+		allErrs = append(allErrs, field.Invalid(
+			kedaPath.Child("idleReplicaCount"),
+			*keda.IdleReplicaCount,
+			fmt.Sprintf("idleReplicaCount (%d) must be less than minReplicas (%d); "+
+				"idleReplicaCount defines the replica floor when no triggers are active",
+				*keda.IdleReplicaCount, *scaling.MinReplicas),
+		))
 	}
 
 	return allErrs
