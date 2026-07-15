@@ -447,6 +447,7 @@ const (
 	LLMComponentWorkloadWorkerPrefill = "llminferenceservice-workload-worker-prefill"
 	LLMComponentWorkloadLeaderPrefill = "llminferenceservice-workload-leader-prefill"
 	LLMComponentInference             = "inference" // used in sample/template resources
+	LLMComponentTokenizer             = "tokenizer" // standalone vLLM tokenizer deployment
 )
 
 // LLMInferenceService routing group label

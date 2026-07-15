@@ -70,7 +70,7 @@ func tokenizerServiceURL(llmSvc *v1alpha2.LLMInferenceService, enableTLS bool) s
 // TokenizerLabels returns labels for tokenizer resources, distinct from SchedulerLabels.
 func TokenizerLabels(llmSvc *v1alpha2.LLMInferenceService) map[string]string {
 	return map[string]string{
-		constants.KubernetesComponentLabelKey: "tokenizer",
+		constants.KubernetesComponentLabelKey: constants.LLMComponentTokenizer,
 		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
 		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 	}
