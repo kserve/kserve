@@ -49,6 +49,7 @@ spec:
                 failureThreshold: 60
               securityContext:
                 allowPrivilegeEscalation: false
+                runAsNonRoot: true
                 capabilities:
                   drop:
                     - ALL

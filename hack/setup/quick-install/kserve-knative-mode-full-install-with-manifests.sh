@@ -5252,6 +5252,7 @@ spec:
               capabilities:
                 drop:
                 - ALL
+              runAsNonRoot: true
               seccompProfile:
                 type: RuntimeDefault
             terminationMessagePath: /dev/termination-log
