@@ -1489,6 +1489,11 @@ plugins:
 	}
 }
 
+// TestSchedulerTransformMigratesLLMDAPIVersion verifies the version-gated
+// (>=0.9.0) EndpointPickerConfig apiVersion rewrite in isolation:
+//   - 0.9.0: inference.networking.x-k8s.io/v1alpha1 -> llm-d.ai/v1alpha1
+//   - 0.8.0: old apiVersion preserved (the pre-0.9.0 binary still accepts it)
+//   - 0.9.0 + new apiVersion: left unchanged (idempotent)
 func TestSchedulerTransformMigratesLLMDAPIVersion(t *testing.T) {
 	oldAPIVersionConfig := `apiVersion: inference.networking.x-k8s.io/v1alpha1
 kind: EndpointPickerConfig
@@ -1683,7 +1688,7 @@ plugins:
 }
 
 func TestFullMigrationPipeline(t *testing.T) {
-	// Realistic old v0.6 config with all deprecated features.
+	// Config with all deprecated v0.6 features, on the current llm-d.ai apiVersion.
 	oldConfigYAML := `apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
