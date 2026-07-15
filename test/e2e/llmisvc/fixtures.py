@@ -1856,7 +1856,7 @@ def delete_scheduler_configmap():
             raise
 
 
-INFERENCE_OBJECTIVE_GROUP = "inference.networking.x-k8s.io"
+INFERENCE_OBJECTIVE_GROUP = "llm-d.ai"
 INFERENCE_OBJECTIVE_VERSION = "v1alpha2"
 INFERENCE_OBJECTIVE_PLURAL = "inferenceobjectives"
 
