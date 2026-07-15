@@ -467,6 +467,10 @@ spec:
                           minimum: 1
                           type: integer
                       type: object
+                    progressDeadlineSeconds:
+                      format: int32
+                      minimum: 1
+                      type: integer
                     replicas:
                       format: int32
                       minimum: 0
@@ -8251,6 +8255,10 @@ spec:
                   x-kubernetes-validations:
                     - message: replicas and scaling are mutually exclusive; use scaling for autoscaled deployments or replicas for static deployments
                       rule: '!(has(self.replicas) && has(self.scaling))'
+                progressDeadlineSeconds:
+                  format: int32
+                  minimum: 1
+                  type: integer
                 replicas:
                   format: int32
                   minimum: 0

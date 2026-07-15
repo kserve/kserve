@@ -143,6 +143,19 @@ type WorkloadSpec struct {
 	// +optional
 	Scaling *ScalingSpec `json:"scaling,omitempty"`
 
+	// ProgressDeadlineSeconds is the maximum time in seconds for the workload's Deployment
+	// to make progress before it is considered to be failed. Propagated to the
+	// 'progressDeadlineSeconds' field of the underlying Deployment.
+	// Useful when pods take a long time to become ready, for example when they are scheduled
+	// on nodes that take several minutes to provision (e.g. GPU cloud instances),
+	// to avoid the Deployment reporting ProgressDeadlineExceeded while pods are still starting.
+	// Only applies to Deployment-based workloads (single-node); ignored for multi-node
+	// (LeaderWorkerSet-based) workloads.
+	// Defaults to the Kubernetes default (600 seconds) when unset.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	ProgressDeadlineSeconds *int32 `json:"progressDeadlineSeconds,omitempty"`
+
 	// Parallelism configurations for the runtime, such as tensor and pipeline parallelism.
 	// These values are used to configure the underlying inference runtime (e.g., vLLM).
 	// +optional
