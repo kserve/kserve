@@ -589,15 +589,20 @@ func validateCollocationStorageURI(predictorSpec PredictorSpec) error {
 	return nil
 }
 
-// validates if the deploymentMode specified in the annotation is not different from the one recorded in the status
+// validates if the deploymentMode specified in the annotation is not different from the one recorded in the status.
+//
+// An empty oldIsvc.Status.DeploymentMode means the controller has not yet run its first updateStatus
+// (e.g. the finalizer patch on first reconcile). In that case there is no prior state to protect, so
+// the update is allowed. Passing "" through ParseDeploymentMode would fold to DefaultDeployment
+// ("Standard") and reject any non-Standard annotation, breaking first-reconcile on Knative installs.
 func validateDeploymentMode(newIsvc *InferenceService, oldIsvc *InferenceService) error {
+	if oldIsvc.Status.DeploymentMode == "" {
+		return nil
+	}
 	statusDeploymentMode := string(constants.ParseDeploymentMode(oldIsvc.Status.DeploymentMode))
-	if len(statusDeploymentMode) != 0 {
-		annotations := newIsvc.Annotations
-		annotationDeploymentMode, ok := annotations[constants.DeploymentMode]
-		if ok && annotationDeploymentMode != statusDeploymentMode {
-			return fmt.Errorf("update rejected: deploymentMode cannot be changed from '%s' to '%s'", statusDeploymentMode, annotationDeploymentMode)
-		}
+	annotationDeploymentMode, ok := newIsvc.Annotations[constants.DeploymentMode]
+	if ok && annotationDeploymentMode != statusDeploymentMode {
+		return fmt.Errorf("update rejected: deploymentMode cannot be changed from '%s' to '%s'", statusDeploymentMode, annotationDeploymentMode)
 	}
 	return nil
 }
