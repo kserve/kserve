@@ -2457,7 +2457,7 @@ func TestValidateCanarySpecs(t *testing.T) {
 			}}),
 			errMatcher: gomega.MatchError(gomega.ContainSubstring("must not set maxReplicas")),
 		},
-		"Canary minReplicas >= stable rejected": {
+		"Canary minReplicas equal to stable accepted": {
 			isvc: makeISVC([]CanarySpec{{
 				TrafficPercent: 10,
 				Predictor: PredictorSpec{
@@ -2469,7 +2469,101 @@ func TestValidateCanarySpecs(t *testing.T) {
 					},
 				},
 			}}),
-			errMatcher: gomega.MatchError(gomega.ContainSubstring("must be less than stable")),
+			errMatcher: gomega.BeNil(),
+		},
+		"Canary minReplicas exceeds stable rejected": {
+			isvc: makeISVC([]CanarySpec{{
+				TrafficPercent: 10,
+				Predictor: PredictorSpec{
+					Name:                   "v2",
+					ComponentExtensionSpec: ComponentExtensionSpec{MinReplicas: proto.Int32(5)},
+					Model: &ModelSpec{
+						ModelFormat:            ModelFormat{Name: "sklearn"},
+						PredictorExtensionSpec: PredictorExtensionSpec{StorageURI: proto.String("gs://test/v2")},
+					},
+				},
+			}}),
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("must not exceed stable")),
+		},
+		"Canary minReplicas equal to default stable accepted": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo", Namespace: "default",
+					Annotations: map[string]string{
+						constants.DeploymentMode: string(constants.Standard),
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat:            ModelFormat{Name: "sklearn"},
+							PredictorExtensionSpec: PredictorExtensionSpec{StorageURI: proto.String("gs://test/model-v1")},
+						},
+					},
+					Canary: []CanarySpec{{
+						TrafficPercent: 10,
+						Predictor: PredictorSpec{
+							Name:                   "v2",
+							ComponentExtensionSpec: ComponentExtensionSpec{MinReplicas: proto.Int32(1)},
+							Model: &ModelSpec{
+								ModelFormat:            ModelFormat{Name: "sklearn"},
+								PredictorExtensionSpec: PredictorExtensionSpec{StorageURI: proto.String("gs://test/v2")},
+							},
+						},
+					}},
+				},
+			},
+			errMatcher: gomega.BeNil(),
+		},
+		"Canary minReplicas exceeds default stable rejected": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo", Namespace: "default",
+					Annotations: map[string]string{
+						constants.DeploymentMode: string(constants.Standard),
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat:            ModelFormat{Name: "sklearn"},
+							PredictorExtensionSpec: PredictorExtensionSpec{StorageURI: proto.String("gs://test/model-v1")},
+						},
+					},
+					Canary: []CanarySpec{{
+						TrafficPercent: 10,
+						Predictor: PredictorSpec{
+							Name:                   "v2",
+							ComponentExtensionSpec: ComponentExtensionSpec{MinReplicas: proto.Int32(2)},
+							Model: &ModelSpec{
+								ModelFormat:            ModelFormat{Name: "sklearn"},
+								PredictorExtensionSpec: PredictorExtensionSpec{StorageURI: proto.String("gs://test/v2")},
+							},
+						},
+					}},
+				},
+			},
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("must not exceed stable")),
+		},
+		"Canary minReplicas accepted when nil (derived from traffic)": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo", Namespace: "default",
+					Annotations: map[string]string{
+						constants.DeploymentMode: string(constants.Standard),
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat:            ModelFormat{Name: "sklearn"},
+							PredictorExtensionSpec: PredictorExtensionSpec{StorageURI: proto.String("gs://test/model-v1")},
+						},
+					},
+					Canary: []CanarySpec{validCanary("v2", 10)},
+				},
+			},
+			errMatcher: gomega.BeNil(),
 		},
 		"Canary with workerSpec rejected": {
 			isvc: makeISVC([]CanarySpec{{

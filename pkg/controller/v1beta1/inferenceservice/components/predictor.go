@@ -927,9 +927,9 @@ func (p *Predictor) reconcileCanaryDeployments(ctx context.Context, isvc *v1beta
 			return err
 		}
 
-		isvc.Spec.Predictor = canaryPredictor
-		res, err := p.buildPredictorResources(ctx, isvc, false)
-		isvc.Spec.Predictor = stablePredictor
+		canaryISVC := isvc.DeepCopy()
+		canaryISVC.Spec.Predictor = canaryPredictor
+		res, err := p.buildPredictorResources(ctx, canaryISVC, false)
 		if err != nil {
 			return errors.Wrapf(err, "fails to build resources for canary %s", canary.Predictor.Name)
 		}

@@ -246,10 +246,14 @@ func validateCanarySpecs(isvc *InferenceService) error {
 			return fmt.Errorf("canary %q must not set autoScaling (canary uses fixed replicas)", canary.Predictor.Name)
 		}
 
-		if canary.Predictor.MinReplicas != nil && isvc.Spec.Predictor.MinReplicas != nil {
-			if *canary.Predictor.MinReplicas >= *isvc.Spec.Predictor.MinReplicas {
-				return fmt.Errorf("canary %q minReplicas (%d) must be less than stable predictor minReplicas (%d)",
-					canary.Predictor.Name, *canary.Predictor.MinReplicas, *isvc.Spec.Predictor.MinReplicas)
+		if canary.Predictor.MinReplicas != nil {
+			stableMinReplicas := int32(1)
+			if isvc.Spec.Predictor.MinReplicas != nil {
+				stableMinReplicas = *isvc.Spec.Predictor.MinReplicas
+			}
+			if *canary.Predictor.MinReplicas > stableMinReplicas {
+				return fmt.Errorf("canary %q minReplicas (%d) must not exceed stable predictor minReplicas (%d)",
+					canary.Predictor.Name, *canary.Predictor.MinReplicas, stableMinReplicas)
 			}
 		}
 	}
