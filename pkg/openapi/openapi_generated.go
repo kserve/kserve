@@ -1957,7 +1957,7 @@ func schema_pkg_apis_serving_v1alpha1_ServingRuntimePodSpec(ref common.Reference
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nThis is an alpha field and requires enabling the DynamicResourceAllocation feature gate.\n\nThis field is immutable.",
+							Description: "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nDynamic Resource Allocation (DRA) is GA since Kubernetes 1.32 (beta, enabled by default, since 1.31). The cluster must support DRA for these claims to take effect on created Pods.\n\nEach entry may reference an existing ResourceClaim (resourceClaimName) or ResourceClaimTemplate (resourceClaimTemplateName) in the same namespace. KServe does not create these objects; they must exist before the Pod can be scheduled.\n\nNote: the resulting Pod's resourceClaims field is immutable after pod creation per Kubernetes semantics.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -2188,7 +2188,7 @@ func schema_pkg_apis_serving_v1alpha1_ServingRuntimeSpec(ref common.ReferenceCal
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nThis is an alpha field and requires enabling the DynamicResourceAllocation feature gate.\n\nThis field is immutable.",
+							Description: "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nDynamic Resource Allocation (DRA) is GA since Kubernetes 1.32 (beta, enabled by default, since 1.31). The cluster must support DRA for these claims to take effect on created Pods.\n\nEach entry may reference an existing ResourceClaim (resourceClaimName) or ResourceClaimTemplate (resourceClaimTemplateName) in the same namespace. KServe does not create these objects; they must exist before the Pod can be scheduled.\n\nNote: the resulting Pod's resourceClaims field is immutable after pod creation per Kubernetes semantics.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{

@@ -943,6 +943,25 @@ func TestMergePodSpec(t *testing.T) {
 				},
 			},
 		},
+		"RuntimeOnlyResourceClaimTemplate": {
+			podSpecBase: &v1alpha1.ServingRuntimePodSpec{
+				ResourceClaims: []corev1.PodResourceClaim{
+					{
+						Name:                      "gpu-resource",
+						ResourceClaimTemplateName: ptr.To("gpu-claim-template"),
+					},
+				},
+			},
+			podSpecOverride: &PodSpec{},
+			expected: &corev1.PodSpec{
+				ResourceClaims: []corev1.PodResourceClaim{
+					{
+						Name:                      "gpu-resource",
+						ResourceClaimTemplateName: ptr.To("gpu-claim-template"),
+					},
+				},
+			},
+		},
 		"IsvcOnlyResourceClaims": {
 			podSpecBase: &v1alpha1.ServingRuntimePodSpec{},
 			podSpecOverride: &PodSpec{
