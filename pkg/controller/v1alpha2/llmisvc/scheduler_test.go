@@ -2226,3 +2226,130 @@ plugins:
 		})
 	}
 }
+
+func TestMigrateProducerParams(t *testing.T) {
+	tests := []struct {
+		name     string
+		plugin   map[string]interface{}
+		validate func(g Gomega, result map[string]interface{})
+	}{
+		{
+			name: "promotes tokenProcessorConfig from indexerConfig to top level",
+			plugin: map[string]interface{}{
+				"type": "precise-prefix-cache-scorer",
+				"parameters": map[string]interface{}{
+					"indexerConfig": map[string]interface{}{
+						"tokenProcessorConfig": map[string]interface{}{
+							"blockSize": 64,
+							"hashSeed":  "42",
+						},
+						"kvBlockIndexConfig": map[string]interface{}{
+							"enableMetrics": true,
+						},
+					},
+					"kvEventsConfig": map[string]interface{}{
+						"discoverPods": true,
+					},
+				},
+			},
+			validate: func(g Gomega, result map[string]interface{}) {
+				g.Expect(result).To(HaveKey("tokenProcessorConfig"))
+				tpc := result["tokenProcessorConfig"].(map[string]interface{})
+				g.Expect(tpc["blockSize"]).To(Equal(64))
+				g.Expect(tpc["hashSeed"]).To(Equal("42"))
+
+				ic := result["indexerConfig"].(map[string]interface{})
+				g.Expect(ic).NotTo(HaveKey("tokenProcessorConfig"))
+				g.Expect(ic).To(HaveKey("kvBlockIndexConfig"))
+
+				g.Expect(result).To(HaveKey("kvEventsConfig"))
+			},
+		},
+		{
+			name: "top-level tokenProcessorConfig takes priority over nested",
+			plugin: map[string]interface{}{
+				"type": "precise-prefix-cache-scorer",
+				"parameters": map[string]interface{}{
+					"tokenProcessorConfig": map[string]interface{}{
+						"blockSize": 128,
+						"hashSeed":  "99",
+					},
+					"indexerConfig": map[string]interface{}{
+						"tokenProcessorConfig": map[string]interface{}{
+							"blockSize": 64,
+							"hashSeed":  "42",
+						},
+					},
+				},
+			},
+			validate: func(g Gomega, result map[string]interface{}) {
+				tpc := result["tokenProcessorConfig"].(map[string]interface{})
+				g.Expect(tpc["blockSize"]).To(Equal(128))
+				g.Expect(tpc["hashSeed"]).To(Equal("99"))
+
+				g.Expect(result).NotTo(HaveKey("indexerConfig"),
+					"indexerConfig should be removed when only tokenProcessorConfig remained")
+			},
+		},
+		{
+			name: "strips tokenizersPoolConfig from indexerConfig",
+			plugin: map[string]interface{}{
+				"type": "precise-prefix-cache-scorer",
+				"parameters": map[string]interface{}{
+					"indexerConfig": map[string]interface{}{
+						"tokenizersPoolConfig": map[string]interface{}{
+							"modelName": "test-model",
+						},
+						"kvBlockIndexConfig": map[string]interface{}{
+							"enableMetrics": true,
+						},
+					},
+				},
+			},
+			validate: func(g Gomega, result map[string]interface{}) {
+				ic := result["indexerConfig"].(map[string]interface{})
+				g.Expect(ic).NotTo(HaveKey("tokenizersPoolConfig"))
+				g.Expect(ic).To(HaveKey("kvBlockIndexConfig"))
+			},
+		},
+		{
+			name:   "returns nil for empty parameters",
+			plugin: map[string]interface{}{"type": "precise-prefix-cache-scorer"},
+			validate: func(g Gomega, result map[string]interface{}) {
+				g.Expect(result).To(BeNil())
+			},
+		},
+		{
+			name: "no nested tokenProcessorConfig - no promotion",
+			plugin: map[string]interface{}{
+				"type": "precise-prefix-cache-scorer",
+				"parameters": map[string]interface{}{
+					"tokenProcessorConfig": map[string]interface{}{
+						"blockSize": 128,
+					},
+					"indexerConfig": map[string]interface{}{
+						"kvBlockIndexConfig": map[string]interface{}{
+							"enableMetrics": true,
+						},
+					},
+				},
+			},
+			validate: func(g Gomega, result map[string]interface{}) {
+				tpc := result["tokenProcessorConfig"].(map[string]interface{})
+				g.Expect(tpc["blockSize"]).To(Equal(128))
+
+				ic := result["indexerConfig"].(map[string]interface{})
+				g.Expect(ic).To(HaveKey("kvBlockIndexConfig"))
+				g.Expect(ic).NotTo(HaveKey("tokenProcessorConfig"))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			result := migrateProducerParams(tt.plugin)
+			tt.validate(g, result)
+		})
+	}
+}

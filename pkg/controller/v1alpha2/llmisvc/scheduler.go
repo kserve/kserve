@@ -1494,9 +1494,12 @@ func withRemoveUnnecessaryTokenizer(d *appsv1.Deployment) mutateSchedulerConfigF
 
 // migrateProducerParams extracts parameters from the old monolithic
 // precise-prefix-cache-scorer plugin and returns them in a form suitable for
-// the new precise-prefix-cache-producer. tokenizersPoolConfig is removed from
-// indexerConfig because tokenization is now served by the standalone
-// token-producer plugin over HTTP.
+// the new precise-prefix-cache-producer. Two keys are cleaned from
+// indexerConfig: tokenizersPoolConfig (tokenization is now served by the
+// standalone token-producer) and tokenProcessorConfig (promoted to the
+// top-level parameters where the new producer expects it; older versions
+// of kvcache.Config accepted it inside indexerConfig, but the current
+// version does not and silently ignores it).
 func migrateProducerParams(oldPlugin map[string]interface{}) map[string]interface{} {
 	params, ok := oldPlugin["parameters"].(map[string]interface{})
 	if !ok || len(params) == 0 {
@@ -1511,6 +1514,12 @@ func migrateProducerParams(oldPlugin map[string]interface{}) map[string]interfac
 				cleaned := make(map[string]interface{}, len(ic))
 				for ik, iv := range ic {
 					if ik == "tokenizersPoolConfig" {
+						continue
+					}
+					if ik == "tokenProcessorConfig" {
+						if _, exists := params["tokenProcessorConfig"]; !exists {
+							migrated["tokenProcessorConfig"] = iv
+						}
 						continue
 					}
 					cleaned[ik] = iv

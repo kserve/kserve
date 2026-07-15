@@ -1299,6 +1299,11 @@ schedulingProfiles:
 				g.Expect(configText).NotTo(ContainSubstring("precise-prefix-cache-scorer"))
 				g.Expect(configText).To(ContainSubstring(kmeta.ChildName(svcName, "-tokenizer")))
 				g.Expect(configText).To(ContainSubstring("modelName: /mnt/models/base"))
+
+				g.Expect(configText).To(ContainSubstring("blockSize: 64"),
+					"tokenProcessorConfig.blockSize should be promoted from indexerConfig to top-level producer params")
+				g.Expect(configText).To(ContainSubstring("hashSeed:"),
+					"tokenProcessorConfig.hashSeed should be promoted from indexerConfig to top-level producer params")
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})
@@ -1363,6 +1368,11 @@ schedulingProfiles:
 				g.Expect(configText).NotTo(ContainSubstring("precise-prefix-cache-scorer"))
 				g.Expect(configText).To(ContainSubstring(kmeta.ChildName(svcName, "-tokenizer")))
 				g.Expect(configText).To(ContainSubstring("modelName: /mnt/models/base"))
+
+				g.Expect(configText).To(ContainSubstring("blockSize: 128"),
+					"top-level tokenProcessorConfig should take priority over nested")
+				g.Expect(configText).To(ContainSubstring("hashSeed: \"99\""),
+					"top-level tokenProcessorConfig.hashSeed should be preserved")
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})
