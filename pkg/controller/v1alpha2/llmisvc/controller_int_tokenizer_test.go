@@ -20,7 +20,6 @@ import (
 	"context"
 
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -502,7 +501,7 @@ func ensureTokenizerDeploymentReady(ctx context.Context, c client.Client, llmSvc
 		return
 	}
 
-	gomega.Eventually(func(g gomega.Gomega, ctx context.Context) {
+	Eventually(func(g Gomega, ctx context.Context) {
 		deployments := &appsv1.DeploymentList{}
 		g.Expect(c.List(ctx, deployments, &client.ListOptions{
 			Namespace:     llmSvc.Namespace,
@@ -523,5 +522,5 @@ func ensureTokenizerDeploymentReady(ctx context.Context, c client.Client, llmSvc
 			}
 			g.Expect(c.Status().Update(ctx, dep)).To(Succeed())
 		}
-	}).WithContext(ctx).Should(gomega.Succeed())
+	}).WithContext(ctx).Should(Succeed())
 }
