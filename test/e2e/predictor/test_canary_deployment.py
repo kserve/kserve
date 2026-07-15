@@ -86,6 +86,13 @@ def _make_isvc(service_name, canaries=None):
     )
 
 
+def _safe_delete(kserve, service_name):
+    try:
+        kserve.delete(service_name, KSERVE_TEST_NAMESPACE)
+    except Exception:
+        pass
+
+
 def _wait_for_deployment(apps_v1, name, namespace, timeout=120):
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -133,7 +140,9 @@ def test_canary_create():
         canaries=[
             V1beta1CanarySpec(
                 traffic_percent=20,
-                predictor=_make_predictor(CANARY_MODEL_URI, name="v2"),
+                predictor=_make_predictor(
+                    CANARY_MODEL_URI, name="v2", min_replicas=None
+                ),
             ),
         ],
     )
@@ -165,7 +174,7 @@ def test_canary_create():
         assert len(canary_status) > 0, "canary status should be populated"
         assert canary_status[0]["name"] == "v2"
     finally:
-        kserve.delete(service_name, KSERVE_TEST_NAMESPACE)
+        _safe_delete(kserve, service_name)
 
 
 @pytest.mark.predictor
@@ -179,7 +188,9 @@ def test_canary_promote():
         canaries=[
             V1beta1CanarySpec(
                 traffic_percent=20,
-                predictor=_make_predictor(CANARY_MODEL_URI, name="v2"),
+                predictor=_make_predictor(
+                    CANARY_MODEL_URI, name="v2", min_replicas=None
+                ),
             ),
         ],
     )
@@ -223,7 +234,7 @@ def test_canary_promote():
             f"Pod UIDs changed during promotion: before={canary_pod_uids}, after={post_promote_uids}"
         )
     finally:
-        kserve.delete(service_name, KSERVE_TEST_NAMESPACE)
+        _safe_delete(kserve, service_name)
 
 
 @pytest.mark.predictor
@@ -237,7 +248,9 @@ def test_canary_rollback():
         canaries=[
             V1beta1CanarySpec(
                 traffic_percent=20,
-                predictor=_make_predictor(CANARY_MODEL_URI, name="v2"),
+                predictor=_make_predictor(
+                    CANARY_MODEL_URI, name="v2", min_replicas=None
+                ),
             ),
         ],
     )
@@ -276,7 +289,7 @@ def test_canary_rollback():
             "CanaryPredictorReady should be cleared after rollback"
         )
     finally:
-        kserve.delete(service_name, KSERVE_TEST_NAMESPACE)
+        _safe_delete(kserve, service_name)
 
 
 @pytest.mark.predictor
@@ -290,7 +303,9 @@ def test_canary_force_stop():
         canaries=[
             V1beta1CanarySpec(
                 traffic_percent=20,
-                predictor=_make_predictor(CANARY_MODEL_URI, name="v2"),
+                predictor=_make_predictor(
+                    CANARY_MODEL_URI, name="v2", min_replicas=None
+                ),
             ),
         ],
     )
@@ -330,4 +345,4 @@ def test_canary_force_stop():
         assert canary_condition is not None
         assert canary_condition["reason"] == "Stopped"
     finally:
-        kserve.delete(service_name, KSERVE_TEST_NAMESPACE)
+        _safe_delete(kserve, service_name)
