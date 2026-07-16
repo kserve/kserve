@@ -13,7 +13,7 @@ dependencies = [
     "modelscope<2.0.0,>=1.16.0",
 ]
 name = "huggingfaceserver"
-version = "0.19.0"
+version = "0.20.0rc0"
 description = "Model Server implementation for huggingface. Not intended for use outside KServe Frameworks Images."
 readme = "README.md"
 
