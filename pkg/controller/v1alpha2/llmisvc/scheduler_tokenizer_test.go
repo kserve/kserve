@@ -109,7 +109,6 @@ func TestAttachStorageInitializer_TargetContainer(t *testing.T) {
 			initContainer := findContainer(podSpec.InitContainers, constants.StorageInitializerContainerName)
 			if initContainer == nil {
 				t.Fatal("storage-initializer init container not found")
-				return
 			}
 			if len(initContainer.Args) < 2 {
 				t.Fatal("storage-initializer should have at least 2 args")
@@ -122,7 +121,6 @@ func TestAttachStorageInitializer_TargetContainer(t *testing.T) {
 			container := findContainer(podSpec.Containers, tc.containerName)
 			if container == nil {
 				t.Fatalf("container %q not found", tc.containerName)
-				return
 			}
 			found := false
 			for _, vm := range container.VolumeMounts {
@@ -200,7 +198,6 @@ func TestAttachPVCModelArtifact_TargetContainer(t *testing.T) {
 			container := findContainer(podSpec.Containers, tc.containerName)
 			if container == nil {
 				t.Fatalf("container %q not found", tc.containerName)
-				return
 			}
 			found := false
 			for _, vm := range container.VolumeMounts {
@@ -290,7 +287,6 @@ func TestAttachOciModelArtifact_TargetContainer(t *testing.T) {
 			container := findContainer(podSpec.Containers, tc.containerName)
 			if container == nil {
 				t.Fatalf("container %q not found", tc.containerName)
-				return
 			}
 			found := false
 			for _, vm := range container.VolumeMounts {
@@ -310,7 +306,6 @@ func TestAttachOciModelArtifact_TargetContainer(t *testing.T) {
 			modelcarContainer := findContainer(podSpec.Containers, constants.ModelcarContainerName)
 			if modelcarContainer == nil {
 				t.Fatal("modelcar container not found")
-				return
 			}
 			if len(modelcarContainer.Args) != len(tc.wantModelcarArgs) {
 				t.Fatalf("modelcar args length = %d, want %d", len(modelcarContainer.Args), len(tc.wantModelcarArgs))

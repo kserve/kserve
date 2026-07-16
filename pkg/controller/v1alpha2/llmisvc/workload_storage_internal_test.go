@@ -59,7 +59,6 @@ func TestExtractAndStripStorageInitializer(t *testing.T) {
 
 		if extracted == nil {
 			t.Fatal("expected extracted container, got nil")
-			return
 		}
 		if extracted.Name != constants.StorageInitializerContainerName {
 			t.Fatalf("extracted name = %q, want %q", extracted.Name, constants.StorageInitializerContainerName)
