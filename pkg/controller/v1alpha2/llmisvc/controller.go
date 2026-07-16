@@ -145,6 +145,11 @@ type LLMISVCReconciler struct {
 	// legacyVACRDAbsent is set when the VariantAutoscaling CRD is confirmed
 	// absent, allowing subsequent reconciles to skip the cleanup API call.
 	legacyVACRDAbsent atomic.Bool
+
+	// legacyVACleanupDone is set after all legacy VariantAutoscaling CRs
+	// have been confirmed deleted (or not found), so subsequent reconciles
+	// skip the cleanup API calls entirely.
+	legacyVACleanupDone atomic.Bool
 }
 
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceservices,verbs=get;list;watch;create;update;patch;delete

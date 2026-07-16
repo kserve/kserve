@@ -63,6 +63,12 @@ func (r *LLMISVCReconciler) reconcileScaling(ctx context.Context, llmSvc *v1alph
 	logger := log.FromContext(ctx).WithName("reconcileScaling")
 	ctx = log.IntoContext(ctx, logger)
 
+	if !r.legacyVACleanupDone.Load() {
+		if err := r.cleanupAllLegacyVAs(ctx, llmSvc); err != nil {
+			logger.Error(err, "legacy VA cleanup will retry next reconcile")
+		}
+	}
+
 	if err := r.reconcileWorkloadScaling(ctx, llmSvc, config, mainWorkloadScalingParams(llmSvc)); err != nil {
 		return fmt.Errorf("failed to reconcile main workload scaling: %w", err)
 	}
@@ -80,7 +86,6 @@ type workloadScalingParams struct {
 	name             string
 	scaling          *v1alpha2.ScalingSpec
 	scaleTargetRef   autoscalingv2.CrossVersionObjectReference
-	legacyVAName     string // used only for cleaning up deprecated VA CRDs during migration
 	hpaName          string
 	scaledObjectName string
 	workloadLabels   map[string]string
@@ -94,7 +99,6 @@ func mainWorkloadScalingParams(llmSvc *v1alpha2.LLMInferenceService) workloadSca
 		name:             "main",
 		scaling:          llmSvc.Spec.Scaling,
 		scaleTargetRef:   mainScaleTargetRef(llmSvc),
-		legacyVAName:     legacyMainVAName(llmSvc),
 		hpaName:          mainHPAName(llmSvc),
 		scaledObjectName: mainScaledObjectName(llmSvc),
 		workloadLabels:   llmSvc.Spec.Labels,
@@ -115,7 +119,6 @@ func prefillWorkloadScalingParams(llmSvc *v1alpha2.LLMInferenceService) workload
 		name:             "prefill",
 		scaling:          scaling,
 		scaleTargetRef:   prefillScaleTargetRef(llmSvc),
-		legacyVAName:     legacyPrefillVAName(llmSvc),
 		hpaName:          prefillHPAName(llmSvc),
 		scaledObjectName: prefillScaledObjectName(llmSvc),
 		workloadLabels:   labels,
@@ -129,10 +132,6 @@ func prefillWorkloadScalingParams(llmSvc *v1alpha2.LLMInferenceService) workload
 // workload (main or prefill). The actuator (HPA or ScaledObject) carries WVA discovery
 // annotations so WVA can synthesize an in-memory VA without a separate CRD.
 func (r *LLMISVCReconciler) reconcileWorkloadScaling(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config, p workloadScalingParams) error {
-	if err := r.cleanupLegacyVA(ctx, llmSvc.GetNamespace(), p.legacyVAName); err != nil {
-		return fmt.Errorf("failed to cleanup legacy %s VA: %w", p.name, err)
-	}
-
 	if err := r.reconcileActuator(ctx, llmSvc, p.scaling, config, p.scaleTargetRef, p.hpaName, p.scaledObjectName, p.workloadLabels); err != nil {
 		return fmt.Errorf("failed to reconcile %s actuator: %w", p.name, err)
 	}
@@ -454,11 +453,29 @@ func prometheusTrigger(cfg *WVAAutoscalingConfig, query string) kedav1alpha1.Sca
 	return trigger
 }
 
+// cleanupAllLegacyVAs deletes both main and prefill legacy VariantAutoscaling CRs
+// if they exist. Once all are confirmed gone (deleted or NotFound), it sets
+// legacyVACleanupDone so subsequent reconciles skip the cleanup entirely.
+// This is a temporary migration step; remove after one release cycle.
+func (r *LLMISVCReconciler) cleanupAllLegacyVAs(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+	ns := llmSvc.GetNamespace()
+	var errs []error
+	for _, vaName := range []string{legacyMainVAName(llmSvc), legacyPrefillVAName(llmSvc)} {
+		if err := r.cleanupLegacyVA(ctx, ns, vaName); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("legacy VA cleanup: %v", errs)
+	}
+	r.legacyVACleanupDone.Store(true)
+	return nil
+}
+
 // cleanupLegacyVA deletes a deprecated VariantAutoscaling CR if it exists.
 // Uses unstructured delete to avoid importing WVA API types.
 // Caches the CRD-absent state so that clusters where the CRD was never
 // installed skip the API call after the first reconcile.
-// This is a temporary migration step; remove after one release cycle.
 func (r *LLMISVCReconciler) cleanupLegacyVA(ctx context.Context, namespace, vaName string) error {
 	if r.legacyVACRDAbsent.Load() {
 		return nil

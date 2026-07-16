@@ -1065,6 +1065,65 @@ func TestCleanupLegacyVA(t *testing.T) {
 	})
 }
 
+func TestCleanupAllLegacyVAs(t *testing.T) {
+	vaGVK := schema.GroupVersionKind{
+		Group:   "llmd.ai",
+		Version: "v1alpha1",
+		Kind:    "VariantAutoscaling",
+	}
+
+	newVA := func(name, namespace string) *unstructured.Unstructured {
+		va := &unstructured.Unstructured{}
+		va.SetGroupVersionKind(vaGVK)
+		va.SetName(name)
+		va.SetNamespace(namespace)
+		return va
+	}
+
+	newReconciler := func(objects ...client.Object) *LLMISVCReconciler {
+		s := runtime.NewScheme()
+		mapper := apimeta.NewDefaultRESTMapper([]schema.GroupVersion{
+			{Group: "llmd.ai", Version: "v1alpha1"},
+		})
+		mapper.Add(vaGVK, apimeta.RESTScopeNamespace)
+
+		cb := fake.NewClientBuilder().WithScheme(s).WithRESTMapper(mapper).WithObjects(objects...)
+		return &LLMISVCReconciler{
+			Client:        cb.Build(),
+			EventRecorder: record.NewFakeRecorder(10),
+		}
+	}
+
+	llmSvc := newTestLLMISVC("test-svc", "test-ns")
+
+	t.Run("sets cleanup done after deleting both VAs", func(t *testing.T) {
+		mainVA := newVA("test-svc-kserve-va", "test-ns")
+		prefillVA := newVA("test-svc-kserve-prefill-va", "test-ns")
+		r := newReconciler(mainVA, prefillVA)
+
+		err := r.cleanupAllLegacyVAs(context.Background(), llmSvc)
+		require.NoError(t, err)
+		assert.True(t, r.legacyVACleanupDone.Load(), "cleanup done flag should be set")
+	})
+
+	t.Run("sets cleanup done when no VAs exist", func(t *testing.T) {
+		r := newReconciler()
+
+		err := r.cleanupAllLegacyVAs(context.Background(), llmSvc)
+		require.NoError(t, err)
+		assert.True(t, r.legacyVACleanupDone.Load(), "cleanup done flag should be set even when VAs are already gone")
+	})
+
+	t.Run("sets cleanup done when only main VA exists", func(t *testing.T) {
+		mainVA := newVA("test-svc-kserve-va", "test-ns")
+		r := newReconciler(mainVA)
+
+		err := r.cleanupAllLegacyVAs(context.Background(), llmSvc)
+		require.NoError(t, err)
+		assert.True(t, r.legacyVACleanupDone.Load(), "cleanup done flag should be set")
+	})
+}
+
 func newReconcilerWithHPA(hpa *autoscalingv2.HorizontalPodAutoscaler) *LLMISVCReconciler {
 	scheme := runtime.NewScheme()
 	_ = autoscalingv2.AddToScheme(scheme)

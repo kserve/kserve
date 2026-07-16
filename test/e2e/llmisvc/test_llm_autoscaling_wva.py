@@ -560,6 +560,12 @@ def test_llm_autoscaling_hpa_deployment(test_case: TestCase):
         wait_for_pod_count(service_name, min_count=2, namespace=ns, timeout=300)
         assert_hpa_active(service_name, namespace=ns)
         assert_scaling_ready_condition(service_name, namespace=ns)
+    finally:
+        _cleanup(kserve_client, test_case)
+
+
+# =============================================================================
+# Test 2: KEDA + Deployment
 # =============================================================================
 
 
@@ -618,6 +624,12 @@ def test_llm_autoscaling_keda_deployment(test_case: TestCase):
         wait_for_pod_count(service_name, min_count=2, namespace=ns, timeout=300)
         assert_scaled_object_active(service_name, namespace=ns)
         assert_scaling_ready_condition(service_name, namespace=ns)
+    finally:
+        _cleanup(kserve_client, test_case)
+
+
+# =============================================================================
+# Test 3: HPA + LWS (multi-node)
 # =============================================================================
 
 
