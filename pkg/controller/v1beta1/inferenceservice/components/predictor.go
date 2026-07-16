@@ -113,9 +113,9 @@ func (p *Predictor) buildPredictorResources(ctx context.Context, isvc *v1beta1.I
 	// Knative does not support INIT containers or mounting, so we add annotations that trigger the
 	// StorageInitializer injector to mutate the underlying deployment to provision model data
 	// Only add annotations for single storage URI case. Multiple storage URIs are handled directly by reconcilers.
-	if sourceURI != nil {
+	if sourceURI := predictor.GetStorageUri(); sourceURI != nil {
 		if err := p.addStorageInitializerAnnotations(ctx, isvc.Namespace, predictor, annotations, isvc.Spec.Predictor.StorageContainerName); err != nil {
-			return ctrl.Result{}, err
+			return nil, err
 		}
 	}
 	// Add confidential annotations if enabled on the predictor
