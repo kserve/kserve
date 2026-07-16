@@ -101,6 +101,7 @@ if [[ $ENABLE_LLMISVC == "false" || $ENABLE_KSERVE_WITH_LLMISVC == "true" ]]; th
   if ! kubectl wait --for=condition=complete --timeout=900s job/s3-init -n kserve; then
     echo "S3 init job failed. Pod status and logs:"
     kubectl get pods -l job-name=s3-init -n kserve
+    kubectl describe pods -l job-name=s3-init -n kserve || true
     kubectl logs -l job-name=s3-init -n kserve --all-containers --tail=50 || true
     exit 1
   fi
@@ -149,6 +150,7 @@ else
   if ! kubectl wait --for=condition=complete --timeout=900s job/s3-init -n kserve; then
     echo "S3 init job failed. Pod status and logs:"
     kubectl get pods -l job-name=s3-init -n kserve
+    kubectl describe pods -l job-name=s3-init -n kserve || true
     kubectl logs -l job-name=s3-init -n kserve --all-containers --tail=50 || true
     exit 1
   fi
