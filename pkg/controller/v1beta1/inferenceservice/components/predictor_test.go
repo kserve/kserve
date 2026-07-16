@@ -20,12 +20,16 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	corev1 "k8s.io/api/core/v1"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+
 )
 
 func TestComputeMpNodeAndGPUs(t *testing.T) {
@@ -81,6 +85,32 @@ func TestComputeMpNodeAndGPUs(t *testing.T) {
 	}
 }
 
+
+// TestMultiNodeProcess_NilWorkerSpec verifies that multiNodeProcess returns a
+// clean error, rather than panicking with a nil pointer dereference, when the
+// ServingRuntime referenced by the InferenceService has no WorkerSpec configured.
+func TestMultiNodeProcess_NilWorkerSpec(t *testing.T) {
+	// ServingRuntimeSpec with WorkerSpec left unset (nil) - this is the
+	// condition that previously caused a panic.
+	sRuntime := v1alpha1.ServingRuntimeSpec{}
+
+	// InferenceService that attempts to configure multi-node via predictor.workerSpec,
+	// even though the referenced ServingRuntime above has no WorkerSpec.
+	isvc := &v1beta1.InferenceService{
+		Spec: v1beta1.InferenceServiceSpec{
+			Predictor: v1beta1.PredictorSpec{
+				WorkerSpec: &v1beta1.WorkerSpec{},
+			},
+		},
+	}
+
+	assert.NotPanics(t, func() {
+		_, err := multiNodeProcess(sRuntime, isvc, &corev1.PodSpec{}, map[string]string{}, "1")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "you cannot set WorkerSpec in the InferenceService if the ServingRuntime does not have a WorkerSpec")
+	})
+}
+
 func TestAddStorageInitializerAnnotationsOciNative(t *testing.T) {
 	// oci+native:// must pass ValidateStorageURI (it's in SupportedStorageURIPrefixList)
 	// and set StorageInitializerSourceUriInternalAnnotationKey so InjectModelcar can fire.
@@ -105,3 +135,4 @@ func TestAddStorageInitializerAnnotationsOciNative(t *testing.T) {
 	assert.True(t, hasAnnotation, "oci+native:// must set StorageInitializerSourceUriInternalAnnotationKey so InjectModelcar can inject the ImageVolume")
 	assert.Equal(t, ociNativeURI, annotationVal)
 }
+
