@@ -329,13 +329,19 @@ schedulingProfiles:
 
 			tokenizerName := kmeta.ChildName(svcName, "-tokenizer")
 
-			// Wait for tokenizer Deployment to exist
+			// Wait for tokenizer Deployment to exist and report TokenizerReady
 			Eventually(func(g Gomega, ctx context.Context) {
 				dep := &appsv1.Deployment{}
 				g.Expect(envTest.Get(ctx, types.NamespacedName{
 					Name:      tokenizerName,
 					Namespace: testNs.Name,
 				}, dep)).To(Succeed())
+			}).WithContext(ctx).Should(Succeed())
+			ensureTokenizerDeploymentReady(ctx, envTest.Client, llmSvc)
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.TokenizerReady), "True"))
 			}).WithContext(ctx).Should(Succeed())
 
 			// Remove the tokenizer from the spec
@@ -364,6 +370,14 @@ schedulingProfiles:
 					Namespace: testNs.Name,
 				}, svc)
 				g.Expect(errors.IsNotFound(err)).To(BeTrue(), "tokenizer Service should be deleted")
+			}).WithContext(ctx).Should(Succeed())
+
+			// TokenizerReady must be cleared so a stale False cannot block RouterReady
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Status.GetCondition(v1alpha2.TokenizerReady)).To(BeNil(),
+					"TokenizerReady should be cleared after tokenizer is disabled")
 			}).WithContext(ctx).Should(Succeed())
 		})
 
@@ -408,12 +422,19 @@ schedulingProfiles:
 			tokenizerName := kmeta.ChildName(svcName, "-tokenizer")
 
 			// Wait for tokenizer Deployment to exist (triggered by token-producer in config)
+			// and report TokenizerReady
 			Eventually(func(g Gomega, ctx context.Context) {
 				dep := &appsv1.Deployment{}
 				g.Expect(envTest.Get(ctx, types.NamespacedName{
 					Name:      tokenizerName,
 					Namespace: testNs.Name,
 				}, dep)).To(Succeed())
+			}).WithContext(ctx).Should(Succeed())
+			ensureTokenizerDeploymentReady(ctx, envTest.Client, llmSvc)
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.TokenizerReady), "True"))
 			}).WithContext(ctx).Should(Succeed())
 
 			// Remove token-producer from inline config (switch to simple config)
@@ -442,6 +463,14 @@ schedulingProfiles:
 					Namespace: testNs.Name,
 				}, svc)
 				g.Expect(errors.IsNotFound(err)).To(BeTrue(), "tokenizer Service should be deleted after removing token-producer plugin")
+			}).WithContext(ctx).Should(Succeed())
+
+			// TokenizerReady must be cleared so a stale False cannot block RouterReady
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Status.GetCondition(v1alpha2.TokenizerReady)).To(BeNil(),
+					"TokenizerReady should be cleared after token-producer plugin is removed")
 			}).WithContext(ctx).Should(Succeed())
 		})
 	})
