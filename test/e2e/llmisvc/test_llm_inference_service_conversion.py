@@ -34,6 +34,7 @@ from .fixtures import (
     OPT_125M_MODEL_URI,
     UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT,
     UPSTREAM_K8S_VLLM_ENV_OVERRIDES,
+    VLLM_CPU_IMAGE,
 )
 from .logging import log_execution, logger
 
@@ -230,7 +231,7 @@ class TestLLMInferenceServiceConversion:
                     "containers": [
                         {
                             "name": "main",
-                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
+                            "image": VLLM_CPU_IMAGE,
                             "env": [*UPSTREAM_K8S_VLLM_ENV_OVERRIDES],
                             "resources": {
                                 "limits": {"cpu": "2", "memory": "7Gi"},
@@ -321,7 +322,7 @@ class TestLLMInferenceServiceConversion:
                     "containers": [
                         {
                             "name": "main",
-                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
+                            "image": VLLM_CPU_IMAGE,
                             "env": [*UPSTREAM_K8S_VLLM_ENV_OVERRIDES],
                             "resources": {
                                 "limits": {"cpu": "2", "memory": "7Gi"},
@@ -421,7 +422,7 @@ class TestLLMInferenceServiceConversion:
                     "containers": [
                         {
                             "name": "main",
-                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
+                            "image": VLLM_CPU_IMAGE,
                             "env": [*UPSTREAM_K8S_VLLM_ENV_OVERRIDES],
                             "resources": {
                                 "limits": {"cpu": "2", "memory": "7Gi"},
@@ -552,7 +553,7 @@ class TestLLMInferenceServiceConversion:
                     "containers": [
                         {
                             "name": "main",
-                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
+                            "image": VLLM_CPU_IMAGE,
                             "env": [*UPSTREAM_K8S_VLLM_ENV_OVERRIDES],
                             "resources": {
                                 "limits": {"cpu": "2", "memory": "7Gi"},
@@ -697,7 +698,7 @@ class TestLLMInferenceServiceConversion:
                     "containers": [
                         {
                             "name": "main",
-                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
+                            "image": VLLM_CPU_IMAGE,
                             "env": [*UPSTREAM_K8S_VLLM_ENV_OVERRIDES],
                             "resources": {
                                 "limits": {"cpu": "2", "memory": "7Gi"},
