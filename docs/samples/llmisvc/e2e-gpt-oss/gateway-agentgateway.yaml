@@ -4,9 +4,7 @@ kind: Gateway
 metadata:
   name: ai-gateway
 spec:
-  # Envoy Gateway installs the "envoy" GatewayClass by default.
-  # Change this only if your cluster uses a different GatewayClass.
-  gatewayClassName: envoy
+  gatewayClassName: agentgateway
   listeners:
     - name: http
       protocol: HTTP

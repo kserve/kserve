@@ -1380,8 +1380,22 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			}()
 
 			customGatewayName := "my-custom-gateway"
+			customGatewayClass := &gwapiv1.GatewayClass{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "agentgateway",
+				},
+				Spec: gwapiv1.GatewayClassSpec{
+					ControllerName: "gateway.networking.k8s.io/gateway-controller",
+				},
+			}
+			Expect(envTest.Client.Create(ctx, customGatewayClass)).To(Succeed())
+			DeferCleanup(func(ctx context.Context) {
+				Expect(client.IgnoreNotFound(envTest.Client.Delete(ctx, customGatewayClass))).To(Succeed())
+			})
+
 			customGateway := Gateway(customGatewayName,
 				InNamespace[*gwapiv1.Gateway](nsName),
+				WithClassName(customGatewayClass.Name),
 				WithListener(gwapiv1.HTTPProtocolType),
 				WithAddresses("203.0.113.42"),
 			)
@@ -1412,6 +1426,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 					Name:      gwapiv1.ObjectName(customGatewayName),
 					Namespace: ptr.To(gwapiv1.Namespace(nsName)),
 				}))
+				g.Expect(customGateway.Spec.GatewayClassName).To(Equal(gwapiv1.ObjectName("agentgateway")))
 
 				createdRoute = &routes[0]
 				return nil

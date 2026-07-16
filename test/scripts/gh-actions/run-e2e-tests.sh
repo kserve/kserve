@@ -45,6 +45,10 @@ NETWORK_LAYER="${3:-istio}"
 : "${SKIP_DELETION_ON_FAILURE:=true}"
 export SKIP_DELETION_ON_FAILURE
 
+if [[ "$NETWORK_LAYER" == *"-gatewayapi"* ]]; then
+  export GATEWAYCLASS_NAME="${GATEWAYCLASS_NAME:-${NETWORK_LAYER%%-*}}"
+fi
+
 echo "Parallelism requested for pytest is ${PARALLELISM}"
 
 MAXFAIL="${PYTEST_MAXFAIL:-5}"

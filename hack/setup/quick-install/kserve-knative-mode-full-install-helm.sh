@@ -1385,10 +1385,13 @@ install_kserve_helm() {
         fi
 
         # Enable Gateway API for KServe(ISVC) if needed
+        # Use GATEWAYCLASS_NAME if set, otherwise fall back to GATEWAY_NETWORK_LAYER
+        # This handles cases where the provider identifier and GatewayClass name differ
         if [ "${GATEWAY_NETWORK_LAYER}" != "false" ] && ! is_positive "${ENABLE_LLMISVC}"; then
-            log_info "Adding Gateway API configuration: enableGatewayApi=true, ingressClassName=${GATEWAY_NETWORK_LAYER}"
+            log_info "Adding Gateway API configuration: enableGatewayApi=true, ingressClassName=${GATEWAY_NETWORK_LAYER}, gatewayClassName=${GATEWAYCLASS_NAME:-${GATEWAY_NETWORK_LAYER}}"
             config_args+=(--set "kserve.controller.gateway.ingressGateway.enableGatewayApi=true")
             config_args+=(--set "kserve.controller.gateway.ingressGateway.className=${GATEWAY_NETWORK_LAYER}")
+            config_args+=(--set "kserve.controller.gateway.ingressGateway.gatewayClassName=${GATEWAYCLASS_NAME:-${GATEWAY_NETWORK_LAYER}}")
         fi
 
         if is_positive "${ENABLE_LOCALMODEL}"; then

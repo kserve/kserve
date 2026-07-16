@@ -78,23 +78,3 @@ kserve:
       terminationGracePeriodSeconds: 10
   controller:
     deploymentMode: Knative
-    gateway:
-      domain: example.com
-      additionalIngressDomains: []
-      domainTemplate: '{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}'
-      pathTemplate: ''
-      urlScheme: http
-      disableIstioVirtualHost: false
-      disableIngressCreation: false
-      disableHTTPRouteTimeout: false
-      localGateway:
-        gateway: knative-serving/knative-local-gateway
-        gatewayService: knative-local-gateway.istio-system.svc.cluster.local
-        knativeGatewayService: ''
-      ingressGateway:
-        enableGatewayApi: false
-        kserveGateway: kserve/kserve-ingress-gateway
-        createGateway: false
-        gateway: knative-serving/knative-ingress-gateway
-        className: istio
-

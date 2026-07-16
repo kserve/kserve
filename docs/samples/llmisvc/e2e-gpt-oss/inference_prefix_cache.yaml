@@ -10,7 +10,9 @@ spec:
   replicas: 2
   router:
     scheduler: { }
-    gateway: { }
+    gateway:
+      refs:
+        - name: ai-gateway
   baseRefs:
     - name: llmisvc-prefix-caching
   template:
