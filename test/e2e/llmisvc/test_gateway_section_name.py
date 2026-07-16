@@ -29,7 +29,6 @@ from kubernetes import client
 
 from .fixtures import (
     KSERVE_PLURAL_LLMINFERENCESERVICECONFIG,
-    KSERVE_TEST_NAMESPACE,
     LLMINFERENCESERVICE_CONFIGS,
     _create_or_update_llmisvc_config,
     create_router_resources,
@@ -56,7 +55,7 @@ def _get_kserve_client():
     )
 
 
-def _create_llmisvc_configs(kserve_client, base_refs, service_name):
+def _create_llmisvc_configs(kserve_client, base_refs, service_name, namespace):
     """Create LLMInferenceServiceConfig resources and return unique names."""
     unique_base_refs = []
     for base_ref in base_refs:
@@ -68,7 +67,7 @@ def _create_llmisvc_configs(kserve_client, base_refs, service_name):
             "kind": "LLMInferenceServiceConfig",
             "metadata": {
                 "name": unique_config_name,
-                "namespace": KSERVE_TEST_NAMESPACE,
+                "namespace": namespace,
             },
             "spec": original_spec,
         }
@@ -140,7 +139,9 @@ def _cleanup_llmisvc(kserve_client, name, namespace, version="v1alpha1"):
     ],
     ids=["with-section-name", "without-section-name"],
 )
-def test_gateway_section_name_propagation(gateway_config_key, expected_section_name):
+def test_gateway_section_name_propagation(
+    gateway_config_key, expected_section_name, test_namespace
+):
     """When sectionName is set on a gateway ref, the managed HTTPRoute's
     ParentReference should include the matching sectionName. When omitted,
     the parentRef should not include sectionName (backward compatibility)."""
@@ -162,29 +163,27 @@ def test_gateway_section_name_propagation(gateway_config_key, expected_section_n
     llm_service = None
     try:
         created_config_names = _create_llmisvc_configs(
-            kserve_client, base_refs, service_name
+            kserve_client, base_refs, service_name, test_namespace
         )
 
         llm_service = V1alpha1LLMInferenceService(
             api_version="serving.kserve.io/v1alpha1",
             kind="LLMInferenceService",
-            metadata=client.V1ObjectMeta(
-                name=service_name, namespace=KSERVE_TEST_NAMESPACE
-            ),
+            metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
             spec={"baseRefs": [{"name": ref} for ref in created_config_names]},
         )
 
         kserve_client.api_instance.create_namespaced_custom_object(
             constants.KSERVE_GROUP,
             "v1alpha1",
-            KSERVE_TEST_NAMESPACE,
+            test_namespace,
             KSERVE_PLURAL_LLMINFERENCESERVICE,
             llm_service,
         )
 
         def assert_managed_route_exists():
             routes = _get_managed_httproutes(
-                kserve_client, service_name, KSERVE_TEST_NAMESPACE
+                kserve_client, service_name, test_namespace
             )
             assert len(routes) >= 1, (
                 f"Expected at least 1 managed HTTPRoute, got {len(routes)}"
@@ -195,13 +194,15 @@ def test_gateway_section_name_propagation(gateway_config_key, expected_section_n
 
         gw_parent = _find_gateway_parent_ref(routes, GATEWAY_NAME)
         assert gw_parent is not None, (
-            f"Expected parentRef for {GATEWAY_NAME} in managed routes, "
-            f"got routes: {[r.get('metadata', {}).get('name') for r in routes]}"
+            f"Expected parentRef for {GATEWAY_NAME} in managed "
+            f"routes, got routes: "
+            f"{[r.get('metadata', {}).get('name') for r in routes]}"
         )
 
         if expected_section_name is not None:
             assert gw_parent.get("sectionName") == expected_section_name, (
-                f"Expected sectionName '{expected_section_name}' on parentRef, got {gw_parent}"
+                f"Expected sectionName '{expected_section_name}' "
+                f"on parentRef, got {gw_parent}"
             )
         else:
             assert "sectionName" not in gw_parent, (
@@ -212,7 +213,7 @@ def test_gateway_section_name_propagation(gateway_config_key, expected_section_n
         if llm_service is not None:
             collect_diagnostics(
                 service_name,
-                KSERVE_TEST_NAMESPACE,
+                test_namespace,
                 kserve_client=kserve_client,
             )
         raise
@@ -223,8 +224,6 @@ def test_gateway_section_name_propagation(gateway_config_key, expected_section_n
             "0",
             "f",
         ):
-            _cleanup_llmisvc(kserve_client, service_name, KSERVE_TEST_NAMESPACE)
+            _cleanup_llmisvc(kserve_client, service_name, test_namespace)
             for config_name in created_config_names:
-                _delete_llmisvc_config(
-                    kserve_client, config_name, KSERVE_TEST_NAMESPACE
-                )
+                _delete_llmisvc_config(kserve_client, config_name, test_namespace)

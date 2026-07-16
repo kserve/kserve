@@ -141,7 +141,9 @@ def test_flow_control_smoke(test_case: TestCase, flow_control_auth):
             )
 
         pool_name = f"{service_name}-inference-pool"
-        create_inference_objectives(pool_name, FC_OBJECTIVES)
+        create_inference_objectives(
+            pool_name, FC_OBJECTIVES, namespace=test_case.namespace
+        )
         time.sleep(5)
 
         for obj in FC_OBJECTIVES:
@@ -171,7 +173,7 @@ def test_flow_control_smoke(test_case: TestCase, flow_control_auth):
     finally:
         if flow_control_auth and "cleanup" in flow_control_auth:
             flow_control_auth["cleanup"](kserve_client, service_name)
-        delete_inference_objectives(FC_OBJECTIVE_NAMES)
+        delete_inference_objectives(FC_OBJECTIVE_NAMES, namespace=test_case.namespace)
         maybe_delete_llmisvc(kserve_client, test_case.llm_service, test_failed)
 
 
