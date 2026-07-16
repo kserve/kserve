@@ -37,7 +37,6 @@ KSERVE_PLURAL_LLMINFERENCESERVICE = "llminferenceservices"
 STOP_ANNOTATION_KEY = "serving.kserve.io/stop"
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.asyncio(loop_scope="session")
 @pytest.mark.parametrize(
     "test_case",

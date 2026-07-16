@@ -62,7 +62,6 @@ def wait_for(assertion_fn, timeout: float = 60.0, interval: float = 1.0):
             time.sleep(interval)
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.conversion
 class TestStorageVersionMigration:
     """Test storage version migration runs correctly during controller startup."""

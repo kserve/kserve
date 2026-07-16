@@ -171,7 +171,6 @@ def _assert_cross_service_correlation(
         )
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.tracing
 @pytest.mark.parametrize(
     "test_case",

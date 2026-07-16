@@ -129,7 +129,6 @@ def _cleanup_llmisvc(kserve_client, name, namespace, version="v1alpha1"):
             logger.warning(f"Failed to cleanup LLMInferenceService {name}: {e}")
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.cluster_cpu
 @pytest.mark.cluster_single_node
 @pytest.mark.llmd_simulator
