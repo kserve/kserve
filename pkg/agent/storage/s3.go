@@ -60,51 +60,51 @@ func (m *S3Provider) DownloadModel(modelDir string, modelName string, storageUri
 	}
 	bucket := tokens[0]
 
-	resp, err := m.Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+	paginator := s3.NewListObjectsV2Paginator(m.Client, &s3.ListObjectsV2Input{
 		Bucket: aws.String(bucket),
 		Prefix: aws.String(prefix),
 	})
-	if err != nil {
-		return fmt.Errorf("unable to list objects: %w", err)
-	}
-
-	if len(resp.Contents) == 0 {
-		return fmt.Errorf("%s has no objects or does not exist", storageUri)
-	}
 
 	foundObject := false
 
-	for _, object := range resp.Contents {
-		if strings.HasSuffix(*object.Key, "/") {
-			continue
-		}
-		subObjectKey := strings.TrimPrefix(*object.Key, prefix)
-		fileName := filepath.Join(modelDir, modelName, subObjectKey)
-
-		if FileExists(fileName) {
-			// File got corrupted or is mid-download :(
-			// TODO: Figure out if we can maybe continue?
-			if err := os.Remove(fileName); err != nil {
-				return fmt.Errorf("file is unable to be deleted: %w", err)
-			}
-		}
-		file, err := Create(fileName)
+	for paginator.HasMorePages() {
+		resp, err := paginator.NextPage(ctx)
 		if err != nil {
-			return fmt.Errorf("file is already created: %w", err)
+			return fmt.Errorf("unable to list objects: %w", err)
 		}
 
-		if _, err := m.TransferClient.DownloadObject(ctx, &transfermanager.DownloadObjectInput{
-			Key:      object.Key,
-			Bucket:   aws.String(bucket),
-			WriterAt: file,
-		}); err != nil {
-			_ = file.Close()
-			return fmt.Errorf("failed to download %s: %w", *object.Key, err)
+		for _, object := range resp.Contents {
+			if strings.HasSuffix(*object.Key, "/") {
+				continue
+			}
+			subObjectKey := strings.TrimPrefix(*object.Key, prefix)
+			fileName := filepath.Join(modelDir, modelName, subObjectKey)
+
+			if FileExists(fileName) {
+				// File got corrupted or is mid-download :(
+				// TODO: Figure out if we can maybe continue?
+				if err := os.Remove(fileName); err != nil {
+					return fmt.Errorf("file is unable to be deleted: %w", err)
+				}
+			}
+			file, err := Create(fileName)
+			if err != nil {
+				return fmt.Errorf("file is already created: %w", err)
+			}
+
+			if _, err := m.TransferClient.DownloadObject(ctx, &transfermanager.DownloadObjectInput{
+				Key:      object.Key,
+				Bucket:   aws.String(bucket),
+				WriterAt: file,
+			}); err != nil {
+				_ = file.Close()
+				return fmt.Errorf("failed to download %s: %w", *object.Key, err)
+			}
+			if err := file.Close(); err != nil {
+				return fmt.Errorf("failed to close file %s: %w", fileName, err)
+			}
+			foundObject = true
 		}
-		if err := file.Close(); err != nil {
-			log.Error(err, "failed to close file")
-		}
-		foundObject = true
 	}
 
 	if !foundObject {

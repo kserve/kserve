@@ -19,6 +19,7 @@ package mocks
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager"
@@ -36,6 +37,48 @@ func (m *MockS3Client) ListObjectsV2(_ context.Context, _ *s3.ListObjectsV2Input
 			},
 		},
 	}, nil
+}
+
+// MockS3PaginatedClient simulates paginated ListObjectsV2 responses.
+// Pages is a slice of object key slices, one per page.
+type MockS3PaginatedClient struct {
+	Pages [][]string
+	calls int
+}
+
+func (m *MockS3PaginatedClient) ListObjectsV2(_ context.Context, input *s3.ListObjectsV2Input, _ ...func(*s3.Options)) (*s3.ListObjectsV2Output, error) {
+	if m.calls >= len(m.Pages) {
+		return &s3.ListObjectsV2Output{}, nil
+	}
+	page := m.Pages[m.calls]
+	m.calls++
+
+	objects := make([]s3types.Object, len(page))
+	for i, key := range page {
+		objects[i] = s3types.Object{Key: aws.String(key)}
+	}
+
+	hasMore := m.calls < len(m.Pages)
+	output := &s3.ListObjectsV2Output{
+		Contents:    objects,
+		IsTruncated: &hasMore,
+	}
+	if hasMore {
+		output.NextContinuationToken = aws.String(fmt.Sprintf("token-%d", m.calls))
+	}
+	return output, nil
+}
+
+// MockS3FailClient returns an error from ListObjectsV2.
+type MockS3FailClient struct {
+	Err error
+}
+
+func (m *MockS3FailClient) ListObjectsV2(_ context.Context, _ *s3.ListObjectsV2Input, _ ...func(*s3.Options)) (*s3.ListObjectsV2Output, error) {
+	if m.Err != nil {
+		return nil, m.Err
+	}
+	return nil, errors.New("list failed")
 }
 
 type MockS3TransferClient struct{}
