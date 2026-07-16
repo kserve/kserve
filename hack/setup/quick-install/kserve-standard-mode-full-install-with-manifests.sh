@@ -6745,6 +6745,22 @@ spec:
                 type: array
               replicas:
                 type: integer
+              resourceClaims:
+                items:
+                  properties:
+                    name:
+                      type: string
+                    resourceClaimName:
+                      type: string
+                    resourceClaimTemplateName:
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               schedulerName:
                 type: string
               storageHelper:
@@ -8773,6 +8789,22 @@ spec:
                     type: object
                   pipelineParallelSize:
                     type: integer
+                  resourceClaims:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                        resourceClaimName:
+                          type: string
+                        resourceClaimTemplateName:
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
                   schedulerName:
                     type: string
                   tensorParallelSize:
@@ -51494,6 +51526,22 @@ spec:
                 type: array
               replicas:
                 type: integer
+              resourceClaims:
+                items:
+                  properties:
+                    name:
+                      type: string
+                    resourceClaimName:
+                      type: string
+                    resourceClaimTemplateName:
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               schedulerName:
                 type: string
               storageHelper:
@@ -53522,6 +53570,22 @@ spec:
                     type: object
                   pipelineParallelSize:
                     type: integer
+                  resourceClaims:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                        resourceClaimName:
+                          type: string
+                        resourceClaimTemplateName:
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
                   schedulerName:
                     type: string
                   tensorParallelSize:

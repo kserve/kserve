@@ -1947,12 +1947,36 @@ func schema_pkg_apis_serving_v1alpha1_ServingRuntimePodSpec(ref common.Reference
 							Format:      "",
 						},
 					},
+					"resourceClaims": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"name",
+								},
+								"x-kubernetes-list-type":       "map",
+								"x-kubernetes-patch-merge-key": "name",
+								"x-kubernetes-patch-strategy":  "merge,retainKeys",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nDynamic Resource Allocation (DRA) is GA since Kubernetes 1.32 (beta, enabled by default, since 1.31). The cluster must support DRA for these claims to take effect on created Pods.\n\nEach entry may reference an existing ResourceClaim (resourceClaimName) or ResourceClaimTemplate (resourceClaimTemplateName) in the same namespace. KServe does not create these objects; they must exist before the Pod can be scheduled.\n\nNote: the resulting Pod's resourceClaims field is immutable after pod creation per Kubernetes semantics.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.PodResourceClaim"),
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"containers"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.Volume"},
+			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.Volume"},
 	}
 }
 
@@ -2154,6 +2178,30 @@ func schema_pkg_apis_serving_v1alpha1_ServingRuntimeSpec(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
+					"resourceClaims": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"name",
+								},
+								"x-kubernetes-list-type":       "map",
+								"x-kubernetes-patch-merge-key": "name",
+								"x-kubernetes-patch-strategy":  "merge,retainKeys",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nDynamic Resource Allocation (DRA) is GA since Kubernetes 1.32 (beta, enabled by default, since 1.31). The cluster must support DRA for these claims to take effect on created Pods.\n\nEach entry may reference an existing ResourceClaim (resourceClaimName) or ResourceClaimTemplate (resourceClaimTemplateName) in the same namespace. KServe does not create these objects; they must exist before the Pod can be scheduled.\n\nNote: the resulting Pod's resourceClaims field is immutable after pod creation per Kubernetes semantics.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.PodResourceClaim"),
+									},
+								},
+							},
+						},
+					},
 					"grpcEndpoint": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Grpc endpoint for internal model-management (implementing mmesh.ModelRuntime gRPC service) Assumed to be single-model runtime if omitted",
@@ -2199,7 +2247,7 @@ func schema_pkg_apis_serving_v1alpha1_ServingRuntimeSpec(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.BuiltInAdapter", "github.com/kserve/kserve/pkg/apis/serving/v1alpha1.StorageHelper", "github.com/kserve/kserve/pkg/apis/serving/v1alpha1.SupportedModelFormat", "github.com/kserve/kserve/pkg/apis/serving/v1alpha1.WorkerSpec", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.Volume"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.BuiltInAdapter", "github.com/kserve/kserve/pkg/apis/serving/v1alpha1.StorageHelper", "github.com/kserve/kserve/pkg/apis/serving/v1alpha1.SupportedModelFormat", "github.com/kserve/kserve/pkg/apis/serving/v1alpha1.WorkerSpec", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.Volume"},
 	}
 }
 
