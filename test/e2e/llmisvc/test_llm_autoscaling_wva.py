@@ -84,6 +84,9 @@ HPA_PLURAL = "horizontalpodautoscalers"
 
 PROMETHEUS_NAMESPACE = os.environ.get("PROMETHEUS_NAMESPACE", "monitoring")
 KEDA_NAMESPACE = os.environ.get("KEDA_NAMESPACE", "keda")
+KEDA_OPERATOR_POD_LABEL = os.environ.get(
+    "KEDA_OPERATOR_POD_LABEL", "app.kubernetes.io/name=keda-operator"
+)
 
 
 def _get_custom_resource(group, version, plural, name, namespace):
@@ -339,7 +342,7 @@ def assert_metrics_pipeline_ready(actuator="hpa"):
         v1 = client.CoreV1Api()
         pods = v1.list_namespaced_pod(
             namespace=KEDA_NAMESPACE,
-            label_selector="app.kubernetes.io/name=keda-operator",
+            label_selector=KEDA_OPERATOR_POD_LABEL,
         )
         running_names = [
             p.metadata.name for p in pods.items if p.status.phase == "Running"
