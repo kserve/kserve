@@ -17,7 +17,7 @@ from pathlib import Path
 
 # Fixture factory - not called explicitly, but must be imported for pytest to discover it.
 from .fixtures import test_case  # noqa: F401
-from .test_namespace import (
+from .namespace import (
     create_test_namespace,
     delete_test_namespace,
     generate_namespace_name,

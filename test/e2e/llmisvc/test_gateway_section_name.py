@@ -40,7 +40,7 @@ from .test_llm_inference_service import (
     KSERVE_PLURAL_LLMINFERENCESERVICE,
     wait_for,
 )
-from .test_resources import ROUTER_GATEWAYS
+from .test_resources import make_router_gateway
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +61,8 @@ def _create_llmisvc_configs(kserve_client, base_refs, service_name, namespace):
     for base_ref in base_refs:
         unique_config_name = generate_k8s_safe_suffix(base_ref, [service_name])
         unique_base_refs.append(unique_config_name)
-        original_spec = LLMINFERENCESERVICE_CONFIGS[base_ref]
+        config = LLMINFERENCESERVICE_CONFIGS[base_ref]
+        spec = config(namespace) if callable(config) else config
         config_body = {
             "apiVersion": "serving.kserve.io/v1alpha1",
             "kind": "LLMInferenceServiceConfig",
@@ -69,7 +70,7 @@ def _create_llmisvc_configs(kserve_client, base_refs, service_name, namespace):
                 "name": unique_config_name,
                 "namespace": namespace,
             },
-            "spec": original_spec,
+            "spec": spec,
         }
         _create_or_update_llmisvc_config(kserve_client, config_body)
     return unique_base_refs
@@ -150,7 +151,10 @@ def test_gateway_section_name_propagation(
     service_name = generate_k8s_safe_suffix("gw-section-name", [gateway_config_key])
 
     # Ensure the gateway exists (its listener is named "http")
-    create_router_resources(gateways=[ROUTER_GATEWAYS[0]], kserve_client=kserve_client)
+    create_router_resources(
+        gateways=[make_router_gateway(GATEWAY_NAME, test_namespace)],
+        kserve_client=kserve_client,
+    )
 
     base_refs = [
         gateway_config_key,

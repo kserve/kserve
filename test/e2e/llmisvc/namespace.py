@@ -27,7 +27,7 @@ import time
 
 from kubernetes import client
 
-logger = logging.getLogger("e2e.llmisvc.test_namespace")
+logger = logging.getLogger("e2e.llmisvc.namespace")
 
 SEED_NAMESPACE = "kserve-ci-e2e-test"
 TEST_NAMESPACE_LABEL_KEY = "kserve.io/e2e-test"

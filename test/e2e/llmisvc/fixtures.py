@@ -28,7 +28,7 @@ from kubernetes import client, config
 from typing import List, Optional
 
 from .logging import logger
-from .test_namespace import (
+from .namespace import (
     create_test_namespace,
     delete_test_namespace,
     generate_namespace_name,
@@ -37,8 +37,6 @@ from .test_namespace import (
 )
 
 KSERVE_PLURAL_LLMINFERENCESERVICECONFIG = "llminferenceserviceconfigs"
-KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
-
 # Scheduler config constants
 SCHEDULER_CONFIGMAP_NAME = "scheduler-config-e2e"
 SCHEDULER_CONFIGMAP_KEY = "epp"
@@ -78,6 +76,173 @@ STORAGE_INITIALIZER_INIT_CONTAINER = {
         {"name": "TOKIO_WORKER_THREADS", "value": "1"},
     ],
 }
+
+
+def _custom_route_timeout_rule(path_prefix, rewrite_to, backend_ref):
+    return {
+        "timeouts": {"request": "30s", "backendRequest": "30s"},
+        "matches": [
+            {"path": {"type": "PathPrefix", "value": path_prefix}},
+        ],
+        "filters": [
+            {
+                "type": "URLRewrite",
+                "urlRewrite": {
+                    "path": {
+                        "replacePrefixMatch": rewrite_to,
+                        "type": "ReplacePrefixMatch",
+                    },
+                },
+            },
+        ],
+        "backendRefs": [backend_ref],
+    }
+
+
+def _pool_backend(service_name, namespace):
+    return {
+        "group": "inference.networking.k8s.io",
+        "kind": "InferencePool",
+        "name": f"{service_name}-inference-pool",
+        "namespace": namespace,
+        "port": 8000,
+    }
+
+
+def _svc_backend(service_name, namespace):
+    return {
+        "group": "",
+        "kind": "Service",
+        "name": f"{service_name}-kserve-workload-svc",
+        "namespace": namespace,
+        "port": 8000,
+    }
+
+
+def _custom_route_timeout_config(service_name, namespace):
+    prefix = f"/{namespace}/{service_name}"
+    pool = _pool_backend(service_name, namespace)
+    svc = _svc_backend(service_name, namespace)
+    return {
+        "router": {
+            "route": {
+                "http": {
+                    "spec": {
+                        "rules": [
+                            _custom_route_timeout_rule(
+                                f"{prefix}/v1/completions",
+                                "/v1/completions",
+                                pool,
+                            ),
+                            _custom_route_timeout_rule(
+                                f"{prefix}/v1/chat/completions",
+                                "/v1/chat/completions",
+                                pool,
+                            ),
+                            _custom_route_timeout_rule(
+                                prefix,
+                                "/",
+                                svc,
+                            ),
+                        ],
+                    },
+                },
+            },
+            "gateway": {},
+        },
+    }
+
+
+def _router_custom_route_timeout(namespace):
+    return _custom_route_timeout_config(
+        "custom-route-timeout-test",
+        namespace,
+    )
+
+
+def _router_custom_route_timeout_pd(namespace):
+    return _custom_route_timeout_config(
+        "custom-route-timeout-pd-test",
+        namespace,
+    )
+
+
+def _router_with_refs(namespace):
+    return {
+        "router": {
+            "route": {
+                "http": {
+                    "refs": [
+                        {"name": "router-route-1"},
+                        {"name": "router-route-2"},
+                    ],
+                },
+            },
+            "gateway": {
+                "refs": [
+                    {
+                        "name": "router-gateway-1",
+                        "namespace": namespace,
+                    },
+                ],
+            },
+        },
+    }
+
+
+def _router_with_refs_pd(namespace):
+    return {
+        "router": {
+            "route": {
+                "http": {
+                    "refs": [
+                        {"name": "router-route-3"},
+                        {"name": "router-route-4"},
+                    ],
+                },
+            },
+            "gateway": {
+                "refs": [
+                    {
+                        "name": "router-gateway-2",
+                        "namespace": namespace,
+                    },
+                ],
+            },
+        },
+    }
+
+
+def _router_with_gateway_section_name(namespace):
+    return {
+        "router": {
+            "gateway": {
+                "refs": [
+                    {
+                        "name": "router-gateway-1",
+                        "namespace": namespace,
+                        "sectionName": "http",
+                    },
+                ],
+            },
+        },
+    }
+
+
+def _router_with_gateway_ref(namespace):
+    return {
+        "router": {
+            "gateway": {
+                "refs": [
+                    {
+                        "name": "router-gateway-1",
+                        "namespace": namespace,
+                    },
+                ],
+            },
+        },
+    }
+
 
 LLMINFERENCESERVICE_CONFIGS = {
     "workload-single-cpu": {
@@ -487,270 +652,10 @@ LLMINFERENCESERVICE_CONFIGS = {
             ],
         },
     },
-    "router-custom-route-timeout": {
-        "router": {
-            "route": {
-                "http": {
-                    "spec": {
-                        "rules": [
-                            {
-                                "timeouts": {
-                                    "request": "30s",
-                                    "backendRequest": "30s",
-                                },
-                                "matches": [
-                                    {
-                                        "path": {
-                                            "type": "PathPrefix",
-                                            "value": "/kserve-ci-e2e-test/custom-route-timeout-test/v1/completions",
-                                        },
-                                    },
-                                ],
-                                "filters": [
-                                    {
-                                        "type": "URLRewrite",
-                                        "urlRewrite": {
-                                            "path": {
-                                                "replacePrefixMatch": "/v1/completions",
-                                                "type": "ReplacePrefixMatch",
-                                            },
-                                        },
-                                    },
-                                ],
-                                "backendRefs": [
-                                    {
-                                        "group": "inference.networking.k8s.io",
-                                        "kind": "InferencePool",
-                                        "name": "custom-route-timeout-test-inference-pool",
-                                        "namespace": KSERVE_TEST_NAMESPACE,
-                                        "port": 8000,
-                                    }
-                                ],
-                            },
-                            {
-                                "timeouts": {
-                                    "request": "30s",
-                                    "backendRequest": "30s",
-                                },
-                                "matches": [
-                                    {
-                                        "path": {
-                                            "type": "PathPrefix",
-                                            "value": "/kserve-ci-e2e-test/custom-route-timeout-test/v1/chat/completions",
-                                        },
-                                    },
-                                ],
-                                "filters": [
-                                    {
-                                        "type": "URLRewrite",
-                                        "urlRewrite": {
-                                            "path": {
-                                                "replacePrefixMatch": "/v1/chat/completions",
-                                                "type": "ReplacePrefixMatch",
-                                            },
-                                        },
-                                    },
-                                ],
-                                "backendRefs": [
-                                    {
-                                        "group": "inference.networking.k8s.io",
-                                        "kind": "InferencePool",
-                                        "name": "custom-route-timeout-test-inference-pool",
-                                        "namespace": KSERVE_TEST_NAMESPACE,
-                                        "port": 8000,
-                                    }
-                                ],
-                            },
-                            {
-                                "timeouts": {
-                                    "request": "30s",
-                                    "backendRequest": "30s",
-                                },
-                                "matches": [
-                                    {
-                                        "path": {
-                                            "type": "PathPrefix",
-                                            "value": "/kserve-ci-e2e-test/custom-route-timeout-test",
-                                        },
-                                    },
-                                ],
-                                "filters": [
-                                    {
-                                        "type": "URLRewrite",
-                                        "urlRewrite": {
-                                            "path": {
-                                                "replacePrefixMatch": "/",
-                                                "type": "ReplacePrefixMatch",
-                                            },
-                                        },
-                                    },
-                                ],
-                                "backendRefs": [
-                                    {
-                                        "group": "",
-                                        "kind": "Service",
-                                        "name": "custom-route-timeout-test-kserve-workload-svc",
-                                        "namespace": KSERVE_TEST_NAMESPACE,
-                                        "port": 8000,
-                                    }
-                                ],
-                            },
-                        ],
-                    },
-                },
-            },
-            "gateway": {},
-        },
-    },
-    "router-custom-route-timeout-pd": {
-        "router": {
-            "route": {
-                "http": {
-                    "spec": {
-                        "rules": [
-                            {
-                                "timeouts": {
-                                    "request": "30s",
-                                    "backendRequest": "30s",
-                                },
-                                "matches": [
-                                    {
-                                        "path": {
-                                            "type": "PathPrefix",
-                                            "value": "/kserve-ci-e2e-test/custom-route-timeout-pd-test/v1/completions",
-                                        },
-                                    },
-                                ],
-                                "filters": [
-                                    {
-                                        "type": "URLRewrite",
-                                        "urlRewrite": {
-                                            "path": {
-                                                "replacePrefixMatch": "/v1/completions",
-                                                "type": "ReplacePrefixMatch",
-                                            },
-                                        },
-                                    },
-                                ],
-                                "backendRefs": [
-                                    {
-                                        "group": "inference.networking.k8s.io",
-                                        "kind": "InferencePool",
-                                        "name": "custom-route-timeout-pd-test-inference-pool",
-                                        "namespace": KSERVE_TEST_NAMESPACE,
-                                        "port": 8000,
-                                    }
-                                ],
-                            },
-                            {
-                                "timeouts": {
-                                    "request": "30s",
-                                    "backendRequest": "30s",
-                                },
-                                "matches": [
-                                    {
-                                        "path": {
-                                            "type": "PathPrefix",
-                                            "value": "/kserve-ci-e2e-test/custom-route-timeout-pd-test/v1/chat/completions",
-                                        },
-                                    },
-                                ],
-                                "filters": [
-                                    {
-                                        "type": "URLRewrite",
-                                        "urlRewrite": {
-                                            "path": {
-                                                "replacePrefixMatch": "/v1/chat/completions",
-                                                "type": "ReplacePrefixMatch",
-                                            },
-                                        },
-                                    },
-                                ],
-                                "backendRefs": [
-                                    {
-                                        "group": "inference.networking.k8s.io",
-                                        "kind": "InferencePool",
-                                        "name": "custom-route-timeout-pd-test-inference-pool",
-                                        "namespace": KSERVE_TEST_NAMESPACE,
-                                        "port": 8000,
-                                    }
-                                ],
-                            },
-                            {
-                                "timeouts": {
-                                    "request": "30s",
-                                    "backendRequest": "30s",
-                                },
-                                "matches": [
-                                    {
-                                        "path": {
-                                            "type": "PathPrefix",
-                                            "value": "/kserve-ci-e2e-test/custom-route-timeout-pd-test",
-                                        },
-                                    },
-                                ],
-                                "filters": [
-                                    {
-                                        "type": "URLRewrite",
-                                        "urlRewrite": {
-                                            "path": {
-                                                "replacePrefixMatch": "/",
-                                                "type": "ReplacePrefixMatch",
-                                            },
-                                        },
-                                    },
-                                ],
-                                "backendRefs": [
-                                    {
-                                        "group": "",
-                                        "kind": "Service",
-                                        "name": "custom-route-timeout-pd-test-kserve-workload-svc",
-                                        "namespace": KSERVE_TEST_NAMESPACE,
-                                        "port": 8000,
-                                    }
-                                ],
-                            },
-                        ],
-                    },
-                },
-            },
-            "gateway": {},
-        },
-    },
-    "router-with-refs": {
-        "router": {
-            "route": {
-                "http": {
-                    "refs": [
-                        {"name": "router-route-1"},
-                        {"name": "router-route-2"},
-                    ],
-                },
-            },
-            "gateway": {
-                "refs": [
-                    {"name": "router-gateway-1", "namespace": KSERVE_TEST_NAMESPACE},
-                ],
-            },
-        },
-    },
-    "router-with-refs-pd": {
-        "router": {
-            "route": {
-                "http": {
-                    "refs": [
-                        {"name": "router-route-3"},
-                        {"name": "router-route-4"},
-                    ],
-                },
-            },
-            "gateway": {
-                "refs": [
-                    {"name": "router-gateway-2", "namespace": KSERVE_TEST_NAMESPACE},
-                ],
-            },
-        },
-    },
+    "router-custom-route-timeout": _router_custom_route_timeout,
+    "router-custom-route-timeout-pd": _router_custom_route_timeout_pd,
+    "router-with-refs": _router_with_refs,
+    "router-with-refs-pd": _router_with_refs_pd,
     "scheduler-managed": {
         "router": {
             "scheduler": {
@@ -1080,28 +985,8 @@ LLMINFERENCESERVICE_CONFIGS = {
             },
         },
     },
-    "router-with-gateway-section-name": {
-        "router": {
-            "gateway": {
-                "refs": [
-                    {
-                        "name": "router-gateway-1",
-                        "namespace": KSERVE_TEST_NAMESPACE,
-                        "sectionName": "http",
-                    },
-                ],
-            },
-        },
-    },
-    "router-with-gateway-ref": {
-        "router": {
-            "gateway": {
-                "refs": [
-                    {"name": "router-gateway-1", "namespace": KSERVE_TEST_NAMESPACE},
-                ],
-            },
-        },
-    },
+    "router-with-gateway-section-name": _router_with_gateway_section_name,
+    "router-with-gateway-ref": _router_with_gateway_ref,
     "router-with-managed-route": {
         "router": {"route": {}},
     },
@@ -1550,17 +1435,6 @@ LLMINFERENCESERVICE_CONFIGS = {
 }
 
 
-def _substitute_namespace(obj, old_ns: str, new_ns: str):
-    """Recursively replace old_ns with new_ns in all string values of a dict/list tree."""
-    if isinstance(obj, dict):
-        return {k: _substitute_namespace(v, old_ns, new_ns) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [_substitute_namespace(v, old_ns, new_ns) for v in obj]
-    if isinstance(obj, str) and old_ns in obj:
-        return obj.replace(old_ns, new_ns)
-    return obj
-
-
 def _setup_test_case_service(
     kserve_client, tc, test_node_name, namespace, peer_index=None
 ):
@@ -1580,6 +1454,8 @@ def _setup_test_case_service(
         tc.service_name = generate_service_name(test_node_name + suffix, tc.base_refs)
     if tc.model_name == "default/model":
         tc.model_name = _get_model_name_from_configs(tc.base_refs)
+    elif "{namespace}" in tc.model_name:
+        tc.model_name = tc.model_name.format(namespace=namespace)
 
     created_configs = []
     unique_base_refs = []
@@ -1587,8 +1463,8 @@ def _setup_test_case_service(
         unique_config_name = generate_k8s_safe_suffix(base_ref, [tc.service_name])
         unique_base_refs.append(unique_config_name)
 
-        spec = copy.deepcopy(LLMINFERENCESERVICE_CONFIGS[base_ref])
-        spec = _substitute_namespace(spec, KSERVE_TEST_NAMESPACE, namespace)
+        config = LLMINFERENCESERVICE_CONFIGS[base_ref]
+        spec = config(namespace) if callable(config) else copy.deepcopy(config)
 
         unique_config_body = {
             "apiVersion": "serving.kserve.io/v1alpha1",
@@ -1630,25 +1506,8 @@ def test_case(request):
     create_test_namespace(ns)
     provision_namespace_secrets(ns)
     tc.namespace = ns
-
-    for target in [tc] + (tc.peers if hasattr(tc, "peers") else []):
-        target.namespace = ns
-        if hasattr(target, "extra_headers") and target.extra_headers:
-            target.extra_headers = _substitute_namespace(
-                target.extra_headers, KSERVE_TEST_NAMESPACE, ns
-            )
-        if hasattr(target, "model_name") and KSERVE_TEST_NAMESPACE in (
-            target.model_name or ""
-        ):
-            target.model_name = target.model_name.replace(KSERVE_TEST_NAMESPACE, ns)
-        if hasattr(target, "expected_response") and target.expected_response:
-            target.expected_response = _substitute_namespace(
-                target.expected_response, KSERVE_TEST_NAMESPACE, ns
-            )
-        if hasattr(target, "expected_gateway") and target.expected_gateway:
-            target.expected_gateway = _substitute_namespace(
-                copy.deepcopy(target.expected_gateway), KSERVE_TEST_NAMESPACE, ns
-            )
+    for peer in tc.peers:
+        peer.namespace = ns
 
     # Execute before test hooks (namespace is set on tc for hooks that need it)
     try:

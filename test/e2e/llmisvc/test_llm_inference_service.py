@@ -25,8 +25,6 @@ from typing import Any, Callable, Dict, List, Optional
 
 from .diagnostic import collect_diagnostics
 from .fixtures import (
-    KSERVE_TEST_NAMESPACE,
-    _substitute_namespace,
     create_router_resources,
     create_scheduler_configmap,
     delete_scheduler_configmap,
@@ -35,8 +33,9 @@ from .fixtures import (
     inject_k8s_proxy,
 )
 from .test_resources import (
-    ROUTER_GATEWAYS,
-    ROUTER_ROUTES,
+    make_router_gateway,
+    make_router_health_route,
+    make_router_main_route,
 )
 from .logging import log_execution, logger
 from ..common.http_retry import get_with_retry, post_with_retry
@@ -44,14 +43,14 @@ from ..common.http_retry import get_with_retry, post_with_retry
 KSERVE_PLURAL_LLMINFERENCESERVICE = "llminferenceservices"
 
 
-def assert_200(response: requests.Response, test_case=None) -> None:
+def assert_200(response: requests.Response, namespace=None) -> None:
     """Default response assertion that checks for 200 status code."""
     assert response.status_code == 200, (
         f"Service returned {response.status_code}: {response.text}"
     )
 
 
-def assert_200_with_choices(response: requests.Response, test_case=None) -> None:
+def assert_200_with_choices(response: requests.Response, namespace=None) -> None:
     """Assert 200 status code with choices in response."""
     assert (
         response.status_code == 200
@@ -65,7 +64,7 @@ def create_response_assertion(
 ) -> Callable[[requests.Response], None]:
     """Factory for creating flexible response assertions with arbitrary status codes and field checks."""
 
-    def response_assertion(response: requests.Response, test_case=None) -> None:
+    def response_assertion(response: requests.Response, namespace=None) -> None:
         assert response.status_code == status_code, (
             f"Expected status code {status_code}, but service returned {response.status_code}: {response.text}"
         )
@@ -84,10 +83,8 @@ def assert_model_field_matches(
 ) -> Callable[[requests.Response], None]:
     """Assert 200 with choices and response model field matching expected_model."""
 
-    def response_assertion(response: requests.Response, test_case=None) -> None:
-        model = expected_model
-        if test_case and test_case.namespace:
-            model = model.replace(KSERVE_TEST_NAMESPACE, test_case.namespace)
+    def response_assertion(response: requests.Response, namespace=None) -> None:
+        model = expected_model.format(namespace=namespace)
         assert response.status_code == 200, (
             f"Expected 200, got {response.status_code}: {response.text}"
         )
@@ -102,16 +99,13 @@ def assert_model_field_matches(
     return response_assertion
 
 
-def assert_models_contains(*model_ids: str) -> Callable[[requests.Response], None]:
+def assert_models_contains(
+    *model_ids: str,
+) -> Callable[[requests.Response], None]:
     """Assert 200 with data[] containing entries whose ids match all given model_ids."""
 
-    def response_assertion(response: requests.Response, test_case=None) -> None:
-        resolved_ids = list(model_ids)
-        if test_case and test_case.namespace:
-            resolved_ids = [
-                mid.replace(KSERVE_TEST_NAMESPACE, test_case.namespace)
-                for mid in resolved_ids
-            ]
+    def response_assertion(response: requests.Response, namespace=None) -> None:
+        resolved_ids = [mid.format(namespace=namespace) for mid in model_ids]
         assert response.status_code == 200, (
             f"Expected 200, got {response.status_code}: {response.text}"
         )
@@ -214,7 +208,7 @@ class TestCase:
     response_timeout: int = 60
     extra_headers: Optional[Dict[str, str]] = None
     url_getter: Optional[Callable] = None
-    expected_gateway: Optional[Dict[str, Any]] = None
+    expected_gateway: Optional[str] = None
     namespace: Optional[str] = None
     before_test: List[Callable[..., Any]] = field(default_factory=list)
     after_test: List[Callable[..., Any]] = field(default_factory=list)
@@ -262,15 +256,16 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 prompt="KServe is a",
                 payload_formatter=completions_payload,
                 response_assertion=create_response_assertion(with_field="choices"),
-                expected_gateway=ROUTER_GATEWAYS[0],
+                expected_gateway="router-gateway-1",
                 before_test=[
                     lambda tc: create_router_resources(
                         gateways=[
-                            _substitute_namespace(
-                                ROUTER_GATEWAYS[0], KSERVE_TEST_NAMESPACE, tc.namespace
-                            )
+                            make_router_gateway(
+                                "router-gateway-1",
+                                tc.namespace,
+                            ),
                         ],
-                    )
+                    ),
                 ],
             ),
             marks=[
@@ -316,23 +311,30 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 ],
                 prompt="KServe is a",
                 service_name="router-with-refs-test",
-                expected_gateway=ROUTER_GATEWAYS[0],
+                expected_gateway="router-gateway-1",
                 before_test=[
                     lambda tc: create_router_resources(
                         gateways=[
-                            _substitute_namespace(
-                                ROUTER_GATEWAYS[0], KSERVE_TEST_NAMESPACE, tc.namespace
-                            )
+                            make_router_gateway(
+                                "router-gateway-1",
+                                tc.namespace,
+                            ),
                         ],
                         routes=[
-                            _substitute_namespace(
-                                ROUTER_ROUTES[0], KSERVE_TEST_NAMESPACE, tc.namespace
+                            make_router_main_route(
+                                "router-route-1",
+                                tc.namespace,
+                                "router-gateway-1",
+                                "router-with-refs-test",
                             ),
-                            _substitute_namespace(
-                                ROUTER_ROUTES[1], KSERVE_TEST_NAMESPACE, tc.namespace
+                            make_router_health_route(
+                                "router-route-2",
+                                tc.namespace,
+                                "router-gateway-1",
+                                "router-with-refs-test",
                             ),
                         ],
-                    )
+                    ),
                 ],
             ),
             marks=[
@@ -380,23 +382,30 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 "Provide a detailed comparison with open source alternatives, focusing on operational trade-offs.",
                 service_name="router-with-refs-pd-test",
                 response_assertion=assert_200_with_choices,
-                expected_gateway=ROUTER_GATEWAYS[1],
+                expected_gateway="router-gateway-2",
                 before_test=[
                     lambda tc: create_router_resources(
                         gateways=[
-                            _substitute_namespace(
-                                ROUTER_GATEWAYS[1], KSERVE_TEST_NAMESPACE, tc.namespace
-                            )
+                            make_router_gateway(
+                                "router-gateway-2",
+                                tc.namespace,
+                            ),
                         ],
                         routes=[
-                            _substitute_namespace(
-                                ROUTER_ROUTES[2], KSERVE_TEST_NAMESPACE, tc.namespace
+                            make_router_main_route(
+                                "router-route-3",
+                                tc.namespace,
+                                "router-gateway-2",
+                                "router-with-refs-pd-test",
                             ),
-                            _substitute_namespace(
-                                ROUTER_ROUTES[3], KSERVE_TEST_NAMESPACE, tc.namespace
+                            make_router_health_route(
+                                "router-route-4",
+                                tc.namespace,
+                                "router-gateway-2",
+                                "router-with-refs-pd-test",
                             ),
                         ],
-                    )
+                    ),
                 ],
             ),
             marks=[
@@ -631,7 +640,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 response_assertion=assert_model_field_matches("facebook/opt-125m"),
                 url_getter=get_model_routing_url,
                 extra_headers={
-                    MODEL_ROUTING_HEADER: f"publishers/{KSERVE_TEST_NAMESPACE}/models/facebook/opt-125m",
+                    MODEL_ROUTING_HEADER: "publishers/{namespace}/models/facebook/opt-125m",
                 },
                 peers=[
                     TestCase(
@@ -648,7 +657,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                         ),
                         url_getter=get_model_routing_url,
                         extra_headers={
-                            MODEL_ROUTING_HEADER: f"publishers/{KSERVE_TEST_NAMESPACE}/models/Qwen/Qwen2.5-0.5B-Instruct",
+                            MODEL_ROUTING_HEADER: "publishers/{namespace}/models/Qwen/Qwen2.5-0.5B-Instruct",
                         },
                     ),
                 ],
@@ -673,7 +682,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 response_assertion=assert_model_field_matches("facebook/opt-125m"),
                 url_getter=get_model_routing_url,
                 extra_headers={
-                    MODEL_ROUTING_HEADER: f"publishers/{KSERVE_TEST_NAMESPACE}/models/facebook/opt-125m",
+                    MODEL_ROUTING_HEADER: "publishers/{namespace}/models/facebook/opt-125m",
                 },
                 peers=[
                     TestCase(
@@ -690,7 +699,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                         ),
                         url_getter=get_model_routing_url,
                         extra_headers={
-                            MODEL_ROUTING_HEADER: f"publishers/{KSERVE_TEST_NAMESPACE}/models/Qwen/Qwen2.5-0.5B-Instruct",
+                            MODEL_ROUTING_HEADER: "publishers/{namespace}/models/Qwen/Qwen2.5-0.5B-Instruct",
                         },
                     ),
                 ],
@@ -712,14 +721,14 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 ],
                 endpoint="/v1/completions",
                 prompt="KServe is a",
-                model_name=f"publishers/{KSERVE_TEST_NAMESPACE}/models/lora-adapter-1",
+                model_name="publishers/{namespace}/models/lora-adapter-1",
                 payload_formatter=completions_payload,
                 response_assertion=assert_model_field_matches(
-                    f"publishers/{KSERVE_TEST_NAMESPACE}/models/lora-adapter-1"
+                    "publishers/{namespace}/models/lora-adapter-1"
                 ),
                 url_getter=get_model_routing_url,
                 extra_headers={
-                    MODEL_ROUTING_HEADER: f"publishers/{KSERVE_TEST_NAMESPACE}/models/lora-adapter-1",
+                    MODEL_ROUTING_HEADER: "publishers/{namespace}/models/lora-adapter-1",
                 },
             ),
             marks=[
@@ -740,13 +749,13 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 endpoint="/v1/models",
                 response_assertion=assert_models_contains(
                     "facebook/opt-125m",
-                    f"publishers/{KSERVE_TEST_NAMESPACE}/models/facebook/opt-125m",
+                    "publishers/{namespace}/models/facebook/opt-125m",
                     "lora-adapter-1",
-                    f"publishers/{KSERVE_TEST_NAMESPACE}/models/lora-adapter-1",
+                    "publishers/{namespace}/models/lora-adapter-1",
                 ),
                 url_getter=get_model_routing_url,
                 extra_headers={
-                    MODEL_ROUTING_HEADER: f"publishers/{KSERVE_TEST_NAMESPACE}/models/facebook/opt-125m",
+                    MODEL_ROUTING_HEADER: "publishers/{namespace}/models/facebook/opt-125m",
                 },
             ),
             marks=[
@@ -885,12 +894,12 @@ def create_llmisvc(kserve_client: KServeClient, llm_isvc: V1alpha1LLMInferenceSe
 def assert_address_origins(
     kserve_client: KServeClient,
     llm_isvc: V1alpha1LLMInferenceService,
-    expected_gateway: Optional[Dict[str, Any]] = None,
+    expected_gateway_name: Optional[str] = None,
 ):
     """Verify that every address in status carries a valid origin reference.
 
-    When expected_gateway is a Gateway resource dict, also asserts the
-    origin matches its metadata.name and metadata.namespace.
+    When expected_gateway_name is set, also asserts the origin matches
+    that gateway name and the service's namespace.
 
     Reads via v1alpha2 (hub) because v1alpha1 conversion drops origin.
     """
@@ -906,8 +915,6 @@ def assert_address_origins(
         f"Expected at least one address in status, got: {svc.get('status')}"
     )
 
-    gw_meta = expected_gateway.get("metadata", {}) if expected_gateway else {}
-
     for addr in addresses:
         origin = addr.get("origin")
         assert origin is not None, f"Address {addr.get('url')} is missing origin"
@@ -918,12 +925,13 @@ def assert_address_origins(
             f"Expected origin group 'gateway.networking.k8s.io', got '{origin.get('group')}'"
         )
 
-        if gw_meta:
-            assert origin.get("name") == gw_meta["name"], (
-                f"Expected origin gateway '{gw_meta['name']}', got '{origin.get('name')}'"
+        if expected_gateway_name:
+            assert origin.get("name") == expected_gateway_name, (
+                f"Expected origin gateway '{expected_gateway_name}', got '{origin.get('name')}'"
             )
-            assert origin.get("namespace") == gw_meta["namespace"], (
-                f"Expected origin namespace '{gw_meta['namespace']}', got '{origin.get('namespace')}'"
+            expected_ns = llm_isvc.metadata.namespace
+            assert origin.get("namespace") == expected_ns, (
+                f"Expected origin namespace '{expected_ns}', got '{origin.get('namespace')}'"
             )
 
     logger.info(f"All {len(addresses)} addresses have valid origin references")
@@ -1098,16 +1106,20 @@ def wait_for_model_response(
         model_url = service_url + test_case.endpoint
 
         headers = {"Content-Type": "application/json"}
-        if extra_headers:
-            headers.update(extra_headers)
-
+        ns = test_case.namespace or ""
+        resolved_headers = (
+            {k: v.format(namespace=ns) for k, v in extra_headers.items()}
+            if extra_headers
+            else {}
+        )
+        headers.update(resolved_headers)
         if test_case.payload_formatter is not None:
             test_payload = test_case.payload_formatter(test_case)
         elif test_case.prompt is not None:
             test_payload = {
-                "model": test_case.model_name
-                if not extra_headers or MODEL_ROUTING_HEADER not in extra_headers
-                else extra_headers[MODEL_ROUTING_HEADER],
+                "model": resolved_headers.get(
+                    MODEL_ROUTING_HEADER, test_case.model_name
+                ),
                 "prompt": test_case.prompt,
                 "max_tokens": test_case.max_tokens,
             }
@@ -1142,7 +1154,7 @@ def wait_for_model_response(
         )
 
     response = wait_for(get_successful_response, timeout=timeout_seconds, interval=5.0)
-    test_case.response_assertion(response, test_case=test_case)
+    test_case.response_assertion(response, namespace=test_case.namespace)
     return response.text[: test_case.max_tokens]
 
 
