@@ -55,7 +55,7 @@ func StartDispatcher(nworkers int, store Store, batchStrategy BatchStrategy, log
 				logger.Error("Logger store not configured, cannot store batch")
 				continue
 			}
-			if err := store.Store(batch[0].Url, batch); err != nil {
+			if err := store.Store(context.Background(), batch[0].Url, batch); err != nil {
 				logger.Errorf("Failed to store batch: %v", err)
 			}
 		}

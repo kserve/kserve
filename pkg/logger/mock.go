@@ -14,6 +14,7 @@ limitations under the License.
 package logger
 
 import (
+	"context"
 	"net/url"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -35,7 +36,7 @@ func NewMockStore(storageSpec *v1beta1.StorageSpec) *MockStore {
 	}
 }
 
-func (m MockStore) Store(_ *url.URL, batch []LogRequest) error {
+func (m MockStore) Store(_ context.Context, _ *url.URL, batch []LogRequest) error {
 	if m.ResponseChan != nil {
 		for i := range batch {
 			m.ResponseChan <- &batch[i]

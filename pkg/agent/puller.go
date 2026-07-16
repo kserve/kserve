@@ -18,6 +18,7 @@ package agent
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -150,7 +151,7 @@ func (p *Puller) modelProcessor(modelName string, ops <-chan *ModelOp) {
 		switch modelOp.Op {
 		case Add:
 			p.logger.Infof("Downloading model from %s", modelOp.Spec.StorageURI)
-			err := p.Downloader.DownloadModel(modelName, modelOp.Spec)
+			err := p.Downloader.DownloadModel(context.Background(), modelName, modelOp.Spec)
 			if err != nil {
 				// If there is an error, we will NOT send a request. As such, to know about errors, you will
 				// need to call the error endpoint of the puller

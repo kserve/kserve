@@ -14,6 +14,7 @@ limitations under the License.
 package logger
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -43,7 +44,7 @@ func TestNilUrl(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	store, _, server := mockStore()
 	defer server.Close()
-	err := store.Store(nil, []LogRequest{{}})
+	err := store.Store(context.Background(), nil, []LogRequest{{}})
 	g.Expect(err).To(gomega.HaveOccurred())
 	g.Expect(err.Error()).To(gomega.MatchRegexp("url|URL"))
 }
@@ -56,7 +57,7 @@ func TestMissingBucket(t *testing.T) {
 	logUrl, err := url.Parse("s3://")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	err = store.Store(logUrl, []LogRequest{{
+	err = store.Store(context.Background(), logUrl, []LogRequest{{
 		ReqType: CEInferenceRequest,
 	}})
 	g.Expect(err).To(gomega.HaveOccurred())
@@ -71,7 +72,7 @@ func TestConfiguredPrefix(t *testing.T) {
 	logUrl, err := url.Parse("s3://bucket/prefix")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	err = store.Store(logUrl, []LogRequest{{
+	err = store.Store(context.Background(), logUrl, []LogRequest{{
 		Id:               "0123",
 		Namespace:        "ns",
 		InferenceService: "inference",

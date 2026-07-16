@@ -17,6 +17,7 @@ limitations under the License.
 package agent
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -38,7 +39,7 @@ type Downloader struct {
 	Logger    *zap.SugaredLogger
 }
 
-func (d *Downloader) DownloadModel(modelName string, modelSpec *v1alpha1.ModelSpec) error {
+func (d *Downloader) DownloadModel(ctx context.Context, modelName string, modelSpec *v1alpha1.ModelSpec) error {
 	if modelSpec != nil {
 		sha256 := storage.AsSha256(modelSpec)
 		successFile := filepath.Join(d.ModelDir, modelName,
@@ -48,7 +49,7 @@ func (d *Downloader) DownloadModel(modelName string, modelSpec *v1alpha1.ModelSp
 		_, err := os.Stat(successFile)
 		switch {
 		case os.IsNotExist(err):
-			if err := d.download(modelName, modelSpec.StorageURI); err != nil {
+			if err := d.download(ctx, modelName, modelSpec.StorageURI); err != nil {
 				return errors.Wrapf(err, "failed to download model")
 			}
 			file, createErr := storage.Create(successFile)
@@ -79,7 +80,7 @@ func (d *Downloader) DownloadModel(modelName string, modelSpec *v1alpha1.ModelSp
 	return nil
 }
 
-func (d *Downloader) download(modelName string, storageUri string) error {
+func (d *Downloader) download(ctx context.Context, modelName string, storageUri string) error {
 	protocol, err := extractProtocol(storageUri)
 	if err != nil {
 		return errors.Wrapf(err, "unsupported protocol")
@@ -90,7 +91,7 @@ func (d *Downloader) download(modelName string, storageUri string) error {
 	if err != nil {
 		return errors.Wrapf(err, "unable to create or get provider for protocol %s", protocol)
 	}
-	if err := provider.DownloadModel(d.ModelDir, modelName, storageUri); err != nil {
+	if err := provider.DownloadModel(ctx, d.ModelDir, modelName, storageUri); err != nil {
 		return errors.Wrapf(err, "failed to download model")
 	}
 	return nil

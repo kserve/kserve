@@ -375,7 +375,7 @@ var _ = Describe("Watcher", func() {
 				}
 				modelName := "model1"
 				modelStorageURI := "gs://testBucket/"
-				err := cl.DownloadModel(modelDir, modelName, modelStorageURI)
+				err := cl.DownloadModel(ctx, modelDir, modelName, modelStorageURI)
 				Expect(err).ToNot(HaveOccurred())
 
 				testFile := filepath.Join(modelDir, modelName, "testModel1")
@@ -407,7 +407,7 @@ var _ = Describe("Watcher", func() {
 				modelName := "model1"
 				modelStorageURI := "gs://testBucket/testModel2"
 				expectedErr := fmt.Errorf("unable to download object/s because: %w", gstorage.ErrObjectNotExist)
-				actualErr := cl.DownloadModel(modelDir, modelName, modelStorageURI)
+				actualErr := cl.DownloadModel(ctx, modelDir, modelName, modelStorageURI)
 				Expect(actualErr).To(Equal(expectedErr))
 			})
 		})
@@ -438,7 +438,7 @@ var _ = Describe("Watcher", func() {
 				}
 
 				modelStorageURI := "gs://testBucket/"
-				err := cl.DownloadModel(modelDir, "", modelStorageURI)
+				err := cl.DownloadModel(ctx, modelDir, "", modelStorageURI)
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -556,6 +556,7 @@ var _ = Describe("Watcher", func() {
 	Describe("Use HTTP(S) Downloader", func() {
 		Context("Download Uncompressed Model", func() {
 			It("should download test model and write contents", func() {
+				ctx := context.Background()
 				modelContents := "Temporary content"
 				scenarios := map[string]struct {
 					server *httptest.Server
@@ -584,7 +585,7 @@ var _ = Describe("Watcher", func() {
 						Client: ts.Client(),
 					}
 
-					err := cl.DownloadModel(modelDir, modelName, modelStorageURI)
+					err := cl.DownloadModel(ctx, modelDir, modelName, modelStorageURI)
 					Expect(err).ToNot(HaveOccurred())
 
 					testFile := filepath.Join(modelDir, modelName, modelFile)
@@ -597,6 +598,7 @@ var _ = Describe("Watcher", func() {
 
 		Context("Model Download Failure", func() {
 			It("should fail out if the uri does not exist", func() {
+				ctx := context.Background()
 				logger.Printf("Creating Client")
 				modelName := "model1"
 				invalidModelStorageURI := "https://example.com/model.joblib"
@@ -606,13 +608,14 @@ var _ = Describe("Watcher", func() {
 					Client: ts.Client(),
 				}
 
-				actualErr := cl.DownloadModel(modelDir, modelName, invalidModelStorageURI)
+				actualErr := cl.DownloadModel(ctx, modelDir, modelName, invalidModelStorageURI)
 				Expect(actualErr).To(HaveOccurred())
 			})
 		})
 
 		Context("Download All Models", func() {
 			It("should download and load zip and tar files", func() {
+				ctx := context.Background()
 				tarContent := "1f8b0800bac550600003cbcd4f49cdd12b28c960a01d3030303033315100d1e666a660dac008c287010" +
 					"54313a090a189919981998281a1b1b1a1118382010ddd0407a5c525894540a754656466e464e2560754" +
 					"969686c71ca83fe0f4281805a360140c7200009f7e1bb400060000"
@@ -666,9 +669,9 @@ var _ = Describe("Watcher", func() {
 						Client: tarServer.Client(),
 					}
 
-					err := zipcl.DownloadModel(modelDir, zipModel, zipStorageURI)
+					err := zipcl.DownloadModel(ctx, modelDir, zipModel, zipStorageURI)
 					Expect(err).ToNot(HaveOccurred())
-					err = tarcl.DownloadModel(modelDir, tarModel, tarStorageURI)
+					err = tarcl.DownloadModel(ctx, modelDir, tarModel, tarStorageURI)
 					Expect(err).ToNot(HaveOccurred())
 				}
 			})
