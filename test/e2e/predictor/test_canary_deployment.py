@@ -90,7 +90,7 @@ def _safe_delete(kserve, service_name):
     try:
         kserve.delete(service_name, KSERVE_TEST_NAMESPACE)
     except Exception:
-        pass
+        logger.exception("Failed to delete %s during cleanup", service_name)
 
 
 def _wait_for_deployment(apps_v1, name, namespace, timeout=120):
