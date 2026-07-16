@@ -6,7 +6,6 @@ namespace: kserve
 resources:
   - service.yaml
   - manager.yaml
-  - ../crd/full/llmisvc
   - ../certmanager/llmisvc
   - ../rbac/llmisvc
   - ../webhook/llmisvc
@@ -122,7 +121,7 @@ replacements:
     - spec.template.spec.serviceAccountName
     select:
       kind: Deployment
-      name: llmisvc-controller-manager    
+      name: llmisvc-controller-manager
 patches:
 - path: llmisvc_mutatingwebhook_cainjection_patch.yaml
 - path: llmisvc_validatingwebhook_cainjection_patch.yaml
