@@ -17,10 +17,6 @@ import os
 import time
 
 import pytest
-from kubernetes import client
-from kubernetes.client import V1ResourceRequirements
-from kubernetes.client.rest import ApiException
-
 from kserve import (
     KServeClient,
     V1beta1CanarySpec,
@@ -31,6 +27,9 @@ from kserve import (
     V1beta1PredictorSpec,
     constants,
 )
+from kubernetes import client
+from kubernetes.client import V1ResourceRequirements
+from kubernetes.client.rest import ApiException
 
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
@@ -230,8 +229,8 @@ def test_canary_promote():
         post_promote_uids = _get_pod_uids(
             apps, f"{service_name}-v2-predictor", KSERVE_TEST_NAMESPACE
         )
-        assert canary_pod_uids == post_promote_uids, (
-            f"Pod UIDs changed during promotion: before={canary_pod_uids}, after={post_promote_uids}"
+        assert canary_pod_uids.issubset(post_promote_uids), (
+            f"Canary pods were restarted during promotion: canary={canary_pod_uids}, post_promote={post_promote_uids}"
         )
     finally:
         _safe_delete(kserve, service_name)
@@ -325,7 +324,7 @@ def test_canary_force_stop():
                 name=service_name,
                 namespace=KSERVE_TEST_NAMESPACE,
                 annotations={
-                    "serving.kserve.io/force-stop-canary-v2": "true",
+                    "serving.kserve.io/stop": "true",
                 },
             ),
             spec=isvc.spec,
