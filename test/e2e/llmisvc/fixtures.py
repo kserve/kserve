@@ -1523,6 +1523,8 @@ def _get_model_name_from_configs(config_names):
     model_name = "default/model"
     for config_name in config_names:
         config = LLMINFERENCESERVICE_CONFIGS[config_name]
+        if callable(config):
+            continue
         if "model" in config and "name" in config["model"]:
             model_name = config["model"]["name"]
     return model_name
