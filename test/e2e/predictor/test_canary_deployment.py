@@ -170,7 +170,7 @@ def test_canary_create():
         assert canary_condition is not None, "CanaryPredictorReady condition missing"
         assert canary_condition["status"] == "True"
 
-        canary_status = got.get("status", {}).get("canary", [])
+        canary_status = got.get("status", {}).get("canaryStatuses", [])
         assert len(canary_status) > 0, "canary status should be populated"
         assert canary_status[0]["name"] == "v2"
     finally:
@@ -209,7 +209,7 @@ def test_canary_promote():
 
         promoted = _make_isvc(service_name)
         promoted.spec.predictor = _make_predictor(CANARY_MODEL_URI, name="v2")
-        promoted.spec.canary = None
+        promoted.spec.canary = []
 
         patch_resp = kserve.patch(
             service_name, promoted, namespace=KSERVE_TEST_NAMESPACE
@@ -264,7 +264,7 @@ def test_canary_rollback():
         )
 
         rolled_back = _make_isvc(service_name)
-        rolled_back.spec.canary = None
+        rolled_back.spec.canary = []
 
         patch_resp = kserve.patch(
             service_name, rolled_back, namespace=KSERVE_TEST_NAMESPACE
