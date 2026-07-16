@@ -5253,7 +5253,7 @@ spec:
                 drop:
                 - ALL
               readOnlyRootFilesystem: true
-              runAsNonRoot: true
+              runAsNonRoot: false
               seccompProfile:
                 type: RuntimeDefault
             terminationMessagePath: /dev/termination-log
