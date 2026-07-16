@@ -51,6 +51,10 @@ type InferenceServiceStatus struct {
 	Components map[ComponentType]ComponentStatusSpec `json:"components,omitempty"`
 	// Model related statuses
 	ModelStatus ModelStatus `json:"modelStatus,omitempty"`
+	// CanaryStatuses is the observed state of canary deployments.
+	// +optional
+	// +listType=atomic
+	CanaryStatuses []CanaryStatus `json:"canaryStatuses,omitempty"`
 	// InferenceService DeploymentMode
 	DeploymentMode string `json:"deploymentMode,omitempty"`
 	// ServingRuntimeName is the name of the ServingRuntime that the InferenceService is using
@@ -92,6 +96,19 @@ type ComponentStatusSpec struct {
 	Address *duckv1.Addressable `json:"address,omitempty"`
 }
 
+// CanaryStatus represents the observed state of a canary deployment.
+type CanaryStatus struct {
+	// Name of the canary variant (from predictor.name).
+	Name string `json:"name"`
+	// Ready indicates the canary deployment is available and serving traffic.
+	Ready bool `json:"ready"`
+	// TrafficPercent is the current traffic percentage routed to this canary.
+	TrafficPercent int32 `json:"trafficPercent"`
+	// ModelStatus tracks the canary model's loading state and transitions.
+	// +optional
+	ModelStatus ModelStatus `json:"modelStatus,omitempty"`
+}
+
 // ComponentType contains the different types of components of the service
 type ComponentType string
 
@@ -128,6 +145,8 @@ const (
 	RoutesReady apis.ConditionType = "RoutesReady"
 	// LatestDeploymentReady is set when underlying configurations for all components have reported readiness.
 	LatestDeploymentReady apis.ConditionType = "LatestDeploymentReady"
+	// CanaryPredictorReady is set when all canary predictor deployments have reported readiness.
+	CanaryPredictorReady apis.ConditionType = "CanaryPredictorReady"
 	// Stopped is set when the inference service has been stopped and all related objects are deleted
 	Stopped apis.ConditionType = "Stopped"
 )

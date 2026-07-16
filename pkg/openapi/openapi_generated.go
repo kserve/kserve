@@ -80,6 +80,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec":                schema_pkg_apis_serving_v1beta1_AutoScalingSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoscalerConfig":               schema_pkg_apis_serving_v1beta1_AutoscalerConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher":                        schema_pkg_apis_serving_v1beta1_Batcher(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.CanarySpec":                     schema_pkg_apis_serving_v1beta1_CanarySpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.CanaryStatus":                   schema_pkg_apis_serving_v1beta1_CanaryStatus(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ComponentExtensionSpec":         schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ComponentStatusSpec":            schema_pkg_apis_serving_v1beta1_ComponentStatusSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ConfidentialSpec":               schema_pkg_apis_serving_v1beta1_ConfidentialSpec(ref),
@@ -3142,6 +3144,84 @@ func schema_pkg_apis_serving_v1beta1_Batcher(ref common.ReferenceCallback) commo
 				},
 			},
 		},
+	}
+}
+
+func schema_pkg_apis_serving_v1beta1_CanarySpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CanarySpec defines a canary deployment for progressive rollout of a new model version. The canary uses fixed replicas (no autoscaling). The predictor.name field is required and used for Deployment/Service naming.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"predictor": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Predictor spec for the canary variant. predictor.name is required.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorSpec"),
+						},
+					},
+					"trafficPercent": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TrafficPercent is the percentage of inference traffic routed to this canary. The sum of all canary TrafficPercent values must be <= 100. Set to 0 for dark launch (deploy without routing traffic).",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+				Required: []string{"predictor", "trafficPercent"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorSpec"},
+	}
+}
+
+func schema_pkg_apis_serving_v1beta1_CanaryStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CanaryStatus represents the observed state of a canary deployment.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name of the canary variant (from predictor.name).",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"ready": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Ready indicates the canary deployment is available and serving traffic.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"trafficPercent": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TrafficPercent is the current traffic percentage routed to this canary.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"modelStatus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ModelStatus tracks the canary model's loading state and transitions.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStatus"),
+						},
+					},
+				},
+				Required: []string{"name", "ready", "trafficPercent"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStatus"},
 	}
 }
 
@@ -6570,12 +6650,31 @@ func schema_pkg_apis_serving_v1beta1_InferenceServiceSpec(ref common.ReferenceCa
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.TransformerSpec"),
 						},
 					},
+					"canary": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Canary defines optional canary deployments for progressive model rollout. Each canary's predictor.name drives the Deployment name: {isvc}-{name}-predictor. To promote a canary without restart, set predictor.name to the canary name and remove the canary entry.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.CanarySpec"),
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"predictor"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TransformerSpec"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.CanarySpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TransformerSpec"},
 	}
 }
 
@@ -6663,6 +6762,25 @@ func schema_pkg_apis_serving_v1beta1_InferenceServiceStatus(ref common.Reference
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStatus"),
 						},
 					},
+					"canaryStatuses": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "CanaryStatuses is the observed state of canary deployments.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.CanaryStatus"),
+									},
+								},
+							},
+						},
+					},
 					"deploymentMode": {
 						SchemaProps: spec.SchemaProps{
 							Description: "InferenceService DeploymentMode",
@@ -6688,7 +6806,7 @@ func schema_pkg_apis_serving_v1beta1_InferenceServiceStatus(ref common.Reference
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ComponentStatusSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStatus", "knative.dev/pkg/apis.Condition", "knative.dev/pkg/apis.URL", "knative.dev/pkg/apis/duck/v1.Addressable"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.CanaryStatus", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ComponentStatusSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStatus", "knative.dev/pkg/apis.Condition", "knative.dev/pkg/apis.URL", "knative.dev/pkg/apis/duck/v1.Addressable"},
 	}
 }
 
@@ -10076,6 +10194,13 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 				Description: "PredictorSpec defines the configuration for a predictor, The following fields follow a \"1-of\" semantic. Users must specify exactly one spec.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name optionally identifies this predictor variant. When set, the Deployment and Service are named {isvc}-{name}-predictor instead of the default {isvc}-predictor. Required when used in a canary entry.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"sklearn": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec for SKLearn model server",
