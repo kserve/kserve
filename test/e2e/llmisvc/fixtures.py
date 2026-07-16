@@ -28,13 +28,6 @@ from kubernetes import client, config
 from typing import List, Optional
 
 from .logging import logger
-from .namespace import (
-    create_test_namespace,
-    delete_test_namespace,
-    generate_namespace_name,
-    provision_namespace_secrets,
-    skip_deletion,
-)
 
 KSERVE_PLURAL_LLMINFERENCESERVICECONFIG = "llminferenceserviceconfigs"
 # Scheduler config constants
@@ -1492,8 +1485,9 @@ def _setup_test_case_service(
 
 
 @pytest.fixture(scope="function")
-def test_case(request):
+def test_case(request, test_namespace):
     tc = request.param
+    ns = test_namespace
 
     inject_k8s_proxy()
 
@@ -1502,45 +1496,26 @@ def test_case(request):
         client_configuration=client.Configuration(),
     )
 
-    ns = generate_namespace_name(request.node.name)
-    create_test_namespace(ns)
-    provision_namespace_secrets(ns)
     tc.namespace = ns
     for peer in tc.peers:
         peer.namespace = ns
 
-    # Execute before test hooks (namespace is set on tc for hooks that need it)
-    try:
-        for func in tc.before_test:
+    for func in tc.before_test:
+        func(tc)
+
+    _setup_test_case_service(kserve_client, tc, request.node.name, namespace=ns)
+    for i, peer in enumerate(tc.peers):
+        _setup_test_case_service(
+            kserve_client, peer, request.node.name, namespace=ns, peer_index=i
+        )
+
+    yield tc
+
+    for func in tc.after_test:
+        try:
             func(tc)
-    except Exception as before_test_error:
-        if not skip_deletion():
-            delete_test_namespace(ns)
-        raise RuntimeError(
-            f"Failed to execute before test hook: {before_test_error}"
-        ) from before_test_error
-
-    try:
-        _setup_test_case_service(kserve_client, tc, request.node.name, namespace=ns)
-        for i, peer in enumerate(tc.peers):
-            _setup_test_case_service(
-                kserve_client, peer, request.node.name, namespace=ns, peer_index=i
-            )
-
-        yield tc
-
-    finally:
-        if skip_deletion():
-            logger.info("Skipping resource deletion after test execution.")
-            return  # noqa: B012
-
-        for func in tc.after_test:
-            try:
-                func(tc)
-            except Exception as after_test_error:
-                logger.warning(f"Failed to execute after test hook: {after_test_error}")
-
-        delete_test_namespace(ns)
+        except Exception as after_test_error:
+            logger.warning(f"Failed to execute after test hook: {after_test_error}")
 
 
 def _get_model_name_from_configs(config_names):
