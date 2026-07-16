@@ -5252,14 +5252,15 @@ spec:
               capabilities:
                 drop:
                 - ALL
+              readOnlyRootFilesystem: true
               runAsNonRoot: true
               seccompProfile:
                 type: RuntimeDefault
             terminationMessagePath: /dev/termination-log
             terminationMessagePolicy: FallbackToLogsOnError
             volumeMounts:
-            - mountPath: /tmp/hf
-              name: hf-cache
+            - mountPath: /tmp
+              name: tmp-dir
             - mountPath: /var/run/kserve/tls
               name: tls-certs
               readOnly: true
@@ -5267,7 +5268,7 @@ spec:
           restartPolicy: Always
           volumes:
           - emptyDir: {}
-            name: hf-cache
+            name: tmp-dir
           - name: tls-certs
             secret:
               secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs`
