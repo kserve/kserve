@@ -32,14 +32,15 @@ import (
 func rewriteRulesForGroup(route *gwapiv1.HTTPRoute, llmSvc *v1alpha2.LLMInferenceService, members []resolvedMember) {
 	allBackendRefs := make([]gwapiv1.HTTPBackendRef, 0, len(members))
 	for _, m := range members {
-		w := m.weight
+		// Omit stopped members entirely - a weight:0 backendRef still causes
+		// some gateways (e.g. Envoy Gateway) to leak traffic to the backend.
 		if m.stopped {
-			w = 0
+			continue
 		}
 		allBackendRefs = append(allBackendRefs, gwapiv1.HTTPBackendRef{
 			BackendRef: gwapiv1.BackendRef{
 				BackendObjectReference: m.backendRef,
-				Weight:                 ptr.To(w),
+				Weight:                 ptr.To(m.weight),
 			},
 		})
 	}
