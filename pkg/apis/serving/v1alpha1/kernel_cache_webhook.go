@@ -1,0 +1,673 @@
+/*
+Copyright 2026 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package v1alpha1
+
+import (
+	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
+	ctrl "sigs.k8s.io/controller-runtime"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	gcrname "github.com/google/go-containerregistry/pkg/name"
+	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
+
+	"github.com/kserve/kserve/pkg/cosign"
+)
+
+// Webhook annotation keys (KServe namespaced)
+const (
+	// AnnotationResolvedDigest stores the resolved sha256 digest of the OCI image
+	// Set by mutating webhook to ensure deterministic extraction
+	AnnotationResolvedDigest = "internal.serving.kserve.io/resolved-digest"
+
+	// AnnotationCacheSizeBytes stores the total uncompressed size of kernel cache in bytes
+	// Extracted from OCI image labels during mutation
+	AnnotationCacheSizeBytes = "internal.serving.kserve.io/cache-size-bytes"
+
+	// Generic mounting annotations - extracted from OCI image labels
+	// These enable the pod mutator to mount caches without framework-specific code
+	AnnotationCacheHash         = "internal.serving.kserve.io/cache-hash"          // Hash(es) identifying cached kernels
+	AnnotationCacheMountSubpath = "internal.serving.kserve.io/cache-mount-subpath" // Relative path from cache root
+	AnnotationCacheRootEnv      = "internal.serving.kserve.io/cache-root-env"      // Environment variable assignment (NAME=VALUE)
+
+	// AnnotationDigestError stores digest resolution error for debugging
+	// Set when digest resolution fails (non-fatal in mutating webhook)
+	AnnotationDigestError = "internal.serving.kserve.io/digest-error"
+
+	// KyvernoVerifyImagesAnnotation is the Kyverno annotation that contains verification status
+	// Format: {"<image>@<digest>":"pass"}
+	KyvernoVerifyImagesAnnotation = "kyverno.io/verify-images"
+
+	// ImageLabelCacheSizeBytesSubstring is the substring in OCI image labels that contains cache size
+	// MCV tool sets labels like "io.kserve.cache-size-bytes.<layer>" with size values
+	ImageLabelCacheSizeBytesSubstring = "cache-size-bytes"
+
+	// OCI image label keys for generic mounting (set by MCV tool)
+	// These travel with the OCI image and enable framework-agnostic cache mounting
+	ImageLabelCacheHash         = "io.kserve.km/cache-hash"          // Single hash or comma-separated list
+	ImageLabelCacheMountSubpath = "io.kserve.km/cache-mount-subpath" // Relative mount path
+	ImageLabelCacheRootEnv      = "io.kserve.km/cache-root-env"      // Environment variable (NAME=VALUE)
+
+	// EnvKyvernoEnabled is the environment variable to enable/disable Kyverno verification
+	// Defaults to false if not set
+	EnvKyvernoEnabled = "KYVERNO_VERIFICATION_ENABLED"
+
+	// AnnotationMutationSig stores HMAC signature binding digest to mutating webhook
+	// Prevents users from injecting arbitrary digests - only mutating webhook can set valid digest
+	AnnotationMutationSig = "internal.serving.kserve.io/mutation-sig"
+
+	// EnvMutationSigningKey is the environment variable containing the HMAC secret
+	// Used to sign/verify mutation annotations to prevent tampering
+	EnvMutationSigningKey = "MUTATION_SIGNING_KEY"
+
+	// ImageVerificationTimeout is the timeout for cosign signature verification
+	// Set to 30 seconds to accommodate v3 bundle verification which can take 15-20 seconds
+	ImageVerificationTimeout = 30 * time.Second
+)
+
+var (
+	kernelcacheLog                         = logf.Log.WithName("kernelcache-webhook")
+	_              webhook.CustomDefaulter = &KernelCache{}
+	_              webhook.CustomValidator = &KernelCache{}
+)
+
+// SetupWebhookWithManager registers the webhook with the controller-runtime manager
+func (kc *KernelCache) SetupWebhookWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewWebhookManagedBy(mgr).
+		For(kc).
+		WithDefaulter(kc).
+		WithValidator(kc).
+		Complete()
+}
+
+// +kubebuilder:webhook:path=/mutate-serving-kserve-io-v1alpha1-kernelcache,mutating=true,failurePolicy=fail,sideEffects=None,groups=serving.kserve.io,resources=kernelcaches,verbs=create;update,versions=v1alpha1,name=kernelcache.kserve-webhook-server.defaulter,admissionReviewVersions=v1,reinvocationPolicy=Never
+// +kubebuilder:webhook:path=/validate-serving-kserve-io-v1alpha1-kernelcache,mutating=false,failurePolicy=fail,sideEffects=None,groups=serving.kserve.io,resources=kernelcaches,verbs=create;update;delete,versions=v1alpha1,name=kernelcache.kserve-webhook-server.validator,admissionReviewVersions=v1
+
+// Default implements webhook.CustomDefaulter (mutating webhook)
+// Resolves OCI image tag to sha256 digest and extracts cache size from image labels
+func (kc *KernelCache) Default(ctx context.Context, obj runtime.Object) error {
+	kernelcacheLog.V(1).Info("Mutating webhook called", "object", obj)
+
+	cache, ok := obj.(*KernelCache)
+	if !ok {
+		return apierrors.NewBadRequest(fmt.Sprintf("expected KernelCache, got %T", obj))
+	}
+	kernelcacheLog.V(1).Info("Decoded KernelCache object", "name", cache.Name, "namespace", cache.Namespace)
+
+	// Skip webhook processing during deletion (when finalizer is being removed)
+	// The controller calls Update() to remove finalizers, which triggers this webhook
+	if !cache.DeletionTimestamp.IsZero() {
+		kernelcacheLog.V(1).Info("Object is being deleted, skipping webhook processing")
+		return nil
+	}
+
+	if cache.Annotations == nil {
+		cache.Annotations = map[string]string{}
+	}
+
+	if cache.Spec.Image == "" {
+		kernelcacheLog.Info("spec.image is empty, skipping")
+		return nil
+	}
+
+	// Resolve & verify image -> digest with appropriate timeout
+	verifyCtx, cancel := context.WithTimeout(ctx, ImageVerificationTimeout)
+	defer cancel()
+
+	kyvernoEnabled := isKyvernoVerificationEnabled()
+	var digest string
+	var err error
+
+	if kyvernoEnabled {
+		// Kyverno mode: extract digest from image (Kyverno adds it via ImageVerificationPolicy)
+		// First check if the image already contains a digest (e.g., from Kyverno mutation)
+		if extractedDigest := extractDigestFromImage(cache.Spec.Image); extractedDigest != "" {
+			kernelcacheLog.Info("Image already contains digest (likely from Kyverno)", "image", cache.Spec.Image, "digest", extractedDigest)
+			digest = extractedDigest
+		}
+
+		resolvedDigest, digestFound := cache.Annotations[AnnotationResolvedDigest]
+		if digestFound && digest != "" {
+			// Digest hasn't changed so just return
+			if digest == resolvedDigest {
+				return nil
+			}
+		}
+
+		// If digest is empty when Kyverno is enabled, skip setting annotation
+		// The webhook will be reinvoked after Kyverno adds the digest (reinvocationPolicy: IfNeeded)
+		if digest == "" {
+			kernelcacheLog.V(1).Info("Digest is empty, skipping annotation update (waiting for Kyverno)")
+			return nil
+		}
+	} else {
+		// Non-Kyverno mode: verify cosign signature and resolve digest
+		// This ensures image authenticity when Kyverno is not available
+		kernelcacheLog.V(1).Info("Verifying image signature with cosign (Kyverno disabled)", "image", cache.Spec.Image)
+		digest, err = cosign.VerifyImageSignature(verifyCtx, cache.Spec.Image)
+		if err != nil {
+			kernelcacheLog.Error(err, "failed to verify image signature")
+			return apierrors.NewBadRequest(fmt.Sprintf(
+				"image signature verification failed for '%s': %s",
+				cache.Spec.Image, err.Error(),
+			))
+		}
+	}
+
+	// Extract cache size from OCI image labels
+	size := extractSizeFromImage(cache.Spec.Image)
+	kernelcacheLog.Info("Extracted cache size", "bytes", size, "MB", float64(size)/(1024*1024))
+
+	// Extract generic mounting metadata from OCI image labels
+	mountingMeta := extractMountingMetadataFromImage(cache.Spec.Image)
+
+	// Store digest, size, and mounting metadata in annotations
+	cache.Annotations[AnnotationResolvedDigest] = digest
+	cache.Annotations[AnnotationCacheSizeBytes] = strconv.FormatInt(size, 10)
+
+	// Store mounting metadata if present (backwards compatible - won't be set for older images)
+	if hash := mountingMeta["cache-hash"]; hash != "" {
+		cache.Annotations[AnnotationCacheHash] = hash
+	}
+	if subpath := mountingMeta["cache-mount-subpath"]; subpath != "" {
+		cache.Annotations[AnnotationCacheMountSubpath] = subpath
+	}
+	if rootEnv := mountingMeta["cache-root-env"]; rootEnv != "" {
+		cache.Annotations[AnnotationCacheRootEnv] = rootEnv
+	}
+
+	// Generate mutation signature to prevent digest tampering
+	// Only the mutating webhook can create a valid signature
+	secret, err := mutationKeyFromEnv()
+	if err != nil {
+		kernelcacheLog.Error(err, "MUTATION_SIGNING_KEY not configured")
+		return apierrors.NewBadRequest("webhook configuration error: " + err.Error())
+	}
+
+	sig, err := signMutation(secret, cache.Spec.Image, digest)
+	if err != nil {
+		return apierrors.NewBadRequest(fmt.Sprintf("failed to sign mutation: %v", err))
+	}
+	cache.Annotations[AnnotationMutationSig] = sig
+
+	kernelcacheLog.Info("added/updated resolvedDigest", "image", cache.Spec.Image, "digest", digest)
+	return nil
+}
+
+// ValidateCreate implements webhook.CustomValidator for CREATE operations
+func (kc *KernelCache) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+	cache, ok := obj.(*KernelCache)
+	if !ok {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected KernelCache, got %T", obj))
+	}
+
+	kernelcacheLog.Info("Validating KernelCache create", "name", cache.Name, "namespace", cache.Namespace)
+
+	// Check if KernelCache feature enabled
+	enabled, err := isKernelCacheEnabled(ctx)
+	if err != nil {
+		kernelcacheLog.Error(err, "failed to check KernelCache enabled state")
+		return nil, fmt.Errorf("failed to check KernelCache configuration: %w", err)
+	}
+	if !enabled {
+		return nil, errors.New("KernelCache feature is disabled in inferenceservice-config ConfigMap (kernelcache.enabled=false)")
+	}
+
+	// Validate required fields
+	if cache.Spec.Image == "" {
+		return nil, errors.New("spec.image must be set")
+	}
+
+	// Ensure mutating webhook set the digest annotation
+	digest := cache.Annotations[AnnotationResolvedDigest]
+	sig := cache.Annotations[AnnotationMutationSig]
+
+	if digest == "" {
+		return nil, fmt.Errorf("%s must be set by mutating webhook", AnnotationResolvedDigest)
+	}
+
+	// Verify mutation signature to ensure digest was set by mutating webhook
+	// This prevents users from injecting arbitrary digests
+	secret, err := mutationKeyFromEnv()
+	if err != nil {
+		return nil, fmt.Errorf("webhook configuration error: %s", err.Error())
+	}
+
+	if !verifyMutation(secret, cache.Spec.Image, digest, sig) {
+		return nil, fmt.Errorf("%s present but missing/invalid %s; digest must be set only by the mutating webhook",
+			AnnotationResolvedDigest, AnnotationMutationSig)
+	}
+
+	kernelcacheLog.V(1).Info("Mutation signature validated", "image", cache.Spec.Image, "digest", digest)
+
+	// If Kyverno is enabled, verify the signature was validated
+	if isKyvernoVerificationEnabled() {
+		if _, exists := cache.Annotations[KyvernoVerifyImagesAnnotation]; !exists {
+			return nil, fmt.Errorf("%s must be set by Kyverno", KyvernoVerifyImagesAnnotation)
+		}
+
+		// Check Kyverno verification status
+		if err := verifyKyvernoAnnotation(cache.Annotations); err != nil {
+			return nil, fmt.Errorf("Kyverno verification failed: %w", err)
+		}
+	}
+
+	return nil, nil
+}
+
+// ValidateUpdate implements webhook.CustomValidator for UPDATE operations
+func (kc *KernelCache) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+	kernelcacheLog.V(1).Info("Validating webhook called", "oldObj", oldObj, "newObj", newObj)
+
+	oldCache, ok1 := oldObj.(*KernelCache)
+	newCache, ok2 := newObj.(*KernelCache)
+	if !ok1 || !ok2 {
+		return nil, apierrors.NewBadRequest("type assertion to KernelCache failed")
+	}
+
+	oldImg := oldCache.Spec.Image
+	newImg := newCache.Spec.Image
+
+	oldDigest := oldCache.Annotations[AnnotationResolvedDigest]
+	newDigest := newCache.Annotations[AnnotationResolvedDigest]
+
+	// Handle image changes
+	if oldImg != newImg {
+		// Rule 1: Block image changes if cache in use by pods
+		if newCache.Status.ServingStatus != nil && newCache.Status.ServingStatus.TotalPodsUsing > 0 {
+			return nil, fmt.Errorf(
+				"cannot change spec.image: cache in use by %d pod(s) (delete InferenceServices first)",
+				newCache.Status.ServingStatus.TotalPodsUsing)
+		}
+
+		// Image changed -> new digest must be present (from mutating webhook)
+		if newImg == "" {
+			return nil, errors.New("spec.image must be set")
+		}
+		if newDigest == "" {
+			return nil, fmt.Errorf("%s must be set by mutating webhook when spec.image changes",
+				AnnotationResolvedDigest)
+		}
+
+		// Validate Kyverno verification if enabled
+		if isKyvernoVerificationEnabled() {
+			if _, exists := newCache.Annotations[KyvernoVerifyImagesAnnotation]; !exists {
+				return nil, fmt.Errorf("%s must be set by Kyverno", KyvernoVerifyImagesAnnotation)
+			}
+
+			if err := verifyKyvernoAnnotation(newCache.Annotations); err != nil {
+				return nil, fmt.Errorf("Kyverno verification failed: %w", err)
+			}
+		}
+
+		// Image change allowed - controller will handle cleanup and re-extraction
+		kernelcacheLog.Info("Image change detected",
+			"oldImage", oldImg,
+			"newImage", newImg,
+			"oldDigest", oldDigest,
+			"newDigest", newDigest)
+		return nil, nil
+	}
+
+	// Rule 2: Image unchanged -> digest must not change
+	if oldDigest != newDigest {
+		kernelcacheLog.Info("Digests don't match with unchanged image",
+			"oldDigest", oldDigest,
+			"newDigest", newDigest)
+		return nil, fmt.Errorf("%s is immutable when spec.image is unchanged",
+			AnnotationResolvedDigest)
+	}
+
+	// Rule 3: Storage fields immutable after extraction starts
+	if isExtractionStarted(newCache) {
+		if !storageFieldsEqual(oldCache.Spec, newCache.Spec) {
+			return nil, errors.New(
+				"spec.storageClassName, spec.storageSize, and spec.accessModes " +
+					"are immutable after extraction begins")
+		}
+	}
+
+	// Rule 4: PodTemplate always mutable (no validation needed)
+	// Rule 5: User metadata always mutable (no validation needed)
+
+	return nil, nil
+}
+
+// ValidateDelete implements webhook.CustomValidator for DELETE operations
+func (kc *KernelCache) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+	cache, ok := obj.(*KernelCache)
+	if !ok {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected KernelCache, got %T", obj))
+	}
+
+	kernelcacheLog.Info("Validating KernelCache delete", "name", cache.Name, "namespace", cache.Namespace)
+
+	// Check if cache is in use by pods (via ServingStatus populated by agent)
+	if cache.Status.ServingStatus != nil && cache.Status.ServingStatus.TotalPodsUsing > 0 {
+		return nil, fmt.Errorf("cannot delete KernelCache: in use by %d pods", cache.Status.ServingStatus.TotalPodsUsing)
+	}
+
+	return nil, nil
+}
+
+// extractDigestFromImage extracts the digest from an image reference if it contains one.
+// Returns empty string if the image reference doesn't contain a digest.
+// Example: "quay.io/repo/image:tag@sha256:abc123" -> "sha256:abc123"
+func extractDigestFromImage(imageRef string) string {
+	ref, err := gcrname.ParseReference(imageRef)
+	if err != nil {
+		return ""
+	}
+
+	// Identifier() returns the digest if present, otherwise the tag
+	identifier := ref.Identifier()
+	// Check if it's actually a digest (starts with sha256:)
+	if len(identifier) > 7 && identifier[:7] == "sha256:" {
+		return identifier
+	}
+
+	return ""
+}
+
+// extractSizeFromImage walks the layers in the image and adds the sizes
+// of all layers with cache-size-bytes labels.
+// Returns 0 if unable to calculate the size.
+// Note: This requires reading OCI image metadata from registry
+func extractSizeFromImage(imageRef string) int64 {
+	var totalUncompressedSize int64
+
+	ref, err := gcrname.ParseReference(imageRef)
+	if err != nil {
+		kernelcacheLog.Error(err, "ParseReference failed")
+		return totalUncompressedSize
+	}
+
+	img, err := gcrremote.Image(ref)
+	if err != nil {
+		kernelcacheLog.Error(err, "gcrremote.Image failed")
+		return totalUncompressedSize
+	}
+
+	cfg, err := img.ConfigFile()
+	if err != nil {
+		kernelcacheLog.Error(err, "ConfigFile failed")
+		return totalUncompressedSize
+	}
+
+	labels := cfg.Config.Labels
+	if len(labels) == 0 {
+		kernelcacheLog.V(1).Info("No labels found in image")
+		return totalUncompressedSize
+	}
+
+	// Look for labels containing cache-size-bytes substring
+	for key, value := range labels {
+		if strings.Contains(key, ImageLabelCacheSizeBytesSubstring) {
+			size, err := strconv.ParseInt(value, 10, 64)
+			if err != nil {
+				kernelcacheLog.Error(err, "ParseInt failed", "label", key, "value", value)
+			} else {
+				kernelcacheLog.Info("Found cache size label", "label", key, "bytes", value)
+				totalUncompressedSize += size
+			}
+		}
+	}
+
+	return totalUncompressedSize
+}
+
+// extractMountingMetadataFromImage reads the OCI image labels and extracts
+// generic mounting instructions (framework-agnostic).
+// Returns a map with keys: "cache-hash", "cache-mount-subpath", "cache-root-env"
+// Returns empty map if unable to extract metadata.
+func extractMountingMetadataFromImage(imageRef string) map[string]string {
+	result := make(map[string]string)
+
+	ref, err := gcrname.ParseReference(imageRef)
+	if err != nil {
+		kernelcacheLog.Error(err, "ParseReference failed for mounting metadata extraction")
+		return result
+	}
+
+	img, err := gcrremote.Image(ref)
+	if err != nil {
+		kernelcacheLog.Error(err, "gcrremote.Image failed for mounting metadata extraction")
+		return result
+	}
+
+	cfg, err := img.ConfigFile()
+	if err != nil {
+		kernelcacheLog.Error(err, "ConfigFile failed for mounting metadata extraction")
+		return result
+	}
+
+	labels := cfg.Config.Labels
+	if len(labels) == 0 {
+		kernelcacheLog.V(1).Info("No labels found in image for mounting metadata")
+		return result
+	}
+
+	// Extract the 3 generic mounting labels (set by MCV tool)
+	if hash, ok := labels[ImageLabelCacheHash]; ok {
+		result["cache-hash"] = hash
+		kernelcacheLog.V(1).Info("Extracted cache hash", "hash", hash)
+	}
+	if subpath, ok := labels[ImageLabelCacheMountSubpath]; ok {
+		result["cache-mount-subpath"] = subpath
+		kernelcacheLog.V(1).Info("Extracted cache mount subpath", "subpath", subpath)
+	}
+	if rootEnv, ok := labels[ImageLabelCacheRootEnv]; ok {
+		result["cache-root-env"] = rootEnv
+		kernelcacheLog.V(1).Info("Extracted cache root env", "rootEnv", rootEnv)
+	}
+
+	// Log if any mounting metadata is missing (expected for older images)
+	if len(result) == 0 {
+		kernelcacheLog.V(1).Info("No mounting metadata labels found in image (this is expected for images created before generic mounting support)")
+	} else if len(result) < 3 {
+		kernelcacheLog.Info("Incomplete mounting metadata found in image", "found", len(result), "expected", 3)
+	} else {
+		kernelcacheLog.Info("Extracted complete mounting metadata from image",
+			"hash", result["cache-hash"],
+			"subpath", result["cache-mount-subpath"],
+			"rootEnv", result["cache-root-env"])
+	}
+
+	return result
+}
+
+// verifyKyvernoAnnotation checks the kyverno.io/verify-images annotation to ensure
+// the image signature was verified by Kyverno and the status is "pass".
+// The annotation format is: {"<image>@<digest>":"pass"}
+func verifyKyvernoAnnotation(annotations map[string]string) error {
+	kyvernoAnnotation, exists := annotations[KyvernoVerifyImagesAnnotation]
+	if !exists {
+		return fmt.Errorf("failed to find %s annotation", KyvernoVerifyImagesAnnotation)
+	}
+
+	// Parse the JSON annotation
+	var verifications map[string]string
+	if err := json.Unmarshal([]byte(kyvernoAnnotation), &verifications); err != nil {
+		return fmt.Errorf("failed to parse %s annotation: %w", KyvernoVerifyImagesAnnotation, err)
+	}
+
+	// Check if all entries have status "pass"
+	for imageRef, status := range verifications {
+		if status != "pass" {
+			return fmt.Errorf("Kyverno verification status for %s is not 'pass': %s", imageRef, status)
+		}
+	}
+
+	return nil
+}
+
+// isKyvernoVerificationEnabled checks if Kyverno verification is enabled.
+// It reads from the KYVERNO_VERIFICATION_ENABLED environment variable.
+// Accepts "true" or "false". Defaults to false (disabled) if not set or invalid.
+func isKyvernoVerificationEnabled() bool {
+	envValue := os.Getenv(EnvKyvernoEnabled)
+	if envValue == "" {
+		return false
+	}
+
+	enabled, err := strconv.ParseBool(envValue)
+	if err != nil {
+		kernelcacheLog.Info("Invalid value for KYVERNO_VERIFICATION_ENABLED, defaulting to disabled", "value", envValue, "error", err)
+		return false
+	}
+	return enabled
+}
+
+// isKernelCacheEnabled checks if KernelCache feature is enabled in ConfigMap
+// isKernelCacheEnabled checks if KernelCache feature enabled in ConfigMap
+// Reads ConfigMap directly to avoid import cycle with v1beta1
+func isKernelCacheEnabled(ctx context.Context) (bool, error) {
+	cfg, err := ctrl.GetConfig()
+	if err != nil {
+		return false, fmt.Errorf("failed to get kubeconfig: %w", err)
+	}
+
+	clientset, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		return false, fmt.Errorf("failed to create clientset: %w", err)
+	}
+
+	// Read ConfigMap directly
+	cm, err := clientset.CoreV1().ConfigMaps("kserve").Get(ctx, "inferenceservice-config", metav1.GetOptions{})
+	if err != nil {
+		return false, fmt.Errorf("failed to get inferenceservice-config: %w", err)
+	}
+
+	// Parse kernelcache config (avoid importing v1beta1 by using raw JSON)
+	kernelcacheData, ok := cm.Data["kernelcache"]
+	if !ok {
+		// No config section - default to disabled for safety
+		return false, nil
+	}
+
+	// Simple JSON parse for enabled field
+	var config struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := json.Unmarshal([]byte(kernelcacheData), &config); err != nil {
+		return false, fmt.Errorf("failed to parse kernelcache config: %w", err)
+	}
+
+	return config.Enabled, nil
+}
+
+// mutationKeyFromEnv retrieves the HMAC secret from environment variable
+func mutationKeyFromEnv() (string, error) {
+	k := os.Getenv(EnvMutationSigningKey)
+	if k == "" {
+		return "", fmt.Errorf("%s environment variable not set", EnvMutationSigningKey)
+	}
+	return k, nil
+}
+
+// signMutation creates HMAC signature: HMAC(secret, image|digest), base64-encoded
+// The signature binds the digest to the image ref to prevent digest tampering
+func signMutation(secret, image, digest string) (string, error) {
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(image))
+	mac.Write([]byte("|"))
+	mac.Write([]byte(digest))
+	sum := mac.Sum(nil)
+	return base64.StdEncoding.EncodeToString(sum), nil
+}
+
+// verifyMutation verifies the HMAC signature matches expected value
+// Uses constant-time comparison to prevent timing attacks
+func verifyMutation(secret, image, digest, sigB64 string) bool {
+	if sigB64 == "" {
+		return false
+	}
+	wantSig, _ := signMutation(secret, image, digest)
+	want, _ := base64.StdEncoding.DecodeString(wantSig)
+	got, err := base64.StdEncoding.DecodeString(sigB64)
+	if err != nil {
+		return false
+	}
+	return hmac.Equal(want, got)
+}
+
+// isExtractionStarted checks if extraction has started on any node
+// Extraction is considered started if any node is in InProgress, Extracted, or Running state
+func isExtractionStarted(kc *KernelCache) bool {
+	if kc.Status.Counts == nil {
+		return false
+	}
+	// If any node has extracted or is using the cache, extraction has started
+	return kc.Status.Counts.NodeInUseCnt > 0 ||
+		kc.Status.Counts.NodeNotInUseCnt > 0
+}
+
+// storageFieldsEqual compares storage-related fields between two KernelCacheSpecs
+func storageFieldsEqual(oldSpec, newSpec KernelCacheSpec) bool {
+	// Compare storageClassName (handle nil pointers)
+	if (oldSpec.StorageClassName == nil) != (newSpec.StorageClassName == nil) {
+		return false
+	}
+	if oldSpec.StorageClassName != nil && newSpec.StorageClassName != nil {
+		if *oldSpec.StorageClassName != *newSpec.StorageClassName {
+			return false
+		}
+	}
+
+	// Compare storageSize (handle nil pointers)
+	if (oldSpec.StorageSize == nil) != (newSpec.StorageSize == nil) {
+		return false
+	}
+	if oldSpec.StorageSize != nil && newSpec.StorageSize != nil {
+		if !oldSpec.StorageSize.Equal(*newSpec.StorageSize) {
+			return false
+		}
+	}
+
+	// Compare accessModes (slice comparison)
+	if len(oldSpec.AccessModes) != len(newSpec.AccessModes) {
+		return false
+	}
+	// Create maps for order-independent comparison
+	oldModes := make(map[string]bool)
+	for _, mode := range oldSpec.AccessModes {
+		oldModes[string(mode)] = true
+	}
+	for _, mode := range newSpec.AccessModes {
+		if !oldModes[string(mode)] {
+			return false
+		}
+	}
+
+	return true
+}

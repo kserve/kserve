@@ -1,0 +1,33 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: kserve
+
+resources:
+- manager.yaml
+- ../rbac/kernelcachenode
+
+patches:
+- path: kernelcachenode_agent_image_patch.yaml
+  target:
+    group: apps
+    version: v1
+    kind: DaemonSet
+    name: kserve-kernelcachenode-agent
+
+# To restrict agent to specific nodes, add a nodeSelector patch in your own overlay:
+# See nodeselectors/README.md for examples
+# Example inline patch:
+# - target:
+#     kind: DaemonSet
+#     name: kserve-kernelcachenode-agent
+#   patch: |-
+#     apiVersion: apps/v1
+#     kind: DaemonSet
+#     metadata:
+#       name: kserve-kernelcachenode-agent
+#     spec:
+#       template:
+#         spec:
+#           nodeSelector:
+#             nvidia.com/gpu: "true"

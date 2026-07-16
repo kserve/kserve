@@ -69,6 +69,12 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return reconcile.Result{}, err
 	}
 
+	// Early return if LocalModel feature disabled
+	if !localModelConfig.Enabled {
+		c.Log.Info("LocalModel feature disabled in config, skipping reconciliation")
+		return reconcile.Result{}, nil
+	}
+
 	localModel := &v1alpha1.LocalModelCache{}
 	if err := c.Get(ctx, req.NamespacedName, localModel); err != nil {
 		// Ignore not-found errors, we can get them on deleted requests.

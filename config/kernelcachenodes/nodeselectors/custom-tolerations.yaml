@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kserve-kernelcachenode-agent
+spec:
+  template:
+    spec:
+      tolerations:
+        # Standard NVIDIA GPU taint
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+        # Custom taint example
+        - key: dedicated
+          operator: Equal
+          value: gpu-workloads
+          effect: NoSchedule
+        # Node condition tolerations (already in base, shown for reference)
+        - key: node.kubernetes.io/not-ready
+          operator: Exists
+          effect: NoExecute
+        - key: node.kubernetes.io/unreachable
+          operator: Exists
+          effect: NoExecute

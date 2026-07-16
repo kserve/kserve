@@ -21,6 +21,7 @@ import (
 
 	"github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,6 +34,18 @@ import (
 )
 
 var storageURI = "gs://testbucket/testmodel"
+
+func makeTestConfigMap() corev1.ConfigMap {
+	return corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.InferenceServiceConfigMapName,
+			Namespace: constants.KServeNamespace,
+		},
+		Data: map[string]string{
+			"localModel": `{"enabled": true}`,
+		},
+	}
+}
 
 func makeTestInferenceService() v1beta1.InferenceService {
 	inferenceservice := v1beta1.InferenceService{
@@ -99,12 +112,17 @@ func TestUnableToDeleteLocalModelCacheWithActiveIsvc(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	lmc := makeTestLocalModelCache()
 	isvc := makeTestInferenceService()
+	configMap := makeTestConfigMap()
 	s := runtime.NewScheme()
 	err := v1beta1.AddToScheme(s)
 	if err != nil {
 		t.Errorf("unable to add scheme : %v", err)
 	}
-	fakeClient := fake.NewClientBuilder().WithObjects(&isvc).WithScheme(s).Build()
+	err = corev1.AddToScheme(s)
+	if err != nil {
+		t.Errorf("unable to add corev1 scheme : %v", err)
+	}
+	fakeClient := fake.NewClientBuilder().WithObjects(&isvc, &configMap).WithScheme(s).Build()
 	validator := LocalModelCacheValidator{fakeClient}
 	warnings, err := validator.ValidateDelete(t.Context(), &lmc)
 	g.Expect(warnings).NotTo(gomega.BeNil())
@@ -139,12 +157,17 @@ func TestUnableToDeleteLocalModelCacheWithActiveLLMIsvc(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	lmc := makeTestLocalModelCacheWithLLMIsvc()
 	llmIsvc := makeTestLLMInferenceService()
+	configMap := makeTestConfigMap()
 	s := runtime.NewScheme()
 	err := v1alpha2.AddToScheme(s)
 	if err != nil {
 		t.Errorf("unable to add scheme : %v", err)
 	}
-	fakeClient := fake.NewClientBuilder().WithObjects(&llmIsvc).WithScheme(s).Build()
+	err = corev1.AddToScheme(s)
+	if err != nil {
+		t.Errorf("unable to add corev1 scheme : %v", err)
+	}
+	fakeClient := fake.NewClientBuilder().WithObjects(&llmIsvc, &configMap).WithScheme(s).Build()
 	validator := LocalModelCacheValidator{fakeClient}
 	warnings, err := validator.ValidateDelete(t.Context(), &lmc)
 	g.Expect(warnings).NotTo(gomega.BeNil())
@@ -154,12 +177,17 @@ func TestUnableToDeleteLocalModelCacheWithActiveLLMIsvc(t *testing.T) {
 func TestUnableToCreateLocalModelCacheWithSameStorageURI(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	lmc := makeTestLocalModelCache()
+	configMap := makeTestConfigMap()
 	s := runtime.NewScheme()
 	err := v1alpha1.AddToScheme(s)
 	if err != nil {
 		t.Errorf("unable to add scheme : %v", err)
 	}
-	fakeClient := fake.NewClientBuilder().WithObjects(&lmc).WithScheme(s).Build()
+	err = corev1.AddToScheme(s)
+	if err != nil {
+		t.Errorf("unable to add corev1 scheme : %v", err)
+	}
+	fakeClient := fake.NewClientBuilder().WithObjects(&lmc, &configMap).WithScheme(s).Build()
 	validator := LocalModelCacheValidator{fakeClient}
 	newLmc := makeTestLocalModelCacheWithSameStorageURI()
 	warnings, err := validator.ValidateCreate(t.Context(), &newLmc)
@@ -184,12 +212,17 @@ func makeTestLocalModelCacheWithDifferentStorageURI() v1alpha1.LocalModelCache {
 func TestValidateUpdate_LocalModelCacheWithSameStorageURI(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	existingLmc := makeTestLocalModelCache()
+	configMap := makeTestConfigMap()
 	s := runtime.NewScheme()
 	err := v1alpha1.AddToScheme(s)
 	if err != nil {
 		t.Errorf("unable to add scheme : %v", err)
 	}
-	fakeClient := fake.NewClientBuilder().WithObjects(&existingLmc).WithScheme(s).Build()
+	err = corev1.AddToScheme(s)
+	if err != nil {
+		t.Errorf("unable to add corev1 scheme : %v", err)
+	}
+	fakeClient := fake.NewClientBuilder().WithObjects(&existingLmc, &configMap).WithScheme(s).Build()
 	validator := LocalModelCacheValidator{fakeClient}
 	// newLmc has a different name but same StorageURI as existingLmc
 	newLmc := makeTestLocalModelCacheWithSameStorageURI()
@@ -202,12 +235,17 @@ func TestValidateUpdate_LocalModelCacheWithSameStorageURI(t *testing.T) {
 func TestValidateUpdate_LocalModelCacheWithUniqueStorageURI(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	existingLmc := makeTestLocalModelCache()
+	configMap := makeTestConfigMap()
 	s := runtime.NewScheme()
 	err := v1alpha1.AddToScheme(s)
 	if err != nil {
 		t.Errorf("unable to add scheme : %v", err)
 	}
-	fakeClient := fake.NewClientBuilder().WithObjects(&existingLmc).WithScheme(s).Build()
+	err = corev1.AddToScheme(s)
+	if err != nil {
+		t.Errorf("unable to add corev1 scheme : %v", err)
+	}
+	fakeClient := fake.NewClientBuilder().WithObjects(&existingLmc, &configMap).WithScheme(s).Build()
 	validator := LocalModelCacheValidator{fakeClient}
 	// newLmc has a unique StorageURI
 	newLmc := makeTestLocalModelCacheWithDifferentStorageURI()
@@ -220,12 +258,17 @@ func TestValidateUpdate_LocalModelCacheWithUniqueStorageURI(t *testing.T) {
 func TestValidateUpdate_DeletionBypass(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	existingLmc := makeTestLocalModelCache()
+	configMap := makeTestConfigMap()
 	s := runtime.NewScheme()
 	err := v1alpha1.AddToScheme(s)
 	if err != nil {
 		t.Errorf("unable to add scheme : %v", err)
 	}
-	fakeClient := fake.NewClientBuilder().WithObjects(&existingLmc).WithScheme(s).Build()
+	err = corev1.AddToScheme(s)
+	if err != nil {
+		t.Errorf("unable to add corev1 scheme : %v", err)
+	}
+	fakeClient := fake.NewClientBuilder().WithObjects(&existingLmc, &configMap).WithScheme(s).Build()
 	validator := LocalModelCacheValidator{fakeClient}
 	oldLmc := makeTestLocalModelCacheWithDifferentStorageURI()
 	newLmc := makeTestLocalModelCacheWithSameStorageURI()
@@ -238,8 +281,13 @@ func TestValidateUpdate_DeletionBypass(t *testing.T) {
 
 func TestValidateUpdate_InvalidObjectType(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
+	configMap := makeTestConfigMap()
 	s := runtime.NewScheme()
-	fakeClient := fake.NewClientBuilder().WithScheme(s).Build()
+	err := corev1.AddToScheme(s)
+	if err != nil {
+		t.Errorf("unable to add corev1 scheme : %v", err)
+	}
+	fakeClient := fake.NewClientBuilder().WithObjects(&configMap).WithScheme(s).Build()
 	validator := LocalModelCacheValidator{fakeClient}
 	invalidObj := &v1beta1.InferenceService{}
 	oldLmc := makeTestLocalModelCache()
