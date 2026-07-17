@@ -467,6 +467,23 @@ type SchedulerSpec struct {
 
 	// Replicas is the number of replicas for the scheduler.
 	Replicas *int32 `json:"replicas,omitempty"`
+
+	// Tokenizer provides optional operational overrides for the standalone
+	// tokenizer deployment that serves the vLLM render endpoint
+	// (/v1/completions/render) over HTTP. The tokenizer is auto-deployed when
+	// token-producer or precise-prefix-cache-scorer plugins are detected in the
+	// scheduler config.inline. Use this field to customize the tokenizer pod
+	// template (resources, image overrides, etc.).
+	// +optional
+	Tokenizer *TokenizerSpec `json:"tokenizer,omitempty"`
+}
+
+// TokenizerSpec configures a standalone tokenizer deployment.
+type TokenizerSpec struct {
+	// Template for the tokenizer pod spec. This is merged on top of the
+	// well-known tokenizer config defaults (vLLM render container).
+	// +optional
+	Template *corev1.PodSpec `json:"template,omitempty"`
 }
 
 type SchedulerConfigSpec struct {

@@ -298,6 +298,14 @@ func (r *LLMISVCReconciler) collectDNSNames(ctx context.Context, llmSvc *v1alpha
 		}
 	}
 
+	if isTokenizerEnabled(llmSvc.Spec) {
+		tokSvcName := tokenizerServiceName(llmSvc)
+		dnsNames = append(dnsNames,
+			network.GetServiceHostname(tokSvcName, llmSvc.GetNamespace()),
+			fmt.Sprintf("%s.%s.svc", tokSvcName, llmSvc.GetNamespace()),
+		)
+	}
+
 	sort.Strings(dnsNames)
 	return dnsNames
 }

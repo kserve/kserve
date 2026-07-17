@@ -13,29 +13,28 @@ spec:
   replicas: 2
   router:
     scheduler:
-      template:
-        containers:
-          - name: tokenizer
-            env:
-              - name: LOG_LEVEL
-                value: DEBUG
       config:
         inline:
           apiVersion: llm-d.ai/v1alpha1
           kind: EndpointPickerConfig
           plugins:
             - type: single-profile-handler
-            - type: precise-prefix-cache-scorer
+            - type: token-producer
+            - type: precise-prefix-cache-producer
               parameters:
                 tokenProcessorConfig:
-                  blockSize: 16
-                  hashSeed: "42"
+                  blockSize: 16          # Must match simulator --block-size
                 kvEventsConfig:
-                  zmqEndpoint: "tcp://*:5557"
+                  topicFilter: "kv@"
+                  discoverPods: true
+                  podDiscoveryConfig:
+                    socketPort: 5557
                 indexerConfig:
                   kvBlockIndexConfig:
-                    enableMetrics: true
-                    metricsLoggingInterval: 60000000000
+                    enableMetrics: true   # Enable Prometheus metrics for KV cache index
+            - type: prefix-cache-scorer
+              parameters:
+                prefixMatchInfoProducerName: precise-prefix-cache-producer
             - type: kv-cache-utilization-scorer
             - type: queue-scorer
             - type: active-request-scorer
@@ -47,7 +46,7 @@ spec:
           schedulingProfiles:
             - name: default
               plugins:
-                - pluginRef: precise-prefix-cache-scorer
+                - pluginRef: prefix-cache-scorer
                   weight: 3
                 - pluginRef: kv-cache-utilization-scorer
                   weight: 2

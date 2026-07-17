@@ -189,7 +189,7 @@ Clients should send the header `x-ai-eg-model: RedHatAI/gpt-oss-20b` when callin
 
 ## 8. Alternate configuration: Precise Prefix Cache Aware Routing
 
-For **precise prefix cache aware routing** (vLLM + EPP prefix indexer), use the dedicated config and inference service that enable KV cache events and the precise-prefix-cache-scorer. See [llm-d guide](https://llm-d.ai/docs/guide/Installation/precise-prefix-cache-aware) for an in-depth description.
+For **precise prefix cache aware routing** (vLLM + EPP prefix indexer), use the dedicated config and inference service that enable KV cache events and the 3-plugin pipeline (token-producer, precise-prefix-cache-producer, prefix-cache-scorer). See [llm-d guide](https://llm-d.ai/docs/guide/Installation/precise-prefix-cache-aware) for an in-depth description.
 
 ### 8.1 LLMInferenceServiceConfig with precise prefix cache aware routing
 
@@ -200,7 +200,8 @@ kubectl apply -f llmisvc_config_prefix_cache.yaml -n kserve-lab
 This creates `llmisvc-prefix-caching`. It adds:
 
 - vLLM args: `--prefix-caching-hash-algo sha256_cbor`, `--block-size 64`, `--kv_transfer_config`, `--kv-events-config` (ZMQ to EPP)
-- Router scheduler with `precise-prefix-cache-scorer`, `queue-scorer`, `kv-cache-utilization-scorer`, `active-request-scorer`, and tokenizers (HF) for the indexer
+- Router scheduler with `token-producer`, `precise-prefix-cache-producer`, `prefix-cache-scorer`, `queue-scorer`, `kv-cache-utilization-scorer`, and `active-request-scorer`
+- Standalone tokenizer deployment (auto-deployed from `token-producer` plugin presence)
 - Scheduler needs `hf-token` secret for tokenizer download (already created above)
 
 ### 8.2 Switch Inference Service to precise prefix cache aware routing

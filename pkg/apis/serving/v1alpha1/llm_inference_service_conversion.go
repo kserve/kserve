@@ -464,6 +464,11 @@ func convertRouterSpecToV1Alpha2(src *RouterSpec) *v1alpha2.RouterSpec {
 				Ref:    src.Scheduler.Config.Ref,
 			}
 		}
+		if src.Scheduler.Tokenizer != nil {
+			dst.Scheduler.Tokenizer = &v1alpha2.TokenizerSpec{
+				Template: src.Scheduler.Tokenizer.Template,
+			}
+		}
 	}
 
 	return dst
@@ -548,6 +553,11 @@ func convertRouterSpecFromV1Alpha2(src *v1alpha2.RouterSpec) *RouterSpec {
 			dst.Scheduler.Config = &SchedulerConfigSpec{
 				Inline: src.Scheduler.Config.Inline,
 				Ref:    src.Scheduler.Config.Ref,
+			}
+		}
+		if src.Scheduler.Tokenizer != nil {
+			dst.Scheduler.Tokenizer = &TokenizerSpec{
+				Template: src.Scheduler.Tokenizer.Template,
 			}
 		}
 	}
