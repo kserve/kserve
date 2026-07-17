@@ -82,7 +82,7 @@ func cleanupLegacyVAs(ctx context.Context, dynClient dynamic.Interface, log logr
 		log.Info("deleted legacy VariantAutoscaling", "namespace", va.GetNamespace(), "name", va.GetName())
 	}
 	if len(list.Items) > 0 {
-		log.Info("legacy VA cleanup completed", "deleted", deleted, "found", len(list.Items))
+		log.Info("legacy VA cleanup completed; WVA >= v0.8.0 is required for annotation-based discovery", "deleted", deleted, "found", len(list.Items))
 	}
 }
 
