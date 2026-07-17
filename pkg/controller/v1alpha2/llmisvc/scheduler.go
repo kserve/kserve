@@ -82,7 +82,7 @@ func (r *LLMISVCReconciler) reconcileScheduler(ctx context.Context, llmSvc *v1al
 	// version-gated migration. Users should migrate their inline config to use the
 	// decomposed plugins directly.
 	if hasPrecisePrefixCachePlugin(llmSvc.Spec) {
-		log.FromContext(ctx).Info("DEPRECATION: precise-prefix-cache-scorer plugin detected in config.inline. " +
+		log.FromContext(ctx).V(1).Info("DEPRECATION: precise-prefix-cache-scorer plugin detected in config.inline. " +
 			"This monolithic plugin will be automatically decomposed into token-producer, " +
 			"precise-prefix-cache-producer, and prefix-cache-scorer. " +
 			"Please update your config.inline to use the decomposed plugins directly. " +

@@ -1561,7 +1561,7 @@ plugins:
 				},
 			}
 
-			g.Expect(schedulerTransform(context.Background(), d)).To(Succeed())
+			g.Expect(schedulerTransform(context.Background(), d, &v1alpha2.LLMInferenceService{}, false)).To(Succeed())
 
 			configText := d.Spec.Template.Spec.Containers[0].Args[1]
 			tt.validateConfig(g, configText)
