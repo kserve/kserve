@@ -134,7 +134,11 @@ func (r *LLMISVCReconciler) reconcileTokenizerDeployment(ctx context.Context, ll
 	}
 
 	if shouldDeleteTokenizer(llmSvc) {
-		llmSvc.MarkTokenizerUnset()
+		if utils.GetForceStopRuntime(llmSvc) {
+			llmSvc.MarkTokenizerNotReady("Stopped", "Service is stopped")
+		} else {
+			llmSvc.MarkTokenizerUnset()
+		}
 		return Delete(ctx, r, llmSvc, expected)
 	}
 

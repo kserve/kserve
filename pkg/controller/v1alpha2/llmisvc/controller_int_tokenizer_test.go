@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 	. "github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/fixture"
 	. "github.com/kserve/kserve/pkg/testing"
@@ -471,6 +472,77 @@ schedulingProfiles:
 				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
 				g.Expect(current.Status.GetCondition(v1alpha2.TokenizerReady)).To(BeNil(),
 					"TokenizerReady should be cleared after token-producer plugin is removed")
+			}).WithContext(ctx).Should(Succeed())
+		})
+	})
+
+	Context("ForceStop handling", func() {
+		It("should set TokenizerReady to False with reason Stopped when force-stop is applied", func(ctx SpecContext) {
+			svcName := "test-llm-tok-forcestop"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithManagedTokenizer(),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			tokenizerName := kmeta.ChildName(svcName, "-tokenizer")
+
+			// Wait for tokenizer to be deployed and ready
+			Eventually(func(g Gomega, ctx context.Context) {
+				dep := &appsv1.Deployment{}
+				g.Expect(envTest.Get(ctx, types.NamespacedName{
+					Name:      tokenizerName,
+					Namespace: testNs.Name,
+				}, dep)).To(Succeed())
+			}).WithContext(ctx).Should(Succeed())
+			ensureTokenizerDeploymentReady(ctx, envTest.Client, llmSvc)
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.TokenizerReady), "True"))
+			}).WithContext(ctx).Should(Succeed())
+
+			// Apply force-stop annotation
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				current := &v1alpha2.LLMInferenceService{}
+				if err := envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current); err != nil {
+					return err
+				}
+				if current.Annotations == nil {
+					current.Annotations = make(map[string]string)
+				}
+				current.Annotations[constants.StopAnnotationKey] = "true"
+				return envTest.Update(ctx, current)
+			})).To(Succeed())
+
+			// TokenizerReady should be False with reason "Stopped"
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				cond := current.Status.GetCondition(v1alpha2.TokenizerReady)
+				g.Expect(cond).ToNot(BeNil(), "TokenizerReady condition should exist when force-stopped")
+				g.Expect(string(cond.Status)).To(Equal("False"))
+				g.Expect(cond.Reason).To(Equal("Stopped"))
+			}).WithContext(ctx).Should(Succeed())
+
+			// Tokenizer Deployment should be deleted
+			Eventually(func(g Gomega, ctx context.Context) {
+				dep := &appsv1.Deployment{}
+				err := envTest.Get(ctx, types.NamespacedName{
+					Name:      tokenizerName,
+					Namespace: testNs.Name,
+				}, dep)
+				g.Expect(errors.IsNotFound(err)).To(BeTrue(), "tokenizer Deployment should be deleted when force-stopped")
 			}).WithContext(ctx).Should(Succeed())
 		})
 	})
