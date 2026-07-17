@@ -213,7 +213,7 @@ func (r *LLMISVCReconciler) reconcileSchedulerDeployment(ctx context.Context, ll
 	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, scheduler, semanticDeploymentIsEqual, PreserveDeploymentReplicas()); err != nil {
 		return fmt.Errorf("failed to reconcile scheduler deployment %s/%s: %w", scheduler.GetNamespace(), scheduler.GetName(), err)
 	}
-	return r.propagateSchedulerDeploymentStatus(ctx, scheduler, llmSvc.MarkSchedulerWorkloadReady, llmSvc.MarkSchedulerWorkloadNotReady)
+	return r.propagateComponentDeploymentStatus(ctx, scheduler, llmSvc.MarkSchedulerWorkloadReady, llmSvc.MarkSchedulerWorkloadNotReady)
 }
 
 func (r *LLMISVCReconciler) reconcileSchedulerInferencePool(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
@@ -807,7 +807,7 @@ func (r *LLMISVCReconciler) expectedSchedulerRoleBinding(llmSvc *v1alpha2.LLMInf
 	return rb
 }
 
-func (r *LLMISVCReconciler) propagateSchedulerDeploymentStatus(ctx context.Context, expected *appsv1.Deployment, ready func(), notReady func(reason, messageFormat string, messageA ...interface{})) error {
+func (r *LLMISVCReconciler) propagateComponentDeploymentStatus(ctx context.Context, expected *appsv1.Deployment, ready func(), notReady func(reason, messageFormat string, messageA ...interface{})) error {
 	curr := &appsv1.Deployment{}
 	err := retry.OnError(retry.DefaultRetry, apierrors.IsNotFound, func() error {
 		return r.Get(ctx, client.ObjectKeyFromObject(expected), curr)

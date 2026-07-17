@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/util/retry"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/network"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -143,7 +142,7 @@ func (r *LLMISVCReconciler) reconcileTokenizerDeployment(ctx context.Context, ll
 		return fmt.Errorf("failed to reconcile tokenizer deployment %s/%s: %w", expected.GetNamespace(), expected.GetName(), err)
 	}
 
-	return r.propagateTokenizerDeploymentStatus(ctx, expected, llmSvc)
+	return r.propagateComponentDeploymentStatus(ctx, expected, llmSvc.MarkTokenizerReady, llmSvc.MarkTokenizerNotReady)
 }
 
 func (r *LLMISVCReconciler) reconcileTokenizerService(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
@@ -247,42 +246,4 @@ func (r *LLMISVCReconciler) expectedTokenizerService(llmSvc *v1alpha2.LLMInferen
 			},
 		},
 	}
-}
-
-func (r *LLMISVCReconciler) propagateTokenizerDeploymentStatus(ctx context.Context, expected *appsv1.Deployment, llmSvc *v1alpha2.LLMInferenceService) error {
-	curr := &appsv1.Deployment{}
-	err := retry.OnError(retry.DefaultRetry, apierrors.IsNotFound, func() error {
-		return r.Get(ctx, client.ObjectKeyFromObject(expected), curr)
-	})
-	if err != nil {
-		return fmt.Errorf("failed to get current tokenizer deployment %s/%s: %w", expected.GetNamespace(), expected.GetName(), err)
-	}
-
-	if curr.Status.AvailableReplicas > 0 {
-		llmSvc.MarkTokenizerReady()
-		return nil
-	}
-
-	for _, cond := range curr.Status.Conditions {
-		if cond.Type == appsv1.DeploymentProgressing {
-			if cond.Status == corev1.ConditionFalse && cond.Reason == "ProgressDeadlineExceeded" {
-				llmSvc.MarkTokenizerNotReady(cond.Reason, cond.Message)
-				return nil
-			}
-		}
-	}
-
-	for _, cond := range curr.Status.Conditions {
-		if cond.Type == appsv1.DeploymentAvailable {
-			if cond.Status == corev1.ConditionTrue {
-				llmSvc.MarkTokenizerReady()
-			} else {
-				llmSvc.MarkTokenizerNotReady(cond.Reason, cond.Message)
-			}
-			return nil
-		}
-	}
-
-	llmSvc.MarkTokenizerNotReady("DeploymentNotAvailable", "Tokenizer deployment %s/%s is not yet available", expected.GetNamespace(), expected.GetName())
-	return nil
 }
