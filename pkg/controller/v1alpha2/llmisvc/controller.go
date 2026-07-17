@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync/atomic"
 	"time"
 
 	"k8s.io/client-go/kubernetes"
@@ -141,15 +140,6 @@ type LLMISVCReconciler struct {
 	Clientset kubernetes.Interface
 
 	Validator func(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error
-
-	// legacyVACRDAbsent is set when the VariantAutoscaling CRD is confirmed
-	// absent, allowing subsequent reconciles to skip the cleanup API call.
-	legacyVACRDAbsent atomic.Bool
-
-	// legacyVACleanupDone is set after all legacy VariantAutoscaling CRs
-	// have been confirmed deleted (or not found), so subsequent reconciles
-	// skip the cleanup API calls entirely.
-	legacyVACleanupDone atomic.Bool
 }
 
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceservices,verbs=get;list;watch;create;update;patch;delete
@@ -180,7 +170,7 @@ type LLMISVCReconciler struct {
 //+kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
 //+kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=keda.sh,resources=scaledobjects,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=llmd.ai,resources=variantautoscalings,verbs=get;delete
+//+kubebuilder:rbac:groups=llmd.ai,resources=variantautoscalings,verbs=list;delete
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelcaches,verbs=get;list;watch
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelnamespacecaches,verbs=get;list;watch
 //+kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;patch;delete

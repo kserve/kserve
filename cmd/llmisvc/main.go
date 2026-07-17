@@ -374,6 +374,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Legacy VariantAutoscaling cleanup. Best-effort, never blocks the manager.
+	// Can be removed in a future release cycle.
+	if err := mgr.Add(leaderRunnable(func(ctx context.Context) error {
+		cleanupLegacyVAs(ctx, dynamic.NewForConfigOrDie(cfg), setupLog)
+		return nil
+	})); err != nil {
+		setupLog.Error(err, "unable to register legacy VA cleanup, stale VAs may remain until manual cleanup or LLMInferenceService deletion")
+	}
+
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "unable to run the manager")

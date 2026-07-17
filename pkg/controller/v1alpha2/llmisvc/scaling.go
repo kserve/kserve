@@ -26,11 +26,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -62,12 +59,6 @@ const (
 func (r *LLMISVCReconciler) reconcileScaling(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
 	logger := log.FromContext(ctx).WithName("reconcileScaling")
 	ctx = log.IntoContext(ctx, logger)
-
-	if !r.legacyVACleanupDone.Load() {
-		if err := r.cleanupAllLegacyVAs(ctx, llmSvc); err != nil {
-			logger.Error(err, "legacy VA cleanup will retry next reconcile")
-		}
-	}
 
 	if err := r.reconcileWorkloadScaling(ctx, llmSvc, config, mainWorkloadScalingParams(llmSvc)); err != nil {
 		return fmt.Errorf("failed to reconcile main workload scaling: %w", err)
@@ -453,57 +444,6 @@ func prometheusTrigger(cfg *WVAAutoscalingConfig, query string) kedav1alpha1.Sca
 	return trigger
 }
 
-// cleanupAllLegacyVAs deletes both main and prefill legacy VariantAutoscaling CRs
-// if they exist. Once all are confirmed gone (deleted or NotFound), it sets
-// legacyVACleanupDone so subsequent reconciles skip the cleanup entirely.
-// This is a temporary migration step; remove after one release cycle.
-func (r *LLMISVCReconciler) cleanupAllLegacyVAs(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
-	ns := llmSvc.GetNamespace()
-	var errs []error
-	for _, vaName := range []string{legacyMainVAName(llmSvc), legacyPrefillVAName(llmSvc)} {
-		if err := r.cleanupLegacyVA(ctx, ns, vaName); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if len(errs) > 0 {
-		return fmt.Errorf("legacy VA cleanup: %v", errs)
-	}
-	r.legacyVACleanupDone.Store(true)
-	return nil
-}
-
-// cleanupLegacyVA deletes a deprecated VariantAutoscaling CR if it exists.
-// Uses unstructured delete to avoid importing WVA API types.
-// Caches the CRD-absent state so that clusters where the CRD was never
-// installed skip the API call after the first reconcile.
-func (r *LLMISVCReconciler) cleanupLegacyVA(ctx context.Context, namespace, vaName string) error {
-	if r.legacyVACRDAbsent.Load() {
-		return nil
-	}
-	logger := log.FromContext(ctx).WithName("cleanupLegacyVA")
-	va := &unstructured.Unstructured{}
-	va.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "llmd.ai",
-		Version: "v1alpha1",
-		Kind:    "VariantAutoscaling",
-	})
-	va.SetName(vaName)
-	va.SetNamespace(namespace)
-	err := r.Delete(ctx, va)
-	if apierrors.IsNotFound(err) {
-		return nil
-	}
-	if apimeta.IsNoMatchError(err) {
-		r.legacyVACRDAbsent.Store(true)
-		return nil
-	}
-	if err == nil {
-		logger.Info("Deleted legacy VariantAutoscaling CR; WVA >= v0.8.0 is required for annotation-based discovery",
-			"namespace", namespace, "name", vaName)
-	}
-	return err
-}
-
 func semanticHPAIsEqual(expected, curr *autoscalingv2.HorizontalPodAutoscaler) bool {
 	return equality.Semantic.DeepEqual(expected.Spec, curr.Spec) &&
 		equality.Semantic.DeepEqual(expected.Labels, curr.Labels) &&
@@ -612,17 +552,6 @@ func mainHPAName(llmSvc *v1alpha2.LLMInferenceService) string {
 
 func prefillHPAName(llmSvc *v1alpha2.LLMInferenceService) string {
 	return kmeta.ChildName(llmSvc.GetName(), "-kserve-prefill-hpa")
-}
-
-// legacyMainVAName and legacyPrefillVAName produce the names of deprecated
-// VariantAutoscaling CRs that may still exist from before the annotation-based migration.
-// Used only by cleanupLegacyVA; remove after one release cycle.
-func legacyMainVAName(llmSvc *v1alpha2.LLMInferenceService) string {
-	return kmeta.ChildName(llmSvc.GetName(), "-kserve-va")
-}
-
-func legacyPrefillVAName(llmSvc *v1alpha2.LLMInferenceService) string {
-	return kmeta.ChildName(llmSvc.GetName(), "-kserve-prefill-va")
 }
 
 func mainScaledObjectName(llmSvc *v1alpha2.LLMInferenceService) string {

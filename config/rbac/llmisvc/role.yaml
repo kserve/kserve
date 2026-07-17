@@ -200,7 +200,7 @@ rules:
   - variantautoscalings
   verbs:
   - delete
-  - get
+  - list
 - apiGroups:
   - networking.k8s.io
   resources:
