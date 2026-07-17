@@ -28,7 +28,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	apixclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -202,7 +201,6 @@ func main() {
 			Cache: &client.CacheOptions{
 				DisableFor: []client.Object{
 					&corev1.Secret{},
-					&rbacv1.ClusterRoleBinding{},
 				},
 			},
 		},

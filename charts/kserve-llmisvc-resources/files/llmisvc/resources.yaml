@@ -1683,14 +1683,16 @@ rules:
   - watch
 - apiGroups:
   - rbac.authorization.k8s.io
-  resourceNames:
-  - kserve-llmisvc-scheduler-auth-delegators
   resources:
   - clusterrolebindings
   verbs:
+  - create
+  - delete
   - get
+  - list
   - patch
   - update
+  - watch
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
@@ -1789,18 +1791,6 @@ subjects:
 - kind: ServiceAccount
   name: llmisvc-controller-manager
   namespace: kserve
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  labels:
-    app.kubernetes.io/component: llm-scheduler-auth
-    app.kubernetes.io/part-of: llminferenceservice
-  name: kserve-llmisvc-scheduler-auth-delegators
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: system:auth-delegator
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
