@@ -119,6 +119,22 @@ def _wait_for_deployment_gone(apps_v1, name, namespace, timeout=120):
     raise TimeoutError(f"Deployment {name} still exists after {timeout}s")
 
 
+def _wait_for_condition(
+    kserve, service_name, condition_type, expected_reason, timeout=60
+):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        got = kserve.get(service_name, namespace=KSERVE_TEST_NAMESPACE)
+        conditions = got.get("status", {}).get("conditions", [])
+        cond = next((c for c in conditions if c["type"] == condition_type), None)
+        if cond is not None and cond.get("reason") == expected_reason:
+            return cond
+        time.sleep(5)
+    raise TimeoutError(
+        f"Condition {condition_type} reason={expected_reason} not seen within {timeout}s"
+    )
+
+
 def _get_pod_uids(apps_v1, deployment_name, namespace):
     core_v1 = client.CoreV1Api()
     dep = apps_v1.read_namespaced_deployment(deployment_name, namespace)
@@ -336,12 +352,6 @@ def test_canary_force_stop():
             apps, f"{service_name}-v2-predictor", KSERVE_TEST_NAMESPACE
         )
 
-        got = kserve.get(service_name, namespace=KSERVE_TEST_NAMESPACE)
-        conditions = got.get("status", {}).get("conditions", [])
-        canary_condition = next(
-            (c for c in conditions if c["type"] == "CanaryPredictorReady"), None
-        )
-        assert canary_condition is not None
-        assert canary_condition["reason"] == "Stopped"
+        _wait_for_condition(kserve, service_name, "CanaryPredictorReady", "Stopped")
     finally:
         _safe_delete(kserve, service_name)
