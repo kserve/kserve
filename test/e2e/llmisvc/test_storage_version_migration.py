@@ -36,6 +36,7 @@ from .fixtures import (
     inject_k8s_proxy,
     KSERVE_PLURAL_LLMINFERENCESERVICECONFIG,
     OPT_125M_MODEL_URI,
+    VLLM_CPU_IMAGE,
 )
 from .logging import logger
 
@@ -136,7 +137,7 @@ class TestStorageVersionMigration:
                     "containers": [
                         {
                             "name": "main",
-                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
+                            "image": VLLM_CPU_IMAGE,
                             "resources": {
                                 "limits": {"cpu": "1", "memory": "2Gi"},
                                 "requests": {"cpu": "100m", "memory": "512Mi"},

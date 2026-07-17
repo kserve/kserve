@@ -35,6 +35,7 @@ env:
   DOCKER_IMAGES_PATH: "/mnt/docker-images"
   KO_DOCKER_REPO: "kserve"
   ENABLE_LLMISVC: "true"
+  VLLM_CPU_IMAGE: "vllm/vllm-openai-cpu:v0.19.0"
 
 jobs:
 
@@ -173,9 +174,25 @@ jobs:
           compression-level: 0
           if-no-files-found: error
 
+  seed-image-cache:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull and save vLLM CPU image
+        run: |
+          docker pull --platform linux/amd64 ${{ env.VLLM_CPU_IMAGE }}
+          docker save ${{ env.VLLM_CPU_IMAGE }} -o /tmp/vllm-cpu.tar
+
+      - name: Upload vLLM CPU image artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: vllm-cpu-image-${{ env.TAG }}
+          path: /tmp/vllm-cpu.tar
+          compression-level: 0
+          if-no-files-found: error
+
   test-llmisvc:
     runs-on: cncf-ubuntu-16-64-x86
-    needs: [detect-changes, llmisvc-image-build, seed-model-cache]
+    needs: [detect-changes, llmisvc-image-build, seed-model-cache, seed-image-cache]
     strategy:
       fail-fast: false
       matrix:
@@ -240,6 +257,15 @@ jobs:
           minikube image load ./tmp/opt-125m-cache.tar
           echo "OPT_125M_CACHE_IMAGE=kserve/opt-125m-cache:${{ env.TAG }}" >> $GITHUB_ENV
 
+      - name: Download vLLM CPU image artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: vllm-cpu-image-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Load vLLM CPU image into minikube
+        run: minikube image load ./tmp/vllm-cpu.tar
+
       - name: KServe dependency setup
         uses: ./.github/actions/kserve-dep-setup
         with:
@@ -298,7 +324,7 @@ jobs:
 
   test-llmisvc-wva-autoscaling-hpa:
     runs-on: cncf-ubuntu-16-64-x86
-    needs: [detect-changes, llmisvc-image-build, seed-model-cache]
+    needs: [detect-changes, llmisvc-image-build, seed-model-cache, seed-image-cache]
     strategy:
       fail-fast: false
       matrix:
@@ -403,7 +429,7 @@ jobs:
 
   test-llmisvc-wva-autoscaling-keda:
     runs-on: cncf-ubuntu-16-64-x86
-    needs: [detect-changes, llmisvc-image-build, seed-model-cache]
+    needs: [detect-changes, llmisvc-image-build, seed-model-cache, seed-image-cache]
     strategy:
       fail-fast: false
       matrix:

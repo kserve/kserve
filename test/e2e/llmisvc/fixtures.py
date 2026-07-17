@@ -35,6 +35,7 @@ SCHEDULER_CONFIGMAP_NAME = "scheduler-config-e2e"
 SCHEDULER_CONFIGMAP_KEY = "epp"
 
 OPT_125M_MODEL_URI = os.environ.get("OPT_125M_MODEL_URI", "hf://facebook/opt-125m")
+VLLM_CPU_IMAGE = os.environ.get("VLLM_CPU_IMAGE", "vllm/vllm-openai-cpu:v0.19.0")
 
 # PVC storage test constants
 PVC_STORAGE_NAME = "e2e-pvc-model-storage"
@@ -244,7 +245,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
+                    "image": VLLM_CPU_IMAGE,
                     "env": [
                         {"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"},
                         {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
@@ -266,7 +267,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
+                    "image": VLLM_CPU_IMAGE,
                     "env": [
                         {"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"},
                         {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
@@ -301,7 +302,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                 "containers": [
                     {
                         "name": "main",
-                        "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
+                        "image": VLLM_CPU_IMAGE,
                         "env": [
                             {"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"},
                             {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
@@ -597,7 +598,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
+                    "image": VLLM_CPU_IMAGE,
                     "command": ["vllm", "serve", "/mnt/models"],
                     "args": [
                         "--served-model-name",
@@ -623,7 +624,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
+                    "image": VLLM_CPU_IMAGE,
                     "command": ["vllm", "serve", "/mnt/models"],
                     "args": [
                         "--served-model-name",
