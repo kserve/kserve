@@ -24,8 +24,67 @@ import (
 
 	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/dynamic"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
+
+// cleanupLegacyVAs deletes all VariantAutoscaling CRs left over from before
+// the annotation-based WVA migration. Best-effort: logs errors but never fails.
+// Can be removed in a future release cycle.
+func cleanupLegacyVAs(ctx context.Context, dynClient dynamic.Interface, log logr.Logger) {
+	vaGVR := schema.GroupVersionResource{Group: "llmd.ai", Version: "v1alpha1", Resource: "variantautoscalings"}
+	selector := constants.KubernetesPartOfLabelKey + "=" + constants.LLMInferenceServicePartOfValue
+
+	var list *unstructured.UnstructuredList
+	var lastErr error
+	_ = wait.ExponentialBackoffWithContext(ctx, wait.Backoff{
+		Duration: 1 * time.Second, Factor: 2, Steps: 3,
+	}, func(ctx context.Context) (bool, error) {
+		var listErr error
+		list, listErr = dynClient.Resource(vaGVR).Namespace("").List(ctx, metav1.ListOptions{
+			LabelSelector: selector,
+		})
+		if listErr == nil {
+			return true, nil
+		}
+		if apierrors.IsNotFound(listErr) {
+			list = nil
+			return true, nil
+		}
+		lastErr = listErr
+		log.Error(listErr, "legacy VA cleanup: failed to discover VariantAutoscaling resources, retrying")
+		return false, nil
+	})
+	if list == nil {
+		if lastErr != nil {
+			log.Error(lastErr, "legacy VA cleanup: retries exhausted, stale VAs may remain until manual cleanup or LLMInferenceService deletion")
+		} else {
+			log.Info("VariantAutoscaling CRD not installed, skipping legacy VA cleanup")
+		}
+		return
+	}
+
+	var deleted int
+	for i := range list.Items {
+		va := &list.Items[i]
+		if err := dynClient.Resource(vaGVR).Namespace(va.GetNamespace()).Delete(ctx, va.GetName(), metav1.DeleteOptions{}); err != nil {
+			if !apierrors.IsNotFound(err) {
+				log.Error(err, "failed to delete legacy VariantAutoscaling", "namespace", va.GetNamespace(), "name", va.GetName())
+			}
+			continue
+		}
+		deleted++
+		log.Info("deleted legacy VariantAutoscaling", "namespace", va.GetNamespace(), "name", va.GetName())
+	}
+	if len(list.Items) > 0 {
+		log.Info("legacy VA cleanup completed; WVA >= v0.8.0 is required for annotation-based discovery", "deleted", deleted, "found", len(list.Items))
+	}
+}
 
 // fastMigrationBackoff is the phase-1 exponential backoff configuration.
 // Cap must not be set: setting Cap zeroes Steps on first hit, causing early exit.

@@ -230,8 +230,6 @@ if [[ $# -eq 1 && "$1" == "llmisvc" ]]; then
   echo "--- ServiceMonitors ---"
   kubectl get servicemonitors -A 2>/dev/null || true
   for ns in $E2E_NAMESPACES; do
-  echo "--- VariantAutoscalings ($ns) ---"
-  kubectl get variantautoscalings -n $ns -o yaml 2>/dev/null || true
   echo "--- HPAs ($ns) ---"
   kubectl get hpa -n $ns -o yaml 2>/dev/null || true
   echo "--- ScaledObjects ($ns) ---"

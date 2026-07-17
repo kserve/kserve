@@ -40,12 +40,6 @@ DEPENDENCIES = {
         None,
         ("kubernetes-sigs/gateway-api-inference-extension", "manifests.yaml"),
     ),
-    "WVA_VERSION": (
-        "github.com/llm-d/llm-d-workload-variant-autoscaler",
-        None,
-        None,
-        None,
-    ),
 }
 
 HELM_REPOS = {
@@ -334,7 +328,7 @@ def main():
         f"GATEWAY_API_VERSION={versions['GATEWAY_API_VERSION']}\n",
         f"GIE_VERSION={versions['GIE_VERSION']}\n",
         f"LLMD_ROUTER_VERSION={llmd_router_version}\n",
-        f"WVA_VERSION={versions['WVA_VERSION']}\n",
+        f"WVA_VERSION={existing_versions.get('WVA_VERSION', 'v0.8.0')}\n",
         "# END\n",
     ]
 
@@ -351,7 +345,6 @@ def main():
         "GIE_VERSION",
         "LWS_VERSION",
         "OPENTELEMETRY_OPERATOR_VERSION",
-        "WVA_VERSION",
     ]:
         print(f"  {var}={versions[var]}")
 
