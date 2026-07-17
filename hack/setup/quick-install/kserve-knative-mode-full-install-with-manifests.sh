@@ -5208,16 +5208,14 @@ spec:
           containers:
           - args: []
             command:
-            - vllm
-            - launch
-            - render
-            - /mnt/models/base
-            - --port=8000
-            - '{{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }}'
-            - '{{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{-
-              end }}'
-            - '{{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{-
-              end }}'
+            - /bin/bash
+            - -c
+            - |-
+              exec vllm launch render /mnt/models/base \
+                --port=8000 \
+                {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh \
+                --ssl-certfile /var/run/kserve/tls/tls.crt \
+                --ssl-keyfile /var/run/kserve/tls/tls.key{{ end }}
             env:
             - name: HF_HOME
               value: /tmp/hf
