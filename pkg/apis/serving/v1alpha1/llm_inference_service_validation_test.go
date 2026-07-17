@@ -387,14 +387,14 @@ func TestValidateWorkloadScaling(t *testing.T) {
 			wantErrStrings: []string{"minReplicas (10) cannot exceed maxReplicas (5)"},
 		},
 		{
-			name: "error: scaling without WVA",
+			name: "error: scaling without wva or keda",
 			workload: &WorkloadSpec{
 				Scaling: &ScalingSpec{
 					MaxReplicas: 5,
 				},
 			},
 			wantErrCount:   1,
-			wantErrStrings: []string{"wva is required when scaling is configured"},
+			wantErrStrings: []string{"either wva or keda must be specified when scaling is configured"},
 		},
 		{
 			name: "error: WVA with both HPA and KEDA",
