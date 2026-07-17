@@ -44,6 +44,14 @@ import (
 // variantCostPattern is compiled once at package init to avoid recompilation on every webhook call.
 var variantCostPattern = regexp.MustCompile(`^\d+(\.\d+)?$`)
 
+// Scaling mode and actuator backend names used in validation error messages.
+const (
+	scalingModeWVA        = "wva"
+	scalingModeDirectKEDA = "direct keda"
+	actuatorBackendHPA    = "hpa"
+	actuatorBackendKEDA   = "keda"
+)
+
 // +kubebuilder:webhook:path=/validate-serving-kserve-io-v1alpha2-llminferenceservice,mutating=false,failurePolicy=fail,sideEffects=None,groups=serving.kserve.io,resources=llminferenceservices,verbs=create;update,versions=v1alpha2,name=llminferenceservice.kserve-webhook-server.v1alpha2.validator,admissionReviewVersions=v1
 
 // LLMInferenceServiceValidator is responsible for validating the LLMInferenceService resource
@@ -525,11 +533,11 @@ func ValidateActuatorConsistency(decode *WorkloadSpec, prefill *WorkloadSpec) fi
 	decodeUsesDirectKEDA := decodeScaling.KEDA != nil
 	prefillUsesDirectKEDA := prefillScaling.KEDA != nil
 	if decodeUsesDirectKEDA != prefillUsesDirectKEDA {
-		decodeMode := "wva"
-		prefillMode := "direct keda"
+		decodeMode := scalingModeWVA
+		prefillMode := scalingModeDirectKEDA
 		if decodeUsesDirectKEDA {
-			decodeMode = "direct keda"
-			prefillMode = "wva"
+			decodeMode = scalingModeDirectKEDA
+			prefillMode = scalingModeWVA
 		}
 		return field.ErrorList{
 			field.Invalid(
@@ -555,11 +563,11 @@ func ValidateActuatorConsistency(decode *WorkloadSpec, prefill *WorkloadSpec) fi
 		return nil
 	}
 
-	decodeBackend := "keda"
-	prefillBackend := "hpa"
+	decodeBackend := actuatorBackendKEDA
+	prefillBackend := actuatorBackendHPA
 	if decodeUsesHPA {
-		decodeBackend = "hpa"
-		prefillBackend = "keda"
+		decodeBackend = actuatorBackendHPA
+		prefillBackend = actuatorBackendKEDA
 	}
 
 	return field.ErrorList{
