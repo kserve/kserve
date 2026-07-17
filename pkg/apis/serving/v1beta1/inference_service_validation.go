@@ -132,6 +132,10 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 		return allWarnings, err
 	}
 
+	if err := validatePodSpecSecurityFields(isvc); err != nil {
+		return allWarnings, err
+	}
+
 	if err := validateMultiNodeVariables(isvc); err != nil {
 		return allWarnings, err
 	}
@@ -346,6 +350,56 @@ func validateBlockedEnvVars(isvc *InferenceService) error {
 		if isvc.Spec.Explainer.ART != nil {
 			if err := validation.ValidateBlockedEnvVars([]corev1.Container{isvc.Spec.Explainer.ART.Container}, validation.DefaultBlockedEnvVars); err != nil {
 				return fmt.Errorf("the InferenceService %q is invalid: %w", isvc.Name, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func validatePodSpecSecurityFields(isvc *InferenceService) error {
+	if err := validatePodSpecSecurity(isvc.Name, &isvc.Spec.Predictor.PodSpec, "predictor"); err != nil {
+		return err
+	}
+
+	if isvc.Spec.Predictor.WorkerSpec != nil {
+		if err := validatePodSpecSecurity(isvc.Name, &isvc.Spec.Predictor.WorkerSpec.PodSpec, "predictor workerSpec"); err != nil {
+			return err
+		}
+	}
+
+	if isvc.Spec.Transformer != nil {
+		if err := validatePodSpecSecurity(isvc.Name, &isvc.Spec.Transformer.PodSpec, "transformer"); err != nil {
+			return err
+		}
+	}
+
+	if isvc.Spec.Explainer != nil {
+		if err := validatePodSpecSecurity(isvc.Name, &isvc.Spec.Explainer.PodSpec, "explainer"); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func validatePodSpecSecurity(isvcName string, podSpec *PodSpec, component string) error {
+	if podSpec.HostNetwork {
+		return fmt.Errorf(DisallowedHostNetworkError, isvcName, component)
+	}
+	if podSpec.HostPID {
+		return fmt.Errorf(DisallowedHostPIDError, isvcName, component)
+	}
+	if podSpec.HostIPC {
+		return fmt.Errorf(DisallowedHostIPCError, isvcName, component)
+	}
+
+	for _, vol := range podSpec.Volumes {
+		if vol.Projected != nil {
+			for _, src := range vol.Projected.Sources {
+				if src.ServiceAccountToken != nil {
+					return fmt.Errorf(DisallowedProjectedSATokenVolumeError, isvcName, vol.Name, component)
+				}
 			}
 		}
 	}
