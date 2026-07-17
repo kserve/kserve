@@ -674,7 +674,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "scheduler": {
                 "config": {
                     "inline": {
-                        "apiVersion": "inference.networking.x-k8s.io/v1alpha1",
+                        "apiVersion": "llm-d.ai/v1alpha1",
                         "kind": "EndpointPickerConfig",
                         "plugins": [
                             {"type": "single-profile-handler"},
@@ -702,7 +702,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "scheduler": {
                 "config": {
                     "inline": {
-                        "apiVersion": "inference.networking.x-k8s.io/v1alpha1",
+                        "apiVersion": "llm-d.ai/v1alpha1",
                         "kind": "EndpointPickerConfig",
                         "plugins": [
                             {"type": "single-profile-handler"},
@@ -762,7 +762,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "scheduler": {
                 "config": {
                     "inline": {
-                        "apiVersion": "inference.networking.x-k8s.io/v1alpha1",
+                        "apiVersion": "llm-d.ai/v1alpha1",
                         "kind": "EndpointPickerConfig",
                         "plugins": [
                             {"type": "prefill-header-handler"},
@@ -818,7 +818,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "scheduler": {
                 "config": {
                     "inline": {
-                        "apiVersion": "inference.networking.x-k8s.io/v1alpha1",
+                        "apiVersion": "llm-d.ai/v1alpha1",
                         "kind": "EndpointPickerConfig",
                         "plugins": [
                             {"type": "prefill-header-handler"},
@@ -941,7 +941,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                                 "vllm:kv_cache_usage_perc",
                                 "--config-text",
                                 (
-                                    "apiVersion: inference.networking.x-k8s.io/v1alpha1\n"
+                                    "apiVersion: llm-d.ai/v1alpha1\n"
                                     "kind: EndpointPickerConfig\n"
                                     "plugins:\n"
                                     "- type: single-profile-handler\n"
@@ -1331,7 +1331,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "scheduler": {
                 "config": {
                     "inline": {
-                        "apiVersion": "inference.networking.x-k8s.io/v1alpha1",
+                        "apiVersion": "llm-d.ai/v1alpha1",
                         "kind": "EndpointPickerConfig",
                         "featureGates": ["flowControl"],
                         "plugins": [
@@ -1390,7 +1390,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "scheduler": {
                 "config": {
                     "inline": {
-                        "apiVersion": "inference.networking.x-k8s.io/v1alpha1",
+                        "apiVersion": "llm-d.ai/v1alpha1",
                         "kind": "EndpointPickerConfig",
                         "featureGates": ["flowControl"],
                         "plugins": [
@@ -1666,7 +1666,7 @@ def inject_k8s_proxy():
 
 
 # Scheduler config YAML used for ConfigMap ref tests
-SCHEDULER_CONFIG_YAML = """apiVersion: inference.networking.x-k8s.io/v1alpha1
+SCHEDULER_CONFIG_YAML = """apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler

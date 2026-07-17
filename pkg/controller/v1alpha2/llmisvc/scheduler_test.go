@@ -1404,7 +1404,7 @@ plugins:
 }
 
 func TestSchedulerTransform(t *testing.T) {
-	oldConfigYAML := `apiVersion: inference.networking.x-k8s.io/v1alpha1
+	oldConfigYAML := `apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: prefill-header-handler
@@ -1489,6 +1489,86 @@ plugins:
 	}
 }
 
+// TestSchedulerTransformMigratesLLMDAPIVersion verifies the version-gated
+// (>=0.9.0) EndpointPickerConfig apiVersion rewrite in isolation:
+//   - 0.9.0: inference.networking.x-k8s.io/v1alpha1 -> llm-d.ai/v1alpha1
+//   - 0.8.0: old apiVersion preserved (the pre-0.9.0 binary still accepts it)
+//   - 0.9.0 + new apiVersion: left unchanged (idempotent)
+func TestSchedulerTransformMigratesLLMDAPIVersion(t *testing.T) {
+	oldAPIVersionConfig := `apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+`
+
+	tests := []struct {
+		name           string
+		version        string
+		configYAML     string
+		validateConfig func(g Gomega, configText string)
+	}{
+		{
+			name:       "migrates apiVersion for v0.9.0",
+			version:    "0.9.0",
+			configYAML: oldAPIVersionConfig,
+			validateConfig: func(g Gomega, configText string) {
+				g.Expect(configText).To(ContainSubstring("apiVersion: llm-d.ai/v1alpha1"))
+				g.Expect(configText).NotTo(ContainSubstring("inference.networking.x-k8s.io/v1alpha1"))
+			},
+		},
+		{
+			name:       "preserves old apiVersion for v0.8.0",
+			version:    "0.8.0",
+			configYAML: oldAPIVersionConfig,
+			validateConfig: func(g Gomega, configText string) {
+				g.Expect(configText).To(ContainSubstring("apiVersion: inference.networking.x-k8s.io/v1alpha1"))
+				g.Expect(configText).NotTo(ContainSubstring("llm-d.ai/v1alpha1"))
+			},
+		},
+		{
+			name:    "leaves new apiVersion unchanged for v0.9.0",
+			version: "0.9.0",
+			configYAML: `apiVersion: llm-d.ai/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+`,
+			validateConfig: func(g Gomega, configText string) {
+				g.Expect(configText).To(ContainSubstring("apiVersion: llm-d.ai/v1alpha1"))
+				g.Expect(configText).NotTo(ContainSubstring("inference.networking.x-k8s.io/v1alpha1"))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+
+			d := &appsv1.Deployment{
+				Spec: appsv1.DeploymentSpec{
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								"app.kubernetes.io/version": tt.version,
+							},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Name: "main", Args: []string{"--config-text", tt.configYAML}},
+							},
+						},
+					},
+				},
+			}
+
+			g.Expect(schedulerTransform(context.Background(), d)).To(Succeed())
+
+			configText := d.Spec.Template.Spec.Containers[0].Args[1]
+			tt.validateConfig(g, configText)
+		})
+	}
+}
+
 func TestSchedulerTransformThreshold(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -1498,7 +1578,7 @@ func TestSchedulerTransformThreshold(t *testing.T) {
 	}{
 		{
 			name: "migrates non-zero threshold in full transform",
-			configYAML: `apiVersion: inference.networking.x-k8s.io/v1alpha1
+			configYAML: `apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: prefill-header-handler
@@ -1525,7 +1605,7 @@ plugins:
 		},
 		{
 			name: "migrates non-zero threshold with deciderPluginName in full transform",
-			configYAML: `apiVersion: inference.networking.x-k8s.io/v1alpha1
+			configYAML: `apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: prefill-header-handler
@@ -1551,7 +1631,7 @@ plugins:
 		},
 		{
 			name: "migrates threshold 0 in full transform",
-			configYAML: `apiVersion: inference.networking.x-k8s.io/v1alpha1
+			configYAML: `apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: prefill-header-handler
@@ -1608,8 +1688,8 @@ plugins:
 }
 
 func TestFullMigrationPipeline(t *testing.T) {
-	// Realistic old v0.6 config with all deprecated features.
-	oldConfigYAML := `apiVersion: inference.networking.x-k8s.io/v1alpha1
+	// Config with all deprecated v0.6 features, on the current llm-d.ai apiVersion.
+	oldConfigYAML := `apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: prefill-header-handler
@@ -1805,7 +1885,7 @@ schedulingProfiles:
 }
 
 func TestFullMigrationPipelineNonZeroThreshold(t *testing.T) {
-	oldConfigYAML := `apiVersion: inference.networking.x-k8s.io/v1alpha1
+	oldConfigYAML := `apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: prefill-header-handler
@@ -1952,7 +2032,7 @@ func TestExtractDeprecatedMetricFlags(t *testing.T) {
 }
 
 func TestSchedulerTransformGatesMetricFlagExtraction(t *testing.T) {
-	configYAML := `apiVersion: inference.networking.x-k8s.io/v1alpha1
+	configYAML := `apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: queue-scorer

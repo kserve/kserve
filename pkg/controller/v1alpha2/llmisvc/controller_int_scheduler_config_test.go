@@ -49,7 +49,7 @@ var _ = Describe("LLMInferenceService Scheduler Config", func() {
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			customSchedulerConfig := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: custom-plugin
@@ -217,7 +217,7 @@ schedulingProfiles:
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			configMapData := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: configmap-plugin
@@ -267,7 +267,7 @@ schedulingProfiles:
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			configMapData := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: custom-key-plugin
@@ -317,7 +317,7 @@ schedulingProfiles:
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			initialConfigData := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: initial-plugin
@@ -359,7 +359,7 @@ schedulingProfiles:
 
 			// when - update ConfigMap
 			updatedConfigData := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: updated-plugin
@@ -502,7 +502,7 @@ schedulingProfiles:
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			systemConfigData := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: system-namespace-plugin
@@ -627,7 +627,7 @@ schedulingProfiles:
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			schedulerConfigData := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: baseref-plugin
@@ -689,7 +689,7 @@ schedulingProfiles:
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			inlineSchedulerConfig := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: inline-baseref-plugin
@@ -1054,7 +1054,7 @@ schedulingProfiles:
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			precisePrefixConfig := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler
@@ -1119,7 +1119,7 @@ schedulingProfiles:
 
 			//nolint:gosec // G101: not a credential, scheduler config YAML
 			configWithExistingTokenizer := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler
@@ -1186,7 +1186,7 @@ schedulingProfiles:
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			configWithoutPrecisePrefix := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler
@@ -1244,7 +1244,7 @@ schedulingProfiles:
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			oldFormatConfig := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler
@@ -1308,7 +1308,7 @@ schedulingProfiles:
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			newFormatConfig := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler
@@ -1569,7 +1569,7 @@ schedulingProfiles:
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			configWithPrefixCacheParams := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler
@@ -1625,7 +1625,7 @@ schedulingProfiles:
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			configWithOnlyDeprecatedParams := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler
@@ -1681,7 +1681,7 @@ schedulingProfiles:
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			configWithNoParams := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler
