@@ -145,6 +145,8 @@ def _get_pod_uids(apps_v1, deployment_name, namespace):
 
 
 @pytest.mark.predictor
+@pytest.mark.raw
+@pytest.mark.asyncio(scope="session")
 def test_canary_create():
     service_name = "isvc-canary-create"
     kserve = _kserve_client()
@@ -193,6 +195,8 @@ def test_canary_create():
 
 
 @pytest.mark.predictor
+@pytest.mark.raw
+@pytest.mark.asyncio(scope="session")
 def test_canary_promote():
     service_name = "isvc-canary-promote"
     kserve = _kserve_client()
@@ -253,6 +257,8 @@ def test_canary_promote():
 
 
 @pytest.mark.predictor
+@pytest.mark.raw
+@pytest.mark.asyncio(scope="session")
 def test_canary_rollback():
     service_name = "isvc-canary-rollback"
     kserve = _kserve_client()
@@ -308,6 +314,8 @@ def test_canary_rollback():
 
 
 @pytest.mark.predictor
+@pytest.mark.raw
+@pytest.mark.asyncio(scope="session")
 def test_canary_force_stop():
     service_name = "isvc-canary-stop"
     kserve = _kserve_client()
@@ -355,3 +363,6 @@ def test_canary_force_stop():
         _wait_for_condition(kserve, service_name, "CanaryPredictorReady", "Stopped")
     finally:
         _safe_delete(kserve, service_name)
+
+
+# TODO: Add testing for routing after HTTPRoute support is added to the raw deployment mode.
