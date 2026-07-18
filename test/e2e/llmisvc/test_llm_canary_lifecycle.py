@@ -29,6 +29,8 @@ from urllib.parse import urlparse
 import pytest
 from kubernetes import client as k8s_client, config
 
+from .fixtures import LLMD_SIMULATOR_SECURITY_CONTEXT
+
 logger = logging.getLogger(__name__)
 
 KUBE_CONTEXT = os.environ.get("KUBE_CONTEXT", None)
@@ -79,12 +81,6 @@ class WorkloadConfig:
             spec["storageInitializer"] = {"enabled": False}
         return spec
 
-
-LLMD_SIMULATOR_SECURITY_CONTEXT = {
-    "runAsNonRoot": True,
-    "runAsUser": 65532,
-    "runAsGroup": 65532,
-}
 
 INFERENCE_SIM = WorkloadConfig(
     name="canary-workload",
