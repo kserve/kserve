@@ -270,6 +270,7 @@ def delete_member(api, name, ns, wait=False):
 
 def wait_ready(api, name, ns, timeout=600):
     deadline = time.monotonic() + timeout
+    prev = None
     while time.monotonic() < deadline:
         try:
             obj = api.get_namespaced_custom_object(
@@ -279,9 +280,40 @@ def wait_ready(api, name, ns, timeout=600):
             for c in conditions:
                 if c.get("type") == "Ready" and c.get("status") == "True":
                     return
+            not_ready = {
+                c["type"]: c.get("reason", c.get("status"))
+                for c in conditions
+                if c.get("status") != "True"
+            }
+            if not_ready != prev:
+                logger.info("Waiting for %s: not ready: %s", name, not_ready)
+                prev = not_ready
         except k8s_client.ApiException:
             pass
         time.sleep(5)
+
+    # dump diagnostics before raising
+    try:
+        obj = api.get_namespaced_custom_object(
+            KSERVE_GROUP, KSERVE_VERSION, ns, KSERVE_PLURAL, name
+        )
+        conditions = obj.get("status", {}).get("conditions", [])
+        logger.error("Timeout waiting for %s: conditions=%s", name, conditions)
+    except k8s_client.ApiException:
+        logger.error("Timeout waiting for %s: resource not found", name)
+    try:
+        core = k8s_client.CoreV1Api()
+        pods = core.list_namespaced_pod(ns).items
+        for p in pods:
+            statuses = p.status.container_statuses or []
+            logger.error(
+                "Pod %s phase=%s containers=%s",
+                p.metadata.name,
+                p.status.phase,
+                [{s.name: s.state.to_dict()} for s in statuses],
+            )
+    except Exception as e:
+        logger.error("Failed to list pods in %s: %s", ns, e)
     raise TimeoutError(f"{name} not Ready within {timeout}s")
 
 
