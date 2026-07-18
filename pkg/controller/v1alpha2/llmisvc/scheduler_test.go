@@ -1404,7 +1404,7 @@ plugins:
 }
 
 func TestSchedulerTransform(t *testing.T) {
-	oldConfigYAML := `apiVersion: inference.networking.x-k8s.io/v1alpha1
+	oldConfigYAML := `apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: prefill-header-handler
@@ -1481,7 +1481,87 @@ plugins:
 				},
 			}
 
-			g.Expect(schedulerTransform(context.Background(), d)).To(Succeed())
+			g.Expect(schedulerTransform(context.Background(), d, &v1alpha2.LLMInferenceService{}, false)).To(Succeed())
+
+			configText := d.Spec.Template.Spec.Containers[0].Args[1]
+			tt.validateConfig(g, configText)
+		})
+	}
+}
+
+// TestSchedulerTransformMigratesLLMDAPIVersion verifies the version-gated
+// (>=0.9.0) EndpointPickerConfig apiVersion rewrite in isolation:
+//   - 0.9.0: inference.networking.x-k8s.io/v1alpha1 -> llm-d.ai/v1alpha1
+//   - 0.8.0: old apiVersion preserved (the pre-0.9.0 binary still accepts it)
+//   - 0.9.0 + new apiVersion: left unchanged (idempotent)
+func TestSchedulerTransformMigratesLLMDAPIVersion(t *testing.T) {
+	oldAPIVersionConfig := `apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+`
+
+	tests := []struct {
+		name           string
+		version        string
+		configYAML     string
+		validateConfig func(g Gomega, configText string)
+	}{
+		{
+			name:       "migrates apiVersion for v0.9.0",
+			version:    "0.9.0",
+			configYAML: oldAPIVersionConfig,
+			validateConfig: func(g Gomega, configText string) {
+				g.Expect(configText).To(ContainSubstring("apiVersion: llm-d.ai/v1alpha1"))
+				g.Expect(configText).NotTo(ContainSubstring("inference.networking.x-k8s.io/v1alpha1"))
+			},
+		},
+		{
+			name:       "preserves old apiVersion for v0.8.0",
+			version:    "0.8.0",
+			configYAML: oldAPIVersionConfig,
+			validateConfig: func(g Gomega, configText string) {
+				g.Expect(configText).To(ContainSubstring("apiVersion: inference.networking.x-k8s.io/v1alpha1"))
+				g.Expect(configText).NotTo(ContainSubstring("llm-d.ai/v1alpha1"))
+			},
+		},
+		{
+			name:    "leaves new apiVersion unchanged for v0.9.0",
+			version: "0.9.0",
+			configYAML: `apiVersion: llm-d.ai/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+`,
+			validateConfig: func(g Gomega, configText string) {
+				g.Expect(configText).To(ContainSubstring("apiVersion: llm-d.ai/v1alpha1"))
+				g.Expect(configText).NotTo(ContainSubstring("inference.networking.x-k8s.io/v1alpha1"))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+
+			d := &appsv1.Deployment{
+				Spec: appsv1.DeploymentSpec{
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								"app.kubernetes.io/version": tt.version,
+							},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Name: "main", Args: []string{"--config-text", tt.configYAML}},
+							},
+						},
+					},
+				},
+			}
+
+			g.Expect(schedulerTransform(context.Background(), d, &v1alpha2.LLMInferenceService{}, false)).To(Succeed())
 
 			configText := d.Spec.Template.Spec.Containers[0].Args[1]
 			tt.validateConfig(g, configText)
@@ -1498,7 +1578,7 @@ func TestSchedulerTransformThreshold(t *testing.T) {
 	}{
 		{
 			name: "migrates non-zero threshold in full transform",
-			configYAML: `apiVersion: inference.networking.x-k8s.io/v1alpha1
+			configYAML: `apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: prefill-header-handler
@@ -1525,7 +1605,7 @@ plugins:
 		},
 		{
 			name: "migrates non-zero threshold with deciderPluginName in full transform",
-			configYAML: `apiVersion: inference.networking.x-k8s.io/v1alpha1
+			configYAML: `apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: prefill-header-handler
@@ -1551,7 +1631,7 @@ plugins:
 		},
 		{
 			name: "migrates threshold 0 in full transform",
-			configYAML: `apiVersion: inference.networking.x-k8s.io/v1alpha1
+			configYAML: `apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: prefill-header-handler
@@ -1598,7 +1678,7 @@ plugins:
 				},
 			}
 
-			g.Expect(schedulerTransform(context.Background(), d)).To(Succeed())
+			g.Expect(schedulerTransform(context.Background(), d, &v1alpha2.LLMInferenceService{}, false)).To(Succeed())
 
 			configText := d.Spec.Template.Spec.Containers[0].Args[1]
 			tt.validateConfig(g, configText)
@@ -1608,8 +1688,8 @@ plugins:
 }
 
 func TestFullMigrationPipeline(t *testing.T) {
-	// Realistic old v0.6 config with all deprecated features.
-	oldConfigYAML := `apiVersion: inference.networking.x-k8s.io/v1alpha1
+	// Config with all deprecated v0.6 features, on the current llm-d.ai apiVersion.
+	oldConfigYAML := `apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: prefill-header-handler
@@ -1790,7 +1870,7 @@ schedulingProfiles:
 			)).To(Succeed())
 
 			// Stage 2: version-gated v0.7 migrations (single pass)
-			g.Expect(schedulerTransform(ctx, d)).To(Succeed())
+			g.Expect(schedulerTransform(ctx, d, &v1alpha2.LLMInferenceService{}, false)).To(Succeed())
 
 			resultArgs := d.Spec.Template.Spec.Containers[0].Args
 			for i, a := range resultArgs {
@@ -1805,7 +1885,7 @@ schedulingProfiles:
 }
 
 func TestFullMigrationPipelineNonZeroThreshold(t *testing.T) {
-	oldConfigYAML := `apiVersion: inference.networking.x-k8s.io/v1alpha1
+	oldConfigYAML := `apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: prefill-header-handler
@@ -1853,7 +1933,7 @@ schedulingProfiles:
 	}
 
 	ctx := context.Background()
-	g.Expect(schedulerTransform(ctx, d)).To(Succeed())
+	g.Expect(schedulerTransform(ctx, d, &v1alpha2.LLMInferenceService{}, false)).To(Succeed())
 
 	configText := d.Spec.Template.Spec.Containers[0].Args[1]
 
@@ -1952,7 +2032,7 @@ func TestExtractDeprecatedMetricFlags(t *testing.T) {
 }
 
 func TestSchedulerTransformGatesMetricFlagExtraction(t *testing.T) {
-	configYAML := `apiVersion: inference.networking.x-k8s.io/v1alpha1
+	configYAML := `apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: queue-scorer
@@ -2128,7 +2208,7 @@ plugins:
 				},
 			}
 
-			err := schedulerTransform(context.Background(), d)
+			err := schedulerTransform(context.Background(), d, &v1alpha2.LLMInferenceService{}, false)
 			if tt.expectErr {
 				g.Expect(err).To(HaveOccurred())
 				g.Expect(err.Error()).To(ContainSubstring(tt.errSubstring))
@@ -2143,6 +2223,133 @@ plugins:
 			if tt.validateConfig != nil {
 				tt.validateConfig(g, resultArgs)
 			}
+		})
+	}
+}
+
+func TestMigrateProducerParams(t *testing.T) {
+	tests := []struct {
+		name     string
+		plugin   map[string]interface{}
+		validate func(g Gomega, result map[string]interface{})
+	}{
+		{
+			name: "promotes tokenProcessorConfig from indexerConfig to top level",
+			plugin: map[string]interface{}{
+				"type": "precise-prefix-cache-scorer",
+				"parameters": map[string]interface{}{
+					"indexerConfig": map[string]interface{}{
+						"tokenProcessorConfig": map[string]interface{}{
+							"blockSize": 64,
+							"hashSeed":  "42",
+						},
+						"kvBlockIndexConfig": map[string]interface{}{
+							"enableMetrics": true,
+						},
+					},
+					"kvEventsConfig": map[string]interface{}{
+						"discoverPods": true,
+					},
+				},
+			},
+			validate: func(g Gomega, result map[string]interface{}) {
+				g.Expect(result).To(HaveKey("tokenProcessorConfig"))
+				tpc := result["tokenProcessorConfig"].(map[string]interface{})
+				g.Expect(tpc["blockSize"]).To(Equal(64))
+				g.Expect(tpc["hashSeed"]).To(Equal("42"))
+
+				ic := result["indexerConfig"].(map[string]interface{})
+				g.Expect(ic).NotTo(HaveKey("tokenProcessorConfig"))
+				g.Expect(ic).To(HaveKey("kvBlockIndexConfig"))
+
+				g.Expect(result).To(HaveKey("kvEventsConfig"))
+			},
+		},
+		{
+			name: "top-level tokenProcessorConfig takes priority over nested",
+			plugin: map[string]interface{}{
+				"type": "precise-prefix-cache-scorer",
+				"parameters": map[string]interface{}{
+					"tokenProcessorConfig": map[string]interface{}{
+						"blockSize": 128,
+						"hashSeed":  "99",
+					},
+					"indexerConfig": map[string]interface{}{
+						"tokenProcessorConfig": map[string]interface{}{
+							"blockSize": 64,
+							"hashSeed":  "42",
+						},
+					},
+				},
+			},
+			validate: func(g Gomega, result map[string]interface{}) {
+				tpc := result["tokenProcessorConfig"].(map[string]interface{})
+				g.Expect(tpc["blockSize"]).To(Equal(128))
+				g.Expect(tpc["hashSeed"]).To(Equal("99"))
+
+				g.Expect(result).NotTo(HaveKey("indexerConfig"),
+					"indexerConfig should be removed when only tokenProcessorConfig remained")
+			},
+		},
+		{
+			name: "strips tokenizersPoolConfig from indexerConfig",
+			plugin: map[string]interface{}{
+				"type": "precise-prefix-cache-scorer",
+				"parameters": map[string]interface{}{
+					"indexerConfig": map[string]interface{}{
+						"tokenizersPoolConfig": map[string]interface{}{
+							"modelName": "test-model",
+						},
+						"kvBlockIndexConfig": map[string]interface{}{
+							"enableMetrics": true,
+						},
+					},
+				},
+			},
+			validate: func(g Gomega, result map[string]interface{}) {
+				ic := result["indexerConfig"].(map[string]interface{})
+				g.Expect(ic).NotTo(HaveKey("tokenizersPoolConfig"))
+				g.Expect(ic).To(HaveKey("kvBlockIndexConfig"))
+			},
+		},
+		{
+			name:   "returns nil for empty parameters",
+			plugin: map[string]interface{}{"type": "precise-prefix-cache-scorer"},
+			validate: func(g Gomega, result map[string]interface{}) {
+				g.Expect(result).To(BeNil())
+			},
+		},
+		{
+			name: "no nested tokenProcessorConfig - no promotion",
+			plugin: map[string]interface{}{
+				"type": "precise-prefix-cache-scorer",
+				"parameters": map[string]interface{}{
+					"tokenProcessorConfig": map[string]interface{}{
+						"blockSize": 128,
+					},
+					"indexerConfig": map[string]interface{}{
+						"kvBlockIndexConfig": map[string]interface{}{
+							"enableMetrics": true,
+						},
+					},
+				},
+			},
+			validate: func(g Gomega, result map[string]interface{}) {
+				tpc := result["tokenProcessorConfig"].(map[string]interface{})
+				g.Expect(tpc["blockSize"]).To(Equal(128))
+
+				ic := result["indexerConfig"].(map[string]interface{})
+				g.Expect(ic).To(HaveKey("kvBlockIndexConfig"))
+				g.Expect(ic).NotTo(HaveKey("tokenProcessorConfig"))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			result := migrateProducerParams(tt.plugin)
+			tt.validate(g, result)
 		})
 	}
 }

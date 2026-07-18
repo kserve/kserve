@@ -17,6 +17,16 @@ from pathlib import Path
 
 # Fixture factory - not called explicitly, but must be imported for pytest to discover it.
 from .fixtures import test_case  # noqa: F401
+from .namespace import (
+    create_test_namespace,
+    delete_test_namespace,
+    generate_namespace_name,
+    provision_namespace_secrets,
+    skip_deletion,
+)
+from .fixtures import inject_k8s_proxy
+
+from .traffic import TrafficDriver
 
 _LLMISVC_DIR = Path(__file__).parent
 _AUTOSCALING_STEM_PREFIX = "test_llm_autoscaling_"
@@ -27,17 +37,42 @@ _AUTOSCALING_STEM_PREFIX = "test_llm_autoscaling_"
 _LLMISVC_CORE_EXCLUDED = {"test_llm_tracing.py"}
 
 
+@pytest.fixture
+def traffic_driver():
+    """Factory fixture - creates TrafficDrivers, auto-starts, auto-stops on teardown."""
+    drivers: list[TrafficDriver] = []
+
+    def factory(url: str, *, warmup: bool = False, **kwargs) -> TrafficDriver:
+        driver = TrafficDriver(url, **kwargs)
+        drivers.append(driver)
+        driver.start(warmup=warmup)
+        return driver
+
+    yield factory
+
+    for d in reversed(drivers):
+        if d.is_running:
+            d.stop()
+
+
 def _auto_assign_group_markers(items):
     """Auto-assign group markers based on file naming convention.
 
+    Every test collected from the ``llmisvc/`` directory automatically receives
+    the ``llminferenceservice`` marker.  Additionally:
+
     * ``test_llm_autoscaling_<variant>.py`` -> ``llmisvc_autoscaling`` +
       ``autoscaling_<variant>`` (e.g. ``autoscaling_wva``, ``autoscaling_keda``).
-    * ``test_llm_tracing.py`` -> skipped (has its own ``tracing`` marker).
+    * ``test_llm_tracing.py`` -> skipped from ``llmisvc_core`` (has its own
+      ``tracing`` marker).
     * Everything else -> ``llmisvc_core``.
     """
     for item in items:
         if not item.path.is_relative_to(_LLMISVC_DIR):
             continue
+
+        item.add_marker(pytest.mark.llminferenceservice)
+
         stem = item.path.stem  # filename without .py
 
         if stem.startswith(_AUTOSCALING_STEM_PREFIX):
@@ -48,8 +83,25 @@ def _auto_assign_group_markers(items):
             item.add_marker(pytest.mark.llmisvc_core)
 
 
-# This hook is used to ensure that the test names are unique and to ensure that
-# the test names are consistent with the cluster marks.
+def pytest_configure(config):
+    """Register dynamic autoscaling variant markers derived from filenames.
+
+    Static markers are declared in pytest.ini. This hook only handles markers
+    that are generated from the filesystem (autoscaling_<variant>) so that
+    --strict-markers works without manual upkeep.
+    """
+    for path in _LLMISVC_DIR.glob(f"{_AUTOSCALING_STEM_PREFIX}*.py"):
+        variant = path.stem[len(_AUTOSCALING_STEM_PREFIX) :]
+        config.addinivalue_line(
+            "markers",
+            f"autoscaling_{variant}: auto-discovered autoscaling variant marker",
+        )
+    config.addinivalue_line(
+        "markers",
+        "traffic: continuous traffic test (uses TrafficDriver)",
+    )
+
+
 def pytest_collection_modifyitems(config, items):
     _auto_assign_group_markers(items)
 
@@ -74,34 +126,16 @@ def pytest_collection_modifyitems(config, items):
         item._nodeid = f"{base}[{new_id}]"
 
 
-def pytest_configure(config):
-    config.addinivalue_line(
-        "markers", "llminferenceservice: mark test as an LLM inference service test"
-    )
-    config.addinivalue_line("markers", "llmisvc_core: mark test as a core LLMISVC test")
-    config.addinivalue_line("markers", "autoscaling: mark test as an autoscaling test")
-    config.addinivalue_line(
-        "markers", "autoscaling_wva: mark test as a WVA autoscaling test"
-    )
-    config.addinivalue_line(
-        "markers",
-        "llmisvc_autoscaling: mark test as an LLMISVC autoscaling test",
-    )
-    config.addinivalue_line(
-        "markers", "autoscaling_hpa: mark test as an HPA autoscaling test"
-    )
-    config.addinivalue_line(
-        "markers", "autoscaling_keda: mark test as a KEDA autoscaling test"
-    )
-    config.addinivalue_line(
-        "markers", "model_routing: mark test as a model-based routing test"
-    )
-    config.addinivalue_line("markers", "lora: mark test as a LoRA adapter test")
-    config.addinivalue_line("markers", "pvc_storage: mark test as a PVC storage test")
-    config.addinivalue_line(
-        "markers", "tracing: mark test as a distributed tracing test"
-    )
-    config.addinivalue_line("markers", "flow_control: mark test as a flow control test")
+@pytest.fixture(scope="function")
+def test_namespace(request):
+    """Create a per-test namespace with secrets, clean up after the test."""
+    inject_k8s_proxy()
+    ns = generate_namespace_name(request.node.name)
+    create_test_namespace(ns)
+    provision_namespace_secrets(ns)
+    yield ns
+    if not skip_deletion():
+        delete_test_namespace(ns)
 
 
 @pytest.fixture

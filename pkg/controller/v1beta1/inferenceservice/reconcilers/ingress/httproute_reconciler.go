@@ -105,7 +105,7 @@ func getRawServiceHost(isvc *v1beta1.InferenceService) string {
 		transformerName := constants.TransformerServiceName(isvc.Name)
 		return network.GetServiceHostname(transformerName, isvc.Namespace)
 	}
-	predictorName := constants.PredictorServiceName(isvc.Name)
+	predictorName := constants.PredictorServiceName(isvc.Name, isvc.Spec.Predictor.Name)
 	return network.GetServiceHostname(predictorName, isvc.Namespace)
 }
 
@@ -263,7 +263,7 @@ func createRawPredictorHTTPRoute(ctx context.Context, client client.Client, isvc
 		})
 		return nil, nil
 	}
-	predictorName := constants.PredictorServiceName(isvc.Name)
+	predictorName := constants.PredictorServiceName(isvc.Name, isvc.Spec.Predictor.Name)
 
 	// Add isvc name and namespace headers
 	filters := []gwapiv1.HTTPRouteFilter{addIsvcHeaders(isvc.Name, isvc.Namespace)}
@@ -306,7 +306,7 @@ func createRawPredictorHTTPRoute(ctx context.Context, client client.Client, isvc
 	gatewaySlice := strings.Split(ingressConfig.KserveIngressGateway, "/")
 	httpRoute := gwapiv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        constants.PredictorServiceName(isvc.Name),
+			Name:        constants.PredictorServiceName(isvc.Name, isvc.Spec.Predictor.Name),
 			Namespace:   isvc.Namespace,
 			Annotations: annotations,
 			Labels:      labels,
@@ -502,7 +502,7 @@ func createRawTopLevelHTTPRoute(ctx context.Context, client client.Client, isvc 
 		})
 		return nil, nil
 	}
-	predictorName := constants.PredictorServiceName(isvc.Name)
+	predictorName := constants.PredictorServiceName(isvc.Name, isvc.Spec.Predictor.Name)
 	transformerName := constants.TransformerServiceName(isvc.Name)
 	explainerName := constants.ExplainerServiceName(isvc.Name)
 
@@ -700,7 +700,7 @@ func (r *RawHTTPRouteReconciler) reconcilePredictorHTTPRoute(ctx context.Context
 	}
 
 	// reconcile httpRoute
-	httpRouteName := constants.PredictorServiceName(isvc.Name)
+	httpRouteName := constants.PredictorServiceName(isvc.Name, isvc.Spec.Predictor.Name)
 	existingHttpRoute := &gwapiv1.HTTPRoute{}
 	getExistingErr := r.client.Get(ctx, types.NamespacedName{
 		Namespace: isvc.Namespace,
@@ -955,7 +955,7 @@ func (r *RawHTTPRouteReconciler) reconcileHTTPRouteStatus(ctx context.Context, i
 
 	checks := []httpRouteCheck{
 		{
-			name:      constants.PredictorServiceName(isvc.Name),
+			name:      constants.PredictorServiceName(isvc.Name, isvc.Spec.Predictor.Name),
 			component: "Predictor",
 		},
 	}

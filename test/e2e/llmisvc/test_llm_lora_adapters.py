@@ -24,7 +24,6 @@ from typing import List, Optional
 
 from .diagnostic import collect_diagnostics
 from .fixtures import (
-    KSERVE_TEST_NAMESPACE,
     LLMINFERENCESERVICE_CONFIGS,
     _create_or_update_llmisvc_config,
     _get_model_name_from_configs,
@@ -64,20 +63,18 @@ class LoRATestCase:
 
 
 def build_llm_service_from_refs(
-    service_name: str, base_refs: List[str]
+    service_name: str, base_refs: List[str], namespace: str
 ) -> V1alpha1LLMInferenceService:
     """Build an LLMInferenceService from base reference configs."""
     return V1alpha1LLMInferenceService(
         api_version="serving.kserve.io/v1alpha1",
         kind="LLMInferenceService",
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=namespace),
         spec={"baseRefs": [{"name": ref} for ref in base_refs]},
     )
 
 
-def run_lora_test(test_case: LoRATestCase):
+def run_lora_test(test_case: LoRATestCase, namespace: str):
     """Execute a LoRA adapter test case."""
     inject_k8s_proxy()
     kserve_client = KServeClient(
@@ -108,26 +105,31 @@ def run_lora_test(test_case: LoRATestCase):
                 "kind": "LLMInferenceServiceConfig",
                 "metadata": {
                     "name": unique_config_name,
-                    "namespace": KSERVE_TEST_NAMESPACE,
+                    "namespace": namespace,
                 },
                 "spec": config,
             }
 
-            logger.info("Creating LLMInferenceServiceConfig: %s", unique_config_name)
-            _create_or_update_llmisvc_config(
-                kserve_client, config_body, KSERVE_TEST_NAMESPACE
+            logger.info(
+                "Creating LLMInferenceServiceConfig: %s",
+                unique_config_name,
             )
+            _create_or_update_llmisvc_config(kserve_client, config_body, namespace)
             created_configs.append(unique_config_name)
 
         # Create the service with unique base refs
-        llm_service = build_llm_service_from_refs(service_name, unique_base_refs)
+        llm_service = build_llm_service_from_refs(
+            service_name, unique_base_refs, namespace
+        )
         logger.info("Creating LLMInferenceService: %s", service_name)
         create_llmisvc(kserve_client, llm_service)
 
         # Wait for service to be ready
         logger.info("Waiting for service %s to be ready...", service_name)
         wait_for_llm_isvc_ready(
-            kserve_client, llm_service, timeout_seconds=test_case.wait_timeout
+            kserve_client,
+            llm_service,
+            timeout_seconds=test_case.wait_timeout,
         )
 
         # Get inference URL
@@ -149,7 +151,7 @@ def run_lora_test(test_case: LoRATestCase):
         )
 
         assert_200_with_choices(base_response)
-        logger.info("✓ Base model inference successful")
+        logger.info("Base model inference successful")
 
         # Test LoRA adapter inference
         for adapter_name in test_case.expected_adapter_names:
@@ -167,13 +169,13 @@ def run_lora_test(test_case: LoRATestCase):
             )
 
             assert_200_with_choices(lora_response)
-            logger.info("✓ LoRA adapter %s inference successful", adapter_name)
+            logger.info("LoRA adapter %s inference successful", adapter_name)
 
     finally:
         # Collect diagnostics before cleanup deletes the pods
         collect_diagnostics(
             service_name,
-            KSERVE_TEST_NAMESPACE,
+            namespace,
             kserve_client=kserve_client,
         )
 
@@ -192,7 +194,7 @@ def run_lora_test(test_case: LoRATestCase):
                 kserve_client.api_instance.delete_namespaced_custom_object(
                     constants.KSERVE_GROUP,
                     constants.KSERVE_V1ALPHA1_VERSION,
-                    KSERVE_TEST_NAMESPACE,
+                    namespace,
                     KSERVE_PLURAL_LLMINFERENCESERVICECONFIG,
                     config_name,
                 )
@@ -215,7 +217,6 @@ def run_lora_test(test_case: LoRATestCase):
                 service_name="lora-single-adapter-test",
             ),
             marks=[
-                pytest.mark.llminferenceservice,
                 pytest.mark.cluster_cpu,
                 pytest.mark.lora,
             ],
@@ -233,7 +234,6 @@ def run_lora_test(test_case: LoRATestCase):
                 service_name="lora-multiple-adapters-test",
             ),
             marks=[
-                pytest.mark.llminferenceservice,
                 pytest.mark.cluster_cpu,
                 pytest.mark.lora,
             ],
@@ -242,6 +242,6 @@ def run_lora_test(test_case: LoRATestCase):
     ],
 )
 @log_execution
-def test_llm_with_lora_adapters(test_case: LoRATestCase):
+def test_llm_with_lora_adapters(test_case: LoRATestCase, test_namespace):
     """Test LLMInferenceService with LoRA adapters."""
-    run_lora_test(test_case)
+    run_lora_test(test_case, namespace=test_namespace)

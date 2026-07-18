@@ -33,6 +33,7 @@ import (
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 
@@ -49,7 +50,7 @@ var _ = Describe("LLMInferenceService Scheduler Config", func() {
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			customSchedulerConfig := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: custom-plugin
@@ -217,7 +218,7 @@ schedulingProfiles:
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			configMapData := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: configmap-plugin
@@ -267,7 +268,7 @@ schedulingProfiles:
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			configMapData := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: custom-key-plugin
@@ -317,7 +318,7 @@ schedulingProfiles:
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			initialConfigData := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: initial-plugin
@@ -359,7 +360,7 @@ schedulingProfiles:
 
 			// when - update ConfigMap
 			updatedConfigData := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: updated-plugin
@@ -502,7 +503,7 @@ schedulingProfiles:
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			systemConfigData := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: system-namespace-plugin
@@ -627,7 +628,7 @@ schedulingProfiles:
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			schedulerConfigData := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: baseref-plugin
@@ -689,7 +690,7 @@ schedulingProfiles:
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			inlineSchedulerConfig := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: inline-baseref-plugin
@@ -1047,14 +1048,14 @@ schedulingProfiles:
 		})
 	})
 
-	Context("UDS tokenizer config injection", func() {
-		It("should inject tokenizersPoolConfig when precise-prefix-cache-scorer has indexerConfig", func(ctx SpecContext) {
+	Context("Standalone tokenizer plugin decomposition", func() {
+		It("should decompose precise-prefix-cache-scorer into 3-plugin pipeline with tokenizer URL", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-uds-tokenizer-inject"
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			precisePrefixConfig := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler
@@ -1091,7 +1092,7 @@ schedulingProfiles:
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			// then - verify the scheduler deployment has injected tokenizersPoolConfig
+			// then - verify the scheduler config has the decomposed 3-plugin pipeline
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				if err := envTest.Get(ctx, types.NamespacedName{
@@ -1103,23 +1104,26 @@ schedulingProfiles:
 
 				configText, found := getSchedulerConfigText(expectedDeployment)
 				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
-				g.Expect(configText).To(ContainSubstring("modelName: base"))
-				g.Expect(configText).To(ContainSubstring("socketFile: /tmp/tokenizer/tokenizer-uds.socket"))
-				// Verify tokenProcessorConfig was migrated from indexerConfig to top-level parameters
-				g.Expect(configText).To(ContainSubstring("tokenProcessorConfig"))
-				g.Expect(configText).To(ContainSubstring("blockSize: 16"))
+				g.Expect(configText).NotTo(ContainSubstring("precise-prefix-cache-scorer"))
+				g.Expect(configText).To(ContainSubstring(kmeta.ChildName(svcName, "-tokenizer")))
+				g.Expect(configText).To(ContainSubstring("modelName: /mnt/models/base"))
+
+				pluginTypes, err := pluginTypesFromConfig(configText)
+				g.Expect(err).NotTo(HaveOccurred())
+				assertPipelineOrder(g, pluginTypes)
+
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})
 
-		It("should override existing tokenizersPoolConfig values", func(ctx SpecContext) {
+		It("should strip legacy UDS tokenizer fields after decomposition", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-uds-tokenizer-override"
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			//nolint:gosec // G101: not a credential, scheduler config YAML
 			configWithExistingTokenizer := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler
@@ -1157,7 +1161,7 @@ schedulingProfiles:
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			// then - verify the values are overridden with the correct ones
+			// then - legacy UDS fields should be gone, replaced by standalone tokenizer
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				if err := envTest.Get(ctx, types.NamespacedName{
@@ -1169,13 +1173,13 @@ schedulingProfiles:
 
 				configText, found := getSchedulerConfigText(expectedDeployment)
 				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
-				g.Expect(configText).To(ContainSubstring("modelName: base"))
-				g.Expect(configText).To(ContainSubstring("socketFile: /tmp/tokenizer/tokenizer-uds.socket"))
+				g.Expect(configText).To(ContainSubstring("token-producer"))
+				g.Expect(configText).To(ContainSubstring(kmeta.ChildName(svcName, "-tokenizer")))
+				g.Expect(configText).To(ContainSubstring("modelName: /mnt/models/base"))
 				g.Expect(configText).NotTo(ContainSubstring("wrong-model-name"))
 				g.Expect(configText).NotTo(ContainSubstring("/wrong/path"))
-				// Verify tokenProcessorConfig was migrated from indexerConfig to top-level parameters
-				g.Expect(configText).To(ContainSubstring("tokenProcessorConfig"))
-				g.Expect(configText).To(ContainSubstring("blockSize: 16"))
+				g.Expect(configText).NotTo(ContainSubstring("socketFile"))
+				g.Expect(configText).NotTo(ContainSubstring("tokenizersPoolConfig"))
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})
@@ -1186,7 +1190,7 @@ schedulingProfiles:
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			configWithoutPrecisePrefix := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler
@@ -1238,13 +1242,13 @@ schedulingProfiles:
 	})
 
 	Context("tokenProcessorConfig migration from indexerConfig to top-level parameters", func() {
-		It("should migrate tokenProcessorConfig from indexerConfig to top-level plugin parameters", func(ctx SpecContext) {
+		It("should decompose precise-prefix-cache-scorer and preserve tokenProcessorConfig", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-tpc-migrate"
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			oldFormatConfig := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler
@@ -1280,7 +1284,7 @@ schedulingProfiles:
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			// then - verify tokenProcessorConfig was migrated to top-level parameters
+			// then - precise-prefix-cache-scorer is decomposed into 3-plugin pipeline
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				if err := envTest.Get(ctx, types.NamespacedName{
@@ -1292,23 +1296,28 @@ schedulingProfiles:
 
 				configText, found := getSchedulerConfigText(expectedDeployment)
 				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
-				// tokenProcessorConfig should be at top-level parameters (sibling of indexerConfig)
-				g.Expect(configText).To(ContainSubstring("blockSize: 64"))
-				g.Expect(configText).To(ContainSubstring("hashSeed: \"42\""))
-				// indexerConfig should still have kvBlockIndexConfig but not tokenProcessorConfig
-				g.Expect(configText).To(ContainSubstring("kvBlockIndexConfig"))
-				g.Expect(configText).To(ContainSubstring("enableMetrics: true"))
+				g.Expect(configText).To(ContainSubstring("token-producer"))
+				g.Expect(configText).To(ContainSubstring("precise-prefix-cache-producer"))
+				g.Expect(configText).To(ContainSubstring("prefix-cache-scorer"))
+				g.Expect(configText).NotTo(ContainSubstring("precise-prefix-cache-scorer"))
+				g.Expect(configText).To(ContainSubstring(kmeta.ChildName(svcName, "-tokenizer")))
+				g.Expect(configText).To(ContainSubstring("modelName: /mnt/models/base"))
+
+				g.Expect(configText).To(ContainSubstring("blockSize: 64"),
+					"tokenProcessorConfig.blockSize should be promoted from indexerConfig to top-level producer params")
+				g.Expect(configText).To(ContainSubstring("hashSeed:"),
+					"tokenProcessorConfig.hashSeed should be promoted from indexerConfig to top-level producer params")
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})
 
-		It("should not overwrite top-level tokenProcessorConfig if already present", func(ctx SpecContext) {
+		It("should decompose precise-prefix-cache-scorer even with top-level tokenProcessorConfig", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-tpc-no-overwrite"
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			newFormatConfig := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler
@@ -1345,7 +1354,7 @@ schedulingProfiles:
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			// then - verify top-level tokenProcessorConfig is preserved, not overwritten
+			// then - plugin decomposition happens regardless of tokenProcessorConfig placement
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				if err := envTest.Get(ctx, types.NamespacedName{
@@ -1357,9 +1366,16 @@ schedulingProfiles:
 
 				configText, found := getSchedulerConfigText(expectedDeployment)
 				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
-				// Top-level values should be preserved
-				g.Expect(configText).To(ContainSubstring("blockSize: 128"))
-				g.Expect(configText).To(ContainSubstring("hashSeed: \"99\""))
+				g.Expect(configText).To(ContainSubstring("token-producer"))
+				g.Expect(configText).To(ContainSubstring("precise-prefix-cache-producer"))
+				g.Expect(configText).NotTo(ContainSubstring("precise-prefix-cache-scorer"))
+				g.Expect(configText).To(ContainSubstring(kmeta.ChildName(svcName, "-tokenizer")))
+				g.Expect(configText).To(ContainSubstring("modelName: /mnt/models/base"))
+
+				g.Expect(configText).To(ContainSubstring("blockSize: 128"),
+					"top-level tokenProcessorConfig should take priority over nested")
+				g.Expect(configText).To(ContainSubstring("hashSeed: \"99\""),
+					"top-level tokenProcessorConfig.hashSeed should be preserved")
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})
@@ -1569,7 +1585,7 @@ schedulingProfiles:
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			configWithPrefixCacheParams := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler
@@ -1625,7 +1641,7 @@ schedulingProfiles:
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			configWithOnlyDeprecatedParams := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler
@@ -1681,7 +1697,7 @@ schedulingProfiles:
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			configWithNoParams := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler
@@ -1945,4 +1961,48 @@ func countLeaderElectionFlags(deployment *appsv1.Deployment) int {
 		}
 	}
 	return count
+}
+
+// pluginTypesFromConfig parses the scheduler config YAML and returns the
+// ordered list of plugin type strings.
+func pluginTypesFromConfig(configText string) ([]string, error) {
+	var parsed struct {
+		Plugins []struct {
+			Type string `json:"type"`
+		} `json:"plugins"`
+	}
+	if err := yaml.Unmarshal([]byte(configText), &parsed); err != nil {
+		return nil, err
+	}
+	pluginTypes := make([]string, len(parsed.Plugins))
+	for i, p := range parsed.Plugins {
+		pluginTypes[i] = p.Type
+	}
+	return pluginTypes, nil
+}
+
+// assertPipelineOrder verifies that the 3-plugin pipeline appears in the
+// correct relative order: token-producer < precise-prefix-cache-producer < prefix-cache-scorer.
+func assertPipelineOrder(g Gomega, pluginTypes []string) {
+	tokenIdx, producerIdx, scorerIdx := -1, -1, -1
+	for i, t := range pluginTypes {
+		switch t {
+		case "token-producer":
+			g.Expect(tokenIdx).To(Equal(-1), "duplicate token-producer in plugin list")
+			tokenIdx = i
+		case "precise-prefix-cache-producer":
+			g.Expect(producerIdx).To(Equal(-1), "duplicate precise-prefix-cache-producer in plugin list")
+			producerIdx = i
+		case "prefix-cache-scorer":
+			g.Expect(scorerIdx).To(Equal(-1), "duplicate prefix-cache-scorer in plugin list")
+			scorerIdx = i
+		}
+	}
+	g.Expect(tokenIdx).NotTo(Equal(-1), "token-producer not found")
+	g.Expect(producerIdx).NotTo(Equal(-1), "precise-prefix-cache-producer not found")
+	g.Expect(scorerIdx).NotTo(Equal(-1), "prefix-cache-scorer not found")
+	g.Expect(tokenIdx).To(BeNumerically("<", producerIdx),
+		"token-producer must appear before precise-prefix-cache-producer")
+	g.Expect(producerIdx).To(BeNumerically("<", scorerIdx),
+		"precise-prefix-cache-producer must appear before prefix-cache-scorer")
 }

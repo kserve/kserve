@@ -47,27 +47,25 @@ spec:
     scheduler:
       config:
         inline:
-          apiVersion: inference.networking.x-k8s.io/v1alpha1
+          apiVersion: llm-d.ai/v1alpha1
           kind: EndpointPickerConfig
           plugins:
             - type: single-profile-handler
-            - type: precise-prefix-cache-scorer
+            - type: token-producer
+            - type: precise-prefix-cache-producer
               parameters:
                 tokenProcessorConfig:
-                  blockSize: 64
-                  hashSeed: "42"
+                  blockSize: 64          # Must match vLLM --block-size
                 kvEventsConfig:
                   zmqEndpoint: "tcp://*:5557"
                   topicFilter: "kv@"
                   discoverPods: false
                 indexerConfig:
                   kvBlockIndexConfig:
-                    enableMetrics: true
-                    metricsLoggingInterval: 60000000000
-                  tokenizersPoolConfig:
-                    modelName: "{{ .Spec.Model.Name }}"
-                    hf:
-                      tokenizersCacheDir: "/mnt/tokenizers"
+                    enableMetrics: true   # Enable Prometheus metrics for KV cache index
+            - type: prefix-cache-scorer
+              parameters:
+                prefixMatchInfoProducerName: precise-prefix-cache-producer
             - type: kv-cache-utilization-scorer
             - type: queue-scorer
             - type: active-request-scorer
@@ -79,7 +77,7 @@ spec:
           schedulingProfiles:
             - name: default
               plugins:
-                - pluginRef: precise-prefix-cache-scorer
+                - pluginRef: prefix-cache-scorer
                   weight: 3
                 - pluginRef: kv-cache-utilization-scorer
                   weight: 2
@@ -92,60 +90,3 @@ spec:
         spec:
           endpointPickerRef:
             group: ""
-      template:
-        volumes:
-          - name: tls-certs
-            secret:
-              secretName: "{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}"
-          - name: tokenizers
-            emptyDir: {}
-          - name: go-cache
-            emptyDir: {}
-        containers:
-          - name: main
-            image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0
-            ports:
-              - containerPort: 5557
-                name: zmq
-                protocol: TCP
-            env:
-              - name: HF_HOME
-                value: /mnt/tokenizers
-              - name: TMPDIR
-                value: /mnt/tokenizers
-              - name: HF_TOKEN
-                valueFrom:
-                  secretKeyRef:
-                    name: hf-token
-                    key: HF_TOKEN
-            args:
-              - --pool-name
-              - '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
-              - --pool-namespace
-              - '{{ .ObjectMeta.Namespace }}'
-              - --zap-encoder
-              - json
-              - --grpc-port
-              - "9002"
-              - --grpc-health-port
-              - "9003"
-              - --metrics-endpoint-auth=false
-              - --secure-serving
-              - --cert-path
-              - /etc/ssl/certs
-            volumeMounts:
-              - mountPath: /etc/ssl/certs
-                name: tls-certs
-                readOnly: true
-              - mountPath: /mnt/tokenizers
-                name: tokenizers
-              - mountPath: /go
-                name: go-cache
-            livenessProbe:
-              grpc:
-                port: 9003
-                service: envoy.service.ext_proc.v3.ExternalProcessor
-            readinessProbe:
-              grpc:
-                port: 9003
-                service: envoy.service.ext_proc.v3.ExternalProcessor

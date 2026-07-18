@@ -30,6 +30,12 @@ type PredictorImplementation interface{}
 // PredictorSpec defines the configuration for a predictor,
 // The following fields follow a "1-of" semantic. Users must specify exactly one spec.
 type PredictorSpec struct {
+	// Name optionally identifies this predictor variant. When set, the
+	// Deployment and Service are named {isvc}-{name}-predictor instead
+	// of the default {isvc}-predictor. Required when used in a canary entry.
+	// +optional
+	// +kubebuilder:validation:Pattern="^[a-z]([-a-z0-9]*[a-z0-9])?$"
+	Name string `json:"name,omitempty"`
 	// Spec for SKLearn model server
 	SKLearn *SKLearnSpec `json:"sklearn,omitempty"`
 	// Spec for XGBoost model server

@@ -1333,6 +1333,22 @@ spec:
                   type: array
                 replicas:
                   type: integer
+                resourceClaims:
+                  items:
+                    properties:
+                      name:
+                        type: string
+                      resourceClaimName:
+                        type: string
+                      resourceClaimTemplateName:
+                        type: string
+                    required:
+                      - name
+                    type: object
+                  type: array
+                  x-kubernetes-list-map-keys:
+                    - name
+                  x-kubernetes-list-type: map
                 runtimeClassName:
                   type: string
                 schedulerName:
@@ -3363,6 +3379,22 @@ spec:
                       type: object
                     pipelineParallelSize:
                       type: integer
+                    resourceClaims:
+                      items:
+                        properties:
+                          name:
+                            type: string
+                          resourceClaimName:
+                            type: string
+                          resourceClaimTemplateName:
+                            type: string
+                        required:
+                          - name
+                        type: object
+                      type: array
+                      x-kubernetes-list-map-keys:
+                        - name
+                      x-kubernetes-list-type: map
                     runtimeClassName:
                       type: string
                     schedulerName:

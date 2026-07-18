@@ -16,7 +16,7 @@
 E2E tests for LLMISVC autoscaling.
 
 These tests verify behavioral outcomes of the autoscaling pipeline:
-- Scaling resources (VariantAutoscaling, HPA, KEDA ScaledObject) exist by name
+- Scaling actuators (HPA, KEDA ScaledObject) exist with WVA discovery annotations
 - Pods actually scale up under load
 - Lifecycle operations (cleanup, stop, update) work end-to-end
 
@@ -49,7 +49,6 @@ from kserve import KServeClient, constants
 from kubernetes import client
 
 from .fixtures import (
-    KSERVE_TEST_NAMESPACE,
     generate_test_id,
     inject_k8s_proxy,
 )
@@ -70,10 +69,6 @@ logger = logging.getLogger(__name__)
 
 # --- Resource existence helpers ---
 
-VA_GROUP = "llmd.ai"
-VA_VERSION = "v1alpha1"
-VA_PLURAL = "variantautoscalings"
-
 KEDA_GROUP = "keda.sh"
 KEDA_VERSION = "v1alpha1"
 KEDA_PLURAL = "scaledobjects"
@@ -84,6 +79,9 @@ HPA_PLURAL = "horizontalpodautoscalers"
 
 PROMETHEUS_NAMESPACE = os.environ.get("PROMETHEUS_NAMESPACE", "monitoring")
 KEDA_NAMESPACE = os.environ.get("KEDA_NAMESPACE", "keda")
+KEDA_OPERATOR_POD_LABEL = os.environ.get(
+    "KEDA_OPERATOR_POD_LABEL", "app.kubernetes.io/name=keda-operator"
+)
 
 
 def _get_custom_resource(group, version, plural, name, namespace):
@@ -126,11 +124,6 @@ def wait_for_resource_deleted(group, version, plural, name, namespace, timeout=1
 # --- Scaling resource name helpers (mirrors controller naming) ---
 
 
-def va_name(service_name, prefill=False):
-    suffix = "-kserve-prefill-va" if prefill else "-kserve-va"
-    return _child_name(service_name, suffix)
-
-
 def hpa_name(service_name, prefill=False):
     suffix = "-kserve-prefill-hpa" if prefill else "-kserve-hpa"
     return _child_name(service_name, suffix)
@@ -152,7 +145,7 @@ def _child_name(parent, suffix):
 # --- Pod count helpers ---
 
 
-def get_pod_count(service_name, namespace=KSERVE_TEST_NAMESPACE):
+def get_pod_count(service_name, namespace):
     """Count Running or Pending pods for this LLMISVC workload."""
     v1 = client.CoreV1Api()
     pods = v1.list_namespaced_pod(
@@ -166,9 +159,7 @@ def get_pod_count(service_name, namespace=KSERVE_TEST_NAMESPACE):
     return count
 
 
-def wait_for_pod_count(
-    service_name, min_count, namespace=KSERVE_TEST_NAMESPACE, timeout=300
-):
+def wait_for_pod_count(service_name, min_count, namespace, timeout=300):
     """Poll until the pod count reaches at least min_count."""
 
     def _check():
@@ -180,9 +171,7 @@ def wait_for_pod_count(
     wait_for(_check, timeout=timeout, interval=5.0)
 
 
-def wait_for_pod_count_exact(
-    service_name, count, namespace=KSERVE_TEST_NAMESPACE, timeout=300
-):
+def wait_for_pod_count_exact(service_name, count, namespace, timeout=300):
     """Poll until the pod count is exactly count."""
 
     def _check():
@@ -264,15 +253,17 @@ def patch_llmisvc(kserve_client, llm_isvc, patch_body):
 # --- Assertion helpers for scaling resources ---
 
 
-def assert_scaling_resources_exist(service_name, actuator="hpa", prefill=False):
-    """Assert that VA + actuator exist by name."""
-    ns = KSERVE_TEST_NAMESPACE
-    wait_for_resource(
-        VA_GROUP, VA_VERSION, VA_PLURAL, va_name(service_name, prefill), ns
-    )
+def assert_scaling_resources_exist(
+    service_name, actuator="hpa", prefill=False, *, namespace
+):
+    """Assert that actuator exists with WVA discovery annotations."""
+    ns = namespace
     if actuator == "hpa":
         wait_for_resource(
             HPA_GROUP, HPA_VERSION, HPA_PLURAL, hpa_name(service_name, prefill), ns
+        )
+        assert_wva_annotations_on_actuator(
+            service_name, actuator="hpa", prefill=prefill, namespace=ns
         )
     elif actuator == "keda":
         wait_for_resource(
@@ -282,16 +273,21 @@ def assert_scaling_resources_exist(service_name, actuator="hpa", prefill=False):
             scaled_object_name(service_name, prefill),
             ns,
         )
+        assert_wva_annotations_on_actuator(
+            service_name, actuator="keda", prefill=prefill, namespace=ns
+        )
 
 
 def assert_scaling_resources_deleted(
-    service_name, actuator="hpa", prefill=False, timeout=120
+    service_name,
+    actuator="hpa",
+    prefill=False,
+    timeout=120,
+    *,
+    namespace,
 ):
-    """Assert that VA + actuator are gone (404)."""
-    ns = KSERVE_TEST_NAMESPACE
-    wait_for_resource_deleted(
-        VA_GROUP, VA_VERSION, VA_PLURAL, va_name(service_name, prefill), ns, timeout
-    )
+    """Assert that actuator is gone (404)."""
+    ns = namespace
     if actuator == "hpa":
         wait_for_resource_deleted(
             HPA_GROUP,
@@ -339,7 +335,7 @@ def assert_metrics_pipeline_ready(actuator="hpa"):
         v1 = client.CoreV1Api()
         pods = v1.list_namespaced_pod(
             namespace=KEDA_NAMESPACE,
-            label_selector="app.kubernetes.io/name=keda-operator",
+            label_selector=KEDA_OPERATOR_POD_LABEL,
         )
         running_names = [
             p.metadata.name for p in pods.items if p.status.phase == "Running"
@@ -347,25 +343,36 @@ def assert_metrics_pipeline_ready(actuator="hpa"):
         assert running_names, "No running KEDA operator pods found"
 
 
-def assert_wva_metric_exists(service_name, namespace=KSERVE_TEST_NAMESPACE):
-    """Verify WVA computed a scaling decision (desiredOptimizedAlloc present)."""
+def assert_wva_annotations_on_actuator(
+    service_name, actuator="hpa", prefill=False, *, namespace
+):
+    """Verify the actuator has WVA discovery annotations."""
 
     def _check():
-        va = _get_custom_resource(
-            VA_GROUP, VA_VERSION, VA_PLURAL, va_name(service_name), namespace
+        if actuator == "hpa":
+            name = hpa_name(service_name, prefill)
+            resource = _get_custom_resource(
+                HPA_GROUP, HPA_VERSION, HPA_PLURAL, name, namespace
+            )
+        else:
+            name = scaled_object_name(service_name, prefill)
+            resource = _get_custom_resource(
+                KEDA_GROUP, KEDA_VERSION, KEDA_PLURAL, name, namespace
+            )
+
+        assert resource is not None, f"{actuator} {name} not found"
+        annotations = resource.get("metadata", {}).get("annotations", {})
+        assert annotations.get("llm-d.ai/managed") == "true", (
+            f"Missing llm-d.ai/managed annotation on {actuator} {name}"
         )
-        assert va is not None, f"VariantAutoscaling {va_name(service_name)} not found"
-        status = va.get("status", {})
-        alloc = status.get("desiredOptimizedAlloc", {})
-        num_replicas = alloc.get("numReplicas")
-        assert num_replicas is not None and num_replicas >= 1, (
-            f"WVA did not compute desiredOptimizedAlloc.numReplicas; status: {status}"
+        assert annotations.get("llm-d.ai/model-id"), (
+            f"Missing llm-d.ai/model-id annotation on {actuator} {name}"
         )
 
-    wait_for(_check, timeout=120, interval=5.0)
+    wait_for(_check, timeout=60, interval=5.0)
 
 
-def assert_hpa_active(service_name, namespace=KSERVE_TEST_NAMESPACE):
+def assert_hpa_active(service_name, namespace):
     """Verify HPA has ScalingActive=True condition (polls for up to 60s)."""
 
     def _check():
@@ -384,7 +391,7 @@ def assert_hpa_active(service_name, namespace=KSERVE_TEST_NAMESPACE):
     wait_for(_check, timeout=60, interval=5.0)
 
 
-def assert_scaled_object_active(service_name, namespace=KSERVE_TEST_NAMESPACE):
+def assert_scaled_object_active(service_name, namespace):
     """Verify KEDA ScaledObject has Ready=True condition (polls for up to 60s)."""
 
     def _check():
@@ -407,7 +414,7 @@ def assert_scaled_object_active(service_name, namespace=KSERVE_TEST_NAMESPACE):
     wait_for(_check, timeout=60, interval=5.0)
 
 
-def assert_lws_replicas(service_name, min_replicas, namespace=KSERVE_TEST_NAMESPACE):
+def assert_lws_replicas(service_name, min_replicas, namespace):
     """Verify LeaderWorkerSet status reflects scale-up (polls for up to 60s)."""
     lws_name = _child_name(service_name, "-kserve-mn")
 
@@ -444,7 +451,7 @@ def _get_llmisvc_condition(name, namespace, condition_type):
     return None
 
 
-def assert_scaling_ready_condition(service_name, namespace=KSERVE_TEST_NAMESPACE):
+def assert_scaling_ready_condition(service_name, namespace):
     """Verify the ScalingReady condition is present and True."""
 
     def _check():
@@ -458,7 +465,7 @@ def assert_scaling_ready_condition(service_name, namespace=KSERVE_TEST_NAMESPACE
     wait_for(_check, timeout=180, interval=5.0)
 
 
-def assert_scaling_ready_absent(service_name, namespace=KSERVE_TEST_NAMESPACE):
+def assert_scaling_ready_absent(service_name, namespace):
     """Verify the ScalingReady condition is absent from the LLMInferenceService."""
     cond = _get_llmisvc_condition(service_name, namespace, "ScalingReady")
     assert cond is None, (
@@ -498,7 +505,6 @@ def _new_kserve_client():
 # =============================================================================
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.autoscaling_hpa
 @pytest.mark.parametrize(
     "test_case",
@@ -526,21 +532,22 @@ def _new_kserve_client():
 )
 @log_execution
 def test_llm_autoscaling_hpa_deployment(test_case: TestCase):
-    """HPA + Deployment: VA and HPA exist; pods scale up under load."""
+    """HPA + Deployment: HPA exists with WVA annotations; pods scale up under load."""
     inject_k8s_proxy()
     kserve_client = _new_kserve_client()
     service_name = test_case.llm_service.metadata.name
+    ns = test_case.namespace
 
     try:
         _create_and_wait(kserve_client, test_case)
 
-        assert_scaling_resources_exist(service_name, actuator="hpa")
+        assert_scaling_resources_exist(service_name, actuator="hpa", namespace=ns)
         assert not resource_exists(
             KEDA_GROUP,
             KEDA_VERSION,
             KEDA_PLURAL,
             scaled_object_name(service_name),
-            KSERVE_TEST_NAMESPACE,
+            ns,
         )
         assert_metrics_pipeline_ready(actuator="hpa")
 
@@ -549,10 +556,10 @@ def test_llm_autoscaling_hpa_deployment(test_case: TestCase):
             service_url, test_case.model_name, concurrency=10, duration_seconds=60
         )
 
-        assert_wva_metric_exists(service_name)
-        wait_for_pod_count(service_name, min_count=2, timeout=300)
-        assert_hpa_active(service_name)
-        assert_scaling_ready_condition(service_name)
+        assert_wva_annotations_on_actuator(service_name, actuator="hpa", namespace=ns)
+        wait_for_pod_count(service_name, min_count=2, namespace=ns, timeout=300)
+        assert_hpa_active(service_name, namespace=ns)
+        assert_scaling_ready_condition(service_name, namespace=ns)
     finally:
         _cleanup(kserve_client, test_case)
 
@@ -562,7 +569,6 @@ def test_llm_autoscaling_hpa_deployment(test_case: TestCase):
 # =============================================================================
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.autoscaling_keda
 @pytest.mark.parametrize(
     "test_case",
@@ -590,21 +596,22 @@ def test_llm_autoscaling_hpa_deployment(test_case: TestCase):
 )
 @log_execution
 def test_llm_autoscaling_keda_deployment(test_case: TestCase):
-    """KEDA + Deployment: VA and ScaledObject exist; no HPA; pods scale up under load."""
+    """KEDA + Deployment: ScaledObject exists with WVA annotations; no HPA; pods scale up under load."""
     inject_k8s_proxy()
     kserve_client = _new_kserve_client()
     service_name = test_case.llm_service.metadata.name
+    ns = test_case.namespace
 
     try:
         _create_and_wait(kserve_client, test_case)
 
-        assert_scaling_resources_exist(service_name, actuator="keda")
+        assert_scaling_resources_exist(service_name, actuator="keda", namespace=ns)
         assert not resource_exists(
             HPA_GROUP,
             HPA_VERSION,
             HPA_PLURAL,
             hpa_name(service_name),
-            KSERVE_TEST_NAMESPACE,
+            ns,
         )
         assert_metrics_pipeline_ready(actuator="keda")
 
@@ -613,10 +620,10 @@ def test_llm_autoscaling_keda_deployment(test_case: TestCase):
             service_url, test_case.model_name, concurrency=10, duration_seconds=60
         )
 
-        assert_wva_metric_exists(service_name)
-        wait_for_pod_count(service_name, min_count=2, timeout=300)
-        assert_scaled_object_active(service_name)
-        assert_scaling_ready_condition(service_name)
+        assert_wva_annotations_on_actuator(service_name, actuator="keda", namespace=ns)
+        wait_for_pod_count(service_name, min_count=2, namespace=ns, timeout=300)
+        assert_scaled_object_active(service_name, namespace=ns)
+        assert_scaling_ready_condition(service_name, namespace=ns)
     finally:
         _cleanup(kserve_client, test_case)
 
@@ -626,7 +633,6 @@ def test_llm_autoscaling_keda_deployment(test_case: TestCase):
 # =============================================================================
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.autoscaling_hpa
 @pytest.mark.parametrize(
     "test_case",
@@ -654,15 +660,16 @@ def test_llm_autoscaling_keda_deployment(test_case: TestCase):
 )
 @log_execution
 def test_llm_autoscaling_hpa_lws(test_case: TestCase):
-    """HPA + LWS: VA and HPA exist; pods scale under load."""
+    """HPA + LWS: HPA exists with WVA annotations; pods scale under load."""
     inject_k8s_proxy()
     kserve_client = _new_kserve_client()
     service_name = test_case.llm_service.metadata.name
+    ns = test_case.namespace
 
     try:
         _create_and_wait(kserve_client, test_case)
 
-        assert_scaling_resources_exist(service_name, actuator="hpa")
+        assert_scaling_resources_exist(service_name, actuator="hpa", namespace=ns)
         assert_metrics_pipeline_ready(actuator="hpa")
 
         service_url = get_llm_service_url(kserve_client, test_case.llm_service)
@@ -670,11 +677,11 @@ def test_llm_autoscaling_hpa_lws(test_case: TestCase):
             service_url, test_case.model_name, concurrency=10, duration_seconds=60
         )
 
-        assert_wva_metric_exists(service_name)
-        wait_for_pod_count(service_name, min_count=2, timeout=300)
-        assert_hpa_active(service_name)
-        assert_lws_replicas(service_name, min_replicas=1)
-        assert_scaling_ready_condition(service_name)
+        assert_wva_annotations_on_actuator(service_name, actuator="hpa", namespace=ns)
+        wait_for_pod_count(service_name, min_count=2, namespace=ns, timeout=300)
+        assert_hpa_active(service_name, namespace=ns)
+        assert_lws_replicas(service_name, min_replicas=1, namespace=ns)
+        assert_scaling_ready_condition(service_name, namespace=ns)
     finally:
         _cleanup(kserve_client, test_case)
 
@@ -684,7 +691,6 @@ def test_llm_autoscaling_hpa_lws(test_case: TestCase):
 # =============================================================================
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.autoscaling_keda
 @pytest.mark.parametrize(
     "test_case",
@@ -712,15 +718,16 @@ def test_llm_autoscaling_hpa_lws(test_case: TestCase):
 )
 @log_execution
 def test_llm_autoscaling_keda_lws(test_case: TestCase):
-    """KEDA + LWS: VA and ScaledObject exist; pods scale under load."""
+    """KEDA + LWS: ScaledObject exists with WVA annotations; pods scale under load."""
     inject_k8s_proxy()
     kserve_client = _new_kserve_client()
     service_name = test_case.llm_service.metadata.name
+    ns = test_case.namespace
 
     try:
         _create_and_wait(kserve_client, test_case)
 
-        assert_scaling_resources_exist(service_name, actuator="keda")
+        assert_scaling_resources_exist(service_name, actuator="keda", namespace=ns)
         assert_metrics_pipeline_ready(actuator="keda")
 
         service_url = get_llm_service_url(kserve_client, test_case.llm_service)
@@ -728,11 +735,11 @@ def test_llm_autoscaling_keda_lws(test_case: TestCase):
             service_url, test_case.model_name, concurrency=10, duration_seconds=60
         )
 
-        assert_wva_metric_exists(service_name)
-        wait_for_pod_count(service_name, min_count=2, timeout=300)
-        assert_scaled_object_active(service_name)
-        assert_lws_replicas(service_name, min_replicas=1)
-        assert_scaling_ready_condition(service_name)
+        assert_wva_annotations_on_actuator(service_name, actuator="keda", namespace=ns)
+        wait_for_pod_count(service_name, min_count=2, namespace=ns, timeout=300)
+        assert_scaled_object_active(service_name, namespace=ns)
+        assert_lws_replicas(service_name, min_replicas=1, namespace=ns)
+        assert_scaling_ready_condition(service_name, namespace=ns)
     finally:
         _cleanup(kserve_client, test_case)
 
@@ -742,7 +749,6 @@ def test_llm_autoscaling_keda_lws(test_case: TestCase):
 # =============================================================================
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.autoscaling_hpa
 @pytest.mark.parametrize(
     "test_case",
@@ -771,17 +777,22 @@ def test_llm_autoscaling_keda_lws(test_case: TestCase):
 )
 @log_execution
 def test_llm_autoscaling_prefill_hpa(test_case: TestCase):
-    """P/D + HPA: separate VA and HPA for both decode and prefill workloads."""
+    """P/D + HPA: separate HPA with WVA annotations for both decode and prefill workloads."""
     inject_k8s_proxy()
     kserve_client = _new_kserve_client()
     service_name = test_case.llm_service.metadata.name
+    ns = test_case.namespace
 
     try:
         _create_and_wait(kserve_client, test_case)
 
-        assert_scaling_resources_exist(service_name, actuator="hpa", prefill=False)
-        assert_scaling_resources_exist(service_name, actuator="hpa", prefill=True)
-        assert_scaling_ready_condition(service_name)
+        assert_scaling_resources_exist(
+            service_name, actuator="hpa", prefill=False, namespace=ns
+        )
+        assert_scaling_resources_exist(
+            service_name, actuator="hpa", prefill=True, namespace=ns
+        )
+        assert_scaling_ready_condition(service_name, namespace=ns)
     finally:
         _cleanup(kserve_client, test_case)
 
@@ -791,7 +802,6 @@ def test_llm_autoscaling_prefill_hpa(test_case: TestCase):
 # =============================================================================
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.autoscaling_keda
 @pytest.mark.parametrize(
     "test_case",
@@ -820,17 +830,22 @@ def test_llm_autoscaling_prefill_hpa(test_case: TestCase):
 )
 @log_execution
 def test_llm_autoscaling_prefill_keda(test_case: TestCase):
-    """P/D + KEDA: separate VA and ScaledObject for both decode and prefill workloads."""
+    """P/D + KEDA: separate ScaledObject with WVA annotations for both decode and prefill workloads."""
     inject_k8s_proxy()
     kserve_client = _new_kserve_client()
     service_name = test_case.llm_service.metadata.name
+    ns = test_case.namespace
 
     try:
         _create_and_wait(kserve_client, test_case)
 
-        assert_scaling_resources_exist(service_name, actuator="keda", prefill=False)
-        assert_scaling_resources_exist(service_name, actuator="keda", prefill=True)
-        assert_scaling_ready_condition(service_name)
+        assert_scaling_resources_exist(
+            service_name, actuator="keda", prefill=False, namespace=ns
+        )
+        assert_scaling_resources_exist(
+            service_name, actuator="keda", prefill=True, namespace=ns
+        )
+        assert_scaling_ready_condition(service_name, namespace=ns)
     finally:
         _cleanup(kserve_client, test_case)
 
@@ -840,7 +855,6 @@ def test_llm_autoscaling_prefill_keda(test_case: TestCase):
 # =============================================================================
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.autoscaling_hpa
 @pytest.mark.parametrize(
     "test_case",
@@ -868,15 +882,16 @@ def test_llm_autoscaling_prefill_keda(test_case: TestCase):
 )
 @log_execution
 def test_llm_autoscaling_cleanup_hpa(test_case: TestCase):
-    """Removing scaling config should delete VA and HPA."""
+    """Removing scaling config should delete HPA."""
     inject_k8s_proxy()
     kserve_client = _new_kserve_client()
     service_name = test_case.llm_service.metadata.name
+    ns = test_case.namespace
 
     try:
         _create_and_wait(kserve_client, test_case)
-        assert_scaling_resources_exist(service_name, actuator="hpa")
-        assert_scaling_ready_condition(service_name)
+        assert_scaling_resources_exist(service_name, actuator="hpa", namespace=ns)
+        assert_scaling_ready_condition(service_name, namespace=ns)
 
         # Remove the scaling baseRef; keep only non-scaling refs.
         base_refs = test_case.llm_service.spec["baseRefs"]
@@ -892,8 +907,8 @@ def test_llm_autoscaling_cleanup_hpa(test_case: TestCase):
             },
         )
 
-        assert_scaling_resources_deleted(service_name, actuator="hpa")
-        assert_scaling_ready_absent(service_name)
+        assert_scaling_resources_deleted(service_name, actuator="hpa", namespace=ns)
+        assert_scaling_ready_absent(service_name, namespace=ns)
     finally:
         _cleanup(kserve_client, test_case)
 
@@ -903,7 +918,6 @@ def test_llm_autoscaling_cleanup_hpa(test_case: TestCase):
 # =============================================================================
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.autoscaling_keda
 @pytest.mark.parametrize(
     "test_case",
@@ -931,15 +945,16 @@ def test_llm_autoscaling_cleanup_hpa(test_case: TestCase):
 )
 @log_execution
 def test_llm_autoscaling_cleanup_keda(test_case: TestCase):
-    """Removing scaling config should delete VA and ScaledObject."""
+    """Removing scaling config should delete ScaledObject."""
     inject_k8s_proxy()
     kserve_client = _new_kserve_client()
     service_name = test_case.llm_service.metadata.name
+    ns = test_case.namespace
 
     try:
         _create_and_wait(kserve_client, test_case)
-        assert_scaling_resources_exist(service_name, actuator="keda")
-        assert_scaling_ready_condition(service_name)
+        assert_scaling_resources_exist(service_name, actuator="keda", namespace=ns)
+        assert_scaling_ready_condition(service_name, namespace=ns)
 
         base_refs = test_case.llm_service.spec["baseRefs"]
         non_scaling_refs = [ref for ref in base_refs if "scaling" not in ref["name"]]
@@ -954,8 +969,8 @@ def test_llm_autoscaling_cleanup_keda(test_case: TestCase):
             },
         )
 
-        assert_scaling_resources_deleted(service_name, actuator="keda")
-        assert_scaling_ready_absent(service_name)
+        assert_scaling_resources_deleted(service_name, actuator="keda", namespace=ns)
+        assert_scaling_ready_absent(service_name, namespace=ns)
     finally:
         _cleanup(kserve_client, test_case)
 
@@ -965,7 +980,6 @@ def test_llm_autoscaling_cleanup_keda(test_case: TestCase):
 # =============================================================================
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.autoscaling_hpa
 @pytest.mark.parametrize(
     "test_case",
@@ -993,15 +1007,16 @@ def test_llm_autoscaling_cleanup_keda(test_case: TestCase):
 )
 @log_execution
 def test_llm_autoscaling_stop_hpa(test_case: TestCase):
-    """Setting stop annotation should delete VA and HPA."""
+    """Setting stop annotation should delete HPA."""
     inject_k8s_proxy()
     kserve_client = _new_kserve_client()
     service_name = test_case.llm_service.metadata.name
+    ns = test_case.namespace
 
     try:
         _create_and_wait(kserve_client, test_case)
-        assert_scaling_resources_exist(service_name, actuator="hpa")
-        assert_scaling_ready_condition(service_name)
+        assert_scaling_resources_exist(service_name, actuator="hpa", namespace=ns)
+        assert_scaling_ready_condition(service_name, namespace=ns)
 
         patch_llmisvc(
             kserve_client,
@@ -1015,8 +1030,8 @@ def test_llm_autoscaling_stop_hpa(test_case: TestCase):
             },
         )
 
-        assert_scaling_resources_deleted(service_name, actuator="hpa")
-        assert_scaling_ready_absent(service_name)
+        assert_scaling_resources_deleted(service_name, actuator="hpa", namespace=ns)
+        assert_scaling_ready_absent(service_name, namespace=ns)
     finally:
         _cleanup(kserve_client, test_case)
 
@@ -1026,7 +1041,6 @@ def test_llm_autoscaling_stop_hpa(test_case: TestCase):
 # =============================================================================
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.autoscaling_keda
 @pytest.mark.parametrize(
     "test_case",
@@ -1054,15 +1068,16 @@ def test_llm_autoscaling_stop_hpa(test_case: TestCase):
 )
 @log_execution
 def test_llm_autoscaling_stop_keda(test_case: TestCase):
-    """Setting stop annotation should delete VA and ScaledObject."""
+    """Setting stop annotation should delete ScaledObject."""
     inject_k8s_proxy()
     kserve_client = _new_kserve_client()
     service_name = test_case.llm_service.metadata.name
+    ns = test_case.namespace
 
     try:
         _create_and_wait(kserve_client, test_case)
-        assert_scaling_resources_exist(service_name, actuator="keda")
-        assert_scaling_ready_condition(service_name)
+        assert_scaling_resources_exist(service_name, actuator="keda", namespace=ns)
+        assert_scaling_ready_condition(service_name, namespace=ns)
 
         patch_llmisvc(
             kserve_client,
@@ -1076,8 +1091,8 @@ def test_llm_autoscaling_stop_keda(test_case: TestCase):
             },
         )
 
-        assert_scaling_resources_deleted(service_name, actuator="keda")
-        assert_scaling_ready_absent(service_name)
+        assert_scaling_resources_deleted(service_name, actuator="keda", namespace=ns)
+        assert_scaling_ready_absent(service_name, namespace=ns)
     finally:
         _cleanup(kserve_client, test_case)
 
@@ -1087,7 +1102,6 @@ def test_llm_autoscaling_stop_keda(test_case: TestCase):
 # =============================================================================
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.autoscaling_hpa
 @pytest.mark.parametrize(
     "test_case",
@@ -1115,14 +1129,15 @@ def test_llm_autoscaling_stop_keda(test_case: TestCase):
 )
 @log_execution
 def test_llm_autoscaling_update_hpa(test_case: TestCase):
-    """Patching maxReplicas should update the HPA; VA and HPA still exist."""
+    """Patching maxReplicas should update the HPA; HPA still exists with WVA annotations."""
     inject_k8s_proxy()
     kserve_client = _new_kserve_client()
     service_name = test_case.llm_service.metadata.name
+    ns = test_case.namespace
 
     try:
         _create_and_wait(kserve_client, test_case)
-        assert_scaling_resources_exist(service_name, actuator="hpa")
+        assert_scaling_resources_exist(service_name, actuator="hpa", namespace=ns)
 
         # JSON merge patch replaces `scaling` entirely, so we must include
         # the full spec with `wva` to satisfy the webhook validation.
@@ -1141,14 +1156,14 @@ def test_llm_autoscaling_update_hpa(test_case: TestCase):
         )
 
         time.sleep(5)
-        assert_scaling_resources_exist(service_name, actuator="hpa")
+        assert_scaling_resources_exist(service_name, actuator="hpa", namespace=ns)
 
         hpa = _get_custom_resource(
             HPA_GROUP,
             HPA_VERSION,
             HPA_PLURAL,
             hpa_name(service_name),
-            KSERVE_TEST_NAMESPACE,
+            ns,
         )
         assert hpa is not None
         assert hpa["spec"]["maxReplicas"] == 5, (
@@ -1163,7 +1178,6 @@ def test_llm_autoscaling_update_hpa(test_case: TestCase):
 # =============================================================================
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.autoscaling_keda
 @pytest.mark.parametrize(
     "test_case",
@@ -1191,14 +1205,15 @@ def test_llm_autoscaling_update_hpa(test_case: TestCase):
 )
 @log_execution
 def test_llm_autoscaling_update_keda(test_case: TestCase):
-    """Patching maxReplicas should update the ScaledObject; VA and ScaledObject still exist."""
+    """Patching maxReplicas should update the ScaledObject; ScaledObject still exists with WVA annotations."""
     inject_k8s_proxy()
     kserve_client = _new_kserve_client()
     service_name = test_case.llm_service.metadata.name
+    ns = test_case.namespace
 
     try:
         _create_and_wait(kserve_client, test_case)
-        assert_scaling_resources_exist(service_name, actuator="keda")
+        assert_scaling_resources_exist(service_name, actuator="keda", namespace=ns)
 
         patch_llmisvc(
             kserve_client,
@@ -1221,14 +1236,14 @@ def test_llm_autoscaling_update_keda(test_case: TestCase):
         )
 
         time.sleep(5)
-        assert_scaling_resources_exist(service_name, actuator="keda")
+        assert_scaling_resources_exist(service_name, actuator="keda", namespace=ns)
 
         so = _get_custom_resource(
             KEDA_GROUP,
             KEDA_VERSION,
             KEDA_PLURAL,
             scaled_object_name(service_name),
-            KSERVE_TEST_NAMESPACE,
+            ns,
         )
         assert so is not None
         assert so["spec"]["maxReplicaCount"] == 5, (

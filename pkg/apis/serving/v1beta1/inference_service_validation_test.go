@@ -1471,6 +1471,48 @@ func TestDeploymentModeUpdate(t *testing.T) {
 	// During deletion, deploymentMode mismatch should be allowed
 	g.Expect(warnings).Should(gomega.BeEmpty())
 	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: Empty Status.DeploymentMode with a non-Standard annotation should be accepted.
+	// This is the first-reconcile finalizer patch case: the controller adds a finalizer via
+	// r.Patch(...) before updateStatus runs, so oldIsvc.Status.DeploymentMode is "". The
+	// validator must treat that as "no prior state" and not synthesize "Standard" from it.
+	// Regression test for issue #5793.
+	oldIsvcEmptyStatus := makeTestInferenceService()
+	oldIsvcEmptyStatus.Status = InferenceServiceStatus{
+		DeploymentMode: "",
+	}
+	updatedIsvcKnativeAnnotation := oldIsvcEmptyStatus.DeepCopy()
+	updatedIsvcKnativeAnnotation.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.Knative),
+	}
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcEmptyStatus, updatedIsvcKnativeAnnotation)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: Empty Status.DeploymentMode with a legacy Serverless annotation should also be accepted.
+	updatedIsvcLegacySlAnnotation := oldIsvcEmptyStatus.DeepCopy()
+	updatedIsvcLegacySlAnnotation.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.LegacyServerless),
+	}
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcEmptyStatus, updatedIsvcLegacySlAnnotation)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: Empty Status.DeploymentMode with a Standard annotation should also be accepted.
+	updatedIsvcStandardAnnotation := oldIsvcEmptyStatus.DeepCopy()
+	updatedIsvcStandardAnnotation.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.Standard),
+	}
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcEmptyStatus, updatedIsvcStandardAnnotation)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: Empty Status.DeploymentMode with no deploymentMode annotation should be accepted.
+	updatedIsvcNoAnnotation := oldIsvcEmptyStatus.DeepCopy()
+	updatedIsvcNoAnnotation.Annotations = map[string]string{}
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcEmptyStatus, updatedIsvcNoAnnotation)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
 }
 
 func TestValidateUpdateDuringDeletion(t *testing.T) {
@@ -2326,4 +2368,342 @@ func TestValidateConfidential(t *testing.T) {
 			g.Expect(warnings).To(scenario.expectedWarnings)
 		})
 	}
+}
+
+func TestValidateCanarySpecs(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	validator := InferenceServiceValidator{}
+
+	makeISVC := func(canaries []CanarySpec) *InferenceService {
+		return &InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "foo", Namespace: "default",
+				Annotations: map[string]string{
+					constants.DeploymentMode: string(constants.Standard),
+				},
+			},
+			Spec: InferenceServiceSpec{
+				Predictor: PredictorSpec{
+					ComponentExtensionSpec: ComponentExtensionSpec{
+						MinReplicas: proto.Int32(4),
+					},
+					Model: &ModelSpec{
+						ModelFormat: ModelFormat{Name: "sklearn"},
+						PredictorExtensionSpec: PredictorExtensionSpec{
+							StorageURI: proto.String("gs://test/model-v1"),
+						},
+					},
+				},
+				Canary: canaries,
+			},
+		}
+	}
+
+	validCanary := func(name string, traffic int32) CanarySpec {
+		return CanarySpec{
+			TrafficPercent: traffic,
+			Predictor: PredictorSpec{
+				Name: name,
+				Model: &ModelSpec{
+					ModelFormat: ModelFormat{Name: "sklearn"},
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("gs://test/model-" + name),
+					},
+				},
+			},
+		}
+	}
+
+	scenarios := map[string]struct {
+		isvc       *InferenceService
+		errMatcher gomega.OmegaMatcher
+	}{
+		"No canaries passes validation": {
+			isvc:       makeISVC(nil),
+			errMatcher: gomega.BeNil(),
+		},
+		"Single valid canary": {
+			isvc:       makeISVC([]CanarySpec{validCanary("v2", 10)}),
+			errMatcher: gomega.BeNil(),
+		},
+		"Multiple valid canaries": {
+			isvc:       makeISVC([]CanarySpec{validCanary("v2", 25), validCanary("v3", 25)}),
+			errMatcher: gomega.BeNil(),
+		},
+		"Traffic sum = 100 accepted": {
+			isvc:       makeISVC([]CanarySpec{validCanary("v2", 50), validCanary("v3", 50)}),
+			errMatcher: gomega.BeNil(),
+		},
+		"Traffic percent = 0 accepted (dark launch)": {
+			isvc:       makeISVC([]CanarySpec{validCanary("v2", 0)}),
+			errMatcher: gomega.BeNil(),
+		},
+		"Canary rejected in Knative mode": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo", Namespace: "default",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{Name: "sklearn"},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("gs://test/model-v1"),
+							},
+						},
+					},
+					Canary: []CanarySpec{validCanary("v2", 10)},
+				},
+			},
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("only supported in Standard deployment mode")),
+		},
+		"Missing predictor.name rejected": {
+			isvc: makeISVC([]CanarySpec{{
+				TrafficPercent: 10,
+				Predictor: PredictorSpec{
+					Model: &ModelSpec{
+						ModelFormat:            ModelFormat{Name: "sklearn"},
+						PredictorExtensionSpec: PredictorExtensionSpec{StorageURI: proto.String("gs://test/v2")},
+					},
+				},
+			}}),
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("predictor.name is required")),
+		},
+		"Duplicate predictor.name rejected": {
+			isvc:       makeISVC([]CanarySpec{validCanary("v2", 10), validCanary("v2", 20)}),
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("duplicated")),
+		},
+		"Canary name conflicts with stable name rejected": {
+			isvc: func() *InferenceService {
+				isvc := makeISVC([]CanarySpec{validCanary("stable", 10)})
+				isvc.Spec.Predictor.Name = "stable"
+				return isvc
+			}(),
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("conflicts with stable")),
+		},
+		"Traffic sum > 100 rejected": {
+			isvc:       makeISVC([]CanarySpec{validCanary("v2", 60), validCanary("v3", 50)}),
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("must be <= 100")),
+		},
+		"Canary with maxReplicas rejected": {
+			isvc: makeISVC([]CanarySpec{{
+				TrafficPercent: 10,
+				Predictor: PredictorSpec{
+					Name:                   "v2",
+					ComponentExtensionSpec: ComponentExtensionSpec{MaxReplicas: 5},
+					Model: &ModelSpec{
+						ModelFormat:            ModelFormat{Name: "sklearn"},
+						PredictorExtensionSpec: PredictorExtensionSpec{StorageURI: proto.String("gs://test/v2")},
+					},
+				},
+			}}),
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("must not set maxReplicas")),
+		},
+		"Canary minReplicas equal to stable accepted": {
+			isvc: makeISVC([]CanarySpec{{
+				TrafficPercent: 10,
+				Predictor: PredictorSpec{
+					Name:                   "v2",
+					ComponentExtensionSpec: ComponentExtensionSpec{MinReplicas: proto.Int32(4)},
+					Model: &ModelSpec{
+						ModelFormat:            ModelFormat{Name: "sklearn"},
+						PredictorExtensionSpec: PredictorExtensionSpec{StorageURI: proto.String("gs://test/v2")},
+					},
+				},
+			}}),
+			errMatcher: gomega.BeNil(),
+		},
+		"Canary minReplicas exceeds stable rejected": {
+			isvc: makeISVC([]CanarySpec{{
+				TrafficPercent: 10,
+				Predictor: PredictorSpec{
+					Name:                   "v2",
+					ComponentExtensionSpec: ComponentExtensionSpec{MinReplicas: proto.Int32(5)},
+					Model: &ModelSpec{
+						ModelFormat:            ModelFormat{Name: "sklearn"},
+						PredictorExtensionSpec: PredictorExtensionSpec{StorageURI: proto.String("gs://test/v2")},
+					},
+				},
+			}}),
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("must not exceed stable")),
+		},
+		"Canary minReplicas equal to default stable accepted": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo", Namespace: "default",
+					Annotations: map[string]string{
+						constants.DeploymentMode: string(constants.Standard),
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat:            ModelFormat{Name: "sklearn"},
+							PredictorExtensionSpec: PredictorExtensionSpec{StorageURI: proto.String("gs://test/model-v1")},
+						},
+					},
+					Canary: []CanarySpec{{
+						TrafficPercent: 10,
+						Predictor: PredictorSpec{
+							Name:                   "v2",
+							ComponentExtensionSpec: ComponentExtensionSpec{MinReplicas: proto.Int32(1)},
+							Model: &ModelSpec{
+								ModelFormat:            ModelFormat{Name: "sklearn"},
+								PredictorExtensionSpec: PredictorExtensionSpec{StorageURI: proto.String("gs://test/v2")},
+							},
+						},
+					}},
+				},
+			},
+			errMatcher: gomega.BeNil(),
+		},
+		"Canary minReplicas exceeds default stable rejected": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo", Namespace: "default",
+					Annotations: map[string]string{
+						constants.DeploymentMode: string(constants.Standard),
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat:            ModelFormat{Name: "sklearn"},
+							PredictorExtensionSpec: PredictorExtensionSpec{StorageURI: proto.String("gs://test/model-v1")},
+						},
+					},
+					Canary: []CanarySpec{{
+						TrafficPercent: 10,
+						Predictor: PredictorSpec{
+							Name:                   "v2",
+							ComponentExtensionSpec: ComponentExtensionSpec{MinReplicas: proto.Int32(2)},
+							Model: &ModelSpec{
+								ModelFormat:            ModelFormat{Name: "sklearn"},
+								PredictorExtensionSpec: PredictorExtensionSpec{StorageURI: proto.String("gs://test/v2")},
+							},
+						},
+					}},
+				},
+			},
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("must not exceed stable")),
+		},
+		"Canary minReplicas accepted when nil (derived from traffic)": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo", Namespace: "default",
+					Annotations: map[string]string{
+						constants.DeploymentMode: string(constants.Standard),
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat:            ModelFormat{Name: "sklearn"},
+							PredictorExtensionSpec: PredictorExtensionSpec{StorageURI: proto.String("gs://test/model-v1")},
+						},
+					},
+					Canary: []CanarySpec{validCanary("v2", 10)},
+				},
+			},
+			errMatcher: gomega.BeNil(),
+		},
+		"Canary with workerSpec rejected": {
+			isvc: makeISVC([]CanarySpec{{
+				TrafficPercent: 10,
+				Predictor: PredictorSpec{
+					Name:       "v2",
+					WorkerSpec: &WorkerSpec{},
+					Model: &ModelSpec{
+						ModelFormat:            ModelFormat{Name: "sklearn"},
+						PredictorExtensionSpec: PredictorExtensionSpec{StorageURI: proto.String("gs://test/v2")},
+					},
+				},
+			}}),
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("must not set workerSpec")),
+		},
+		"Canary rejected when stable uses custom container (no model)": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo", Namespace: "default",
+					Annotations: map[string]string{
+						constants.DeploymentMode: string(constants.Standard),
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						PodSpec: PodSpec{
+							Containers: []corev1.Container{{
+								Name:  "kserve-container",
+								Image: "custom-server:latest",
+							}},
+						},
+					},
+					Canary: []CanarySpec{validCanary("v2", 10)},
+				},
+			},
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("requires a stable predictor with a model")),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			_, err := validator.ValidateCreate(t.Context(), scenario.isvc)
+			g.Expect(err).Should(scenario.errMatcher)
+		})
+	}
+}
+
+func TestValidatePredictorNameChange(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	validator := InferenceServiceValidator{}
+
+	makeISVC := func(name, storageURI string) *InferenceService {
+		return &InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "foo", Namespace: "default",
+				Annotations: map[string]string{
+					constants.DeploymentMode: string(constants.Standard),
+				},
+			},
+			Spec: InferenceServiceSpec{
+				Predictor: PredictorSpec{
+					Name: name,
+					Model: &ModelSpec{
+						ModelFormat: ModelFormat{Name: "sklearn"},
+						PredictorExtensionSpec: PredictorExtensionSpec{
+							StorageURI: proto.String(storageURI),
+						},
+					},
+				},
+			},
+		}
+	}
+
+	t.Run("Name change with model change accepted (promotion)", func(t *testing.T) {
+		oldISVC := makeISVC("", "gs://test/model-v1")
+		newISVC := makeISVC("v2", "gs://test/model-v2")
+		_, err := validator.ValidateUpdate(t.Context(), oldISVC, newISVC)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	})
+
+	t.Run("Name change without model change rejected", func(t *testing.T) {
+		oldISVC := makeISVC("", "gs://test/model-v1")
+		newISVC := makeISVC("v2", "gs://test/model-v1")
+		_, err := validator.ValidateUpdate(t.Context(), oldISVC, newISVC)
+		g.Expect(err).Should(gomega.MatchError(gomega.ContainSubstring("predictor.name change requires a model change")))
+	})
+
+	t.Run("Model change without name change accepted (normal update)", func(t *testing.T) {
+		oldISVC := makeISVC("v2", "gs://test/model-v1")
+		newISVC := makeISVC("v2", "gs://test/model-v2")
+		_, err := validator.ValidateUpdate(t.Context(), oldISVC, newISVC)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	})
+
+	t.Run("No changes accepted", func(t *testing.T) {
+		oldISVC := makeISVC("v2", "gs://test/model-v1")
+		newISVC := makeISVC("v2", "gs://test/model-v1")
+		_, err := validator.ValidateUpdate(t.Context(), oldISVC, newISVC)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	})
 }

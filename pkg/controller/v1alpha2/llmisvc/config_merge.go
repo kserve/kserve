@@ -66,6 +66,7 @@ const (
 	configRouterSchedulerNameSuffix           = "config-llm-scheduler"
 	configRouterRouteNameSuffix               = "config-llm-router-route"
 	configSchedulerLatencyPredictorNameSuffix = "config-llm-scheduler-latency-predictor"
+	configTokenizerNameSuffix                 = "config-llm-tokenizer" // #nosec G101
 	// Tracing configurations
 	configTracingNameSuffix = "config-llm-tracing"
 )
@@ -84,6 +85,7 @@ var (
 	configRouterSchedulerName               = configPrefix + configRouterSchedulerNameSuffix
 	configRouterRouteName                   = configPrefix + configRouterRouteNameSuffix
 	configSchedulerLatencyPredictorName     = configPrefix + configSchedulerLatencyPredictorNameSuffix
+	configTokenizerName                     = configPrefix + configTokenizerNameSuffix
 	configTracingName                       = configPrefix + configTracingNameSuffix
 )
 
@@ -106,6 +108,7 @@ var WellKnownDefaultConfigs = sets.New[string](
 	configRouterSchedulerName,
 	configRouterRouteName,
 	configSchedulerLatencyPredictorName,
+	configTokenizerName,
 	configTracingName,
 )
 
@@ -211,6 +214,9 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	refs := make([]corev1.LocalObjectReference, 0, len(llmSvc.Spec.BaseRefs))
 	if resolvedSpec.Router != nil && resolvedSpec.Router.Scheduler != nil && !resolvedSpec.Router.Scheduler.Pool.HasRef() {
 		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configRouterSchedulerName)})
+	}
+	if resolvedSpec.Router != nil && resolvedSpec.Router.Scheduler != nil && isTokenizerEnabled(resolvedSpec) {
+		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configTokenizerName)})
 	}
 	if hasLatencyProducerInSpec(resolvedSpec) {
 		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configSchedulerLatencyPredictorName)})

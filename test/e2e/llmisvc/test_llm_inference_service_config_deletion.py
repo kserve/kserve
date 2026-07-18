@@ -21,7 +21,6 @@ from kubernetes import client
 
 from .fixtures import (
     KSERVE_PLURAL_LLMINFERENCESERVICECONFIG,
-    KSERVE_TEST_NAMESPACE,
     LLMINFERENCESERVICE_CONFIGS,
     _create_or_update_llmisvc_config,
     inject_k8s_proxy,
@@ -47,7 +46,7 @@ def _kserve_client() -> KServeClient:
     )
 
 
-def _create_config(kserve_client, name, namespace=KSERVE_TEST_NAMESPACE):
+def _create_config(kserve_client, name, namespace):
     """Create a minimal LLMInferenceServiceConfig with model fields."""
     config_body = {
         "apiVersion": f"serving.kserve.io/{API_VERSION}",
@@ -63,7 +62,7 @@ def _create_config(kserve_client, name, namespace=KSERVE_TEST_NAMESPACE):
     return _create_or_update_llmisvc_config(kserve_client, config_body, namespace)
 
 
-def _get_config(kserve_client, name, namespace=KSERVE_TEST_NAMESPACE):
+def _get_config(kserve_client, name, namespace):
     """Get an LLMInferenceServiceConfig by name."""
     return kserve_client.api_instance.get_namespaced_custom_object(
         constants.KSERVE_GROUP,
@@ -74,7 +73,7 @@ def _get_config(kserve_client, name, namespace=KSERVE_TEST_NAMESPACE):
     )
 
 
-def _delete_config(kserve_client, name, namespace=KSERVE_TEST_NAMESPACE):
+def _delete_config(kserve_client, name, namespace):
     """Delete an LLMInferenceServiceConfig by name."""
     return kserve_client.api_instance.delete_namespaced_custom_object(
         constants.KSERVE_GROUP,
@@ -97,7 +96,7 @@ def _config_has_deletion_timestamp(config_obj):
 
 
 def _create_llmisvc_with_config_ref(
-    kserve_client, service_name, config_name, namespace=KSERVE_TEST_NAMESPACE
+    kserve_client, service_name, config_name, namespace
 ):
     """Create an LLMInferenceService referencing a config via baseRefs."""
     from kserve import V1alpha1LLMInferenceService
@@ -149,7 +148,7 @@ def _create_llmisvc_with_config_ref(
     return llm_svc, [workload_config_name, router_config_name]
 
 
-def _cleanup_config_silent(kserve_client, name, namespace=KSERVE_TEST_NAMESPACE):
+def _cleanup_config_silent(kserve_client, name, namespace):
     """Delete a config, ignoring 404."""
     try:
         _delete_config(kserve_client, name, namespace)
@@ -177,7 +176,7 @@ def _get_condition(config_obj, condition_type):
     return None
 
 
-def _config_is_gone(kserve_client, config_name, namespace=KSERVE_TEST_NAMESPACE):
+def _config_is_gone(kserve_client, config_name, namespace):
     """Assert that a config no longer exists (404)."""
     try:
         _get_config(kserve_client, config_name, namespace)
@@ -190,21 +189,20 @@ def _config_is_gone(kserve_client, config_name, namespace=KSERVE_TEST_NAMESPACE)
         ) from e
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.cluster_cpu
 @pytest.mark.cluster_single_node
 @log_execution
-def test_config_finalizer_added():
+def test_config_finalizer_added(test_namespace):
     """Test that a finalizer is added and Ready condition is set on a new LLMInferenceServiceConfig."""
     inject_k8s_proxy()
     kserve_client = _kserve_client()
     config_name = "e2e-finalizer-add-test"
 
     try:
-        _create_config(kserve_client, config_name)
+        _create_config(kserve_client, config_name, namespace=test_namespace)
 
         def assert_finalizer_and_ready():
-            cfg = _get_config(kserve_client, config_name)
+            cfg = _get_config(kserve_client, config_name, namespace=test_namespace)
             assert _config_has_finalizer(cfg), (
                 f"Expected finalizer {CONFIG_FINALIZER} on config {config_name}, "
                 f"got finalizers: {cfg.get('metadata', {}).get('finalizers', [])}"
@@ -221,14 +219,13 @@ def test_config_finalizer_added():
         print(f"Finalizer and Ready=True condition present on config {config_name}")
 
     finally:
-        _cleanup_config_silent(kserve_client, config_name)
+        _cleanup_config_silent(kserve_client, config_name, namespace=test_namespace)
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.cluster_cpu
 @pytest.mark.cluster_single_node
 @log_execution
-def test_config_deletion_blocked_when_referenced():
+def test_config_deletion_blocked_when_referenced(test_namespace):
     """Test that deleting a config referenced by an LLMInferenceService is blocked by the finalizer."""
     inject_k8s_proxy()
     kserve_client = _kserve_client()
@@ -239,11 +236,11 @@ def test_config_deletion_blocked_when_referenced():
 
     try:
         # Create the config under test (model config)
-        _create_config(kserve_client, config_name)
+        _create_config(kserve_client, config_name, namespace=test_namespace)
 
         # Wait for the finalizer to be added
         def assert_finalizer_present():
-            cfg = _get_config(kserve_client, config_name)
+            cfg = _get_config(kserve_client, config_name, namespace=test_namespace)
             assert _config_has_finalizer(cfg), "Finalizer not yet present"
             return True
 
@@ -254,16 +251,17 @@ def test_config_deletion_blocked_when_referenced():
             kserve_client,
             service_name,
             config_name,
+            namespace=test_namespace,
         )
 
         # Attempt to delete the config
         print(f"Attempting to delete config {config_name} (should be blocked)")
-        _delete_config(kserve_client, config_name)
+        _delete_config(kserve_client, config_name, namespace=test_namespace)
 
         # The config should still exist with a deletionTimestamp but the finalizer
         # should prevent actual removal, and Ready condition should be False
         def assert_deletion_blocked():
-            cfg = _get_config(kserve_client, config_name)
+            cfg = _get_config(kserve_client, config_name, namespace=test_namespace)
             assert _config_has_deletion_timestamp(cfg), (
                 "Config should have a deletionTimestamp after delete was called"
             )
@@ -302,32 +300,33 @@ def test_config_deletion_blocked_when_referenced():
         # Wait a bit for the finalizer to be removed after service deletion
         try:
             wait_for(
-                lambda: _config_is_gone(kserve_client, config_name),
+                lambda: _config_is_gone(
+                    kserve_client, config_name, namespace=test_namespace
+                ),
                 timeout=120,
                 interval=2.0,
             )
         except AssertionError:
-            _cleanup_config_silent(kserve_client, config_name)
+            _cleanup_config_silent(kserve_client, config_name, namespace=test_namespace)
         for cfg_name in extra_configs:
-            _cleanup_config_silent(kserve_client, cfg_name)
+            _cleanup_config_silent(kserve_client, cfg_name, namespace=test_namespace)
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.cluster_cpu
 @pytest.mark.cluster_single_node
 @log_execution
-def test_config_deletion_allowed_when_unreferenced():
+def test_config_deletion_allowed_when_unreferenced(test_namespace):
     """Test that deleting a config not referenced by any LLMInferenceService succeeds."""
     inject_k8s_proxy()
     kserve_client = _kserve_client()
     config_name = "e2e-del-unreferenced-cfg"
 
     try:
-        _create_config(kserve_client, config_name)
+        _create_config(kserve_client, config_name, namespace=test_namespace)
 
         # Wait for the finalizer to be added
         def assert_finalizer_present():
-            cfg = _get_config(kserve_client, config_name)
+            cfg = _get_config(kserve_client, config_name, namespace=test_namespace)
             assert _config_has_finalizer(cfg), "Finalizer not yet present"
             return True
 
@@ -335,24 +334,23 @@ def test_config_deletion_allowed_when_unreferenced():
 
         # Delete the config (no service references it)
         print(f"Deleting unreferenced config {config_name}")
-        _delete_config(kserve_client, config_name)
+        _delete_config(kserve_client, config_name, namespace=test_namespace)
 
         # Config should be fully deleted
         def assert_config_gone():
-            return _config_is_gone(kserve_client, config_name)
+            return _config_is_gone(kserve_client, config_name, namespace=test_namespace)
 
         wait_for(assert_config_gone, timeout=60, interval=2.0)
         print(f"Config {config_name} was deleted successfully (not referenced)")
 
     finally:
-        _cleanup_config_silent(kserve_client, config_name)
+        _cleanup_config_silent(kserve_client, config_name, namespace=test_namespace)
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.cluster_cpu
 @pytest.mark.cluster_single_node
 @log_execution
-def test_config_deletion_unblocked_after_service_deleted():
+def test_config_deletion_unblocked_after_service_deleted(test_namespace):
     """Test that a blocked config deletion completes after the referencing service is deleted."""
     inject_k8s_proxy()
     kserve_client = _kserve_client()
@@ -363,10 +361,10 @@ def test_config_deletion_unblocked_after_service_deleted():
 
     try:
         # Create config and service
-        _create_config(kserve_client, config_name)
+        _create_config(kserve_client, config_name, namespace=test_namespace)
 
         def assert_finalizer_present():
-            cfg = _get_config(kserve_client, config_name)
+            cfg = _get_config(kserve_client, config_name, namespace=test_namespace)
             assert _config_has_finalizer(cfg), "Finalizer not yet present"
             return True
 
@@ -376,15 +374,16 @@ def test_config_deletion_unblocked_after_service_deleted():
             kserve_client,
             service_name,
             config_name,
+            namespace=test_namespace,
         )
 
         # Attempt to delete the config (should be blocked)
         print(f"Attempting to delete config {config_name} (should be blocked)")
-        _delete_config(kserve_client, config_name)
+        _delete_config(kserve_client, config_name, namespace=test_namespace)
 
         # Verify deletion is blocked
         def assert_deletion_blocked():
-            cfg = _get_config(kserve_client, config_name)
+            cfg = _get_config(kserve_client, config_name, namespace=test_namespace)
             assert _config_has_deletion_timestamp(cfg), "Should have deletionTimestamp"
             assert _config_has_finalizer(cfg), "Finalizer should still be present"
             return True
@@ -400,7 +399,7 @@ def test_config_deletion_unblocked_after_service_deleted():
         print(f"Waiting for config {config_name} to be deleted after service removal")
 
         def assert_config_gone():
-            return _config_is_gone(kserve_client, config_name)
+            return _config_is_gone(kserve_client, config_name, namespace=test_namespace)
 
         wait_for(assert_config_gone, timeout=120, interval=2.0)
         print(
@@ -410,9 +409,9 @@ def test_config_deletion_unblocked_after_service_deleted():
     finally:
         if llm_svc is not None:
             _cleanup_llmisvc_silent(kserve_client, llm_svc)
-        _cleanup_config_silent(kserve_client, config_name)
+        _cleanup_config_silent(kserve_client, config_name, namespace=test_namespace)
         for cfg_name in extra_configs:
-            _cleanup_config_silent(kserve_client, cfg_name)
+            _cleanup_config_silent(kserve_client, cfg_name, namespace=test_namespace)
 
 
 def _find_well_known_config(kserve_client, suffix, namespace=KSERVE_NAMESPACE):
@@ -430,7 +429,6 @@ def _find_well_known_config(kserve_client, suffix, namespace=KSERVE_NAMESPACE):
     return None
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.cluster_cpu
 @pytest.mark.cluster_single_node
 @log_execution
@@ -465,11 +463,10 @@ def test_well_known_config_deletion_prevented_by_webhook():
     print(f"Well-known config {config_name} is intact (no deletionTimestamp)")
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.cluster_cpu
 @pytest.mark.cluster_single_node
 @log_execution
-def test_well_known_config_deletion_blocked_by_implicit_reference():
+def test_well_known_config_deletion_blocked_by_implicit_reference(test_namespace):
     """Test that a well-known config is blocked from deletion by the finalizer while any
     LLMInferenceService exists in the same namespace.
 
@@ -491,28 +488,29 @@ def test_well_known_config_deletion_blocked_by_implicit_reference():
 
     try:
         # Create a config with the well-known name in the test namespace.
-        _create_config(kserve_client, wk_config_name)
+        _create_config(kserve_client, wk_config_name, namespace=test_namespace)
         print(
-            f"Created well-known config {wk_config_name} in namespace {KSERVE_TEST_NAMESPACE}"
+            f"Created well-known config {wk_config_name} in namespace {test_namespace}"
         )
 
         # Create an LLMInferenceService that does NOT explicitly reference the
         # well-known config. The controller treats well-known configs as implicitly
         # referenced by all services in the same namespace.
         model_config_name = f"{service_name}-model-cfg"
-        _create_config(kserve_client, model_config_name)
+        _create_config(kserve_client, model_config_name, namespace=test_namespace)
         extra_configs.append(model_config_name)
 
         llm_svc, svc_extra = _create_llmisvc_with_config_ref(
             kserve_client,
             service_name,
             model_config_name,
+            namespace=test_namespace,
         )
         extra_configs.extend(svc_extra)
 
         # Wait for the well-known config to have a finalizer
         def assert_finalizer_present():
-            cfg = _get_config(kserve_client, wk_config_name)
+            cfg = _get_config(kserve_client, wk_config_name, namespace=test_namespace)
             assert _config_has_finalizer(cfg), (
                 "Finalizer not yet present on well-known config"
             )
@@ -525,11 +523,11 @@ def test_well_known_config_deletion_blocked_by_implicit_reference():
         print(
             f"Attempting to delete well-known config {wk_config_name} (should be blocked by finalizer)"
         )
-        _delete_config(kserve_client, wk_config_name)
+        _delete_config(kserve_client, wk_config_name, namespace=test_namespace)
 
         # The well-known config should be blocked from deletion
         def assert_deletion_blocked():
-            cfg = _get_config(kserve_client, wk_config_name)
+            cfg = _get_config(kserve_client, wk_config_name, namespace=test_namespace)
             assert _config_has_deletion_timestamp(cfg), (
                 "Well-known config should have a deletionTimestamp after delete was called"
             )
@@ -563,7 +561,9 @@ def test_well_known_config_deletion_blocked_by_implicit_reference():
 
         # The well-known config should now be deleted
         def assert_config_gone():
-            return _config_is_gone(kserve_client, wk_config_name)
+            return _config_is_gone(
+                kserve_client, wk_config_name, namespace=test_namespace
+            )
 
         wait_for(assert_config_gone, timeout=120, interval=2.0)
         print(f"Well-known config {wk_config_name} deleted after service removal")
@@ -571,6 +571,6 @@ def test_well_known_config_deletion_blocked_by_implicit_reference():
     finally:
         if llm_svc is not None:
             _cleanup_llmisvc_silent(kserve_client, llm_svc)
-        _cleanup_config_silent(kserve_client, wk_config_name)
+        _cleanup_config_silent(kserve_client, wk_config_name, namespace=test_namespace)
         for cfg_name in extra_configs:
-            _cleanup_config_silent(kserve_client, cfg_name)
+            _cleanup_config_silent(kserve_client, cfg_name, namespace=test_namespace)

@@ -543,6 +543,18 @@ func WithConfigSchedulerConfigRef(configMapName, key string) LLMInferenceService
 	}
 }
 
+// WithManagedTokenizer sets an empty tokenizer spec on the scheduler as an
+// operational override. The tokenizer is normally auto-deployed when
+// token-producer or precise-prefix-cache-scorer plugins are detected in
+// inline config; this option forces tokenizer deployment for tests that
+// don't provide inline config.
+func WithManagedTokenizer() LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha2.LLMInferenceService) {
+		ensureSchedulerSpec(&llmSvc.Spec)
+		llmSvc.Spec.Router.Scheduler.Tokenizer = &v1alpha2.TokenizerSpec{}
+	}
+}
+
 // WithSchedulerConfigInline sets an inline scheduler config on the LLMInferenceService.
 // The configYAML is converted to JSON since RawExtension.Raw expects JSON bytes.
 func WithSchedulerConfigInline(configYAML string) LLMInferenceServiceOption {
