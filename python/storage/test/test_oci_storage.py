@@ -25,6 +25,7 @@ from kserve_storage import Storage
 from kserve_storage.kserve_storage import (
     _OCI_DOCKER_CONFIG_PATH,
     _OCI_DOCKER_CONFIG_PATH_ENV,
+    _OCI_INSECURE_REGISTRY_ENV,
     _detect_goarch,
     _login_from_docker_config,
     _pick_platform,
@@ -317,6 +318,52 @@ def test_oci_honors_env_var_for_config_path(tmp_path):
     mock_login.assert_called_once_with(
         client, "registry.io/mymodel:v1", "/custom/path/config.json"
     )
+
+
+def test_oci_insecure_registry_defaults_to_secure(tmp_path):
+    out = str(tmp_path / "out")
+    client = _make_client(_IMAGE_MANIFEST)
+    captured = {}
+
+    def fake_oras_client(insecure=False, **kwargs):
+        captured["insecure"] = insecure
+        return client
+
+    with (
+        mock.patch("oras.client.OrasClient", side_effect=fake_oras_client),
+        mock.patch(
+            "kserve_storage.kserve_storage.os.path.exists",
+            side_effect=_fake_config_exists(False),
+        ),
+        mock.patch.dict(os.environ, {}, clear=False),
+    ):
+        os.environ.pop(_OCI_INSECURE_REGISTRY_ENV, None)
+        Storage._download_oci("oci://registry.io/mymodel:v1", out)
+
+    # No KSERVE_OCI_INSECURE_REGISTRY set -> secure/verified HTTPS by default.
+    assert captured["insecure"] is False
+
+
+def test_oci_insecure_registry_opt_in(tmp_path):
+    out = str(tmp_path / "out")
+    client = _make_client(_IMAGE_MANIFEST)
+    captured = {}
+
+    def fake_oras_client(insecure=False, **kwargs):
+        captured["insecure"] = insecure
+        return client
+
+    with (
+        mock.patch("oras.client.OrasClient", side_effect=fake_oras_client),
+        mock.patch(
+            "kserve_storage.kserve_storage.os.path.exists",
+            side_effect=_fake_config_exists(False),
+        ),
+        mock.patch.dict(os.environ, {_OCI_INSECURE_REGISTRY_ENV: "true"}),
+    ):
+        Storage._download_oci("oci://registry.io/mymodel:v1", out)
+
+    assert captured["insecure"] is True
 
 
 def test_oci_uses_ca_bundle_from_env(tmp_path):

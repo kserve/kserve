@@ -44,6 +44,11 @@ const (
 	// ociFetchDefaultVolumeName is the fallback model volume name when modelPath does not
 	// yield a usable name (e.g. the root path).
 	ociFetchDefaultVolumeName = "oci-fetch-model"
+	// ociFetchInsecureRegistryEnvVar signals to the Python handler that the target
+	// registry should be treated as plain-HTTP/insecure (no TLS verification). Only
+	// set when storageConfig.OciInsecureRegistry is explicitly true; absent otherwise,
+	// so the Python side's default (secure/verified HTTPS) applies.
+	ociFetchInsecureRegistryEnvVar = "KSERVE_OCI_INSECURE_REGISTRY"
 )
 
 // ConfigureOciFetchToContainer wires an oci+fetch:// model into targetContainerName by
@@ -90,6 +95,12 @@ func ConfigureOciFetchToContainer(
 			return err
 		}
 		mountCaBundleForFetch(storageConfig, namespace, initContainer, podSpec)
+		if storageConfig.OciInsecureRegistry {
+			initContainer.Env = append(initContainer.Env, corev1.EnvVar{
+				Name:  ociFetchInsecureRegistryEnvVar,
+				Value: "true",
+			})
+		}
 	} else if !initContainerArgsContainPair(initContainer.Args, modelUri, modelPath) {
 		// Additional fetch source: append its (uri, path) pair to the shared init container.
 		initContainer.Args = append(initContainer.Args, modelUri, modelPath)

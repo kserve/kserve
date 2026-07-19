@@ -81,6 +81,13 @@ _OCI_DOCKER_CONFIG_PATH_ENV = "KSERVE_OCI_DOCKER_CONFIG"
 # /mnt, not /root, because the storage-initializer runs as UID 1000 and cannot read /root.
 _OCI_DOCKER_CONFIG_PATH = "/mnt/oci-fetch-auth/config.json"
 
+# Env var by which the Go webhook (ConfigureOciFetchToContainer) signals that the
+# target registry should be treated as plain-HTTP/insecure (self-signed or no TLS).
+# Defaults to secure (verified HTTPS) when unset -- this is an explicit opt-in,
+# mirroring how CA_BUNDLE_VOLUME_MOUNT_POINT etc. are wired: Go-side config field ->
+# env var on the init container -> read here.
+_OCI_INSECURE_REGISTRY_ENV = "KSERVE_OCI_INSECURE_REGISTRY"
+
 # Prefix identifying the modelcar layout's model subtree within an OCI layer tar.
 _OCI_MODELS_PREFIX = "models/"
 
@@ -1333,7 +1340,10 @@ class Storage(object):
           ignores DOCKER_CONFIG); a missing config file falls back to an anonymous
           pull (suitable for public registries).
         - TLS: a mounted custom CA bundle (CA_BUNDLE_VOLUME_MOUNT_POINT) is honored
-          for private-registry HTTPS via REQUESTS_CA_BUNDLE.
+          for private-registry HTTPS via REQUESTS_CA_BUNDLE. KSERVE_OCI_INSECURE_REGISTRY
+          (set by the Go webhook from storageInitializer.ociInsecureRegistry, default
+          false/secure) opts out of TLS verification entirely for registries that are
+          plain HTTP or use self-signed certs without a distributable CA bundle.
         """
         import oras.client
 
@@ -1354,7 +1364,12 @@ class Storage(object):
         if not os.path.exists(config_path):
             config_path = None
 
-        client = oras.client.OrasClient()
+        insecure = os.environ.get(_OCI_INSECURE_REGISTRY_ENV, "").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+        client = oras.client.OrasClient(insecure=insecure)
         if config_path:
             _login_from_docker_config(client, target, config_path)
 
