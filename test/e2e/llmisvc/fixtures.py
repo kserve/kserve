@@ -14,6 +14,7 @@
 
 import copy
 import hashlib
+import json
 import os
 import re
 import time
@@ -63,6 +64,16 @@ LLMD_SIMULATOR_SECURITY_CONTEXT = {
     "runAsUser": 65532,
     "runAsGroup": 65532,
 }
+
+# Default annotations applied to every LLMInferenceService created by the
+# test harness. Set LLMISVC_DEFAULT_ANNOTATIONS as a JSON object in CI to
+# inject platform-specific annotations without modifying test code.
+try:
+    DEFAULT_LLMISVC_ANNOTATIONS = json.loads(
+        os.environ.get("LLMISVC_DEFAULT_ANNOTATIONS", "{}")
+    )
+except (json.JSONDecodeError, TypeError):
+    DEFAULT_LLMISVC_ANNOTATIONS = {}
 
 STORAGE_INITIALIZER_INIT_CONTAINER = {
     "name": "storage-initializer",
@@ -1538,7 +1549,11 @@ def _setup_test_case_service(
     tc.llm_service = V1alpha1LLMInferenceService(
         api_version="serving.kserve.io/v1alpha1",
         kind="LLMInferenceService",
-        metadata=client.V1ObjectMeta(name=tc.service_name, namespace=namespace),
+        metadata=client.V1ObjectMeta(
+            name=tc.service_name,
+            namespace=namespace,
+            annotations=dict(DEFAULT_LLMISVC_ANNOTATIONS) or None,
+        ),
         spec={
             "baseRefs": [{"name": base_ref} for base_ref in unique_base_refs],
         },
