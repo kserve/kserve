@@ -47,7 +47,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 		It("should create a basic multi-node deployment with worker spec", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-multinode"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -126,7 +126,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 			func(ctx SpecContext, testName string, podSpec *corev1.PodSpec, extraAnnotations map[string]string, targetContainer string) {
 				// given
 				svcName := "test-llm-multinode-dra-" + testName
-				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+				testNs := NewTestNamespace(ctx, envTest)
 
 				annotations := map[string]string{
 					constants.ManagedDRADeviceClassAnnotationKey: "gpu.nvidia.com",
@@ -236,7 +236,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 		It("should create multi-node deployment with prefill workload", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-multinode-prefill"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -297,7 +297,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 		It("should create multi-node deployment with prefill workload and managed DRA", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-mn-pd-dra"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -387,7 +387,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 		It("should create RBAC resources when prefill and decode is used", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-multinode-rbac"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -467,7 +467,6 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 			// given
 			svcName := "test-llm-mn-ips"
 			testNs := NewTestNamespace(ctx, envTest,
-				WithIstioShadowService(svcName),
 				WithDefaultServiceAccountImagePullSecrets(
 					corev1.LocalObjectReference{Name: "my-registry-secret"},
 					corev1.LocalObjectReference{Name: "other-pull-secret"},
@@ -516,7 +515,6 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 			// given
 			svcName := "test-llm-mn-ips-prefill"
 			testNs := NewTestNamespace(ctx, envTest,
-				WithIstioShadowService(svcName),
 				WithDefaultServiceAccountImagePullSecrets(
 					corev1.LocalObjectReference{Name: "my-registry-secret"},
 				),
@@ -565,7 +563,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 		It("should create multi-node SA with empty imagePullSecrets when default SA has none", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-mn-ips-empty"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -604,7 +602,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 		It("should delete multi-node resources when worker spec is removed", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-multinode-cleanup"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			parallelismSpec := ParallelismSpec(
 				WithDataParallelism(2),
@@ -669,7 +667,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 		It("should delete prefill resources when prefill spec is removed", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-prefill-cleanup"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -726,7 +724,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 		It("should set correct labels and annotation", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-lws-labels"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			localQueueName := "test-local-q"
 			preemptPriority := "0"
@@ -800,7 +798,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 
 		It("should not propagate model-based-routing annotation to LWS pod templates", func(ctx SpecContext) {
 			svcName := "test-llm-lws-no-mbr"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -840,7 +838,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 		It("should preserve externally set replicas when owner does not specify replicas", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-mn-preserve-replicas"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 			lwsName := types.NamespacedName{Name: svcName + "-kserve-mn", Namespace: testNs.Name}
 
 			// Create LLMInferenceService WITHOUT specifying replicas
@@ -911,7 +909,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 		It("should override externally set replicas when owner specifies replicas", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-mn-override-replicas"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 			lwsName := types.NamespacedName{Name: svcName + "-kserve-mn", Namespace: testNs.Name}
 
 			// Create LLMInferenceService WITH explicit replicas
@@ -983,7 +981,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 	Context("Readiness Event Emission", func() {
 		It("should emit a Warning LLMInferenceServiceNotReady Event with WorkerWorkloadReady when transitioning Ready to NotReady", func(ctx SpecContext) {
 			svcName := "test-llm-mn-event-notready"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),

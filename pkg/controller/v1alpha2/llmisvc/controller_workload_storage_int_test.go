@@ -69,7 +69,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 		It("should configure direct PVC mount when model uri starts with pvc://", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-storage-pvc"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			modelURL, err := apis.ParseURL("pvc://facebook-models/opt-125m")
 			Expect(err).ToNot(HaveOccurred())
@@ -124,7 +124,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 		It("should configure a modelcar when model uri starts with oci://", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-storage-oci"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			modelURL, err := apis.ParseURL("oci://registry.io/user-id/repo-id:tag")
 			Expect(err).ToNot(HaveOccurred())
@@ -1051,7 +1051,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 		It("should NOT create storage-initializer when explicitly disabled for s3:// URI", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-storage-s3-disabled"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			modelURL, err := apis.ParseURL("s3://user-id/repo-id:tag")
 			Expect(err).ToNot(HaveOccurred())
@@ -1110,7 +1110,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 		It("should NOT create storage-initializer when explicitly disabled for hf:// URI", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-storage-hf-disabled"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			modelURL, err := apis.ParseURL("hf://meta-llama/Llama-3.2-1B-Instruct")
 			Expect(err).ToNot(HaveOccurred())
@@ -1169,7 +1169,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 		It("should NOT configure PVC storage when storage-initializer is disabled", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-storage-pvc-si-disabled"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			modelURL, err := apis.ParseURL("pvc://facebook-models/opt-125m")
 			Expect(err).ToNot(HaveOccurred())
@@ -1231,7 +1231,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 		It("should NOT configure OCI storage when storage-initializer is disabled", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-storage-oci-si-disabled"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			modelURL, err := apis.ParseURL("oci://registry.io/user-id/repo-id:tag")
 			Expect(err).ToNot(HaveOccurred())
@@ -1293,7 +1293,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 		It("should rewrite model URI to PVC when local model cache labels are present", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-storage-local-cache"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			sourceUri := "hf://meta-llama/Llama-3.2-1B"
 			modelURL, err := apis.ParseURL(sourceUri)
@@ -1368,7 +1368,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 		It("should configure direct PVC mount when model uri starts with pvc://", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-storage-pvc-mn"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			modelURL, err := apis.ParseURL("pvc://facebook-models/opt-125m")
 			Expect(err).ToNot(HaveOccurred())
@@ -1435,7 +1435,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 		It("should configure a modelcar when model uri starts with oci://", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-storage-oci-mn"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			modelURL, err := apis.ParseURL("oci://registry.io/user-id/repo-id:tag")
 			Expect(err).ToNot(HaveOccurred())
@@ -1504,7 +1504,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 		It("should use storage-initializer to download model when uri starts with hf://", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-storage-hf-mn"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			modelURL, err := apis.ParseURL("hf://user-id/repo-id:tag")
 			Expect(err).ToNot(HaveOccurred())
@@ -1573,7 +1573,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 		It("multi node should use storage-initializer and set proper env variables when uri starts with hf:// and credentials are configured", func(ctx SpecContext) {
 			// setup test dependencies
 			svcName := "test-llm-storage-hf-mn-with-credentials"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			secretName := kmeta.ChildName(svcName, "-secret")
 			hfTokenValue := "test-token"
@@ -1718,7 +1718,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 
 			// setup test dependencies
 			svcName := "test-llm-storage-s3-mn"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			modelURL, err := apis.ParseURL("s3://user-id/repo-id:tag")
 			Expect(err).ToNot(HaveOccurred())
@@ -1838,7 +1838,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 
 			// setup test dependencies
 			svcName := "test-llm-storage-s3-config-mn"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			localCaBundleConfigMapName := "local-s3-custom-certs"
 			localCaBundleconfigMap := &corev1.ConfigMap{
@@ -2027,7 +2027,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 
 			// setup test dependencies
 			svcName := "test-llm-storage-s3-mn-with-credentials"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			s3CaBundleConfigMapName := "s3-custom-certs"
 			s3CaBundleconfigMap := &corev1.ConfigMap{
@@ -2219,7 +2219,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 
 			// setup test dependencies
 			svcName := "test-llm-storage-s3-mn-with-iam-credentials"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			s3CaBundleConfigMapName := "s3-custom-certs"
 			s3CaBundleconfigMap := &corev1.ConfigMap{

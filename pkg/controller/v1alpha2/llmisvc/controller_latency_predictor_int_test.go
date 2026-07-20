@@ -34,7 +34,7 @@ var _ = Describe("LLMInferenceService Controller — Latency Predictor", func() 
 	Context("When predicted-latency-producer plugin is in the scheduler config", func() {
 		It("should inject training and prediction sidecar containers into the scheduler deployment", func(ctx SpecContext) {
 			svcName := "test-llm-lp-sidecars"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -76,7 +76,7 @@ var _ = Describe("LLMInferenceService Controller — Latency Predictor", func() 
 	Context("When predicted-latency-producer plugin is NOT in the scheduler config", func() {
 		It("should not inject sidecar containers", func(ctx SpecContext) {
 			svcName := "test-llm-no-lp"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),

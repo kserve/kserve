@@ -38,7 +38,7 @@ var _ = Describe("Routing Status", func() {
 		It("populates status.router.gateways after reconcile", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-routing-status"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -80,7 +80,7 @@ var _ = Describe("Routing Status", func() {
 		It("sets status.router to nil when force-stop annotation is applied", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-routing-stop"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -129,7 +129,7 @@ var _ = Describe("Routing Status", func() {
 		It("leaves status.router nil when spec.router is nil", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-routing-nil"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -156,7 +156,7 @@ var _ = Describe("Routing Status", func() {
 		It("does not change status.router on consecutive reconciles with no spec change", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-routing-stable"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -208,7 +208,7 @@ var _ = Describe("Routing Status", func() {
 	Context("Status addresses contain model names", func() {
 		It("populates status.addresses[].models with the base model name", func(ctx SpecContext) {
 			svcName := "test-llm-addr-models"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			gwName := "addr-models-gw"
 			gw := Gateway(gwName,
@@ -260,7 +260,7 @@ var _ = Describe("Routing Status", func() {
 
 		It("includes LoRA adapter model names in status.addresses", func(ctx SpecContext) {
 			svcName := "test-llm-addr-lora"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			gwName := "addr-lora-gw"
 			gw := Gateway(gwName,

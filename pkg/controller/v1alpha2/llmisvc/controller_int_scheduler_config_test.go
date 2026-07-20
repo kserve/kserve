@@ -47,7 +47,7 @@ var _ = Describe("LLMInferenceService Scheduler Config", func() {
 		It("should use inline scheduler config in the scheduler deployment", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-inline-scheduler-config"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			customSchedulerConfig := `
 apiVersion: llm-d.ai/v1alpha1
@@ -138,7 +138,7 @@ schedulingProfiles:
 		It("should not override config when args already contain --config-text or --configFile", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-config-already-set"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			// Create scheduler template with existing --config-text
 			modelConfig := LLMInferenceServiceConfig("model-config",
@@ -215,7 +215,7 @@ schedulingProfiles:
 		It("should resolve scheduler config from ConfigMap ref and use it in deployment", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-configmap-ref-scheduler"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			configMapData := `
 apiVersion: llm-d.ai/v1alpha1
@@ -265,7 +265,7 @@ schedulingProfiles:
 		It("should use custom key from ConfigMap ref", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-configmap-custom-key"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			configMapData := `
 apiVersion: llm-d.ai/v1alpha1
@@ -315,7 +315,7 @@ schedulingProfiles:
 		It("should update scheduler deployment when referenced ConfigMap is updated", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-configmap-update"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			initialConfigData := `
 apiVersion: llm-d.ai/v1alpha1
@@ -403,7 +403,7 @@ schedulingProfiles:
 		It("should use default scheduler config when no config is specified (non-prefill)", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-default-scheduler-config"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -446,7 +446,7 @@ schedulingProfiles:
 		It("should use prefill/decode scheduler config when prefill is configured", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-prefill-scheduler-config"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -500,7 +500,7 @@ schedulingProfiles:
 		It("should resolve ConfigMap from system namespace when not found in service namespace", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-system-ns-configmap"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			systemConfigData := `
 apiVersion: llm-d.ai/v1alpha1
@@ -553,7 +553,7 @@ schedulingProfiles:
 		It("should report error when referenced ConfigMap does not exist", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-missing-configmap"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -586,7 +586,7 @@ schedulingProfiles:
 		It("should report error when ConfigMap is missing the referenced key", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-missing-key"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			// Create ConfigMap without the expected key
 			configMap := SchedulerConfigMapWithKey("scheduler-config-wrong-key", testNs.Name, "wrong-key", "some-config")
@@ -625,7 +625,7 @@ schedulingProfiles:
 		It("should inherit scheduler config from baseRef LLMInferenceServiceConfig", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-baseref-scheduler-config"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			schedulerConfigData := `
 apiVersion: llm-d.ai/v1alpha1
@@ -687,7 +687,7 @@ schedulingProfiles:
 		It("should inherit inline scheduler config from baseRef LLMInferenceServiceConfig", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-baseref-inline-config"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			inlineSchedulerConfig := `
 apiVersion: llm-d.ai/v1alpha1
@@ -758,7 +758,6 @@ schedulingProfiles:
 			}
 
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
 				envTest.DeleteAll(ctx, namespace)
 			}()
@@ -802,7 +801,6 @@ schedulingProfiles:
 			}
 
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
 				envTest.DeleteAll(ctx, namespace)
 			}()
@@ -846,7 +844,6 @@ schedulingProfiles:
 			}
 
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
 				envTest.DeleteAll(ctx, namespace)
 			}()
@@ -890,7 +887,6 @@ schedulingProfiles:
 			}
 
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
 				envTest.DeleteAll(ctx, namespace)
 			}()
@@ -975,7 +971,6 @@ schedulingProfiles:
 			}
 
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
 				envTest.DeleteAll(ctx, namespace)
 			}()
@@ -1052,7 +1047,7 @@ schedulingProfiles:
 		It("should decompose precise-prefix-cache-scorer into 3-plugin pipeline with tokenizer URL", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-uds-tokenizer-inject"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			precisePrefixConfig := `
 apiVersion: llm-d.ai/v1alpha1
@@ -1119,7 +1114,7 @@ schedulingProfiles:
 		It("should strip legacy UDS tokenizer fields after decomposition", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-uds-tokenizer-override"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			//nolint:gosec // G101: not a credential, scheduler config YAML
 			configWithExistingTokenizer := `
@@ -1187,7 +1182,7 @@ schedulingProfiles:
 		It("should not inject tokenizersPoolConfig when no precise-prefix-cache-scorer plugin", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-uds-no-precise-prefix"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			configWithoutPrecisePrefix := `
 apiVersion: llm-d.ai/v1alpha1
@@ -1245,7 +1240,7 @@ schedulingProfiles:
 		It("should decompose precise-prefix-cache-scorer and preserve tokenProcessorConfig", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-tpc-migrate"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			oldFormatConfig := `
 apiVersion: llm-d.ai/v1alpha1
@@ -1314,7 +1309,7 @@ schedulingProfiles:
 		It("should decompose precise-prefix-cache-scorer even with top-level tokenProcessorConfig", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-tpc-no-overwrite"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			newFormatConfig := `
 apiVersion: llm-d.ai/v1alpha1
@@ -1385,7 +1380,7 @@ schedulingProfiles:
 		It("should propagate annotations and imagePullSecrets from main workload SA to generated scheduler SA", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-sa-propagation"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			// Create a main workload SA with annotations and imagePullSecrets
 			mainSA := &corev1.ServiceAccount{
@@ -1449,7 +1444,7 @@ schedulingProfiles:
 		It("should not add extra credentials when no main workload SA is specified", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-sa-no-propagation"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -1483,7 +1478,7 @@ schedulingProfiles:
 		It("should update scheduler SA when main workload SA credentials change", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-sa-update"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			// Create a main workload SA with initial annotations
 			mainSA := &corev1.ServiceAccount{
@@ -1582,7 +1577,7 @@ schedulingProfiles:
 	Context("v0.9.0 prefix-cache-scorer parameter removal", func() {
 		It("should remove all parameters except prefixMatchInfoProducerName from prefix-cache-scorer", func(ctx SpecContext) {
 			svcName := "test-llm-pcs-param-removal"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			configWithPrefixCacheParams := `
 apiVersion: llm-d.ai/v1alpha1
@@ -1638,7 +1633,7 @@ schedulingProfiles:
 
 		It("should remove parameters entirely when no prefixMatchInfoProducerName is present", func(ctx SpecContext) {
 			svcName := "test-llm-pcs-param-all-removed"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			configWithOnlyDeprecatedParams := `
 apiVersion: llm-d.ai/v1alpha1
@@ -1694,7 +1689,7 @@ schedulingProfiles:
 
 		It("should not touch prefix-cache-scorer without parameters", func(ctx SpecContext) {
 			svcName := "test-llm-pcs-no-params"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			configWithNoParams := `
 apiVersion: llm-d.ai/v1alpha1
@@ -1752,7 +1747,7 @@ schedulingProfiles:
 			// 2. AMD instance with no router uses spec.labels to match the NVIDIA InferencePool selector
 			nvidiaSvcName := "test-llm-nvidia"
 			amdSvcName := "test-llm-amd"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(nvidiaSvcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			// Create NVIDIA instance with default scheduler
 			nvidiaLLMSvc := LLMInferenceService(nvidiaSvcName,
@@ -1845,7 +1840,7 @@ schedulingProfiles:
 
 		It("should not override explicitly set EPP port", func(ctx SpecContext) {
 			svcName := "test-llm-port-explicit"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			schedulerCfg := LLMInferenceServiceConfig("kserve-config-llm-scheduler",
 				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),

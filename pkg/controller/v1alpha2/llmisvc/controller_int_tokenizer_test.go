@@ -41,7 +41,7 @@ var _ = Describe("LLMInferenceService Controller — Standalone Tokenizer", func
 	Context("When standalone tokenizer should be deployed", func() {
 		It("should create tokenizer Deployment and Service from well-known config", func(ctx SpecContext) {
 			svcName := "test-llm-tokenizer-explicit"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -91,7 +91,7 @@ var _ = Describe("LLMInferenceService Controller — Standalone Tokenizer", func
 
 		It("should deploy tokenizer when token-producer plugin is in inline config", func(ctx SpecContext) {
 			svcName := "test-llm-tok-3plugin"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -176,7 +176,7 @@ schedulingProfiles:
 
 		It("should report TokenizerReady status condition", func(ctx SpecContext) {
 			svcName := "test-llm-tok-status"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -205,7 +205,7 @@ schedulingProfiles:
 	Context("When tokenizer is not configured", func() {
 		It("should not create tokenizer resources", func(ctx SpecContext) {
 			svcName := "test-llm-no-tokenizer"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -245,7 +245,7 @@ schedulingProfiles:
 	Context("Legacy migration — precise-prefix-cache-scorer triggers tokenizer", func() {
 		It("should create tokenizer Deployment when precise-prefix-cache-scorer is in inline config", func(ctx SpecContext) {
 			svcName := "test-llm-tok-legacy"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			legacyConfig := `
 apiVersion: inference.networking.x-k8s.io/v1alpha1
@@ -312,7 +312,7 @@ schedulingProfiles:
 	Context("Tokenizer cleanup on spec change", func() {
 		It("should delete tokenizer resources when tokenizer field is removed from spec", func(ctx SpecContext) {
 			svcName := "test-llm-tok-cleanup"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -384,7 +384,7 @@ schedulingProfiles:
 
 		It("should delete tokenizer resources when token-producer plugin is removed from inline config", func(ctx SpecContext) {
 			svcName := "test-llm-tok-cleanup-plugin"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -479,7 +479,7 @@ schedulingProfiles:
 	Context("ForceStop handling", func() {
 		It("should set TokenizerReady to False with reason Stopped when force-stop is applied", func(ctx SpecContext) {
 			svcName := "test-llm-tok-forcestop"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -550,7 +550,7 @@ schedulingProfiles:
 	Context("External InferencePool ref", func() {
 		It("should not create tokenizer when scheduler has external pool ref", func(ctx SpecContext) {
 			svcName := "test-llm-tok-extpool"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
