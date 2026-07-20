@@ -54,8 +54,16 @@ def generate_namespace_name(node_name: str) -> str:
     return f"{prefix}{safe_base}{sep}{name_hash}"
 
 
+def _env_bool(name: str) -> bool:
+    return os.getenv(name, "False").lower() in ("true", "1", "t")
+
+
 def skip_deletion() -> bool:
-    return os.getenv("SKIP_RESOURCE_DELETION", "False").lower() in ("true", "1", "t")
+    return _env_bool("SKIP_RESOURCE_DELETION")
+
+
+def skip_deletion_on_failure() -> bool:
+    return _env_bool("SKIP_DELETION_ON_FAILURE")
 
 
 def create_test_namespace(namespace: str) -> None:
