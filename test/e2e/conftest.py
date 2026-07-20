@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import os
 
 import pytest
 import pytest_asyncio
@@ -49,9 +50,13 @@ def event_loop():
         loop.close()
 
 
-@pytest_asyncio.fixture(scope="session")
-async def rest_v1_client():
-    transport = RetryTransport(
+def _build_retry_transport():
+    """Build an httpx transport with retry logic and optional CA cert verification."""
+    ca_cert_path = os.environ.get("REQUESTS_CA_BUNDLE")
+    verify = ca_cert_path if ca_cert_path else True
+    http_transport = httpx.AsyncHTTPTransport(verify=verify)
+    return RetryTransport(
+        transport=http_transport,
         retry=Retry(
             total=DEFAULT_RETRY_TOTAL,
             backoff_factor=DEFAULT_RETRY_BACKOFF_FACTOR,
@@ -65,6 +70,11 @@ async def rest_v1_client():
             ],
         ),
     )
+
+
+@pytest_asyncio.fixture(scope="session")
+async def rest_v1_client():
+    transport = _build_retry_transport()
     v1_client = InferenceRESTClient(
         config=RESTConfig(
             transport=transport,
@@ -79,20 +89,7 @@ async def rest_v1_client():
 
 @pytest_asyncio.fixture(scope="session")
 async def rest_v2_client():
-    transport = RetryTransport(
-        retry=Retry(
-            total=DEFAULT_RETRY_TOTAL,
-            backoff_factor=DEFAULT_RETRY_BACKOFF_FACTOR,
-            backoff_jitter=0.0,
-            allowed_methods=["GET", "POST"],
-            status_forcelist=list(DEFAULT_RETRY_STATUS_CODES),
-            retry_on_exceptions=[
-                httpx.TimeoutException,
-                httpx.NetworkError,
-                httpx.RemoteProtocolError,
-            ],
-        ),
-    )
+    transport = _build_retry_transport()
     v2_client = InferenceRESTClient(
         config=RESTConfig(
             transport=transport,

@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
 import base64
 import json
 import os
@@ -30,7 +29,12 @@ from kserve.models.v1beta1_sk_learn_spec import V1beta1SKLearnSpec
 from kubernetes.client import V1ResourceRequirements
 from kubernetes import client
 from kubernetes.client import V1Container, V1ContainerPort
-from ..common.utils import KSERVE_TEST_NAMESPACE, predict_grpc, predict_isvc
+from ..common.utils import (
+    KSERVE_TEST_NAMESPACE,
+    predict_grpc,
+    predict_isvc,
+    wait_for_pod_logs,
+)
 
 
 @pytest.mark.grpc
@@ -126,15 +130,16 @@ async def test_custom_model_grpc():
         KSERVE_TEST_NAMESPACE,
         label_selector="serving.kserve.io/inferenceservice={}".format(msg_dumper),
     )
-    await asyncio.sleep(5)
     log = ""
     for pod in pods.items:
-        log += kserve_client.core_api.read_namespaced_pod_log(
-            name=pod.metadata.name,
-            namespace=pod.metadata.namespace,
-            container="kserve-container",
+        pod_log = await wait_for_pod_logs(
+            kserve_client.core_api,
+            pod.metadata.name,
+            pod.metadata.namespace,
+            expected_substring="org.kubeflow.serving.inference",
+            timeout_s=30,
         )
-        print(log)
+        log += pod_log
     assert "org.kubeflow.serving.inference.request" in log
     assert "org.kubeflow.serving.inference.response" in log
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
