@@ -2248,7 +2248,7 @@ requires-dist = [
     { name = "boto3", specifier = ">=1.29.0,<2.0.0" },
     { name = "certifi", specifier = ">=2024.7.4" },
     { name = "cryptography", specifier = ">=46.0.5" },
-    { name = "dulwich", specifier = ">=0.21.0" },
+    { name = "dulwich", specifier = ">=1.2.5" },
     { name = "google-cloud-storage", specifier = ">=2.14.0,<3.0.0" },
     { name = "hf-xet", specifier = ">=1.5.0" },
     { name = "huggingface-hub", extras = ["hf-transfer"], specifier = ">=0.32.0" },
