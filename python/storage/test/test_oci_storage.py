@@ -1,0 +1,467 @@
+# Copyright 2026 The KServe Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import base64
+import io
+import json
+import os
+import tarfile
+import unittest.mock as mock
+
+import pytest
+
+from kserve_storage import Storage
+from kserve_storage.kserve_storage import (
+    _OCI_DOCKER_CONFIG_PATH,
+    _OCI_DOCKER_CONFIG_PATH_ENV,
+    _OCI_INSECURE_REGISTRY_ENV,
+    _detect_goarch,
+    _login_from_docker_config,
+    _pick_platform,
+    _rewrite_with_digest,
+    _setup_oci_tls,
+)
+
+_REAL_OS_PATH_EXISTS = os.path.exists
+
+
+def _fake_config_exists(config_path_exists, config_path=None):
+    """os.path.exists side_effect that only fakes the answer for the docker
+    config-path check in _download_oci, delegating every other path (notably
+    tarfile's own internal directory-existence checks during real extraction)
+    to the real os.path.exists. Patching this attribute patches the process-
+    wide os module (kserve_storage.kserve_storage.os IS the os module), so a
+    blanket return_value=False/True here would also fool tarfile's
+    _extract_member into skipping or wrongly attempting os.makedirs on
+    directories that genuinely do/don't exist on disk."""
+    target = config_path if config_path is not None else _OCI_DOCKER_CONFIG_PATH
+
+    def fake(path):
+        if path == target:
+            return config_path_exists
+        return _REAL_OS_PATH_EXISTS(path)
+
+    return fake
+
+
+_IMAGE_MANIFEST = {
+    "mediaType": "application/vnd.oci.image.manifest.v1+json",
+    "layers": [{"digest": "sha256:layer0"}],
+}
+_INDEX = {
+    "mediaType": "application/vnd.oci.image.index.v1+json",
+    "manifests": [
+        {
+            "platform": {"architecture": "amd64", "os": "linux"},
+            "digest": "sha256:amd64digest",
+        },
+        {
+            "platform": {"architecture": "arm64", "os": "linux"},
+            "digest": "sha256:arm64digest",
+        },
+    ],
+}
+
+
+def _build_layer_tar_bytes(
+    *, model_files=("model.joblib",), models_dir=True, extra_dirs=("bin",)
+):
+    """Build an in-memory tar+gzip layer blob mimicking a modelcar's single layer:
+    extra_dirs (non-models rootfs content, e.g. bin/) plus, if models_dir, a
+    models/ subtree containing model_files. Mirrors what _download_oci now
+    streams straight from a real registry response."""
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+        for d in extra_dirs:
+            info = tarfile.TarInfo(name=d)
+            info.type = tarfile.DIRTYPE
+            tar.addfile(info)
+        if models_dir:
+            info = tarfile.TarInfo(name="models")
+            info.type = tarfile.DIRTYPE
+            tar.addfile(info)
+            for name in model_files:
+                data = b"data"
+                info = tarfile.TarInfo(name=f"models/{name}")
+                info.size = len(data)
+                tar.addfile(info, io.BytesIO(data))
+    return buf.getvalue()
+
+
+class _FakeBlobResponse:
+    """Mimics the requests.Response returned by client.get_blob(..., stream=True):
+    a context manager exposing .raw (read via tarfile's streaming "r|gz" mode)
+    and a no-op .raise_for_status()."""
+
+    def __init__(self, data: bytes):
+        self.raw = io.BytesIO(data)
+
+    def raise_for_status(self):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc_info):
+        return False
+
+
+def _make_client(
+    manifest, *, model_files=("model.joblib",), models_dir=True, extra_dirs=("bin",)
+):
+    """Build a mock OrasClient whose get_blob() streams a fake single-layer
+    tar.gz (see _build_layer_tar_bytes) instead of the old pull()-to-tempdir
+    behavior _download_oci no longer uses."""
+    client = mock.MagicMock()
+    client.get_manifest.return_value = manifest
+    layer_bytes = _build_layer_tar_bytes(
+        model_files=model_files, models_dir=models_dir, extra_dirs=extra_dirs
+    )
+    client.get_blob.side_effect = lambda target, digest, stream=True: (
+        _FakeBlobResponse(layer_bytes)
+    )
+    return client
+
+
+def test_oci_anonymous_pull_no_config(tmp_path):
+    out = str(tmp_path / "out")
+    client = _make_client(_IMAGE_MANIFEST)
+    with (
+        mock.patch("oras.client.OrasClient", return_value=client),
+        mock.patch(
+            "kserve_storage.kserve_storage.os.path.exists",
+            side_effect=_fake_config_exists(False),
+        ),
+        mock.patch(
+            "kserve_storage.kserve_storage._login_from_docker_config"
+        ) as mock_login,
+    ):
+        result = Storage._download_oci("oci://registry.io/mymodel:v1", out)
+
+    assert result == out
+    assert os.path.isfile(os.path.join(out, "model.joblib"))
+    # No config file present -> _login_from_docker_config never invoked (anonymous pull).
+    mock_login.assert_not_called()
+    # get_manifest has no auth param in oras-py; it is called with the target only.
+    assert client.get_manifest.call_args.args[0] == "registry.io/mymodel:v1"
+    assert "config_path" not in client.get_manifest.call_args.kwargs
+
+
+def test_oci_with_config(tmp_path):
+    out = str(tmp_path / "out")
+    client = _make_client(_IMAGE_MANIFEST)
+
+    with (
+        mock.patch("oras.client.OrasClient", return_value=client),
+        mock.patch(
+            "kserve_storage.kserve_storage.os.path.exists",
+            side_effect=_fake_config_exists(True),
+        ),
+        mock.patch(
+            "kserve_storage.kserve_storage._login_from_docker_config"
+        ) as mock_login,
+    ):
+        Storage._download_oci("oci://registry.io/mymodel:v1", out)
+
+    mock_login.assert_called_once_with(
+        client, "registry.io/mymodel:v1", _OCI_DOCKER_CONFIG_PATH
+    )
+    # get_manifest takes no config_path; auth is pre-established via client.login().
+    assert "config_path" not in client.get_manifest.call_args.kwargs
+
+
+def test_oci_multi_arch_index_resolves_to_platform(tmp_path):
+    out = str(tmp_path / "out")
+    per_platform_manifest = {
+        "mediaType": "application/vnd.oci.image.manifest.v1+json",
+        "layers": [{"digest": "sha256:layer0"}],
+    }
+    client = mock.MagicMock()
+    # First call resolves the index; second call (post digest-rewrite) fetches
+    # the per-platform manifest whose layers are actually streamed.
+    client.get_manifest.side_effect = [_INDEX, per_platform_manifest]
+    layer_bytes = _build_layer_tar_bytes()
+    client.get_blob.side_effect = lambda target, digest, stream=True: (
+        _FakeBlobResponse(layer_bytes)
+    )
+    with (
+        mock.patch("oras.client.OrasClient", return_value=client),
+        mock.patch(
+            "kserve_storage.kserve_storage.os.path.exists",
+            side_effect=_fake_config_exists(False),
+        ),
+        mock.patch(
+            "kserve_storage.kserve_storage.platform.machine", return_value="x86_64"
+        ),
+    ):
+        Storage._download_oci("oci://registry.io/mymodel:v1", out)
+
+    resolved_target = client.get_manifest.call_args_list[1].args[0]
+    assert resolved_target == "registry.io/mymodel@sha256:amd64digest"
+    assert ":v1" not in resolved_target
+    assert os.path.isfile(os.path.join(out, "model.joblib"))
+
+
+def test_oci_multi_arch_index_no_matching_platform_errors(tmp_path):
+    out = str(tmp_path / "out")
+    index = {
+        "mediaType": "application/vnd.oci.image.index.v1+json",
+        "manifests": [
+            {
+                "platform": {"architecture": "arm64", "os": "linux"},
+                "digest": "sha256:arm64",
+            },
+        ],
+    }
+    client = _make_client(index)
+    with (
+        mock.patch("oras.client.OrasClient", return_value=client),
+        mock.patch("kserve_storage.kserve_storage.os.path.exists", return_value=False),
+        mock.patch(
+            "kserve_storage.kserve_storage.platform.machine", return_value="x86_64"
+        ),
+    ):
+        with pytest.raises(RuntimeError, match="linux/amd64"):
+            Storage._download_oci("oci://registry.io/mymodel:v1", out)
+    client.get_blob.assert_not_called()
+
+
+def test_oci_no_models_subpath_errors(tmp_path):
+    out = str(tmp_path / "out")
+    client = _make_client(_IMAGE_MANIFEST, models_dir=False, extra_dirs=("bin", "etc"))
+    with (
+        mock.patch("oras.client.OrasClient", return_value=client),
+        mock.patch("kserve_storage.kserve_storage.os.path.exists", return_value=False),
+    ):
+        with pytest.raises(RuntimeError, match="no /models/ directory"):
+            Storage._download_oci("oci://registry.io/mymodel:v1", out)
+
+
+def test_oci_rejects_non_oci_uri(tmp_path):
+    with pytest.raises(RuntimeError, match="Invalid OCI URI"):
+        Storage._download_oci("s3://bucket/model", str(tmp_path))
+
+
+def test_oci_rewrite_with_digest():
+    assert (
+        _rewrite_with_digest("reg.io/repo:v1", "sha256:abc") == "reg.io/repo@sha256:abc"
+    )
+    assert (
+        _rewrite_with_digest("reg.io:5000/ns/repo:v1", "sha256:def")
+        == "reg.io:5000/ns/repo@sha256:def"
+    )
+    assert (
+        _rewrite_with_digest("reg.io/repo@sha256:old", "sha256:new")
+        == "reg.io/repo@sha256:new"
+    )
+    assert _rewrite_with_digest("repo:v1", "sha256:zzz") == "repo@sha256:zzz"
+
+
+@pytest.mark.parametrize(
+    "machine,expected",
+    [
+        ("x86_64", "amd64"),
+        ("amd64", "amd64"),
+        ("aarch64", "arm64"),
+        ("arm64", "arm64"),
+        ("ppc64le", "ppc64le"),
+    ],
+)
+def test_oci_detect_goarch(machine, expected):
+    with mock.patch(
+        "kserve_storage.kserve_storage.platform.machine", return_value=machine
+    ):
+        assert _detect_goarch() == expected
+
+
+def test_oci_pick_platform_skips_unknown():
+    manifests = [
+        {
+            "platform": {"architecture": "unknown", "os": "unknown"},
+            "digest": "sha256:att",
+        },
+        {"platform": {"architecture": "amd64", "os": "linux"}, "digest": "sha256:img"},
+    ]
+    assert _pick_platform(manifests, "amd64", "linux")["digest"] == "sha256:img"
+    assert _pick_platform(manifests, "ppc64le", "linux") is None
+
+
+def test_oci_honors_env_var_for_config_path(tmp_path):
+    out = str(tmp_path / "out")
+    client = _make_client(_IMAGE_MANIFEST)
+    with (
+        mock.patch("oras.client.OrasClient", return_value=client),
+        mock.patch(
+            "kserve_storage.kserve_storage.os.path.exists",
+            side_effect=_fake_config_exists(True, "/custom/path/config.json"),
+        ),
+        mock.patch.dict(
+            os.environ, {_OCI_DOCKER_CONFIG_PATH_ENV: "/custom/path/config.json"}
+        ),
+        mock.patch(
+            "kserve_storage.kserve_storage._login_from_docker_config"
+        ) as mock_login,
+    ):
+        Storage._download_oci("oci://registry.io/mymodel:v1", out)
+
+    mock_login.assert_called_once_with(
+        client, "registry.io/mymodel:v1", "/custom/path/config.json"
+    )
+
+
+def test_oci_insecure_registry_defaults_to_secure(tmp_path):
+    out = str(tmp_path / "out")
+    client = _make_client(_IMAGE_MANIFEST)
+    captured = {}
+
+    def fake_oras_client(insecure=False, **kwargs):
+        captured["insecure"] = insecure
+        return client
+
+    with (
+        mock.patch("oras.client.OrasClient", side_effect=fake_oras_client),
+        mock.patch(
+            "kserve_storage.kserve_storage.os.path.exists",
+            side_effect=_fake_config_exists(False),
+        ),
+        mock.patch.dict(os.environ, {}, clear=False),
+    ):
+        os.environ.pop(_OCI_INSECURE_REGISTRY_ENV, None)
+        Storage._download_oci("oci://registry.io/mymodel:v1", out)
+
+    # No KSERVE_OCI_INSECURE_REGISTRY set -> secure/verified HTTPS by default.
+    assert captured["insecure"] is False
+
+
+def test_oci_insecure_registry_opt_in(tmp_path):
+    out = str(tmp_path / "out")
+    client = _make_client(_IMAGE_MANIFEST)
+    captured = {}
+
+    def fake_oras_client(insecure=False, **kwargs):
+        captured["insecure"] = insecure
+        return client
+
+    with (
+        mock.patch("oras.client.OrasClient", side_effect=fake_oras_client),
+        mock.patch(
+            "kserve_storage.kserve_storage.os.path.exists",
+            side_effect=_fake_config_exists(False),
+        ),
+        mock.patch.dict(os.environ, {_OCI_INSECURE_REGISTRY_ENV: "true"}),
+    ):
+        Storage._download_oci("oci://registry.io/mymodel:v1", out)
+
+    assert captured["insecure"] is True
+
+
+def test_oci_uses_ca_bundle_from_env(tmp_path):
+    ca_cert = tmp_path / "cabundle.crt"
+    ca_cert.write_text("---CERT---")
+    with mock.patch.dict(
+        os.environ, {"CA_BUNDLE_VOLUME_MOUNT_POINT": str(tmp_path)}, clear=False
+    ):
+        os.environ.pop("REQUESTS_CA_BUNDLE", None)
+        _setup_oci_tls()
+        assert os.environ["REQUESTS_CA_BUNDLE"] == str(ca_cert)
+
+
+def test_oci_no_ca_bundle_no_env_change():
+    with mock.patch.dict(os.environ, {}, clear=False):
+        os.environ.pop("CA_BUNDLE_VOLUME_MOUNT_POINT", None)
+        os.environ.pop("REQUESTS_CA_BUNDLE", None)
+        _setup_oci_tls()
+        assert "REQUESTS_CA_BUNDLE" not in os.environ
+
+
+def test_oci_login_from_docker_config(tmp_path):
+    cfg = tmp_path / "config.json"
+    token = base64.b64encode(b"alice:s3cret").decode("utf-8")
+    cfg.write_text(json.dumps({"auths": {"registry.io": {"auth": token}}}))
+
+    client = mock.MagicMock()
+    _login_from_docker_config(client, "registry.io/ns/model:v1", str(cfg))
+
+    client.login.assert_called_once_with(
+        username="alice", password="s3cret", hostname="registry.io"
+    )
+
+
+def test_oci_login_skipped_when_no_matching_registry(tmp_path):
+    cfg = tmp_path / "config.json"
+    token = base64.b64encode(b"alice:s3cret").decode("utf-8")
+    cfg.write_text(json.dumps({"auths": {"other.io": {"auth": token}}}))
+
+    client = mock.MagicMock()
+    _login_from_docker_config(client, "registry.io/ns/model:v1", str(cfg))
+
+    client.login.assert_not_called()
+
+
+def test_oci_login_skipped_for_credential_helper(tmp_path):
+    # An entry without "auth" (credentials served by a helper) must not crash and
+    # must not attempt a username/password login.
+    cfg = tmp_path / "config.json"
+    cfg.write_text(json.dumps({"auths": {"registry.io": {}}}))
+
+    client = mock.MagicMock()
+    _login_from_docker_config(client, "registry.io/ns/model:v1", str(cfg))
+
+    client.login.assert_not_called()
+
+
+def test_oci_login_silent_on_malformed_config(tmp_path):
+    client = mock.MagicMock()
+
+    # Missing file -> OSError swallowed, no login.
+    missing = str(tmp_path / "does-not-exist.json")
+    _login_from_docker_config(client, "registry.io/ns/model:v1", missing)
+    client.login.assert_not_called()
+
+    # Malformed JSON -> ValueError swallowed, no login.
+    bad = tmp_path / "bad.json"
+    bad.write_text("{not json")
+    _login_from_docker_config(client, "registry.io/ns/model:v1", str(bad))
+    client.login.assert_not_called()
+
+
+def test_oras_get_manifest_signature_drift():
+    # If oras-py ever adds a config_path/auth param to get_manifest, revisit
+    # _download_oci: we deliberately pre-establish auth via client.login()
+    # because the current API has no auth param on get_manifest.
+    import inspect
+
+    import oras.client
+
+    sig = inspect.signature(oras.client.OrasClient.get_manifest)
+    assert "config_path" not in sig.parameters
+
+
+def test_oras_get_blob_signature_drift():
+    """Guard against oras-py API drift for get_blob().
+
+    _download_oci calls client.get_blob(target, digest, stream=True) and
+    streams tarfile straight from the returned response's .raw. If oras
+    renames these parameters, MagicMock swallows silently — need an explicit
+    signature check to catch that before it manifests as a runtime error."""
+    import inspect
+
+    import oras.provider
+
+    sig = inspect.signature(oras.provider.Registry.get_blob)
+    for kw in ("container", "digest", "stream"):
+        assert kw in sig.parameters, (
+            f"oras.provider.Registry.get_blob missing parameter '{kw}' — "
+            f"API drift; update _download_oci call site."
+        )
