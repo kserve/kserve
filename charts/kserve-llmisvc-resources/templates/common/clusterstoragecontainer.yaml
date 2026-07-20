@@ -1,4 +1,4 @@
-{{- if .Values.kserve.storagecontainer.enabled | default .Values.kserve.createSharedResources }}
+{{- if eq (include "kserve-common.featureEnabled" (dict "enabled" .Values.kserve.storagecontainer.enabled "fallback" .Values.kserve.createSharedResources)) "true" }}
 {{- include "kserve-common.renderPatchedResource" (dict
   "baseFile" "files/common/storagecontainer.yaml"
   "patchFile" "files/common/storagecontainer-patch.yaml"

@@ -1,4 +1,4 @@
-{{- if .Values.kserve.certManager.enabled | default .Values.kserve.createSharedResources }}
+{{- if eq (include "kserve-common.featureEnabled" (dict "enabled" .Values.kserve.certManager.enabled "fallback" .Values.kserve.createSharedResources)) "true" }}
 {{- include "kserve-common.renderSimpleResource" (dict
   "baseFile" "files/common/certmanager.yaml"
   "replaceNamespace" true
