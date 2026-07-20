@@ -34,7 +34,14 @@ from kserve.logging import trace_logger as logger
 from .http_retry import DEFAULT_TIMEOUT_SECONDS, post_with_retry
 
 KSERVE_NAMESPACE = os.environ.get("KSERVE_NAMESPACE", "kserve")
-KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
+_BASE_TEST_NAMESPACE = os.environ.get("KSERVE_TEST_NAMESPACE", "kserve-ci-e2e-test")
+_WORKER_ID = os.environ.get("PYTEST_XDIST_WORKER", "")
+_NAMESPACE_ISOLATION = os.environ.get("E2E_WORKER_COUNT", "")
+KSERVE_TEST_NAMESPACE = (
+    f"{_BASE_TEST_NAMESPACE}-{_WORKER_ID}"
+    if _WORKER_ID and _NAMESPACE_ISOLATION
+    else _BASE_TEST_NAMESPACE
+)
 # autogluonserver: large image + storage init + predictor load often exceeds default
 # KServeClient.wait_isvc_ready (600s) under parallel e2e; override via env if needed.
 AUTOGLUON_ISVC_WAIT_TIMEOUT = int(os.getenv("AUTOGLUON_ISVC_WAIT_TIMEOUT", "1200"))
