@@ -24,6 +24,7 @@ from typing import List, Optional
 
 from .diagnostic import collect_diagnostics
 from .fixtures import (
+    DEFAULT_LLMISVC_ANNOTATIONS,
     LLMINFERENCESERVICE_CONFIGS,
     _create_or_update_llmisvc_config,
     _get_model_name_from_configs,
@@ -69,7 +70,11 @@ def build_llm_service_from_refs(
     return V1alpha1LLMInferenceService(
         api_version="serving.kserve.io/v1alpha1",
         kind="LLMInferenceService",
-        metadata=client.V1ObjectMeta(name=service_name, namespace=namespace),
+        metadata=client.V1ObjectMeta(
+            name=service_name,
+            namespace=namespace,
+            annotations=dict(DEFAULT_LLMISVC_ANNOTATIONS) or None,
+        ),
         spec={"baseRefs": [{"name": ref} for ref in base_refs]},
     )
 

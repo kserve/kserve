@@ -29,7 +29,7 @@ from urllib.parse import urlparse
 import pytest
 from kubernetes import client as k8s_client, config
 
-from .fixtures import LLMD_SIMULATOR_SECURITY_CONTEXT
+from .fixtures import DEFAULT_LLMISVC_ANNOTATIONS, LLMD_SIMULATOR_SECURITY_CONTEXT
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +123,15 @@ def apply_divergence_member(api, name, model_name, weight, ns):
     body = {
         "apiVersion": f"{KSERVE_GROUP}/{KSERVE_VERSION}",
         "kind": "LLMInferenceService",
-        "metadata": {"name": name, "namespace": ns},
+        "metadata": {
+            "name": name,
+            "namespace": ns,
+            **(
+                {"annotations": dict(DEFAULT_LLMISVC_ANNOTATIONS)}
+                if DEFAULT_LLMISVC_ANNOTATIONS
+                else {}
+            ),
+        },
         "spec": {
             "model": model_spec,
             "baseRefs": [{"name": INFERENCE_SIM.name}],
@@ -237,6 +245,11 @@ def apply_member(api, member: MemberSpec, ns):
         "metadata": {
             "name": member.name,
             "namespace": ns,
+            **(
+                {"annotations": dict(DEFAULT_LLMISVC_ANNOTATIONS)}
+                if DEFAULT_LLMISVC_ANNOTATIONS
+                else {}
+            ),
         },
         "spec": spec,
     }
