@@ -33,10 +33,6 @@ source "${PROJECT_ROOT}/kserve-images.sh"
 AUTOGLUON_IMG="${AUTOGLUON_IMG:-autogluonserver}"
 KO_DOCKER_REPO="${KO_DOCKER_REPO:-kserve}"
 
-mkdir -p "${DOCKER_IMAGES_PATH}"
-
-echo "Github SHA ${TAG}"
-
 # Image registry: name -> dockerfile (relative to python/)
 declare -A IMAGE_DOCKERFILE=(
   [sklearn]="sklearn.Dockerfile"
@@ -69,10 +65,44 @@ declare -A IMAGE_ENVVAR=(
   [image-transformer]="IMAGE_TRANSFORMER_IMG"
 )
 
+# Artifact prefix per image (matches workflow upload naming convention)
+declare -A IMAGE_PREFIX=(
+  [sklearn]="pred" [xgb]="pred" [lgb]="pred" [pmml]="pred"
+  [paddle]="pred" [autogluon]="pred" [custom-model-grpc]="pred"
+  [predictive]="pred" [huggingface]=""
+  [custom-transformer-grpc]="trans" [image-transformer]="trans"
+  [art]="exp"
+)
+
 # Group definitions for backward compatibility
 PREDICTOR_IMAGES=(sklearn xgb lgb pmml paddle autogluon custom-model-grpc custom-transformer-grpc huggingface predictive)
 EXPLAINER_IMAGES=(art)
 TRANSFORMER_IMAGES=(image-transformer)
+
+if [[ "${1:-}" == "--list-json" ]]; then
+  IFS=, read -ra groups <<< "${2:-predictor}"
+  names=()
+  for group in "${groups[@]}"; do
+    case "$group" in
+      predictor)    names+=("${PREDICTOR_IMAGES[@]}") ;;
+      explainer)    names+=("${EXPLAINER_IMAGES[@]}") ;;
+      transformer)  names+=("${TRANSFORMER_IMAGES[@]}") ;;
+      *)            echo "Unknown group: $group" >&2; exit 1 ;;
+    esac
+  done
+  json='{"image":['
+  first=true
+  for name in "${names[@]}"; do
+    prefix="${IMAGE_PREFIX[$name]:-}"
+    envvar="${IMAGE_ENVVAR[$name]}"
+    $first || json+=','
+    json+="{\"name\":\"${name}\",\"artifact_prefix\":\"${prefix}\",\"image_env\":\"${envvar}\"}"
+    first=false
+  done
+  json+=']}'
+  echo "$json"
+  exit 0
+fi
 
 build_one() {
   local name="$1"
@@ -95,6 +125,9 @@ build_one() {
   echo "Disk usage after building ${name}:"
   df -hT
 }
+
+mkdir -p "${DOCKER_IMAGES_PATH}"
+echo "Github SHA ${TAG}"
 
 # Parse arguments
 IFS=, read -ra targets <<< "${1:-predictor}"

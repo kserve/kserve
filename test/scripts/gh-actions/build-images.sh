@@ -33,10 +33,6 @@ source "${PROJECT_ROOT}/kserve-images.sh"
 
 KO_DOCKER_REPO="${KO_DOCKER_REPO:-kserve}"
 
-mkdir -p "${DOCKER_IMAGES_PATH}"
-
-echo "Github SHA ${TAG}"
-
 # Image registry: name -> "dockerfile|context_dir|env_var"
 # context_dir is relative to PROJECT_ROOT ("." for repo root, "python" for python/)
 declare -A IMAGE_REGISTRY=(
@@ -75,6 +71,29 @@ build_one() {
   echo "Disk usage after building ${name}:"
   df -hT
 }
+
+if [[ "${1:-}" == "--list-json" ]]; then
+  group="${2:-kserve}"
+  case "$group" in
+    kserve)   names=("${KSERVE_IMAGES[@]}") ;;
+    llmisvc)  names=("${LLMISVC_IMAGES[@]}") ;;
+    *)        echo "Unknown group: $group" >&2; exit 1 ;;
+  esac
+  json='{"image":['
+  first=true
+  for name in "${names[@]}"; do
+    IFS='|' read -r _ _ envvar <<< "${IMAGE_REGISTRY[$name]}"
+    $first || json+=','
+    json+="{\"name\":\"${name}\",\"image_env\":\"${envvar}\"}"
+    first=false
+  done
+  json+=']}'
+  echo "$json"
+  exit 0
+fi
+
+mkdir -p "${DOCKER_IMAGES_PATH}"
+echo "Github SHA ${TAG}"
 
 target="${1:-kserve}"
 

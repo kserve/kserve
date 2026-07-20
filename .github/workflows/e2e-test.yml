@@ -67,18 +67,21 @@ jobs:
             echo 'install_methods=["kustomize"]' >> $GITHUB_OUTPUT
           fi
 
+  kserve-image-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.gen.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - id: gen
+        run: echo "matrix=$(./test/scripts/gh-actions/build-images.sh --list-json kserve)" >> "$GITHUB_OUTPUT"
+
   kserve-image-build:
+    needs: kserve-image-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix:
-        image:
-          - {name: controller,            image_env: CONTROLLER_IMG}
-          - {name: localmodel-controller, image_env: LOCALMODEL_CONTROLLER_IMG}
-          - {name: localmodel-agent,      image_env: LOCALMODEL_AGENT_IMG}
-          - {name: agent,                 image_env: AGENT_IMG}
-          - {name: storage-initializer,   image_env: STORAGE_INIT_IMG}
-          - {name: router,                image_env: ROUTER_IMG}
+      matrix: ${{ fromJSON(needs.kserve-image-matrix.outputs.matrix) }}
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -117,23 +120,21 @@ jobs:
           compression-level: 0
           if-no-files-found: error
 
+  predictor-runtime-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.gen.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - id: gen
+        run: echo "matrix=$(./test/scripts/gh-actions/build-server-runtimes.sh --list-json predictor,transformer)" >> "$GITHUB_OUTPUT"
+
   predictor-runtime-build:
+    needs: predictor-runtime-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix:
-        image:
-          - {name: sklearn,                 artifact_prefix: pred,  image_env: SKLEARN_IMG}
-          - {name: xgb,                     artifact_prefix: pred,  image_env: XGB_IMG}
-          - {name: lgb,                     artifact_prefix: pred,  image_env: LGB_IMG}
-          - {name: pmml,                    artifact_prefix: pred,  image_env: PMML_IMG}
-          - {name: paddle,                  artifact_prefix: pred,  image_env: PADDLE_IMG}
-          - {name: predictive,              artifact_prefix: pred,  image_env: PREDICTIVE_IMG}
-          - {name: autogluon,               artifact_prefix: pred,  image_env: AUTOGLUON_IMG}
-          - {name: custom-model-grpc,       artifact_prefix: pred,  image_env: CUSTOM_MODEL_GRPC_IMG}
-          - {name: huggingface,             artifact_prefix: "",    image_env: HUGGINGFACE_IMG}
-          - {name: image-transformer,       artifact_prefix: trans, image_env: IMAGE_TRANSFORMER_IMG}
-          - {name: custom-transformer-grpc, artifact_prefix: trans, image_env: CUSTOM_TRANSFORMER_GRPC_IMG}
+      matrix: ${{ fromJSON(needs.predictor-runtime-matrix.outputs.matrix) }}
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
