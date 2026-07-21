@@ -18,7 +18,6 @@ spec:
             --disable-log-requests
             --prefix-caching-hash-algo sha256_cbor
             --block-size 64
-            --kv_transfer_config '{"kv_connector":"NixlConnector","kv_role":"kv_both"}'
             --kv-events-config "$KV_EVENTS_CONFIG"
             $VLLM_ADDITIONAL_ARGS
         env:
