@@ -25,8 +25,11 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -49,6 +52,107 @@ type storageDownloadPair struct {
 var tokenizerOnlyDownload = corev1.EnvVar{
 	Name:  "STORAGE_ALLOW_PATTERNS",
 	Value: `["tokenizer.json", "tokenizer_config.json", "special_tokens_map.json", "vocab.json", "merges.txt", "config.json", "generation_config.json"]`,
+}
+
+// lookupStorageContainerSpec finds a StorageContainer or ClusterStorageContainer that supports
+// the given storage URI. Namespace-scoped StorageContainer is checked first, then
+// ClusterStorageContainer (same precedence as the InferenceService webhook path).
+// Returns nil without error when no matching resource exists or the CRD is not installed.
+func lookupStorageContainerSpec(ctx context.Context, c client.Client, namespace, storageUri string) (*v1alpha1.StorageContainerSpec, error) {
+	if namespace != "" {
+		namespacedList := &v1alpha1.StorageContainerList{}
+		if err := c.List(ctx, namespacedList, client.InNamespace(namespace)); err != nil {
+			if !apimeta.IsNoMatchError(err) {
+				return nil, err
+			}
+		} else {
+			for _, sc := range namespacedList.Items {
+				if sc.IsDisabled() || sc.Spec.WorkloadType != v1alpha1.InitContainer {
+					continue
+				}
+				supported, err := sc.Spec.IsStorageUriSupported(storageUri)
+				if err != nil {
+					return nil, fmt.Errorf("error checking StorageContainer %s/%s: %w", sc.Namespace, sc.Name, err)
+				}
+				if supported {
+					return &sc.Spec, nil
+				}
+			}
+		}
+	}
+
+	clusterList := &v1alpha1.ClusterStorageContainerList{}
+	if err := c.List(ctx, clusterList); err != nil {
+		if apimeta.IsNoMatchError(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	for _, sc := range clusterList.Items {
+		if sc.IsDisabled() || sc.Spec.WorkloadType != v1alpha1.InitContainer {
+			continue
+		}
+		supported, err := sc.Spec.IsStorageUriSupported(storageUri)
+		if err != nil {
+			return nil, fmt.Errorf("error checking ClusterStorageContainer %s: %w", sc.Name, err)
+		}
+		if supported {
+			return &sc.Spec, nil
+		}
+	}
+	return nil, nil
+}
+
+// lookupStorageContainerSpecByName resolves a StorageContainer by name, checking
+// namespace-scoped first, then falling back to ClusterStorageContainer.
+func lookupStorageContainerSpecByName(ctx context.Context, c client.Client, namespace, name, storageUri string) (*v1alpha1.StorageContainerSpec, error) {
+	if namespace != "" {
+		sc := &v1alpha1.StorageContainer{}
+		err := c.Get(ctx, k8stypes.NamespacedName{Namespace: namespace, Name: name}, sc)
+		if err == nil {
+			if sc.IsDisabled() {
+				return nil, fmt.Errorf("StorageContainer %q in namespace %q is disabled", name, namespace)
+			}
+			if sc.Spec.WorkloadType != v1alpha1.InitContainer {
+				return nil, fmt.Errorf("StorageContainer %q has workloadType %q; expected %q",
+					name, sc.Spec.WorkloadType, v1alpha1.InitContainer)
+			}
+			supported, err := sc.Spec.IsStorageUriSupported(storageUri)
+			if err != nil {
+				return nil, fmt.Errorf("StorageContainer %q URI check failed for %q: %w", name, storageUri, err)
+			}
+			if !supported {
+				return nil, fmt.Errorf("StorageContainer %q does not support storageUri %q", name, storageUri)
+			}
+			return &sc.Spec, nil
+		}
+		if !apierrors.IsNotFound(err) && !apimeta.IsNoMatchError(err) {
+			return nil, fmt.Errorf("failed to fetch StorageContainer %q: %w", name, err)
+		}
+	}
+
+	csc := &v1alpha1.ClusterStorageContainer{}
+	if err := c.Get(ctx, k8stypes.NamespacedName{Name: name}, csc); err != nil {
+		if apierrors.IsNotFound(err) || apimeta.IsNoMatchError(err) {
+			return nil, fmt.Errorf("StorageContainer/ClusterStorageContainer %q not found", name)
+		}
+		return nil, fmt.Errorf("failed to fetch ClusterStorageContainer %q: %w", name, err)
+	}
+	if csc.IsDisabled() {
+		return nil, fmt.Errorf("ClusterStorageContainer %q is disabled", name)
+	}
+	if csc.Spec.WorkloadType != v1alpha1.InitContainer {
+		return nil, fmt.Errorf("ClusterStorageContainer %q has workloadType %q; expected %q",
+			name, csc.Spec.WorkloadType, v1alpha1.InitContainer)
+	}
+	supported, err := csc.Spec.IsStorageUriSupported(storageUri)
+	if err != nil {
+		return nil, fmt.Errorf("ClusterStorageContainer %q URI check failed for %q: %w", name, storageUri, err)
+	}
+	if !supported {
+		return nil, fmt.Errorf("ClusterStorageContainer %q does not support storageUri %q", name, storageUri)
+	}
+	return &csc.Spec, nil
 }
 
 // extractAndStripStorageInitializer removes the storage-initializer init container from the
@@ -287,14 +391,14 @@ func (r *LLMISVCReconciler) attachPVCModelArtifact(modelUri string, podSpec *cor
 //
 //	An error if the configuration fails, otherwise nil.
 func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig, containerName string, modelPath string) error {
-	if err := r.attachStorageInitializer(llmSvc, modelUri, curr, podSpec, storageConfig, containerName, modelPath); err != nil {
+	if err := r.attachStorageInitializer(ctx, llmSvc, modelUri, curr, podSpec, storageConfig, containerName, modelPath); err != nil {
 		return err
 	}
 	if initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName); initContainer != nil {
 		// If service account is nil, fetch the default service account
 		if serviceAccount == nil {
 			serviceAccount = &corev1.ServiceAccount{}
-			err := r.Get(ctx, types.NamespacedName{Name: constants.LLMISVCDefaultServiceAccountName, Namespace: llmSvc.Namespace}, serviceAccount)
+			err := r.Get(ctx, k8stypes.NamespacedName{Name: constants.LLMISVCDefaultServiceAccountName, Namespace: llmSvc.Namespace}, serviceAccount)
 			if err != nil {
 				log.FromContext(ctx).Error(err, "Failed to find default service account", "namespace", llmSvc.Namespace)
 				injectCaBundle(llmSvc.Namespace, podSpec, initContainer, storageConfig)
@@ -338,14 +442,14 @@ func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAc
 //
 //	An error if the configuration fails, otherwise nil.
 func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig, containerName string, modelPath string) error {
-	if err := r.attachStorageInitializer(llmSvc, modelUri, curr, podSpec, storageConfig, containerName, modelPath); err != nil {
+	if err := r.attachStorageInitializer(ctx, llmSvc, modelUri, curr, podSpec, storageConfig, containerName, modelPath); err != nil {
 		return err
 	}
 	if initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName); initContainer != nil {
 		// If service account is nil, fetch the default service account
 		if serviceAccount == nil {
 			serviceAccount = &corev1.ServiceAccount{}
-			err := r.Get(ctx, types.NamespacedName{Name: constants.LLMISVCDefaultServiceAccountName, Namespace: llmSvc.Namespace}, serviceAccount)
+			err := r.Get(ctx, k8stypes.NamespacedName{Name: constants.LLMISVCDefaultServiceAccountName, Namespace: llmSvc.Namespace}, serviceAccount)
 			if err != nil {
 				log.FromContext(ctx).Error(err, "Failed to find default service account", "namespace", llmSvc.Namespace)
 				return nil
@@ -393,7 +497,7 @@ func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAc
 // Returns:
 //
 //	An error if the configuration fails, otherwise nil.
-func (r *LLMISVCReconciler) attachStorageInitializer(llmSvc *v1alpha2.LLMInferenceService, modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, containerName string, modelPath string) error {
+func (r *LLMISVCReconciler) attachStorageInitializer(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, containerName string, modelPath string) error {
 	confidential := llmSvc.Spec.Model.Confidential
 	userOverride := extractAndStripStorageInitializer(podSpec)
 
@@ -409,9 +513,6 @@ func (r *LLMISVCReconciler) attachStorageInitializer(llmSvc *v1alpha2.LLMInferen
 
 	copied := *storageConfig
 
-	// Preserve the existing storage-initializer image from the current deployment
-	// to avoid unnecessary pod restarts during operator upgrades when the model
-	// hasn't changed.
 	for _, initContainer := range curr.InitContainers {
 		if initContainer.Name == constants.StorageInitializerContainerName {
 			copied.Image = initContainer.Image
@@ -420,7 +521,23 @@ func (r *LLMISVCReconciler) attachStorageInitializer(llmSvc *v1alpha2.LLMInferen
 
 	initContainer := utils.CreateInitContainerWithConfig(&copied, containerArgs)
 
-	// Inject confidential env vars before appending to the pod spec
+	// Merge StorageContainer/ClusterStorageContainer spec if one matches the URI.
+	// Precedence: ConfigMap defaults < StorageContainer (namespace) / ClusterStorageContainer < user template override.
+	scSpec, err := lookupStorageContainerSpec(ctx, r.Client, llmSvc.Namespace, modelUri)
+	if err != nil {
+		return fmt.Errorf("failed to lookup StorageContainer for URI %q: %w", modelUri, err)
+	}
+	if scSpec != nil {
+		merged, mergeErr := utils.MergeContainerWithPatch(*initContainer, scSpec.Container)
+		if mergeErr != nil {
+			return fmt.Errorf("failed to merge StorageContainer spec: %w", mergeErr)
+		}
+		merged.Name = initContainer.Name
+		merged.Args = initContainer.Args
+		merged.Command = initContainer.Command
+		initContainer = &merged
+	}
+
 	if confidential != nil && confidential.Enabled {
 		resourceId := ""
 		if confidential.ResourceId != nil {
@@ -502,6 +619,24 @@ func (r *LLMISVCReconciler) attachMultiStorageDownloads(
 
 	initC := utils.CreateInitContainerWithConfig(&copied, args)
 
+	// Merge StorageContainer/ClusterStorageContainer if one matches the primary download URI.
+	if len(pairs) > 0 {
+		scSpec, err := lookupStorageContainerSpec(ctx, r.Client, llmSvc.Namespace, pairs[0].uri)
+		if err != nil {
+			return fmt.Errorf("failed to lookup StorageContainer for URI %q: %w", pairs[0].uri, err)
+		}
+		if scSpec != nil {
+			merged, mergeErr := utils.MergeContainerWithPatch(*initC, scSpec.Container)
+			if mergeErr != nil {
+				return fmt.Errorf("failed to merge StorageContainer spec: %w", mergeErr)
+			}
+			merged.Name = initC.Name
+			merged.Args = initC.Args
+			merged.Command = initC.Command
+			initC = &merged
+		}
+	}
+
 	if userOverride != nil {
 		merged, err := utils.MergeContainerWithPatch(*initC, *userOverride)
 		if err != nil {
@@ -538,7 +673,7 @@ func (r *LLMISVCReconciler) attachMultiStorageDownloads(
 
 	if serviceAccount == nil {
 		serviceAccount = &corev1.ServiceAccount{}
-		err := r.Get(ctx, types.NamespacedName{Name: constants.LLMISVCDefaultServiceAccountName, Namespace: llmSvc.Namespace}, serviceAccount)
+		err := r.Get(ctx, k8stypes.NamespacedName{Name: constants.LLMISVCDefaultServiceAccountName, Namespace: llmSvc.Namespace}, serviceAccount)
 		if err != nil {
 			log.FromContext(ctx).Error(err, "Failed to find default service account", "namespace", llmSvc.Namespace)
 			injectCaBundle(llmSvc.Namespace, podSpec, initPtr, storageConfig)

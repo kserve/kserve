@@ -21,7 +21,10 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 	kserveTypes "github.com/kserve/kserve/pkg/types"
@@ -84,7 +87,11 @@ func TestAttachStorageInitializer_TargetContainer(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			r := &LLMISVCReconciler{}
+			scheme := runtime.NewScheme()
+			_ = v1alpha1.AddToScheme(scheme)
+			r := &LLMISVCReconciler{
+				Client: fake.NewClientBuilder().WithScheme(scheme).Build(),
+			}
 			podSpec := &corev1.PodSpec{
 				Containers: []corev1.Container{
 					{Name: tc.containerName},
@@ -93,6 +100,7 @@ func TestAttachStorageInitializer_TargetContainer(t *testing.T) {
 
 			llmSvc := &v1alpha2.LLMInferenceService{}
 			err := r.attachStorageInitializer(
+				t.Context(),
 				llmSvc,
 				"hf://meta-llama/Llama-2-7b",
 				corev1.PodSpec{}, // empty curr
@@ -183,7 +191,11 @@ func TestAttachPVCModelArtifact_TargetContainer(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			r := &LLMISVCReconciler{}
+			scheme := runtime.NewScheme()
+			_ = v1alpha1.AddToScheme(scheme)
+			r := &LLMISVCReconciler{
+				Client: fake.NewClientBuilder().WithScheme(scheme).Build(),
+			}
 			podSpec := &corev1.PodSpec{
 				Containers: []corev1.Container{
 					{Name: tc.containerName},
@@ -271,7 +283,11 @@ func TestAttachOciModelArtifact_TargetContainer(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			r := &LLMISVCReconciler{}
+			scheme := runtime.NewScheme()
+			_ = v1alpha1.AddToScheme(scheme)
+			r := &LLMISVCReconciler{
+				Client: fake.NewClientBuilder().WithScheme(scheme).Build(),
+			}
 			podSpec := &corev1.PodSpec{
 				Containers: []corev1.Container{
 					{Name: tc.containerName},

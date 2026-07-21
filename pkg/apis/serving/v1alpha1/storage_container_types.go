@@ -69,6 +69,20 @@ type ClusterStorageContainer struct {
 }
 
 // +k8s:openapi-gen=true
+// +genclient
+// +kubebuilder:object:root=true
+// +kubebuilder:resource:scope="Namespaced"
+type StorageContainer struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec StorageContainerSpec `json:"spec,omitempty"`
+
+	// +optional
+	Disabled *bool `json:"disabled,omitempty"`
+}
+
+// +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
 type ClusterStorageContainerList struct {
 	metav1.TypeMeta `json:",inline"`
@@ -76,11 +90,24 @@ type ClusterStorageContainerList struct {
 	Items           []ClusterStorageContainer `json:"items" validate:"required"`
 }
 
+// +k8s:openapi-gen=true
+// +kubebuilder:object:root=true
+type StorageContainerList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []StorageContainer `json:"items" validate:"required"`
+}
+
 func init() {
-	SchemeBuilder.Register(&ClusterStorageContainer{}, &ClusterStorageContainerList{})
+	SchemeBuilder.Register(&ClusterStorageContainer{}, &ClusterStorageContainerList{},
+		&StorageContainer{}, &StorageContainerList{})
 }
 
 func (sc *ClusterStorageContainer) IsDisabled() bool {
+	return sc.Disabled != nil && *sc.Disabled
+}
+
+func (sc *StorageContainer) IsDisabled() bool {
 	return sc.Disabled != nil && *sc.Disabled
 }
 
