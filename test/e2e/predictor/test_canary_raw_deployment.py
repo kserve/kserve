@@ -178,15 +178,12 @@ def test_canary_create():
         assert stable_dep is not None
         assert canary_dep is not None
 
-        got = kserve.get(service_name, namespace=KSERVE_TEST_NAMESPACE)
-
-        conditions = got.get("status", {}).get("conditions", [])
-        canary_condition = next(
-            (c for c in conditions if c["type"] == "CanaryPredictorReady"), None
+        canary_condition = _wait_for_condition(
+            kserve, service_name, "CanaryPredictorReady", "AllCanariesReady"
         )
-        assert canary_condition is not None, "CanaryPredictorReady condition missing"
         assert canary_condition["status"] == "True"
 
+        got = kserve.get(service_name, namespace=KSERVE_TEST_NAMESPACE)
         canary_status = got.get("status", {}).get("canaryStatuses", [])
         assert len(canary_status) > 0, "canary status should be populated"
         assert canary_status[0]["name"] == "v2"
