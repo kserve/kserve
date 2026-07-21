@@ -57,7 +57,7 @@ func specWithVersion(version string, template *corev1.PodSpec) *v1alpha2.LLMInfe
 	spec := &v1alpha2.LLMInferenceServiceSpec{}
 	spec.Template = template
 	if version != "" {
-		spec.Annotations = map[string]string{"app.kubernetes.io/version": version}
+		spec.Annotations = map[string]string{constants.LLMDRouterDisaggSidecarVersionAnnotationKey: version}
 	}
 	return spec
 }

@@ -5,10 +5,10 @@ metadata:
 spec:
   annotations:
     serving.kserve.io/model-based-routing-enabled: "true"
-    # llm-d version bundled with this preset. Gates version-dependent routing
-    # sidecar flag migrations (see migrateRoutingSidecarTLSFlags). Bump together
-    # with the routing sidecar image when adopting a newer llm-d release.
-    "app.kubernetes.io/version": "0.9.0"
+    # Routing sidecar image version. Gates version-dependent routing sidecar
+    # flag migrations (see migrateRoutingSidecars). Bump together with the
+    # routing sidecar image when adopting a newer llm-d release.
+    "serving.kserve.io/llm-d-router-disagg-sidecar-version": "0.9.0"
   template:
     initContainers:
       - name: llm-d-routing-sidecar

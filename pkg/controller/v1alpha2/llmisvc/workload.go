@@ -234,9 +234,9 @@ var tlsFlagMigrations = []struct {
 // migrateRoutingSidecars applies version-gated sidecar migrations in a single
 // post-merge pass over the main (single-node / multi-node leader) and worker pod
 // templates, replacing the previously duplicated per-builder calls. The version
-// comes from the app.kubernetes.io/version annotation (empty/missing = 0.0.0).
+// comes from the llm-d-router-disagg-sidecar-version annotation (empty/missing = 0.0.0).
 func migrateRoutingSidecars(spec *v1alpha2.LLMInferenceServiceSpec) error {
-	version := spec.Annotations["app.kubernetes.io/version"]
+	version := spec.Annotations[constants.LLMDRouterDisaggSidecarVersionAnnotationKey]
 	if version == "" {
 		version = "0.0.0"
 	}
