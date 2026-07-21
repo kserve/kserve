@@ -222,6 +222,15 @@ func routingSidecar(pod *corev1.PodSpec) *corev1.Container {
 // the consolidated --enable-tls=<stage> flag.
 var routingSidecarEnableTLSMinVersion = semver.New("0.10.0")
 
+// tlsFlagMigrations maps each deprecated llm-d-router-disagg-sidecar TLS flag
+// to its --enable-tls=<stage> replacement.
+var tlsFlagMigrations = []struct {
+	deprecated, replacement string
+}{
+	{"decoder-use-tls", "--enable-tls=decoder"},
+	{"prefiller-use-tls", "--enable-tls=prefiller"},
+}
+
 // migrateRoutingSidecars applies version-gated sidecar migrations in a single
 // post-merge pass over the main (single-node / multi-node leader) and worker pod
 // templates, replacing the previously duplicated per-builder calls. The version
@@ -251,13 +260,15 @@ func migrateRoutingSidecarEnableTLS(v *semver.Version, s *corev1.Container) {
 	if v.Compare(*routingSidecarEnableTLSMinVersion) < 0 {
 		return
 	}
-	// Flags live on Command (see the P/D sidecar config templates).
-	for i, arg := range s.Command {
-		switch arg {
-		case "--decoder-use-tls=true":
-			s.Command[i] = "--enable-tls=decoder"
-		case "--prefiller-use-tls=true":
-			s.Command[i] = "--enable-tls=prefiller"
+	names := make(map[string]bool, len(tlsFlagMigrations))
+	for _, m := range tlsFlagMigrations {
+		names[m.deprecated] = true
+	}
+	filtered, extracted := filterArgs(s.Command, names)
+	s.Command = filtered
+	for _, m := range tlsFlagMigrations {
+		if val, ok := extracted[m.deprecated]; ok && (val == "" || val == "true") {
+			s.Command = append(s.Command, m.replacement)
 		}
 	}
 }

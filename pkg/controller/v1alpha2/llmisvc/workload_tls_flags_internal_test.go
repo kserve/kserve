@@ -117,6 +117,36 @@ func TestMigrateRoutingSidecars(t *testing.T) {
 	}
 }
 
+func TestMigrateRoutingSidecars_FlagForms(t *testing.T) {
+	tests := []struct {
+		name    string
+		command []string
+		want    []string
+	}{
+		{
+			name:    "pure flag and flag with space forms",
+			command: []string{"/app/pd-sidecar", "--decoder-use-tls", "--prefiller-use-tls", "true"},
+			want:    []string{"/app/pd-sidecar", "--enable-tls=decoder", "--enable-tls=prefiller"},
+		},
+		{
+			name:    "flag set to 'false' should be dropped without replacement",
+			command: []string{"/app/pd-sidecar", "--decoder-use-tls=false"},
+			want:    []string{"/app/pd-sidecar"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			spec := specWithVersion("0.10.0", sidecarPod(tt.command))
+			if err := migrateRoutingSidecars(spec); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got := spec.Template.InitContainers[0].Command; !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("command = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 // TestMigrateRoutingSidecars_NoSidecar verifies a pod without a routing sidecar
 // is a no-op even at a version that would otherwise migrate.
 func TestMigrateRoutingSidecars_NoSidecar(t *testing.T) {
