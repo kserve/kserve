@@ -60,6 +60,11 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 		llmSvc.MarkMainWorkloadNotReady("Stopped", "Service is stopped")
 	}
 
+	if err := migrateRoutingSidecars(&llmSvc.Spec); err != nil {
+		llmSvc.MarkMainWorkloadNotReady("RoutingSidecarMigrationError", err.Error())
+		return fmt.Errorf("failed to migrate routing sidecars: %w", err)
+	}
+
 	// Set up TLS certificates for secure communication
 	if err := r.reconcileSelfSignedCertsSecret(ctx, llmSvc, config.SchedulerConfig); err != nil {
 		llmSvc.MarkMainWorkloadNotReady("ReconcileCertsError", err.Error())
@@ -213,34 +218,40 @@ func routingSidecar(pod *corev1.PodSpec) *corev1.Container {
 	return nil
 }
 
-// routingSidecarEnableTLSMinVersion is the first llm-d-router version that removes the
-// deprecated --decoder-use-tls / --prefiller-use-tls flags and
-// requires the consolidated --enable-tls=<stage> form.
+// routingSidecarEnableTLSMinVersion is the first llm-d-router version requiring
+// the consolidated --enable-tls=<stage> flag.
 var routingSidecarEnableTLSMinVersion = semver.New("0.10.0")
 
-// migrateRoutingSidecarTLSFlags upgrades the llm-d-router-disagg-sidecar's TLS CLI flags to
-// the --enable-tls=<stage> when llm-d-router version >= 0.10.0 via the app.kubernetes.io/version annotation
-// this is simlar to how schedulerTransform() version-gates its EPP config migrations.
-//
-// Any older versions no need migration and are left untouched (a missing or empty annotation is treated
-// as 0.0.0). From llm-d-router 0.10 the deprecated flags are removed and the sidecar only work with --enable-tls=decoder / --enable-tls=prefiller.
-func migrateRoutingSidecarTLSFlags(annotations map[string]string, s *corev1.Container) error {
-	if s == nil {
-		return nil
-	}
-	version := annotations["app.kubernetes.io/version"]
+// migrateRoutingSidecars applies version-gated sidecar migrations in a single
+// post-merge pass over the main (single-node / multi-node leader) and worker pod
+// templates, replacing the previously duplicated per-builder calls. The version
+// comes from the app.kubernetes.io/version annotation (empty/missing = 0.0.0).
+func migrateRoutingSidecars(spec *v1alpha2.LLMInferenceServiceSpec) error {
+	version := spec.Annotations["app.kubernetes.io/version"]
 	if version == "" {
 		version = "0.0.0"
 	}
 	v, err := semver.NewVersion(version)
 	if err != nil {
-		return fmt.Errorf("failed to parse routing sidecar version %q: %w", version, err)
+		return fmt.Errorf("failed to parse llm-d-router-disagg-sidecar version %q: %w", version, err)
 	}
+
+	for _, ps := range []*corev1.PodSpec{spec.Template, spec.Worker} {
+		if s := routingSidecar(ps); s != nil {
+			migrateRoutingSidecarEnableTLS(v, s)
+		}
+	}
+	return nil
+}
+
+// migrateRoutingSidecarEnableTLS rewrites the deprecated --decoder-use-tls /
+// --prefiller-use-tls flags to --enable-tls=<stage> for llm-d-router >= 0.10.0,
+// which no longer accepts the old flags. Older versions are left untouched.
+func migrateRoutingSidecarEnableTLS(v *semver.Version, s *corev1.Container) {
 	if v.Compare(*routingSidecarEnableTLSMinVersion) < 0 {
-		return nil
+		return
 	}
-	// The routing sidecar carries its flags on Command (see the P/D sidecar
-	// config templates), so only Command is rewritten here.
+	// Flags live on Command (see the P/D sidecar config templates).
 	for i, arg := range s.Command {
 		switch arg {
 		case "--decoder-use-tls=true":
@@ -249,7 +260,6 @@ func migrateRoutingSidecarTLSFlags(annotations map[string]string, s *corev1.Cont
 			s.Command[i] = "--enable-tls=prefiller"
 		}
 	}
-	return nil
 }
 
 // PreserveDeploymentReplicas returns an UpdateOption that preserves the current

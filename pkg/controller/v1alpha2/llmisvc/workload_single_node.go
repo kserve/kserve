@@ -154,9 +154,6 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 					ValueFrom: nil,
 				})
 			}
-			if err := migrateRoutingSidecarTLSFlags(llmSvc.Spec.Annotations, s); err != nil {
-				return nil, fmt.Errorf("failed to migrate llm-d-router-disagg-sidecar TLS flags: %w", err)
-			}
 		} else if llmSvc.Spec.Template.ServiceAccountName != "" {
 			serviceAccount = &corev1.ServiceAccount{}
 			err := r.Get(ctx, types.NamespacedName{Name: llmSvc.Spec.Template.ServiceAccountName, Namespace: llmSvc.Namespace}, serviceAccount)

@@ -227,9 +227,6 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 					Value: llmSvc.Spec.Router.Scheduler.InferencePoolName(llmSvc),
 				})
 			}
-			if err := migrateRoutingSidecarTLSFlags(llmSvc.Spec.Annotations, s); err != nil {
-				return nil, fmt.Errorf("failed to migrate leader llm-d-router-disagg-sidecar TLS flags: %w", err)
-			}
 		}
 	}
 	if llmSvc.Spec.Worker != nil && !utils.GetForceStopRuntime(llmSvc) {
@@ -257,9 +254,6 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 					Name:  "INFERENCE_POOL_NAME",
 					Value: llmSvc.Spec.Router.Scheduler.InferencePoolName(llmSvc),
 				})
-			}
-			if err := migrateRoutingSidecarTLSFlags(llmSvc.Spec.Annotations, s); err != nil {
-				return nil, fmt.Errorf("failed to migrate worker llm-d-router-disagg-sidecar TLS flags: %w", err)
 			}
 		}
 	}
