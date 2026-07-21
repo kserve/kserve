@@ -194,27 +194,10 @@ func main() {
 		HealthProbeBindAddress: options.probeAddr,
 		LeaderElection:         options.enableLeaderElection,
 		LeaderElectionID:       "llminferenceservice-kserve-controller-manager",
-		Client: client.Options{
-			// Secret reads bypass the cache so the reconciler can use namespace-scoped
-			// Roles created per LLMInferenceService namespace instead of cluster-wide
-			// secret list permissions.
-			Cache: &client.CacheOptions{
-				DisableFor: []client.Object{
-					&corev1.Secret{},
-				},
-			},
-		},
 		Cache: cache.Options{
 			ByObject: map[client.Object]cache.ByObject{
 				&corev1.Secret{}: {
-					// Limit the secret informer to the controller namespace where bootstrap
-					// RBAC is installed. Workload namespaces are accessed via the API reader
-					// after namespace-scoped Roles are reconciled.
-					Namespaces: map[string]cache.Config{
-						constants.KServeNamespace: {
-							LabelSelector: llmSvcCacheSelector,
-						},
-					},
+					Label: llmSvcCacheSelector,
 				},
 				&corev1.ConfigMap{}: {
 					Namespaces: map[string]cache.Config{

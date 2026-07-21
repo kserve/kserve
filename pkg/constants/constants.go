@@ -42,16 +42,6 @@ var (
 	AutoscalerConfigmapNamespace = GetEnvOrDefault("KNATIVE_CONFIG_AUTOSCALER_NAMESPACE", DefaultKnServingNamespace)
 )
 
-// Controller service account and namespace-scoped secret RBAC resource names.
-const (
-	KServeControllerServiceAccountName      = "kserve-controller-manager"
-	LLMISvcControllerServiceAccountName     = "llmisvc-controller-manager"
-	KServeControllerSecretsRoleName         = "kserve-controller-secrets"
-	KServeControllerSecretsRoleBindingName  = "kserve-controller-secrets"
-	LLMISvcControllerSecretsRoleName        = "kserve-llmisvc-controller-secrets" //nolint:gosec // G101: RBAC resource name, not a credential
-	LLMISvcControllerSecretsRoleBindingName = "kserve-llmisvc-controller-secrets" //nolint:gosec // G101: RBAC resource name, not a credential
-)
-
 // Kueue Constants
 const (
 	KueueAPIGroupName = "kueue.x-k8s.io"

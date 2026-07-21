@@ -59,22 +59,17 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 		llmSvc.MarkMainWorkloadNotReady("Stopped", "Service is stopped")
 	}
 
+	// Set up TLS certificates for secure communication
+	if err := r.reconcileSelfSignedCertsSecret(ctx, llmSvc, config.SchedulerConfig); err != nil {
+		llmSvc.MarkMainWorkloadNotReady("ReconcileCertsError", err.Error())
+		return fmt.Errorf("failed to reconcile self-signed certificates secret: %w", err)
+	}
+
 	// Reconcile platform-specific workload permissions (e.g. SCC RoleBindings)
 	// before creating workloads so pods can start with the correct permissions.
 	if err := r.reconcileWorkloadPlatformPermissions(ctx, llmSvc); err != nil {
 		llmSvc.MarkMainWorkloadNotReady("ReconcileWorkloadPermissionsError", err.Error())
 		return fmt.Errorf("failed to reconcile workload platform permissions: %w", err)
-	}
-
-	if err := r.reconcileControllerNamespaceSecretRBAC(ctx, llmSvc); err != nil {
-		llmSvc.MarkMainWorkloadNotReady("ReconcileControllerSecretRBACError", err.Error())
-		return fmt.Errorf("failed to reconcile controller namespace secret RBAC: %w", err)
-	}
-
-	// Set up TLS certificates for secure communication
-	if err := r.reconcileSelfSignedCertsSecret(ctx, llmSvc, config.SchedulerConfig); err != nil {
-		llmSvc.MarkMainWorkloadNotReady("ReconcileCertsError", err.Error())
-		return fmt.Errorf("failed to reconcile self-signed certificates secret: %w", err)
 	}
 
 	// We need to always reconcile every type of workload to handle transitions from P/D to another topology (meaning

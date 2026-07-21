@@ -4,8 +4,6 @@ kind: Kustomization
 resources:
 - role.yaml
 - clusterrolebinding.yaml
-- controller_namespace_secrets_role.yaml
-- controller_namespace_secrets_role_binding.yaml
 - leader_election_role.yaml
 - leader_election_role_binding.yaml
 - service_account.yaml
