@@ -668,7 +668,8 @@ func ValidateWorkloadScaling(basePath *field.Path, workload *WorkloadSpec) field
 	}
 
 	if scaling.WVA.KEDA != nil {
-		allErrs = append(allErrs, validateKEDAAdvancedFields(wvaPath.Child("keda"), scaling.WVA.KEDA)...)
+		// WVA path: forbid scalingModifiers (WVA owns the formula) and HPA name.
+		allErrs = append(allErrs, validateKEDAAdvancedFields(wvaPath.Child("keda"), scaling.WVA.KEDA, true)...)
 		allErrs = append(allErrs, validateKEDAIdleReplicaCount(scalingPath, wvaPath.Child("keda"), scaling, scaling.WVA.KEDA)...)
 	}
 
@@ -687,24 +688,31 @@ func validateDirectKEDA(scalingPath *field.Path, scaling *ScalingSpec) field.Err
 		))
 	}
 
-	allErrs = append(allErrs, validateKEDAAdvancedFields(kedaPath, &keda.KEDAScalingSpec)...)
+	// Direct KEDA path: allow scalingModifiers (no WVA formula to protect).
+	// Still forbid HPA name — the controller manages it.
+	allErrs = append(allErrs, validateKEDAAdvancedFields(kedaPath, &keda.KEDAScalingSpec, false)...)
 	allErrs = append(allErrs, validateKEDAIdleReplicaCount(scalingPath, kedaPath, scaling, &keda.KEDAScalingSpec)...)
 
 	return allErrs
 }
 
-func validateKEDAAdvancedFields(kedaPath *field.Path, keda *KEDAScalingSpec) field.ErrorList {
+// validateKEDAAdvancedFields validates Advanced ScaledObject settings.
+// forbidScalingModifiers should be true for the WVA actuator path (WVA owns the metric formula)
+// and false for direct KEDA (users may set their own scalingModifiers).
+func validateKEDAAdvancedFields(kedaPath *field.Path, keda *KEDAScalingSpec, forbidScalingModifiers bool) field.ErrorList {
 	var allErrs field.ErrorList
 	if keda == nil || keda.Advanced == nil {
 		return allErrs
 	}
 
-	sm := keda.Advanced.ScalingModifiers
-	if sm.Formula != "" || sm.Target != "" || sm.ActivationTarget != "" || string(sm.MetricType) != "" {
-		allErrs = append(allErrs, field.Forbidden(
-			kedaPath.Child("advanced", "scalingModifiers"),
-			"scalingModifiers must not be set; WVA controls the scaling metric formula and logic",
-		))
+	if forbidScalingModifiers {
+		sm := keda.Advanced.ScalingModifiers
+		if sm.Formula != "" || sm.Target != "" || sm.ActivationTarget != "" || string(sm.MetricType) != "" {
+			allErrs = append(allErrs, field.Forbidden(
+				kedaPath.Child("advanced", "scalingModifiers"),
+				"scalingModifiers must not be set; WVA controls the scaling metric formula and logic",
+			))
+		}
 	}
 	if keda.Advanced.HorizontalPodAutoscalerConfig != nil &&
 		keda.Advanced.HorizontalPodAutoscalerConfig.Name != "" {
