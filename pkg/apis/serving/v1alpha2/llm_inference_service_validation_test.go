@@ -620,6 +620,29 @@ func TestValidateWorkloadScaling(t *testing.T) {
 			wantErrCount: 0,
 		},
 		{
+			name: "valid: direct KEDA with scalingModifiers",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: 5,
+					KEDA: &DirectKEDAScalingSpec{
+						KEDAScalingSpec: KEDAScalingSpec{
+							Advanced: &kedav1alpha1.AdvancedConfig{
+								ScalingModifiers: kedav1alpha1.ScalingModifiers{
+									Formula: "trig0 + trig1",
+									Target:  "10",
+								},
+							},
+						},
+						Triggers: []kedav1alpha1.ScaleTriggers{
+							{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+							{Type: "memory", Metadata: map[string]string{"value": "70"}},
+						},
+					},
+				},
+			},
+			wantErrCount: 0,
+		},
+		{
 			name: "error: direct KEDA without triggers",
 			workload: &WorkloadSpec{
 				Scaling: &ScalingSpec{
