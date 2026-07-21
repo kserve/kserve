@@ -2197,6 +2197,7 @@ metadata:
   namespace: kserve
 spec:
   annotations:
+    app.kubernetes.io/version: 0.9.0
     serving.kserve.io/model-based-routing-enabled: "true"
   template:
     containers:
@@ -2440,8 +2441,8 @@ spec:
       - '{{ if .GlobalConfig.EnableTLS }}--secure-proxy=true{{else}}--secure-proxy=false{{-
         end }}'
       - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
-      - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=decoder{{- end }}'
-      - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=prefiller{{- end }}'
+      - '{{ if .GlobalConfig.EnableTLS }}--decoder-use-tls=true{{- end }}'
+      - '{{ if .GlobalConfig.EnableTLS }}--prefiller-use-tls=true{{- end }}'
       env:
       - name: INFERENCE_POOL_NAMESPACE
         valueFrom:
@@ -2511,6 +2512,7 @@ metadata:
   namespace: kserve
 spec:
   annotations:
+    app.kubernetes.io/version: 0.9.0
     serving.kserve.io/model-based-routing-enabled: "true"
   template:
     containers:
@@ -2788,8 +2790,8 @@ spec:
       - '{{ if .GlobalConfig.EnableTLS }}--secure-proxy=true{{else}}--secure-proxy=false{{-
         end }}'
       - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
-      - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=decoder{{- end }}'
-      - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=prefiller{{- end }}'
+      - '{{ if .GlobalConfig.EnableTLS }}--decoder-use-tls=true{{- end }}'
+      - '{{ if .GlobalConfig.EnableTLS }}--prefiller-use-tls=true{{- end }}'
       env:
       - name: INFERENCE_POOL_NAMESPACE
         valueFrom:

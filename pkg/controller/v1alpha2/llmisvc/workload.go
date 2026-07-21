@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/coreos/go-semver/semver"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -207,6 +208,45 @@ func routingSidecar(pod *corev1.PodSpec) *corev1.Container {
 			if pod.InitContainers[i].Name == constants.LLMISVCRoutingSidecarContainerName {
 				return &pod.InitContainers[i]
 			}
+		}
+	}
+	return nil
+}
+
+// routingSidecarEnableTLSMinVersion is the first llm-d-router version that removes the
+// deprecated --decoder-use-tls / --prefiller-use-tls flags and
+// requires the consolidated --enable-tls=<stage> form.
+var routingSidecarEnableTLSMinVersion = semver.New("0.10.0")
+
+// migrateRoutingSidecarTLSFlags upgrades the llm-d-router-disagg-sidecar's TLS CLI flags to
+// the --enable-tls=<stage> when llm-d-router version >= 0.10.0 via the app.kubernetes.io/version annotation
+// this is simlar to how schedulerTransform() version-gates its EPP config migrations.
+//
+// Any older versions no need migration and are left untouched (a missing or empty annotation is treated
+// as 0.0.0). From llm-d-router 0.10 the deprecated flags are removed and the sidecar only work with --enable-tls=decoder / --enable-tls=prefiller.
+func migrateRoutingSidecarTLSFlags(annotations map[string]string, s *corev1.Container) error {
+	if s == nil {
+		return nil
+	}
+	version := annotations["app.kubernetes.io/version"]
+	if version == "" {
+		version = "0.0.0"
+	}
+	v, err := semver.NewVersion(version)
+	if err != nil {
+		return fmt.Errorf("failed to parse routing sidecar version %q: %w", version, err)
+	}
+	if v.Compare(*routingSidecarEnableTLSMinVersion) < 0 {
+		return nil
+	}
+	// The routing sidecar carries its flags on Command (see the P/D sidecar
+	// config templates), so only Command is rewritten here.
+	for i, arg := range s.Command {
+		switch arg {
+		case "--decoder-use-tls=true":
+			s.Command[i] = "--enable-tls=decoder"
+		case "--prefiller-use-tls=true":
+			s.Command[i] = "--enable-tls=prefiller"
 		}
 	}
 	return nil

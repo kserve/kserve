@@ -2967,8 +2967,8 @@ spec:
         containers:
           - name: sidecar
             args:
-              - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=decoder{{- end }}'
-              - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=prefiller{{- end }}'
+              - '{{ if .GlobalConfig.EnableTLS }}--decoder-use-tls=true{{- end }}'
+              - '{{ if .GlobalConfig.EnableTLS }}--prefiller-use-tls=true{{- end }}'
 `
 	tests := []struct {
 		name      string
@@ -2978,7 +2978,7 @@ spec:
 		{
 			name:      "TLS on",
 			enableTLS: true,
-			wantArgs:  []string{"--enable-tls=decoder", "--enable-tls=prefiller"},
+			wantArgs:  []string{"--decoder-use-tls=true", "--prefiller-use-tls=true"},
 		},
 		{
 			name:      "TLS off",
