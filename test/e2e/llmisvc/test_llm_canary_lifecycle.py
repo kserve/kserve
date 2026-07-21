@@ -1027,10 +1027,19 @@ class TestCanaryLifecycle:
         wait_for_member_count(api, v1.name, ns, 3)
 
         gateway = get_gateway_base_url(api, v1.name, ns)
+        route_headers = {"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"}
+        route_payload = {"model": MODEL, "prompt": "Hello", "max_tokens": 5}
+
+        wait_for_healthy_route(
+            f"{gateway}/v1/completions",
+            route_headers,
+            route_payload,
+        )
+
         driver = traffic_driver(
             url=f"{gateway}/v1/completions",
-            headers={"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
-            payload={"model": MODEL, "prompt": "Hello", "max_tokens": 5},
+            headers=route_headers,
+            payload=route_payload,
             rate=2,
             timeout=15.0,
             warmup=True,
