@@ -72,7 +72,7 @@ var _ = Describe("LLMInferenceServiceConfig Controller", func() {
 		It("should block deletion when config is referenced via spec.baseRefs", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-cfg-protect-baserefs"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			config := LLMInferenceServiceConfig("referenced-config",
 				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
@@ -133,7 +133,7 @@ var _ = Describe("LLMInferenceServiceConfig Controller", func() {
 			// given — create config and service, let the reconciler pin the config
 			// in status.annotations via versioned config resolution
 			svcName := "test-llm-cfg-protect-annot"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			config := LLMInferenceServiceConfig("pinned-cfg",
 				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
@@ -221,7 +221,7 @@ var _ = Describe("LLMInferenceServiceConfig Controller", func() {
 		It("should unblock deletion after referencing service is deleted", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-cfg-unblock"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			config := LLMInferenceServiceConfig("blocking-config",
 				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),

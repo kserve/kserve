@@ -44,7 +44,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	Context("HPA scaling", func() {
 		It("should create HPA with WVA annotations when HPA scaling is configured", func(ctx SpecContext) {
 			svcName := "test-hpa-scaling"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -86,7 +86,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should update HPA when scaling spec changes", func(ctx SpecContext) {
 			svcName := "test-hpa-update"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -132,7 +132,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	Context("KEDA scaling", func() {
 		It("should create ScaledObject with WVA annotations when KEDA scaling is configured", func(ctx SpecContext) {
 			svcName := "test-keda-scaling"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -173,7 +173,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should update ScaledObject when scaling spec changes", func(ctx SpecContext) {
 			svcName := "test-keda-update"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -216,7 +216,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	Context("Scaling cleanup", func() {
 		It("should delete HPA when scaling is removed", func(ctx SpecContext) {
 			svcName := "test-hpa-cleanup"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -255,7 +255,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should delete ScaledObject when scaling is removed", func(ctx SpecContext) {
 			svcName := "test-keda-cleanup"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -296,7 +296,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	Context("Prefill scaling", func() {
 		It("should create separate HPA scaling resources for decode and prefill workloads", func(ctx SpecContext) {
 			svcName := "test-prefill-hpa"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -337,7 +337,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should create separate KEDA scaling resources for decode and prefill workloads", func(ctx SpecContext) {
 			svcName := "test-prefill-keda"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -380,7 +380,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	Context("Actuator switch", func() {
 		It("should delete HPA and create ScaledObject when switching from HPA to KEDA", func(ctx SpecContext) {
 			svcName := "test-hpa-to-keda"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -423,7 +423,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should delete ScaledObject and create HPA when switching from KEDA to HPA", func(ctx SpecContext) {
 			svcName := "test-keda-to-hpa"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -468,7 +468,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	Context("Accelerator label on HPA/ScaledObject", func() {
 		It("should propagate accelerator label from workload labels to HPA", func(ctx SpecContext) {
 			svcName := "test-va-accel"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -496,7 +496,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should set accelerator label to unknown when workload has no accelerator label", func(ctx SpecContext) {
 			svcName := "test-va-no-accel"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -523,7 +523,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	Context("No scaling configured", func() {
 		It("should not create any scaling resources when scaling is nil", func(ctx SpecContext) {
 			svcName := "test-no-scaling"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -552,7 +552,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	Context("Scaling with stop annotation", func() {
 		It("should delete HPA scaling resources when stop annotation is set", func(ctx SpecContext) {
 			svcName := "test-hpa-stop"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -592,7 +592,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should delete KEDA scaling resources when stop annotation is set", func(ctx SpecContext) {
 			svcName := "test-keda-stop"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -634,7 +634,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	Context("HPA Behavior propagation", func() {
 		It("should propagate HPA behavior from scaling spec to the HPA resource", func(ctx SpecContext) {
 			svcName := "test-hpa-behavior"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			behavior := &autoscalingv2.HorizontalPodAutoscalerBehavior{
 				ScaleUp: &autoscalingv2.HPAScalingRules{
@@ -684,7 +684,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	Context("VariantCost annotation propagation", func() {
 		It("should propagate variantCost from scaling spec to HPA annotation", func(ctx SpecContext) {
 			svcName := "test-va-cost"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -711,7 +711,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	Context("KEDA Prometheus auth propagation", func() {
 		It("should include auth config on ScaledObject trigger when configured", func(ctx SpecContext) {
 			svcName := "test-keda-auth"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			cfgMap := &corev1.ConfigMap{}
 			cfgMapKey := types.NamespacedName{
@@ -784,7 +784,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	Context("Multi-node (LWS) HPA scaling", func() {
 		It("should create HPA with WVA annotations targeting LeaderWorkerSet when worker is set", func(ctx SpecContext) {
 			svcName := "test-lws-hpa"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -825,7 +825,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	Context("Multi-node (LWS) KEDA scaling", func() {
 		It("should create ScaledObject with WVA annotations targeting LeaderWorkerSet when worker is set", func(ctx SpecContext) {
 			svcName := "test-lws-keda"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -863,7 +863,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	Context("Multi-node P/D scaling", func() {
 		It("should create separate LWS-targeting scaling resources for decode and prefill", func(ctx SpecContext) {
 			svcName := "test-lws-pd"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -916,7 +916,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	Context("Multi-node scaling with stop annotation", func() {
 		It("should delete LWS-targeting scaling resources when stop annotation is set", func(ctx SpecContext) {
 			svcName := "test-lws-stop"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -968,7 +968,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	Context("ScalingReady condition propagation", func() {
 		It("should set ScalingReady=False (progressing) when HPA has no status conditions", func(ctx SpecContext) {
 			svcName := "test-hpa-cond-prog"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -995,7 +995,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should set ScalingReady=True when HPA reports healthy conditions", func(ctx SpecContext) {
 			svcName := "test-hpa-cond-ready"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -1043,7 +1043,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should set ScalingReady=False when HPA ScalingActive is False", func(ctx SpecContext) {
 			svcName := "test-hpa-cond-fail"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -1091,7 +1091,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should clear ScalingReady when scaling is removed", func(ctx SpecContext) {
 			svcName := "test-scaling-clear"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -1134,7 +1134,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should not have ScalingReady when no scaling is configured", func(ctx SpecContext) {
 			svcName := "test-no-scaling-cond"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -1165,7 +1165,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should set ScalingReady=False when KEDA ScaledObject is not yet ready", func(ctx SpecContext) {
 			svcName := "test-keda-cond-prog"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -1192,7 +1192,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should set ScalingReady=True when KEDA ScaledObject reports Ready", func(ctx SpecContext) {
 			svcName := "test-keda-cond-ok"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -1241,7 +1241,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should transition ScalingReady from True to False when HPA degrades", func(ctx SpecContext) {
 			svcName := "test-hpa-true-false"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -1312,7 +1312,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should transition ScalingReady from True to False when KEDA ScaledObject degrades", func(ctx SpecContext) {
 			svcName := "test-keda-true-false"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -1387,7 +1387,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should set PrefillScalingReady when prefill scaling is configured", func(ctx SpecContext) {
 			svcName := "test-prefill-scale"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
