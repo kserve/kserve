@@ -34,7 +34,6 @@ This example demonstrates precise prefix cache routing with cache block tracking
 - **Queue Scorer**: Balances load across endpoints based on queue depth (weight: 2)
 - **Active Request Scorer**: Prefers idle pods to spread prefix caches during cold starts, preventing all requests with a shared prefix from piling onto one endpoint (weight: 3)
 - **Cache Tracking Mode**: Real-time tracking of KV cache blocks using ZMQ events
-- **KV Transfer**: Enabled via NixlConnector for cache sharing between instances
 - **Block Size**: 64 tokens (configurable, must match between vLLM and scheduler)
 - **Hash Seed**: PYTHONHASHSEED=42 (must match across all components)
 
@@ -72,7 +71,6 @@ Key vLLM settings for cache routing:
 VLLM_ADDITIONAL_ARGS:
   - --prefix-caching-hash-algo sha256_cbor
   - --block-size 64
-  - --kv_transfer_config '{"kv_connector":"NixlConnector","kv_role":"kv_both"}'
   - --kv-events-config '{"enable_kv_cache_events":true,"publisher":"zmq","endpoint":"tcp://...:5557","topic":"kv@${POD_IP}@..."}'
 
 PYTHONHASHSEED: "42"
