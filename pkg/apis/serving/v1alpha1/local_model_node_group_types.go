@@ -34,7 +34,7 @@ type LocalModelNodeGroupSpec struct {
 	// Used to specify tolerations for download jobs
 	// +optional
 	// +listType=atomic
-	JobTolerations []corev1.Toleration `json:"jobTolerations,omitempty"`
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 }
 
 // +k8s:openapi-gen=true
