@@ -2337,20 +2337,44 @@ plugins:
 	tests := []struct {
 		name         string
 		version      string
+		command      []string
+		args         []string
+		expectErr    bool
+		errSubstring string
 		expectFlag   bool
 		expectPlugin bool
 	}{
 		{
 			name:         "0.9.0 leaves flag and config untouched",
 			version:      "0.9.0",
+			command:      []string{"/app/epp", "--model-server-metrics-scheme=https"},
+			args:         []string{"--config-text", configYAML},
 			expectFlag:   true,
 			expectPlugin: false,
 		},
 		{
 			name:         "0.10.0 strips flag and injects plugin",
 			version:      "0.10.0",
+			command:      []string{"/app/epp", "--model-server-metrics-scheme=https"},
+			args:         []string{"--config-text", configYAML},
 			expectFlag:   false,
 			expectPlugin: true,
+		},
+		{
+			name:         "0.10.0 without flag leaves config untouched",
+			version:      "0.10.0",
+			command:      []string{"/app/epp"},
+			args:         []string{"--config-text", configYAML},
+			expectFlag:   false,
+			expectPlugin: false,
+		},
+		{
+			name:         "0.10.0 with flag but non-writable config-file returns error",
+			version:      "0.10.0",
+			command:      []string{"/app/epp", "--model-server-metrics-scheme=https"},
+			args:         []string{"--config-file", "/etc/scheduler/config.yaml"},
+			expectErr:    true,
+			errSubstring: "no inline --config-text",
 		},
 	}
 
@@ -2368,8 +2392,8 @@ plugins:
 							Containers: []corev1.Container{
 								{
 									Name:    "main",
-									Command: []string{"/app/epp", "--model-server-metrics-scheme=https"},
-									Args:    []string{"--config-text", configYAML},
+									Command: tt.command,
+									Args:    tt.args,
 								},
 							},
 						},
@@ -2377,7 +2401,13 @@ plugins:
 				},
 			}
 
-			g.Expect(schedulerTransform(context.Background(), d, &v1alpha2.LLMInferenceService{}, true)).To(Succeed())
+			err := schedulerTransform(context.Background(), d, &v1alpha2.LLMInferenceService{}, true)
+			if tt.expectErr {
+				g.Expect(err).To(HaveOccurred())
+				g.Expect(err.Error()).To(ContainSubstring(tt.errSubstring))
+				return
+			}
+			g.Expect(err).NotTo(HaveOccurred())
 
 			command := d.Spec.Template.Spec.Containers[0].Command
 			g.Expect(slices.Contains(command, "--model-server-metrics-scheme=https")).To(Equal(tt.expectFlag))
