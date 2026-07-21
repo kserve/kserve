@@ -1437,6 +1437,230 @@ var _ = Describe("LocalModelNode controller", func() {
 				"Job pod should carry JobTolerations from the NodeGroup when NodeGroup is explicitly specified")
 		})
 
+		It("Should produce a pod with zero tolerations when NodeGroup Tolerations is an empty list", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+			fsMock.clear()
+
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(ctx, configMap)
+
+			nodeGroupName := "gpu-empty-tolerations"
+			nodeGroup := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeGroupName,
+				},
+				Spec: v1alpha1.LocalModelNodeGroupSpec{
+					Tolerations: []corev1.Toleration{}, // Explicitly empty, not nil
+					PersistentVolumeSpec: corev1.PersistentVolumeSpec{
+						AccessModes:                   []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+						VolumeMode:                    ptr.To(corev1.PersistentVolumeFilesystem),
+						Capacity:                      corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("2Gi")},
+						StorageClassName:              "standard",
+						PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimDelete,
+						PersistentVolumeSource: corev1.PersistentVolumeSource{
+							HostPath: &corev1.HostPathVolumeSource{
+								Path: "/models",
+								Type: ptr.To(corev1.HostPathDirectory),
+							},
+						},
+						NodeAffinity: &corev1.VolumeNodeAffinity{
+							Required: &corev1.NodeSelector{
+								NodeSelectorTerms: []corev1.NodeSelectorTerm{
+									{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{
+												Key:      "node.kubernetes.io/instance-type",
+												Operator: corev1.NodeSelectorOpIn,
+												Values:   []string{"gpu"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					PersistentVolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
+						AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+						Resources:   corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("2Gi")}},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeGroup)
+
+			nodeName = "worker-empty-tolerations"
+			node := &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+					Labels: map[string]string{
+						"node.kubernetes.io/instance-type": "gpu",
+					},
+				},
+				Status: corev1.NodeStatus{
+					Conditions: []corev1.NodeCondition{
+						{
+							Type:   corev1.NodeReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, node)).Should(Succeed())
+			defer k8sClient.Delete(ctx, node)
+
+			tolerationsModelName := "toleration-model-empty"
+			localModelNode := &v1alpha1.LocalModelNode{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+				},
+				Spec: v1alpha1.LocalModelNodeSpec{
+					LocalModels: []v1alpha1.LocalModelInfo{
+						{
+							SourceModelUri: "s3://mybucket/toleration-model-empty",
+							ModelName:      tolerationsModelName,
+							NodeGroup:      nodeGroupName,
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, localModelNode)).Should(Succeed())
+			defer k8sClient.Delete(ctx, localModelNode)
+
+			jobs := &batchv1.JobList{}
+			labelSelector := map[string]string{
+				"model": tolerationsModelName,
+				"node":  nodeName,
+			}
+			Eventually(func() bool {
+				err := k8sClient.List(ctx, jobs, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector))
+				return err == nil && len(jobs.Items) == 1
+			}, timeout, interval).Should(BeTrue(), "Download job should be created")
+
+			job := &jobs.Items[0]
+			Expect(job.Spec.Template.Spec.Tolerations).To(BeEmpty(),
+				"An empty Tolerations list should yield a pod with zero tolerations, same as nil")
+		})
+
+		It("Should produce a pod with zero tolerations when NodeGroup Tolerations is nil", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+			fsMock.clear()
+
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(ctx, configMap)
+
+			nodeGroupName := "gpu-nil-tolerations"
+			nodeGroup := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeGroupName,
+				},
+				Spec: v1alpha1.LocalModelNodeGroupSpec{
+					// Tolerations intentionally omitted (nil)
+					PersistentVolumeSpec: corev1.PersistentVolumeSpec{
+						AccessModes:                   []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+						VolumeMode:                    ptr.To(corev1.PersistentVolumeFilesystem),
+						Capacity:                      corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("2Gi")},
+						StorageClassName:              "standard",
+						PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimDelete,
+						PersistentVolumeSource: corev1.PersistentVolumeSource{
+							HostPath: &corev1.HostPathVolumeSource{
+								Path: "/models",
+								Type: ptr.To(corev1.HostPathDirectory),
+							},
+						},
+						NodeAffinity: &corev1.VolumeNodeAffinity{
+							Required: &corev1.NodeSelector{
+								NodeSelectorTerms: []corev1.NodeSelectorTerm{
+									{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{
+												Key:      "node.kubernetes.io/instance-type",
+												Operator: corev1.NodeSelectorOpIn,
+												Values:   []string{"gpu"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					PersistentVolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
+						AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+						Resources:   corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("2Gi")}},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeGroup)
+
+			nodeName = "worker-nil-tolerations"
+			node := &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+					Labels: map[string]string{
+						"node.kubernetes.io/instance-type": "gpu",
+					},
+				},
+				Status: corev1.NodeStatus{
+					Conditions: []corev1.NodeCondition{
+						{
+							Type:   corev1.NodeReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, node)).Should(Succeed())
+			defer k8sClient.Delete(ctx, node)
+
+			tolerationsModelName := "toleration-model-nil"
+			localModelNode := &v1alpha1.LocalModelNode{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+				},
+				Spec: v1alpha1.LocalModelNodeSpec{
+					LocalModels: []v1alpha1.LocalModelInfo{
+						{
+							SourceModelUri: "s3://mybucket/toleration-model-nil",
+							ModelName:      tolerationsModelName,
+							NodeGroup:      nodeGroupName,
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, localModelNode)).Should(Succeed())
+			defer k8sClient.Delete(ctx, localModelNode)
+
+			jobs := &batchv1.JobList{}
+			labelSelector := map[string]string{
+				"model": tolerationsModelName,
+				"node":  nodeName,
+			}
+			Eventually(func() bool {
+				err := k8sClient.List(ctx, jobs, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector))
+				return err == nil && len(jobs.Items) == 1
+			}, timeout, interval).Should(BeTrue(), "Download job should be created")
+
+			job := &jobs.Items[0]
+			Expect(job.Spec.Template.Spec.Tolerations).To(BeEmpty(),
+				"A nil Tolerations slice should yield a pod with zero tolerations, same as an empty list")
+		})
+
 		It("Should append -download suffix to PVC name for namespace-scoped models", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
