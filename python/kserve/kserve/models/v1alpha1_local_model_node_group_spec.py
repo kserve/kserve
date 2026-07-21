@@ -47,59 +47,36 @@ class V1alpha1LocalModelNodeGroupSpec(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'job_tolerations': 'list[V1Toleration]',
         'persistent_volume_claim_spec': 'V1PersistentVolumeClaimSpec',
         'persistent_volume_spec': 'V1PersistentVolumeSpec',
-        'storage_limit': 'ResourceQuantity'
+        'storage_limit': 'ResourceQuantity',
+        'tolerations': 'list[V1Toleration]'
     }
 
     attribute_map = {
-        'job_tolerations': 'jobTolerations',
         'persistent_volume_claim_spec': 'persistentVolumeClaimSpec',
         'persistent_volume_spec': 'persistentVolumeSpec',
-        'storage_limit': 'storageLimit'
+        'storage_limit': 'storageLimit',
+        'tolerations': 'tolerations'
     }
 
-    def __init__(self, job_tolerations=None, persistent_volume_claim_spec=None, persistent_volume_spec=None, storage_limit=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, persistent_volume_claim_spec=None, persistent_volume_spec=None, storage_limit=None, tolerations=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1LocalModelNodeGroupSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._job_tolerations = None
         self._persistent_volume_claim_spec = None
         self._persistent_volume_spec = None
         self._storage_limit = None
+        self._tolerations = None
         self.discriminator = None
 
-        if job_tolerations is not None:
-            self.job_tolerations = job_tolerations
         self.persistent_volume_claim_spec = persistent_volume_claim_spec
         self.persistent_volume_spec = persistent_volume_spec
         self.storage_limit = storage_limit
-
-    @property
-    def job_tolerations(self):
-        """Gets the job_tolerations of this V1alpha1LocalModelNodeGroupSpec.  # noqa: E501
-
-        Used to specify tolerations for download jobs  # noqa: E501
-
-        :return: The job_tolerations of this V1alpha1LocalModelNodeGroupSpec.  # noqa: E501
-        :rtype: list[V1Toleration]
-        """
-        return self._job_tolerations
-
-    @job_tolerations.setter
-    def job_tolerations(self, job_tolerations):
-        """Sets the job_tolerations of this V1alpha1LocalModelNodeGroupSpec.
-
-        Used to specify tolerations for download jobs  # noqa: E501
-
-        :param job_tolerations: The job_tolerations of this V1alpha1LocalModelNodeGroupSpec.  # noqa: E501
-        :type: list[V1Toleration]
-        """
-
-        self._job_tolerations = job_tolerations
+        if tolerations is not None:
+            self.tolerations = tolerations
 
     @property
     def persistent_volume_claim_spec(self):
@@ -169,6 +146,29 @@ class V1alpha1LocalModelNodeGroupSpec(object):
             raise ValueError("Invalid value for `storage_limit`, must not be `None`")  # noqa: E501
 
         self._storage_limit = storage_limit
+
+    @property
+    def tolerations(self):
+        """Gets the tolerations of this V1alpha1LocalModelNodeGroupSpec.  # noqa: E501
+
+        Used to specify tolerations for download jobs  # noqa: E501
+
+        :return: The tolerations of this V1alpha1LocalModelNodeGroupSpec.  # noqa: E501
+        :rtype: list[V1Toleration]
+        """
+        return self._tolerations
+
+    @tolerations.setter
+    def tolerations(self, tolerations):
+        """Sets the tolerations of this V1alpha1LocalModelNodeGroupSpec.
+
+        Used to specify tolerations for download jobs  # noqa: E501
+
+        :param tolerations: The tolerations of this V1alpha1LocalModelNodeGroupSpec.  # noqa: E501
+        :type: list[V1Toleration]
+        """
+
+        self._tolerations = tolerations
 
     def to_dict(self):
         """Returns the model properties as a dict"""

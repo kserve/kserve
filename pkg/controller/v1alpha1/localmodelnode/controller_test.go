@@ -1510,7 +1510,7 @@ var _ = Describe("LocalModelNode controller", func() {
 					Name: "gpu",
 				},
 				Spec: v1alpha1.LocalModelNodeGroupSpec{
-					JobTolerations: expectedTolerations,
+					Tolerations: expectedTolerations,
 					PersistentVolumeSpec: corev1.PersistentVolumeSpec{
 						AccessModes:                   []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 						VolumeMode:                    ptr.To(corev1.PersistentVolumeFilesystem),
@@ -1630,7 +1630,7 @@ var _ = Describe("LocalModelNode controller", func() {
 					Name: nodeGroupName,
 				},
 				Spec: v1alpha1.LocalModelNodeGroupSpec{
-					JobTolerations: expectedTolerations,
+					Tolerations: expectedTolerations,
 					PersistentVolumeSpec: corev1.PersistentVolumeSpec{
 						AccessModes:                   []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 						VolumeMode:                    ptr.To(corev1.PersistentVolumeFilesystem),
