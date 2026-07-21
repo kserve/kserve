@@ -19,6 +19,7 @@ package llmisvc
 import (
 	"context"
 	"fmt"
+	"slices"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -2222,6 +2223,177 @@ plugins:
 			}
 			if tt.validateConfig != nil {
 				tt.validateConfig(g, resultArgs)
+			}
+		})
+	}
+}
+
+func TestWithMetricsDataSourceScheme(t *testing.T) {
+	tests := []struct {
+		name       string
+		configYAML string
+		scheme     string
+		validate   func(g Gomega, obj map[string]interface{})
+	}{
+		{
+			name: "injects plugin with scheme",
+			configYAML: `
+plugins:
+- type: queue-scorer
+`,
+			scheme: "https",
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				g.Expect(plugins).To(HaveLen(2))
+				pluginMap := plugins[1].(map[string]interface{})
+				g.Expect(pluginMap["type"]).To(Equal(metricsDataSourcePlugin))
+				params := pluginMap["parameters"].(map[string]interface{})
+				g.Expect(params["scheme"]).To(Equal("https"))
+			},
+		},
+		{
+			name: "skips when metrics-data-source already exists",
+			configYAML: `
+plugins:
+- type: metrics-data-source
+  parameters:
+    scheme: http
+`,
+			scheme: "https",
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				g.Expect(plugins).To(HaveLen(1))
+				pluginMap := plugins[0].(map[string]interface{})
+				params := pluginMap["parameters"].(map[string]interface{})
+				g.Expect(params["scheme"]).To(Equal("http"))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			var obj map[string]interface{}
+			g.Expect(yaml.Unmarshal([]byte(tt.configYAML), &obj)).To(Succeed())
+			u := unstructured.Unstructured{Object: obj}
+			fn := withMetricsDataSourceScheme(tt.scheme)
+			g.Expect(fn(context.Background(), &u)).To(Succeed())
+			tt.validate(g, u.Object)
+		})
+	}
+}
+
+func TestExtractModelServerMetricsScheme(t *testing.T) {
+	tests := []struct {
+		name            string
+		command         []string
+		expectedCommand []string
+		expectedScheme  string
+	}{
+		{
+			name:            "extracts from command with equals form",
+			command:         []string{"/app/epp", "--model-server-metrics-scheme=https", "--grpc-port=9002"},
+			expectedCommand: []string{"/app/epp", "--grpc-port=9002"},
+			expectedScheme:  "https",
+		},
+		{
+			name:            "no flag returns empty scheme",
+			command:         []string{"/app/epp", "--grpc-port=9002"},
+			expectedCommand: []string{"/app/epp", "--grpc-port=9002"},
+			expectedScheme:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			d := &appsv1.Deployment{
+				Spec: appsv1.DeploymentSpec{
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Name: "main", Command: tt.command},
+							},
+						},
+					},
+				},
+			}
+			scheme := extractModelServerMetricsScheme(d)
+			g.Expect(scheme).To(Equal(tt.expectedScheme))
+			if tt.expectedCommand != nil {
+				g.Expect(d.Spec.Template.Spec.Containers[0].Command).To(Equal(tt.expectedCommand))
+			}
+		})
+	}
+}
+
+func TestSchedulerTransformMigratesMetricsScheme(t *testing.T) {
+	configYAML := `apiVersion: llm-d.ai/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: queue-scorer
+`
+
+	tests := []struct {
+		name         string
+		version      string
+		expectFlag   bool
+		expectPlugin bool
+	}{
+		{
+			name:         "0.9.0 leaves flag and config untouched",
+			version:      "0.9.0",
+			expectFlag:   true,
+			expectPlugin: false,
+		},
+		{
+			name:         "0.10.0 strips flag and injects plugin",
+			version:      "0.10.0",
+			expectFlag:   false,
+			expectPlugin: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			d := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-scheduler", Namespace: "test-ns"},
+				Spec: appsv1.DeploymentSpec{
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{"app.kubernetes.io/version": tt.version},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:    "main",
+									Command: []string{"/app/epp", "--model-server-metrics-scheme=https"},
+									Args:    []string{"--config-text", configYAML},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			g.Expect(schedulerTransform(context.Background(), d, &v1alpha2.LLMInferenceService{}, true)).To(Succeed())
+
+			command := d.Spec.Template.Spec.Containers[0].Command
+			g.Expect(slices.Contains(command, "--model-server-metrics-scheme=https")).To(Equal(tt.expectFlag))
+
+			args := d.Spec.Template.Spec.Containers[0].Args
+			configText := ""
+			for i, a := range args {
+				if a == "--config-text" && i+1 < len(args) {
+					configText = args[i+1]
+				}
+			}
+			if tt.expectPlugin {
+				g.Expect(configText).To(ContainSubstring("metrics-data-source"))
+				g.Expect(configText).To(ContainSubstring("scheme: https"))
+			} else {
+				g.Expect(configText).NotTo(ContainSubstring("metrics-data-source"))
 			}
 		})
 	}
