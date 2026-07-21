@@ -682,9 +682,10 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 				if err != nil {
 					return ""
 				}
-				// Escape " as \" so the value embeds safely in a bash double-quoted
-				// assignment and in the JSON template string that ReplaceVariables renders.
-				return "--kv-transfer-config '" + strings.ReplaceAll(string(b), `"`, `\"`) + "'"
+				// \\\" decodes to \" after ReplaceVariables re-unmarshals this as JSON, and
+				// the \" then survives the KV_TRANSFER_ARGS="..." bash assignment in the
+				// template. Plain " would be eaten by the shell and vLLM would get invalid JSON.
+				return "--kv-transfer-config '" + strings.ReplaceAll(string(b), `"`, `\\\"`) + "'"
 			},
 			// shutdownTimeout computes the vLLM --shutdown-timeout value from a *corev1.PodSpec
 			// (or nil): max(0, tgps - preStop - min(5, tgps)), defaulting tgps to 60 when unset.
