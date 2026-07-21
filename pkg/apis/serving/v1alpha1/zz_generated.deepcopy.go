@@ -1207,8 +1207,8 @@ func (in *LocalModelNodeGroupSpec) DeepCopyInto(out *LocalModelNodeGroupSpec) {
 	out.StorageLimit = in.StorageLimit.DeepCopy()
 	in.PersistentVolumeSpec.DeepCopyInto(&out.PersistentVolumeSpec)
 	in.PersistentVolumeClaimSpec.DeepCopyInto(&out.PersistentVolumeClaimSpec)
-	if in.JobTolerations != nil {
-		in, out := &in.JobTolerations, &out.JobTolerations
+	if in.Tolerations != nil {
+		in, out := &in.Tolerations, &out.Tolerations
 		*out = make([]v1.Toleration, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
