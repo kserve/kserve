@@ -120,7 +120,8 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 			Labels: labels,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: llmSvc.Spec.Replicas,
+			Replicas:                llmSvc.Spec.Replicas,
+			ProgressDeadlineSeconds: llmSvc.Spec.ProgressDeadlineSeconds,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
@@ -241,7 +242,8 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 
 	if llmSvc.Spec.Prefill != nil {
 		d.Spec = appsv1.DeploymentSpec{
-			Replicas: llmSvc.Spec.Prefill.Replicas,
+			Replicas:                llmSvc.Spec.Prefill.Replicas,
+			ProgressDeadlineSeconds: llmSvc.Spec.Prefill.ProgressDeadlineSeconds,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},

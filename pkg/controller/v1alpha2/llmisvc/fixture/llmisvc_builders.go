@@ -328,6 +328,21 @@ func WithPrefillReplicas(replicas int32) LLMInferenceServiceOption {
 	}
 }
 
+func WithProgressDeadlineSeconds(seconds int32) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha2.LLMInferenceService) {
+		llmSvc.Spec.ProgressDeadlineSeconds = &seconds
+	}
+}
+
+func WithPrefillProgressDeadlineSeconds(seconds int32) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha2.LLMInferenceService) {
+		if llmSvc.Spec.Prefill == nil {
+			llmSvc.Spec.Prefill = &v1alpha2.WorkloadSpec{}
+		}
+		llmSvc.Spec.Prefill.ProgressDeadlineSeconds = &seconds
+	}
+}
+
 func WithTemplate(podSpec *corev1.PodSpec) LLMInferenceServiceOption {
 	return func(llmSvc *v1alpha2.LLMInferenceService) {
 		llmSvc.Spec.Template = podSpec
