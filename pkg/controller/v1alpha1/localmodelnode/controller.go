@@ -120,7 +120,7 @@ func (c *LocalModelNodeReconciler) getJobTolerationsFromNodeGroup(ctx context.Co
 		return nil, err
 	}
 
-	return nodeGroup.Spec.JobTolerations, nil
+	return nodeGroup.Spec.Tolerations, nil
 }
 
 func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode v1alpha1.LocalModelNode, modelInfo v1alpha1.LocalModelInfo) (*batchv1.Job, error) {
@@ -136,7 +136,7 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 			return nil, err
 		}
 		nodeGroupName = nodeGroup.Name
-		jobTolerations = nodeGroup.Spec.JobTolerations
+		jobTolerations = nodeGroup.Spec.Tolerations
 	} else {
 		tolerations, err := c.getJobTolerationsFromNodeGroup(ctx, nodeGroupName)
 		if err != nil {
