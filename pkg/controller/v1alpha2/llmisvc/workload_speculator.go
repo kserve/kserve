@@ -19,28 +19,28 @@ package llmisvc
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"slices"
 	"strconv"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
 // attachSpeculatorModelArtifacts configures a PodSpec for speculative decoding. When
-// spec.speculator is set, it optionally downloads the speculator/draft model (for methods
-// that require one) and injects the --speculative-config vLLM argument.
+// spec.speculator is set, it handles PVC/OCI mounts for speculator models and injects
+// the --speculative-config vLLM argument.
+//
+// For hf:// and s3:// speculator models, the download is handled by attachModelArtifacts
+// via the shared storage-initializer init container; this function only validates the
+// storage-initializer requirement for those schemes.
+//
 // This is called only for decode workloads (single-node main, multi-node leader/worker);
 // prefill pods do not receive speculator configuration.
-func (r *LLMISVCReconciler) attachSpeculatorModelArtifacts(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, curr corev1.PodSpec, podSpec *corev1.PodSpec, config *Config, containerName string) error { //nolint:unparam
+func (r *LLMISVCReconciler) attachSpeculatorModelArtifacts(_ context.Context, _ *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, _ corev1.PodSpec, podSpec *corev1.PodSpec, config *Config, containerName string) error { //nolint:unparam
 	speculator := llmSvc.Spec.Speculator
 	if speculator == nil {
 		return nil
@@ -49,10 +49,6 @@ func (r *LLMISVCReconciler) attachSpeculatorModelArtifacts(ctx context.Context, 
 	if speculator.Model == nil {
 		return injectSpeculativeDecodingArgs(speculator, podSpec, containerName)
 	}
-
-	storageInitializerDisabled := llmSvc.Spec.StorageInitializer != nil &&
-		llmSvc.Spec.StorageInitializer.Enabled != nil &&
-		!*llmSvc.Spec.StorageInitializer.Enabled
 
 	speculatorUri := speculator.Model.URI.String()
 	schema, _, sepFound := strings.Cut(speculatorUri, "://")
@@ -70,17 +66,16 @@ func (r *LLMISVCReconciler) attachSpeculatorModelArtifacts(ctx context.Context, 
 		if !config.StorageConfig.EnableOciImageSource {
 			return fmt.Errorf("speculator model %q uses oci:// but OCI modelcars is not enabled in the cluster configuration", speculatorUri)
 		}
-		// ociIndex=1 for speculator (main model uses 0, LoRA doesn't support OCI)
 		if err := utils.ConfigureModelcarToContainer(speculatorUri, podSpec, containerName, constants.DefaultSpeculatorLocalMountPath, config.StorageConfig, 1); err != nil {
 			return err
 		}
 
 	case constants.HfURIPrefix, constants.S3URIPrefix:
+		storageInitializerDisabled := llmSvc.Spec.StorageInitializer != nil &&
+			llmSvc.Spec.StorageInitializer.Enabled != nil &&
+			!*llmSvc.Spec.StorageInitializer.Enabled
 		if storageInitializerDisabled {
 			return fmt.Errorf("speculator model %q: hf:// and s3:// require the storage initializer — set storageInitializer.enabled to true", speculatorUri)
-		}
-		if err := r.attachSpeculatorStorageInitializer(ctx, serviceAccount, llmSvc, speculatorUri, schema+"://", curr, podSpec, config, containerName); err != nil {
-			return err
 		}
 
 	default:
@@ -88,22 +83,6 @@ func (r *LLMISVCReconciler) attachSpeculatorModelArtifacts(ctx context.Context, 
 	}
 
 	return injectSpeculativeDecodingArgs(speculator, podSpec, containerName)
-}
-
-// stripPriorSpeculatorInitializer removes any existing speculator-initializer init container
-// from the pod spec to avoid duplicates when merged templates (via baseRefs) already define one.
-func stripPriorSpeculatorInitializer(podSpec *corev1.PodSpec) {
-	if podSpec == nil {
-		return
-	}
-	kept := make([]corev1.Container, 0, len(podSpec.InitContainers))
-	for _, ic := range podSpec.InitContainers {
-		if ic.Name == constants.SpeculatorInitializerContainerName {
-			continue
-		}
-		kept = append(kept, ic)
-	}
-	podSpec.InitContainers = kept
 }
 
 // attachSpeculatorPVCModelArtifact mounts a speculator model from a PVC using a dedicated
@@ -121,86 +100,6 @@ func (r *LLMISVCReconciler) attachSpeculatorPVCModelArtifact(modelUri string, po
 		PVCName:    pvcName,
 		SubPath:    pvcPath,
 	}, containerName, podSpec)
-}
-
-// attachSpeculatorStorageInitializer creates a second storage-initializer init container
-// (named "speculator-initializer") to download the speculator model from HF or S3.
-func (r *LLMISVCReconciler) attachSpeculatorStorageInitializer(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, speculatorUri string, uriPrefix string, curr corev1.PodSpec, podSpec *corev1.PodSpec, config *Config, containerName string) error {
-	stripPriorSpeculatorInitializer(podSpec)
-
-	containerArgs := []string{
-		speculatorUri,
-		constants.DefaultSpeculatorLocalMountPath,
-	}
-
-	// Preserve the existing speculator-initializer image from the current deployment
-	copied := *config.StorageConfig
-	for _, initContainer := range curr.InitContainers {
-		if initContainer.Name == constants.SpeculatorInitializerContainerName {
-			copied.Image = initContainer.Image
-		}
-	}
-
-	initContainer := utils.CreateInitContainerWithConfig(&copied, containerArgs)
-	initContainer.Name = constants.SpeculatorInitializerContainerName
-	podSpec.InitContainers = append(podSpec.InitContainers, *initContainer)
-
-	// Mount the speculator volume RW on the init container
-	if err := utils.AddModelMount(utils.StorageMountParams{
-		MountPath:  constants.DefaultSpeculatorLocalMountPath,
-		VolumeName: constants.SpeculatorVolumeName,
-		ReadOnly:   false,
-	}, initContainer.Name, podSpec); err != nil {
-		return err
-	}
-
-	// Mount the speculator volume RO on the main container
-	if err := utils.AddModelMount(utils.StorageMountParams{
-		MountPath:  constants.DefaultSpeculatorLocalMountPath,
-		VolumeName: constants.SpeculatorVolumeName,
-		ReadOnly:   true,
-	}, containerName, podSpec); err != nil {
-		return err
-	}
-
-	initPtr := utils.GetInitContainerWithName(podSpec, constants.SpeculatorInitializerContainerName)
-	if initPtr == nil {
-		return errors.New("speculator-initializer init container not found after creation")
-	}
-
-	if serviceAccount == nil {
-		serviceAccount = &corev1.ServiceAccount{}
-		err := r.Get(ctx, types.NamespacedName{Name: constants.LLMISVCDefaultServiceAccountName, Namespace: llmSvc.Namespace}, serviceAccount)
-		if err != nil {
-			log.FromContext(ctx).Error(err, "Failed to find default service account", "namespace", llmSvc.Namespace)
-			injectCaBundle(llmSvc.Namespace, podSpec, initPtr, config.StorageConfig)
-			return nil
-		}
-	}
-
-	credentialBuilder := credentials.NewCredentialBuilderFromConfig(r.Client, r.Clientset, *config.CredentialConfig)
-	if err := credentialBuilder.CreateSecretVolumeAndEnvFromServiceAccount(
-		ctx,
-		serviceAccount,
-		llmSvc.Annotations,
-		initPtr,
-		&podSpec.Volumes,
-	); err != nil {
-		return err
-	}
-
-	if uriPrefix == constants.HfURIPrefix {
-		currentInit := utils.GetInitContainerWithName(&curr, constants.SpeculatorInitializerContainerName)
-		if currentInit == nil || slices.ContainsFunc(currentInit.Env, func(e corev1.EnvVar) bool {
-			return strings.HasPrefix(e.Name, "HF_")
-		}) {
-			utils.AddDefaultHuggingFaceEnvVars(initPtr)
-		}
-	}
-
-	injectCaBundle(llmSvc.Namespace, podSpec, initPtr, config.StorageConfig)
-
-	return nil
 }
 
 // injectSpeculativeDecodingArgs builds the --speculative-config JSON from the speculator's

@@ -315,40 +315,72 @@ func TestStripSpeculativeConfigFlag(t *testing.T) {
 	}
 }
 
-func TestStripPriorSpeculatorInitializer(t *testing.T) {
+func TestCollectSpeculatorDownloadPair(t *testing.T) {
 	t.Parallel()
-	podSpec := &corev1.PodSpec{
-		InitContainers: []corev1.Container{
-			{Name: "storage-initializer"},
-			{Name: constants.SpeculatorInitializerContainerName},
-			{Name: "other-init"},
+	tests := []struct {
+		name     string
+		spec     *v1alpha2.SpeculatorSpec
+		wantPair bool
+		wantURI  string
+	}{
+		{
+			name:     "nil speculator",
+			spec:     nil,
+			wantPair: false,
+		},
+		{
+			name:     "no model",
+			spec:     &v1alpha2.SpeculatorSpec{Config: map[string]string{"method": "ngram"}},
+			wantPair: false,
+		},
+		{
+			name: "hf model",
+			spec: func() *v1alpha2.SpeculatorSpec {
+				uri, _ := apis.ParseURL("hf://RedHatAI/Qwen3-32B-speculator.eagle3")
+				return &v1alpha2.SpeculatorSpec{Model: &v1alpha2.LLMSpeculatorModelSpec{URI: *uri}}
+			}(),
+			wantPair: true,
+			wantURI:  "hf://RedHatAI/Qwen3-32B-speculator.eagle3",
+		},
+		{
+			name: "s3 model",
+			spec: func() *v1alpha2.SpeculatorSpec {
+				uri, _ := apis.ParseURL("s3://bucket/speculator-model")
+				return &v1alpha2.SpeculatorSpec{Model: &v1alpha2.LLMSpeculatorModelSpec{URI: *uri}}
+			}(),
+			wantPair: true,
+			wantURI:  "s3://bucket/speculator-model",
+		},
+		{
+			name: "pvc model returns nil",
+			spec: func() *v1alpha2.SpeculatorSpec {
+				uri, _ := apis.ParseURL("pvc://my-pvc/model")
+				return &v1alpha2.SpeculatorSpec{Model: &v1alpha2.LLMSpeculatorModelSpec{URI: *uri}}
+			}(),
+			wantPair: false,
+		},
+		{
+			name: "oci model returns nil",
+			spec: func() *v1alpha2.SpeculatorSpec {
+				uri, _ := apis.ParseURL("oci://registry.example.com/model:v1")
+				return &v1alpha2.SpeculatorSpec{Model: &v1alpha2.LLMSpeculatorModelSpec{URI: *uri}}
+			}(),
+			wantPair: false,
 		},
 	}
-
-	stripPriorSpeculatorInitializer(podSpec)
-
-	require.Len(t, podSpec.InitContainers, 2)
-	for _, ic := range podSpec.InitContainers {
-		assert.NotEqual(t, constants.SpeculatorInitializerContainerName, ic.Name)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			pair := collectSpeculatorDownloadPair(tt.spec)
+			if !tt.wantPair {
+				assert.Nil(t, pair)
+				return
+			}
+			require.NotNil(t, pair)
+			assert.Equal(t, tt.wantURI, pair.uri)
+			assert.Equal(t, constants.DefaultSpeculatorLocalMountPath, pair.path)
+		})
 	}
-}
-
-func TestStripPriorSpeculatorInitializer_NilPodSpec(t *testing.T) {
-	t.Parallel()
-	stripPriorSpeculatorInitializer(nil)
-}
-
-func TestStripPriorSpeculatorInitializer_NoMatch(t *testing.T) {
-	t.Parallel()
-	podSpec := &corev1.PodSpec{
-		InitContainers: []corev1.Container{
-			{Name: "storage-initializer"},
-			{Name: "other-init"},
-		},
-	}
-
-	stripPriorSpeculatorInitializer(podSpec)
-	require.Len(t, podSpec.InitContainers, 2)
 }
 
 func TestAttachSpeculatorModelArtifacts_PvcURI(t *testing.T) {

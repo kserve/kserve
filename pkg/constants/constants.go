@@ -510,9 +510,8 @@ const DefaultModelLocalMountPath = "/mnt/models"
 
 // Speculative decoding constants
 const (
-	SpeculatorInitializerContainerName = "speculator-initializer"
-	SpeculatorVolumeName               = "kserve-speculator-location"
-	DefaultSpeculatorLocalMountPath    = "/mnt/speculator/model"
+	SpeculatorVolumeName            = "kserve-speculator-location"
+	DefaultSpeculatorLocalMountPath = "/mnt/speculator/model"
 )
 
 // DefaultCaBundleVolumeMountPath Default path to mount CA bundle configmap volume

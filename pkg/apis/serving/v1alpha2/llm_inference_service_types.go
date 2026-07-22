@@ -119,8 +119,8 @@ type LLMInferenceServiceSpec struct {
 	Tracing *TracingSpec `json:"tracing,omitempty"`
 
 	// Speculator configures speculative decoding for the model server.
-	// When specified with a model URI, the controller creates a second storage-initializer
-	// init container to download the speculator (or draft) model and mounts it into the
+	// When specified with a model URI, the controller downloads the speculator model
+	// via the shared storage-initializer init container and mounts it into the
 	// inference container. The config map is passed directly to vLLM's --speculative-config.
 	// +optional
 	Speculator *SpeculatorSpec `json:"speculator,omitempty"`
@@ -138,7 +138,7 @@ type LLMInferenceServiceSpec struct {
 // reducing the number of sequential decode steps and improving token generation throughput.
 //
 // When configured with a model, the controller:
-//  1. Creates a second storage-initializer init container to download the speculator/draft model
+//  1. Downloads the speculator model via the shared storage-initializer init container
 //  2. Mounts the downloaded model into the inference container at /mnt/speculator/model
 //  3. Injects the appropriate --speculative-config arguments into the vLLM command line
 //
@@ -177,7 +177,7 @@ type LLMInferenceServiceSpec struct {
 type SpeculatorSpec struct {
 	// Model specification for the speculator or draft model.
 	// The URI specifies the location of the model to download (e.g., hf://RedHatAI/Qwen3-32B-speculator.eagle3).
-	// The controller creates a dedicated storage-initializer init container to fetch this model.
+	// For hf:// and s3:// schemes, the model is downloaded via the shared storage-initializer init container.
 	// Not required for methods that don't use a separate model (e.g., ngram, mtp).
 	// +optional
 	Model *LLMSpeculatorModelSpec `json:"model,omitempty"`

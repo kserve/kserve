@@ -210,7 +210,7 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 			currLeaderSpec = currLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec
 		}
 
-		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLeaderSpec, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, config, "main", constants.DefaultModelLocalMountPath, len(config.ResolvedLoRAAdapters) > 0); err != nil {
+		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLeaderSpec, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, config, "main", constants.DefaultModelLocalMountPath, len(config.ResolvedLoRAAdapters) > 0, true); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to leader template: %w", err)
 		}
 		if llmSvc.Spec.KVCacheOffloading != nil {
@@ -241,7 +241,7 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 		}
 		expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
 
-		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, config, "main", constants.DefaultModelLocalMountPath, len(config.ResolvedLoRAAdapters) > 0); err != nil {
+		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, config, "main", constants.DefaultModelLocalMountPath, len(config.ResolvedLoRAAdapters) > 0, true); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to worker template: %w", err)
 		}
 		if llmSvc.Spec.KVCacheOffloading != nil {
@@ -359,7 +359,7 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 				currLeaderSpec = currLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec
 			}
 
-			if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLeaderSpec, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, config, "main", constants.DefaultModelLocalMountPath, len(config.ResolvedLoRAAdapters) > 0); err != nil {
+			if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLeaderSpec, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, config, "main", constants.DefaultModelLocalMountPath, len(config.ResolvedLoRAAdapters) > 0, false); err != nil {
 				return nil, fmt.Errorf("failed to attach model artifacts to prefill leader template: %w", err)
 			}
 			if llmSvc.Spec.Prefill.KVCacheOffloading != nil {
@@ -371,7 +371,7 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 
 			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
 
-			if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, config, "main", constants.DefaultModelLocalMountPath, len(config.ResolvedLoRAAdapters) > 0); err != nil {
+			if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, config, "main", constants.DefaultModelLocalMountPath, len(config.ResolvedLoRAAdapters) > 0, false); err != nil {
 				return nil, fmt.Errorf("failed to attach model artifacts to prefill worker template: %w", err)
 			}
 			if llmSvc.Spec.Prefill.KVCacheOffloading != nil {
