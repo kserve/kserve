@@ -2611,6 +2611,7 @@ metadata:
   namespace: kserve
 spec:
   annotations:
+    serving.kserve.io/llm-d-router-disagg-sidecar-version: 0.9.0
     serving.kserve.io/model-based-routing-enabled: "true"
   template:
     containers:
@@ -2844,34 +2845,18 @@ spec:
         readOnly: true
     initContainers:
     - command:
-      - /bin/sh
-      - -c
-      - |
-        TLS_ARGS=""
-        {{ if .GlobalConfig.EnableTLS -}}
-        SIDECAR_HELP="$(/app/pd-sidecar --help 2>&1 || true)"
-        if printf '%s' "$SIDECAR_HELP" | grep -q -- --enable-tls; then
-          TLS_ARGS="--enable-tls=decoder --enable-tls=prefiller"
-        elif printf '%s' "$SIDECAR_HELP" | grep -q -- --decoder-use-tls; then
-          TLS_ARGS="--decoder-use-tls=true --prefiller-use-tls=true"
-        else
-          echo "[pd-sidecar] WARNING: no known TLS flag found in --help output, starting without TLS forwarding" >&2
-        fi
-        {{- end }}
-        exec /app/pd-sidecar \
-          --port=8000 \
-          --vllm-port=8001 \
-          --kv-connector=nixlv2 \
-          --enable-ssrf-protection=true \
-          --pool-group=inference.networking.x-k8s.io \
-          --inference-pool={{ .GlobalConfig.InferencePoolNamespacedName }} \
-          {{ if .GlobalConfig.EnableTLS -}}
-          --secure-proxy=true \
-          --cert-path=/var/run/kserve/tls \
-          {{- else -}}
-          --secure-proxy=false \
-          {{- end }}
-          $TLS_ARGS
+      - /app/pd-sidecar
+      - --port=8000
+      - --vllm-port=8001
+      - --kv-connector=nixlv2
+      - --enable-ssrf-protection=true
+      - --pool-group=inference.networking.x-k8s.io
+      - --inference-pool={{ .GlobalConfig.InferencePoolNamespacedName }}
+      - '{{ if .GlobalConfig.EnableTLS }}--secure-proxy=true{{else}}--secure-proxy=false{{-
+        end }}'
+      - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
+      - '{{ if .GlobalConfig.EnableTLS }}--decoder-use-tls=true{{- end }}'
+      - '{{ if .GlobalConfig.EnableTLS }}--prefiller-use-tls=true{{- end }}'
       env:
       - name: INFERENCE_POOL_NAMESPACE
         valueFrom:
@@ -2941,6 +2926,7 @@ metadata:
   namespace: kserve
 spec:
   annotations:
+    serving.kserve.io/llm-d-router-disagg-sidecar-version: 0.9.0
     serving.kserve.io/model-based-routing-enabled: "true"
   template:
     containers:
@@ -3208,34 +3194,18 @@ spec:
         readOnly: true
     initContainers:
     - command:
-      - /bin/sh
-      - -c
-      - |
-        TLS_ARGS=""
-        {{ if .GlobalConfig.EnableTLS -}}
-        SIDECAR_HELP="$(/app/pd-sidecar --help 2>&1 || true)"
-        if printf '%s' "$SIDECAR_HELP" | grep -q -- --enable-tls; then
-          TLS_ARGS="--enable-tls=decoder --enable-tls=prefiller"
-        elif printf '%s' "$SIDECAR_HELP" | grep -q -- --decoder-use-tls; then
-          TLS_ARGS="--decoder-use-tls=true --prefiller-use-tls=true"
-        else
-          echo "[pd-sidecar] WARNING: no known TLS flag found in --help output, starting without TLS forwarding" >&2
-        fi
-        {{- end }}
-        exec /app/pd-sidecar \
-          --port=8000 \
-          --vllm-port=8001 \
-          --kv-connector=nixlv2 \
-          --enable-ssrf-protection=true \
-          --pool-group=inference.networking.x-k8s.io \
-          --inference-pool={{ .GlobalConfig.InferencePoolNamespacedName }} \
-          {{ if .GlobalConfig.EnableTLS -}}
-          --secure-proxy=true \
-          --cert-path=/var/run/kserve/tls \
-          {{- else -}}
-          --secure-proxy=false \
-          {{- end }}
-          $TLS_ARGS
+      - /app/pd-sidecar
+      - --port=8000
+      - --vllm-port=8001
+      - --kv-connector=nixlv2
+      - --enable-ssrf-protection=true
+      - --pool-group=inference.networking.x-k8s.io
+      - --inference-pool={{ .GlobalConfig.InferencePoolNamespacedName }}
+      - '{{ if .GlobalConfig.EnableTLS }}--secure-proxy=true{{else}}--secure-proxy=false{{-
+        end }}'
+      - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
+      - '{{ if .GlobalConfig.EnableTLS }}--decoder-use-tls=true{{- end }}'
+      - '{{ if .GlobalConfig.EnableTLS }}--prefiller-use-tls=true{{- end }}'
       env:
       - name: INFERENCE_POOL_NAMESPACE
         valueFrom:
