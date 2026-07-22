@@ -488,7 +488,9 @@ class DataPlane:
             headers: (Optional[Dict[str, str]]): Request headers.
 
         Returns:
-            Dict: Explanation result.
+            Tuple[Union[str, bytes, Dict, InferResponse], Dict[str, str]]:
+                - response: The explanation result.
+                - response_headers: Headers to construct the HTTP response.
 
         Raises:
             InvalidInput: An error when the body bytes can't be decoded as JSON.
