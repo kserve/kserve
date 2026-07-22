@@ -94,6 +94,11 @@ type Config struct {
 	UrlScheme               string `json:"urlScheme,omitempty"`
 	EnableTLS               bool   `json:"enableTLS,omitempty"`
 
+	// DisableHTTPRouteTimeout, when true, causes generated HTTPRoutes to omit
+	// spec.rules[*].timeouts. Some Gateway implementations (e.g. GKE Gateway)
+	// reject routes that set timeouts. Mirrors the v1beta1 ingress reconciler.
+	DisableHTTPRouteTimeout bool `json:"disableHTTPRouteTimeout,omitempty"`
+
 	ModelBasedRoutingHeaderName string                `json:"modelBasedRoutingHeaderName,omitempty"`
 	ModelBasedRoutingMode       ModelBasedRoutingMode `json:"modelBasedRoutingMode,omitempty"`
 
@@ -170,6 +175,7 @@ func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.Storag
 		IngressGatewayName:          igwName,
 		UrlScheme:                   ingressConfig.UrlScheme,
 		EnableTLS:                   ingressConfig.EnableLLMInferenceServiceTLS,
+		DisableHTTPRouteTimeout:     ingressConfig.DisableHTTPRouteTimeout,
 		ModelBasedRoutingHeaderName: ingressConfig.ModelBasedRoutingHeaderName,
 		ModelBasedRoutingMode:       parseModelBasedRoutingMode(ingressConfig.ModelBasedRoutingMode),
 		StorageConfig:               storageConfig,
