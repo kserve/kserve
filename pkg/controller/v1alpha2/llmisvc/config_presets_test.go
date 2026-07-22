@@ -101,30 +101,18 @@ func TestPresetFiles(t *testing.T) {
 								{
 									Name:  "llm-d-routing-sidecar",
 									Image: "ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.9.0",
-									// The routing sidecar is launched via a shell wrapper that senses the
-									// supported TLS flag at runtime (see the sidecar command in the decode
-									// preset YAML). The script below is that command block rendered with
-									// EnableTLS=false: the TLS detection branch is trimmed away and only
-									// the base pd-sidecar invocation remains. Written line-by-line to mirror
-									// the YAML; each entry is one rendered line with an explicit trailing
-									// newline (the blank " \n" line is leftover indentation from the trimmed
-									// TLS conditional).
 									Command: []string{
-										"/bin/sh",
-										"-c",
-										"TLS_ARGS=\"\"\n" +
-											"\n" +
-											"exec /app/pd-sidecar \\\n" +
-											"  --port=8000 \\\n" +
-											"  --vllm-port=8001 \\\n" +
-											"  --kv-connector=nixlv2 \\\n" +
-											"  --enable-ssrf-protection=true \\\n" +
-											"  --pool-group=inference.networking.x-k8s.io \\\n" +
-											"  --inference-pool=test-llm-preset-test/test-llm-preset-inference-pool \\\n" +
-											"  \n" +
-											"  --secure-proxy=false \\\n" +
-											"\n" +
-											"  $TLS_ARGS\n",
+										"/app/pd-sidecar",
+										"--port=8000",
+										"--vllm-port=8001",
+										"--kv-connector=nixlv2",
+										"--enable-ssrf-protection=true",
+										"--pool-group=inference.networking.x-k8s.io",
+										"--inference-pool=test-llm-preset-test/test-llm-preset-inference-pool",
+										"--secure-proxy=false",
+										"",
+										"",
+										"",
 									},
 									Env: []corev1.EnvVar{
 										{
