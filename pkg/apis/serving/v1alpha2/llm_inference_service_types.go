@@ -412,6 +412,13 @@ type HTTPRouteSpec struct {
 
 	// Spec allows for providing a custom specification for an HTTPRoute.
 	// If provided, the controller will create and manage an HTTPRoute with this specification.
+	//
+	// Spec fields are strategically merged with the well-known router-route preset:
+	// top-level fields such as hostnames and parentRefs can be set alone without losing
+	// preset rules/backendRefs. Supplying Rules replaces the entire preset Rules list
+	// (provide a complete list). An exception is timeout-only rule patches (Rules entries
+	// that set only timeouts), which overlay those timeouts onto the preset rules instead
+	// of replacing them.
 	// +optional
 	Spec *gwapiv1.HTTPRouteSpec `json:"spec,omitempty"`
 }
