@@ -1,4 +1,4 @@
-name: Kserve controller Docker Publisher
+name: Go Components Docker Publisher
 
 on:
   push:
@@ -13,29 +13,41 @@ on:
   # Run tests for any PRs.
   pull_request:
     paths:
-      - "**"
-      - "!python/**"
-      - "!.github/**"
-      - "!docs/**"
-      - "!**.md"
-      - ".github/workflows/kserve-controller-docker-publish.yml"
+      - "cmd/**"
+      - "pkg/**"
+      - "go.mod"
+      - "go.sum"
+      - "Dockerfile"
+      - ".github/workflows/go-docker-publish.yml"
       - ".github/actions/free-up-disk-space/**"
   # To save some compute time, rely on PR check and don't run for merge queues
   # merge_group:
   #   types: [ checks_requested ]
-
-env:
-  IMAGE_NAME: kserve-controller
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # Run tests.
-  # See also https://docs.docker.com/docker-hub/builds/automated-testing/
-  test:
+  build:
     runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: kserve-controller
+            cmd: manager
+          - image: agent
+            cmd: agent
+          - image: llmisvc-controller
+            cmd: llmisvc
+          - image: kserve-localmodel-controller
+            cmd: localmodel
+          - image: kserve-localmodelnode-agent
+            cmd: localmodelnode
+          - image: router
+            cmd: router
 
     steps:
       - name: Checkout source
@@ -53,32 +65,8 @@ jobs:
       - name: Free-up disk space
         uses: ./.github/actions/free-up-disk-space
 
-      - name: Run tests
-        run: |
-          if [ -f docker-compose.test.yml ]; then
-            docker-compose --file docker-compose.test.yml build
-            docker-compose --file docker-compose.test.yml run sut
-          else
-            docker buildx build . --file Dockerfile
-          fi
-
-  # Push image to GitHub Packages.
-  # See also https://docs.docker.com/docker-hub/builds/
-  push:
-    # Ensure test job passes before pushing image.
-    needs: test
-
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push'
-
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-      
-      - name: Free-up disk space
-        uses: ./.github/actions/free-up-disk-space
-
       - name: Setup QEMU
+        if: github.event_name == 'push'
         uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
         with:
           cache-image: true
@@ -89,18 +77,15 @@ jobs:
           cache-binary: true
 
       - name: Login to DockerHub
+        if: github.event_name == 'push'
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: export version variable
+      - name: Compute tag
+        if: github.event_name == 'push'
         run: |
-          IMAGE_ID=kserve/$IMAGE_NAME
-
-          # Change all uppercase to lowercase
-          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
-
           # Strip git ref prefix from version
           VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
 
@@ -111,16 +96,29 @@ jobs:
           [ "$VERSION" == "master" ] && VERSION=latest
 
           echo VERSION=$VERSION >> $GITHUB_ENV
-          echo IMAGE_ID=$IMAGE_ID >> $GITHUB_ENV
 
-      - name: Build and push
+      - name: Build (PR — single platform, no push)
+        if: github.event_name == 'pull_request'
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: Dockerfile
+          target: ${{ matrix.image }}
+          build-args: |
+            CMD=${{ matrix.cmd }}
+          push: false
+
+      - name: Build and push (multi-arch)
+        if: github.event_name == 'push'
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           platforms: linux/amd64,linux/arm/v7,linux/arm64/v8,linux/ppc64le,linux/s390x
           context: .
           file: Dockerfile
+          target: ${{ matrix.image }}
+          build-args: |
+            CMD=${{ matrix.cmd }}
           push: true
-          tags: ${{ env.IMAGE_ID }}:${{ env.VERSION }}
-          # https://github.com/docker/buildx/issues/1533
+          tags: kserve/${{ matrix.image }}:${{ env.VERSION }}
           provenance: false
           sbom: true

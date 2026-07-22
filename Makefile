@@ -496,7 +496,7 @@ bump-version:
 
 # Build the docker image
 docker-build:
-	${ENGINE} buildx build ${ARCH} --build-arg GOTAGS=${GOTAGS} . -t ${KO_DOCKER_REPO}/${CONTROLLER_IMG}
+	${ENGINE} buildx build ${ARCH} --target kserve-controller --build-arg CMD=manager --build-arg GOTAGS=${GOTAGS} . -t ${KO_DOCKER_REPO}/${CONTROLLER_IMG}
 	@echo "updating kustomize image patch file for manager resource"
 
 	# Use perl instead of sed to avoid OSX/Linux compatibility issue:
@@ -508,28 +508,28 @@ docker-push:
 	docker push ${KO_DOCKER_REPO}/${CONTROLLER_IMG}
 
 docker-build-llmisvc:
-	${ENGINE} buildx build ${ARCH} --load --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG} -f llmisvc-controller.Dockerfile .
+	${ENGINE} buildx build ${ARCH} --load --target llmisvc-controller --build-arg CMD=llmisvc --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG} .
 
 docker-push-llmisvc: docker-build-llmisvc
 	${ENGINE} push ${KO_DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}
 
 docker-build-localmodel:
-	${ENGINE} buildx build ${ARCH} --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG} -f localmodel.Dockerfile .
+	${ENGINE} buildx build ${ARCH} --target kserve-localmodel-controller --build-arg CMD=localmodel --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG} .
 
 docker-push-localmodel: docker-build-localmodel
-	${ENGINE} buildx build ${ARCH} --push --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG} -f localmodel.Dockerfile .
+	${ENGINE} buildx build ${ARCH} --push --target kserve-localmodel-controller --build-arg CMD=localmodel --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG} .
 
 docker-build-localmodelnode-agent:
-	${ENGINE} buildx build ${ARCH} --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LOCALMODEL_AGENT_IMG} -f localmodel-agent.Dockerfile .
+	${ENGINE} buildx build ${ARCH} --target kserve-localmodelnode-agent --build-arg CMD=localmodelnode --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LOCALMODEL_AGENT_IMG} .
 
 docker-push-localmodelnode-agent: docker-build-localmodelnode-agent
-	${ENGINE} buildx build ${ARCH} --push --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LOCALMODEL_AGENT_IMG} -f localmodel-agent.Dockerfile .
+	${ENGINE} buildx build ${ARCH} --push --target kserve-localmodelnode-agent --build-arg CMD=localmodelnode --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LOCALMODEL_AGENT_IMG} .
 
 docker-build-agent:
-	${ENGINE} buildx build ${ARCH} --build-arg GOTAGS=${GOTAGS} -f agent.Dockerfile . -t ${KO_DOCKER_REPO}/${AGENT_IMG}
+	${ENGINE} buildx build ${ARCH} --target agent --build-arg CMD=agent --build-arg GOTAGS=${GOTAGS} . -t ${KO_DOCKER_REPO}/${AGENT_IMG}
 
 docker-build-router:
-	${ENGINE} buildx build ${ARCH} --build-arg GOTAGS=${GOTAGS} -f router.Dockerfile . -t ${KO_DOCKER_REPO}/${ROUTER_IMG}
+	${ENGINE} buildx build ${ARCH} --target router --build-arg CMD=router --build-arg GOTAGS=${GOTAGS} . -t ${KO_DOCKER_REPO}/${ROUTER_IMG}
 
 docker-push-agent:
 	${ENGINE} push ${KO_DOCKER_REPO}/${AGENT_IMG}
