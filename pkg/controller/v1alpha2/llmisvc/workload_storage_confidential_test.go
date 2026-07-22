@@ -22,8 +22,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 	kserveTypes "github.com/kserve/kserve/pkg/types"
@@ -90,7 +93,11 @@ func TestAttachStorageInitializerConfidential(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			r := &LLMISVCReconciler{}
+			scheme := runtime.NewScheme()
+			_ = v1alpha1.AddToScheme(scheme)
+			r := &LLMISVCReconciler{
+				Client: fake.NewClientBuilder().WithScheme(scheme).Build(),
+			}
 
 			// For restart-avoidance test, simulate an existing deployment
 			curr := corev1.PodSpec{}
@@ -117,6 +124,7 @@ func TestAttachStorageInitializerConfidential(t *testing.T) {
 				},
 			}
 			err := r.attachStorageInitializer(
+				t.Context(),
 				llmSvc,
 				"s3://bucket/model",
 				curr,

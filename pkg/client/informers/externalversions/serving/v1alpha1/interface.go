@@ -42,6 +42,8 @@ type Interface interface {
 	LocalModelNodeGroups() LocalModelNodeGroupInformer
 	// ServingRuntimes returns a ServingRuntimeInformer.
 	ServingRuntimes() ServingRuntimeInformer
+	// StorageContainers returns a StorageContainerInformer.
+	StorageContainers() StorageContainerInformer
 	// TrainedModels returns a TrainedModelInformer.
 	TrainedModels() TrainedModelInformer
 }
@@ -100,6 +102,11 @@ func (v *version) LocalModelNodeGroups() LocalModelNodeGroupInformer {
 // ServingRuntimes returns a ServingRuntimeInformer.
 func (v *version) ServingRuntimes() ServingRuntimeInformer {
 	return &servingRuntimeInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// StorageContainers returns a StorageContainerInformer.
+func (v *version) StorageContainers() StorageContainerInformer {
+	return &storageContainerInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // TrainedModels returns a TrainedModelInformer.
