@@ -1,3 +1,4 @@
 {{- if .Values.kserve.llmisvcConfigs.enabled }}
-{{ .Files.Get "files/llmisvcconfigs/resources.yaml" }}
+{{- $content := .Files.Get "files/llmisvcconfigs/resources.yaml" -}}
+{{ include "kserve-common.replaceNamespace" (list $content .Release.Namespace) }}
 {{- end }}
