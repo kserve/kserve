@@ -56,6 +56,7 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 	kservescheme "github.com/kserve/kserve/pkg/scheme"
+	kservetls "github.com/kserve/kserve/pkg/tls"
 	llmisvcwebhook "github.com/kserve/kserve/pkg/webhook/admission/llminferenceservice"
 )
 
@@ -81,11 +82,13 @@ type Options struct {
 	metricsAddr           string
 	webhookPort           int
 	enableLeaderElection  bool
+	enableHTTP2           bool
 	probeAddr             string
 	metricsSecure         bool
-	enableHTTP2           bool
 	migrationTimeout      time.Duration
 	migrationPollInterval time.Duration
+	tlsMinVersion         string
+	tlsCipherSuites       string
 	zapOpts               zap.Options
 }
 
@@ -96,7 +99,6 @@ func DefaultOptions() Options {
 		enableLeaderElection:  false,
 		probeAddr:             ":8081",
 		metricsSecure:         true,
-		enableHTTP2:           false,
 		migrationTimeout:      1 * time.Hour,
 		migrationPollInterval: 30 * time.Second,
 		zapOpts:               zap.Options{},
@@ -113,7 +115,9 @@ func GetOptions() Options {
 			"Enabling this will ensure there is only one active kserve controller manager.")
 	flag.StringVar(&opts.probeAddr, "health-probe-addr", opts.probeAddr, "The address the probe endpoint binds to.")
 	flag.BoolVar(&opts.metricsSecure, "metrics-secure", opts.metricsSecure, "Whether to serve metric via HTTPS.")
-	flag.BoolVar(&opts.enableHTTP2, "enable-http2", false, "If set, HTTP/2 will be enabled for the metrics and webhook servers")
+	flag.BoolVar(&opts.enableHTTP2, "enable-http2", false, "Deprecated: CVE-2023-44487 is fixed in Go 1.21.3+. Use --tls-min-version and --tls-cipher-suites instead.")
+	flag.StringVar(&opts.tlsMinVersion, "tls-min-version", opts.tlsMinVersion, "Minimum TLS version (VersionTLS12, VersionTLS13). Defaults to VersionTLS12.")
+	flag.StringVar(&opts.tlsCipherSuites, "tls-cipher-suites", opts.tlsCipherSuites, "Comma-separated list of TLS cipher suites (Go names). If empty, Go defaults are used.")
 	flag.DurationVar(&opts.migrationTimeout, "storage-migration-timeout", opts.migrationTimeout, "Total retry budget for storage version migration.")
 	flag.DurationVar(&opts.migrationPollInterval, "storage-migration-poll-interval", opts.migrationPollInterval, "Polling interval for storage version migration retries after initial backoff.")
 	opts.zapOpts.BindFlags(flag.CommandLine)
@@ -153,24 +157,37 @@ func main() {
 		os.Exit(1)
 	}
 
-	// http/2 should be disabled due to its vulnerabilities. More specifically, disabling http/2 will
-	// prevent from being vulnerable to the HTTP/2 Stream Cancellation and
-	// Rapid Reset CVEs. For more information see:
-	// - https://github.com/advisories/GHSA-qppj-fm5r-hxr3
-	// - https://github.com/advisories/GHSA-4374-p667-p6c8
-	disableHTTP2 := func(c *tls.Config) {
-		setupLog.Info("disabling http/2")
-		c.NextProtos = []string{"http/1.1"}
-	}
+	var enableHTTP2Set bool
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "enable-http2" {
+			enableHTTP2Set = true
+		}
+	})
 
 	var tlsOpts []func(*tls.Config)
-	if !options.enableHTTP2 {
-		tlsOpts = append(tlsOpts, disableHTTP2)
+	switch {
+	case options.tlsMinVersion != "" || options.tlsCipherSuites != "":
+		var err error
+		tlsOpts, err = kservetls.Resolve(ctx, cfg, options.tlsMinVersion, options.tlsCipherSuites)
+		if err != nil {
+			setupLog.Error(err, "unable to resolve TLS configuration")
+			os.Exit(1)
+		}
+	case enableHTTP2Set:
+		setupLog.Info("WARNING: --enable-http2 is deprecated and will be removed in a future release. " +
+			"CVE-2023-44487 is fixed in Go 1.21.3+. Use --tls-min-version and --tls-cipher-suites instead.")
+		if !options.enableHTTP2 {
+			tlsOpts = kservetls.LegacyHTTP2TLSOpts()
+		}
+	default:
+		var err error
+		tlsOpts, err = kservetls.Resolve(ctx, cfg, "", "")
+		if err != nil {
+			setupLog.Error(err, "unable to resolve TLS configuration")
+			os.Exit(1)
+		}
 	}
-	// Metrics endpoint is enabled in 'config/default/kustomization.yaml'. The Metrics options configure the server.
-	// More info:
-	// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.21.0/pkg/metrics/server
-	// - https://book.kubebuilder.io/reference/metrics.html
+
 	metricsServerOptions := metricsserver.Options{
 		BindAddress:   options.metricsAddr,
 		SecureServing: options.metricsSecure,
@@ -178,10 +195,6 @@ func main() {
 	}
 
 	if options.metricsSecure {
-		// FilterProvider is used to protect the metrics endpoint with authn/authz.
-		// These configurations ensure that only authorized users and service accounts
-		// can access the metrics endpoint. The RBAC are configured in 'config/rbac/kustomization.yaml'. More info:
-		// https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.21.0/pkg/metrics/filters#WithAuthenticationAndAuthorization
 		metricsServerOptions.FilterProvider = filters.WithAuthenticationAndAuthorization
 	}
 
