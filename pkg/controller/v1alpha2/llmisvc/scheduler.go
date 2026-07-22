@@ -62,6 +62,7 @@ const (
 	loraAffinityScorerPlugin          = "lora-affinity-scorer"
 	coreMetricsExtractorPlugin        = "model-server-protocol-metrics"
 	coreMetricsExtractorPluginRenamed = "core-metrics-extractor"
+	metricsDataSourcePlugin           = "metrics-data-source"
 	udsTokenizerBaseModelName         = "base"
 	udsTokenizerSocketFile            = "/tmp/tokenizer/tokenizer-uds.socket" //nolint:gosec // G101: not a credential, UDS socket path
 	tokenizerModelName                = "/mnt/models/base"                    // matches the vLLM render --model arg in config-llm-tokenizer.yaml
@@ -1295,6 +1296,16 @@ var deprecatedMetricFlagNames = map[string]bool{
 	"cache-info-metric":                true,
 }
 
+// modelServerMetricsSchemeFlag is the deprecated EPP CLI flag (without leading
+// dashes) removed in llm-d-router 0.10, superseded by the metrics-data-source
+// data layer plugin's scheme parameter in EndpointPickerConfig.
+const modelServerMetricsSchemeFlag = "model-server-metrics-scheme"
+
+// metricsDataSourceSchemeMinVersion is the first llm-d-router version that
+// removes --model-server-metrics-scheme; from this version the scrape scheme
+// must be supplied via the metrics-data-source plugin parameters.
+var metricsDataSourceSchemeMinVersion = semver.New("0.10.0")
+
 // hasDeprecatedMetricFlags reports whether any container in the pod spec
 // carries one of the 5 deprecated metric CLI flags, without modifying args.
 func hasDeprecatedMetricFlags(d *appsv1.Deployment) bool {
@@ -1333,6 +1344,8 @@ func hasDeprecatedMetricFlags(d *appsv1.Deployment) bool {
 //  5. withCoreMetricsExtractorPlugin – inject core-metrics-extractor with extracted flag values
 //  6. withMigrateCoreMetricsExtractor – rename model-server-protocol-metrics → core-metrics-extractor
 //     (v0.8.0 only, runs after injection so freshly injected plugins are also renamed)
+//  7. withMetricsDataSourceScheme – move --model-server-metrics-scheme into the
+//     metrics-data-source plugin parameters (v0.10.0+, flag removed upstream)
 func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alpha2.LLMInferenceService, enableTLS bool) error {
 	version, ok := d.Spec.Template.Annotations["app.kubernetes.io/version"]
 	if !ok || version == "" {
@@ -1387,6 +1400,24 @@ func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alp
 			tokURL := tokenizerServiceURL(llmSvc, enableTLS)
 			opts = append(opts, withDecomposePrecisePrefixCacheScorer(tokURL))
 			opts = append(opts, withInjectTokenProducerConfig(tokURL))
+		}
+	}
+
+	// llm-d-router v0.10.0 removes "--model-server-metrics-scheme"
+	// the function had been moved into metrics-data-source plugin parameters.
+	if v.Compare(*metricsDataSourceSchemeMinVersion) >= 0 {
+		if !writable {
+			if hasModelServerMetricsSchemeFlag(d) {
+				return fmt.Errorf(
+					"scheduler deployment %s/%s sets --%s but has no inline "+
+						"--config-text; automatic migration to the metrics-data-source "+
+						"plugin is not possible — convert to --config-text or remove the "+
+						"flag manually",
+					d.GetNamespace(), d.GetName(), modelServerMetricsSchemeFlag,
+				)
+			}
+		} else if scheme := extractModelServerMetricsScheme(d); scheme != "" {
+			opts = append(opts, withMetricsDataSourceScheme(scheme))
 		}
 	}
 
@@ -1768,6 +1799,35 @@ func extractDeprecatedMetricFlags(d *appsv1.Deployment) map[string]string {
 	return allExtracted
 }
 
+// extractModelServerMetricsScheme strips the deprecated --model-server-metrics-scheme
+// flag from every container's Command and returns its value (empty if absent).
+// The scheduler preset carries the flag on Command.
+func extractModelServerMetricsScheme(d *appsv1.Deployment) string {
+	names := map[string]bool{modelServerMetricsSchemeFlag: true}
+	scheme := ""
+	for ci := range d.Spec.Template.Spec.Containers {
+		c := &d.Spec.Template.Spec.Containers[ci]
+		if filtered, extracted := filterArgs(c.Command, names); len(extracted) > 0 {
+			c.Command = filtered
+			scheme = extracted[modelServerMetricsSchemeFlag]
+		}
+	}
+	return scheme
+}
+
+// hasModelServerMetricsSchemeFlag reports whether any container carries the
+// --model-server-metrics-scheme flag on Command, without modifying it.
+func hasModelServerMetricsSchemeFlag(d *appsv1.Deployment) bool {
+	names := map[string]bool{modelServerMetricsSchemeFlag: true}
+	for ci := range d.Spec.Template.Spec.Containers {
+		c := &d.Spec.Template.Spec.Containers[ci]
+		if _, extracted := filterArgs(c.Command, names); len(extracted) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // filterArgs removes matching flags from args and returns their values.
 // It handles both --flag=value and --flag value forms.
 func filterArgs(args []string, names map[string]bool) (filtered []string, extracted map[string]string) {
@@ -1842,6 +1902,38 @@ func withCoreMetricsExtractorPlugin(extracted map[string]string) mutateScheduler
 				"engineConfigs": []interface{}{
 					engineConfig,
 				},
+			},
+		}
+
+		plugins = append(plugins, pluginEntry)
+		return unstructured.SetNestedSlice(u.Object, plugins, "plugins")
+	}
+}
+
+// withMetricsDataSourceScheme returns a mutateSchedulerConfigFunc that injects a
+// metrics-data-source plugin carrying the scheme previously passed via the
+// --model-server-metrics-scheme CLI flag. EPP data layer defaulting wires the
+// declared source to core-metrics-extractor automatically, so only the plugin
+// entry is needed. Callers pass a non-empty scheme; no-op if a metrics-data-source
+// plugin is already declared.
+func withMetricsDataSourceScheme(scheme string) mutateSchedulerConfigFunc {
+	return func(_ context.Context, u *unstructured.Unstructured) error {
+		val, _, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
+		if err != nil {
+			return err
+		}
+		plugins, _ := val.([]interface{})
+
+		for _, plugin := range plugins {
+			if pluginMap, ok := plugin.(map[string]interface{}); ok && pluginMap["type"] == metricsDataSourcePlugin {
+				return nil
+			}
+		}
+
+		pluginEntry := map[string]interface{}{
+			"type": metricsDataSourcePlugin,
+			"parameters": map[string]interface{}{
+				"scheme": scheme,
 			},
 		}
 
