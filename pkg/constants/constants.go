@@ -466,10 +466,6 @@ const (
 	// that handles prefill disaggregation routing.
 	LLMISVCRoutingSidecarContainerName = "llm-d-routing-sidecar"
 
-	// LLMDRouterDisaggSidecarVersionAnnotationKey carries the llm-d-router-disagg-sidecar
-	// image version and gates version-dependent routing sidecar flag migrations.
-	LLMDRouterDisaggSidecarVersionAnnotationKey = "serving.kserve.io/llm-d-router-disagg-sidecar-version"
-
 	LLMISVCDefaultServiceAccountName = "default"
 
 	// LLMISVCSchedulerAttachesLoRA controls whether the scheduler's tokenizer sidecar

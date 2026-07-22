@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/coreos/go-semver/semver"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -58,11 +57,6 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 
 	if utils.GetForceStopRuntime(llmSvc) {
 		llmSvc.MarkMainWorkloadNotReady("Stopped", "Service is stopped")
-	}
-
-	if err := migrateRoutingSidecars(&llmSvc.Spec); err != nil {
-		llmSvc.MarkMainWorkloadNotReady("RoutingSidecarMigrationError", err.Error())
-		return fmt.Errorf("failed to migrate routing sidecars: %w", err)
 	}
 
 	// Set up TLS certificates for secure communication
@@ -216,61 +210,6 @@ func routingSidecar(pod *corev1.PodSpec) *corev1.Container {
 		}
 	}
 	return nil
-}
-
-// routingSidecarEnableTLSMinVersion is the first llm-d-router version requiring
-// the consolidated --enable-tls=<stage> flag.
-var routingSidecarEnableTLSMinVersion = semver.New("0.10.0")
-
-// tlsFlagMigrations maps each deprecated llm-d-router-disagg-sidecar TLS flag
-// to its --enable-tls=<stage> replacement.
-var tlsFlagMigrations = []struct {
-	deprecated, replacement string
-}{
-	{"decoder-use-tls", "--enable-tls=decoder"},
-	{"prefiller-use-tls", "--enable-tls=prefiller"},
-}
-
-// migrateRoutingSidecars applies version-gated sidecar migrations in a single
-// post-merge pass over the main (single-node / multi-node leader) and worker pod
-// templates, replacing the previously duplicated per-builder calls. The version
-// comes from the llm-d-router-disagg-sidecar-version annotation (empty/missing = 0.0.0).
-func migrateRoutingSidecars(spec *v1alpha2.LLMInferenceServiceSpec) error {
-	version := spec.Annotations[constants.LLMDRouterDisaggSidecarVersionAnnotationKey]
-	if version == "" {
-		version = "0.0.0"
-	}
-	v, err := semver.NewVersion(version)
-	if err != nil {
-		return fmt.Errorf("failed to parse llm-d-router-disagg-sidecar version %q: %w", version, err)
-	}
-
-	for _, ps := range []*corev1.PodSpec{spec.Template, spec.Worker} {
-		if s := routingSidecar(ps); s != nil {
-			migrateRoutingSidecarEnableTLS(v, s)
-		}
-	}
-	return nil
-}
-
-// migrateRoutingSidecarEnableTLS rewrites the deprecated --decoder-use-tls /
-// --prefiller-use-tls flags to --enable-tls=<stage> for llm-d-router >= 0.10.0,
-// which no longer accepts the old flags. Older versions are left untouched.
-func migrateRoutingSidecarEnableTLS(v *semver.Version, s *corev1.Container) {
-	if v.Compare(*routingSidecarEnableTLSMinVersion) < 0 {
-		return
-	}
-	names := make(map[string]bool, len(tlsFlagMigrations))
-	for _, m := range tlsFlagMigrations {
-		names[m.deprecated] = true
-	}
-	filtered, extracted := filterArgs(s.Command, names)
-	s.Command = filtered
-	for _, m := range tlsFlagMigrations {
-		if val, ok := extracted[m.deprecated]; ok && (val == "" || val == "true") {
-			s.Command = append(s.Command, m.replacement)
-		}
-	}
 }
 
 // PreserveDeploymentReplicas returns an UpdateOption that preserves the current
