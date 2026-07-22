@@ -37,6 +37,7 @@ from ..common.utils import (
     predict_isvc,
     predict_grpc,
     extract_process_ids_from_logs,
+    wait_for_pod_logs,
 )
 
 
@@ -181,12 +182,12 @@ async def test_sklearn_runtime_kserve(rest_v1_client, network_layer):
         KSERVE_TEST_NAMESPACE,
         label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
     )
-    # Wait for logs to be available
-    await asyncio.sleep(5)
-    logs = kserve_client.core_api.read_namespaced_pod_log(
-        name=pods.items[0].metadata.name,
-        namespace=pods.items[0].metadata.namespace,
-        container="kserve-container",
+    logs = await wait_for_pod_logs(
+        kserve_client.core_api,
+        pods.items[0].metadata.name,
+        pods.items[0].metadata.namespace,
+        expected_substring="kserve.trace",
+        timeout_s=30,
     )
     process_ids = extract_process_ids_from_logs(logs)
     assert len(process_ids) == 2

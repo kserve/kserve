@@ -34,7 +34,14 @@ from kserve.logging import trace_logger as logger
 from .http_retry import DEFAULT_TIMEOUT_SECONDS, post_with_retry
 
 KSERVE_NAMESPACE = os.environ.get("KSERVE_NAMESPACE", "kserve")
-KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
+_BASE_TEST_NAMESPACE = os.environ.get("KSERVE_TEST_NAMESPACE", "kserve-ci-e2e-test")
+_WORKER_ID = os.environ.get("PYTEST_XDIST_WORKER", "")
+_NAMESPACE_ISOLATION = os.environ.get("E2E_WORKER_COUNT", "")
+KSERVE_TEST_NAMESPACE = (
+    f"{_BASE_TEST_NAMESPACE}-{_WORKER_ID}"
+    if _WORKER_ID and _NAMESPACE_ISOLATION
+    else _BASE_TEST_NAMESPACE
+)
 # autogluonserver: large image + storage init + predictor load often exceeds default
 # KServeClient.wait_isvc_ready (600s) under parallel e2e; override via env if needed.
 AUTOGLUON_ISVC_WAIT_TIMEOUT = int(os.getenv("AUTOGLUON_ISVC_WAIT_TIMEOUT", "1200"))
@@ -671,3 +678,41 @@ def extract_process_ids_from_logs(logs: str) -> set[int]:
             process_ids.add(int(tokens[2]))
     logger.info("Extracted process ids: %s", process_ids)
     return process_ids
+
+
+async def wait_for_pod_logs(
+    core_api,
+    pod_name: str,
+    namespace: str,
+    container: str = "kserve-container",
+    *,
+    expected_substring: str = None,
+    timeout_s: int = 30,
+    poll_interval_s: int = 2,
+) -> str:
+    """Poll pod logs until non-empty (and optionally containing a substring).
+
+    Replaces bare ``asyncio.sleep()`` calls that hope logs are available after
+    a fixed delay. Returns the full log content once the condition is met.
+    """
+    import time
+
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        try:
+            logs = core_api.read_namespaced_pod_log(
+                name=pod_name,
+                namespace=namespace,
+                container=container,
+            )
+            if logs and (expected_substring is None or expected_substring in logs):
+                return logs
+        except k8s_client.rest.ApiException:
+            pass
+        await asyncio.sleep(poll_interval_s)
+    try:
+        return core_api.read_namespaced_pod_log(
+            name=pod_name, namespace=namespace, container=container
+        )
+    except k8s_client.rest.ApiException:
+        return ""

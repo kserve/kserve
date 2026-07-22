@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Predictor-scope pytest fixtures.
+"""Predictor-scope pytest fixtures for resource leak prevention.
 
 Predictor tests follow the pattern ``create -> wait_isvc_ready -> assert ->
 delete``. If ``wait_isvc_ready`` raises (slow cold start, scheduling failure,
@@ -50,9 +50,6 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 _ISVC_POD_LABEL = "serving.kserve.io/inferenceservice"
 _TERMINATION_WAIT_TIMEOUT_S = 180
 _TERMINATION_POLL_INTERVAL_S = 2
-# Brief grace before the first poll so we don't race the controller's
-# propagation of a just-issued ``delete()`` (ISVC -> Knative -> Deployment
-# scale-to-0 -> pod ``deletionTimestamp``) — usually 1-2s in practice.
 _TERMINATION_PROPAGATION_GRACE_S = 5
 
 
