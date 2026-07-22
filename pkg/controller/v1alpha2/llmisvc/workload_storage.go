@@ -71,10 +71,33 @@ func extractAndStripStorageInitializer(podSpec *corev1.PodSpec) *corev1.Containe
 	return extracted
 }
 
+// collectSpeculatorDownloadPair returns a storageDownloadPair for the speculator model
+// when it uses hf:// or s3:// schemes (which require the storage-initializer). Returns
+// nil for pvc://, oci://, or when no speculator model is configured.
+func collectSpeculatorDownloadPair(speculator *v1alpha2.SpeculatorSpec) *storageDownloadPair {
+	if speculator == nil || speculator.Model == nil {
+		return nil
+	}
+	uri := speculator.Model.URI.String()
+	schema, _, sepFound := strings.Cut(uri, "://")
+	if !sepFound {
+		return nil
+	}
+	switch schema + "://" {
+	case constants.HfURIPrefix, constants.S3URIPrefix:
+		return &storageDownloadPair{uri: uri, path: constants.DefaultSpeculatorLocalMountPath}
+	default:
+		return nil
+	}
+}
+
 // attachModelArtifacts configures a PodSpec to fetch and use a model from a provided URI in the LLMInferenceService.
 // The storage backend (PVC, OCI, Hugging Face, or S3) is determined from the URI schema and the appropriate helper function
 // is called to configure the PodSpec. This function will adjust volumes, container arguments, container volume mounts,
 // add containers, and do other changes to the PodSpec to ensure the model is fetched properly from storage.
+//
+// When attachSpeculator is true and the speculator model uses hf:// or s3://, the speculator download
+// pair is included in the shared storage-initializer init container alongside the base model and LoRA adapters.
 //
 // Parameters:
 //   - ctx: The context for API calls and logging.
@@ -86,7 +109,7 @@ func extractAndStripStorageInitializer(podSpec *corev1.PodSpec) *corev1.Containe
 // Returns:
 //
 //	An error if the configuration fails, otherwise nil.
-func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, curr corev1.PodSpec, podSpec *corev1.PodSpec, config *Config, containerName string, modelPath string, attachLoRA bool) error {
+func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, curr corev1.PodSpec, podSpec *corev1.PodSpec, config *Config, containerName string, modelPath string, attachLoRA bool, attachSpeculator bool) error {
 	modelUri := llmSvc.Spec.Model.URI.String()
 	schema, _, sepFound := strings.Cut(modelUri, "://")
 
@@ -127,14 +150,23 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 		loraPairs = collectLoRADownloadPairs(config.ResolvedLoRAAdapters)
 	}
 
+	var specPair *storageDownloadPair
+	if attachSpeculator {
+		specPair = collectSpeculatorDownloadPair(llmSvc.Spec.Speculator)
+	}
+
 	// Handle model artifact downloads based on URI scheme
 	switch schema + "://" {
 	case constants.PvcURIPrefix:
 		if err := r.attachPVCModelArtifact(modelUri, podSpec, containerName, modelPath); err != nil {
 			return err
 		}
-		if len(loraPairs) > 0 {
-			if err := r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, loraPairs); err != nil {
+		downloadPairs := loraPairs
+		if specPair != nil {
+			downloadPairs = append(downloadPairs, *specPair)
+		}
+		if len(downloadPairs) > 0 {
+			if err := r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, downloadPairs); err != nil {
 				return err
 			}
 		} else {
@@ -146,8 +178,12 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 		if err := r.attachOciNativeModelArtifact(normalizedURI, podSpec, config.StorageConfig, containerName, modelPath); err != nil {
 			return err
 		}
-		if len(loraPairs) > 0 {
-			if err := r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, loraPairs); err != nil {
+		downloadPairs := loraPairs
+		if specPair != nil {
+			downloadPairs = append(downloadPairs, *specPair)
+		}
+		if len(downloadPairs) > 0 {
+			if err := r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, downloadPairs); err != nil {
 				return err
 			}
 		}
@@ -167,8 +203,12 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 				return err
 			}
 		}
-		if len(loraPairs) > 0 {
-			if err := r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, loraPairs); err != nil {
+		downloadPairs := loraPairs
+		if specPair != nil {
+			downloadPairs = append(downloadPairs, *specPair)
+		}
+		if len(downloadPairs) > 0 {
+			if err := r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, downloadPairs); err != nil {
 				return err
 			}
 		} else {
@@ -176,24 +216,30 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 		}
 
 	case constants.HfURIPrefix:
-		if len(loraPairs) == 0 {
+		if len(loraPairs) == 0 && specPair == nil {
 			if err := r.attachHfModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, modelPath); err != nil {
 				return err
 			}
 		} else {
 			pairs := append([]storageDownloadPair{{uri: modelUri, path: constants.DefaultModelLocalMountPath}}, loraPairs...)
+			if specPair != nil {
+				pairs = append(pairs, *specPair)
+			}
 			if err := r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, pairs); err != nil {
 				return err
 			}
 		}
 
 	case constants.S3URIPrefix:
-		if len(loraPairs) == 0 {
+		if len(loraPairs) == 0 && specPair == nil {
 			if err := r.attachS3ModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, modelPath); err != nil {
 				return err
 			}
 		} else {
 			pairs := append([]storageDownloadPair{{uri: modelUri, path: constants.DefaultModelLocalMountPath}}, loraPairs...)
+			if specPair != nil {
+				pairs = append(pairs, *specPair)
+			}
 			if err := r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, pairs); err != nil {
 				return err
 			}

@@ -37,7 +37,7 @@ import (
 
 var _ = Describe("LLMInferenceService Controller - Speculative Decoding", func() {
 	Context("Single node with HF speculator model", func() {
-		It("should create speculator-initializer and inject --speculative-config", func(ctx SpecContext) {
+		It("should include speculator in storage-initializer and inject --speculative-config", func(ctx SpecContext) {
 			svcName := "test-llm-spec-eagle3"
 			testNs := NewTestNamespace(ctx, envTest)
 
@@ -94,7 +94,7 @@ var _ = Describe("LLMInferenceService Controller - Speculative Decoding", func()
 	})
 
 	Context("Single node with ngram (no model)", func() {
-		It("should inject --speculative-config without speculator-initializer", func(ctx SpecContext) {
+		It("should inject --speculative-config without speculator download in storage-initializer", func(ctx SpecContext) {
 			svcName := "test-llm-spec-ngram"
 			testNs := NewTestNamespace(ctx, envTest)
 
@@ -140,7 +140,7 @@ var _ = Describe("LLMInferenceService Controller - Speculative Decoding", func()
 				}, deployment)
 			}).WithContext(ctx).Should(Succeed())
 
-			// Ngram doesn't need a speculator-initializer
+			// Ngram doesn't need a speculator model download
 			validateNoSpeculatorInitializer(deployment)
 			validateSpeculativeDecodingArgsInjected(deployment, "ngram")
 		})
@@ -263,7 +263,7 @@ var _ = Describe("LLMInferenceService Controller - Speculative Decoding", func()
 	Context("Multi-node with speculator on leader and workers", func() {
 		It("should inject speculator on both leader and worker templates", func(ctx SpecContext) {
 			svcName := "test-llm-spec-mn"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			speculatorURL, err := apis.ParseURL("hf://RedHatAI/Qwen3-32B-speculator.eagle3")
 			Expect(err).ToNot(HaveOccurred())
@@ -315,7 +315,7 @@ var _ = Describe("LLMInferenceService Controller - Speculative Decoding", func()
 	})
 
 	Context("Speculator removal", func() {
-		It("should remove speculator init container, volume, and args when speculator is set to nil", func(ctx SpecContext) {
+		It("should remove speculator download and args when speculator is set to nil", func(ctx SpecContext) {
 			svcName := "test-llm-spec-removal"
 			testNs := NewTestNamespace(ctx, envTest)
 
@@ -358,7 +358,7 @@ var _ = Describe("LLMInferenceService Controller - Speculative Decoding", func()
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			// Wait for deployment with speculator init container and args
+			// Wait for deployment with speculator in storage-initializer and args
 			deployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
@@ -385,14 +385,13 @@ var _ = Describe("LLMInferenceService Controller - Speculative Decoding", func()
 
 				podSpec := updated.Spec.Template.Spec
 
-				// Init container must be gone
-				initContainer := findInitContainerByName(podSpec.InitContainers, constants.SpeculatorInitializerContainerName)
-				g.Expect(initContainer).To(BeNil(), "speculator-initializer should be removed")
-
-				// Volume must be gone
-				for _, v := range podSpec.Volumes {
-					g.Expect(v.Name).ToNot(Equal(constants.SpeculatorVolumeName),
-						"speculator volume should be removed")
+				// storage-initializer should not include speculator download path
+				initContainer := findInitContainerByName(podSpec.InitContainers, constants.StorageInitializerContainerName)
+				if initContainer != nil {
+					for _, arg := range initContainer.Args {
+						g.Expect(arg).ToNot(Equal(constants.DefaultSpeculatorLocalMountPath),
+							"speculator download path should be removed from storage-initializer")
+					}
 				}
 
 				// --speculative-config must be gone
@@ -414,26 +413,24 @@ func validateSpeculatorInitializerIsConfigured(deployment *appsv1.Deployment) {
 
 	podSpec := deployment.Spec.Template.Spec
 
-	initContainer := findInitContainerByName(podSpec.InitContainers, constants.SpeculatorInitializerContainerName)
-	Expect(initContainer).ToNot(BeNil(), "expected speculator-initializer init container")
+	initContainer := findInitContainerByName(podSpec.InitContainers, constants.StorageInitializerContainerName)
+	Expect(initContainer).ToNot(BeNil(), "expected storage-initializer init container")
 
 	Expect(initContainer.Args).To(ContainElement(constants.DefaultSpeculatorLocalMountPath),
-		"speculator-initializer should download to %s", constants.DefaultSpeculatorLocalMountPath)
-
-	hasSpeculatorVolume := false
-	for _, v := range podSpec.Volumes {
-		if v.Name == constants.SpeculatorVolumeName {
-			hasSpeculatorVolume = true
-		}
-	}
-	Expect(hasSpeculatorVolume).To(BeTrue(), "expected speculator volume %s", constants.SpeculatorVolumeName)
+		"storage-initializer should include speculator download to %s", constants.DefaultSpeculatorLocalMountPath)
 }
 
 func validateNoSpeculatorInitializer(deployment *appsv1.Deployment) {
 	GinkgoHelper()
 
-	initContainer := findInitContainerByName(deployment.Spec.Template.Spec.InitContainers, constants.SpeculatorInitializerContainerName)
-	Expect(initContainer).To(BeNil(), "speculator-initializer should not be present")
+	initContainer := findInitContainerByName(deployment.Spec.Template.Spec.InitContainers, constants.StorageInitializerContainerName)
+	if initContainer == nil {
+		return
+	}
+	for _, arg := range initContainer.Args {
+		Expect(arg).ToNot(Equal(constants.DefaultSpeculatorLocalMountPath),
+			"storage-initializer should not contain speculator download path")
+	}
 }
 
 func validateSpeculativeDecodingArgsInjected(deployment *appsv1.Deployment, expectedMethod string) {
@@ -495,19 +492,11 @@ func findContainerByName(containers []corev1.Container, name string) *corev1.Con
 func validateSpeculatorOnPodSpec(podSpec corev1.PodSpec, expectedMethod string) {
 	GinkgoHelper()
 
-	initContainer := findInitContainerByName(podSpec.InitContainers, constants.SpeculatorInitializerContainerName)
-	Expect(initContainer).ToNot(BeNil(), "expected speculator-initializer init container on pod spec")
+	initContainer := findInitContainerByName(podSpec.InitContainers, constants.StorageInitializerContainerName)
+	Expect(initContainer).ToNot(BeNil(), "expected storage-initializer init container on pod spec")
 
 	Expect(initContainer.Args).To(ContainElement(constants.DefaultSpeculatorLocalMountPath),
-		"speculator-initializer should download to %s", constants.DefaultSpeculatorLocalMountPath)
-
-	hasSpeculatorVolume := false
-	for _, v := range podSpec.Volumes {
-		if v.Name == constants.SpeculatorVolumeName {
-			hasSpeculatorVolume = true
-		}
-	}
-	Expect(hasSpeculatorVolume).To(BeTrue(), "expected speculator volume %s", constants.SpeculatorVolumeName)
+		"storage-initializer should include speculator download to %s", constants.DefaultSpeculatorLocalMountPath)
 
 	mainContainer := findContainerByName(podSpec.Containers, "main")
 	Expect(mainContainer).ToNot(BeNil(), "expected main container")

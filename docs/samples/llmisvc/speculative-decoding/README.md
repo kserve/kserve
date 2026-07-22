@@ -9,7 +9,7 @@ verifies in parallel, reducing the number of sequential decode steps and improvi
 Add a `spec.speculator` block to your `LLMInferenceService`. The `config` map is passed directly
 to vLLM's `--speculative-config` JSON. For methods that require a separate model (Eagle3, draft-target,
 Medusa), include `model.uri` and the controller will automatically download the speculator model via a
-dedicated `speculator-initializer` init container.
+the shared `storage-initializer` init container.
 
 See the [vLLM speculative decoding documentation](https://docs.vllm.ai/en/latest/features/speculative_decoding/#-speculative-config-schema)
 for the full list of supported config keys.
