@@ -25298,7 +25298,10 @@ spec:
                                   - metadata
                                   - type
                                 type: object
+                              minItems: 1
                               type: array
+                          required:
+                            - triggers
                           type: object
                           x-kubernetes-validations:
                             - message: horizontalPodAutoscalerConfig.name must not be set; the controller manages the HPA name
@@ -42216,7 +42219,10 @@ spec:
                               - metadata
                               - type
                             type: object
+                          minItems: 1
                           type: array
+                      required:
+                        - triggers
                       type: object
                       x-kubernetes-validations:
                         - message: horizontalPodAutoscalerConfig.name must not be set; the controller manages the HPA name

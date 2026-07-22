@@ -656,8 +656,8 @@ type DirectKEDAScalingSpec struct {
 
 	// Triggers defines the KEDA scaling triggers.
 	// At least one trigger is required.
-	// +optional
-	Triggers []kedav1alpha1.ScaleTriggers `json:"triggers,omitempty"`
+	// +kubebuilder:validation:MinItems=1
+	Triggers []kedav1alpha1.ScaleTriggers `json:"triggers"`
 }
 
 // TracingSpec defines the distributed tracing configuration.
