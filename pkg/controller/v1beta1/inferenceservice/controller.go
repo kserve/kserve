@@ -522,7 +522,11 @@ func (r *InferenceServiceReconciler) clusterServingRuntimeFunc(ctx context.Conte
 	}
 
 	var isvcList v1beta1.InferenceServiceList
-	if err := r.List(ctx, &isvcList, client.InNamespace(clusterServingRuntimeObj.Namespace)); err != nil {
+	// ClusterServingRuntime is cluster-scoped, so it can be referenced by
+	// InferenceServices in any namespace. List across all namespaces (no
+	// InNamespace filter), unlike servingRuntimeFunc above which is
+	// namespace-scoped.
+	if err := r.List(ctx, &isvcList); err != nil {
 		r.Log.Error(err, "unable to list InferenceServices", "clusterServingRuntime", clusterServingRuntimeObj.Name)
 		return nil
 	}
