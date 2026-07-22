@@ -1,0 +1,43 @@
+name: Validate manifests
+
+on:
+  pull_request:
+    paths:
+      - "config/**"
+      - "test/**"
+      - "hack/validate-manifests.sh"
+      - ".github/workflows/validate-manifests.yml"
+  push:
+    branches: [master, "release-*"]
+    paths:
+      - "config/**"
+      - "test/**"
+  merge_group:
+    types: [checks_requested]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-manifests:
+    name: Validate Kustomize manifests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Install kustomize
+        env:
+          KUSTOMIZE_VERSION: "5.8.1"
+        run: |
+          curl -fsSL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/v${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_linux_amd64.tar.gz" \
+            | tar xz
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Validate
+        run: |
+          ./hack/validate-manifests.sh \
+            --ignore config/overlays/development \
+            --ignore config/overlays/dev-image-config \
+            --ignore test/overlays/istio
