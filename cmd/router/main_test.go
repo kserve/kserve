@@ -1095,3 +1095,55 @@ func TestCryptoRandIntUpperBoundWithFix(t *testing.T) {
 			"rand.Int(100) returned out-of-range value %d on iteration %d", n.Int64(), i)
 	}
 }
+
+// TestEnsembleMarshalErrorReturns500 verifies that when marshalling the
+// ensemble response fails, routeStep surfaces a 500 with an error instead of
+// silently returning an empty body with a success status (issue #5640).
+func TestEnsembleMarshalErrorReturns500(t *testing.T) {
+	// Force json.Marshal to fail at the response-marshalling seam. The step
+	// responses themselves are still marshalled/unmarshalled with the real
+	// encoder via the HTTP server + json.Unmarshal, so only routeStep's
+	// defensive marshal branch is exercised.
+	original := jsonMarshal
+	jsonMarshal = func(any) ([]byte, error) { return nil, assert.AnError }
+	defer func() { jsonMarshal = original }()
+
+	model := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		_, err := io.ReadAll(req.Body)
+		if err != nil {
+			t.Errorf("failed to read request body: %v", err)
+			rw.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		_, err = rw.Write([]byte(`{"predictions": "1"}`))
+		if err != nil {
+			t.Errorf("failed to write response: %v", err)
+		}
+	}))
+	defer model.Close()
+	modelURL, err := apis.ParseURL(model.URL)
+	if err != nil {
+		t.Fatalf("Failed to parse model url")
+	}
+
+	graphSpec := v1alpha1.InferenceGraphSpec{
+		Nodes: map[string]v1alpha1.InferenceRouter{
+			"root": {
+				RouterType: v1alpha1.Ensemble,
+				Steps: []v1alpha1.InferenceStep{
+					{
+						StepName: "model1",
+						InferenceTarget: v1alpha1.InferenceTarget{
+							ServiceURL: modelURL.String(),
+						},
+					},
+				},
+			},
+		},
+	}
+	res, statusCode, err := routeStep("root", graphSpec, []byte(`{"instances": ["test"]}`), http.Header{})
+
+	require.Error(t, err, "routeStep must surface the marshal error instead of silently succeeding")
+	assert.Equal(t, 500, statusCode, "a marshal failure must return HTTP 500, not a silent 200")
+	assert.Nil(t, res, "no partial/corrupt body should be returned on marshal failure")
+}
