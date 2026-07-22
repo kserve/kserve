@@ -1019,6 +1019,10 @@
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge,retainKeys"
         },
+        "runtimeClassName": {
+          "description": "RuntimeClassName is the name of the RuntimeClass to use for this pod. More info: https://kubernetes.io/docs/concepts/containers/runtime-class/",
+          "type": "string"
+        },
         "schedulerName": {
           "description": "If specified, the pod will be dispatched by specified scheduler. If not specified, the pod will be dispatched by default scheduler.",
           "type": "string"
@@ -1152,6 +1156,10 @@
           "x-kubernetes-list-type": "map",
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge,retainKeys"
+        },
+        "runtimeClassName": {
+          "description": "RuntimeClassName is the name of the RuntimeClass to use for this pod. More info: https://kubernetes.io/docs/concepts/containers/runtime-class/",
+          "type": "string"
         },
         "schedulerName": {
           "description": "If specified, the pod will be dispatched by specified scheduler. If not specified, the pod will be dispatched by default scheduler.",

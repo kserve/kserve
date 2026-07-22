@@ -272,6 +272,7 @@ func MergePodSpec(runtimePodSpec *v1alpha1.ServingRuntimePodSpec, predictorPodSp
 		Volumes:          runtimePodSpec.Volumes,
 		ImagePullSecrets: runtimePodSpec.ImagePullSecrets,
 		SchedulerName:    runtimePodSpec.SchedulerName,
+		RuntimeClassName: runtimePodSpec.RuntimeClassName,
 		ResourceClaims:   runtimePodSpec.ResourceClaims,
 	})
 	if err != nil {

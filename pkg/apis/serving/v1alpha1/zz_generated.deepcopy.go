@@ -1794,6 +1794,11 @@ func (in *ServingRuntimePodSpec) DeepCopyInto(out *ServingRuntimePodSpec) {
 		*out = make([]v1.LocalObjectReference, len(*in))
 		copy(*out, *in)
 	}
+	if in.RuntimeClassName != nil {
+		in, out := &in.RuntimeClassName, &out.RuntimeClassName
+		*out = new(string)
+		**out = **in
+	}
 	if in.ResourceClaims != nil {
 		in, out := &in.ResourceClaims, &out.ResourceClaims
 		*out = make([]v1.PodResourceClaim, len(*in))
