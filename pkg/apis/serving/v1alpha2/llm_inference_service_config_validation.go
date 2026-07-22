@@ -134,6 +134,8 @@ func (l *LLMInferenceServiceConfigValidator) validate(ctx context.Context, confi
 	}
 
 	allErrs = append(allErrs, l.validateScheduler(config)...)
+	allErrs = append(allErrs, validateMergeAppendFieldsAnnotation(config.Annotations,
+		field.NewPath("metadata").Child("annotations"))...)
 
 	if len(allErrs) > 0 {
 		return apierrors.NewInvalid(
@@ -149,6 +151,18 @@ func (l *LLMInferenceServiceConfigValidator) validate(ctx context.Context, confi
 	}
 
 	logger.V(2).Info("LLMInferenceServiceConfig v1alpha2 is valid", "config", config)
+	return nil
+}
+
+func validateMergeAppendFieldsAnnotation(annotations map[string]string, fieldPath *field.Path) field.ErrorList {
+	_, err := ParseMergeAppendFieldPaths(annotations)
+	if err != nil {
+		return field.ErrorList{field.Invalid(
+			fieldPath.Key(MergeAppendFieldsAnnotation),
+			annotations[MergeAppendFieldsAnnotation],
+			err.Error(),
+		)}
+	}
 	return nil
 }
 
