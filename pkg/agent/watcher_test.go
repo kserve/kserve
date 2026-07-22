@@ -306,6 +306,11 @@ var _ = Describe("Watcher", func() {
 				Eventually(func() int { return puller.opStats["model1"][Add] }).Should(Equal(1))
 				Eventually(func() int { return puller.opStats["model2"][Add] }).Should(Equal(2))
 				Eventually(func() int { return puller.opStats["model2"][Remove] }).Should(Equal(1))
+				// Re-applying the same config must be a no-op: the tracker should now
+				// hold the updated spec, so no redundant unload+reload is triggered.
+				watcher.parseConfig(modelConfigs, false)
+				Consistently(func() int { return puller.opStats["model2"][Add] }).Should(Equal(2))
+				Consistently(func() int { return puller.opStats["model2"][Remove] }).Should(Equal(1))
 			})
 		})
 

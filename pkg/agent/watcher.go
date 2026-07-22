@@ -146,7 +146,7 @@ func (w *Watcher) parseConfig(modelConfigs modelconfig.ModelConfigs, initializin
 			w.modelAdded(name, &spec, initializing)
 		case !cmp.Equal(spec, *existing.Spec):
 			w.ModelTracker[name] = modelWrapper{
-				Spec:  existing.Spec,
+				Spec:  &spec,
 				stale: false,
 			}
 			// Changed - replace
