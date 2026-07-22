@@ -74794,7 +74794,10 @@ spec:
                               - metadata
                               - type
                               type: object
+                            minItems: 1
                             type: array
+                        required:
+                        - triggers
                         type: object
                         x-kubernetes-validations:
                         - message: horizontalPodAutoscalerConfig.name must not be
@@ -91357,7 +91360,10 @@ spec:
                           - metadata
                           - type
                           type: object
+                        minItems: 1
                         type: array
+                    required:
+                    - triggers
                     type: object
                     x-kubernetes-validations:
                     - message: horizontalPodAutoscalerConfig.name must not be set;
@@ -125002,7 +125008,10 @@ spec:
                               - metadata
                               - type
                               type: object
+                            minItems: 1
                             type: array
+                        required:
+                        - triggers
                         type: object
                         x-kubernetes-validations:
                         - message: horizontalPodAutoscalerConfig.name must not be
@@ -142274,7 +142283,10 @@ spec:
                           - metadata
                           - type
                           type: object
+                        minItems: 1
                         type: array
+                    required:
+                    - triggers
                     type: object
                     x-kubernetes-validations:
                     - message: horizontalPodAutoscalerConfig.name must not be set;
