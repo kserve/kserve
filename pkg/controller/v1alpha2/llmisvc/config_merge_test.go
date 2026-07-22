@@ -2343,7 +2343,7 @@ printf '%s' "$2"`
 	renderedScript := got.Spec.Template.Containers[0].Command[2]
 	g.Expect(renderedScript).To(ContainSubstring(`--kv-transfer-config '`))
 
-	out, err := exec.Command(bashPath, "-c", renderedScript).CombinedOutput() // #nosec G204 -- test input, not user data
+	out, err := exec.CommandContext(t.Context(), bashPath, "-c", renderedScript).CombinedOutput() // #nosec G204 -- test input, not user data
 	g.Expect(err).ToNot(HaveOccurred(), "bash execution failed: %s", string(out))
 
 	// vLLM parses this argument as JSON; it must be valid and preserve the keys.
@@ -2351,10 +2351,12 @@ printf '%s' "$2"`
 	g.Expect(json.Unmarshal(out, &parsed)).To(Succeed(), "vllm would reject: %q", string(out))
 	g.Expect(parsed).To(HaveKeyWithValue("kv_connector", "OffloadingConnector"))
 	g.Expect(parsed).To(HaveKeyWithValue("kv_role", "kv_both"))
-	extra, ok := parsed["kv_connector_extra_config"].(map[string]any)
-	g.Expect(ok).To(BeTrue())
-	g.Expect(extra).To(HaveKeyWithValue("spec_name", "TieringOffloadingSpec"))
-	g.Expect(extra).To(HaveKeyWithValue("eviction_policy", "lru"))
+	g.Expect(parsed).To(HaveKey("kv_connector_extra_config"))
+	extra := parsed["kv_connector_extra_config"]
+	g.Expect(extra).To(And(
+		HaveKeyWithValue("spec_name", "TieringOffloadingSpec"),
+		HaveKeyWithValue("eviction_policy", "lru"),
+	))
 }
 
 func mustParseURL(s string) apis.URL {
