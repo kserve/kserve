@@ -240,8 +240,17 @@ func (r *LLMISVCReconciler) reconcileV1InferencePool(ctx context.Context, llmSvc
 	return Reconcile(ctx, r, llmSvc, &igwapi.InferencePool{}, expected, semanticInferencePoolIsEqual)
 }
 
-// reconcileV1Alpha2InferencePool reconciles the v1alpha2 InferencePool if the CRD is available.
+// reconcileV1Alpha2InferencePool reconciles the v1alpha2 InferencePool.
+// It is a no-op when the v1alpha2 InferencePool CRD is not installed on the cluster.
 func (r *LLMISVCReconciler) reconcileV1Alpha2InferencePool(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, shouldDelete bool) error {
+	ok, err := utils.IsCrdAvailable(r.Config, igwapiv1alpha2.GroupVersion.String(), "InferencePool")
+	if err != nil {
+		return fmt.Errorf("checking v1alpha2 InferencePool CRD availability: %w", err)
+	}
+	if !ok {
+		log.FromContext(ctx).V(2).Info("v1alpha2 InferencePool CRD not installed, skipping")
+		return nil
+	}
 	expected := r.expectedSchedulerInferencePoolV1Alpha2(ctx, llmSvc)
 	if shouldDelete {
 		return Delete(ctx, r, llmSvc, expected)
