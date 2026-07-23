@@ -688,13 +688,27 @@ func validateCollocationStorageURI(predictorSpec PredictorSpec) error {
 // (e.g. the finalizer patch on first reconcile). In that case there is no prior state to protect, so
 // the update is allowed. Passing "" through ParseDeploymentMode would fold to DefaultDeployment
 // ("Standard") and reject any non-Standard annotation, breaking first-reconcile on Knative installs.
+//
+// Both sides of the comparison are normalized, because the controller records the canonical mode in
+// the status while the annotation may still carry a deprecated alias ("Serverless" for "Knative",
+// "RawDeployment" for "Standard"). Comparing the normalized status against the raw annotation made an
+// unchanged legacy annotation look like a mode change and rejected every subsequent update.
 func validateDeploymentMode(newIsvc *InferenceService, oldIsvc *InferenceService) error {
 	if oldIsvc.Status.DeploymentMode == "" {
 		return nil
 	}
-	statusDeploymentMode := string(constants.ParseDeploymentMode(oldIsvc.Status.DeploymentMode))
 	annotationDeploymentMode, ok := newIsvc.Annotations[constants.DeploymentMode]
-	if ok && annotationDeploymentMode != statusDeploymentMode {
+	if !ok {
+		return nil
+	}
+	statusDeploymentMode := string(constants.ParseDeploymentMode(oldIsvc.Status.DeploymentMode))
+	// An empty annotation is left as-is: ParseDeploymentMode would fold it to DefaultDeployment,
+	// whereas the controller resolves it from the deploy config, so it is not equivalent here.
+	normalizedAnnotation := annotationDeploymentMode
+	if normalizedAnnotation != "" {
+		normalizedAnnotation = string(constants.ParseDeploymentMode(normalizedAnnotation))
+	}
+	if normalizedAnnotation != statusDeploymentMode {
 		return fmt.Errorf("update rejected: deploymentMode cannot be changed from '%s' to '%s'", statusDeploymentMode, annotationDeploymentMode)
 	}
 	return nil
