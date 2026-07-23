@@ -12,10 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 from kubernetes import client
 
-from kserve import KServeClient
 from kserve import constants
 from kserve import V1beta1PredictorSpec
 from kserve import V1beta1TFServingSpec
@@ -28,12 +26,9 @@ import pytest
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
-kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
-
-
 @pytest.mark.predictor
 @pytest.mark.path_based_routing
-def test_canary_rollout():
+def test_canary_rollout(kserve_client):
     service_name = "isvc-canary"
     default_endpoint_spec = V1beta1InferenceServiceSpec(
         predictor=V1beta1PredictorSpec(
@@ -102,7 +97,7 @@ def test_canary_rollout():
 
 @pytest.mark.predictor
 @pytest.mark.path_based_routing
-def test_canary_rollout_runtime():
+def test_canary_rollout_runtime(kserve_client):
     service_name = "isvc-canary-runtime"
     default_endpoint_spec = V1beta1InferenceServiceSpec(
         predictor=V1beta1PredictorSpec(

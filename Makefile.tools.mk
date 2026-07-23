@@ -15,6 +15,7 @@ HELM_DOCS = $(LOCALBIN)/helm-docs
 PINACT = $(LOCALBIN)/pinact
 UV = $(PYTHON_BIN)/uv
 RUFF = $(PYTHON_BIN)/ruff
+PYTEST = $(PYTHON_BIN)/pytest
 
 ## Tool versions are defined in kserve-deps.env (included in main Makefile)
 
@@ -76,6 +77,9 @@ $(UV): $(PYTHON_VENV) $(DEPS_ENV)
 
 $(RUFF): $(PYTHON_VENV) $(DEPS_ENV)
 	$(PYTHON_BIN)/pip install ruff==$(RUFF_VERSION)
+
+$(PYTEST): $(UV)
+	$(UV) pip install --python $(PYTHON_BIN)/python pytest
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary
