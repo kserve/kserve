@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 
 	corev1 "k8s.io/api/core/v1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
@@ -39,7 +40,7 @@ import (
  * Please add functional style container operations sparingly and intentionally.
  */
 
-var gvResourcesCache map[string]*metav1.APIResourceList
+var gvResourcesCache sync.Map
 
 // Errors
 const (
@@ -238,23 +239,21 @@ func IsCrdAvailable(config *rest.Config, groupVersion, kind string) (bool, error
 // resources will be cached and returned to subsequent invocations to prevent additional
 // queries to the API server.
 func GetAvailableResourcesForApi(config *rest.Config, groupVersion string) (*metav1.APIResourceList, error) {
-	var gvResources *metav1.APIResourceList
-	var ok bool
-
-	if gvResources, ok = gvResourcesCache[groupVersion]; !ok {
-		discoveryClient, newClientErr := discovery.NewDiscoveryClientForConfig(config)
-		if newClientErr != nil {
-			return nil, newClientErr
-		}
-
-		var getGvResourcesErr error
-		gvResources, getGvResourcesErr = discoveryClient.ServerResourcesForGroupVersion(groupVersion)
-		if getGvResourcesErr != nil && !apierr.IsNotFound(getGvResourcesErr) {
-			return nil, getGvResourcesErr
-		}
-
-		SetAvailableResourcesForApi(groupVersion, gvResources)
+	if cached, ok := gvResourcesCache.Load(groupVersion); ok {
+		return cached.(*metav1.APIResourceList), nil
 	}
+
+	discoveryClient, newClientErr := discovery.NewDiscoveryClientForConfig(config)
+	if newClientErr != nil {
+		return nil, newClientErr
+	}
+
+	gvResources, getGvResourcesErr := discoveryClient.ServerResourcesForGroupVersion(groupVersion)
+	if getGvResourcesErr != nil && !apierr.IsNotFound(getGvResourcesErr) {
+		return nil, getGvResourcesErr
+	}
+
+	SetAvailableResourcesForApi(groupVersion, gvResources)
 
 	return gvResources, nil
 }
@@ -263,11 +262,7 @@ func GetAvailableResourcesForApi(config *rest.Config, groupVersion string) (*met
 // of discovered API resources. This function should never be called directly. It is exported
 // for usage in tests.
 func SetAvailableResourcesForApi(groupVersion string, resources *metav1.APIResourceList) {
-	if gvResourcesCache == nil {
-		gvResourcesCache = make(map[string]*metav1.APIResourceList)
-	}
-
-	gvResourcesCache[groupVersion] = resources
+	gvResourcesCache.Store(groupVersion, resources)
 }
 
 func GetEnvVarValue(envVars []corev1.EnvVar, key string) (string, bool) {
