@@ -52,6 +52,7 @@ func SyncModelDir(modelDir string, logger *zap.SugaredLogger) (map[string]modelW
 				if err != nil {
 					return errors.Wrapf(err, "failed to parse success file")
 				}
+				defer jsonFile.Close()
 				byteValue, err := io.ReadAll(jsonFile)
 				if err != nil {
 					return errors.Wrapf(err, "failed to read from model spec")
