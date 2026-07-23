@@ -335,11 +335,19 @@ sync-helm-multi-resource-helpers:
 		echo "  ✓ Copied to charts/$$chart/templates/_resources.tpl"; \
 	done
 
+# Sync common CRD values to all CRD charts (must run before helm package)
+sync-helm-crd-values:
+	@echo "Syncing common CRD values to all CRD charts..."
+	@for chart in kserve-crd kserve-crd-minimal kserve-llmisvc-crd kserve-llmisvc-crd-minimal; do \
+		cp charts/_common/crd-values.yaml charts/$$chart/values.yaml; \
+		echo "  ✓ Copied to charts/$$chart/values.yaml"; \
+	done
+
 boilerplate:
 	hack/boilerplate.sh
 
 # This runs all necessary steps to prepare for a commit.
-precommit: ensure-go-version-upgrade sync-deps sync-img-env vet go-lint py-fmt py-lint generate tidy manifests uv-lock generate-quick-install-scripts generate-chart-manifests sync-helm-common-helpers sync-helm-common-resource-helpers sync-helm-multi-resource-helpers verify-pinned-actions verify-minimal-crd-sync boilerplate
+precommit: ensure-go-version-upgrade sync-deps sync-img-env vet go-lint py-fmt py-lint generate tidy manifests uv-lock generate-quick-install-scripts generate-chart-manifests sync-helm-common-helpers sync-helm-common-resource-helpers sync-helm-multi-resource-helpers sync-helm-crd-values verify-pinned-actions verify-minimal-crd-sync boilerplate
 
 # This is used by CI to ensure that the precommit checks are met.
 check: precommit
