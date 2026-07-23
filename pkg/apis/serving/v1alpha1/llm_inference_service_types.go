@@ -116,11 +116,34 @@ type LLMInferenceServiceSpec struct {
 	// +optional
 	Tracing *TracingSpec `json:"tracing,omitempty"`
 
+	// Speculator configures speculative decoding for the model server.
+	// +optional
+	Speculator *SpeculatorSpec `json:"speculator,omitempty"`
+
 	// BaseRefs allows inheriting and overriding configurations from one or more LLMInferenceServiceConfig instances.
 	// The controller merges these base configurations, with the current LLMInferenceService spec taking the highest precedence.
 	// When multiple baseRefs are provided, the last one in the list overrides previous ones.
 	// +optional
 	BaseRefs []corev1.LocalObjectReference `json:"baseRefs,omitempty"`
+}
+
+// SpeculatorSpec configures speculative decoding for the inference server.
+// +kubebuilder:validation:XValidation:rule="!has(self.config) || (size(self.config) == 0) || ('method' in self.config)",message="speculator.config.method is required; it specifies the speculative decoding strategy (e.g. eagle3, draft_model, ngram, mtp)"
+type SpeculatorSpec struct {
+	// Model specification for the speculator or draft model.
+	// +optional
+	Model *LLMSpeculatorModelSpec `json:"model,omitempty"`
+
+	// Config provides the speculative decoding parameters passed directly to the
+	// vLLM --speculative-config JSON.
+	// +optional
+	Config map[string]string `json:"config,omitempty"`
+}
+
+// LLMSpeculatorModelSpec defines the model source for a speculator or draft model.
+type LLMSpeculatorModelSpec struct {
+	// URI of the speculator model, specifying its location.
+	URI apis.URL `json:"uri"`
 }
 
 // WorkloadSpec defines the configuration for a deployment workload, such as replicas and pod specifications.
