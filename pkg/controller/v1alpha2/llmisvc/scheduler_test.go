@@ -2442,11 +2442,25 @@ plugins:
 					configText = args[i+1]
 				}
 			}
+			var cfg map[string]interface{}
+			g.Expect(yaml.Unmarshal([]byte(configText), &cfg)).To(Succeed())
+			plugins, _ := cfg["plugins"].([]interface{})
+
+			var metricsPlugin map[string]interface{}
+			for _, p := range plugins {
+				if pm, ok := p.(map[string]interface{}); ok && pm["type"] == "metrics-data-source" {
+					metricsPlugin = pm
+					break
+				}
+			}
+
 			if tt.expectPlugin {
-				g.Expect(configText).To(ContainSubstring("metrics-data-source"))
-				g.Expect(configText).To(ContainSubstring("scheme: https"))
+				g.Expect(metricsPlugin).NotTo(BeNil(), "expected a metrics-data-source plugin to be injected")
+				params, ok := metricsPlugin["parameters"].(map[string]interface{})
+				g.Expect(ok).To(BeTrue(), "metrics-data-source plugin must carry parameters")
+				g.Expect(params).To(HaveKeyWithValue("scheme", "https"))
 			} else {
-				g.Expect(configText).NotTo(ContainSubstring("metrics-data-source"))
+				g.Expect(metricsPlugin).To(BeNil(), "did not expect a metrics-data-source plugin")
 			}
 		})
 	}
