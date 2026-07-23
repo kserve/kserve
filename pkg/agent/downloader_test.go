@@ -17,6 +17,7 @@ limitations under the License.
 package agent
 
 import (
+	"context"
 	logger "log"
 	"os"
 
@@ -67,7 +68,7 @@ var _ = Describe("Downloader", func() {
 					Framework:  "sklearn",
 				},
 			}
-			err := downloader.DownloadModel(modelConfig.Name, &modelConfig.Spec)
+			err := downloader.DownloadModel(context.Background(), modelConfig.Name, &modelConfig.Spec)
 			Expect(err).Should(HaveOccurred())
 		})
 	})
@@ -81,7 +82,7 @@ var _ = Describe("Downloader", func() {
 					Framework:  "sklearn",
 				},
 			}
-			err := downloader.DownloadModel(modelConfig.Name, &modelConfig.Spec)
+			err := downloader.DownloadModel(context.Background(), modelConfig.Name, &modelConfig.Spec)
 			Expect(err).Should(HaveOccurred())
 		})
 	})
@@ -95,7 +96,7 @@ var _ = Describe("Downloader", func() {
 					Framework:  "sklearn",
 				},
 			}
-			err := downloader.DownloadModel(modelConfig.Name, &modelConfig.Spec)
+			err := downloader.DownloadModel(context.Background(), modelConfig.Name, &modelConfig.Spec)
 			Expect(err).Should(HaveOccurred())
 		})
 	})

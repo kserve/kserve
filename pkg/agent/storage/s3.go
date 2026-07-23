@@ -17,6 +17,7 @@ limitations under the License.
 package storage
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -53,11 +54,11 @@ type S3ObjectUploader struct {
 	Uploader s3manageriface.UploadWithIterator
 }
 
-func (m *S3Provider) UploadObject(bucket string, key string, object []byte) error {
+func (m *S3Provider) UploadObject(ctx context.Context, bucket string, key string, object []byte) error {
 	uploader := &S3ObjectUploader{
 		Uploader: m.Uploader,
 	}
-	return uploader.Upload([]s3manager.BatchUploadObject{
+	return uploader.Upload(ctx, []s3manager.BatchUploadObject{
 		{
 			Object: &s3manager.UploadInput{
 				Bucket: aws.String(bucket),
@@ -68,7 +69,7 @@ func (m *S3Provider) UploadObject(bucket string, key string, object []byte) erro
 	})
 }
 
-func (m *S3Provider) DownloadModel(modelDir string, modelName string, storageUri string) error {
+func (m *S3Provider) DownloadModel(ctx context.Context, modelDir string, modelName string, storageUri string) error {
 	log.Info("Download model ", "modelName", modelName, "storageUri", storageUri, "modelDir", modelDir)
 	s3Uri := strings.TrimPrefix(storageUri, string(S3))
 	tokens := strings.SplitN(s3Uri, "/", 2)
@@ -84,18 +85,18 @@ func (m *S3Provider) DownloadModel(modelDir string, modelName string, storageUri
 		Prefix:     prefix,
 		downloader: m.Downloader,
 	}
-	objects, err := s3ObjectDownloader.GetAllObjects(m.Client)
+	objects, err := s3ObjectDownloader.GetAllObjects(ctx, m.Client)
 	if err != nil {
 		return fmt.Errorf("unable to get batch objects %w", err)
 	}
-	if err := s3ObjectDownloader.Download(objects); err != nil {
+	if err := s3ObjectDownloader.Download(ctx, objects); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *S3ObjectDownloader) GetAllObjects(s3Svc s3iface.S3API) ([]s3manager.BatchDownloadObject, error) {
-	resp, err := s3Svc.ListObjects(&s3.ListObjectsInput{
+func (s *S3ObjectDownloader) GetAllObjects(ctx context.Context, s3Svc s3iface.S3API) ([]s3manager.BatchDownloadObject, error) {
+	resp, err := s3Svc.ListObjectsWithContext(ctx, &s3.ListObjectsInput{
 		Bucket: aws.String(s.Bucket),
 		Prefix: aws.String(s.Prefix),
 	})
@@ -155,14 +156,14 @@ func (s *S3ObjectDownloader) GetAllObjects(s3Svc s3iface.S3API) ([]s3manager.Bat
 	return results, nil
 }
 
-func (s *S3ObjectDownloader) Download(objects []s3manager.BatchDownloadObject) error {
+func (s *S3ObjectDownloader) Download(ctx context.Context, objects []s3manager.BatchDownloadObject) error {
 	iter := &s3manager.DownloadObjectsIterator{Objects: objects}
-	if err := s.downloader.DownloadWithIterator(aws.BackgroundContext(), iter); err != nil {
+	if err := s.downloader.DownloadWithIterator(ctx, iter); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *S3ObjectUploader) Upload(objects []s3manager.BatchUploadObject) error {
-	return s.Uploader.UploadWithIterator(aws.BackgroundContext(), &s3manager.UploadObjectsIterator{Objects: objects})
+func (s *S3ObjectUploader) Upload(ctx context.Context, objects []s3manager.BatchUploadObject) error {
+	return s.Uploader.UploadWithIterator(ctx, &s3manager.UploadObjectsIterator{Objects: objects})
 }

@@ -20,6 +20,7 @@ import (
 	"errors"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
@@ -38,6 +39,10 @@ func (m *MockS3Client) ListObjects(*s3.ListObjectsInput) (*s3.ListObjectsOutput,
 			},
 		},
 	}, nil
+}
+
+func (m *MockS3Client) ListObjectsWithContext(_ aws.Context, _ *s3.ListObjectsInput, _ ...request.Option) (*s3.ListObjectsOutput, error) {
+	return m.ListObjects(nil)
 }
 
 type MockS3Downloader struct{}

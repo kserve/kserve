@@ -38,7 +38,7 @@ type AzureProvider struct {
 
 var _ Provider = (*AzureProvider)(nil)
 
-func (a AzureProvider) DownloadModel(modelDir string, modelName string, storageUri string) error {
+func (a AzureProvider) DownloadModel(ctx context.Context, modelDir string, modelName string, storageUri string) error {
 	log.Info("Download model ", "modelName", modelName, "storageUri", storageUri, "modelDir", modelDir)
 	uri := strings.TrimPrefix(storageUri, string(HTTPS))
 	tokens := strings.SplitN(uri, "/", 2)
@@ -46,7 +46,6 @@ func (a AzureProvider) DownloadModel(modelDir string, modelName string, storageU
 	if len(tokens) == 2 {
 		prefix = tokens[1]
 	}
-	ctx := context.Background()
 	bucket := tokens[0]
 	pager := a.Client.NewListBlobsFlatPager(bucket, &azblob.ListBlobsFlatOptions{
 		Prefix: &prefix,
@@ -84,10 +83,10 @@ func (a AzureProvider) DownloadModel(modelDir string, modelName string, storageU
 	return nil
 }
 
-func (a AzureProvider) UploadObject(bucket string, key string, object []byte) error {
+func (a AzureProvider) UploadObject(ctx context.Context, bucket string, key string, object []byte) error {
 	log.Info("Upload object ", "bucket", bucket, "key", key, "length", len(object))
 
-	_, err := a.Client.UploadBuffer(context.Background(), bucket, key, object, nil)
+	_, err := a.Client.UploadBuffer(ctx, bucket, key, object, nil)
 	if err != nil {
 		return err
 	}
