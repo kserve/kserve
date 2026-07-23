@@ -2287,13 +2287,23 @@ func TestExtractModelServerMetricsScheme(t *testing.T) {
 	tests := []struct {
 		name            string
 		command         []string
+		args            []string
 		expectedCommand []string
+		expectedArgs    []string
 		expectedScheme  string
 	}{
 		{
 			name:            "extracts from command with equals form",
 			command:         []string{"/app/epp", "--model-server-metrics-scheme=https", "--grpc-port=9002"},
 			expectedCommand: []string{"/app/epp", "--grpc-port=9002"},
+			expectedScheme:  "https",
+		},
+		{
+			name:            "extracts from args with equals form",
+			command:         []string{"/app/epp"},
+			args:            []string{"--model-server-metrics-scheme=https", "--grpc-port=9002"},
+			expectedCommand: []string{"/app/epp"},
+			expectedArgs:    []string{"--grpc-port=9002"},
 			expectedScheme:  "https",
 		},
 		{
@@ -2312,7 +2322,7 @@ func TestExtractModelServerMetricsScheme(t *testing.T) {
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
 							Containers: []corev1.Container{
-								{Name: "main", Command: tt.command},
+								{Name: "main", Command: tt.command, Args: tt.args},
 							},
 						},
 					},
@@ -2322,6 +2332,9 @@ func TestExtractModelServerMetricsScheme(t *testing.T) {
 			g.Expect(scheme).To(Equal(tt.expectedScheme))
 			if tt.expectedCommand != nil {
 				g.Expect(d.Spec.Template.Spec.Containers[0].Command).To(Equal(tt.expectedCommand))
+			}
+			if tt.expectedArgs != nil {
+				g.Expect(d.Spec.Template.Spec.Containers[0].Args).To(Equal(tt.expectedArgs))
 			}
 		})
 	}
@@ -2353,10 +2366,18 @@ plugins:
 			expectPlugin: false,
 		},
 		{
-			name:         "0.10.0 strips flag and injects plugin",
+			name:         "0.10.0 strips flag from command and injects plugin",
 			version:      "0.10.0",
 			command:      []string{"/app/epp", "--model-server-metrics-scheme=https"},
 			args:         []string{"--config-text", configYAML},
+			expectFlag:   false,
+			expectPlugin: true,
+		},
+		{
+			name:         "0.10.0 strips flag from args and injects plugin",
+			version:      "0.10.0",
+			command:      []string{"/app/epp"},
+			args:         []string{"--model-server-metrics-scheme=https", "--config-text", configYAML},
 			expectFlag:   false,
 			expectPlugin: true,
 		},
@@ -2413,6 +2434,8 @@ plugins:
 			g.Expect(slices.Contains(command, "--model-server-metrics-scheme=https")).To(Equal(tt.expectFlag))
 
 			args := d.Spec.Template.Spec.Containers[0].Args
+			// The flag must never survive on Args either, regardless of where it started.
+			g.Expect(slices.Contains(args, "--model-server-metrics-scheme=https")).To(BeFalse())
 			configText := ""
 			for i, a := range args {
 				if a == "--config-text" && i+1 < len(args) {

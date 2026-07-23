@@ -1800,8 +1800,11 @@ func extractDeprecatedMetricFlags(d *appsv1.Deployment) map[string]string {
 }
 
 // extractModelServerMetricsScheme strips the deprecated --model-server-metrics-scheme
-// flag from every container's Command and returns its value (empty if absent).
-// The scheduler preset carries the flag on Command.
+// flag from every container's Command and Args and returns its value (empty if
+// absent). The scheduler preset carries the flag on Command, but a user-supplied
+// SchedulerSpec.Template may place it on Args instead; both work on the old image
+// (kube concatenates Command+Args) but are rejected by llm-d-router v0.10.0, so
+// both lists must be scrubbed.
 func extractModelServerMetricsScheme(d *appsv1.Deployment) string {
 	names := map[string]bool{modelServerMetricsSchemeFlag: true}
 	scheme := ""
@@ -1811,17 +1814,24 @@ func extractModelServerMetricsScheme(d *appsv1.Deployment) string {
 			c.Command = filtered
 			scheme = extracted[modelServerMetricsSchemeFlag]
 		}
+		if filtered, extracted := filterArgs(c.Args, names); len(extracted) > 0 {
+			c.Args = filtered
+			scheme = extracted[modelServerMetricsSchemeFlag]
+		}
 	}
 	return scheme
 }
 
 // hasModelServerMetricsSchemeFlag reports whether any container carries the
-// --model-server-metrics-scheme flag on Command, without modifying it.
+// --model-server-metrics-scheme flag on Command or Args, without modifying it.
 func hasModelServerMetricsSchemeFlag(d *appsv1.Deployment) bool {
 	names := map[string]bool{modelServerMetricsSchemeFlag: true}
 	for ci := range d.Spec.Template.Spec.Containers {
 		c := &d.Spec.Template.Spec.Containers[ci]
 		if _, extracted := filterArgs(c.Command, names); len(extracted) > 0 {
+			return true
+		}
+		if _, extracted := filterArgs(c.Args, names); len(extracted) > 0 {
 			return true
 		}
 	}
