@@ -239,15 +239,12 @@ func convertScalingSpecToV1Alpha2(src *ScalingSpec) *v1alpha2.ScalingSpec {
 			}
 		}
 		if src.WVA.KEDA != nil {
-			dst.WVA.KEDA = &v1alpha2.KEDAScalingSpec{
-				PollingInterval:       src.WVA.KEDA.PollingInterval,
-				CooldownPeriod:        src.WVA.KEDA.CooldownPeriod,
-				InitialCooldownPeriod: src.WVA.KEDA.InitialCooldownPeriod,
-				IdleReplicaCount:      src.WVA.KEDA.IdleReplicaCount,
-				Fallback:              src.WVA.KEDA.Fallback,
-				Advanced:              src.WVA.KEDA.Advanced,
-			}
+			dst.WVA.KEDA = convertKEDAScalingSpecToV1Alpha2(src.WVA.KEDA)
 		}
+	}
+
+	if src.KEDA != nil {
+		dst.KEDA = convertDirectKEDAScalingSpecToV1Alpha2(src.KEDA)
 	}
 
 	return dst
@@ -273,18 +270,63 @@ func convertScalingSpecFromV1Alpha2(src *v1alpha2.ScalingSpec) *ScalingSpec {
 			}
 		}
 		if src.WVA.KEDA != nil {
-			dst.WVA.KEDA = &KEDAScalingSpec{
-				PollingInterval:       src.WVA.KEDA.PollingInterval,
-				CooldownPeriod:        src.WVA.KEDA.CooldownPeriod,
-				InitialCooldownPeriod: src.WVA.KEDA.InitialCooldownPeriod,
-				IdleReplicaCount:      src.WVA.KEDA.IdleReplicaCount,
-				Fallback:              src.WVA.KEDA.Fallback,
-				Advanced:              src.WVA.KEDA.Advanced,
-			}
+			dst.WVA.KEDA = convertKEDAScalingSpecFromV1Alpha2(src.WVA.KEDA)
 		}
 	}
 
+	if src.KEDA != nil {
+		dst.KEDA = convertDirectKEDAScalingSpecFromV1Alpha2(src.KEDA)
+	}
+
 	return dst
+}
+
+func convertKEDAScalingSpecToV1Alpha2(src *KEDAScalingSpec) *v1alpha2.KEDAScalingSpec {
+	if src == nil {
+		return nil
+	}
+	return &v1alpha2.KEDAScalingSpec{
+		PollingInterval:       src.PollingInterval,
+		CooldownPeriod:        src.CooldownPeriod,
+		InitialCooldownPeriod: src.InitialCooldownPeriod,
+		IdleReplicaCount:      src.IdleReplicaCount,
+		Fallback:              src.Fallback,
+		Advanced:              src.Advanced,
+	}
+}
+
+func convertKEDAScalingSpecFromV1Alpha2(src *v1alpha2.KEDAScalingSpec) *KEDAScalingSpec {
+	if src == nil {
+		return nil
+	}
+	return &KEDAScalingSpec{
+		PollingInterval:       src.PollingInterval,
+		CooldownPeriod:        src.CooldownPeriod,
+		InitialCooldownPeriod: src.InitialCooldownPeriod,
+		IdleReplicaCount:      src.IdleReplicaCount,
+		Fallback:              src.Fallback,
+		Advanced:              src.Advanced,
+	}
+}
+
+func convertDirectKEDAScalingSpecToV1Alpha2(src *DirectKEDAScalingSpec) *v1alpha2.DirectKEDAScalingSpec {
+	if src == nil {
+		return nil
+	}
+	return &v1alpha2.DirectKEDAScalingSpec{
+		KEDAScalingSpec: *convertKEDAScalingSpecToV1Alpha2(&src.KEDAScalingSpec),
+		Triggers:        src.Triggers,
+	}
+}
+
+func convertDirectKEDAScalingSpecFromV1Alpha2(src *v1alpha2.DirectKEDAScalingSpec) *DirectKEDAScalingSpec {
+	if src == nil {
+		return nil
+	}
+	return &DirectKEDAScalingSpec{
+		KEDAScalingSpec: *convertKEDAScalingSpecFromV1Alpha2(&src.KEDAScalingSpec),
+		Triggers:        src.Triggers,
+	}
 }
 
 func convertModelSpecToV1Alpha2(src *LLMModelSpec) v1alpha2.LLMModelSpec {
