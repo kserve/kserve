@@ -24,10 +24,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"knative.dev/pkg/apis"
+
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/fixture"
-	"knative.dev/pkg/apis"
 )
 
 // The LLMInferenceServiceConfig CRD embeds Gateway API, GIE, and core

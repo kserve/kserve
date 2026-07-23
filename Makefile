@@ -169,19 +169,27 @@ manifests: controller-gen kustomize yq
 	@$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt",year=$(CURRENT_YEAR) paths=./pkg/apis/serving/v1alpha2
 	@$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt",year=$(CURRENT_YEAR) paths=./pkg/apis/serving/v1beta1
 
-	# Remove validation for the LLMInferenceServiceConfig API so that we can use Go templates to inject values at runtime.
-	# Note: v1alpha1 is at index 0, v1alpha2 is at index 1. These rules target v1alpha2 which has the full InferencePoolSpec.
-	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.route.properties.http.properties.spec.properties.rules.items.properties.matches.items.properties.path.x-kubernetes-validations)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.router.properties.route.properties.http.properties.spec.properties.rules.items.properties.matches.items.properties.headers.items.properties.name.pattern)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.route.properties.http.properties.spec.properties.rules.items.properties.matches.items.properties.headers.items.properties.name.pattern)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.route.properties.http.properties.spec.properties.rules.items.properties.filters.items.properties.urlRewrite.properties.path.x-kubernetes-validations)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.route.properties.http.properties.spec.properties.parentRefs.items.properties.namespace.pattern)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	# Remove pattern validation from InferencePool selector matchLabels to allow Go templates
-	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.pool.properties.spec.properties.selector.properties.matchLabels.additionalProperties.pattern)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.pool.properties.spec.properties.selector.properties.matchLabels.additionalProperties.maxLength)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.pool.properties.spec.properties.selector.properties.matchLabels.additionalProperties.minLength)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.pool.properties.spec.properties.selector.properties.matchLabels.maxProperties)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.pool.properties.spec.properties.selector.properties.matchLabels.minProperties)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
+	# Strip schema validation from embedded external types in LLMInferenceServiceConfig.
+	# These subtrees contain Go template expressions (e.g. {{ .GlobalConfig.ModelBasedRoutingHeaderName }})
+	# that fail upstream schema validation at apply time. Recursive descent per subtree survives
+	# schema restructuring across Gateway API / GIE / core API version bumps.
+	@for ver in 0 1; do \
+		base=".spec.versions[$$ver].schema.openAPIV3Schema.properties.spec.properties"; \
+		for path in \
+			"$$base.router.properties.route.properties.http.properties.spec" \
+			"$$base.router.properties.scheduler.properties.pool.properties.spec" \
+			"$$base.template" \
+			"$$base.worker" \
+			"$$base.prefill.properties.template" \
+			"$$base.prefill.properties.worker" \
+			"$$base.router.properties.scheduler.properties.template" \
+			"$$base.router.properties.scheduler.properties.tokenizer.properties.template"; \
+		do \
+			for field in pattern x-kubernetes-validations minLength minItems minProperties; do \
+				$(YQ) "($$path | .. | select(has(\"$$field\"))) |= del(.$$field)" -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml; \
+			done; \
+		done; \
+	done
 	# Remove validation for the LLMInferenceServiceConfig API so that we can override only specific values (both versions).
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.worker.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
