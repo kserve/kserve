@@ -250,6 +250,16 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Route != nil && llmSvc.Spec.Router.Route.HTTP.HasSpec() {
 		httpRoute.Spec = *llmSvc.Spec.Router.Route.HTTP.Spec.DeepCopy()
 
+		// Omit spec.rules.timeouts when configured to do so. Some Gateway
+		// implementations (e.g. GKE) reject the timeouts field, so the generated
+		// route (whose rules carry timeouts from the router-route preset) must drop
+		// it. Mirrors resolveTimeout in the v1beta1 ingress reconciler.
+		if cfg.DisableHTTPRouteTimeout {
+			for i := range httpRoute.Spec.Rules {
+				httpRoute.Spec.Rules[i].Timeouts = nil
+			}
+		}
+
 		if r.isModelBasedRoutingEnabled(ctx, llmSvc, cfg) {
 			if llmSvc.Spec.Model.LoRA != nil {
 				expandLoRAAdapterMatches(
