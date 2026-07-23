@@ -26,8 +26,31 @@ class AutoGluonModelRepository(ModelRepository):
     async def load(self, name: str) -> bool:
         return self.load_model(name)
 
+    def _validate_model_path(self, name: str) -> str:
+        """Validate model name to prevent path traversal attacks."""
+        if not name or not name.strip():
+            raise ValueError("Model name cannot be empty")
+
+        if os.path.isabs(name):
+            raise ValueError(f"Model name cannot be an absolute path: {name}")
+
+        models_dir_real = os.path.realpath(self.models_dir)
+        candidate_path = os.path.join(models_dir_real, name)
+        candidate_path_real = os.path.realpath(candidate_path)
+
+        try:
+            common_path = os.path.commonpath([models_dir_real, candidate_path_real])
+        except ValueError:
+            raise ValueError(f"Model path traversal detected: {name}")
+
+        if common_path != models_dir_real:
+            raise ValueError(f"Model path traversal detected: {name}")
+
+        return candidate_path_real
+
     def load_model(self, name: str) -> bool:
-        model = create_autogluon_model(name, os.path.join(self.models_dir, name))
+        model_path = self._validate_model_path(name)
+        model = create_autogluon_model(name, model_path)
         if model.load():
             self.update(model)
         return model.ready
