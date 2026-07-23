@@ -18,6 +18,13 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+# Detect OS and set sed in-place flag (BSD sed on macOS requires an explicit empty backup suffix)
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  SED_INPLACE=(-i '')
+else
+  SED_INPLACE=(-i)
+fi
+
 set -x
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd 2>/dev/null)"
@@ -82,6 +89,7 @@ RELEASES=(
     "v0.19.0-rc0"
     "v0.19.0"
     "v0.20.0-rc0"
+    "v0.20.0-rc1"
 )
 
 TAG=$1
@@ -106,7 +114,7 @@ cp -R ${REPO_ROOT}/hack/setup/quick-install/*-manifests.sh $INSTALL_DIR/.
 # Update image tags in *-with-manifests.sh files (embedded manifests need release version)
 for script in $INSTALL_DIR/*-with-manifests.sh; do
   if [ -f "$script" ]; then
-    sed -i "s/:latest/:$TAG/g" "$script"
+    "${SED_INPLACE[@]}" "s/:latest/:$TAG/g" "$script"
   fi
 done
 
