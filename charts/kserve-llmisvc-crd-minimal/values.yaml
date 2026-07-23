@@ -1,0 +1,3 @@
+kserve:
+  clusterStorageContainerCRD:
+    enabled: true
