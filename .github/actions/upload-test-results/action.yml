@@ -9,8 +9,8 @@ inputs:
     description: 'Glob or path list for result files'
     required: false
     default: |
-      /tmp/junit_e2e.xml
-      /tmp/e2e_results.json
+      /tmp/junit_e2e*.xml
+      /tmp/e2e_results*.json
 
 runs:
   using: "composite"
