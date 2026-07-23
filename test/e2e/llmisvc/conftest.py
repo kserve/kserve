@@ -112,10 +112,26 @@ def pytest_configure(config):
         "markers",
         "traffic: continuous traffic test (uses TrafficDriver)",
     )
+    config.addinivalue_line(
+        "markers",
+        "requires_weighted_inference_pool: skip when gateway doesn't support weighted InferencePool backendRefs",
+    )
+
+
+_ISTIO_LAYERS = {"istio", "istio-ingress", "istio-gatewayapi"}
 
 
 def pytest_collection_modifyitems(config, items):
     _auto_assign_group_markers(items)
+
+    network_layer = config.getoption("--network-layer", default="istio")
+    if network_layer not in _ISTIO_LAYERS:
+        skip = pytest.mark.skip(
+            reason=f"requires Istio (--network-layer={network_layer})",
+        )
+        for item in items:
+            if "requires_weighted_inference_pool" in item.keywords:
+                item.add_marker(skip)
 
     for item in items:
         # only touch parameterized tests

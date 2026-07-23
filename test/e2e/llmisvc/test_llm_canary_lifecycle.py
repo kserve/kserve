@@ -189,6 +189,18 @@ SCENARIOS = {
         v1=MemberSpec(name="canary-v1", weight=9, scheduler=False),
         v2=MemberSpec(name="canary-v2", weight=1, scheduler=False),
     ),
+    "pool": Scenario(
+        name="pool",
+        description="Both members use InferencePool with EPP scheduler",
+        v1=MemberSpec(name="canary-v1", weight=9, scheduler=True),
+        v2=MemberSpec(name="canary-v2", weight=1, scheduler=True),
+    ),
+    "mixed": Scenario(
+        name="mixed",
+        description="v1 uses plain Service, v2 uses InferencePool (canary upgrade path)",
+        v1=MemberSpec(name="canary-v1", weight=9, scheduler=False),
+        v2=MemberSpec(name="canary-v2", weight=1, scheduler=True),
+    ),
 }
 
 
@@ -541,6 +553,60 @@ def wait_for_group_weight(api, observer, member, expected, ns, timeout=30):
     raise TimeoutError(f"{member} weight={w}, expected {expected} (from {observer})")
 
 
+def _has_istio():
+    try:
+        k8s_client.ApiextensionsV1Api().read_custom_resource_definition(
+            "destinationrules.networking.istio.io"
+        )
+        return True
+    except k8s_client.ApiException:
+        return False
+
+
+def _apply_epp_tls_workaround(ns):
+    """Apply Istio DestinationRules for EPP TLS. Idempotent.
+
+    Istio's sidecar proxy enforces mTLS between services by default, but
+    the EPP scheduler generates its own self-signed TLS cert rather than
+    using Istio mesh certs. Without a DestinationRule, Istio initiates
+    mTLS to EPP, EPP presents its self-signed cert, and Istio rejects
+    the connection - leaving InferencePool stuck in WaitingForGateway.
+
+    The DestinationRule switches to SIMPLE TLS (accept any server cert)
+    for EPP services, bypassing the mTLS mismatch. Only needed on Istio;
+    Envoy Gateway handles EPP TLS natively.
+    """
+    core = k8s_client.CoreV1Api()
+    api = k8s_client.CustomObjectsApi()
+    svcs = core.list_namespaced_service(ns)
+    for svc in svcs.items:
+        if "epp" not in svc.metadata.name:
+            continue
+        name = f"{svc.metadata.name}-tls"
+        body = {
+            "apiVersion": "networking.istio.io/v1",
+            "kind": "DestinationRule",
+            "metadata": {"name": name, "namespace": ns},
+            "spec": {
+                "host": f"{svc.metadata.name}.{ns}.svc.cluster.local",
+                "trafficPolicy": {
+                    "tls": {"mode": "SIMPLE", "insecureSkipVerify": True}
+                },
+            },
+        }
+        try:
+            api.create_namespaced_custom_object(
+                "networking.istio.io", "v1", ns, "destinationrules", body
+            )
+        except k8s_client.ApiException as e:
+            if e.status == 409:
+                api.patch_namespaced_custom_object(
+                    "networking.istio.io", "v1", ns, "destinationrules", name, body
+                )
+            else:
+                raise
+
+
 # ---------------------------------------------------------------------------
 # Test fixtures
 # ---------------------------------------------------------------------------
@@ -569,6 +635,10 @@ def canary_env(request, test_namespace):
     logger.info(f"Waiting for {scenario.v2.name} Ready...")
     wait_ready(api, scenario.v2.name, ns)
 
+    # Istio needs DestinationRules for EPP TLS origination (scheduler scenarios only).
+    if any(m.scheduler for m in [scenario.v1, scenario.v2]) and _has_istio():
+        _apply_epp_tls_workaround(ns)
+
     yield scenario, api, ns
 
 
@@ -591,6 +661,30 @@ class TestCanaryLifecycle:
     )
     def test_canary_service_backend(self, canary_env, traffic_driver):
         """Service backend - works with any gateway."""
+        self._run_canary_lifecycle(canary_env, traffic_driver)
+
+    @pytest.mark.requires_weighted_inference_pool
+    @pytest.mark.parametrize(
+        "canary_env",
+        ["pool"],
+        indirect=True,
+        ids=["pool"],
+    )
+    def test_canary_pool_backend(self, canary_env, traffic_driver):
+        """InferencePool backend - Istio only (Envoy AI Gateway disables ext_proc
+        for routes with multiple weighted InferencePool backendRefs)."""
+        self._run_canary_lifecycle(canary_env, traffic_driver)
+
+    @pytest.mark.requires_weighted_inference_pool
+    @pytest.mark.parametrize(
+        "canary_env",
+        ["mixed"],
+        indirect=True,
+        ids=["mixed"],
+    )
+    def test_canary_mixed_backend(self, canary_env, traffic_driver):
+        """Mixed backend (v1 service, v2 pool) - canary upgrade path. Istio
+        only (Envoy AI Gateway can't weight-split with InferencePool)."""
         self._run_canary_lifecycle(canary_env, traffic_driver)
 
     def test_model_name_divergence(self, test_namespace):
