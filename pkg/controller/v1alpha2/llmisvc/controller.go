@@ -149,8 +149,8 @@ type LLMISVCReconciler struct {
 //+kubebuilder:rbac:groups=leaderworkerset.x-k8s.io,resources=leaderworkersets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 // Secret access stays cluster-scoped so Owns() can watch TLS cert secrets in workload namespaces.
-// Verbs are trimmed to what reconcile uses (create/update/delete on force-stop) plus list/watch for the informer.
-//+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;delete
+// Verbs are trimmed vs full CRUD: keep create/update/patch/delete (force-stop) plus list/watch for the informer.
+//+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=httproutes;gateways;gatewayclasses,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=inference.networking.x-k8s.io,resources=inferencepools;inferenceobjectives;inferencemodels;inferencemodelrewrites;inferencepoolimports,verbs=get;list;watch;create;update;patch;delete
