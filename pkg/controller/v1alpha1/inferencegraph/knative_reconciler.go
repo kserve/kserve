@@ -85,6 +85,15 @@ func reconcileKsvc(desired *knservingv1.Service, existing *knservingv1.Service) 
 	existing.Spec.ConfigurationSpec = desired.Spec.ConfigurationSpec
 	existing.Labels = desired.Labels
 	existing.Spec.Traffic = desired.Spec.Traffic
+	// Sync the annotations KServe manages on the knative service metadata (e.g. the OpenShift passthrough
+	// key and user-provided passthrough annotations). Other keys already on existing (such as those
+	// stamped by knative's webhook or other controllers) are preserved.
+	if existing.Annotations == nil {
+		existing.Annotations = make(map[string]string, len(desired.Annotations))
+	}
+	for key, value := range desired.Annotations {
+		existing.Annotations[key] = value
+	}
 	return nil
 }
 
@@ -153,7 +162,21 @@ func (r *GraphKnativeServiceReconciler) Reconcile(ctx context.Context) (*knservi
 func semanticEquals(desiredService, service *knservingv1.Service) bool {
 	return equality.Semantic.DeepEqual(desiredService.Spec.ConfigurationSpec, service.Spec.ConfigurationSpec) &&
 		equality.Semantic.DeepEqual(desiredService.Labels, service.Labels) &&
-		equality.Semantic.DeepEqual(desiredService.Spec.RouteSpec, service.Spec.RouteSpec)
+		equality.Semantic.DeepEqual(desiredService.Spec.RouteSpec, service.Spec.RouteSpec) &&
+		annotationsSubsetEqual(desiredService.Annotations, service.Annotations)
+}
+
+// annotationsSubsetEqual returns true if every key/value pair in desired is present with the same value
+// in existing. Extra keys on existing (e.g. stamped by knative's webhook or other controllers) are
+// tolerated and not treated as a diff, mirroring how the InferenceService knative reconciler only
+// tracks the annotation keys it manages instead of doing a blanket comparison.
+func annotationsSubsetEqual(desired, existing map[string]string) bool {
+	for key, value := range desired {
+		if existingValue, ok := existing[key]; !ok || existingValue != value {
+			return false
+		}
+	}
+	return true
 }
 
 func createKnativeService(
@@ -170,6 +193,17 @@ func createKnativeService(
 		annotations = make(map[string]string)
 	}
 
+	// Determine which user-provided annotations should also be propagated to the knative service's
+	// top-level metadata.annotations (e.g. so tools like external-dns can read them off the resulting
+	// Route/VirtualService), mirroring the InferenceService knative reconciler's use of
+	// ServiceAnnotationDisallowedList. This must be computed from a fresh map (utils.Filter copies,
+	// it does not alias `annotations`) before SetAutoScalingAnnotations below mutates `annotations` in
+	// place -- otherwise the autoscaling.knative.dev/{class,target,metric} keys it injects would leak
+	// into the service metadata too, since they aren't part of the disallowed list.
+	passthroughAnnotations := utils.Filter(annotations, func(key string) bool {
+		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
+	})
+
 	knutils.SetAutoScalingAnnotations(
 		annotations,
 		graph.Spec.ScaleTarget,
@@ -185,6 +219,12 @@ func createKnativeService(
 	if value, ok := annotations[constants.KnativeOpenshiftEnablePassthroughKey]; ok {
 		ksvcAnnotations[constants.KnativeOpenshiftEnablePassthroughKey] = value
 		delete(annotations, constants.KnativeOpenshiftEnablePassthroughKey)
+	}
+
+	// Copy the remaining user annotations onto the knative service metadata. They are left in place on
+	// the revision template (pod) annotations as well, so this is additive and backwards compatible.
+	for key, value := range passthroughAnnotations {
+		ksvcAnnotations[key] = value
 	}
 
 	labels := utils.Filter(componentMeta.Labels, func(key string) bool {
