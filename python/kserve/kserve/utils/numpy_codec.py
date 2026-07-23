@@ -62,6 +62,7 @@ def from_np_dtype(np_dtype):
     elif (
         np_dtype == np.object_
         or np_dtype.type == np.bytes_
+        or np_dtype.type == np.str_
         or np.issubdtype(np_dtype, np.datetime64)
     ):
         return "BYTES"
