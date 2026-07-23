@@ -1,0 +1,38 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceService
+metadata:
+  name: qwen2-7b-instruct-nvidia-dra
+spec:
+  model:
+    uri: hf://Qwen/Qwen2.5-7B-Instruct
+    name: Qwen/Qwen2.5-7B-Instruct
+  # Three replicas; each pod gets a dedicated GPU via ResourceClaimTemplate
+  replicas: 3
+  router:
+    scheduler: {}
+    route: {}
+    gateway: {}
+  template:
+    resourceClaims:
+    - name: gpu
+      resourceClaimTemplateName: nvidia-gpu-template
+    containers:
+    - name: main
+      resources:
+        limits:
+          cpu: '4'
+          memory: 32Gi
+        requests:
+          cpu: '2'
+          memory: 16Gi
+        claims:
+        - name: gpu
+      livenessProbe:
+        httpGet:
+          path: /health
+          port: 8000
+          scheme: HTTPS
+        initialDelaySeconds: 120
+        periodSeconds: 30
+        timeoutSeconds: 30
+        failureThreshold: 5
