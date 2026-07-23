@@ -55914,6 +55914,15 @@ spec:
       requests:
         cpu: 100m
         memory: 100Mi
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      privileged: false
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
   supportedUriFormats:
   - prefix: gs://
   - prefix: s3://

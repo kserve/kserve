@@ -34,6 +34,8 @@ kserve:
       capabilities:
         drop:
         - ALL
+      seccompProfile:
+        type: RuntimeDefault
     enableModelcar: true
     uidModelcar: 1010
     cpuModelcar: 10m
@@ -105,4 +107,3 @@ kserve:
   autoscaler:
     scaleUpStabilizationWindowSeconds: '0'
     scaleDownStabilizationWindowSeconds: '300'
-
