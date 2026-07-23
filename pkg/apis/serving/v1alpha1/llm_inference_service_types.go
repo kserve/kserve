@@ -88,6 +88,27 @@ type LLMInferenceServiceSpec struct {
 	// +optional
 	Model LLMModelSpec `json:"model"`
 
+	// Runtime is the name of a ServingRuntime (namespaced) or ClusterServingRuntime
+	// that supplies the base container spec — primarily the container image — for the
+	// inference workload. The controller resolves this name against ServingRuntime in
+	// the LLMInferenceService's namespace first, then falls back to
+	// ClusterServingRuntime. The resolved container spec is prepended as the
+	// lowest-priority layer in the merge chain, so LLMInferenceServiceConfig
+	// baseRefs and spec.template still override it.
+	//
+	// When omitted, the controller uses the default vLLM template
+	// (kserve-config-llm-template) which ships its own image.
+	//
+	// +optional
+	Runtime *string `json:"runtime,omitempty"`
+
+	// TrustRemoteCode allows the inference runtime to execute custom model code bundled
+	// with model weights (e.g. HuggingFace models with custom architectures).
+	// Enable only when loading models from trusted sources — this executes arbitrary Python
+	// at model load time.
+	// +optional
+	TrustRemoteCode bool `json:"trustRemoteCode,omitempty"`
+
 	// StorageInitializer configuration for model artifact fetching.
 	// +optional
 	StorageInitializer *StorageInitializerSpec `json:"storageInitializer,omitempty"`

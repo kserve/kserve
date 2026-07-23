@@ -65,6 +65,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/utils"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	kserveTypes "github.com/kserve/kserve/pkg/types"
 )
@@ -147,6 +148,7 @@ type LLMISVCReconciler struct {
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceservices/finalizers,verbs=update
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceserviceconfigs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceserviceconfigs/finalizers,verbs=update
+//+kubebuilder:rbac:groups=serving.kserve.io,resources=servingruntimes;clusterservingruntimes,verbs=get;list;watch
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=leaderworkerset.x-k8s.io,resources=leaderworkersets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
@@ -452,6 +454,23 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), resourcev1.SchemeGroupVersion.String(), "ResourceClaimTemplate"); ok && err == nil {
 		b = b.Owns(&resourcev1.ResourceClaimTemplate{}, builder.WithPredicates(childResourcesPredicate))
+	}
+
+	// Watch ServingRuntime / ClusterServingRuntime so that operator-managed image
+	// updates re-reconcile every LLMInferenceService whose spec.runtime references
+	// the changed runtime. Only spec changes trigger reconciliation — creates and
+	// deletes are ignored because they can't retroactively affect existing services
+	// (a new runtime has no consumers yet; a deleted runtime falls through silently
+	// during merge).
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), v1alpha1.SchemeGroupVersion.String(), "ClusterServingRuntime"); ok && err == nil {
+		b = b.Watches(&v1alpha1.ClusterServingRuntime{},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueOnClusterServingRuntimeChange(logger)),
+			builder.WithPredicates(servingRuntimeSpecChangedPredicate()))
+	}
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), v1alpha1.SchemeGroupVersion.String(), "ServingRuntime"); ok && err == nil {
+		b = b.Watches(&v1alpha1.ServingRuntime{},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueOnServingRuntimeChange(logger)),
+			builder.WithPredicates(servingRuntimeSpecChangedPredicate()))
 	}
 
 	return b.Complete(r)

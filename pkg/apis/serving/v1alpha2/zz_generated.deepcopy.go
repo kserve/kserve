@@ -548,6 +548,11 @@ func (in *LLMInferenceServiceList) DeepCopyObject() runtime.Object {
 func (in *LLMInferenceServiceSpec) DeepCopyInto(out *LLMInferenceServiceSpec) {
 	*out = *in
 	in.Model.DeepCopyInto(&out.Model)
+	if in.Runtime != nil {
+		in, out := &in.Runtime, &out.Runtime
+		*out = new(string)
+		**out = **in
+	}
 	if in.StorageInitializer != nil {
 		in, out := &in.StorageInitializer, &out.StorageInitializer
 		*out = new(StorageInitializerSpec)

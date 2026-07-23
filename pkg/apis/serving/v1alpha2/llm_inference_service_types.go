@@ -87,6 +87,27 @@ type LLMInferenceServiceSpec struct {
 	// +optional
 	Model LLMModelSpec `json:"model"`
 
+	// Runtime is the name of a ServingRuntime (namespaced) or ClusterServingRuntime
+	// that supplies the base container spec — primarily the container image — for the
+	// inference workload. The controller resolves this name against ServingRuntime in
+	// the LLMInferenceService's namespace first, then falls back to
+	// ClusterServingRuntime. The resolved container spec is prepended as the
+	// lowest-priority layer in the merge chain, so LLMInferenceServiceConfig
+	// baseRefs and spec.template still override it.
+	//
+	// When omitted, the controller uses the default vLLM template
+	// (kserve-config-llm-template) which ships its own image.
+	//
+	// +optional
+	Runtime *string `json:"runtime,omitempty"`
+
+	// TrustRemoteCode allows the inference runtime to execute custom model code bundled
+	// with model weights (e.g. HuggingFace models with custom architectures).
+	// Enable only when loading models from trusted sources — this executes arbitrary Python
+	// at model load time.
+	// +optional
+	TrustRemoteCode bool `json:"trustRemoteCode,omitempty"`
+
 	// StorageInitializer configuration for model artifact fetching.
 	// +optional
 	StorageInitializer *StorageInitializerSpec `json:"storageInitializer,omitempty"`
@@ -861,7 +882,7 @@ type SourcedAddress struct {
 }
 
 // AppliedConfigSource identifies how a configuration was selected for merging.
-// +kubebuilder:validation:Enum=Preset;UserRef
+// +kubebuilder:validation:Enum=Preset;UserRef;ServingRuntime
 type AppliedConfigSource string
 
 const (
@@ -872,17 +893,23 @@ const (
 	// AppliedConfigSourceUserRef indicates the config was explicitly referenced
 	// by the user via spec.baseRefs.
 	AppliedConfigSourceUserRef AppliedConfigSource = "UserRef"
+	// AppliedConfigSourceServingRuntime indicates the container spec was
+	// contributed by a ServingRuntime or ClusterServingRuntime resolved from
+	// spec.runtime, applied as the lowest-priority layer.
+	AppliedConfigSourceServingRuntime AppliedConfigSource = "ServingRuntime"
 )
 
-// AppliedConfigRef identifies an LLMInferenceServiceConfig resource that contributed
-// to the final merged configuration during reconciliation.
+// AppliedConfigRef identifies a resource that contributed to the final merged
+// configuration during reconciliation.
 type AppliedConfigRef struct {
-	// Name of the LLMInferenceServiceConfig resource that was applied.
+	// Name of the LLMInferenceServiceConfig, ServingRuntime, or ClusterServingRuntime
+	// resource that was applied.
 	// +required
 	Name gwapiv1.ObjectName `json:"name"`
-	// Namespace where the LLMInferenceServiceConfig was resolved from.
-	// +required
-	Namespace gwapiv1.Namespace `json:"namespace"`
+	// Namespace where the LLMInferenceServiceConfig or ServingRuntime was resolved
+	// from. Omitted for cluster-scoped resources such as ClusterServingRuntime.
+	// +optional
+	Namespace gwapiv1.Namespace `json:"namespace,omitempty"`
 	// Source indicates how this config was selected - either automatically injected
 	// as a well-known default based on the deployment pattern, or explicitly
 	// referenced via spec.baseRefs.
@@ -923,8 +950,8 @@ type LLMInferenceServiceStatus struct {
 	// +optional
 	Workloads *WorkloadStatus `json:"workloads,omitempty"`
 
-	// AppliedConfigRefs records which LLMInferenceServiceConfig resources were applied
-	// during the last successful reconciliation, in merge precedence order.
+	// AppliedConfigRefs records which resources were applied during the last
+	// successful reconciliation, in merge precedence order.
 	// Well-known configs (determined by the deployment pattern) appear first with
 	// lower precedence, followed by explicitly referenced baseRefs with higher
 	// precedence. The service's own spec always takes the highest precedence but

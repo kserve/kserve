@@ -141,8 +141,10 @@ func (dst *LLMInferenceServiceConfig) ConvertFrom(srcRaw conversion.Hub) error {
 
 func convertSpecToV1Alpha2(src *LLMInferenceServiceSpec) v1alpha2.LLMInferenceServiceSpec {
 	dst := v1alpha2.LLMInferenceServiceSpec{
-		Model:    convertModelSpecToV1Alpha2(&src.Model),
-		BaseRefs: src.BaseRefs,
+		Model:           convertModelSpecToV1Alpha2(&src.Model),
+		Runtime:         src.Runtime,
+		TrustRemoteCode: src.TrustRemoteCode,
+		BaseRefs:        src.BaseRefs,
 	}
 
 	// StorageInitializer - direct copy since structs are identical
@@ -181,8 +183,10 @@ func convertSpecToV1Alpha2(src *LLMInferenceServiceSpec) v1alpha2.LLMInferenceSe
 
 func convertSpecFromV1Alpha2(src *v1alpha2.LLMInferenceServiceSpec) LLMInferenceServiceSpec {
 	dst := LLMInferenceServiceSpec{
-		Model:    convertModelSpecFromV1Alpha2(&src.Model),
-		BaseRefs: src.BaseRefs,
+		Model:           convertModelSpecFromV1Alpha2(&src.Model),
+		Runtime:         src.Runtime,
+		TrustRemoteCode: src.TrustRemoteCode,
+		BaseRefs:        src.BaseRefs,
 	}
 
 	// StorageInitializer - direct copy since structs are identical

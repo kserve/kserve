@@ -3008,3 +3008,41 @@ spec:
 		})
 	}
 }
+
+func TestSelectSingleNodeTemplateName(t *testing.T) {
+	tests := []struct {
+		name    string
+		runtime *string
+		want    string
+	}{
+		{
+			name:    "nil runtime defaults to vllm template",
+			runtime: nil,
+			want:    "kserve-config-llm-template",
+		},
+		{
+			name:    "empty runtime defaults to vllm template",
+			runtime: ptr.To(""),
+			want:    "kserve-config-llm-template",
+		},
+		{
+			name:    "unknown runtime name defaults to vllm template",
+			runtime: ptr.To("some-other-runtime"),
+			want:    "kserve-config-llm-template",
+		},
+		{
+			name:    "kserve-llm-sglang runtime selects sglang template",
+			runtime: ptr.To(llmisvc.SGLangServingRuntimeName),
+			want:    "kserve-config-sglang-template",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := llmisvc.SelectSingleNodeTemplateName(tt.runtime)
+			if got != tt.want {
+				t.Errorf("SelectSingleNodeTemplateName(%v) = %q, want %q", tt.runtime, got, tt.want)
+			}
+		})
+	}
+}

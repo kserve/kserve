@@ -1259,3 +1259,46 @@ func TestLLMInferenceServiceConversion_NilTokenizerPreserved(t *testing.T) {
 	assert.Nil(t, restored.Spec.Router.Scheduler.Tokenizer,
 		"nil Tokenizer should remain nil after round-trip")
 }
+
+func TestLLMInferenceServiceConversion_PreservesRuntime(t *testing.T) {
+	modelName := "test-model"
+
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-llm-isvc", Namespace: "default"},
+		Spec: LLMInferenceServiceSpec{
+			Model:   LLMModelSpec{URI: apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"}, Name: &modelName},
+			Runtime: ptr.To("kserve-llm-sglang"),
+		},
+	}
+
+	// Convert to v1alpha2
+	dst := &v1alpha2.LLMInferenceService{}
+	require.NoError(t, src.ConvertTo(dst))
+	require.NotNil(t, dst.Spec.Runtime)
+	assert.Equal(t, "kserve-llm-sglang", *dst.Spec.Runtime)
+
+	// Convert back to v1alpha1
+	restored := &LLMInferenceService{}
+	require.NoError(t, restored.ConvertFrom(dst))
+	require.NotNil(t, restored.Spec.Runtime)
+	assert.Equal(t, "kserve-llm-sglang", *restored.Spec.Runtime)
+}
+
+func TestLLMInferenceServiceConversion_EmptyRuntimeRoundTrips(t *testing.T) {
+	modelName := "test-model"
+
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-llm-isvc", Namespace: "default"},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{URI: apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"}, Name: &modelName},
+		},
+	}
+
+	dst := &v1alpha2.LLMInferenceService{}
+	require.NoError(t, src.ConvertTo(dst))
+	assert.Nil(t, dst.Spec.Runtime)
+
+	restored := &LLMInferenceService{}
+	require.NoError(t, restored.ConvertFrom(dst))
+	assert.Nil(t, restored.Spec.Runtime)
+}

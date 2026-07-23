@@ -16908,6 +16908,8 @@ spec:
                           type: object
                       type: object
                   type: object
+                runtime:
+                  type: string
                 scaling:
                   properties:
                     maxReplicas:
@@ -20932,6 +20934,8 @@ spec:
                     samplerArg:
                       type: string
                   type: object
+                trustRemoteCode:
+                  type: boolean
                 worker:
                   properties:
                     activeDeadlineSeconds:
@@ -41899,6 +41903,8 @@ spec:
                           type: object
                       type: object
                   type: object
+                runtime:
+                  type: string
                 scaling:
                   properties:
                     maxReplicas:
@@ -45923,6 +45929,8 @@ spec:
                     samplerArg:
                       type: string
                   type: object
+                trustRemoteCode:
+                  type: boolean
                 worker:
                   properties:
                     activeDeadlineSeconds:
