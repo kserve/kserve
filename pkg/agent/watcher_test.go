@@ -67,6 +67,20 @@ var _ = Describe("Watcher", func() {
 	})
 
 	Describe("Sync models config on startup", func() {
+		It("should not crash after sync error", func() {
+			badModelDir := filepath.Join(modelDir, "bad-model")
+			configDir := filepath.Join(modelDir, "configs")
+			Expect(os.MkdirAll(badModelDir, os.ModePerm)).To(Succeed())                                       //nolint:gosec // G301: test directory
+			Expect(os.MkdirAll(configDir, os.ModePerm)).To(Succeed())                                         //nolint:gosec // G301: test directory
+			Expect(os.WriteFile(filepath.Join(badModelDir, "SUCCESS.bad"), []byte("{"), 0o644)).To(Succeed()) //nolint:gosec // G306: test file
+			modelConfigs := modelconfig.ModelConfigs{{Name: "model1"}}
+			data, err := json.Marshal(modelConfigs)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(os.WriteFile(filepath.Join(configDir, constants.ModelConfigFileName), data, 0o644)).To(Succeed()) //nolint:gosec // G306: test file
+			Expect(func() {
+				NewWatcher(configDir, modelDir, sugar)
+			}).ToNot(Panic())
+		})
 		Context("Getting new model events", func() {
 			It("should download and load the new models", func() {
 				logger.Printf("Sync model config using temp dir %v\n", modelDir)
