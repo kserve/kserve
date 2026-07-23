@@ -18,7 +18,6 @@ class ResponseRecord:
     headers: Dict[str, str] = field(default_factory=dict)  # lowercased keys
     error: Optional[str] = None
     body: Optional[str] = None  # response body for non-2xx (truncated to 512 chars)
-    body: Optional[str] = None  # response body for non-2xx (truncated to 512 chars)
 
     @property
     def is_success(self) -> bool:
