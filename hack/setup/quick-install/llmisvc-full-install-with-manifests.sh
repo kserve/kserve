@@ -653,7 +653,7 @@ KEDA_OTEL_ADDON_VERSION=v0.0.6
 PROMETHEUS_VERSION=83.4.0
 PROMETHEUS_ADAPTER_VERSION=5.3.0
 JAEGER_VERSION=4.7.0
-KSERVE_VERSION=v0.20.0-rc0
+KSERVE_VERSION=v0.20.0-rc1
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.18.0
 OPENTELEMETRY_OPERATOR_VERSION=0.74.3
@@ -2832,8 +2832,8 @@ spec:
       - '{{ if .GlobalConfig.EnableTLS }}--secure-proxy=true{{else}}--secure-proxy=false{{-
         end }}'
       - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
-      - '{{ if .GlobalConfig.EnableTLS }}--decoder-use-tls=true{{- end }}'
-      - '{{ if .GlobalConfig.EnableTLS }}--prefiller-use-tls=true{{- end }}'
+      - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=decoder{{- end }}'
+      - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=prefiller{{- end }}'
       env:
       - name: INFERENCE_POOL_NAMESPACE
         valueFrom:
@@ -3180,8 +3180,8 @@ spec:
       - '{{ if .GlobalConfig.EnableTLS }}--secure-proxy=true{{else}}--secure-proxy=false{{-
         end }}'
       - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
-      - '{{ if .GlobalConfig.EnableTLS }}--decoder-use-tls=true{{- end }}'
-      - '{{ if .GlobalConfig.EnableTLS }}--prefiller-use-tls=true{{- end }}'
+      - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=decoder{{- end }}'
+      - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=prefiller{{- end }}'
       env:
       - name: INFERENCE_POOL_NAMESPACE
         valueFrom:
