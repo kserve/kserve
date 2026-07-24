@@ -672,21 +672,23 @@ def is_model_ready(
     return rest_client.is_model_ready(base_url, model_name, headers=headers)
 
 
-_WORKER_COUNT_SCRIPT = "\n".join([
-    "import glob, os, sys",
-    "count = 0",
-    "for f in glob.glob('/proc/[0-9]*/cmdline'):",
-    "    try:",
-    "        data = open(f, 'rb').read()",
-    "        if b'spawn_main' not in data: continue",
-    "        status = open(os.path.join(os.path.dirname(f), 'status')).read()",
-    "        ppid = status.split('PPid:\\t')[1].split()[0]",
-    "        pid = f.split('/')[2]",
-    "        if ppid == '1': count += 1",
-    "        else: print(f'skip pid={pid} ppid={ppid}', file=sys.stderr)",
-    "    except (OSError, IndexError): pass",
-    "print(count)",
-])
+_WORKER_COUNT_SCRIPT = "\n".join(
+    [
+        "import glob, os, sys",
+        "count = 0",
+        "for f in glob.glob('/proc/[0-9]*/cmdline'):",
+        "    try:",
+        "        data = open(f, 'rb').read()",
+        "        if b'spawn_main' not in data: continue",
+        "        status = open(os.path.join(os.path.dirname(f), 'status')).read()",
+        "        ppid = status.split('PPid:\\t')[1].split()[0]",
+        "        pid = f.split('/')[2]",
+        "        if ppid == '1': count += 1",
+        "        else: print(f'skip pid={pid} ppid={ppid}', file=sys.stderr)",
+        "    except (OSError, IndexError): pass",
+        "print(count)",
+    ]
+)
 
 
 def get_container_worker_count(
