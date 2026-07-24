@@ -542,3 +542,22 @@ func (r *DeploymentReconciler) SetControllerReferences(owner metav1.Object, sche
 	}
 	return nil
 }
+
+// CleanupOrphans deletes Deployments matching labels whose names are not in expectedNames.
+func (r *DeploymentReconciler) CleanupOrphans(ctx context.Context, namespace string, labels kclient.MatchingLabels, expectedNames map[string]bool) error {
+	list := &appsv1.DeploymentList{}
+	if err := r.client.List(ctx, list, kclient.InNamespace(namespace), labels); err != nil {
+		return fmt.Errorf("fails to list deployments for cleanup: %w", err)
+	}
+	for i := range list.Items {
+		obj := &list.Items[i]
+		if expectedNames[obj.Name] {
+			continue
+		}
+		log.Info("Deleting orphaned deployment", "name", obj.Name)
+		if err := r.client.Delete(ctx, obj); err != nil && !apierr.IsNotFound(err) {
+			return fmt.Errorf("fails to delete orphaned deployment %s: %w", obj.Name, err)
+		}
+	}
+	return nil
+}

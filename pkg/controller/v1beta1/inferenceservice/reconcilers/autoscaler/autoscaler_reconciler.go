@@ -35,6 +35,7 @@ import (
 type Autoscaler interface {
 	Reconcile(ctx context.Context) error
 	SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error
+	CleanupOrphans(ctx context.Context, namespace string, labels client.MatchingLabels, expectedNames map[string]bool) error
 }
 
 // NoOpAutoscaler Autoscaler that does nothing. Can be used to disable creation of autoscaler resources.
@@ -45,6 +46,10 @@ func (*NoOpAutoscaler) Reconcile(ctx context.Context) error {
 }
 
 func (a *NoOpAutoscaler) SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error {
+	return nil
+}
+
+func (a *NoOpAutoscaler) CleanupOrphans(_ context.Context, _ string, _ client.MatchingLabels, _ map[string]bool) error {
 	return nil
 }
 
@@ -107,4 +112,9 @@ func (r *AutoscalerReconciler) Reconcile(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+// CleanupOrphans delegates orphan cleanup to the underlying autoscaler implementation.
+func (r *AutoscalerReconciler) CleanupOrphans(ctx context.Context, namespace string, labels client.MatchingLabels, expectedNames map[string]bool) error {
+	return r.Autoscaler.CleanupOrphans(ctx, namespace, labels, expectedNames)
 }

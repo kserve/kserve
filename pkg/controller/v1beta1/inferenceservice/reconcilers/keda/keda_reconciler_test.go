@@ -25,11 +25,14 @@ import (
 	"github.com/stretchr/testify/require"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	apierr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -1014,4 +1017,36 @@ func TestGetOriginalStringMQ(t *testing.T) {
 			assert.Equal(t, tt.expectedOut, result)
 		})
 	}
+}
+
+func TestCleanupOrphans(t *testing.T) {
+	s := runtime.NewScheme()
+	_ = kedav1alpha1.AddToScheme(s)
+
+	labels := map[string]string{
+		constants.InferenceServicePodLabelKey: "my-isvc",
+		constants.KServiceComponentLabel:      "predictor",
+	}
+
+	expected := &kedav1alpha1.ScaledObject{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-isvc-predictor", Namespace: "default", Labels: labels},
+	}
+	orphan := &kedav1alpha1.ScaledObject{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-isvc-old-predictor", Namespace: "default", Labels: labels},
+	}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(expected, orphan).Build()
+	reconciler := &KedaReconciler{client: fakeClient, scheme: s}
+
+	expectedNames := map[string]bool{"my-isvc-predictor": true}
+	err := reconciler.CleanupOrphans(t.Context(), "default", client.MatchingLabels(labels), expectedNames)
+	require.NoError(t, err)
+
+	// Orphan should be deleted
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "my-isvc-old-predictor", Namespace: "default"}, &kedav1alpha1.ScaledObject{})
+	assert.True(t, apierr.IsNotFound(err))
+
+	// Expected should be kept
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "my-isvc-predictor", Namespace: "default"}, &kedav1alpha1.ScaledObject{})
+	assert.NoError(t, err)
 }
