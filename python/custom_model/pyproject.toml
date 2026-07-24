@@ -3,7 +3,7 @@ authors = [
     {name = "The KServe Authors"},
 ]
 license = {text = "Apache-2.0"}
-requires-python = "<3.13,>=3.10"
+requires-python = "<3.14,>=3.10"
 dependencies = [
     "kserve[ray] @ file:///${PROJECT_ROOT}/../kserve",
     "torchvision==0.26.0+cpu",
