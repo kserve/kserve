@@ -38,7 +38,11 @@ _AUTOSCALING_STEM_PREFIX = "test_llm_autoscaling_"
 # Files that should NOT receive ``llmisvc_core`` automatically.
 # Autoscaling files (``test_llm_autoscaling_<variant>.py``) are handled
 # separately below; add other special-case filenames here.
-_LLMISVC_CORE_EXCLUDED = {"test_llm_tracing.py"}
+_LLMISVC_CORE_EXCLUDED = {
+    "test_llm_tracing.py",
+    "test_llm_inference_service_conversion.py",
+    "test_storage_version_migration.py",
+}
 
 
 @pytest.fixture

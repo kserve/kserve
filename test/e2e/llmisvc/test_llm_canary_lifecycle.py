@@ -1,3 +1,17 @@
+# Copyright 2026 The KServe Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """Zero-downtime canary rollout lifecycle under continuous traffic.
 
 Self-contained: deploys members, runs canary lifecycle under load,
@@ -1121,10 +1135,19 @@ class TestCanaryLifecycle:
         wait_for_member_count(api, v1.name, ns, 3)
 
         gateway = get_gateway_base_url(api, v1.name, ns)
+        route_headers = {"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"}
+        route_payload = {"model": MODEL, "prompt": "Hello", "max_tokens": 5}
+
+        wait_for_healthy_route(
+            f"{gateway}/v1/completions",
+            route_headers,
+            route_payload,
+        )
+
         driver = traffic_driver(
             url=f"{gateway}/v1/completions",
-            headers={"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
-            payload={"model": MODEL, "prompt": "Hello", "max_tokens": 5},
+            headers=route_headers,
+            payload=route_payload,
             rate=2,
             timeout=15.0,
             warmup=True,
