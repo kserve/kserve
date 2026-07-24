@@ -172,6 +172,10 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 		if llmSvc.Spec.KVCacheOffloading != nil {
 			attachKVCacheSecondaryTiers(&d.Spec.Template.Spec, llmSvc.Spec.KVCacheOffloading.Secondary, "main")
 		}
+
+		if err := r.injectServedByMiddleware(ctx, llmSvc, &d.Spec.Template.Spec); err != nil {
+			return nil, fmt.Errorf("failed to inject served-by middleware: %w", err)
+		}
 	}
 
 	r.propagateDeploymentMetadata(llmSvc, d)
@@ -274,6 +278,10 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 		}
 		if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.KVCacheOffloading != nil {
 			attachKVCacheSecondaryTiers(&d.Spec.Template.Spec, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, "main")
+		}
+
+		if err := r.injectServedByMiddleware(ctx, llmSvc, &d.Spec.Template.Spec); err != nil {
+			return nil, fmt.Errorf("failed to inject served-by middleware: %w", err)
 		}
 	}
 

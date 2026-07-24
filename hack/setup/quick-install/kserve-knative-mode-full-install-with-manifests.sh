@@ -2764,6 +2764,17 @@ spec:
           fi
         fi
 
+        # x-served-by middleware requires Python ASGI support (vLLM Python frontend).
+        # Rust frontend does not support --middleware yet (vllm-project/vllm#44280).
+        MIDDLEWARE_ARGS=""
+        if [ -n "$KSERVE_MIDDLEWARE_CLASS" ]; then
+          if [ "${VLLM_USE_RUST_FRONTEND:-0}" != "1" ]; then
+            MIDDLEWARE_ARGS="--middleware=$KSERVE_MIDDLEWARE_CLASS"
+          else
+            echo "WARN: x-served-by middleware not supported with Rust frontend, skipping" >&2
+          fi
+        fi
+
         eval "exec vllm serve /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8001 \
@@ -2774,6 +2785,7 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+          ${MIDDLEWARE_ARGS} \
           ${VLLM_ADDITIONAL_ARGS} \
           $@"
       - --
@@ -3100,6 +3112,17 @@ spec:
           fi
         fi
 
+        # x-served-by middleware requires Python ASGI support (vLLM Python frontend).
+        # Rust frontend does not support --middleware yet (vllm-project/vllm#44280).
+        MIDDLEWARE_ARGS=""
+        if [ -n "$KSERVE_MIDDLEWARE_CLASS" ]; then
+          if [ "${VLLM_USE_RUST_FRONTEND:-0}" != "1" ]; then
+            MIDDLEWARE_ARGS="--middleware=$KSERVE_MIDDLEWARE_CLASS"
+          else
+            echo "WARN: x-served-by middleware not supported with Rust frontend, skipping" >&2
+          fi
+        fi
+
         eval "exec vllm serve \
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
@@ -3118,6 +3141,7 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+          ${MIDDLEWARE_ARGS} \
           ${VLLM_ADDITIONAL_ARGS} \
           $@"
       - --
@@ -3440,6 +3464,17 @@ spec:
           fi
         fi
 
+        # x-served-by middleware requires Python ASGI support (vLLM Python frontend).
+        # Rust frontend does not support --middleware yet (vllm-project/vllm#44280).
+        MIDDLEWARE_ARGS=""
+        if [ -n "$KSERVE_MIDDLEWARE_CLASS" ]; then
+          if [ "${VLLM_USE_RUST_FRONTEND:-0}" != "1" ]; then
+            MIDDLEWARE_ARGS="--middleware=$KSERVE_MIDDLEWARE_CLASS"
+          else
+            echo "WARN: x-served-by middleware not supported with Rust frontend, skipping" >&2
+          fi
+        fi
+
         eval "exec vllm serve \
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
@@ -3458,6 +3493,7 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+          ${MIDDLEWARE_ARGS} \
           ${VLLM_ADDITIONAL_ARGS} \
           $@"
       - --
@@ -3686,6 +3722,17 @@ spec:
             fi
           fi
 
+          # x-served-by middleware requires Python ASGI support (vLLM Python frontend).
+          # Rust frontend does not support --middleware yet (vllm-project/vllm#44280).
+          MIDDLEWARE_ARGS=""
+          if [ -n "$KSERVE_MIDDLEWARE_CLASS" ]; then
+            if [ "${VLLM_USE_RUST_FRONTEND:-0}" != "1" ]; then
+              MIDDLEWARE_ARGS="--middleware=$KSERVE_MIDDLEWARE_CLASS"
+            else
+              echo "WARN: x-served-by middleware not supported with Rust frontend, skipping" >&2
+            fi
+          fi
+
           eval "exec vllm serve /mnt/models \
             --served-model-name "{{ .Spec.Model.Name }}" \
             --port 8000 \
@@ -3696,6 +3743,7 @@ spec:
             {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+            ${MIDDLEWARE_ARGS} \
             ${VLLM_ADDITIONAL_ARGS} \
             $@"
         - --
@@ -3963,6 +4011,17 @@ spec:
             fi
           fi
 
+          # x-served-by middleware requires Python ASGI support (vLLM Python frontend).
+          # Rust frontend does not support --middleware yet (vllm-project/vllm#44280).
+          MIDDLEWARE_ARGS=""
+          if [ -n "$KSERVE_MIDDLEWARE_CLASS" ]; then
+            if [ "${VLLM_USE_RUST_FRONTEND:-0}" != "1" ]; then
+              MIDDLEWARE_ARGS="--middleware=$KSERVE_MIDDLEWARE_CLASS"
+            else
+              echo "WARN: x-served-by middleware not supported with Rust frontend, skipping" >&2
+            fi
+          fi
+
           eval "exec vllm serve \
             /mnt/models \
             --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
@@ -3981,6 +4040,7 @@ spec:
             {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+            ${MIDDLEWARE_ARGS} \
             ${VLLM_ADDITIONAL_ARGS} \
             $@"
         - --
@@ -4242,6 +4302,17 @@ spec:
             fi
           fi
 
+          # x-served-by middleware requires Python ASGI support (vLLM Python frontend).
+          # Rust frontend does not support --middleware yet (vllm-project/vllm#44280).
+          MIDDLEWARE_ARGS=""
+          if [ -n "$KSERVE_MIDDLEWARE_CLASS" ]; then
+            if [ "${VLLM_USE_RUST_FRONTEND:-0}" != "1" ]; then
+              MIDDLEWARE_ARGS="--middleware=$KSERVE_MIDDLEWARE_CLASS"
+            else
+              echo "WARN: x-served-by middleware not supported with Rust frontend, skipping" >&2
+            fi
+          fi
+
           eval "exec vllm serve \
             /mnt/models \
             --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
@@ -4260,6 +4331,7 @@ spec:
             {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+            ${MIDDLEWARE_ARGS} \
             ${VLLM_ADDITIONAL_ARGS} \
             $@"
         - --
@@ -5100,6 +5172,17 @@ spec:
           fi
         fi
 
+        # x-served-by middleware requires Python ASGI support (vLLM Python frontend).
+        # Rust frontend does not support --middleware yet (vllm-project/vllm#44280).
+        MIDDLEWARE_ARGS=""
+        if [ -n "$KSERVE_MIDDLEWARE_CLASS" ]; then
+          if [ "${VLLM_USE_RUST_FRONTEND:-0}" != "1" ]; then
+            MIDDLEWARE_ARGS="--middleware=$KSERVE_MIDDLEWARE_CLASS"
+          else
+            echo "WARN: x-served-by middleware not supported with Rust frontend, skipping" >&2
+          fi
+        fi
+
         eval "exec vllm serve /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8000 \
@@ -5110,6 +5193,7 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+          ${MIDDLEWARE_ARGS} \
           ${VLLM_ADDITIONAL_ARGS} \
           $@"
       - --
@@ -5466,6 +5550,17 @@ spec:
           fi
         fi
 
+        # x-served-by middleware requires Python ASGI support (vLLM Python frontend).
+        # Rust frontend does not support --middleware yet (vllm-project/vllm#44280).
+        MIDDLEWARE_ARGS=""
+        if [ -n "$KSERVE_MIDDLEWARE_CLASS" ]; then
+          if [ "${VLLM_USE_RUST_FRONTEND:-0}" != "1" ]; then
+            MIDDLEWARE_ARGS="--middleware=$KSERVE_MIDDLEWARE_CLASS"
+          else
+            echo "WARN: x-served-by middleware not supported with Rust frontend, skipping" >&2
+          fi
+        fi
+
         eval "exec vllm serve \
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
@@ -5484,6 +5579,7 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+          ${MIDDLEWARE_ARGS} \
           ${VLLM_ADDITIONAL_ARGS} \
           $@"
       - --
@@ -5745,6 +5841,17 @@ spec:
           fi
         fi
 
+        # x-served-by middleware requires Python ASGI support (vLLM Python frontend).
+        # Rust frontend does not support --middleware yet (vllm-project/vllm#44280).
+        MIDDLEWARE_ARGS=""
+        if [ -n "$KSERVE_MIDDLEWARE_CLASS" ]; then
+          if [ "${VLLM_USE_RUST_FRONTEND:-0}" != "1" ]; then
+            MIDDLEWARE_ARGS="--middleware=$KSERVE_MIDDLEWARE_CLASS"
+          else
+            echo "WARN: x-served-by middleware not supported with Rust frontend, skipping" >&2
+          fi
+        fi
+
         eval "exec vllm serve \
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
@@ -5763,6 +5870,7 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+          ${MIDDLEWARE_ARGS} \
           ${VLLM_ADDITIONAL_ARGS} \
           $@"
       - --

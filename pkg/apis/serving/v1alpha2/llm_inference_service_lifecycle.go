@@ -127,6 +127,11 @@ const (
 	// continues with available members. False (or unset) when fully healthy.
 	// Only present when traffic splitting is configured (group + weight set).
 	GroupDegraded apis.ConditionType = "GroupDegraded"
+
+	// RequestAttributionReady is True when the x-served-by response header
+	// middleware is injected. Independent of Ready - does not gate workload health.
+	// Only present when the served-by annotation is set.
+	RequestAttributionReady apis.ConditionType = "RequestAttributionReady"
 )
 
 var llmInferenceServiceCondSet = apis.NewLivingConditionSet(
@@ -332,6 +337,18 @@ func (in *LLMInferenceService) MarkGroupDegraded(reason, messageFormat string, m
 
 func (in *LLMInferenceService) MarkGroupNotDegraded() {
 	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(GroupDegraded)
+}
+
+func (in *LLMInferenceService) MarkRequestAttributionReady() {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(RequestAttributionReady)
+}
+
+func (in *LLMInferenceService) MarkRequestAttributionNotReady(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(RequestAttributionReady, reason, messageFormat, messageA...)
+}
+
+func (in *LLMInferenceService) MarkRequestAttributionReadyUnset() {
+	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(RequestAttributionReady)
 }
 
 func (in *LLMInferenceService) DetermineRouterReadiness() {

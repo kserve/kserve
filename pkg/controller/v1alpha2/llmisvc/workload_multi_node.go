@@ -217,6 +217,10 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 			attachKVCacheSecondaryTiers(&expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, llmSvc.Spec.KVCacheOffloading.Secondary, "main")
 		}
 
+		if err := r.injectServedByMiddleware(ctx, llmSvc, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec); err != nil {
+			return nil, fmt.Errorf("failed to inject served-by middleware: %w", err)
+		}
+
 		if hasRoutingSidecar(expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec) {
 			log.FromContext(ctx).V(2).Info("Main container has a routing sidecar")
 
@@ -243,6 +247,10 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 		}
 		if llmSvc.Spec.KVCacheOffloading != nil {
 			attachKVCacheSecondaryTiers(&expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, llmSvc.Spec.KVCacheOffloading.Secondary, "main")
+		}
+
+		if err := r.injectServedByMiddleware(ctx, llmSvc, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec); err != nil {
+			return nil, fmt.Errorf("failed to inject served-by middleware: %w", err)
 		}
 
 		if hasRoutingSidecar(expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec) {
@@ -359,6 +367,10 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 			if llmSvc.Spec.Prefill.KVCacheOffloading != nil {
 				attachKVCacheSecondaryTiers(&expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, "main")
 			}
+
+			if err := r.injectServedByMiddleware(ctx, llmSvc, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec); err != nil {
+				return nil, fmt.Errorf("failed to inject served-by middleware: %w", err)
+			}
 		}
 		if llmSvc.Spec.Prefill.Worker != nil {
 			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec = *llmSvc.Spec.Prefill.Worker.DeepCopy()
@@ -370,6 +382,10 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 			}
 			if llmSvc.Spec.Prefill.KVCacheOffloading != nil {
 				attachKVCacheSecondaryTiers(&expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, "main")
+			}
+
+			if err := r.injectServedByMiddleware(ctx, llmSvc, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec); err != nil {
+				return nil, fmt.Errorf("failed to inject served-by middleware: %w", err)
 			}
 		}
 
