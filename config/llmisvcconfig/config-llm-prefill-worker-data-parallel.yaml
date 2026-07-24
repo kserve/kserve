@@ -162,28 +162,45 @@ spec:
 
               START_RANK=0
 
+              # Detect flags from `vllm serve --help` rather than the version string: patched
+              # builds report a placeholder version (0.1.devN+g<hash>) unrelated to the real one.
+              VLLM_SERVE_HELP="$( { vllm serve --help=all || vllm serve --help; } 2>/dev/null || true )"
+
               # --disable-access-log-for-endpoints landed in vLLM 0.16.0 (vllm-project/vllm#30011).
               # Older versions still need the blanket --disable-uvicorn-access-log.
               ACCESS_LOG_ARGS="--disable-uvicorn-access-log"
-              VLLM_VERSION=$(vllm --version 2>/dev/null | tail -1 | awk '{print $NF}')
-              echo "[access-log-detect] vllm version='${VLLM_VERSION}'"
-              if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.16.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.16.0" ]; then
+              if printf '%s' "$VLLM_SERVE_HELP" | grep -q -- --disable-access-log-for-endpoints; then
                 ACCESS_LOG_ARGS="--disable-access-log-for-endpoints /health,/metrics,/ping"
               fi
               echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
 
               # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
               SHUTDOWN_TIMEOUT_ARGS=""
-              if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
+              if printf '%s' "$VLLM_SERVE_HELP" | grep -q -- --shutdown-timeout; then
                 SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Template 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"
               fi
+              echo "[shutdown-timeout-detect] selected SHUTDOWN_TIMEOUT_ARGS='${SHUTDOWN_TIMEOUT_ARGS}'"
 
-              # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+              # --kv-transfer-config exists on all supported vLLM versions and even the
+              # OffloadingConnector predates them, but the TieringOffloadingSpec that
+              # kvTransferConfig generates only landed in vLLM 0.22.0 (vllm-project/vllm#40020).
+              # Neither is listed in --help output, so probe the installed package source.
+              vllm_supports_tiering_offloading() {
+                local pkg_dir
+                pkg_dir="$(python3 -c 'import importlib.util, os; print(os.path.dirname(importlib.util.find_spec("vllm").origin))' 2>/dev/null)" || return 1
+                grep -rqsI "TieringOffloadingSpec" "$pkg_dir"
+              }
+
               KV_TRANSFER_ARGS=""
-              if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-                if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
-                  KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
-                fi
+              if vllm_supports_tiering_offloading; then
+                echo "[kv-transfer-detect] TieringOffloadingSpec supported='1'"
+                case "${VLLM_ADDITIONAL_ARGS:-} $*" in
+                  *--kv-transfer-config*|*--kv_transfer_config*)
+                    echo "[kv-transfer-detect] user-supplied --kv-transfer-config, skipping injection" ;;
+                  *) KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}" ;;
+                esac
+              else
+                echo "[kv-transfer-detect] TieringOffloadingSpec supported='0'"
               fi
 
               eval "exec vllm serve \
@@ -444,28 +461,45 @@ spec:
 
               START_RANK=$(( ${LWS_WORKER_INDEX:-0} * {{ or .Spec.Prefill.Parallelism.DataLocal 1 }} ))
 
+              # Detect flags from `vllm serve --help` rather than the version string: patched
+              # builds report a placeholder version (0.1.devN+g<hash>) unrelated to the real one.
+              VLLM_SERVE_HELP="$( { vllm serve --help=all || vllm serve --help; } 2>/dev/null || true )"
+
               # --disable-access-log-for-endpoints landed in vLLM 0.16.0 (vllm-project/vllm#30011).
               # Older versions still need the blanket --disable-uvicorn-access-log.
               ACCESS_LOG_ARGS="--disable-uvicorn-access-log"
-              VLLM_VERSION=$(vllm --version 2>/dev/null | tail -1 | awk '{print $NF}')
-              echo "[access-log-detect] vllm version='${VLLM_VERSION}'"
-              if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.16.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.16.0" ]; then
+              if printf '%s' "$VLLM_SERVE_HELP" | grep -q -- --disable-access-log-for-endpoints; then
                 ACCESS_LOG_ARGS="--disable-access-log-for-endpoints /health,/metrics,/ping"
               fi
               echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
 
               # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
               SHUTDOWN_TIMEOUT_ARGS=""
-              if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
+              if printf '%s' "$VLLM_SERVE_HELP" | grep -q -- --shutdown-timeout; then
                 SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Worker 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"
               fi
+              echo "[shutdown-timeout-detect] selected SHUTDOWN_TIMEOUT_ARGS='${SHUTDOWN_TIMEOUT_ARGS}'"
 
-              # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+              # --kv-transfer-config exists on all supported vLLM versions and even the
+              # OffloadingConnector predates them, but the TieringOffloadingSpec that
+              # kvTransferConfig generates only landed in vLLM 0.22.0 (vllm-project/vllm#40020).
+              # Neither is listed in --help output, so probe the installed package source.
+              vllm_supports_tiering_offloading() {
+                local pkg_dir
+                pkg_dir="$(python3 -c 'import importlib.util, os; print(os.path.dirname(importlib.util.find_spec("vllm").origin))' 2>/dev/null)" || return 1
+                grep -rqsI "TieringOffloadingSpec" "$pkg_dir"
+              }
+
               KV_TRANSFER_ARGS=""
-              if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-                if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
-                  KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
-                fi
+              if vllm_supports_tiering_offloading; then
+                echo "[kv-transfer-detect] TieringOffloadingSpec supported='1'"
+                case "${VLLM_ADDITIONAL_ARGS:-} $*" in
+                  *--kv-transfer-config*|*--kv_transfer_config*)
+                    echo "[kv-transfer-detect] user-supplied --kv-transfer-config, skipping injection" ;;
+                  *) KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}" ;;
+                esac
+              else
+                echo "[kv-transfer-detect] TieringOffloadingSpec supported='0'"
               fi
 
               eval "exec vllm serve \
