@@ -483,3 +483,7 @@ apidocs:
 check-doc-links:
 	@python3 hack/verify-doc-links.py && echo "$@: OK"
 
+.PHONY: check-copyright
+check-copyright:
+	@hack/check-copyright.sh
+
