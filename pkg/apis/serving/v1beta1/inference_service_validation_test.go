@@ -334,6 +334,33 @@ func TestAutoscalerClassHPA(t *testing.T) {
 			},
 			errMatcher: gomega.BeNil(),
 		},
+		"Valid HPA Memory metrics with ScaleTarget above 100": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "Standard",
+						"serving.kserve.io/autoscalerClass": "hpa",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							ScaleMetric: ptr.To(MetricMemory),
+							ScaleTarget: ptr.To(int32(200)),
+						},
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.BeNil(),
+		},
 		"Invalid autoscaler class": {
 			isvc: &InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
