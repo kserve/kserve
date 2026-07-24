@@ -1,9 +1,21 @@
+# Copyright 2026 The KServe Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 
 import pytest
-import requests
 import logging
-import time
 import json
 
 from kserve import (
@@ -17,6 +29,7 @@ from kserve import (
 from kubernetes.client import V1ResourceRequirements
 from kubernetes import client
 from kubernetes.client import V1Container, V1ContainerPort
+from ..common.http_retry import post_with_retry
 from ..common.utils import KSERVE_TEST_NAMESPACE, get_isvc_endpoint
 
 
@@ -88,10 +101,9 @@ def test_predictor_headers_v1():
 
     url = f"{scheme}://{cluster_ip}{path}/v1/models/{model_name}:predict"
 
-    time.sleep(10)
     with open(input_json) as json_file:
         data = json.load(json_file)
-        response = requests.post(url, json.dumps(data), headers=headers)
+        response = post_with_retry(url, headers=headers, json_data=data)
         logging.info(
             "Got response code %s, content %s", response.status_code, response.content
         )
@@ -173,10 +185,9 @@ def test_predictor_headers_v2():
 
     url = f"{scheme}://{cluster_ip}{path}/v2/models/{model_name}/infer"
 
-    time.sleep(10)
     with open(input_json) as json_file:
         data = json.load(json_file)
-        response = requests.post(url, json.dumps(data), headers=headers)
+        response = post_with_retry(url, headers=headers, json_data=data)
         logging.info(
             "Got response code %s, content %s", response.status_code, response.content
         )

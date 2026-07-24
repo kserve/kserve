@@ -71,7 +71,7 @@ def is_vllm_backend_enabled(
 
 
 try:
-    from vllm.utils import FlexibleArgumentParser
+    from vllm.utils.argparse_utils import FlexibleArgumentParser
 
     parser = FlexibleArgumentParser(parents=[kserve.model_server.parser])
 except ImportError:
@@ -140,6 +140,12 @@ parser.add_argument(
 parser.add_argument(
     "--return_token_type_ids", action="store_true", help="Return token type ids"
 )
+parser.add_argument(
+    "--return_offsets_mapping",
+    action="store_true",
+    default=False,
+    help="Return start/end character offsets for each token (token_classification only).",
+)
 
 # Create a mutually exclusive group for output format options
 # This group allows the user to choose between returning probabilities or disabling postprocessing.
@@ -182,7 +188,7 @@ else:
 
     # auto for vLLM uses FP16 even for an FP32 model while HF uses FP32 causing inconsistency.
     # To ensure consistency b/w vLLM and HF,
-    # we use FP16 or the Model Config "torch_dtype" for auto as the default dtype in HF backend
+    # we use FP16 or the Model Config "dtype" for auto as the default dtype in HF backend
     # auto would use FP32 for CPU only instances.
     # FP16, BF16 and FP32 if explicitly mentioned would use those data types
     default_dtype = "float16" if torch.cuda.is_available() else "float32"
@@ -242,11 +248,8 @@ def load_model():
         # Convert dtype from string to torch dtype. Default to float16
         dtype = kwargs.get("dtype", default_dtype)
         if dtype == "auto":
-            if (
-                hasattr(model_config, "torch_dtype")
-                and model_config.torch_dtype is not None
-            ):
-                dtype = model_config.torch_dtype
+            if hasattr(model_config, "dtype") and model_config.dtype is not None:
+                dtype = model_config.dtype
             else:
                 dtype = default_dtype
 
@@ -312,6 +315,7 @@ def load_model():
                 tensor_input_names=kwargs.get("tensor_input_names", None),
                 return_token_type_ids=kwargs.get("return_token_type_ids", None),
                 request_logger=request_logger,
+                return_offsets_mapping=kwargs.get("return_offsets_mapping", False),
                 return_probabilities=kwargs.get("return_probabilities", False),
                 return_raw_logits=kwargs.get("return_raw_logits", False),
             )

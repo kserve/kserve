@@ -1,0 +1,56 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceService
+metadata:
+  name: qwen2-7b-latency-predictor
+spec:
+  model:
+    uri: hf://Qwen/Qwen2.5-7B-Instruct
+    name: Qwen/Qwen2.5-7B-Instruct
+  replicas: 3
+  router:
+    scheduler:
+      config:
+        inline: |
+          apiVersion: llm-d.ai/v1alpha1
+          kind: EndpointPickerConfig
+          plugins:
+            - type: approx-prefix-cache-producer
+              parameters:
+                maxPrefixTokensToMatch: 262144
+            - type: predicted-latency-producer
+            - type: prefix-cache-affinity-filter
+              name: loose-affinity-filter
+              parameters:
+                affinityThreshold: 0.8
+            - type: latency-scorer
+            - type: weighted-random-picker
+          schedulingProfiles:
+            - name: default
+              plugins:
+                - pluginRef: predicted-latency-producer
+                - pluginRef: loose-affinity-filter
+                - pluginRef: latency-scorer
+                - pluginRef: weighted-random-picker
+    route: { }
+    gateway: { }
+  template:
+    containers:
+      - name: main
+        resources:
+          limits:
+            cpu: '4'
+            memory: 32Gi
+            nvidia.com/gpu: "1"
+          requests:
+            cpu: '2'
+            memory: 16Gi
+            nvidia.com/gpu: "1"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTPS
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          timeoutSeconds: 30
+          failureThreshold: 5

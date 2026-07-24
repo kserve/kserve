@@ -15,22 +15,28 @@
 # limitations under the License.
 
 # This script adds or updates KServe copyright headers in Python and Go files.
-# - Files with no copyright header receive a new header with the current year.
+# - Files with no copyright header receive a new header stamped with the year
+#   of the file's first git commit (or the current year for untracked files).
 # - Files with a stale "The KServe Authors" copyright year are updated to the
 #   current year.
 # - Files with non-KServe copyright (e.g. Kubeflow) are left unchanged.
 
 CURRENT_YEAR=$(date +%Y)
 
+# Returns the year the file was first committed, or the current year for untracked files.
+file_year() {
+  local year
+  year=$(git log --follow --diff-filter=A --format=%ad --date=format:%Y -- "$1" 2>/dev/null | tail -1)
+  echo "${year:-$CURRENT_YEAR}"
+}
+
 # Process Go files under pkg/ and cmd/
 while IFS= read -r -d '' file
 do
   if ! grep -q "Copyright" "$file"; then
-    # No copyright header at all — add one with the current year
-    sed "s/Copyright [0-9]\{4\}/Copyright ${CURRENT_YEAR}/" hack/boilerplate.go.txt > "${file}.new"
-    cat "${file}.new" "${file}" > "${file}.new2"
-    mv "${file}.new2" "${file}"
-    rm -f "${file}.new"
+    # No copyright header at all — add one stamped with the file's first-commit year
+    local_year=$(file_year "$file")
+    sed "s/ YEAR/ ${local_year}/g" hack/boilerplate.go.txt | cat - "$file" > "$file".new && mv "$file".new "$file"
   elif grep -q "The KServe Authors" "$file" && ! grep -q "Copyright ${CURRENT_YEAR} The KServe Authors" "$file"; then
     # KServe copyright header exists but the year is stale — update it
     sed -i'.bak' "s/Copyright [0-9]\{4\} The KServe Authors\./Copyright ${CURRENT_YEAR} The KServe Authors./" "$file"
@@ -38,18 +44,16 @@ do
   fi
 done < <(find ./pkg ./cmd -name '*.go' -print0)
 
-# Process Python files under python/
+# Process Python files under python/ and test/e2e/
 while IFS= read -r -d '' file
 do
   if ! grep -q "Copyright" "$file"; then
-    # No copyright header at all — add one with the current year
-    sed "s/Copyright [0-9]\{4\}/Copyright ${CURRENT_YEAR}/" hack/boilerplate.python.txt > "${file}.new"
-    cat "${file}.new" "${file}" > "${file}.new2"
-    mv "${file}.new2" "${file}"
-    rm -f "${file}.new"
+    # No copyright header at all — add one stamped with the file's first-commit year
+    local_year=$(file_year "$file")
+    sed "s/ YEAR/ ${local_year}/g" hack/boilerplate.python.txt | cat - "$file" > "$file".new && mv "$file".new "$file"
   elif grep -q "The KServe Authors" "$file" && ! grep -q "Copyright ${CURRENT_YEAR} The KServe Authors" "$file"; then
     # KServe copyright header exists but the year is stale — update it
     sed -i'.bak' "s/# Copyright [0-9]\{4\} The KServe Authors\./# Copyright ${CURRENT_YEAR} The KServe Authors./" "$file"
     rm -f "${file}.bak"
   fi
-done < <(find ./python -name '*.py' -print0)
+done < <(find ./python ./test/e2e -name '*.py' -not -name '*_pb2*.py' -print0)

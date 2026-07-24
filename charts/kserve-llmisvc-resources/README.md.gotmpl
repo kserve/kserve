@@ -1,16 +1,21 @@
 {{ template "chart.header" . }}
-{{ template "chart.description" . }}
 
 {{ template "chart.versionBadge" . }}{{ template "chart.typeBadge" . }}{{ template "chart.appVersionBadge" . }}
+
+{{ template "chart.description" . }}
+
+{{ template "chart.homepageLine" . }}
 
 ## Installing the Chart
 
 To install the chart, run the following:
 
 ```console
-$ helm install kserve-llmisvc oci://ghcr.io/kserve/charts/kserve-llmisvc-resources --version {{ template "chart.version" . }}
+$ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmisvc-resources --version {{ template "chart.version" . }}
 ```
 
-{{ template "chart.requirementsSection" . }}
+{{ template "chart.maintainersSection" . }}
+
+{{ template "chart.sourcesSection" . }}
 
 {{ template "chart.valuesSection" . }}

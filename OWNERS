@@ -1,28 +1,26 @@
-owners:
+project-leads:
   - terrytangyuan
   - yuzisun
 
 approvers:
+  - cjohannsen-cloudera
   - Jooho
   - lizzzcai
-  - rachitchauhan43
   - sivanantha321
-  - terrytangyuan
-  - yuzisun
+  - spolti
 
 reviewers:
-  - andyi2it
   - cjohannsen-cloudera
+  - Jooho
+  - lizzzcai
+  - sivanantha321
+  - spolti
+  - andyi2it
   - cmaddalozzo
   - Datta0
   - gavrissh
   - greenmoon55
   - israel-hdez
   - johnugeorge
-  - Jooho
-  - lizzzcai
-  - rachitchauhan43
-  - sivanantha321
-  - spolti
-  - terrytangyuan
-  - yuzisun
+  - pierDipi
+  - bartoszmajsak

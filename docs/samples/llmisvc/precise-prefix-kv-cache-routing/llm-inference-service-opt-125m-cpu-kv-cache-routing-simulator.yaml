@@ -1,0 +1,93 @@
+# Precise prefix KV cache routing with llm-d simulator (CPU, no GPU required)
+#
+# This sample uses the llm-d-inference-sim simulator instead of a real model server,
+# making it suitable for testing on CPU-only clusters.
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceService
+metadata:
+  name: precise-prefix-test
+spec:
+  model:
+    uri: hf://facebook/opt-125m
+    name: opt-125m
+  replicas: 2
+  router:
+    scheduler:
+      config:
+        inline:
+          apiVersion: llm-d.ai/v1alpha1
+          kind: EndpointPickerConfig
+          plugins:
+            - type: single-profile-handler
+            - type: token-producer
+            - type: precise-prefix-cache-producer
+              parameters:
+                tokenProcessorConfig:
+                  blockSize: 16          # Must match simulator --block-size
+                kvEventsConfig:
+                  topicFilter: "kv@"
+                  discoverPods: true
+                  podDiscoveryConfig:
+                    socketPort: 5557
+                indexerConfig:
+                  kvBlockIndexConfig:
+                    enableMetrics: true   # Enable Prometheus metrics for KV cache index
+            - type: prefix-cache-scorer
+              parameters:
+                prefixMatchInfoProducerName: precise-prefix-cache-producer
+            - type: kv-cache-utilization-scorer
+            - type: queue-scorer
+            - type: active-request-scorer
+              parameters:
+                requestTimeout: "2m"
+                idleThreshold: 0        # Pods with ≤0 requests are idle
+                maxBusyScore: 0         # Busy pods score 0, idle pods score 1.0
+            - type: max-score-picker
+          schedulingProfiles:
+            - name: default
+              plugins:
+                - pluginRef: prefix-cache-scorer
+                  weight: 3
+                - pluginRef: kv-cache-utilization-scorer
+                  weight: 2
+                - pluginRef: queue-scorer
+                  weight: 2
+                - pluginRef: active-request-scorer
+                  weight: 3
+                - pluginRef: max-score-picker
+    route: { }
+    gateway: { }
+  template:
+    containers:
+      - name: main
+        image: ghcr.io/llm-d/llm-d-inference-sim:v0.10.0
+        command: ["/app/llm-d-inference-sim"]
+        args:
+          - --port
+          - "8000"
+          - --model
+          - "{{ .Spec.Model.Name }}"
+          - --mode
+          - random
+          - --enable-kvcache
+          - --block-size
+          - "16"
+          - --zmq-endpoint
+          - "tcp://{{ ChildName .ObjectMeta.Name `-epp-service` }}:5557"
+          - --hash-seed
+          - "42"
+          - --event-batch-size
+          - "1"
+        env:
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.podIP
+        resources:
+          limits:
+            cpu: "1"
+            memory: 2Gi
+          requests:
+            cpu: 100m
+            memory: 100Mi

@@ -21,6 +21,7 @@ import (
 	"sort"
 
 	corev1 "k8s.io/api/core/v1"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -98,7 +99,10 @@ func (m *ModelSpec) GetSupportingRuntimes(ctx context.Context, cl client.Client,
 	// List all cluster-scoped runtimes.
 	clusterRuntimes := &v1alpha1.ClusterServingRuntimeList{}
 	if err := cl.List(ctx, clusterRuntimes); err != nil {
-		return nil, err
+		if !apimeta.IsNoMatchError(err) {
+			return nil, err
+		}
+		// CSR CRD not installed - treat as empty.
 	}
 	// Sort cluster-scoped runtimes by created timestamp desc and name asc.
 	sortClusterServingRuntimeList(clusterRuntimes)

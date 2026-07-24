@@ -77,6 +77,7 @@ install() {
         --create-namespace \
         --version "${KEDA_VERSION}" \
         --wait \
+        --timeout 10m \
         ${KEDA_EXTRA_ARGS:-}
 
     log_success "Successfully installed KEDA ${KEDA_VERSION} via Helm"

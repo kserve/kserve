@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"time"
 
 	"github.com/go-logr/logr"
 	guuid "github.com/google/uuid"
@@ -118,6 +119,8 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	// Record the time when the request arrives
+	requestTime := time.Now()
 	// Read request payload
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -156,6 +159,7 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Metadata:         metadata,
 			CertName:         eh.certName,
 			TlsSkipVerify:    eh.tlsSkipVerify,
+			OccurrenceTime:   requestTime,
 		}); err != nil {
 			eh.log.Error(err, "Failed to log request")
 		}
@@ -173,6 +177,8 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		eh.log.Error(err, "Failed to read response body")
 	}
+	// Record the time when the response is received
+	responseTime := time.Now()
 	// log Response
 	if lrw.statusCode == http.StatusOK {
 		if eh.logMode == v1beta1.LogAll || eh.logMode == v1beta1.LogResponse {
@@ -191,6 +197,7 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				Component:        eh.component,
 				CertName:         eh.certName,
 				TlsSkipVerify:    eh.tlsSkipVerify,
+				OccurrenceTime:   responseTime,
 			}); err != nil {
 				eh.log.Error(err, "Failed to log response")
 			}

@@ -65,7 +65,9 @@ class PmmlModel(Model):
         try:
             instances = get_predict_input(payload)
             results = [
-                self.evaluator.evaluate(dict(zip(self.input_fields, instance)))
+                self.evaluator.evaluate(
+                    dict(zip(self.input_fields, instance, strict=False))
+                )
                 for instance in instances
             ]
             return get_predict_response(payload, pd.DataFrame(results), self.name)

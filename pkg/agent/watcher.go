@@ -63,7 +63,7 @@ type modelWrapper struct {
 }
 
 func (w *Watcher) syncModelConfig(modelConfigFile string, initializing bool) error {
-	file, err := os.ReadFile(modelConfigFile)
+	file, err := os.ReadFile(filepath.Clean(modelConfigFile))
 	if err != nil {
 		return err
 	} else {

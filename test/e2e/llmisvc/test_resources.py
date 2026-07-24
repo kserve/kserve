@@ -1,4 +1,4 @@
-# Copyright 2025 The KServe Authors.
+# Copyright 2026 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,248 +12,143 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .fixtures import KSERVE_TEST_NAMESPACE
+import os
 
-ROUTER_GATEWAYS = [
-    {
+GATEWAY_CLASS_NAME = os.environ.get("GATEWAY_CLASS_NAME", "envoy")
+
+
+def make_router_gateway(name, namespace):
+    return {
         "apiVersion": "gateway.networking.k8s.io/v1",
         "kind": "Gateway",
         "metadata": {
-            "name": "router-gateway-1",
-            "namespace": KSERVE_TEST_NAMESPACE,
+            "name": name,
+            "namespace": namespace,
         },
         "spec": {
-            "gatewayClassName": "envoy",
+            "gatewayClassName": GATEWAY_CLASS_NAME,
             "listeners": [
                 {
                     "name": "http",
                     "port": 80,
                     "protocol": "HTTP",
                     "allowedRoutes": {
-                        "namespaces": {
-                            "from": "All",
-                        },
-                    },
-                },
-            ],
-        },
-    },
-    {
-        "apiVersion": "gateway.networking.k8s.io/v1",
-        "kind": "Gateway",
-        "metadata": {
-            "name": "router-gateway-2",
-            "namespace": KSERVE_TEST_NAMESPACE,
-        },
-        "spec": {
-            "gatewayClassName": "envoy",
-            "listeners": [
-                {
-                    "name": "http",
-                    "port": 80,
-                    "protocol": "HTTP",
-                    "allowedRoutes": {
-                        "namespaces": {
-                            "from": "All",
-                        },
+                        "namespaces": {"from": "All"},
                     },
                 },
             ],
         },
     }
-]
 
-ROUTER_ROUTES = [
-    {
+
+def _rewrite_rule(path_prefix, rewrite_to, backend_ref):
+    return {
+        "matches": [
+            {"path": {"type": "PathPrefix", "value": path_prefix}},
+        ],
+        "filters": [
+            {
+                "type": "URLRewrite",
+                "urlRewrite": {
+                    "path": {
+                        "replacePrefixMatch": rewrite_to,
+                        "type": "ReplacePrefixMatch",
+                    },
+                },
+            },
+        ],
+        "backendRefs": [backend_ref],
+    }
+
+
+def _pool_ref(service_name, namespace):
+    return {
+        "group": "inference.networking.k8s.io",
+        "kind": "InferencePool",
+        "name": f"{service_name}-inference-pool",
+        "namespace": namespace,
+        "port": 8000,
+    }
+
+
+def _svc_ref(service_name, namespace):
+    return {
+        "group": "",
+        "kind": "Service",
+        "name": f"{service_name}-kserve-workload-svc",
+        "namespace": namespace,
+        "port": 8000,
+    }
+
+
+def make_router_main_route(
+    name,
+    namespace,
+    gateway_name,
+    service_name,
+):
+    pool = _pool_ref(service_name, namespace)
+    svc = _svc_ref(service_name, namespace)
+    prefix = f"/{namespace}/{service_name}"
+    return {
         "apiVersion": "gateway.networking.k8s.io/v1",
         "kind": "HTTPRoute",
         "metadata": {
-            "name": "router-route-1",
-            "namespace": KSERVE_TEST_NAMESPACE,
+            "name": name,
+            "namespace": namespace,
         },
         "spec": {
             "parentRefs": [
                 {
-                    "name": "router-gateway-1",
-                    "namespace": KSERVE_TEST_NAMESPACE,
-                }
-            ],
-            "rules": [
-                {
-                    "matches": [
-                        {
-                            "path": {
-                                "type": "PathPrefix",
-                                "value": "/kserve-ci-e2e-test/router-with-refs-test",
-                            },
-                        },
-                    ],
-                    "filters": [
-                        {
-                            "type": "URLRewrite",
-                            "urlRewrite": {
-                                "path": {
-                                    "replacePrefixMatch": "/",
-                                    "type": "ReplacePrefixMatch",
-                                },
-                            },
-                        },
-                    ],
-                    "backendRefs": [
-                        {
-                            "group": "inference.networking.x-k8s.io",
-                            "kind": "InferencePool",
-                            "name": "router-with-refs-test-inference-pool",
-                            "namespace": KSERVE_TEST_NAMESPACE,
-                            "port": 8000,
-                        }
-                    ],
+                    "name": gateway_name,
+                    "namespace": namespace,
                 },
             ],
-        },
-    },
-    {
-        "apiVersion": "gateway.networking.k8s.io/v1",
-        "kind": "HTTPRoute",
-        "metadata": {
-            "name": "router-route-2",
-            "namespace": KSERVE_TEST_NAMESPACE,
-        },
-        "spec": {
-            "parentRefs": [
-                {
-                    "name": "router-gateway-1",
-                    "namespace": KSERVE_TEST_NAMESPACE,
-                }
-            ],
             "rules": [
-                {
-                    "matches": [
-                        {
-                            "path": {
-                                "type": "PathPrefix",
-                                "value": "/kserve-ci-e2e-test/router-with-refs-test/health",
-                            },
-                        },
-                    ],
-                    "filters": [
-                        {
-                            "type": "URLRewrite",
-                            "urlRewrite": {
-                                "path": {
-                                    "replacePrefixMatch": "/health",
-                                    "type": "ReplacePrefixMatch",
-                                },
-                            },
-                        },
-                    ],
-                    "backendRefs": [
-                        {
-                            "group": "inference.networking.x-k8s.io",
-                            "kind": "InferencePool",
-                            "name": "router-with-refs-test-inference-pool",
-                            "namespace": KSERVE_TEST_NAMESPACE,
-                            "port": 8000,
-                        }
-                    ],
-                },
-            ],
-        },
-    },
-    {
-        "apiVersion": "gateway.networking.k8s.io/v1",
-        "kind": "HTTPRoute",
-        "metadata": {
-            "name": "router-route-3",
-            "namespace": KSERVE_TEST_NAMESPACE,
-        },
-        "spec": {
-            "parentRefs": [
-                {
-                    "name": "router-gateway-2",
-                    "namespace": KSERVE_TEST_NAMESPACE,
-                }
-            ],
-            "rules": [
-                {
-                    "matches": [
-                        {
-                            "path": {
-                                "type": "PathPrefix",
-                                "value": "/kserve-ci-e2e-test/router-with-refs-pd-test",
-                            },
-                        },
-                    ],
-                    "filters": [
-                        {
-                            "type": "URLRewrite",
-                            "urlRewrite": {
-                                "path": {
-                                    "replacePrefixMatch": "/",
-                                    "type": "ReplacePrefixMatch",
-                                },
-                            },
-                        },
-                    ],
-                    "backendRefs": [
-                        {
-                            "group": "inference.networking.x-k8s.io",
-                            "kind": "InferencePool",
-                            "name": "router-with-refs-pd-test-inference-pool",
-                            "namespace": KSERVE_TEST_NAMESPACE,
-                            "port": 8000,
-                        }
-                    ],
-                },
-            ],
-        },
-    },
-    {
-        "apiVersion": "gateway.networking.k8s.io/v1",
-        "kind": "HTTPRoute",
-        "metadata": {
-            "name": "router-route-4",
-            "namespace": KSERVE_TEST_NAMESPACE,
-        },
-        "spec": {
-            "parentRefs": [
-                {
-                    "name": "router-gateway-2",
-                    "namespace": KSERVE_TEST_NAMESPACE,
-                }
-            ],
-            "rules": [
-                {
-                    "matches": [
-                        {
-                            "path": {
-                                "type": "PathPrefix",
-                                "value": "/kserve-ci-e2e-test/router-with-refs-pd-test/health",
-                            },
-                        },
-                    ],
-                    "filters": [
-                        {
-                            "type": "URLRewrite",
-                            "urlRewrite": {
-                                "path": {
-                                    "replacePrefixMatch": "/health",
-                                    "type": "ReplacePrefixMatch",
-                                },
-                            },
-                        },
-                    ],
-                    "backendRefs": [
-                        {
-                            "group": "inference.networking.x-k8s.io",
-                            "kind": "InferencePool",
-                            "name": "router-with-refs-pd-test-inference-pool",
-                            "namespace": KSERVE_TEST_NAMESPACE,
-                            "port": 8000,
-                        }
-                    ],
-                },
+                _rewrite_rule(
+                    f"{prefix}/v1/completions",
+                    "/v1/completions",
+                    pool,
+                ),
+                _rewrite_rule(
+                    f"{prefix}/v1/chat/completions",
+                    "/v1/chat/completions",
+                    pool,
+                ),
+                _rewrite_rule(prefix, "/", svc),
             ],
         },
     }
-]
+
+
+def make_router_health_route(
+    name,
+    namespace,
+    gateway_name,
+    service_name,
+):
+    svc = _svc_ref(service_name, namespace)
+    prefix = f"/{namespace}/{service_name}"
+    return {
+        "apiVersion": "gateway.networking.k8s.io/v1",
+        "kind": "HTTPRoute",
+        "metadata": {
+            "name": name,
+            "namespace": namespace,
+        },
+        "spec": {
+            "parentRefs": [
+                {
+                    "name": gateway_name,
+                    "namespace": namespace,
+                },
+            ],
+            "rules": [
+                _rewrite_rule(
+                    f"{prefix}/health",
+                    "/health",
+                    svc,
+                ),
+            ],
+        },
+    }

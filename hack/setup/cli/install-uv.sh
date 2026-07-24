@@ -46,10 +46,10 @@ install() {
 
     log_info "Installing uv ${UV_VERSION} for ${os}/${arch}..."
 
-    if command -v uv &>/dev/null; then
-        local current_version=$(uv --version 2>/dev/null | awk '{print $2}')
+    if [[ -x "${BIN_DIR}/uv" ]]; then
+        local current_version=$("${BIN_DIR}/uv" --version 2>/dev/null | awk '{print $2}')
         if [[ -n "$current_version" ]] && version_gte "$current_version" "$UV_VERSION"; then
-            log_info "uv ${current_version} is already installed (>= ${UV_VERSION})"
+            log_info "uv ${current_version} is already installed in ${BIN_DIR} (>= ${UV_VERSION})"
             return 0
         fi
         [[ -n "$current_version" ]] && echo "Upgrading uv from ${current_version} to ${UV_VERSION}..."
@@ -89,7 +89,7 @@ install() {
     rm -rf "${temp_dir}"
 
     log_success "Successfully installed uv ${UV_VERSION} to ${BIN_DIR}/uv"
-    uv version
+    "${BIN_DIR}/uv" version
 }
 
 install

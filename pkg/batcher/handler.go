@@ -137,7 +137,7 @@ func (handler *BatchHandler) batchPredict() {
 				}
 			} else {
 				for _, v := range handler.batcherInfo.ContextMap {
-					predictions := make([]interface{}, 0)
+					predictions := make([]interface{}, 0, len(v.Index))
 					for _, i := range v.Index {
 						predictions = append(predictions, handler.batcherInfo.PredictionResponse.Predictions[i])
 					}
@@ -166,7 +166,7 @@ func (handler *BatchHandler) batch() {
 			handler.batcherInfo.Path = req.Path
 			handler.batcherInfo.CurrentInputLen = len(handler.batcherInfo.Instances)
 			handler.batcherInfo.Instances = append(handler.batcherInfo.Instances, *req.Instances...)
-			index := make([]int, 0)
+			index := make([]int, 0, len(*req.Instances))
 			for i := range len(*req.Instances) {
 				index = append(index, handler.batcherInfo.CurrentInputLen+i)
 			}

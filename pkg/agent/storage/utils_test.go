@@ -41,14 +41,14 @@ func TestCreate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to create file: %v", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(folderPath).To(gomega.BeADirectory())
 
 	info, _ := os.Stat(folderPath)
 	mode := info.Mode()
-	expectedMode := os.FileMode(0o777)
+	expectedMode := os.ModePerm
 	g.Expect(mode.Perm()).To(gomega.Equal(expectedMode))
 }
 
@@ -61,7 +61,7 @@ func TestFileExists(t *testing.T) {
 	f, err := os.CreateTemp(tmpDir, "tmpfile")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(FileExists(f.Name())).To(gomega.BeTrue())
-	f.Close()
+	_ = f.Close()
 
 	// Test case for not existing file
 	path := filepath.Join(tmpDir, "fileNotExist")
@@ -78,7 +78,7 @@ func TestRemoveDir(t *testing.T) {
 
 	// Create a subdirectory within tmpDir
 	subDir := filepath.Join(tmpDir, "test")
-	err := os.Mkdir(subDir, 0o755)
+	err := os.Mkdir(subDir, 0o755) //nolint:gosec // test directory permissions are not security-sensitive
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
 	f, err := os.CreateTemp(subDir, "tmp")
@@ -87,7 +87,7 @@ func TestRemoveDir(t *testing.T) {
 	}
 	defer f.Close()
 
-	os.CreateTemp(tmpDir, "tmp")
+	_, _ = os.CreateTemp(tmpDir, "tmp")
 
 	err = RemoveDir(tmpDir)
 	g.Expect(err).ToNot(gomega.HaveOccurred())

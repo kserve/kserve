@@ -1,0 +1,21 @@
+Thank you for installing {{ .Chart.Name }}.
+
+Your release is named {{ .Release.Name }}.
+
+To learn more about the release, try:
+
+  $ helm status {{ .Release.Name }}
+  $ helm get all {{ .Release.Name }}
+
+{{- if .Values.kserve.servingruntime.enabled }}
+  ✓ ClusterServingRuntimes: Enabled
+{{- else }}
+  ✗ ClusterServingRuntimes: Disabled
+{{- end }}
+
+{{- if .Values.kserve.llmisvcConfigs.enabled }}
+  ✓ LLMInferenceServiceConfigs: Enabled
+{{- else }}
+  ✗ LLMInferenceServiceConfigs: Disabled
+{{- end }}
+

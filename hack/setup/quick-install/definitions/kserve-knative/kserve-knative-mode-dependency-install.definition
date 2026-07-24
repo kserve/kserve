@@ -1,5 +1,4 @@
 DESCRIPTION: Install KServe Knative Mode dependencies only
-METHOD: helm
 
 TOOLS:
   - helm
@@ -10,6 +9,4 @@ COMPONENTS:
   - name: cert-manager
   - name: istio
   - name: istio-ingress-class
-  - name: keda
-  - name: keda-otel-addon
-  - name: opentelemetry
+  - name: knative-operator  

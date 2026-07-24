@@ -47,18 +47,17 @@ set_env_with_priority() {
     local current_value
     eval "current_value=\${${var_name}}"
 
-    # If current value differs from default/component/global, it must be runtime - keep it
-    if [ -n "$current_value" ] && [ "$current_value" != "$default_value" ] &&
-       [ "$current_value" != "$component_value" ] && [ "$current_value" != "$global_value" ]; then
+    # If current value exists and differs from default, it's a runtime value - keep it
+    if [ -n "$current_value" ] && [ -n "$default_value" ] && [ "$current_value" != "$default_value" ]; then
         # This is a runtime value, keep it
         return
     fi
 
     # Apply priority: component env > global env > default
     if [ -n "$component_value" ]; then
-        export "$var_name=$component_value"
+        eval "export $var_name=\"$component_value\""
     elif [ -n "$global_value" ]; then
-        export "$var_name=$global_value"
+        eval "export $var_name=\"$global_value\""
     fi
     # If both are empty, variable keeps its default value
 }
@@ -81,17 +80,21 @@ fi
 
 export PATH="${BIN_DIR}:${PATH}"
 
-UNINSTALL="${UNINSTALL:-false}"
 REINSTALL="${REINSTALL:-false}"
+UNINSTALL="${UNINSTALL:-false}"
+FORCE_UPGRADE="${FORCE_UPGRADE:-false}"
 
 if [[ "$*" == *"--uninstall"* ]]; then
     UNINSTALL=true
 elif [[ "$*" == *"--reinstall"* ]]; then
     REINSTALL=true
+elif [[ "$*" == *"--force-upgrade"* ]]; then
+    FORCE_UPGRADE=true
 fi
 
 export REINSTALL
 export UNINSTALL
+export FORCE_UPGRADE
 
 # RELEASE mode (from definition file)
 RELEASE="{{RELEASE}}"
@@ -116,6 +119,12 @@ export RELEASE
 #================================================
 
 {{COMPONENT_VARIABLES}}
+
+#================================================
+# Template Functions (EMBED_TEMPLATES MODE)
+#================================================
+
+{{COMPONENT_TEMPLATE_FUNCTIONS}}
 
 #================================================
 # Component Functions

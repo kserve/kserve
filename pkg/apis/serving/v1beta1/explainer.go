@@ -87,7 +87,7 @@ func (s *ExplainerSpec) GetImplementations() []ComponentImplementation {
 		s.ART,
 	})
 	// This struct is not a pointer, so it will never be nil; include if containers are specified
-	if len(s.PodSpec.Containers) != 0 {
+	if len(s.Containers) != 0 {
 		implementations = append(implementations, NewCustomExplainer(&s.PodSpec))
 	}
 	return implementations

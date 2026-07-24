@@ -17,15 +17,19 @@ limitations under the License.
 package cabundleconfigmap
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	rtesting "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -111,7 +115,6 @@ func TestReconcileCaBundleConfigMap(t *testing.T) {
 			reconciler := &CaBundleConfigMapReconciler{
 				client:    client,
 				clientset: clientset,
-				scheme:    scheme,
 			}
 
 			// Test the reconciliation
@@ -141,18 +144,10 @@ func TestReconcile(t *testing.T) {
 	// Test CA bundle content
 	caBundleContent := "TEST_CA_BUNDLE_CONTENT"
 
-	// Create test InferenceService
-	isvc := &v1beta1.InferenceService{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-isvc",
-			Namespace: "test-ns",
-		},
-	}
-
 	testCases := []struct {
 		name                string
 		configMaps          []*corev1.ConfigMap
-		isvc                *v1beta1.InferenceService
+		namespace           string
 		expectedErr         bool
 		expectedConfigMapNS string
 	}{
@@ -169,7 +164,7 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			},
-			isvc:        isvc,
+			namespace:   "test-ns",
 			expectedErr: false,
 		},
 		{
@@ -185,7 +180,7 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			},
-			isvc:        isvc,
+			namespace:   "test-ns",
 			expectedErr: true,
 		},
 		{
@@ -210,7 +205,7 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			},
-			isvc:        isvc,
+			namespace:   "test-ns",
 			expectedErr: true,
 		},
 	}
@@ -231,11 +226,10 @@ func TestReconcile(t *testing.T) {
 			reconciler := &CaBundleConfigMapReconciler{
 				client:    client,
 				clientset: clientset,
-				scheme:    scheme,
 			}
 
 			// Test reconciliation
-			err := reconciler.Reconcile(t.Context(), tc.isvc)
+			err := reconciler.Reconcile(t.Context(), tc.namespace)
 
 			if tc.expectedErr && err == nil {
 				t.Errorf("Expected error but got none")
@@ -272,7 +266,7 @@ func TestGetCabundleConfigMapForUserNS(t *testing.T) {
 		name                 string
 		caBundleNameInConfig string
 		kserveNamespace      string
-		isvcNamespace        string
+		namespace            string
 		existingCMs          []*corev1.ConfigMap
 		expectedError        bool
 		expectedData         map[string]string
@@ -281,7 +275,7 @@ func TestGetCabundleConfigMapForUserNS(t *testing.T) {
 			name:                 "Successfully get CA bundle configmap",
 			caBundleNameInConfig: "test-ca-bundle",
 			kserveNamespace:      constants.KServeNamespace,
-			isvcNamespace:        "user-ns",
+			namespace:            "user-ns",
 			existingCMs: []*corev1.ConfigMap{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -302,7 +296,7 @@ func TestGetCabundleConfigMapForUserNS(t *testing.T) {
 			name:                 "ConfigMap not found",
 			caBundleNameInConfig: "nonexistent-cm",
 			kserveNamespace:      constants.KServeNamespace,
-			isvcNamespace:        "user-ns",
+			namespace:            "user-ns",
 			existingCMs:          []*corev1.ConfigMap{},
 			expectedError:        true,
 		},
@@ -310,7 +304,7 @@ func TestGetCabundleConfigMapForUserNS(t *testing.T) {
 			name:                 "ConfigMap missing required data",
 			caBundleNameInConfig: "test-ca-bundle",
 			kserveNamespace:      constants.KServeNamespace,
-			isvcNamespace:        "user-ns",
+			namespace:            "user-ns",
 			existingCMs: []*corev1.ConfigMap{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -342,7 +336,6 @@ func TestGetCabundleConfigMapForUserNS(t *testing.T) {
 			reconciler := &CaBundleConfigMapReconciler{
 				client:    client,
 				clientset: clientset,
-				scheme:    scheme,
 			}
 
 			// Test function
@@ -350,7 +343,7 @@ func TestGetCabundleConfigMapForUserNS(t *testing.T) {
 				t.Context(),
 				tc.caBundleNameInConfig,
 				tc.kserveNamespace,
-				tc.isvcNamespace,
+				tc.namespace,
 			)
 
 			if tc.expectedError && err == nil {
@@ -367,8 +360,8 @@ func TestGetCabundleConfigMapForUserNS(t *testing.T) {
 					if !reflect.DeepEqual(result.Data, tc.expectedData) {
 						t.Errorf("Expected data %v but got %v", tc.expectedData, result.Data)
 					}
-					if result.Namespace != tc.isvcNamespace {
-						t.Errorf("Expected namespace %s but got %s", tc.isvcNamespace, result.Namespace)
+					if result.Namespace != tc.namespace {
+						t.Errorf("Expected namespace %s but got %s", tc.namespace, result.Namespace)
 					}
 					if result.Name != constants.DefaultGlobalCaBundleConfigMapName {
 						t.Errorf("Expected name %s but got %s", constants.DefaultGlobalCaBundleConfigMapName, result.Name)
@@ -387,7 +380,7 @@ func TestNewCaBundleConfigMapReconciler(t *testing.T) {
 	clientset := fake.NewSimpleClientset()
 	client := rtesting.NewClientBuilder().WithScheme(scheme).Build()
 
-	reconciler := NewCaBundleConfigMapReconciler(client, clientset, scheme)
+	reconciler := NewCaBundleConfigMapReconciler(client, clientset)
 	// The constructor should always return a valid non-nil reconciler
 	// with properly initialized fields
 
@@ -401,12 +394,6 @@ func TestNewCaBundleConfigMapReconciler(t *testing.T) {
 		t.Error("Expected clientset to be non-nil")
 	} else if reconciler.clientset != clientset {
 		t.Errorf("Expected clientset to be %v, got %v", clientset, reconciler.clientset)
-	}
-
-	if reconciler.scheme == nil {
-		t.Error("Expected scheme to be non-nil")
-	} else if reconciler.scheme != scheme {
-		t.Errorf("Expected scheme to be %v, got %v", scheme, reconciler.scheme)
 	}
 }
 
@@ -470,7 +457,6 @@ func TestReconcileCaBundleConfigMap_Update(t *testing.T) {
 			reconciler := &CaBundleConfigMapReconciler{
 				client:    client,
 				clientset: clientset,
-				scheme:    scheme,
 			}
 
 			// Test the reconciliation
@@ -500,5 +486,64 @@ func TestReconcileCaBundleConfigMap_Update(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestReconcileCaBundleConfigMap_NoUpdateWhenUnchanged(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+
+	bundleData := map[string]string{"cabundle.crt": "TEST_BUNDLE"}
+
+	// Simulate an existing ConfigMap as it would appear from the API server -
+	// with server-populated metadata fields that the desired object won't have.
+	existingCM := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "test-cabundle",
+			Namespace:       "test-ns",
+			ResourceVersion: "12345",
+			UID:             "some-uid",
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": "some-controller",
+			},
+		},
+		Data: bundleData,
+	}
+
+	desiredCM := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cabundle",
+			Namespace: "test-ns",
+		},
+		Data: bundleData,
+	}
+
+	clientset := fake.NewSimpleClientset()
+	_, err := clientset.CoreV1().ConfigMaps(existingCM.Namespace).Create(t.Context(), existingCM, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Error creating test configmap: %v", err)
+	}
+
+	// Track whether Update was called on the controller-runtime client.
+	// The reconciler uses clientset for Get but client for Update.
+	updateCalled := false
+	interceptor := rtesting.NewClientBuilder().WithScheme(scheme).WithObjects(existingCM).WithInterceptorFuncs(interceptor.Funcs{
+		Update: func(ctx context.Context, client client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+			updateCalled = true
+			return client.Update(ctx, obj, opts...)
+		},
+	}).Build()
+	reconciler := &CaBundleConfigMapReconciler{
+		client:    interceptor,
+		clientset: clientset,
+	}
+
+	err = reconciler.ReconcileCaBundleConfigMap(t.Context(), desiredCM)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if updateCalled {
+		t.Errorf("Expected no update when data is unchanged, but Update was called")
 	}
 }

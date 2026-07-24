@@ -1200,11 +1200,12 @@ func TestReconcile(t *testing.T) {
 				Name:      tc.desiredHPA.Name,
 			}, resultHPA)
 
-			if tc.expectedAction == "create" || tc.expectedAction == "update" {
+			switch tc.expectedAction {
+			case "create", "update":
 				require.NoError(t, err, "Expected HPA to exist after %s action", tc.expectedAction)
 				assert.Equal(t, tc.desiredHPA.Spec.MinReplicas, resultHPA.Spec.MinReplicas)
 				assert.Equal(t, tc.desiredHPA.Spec.MaxReplicas, resultHPA.Spec.MaxReplicas)
-			} else if tc.expectedAction == "delete" {
+			case "delete":
 				assert.True(t, apierr.IsNotFound(err), "Expected HPA to be deleted")
 			}
 		})

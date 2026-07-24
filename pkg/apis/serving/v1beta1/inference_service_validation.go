@@ -28,14 +28,17 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
+	"github.com/kserve/kserve/pkg/validation"
 )
 
 // regular expressions for validation of isvc name
@@ -86,10 +89,17 @@ func (v *InferenceServiceValidator) ValidateUpdate(ctx context.Context, oldObj, 
 	oldIsvc, err := utils.Convert[*InferenceService](oldObj)
 	if err != nil {
 		validatorLogger.Error(err, "Unable to convert object to InferenceService")
+		return nil, err
+	}
+	if isvc.GetDeletionTimestamp() != nil {
+		return nil, nil
 	}
 	validatorLogger.Info("validate update", "name", isvc.Name)
 	err = validateDeploymentMode(isvc, oldIsvc)
 	if err != nil {
+		return nil, err
+	}
+	if err := validatePredictorNameChange(isvc, oldIsvc); err != nil {
 		return nil, err
 	}
 	return validateInferenceService(isvc)
@@ -118,6 +128,10 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 		return allWarnings, err
 	}
 
+	if err := validateBlockedEnvVars(isvc); err != nil {
+		return allWarnings, err
+	}
+
 	if err := validateMultiNodeVariables(isvc); err != nil {
 		return allWarnings, err
 	}
@@ -131,6 +145,12 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 	}
 
 	if err := validateMultipleStorageURIs(isvc); err != nil {
+		return allWarnings, err
+	}
+
+	confidentialWarnings, err := validateConfidential(isvc)
+	allWarnings = append(allWarnings, confidentialWarnings...)
+	if err != nil {
 		return allWarnings, err
 	}
 
@@ -152,7 +172,97 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 			}
 		}
 	}
+
+	if err := validateCanarySpecs(isvc); err != nil {
+		return allWarnings, err
+	}
+
 	return allWarnings, nil
+}
+
+func validateCanarySpecs(isvc *InferenceService) error {
+	if len(isvc.Spec.Canary) == 0 {
+		return nil
+	}
+
+	deploymentMode := isvc.Annotations[constants.DeploymentMode]
+	if deploymentMode != string(constants.Standard) {
+		return fmt.Errorf("canary is only supported in %s deployment mode", constants.Standard)
+	}
+
+	if isvc.Spec.Predictor.GetImplementation().GetStorageUri() == nil && isvc.Spec.Predictor.Model == nil {
+		return errors.New("canary requires a stable predictor with a model (multi-model serving is not supported with canary)")
+	}
+
+	names := make(map[string]bool, len(isvc.Spec.Canary))
+	var totalTraffic int32
+
+	for i := range isvc.Spec.Canary {
+		canary := &isvc.Spec.Canary[i]
+
+		if canary.Predictor.Name == "" {
+			return fmt.Errorf("canary[%d] predictor.name is required", i)
+		}
+
+		if names[canary.Predictor.Name] {
+			return fmt.Errorf("canary predictor.name %q is duplicated", canary.Predictor.Name)
+		}
+		names[canary.Predictor.Name] = true
+
+		if canary.Predictor.Name == isvc.Spec.Predictor.Name {
+			return fmt.Errorf("canary predictor.name %q conflicts with stable predictor name", canary.Predictor.Name)
+		}
+
+		if canary.TrafficPercent < 0 || canary.TrafficPercent > 100 {
+			return fmt.Errorf("canary %q trafficPercent must be between 0 and 100, got %d", canary.Predictor.Name, canary.TrafficPercent)
+		}
+		totalTraffic += canary.TrafficPercent
+
+		if err := validateExactlyOneImplementation(&canary.Predictor); err != nil {
+			return fmt.Errorf("canary %q predictor: %w", canary.Predictor.Name, err)
+		}
+		if err := utils.FirstNonNilError([]error{
+			canary.Predictor.GetImplementation().Validate(),
+			canary.Predictor.GetExtensions().Validate(),
+		}); err != nil {
+			return fmt.Errorf("canary %q predictor: %w", canary.Predictor.Name, err)
+		}
+
+		if canary.Predictor.WorkerSpec != nil {
+			return fmt.Errorf("canary %q must not set workerSpec (multi-node is not yet supported for canary)", canary.Predictor.Name)
+		}
+
+		ext := canary.Predictor.GetExtensions()
+		if ext.MaxReplicas > 0 {
+			return fmt.Errorf("canary %q must not set maxReplicas (canary uses fixed replicas)", canary.Predictor.Name)
+		}
+		if ext.ScaleTarget != nil {
+			return fmt.Errorf("canary %q must not set scaleTarget (canary uses fixed replicas)", canary.Predictor.Name)
+		}
+		if ext.ScaleMetric != nil {
+			return fmt.Errorf("canary %q must not set scaleMetric (canary uses fixed replicas)", canary.Predictor.Name)
+		}
+		if ext.AutoScaling != nil {
+			return fmt.Errorf("canary %q must not set autoScaling (canary uses fixed replicas)", canary.Predictor.Name)
+		}
+
+		if canary.Predictor.MinReplicas != nil {
+			stableMinReplicas := int32(1)
+			if isvc.Spec.Predictor.MinReplicas != nil {
+				stableMinReplicas = *isvc.Spec.Predictor.MinReplicas
+			}
+			if *canary.Predictor.MinReplicas > stableMinReplicas {
+				return fmt.Errorf("canary %q minReplicas (%d) must not exceed stable predictor minReplicas (%d)",
+					canary.Predictor.Name, *canary.Predictor.MinReplicas, stableMinReplicas)
+			}
+		}
+	}
+
+	if totalTraffic > 100 {
+		return fmt.Errorf("sum of canary trafficPercent values (%d) must be <= 100", totalTraffic)
+	}
+
+	return nil
 }
 
 func validatePredictor(isvc *InferenceService) error {
@@ -189,6 +299,89 @@ func validatePredictor(isvc *InferenceService) error {
 	return nil
 }
 
+func validateBlockedEnvVars(isvc *InferenceService) error {
+	if err := validation.ValidateBlockedEnvVars(isvc.Spec.Predictor.Containers, validation.DefaultBlockedEnvVars); err != nil {
+		return fmt.Errorf("the InferenceService %q is invalid: %w", isvc.Name, err)
+	}
+
+	if err := validation.ValidateBlockedEnvVars(isvc.Spec.Predictor.InitContainers, validation.DefaultBlockedEnvVars); err != nil {
+		return fmt.Errorf("the InferenceService %q is invalid: %w", isvc.Name, err)
+	}
+
+	if c := predictorFrameworkContainer(&isvc.Spec.Predictor); c != nil {
+		if err := validation.ValidateBlockedEnvVars([]corev1.Container{*c}, validation.DefaultBlockedEnvVars); err != nil {
+			return fmt.Errorf("the InferenceService %q is invalid: %w", isvc.Name, err)
+		}
+	}
+
+	if isvc.Spec.Predictor.WorkerSpec != nil {
+		if err := validation.ValidateBlockedEnvVars(isvc.Spec.Predictor.WorkerSpec.Containers, validation.DefaultBlockedEnvVars); err != nil {
+			return fmt.Errorf("the InferenceService %q is invalid: %w", isvc.Name, err)
+		}
+
+		if err := validation.ValidateBlockedEnvVars(isvc.Spec.Predictor.WorkerSpec.InitContainers, validation.DefaultBlockedEnvVars); err != nil {
+			return fmt.Errorf("the InferenceService %q is invalid: %w", isvc.Name, err)
+		}
+	}
+
+	if isvc.Spec.Transformer != nil {
+		if err := validation.ValidateBlockedEnvVars(isvc.Spec.Transformer.Containers, validation.DefaultBlockedEnvVars); err != nil {
+			return fmt.Errorf("the InferenceService %q is invalid: %w", isvc.Name, err)
+		}
+
+		if err := validation.ValidateBlockedEnvVars(isvc.Spec.Transformer.InitContainers, validation.DefaultBlockedEnvVars); err != nil {
+			return fmt.Errorf("the InferenceService %q is invalid: %w", isvc.Name, err)
+		}
+	}
+
+	if isvc.Spec.Explainer != nil {
+		if err := validation.ValidateBlockedEnvVars(isvc.Spec.Explainer.Containers, validation.DefaultBlockedEnvVars); err != nil {
+			return fmt.Errorf("the InferenceService %q is invalid: %w", isvc.Name, err)
+		}
+
+		if err := validation.ValidateBlockedEnvVars(isvc.Spec.Explainer.InitContainers, validation.DefaultBlockedEnvVars); err != nil {
+			return fmt.Errorf("the InferenceService %q is invalid: %w", isvc.Name, err)
+		}
+
+		if isvc.Spec.Explainer.ART != nil {
+			if err := validation.ValidateBlockedEnvVars([]corev1.Container{isvc.Spec.Explainer.ART.Container}, validation.DefaultBlockedEnvVars); err != nil {
+				return fmt.Errorf("the InferenceService %q is invalid: %w", isvc.Name, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func predictorFrameworkContainer(p *PredictorSpec) *corev1.Container {
+	switch {
+	case p.Model != nil:
+		return &p.Model.Container
+	case p.SKLearn != nil:
+		return &p.SKLearn.Container
+	case p.XGBoost != nil:
+		return &p.XGBoost.Container
+	case p.Tensorflow != nil:
+		return &p.Tensorflow.Container
+	case p.PyTorch != nil:
+		return &p.PyTorch.Container
+	case p.Triton != nil:
+		return &p.Triton.Container
+	case p.ONNX != nil:
+		return &p.ONNX.Container
+	case p.HuggingFace != nil:
+		return &p.HuggingFace.Container
+	case p.PMML != nil:
+		return &p.PMML.Container
+	case p.LightGBM != nil:
+		return &p.LightGBM.Container
+	case p.Paddle != nil:
+		return &p.Paddle.Container
+	default:
+		return nil
+	}
+}
+
 // validateMultiNodeVariables validates when there is workerSpec set in isvc
 func validateMultiNodeVariables(isvc *InferenceService) error {
 	if isvc.Spec.Predictor.WorkerSpec != nil {
@@ -196,10 +389,10 @@ func validateMultiNodeVariables(isvc *InferenceService) error {
 			return fmt.Errorf(DisallowedMultipleContainersInWorkerSpecError, isvc.Name)
 		}
 		if isvc.Spec.Predictor.Model != nil {
-			if _, exists := utils.GetEnvVarValue(isvc.Spec.Predictor.Model.PredictorExtensionSpec.Container.Env, constants.PipelineParallelSizeEnvName); exists {
+			if _, exists := utils.GetEnvVarValue(isvc.Spec.Predictor.Model.Env, constants.PipelineParallelSizeEnvName); exists {
 				return fmt.Errorf(DisallowedWorkerSpecPipelineParallelSizeEnvError, isvc.Name)
 			}
-			if _, exists := utils.GetEnvVarValue(isvc.Spec.Predictor.Model.PredictorExtensionSpec.Container.Env, constants.TensorParallelSizeEnvName); exists {
+			if _, exists := utils.GetEnvVarValue(isvc.Spec.Predictor.Model.Env, constants.TensorParallelSizeEnvName); exists {
 				return fmt.Errorf(DisallowedWorkerSpecTensorParallelSizeEnvError, isvc.Name)
 			}
 
@@ -282,7 +475,7 @@ func validateInferenceServiceName(isvc *InferenceService) error {
 
 // Validation of isvc autoscaler class
 func validateInferenceServiceAutoscaler(isvc *InferenceService) error {
-	annotations := isvc.ObjectMeta.Annotations
+	annotations := isvc.Annotations
 	value, ok := annotations[constants.AutoscalerClass]
 	class := constants.AutoscalerClassType(value)
 	if ok {
@@ -489,17 +682,46 @@ func validateCollocationStorageURI(predictorSpec PredictorSpec) error {
 	return nil
 }
 
-// validates if the deploymentMode specified in the annotation is not different from the one recorded in the status
+// validates if the deploymentMode specified in the annotation is not different from the one recorded in the status.
+//
+// An empty oldIsvc.Status.DeploymentMode means the controller has not yet run its first updateStatus
+// (e.g. the finalizer patch on first reconcile). In that case there is no prior state to protect, so
+// the update is allowed. Passing "" through ParseDeploymentMode would fold to DefaultDeployment
+// ("Standard") and reject any non-Standard annotation, breaking first-reconcile on Knative installs.
 func validateDeploymentMode(newIsvc *InferenceService, oldIsvc *InferenceService) error {
-	statusDeploymentMode := oldIsvc.Status.DeploymentMode
-	if len(statusDeploymentMode) != 0 {
-		annotations := newIsvc.Annotations
-		annotationDeploymentMode, ok := annotations[constants.DeploymentMode]
-		if ok && annotationDeploymentMode != statusDeploymentMode {
-			return fmt.Errorf("update rejected: deploymentMode cannot be changed from '%s' to '%s'", statusDeploymentMode, annotationDeploymentMode)
-		}
+	if oldIsvc.Status.DeploymentMode == "" {
+		return nil
+	}
+	statusDeploymentMode := string(constants.ParseDeploymentMode(oldIsvc.Status.DeploymentMode))
+	annotationDeploymentMode, ok := newIsvc.Annotations[constants.DeploymentMode]
+	if ok && annotationDeploymentMode != statusDeploymentMode {
+		return fmt.Errorf("update rejected: deploymentMode cannot be changed from '%s' to '%s'", statusDeploymentMode, annotationDeploymentMode)
 	}
 	return nil
+}
+
+func validatePredictorNameChange(newIsvc *InferenceService, oldIsvc *InferenceService) error {
+	if oldIsvc.Spec.Predictor.Name == newIsvc.Spec.Predictor.Name {
+		return nil
+	}
+	oldURI := getPredictorStorageURI(oldIsvc.Spec.Predictor)
+	newURI := getPredictorStorageURI(newIsvc.Spec.Predictor)
+	if oldURI == newURI {
+		return errors.New("predictor.name change requires a model change (e.g. storageUri)")
+	}
+	return nil
+}
+
+func getPredictorStorageURI(p PredictorSpec) string {
+	if p.Model != nil && p.Model.StorageURI != nil {
+		return *p.Model.StorageURI
+	}
+	if impl := p.GetImplementation(); impl != nil {
+		if uri := impl.GetStorageUri(); uri != nil {
+			return *uri
+		}
+	}
+	return ""
 }
 
 // ValidateStorageURISpec validates that paths are absolute
@@ -627,4 +849,70 @@ func validateMultipleStorageURIs(isvc *InferenceService) error {
 	}
 
 	return nil
+}
+
+// validateConfidential validates the confidential spec on the predictor's implementation.
+func validateConfidential(isvc *InferenceService) (admission.Warnings, error) {
+	var warnings admission.Warnings
+
+	// Find the confidential spec from whichever predictor implementation is set
+	confidential := GetConfidentialSpecFromPredictor(&isvc.Spec.Predictor)
+	if confidential == nil || !confidential.Enabled {
+		return warnings, nil
+	}
+
+	// Confidential requires a storageUri to be set
+	implementations := isvc.Spec.Predictor.GetImplementations()
+	if len(implementations) == 0 {
+		return warnings, errors.New("confidential model serving requires storageUri to be set")
+	}
+	storageUri := implementations[0].GetStorageUri()
+	if storageUri == nil || *storageUri == "" {
+		return warnings, errors.New("confidential model serving requires storageUri to be set")
+	}
+
+	// Delegate OCI warning and resourceId validation to the shared helper
+	w, errs := validation.ValidateConfidentialSpec(
+		confidential.Enabled,
+		confidential.ResourceId,
+		*storageUri,
+		field.NewPath("spec", "predictor"),
+	)
+	warnings = append(warnings, w...)
+	if len(errs) > 0 {
+		return warnings, errs.ToAggregate()
+	}
+
+	return warnings, nil
+}
+
+// GetConfidentialSpecFromPredictor extracts the ConfidentialSpec from any predictor implementation
+// that embeds PredictorExtensionSpec.
+func GetConfidentialSpecFromPredictor(predictor *PredictorSpec) *ConfidentialSpec {
+	switch {
+	case predictor.SKLearn != nil:
+		return predictor.SKLearn.Confidential
+	case predictor.XGBoost != nil:
+		return predictor.XGBoost.Confidential
+	case predictor.Tensorflow != nil:
+		return predictor.Tensorflow.Confidential
+	case predictor.PyTorch != nil:
+		return predictor.PyTorch.Confidential
+	case predictor.Triton != nil:
+		return predictor.Triton.Confidential
+	case predictor.ONNX != nil:
+		return predictor.ONNX.Confidential
+	case predictor.HuggingFace != nil:
+		return predictor.HuggingFace.Confidential
+	case predictor.PMML != nil:
+		return predictor.PMML.Confidential
+	case predictor.LightGBM != nil:
+		return predictor.LightGBM.Confidential
+	case predictor.Paddle != nil:
+		return predictor.Paddle.Confidential
+	case predictor.Model != nil:
+		return predictor.Model.Confidential
+	default:
+		return nil
+	}
 }

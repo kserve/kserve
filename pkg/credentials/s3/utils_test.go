@@ -224,7 +224,7 @@ func TestBuildS3EnvVars(t *testing.T) {
 			secret: &map[string][]byte{
 				S3Endpoint:             []byte("s3.aws.com-secret"),
 				S3VerifySSL:            []byte("1"),
-				AWSAnonymousCredential: []byte("fase"),
+				AWSAnonymousCredential: []byte("false"),
 				AWSRegion:              []byte("us-east-2-secret"),
 				S3UseVirtualBucket:     []byte("false"),
 				S3UseAccelerate:        []byte("false"),

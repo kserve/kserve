@@ -27,7 +27,7 @@ find_repo_root() {
     local skip="${2:-false}"
 
     while [[ "$current_dir" != "/" ]]; do
-        if [[ -d "${current_dir}/.git" ]]; then
+        if [[ -e "${current_dir}/.git" ]]; then
             echo "$current_dir"
             return 0
         fi
@@ -120,6 +120,22 @@ log_success() {
 
 log_warning() {
     echo -e "${YELLOW}[WARNING]${RESET} $*" >&2
+}
+
+is_positive() {
+  local input_val="${1:-no}"
+
+  case "${input_val}" in
+    0|true|True|yes|Yes|y|Y)
+      return 0  # Success - truthy
+      ;;
+    1|false|False|no|No|n|N)
+      return 1  # Failure - falsy
+      ;;
+    *)
+      return 2  # Invalid input
+      ;;
+  esac
 }
 
 
@@ -247,12 +263,18 @@ wait_for_deployment() {
     local timeout="${3:-180s}"
 
     log_info "Waiting for deployment '$deployment_name' in namespace '$namespace' to be available..."
-    kubectl wait --timeout="$timeout" -n "$namespace" deployment/"$deployment_name" --for=condition=Available
-
-    if [ $? -eq 0 ]; then
+    if kubectl wait --timeout="$timeout" -n "$namespace" deployment/"$deployment_name" --for=condition=Available; then
         log_success "Deployment '$deployment_name' in namespace '$namespace' is available!"
     else
         log_error "Deployment '$deployment_name' in namespace '$namespace' failed to become available within $timeout"
+        log_error "--- Deployment status ---"
+        kubectl get deployment "$deployment_name" -n "$namespace" -o wide 2>/dev/null || true
+        log_error "--- Pod status ---"
+        kubectl get pods -n "$namespace" -l "control-plane=$deployment_name" -o wide 2>/dev/null || true
+        log_error "--- Pod describe (last 50 lines) ---"
+        kubectl describe pods -n "$namespace" -l "control-plane=$deployment_name" 2>/dev/null | tail -50 || true
+        log_error "--- Recent events in namespace '$namespace' ---"
+        kubectl get events -n "$namespace" --sort-by='.lastTimestamp' 2>/dev/null | tail -20 || true
         return 1
     fi
 }
@@ -269,7 +291,7 @@ wait_for_crd() {
     sleep 2
 
     # Retry logic to handle race condition where .status.conditions may not be initialized yet
-    local max_retries=3
+    local max_retries=10
     local retry=0
     while [ $retry -lt $max_retries ]; do
         if kubectl wait --for=condition=Established --timeout="$timeout" crd/"$crd_name" 2>/dev/null; then
@@ -312,75 +334,67 @@ update_isvc_config() {
 
     log_info "Updating inferenceservice-config..."
 
-    local temp=$(mktemp)
-    kubectl get configmap inferenceservice-config -n "${KSERVE_NAMESPACE}" -o json > "$temp"
-
-    # Group updates by data_key to avoid multiple updates to the same key
-    declare -A data_key_updates
+    # Prepare updates as JSON array
+    local updates_file
+    updates_file=$(mktemp)
 
     for arg in "$@"; do
         local key="${arg%%=*}"
-        local value="${arg#*=}"
-
-        # Split "ingress.enableGatewayApi" -> data_key="ingress", json_path="enableGatewayApi"
+        local raw_value="${arg#*=}"
         local data_key="${key%%.*}"
         local json_path="${key#*.}"
+        local value_json="$raw_value"
 
-        # Append to the list of updates for this data_key
-        if [ -z "${data_key_updates[$data_key]:-}" ]; then
-            data_key_updates[$data_key]="$json_path=$value"
-        else
-            data_key_updates[$data_key]="${data_key_updates[$data_key]}|$json_path=$value"
-        fi
-    done
-
-    # Process each data_key once with all its updates
-    for data_key in "${!data_key_updates[@]}"; do
-        # Get current JSON from data field (stored as string)
-        local current=$(jq -r ".data.\"$data_key\"" "$temp")
-
-        # Skip if the key doesn't exist or is null
-        if [ "$current" = "null" ] || [ -z "$current" ]; then
-            log_info "  ⊘ Skipping all updates for '$data_key' (not found in ConfigMap)"
-            continue
+        # Smart type detection: auto-quote strings, keep numbers/booleans/JSON as-is
+        if [[ ! $raw_value =~ ^\" ]] \
+           && [[ ! $raw_value =~ ^-?[0-9]+(\.[0-9]+)?$ ]] \
+           && [[ ! $raw_value =~ ^(true|false|null)$ ]] \
+           && [[ ! $raw_value =~ ^[{\[] ]]; then
+            value_json=$(jq -Rn --arg v "$raw_value" '$v')
         fi
 
-        # Apply all updates for this data_key
-        local updated="$current"
-        IFS='|' read -ra updates <<< "${data_key_updates[$data_key]}"
-        for update in "${updates[@]}"; do
-            local json_path="${update%%=*}"
-            local value="${update#*=}"
+        jq -n \
+            --arg data_key "$data_key" \
+            --arg path "$json_path" \
+            --argjson value "$value_json" \
+            '{data_key:$data_key, path:$path, value:$value}' >> "$updates_file"
 
-            # Smart quote handling for string values
-            # If value doesn't start with " and is not a number/boolean, add double quotes
-            if [[ ! $value =~ ^\" ]] && [[ ! $value =~ ^[0-9]+(\.[0-9]+)?$ ]] && [[ ! $value =~ ^(true|false|null)$ ]]; then
-                value="\"$value\""
-            fi
-
-            # Check if the nested path exists, create if missing
-            local parent_path="${json_path%.*}"
-            if [ "$parent_path" != "$json_path" ]; then
-                # There's a parent path, check if it exists
-                if ! echo "$updated" | jq -e ".$parent_path" >/dev/null 2>&1; then
-                    log_info "  + Creating nested path '$parent_path' in $data_key"
-                    # Create all intermediate paths as empty objects
-                    updated=$(echo "$updated" | jq ".$parent_path = {}")
-                fi
-            fi
-
-            # Update the nested field
-            updated=$(echo "$updated" | jq ".$json_path = $value")
-            log_info "  ✓ $data_key.$json_path = $value"
-        done
-
-        # Put it back as JSON string (preserve pretty-print format like original ConfigMap)
-        pretty_json=$(echo "$updated" | jq '.')
-        jq --arg updated "$pretty_json" ".data.\"$data_key\" = \$updated" "$temp" > "$temp.new" && mv "$temp.new" "$temp"
+        log_info "  ✓ $data_key.$json_path = $value_json"
     done
 
-    kubectl apply -f "$temp"
-    rm -f "$temp"
+    local updates_json
+    updates_json=$(jq -s '.' "$updates_file")
+    rm -f "$updates_file"
+
+    # Apply all updates with a single jq invocation
+    kubectl get configmap inferenceservice-config -n "${KSERVE_NAMESPACE}" -o json |
+        jq --argjson updates "$updates_json" '
+            # Helper function to safely set nested paths, creating intermediate objects as needed
+            def setpath_safe($parts; $value):
+                reduce range(0; ($parts|length)-1) as $i (.;
+                    $parts[:$i+1] as $prefix
+                    | if getpath($prefix) == null then setpath($prefix; {}) else . end
+                )
+                | setpath($parts; $value);
+
+            # Apply each update
+            reduce $updates[] as $item (.;
+                if .data[$item.data_key] == null or .data[$item.data_key] == "" then
+                    .data[$item.data_key] = (
+                        {}
+                        | setpath_safe($item.path | split("."); $item.value)
+                        | tojson
+                    )
+                else
+                    .data[$item.data_key] |= (
+                        fromjson
+                        | setpath_safe($item.path | split("."); $item.value)
+                        | tojson
+                    )
+                end
+            )
+        ' |
+        kubectl apply -f -
 
     log_success "ConfigMap updated successfully"
 }
@@ -420,11 +434,117 @@ command_exists() {
     command -v "$1" &>/dev/null
 }
 
+# Retry a command with delay between attempts
+# Usage: retry_command <max_attempts> <delay_seconds> <command...>
+# Example: retry_command 3 5 kubectl apply -k "${RUNTIMES_DIR}"
+# Returns: 0 on success, 1 on failure after all attempts
+retry_command() {
+    local max_attempts="$1"
+    local delay="$2"
+    shift 2
+    local attempt=1
+
+    while [ $attempt -le $max_attempts ]; do
+        if "$@" 2>&1; then
+            return 0
+        fi
+
+        if [ $attempt -lt $max_attempts ]; then
+            log_warning "Command failed, retrying in ${delay} seconds... (attempt $attempt/$max_attempts)"
+            sleep "$delay"
+        else
+            log_error "Command failed after $max_attempts attempts"
+            return 1
+        fi
+        attempt=$((attempt + 1))
+    done
+}
+
 # Compare semantic versions (returns 0 if v1 >= v2, 1 otherwise)
 # Usage: version_gte "v3.17.3" "v3.16.0"
 # Example: version_gte "$current_version" "$required_version" && echo "OK"
 version_gte() {
     [ "$1" = "$(printf '%s\n' "$1" "$2" | sort -V | tail -1)" ]
+}
+
+# ============================================================================
+# Shared Resources Configuration (for dual KServe + LLMISVC installation)
+# ============================================================================
+
+determine_shared_resources_config() {
+    local install_mode="${1}"
+    local enable_kserve="${2}"
+    local enable_llmisvc="${3}"
+
+    if ! is_positive "${enable_kserve}" && ! is_positive "${enable_llmisvc}"; then
+        return
+    fi
+
+    log_info "Determining shared resources configuration (KSERVE=${enable_kserve}, LLMISVC=${enable_llmisvc})..."
+
+    if [ "${install_mode}" = "helm" ]; then
+        determine_shared_resources_helm "${enable_kserve}" "${enable_llmisvc}"
+    elif [ "${install_mode}" = "kustomize" ]; then
+        determine_shared_resources_kustomize
+    else
+        log_error "INSTALL_MODE not set. Must be 'helm' or 'kustomize'"
+        exit 1
+    fi
+}
+
+determine_shared_resources_helm() {
+    local enable_kserve="${1}"
+    local enable_llmisvc="${2}"
+
+    local kserve_installed=$(helm list -n "${KSERVE_NAMESPACE}" -q 2>/dev/null | grep -c "^kserve-resources$" || true)
+    local llmisvc_installed=$(helm list -n "${KSERVE_NAMESPACE}" -q 2>/dev/null | grep -c "^kserve-llmisvc-resources$" || true)
+
+    if [ "${kserve_installed}" = "0" ] && [ "${llmisvc_installed}" = "0" ]; then
+        # First installation - check which components are being enabled
+        if is_positive "${enable_kserve}" && is_positive "${enable_llmisvc}"; then
+            # Both enabled: kserve-resources installs first and creates shared resources
+            log_info "[Helm] First install (both) - kserve-resources creates shared resources, llmisvc-resources does not"
+            LLMISVC_EXTRA_ARGS="${LLMISVC_EXTRA_ARGS:-} --set kserve.createSharedResources=false"
+        elif is_positive "${enable_kserve}" && ! is_positive "${enable_llmisvc}"; then
+            # Only kserve enabled: kserve-resources creates shared resources
+            log_info "[Helm] First install (kserve only) - kserve-resources will create shared resources"
+            # Use default value (true) - no extra args needed
+        elif ! is_positive "${enable_kserve}" && is_positive "${enable_llmisvc}"; then
+            # Only llmisvc enabled: llmisvc-resources creates shared resources
+            log_info "[Helm] First install (llmisvc only) - llmisvc-resources will create shared resources"
+            # Use default value (true) - no extra args needed
+        else
+            # Neither enabled - shouldn't reach here
+            log_error "[Helm] No components enabled"
+            return 1
+        fi
+    elif [ "${kserve_installed}" = "1" ] && [ "${llmisvc_installed}" = "0" ]; then
+        log_info "[Helm] Only kserve-resources installed - setting createSharedResources=false for LLMISVC"
+        LLMISVC_EXTRA_ARGS="${LLMISVC_EXTRA_ARGS:-} --set kserve.createSharedResources=false"
+    elif [ "${kserve_installed}" = "0" ] && [ "${llmisvc_installed}" = "1" ]; then
+        log_info "[Helm] Only kserve-llmisvc-resources installed - setting createSharedResources=false for KSERVE"
+        KSERVE_EXTRA_ARGS="${KSERVE_EXTRA_ARGS:-} --set kserve.createSharedResources=false"
+    else
+        local kserve_has_false=$(helm get values kserve-resources -n "${KSERVE_NAMESPACE}" 2>/dev/null | grep -c "createSharedResources: false" || true)
+
+        if [ "${kserve_has_false}" = "1" ]; then
+            log_info "[Helm] Maintaining createSharedResources=false for KSERVE"
+            KSERVE_EXTRA_ARGS="${KSERVE_EXTRA_ARGS:-} --set kserve.createSharedResources=false"
+        else
+            log_info "[Helm] Setting createSharedResources=false for LLMISVC"
+            LLMISVC_EXTRA_ARGS="${LLMISVC_EXTRA_ARGS:-} --set kserve.createSharedResources=false"
+        fi
+    fi
+}
+
+determine_shared_resources_kustomize() {
+    KSERVE_INSTALLED=$(kubectl get deployment kserve-controller-manager -n "${KSERVE_NAMESPACE}" 2>/dev/null | grep -c "kserve-controller-manager" || true)
+    LLMISVC_INSTALLED=$(kubectl get deployment llmisvc-controller-manager -n "${KSERVE_NAMESPACE}" 2>/dev/null | grep -c "llmisvc-controller-manager" || true)
+    
+    export KSERVE_INSTALLED
+    export LLMISVC_INSTALLED
+
+    log_info "[Kustomize] Installation status(0: not installed, 1: installed): KSERVE=${KSERVE_INSTALLED}, LLMISVC=${LLMISVC_INSTALLED}"
 }
 
 # ============================================================================
@@ -458,3 +578,4 @@ GLOBAL_VARS_FILE="${REPO_ROOT}/hack/setup/global-vars.env"
 if [[ -f "${GLOBAL_VARS_FILE}" ]]; then
     source "${GLOBAL_VARS_FILE}"
 fi
+

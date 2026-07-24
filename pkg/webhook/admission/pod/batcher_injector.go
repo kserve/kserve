@@ -78,14 +78,14 @@ func getBatcherConfigs(configMap *corev1.ConfigMap) (*BatcherConfig, error) {
 
 func (il *BatcherInjector) InjectBatcher(pod *corev1.Pod) error {
 	// Only inject if the required annotations are set
-	_, ok := pod.ObjectMeta.Annotations[constants.BatcherInternalAnnotationKey]
+	_, ok := pod.Annotations[constants.BatcherInternalAnnotationKey]
 	if !ok {
 		return nil
 	}
 
-	var args []string
+	args := make([]string, 0, 4)
 
-	maxBatchSize, ok := pod.ObjectMeta.Annotations[constants.BatcherMaxBatchSizeInternalAnnotationKey]
+	maxBatchSize, ok := pod.Annotations[constants.BatcherMaxBatchSizeInternalAnnotationKey]
 	if !ok {
 		if il.config.MaxBatchSize != "" && il.config.MaxBatchSize != "0" {
 			maxBatchSize = il.config.MaxBatchSize
@@ -94,7 +94,7 @@ func (il *BatcherInjector) InjectBatcher(pod *corev1.Pod) error {
 	args = append(args, BatcherArgumentMaxBatchSize)
 	args = append(args, maxBatchSize)
 
-	maxLatency, ok := pod.ObjectMeta.Annotations[constants.BatcherMaxLatencyInternalAnnotationKey]
+	maxLatency, ok := pod.Annotations[constants.BatcherMaxLatencyInternalAnnotationKey]
 	if !ok {
 		if il.config.MaxLatency != "" && il.config.MaxLatency != "0" {
 			maxLatency = il.config.MaxLatency

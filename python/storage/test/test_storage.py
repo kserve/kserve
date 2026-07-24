@@ -20,9 +20,11 @@ import unittest.mock as mock
 import mimetypes
 from pathlib import Path
 
+import certifi
 import pytest
 
 from kserve_storage import Storage
+from kserve_storage.kserve_storage import _should_download, _parse_patterns_from_env
 
 STORAGE_MODULE = "kserve_storage.kserve_storage"
 HTTPS_URI_TARGZ = "https://foo.bar/model.tar.gz"
@@ -119,6 +121,179 @@ def test_https_uri_path(_):
     os.remove("./model.joblib")
 
 
+# Real (self-signed, parse-valid) certificate: the combined bundle is
+# validated with ssl before being exported, so the fixture must parse.
+TEST_CA_PEM = """-----BEGIN CERTIFICATE-----
+MIIBhjCCAS2gAwIBAgIUMyxVv2w1Wp1oKdnW+DOnMeesPi8wCgYIKoZIzj0EAwIw
+GTEXMBUGA1UEAwwOa3NlcnZlLXRlc3QtY2EwHhcNMjYwNzAyMTYyMDQwWhcNMzYw
+NjI5MTYyMDQwWjAZMRcwFQYDVQQDDA5rc2VydmUtdGVzdC1jYTBZMBMGByqGSM49
+AgEGCCqGSM49AwEHA0IABBUFVi0qWbwEv/l+HcofdpTKfJbNoWqqa2VZzRTPwLVT
+gRgM4IwCS/9BqOk/4kgtaDmwkgaPHezDeSn6+KXGJzqjUzBRMB0GA1UdDgQWBBR1
+nfvZnSy6d6wdttlst48UzrMwPDAfBgNVHSMEGDAWgBR1nfvZnSy6d6wdttlst48U
+zrMwPDAPBgNVHRMBAf8EBTADAQH/MAoGCCqGSM49BAMCA0cAMEQCIHvDmtj+mck4
+EHZ0148y6DFcWpDIAaPyKz2rVv/I0rA2AiA+yiYFjmPwtUwvCOj8yQI6IYMgrjsS
+mjrvDJwPyARHZg==
+-----END CERTIFICATE-----
+"""
+
+
+@mock.patch(
+    "requests.get",
+    return_value=MockHttpResponse(
+        status_code=200, content_type="application/octet-stream"
+    ),
+)
+def test_https_uri_path_without_global_ca_bundle(_):
+    with mock.patch.dict(os.environ):
+        os.environ.pop("CA_BUNDLE_CONFIGMAP_NAME", None)
+        os.environ.pop("REQUESTS_CA_BUNDLE", None)
+        os.environ.pop("SSL_CERT_FILE", None)
+        assert Storage.download("https://foo.bar/model.joblib", out_dir=".") == "."
+        assert "REQUESTS_CA_BUNDLE" not in os.environ
+        assert "SSL_CERT_FILE" not in os.environ
+    os.remove("./model.joblib")
+
+
+@mock.patch(
+    "requests.get",
+    return_value=MockHttpResponse(
+        status_code=200, content_type="application/octet-stream"
+    ),
+)
+def test_https_uri_path_with_global_ca_bundle(_, tmp_path):
+    ca_bundle_path = tmp_path / "cabundle.crt"
+    ca_bundle_path.write_text(TEST_CA_PEM)
+    env = {
+        "CA_BUNDLE_CONFIGMAP_NAME": "cabundle",
+        "CA_BUNDLE_VOLUME_MOUNT_POINT": str(tmp_path),
+    }
+    with mock.patch.dict(os.environ, env):
+        os.environ.pop("REQUESTS_CA_BUNDLE", None)
+        os.environ.pop("SSL_CERT_FILE", None)
+        assert Storage.download("https://foo.bar/model.joblib", out_dir=".") == "."
+        combined_path = os.environ["REQUESTS_CA_BUNDLE"]
+        assert os.environ["SSL_CERT_FILE"] == combined_path
+        combined = Path(combined_path).read_text()
+        # The combined bundle keeps the default trust store and adds the
+        # mounted CA bundle.
+        assert TEST_CA_PEM in combined
+        assert Path(certifi.where()).read_text() in combined
+    os.remove("./model.joblib")
+
+
+@mock.patch(
+    "requests.get",
+    return_value=MockHttpResponse(
+        status_code=200, content_type="application/octet-stream"
+    ),
+)
+def test_https_uri_path_keeps_existing_ca_bundle_env(_, tmp_path):
+    ca_bundle_path = tmp_path / "cabundle.crt"
+    ca_bundle_path.write_text(TEST_CA_PEM)
+    env = {
+        "CA_BUNDLE_CONFIGMAP_NAME": "cabundle",
+        "CA_BUNDLE_VOLUME_MOUNT_POINT": str(tmp_path),
+        "REQUESTS_CA_BUNDLE": "/pre/existing/bundle.crt",
+        "SSL_CERT_FILE": "/pre/existing/cert-file.crt",
+    }
+    with mock.patch.dict(os.environ, env):
+        assert Storage.download("https://foo.bar/model.joblib", out_dir=".") == "."
+        assert os.environ["REQUESTS_CA_BUNDLE"] == "/pre/existing/bundle.crt"
+        assert os.environ["SSL_CERT_FILE"] == "/pre/existing/cert-file.crt"
+    os.remove("./model.joblib")
+
+
+@mock.patch(
+    "requests.get",
+    return_value=MockHttpResponse(
+        status_code=200, content_type="application/octet-stream"
+    ),
+)
+def test_https_uri_path_fills_unset_ca_bundle_env(_, tmp_path):
+    ca_bundle_path = tmp_path / "cabundle.crt"
+    ca_bundle_path.write_text(TEST_CA_PEM)
+    env = {
+        "CA_BUNDLE_CONFIGMAP_NAME": "cabundle",
+        "CA_BUNDLE_VOLUME_MOUNT_POINT": str(tmp_path),
+        "SSL_CERT_FILE": "/pre/existing/cert-file.crt",
+    }
+    with mock.patch.dict(os.environ, env):
+        os.environ.pop("REQUESTS_CA_BUNDLE", None)
+        assert Storage.download("https://foo.bar/model.joblib", out_dir=".") == "."
+        # The pre-set variable is preserved, the unset one is still filled.
+        assert os.environ["SSL_CERT_FILE"] == "/pre/existing/cert-file.crt"
+        assert TEST_CA_PEM in Path(os.environ["REQUESTS_CA_BUNDLE"]).read_text()
+    os.remove("./model.joblib")
+
+
+@mock.patch(
+    "requests.get",
+    return_value=MockHttpResponse(
+        status_code=200, content_type="application/octet-stream"
+    ),
+)
+def test_https_uri_path_with_malformed_global_ca_bundle(_, tmp_path):
+    ca_bundle_path = tmp_path / "cabundle.crt"
+    ca_bundle_path.write_text(
+        "-----BEGIN CERTIFICATE-----\nnot-a-cert\n-----END CERTIFICATE-----\n"
+    )
+    env = {
+        "CA_BUNDLE_CONFIGMAP_NAME": "cabundle",
+        "CA_BUNDLE_VOLUME_MOUNT_POINT": str(tmp_path),
+    }
+    with mock.patch.dict(os.environ, env):
+        os.environ.pop("REQUESTS_CA_BUNDLE", None)
+        os.environ.pop("SSL_CERT_FILE", None)
+        # A bundle that does not parse must not poison the trust store or
+        # break the download; the default trust store stays in effect.
+        assert Storage.download("https://foo.bar/model.joblib", out_dir=".") == "."
+        assert "REQUESTS_CA_BUNDLE" not in os.environ
+        assert "SSL_CERT_FILE" not in os.environ
+    os.remove("./model.joblib")
+
+
+@mock.patch(f"{STORAGE_MODULE}.Storage._download_hdfs", return_value="/out")
+@pytest.mark.parametrize("uri", ["hdfs://host/model", "webhdfs://host/model"])
+def test_hdfs_uri_path_keeps_own_tls_configuration(_, uri, tmp_path):
+    ca_bundle_path = tmp_path / "cabundle.crt"
+    ca_bundle_path.write_text(TEST_CA_PEM)
+    env = {
+        "CA_BUNDLE_CONFIGMAP_NAME": "cabundle",
+        "CA_BUNDLE_VOLUME_MOUNT_POINT": str(tmp_path),
+    }
+    with mock.patch.dict(os.environ, env):
+        os.environ.pop("REQUESTS_CA_BUNDLE", None)
+        os.environ.pop("SSL_CERT_FILE", None)
+        # The hdfs session pins verify from TLS_CA / TLS_SKIP_VERIFY and
+        # REQUESTS_CA_BUNDLE would override it, so the global CA bundle
+        # must not be exported for hdfs downloads.
+        Storage.download(uri, out_dir=str(tmp_path / "out"))
+        assert "REQUESTS_CA_BUNDLE" not in os.environ
+        assert "SSL_CERT_FILE" not in os.environ
+
+
+@mock.patch(
+    "requests.get",
+    return_value=MockHttpResponse(
+        status_code=200, content_type="application/octet-stream"
+    ),
+)
+def test_https_uri_path_with_missing_global_ca_bundle_file(_, tmp_path):
+    env = {
+        "CA_BUNDLE_CONFIGMAP_NAME": "cabundle",
+        "CA_BUNDLE_VOLUME_MOUNT_POINT": str(tmp_path),
+    }
+    with mock.patch.dict(os.environ, env):
+        os.environ.pop("REQUESTS_CA_BUNDLE", None)
+        os.environ.pop("SSL_CERT_FILE", None)
+        # A configured but missing bundle must not break the download; the
+        # default trust store stays in effect.
+        assert Storage.download("https://foo.bar/model.joblib", out_dir=".") == "."
+        assert "REQUESTS_CA_BUNDLE" not in os.environ
+        assert "SSL_CERT_FILE" not in os.environ
+    os.remove("./model.joblib")
+
+
 http_uri_path_testparams = [
     (
         HTTPS_URI_TARGZ,
@@ -197,7 +372,7 @@ http_uri_path_testparams = [
         MockHttpResponse(status_code=200, content_type="text/html"),
         RuntimeError,
     ),
-    ("https://foo.bar/test/", MockHttpResponse(200), ValueError),
+    ("https://foo.bar/test/", MockHttpResponse(200), RuntimeError),
     (
         "https://foo.bar/download?path=/20210530/model.zip",
         MockHttpResponse(200, FILE_ZIP_RAW, "application/zip"),
@@ -205,12 +380,12 @@ http_uri_path_testparams = [
     ),
     (
         "https://foo.bar/download?path=/20210530/model.zip",
-        MockHttpResponse(200, FILE_ZIP_RAW, "application/x-zip" "-compressed"),
+        MockHttpResponse(200, FILE_ZIP_RAW, "application/x-zip-compressed"),
         None,
     ),
     (
         "https://foo.bar/download?path=/20210530/model.zip",
-        MockHttpResponse(200, FILE_ZIP_RAW, "application/zip" "-compressed"),
+        MockHttpResponse(200, FILE_ZIP_RAW, "application/zip-compressed"),
         None,
     ),
 ]
@@ -235,7 +410,7 @@ def test_http_uri_paths(uri, response, expected_error):
 
 
 def test_storage_blob_exception():
-    blob_path = "https://accountname.blob.core.windows.net/container/some/blob/"
+    blob_path = "https://localhost:1/container/some/blob/"
     with pytest.raises(Exception):
         Storage.download(blob_path)
 
@@ -271,7 +446,9 @@ def test_download_azure_blob_called_with_matching_uri(mock_download_azure_blob):
     for uri in azure_blob_uris:
         Storage.download(uri, out_dir="dest_path")
 
-    expected_calls = [mock.call(uri, "dest_path") for uri in azure_blob_uris]
+    expected_calls = [
+        mock.call(uri, "dest_path", None, None) for uri in azure_blob_uris
+    ]
     mock_download_azure_blob.assert_has_calls(expected_calls)
 
 
@@ -288,5 +465,235 @@ def test_download_azure_file_share_called_with_matching_uri(
     for uri in azure_file_uris:
         Storage.download(uri, out_dir="dest_path")
 
-    expected_calls = [mock.call(uri, "dest_path") for uri in azure_file_uris]
+    expected_calls = [
+        mock.call(uri, "dest_path", None, None) for uri in azure_file_uris
+    ]
     mock_download_azure_file_share.assert_has_calls(expected_calls)
+
+
+git_repo_test_params = [
+    # (uri, username_in_url, username_env, password_env, expected_clean_uri)
+    (
+        "https://github.com/user/repo.git",
+        None,
+        None,
+        None,
+        "https://github.com/user/repo.git",
+    ),
+    (
+        "https://username@github.com/user/repo.git",
+        "username",
+        None,
+        None,
+        "https://github.com/user/repo.git",
+    ),
+    (
+        "https://github.com/user/repo.git",
+        None,
+        "env_username",
+        "env_password",
+        "https://github.com/user/repo.git",
+    ),
+    (
+        "https://username@github.com/user/repo.git",
+        "username",
+        None,
+        "env_password",
+        "https://github.com/user/repo.git",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "uri,username_in_url,username_env,password_env,expected_clean_uri",
+    git_repo_test_params,
+)
+@mock.patch("dulwich.porcelain.clone")
+def test_git_repo_download_success(
+    mock_clone, uri, username_in_url, username_env, password_env, expected_clean_uri
+):
+    """Test successful git repository downloads with HTTPS authentication."""
+    out_dir = "/tmp/test_model"
+
+    env_vars = {}
+    if username_env:
+        env_vars["GIT_USERNAME"] = username_env
+    if password_env:
+        env_vars["GIT_PASSWORD"] = password_env
+
+    with mock.patch.dict(os.environ, env_vars):
+        result = Storage.download(uri, out_dir=out_dir)
+
+    assert result == out_dir
+
+    # Verify dulwich.porcelain.clone was called with correct arguments
+    mock_clone.assert_called_once()
+    call_args = mock_clone.call_args
+
+    # Check URI (should be clean URI without username)
+    assert call_args[0][0] == expected_clean_uri
+    assert call_args[0][1] == out_dir
+
+    # Check keyword arguments
+    kwargs = call_args[1]
+    assert kwargs["depth"] == 1
+
+    # Check username (from URL or env var)
+    expected_username = username_in_url or username_env
+    if expected_username:
+        assert kwargs["username"] == expected_username
+    else:
+        assert "username" not in kwargs
+
+    # Check password (from env var)
+    if password_env:
+        assert kwargs["password"] == password_env
+    else:
+        assert "password" not in kwargs
+
+
+@mock.patch("dulwich.porcelain.clone")
+def test_git_repo_download_git_protocol_error(mock_clone):
+    from dulwich.errors import GitProtocolError
+
+    uri = "https://github.com/user/nonexistent.git"
+    out_dir = "/tmp/test_model"
+
+    mock_clone.side_effect = GitProtocolError("Authentication failed")
+
+    with pytest.raises(RuntimeError) as exc_info:
+        Storage.download(uri, out_dir=out_dir)
+
+    # Unified error handling produces user-friendly messages
+    assert "Git" in str(exc_info.value)
+    assert "authentication" in str(exc_info.value).lower()
+
+
+git_error_test_params = [
+    (Exception("Repository not found"), "not found"),
+    (Exception("Authentication failed"), "authentication"),
+    (Exception("Network error"), "git"),
+]
+
+
+@pytest.mark.parametrize("exception,expected_message", git_error_test_params)
+@mock.patch("dulwich.porcelain.clone")
+def test_git_repo_download_errors(mock_clone, exception, expected_message):
+    uri = "https://github.com/user/nonexistent.git"
+    out_dir = "/tmp/test_model"
+
+    mock_clone.side_effect = exception
+
+    with pytest.raises(RuntimeError) as exc_info:
+        Storage.download(uri, out_dir=out_dir)
+
+    # Unified error handling produces user-friendly messages
+    assert expected_message in str(exc_info.value).lower()
+
+
+@mock.patch("dulwich.porcelain.clone")
+def test_git_repo_download_public_repo_no_auth(mock_clone):
+    uri = "https://github.com/user/public-repo.git"
+    out_dir = "/tmp/test_model"
+
+    result = Storage.download(uri, out_dir=out_dir)
+
+    assert result == out_dir
+    mock_clone.assert_called_once()
+    call_args = mock_clone.call_args
+    kwargs = call_args[1]
+    assert kwargs["depth"] == 1
+    # No username or password should be passed for public repos
+    assert "username" not in kwargs
+    assert "password" not in kwargs
+
+
+# Tests for _should_download and _parse_patterns_from_env
+
+
+class TestShouldDownload:
+    def test_no_patterns_allows_all(self):
+        assert _should_download("model.safetensors") is True
+        assert _should_download("subdir/model.bin") is True
+
+    def test_allow_patterns_match(self):
+        assert (
+            _should_download("model.safetensors", allow_patterns=["*.safetensors"])
+            is True
+        )
+        assert _should_download("model.bin", allow_patterns=["*.safetensors"]) is False
+
+    def test_allow_patterns_multiple(self):
+        patterns = ["*.safetensors", "*.json"]
+        assert _should_download("model.safetensors", allow_patterns=patterns) is True
+        assert _should_download("config.json", allow_patterns=patterns) is True
+        assert _should_download("model.bin", allow_patterns=patterns) is False
+
+    def test_ignore_patterns_match(self):
+        assert _should_download("model.safetensors", ignore_patterns=["*.bin"]) is True
+        assert _should_download("model.bin", ignore_patterns=["*.bin"]) is False
+
+    def test_ignore_patterns_multiple(self):
+        patterns = ["*.bin", "*.gguf"]
+        assert _should_download("model.safetensors", ignore_patterns=patterns) is True
+        assert _should_download("model.bin", ignore_patterns=patterns) is False
+        assert _should_download("model.gguf", ignore_patterns=patterns) is False
+
+    def test_both_patterns(self):
+        allow = ["*.safetensors", "*.json"]
+        ignore = ["config.json"]
+        assert _should_download("model.safetensors", allow, ignore) is True
+        assert _should_download("config.json", allow, ignore) is False
+        assert _should_download("tokenizer.json", allow, ignore) is True
+        assert _should_download("model.bin", allow, ignore) is False
+
+    def test_subdirectory_matching(self):
+        assert (
+            _should_download(
+                "subdir/model.safetensors", allow_patterns=["*.safetensors"]
+            )
+            is True
+        )
+        assert (
+            _should_download("deep/nested/model.bin", ignore_patterns=["*.bin"])
+            is False
+        )
+
+    def test_empty_patterns_treated_as_none(self):
+        assert _should_download("model.bin", allow_patterns=[]) is True
+        assert _should_download("model.bin", ignore_patterns=[]) is True
+
+
+class TestParsePatterns:
+    def test_not_set(self):
+        with mock.patch.dict(os.environ, {}, clear=True):
+            assert _parse_patterns_from_env("STORAGE_ALLOW_PATTERNS") is None
+
+    def test_empty_string(self):
+        with mock.patch.dict(os.environ, {"STORAGE_ALLOW_PATTERNS": ""}):
+            assert _parse_patterns_from_env("STORAGE_ALLOW_PATTERNS") is None
+
+    def test_json_array(self):
+        with mock.patch.dict(
+            os.environ,
+            {"STORAGE_ALLOW_PATTERNS": '["*.safetensors", "*.json"]'},
+        ):
+            result = _parse_patterns_from_env("STORAGE_ALLOW_PATTERNS")
+            assert result == ["*.safetensors", "*.json"]
+
+    def test_comma_separated(self):
+        with mock.patch.dict(
+            os.environ, {"STORAGE_ALLOW_PATTERNS": "*.safetensors,*.json"}
+        ):
+            result = _parse_patterns_from_env("STORAGE_ALLOW_PATTERNS")
+            assert result == ["*.safetensors", "*.json"]
+
+    def test_single_pattern(self):
+        with mock.patch.dict(os.environ, {"STORAGE_ALLOW_PATTERNS": "*.safetensors"}):
+            result = _parse_patterns_from_env("STORAGE_ALLOW_PATTERNS")
+            assert result == ["*.safetensors"]
+
+    def test_json_single_string(self):
+        with mock.patch.dict(os.environ, {"STORAGE_ALLOW_PATTERNS": '"*.safetensors"'}):
+            result = _parse_patterns_from_env("STORAGE_ALLOW_PATTERNS")
+            assert result == ["*.safetensors"]

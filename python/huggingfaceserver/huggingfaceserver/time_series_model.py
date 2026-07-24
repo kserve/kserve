@@ -100,7 +100,7 @@ class HuggingFaceTimeSeriesModel(TimeSeriesModel):
 
     def load(self):
         model_kwargs = {}
-        model_kwargs["torch_dtype"] = self.dtype
+        model_kwargs["dtype"] = self.dtype
 
         self._model = AutoModelForTimeSeriesPrediction.from_pretrained(
             self.model_id_or_path,
@@ -269,7 +269,6 @@ class HuggingFaceTimeSeriesModel(TimeSeriesModel):
         request: ForecastRequest,
         context: Optional[Dict[str, Any]] = None,
     ) -> Union[ForecastResponse, ErrorResponse]:
-
         if "timesfm" in request.model.lower():
             return await self._forecast_timesfm(request)
 

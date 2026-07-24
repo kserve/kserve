@@ -40,7 +40,7 @@ find_repo_root() {
     local skip="${2:-false}"
 
     while [[ "$current_dir" != "/" ]]; do
-        if [[ -d "${current_dir}/.git" ]]; then
+        if [[ -e "${current_dir}/.git" ]]; then
             echo "$current_dir"
             return 0
         fi
@@ -133,6 +133,22 @@ log_success() {
 
 log_warning() {
     echo -e "${YELLOW}[WARNING]${RESET} $*" >&2
+}
+
+is_positive() {
+  local input_val="${1:-no}"
+
+  case "${input_val}" in
+    0|true|True|yes|Yes|y|Y)
+      return 0  # Success - truthy
+      ;;
+    1|false|False|no|No|n|N)
+      return 1  # Failure - falsy
+      ;;
+    *)
+      return 2  # Invalid input
+      ;;
+  esac
 }
 
 
@@ -260,12 +276,18 @@ wait_for_deployment() {
     local timeout="${3:-180s}"
 
     log_info "Waiting for deployment '$deployment_name' in namespace '$namespace' to be available..."
-    kubectl wait --timeout="$timeout" -n "$namespace" deployment/"$deployment_name" --for=condition=Available
-
-    if [ $? -eq 0 ]; then
+    if kubectl wait --timeout="$timeout" -n "$namespace" deployment/"$deployment_name" --for=condition=Available; then
         log_success "Deployment '$deployment_name' in namespace '$namespace' is available!"
     else
         log_error "Deployment '$deployment_name' in namespace '$namespace' failed to become available within $timeout"
+        log_error "--- Deployment status ---"
+        kubectl get deployment "$deployment_name" -n "$namespace" -o wide 2>/dev/null || true
+        log_error "--- Pod status ---"
+        kubectl get pods -n "$namespace" -l "control-plane=$deployment_name" -o wide 2>/dev/null || true
+        log_error "--- Pod describe (last 50 lines) ---"
+        kubectl describe pods -n "$namespace" -l "control-plane=$deployment_name" 2>/dev/null | tail -50 || true
+        log_error "--- Recent events in namespace '$namespace' ---"
+        kubectl get events -n "$namespace" --sort-by='.lastTimestamp' 2>/dev/null | tail -20 || true
         return 1
     fi
 }
@@ -282,7 +304,7 @@ wait_for_crd() {
     sleep 2
 
     # Retry logic to handle race condition where .status.conditions may not be initialized yet
-    local max_retries=3
+    local max_retries=10
     local retry=0
     while [ $retry -lt $max_retries ]; do
         if kubectl wait --for=condition=Established --timeout="$timeout" crd/"$crd_name" 2>/dev/null; then
@@ -325,75 +347,67 @@ update_isvc_config() {
 
     log_info "Updating inferenceservice-config..."
 
-    local temp=$(mktemp)
-    kubectl get configmap inferenceservice-config -n "${KSERVE_NAMESPACE}" -o json > "$temp"
-
-    # Group updates by data_key to avoid multiple updates to the same key
-    declare -A data_key_updates
+    # Prepare updates as JSON array
+    local updates_file
+    updates_file=$(mktemp)
 
     for arg in "$@"; do
         local key="${arg%%=*}"
-        local value="${arg#*=}"
-
-        # Split "ingress.enableGatewayApi" -> data_key="ingress", json_path="enableGatewayApi"
+        local raw_value="${arg#*=}"
         local data_key="${key%%.*}"
         local json_path="${key#*.}"
+        local value_json="$raw_value"
 
-        # Append to the list of updates for this data_key
-        if [ -z "${data_key_updates[$data_key]:-}" ]; then
-            data_key_updates[$data_key]="$json_path=$value"
-        else
-            data_key_updates[$data_key]="${data_key_updates[$data_key]}|$json_path=$value"
-        fi
-    done
-
-    # Process each data_key once with all its updates
-    for data_key in "${!data_key_updates[@]}"; do
-        # Get current JSON from data field (stored as string)
-        local current=$(jq -r ".data.\"$data_key\"" "$temp")
-
-        # Skip if the key doesn't exist or is null
-        if [ "$current" = "null" ] || [ -z "$current" ]; then
-            log_info "  ⊘ Skipping all updates for '$data_key' (not found in ConfigMap)"
-            continue
+        # Smart type detection: auto-quote strings, keep numbers/booleans/JSON as-is
+        if [[ ! $raw_value =~ ^\" ]] \
+           && [[ ! $raw_value =~ ^-?[0-9]+(\.[0-9]+)?$ ]] \
+           && [[ ! $raw_value =~ ^(true|false|null)$ ]] \
+           && [[ ! $raw_value =~ ^[{\[] ]]; then
+            value_json=$(jq -Rn --arg v "$raw_value" '$v')
         fi
 
-        # Apply all updates for this data_key
-        local updated="$current"
-        IFS='|' read -ra updates <<< "${data_key_updates[$data_key]}"
-        for update in "${updates[@]}"; do
-            local json_path="${update%%=*}"
-            local value="${update#*=}"
+        jq -n \
+            --arg data_key "$data_key" \
+            --arg path "$json_path" \
+            --argjson value "$value_json" \
+            '{data_key:$data_key, path:$path, value:$value}' >> "$updates_file"
 
-            # Smart quote handling for string values
-            # If value doesn't start with " and is not a number/boolean, add double quotes
-            if [[ ! $value =~ ^\" ]] && [[ ! $value =~ ^[0-9]+(\.[0-9]+)?$ ]] && [[ ! $value =~ ^(true|false|null)$ ]]; then
-                value="\"$value\""
-            fi
-
-            # Check if the nested path exists, create if missing
-            local parent_path="${json_path%.*}"
-            if [ "$parent_path" != "$json_path" ]; then
-                # There's a parent path, check if it exists
-                if ! echo "$updated" | jq -e ".$parent_path" >/dev/null 2>&1; then
-                    log_info "  + Creating nested path '$parent_path' in $data_key"
-                    # Create all intermediate paths as empty objects
-                    updated=$(echo "$updated" | jq ".$parent_path = {}")
-                fi
-            fi
-
-            # Update the nested field
-            updated=$(echo "$updated" | jq ".$json_path = $value")
-            log_info "  ✓ $data_key.$json_path = $value"
-        done
-
-        # Put it back as JSON string (preserve pretty-print format like original ConfigMap)
-        pretty_json=$(echo "$updated" | jq '.')
-        jq --arg updated "$pretty_json" ".data.\"$data_key\" = \$updated" "$temp" > "$temp.new" && mv "$temp.new" "$temp"
+        log_info "  ✓ $data_key.$json_path = $value_json"
     done
 
-    kubectl apply -f "$temp"
-    rm -f "$temp"
+    local updates_json
+    updates_json=$(jq -s '.' "$updates_file")
+    rm -f "$updates_file"
+
+    # Apply all updates with a single jq invocation
+    kubectl get configmap inferenceservice-config -n "${KSERVE_NAMESPACE}" -o json |
+        jq --argjson updates "$updates_json" '
+            # Helper function to safely set nested paths, creating intermediate objects as needed
+            def setpath_safe($parts; $value):
+                reduce range(0; ($parts|length)-1) as $i (.;
+                    $parts[:$i+1] as $prefix
+                    | if getpath($prefix) == null then setpath($prefix; {}) else . end
+                )
+                | setpath($parts; $value);
+
+            # Apply each update
+            reduce $updates[] as $item (.;
+                if .data[$item.data_key] == null or .data[$item.data_key] == "" then
+                    .data[$item.data_key] = (
+                        {}
+                        | setpath_safe($item.path | split("."); $item.value)
+                        | tojson
+                    )
+                else
+                    .data[$item.data_key] |= (
+                        fromjson
+                        | setpath_safe($item.path | split("."); $item.value)
+                        | tojson
+                    )
+                end
+            )
+        ' |
+        kubectl apply -f -
 
     log_success "ConfigMap updated successfully"
 }
@@ -433,11 +447,117 @@ command_exists() {
     command -v "$1" &>/dev/null
 }
 
+# Retry a command with delay between attempts
+# Usage: retry_command <max_attempts> <delay_seconds> <command...>
+# Example: retry_command 3 5 kubectl apply -k "${RUNTIMES_DIR}"
+# Returns: 0 on success, 1 on failure after all attempts
+retry_command() {
+    local max_attempts="$1"
+    local delay="$2"
+    shift 2
+    local attempt=1
+
+    while [ $attempt -le $max_attempts ]; do
+        if "$@" 2>&1; then
+            return 0
+        fi
+
+        if [ $attempt -lt $max_attempts ]; then
+            log_warning "Command failed, retrying in ${delay} seconds... (attempt $attempt/$max_attempts)"
+            sleep "$delay"
+        else
+            log_error "Command failed after $max_attempts attempts"
+            return 1
+        fi
+        attempt=$((attempt + 1))
+    done
+}
+
 # Compare semantic versions (returns 0 if v1 >= v2, 1 otherwise)
 # Usage: version_gte "v3.17.3" "v3.16.0"
 # Example: version_gte "$current_version" "$required_version" && echo "OK"
 version_gte() {
     [ "$1" = "$(printf '%s\n' "$1" "$2" | sort -V | tail -1)" ]
+}
+
+# ============================================================================
+# Shared Resources Configuration (for dual KServe + LLMISVC installation)
+# ============================================================================
+
+determine_shared_resources_config() {
+    local install_mode="${1}"
+    local enable_kserve="${2}"
+    local enable_llmisvc="${3}"
+
+    if ! is_positive "${enable_kserve}" && ! is_positive "${enable_llmisvc}"; then
+        return
+    fi
+
+    log_info "Determining shared resources configuration (KSERVE=${enable_kserve}, LLMISVC=${enable_llmisvc})..."
+
+    if [ "${install_mode}" = "helm" ]; then
+        determine_shared_resources_helm "${enable_kserve}" "${enable_llmisvc}"
+    elif [ "${install_mode}" = "kustomize" ]; then
+        determine_shared_resources_kustomize
+    else
+        log_error "INSTALL_MODE not set. Must be 'helm' or 'kustomize'"
+        exit 1
+    fi
+}
+
+determine_shared_resources_helm() {
+    local enable_kserve="${1}"
+    local enable_llmisvc="${2}"
+
+    local kserve_installed=$(helm list -n "${KSERVE_NAMESPACE}" -q 2>/dev/null | grep -c "^kserve-resources$" || true)
+    local llmisvc_installed=$(helm list -n "${KSERVE_NAMESPACE}" -q 2>/dev/null | grep -c "^kserve-llmisvc-resources$" || true)
+
+    if [ "${kserve_installed}" = "0" ] && [ "${llmisvc_installed}" = "0" ]; then
+        # First installation - check which components are being enabled
+        if is_positive "${enable_kserve}" && is_positive "${enable_llmisvc}"; then
+            # Both enabled: kserve-resources installs first and creates shared resources
+            log_info "[Helm] First install (both) - kserve-resources creates shared resources, llmisvc-resources does not"
+            LLMISVC_EXTRA_ARGS="${LLMISVC_EXTRA_ARGS:-} --set kserve.createSharedResources=false"
+        elif is_positive "${enable_kserve}" && ! is_positive "${enable_llmisvc}"; then
+            # Only kserve enabled: kserve-resources creates shared resources
+            log_info "[Helm] First install (kserve only) - kserve-resources will create shared resources"
+            # Use default value (true) - no extra args needed
+        elif ! is_positive "${enable_kserve}" && is_positive "${enable_llmisvc}"; then
+            # Only llmisvc enabled: llmisvc-resources creates shared resources
+            log_info "[Helm] First install (llmisvc only) - llmisvc-resources will create shared resources"
+            # Use default value (true) - no extra args needed
+        else
+            # Neither enabled - shouldn't reach here
+            log_error "[Helm] No components enabled"
+            return 1
+        fi
+    elif [ "${kserve_installed}" = "1" ] && [ "${llmisvc_installed}" = "0" ]; then
+        log_info "[Helm] Only kserve-resources installed - setting createSharedResources=false for LLMISVC"
+        LLMISVC_EXTRA_ARGS="${LLMISVC_EXTRA_ARGS:-} --set kserve.createSharedResources=false"
+    elif [ "${kserve_installed}" = "0" ] && [ "${llmisvc_installed}" = "1" ]; then
+        log_info "[Helm] Only kserve-llmisvc-resources installed - setting createSharedResources=false for KSERVE"
+        KSERVE_EXTRA_ARGS="${KSERVE_EXTRA_ARGS:-} --set kserve.createSharedResources=false"
+    else
+        local kserve_has_false=$(helm get values kserve-resources -n "${KSERVE_NAMESPACE}" 2>/dev/null | grep -c "createSharedResources: false" || true)
+
+        if [ "${kserve_has_false}" = "1" ]; then
+            log_info "[Helm] Maintaining createSharedResources=false for KSERVE"
+            KSERVE_EXTRA_ARGS="${KSERVE_EXTRA_ARGS:-} --set kserve.createSharedResources=false"
+        else
+            log_info "[Helm] Setting createSharedResources=false for LLMISVC"
+            LLMISVC_EXTRA_ARGS="${LLMISVC_EXTRA_ARGS:-} --set kserve.createSharedResources=false"
+        fi
+    fi
+}
+
+determine_shared_resources_kustomize() {
+    KSERVE_INSTALLED=$(kubectl get deployment kserve-controller-manager -n "${KSERVE_NAMESPACE}" 2>/dev/null | grep -c "kserve-controller-manager" || true)
+    LLMISVC_INSTALLED=$(kubectl get deployment llmisvc-controller-manager -n "${KSERVE_NAMESPACE}" 2>/dev/null | grep -c "llmisvc-controller-manager" || true)
+    
+    export KSERVE_INSTALLED
+    export LLMISVC_INSTALLED
+
+    log_info "[Kustomize] Installation status(0: not installed, 1: installed): KSERVE=${KSERVE_INSTALLED}, LLMISVC=${LLMISVC_INSTALLED}"
 }
 
 # ============================================================================
@@ -455,18 +575,17 @@ set_env_with_priority() {
     local current_value
     eval "current_value=\${${var_name}}"
 
-    # If current value differs from default/component/global, it must be runtime - keep it
-    if [ -n "$current_value" ] && [ "$current_value" != "$default_value" ] &&
-       [ "$current_value" != "$component_value" ] && [ "$current_value" != "$global_value" ]; then
+    # If current value exists and differs from default, it's a runtime value - keep it
+    if [ -n "$current_value" ] && [ -n "$default_value" ] && [ "$current_value" != "$default_value" ]; then
         # This is a runtime value, keep it
         return
     fi
 
     # Apply priority: component env > global env > default
     if [ -n "$component_value" ]; then
-        export "$var_name=$component_value"
+        eval "export $var_name=\"$component_value\""
     elif [ -n "$global_value" ]; then
-        export "$var_name=$global_value"
+        eval "export $var_name=\"$global_value\""
     fi
     # If both are empty, variable keeps its default value
 }
@@ -489,17 +608,21 @@ fi
 
 export PATH="${BIN_DIR}:${PATH}"
 
-UNINSTALL="${UNINSTALL:-false}"
 REINSTALL="${REINSTALL:-false}"
+UNINSTALL="${UNINSTALL:-false}"
+FORCE_UPGRADE="${FORCE_UPGRADE:-false}"
 
 if [[ "$*" == *"--uninstall"* ]]; then
     UNINSTALL=true
 elif [[ "$*" == *"--reinstall"* ]]; then
     REINSTALL=true
+elif [[ "$*" == *"--force-upgrade"* ]]; then
+    FORCE_UPGRADE=true
 fi
 
 export REINSTALL
 export UNINSTALL
+export FORCE_UPGRADE
 
 # RELEASE mode (from definition file)
 RELEASE="true"
@@ -509,30 +632,36 @@ export RELEASE
 # Version Dependencies (from kserve-deps.env)
 #================================================
 
-GOLANGCI_LINT_VERSION=v1.64.8
+GOLANGCI_LINT_VERSION=v2.9.0
 CONTROLLER_TOOLS_VERSION=v0.19.0
-ENVTEST_VERSION=latest
-YQ_VERSION=v4.28.1
+ENVTEST_VERSION=release-0.19
+YQ_VERSION=v4.52.1
 HELM_VERSION=v3.16.3
-KUSTOMIZE_VERSION=v5.5.0
+KUSTOMIZE_VERSION=v5.8.1
 HELM_DOCS_VERSION=v1.12.0
-BLACK_FMT_VERSION=24.3
-FLAKE8_LINT_VERSION=7.1
 POETRY_VERSION=1.8.3
 UV_VERSION=0.7.8
+RUFF_VERSION=0.14.13
+PINACT_VERSION=v3.9.0
+KIND_VERSION=v0.30.0
 CERT_MANAGER_VERSION=v1.17.0
-ENVOY_GATEWAY_VERSION=v1.5.0
-ENVOY_AI_GATEWAY_VERSION=v0.3.0
-KNATIVE_OPERATOR_VERSION=v1.16.0
-KNATIVE_SERVING_VERSION=1.15.2
+ENVOY_GATEWAY_VERSION=v1.8.1
+ENVOY_AI_GATEWAY_VERSION=v1.0.0
+KNATIVE_OPERATOR_VERSION=v1.21.1
+KNATIVE_SERVING_VERSION=1.21.1
 KEDA_OTEL_ADDON_VERSION=v0.0.6
-KSERVE_VERSION=v0.16.0
+PROMETHEUS_VERSION=83.4.0
+PROMETHEUS_ADAPTER_VERSION=5.3.0
+JAEGER_VERSION=4.7.0
+KSERVE_VERSION=v0.20.0-rc0
 ISTIO_VERSION=1.27.1
-KEDA_VERSION=2.16.1
-OPENTELEMETRY_OPERATOR_VERSION=0.113.0
-LWS_VERSION=v0.6.2
-GATEWAY_API_VERSION=v1.2.1
-GIE_VERSION=v0.3.0
+KEDA_VERSION=2.18.0
+OPENTELEMETRY_OPERATOR_VERSION=0.74.3
+LWS_VERSION=v0.8.0
+GATEWAY_API_VERSION=v1.5.1
+GIE_VERSION=v1.5.0
+LLMD_ROUTER_VERSION=v0.9.0
+WVA_VERSION=v0.8.0
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -542,6 +671,9 @@ GIE_VERSION=v0.3.0
 
 KEDA_NAMESPACE="${KEDA_NAMESPACE:-keda}"
 KSERVE_NAMESPACE="${KSERVE_NAMESPACE:-kserve}"
+PROMETHEUS_NAMESPACE="${PROMETHEUS_NAMESPACE:-monitoring}"
+PROMETHEUS_ADAPTER_NAMESPACE="${PROMETHEUS_ADAPTER_NAMESPACE:-monitoring}"
+WVA_NAMESPACE="${WVA_NAMESPACE:-wva-system}"
 OTEL_NAMESPACE="${OTEL_NAMESPACE:-opentelemetry-operator}"
 OPERATOR_NAMESPACE="${OPERATOR_NAMESPACE:-knative-operator}"
 SERVING_NAMESPACE="${SERVING_NAMESPACE:-knative-serving}"
@@ -549,8 +681,11 @@ ISTIO_NAMESPACE="${ISTIO_NAMESPACE:-istio-system}"
 GATEWAY_NAMESPACE="${GATEWAY_NAMESPACE:-kserve}"
 DEPLOYMENT_MODE="${DEPLOYMENT_MODE:-Knative}"
 GATEWAY_NETWORK_LAYER="${GATEWAY_NETWORK_LAYER:-false}"
-LLMISVC="${LLMISVC:-false}"
+ENABLE_KSERVE="${ENABLE_KSERVE:-true}"
+ENABLE_LLMISVC="${ENABLE_LLMISVC:-false}"
+ENABLE_LOCALMODEL="${ENABLE_LOCALMODEL:-false}"
 EMBED_MANIFESTS="${EMBED_MANIFESTS:-false}"
+EMBED_TEMPLATES="${EMBED_TEMPLATES:-false}"
 KSERVE_CUSTOM_ISVC_CONFIGS="${KSERVE_CUSTOM_ISVC_CONFIGS:-}"
 
 #================================================
@@ -562,16 +697,48 @@ TEMPLATE_DIR="${REPO_ROOT}/hack/setup/infra/external-lb/templates"
 GATEWAYCLASS_NAME="${GATEWAYCLASS_NAME:-envoy}"
 CONTROLLER_NAME="${CONTROLLER_NAME:-gateway.envoyproxy.io/gatewayclass-controller}"
 GATEWAY_NAME="kserve-ingress-gateway"
-KSERVE_CRD_RELEASE_NAME="kserve-crd"
-KSERVE_RELEASE_NAME="kserve"
-CRD_DIR_NAME="kserve-crd"
-CORE_DIR_NAME="kserve-resources"
-TARGET_DEPLOYMENT_NAMES=(
-"kserve-controller-manager"
-)
+INSTALL_MODE="helm"
 USE_LOCAL_CHARTS="${USE_LOCAL_CHARTS:-false}"
 CHARTS_DIR="${REPO_ROOT}/charts"
 SET_KSERVE_VERSION="${SET_KSERVE_VERSION:-}"
+SHARED_EXTRA_ARGS="${SHARED_EXTRA_ARGS:-}"
+ENABLE_KSERVE="${ENABLE_KSERVE:-true}"
+ENABLE_LLMISVC="${ENABLE_LLMISVC:-${LLMISVC:-false}}"
+ENABLE_LOCALMODEL="${ENABLE_LOCALMODEL:-${LOCALMODEL:-false}}"
+CRD_CHARTS=()
+RESOURCE_CHARTS=()
+RESOURCE_EXTRA_ARGS_LIST=()
+TARGET_DEPLOYMENT_NAMES=()
+INSTALL_RUNTIMES="${INSTALL_RUNTIMES:-${ENABLE_KSERVE:-false}}"
+INSTALL_LLMISVC_CONFIGS="${INSTALL_LLMISVC_CONFIGS:-${ENABLE_LLMISVC:-false}}"
+RUNTIME_CONFIG_CHART_NAME="kserve-runtime-configs"
+
+#================================================
+# Template Functions (EMBED_TEMPLATES MODE)
+#================================================
+
+# ============================================================================
+# Template Functions: external-lb
+# ============================================================================
+
+get_metallb_config() {
+    cat <<'METALLB_CONFIG_EOF'
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: metallb-system
+  name: config
+data:
+  config: |
+    address-pools:
+    - name: default
+      protocol: layer2
+      addresses:
+      - {{START}}-{{END}}
+METALLB_CONFIG_EOF
+}
+
+
 
 #================================================
 # Component Functions
@@ -591,13 +758,14 @@ install_helm() {
 
     log_info "Installing Helm ${HELM_VERSION} for ${os}/${arch}..."
 
-    if command -v helm &>/dev/null; then
-        local current_version=$(helm version --template='{{.Version}}' 2>/dev/null)
-        if [[ -n "$current_version" ]] && version_gte "$current_version" "$HELM_VERSION"; then
-            log_info "Helm ${current_version} is already installed (>= ${HELM_VERSION})"
+    # Check if helm is already installed in BIN_DIR with the exact required version
+    if [[ -f "${BIN_DIR}/helm" ]]; then
+        local current_version=$("${BIN_DIR}/helm" version --template='{{.Version}}' 2>/dev/null)
+        if [[ "$current_version" == "$HELM_VERSION" ]]; then
+            log_info "Helm ${current_version} is already installed in ${BIN_DIR}"
             return 0
         fi
-        [[ -n "$current_version" ]] && log_info "Upgrading Helm from ${current_version} to ${HELM_VERSION}..."
+        [[ -n "$current_version" ]] && log_info "Replacing Helm ${current_version} with ${HELM_VERSION} in ${BIN_DIR}..."
     fi
 
     local temp_dir=$(mktemp -d)
@@ -634,7 +802,7 @@ install_helm() {
     rm -rf "${temp_dir}"
 
     log_success "Successfully installed Helm ${HELM_VERSION} to ${BIN_DIR}/helm"
-    helm version
+    "${BIN_DIR}/helm" version
 }
 
 # ----------------------------------------
@@ -651,12 +819,12 @@ install_yq() {
 
     log_info "Installing yq ${YQ_VERSION} for ${os}/${arch}..."
 
-    if command -v yq &>/dev/null; then
-        local current_version=$(yq --version 2>&1 | grep -oP 'version \K[v0-9.]+')
+    if [[ -x "${BIN_DIR}/yq" ]]; then
+        local current_version=$("${BIN_DIR}/yq" --version 2>&1 | awk 'match($0, /v[0-9.]+/) {print substr($0, RSTART, RLENGTH)}')
         # Normalize version format (add 'v' prefix if missing)
         [[ -n "$current_version" && "$current_version" != v* ]] && current_version="v${current_version}"
         if [[ -n "$current_version" ]] && version_gte "$current_version" "$YQ_VERSION"; then
-            log_info "yq ${current_version} is already installed (>= ${YQ_VERSION})"
+            log_info "yq ${current_version} is already installed in ${BIN_DIR} (>= ${YQ_VERSION})"
             return 0
         fi
         [[ -n "$current_version" ]] && log_info "Upgrading yq from ${current_version} to ${YQ_VERSION}..."
@@ -683,7 +851,7 @@ install_yq() {
     fi
 
     log_success "Successfully installed yq ${YQ_VERSION} to ${BIN_DIR}/yq"
-    yq --version
+    "${BIN_DIR}/yq" --version
 }
 
 # ----------------------------------------
@@ -761,6 +929,7 @@ install_external_lb() {
 
             log_info "Enabling MetalLB addon..."
             minikube addons enable metallb
+            kubectl wait --for=condition=ready pod -l app=metallb -n metallb-system --timeout=60s
 
             MINIKUBE_IP=$(minikube ip)
             if [[ -z "${MINIKUBE_IP}" ]]; then
@@ -776,8 +945,17 @@ install_external_lb() {
 
             log_info "Configuring MetalLB IP range: ${START}-${END}"
 
-            sed -e "s/{{START}}/${START}/g" -e "s/{{END}}/${END}/g" \
-                "${TEMPLATE_DIR}/metallb-config.yaml.tmpl" | kubectl apply -f -
+            if [ "$EMBED_TEMPLATES" = "true" ]; then
+                get_metallb_config | \
+                    sed -e "s/{{START}}/${START}/g" -e "s/{{END}}/${END}/g" | \
+                    kubectl apply -f -
+            else
+                sed -e "s/{{START}}/${START}/g" -e "s/{{END}}/${END}/g" \
+                    "${TEMPLATE_DIR}/metallb-config.yaml.tmpl" | kubectl apply -f -
+            fi
+
+            kubectl rollout restart deployment controller -n metallb-system
+            kubectl rollout status deployment controller -n metallb-system --timeout=60s
 
             log_success "MetalLB configured successfully with IP range: ${START}-${END}"
             ;;
@@ -839,17 +1017,52 @@ install_cert_manager() {
 }
 
 # ----------------------------------------
+# CLI/Component: gateway-api-crd
+# ----------------------------------------
+
+uninstall_gateway_api_crd() {
+    log_info "Uninstalling Gateway API CRDs..."
+    kubectl delete -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml" --ignore-not-found=true 2>/dev/null || true
+    log_success "Gateway API CRDs uninstalled"
+}
+
+install_gateway_api_crd() {
+    if kubectl get crd gateways.gateway.networking.k8s.io &>/dev/null; then
+        if [ "$REINSTALL" = false ]; then
+            log_info "Gateway API CRDs are already installed. Use --reinstall to reinstall."
+            return 0
+        else
+            log_info "Reinstalling Gateway API CRDs..."
+            uninstall_gateway_api_crd
+        fi
+    fi
+
+    log_info "Installing Gateway API CRDs ${GATEWAY_API_VERSION}..."
+    kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml"
+
+    log_success "Successfully installed Gateway API CRDs ${GATEWAY_API_VERSION}"
+
+    wait_for_crds "60s" \
+        "gateways.gateway.networking.k8s.io" \
+        "gatewayclasses.gateway.networking.k8s.io"
+
+    log_success "Gateway API CRDs are ready!"
+}
+
+# ----------------------------------------
 # CLI/Component: gateway-api-extension-crd
 # ----------------------------------------
 
 uninstall_gateway_api_extension_crd() {
-    log_info "Uninstalling Gateway Inference Extension CRDs..."
-    kubectl delete -f "https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/${GIE_VERSION}/manifests.yaml" --ignore-not-found=true 2>/dev/null || true
+    log_info "Uninstalling Gateway Inference Extension CRD..."
+    kubectl delete -f "https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/${GIE_VERSION}/v1-manifests.yaml" --ignore-not-found=true 2>/dev/null || true
+    log_info "Uninstalling llm-d CRDs from llm-d-router ${LLMD_ROUTER_VERSION}..."
+    kubectl delete -f "https://github.com/llm-d/llm-d-router/releases/download/${LLMD_ROUTER_VERSION}/manifests.yaml" --ignore-not-found=true 2>/dev/null || true
     log_success "Gateway Inference Extension CRDs uninstalled"
 }
 
 install_gateway_api_extension_crd() {
-    if kubectl get crd inferencepools.inference.networking.x-k8s.io &>/dev/null; then
+    if kubectl get crd inferencepools.inference.networking.k8s.io &>/dev/null; then
         if [ "$REINSTALL" = false ]; then
             log_info "Gateway Inference Extension CRDs are already installed. Use --reinstall to reinstall."
             return 0
@@ -859,14 +1072,18 @@ install_gateway_api_extension_crd() {
         fi
     fi
 
-    log_info "Installing Gateway Inference Extension CRDs ${GIE_VERSION}..."
-    kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/${GIE_VERSION}/manifests.yaml"
+    log_info "Installing Gateway Inference Extension CRD ${GIE_VERSION}..."
+    kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/${GIE_VERSION}/v1-manifests.yaml"
 
     log_success "Successfully installed Gateway Inference Extension CRDs ${GIE_VERSION}"
 
+    log_info "Installing llm-d.ai CRDs from llm-d-router ${LLMD_ROUTER_VERSION}..."
+    kubectl apply -f "https://github.com/llm-d/llm-d-router/releases/download/${LLMD_ROUTER_VERSION}/manifests.yaml"
+
     wait_for_crds "60s" \
-        "inferencepools.inference.networking.x-k8s.io" \
-        "inferencemodels.inference.networking.x-k8s.io"
+        "inferencepools.inference.networking.k8s.io" \
+        "inferenceobjectives.llm-d.ai" \
+        "inferencemodelrewrites.llm-d.ai"
 
     log_success "Gateway Inference Extension CRDs are ready!"
 }
@@ -895,11 +1112,28 @@ install_envoy_gateway() {
         fi
     fi
 
+    log_info "Installing Envoy Gateway CRDs ${ENVOY_GATEWAY_VERSION}..."
+    helm show crds oci://docker.io/envoyproxy/gateway-helm \
+        --version "${ENVOY_GATEWAY_VERSION}" \
+        | yq 'select(.spec.group == "gateway.envoyproxy.io")' \
+        | kubectl apply --server-side --force-conflicts -f -
+
+    wait_for_crds "60s" \
+        "backends.gateway.envoyproxy.io" \
+        "backendtrafficpolicies.gateway.envoyproxy.io" \
+        "clienttrafficpolicies.gateway.envoyproxy.io" \
+        "envoyextensionpolicies.gateway.envoyproxy.io" \
+        "envoypatchpolicies.gateway.envoyproxy.io" \
+        "envoyproxies.gateway.envoyproxy.io" \
+        "httproutefilters.gateway.envoyproxy.io" \
+        "securitypolicies.gateway.envoyproxy.io"
+
     log_info "Installing Envoy Gateway ${ENVOY_GATEWAY_VERSION}..."
-    helm install eg oci://docker.io/envoyproxy/gateway-helm \
+    helm upgrade -i eg oci://docker.io/envoyproxy/gateway-helm \
         --version "${ENVOY_GATEWAY_VERSION}" \
         -n envoy-gateway-system \
         --create-namespace \
+        --skip-crds \
         --wait
 
     log_success "Successfully installed Envoy Gateway ${ENVOY_GATEWAY_VERSION} via Helm"
@@ -915,11 +1149,6 @@ install_envoy_gateway() {
 
 uninstall_envoy_ai_gateway() {
     log_info "Uninstalling Envoy AI Gateway..."
-    VERSION_NUMBER="${ENVOY_AI_GATEWAY_VERSION#v}"
-    kubectl delete -f "https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${VERSION_NUMBER}/examples/inference-pool/config.yaml" --ignore-not-found=true --force --grace-period=0 2>/dev/null || true
-    kubectl delete -f "https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${VERSION_NUMBER}/manifests/envoy-gateway-config/rbac.yaml" --ignore-not-found=true --force --grace-period=0 2>/dev/null || true
-    kubectl delete -f "https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${VERSION_NUMBER}/manifests/envoy-gateway-config/config.yaml" --ignore-not-found=true --force --grace-period=0 2>/dev/null || true
-    kubectl delete -f "https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${VERSION_NUMBER}/manifests/envoy-gateway-config/redis.yaml" --ignore-not-found=true --force --grace-period=0 2>/dev/null || true
     helm uninstall aieg -n envoy-ai-gateway-system 2>/dev/null || true
     helm uninstall aieg-crd -n envoy-ai-gateway-system 2>/dev/null || true
     kubectl delete all --all -n envoy-ai-gateway-system --force --grace-period=0 2>/dev/null || true
@@ -940,32 +1169,32 @@ install_envoy_ai_gateway() {
         fi
     fi
 
+    log_info "Updating Envoy Gateway ${ENVOY_GATEWAY_VERSION}...to add inference pool addons for Envoy AI Gateway"
+    helm upgrade -i eg oci://docker.io/envoyproxy/gateway-helm \
+        --version "${ENVOY_GATEWAY_VERSION}" \
+        -n envoy-gateway-system \
+        --create-namespace \
+        --skip-crds \
+        -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/${ENVOY_AI_GATEWAY_VERSION}/manifests/envoy-gateway-values.yaml \
+        -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/${ENVOY_AI_GATEWAY_VERSION}/examples/inference-pool/envoy-gateway-values-addon.yaml \
+        --wait
+
+    log_success "Successfully Updated Envoy Gateway ${ENVOY_GATEWAY_VERSION} for Envoy AI Gateway"
+
     log_info "Installing Envoy AI Gateway CRDs ${ENVOY_AI_GATEWAY_VERSION}..."
-    helm install aieg-crd oci://docker.io/envoyproxy/ai-gateway-crds-helm \
+    helm upgrade -i aieg-crd oci://docker.io/envoyproxy/ai-gateway-crds-helm \
         --version "${ENVOY_AI_GATEWAY_VERSION}" \
         --namespace envoy-ai-gateway-system \
         --create-namespace
 
     log_info "Installing Envoy AI Gateway ${ENVOY_AI_GATEWAY_VERSION}..."
-    helm install aieg oci://docker.io/envoyproxy/ai-gateway-helm \
+    helm upgrade -i aieg oci://docker.io/envoyproxy/ai-gateway-helm \
         --version "${ENVOY_AI_GATEWAY_VERSION}" \
         --namespace envoy-ai-gateway-system \
         --create-namespace
 
-    wait_for_deployment "envoy-ai-gateway-system" "ai-gateway-controller" "180s"
-    log_success "Successfully installed Envoy AI Gateway ${ENVOY_AI_GATEWAY_VERSION} via Helm"
-
-    log_info "Configuring Envoy Gateway for AI Gateway integration..."
-    VERSION_NUMBER="${ENVOY_AI_GATEWAY_VERSION#v}"
-    kubectl apply -f "https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${VERSION_NUMBER}/manifests/envoy-gateway-config/redis.yaml"
-    kubectl apply -f "https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${VERSION_NUMBER}/manifests/envoy-gateway-config/config.yaml"
-    kubectl apply -f "https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${VERSION_NUMBER}/manifests/envoy-gateway-config/rbac.yaml"
-
-    log_info "Enabling Gateway API Inference Extension support for Envoy Gateway..."
-    kubectl apply -f "https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${VERSION_NUMBER}/examples/inference-pool/config.yaml"
-    kubectl rollout restart -n envoy-gateway-system deployment/envoy-gateway
-    wait_for_deployment "envoy-gateway-system" "envoy-gateway" "180s"
-    log_success "Envoy AI Gateway is ready!"
+    kubectl wait --timeout=2m -n envoy-ai-gateway-system deployment/ai-gateway-controller --for=condition=Available
+    log_success "Envoy AI Gateway ${ENVOY_AI_GATEWAY_VERSION} is ready!"
 }
 
 # ----------------------------------------
@@ -1086,157 +1315,220 @@ install_lws_operator() {
 
 uninstall_kserve_helm() {
     log_info "Uninstalling KServe..."
-
-    # EMBED_MANIFESTS: use embedded manifests
-    if [ "$EMBED_MANIFESTS" = "true" ]; then
-        if type uninstall_kserve_manifest &>/dev/null; then
-            uninstall_kserve_manifest
-        else
-            log_error "EMBED_MANIFESTS enabled but uninstall_kserve_manifest function not found"
-            log_error "This script should be called from a generated installation script"
-            exit 1
-        fi
-    else
-        # Development/Helm mode
-        helm uninstall "${KSERVE_RELEASE_NAME}" -n "${KSERVE_NAMESPACE}" 2>/dev/null || true
-        helm uninstall "${KSERVE_CRD_RELEASE_NAME}" -n "${KSERVE_NAMESPACE}" --namespace "${KSERVE_NAMESPACE}" 2>/dev/null || true
+    if helm list -n "${KSERVE_NAMESPACE}" 2>/dev/null | grep -q "${RUNTIME_CONFIG_CHART_NAME}"; then
+        helm uninstall "${RUNTIME_CONFIG_CHART_NAME}" -n "${KSERVE_NAMESPACE}"
+        log_success "Successfully uninstalled Runtimes/LLMISVC configs"
     fi
 
-    kubectl delete all --all -n "${KSERVE_NAMESPACE}" --force --grace-period=0 2>/dev/null || true
-    kubectl delete namespace "${KSERVE_NAMESPACE}" --wait=true --timeout=60s --force --grace-period=0 2>/dev/null || true
-    log_success "KServe uninstalled"
+    local all_charts=("${RESOURCE_CHARTS[@]}" "${CRD_CHARTS[@]}")
+    if [ ${#all_charts[@]} -gt 0 ]; then
+        log_info "Uninstalling charts: ${all_charts[*]}"
+    else
+        log_info "No charts to uninstall"
+        return 0
+    fi
+
+    for ((i=${#RESOURCE_CHARTS[@]}-1; i>=0; i--)); do
+        local chart="${RESOURCE_CHARTS[$i]}"
+        log_info "Uninstalling ${chart}..."
+        helm uninstall "${chart}" -n "${KSERVE_NAMESPACE}" 2>/dev/null || true
+    done
+
+    # Then uninstall CRD charts (reverse order)
+    for ((i=${#CRD_CHARTS[@]}-1; i>=0; i--)); do
+        local chart="${CRD_CHARTS[$i]}"
+        log_info "Uninstalling ${chart}..."
+        helm uninstall "${chart}" -n "${KSERVE_NAMESPACE}" 2>/dev/null || true
+    done
+
+    log_success "KServe charts uninstalled"
 }
 
 install_kserve_helm() {
-    if helm list -n "${KSERVE_NAMESPACE}" 2>/dev/null | grep -q "${KSERVE_RELEASE_NAME}"; then
-        if [ "$REINSTALL" = false ]; then
-            log_info "KServe is already installed. Use --reinstall to reinstall."
-            return 0
-        else
-            log_info "Reinstalling KServe..."
-            uninstall_kserve_helm
+    build_helm_config_args() {
+        local -a config_args=()
+
+        # Update deployment mode if needed
+        if [ "${DEPLOYMENT_MODE}" = "Standard" ] || [ "${DEPLOYMENT_MODE}" = "RawDeployment" ]; then
+            log_info "Adding deployment mode configuration: ${DEPLOYMENT_MODE}"
+            config_args+=(--set "kserve.controller.deploymentMode=${DEPLOYMENT_MODE}")
         fi
+
+        # Enable Gateway API for KServe(ISVC) if needed
+        if [ "${GATEWAY_NETWORK_LAYER}" != "false" ] && ! is_positive "${ENABLE_LLMISVC}"; then
+            log_info "Adding Gateway API configuration: enableGatewayApi=true, ingressClassName=${GATEWAY_NETWORK_LAYER}"
+            config_args+=(--set "kserve.controller.gateway.ingressGateway.enableGatewayApi=true")
+            config_args+=(--set "kserve.controller.gateway.ingressGateway.className=${GATEWAY_NETWORK_LAYER}")
+        fi
+
+        if is_positive "${ENABLE_LOCALMODEL}"; then
+            config_args+=(--set "kserve.localmodel.enabled=true")
+            config_args+=(--set "kserve.localmodel.defaultJobImage=kserve/storage-initializer")
+            config_args+=(--set "kserve.localmodel.defaultJobImageTag=${KSERVE_VERSION}")
+        fi
+        # Add custom configurations if provided
+        if [ -n "${KSERVE_CUSTOM_ISVC_CONFIGS}" ]; then
+            log_info "Adding custom configurations: ${KSERVE_CUSTOM_ISVC_CONFIGS}"
+            IFS='|' read -ra custom_configs <<< "${KSERVE_CUSTOM_ISVC_CONFIGS}"
+            for config in "${custom_configs[@]}"; do
+                config_args+=(--set "${config}")
+            done
+        fi
+
+        # Only print if array has elements
+        if [ ${#config_args[@]} -gt 0 ]; then
+            printf '%s\n' "${config_args[@]}"
+        fi
+    }
+
+    if [ ${#RESOURCE_CHARTS[@]} -eq 0 ] && [ ${#CRD_CHARTS[@]} -eq 0 ]; then
+        log_error "No charts selected for installation. Please enable at least one component (ENABLE_KSERVE, ENABLE_LLMISVC, or ENABLE_LOCALMODEL)."
+        exit 1
     fi
 
-    # EMBED_MANIFESTS: use embedded manifests from generated script
-    if [ "$EMBED_MANIFESTS" = "true" ]; then
-        log_info "Installing KServe using embedded manifests ..."
-
-        # Call manifest functions (these should be available in generated script)
-        if type install_kserve_manifest &>/dev/null; then
-            install_kserve_manifest
-        else
-            log_error "EMBED_MANIFESTS enabled but install_kserve_manifest function not found"
-            log_error "This script should be called from a generated installation script"
-            exit 1
-        fi
-    elif [ "${USE_LOCAL_CHARTS}" = true ]; then
-        # Install KServe using local charts (for development)
-        log_info "Installing KServe using local charts..."
-        log_info "📍 Using local charts from ${CHARTS_DIR}/"
-
-        # Update default version in values.yaml
-        log_info "Updating default version in values.yaml to ${KSERVE_VERSION}"
-        sed -i -e "s/*defaultVersion*/${KSERVE_VERSION}/g" ${CHARTS_DIR}/${CORE_DIR_NAME}/values.yaml
-
-        # Install KServe CRDs from local chart
-        log_info "Installing KServe CRDs..."
-        helm install "${KSERVE_CRD_RELEASE_NAME}" "${CHARTS_DIR}/${CRD_DIR_NAME}" \
-            --namespace "${KSERVE_NAMESPACE}" \
-            --create-namespace \
-            --wait \
-            ${KSERVE_CRD_EXTRA_ARGS:-}
-
-        # Install KServe resources from local chart
-        log_info "Installing KServe resources..."
-        helm install "${KSERVE_RELEASE_NAME}" "${CHARTS_DIR}/${CORE_DIR_NAME}" \
-            --namespace "${KSERVE_NAMESPACE}" \
-            --create-namespace \
-            --wait \
-            ${KSERVE_EXTRA_ARGS:-}
-
-        log_success "Successfully installed KServe using local charts"
-    else
-        # Install KServe from OCI registry
-        log_info "Installing KServe ${KSERVE_VERSION} from OCI registry..."
-
-        # Install KServe CRDs
-        log_info "Installing KServe CRDs..."
-        helm install "${KSERVE_CRD_RELEASE_NAME}" \
-            oci://ghcr.io/kserve/charts/${CRD_DIR_NAME} \
-            --version "${KSERVE_VERSION}" \
-            --namespace "${KSERVE_NAMESPACE}" \
-            --create-namespace \
-            --wait \
-            ${KSERVE_CRD_EXTRA_ARGS:-}
-
-        # Install KServe resources
-        log_info "Installing KServe resources..."
-        if ! helm install "${KSERVE_RELEASE_NAME}" \
-            oci://ghcr.io/kserve/charts/${KSERVE_RELEASE_NAME} \
-            --version "${KSERVE_VERSION}" \
-            --namespace "${KSERVE_NAMESPACE}" \
-            --create-namespace \
-            --wait \
-            ${KSERVE_EXTRA_ARGS:-}; then
-
-            # If installation fails, try using helm upgrade after kserve controller is Ready
-            log_info "Install failed, attempting upgrade instead..."
-
-            for deploy in "${TARGET_DEPLOYMENT_NAMES[@]}"; do
-                    wait_for_deployment "${KSERVE_NAMESPACE}" "${deploy}" "120s"
-            done
-            if ! helm upgrade "${KSERVE_RELEASE_NAME}" \
-                oci://ghcr.io/kserve/charts/${KSERVE_RELEASE_NAME} \
-                --version "${KSERVE_VERSION}" \
-                --namespace "${KSERVE_NAMESPACE}" \
-                --wait \
-                ${KSERVE_EXTRA_ARGS:-}; then
-
-                log_error "Failed to install/upgrade KServe ${KSERVE_VERSION}"
-                exit 1
+    if [ ${#RESOURCE_CHARTS[@]} -gt 0 ]; then
+        local main_chart="${RESOURCE_CHARTS[0]}"
+        # Use exact match for helm release name to avoid partial matches
+        if helm list -n "${KSERVE_NAMESPACE}" -q 2>/dev/null | grep -x "${main_chart}" &>/dev/null; then
+            if ! is_positive "$REINSTALL"; then
+                if is_positive "$FORCE_UPGRADE"; then
+                    log_info "Force upgrading KServe..."
+                else
+                    log_info "KServe is already installed. Use --reinstall to reinstall or --force-upgrade to upgrade."
+                    return 0
+                fi
+            else
+                log_info "Reinstalling KServe..."
+                uninstall_kserve_helm
             fi
         fi
-
-        log_success "Successfully installed KServe ${KSERVE_VERSION}"
     fi
 
-    # Build list of config updates
-    local config_updates=()
-
-    # Update deployment mode if needed
-    if [ "${DEPLOYMENT_MODE}" = "Standard" ] || [ "${DEPLOYMENT_MODE}" = "RawDeployment" ]; then
-        log_info "Adding deployment mode update: ${DEPLOYMENT_MODE}"
-        config_updates+=("deploy.defaultDeploymentMode=\"${DEPLOYMENT_MODE}\"")
-    fi
-
-    # Enable Gateway API if needed
-    if [ "${GATEWAY_NETWORK_LAYER}" != "false" ]; then
-        log_info "Adding Gateway API updates: enableGatewayApi=true, className=${GATEWAY_NETWORK_LAYER}"
-        config_updates+=("ingress.ingressGateway.enableGatewayApi=true")
-        config_updates+=("ingress.ingressGateway.className=\"${GATEWAY_NETWORK_LAYER}\"")
-    fi
-
-    # Apply all config updates at once if there are any
-    if [ ${#config_updates[@]} -gt 0 ]; then
-        log_info "Applying ${#config_updates[@]} configuration update(s):"
-        for update in "${config_updates[@]}"; do
-            log_info "  - ${update}"
-        done
-        update_isvc_config "${config_updates[@]}"
-        kubectl rollout restart deployment kserve-controller-manager -n ${KSERVE_NAMESPACE}
+    # Determine chart repository
+    local CHART_REPO="oci://ghcr.io/kserve/charts"
+    if is_positive "${USE_LOCAL_CHARTS}"; then
+        CHART_REPO="${CHARTS_DIR}"
+        log_info "Installing KServe using local charts..."
+        log_info "📍 Using local charts from ${CHARTS_DIR}/"
     else
-        if [ "${LLMISVC}" = "true" ]; then
-            log_info "No configuration updates needed for LLMISVC (GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
-        else
-            log_info "No configuration updates needed (DEPLOYMENT_MODE=${DEPLOYMENT_MODE}, GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
-        fi
+        log_info "Installing KServe ${KSERVE_VERSION} from OCI registry..."
     fi
 
+    # Build chart version flag (only for remote charts, skip for 'latest')
+    local VERSION_FLAG=""
+    if ! is_positive "${USE_LOCAL_CHARTS}"; then
+        VERSION_FLAG="--version ${KSERVE_VERSION}"
+    fi
+
+    # Install CRD charts
+    for chart in "${CRD_CHARTS[@]}"; do
+        log_info "Installing ${chart}..."
+        helm upgrade -i "${chart}" "${CHART_REPO}/${chart}" \
+            --namespace "${KSERVE_NAMESPACE}" \
+            --create-namespace \
+            --wait \
+            ${VERSION_FLAG} \
+            ${SHARED_EXTRA_ARGS}
+    done
+
+    # Build configuration arguments for KServe/LLMIsvc
+    readarray -t helm_config_args < <(build_helm_config_args)
+
+    # Adopt any pre-existing GIE CRDs into the llmisvc-resources Helm release
+    if is_positive "${ENABLE_LLMISVC}"; then
+        adopt_existing_crds_for_release "kserve-llmisvc-resources" "${KSERVE_NAMESPACE}" "${GIE_CRDS[@]}"
+    fi
+
+    # Install resource charts
+    for i in "${!RESOURCE_CHARTS[@]}"; do
+        local chart="${RESOURCE_CHARTS[$i]}"
+        local extra_args="${RESOURCE_EXTRA_ARGS_LIST[$i]}"
+
+        # Apply config args only to kserve-resources chart (InferenceService configs)
+        local -a extra_helm_args=()
+        if [[ "${chart}" == "kserve-resources" ]]; then
+            extra_helm_args=("${helm_config_args[@]}")
+        fi
+
+        log_info "Installing ${chart}..."
+        for attempt in 1 2; do
+            if helm upgrade -i "${chart}" "${CHART_REPO}/${chart}" \
+                --namespace "${KSERVE_NAMESPACE}" \
+                --create-namespace \
+                --wait \
+                ${VERSION_FLAG} \
+                --set kserve.version="${KSERVE_VERSION}" \
+                ${SHARED_EXTRA_ARGS} \
+                ${extra_args} \
+                "${extra_helm_args[@]}"; then
+                break
+            elif [ $attempt -eq 2 ]; then
+                log_error "Failed to install/upgrade ${chart} ${KSERVE_VERSION} after 2 attempts"
+                exit 1
+            fi
+            sleep 5
+        done
+    done
+
+    log_success "Successfully installed KServe"
+
+    # Helm's sortManifestsByKind applies the llmisvc-controller-manager Deployment
+    # (a known kind) before cert-manager's Certificate CR (a custom kind, sorted
+    # last), so the pod can be scheduled and attempt to mount
+    # llmisvc-webhook-server-cert before cert-manager has issued it, hitting
+    # FailedMount and kubelet's mount-retry backoff. Wait for the Certificate to
+    # be issued and restart the deployment to reset that backoff before waiting
+    # for it to become ready.
+    if is_positive "${ENABLE_LLMISVC}"; then
+        log_info "Waiting for llmisvc webhook Certificate to be ready..."
+        kubectl wait --for=condition=Ready certificate/llmisvc-serving-cert \
+            -n "${KSERVE_NAMESPACE}" --timeout=180s
+
+        log_info "Restarting llmisvc-controller-manager to pick up the freshly-issued cert..."
+        kubectl rollout restart deployment/llmisvc-controller-manager -n "${KSERVE_NAMESPACE}"
+
+        # Wait for the NEW ReplicaSet to be fully rolled out. The wait_for_deployment
+        # helper below uses --for=condition=Available, which is satisfied by the OLD
+        # ReplicaSet's Ready pod during the rolling restart: it returns instantly but
+        # does not guarantee the new pod is serving the webhook. The subsequent
+        # kserve-runtime-configs install then applies LLMInferenceServiceConfig presets
+        # whose validating webhook must authorize each, and can hit the webhook Service
+        # before the new pod is a ready endpoint (dial ...:443: connect: connection refused).
+        log_info "Waiting for llmisvc-controller-manager rollout to complete..."
+        kubectl rollout status deployment/llmisvc-controller-manager \
+            -n "${KSERVE_NAMESPACE}" --timeout=300s
+
+        # Additionally wait for the webhook Service to have ready endpoints, covering the
+        # window between pod-ready and kube-proxy programming the Service endpoints.
+        log_info "Waiting for llmisvc webhook Service endpoints..."
+        kubectl wait --for=jsonpath='{.subsets[0].addresses}' \
+            endpoints/llmisvc-webhook-server-service \
+            -n "${KSERVE_NAMESPACE}" --timeout=60s
+        log_info "llmisvc webhook is ready."
+    fi
+
+    # Wait for all controller managers to be ready
+    log_info "Waiting for KServe controllers to be ready..."
     for deploy in "${TARGET_DEPLOYMENT_NAMES[@]}"; do
         wait_for_deployment "${KSERVE_NAMESPACE}" "${deploy}" "300s"
     done
+
     log_success "KServe is ready!"
+
+    # Install Runtimes and LLMISVC configs if needed
+    if is_positive "${INSTALL_RUNTIMES}" || is_positive "${INSTALL_LLMISVC_CONFIGS}"; then
+        log_info "Installing Runtimes(${INSTALL_RUNTIMES}) and LLMISVC configs(${INSTALL_LLMISVC_CONFIGS})..."
+        helm upgrade -i ${RUNTIME_CONFIG_CHART_NAME} \
+            ${CHART_REPO}/${RUNTIME_CONFIG_CHART_NAME} \
+            --namespace "${KSERVE_NAMESPACE}" \
+            --create-namespace \
+            --wait \
+            ${VERSION_FLAG} \
+            --set kserve.version="${KSERVE_VERSION}" \
+            --set kserve.servingruntime.enabled=${INSTALL_RUNTIMES} \
+            --set kserve.llmisvcConfigs.enabled=${INSTALL_LLMISVC_CONFIGS}
+        log_success "Successfully installed Runtimes/LLMISVC configs"
+    fi
 }
 
 
@@ -1257,6 +1549,7 @@ main() {
         uninstall_envoy_ai_gateway
         uninstall_envoy_gateway
         uninstall_gateway_api_extension_crd
+        uninstall_gateway_api_crd
         uninstall_cert_manager
         uninstall_external_lb
         
@@ -1271,12 +1564,13 @@ main() {
     echo "Install KServe LLM InferenceService and all related dependencies using helm."
     echo "=========================================="
 
-
+    export EMBED_TEMPLATES="true"
 
     install_helm
     install_yq
     install_external_lb
     install_cert_manager
+    install_gateway_api_crd
     install_gateway_api_extension_crd
     install_envoy_gateway
     install_envoy_ai_gateway
@@ -1284,20 +1578,51 @@ main() {
     install_gateway_api_gw
     install_lws_operator
     (
-        set_env_with_priority "LLMISVC" "true" "" ""
-        # Set Helm release names and target pod labels based on LLMISVC
-        if [ "${LLMISVC}" = "true" ]; then
-            log_info "LLMISVC is enabled"
-            CRD_DIR_NAME="kserve-llmisvc-crd"
-            CORE_DIR_NAME="kserve-llmisvc-resources"
-            KSERVE_CRD_RELEASE_NAME="kserve-llmisvc-crd"
-            KSERVE_RELEASE_NAME="kserve-llmisvc-resources"
-            TARGET_DEPLOYMENT_NAMES=("kserve-llmisvc-controller-manager")
-        fi
+        set_env_with_priority "ENABLE_LLMISVC" "True" "" ""
+        set_env_with_priority "ENABLE_KSERVE" "False" "" "true"
+        set_env_with_priority "INSTALL_RUNTIMES" "False" "" ""
+        set_env_with_priority "INSTALL_LLMISVC_CONFIGS" "True" "" ""
+        determine_shared_resources_config "${INSTALL_MODE}" "${ENABLE_KSERVE}" "${ENABLE_LLMISVC}"
         
         if [ "${SET_KSERVE_VERSION}" != "" ]; then
             log_info "Setting KServe version to ${SET_KSERVE_VERSION}"
             KSERVE_VERSION="${SET_KSERVE_VERSION}"
+        fi
+        
+        # Build chart arrays based on ENABLE_* flags
+        # When a specific version is set, override imagePullPolicy to IfNotPresent
+        # to match kustomize version-template overlay behavior for dev/test scenarios
+        PULL_POLICY_KSERVE=""
+        PULL_POLICY_LLMISVC=""
+        PULL_POLICY_LOCALMODEL=""
+        if [ -n "${SET_KSERVE_VERSION}" ]; then
+            PULL_POLICY_KSERVE="--set kserve.controller.imagePullPolicy=IfNotPresent"
+            PULL_POLICY_LLMISVC="--set kserve.llmisvc.controller.imagePullPolicy=IfNotPresent"
+            PULL_POLICY_LOCALMODEL="--set kserve.localmodel.controller.imagePullPolicy=IfNotPresent --set kserve.localmodelnode.controller.imagePullPolicy=IfNotPresent"
+        fi
+        
+        if is_positive "${ENABLE_KSERVE}"; then
+            log_info "KServe is enabled"
+            CRD_CHARTS+=("kserve-crd")
+            RESOURCE_CHARTS+=("kserve-resources")
+            RESOURCE_EXTRA_ARGS_LIST+=("${KSERVE_EXTRA_ARGS:-} ${PULL_POLICY_KSERVE}")
+            TARGET_DEPLOYMENT_NAMES+=("kserve-controller-manager")
+        fi
+        
+        if is_positive "${ENABLE_LLMISVC}"; then
+            log_info "LLMIsvc is enabled"
+            CRD_CHARTS+=("kserve-llmisvc-crd")
+            RESOURCE_CHARTS+=("kserve-llmisvc-resources")
+            RESOURCE_EXTRA_ARGS_LIST+=("${LLMISVC_EXTRA_ARGS:-} ${PULL_POLICY_LLMISVC}")
+            TARGET_DEPLOYMENT_NAMES+=("llmisvc-controller-manager")
+        fi
+        
+        if is_positive "${ENABLE_LOCALMODEL}"; then
+            log_info "LocalModel is enabled"
+            CRD_CHARTS+=("kserve-localmodel-crd")
+            RESOURCE_CHARTS+=("kserve-localmodel-resources")
+            RESOURCE_EXTRA_ARGS_LIST+=("${LOCALMODEL_EXTRA_ARGS:-} ${PULL_POLICY_LOCALMODEL}")
+            TARGET_DEPLOYMENT_NAMES+=("kserve-localmodel-controller-manager")
         fi
 
         install_kserve_helm

@@ -35,9 +35,11 @@ func NewMockStore(storageSpec *v1beta1.StorageSpec) *MockStore {
 	}
 }
 
-func (m MockStore) Store(_ *url.URL, logRequest LogRequest) error {
+func (m MockStore) Store(_ *url.URL, batch []LogRequest) error {
 	if m.ResponseChan != nil {
-		m.ResponseChan <- &logRequest
+		for i := range batch {
+			m.ResponseChan <- &batch[i]
+		}
 	}
 	return nil
 }

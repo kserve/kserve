@@ -1,4 +1,4 @@
-apiVersion: serving.kserve.io/v1alpha1
+apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceService
 metadata:
   name: facebook-opt-125m-single
@@ -12,13 +12,14 @@ spec:
   template:
     containers:
       - name: main
-        image: quay.io/pierdipi/vllm-cpu:latest
+        image: vllm/vllm-openai-cpu:v0.19.0
         securityContext:
-          # The image is not built in a way that can run as non-root
           runAsNonRoot: false
         env:
           - name: VLLM_LOGGING_LEVEL
             value: DEBUG
+          - name: VLLM_CPU_KVCACHE_SPACE
+            value: "1"
         resources:
           limits:
             cpu: '1'

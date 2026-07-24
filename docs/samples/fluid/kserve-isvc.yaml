@@ -19,7 +19,6 @@ spec:
         - --tensor-parallel-size=1
         - --enforce-eager
         - --disable-log-stats
-        - --disable-log-requests
       storageUri: s3://${bucket}/models/meta-llama--Meta-Llama-3.1-8B-Instruct
       resources:
         limits:

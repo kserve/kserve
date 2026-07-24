@@ -91,6 +91,7 @@ install() {
         --namespace "${ISTIO_NAMESPACE}" \
         --version "${ISTIO_VERSION}" \
         --set proxy.autoInject=disabled \
+        --set pilot.env.ENABLE_GATEWAY_API_INFERENCE_EXTENSION=true \
         --set-string pilot.podAnnotations."cluster-autoscaler\.kubernetes\.io/safe-to-evict"=true \
         --wait \
         ${ISTIOD_EXTRA_ARGS:-}

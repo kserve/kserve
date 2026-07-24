@@ -59,7 +59,6 @@ async def client(lora_server):
 @pytest.mark.vllm_cpu
 @pytest.mark.asyncio
 async def test_lora_chat(client: openai.AsyncOpenAI):
-
     chat_completion = await client.chat.completions.create(
         model=LORA_NAME,
         messages=[

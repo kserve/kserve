@@ -60,7 +60,7 @@ func (a AzureProvider) DownloadModel(modelDir string, modelName string, storageU
 		for _, _blob := range resp.Segment.BlobItems {
 			fileName := filepath.Join(modelDir, modelName, *_blob.Name)
 			log.Info("Downloading blob %s", "fileName", fileName)
-			file, err := os.Create(fileName)
+			file, err := os.Create(filepath.Clean(fileName))
 			if err != nil {
 				return err
 			}

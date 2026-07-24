@@ -12,10 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import unittest.mock as mock
+from pathlib import Path
+
 import pytest
 
 from kserve_storage import Storage
+
+# Real (self-signed, parse-valid) certificate: the combined bundle is
+# validated with ssl before being exported, so the fixture must parse.
+TEST_CA_PEM = """-----BEGIN CERTIFICATE-----
+MIIBhjCCAS2gAwIBAgIUMyxVv2w1Wp1oKdnW+DOnMeesPi8wCgYIKoZIzj0EAwIw
+GTEXMBUGA1UEAwwOa3NlcnZlLXRlc3QtY2EwHhcNMjYwNzAyMTYyMDQwWhcNMzYw
+NjI5MTYyMDQwWjAZMRcwFQYDVQQDDA5rc2VydmUtdGVzdC1jYTBZMBMGByqGSM49
+AgEGCCqGSM49AwEHA0IABBUFVi0qWbwEv/l+HcofdpTKfJbNoWqqa2VZzRTPwLVT
+gRgM4IwCS/9BqOk/4kgtaDmwkgaPHezDeSn6+KXGJzqjUzBRMB0GA1UdDgQWBBR1
+nfvZnSy6d6wdttlst48UzrMwPDAfBgNVHSMEGDAWgBR1nfvZnSy6d6wdttlst48U
+zrMwPDAPBgNVHRMBAf8EBTADAQH/MAoGCCqGSM49BAMCA0cAMEQCIHvDmtj+mck4
+EHZ0148y6DFcWpDIAaPyKz2rVv/I0rA2AiA+yiYFjmPwtUwvCOj8yQI6IYMgrjsS
+mjrvDJwPyARHZg==
+-----END CERTIFICATE-----
+"""
 
 
 @mock.patch("huggingface_hub.snapshot_download")
@@ -35,26 +53,139 @@ def test_download_model(mock_snapshot_download):
 
 
 @mock.patch("huggingface_hub.snapshot_download")
+def test_download_model_with_global_ca_bundle(mock_snapshot_download, tmp_path):
+    ca_bundle_path = tmp_path / "cabundle.crt"
+    ca_bundle_path.write_text(TEST_CA_PEM)
+    env = {
+        "CA_BUNDLE_CONFIGMAP_NAME": "cabundle",
+        "CA_BUNDLE_VOLUME_MOUNT_POINT": str(tmp_path),
+    }
+    with mock.patch.dict(os.environ, env):
+        os.environ.pop("REQUESTS_CA_BUNDLE", None)
+        os.environ.pop("SSL_CERT_FILE", None)
+        Storage.download("hf://example.com/model", out_dir=str(tmp_path / "out"))
+        combined_path = os.environ["REQUESTS_CA_BUNDLE"]
+        assert os.environ["SSL_CERT_FILE"] == combined_path
+        assert ca_bundle_path.read_text() in Path(combined_path).read_text()
+
+    mock_snapshot_download.assert_called_once()
+
+
+@mock.patch("huggingface_hub.snapshot_download")
+def test_download_model_with_allow_patterns(mock_snapshot_download):
+    uri = "hf://example.com/model"
+
+    Storage._download_hf(uri, "/tmp/out", allow_patterns=["*.safetensors", "*.json"])
+
+    mock_snapshot_download.assert_called_once_with(
+        repo_id="example.com/model",
+        revision=None,
+        local_dir="/tmp/out",
+        allow_patterns=["*.safetensors", "*.json"],
+    )
+
+
+@mock.patch("huggingface_hub.snapshot_download")
+def test_download_model_with_ignore_patterns(mock_snapshot_download):
+    uri = "hf://example.com/model"
+
+    Storage._download_hf(uri, "/tmp/out", ignore_patterns=["*.bin", "*.gguf"])
+
+    mock_snapshot_download.assert_called_once_with(
+        repo_id="example.com/model",
+        revision=None,
+        local_dir="/tmp/out",
+        ignore_patterns=["*.bin", "*.gguf"],
+    )
+
+
+@mock.patch("huggingface_hub.snapshot_download")
+def test_download_model_with_both_patterns(mock_snapshot_download):
+    uri = "hf://example.com/model"
+
+    Storage._download_hf(
+        uri,
+        "/tmp/out",
+        allow_patterns=["*.json"],
+        ignore_patterns=["config.json"],
+    )
+
+    mock_snapshot_download.assert_called_once_with(
+        repo_id="example.com/model",
+        revision=None,
+        local_dir="/tmp/out",
+        allow_patterns=["*.json"],
+        ignore_patterns=["config.json"],
+    )
+
+
+@mock.patch("huggingface_hub.snapshot_download")
+def test_download_model_no_patterns_omits_kwargs(mock_snapshot_download):
+    uri = "hf://example.com/model"
+
+    Storage._download_hf(uri, "/tmp/out")
+
+    mock_snapshot_download.assert_called_once_with(
+        repo_id="example.com/model",
+        revision=None,
+        local_dir="/tmp/out",
+    )
+
+
+@mock.patch("huggingface_hub.snapshot_download")
+def test_download_reads_env_patterns(mock_snapshot_download):
+    uri = "hf://example.com/model"
+
+    with mock.patch.dict(
+        os.environ,
+        {
+            "STORAGE_ALLOW_PATTERNS": '["*.safetensors"]',
+            "STORAGE_IGNORE_PATTERNS": "*.bin,*.gguf",
+        },
+    ):
+        Storage.download(uri, out_dir="/tmp/out")
+
+    mock_snapshot_download.assert_called_once()
+    call_kwargs = mock_snapshot_download.call_args[1]
+    assert call_kwargs.get("allow_patterns") == ["*.safetensors"]
+    assert call_kwargs.get("ignore_patterns") == ["*.bin", "*.gguf"]
+
+
+@mock.patch("huggingface_hub.snapshot_download")
+def test_explicit_patterns_override_env(mock_snapshot_download):
+    uri = "hf://example.com/model"
+
+    with mock.patch.dict(
+        os.environ,
+        {"STORAGE_ALLOW_PATTERNS": '["*.bin"]'},
+    ):
+        Storage.download(uri, out_dir="/tmp/out", allow_patterns=["*.safetensors"])
+
+    call_kwargs = mock_snapshot_download.call_args[1]
+    assert call_kwargs.get("allow_patterns") == ["*.safetensors"]
+
+
+@mock.patch("huggingface_hub.snapshot_download")
 @pytest.mark.parametrize(
     "invalid_uri, error_message",
     [
         (
             "hf://",
-            "URI must contain exactly one '/' separating",
+            "Invalid Hugging Face URI format",
         ),  # Missing repo and model
         (
             "hf://repo_only",
-            "URI must contain exactly one '/' separating",
+            "Invalid Hugging Face URI format",
         ),  # Missing model
-        ("hf:///model_only", "Repository name cannot be empty"),  # Missing repo
+        ("hf:///model_only", "repository owner cannot be empty"),  # Missing repo
         (
             "hf://repo/:hash_value",
-            "Model name cannot be empty",
+            "model name cannot be empty",
         ),  # Missing model name, hash exists
     ],
 )
 def test_invalid_uri(mock_snapshot_download, invalid_uri, error_message):
-    with pytest.raises(ValueError, match=error_message):
+    with pytest.raises(RuntimeError, match=error_message):
         Storage.download(invalid_uri)
 
     # Ensure that snapshot_download was never called

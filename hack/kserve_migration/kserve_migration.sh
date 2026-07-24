@@ -37,12 +37,11 @@ isControllerRunning() {
         fi
     done
     po_names=$(kubectl get po -n $namespace -o jsonpath='{.items[*].metadata.name}')
-    for po_name in "${prefix}-controller-manager"; do
-        if [ ! -z "${po_names##*$po_name*}" ]; then
-            log ERROR "${prefix} controller services are not installed completely."
-            exit 1;
-        fi
-    done
+    po_name="${prefix}-controller-manager"
+    if [ ! -z "${po_names##*$po_name*}" ]; then
+        log ERROR "${prefix} controller services are not installed completely."
+        exit 1;
+    fi
 }
 
 # Checks user preference on cleaning kfserving controller

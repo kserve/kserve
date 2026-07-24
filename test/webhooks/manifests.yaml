@@ -10,15 +10,15 @@ webhooks:
       service:
         name: kserve-webhook-server-service
         namespace: kserve
-        path: /validate-serving-kserve-io-v1alpha1-llminferenceservice
+        path: /validate-serving-kserve-io-v1alpha2-llminferenceservice
     failurePolicy: Fail
     sideEffects: None
-    name: llminferenceservice.kserve-webhook-server.validator
+    name: llminferenceservice.kserve-webhook-server.v1alpha2.validator
     rules:
       - apiGroups:
           - serving.kserve.io
         apiVersions:
-          - v1alpha1
+          - v1alpha2
         operations:
           - CREATE
           - UPDATE
@@ -37,15 +37,15 @@ webhooks:
       service:
         name: kserve-webhook-server-service
         namespace: kserve
-        path: /validate-serving-kserve-io-v1alpha1-llminferenceserviceconfig
+        path: /validate-serving-kserve-io-v1alpha2-llminferenceserviceconfig
     failurePolicy: Fail
     sideEffects: None
-    name: llminferenceserviceconfigs.kserve-webhook-server.validator
+    name: llminferenceserviceconfig.kserve-webhook-server.v1alpha2.validator
     rules:
       - apiGroups:
           - serving.kserve.io
         apiVersions:
-          - v1alpha1
+          - v1alpha2
         operations:
           - CREATE
           - UPDATE

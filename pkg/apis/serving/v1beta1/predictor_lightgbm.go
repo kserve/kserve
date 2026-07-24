@@ -33,7 +33,7 @@ var _ ComponentImplementation = &LightGBMSpec{}
 
 // Default sets defaults on the resource
 func (x *LightGBMSpec) Default(config *InferenceServicesConfig) {
-	x.Container.Name = constants.InferenceServiceContainerName
+	x.Name = constants.InferenceServiceContainerName
 	setResourceRequirementDefaults(config, &x.Resources)
 }
 

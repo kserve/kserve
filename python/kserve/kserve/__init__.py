@@ -89,6 +89,8 @@ from .models.v1beta1_explainer_spec import V1beta1ExplainerSpec
 from .models.v1beta1_explainers_config import V1beta1ExplainersConfig
 from .models.v1beta1_inference_service import V1beta1InferenceService
 from .models.v1beta1_inference_service_list import V1beta1InferenceServiceList
+from .models.v1beta1_canary_spec import V1beta1CanarySpec
+from .models.v1beta1_canary_status import V1beta1CanaryStatus
 from .models.v1beta1_inference_service_spec import V1beta1InferenceServiceSpec
 from .models.v1beta1_inference_service_status import V1beta1InferenceServiceStatus
 from .models.v1beta1_inference_services_config import V1beta1InferenceServicesConfig

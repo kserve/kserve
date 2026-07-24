@@ -25,6 +25,8 @@ type LocalModelCacheStatus struct {
 	ModelCopies *ModelCopies `json:"copies,omitempty"`
 	// Inference services using this local model
 	InferenceServices []NamespacedName `json:"inferenceServices,omitempty"`
+	// LLM inference services using this local model
+	LLMInferenceServices []NamespacedName `json:"llmInferenceServices,omitempty"`
 }
 
 type NamespacedName struct {

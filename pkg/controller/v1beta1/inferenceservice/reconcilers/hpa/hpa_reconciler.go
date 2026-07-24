@@ -88,10 +88,11 @@ func getHPAMetrics(componentExt *v1beta1.ComponentExtensionSpec) []autoscalingv2
 						Name: corev1.ResourceName(metric.Resource.Name),
 					},
 				}
-				if metric.Resource.Target.Type == v1beta1.UtilizationMetricType {
+				switch metric.Resource.Target.Type {
+				case v1beta1.UtilizationMetricType:
 					ms.Resource.Target.Type = autoscalingv2.UtilizationMetricType
 					ms.Resource.Target.AverageUtilization = metric.Resource.Target.AverageUtilization
-				} else if metric.Resource.Target.Type == v1beta1.AverageValueMetricType {
+				case v1beta1.AverageValueMetricType:
 					ms.Resource.Target.Type = autoscalingv2.AverageValueMetricType
 					if metric.Resource.Target.AverageValue != nil {
 						quantity := metric.Resource.Target.AverageValue.GetQuantity()
@@ -186,8 +187,8 @@ func (r *HPAReconciler) checkHPAExist(ctx context.Context, client client.Client)
 	// get hpa
 	existingHPA := &autoscalingv2.HorizontalPodAutoscaler{}
 	err := client.Get(ctx, types.NamespacedName{
-		Namespace: r.HPA.ObjectMeta.Namespace,
-		Name:      r.HPA.ObjectMeta.Name,
+		Namespace: r.HPA.Namespace,
+		Name:      r.HPA.Name,
 	}, existingHPA)
 	if err != nil {
 		if apierr.IsNotFound(err) {

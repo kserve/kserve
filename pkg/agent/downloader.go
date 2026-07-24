@@ -63,11 +63,11 @@ func (d *Downloader) DownloadModel(modelName string, modelSpec *v1alpha1.ModelSp
 			}(file)
 			encodedJson, err := json.Marshal(modelSpec)
 			if err != nil {
-				return errors.Wrapf(createErr, "failed to encode model spec")
+				return errors.Wrapf(err, "failed to encode model spec")
 			}
 			err = os.WriteFile(successFile, encodedJson, 0o644) // #nosec G306
 			if err != nil {
-				return errors.Wrapf(createErr, "failed to write the success file")
+				return errors.Wrapf(err, "failed to write the success file")
 			}
 			d.Logger.Infof("Creating successFile %s", successFile)
 		case err == nil:

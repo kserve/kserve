@@ -1,4 +1,4 @@
-# Copyright 2025 The KServe Authors.
+# Copyright 2026 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,17 +19,16 @@ import pytest
 from kserve import KServeClient, V1alpha1LLMInferenceService, constants
 from kubernetes import client
 
-from .fixtures import (  # noqa: F401, F811
+from .fixtures import (
     generate_test_id,
     inject_k8s_proxy,
-    test_case,
 )
 from .logging import log_execution
 from .test_llm_inference_service import (
     TestCase,
     create_llmisvc,
-    delete_llmisvc,
     get_llmisvc,
+    maybe_delete_llmisvc,
     wait_for,
     wait_for_llm_isvc_ready,
 )
@@ -38,7 +37,6 @@ KSERVE_PLURAL_LLMINFERENCESERVICE = "llminferenceservices"
 STOP_ANNOTATION_KEY = "serving.kserve.io/stop"
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.asyncio(loop_scope="session")
 @pytest.mark.parametrize(
     "test_case",
@@ -60,7 +58,7 @@ STOP_ANNOTATION_KEY = "serving.kserve.io/stop"
     ids=generate_test_id,
 )
 @log_execution
-def test_llm_stop_feature(test_case: TestCase):  # noqa: F811
+def test_llm_stop_feature(test_case: TestCase):
     """Test that stopping an LLMInferenceService sets the Ready condition to False with reason Stopped."""
     inject_k8s_proxy()
 
@@ -71,13 +69,6 @@ def test_llm_stop_feature(test_case: TestCase):  # noqa: F811
 
     service_name = test_case.llm_service.metadata.name
     test_failed = False
-
-    # Disable auth for this test
-    if not test_case.llm_service.metadata.annotations:
-        test_case.llm_service.metadata.annotations = {}
-    test_case.llm_service.metadata.annotations[
-        "security.opendatahub.io/enable-auth"
-    ] = "false"
 
     try:
         # Create the service
@@ -125,34 +116,7 @@ def test_llm_stop_feature(test_case: TestCase):  # noqa: F811
         print(f"❌ ERROR: Stop feature test failed for {service_name}: {e}")
         raise
     finally:
-        try:
-            skip_all_deletion = os.getenv(
-                "SKIP_RESOURCE_DELETION", "False"
-            ).lower() in (
-                "true",
-                "1",
-                "t",
-            )
-            skip_deletion_on_failure = os.getenv(
-                "SKIP_DELETION_ON_FAILURE", "False"
-            ).lower() in (
-                "true",
-                "1",
-                "t",
-            )
-
-            should_skip_deletion = skip_all_deletion or (
-                skip_deletion_on_failure and test_failed
-            )
-
-            if not should_skip_deletion:
-                delete_llmisvc(kserve_client, test_case.llm_service)
-            elif test_failed and skip_deletion_on_failure:
-                print(
-                    f"⏭️  Skipping deletion of {service_name} due to test failure (SKIP_DELETION_ON_FAILURE=True)"
-                )
-        except Exception as e:
-            print(f"⚠️ Warning: Failed to cleanup service {service_name}: {e}")
+        maybe_delete_llmisvc(kserve_client, test_case.llm_service, test_failed)
 
 
 @log_execution

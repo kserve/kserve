@@ -1,3 +1,4 @@
+# Copyright 2026 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,10 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from kubernetes import client
 
-from kserve import KServeClient
 from kserve import constants
 from kserve import V1beta1PredictorSpec
 from kserve import V1beta1Batcher
@@ -27,12 +39,10 @@ import pytest
 from ..common.utils import predict_isvc
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
-kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
-
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_batcher_custom_port(rest_v1_client):
+async def test_batcher_custom_port(kserve_client, rest_v1_client, network_layer):
     service_name = "isvc-sklearn-batcher-custom"
 
     predictor = V1beta1PredictorSpec(
@@ -81,7 +91,11 @@ async def test_batcher_custom_port(rest_v1_client):
             print(pod)
         raise e
     results = await predict_isvc(
-        rest_v1_client, service_name, "./data/iris_batch_input.json", is_batch=True
+        rest_v1_client,
+        service_name,
+        "./data/iris_batch_input.json",
+        is_batch=True,
+        network_layer=network_layer,
     )
     assert all(x == results[0] for x in results)
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

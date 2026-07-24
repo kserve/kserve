@@ -1,0 +1,26 @@
+# Allowlist: exclude everything, then add back only what Go Dockerfiles need.
+# Python images use context: python/ and are unaffected by this file.
+#
+# Needed by the 8 Go image builds (context: .):
+#   go.mod, go.sum  - module deps (6 main-module Dockerfiles + tf2openapi)
+#   cmd/            - service entrypoints
+#   pkg/            - shared Go library code
+#   tools/          - tf2openapi build
+#   qpext/          - queue-proxy extension (has its own go.mod)
+#   LICENSE         - third-party license checks
+
+# Exclude everything by default
+*
+
+# Go module files
+!go.mod
+!go.sum
+
+# Source directories
+!cmd/
+!pkg/
+!tools/
+!qpext/
+
+# License (used by go-licenses in all builds)
+!LICENSE

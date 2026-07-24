@@ -1,4 +1,4 @@
-# Copyright 2022 The KServe Authors.
+# Copyright 2026 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_mlflow_v2_runtime_kserve(rest_v2_client):
+async def test_mlflow_v2_runtime_kserve(rest_v2_client, network_layer):
     service_name = "isvc-mlflow-v2-runtime"
     protocol_version = "v2"
 
@@ -75,6 +75,7 @@ async def test_mlflow_v2_runtime_kserve(rest_v2_client):
         rest_v2_client,
         service_name,
         "./data/mlflow_input_v2.json",
+        network_layer=network_layer,
     )
     assert res.outputs[0].data == [5.576883936610762]
 

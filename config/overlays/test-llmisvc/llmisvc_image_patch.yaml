@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llmisvc-controller-manager
+  namespace: kserve
+spec:
+  template:
+    spec:
+      containers:
+        - name: manager
+          image: kserve/llmisvc-controller:latest
+          imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              cpu: 150m
+              memory: 300Mi
+            requests:
+              cpu: 50m
+              memory: 200Mi

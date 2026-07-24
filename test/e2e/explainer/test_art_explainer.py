@@ -1,3 +1,17 @@
+# Copyright 2026 The KServe Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,14 +27,12 @@
 
 
 import logging
-import os
 import uuid
 
 from kubernetes import client
 from kubernetes.client import V1ResourceRequirements
 import pytest
 
-from kserve import KServeClient
 from kserve import constants
 from kserve import V1beta1PredictorSpec
 from kserve import V1beta1InferenceServiceSpec
@@ -33,12 +45,10 @@ from ..common.utils import predict_isvc
 from ..common.utils import explain_art
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
-kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
-
 
 @pytest.mark.explainer
 @pytest.mark.asyncio(scope="session")
-async def test_tabular_explainer(rest_v1_client):
+async def test_tabular_explainer(kserve_client, rest_v1_client):
     suffix = str(uuid.uuid4())[1:6]
     service_name = "art-explainer" + suffix
     isvc = V1beta1InferenceService(
@@ -111,7 +121,7 @@ async def test_tabular_explainer(rest_v1_client):
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_raw_tabular_explainer(rest_v1_client, network_layer):
+async def test_raw_tabular_explainer(kserve_client, rest_v1_client, network_layer):
     suffix = str(uuid.uuid4())[1:6]
     service_name = "art-explainer-raw-" + suffix
     isvc = V1beta1InferenceService(

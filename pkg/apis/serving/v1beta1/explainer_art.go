@@ -57,11 +57,11 @@ func (s *ARTExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *
 		constants.ArgumentModelName, metadata.Name,
 		constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort,
 	}
-	if !utils.IncludesArg(s.Container.Args, constants.ArgumentPredictorHost) {
+	if !utils.IncludesArg(s.Args, constants.ArgumentPredictorHost) {
 		args = append(args, constants.ArgumentPredictorHost,
 			fmt.Sprintf("%s.%s", predictorHost[0], metadata.Namespace))
 	}
-	if !utils.IncludesArg(s.Container.Args, constants.ArgumentWorkers) {
+	if !utils.IncludesArg(s.Args, constants.ArgumentWorkers) {
 		if extensions.ContainerConcurrency != nil {
 			args = append(args, constants.ArgumentWorkers, strconv.FormatInt(*extensions.ContainerConcurrency, 10))
 		}
@@ -84,11 +84,11 @@ func (s *ARTExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *
 	}
 	args = append(args, s.Args...)
 
-	if s.Container.Image == "" {
-		s.Container.Image = config.Explainers.ARTExplainer.ContainerImage + ":" + *s.RuntimeVersion
+	if s.Image == "" {
+		s.Image = config.Explainers.ARTExplainer.ContainerImage + ":" + *s.RuntimeVersion
 	}
-	s.Container.Name = constants.InferenceServiceContainerName
-	s.Container.Args = append(args, s.Container.Args...)
+	s.Name = constants.InferenceServiceContainerName
+	s.Args = append(args, s.Args...)
 	return &s.Container
 }
 

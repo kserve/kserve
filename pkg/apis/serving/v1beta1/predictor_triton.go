@@ -33,7 +33,7 @@ var _ ComponentImplementation = &TritonSpec{}
 
 // Default sets defaults on the resource
 func (t *TritonSpec) Default(config *InferenceServicesConfig) {
-	t.Container.Name = constants.InferenceServiceContainerName
+	t.Name = constants.InferenceServiceContainerName
 	setResourceRequirementDefaults(config, &t.Resources)
 }
 

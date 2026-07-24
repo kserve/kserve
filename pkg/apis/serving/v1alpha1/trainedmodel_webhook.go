@@ -88,6 +88,9 @@ func (v *TrainedModelValidator) ValidateUpdate(ctx context.Context, oldObj, newO
 		tmLogger.Error(err, "Unable to convert object to TrainedModel")
 		return nil, err
 	}
+	if newTm.GetDeletionTimestamp() != nil {
+		return nil, nil
+	}
 	tmLogger.Info("validate update", "name", newTm.Name)
 
 	return nil, utils.FirstNonNilError([]error{

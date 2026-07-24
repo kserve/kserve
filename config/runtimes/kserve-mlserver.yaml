@@ -2,6 +2,8 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
   name: kserve-mlserver
+  annotations:
+    serving.kserve.io/server-type: mlserver
 spec:
   annotations:
     # mlserver version 1.1.0 uses port 8082 as default instead of 8080.
@@ -52,8 +54,6 @@ spec:
           value: "8080"
         - name: "MLSERVER_GRPC_PORT"
           value: "9000"
-        - name: "MODELS_DIR"
-          value: "/mnt/models"
       securityContext:
         allowPrivilegeEscalation: false
         privileged: false

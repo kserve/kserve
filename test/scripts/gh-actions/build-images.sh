@@ -22,41 +22,63 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-echo "Github SHA ${GITHUB_SHA}"
-CONTROLLER_IMG_TAG=${DOCKER_REPO}/${CONTROLLER_IMG}:${GITHUB_SHA}
-LOCALMODEL_CONTROLLER_IMG_TAG=${DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${GITHUB_SHA}
-LOCALMODEL_AGENT_IMG_TAG=${DOCKER_REPO}/${LOCALMODEL_AGENT_IMG}:${GITHUB_SHA}
-STORAGE_INIT_IMG_TAG=${DOCKER_REPO}/${STORAGE_INIT_IMG}:${GITHUB_SHA}
-AGENT_IMG_TAG=${DOCKER_REPO}/${AGENT_IMG}:${GITHUB_SHA}
-ROUTER_IMG_TAG=${DOCKER_REPO}/${ROUTER_IMG}:${GITHUB_SHA}
+# Load image configurations
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+source "${PROJECT_ROOT}/kserve-images.sh"
 
-echo "Building Kserve controller image"
-docker buildx build . -t "${CONTROLLER_IMG_TAG}" \
-  -o type=docker,dest="${DOCKER_IMAGES_PATH}/${CONTROLLER_IMG}-${GITHUB_SHA}",compression-level=0
+if [ -d "${DOCKER_IMAGES_PATH}" ]; then
+  mkdir -p "${DOCKER_IMAGES_PATH}"  
+fi
 
-echo "Building localmodel controller image"
-docker buildx build -f localmodel.Dockerfile . -t "${LOCALMODEL_CONTROLLER_IMG_TAG}" \
-  -o type=docker,dest="${DOCKER_IMAGES_PATH}/${LOCALMODEL_CONTROLLER_IMG}-${GITHUB_SHA}",compression-level=0
+echo "Github SHA ${TAG}"
+CONTROLLER_IMG_TAG=${KO_DOCKER_REPO}/${CONTROLLER_IMG}:${TAG}
+LOCALMODEL_CONTROLLER_IMG_TAG=${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${TAG}
+LOCALMODEL_AGENT_IMG_TAG=${KO_DOCKER_REPO}/${LOCALMODEL_AGENT_IMG}:${TAG}
+STORAGE_INIT_IMG_TAG=${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}:${TAG}
+AGENT_IMG_TAG=${KO_DOCKER_REPO}/${AGENT_IMG}:${TAG}
+ROUTER_IMG_TAG=${KO_DOCKER_REPO}/${ROUTER_IMG}:${TAG}
+LLMISVC_CONTROLLER_IMG_TAG=${KO_DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}:${TAG}
 
-echo "Building localmodel agent image"
-docker buildx build -f localmodel-agent.Dockerfile . -t "${LOCALMODEL_AGENT_IMG_TAG}" \
-  -o type=docker,dest="${DOCKER_IMAGES_PATH}/${LOCALMODEL_AGENT_IMG}-${GITHUB_SHA}",compression-level=0
+types=("${1:-kserve}")
 
-echo "Building agent image"
-docker buildx build -f agent.Dockerfile . -t "${AGENT_IMG_TAG}" \
-  -o type=docker,dest="${DOCKER_IMAGES_PATH}/${AGENT_IMG}-${GITHUB_SHA}",compression-level=0
 
-echo "Building router image"
-docker buildx build -f router.Dockerfile . -t "${ROUTER_IMG_TAG}" \
-  -o type=docker,dest="${DOCKER_IMAGES_PATH}/${ROUTER_IMG}-${GITHUB_SHA}",compression-level=0
+if [[ " ${types[*]} " =~ "llmisvc" ]]; then
+  echo "Building LLMISvc controller image: ${LLMISVC_CONTROLLER_IMG_TAG}"
+  docker buildx build -f llmisvc-controller.Dockerfile . -t "${LLMISVC_CONTROLLER_IMG_TAG}" \
+    -o type=docker,dest="${DOCKER_IMAGES_PATH}/${LLMISVC_CONTROLLER_IMG}-${TAG}",compression-level=0
+  echo "Disk usage after Building LLMIsvc controller image:"
+      df -hT
+else
+  echo "Building Kserve controller image"
+  docker buildx build . -t "${CONTROLLER_IMG_TAG}" \
+    -o type=docker,dest="${DOCKER_IMAGES_PATH}/${CONTROLLER_IMG}-${TAG}",compression-level=0
 
-echo "Disk usage before Building storage initializer:"
-        df -hT
+  echo "Building localmodel controller image"
+  docker buildx build -f localmodel.Dockerfile . -t "${LOCALMODEL_CONTROLLER_IMG_TAG}" \
+    -o type=docker,dest="${DOCKER_IMAGES_PATH}/${LOCALMODEL_CONTROLLER_IMG}-${TAG}",compression-level=0
+
+  echo "Building localmodel agent image"
+  docker buildx build -f localmodel-agent.Dockerfile . -t "${LOCALMODEL_AGENT_IMG_TAG}" \
+    -o type=docker,dest="${DOCKER_IMAGES_PATH}/${LOCALMODEL_AGENT_IMG}-${TAG}",compression-level=0
+
+  echo "Building agent image"
+  docker buildx build -f agent.Dockerfile . -t "${AGENT_IMG_TAG}" \
+    -o type=docker,dest="${DOCKER_IMAGES_PATH}/${AGENT_IMG}-${TAG}",compression-level=0
+
+  echo "Building router image"
+  docker buildx build -f router.Dockerfile . -t "${ROUTER_IMG_TAG}" \
+    -o type=docker,dest="${DOCKER_IMAGES_PATH}/${ROUTER_IMG}-${TAG}",compression-level=0
+
+  echo "Disk usage before Building storage initializer:"
+          df -hT
+fi
+
 
 pushd python >/dev/null
   echo "Building storage initializer"
   docker buildx build -f storage-initializer.Dockerfile . -t "${STORAGE_INIT_IMG_TAG}" \
-    -o type=docker,dest="${DOCKER_IMAGES_PATH}/${STORAGE_INIT_IMG}-${GITHUB_SHA}",compression-level=0
+    -o type=docker,dest="${DOCKER_IMAGES_PATH}/${STORAGE_INIT_IMG}-${TAG}",compression-level=0
 popd
 
 echo "Done building images"

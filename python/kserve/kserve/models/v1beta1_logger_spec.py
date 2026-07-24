@@ -47,6 +47,9 @@ class V1beta1LoggerSpec(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'batch_interval': 'str',
+        'batch_size': 'int',
+        'marshaller_url': 'str',
         'metadata_annotations': 'list[str]',
         'metadata_headers': 'list[str]',
         'mode': 'str',
@@ -55,6 +58,9 @@ class V1beta1LoggerSpec(object):
     }
 
     attribute_map = {
+        'batch_interval': 'batchInterval',
+        'batch_size': 'batchSize',
+        'marshaller_url': 'marshallerUrl',
         'metadata_annotations': 'metadataAnnotations',
         'metadata_headers': 'metadataHeaders',
         'mode': 'mode',
@@ -62,12 +68,15 @@ class V1beta1LoggerSpec(object):
         'url': 'url'
     }
 
-    def __init__(self, metadata_annotations=None, metadata_headers=None, mode=None, storage=None, url=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, batch_interval=None, batch_size=None, marshaller_url=None, metadata_annotations=None, metadata_headers=None, mode=None, storage=None, url=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1LoggerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._batch_interval = None
+        self._batch_size = None
+        self._marshaller_url = None
         self._metadata_annotations = None
         self._metadata_headers = None
         self._mode = None
@@ -75,6 +84,12 @@ class V1beta1LoggerSpec(object):
         self._url = None
         self.discriminator = None
 
+        if batch_interval is not None:
+            self.batch_interval = batch_interval
+        if batch_size is not None:
+            self.batch_size = batch_size
+        if marshaller_url is not None:
+            self.marshaller_url = marshaller_url
         if metadata_annotations is not None:
             self.metadata_annotations = metadata_annotations
         if metadata_headers is not None:
@@ -85,6 +100,75 @@ class V1beta1LoggerSpec(object):
             self.storage = storage
         if url is not None:
             self.url = url
+
+    @property
+    def batch_interval(self):
+        """Gets the batch_interval of this V1beta1LoggerSpec.  # noqa: E501
+
+        Max duration to wait before flushing a partial batch (e.g. \"5s\", \"100ms\"). Only used when BatchSize > 1. Defaults to \"0\" (no time-based flushing).  # noqa: E501
+
+        :return: The batch_interval of this V1beta1LoggerSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._batch_interval
+
+    @batch_interval.setter
+    def batch_interval(self, batch_interval):
+        """Sets the batch_interval of this V1beta1LoggerSpec.
+
+        Max duration to wait before flushing a partial batch (e.g. \"5s\", \"100ms\"). Only used when BatchSize > 1. Defaults to \"0\" (no time-based flushing).  # noqa: E501
+
+        :param batch_interval: The batch_interval of this V1beta1LoggerSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._batch_interval = batch_interval
+
+    @property
+    def batch_size(self):
+        """Gets the batch_size of this V1beta1LoggerSpec.  # noqa: E501
+
+        Number of log records per batch for blob storage. Defaults to 1 (immediate).  # noqa: E501
+
+        :return: The batch_size of this V1beta1LoggerSpec.  # noqa: E501
+        :rtype: int
+        """
+        return self._batch_size
+
+    @batch_size.setter
+    def batch_size(self, batch_size):
+        """Sets the batch_size of this V1beta1LoggerSpec.
+
+        Number of log records per batch for blob storage. Defaults to 1 (immediate).  # noqa: E501
+
+        :param batch_size: The batch_size of this V1beta1LoggerSpec.  # noqa: E501
+        :type: int
+        """
+
+        self._batch_size = batch_size
+
+    @property
+    def marshaller_url(self):
+        """Gets the marshaller_url of this V1beta1LoggerSpec.  # noqa: E501
+
+        URL of the log marshaller service that transforms log records before storage. Defaults to the embedded JSON marshaller at http://localhost:9083/marshal.  # noqa: E501
+
+        :return: The marshaller_url of this V1beta1LoggerSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._marshaller_url
+
+    @marshaller_url.setter
+    def marshaller_url(self, marshaller_url):
+        """Sets the marshaller_url of this V1beta1LoggerSpec.
+
+        URL of the log marshaller service that transforms log records before storage. Defaults to the embedded JSON marshaller at http://localhost:9083/marshal.  # noqa: E501
+
+        :param marshaller_url: The marshaller_url of this V1beta1LoggerSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._marshaller_url = marshaller_url
 
     @property
     def metadata_annotations(self):

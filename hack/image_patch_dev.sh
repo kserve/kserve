@@ -5,7 +5,7 @@ set -e
 set -o pipefail
 
 OVERLAY=$1
-IMG=$(ko resolve -f config/manager/manager.yaml | grep 'image:' | head -1 | awk '{print $2}')
+IMG=$(ko resolve ${KO_OPTS:-} -f config/manager/manager.yaml | grep 'image:' | head -1 | awk '{print $2}')
 if [ -z ${IMG} ]; then exit; fi
 cat > config/overlays/${OVERLAY}/manager_image_patch.yaml << EOF
 apiVersion: apps/v1
@@ -23,7 +23,7 @@ spec:
           image: ${IMG}
 EOF
 
-IMG=$(ko resolve -f config/localmodels/manager.yaml | grep 'image:' | head -1 | awk '{print $2}')
+IMG=$(ko resolve ${KO_OPTS:-} -f config/localmodels/manager.yaml | grep 'image:' | head -1 | awk '{print $2}')
 if [ -z ${IMG} ]; then exit; fi
 cat > config/overlays/${OVERLAY}/localmodel_image_patch.yaml << EOF
 apiVersion: apps/v1
@@ -41,7 +41,7 @@ spec:
           image: ${IMG}
 EOF
 
-IMG=$(ko resolve -f config/llmisvc/manager.yaml | grep 'image:' | head -1 | awk '{print $2}')
+IMG=$(ko resolve ${KO_OPTS:-} -f config/llmisvc/manager.yaml | grep 'image:' | head -1 | awk '{print $2}')
 if [ -z ${IMG} ]; then exit; fi
 cat > config/overlays/${OVERLAY}/llmisvc_image_patch.yaml << EOF
 apiVersion: apps/v1
@@ -59,7 +59,7 @@ spec:
           image: ${IMG}
 EOF
 
-IMG=$(ko resolve -f config/localmodelnodes/manager.yaml | grep 'image:' | head -1 | awk '{print $2}')
+IMG=$(ko resolve ${KO_OPTS:-} -f config/localmodelnodes/manager.yaml | grep 'image:' | head -1 | awk '{print $2}')
 if [ -z ${IMG} ]; then exit; fi
 cat > config/overlays/${OVERLAY}/localmodelnode_image_patch.yaml << EOF
 apiVersion: apps/v1
@@ -77,8 +77,8 @@ spec:
           image: ${IMG}
 EOF
 
-AGENT_IMG=$(ko resolve -f config/overlays/development/configmap/ko_resolve_agent| grep 'image:' | awk '{print $2}')
-ROUTER_IMG=$(ko resolve -f config/overlays/development/configmap/ko_resolve_router| grep 'image:' | awk '{print $2}')
+AGENT_IMG=$(ko resolve ${KO_OPTS:-} -f config/overlays/development/configmap/ko_resolve_agent| grep 'image:' | awk '{print $2}')
+ROUTER_IMG=$(ko resolve ${KO_OPTS:-} -f config/overlays/development/configmap/ko_resolve_router| grep 'image:' | awk '{print $2}')
 
 if [ -z ${AGENT_IMG} ]; then exit; fi
 

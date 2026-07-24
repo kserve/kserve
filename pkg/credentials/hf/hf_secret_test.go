@@ -39,7 +39,7 @@ func TestBuildSecretEnvs_WithToken(t *testing.T) {
 	assert.Len(t, envs, 1)
 	assert.Equal(t, HFTokenKey, envs[0].Name)
 	assert.Equal(t, HFTokenKey, envs[0].ValueFrom.SecretKeyRef.Key)
-	assert.Equal(t, secret.Name, envs[0].ValueFrom.SecretKeyRef.LocalObjectReference.Name)
+	assert.Equal(t, secret.Name, envs[0].ValueFrom.SecretKeyRef.Name)
 }
 
 func TestBuildSecretEnvs_WithoutToken(t *testing.T) {
@@ -56,7 +56,7 @@ func TestBuildSecretEnvs_WithoutToken(t *testing.T) {
 }
 
 func TestBuildSecretEnvs_NilSecret(t *testing.T) {
-	var secret *corev1.Secret = &corev1.Secret{
+	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "hf-secret",
 		},

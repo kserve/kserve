@@ -232,10 +232,10 @@ func reconcileKsvc(desired *knservingv1.Service, existing *knservingv1.Service) 
 	// Reconcile differences and update
 	// knative mutator defaults the enableServiceLinks to false which would generate a diff despite no changes on desired knative service
 	// https://github.com/knative/serving/blob/main/pkg/apis/serving/v1/revision_defaults.go#L134
-	if desired.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks == nil &&
-		existing.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks != nil &&
-		!*existing.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks {
-		desired.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks = proto.Bool(false)
+	if desired.Spec.Template.Spec.EnableServiceLinks == nil &&
+		existing.Spec.Template.Spec.EnableServiceLinks != nil &&
+		!*existing.Spec.Template.Spec.EnableServiceLinks {
+		desired.Spec.Template.Spec.EnableServiceLinks = proto.Bool(false)
 	}
 	diff, err := kmp.SafeDiff(desired.Spec.ConfigurationSpec, existing.Spec.ConfigurationSpec)
 	if err != nil {
@@ -243,13 +243,13 @@ func reconcileKsvc(desired *knservingv1.Service, existing *knservingv1.Service) 
 	}
 	log.Info("knative service configuration diff (-desired, +observed):", "diff", diff)
 	existing.Spec.ConfigurationSpec = desired.Spec.ConfigurationSpec
-	existing.ObjectMeta.Labels = desired.ObjectMeta.Labels
+	existing.Labels = desired.Labels
 	existing.Spec.Traffic = desired.Spec.Traffic
 	for ksvcAnnotationKey := range managedKsvcAnnotations {
-		if desiredValue, ok := desired.ObjectMeta.Annotations[ksvcAnnotationKey]; ok {
-			existing.ObjectMeta.Annotations[ksvcAnnotationKey] = desiredValue
+		if desiredValue, ok := desired.Annotations[ksvcAnnotationKey]; ok {
+			existing.Annotations[ksvcAnnotationKey] = desiredValue
 		} else {
-			delete(existing.ObjectMeta.Annotations, ksvcAnnotationKey)
+			delete(existing.Annotations, ksvcAnnotationKey)
 		}
 	}
 	return nil
@@ -319,13 +319,13 @@ func (r *KsvcReconciler) Reconcile(ctx context.Context) (*knservingv1.ServiceSta
 
 func semanticEquals(desiredService, service *knservingv1.Service) bool {
 	for ksvcAnnotationKey := range managedKsvcAnnotations {
-		existingValue, ok1 := service.ObjectMeta.Annotations[ksvcAnnotationKey]
-		desiredValue, ok2 := desiredService.ObjectMeta.Annotations[ksvcAnnotationKey]
+		existingValue, ok1 := service.Annotations[ksvcAnnotationKey]
+		desiredValue, ok2 := desiredService.Annotations[ksvcAnnotationKey]
 		if ok1 != ok2 || existingValue != desiredValue {
 			return false
 		}
 	}
 	return equality.Semantic.DeepEqual(desiredService.Spec.ConfigurationSpec, service.Spec.ConfigurationSpec) &&
-		equality.Semantic.DeepEqual(desiredService.ObjectMeta.Labels, service.ObjectMeta.Labels) &&
+		equality.Semantic.DeepEqual(desiredService.Labels, service.Labels) &&
 		equality.Semantic.DeepEqual(desiredService.Spec.RouteSpec, service.Spec.RouteSpec)
 }

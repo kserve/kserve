@@ -20,6 +20,7 @@ package scheme
 
 import (
 	servingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	servingv1alpha2 "github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	servingv1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
@@ -33,6 +34,7 @@ var Codecs = serializer.NewCodecFactory(Scheme)
 var ParameterCodec = runtime.NewParameterCodec(Scheme)
 var localSchemeBuilder = runtime.SchemeBuilder{
 	servingv1alpha1.AddToScheme,
+	servingv1alpha2.AddToScheme,
 	servingv1beta1.AddToScheme,
 }
 

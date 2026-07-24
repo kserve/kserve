@@ -246,6 +246,34 @@ func TestPropagateRawStatus(t *testing.T) {
 	}
 }
 
+// TestPropagateRawStatus_EmptyDeploymentList verifies that PropagateRawStatus does not
+// panic and still sets the condition when no deployments have been created yet.
+// This is the safety guard added as part of the Bug 1 fix: before the fix,
+// accessing deploymentList[0] on an empty slice would panic.
+func TestPropagateRawStatus_EmptyDeploymentList(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	status := &InferenceServiceStatus{
+		Status:      duckv1.Status{},
+		Address:     &duckv1.Addressable{},
+		URL:         &apis.URL{},
+		ModelStatus: ModelStatus{},
+	}
+
+	parsedURL, _ := url.Parse("http://test-predictor-default.default.example.com")
+	serviceURL := (*apis.URL)(parsedURL)
+
+	// Must not panic on empty list.
+	g.Expect(func() {
+		status.PropagateRawStatus(PredictorComponent, []*appsv1.Deployment{}, serviceURL)
+	}).ToNot(gomega.Panic())
+
+	// The predictor condition should still be set (to False, since no deployment is available).
+	g.Expect(status.IsConditionFalse(PredictorReady)).To(gomega.BeTrue())
+	// ObservedGeneration must remain 0 — the guard must NOT access the empty slice.
+	g.Expect(status.ObservedGeneration).To(gomega.Equal(int64(0)))
+}
+
 func TestPropagateRawStatusWithMessages(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
@@ -264,6 +292,59 @@ func TestPropagateRawStatusWithMessages(t *testing.T) {
 	g.Expect(status.IsConditionFalse(PredictorReady)).To(gomega.BeTrue())
 	g.Expect(status.Conditions[0].Message).To(gomega.Equal(errorMsg))
 	g.Expect(status.Conditions[0].Reason).To(gomega.Equal(reason))
+}
+
+// TestPropagateRawStatusWithMessages_AllComponents verifies that
+// PropagateRawStatusWithMessages correctly sets the component-specific ready
+// condition for each of the three component types (Predictor, Transformer,
+// Explainer). This is important because the Transformer and Explainer
+// components now call this function on reconcile failure (Standard and Knative
+// modes) just as the Predictor does.
+func TestPropagateRawStatusWithMessages_AllComponents(t *testing.T) {
+	tests := []struct {
+		name          string
+		component     ComponentType
+		wantCondition apis.ConditionType
+	}{
+		{
+			name:          "predictor component sets PredictorReady=False",
+			component:     PredictorComponent,
+			wantCondition: PredictorReady,
+		},
+		{
+			name:          "transformer component sets TransformerReady=False",
+			component:     TransformerComponent,
+			wantCondition: TransformerReady,
+		},
+		{
+			name:          "explainer component sets ExplainerReady=False",
+			component:     ExplainerComponent,
+			wantCondition: ExplainerReady,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+
+			status := &InferenceServiceStatus{
+				Status:      duckv1.Status{},
+				ModelStatus: ModelStatus{},
+			}
+
+			const reason = "ReconcileFailed"
+			const msg = "some reconcile error"
+
+			status.PropagateRawStatusWithMessages(tt.component, reason, msg, corev1.ConditionFalse)
+
+			cond := status.GetCondition(tt.wantCondition)
+			g.Expect(cond).NotTo(gomega.BeNil(),
+				"condition %s should be set", tt.wantCondition)
+			g.Expect(cond.Status).To(gomega.Equal(corev1.ConditionFalse))
+			g.Expect(cond.Reason).To(gomega.Equal(reason))
+			g.Expect(cond.Message).To(gomega.Equal(msg))
+		})
+	}
 }
 
 func TestPropagateStatus(t *testing.T) {
@@ -1703,11 +1784,56 @@ func TestGetDeploymentCondition_MultiDeployment_AllTrue(t *testing.T) {
 	if condition.Message != expectedMsg {
 		t.Errorf("expected message %q, got %q", expectedMsg, condition.Message)
 	}
-	if condition.Reason != "" {
-		t.Errorf("expected reason to be empty, got %q", condition.Reason)
+	expectedReason := "predictor-container: HeadReady, worker-container: WorkerReady"
+	if condition.Reason != expectedReason {
+		t.Errorf("expected reason %q, got %q", expectedReason, condition.Reason)
 	}
 	if !condition.LastTransitionTime.Inner.Equal(&now) {
 		t.Errorf("expected last transition time %v, got %v", now, condition.LastTransitionTime.Inner)
+	}
+}
+
+func TestGetDeploymentCondition_MultiDeployment_SameReason(t *testing.T) {
+	now := metav1.Now()
+	headDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "predictor",
+		},
+		Status: appsv1.DeploymentStatus{
+			Conditions: []appsv1.DeploymentCondition{
+				{
+					Type:               appsv1.DeploymentProgressing,
+					Status:             corev1.ConditionTrue,
+					Reason:             "NewReplicaSetAvailable",
+					Message:            "Head progressed.",
+					LastTransitionTime: now,
+				},
+			},
+		},
+	}
+	workerDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "predictor-worker",
+		},
+		Status: appsv1.DeploymentStatus{
+			Conditions: []appsv1.DeploymentCondition{
+				{
+					Type:               appsv1.DeploymentProgressing,
+					Status:             corev1.ConditionTrue,
+					Reason:             "NewReplicaSetAvailable",
+					Message:            "Worker progressed.",
+					LastTransitionTime: now,
+				},
+			},
+		},
+	}
+	condition := getDeploymentCondition([]*appsv1.Deployment{headDeployment, workerDeployment}, appsv1.DeploymentProgressing)
+	if condition.Status != corev1.ConditionTrue {
+		t.Errorf("expected condition status %v, got %v", corev1.ConditionTrue, condition.Status)
+	}
+	expectedReason := "NewReplicaSetAvailable"
+	if condition.Reason != expectedReason {
+		t.Errorf("expected reason %q, got %q", expectedReason, condition.Reason)
 	}
 }
 
@@ -1756,12 +1882,243 @@ func TestGetDeploymentCondition_MultiDeployment_OneFalse(t *testing.T) {
 	if condition.Message != expectedMsg {
 		t.Errorf("expected message %q, got %q", expectedMsg, condition.Message)
 	}
-	if condition.Reason != "" {
-		t.Errorf("expected reason to be empty, got %q", condition.Reason)
+	expectedReason := "predictor-container: HeadReady, worker-container: WorkerNotReady"
+	if condition.Reason != expectedReason {
+		t.Errorf("expected reason %q, got %q", expectedReason, condition.Reason)
 	}
 	if !condition.LastTransitionTime.Inner.Equal(&now) {
 		t.Errorf("expected last transition time %v, got %v", now, condition.LastTransitionTime.Inner)
 	}
+}
+
+func TestPropagateRawStatus_MultiNode_AvailableTrueProgressingNonStandard(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		progressingReason   string
+		expectedReadyStatus bool
+	}{
+		"Progressing reason MinimumReplicasAvailable (non-standard) with Available=True should be ready": {
+			progressingReason:   "MinimumReplicasAvailable",
+			expectedReadyStatus: true,
+		},
+		"Progressing reason ReplicaSetUpdated with Available=True should be ready": {
+			progressingReason:   "ReplicaSetUpdated",
+			expectedReadyStatus: true,
+		},
+		"Progressing reason NewReplicaSetAvailable with Available=True should be ready": {
+			progressingReason:   "NewReplicaSetAvailable",
+			expectedReadyStatus: true,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			now := metav1.Now()
+			headDeployment := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-predictor",
+				},
+				Status: appsv1.DeploymentStatus{
+					ObservedGeneration: 1,
+					Conditions: []appsv1.DeploymentCondition{
+						{
+							Type:               appsv1.DeploymentAvailable,
+							Status:             corev1.ConditionTrue,
+							Reason:             "MinimumReplicasAvailable",
+							Message:            "Deployment has minimum availability.",
+							LastTransitionTime: now,
+						},
+						{
+							Type:               appsv1.DeploymentProgressing,
+							Status:             corev1.ConditionTrue,
+							Reason:             scenario.progressingReason,
+							Message:            "progressing",
+							LastTransitionTime: now,
+						},
+					},
+				},
+			}
+			workerDeployment := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-predictor" + constants.WorkerNodeSuffix,
+				},
+				Status: appsv1.DeploymentStatus{
+					ObservedGeneration: 1,
+					Conditions: []appsv1.DeploymentCondition{
+						{
+							Type:               appsv1.DeploymentAvailable,
+							Status:             corev1.ConditionTrue,
+							Reason:             "MinimumReplicasAvailable",
+							Message:            "Deployment has minimum availability.",
+							LastTransitionTime: now,
+						},
+						{
+							Type:               appsv1.DeploymentProgressing,
+							Status:             corev1.ConditionTrue,
+							Reason:             scenario.progressingReason,
+							Message:            "progressing",
+							LastTransitionTime: now,
+						},
+					},
+				},
+			}
+
+			status := &InferenceServiceStatus{
+				Status:      duckv1.Status{},
+				Address:     &duckv1.Addressable{},
+				URL:         &apis.URL{},
+				ModelStatus: ModelStatus{},
+			}
+			parsedUrl, _ := url.Parse("http://test-predictor-default.default.example.com")
+			testUrl := (*apis.URL)(parsedUrl)
+			deploymentList := []*appsv1.Deployment{headDeployment, workerDeployment}
+			status.PropagateRawStatus(PredictorComponent, deploymentList, testUrl)
+			res := status.IsConditionReady(PredictorReady)
+
+			g.Expect(res).To(gomega.Equal(scenario.expectedReadyStatus))
+		})
+	}
+}
+
+func TestPropagateRawStatus_MultiNode_PartialRollout_AvailableTrue(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	now := metav1.Now()
+	headDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-predictor",
+		},
+		Status: appsv1.DeploymentStatus{
+			ObservedGeneration: 1,
+			Conditions: []appsv1.DeploymentCondition{
+				{
+					Type:               appsv1.DeploymentAvailable,
+					Status:             corev1.ConditionTrue,
+					Reason:             "MinimumReplicasAvailable",
+					Message:            "Deployment has minimum availability.",
+					LastTransitionTime: now,
+				},
+				{
+					Type:               appsv1.DeploymentProgressing,
+					Status:             corev1.ConditionTrue,
+					Reason:             "NewReplicaSetAvailable",
+					Message:            "Head has progressed.",
+					LastTransitionTime: now,
+				},
+			},
+		},
+	}
+	workerDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-predictor" + constants.WorkerNodeSuffix,
+		},
+		Status: appsv1.DeploymentStatus{
+			ObservedGeneration: 1,
+			Conditions: []appsv1.DeploymentCondition{
+				{
+					Type:               appsv1.DeploymentAvailable,
+					Status:             corev1.ConditionTrue,
+					Reason:             "MinimumReplicasAvailable",
+					Message:            "Deployment has minimum availability.",
+					LastTransitionTime: now,
+				},
+				{
+					Type:               appsv1.DeploymentProgressing,
+					Status:             corev1.ConditionTrue,
+					Reason:             "ReplicaSetUpdated",
+					Message:            "Worker still updating.",
+					LastTransitionTime: now,
+				},
+			},
+		},
+	}
+
+	status := &InferenceServiceStatus{
+		Status:      duckv1.Status{},
+		Address:     &duckv1.Addressable{},
+		URL:         &apis.URL{},
+		ModelStatus: ModelStatus{},
+	}
+	parsedUrl, _ := url.Parse("http://test-predictor-default.default.example.com")
+	testUrl := (*apis.URL)(parsedUrl)
+	deploymentList := []*appsv1.Deployment{headDeployment, workerDeployment}
+	status.PropagateRawStatus(PredictorComponent, deploymentList, testUrl)
+
+	condition := status.GetCondition(PredictorReady)
+	g.Expect(condition).ToNot(gomega.BeNil())
+	// Available=True for both, so even though not all segments have NewReplicaSetAvailable,
+	// the Available guard prevents downgrade to Unknown. ISVC should still be ready.
+	g.Expect(condition.Status).To(gomega.Equal(corev1.ConditionTrue))
+}
+
+func TestPropagateRawStatus_MultiNode_AvailableFalseProgressingOngoing(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	now := metav1.Now()
+	headDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-predictor",
+		},
+		Status: appsv1.DeploymentStatus{
+			ObservedGeneration: 1,
+			Conditions: []appsv1.DeploymentCondition{
+				{
+					Type:               appsv1.DeploymentAvailable,
+					Status:             corev1.ConditionFalse,
+					Reason:             "MinimumReplicasUnavailable",
+					Message:            "Deployment does not have minimum availability.",
+					LastTransitionTime: now,
+				},
+				{
+					Type:               appsv1.DeploymentProgressing,
+					Status:             corev1.ConditionTrue,
+					Reason:             "ReplicaSetUpdated",
+					Message:            "Updated to new replica set",
+					LastTransitionTime: now,
+				},
+			},
+		},
+	}
+	workerDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-predictor" + constants.WorkerNodeSuffix,
+		},
+		Status: appsv1.DeploymentStatus{
+			ObservedGeneration: 1,
+			Conditions: []appsv1.DeploymentCondition{
+				{
+					Type:               appsv1.DeploymentAvailable,
+					Status:             corev1.ConditionFalse,
+					Reason:             "MinimumReplicasUnavailable",
+					Message:            "Deployment does not have minimum availability.",
+					LastTransitionTime: now,
+				},
+				{
+					Type:               appsv1.DeploymentProgressing,
+					Status:             corev1.ConditionTrue,
+					Reason:             "ReplicaSetUpdated",
+					Message:            "Updated to new replica set",
+					LastTransitionTime: now,
+				},
+			},
+		},
+	}
+
+	status := &InferenceServiceStatus{
+		Status:      duckv1.Status{},
+		Address:     &duckv1.Addressable{},
+		URL:         &apis.URL{},
+		ModelStatus: ModelStatus{},
+	}
+	parsedUrl, _ := url.Parse("http://test-predictor-default.default.example.com")
+	testUrl := (*apis.URL)(parsedUrl)
+	deploymentList := []*appsv1.Deployment{headDeployment, workerDeployment}
+	status.PropagateRawStatus(PredictorComponent, deploymentList, testUrl)
+
+	condition := status.GetCondition(PredictorReady)
+	g.Expect(condition).ToNot(gomega.BeNil())
+	g.Expect(condition.Status).To(gomega.Equal(corev1.ConditionFalse))
 }
 
 func TestGetDeploymentCondition_SingleDeployment_NoMatchingCondition(t *testing.T) {

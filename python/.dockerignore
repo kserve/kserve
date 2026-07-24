@@ -1,0 +1,14 @@
+# Exclude dev artifacts from Python image builds (context: python/)
+**/.venv/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+**/*.egg-info/
+**/dist/
+kserve/test/
+kserve/docs/
+**/.idea/
+**/.vscode/

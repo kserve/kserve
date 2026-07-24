@@ -17,29 +17,66 @@ limitations under the License.
 package logger
 
 import (
+	"context"
+
 	"go.uber.org/zap"
 )
 
 var WorkerQueue chan chan LogRequest
 
-func StartDispatcher(nworkers int, store Store, logger *zap.SugaredLogger) {
-	// First, initialize the channel we are going to but the workers' work channels into.
+func StartDispatcher(nworkers int, store Store, batchStrategy BatchStrategy, logger *zap.SugaredLogger) {
+	// Reinitialize WorkQueue so that any previous dispatcher goroutines
+	// (from prior calls, e.g. in tests) lose their channel reference and
+	// cannot compete for work items.
+	WorkQueue = make(chan LogRequest, LoggerWorkerQueueSize)
+
+	// Initialize the channel for workers to register their work channels.
 	WorkerQueue = make(chan chan LogRequest, nworkers)
 
-	// Now, create all of our workers.
+	// Create workers for HTTP CloudEvents processing.
 	for i := range nworkers {
 		logger.Info("Starting worker ", i+1)
-		worker := NewWorker(i+1, WorkerQueue, store, logger)
+		worker := NewWorker(i+1, WorkerQueue, logger)
 		worker.Start()
 	}
 
+	// Set up the batch pipeline for blob storage.
+	batchIn := make(chan LogRequest)
+	batchOut := make(chan []LogRequest)
+	go batchStrategy.Run(context.Background(), batchIn, batchOut)
+
+	// Process batches from BatchStrategy output and write to Store.
 	go func() {
-		for {
-			work := <-WorkQueue
-			go func() {
-				worker := <-WorkerQueue
-				worker <- work
-			}()
+		for batch := range batchOut {
+			if len(batch) == 0 {
+				continue
+			}
+			if store == nil {
+				logger.Error("Logger store not configured, cannot store batch")
+				continue
+			}
+			if err := store.Store(batch[0].Url, batch); err != nil {
+				logger.Errorf("Failed to store batch: %v", err)
+			}
+		}
+	}()
+
+	// Dispatcher goroutine: read from WorkQueue, split HTTP vs blob.
+	go func() {
+		for work := range WorkQueue {
+			strategy := GetStorageStrategy(work.Url.String())
+
+			if strategy == HttpStorage {
+				// Dispatch to a worker for CloudEvents delivery.
+				w := work
+				go func() {
+					worker := <-WorkerQueue
+					worker <- w
+				}()
+			} else {
+				// Send to batch pipeline for blob storage.
+				batchIn <- work
+			}
 		}
 	}()
 }

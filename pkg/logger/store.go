@@ -14,7 +14,7 @@ limitations under the License.
 package logger
 
 import (
-	"encoding/json"
+	"context"
 	"errors"
 	"fmt"
 	"net/url"
@@ -60,58 +60,48 @@ func GetStorageStrategy(url string) StorageStrategy {
 	}
 }
 
+// MarshalResponse contains the marshalled output for a batch.
+type MarshalResponse struct {
+	Data      []byte
+	Extension string
+}
+
+// Marshaller transforms a batch of log requests into marshalled bytes for storage.
 type Marshaller interface {
-	Marshal(v interface{}) ([]byte, error)
+	Marshal(batch []LogRequest) (*MarshalResponse, error)
 }
 
-type JSONMarshaller struct{}
-
-func (j *JSONMarshaller) Marshal(v interface{}) ([]byte, error) {
-	return json.Marshal(v)
-}
-
-func getMarshaller(format string) (Marshaller, error) {
-	switch format {
-	case "json":
-		return &JSONMarshaller{}, nil
-	default:
-		return nil, fmt.Errorf("unsupported format %s", format)
-	}
+// BatchStrategy accumulates individual log requests and emits batches.
+// Run reads from in, batches records according to its policy, and writes
+// batches to out. Run MUST close out when in is closed and all remaining
+// records have been flushed. Run MUST respect ctx cancellation.
+type BatchStrategy interface {
+	Run(ctx context.Context, in <-chan LogRequest, out chan<- []LogRequest)
 }
 
 type Store interface {
-	Store(logUrl *url.URL, logRequest LogRequest) error
+	Store(logUrl *url.URL, batch []LogRequest) error
 }
 
 type BlobStore struct {
-	storePath   string
-	storeFormat string
-	log         *zap.SugaredLogger
-	marshaller  Marshaller
-	provider    storage.Provider
+	storePath  string
+	log        *zap.SugaredLogger
+	marshaller Marshaller
+	provider   storage.Provider
 }
 
 var _ Store = &BlobStore{}
 
-func NewBlobStore(logStorePath string, logStoreFormat string, marshaller Marshaller, provider storage.Provider, log *zap.SugaredLogger) *BlobStore {
+func NewBlobStore(logStorePath string, marshaller Marshaller, provider storage.Provider, log *zap.SugaredLogger) *BlobStore {
 	return &BlobStore{
-		storePath:   logStorePath,
-		storeFormat: logStoreFormat,
-		marshaller:  marshaller,
-		log:         log,
-		provider:    provider,
+		storePath:  logStorePath,
+		marshaller: marshaller,
+		log:        log,
+		provider:   provider,
 	}
 }
 
-func NewStoreForScheme(scheme string, logStorePath string, logStoreFormat string, log *zap.SugaredLogger) (Store, error) {
-	if logStoreFormat == "" {
-		logStoreFormat = "json"
-	}
-	marshaller, err := getMarshaller(logStoreFormat)
-	if err != nil {
-		return nil, err
-	}
-
+func NewStoreForScheme(scheme string, logStorePath string, marshaller Marshaller, log *zap.SugaredLogger) (Store, error) {
 	// Convert to a Protocol to reuse existing types
 	if !strings.HasSuffix(scheme, "://") {
 		scheme += "://"
@@ -127,17 +117,20 @@ func NewStoreForScheme(scheme string, logStorePath string, logStoreFormat string
 	case storage.GCS:
 		fallthrough
 	case storage.S3:
-		return NewBlobStore(logStorePath, logStoreFormat, marshaller, provider, log), nil
+		return NewBlobStore(logStorePath, marshaller, provider, log), nil
 	}
 	return nil, fmt.Errorf("unsupported protocol %s", protocol)
 }
 
-func (s *BlobStore) Store(logUrl *url.URL, logRequest LogRequest) error {
+func (s *BlobStore) Store(logUrl *url.URL, batch []LogRequest) error {
 	if logUrl == nil {
 		return errors.New("log url is invalid")
 	}
+	if len(batch) == 0 {
+		return errors.New("empty batch")
+	}
 
-	value, err := s.marshaller.Marshal(logRequest)
+	response, err := s.marshaller.Marshal(batch)
 	if err != nil {
 		s.log.Error(err)
 		return err
@@ -153,18 +146,19 @@ func (s *BlobStore) Store(logUrl *url.URL, logRequest LogRequest) error {
 		return errors.New("no bucket specified in url")
 	}
 
-	objectKey, err := s.getObjectKey(configPrefix, &logRequest)
+	// Use the first record for object key generation (prefix, id, type).
+	objectKey, err := s.getObjectKey(configPrefix, &batch[0], response.Extension)
 	if err != nil {
 		s.log.Error(err)
 		return err
 	}
 
-	err = s.provider.UploadObject(bucket, objectKey, value)
+	err = s.provider.UploadObject(bucket, objectKey, response.Data)
 	if err != nil {
 		s.log.Error(err)
 		return err
 	}
-	s.log.Info("Successfully uploaded object to S3")
+	s.log.Info("Successfully uploaded object")
 	return nil
 }
 
@@ -193,7 +187,7 @@ func (s *BlobStore) getObjectPrefix(configPrefix string, request *LogRequest) (s
 	return path.Join(parts...), nil
 }
 
-func (s *BlobStore) getObjectKey(configPrefix string, request *LogRequest) (string, error) {
+func (s *BlobStore) getObjectKey(configPrefix string, request *LogRequest, extension string) (string, error) {
 	if request == nil {
 		return "", errors.New("log request is invalid")
 	}
@@ -210,7 +204,7 @@ func (s *BlobStore) getObjectKey(configPrefix string, request *LogRequest) (stri
 
 	reqType := request.ReqType[typeEnd+1:]
 
-	return fmt.Sprintf("%s/%s-%s.%s", prefix, request.Id, reqType, s.storeFormat), nil
+	return fmt.Sprintf("%s/%s-%s.%s", prefix, request.Id, reqType, extension), nil
 }
 
 func isValidScheme(scheme string) bool {

@@ -54,6 +54,8 @@ class V1alpha1ServingRuntimePodSpec(object):
         'image_pull_secrets': 'list[V1LocalObjectReference]',
         'labels': 'dict(str, str)',
         'node_selector': 'dict(str, str)',
+        'resource_claims': 'list[V1PodResourceClaim]',
+        'scheduler_name': 'str',
         'tolerations': 'list[V1Toleration]',
         'volumes': 'list[V1Volume]'
     }
@@ -66,11 +68,13 @@ class V1alpha1ServingRuntimePodSpec(object):
         'image_pull_secrets': 'imagePullSecrets',
         'labels': 'labels',
         'node_selector': 'nodeSelector',
+        'resource_claims': 'resourceClaims',
+        'scheduler_name': 'schedulerName',
         'tolerations': 'tolerations',
         'volumes': 'volumes'
     }
 
-    def __init__(self, affinity=None, annotations=None, containers=None, host_ipc=None, image_pull_secrets=None, labels=None, node_selector=None, tolerations=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, affinity=None, annotations=None, containers=None, host_ipc=None, image_pull_secrets=None, labels=None, node_selector=None, resource_claims=None, scheduler_name=None, tolerations=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1ServingRuntimePodSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -83,6 +87,8 @@ class V1alpha1ServingRuntimePodSpec(object):
         self._image_pull_secrets = None
         self._labels = None
         self._node_selector = None
+        self._resource_claims = None
+        self._scheduler_name = None
         self._tolerations = None
         self._volumes = None
         self.discriminator = None
@@ -100,6 +106,10 @@ class V1alpha1ServingRuntimePodSpec(object):
             self.labels = labels
         if node_selector is not None:
             self.node_selector = node_selector
+        if resource_claims is not None:
+            self.resource_claims = resource_claims
+        if scheduler_name is not None:
+            self.scheduler_name = scheduler_name
         if tolerations is not None:
             self.tolerations = tolerations
         if volumes is not None:
@@ -265,6 +275,52 @@ class V1alpha1ServingRuntimePodSpec(object):
         """
 
         self._node_selector = node_selector
+
+    @property
+    def resource_claims(self):
+        """Gets the resource_claims of this V1alpha1ServingRuntimePodSpec.  # noqa: E501
+
+        ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.  Dynamic Resource Allocation (DRA) is GA since Kubernetes 1.32 (beta, enabled by default, since 1.31). The cluster must support DRA for these claims to take effect on created Pods.  Each entry may reference an existing ResourceClaim (resourceClaimName) or ResourceClaimTemplate (resourceClaimTemplateName) in the same namespace. KServe does not create these objects; they must exist before the Pod can be scheduled.  Note: the resulting Pod's resourceClaims field is immutable after pod creation per Kubernetes semantics.  # noqa: E501
+
+        :return: The resource_claims of this V1alpha1ServingRuntimePodSpec.  # noqa: E501
+        :rtype: list[V1PodResourceClaim]
+        """
+        return self._resource_claims
+
+    @resource_claims.setter
+    def resource_claims(self, resource_claims):
+        """Sets the resource_claims of this V1alpha1ServingRuntimePodSpec.
+
+        ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.  Dynamic Resource Allocation (DRA) is GA since Kubernetes 1.32 (beta, enabled by default, since 1.31). The cluster must support DRA for these claims to take effect on created Pods.  Each entry may reference an existing ResourceClaim (resourceClaimName) or ResourceClaimTemplate (resourceClaimTemplateName) in the same namespace. KServe does not create these objects; they must exist before the Pod can be scheduled.  Note: the resulting Pod's resourceClaims field is immutable after pod creation per Kubernetes semantics.  # noqa: E501
+
+        :param resource_claims: The resource_claims of this V1alpha1ServingRuntimePodSpec.  # noqa: E501
+        :type: list[V1PodResourceClaim]
+        """
+
+        self._resource_claims = resource_claims
+
+    @property
+    def scheduler_name(self):
+        """Gets the scheduler_name of this V1alpha1ServingRuntimePodSpec.  # noqa: E501
+
+        If specified, the pod will be dispatched by specified scheduler. If not specified, the pod will be dispatched by default scheduler.  # noqa: E501
+
+        :return: The scheduler_name of this V1alpha1ServingRuntimePodSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._scheduler_name
+
+    @scheduler_name.setter
+    def scheduler_name(self, scheduler_name):
+        """Sets the scheduler_name of this V1alpha1ServingRuntimePodSpec.
+
+        If specified, the pod will be dispatched by specified scheduler. If not specified, the pod will be dispatched by default scheduler.  # noqa: E501
+
+        :param scheduler_name: The scheduler_name of this V1alpha1ServingRuntimePodSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._scheduler_name = scheduler_name
 
     @property
     def tolerations(self):

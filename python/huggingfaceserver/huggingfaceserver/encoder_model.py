@@ -20,6 +20,8 @@ import struct
 import time
 import torch
 import torch.nn.functional as F
+import numpy as np
+from kserve import InferOutput
 from accelerate import init_empty_weights
 from kserve import Model
 from kserve.logging import logger
@@ -66,9 +68,7 @@ from kserve.protocol.rest.openai.types import (
 from kserve import context as kserve_context
 
 
-class HuggingfaceEncoderModel(
-    Model, OpenAIEncoderModel
-):  # pylint:disable=c-extension-no-member
+class HuggingfaceEncoderModel(Model, OpenAIEncoderModel):  # pylint:disable=c-extension-no-member
     task: MLTask
     model_config: PretrainedConfig
     model_id_or_path: Union[pathlib.Path, str]
@@ -100,6 +100,7 @@ class HuggingfaceEncoderModel(
         model_revision: Optional[str] = None,
         tokenizer_revision: Optional[str] = None,
         trust_remote_code: bool = False,
+        return_offsets_mapping: bool = False,
         return_probabilities: bool = False,
         request_logger: Optional[RequestLogger] = None,
         return_raw_logits: bool = False,
@@ -116,6 +117,7 @@ class HuggingfaceEncoderModel(
         self.model_revision = model_revision
         self.tokenizer_revision = tokenizer_revision
         self.trust_remote_code = trust_remote_code
+        self.return_offsets_mapping = return_offsets_mapping
         self.return_probabilities = return_probabilities
         self.return_raw_logits = return_raw_logits
         self.request_logger = request_logger
@@ -152,7 +154,7 @@ class HuggingfaceEncoderModel(
         self.max_length = _get_and_verify_max_len(self.model_config, self.max_length)
         model_cls = get_model_class_for_task(self.task)
 
-        # device_map = "auto" enables model parallelism but all model architcture dont support it.
+        # device_map = "auto" enables model parallelism but all model architecture dont support it.
         # For pre-check we initialize the model class without weights to check the `_no_split_modules`
         # device_map = "auto" for models that support this else set to either cuda/cpu
         with init_empty_weights():
@@ -172,7 +174,7 @@ class HuggingfaceEncoderModel(
             model_kwargs["trust_remote_code"] = True
             tokenizer_kwargs["trust_remote_code"] = True
 
-        model_kwargs["torch_dtype"] = self.dtype
+        model_kwargs["dtype"] = self.dtype
 
         # load huggingface tokenizer
         self._tokenizer = AutoTokenizer.from_pretrained(
@@ -216,6 +218,15 @@ class HuggingfaceEncoderModel(
         context: Dict[str, Any],
     ) -> Union[BatchEncoding, InferRequest]:
         instances = get_predict_input(payload)
+        need_offsets = (self.task == MLTask.token_classification) and getattr(
+            self, "return_offsets_mapping", False
+        )
+
+        if need_offsets and not getattr(self._tokenizer, "is_fast", False):
+            raise ValueError(
+                "return_offsets_mapping requires a fast tokenizer (tokenizers backend)."
+            )
+
         if isinstance(payload, InferRequest):
             request_id = payload.id
         else:
@@ -232,7 +243,13 @@ class HuggingfaceEncoderModel(
                 return_token_type_ids=self.return_token_type_ids,
                 padding=True,
                 truncation=True,
+                return_offsets_mapping=need_offsets,
             )
+            if need_offsets:
+                offset_mapping = inputs.pop("offset_mapping", None)
+                if offset_mapping is not None and hasattr(offset_mapping, "tolist"):
+                    offset_mapping = offset_mapping.tolist()
+                context["offset_mapping"] = offset_mapping
             context["payload"] = payload
             context["input_ids"] = inputs["input_ids"]
             if self.task == MLTask.text_embedding:
@@ -260,7 +277,13 @@ class HuggingfaceEncoderModel(
                 return_token_type_ids=self.return_token_type_ids,
                 padding=True,
                 truncation=True,
+                return_offsets_mapping=need_offsets,
             )
+            if need_offsets:
+                offset_mapping = inputs.pop("offset_mapping", None)
+                if offset_mapping is not None and hasattr(offset_mapping, "tolist"):
+                    offset_mapping = offset_mapping.tolist()
+                context["offset_mapping"] = offset_mapping
             context["payload"] = payload
             context["input_ids"] = inputs["input_ids"]
             if self.task == MLTask.text_embedding:
@@ -316,6 +339,31 @@ class HuggingfaceEncoderModel(
             return get_predict_response(request, inferences, self.name)
         elif self.task == MLTask.token_classification:
             inferences = self._process_token_classification(normalized_outputs)
+            resp = get_predict_response(request, inferences, self.name)
+            if getattr(self, "return_offsets_mapping", False):
+                offset_mapping = context.get("offset_mapping")
+                if offset_mapping is not None:
+                    offsets_np = np.asarray(offset_mapping, dtype=np.int64)
+                    if offsets_np.ndim == 2:
+                        offsets_np = offsets_np[None, :, :]
+                    offset_out = InferOutput(
+                        name="offset_mapping",
+                        datatype=from_np_dtype(offsets_np.dtype),
+                        shape=list(offsets_np.shape),
+                        data=offsets_np,
+                    )
+                    if hasattr(resp, "outputs") and isinstance(resp.outputs, list):
+                        resp.outputs.append(offset_out)
+                    elif isinstance(resp, dict):
+                        resp.setdefault("outputs", []).append(
+                            {
+                                "name": "offset_mapping",
+                                "datatype": from_np_dtype(offsets_np.dtype),
+                                "shape": list(offsets_np.shape),
+                                "data": offsets_np.flatten().tolist(),
+                            }
+                        )
+                return resp
             return get_predict_response(request, inferences, self.name)
         elif self.task == MLTask.text_embedding:
             inferences = self._process_text_embedding(

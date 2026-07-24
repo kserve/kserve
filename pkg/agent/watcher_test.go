@@ -62,14 +62,27 @@ var _ = Describe("Watcher", func() {
 		log.SetLogger(zapr.NewLogger(zapLogger))
 	})
 	AfterEach(func() {
-		os.RemoveAll(modelDir)
+		_ = os.RemoveAll(modelDir)
 		logger.Printf("Deleted temp dir %v\n", modelDir)
 	})
 
 	Describe("Sync models config on startup", func() {
+		It("should not crash after sync error", func() {
+			badModelDir := filepath.Join(modelDir, "bad-model")
+			configDir := filepath.Join(modelDir, "configs")
+			Expect(os.MkdirAll(badModelDir, os.ModePerm)).To(Succeed())                                       //nolint:gosec // G301: test directory
+			Expect(os.MkdirAll(configDir, os.ModePerm)).To(Succeed())                                         //nolint:gosec // G301: test directory
+			Expect(os.WriteFile(filepath.Join(badModelDir, "SUCCESS.bad"), []byte("{"), 0o644)).To(Succeed()) //nolint:gosec // G306: test file
+			modelConfigs := modelconfig.ModelConfigs{{Name: "model1"}}
+			data, err := json.Marshal(modelConfigs)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(os.WriteFile(filepath.Join(configDir, constants.ModelConfigFileName), data, 0o644)).To(Succeed()) //nolint:gosec // G306: test file
+			Expect(func() {
+				NewWatcher(configDir, modelDir, sugar)
+			}).ToNot(Panic())
+		})
 		Context("Getting new model events", func() {
 			It("should download and load the new models", func() {
-				defer GinkgoRecover()
 				logger.Printf("Sync model config using temp dir %v\n", modelDir)
 				modelConfigs := modelconfig.ModelConfigs{
 					{
@@ -91,7 +104,7 @@ var _ = Describe("Watcher", func() {
 				}
 				_, err := os.Stat("/tmp/configs")
 				if os.IsNotExist(err) {
-					if err := os.MkdirAll("/tmp/configs", os.ModePerm); err != nil {
+					if err := os.MkdirAll("/tmp/configs", os.ModePerm); err != nil { //nolint:gosec // G301: test directory needs permissive access
 						logger.Fatal(err, " Failed to create configs directory")
 					}
 				}
@@ -134,8 +147,8 @@ var _ = Describe("Watcher", func() {
 				Expect(watcher.ModelTracker).Should(Equal(modelSpecMap))
 
 				DeferCleanup(func() {
-					tmpFile.Close()
-					os.RemoveAll("/tmp/configs")
+					_ = tmpFile.Close()
+					_ = os.RemoveAll("/tmp/configs")
 				})
 			})
 		})
@@ -144,7 +157,6 @@ var _ = Describe("Watcher", func() {
 	Describe("Watch model config changes", func() {
 		Context("When new models are added", func() {
 			It("Should download and load the new models", func() {
-				defer GinkgoRecover()
 				logger.Printf("Sync model config using temp dir %v\n", modelDir)
 				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
 				puller := Puller{
@@ -190,7 +202,6 @@ var _ = Describe("Watcher", func() {
 
 		Context("When models are deleted from config", func() {
 			It("Should remove the model dir and unload the models", func() {
-				defer GinkgoRecover()
 				logger.Printf("Sync delete models using temp dir %v\n", modelDir)
 				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
 				puller := Puller{
@@ -248,7 +259,6 @@ var _ = Describe("Watcher", func() {
 
 		Context("When models uri are updated in config", func() {
 			It("Should download and reload the model", func() {
-				defer GinkgoRecover()
 				logger.Printf("Sync update models using temp dir %v\n", modelDir)
 				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
 				puller := Puller{
@@ -315,9 +325,8 @@ var _ = Describe("Watcher", func() {
 
 		Context("When model download fails", func() {
 			It("Should not create the success file", func() {
-				defer GinkgoRecover()
 				logger.Printf("Using temp dir %v\n", modelDir)
-				var errs []s3manager.Error
+				errs := make([]s3manager.Error, 0, 1)
 				errs = append(errs, s3manager.Error{
 					OrigErr: errors.New("failed to download"),
 					Bucket:  aws.String("modelRepo"),
@@ -361,8 +370,6 @@ var _ = Describe("Watcher", func() {
 	Describe("Use GCS Downloader", func() {
 		Context("Download Mocked Model", func() {
 			It("should download test model and write contents", func() {
-				defer GinkgoRecover()
-
 				logger.Printf("Creating mock GCS Client")
 				ctx := context.Background()
 				client := mocks.NewMockClient()
@@ -386,7 +393,7 @@ var _ = Describe("Watcher", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				testFile := filepath.Join(modelDir, modelName, "testModel1")
-				dat, err := os.ReadFile(testFile)
+				dat, err := os.ReadFile(filepath.Clean(testFile))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(string(dat)).To(Equal(modelContents))
 			})
@@ -394,8 +401,6 @@ var _ = Describe("Watcher", func() {
 
 		Context("Model Download Failure", func() {
 			It("should fail out if the model does not exist in the bucket", func() {
-				defer GinkgoRecover()
-
 				logger.Printf("Creating mock GCS Client")
 				ctx := context.Background()
 				client := mocks.NewMockClient()
@@ -454,7 +459,6 @@ var _ = Describe("Watcher", func() {
 
 		Context("Getting new model events", func() {
 			It("should download and load the new models", func() {
-				defer GinkgoRecover()
 				logger.Printf("Sync model config using temp dir %v\n", modelDir)
 				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
 				modelConfigs := modelconfig.ModelConfigs{
@@ -517,7 +521,6 @@ var _ = Describe("Watcher", func() {
 
 		Context("Puller Waits Before Initializing", func() {
 			It("should download all models before allowing watcher to add new events", func() {
-				defer GinkgoRecover()
 				logger.Printf("Sync model config using temp dir %v\n", modelDir)
 				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
 				puller := Puller{
@@ -599,7 +602,7 @@ var _ = Describe("Watcher", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					testFile := filepath.Join(modelDir, modelName, modelFile)
-					dat, err := os.ReadFile(testFile)
+					dat, err := os.ReadFile(filepath.Clean(testFile))
 					Expect(err).ToNot(HaveOccurred())
 					Expect(string(dat)).To(Equal(modelContents + "\n"))
 				}

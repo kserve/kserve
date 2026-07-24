@@ -32,7 +32,7 @@ class TestBashParser(unittest.TestCase):
 
     def test_extract_bash_function_simple(self):
         """Test extracting simple bash function."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.sh', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".sh", delete=False) as f:
             f.write("install() {\n")
             f.write("    echo 'Installing...'\n")
             f.write("}\n")
@@ -47,7 +47,7 @@ class TestBashParser(unittest.TestCase):
 
     def test_extract_bash_function_nested_braces(self):
         """Test extracting function with nested braces."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.sh', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".sh", delete=False) as f:
             f.write("install() {\n")
             f.write("    if [ true ]; then\n")
             f.write("        echo 'nested'\n")
@@ -65,7 +65,7 @@ class TestBashParser(unittest.TestCase):
 
     def test_extract_bash_function_not_found(self):
         """Test extracting non-existent function."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.sh', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".sh", delete=False) as f:
             f.write("other_func() {\n")
             f.write("    echo 'test'\n")
             f.write("}\n")
@@ -79,7 +79,7 @@ class TestBashParser(unittest.TestCase):
 
     def test_extract_bash_function_multiple_functions(self):
         """Test extracting specific function when multiple exist."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.sh', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".sh", delete=False) as f:
             f.write("uninstall() {\n")
             f.write("    echo 'Uninstalling'\n")
             f.write("}\n")
@@ -100,7 +100,9 @@ class TestBashParser(unittest.TestCase):
     def test_rename_bash_function_simple(self):
         """Test renaming bash function."""
         func_code = "install() {\n    echo 'test'\n}"
-        renamed = bash_parser.rename_bash_function(func_code, "install", "install_istio")
+        renamed = bash_parser.rename_bash_function(
+            func_code, "install", "install_istio"
+        )
         self.assertEqual(renamed, "install_istio() {\n    echo 'test'\n}")
 
     def test_rename_bash_function_empty(self):
@@ -111,7 +113,9 @@ class TestBashParser(unittest.TestCase):
     def test_rename_bash_function_preserve_body(self):
         """Test that function body is preserved during rename."""
         func_code = "install() {\n    log_info 'Installing'\n    kubectl apply -f manifest.yaml\n}"
-        renamed = bash_parser.rename_bash_function(func_code, "install", "install_component")
+        renamed = bash_parser.rename_bash_function(
+            func_code, "install", "install_component"
+        )
         self.assertIn("install_component() {", renamed)
         self.assertIn("log_info 'Installing'", renamed)
         self.assertIn("kubectl apply -f manifest.yaml", renamed)
@@ -124,7 +128,9 @@ class TestBashParser(unittest.TestCase):
     fi
     echo 'Installing'
 }"""
-        renamed = bash_parser.rename_bash_function(func_code, "install", "install_external_lb")
+        renamed = bash_parser.rename_bash_function(
+            func_code, "install", "install_external_lb"
+        )
         self.assertIn("install_external_lb() {", renamed)
         # Original uninstall call should remain unchanged
         self.assertIn("uninstall", renamed)
@@ -138,9 +144,13 @@ class TestBashParser(unittest.TestCase):
     echo 'Installing'
 }"""
         # First rename install to install_external_lb
-        renamed = bash_parser.rename_bash_function(func_code, "install", "install_external_lb")
+        renamed = bash_parser.rename_bash_function(
+            func_code, "install", "install_external_lb"
+        )
         # Then rename uninstall calls to uninstall_external_lb
-        renamed = bash_parser.rename_bash_function(renamed, "uninstall", "uninstall_external_lb")
+        renamed = bash_parser.rename_bash_function(
+            renamed, "uninstall", "uninstall_external_lb"
+        )
 
         self.assertIn("install_external_lb() {", renamed)
         self.assertIn("uninstall_external_lb", renamed)
@@ -154,7 +164,9 @@ class TestBashParser(unittest.TestCase):
     uninstall
     echo 'reinstall'
 }"""
-        renamed = bash_parser.rename_bash_function(func_code, "uninstall", "uninstall_component")
+        renamed = bash_parser.rename_bash_function(
+            func_code, "uninstall", "uninstall_component"
+        )
 
         # Should rename standalone 'uninstall' call
         self.assertIn("uninstall_component", renamed)
@@ -172,7 +184,9 @@ class TestBashParser(unittest.TestCase):
     kubectl apply -f install.yaml
     helm uninstall old-release
 }"""
-        renamed = bash_parser.rename_bash_function(func_code, "install", "install_cert_manager")
+        renamed = bash_parser.rename_bash_function(
+            func_code, "install", "install_cert_manager"
+        )
 
         # Should rename function definition
         self.assertIn("install_cert_manager() {", renamed)
@@ -184,7 +198,9 @@ class TestBashParser(unittest.TestCase):
         self.assertIn("kubectl apply -f install.yaml", renamed)
 
         # Now rename uninstall calls
-        renamed = bash_parser.rename_bash_function(renamed, "uninstall", "uninstall_cert_manager")
+        renamed = bash_parser.rename_bash_function(
+            renamed, "uninstall", "uninstall_cert_manager"
+        )
         # Should rename standalone uninstall call
         self.assertIn("uninstall_cert_manager", renamed)
         # The standalone 'uninstall' at the start of a line should now be renamed
@@ -196,11 +212,7 @@ class TestBashParser(unittest.TestCase):
 
     def test_deduplicate_variables_simple(self):
         """Test deduplicating variable declarations."""
-        variables = [
-            "NAMESPACE=kserve",
-            "VERSION=1.0",
-            "NAMESPACE=istio"
-        ]
+        variables = ["NAMESPACE=kserve", "VERSION=1.0", "NAMESPACE=istio"]
         result = bash_parser.deduplicate_variables(variables)
         self.assertEqual(result, ["NAMESPACE=kserve", "VERSION=1.0"])
 
@@ -212,7 +224,7 @@ class TestBashParser(unittest.TestCase):
             '"app.kubernetes.io/name=kserve-localmodel-controller-manager"',
             '"app.kubernetes.io/name=llmisvc-controller-manager"',
             ")",
-            "VERSION=1.0"
+            "VERSION=1.0",
         ]
         result = bash_parser.deduplicate_variables(variables)
         self.assertEqual(len(result), 6)
@@ -230,7 +242,7 @@ class TestBashParser(unittest.TestCase):
             "VERSION=1.0",
             "TARGET_POD_LABELS=(",
             '"label2"',
-            ")"
+            ")",
         ]
         result = bash_parser.deduplicate_variables(variables)
         # Should keep first array declaration only
@@ -288,5 +300,5 @@ function test() {
         self.assertEqual(result, content)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

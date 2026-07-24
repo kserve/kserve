@@ -35,7 +35,7 @@ def to_np_dtype(dtype):
 
 
 def from_np_dtype(np_dtype):
-    if np_dtype == bool:
+    if np_dtype == bool:  # noqa: E721
         return "BOOL"
     elif np_dtype == np.int8:
         return "INT8"
@@ -62,6 +62,7 @@ def from_np_dtype(np_dtype):
     elif (
         np_dtype == np.object_
         or np_dtype.type == np.bytes_
+        or np_dtype.type == np.str_
         or np.issubdtype(np_dtype, np.datetime64)
     ):
         return "BYTES"

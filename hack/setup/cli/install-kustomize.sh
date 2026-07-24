@@ -27,10 +27,10 @@ install() {
 
     log_info "Installing Kustomize ${KUSTOMIZE_VERSION} for ${os}/${arch}..."
 
-    if command -v kustomize &>/dev/null; then
-        local current_version=$(kustomize version --short 2>/dev/null | grep -oP 'v[0-9.]+')
+    if [[ -x "${BIN_DIR}/kustomize" ]]; then
+        local current_version=$("${BIN_DIR}/kustomize" version 2>/dev/null | awk 'match($0, /v[0-9.]+/) {print substr($0, RSTART, RLENGTH)}')
         if [[ -n "$current_version" ]] && version_gte "$current_version" "$KUSTOMIZE_VERSION"; then
-            log_info "Kustomize ${current_version} is already installed (>= ${KUSTOMIZE_VERSION})"
+            log_info "Kustomize ${current_version} is already installed in ${BIN_DIR} (>= ${KUSTOMIZE_VERSION})"
             return 0
         fi
         [[ -n "$current_version" ]] && log_info "Upgrading Kustomize from ${current_version} to ${KUSTOMIZE_VERSION}..."
@@ -70,7 +70,7 @@ install() {
     rm -rf "${temp_dir}"
 
     log_success "Successfully installed Kustomize ${KUSTOMIZE_VERSION} to ${BIN_DIR}/kustomize"
-    kustomize version
+    "${BIN_DIR}/kustomize" version
 }
 
 install

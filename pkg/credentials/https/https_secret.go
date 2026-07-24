@@ -34,7 +34,7 @@ var (
 
 // Can be used for http and https uris
 func BuildSecretEnvs(secret *corev1.Secret) []corev1.EnvVar {
-	envs := []corev1.EnvVar{}
+	envs := make([]corev1.EnvVar, 0, 1)
 	uriHost, ok := secret.Data[HTTPSHost]
 
 	if !ok {

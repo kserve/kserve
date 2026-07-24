@@ -18,10 +18,12 @@ package service
 import (
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -135,7 +137,6 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					},
 				},
 			},
-			nil,
 		},
 		"multiNode-service": {
 			&corev1.Service{
@@ -190,6 +191,30 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					PublishNotReadyAddresses: true,
 				},
 			},
+			&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default-workers-1",
+					Namespace: "default-predictor-namespace",
+					Labels: map[string]string{
+						constants.RawDeploymentAppLabel:                 "isvc.default-predictor",
+						constants.KServiceComponentLabel:                "predictor",
+						constants.InferenceServicePodLabelKey:           "default-predictor",
+						constants.InferenceServiceGenerationPodLabelKey: "1",
+						constants.MultiNodeRoleLabelKey:                 constants.MultiNodeWorker,
+					},
+					Annotations: map[string]string{
+						"annotation": "annotation-value",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Selector: map[string]string{
+						"app": "isvc.default-predictor-worker",
+						constants.InferenceServiceGenerationPodLabelKey: "1",
+					},
+					ClusterIP:                "None",
+					PublishNotReadyAddresses: true,
+				},
+			},
 		},
 	}
 
@@ -222,10 +247,12 @@ func TestCreateDefaultDeployment(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := createService(tt.args.componentMeta, tt.args.componentExt, tt.args.podSpec, tt.args.multiNodeEnabled, emptyServiceConfig)
-			for i, service := range got {
-				if diff := cmp.Diff(tt.expected[i], service); diff != "" {
-					t.Errorf("Test %q unexpected service (-want +got): %v", tt.name, diff)
-				}
+			require.Len(t, got, len(tt.expected))
+			for i, svc := range got {
+				// DeepDerivative checks that all non-zero fields in expected are present in actual,
+				// ignoring extra fields (e.g. annotations added by platform-specific hooks).
+				assert.True(t, equality.Semantic.DeepDerivative(tt.expected[i], svc),
+					"service[%d] mismatch: expected %+v, got %+v", i, tt.expected[i], svc)
 			}
 		})
 	}
@@ -277,4 +304,45 @@ func runTestServiceCreate(serviceConfig *v1beta1.ServiceConfig, expectedClusterI
 	assert.Equal(t, componentMeta, service[0].ObjectMeta, "Expected ObjectMeta to be equal")
 	assert.Equal(t, map[string]string{"app": "isvc.test-service"}, service[0].Spec.Selector, "Expected Selector to be equal")
 	assert.Equal(t, expectedClusterIP, service[0].Spec.ClusterIP, "Expected ClusterIP to be equal")
+}
+
+// Test interface methods added for ServiceReconciler interface
+func TestGetServiceList(t *testing.T) {
+	service1 := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "service1"}}
+	service2 := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "service2"}}
+
+	reconciler := &ServiceReconciler{
+		ServiceList: []*corev1.Service{service1, service2},
+	}
+
+	services := reconciler.GetServiceList()
+	assert.Len(t, services, 2)
+	assert.Equal(t, "service1", services[0].Name)
+	assert.Equal(t, "service2", services[1].Name)
+}
+
+func TestServiceSetControllerReferences(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = v1beta1.AddToScheme(scheme)
+	_ = corev1.AddToScheme(scheme)
+
+	owner := &v1beta1.InferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-isvc", Namespace: "default", UID: "test-uid"},
+	}
+
+	service1 := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "service1", Namespace: "default"}}
+	service2 := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "service2", Namespace: "default"}}
+
+	reconciler := &ServiceReconciler{
+		ServiceList: []*corev1.Service{service1, service2},
+	}
+
+	err := reconciler.SetControllerReferences(owner, scheme)
+	require.NoError(t, err)
+
+	// Verify owner references were set
+	assert.Len(t, service1.GetOwnerReferences(), 1)
+	assert.Equal(t, owner.Name, service1.GetOwnerReferences()[0].Name)
+	assert.Len(t, service2.GetOwnerReferences(), 1)
+	assert.Equal(t, owner.Name, service2.GetOwnerReferences()[0].Name)
 }

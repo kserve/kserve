@@ -3,5 +3,4 @@ kind: Kustomization
 
 resources:
 - ../runtimes
-- ../storagecontainers
 - ../llmisvcconfig

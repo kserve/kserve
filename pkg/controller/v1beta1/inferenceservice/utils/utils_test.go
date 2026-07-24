@@ -895,6 +895,148 @@ func TestMergePodSpec(t *testing.T) {
 				},
 			},
 		},
+		"MergeWithSchedulerName": {
+			podSpecBase: &v1alpha1.ServingRuntimePodSpec{
+				NodeSelector: map[string]string{
+					"foo": "bar",
+				},
+				SchedulerName: "custom-scheduler",
+			},
+			podSpecOverride: &PodSpec{
+				ServiceAccountName: "testAccount",
+			},
+			expected: &corev1.PodSpec{
+				NodeSelector: map[string]string{
+					"foo": "bar",
+				},
+				ServiceAccountName: "testAccount",
+				SchedulerName:      "custom-scheduler",
+			},
+		},
+		"OverrideSchedulerName": {
+			podSpecBase: &v1alpha1.ServingRuntimePodSpec{
+				SchedulerName: "runtime-scheduler",
+			},
+			podSpecOverride: &PodSpec{
+				SchedulerName: "isvc-scheduler",
+			},
+			expected: &corev1.PodSpec{
+				SchedulerName: "isvc-scheduler",
+			},
+		},
+		"RuntimeOnlyResourceClaims": {
+			podSpecBase: &v1alpha1.ServingRuntimePodSpec{
+				ResourceClaims: []corev1.PodResourceClaim{
+					{
+						Name:              "gpu-resource",
+						ResourceClaimName: ptr.To("gpu-l4-claim"),
+					},
+				},
+			},
+			podSpecOverride: &PodSpec{},
+			expected: &corev1.PodSpec{
+				ResourceClaims: []corev1.PodResourceClaim{
+					{
+						Name:              "gpu-resource",
+						ResourceClaimName: ptr.To("gpu-l4-claim"),
+					},
+				},
+			},
+		},
+		"RuntimeOnlyResourceClaimTemplate": {
+			podSpecBase: &v1alpha1.ServingRuntimePodSpec{
+				ResourceClaims: []corev1.PodResourceClaim{
+					{
+						Name:                      "gpu-resource",
+						ResourceClaimTemplateName: ptr.To("gpu-claim-template"),
+					},
+				},
+			},
+			podSpecOverride: &PodSpec{},
+			expected: &corev1.PodSpec{
+				ResourceClaims: []corev1.PodResourceClaim{
+					{
+						Name:                      "gpu-resource",
+						ResourceClaimTemplateName: ptr.To("gpu-claim-template"),
+					},
+				},
+			},
+		},
+		"IsvcOnlyResourceClaims": {
+			podSpecBase: &v1alpha1.ServingRuntimePodSpec{},
+			podSpecOverride: &PodSpec{
+				ResourceClaims: []corev1.PodResourceClaim{
+					{
+						Name:              "gpu-hardware",
+						ResourceClaimName: ptr.To("gpu-l4-claim"),
+					},
+				},
+			},
+			expected: &corev1.PodSpec{
+				ResourceClaims: []corev1.PodResourceClaim{
+					{
+						Name:              "gpu-hardware",
+						ResourceClaimName: ptr.To("gpu-l4-claim"),
+					},
+				},
+			},
+		},
+		"BothDistinctResourceClaims": {
+			podSpecBase: &v1alpha1.ServingRuntimePodSpec{
+				ResourceClaims: []corev1.PodResourceClaim{
+					{
+						Name:              "gpu-a",
+						ResourceClaimName: ptr.To("claim-a"),
+					},
+				},
+			},
+			podSpecOverride: &PodSpec{
+				ResourceClaims: []corev1.PodResourceClaim{
+					{
+						Name:              "gpu-b",
+						ResourceClaimName: ptr.To("claim-b"),
+					},
+				},
+			},
+			expected: &corev1.PodSpec{
+				ResourceClaims: []corev1.PodResourceClaim{
+					{
+						Name:              "gpu-b",
+						ResourceClaimName: ptr.To("claim-b"),
+					},
+					{
+						Name:              "gpu-a",
+						ResourceClaimName: ptr.To("claim-a"),
+					},
+				},
+			},
+		},
+		"OverrideSameNameResourceClaims": {
+			podSpecBase: &v1alpha1.ServingRuntimePodSpec{
+				ResourceClaims: []corev1.PodResourceClaim{
+					{
+						Name:              "gpu",
+						ResourceClaimName: ptr.To("runtime-claim"),
+					},
+				},
+			},
+			podSpecOverride: &PodSpec{
+				ResourceClaims: []corev1.PodResourceClaim{
+					{
+						Name:              "gpu",
+						ResourceClaimName: ptr.To("isvc-claim"),
+					},
+				},
+			},
+			expected: &corev1.PodSpec{
+				ResourceClaims: []corev1.PodResourceClaim{
+					{
+						Name:              "gpu",
+						ResourceClaimName: ptr.To("isvc-claim"),
+					},
+				},
+			},
+		},
 	}
 
 	for name, scenario := range scenarios {
@@ -990,12 +1132,12 @@ func TestGetServingRuntime(t *testing.T) {
 	}
 
 	s := runtime.NewScheme()
-	v1alpha1.AddToScheme(s)
+	_ = v1alpha1.AddToScheme(s)
 
 	mockClient := fake.NewClientBuilder().WithLists(runtimes, clusterRuntimes).WithScheme(s).Build()
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			res, _, isClusterServingRuntime := GetServingRuntime(t.Context(), mockClient, scenario.runtimeName, namespace)
+			res, _, _, isClusterServingRuntime := GetServingRuntime(t.Context(), mockClient, scenario.runtimeName, namespace)
 			if !g.Expect(res).To(gomega.Equal(&scenario.expected)) {
 				t.Errorf("got %v, want %v", res, &scenario.expected)
 			}
@@ -1010,7 +1152,7 @@ func TestGetServingRuntime(t *testing.T) {
 
 	// Check invalid case
 	t.Run("InvalidServingRuntime", func(t *testing.T) {
-		res, err, _ := GetServingRuntime(t.Context(), mockClient, "foo", namespace)
+		res, _, err, _ := GetServingRuntime(t.Context(), mockClient, "foo", namespace)
 		if !g.Expect(res).To(gomega.BeNil()) {
 			t.Errorf("got %v, want %v", res, nil)
 		}
@@ -1095,11 +1237,12 @@ func TestUpdateImageTag(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	scenarios := map[string]struct {
-		container      *corev1.Container
-		runtimeVersion *string
-		servingRuntime string
-		isvcConfig     *InferenceServicesConfig
-		expected       string
+		container          *corev1.Container
+		runtimeVersion     *string
+		servingRuntime     string
+		runtimeAnnotations map[string]string
+		isvcConfig         *InferenceServicesConfig
+		expected           string
 	}{
 		"UpdateRuntimeVersion": {
 			container: &corev1.Container{
@@ -1273,10 +1416,171 @@ func TestUpdateImageTag(t *testing.T) {
 			servingRuntime: constants.TFServing,
 			expected:       "huggingfaceserver@sha256:abcdef1234567890",
 		},
+		"VLLMServerGPUKeepsDefaultImage": {
+			container: &corev1.Container{
+				Name:  "kserve-container",
+				Image: "vllm/vllm-openai:latest",
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						"nvidia.com/gpu": resource.MustParse("1"),
+					},
+				},
+			},
+			runtimeVersion: nil,
+			servingRuntime: constants.VLLMServer,
+			expected:       "vllm/vllm-openai:latest",
+		},
+		"VLLMServerCPURewritesImageName": {
+			container: &corev1.Container{
+				Name:  "kserve-container",
+				Image: "vllm/vllm-openai:latest",
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("2"),
+						corev1.ResourceMemory: resource.MustParse("4Gi"),
+					},
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceMemory: resource.MustParse("2Gi"),
+					},
+				},
+			},
+			runtimeVersion: nil,
+			servingRuntime: constants.VLLMServer,
+			expected:       "vllm/vllm-openai-cpu:latest",
+		},
+		"VLLMServerCPUWithProxyRewritesImageName": {
+			container: &corev1.Container{
+				Name:  "kserve-container",
+				Image: "localhost:8888/vllm/vllm-openai:v0.5.0",
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceMemory: resource.MustParse("2Gi"),
+					},
+				},
+			},
+			runtimeVersion: nil,
+			servingRuntime: constants.VLLMServer,
+			expected:       "localhost:8888/vllm/vllm-openai-cpu:v0.5.0",
+		},
+		"VLLMServerCPUSkipsWhenImageNameAlreadyCpu": {
+			container: &corev1.Container{
+				Name:  "kserve-container",
+				Image: "vllm/vllm-openai-cpu:v0.5.0",
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceMemory: resource.MustParse("2Gi"),
+					},
+				},
+			},
+			runtimeVersion: nil,
+			servingRuntime: constants.VLLMServer,
+			expected:       "vllm/vllm-openai-cpu:v0.5.0",
+		},
+		"VLLMServerCPUSkipsWhenImageHasNoTag": {
+			container: &corev1.Container{
+				Name:  "kserve-container",
+				Image: "vllm/vllm-openai",
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceMemory: resource.MustParse("2Gi"),
+					},
+				},
+			},
+			runtimeVersion: nil,
+			servingRuntime: constants.VLLMServer,
+			expected:       "vllm/vllm-openai",
+		},
+		"VLLMServerRuntimeVersionTakesPrecedence": {
+			container: &corev1.Container{
+				Name:  "kserve-container",
+				Image: "vllm/vllm-openai:latest",
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceMemory: resource.MustParse("2Gi"),
+					},
+				},
+			},
+			runtimeVersion: proto.String("v0.5.0"),
+			servingRuntime: constants.VLLMServer,
+			expected:       "vllm/vllm-openai:v0.5.0",
+		},
+		"VLLMServerCPURewriteViaAnnotationForCustomRuntime": {
+			container: &corev1.Container{
+				Name:  "kserve-container",
+				Image: "vllm/vllm-openai:latest",
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceMemory: resource.MustParse("2Gi"),
+					},
+				},
+			},
+			runtimeVersion: nil,
+			servingRuntime: "my-custom-vllm",
+			runtimeAnnotations: map[string]string{
+				constants.ServerTypeAnnotationKey: constants.ServerTypeVLLMServer,
+			},
+			expected: "vllm/vllm-openai-cpu:latest",
+		},
+		"VLLMServerAnnotationTakesPrecedenceOverRuntimeName": {
+			container: &corev1.Container{
+				Name:  "kserve-container",
+				Image: "vllm/vllm-openai:latest",
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceMemory: resource.MustParse("2Gi"),
+					},
+				},
+			},
+			runtimeVersion: nil,
+			servingRuntime: constants.MLServer,
+			runtimeAnnotations: map[string]string{
+				constants.ServerTypeAnnotationKey: constants.ServerTypeVLLMServer,
+			},
+			expected: "vllm/vllm-openai-cpu:latest",
+		},
+		"HuggingFaceServerGPUViaAnnotationForCustomRuntime": {
+			container: &corev1.Container{
+				Name:  "kserve-container",
+				Image: "huggingfaceserver:1.14.0",
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						"nvidia.com/gpu": resource.MustParse("1"),
+					},
+				},
+			},
+			runtimeVersion: nil,
+			servingRuntime: "my-custom-hf",
+			runtimeAnnotations: map[string]string{
+				constants.ServerTypeAnnotationKey: constants.ServerTypeHuggingFaceServer,
+			},
+			expected: "huggingfaceserver:1.14.0-gpu",
+		},
+		"UnknownRuntimeWithoutAnnotationIsLeftAlone": {
+			container: &corev1.Container{
+				Name:  "kserve-container",
+				Image: "vllm/vllm-openai:latest",
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceMemory: resource.MustParse("2Gi"),
+					},
+				},
+			},
+			runtimeVersion: nil,
+			servingRuntime: "my-custom-vllm",
+			expected:       "vllm/vllm-openai:latest",
+		},
 	}
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			UpdateImageTag(scenario.container, scenario.runtimeVersion, &scenario.servingRuntime)
+			UpdateImageTag(scenario.container, scenario.runtimeVersion, &scenario.servingRuntime, scenario.runtimeAnnotations)
 			if !g.Expect(scenario.container.Image).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", scenario.container.Image, scenario.expected)
 			}
@@ -1287,9 +1591,10 @@ func TestUpdateImageTag(t *testing.T) {
 func TestGetDeploymentMode(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
-		annotations  map[string]string
-		deployConfig *DeployConfig
-		expected     constants.DeploymentModeType
+		statusDeploymentMode string
+		annotations          map[string]string
+		deployConfig         *DeployConfig
+		expected             constants.DeploymentModeType
 	}{
 		"Standard": {
 			annotations: map[string]string{
@@ -1319,11 +1624,23 @@ func TestGetDeploymentMode(t *testing.T) {
 			},
 			expected: constants.Knative,
 		},
+		"LegacyRawDeploymentInStatus": {
+			statusDeploymentMode: string(constants.LegacyRawDeployment),
+			annotations:          map[string]string{},
+			deployConfig:         &DeployConfig{},
+			expected:             constants.Standard,
+		},
+		"LegacyServerlessInStatus": {
+			statusDeploymentMode: string(constants.LegacyServerless),
+			annotations:          map[string]string{},
+			deployConfig:         &DeployConfig{},
+			expected:             constants.Knative,
+		},
 	}
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			deploymentMode := GetDeploymentMode("", scenario.annotations, scenario.deployConfig)
+			deploymentMode := GetDeploymentMode(scenario.statusDeploymentMode, scenario.annotations, scenario.deployConfig)
 			if !g.Expect(deploymentMode).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", deploymentMode, scenario.expected)
 			}
@@ -1968,6 +2285,7 @@ func TestValidateStorageURIForDefaultStorageInitializer(t *testing.T) {
 		"http://raw.githubusercontent.com/someOrg/someRepo/model.tar.gz",
 		"hdfs://",
 		"webhdfs://",
+		"oci+native://ghcr.io/kserve/oci-native-test-fixture:v1",
 		"some/relative/path",
 		"/",
 		"foo",

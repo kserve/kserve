@@ -115,7 +115,10 @@ These are all handled by the `huggingface_hub` package, you can see all the avai
 - `S3_VERIFY_SSL`: Enable/disable SSL verification
 - `S3_USER_VIRTUAL_BUCKET`: Use virtual hosted-style URLs
 - `S3_USE_ACCELERATE`: Use transfer acceleration
-- `S3_MAX_FILE_CONCURRENCY`: number of files to download parallel
+- `S3_MAX_FILE_CONCURRENCY`: Number of files to download in parallel
+- `S3_CONNECT_TIMEOUT`: Connection timeout in seconds (default: 15)
+- `S3_READ_TIMEOUT`: Read timeout in seconds (default: 30)
+- `S3_MAX_ATTEMPTS`: Maximum retry attempts for S3 operations (default: 3)
 - `awsAnonymousCredential`: Use unsigned requests for public access
 
 ### Azure Configuration
@@ -138,6 +141,10 @@ These are all handled by the `huggingface_hub` package, you can see all the avai
 - `TLS_CERT`, `TLS_KEY`, `TLS_CA`: TLS configuration files
 - `TLS_SKIP_VERIFY`: Skip TLS verification
 - `N_THREADS`: Number of download threads
+
+### Git Configuration (HTTPS-only)
+
+- `GIT_USERNAME`, `GIT_PASSWORD`: Git HTTPS authentication (optional; username also parsed from url)
 
 ## Storage Configuration
 

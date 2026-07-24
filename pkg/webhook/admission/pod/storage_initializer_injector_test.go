@@ -1333,6 +1333,109 @@ func TestGetStorageInitializerConfigs(t *testing.T) {
 				gomega.HaveOccurred(),
 			},
 		},
+		{
+			name: "Empty Modelcar Fields Should Not Cause Validation Error",
+			configMap: &corev1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Data: map[string]string{
+					v1beta1.StorageInitializerConfigMapKeyName: `{
+						"Image":                   "gcr.io/kserve/storage-initializer:latest",
+						"CpuRequest":              "100m",
+						"CpuLimit":                "1",
+						"MemoryRequest":           "200Mi",
+						"MemoryLimit":             "1Gi",
+						"CpuModelcar":             "",
+						"MemoryModelcar":          "",
+						"CaBundleConfigMapName":   "",
+						"CaBundleVolumeMountPath": "/etc/ssl/custom-certs"
+					}`,
+				},
+				BinaryData: map[string][]byte{},
+			},
+			matchers: []types.GomegaMatcher{
+				gomega.Equal(&kserveTypes.StorageInitializerConfig{
+					Image:                   "gcr.io/kserve/storage-initializer:latest",
+					CpuRequest:              "100m",
+					CpuLimit:                "1",
+					MemoryRequest:           "200Mi",
+					MemoryLimit:             "1Gi",
+					CpuModelcar:             "",
+					MemoryModelcar:          "",
+					CaBundleConfigMapName:   "",
+					CaBundleVolumeMountPath: "/etc/ssl/custom-certs",
+				}),
+				gomega.BeNil(),
+			},
+		},
+		{
+			name: "Missing Modelcar Fields Should Not Cause Validation Error",
+			configMap: &corev1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Data: map[string]string{
+					v1beta1.StorageInitializerConfigMapKeyName: `{
+						"Image":                   "gcr.io/kserve/storage-initializer:latest",
+						"CpuRequest":              "100m",
+						"CpuLimit":                "1",
+						"MemoryRequest":           "200Mi",
+						"MemoryLimit":             "1Gi",
+						"CaBundleConfigMapName":   "",
+						"CaBundleVolumeMountPath": "/etc/ssl/custom-certs"
+					}`,
+				},
+				BinaryData: map[string][]byte{},
+			},
+			matchers: []types.GomegaMatcher{
+				gomega.Equal(&kserveTypes.StorageInitializerConfig{
+					Image:                   "gcr.io/kserve/storage-initializer:latest",
+					CpuRequest:              "100m",
+					CpuLimit:                "1",
+					MemoryRequest:           "200Mi",
+					MemoryLimit:             "1Gi",
+					CpuModelcar:             "",
+					MemoryModelcar:          "",
+					CaBundleConfigMapName:   "",
+					CaBundleVolumeMountPath: "/etc/ssl/custom-certs",
+				}),
+				gomega.BeNil(),
+			},
+		},
+		{
+			name: "Invalid Non-Empty Modelcar Fields Should Cause Validation Error",
+			configMap: &corev1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Data: map[string]string{
+					v1beta1.StorageInitializerConfigMapKeyName: `{
+						"Image":                   "gcr.io/kserve/storage-initializer:latest",
+						"CpuRequest":              "100m",
+						"CpuLimit":                "1",
+						"MemoryRequest":           "200Mi",
+						"MemoryLimit":             "1Gi",
+						"CpuModelcar":             "invalid",
+						"MemoryModelcar":          "50Mi",
+						"CaBundleConfigMapName":   "",
+						"CaBundleVolumeMountPath": "/etc/ssl/custom-certs"
+					}`,
+				},
+				BinaryData: map[string][]byte{},
+			},
+			matchers: []types.GomegaMatcher{
+				gomega.Equal(&kserveTypes.StorageInitializerConfig{
+					Image:                   "gcr.io/kserve/storage-initializer:latest",
+					CpuRequest:              "100m",
+					CpuLimit:                "1",
+					MemoryRequest:           "200Mi",
+					MemoryLimit:             "1Gi",
+					CpuModelcar:             "invalid",
+					MemoryModelcar:          "50Mi",
+					CaBundleConfigMapName:   "",
+					CaBundleVolumeMountPath: "/etc/ssl/custom-certs",
+				}),
+				gomega.HaveOccurred(),
+			},
+		},
 	}
 
 	for _, tc := range cases {
@@ -2654,6 +2757,168 @@ func TestGetStorageContainerSpec(t *testing.T) {
 		}
 		g.Expect(container).To(gomega.Equal(scenario.expectedSpec))
 	}
+}
+
+func TestExplicitStorageContainerName(t *testing.T) {
+	// Create two CSCs that both match "hf://" - "default" and "hf-custom"
+	// Without explicit selection, "default" wins alphabetically (the bug in #5299)
+	defaultCSC := &v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "default",
+		},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: corev1.Container{
+				Name:  "storage-initializer",
+				Image: "kserve/storage-initializer:latest",
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("100Mi"),
+						corev1.ResourceCPU:    resource.MustParse("100m"),
+					},
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("1Gi"),
+						corev1.ResourceCPU:    resource.MustParse("1"),
+					},
+				},
+			},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{
+				{Prefix: "gs://"},
+				{Prefix: "s3://"},
+				{Prefix: "hf://"},
+			},
+		},
+	}
+	hfCustomCSC := &v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "hf-custom",
+		},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: corev1.Container{
+				Name:  "storage-initializer",
+				Image: "kserve/hf-custom:latest",
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("2Gi"),
+					},
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("4Gi"),
+					},
+				},
+				Env: []corev1.EnvVar{
+					{Name: "HF_TOKEN", Value: "test-token"},
+				},
+			},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{
+				{Prefix: "hf://"},
+			},
+		},
+	}
+	disabledCSC := &v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "disabled-csc",
+		},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: corev1.Container{
+				Name:  "storage-initializer",
+				Image: "kserve/disabled:latest",
+			},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{
+				{Prefix: "hf://"},
+			},
+		},
+		Disabled: ptr.Bool(true),
+	}
+	s3OnlyCSC := &v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "s3-only",
+		},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: corev1.Container{
+				Name:  "storage-initializer",
+				Image: "kserve/s3-only:latest",
+			},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{
+				{Prefix: "s3://"},
+			},
+		},
+	}
+	downloadJobCSC := &v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "download-job",
+		},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: corev1.Container{
+				Name:  "storage-initializer",
+				Image: "kserve/download-job:latest",
+			},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{
+				{Prefix: "hf://"},
+			},
+			WorkloadType: v1alpha1.LocalModelDownloadJob,
+		},
+	}
+
+	require.NoError(t, c.Create(t.Context(), defaultCSC))
+	require.NoError(t, c.Create(t.Context(), hfCustomCSC))
+	require.NoError(t, c.Create(t.Context(), disabledCSC))
+	require.NoError(t, c.Create(t.Context(), s3OnlyCSC))
+	require.NoError(t, c.Create(t.Context(), downloadJobCSC))
+	defer func() {
+		_ = c.Delete(t.Context(), defaultCSC)
+		_ = c.Delete(t.Context(), hfCustomCSC)
+		_ = c.Delete(t.Context(), disabledCSC)
+		_ = c.Delete(t.Context(), s3OnlyCSC)
+		_ = c.Delete(t.Context(), downloadJobCSC)
+	}()
+
+	t.Run("auto-match returns first alphabetical CSC when name not specified", func(t *testing.T) {
+		spec, err := GetStorageContainerSpec(t.Context(), "hf://my-model", nil, c)
+		require.NoError(t, err)
+		require.NotNil(t, spec)
+		// "default" sorts before "hf-custom", so auto-match returns default
+		assert.Equal(t, "kserve/storage-initializer:latest", spec.Container.Image)
+	})
+
+	t.Run("explicit name returns the correct CSC", func(t *testing.T) {
+		name := "hf-custom"
+		spec, err := GetStorageContainerSpec(t.Context(), "hf://my-model", &name, c)
+		require.NoError(t, err)
+		require.NotNil(t, spec)
+		assert.Equal(t, "kserve/hf-custom:latest", spec.Container.Image)
+		assert.Equal(t, resource.MustParse("2Gi"), spec.Container.Resources.Requests[corev1.ResourceMemory])
+	})
+
+	t.Run("explicit name for non-existent CSC returns error", func(t *testing.T) {
+		name := "does-not-exist"
+		spec, err := GetStorageContainerSpec(t.Context(), "hf://my-model", &name, c)
+		assert.Error(t, err)
+		assert.Nil(t, spec)
+		assert.Contains(t, err.Error(), "not found")
+	})
+
+	t.Run("explicit name for disabled CSC returns error", func(t *testing.T) {
+		name := "disabled-csc"
+		spec, err := GetStorageContainerSpec(t.Context(), "hf://my-model", &name, c)
+		assert.Error(t, err)
+		assert.Nil(t, spec)
+		assert.Contains(t, err.Error(), "disabled")
+	})
+
+	t.Run("explicit name for CSC that does not support the URI returns error", func(t *testing.T) {
+		name := "s3-only"
+		spec, err := GetStorageContainerSpec(t.Context(), "hf://my-model", &name, c)
+		assert.Error(t, err)
+		assert.Nil(t, spec)
+		assert.Contains(t, err.Error(), "does not support")
+	})
+
+	t.Run("explicit name for CSC with wrong workloadType returns error", func(t *testing.T) {
+		name := "download-job"
+		spec, err := GetStorageContainerSpec(t.Context(), "hf://my-model", &name, c)
+		assert.Error(t, err)
+		assert.Nil(t, spec)
+		assert.Contains(t, err.Error(), "workloadType")
+	})
 }
 
 func TestStorageContainerCRDInjection(t *testing.T) {
@@ -4032,28 +4297,28 @@ func TestLocalModelPVC(t *testing.T) {
 			localModelLabel:          "bar",
 			localModelSourceUriLabel: "s3://foo",
 			pvcName:                  "model-h100",
-			expectedSubPath:          "models/bar/",
+			expectedSubPath:          "models/" + v1alpha1.GetStorageKey("s3://foo") + "/",
 		},
 		"extra / at the end": {
 			storageUri:               "s3://foo/",
 			localModelLabel:          "bar",
 			localModelSourceUriLabel: "s3://foo",
 			pvcName:                  "model-h100",
-			expectedSubPath:          "models/bar/",
+			expectedSubPath:          "models/" + v1alpha1.GetStorageKey("s3://foo") + "/",
 		},
 		"subfolder": {
 			storageUri:               "s3://foo/model1",
 			localModelLabel:          "bar",
 			localModelSourceUriLabel: "s3://foo",
 			pvcName:                  "model-h100",
-			expectedSubPath:          "models/bar/model1",
+			expectedSubPath:          "models/" + v1alpha1.GetStorageKey("s3://foo") + "/model1",
 		},
 		"subfolder2": {
 			storageUri:               "s3://foo/model1",
 			localModelLabel:          "bar",
 			localModelSourceUriLabel: "s3://foo/",
 			pvcName:                  "model-h100",
-			expectedSubPath:          "models/bar/model1",
+			expectedSubPath:          "models/" + v1alpha1.GetStorageKey("s3://foo/") + "/model1",
 		},
 	}
 
@@ -4831,4 +5096,729 @@ func TestStorageInitializerWithUserDefinedCABundleEnvVars(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestInjectModelcarMultiNode tests the multinode scenario fixes for OCI model storage
+func TestInjectModelcarMultiNode(t *testing.T) {
+	t.Run("Test InjectModelcar with worker-container only (multi-node scenario)", func(t *testing.T) {
+		pod := createTestPodForModelcarWithWorkerContainer()
+		injector := &StorageInitializerInjector{config: &kserveTypes.StorageInitializerConfig{}}
+
+		err := injector.InjectModelcar(pod)
+		require.NoError(t, err)
+
+		// Verify that modelcar was injected for worker container
+		modelcarContainer := utils.GetContainerWithName(&pod.Spec, constants.ModelcarContainerName)
+		assert.NotNil(t, modelcarContainer, "Modelcar container should be created")
+
+		workerContainer := utils.GetContainerWithName(&pod.Spec, constants.WorkerContainerName)
+		assert.NotNil(t, workerContainer, "Worker container should exist")
+
+		// Verify that worker container has the correct volume mounts
+		found := false
+		for _, mount := range workerContainer.VolumeMounts {
+			if mount.Name == constants.StorageInitializerVolumeName {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "Worker container should have storage initializer volume mount")
+
+		// Verify that the volume was created
+		assert.Len(t, pod.Spec.Volumes, 1, "Should have exactly one volume")
+		assert.Equal(t, constants.StorageInitializerVolumeName, pod.Spec.Volumes[0].Name)
+	})
+
+	t.Run("Test InjectModelcar error when no valid container found", func(t *testing.T) {
+		pod := createTestPodForModelcarNoValidContainer()
+		injector := &StorageInitializerInjector{config: &kserveTypes.StorageInitializerConfig{}}
+
+		err := injector.InjectModelcar(pod)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "Invalid configuration: cannot find container: kserve-container")
+	})
+
+	t.Run("Test InjectModelcar prioritizes kserve-container over worker-container", func(t *testing.T) {
+		pod := createTestPodForModelcarWithBothContainers()
+		injector := &StorageInitializerInjector{config: &kserveTypes.StorageInitializerConfig{}}
+
+		err := injector.InjectModelcar(pod)
+		require.NoError(t, err)
+
+		// Both containers should have volume mounts but kserve-container should be prioritized
+		kserveContainer := utils.GetContainerWithName(&pod.Spec, constants.InferenceServiceContainerName)
+		workerContainer := utils.GetContainerWithName(&pod.Spec, constants.WorkerContainerName)
+
+		assert.NotNil(t, kserveContainer)
+		assert.NotNil(t, workerContainer)
+
+		// Check that kserve-container got the volume mount
+		kserveHasMount := false
+		for _, mount := range kserveContainer.VolumeMounts {
+			if mount.Name == constants.StorageInitializerVolumeName {
+				kserveHasMount = true
+				break
+			}
+		}
+		assert.True(t, kserveHasMount, "kserve-container should have storage initializer volume mount")
+	})
+
+	t.Run("Test InjectModelcar with transformer and worker containers", func(t *testing.T) {
+		pod := createTestPodForModelcarWithWorkerAndTransformer()
+		injector := &StorageInitializerInjector{config: &kserveTypes.StorageInitializerConfig{}}
+
+		err := injector.InjectModelcar(pod)
+		require.NoError(t, err)
+
+		// Check both worker and transformer containers got volume mounts
+		workerContainer := utils.GetContainerWithName(&pod.Spec, constants.WorkerContainerName)
+		transformerContainer := utils.GetContainerWithName(&pod.Spec, constants.TransformerContainerName)
+
+		assert.NotNil(t, workerContainer)
+		assert.NotNil(t, transformerContainer)
+
+		// Both should have volume mounts
+		workerHasMount := false
+		for _, mount := range workerContainer.VolumeMounts {
+			if mount.Name == constants.StorageInitializerVolumeName {
+				workerHasMount = true
+				break
+			}
+		}
+		assert.True(t, workerHasMount, "Worker container should have storage initializer volume mount")
+
+		transformerHasMount := false
+		for _, mount := range transformerContainer.VolumeMounts {
+			if mount.Name == constants.StorageInitializerVolumeName {
+				transformerHasMount = true
+				break
+			}
+		}
+		assert.True(t, transformerHasMount, "Transformer container should have storage initializer volume mount")
+	})
+}
+
+// Helper functions for multi-node testing
+
+func createTestPodForModelcarWithWorkerContainer() *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				constants.StorageInitializerSourceUriInternalAnnotationKey: constants.OciURIPrefix + "myrepo/mymodelimage",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.WorkerContainerName},
+			},
+		},
+	}
+}
+
+func createTestPodForModelcarNoValidContainer() *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				constants.StorageInitializerSourceUriInternalAnnotationKey: constants.OciURIPrefix + "myrepo/mymodelimage",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: "some-other-container"},
+			},
+		},
+	}
+}
+
+func createTestPodForModelcarWithBothContainers() *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				constants.StorageInitializerSourceUriInternalAnnotationKey: constants.OciURIPrefix + "myrepo/mymodelimage",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.InferenceServiceContainerName},
+				{Name: constants.WorkerContainerName},
+			},
+		},
+	}
+}
+
+func createTestPodForModelcarWithWorkerAndTransformer() *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				constants.StorageInitializerSourceUriInternalAnnotationKey: constants.OciURIPrefix + "myrepo/mymodelimage",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.WorkerContainerName},
+				{Name: constants.TransformerContainerName},
+			},
+		},
+	}
+}
+
+// TestCommonStorageInitializationWithOciURI tests the fix for issue #5200:
+// storageUris with oci:// should inject modelcar and model volume mounts.
+func TestCommonStorageInitializationWithOciURI(t *testing.T) {
+	t.Run("OCI URI via storageUris injects modelcar", func(t *testing.T) {
+		podSpec := corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.InferenceServiceContainerName},
+			},
+		}
+
+		params := &StorageInitializerParams{
+			Namespace: "default",
+			StorageURIs: []v1beta1.StorageUri{
+				{Uri: "oci://rhuss/kserving-example-sklearn:1.0", MountPath: constants.DefaultModelLocalMountPath},
+			},
+			IsReadOnly:      true,
+			PodSpec:         &podSpec,
+			Config:          &kserveTypes.StorageInitializerConfig{EnableOciImageSource: true},
+			IsvcAnnotations: map[string]string{},
+			IsLegacyURI:     false,
+		}
+
+		err := CommonStorageInitialization(t.Context(), params)
+		require.NoError(t, err)
+
+		// Modelcar sidecar container should be injected
+		modelcarContainer := utils.GetContainerWithName(&podSpec, constants.ModelcarContainerName)
+		assert.NotNil(t, modelcarContainer, "modelcar sidecar container should be injected")
+
+		// Modelcar init container should be injected for pre-fetching
+		assert.Len(t, podSpec.InitContainers, 1, "modelcar init container should be injected")
+		assert.Equal(t, constants.ModelcarInitContainerName, podSpec.InitContainers[0].Name)
+
+		// ShareProcessNamespace should be enabled
+		assert.NotNil(t, podSpec.ShareProcessNamespace)
+		assert.True(t, *podSpec.ShareProcessNamespace, "ShareProcessNamespace should be true")
+
+		// User container should have async model init mode env var
+		userContainer := utils.GetContainerWithName(&podSpec, constants.InferenceServiceContainerName)
+		assert.NotNil(t, userContainer)
+		found := false
+		for _, env := range userContainer.Env {
+			if env.Name == constants.ModelInitModeEnvVarKey && env.Value == "async" {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "user container should have MODEL_INIT_MODE=async env var")
+
+		// Volume should exist
+		assert.NotEmpty(t, podSpec.Volumes, "shared volume should be added")
+	})
+
+	t.Run("OCI URI via storageUris with transformer injects modelcar for both", func(t *testing.T) {
+		podSpec := corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.InferenceServiceContainerName},
+				{Name: constants.TransformerContainerName},
+			},
+		}
+
+		params := &StorageInitializerParams{
+			Namespace: "default",
+			StorageURIs: []v1beta1.StorageUri{
+				{Uri: "oci://rhuss/kserving-example-sklearn:1.0", MountPath: constants.DefaultModelLocalMountPath},
+			},
+			IsReadOnly:      true,
+			PodSpec:         &podSpec,
+			Config:          &kserveTypes.StorageInitializerConfig{EnableOciImageSource: true},
+			IsvcAnnotations: map[string]string{},
+			IsLegacyURI:     false,
+		}
+
+		err := CommonStorageInitialization(t.Context(), params)
+		require.NoError(t, err)
+
+		// Both user container and transformer container should have volume mounts
+		userContainer := utils.GetContainerWithName(&podSpec, constants.InferenceServiceContainerName)
+		transformerContainer := utils.GetContainerWithName(&podSpec, constants.TransformerContainerName)
+		assert.NotNil(t, userContainer)
+		assert.NotNil(t, transformerContainer)
+		assert.NotEmpty(t, userContainer.VolumeMounts, "user container should have volume mounts")
+		assert.NotEmpty(t, transformerContainer.VolumeMounts, "transformer container should have volume mounts")
+	})
+
+	t.Run("Legacy OCI URI path still returns nil (handled by webhook)", func(t *testing.T) {
+		podSpec := corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.InferenceServiceContainerName},
+			},
+		}
+
+		params := &StorageInitializerParams{
+			Namespace: "default",
+			StorageURIs: []v1beta1.StorageUri{
+				{Uri: "oci://rhuss/kserving-example-sklearn:1.0", MountPath: constants.DefaultModelLocalMountPath},
+			},
+			IsReadOnly:      true,
+			PodSpec:         &podSpec,
+			Config:          &kserveTypes.StorageInitializerConfig{EnableOciImageSource: true},
+			IsvcAnnotations: map[string]string{},
+			IsLegacyURI:     true,
+		}
+
+		err := CommonStorageInitialization(t.Context(), params)
+		require.NoError(t, err)
+
+		// Should NOT inject modelcar — legacy path is handled by InjectModelcar webhook
+		modelcarContainer := utils.GetContainerWithName(&podSpec, constants.ModelcarContainerName)
+		assert.Nil(t, modelcarContainer, "legacy path should not inject modelcar directly")
+	})
+
+	t.Run("OCI URI via storageUris with worker container only", func(t *testing.T) {
+		podSpec := corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.WorkerContainerName},
+			},
+		}
+
+		params := &StorageInitializerParams{
+			Namespace: "default",
+			StorageURIs: []v1beta1.StorageUri{
+				{Uri: "oci://myrepo/mymodel:latest", MountPath: constants.DefaultModelLocalMountPath},
+			},
+			IsReadOnly:      true,
+			PodSpec:         &podSpec,
+			Config:          &kserveTypes.StorageInitializerConfig{EnableOciImageSource: true},
+			IsvcAnnotations: map[string]string{},
+			IsLegacyURI:     false,
+		}
+
+		err := CommonStorageInitialization(t.Context(), params)
+		require.NoError(t, err)
+
+		// Modelcar sidecar should be injected, targeting the worker container
+		modelcarContainer := utils.GetContainerWithName(&podSpec, constants.ModelcarContainerName)
+		assert.NotNil(t, modelcarContainer, "modelcar sidecar should be injected for worker container")
+
+		// Worker container should have the async env var
+		workerContainer := utils.GetContainerWithName(&podSpec, constants.WorkerContainerName)
+		assert.NotNil(t, workerContainer)
+		found := false
+		for _, env := range workerContainer.Env {
+			if env.Name == constants.ModelInitModeEnvVarKey && env.Value == "async" {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "worker container should have MODEL_INIT_MODE=async env var")
+	})
+}
+
+// findEnv returns the env var with the given name, or nil if not present.
+func findEnv(envs []corev1.EnvVar, name string) *corev1.EnvVar {
+	for i := range envs {
+		if envs[i].Name == name {
+			return &envs[i]
+		}
+	}
+	return nil
+}
+
+// TestMergeContainerSpecs_EnvHandling is a regression test for issue #5516:
+// when the storage-initializer init container's env (typically injected from
+// the ServiceAccount's storage secret) is merged with a ClusterStorageContainer's
+// env, no resulting entry may have both `value` and `valueFrom` set — Kubernetes
+// admission rejects such pods. The merge must reconcile by env name so that
+// CRD overrides cleanly replace the conflicting field on the target.
+func TestMergeContainerSpecs_EnvHandling(t *testing.T) {
+	secretKeyRef := func(secret, key string) *corev1.EnvVarSource {
+		return &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{Name: secret},
+				Key:                  key,
+			},
+		}
+	}
+	fieldRef := func(path string) *corev1.EnvVarSource {
+		return &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: path}}
+	}
+
+	scenarios := map[string]struct {
+		targetEnv []corev1.EnvVar
+		crdEnv    []corev1.EnvVar
+		assert    func(t *testing.T, merged []corev1.EnvVar)
+	}{
+		"valueFrom overrides value on same name": {
+			targetEnv: []corev1.EnvVar{
+				{Name: "AWS_ACCESS_KEY_ID", Value: "literal-from-sa-secret"},
+				{Name: "AWS_SECRET_ACCESS_KEY", Value: "literal-from-sa-secret"},
+			},
+			crdEnv: []corev1.EnvVar{
+				{Name: "AWS_ACCESS_KEY_ID", ValueFrom: secretKeyRef("my-creds", "access-key")},
+			},
+			assert: func(t *testing.T, merged []corev1.EnvVar) {
+				overridden := findEnv(merged, "AWS_ACCESS_KEY_ID")
+				require.NotNil(t, overridden)
+				assert.Empty(t, overridden.Value, "Value must be cleared when CRD supplies ValueFrom")
+				require.NotNil(t, overridden.ValueFrom)
+				require.NotNil(t, overridden.ValueFrom.SecretKeyRef)
+				assert.Equal(t, "my-creds", overridden.ValueFrom.SecretKeyRef.Name)
+				assert.Equal(t, "access-key", overridden.ValueFrom.SecretKeyRef.Key)
+
+				preserved := findEnv(merged, "AWS_SECRET_ACCESS_KEY")
+				require.NotNil(t, preserved)
+				assert.Equal(t, "literal-from-sa-secret", preserved.Value)
+				assert.Nil(t, preserved.ValueFrom)
+			},
+		},
+		"value overrides valueFrom on same name": {
+			targetEnv: []corev1.EnvVar{
+				{Name: "AWS_ACCESS_KEY_ID", ValueFrom: secretKeyRef("sa-creds", "access-key")},
+			},
+			crdEnv: []corev1.EnvVar{
+				{Name: "AWS_ACCESS_KEY_ID", Value: "literal-override"},
+			},
+			assert: func(t *testing.T, merged []corev1.EnvVar) {
+				overridden := findEnv(merged, "AWS_ACCESS_KEY_ID")
+				require.NotNil(t, overridden)
+				assert.Equal(t, "literal-override", overridden.Value)
+				assert.Nil(t, overridden.ValueFrom, "ValueFrom must be cleared when CRD supplies a literal Value")
+			},
+		},
+		"disjoint env names with valueFrom in CRD": {
+			targetEnv: []corev1.EnvVar{
+				{Name: "AWS_ACCESS_KEY_ID", Value: "literal-from-sa-secret"},
+				{Name: "AWS_SECRET_ACCESS_KEY", Value: "literal-from-sa-secret"},
+				{Name: "S3_ENDPOINT", Value: "https://s3.example.com"},
+			},
+			crdEnv: []corev1.EnvVar{
+				{Name: "CUSTOM_SECRET", ValueFrom: secretKeyRef("custom-secret", "token")},
+				{Name: "POD_IP", ValueFrom: fieldRef("status.podIP")},
+			},
+			assert: func(t *testing.T, merged []corev1.EnvVar) {
+				for _, name := range []string{"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "S3_ENDPOINT"} {
+					e := findEnv(merged, name)
+					require.NotNil(t, e, "credential env %q should be preserved after merge", name)
+					assert.NotEmpty(t, e.Value, "credential env %q should retain its literal Value", name)
+					assert.Nil(t, e.ValueFrom, "credential env %q must not have ValueFrom set", name)
+				}
+
+				customSecret := findEnv(merged, "CUSTOM_SECRET")
+				require.NotNil(t, customSecret)
+				assert.Empty(t, customSecret.Value)
+				require.NotNil(t, customSecret.ValueFrom)
+				require.NotNil(t, customSecret.ValueFrom.SecretKeyRef)
+				assert.Equal(t, "custom-secret", customSecret.ValueFrom.SecretKeyRef.Name)
+				assert.Equal(t, "token", customSecret.ValueFrom.SecretKeyRef.Key)
+
+				podIP := findEnv(merged, "POD_IP")
+				require.NotNil(t, podIP)
+				assert.Empty(t, podIP.Value)
+				require.NotNil(t, podIP.ValueFrom)
+				require.NotNil(t, podIP.ValueFrom.FieldRef)
+				assert.Equal(t, "status.podIP", podIP.ValueFrom.FieldRef.FieldPath)
+			},
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			target := &corev1.Container{
+				Name:  constants.StorageInitializerContainerName,
+				Image: "kserve/storage-initializer:latest",
+				Env:   scenario.targetEnv,
+			}
+			crd := &corev1.Container{
+				Name: "custom-storage-initializer",
+				Env:  scenario.crdEnv,
+			}
+
+			merged, err := utils.MergeContainerWithPatch(*target, *crd)
+			require.NoError(t, err)
+			*target = merged
+
+			for _, e := range target.Env {
+				if e.Value != "" && e.ValueFrom != nil {
+					t.Errorf("env %q has both Value=%q and ValueFrom set; "+
+						"Kubernetes admission will reject this", e.Name, e.Value)
+				}
+			}
+
+			scenario.assert(t, target.Env)
+		})
+	}
+}
+
+func TestApplyConfidentialConfig(t *testing.T) {
+	scenarios := map[string]struct {
+		initContainer corev1.Container
+		annotations   map[string]string
+		expectedImage string
+		expectedEnvs  map[string]string
+	}{
+		"no confidential annotation": {
+			initContainer: corev1.Container{
+				Name:  constants.StorageInitializerContainerName,
+				Image: "kserve/storage-initializer:latest",
+			},
+			annotations:   map[string]string{},
+			expectedImage: "kserve/storage-initializer:latest",
+			expectedEnvs:  map[string]string{},
+		},
+		"confidential enabled sets env vars without swapping image": {
+			initContainer: corev1.Container{
+				Name:  constants.StorageInitializerContainerName,
+				Image: "kserve/storage-initializer:latest",
+			},
+			annotations: map[string]string{
+				constants.ConfidentialEnabledAnnotationKey:    "true",
+				constants.ConfidentialResourceIdAnnotationKey: "kbs:///default/key/model-key",
+			},
+			expectedImage: "kserve/storage-initializer:latest",
+			expectedEnvs: map[string]string{
+				constants.ConfidentialEnabledEnvVar:    "true",
+				constants.ConfidentialResourceIdEnvVar: "kbs:///default/key/model-key",
+			},
+		},
+		"confidential enabled without resourceId": {
+			initContainer: corev1.Container{
+				Name:  constants.StorageInitializerContainerName,
+				Image: "kserve/storage-initializer:latest",
+			},
+			annotations: map[string]string{
+				constants.ConfidentialEnabledAnnotationKey: "true",
+			},
+			expectedImage: "kserve/storage-initializer:latest",
+			expectedEnvs: map[string]string{
+				constants.ConfidentialEnabledEnvVar: "true",
+			},
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			container := scenario.initContainer.DeepCopy()
+			applyConfidentialConfig(container, scenario.annotations)
+
+			assert.Equal(t, scenario.expectedImage, container.Image, "unexpected image")
+
+			envMap := make(map[string]string)
+			for _, env := range container.Env {
+				envMap[env.Name] = env.Value
+			}
+			for key, expectedVal := range scenario.expectedEnvs {
+				assert.Equal(t, expectedVal, envMap[key], "unexpected env var %s", key)
+			}
+			// Ensure no unexpected confidential env vars
+			for _, env := range container.Env {
+				if env.Name == constants.ConfidentialEnabledEnvVar || env.Name == constants.ConfidentialResourceIdEnvVar {
+					_, expected := scenario.expectedEnvs[env.Name]
+					assert.True(t, expected, "unexpected env var %s", env.Name)
+				}
+			}
+		})
+	}
+}
+
+// TestInjectModelcarOciNative verifies that InjectModelcar dispatches oci+native:// URIs
+// to the ImageVolume materializer and produces the expected pod mutations.
+func TestInjectModelcarOciNative(t *testing.T) {
+	t.Run("oci+native:// annotation mounts ImageVolume", func(t *testing.T) {
+		pod := &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					constants.StorageInitializerSourceUriInternalAnnotationKey: constants.OciNativeURIPrefix + "registry.io/mymodel:v1",
+				},
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{Name: constants.InferenceServiceContainerName},
+				},
+			},
+		}
+		mi := &StorageInitializerInjector{config: &kserveTypes.StorageInitializerConfig{}}
+		err := mi.InjectModelcar(pod)
+		require.NoError(t, err)
+		var imgVol *corev1.Volume
+		for i := range pod.Spec.Volumes {
+			if pod.Spec.Volumes[i].Image != nil {
+				imgVol = &pod.Spec.Volumes[i]
+				break
+			}
+		}
+		require.NotNil(t, imgVol, "pod should have an ImageVolume")
+		assert.Equal(t, "registry.io/mymodel:v1", imgVol.Image.Reference)
+		c := utils.GetContainerWithName(&pod.Spec, constants.InferenceServiceContainerName)
+		require.NotNil(t, c)
+		var found bool
+		for _, m := range c.VolumeMounts {
+			if m.Name == imgVol.Name {
+				found = true
+				assert.True(t, m.ReadOnly)
+				break
+			}
+		}
+		assert.True(t, found, "kserve-container should have VolumeMount for the ImageVolume")
+	})
+
+	t.Run("bare oci:// with OciModelMode=native mounts ImageVolume", func(t *testing.T) {
+		pod := &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					constants.StorageInitializerSourceUriInternalAnnotationKey: constants.OciURIPrefix + "registry.io/mymodel:v1",
+				},
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{Name: constants.InferenceServiceContainerName},
+				},
+			},
+		}
+		mi := &StorageInitializerInjector{config: &kserveTypes.StorageInitializerConfig{OciModelMode: kserveTypes.OciModelModeNative}}
+		err := mi.InjectModelcar(pod)
+		require.NoError(t, err)
+		var imgVol *corev1.Volume
+		for i := range pod.Spec.Volumes {
+			if pod.Spec.Volumes[i].Image != nil {
+				imgVol = &pod.Spec.Volumes[i]
+				break
+			}
+		}
+		require.NotNil(t, imgVol, "pod should have an ImageVolume")
+		assert.Equal(t, "registry.io/mymodel:v1", imgVol.Image.Reference)
+	})
+
+	t.Run("bare oci:// with enableModelcar=true still uses modelcar (backcompat)", func(t *testing.T) {
+		pod := createTestPodForModelcar()
+		mi := &StorageInitializerInjector{config: &kserveTypes.StorageInitializerConfig{EnableOciImageSource: true}}
+		err := mi.InjectModelcar(pod)
+		require.NoError(t, err)
+		modelcarContainer := utils.GetContainerWithName(&pod.Spec, constants.ModelcarContainerName)
+		assert.NotNil(t, modelcarContainer, "modelcar sidecar should be injected for backcompat path")
+	})
+}
+
+// TestCommonStorageInitializationWithOciNativeURI verifies dispatch for oci+native:// in the storageUris path.
+func TestCommonStorageInitializationWithOciNativeURI(t *testing.T) {
+	t.Run("oci+native:// storageUri mounts ImageVolume", func(t *testing.T) {
+		podSpec := corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.InferenceServiceContainerName},
+			},
+		}
+		params := &StorageInitializerParams{
+			Namespace: "default",
+			StorageURIs: []v1beta1.StorageUri{
+				{Uri: constants.OciNativeURIPrefix + "registry.io/mymodel:v1", MountPath: constants.DefaultModelLocalMountPath},
+			},
+			PodSpec:         &podSpec,
+			Config:          &kserveTypes.StorageInitializerConfig{},
+			IsvcAnnotations: map[string]string{},
+			IsLegacyURI:     false,
+		}
+		err := CommonStorageInitialization(t.Context(), params)
+		require.NoError(t, err)
+		var imgVol *corev1.Volume
+		for i := range podSpec.Volumes {
+			if podSpec.Volumes[i].Image != nil {
+				imgVol = &podSpec.Volumes[i]
+				break
+			}
+		}
+		require.NotNil(t, imgVol, "podSpec should have an ImageVolume after oci+native:// dispatch")
+		assert.Equal(t, "registry.io/mymodel:v1", imgVol.Image.Reference)
+	})
+
+	t.Run("bare oci:// with OciModelMode=native mounts ImageVolume", func(t *testing.T) {
+		podSpec := corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.InferenceServiceContainerName},
+			},
+		}
+		params := &StorageInitializerParams{
+			Namespace: "default",
+			StorageURIs: []v1beta1.StorageUri{
+				{Uri: constants.OciURIPrefix + "registry.io/mymodel:v1", MountPath: constants.DefaultModelLocalMountPath},
+			},
+			PodSpec:         &podSpec,
+			Config:          &kserveTypes.StorageInitializerConfig{OciModelMode: kserveTypes.OciModelModeNative},
+			IsvcAnnotations: map[string]string{},
+			IsLegacyURI:     false,
+		}
+		err := CommonStorageInitialization(t.Context(), params)
+		require.NoError(t, err)
+		var imgVol *corev1.Volume
+		for i := range podSpec.Volumes {
+			if podSpec.Volumes[i].Image != nil {
+				imgVol = &podSpec.Volumes[i]
+				break
+			}
+		}
+		require.NotNil(t, imgVol, "podSpec should have an ImageVolume after oci:// native dispatch")
+		assert.Equal(t, "registry.io/mymodel:v1", imgVol.Image.Reference)
+	})
+
+	t.Run("oci+native:// legacy path returns nil (handled by annotation webhook)", func(t *testing.T) {
+		podSpec := corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.InferenceServiceContainerName},
+			},
+		}
+		params := &StorageInitializerParams{
+			Namespace: "default",
+			StorageURIs: []v1beta1.StorageUri{
+				{Uri: constants.OciNativeURIPrefix + "registry.io/mymodel:v1", MountPath: constants.DefaultModelLocalMountPath},
+			},
+			PodSpec:         &podSpec,
+			Config:          &kserveTypes.StorageInitializerConfig{},
+			IsvcAnnotations: map[string]string{},
+			IsLegacyURI:     true,
+		}
+		err := CommonStorageInitialization(t.Context(), params)
+		require.NoError(t, err)
+	})
+}
+
+// TestCommonStorageInitializationSkipsOciNativeURI is a regression test for the
+// bug where oci+native:// URIs were not matched by the strings.HasPrefix("oci://")
+// guard and fell through into CreateInitContainerWithConfig, causing
+// resource.MustParse("") to panic with an empty StorageInitializerConfig.
+func TestCommonStorageInitializationSkipsOciNativeURI(t *testing.T) {
+	cfg := &kserveTypes.StorageInitializerConfig{
+		Image:         "kserve/storage-initializer:latest",
+		CpuRequest:    "100m",
+		CpuLimit:      "1",
+		MemoryRequest: "200Mi",
+		MemoryLimit:   "1Gi",
+	}
+	podSpec := corev1.PodSpec{
+		Containers: []corev1.Container{
+			{Name: constants.InferenceServiceContainerName},
+		},
+	}
+	params := &StorageInitializerParams{
+		Namespace: "default",
+		StorageURIs: []v1beta1.StorageUri{
+			{Uri: constants.OciNativeURIPrefix + "registry.io/mymodel:v1", MountPath: constants.DefaultModelLocalMountPath},
+		},
+		PodSpec:         &podSpec,
+		Config:          cfg,
+		IsvcAnnotations: map[string]string{},
+		IsLegacyURI:     false,
+	}
+	require.NotPanics(t, func() {
+		err := CommonStorageInitialization(t.Context(), params)
+		require.NoError(t, err)
+	}, "CommonStorageInitialization must not panic for oci+native:// URIs")
+
+	// The URI must be routed to the native handler (ImageVolume), not an init container.
+	assert.Empty(t, podSpec.InitContainers, "oci+native:// must not produce a storage-initializer init container")
+	var imgVol *corev1.Volume
+	for i := range podSpec.Volumes {
+		if podSpec.Volumes[i].Image != nil {
+			imgVol = &podSpec.Volumes[i]
+			break
+		}
+	}
+	require.NotNil(t, imgVol, "oci+native:// must produce an ImageVolume on the pod spec")
 }

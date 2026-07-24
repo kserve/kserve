@@ -1,4 +1,4 @@
-# Copyright 2022 The KServe Authors.
+# Copyright 2026 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc
 
 @pytest.mark.helm
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_kserve(rest_v2_client):
+async def test_sklearn_kserve(rest_v2_client, network_layer):
     service_name = "isvc-sklearn-helm"
     protocol_version = "v2"
 
@@ -78,6 +78,7 @@ async def test_sklearn_kserve(rest_v2_client):
         rest_v2_client,
         service_name,
         "./data/iris_input_v2.json",
+        network_layer=network_layer,
     )
     assert res.outputs[0].data == [1, 1]
 

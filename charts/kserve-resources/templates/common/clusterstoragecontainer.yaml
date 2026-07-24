@@ -1,0 +1,7 @@
+{{- if .Values.kserve.storagecontainer.enabled | default .Values.kserve.createSharedResources }}
+{{- include "kserve-common.renderPatchedResource" (dict
+  "baseFile" "files/common/storagecontainer.yaml"
+  "patchFile" "files/common/storagecontainer-patch.yaml"
+  "replaceNamespace" false
+  "context" .) -}}
+{{- end }}

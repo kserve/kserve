@@ -4,6 +4,7 @@ kind: Kustomization
 resources:
 - kserve-tensorflow-serving.yaml
 - kserve-sklearnserver.yaml
+- kserve-predictiveserver.yaml
 - kserve-mlserver.yaml
 - kserve-xgbserver.yaml
 - kserve-tritonserver.yaml
@@ -13,6 +14,8 @@ resources:
 - kserve-torchserve.yaml
 - kserve-huggingfaceserver.yaml
 - kserve-huggingfaceserver-multinode.yaml
+- kserve-autogluonserver.yaml
+- kserve-vllmserver.yaml
 
 images:
   # SMS Only Runtimes
@@ -26,7 +29,7 @@ images:
 
 - name: mlserver
   newName: docker.io/seldonio/mlserver
-  newTag: 1.5.0
+  newTag: 1.7.1
 
 - name: kserve-xgbserver
   newName: kserve/xgbserver
@@ -48,6 +51,14 @@ images:
   newName: kserve/lgbserver
   newTag: latest
 
+- name: kserve-predictiveserver
+  newName: kserve/predictiveserver
+  newTag: latest
+
+- name: kserve-autogluonserver
+  newName: kserve/autogluonserver
+  newTag: latest
+  
 - name: kserve-torchserve
   newName: pytorch/torchserve-kfs
   newTag: 0.9.0
@@ -59,3 +70,7 @@ images:
 - name: huggingfaceserver-gpu
   newName: kserve/huggingfaceserver
   newTag: latest-gpu
+  
+- name: vllmserver
+  newName: vllm/vllm-openai
+  newTag: latest

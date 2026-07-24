@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- ../../base
+
+components:
+#ENABLE_KSERVE - ../../components/kserve
+#ENABLE_LOCALMODEL - ../../components/localmodel
+#ENABLE_LLMISVC - ../../components/llmisvc
+
+patches:
+#ENABLE_KSERVE - path: manager_image_patch.yaml
+#ENABLE_LOCALMODEL - path: localmodel_manager_image_patch.yaml
+#ENABLE_LOCALMODEL - path: localmodelnode_agent_image_patch.yaml
+#ENABLE_LLMISVC - path: llmisvc_image_patch.yaml
