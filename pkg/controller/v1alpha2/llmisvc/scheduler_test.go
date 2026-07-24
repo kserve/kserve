@@ -2312,6 +2312,18 @@ func TestExtractModelServerMetricsScheme(t *testing.T) {
 			expectedCommand: []string{"/app/epp", "--grpc-port=9002"},
 			expectedScheme:  "",
 		},
+		{
+			// A template may split the space form so the flag ends Command and
+			// its value starts Args; kube concatenates the two. Filtering each
+			// slice independently strips the flag but leaves "https" behind as a
+			// dangling positional argument.
+			name:            "extracts flag and value split across command and args",
+			command:         []string{"/app/epp", "--model-server-metrics-scheme"},
+			args:            []string{"https", "--grpc-port=9002"},
+			expectedCommand: []string{"/app/epp"},
+			expectedArgs:    []string{"--grpc-port=9002"},
+			expectedScheme:  "https",
+		},
 	}
 
 	for _, tt := range tests {

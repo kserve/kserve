@@ -1819,12 +1819,15 @@ func extractModelServerMetricsScheme(d *appsv1.Deployment) string {
 	scheme := ""
 	for ci := range d.Spec.Template.Spec.Containers {
 		c := &d.Spec.Template.Spec.Containers[ci]
-		if filtered, extracted := filterArgs(c.Command, names); len(extracted) > 0 {
-			c.Command = filtered
-			scheme = extracted[modelServerMetricsSchemeFlag]
-		}
-		if filtered, extracted := filterArgs(c.Args, names); len(extracted) > 0 {
-			c.Args = filtered
+		// Filter Command and Args as one concatenated token stream. Kubernetes
+		// runs Command+Args together, so a preset may legitimately carry the
+		// flag at the end of Command with its value at the start of Args.
+		// Filtering the two lists independently would strip the flag but leave
+		// its value behind as a dangling positional argument.
+		newCommand, newArgs, extracted := filterArgsAcross(c.Command, c.Args, names)
+		if len(extracted) > 0 {
+			c.Command = newCommand
+			c.Args = newArgs
 			scheme = extracted[modelServerMetricsSchemeFlag]
 		}
 	}
@@ -1845,6 +1848,49 @@ func hasModelServerMetricsSchemeFlag(d *appsv1.Deployment) bool {
 		}
 	}
 	return false
+}
+
+// filterArgsAcross removes matching flags from the concatenated Command+Args
+// token stream and returns the rebuilt Command and Args slices along with the
+// extracted flag values. Unlike filtering each slice independently, it handles
+// the split form where a flag sits at the end of Command and its value at the
+// start of Args (Kubernetes concatenates the two): the value is consumed
+// instead of being left behind as a stray positional argument. The Command/Args
+// boundary is preserved — every kept token is returned in the slice it
+// originally came from.
+func filterArgsAcross(command, args []string, names map[string]bool) (newCommand, newArgs []string, extracted map[string]string) {
+	extracted = make(map[string]string)
+	combined := make([]string, 0, len(command)+len(args))
+	combined = append(combined, command...)
+	combined = append(combined, args...)
+	boundary := len(command)
+
+	keep := func(idx int) {
+		if idx < boundary {
+			newCommand = append(newCommand, combined[idx])
+		} else {
+			newArgs = append(newArgs, combined[idx])
+		}
+	}
+
+	for i := 0; i < len(combined); i++ {
+		name := strings.TrimLeft(combined[i], "-")
+		value := ""
+		if eqIdx := strings.Index(name, "="); eqIdx != -1 {
+			value = name[eqIdx+1:]
+			name = name[:eqIdx]
+		}
+		if !names[name] {
+			keep(i)
+			continue
+		}
+		if value == "" && i+1 < len(combined) && !strings.HasPrefix(combined[i+1], "-") {
+			value = combined[i+1]
+			i++
+		}
+		extracted[name] = value
+	}
+	return newCommand, newArgs, extracted
 }
 
 // filterArgs removes matching flags from args and returns their values.
