@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -184,6 +185,7 @@ func createOtelCollector(componentMeta metav1.ObjectMeta,
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        componentMeta.Name,
 			Namespace:   componentMeta.Namespace,
+			Labels:      componentMeta.Labels,
 			Annotations: componentMeta.Annotations,
 		},
 		Spec: otelv1beta1.OpenTelemetryCollectorSpec{
@@ -299,4 +301,26 @@ func (o *OtelReconciler) Reconcile(ctx context.Context) error {
 
 func (o *OtelReconciler) SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error {
 	return controllerutil.SetControllerReference(owner, o.OTelCollector, scheme)
+}
+
+// CleanupOrphans deletes OpenTelemetryCollectors matching labels whose names are not in expectedNames.
+func (o *OtelReconciler) CleanupOrphans(ctx context.Context, namespace string, labels client.MatchingLabels, expectedNames map[string]bool) error {
+	list := &otelv1beta1.OpenTelemetryCollectorList{}
+	if err := o.client.List(ctx, list, client.InNamespace(namespace), labels); err != nil {
+		if !apimeta.IsNoMatchError(err) {
+			return fmt.Errorf("fails to list OpenTelemetryCollectors for cleanup: %w", err)
+		}
+		return nil
+	}
+	for i := range list.Items {
+		obj := &list.Items[i]
+		if expectedNames[obj.Name] {
+			continue
+		}
+		log.Info("Deleting orphaned OpenTelemetryCollector", "name", obj.Name)
+		if err := o.client.Delete(ctx, obj); err != nil && !apierr.IsNotFound(err) {
+			return fmt.Errorf("fails to delete orphaned OpenTelemetryCollector %s: %w", obj.Name, err)
+		}
+	}
+	return nil
 }

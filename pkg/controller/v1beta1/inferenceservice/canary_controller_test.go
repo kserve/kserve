@@ -463,4 +463,171 @@ var _ = Describe("Canary deployment controller", func() {
 			}, timeout, interval).Should(BeTrue())
 		})
 	})
+
+	Context("When removing a canary with orphaned HPAs", func() {
+		It("Should clean up HPAs that no longer match expected deployment names", func() {
+			configMap := createInferenceServiceConfigMap(configs)
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			servingRuntime := getServingRuntime("tf-canary-hpa-orphan", "default")
+			Expect(k8sClient.Create(context.TODO(), &servingRuntime)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), &servingRuntime)
+
+			serviceName := "canary-hpa-orphan-test"
+			serviceKey := types.NamespacedName{Name: serviceName, Namespace: "default"}
+			ctx := context.Background()
+
+			isvc := makeCanaryISVC(serviceName, "default", "s3://test/model-v1", 4,
+				[]v1beta1.CanarySpec{makeCanary("v2", 25, "s3://test/model-v2")})
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, isvc)
+
+			stableKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceName), Namespace: "default"}
+			canaryKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceName, "v2"), Namespace: "default"}
+
+			// Wait for both deployments
+			Eventually(func() error {
+				return k8sClient.Get(ctx, stableKey, &appsv1.Deployment{})
+			}, timeout, interval).Should(Succeed())
+			Eventually(func() error {
+				return k8sClient.Get(ctx, canaryKey, &appsv1.Deployment{})
+			}, timeout, interval).Should(Succeed())
+
+			// Create an orphaned HPA with predictor labels but a stale name
+			orphanHPAName := serviceName + "-old-predictor"
+			orphanHPA := &autoscalingv2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      orphanHPAName,
+					Namespace: "default",
+					Labels: map[string]string{
+						constants.InferenceServicePodLabelKey: serviceName,
+						constants.KServiceComponentLabel:      string(v1beta1.PredictorComponent),
+					},
+				},
+				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+						Name:       orphanHPAName,
+					},
+					MaxReplicas: 3,
+				},
+			}
+			Expect(k8sClient.Create(ctx, orphanHPA)).Should(Succeed())
+
+			// Verify the orphan HPA exists
+			orphanHPAKey := types.NamespacedName{Name: orphanHPAName, Namespace: "default"}
+			Expect(k8sClient.Get(ctx, orphanHPAKey, &autoscalingv2.HorizontalPodAutoscaler{})).Should(Succeed())
+
+			// Remove canary to trigger reconcile with cleanup
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				updatedISVC := &v1beta1.InferenceService{}
+				if err := k8sClient.Get(ctx, serviceKey, updatedISVC); err != nil {
+					return err
+				}
+				updatedISVC.Spec.Canary = nil
+				return k8sClient.Update(ctx, updatedISVC)
+			})).Should(Succeed())
+
+			// Orphaned HPA should be deleted by the reconciler
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, orphanHPAKey, &autoscalingv2.HorizontalPodAutoscaler{})
+				return apierr.IsNotFound(err)
+			}, timeout, interval).Should(BeTrue())
+
+			// Stable deployment should still exist
+			Eventually(func() error {
+				return k8sClient.Get(ctx, stableKey, &appsv1.Deployment{})
+			}, timeout, interval).Should(Succeed())
+		})
+	})
+
+	Context("When promoting a canary with orphaned HPAs", func() {
+		It("Should clean up HPAs from the old stable deployment name", func() {
+			configMap := createInferenceServiceConfigMap(configs)
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			servingRuntime := getServingRuntime("tf-canary-hpa-promote", "default")
+			Expect(k8sClient.Create(context.TODO(), &servingRuntime)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), &servingRuntime)
+
+			serviceName := "canary-hpa-promote-test"
+			serviceKey := types.NamespacedName{Name: serviceName, Namespace: "default"}
+			ctx := context.Background()
+
+			isvc := makeCanaryISVC(serviceName, "default", "s3://test/model-v1", 4,
+				[]v1beta1.CanarySpec{makeCanary("v2", 25, "s3://test/model-v2")})
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, isvc)
+
+			stableKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceName), Namespace: "default"}
+			canaryKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceName, "v2"), Namespace: "default"}
+
+			// Wait for both deployments
+			Eventually(func() error {
+				return k8sClient.Get(ctx, stableKey, &appsv1.Deployment{})
+			}, timeout, interval).Should(Succeed())
+			Eventually(func() error {
+				return k8sClient.Get(ctx, canaryKey, &appsv1.Deployment{})
+			}, timeout, interval).Should(Succeed())
+
+			// Create an HPA matching the old stable name (simulates HPA created before promotion)
+			oldStableName := constants.PredictorServiceName(serviceName)
+			oldStableHPA := &autoscalingv2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      oldStableName,
+					Namespace: "default",
+					Labels: map[string]string{
+						constants.InferenceServicePodLabelKey: serviceName,
+						constants.KServiceComponentLabel:      string(v1beta1.PredictorComponent),
+					},
+				},
+				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+						Name:       oldStableName,
+					},
+					MaxReplicas: 3,
+				},
+			}
+			Expect(k8sClient.Create(ctx, oldStableHPA)).Should(Succeed())
+
+			oldStableHPAKey := types.NamespacedName{Name: oldStableName, Namespace: "default"}
+			Expect(k8sClient.Get(ctx, oldStableHPAKey, &autoscalingv2.HorizontalPodAutoscaler{})).Should(Succeed())
+
+			// Promote: set stable name to v2, update model, remove canary
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				updatedISVC := &v1beta1.InferenceService{}
+				if err := k8sClient.Get(ctx, serviceKey, updatedISVC); err != nil {
+					return err
+				}
+				updatedISVC.Spec.Predictor.Name = "v2"
+				updatedISVC.Spec.Predictor.Model.StorageURI = proto.String("s3://test/model-v2")
+				updatedISVC.Spec.Canary = nil
+				return k8sClient.Update(ctx, updatedISVC)
+			})).Should(Succeed())
+
+			// Old stable HPA should be cleaned up (name no longer in expectedNames)
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, oldStableHPAKey, &autoscalingv2.HorizontalPodAutoscaler{})
+				return apierr.IsNotFound(err)
+			}, timeout, interval).Should(BeTrue())
+
+			// The promoted deployment should still exist
+			Eventually(func() error {
+				return k8sClient.Get(ctx, canaryKey, &appsv1.Deployment{})
+			}, timeout, interval).Should(Succeed())
+
+			// Old stable deployment should be cleaned up
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, stableKey, &appsv1.Deployment{})
+				return apierr.IsNotFound(err)
+			}, timeout, interval).Should(BeTrue())
+		})
+	})
 })
