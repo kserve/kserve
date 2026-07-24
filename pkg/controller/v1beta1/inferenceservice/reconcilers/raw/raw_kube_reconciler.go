@@ -299,3 +299,23 @@ func (r *RawKubeReconciler) Reconcile(ctx context.Context, owner metav1.Object) 
 
 	return deploymentList, nil
 }
+
+// CleanupOrphans deletes resources matching labels whose names are not in expectedNames,
+// delegating to each sub-reconciler.
+func (r *RawKubeReconciler) CleanupOrphans(ctx context.Context, namespace string, labels client.MatchingLabels, expectedNames map[string]bool) error {
+	if err := r.Workload.CleanupOrphans(ctx, namespace, labels, expectedNames); err != nil {
+		return err
+	}
+	if err := r.Service.CleanupOrphans(ctx, namespace, labels, expectedNames); err != nil {
+		return err
+	}
+	if err := r.Scaler.CleanupOrphans(ctx, namespace, labels, expectedNames); err != nil {
+		return err
+	}
+	if r.OtelCollector != nil {
+		if err := r.OtelCollector.CleanupOrphans(ctx, namespace, labels, expectedNames); err != nil {
+			return err
+		}
+	}
+	return nil
+}
