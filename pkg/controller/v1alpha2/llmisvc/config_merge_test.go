@@ -2955,7 +2955,7 @@ spec:
           - name: main
             args:
               - '{{ if .GlobalConfig.EnableTLS }}--enable-cert-reload=true{{- end }}'
-              - '{{ if .GlobalConfig.EnableTLS }}--secure-serving=true{{- end }}'
+              - '--secure-serving={{ .GlobalConfig.EnableTLS }}'
               - '{{ if .GlobalConfig.EnableTLS }}--model-server-metrics-scheme=https{{- end }}'
               - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
 `
@@ -2977,11 +2977,11 @@ func TestReplaceVariables_TLSConditional(t *testing.T) {
 			},
 		},
 		{
-			name:      "TLS off: all flags render empty",
+			name:      "TLS off: all flags render empty except secure-serving",
 			enableTLS: false,
 			wantArgs: []string{
 				"",
-				"",
+				"--secure-serving=false",
 				"",
 				"",
 			},
