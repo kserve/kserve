@@ -731,7 +731,7 @@ class InferRequest:
         for infer_input in self.inputs:
             if infer_input.data is None and infer_input._raw_data is None:
                 raise InvalidInput(
-                    f"'data' field is missing for output '{infer_input.name}' for model '{self.model_name}'"
+                    f"'data' field is missing for input '{infer_input.name}' for model '{self.model_name}'"
                 )
             if isinstance(infer_input.data, np.ndarray):
                 infer_input.set_data_from_numpy(infer_input.data, binary_data=False)
