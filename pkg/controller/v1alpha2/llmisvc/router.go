@@ -177,22 +177,20 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 	}
 
 	if route.HTTP.HasSpec() {
-		// Intentionally conservative: does not check per-peer enablement since that
-		// can change at any time (annotation flip, gateway config), silently
-		// activating a dormant collision.
-		if r.isModelBasedRoutingEnabled(ctx, llmSvc, cfg) {
-			others := &v1alpha2.LLMInferenceServiceList{}
-			if err := r.List(ctx, others, client.InNamespace(llmSvc.Namespace)); err != nil {
-				logger.Error(err, "failed to list LLMISVCs for model name collision check")
-			} else if collisions := findModelNameCollisions(llmSvc, others.Items); len(collisions) > 0 {
-				r.Eventf(llmSvc, corev1.EventTypeWarning, "ModelNameCollision",
-					"model-routing header values overlap with %s in namespace %s; "+
-						"identical header matches cause the gateway to shadow one service. "+
-						"The service is still reachable at its own address %s/%s "+
-						"and this warning is safe to ignore if you plan to enable traffic splitting later",
-					strings.Join(collisions, ", "), llmSvc.Namespace,
-					llmSvc.Namespace, llmSvc.Name)
-			}
+		// Model name collisions affect publisher paths and model-routing
+		// headers alike - both derive from the same fullyQualifiedModelName.
+		// Run unconditionally because publisher paths are always present.
+		others := &v1alpha2.LLMInferenceServiceList{}
+		if err := r.List(ctx, others, client.InNamespace(llmSvc.Namespace)); err != nil {
+			logger.Error(err, "failed to list LLMISVCs for model name collision check")
+		} else if collisions := findModelNameCollisions(llmSvc, others.Items); len(collisions) > 0 {
+			r.Eventf(llmSvc, corev1.EventTypeWarning, "ModelNameCollision",
+				"model name %q overlaps with %s in namespace %s; "+
+					"shared publisher paths and model-routing headers cause the gateway to shadow one service. "+
+					"Reachable at its own address %s/%s; safe to ignore if traffic splitting is planned",
+				ptr.Deref(llmSvc.Spec.Model.Name, llmSvc.Name),
+				strings.Join(collisions, ", "), llmSvc.Namespace,
+				llmSvc.Namespace, llmSvc.Name)
 		}
 
 		if err := Reconcile(ctx, r, llmSvc, &gwapiv1.HTTPRoute{}, expectedHTTPRoute, semanticHTTPRouteIsEqual); err != nil {

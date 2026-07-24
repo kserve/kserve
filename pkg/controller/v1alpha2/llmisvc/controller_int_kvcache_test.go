@@ -38,7 +38,7 @@ var _ = Describe("LLMInferenceService Controller - KV Cache secondary tiers", fu
 		It("should inject an emptyDir volume for a secondary emptyDir tier", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-kvcache-emptydir"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			modelURL, err := apis.ParseURL("pvc://facebook-models/opt-125m")
 			Expect(err).ToNot(HaveOccurred())
@@ -106,7 +106,7 @@ var _ = Describe("LLMInferenceService Controller - KV Cache secondary tiers", fu
 		It("should inject an ephemeral PVC volume for a secondary pvc.spec tier", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-kvcache-pvc-spec"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			modelURL, err := apis.ParseURL("pvc://facebook-models/opt-125m")
 			Expect(err).ToNot(HaveOccurred())
@@ -183,7 +183,7 @@ var _ = Describe("LLMInferenceService Controller - KV Cache secondary tiers", fu
 		It("should inject a pre-existing PVC volume for a secondary pvc.ref tier", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-kvcache-pvc-ref"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			modelURL, err := apis.ParseURL("pvc://facebook-models/opt-125m")
 			Expect(err).ToNot(HaveOccurred())

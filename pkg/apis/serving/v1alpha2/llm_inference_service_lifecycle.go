@@ -39,8 +39,9 @@ const (
 	WorkloadReady apis.ConditionType = "WorkloadsReady"
 
 	// RouterReady is True when all router sub-conditions (GatewaysReady,
-	// HTTPRoutesReady, InferencePoolReady, SchedulerWorkloadReady) that are
-	// present are True. Aggregated by DetermineRouterReadiness. Always present.
+	// HTTPRoutesReady, InferencePoolReady, SchedulerWorkloadReady,
+	// TokenizerReady) that are present are True. Aggregated by
+	// DetermineRouterReadiness. Always present.
 	RouterReady apis.ConditionType = "RouterReady"
 )
 
@@ -87,6 +88,12 @@ const (
 	// Deployment has reached its desired replica count. Set by the scheduler
 	// reconciler. Only present when the scheduler is enabled.
 	SchedulerWorkloadReady apis.ConditionType = "SchedulerWorkloadReady"
+
+	// TokenizerReady is True when the standalone tokenizer Deployment has
+	// reached its desired replica count and all pods are passing readiness
+	// probes. Set by the tokenizer reconciler. Only present when
+	// spec.router.scheduler.tokenizer is set.
+	TokenizerReady apis.ConditionType = "TokenizerReady"
 )
 
 const (
@@ -257,6 +264,18 @@ func (in *LLMInferenceService) MarkSchedulerWorkloadUnset() {
 	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(SchedulerWorkloadReady)
 }
 
+func (in *LLMInferenceService) MarkTokenizerReady() {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(TokenizerReady)
+}
+
+func (in *LLMInferenceService) MarkTokenizerNotReady(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(TokenizerReady, reason, messageFormat, messageA...)
+}
+
+func (in *LLMInferenceService) MarkTokenizerUnset() {
+	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(TokenizerReady)
+}
+
 func (in *LLMInferenceService) MarkGatewaysReady() {
 	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(GatewaysReady)
 }
@@ -321,6 +340,7 @@ func (in *LLMInferenceService) DetermineRouterReadiness() {
 		in.GetStatus().GetCondition(HTTPRoutesReady),
 		in.GetStatus().GetCondition(InferencePoolReady),
 		in.GetStatus().GetCondition(SchedulerWorkloadReady),
+		in.GetStatus().GetCondition(TokenizerReady),
 	}
 
 	for _, cond := range subConditions {

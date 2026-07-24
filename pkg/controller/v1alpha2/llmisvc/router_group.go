@@ -86,11 +86,22 @@ func (r *LLMISVCReconciler) injectGroupBackendRefs(
 	}
 
 	selfModels := resolvedModelNames(llmSvc)
+	selfSpecName := ptr.Deref(llmSvc.Spec.Model.Name, llmSvc.Name)
 
 	for _, m := range resolved {
-		if slices.Equal(m.modelNames, selfModels) {
+		switch {
+		case m.stopped:
+			// Stopped members have no status.Addresses so their modelNames are
+			// spec-derived. Compare against self's spec model name rather than
+			// runtime-resolved names which may include runtime-only aliases.
+			if slices.Contains(m.modelNames, selfSpecName) {
+				matching = append(matching, m)
+			} else {
+				divergent = append(divergent, m)
+			}
+		case slices.Equal(m.modelNames, selfModels):
 			matching = append(matching, m)
-		} else {
+		default:
 			divergent = append(divergent, m)
 		}
 	}
