@@ -48,6 +48,9 @@ manifests-distro: controller-gen
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-localmodelnode-distro-role \
 		paths=./pkg/controller/v1alpha1/localmodelnode/distro \
 		output:rbac:artifacts:config=config/overlays/odh-modelcache/rbac/localmodelnode
+	@$(CONTROLLER_GEN) rbac:roleName=kserve-tls-distro-role \
+		paths=./pkg/tls/distro \
+		output:rbac:artifacts:config=config/overlays/odh/rbac/tls
 
 ## operator-chaos tooling
 OPERATOR_CHAOS = $(LOCALBIN)/operator-chaos
