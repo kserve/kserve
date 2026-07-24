@@ -120,6 +120,30 @@ class TrafficDriver:
         with self._lock:
             self._marks[name] = ts
 
+    def collect(self, min_samples: int, *, timeout: float = 60) -> None:
+        """Wait until min_samples are recorded since the last mark.
+
+        Counts from the most recent mark's timestamp, or from the start
+        of recording if no marks exist. Raises TimeoutError if samples
+        don't arrive within timeout - catches driver stalls early instead
+        of silently passing with zero data.
+        """
+        with self._lock:
+            since = max(self._marks.values()) if self._marks else 0
+
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            with self._lock:
+                n = sum(1 for r in self._records if r.timestamp >= since)
+            if n >= min_samples:
+                return
+            # ponytail: poll at 2x typical driver rate, fine for e2e
+            time.sleep(0.5)
+
+        with self._lock:
+            n = sum(1 for r in self._records if r.timestamp >= since)
+        raise TimeoutError(f"collect: only {n}/{min_samples} samples after {timeout}s")
+
     @property
     def is_running(self) -> bool:
         return self._started and not self._stopped
