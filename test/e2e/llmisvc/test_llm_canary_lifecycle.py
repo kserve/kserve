@@ -472,11 +472,15 @@ def get_member_status(api, observer, member, ns):
     return None
 
 
-def wait_for_healthy_route(gateway_url, headers, payload, consecutive=3, timeout=30):
+def wait_for_healthy_route(
+    gateway_url, headers, payload, consecutive=10, timeout=60, expect_header=None
+):
     """Poll the gateway until we get consecutive 2xx responses.
 
-    Requires multiple consecutive successes to avoid false positives from
-    stale pre-mutation routes that haven't been reprogrammed yet.
+    Requires multiple consecutive successes to confirm envoy xDS config
+    has fully propagated. When expect_header is set as (name, prefix),
+    also validates the response header value starts with the given prefix
+    to confirm the correct backend is serving.
     """
     streak = 0
     deadline = time.monotonic() + timeout
@@ -484,6 +488,12 @@ def wait_for_healthy_route(gateway_url, headers, payload, consecutive=3, timeout
         try:
             resp = requests.post(gateway_url, headers=headers, json=payload, timeout=5)
             if 200 <= resp.status_code < 300:
+                if expect_header:
+                    hdr_name, hdr_prefix = expect_header
+                    if not resp.headers.get(hdr_name, "").startswith(hdr_prefix):
+                        streak = 0
+                        time.sleep(0.5)
+                        continue
                 streak += 1
                 if streak >= consecutive:
                     return
@@ -493,7 +503,8 @@ def wait_for_healthy_route(gateway_url, headers, payload, consecutive=3, timeout
             streak = 0
         time.sleep(0.5)
     raise TimeoutError(
-        f"Route not healthy after {timeout}s ({streak}/{consecutive} consecutive 2xx) from {gateway_url}"
+        f"Route not healthy after {timeout}s ({streak}/{consecutive} consecutive 2xx, "
+        f"expect_header={expect_header!r}) from {gateway_url}"
     )
 
 
@@ -757,7 +768,7 @@ class TestCanaryLifecycle:
 
         # Phase 1: baseline (v1=9, v2=1)
         driver.mark("baseline")
-        time.sleep(20)
+        driver.collect(40)
 
         # Phase 2: canary ramp (v1=7, v2=3)
         driver.mark("canary_mutation")
@@ -773,7 +784,7 @@ class TestCanaryLifecycle:
             {"model": MODEL, "prompt": "Hello", "max_tokens": 5},
         )
         driver.mark("canary")
-        time.sleep(20)
+        driver.collect(40)
 
         # Phase 3: promote (v1=0, v2=9)
         driver.mark("promote_mutation")
@@ -787,9 +798,10 @@ class TestCanaryLifecycle:
                 "Content-Type": "application/json",
             },
             {"model": MODEL, "prompt": "Hello", "max_tokens": 5},
+            expect_header=("x-inference-pod", v2),
         )
         driver.mark("promote")
-        time.sleep(20)
+        driver.collect(40)
 
         report = driver.stop()
 
@@ -878,7 +890,7 @@ class TestCanaryLifecycle:
         )
 
         driver.mark("before_stop")
-        time.sleep(10)
+        driver.collect(20)
 
         patch_stop(api, v2.name, ns)
         wait_for_member_stopped(api, v1.name, v2.name, ns, stopped=True)
@@ -887,9 +899,10 @@ class TestCanaryLifecycle:
             f"{gateway}/v1/completions",
             {"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
             {"model": MODEL, "prompt": "Hello", "max_tokens": 5},
+            expect_header=("x-inference-pod", v1.name),
         )
         driver.mark("settled")
-        time.sleep(15)
+        driver.collect(30)
 
         report = driver.stop()
 
@@ -953,14 +966,14 @@ class TestCanaryLifecycle:
         )
 
         driver.mark("before_delete")
-        time.sleep(10)
+        driver.collect(20)
 
         driver.mark("delete")
         delete_member(api, v2.name, ns, wait=True)
         wait_for_member_count(api, v1.name, ns, 1)
 
         driver.mark("settled")
-        time.sleep(15)
+        driver.collect(30)
 
         report = driver.stop()
 
@@ -1059,7 +1072,7 @@ class TestCanaryLifecycle:
             warmup=True,
         )
 
-        time.sleep(30)
+        driver.collect(60)
         report = driver.stop()
 
         report.all.assert_no_errors("three-member group")
@@ -1098,7 +1111,7 @@ class TestCanaryLifecycle:
         )
 
         driver.mark("v1_only")
-        time.sleep(10)
+        driver.collect(20)
 
         # Late-join v2
         apply_member(api, v2, ns)
@@ -1111,7 +1124,7 @@ class TestCanaryLifecycle:
         )
 
         driver.mark("both")
-        time.sleep(20)
+        driver.collect(40)
 
         report = driver.stop()
         report.all.assert_no_errors("late-join")
@@ -1151,14 +1164,14 @@ class TestCanaryLifecycle:
             warmup=True,
         )
 
-        time.sleep(10)
+        driver.collect(20)
         driver.mark("delete")
 
         delete_member(api, v2.name, ns, wait=True)
         wait_for_member_count(api, v1.name, ns, 1)
 
         driver.mark("settled")
-        time.sleep(15)
+        driver.collect(30)
 
         report = driver.stop()
 
@@ -1202,10 +1215,13 @@ class TestCanaryLifecycle:
         patch_weight(api, v2.name, 9, ns)
         wait_for_group_weight(api, v2.name, v1.name, 0, ns)
         wait_for_healthy_route(
-            f"{gateway}/v1/completions", route_headers, route_payload
+            f"{gateway}/v1/completions",
+            route_headers,
+            route_payload,
+            expect_header=("x-inference-pod", v2.name),
         )
         driver.mark("promoted")
-        time.sleep(15)
+        driver.collect(30)
 
         # Rollback to v1
         driver.mark("rollback_mutation")
@@ -1213,10 +1229,13 @@ class TestCanaryLifecycle:
         patch_weight(api, v2.name, 0, ns)
         wait_for_group_weight(api, v1.name, v2.name, 0, ns)
         wait_for_healthy_route(
-            f"{gateway}/v1/completions", route_headers, route_payload
+            f"{gateway}/v1/completions",
+            route_headers,
+            route_payload,
+            expect_header=("x-inference-pod", v1.name),
         )
         driver.mark("settled")
-        time.sleep(15)
+        driver.collect(30)
 
         report = driver.stop()
 
@@ -1258,7 +1277,7 @@ class TestCanaryLifecycle:
             warmup=True,
         )
 
-        time.sleep(10)
+        driver.collect(20)
         driver.mark("before_stop")
 
         # v1 is the route owner (created first). Force-stop it.
@@ -1270,9 +1289,10 @@ class TestCanaryLifecycle:
             f"{gateway}/v1/completions",
             {"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
             {"model": MODEL, "prompt": "Hello", "max_tokens": 5},
+            expect_header=("x-inference-pod", v2.name),
         )
         driver.mark("settled")
-        time.sleep(15)
+        driver.collect(30)
 
         report = driver.stop()
 
