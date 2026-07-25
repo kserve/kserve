@@ -1,0 +1,119 @@
+---
+# LLMInferenceService for e2e tool calling validation
+# Model: NVIDIA Nemotron-3-Ultra-550B (hybrid Mamba+Attention)
+# Topology: P/D disaggregated (1 prefill + 1 decode, 8 GPUs each)
+# Requires: 2x H200 nodes, HF token secret
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceService
+metadata:
+  name: nemotron-ultra-pd
+spec:
+  model:
+    uri: "hf://RedHatAI/NVIDIA-Nemotron-3-Ultra-550B-A55B-FP8-block"
+    name: RedHatAI/NVIDIA-Nemotron-3-Ultra-550B-A55B-FP8-block
+  replicas: 1
+  router:
+    route: {}
+    scheduler: {}
+  template:
+    containers:
+      - name: main
+        image: ghcr.io/llm-d/llm-d-cuda:v0.8.1
+        env:
+          - name: HF_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: hf-token
+                key: HF_TOKEN
+          - name: VLLM_SSM_CONV_STATE_LAYOUT
+            value: "DS"
+          - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+          - name: VLLM_ADDITIONAL_ARGS
+            value: >-
+              --trust-remote-code
+              --tensor-parallel-size=8
+              --enable-expert-parallel
+              --kv-cache-dtype=fp8
+              --enable-prefix-caching
+              --enable-auto-tool-choice
+              --tool-call-parser=qwen3_coder
+              --reasoning-parser=nemotron_v3
+              --enable-log-requests
+              --enable-log-outputs
+              --model-loader-extra-config '{"enable_multithread_load": true, "num_threads": 96}'
+              --kv-transfer-config '{"kv_connector":"MultiConnector","kv_role":"kv_both","kv_load_failure_policy":"fail","kv_connector_extra_config":{"connectors":[{"kv_connector":"NixlConnector","kv_role":"kv_consumer","kv_connector_extra_config":{"bidirectional_kv_xfer":true}},{"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_connector_extra_config":{"cpu_bytes_to_use":214748364800,"lazy_offload":true}}]}}'
+        resources:
+          limits:
+            cpu: "48"
+            memory: 600Gi
+            nvidia.com/gpu: "8"
+          requests:
+            cpu: "32"
+            memory: 300Gi
+            nvidia.com/gpu: "8"
+        startupProbe:
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 120
+    volumes:
+      - name: shm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 40Gi
+  prefill:
+    replicas: 1
+    template:
+      containers:
+        - name: main
+          image: ghcr.io/llm-d/llm-d-cuda:v0.8.1
+          env:
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hf-token
+                  key: HF_TOKEN
+            - name: VLLM_SSM_CONV_STATE_LAYOUT
+              value: "DS"
+            - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: VLLM_HTTP_TIMEOUT_KEEP_ALIVE
+              value: "120"
+            - name: VLLM_ADDITIONAL_ARGS
+              value: >-
+                --trust-remote-code
+                --tensor-parallel-size=8
+                --enable-expert-parallel
+                --kv-cache-dtype=fp8
+                --enable-prefix-caching
+                --enable-auto-tool-choice
+                --tool-call-parser=qwen3_coder
+                --reasoning-parser=nemotron_v3
+                --enable-log-requests
+                --enable-log-outputs
+                --model-loader-extra-config '{"enable_multithread_load": true, "num_threads": 96}'
+                --kv-transfer-config '{"kv_connector":"MultiConnector","kv_role":"kv_both","kv_load_failure_policy":"fail","kv_connector_extra_config":{"connectors":[{"kv_connector":"NixlConnector","kv_role":"kv_producer","kv_connector_extra_config":{"bidirectional_kv_xfer":true}},{"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_connector_extra_config":{"cpu_bytes_to_use":214748364800,"lazy_offload":true}}]}}'
+          resources:
+            limits:
+              cpu: "48"
+              memory: 600Gi
+              nvidia.com/gpu: "8"
+            requests:
+              cpu: "32"
+              memory: 300Gi
+              nvidia.com/gpu: "8"
+          startupProbe:
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 120
+      volumes:
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 40Gi
