@@ -25,6 +25,8 @@ spec:
               secretKeyRef:
                 name: hf-token
                 key: HF_TOKEN
+          - name: VLLM_PREFIX_CACHE_RETENTION_INTERVAL
+            value: "0"
           - name: VLLM_SSM_CONV_STATE_LAYOUT
             value: "DS"
           - name: VLLM_NIXL_SIDE_CHANNEL_HOST
@@ -76,6 +78,8 @@ spec:
                 secretKeyRef:
                   name: hf-token
                   key: HF_TOKEN
+            - name: VLLM_PREFIX_CACHE_RETENTION_INTERVAL
+              value: "0"
             - name: VLLM_SSM_CONV_STATE_LAYOUT
               value: "DS"
             - name: VLLM_NIXL_SIDE_CHANNEL_HOST
