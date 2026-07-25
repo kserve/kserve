@@ -296,6 +296,7 @@ rules:
   - kserve-models-view
   - kserve-prometheus-k8s
   - kserve-proxy-role
+  - kserve-tls-distro-role
   - kserve-view
   - metrics-reader
   - model-serving-api
