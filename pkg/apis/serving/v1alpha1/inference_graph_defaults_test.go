@@ -27,10 +27,9 @@ func TestInferenceGraphDefaulter_Default(t *testing.T) {
 	defaulter := &InferenceGraphDefaulter{}
 
 	tests := []struct {
-		name    string
-		ig      *InferenceGraph
-		want    InferenceGraphSpec
-		wantErr bool
+		name string
+		ig   *InferenceGraph
+		want InferenceGraphSpec
 	}{
 		{
 			name: "defaults minReplicas when unset",
