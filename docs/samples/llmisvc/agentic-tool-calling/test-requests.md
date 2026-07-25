@@ -22,6 +22,7 @@ curl -s -X POST ${BASE_URL}/v1/chat/completions \
   -H 'Content-Type: application/json' \
   -d '{
     "model": "'${MODEL}'",
+    "temperature": 0,
     "messages": [
       {
         "role": "system",
@@ -73,6 +74,7 @@ curl -s -X POST ${BASE_URL}/v1/chat/completions \
   -H 'Content-Type: application/json' \
   -d '{
     "model": "'${MODEL}'",
+    "temperature": 0,
     "stream": true,
     "messages": [
       {
@@ -126,6 +128,7 @@ curl -s -X POST ${BASE_URL}/v1/messages \
   -H 'anthropic-version: 2023-06-01' \
   -d '{
     "model": "'${MODEL}'",
+    "temperature": 0,
     "max_tokens": 1024,
     "system": "You are a helpful assistant with access to tools. Use the get_weather tool when asked about weather.",
     "messages": [
@@ -173,6 +176,7 @@ curl -s -X POST ${BASE_URL}/v1/messages \
   -H 'anthropic-version: 2023-06-01' \
   -d '{
     "model": "'${MODEL}'",
+    "temperature": 0,
     "max_tokens": 1024,
     "stream": true,
     "system": "You are a helpful assistant with access to tools. Use the get_weather tool when asked about weather.",
@@ -219,6 +223,7 @@ curl -s -X POST ${BASE_URL}/v1/chat/completions \
   -H 'Content-Type: application/json' \
   -d '{
     "model": "'${MODEL}'",
+    "temperature": 0,
     "messages": [
       {
         "role": "system",
@@ -283,6 +288,7 @@ curl -s -X POST ${BASE_URL}/v1/messages \
   -H 'anthropic-version: 2023-06-01' \
   -d '{
     "model": "'${MODEL}'",
+    "temperature": 0,
     "max_tokens": 1024,
     "messages": [
       {
@@ -341,6 +347,7 @@ curl -s -X POST ${BASE_URL}/v1/chat/completions \
   -H 'Content-Type: application/json' \
   -d '{
     "model": "'${MODEL}'",
+    "temperature": 0,
     "messages": [
       {
         "role": "system",
@@ -407,6 +414,7 @@ curl -s -X POST ${BASE_URL}/v1/messages \
   -H 'anthropic-version: 2023-06-01' \
   -d '{
     "model": "'${MODEL}'",
+    "temperature": 0,
     "max_tokens": 1024,
     "system": "You are a helpful assistant with access to tools. Use the appropriate tool for each part of the request. Call multiple tools when needed.",
     "messages": [
@@ -462,6 +470,7 @@ curl -s -X POST ${BASE_URL}/v1/chat/completions \
   -H 'Content-Type: application/json' \
   -d '{
     "model": "'${MODEL}'",
+    "temperature": 0,
     "messages": [
       {
         "role": "system",
@@ -568,6 +577,7 @@ curl -s -X POST ${BASE_URL}/v1/messages \
   -H 'anthropic-version: 2023-06-01' \
   -d '{
     "model": "'${MODEL}'",
+    "temperature": 0,
     "max_tokens": 2048,
     "system": "You are a travel planning assistant. You MUST call ALL relevant tools to answer the user. For this request, call get_weather for the destination, get_time for the destination, search_flights, get_exchange_rate, and translate_phrase.",
     "messages": [
@@ -654,6 +664,7 @@ curl -s -X POST ${BASE_URL}/v1/chat/completions \
   -H 'Content-Type: application/json' \
   -d '{
     "model": "'${MODEL}'",
+    "temperature": 0,
     "messages": [
       {
         "role": "user",
@@ -709,6 +720,7 @@ curl -s -X POST ${BASE_URL}/v1/messages \
   -H 'anthropic-version: 2023-06-01' \
   -d '{
     "model": "'${MODEL}'",
+    "temperature": 0,
     "max_tokens": 1024,
     "messages": [
       {
@@ -757,6 +769,7 @@ curl -s -X POST ${BASE_URL}/v1/chat/completions \
   -H 'Content-Type: application/json' \
   -d '{
     "model": "'${MODEL}'",
+    "temperature": 0,
     "messages": [
       {
         "role": "user",
@@ -830,6 +843,7 @@ curl -s -X POST ${BASE_URL}/v1/chat/completions \
   -H 'Content-Type: application/json' \
   -d '{
     "model": "'${MODEL}'",
+    "temperature": 0,
     "messages": [
       {
         "role": "user",
@@ -866,6 +880,7 @@ curl -s -X POST ${BASE_URL}/v1/chat/completions \
   -H 'Content-Type: application/json' \
   -d '{
     "model": "'${MODEL}'",
+    "temperature": 0,
     "messages": [
       {
         "role": "system",
@@ -910,6 +925,7 @@ curl -s -X POST ${BASE_URL}/v1/chat/completions \
   -H 'Content-Type: application/json' \
   -d '{
     "model": "'${MODEL}'",
+    "temperature": 0,
     "messages": [
       {
         "role": "user",
@@ -977,6 +993,7 @@ curl -s -X POST ${BASE_URL}/v1/messages \
   -H 'anthropic-version: 2023-06-01' \
   -d '{
     "model": "'${MODEL}'",
+    "temperature": 0,
     "max_tokens": 100,
     "messages": [
       {
@@ -1027,6 +1044,7 @@ curl -s -X POST ${BASE_URL}/v1/chat/completions \
   -H 'Content-Type: application/json' \
   -d '{
     "model": "'${MODEL}'",
+    "temperature": 0,
     "messages": [
       {
         "role": "user",
@@ -1049,6 +1067,7 @@ curl -s -X POST ${BASE_URL}/v1/messages \
   -H 'anthropic-version: 2023-06-01' \
   -d '{
     "model": "'${MODEL}'",
+    "temperature": 0,
     "max_tokens": 1024,
     "messages": [
       {

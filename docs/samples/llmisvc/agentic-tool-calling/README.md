@@ -142,6 +142,7 @@ curl -s -X POST ${BASE_URL}/v1/chat/completions \
   -H 'Content-Type: application/json' \
   -d '{
     "model": "'${MODEL}'",
+    "temperature": 0,
     "messages": [
       {"role": "user", "content": "What is the weather in San Francisco?"}
     ],
