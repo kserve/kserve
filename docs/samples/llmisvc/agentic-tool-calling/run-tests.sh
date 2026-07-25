@@ -4,7 +4,7 @@
 # for any tool-calling-capable model deployed via LLMInferenceService.
 #
 # Usage:
-#   MODEL=Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8 LLMISVC_NAME=qwen-7b ./run-tests.sh
+#   MODEL=Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8 LLMISVC_NAME=qwen3-coder-tool-calling ./run-tests.sh
 #   ./run-tests.sh http://localhost:8080/my-namespace/my-llmisvc
 #
 # Environment variables:
@@ -23,7 +23,7 @@ if [ -n "${1:-}" ]; then
 else
     if [ -z "$LLMISVC_NAME" ]; then
         echo "ERROR: LLMISVC_NAME must be set, or pass the base URL as an argument."
-        echo "  Example: LLMISVC_NAME=qwen-7b MODEL=Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8 $0"
+        echo "  Example: LLMISVC_NAME=qwen3-coder-tool-calling MODEL=Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8 $0"
         echo "  Example: $0 http://localhost:8080/my-namespace/my-llmisvc"
         exit 1
     fi
