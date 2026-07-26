@@ -24,6 +24,7 @@ import multiprocessing
 import os
 import re
 import shutil
+import ssl
 import tarfile
 import tempfile
 import time
@@ -32,6 +33,7 @@ import zipfile
 from pathlib import Path
 from typing import Tuple
 from urllib.parse import urlparse
+import certifi
 import requests
 
 from kserve_storage.logging import logger
@@ -185,6 +187,13 @@ class Storage(object):
                     uri, out_dir, allow_patterns, ignore_patterns
                 )
         else:
+            # Skipped for hdfs, which configures TLS explicitly (TLS_CA /
+            # TLS_SKIP_VERIFY) on its own session and requests lets
+            # REQUESTS_CA_BUNDLE override session-level settings, and for
+            # multi-model mounts, which download nothing.
+            if not uri.startswith((MODEL_MOUNT_DIRS, _HDFS_PREFIX, _WEBHDFS_PREFIX)):
+                Storage._configure_global_ca_bundle()
+
             if out_dir is None:
                 out_dir = tempfile.mkdtemp()
             elif not os.path.exists(out_dir):
@@ -370,6 +379,82 @@ class Storage(object):
                         "Failed to find ca bundle file(%s)." % ca_bundle_full_path
                     )
         return kwargs
+
+    @staticmethod
+    def _configure_global_ca_bundle() -> None:
+        """
+        Export the CA bundle mounted from the global CA bundle configmap
+        (caBundleConfigMapName) through REQUESTS_CA_BUNDLE and SSL_CERT_FILE.
+
+        The exported file combines the system trust store, certifi's store,
+        and the mounted bundle, so endpoints that verify today keep
+        verifying. It is honored by requests-based clients (generic
+        http(s), huggingface_hub, google-auth, azure-core) and OpenSSL-based
+        clients such as hf_transfer; the s3, hdfs, and git paths keep their
+        own TLS configuration. Environment variables that are already set
+        are left untouched. Best effort: when the bundle cannot be used, a
+        warning is logged and the default trust store stays in effect.
+        """
+        if not os.getenv("CA_BUNDLE_CONFIGMAP_NAME"):
+            return
+        requests_ca_bundle = os.getenv("REQUESTS_CA_BUNDLE")
+        ssl_cert_file = os.getenv("SSL_CERT_FILE")
+        if requests_ca_bundle and ssl_cert_file:
+            return
+        # Default matches the webhook's DefaultCaBundleVolumeMountPath
+        global_ca_bundle_volume_mount_path = os.getenv(
+            "CA_BUNDLE_VOLUME_MOUNT_POINT", "/etc/ssl/custom-certs"
+        )
+        ca_bundle_full_path = os.path.join(
+            global_ca_bundle_volume_mount_path, "cabundle.crt"
+        )
+        if not os.path.exists(ca_bundle_full_path):
+            logger.warning(
+                "Global ca bundle file(%s) not found, using the default trust store.",
+                ca_bundle_full_path,
+            )
+            return
+        combined_ca_bundle = None
+        try:
+            # SSL_CERT_FILE replaces the system trust store rather than
+            # extending it, so the combined bundle must carry the system
+            # store and certifi along with the mounted bundle.
+            bundle_paths = [certifi.where(), ca_bundle_full_path]
+            system_ca_file = ssl.get_default_verify_paths().cafile
+            if system_ca_file and os.path.exists(system_ca_file):
+                bundle_paths.insert(0, system_ca_file)
+            with tempfile.NamedTemporaryFile(
+                mode="wb", suffix=".crt", delete=False
+            ) as combined_ca_bundle:
+                for bundle_path in bundle_paths:
+                    with open(bundle_path, "rb") as bundle:
+                        shutil.copyfileobj(bundle, combined_ca_bundle)
+                    combined_ca_bundle.write(b"\n")
+            # One unparseable entry makes OpenSSL reject a whole CA file,
+            # so verify the combined bundle loads before exporting it.
+            ssl.create_default_context(cafile=combined_ca_bundle.name)
+        except (OSError, ssl.SSLError) as e:
+            logger.warning(
+                "Failed to combine global ca bundle file(%s) with the default "
+                "trust store, using the default trust store: %s",
+                ca_bundle_full_path,
+                e,
+            )
+            if combined_ca_bundle is not None:
+                try:
+                    os.unlink(combined_ca_bundle.name)
+                except OSError:
+                    pass
+            return
+        logger.info(
+            "Global ca bundle file(%s) combined with the default trust store at %s",
+            ca_bundle_full_path,
+            combined_ca_bundle.name,
+        )
+        if not requests_ca_bundle:
+            os.environ["REQUESTS_CA_BUNDLE"] = combined_ca_bundle.name
+        if not ssl_cert_file:
+            os.environ["SSL_CERT_FILE"] = combined_ca_bundle.name
 
     @staticmethod
     def _init_s3_worker():

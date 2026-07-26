@@ -133,7 +133,7 @@ type WorkloadSpec struct {
 
 	// Scaling configuration for autoscaling this workload.
 	// When specified, the controller creates and manages autoscaling resources
-	// (VariantAutoscaling CR, ServiceMonitor, and the selected actuator — HPA or KEDA ScaledObject)
+	// (ServiceMonitor and the selected actuator — HPA or KEDA ScaledObject, annotated for WVA discovery)
 	// targeting this workload.
 	// Mutually exclusive with the static 'replicas' field.
 	// In a disaggregated setup, each workload (decode and prefill) can have its own independent scaling configuration,
@@ -277,6 +277,21 @@ type GatewayRoutesSpec struct {
 	// HTTP route configuration.
 	// +optional
 	HTTP *HTTPRouteSpec `json:"http,omitempty"`
+
+	// Group identifies the routing group this LLMISVC belongs to.
+	// All members with the same group share weighted traffic distribution.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`
+	Group *string `json:"group,omitempty"`
+
+	// Weight is the proportional traffic share for this member.
+	// Follows Gateway API backendRef weight semantics (proportional, not percentage).
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=1000000
+	Weight *int32 `json:"weight,omitempty"`
 }
 
 // HTTPRouteSpec defines configurations for a Gateway API HTTPRoute.
@@ -344,6 +359,19 @@ type SchedulerSpec struct {
 
 	// Replicas is the number of replicas for the scheduler.
 	Replicas *int32 `json:"replicas,omitempty"`
+
+	// Tokenizer configures a standalone tokenizer deployment that serves the
+	// vLLM render endpoint (/v1/completions/render) over HTTP.
+	// +optional
+	Tokenizer *TokenizerSpec `json:"tokenizer,omitempty"`
+}
+
+// TokenizerSpec configures a standalone tokenizer deployment.
+type TokenizerSpec struct {
+	// Template for the tokenizer pod spec. This is merged on top of the
+	// well-known tokenizer config defaults (vLLM render container).
+	// +optional
+	Template *corev1.PodSpec `json:"template,omitempty"`
 }
 
 type SchedulerConfigSpec struct {
@@ -368,7 +396,7 @@ type InferencePoolSpec struct {
 
 // ScalingSpec configures autoscaling for the LLM inference deployment.
 // When scaling is configured, the controller creates and manages autoscaling resources
-// (VariantAutoscaling CR, ServiceMonitor, and the selected actuator — HPA or KEDA ScaledObject).
+// (ServiceMonitor and the selected actuator — HPA or KEDA ScaledObject, annotated for WVA discovery).
 // +kubebuilder:validation:XValidation:rule="has(self.wva)",message="wva is required when scaling is configured; it provides the autoscaling mechanism"
 // +kubebuilder:validation:XValidation:rule="!has(self.minReplicas) || self.minReplicas <= self.maxReplicas",message="minReplicas cannot exceed maxReplicas"
 // +kubebuilder:validation:XValidation:rule="!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || has(self.minReplicas)",message="minReplicas is required when idleReplicaCount is set; idleReplicaCount must be less than minReplicas"

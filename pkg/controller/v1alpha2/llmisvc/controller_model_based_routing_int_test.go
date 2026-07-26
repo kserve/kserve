@@ -129,7 +129,7 @@ var _ = Describe("Model Based Routing", func() {
 	Context("Default mode (enabled)", func() {
 		It("should include both path-based and model-routing rules", func(ctx SpecContext) {
 			svcName := "test-mbr-default"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := createModelRoutingTestService(ctx, svcName, testNs)
 			defer func() {
@@ -157,7 +157,7 @@ var _ = Describe("Model Based Routing", func() {
 			DeferCleanup(restoreIngressModelBasedRoutingMode)
 
 			svcName := "test-mbr-config-update"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := createModelRoutingTestService(ctx, svcName, testNs)
 			defer func() {
@@ -188,7 +188,7 @@ var _ = Describe("Model Based Routing", func() {
 			DeferCleanup(restoreIngressModelBasedRoutingMode)
 
 			svcName := "test-mbr-disabled"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := createModelRoutingTestService(ctx, svcName, testNs)
 			defer func() {
@@ -219,7 +219,7 @@ var _ = Describe("Model Based Routing", func() {
 			DeferCleanup(restoreIngressModelBasedRoutingMode)
 
 			svcName := "test-mbr-forced"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			customGatewayName := "mbr-forced-gw"
 			customGateway := Gateway(customGatewayName,
@@ -266,7 +266,7 @@ var _ = Describe("Model Based Routing", func() {
 	Context("Enabled with Gateway opt-out annotation", func() {
 		It("should strip model-routing rules when Gateway opts out", func(ctx SpecContext) {
 			svcName := "test-mbr-gw-optout"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			customGatewayName := "mbr-optout-gw"
 			customGateway := Gateway(customGatewayName,
@@ -313,7 +313,7 @@ var _ = Describe("Model Based Routing", func() {
 	Context("Disabled via explicit Spec annotation override", func() {
 		It("should strip model-routing rules when Spec.Annotations overrides the annotation to false", func(ctx SpecContext) {
 			svcName := "test-mbr-no-annotation"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),

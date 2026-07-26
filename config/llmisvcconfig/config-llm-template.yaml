@@ -7,7 +7,7 @@ spec:
     serving.kserve.io/model-based-routing-enabled: "true"
   template:
     containers:
-      - image: ghcr.io/llm-d/llm-d-cuda:v0.7.0
+      - image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
         imagePullPolicy: IfNotPresent
         name: main
         ports:
@@ -169,6 +169,7 @@ spec:
               ${ACCESS_LOG_ARGS} \
               ${SHUTDOWN_TIMEOUT_ARGS} \
               ${KV_TRANSFER_ARGS} \
+              {{- if and .Spec.Parallelism .Spec.Parallelism.Tensor }} --tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
               {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
               {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
               {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \

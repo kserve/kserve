@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 
 	corev1 "k8s.io/api/core/v1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
@@ -39,7 +40,7 @@ import (
  * Please add functional style container operations sparingly and intentionally.
  */
 
-var gvResourcesCache map[string]*metav1.APIResourceList
+var gvResourcesCache sync.Map
 
 // Errors
 const (
@@ -233,41 +234,35 @@ func IsCrdAvailable(config *rest.Config, groupVersion, kind string) (bool, error
 }
 
 // GetAvailableResourcesForApi returns the list of discovered resources that belong
-// to the API specified in groupVersion. The first query to a specifig groupVersion will
+// to the API specified in groupVersion. The first query to a specific groupVersion will
 // query the cluster API server to discover the available resources and the discovered
 // resources will be cached and returned to subsequent invocations to prevent additional
 // queries to the API server.
 func GetAvailableResourcesForApi(config *rest.Config, groupVersion string) (*metav1.APIResourceList, error) {
-	var gvResources *metav1.APIResourceList
-	var ok bool
-
-	if gvResources, ok = gvResourcesCache[groupVersion]; !ok {
-		discoveryClient, newClientErr := discovery.NewDiscoveryClientForConfig(config)
-		if newClientErr != nil {
-			return nil, newClientErr
-		}
-
-		var getGvResourcesErr error
-		gvResources, getGvResourcesErr = discoveryClient.ServerResourcesForGroupVersion(groupVersion)
-		if getGvResourcesErr != nil && !apierr.IsNotFound(getGvResourcesErr) {
-			return nil, getGvResourcesErr
-		}
-
-		SetAvailableResourcesForApi(groupVersion, gvResources)
+	if cached, ok := gvResourcesCache.Load(groupVersion); ok {
+		return cached.(*metav1.APIResourceList), nil
 	}
+
+	discoveryClient, newClientErr := discovery.NewDiscoveryClientForConfig(config)
+	if newClientErr != nil {
+		return nil, newClientErr
+	}
+
+	gvResources, getGvResourcesErr := discoveryClient.ServerResourcesForGroupVersion(groupVersion)
+	if getGvResourcesErr != nil && !apierr.IsNotFound(getGvResourcesErr) {
+		return nil, getGvResourcesErr
+	}
+
+	SetAvailableResourcesForApi(groupVersion, gvResources)
 
 	return gvResources, nil
 }
 
-// SetAvailableResourcesForApi stores the value fo resources argument in the global cache
+// SetAvailableResourcesForApi stores the value of resources argument in the global cache
 // of discovered API resources. This function should never be called directly. It is exported
 // for usage in tests.
 func SetAvailableResourcesForApi(groupVersion string, resources *metav1.APIResourceList) {
-	if gvResourcesCache == nil {
-		gvResourcesCache = make(map[string]*metav1.APIResourceList)
-	}
-
-	gvResourcesCache[groupVersion] = resources
+	gvResourcesCache.Store(groupVersion, resources)
 }
 
 func GetEnvVarValue(envVars []corev1.EnvVar, key string) (string, bool) {
@@ -305,12 +300,27 @@ func AddVolumeMountIfNotPresent(container *corev1.Container, mountName, mountPat
 			return
 		}
 	}
-	modelMount := corev1.VolumeMount{
+	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
 		Name:      mountName,
 		MountPath: mountPath,
 		ReadOnly:  readOnly,
+	})
+}
+
+// AddVolumeMountIfNotPresentWithSubPath is like AddVolumeMountIfNotPresent but also sets SubPath
+// on the added VolumeMount. Container must not be nil.
+func AddVolumeMountIfNotPresentWithSubPath(container *corev1.Container, mountName, mountPath, subPath string, readOnly bool) {
+	for _, v := range container.VolumeMounts {
+		if v.Name == mountName {
+			return
+		}
 	}
-	container.VolumeMounts = append(container.VolumeMounts, modelMount)
+	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+		Name:      mountName,
+		MountPath: mountPath,
+		SubPath:   subPath,
+		ReadOnly:  readOnly,
+	})
 }
 
 // Returns the value of the stop annotation

@@ -91,6 +91,9 @@ async def deploy_and_predict(
     rest_client,
     input_path: str,
     timeout_seconds: int = AUTOGLUON_ISVC_WAIT_TIMEOUT,
+    network_layer: str = "istio",
 ):
     async with autogluon_isvc(service_name, predictor, timeout_seconds):
-        return await predict_isvc(rest_client, service_name, input_path)
+        return await predict_isvc(
+            rest_client, service_name, input_path, network_layer=network_layer
+        )

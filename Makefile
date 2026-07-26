@@ -96,7 +96,13 @@ go-lint: golangci-lint
 	@cd qpext && $(GOLANGCI_LINT) run --fix
 
 py-lint: $(RUFF)
-	$(RUFF) check --config ruff.toml 
+	$(RUFF) check --config ruff.toml
+
+# Verify e2e test files parse and collect without errors (catches import errors, syntax errors, fixture issues).
+e2e-collect: $(PYTEST)
+	$(UV) pip install --python $(PYTHON_BIN)/python -e ./python/kserve -q
+	$(UV) pip install --python $(PYTHON_BIN)/python --group test --directory ./python/kserve -q
+	$(PYTEST) --collect-only test/e2e/ -q
 
 pin-actions: pinact
 	GITHUB_TOKEN=$$(gh auth token 2>/dev/null) $(PINACT) run .github/workflows/*.yml .github/workflows/*.yaml
@@ -141,7 +147,13 @@ manifests: controller-gen kustomize yq
 
 	# DO NOT COPY to helm chart. It needs to be created before the Envoy Gateway or you will need to restart the Envoy Gateway controller.
 	# The llmisvc helm chart needs to be installed after the Envoy Gateway as well, so it needs to be created before the llmisvc helm chart.
-	$(KUSTOMIZE) build https://github.com/kubernetes-sigs/gateway-api-inference-extension.git/config/crd?ref=$(GIE_VERSION) > config/llmisvc/gateway-inference-extension.yaml
+	# Pull upstream GIE v1 CRDs (InferencePool, etc.) from release artifact
+	curl -sL https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/$(GIE_VERSION)/v1-manifests.yaml > config/llmisvc/gateway-inference-extension.yaml
+	# Append llm-d.ai CRDs (InferenceObjective, InferenceModelRewrite) from llm-d-router release
+	@echo "---" >> config/llmisvc/gateway-inference-extension.yaml
+	curl -sL https://github.com/llm-d/llm-d-router/releases/download/$(LLMD_ROUTER_VERSION)/manifests.yaml >> config/llmisvc/gateway-inference-extension.yaml
+	# Workaround to update main-dev version from llm-d-router release as annotation
+	sed -i 's|llm-d.ai/bundle-version: main-dev|llm-d.ai/bundle-version: $(LLMD_ROUTER_VERSION)|' config/llmisvc/gateway-inference-extension.yaml
 	cp config/llmisvc/gateway-inference-extension.yaml test/crds/gateway-inference-extension.yaml
 	cat test/crds/gateway-inference-extension-v1alpha2pool.yaml >> config/llmisvc/gateway-inference-extension.yaml
 	cat test/crds/gateway-inference-extension-v1alpha2pool.yaml >> test/crds/gateway-inference-extension.yaml
@@ -163,19 +175,27 @@ manifests: controller-gen kustomize yq
 	@$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt",year=$(CURRENT_YEAR) paths=./pkg/apis/serving/v1alpha2
 	@$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt",year=$(CURRENT_YEAR) paths=./pkg/apis/serving/v1beta1
 
-	# Remove validation for the LLMInferenceServiceConfig API so that we can use Go templates to inject values at runtime.
-	# Note: v1alpha1 is at index 0, v1alpha2 is at index 1. These rules target v1alpha2 which has the full InferencePoolSpec.
-	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.route.properties.http.properties.spec.properties.rules.items.properties.matches.items.properties.path.x-kubernetes-validations)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.router.properties.route.properties.http.properties.spec.properties.rules.items.properties.matches.items.properties.headers.items.properties.name.pattern)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.route.properties.http.properties.spec.properties.rules.items.properties.matches.items.properties.headers.items.properties.name.pattern)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.route.properties.http.properties.spec.properties.rules.items.properties.filters.items.properties.urlRewrite.properties.path.x-kubernetes-validations)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.route.properties.http.properties.spec.properties.parentRefs.items.properties.namespace.pattern)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	# Remove pattern validation from InferencePool selector matchLabels to allow Go templates
-	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.pool.properties.spec.properties.selector.properties.matchLabels.additionalProperties.pattern)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.pool.properties.spec.properties.selector.properties.matchLabels.additionalProperties.maxLength)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.pool.properties.spec.properties.selector.properties.matchLabels.additionalProperties.minLength)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.pool.properties.spec.properties.selector.properties.matchLabels.maxProperties)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.pool.properties.spec.properties.selector.properties.matchLabels.minProperties)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
+	# Strip schema validation from embedded external types in LLMInferenceServiceConfig.
+	# These subtrees contain Go template expressions (e.g. {{ .GlobalConfig.ModelBasedRoutingHeaderName }})
+	# that fail upstream schema validation at apply time. Recursive descent per subtree survives
+	# schema restructuring across Gateway API / GIE / core API version bumps.
+	@for ver in 0 1; do \
+		base=".spec.versions[$$ver].schema.openAPIV3Schema.properties.spec.properties"; \
+		for path in \
+			"$$base.router.properties.route.properties.http.properties.spec" \
+			"$$base.router.properties.scheduler.properties.pool.properties.spec" \
+			"$$base.template" \
+			"$$base.worker" \
+			"$$base.prefill.properties.template" \
+			"$$base.prefill.properties.worker" \
+			"$$base.router.properties.scheduler.properties.template" \
+			"$$base.router.properties.scheduler.properties.tokenizer.properties.template"; \
+		do \
+			for field in pattern x-kubernetes-validations minLength minItems minProperties; do \
+				$(YQ) "($$path | .. | select(has(\"$$field\"))) |= del(.$$field)" -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml; \
+			done; \
+		done; \
+	done
 	# Remove validation for the LLMInferenceServiceConfig API so that we can override only specific values (both versions).
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.worker.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
@@ -215,11 +235,14 @@ manifests: controller-gen kustomize yq
 	@$(YQ) '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/full/serving.kserve.io_clusterservingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} $(YQ) '{} = "TCP"' -i config/crd/full/serving.kserve.io_clusterservingruntimes.yaml
 	@$(YQ) '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/full/serving.kserve.io_servingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} $(YQ) '{} = "TCP"' -i config/crd/full/serving.kserve.io_servingruntimes.yaml
 	
-	# Copy the full crd to the helm chart
-	cp config/crd/full/*.yaml charts/kserve-crd/templates/	
+	# Copy kserve crd (with conversion webhook patches applied via kustomize)
+	$(KUSTOMIZE) build config/crd/full | $(YQ) 'select(.metadata.name == "inferenceservices.serving.kserve.io")' > charts/kserve-crd/templates/serving.kserve.io_inferenceservices.yaml
+	$(KUSTOMIZE) build config/crd/full | $(YQ) 'select(.metadata.name == "trainedmodels.serving.kserve.io")' > charts/kserve-crd/templates/serving.kserve.io_trainedmodels.yaml
+	$(KUSTOMIZE) build config/crd/full | $(YQ) 'select(.metadata.name == "clusterservingruntimes.serving.kserve.io")' > charts/kserve-crd/templates/serving.kserve.io_clusterservingruntimes.yaml
+	$(KUSTOMIZE) build config/crd/full | $(YQ) 'select(.metadata.name == "servingruntimes.serving.kserve.io")' > charts/kserve-crd/templates/serving.kserve.io_servingruntimes.yaml
+	$(KUSTOMIZE) build config/crd/full | $(YQ) 'select(.metadata.name == "inferencegraphs.serving.kserve.io")' > charts/kserve-crd/templates/serving.kserve.io_inferencegraphs.yaml
 	cp config/crd/full/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-crd/files/
-	cp config/crd/full/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-llmisvc-crd/files/	
-	rm charts/kserve-crd/templates/kustomization.yaml
+	cp config/crd/full/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-llmisvc-crd/files/
 	cp -f config/crd/full/localmodel/*.yaml charts/kserve-localmodel-crd/templates/
 	rm charts/kserve-localmodel-crd/templates/kustomization.yaml
 	
@@ -227,9 +250,6 @@ manifests: controller-gen kustomize yq
 	$(KUSTOMIZE) build config/crd/full/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceservices.serving.kserve.io")' > charts/kserve-llmisvc-crd/templates/serving.kserve.io_llminferenceservices.yaml
 	$(KUSTOMIZE) build config/crd/full/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceserviceconfigs.serving.kserve.io")' > charts/kserve-llmisvc-crd/templates/serving.kserve.io_llminferenceserviceconfigs.yaml
 	
-	# Copy the WVA VariantAutoscaling CRD for envtest
-	$(KUSTOMIZE) build https://github.com/llm-d/llm-d-workload-variant-autoscaler.git/config/crd?ref=$(WVA_VERSION) > test/crds/wva_variantautoscalings.yaml
-
 	# Copy the full crd to the test folder
 	$(KUSTOMIZE) build config/crd/full > test/crds/serving.kserve.io_all_crds.yaml
 	echo "---" >> test/crds/serving.kserve.io_all_crds.yaml
@@ -242,12 +262,15 @@ manifests: controller-gen kustomize yq
 	# Generate minimal crd
 	./hack/minimal-crdgen.sh
 	
-	# Copy the minimal crd to the helm chart
-	cp -f config/crd/minimal/*.yaml charts/kserve-crd-minimal/templates/
+	# Copy kserve minimal crd (with conversion webhook patches applied via kustomize)
+	$(KUSTOMIZE) build config/crd/minimal | $(YQ) 'select(.metadata.name == "inferenceservices.serving.kserve.io")' > charts/kserve-crd-minimal/templates/serving.kserve.io_inferenceservices.yaml
+	$(KUSTOMIZE) build config/crd/minimal | $(YQ) 'select(.metadata.name == "trainedmodels.serving.kserve.io")' > charts/kserve-crd-minimal/templates/serving.kserve.io_trainedmodels.yaml
+	$(KUSTOMIZE) build config/crd/minimal | $(YQ) 'select(.metadata.name == "clusterservingruntimes.serving.kserve.io")' > charts/kserve-crd-minimal/templates/serving.kserve.io_clusterservingruntimes.yaml
+	$(KUSTOMIZE) build config/crd/minimal | $(YQ) 'select(.metadata.name == "servingruntimes.serving.kserve.io")' > charts/kserve-crd-minimal/templates/serving.kserve.io_servingruntimes.yaml
+	$(KUSTOMIZE) build config/crd/minimal | $(YQ) 'select(.metadata.name == "inferencegraphs.serving.kserve.io")' > charts/kserve-crd-minimal/templates/serving.kserve.io_inferencegraphs.yaml
 	cp -f config/crd/minimal/localmodel/*.yaml charts/kserve-localmodel-crd-minimal/templates/
 	cp -f config/crd/minimal/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-crd-minimal/files/
 	cp -f config/crd/minimal/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-llmisvc-crd-minimal/files/
-	rm charts/kserve-crd-minimal/templates/kustomization.yaml
 	rm charts/kserve-localmodel-crd-minimal/templates/kustomization.yaml
 
 	# Copy minimal llmisvc crd (with conversion webhook patches applied via kustomize)
@@ -333,7 +356,7 @@ boilerplate:
 	hack/boilerplate.sh
 
 # This runs all necessary steps to prepare for a commit.
-precommit: ensure-go-version-upgrade sync-deps sync-img-env vet go-lint py-fmt py-lint generate tidy manifests uv-lock generate-quick-install-scripts generate-chart-manifests sync-helm-common-helpers sync-helm-common-resource-helpers sync-helm-multi-resource-helpers verify-pinned-actions verify-minimal-crd-sync boilerplate
+precommit: ensure-go-version-upgrade sync-deps sync-img-env vet go-lint py-fmt py-lint e2e-collect generate tidy manifests uv-lock generate-quick-install-scripts generate-chart-manifests sync-helm-common-helpers sync-helm-common-resource-helpers sync-helm-multi-resource-helpers verify-pinned-actions verify-minimal-crd-sync boilerplate
 
 # This is used by CI to ensure that the precommit checks are met.
 check: precommit

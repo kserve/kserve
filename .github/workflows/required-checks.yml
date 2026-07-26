@@ -16,10 +16,12 @@ jobs:
       checks: read
     steps:
       - name: job status check
-        uses: poseidon/wait-for-status-checks@899c768d191b56eef585c18f8558da19e1f3e707 # v0.6.0
+        uses: lewagon/wait-on-check-action@1d57e2c51a58d812d2765e036a028b6bdb5a6154 # v1.8.1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          interval: 60s
-          # seconds to wait before first poll.
-          delay: 300s
-          timeout: 10800s # 3 hour (based on the highest avg runtime of a job https://github.com/kserve/kserve/actions/metrics/performance?tab=jobs)
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          running-workflow-name: enforce-all-checks
+          allowed-conclusions: success,skipped
+          wait-interval: 60
+          checks-discovery-timeout: 300
+          verbose: false

@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
-	wvav1alpha1 "github.com/llm-d/llm-d-workload-variant-autoscaler/api/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
@@ -81,8 +80,8 @@ func TestExpectedHPA(t *testing.T) {
 		llmSvc         *v1alpha2.LLMInferenceService
 		scaling        *v1alpha2.ScalingSpec
 		scaleTargetRef autoscalingv2.CrossVersionObjectReference
-		vaName         string
 		hpaName        string
+		workloadLabels map[string]string
 		validate       func(t *testing.T, hpa *autoscalingv2.HorizontalPodAutoscaler)
 	}{
 		{
@@ -90,7 +89,6 @@ func TestExpectedHPA(t *testing.T) {
 			llmSvc:         newTestLLMISVC("test-svc", "test-ns"),
 			scaling:        &v1alpha2.ScalingSpec{MaxReplicas: 5, WVA: &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}}},
 			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
-			vaName:         "test-svc-kserve-va",
 			hpaName:        "test-svc-kserve-hpa",
 			validate: func(t *testing.T, hpa *autoscalingv2.HorizontalPodAutoscaler) {
 				require.NotNil(t, hpa.Spec.MinReplicas)
@@ -106,7 +104,6 @@ func TestExpectedHPA(t *testing.T) {
 				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}},
 			},
 			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
-			vaName:         "test-svc-kserve-va",
 			hpaName:        "test-svc-kserve-hpa",
 			validate: func(t *testing.T, hpa *autoscalingv2.HorizontalPodAutoscaler) {
 				require.NotNil(t, hpa.Spec.MinReplicas)
@@ -119,7 +116,6 @@ func TestExpectedHPA(t *testing.T) {
 			llmSvc:         newTestLLMISVC("my-model", "prod"),
 			scaling:        &v1alpha2.ScalingSpec{MaxReplicas: 5, WVA: &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}}},
 			scaleTargetRef: deploymentScaleTargetRef("my-model-kserve"),
-			vaName:         "my-model-kserve-va",
 			hpaName:        "my-model-kserve-hpa",
 			validate: func(t *testing.T, hpa *autoscalingv2.HorizontalPodAutoscaler) {
 				assert.Equal(t, "apps/v1", hpa.Spec.ScaleTargetRef.APIVersion)
@@ -132,7 +128,6 @@ func TestExpectedHPA(t *testing.T) {
 			llmSvc:         newTestLLMISVC("my-model", "prod"),
 			scaling:        &v1alpha2.ScalingSpec{MaxReplicas: 5, WVA: &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}}},
 			scaleTargetRef: lwsScaleTargetRef("my-model-kserve-mn"),
-			vaName:         "my-model-kserve-va",
 			hpaName:        "my-model-kserve-hpa",
 			validate: func(t *testing.T, hpa *autoscalingv2.HorizontalPodAutoscaler) {
 				assert.Equal(t, lwsapi.GroupVersion.String(), hpa.Spec.ScaleTargetRef.APIVersion)
@@ -141,11 +136,10 @@ func TestExpectedHPA(t *testing.T) {
 			},
 		},
 		{
-			name:           "metric selector uses variant_name from VA",
+			name:           "metric selector uses variant_name from HPA name",
 			llmSvc:         newTestLLMISVC("test-svc", "test-ns"),
 			scaling:        &v1alpha2.ScalingSpec{MaxReplicas: 5, WVA: &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}}},
 			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
-			vaName:         "test-svc-kserve-va",
 			hpaName:        "test-svc-kserve-hpa",
 			validate: func(t *testing.T, hpa *autoscalingv2.HorizontalPodAutoscaler) {
 				require.Len(t, hpa.Spec.Metrics, 1)
@@ -154,7 +148,7 @@ func TestExpectedHPA(t *testing.T) {
 				require.NotNil(t, metric.External)
 				assert.Equal(t, "wva_desired_replicas", metric.External.Metric.Name)
 				require.NotNil(t, metric.External.Metric.Selector)
-				assert.Equal(t, "test-svc-kserve-va", metric.External.Metric.Selector.MatchLabels["variant_name"])
+				assert.Equal(t, "test-svc-kserve-hpa", metric.External.Metric.Selector.MatchLabels["variant_name"])
 				assert.Equal(t, autoscalingv2.ValueMetricType, metric.External.Target.Type)
 				assert.Equal(t, resource.NewQuantity(1, resource.DecimalSI), metric.External.Target.Value)
 			},
@@ -177,7 +171,6 @@ func TestExpectedHPA(t *testing.T) {
 				},
 			},
 			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
-			vaName:         "test-svc-kserve-va",
 			hpaName:        "test-svc-kserve-hpa",
 			validate: func(t *testing.T, hpa *autoscalingv2.HorizontalPodAutoscaler) {
 				require.NotNil(t, hpa.Spec.Behavior)
@@ -190,7 +183,6 @@ func TestExpectedHPA(t *testing.T) {
 			llmSvc:         newTestLLMISVC("test-svc", "test-ns"),
 			scaling:        &v1alpha2.ScalingSpec{MaxReplicas: 5, WVA: &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}}},
 			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
-			vaName:         "test-svc-kserve-va",
 			hpaName:        "test-svc-kserve-hpa",
 			validate: func(t *testing.T, hpa *autoscalingv2.HorizontalPodAutoscaler) {
 				assert.Nil(t, hpa.Spec.Behavior)
@@ -201,7 +193,6 @@ func TestExpectedHPA(t *testing.T) {
 			llmSvc:         newTestLLMISVC("test-svc", "test-ns"),
 			scaling:        &v1alpha2.ScalingSpec{MaxReplicas: 5, WVA: &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}}},
 			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
-			vaName:         "test-svc-kserve-va",
 			hpaName:        "test-svc-kserve-hpa",
 			validate: func(t *testing.T, hpa *autoscalingv2.HorizontalPodAutoscaler) {
 				require.Len(t, hpa.OwnerReferences, 1)
@@ -210,11 +201,107 @@ func TestExpectedHPA(t *testing.T) {
 				assert.True(t, *hpa.OwnerReferences[0].Controller)
 			},
 		},
+		{
+			name:           "WVA managed annotation is set",
+			llmSvc:         newTestLLMISVC("test-svc", "test-ns"),
+			scaling:        &v1alpha2.ScalingSpec{MaxReplicas: 5, WVA: &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}}},
+			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
+			hpaName:        "test-svc-kserve-hpa",
+			validate: func(t *testing.T, hpa *autoscalingv2.HorizontalPodAutoscaler) {
+				assert.Equal(t, "true", hpa.Annotations[wvaManagedAnnotation])
+			},
+		},
+		{
+			name:           "WVA model-id annotation uses model name",
+			llmSvc:         newTestLLMISVC("test-svc", "test-ns"),
+			scaling:        &v1alpha2.ScalingSpec{MaxReplicas: 5, WVA: &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}}},
+			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
+			hpaName:        "test-svc-kserve-hpa",
+			validate: func(t *testing.T, hpa *autoscalingv2.HorizontalPodAutoscaler) {
+				assert.Equal(t, "meta-llama/Llama-3.1-8B", hpa.Annotations[wvaModelIDAnnotation])
+			},
+		},
+		{
+			name: "WVA model-id annotation falls back to URI when name is nil",
+			llmSvc: func() *v1alpha2.LLMInferenceService {
+				svc := newTestLLMISVC("test-svc", "test-ns")
+				svc.Spec.Model.Name = nil
+				return svc
+			}(),
+			scaling:        &v1alpha2.ScalingSpec{MaxReplicas: 5, WVA: &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}}},
+			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
+			hpaName:        "test-svc-kserve-hpa",
+			validate: func(t *testing.T, hpa *autoscalingv2.HorizontalPodAutoscaler) {
+				expectedURI := apis.URL{Scheme: "hf", Host: "meta-llama/Llama-3.1-8B"}
+				assert.Equal(t, expectedURI.String(), hpa.Annotations[wvaModelIDAnnotation])
+			},
+		},
+		{
+			name:   "WVA variant-cost annotation set when variantCost specified",
+			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
+			scaling: &v1alpha2.ScalingSpec{
+				MaxReplicas: 5,
+				WVA:         &v1alpha2.WVASpec{VariantCost: "42.5", ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}},
+			},
+			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
+			hpaName:        "test-svc-kserve-hpa",
+			validate: func(t *testing.T, hpa *autoscalingv2.HorizontalPodAutoscaler) {
+				assert.Equal(t, "42.5", hpa.Annotations[wvaVariantCostAnnotation])
+			},
+		},
+		{
+			name:           "WVA variant-cost annotation absent when variantCost empty",
+			llmSvc:         newTestLLMISVC("test-svc", "test-ns"),
+			scaling:        &v1alpha2.ScalingSpec{MaxReplicas: 5, WVA: &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}}},
+			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
+			hpaName:        "test-svc-kserve-hpa",
+			validate: func(t *testing.T, hpa *autoscalingv2.HorizontalPodAutoscaler) {
+				_, exists := hpa.Annotations[wvaVariantCostAnnotation]
+				assert.False(t, exists, "variant-cost annotation should not be present when variantCost is empty")
+			},
+		},
+		{
+			name:           "acceleratorName label taken from workload labels when present",
+			llmSvc:         newTestLLMISVC("test-svc", "test-ns"),
+			scaling:        &v1alpha2.ScalingSpec{MaxReplicas: 5, WVA: &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}}},
+			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
+			hpaName:        "test-svc-kserve-hpa",
+			workloadLabels: map[string]string{
+				acceleratorNameLabelKey: "H100",
+			},
+			validate: func(t *testing.T, hpa *autoscalingv2.HorizontalPodAutoscaler) {
+				assert.Equal(t, "H100", hpa.Labels[acceleratorNameLabelKey])
+			},
+		},
+		{
+			name:           "acceleratorName label is unknown when not present in workload labels",
+			llmSvc:         newTestLLMISVC("test-svc", "test-ns"),
+			scaling:        &v1alpha2.ScalingSpec{MaxReplicas: 5, WVA: &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}}},
+			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
+			hpaName:        "test-svc-kserve-hpa",
+			workloadLabels: nil,
+			validate: func(t *testing.T, hpa *autoscalingv2.HorizontalPodAutoscaler) {
+				assert.Equal(t, "unknown", hpa.Labels[acceleratorNameLabelKey])
+			},
+		},
+		{
+			name:           "acceleratorName label is unknown when present but empty in workload labels",
+			llmSvc:         newTestLLMISVC("test-svc", "test-ns"),
+			scaling:        &v1alpha2.ScalingSpec{MaxReplicas: 5, WVA: &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}}},
+			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
+			hpaName:        "test-svc-kserve-hpa",
+			workloadLabels: map[string]string{
+				acceleratorNameLabelKey: "",
+			},
+			validate: func(t *testing.T, hpa *autoscalingv2.HorizontalPodAutoscaler) {
+				assert.Equal(t, "unknown", hpa.Labels[acceleratorNameLabelKey])
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			hpa := expectedHPA(tt.llmSvc, tt.scaling, tt.scaleTargetRef, tt.vaName, tt.hpaName)
+			hpa := expectedHPA(tt.llmSvc, tt.scaling, tt.scaleTargetRef, tt.hpaName, tt.workloadLabels)
 			assert.Equal(t, tt.hpaName, hpa.Name)
 			assert.Equal(t, tt.llmSvc.Namespace, hpa.Namespace)
 			tt.validate(t, hpa)
@@ -229,8 +316,8 @@ func TestExpectedScaledObject(t *testing.T) {
 		scaling        *v1alpha2.ScalingSpec
 		config         *Config
 		scaleTargetRef autoscalingv2.CrossVersionObjectReference
-		vaName         string
 		soName         string
+		workloadLabels map[string]string
 		validate       func(t *testing.T, so *kedav1alpha1.ScaledObject)
 	}{
 		{
@@ -242,7 +329,6 @@ func TestExpectedScaledObject(t *testing.T) {
 			},
 			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{Prometheus: PrometheusConfig{URL: "http://prom:9090"}}},
 			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
-			vaName:         "test-svc-kserve-va",
 			soName:         "test-svc-kserve-keda",
 			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
 				require.NotNil(t, so.Spec.MinReplicaCount)
@@ -259,7 +345,6 @@ func TestExpectedScaledObject(t *testing.T) {
 			},
 			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{Prometheus: PrometheusConfig{URL: "http://prom:9090"}}},
 			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
-			vaName:         "test-svc-kserve-va",
 			soName:         "test-svc-kserve-keda",
 			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
 				assert.Equal(t, int32(2), *so.Spec.MinReplicaCount)
@@ -276,7 +361,6 @@ func TestExpectedScaledObject(t *testing.T) {
 			},
 			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{Prometheus: PrometheusConfig{URL: "http://prom:9090"}}},
 			scaleTargetRef: deploymentScaleTargetRef("my-model-kserve-prefill"),
-			vaName:         "my-model-kserve-prefill-va",
 			soName:         "my-model-kserve-prefill-keda",
 			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
 				require.NotNil(t, so.Spec.ScaleTargetRef)
@@ -294,7 +378,6 @@ func TestExpectedScaledObject(t *testing.T) {
 			},
 			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{Prometheus: PrometheusConfig{URL: "http://prom:9090"}}},
 			scaleTargetRef: lwsScaleTargetRef("my-model-kserve-mn"),
-			vaName:         "my-model-kserve-va",
 			soName:         "my-model-kserve-keda",
 			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
 				require.NotNil(t, so.Spec.ScaleTargetRef)
@@ -312,7 +395,6 @@ func TestExpectedScaledObject(t *testing.T) {
 			},
 			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{Prometheus: PrometheusConfig{URL: "https://prom.monitoring:9090", TLSInsecureSkipVerify: true}}},
 			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
-			vaName:         "test-svc-kserve-va",
 			soName:         "test-svc-kserve-keda",
 			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
 				require.Len(t, so.Spec.Triggers, 1)
@@ -320,7 +402,7 @@ func TestExpectedScaledObject(t *testing.T) {
 				assert.Equal(t, "prometheus", trigger.Type)
 				assert.Equal(t, "wva-desired-replicas", trigger.Name)
 				assert.Equal(t, "https://prom.monitoring:9090", trigger.Metadata["serverAddress"])
-				assert.Equal(t, `wva_desired_replicas{variant_name="test-svc-kserve-va",exported_namespace="test-ns"}`, trigger.Metadata["query"])
+				assert.Equal(t, `wva_desired_replicas{variant_name="test-svc-kserve-keda",exported_namespace="test-ns"}`, trigger.Metadata["query"])
 				assert.Equal(t, "1", trigger.Metadata["threshold"])
 				assert.Equal(t, "true", trigger.Metadata["unsafeSsl"])
 			},
@@ -334,7 +416,6 @@ func TestExpectedScaledObject(t *testing.T) {
 			},
 			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{Prometheus: PrometheusConfig{URL: "http://prom:9090", TLSInsecureSkipVerify: false}}},
 			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
-			vaName:         "test-svc-kserve-va",
 			soName:         "test-svc-kserve-keda",
 			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
 				assert.Equal(t, "false", so.Spec.Triggers[0].Metadata["unsafeSsl"])
@@ -352,7 +433,6 @@ func TestExpectedScaledObject(t *testing.T) {
 			},
 			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{Prometheus: PrometheusConfig{URL: "http://prom:9090"}}},
 			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
-			vaName:         "test-svc-kserve-va",
 			soName:         "test-svc-kserve-keda",
 			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
 				require.NotNil(t, so.Spec.PollingInterval)
@@ -370,7 +450,6 @@ func TestExpectedScaledObject(t *testing.T) {
 			},
 			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{Prometheus: PrometheusConfig{URL: "http://prom:9090"}}},
 			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
-			vaName:         "test-svc-kserve-va",
 			soName:         "test-svc-kserve-keda",
 			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
 				require.Len(t, so.OwnerReferences, 1)
@@ -388,7 +467,6 @@ func TestExpectedScaledObject(t *testing.T) {
 			},
 			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{Prometheus: PrometheusConfig{URL: "http://prom:9090"}}},
 			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
-			vaName:         "test-svc-kserve-va",
 			soName:         "test-svc-kserve-keda",
 			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
 				trigger := so.Spec.Triggers[0]
@@ -412,7 +490,6 @@ func TestExpectedScaledObject(t *testing.T) {
 				},
 			}},
 			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
-			vaName:         "test-svc-kserve-va",
 			soName:         "test-svc-kserve-keda",
 			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
 				trigger := so.Spec.Triggers[0]
@@ -438,7 +515,6 @@ func TestExpectedScaledObject(t *testing.T) {
 				},
 			}},
 			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
-			vaName:         "test-svc-kserve-va",
 			soName:         "test-svc-kserve-keda",
 			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
 				trigger := so.Spec.Triggers[0]
@@ -448,166 +524,139 @@ func TestExpectedScaledObject(t *testing.T) {
 				assert.Equal(t, "ClusterTriggerAuthentication", trigger.AuthenticationRef.Kind)
 			},
 		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			so := expectedScaledObject(tt.llmSvc, tt.scaling, tt.config, tt.scaleTargetRef, tt.vaName, tt.soName)
-			assert.Equal(t, tt.soName, so.Name)
-			assert.Equal(t, tt.llmSvc.Namespace, so.Namespace)
-			tt.validate(t, so)
-		})
-	}
-}
-
-func TestExpectedVA(t *testing.T) {
-	tests := []struct {
-		name           string
-		llmSvc         *v1alpha2.LLMInferenceService
-		scaling        *v1alpha2.ScalingSpec
-		scaleTargetRef autoscalingv2.CrossVersionObjectReference
-		vaName         string
-		workloadLabels map[string]string
-		validate       func(t *testing.T, va *wvav1alpha1.VariantAutoscaling)
-	}{
 		{
-			name:   "scaleTargetRef points to deployment",
-			llmSvc: newTestLLMISVC("my-model", "prod"),
-			scaling: &v1alpha2.ScalingSpec{
-				WVA: &v1alpha2.WVASpec{VariantCost: "10.0"},
-			},
-			scaleTargetRef: deploymentScaleTargetRef("my-model-kserve"),
-			vaName:         "my-model-kserve-va",
-			validate: func(t *testing.T, va *wvav1alpha1.VariantAutoscaling) {
-				assert.Equal(t, autoscalingv2.CrossVersionObjectReference{
-					APIVersion: "apps/v1",
-					Kind:       "Deployment",
-					Name:       "my-model-kserve",
-				}, va.Spec.ScaleTargetRef)
-			},
-		},
-		{
-			name:   "scaleTargetRef points to LeaderWorkerSet for multi-node",
-			llmSvc: newTestLLMISVC("my-model", "prod"),
-			scaling: &v1alpha2.ScalingSpec{
-				WVA: &v1alpha2.WVASpec{VariantCost: "10.0"},
-			},
-			scaleTargetRef: lwsScaleTargetRef("my-model-kserve-mn"),
-			vaName:         "my-model-kserve-va",
-			validate: func(t *testing.T, va *wvav1alpha1.VariantAutoscaling) {
-				assert.Equal(t, autoscalingv2.CrossVersionObjectReference{
-					APIVersion: lwsapi.GroupVersion.String(),
-					Kind:       "LeaderWorkerSet",
-					Name:       "my-model-kserve-mn",
-				}, va.Spec.ScaleTargetRef)
-			},
-		},
-		{
-			name:   "modelID from model.name when set",
+			name:   "WVA managed annotation is set",
 			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
 			scaling: &v1alpha2.ScalingSpec{
-				WVA: &v1alpha2.WVASpec{VariantCost: "5.0"},
+				MaxReplicas: 5,
+				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
 			},
+			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{Prometheus: PrometheusConfig{URL: "http://prom:9090"}}},
 			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
-			vaName:         "test-svc-kserve-va",
-			validate: func(t *testing.T, va *wvav1alpha1.VariantAutoscaling) {
-				assert.Equal(t, "meta-llama/Llama-3.1-8B", va.Spec.ModelID)
+			soName:         "test-svc-kserve-keda",
+			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
+				assert.Equal(t, "true", so.Annotations[wvaManagedAnnotation])
 			},
 		},
 		{
-			name: "modelID falls back to URI when name is nil",
+			name:   "WVA model-id annotation uses model name",
+			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
+			scaling: &v1alpha2.ScalingSpec{
+				MaxReplicas: 5,
+				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
+			},
+			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{Prometheus: PrometheusConfig{URL: "http://prom:9090"}}},
+			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
+			soName:         "test-svc-kserve-keda",
+			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
+				assert.Equal(t, "meta-llama/Llama-3.1-8B", so.Annotations[wvaModelIDAnnotation])
+			},
+		},
+		{
+			name: "WVA model-id annotation falls back to URI when name is nil",
 			llmSvc: func() *v1alpha2.LLMInferenceService {
 				svc := newTestLLMISVC("test-svc", "test-ns")
 				svc.Spec.Model.Name = nil
 				return svc
 			}(),
 			scaling: &v1alpha2.ScalingSpec{
-				WVA: &v1alpha2.WVASpec{VariantCost: "10.0"},
+				MaxReplicas: 5,
+				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
 			},
+			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{Prometheus: PrometheusConfig{URL: "http://prom:9090"}}},
 			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
-			vaName:         "test-svc-kserve-va",
-			validate: func(t *testing.T, va *wvav1alpha1.VariantAutoscaling) {
+			soName:         "test-svc-kserve-keda",
+			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
 				expectedURI := apis.URL{Scheme: "hf", Host: "meta-llama/Llama-3.1-8B"}
-				assert.Equal(t, expectedURI.String(), va.Spec.ModelID, "should match URI.String() output")
+				assert.Equal(t, expectedURI.String(), so.Annotations[wvaModelIDAnnotation])
 			},
 		},
 		{
-			name:   "variantCost forwarded correctly",
+			name:   "WVA variant-cost annotation set when variantCost specified",
 			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
 			scaling: &v1alpha2.ScalingSpec{
-				WVA: &v1alpha2.WVASpec{VariantCost: "42.5"},
+				MaxReplicas: 5,
+				WVA:         &v1alpha2.WVASpec{VariantCost: "42.5", ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
 			},
+			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{Prometheus: PrometheusConfig{URL: "http://prom:9090"}}},
 			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
-			vaName:         "test-svc-kserve-va",
-			validate: func(t *testing.T, va *wvav1alpha1.VariantAutoscaling) {
-				assert.Equal(t, "42.5", va.Spec.VariantCost)
+			soName:         "test-svc-kserve-keda",
+			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
+				assert.Equal(t, "42.5", so.Annotations[wvaVariantCostAnnotation])
 			},
 		},
 		{
-			name:   "owner reference is set",
+			name:   "WVA variant-cost annotation absent when variantCost empty",
 			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
 			scaling: &v1alpha2.ScalingSpec{
-				WVA: &v1alpha2.WVASpec{VariantCost: "10.0"},
+				MaxReplicas: 5,
+				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
 			},
+			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{Prometheus: PrometheusConfig{URL: "http://prom:9090"}}},
 			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
-			vaName:         "test-svc-kserve-va",
-			validate: func(t *testing.T, va *wvav1alpha1.VariantAutoscaling) {
-				require.Len(t, va.OwnerReferences, 1)
-				assert.Equal(t, "test-svc", va.OwnerReferences[0].Name)
-				assert.Equal(t, "LLMInferenceService", va.OwnerReferences[0].Kind)
+			soName:         "test-svc-kserve-keda",
+			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
+				_, exists := so.Annotations[wvaVariantCostAnnotation]
+				assert.False(t, exists, "variant-cost annotation should not be present when variantCost is empty")
 			},
 		},
 		{
 			name:   "acceleratorName label taken from workload labels when present",
 			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
 			scaling: &v1alpha2.ScalingSpec{
-				WVA: &v1alpha2.WVASpec{VariantCost: "10.0"},
+				MaxReplicas: 5,
+				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
 			},
+			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{Prometheus: PrometheusConfig{URL: "http://prom:9090"}}},
 			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
-			vaName:         "test-svc-kserve-va",
+			soName:         "test-svc-kserve-keda",
 			workloadLabels: map[string]string{
 				acceleratorNameLabelKey: "H100",
 			},
-			validate: func(t *testing.T, va *wvav1alpha1.VariantAutoscaling) {
-				assert.Equal(t, "H100", va.Labels[acceleratorNameLabelKey])
+			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
+				assert.Equal(t, "H100", so.Labels[acceleratorNameLabelKey])
 			},
 		},
 		{
 			name:   "acceleratorName label is unknown when not present in workload labels",
 			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
 			scaling: &v1alpha2.ScalingSpec{
-				WVA: &v1alpha2.WVASpec{VariantCost: "10.0"},
+				MaxReplicas: 5,
+				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
 			},
+			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{Prometheus: PrometheusConfig{URL: "http://prom:9090"}}},
 			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
-			vaName:         "test-svc-kserve-va",
+			soName:         "test-svc-kserve-keda",
 			workloadLabels: nil,
-			validate: func(t *testing.T, va *wvav1alpha1.VariantAutoscaling) {
-				assert.Equal(t, "unknown", va.Labels[acceleratorNameLabelKey])
+			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
+				assert.Equal(t, "unknown", so.Labels[acceleratorNameLabelKey])
 			},
 		},
 		{
 			name:   "acceleratorName label is unknown when present but empty in workload labels",
 			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
 			scaling: &v1alpha2.ScalingSpec{
-				WVA: &v1alpha2.WVASpec{VariantCost: "10.0"},
+				MaxReplicas: 5,
+				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
 			},
+			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{Prometheus: PrometheusConfig{URL: "http://prom:9090"}}},
 			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
-			vaName:         "test-svc-kserve-va",
+			soName:         "test-svc-kserve-keda",
 			workloadLabels: map[string]string{
 				acceleratorNameLabelKey: "",
 			},
-			validate: func(t *testing.T, va *wvav1alpha1.VariantAutoscaling) {
-				assert.Equal(t, "unknown", va.Labels[acceleratorNameLabelKey])
+			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
+				assert.Equal(t, "unknown", so.Labels[acceleratorNameLabelKey])
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			va := expectedVA(tt.llmSvc, tt.scaling, tt.scaleTargetRef, tt.vaName, tt.workloadLabels)
-			assert.Equal(t, tt.vaName, va.Name)
-			assert.Equal(t, tt.llmSvc.Namespace, va.Namespace)
-			tt.validate(t, va)
+			so := expectedScaledObject(tt.llmSvc, tt.scaling, tt.config, tt.scaleTargetRef, tt.soName, tt.workloadLabels)
+			assert.Equal(t, tt.soName, so.Name)
+			assert.Equal(t, tt.llmSvc.Namespace, so.Namespace)
+			tt.validate(t, so)
 		})
 	}
 }
@@ -778,56 +827,6 @@ func TestSemanticScaledObjectIsEqual(t *testing.T) {
 	})
 }
 
-func TestSemanticVAIsEqual(t *testing.T) {
-	base := func() *wvav1alpha1.VariantAutoscaling {
-		return &wvav1alpha1.VariantAutoscaling{
-			ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "test"}},
-			Spec: wvav1alpha1.VariantAutoscalingSpec{
-				ModelID: "meta-llama/Llama-3.1-8B",
-				VariantAutoscalingConfigSpec: wvav1alpha1.VariantAutoscalingConfigSpec{
-					VariantCost: "10.0",
-				},
-			},
-		}
-	}
-
-	t.Run("equal specs returns true", func(t *testing.T) {
-		assert.True(t, semanticVAIsEqual(base(), base()))
-	})
-
-	t.Run("different modelID returns false", func(t *testing.T) {
-		modified := base()
-		modified.Spec.ModelID = "other-model"
-		assert.False(t, semanticVAIsEqual(base(), modified))
-	})
-
-	t.Run("different labels returns false", func(t *testing.T) {
-		modified := base()
-		modified.Labels = map[string]string{"app": "other"}
-		assert.False(t, semanticVAIsEqual(base(), modified))
-	})
-
-	t.Run("removed variantCost in expected is detected", func(t *testing.T) {
-		expected := base()
-		expected.Spec.VariantCost = ""
-		assert.False(t, semanticVAIsEqual(expected, base()))
-	})
-
-	t.Run("extra label on curr is detected", func(t *testing.T) {
-		curr := base()
-		curr.Labels["extra"] = "value"
-		assert.False(t, semanticVAIsEqual(base(), curr))
-	})
-
-	t.Run("removed annotation in expected is detected", func(t *testing.T) {
-		expected := base()
-		expected.Annotations = nil
-		curr := base()
-		curr.Annotations = map[string]string{"note": "old"}
-		assert.False(t, semanticVAIsEqual(expected, curr))
-	})
-}
-
 func TestPreserveKEDAManagedMetadata(t *testing.T) {
 	hook := PreserveKEDAManagedMetadata()
 
@@ -921,14 +920,6 @@ func TestNamingHelpers(t *testing.T) {
 
 	t.Run("prefill HPA name", func(t *testing.T) {
 		assert.Equal(t, "sim-llama-kserve-prefill-hpa", prefillHPAName(svc))
-	})
-
-	t.Run("main VA name", func(t *testing.T) {
-		assert.Equal(t, "sim-llama-kserve-va", mainVAName(svc))
-	})
-
-	t.Run("prefill VA name", func(t *testing.T) {
-		assert.Equal(t, "sim-llama-kserve-prefill-va", prefillVAName(svc))
 	})
 
 	t.Run("main ScaledObject name", func(t *testing.T) {

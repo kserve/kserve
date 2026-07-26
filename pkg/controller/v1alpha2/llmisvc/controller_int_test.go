@@ -61,7 +61,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 		It("should create a basic single node deployment with just base refs", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			modelConfig := LLMInferenceServiceConfig("model-fb-opt-125m",
 				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
@@ -164,7 +164,8 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				}
 			}, func(g Gomega, current *v1alpha2.LLMInferenceService) {
 				g.Expect(current.Status.Workloads).NotTo(BeNil())
-				g.Expect(current.Status.Workloads.Primary).To(Equal(&corev1.TypedLocalObjectReference{
+				g.Expect(current.Status.Workloads.Primary).NotTo(BeNil())
+				g.Expect(current.Status.Workloads.Primary.TypedLocalObjectReference).To(Equal(corev1.TypedLocalObjectReference{
 					APIGroup: ptr.To("apps"),
 					Kind:     "Deployment",
 					Name:     kmeta.ChildName(svcName, "-kserve"),
@@ -177,7 +178,8 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				// Scheduler is populated because "router-managed" config includes a
 				// scheduler spec and the well-known kserve-config-llm-scheduler preset
 				// provides the template.
-				g.Expect(current.Status.Workloads.Scheduler).To(Equal(&corev1.TypedLocalObjectReference{
+				g.Expect(current.Status.Workloads.Scheduler).NotTo(BeNil())
+				g.Expect(current.Status.Workloads.Scheduler.TypedLocalObjectReference).To(Equal(corev1.TypedLocalObjectReference{
 					APIGroup: ptr.To("apps"),
 					Kind:     "Deployment",
 					Name:     kmeta.ChildName(svcName, "-kserve-router-scheduler"),
@@ -220,7 +222,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			func(ctx SpecContext, testName string, containers []corev1.Container, extraAnnotations map[string]string, targetContainer string) {
 				// given
 				svcName := "test-llm-dra-" + testName
-				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+				testNs := NewTestNamespace(ctx, envTest)
 
 				modelConfig := LLMInferenceServiceConfig("model-fb-opt-125m",
 					InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
@@ -348,7 +350,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 		It("should clean up the ResourceClaimTemplate when managed DRA is disabled", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-dra-cleanup"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			modelConfig := LLMInferenceServiceConfig("model-fb-opt-125m",
 				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
@@ -416,7 +418,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 		It("should preserve pinned config annotations across reconciliations", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-pinning-stable"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -476,7 +478,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 		It("should propagate kueue labels and annotations to the deployment", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-kueue"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			localQueueName := "test-local-q"
 			preemptPriority := "0"
@@ -537,7 +539,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 
 		It("should not propagate model-based-routing annotation to pod template", func(ctx SpecContext) {
 			svcName := "test-llm-no-mbr-anno"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -566,7 +568,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 		It("should preserve externally set replicas when owner does not specify replicas", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-preserve-replicas"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 			deploymentName := types.NamespacedName{Name: svcName + "-kserve", Namespace: testNs.Name}
 
 			// Create LLMInferenceService WITHOUT specifying replicas
@@ -632,7 +634,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 		It("should override externally set replicas when owner specifies replicas", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-override-replicas"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 			deploymentName := types.NamespacedName{Name: svcName + "-kserve", Namespace: testNs.Name}
 
 			// Create LLMInferenceService WITH explicit replicas
@@ -701,7 +703,6 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			// given
 			svcName := "test-llm-ips-singlenode"
 			testNs := NewTestNamespace(ctx, envTest,
-				WithIstioShadowService(svcName),
 				WithDefaultServiceAccountImagePullSecrets(
 					corev1.LocalObjectReference{Name: "my-registry-secret"},
 					corev1.LocalObjectReference{Name: "other-pull-secret"},
@@ -750,7 +751,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 		It("should create single-node SA with empty imagePullSecrets when default SA has none", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-ips-sn-empty"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -793,7 +794,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			It("should create routes pointing to the default gateway when both are managed", func(ctx SpecContext) {
 				// given
 				svcName := "test-llm-create-http-route"
-				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+				testNs := NewTestNamespace(ctx, envTest)
 
 				llmSvc := LLMInferenceService(svcName,
 					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -869,7 +870,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			It("should use referenced external InferencePool", func(ctx SpecContext) {
 				// given
 				svcName := "test-llm-create-http-route-inf-pool-ref"
-				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+				testNs := NewTestNamespace(ctx, envTest)
 
 				infPoolName := kmeta.ChildName(svcName, "-my-inf-pool")
 
@@ -926,7 +927,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			It("should refresh InferencePoolReady when referenced external InferencePool status changes", func(ctx SpecContext) {
 				// given
 				svcName := "test-llm-inf-pool-ref-status-watch"
-				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+				testNs := NewTestNamespace(ctx, envTest)
 
 				infPoolName := kmeta.ChildName(svcName, "-my-inf-pool")
 
@@ -982,7 +983,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			It("should create routes pointing to workload service when no scheduler is configured", func(ctx SpecContext) {
 				// given
 				llmSvcName := "test-llm-create-http-route-no-scheduler"
-				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(llmSvcName))
+				testNs := NewTestNamespace(ctx, envTest)
 
 				llmSvc := LLMInferenceService(llmSvcName,
 					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -1041,7 +1042,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			It("should create HTTPRoute with defined spec", func(ctx SpecContext) {
 				// given
 				svcName := "test-llm-defined-http-route"
-				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+				testNs := NewTestNamespace(ctx, envTest)
 
 				llmSvc := LLMInferenceService(svcName,
 					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -1086,7 +1087,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			It("should delete managed HTTPRoute when ref is defined", func(ctx SpecContext) {
 				// given
 				svcName := "test-llm-update-http-route"
-				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+				testNs := NewTestNamespace(ctx, envTest)
 
 				// Create the Gateway that the router-managed preset references
 				gateway := Gateway("my-ingress-gateway",
@@ -1164,7 +1165,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			It("should evaluate HTTPRoute readiness conditions", func(ctx SpecContext) {
 				// given
 				svcName := "test-llm-httproute-conditions"
-				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+				testNs := NewTestNamespace(ctx, envTest)
 
 				ingressGateway := DefaultGateway(testNs.Name)
 				Expect(envTest.Client.Create(ctx, ingressGateway)).To(Succeed())
@@ -1219,7 +1220,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			It("should expand HTTPRoute with LoRA adapter header matches", func(ctx SpecContext) {
 				// given
 				svcName := "test-llm-lora-routing"
-				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+				testNs := NewTestNamespace(ctx, envTest)
 
 				llmSvc := LLMInferenceService(svcName,
 					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -1264,7 +1265,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				func(ctx SpecContext, testName string, initialRouterSpec *v1alpha2.RouterSpec, specMutation func(*v1alpha2.LLMInferenceService)) {
 					// given
 					svcName := "test-llm-" + testName
-					testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+					testNs := NewTestNamespace(ctx, envTest)
 
 					llmSvc := LLMInferenceService(svcName,
 						InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -1372,7 +1373,6 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				},
 			}
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
 				envTest.DeleteAll(ctx, namespace)
 			}()
@@ -1440,7 +1440,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 		It("should propagate SectionName to managed HTTPRoute ParentRef", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-section-name"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			gatewayName := "my-sectioned-gateway"
 			listenerName := "https"
@@ -1504,7 +1504,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 		It("should not set SectionName on managed HTTPRoute ParentRef when unspecified", func(ctx SpecContext) {
 			// given - backward compatibility: no SectionName means ParentRef.SectionName is nil
 			svcName := "test-llm-no-section"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			gatewayName := "my-plain-gateway"
 			gateway := Gateway(gatewayName,
@@ -1892,7 +1892,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			It("should clear SchedulerWorkloadReady condition when scheduler is no longer configured", func(ctx SpecContext) {
 				// given
 				svcName := "test-llm-stale-scheduler-condition"
-				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+				testNs := NewTestNamespace(ctx, envTest)
 
 				// Create LLMInferenceService with scheduler
 				llmSvc := LLMInferenceService(svcName,
@@ -1949,7 +1949,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			It("should update InferencePoolReady when the referenced pool becomes ready", func(ctx SpecContext) {
 				// given
 				svcName := "test-llm-stale-inferencepool-condition"
-				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+				testNs := NewTestNamespace(ctx, envTest)
 				infPoolName := kmeta.ChildName(svcName, "-my-inf-pool")
 
 				infPool := InferencePool(infPoolName,
@@ -2015,7 +2015,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 	Context("Readiness Event Emission", func() {
 		It("should emit a Normal LLMInferenceServiceReady Event when transitioning NotReady to Ready", func(ctx SpecContext) {
 			svcName := "test-llm-event-ready"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -2045,7 +2045,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 
 		It("should emit a Warning LLMInferenceServiceNotReady Event with MainWorkloadReady when transitioning Ready to NotReady", func(ctx SpecContext) {
 			svcName := "test-llm-event-notready"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -2084,7 +2084,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 
 		It("should not emit a readiness Event when status is unchanged", func(ctx SpecContext) {
 			svcName := "test-llm-event-noop"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -2358,6 +2358,7 @@ func ensureRouterManagedResourcesAreReady(ctx context.Context, c client.Client, 
 		}
 
 		ensureSchedulerDeploymentReady(ctx, c, llmSvc)
+		ensureMainDeploymentAvailable(ctx, c, llmSvc)
 	}).WithContext(ctx).Should(gomega.Succeed())
 }
 
@@ -2379,6 +2380,40 @@ func ensureSchedulerDeploymentReady(ctx context.Context, c client.Client, llmSvc
 	logf.FromContext(ctx).Info("Marking scheduler ready (if any)", "deployments", deployments)
 	for _, d := range deployments.Items {
 		dep := d.DeepCopy()
+		dep.Status.Replicas = 1
+		dep.Status.ReadyReplicas = 1
+		dep.Status.AvailableReplicas = 1
+		dep.Status.Conditions = append(dep.Status.Conditions, appsv1.DeploymentCondition{
+			Type:   appsv1.DeploymentAvailable,
+			Status: corev1.ConditionTrue,
+		})
+		Expect(c.Status().Update(ctx, dep)).To(gomega.Succeed())
+	}
+}
+
+func ensureMainDeploymentAvailable(ctx context.Context, c client.Client, llmSvc *v1alpha2.LLMInferenceService) {
+	if envTest.UsingExistingCluster() {
+		return
+	}
+
+	workloadListOpts := &client.ListOptions{
+		Namespace: llmSvc.Namespace,
+		LabelSelector: labels.SelectorFromSet(map[string]string{
+			constants.KubernetesAppNameLabelKey: llmSvc.Name,
+			constants.KServeComponentLabelKey:   constants.KServeComponentWorkload,
+		}),
+	}
+	deployments := &appsv1.DeploymentList{}
+	err := c.List(ctx, deployments, workloadListOpts)
+	if err != nil && !errors.IsNotFound(err) {
+		Expect(err).NotTo(gomega.HaveOccurred())
+	}
+
+	for _, d := range deployments.Items {
+		dep := d.DeepCopy()
+		dep.Status.Replicas = 1
+		dep.Status.ReadyReplicas = 1
+		dep.Status.AvailableReplicas = 1
 		dep.Status.Conditions = append(dep.Status.Conditions, appsv1.DeploymentCondition{
 			Type:   appsv1.DeploymentAvailable,
 			Status: corev1.ConditionTrue,

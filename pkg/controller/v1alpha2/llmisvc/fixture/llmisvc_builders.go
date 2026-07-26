@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 type LLMInferenceServiceOption ObjectOption[*v1alpha2.LLMInferenceService]
@@ -143,6 +144,41 @@ func WithManagedRoute() LLMInferenceServiceOption {
 		if llmSvc.Spec.Router.Route == nil {
 			llmSvc.Spec.Router.Route = &v1alpha2.GatewayRoutesSpec{}
 		}
+	}
+}
+
+func WithGroup(group string) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha2.LLMInferenceService) {
+		if llmSvc.Spec.Router == nil {
+			llmSvc.Spec.Router = &v1alpha2.RouterSpec{}
+		}
+		if llmSvc.Spec.Router.Route == nil {
+			llmSvc.Spec.Router.Route = &v1alpha2.GatewayRoutesSpec{}
+		}
+		// Group routing requires managed HTTP routes (route.http must be non-nil).
+		if llmSvc.Spec.Router.Route.HTTP == nil {
+			llmSvc.Spec.Router.Route.HTTP = &v1alpha2.HTTPRouteSpec{}
+		}
+		llmSvc.Spec.Router.Route.Group = &group
+		// Mirror what the defaulting webhook does: sync the routing-group label
+		// so field indexers and label selectors work correctly in envtest
+		// (where the defaulting webhook is not installed).
+		if llmSvc.Labels == nil {
+			llmSvc.Labels = make(map[string]string)
+		}
+		llmSvc.Labels[constants.LLMRoutingGroupLabelKey] = group
+	}
+}
+
+func WithWeight(weight int32) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha2.LLMInferenceService) {
+		if llmSvc.Spec.Router == nil {
+			llmSvc.Spec.Router = &v1alpha2.RouterSpec{}
+		}
+		if llmSvc.Spec.Router.Route == nil {
+			llmSvc.Spec.Router.Route = &v1alpha2.GatewayRoutesSpec{}
+		}
+		llmSvc.Spec.Router.Route.Weight = &weight
 	}
 }
 
@@ -504,6 +540,18 @@ func WithConfigSchedulerConfigRef(configMapName, key string) LLMInferenceService
 		config.Spec.Router.Scheduler.Config = &v1alpha2.SchedulerConfigSpec{
 			Ref: ref,
 		}
+	}
+}
+
+// WithManagedTokenizer sets an empty tokenizer spec on the scheduler as an
+// operational override. The tokenizer is normally auto-deployed when
+// token-producer or precise-prefix-cache-scorer plugins are detected in
+// inline config; this option forces tokenizer deployment for tests that
+// don't provide inline config.
+func WithManagedTokenizer() LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha2.LLMInferenceService) {
+		ensureSchedulerSpec(&llmSvc.Spec)
+		llmSvc.Spec.Router.Scheduler.Tokenizer = &v1alpha2.TokenizerSpec{}
 	}
 }
 

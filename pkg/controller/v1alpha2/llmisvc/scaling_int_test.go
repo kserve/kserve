@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
-	wvav1alpha1 "github.com/llm-d/llm-d-workload-variant-autoscaler/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
@@ -43,9 +42,9 @@ import (
 
 var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	Context("HPA scaling", func() {
-		It("should create VariantAutoscaling and HPA when HPA scaling is configured", func(ctx SpecContext) {
+		It("should create HPA with WVA annotations when HPA scaling is configured", func(ctx SpecContext) {
 			svcName := "test-hpa-scaling"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -59,17 +58,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			vaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-va"), Namespace: testNs.Name}
 			hpaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-hpa"), Namespace: testNs.Name}
-
-			va := &wvav1alpha1.VariantAutoscaling{}
-			Eventually(func(g Gomega, ctx context.Context) {
-				g.Expect(envTest.Get(ctx, vaKey, va)).To(Succeed())
-				g.Expect(va.Spec.ScaleTargetRef.Name).To(Equal(kmeta.ChildName(svcName, "-kserve")))
-				g.Expect(va.Spec.ScaleTargetRef.Kind).To(Equal("Deployment"))
-				g.Expect(va.Spec.ModelID).To(Equal("meta-llama/Llama-3.1-8B"))
-				g.Expect(va).To(BeOwnedBy(llmSvc))
-			}).WithContext(ctx).Should(Succeed())
 
 			hpa := &autoscalingv2.HorizontalPodAutoscaler{}
 			Eventually(func(g Gomega, ctx context.Context) {
@@ -81,6 +70,9 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 				g.Expect(hpa.Spec.Metrics).To(HaveLen(1))
 				g.Expect(hpa.Spec.Metrics[0].Type).To(Equal(autoscalingv2.ExternalMetricSourceType))
 				g.Expect(hpa.Spec.Metrics[0].External.Metric.Name).To(Equal("wva_desired_replicas"))
+				g.Expect(hpa.Spec.Metrics[0].External.Metric.Selector.MatchLabels["variant_name"]).To(Equal(hpaKey.Name))
+				g.Expect(hpa.Annotations["llm-d.ai/managed"]).To(Equal("true"))
+				g.Expect(hpa.Annotations["llm-d.ai/model-id"]).To(Equal("meta-llama/Llama-3.1-8B"))
 				g.Expect(hpa).To(BeOwnedBy(llmSvc))
 			}).WithContext(ctx).Should(Succeed())
 
@@ -94,7 +86,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should update HPA when scaling spec changes", func(ctx SpecContext) {
 			svcName := "test-hpa-update"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -138,9 +130,9 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	})
 
 	Context("KEDA scaling", func() {
-		It("should create VariantAutoscaling and ScaledObject when KEDA scaling is configured", func(ctx SpecContext) {
+		It("should create ScaledObject with WVA annotations when KEDA scaling is configured", func(ctx SpecContext) {
 			svcName := "test-keda-scaling"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -154,16 +146,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			vaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-va"), Namespace: testNs.Name}
 			soKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-keda"), Namespace: testNs.Name}
-
-			va := &wvav1alpha1.VariantAutoscaling{}
-			Eventually(func(g Gomega, ctx context.Context) {
-				g.Expect(envTest.Get(ctx, vaKey, va)).To(Succeed())
-				g.Expect(va.Spec.ScaleTargetRef.Name).To(Equal(kmeta.ChildName(svcName, "-kserve")))
-				g.Expect(va.Spec.ModelID).To(Equal("meta-llama/Llama-3.1-8B"))
-				g.Expect(va).To(BeOwnedBy(llmSvc))
-			}).WithContext(ctx).Should(Succeed())
 
 			so := &kedav1alpha1.ScaledObject{}
 			Eventually(func(g Gomega, ctx context.Context) {
@@ -175,6 +158,8 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 				g.Expect(so.Spec.Triggers).To(HaveLen(1))
 				g.Expect(so.Spec.Triggers[0].Type).To(Equal("prometheus"))
 				g.Expect(so.Spec.Triggers[0].Metadata["serverAddress"]).To(Equal("http://prometheus.monitoring:9090"))
+				g.Expect(so.Annotations["llm-d.ai/managed"]).To(Equal("true"))
+				g.Expect(so.Annotations["llm-d.ai/model-id"]).To(Equal("meta-llama/Llama-3.1-8B"))
 				g.Expect(so).To(BeOwnedBy(llmSvc))
 			}).WithContext(ctx).Should(Succeed())
 
@@ -188,7 +173,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should update ScaledObject when scaling spec changes", func(ctx SpecContext) {
 			svcName := "test-keda-update"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -229,9 +214,9 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	})
 
 	Context("Scaling cleanup", func() {
-		It("should delete HPA and VA when scaling is removed", func(ctx SpecContext) {
+		It("should delete HPA when scaling is removed", func(ctx SpecContext) {
 			svcName := "test-hpa-cleanup"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -245,11 +230,9 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			vaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-va"), Namespace: testNs.Name}
 			hpaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-hpa"), Namespace: testNs.Name}
 
 			Eventually(func(g Gomega, ctx context.Context) {
-				g.Expect(envTest.Get(ctx, vaKey, &wvav1alpha1.VariantAutoscaling{})).To(Succeed())
 				g.Expect(envTest.Get(ctx, hpaKey, &autoscalingv2.HorizontalPodAutoscaler{})).To(Succeed())
 			}).WithContext(ctx).Should(Succeed())
 
@@ -264,19 +247,15 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 			Expect(errRetry).ToNot(HaveOccurred())
 
 			Eventually(func(g Gomega, ctx context.Context) {
-				err := envTest.Get(ctx, vaKey, &wvav1alpha1.VariantAutoscaling{})
-				g.Expect(client.IgnoreNotFound(err)).To(Succeed())
-				g.Expect(err).To(HaveOccurred(), "VA should be deleted")
-
-				err = envTest.Get(ctx, hpaKey, &autoscalingv2.HorizontalPodAutoscaler{})
+				err := envTest.Get(ctx, hpaKey, &autoscalingv2.HorizontalPodAutoscaler{})
 				g.Expect(client.IgnoreNotFound(err)).To(Succeed())
 				g.Expect(err).To(HaveOccurred(), "HPA should be deleted")
 			}).WithContext(ctx).Should(Succeed())
 		})
 
-		It("should delete ScaledObject and VA when scaling is removed", func(ctx SpecContext) {
+		It("should delete ScaledObject when scaling is removed", func(ctx SpecContext) {
 			svcName := "test-keda-cleanup"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -290,11 +269,9 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			vaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-va"), Namespace: testNs.Name}
 			soKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-keda"), Namespace: testNs.Name}
 
 			Eventually(func(g Gomega, ctx context.Context) {
-				g.Expect(envTest.Get(ctx, vaKey, &wvav1alpha1.VariantAutoscaling{})).To(Succeed())
 				g.Expect(envTest.Get(ctx, soKey, &kedav1alpha1.ScaledObject{})).To(Succeed())
 			}).WithContext(ctx).Should(Succeed())
 
@@ -309,11 +286,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 			Expect(errRetry).ToNot(HaveOccurred())
 
 			Eventually(func(g Gomega, ctx context.Context) {
-				err := envTest.Get(ctx, vaKey, &wvav1alpha1.VariantAutoscaling{})
-				g.Expect(client.IgnoreNotFound(err)).To(Succeed())
-				g.Expect(err).To(HaveOccurred(), "VA should be deleted")
-
-				err = envTest.Get(ctx, soKey, &kedav1alpha1.ScaledObject{})
+				err := envTest.Get(ctx, soKey, &kedav1alpha1.ScaledObject{})
 				g.Expect(client.IgnoreNotFound(err)).To(Succeed())
 				g.Expect(err).To(HaveOccurred(), "ScaledObject should be deleted")
 			}).WithContext(ctx).Should(Succeed())
@@ -323,7 +296,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	Context("Prefill scaling", func() {
 		It("should create separate HPA scaling resources for decode and prefill workloads", func(ctx SpecContext) {
 			svcName := "test-prefill-hpa"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -338,37 +311,33 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			decodeVAKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-va"), Namespace: testNs.Name}
 			decodeHPAKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-hpa"), Namespace: testNs.Name}
-			prefillVAKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-prefill-va"), Namespace: testNs.Name}
 			prefillHPAKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-prefill-hpa"), Namespace: testNs.Name}
 
 			Eventually(func(g Gomega, ctx context.Context) {
-				va := &wvav1alpha1.VariantAutoscaling{}
-				g.Expect(envTest.Get(ctx, decodeVAKey, va)).To(Succeed())
-				g.Expect(va.Spec.ScaleTargetRef.Name).To(Equal(kmeta.ChildName(svcName, "-kserve")))
-
 				hpa := &autoscalingv2.HorizontalPodAutoscaler{}
 				g.Expect(envTest.Get(ctx, decodeHPAKey, hpa)).To(Succeed())
+				g.Expect(hpa.Spec.ScaleTargetRef.Name).To(Equal(kmeta.ChildName(svcName, "-kserve")))
 				g.Expect(hpa.Spec.MinReplicas).To(Equal(ptr.To(int32(1))))
 				g.Expect(hpa.Spec.MaxReplicas).To(Equal(int32(5)))
+				g.Expect(hpa.Annotations["llm-d.ai/managed"]).To(Equal("true"))
+				g.Expect(hpa.Annotations["llm-d.ai/model-id"]).To(Equal("meta-llama/Llama-3.1-8B"))
 			}).WithContext(ctx).Should(Succeed())
 
 			Eventually(func(g Gomega, ctx context.Context) {
-				va := &wvav1alpha1.VariantAutoscaling{}
-				g.Expect(envTest.Get(ctx, prefillVAKey, va)).To(Succeed())
-				g.Expect(va.Spec.ScaleTargetRef.Name).To(Equal(kmeta.ChildName(svcName, "-kserve-prefill")))
-
 				hpa := &autoscalingv2.HorizontalPodAutoscaler{}
 				g.Expect(envTest.Get(ctx, prefillHPAKey, hpa)).To(Succeed())
+				g.Expect(hpa.Spec.ScaleTargetRef.Name).To(Equal(kmeta.ChildName(svcName, "-kserve-prefill")))
 				g.Expect(hpa.Spec.MinReplicas).To(Equal(ptr.To(int32(2))))
 				g.Expect(hpa.Spec.MaxReplicas).To(Equal(int32(8)))
+				g.Expect(hpa.Annotations["llm-d.ai/managed"]).To(Equal("true"))
+				g.Expect(hpa.Annotations["llm-d.ai/model-id"]).To(Equal("meta-llama/Llama-3.1-8B"))
 			}).WithContext(ctx).Should(Succeed())
 		})
 
 		It("should create separate KEDA scaling resources for decode and prefill workloads", func(ctx SpecContext) {
 			svcName := "test-prefill-keda"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -383,31 +352,27 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			decodeVAKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-va"), Namespace: testNs.Name}
 			decodeSOKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-keda"), Namespace: testNs.Name}
-			prefillVAKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-prefill-va"), Namespace: testNs.Name}
 			prefillSOKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-prefill-keda"), Namespace: testNs.Name}
 
 			Eventually(func(g Gomega, ctx context.Context) {
-				va := &wvav1alpha1.VariantAutoscaling{}
-				g.Expect(envTest.Get(ctx, decodeVAKey, va)).To(Succeed())
-				g.Expect(va.Spec.ScaleTargetRef.Name).To(Equal(kmeta.ChildName(svcName, "-kserve")))
-
 				so := &kedav1alpha1.ScaledObject{}
 				g.Expect(envTest.Get(ctx, decodeSOKey, so)).To(Succeed())
+				g.Expect(so.Spec.ScaleTargetRef.Name).To(Equal(kmeta.ChildName(svcName, "-kserve")))
 				g.Expect(so.Spec.MinReplicaCount).To(Equal(ptr.To(int32(1))))
 				g.Expect(so.Spec.MaxReplicaCount).To(Equal(ptr.To(int32(5))))
+				g.Expect(so.Annotations["llm-d.ai/managed"]).To(Equal("true"))
+				g.Expect(so.Annotations["llm-d.ai/model-id"]).To(Equal("meta-llama/Llama-3.1-8B"))
 			}).WithContext(ctx).Should(Succeed())
 
 			Eventually(func(g Gomega, ctx context.Context) {
-				va := &wvav1alpha1.VariantAutoscaling{}
-				g.Expect(envTest.Get(ctx, prefillVAKey, va)).To(Succeed())
-				g.Expect(va.Spec.ScaleTargetRef.Name).To(Equal(kmeta.ChildName(svcName, "-kserve-prefill")))
-
 				so := &kedav1alpha1.ScaledObject{}
 				g.Expect(envTest.Get(ctx, prefillSOKey, so)).To(Succeed())
+				g.Expect(so.Spec.ScaleTargetRef.Name).To(Equal(kmeta.ChildName(svcName, "-kserve-prefill")))
 				g.Expect(so.Spec.MinReplicaCount).To(Equal(ptr.To(int32(2))))
 				g.Expect(so.Spec.MaxReplicaCount).To(Equal(ptr.To(int32(8))))
+				g.Expect(so.Annotations["llm-d.ai/managed"]).To(Equal("true"))
+				g.Expect(so.Annotations["llm-d.ai/model-id"]).To(Equal("meta-llama/Llama-3.1-8B"))
 			}).WithContext(ctx).Should(Succeed())
 		})
 	})
@@ -415,7 +380,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	Context("Actuator switch", func() {
 		It("should delete HPA and create ScaledObject when switching from HPA to KEDA", func(ctx SpecContext) {
 			svcName := "test-hpa-to-keda"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -431,11 +396,9 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 			hpaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-hpa"), Namespace: testNs.Name}
 			soKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-keda"), Namespace: testNs.Name}
-			vaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-va"), Namespace: testNs.Name}
 
 			Eventually(func(g Gomega, ctx context.Context) {
 				g.Expect(envTest.Get(ctx, hpaKey, &autoscalingv2.HorizontalPodAutoscaler{})).To(Succeed())
-				g.Expect(envTest.Get(ctx, vaKey, &wvav1alpha1.VariantAutoscaling{})).To(Succeed())
 			}).WithContext(ctx).Should(Succeed())
 
 			errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -448,22 +411,19 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 			Expect(errRetry).ToNot(HaveOccurred())
 
 			Eventually(func(g Gomega, ctx context.Context) {
-				g.Expect(envTest.Get(ctx, soKey, &kedav1alpha1.ScaledObject{})).To(Succeed())
+				so := &kedav1alpha1.ScaledObject{}
+				g.Expect(envTest.Get(ctx, soKey, so)).To(Succeed())
+				g.Expect(so.Annotations["llm-d.ai/managed"]).To(Equal("true"))
 
 				err := envTest.Get(ctx, hpaKey, &autoscalingv2.HorizontalPodAutoscaler{})
 				g.Expect(client.IgnoreNotFound(err)).To(Succeed())
 				g.Expect(err).To(HaveOccurred(), "HPA should be deleted after switch to KEDA")
 			}).WithContext(ctx).Should(Succeed())
-
-			// VA should still exist
-			Eventually(func(g Gomega, ctx context.Context) {
-				g.Expect(envTest.Get(ctx, vaKey, &wvav1alpha1.VariantAutoscaling{})).To(Succeed())
-			}).WithContext(ctx).Should(Succeed())
 		})
 
 		It("should delete ScaledObject and create HPA when switching from KEDA to HPA", func(ctx SpecContext) {
 			svcName := "test-keda-to-hpa"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -479,11 +439,9 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 			hpaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-hpa"), Namespace: testNs.Name}
 			soKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-keda"), Namespace: testNs.Name}
-			vaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-va"), Namespace: testNs.Name}
 
 			Eventually(func(g Gomega, ctx context.Context) {
 				g.Expect(envTest.Get(ctx, soKey, &kedav1alpha1.ScaledObject{})).To(Succeed())
-				g.Expect(envTest.Get(ctx, vaKey, &wvav1alpha1.VariantAutoscaling{})).To(Succeed())
 			}).WithContext(ctx).Should(Succeed())
 
 			errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -496,24 +454,21 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 			Expect(errRetry).ToNot(HaveOccurred())
 
 			Eventually(func(g Gomega, ctx context.Context) {
-				g.Expect(envTest.Get(ctx, hpaKey, &autoscalingv2.HorizontalPodAutoscaler{})).To(Succeed())
+				hpa := &autoscalingv2.HorizontalPodAutoscaler{}
+				g.Expect(envTest.Get(ctx, hpaKey, hpa)).To(Succeed())
+				g.Expect(hpa.Annotations["llm-d.ai/managed"]).To(Equal("true"))
 
 				err := envTest.Get(ctx, soKey, &kedav1alpha1.ScaledObject{})
 				g.Expect(client.IgnoreNotFound(err)).To(Succeed())
 				g.Expect(err).To(HaveOccurred(), "ScaledObject should be deleted after switch to HPA")
 			}).WithContext(ctx).Should(Succeed())
-
-			// VA should still exist
-			Eventually(func(g Gomega, ctx context.Context) {
-				g.Expect(envTest.Get(ctx, vaKey, &wvav1alpha1.VariantAutoscaling{})).To(Succeed())
-			}).WithContext(ctx).Should(Succeed())
 		})
 	})
 
-	Context("VA accelerator label", func() {
-		It("should propagate accelerator label from workload labels to VA", func(ctx SpecContext) {
+	Context("Accelerator label on HPA/ScaledObject", func() {
+		It("should propagate accelerator label from workload labels to HPA", func(ctx SpecContext) {
 			svcName := "test-va-accel"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -530,18 +485,18 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			vaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-va"), Namespace: testNs.Name}
+			hpaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-hpa"), Namespace: testNs.Name}
 
 			Eventually(func(g Gomega, ctx context.Context) {
-				va := &wvav1alpha1.VariantAutoscaling{}
-				g.Expect(envTest.Get(ctx, vaKey, va)).To(Succeed())
-				g.Expect(va.Labels).To(HaveKeyWithValue("inference.optimization/acceleratorName", "nvidia-a100"))
+				hpa := &autoscalingv2.HorizontalPodAutoscaler{}
+				g.Expect(envTest.Get(ctx, hpaKey, hpa)).To(Succeed())
+				g.Expect(hpa.Labels).To(HaveKeyWithValue("inference.optimization/acceleratorName", "nvidia-a100"))
 			}).WithContext(ctx).Should(Succeed())
 		})
 
 		It("should set accelerator label to unknown when workload has no accelerator label", func(ctx SpecContext) {
 			svcName := "test-va-no-accel"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -555,12 +510,12 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			vaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-va"), Namespace: testNs.Name}
+			hpaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-hpa"), Namespace: testNs.Name}
 
 			Eventually(func(g Gomega, ctx context.Context) {
-				va := &wvav1alpha1.VariantAutoscaling{}
-				g.Expect(envTest.Get(ctx, vaKey, va)).To(Succeed())
-				g.Expect(va.Labels).To(HaveKeyWithValue("inference.optimization/acceleratorName", "unknown"))
+				hpa := &autoscalingv2.HorizontalPodAutoscaler{}
+				g.Expect(envTest.Get(ctx, hpaKey, hpa)).To(Succeed())
+				g.Expect(hpa.Labels).To(HaveKeyWithValue("inference.optimization/acceleratorName", "unknown"))
 			}).WithContext(ctx).Should(Succeed())
 		})
 	})
@@ -568,7 +523,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	Context("No scaling configured", func() {
 		It("should not create any scaling resources when scaling is nil", func(ctx SpecContext) {
 			svcName := "test-no-scaling"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -581,15 +536,11 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			vaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-va"), Namespace: testNs.Name}
 			hpaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-hpa"), Namespace: testNs.Name}
 			soKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-keda"), Namespace: testNs.Name}
 
 			Consistently(func(g Gomega, ctx context.Context) {
-				err := envTest.Get(ctx, vaKey, &wvav1alpha1.VariantAutoscaling{})
-				g.Expect(client.IgnoreNotFound(err)).To(Succeed())
-
-				err = envTest.Get(ctx, hpaKey, &autoscalingv2.HorizontalPodAutoscaler{})
+				err := envTest.Get(ctx, hpaKey, &autoscalingv2.HorizontalPodAutoscaler{})
 				g.Expect(client.IgnoreNotFound(err)).To(Succeed())
 
 				err = envTest.Get(ctx, soKey, &kedav1alpha1.ScaledObject{})
@@ -601,7 +552,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	Context("Scaling with stop annotation", func() {
 		It("should delete HPA scaling resources when stop annotation is set", func(ctx SpecContext) {
 			svcName := "test-hpa-stop"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -615,11 +566,9 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			vaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-va"), Namespace: testNs.Name}
 			hpaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-hpa"), Namespace: testNs.Name}
 
 			Eventually(func(g Gomega, ctx context.Context) {
-				g.Expect(envTest.Get(ctx, vaKey, &wvav1alpha1.VariantAutoscaling{})).To(Succeed())
 				g.Expect(envTest.Get(ctx, hpaKey, &autoscalingv2.HorizontalPodAutoscaler{})).To(Succeed())
 			}).WithContext(ctx).Should(Succeed())
 
@@ -635,11 +584,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 			Expect(errRetry).ToNot(HaveOccurred())
 
 			Eventually(func(g Gomega, ctx context.Context) {
-				err := envTest.Get(ctx, vaKey, &wvav1alpha1.VariantAutoscaling{})
-				g.Expect(client.IgnoreNotFound(err)).To(Succeed())
-				g.Expect(err).To(HaveOccurred(), "VA should be deleted when stopped")
-
-				err = envTest.Get(ctx, hpaKey, &autoscalingv2.HorizontalPodAutoscaler{})
+				err := envTest.Get(ctx, hpaKey, &autoscalingv2.HorizontalPodAutoscaler{})
 				g.Expect(client.IgnoreNotFound(err)).To(Succeed())
 				g.Expect(err).To(HaveOccurred(), "HPA should be deleted when stopped")
 			}).WithContext(ctx).Should(Succeed())
@@ -647,7 +592,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should delete KEDA scaling resources when stop annotation is set", func(ctx SpecContext) {
 			svcName := "test-keda-stop"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -661,11 +606,9 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			vaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-va"), Namespace: testNs.Name}
 			soKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-keda"), Namespace: testNs.Name}
 
 			Eventually(func(g Gomega, ctx context.Context) {
-				g.Expect(envTest.Get(ctx, vaKey, &wvav1alpha1.VariantAutoscaling{})).To(Succeed())
 				g.Expect(envTest.Get(ctx, soKey, &kedav1alpha1.ScaledObject{})).To(Succeed())
 			}).WithContext(ctx).Should(Succeed())
 
@@ -681,11 +624,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 			Expect(errRetry).ToNot(HaveOccurred())
 
 			Eventually(func(g Gomega, ctx context.Context) {
-				err := envTest.Get(ctx, vaKey, &wvav1alpha1.VariantAutoscaling{})
-				g.Expect(client.IgnoreNotFound(err)).To(Succeed())
-				g.Expect(err).To(HaveOccurred(), "VA should be deleted when stopped")
-
-				err = envTest.Get(ctx, soKey, &kedav1alpha1.ScaledObject{})
+				err := envTest.Get(ctx, soKey, &kedav1alpha1.ScaledObject{})
 				g.Expect(client.IgnoreNotFound(err)).To(Succeed())
 				g.Expect(err).To(HaveOccurred(), "ScaledObject should be deleted when stopped")
 			}).WithContext(ctx).Should(Succeed())
@@ -695,7 +634,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	Context("HPA Behavior propagation", func() {
 		It("should propagate HPA behavior from scaling spec to the HPA resource", func(ctx SpecContext) {
 			svcName := "test-hpa-behavior"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			behavior := &autoscalingv2.HorizontalPodAutoscalerBehavior{
 				ScaleUp: &autoscalingv2.HPAScalingRules{
@@ -742,10 +681,10 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 		})
 	})
 
-	Context("VA VariantCost propagation", func() {
-		It("should propagate variantCost from scaling spec to VA", func(ctx SpecContext) {
+	Context("VariantCost annotation propagation", func() {
+		It("should propagate variantCost from scaling spec to HPA annotation", func(ctx SpecContext) {
 			svcName := "test-va-cost"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -759,12 +698,12 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			vaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-va"), Namespace: testNs.Name}
+			hpaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-hpa"), Namespace: testNs.Name}
 
 			Eventually(func(g Gomega, ctx context.Context) {
-				va := &wvav1alpha1.VariantAutoscaling{}
-				g.Expect(envTest.Get(ctx, vaKey, va)).To(Succeed())
-				g.Expect(va.Spec.VariantCost).To(Equal("42.5"))
+				hpa := &autoscalingv2.HorizontalPodAutoscaler{}
+				g.Expect(envTest.Get(ctx, hpaKey, hpa)).To(Succeed())
+				g.Expect(hpa.Annotations["llm-d.ai/variant-cost"]).To(Equal("42.5"))
 			}).WithContext(ctx).Should(Succeed())
 		})
 	})
@@ -772,7 +711,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	Context("KEDA Prometheus auth propagation", func() {
 		It("should include auth config on ScaledObject trigger when configured", func(ctx SpecContext) {
 			svcName := "test-keda-auth"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			cfgMap := &corev1.ConfigMap{}
 			cfgMapKey := types.NamespacedName{
@@ -843,9 +782,9 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	})
 
 	Context("Multi-node (LWS) HPA scaling", func() {
-		It("should create VA and HPA targeting LeaderWorkerSet when worker is set", func(ctx SpecContext) {
+		It("should create HPA with WVA annotations targeting LeaderWorkerSet when worker is set", func(ctx SpecContext) {
 			svcName := "test-lws-hpa"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -866,17 +805,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			vaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-va"), Namespace: testNs.Name}
 			hpaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-hpa"), Namespace: testNs.Name}
-
-			va := &wvav1alpha1.VariantAutoscaling{}
-			Eventually(func(g Gomega, ctx context.Context) {
-				g.Expect(envTest.Get(ctx, vaKey, va)).To(Succeed())
-				g.Expect(va.Spec.ScaleTargetRef.APIVersion).To(Equal(lwsapi.GroupVersion.String()))
-				g.Expect(va.Spec.ScaleTargetRef.Kind).To(Equal("LeaderWorkerSet"))
-				g.Expect(va.Spec.ScaleTargetRef.Name).To(Equal(kmeta.ChildName(svcName, "-kserve-mn")))
-				g.Expect(va).To(BeOwnedBy(llmSvc))
-			}).WithContext(ctx).Should(Succeed())
 
 			hpa := &autoscalingv2.HorizontalPodAutoscaler{}
 			Eventually(func(g Gomega, ctx context.Context) {
@@ -886,15 +815,17 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 				g.Expect(hpa.Spec.ScaleTargetRef.Name).To(Equal(kmeta.ChildName(svcName, "-kserve-mn")))
 				g.Expect(hpa.Spec.MinReplicas).To(Equal(ptr.To(int32(1))))
 				g.Expect(hpa.Spec.MaxReplicas).To(Equal(int32(5)))
+				g.Expect(hpa.Annotations["llm-d.ai/managed"]).To(Equal("true"))
+				g.Expect(hpa.Annotations["llm-d.ai/model-id"]).To(Equal("meta-llama/Llama-3.1-8B"))
 				g.Expect(hpa).To(BeOwnedBy(llmSvc))
 			}).WithContext(ctx).Should(Succeed())
 		})
 	})
 
 	Context("Multi-node (LWS) KEDA scaling", func() {
-		It("should create VA and ScaledObject targeting LeaderWorkerSet when worker is set", func(ctx SpecContext) {
+		It("should create ScaledObject with WVA annotations targeting LeaderWorkerSet when worker is set", func(ctx SpecContext) {
 			svcName := "test-lws-keda"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -915,16 +846,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			vaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-va"), Namespace: testNs.Name}
 			soKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-keda"), Namespace: testNs.Name}
-
-			va := &wvav1alpha1.VariantAutoscaling{}
-			Eventually(func(g Gomega, ctx context.Context) {
-				g.Expect(envTest.Get(ctx, vaKey, va)).To(Succeed())
-				g.Expect(va.Spec.ScaleTargetRef.APIVersion).To(Equal(lwsapi.GroupVersion.String()))
-				g.Expect(va.Spec.ScaleTargetRef.Kind).To(Equal("LeaderWorkerSet"))
-				g.Expect(va.Spec.ScaleTargetRef.Name).To(Equal(kmeta.ChildName(svcName, "-kserve-mn")))
-			}).WithContext(ctx).Should(Succeed())
 
 			so := &kedav1alpha1.ScaledObject{}
 			Eventually(func(g Gomega, ctx context.Context) {
@@ -932,6 +854,8 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 				g.Expect(so.Spec.ScaleTargetRef.APIVersion).To(Equal(lwsapi.GroupVersion.String()))
 				g.Expect(so.Spec.ScaleTargetRef.Kind).To(Equal("LeaderWorkerSet"))
 				g.Expect(so.Spec.ScaleTargetRef.Name).To(Equal(kmeta.ChildName(svcName, "-kserve-mn")))
+				g.Expect(so.Annotations["llm-d.ai/managed"]).To(Equal("true"))
+				g.Expect(so.Annotations["llm-d.ai/model-id"]).To(Equal("meta-llama/Llama-3.1-8B"))
 			}).WithContext(ctx).Should(Succeed())
 		})
 	})
@@ -939,7 +863,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	Context("Multi-node P/D scaling", func() {
 		It("should create separate LWS-targeting scaling resources for decode and prefill", func(ctx SpecContext) {
 			svcName := "test-lws-pd"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -968,36 +892,23 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			// Decode VA and HPA should target LWS
-			decodeVAKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-va"), Namespace: testNs.Name}
 			decodeHPAKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-hpa"), Namespace: testNs.Name}
+			prefillHPAKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-prefill-hpa"), Namespace: testNs.Name}
 
 			Eventually(func(g Gomega, ctx context.Context) {
-				va := &wvav1alpha1.VariantAutoscaling{}
-				g.Expect(envTest.Get(ctx, decodeVAKey, va)).To(Succeed())
-				g.Expect(va.Spec.ScaleTargetRef.Kind).To(Equal("LeaderWorkerSet"))
-				g.Expect(va.Spec.ScaleTargetRef.Name).To(Equal(kmeta.ChildName(svcName, "-kserve-mn")))
-
 				hpa := &autoscalingv2.HorizontalPodAutoscaler{}
 				g.Expect(envTest.Get(ctx, decodeHPAKey, hpa)).To(Succeed())
 				g.Expect(hpa.Spec.ScaleTargetRef.Kind).To(Equal("LeaderWorkerSet"))
 				g.Expect(hpa.Spec.ScaleTargetRef.Name).To(Equal(kmeta.ChildName(svcName, "-kserve-mn")))
+				g.Expect(hpa.Annotations["llm-d.ai/managed"]).To(Equal("true"))
 			}).WithContext(ctx).Should(Succeed())
 
-			// Prefill VA and HPA should target prefill LWS
-			prefillVAKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-prefill-va"), Namespace: testNs.Name}
-			prefillHPAKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-prefill-hpa"), Namespace: testNs.Name}
-
 			Eventually(func(g Gomega, ctx context.Context) {
-				va := &wvav1alpha1.VariantAutoscaling{}
-				g.Expect(envTest.Get(ctx, prefillVAKey, va)).To(Succeed())
-				g.Expect(va.Spec.ScaleTargetRef.Kind).To(Equal("LeaderWorkerSet"))
-				g.Expect(va.Spec.ScaleTargetRef.Name).To(Equal(kmeta.ChildName(svcName, "-kserve-mn-prefill")))
-
 				hpa := &autoscalingv2.HorizontalPodAutoscaler{}
 				g.Expect(envTest.Get(ctx, prefillHPAKey, hpa)).To(Succeed())
 				g.Expect(hpa.Spec.ScaleTargetRef.Kind).To(Equal("LeaderWorkerSet"))
 				g.Expect(hpa.Spec.ScaleTargetRef.Name).To(Equal(kmeta.ChildName(svcName, "-kserve-mn-prefill")))
+				g.Expect(hpa.Annotations["llm-d.ai/managed"]).To(Equal("true"))
 			}).WithContext(ctx).Should(Succeed())
 		})
 	})
@@ -1005,7 +916,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	Context("Multi-node scaling with stop annotation", func() {
 		It("should delete LWS-targeting scaling resources when stop annotation is set", func(ctx SpecContext) {
 			svcName := "test-lws-stop"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -1026,12 +937,10 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			vaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-va"), Namespace: testNs.Name}
 			hpaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-hpa"), Namespace: testNs.Name}
 
 			// Wait for scaling resources to be created
 			Eventually(func(g Gomega, ctx context.Context) {
-				g.Expect(envTest.Get(ctx, vaKey, &wvav1alpha1.VariantAutoscaling{})).To(Succeed())
 				g.Expect(envTest.Get(ctx, hpaKey, &autoscalingv2.HorizontalPodAutoscaler{})).To(Succeed())
 			}).WithContext(ctx).Should(Succeed())
 
@@ -1049,11 +958,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 			// Verify scaling resources are deleted
 			Eventually(func(g Gomega, ctx context.Context) {
-				err := envTest.Get(ctx, vaKey, &wvav1alpha1.VariantAutoscaling{})
-				g.Expect(client.IgnoreNotFound(err)).To(Succeed())
-				g.Expect(err).To(HaveOccurred(), "VA should be deleted when stopped")
-
-				err = envTest.Get(ctx, hpaKey, &autoscalingv2.HorizontalPodAutoscaler{})
+				err := envTest.Get(ctx, hpaKey, &autoscalingv2.HorizontalPodAutoscaler{})
 				g.Expect(client.IgnoreNotFound(err)).To(Succeed())
 				g.Expect(err).To(HaveOccurred(), "HPA should be deleted when stopped")
 			}).WithContext(ctx).Should(Succeed())
@@ -1063,7 +968,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	Context("ScalingReady condition propagation", func() {
 		It("should set ScalingReady=False (progressing) when HPA has no status conditions", func(ctx SpecContext) {
 			svcName := "test-hpa-cond-prog"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -1090,7 +995,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should set ScalingReady=True when HPA reports healthy conditions", func(ctx SpecContext) {
 			svcName := "test-hpa-cond-ready"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -1138,7 +1043,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should set ScalingReady=False when HPA ScalingActive is False", func(ctx SpecContext) {
 			svcName := "test-hpa-cond-fail"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -1186,7 +1091,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should clear ScalingReady when scaling is removed", func(ctx SpecContext) {
 			svcName := "test-scaling-clear"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -1229,7 +1134,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should not have ScalingReady when no scaling is configured", func(ctx SpecContext) {
 			svcName := "test-no-scaling-cond"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -1260,7 +1165,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should set ScalingReady=False when KEDA ScaledObject is not yet ready", func(ctx SpecContext) {
 			svcName := "test-keda-cond-prog"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -1287,7 +1192,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should set ScalingReady=True when KEDA ScaledObject reports Ready", func(ctx SpecContext) {
 			svcName := "test-keda-cond-ok"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -1336,7 +1241,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should transition ScalingReady from True to False when HPA degrades", func(ctx SpecContext) {
 			svcName := "test-hpa-true-false"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -1407,7 +1312,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should transition ScalingReady from True to False when KEDA ScaledObject degrades", func(ctx SpecContext) {
 			svcName := "test-keda-true-false"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -1482,7 +1387,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should set PrefillScalingReady when prefill scaling is configured", func(ctx SpecContext) {
 			svcName := "test-prefill-scale"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),

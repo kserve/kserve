@@ -20,6 +20,7 @@ import unittest.mock as mock
 import mimetypes
 from pathlib import Path
 
+import certifi
 import pytest
 
 from kserve_storage import Storage
@@ -117,6 +118,179 @@ def test_https_uri_path(_):
     out_dir = "."
     assert Storage.download(https_uri, out_dir=out_dir) == out_dir
     assert Storage.download(https_with_query_uri, out_dir=out_dir) == out_dir
+    os.remove("./model.joblib")
+
+
+# Real (self-signed, parse-valid) certificate: the combined bundle is
+# validated with ssl before being exported, so the fixture must parse.
+TEST_CA_PEM = """-----BEGIN CERTIFICATE-----
+MIIBhjCCAS2gAwIBAgIUMyxVv2w1Wp1oKdnW+DOnMeesPi8wCgYIKoZIzj0EAwIw
+GTEXMBUGA1UEAwwOa3NlcnZlLXRlc3QtY2EwHhcNMjYwNzAyMTYyMDQwWhcNMzYw
+NjI5MTYyMDQwWjAZMRcwFQYDVQQDDA5rc2VydmUtdGVzdC1jYTBZMBMGByqGSM49
+AgEGCCqGSM49AwEHA0IABBUFVi0qWbwEv/l+HcofdpTKfJbNoWqqa2VZzRTPwLVT
+gRgM4IwCS/9BqOk/4kgtaDmwkgaPHezDeSn6+KXGJzqjUzBRMB0GA1UdDgQWBBR1
+nfvZnSy6d6wdttlst48UzrMwPDAfBgNVHSMEGDAWgBR1nfvZnSy6d6wdttlst48U
+zrMwPDAPBgNVHRMBAf8EBTADAQH/MAoGCCqGSM49BAMCA0cAMEQCIHvDmtj+mck4
+EHZ0148y6DFcWpDIAaPyKz2rVv/I0rA2AiA+yiYFjmPwtUwvCOj8yQI6IYMgrjsS
+mjrvDJwPyARHZg==
+-----END CERTIFICATE-----
+"""
+
+
+@mock.patch(
+    "requests.get",
+    return_value=MockHttpResponse(
+        status_code=200, content_type="application/octet-stream"
+    ),
+)
+def test_https_uri_path_without_global_ca_bundle(_):
+    with mock.patch.dict(os.environ):
+        os.environ.pop("CA_BUNDLE_CONFIGMAP_NAME", None)
+        os.environ.pop("REQUESTS_CA_BUNDLE", None)
+        os.environ.pop("SSL_CERT_FILE", None)
+        assert Storage.download("https://foo.bar/model.joblib", out_dir=".") == "."
+        assert "REQUESTS_CA_BUNDLE" not in os.environ
+        assert "SSL_CERT_FILE" not in os.environ
+    os.remove("./model.joblib")
+
+
+@mock.patch(
+    "requests.get",
+    return_value=MockHttpResponse(
+        status_code=200, content_type="application/octet-stream"
+    ),
+)
+def test_https_uri_path_with_global_ca_bundle(_, tmp_path):
+    ca_bundle_path = tmp_path / "cabundle.crt"
+    ca_bundle_path.write_text(TEST_CA_PEM)
+    env = {
+        "CA_BUNDLE_CONFIGMAP_NAME": "cabundle",
+        "CA_BUNDLE_VOLUME_MOUNT_POINT": str(tmp_path),
+    }
+    with mock.patch.dict(os.environ, env):
+        os.environ.pop("REQUESTS_CA_BUNDLE", None)
+        os.environ.pop("SSL_CERT_FILE", None)
+        assert Storage.download("https://foo.bar/model.joblib", out_dir=".") == "."
+        combined_path = os.environ["REQUESTS_CA_BUNDLE"]
+        assert os.environ["SSL_CERT_FILE"] == combined_path
+        combined = Path(combined_path).read_text()
+        # The combined bundle keeps the default trust store and adds the
+        # mounted CA bundle.
+        assert TEST_CA_PEM in combined
+        assert Path(certifi.where()).read_text() in combined
+    os.remove("./model.joblib")
+
+
+@mock.patch(
+    "requests.get",
+    return_value=MockHttpResponse(
+        status_code=200, content_type="application/octet-stream"
+    ),
+)
+def test_https_uri_path_keeps_existing_ca_bundle_env(_, tmp_path):
+    ca_bundle_path = tmp_path / "cabundle.crt"
+    ca_bundle_path.write_text(TEST_CA_PEM)
+    env = {
+        "CA_BUNDLE_CONFIGMAP_NAME": "cabundle",
+        "CA_BUNDLE_VOLUME_MOUNT_POINT": str(tmp_path),
+        "REQUESTS_CA_BUNDLE": "/pre/existing/bundle.crt",
+        "SSL_CERT_FILE": "/pre/existing/cert-file.crt",
+    }
+    with mock.patch.dict(os.environ, env):
+        assert Storage.download("https://foo.bar/model.joblib", out_dir=".") == "."
+        assert os.environ["REQUESTS_CA_BUNDLE"] == "/pre/existing/bundle.crt"
+        assert os.environ["SSL_CERT_FILE"] == "/pre/existing/cert-file.crt"
+    os.remove("./model.joblib")
+
+
+@mock.patch(
+    "requests.get",
+    return_value=MockHttpResponse(
+        status_code=200, content_type="application/octet-stream"
+    ),
+)
+def test_https_uri_path_fills_unset_ca_bundle_env(_, tmp_path):
+    ca_bundle_path = tmp_path / "cabundle.crt"
+    ca_bundle_path.write_text(TEST_CA_PEM)
+    env = {
+        "CA_BUNDLE_CONFIGMAP_NAME": "cabundle",
+        "CA_BUNDLE_VOLUME_MOUNT_POINT": str(tmp_path),
+        "SSL_CERT_FILE": "/pre/existing/cert-file.crt",
+    }
+    with mock.patch.dict(os.environ, env):
+        os.environ.pop("REQUESTS_CA_BUNDLE", None)
+        assert Storage.download("https://foo.bar/model.joblib", out_dir=".") == "."
+        # The pre-set variable is preserved, the unset one is still filled.
+        assert os.environ["SSL_CERT_FILE"] == "/pre/existing/cert-file.crt"
+        assert TEST_CA_PEM in Path(os.environ["REQUESTS_CA_BUNDLE"]).read_text()
+    os.remove("./model.joblib")
+
+
+@mock.patch(
+    "requests.get",
+    return_value=MockHttpResponse(
+        status_code=200, content_type="application/octet-stream"
+    ),
+)
+def test_https_uri_path_with_malformed_global_ca_bundle(_, tmp_path):
+    ca_bundle_path = tmp_path / "cabundle.crt"
+    ca_bundle_path.write_text(
+        "-----BEGIN CERTIFICATE-----\nnot-a-cert\n-----END CERTIFICATE-----\n"
+    )
+    env = {
+        "CA_BUNDLE_CONFIGMAP_NAME": "cabundle",
+        "CA_BUNDLE_VOLUME_MOUNT_POINT": str(tmp_path),
+    }
+    with mock.patch.dict(os.environ, env):
+        os.environ.pop("REQUESTS_CA_BUNDLE", None)
+        os.environ.pop("SSL_CERT_FILE", None)
+        # A bundle that does not parse must not poison the trust store or
+        # break the download; the default trust store stays in effect.
+        assert Storage.download("https://foo.bar/model.joblib", out_dir=".") == "."
+        assert "REQUESTS_CA_BUNDLE" not in os.environ
+        assert "SSL_CERT_FILE" not in os.environ
+    os.remove("./model.joblib")
+
+
+@mock.patch(f"{STORAGE_MODULE}.Storage._download_hdfs", return_value="/out")
+@pytest.mark.parametrize("uri", ["hdfs://host/model", "webhdfs://host/model"])
+def test_hdfs_uri_path_keeps_own_tls_configuration(_, uri, tmp_path):
+    ca_bundle_path = tmp_path / "cabundle.crt"
+    ca_bundle_path.write_text(TEST_CA_PEM)
+    env = {
+        "CA_BUNDLE_CONFIGMAP_NAME": "cabundle",
+        "CA_BUNDLE_VOLUME_MOUNT_POINT": str(tmp_path),
+    }
+    with mock.patch.dict(os.environ, env):
+        os.environ.pop("REQUESTS_CA_BUNDLE", None)
+        os.environ.pop("SSL_CERT_FILE", None)
+        # The hdfs session pins verify from TLS_CA / TLS_SKIP_VERIFY and
+        # REQUESTS_CA_BUNDLE would override it, so the global CA bundle
+        # must not be exported for hdfs downloads.
+        Storage.download(uri, out_dir=str(tmp_path / "out"))
+        assert "REQUESTS_CA_BUNDLE" not in os.environ
+        assert "SSL_CERT_FILE" not in os.environ
+
+
+@mock.patch(
+    "requests.get",
+    return_value=MockHttpResponse(
+        status_code=200, content_type="application/octet-stream"
+    ),
+)
+def test_https_uri_path_with_missing_global_ca_bundle_file(_, tmp_path):
+    env = {
+        "CA_BUNDLE_CONFIGMAP_NAME": "cabundle",
+        "CA_BUNDLE_VOLUME_MOUNT_POINT": str(tmp_path),
+    }
+    with mock.patch.dict(os.environ, env):
+        os.environ.pop("REQUESTS_CA_BUNDLE", None)
+        os.environ.pop("SSL_CERT_FILE", None)
+        # A configured but missing bundle must not break the download; the
+        # default trust store stays in effect.
+        assert Storage.download("https://foo.bar/model.joblib", out_dir=".") == "."
+        assert "REQUESTS_CA_BUNDLE" not in os.environ
+        assert "SSL_CERT_FILE" not in os.environ
     os.remove("./model.joblib")
 
 

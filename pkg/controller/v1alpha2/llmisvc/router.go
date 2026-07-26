@@ -24,6 +24,7 @@ import (
 	"slices"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"knative.dev/pkg/apis"
@@ -136,12 +137,28 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 
 	expectedHTTPRoute := r.expectedHTTPRoute(ctx, llmSvc, cfg)
 
-	// Clean up if router or routes are not configured
 	if utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route == nil {
+		llmSvc.MarkGroupReadyUnset()
 		if _, err := r.updateRoutingStatus(ctx, llmSvc); err != nil {
 			return nil, err
 		}
 		return nil, Delete(ctx, r, llmSvc, expectedHTTPRoute)
+	}
+
+	// Inject group members' backendRefs for traffic splitting.
+	// Non-grouped members clear any stale GroupReady condition.
+	var groupMatching, groupDivergent []resolvedMember
+	if llmSvc.Spec.Router.HasGroup() {
+		var err error
+		groupMatching, groupDivergent, err = r.injectGroupBackendRefs(ctx, llmSvc, expectedHTTPRoute)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		llmSvc.MarkGroupReadyUnset()
+		if llmSvc.Status.Router != nil {
+			llmSvc.Status.Router.Group = nil
+		}
 	}
 
 	// Collect any explicitly referenced HTTPRoutes
@@ -160,10 +177,31 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 	}
 
 	if route.HTTP.HasSpec() {
+		// Model name collisions affect publisher paths and model-routing
+		// headers alike - both derive from the same fullyQualifiedModelName.
+		// Run unconditionally because publisher paths are always present.
+		others := &v1alpha2.LLMInferenceServiceList{}
+		if err := r.List(ctx, others, client.InNamespace(llmSvc.Namespace)); err != nil {
+			logger.Error(err, "failed to list LLMISVCs for model name collision check")
+		} else if collisions := findModelNameCollisions(llmSvc, others.Items); len(collisions) > 0 {
+			r.Eventf(llmSvc, corev1.EventTypeWarning, "ModelNameCollision",
+				"model name %q overlaps with %s in namespace %s; "+
+					"shared publisher paths and model-routing headers cause the gateway to shadow one service. "+
+					"Reachable at its own address %s/%s; safe to ignore if traffic splitting is planned",
+				ptr.Deref(llmSvc.Spec.Model.Name, llmSvc.Name),
+				strings.Join(collisions, ", "), llmSvc.Namespace,
+				llmSvc.Namespace, llmSvc.Name)
+		}
+
 		if err := Reconcile(ctx, r, llmSvc, &gwapiv1.HTTPRoute{}, expectedHTTPRoute, semanticHTTPRouteIsEqual); err != nil {
 			return nil, fmt.Errorf("failed to reconcile HTTPRoute %s/%s: %w", expectedHTTPRoute.GetNamespace(), expectedHTTPRoute.GetName(), err)
 		}
 		referencedRoutes = append(referencedRoutes, expectedHTTPRoute)
+	}
+
+	// Apply group status after the route write so status reflects committed state.
+	if groupMatching != nil {
+		r.applyGroupStatus(llmSvc, groupMatching, groupDivergent)
 	}
 
 	return r.updateRoutingStatus(ctx, llmSvc, referencedRoutes...)
@@ -355,9 +393,10 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 	}
 
 	if len(routes) > 0 {
-		llmSvc.Status.Router = &v1alpha2.RouterStatus{
-			Gateways: BuildObservedGateways(routes),
+		if llmSvc.Status.Router == nil {
+			llmSvc.Status.Router = &v1alpha2.RouterStatus{}
 		}
+		llmSvc.Status.Router.Gateways = BuildObservedGateways(routes)
 	}
 
 	additional, err := r.discoverAdditionalURLs(ctx, discovered)
@@ -372,24 +411,14 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 
 	externalURLs := FilterExternalURLs(discovered)
 	if len(externalURLs) == 0 {
-		logger.Info("no public URL discovered")
+		logger.Info("no external URL discovered, using internal address")
 		if len(discovered) > 0 {
-			// Promote first address to top-level status.URL as some "cluster external" addresses are technically within
-			// "virtual private networks" and we cannot detect that from just IPs. Even if it's a cluster-local URL, the
-			// status URL is just for discovery and easy access, and it's not a problem to have here while we prioritize
-			// external addresses.
-			//
-			// We prefer the path-based URL (/{ns}/{name}) over the model-routing
-			// root URL (/) for backward compatibility: status.URL was always the
-			// path-based URL before model-based routing was introduced, and
-			// existing clients may rely on that form.
-			llmSvc.Status.URL = preferPathBasedURL(discovered, llmSvc.Namespace, llmSvc.Name)
+			llmSvc.Status.URL = preferPathBasedURL(discovered, llmSvc.Namespace, llmSvc.Name, cfg.UrlScheme)
 		} else {
 			llmSvc.Status.URL = nil
 		}
 	} else {
-		// Same path-based preference as above — see comment.
-		llmSvc.Status.URL = preferPathBasedURL(externalURLs, llmSvc.Namespace, llmSvc.Name)
+		llmSvc.Status.URL = preferPathBasedURL(externalURLs, llmSvc.Namespace, llmSvc.Name, "")
 	}
 
 	llmSvc.Status.Addresses = make([]v1alpha2.SourcedAddress, 0, len(discovered))
@@ -411,36 +440,80 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 	return deduped, nil
 }
 
-// preferPathBasedURL selects the URL whose path starts with /{namespace}/{name}
-// from the list, falling back to the first URL if none matches.
-//
-// With model-based routing enabled, DiscoverURLs returns both the path-based
-// URL (/{ns}/{name}, works without special headers) and the model-routing root
-// URL (/, requires the model-routing header). Alphabetical sorting puts "/" first,
-// but status.URL must remain the path-based URL for backward compatibility —
-// it's the form clients have always seen and the one that works unconditionally.
-func preferPathBasedURL(urls []DiscoveredURL, namespace, name string) *apis.URL {
+// preferPathBasedURL selects the first URL whose path starts with
+// /{namespace}/{name}, preferring the one matching preferredScheme
+// when multiple candidates exist.
+func preferPathBasedURL(urls []DiscoveredURL, namespace, name, preferredScheme string) *apis.URL {
 	prefix := "/" + namespace + "/" + name
+	var firstPathMatch *apis.URL
 	for _, u := range urls {
 		if strings.HasPrefix(u.URL.Path, prefix) {
-			return u.URL
+			if preferredScheme != "" && u.URL.Scheme == preferredScheme {
+				return u.URL
+			}
+			if firstPathMatch == nil {
+				firstPathMatch = u.URL
+			}
 		}
+	}
+	if firstPathMatch != nil {
+		return firstPathMatch
 	}
 	return urls[0].URL
 }
 
 func RouterLabels(llmSvc *v1alpha2.LLMInferenceService) map[string]string {
-	return map[string]string{
+	labels := map[string]string{
 		constants.KubernetesComponentLabelKey: constants.LLMComponentRouter,
 		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
 		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 	}
+	if llmSvc.Spec.Router.HasGroup() {
+		labels[constants.LLMRoutingGroupLabelKey] = *llmSvc.Spec.Router.Route.Group
+	}
+	return labels
 }
 
 func semanticHTTPRouteIsEqual(e *gwapiv1.HTTPRoute, c *gwapiv1.HTTPRoute) bool {
-	return equality.Semantic.DeepDerivative(e.Spec, c.Spec) &&
+	specEqual := equality.Semantic.DeepDerivative(e.Spec, c.Spec)
+	if isGroupRoute(e) {
+		// Grouped routes need exact rule comparison to detect stale backendRefs
+		// from deleted members. DeepDerivative only checks subset membership.
+		specEqual = equality.Semantic.DeepEqual(e.Spec.Rules, c.Spec.Rules) &&
+			equality.Semantic.DeepDerivative(e.Spec.ParentRefs, c.Spec.ParentRefs) &&
+			equality.Semantic.DeepDerivative(e.Spec.Hostnames, c.Spec.Hostnames)
+	}
+	return specEqual &&
 		equality.Semantic.DeepDerivative(e.Labels, c.Labels) &&
+		!hasStaleControllerLabels(e.Labels, c.Labels) &&
 		equality.Semantic.DeepDerivative(e.Annotations, c.Annotations)
+}
+
+func isGroupRoute(route *gwapiv1.HTTPRoute) bool {
+	if route == nil || route.Labels == nil {
+		return false
+	}
+	_, hasGroupLabel := route.Labels[constants.LLMRoutingGroupLabelKey]
+	return hasGroupLabel
+}
+
+// hasStaleControllerLabels returns true when the current object carries a
+// controller-managed label that the expected object does not. DeepDerivative
+// alone misses this case because it only checks that expected is a subset of
+// current - it never flags removals.
+func hasStaleControllerLabels(expected, current map[string]string) bool {
+	for _, key := range controllerManagedLabelKeys {
+		_, inCurrent := current[key]
+		_, inExpected := expected[key]
+		if inCurrent && !inExpected {
+			return true
+		}
+	}
+	return false
+}
+
+var controllerManagedLabelKeys = []string{
+	constants.LLMRoutingGroupLabelKey,
 }
 
 // EvaluateGatewayConditions evaluates the readiness of all Gateways referenced by the LLMInferenceService
@@ -621,6 +694,9 @@ func (r *LLMISVCReconciler) EvaluateInferencePoolConditions(ctx context.Context,
 	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil {
 		logger.V(2).Info("Scheduler is disabled, clearing InferencePoolReady condition")
 		llmSvc.MarkInferencePoolReadyUnset()
+		if llmSvc.Status.Router != nil {
+			llmSvc.Status.Router.Scheduler = nil
+		}
 		return nil
 	}
 
