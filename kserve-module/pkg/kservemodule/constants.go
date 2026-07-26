@@ -69,9 +69,16 @@ const (
 	PlatformFinalizerName = "platform.opendatahub.io/finalizer"
 
 	// cert-manager defaults
-	defaultCAIssuerName    = "opendatahub-ca-issuer"
-	defaultIssuerRefKind   = "ClusterIssuer"
-	defaultCertName        = "opendatahub-ca"
+	defaultCAIssuerName  = "opendatahub-ca-issuer"
+	defaultIssuerRefKind = "ClusterIssuer"
+	defaultCertName      = "opendatahub-ca"
+	// defaultCertManagerNS is the fallback when dynamic detection fails.
+	// Prefer CA_SECRET_NAMESPACE env var or runtime discovery.
 	defaultCertManagerNS   = "cert-manager"
 	defaultIstioCACertPath = "/var/run/secrets/opendatahub/ca.crt"
+
+	// Well-known cert-manager namespace candidates for discovery.
+	certManagerNSCandidate        = "cert-manager"
+	certManagerOperatorNS         = "cert-manager-operator"
+	certManagerWebhookDeployment  = "cert-manager-webhook"
 )

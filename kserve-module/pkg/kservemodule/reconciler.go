@@ -317,9 +317,10 @@ func (r *KserveModuleReconciler) reconcileComponent(ctx context.Context,
 
 	if r.isKubernetes(ctx) {
 		ns := r.getApplicationsNamespace()
+		certNS := r.getCertManagerNamespace(ctx)
 		if err := applyParams(
 			filepath.Join(manifestDir, comp.dirName(), comp.sourcePathXKS),
-			nil, buildCertManagerParams(ns),
+			nil, buildCertManagerParams(ns, certNS),
 		); err != nil {
 			return nil, fmt.Errorf("applying cert-manager params: %w", err)
 		}
@@ -394,6 +395,28 @@ func (r *KserveModuleReconciler) getApplicationsNamespace() string {
 	}
 
 	return "opendatahub"
+}
+
+// getCertManagerNamespace dynamically discovers the namespace where cert-manager
+// stores its CA secrets. It checks (in order):
+// 1. CA_SECRET_NAMESPACE env var (explicit override)
+// 2. "cert-manager" namespace existence on the cluster
+// 3. "cert-manager-operator" namespace existence (OCP OLM install)
+// 4. Falls back to "cert-manager" constant
+func (r *KserveModuleReconciler) getCertManagerNamespace(ctx context.Context) string {
+	if ns := os.Getenv("CA_SECRET_NAMESPACE"); ns != "" {
+		return ns
+	}
+
+	for _, candidate := range []string{certManagerNSCandidate, certManagerOperatorNS} {
+		var ns corev1.Namespace
+		if err := r.Get(ctx, types.NamespacedName{Name: candidate}, &ns); err == nil {
+			ctrl.LoggerFrom(ctx).V(1).Info("Discovered cert-manager namespace", "namespace", candidate)
+			return candidate
+		}
+	}
+
+	return defaultCertManagerNS
 }
 
 func (r *KserveModuleReconciler) getPlatformVersion(ctx context.Context) string {

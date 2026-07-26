@@ -112,7 +112,7 @@ func TestApplyParams_ExtraParamsMap(t *testing.T) {
 func TestBuildCertManagerParams_Defaults(t *testing.T) {
 	g := NewWithT(t)
 
-	params := buildCertManagerParams("test-ns")
+	params := buildCertManagerParams("test-ns", defaultCertManagerNS)
 	g.Expect(params["NAMESPACE"]).Should(Equal("test-ns"))
 	g.Expect(params["ISSUER_REF_NAME"]).Should(Equal(defaultCAIssuerName))
 	g.Expect(params["ISSUER_REF_KIND"]).Should(Equal(defaultIssuerRefKind))
@@ -128,7 +128,14 @@ func TestBuildCertManagerParams_EnvOverrides(t *testing.T) {
 	t.Setenv("ISSUER_NAME", "custom-issuer")
 	t.Setenv("CA_SECRET_NAME", "custom-ca")
 
-	params := buildCertManagerParams("ns")
+	params := buildCertManagerParams("ns", "custom-ns")
 	g.Expect(params["ISSUER_REF_NAME"]).Should(Equal("custom-issuer"))
 	g.Expect(params["CA_SECRET_NAME"]).Should(Equal("custom-ca"))
+}
+
+func TestBuildCertManagerParams_DynamicNamespace(t *testing.T) {
+	g := NewWithT(t)
+
+	params := buildCertManagerParams("test-ns", "cert-manager-operator")
+	g.Expect(params["CA_SECRET_NAMESPACE"]).Should(Equal("cert-manager-operator"))
 }
