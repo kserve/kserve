@@ -1,6 +1,6 @@
 module github.com/kserve/kserve
 
-go 1.26.0
+go 1.26.5
 
 require (
 	cloud.google.com/go/storage v1.62.2
@@ -44,7 +44,7 @@ require (
 	k8s.io/apimachinery v0.36.0
 	k8s.io/client-go v0.36.0
 	k8s.io/code-generator v0.36.0
-	k8s.io/component-helpers v0.35.3
+	k8s.io/component-helpers v0.36.0
 	k8s.io/klog/v2 v2.140.0
 	k8s.io/kube-openapi v0.0.0-20260427204847-8949caaa1199
 	k8s.io/utils v0.0.0-20260319190234-28399d86e0b5
