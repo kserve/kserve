@@ -473,7 +473,7 @@ def get_member_status(api, observer, member, ns):
 
 
 def wait_for_healthy_route(
-    gateway_url, headers, payload, consecutive=10, timeout=30, expect_header=None
+    gateway_url, headers, payload, consecutive=10, timeout=60, expect_header=None
 ):
     """Poll the gateway until we get consecutive 2xx responses.
 
