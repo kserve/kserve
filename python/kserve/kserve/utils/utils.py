@@ -166,7 +166,20 @@ def get_predict_input(
         else:
             if isinstance(instances[0], str):
                 return instances
-            return np.array(instances)
+            np_array = np.array(instances)
+            # numpy silently casts every element to a string when the instances
+            # hold both numeric and string values, corrupting the numeric fields.
+            if np_array.dtype.kind in ("U", "S") and any(
+                not isinstance(value, str)
+                for value in np.array(instances, dtype=object).ravel()
+            ):
+                raise InvalidInput(
+                    "instances mix numeric and string values, which would be coerced "
+                    "to strings. Send each instance as named fields to preserve the "
+                    'type of each field, e.g. {"instances": [{"col1": [1.0], '
+                    '"col2": ["abc"]}]}'
+                )
+            return np_array
     elif isinstance(payload, InferRequest):
         content_type = ""
         parameters = payload.parameters
