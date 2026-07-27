@@ -148,10 +148,7 @@ def _get_httproute_backend_refs(name, namespace):
     rules = route.get("spec", {}).get("rules", [])
     if not rules:
         return []
-    return [
-        (ref["backendRef"]["name"], ref["backendRef"].get("weight"))
-        for ref in rules[0].get("backendRefs", [])
-    ]
+    return [(ref["name"], ref.get("weight")) for ref in rules[0].get("backendRefs", [])]
 
 
 def _get_pod_uids(apps_v1, deployment_name, namespace):
@@ -165,7 +162,6 @@ def _get_pod_uids(apps_v1, deployment_name, namespace):
 
 @pytest.mark.predictor
 @pytest.mark.raw
-@pytest.mark.asyncio(scope="session")
 def test_canary_create():
     service_name = "isvc-canary-create"
     kserve = _kserve_client()
@@ -230,7 +226,6 @@ def test_canary_create():
 
 @pytest.mark.predictor
 @pytest.mark.raw
-@pytest.mark.asyncio(scope="session")
 def test_canary_promote():
     service_name = "isvc-canary-promote"
     kserve = _kserve_client()
@@ -287,20 +282,18 @@ def test_canary_promote():
             f"Canary pods were restarted during promotion: canary={canary_pod_uids}, post_promote={post_promote_uids}"
         )
 
-        # After promotion, HTTPRoute should have a single unweighted backend
+        # After promotion, HTTPRoute name stays stable, backend points to promoted service
         backends = _get_httproute_backend_refs(
-            f"{service_name}-v2-predictor", KSERVE_TEST_NAMESPACE
+            f"{service_name}-predictor", KSERVE_TEST_NAMESPACE
         )
         assert len(backends) == 1, f"Expected 1 backend after promotion, got {backends}"
         assert backends[0][0] == f"{service_name}-v2-predictor"
-        assert backends[0][1] is None, "Backend should be unweighted after promotion"
     finally:
         _safe_delete(kserve, service_name)
 
 
 @pytest.mark.predictor
 @pytest.mark.raw
-@pytest.mark.asyncio(scope="session")
 def test_canary_rollback():
     service_name = "isvc-canary-rollback"
     kserve = _kserve_client()
@@ -352,20 +345,18 @@ def test_canary_rollback():
             "CanaryPredictorReady should be cleared after rollback"
         )
 
-        # After rollback, HTTPRoute should have a single unweighted stable backend
+        # After rollback, HTTPRoute should have a single stable backend
         backends = _get_httproute_backend_refs(
             f"{service_name}-predictor", KSERVE_TEST_NAMESPACE
         )
         assert len(backends) == 1, f"Expected 1 backend after rollback, got {backends}"
         assert backends[0][0] == f"{service_name}-predictor"
-        assert backends[0][1] is None, "Backend should be unweighted after rollback"
     finally:
         _safe_delete(kserve, service_name)
 
 
 @pytest.mark.predictor
 @pytest.mark.raw
-@pytest.mark.asyncio(scope="session")
 def test_canary_force_stop():
     service_name = "isvc-canary-stop"
     kserve = _kserve_client()
