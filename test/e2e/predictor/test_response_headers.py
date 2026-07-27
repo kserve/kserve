@@ -61,7 +61,7 @@ def test_predictor_headers_v1():
             V1Container(
                 name="kserve-container",
                 image="kserve/custom-image-transformer-grpc:"
-                + os.environ.get("GITHUB_SHA"),
+                + (os.environ.get("GITHUB_SHA") or "latest"),
                 # Override the entrypoint to run the custom transformer rest server
                 command=["python", "-m", "custom_transformer.model"],
                 resources=V1ResourceRequirements(
@@ -146,7 +146,7 @@ def test_predictor_headers_v2():
             V1Container(
                 name="kserve-container",
                 image="kserve/custom-image-transformer-grpc:"
-                + os.environ.get("GITHUB_SHA"),
+                + (os.environ.get("GITHUB_SHA") or "latest"),
                 # Override the entrypoint to run the custom transformer rest server
                 command=["python", "-m", "custom_transformer.model"],
                 resources=V1ResourceRequirements(
