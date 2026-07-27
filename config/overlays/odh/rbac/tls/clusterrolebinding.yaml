@@ -13,3 +13,9 @@ subjects:
 - kind: ServiceAccount
   name: llmisvc-controller-manager
   namespace: kserve
+- kind: ServiceAccount
+  name: kserve-localmodel-controller-manager
+  namespace: kserve
+- kind: ServiceAccount
+  name: kserve-localmodelnode-agent
+  namespace: kserve
