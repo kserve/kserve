@@ -170,7 +170,7 @@ def get_predict_input(
             # numpy silently casts every element to a string when the instances
             # hold both numeric and string values, corrupting the numeric fields.
             if np_array.dtype.kind in ("U", "S") and any(
-                not isinstance(value, str)
+                not isinstance(value, (str, bytes))
                 for value in np.array(instances, dtype=object).ravel()
             ):
                 raise InvalidInput(

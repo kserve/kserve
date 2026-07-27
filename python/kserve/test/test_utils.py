@@ -51,6 +51,21 @@ class TestGetPredictInput:
         assert result.dtype.kind == "U"
         assert result.tolist() == [["PPC", "OSIOS"], ["SEO", "DESKTOP"]]
 
+    def test_all_bytes_instances_are_not_rejected(self):
+        payload = {"instances": [[b"PPC", b"OSIOS"]]}
+
+        result = get_predict_input(payload)
+
+        assert isinstance(result, np.ndarray)
+        assert result.dtype.kind == "S"
+        assert result.tolist() == [[b"PPC", b"OSIOS"]]
+
+    def test_bytes_mixed_with_numbers_raises(self):
+        payload = {"instances": [[b"PPC", 1.0]]}
+
+        with pytest.raises(InvalidInput, match="mix numeric and string values"):
+            get_predict_input(payload)
+
     def test_list_of_strings_is_returned_unchanged(self):
         payload = {"instances": ["first text", "second text"]}
 
