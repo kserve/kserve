@@ -151,6 +151,10 @@ def _get_httproute_backend_refs(name, namespace):
     return [(ref["name"], ref.get("weight")) for ref in rules[0].get("backendRefs", [])]
 
 
+def _is_gatewayapi(network_layer):
+    return network_layer is not None and "gatewayapi" in network_layer
+
+
 def _get_pod_uids(apps_v1, deployment_name, namespace):
     core_v1 = client.CoreV1Api()
     dep = apps_v1.read_namespaced_deployment(deployment_name, namespace)
@@ -162,7 +166,7 @@ def _get_pod_uids(apps_v1, deployment_name, namespace):
 
 @pytest.mark.predictor
 @pytest.mark.raw
-def test_canary_create():
+def test_canary_create(network_layer):
     service_name = "isvc-canary-create"
     kserve = _kserve_client()
     apps = _apps_v1()
@@ -203,30 +207,26 @@ def test_canary_create():
         assert len(canary_status) > 0, "canary status should be populated"
         assert canary_status[0]["name"] == "v2"
 
-        # Verify HTTPRoute has weighted backend refs for stable and canary
-        backends = _get_httproute_backend_refs(
-            f"{service_name}-predictor", KSERVE_TEST_NAMESPACE
-        )
-        assert len(backends) == 2, (
-            f"Expected 2 backends (stable + canary), got {backends}"
-        )
-        names = {name for name, _ in backends}
-        assert f"{service_name}-predictor" in names, (
-            "Stable backend missing from HTTPRoute"
-        )
-        assert f"{service_name}-v2-predictor" in names, (
-            "Canary backend missing from HTTPRoute"
-        )
-        weights = {name: weight for name, weight in backends}
-        assert weights[f"{service_name}-predictor"] == 80
-        assert weights[f"{service_name}-v2-predictor"] == 20
+        if _is_gatewayapi(network_layer):
+            backends = _get_httproute_backend_refs(
+                f"{service_name}-predictor", KSERVE_TEST_NAMESPACE
+            )
+            assert len(backends) == 2, (
+                f"Expected 2 backends (stable + canary), got {backends}"
+            )
+            names = {name for name, _ in backends}
+            assert f"{service_name}-predictor" in names
+            assert f"{service_name}-v2-predictor" in names
+            weights = {name: weight for name, weight in backends}
+            assert weights[f"{service_name}-predictor"] == 80
+            assert weights[f"{service_name}-v2-predictor"] == 20
     finally:
         _safe_delete(kserve, service_name)
 
 
 @pytest.mark.predictor
 @pytest.mark.raw
-def test_canary_promote():
+def test_canary_promote(network_layer):
     service_name = "isvc-canary-promote"
     kserve = _kserve_client()
     apps = _apps_v1()
@@ -282,19 +282,21 @@ def test_canary_promote():
             f"Canary pods were restarted during promotion: canary={canary_pod_uids}, post_promote={post_promote_uids}"
         )
 
-        # After promotion, HTTPRoute name stays stable, backend points to promoted service
-        backends = _get_httproute_backend_refs(
-            f"{service_name}-predictor", KSERVE_TEST_NAMESPACE
-        )
-        assert len(backends) == 1, f"Expected 1 backend after promotion, got {backends}"
-        assert backends[0][0] == f"{service_name}-v2-predictor"
+        if _is_gatewayapi(network_layer):
+            backends = _get_httproute_backend_refs(
+                f"{service_name}-predictor", KSERVE_TEST_NAMESPACE
+            )
+            assert len(backends) == 1, (
+                f"Expected 1 backend after promotion, got {backends}"
+            )
+            assert backends[0][0] == f"{service_name}-v2-predictor"
     finally:
         _safe_delete(kserve, service_name)
 
 
 @pytest.mark.predictor
 @pytest.mark.raw
-def test_canary_rollback():
+def test_canary_rollback(network_layer):
     service_name = "isvc-canary-rollback"
     kserve = _kserve_client()
     apps = _apps_v1()
@@ -345,12 +347,14 @@ def test_canary_rollback():
             "CanaryPredictorReady should be cleared after rollback"
         )
 
-        # After rollback, HTTPRoute should have a single stable backend
-        backends = _get_httproute_backend_refs(
-            f"{service_name}-predictor", KSERVE_TEST_NAMESPACE
-        )
-        assert len(backends) == 1, f"Expected 1 backend after rollback, got {backends}"
-        assert backends[0][0] == f"{service_name}-predictor"
+        if _is_gatewayapi(network_layer):
+            backends = _get_httproute_backend_refs(
+                f"{service_name}-predictor", KSERVE_TEST_NAMESPACE
+            )
+            assert len(backends) == 1, (
+                f"Expected 1 backend after rollback, got {backends}"
+            )
+            assert backends[0][0] == f"{service_name}-predictor"
     finally:
         _safe_delete(kserve, service_name)
 
