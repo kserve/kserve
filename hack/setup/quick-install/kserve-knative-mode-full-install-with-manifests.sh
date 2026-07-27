@@ -2759,26 +2759,18 @@ spec:
         fi
         echo "[shutdown-timeout-detect] selected SHUTDOWN_TIMEOUT_ARGS='${SHUTDOWN_TIMEOUT_ARGS}'"
 
-        # --kv-transfer-config exists on all supported vLLM versions and even the
-        # OffloadingConnector predates them, but the TieringOffloadingSpec that
-        # kvTransferConfig generates only landed in vLLM 0.22.0 (vllm-project/vllm#40020).
-        # Neither is listed in --help output, so probe the installed package source.
-        vllm_supports_tiering_offloading() {
-          local pkg_dir
-          pkg_dir="$(python3 -c 'import importlib.util, os; print(os.path.dirname(importlib.util.find_spec("vllm").origin))' 2>/dev/null)" || return 1
-          grep -rqsI "TieringOffloadingSpec" "$pkg_dir"
-        }
-
-        KV_TRANSFER_ARGS=""
-        if vllm_supports_tiering_offloading; then
-          echo "[kv-transfer-detect] TieringOffloadingSpec supported='1'"
+        # TieringOffloadingSpec requires vLLM >= 0.22.0 (vllm-project/vllm#40020). No upfront
+        # check: older vLLM fast-fails with "Unsupported spec type: TieringOffloadingSpec",
+        # and version strings are unusable (patched builds report 0.1.devN placeholders).
+        KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+        if [ -n "$KV_TRANSFER_ARGS" ]; then
           case "${VLLM_ADDITIONAL_ARGS:-} $*" in
             *--kv-transfer-config*|*--kv_transfer_config*)
-              echo "[kv-transfer-detect] user-supplied --kv-transfer-config, skipping injection" ;;
-            *) KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}" ;;
+              echo "[kv-transfer] user-supplied --kv-transfer-config, skipping injection"
+              KV_TRANSFER_ARGS="" ;;
+            *)
+              echo "[kv-transfer] injecting --kv-transfer-config" ;;
           esac
-        else
-          echo "[kv-transfer-detect] TieringOffloadingSpec supported='0'"
         fi
 
         eval "exec vllm serve /mnt/models \
@@ -3112,26 +3104,18 @@ spec:
         fi
         echo "[shutdown-timeout-detect] selected SHUTDOWN_TIMEOUT_ARGS='${SHUTDOWN_TIMEOUT_ARGS}'"
 
-        # --kv-transfer-config exists on all supported vLLM versions and even the
-        # OffloadingConnector predates them, but the TieringOffloadingSpec that
-        # kvTransferConfig generates only landed in vLLM 0.22.0 (vllm-project/vllm#40020).
-        # Neither is listed in --help output, so probe the installed package source.
-        vllm_supports_tiering_offloading() {
-          local pkg_dir
-          pkg_dir="$(python3 -c 'import importlib.util, os; print(os.path.dirname(importlib.util.find_spec("vllm").origin))' 2>/dev/null)" || return 1
-          grep -rqsI "TieringOffloadingSpec" "$pkg_dir"
-        }
-
-        KV_TRANSFER_ARGS=""
-        if vllm_supports_tiering_offloading; then
-          echo "[kv-transfer-detect] TieringOffloadingSpec supported='1'"
+        # TieringOffloadingSpec requires vLLM >= 0.22.0 (vllm-project/vllm#40020). No upfront
+        # check: older vLLM fast-fails with "Unsupported spec type: TieringOffloadingSpec",
+        # and version strings are unusable (patched builds report 0.1.devN placeholders).
+        KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+        if [ -n "$KV_TRANSFER_ARGS" ]; then
           case "${VLLM_ADDITIONAL_ARGS:-} $*" in
             *--kv-transfer-config*|*--kv_transfer_config*)
-              echo "[kv-transfer-detect] user-supplied --kv-transfer-config, skipping injection" ;;
-            *) KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}" ;;
+              echo "[kv-transfer] user-supplied --kv-transfer-config, skipping injection"
+              KV_TRANSFER_ARGS="" ;;
+            *)
+              echo "[kv-transfer] injecting --kv-transfer-config" ;;
           esac
-        else
-          echo "[kv-transfer-detect] TieringOffloadingSpec supported='0'"
         fi
 
         eval "exec vllm serve \
@@ -3469,26 +3453,18 @@ spec:
         fi
         echo "[shutdown-timeout-detect] selected SHUTDOWN_TIMEOUT_ARGS='${SHUTDOWN_TIMEOUT_ARGS}'"
 
-        # --kv-transfer-config exists on all supported vLLM versions and even the
-        # OffloadingConnector predates them, but the TieringOffloadingSpec that
-        # kvTransferConfig generates only landed in vLLM 0.22.0 (vllm-project/vllm#40020).
-        # Neither is listed in --help output, so probe the installed package source.
-        vllm_supports_tiering_offloading() {
-          local pkg_dir
-          pkg_dir="$(python3 -c 'import importlib.util, os; print(os.path.dirname(importlib.util.find_spec("vllm").origin))' 2>/dev/null)" || return 1
-          grep -rqsI "TieringOffloadingSpec" "$pkg_dir"
-        }
-
-        KV_TRANSFER_ARGS=""
-        if vllm_supports_tiering_offloading; then
-          echo "[kv-transfer-detect] TieringOffloadingSpec supported='1'"
+        # TieringOffloadingSpec requires vLLM >= 0.22.0 (vllm-project/vllm#40020). No upfront
+        # check: older vLLM fast-fails with "Unsupported spec type: TieringOffloadingSpec",
+        # and version strings are unusable (patched builds report 0.1.devN placeholders).
+        KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+        if [ -n "$KV_TRANSFER_ARGS" ]; then
           case "${VLLM_ADDITIONAL_ARGS:-} $*" in
             *--kv-transfer-config*|*--kv_transfer_config*)
-              echo "[kv-transfer-detect] user-supplied --kv-transfer-config, skipping injection" ;;
-            *) KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}" ;;
+              echo "[kv-transfer] user-supplied --kv-transfer-config, skipping injection"
+              KV_TRANSFER_ARGS="" ;;
+            *)
+              echo "[kv-transfer] injecting --kv-transfer-config" ;;
           esac
-        else
-          echo "[kv-transfer-detect] TieringOffloadingSpec supported='0'"
         fi
 
         eval "exec vllm serve \
@@ -3732,26 +3708,18 @@ spec:
           fi
           echo "[shutdown-timeout-detect] selected SHUTDOWN_TIMEOUT_ARGS='${SHUTDOWN_TIMEOUT_ARGS}'"
 
-          # --kv-transfer-config exists on all supported vLLM versions and even the
-          # OffloadingConnector predates them, but the TieringOffloadingSpec that
-          # kvTransferConfig generates only landed in vLLM 0.22.0 (vllm-project/vllm#40020).
-          # Neither is listed in --help output, so probe the installed package source.
-          vllm_supports_tiering_offloading() {
-            local pkg_dir
-            pkg_dir="$(python3 -c 'import importlib.util, os; print(os.path.dirname(importlib.util.find_spec("vllm").origin))' 2>/dev/null)" || return 1
-            grep -rqsI "TieringOffloadingSpec" "$pkg_dir"
-          }
-
-          KV_TRANSFER_ARGS=""
-          if vllm_supports_tiering_offloading; then
-            echo "[kv-transfer-detect] TieringOffloadingSpec supported='1'"
+          # TieringOffloadingSpec requires vLLM >= 0.22.0 (vllm-project/vllm#40020). No upfront
+          # check: older vLLM fast-fails with "Unsupported spec type: TieringOffloadingSpec",
+          # and version strings are unusable (patched builds report 0.1.devN placeholders).
+          KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
+          if [ -n "$KV_TRANSFER_ARGS" ]; then
             case "${VLLM_ADDITIONAL_ARGS:-} $*" in
               *--kv-transfer-config*|*--kv_transfer_config*)
-                echo "[kv-transfer-detect] user-supplied --kv-transfer-config, skipping injection" ;;
-              *) KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}" ;;
+                echo "[kv-transfer] user-supplied --kv-transfer-config, skipping injection"
+                KV_TRANSFER_ARGS="" ;;
+              *)
+                echo "[kv-transfer] injecting --kv-transfer-config" ;;
             esac
-          else
-            echo "[kv-transfer-detect] TieringOffloadingSpec supported='0'"
           fi
 
           eval "exec vllm serve /mnt/models \
@@ -4026,26 +3994,18 @@ spec:
           fi
           echo "[shutdown-timeout-detect] selected SHUTDOWN_TIMEOUT_ARGS='${SHUTDOWN_TIMEOUT_ARGS}'"
 
-          # --kv-transfer-config exists on all supported vLLM versions and even the
-          # OffloadingConnector predates them, but the TieringOffloadingSpec that
-          # kvTransferConfig generates only landed in vLLM 0.22.0 (vllm-project/vllm#40020).
-          # Neither is listed in --help output, so probe the installed package source.
-          vllm_supports_tiering_offloading() {
-            local pkg_dir
-            pkg_dir="$(python3 -c 'import importlib.util, os; print(os.path.dirname(importlib.util.find_spec("vllm").origin))' 2>/dev/null)" || return 1
-            grep -rqsI "TieringOffloadingSpec" "$pkg_dir"
-          }
-
-          KV_TRANSFER_ARGS=""
-          if vllm_supports_tiering_offloading; then
-            echo "[kv-transfer-detect] TieringOffloadingSpec supported='1'"
+          # TieringOffloadingSpec requires vLLM >= 0.22.0 (vllm-project/vllm#40020). No upfront
+          # check: older vLLM fast-fails with "Unsupported spec type: TieringOffloadingSpec",
+          # and version strings are unusable (patched builds report 0.1.devN placeholders).
+          KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
+          if [ -n "$KV_TRANSFER_ARGS" ]; then
             case "${VLLM_ADDITIONAL_ARGS:-} $*" in
               *--kv-transfer-config*|*--kv_transfer_config*)
-                echo "[kv-transfer-detect] user-supplied --kv-transfer-config, skipping injection" ;;
-              *) KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}" ;;
+                echo "[kv-transfer] user-supplied --kv-transfer-config, skipping injection"
+                KV_TRANSFER_ARGS="" ;;
+              *)
+                echo "[kv-transfer] injecting --kv-transfer-config" ;;
             esac
-          else
-            echo "[kv-transfer-detect] TieringOffloadingSpec supported='0'"
           fi
 
           eval "exec vllm serve \
@@ -4322,26 +4282,18 @@ spec:
           fi
           echo "[shutdown-timeout-detect] selected SHUTDOWN_TIMEOUT_ARGS='${SHUTDOWN_TIMEOUT_ARGS}'"
 
-          # --kv-transfer-config exists on all supported vLLM versions and even the
-          # OffloadingConnector predates them, but the TieringOffloadingSpec that
-          # kvTransferConfig generates only landed in vLLM 0.22.0 (vllm-project/vllm#40020).
-          # Neither is listed in --help output, so probe the installed package source.
-          vllm_supports_tiering_offloading() {
-            local pkg_dir
-            pkg_dir="$(python3 -c 'import importlib.util, os; print(os.path.dirname(importlib.util.find_spec("vllm").origin))' 2>/dev/null)" || return 1
-            grep -rqsI "TieringOffloadingSpec" "$pkg_dir"
-          }
-
-          KV_TRANSFER_ARGS=""
-          if vllm_supports_tiering_offloading; then
-            echo "[kv-transfer-detect] TieringOffloadingSpec supported='1'"
+          # TieringOffloadingSpec requires vLLM >= 0.22.0 (vllm-project/vllm#40020). No upfront
+          # check: older vLLM fast-fails with "Unsupported spec type: TieringOffloadingSpec",
+          # and version strings are unusable (patched builds report 0.1.devN placeholders).
+          KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
+          if [ -n "$KV_TRANSFER_ARGS" ]; then
             case "${VLLM_ADDITIONAL_ARGS:-} $*" in
               *--kv-transfer-config*|*--kv_transfer_config*)
-                echo "[kv-transfer-detect] user-supplied --kv-transfer-config, skipping injection" ;;
-              *) KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}" ;;
+                echo "[kv-transfer] user-supplied --kv-transfer-config, skipping injection"
+                KV_TRANSFER_ARGS="" ;;
+              *)
+                echo "[kv-transfer] injecting --kv-transfer-config" ;;
             esac
-          else
-            echo "[kv-transfer-detect] TieringOffloadingSpec supported='0'"
           fi
 
           eval "exec vllm serve \
@@ -5197,26 +5149,18 @@ spec:
         fi
         echo "[shutdown-timeout-detect] selected SHUTDOWN_TIMEOUT_ARGS='${SHUTDOWN_TIMEOUT_ARGS}'"
 
-        # --kv-transfer-config exists on all supported vLLM versions and even the
-        # OffloadingConnector predates them, but the TieringOffloadingSpec that
-        # kvTransferConfig generates only landed in vLLM 0.22.0 (vllm-project/vllm#40020).
-        # Neither is listed in --help output, so probe the installed package source.
-        vllm_supports_tiering_offloading() {
-          local pkg_dir
-          pkg_dir="$(python3 -c 'import importlib.util, os; print(os.path.dirname(importlib.util.find_spec("vllm").origin))' 2>/dev/null)" || return 1
-          grep -rqsI "TieringOffloadingSpec" "$pkg_dir"
-        }
-
-        KV_TRANSFER_ARGS=""
-        if vllm_supports_tiering_offloading; then
-          echo "[kv-transfer-detect] TieringOffloadingSpec supported='1'"
+        # TieringOffloadingSpec requires vLLM >= 0.22.0 (vllm-project/vllm#40020). No upfront
+        # check: older vLLM fast-fails with "Unsupported spec type: TieringOffloadingSpec",
+        # and version strings are unusable (patched builds report 0.1.devN placeholders).
+        KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+        if [ -n "$KV_TRANSFER_ARGS" ]; then
           case "${VLLM_ADDITIONAL_ARGS:-} $*" in
             *--kv-transfer-config*|*--kv_transfer_config*)
-              echo "[kv-transfer-detect] user-supplied --kv-transfer-config, skipping injection" ;;
-            *) KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}" ;;
+              echo "[kv-transfer] user-supplied --kv-transfer-config, skipping injection"
+              KV_TRANSFER_ARGS="" ;;
+            *)
+              echo "[kv-transfer] injecting --kv-transfer-config" ;;
           esac
-        else
-          echo "[kv-transfer-detect] TieringOffloadingSpec supported='0'"
         fi
 
         eval "exec vllm serve /mnt/models \
@@ -5580,26 +5524,18 @@ spec:
         fi
         echo "[shutdown-timeout-detect] selected SHUTDOWN_TIMEOUT_ARGS='${SHUTDOWN_TIMEOUT_ARGS}'"
 
-        # --kv-transfer-config exists on all supported vLLM versions and even the
-        # OffloadingConnector predates them, but the TieringOffloadingSpec that
-        # kvTransferConfig generates only landed in vLLM 0.22.0 (vllm-project/vllm#40020).
-        # Neither is listed in --help output, so probe the installed package source.
-        vllm_supports_tiering_offloading() {
-          local pkg_dir
-          pkg_dir="$(python3 -c 'import importlib.util, os; print(os.path.dirname(importlib.util.find_spec("vllm").origin))' 2>/dev/null)" || return 1
-          grep -rqsI "TieringOffloadingSpec" "$pkg_dir"
-        }
-
-        KV_TRANSFER_ARGS=""
-        if vllm_supports_tiering_offloading; then
-          echo "[kv-transfer-detect] TieringOffloadingSpec supported='1'"
+        # TieringOffloadingSpec requires vLLM >= 0.22.0 (vllm-project/vllm#40020). No upfront
+        # check: older vLLM fast-fails with "Unsupported spec type: TieringOffloadingSpec",
+        # and version strings are unusable (patched builds report 0.1.devN placeholders).
+        KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+        if [ -n "$KV_TRANSFER_ARGS" ]; then
           case "${VLLM_ADDITIONAL_ARGS:-} $*" in
             *--kv-transfer-config*|*--kv_transfer_config*)
-              echo "[kv-transfer-detect] user-supplied --kv-transfer-config, skipping injection" ;;
-            *) KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}" ;;
+              echo "[kv-transfer] user-supplied --kv-transfer-config, skipping injection"
+              KV_TRANSFER_ARGS="" ;;
+            *)
+              echo "[kv-transfer] injecting --kv-transfer-config" ;;
           esac
-        else
-          echo "[kv-transfer-detect] TieringOffloadingSpec supported='0'"
         fi
 
         eval "exec vllm serve \
@@ -5876,26 +5812,18 @@ spec:
         fi
         echo "[shutdown-timeout-detect] selected SHUTDOWN_TIMEOUT_ARGS='${SHUTDOWN_TIMEOUT_ARGS}'"
 
-        # --kv-transfer-config exists on all supported vLLM versions and even the
-        # OffloadingConnector predates them, but the TieringOffloadingSpec that
-        # kvTransferConfig generates only landed in vLLM 0.22.0 (vllm-project/vllm#40020).
-        # Neither is listed in --help output, so probe the installed package source.
-        vllm_supports_tiering_offloading() {
-          local pkg_dir
-          pkg_dir="$(python3 -c 'import importlib.util, os; print(os.path.dirname(importlib.util.find_spec("vllm").origin))' 2>/dev/null)" || return 1
-          grep -rqsI "TieringOffloadingSpec" "$pkg_dir"
-        }
-
-        KV_TRANSFER_ARGS=""
-        if vllm_supports_tiering_offloading; then
-          echo "[kv-transfer-detect] TieringOffloadingSpec supported='1'"
+        # TieringOffloadingSpec requires vLLM >= 0.22.0 (vllm-project/vllm#40020). No upfront
+        # check: older vLLM fast-fails with "Unsupported spec type: TieringOffloadingSpec",
+        # and version strings are unusable (patched builds report 0.1.devN placeholders).
+        KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+        if [ -n "$KV_TRANSFER_ARGS" ]; then
           case "${VLLM_ADDITIONAL_ARGS:-} $*" in
             *--kv-transfer-config*|*--kv_transfer_config*)
-              echo "[kv-transfer-detect] user-supplied --kv-transfer-config, skipping injection" ;;
-            *) KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}" ;;
+              echo "[kv-transfer] user-supplied --kv-transfer-config, skipping injection"
+              KV_TRANSFER_ARGS="" ;;
+            *)
+              echo "[kv-transfer] injecting --kv-transfer-config" ;;
           esac
-        else
-          echo "[kv-transfer-detect] TieringOffloadingSpec supported='0'"
         fi
 
         eval "exec vllm serve \
