@@ -1,0 +1,76 @@
+name: Build kserve-module controller image
+
+on:
+  workflow_call:
+    inputs:
+      image-name:
+        description: Image name to build and upload
+        type: string
+        required: false
+        default: kserve-module-controller
+      image-tag:
+        description: Image tag to build and upload
+        type: string
+        required: false
+        default: e2e
+      image-pull-policy:
+        description: Override imagePullPolicy in all config manifests (e.g., Never for KinD)
+        type: string
+        required: false
+        default: ''
+    outputs:
+      image-name:
+        description: Built image name
+        value: ${{ jobs.build.outputs.image-name }}
+      image-tag:
+        description: Built image tag
+        value: ${{ jobs.build.outputs.image-tag }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 15
+    outputs:
+      image-name: ${{ inputs.image-name }}
+      image-tag: ${{ inputs.image-tag }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Override imagePullPolicy(kserve,llmisvc)
+        if: inputs.image-pull-policy != ''
+        env:
+          IMAGE_PULL_POLICY: ${{ inputs.image-pull-policy }}
+        run: |
+          case "${IMAGE_PULL_POLICY}" in
+            Always|IfNotPresent|Never) ;;
+            *) echo "Invalid imagePullPolicy: ${IMAGE_PULL_POLICY}"; exit 1 ;;
+          esac
+          find config/manager config/llmisvc -name '*.yaml' -exec \
+            sed -i "s/imagePullPolicy: \w\+/imagePullPolicy: ${IMAGE_PULL_POLICY}/" {} +
+
+      - name: Build controller image
+        env:
+          IMAGE_NAME: ${{ inputs.image-name }}
+          IMAGE_TAG: ${{ inputs.image-tag }}
+        run: |
+          docker build --load \
+            -t "${IMAGE_NAME}:${IMAGE_TAG}" \
+            -f kserve-module-controller.Dockerfile .
+
+      - name: Save image as artifact
+        env:
+          IMAGE_NAME: ${{ inputs.image-name }}
+          IMAGE_TAG: ${{ inputs.image-tag }}
+        run: |
+          docker save "${IMAGE_NAME}:${IMAGE_TAG}" \
+            -o "${RUNNER_TEMP}/${IMAGE_NAME}.tar"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ inputs.image-name }}
+          path: ${{ runner.temp }}/${{ inputs.image-name }}.tar
+          retention-days: 1

@@ -11,44 +11,26 @@ on:
       - "kserve-module/**"
   workflow_dispatch:
 
-env:
-  IMG_NAME: kserve-module-controller
-  IMG_TAG: e2e
+permissions: {}
 
 jobs:
-  kserve-module-image-build:
-    runs-on: ubuntu-latest
+  build-image:
+    uses: ./.github/workflows/build-kserve-module-image.yml
+    with:
+      image-name: kserve-module-controller
+      image-tag: e2e
     permissions:
       contents: read
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-        with:
-          persist-credentials: false
-
-      - name: Build controller image
-        run: |
-          docker build --load \
-            -t ${{ env.IMG_NAME }}:${{ env.IMG_TAG }} \
-            -f kserve-module-controller.Dockerfile .
-
-      - name: Save image as artifact
-        run: |
-          docker save ${{ env.IMG_NAME }}:${{ env.IMG_TAG }} \
-            -o /tmp/${{ env.IMG_NAME }}.tar
-
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: ${{ env.IMG_NAME }}
-          path: /tmp/${{ env.IMG_NAME }}.tar
-          retention-days: 1
 
   e2e-test:
-    needs: kserve-module-image-build
+    needs: build-image
     runs-on: ubuntu-latest
     permissions:
       contents: read
     timeout-minutes: 60
+    env:
+      IMG_NAME: ${{ needs.build-image.outputs.image-name }}
+      IMG_TAG: ${{ needs.build-image.outputs.image-tag }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:

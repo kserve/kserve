@@ -642,12 +642,13 @@ main() {
   build_and_load_storage_initializer
 
   # 9. Deploy odh-xks overlay (requires cert-manager PKI)
-  deploy_odh_xks
+  if [[ "${SKIP_DEPLOY:-false}" != "true" ]]; then
+    deploy_odh_xks
 
-  # 9b. Override storage-initializer image to use locally-built image
-  log_info "Patching inferenceservice-config to use locally-built storage-initializer '${STORAGE_INIT_IMAGE}'..."
-  kubectl get configmap inferenceservice-config -n "${KSERVE_NAMESPACE}" -o json \
-    | python3 -c "
+    # 9b. Override storage-initializer image to use locally-built image
+    log_info "Patching inferenceservice-config to use locally-built storage-initializer '${STORAGE_INIT_IMAGE}'..."
+    kubectl get configmap inferenceservice-config -n "${KSERVE_NAMESPACE}" -o json \
+      | python3 -c "
 import json, sys
 cm = json.load(sys.stdin)
 si = json.loads(cm['data']['storageInitializer'])
@@ -655,7 +656,11 @@ si['image'] = '${STORAGE_INIT_IMAGE}'
 cm['data']['storageInitializer'] = json.dumps(si)
 json.dump(cm, sys.stdout)
 " | kubectl apply -f -
-  log_success "Storage-initializer image overridden to '${STORAGE_INIT_IMAGE}'"
+    log_success "Storage-initializer image overridden to '${STORAGE_INIT_IMAGE}'"
+  else
+    log_info "SKIP_DEPLOY is set -- skipping deploy_odh_xks and storage-init patch"
+    kubectl create namespace "${KSERVE_NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
+  fi
 
   # 10. Deploy SeaweedFS and pre-cache opt-125m model
   setup_seaweedfs_models

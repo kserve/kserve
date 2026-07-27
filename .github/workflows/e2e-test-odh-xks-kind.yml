@@ -8,19 +8,34 @@ on:
       - "pkg/controller/**"
       - "config/**"
       - "test/e2e/llmisvc/**"
+      - "kserve-module/**"
       - "!.github/**"
       - "!docs/**"
       - "!**.md"
       - ".github/workflows/e2e-test-odh-xks-kind.yml"
   workflow_dispatch:
 
+permissions: {}
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  build-km-image:
+    uses: ./.github/workflows/build-kserve-module-image.yml
+    with:
+      image-name: kserve-module-controller
+      image-tag: e2e
+      image-pull-policy: Never
+    permissions:
+      contents: read
+
   test-odh-xks-kind:
+    needs: build-km-image
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -97,9 +112,61 @@ jobs:
       - name: Run setup-odh-xks.sh
         env:
           ISTIO_VERSION: ${{ matrix.istio-version }}
+          SKIP_DEPLOY: "true"
         run: |
-          # Script creates KinD cluster, installs deps, builds & loads controller, deploys overlay
           ./test/scripts/kind/setup-odh-xks.sh
+
+      - name: Download kserve-module image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ${{ needs.build-km-image.outputs.image-name }}
+          path: /tmp
+
+      - name: Load kserve-module image into KinD
+        run: |
+          docker image load -i /tmp/${{ needs.build-km-image.outputs.image-name }}.tar
+          kind load docker-image ${{ needs.build-km-image.outputs.image-name }}:${{ needs.build-km-image.outputs.image-tag }} --name kind
+
+      - name: Deploy kserve-module
+        run: |
+          ./kserve-module/tests/scripts/setup-cluster.sh \
+            --platform xks \
+            --skip-deps \
+            --image ${{ needs.build-km-image.outputs.image-name }}:${{ needs.build-km-image.outputs.image-tag }}
+
+      - name: Inject RELATED_IMAGE env vars
+        env:
+          KSERVE_NAMESPACE: "opendatahub"
+        run: |
+          kubectl set env deployment/kserve-module-controller-manager \
+            RELATED_IMAGE_ODH_KSERVE_LLMISVC_CONTROLLER_IMAGE=local/llmisvc-controller:dev \
+            RELATED_IMAGE_ODH_KSERVE_STORAGE_INITIALIZER_IMAGE=local/storage-initializer:dev \
+            -n "${KSERVE_NAMESPACE}"
+          kubectl rollout status deployment/kserve-module-controller-manager \
+            -n "${KSERVE_NAMESPACE}" --timeout=120s
+
+      - name: Create Kserve CR and wait for llmisvc
+        env:
+          KSERVE_NAMESPACE: "opendatahub"
+        run: |
+          kubectl apply -f - <<'EOF'
+          apiVersion: components.platform.opendatahub.io/v1alpha1
+          kind: Kserve
+          metadata:
+            name: default-kserve
+          spec:
+            managementState: Managed
+          EOF
+          sleep 5
+          echo "Waiting for Kserve CR to become Ready..."
+          kubectl wait kserve/default-kserve \
+            --for=jsonpath='{.status.conditions[?(@.type=="Ready")].status}'=True \
+            --timeout=300s
+          echo "Waiting for llmisvc-controller-manager deployment..."
+          kubectl wait deployment/llmisvc-controller-manager \
+            -n "${KSERVE_NAMESPACE}" \
+            --for=condition=Available \
+            --timeout=300s
 
       - name: Disable LLMInferenceService TLS
         if: ${{ matrix.enable-tls == false }}
@@ -149,6 +216,9 @@ jobs:
       - name: Collect logs on failure
         if: failure()
         run: |
+          echo "=== Kserve Module Controller logs ==="
+          kubectl logs -n opendatahub -l control-plane=kserve-module-controller-manager --tail=200 2>/dev/null || echo "No km controller logs"
+          echo ""
           echo "=== LLMISVC Controller logs ==="
           kubectl logs -n opendatahub -l control-plane=llmisvc-controller-manager --tail=500 2>/dev/null || echo "No controller logs"
           echo ""
