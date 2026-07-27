@@ -213,6 +213,200 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 		})
 	})
 
+	Context("Direct KEDA scaling", func() {
+		It("should create ScaledObject with user triggers and without WVA annotations", func(ctx SpecContext) {
+			svcName := "test-direct-keda-scaling"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://meta-llama/Llama-3.1-8B"),
+				WithModelName("meta-llama/Llama-3.1-8B"),
+				WithScaling(DirectKEDAScaling(1, 8,
+					kedav1alpha1.ScaleTriggers{
+						Type: "cpu",
+						Metadata: map[string]string{
+							"value": "80",
+						},
+					},
+					kedav1alpha1.ScaleTriggers{
+						Type: "memory",
+						Metadata: map[string]string{
+							"value": "70",
+						},
+					},
+				)),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			soKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-keda"), Namespace: testNs.Name}
+
+			so := &kedav1alpha1.ScaledObject{}
+			Eventually(func(g Gomega, ctx context.Context) {
+				g.Expect(envTest.Get(ctx, soKey, so)).To(Succeed())
+				g.Expect(so.Spec.ScaleTargetRef.Name).To(Equal(kmeta.ChildName(svcName, "-kserve")))
+				g.Expect(so.Spec.ScaleTargetRef.Kind).To(Equal("Deployment"))
+				g.Expect(so.Spec.MinReplicaCount).To(Equal(ptr.To(int32(1))))
+				g.Expect(so.Spec.MaxReplicaCount).To(Equal(ptr.To(int32(8))))
+				g.Expect(so.Spec.Triggers).To(HaveLen(2))
+				g.Expect(so.Spec.Triggers[0].Type).To(Equal("cpu"))
+				g.Expect(so.Spec.Triggers[0].Metadata["value"]).To(Equal("80"))
+				g.Expect(so.Spec.Triggers[1].Type).To(Equal("memory"))
+				g.Expect(so.Spec.Triggers[1].Metadata["value"]).To(Equal("70"))
+				g.Expect(so.Annotations).NotTo(HaveKey("llm-d.ai/managed"))
+				g.Expect(so.Annotations).NotTo(HaveKey("llm-d.ai/model-id"))
+				g.Expect(so).To(BeOwnedBy(llmSvc))
+			}).WithContext(ctx).Should(Succeed())
+
+			hpaKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-hpa"), Namespace: testNs.Name}
+			Consistently(func(g Gomega, ctx context.Context) {
+				err := envTest.Get(ctx, hpaKey, &autoscalingv2.HorizontalPodAutoscaler{})
+				g.Expect(client.IgnoreNotFound(err)).To(Succeed())
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should delete ScaledObject when direct KEDA scaling is removed", func(ctx SpecContext) {
+			svcName := "test-direct-keda-cleanup"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://meta-llama/Llama-3.1-8B"),
+				WithModelName("meta-llama/Llama-3.1-8B"),
+				WithScaling(DirectKEDAScaling(1, 5)),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			soKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-keda"), Namespace: testNs.Name}
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				g.Expect(envTest.Get(ctx, soKey, &kedav1alpha1.ScaledObject{})).To(Succeed())
+			}).WithContext(ctx).Should(Succeed())
+
+			errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				_, errUpdate := ctrl.CreateOrUpdate(ctx, envTest.Client, llmSvc, func() error {
+					llmSvc.Spec.Scaling = nil
+					llmSvc.Spec.Replicas = ptr.To(int32(3))
+					return nil
+				})
+				return errUpdate
+			})
+			Expect(errRetry).ToNot(HaveOccurred())
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				err := envTest.Get(ctx, soKey, &kedav1alpha1.ScaledObject{})
+				g.Expect(client.IgnoreNotFound(err)).To(Succeed())
+				g.Expect(err).To(HaveOccurred(), "ScaledObject should be deleted")
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should switch from WVA KEDA to direct KEDA and clear WVA annotations", func(ctx SpecContext) {
+			svcName := "test-wva-keda-to-direct"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://meta-llama/Llama-3.1-8B"),
+				WithModelName("meta-llama/Llama-3.1-8B"),
+				WithScaling(KEDAScaling(1, 5)),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			soKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-keda"), Namespace: testNs.Name}
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				so := &kedav1alpha1.ScaledObject{}
+				g.Expect(envTest.Get(ctx, soKey, so)).To(Succeed())
+				g.Expect(so.Annotations["llm-d.ai/managed"]).To(Equal("true"))
+				g.Expect(so.Spec.Triggers[0].Type).To(Equal("prometheus"))
+			}).WithContext(ctx).Should(Succeed())
+
+			errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				_, errUpdate := ctrl.CreateOrUpdate(ctx, envTest.Client, llmSvc, func() error {
+					llmSvc.Spec.Scaling = DirectKEDAScaling(2, 10,
+						kedav1alpha1.ScaleTriggers{
+							Type: "cpu",
+							Metadata: map[string]string{
+								"value": "60",
+							},
+						},
+					)
+					return nil
+				})
+				return errUpdate
+			})
+			Expect(errRetry).ToNot(HaveOccurred())
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				so := &kedav1alpha1.ScaledObject{}
+				g.Expect(envTest.Get(ctx, soKey, so)).To(Succeed())
+				g.Expect(so.Spec.MinReplicaCount).To(Equal(ptr.To(int32(2))))
+				g.Expect(so.Spec.MaxReplicaCount).To(Equal(ptr.To(int32(10))))
+				g.Expect(so.Spec.Triggers).To(HaveLen(1))
+				g.Expect(so.Spec.Triggers[0].Type).To(Equal("cpu"))
+				g.Expect(so.Spec.Triggers[0].Metadata["value"]).To(Equal("60"))
+				g.Expect(so.Annotations).NotTo(HaveKey("llm-d.ai/managed"))
+				g.Expect(so.Annotations).NotTo(HaveKey("llm-d.ai/model-id"))
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should switch from direct KEDA to WVA KEDA and inject WVA trigger", func(ctx SpecContext) {
+			svcName := "test-direct-to-wva-keda"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://meta-llama/Llama-3.1-8B"),
+				WithModelName("meta-llama/Llama-3.1-8B"),
+				WithScaling(DirectKEDAScaling(1, 5)),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			soKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-keda"), Namespace: testNs.Name}
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				so := &kedav1alpha1.ScaledObject{}
+				g.Expect(envTest.Get(ctx, soKey, so)).To(Succeed())
+				g.Expect(so.Spec.Triggers[0].Type).To(Equal("cpu"))
+				g.Expect(so.Annotations).NotTo(HaveKey("llm-d.ai/managed"))
+			}).WithContext(ctx).Should(Succeed())
+
+			errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				_, errUpdate := ctrl.CreateOrUpdate(ctx, envTest.Client, llmSvc, func() error {
+					llmSvc.Spec.Scaling = KEDAScaling(1, 5)
+					return nil
+				})
+				return errUpdate
+			})
+			Expect(errRetry).ToNot(HaveOccurred())
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				so := &kedav1alpha1.ScaledObject{}
+				g.Expect(envTest.Get(ctx, soKey, so)).To(Succeed())
+				g.Expect(so.Spec.Triggers).To(HaveLen(1))
+				g.Expect(so.Spec.Triggers[0].Type).To(Equal("prometheus"))
+				g.Expect(so.Annotations["llm-d.ai/managed"]).To(Equal("true"))
+				g.Expect(so.Annotations["llm-d.ai/model-id"]).To(Equal("meta-llama/Llama-3.1-8B"))
+			}).WithContext(ctx).Should(Succeed())
+		})
+	})
+
 	Context("Scaling cleanup", func() {
 		It("should delete HPA when scaling is removed", func(ctx SpecContext) {
 			svcName := "test-hpa-cleanup"
