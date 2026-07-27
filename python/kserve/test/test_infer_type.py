@@ -1025,6 +1025,29 @@ class TestInferResponse:
         )
         assert json_length == 215
 
+    def test_infer_response_to_rest_with_empty_output_as_binary_data(self):
+        infer_output = InferOutput(
+            name="output1",
+            shape=[0],
+            datatype="INT32",
+            data=[],
+            parameters=None,
+        )
+        infer_response = InferResponse(
+            response_id="1",
+            model_name="test_model",
+            infer_outputs=[infer_output],
+            use_binary_outputs=True,
+            requested_outputs=[RequestedOutput(name="output1")],
+        )
+        result, json_length = infer_response.to_rest()
+        assert isinstance(result, bytes)
+        assert (
+            result
+            == b'{"id":"1","model_name":"test_model","model_version":null,"outputs":[{"name":"output1","shape":[0],"datatype":"INT32","parameters":{"binary_data_size":0}}]}'
+        )
+        assert json_length == len(result)
+
     def test_infer_response_to_rest_with_raw_data_with_binary_data_false(
         self,
     ):
