@@ -135,6 +135,25 @@ def _wait_for_condition(
     )
 
 
+def _get_httproute(name, namespace):
+    api = client.CustomObjectsApi()
+    return api.get_namespaced_custom_object(
+        "gateway.networking.k8s.io", "v1", namespace, "httproutes", name
+    )
+
+
+def _get_httproute_backend_refs(name, namespace):
+    """Return a list of (service_name, weight) tuples from the first rule's backendRefs."""
+    route = _get_httproute(name, namespace)
+    rules = route.get("spec", {}).get("rules", [])
+    if not rules:
+        return []
+    return [
+        (ref["backendRef"]["name"], ref["backendRef"].get("weight"))
+        for ref in rules[0].get("backendRefs", [])
+    ]
+
+
 def _get_pod_uids(apps_v1, deployment_name, namespace):
     core_v1 = client.CoreV1Api()
     dep = apps_v1.read_namespaced_deployment(deployment_name, namespace)
@@ -187,6 +206,24 @@ def test_canary_create():
         canary_status = got.get("status", {}).get("canaryStatuses", [])
         assert len(canary_status) > 0, "canary status should be populated"
         assert canary_status[0]["name"] == "v2"
+
+        # Verify HTTPRoute has weighted backend refs for stable and canary
+        backends = _get_httproute_backend_refs(
+            f"{service_name}-predictor", KSERVE_TEST_NAMESPACE
+        )
+        assert len(backends) == 2, (
+            f"Expected 2 backends (stable + canary), got {backends}"
+        )
+        names = {name for name, _ in backends}
+        assert f"{service_name}-predictor" in names, (
+            "Stable backend missing from HTTPRoute"
+        )
+        assert f"{service_name}-v2-predictor" in names, (
+            "Canary backend missing from HTTPRoute"
+        )
+        weights = {name: weight for name, weight in backends}
+        assert weights[f"{service_name}-predictor"] == 80
+        assert weights[f"{service_name}-v2-predictor"] == 20
     finally:
         _safe_delete(kserve, service_name)
 
@@ -249,6 +286,14 @@ def test_canary_promote():
         assert canary_pod_uids.issubset(post_promote_uids), (
             f"Canary pods were restarted during promotion: canary={canary_pod_uids}, post_promote={post_promote_uids}"
         )
+
+        # After promotion, HTTPRoute should have a single unweighted backend
+        backends = _get_httproute_backend_refs(
+            f"{service_name}-v2-predictor", KSERVE_TEST_NAMESPACE
+        )
+        assert len(backends) == 1, f"Expected 1 backend after promotion, got {backends}"
+        assert backends[0][0] == f"{service_name}-v2-predictor"
+        assert backends[0][1] is None, "Backend should be unweighted after promotion"
     finally:
         _safe_delete(kserve, service_name)
 
@@ -306,6 +351,14 @@ def test_canary_rollback():
         assert canary_condition is None, (
             "CanaryPredictorReady should be cleared after rollback"
         )
+
+        # After rollback, HTTPRoute should have a single unweighted stable backend
+        backends = _get_httproute_backend_refs(
+            f"{service_name}-predictor", KSERVE_TEST_NAMESPACE
+        )
+        assert len(backends) == 1, f"Expected 1 backend after rollback, got {backends}"
+        assert backends[0][0] == f"{service_name}-predictor"
+        assert backends[0][1] is None, "Backend should be unweighted after rollback"
     finally:
         _safe_delete(kserve, service_name)
 
@@ -360,6 +413,3 @@ def test_canary_force_stop():
         _wait_for_condition(kserve, service_name, "CanaryPredictorReady", "Stopped")
     finally:
         _safe_delete(kserve, service_name)
-
-
-# TODO: Add testing for routing after HTTPRoute support is added to the raw deployment mode.
