@@ -178,6 +178,7 @@ async def test_sklearn_modelcache(rest_v1_client, network_layer, test_namespace)
         service_name,
         "./data/iris_input.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res["predictions"] == [1, 1]
 

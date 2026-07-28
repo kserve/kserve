@@ -87,7 +87,9 @@ async def test_sklearn_kserve_concurrency(rest_v1_client, test_namespace):
     )
     ksvc_annotations = ksvc["spec"]["template"]["metadata"]["annotations"]
 
-    res = await predict_isvc(rest_v1_client, service_name, INPUT)
+    res = await predict_isvc(
+        rest_v1_client, service_name, INPUT, namespace=test_namespace
+    )
     assert res["predictions"] == [1, 1]
     assert ksvc_annotations[METRIC] == "concurrency"
     assert ksvc_annotations[TARGET] == "2"
@@ -136,7 +138,9 @@ async def test_sklearn_kserve_rps(rest_v1_client, test_namespace):
 
     assert annotations[METRIC] == "rps"
     assert annotations[TARGET] == "5"
-    res = await predict_isvc(rest_v1_client, service_name, INPUT)
+    res = await predict_isvc(
+        rest_v1_client, service_name, INPUT, namespace=test_namespace
+    )
     assert res["predictions"] == [1, 1]
 
 
@@ -187,7 +191,9 @@ async def test_sklearn_kserve_cpu(rest_v1_client, test_namespace):
 
     assert ksvc_annotations[METRIC] == "cpu"
     assert ksvc_annotations[TARGET] == "50"
-    res = await predict_isvc(rest_v1_client, service_name, INPUT)
+    res = await predict_isvc(
+        rest_v1_client, service_name, INPUT, namespace=test_namespace
+    )
     assert res["predictions"] == [1, 1]
 
 
@@ -236,7 +242,11 @@ async def test_sklearn_scale_raw(rest_v1_client, network_layer, test_namespace):
 
     assert hpa_resp["items"][0]["spec"]["targetCPUUtilizationPercentage"] == 50
     res = await predict_isvc(
-        rest_v1_client, service_name, INPUT, network_layer=network_layer
+        rest_v1_client,
+        service_name,
+        INPUT,
+        network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res["predictions"] == [1, 1]
 
@@ -492,7 +502,11 @@ async def test_sklearn_keda_scale_resource_memory(
     )
     assert scaledobject_resp["items"][0]["spec"]["triggers"][0]["type"] == "memory"
     res = await predict_isvc(
-        rest_v1_client, service_name, INPUT, network_layer=network_layer
+        rest_v1_client,
+        service_name,
+        INPUT,
+        network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert trigger_metadata["value"] == "50"
     assert res["predictions"] == [1, 1]
@@ -570,7 +584,11 @@ async def test_sklearn_keda_scale_new_spec_external(
     assert trigger_metadata["serverAddress"] == "http://localhost:9090"
     assert trigger_metadata["threshold"] == "50"
     res = await predict_isvc(
-        rest_v1_client, service_name, INPUT, network_layer=network_layer
+        rest_v1_client,
+        service_name,
+        INPUT,
+        network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res["predictions"] == [1, 1]
 
@@ -670,7 +688,7 @@ async def test_scaling_sklearn_with_keda_otel_add_on(
     assert trigger_type == "external"
     assert (
         trigger_metadata["metricQuery"]
-        == 'sum(process_cpu_seconds_total{namespace="kserve-ci-e2e-test", deployment="isvc-sklearn-keda-otel-add-on-predictor"})'
+        == f'sum(process_cpu_seconds_total{{namespace="{test_namespace}", deployment="isvc-sklearn-keda-otel-add-on-predictor"}})'
     )
     assert trigger_metadata["scalerAddress"] == "keda-otel-scaler.keda.svc:4318"
     assert trigger_metadata["targetValue"] == "8"
@@ -703,7 +721,11 @@ async def test_scaling_sklearn_with_keda_otel_add_on(
         async def send_one():
             async with sem:
                 res = await predict_isvc(
-                    rest_v1_client, service_name, INPUT, network_layer=network_layer
+                    rest_v1_client,
+                    service_name,
+                    INPUT,
+                    network_layer=network_layer,
+                    namespace=test_namespace,
                 )
                 assert res["predictions"] == [1, 1]
 

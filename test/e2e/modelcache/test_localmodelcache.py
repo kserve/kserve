@@ -185,7 +185,9 @@ async def test_vllm_modelcache(test_namespace):
             "minikube",
         )
 
-    res = generate(service_name, "./data/qwen_input_chat.json")
+    res = generate(
+        service_name, "./data/qwen_input_chat.json", namespace=test_namespace
+    )
     assert res["choices"][0]["message"]["content"] == "The result of 2 + 2 is 4."
     # Wait before deleting model cache to avoid "still in use" error
     await asyncio.sleep(30)

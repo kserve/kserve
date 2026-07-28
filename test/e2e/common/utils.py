@@ -447,10 +447,16 @@ def generate(
     version=constants.KSERVE_V1BETA1_VERSION,
     chat_completions=True,
     network_layer: str = "istio",
+    namespace: str = None,
 ):
     url_suffix = "v1/chat/completions" if chat_completions else "v1/completions"
     res = _openai_request(
-        service_name, input_json, version, url_suffix, network_layer=network_layer
+        service_name,
+        input_json,
+        version,
+        url_suffix,
+        network_layer=network_layer,
+        namespace=namespace,
     )
     return _process_non_streaming_response(res)
 
@@ -460,9 +466,15 @@ def embed(
     input_json,
     version=constants.KSERVE_V1BETA1_VERSION,
     network_layer: str = "istio",
+    namespace: str = None,
 ):
     res = _openai_request(
-        service_name, input_json, version, "v1/embeddings", network_layer=network_layer
+        service_name,
+        input_json,
+        version,
+        "v1/embeddings",
+        network_layer=network_layer,
+        namespace=namespace,
     )
     return _process_non_streaming_response(res)
 
@@ -472,9 +484,15 @@ def rerank(
     input_json,
     version=constants.KSERVE_V1BETA1_VERSION,
     network_layer: str = "istio",
+    namespace: str = None,
 ):
     res = _openai_request(
-        service_name, input_json, version, "v1/rerank", network_layer=network_layer
+        service_name,
+        input_json,
+        version,
+        "v1/rerank",
+        network_layer=network_layer,
+        namespace=namespace,
     )
     return _process_non_streaming_response(res)
 
@@ -483,9 +501,12 @@ def classify(
     service_name,
     input_json,
     version=constants.KSERVE_V1BETA1_VERSION,
+    namespace: str = None,
 ):
     """Call vLLM's /classify endpoint for classification tasks"""
-    res = _vllm_request(service_name, input_json, version, "classify")
+    res = _vllm_request(
+        service_name, input_json, version, "classify", namespace=namespace
+    )
     return _process_non_streaming_response(res)
 
 
@@ -598,12 +619,17 @@ def _openai_request(
     url_suffix="",
     stream=False,
     network_layer: str = "istio",
+    namespace: str = None,
 ):
     with open(input_json) as json_file:
         data = json.load(json_file)
 
         url, host = _get_openai_endpoint_and_host(
-            service_name, url_suffix, version, network_layer
+            service_name,
+            url_suffix,
+            version,
+            network_layer,
+            namespace=namespace,
         )
         headers = {"Host": host, "Content-Type": "application/json"}
 
@@ -633,6 +659,7 @@ def chat_completion_stream(
     input_json,
     version=constants.KSERVE_V1BETA1_VERSION,
     network_layer: str = "istio",
+    namespace: str = None,
 ):
     """
     Make a chat completion streaming request to the inference service and collect all chunks.
@@ -645,6 +672,7 @@ def chat_completion_stream(
         "v1/chat/completions",
         stream=True,
         network_layer=network_layer,
+        namespace=namespace,
     )
 
     chunks = []
@@ -670,6 +698,7 @@ def completion_stream(
     input_json,
     version=constants.KSERVE_V1BETA1_VERSION,
     network_layer: str = "istio",
+    namespace: str = None,
 ):
     """
     Make a streaming request to the text completion inference service and collect all chunks.
@@ -682,6 +711,7 @@ def completion_stream(
         "v1/completions",
         stream=True,
         network_layer=network_layer,
+        namespace=namespace,
     )
     chunks = []
     full_content = ""

@@ -180,6 +180,7 @@ async def test_sklearn_modelnamespacecache(
         service_name,
         "./data/iris_input.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res["predictions"] == [1, 1]
     # Wait before deleting namespace cache to avoid "still in use" error

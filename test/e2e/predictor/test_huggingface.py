@@ -111,7 +111,9 @@ def test_huggingface_openai_chat_completions(test_namespace):
         timeout_seconds=ISVC_READY_TIMEOUT_S,
     )
 
-    res = generate(service_name, "./data/qwen_input_chat.json")
+    res = generate(
+        service_name, "./data/qwen_input_chat.json", namespace=test_namespace
+    )
     assert_answers_four(res["choices"][0]["message"]["content"])
 
 
@@ -172,7 +174,9 @@ def test_huggingface_openai_chat_completions_streaming(test_namespace):
 
     # Test streaming response
     full_response, _ = chat_completion_stream(
-        service_name, "./data/qwen_input_chat_stream.json"
+        service_name,
+        "./data/qwen_input_chat_stream.json",
+        namespace=test_namespace,
     )
     trace_logger.info(f"Full response: {full_response}")
 
@@ -229,7 +233,12 @@ def test_huggingface_openai_text_completion_qwen2(test_namespace):
         timeout_seconds=ISVC_READY_TIMEOUT_S,
     )
 
-    res = generate(service_name, "./data/qwen_input_cmpl.json", chat_completions=False)
+    res = generate(
+        service_name,
+        "./data/qwen_input_cmpl.json",
+        chat_completions=False,
+        namespace=test_namespace,
+    )
     assert_answers_four(res["choices"][0].get("text"))
 
 
@@ -283,7 +292,9 @@ def test_huggingface_openai_text_completion_streaming(test_namespace):
     )
 
     full_response, _ = completion_stream(
-        service_name, "./data/qwen_input_cmpl_stream.json"
+        service_name,
+        "./data/qwen_input_cmpl_stream.json",
+        namespace=test_namespace,
     )
     trace_logger.info(f"Full response: {full_response}")
     assert_answers_four(full_response)
@@ -346,6 +357,7 @@ async def test_huggingface_v2_sequence_classification(
         service_name,
         "./data/bert_sequence_classification_v2.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res.outputs[0].data == [1]
 
@@ -399,6 +411,7 @@ async def test_huggingface_v1_fill_mask(test_namespace, rest_v1_client, network_
         service_name,
         "./data/bert_fill_mask_v1.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res["predictions"] == ["paris", "france"]
 
@@ -461,6 +474,7 @@ async def test_huggingface_v2_token_classification(
         service_name,
         "./data/bert_token_classification_v2.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res.outputs[0].data == [0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
@@ -511,7 +525,10 @@ def test_huggingface_openai_text_2_text(test_namespace):
     )
 
     res = generate(
-        service_name, "./data/t5_small_generate.json", chat_completions=False
+        service_name,
+        "./data/t5_small_generate.json",
+        chat_completions=False,
+        namespace=test_namespace,
     )
     assert res["choices"][0]["text"] == "Das ist für Deutschland"
 
@@ -577,6 +594,7 @@ async def test_huggingface_v2_text_embedding(
         service_name,
         "./data/text_embedding_input_v2.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res.outputs[0].data == huggingface_text_embedding_expected_output
 
@@ -634,13 +652,21 @@ async def test_huggingface_openai_text_embedding(test_namespace):
     )
 
     # Validate float output
-    res = embed(service_name, "./data/text_embedding_input_openai_float.json")
+    res = embed(
+        service_name,
+        "./data/text_embedding_input_openai_float.json",
+        namespace=test_namespace,
+    )
     assert len(res["data"]) == 1
     assert res["data"][0]["embedding"] == huggingface_text_embedding_expected_output
 
     # Validate base64 output. Decoded as the OpenAI library:
     # https://github.com/openai/openai-python/blob/v1.59.7/src/openai/resources/embeddings.py#L118-L120
-    res = embed(service_name, "./data/text_embedding_input_openai_base64.json")
+    res = embed(
+        service_name,
+        "./data/text_embedding_input_openai_base64.json",
+        namespace=test_namespace,
+    )
     embedding = np.frombuffer(
         base64.b64decode(res["data"][0]["embedding"]), dtype="float32"
     ).tolist()
@@ -712,6 +738,7 @@ async def test_huggingface_v2_sequence_classification_with_raw_logits(
         service_name,
         "./data/bert_sequence_classification_v2.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
 
     result = res.outputs[0].data[0]
@@ -786,6 +813,7 @@ async def test_huggingface_v2_sequence_classification_with_probabilities(
         service_name,
         "./data/bert_sequence_classification_v2.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     output = ast.literal_eval(res.outputs[0].data[0])
     assert output == {0: 0.0094, 1: 0.9906}

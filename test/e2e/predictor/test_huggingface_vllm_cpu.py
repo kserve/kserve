@@ -98,7 +98,9 @@ def test_huggingface_vllm_cpu_openai_chat_completions(test_namespace):
         timeout_seconds=ISVC_READY_TIMEOUT_S,
     )
 
-    res = generate(service_name, "./data/qwen_input_chat.json")
+    res = generate(
+        service_name, "./data/qwen_input_chat.json", namespace=test_namespace
+    )
     assert res["choices"][0]["message"]["content"] == "The result of 2 + 2 is 4."
 
 
@@ -162,7 +164,9 @@ def test_huggingface_vllm_cpu_text_completion_streaming(test_namespace):
     )
 
     full_response, _ = completion_stream(
-        service_name, "./data/qwen_input_cmpl_stream.json"
+        service_name,
+        "./data/qwen_input_cmpl_stream.json",
+        namespace=test_namespace,
     )
     assert full_response.strip() == "The result of 2 + 2 is 4."
 
@@ -225,7 +229,12 @@ def test_huggingface_vllm_cpu_openai_completions(test_namespace):
         namespace=test_namespace,
         timeout_seconds=ISVC_READY_TIMEOUT_S,
     )
-    res = generate(service_name, "./data/qwen_input_cmpl.json", chat_completions=False)
+    res = generate(
+        service_name,
+        "./data/qwen_input_cmpl.json",
+        chat_completions=False,
+        namespace=test_namespace,
+    )
     assert res["choices"][0]["text"].strip() == "The result of 2 + 2 is 4."
 
 
@@ -289,7 +298,9 @@ def test_huggingface_vllm_openai_chat_completions_streaming(test_namespace):
     )
 
     full_response, _ = chat_completion_stream(
-        service_name, "./data/qwen_input_chat_stream.json"
+        service_name,
+        "./data/qwen_input_chat_stream.json",
+        namespace=test_namespace,
     )
     assert full_response.strip() == "The result of 2 + 2 is 4."
 
@@ -356,7 +367,9 @@ def test_huggingface_vllm_cpu_rerank(test_namespace):
         timeout_seconds=ISVC_READY_TIMEOUT_S,
     )
 
-    res = rerank(service_name, "./data/bge-reranker-base.json")
+    res = rerank(
+        service_name, "./data/bge-reranker-base.json", namespace=test_namespace
+    )
     assert res["results"][0]["index"] == 1
     assert res["results"][0]["relevance_score"] == pytest.approx(1.0, rel=1e-2)
     assert res["results"][0]["document"]["text"] == "The capital of France is Paris."
