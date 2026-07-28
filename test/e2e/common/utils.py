@@ -674,7 +674,7 @@ def is_model_ready(
 
 _WORKER_COUNT_SCRIPT = "\n".join(
     [
-        "import glob, os, sys",
+        "import glob, os",
         "count = 0",
         "for f in glob.glob('/proc/[0-9]*/cmdline'):",
         "    try:",
@@ -682,9 +682,7 @@ _WORKER_COUNT_SCRIPT = "\n".join(
         "        if b'spawn_main' not in data: continue",
         "        status = open(os.path.join(os.path.dirname(f), 'status')).read()",
         "        ppid = status.split('PPid:\\t')[1].split()[0]",
-        "        pid = f.split('/')[2]",
         "        if ppid == '1': count += 1",
-        "        else: print(f'skip pid={pid} ppid={ppid}', file=sys.stderr)",
         "    except (OSError, IndexError): pass",
         "print(count)",
     ]
@@ -710,7 +708,7 @@ def get_container_worker_count(
             namespace,
             container=container,
             command=cmd,
-            stderr=True,
+            stderr=False,
             stdout=True,
             stdin=False,
             tty=False,
