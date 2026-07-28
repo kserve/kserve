@@ -199,7 +199,7 @@ kubectl apply -f llmisvc_config_prefix_cache.yaml -n kserve-lab
 
 This creates `llmisvc-prefix-caching`. It adds:
 
-- vLLM args: `--prefix-caching-hash-algo sha256_cbor`, `--block-size 64`, `--kv_transfer_config`, `--kv-events-config` (ZMQ to EPP)
+- vLLM args: `--prefix-caching-hash-algo sha256_cbor`, `--block-size 64`, `--kv-events-config` (ZMQ to EPP)
 - Router scheduler with `token-producer`, `precise-prefix-cache-producer`, `prefix-cache-scorer`, `queue-scorer`, `kv-cache-utilization-scorer`, and `active-request-scorer`
 - Standalone tokenizer deployment (auto-deployed from `token-producer` plugin presence)
 - Scheduler needs `hf-token` secret for tokenizer download (already created above)

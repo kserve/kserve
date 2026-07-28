@@ -1,3 +1,17 @@
+# Copyright 2026 The KServe Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """Background HTTP traffic generator with per-request recording."""
 
 from __future__ import annotations
@@ -105,6 +119,30 @@ class TrafficDriver:
         ts = time.monotonic()
         with self._lock:
             self._marks[name] = ts
+
+    def collect(self, min_samples: int, *, timeout: float = 60) -> None:
+        """Wait until min_samples are recorded since the last mark.
+
+        Counts from the most recent mark's timestamp, or from the start
+        of recording if no marks exist. Raises TimeoutError if samples
+        don't arrive within timeout - catches driver stalls early instead
+        of silently passing with zero data.
+        """
+        with self._lock:
+            since = max(self._marks.values()) if self._marks else 0
+
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            with self._lock:
+                n = sum(1 for r in self._records if r.timestamp >= since)
+            if n >= min_samples:
+                return
+            # ponytail: poll at 2x typical driver rate, fine for e2e
+            time.sleep(0.5)
+
+        with self._lock:
+            n = sum(1 for r in self._records if r.timestamp >= since)
+        raise TimeoutError(f"collect: only {n}/{min_samples} samples after {timeout}s")
 
     @property
     def is_running(self) -> bool:
