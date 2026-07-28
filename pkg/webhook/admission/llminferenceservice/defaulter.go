@@ -20,7 +20,9 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strconv"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -163,7 +165,12 @@ func applyDefaults(
 			defaulterLogger.Error(err, "Cannot list namespace-scoped local models", "namespace", llmSvc.Namespace)
 			return err
 		}
-		SetLocalModelLabel(llmSvc, models, nsModels)
+		nodeGroups := &v1alpha1.LocalModelNodeGroupList{}
+		if err := k8sClient.List(ctx, nodeGroups); err != nil {
+			defaulterLogger.Error(err, "Cannot list local model node groups")
+			return err
+		}
+		SetLocalModelLabel(llmSvc, models, nsModels, nodeGroups)
 	} else {
 		DeleteLocalModelMetadata(llmSvc)
 	}
@@ -173,13 +180,22 @@ func applyDefaults(
 
 // SetLocalModelLabel sets local model labels on the LLMInferenceService if a matching cache exists.
 // Namespace-scoped LocalModelNamespaceCache takes precedence over cluster-scoped LocalModelCache.
-func SetLocalModelLabel(llmSvc *v1alpha2.LLMInferenceService, models *v1alpha1.LocalModelCacheList, nsModels *v1alpha1.LocalModelNamespaceCacheList) {
+func SetLocalModelLabel(llmSvc *v1alpha2.LLMInferenceService, models *v1alpha1.LocalModelCacheList, nsModels *v1alpha1.LocalModelNamespaceCacheList, nodeGroups *v1alpha1.LocalModelNodeGroupList) {
 	modelUri := llmSvc.Spec.Model.URI.String()
 	if modelUri == "" {
 		return
 	}
 
 	isvcNodeGroup, isvcNodeGroupExists := llmSvc.Annotations[constants.NodeGroupAnnotationKey]
+
+	// Build node group lookup map once
+	var ngMap map[string]*v1alpha1.LocalModelNodeGroup
+	if nodeGroups != nil {
+		ngMap = make(map[string]*v1alpha1.LocalModelNodeGroup, len(nodeGroups.Items))
+		for i := range nodeGroups.Items {
+			ngMap[nodeGroups.Items[i].Name] = &nodeGroups.Items[i]
+		}
+	}
 
 	// Check namespace-scoped LocalModelNamespaceCache first (higher priority)
 	if nsModels != nil {
@@ -193,7 +209,11 @@ func SetLocalModelLabel(llmSvc *v1alpha2.LLMInferenceService, models *v1alpha1.L
 						continue
 					}
 				} else {
-					localModelPVCName = nsModel.Name + "-" + nsModel.Spec.NodeGroups[0]
+					localModelPVCName = selectNodeGroupForWorkload(llmSvc, nsModel.Spec.NodeGroups, ngMap)
+					if localModelPVCName == "" {
+						defaulterLogger.Info("No compatible node group for namespace-scoped cache, skipping", "cache", nsModel.Name, "nodeGroups", nsModel.Spec.NodeGroups)
+						continue
+					}
 				}
 				if llmSvc.Labels == nil {
 					llmSvc.Labels = make(map[string]string)
@@ -229,7 +249,11 @@ func SetLocalModelLabel(llmSvc *v1alpha2.LLMInferenceService, models *v1alpha1.L
 					continue
 				}
 			} else {
-				localModelPVCName = model.Name + "-" + model.Spec.NodeGroups[0]
+				localModelPVCName = selectNodeGroupForWorkload(llmSvc, model.Spec.NodeGroups, ngMap)
+				if localModelPVCName == "" {
+					defaulterLogger.Info("No compatible node group for cluster-scoped cache, skipping", "cache", model.Name, "nodeGroups", model.Spec.NodeGroups)
+					continue
+				}
 			}
 			localModel = &models.Items[i]
 			break
@@ -252,6 +276,96 @@ func SetLocalModelLabel(llmSvc *v1alpha2.LLMInferenceService, models *v1alpha1.L
 	llmSvc.Annotations[constants.LocalModelPVCNameAnnotationKey] = localModelPVCName
 
 	defaulterLogger.Info("LocalModelCache found", "model", localModel.Name, "namespace", llmSvc.Namespace, "llmSvc", llmSvc.Name)
+}
+
+// selectNodeGroupForWorkload picks a compatible node group for the workload.
+// When the workload has a nodeSelector and multiple node groups exist, it finds a group
+// whose PV node affinity is compatible with the workload's scheduling constraints.
+// Returns the node group name or empty string if no compatible group is found.
+// In that case, the caller should skip local model binding rather than silently
+// picking an incompatible group.
+func selectNodeGroupForWorkload(llmSvc *v1alpha2.LLMInferenceService, cacheNodeGroups []string, ngMap map[string]*v1alpha1.LocalModelNodeGroup) string {
+	if len(cacheNodeGroups) == 0 {
+		return ""
+	}
+	if len(cacheNodeGroups) == 1 {
+		return cacheNodeGroups[0]
+	}
+
+	nodeSelector := llmSvc.Spec.Template.NodeSelector
+	if len(nodeSelector) == 0 {
+		return cacheNodeGroups[0]
+	}
+
+	if ngMap == nil {
+		return cacheNodeGroups[0]
+	}
+
+	for _, ngName := range cacheNodeGroups {
+		if ng, ok := ngMap[ngName]; ok {
+			if isNodeGroupCompatibleWithWorkload(nodeSelector, ng.Spec.PersistentVolumeSpec) {
+				return ngName
+			}
+		}
+	}
+
+	defaulterLogger.Info("No compatible node group found for workload nodeSelector",
+		"nodeSelector", nodeSelector, "cacheNodeGroups", cacheNodeGroups)
+	return ""
+}
+
+// isNodeGroupCompatibleWithWorkload checks if a local model node group's PV node affinity
+// is compatible with the workload's nodeSelector. Returns true if no obvious conflict exists.
+func isNodeGroupCompatibleWithWorkload(nodeSelector map[string]string, pvSpec corev1.PersistentVolumeSpec) bool {
+	if pvSpec.NodeAffinity == nil || pvSpec.NodeAffinity.Required == nil {
+		return true
+	}
+	for _, term := range pvSpec.NodeAffinity.Required.NodeSelectorTerms {
+		if isTermCompatibleWithNodeSelector(term, nodeSelector) {
+			return true
+		}
+	}
+	return false
+}
+
+func isTermCompatibleWithNodeSelector(term corev1.NodeSelectorTerm, nodeSelector map[string]string) bool {
+	for _, expr := range term.MatchExpressions {
+		switch expr.Operator {
+		case corev1.NodeSelectorOpIn:
+			if val, ok := nodeSelector[expr.Key]; ok && !slices.Contains(expr.Values, val) {
+				return false
+			}
+		case corev1.NodeSelectorOpNotIn:
+			if val, ok := nodeSelector[expr.Key]; ok && slices.Contains(expr.Values, val) {
+				return false
+			}
+		case corev1.NodeSelectorOpDoesNotExist:
+			if _, ok := nodeSelector[expr.Key]; ok {
+				return false
+			}
+		case corev1.NodeSelectorOpGt:
+			if val, ok := nodeSelector[expr.Key]; ok {
+				intVal, err := strconv.Atoi(val)
+				if err == nil {
+					minVal, _ := strconv.Atoi(expr.Values[0])
+					if intVal <= minVal {
+						return false
+					}
+				}
+			}
+		case corev1.NodeSelectorOpLt:
+			if val, ok := nodeSelector[expr.Key]; ok {
+				intVal, err := strconv.Atoi(val)
+				if err == nil {
+					maxVal, _ := strconv.Atoi(expr.Values[0])
+					if intVal >= maxVal {
+						return false
+					}
+				}
+			}
+		}
+	}
+	return true
 }
 
 // DeleteLocalModelMetadata removes local model cache internal labels and annotations
