@@ -722,6 +722,26 @@ func TestExpectedDirectScaledObject(t *testing.T) {
 				assert.Equal(t, "sim-llama-kserve", so.Spec.ScaleTargetRef.Name)
 			},
 		},
+		{
+			name:   "scale target ref points to LeaderWorkerSet for multi-node",
+			llmSvc: newTestLLMISVC("sim-llama", "default"),
+			scaling: &v1alpha2.ScalingSpec{
+				MaxReplicas: 3,
+				KEDA: &v1alpha2.DirectKEDAScalingSpec{
+					Triggers: []kedav1alpha1.ScaleTriggers{
+						{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+					},
+				},
+			},
+			scaleTargetRef: lwsScaleTargetRef("sim-llama-kserve-mn"),
+			soName:         "sim-llama-kserve-keda",
+			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
+				require.NotNil(t, so.Spec.ScaleTargetRef)
+				assert.Equal(t, lwsapi.GroupVersion.String(), so.Spec.ScaleTargetRef.APIVersion)
+				assert.Equal(t, "LeaderWorkerSet", so.Spec.ScaleTargetRef.Kind)
+				assert.Equal(t, "sim-llama-kserve-mn", so.Spec.ScaleTargetRef.Name)
+			},
+		},
 	}
 
 	for _, tt := range tests {
