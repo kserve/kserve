@@ -216,7 +216,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	Context("Direct KEDA scaling", func() {
 		It("should create ScaledObject with user triggers and without WVA annotations", func(ctx SpecContext) {
 			svcName := "test-direct-keda-scaling"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -271,7 +271,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should create ScaledObject targeting LeaderWorkerSet with user triggers and without WVA annotations when worker is set", func(ctx SpecContext) {
 			svcName := "test-direct-keda-lws"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -386,7 +386,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should update direct KEDA triggers in place without adding WVA annotations", func(ctx SpecContext) {
 			svcName := "test-direct-keda-trigger-update"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -460,7 +460,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should delete ScaledObject when direct KEDA scaling is removed", func(ctx SpecContext) {
 			svcName := "test-direct-keda-cleanup"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -499,7 +499,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should switch from WVA KEDA to direct KEDA and clear WVA annotations", func(ctx SpecContext) {
 			svcName := "test-wva-keda-to-direct"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -553,7 +553,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should switch from direct KEDA to WVA KEDA and inject WVA trigger", func(ctx SpecContext) {
 			svcName := "test-direct-to-wva-keda"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -761,7 +761,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 
 		It("should create separate direct KEDA scaling resources for decode and prefill workloads", func(ctx SpecContext) {
 			svcName := "test-prefill-direct-keda"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
