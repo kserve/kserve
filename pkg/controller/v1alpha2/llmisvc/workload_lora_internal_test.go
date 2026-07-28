@@ -50,17 +50,24 @@ func TestSanitizeLoRAPathSegment(t *testing.T) {
 func TestAddLoRAVLLMArgs(t *testing.T) {
 	t.Parallel()
 
-	t.Run("all params set", func(t *testing.T) {
+	t.Run("all params set with model-routing aliases", func(t *testing.T) {
 		c := &corev1.Container{Name: "main", Args: []string{"--user-flag"}}
-		addLoRAVLLMArgs(c, []string{"a=/mnt/lora/a", "b=/mnt/lora/b"}, ptr.To(int32(64)), ptr.To(int32(2)), ptr.To(int32(4)))
+		addLoRAVLLMArgs(c, []string{
+			`{"name":"a","path":"/mnt/lora/a"}`,
+			`{"name":"publishers/ns/models/a","path":"/mnt/lora/a"}`,
+			`{"name":"b","path":"/mnt/lora/b"}`,
+			`{"name":"publishers/ns/models/b","path":"/mnt/lora/b"}`,
+		}, ptr.To(int32(64)), ptr.To(int32(2)), ptr.To(int32(4)))
 		want := []string{
 			"--enable-lora",
 			"--max-lora-rank=64",
 			"--max-loras=2",
 			"--max-cpu-loras=4",
 			"--lora-modules",
-			"'a=/mnt/lora/a'",
-			"'b=/mnt/lora/b'",
+			`'{"name":"a","path":"/mnt/lora/a"}'`,
+			`'{"name":"publishers/ns/models/a","path":"/mnt/lora/a"}'`,
+			`'{"name":"b","path":"/mnt/lora/b"}'`,
+			`'{"name":"publishers/ns/models/b","path":"/mnt/lora/b"}'`,
 			"--user-flag",
 		}
 		if len(c.Args) != len(want) {
@@ -75,11 +82,15 @@ func TestAddLoRAVLLMArgs(t *testing.T) {
 
 	t.Run("no optional params — vLLM uses its own defaults", func(t *testing.T) {
 		c := &corev1.Container{Name: "main", Args: []string{"--user-flag"}}
-		addLoRAVLLMArgs(c, []string{"a=/mnt/lora/a"}, nil, nil, nil)
+		addLoRAVLLMArgs(c, []string{
+			`{"name":"a","path":"/mnt/lora/a"}`,
+			`{"name":"publishers/ns/models/a","path":"/mnt/lora/a"}`,
+		}, nil, nil, nil)
 		want := []string{
 			"--enable-lora",
 			"--lora-modules",
-			"'a=/mnt/lora/a'",
+			`'{"name":"a","path":"/mnt/lora/a"}'`,
+			`'{"name":"publishers/ns/models/a","path":"/mnt/lora/a"}'`,
 			"--user-flag",
 		}
 		if len(c.Args) != len(want) {

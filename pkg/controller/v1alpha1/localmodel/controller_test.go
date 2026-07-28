@@ -1342,6 +1342,93 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 			// 2. Status correctly tracks the ISVC
 			// 3. The cleanup code path exists in ReconcileForIsvcs (verified by code inspection)
 		})
+
+		It("Should track LLMInferenceService referenced only via LoRA adapter in namespace-scoped cache status", func() {
+			defer GinkgoRecover()
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+
+			testNamespace := fmt.Sprintf("test-ns-lora-%d", time.Now().UnixNano())
+			namespaceObj := createTestNamespace(ctx, testNamespace)
+			defer k8sClient.Delete(ctx, namespaceObj)
+
+			nodeGroup1 := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "gpu1",
+				},
+				Spec: localModelNodeGroupSpec1,
+			}
+			Expect(k8sClient.Create(ctx, nodeGroup1)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeGroup1)
+
+			adapterURI := "hf://org/ns-lora-adapter-only"
+			baseURI := "hf://org/remote-base"
+			modelName := fmt.Sprintf("ns-lora-adapter-cache-%d", time.Now().UnixNano())
+			llmSvcName := "test-llm-ns-lora-adapter-only"
+			cachedModel := &v1alpha1.LocalModelNamespaceCache{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      modelName,
+					Namespace: testNamespace,
+				},
+				Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+					SourceModelUri: adapterURI,
+					ModelSize:      resource.MustParse("10Gi"),
+					NodeGroups:     []string{"gpu1"},
+				},
+			}
+			Expect(k8sClient.Create(ctx, cachedModel)).Should(Succeed())
+			defer func() {
+				Expect(k8sClient.Delete(ctx, cachedModel)).Should(Succeed())
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, types.NamespacedName{Name: modelName, Namespace: testNamespace}, cachedModel)
+					return err != nil && errors.IsNotFound(err)
+				}, timeout, interval).Should(BeTrue())
+			}()
+
+			baseModelURI, err := apis.ParseURL(baseURI)
+			Expect(err).NotTo(HaveOccurred())
+			adapterModelURI, err := apis.ParseURL(adapterURI)
+			Expect(err).NotTo(HaveOccurred())
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      llmSvcName,
+					Namespace: testNamespace,
+					Annotations: map[string]string{
+						constants.LocalModelLoRAAnnotationKey: fmt.Sprintf(
+							`{"my-adapter":{"cache":%q,"namespace":%q,"sourceUri":%q,"pvcName":%q}}`,
+							modelName, testNamespace, adapterURI, modelName+"-gpu1",
+						),
+					},
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{
+						URI: *baseModelURI,
+						LoRA: &v1alpha2.LoRASpec{
+							Adapters: []v1alpha2.LLMModelSpec{
+								{
+									Name: ptr.To("my-adapter"),
+									URI:  *adapterModelURI,
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, llmSvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, llmSvc)
+
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: modelName, Namespace: testNamespace}, cachedModel)
+				if err != nil {
+					return false
+				}
+				if len(cachedModel.Status.LLMInferenceServices) != 1 {
+					return false
+				}
+				return cachedModel.Status.LLMInferenceServices[0].Name == llmSvcName &&
+					cachedModel.Status.LLMInferenceServices[0].Namespace == testNamespace
+			}, timeout, interval).Should(BeTrue(), "Namespace cache status should track the LLMInferenceService via LoRA adapter reference")
+		})
 	})
 })
 

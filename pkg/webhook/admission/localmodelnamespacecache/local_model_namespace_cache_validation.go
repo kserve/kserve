@@ -97,7 +97,10 @@ func (v *LocalModelNamespaceCacheValidator) ValidateDelete(ctx context.Context, 
 	}
 	localModelNamespaceCacheValidatorLogger.Info("validate delete", "name", localModelNamespaceCache.Name, "namespace", localModelNamespaceCache.Namespace)
 
-	// Check if current LocalModelNamespaceCache is being used by InferenceServices in the same namespace
+	// Delete protection relies on Status.InferenceServices / Status.LLMInferenceServices
+	// being up-to-date. A newly created consumer may not appear in status yet if the
+	// reconciler has not run, so deletion can race and succeed until the next reconcile.
+	// This gap already existed for base-model references; LoRA adapter references inherit it.
 	for _, isvcMeta := range localModelNamespaceCache.Status.InferenceServices {
 		isvc := v1beta1.InferenceService{}
 		if err := v.Get(ctx, client.ObjectKey(isvcMeta), &isvc); err != nil {
