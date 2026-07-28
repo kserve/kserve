@@ -332,6 +332,80 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 			}).WithContext(ctx).Should(Succeed())
 		})
 
+		It("should update direct KEDA triggers in place without adding WVA annotations", func(ctx SpecContext) {
+			svcName := "test-direct-keda-trigger-update"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://meta-llama/Llama-3.1-8B"),
+				WithModelName("meta-llama/Llama-3.1-8B"),
+				WithScaling(DirectKEDAScaling(1, 5,
+					kedav1alpha1.ScaleTriggers{
+						Type: "cpu",
+						Metadata: map[string]string{
+							"value": "80",
+						},
+					},
+				)),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			soKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-keda"), Namespace: testNs.Name}
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				so := &kedav1alpha1.ScaledObject{}
+				g.Expect(envTest.Get(ctx, soKey, so)).To(Succeed())
+				g.Expect(so.Spec.MinReplicaCount).To(Equal(ptr.To(int32(1))))
+				g.Expect(so.Spec.MaxReplicaCount).To(Equal(ptr.To(int32(5))))
+				g.Expect(so.Spec.Triggers).To(HaveLen(1))
+				g.Expect(so.Spec.Triggers[0].Type).To(Equal("cpu"))
+				g.Expect(so.Spec.Triggers[0].Metadata["value"]).To(Equal("80"))
+				g.Expect(so.Annotations).NotTo(HaveKey("llm-d.ai/managed"))
+				g.Expect(so.Annotations).NotTo(HaveKey("llm-d.ai/model-id"))
+			}).WithContext(ctx).Should(Succeed())
+
+			errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				_, errUpdate := ctrl.CreateOrUpdate(ctx, envTest.Client, llmSvc, func() error {
+					llmSvc.Spec.Scaling = DirectKEDAScaling(2, 10,
+						kedav1alpha1.ScaleTriggers{
+							Type: "cpu",
+							Metadata: map[string]string{
+								"value": "60",
+							},
+						},
+						kedav1alpha1.ScaleTriggers{
+							Type: "memory",
+							Metadata: map[string]string{
+								"value": "70",
+							},
+						},
+					)
+					return nil
+				})
+				return errUpdate
+			})
+			Expect(errRetry).ToNot(HaveOccurred())
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				so := &kedav1alpha1.ScaledObject{}
+				g.Expect(envTest.Get(ctx, soKey, so)).To(Succeed())
+				g.Expect(so.Spec.MinReplicaCount).To(Equal(ptr.To(int32(2))))
+				g.Expect(so.Spec.MaxReplicaCount).To(Equal(ptr.To(int32(10))))
+				g.Expect(so.Spec.Triggers).To(HaveLen(2))
+				g.Expect(so.Spec.Triggers[0].Type).To(Equal("cpu"))
+				g.Expect(so.Spec.Triggers[0].Metadata["value"]).To(Equal("60"))
+				g.Expect(so.Spec.Triggers[1].Type).To(Equal("memory"))
+				g.Expect(so.Spec.Triggers[1].Metadata["value"]).To(Equal("70"))
+				g.Expect(so.Annotations).NotTo(HaveKey("llm-d.ai/managed"))
+				g.Expect(so.Annotations).NotTo(HaveKey("llm-d.ai/model-id"))
+			}).WithContext(ctx).Should(Succeed())
+		})
+
 		It("should delete ScaledObject when direct KEDA scaling is removed", func(ctx SpecContext) {
 			svcName := "test-direct-keda-cleanup"
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
