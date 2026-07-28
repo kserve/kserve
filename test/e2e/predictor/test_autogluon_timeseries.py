@@ -81,7 +81,9 @@ async def _deploy_and_predict_v1(
 @pytest.mark.autogluon
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_autogluon_timeseries_runtime_kserve_v1(rest_v1_client, network_layer, test_namespace):
+async def test_autogluon_timeseries_runtime_kserve_v1(
+    rest_v1_client, network_layer, test_namespace
+):
     service_name = "isvc-autogluon-ts-v1"
     response = await _deploy_and_predict_v1(
         service_name,

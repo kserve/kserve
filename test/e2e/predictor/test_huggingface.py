@@ -291,7 +291,9 @@ def test_huggingface_openai_text_completion_streaming(test_namespace):
 
 @pytest.mark.llm
 @pytest.mark.asyncio(scope="session")
-async def test_huggingface_v2_sequence_classification(test_namespace, rest_v2_client, network_layer):
+async def test_huggingface_v2_sequence_classification(
+    test_namespace, rest_v2_client, network_layer
+):
     service_name = "hf-bert-sequence-v2"
     protocol_version = "v2"
     predictor = V1beta1PredictorSpec(
@@ -403,7 +405,9 @@ async def test_huggingface_v1_fill_mask(test_namespace, rest_v1_client, network_
 
 @pytest.mark.llm
 @pytest.mark.asyncio(scope="session")
-async def test_huggingface_v2_token_classification(test_namespace, rest_v2_client, network_layer):
+async def test_huggingface_v2_token_classification(
+    test_namespace, rest_v2_client, network_layer
+):
     service_name = "hf-bert-token-classification-v2"
     protocol_version = "v2"
     predictor = V1beta1PredictorSpec(
@@ -514,7 +518,9 @@ def test_huggingface_openai_text_2_text(test_namespace):
 
 @pytest.mark.llm
 @pytest.mark.asyncio(scope="session")
-async def test_huggingface_v2_text_embedding(test_namespace, rest_v2_client, network_layer):
+async def test_huggingface_v2_text_embedding(
+    test_namespace, rest_v2_client, network_layer
+):
     service_name = "hf-text-embedding-v2"
     protocol_version = "v2"
     predictor = V1beta1PredictorSpec(

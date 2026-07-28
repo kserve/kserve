@@ -86,7 +86,9 @@ async def test_raw_deployment_kserve(rest_v1_client, network_layer, test_namespa
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_raw_deployment_runtime_kserve(rest_v1_client, network_layer, test_namespace):
+async def test_raw_deployment_runtime_kserve(
+    rest_v1_client, network_layer, test_namespace
+):
     suffix = str(uuid.uuid4())[1:6]
     service_name = "raw-sklearn-runtime-" + suffix
     annotations = dict()

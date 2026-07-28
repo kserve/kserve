@@ -53,9 +53,7 @@ async def test_lightgbm_kserve(rest_v1_client, network_layer, test_namespace):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=test_namespace
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -97,9 +95,7 @@ async def test_lightgbm_runtime_kserve(rest_v1_client, network_layer, test_names
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=test_namespace
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -140,7 +136,9 @@ async def test_lightgbm_runtime_kserve(rest_v1_client, network_layer, test_names
 @pytest.mark.predictor
 @pytest.mark.path_based_routing
 @pytest.mark.asyncio(scope="session")
-async def test_lightgbm_v2_runtime_mlserver(rest_v2_client, network_layer, test_namespace):
+async def test_lightgbm_v2_runtime_mlserver(
+    rest_v2_client, network_layer, test_namespace
+):
     service_name = "isvc-lightgbm-v2-runtime"
     protocol_version = "v2"
 
@@ -169,9 +167,7 @@ async def test_lightgbm_v2_runtime_mlserver(rest_v2_client, network_layer, test_
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=test_namespace
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -222,9 +218,7 @@ async def test_lightgbm_v2_kserve(rest_v2_client, network_layer, test_namespace)
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=test_namespace
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -277,9 +271,7 @@ async def test_lightgbm_v2_grpc(rest_v2_client, test_namespace):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=test_namespace
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 

@@ -178,7 +178,11 @@ def test_canary_create(test_namespace):
         assert canary_dep is not None
 
         canary_condition = _wait_for_condition(
-            kserve, service_name, test_namespace, "CanaryPredictorReady", "AllCanariesReady"
+            kserve,
+            service_name,
+            test_namespace,
+            "CanaryPredictorReady",
+            "AllCanariesReady",
         )
         assert canary_condition["status"] == "True"
 
@@ -215,9 +219,7 @@ def test_canary_promote(test_namespace):
         kserve.create(isvc)
         kserve.wait_isvc_ready(service_name, namespace=test_namespace)
 
-        _wait_for_deployment(
-            apps, f"{service_name}-v2-predictor", test_namespace
-        )
+        _wait_for_deployment(apps, f"{service_name}-v2-predictor", test_namespace)
         canary_pod_uids = _get_pod_uids(
             apps, f"{service_name}-v2-predictor", test_namespace
         )
@@ -227,21 +229,15 @@ def test_canary_promote(test_namespace):
         promoted.spec.predictor = _make_predictor(CANARY_MODEL_URI, name="v2")
         promoted.spec.canary = []
 
-        patch_resp = kserve.patch(
-            service_name, promoted, namespace=test_namespace
-        )
+        patch_resp = kserve.patch(service_name, promoted, namespace=test_namespace)
         kserve.wait_isvc_ready(
             service_name,
             namespace=test_namespace,
             expected_generation=patch_resp["metadata"]["generation"],
         )
 
-        _wait_for_deployment(
-            apps, f"{service_name}-v2-predictor", test_namespace
-        )
-        _wait_for_deployment_gone(
-            apps, f"{service_name}-predictor", test_namespace
-        )
+        _wait_for_deployment(apps, f"{service_name}-v2-predictor", test_namespace)
+        _wait_for_deployment_gone(apps, f"{service_name}-predictor", test_namespace)
 
         post_promote_uids = _get_pod_uids(
             apps, f"{service_name}-v2-predictor", test_namespace
@@ -278,25 +274,19 @@ def test_canary_rollback(test_namespace):
         kserve.create(isvc)
         kserve.wait_isvc_ready(service_name, namespace=test_namespace)
 
-        _wait_for_deployment(
-            apps, f"{service_name}-v2-predictor", test_namespace
-        )
+        _wait_for_deployment(apps, f"{service_name}-v2-predictor", test_namespace)
 
         rolled_back = _make_isvc(service_name, test_namespace)
         rolled_back.spec.canary = []
 
-        patch_resp = kserve.patch(
-            service_name, rolled_back, namespace=test_namespace
-        )
+        patch_resp = kserve.patch(service_name, rolled_back, namespace=test_namespace)
         kserve.wait_isvc_ready(
             service_name,
             namespace=test_namespace,
             expected_generation=patch_resp["metadata"]["generation"],
         )
 
-        _wait_for_deployment_gone(
-            apps, f"{service_name}-v2-predictor", test_namespace
-        )
+        _wait_for_deployment_gone(apps, f"{service_name}-v2-predictor", test_namespace)
         _wait_for_deployment(apps, f"{service_name}-predictor", test_namespace)
 
         got = kserve.get(service_name, namespace=test_namespace)
@@ -336,9 +326,7 @@ def test_canary_force_stop(test_namespace):
         kserve.create(isvc)
         kserve.wait_isvc_ready(service_name, namespace=test_namespace)
 
-        _wait_for_deployment(
-            apps, f"{service_name}-v2-predictor", test_namespace
-        )
+        _wait_for_deployment(apps, f"{service_name}-v2-predictor", test_namespace)
 
         stop_patch = V1beta1InferenceService(
             api_version=constants.KSERVE_V1BETA1,
@@ -355,11 +343,11 @@ def test_canary_force_stop(test_namespace):
 
         kserve.patch(service_name, stop_patch, namespace=test_namespace)
 
-        _wait_for_deployment_gone(
-            apps, f"{service_name}-v2-predictor", test_namespace
-        )
+        _wait_for_deployment_gone(apps, f"{service_name}-v2-predictor", test_namespace)
 
-        _wait_for_condition(kserve, service_name, test_namespace, "CanaryPredictorReady", "Stopped")
+        _wait_for_condition(
+            kserve, service_name, test_namespace, "CanaryPredictorReady", "Stopped"
+        )
     finally:
         _safe_delete(kserve, service_name, test_namespace)
 

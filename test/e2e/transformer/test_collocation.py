@@ -93,9 +93,7 @@ async def test_transformer_collocation(rest_v1_client, network_layer, test_names
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=test_namespace
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -137,7 +135,9 @@ async def test_transformer_collocation(rest_v1_client, network_layer, test_names
 
 @pytest.mark.collocation
 @pytest.mark.asyncio(scope="session")
-async def test_transformer_collocation_runtime(rest_v1_client, network_layer, test_namespace):
+async def test_transformer_collocation_runtime(
+    rest_v1_client, network_layer, test_namespace
+):
     service_name = "custom-model-trans-collocation-runtime"
     model_name = "mnist"
     predictor = V1beta1PredictorSpec(
@@ -181,9 +181,7 @@ async def test_transformer_collocation_runtime(rest_v1_client, network_layer, te
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=test_namespace
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -225,7 +223,9 @@ async def test_transformer_collocation_runtime(rest_v1_client, network_layer, te
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_raw_transformer_collocation(rest_v1_client, network_layer, test_namespace):
+async def test_raw_transformer_collocation(
+    rest_v1_client, network_layer, test_namespace
+):
     suffix = str(uuid.uuid4())[1:6]
     service_name = "raw-custom-model-collocation-" + suffix
     model_name = "mnist"
@@ -329,7 +329,9 @@ async def test_raw_transformer_collocation(rest_v1_client, network_layer, test_n
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_raw_transformer_collocation_runtime(rest_v1_client, network_layer, test_namespace):
+async def test_raw_transformer_collocation_runtime(
+    rest_v1_client, network_layer, test_namespace
+):
     suffix = str(uuid.uuid4())[1:5]
     service_name = "raw-custom-pred-collocation-" + suffix
     model_name = "mnist"

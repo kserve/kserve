@@ -161,9 +161,7 @@ def test_oci_native_image_volume_spec(test_namespace):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=test_namespace
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -192,9 +190,7 @@ def test_oci_native_image_volume_spec(test_namespace):
 
     # Verify the reference string matches our expected image.
     expected_ref = OCI_NATIVE_TEST_IMAGE
-    matched = [
-        v for v in image_volumes if v["image"].get("reference") == expected_ref
-    ]
+    matched = [v for v in image_volumes if v["image"].get("reference") == expected_ref]
     assert matched, (
         f"No ImageVolume with reference={expected_ref!r}. "
         f"Found image volumes: {[v['image'] for v in image_volumes]}"

@@ -165,7 +165,12 @@ def before(kserve_client, msg_dumper, namespace):
 
 
 async def base_test(
-    kserve_client, msg_dumper, service_name, predictor, rest_v1_client, network_layer,
+    kserve_client,
+    msg_dumper,
+    service_name,
+    predictor,
+    rest_v1_client,
+    network_layer,
     namespace,
 ):
     isvc = V1beta1InferenceService(

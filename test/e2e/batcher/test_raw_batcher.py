@@ -41,7 +41,9 @@ from ..common.utils import predict_isvc
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_batcher_raw(kserve_client, rest_v1_client, network_layer, test_namespace):
+async def test_batcher_raw(
+    kserve_client, rest_v1_client, network_layer, test_namespace
+):
     suffix = str(uuid.uuid4())[1:6]
     service_name = "isvc-raw-sklearn-batcher-" + suffix
 

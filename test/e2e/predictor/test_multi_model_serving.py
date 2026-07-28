@@ -70,9 +70,7 @@ async def test_mms_sklearn_kserve(
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=test_namespace
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -99,9 +97,7 @@ async def test_mms_sklearn_kserve(
         model = V1alpha1TrainedModel(
             api_version=constants.KSERVE_V1ALPHA1,
             kind=constants.KSERVE_KIND_TRAINEDMODEL,
-            metadata=client.V1ObjectMeta(
-                name=model_name, namespace=test_namespace
-            ),
+            metadata=client.V1ObjectMeta(name=model_name, namespace=test_namespace),
             spec=V1alpha1TrainedModelSpec(
                 inference_service=service_name, model=model_spec
             ),
@@ -187,9 +183,7 @@ async def test_mms_xgboost_kserve(
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=test_namespace
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -215,9 +209,7 @@ async def test_mms_xgboost_kserve(
         model = V1alpha1TrainedModel(
             api_version=constants.KSERVE_V1ALPHA1,
             kind=constants.KSERVE_KIND_TRAINEDMODEL,
-            metadata=client.V1ObjectMeta(
-                name=model_name, namespace=test_namespace
-            ),
+            metadata=client.V1ObjectMeta(name=model_name, namespace=test_namespace),
             spec=V1alpha1TrainedModelSpec(
                 inference_service=service_name, model=model_spec
             ),

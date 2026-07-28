@@ -58,7 +58,9 @@ def _create_predictor(
 @pytest.mark.autogluon
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_autogluon_runtime_kserve_v1(rest_v1_client, network_layer, test_namespace):
+async def test_autogluon_runtime_kserve_v1(
+    rest_v1_client, network_layer, test_namespace
+):
     service_name = "isvc-autogluon-v1"
     predictor = _create_predictor(service_name)
     response = await deploy_and_predict(
@@ -76,7 +78,9 @@ async def test_autogluon_runtime_kserve_v1(rest_v1_client, network_layer, test_n
 @pytest.mark.autogluon
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_autogluon_runtime_kserve_v2(rest_v2_client, network_layer, test_namespace):
+async def test_autogluon_runtime_kserve_v2(
+    rest_v2_client, network_layer, test_namespace
+):
     service_name = "isvc-autogluon-v2"
     predictor = _create_predictor(service_name, protocol_version="v2")
     response = await deploy_and_predict(
@@ -106,7 +110,10 @@ async def test_autogluon_runtime_kserve_v2_input_variants(
             "./data/autogluon_titanic_input_v2_all_binary.json",
         ]:
             response = await predict_isvc(
-                rest_v2_client, service_name, input_path, network_layer=network_layer,
+                rest_v2_client,
+                service_name,
+                input_path,
+                network_layer=network_layer,
                 namespace=test_namespace,
             )
             assert len(response.outputs) > 0

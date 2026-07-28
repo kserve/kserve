@@ -52,9 +52,7 @@ async def test_xgboost_kserve(rest_v1_client, network_layer, test_namespace):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=test_namespace
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -102,9 +100,7 @@ async def test_xgboost_v2_mlserver(rest_v2_client, network_layer, test_namespace
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=test_namespace
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -153,9 +149,7 @@ async def test_xgboost_single_model_file(rest_v2_client, network_layer, test_nam
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=test_namespace
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -197,9 +191,7 @@ async def test_xgboost_runtime_kserve(rest_v1_client, network_layer, test_namesp
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=test_namespace
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -221,7 +213,9 @@ async def test_xgboost_runtime_kserve(rest_v1_client, network_layer, test_namesp
 @pytest.mark.predictor
 @pytest.mark.path_based_routing
 @pytest.mark.asyncio(scope="session")
-async def test_xgboost_v2_runtime_mlserver(rest_v2_client, network_layer, test_namespace):
+async def test_xgboost_v2_runtime_mlserver(
+    rest_v2_client, network_layer, test_namespace
+):
     service_name = "isvc-xgboost-v2-runtime"
     protocol_version = "v2"
 
@@ -250,9 +244,7 @@ async def test_xgboost_v2_runtime_mlserver(rest_v2_client, network_layer, test_n
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=test_namespace
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -295,9 +287,7 @@ async def test_xgboost_v2(rest_v2_client, network_layer, test_namespace):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=test_namespace
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -343,9 +333,7 @@ async def test_xgboost_v2_grpc(test_namespace):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=test_namespace
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -358,7 +346,9 @@ async def test_xgboost_v2_grpc(test_namespace):
     json_file = open("./data/iris_input_v2_grpc.json")
     payload = json.load(json_file)["inputs"]
     response = await predict_grpc(
-        service_name=service_name, payload=payload, model_name=model_name,
+        service_name=service_name,
+        payload=payload,
+        model_name=model_name,
         namespace=test_namespace,
     )
     prediction = response.outputs[0].data

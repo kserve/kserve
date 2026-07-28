@@ -82,17 +82,13 @@ async def test_inference_graph(rest_v1_client, network_layer, test_namespace):
     sklearn_isvc_1 = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=sklearn_name_1, namespace=test_namespace
-        ),
+        metadata=client.V1ObjectMeta(name=sklearn_name_1, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=sklearn_predictor_1),
     )
     sklearn_isvc_2 = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=sklearn_name_2, namespace=test_namespace
-        ),
+        metadata=client.V1ObjectMeta(name=sklearn_name_2, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=sklearn_predictor_2),
     )
 
@@ -202,9 +198,7 @@ def construct_isvc_to_submit(service_name, image, model_name, namespace):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=namespace
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -217,12 +211,18 @@ def setup_isvcs_for_test(suffix, namespace):
 
     model_name = success_isvc_name = ("-").join(["success-200-isvc", suffix])
     success_isvc = construct_isvc_to_submit(
-        success_isvc_name, image=SUCCESS_ISVC_IMAGE, model_name=model_name, namespace=namespace
+        success_isvc_name,
+        image=SUCCESS_ISVC_IMAGE,
+        model_name=model_name,
+        namespace=namespace,
     )
 
     model_name = error_isvc_name = ("-").join(["error-404-isvc", suffix])
     error_isvc = construct_isvc_to_submit(
-        error_isvc_name, image=ERROR_ISVC_IMAGE, model_name=model_name, namespace=namespace
+        error_isvc_name,
+        image=ERROR_ISVC_IMAGE,
+        model_name=model_name,
+        namespace=namespace,
     )
 
     return success_isvc_name, error_isvc_name, success_isvc, error_isvc
@@ -414,7 +414,9 @@ async def test_ig_scenario3(rest_v1_client, network_layer, test_namespace):
     kserve_client.wait_isvc_ready(success_isvc_name, namespace=test_namespace)
     kserve_client.wait_isvc_ready(error_isvc_name, namespace=test_namespace)
 
-    create_ig_using_custom_object_api(resource_body_after_rendering, namespace=test_namespace)
+    create_ig_using_custom_object_api(
+        resource_body_after_rendering, namespace=test_namespace
+    )
     kserve_client.wait_ig_ready(graph_name, namespace=test_namespace)
 
     with pytest.raises(HTTPStatusError) as exc_info:
@@ -482,7 +484,9 @@ async def test_ig_scenario4(rest_v1_client, network_layer, test_namespace):
     kserve_client.wait_isvc_ready(success_isvc_name, namespace=test_namespace)
     kserve_client.wait_isvc_ready(error_isvc_name, namespace=test_namespace)
 
-    create_ig_using_custom_object_api(resource_body_after_rendering, namespace=test_namespace)
+    create_ig_using_custom_object_api(
+        resource_body_after_rendering, namespace=test_namespace
+    )
     kserve_client.wait_ig_ready(graph_name, namespace=test_namespace)
 
     # Case 1
@@ -575,7 +579,9 @@ async def test_ig_scenario5(rest_v1_client, network_layer, test_namespace):
     kserve_client.wait_isvc_ready(success_isvc_name, namespace=test_namespace)
     kserve_client.wait_isvc_ready(error_isvc_name, namespace=test_namespace)
 
-    create_ig_using_custom_object_api(resource_body_after_rendering, namespace=test_namespace)
+    create_ig_using_custom_object_api(
+        resource_body_after_rendering, namespace=test_namespace
+    )
     kserve_client.wait_ig_ready(graph_name, namespace=test_namespace)
 
     response = await predict_ig(
@@ -634,7 +640,9 @@ async def test_ig_scenario6(rest_v1_client, network_layer, test_namespace):
     kserve_client.wait_isvc_ready(success_isvc_name, namespace=test_namespace)
     kserve_client.wait_isvc_ready(error_isvc_name, namespace=test_namespace)
 
-    create_ig_using_custom_object_api(resource_body_after_rendering, namespace=test_namespace)
+    create_ig_using_custom_object_api(
+        resource_body_after_rendering, namespace=test_namespace
+    )
     kserve_client.wait_ig_ready(graph_name, namespace=test_namespace)
 
     with pytest.raises(HTTPStatusError) as exc_info:
@@ -696,7 +704,9 @@ async def test_ig_scenario7(rest_v1_client, network_layer, test_namespace):
     kserve_client.wait_isvc_ready(success_isvc_name, namespace=test_namespace)
     kserve_client.wait_isvc_ready(error_isvc_name, namespace=test_namespace)
 
-    create_ig_using_custom_object_api(resource_body_after_rendering, namespace=test_namespace)
+    create_ig_using_custom_object_api(
+        resource_body_after_rendering, namespace=test_namespace
+    )
     kserve_client.wait_ig_ready(graph_name, namespace=test_namespace)
 
     response = await predict_ig(
@@ -758,7 +768,9 @@ async def test_ig_scenario8(rest_v1_client, network_layer, test_namespace):
     kserve_client.wait_isvc_ready(success_isvc_name, namespace=test_namespace)
     kserve_client.wait_isvc_ready(error_isvc_name, namespace=test_namespace)
 
-    create_ig_using_custom_object_api(resource_body_after_rendering, namespace=test_namespace)
+    create_ig_using_custom_object_api(
+        resource_body_after_rendering, namespace=test_namespace
+    )
     kserve_client.wait_ig_ready(graph_name, namespace=test_namespace)
 
     with pytest.raises(HTTPStatusError) as exc_info:
@@ -819,7 +831,9 @@ async def test_ig_scenario9(rest_v1_client, network_layer, test_namespace):
     kserve_client.wait_isvc_ready(success_isvc_name, namespace=test_namespace)
     kserve_client.wait_isvc_ready(error_isvc_name, namespace=test_namespace)
 
-    create_ig_using_custom_object_api(resource_body_after_rendering, namespace=test_namespace)
+    create_ig_using_custom_object_api(
+        resource_body_after_rendering, namespace=test_namespace
+    )
     kserve_client.wait_ig_ready(graph_name, namespace=test_namespace)
 
     response = await predict_ig(
@@ -876,7 +890,9 @@ async def test_ig_scenario10(rest_v1_client, network_layer, test_namespace):
     kserve_client.wait_isvc_ready(success_isvc_name, namespace=test_namespace)
     kserve_client.wait_isvc_ready(error_isvc_name, namespace=test_namespace)
 
-    create_ig_using_custom_object_api(resource_body_after_rendering, namespace=test_namespace)
+    create_ig_using_custom_object_api(
+        resource_body_after_rendering, namespace=test_namespace
+    )
     kserve_client.wait_ig_ready(graph_name, namespace=test_namespace)
 
     with pytest.raises(HTTPStatusError) as exc_info:
@@ -1045,7 +1061,9 @@ async def test_inference_graph_raw_mode(rest_v1_client, network_layer, test_name
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_inference_graph_raw_mode_with_hpa(rest_v1_client, network_layer, test_namespace):
+async def test_inference_graph_raw_mode_with_hpa(
+    rest_v1_client, network_layer, test_namespace
+):
     logger.info("Starting test test_inference_graph_raw_mode_with_hpa")
     suffix = str(uuid.uuid4())[1:6]
     sklearn_name = "isvc-sklearn-graph-raw-hpa-" + suffix

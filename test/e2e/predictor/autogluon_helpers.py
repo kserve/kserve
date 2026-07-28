@@ -40,9 +40,7 @@ def create_autogluon_isvc(
     return V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=namespace
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -51,7 +49,9 @@ def _kserve_client() -> KServeClient:
     return KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
-def _log_predictor_pods(kserve_client: KServeClient, service_name: str, namespace: str) -> None:
+def _log_predictor_pods(
+    kserve_client: KServeClient, service_name: str, namespace: str
+) -> None:
     pods = kserve_client.core_api.list_namespaced_pod(
         namespace,
         label_selector=f"serving.kserve.io/inferenceservice={service_name}",
@@ -96,6 +96,9 @@ async def deploy_and_predict(
 ):
     async with autogluon_isvc(service_name, predictor, namespace, timeout_seconds):
         return await predict_isvc(
-            rest_client, service_name, input_path, network_layer=network_layer,
+            rest_client,
+            service_name,
+            input_path,
+            network_layer=network_layer,
             namespace=namespace,
         )

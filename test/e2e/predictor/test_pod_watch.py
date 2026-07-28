@@ -200,9 +200,7 @@ def get_isvc_model_status(
     return {}
 
 
-def get_isvc_conditions(
-    kserve_client: KServeClient, name: str, namespace: str
-) -> list:
+def get_isvc_conditions(kserve_client: KServeClient, name: str, namespace: str) -> list:
     isvc = kserve_client.get(name, namespace=namespace)
     status = isvc.get("status") if isinstance(isvc, dict) else {}
     if isinstance(status, dict):
@@ -328,7 +326,9 @@ def get_controller_logs(since_seconds: int) -> str:
 @pytest.mark.predictor
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_event_storm_prevention_init_container_isolation(rest_v1_client, test_namespace):
+async def test_event_storm_prevention_init_container_isolation(
+    rest_v1_client, test_namespace
+):
     """
     Test that init container status changes on one ISVC don't cause unwanted modifications
     to unrelated ISVCs (event storm prevention).
@@ -371,9 +371,7 @@ async def test_event_storm_prevention_init_container_isolation(rest_v1_client, t
     primary_isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=primary_name, namespace=test_namespace
-        ),
+        metadata=client.V1ObjectMeta(name=primary_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=primary_predictor),
     )
 
@@ -414,9 +412,7 @@ async def test_event_storm_prevention_init_container_isolation(rest_v1_client, t
         secondary_isvc = V1beta1InferenceService(
             api_version=constants.KSERVE_V1BETA1,
             kind=constants.KSERVE_KIND_INFERENCESERVICE,
-            metadata=client.V1ObjectMeta(
-                name=secondary_name, namespace=test_namespace
-            ),
+            metadata=client.V1ObjectMeta(name=secondary_name, namespace=test_namespace),
             spec=V1beta1InferenceServiceSpec(predictor=secondary_predictor),
         )
 
@@ -439,7 +435,9 @@ async def test_event_storm_prevention_init_container_isolation(rest_v1_client, t
             # The controller may reconcile the primary ISVC for legitimate reasons
             # (e.g., HTTPRoute status updates from Istio), but no-op reconciliations
             # are fine. Only fail if resourceVersion changed (actual modification).
-            primary_rv_after = get_isvc_resource_version(kserve_client, primary_name, test_namespace)
+            primary_rv_after = get_isvc_resource_version(
+                kserve_client, primary_name, test_namespace
+            )
             logger.info(
                 "Primary ISVC resourceVersion: before=%s, after=%s",
                 primary_rv_before,
@@ -506,9 +504,7 @@ async def test_quick_reconciliation_on_init_container_failure(test_namespace):
         isvc = V1beta1InferenceService(
             api_version=constants.KSERVE_V1BETA1,
             kind=constants.KSERVE_KIND_INFERENCESERVICE,
-            metadata=client.V1ObjectMeta(
-                name=isvc_name, namespace=test_namespace
-            ),
+            metadata=client.V1ObjectMeta(name=isvc_name, namespace=test_namespace),
             spec=V1beta1InferenceServiceSpec(predictor=predictor),
         )
 
@@ -517,7 +513,11 @@ async def test_quick_reconciliation_on_init_container_failure(test_namespace):
             # Wait for failure status to be populated
             logger.info("Created ISVC %s, waiting for failure status...", isvc_name)
             failure_status = wait_for_isvc_failure_status(
-                kserve_client, isvc_name, test_namespace, timeout_seconds=180, poll_interval=5.0
+                kserve_client,
+                isvc_name,
+                test_namespace,
+                timeout_seconds=180,
+                poll_interval=5.0,
             )
 
             failure_detection_time = time.time()

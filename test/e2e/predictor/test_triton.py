@@ -91,7 +91,9 @@ async def test_triton(rest_v2_client, network_layer, test_namespace):
 @pytest.mark.transformer
 @pytest.mark.path_based_routing
 @pytest.mark.asyncio(scope="session")
-async def test_triton_runtime_with_transformer(rest_v1_client, network_layer, test_namespace):
+async def test_triton_runtime_with_transformer(
+    rest_v1_client, network_layer, test_namespace
+):
     service_name = "isvc-triton-runtime"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,

@@ -244,7 +244,11 @@ async def explain_art(
     namespace: str = None,
 ) -> Dict:
     res = await explain_response(
-        client, service_name, input_path, network_layer=network_layer, namespace=namespace
+        client,
+        service_name,
+        input_path,
+        network_layer=network_layer,
+        namespace=namespace,
     )
     return res["explanations"]["adversarial_prediction"]
 
@@ -507,9 +511,7 @@ def _get_vllm_endpoint_and_host(
     kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
-    isvc = kfs_client.get(
-        service_name, namespace=namespace, version=version
-    )
+    isvc = kfs_client.get(service_name, namespace=namespace, version=version)
     scheme, cluster_ip, host, path = get_isvc_endpoint(isvc)
     return f"{scheme}://{cluster_ip}{path}/{url_suffix}", host
 
@@ -572,9 +574,7 @@ def _get_openai_endpoint_and_host(
     kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
-    isvc = kfs_client.get(
-        service_name, namespace=namespace, version=version
-    )
+    isvc = kfs_client.get(service_name, namespace=namespace, version=version)
     scheme, cluster_ip, host, path = get_isvc_endpoint(isvc, network_layer)
 
     # vLLM runtime does not use /openai prefix, others do

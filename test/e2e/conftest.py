@@ -185,7 +185,8 @@ def _copy_secret(core_v1: client.CoreV1Api, name: str, src: str, dst: str) -> No
         raise
 
     secret.metadata = client.V1ObjectMeta(
-        name=name, namespace=dst,
+        name=name,
+        namespace=dst,
         annotations=secret.metadata.annotations,
         labels=secret.metadata.labels,
     )
@@ -213,7 +214,8 @@ def _provision_secrets(core_v1: client.CoreV1Api, namespace: str) -> None:
     for attempt in range(10):
         try:
             core_v1.patch_namespaced_service_account(
-                "default", namespace,
+                "default",
+                namespace,
                 {"secrets": [{"name": S3_CREDENTIALS_SECRET}]},
             )
             return

@@ -66,9 +66,7 @@ async def test_sklearn_kserve_concurrency(rest_v1_client, test_namespace):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=test_namespace
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -115,9 +113,7 @@ async def test_sklearn_kserve_rps(rest_v1_client, test_namespace):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=test_namespace
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -429,7 +425,9 @@ async def test_sklearn_env_update(test_namespace):
 
 @pytest.mark.autoscaling
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_keda_scale_resource_memory(rest_v1_client, network_layer, test_namespace):
+async def test_sklearn_keda_scale_resource_memory(
+    rest_v1_client, network_layer, test_namespace
+):
     """
     Test KEDA autoscaling with new InferenceService (auto_scaling) spec
     """
@@ -502,7 +500,9 @@ async def test_sklearn_keda_scale_resource_memory(rest_v1_client, network_layer,
 
 @pytest.mark.autoscaling
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_layer, test_namespace):
+async def test_sklearn_keda_scale_new_spec_external(
+    rest_v1_client, network_layer, test_namespace
+):
     """
     Test KEDA autoscaling with new InferenceService (auto_scaling) spec
     """
@@ -577,7 +577,9 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
 
 @pytest.mark.autoscaling
 @pytest.mark.asyncio(scope="session")
-async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_layer, test_namespace):
+async def test_scaling_sklearn_with_keda_otel_add_on(
+    rest_v1_client, network_layer, test_namespace
+):
     """
     Test KEDA-Otel-Add-On autoscaling with InferenceService (auto_scaling) spec,
     including scale up and scale down behavior by generating load.

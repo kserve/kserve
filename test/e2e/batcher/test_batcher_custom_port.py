@@ -41,7 +41,9 @@ from ..common.utils import predict_isvc
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_batcher_custom_port(kserve_client, rest_v1_client, network_layer, test_namespace):
+async def test_batcher_custom_port(
+    kserve_client, rest_v1_client, network_layer, test_namespace
+):
     service_name = "isvc-sklearn-batcher-custom"
 
     predictor = V1beta1PredictorSpec(
@@ -64,9 +66,7 @@ async def test_batcher_custom_port(kserve_client, rest_v1_client, network_layer,
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=test_namespace
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
     kserve_client.create(isvc)

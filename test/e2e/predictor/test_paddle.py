@@ -74,7 +74,10 @@ async def test_paddle(rest_v1_client, network_layer, test_namespace):
         raise e
 
     res = await predict_isvc(
-        rest_v1_client, service_name, "./data/jay.json", network_layer=network_layer,
+        rest_v1_client,
+        service_name,
+        "./data/jay.json",
+        network_layer=network_layer,
         namespace=test_namespace,
     )
     assert np.argmax(res["predictions"][0]) == 17
@@ -123,7 +126,10 @@ async def test_paddle_runtime(rest_v1_client, network_layer, test_namespace):
         raise e
 
     res = await predict_isvc(
-        rest_v1_client, service_name, "./data/jay.json", network_layer=network_layer,
+        rest_v1_client,
+        service_name,
+        "./data/jay.json",
+        network_layer=network_layer,
         namespace=test_namespace,
     )
     assert np.argmax(res["predictions"][0]) == 17

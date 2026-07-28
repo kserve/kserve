@@ -188,7 +188,9 @@ async def test_sklearn_runtime_kserve(rest_v1_client, network_layer, test_namesp
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_v2_runtime_mlserver(rest_v2_client, network_layer, test_namespace):
+async def test_sklearn_v2_runtime_mlserver(
+    rest_v2_client, network_layer, test_namespace
+):
     service_name = "isvc-sklearn-v2-runtime"
     protocol_version = "v2"
 
