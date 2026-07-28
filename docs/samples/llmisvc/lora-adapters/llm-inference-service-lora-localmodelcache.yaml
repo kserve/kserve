@@ -26,6 +26,8 @@ spec:
   storageLimit: 50Gi
   persistentVolumeSpec:
     accessModes:
+      # Node-local storage: each node gets its own PV (local.path below).
+      # Use ReadWriteMany/ReadOnlyMany for shared storage (e.g. NFS).
       - ReadWriteOnce
     storageClassName: standard
     capacity:
@@ -43,6 +45,7 @@ spec:
                   - gpu-node
   persistentVolumeClaimSpec:
     accessModes:
+      # Matches PV access mode; node-local storage assumption as above.
       - ReadWriteOnce
     resources:
       requests:

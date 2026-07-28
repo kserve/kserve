@@ -103,7 +103,10 @@ func (v *LocalModelCacheValidator) ValidateDelete(ctx context.Context, obj runti
 	}
 	localModelCacheValidatorLogger.Info("validate delete", "name", localModelCache.Name)
 
-	// Check if current LocalModelCache is being used
+	// Delete protection relies on Status.InferenceServices / Status.LLMInferenceServices
+	// being up-to-date. A newly created consumer may not appear in status yet if the
+	// reconciler has not run, so deletion can race and succeed until the next reconcile.
+	// This gap already existed for base-model references; LoRA adapter references inherit it.
 	for _, isvcMeta := range localModelCache.Status.InferenceServices {
 		isvc := v1beta1.InferenceService{}
 		if err := v.Get(ctx, client.ObjectKey(isvcMeta), &isvc); err != nil {

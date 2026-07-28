@@ -208,8 +208,8 @@ func LLMISVCNamespaceCacheNames(llmSvcNamespace string, labels, annotations map[
 	return uniqueSorted(names)
 }
 
-// ClusterCacheNamesEqual reports whether two cluster cache name lists are equal (order ignored).
-func ClusterCacheNamesEqual(a, b []string) bool {
+// CacheNamesEqual reports whether two cache name lists are equal (order ignored).
+func CacheNamesEqual(a, b []string) bool {
 	return slices.Equal(uniqueSorted(a), uniqueSorted(b))
 }
 

@@ -341,7 +341,7 @@ func (c *LocalModelNamespaceCacheReconciler) SetupWithManager(mgr ctrl.Manager) 
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			old := e.ObjectOld.(*v1alpha2.LLMInferenceService)
 			new := e.ObjectNew.(*v1alpha2.LLMInferenceService)
-			return !localmodelcache.ClusterCacheNamesEqual(
+			return !localmodelcache.CacheNamesEqual(
 				localmodelcache.LLMISVCNamespaceCacheNames(old.Namespace, old.Labels, old.Annotations),
 				localmodelcache.LLMISVCNamespaceCacheNames(new.Namespace, new.Labels, new.Annotations),
 			)

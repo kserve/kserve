@@ -339,7 +339,7 @@ func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			old := e.ObjectOld.(*v1alpha2.LLMInferenceService)
 			new := e.ObjectNew.(*v1alpha2.LLMInferenceService)
-			return !localmodelcache.ClusterCacheNamesEqual(
+			return !localmodelcache.CacheNamesEqual(
 				localmodelcache.LLMISVCClusterCacheNames(old.Labels, old.Annotations),
 				localmodelcache.LLMISVCClusterCacheNames(new.Labels, new.Annotations),
 			)
