@@ -16,7 +16,7 @@ import asyncio
 import hashlib
 import logging
 import os
-import re
+
 import time
 
 import pytest
@@ -41,7 +41,6 @@ _ns_logger = logging.getLogger("e2e.namespace")
 SEED_NAMESPACE = os.environ.get("KSERVE_SEED_NAMESPACE", "kserve-ci-e2e-test")
 S3_CREDENTIALS_SECRET = os.environ.get("S3_CREDENTIALS_SECRET", "seaweedfs-s3-creds")
 STORAGE_CONFIG_SECRET = "storage-config"
-_NON_DNS_CHARS = re.compile(r"[^a-z0-9]+")
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -144,11 +143,13 @@ def _get_core_api() -> client.CoreV1Api:
 
 
 def _generate_namespace_name(node_name: str, prefix: str = "e2e") -> str:
-    """Generate DNS-safe namespace name from pytest node ID."""
-    sanitized = _NON_DNS_CHARS.sub("-", node_name.split("[", 1)[0].lower()).strip("-")
-    name_hash = hashlib.sha256(node_name.encode()).hexdigest()[:8]
-    max_base = 63 - len(prefix) - 2 - len(name_hash)
-    return f"{prefix}-{sanitized[:max_base].rstrip('-')}-{name_hash}"
+    """Generate short DNS-safe namespace name from pytest node ID.
+
+    Keeps names short (≤24 chars) to leave room for ISVC hostname construction
+    which combines {isvc_name}-predictor-{namespace} under a 63-char DNS limit.
+    """
+    name_hash = hashlib.sha256(node_name.encode()).hexdigest()[:12]
+    return f"{prefix}-{name_hash}"
 
 
 def _create_namespace(core_v1: client.CoreV1Api, namespace: str) -> None:
