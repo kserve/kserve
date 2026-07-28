@@ -29,12 +29,12 @@ from kserve import (
     constants,
 )
 
-from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc
+from ..common.utils import predict_isvc
 
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_predictive_sklearn_v1(rest_v1_client, network_layer):
+async def test_predictive_sklearn_v1(rest_v1_client, network_layer, test_namespace):
     service_name = "isvc-predictive-sklearn"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -53,7 +53,7 @@ async def test_predictive_sklearn_v1(rest_v1_client, network_layer):
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name, namespace=test_namespace
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -62,20 +62,20 @@ async def test_predictive_sklearn_v1(rest_v1_client, network_layer):
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
     res = await predict_isvc(
         rest_v1_client,
         service_name,
         "./data/iris_input.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res["predictions"] == [1, 1]
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_predictive_xgboost_v1(rest_v1_client, network_layer):
+async def test_predictive_xgboost_v1(rest_v1_client, network_layer, test_namespace):
     service_name = "isvc-predictive-xgboost"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -94,7 +94,7 @@ async def test_predictive_xgboost_v1(rest_v1_client, network_layer):
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name, namespace=test_namespace
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -103,20 +103,20 @@ async def test_predictive_xgboost_v1(rest_v1_client, network_layer):
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
     res = await predict_isvc(
         rest_v1_client,
         service_name,
         "./data/iris_input.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res["predictions"] == [1, 1]
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_predictive_lightgbm_v1(rest_v1_client, network_layer):
+async def test_predictive_lightgbm_v1(rest_v1_client, network_layer, test_namespace):
     service_name = "isvc-predictive-lightgbm"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -135,7 +135,7 @@ async def test_predictive_lightgbm_v1(rest_v1_client, network_layer):
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name, namespace=test_namespace
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -144,21 +144,21 @@ async def test_predictive_lightgbm_v1(rest_v1_client, network_layer):
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
     res = await predict_isvc(
         rest_v1_client,
         service_name,
         "./data/iris_input_v3.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert numpy.argmax(res["predictions"][0]) == 0
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_predictive_sklearn_v2(rest_v2_client, network_layer):
+async def test_predictive_sklearn_v2(rest_v2_client, network_layer, test_namespace):
     service_name = "isvc-predictive-sklearn-v2"
     protocol_version = "v2"
     predictor = V1beta1PredictorSpec(
@@ -185,7 +185,7 @@ async def test_predictive_sklearn_v2(rest_v2_client, network_layer):
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name, namespace=test_namespace
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -194,22 +194,21 @@ async def test_predictive_sklearn_v2(rest_v2_client, network_layer):
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
     res = await predict_isvc(
         rest_v2_client,
         service_name,
         "./data/iris_input_v2.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res.outputs[0].data == [1, 1]
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_predictive_xgboost_v2(rest_v2_client, network_layer):
+async def test_predictive_xgboost_v2(rest_v2_client, network_layer, test_namespace):
     service_name = "isvc-predictive-xgboost-v2"
     protocol_version = "v2"
     predictor = V1beta1PredictorSpec(
@@ -236,7 +235,7 @@ async def test_predictive_xgboost_v2(rest_v2_client, network_layer):
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name, namespace=test_namespace
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -245,22 +244,21 @@ async def test_predictive_xgboost_v2(rest_v2_client, network_layer):
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
     res = await predict_isvc(
         rest_v2_client,
         service_name,
         "./data/iris_input_v2.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res.outputs[0].data == [1, 1]
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_predictive_lightgbm_v2(rest_v2_client, network_layer):
+async def test_predictive_lightgbm_v2(rest_v2_client, network_layer, test_namespace):
     service_name = "isvc-predictive-lightgbm-v2"
     protocol_version = "v2"
     predictor = V1beta1PredictorSpec(
@@ -287,7 +285,7 @@ async def test_predictive_lightgbm_v2(rest_v2_client, network_layer):
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name, namespace=test_namespace
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -296,16 +294,15 @@ async def test_predictive_lightgbm_v2(rest_v2_client, network_layer):
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
     res = await predict_isvc(
         rest_v2_client,
         service_name,
         "./data/iris_input_v2.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     # LightGBM returns probability predictions in v2 format
     # We verify the highest probability class matches expected result
     assert numpy.argmax(res.outputs[0].data[0]) == 0
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

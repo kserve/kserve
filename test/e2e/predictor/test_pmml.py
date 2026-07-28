@@ -28,13 +28,13 @@ from kubernetes.client import V1ResourceRequirements, V1ContainerPort
 import pytest
 
 from kserve.logging import trace_logger as logger
-from ..common.utils import KSERVE_TEST_NAMESPACE, predict_grpc
+from ..common.utils import predict_grpc
 from ..common.utils import predict_isvc
 
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_pmml_kserve(rest_v1_client, network_layer):
+async def test_pmml_kserve(rest_v1_client, network_layer, test_namespace):
     service_name = "isvc-pmml"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -51,7 +51,7 @@ async def test_pmml_kserve(rest_v1_client, network_layer):
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name, namespace=test_namespace
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -60,13 +60,14 @@ async def test_pmml_kserve(rest_v1_client, network_layer):
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
     start = time.perf_counter()
     res = await predict_isvc(
         rest_v1_client,
         service_name,
         "./data/pmml_input.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     end = time.perf_counter()
     print(f"Time taken: {end - start}")
@@ -80,12 +81,11 @@ async def test_pmml_kserve(rest_v1_client, network_layer):
             "Node_Id": "2",
         }
     ]
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_pmml_runtime_kserve(rest_v1_client, network_layer):
+async def test_pmml_runtime_kserve(rest_v1_client, network_layer, test_namespace):
     service_name = "isvc-pmml-runtime"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -105,7 +105,7 @@ async def test_pmml_runtime_kserve(rest_v1_client, network_layer):
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name, namespace=test_namespace
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -114,12 +114,13 @@ async def test_pmml_runtime_kserve(rest_v1_client, network_layer):
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
     res = await predict_isvc(
         rest_v1_client,
         service_name,
         "./data/pmml_input.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res["predictions"] == [
         {
@@ -130,12 +131,11 @@ async def test_pmml_runtime_kserve(rest_v1_client, network_layer):
             "Node_Id": "2",
         }
     ]
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_pmml_v2_kserve(rest_v2_client, network_layer):
+async def test_pmml_v2_kserve(rest_v2_client, network_layer, test_namespace):
     service_name = "isvc-pmml-v2-kserve"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -156,7 +156,7 @@ async def test_pmml_v2_kserve(rest_v2_client, network_layer):
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name, namespace=test_namespace
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -165,12 +165,13 @@ async def test_pmml_v2_kserve(rest_v2_client, network_layer):
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
     res = await predict_isvc(
         rest_v2_client,
         service_name,
         "./data/pmml-input-v2.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res.outputs == [
         InferOutput(
@@ -206,12 +207,10 @@ async def test_pmml_v2_kserve(rest_v2_client, network_layer):
         ),
     ]
 
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_pmml_v2_grpc():
+async def test_pmml_v2_grpc(test_namespace):
     service_name = "isvc-pmml-v2-grpc"
     model_name = "pmml"
     predictor = V1beta1PredictorSpec(
@@ -235,7 +234,7 @@ async def test_pmml_v2_grpc():
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name, namespace=test_namespace
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -244,16 +243,18 @@ async def test_pmml_v2_grpc():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
     json_file = open("./data/pmml_input_v2_grpc.json")
     payload = json.load(json_file)["inputs"]
 
     response = await predict_grpc(
-        service_name=service_name, payload=payload, model_name=model_name
+        service_name=service_name,
+        payload=payload,
+        model_name=model_name,
+        namespace=test_namespace,
     )
     assert response.outputs[0].data == [b"setosa"]
     assert response.outputs[1].data == [1.0]
     assert response.outputs[2].data == [0.0]
     assert response.outputs[3].data == [0.0]
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

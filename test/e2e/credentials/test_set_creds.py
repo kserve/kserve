@@ -31,36 +31,34 @@ from kubernetes import client
 from kserve import KServeClient
 from kserve import constants
 
-KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
-
 gcp_testing_creds = """ewogICAgImNsaWVudF9pZCI6ICI3NjA1MTg1MDY0MDgtNnFyNHA2Z3BpNmhuNTA2cH\
 Q4ZWp1cTgzZGkzNDFodXIuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLAogICAgImNsaWVudF9zZWNyZXQiOiAi\
 ZC1GTDk1UTE5cTdNUW1IRDBUeUZwZDdoIiwKICAgICJyZWZyZXNoX3Rva2VuIjogIjEvYnFZbWt4bkRieEVzdEcxMlh\
 jbU9ack4wLWV5STNiZWFuSmJSZDRrcXM2ZyIsCiAgICAidHlwZSI6ICJhdXRob3JpemVkX3VzZXIiCn0K"""
 
 
-def get_created_secret(secret_name):
+def get_created_secret(secret_name, namespace):
     return client.CoreV1Api().read_namespaced_secret(
-        name=secret_name, namespace=KSERVE_TEST_NAMESPACE
+        name=secret_name, namespace=namespace
     )
 
 
-def get_created_sa(sa_name):
+def get_created_sa(sa_name, namespace):
     return client.CoreV1Api().read_namespaced_service_account(
-        name=sa_name, namespace=KSERVE_TEST_NAMESPACE
+        name=sa_name, namespace=namespace
     )
 
 
-def delete_sa(sa_name):
+def delete_sa(sa_name, namespace):
     return client.CoreV1Api().delete_namespaced_service_account(  # pylint:disable=no-value-for-parameter
-        name=sa_name, namespace=KSERVE_TEST_NAMESPACE
+        name=sa_name, namespace=namespace
     )
 
 
-def check_sa_exists(service_account):
+def check_sa_exists(service_account, namespace):
     """Check if the specified service account existing."""
     sa_list = client.CoreV1Api().list_namespaced_service_account(
-        namespace=KSERVE_TEST_NAMESPACE
+        namespace=namespace
     )
     sa_name_list = []
     for item in range(0, len(sa_list.items) - 1):
@@ -70,19 +68,18 @@ def check_sa_exists(service_account):
     return False
 
 
-def test_set_credentials_s3():
+def test_set_credentials_s3(test_namespace):
     """Test S3 credentials creating."""
     kfserving = KServeClient()
     credentials_file = "./credentials/aws_credentials"
 
-    # Test creating service account case.
     sa_name = constants.DEFAULT_SA_NAME
-    if check_sa_exists(sa_name):
-        delete_sa(sa_name)
+    if check_sa_exists(sa_name, test_namespace):
+        delete_sa(sa_name, test_namespace)
 
     kfserving.set_credentials(
         storage_type="s3",
-        namespace=KSERVE_TEST_NAMESPACE,
+        namespace=test_namespace,
         credentials_file=credentials_file,
         s3_profile="default",
         s3_endpoint="s3.us-west-2.amazonaws.com",
@@ -91,9 +88,9 @@ def test_set_credentials_s3():
         s3_verify_ssl="0",
     )
 
-    sa_body = get_created_sa(sa_name)
+    sa_body = get_created_sa(sa_name, test_namespace)
     created_secret_name = sa_body.secrets[0].name
-    created_secret = get_created_secret(created_secret_name)
+    created_secret = get_created_secret(created_secret_name, test_namespace)
 
     config = configparser.ConfigParser()
     config.read([expanduser(credentials_file)])
@@ -125,37 +122,37 @@ def test_set_credentials_s3():
     )
 
 
-def test_set_credentials_gcp():
+def test_set_credentials_gcp(test_namespace):
     """Test GCP credentials creating"""
     kserve_client = KServeClient()
     sa_name = constants.DEFAULT_SA_NAME
     kserve_client.set_credentials(
         storage_type="gcs",
-        namespace=KSERVE_TEST_NAMESPACE,
+        namespace=test_namespace,
         credentials_file="./credentials/gcp_credentials.json",
         sa_name=sa_name,
     )
-    created_sa = get_created_sa(sa_name)
+    created_sa = get_created_sa(sa_name, test_namespace)
     created_secret_name = created_sa.secrets[0].name
-    created_secret = get_created_secret(created_secret_name)
+    created_secret = get_created_secret(created_secret_name, test_namespace)
     assert (
         created_secret.data[constants.GCS_CREDS_FILE_DEFAULT_NAME] == gcp_testing_creds
     )
 
 
-def test_azure_credentials():
+def test_azure_credentials(test_namespace):
     """Test Azure credentials creating"""
     kserve_client = KServeClient()
     sa_name = constants.DEFAULT_SA_NAME
     kserve_client.set_credentials(
         storage_type="Azure",
-        namespace=KSERVE_TEST_NAMESPACE,
+        namespace=test_namespace,
         credentials_file="./credentials/azure_credentials.json",
         sa_name=sa_name,
     )
-    created_sa = get_created_sa(sa_name)
+    created_sa = get_created_sa(sa_name, test_namespace)
     created_secret_name = created_sa.secrets[0].name
-    created_secret = get_created_secret(created_secret_name)
+    created_secret = get_created_secret(created_secret_name, test_namespace)
     assert created_secret.data["AZURE_CLIENT_ID"] == "dXNlcgo="
     assert created_secret.data["AZURE_CLIENT_SECRET"] == "cGFzc3dvcmQ="
     assert (

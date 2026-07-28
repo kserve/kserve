@@ -28,28 +28,19 @@ from kserve import (
 )
 from kserve.constants import constants
 from ..common.utils import (
-    KSERVE_TEST_NAMESPACE,
     generate,
     rerank,
     chat_completion_stream,
     completion_stream,
 )
 
-# Cold model loads + pinned-revision HuggingFace pulls can outrun the 600s default
-# on contended CI runners. Increase the timeout for all tests in this file.
 ISVC_READY_TIMEOUT_S = 900
 
-# Knative's per-revision progress deadline (cluster default 600s) decides when a
-# slow-to-start Revision is permanently marked ``RevisionFailed``. Once that
-# happens, no amount of polling in ``wait_isvc_ready`` will recover. KServe
-# propagates this annotation onto the Knative revision template, so raising it
-# here gives CPU vLLM init (model load + bfloat16 + KV-cache build) room to
-# finish.
 ISVC_ANNOTATIONS = {"serving.knative.dev/progress-deadline": "20m"}
 
 
 @pytest.mark.vllm
-def test_huggingface_vllm_cpu_openai_chat_completions():
+def test_huggingface_vllm_cpu_openai_chat_completions(test_namespace):
     service_name = "hf-qwen-chat-vllm"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -91,7 +82,7 @@ def test_huggingface_vllm_cpu_openai_chat_completions():
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name,
-            namespace=KSERVE_TEST_NAMESPACE,
+            namespace=test_namespace,
             annotations=ISVC_ANNOTATIONS,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
@@ -103,18 +94,16 @@ def test_huggingface_vllm_cpu_openai_chat_completions():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(
         service_name,
-        namespace=KSERVE_TEST_NAMESPACE,
+        namespace=test_namespace,
         timeout_seconds=ISVC_READY_TIMEOUT_S,
     )
 
     res = generate(service_name, "./data/qwen_input_chat.json")
     assert res["choices"][0]["message"]["content"] == "The result of 2 + 2 is 4."
 
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-
 
 @pytest.mark.vllm
-def test_huggingface_vllm_cpu_text_completion_streaming():
+def test_huggingface_vllm_cpu_text_completion_streaming(test_namespace):
     service_name = "hf-qwen-cmpl-stream-vllm"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -156,7 +145,7 @@ def test_huggingface_vllm_cpu_text_completion_streaming():
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name,
-            namespace=KSERVE_TEST_NAMESPACE,
+            namespace=test_namespace,
             annotations=ISVC_ANNOTATIONS,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
@@ -168,7 +157,7 @@ def test_huggingface_vllm_cpu_text_completion_streaming():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(
         service_name,
-        namespace=KSERVE_TEST_NAMESPACE,
+        namespace=test_namespace,
         timeout_seconds=ISVC_READY_TIMEOUT_S,
     )
 
@@ -177,11 +166,9 @@ def test_huggingface_vllm_cpu_text_completion_streaming():
     )
     assert full_response.strip() == "The result of 2 + 2 is 4."
 
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-
 
 @pytest.mark.vllm
-def test_huggingface_vllm_cpu_openai_completions():
+def test_huggingface_vllm_cpu_openai_completions(test_namespace):
     service_name = "hf-qwen-cmpl-vllm"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -223,7 +210,7 @@ def test_huggingface_vllm_cpu_openai_completions():
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name,
-            namespace=KSERVE_TEST_NAMESPACE,
+            namespace=test_namespace,
             annotations=ISVC_ANNOTATIONS,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
@@ -235,17 +222,15 @@ def test_huggingface_vllm_cpu_openai_completions():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(
         service_name,
-        namespace=KSERVE_TEST_NAMESPACE,
+        namespace=test_namespace,
         timeout_seconds=ISVC_READY_TIMEOUT_S,
     )
     res = generate(service_name, "./data/qwen_input_cmpl.json", chat_completions=False)
     assert res["choices"][0]["text"].strip() == "The result of 2 + 2 is 4."
 
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-
 
 @pytest.mark.vllm
-def test_huggingface_vllm_openai_chat_completions_streaming():
+def test_huggingface_vllm_openai_chat_completions_streaming(test_namespace):
     service_name = "hf-qwen-chat-stream-vllm"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -287,7 +272,7 @@ def test_huggingface_vllm_openai_chat_completions_streaming():
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name,
-            namespace=KSERVE_TEST_NAMESPACE,
+            namespace=test_namespace,
             annotations=ISVC_ANNOTATIONS,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
@@ -299,7 +284,7 @@ def test_huggingface_vllm_openai_chat_completions_streaming():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(
         service_name,
-        namespace=KSERVE_TEST_NAMESPACE,
+        namespace=test_namespace,
         timeout_seconds=ISVC_READY_TIMEOUT_S,
     )
 
@@ -308,11 +293,9 @@ def test_huggingface_vllm_openai_chat_completions_streaming():
     )
     assert full_response.strip() == "The result of 2 + 2 is 4."
 
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-
 
 @pytest.mark.vllm
-def test_huggingface_vllm_cpu_rerank():
+def test_huggingface_vllm_cpu_rerank(test_namespace):
     service_name = "bge-reranker-base"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -357,7 +340,7 @@ def test_huggingface_vllm_cpu_rerank():
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name,
-            namespace=KSERVE_TEST_NAMESPACE,
+            namespace=test_namespace,
             annotations=ISVC_ANNOTATIONS,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
@@ -369,7 +352,7 @@ def test_huggingface_vllm_cpu_rerank():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(
         service_name,
-        namespace=KSERVE_TEST_NAMESPACE,
+        namespace=test_namespace,
         timeout_seconds=ISVC_READY_TIMEOUT_S,
     )
 
@@ -380,5 +363,3 @@ def test_huggingface_vllm_cpu_rerank():
     assert res["results"][1]["index"] == 0
     assert res["results"][1]["relevance_score"] == pytest.approx(0.0, abs=1e-2)
     assert res["results"][1]["document"]["text"] == "The capital of Brazil is Brasilia."
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

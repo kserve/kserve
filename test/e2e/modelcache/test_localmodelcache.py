@@ -39,13 +39,13 @@ from kserve.models.v1beta1_inference_service_spec import V1beta1InferenceService
 from kserve.models.v1beta1_predictor_spec import V1beta1PredictorSpec
 from kserve.models.v1beta1_model_spec import V1beta1ModelSpec
 from kserve.models.v1beta1_model_format import V1beta1ModelFormat
-from ..common.utils import KSERVE_TEST_NAMESPACE, generate
+from ..common.utils import generate
 from . import assert_pv_deleted, assert_pvc_deleted
 
 
 @pytest.mark.modelcache
 @pytest.mark.asyncio(scope="session")
-async def test_vllm_modelcache():
+async def test_vllm_modelcache(test_namespace):
     service_name = "qwen-chat-modelcache-worker1"
     storage_uri = "hf://Qwen/Qwen2-0.5B-Instruct"
     nodes = ["minikube-m02", "minikube-m03"]
@@ -141,7 +141,7 @@ async def test_vllm_modelcache():
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name, namespace=test_namespace
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -153,7 +153,7 @@ async def test_vllm_modelcache():
     kserve_client.create_local_model_cache(model_cache)
     kserve_client.wait_local_model_cache_ready(model_cache.metadata.name, nodes=nodes)
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
     k8s_client = kserve_client.api_instance
 
     # Test the model is cached on the correct nodes
@@ -189,16 +189,15 @@ async def test_vllm_modelcache():
 
     res = generate(service_name, "./data/qwen_input_chat.json")
     assert res["choices"][0]["message"]["content"] == "The result of 2 + 2 is 4."
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-    # Wait for the isvc to be deleted to avoid modelcache still in use error when deleting the model cache
+    # Wait before deleting model cache to avoid "still in use" error
     await asyncio.sleep(30)
     kserve_client.delete_local_model_cache(model_cache.metadata.name)
 
     # Verify PV/PVC are cleaned up after LocalModelCache deletion
     core_api = client.CoreV1Api()
-    serving_pv = f"{model_cache.metadata.name}-{node_group.metadata.name}-{KSERVE_TEST_NAMESPACE}"
+    serving_pv = f"{model_cache.metadata.name}-{node_group.metadata.name}-{test_namespace}"
     serving_pvc = f"{model_cache.metadata.name}-{node_group.metadata.name}"
     await assert_pv_deleted(core_api, serving_pv)
-    await assert_pvc_deleted(core_api, serving_pvc, KSERVE_TEST_NAMESPACE)
+    await assert_pvc_deleted(core_api, serving_pvc, test_namespace)
 
     kserve_client.delete_local_model_node_group(node_group.metadata.name)

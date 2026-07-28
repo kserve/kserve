@@ -30,19 +30,18 @@ from kserve import (
 )
 from ..common.utils import (
     AUTOGLUON_ISVC_WAIT_TIMEOUT,
-    KSERVE_TEST_NAMESPACE,
     predict_isvc,
 )
 
 
 def create_autogluon_isvc(
-    service_name: str, predictor: V1beta1PredictorSpec
+    service_name: str, predictor: V1beta1PredictorSpec, namespace: str
 ) -> V1beta1InferenceService:
     return V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name, namespace=namespace
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -52,9 +51,9 @@ def _kserve_client() -> KServeClient:
     return KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
-def _log_predictor_pods(kserve_client: KServeClient, service_name: str) -> None:
+def _log_predictor_pods(kserve_client: KServeClient, service_name: str, namespace: str) -> None:
     pods = kserve_client.core_api.list_namespaced_pod(
-        KSERVE_TEST_NAMESPACE,
+        namespace,
         label_selector=f"serving.kserve.io/inferenceservice={service_name}",
     )
     for pod in pods.items:
@@ -65,24 +64,25 @@ def _log_predictor_pods(kserve_client: KServeClient, service_name: str) -> None:
 async def autogluon_isvc(
     service_name: str,
     predictor: V1beta1PredictorSpec,
+    namespace: str,
     timeout_seconds: int = AUTOGLUON_ISVC_WAIT_TIMEOUT,
 ) -> AsyncIterator[KServeClient]:
     """Create an InferenceService, wait until ready, then delete it on exit."""
     kserve_client = _kserve_client()
-    kserve_client.create(create_autogluon_isvc(service_name, predictor))
+    kserve_client.create(create_autogluon_isvc(service_name, predictor, namespace))
     try:
         try:
             kserve_client.wait_isvc_ready(
                 service_name,
-                namespace=KSERVE_TEST_NAMESPACE,
+                namespace=namespace,
                 timeout_seconds=timeout_seconds,
             )
         except RuntimeError as e:
-            _log_predictor_pods(kserve_client, service_name)
+            _log_predictor_pods(kserve_client, service_name, namespace)
             raise e
         yield kserve_client
     finally:
-        kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+        kserve_client.delete(service_name, namespace)
 
 
 async def deploy_and_predict(
@@ -90,10 +90,12 @@ async def deploy_and_predict(
     predictor: V1beta1PredictorSpec,
     rest_client,
     input_path: str,
+    namespace: str,
     timeout_seconds: int = AUTOGLUON_ISVC_WAIT_TIMEOUT,
     network_layer: str = "istio",
 ):
-    async with autogluon_isvc(service_name, predictor, timeout_seconds):
+    async with autogluon_isvc(service_name, predictor, namespace, timeout_seconds):
         return await predict_isvc(
-            rest_client, service_name, input_path, network_layer=network_layer
+            rest_client, service_name, input_path, network_layer=network_layer,
+            namespace=namespace,
         )

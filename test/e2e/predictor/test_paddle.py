@@ -31,12 +31,12 @@ from kserve import (
     constants,
 )
 
-from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc, predict_grpc
+from ..common.utils import predict_isvc, predict_grpc
 
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_paddle(rest_v1_client, network_layer):
+async def test_paddle(rest_v1_client, network_layer, test_namespace):
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         paddle=V1beta1PaddleServerSpec(
@@ -52,7 +52,7 @@ async def test_paddle(rest_v1_client, network_layer):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=V1ObjectMeta(name=service_name, namespace=KSERVE_TEST_NAMESPACE),
+        metadata=V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -62,11 +62,11 @@ async def test_paddle(rest_v1_client, network_layer):
     kserve_client.create(isvc)
     try:
         kserve_client.wait_isvc_ready(
-            service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=720
+            service_name, namespace=test_namespace, timeout_seconds=720
         )
     except RuntimeError as e:
         pods = kserve_client.core_api.list_namespaced_pod(
-            KSERVE_TEST_NAMESPACE,
+            test_namespace,
             label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
         )
         for pod in pods.items:
@@ -74,16 +74,15 @@ async def test_paddle(rest_v1_client, network_layer):
         raise e
 
     res = await predict_isvc(
-        rest_v1_client, service_name, "./data/jay.json", network_layer=network_layer
+        rest_v1_client, service_name, "./data/jay.json", network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert np.argmax(res["predictions"][0]) == 17
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_paddle_runtime(rest_v1_client, network_layer):
+async def test_paddle_runtime(rest_v1_client, network_layer, test_namespace):
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         model=V1beta1ModelSpec(
@@ -102,7 +101,7 @@ async def test_paddle_runtime(rest_v1_client, network_layer):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=V1ObjectMeta(name=service_name, namespace=KSERVE_TEST_NAMESPACE),
+        metadata=V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -112,11 +111,11 @@ async def test_paddle_runtime(rest_v1_client, network_layer):
     kserve_client.create(isvc)
     try:
         kserve_client.wait_isvc_ready(
-            service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=720
+            service_name, namespace=test_namespace, timeout_seconds=720
         )
     except RuntimeError as e:
         pods = kserve_client.core_api.list_namespaced_pod(
-            KSERVE_TEST_NAMESPACE,
+            test_namespace,
             label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
         )
         for pod in pods.items:
@@ -124,16 +123,15 @@ async def test_paddle_runtime(rest_v1_client, network_layer):
         raise e
 
     res = await predict_isvc(
-        rest_v1_client, service_name, "./data/jay.json", network_layer=network_layer
+        rest_v1_client, service_name, "./data/jay.json", network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert np.argmax(res["predictions"][0]) == 17
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_paddle_v2_kserve(rest_v2_client, network_layer):
+async def test_paddle_v2_kserve(rest_v2_client, network_layer, test_namespace):
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         model=V1beta1ModelSpec(
@@ -153,7 +151,7 @@ async def test_paddle_v2_kserve(rest_v2_client, network_layer):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=V1ObjectMeta(name=service_name, namespace=KSERVE_TEST_NAMESPACE),
+        metadata=V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -163,11 +161,11 @@ async def test_paddle_v2_kserve(rest_v2_client, network_layer):
     kserve_client.create(isvc)
     try:
         kserve_client.wait_isvc_ready(
-            service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=720
+            service_name, namespace=test_namespace, timeout_seconds=720
         )
     except RuntimeError as e:
         pods = kserve_client.core_api.list_namespaced_pod(
-            KSERVE_TEST_NAMESPACE,
+            test_namespace,
             label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
         )
         for pod in pods.items:
@@ -179,15 +177,14 @@ async def test_paddle_v2_kserve(rest_v2_client, network_layer):
         service_name,
         "./data/jay-v2.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert np.argmax(res.outputs[0].data) == 17
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_paddle_v2_grpc(network_layer):
+async def test_paddle_v2_grpc(network_layer, test_namespace):
     service_name = "isvc-paddle-v2-grpc"
     model_name = "paddle"
     predictor = V1beta1PredictorSpec(
@@ -210,7 +207,7 @@ async def test_paddle_v2_grpc(network_layer):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=V1ObjectMeta(name=service_name, namespace=KSERVE_TEST_NAMESPACE),
+        metadata=V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -220,11 +217,11 @@ async def test_paddle_v2_grpc(network_layer):
     kserve_client.create(isvc)
     try:
         kserve_client.wait_isvc_ready(
-            service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=720
+            service_name, namespace=test_namespace, timeout_seconds=720
         )
     except RuntimeError as e:
         pods = kserve_client.core_api.list_namespaced_pod(
-            KSERVE_TEST_NAMESPACE,
+            test_namespace,
             label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
         )
         for pod in pods.items:
@@ -238,8 +235,7 @@ async def test_paddle_v2_grpc(network_layer):
         payload=payload,
         model_name=model_name,
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     prediction = response.outputs[0].data
     assert np.argmax(prediction) == 17
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

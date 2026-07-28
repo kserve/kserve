@@ -75,13 +75,33 @@ async def predict_isvc(
     is_batch=False,
     network_layer: str = "istio",
     extra_headers: dict = None,
+    namespace: str = None,
 ) -> Union[InferResponse, Dict, List[Union[Dict, InferResponse]]]:
+    """Send prediction request to an InferenceService.
+
+    Args:
+        client: REST client for inference
+        service_name: Name of the InferenceService
+        input: Input data (file path or InferRequest)
+        version: API version
+        model_name: Model name override
+        is_batch: Whether to send batch requests
+        network_layer: Network layer for endpoint resolution
+        extra_headers: Additional HTTP headers
+        namespace: Namespace of the ISVC (defaults to KSERVE_TEST_NAMESPACE)
+
+    Returns:
+        Inference response
+    """
+    if namespace is None:
+        namespace = KSERVE_TEST_NAMESPACE
+
     kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     isvc = kfs_client.get(
         service_name,
-        namespace=KSERVE_TEST_NAMESPACE,
+        namespace=namespace,
         version=version,
     )
     scheme, cluster_ip, host, path = get_isvc_endpoint(isvc, network_layer)
@@ -198,13 +218,17 @@ async def predict_ig(
     input_path,
     version=constants.KSERVE_V1ALPHA1_VERSION,
     network_layer: str = "istio",
+    namespace: str = None,
 ) -> Union[InferResponse, Dict]:
+    if namespace is None:
+        namespace = KSERVE_TEST_NAMESPACE
+
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     ig = kserve_client.get_inference_graph(
         ig_name,
-        namespace=KSERVE_TEST_NAMESPACE,
+        namespace=namespace,
         version=version,
     )
     scheme, cluster_ip, host, _ = get_isvc_endpoint(ig, network_layer)
@@ -213,23 +237,34 @@ async def predict_ig(
 
 
 async def explain_art(
-    client, service_name, input_path, network_layer: str = "istio"
+    client,
+    service_name,
+    input_path,
+    network_layer: str = "istio",
+    namespace: str = None,
 ) -> Dict:
     res = await explain_response(
-        client, service_name, input_path, network_layer=network_layer
+        client, service_name, input_path, network_layer=network_layer, namespace=namespace
     )
     return res["explanations"]["adversarial_prediction"]
 
 
 async def explain_response(
-    client, service_name, input_path, network_layer: str
+    client,
+    service_name,
+    input_path,
+    network_layer: str,
+    namespace: str = None,
 ) -> Dict:
+    if namespace is None:
+        namespace = KSERVE_TEST_NAMESPACE
+
     kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     isvc = kfs_client.get(
         service_name,
-        namespace=KSERVE_TEST_NAMESPACE,
+        namespace=namespace,
         version=constants.KSERVE_V1BETA1_VERSION,
     )
     scheme, cluster_ip, host, path = get_isvc_endpoint(isvc, network_layer)
@@ -245,7 +280,7 @@ async def explain_response(
         except (RuntimeError, orjson.JSONDecodeError) as e:
             logger.info("Explain error -------")
             pods = kfs_client.core_api.list_namespaced_pod(
-                KSERVE_TEST_NAMESPACE,
+                namespace,
                 label_selector="serving.kserve.io/inferenceservice={}".format(
                     service_name
                 ),
@@ -258,7 +293,7 @@ async def explain_response(
                 )
                 api_response = kfs_client.core_api.read_namespaced_pod_log(
                     pod.metadata.name,
-                    KSERVE_TEST_NAMESPACE,
+                    namespace,
                     container="kserve-container",
                 )
                 logger.info(api_response)
@@ -301,13 +336,17 @@ async def predict_grpc(
     version=constants.KSERVE_V1BETA1_VERSION,
     model_name=None,
     network_layer: str = "istio",
+    namespace: str = None,
 ) -> InferResponse:
+    if namespace is None:
+        namespace = KSERVE_TEST_NAMESPACE
+
     kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     isvc = kfs_client.get(
         service_name,
-        namespace=KSERVE_TEST_NAMESPACE,
+        namespace=namespace,
         version=version,
     )
     _, cluster_ip, host, _ = get_isvc_endpoint(isvc, network_layer)
@@ -447,7 +486,10 @@ def classify(
 
 
 def _get_vllm_endpoint_and_host(
-    service_name, url_suffix, version=constants.KSERVE_V1BETA1_VERSION
+    service_name,
+    url_suffix,
+    version=constants.KSERVE_V1BETA1_VERSION,
+    namespace: str = None,
 ):
     """
     Get the vLLM endpoint for the given service name (without /openai prefix).
@@ -455,14 +497,18 @@ def _get_vllm_endpoint_and_host(
         service_name: The name of the inference service
         url_suffix: The suffix for the vLLM endpoint (e.g., "classify")
         version: The version of the inference service. Defaults to v1beta1
+        namespace: Namespace of the ISVC (defaults to KSERVE_TEST_NAMESPACE)
     Returns:
         A tuple containing the vLLM endpoint URL and the host name
     """
+    if namespace is None:
+        namespace = KSERVE_TEST_NAMESPACE
+
     kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     isvc = kfs_client.get(
-        service_name, namespace=KSERVE_TEST_NAMESPACE, version=version
+        service_name, namespace=namespace, version=version
     )
     scheme, cluster_ip, host, path = get_isvc_endpoint(isvc)
     return f"{scheme}://{cluster_ip}{path}/{url_suffix}", host
@@ -473,6 +519,7 @@ def _vllm_request(
     input_json,
     version=constants.KSERVE_V1BETA1_VERSION,
     url_suffix="",
+    namespace: str = None,
 ):
     """Make a request to vLLM's /classify endpoint"""
     with open(input_json) as json_file:
@@ -483,7 +530,9 @@ def _vllm_request(
             text = data["inputs"][0]["data"][0]
             data = {"input": [text]}
 
-        url, host = _get_vllm_endpoint_and_host(service_name, url_suffix, version)
+        url, host = _get_vllm_endpoint_and_host(
+            service_name, url_suffix, version, namespace=namespace
+        )
         headers = {"Host": host, "Content-Type": "application/json"}
 
         logger.info("Sending Header = %s", headers)
@@ -504,6 +553,7 @@ def _get_openai_endpoint_and_host(
     url_suffix,
     version=constants.KSERVE_V1BETA1_VERSION,
     network_layer: str = "istio",
+    namespace: str = None,
 ):
     """
     Get the OpenAI endpoint for the given service name.
@@ -512,14 +562,18 @@ def _get_openai_endpoint_and_host(
         url_suffix: The suffix for the OpenAI endpoint (e.g., "v1/chat/completions")
         version: The version of the inference service. Defaults to v1beta1
         network_layer: The network layer to use for endpoint resolution
+        namespace: Namespace of the ISVC (defaults to KSERVE_TEST_NAMESPACE)
     Returns:
         A tuple containing the OpenAI endpoint URL and the host name
     """
+    if namespace is None:
+        namespace = KSERVE_TEST_NAMESPACE
+
     kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     isvc = kfs_client.get(
-        service_name, namespace=KSERVE_TEST_NAMESPACE, version=version
+        service_name, namespace=namespace, version=version
     )
     scheme, cluster_ip, host, path = get_isvc_endpoint(isvc, network_layer)
 
@@ -653,13 +707,17 @@ def is_model_ready(
     model_name,
     version=constants.KSERVE_V1BETA1_VERSION,
     network_layer: str = "istio",
+    namespace: str = None,
 ):
+    if namespace is None:
+        namespace = KSERVE_TEST_NAMESPACE
+
     kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     isvc = kfs_client.get(
         service_name,
-        namespace=KSERVE_TEST_NAMESPACE,
+        namespace=namespace,
         version=version,
     )
     scheme, cluster_ip, host, path = get_isvc_endpoint(isvc, network_layer)
