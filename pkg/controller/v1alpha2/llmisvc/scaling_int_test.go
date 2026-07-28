@@ -332,6 +332,58 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 			}).WithContext(ctx).Should(Succeed())
 		})
 
+		It("should reject create when both WVA and direct KEDA scaling are set", func(ctx SpecContext) {
+			testNs := NewTestNamespace(ctx, envTest)
+
+			llmSvc := LLMInferenceService("test-scaling-mutual-exclusion",
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://meta-llama/Llama-3.1-8B"),
+				WithScaling(&v1alpha2.ScalingSpec{
+					MaxReplicas: 5,
+					WVA: &v1alpha2.WVASpec{
+						ActuatorSpec: v1alpha2.ActuatorSpec{
+							HPA: &v1alpha2.HPAScalingSpec{},
+						},
+					},
+					KEDA: &v1alpha2.DirectKEDAScalingSpec{
+						Triggers: []kedav1alpha1.ScaleTriggers{
+							{
+								Type: "cpu",
+								Metadata: map[string]string{
+									"value": "80",
+								},
+							},
+						},
+					},
+				}),
+			)
+
+			errValidation := envTest.Create(ctx, llmSvc)
+
+			Expect(errValidation).To(HaveOccurred(), "Expected the Create call to fail due to mutually exclusive scaling backends")
+			Expect(errValidation.Error()).To(ContainSubstring("wva and keda are mutually exclusive"))
+		})
+
+		It("should reject create when direct KEDA scaling has no triggers", func(ctx SpecContext) {
+			testNs := NewTestNamespace(ctx, envTest)
+
+			llmSvc := LLMInferenceService("test-direct-keda-no-triggers",
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://meta-llama/Llama-3.1-8B"),
+				WithScaling(&v1alpha2.ScalingSpec{
+					MaxReplicas: 5,
+					KEDA: &v1alpha2.DirectKEDAScalingSpec{
+						Triggers: []kedav1alpha1.ScaleTriggers{},
+					},
+				}),
+			)
+
+			errValidation := envTest.Create(ctx, llmSvc)
+
+			Expect(errValidation).To(HaveOccurred(), "Expected the Create call to fail when direct KEDA triggers are empty")
+			Expect(errValidation.Error()).To(ContainSubstring("at least one trigger is required when using direct KEDA scaling"))
+		})
+
 		It("should update direct KEDA triggers in place without adding WVA annotations", func(ctx SpecContext) {
 			svcName := "test-direct-keda-trigger-update"
 			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
