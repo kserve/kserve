@@ -541,11 +541,12 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCach
 						continue
 					}
 				} else {
-					localModelPVCName = selectNodeGroupForISVC(isvc, nsModel.Spec.NodeGroups, ngMap)
-					if localModelPVCName == "" {
+					ngName := selectNodeGroupForISVC(isvc, nsModel.Spec.NodeGroups, ngMap)
+					if ngName == "" {
 						mutatorLogger.Info("No compatible node group for namespace-scoped cache, skipping", "cache", nsModel.Name, "nodeGroups", nsModel.Spec.NodeGroups)
 						continue
 					}
+					localModelPVCName = nsModel.Name + "-" + ngName
 				}
 				if isvc.Labels == nil {
 					isvc.Labels = make(map[string]string)
@@ -584,11 +585,12 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCach
 					continue
 				}
 			} else {
-				localModelPVCName = selectNodeGroupForISVC(isvc, model.Spec.NodeGroups, ngMap)
-				if localModelPVCName == "" {
+				ngName := selectNodeGroupForISVC(isvc, model.Spec.NodeGroups, ngMap)
+				if ngName == "" {
 					mutatorLogger.Info("No compatible node group for cluster-scoped cache, skipping", "cache", model.Name, "nodeGroups", model.Spec.NodeGroups)
 					continue
 				}
+				localModelPVCName = model.Name + "-" + ngName
 			}
 			// found matched local model cache for isvc
 			localModel = &models.Items[i]

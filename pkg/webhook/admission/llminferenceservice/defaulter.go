@@ -209,11 +209,12 @@ func SetLocalModelLabel(llmSvc *v1alpha2.LLMInferenceService, models *v1alpha1.L
 						continue
 					}
 				} else {
-					localModelPVCName = selectNodeGroupForWorkload(llmSvc, nsModel.Spec.NodeGroups, ngMap)
-					if localModelPVCName == "" {
+					ngName := selectNodeGroupForWorkload(llmSvc, nsModel.Spec.NodeGroups, ngMap)
+					if ngName == "" {
 						defaulterLogger.Info("No compatible node group for namespace-scoped cache, skipping", "cache", nsModel.Name, "nodeGroups", nsModel.Spec.NodeGroups)
 						continue
 					}
+					localModelPVCName = nsModel.Name + "-" + ngName
 				}
 				if llmSvc.Labels == nil {
 					llmSvc.Labels = make(map[string]string)
@@ -249,11 +250,12 @@ func SetLocalModelLabel(llmSvc *v1alpha2.LLMInferenceService, models *v1alpha1.L
 					continue
 				}
 			} else {
-				localModelPVCName = selectNodeGroupForWorkload(llmSvc, model.Spec.NodeGroups, ngMap)
-				if localModelPVCName == "" {
+				ngName := selectNodeGroupForWorkload(llmSvc, model.Spec.NodeGroups, ngMap)
+				if ngName == "" {
 					defaulterLogger.Info("No compatible node group for cluster-scoped cache, skipping", "cache", model.Name, "nodeGroups", model.Spec.NodeGroups)
 					continue
 				}
+				localModelPVCName = model.Name + "-" + ngName
 			}
 			localModel = &models.Items[i]
 			break
@@ -292,10 +294,10 @@ func selectNodeGroupForWorkload(llmSvc *v1alpha2.LLMInferenceService, cacheNodeG
 		return cacheNodeGroups[0]
 	}
 
-	nodeSelector := llmSvc.Spec.Template.NodeSelector
-	if len(nodeSelector) == 0 {
+	if llmSvc.Spec.Template == nil || len(llmSvc.Spec.Template.NodeSelector) == 0 {
 		return cacheNodeGroups[0]
 	}
+	nodeSelector := llmSvc.Spec.Template.NodeSelector
 
 	if ngMap == nil {
 		return cacheNodeGroups[0]
