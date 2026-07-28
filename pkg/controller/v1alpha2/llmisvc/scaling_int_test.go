@@ -632,6 +632,67 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 				g.Expect(so.Annotations["llm-d.ai/model-id"]).To(Equal("meta-llama/Llama-3.1-8B"))
 			}).WithContext(ctx).Should(Succeed())
 		})
+
+		It("should create separate direct KEDA scaling resources for decode and prefill workloads", func(ctx SpecContext) {
+			svcName := "test-prefill-direct-keda"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://meta-llama/Llama-3.1-8B"),
+				WithModelName("meta-llama/Llama-3.1-8B"),
+				WithScaling(DirectKEDAScaling(1, 5,
+					kedav1alpha1.ScaleTriggers{
+						Type: "cpu",
+						Metadata: map[string]string{
+							"value": "80",
+						},
+					},
+				)),
+				WithPrefillScaling(DirectKEDAScaling(2, 8,
+					kedav1alpha1.ScaleTriggers{
+						Type: "memory",
+						Metadata: map[string]string{
+							"value": "70",
+						},
+					},
+				)),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			decodeSOKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-keda"), Namespace: testNs.Name}
+			prefillSOKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-prefill-keda"), Namespace: testNs.Name}
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				so := &kedav1alpha1.ScaledObject{}
+				g.Expect(envTest.Get(ctx, decodeSOKey, so)).To(Succeed())
+				g.Expect(so.Spec.ScaleTargetRef.Name).To(Equal(kmeta.ChildName(svcName, "-kserve")))
+				g.Expect(so.Spec.MinReplicaCount).To(Equal(ptr.To(int32(1))))
+				g.Expect(so.Spec.MaxReplicaCount).To(Equal(ptr.To(int32(5))))
+				g.Expect(so.Spec.Triggers).To(HaveLen(1))
+				g.Expect(so.Spec.Triggers[0].Type).To(Equal("cpu"))
+				g.Expect(so.Spec.Triggers[0].Metadata["value"]).To(Equal("80"))
+				g.Expect(so.Annotations).NotTo(HaveKey("llm-d.ai/managed"))
+				g.Expect(so.Annotations).NotTo(HaveKey("llm-d.ai/model-id"))
+			}).WithContext(ctx).Should(Succeed())
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				so := &kedav1alpha1.ScaledObject{}
+				g.Expect(envTest.Get(ctx, prefillSOKey, so)).To(Succeed())
+				g.Expect(so.Spec.ScaleTargetRef.Name).To(Equal(kmeta.ChildName(svcName, "-kserve-prefill")))
+				g.Expect(so.Spec.MinReplicaCount).To(Equal(ptr.To(int32(2))))
+				g.Expect(so.Spec.MaxReplicaCount).To(Equal(ptr.To(int32(8))))
+				g.Expect(so.Spec.Triggers).To(HaveLen(1))
+				g.Expect(so.Spec.Triggers[0].Type).To(Equal("memory"))
+				g.Expect(so.Spec.Triggers[0].Metadata["value"]).To(Equal("70"))
+				g.Expect(so.Annotations).NotTo(HaveKey("llm-d.ai/managed"))
+				g.Expect(so.Annotations).NotTo(HaveKey("llm-d.ai/model-id"))
+			}).WithContext(ctx).Should(Succeed())
+		})
 	})
 
 	Context("Actuator switch", func() {
