@@ -515,9 +515,9 @@ type InferencePoolSpec struct {
 // +kubebuilder:validation:XValidation:rule="!(has(self.wva) && has(self.keda))",message="wva and keda are mutually exclusive"
 // +kubebuilder:validation:XValidation:rule="!has(self.keda) || size(self.keda.triggers) > 0",message="at least one trigger is required when using direct KEDA scaling"
 // +kubebuilder:validation:XValidation:rule="!has(self.minReplicas) || self.minReplicas <= self.maxReplicas",message="minReplicas cannot exceed maxReplicas"
-// +kubebuilder:validation:XValidation:rule="!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || has(self.minReplicas)",message="minReplicas is required when idleReplicaCount is set; idleReplicaCount must be less than minReplicas"
+// +kubebuilder:validation:XValidation:rule="!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || has(self.minReplicas)",message="minReplicas is required when idleReplicaCount is set"
 // +kubebuilder:validation:XValidation:rule="!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || !has(self.minReplicas) || self.wva.keda.idleReplicaCount < self.minReplicas",message="idleReplicaCount must be less than minReplicas; idleReplicaCount defines the replica floor when no triggers are active"
-// +kubebuilder:validation:XValidation:rule="!has(self.keda) || !has(self.keda.idleReplicaCount) || has(self.minReplicas)",message="minReplicas is required when idleReplicaCount is set; idleReplicaCount must be less than minReplicas"
+// +kubebuilder:validation:XValidation:rule="!has(self.keda) || !has(self.keda.idleReplicaCount) || has(self.minReplicas)",message="minReplicas is required when idleReplicaCount is set"
 // +kubebuilder:validation:XValidation:rule="!has(self.keda) || !has(self.keda.idleReplicaCount) || !has(self.minReplicas) || self.keda.idleReplicaCount < self.minReplicas",message="idleReplicaCount must be less than minReplicas; idleReplicaCount defines the replica floor when no triggers are active"
 type ScalingSpec struct {
 	// MinReplicas is the minimum number of replicas for the deployment during active scaling.

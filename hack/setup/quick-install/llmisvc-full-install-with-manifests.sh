@@ -7175,8 +7175,7 @@ spec:
                       rule: '!has(self.keda) || size(self.keda.triggers) > 0'
                     - message: minReplicas cannot exceed maxReplicas
                       rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
-                    - message: minReplicas is required when idleReplicaCount is set;
-                        idleReplicaCount must be less than minReplicas
+                    - message: minReplicas is required when idleReplicaCount is set
                       rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                         || has(self.minReplicas)'
                     - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
@@ -7184,8 +7183,7 @@ spec:
                       rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                         || !has(self.minReplicas) || self.wva.keda.idleReplicaCount
                         < self.minReplicas'
-                    - message: minReplicas is required when idleReplicaCount is set;
-                        idleReplicaCount must be less than minReplicas
+                    - message: minReplicas is required when idleReplicaCount is set
                       rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) ||
                         has(self.minReplicas)'
                     - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
@@ -23709,8 +23707,7 @@ spec:
                   rule: '!has(self.keda) || size(self.keda.triggers) > 0'
                 - message: minReplicas cannot exceed maxReplicas
                   rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
-                - message: minReplicas is required when idleReplicaCount is set; idleReplicaCount
-                    must be less than minReplicas
+                - message: minReplicas is required when idleReplicaCount is set
                   rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                     || has(self.minReplicas)'
                 - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
@@ -23718,8 +23715,7 @@ spec:
                   rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                     || !has(self.minReplicas) || self.wva.keda.idleReplicaCount <
                     self.minReplicas'
-                - message: minReplicas is required when idleReplicaCount is set; idleReplicaCount
-                    must be less than minReplicas
+                - message: minReplicas is required when idleReplicaCount is set
                   rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || has(self.minReplicas)'
                 - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
                     defines the replica floor when no triggers are active
@@ -32115,8 +32111,7 @@ spec:
                       rule: '!has(self.keda) || size(self.keda.triggers) > 0'
                     - message: minReplicas cannot exceed maxReplicas
                       rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
-                    - message: minReplicas is required when idleReplicaCount is set;
-                        idleReplicaCount must be less than minReplicas
+                    - message: minReplicas is required when idleReplicaCount is set
                       rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                         || has(self.minReplicas)'
                     - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
@@ -32124,8 +32119,7 @@ spec:
                       rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                         || !has(self.minReplicas) || self.wva.keda.idleReplicaCount
                         < self.minReplicas'
-                    - message: minReplicas is required when idleReplicaCount is set;
-                        idleReplicaCount must be less than minReplicas
+                    - message: minReplicas is required when idleReplicaCount is set
                       rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) ||
                         has(self.minReplicas)'
                     - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
@@ -48680,8 +48674,7 @@ spec:
                   rule: '!has(self.keda) || size(self.keda.triggers) > 0'
                 - message: minReplicas cannot exceed maxReplicas
                   rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
-                - message: minReplicas is required when idleReplicaCount is set; idleReplicaCount
-                    must be less than minReplicas
+                - message: minReplicas is required when idleReplicaCount is set
                   rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                     || has(self.minReplicas)'
                 - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
@@ -48689,8 +48682,7 @@ spec:
                   rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                     || !has(self.minReplicas) || self.wva.keda.idleReplicaCount <
                     self.minReplicas'
-                - message: minReplicas is required when idleReplicaCount is set; idleReplicaCount
-                    must be less than minReplicas
+                - message: minReplicas is required when idleReplicaCount is set
                   rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || has(self.minReplicas)'
                 - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
                     defines the replica floor when no triggers are active
@@ -56864,8 +56856,7 @@ spec:
                       rule: '!has(self.keda) || size(self.keda.triggers) > 0'
                     - message: minReplicas cannot exceed maxReplicas
                       rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
-                    - message: minReplicas is required when idleReplicaCount is set;
-                        idleReplicaCount must be less than minReplicas
+                    - message: minReplicas is required when idleReplicaCount is set
                       rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                         || has(self.minReplicas)'
                     - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
@@ -56873,8 +56864,7 @@ spec:
                       rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                         || !has(self.minReplicas) || self.wva.keda.idleReplicaCount
                         < self.minReplicas'
-                    - message: minReplicas is required when idleReplicaCount is set;
-                        idleReplicaCount must be less than minReplicas
+                    - message: minReplicas is required when idleReplicaCount is set
                       rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) ||
                         has(self.minReplicas)'
                     - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
@@ -74096,8 +74086,7 @@ spec:
                   rule: '!has(self.keda) || size(self.keda.triggers) > 0'
                 - message: minReplicas cannot exceed maxReplicas
                   rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
-                - message: minReplicas is required when idleReplicaCount is set; idleReplicaCount
-                    must be less than minReplicas
+                - message: minReplicas is required when idleReplicaCount is set
                   rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                     || has(self.minReplicas)'
                 - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
@@ -74105,8 +74094,7 @@ spec:
                   rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                     || !has(self.minReplicas) || self.wva.keda.idleReplicaCount <
                     self.minReplicas'
-                - message: minReplicas is required when idleReplicaCount is set; idleReplicaCount
-                    must be less than minReplicas
+                - message: minReplicas is required when idleReplicaCount is set
                   rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || has(self.minReplicas)'
                 - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
                     defines the replica floor when no triggers are active
@@ -82689,8 +82677,7 @@ spec:
                       rule: '!has(self.keda) || size(self.keda.triggers) > 0'
                     - message: minReplicas cannot exceed maxReplicas
                       rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
-                    - message: minReplicas is required when idleReplicaCount is set;
-                        idleReplicaCount must be less than minReplicas
+                    - message: minReplicas is required when idleReplicaCount is set
                       rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                         || has(self.minReplicas)'
                     - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
@@ -82698,8 +82685,7 @@ spec:
                       rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                         || !has(self.minReplicas) || self.wva.keda.idleReplicaCount
                         < self.minReplicas'
-                    - message: minReplicas is required when idleReplicaCount is set;
-                        idleReplicaCount must be less than minReplicas
+                    - message: minReplicas is required when idleReplicaCount is set
                       rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) ||
                         has(self.minReplicas)'
                     - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
@@ -99963,8 +99949,7 @@ spec:
                   rule: '!has(self.keda) || size(self.keda.triggers) > 0'
                 - message: minReplicas cannot exceed maxReplicas
                   rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
-                - message: minReplicas is required when idleReplicaCount is set; idleReplicaCount
-                    must be less than minReplicas
+                - message: minReplicas is required when idleReplicaCount is set
                   rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                     || has(self.minReplicas)'
                 - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
@@ -99972,8 +99957,7 @@ spec:
                   rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                     || !has(self.minReplicas) || self.wva.keda.idleReplicaCount <
                     self.minReplicas'
-                - message: minReplicas is required when idleReplicaCount is set; idleReplicaCount
-                    must be less than minReplicas
+                - message: minReplicas is required when idleReplicaCount is set
                   rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || has(self.minReplicas)'
                 - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
                     defines the replica floor when no triggers are active
