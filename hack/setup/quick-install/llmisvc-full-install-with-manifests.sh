@@ -6755,6 +6755,19 @@ spec:
                     format: int32
                     minimum: 0
                     type: integer
+                  rolloutStrategy:
+                    properties:
+                      maxSurge:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        x-kubernetes-int-or-string: true
+                      maxUnavailable:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        x-kubernetes-int-or-string: true
+                    type: object
                   scaling:
                     properties:
                       maxReplicas:
@@ -14522,6 +14535,19 @@ spec:
                 format: int32
                 minimum: 0
                 type: integer
+              rolloutStrategy:
+                properties:
+                  maxSurge:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    x-kubernetes-int-or-string: true
+                  maxUnavailable:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    x-kubernetes-int-or-string: true
+                type: object
               router:
                 properties:
                   gateway:
@@ -31335,6 +31361,19 @@ spec:
                     format: int32
                     minimum: 0
                     type: integer
+                  rolloutStrategy:
+                    properties:
+                      maxSurge:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        x-kubernetes-int-or-string: true
+                      maxUnavailable:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        x-kubernetes-int-or-string: true
+                    type: object
                   scaling:
                     properties:
                       maxReplicas:
@@ -39102,6 +39141,19 @@ spec:
                 format: int32
                 minimum: 0
                 type: integer
+              rolloutStrategy:
+                properties:
+                  maxSurge:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    x-kubernetes-int-or-string: true
+                  maxUnavailable:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    x-kubernetes-int-or-string: true
+                type: object
               router:
                 properties:
                   gateway:
@@ -55724,6 +55776,19 @@ spec:
                     format: int32
                     minimum: 0
                     type: integer
+                  rolloutStrategy:
+                    properties:
+                      maxSurge:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        x-kubernetes-int-or-string: true
+                      maxUnavailable:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        x-kubernetes-int-or-string: true
+                    type: object
                   scaling:
                     properties:
                       maxReplicas:
@@ -63525,6 +63590,19 @@ spec:
                 format: int32
                 minimum: 0
                 type: integer
+              rolloutStrategy:
+                properties:
+                  maxSurge:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    x-kubernetes-int-or-string: true
+                  maxUnavailable:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    x-kubernetes-int-or-string: true
+                type: object
               router:
                 properties:
                   gateway:
@@ -81189,6 +81267,19 @@ spec:
                     format: int32
                     minimum: 0
                     type: integer
+                  rolloutStrategy:
+                    properties:
+                      maxSurge:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        x-kubernetes-int-or-string: true
+                      maxUnavailable:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        x-kubernetes-int-or-string: true
+                    type: object
                   scaling:
                     properties:
                       maxReplicas:
@@ -88990,6 +89081,19 @@ spec:
                 format: int32
                 minimum: 0
                 type: integer
+              rolloutStrategy:
+                properties:
+                  maxSurge:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    x-kubernetes-int-or-string: true
+                  maxUnavailable:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    x-kubernetes-int-or-string: true
+                type: object
               router:
                 properties:
                   gateway:

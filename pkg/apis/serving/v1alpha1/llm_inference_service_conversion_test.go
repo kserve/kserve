@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -1258,4 +1259,86 @@ func TestLLMInferenceServiceConversion_NilTokenizerPreserved(t *testing.T) {
 	require.NotNil(t, restored.Spec.Router.Scheduler)
 	assert.Nil(t, restored.Spec.Router.Scheduler.Tokenizer,
 		"nil Tokenizer should remain nil after round-trip")
+}
+
+func TestLLMInferenceServiceConversion_PreservesRolloutStrategy(t *testing.T) {
+	maxUnavail := intstr.FromInt32(1)
+	maxSurge := intstr.FromString("50%")
+
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-rollout",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI: apis.URL{Scheme: "hf", Host: "meta-llama/Llama-4-Scout-17B-16E-Instruct"},
+			},
+			WorkloadSpec: WorkloadSpec{
+				Replicas: ptr.To[int32](2),
+				RolloutStrategy: &RolloutStrategy{
+					MaxUnavailable: &maxUnavail,
+					MaxSurge:       &maxSurge,
+				},
+			},
+			Prefill: &WorkloadSpec{
+				Replicas: ptr.To[int32](2),
+				RolloutStrategy: &RolloutStrategy{
+					MaxUnavailable: &maxUnavail,
+				},
+			},
+		},
+	}
+
+	// v1alpha1 -> v1alpha2
+	hub := &v1alpha2.LLMInferenceService{}
+	err := src.ConvertTo(hub)
+	require.NoError(t, err)
+
+	require.NotNil(t, hub.Spec.RolloutStrategy)
+	assert.Equal(t, intstr.FromInt32(1), *hub.Spec.RolloutStrategy.MaxUnavailable)
+	assert.Equal(t, intstr.FromString("50%"), *hub.Spec.RolloutStrategy.MaxSurge)
+
+	require.NotNil(t, hub.Spec.Prefill)
+	require.NotNil(t, hub.Spec.Prefill.RolloutStrategy)
+	assert.Equal(t, intstr.FromInt32(1), *hub.Spec.Prefill.RolloutStrategy.MaxUnavailable)
+	assert.Nil(t, hub.Spec.Prefill.RolloutStrategy.MaxSurge)
+
+	// v1alpha2 -> v1alpha1
+	restored := &LLMInferenceService{}
+	err = restored.ConvertFrom(hub)
+	require.NoError(t, err)
+
+	require.NotNil(t, restored.Spec.RolloutStrategy)
+	assert.Equal(t, intstr.FromInt32(1), *restored.Spec.RolloutStrategy.MaxUnavailable)
+	assert.Equal(t, intstr.FromString("50%"), *restored.Spec.RolloutStrategy.MaxSurge)
+
+	require.NotNil(t, restored.Spec.Prefill)
+	require.NotNil(t, restored.Spec.Prefill.RolloutStrategy)
+	assert.Equal(t, intstr.FromInt32(1), *restored.Spec.Prefill.RolloutStrategy.MaxUnavailable)
+	assert.Nil(t, restored.Spec.Prefill.RolloutStrategy.MaxSurge)
+}
+
+func TestLLMInferenceServiceConversion_NilRolloutStrategy(t *testing.T) {
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-no-rollout",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI: apis.URL{Scheme: "hf", Host: "meta-llama/Llama-4-Scout-17B-16E-Instruct"},
+			},
+		},
+	}
+
+	hub := &v1alpha2.LLMInferenceService{}
+	err := src.ConvertTo(hub)
+	require.NoError(t, err)
+	assert.Nil(t, hub.Spec.RolloutStrategy)
+
+	restored := &LLMInferenceService{}
+	err = restored.ConvertFrom(hub)
+	require.NoError(t, err)
+	assert.Nil(t, restored.Spec.RolloutStrategy)
 }

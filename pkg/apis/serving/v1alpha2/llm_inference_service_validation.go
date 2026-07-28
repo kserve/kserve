@@ -22,11 +22,14 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
+	"strconv"
 
 	"k8s.io/utils/ptr"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -106,6 +109,7 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, l.validateScaling(llmSvc)...)
 	allErrs = append(allErrs, l.validateLoRAAdapters(llmSvc)...)
 	allErrs = append(allErrs, l.validateKVCacheOffloading(llmSvc)...)
+	allErrs = append(allErrs, l.validateRolloutStrategy(llmSvc)...)
 	allErrs = append(allErrs, l.validateManagedDRAAnnotations(llmSvc)...)
 
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
@@ -821,6 +825,87 @@ func (l *LLMInferenceServiceValidator) validateTrafficFields(
 			*route.Group,
 			"traffic splitting cannot be used with custom HTTPRoute refs; controller-managed routes (route.http.spec or route.http: {}) are required",
 		))
+	}
+
+	return allErrs
+}
+
+func (l *LLMInferenceServiceValidator) validateRolloutStrategy(llmSvc *LLMInferenceService) field.ErrorList {
+	var allErrs field.ErrorList
+
+	isMultiNode := llmSvc.Spec.Worker != nil
+	allErrs = append(allErrs, ValidateWorkloadRolloutFields(field.NewPath("spec"), llmSvc.Spec.RolloutStrategy, isMultiNode)...)
+
+	if llmSvc.Spec.Prefill != nil {
+		prefillMultiNode := llmSvc.Spec.Prefill.Worker != nil
+		allErrs = append(allErrs, ValidateWorkloadRolloutFields(field.NewPath("spec", "prefill"), llmSvc.Spec.Prefill.RolloutStrategy, prefillMultiNode)...)
+	}
+
+	return allErrs
+}
+
+// ValidateWorkloadRolloutFields validates the rollout strategy fields of a single workload.
+// It is exported so that v1alpha1 can reuse it via conversion.
+func ValidateWorkloadRolloutFields(basePath *field.Path, rs *RolloutStrategy, isMultiNode bool) field.ErrorList {
+	var allErrs field.ErrorList
+
+	if rs == nil {
+		return allErrs
+	}
+
+	rsPath := basePath.Child("rolloutStrategy")
+
+	if rs.MaxUnavailable != nil {
+		allErrs = append(allErrs, validatePositiveIntOrPercent(rsPath.Child("maxUnavailable"), *rs.MaxUnavailable)...)
+	}
+
+	if rs.MaxSurge != nil {
+		allErrs = append(allErrs, validatePositiveIntOrPercent(rsPath.Child("maxSurge"), *rs.MaxSurge)...)
+	}
+
+	if len(allErrs) > 0 {
+		return allErrs
+	}
+
+	if rs.MaxUnavailable != nil && rs.MaxSurge != nil {
+		muVal, _ := intstr.GetScaledValueFromIntOrPercent(rs.MaxUnavailable, 1, false)
+		msVal, _ := intstr.GetScaledValueFromIntOrPercent(rs.MaxSurge, 1, true)
+		if muVal == 0 && msVal == 0 {
+			allErrs = append(allErrs, field.Invalid(
+				rsPath,
+				rs,
+				"maxUnavailable and maxSurge cannot both be zero; this would prevent any rolling update progress",
+			))
+		}
+	}
+
+	if isMultiNode && rs.MaxUnavailable != nil && rs.MaxSurge == nil {
+		muVal, _ := intstr.GetScaledValueFromIntOrPercent(rs.MaxUnavailable, 1, false)
+		if muVal == 0 {
+			allErrs = append(allErrs, field.Required(
+				rsPath.Child("maxSurge"),
+				"maxSurge is required for multi-node workloads when maxUnavailable is 0, otherwise no rolling update progress is possible",
+			))
+		}
+	}
+
+	return allErrs
+}
+
+func validatePositiveIntOrPercent(fldPath *field.Path, val intstr.IntOrString) field.ErrorList {
+	var allErrs field.ErrorList
+
+	switch val.Type {
+	case intstr.Int:
+		if val.IntValue() < 0 {
+			allErrs = append(allErrs, field.Invalid(fldPath, val.IntValue(), "must be greater than or equal to 0"))
+		}
+	case intstr.String:
+		if msgs := validation.IsValidPercent(val.StrVal); len(msgs) > 0 {
+			allErrs = append(allErrs, field.Invalid(fldPath, val.StrVal, msgs[0]))
+		} else if v, _ := strconv.Atoi(val.StrVal[:len(val.StrVal)-1]); v > 100 {
+			allErrs = append(allErrs, field.Invalid(fldPath, val.StrVal, "must not be greater than 100%"))
+		}
 	}
 
 	return allErrs

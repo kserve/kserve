@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
@@ -1706,5 +1707,138 @@ func TestValidateKVCacheOffloading(t *testing.T) {
 		require.Len(t, errs, 1)
 		assert.Contains(t, errs[0].Field, "prefill")
 		assert.Contains(t, errs[0].Field, "cpu")
+	})
+}
+
+func TestValidateRolloutStrategy(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+
+	makeSvc := func(rs *RolloutStrategy) *LLMInferenceService {
+		return &LLMInferenceService{
+			Spec: LLMInferenceServiceSpec{
+				WorkloadSpec: WorkloadSpec{RolloutStrategy: rs},
+			},
+		}
+	}
+
+	t.Run("nil rollout strategy produces no errors", func(t *testing.T) {
+		errs := validator.validateRolloutStrategy(makeSvc(nil))
+		assert.Empty(t, errs)
+	})
+
+	t.Run("valid integer maxUnavailable", func(t *testing.T) {
+		v := intstr.FromInt32(1)
+		errs := validator.validateRolloutStrategy(makeSvc(&RolloutStrategy{MaxUnavailable: &v}))
+		assert.Empty(t, errs)
+	})
+
+	t.Run("valid percentage maxSurge", func(t *testing.T) {
+		v := intstr.FromString("100%")
+		errs := validator.validateRolloutStrategy(makeSvc(&RolloutStrategy{MaxSurge: &v}))
+		assert.Empty(t, errs)
+	})
+
+	t.Run("valid combination maxUnavailable=0% maxSurge=100%", func(t *testing.T) {
+		mu := intstr.FromString("0%")
+		ms := intstr.FromString("100%")
+		errs := validator.validateRolloutStrategy(makeSvc(&RolloutStrategy{
+			MaxUnavailable: &mu,
+			MaxSurge:       &ms,
+		}))
+		assert.Empty(t, errs)
+	})
+
+	t.Run("valid combination maxUnavailable=1 maxSurge=0", func(t *testing.T) {
+		mu := intstr.FromInt32(1)
+		ms := intstr.FromInt32(0)
+		errs := validator.validateRolloutStrategy(makeSvc(&RolloutStrategy{
+			MaxUnavailable: &mu,
+			MaxSurge:       &ms,
+		}))
+		assert.Empty(t, errs)
+	})
+
+	t.Run("negative integer rejected", func(t *testing.T) {
+		v := intstr.FromInt32(-1)
+		errs := validator.validateRolloutStrategy(makeSvc(&RolloutStrategy{MaxUnavailable: &v}))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeInvalid, errs[0].Type)
+		assert.Contains(t, errs[0].Field, "maxUnavailable")
+	})
+
+	t.Run("non-percentage string rejected", func(t *testing.T) {
+		v := intstr.FromString("abc")
+		errs := validator.validateRolloutStrategy(makeSvc(&RolloutStrategy{MaxSurge: &v}))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeInvalid, errs[0].Type)
+		assert.Contains(t, errs[0].Field, "maxSurge")
+	})
+
+	t.Run("percentage over 100 rejected", func(t *testing.T) {
+		v := intstr.FromString("150%")
+		errs := validator.validateRolloutStrategy(makeSvc(&RolloutStrategy{MaxSurge: &v}))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeInvalid, errs[0].Type)
+	})
+
+	t.Run("both zero deadlock rejected", func(t *testing.T) {
+		mu := intstr.FromInt32(0)
+		ms := intstr.FromInt32(0)
+		errs := validator.validateRolloutStrategy(makeSvc(&RolloutStrategy{
+			MaxUnavailable: &mu,
+			MaxSurge:       &ms,
+		}))
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Detail, "both be zero")
+	})
+
+	t.Run("both zero percentage deadlock rejected", func(t *testing.T) {
+		mu := intstr.FromString("0%")
+		ms := intstr.FromString("0%")
+		errs := validator.validateRolloutStrategy(makeSvc(&RolloutStrategy{
+			MaxUnavailable: &mu,
+			MaxSurge:       &ms,
+		}))
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Detail, "both be zero")
+	})
+
+	t.Run("maxUnavailable=0 alone allowed for single-node", func(t *testing.T) {
+		v := intstr.FromInt32(0)
+		errs := validator.validateRolloutStrategy(makeSvc(&RolloutStrategy{MaxUnavailable: &v}))
+		assert.Empty(t, errs)
+	})
+
+	t.Run("maxUnavailable=0 alone rejected for multi-node", func(t *testing.T) {
+		v := intstr.FromInt32(0)
+		svc := makeSvc(&RolloutStrategy{MaxUnavailable: &v})
+		svc.Spec.Worker = &corev1.PodSpec{}
+		errs := validator.validateRolloutStrategy(svc)
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeRequired, errs[0].Type)
+		assert.Contains(t, errs[0].Field, "maxSurge")
+	})
+
+	t.Run("maxUnavailable=1 alone allowed for multi-node", func(t *testing.T) {
+		v := intstr.FromInt32(1)
+		svc := makeSvc(&RolloutStrategy{MaxUnavailable: &v})
+		svc.Spec.Worker = &corev1.PodSpec{}
+		errs := validator.validateRolloutStrategy(svc)
+		assert.Empty(t, errs)
+	})
+
+	t.Run("prefill rollout strategy validated independently", func(t *testing.T) {
+		v := intstr.FromInt32(-1)
+		svc := &LLMInferenceService{
+			Spec: LLMInferenceServiceSpec{
+				Prefill: &WorkloadSpec{
+					RolloutStrategy: &RolloutStrategy{MaxUnavailable: &v},
+				},
+			},
+		}
+		errs := validator.validateRolloutStrategy(svc)
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "prefill")
+		assert.Contains(t, errs[0].Field, "maxUnavailable")
 	})
 }

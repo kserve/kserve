@@ -373,6 +373,13 @@ func convertWorkloadSpecToV1Alpha2(src *WorkloadSpec) v1alpha2.WorkloadSpec {
 		dst.Scaling = convertScalingSpecToV1Alpha2(src.Scaling)
 	}
 
+	if src.RolloutStrategy != nil {
+		dst.RolloutStrategy = &v1alpha2.RolloutStrategy{
+			MaxUnavailable: src.RolloutStrategy.MaxUnavailable,
+			MaxSurge:       src.RolloutStrategy.MaxSurge,
+		}
+	}
+
 	return dst
 }
 
@@ -398,6 +405,13 @@ func convertWorkloadSpecFromV1Alpha2(src *v1alpha2.WorkloadSpec) WorkloadSpec {
 
 	if src.Scaling != nil {
 		dst.Scaling = convertScalingSpecFromV1Alpha2(src.Scaling)
+	}
+
+	if src.RolloutStrategy != nil {
+		dst.RolloutStrategy = &RolloutStrategy{
+			MaxUnavailable: src.RolloutStrategy.MaxUnavailable,
+			MaxSurge:       src.RolloutStrategy.MaxSurge,
+		}
 	}
 
 	return dst
