@@ -99,6 +99,9 @@ func (v *InferenceServiceValidator) ValidateUpdate(ctx context.Context, oldObj, 
 	if err != nil {
 		return nil, err
 	}
+	if err := validatePredictorNameChange(isvc, oldIsvc); err != nil {
+		return nil, err
+	}
 	return validateInferenceService(isvc)
 }
 
@@ -169,7 +172,97 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 			}
 		}
 	}
+
+	if err := validateCanarySpecs(isvc); err != nil {
+		return allWarnings, err
+	}
+
 	return allWarnings, nil
+}
+
+func validateCanarySpecs(isvc *InferenceService) error {
+	if len(isvc.Spec.Canary) == 0 {
+		return nil
+	}
+
+	deploymentMode := isvc.Annotations[constants.DeploymentMode]
+	if deploymentMode != string(constants.Standard) {
+		return fmt.Errorf("canary is only supported in %s deployment mode", constants.Standard)
+	}
+
+	if isvc.Spec.Predictor.GetImplementation().GetStorageUri() == nil && isvc.Spec.Predictor.Model == nil {
+		return errors.New("canary requires a stable predictor with a model (multi-model serving is not supported with canary)")
+	}
+
+	names := make(map[string]bool, len(isvc.Spec.Canary))
+	var totalTraffic int32
+
+	for i := range isvc.Spec.Canary {
+		canary := &isvc.Spec.Canary[i]
+
+		if canary.Predictor.Name == "" {
+			return fmt.Errorf("canary[%d] predictor.name is required", i)
+		}
+
+		if names[canary.Predictor.Name] {
+			return fmt.Errorf("canary predictor.name %q is duplicated", canary.Predictor.Name)
+		}
+		names[canary.Predictor.Name] = true
+
+		if canary.Predictor.Name == isvc.Spec.Predictor.Name {
+			return fmt.Errorf("canary predictor.name %q conflicts with stable predictor name", canary.Predictor.Name)
+		}
+
+		if canary.TrafficPercent < 0 || canary.TrafficPercent > 100 {
+			return fmt.Errorf("canary %q trafficPercent must be between 0 and 100, got %d", canary.Predictor.Name, canary.TrafficPercent)
+		}
+		totalTraffic += canary.TrafficPercent
+
+		if err := validateExactlyOneImplementation(&canary.Predictor); err != nil {
+			return fmt.Errorf("canary %q predictor: %w", canary.Predictor.Name, err)
+		}
+		if err := utils.FirstNonNilError([]error{
+			canary.Predictor.GetImplementation().Validate(),
+			canary.Predictor.GetExtensions().Validate(),
+		}); err != nil {
+			return fmt.Errorf("canary %q predictor: %w", canary.Predictor.Name, err)
+		}
+
+		if canary.Predictor.WorkerSpec != nil {
+			return fmt.Errorf("canary %q must not set workerSpec (multi-node is not yet supported for canary)", canary.Predictor.Name)
+		}
+
+		ext := canary.Predictor.GetExtensions()
+		if ext.MaxReplicas > 0 {
+			return fmt.Errorf("canary %q must not set maxReplicas (canary uses fixed replicas)", canary.Predictor.Name)
+		}
+		if ext.ScaleTarget != nil {
+			return fmt.Errorf("canary %q must not set scaleTarget (canary uses fixed replicas)", canary.Predictor.Name)
+		}
+		if ext.ScaleMetric != nil {
+			return fmt.Errorf("canary %q must not set scaleMetric (canary uses fixed replicas)", canary.Predictor.Name)
+		}
+		if ext.AutoScaling != nil {
+			return fmt.Errorf("canary %q must not set autoScaling (canary uses fixed replicas)", canary.Predictor.Name)
+		}
+
+		if canary.Predictor.MinReplicas != nil {
+			stableMinReplicas := int32(1)
+			if isvc.Spec.Predictor.MinReplicas != nil {
+				stableMinReplicas = *isvc.Spec.Predictor.MinReplicas
+			}
+			if *canary.Predictor.MinReplicas > stableMinReplicas {
+				return fmt.Errorf("canary %q minReplicas (%d) must not exceed stable predictor minReplicas (%d)",
+					canary.Predictor.Name, *canary.Predictor.MinReplicas, stableMinReplicas)
+			}
+		}
+	}
+
+	if totalTraffic > 100 {
+		return fmt.Errorf("sum of canary trafficPercent values (%d) must be <= 100", totalTraffic)
+	}
+
+	return nil
 }
 
 func validatePredictor(isvc *InferenceService) error {
@@ -589,17 +682,46 @@ func validateCollocationStorageURI(predictorSpec PredictorSpec) error {
 	return nil
 }
 
-// validates if the deploymentMode specified in the annotation is not different from the one recorded in the status
+// validates if the deploymentMode specified in the annotation is not different from the one recorded in the status.
+//
+// An empty oldIsvc.Status.DeploymentMode means the controller has not yet run its first updateStatus
+// (e.g. the finalizer patch on first reconcile). In that case there is no prior state to protect, so
+// the update is allowed. Passing "" through ParseDeploymentMode would fold to DefaultDeployment
+// ("Standard") and reject any non-Standard annotation, breaking first-reconcile on Knative installs.
 func validateDeploymentMode(newIsvc *InferenceService, oldIsvc *InferenceService) error {
+	if oldIsvc.Status.DeploymentMode == "" {
+		return nil
+	}
 	statusDeploymentMode := string(constants.ParseDeploymentMode(oldIsvc.Status.DeploymentMode))
-	if len(statusDeploymentMode) != 0 {
-		annotations := newIsvc.Annotations
-		annotationDeploymentMode, ok := annotations[constants.DeploymentMode]
-		if ok && annotationDeploymentMode != statusDeploymentMode {
-			return fmt.Errorf("update rejected: deploymentMode cannot be changed from '%s' to '%s'", statusDeploymentMode, annotationDeploymentMode)
-		}
+	annotationDeploymentMode, ok := newIsvc.Annotations[constants.DeploymentMode]
+	if ok && annotationDeploymentMode != statusDeploymentMode {
+		return fmt.Errorf("update rejected: deploymentMode cannot be changed from '%s' to '%s'", statusDeploymentMode, annotationDeploymentMode)
 	}
 	return nil
+}
+
+func validatePredictorNameChange(newIsvc *InferenceService, oldIsvc *InferenceService) error {
+	if oldIsvc.Spec.Predictor.Name == newIsvc.Spec.Predictor.Name {
+		return nil
+	}
+	oldURI := getPredictorStorageURI(oldIsvc.Spec.Predictor)
+	newURI := getPredictorStorageURI(newIsvc.Spec.Predictor)
+	if oldURI == newURI {
+		return errors.New("predictor.name change requires a model change (e.g. storageUri)")
+	}
+	return nil
+}
+
+func getPredictorStorageURI(p PredictorSpec) string {
+	if p.Model != nil && p.Model.StorageURI != nil {
+		return *p.Model.StorageURI
+	}
+	if impl := p.GetImplementation(); impl != nil {
+		if uri := impl.GetStorageUri(); uri != nil {
+			return *uri
+		}
+	}
+	return ""
 }
 
 // ValidateStorageURISpec validates that paths are absolute

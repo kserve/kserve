@@ -18,7 +18,6 @@ package llmisvc
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"strings"
 
@@ -32,6 +31,10 @@ import (
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/network"
 )
+
+func fullyQualifiedModelName(namespace, modelName string) string {
+	return "publishers/" + namespace + "/models/" + modelName
+}
 
 // IsInternalURL determines if a URL points to an internal/private endpoint
 // This is used to classify URLs as internal vs external for routing decisions
@@ -94,7 +97,6 @@ func SourcedAddress(ctx context.Context, d DiscoveredURL, llmSvc *v1alpha2.LLMIn
 	}
 
 	models := make([]v1alpha2.ModelSourcedAddressStatus, 0, 2)
-	const modelRoutingFmt = "publishers/%s/models/%s"
 
 	// Ensure llmSvc.Spec.Model.Name is set.
 	llmSvc.Spec.Model.Name = ptr.To(ptr.Deref(llmSvc.Spec.Model.Name, llmSvc.GetName()))
@@ -103,7 +105,7 @@ func SourcedAddress(ctx context.Context, d DiscoveredURL, llmSvc *v1alpha2.LLMIn
 		typeName += "-model-routing"
 
 		models = append(models, v1alpha2.ModelSourcedAddressStatus{
-			Name: fmt.Sprintf(modelRoutingFmt, llmSvc.GetNamespace(), *llmSvc.Spec.Model.Name),
+			Name: fullyQualifiedModelName(llmSvc.GetNamespace(), *llmSvc.Spec.Model.Name),
 		})
 		if llmSvc.Spec.Model.LoRA != nil {
 			for _, m := range llmSvc.Spec.Model.LoRA.Adapters {
@@ -111,14 +113,14 @@ func SourcedAddress(ctx context.Context, d DiscoveredURL, llmSvc *v1alpha2.LLMIn
 					continue
 				}
 				models = append(models, v1alpha2.ModelSourcedAddressStatus{
-					Name: fmt.Sprintf(modelRoutingFmt, llmSvc.GetNamespace(), *m.Name),
+					Name: fullyQualifiedModelName(llmSvc.GetNamespace(), *m.Name),
 				})
 			}
 		}
 	} else {
 		models = append(models,
 			v1alpha2.ModelSourcedAddressStatus{
-				Name: fmt.Sprintf(modelRoutingFmt, llmSvc.GetNamespace(), *llmSvc.Spec.Model.Name),
+				Name: fullyQualifiedModelName(llmSvc.GetNamespace(), *llmSvc.Spec.Model.Name),
 			},
 			v1alpha2.ModelSourcedAddressStatus{
 				Name: *llmSvc.Spec.Model.Name,
@@ -132,7 +134,7 @@ func SourcedAddress(ctx context.Context, d DiscoveredURL, llmSvc *v1alpha2.LLMIn
 
 				models = append(models,
 					v1alpha2.ModelSourcedAddressStatus{
-						Name: fmt.Sprintf(modelRoutingFmt, llmSvc.GetNamespace(), *m.Name),
+						Name: fullyQualifiedModelName(llmSvc.GetNamespace(), *m.Name),
 					},
 					v1alpha2.ModelSourcedAddressStatus{
 						Name: *m.Name,

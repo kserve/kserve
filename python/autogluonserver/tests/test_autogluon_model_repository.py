@@ -16,6 +16,8 @@ import pytest
 
 from autogluonserver import AutoGluonModelRepository
 
+pytestmark = pytest.mark.autogluon
+
 
 @pytest.mark.asyncio
 async def test_load_updates_repository_with_ready_model(monkeypatch, tmp_path):

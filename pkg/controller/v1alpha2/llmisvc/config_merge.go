@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"text/template"
@@ -62,8 +63,10 @@ const (
 	configDecodeWorkerDataParallelNameSuffix  = "config-llm-decode-worker-data-parallel"
 	configPrefillWorkerDataParallelNameSuffix = "config-llm-prefill-worker-data-parallel"
 	// Router and scheduler configurations
-	configRouterSchedulerNameSuffix = "config-llm-scheduler"
-	configRouterRouteNameSuffix     = "config-llm-router-route"
+	configRouterSchedulerNameSuffix           = "config-llm-scheduler"
+	configRouterRouteNameSuffix               = "config-llm-router-route"
+	configSchedulerLatencyPredictorNameSuffix = "config-llm-scheduler-latency-predictor"
+	configTokenizerNameSuffix                 = "config-llm-tokenizer" // #nosec G101
 	// Tracing configurations
 	configTracingNameSuffix = "config-llm-tracing"
 )
@@ -81,6 +84,8 @@ var (
 	configPrefillWorkerDataParallelName     = configPrefix + configPrefillWorkerDataParallelNameSuffix
 	configRouterSchedulerName               = configPrefix + configRouterSchedulerNameSuffix
 	configRouterRouteName                   = configPrefix + configRouterRouteNameSuffix
+	configSchedulerLatencyPredictorName     = configPrefix + configSchedulerLatencyPredictorNameSuffix
+	configTokenizerName                     = configPrefix + configTokenizerNameSuffix
 	configTracingName                       = configPrefix + configTracingNameSuffix
 )
 
@@ -102,6 +107,8 @@ var WellKnownDefaultConfigs = sets.New[string](
 	configPrefillWorkerDataParallelName,
 	configRouterSchedulerName,
 	configRouterRouteName,
+	configSchedulerLatencyPredictorName,
+	configTokenizerName,
 	configTracingName,
 )
 
@@ -207,6 +214,12 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	refs := make([]corev1.LocalObjectReference, 0, len(llmSvc.Spec.BaseRefs))
 	if resolvedSpec.Router != nil && resolvedSpec.Router.Scheduler != nil && !resolvedSpec.Router.Scheduler.Pool.HasRef() {
 		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configRouterSchedulerName)})
+	}
+	if resolvedSpec.Router != nil && resolvedSpec.Router.Scheduler != nil && isTokenizerEnabled(resolvedSpec) {
+		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configTokenizerName)})
+	}
+	if hasLatencyProducerInSpec(resolvedSpec) {
+		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configSchedulerLatencyPredictorName)})
 	}
 	if resolvedSpec.Router != nil && resolvedSpec.Router.Route != nil && !resolvedSpec.Router.Route.HTTP.HasRefs() {
 		// For the HTTP route configuration we don't use versioned defaults since this configuration depends on the
@@ -396,6 +409,14 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		if !options.skipClearSchedulerConfigRef {
 			llmSvcCfg.Spec.Router.Scheduler.Config.Ref = nil
 		}
+
+		// Warn if the resolved ConfigMap contains predicted-latency-producer but the
+		// well-known config was not injected (because detection runs before Ref resolution).
+		if hasLatencyProducerInSpec(llmSvcCfg.Spec) {
+			r.Eventf(llmSvc, corev1.EventTypeWarning, "LatencyPredictorConfigRef",
+				"predicted-latency-producer plugin detected in Config.Ref ConfigMap %q; "+
+					"latency predictor sidecar injection requires Config.Inline instead of Config.Ref", cmName)
+		}
 	}
 
 	// The v1 InferencePool CRD requires port when endpointPickerRef.kind is "Service" (or
@@ -514,20 +535,27 @@ func expandLoRAAdapterMatches(rules []gwapiv1.HTTPRouteRule, namespace string, a
 	if headerName == "" || len(adapters) == 0 {
 		return
 	}
+
+	sorted := make([]v1alpha2.LLMModelSpec, len(adapters))
+	copy(sorted, adapters)
+	slices.SortFunc(sorted, func(a, b v1alpha2.LLMModelSpec) int {
+		return strings.Compare(ptr.Deref(a.Name, ""), ptr.Deref(b.Name, ""))
+	})
+
 	for i := range rules {
 		var adapterMatches []gwapiv1.HTTPRouteMatch
 		for _, match := range rules[i].Matches {
 			if !isModelBasedRoutingMatch(match, headerName) {
 				continue
 			}
-			for _, adapter := range adapters {
+			for _, adapter := range sorted {
 				if adapter.Name == nil {
 					continue
 				}
 				am := *match.DeepCopy()
 				for h := range am.Headers {
 					if string(am.Headers[h].Name) == headerName {
-						am.Headers[h].Value = fmt.Sprintf("publishers/%s/models/%s", namespace, *adapter.Name)
+						am.Headers[h].Value = fullyQualifiedModelName(namespace, *adapter.Name)
 					}
 				}
 				adapterMatches = append(adapterMatches, am)
@@ -616,6 +644,49 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 	t, err := template.New("config").
 		Funcs(map[string]any{
 			"ChildName": kmeta.ChildName,
+			"kvTransferConfig": func(spec any) string {
+				if spec == nil {
+					return ""
+				}
+				kv, ok := spec.(*v1alpha2.KVCacheOffloadingSpec)
+				if !ok || kv == nil {
+					return ""
+				}
+				extraConfig := map[string]any{
+					"spec_name":        "TieringOffloadingSpec",
+					"cpu_bytes_to_use": kv.CPU.Value(),
+				}
+				if kv.EvictionPolicy != "" {
+					extraConfig["eviction_policy"] = kv.EvictionPolicy
+				}
+				var secondaryTiers []map[string]any
+				for i, s := range kv.Secondary {
+					if s.FileSystem == nil {
+						continue
+					}
+					entry := map[string]any{
+						"type":     "fs",
+						"root_dir": fmt.Sprintf("/mnt/kv-cache-%d", i),
+					}
+					secondaryTiers = append(secondaryTiers, entry)
+				}
+				if len(secondaryTiers) > 0 {
+					extraConfig["secondary_tiers"] = secondaryTiers
+				}
+				kvConfig := map[string]any{
+					"kv_connector":              "OffloadingConnector",
+					"kv_role":                   "kv_both",
+					"kv_connector_extra_config": extraConfig,
+				}
+				b, err := json.Marshal(kvConfig)
+				if err != nil {
+					return ""
+				}
+				// \\\" decodes to \" after ReplaceVariables re-unmarshals this as JSON, and
+				// the \" then survives the KV_TRANSFER_ARGS="..." bash assignment in the
+				// template. Plain " would be eaten by the shell and vLLM would get invalid JSON.
+				return "--kv-transfer-config '" + strings.ReplaceAll(string(b), `"`, `\\\"`) + "'"
+			},
 			// shutdownTimeout computes the vLLM --shutdown-timeout value from a *corev1.PodSpec
 			// (or nil): max(0, tgps - preStop - min(5, tgps)), defaulting tgps to 60 when unset.
 			// The 5-second buffer reserves time for signal propagation and final process cleanup

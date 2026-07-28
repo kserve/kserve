@@ -725,3 +725,71 @@ func TestNewIngressConfig_Validation(t *testing.T) {
 		g.Expect(cfg.UrlScheme).To(gomega.Equal("https"))
 	})
 }
+
+func TestGetStorageInitializerConfigs(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	baseJSON := func(extra string) string {
+		return `{"image":"kserve/storage-initializer:latest","memoryRequest":"100Mi","memoryLimit":"1Gi","cpuRequest":"100m","cpuLimit":"1","caBundleConfigMapName":"","caBundleVolumeMountPath":"/etc/ssl/custom-certs"` + extra + `}`
+	}
+
+	t.Run("parses new OCI fields when both set", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				StorageInitializerConfigMapKeyName: baseJSON(`,"enableOciModelSupport":true,"ociModelMode":"native"`),
+			},
+		}
+		cfg, err := GetStorageInitializerConfigs(cm)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(cfg.EnableOciModelSupport).To(gomega.BeTrue())
+		g.Expect(cfg.OciModelMode).To(gomega.Equal("native"))
+	})
+
+	t.Run("backcompat: only enableModelcar=true, no ociModelMode", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				StorageInitializerConfigMapKeyName: baseJSON(`,"enableModelcar":true`),
+			},
+		}
+		cfg, err := GetStorageInitializerConfigs(cm)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(cfg.EnableOciImageSource).To(gomega.BeTrue())
+		g.Expect(cfg.OciModelMode).To(gomega.Equal(""))
+	})
+
+	t.Run("neither OCI flag set: both false and mode empty", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				StorageInitializerConfigMapKeyName: baseJSON(``),
+			},
+		}
+		cfg, err := GetStorageInitializerConfigs(cm)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(cfg.EnableOciImageSource).To(gomega.BeFalse())
+		g.Expect(cfg.EnableOciModelSupport).To(gomega.BeFalse())
+		g.Expect(cfg.OciModelMode).To(gomega.Equal(""))
+	})
+
+	t.Run("invalid ociModelMode returns error", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				StorageInitializerConfigMapKeyName: baseJSON(`,"ociModelMode":"invalid-mode"`),
+			},
+		}
+		_, err := GetStorageInitializerConfigs(cm)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("ociModelMode"))
+		g.Expect(err.Error()).To(gomega.ContainSubstring("invalid-mode"))
+	})
+
+	t.Run("ociModelMode fetch is valid", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				StorageInitializerConfigMapKeyName: baseJSON(`,"ociModelMode":"fetch"`),
+			},
+		}
+		cfg, err := GetStorageInitializerConfigs(cm)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(cfg.OciModelMode).To(gomega.Equal("fetch"))
+	})
+}

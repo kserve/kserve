@@ -39,8 +39,9 @@ const (
 	WorkloadReady apis.ConditionType = "WorkloadsReady"
 
 	// RouterReady is True when all router sub-conditions (GatewaysReady,
-	// HTTPRoutesReady, InferencePoolReady, SchedulerWorkloadReady) that are
-	// present are True. Aggregated by DetermineRouterReadiness. Always present.
+	// HTTPRoutesReady, InferencePoolReady, SchedulerWorkloadReady,
+	// TokenizerReady) that are present are True. Aggregated by
+	// DetermineRouterReadiness. Always present.
 	RouterReady apis.ConditionType = "RouterReady"
 )
 
@@ -87,6 +88,12 @@ const (
 	// Deployment has reached its desired replica count. Set by the scheduler
 	// reconciler. Only present when the scheduler is enabled.
 	SchedulerWorkloadReady apis.ConditionType = "SchedulerWorkloadReady"
+
+	// TokenizerReady is True when the standalone tokenizer Deployment has
+	// reached its desired replica count and all pods are passing readiness
+	// probes. Set by the tokenizer reconciler. Only present when
+	// spec.router.scheduler.tokenizer is set.
+	TokenizerReady apis.ConditionType = "TokenizerReady"
 )
 
 const (
@@ -104,6 +111,22 @@ const (
 	// created and is ready. Set by the router reconciler.
 	// Only present when the scheduler is enabled.
 	InferencePoolReady apis.ConditionType = "InferencePoolReady"
+
+	// GroupReady is True when the routing group is healthy and all
+	// members have valid backends. False with reason ModelNameMismatch when
+	// group members serve different model names, ModelNameAmbiguous when no
+	// strict majority exists, or BackendResolutionFailed when no members
+	// could be resolved.
+	// Independent of the Ready rollup - a broken group does not block the
+	// resource from being Ready, since individual routing still works.
+	// Only present when traffic splitting is configured (group + weight set).
+	GroupReady apis.ConditionType = "GroupReady"
+
+	// GroupDegraded is True when the group is serving but some members
+	// could not be resolved (e.g., broken baseRef configs). Traffic splitting
+	// continues with available members. False (or unset) when fully healthy.
+	// Only present when traffic splitting is configured (group + weight set).
+	GroupDegraded apis.ConditionType = "GroupDegraded"
 )
 
 var llmInferenceServiceCondSet = apis.NewLivingConditionSet(
@@ -241,6 +264,18 @@ func (in *LLMInferenceService) MarkSchedulerWorkloadUnset() {
 	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(SchedulerWorkloadReady)
 }
 
+func (in *LLMInferenceService) MarkTokenizerReady() {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(TokenizerReady)
+}
+
+func (in *LLMInferenceService) MarkTokenizerNotReady(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(TokenizerReady, reason, messageFormat, messageA...)
+}
+
+func (in *LLMInferenceService) MarkTokenizerUnset() {
+	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(TokenizerReady)
+}
+
 func (in *LLMInferenceService) MarkGatewaysReady() {
 	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(GatewaysReady)
 }
@@ -277,12 +312,35 @@ func (in *LLMInferenceService) MarkInferencePoolReadyUnset() {
 	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(InferencePoolReady)
 }
 
+func (in *LLMInferenceService) MarkGroupReady() {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(GroupReady)
+}
+
+func (in *LLMInferenceService) MarkGroupNotReady(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(GroupReady, reason, messageFormat, messageA...)
+	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(GroupDegraded)
+}
+
+func (in *LLMInferenceService) MarkGroupReadyUnset() {
+	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(GroupReady)
+	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(GroupDegraded)
+}
+
+func (in *LLMInferenceService) MarkGroupDegraded(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkTrueWithReason(GroupDegraded, reason, messageFormat, messageA...)
+}
+
+func (in *LLMInferenceService) MarkGroupNotDegraded() {
+	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(GroupDegraded)
+}
+
 func (in *LLMInferenceService) DetermineRouterReadiness() {
 	subConditions := []*apis.Condition{
 		in.GetStatus().GetCondition(GatewaysReady),
 		in.GetStatus().GetCondition(HTTPRoutesReady),
 		in.GetStatus().GetCondition(InferencePoolReady),
 		in.GetStatus().GetCondition(SchedulerWorkloadReady),
+		in.GetStatus().GetCondition(TokenizerReady),
 	}
 
 	for _, cond := range subConditions {
@@ -294,5 +352,6 @@ func (in *LLMInferenceService) DetermineRouterReadiness() {
 			return
 		}
 	}
+
 	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(RouterReady)
 }
