@@ -184,6 +184,12 @@ func (r *LLMISVCReconciler) expectedTokenizerDeployment(ctx context.Context, llm
 		},
 	}
 
+	// If the tokenizer isn't enabled, reconcileTokenizerDeployment only needs `d`'s
+	// identity to Delete it -- skip building a pod spec with no container to attach to.
+	if shouldDeleteTokenizer(llmSvc) {
+		return d, nil
+	}
+
 	// Build the pod spec from the merged tokenizer template
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Tokenizer != nil &&
 		llmSvc.Spec.Router.Scheduler.Tokenizer.Template != nil {
