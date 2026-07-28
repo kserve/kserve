@@ -152,7 +152,6 @@ manifests: controller-gen kustomize yq
 	cat test/crds/gateway-inference-extension-v1alpha2pool.yaml >> config/llmisvc/gateway-inference-extension.yaml
 	cat test/crds/gateway-inference-extension-v1alpha2pool.yaml >> test/crds/gateway-inference-extension.yaml
 	cp test/crds/gateway-inference-extension-v1alpha2pool.yaml config/crd/full/gie/inference.networking.x-k8s.io_inferencepools.yaml
-	cp test/crds/gateway-inference-extension-v1alpha2pool.yaml config/crd/minimal/gie/inference.networking.x-k8s.io_inferencepools.yaml
 
 	# Move StorageContainer CRD to storagecontainer folder
 	mv config/crd/full/serving.kserve.io_clusterstoragecontainers.yaml config/crd/full/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml
