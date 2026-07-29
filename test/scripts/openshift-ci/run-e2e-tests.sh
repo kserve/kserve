@@ -93,6 +93,8 @@ if [ "$SETUP_E2E" = "true" ]; then
   popd
 fi
 
+export OPT_125M_MODEL_URI="${OPT_125M_MODEL_URI:-s3://example-models/facebook/opt-125m}"
+
 # Use certify go module to get the CA certs
 # For serverless it is configured here: infra/deploy.serverless.sh
 # For Raw: setup-e2e-tests.sh

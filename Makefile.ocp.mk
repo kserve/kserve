@@ -7,6 +7,9 @@
 # non-surgically; it will destroy workloads it did not create.
 
 E2E_MARKER ?= predictor
+E2E_PARALLELISM ?= 6
+E2E_PROFILE ?=
+SETUP_E2E ?= false
 QUAY_REPO ?=
 GITHUB_SHA ?= master
 
@@ -78,13 +81,29 @@ deploy-e2e-ocp: ## Set up E2E test environment on OpenShift. Use OPERATOR_TYPE=o
 	GITHUB_SHA="$(GITHUB_SHA)" \
 	./test/scripts/openshift-ci/setup-e2e-tests.sh "$(E2E_MARKER)"
 
-run-e2e-ocp: ## Run E2E tests (assumes deploy-e2e-ocp already ran).
-	SETUP_E2E=false \
+run-e2e-ocp: ## Run E2E tests. Set SETUP_E2E=false to skip cluster setup (assumes deploy-e2e-ocp already ran).
+	SETUP_E2E="$(SETUP_E2E)" \
 	OPERATOR_TYPE="$(strip $(OPERATOR_TYPE))" \
 	KSERVE_NAMESPACE="$(strip $(KSERVE_NAMESPACE))" \
 	RUNNING_LOCAL="$(strip $(RUNNING_LOCAL))" \
 	PYTEST_ARGS="$(PYTEST_ARGS)" \
-	./test/scripts/openshift-ci/run-e2e-tests.sh "$(E2E_MARKER)"
+	./test/scripts/openshift-ci/run-e2e-tests.sh "$(E2E_MARKER)" "$(E2E_PARALLELISM)" "$(E2E_PROFILE)"
+
+e2e-graph-ocp: ## Run graph E2E suite.
+	$(MAKE) run-e2e-ocp E2E_MARKER="graph" E2E_PARALLELISM="$(E2E_PARALLELISM)" E2E_PROFILE=raw SETUP_E2E=true
+
+e2e-raw-ocp: ## Run raw E2E suite (includes rawcipn phase).
+	$(MAKE) run-e2e-ocp E2E_MARKER="raw" E2E_PARALLELISM="$(E2E_PARALLELISM)" E2E_PROFILE=raw SETUP_E2E=true
+	oc patch configmaps -n $(KSERVE_NAMESPACE) inferenceservice-config \
+	  --patch '{"data":{"service":"{\"serviceClusterIPNone\": true}"}}'
+	sleep 5
+	$(MAKE) run-e2e-ocp E2E_MARKER="rawcipn" E2E_PARALLELISM=1 E2E_PROFILE=raw SETUP_E2E=false
+
+e2e-predictor-ocp: ## Run predictor E2E suite.
+	$(MAKE) run-e2e-ocp E2E_MARKER="predictor or kserve_on_openshift" E2E_PARALLELISM="$(E2E_PARALLELISM)" E2E_PROFILE=raw SETUP_E2E=true
+
+e2e-llmisvc-ocp: ## Run LLMISvc E2E suite.
+	$(MAKE) run-e2e-ocp E2E_MARKER="llmisvc_core and cluster_cpu and not pvc_storage" E2E_PARALLELISM=2 E2E_PROFILE=llm-d SETUP_E2E=true
 
 reset-e2e-ocp: ## Reset the test namespace for a fresh E2E rerun.
 	./test/scripts/openshift-ci/setup-ci-namespace.sh
