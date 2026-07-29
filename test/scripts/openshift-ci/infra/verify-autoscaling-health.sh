@@ -27,7 +27,7 @@
 set -euo pipefail
 
 : "${KEDA_NAMESPACE:=openshift-keda}"
-WVA_NAMESPACE="wva-system"
+: "${WVA_NAMESPACE:=wva-system}"
 WVA_DEPLOY="workload-variant-autoscaler-controller-manager"
 
 retry() {

@@ -41,9 +41,6 @@ source "${SCRIPT_DIR}/common.sh"
 make -C "${PROJECT_ROOT}" yq
 export PATH="${PROJECT_ROOT}/bin:${PATH}"
 
-# Cluster-level autoscaler is not managed by an operator in manual mode
-"${SCRIPT_DIR}/deploy.cma.sh"
-
 PARAMS_ENV="${PROJECT_ROOT}/config/overlays/odh/params.env"
 
 # When QUAY_REPO is set, prefer locally-built images (tagged :${GITHUB_SHA:-master})
