@@ -317,10 +317,11 @@ func (r *KserveModuleReconciler) reconcileComponent(ctx context.Context,
 
 	if r.isKubernetes(ctx) {
 		ns := r.getApplicationsNamespace()
-		certNS := r.getCertManagerNamespace(ctx)
+		configData := r.getPlatformConfigData(ctx)
+		certNS := r.getCertManagerNamespace(ctx, configData)
 		if err := applyParams(
 			filepath.Join(manifestDir, comp.dirName(), comp.sourcePathXKS),
-			nil, buildCertManagerParams(ns, certNS),
+			nil, buildCertManagerParams(ns, configData, certNS),
 		); err != nil {
 			return nil, fmt.Errorf("applying cert-manager params: %w", err)
 		}
@@ -399,12 +400,12 @@ func (r *KserveModuleReconciler) getApplicationsNamespace() string {
 
 // getCertManagerNamespace dynamically discovers the namespace where cert-manager
 // stores its CA secrets. It checks (in order):
-// 1. CA_SECRET_NAMESPACE env var (explicit override)
+// 1. Platform ConfigMap (CERT_MANAGER_CA_SECRET_NAMESPACE key)
 // 2. "cert-manager" namespace existence on the cluster
 // 3. "cert-manager-operator" namespace existence (OCP OLM install)
 // 4. Falls back to "cert-manager" constant
-func (r *KserveModuleReconciler) getCertManagerNamespace(ctx context.Context) string {
-	if ns := os.Getenv("CA_SECRET_NAMESPACE"); ns != "" {
+func (r *KserveModuleReconciler) getCertManagerNamespace(ctx context.Context, configData map[string]string) string {
+	if ns, ok := configData[certManagerCASecretNamespaceKey]; ok && ns != "" {
 		return ns
 	}
 
@@ -419,15 +420,19 @@ func (r *KserveModuleReconciler) getCertManagerNamespace(ctx context.Context) st
 	return defaultCertManagerNS
 }
 
-func (r *KserveModuleReconciler) getPlatformVersion(ctx context.Context) string {
+func (r *KserveModuleReconciler) getPlatformConfigData(ctx context.Context) map[string]string {
 	cm := &corev1.ConfigMap{}
 	key := types.NamespacedName{Name: platformVersionConfigMap, Namespace: r.getApplicationsNamespace()}
 	if err := r.Get(ctx, key, cm); err != nil {
-		ctrl.LoggerFrom(ctx).V(1).Info("ConfigMap not found, platform version unknown",
+		ctrl.LoggerFrom(ctx).V(1).Info("Platform ConfigMap not found",
 			"configmap", key, "error", err)
-		return ""
+		return nil
 	}
-	return cm.Data[platformVersionConfigMapKey]
+	return cm.Data
+}
+
+func (r *KserveModuleReconciler) getPlatformVersion(ctx context.Context) string {
+	return configOrDefault(r.getPlatformConfigData(ctx), platformVersionConfigMapKey, "")
 }
 
 func (r *KserveModuleReconciler) getVersionPrefix(ctx context.Context, kserve *platformv1alpha1.Kserve) string {

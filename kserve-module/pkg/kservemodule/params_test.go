@@ -112,7 +112,7 @@ func TestApplyParams_ExtraParamsMap(t *testing.T) {
 func TestBuildCertManagerParams_Defaults(t *testing.T) {
 	g := NewWithT(t)
 
-	params := buildCertManagerParams("test-ns", defaultCertManagerNS)
+	params := buildCertManagerParams("test-ns", nil, defaultCertManagerNS)
 	g.Expect(params["NAMESPACE"]).Should(Equal("test-ns"))
 	g.Expect(params["ISSUER_REF_NAME"]).Should(Equal(defaultCAIssuerName))
 	g.Expect(params["ISSUER_REF_KIND"]).Should(Equal(defaultIssuerRefKind))
@@ -122,20 +122,41 @@ func TestBuildCertManagerParams_Defaults(t *testing.T) {
 	g.Expect(params["ISTIO_CA_CERTIFICATE_PATH"]).Should(Equal(defaultIstioCACertPath))
 }
 
-func TestBuildCertManagerParams_EnvOverrides(t *testing.T) {
-	g := NewWithT(t)
-
-	t.Setenv("ISSUER_NAME", "custom-issuer")
-	t.Setenv("CA_SECRET_NAME", "custom-ca")
-
-	params := buildCertManagerParams("ns", "custom-ns")
-	g.Expect(params["ISSUER_REF_NAME"]).Should(Equal("custom-issuer"))
-	g.Expect(params["CA_SECRET_NAME"]).Should(Equal("custom-ca"))
-}
-
 func TestBuildCertManagerParams_DynamicNamespace(t *testing.T) {
 	g := NewWithT(t)
 
-	params := buildCertManagerParams("test-ns", "cert-manager-operator")
+	params := buildCertManagerParams("test-ns", nil, "cert-manager-operator")
 	g.Expect(params["CA_SECRET_NAMESPACE"]).Should(Equal("cert-manager-operator"))
+}
+
+func TestBuildCertManagerParams_ConfigMapValues(t *testing.T) {
+	g := NewWithT(t)
+
+	configData := map[string]string{
+		certManagerIssuerRefNameKey:   "rhai-ca-issuer",
+		certManagerIssuerRefKindKey:   "Issuer",
+		certManagerCASecretNameKey:    "rhai-ca",
+		certManagerIstioCACertPathKey: "/var/run/secrets/rhai/ca.crt",
+	}
+
+	params := buildCertManagerParams("test-ns", configData, defaultCertManagerNS)
+	g.Expect(params["ISSUER_REF_NAME"]).Should(Equal("rhai-ca-issuer"))
+	g.Expect(params["ISSUER_REF_KIND"]).Should(Equal("Issuer"))
+	g.Expect(params["CA_SECRET_NAME"]).Should(Equal("rhai-ca"))
+	g.Expect(params["ISTIO_CA_CERTIFICATE_PATH"]).Should(Equal("/var/run/secrets/rhai/ca.crt"))
+	g.Expect(params["NAMESPACE"]).Should(Equal("test-ns"))
+	g.Expect(params["ISSUER_REF_GROUP"]).Should(Equal("cert-manager.io"))
+}
+
+func TestBuildCertManagerParams_PartialConfigMap(t *testing.T) {
+	g := NewWithT(t)
+
+	configData := map[string]string{
+		certManagerIssuerRefNameKey: "rhai-ca-issuer",
+	}
+
+	params := buildCertManagerParams("ns", configData, defaultCertManagerNS)
+	g.Expect(params["ISSUER_REF_NAME"]).Should(Equal("rhai-ca-issuer"))
+	g.Expect(params["ISSUER_REF_KIND"]).Should(Equal(defaultIssuerRefKind))
+	g.Expect(params["CA_SECRET_NAME"]).Should(Equal(defaultCertName))
 }

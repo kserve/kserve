@@ -1,6 +1,5 @@
 package kservemodule
 
-import "os"
 
 var kserveImageParamMap = map[string]string{
 	"kserve-controller":                                "RELATED_IMAGE_ODH_KSERVE_CONTROLLER_IMAGE",
@@ -90,23 +89,4 @@ var modelControllerImageParamMap = map[string]string{
 
 var wvaImageParamMap = map[string]string{
 	"wva-controller-image": "RELATED_IMAGE_ODH_WORKLOAD_VARIANT_AUTOSCALER_CONTROLLER_IMAGE",
-}
-
-func buildCertManagerParams(namespace, certManagerNS string) map[string]string {
-	return map[string]string{
-		"NAMESPACE":                 namespace,
-		"ISSUER_REF_NAME":           getEnvOrDefault("ISSUER_NAME", defaultCAIssuerName),
-		"ISSUER_REF_KIND":           getEnvOrDefault("ISSUER_KIND", defaultIssuerRefKind),
-		"ISSUER_REF_GROUP":          "cert-manager.io",
-		"CA_SECRET_NAME":            getEnvOrDefault("CA_SECRET_NAME", defaultCertName),
-		"CA_SECRET_NAMESPACE":       getEnvOrDefault("CA_SECRET_NAMESPACE", certManagerNS),
-		"ISTIO_CA_CERTIFICATE_PATH": getEnvOrDefault("ISTIO_CA_CERT_PATH", defaultIstioCACertPath),
-	}
-}
-
-func getEnvOrDefault(key, defaultVal string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return defaultVal
 }
