@@ -2307,6 +2307,14 @@ func TestExtractModelServerMetricsScheme(t *testing.T) {
 			expectedScheme:  "https",
 		},
 		{
+			name:            "extracts value split across command and args",
+			command:         []string{"/app/epp", "--model-server-metrics-scheme"},
+			args:            []string{"https", "--grpc-port=9002"},
+			expectedCommand: []string{"/app/epp"},
+			expectedArgs:    []string{"--grpc-port=9002"},
+			expectedScheme:  "https",
+		},
+		{
 			name:            "no flag returns empty scheme",
 			command:         []string{"/app/epp", "--grpc-port=9002"},
 			expectedCommand: []string{"/app/epp", "--grpc-port=9002"},

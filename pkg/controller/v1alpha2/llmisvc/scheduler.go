@@ -1819,9 +1819,17 @@ func extractModelServerMetricsScheme(d *appsv1.Deployment) string {
 	scheme := ""
 	for ci := range d.Spec.Template.Spec.Containers {
 		c := &d.Spec.Template.Spec.Containers[ci]
+		flagEndsCommand := len(c.Command) > 0 &&
+			strings.TrimLeft(c.Command[len(c.Command)-1], "-") == modelServerMetricsSchemeFlag
 		if filtered, extracted := filterArgs(c.Command, names); len(extracted) > 0 {
 			c.Command = filtered
 			scheme = extracted[modelServerMetricsSchemeFlag]
+			// Kubernetes appends Args to Command, so a standalone terminal flag
+			// may take its value from the first Args token.
+			if flagEndsCommand && len(c.Args) > 0 && !strings.HasPrefix(c.Args[0], "-") {
+				scheme = c.Args[0]
+				c.Args = c.Args[1:]
+			}
 		}
 		if filtered, extracted := filterArgs(c.Args, names); len(extracted) > 0 {
 			c.Args = filtered
