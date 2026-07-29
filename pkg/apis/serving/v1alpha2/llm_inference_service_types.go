@@ -657,6 +657,7 @@ type DirectKEDAScalingSpec struct {
 	// Triggers defines the KEDA scaling triggers.
 	// At least one trigger is required.
 	// +kubebuilder:validation:MinItems=1
+	// +listType=atomic
 	Triggers []kedav1alpha1.ScaleTriggers `json:"triggers"`
 }
 

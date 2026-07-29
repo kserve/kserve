@@ -362,6 +362,7 @@ func (r *LLMISVCReconciler) reconcileKEDAScaledObject(ctx context.Context, llmSv
 	}
 
 	if scaling.KEDA != nil {
+		// Direct KEDA does not use WVA discovery, so workloadLabels and wvaLabels() do not apply here.
 		expected := expectedDirectScaledObject(llmSvc, scaling, scaleTargetRef, scaledObjectName)
 		return Reconcile(ctx, r, llmSvc, &kedav1alpha1.ScaledObject{}, expected, semanticScaledObjectIsEqual,
 			PreserveKEDAManagedMetadata(),

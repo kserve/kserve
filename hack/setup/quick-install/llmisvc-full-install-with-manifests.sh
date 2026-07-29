@@ -6916,6 +6916,7 @@ spec:
                               type: object
                             minItems: 1
                             type: array
+                            x-kubernetes-list-type: atomic
                         required:
                         - triggers
                         type: object
@@ -23449,6 +23450,7 @@ spec:
                           type: object
                         minItems: 1
                         type: array
+                        x-kubernetes-list-type: atomic
                     required:
                     - triggers
                     type: object
@@ -31852,6 +31854,7 @@ spec:
                               type: object
                             minItems: 1
                             type: array
+                            x-kubernetes-list-type: atomic
                         required:
                         - triggers
                         type: object
@@ -48416,6 +48419,7 @@ spec:
                           type: object
                         minItems: 1
                         type: array
+                        x-kubernetes-list-type: atomic
                     required:
                     - triggers
                     type: object
@@ -56597,6 +56601,7 @@ spec:
                               type: object
                             minItems: 1
                             type: array
+                            x-kubernetes-list-type: atomic
                         required:
                         - triggers
                         type: object
@@ -73828,6 +73833,7 @@ spec:
                           type: object
                         minItems: 1
                         type: array
+                        x-kubernetes-list-type: atomic
                     required:
                     - triggers
                     type: object
@@ -82418,6 +82424,7 @@ spec:
                               type: object
                             minItems: 1
                             type: array
+                            x-kubernetes-list-type: atomic
                         required:
                         - triggers
                         type: object
@@ -99691,6 +99698,7 @@ spec:
                           type: object
                         minItems: 1
                         type: array
+                        x-kubernetes-list-type: atomic
                     required:
                     - triggers
                     type: object
