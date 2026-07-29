@@ -29,6 +29,7 @@ OPERAND_DEPLOYMENTS_OCP = [
 ]
 
 WVA_DEPLOYMENT = "workload-variant-autoscaler-controller-manager"
+WVA_CONFIGMAP = "workload-variant-autoscaler-saturation-scaling-config"
 MODEL_CONTROLLER_DEPLOYMENT = "odh-model-controller"
 
 KSERVE_CR_TEMPLATE = {
@@ -205,6 +206,14 @@ def wait_for(assertion_fn, timeout=60.0, interval=5.0):
                     f"Last error: {last_error}"
                 ) from e
             time.sleep(interval)
+
+
+def wait_consistently(assertion_fn, duration=30.0, interval=5.0):
+    """Poll and assert condition stays true for the entire duration."""
+    deadline = time.time() + duration
+    while time.time() < deadline:
+        assertion_fn()
+        time.sleep(interval)
 
 
 def _poll_cr(kubectl_bin, name, predicate, timeout, msg):

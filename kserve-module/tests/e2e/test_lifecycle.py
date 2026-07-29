@@ -11,6 +11,7 @@ from conftest import (
     get_jsonpath,
     resource_exists,
     wait_for,
+    wait_consistently,
     wait_for_kserve_cleanup,
     trigger_reconcile,
     wait_for_deployment,
@@ -20,6 +21,7 @@ from conftest import (
     NAMESPACE,
     OPERATOR_DEPLOYMENT,
     WVA_DEPLOYMENT,
+    WVA_CONFIGMAP,
     MODEL_CONTROLLER_DEPLOYMENT,
     TIMEOUT_120S,
     TIMEOUT_60S,
@@ -360,3 +362,135 @@ class TestDeletionRecovery:
                 _poll_cr(kubectl, KSERVE_CR_NAME, _generation_matches, TIMEOUT_120S,
                          f"observedGeneration not matching within {TIMEOUT_120S}s")
                 wait_for_deployment_gone(kubectl, WVA_DEPLOYMENT)
+
+
+def _enable_wva(kubectl):
+    """Enable WVA by patching managementState to Managed."""
+    patch = json.dumps({"spec": {"wva": {"managementState": "Managed"}}})
+    run([kubectl, "patch", "kserve", KSERVE_CR_NAME, "--type", "merge", "-p", patch])
+    _poll_cr(kubectl, KSERVE_CR_NAME, _generation_matches, TIMEOUT_120S,
+             f"observedGeneration not matching within {TIMEOUT_120S}s")
+    wait_for_deployment(kubectl, WVA_DEPLOYMENT)
+
+
+def _disable_wva(kubectl):
+    """Disable WVA by patching managementState to Removed."""
+    patch = json.dumps({"spec": {"wva": {"managementState": "Removed"}}})
+    run([kubectl, "patch", "kserve", KSERVE_CR_NAME, "--type", "merge", "-p", patch],
+        check=False)
+    _poll_cr(kubectl, KSERVE_CR_NAME, _generation_matches, TIMEOUT_120S,
+             f"observedGeneration not matching within {TIMEOUT_120S}s")
+    wait_for_deployment_gone(kubectl, WVA_DEPLOYMENT)
+
+
+@pytest.mark.sanity
+@pytest.mark.ocp_only
+class TestWVAConfigMap:
+    """Verify WVA saturation-scaling-config ConfigMap lifecycle.
+
+    The ConfigMap is annotated with opendatahub.io/managed=false in the
+    WVA kustomize overlay, so the deployer creates it once but never
+    overwrites it via SSA — user modifications are preserved.
+    """
+
+    def test_wva_configmap_deployed_with_defaults(self, kubectl, apply_kserve_cr):
+        """WVA ConfigMap is deployed with default queueSpareTrigger value."""
+        try:
+            _enable_wva(kubectl)
+
+            assert resource_exists(kubectl, "configmap", WVA_CONFIGMAP, namespace=NAMESPACE), \
+                f"{WVA_CONFIGMAP} should exist after WVA is Managed"
+
+            data = get_jsonpath(kubectl, "configmap", WVA_CONFIGMAP,
+                                "{.data.default}", namespace=NAMESPACE)
+            assert "queueSpareTrigger: 3" in data, \
+                f"Expected queueSpareTrigger: 3 in ConfigMap data, got: {data}"
+        finally:
+            _disable_wva(kubectl)
+
+    def test_wva_configmap_preserves_user_modifications(self, kubectl, apply_kserve_cr):
+        """User modifications to ConfigMap data persist across reconciles.
+
+        The deployer skips SSA for resources annotated with
+        opendatahub.io/managed=false — only creates if missing.
+        """
+        try:
+            _enable_wva(kubectl)
+
+            data = get_jsonpath(kubectl, "configmap", WVA_CONFIGMAP,
+                                "{.data.default}", namespace=NAMESPACE)
+            assert "queueSpareTrigger: 3" in data, \
+                f"Expected default queueSpareTrigger: 3 before patch, got: {data}"
+
+            new_data = data.replace("queueSpareTrigger: 3", "queueSpareTrigger: 2")
+            escaped = json.dumps({"data": {"default": new_data}})
+            run([kubectl, "patch", "configmap", WVA_CONFIGMAP, "-n", NAMESPACE,
+                 "--type", "merge", "-p", escaped])
+
+            def assert_value_preserved():
+                current = get_jsonpath(kubectl, "configmap", WVA_CONFIGMAP,
+                                       "{.data.default}", namespace=NAMESPACE)
+                assert "queueSpareTrigger: 2" in current, \
+                    f"Expected queueSpareTrigger: 2 to persist, got: {current}"
+
+            wait_consistently(assert_value_preserved, duration=30.0, interval=5.0)
+        finally:
+            _disable_wva(kubectl)
+
+    def test_wva_configmap_recreated_with_defaults_after_deletion(self, kubectl, apply_kserve_cr):
+        """Deleted ConfigMap is recreated with default values via Owns() watch."""
+        try:
+            _enable_wva(kubectl)
+
+            uid_before = get_jsonpath(kubectl, "configmap", WVA_CONFIGMAP,
+                                      "{.metadata.uid}", namespace=NAMESPACE)
+            assert uid_before, f"{WVA_CONFIGMAP} should exist before deletion"
+
+            run([kubectl, "delete", "configmap", WVA_CONFIGMAP, "-n", NAMESPACE])
+
+            def assert_recreated_with_defaults():
+                if not resource_exists(kubectl, "configmap", WVA_CONFIGMAP, namespace=NAMESPACE):
+                    raise AssertionError(f"{WVA_CONFIGMAP} not yet recreated")
+                uid_after = get_jsonpath(kubectl, "configmap", WVA_CONFIGMAP,
+                                         "{.metadata.uid}", namespace=NAMESPACE)
+                assert uid_after != uid_before, \
+                    "ConfigMap UID should change after recreation"
+                data = get_jsonpath(kubectl, "configmap", WVA_CONFIGMAP,
+                                    "{.data.default}", namespace=NAMESPACE)
+                assert "queueSpareTrigger: 3" in data, \
+                    f"Recreated ConfigMap should have default queueSpareTrigger: 3, got: {data}"
+
+            wait_for(assert_recreated_with_defaults, timeout=TIMEOUT_120S, interval=5)
+        finally:
+            _disable_wva(kubectl)
+
+
+@pytest.mark.sanity
+class TestOwnerReferences:
+    """Verify operand deployments have correct ownerReferences to the Kserve CR."""
+
+    def test_owned_deployments_have_kserve_owner_reference(self, kubectl, cluster_info, apply_kserve_cr):
+        """Each operand deployment should reference the Kserve CR as owner."""
+        expected = operand_deployments(cluster_info.is_openshift)
+        cr_uid = apply_kserve_cr["metadata"]["uid"]
+
+        for name in expected:
+            wait_for_deployment(kubectl, name)
+            result = run([
+                kubectl, "get", "deployment", name, "-n", NAMESPACE, "-o", "json",
+            ])
+            dep = json.loads(result.stdout)
+
+            owner_refs = dep.get("metadata", {}).get("ownerReferences", [])
+            assert owner_refs, \
+                f"Deployment {name} should have ownerReferences"
+
+            kserve_owners = [r for r in owner_refs if r.get("kind") == "Kserve"]
+            assert kserve_owners, \
+                f"Deployment {name} should have a Kserve ownerReference, got: {owner_refs}"
+            assert kserve_owners[0]["name"] == KSERVE_CR_NAME, \
+                f"Deployment {name} ownerReference name should be {KSERVE_CR_NAME}, " \
+                f"got: {kserve_owners[0]['name']}"
+            assert kserve_owners[0]["uid"] == cr_uid, \
+                f"Deployment {name} ownerReference uid should be {cr_uid}, " \
+                f"got: {kserve_owners[0].get('uid')}"
