@@ -39,7 +39,7 @@ from httpx import HTTPStatusError
 
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict_ig
 
-img_version = os.environ.get("GITHUB_SHA", "latest")
+img_version = os.environ.get("GITHUB_SHA") or "latest"
 
 SUCCESS_ISVC_IMAGE = f"kserve/success-200-isvc:{img_version}"
 ERROR_ISVC_IMAGE = f"kserve/error-404-isvc:{img_version}"
