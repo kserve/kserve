@@ -31,7 +31,8 @@ from kubernetes import client
 from kubernetes.client import V1ResourceRequirements
 from kubernetes.client.rest import ApiException
 
-from ..common.utils import KSERVE_TEST_NAMESPACE
+from ..common.http_retry import post_with_retry
+from ..common.utils import KSERVE_TEST_NAMESPACE, get_isvc_endpoint
 
 logger = logging.getLogger(__name__)
 
@@ -164,6 +165,87 @@ def _get_pod_uids(apps_v1, deployment_name, namespace):
     return {pod.metadata.uid for pod in pods.items}
 
 
+def _verify_traffic_split(
+    kserve,
+    service_name,
+    namespace,
+    expected_pcts,
+    network_layer,
+    num_requests=100,
+    tolerance=10,
+):
+    """
+    Verify traffic split by sending requests and counting responses by status code.
+
+    In this test setup:
+    - Stable predictor uses STABLE_MODEL_URI which returns 200 (successful)
+    - Canary predictor uses CANARY_MODEL_URI which returns 503 (bad model path)
+
+    Args:
+        kserve: KServeClient instance
+        service_name: Name of the InferenceService
+        namespace: Kubernetes namespace
+        expected_pcts: Dict mapping status code to expected percentage, e.g., {200: 80, 503: 20}
+        network_layer: Network layer type (e.g., "istio-gatewayapi")
+        num_requests: Total number of requests to send
+        tolerance: Allowed deviation in percentage points
+
+    Returns:
+        dict: {status_code: (count, percentage)}
+    """
+    isvc = kserve.get(service_name, namespace=namespace)
+    scheme, cluster_ip, host, path = get_isvc_endpoint(isvc, network_layer)
+
+    url = f"{scheme}://{cluster_ip}{path}/v1/models/{service_name}:predict"
+    headers = {"Host": host, "Content-Type": "application/json"}
+
+    # Simple prediction input for sklearn model
+    input_data = {"instances": [[1, 2, 3, 4]]}
+
+    status_counts = {}
+
+    logger.info(
+        f"Sending {num_requests} requests to verify traffic split: {expected_pcts}"
+    )
+
+    for i in range(num_requests):
+        try:
+            # Don't retry on 503 since we expect it from canary (bad model path)
+            # Only retry on network errors and 502/504 gateway errors
+            response = post_with_retry(
+                url,
+                headers=headers,
+                json_data=input_data,
+                retry_status_codes=(502, 504),
+            )
+            status_counts[response.status_code] = (
+                status_counts.get(response.status_code, 0) + 1
+            )
+        except Exception as e:
+            logger.warning(f"Request {i + 1} failed: {e}")
+
+    total = sum(status_counts.values())
+    results = {}
+
+    logger.info("Traffic split results:")
+    for status_code, count in sorted(status_counts.items()):
+        pct = (count / total * 100) if total > 0 else 0
+        results[status_code] = (count, pct)
+        logger.info(f"  {status_code}: {count}/{total} ({pct:.1f}%)")
+
+    # Verify each expected status code is within tolerance
+    for status_code, expected_pct in expected_pcts.items():
+        assert status_code in results, (
+            f"Expected status code {status_code} not seen in responses"
+        )
+        _, actual_pct = results[status_code]
+        assert abs(actual_pct - expected_pct) <= tolerance, (
+            f"Status {status_code} traffic {actual_pct:.1f}% outside expected {expected_pct}% ±{tolerance}%"
+        )
+
+    return results
+
+
 @pytest.mark.predictor
 @pytest.mark.raw
 def test_canary_create(network_layer):
@@ -220,6 +302,18 @@ def test_canary_create(network_layer):
             weights = {name: weight for name, weight in backends}
             assert weights[f"{service_name}-predictor"] == 80
             assert weights[f"{service_name}-v2-predictor"] == 20
+
+            # Verify actual traffic split by sending requests
+            # Stable (STABLE_MODEL_URI) returns 200, canary (CANARY_MODEL_URI) returns 503
+            _verify_traffic_split(
+                kserve,
+                service_name,
+                KSERVE_TEST_NAMESPACE,
+                expected_pcts={200: 80, 503: 20},
+                network_layer=network_layer,
+                num_requests=100,
+                tolerance=10,
+            )
     finally:
         _safe_delete(kserve, service_name)
 
@@ -290,6 +384,18 @@ def test_canary_promote(network_layer):
                 f"Expected 1 backend after promotion, got {backends}"
             )
             assert backends[0][0] == f"{service_name}-v2-predictor"
+
+            # Verify 100% traffic goes to promoted canary (v2)
+            # The promoted v2 uses CANARY_MODEL_URI which returns 503
+            _verify_traffic_split(
+                kserve,
+                service_name,
+                KSERVE_TEST_NAMESPACE,
+                expected_pcts={503: 100},
+                network_layer=network_layer,
+                num_requests=50,
+                tolerance=10,
+            )
     finally:
         _safe_delete(kserve, service_name)
 
@@ -355,6 +461,18 @@ def test_canary_rollback(network_layer):
                 f"Expected 1 backend after rollback, got {backends}"
             )
             assert backends[0][0] == f"{service_name}-predictor"
+
+            # Verify 100% traffic goes to stable after rollback
+            # Stable uses STABLE_MODEL_URI which returns 200
+            _verify_traffic_split(
+                kserve,
+                service_name,
+                KSERVE_TEST_NAMESPACE,
+                expected_pcts={200: 100},
+                network_layer=network_layer,
+                num_requests=50,
+                tolerance=10,
+            )
     finally:
         _safe_delete(kserve, service_name)
 
