@@ -430,17 +430,17 @@ schedulingProfiles:
 			}).WithContext(ctx).Should(Succeed())
 
 			// Verify default config for non-prefill mode. The default single-profile
-			// config follows the llm-d optimized baseline: queue-scorer,
-			// kv-cache-utilization-scorer, prefix-cache-scorer, no-hit-lru-scorer, max-score-picker.
+			// config follows the llm-d "optimized-baseline" router:
+			// approx-prefix-cache-producer, inflight-load-producer,
+			// prefix-cache-affinity-filter, token-load-scorer.
 			configText, found := getSchedulerConfigText(expectedDeployment)
 			Expect(found).To(BeTrue(), "Expected default config in scheduler deployment")
 			// Default non-prefill config should contain these plugins
-			Expect(configText).To(ContainSubstring("queue-scorer"))
-			Expect(configText).To(ContainSubstring("kv-cache-utilization-scorer"))
-			Expect(configText).To(ContainSubstring("prefix-cache-scorer"))
-			Expect(configText).To(ContainSubstring("no-hit-lru-scorer"))
-			Expect(configText).To(ContainSubstring("max-score-picker"))
-			Expect(configText).To(ContainSubstring("name: default"))
+			Expect(configText).To(ContainSubstring("approx-prefix-cache-producer"))
+			Expect(configText).To(ContainSubstring("inflight-load-producer"))
+			Expect(configText).To(ContainSubstring("prefix-cache-affinity-filter"))
+			Expect(configText).To(ContainSubstring("token-load-scorer"))
+			Expect(schedulerProfileNames(configText)).To(ConsistOf("default"))
 		})
 
 		It("should use prefill/decode scheduler config when prefill is configured", func(ctx SpecContext) {
@@ -487,11 +487,12 @@ schedulingProfiles:
 			Expect(configText).To(ContainSubstring("prefill-filter"))
 			Expect(configText).To(ContainSubstring("decode-filter"))
 			Expect(configText).To(ContainSubstring("disagg-profile-handler"))
-			Expect(configText).To(ContainSubstring("name: prefill"))
-			Expect(configText).To(ContainSubstring("name: decode"))
-			// Upstream optimized P/D baseline: prefill adds kv-cache-utilization-scorer,
-			// decode swaps queue-scorer for active-request-scorer.
-			Expect(configText).To(ContainSubstring("kv-cache-utilization-scorer"))
+			Expect(schedulerProfileNames(configText)).To(ConsistOf("prefill", "decode"))
+			// Upstream pd-disaggregation baseline: prefill runs the
+			// prefix-cache-affinity-filter and token-load-scorer, decode picks the
+			// least-busy endpoint via the active-request-scorer.
+			Expect(configText).To(ContainSubstring("prefix-cache-affinity-filter"))
+			Expect(configText).To(ContainSubstring("token-load-scorer"))
 			Expect(configText).To(ContainSubstring("active-request-scorer"))
 		})
 	})
@@ -1920,6 +1921,26 @@ func getSchedulerConfigText(deployment *appsv1.Deployment) (configText string, f
 		}
 	}
 	return "", false
+}
+
+// schedulerProfileNames parses a --config-text EndpointPickerConfig (JSON or YAML)
+// and returns the names of its scheduling profiles. This keeps assertions
+// independent of the serialization format the controller emits.
+func schedulerProfileNames(configText string) []string {
+	obj := map[string]interface{}{}
+	if err := yaml.Unmarshal([]byte(configText), &obj); err != nil {
+		return nil
+	}
+	profiles, _ := obj["schedulingProfiles"].([]interface{})
+	names := make([]string, 0, len(profiles))
+	for _, p := range profiles {
+		if pm, ok := p.(map[string]interface{}); ok {
+			if name, ok := pm["name"].(string); ok {
+				names = append(names, name)
+			}
+		}
+	}
+	return names
 }
 
 // countConfigTextArgs counts how many --config-text arguments exist in the scheduler deployment.

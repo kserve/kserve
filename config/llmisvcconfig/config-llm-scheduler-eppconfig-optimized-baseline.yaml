@@ -1,0 +1,24 @@
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-scheduler-eppconfig-optimized-baseline
+  namespace: kserve
+spec:
+  router:
+    scheduler:
+      config:
+        # Single-profile default mirroring the llm-d "optimized-baseline" router:
+        # lora-affinity-scorer is injected by the scheduler when the LLMInferenceService has spec.model.lora.adapters set.
+        inline:
+          apiVersion: llm-d.ai/v1alpha1
+          kind: EndpointPickerConfig
+          plugins:
+            - type: approx-prefix-cache-producer
+            - type: inflight-load-producer
+            - type: prefix-cache-affinity-filter
+            - type: token-load-scorer
+          schedulingProfiles:
+            - name: default
+              plugins:
+                - pluginRef: prefix-cache-affinity-filter
+                - pluginRef: token-load-scorer
