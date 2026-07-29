@@ -281,7 +281,7 @@ func SetLocalModelLabel(llmSvc *v1alpha2.LLMInferenceService, models *v1alpha1.L
 }
 
 // selectNodeGroupForWorkload picks a compatible node group for the workload.
-// When the workload has a nodeSelector and multiple node groups exist, it finds a group
+// When the workload has a nodeSelector and node group metadata is available, it finds a group
 // whose PV node affinity is compatible with the workload's scheduling constraints.
 // Returns the node group name or empty string if no compatible group is found.
 // In that case, the caller should skip local model binding rather than silently
@@ -289,9 +289,6 @@ func SetLocalModelLabel(llmSvc *v1alpha2.LLMInferenceService, models *v1alpha1.L
 func selectNodeGroupForWorkload(llmSvc *v1alpha2.LLMInferenceService, cacheNodeGroups []string, ngMap map[string]*v1alpha1.LocalModelNodeGroup) string {
 	if len(cacheNodeGroups) == 0 {
 		return ""
-	}
-	if len(cacheNodeGroups) == 1 {
-		return cacheNodeGroups[0]
 	}
 
 	if llmSvc.Spec.Template == nil || len(llmSvc.Spec.Template.NodeSelector) == 0 {

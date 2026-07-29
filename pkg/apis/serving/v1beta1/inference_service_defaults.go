@@ -617,7 +617,7 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCach
 }
 
 // selectNodeGroupForISVC picks a compatible node group for the InferenceService workload.
-// When the workload has a nodeSelector and multiple node groups exist, it finds a group
+// When the workload has a nodeSelector and node group metadata is available, it finds a group
 // whose PV node affinity is compatible with the workload's scheduling constraints.
 // Returns the node group name or empty string if no compatible group is found.
 // In that case, the caller should skip local model binding rather than silently
@@ -625,9 +625,6 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCach
 func selectNodeGroupForISVC(isvc *InferenceService, cacheNodeGroups []string, ngMap map[string]*v1alpha1.LocalModelNodeGroup) string {
 	if len(cacheNodeGroups) == 0 {
 		return ""
-	}
-	if len(cacheNodeGroups) == 1 {
-		return cacheNodeGroups[0]
 	}
 
 	nodeSelector := isvc.Spec.Predictor.NodeSelector
