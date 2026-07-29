@@ -1805,7 +1805,7 @@ wheels = [
 
 [[package]]
 name = "huggingfaceserver"
-version = "0.20.0rc0"
+version = "0.20.0rc1"
 source = { virtual = "." }
 dependencies = [
     { name = "accelerate" },
@@ -2121,7 +2121,7 @@ wheels = [
 
 [[package]]
 name = "kserve"
-version = "0.20.0rc0"
+version = "0.20.0rc1"
 source = { directory = "../kserve" }
 dependencies = [
     { name = "aiohttp" },
@@ -2218,7 +2218,7 @@ test = [
 
 [[package]]
 name = "kserve-storage"
-version = "0.20.0rc0"
+version = "0.20.0rc1"
 source = { directory = "../storage" }
 dependencies = [
     { name = "aiohttp" },
