@@ -179,13 +179,13 @@ def _verify_traffic_split(
 
     In this test setup:
     - Stable predictor uses STABLE_MODEL_URI which returns 200 (successful)
-    - Canary predictor uses CANARY_MODEL_URI which returns 503 (bad model path)
+    - Canary predictor uses CANARY_MODEL_URI which returns 500 (bad model path)
 
     Args:
         kserve: KServeClient instance
         service_name: Name of the InferenceService
         namespace: Kubernetes namespace
-        expected_pcts: Dict mapping status code to expected percentage, e.g., {200: 80, 503: 20}
+        expected_pcts: Dict mapping status code to expected percentage, e.g., {200: 80, 500: 20}
         network_layer: Network layer type (e.g., "istio-gatewayapi")
         num_requests: Total number of requests to send
         tolerance: Allowed deviation in percentage points
@@ -210,13 +210,13 @@ def _verify_traffic_split(
 
     for i in range(num_requests):
         try:
-            # Don't retry on 503 since we expect it from canary (bad model path)
-            # Only retry on network errors and 502/504 gateway errors
+            # Don't retry on 500 since we expect it from canary (bad model path)
+            # Only retry on network errors and 502/503/504 gateway errors
             response = post_with_retry(
                 url,
                 headers=headers,
                 json_data=input_data,
-                retry_status_codes=(502, 504),
+                retry_status_codes=(502, 503, 504),
             )
             status_counts[response.status_code] = (
                 status_counts.get(response.status_code, 0) + 1
@@ -304,12 +304,12 @@ def test_canary_create(network_layer):
             assert weights[f"{service_name}-v2-predictor"] == 20
 
             # Verify actual traffic split by sending requests
-            # Stable (STABLE_MODEL_URI) returns 200, canary (CANARY_MODEL_URI) returns 503
+            # Stable (STABLE_MODEL_URI) returns 200, canary (CANARY_MODEL_URI) returns 500
             _verify_traffic_split(
                 kserve,
                 service_name,
                 KSERVE_TEST_NAMESPACE,
-                expected_pcts={200: 80, 503: 20},
+                expected_pcts={200: 80, 500: 20},
                 network_layer=network_layer,
                 num_requests=100,
                 tolerance=10,
@@ -386,12 +386,12 @@ def test_canary_promote(network_layer):
             assert backends[0][0] == f"{service_name}-v2-predictor"
 
             # Verify 100% traffic goes to promoted canary (v2)
-            # The promoted v2 uses CANARY_MODEL_URI which returns 503
+            # The promoted v2 uses CANARY_MODEL_URI which returns 500
             _verify_traffic_split(
                 kserve,
                 service_name,
                 KSERVE_TEST_NAMESPACE,
-                expected_pcts={503: 100},
+                expected_pcts={500: 100},
                 network_layer=network_layer,
                 num_requests=50,
                 tolerance=10,
