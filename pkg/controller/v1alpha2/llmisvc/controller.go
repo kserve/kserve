@@ -138,8 +138,6 @@ type LLMISVCReconciler struct {
 	Config *rest.Config
 	record.EventRecorder
 	Clientset kubernetes.Interface
-
-	Validator func(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error
 }
 
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceservices,verbs=get;list;watch;create;update;patch;delete
@@ -753,20 +751,13 @@ func (r *LLMISVCReconciler) enqueueOnConfigMapChange(logger logr.Logger) handler
 		}
 
 		for _, llmSvc := range llmSvcList.Items {
-			// Use WithSkipClearSchedulerConfigRef to preserve the Ref for matching
-			result, err := r.combineBaseRefsConfig(ctx, &llmSvc, cfg, WithSkipClearSchedulerConfigRef())
+			result, err := r.combineBaseRefsConfig(ctx, &llmSvc, cfg)
 			if err != nil {
 				logger.Error(err, "Failed to combine baseRefs config", "namespace", llmSvc.Namespace, "name", llmSvc.Name)
 				continue
 			}
 
-			combinedCfg := result.Config.Spec
-
-			if combinedCfg.Router == nil ||
-				combinedCfg.Router.Scheduler == nil ||
-				combinedCfg.Router.Scheduler.Config == nil ||
-				combinedCfg.Router.Scheduler.Config.Ref == nil ||
-				combinedCfg.Router.Scheduler.Config.Ref.Name != sub.Name {
+			if result.ResolvedSchedulerConfigMap == nil || *result.ResolvedSchedulerConfigMap != client.ObjectKeyFromObject(sub) {
 				continue
 			}
 
