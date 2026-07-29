@@ -93,6 +93,8 @@ type Config struct {
 	IngressGatewayNamespace string `json:"ingressGatewayNamespace,omitempty"`
 	UrlScheme               string `json:"urlScheme,omitempty"`
 	EnableTLS               bool   `json:"enableTLS,omitempty"`
+	TLSMinVersion           string `json:"tlsMinVersion,omitempty"`
+	TLSCipherSuites         string `json:"tlsCipherSuites,omitempty"`
 
 	ModelBasedRoutingHeaderName string                `json:"modelBasedRoutingHeaderName,omitempty"`
 	ModelBasedRoutingMode       ModelBasedRoutingMode `json:"modelBasedRoutingMode,omitempty"`
@@ -170,6 +172,8 @@ func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.Storag
 		IngressGatewayName:          igwName,
 		UrlScheme:                   ingressConfig.UrlScheme,
 		EnableTLS:                   ingressConfig.EnableLLMInferenceServiceTLS,
+		TLSMinVersion:               ingressConfig.LLMInferenceServiceTLSMinVersion,
+		TLSCipherSuites:             ingressConfig.LLMInferenceServiceTLSCipherSuites,
 		ModelBasedRoutingHeaderName: ingressConfig.ModelBasedRoutingHeaderName,
 		ModelBasedRoutingMode:       parseModelBasedRoutingMode(ingressConfig.ModelBasedRoutingMode),
 		StorageConfig:               storageConfig,
