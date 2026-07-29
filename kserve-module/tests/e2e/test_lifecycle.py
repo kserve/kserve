@@ -309,7 +309,13 @@ class TestDeletionRecovery:
         assert uid_before, f"{cm_name} should exist before deletion"
 
         run([kubectl, "delete", "configmap", cm_name, "-n", NAMESPACE])
-        assert not resource_exists(kubectl, "configmap", cm_name, namespace=NAMESPACE)
+
+        def assert_cm_deleted():
+            assert not resource_exists(kubectl, "configmap", cm_name, namespace=NAMESPACE), (
+                f"{cm_name} should be deleted"
+            )
+
+        wait_for(assert_cm_deleted, timeout=TIMEOUT_120S, interval=5)
 
         def assert_recreated_with_new_uid():
             uid_after = get_jsonpath(
