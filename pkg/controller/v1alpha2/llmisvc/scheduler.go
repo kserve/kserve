@@ -419,11 +419,6 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 	r.propagateSchedulerMetadata(llmSvc, d)
 
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Template != nil {
-		curr := &appsv1.Deployment{}
-		if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
-			return nil, fmt.Errorf("failed to get current scheduler deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
-		}
-
 		d.Spec.Replicas = llmSvc.Spec.Router.Scheduler.Replicas
 		d.Spec.Template.Spec = *llmSvc.Spec.Router.Scheduler.Template.DeepCopy()
 
@@ -446,7 +441,7 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 			}
 
 			mainContainer.Args = append(mainContainer.Args,
-				preserveSchedulerConfig(llmSvc, curr)...,
+				schedulerConfigArgs(llmSvc)...,
 			)
 
 			// Inject tracing instrumentation when spec.tracing is set
@@ -526,106 +521,6 @@ func (r *LLMISVCReconciler) propagateSchedulerMetadata(llmSvc *v1alpha2.LLMInfer
 	utils.PropagateMap(llmSvc.Spec.Router.Scheduler.Annotations, &expected.Spec.Template.Annotations)
 }
 
-func schedulerConfigText(llmSvc *v1alpha2.LLMInferenceService) string {
-	if llmSvc.Spec.Router != nil &&
-		llmSvc.Spec.Router.Scheduler != nil &&
-		llmSvc.Spec.Router.Scheduler.Config != nil &&
-		llmSvc.Spec.Router.Scheduler.Config.Inline != nil {
-		// We don't need to handle Ref as it's done as part of the config merge step.
-		return string(llmSvc.Spec.Router.Scheduler.Config.Inline.Raw)
-	}
-
-	switch {
-	case llmSvc.Spec.Prefill != nil:
-		// Always do P/D by default (threshold 0).
-		// Profiles follow the llm-d optimized P/D baseline:
-		//   prefill - prefix-cache + queue + kv-cache-utilization scorers
-		//   decode  - active-request + prefix-cache scorers (active request count
-		//             is a better signal than queue depth for ongoing generation).
-		// kv-cache-utilization-scorer and active-request-scorer are declared in the
-		// top-level plugins list so the profiles' pluginRefs resolve; queue-scorer
-		// stays declared because the prefill profile still references it.
-		// lora-affinity-scorer is injected into both profiles when LoRA adapters exist.
-		var loraPlugin, loraProfileEntry string
-		if llmSvc.Spec.Model.LoRA != nil && len(llmSvc.Spec.Model.LoRA.Adapters) > 0 {
-			loraPlugin = fmt.Sprintf("- type: %s\n", loraAffinityScorerPlugin)
-			loraProfileEntry = fmt.Sprintf("  - pluginRef: %s\n    weight: 4\n", loraAffinityScorerPlugin)
-		}
-		return fmt.Sprintf(`
-apiVersion: llm-d.ai/v1alpha1
-kind: EndpointPickerConfig
-plugins:
-- type: disagg-headers-handler
-- type: prefill-filter
-- type: decode-filter
-- type: queue-scorer
-- type: kv-cache-utilization-scorer
-- type: active-request-scorer
-- type: prefix-cache-scorer
-- type: max-score-picker
-- type: always-disagg-pd-decider
-- type: disagg-profile-handler
-  parameters:
-    deciders:
-      prefill: always-disagg-pd-decider
-%sschedulingProfiles:
-- name: prefill
-  plugins:
-  - pluginRef: prefill-filter
-%s  - pluginRef: prefix-cache-scorer
-    weight: 3
-  - pluginRef: queue-scorer
-    weight: 2
-  - pluginRef: kv-cache-utilization-scorer
-    weight: 2
-  - pluginRef: max-score-picker
-- name: decode
-  plugins:
-  - pluginRef: decode-filter
-%s  - pluginRef: active-request-scorer
-    weight: 2
-  - pluginRef: prefix-cache-scorer
-    weight: 3
-  - pluginRef: max-score-picker
-`, loraPlugin, loraProfileEntry, loraProfileEntry)
-	default:
-		var loraPlugin, loraProfileEntry string
-		if llmSvc.Spec.Model.LoRA != nil && len(llmSvc.Spec.Model.LoRA.Adapters) > 0 {
-			loraPlugin = fmt.Sprintf("- type: %s\n", loraAffinityScorerPlugin)
-			loraProfileEntry = fmt.Sprintf("  - pluginRef: %s\n    weight: 4\n", loraAffinityScorerPlugin)
-		}
-
-		// Single-profile default follows the llm-d optimized baseline:
-		// queue + kv-cache-utilization + prefix-cache + no-hit-lru scorers, plus
-		// lora-affinity-scorer injected when LoRA adapters are configured.
-		// Users who want precise prefix routing must explicitly declare
-		// token-producer and precise-prefix-cache-producer in their inline config.
-		return fmt.Sprintf(`
-apiVersion: llm-d.ai/v1alpha1
-kind: EndpointPickerConfig
-plugins:
-- type: single-profile-handler
-- type: queue-scorer
-- type: kv-cache-utilization-scorer
-- type: prefix-cache-scorer
-- type: no-hit-lru-scorer
-- type: max-score-picker
-%sschedulingProfiles:
-- name: default
-  plugins:
-%s  - pluginRef: queue-scorer
-    weight: 2
-  - pluginRef: kv-cache-utilization-scorer
-    weight: 2
-  - pluginRef: prefix-cache-scorer
-    weight: 3
-  - pluginRef: no-hit-lru-scorer
-    weight: 2
-  - pluginRef: max-score-picker
-`, loraPlugin, loraProfileEntry)
-	}
-}
-
 // inlineConfigTextFlags lists the config-text flag variants that carry inline
 // YAML and can be rewritten by mutateSchedulerConfig. Go's flag package
 // accepts both kebab-case and camelCase, so all four forms are valid.
@@ -640,14 +535,16 @@ var schedulerConfigFlags = map[string]struct{}{
 	"--config-file": {}, "-config-file": {}, "--configFile": {}, "-configFile": {},
 }
 
-// preserveSchedulerConfig returns the config args for the scheduler container.
+// schedulerConfigArgs returns the scheduler container's config args:
+// --config-text with the resolved inline EPPConfig (user-supplied or a
+// controller-injected preset), or nil.
 //
-// Priority:
-//  1. Explicit inline config (including resolved ConfigMap refs) - always wins.
-//  2. Config flag already present in the template args - kept as-is (return nil).
-//  3. Config flag found in the current deployment - preserved across upgrades.
-//  4. No config anywhere - a fresh default is generated.
-func preserveSchedulerConfig(llmSvc *v1alpha2.LLMInferenceService, curr *appsv1.Deployment) []string {
+// nil is reached in exactly one case: an externally managed scheduler that
+// carries its own config flag. A managed scheduler always has Config.Inline set
+// by combineBaseRefsConfig - which uses hasMainContainerConfigFlag to skip preset
+// injection when the template already supplies a config flag - so it never
+// reaches the nil return.
+func schedulerConfigArgs(llmSvc *v1alpha2.LLMInferenceService) []string {
 	if llmSvc.Spec.Router != nil &&
 		llmSvc.Spec.Router.Scheduler != nil &&
 		llmSvc.Spec.Router.Scheduler.Config != nil &&
@@ -655,17 +552,7 @@ func preserveSchedulerConfig(llmSvc *v1alpha2.LLMInferenceService, curr *appsv1.
 		return []string{"--config-text", string(llmSvc.Spec.Router.Scheduler.Config.Inline.Raw)}
 	}
 
-	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Template != nil {
-		if configFlagFromContainers(llmSvc.Spec.Router.Scheduler.Template.Containers) != nil {
-			return nil
-		}
-	}
-
-	if pair := configFlagFromContainers(curr.Spec.Template.Spec.Containers); pair != nil {
-		return pair
-	}
-
-	return []string{"--config-text", schedulerConfigText(llmSvc)}
+	return nil
 }
 
 // configFlagFromContainers scans the "main" container for a config flag and
