@@ -251,7 +251,12 @@ async def test_predictor_grpc_with_transformer_http(rest_v2_client, test_namespa
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
-    is_ready = await is_model_ready(rest_v2_client, service_name, model_name) is True
+    is_ready = (
+        await is_model_ready(
+            rest_v2_client, service_name, model_name, namespace=test_namespace
+        )
+        is True
+    )
     assert is_ready is True
     res = await predict_isvc(
         rest_v2_client,
@@ -346,7 +351,12 @@ async def test_predictor_rest_with_transformer_rest(
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
-    is_ready = await is_model_ready(rest_v2_client, service_name, model_name) is True
+    is_ready = (
+        await is_model_ready(
+            rest_v2_client, service_name, model_name, namespace=test_namespace
+        )
+        is True
+    )
     assert is_ready is True
     res = await predict_isvc(
         rest_v2_client,

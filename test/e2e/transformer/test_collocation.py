@@ -120,7 +120,12 @@ async def test_transformer_collocation(rest_v1_client, network_layer, test_names
         for pod in pods.items:
             print(pod)
         raise e
-    is_ready = await is_model_ready(rest_v1_client, service_name, model_name) is True
+    is_ready = (
+        await is_model_ready(
+            rest_v1_client, service_name, model_name, namespace=test_namespace
+        )
+        is True
+    )
     assert is_ready is True
     res = await predict_isvc(
         rest_v1_client,
@@ -208,7 +213,12 @@ async def test_transformer_collocation_runtime(
         for pod in pods.items:
             print(pod)
         raise e
-    is_ready = await is_model_ready(rest_v1_client, service_name, model_name) is True
+    is_ready = (
+        await is_model_ready(
+            rest_v1_client, service_name, model_name, namespace=test_namespace
+        )
+        is True
+    )
     assert is_ready is True
     res = await predict_isvc(
         rest_v1_client,
@@ -311,7 +321,11 @@ async def test_raw_transformer_collocation(
         raise e
     is_ready = (
         await is_model_ready(
-            rest_v1_client, service_name, model_name, network_layer=network_layer
+            rest_v1_client,
+            service_name,
+            model_name,
+            network_layer=network_layer,
+            namespace=test_namespace,
         )
         is True
     )
@@ -409,7 +423,11 @@ async def test_raw_transformer_collocation_runtime(
         raise e
     is_ready = (
         await is_model_ready(
-            rest_v1_client, service_name, model_name, network_layer=network_layer
+            rest_v1_client,
+            service_name,
+            model_name,
+            network_layer=network_layer,
+            namespace=test_namespace,
         )
         is True
     )

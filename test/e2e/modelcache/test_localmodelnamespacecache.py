@@ -183,7 +183,9 @@ async def test_sklearn_modelnamespacecache(
         namespace=test_namespace,
     )
     assert res["predictions"] == [1, 1]
-    # Wait before deleting namespace cache to avoid "still in use" error
+    # Delete ISVC first so the LocalModelNamespaceCache is no longer in use
+    kserve_client.delete(service_name, test_namespace)
+    # Wait for the isvc to be deleted to avoid modelcache still in use error
     await asyncio.sleep(30)
     kserve_client.delete_local_model_namespace_cache(
         model_cache.metadata.name, namespace=test_namespace

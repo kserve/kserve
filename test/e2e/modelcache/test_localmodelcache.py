@@ -189,7 +189,9 @@ async def test_vllm_modelcache(test_namespace):
         service_name, "./data/qwen_input_chat.json", namespace=test_namespace
     )
     assert res["choices"][0]["message"]["content"] == "The result of 2 + 2 is 4."
-    # Wait before deleting model cache to avoid "still in use" error
+    # Delete ISVC first so the LocalModelCache is no longer in use
+    kserve_client.delete(service_name, test_namespace)
+    # Wait for the isvc to be deleted to avoid modelcache still in use error
     await asyncio.sleep(30)
     kserve_client.delete_local_model_cache(model_cache.metadata.name)
 
