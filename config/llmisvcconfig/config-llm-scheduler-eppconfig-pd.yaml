@@ -1,0 +1,45 @@
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-scheduler-eppconfig-pd
+  namespace: kserve
+spec:
+  router:
+    scheduler:
+      config:
+        # Prefill/Decode disaggregation mirroring the llm-d pd-disaggregation guide:
+        # https://github.com/llm-d/llm-d/blob/main/guides/pd-disaggregation/router/pd-disaggregation.values.yaml
+        # lora-affinity-scorer is injected by the scheduler when the LLMInferenceService has spec.model.lora.adapters set.
+        inline:
+          apiVersion: llm-d.ai/v1alpha1
+          kind: EndpointPickerConfig
+          plugins:
+            - type: always-disagg-pd-decider
+            - type: disagg-profile-handler
+              parameters:
+                deciders:
+                  prefill: always-disagg-pd-decider
+            - type: prefill-filter
+            - type: decode-filter
+            # approx-prefix-cache-producer's maxPrefixTokensToMatch defaults to 131072 (128K tokens).
+            # to change it, update LLMInferenceService .spec.router.scheduler.config.
+            - type: approx-prefix-cache-producer
+            - type: inflight-load-producer
+            # prefix-cache-affinity-filter's peakPrefillThroughput defaults to 15928 tokens/sec.
+            # to change it, update LLMInferenceService .spec.router.scheduler.config.
+            - type: prefix-cache-affinity-filter
+            - type: token-load-scorer
+            - type: active-request-scorer
+            - type: max-score-picker
+          schedulingProfiles:
+            - name: prefill
+              plugins:
+                - pluginRef: prefill-filter
+                - pluginRef: prefix-cache-affinity-filter
+                - pluginRef: token-load-scorer
+                - pluginRef: max-score-picker
+            - name: decode
+              plugins:
+                - pluginRef: decode-filter
+                - pluginRef: active-request-scorer
+                - pluginRef: max-score-picker

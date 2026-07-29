@@ -420,13 +420,13 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 	r.propagateSchedulerMetadata(llmSvc, d)
 
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Template != nil {
+		d.Spec.Replicas = llmSvc.Spec.Router.Scheduler.Replicas
+		d.Spec.Template.Spec = *llmSvc.Spec.Router.Scheduler.Template.DeepCopy()
+
 		curr := &appsv1.Deployment{}
 		if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
 			return nil, fmt.Errorf("failed to get current scheduler deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
 		}
-
-		d.Spec.Replicas = llmSvc.Spec.Router.Scheduler.Replicas
-		d.Spec.Template.Spec = *llmSvc.Spec.Router.Scheduler.Template.DeepCopy()
 
 		mainIdx := slices.IndexFunc(d.Spec.Template.Spec.Containers, func(c corev1.Container) bool {
 			return c.Name == "main"
@@ -502,9 +502,9 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 		}
 
 		// Version-gated migrations (>= v0.7.0, >= v0.9.0, etc.): each migration
-		// is gated to the minimum EPP version that recognizes the new plugin
-		// names / config shapes. The v0.7 binary deprecates old names but still
-		// accepts them; v0.9 introduces the 3-plugin precise-prefix pipeline.
+		// is gated to the minimum llm-d-router version that recognizes the new
+		// plugin names / config shapes. The v0.7 binary deprecates old names but
+		// still accepts them; v0.9 introduces the 3-plugin precise-prefix pipeline.
 		reconcilerCfg, err := r.loadConfig(ctx)
 		if err != nil {
 			return d, fmt.Errorf("failed to load config for scheduler transform: %w", err)
@@ -527,31 +527,36 @@ func (r *LLMISVCReconciler) propagateSchedulerMetadata(llmSvc *v1alpha2.LLMInfer
 	utils.PropagateMap(llmSvc.Spec.Router.Scheduler.Annotations, &expected.Spec.Template.Annotations)
 }
 
+// inlineConfigTextFlags lists the config-text flag variants that carry inline
+// YAML and can be rewritten by mutateSchedulerConfig. Go's flag package
+// accepts both kebab-case and camelCase, so all four forms are valid.
+var inlineConfigTextFlags = map[string]struct{}{
+	"--config-text": {}, "-config-text": {}, "--configText": {}, "-configText": {},
+}
+
+// schedulerConfigFlags lists both kebab-case and camelCase variants because
+// Go's flag package accepts either form.
+var schedulerConfigFlags = map[string]struct{}{
+	"--config-text": {}, "-config-text": {}, "--configText": {}, "-configText": {},
+	"--config-file": {}, "-config-file": {}, "--configFile": {}, "-configFile": {},
+}
+
+// schedulerConfigText returns a hardcoded default EndpointPickerConfig for
+// llm-d-router versions older than routerPresetMinVersion. Once all deployments
+// have migrated to >= 0.11.0 this function can be removed in favor of the
+// preset-only path.
 func schedulerConfigText(llmSvc *v1alpha2.LLMInferenceService) string {
-	if llmSvc.Spec.Router != nil &&
-		llmSvc.Spec.Router.Scheduler != nil &&
-		llmSvc.Spec.Router.Scheduler.Config != nil &&
-		llmSvc.Spec.Router.Scheduler.Config.Inline != nil {
-		// We don't need to handle Ref as it's done as part of the config merge step.
-		return string(llmSvc.Spec.Router.Scheduler.Config.Inline.Raw)
+	// lora-affinity-scorer is injected into every profile when LoRA adapters
+	// exist. The preset path does this in injectLoRAAffinityScorer; on this
+	// legacy path it has to be interpolated into the text.
+	var loraPlugin, loraProfileEntry string
+	if llmSvc.Spec.Model.LoRA != nil && len(llmSvc.Spec.Model.LoRA.Adapters) > 0 {
+		loraPlugin = fmt.Sprintf("- type: %s\n", loraAffinityScorerPlugin)
+		loraProfileEntry = fmt.Sprintf("  - pluginRef: %s\n    weight: 4\n", loraAffinityScorerPlugin)
 	}
 
 	switch {
 	case llmSvc.Spec.Prefill != nil:
-		// Always do P/D by default (threshold 0).
-		// Profiles follow the llm-d optimized P/D baseline:
-		//   prefill - prefix-cache + queue + kv-cache-utilization scorers
-		//   decode  - active-request + prefix-cache scorers (active request count
-		//             is a better signal than queue depth for ongoing generation).
-		// kv-cache-utilization-scorer and active-request-scorer are declared in the
-		// top-level plugins list so the profiles' pluginRefs resolve; queue-scorer
-		// stays declared because the prefill profile still references it.
-		// lora-affinity-scorer is injected into both profiles when LoRA adapters exist.
-		var loraPlugin, loraProfileEntry string
-		if llmSvc.Spec.Model.LoRA != nil && len(llmSvc.Spec.Model.LoRA.Adapters) > 0 {
-			loraPlugin = fmt.Sprintf("- type: %s\n", loraAffinityScorerPlugin)
-			loraProfileEntry = fmt.Sprintf("  - pluginRef: %s\n    weight: 4\n", loraAffinityScorerPlugin)
-		}
 		return fmt.Sprintf(`
 apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
@@ -589,17 +594,6 @@ plugins:
   - pluginRef: max-score-picker
 `, loraPlugin, loraProfileEntry, loraProfileEntry)
 	default:
-		var loraPlugin, loraProfileEntry string
-		if llmSvc.Spec.Model.LoRA != nil && len(llmSvc.Spec.Model.LoRA.Adapters) > 0 {
-			loraPlugin = fmt.Sprintf("- type: %s\n", loraAffinityScorerPlugin)
-			loraProfileEntry = fmt.Sprintf("  - pluginRef: %s\n    weight: 4\n", loraAffinityScorerPlugin)
-		}
-
-		// Single-profile default follows the llm-d optimized baseline:
-		// queue + kv-cache-utilization + prefix-cache + no-hit-lru scorers, plus
-		// lora-affinity-scorer injected when LoRA adapters are configured.
-		// Users who want precise prefix routing must explicitly declare
-		// token-producer and precise-prefix-cache-producer in their inline config.
 		return fmt.Sprintf(`
 apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
@@ -626,27 +620,13 @@ plugins:
 	}
 }
 
-// inlineConfigTextFlags lists the config-text flag variants that carry inline
-// YAML and can be rewritten by mutateSchedulerConfig. Go's flag package
-// accepts both kebab-case and camelCase, so all four forms are valid.
-var inlineConfigTextFlags = map[string]struct{}{
-	"--config-text": {}, "-config-text": {}, "--configText": {}, "-configText": {},
-}
-
-// schedulerConfigFlags lists both kebab-case and camelCase variants because
-// Go's flag package accepts either form.
-var schedulerConfigFlags = map[string]struct{}{
-	"--config-text": {}, "-config-text": {}, "--configText": {}, "-configText": {},
-	"--config-file": {}, "-config-file": {}, "--configFile": {}, "-configFile": {},
-}
-
 // preserveSchedulerConfig returns the config args for the scheduler container.
 //
 // Priority:
 //  1. Explicit inline config (including resolved ConfigMap refs) - always wins.
 //  2. Config flag already present in the template args - kept as-is (return nil).
 //  3. Config flag found in the current deployment - preserved across upgrades.
-//  4. No config anywhere - a fresh default is generated.
+//  4. No config anywhere - a fresh default is generated via schedulerConfigText().
 func preserveSchedulerConfig(llmSvc *v1alpha2.LLMInferenceService, curr *appsv1.Deployment) []string {
 	if llmSvc.Spec.Router != nil &&
 		llmSvc.Spec.Router.Scheduler != nil &&

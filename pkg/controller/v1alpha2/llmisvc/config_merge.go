@@ -27,6 +27,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/coreos/go-semver/semver"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -65,30 +66,34 @@ const (
 	configDecodeWorkerDataParallelNameSuffix  = "config-llm-decode-worker-data-parallel"
 	configPrefillWorkerDataParallelNameSuffix = "config-llm-prefill-worker-data-parallel"
 	// Router and scheduler configurations
-	configRouterSchedulerNameSuffix           = "config-llm-scheduler"
-	configRouterRouteNameSuffix               = "config-llm-router-route"
-	configSchedulerLatencyPredictorNameSuffix = "config-llm-scheduler-latency-predictor"
-	configTokenizerNameSuffix                 = "config-llm-tokenizer" // #nosec G101
+	configRouterSchedulerNameSuffix                  = "config-llm-scheduler"
+	configRouterSchedulerOptimizedBaselineNameSuffix = "config-llm-scheduler-eppconfig-optimized-baseline" // default EPPConfig
+	configRouterSchedulerPDDisaggNameSuffix          = "config-llm-scheduler-eppconfig-pd"                 // default EPPConfig for P/D
+	configRouterRouteNameSuffix                      = "config-llm-router-route"
+	configSchedulerLatencyPredictorNameSuffix        = "config-llm-scheduler-latency-predictor"
+	configTokenizerNameSuffix                        = "config-llm-tokenizer" // #nosec G101
 	// Tracing configurations
 	configTracingNameSuffix = "config-llm-tracing"
 )
 
 var (
-	configPrefix                            = constants.GetEnvOrDefault("LLM_INFERENCE_SERVICE_CONFIG_PREFIX", "kserve-")
-	configTemplateName                      = configPrefix + configTemplateNameSuffix
-	configDecodeTemplateName                = configPrefix + configDecodeTemplateNameSuffix
-	configDecodeWorkerPipelineParallelName  = configPrefix + configDecodeWorkerPipelineParallelNameSuffix
-	configWorkerPipelineParallelName        = configPrefix + configWorkerPipelineParallelNameSuffix
-	configWorkerDataParallelName            = configPrefix + configWorkerDataParallelNameSuffix
-	configDecodeWorkerDataParallelName      = configPrefix + configDecodeWorkerDataParallelNameSuffix
-	configPrefillTemplateName               = configPrefix + configPrefillTemplateNameSuffix
-	configPrefillWorkerPipelineParallelName = configPrefix + configPrefillWorkerPipelineParallelNameSuffix
-	configPrefillWorkerDataParallelName     = configPrefix + configPrefillWorkerDataParallelNameSuffix
-	configRouterSchedulerName               = configPrefix + configRouterSchedulerNameSuffix
-	configRouterRouteName                   = configPrefix + configRouterRouteNameSuffix
-	configSchedulerLatencyPredictorName     = configPrefix + configSchedulerLatencyPredictorNameSuffix
-	configTokenizerName                     = configPrefix + configTokenizerNameSuffix
-	configTracingName                       = configPrefix + configTracingNameSuffix
+	configPrefix                               = constants.GetEnvOrDefault("LLM_INFERENCE_SERVICE_CONFIG_PREFIX", "kserve-")
+	configTemplateName                         = configPrefix + configTemplateNameSuffix
+	configDecodeTemplateName                   = configPrefix + configDecodeTemplateNameSuffix
+	configDecodeWorkerPipelineParallelName     = configPrefix + configDecodeWorkerPipelineParallelNameSuffix
+	configWorkerPipelineParallelName           = configPrefix + configWorkerPipelineParallelNameSuffix
+	configWorkerDataParallelName               = configPrefix + configWorkerDataParallelNameSuffix
+	configDecodeWorkerDataParallelName         = configPrefix + configDecodeWorkerDataParallelNameSuffix
+	configPrefillTemplateName                  = configPrefix + configPrefillTemplateNameSuffix
+	configPrefillWorkerPipelineParallelName    = configPrefix + configPrefillWorkerPipelineParallelNameSuffix
+	configPrefillWorkerDataParallelName        = configPrefix + configPrefillWorkerDataParallelNameSuffix
+	configRouterSchedulerName                  = configPrefix + configRouterSchedulerNameSuffix
+	configRouterSchedulerOptimizedBaselineName = configPrefix + configRouterSchedulerOptimizedBaselineNameSuffix
+	configRouterSchedulerPDDisaggName          = configPrefix + configRouterSchedulerPDDisaggNameSuffix
+	configRouterRouteName                      = configPrefix + configRouterRouteNameSuffix
+	configSchedulerLatencyPredictorName        = configPrefix + configSchedulerLatencyPredictorNameSuffix
+	configTokenizerName                        = configPrefix + configTokenizerNameSuffix
+	configTracingName                          = configPrefix + configTracingNameSuffix
 )
 
 // FIXME move those presets to well-known when they're finally known :)
@@ -108,6 +113,8 @@ var WellKnownDefaultConfigs = sets.New[string](
 	configPrefillTemplateName,
 	configPrefillWorkerDataParallelName,
 	configRouterSchedulerName,
+	configRouterSchedulerOptimizedBaselineName,
+	configRouterSchedulerPDDisaggName,
 	configRouterRouteName,
 	configSchedulerLatencyPredictorName,
 	configTokenizerName,
@@ -117,6 +124,11 @@ var WellKnownDefaultConfigs = sets.New[string](
 const (
 	precisePrefixCacheScorerName = "precise-prefix-cache-scorer"
 )
+
+// routerPresetMinVersion is the minimum llm-d-router version that supports the
+// preset-based EPPConfig plugins. Services running older router images fall
+// back to the hardcoded schedulerConfigText().
+var routerPresetMinVersion = semver.New("0.11.0")
 
 var useVersionedConfig, _ = strconv.ParseBool(constants.GetEnvOrDefault("LLM_INFERENCE_SERVICE_VERSIONED_CONFIG", "true"))
 
@@ -130,6 +142,91 @@ type CombinedConfig struct {
 	// ResolvedSchedulerConfigMap identifies the ConfigMap resolved from the
 	// scheduler's Config.Ref. Nil when no ConfigMap was referenced.
 	ResolvedSchedulerConfigMap *types.NamespacedName
+}
+
+// routerVersionSupportsPreset reports whether the scheduler config's declared
+// llm-d-router version (app.kubernetes.io/version annotation) is >=
+// routerPresetMinVersion. Returns false when the annotation is absent or
+// unparseable, so the caller falls back to the hardcoded schedulerConfigText().
+func routerVersionSupportsPreset(ctx context.Context, cfg *v1alpha2.LLMInferenceServiceConfig) bool {
+	if cfg.Spec.Router == nil || cfg.Spec.Router.Scheduler == nil {
+		return false
+	}
+	versionStr, ok := cfg.Spec.Router.Scheduler.Annotations["app.kubernetes.io/version"]
+	if !ok || versionStr == "" {
+		return false
+	}
+	v, err := semver.NewVersion(versionStr)
+	if err != nil {
+		log.FromContext(ctx).Error(err, "Failed to parse llm-d-router version from scheduler config", "version", versionStr)
+		return false
+	}
+	return v.Compare(*routerPresetMinVersion) >= 0
+}
+
+// hasSchedulerEPPConfig reports whether a spec already supplies an EPPConfig for
+// the scheduler, either inline via .router.scheduler.config or as a
+// --config-text/--config-file flag on the "main" container. Such a config is
+// user-owned, so no preset is injected on top of it.
+func hasSchedulerEPPConfig(spec v1alpha2.LLMInferenceServiceSpec) bool {
+	if spec.Router == nil || spec.Router.Scheduler == nil {
+		return false
+	}
+	return spec.Router.Scheduler.Config != nil || hasMainContainerConfigFlag(spec)
+}
+
+// hasMainContainerConfigFlag reports whether the scheduler's "main" container
+// already carries a config flag (--config-text/--config-file). If so, the user
+// supplies the EPPConfig and we skip injecting a default llmisvcconfig preset.
+func hasMainContainerConfigFlag(spec v1alpha2.LLMInferenceServiceSpec) bool {
+	if spec.Router == nil || spec.Router.Scheduler == nil || spec.Router.Scheduler.Template == nil {
+		return false
+	}
+	return configFlagFromContainers(spec.Router.Scheduler.Template.Containers) != nil
+}
+
+// injectLoRAAffinityScorer adds lora-affinity-scorer to the scheduler config
+// so requests go to pods that already have the adapter loaded. Skips if this plugin already present.
+func injectLoRAAffinityScorer(cfg *v1alpha2.LLMInferenceServiceConfig) error {
+	if cfg.Spec.Router == nil || cfg.Spec.Router.Scheduler == nil ||
+		cfg.Spec.Router.Scheduler.Config == nil || cfg.Spec.Router.Scheduler.Config.Inline == nil {
+		return nil
+	}
+
+	epp := map[string]interface{}{}
+	if err := yaml.Unmarshal(cfg.Spec.Router.Scheduler.Config.Inline.Raw, &epp); err != nil {
+		return fmt.Errorf("failed to parse scheduler config for LoRA injection: %w", err)
+	}
+
+	// Append the scorer to the plugins list, skip if already there.
+	plugins, _ := epp["plugins"].([]interface{})
+	for _, p := range plugins {
+		if m, ok := p.(map[string]interface{}); ok {
+			if t, _ := m["type"].(string); t == loraAffinityScorerPlugin {
+				return nil
+			}
+		}
+	}
+	epp["plugins"] = append(plugins, map[string]interface{}{"type": loraAffinityScorerPlugin})
+
+	// Add lora-affinity-scorer with weight 4 into each scheduling profile's plugins.
+	profiles, _ := epp["schedulingProfiles"].([]interface{})
+	for _, pr := range profiles {
+		profile, ok := pr.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		entries, _ := profile["plugins"].([]interface{})
+		profile["plugins"] = append(entries,
+			map[string]interface{}{"pluginRef": loraAffinityScorerPlugin, "weight": int64(4)})
+	}
+
+	raw, err := json.Marshal(epp)
+	if err != nil {
+		return fmt.Errorf("failed to marshal scheduler config after lora-affinity-scorer injection: %w", err)
+	}
+	cfg.Spec.Router.Scheduler.Config.Inline = &runtime.RawExtension{Raw: raw}
+	return nil
 }
 
 // reconcileBaseRefs resolves and merges the referenced configs, then checks the
@@ -296,9 +393,47 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	logger.V(2).Info("Resolved spec", "spec", resolvedSpec)
 
 	refs := make([]corev1.LocalObjectReference, 0, len(llmSvc.Spec.BaseRefs))
+
+	// Check if user provided a customized config in llmisvc then inject EPPConfig accordingly
+	// we only mutate configs we generated.
+	injectDefaultSchedulerConfig := resolvedSpec.Router != nil &&
+		resolvedSpec.Router.Scheduler != nil &&
+		!hasSchedulerEPPConfig(resolvedSpec)
+
 	if resolvedSpec.Router != nil && resolvedSpec.Router.Scheduler != nil && !resolvedSpec.Router.Scheduler.Pool.HasRef() {
-		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configRouterSchedulerName)})
+		// Set router pod deployment
+		schedulerConfigName := wr.Resolve(llmSvc, configRouterSchedulerName)
+		refs = append(refs, corev1.LocalObjectReference{Name: schedulerConfigName})
+
+		if injectDefaultSchedulerConfig {
+			schedulerCfg, err := r.getConfig(ctx, llmSvc, schedulerConfigName)
+			if err != nil {
+				return nil, fmt.Errorf("failed to resolve scheduler config %q: %w", schedulerConfigName, err)
+			}
+
+			// resolvedSpec covers .spec plus the user's baseRefs only - the
+			// well-known scheduler config is merged further down, so an EPPConfig
+			// supplied there (by an admin customizing the preset) is invisible to
+			// the check above. It is still user-owned: injecting on top of it would
+			// make preserveSchedulerConfig append a second --config-text and
+			// silently shadow it.
+			if hasSchedulerEPPConfig(schedulerCfg.Spec) {
+				injectDefaultSchedulerConfig = false
+			}
+
+			// Select the default EndpointPickerConfig from the llmisvcconfig presets.
+			// The presets require llm-d-router image version >= routerPresetMinVersion.
+			// Older images fall back to the hardcoded schedulerConfigText().
+			if injectDefaultSchedulerConfig && routerVersionSupportsPreset(ctx, schedulerCfg) {
+				if resolvedSpec.Prefill != nil { // P/D disagg.
+					refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configRouterSchedulerPDDisaggName)})
+				} else { // single-profile optimized baseline.
+					refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configRouterSchedulerOptimizedBaselineName)})
+				}
+			}
+		}
 	}
+
 	if resolvedSpec.Router != nil && resolvedSpec.Router.Scheduler != nil && isTokenizerEnabled(resolvedSpec) {
 		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configTokenizerName)})
 	}
@@ -413,6 +548,16 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	llmSvcCfg, err = ReplaceVariables(llmSvc, llmSvcCfg, reconcilerConfig)
 	if err != nil {
 		return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, err
+	}
+
+	// Add the lora-affinity-scorer to the scheduler config only when
+	// .spec.model.lora.adapters is set and the user did not supply their own
+	// scheduler config (via .spec.router.scheduler.config or a config flag in
+	// the scheduler template args).
+	if injectDefaultSchedulerConfig && resolvedSpec.Model.LoRA != nil && len(resolvedSpec.Model.LoRA.Adapters) > 0 {
+		if err := injectLoRAAffinityScorer(llmSvcCfg); err != nil {
+			return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, err
+		}
 	}
 
 	injectManagedDRAIntoConfig(llmSvc, llmSvcCfg)

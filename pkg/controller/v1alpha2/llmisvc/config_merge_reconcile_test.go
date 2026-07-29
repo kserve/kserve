@@ -399,3 +399,75 @@ func TestReconcileBaseRefs_PreservesAppliedConfigRefsWhenStopped(t *testing.T) {
 
 	assert.Equal(t, existingRefs, llmSvc.Status.AppliedConfigRefs, "AppliedConfigRefs should be preserved when service is stopped")
 }
+
+func managedSchedulerService(namespace string) *v1alpha2.LLMInferenceService {
+	return &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-llm", Namespace: namespace},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Model:  v1alpha2.LLMModelSpec{Name: ptr.To("test-model")},
+			Router: &v1alpha2.RouterSpec{Scheduler: &v1alpha2.SchedulerSpec{}},
+		},
+	}
+}
+
+func TestCombineBaseRefsConfig_ConfigFlagInWellKnownPresetSuppressesInjection(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, v1alpha2.AddToScheme(scheme))
+
+	const adminConfig = `
+apiVersion: llm-d.ai/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: admin-owned-plugin
+`
+	schedulerCfg := &v1alpha2.LLMInferenceServiceConfig{
+		ObjectMeta: metav1.ObjectMeta{Name: configRouterSchedulerName, Namespace: constants.KServeNamespace},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Router: &v1alpha2.RouterSpec{
+				Scheduler: &v1alpha2.SchedulerSpec{
+					Annotations: map[string]string{"app.kubernetes.io/version": "0.11.0"},
+					Template: &corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Name: "main",
+							Args: []string{"--config-text", adminConfig},
+						}},
+					},
+				},
+			},
+		},
+	}
+	baselinePreset := &v1alpha2.LLMInferenceServiceConfig{
+		ObjectMeta: metav1.ObjectMeta{Name: configRouterSchedulerOptimizedBaselineName, Namespace: constants.KServeNamespace},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Router: &v1alpha2.RouterSpec{
+				Scheduler: &v1alpha2.SchedulerSpec{
+					Config: &v1alpha2.SchedulerConfigSpec{
+						Inline: &runtime.RawExtension{Raw: []byte(`{"plugins":[{"type":"token-load-scorer"}]}`)},
+					},
+				},
+			},
+		},
+	}
+	template := &v1alpha2.LLMInferenceServiceConfig{
+		ObjectMeta: metav1.ObjectMeta{Name: configTemplateName, Namespace: constants.KServeNamespace},
+	}
+	reconciler := &LLMISVCReconciler{
+		Client: fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(schedulerCfg, baselinePreset, template).
+			Build(),
+	}
+
+	combined, err := reconciler.combineBaseRefsConfig(t.Context(), managedSchedulerService("test-ns"), &Config{})
+
+	require.NoError(t, err)
+	for _, ref := range combined.AppliedConfigRefs {
+		assert.NotEqual(t, configRouterSchedulerOptimizedBaselineName, string(ref.Name),
+			"preset must not be applied when the well-known scheduler config already supplies an EPPConfig")
+	}
+	assert.Nil(t, combined.Config.Spec.Router.Scheduler.Config,
+		"no EPPConfig should be injected on top of the admin-supplied one")
+	assert.Equal(t, []string{"--config-text", adminConfig},
+		combined.Config.Spec.Router.Scheduler.Template.Containers[0].Args,
+		"the admin-supplied config flag must survive untouched")
+}

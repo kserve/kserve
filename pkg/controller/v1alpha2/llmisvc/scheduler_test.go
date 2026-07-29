@@ -19,6 +19,8 @@ package llmisvc
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"slices"
 	"testing"
 
@@ -31,159 +33,111 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	pkgtesting "github.com/kserve/kserve/pkg/testing"
 )
 
-func TestSchedulerConfigTextLoRA(t *testing.T) {
-	loraAdapters := []v1alpha2.LLMModelSpec{{}}
+// loadSchedulerPresetInline reads a scheduler preset from config/llmisvcconfig and
+// returns its resolved EPPConfig inline as a parsed map.
+func loadSchedulerPresetInline(g *WithT, filename string) (*v1alpha2.LLMInferenceServiceConfig, map[string]interface{}) {
+	path := filepath.Join(pkgtesting.ProjectRoot(), "config", "llmisvcconfig", filename)
+	data, err := os.ReadFile(filepath.Clean(path))
+	g.Expect(err).NotTo(HaveOccurred())
 
-	tests := []struct {
-		name     string
-		llmSvc   *v1alpha2.LLMInferenceService
-		wantLoRA bool
-	}{
-		{
-			name:     "no LoRA - standard default config",
-			llmSvc:   &v1alpha2.LLMInferenceService{},
-			wantLoRA: false,
-		},
-		{
-			name: "LoRA nil pointer - no scorer",
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					Model: v1alpha2.LLMModelSpec{LoRA: nil},
-				},
-			},
-			wantLoRA: false,
-		},
-		{
-			name: "LoRA spec with empty adapters - no scorer",
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					Model: v1alpha2.LLMModelSpec{LoRA: &v1alpha2.LoRASpec{}},
-				},
-			},
-			wantLoRA: false,
-		},
-		{
-			name: "LoRA adapters present - scorer included",
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					Model: v1alpha2.LLMModelSpec{
-						LoRA: &v1alpha2.LoRASpec{Adapters: loraAdapters},
-					},
-				},
-			},
-			wantLoRA: true,
-		},
-	}
+	cfg := &v1alpha2.LLMInferenceServiceConfig{}
+	g.Expect(yaml.Unmarshal(data, cfg)).To(Succeed())
+	g.Expect(cfg.Spec.Router).NotTo(BeNil())
+	g.Expect(cfg.Spec.Router.Scheduler).NotTo(BeNil())
+	g.Expect(cfg.Spec.Router.Scheduler.Config).NotTo(BeNil())
+	g.Expect(cfg.Spec.Router.Scheduler.Config.Inline).NotTo(BeNil())
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			g := NewGomegaWithT(t)
-			text := schedulerConfigText(tt.llmSvc)
-
-			var obj map[string]interface{}
-			g.Expect(yaml.Unmarshal([]byte(text), &obj)).To(Succeed())
-
-			plugins := obj["plugins"].([]interface{})
-			types := make([]string, 0, len(plugins))
-			for _, p := range plugins {
-				types = append(types, p.(map[string]interface{})["type"].(string))
-			}
-
-			profiles := obj["schedulingProfiles"].([]interface{})
-			defaultProfile := profiles[0].(map[string]interface{})
-			refs := defaultProfile["plugins"].([]interface{})
-			refNames := make([]string, 0, len(refs))
-			for _, r := range refs {
-				refNames = append(refNames, r.(map[string]interface{})["pluginRef"].(string))
-			}
-
-			if tt.wantLoRA {
-				g.Expect(types).To(ContainElement(loraAffinityScorerPlugin))
-				g.Expect(refNames[0]).To(Equal(loraAffinityScorerPlugin))
-				g.Expect(refs[0].(map[string]interface{})["weight"]).To(BeNumerically("==", 4))
-			} else {
-				g.Expect(types).NotTo(ContainElement(loraAffinityScorerPlugin))
-				g.Expect(refNames).NotTo(ContainElement(loraAffinityScorerPlugin))
-			}
-		})
-	}
+	obj := map[string]interface{}{}
+	g.Expect(yaml.Unmarshal(cfg.Spec.Router.Scheduler.Config.Inline.Raw, &obj)).To(Succeed())
+	return cfg, obj
 }
 
-func TestSchedulerConfigTextPDLoRA(t *testing.T) {
-	loraAdapters := []v1alpha2.LLMModelSpec{{}}
+// TestInjectLoRAAffinityScorerDefault asserts the LoRA affinity scorer is injected
+// into the single-profile optimized-baseline preset: added to the top-level plugins
+// list and referenced (weight 4) in the default profile. The baseline has no picker,
+// so the scorer is appended at the end of the profile.
+func TestInjectLoRAAffinityScorerDefault(t *testing.T) {
+	g := NewGomegaWithT(t)
 
-	tests := []struct {
-		name     string
-		llmSvc   *v1alpha2.LLMInferenceService
-		wantLoRA bool
-	}{
-		{
-			name: "P/D without LoRA - no scorer",
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					Prefill: &v1alpha2.WorkloadSpec{},
-				},
-			},
-			wantLoRA: false,
-		},
-		{
-			name: "P/D with LoRA adapters - scorer in both profiles",
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					Prefill: &v1alpha2.WorkloadSpec{},
-					Model: v1alpha2.LLMModelSpec{
-						LoRA: &v1alpha2.LoRASpec{Adapters: loraAdapters},
-					},
-				},
-			},
-			wantLoRA: true,
-		},
-	}
+	// Before injection the preset must not reference the scorer.
+	_, before := loadSchedulerPresetInline(g, "config-llm-scheduler-eppconfig-optimized-baseline.yaml")
+	g.Expect(pluginTypeSet(before)).NotTo(HaveKey(loraAffinityScorerPlugin))
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			g := NewGomegaWithT(t)
-			text := schedulerConfigText(tt.llmSvc)
+	cfg, _ := loadSchedulerPresetInline(g, "config-llm-scheduler-eppconfig-optimized-baseline.yaml")
+	g.Expect(injectLoRAAffinityScorer(cfg)).To(Succeed())
 
-			var obj map[string]interface{}
-			g.Expect(yaml.Unmarshal([]byte(text), &obj)).To(Succeed())
+	after := map[string]interface{}{}
+	g.Expect(yaml.Unmarshal(cfg.Spec.Router.Scheduler.Config.Inline.Raw, &after)).To(Succeed())
 
-			plugins := obj["plugins"].([]interface{})
-			types := make([]string, 0, len(plugins))
-			for _, p := range plugins {
-				types = append(types, p.(map[string]interface{})["type"].(string))
-			}
+	g.Expect(pluginTypeSet(after)).To(HaveKey(loraAffinityScorerPlugin))
 
-			profiles := obj["schedulingProfiles"].([]interface{})
-			g.Expect(profiles).To(HaveLen(2))
-
-			for _, profile := range profiles {
-				refs := profile.(map[string]interface{})["plugins"].([]interface{})
-				refNames := make([]string, 0, len(refs))
-				for _, r := range refs {
-					refNames = append(refNames, r.(map[string]interface{})["pluginRef"].(string))
-				}
-
-				if tt.wantLoRA {
-					g.Expect(types).To(ContainElement(loraAffinityScorerPlugin))
-					// scorer is second (after the profile's filter plugin)
-					g.Expect(refNames[1]).To(Equal(loraAffinityScorerPlugin))
-					g.Expect(refs[1].(map[string]interface{})["weight"]).To(BeNumerically("==", 4))
-				} else {
-					g.Expect(refNames).NotTo(ContainElement(loraAffinityScorerPlugin))
-				}
-			}
-
-			if !tt.wantLoRA {
-				g.Expect(types).NotTo(ContainElement(loraAffinityScorerPlugin))
-			}
-		})
-	}
+	refs, found := profilePluginRefs(after, "default")
+	g.Expect(found).To(BeTrue())
+	g.Expect(refs).To(Equal([]pluginRefWeight{
+		{Ref: "prefix-cache-affinity-filter"},
+		{Ref: "token-load-scorer"},
+		{Ref: loraAffinityScorerPlugin, Weight: 4},
+	}))
 }
 
+// TestInjectLoRAAffinityScorerPD asserts the scorer is injected into both P/D
+// profiles. The picker aggregates all scorers regardless of list position, so
+// the scorer ref is appended at the end of each profile.
+func TestInjectLoRAAffinityScorerPD(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	cfg, _ := loadSchedulerPresetInline(g, "config-llm-scheduler-eppconfig-pd.yaml")
+	g.Expect(injectLoRAAffinityScorer(cfg)).To(Succeed())
+
+	after := map[string]interface{}{}
+	g.Expect(yaml.Unmarshal(cfg.Spec.Router.Scheduler.Config.Inline.Raw, &after)).To(Succeed())
+
+	g.Expect(pluginTypeSet(after)).To(HaveKey(loraAffinityScorerPlugin))
+
+	prefill, found := profilePluginRefs(after, "prefill")
+	g.Expect(found).To(BeTrue())
+	g.Expect(prefill).To(Equal([]pluginRefWeight{
+		{Ref: "prefill-filter"},
+		{Ref: "prefix-cache-affinity-filter"},
+		{Ref: "token-load-scorer"},
+		{Ref: "max-score-picker"},
+		{Ref: loraAffinityScorerPlugin, Weight: 4},
+	}))
+
+	decode, found := profilePluginRefs(after, "decode")
+	g.Expect(found).To(BeTrue())
+	g.Expect(decode).To(Equal([]pluginRefWeight{
+		{Ref: "decode-filter"},
+		{Ref: "active-request-scorer"},
+		{Ref: "max-score-picker"},
+		{Ref: loraAffinityScorerPlugin, Weight: 4},
+	}))
+}
+
+// TestInjectLoRAAffinityScorerIdempotent asserts a second injection is a no-op so
+// repeated reconciliations don't accumulate duplicate scorer references.
+func TestInjectLoRAAffinityScorerIdempotent(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	cfg, _ := loadSchedulerPresetInline(g, "config-llm-scheduler-eppconfig-optimized-baseline.yaml")
+	g.Expect(injectLoRAAffinityScorer(cfg)).To(Succeed())
+	once := cfg.Spec.Router.Scheduler.Config.Inline.Raw
+
+	g.Expect(injectLoRAAffinityScorer(cfg)).To(Succeed())
+	g.Expect(cfg.Spec.Router.Scheduler.Config.Inline.Raw).To(Equal(once))
+}
+
+// TestPreserveSchedulerConfig covers the config resolution priorities:
+//  1. Inline config wins.
+//  2. Template carries its own config flag - return nil.
+//  3. Current deployment has a config flag - preserve it.
+//  4. No config anywhere - fall back to schedulerConfigText().
 func TestPreserveSchedulerConfig(t *testing.T) {
+	emptyCurr := &appsv1.Deployment{}
+
 	defaultSvc := &v1alpha2.LLMInferenceService{}
 	inlineSvc := &v1alpha2.LLMInferenceService{
 		Spec: v1alpha2.LLMInferenceServiceSpec{
@@ -198,16 +152,17 @@ func TestPreserveSchedulerConfig(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		llmSvc   *v1alpha2.LLMInferenceService
-		curr     *appsv1.Deployment
-		expected []string
+		name          string
+		llmSvc        *v1alpha2.LLMInferenceService
+		curr          *appsv1.Deployment
+		expected      []string
+		wantGenerated bool
 	}{
 		{
-			name:     "no current deployment - generates fresh config",
-			llmSvc:   defaultSvc,
-			curr:     &appsv1.Deployment{},
-			expected: []string{"--config-text", schedulerConfigText(defaultSvc)},
+			name:          "no config anywhere - fallback generated",
+			llmSvc:        defaultSvc,
+			curr:          emptyCurr,
+			wantGenerated: true,
 		},
 		{
 			name:   "current deployment with --config-text - preserves it",
@@ -283,7 +238,7 @@ func TestPreserveSchedulerConfig(t *testing.T) {
 					},
 				},
 			},
-			expected: []string{"--config-text", schedulerConfigText(defaultSvc)},
+			wantGenerated: true,
 		},
 		{
 			name:   "inline config overrides existing deployment config",
@@ -307,7 +262,7 @@ func TestPreserveSchedulerConfig(t *testing.T) {
 		{
 			name:     "inline config used when no existing deployment",
 			llmSvc:   inlineSvc,
-			curr:     &appsv1.Deployment{},
+			curr:     emptyCurr,
 			expected: []string{"--config-text", "updated-inline-config"},
 		},
 		{
@@ -328,7 +283,7 @@ func TestPreserveSchedulerConfig(t *testing.T) {
 					},
 				},
 			},
-			curr:     &appsv1.Deployment{},
+			curr:     emptyCurr,
 			expected: nil,
 		},
 		{
@@ -352,7 +307,7 @@ func TestPreserveSchedulerConfig(t *testing.T) {
 					},
 				},
 			},
-			curr:     &appsv1.Deployment{},
+			curr:     emptyCurr,
 			expected: []string{"--config-text", "inline-override"},
 		},
 		{
@@ -372,7 +327,7 @@ func TestPreserveSchedulerConfig(t *testing.T) {
 					},
 				},
 			},
-			expected: []string{"--config-text", schedulerConfigText(defaultSvc)},
+			wantGenerated: true,
 		},
 	}
 
@@ -380,61 +335,44 @@ func TestPreserveSchedulerConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewGomegaWithT(t)
 			result := preserveSchedulerConfig(tt.llmSvc, tt.curr)
-			g.Expect(result).To(Equal(tt.expected))
+			switch {
+			case tt.expected != nil:
+				g.Expect(result).To(Equal(tt.expected))
+			case tt.wantGenerated:
+				g.Expect(result).To(HaveLen(2))
+				g.Expect(result[0]).To(Equal("--config-text"))
+				g.Expect(result[1]).NotTo(BeEmpty())
+			default:
+				g.Expect(result).To(BeNil())
+			}
 		})
 	}
 }
 
-// TestSchedulerConfigTextDefault asserts the default (non-prefill, single-profile)
-// scheduler config matches the llm-d optimized baseline: queue + kv-cache-utilization +
-// prefix-cache + no-hit-lru scorers. Kept self-contained (no shared helpers) so it does
-// not collide with the P/D config test added in a separate change.
-func TestSchedulerConfigTextDefault(t *testing.T) {
+// TestSchedulerOptimizedBaselinePreset asserts the single-profile preset shipped in
+// config/llmisvcconfig matches the llm-d optimized-baseline guide:
+// approx-prefix-cache-producer, inflight-load-producer, prefix-cache-affinity-filter,
+// token-load-scorer with a single default profile.
+func TestSchedulerOptimizedBaselinePreset(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	// No Prefill selects the default branch of schedulerConfigText.
-	svc := &v1alpha2.LLMInferenceService{}
+	_, cfg := loadSchedulerPresetInline(g, "config-llm-scheduler-eppconfig-optimized-baseline.yaml")
 
-	var cfg map[string]interface{}
-	g.Expect(yaml.Unmarshal([]byte(schedulerConfigText(svc)), &cfg)).To(Succeed())
-
-	// Every profile pluginRef must be declared in the top-level plugins list.
-	topLevel := map[string]struct{}{}
-	for _, p := range cfg["plugins"].([]interface{}) {
-		topLevel[p.(map[string]interface{})["type"].(string)] = struct{}{}
-	}
-	g.Expect(topLevel).To(SatisfyAll(
-		HaveKey("single-profile-handler"),
-		HaveKey("queue-scorer"),
-		HaveKey("kv-cache-utilization-scorer"),
-		HaveKey("prefix-cache-scorer"),
-		HaveKey("no-hit-lru-scorer"),
-		HaveKey("max-score-picker"),
+	g.Expect(pluginTypeSet(cfg)).To(SatisfyAll(
+		HaveKey("approx-prefix-cache-producer"),
+		HaveKey("inflight-load-producer"),
+		HaveKey("prefix-cache-affinity-filter"),
+		HaveKey("token-load-scorer"),
 	))
 
-	// Exactly one "default" profile with the baseline pluginRef/weight sequence.
-	// sigs.k8s.io/yaml decodes numbers as float64; an absent weight is nil.
 	profiles := cfg["schedulingProfiles"].([]interface{})
 	g.Expect(profiles).To(HaveLen(1))
-	def := profiles[0].(map[string]interface{})
-	g.Expect(def["name"]).To(Equal("default"))
 
-	type refWeight struct {
-		ref    string
-		weight interface{}
-	}
-	defPlugins := def["plugins"].([]interface{})
-	got := make([]refWeight, 0, len(defPlugins))
-	for _, r := range defPlugins {
-		rm := r.(map[string]interface{})
-		got = append(got, refWeight{ref: rm["pluginRef"].(string), weight: rm["weight"]})
-	}
-	g.Expect(got).To(Equal([]refWeight{
-		{ref: "queue-scorer", weight: float64(2)},
-		{ref: "kv-cache-utilization-scorer", weight: float64(2)},
-		{ref: "prefix-cache-scorer", weight: float64(3)},
-		{ref: "no-hit-lru-scorer", weight: float64(2)},
-		{ref: "max-score-picker", weight: nil},
+	refs, found := profilePluginRefs(cfg, "default")
+	g.Expect(found).To(BeTrue())
+	g.Expect(refs).To(Equal([]pluginRefWeight{
+		{Ref: "prefix-cache-affinity-filter"},
+		{Ref: "token-load-scorer"},
 	}))
 }
 
@@ -519,8 +457,10 @@ func TestFilterArgs(t *testing.T) {
 }
 
 // pluginRefWeight is an ordered (pluginRef, weight) pair from a scheduling
-// profile. Weight is 0 when unset; the P/D baseline only uses weights 2 and 3,
-// so 0 unambiguously means "no weight".
+// profile. Weight is 0 when the profile entry omits it; no preset entry sets an
+// explicit weight, so the only non-zero weight is 4, added by LoRA injection.
+// (EPP itself treats an omitted weight as 1 at scheduling time, but this helper
+// records the absence as 0.)
 type pluginRefWeight struct {
 	Ref    string
 	Weight int
@@ -558,53 +498,42 @@ func profilePluginRefs(cfg map[string]interface{}, name string) (refs []pluginRe
 	return nil, false
 }
 
-// TestSchedulerConfigTextPD asserts the default prefill/decode (P/D) scheduling
-// profiles match the upstream llm-d optimized baseline: prefill gains
-// kv-cache-utilization-scorer, decode swaps queue-scorer for active-request-scorer.
-func TestSchedulerConfigTextPD(t *testing.T) {
+// TestSchedulerPDDisaggPreset asserts the default prefill/decode (P/D) preset
+// shipped in config/llmisvcconfig matches the llm-d pd-disaggregation guide:
+// always-disagg-pd-decider for P/D routing, prefix-cache-affinity-filter +
+// token-load-scorer for prefill, active-request-scorer for decode.
+func TestSchedulerPDDisaggPreset(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	// A non-nil Prefill selects the P/D branch of schedulerConfigText.
-	svc := &v1alpha2.LLMInferenceService{
-		Spec: v1alpha2.LLMInferenceServiceSpec{
-			Prefill: &v1alpha2.WorkloadSpec{},
-		},
-	}
+	_, cfg := loadSchedulerPresetInline(g, "config-llm-scheduler-eppconfig-pd.yaml")
 
-	var cfg map[string]interface{}
-	g.Expect(yaml.Unmarshal([]byte(schedulerConfigText(svc)), &cfg)).To(Succeed())
-
-	// Every profile pluginRef must be declared in the top-level plugins list. The
-	// two new scorers are added there; queue-scorer stays (prefill still uses it).
 	g.Expect(pluginTypeSet(cfg)).To(SatisfyAll(
-		HaveKey("kv-cache-utilization-scorer"),
+		HaveKey("always-disagg-pd-decider"),
+		HaveKey("disagg-profile-handler"),
+		HaveKey("approx-prefix-cache-producer"),
+		HaveKey("inflight-load-producer"),
+		HaveKey("prefix-cache-affinity-filter"),
+		HaveKey("token-load-scorer"),
 		HaveKey("active-request-scorer"),
-		HaveKey("queue-scorer"),
-		HaveKey("prefix-cache-scorer"),
 		HaveKey("prefill-filter"),
 		HaveKey("decode-filter"),
 		HaveKey("max-score-picker"),
 	))
 
-	// Prefill profile: prefix-cache(3) + queue(2) + kv-cache-utilization(2).
 	prefill, found := profilePluginRefs(cfg, "prefill")
 	g.Expect(found).To(BeTrue(), "prefill profile should exist")
 	g.Expect(prefill).To(Equal([]pluginRefWeight{
 		{Ref: "prefill-filter"},
-		{Ref: "prefix-cache-scorer", Weight: 3},
-		{Ref: "queue-scorer", Weight: 2},
-		{Ref: "kv-cache-utilization-scorer", Weight: 2},
+		{Ref: "prefix-cache-affinity-filter"},
+		{Ref: "token-load-scorer"},
 		{Ref: "max-score-picker"},
 	}))
 
-	// Decode profile: active-request(2) replaces queue-scorer; prefix-cache(3).
-	// The exact match also guarantees queue-scorer is no longer referenced here.
 	decode, found := profilePluginRefs(cfg, "decode")
 	g.Expect(found).To(BeTrue(), "decode profile should exist")
 	g.Expect(decode).To(Equal([]pluginRefWeight{
 		{Ref: "decode-filter"},
-		{Ref: "active-request-scorer", Weight: 2},
-		{Ref: "prefix-cache-scorer", Weight: 3},
+		{Ref: "active-request-scorer"},
 		{Ref: "max-score-picker"},
 	}))
 }
