@@ -2228,23 +2228,85 @@ plugins:
 	}
 }
 
-func TestWithMetricsDataSourceParams(t *testing.T) {
+func TestMetricsDataSourceParameters(t *testing.T) {
 	tests := []struct {
-		name       string
-		configYAML string
-		extracted  map[string]string
-		validate   func(g Gomega, obj map[string]interface{})
+		name         string
+		extracted    map[string]string
+		expectErr    bool
+		errSubstring string
+		expected     map[string]interface{}
 	}{
 		{
-			name: "injects plugin with scheme, path and insecureSkipVerify",
-			configYAML: `
-plugins:
-- type: queue-scorer
-`,
+			name: "converts scheme, path and insecureSkipVerify",
 			extracted: map[string]string{
 				modelServerMetricsSchemeFlag:             "https",
 				modelServerMetricsPathFlag:               "/custom/metrics",
 				modelServerMetricsInsecureSkipVerifyFlag: "false",
+			},
+			expected: map[string]interface{}{
+				"scheme":             "https",
+				"path":               "/custom/metrics",
+				"insecureSkipVerify": false,
+			},
+		},
+		{
+			name:      "bare insecureSkipVerify flag means true",
+			extracted: map[string]string{modelServerMetricsInsecureSkipVerifyFlag: ""},
+			expected:  map[string]interface{}{"insecureSkipVerify": true},
+		},
+		{
+			name: "empty scheme and path values are dropped",
+			extracted: map[string]string{
+				modelServerMetricsSchemeFlag: "",
+				modelServerMetricsPathFlag:   "",
+			},
+			expected: map[string]interface{}{},
+		},
+		{
+			name:      "no flags returns empty parameters",
+			extracted: map[string]string{},
+			expected:  map[string]interface{}{},
+		},
+		{
+			name:         "invalid insecureSkipVerify value returns error",
+			extracted:    map[string]string{modelServerMetricsInsecureSkipVerifyFlag: "notabool"},
+			expectErr:    true,
+			errSubstring: "invalid value",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			parameters, err := metricsDataSourceParameters(tt.extracted)
+			if tt.expectErr {
+				g.Expect(err).To(HaveOccurred())
+				g.Expect(err.Error()).To(ContainSubstring(tt.errSubstring))
+				return
+			}
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(parameters).To(Equal(tt.expected))
+		})
+	}
+}
+
+func TestWithMetricsDataSourceParams(t *testing.T) {
+	tests := []struct {
+		name       string
+		configYAML string
+		parameters map[string]interface{}
+		validate   func(g Gomega, obj map[string]interface{})
+	}{
+		{
+			name: "injects plugin with the given parameters",
+			configYAML: `
+plugins:
+- type: queue-scorer
+`,
+			parameters: map[string]interface{}{
+				"scheme":             "https",
+				"path":               "/custom/metrics",
+				"insecureSkipVerify": false,
 			},
 			validate: func(g Gomega, obj map[string]interface{}) {
 				plugins := obj["plugins"].([]interface{})
@@ -2258,33 +2320,6 @@ plugins:
 			},
 		},
 		{
-			name: "bare insecureSkipVerify flag means true",
-			configYAML: `
-plugins:
-- type: queue-scorer
-`,
-			extracted: map[string]string{modelServerMetricsInsecureSkipVerifyFlag: ""},
-			validate: func(g Gomega, obj map[string]interface{}) {
-				plugins := obj["plugins"].([]interface{})
-				g.Expect(plugins).To(HaveLen(2))
-				params := plugins[1].(map[string]interface{})["parameters"].(map[string]interface{})
-				g.Expect(params).To(HaveKeyWithValue("insecureSkipVerify", true))
-				g.Expect(params).NotTo(HaveKey("scheme"))
-			},
-		},
-		{
-			name: "no re-injectable params leaves plugins untouched",
-			configYAML: `
-plugins:
-- type: queue-scorer
-`,
-			extracted: map[string]string{},
-			validate: func(g Gomega, obj map[string]interface{}) {
-				plugins := obj["plugins"].([]interface{})
-				g.Expect(plugins).To(HaveLen(1))
-			},
-		},
-		{
 			name: "skips when metrics-data-source already exists",
 			configYAML: `
 plugins:
@@ -2292,7 +2327,7 @@ plugins:
   parameters:
     scheme: http
 `,
-			extracted: map[string]string{modelServerMetricsSchemeFlag: "https"},
+			parameters: map[string]interface{}{"scheme": "https"},
 			validate: func(g Gomega, obj map[string]interface{}) {
 				plugins := obj["plugins"].([]interface{})
 				g.Expect(plugins).To(HaveLen(1))
@@ -2309,7 +2344,7 @@ plugins:
 			var obj map[string]interface{}
 			g.Expect(yaml.Unmarshal([]byte(tt.configYAML), &obj)).To(Succeed())
 			u := unstructured.Unstructured{Object: obj}
-			fn := withMetricsDataSourceParams(tt.extracted)
+			fn := withMetricsDataSourceParams(tt.parameters)
 			g.Expect(fn(context.Background(), &u)).To(Succeed())
 			tt.validate(g, u.Object)
 		})
@@ -2464,6 +2499,32 @@ plugins:
 			args:         []string{"--config-file", "/etc/scheduler/config.yaml"},
 			expectErr:    true,
 			errSubstring: "no inline --config-text",
+		},
+		{
+			// multiple flags on a non-writable config: the error must list the
+			// actual flags that were set, in a deterministic (sorted) order.
+			name:    "0.10.0 non-writable config-file lists the set flags sorted",
+			version: "0.10.0",
+			command: []string{
+				"/app/epp",
+				"--model-server-metrics-scheme=https",
+				"--model-server-metrics-path=/metrics",
+				"--model-server-metrics-https-insecure-skip-verify=true",
+			},
+			args:      []string{"--config-file", "/etc/scheduler/config.yaml"},
+			expectErr: true,
+			errSubstring: "--model-server-metrics-https-insecure-skip-verify, " +
+				"--model-server-metrics-path, --model-server-metrics-scheme",
+		},
+		{
+			// an invalid boolean fails the reconcile up front (with a writable
+			// config-text), before any config mutation happens.
+			name:         "0.10.0 invalid insecureSkipVerify value returns error",
+			version:      "0.10.0",
+			command:      []string{"/app/epp", "--model-server-metrics-https-insecure-skip-verify=notabool"},
+			args:         []string{"--config-text", configYAML},
+			expectErr:    true,
+			errSubstring: "invalid value",
 		},
 		{
 			// port has no plugin parameter, so stripping it needs no config

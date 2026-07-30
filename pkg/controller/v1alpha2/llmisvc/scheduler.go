@@ -1440,16 +1440,26 @@ func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alp
 	if v.Compare(*metricsDataSourceMinVersion) >= 0 {
 		if params := extractModelServerMetricsFlags(ctx, d); len(params) > 0 {
 			if !writable {
+				flags := make([]string, 0, len(params))
+				for name := range params {
+					flags = append(flags, "--"+name)
+				}
+				sort.Strings(flags)
 				return fmt.Errorf(
-					"scheduler deployment %s/%s sets deprecated "+
-						"--model-server-metrics-{scheme,path,https-insecure-skip-verify} "+
+					"scheduler deployment %s/%s sets deprecated %s "+
 						"but has no inline --config-text; automatic migration to the "+
 						"metrics-data-source plugin is not possible — convert to --config-text "+
 						"or remove the flags manually",
-					d.GetNamespace(), d.GetName(),
+					d.GetNamespace(), d.GetName(), strings.Join(flags, ", "),
 				)
 			}
-			opts = append(opts, withMetricsDataSourceParams(params))
+			parameters, err := metricsDataSourceParameters(params)
+			if err != nil {
+				return err
+			}
+			if len(parameters) > 0 {
+				opts = append(opts, withMetricsDataSourceParams(parameters))
+			}
 		}
 	}
 
@@ -1944,27 +1954,40 @@ func withCoreMetricsExtractorPlugin(extracted map[string]string) mutateScheduler
 	}
 }
 
-// withMetricsDataSourceParams returns a mutateSchedulerConfigFunc that injects a
-// metrics-data-source plugin carrying the scheme, path, and insecureSkipVerify
-// previously passed via the --model-server-metrics-* CLI flags.
-// No-op if a metrics-data-source plugin is already declared or if no re-injectable parameters were extracted.
-func withMetricsDataSourceParams(extracted map[string]string) mutateSchedulerConfigFunc {
-	return func(_ context.Context, u *unstructured.Unstructured) error {
-		parameters := map[string]interface{}{}
-		if scheme := extracted[modelServerMetricsSchemeFlag]; scheme != "" {
-			parameters["scheme"] = scheme
+// metricsDataSourceParameters converts the extracted --model-server-metrics-*
+// flag values into metrics-data-source plugin parameters, validating them.
+// A bare --model-server-metrics-https-insecure-skip-verify (empty value) means true;
+// any other value must parse as a boolean, matching the router's flag parsing.
+// Empty scheme/path values are dropped; the returned map may be empty.
+func metricsDataSourceParameters(extracted map[string]string) (map[string]interface{}, error) {
+	parameters := map[string]interface{}{}
+	if scheme := extracted[modelServerMetricsSchemeFlag]; scheme != "" {
+		parameters["scheme"] = scheme
+	}
+	if p := extracted[modelServerMetricsPathFlag]; p != "" {
+		parameters["path"] = p
+	}
+	if v, ok := extracted[modelServerMetricsInsecureSkipVerifyFlag]; ok {
+		if v == "" {
+			parameters["insecureSkipVerify"] = true
+		} else {
+			b, err := strconv.ParseBool(v)
+			if err != nil {
+				return nil, fmt.Errorf("invalid value %q for --%s: %w", v, modelServerMetricsInsecureSkipVerifyFlag, err)
+			}
+			parameters["insecureSkipVerify"] = b
 		}
-		if p := extracted[modelServerMetricsPathFlag]; p != "" {
-			parameters["path"] = p
-		}
-		// empty string means true
-		if v, ok := extracted[modelServerMetricsInsecureSkipVerifyFlag]; ok {
-			parameters["insecureSkipVerify"] = v == "" || parseBoolDefaultTrue(v)
-		}
-		if len(parameters) == 0 {
-			return nil
-		}
+	}
+	return parameters, nil
+}
 
+// withMetricsDataSourceParams returns a mutateSchedulerConfigFunc that injects a
+// metrics-data-source plugin carrying the given parameters (scheme, path, and
+// insecureSkipVerify) previously passed via the --model-server-metrics-* CLI flags.
+// Callers pass a non-empty, already-validated parameter map (see
+// metricsDataSourceParameters). No-op if a metrics-data-source plugin is already declared.
+func withMetricsDataSourceParams(parameters map[string]interface{}) mutateSchedulerConfigFunc {
+	return func(_ context.Context, u *unstructured.Unstructured) error {
 		val, _, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
 		if err != nil {
 			return err
@@ -1985,16 +2008,6 @@ func withMetricsDataSourceParams(extracted map[string]string) mutateSchedulerCon
 		plugins = append(plugins, pluginEntry)
 		return unstructured.SetNestedSlice(u.Object, plugins, "plugins")
 	}
-}
-
-// parseBoolDefaultTrue parses a bool flag value, falling back to true (the router
-// insecureSkipVerify default) when the value is not a recognized boolean.
-func parseBoolDefaultTrue(v string) bool {
-	b, err := strconv.ParseBool(v)
-	if err != nil {
-		return true
-	}
-	return b
 }
 
 func semanticServiceIsEqual(expected *corev1.Service, current *corev1.Service) bool {
