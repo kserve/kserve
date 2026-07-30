@@ -410,17 +410,35 @@ type HTTPRouteSpec struct {
 	// +optional
 	Refs []corev1.LocalObjectReference `json:"refs,omitempty"`
 
+	// RuleDefaults provides optional defaults that are applied to controller-generated
+	// preset HTTPRoute rules before the final route is emitted.
+	// +optional
+	RuleDefaults *HTTPRouteRuleDefaults `json:"ruleDefaults,omitempty"`
+
 	// Spec allows for providing a custom specification for an HTTPRoute.
 	// If provided, the controller will create and manage an HTTPRoute with this specification.
 	//
 	// Spec fields are strategically merged with the well-known router-route preset:
 	// top-level fields such as hostnames and parentRefs can be set alone without losing
 	// preset rules/backendRefs. Supplying Rules replaces the entire preset Rules list
-	// (provide a complete list). An exception is timeout-only rule patches (Rules entries
-	// that set only timeouts), which overlay those timeouts onto the preset rules instead
-	// of replacing them.
+	// (provide a complete list).
 	// +optional
 	Spec *gwapiv1.HTTPRouteSpec `json:"spec,omitempty"`
+}
+
+// HTTPRouteRuleDefaults defines optional per-rule defaults applied to preset HTTPRoute rules.
+type HTTPRouteRuleDefaults struct {
+	// Timeouts applies timeout defaults to each preset rule.
+	// +optional
+	Timeouts *gwapiv1.HTTPRouteTimeouts `json:"timeouts,omitempty"`
+
+	// Retry applies retry defaults to each preset rule.
+	// +optional
+	Retry *gwapiv1.HTTPRouteRetry `json:"retry,omitempty"`
+
+	// SessionPersistence applies session persistence defaults to each preset rule.
+	// +optional
+	SessionPersistence *gwapiv1.SessionPersistence `json:"sessionPersistence,omitempty"`
 }
 
 // GatewaySpec defines the configuration for a Gateway API Gateway.

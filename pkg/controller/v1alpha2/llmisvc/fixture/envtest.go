@@ -77,7 +77,8 @@ func SetupTestEnv(ctx context.Context) *pkgtest.Client {
 		return llmConfigCtrl.SetupWithManager(mgr)
 	}
 
-	webhookManifests := pkgtest.WithWebhookManifests(filepath.Join(pkgtest.ProjectRoot(), "test", "webhooks"))
+	crdManifests := pkgtest.WithCRDs(filepath.Join(pkgtest.ProjectRoot(), "config", "crd", "minimal", "llmisvc"))
+	webhookManifests := pkgtest.WithWebhookManifests(filepath.Join(pkgtest.ProjectRoot(), "config", "webhook", "llmisvc", "manifests.yaml"))
 	webhooks := func(_ *rest.Config, mgr ctrl.Manager) error {
 		// Create validation function for config template validation
 		v2ConfigValidationFunc := func(ctx context.Context, config *v1alpha2.LLMInferenceServiceConfig) error {
@@ -121,7 +122,7 @@ func SetupTestEnv(ctx context.Context) *pkgtest.Client {
 		return v1alpha2ConfigValidator.SetupWithManager(mgr)
 	}
 
-	envTest := pkgtest.NewEnvTest(append([]pkgtest.Option{webhookManifests}, additionalEnvTestOptions()...)...).
+	envTest := pkgtest.NewEnvTest(append([]pkgtest.Option{crdManifests, webhookManifests}, additionalEnvTestOptions()...)...).
 		WithWebhooks(webhooks).
 		WithControllers(llmCtrlFunc, llmConfigCtrlFunc).
 		// The suite manager/webhook must outlive BeforeSuite node context.

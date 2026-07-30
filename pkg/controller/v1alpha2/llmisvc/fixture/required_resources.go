@@ -49,6 +49,13 @@ func RequiredResources(ctx context.Context, c client.Client, ns string) {
 		},
 	})).To(gomega.Succeed())
 
+	gomega.Expect(c.Create(ctx, &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "default",
+			Namespace: ns,
+		},
+	})).To(gomega.Succeed())
+
 	gomega.Expect(c.Create(ctx, InferenceServiceCfgMap(ns))).To(gomega.Succeed())
 
 	for _, preset := range SharedConfigPresets(ns) {

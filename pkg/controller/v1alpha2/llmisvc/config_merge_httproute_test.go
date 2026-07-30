@@ -81,7 +81,7 @@ func TestMergeSpecs_HTTPRouteHostnamesPreserveRules(t *testing.T) {
 	}
 }
 
-func TestMergeSpecs_HTTPRouteTimeoutOnlyRulesOverlay(t *testing.T) {
+func TestMergeSpecs_HTTPRouteRuleDefaultsOverlay(t *testing.T) {
 	ctx := t.Context()
 	base := v1alpha2.LLMInferenceServiceSpec{
 		Router: &v1alpha2.RouterSpec{
@@ -124,13 +124,14 @@ func TestMergeSpecs_HTTPRouteTimeoutOnlyRulesOverlay(t *testing.T) {
 		Router: &v1alpha2.RouterSpec{
 			Route: &v1alpha2.GatewayRoutesSpec{
 				HTTP: &v1alpha2.HTTPRouteSpec{
-					Spec: &gwapiv1.HTTPRouteSpec{
-						Rules: []gwapiv1.HTTPRouteRule{{
-							Timeouts: &gwapiv1.HTTPRouteTimeouts{
-								Request:        ptr.To(gwapiv1.Duration("300s")),
-								BackendRequest: ptr.To(gwapiv1.Duration("300s")),
-							},
-						}},
+					RuleDefaults: &v1alpha2.HTTPRouteRuleDefaults{
+						Timeouts: &gwapiv1.HTTPRouteTimeouts{
+							Request:        ptr.To(gwapiv1.Duration("300s")),
+							BackendRequest: ptr.To(gwapiv1.Duration("300s")),
+						},
+						Retry: &gwapiv1.HTTPRouteRetry{
+							Attempts: ptr.To(3),
+						},
 					},
 				},
 			},
@@ -150,7 +151,10 @@ func TestMergeSpecs_HTTPRouteTimeoutOnlyRulesOverlay(t *testing.T) {
 			t.Fatalf("rule %d lost backendRefs: %#v", i, rule)
 		}
 		if rule.Timeouts == nil || ptr.Deref(rule.Timeouts.Request, "") != "300s" {
-			t.Fatalf("rule %d missing overlay timeouts: %#v", i, rule.Timeouts)
+			t.Fatalf("rule %d missing ruleDefaults timeouts: %#v", i, rule.Timeouts)
+		}
+		if rule.Retry == nil || ptr.Deref(rule.Retry.Attempts, 0) != 3 {
+			t.Fatalf("rule %d missing ruleDefaults retry: %#v", i, rule.Retry)
 		}
 	}
 }
@@ -202,5 +206,57 @@ func TestMergeSpecs_HTTPRouteFullRulesStillReplace(t *testing.T) {
 	want := override.Router.Route.HTTP.Spec.Rules
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Fatalf("full rules override should replace (-want +got):\n%s", diff)
+	}
+}
+
+func TestMergeSpecs_HTTPRouteTimeoutOnlyRulesReplace(t *testing.T) {
+	ctx := t.Context()
+	base := v1alpha2.LLMInferenceServiceSpec{
+		Router: &v1alpha2.RouterSpec{
+			Route: &v1alpha2.GatewayRoutesSpec{
+				HTTP: &v1alpha2.HTTPRouteSpec{
+					Spec: &gwapiv1.HTTPRouteSpec{
+						Rules: []gwapiv1.HTTPRouteRule{{
+							Name: ptr.To(gwapiv1.SectionName("preset")),
+							BackendRefs: []gwapiv1.HTTPBackendRef{{
+								BackendRef: gwapiv1.BackendRef{
+									BackendObjectReference: gwapiv1.BackendObjectReference{Name: "pool"},
+								},
+							}},
+						}},
+					},
+				},
+			},
+		},
+	}
+	override := v1alpha2.LLMInferenceServiceSpec{
+		Router: &v1alpha2.RouterSpec{
+			Route: &v1alpha2.GatewayRoutesSpec{
+				HTTP: &v1alpha2.HTTPRouteSpec{
+					Spec: &gwapiv1.HTTPRouteSpec{
+						Rules: []gwapiv1.HTTPRouteRule{{
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("300s")),
+							},
+						}},
+					},
+				},
+			},
+		},
+	}
+
+	merged, err := llmisvc.MergeSpecs(ctx, base, override)
+	if err != nil {
+		t.Fatalf("MergeSpecs() error = %v", err)
+	}
+	got := merged.Router.Route.HTTP.Spec.Rules
+	if len(got) != 1 {
+		t.Fatalf("expected timeout-only rule to replace preset rules, got %d rules: %#v", len(got), got)
+	}
+	if got[0].Timeouts == nil || ptr.Deref(got[0].Timeouts.Request, "") != "300s" {
+		t.Fatalf("timeout-only rule not preserved as replacement: %#v", got[0].Timeouts)
+	}
+	if len(got[0].BackendRefs) != 0 {
+		t.Fatalf("timeout-only rule unexpectedly inherited preset backendRefs: %#v", got[0])
 	}
 }
