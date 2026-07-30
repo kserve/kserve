@@ -85,12 +85,11 @@ func (sr *ServingRuntimeValidator) Handle(ctx context.Context, req admission.Req
 	if servingRuntime.Spec.IsDisabled() {
 		return admission.Allowed("")
 	}
+	if err := validateModelFormatPrioritySame(&servingRuntime.Spec); err != nil {
+		return admission.Denied(fmt.Sprintf(ProrityIsNotSameServingRuntimeError, err.Error(), servingRuntime.Name))
+	}
 	existingRuntimeSpec := v1alpha1.ServingRuntimeSpec{}
 	for i := range ExistingRuntimes.Items {
-		if err := validateModelFormatPrioritySame(&servingRuntime.Spec); err != nil {
-			return admission.Denied(fmt.Sprintf(ProrityIsNotSameServingRuntimeError, err.Error(), servingRuntime.Name))
-		}
-
 		if err := validateServingRuntimePriority(&servingRuntime.Spec, &ExistingRuntimes.Items[i].Spec, servingRuntime.Name, ExistingRuntimes.Items[i].Name); err != nil {
 			return admission.Denied(fmt.Sprintf(InvalidPriorityServingRuntimeError, err.Error(), ExistingRuntimes.Items[i].Name, servingRuntime.Name, servingRuntime.Namespace))
 		}
@@ -128,11 +127,11 @@ func (csr *ClusterServingRuntimeValidator) Handle(ctx context.Context, req admis
 	if clusterServingRuntime.Spec.IsDisabled() {
 		return admission.Allowed("")
 	}
+	if err := validateModelFormatPrioritySame(&clusterServingRuntime.Spec); err != nil {
+		return admission.Denied(fmt.Sprintf(ProrityIsNotSameClusterServingRuntimeError, err.Error(), clusterServingRuntime.Name))
+	}
 	existingRuntimeSpec := v1alpha1.ServingRuntimeSpec{}
 	for i := range ExistingRuntimes.Items {
-		if err := validateModelFormatPrioritySame(&clusterServingRuntime.Spec); err != nil {
-			return admission.Denied(fmt.Sprintf(ProrityIsNotSameClusterServingRuntimeError, err.Error(), clusterServingRuntime.Name))
-		}
 		if err := validateServingRuntimePriority(&clusterServingRuntime.Spec, &ExistingRuntimes.Items[i].Spec, clusterServingRuntime.Name, ExistingRuntimes.Items[i].Name); err != nil {
 			return admission.Denied(fmt.Sprintf(InvalidPriorityClusterServingRuntimeError, err.Error(), ExistingRuntimes.Items[i].Name, clusterServingRuntime.Name))
 		}

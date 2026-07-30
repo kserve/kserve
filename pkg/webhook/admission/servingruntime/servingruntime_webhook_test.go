@@ -1886,6 +1886,181 @@ func TestServingRuntimeValidator_Handle(t *testing.T) {
 			if tt.wantAllowed {
 				g.Expect(resp.Allowed).To(gomega.BeTrue())
 			}
+			if tt.wantDenied {
+				g.Expect(resp.Allowed).To(gomega.BeFalse())
+			}
+			if tt.wantStatusCode != 0 {
+				g.Expect(int(resp.Result.Code)).To(gomega.Equal(tt.wantStatusCode))
+			}
+		})
+	}
+}
+
+func TestClusterServingRuntimeValidator_Handle(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	tests := []struct {
+		name           string
+		setupObjs      []client.Object
+		runtime        *v1alpha1.ClusterServingRuntime
+		decoderErr     error
+		listErr        error
+		wantAllowed    bool
+		wantDenied     bool
+		wantStatusCode int
+	}{
+		{
+			name: "allow when cluster runtime is disabled",
+			runtime: &v1alpha1.ClusterServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{Name: "csr1"},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					Disabled: proto.Bool(true),
+				},
+			},
+			wantAllowed: true,
+		},
+		{
+			name: "deny when model format priorities are not the same",
+			runtime: &v1alpha1.ClusterServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{Name: "csr2"},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+						{Name: "onnx", AutoSelect: proto.Bool(true), Priority: proto.Int32(1)},
+						{Name: "onnx", AutoSelect: proto.Bool(true), Priority: proto.Int32(2)},
+					},
+				},
+			},
+			wantDenied: true,
+		},
+		{
+			name: "deny when cluster runtime priorities conflict with existing",
+			setupObjs: []client.Object{
+				&v1alpha1.ClusterServingRuntime{
+					ObjectMeta: metav1.ObjectMeta{Name: "csr3"},
+					Spec: v1alpha1.ServingRuntimeSpec{
+						MultiModel:       proto.Bool(true),
+						ProtocolVersions: []constants.InferenceServiceProtocol{constants.ProtocolV1},
+						SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+							{Name: "onnx", AutoSelect: proto.Bool(true), Priority: proto.Int32(1)},
+						},
+					},
+				},
+			},
+			runtime: &v1alpha1.ClusterServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{Name: "csr4"},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					MultiModel:       proto.Bool(true),
+					ProtocolVersions: []constants.InferenceServiceProtocol{constants.ProtocolV1},
+					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+						{Name: "onnx", AutoSelect: proto.Bool(true), Priority: proto.Int32(1)},
+					},
+				},
+			},
+			wantDenied: true,
+		},
+		{
+			name: "deny when multinode spec is invalid (removing workerSpec)",
+			setupObjs: []client.Object{
+				&v1alpha1.ClusterServingRuntime{
+					ObjectMeta: metav1.ObjectMeta{Name: "csr5"},
+					Spec: v1alpha1.ServingRuntimeSpec{
+						WorkerSpec: &v1alpha1.WorkerSpec{
+							ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+								Containers: []corev1.Container{{Name: "worker"}},
+							},
+						},
+					},
+				},
+			},
+			runtime: &v1alpha1.ClusterServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{Name: "csr5"},
+				Spec:       v1alpha1.ServingRuntimeSpec{},
+			},
+			wantDenied: true,
+		},
+		{
+			name: "deny when blocked env var is set",
+			runtime: &v1alpha1.ClusterServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{Name: "csr-blocked-env"},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  constants.InferenceServiceContainerName,
+								Image: "kserve/sklearnserver:latest",
+								Env: []corev1.EnvVar{
+									{Name: "PYTHONPATH", Value: "/custom"},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantDenied: true,
+		},
+		{
+			name: "allow valid cluster runtime",
+			setupObjs: []client.Object{
+				&v1alpha1.ClusterServingRuntime{
+					ObjectMeta: metav1.ObjectMeta{Name: "csr6"},
+					Spec: v1alpha1.ServingRuntimeSpec{
+						MultiModel:       proto.Bool(true),
+						ProtocolVersions: []constants.InferenceServiceProtocol{constants.ProtocolV1},
+						SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+							{Name: "onnx", AutoSelect: proto.Bool(true), Priority: proto.Int32(1)},
+						},
+					},
+				},
+			},
+			runtime: &v1alpha1.ClusterServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{Name: "csr7"},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					MultiModel:       proto.Bool(true),
+					ProtocolVersions: []constants.InferenceServiceProtocol{constants.ProtocolV1},
+					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+						{Name: "onnx", AutoSelect: proto.Bool(true), Priority: proto.Int32(2)},
+					},
+				},
+			},
+			wantAllowed: true,
+		},
+		{
+			name:           "error decoding request",
+			runtime:        &v1alpha1.ClusterServingRuntime{},
+			decoderErr:     errors.New("decode error"),
+			wantStatusCode: http.StatusBadRequest,
+		},
+		{
+			name: "error listing cluster runtimes",
+			runtime: &v1alpha1.ClusterServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{Name: "csr8"},
+			},
+			listErr:        errors.New("list error"),
+			wantStatusCode: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fakeClient := &fakeClient{
+				objs:    tt.setupObjs,
+				listErr: tt.listErr,
+			}
+			fakeDecoder := &fakeDecoder{
+				obj: tt.runtime,
+				err: tt.decoderErr,
+			}
+			validator := &ClusterServingRuntimeValidator{
+				Client:  fakeClient,
+				Decoder: fakeDecoder,
+			}
+			resp := validator.Handle(t.Context(), admission.Request{})
+			if tt.wantAllowed {
+				g.Expect(resp.Allowed).To(gomega.BeTrue())
+			}
+			if tt.wantDenied {
+				g.Expect(resp.Allowed).To(gomega.BeFalse())
+			}
 			if tt.wantStatusCode != 0 {
 				g.Expect(int(resp.Result.Code)).To(gomega.Equal(tt.wantStatusCode))
 			}
@@ -1903,17 +2078,22 @@ func (f *fakeClient) List(ctx context.Context, list client.ObjectList, opts ...c
 	if f.listErr != nil {
 		return f.listErr
 	}
-	if l, ok := list.(*v1alpha1.ServingRuntimeList); ok {
+	switch l := list.(type) {
+	case *v1alpha1.ServingRuntimeList:
 		for _, obj := range f.objs {
 			if sr, ok := obj.(*v1alpha1.ServingRuntime); ok {
 				l.Items = append(l.Items, *sr)
 			}
 		}
+	case *v1alpha1.ClusterServingRuntimeList:
+		for _, obj := range f.objs {
+			if csr, ok := obj.(*v1alpha1.ClusterServingRuntime); ok {
+				l.Items = append(l.Items, *csr)
+			}
+		}
 	}
 	return nil
 }
-
-// ...
 
 type fakeDecoder struct {
 	admission.Decoder
@@ -1925,8 +2105,11 @@ func (f *fakeDecoder) Decode(_ admission.Request, into runtime.Object) error {
 	if f.err != nil {
 		return f.err
 	}
-	if v, ok := into.(*v1alpha1.ServingRuntime); ok {
+	switch v := into.(type) {
+	case *v1alpha1.ServingRuntime:
 		*v = *(f.obj.(*v1alpha1.ServingRuntime))
+	case *v1alpha1.ClusterServingRuntime:
+		*v = *(f.obj.(*v1alpha1.ClusterServingRuntime))
 	}
 	return nil
 }

@@ -6,7 +6,6 @@ resources:
 - ../../crd/full/llmisvc
 
 patches:
-- path: patches/remove-clusterservingruntime.yaml
 - target:
     kind: CustomResourceDefinition
     annotationSelector: cert-manager.io/inject-ca-from

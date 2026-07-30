@@ -1,5 +1,0 @@
-$patch: delete
-apiVersion: admissionregistration.k8s.io/v1
-kind: ValidatingWebhookConfiguration
-metadata:
-  name: clusterservingruntime.serving.kserve.io
