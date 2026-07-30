@@ -149775,7 +149775,25 @@ spec:
     singular: localmodelcache
   scope: Cluster
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.copies.available
+      name: Available
+      type: integer
+    - jsonPath: .status.copies.total
+      name: Total
+      type: integer
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .spec.nodeGroups
+      name: NodeGroups
+      priority: 1
+      type: string
+    - jsonPath: .spec.modelSize
+      name: ModelSize
+      priority: 1
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         properties:
@@ -149881,7 +149899,25 @@ spec:
     singular: localmodelnamespacecache
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.copies.available
+      name: Available
+      type: integer
+    - jsonPath: .status.copies.total
+      name: Total
+      type: integer
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .spec.nodeGroups
+      name: NodeGroups
+      priority: 1
+      type: string
+    - jsonPath: .spec.modelSize
+      name: ModelSize
+      priority: 1
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         properties:
