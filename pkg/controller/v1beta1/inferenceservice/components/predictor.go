@@ -808,27 +808,7 @@ func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.In
 		return errors.Wrapf(err, "fails to create NewRawKubeReconciler for predictor")
 	}
 
-	// set Workload Controller
-	if err := r.Workload.SetControllerReferences(isvc, p.scheme); err != nil {
-		return errors.Wrapf(err, "fails to set workload owner reference for predictor")
-	}
-
-	// set Service Controller
-	if err := r.Service.SetControllerReferences(isvc, p.scheme); err != nil {
-		return errors.Wrapf(err, "fails to set service owner reference for predictor")
-	}
-	// set Otel Controller
-	if r.OtelCollector != nil {
-		if err := r.OtelCollector.SetControllerReferences(isvc, p.scheme); err != nil {
-			return errors.Wrapf(err, "fails to set otel owner references for predictor")
-		}
-	}
-	// set autoscaler Controller
-	if err := r.Scaler.Autoscaler.SetControllerReferences(isvc, p.scheme); err != nil {
-		return errors.Wrapf(err, "fails to set autoscaler owner references for predictor")
-	}
-
-	deploymentList, err := r.Reconcile(ctx)
+	deploymentList, err := r.Reconcile(ctx, isvc)
 	if err != nil {
 		return errors.Wrapf(err, "fails to reconcile predictor")
 	}
@@ -943,14 +923,7 @@ func (p *Predictor) reconcileCanaryDeployments(ctx context.Context, isvc *v1beta
 			return errors.Wrapf(err, "fails to create canary reconciler for %s", canary.Predictor.Name)
 		}
 
-		if err := r.Workload.SetControllerReferences(isvc, p.scheme); err != nil {
-			return errors.Wrapf(err, "fails to set canary workload owner reference for %s", canary.Predictor.Name)
-		}
-		if err := r.Service.SetControllerReferences(isvc, p.scheme); err != nil {
-			return errors.Wrapf(err, "fails to set canary service owner reference for %s", canary.Predictor.Name)
-		}
-
-		if _, err := r.Reconcile(ctx); err != nil {
+		if _, err := r.Reconcile(ctx, isvc); err != nil {
 			return errors.Wrapf(err, "fails to reconcile canary %s", canary.Predictor.Name)
 		}
 		p.Log.Info("Reconciled canary deployment", "canary", canary.Predictor.Name, "trafficPercent", canary.TrafficPercent)
