@@ -815,26 +815,6 @@ func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.In
 		return nil, errors.Wrapf(err, "fails to create NewRawKubeReconciler for predictor")
 	}
 
-	// set Workload Controller
-	if err := r.Workload.SetControllerReferences(isvc, p.scheme); err != nil {
-		return nil, errors.Wrapf(err, "fails to set workload owner reference for predictor")
-	}
-
-	// set Service Controller
-	if err := r.Service.SetControllerReferences(isvc, p.scheme); err != nil {
-		return nil, errors.Wrapf(err, "fails to set service owner reference for predictor")
-	}
-	// set Otel Controller
-	if r.OtelCollector != nil {
-		if err := r.OtelCollector.SetControllerReferences(isvc, p.scheme); err != nil {
-			return nil, errors.Wrapf(err, "fails to set otel owner references for predictor")
-		}
-	}
-	// set autoscaler Controller
-	if err := r.Scaler.Autoscaler.SetControllerReferences(isvc, p.scheme); err != nil {
-		return nil, errors.Wrapf(err, "fails to set autoscaler owner references for predictor")
-	}
-
 	deploymentList, err := r.Reconcile(ctx, isvc)
 	if err != nil {
 		return nil, errors.Wrapf(err, "fails to reconcile predictor")
