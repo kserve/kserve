@@ -1831,18 +1831,23 @@ func extractDeprecatedMetricFlags(d *appsv1.Deployment) map[string]string {
 	return allExtracted
 }
 
-// extractModelServerMetricsFlags strips the deprecated
-// --model-server-metrics-* flags from every container's Command and Args
-// (scrubbing both, since kube concatenates them and either may carry a flag) and
-// returns the re-injectable values keyed by flag name. --model-server-metrics-port
+// extractModelServerMetricsFlags strips the deprecated --model-server-metrics-*
+// flags from every container's Command and Args and returns the re-injectable
+// values keyed by flag name. The scheduler preset carries the flags on Command,
+// but a user-supplied SchedulerSpec.Template may place them on Args instead;
+// both work on the old image (kube concatenates Command+Args) but are rejected
+// by llm-d-router v0.10.0, so both lists must be scrubbed. --model-server-metrics-port
 // has no plugin parameter: it is stripped and logged, never returned.
 func extractModelServerMetricsFlags(ctx context.Context, d *appsv1.Deployment) map[string]string {
 	params := map[string]string{}
 	for ci := range d.Spec.Template.Spec.Containers {
 		c := &d.Spec.Template.Spec.Containers[ci]
-		if fc, fa, extracted := filterCommandArgs(c.Command, c.Args, deprecatedModelServerMetricFlagNames); len(extracted) > 0 {
-			c.Command = fc
-			c.Args = fa
+		if filtered, extracted := filterArgs(c.Command, deprecatedModelServerMetricFlagNames); len(extracted) > 0 {
+			c.Command = filtered
+			maps.Copy(params, extracted)
+		}
+		if filtered, extracted := filterArgs(c.Args, deprecatedModelServerMetricFlagNames); len(extracted) > 0 {
+			c.Args = filtered
 			maps.Copy(params, extracted)
 		}
 	}
@@ -1857,34 +1862,12 @@ func extractModelServerMetricsFlags(ctx context.Context, d *appsv1.Deployment) m
 	return params
 }
 
-// filterArgs removes matching flags from args and returns final values.
+// filterArgs removes matching flags from args and returns their values.
 // It handles both --flag=value and --flag value forms.
 func filterArgs(args []string, names map[string]bool) (filtered []string, extracted map[string]string) {
-	_, filtered, extracted = filterCommandArgs(nil, args, names)
-	return filtered, extracted
-}
-
-// filterCommandArgs removes matching flags from the concatenated command+args,
-// then re-splits the surviving tokens into their original command and args
-// halves, and returns them along with the extracted flag values. It handles
-// both --flag=value and --flag value forms.
-func filterCommandArgs(command, args []string, names map[string]bool) (filteredCommand, filteredArgs []string, extracted map[string]string) {
 	extracted = make(map[string]string)
-	combined := make([]string, 0, len(command)+len(args))
-	combined = append(combined, command...)
-	combined = append(combined, args...)
-	boundary := len(command)
-
-	emit := func(idx int) {
-		if idx < boundary {
-			filteredCommand = append(filteredCommand, combined[idx])
-		} else {
-			filteredArgs = append(filteredArgs, combined[idx])
-		}
-	}
-
-	for i := 0; i < len(combined); i++ {
-		arg := combined[i]
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
 		name := strings.TrimLeft(arg, "-")
 		value := ""
 		if eqIdx := strings.Index(name, "="); eqIdx != -1 {
@@ -1892,16 +1875,16 @@ func filterCommandArgs(command, args []string, names map[string]bool) (filteredC
 			name = name[:eqIdx]
 		}
 		if !names[name] {
-			emit(i)
+			filtered = append(filtered, args[i])
 			continue
 		}
-		if value == "" && i+1 < len(combined) && !strings.HasPrefix(combined[i+1], "-") {
-			value = combined[i+1]
+		if value == "" && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+			value = args[i+1]
 			i++
 		}
 		extracted[name] = value
 	}
-	return filteredCommand, filteredArgs, extracted
+	return filtered, extracted
 }
 
 // withCoreMetricsExtractorPlugin returns a mutateSchedulerConfigFunc that

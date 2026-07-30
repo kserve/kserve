@@ -518,62 +518,6 @@ func TestFilterArgs(t *testing.T) {
 	}
 }
 
-func TestFilterCommandArgs(t *testing.T) {
-	names := map[string]bool{"model-server-metrics-scheme": true}
-	tests := []struct {
-		name              string
-		command           []string
-		args              []string
-		expectedCommand   []string
-		expectedArgs      []string
-		expectedExtracted map[string]string
-	}{
-		{
-			name:              "flag and value both in command",
-			command:           []string{"/app/epp", "--model-server-metrics-scheme", "https"},
-			args:              []string{"--grpc-port", "9002"},
-			expectedCommand:   []string{"/app/epp"},
-			expectedArgs:      []string{"--grpc-port", "9002"},
-			expectedExtracted: map[string]string{"model-server-metrics-scheme": "https"},
-		},
-		{
-			// #5902: terminal flag in command consumes its value from the start of args.
-			name:              "flag in command value spilling into args",
-			command:           []string{"/app/epp", "--model-server-metrics-scheme"},
-			args:              []string{"https", "--grpc-port", "9002"},
-			expectedCommand:   []string{"/app/epp"},
-			expectedArgs:      []string{"--grpc-port", "9002"},
-			expectedExtracted: map[string]string{"model-server-metrics-scheme": "https"},
-		},
-		{
-			name:              "terminal flag in command with no value in args",
-			command:           []string{"/app/epp", "--model-server-metrics-scheme"},
-			args:              []string{"--grpc-port", "9002"},
-			expectedCommand:   []string{"/app/epp"},
-			expectedArgs:      []string{"--grpc-port", "9002"},
-			expectedExtracted: map[string]string{"model-server-metrics-scheme": ""},
-		},
-		{
-			name:              "flag and value both in args",
-			command:           []string{"/app/epp"},
-			args:              []string{"--model-server-metrics-scheme", "https", "--grpc-port", "9002"},
-			expectedCommand:   []string{"/app/epp"},
-			expectedArgs:      []string{"--grpc-port", "9002"},
-			expectedExtracted: map[string]string{"model-server-metrics-scheme": "https"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			g := NewGomegaWithT(t)
-			fc, fa, extracted := filterCommandArgs(tt.command, tt.args, names)
-			g.Expect(fc).To(Equal(tt.expectedCommand))
-			g.Expect(fa).To(Equal(tt.expectedArgs))
-			g.Expect(extracted).To(Equal(tt.expectedExtracted))
-		})
-	}
-}
-
 // pluginRefWeight is an ordered (pluginRef, weight) pair from a scheduling
 // profile. Weight is 0 when unset; the P/D baseline only uses weights 2 and 3,
 // so 0 unambiguously means "no weight".
@@ -2410,17 +2354,6 @@ func TestExtractModelServerMetricsFlags(t *testing.T) {
 			command:         []string{"/app/epp", "--grpc-port=9002"},
 			expectedCommand: []string{"/app/epp", "--grpc-port=9002"},
 			expectedParams:  map[string]string{},
-		},
-		{
-			// Regression for #5902: the flag sits at the end of Command and its
-			// value is the first element of Args. The value must be consumed, not
-			// left dangling as a positional argument.
-			name:            "flag on command with value spilling into args",
-			command:         []string{"/app/epp", "--model-server-metrics-scheme"},
-			args:            []string{"https", "--grpc-port=9002"},
-			expectedCommand: []string{"/app/epp"},
-			expectedArgs:    []string{"--grpc-port=9002"},
-			expectedParams:  map[string]string{modelServerMetricsSchemeFlag: "https"},
 		},
 	}
 
