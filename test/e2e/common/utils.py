@@ -67,10 +67,14 @@ def grpc_client(host, cluster_ip):
         cluster_ip = cluster_ip + ":80"
     logger.info("Cluster IP: %s", cluster_ip)
     logger.info("gRPC target host: %s", host)
+    # default_authority sets :authority / Host for insecure channels through
+    # Istio/Knative ingress; ssl_target_name_override alone is insufficient and
+    # can yield UNIMPLEMENTED from the gateway under Host-based routing.
     return InferenceGRPCClient(
         cluster_ip,
         verbose=False,
         channel_args=[
+            ("grpc.default_authority", host),
             ("grpc.ssl_target_name_override", host),
         ],
         timeout=120,

@@ -261,11 +261,11 @@ def test_namespace(request):
 
     yield ns_name
 
+    # Always delete per-test namespaces unless explicitly told to keep all
+    # resources. Preserving namespaces on failure (SKIP_DELETION_ON_FAILURE)
+    # piles up ISVCs under pytest-xdist and starves the ingress gateway.
     skip_del = os.getenv("SKIP_RESOURCE_DELETION", "").lower() in ("true", "1")
-    skip_on_fail = os.getenv("SKIP_DELETION_ON_FAILURE", "").lower() in ("true", "1")
-    failed = hasattr(request.node, "rep_call") and request.node.rep_call.failed
-
-    if skip_del or (failed and skip_on_fail):
+    if skip_del:
         _ns_logger.info(f"Preserving namespace {ns_name}")
         return
 
