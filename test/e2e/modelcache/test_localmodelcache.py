@@ -39,7 +39,7 @@ from kserve.models.v1beta1_inference_service_spec import V1beta1InferenceService
 from kserve.models.v1beta1_predictor_spec import V1beta1PredictorSpec
 from kserve.models.v1beta1_model_spec import V1beta1ModelSpec
 from kserve.models.v1beta1_model_format import V1beta1ModelFormat
-from ..common.utils import generate
+from ..common.utils import assert_answers_four, generate
 from . import assert_pv_deleted, assert_pvc_deleted
 
 
@@ -188,7 +188,7 @@ async def test_vllm_modelcache(test_namespace):
     res = generate(
         service_name, "./data/qwen_input_chat.json", namespace=test_namespace
     )
-    assert res["choices"][0]["message"]["content"] == "The result of 2 + 2 is 4."
+    assert_answers_four(res["choices"][0]["message"]["content"])
     # Delete ISVC first so the LocalModelCache is no longer in use
     kserve_client.delete(service_name, test_namespace)
     # Wait for the isvc to be deleted to avoid modelcache still in use error

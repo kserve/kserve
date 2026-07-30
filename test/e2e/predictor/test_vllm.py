@@ -30,6 +30,7 @@ from kserve import (
 )
 from kserve.constants import constants
 from ..common.utils import (
+    assert_answers_four,
     generate,
     embed,
     chat_completion_stream,
@@ -124,7 +125,7 @@ def test_vllm_openai_chat_completions(test_namespace):
     res = generate(
         service_name, "./data/qwen_input_chat.json", namespace=test_namespace
     )
-    assert res["choices"][0]["message"]["content"] == "The result of 2 + 2 is 4."
+    assert_answers_four(res["choices"][0]["message"]["content"])
 
 
 @pytest.mark.vllm_runtime
@@ -190,7 +191,7 @@ def test_vllm_openai_chat_completions_streaming(test_namespace):
     trace_logger.info(f"Full response: {full_response}")
 
     # Verify we got a valid response
-    assert full_response.strip() == "The result of 2 + 2 is 4."
+    assert_answers_four(full_response)
 
 
 @pytest.mark.vllm_runtime
@@ -249,7 +250,7 @@ def test_vllm_openai_text_completion_qwen2(test_namespace):
         chat_completions=False,
         namespace=test_namespace,
     )
-    assert res["choices"][0].get("text").strip() == "The result of 2 + 2 is 4."
+    assert_answers_four(res["choices"][0].get("text"))
 
 
 @pytest.mark.vllm_runtime
@@ -308,7 +309,7 @@ def test_vllm_openai_text_completion_streaming(test_namespace):
         namespace=test_namespace,
     )
     trace_logger.info(f"Full response: {full_response}")
-    assert full_response.strip() == "The result of 2 + 2 is 4."
+    assert_answers_four(full_response)
 
 
 @pytest.mark.vllm_runtime

@@ -31,6 +31,7 @@ from kserve import (
 )
 from kserve.constants import constants
 from ..common.utils import (
+    assert_answers_four,
     generate,
     embed,
     predict_isvc,
@@ -54,12 +55,6 @@ ISVC_READY_TIMEOUT_S = 900
 # propagates this annotation onto the Knative revision template, so raising it
 # here gives first-time HuggingFace model pulls room to finish.
 ISVC_ANNOTATIONS = {"serving.knative.dev/progress-deadline": "20m"}
-
-
-def assert_answers_four(text: str):
-    """Gracefully handle if the answer slightly changes between model/lib updates"""
-    assert text is not None, "expected a completion, got no text field"
-    assert "4" in text, f"expected the answer to contain '4', got: {text!r}"
 
 
 @pytest.mark.llm

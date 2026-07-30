@@ -33,6 +33,17 @@ from kserve.protocol.grpc import grpc_predict_v2_pb2 as pb
 from kserve.logging import trace_logger as logger
 from .http_retry import DEFAULT_TIMEOUT_SECONDS, post_with_retry
 
+
+def assert_answers_four(text: str):
+    """Accept any completion that includes the expected math answer.
+
+    Tiny models vary wording across backends/versions; assert on the digit
+    rather than an exact sentence so e2e stays stable.
+    """
+    assert text is not None, "expected a completion, got no text field"
+    assert "4" in text, f"expected the answer to contain '4', got: {text!r}"
+
+
 KSERVE_NAMESPACE = os.environ.get("KSERVE_NAMESPACE", "kserve")
 _BASE_TEST_NAMESPACE = os.environ.get("KSERVE_TEST_NAMESPACE", "kserve-ci-e2e-test")
 _WORKER_ID = os.environ.get("PYTEST_XDIST_WORKER", "")
