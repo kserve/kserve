@@ -1490,6 +1490,136 @@ plugins:
 	}
 }
 
+// TestSchedulerTransformDecomposesPrecisePrefixCacheFromTemplateArgs verifies
+// the >=0.9.0 decompose migration applies when the scheduler config is
+// supplied via spec.router.scheduler.template.containers[].args (a literal
+// "--config-text <yaml>" pair) instead of spec.router.scheduler.config.inline.
+func TestSchedulerTransformDecomposesPrecisePrefixCacheFromTemplateArgs(t *testing.T) {
+	legacyConfigYAML := `apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+- parameters:
+    indexerConfig:
+      kvBlockIndexConfig:
+        enableMetrics: true
+      tokenProcessorConfig:
+        blockSize: 64
+        hashSeed: "42"
+      tokenizersPoolConfig:
+        hf:
+          tokenizersCacheDir: /mnt/tokenizers
+    kvEventsConfig:
+      topicFilter: kv
+      zmqEndpoint: tcp://*:5557
+  type: precise-prefix-cache-scorer
+- type: load-aware-scorer
+- type: max-score-picker
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: precise-prefix-cache-scorer
+    weight: 2.0
+  - pluginRef: load-aware-scorer
+    weight: 1.0
+  - pluginRef: max-score-picker
+`
+
+	g := NewGomegaWithT(t)
+
+	mainContainer := corev1.Container{
+		Name: "main",
+		Args: []string{
+			"--v=4",
+			"--secure-serving",
+			"--config-text",
+			legacyConfigYAML,
+		},
+	}
+
+	// The Deployment being reconciled: its pod template spec is a verbatim
+	// copy of llmSvc.Spec.Router.Scheduler.Template, exactly as
+	// expectedSchedulerDeployment builds it.
+	d := &appsv1.Deployment{
+		Spec: appsv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"app.kubernetes.io/version": "0.10.0",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{mainContainer},
+				},
+			},
+		},
+	}
+
+	// The LLMInferenceService carries the config only via
+	// spec.router.scheduler.template.containers[].args; spec.router.scheduler.config
+	// is intentionally left unset.
+	llmSvc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "llmisvc-precise-prefix-scorer",
+			Namespace: "llmd-singlenode-precise-prefix-cache",
+		},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Router: &v1alpha2.RouterSpec{
+				Scheduler: &v1alpha2.SchedulerSpec{
+					Template: &corev1.PodSpec{
+						Containers: []corev1.Container{mainContainer},
+					},
+				},
+			},
+		},
+	}
+
+	g.Expect(hasPrecisePrefixCachePlugin(llmSvc.Spec)).To(BeTrue(),
+		"plugin detection must see the legacy plugin declared in template args, not just config.inline")
+	g.Expect(isTokenizerEnabled(llmSvc.Spec)).To(BeTrue())
+
+	g.Expect(schedulerTransform(context.Background(), d, llmSvc, false)).To(Succeed())
+
+	configText := d.Spec.Template.Spec.Containers[0].Args[3]
+
+	// The legacy monolithic plugin must be fully decomposed.
+	g.Expect(configText).NotTo(ContainSubstring(precisePrefixCacheScorerPlugin))
+	g.Expect(configText).To(ContainSubstring(tokenProducerPlugin))
+	g.Expect(configText).To(ContainSubstring(precisePrefixCacheProducerPlugin))
+	g.Expect(configText).To(ContainSubstring(prefixCacheScorerPlugin))
+	g.Expect(configText).To(ContainSubstring("prefixMatchInfoProducerName"))
+
+	// apiVersion must be migrated to the current llm-d.ai group.
+	g.Expect(configText).To(ContainSubstring("apiVersion: llm-d.ai/v1alpha1"))
+	g.Expect(configText).NotTo(ContainSubstring("inference.networking.x-k8s.io/v1alpha1"))
+
+	// tokenProcessorConfig must be promoted to the producer's top-level
+	// parameters, not left nested inside indexerConfig.
+	u := unstructured.Unstructured{}
+	g.Expect(yaml.Unmarshal([]byte(configText), &u)).To(Succeed())
+	val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(found).To(BeTrue())
+	plugins := val.([]interface{})
+
+	var producerPlugin map[string]interface{}
+	for _, p := range plugins {
+		pm := p.(map[string]interface{})
+		if pm["type"] == precisePrefixCacheProducerPlugin {
+			producerPlugin = pm
+		}
+	}
+	g.Expect(producerPlugin).NotTo(BeNil(), "expected a precise-prefix-cache-producer plugin in the decomposed pipeline")
+
+	params, _ := producerPlugin["parameters"].(map[string]interface{})
+	g.Expect(params).To(HaveKey("tokenProcessorConfig"), "tokenProcessorConfig must be promoted to top-level parameters")
+
+	if indexerConfig, ok := params["indexerConfig"].(map[string]interface{}); ok {
+		g.Expect(indexerConfig).NotTo(HaveKey("tokenProcessorConfig"), "tokenProcessorConfig must no longer be nested inside indexerConfig")
+		g.Expect(indexerConfig).NotTo(HaveKey("tokenizersPoolConfig"), "tokenizersPoolConfig is replaced by the standalone token-producer")
+	}
+}
+
 // TestSchedulerTransformMigratesLLMDAPIVersion verifies the version-gated
 // (>=0.9.0) EndpointPickerConfig apiVersion rewrite in isolation:
 //   - 0.9.0: inference.networking.x-k8s.io/v1alpha1 -> llm-d.ai/v1alpha1
