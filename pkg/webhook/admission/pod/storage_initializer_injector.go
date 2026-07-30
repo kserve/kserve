@@ -21,7 +21,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -326,19 +328,35 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 			}
 
 			ociIndex := 0
-			// Collect OCI mount paths for collision check and count validation
-			var ociMountPaths []string
+			// Collect OCI mount paths for collision check and count validation.
+			// The mode resolution here mirrors the dispatch loop below so that every URI
+			// that gets mounted is also counted and validated, including oci+<mode>:// URIs.
+			// Mount paths are grouped by effective mode because the collision rules differ
+			// between native ImageVolumes and modelcar emptyDir sidecars.
+			ociCount := 0
+			mountPathsByMode := map[string][]string{}
 			for _, storageUri := range params.StorageURIs {
-				if strings.HasPrefix(storageUri.Uri, constants.OciURIPrefix) {
-					ociMountPaths = append(ociMountPaths, storageUri.MountPath)
+				parsedMode, _, isOci := utils.ParseOciScheme(storageUri.Uri)
+				if !isOci {
+					continue
 				}
+				effectiveMode := parsedMode
+				if effectiveMode == "" {
+					effectiveMode = types.ResolveOciModelMode(params.Config)
+				}
+				if effectiveMode == "" {
+					continue
+				}
+				ociCount++
+				mountPathsByMode[effectiveMode] = append(mountPathsByMode[effectiveMode], storageUri.MountPath)
 			}
-			if len(ociMountPaths) > utils.MaxOCISourcesPerPod {
-				return fmt.Errorf("too many OCI sources (%d); maximum is %d per pod", len(ociMountPaths), utils.MaxOCISourcesPerPod)
+			if ociCount > utils.MaxOCISourcesPerPod {
+				return fmt.Errorf("too many OCI sources (%d); maximum is %d per pod", ociCount, utils.MaxOCISourcesPerPod)
 			}
-			configMode := types.ResolveOciModelMode(params.Config)
-			if err := utils.ValidateOCIMountPaths(ociMountPaths, configMode); err != nil {
-				return err
+			for _, mode := range slices.Sorted(maps.Keys(mountPathsByMode)) {
+				if err := utils.ValidateOCIMountPaths(mountPathsByMode[mode], mode); err != nil {
+					return err
+				}
 			}
 
 			for _, storageUri := range params.StorageURIs {
