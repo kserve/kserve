@@ -2358,27 +2358,95 @@ plugins:
 	}
 }
 
-func TestWithMetricsDataSourceScheme(t *testing.T) {
+func TestMetricsDataSourceParameters(t *testing.T) {
+	tests := []struct {
+		name         string
+		extracted    map[string]string
+		expectErr    bool
+		errSubstring string
+		expected     map[string]interface{}
+	}{
+		{
+			name: "converts scheme, path and insecureSkipVerify",
+			extracted: map[string]string{
+				modelServerMetricsSchemeFlag:             "https",
+				modelServerMetricsPathFlag:               "/custom/metrics",
+				modelServerMetricsInsecureSkipVerifyFlag: "false",
+			},
+			expected: map[string]interface{}{
+				"scheme":             "https",
+				"path":               "/custom/metrics",
+				"insecureSkipVerify": false,
+			},
+		},
+		{
+			name:      "bare insecureSkipVerify flag means true",
+			extracted: map[string]string{modelServerMetricsInsecureSkipVerifyFlag: ""},
+			expected:  map[string]interface{}{"insecureSkipVerify": true},
+		},
+		{
+			name: "empty scheme and path values are dropped",
+			extracted: map[string]string{
+				modelServerMetricsSchemeFlag: "",
+				modelServerMetricsPathFlag:   "",
+			},
+			expected: map[string]interface{}{},
+		},
+		{
+			name:      "no flags returns empty parameters",
+			extracted: map[string]string{},
+			expected:  map[string]interface{}{},
+		},
+		{
+			name:         "invalid insecureSkipVerify value returns error",
+			extracted:    map[string]string{modelServerMetricsInsecureSkipVerifyFlag: "notabool"},
+			expectErr:    true,
+			errSubstring: "invalid value",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			parameters, err := metricsDataSourceParameters(tt.extracted)
+			if tt.expectErr {
+				g.Expect(err).To(HaveOccurred())
+				g.Expect(err.Error()).To(ContainSubstring(tt.errSubstring))
+				return
+			}
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(parameters).To(Equal(tt.expected))
+		})
+	}
+}
+
+func TestWithMetricsDataSourceParams(t *testing.T) {
 	tests := []struct {
 		name       string
 		configYAML string
-		scheme     string
+		parameters map[string]interface{}
 		validate   func(g Gomega, obj map[string]interface{})
 	}{
 		{
-			name: "injects plugin with scheme",
+			name: "injects plugin with the given parameters",
 			configYAML: `
 plugins:
 - type: queue-scorer
 `,
-			scheme: "https",
+			parameters: map[string]interface{}{
+				"scheme":             "https",
+				"path":               "/custom/metrics",
+				"insecureSkipVerify": false,
+			},
 			validate: func(g Gomega, obj map[string]interface{}) {
 				plugins := obj["plugins"].([]interface{})
 				g.Expect(plugins).To(HaveLen(2))
 				pluginMap := plugins[1].(map[string]interface{})
 				g.Expect(pluginMap["type"]).To(Equal(metricsDataSourcePlugin))
 				params := pluginMap["parameters"].(map[string]interface{})
-				g.Expect(params["scheme"]).To(Equal("https"))
+				g.Expect(params).To(HaveKeyWithValue("scheme", "https"))
+				g.Expect(params).To(HaveKeyWithValue("path", "/custom/metrics"))
+				g.Expect(params).To(HaveKeyWithValue("insecureSkipVerify", false))
 			},
 		},
 		{
@@ -2389,7 +2457,7 @@ plugins:
   parameters:
     scheme: http
 `,
-			scheme: "https",
+			parameters: map[string]interface{}{"scheme": "https"},
 			validate: func(g Gomega, obj map[string]interface{}) {
 				plugins := obj["plugins"].([]interface{})
 				g.Expect(plugins).To(HaveLen(1))
@@ -2406,27 +2474,31 @@ plugins:
 			var obj map[string]interface{}
 			g.Expect(yaml.Unmarshal([]byte(tt.configYAML), &obj)).To(Succeed())
 			u := unstructured.Unstructured{Object: obj}
-			fn := withMetricsDataSourceScheme(tt.scheme)
+			fn := withMetricsDataSourceParams(tt.parameters)
 			g.Expect(fn(context.Background(), &u)).To(Succeed())
 			tt.validate(g, u.Object)
 		})
 	}
 }
 
-func TestExtractModelServerMetricsScheme(t *testing.T) {
+func TestExtractModelServerMetricsFlags(t *testing.T) {
 	tests := []struct {
 		name            string
 		command         []string
 		args            []string
 		expectedCommand []string
 		expectedArgs    []string
-		expectedScheme  string
+		expectedParams  map[string]string
 	}{
 		{
-			name:            "extracts from command with equals form",
-			command:         []string{"/app/epp", "--model-server-metrics-scheme=https", "--grpc-port=9002"},
+			name:            "extracts scheme, path and insecureSkipVerify from command",
+			command:         []string{"/app/epp", "--model-server-metrics-scheme=https", "--model-server-metrics-path=/custom/metrics", "--model-server-metrics-https-insecure-skip-verify=false", "--grpc-port=9002"},
 			expectedCommand: []string{"/app/epp", "--grpc-port=9002"},
-			expectedScheme:  "https",
+			expectedParams: map[string]string{
+				modelServerMetricsSchemeFlag:             "https",
+				modelServerMetricsPathFlag:               "/custom/metrics",
+				modelServerMetricsInsecureSkipVerifyFlag: "false",
+			},
 		},
 		{
 			name:            "extracts from args with equals form",
@@ -2434,13 +2506,19 @@ func TestExtractModelServerMetricsScheme(t *testing.T) {
 			args:            []string{"--model-server-metrics-scheme=https", "--grpc-port=9002"},
 			expectedCommand: []string{"/app/epp"},
 			expectedArgs:    []string{"--grpc-port=9002"},
-			expectedScheme:  "https",
+			expectedParams:  map[string]string{modelServerMetricsSchemeFlag: "https"},
 		},
 		{
-			name:            "no flag returns empty scheme",
+			name:            "strips port without returning it",
+			command:         []string{"/app/epp", "--model-server-metrics-port=8000", "--grpc-port=9002"},
+			expectedCommand: []string{"/app/epp", "--grpc-port=9002"},
+			expectedParams:  map[string]string{},
+		},
+		{
+			name:            "no flag returns empty params",
 			command:         []string{"/app/epp", "--grpc-port=9002"},
 			expectedCommand: []string{"/app/epp", "--grpc-port=9002"},
-			expectedScheme:  "",
+			expectedParams:  map[string]string{},
 		},
 	}
 
@@ -2458,8 +2536,8 @@ func TestExtractModelServerMetricsScheme(t *testing.T) {
 					},
 				},
 			}
-			scheme := extractModelServerMetricsScheme(d)
-			g.Expect(scheme).To(Equal(tt.expectedScheme))
+			params := extractModelServerMetricsFlags(context.Background(), d)
+			g.Expect(params).To(Equal(tt.expectedParams))
 			if tt.expectedCommand != nil {
 				g.Expect(d.Spec.Template.Spec.Containers[0].Command).To(Equal(tt.expectedCommand))
 			}
@@ -2484,40 +2562,65 @@ plugins:
 		args         []string
 		expectErr    bool
 		errSubstring string
-		expectFlag   bool
-		expectPlugin bool
+		flag         string                 // the deprecated flag literal to check on Command/Args
+		expectFlag   bool                   // whether flag still survives on Command
+		expectParams map[string]interface{} // nil => no metrics-data-source plugin
 	}{
 		{
 			name:         "0.9.0 leaves flag and config untouched",
 			version:      "0.9.0",
 			command:      []string{"/app/epp", "--model-server-metrics-scheme=https"},
 			args:         []string{"--config-text", configYAML},
+			flag:         "--model-server-metrics-scheme=https",
 			expectFlag:   true,
-			expectPlugin: false,
+			expectParams: nil,
 		},
 		{
-			name:         "0.10.0 strips flag from command and injects plugin",
+			name:         "0.10.0 strips scheme from command and injects plugin",
 			version:      "0.10.0",
 			command:      []string{"/app/epp", "--model-server-metrics-scheme=https"},
 			args:         []string{"--config-text", configYAML},
-			expectFlag:   false,
-			expectPlugin: true,
+			flag:         "--model-server-metrics-scheme=https",
+			expectParams: map[string]interface{}{"scheme": "https"},
 		},
 		{
-			name:         "0.10.0 strips flag from args and injects plugin",
+			name:         "0.10.0 strips scheme from args and injects plugin",
 			version:      "0.10.0",
 			command:      []string{"/app/epp"},
 			args:         []string{"--model-server-metrics-scheme=https", "--config-text", configYAML},
-			expectFlag:   false,
-			expectPlugin: true,
+			flag:         "--model-server-metrics-scheme=https",
+			expectParams: map[string]interface{}{"scheme": "https"},
+		},
+		{
+			name:         "0.10.0 strips path and injects plugin",
+			version:      "0.10.0",
+			command:      []string{"/app/epp", "--model-server-metrics-path=/custom/metrics"},
+			args:         []string{"--config-text", configYAML},
+			flag:         "--model-server-metrics-path=/custom/metrics",
+			expectParams: map[string]interface{}{"path": "/custom/metrics"},
+		},
+		{
+			name:         "0.10.0 strips insecureSkipVerify and injects plugin",
+			version:      "0.10.0",
+			command:      []string{"/app/epp", "--model-server-metrics-https-insecure-skip-verify=false"},
+			args:         []string{"--config-text", configYAML},
+			flag:         "--model-server-metrics-https-insecure-skip-verify=false",
+			expectParams: map[string]interface{}{"insecureSkipVerify": false},
+		},
+		{
+			name:         "0.10.0 strips port without injecting a plugin",
+			version:      "0.10.0",
+			command:      []string{"/app/epp", "--model-server-metrics-port=8000"},
+			args:         []string{"--config-text", configYAML},
+			flag:         "--model-server-metrics-port=8000",
+			expectParams: nil,
 		},
 		{
 			name:         "0.10.0 without flag leaves config untouched",
 			version:      "0.10.0",
 			command:      []string{"/app/epp"},
 			args:         []string{"--config-text", configYAML},
-			expectFlag:   false,
-			expectPlugin: false,
+			expectParams: nil,
 		},
 		{
 			name:         "0.10.0 with flag but non-writable config-file returns error",
@@ -2526,6 +2629,43 @@ plugins:
 			args:         []string{"--config-file", "/etc/scheduler/config.yaml"},
 			expectErr:    true,
 			errSubstring: "no inline --config-text",
+		},
+		{
+			// multiple flags on a non-writable config: the error must list the
+			// actual flags that were set, in a deterministic (sorted) order.
+			name:    "0.10.0 non-writable config-file lists the set flags sorted",
+			version: "0.10.0",
+			command: []string{
+				"/app/epp",
+				"--model-server-metrics-scheme=https",
+				"--model-server-metrics-path=/metrics",
+				"--model-server-metrics-https-insecure-skip-verify=true",
+			},
+			args:      []string{"--config-file", "/etc/scheduler/config.yaml"},
+			expectErr: true,
+			errSubstring: "--model-server-metrics-https-insecure-skip-verify, " +
+				"--model-server-metrics-path, --model-server-metrics-scheme",
+		},
+		{
+			// an invalid boolean fails the reconcile up front (with a writable
+			// config-text), before any config mutation happens.
+			name:         "0.10.0 invalid insecureSkipVerify value returns error",
+			version:      "0.10.0",
+			command:      []string{"/app/epp", "--model-server-metrics-https-insecure-skip-verify=notabool"},
+			args:         []string{"--config-text", configYAML},
+			expectErr:    true,
+			errSubstring: "invalid value",
+		},
+		{
+			// port has no plugin parameter, so stripping it needs no config
+			// rewrite: a non-writable config-file must not block its removal.
+			name:         "0.10.0 strips port even with non-writable config-file",
+			version:      "0.10.0",
+			command:      []string{"/app/epp", "--model-server-metrics-port=8000"},
+			args:         []string{"--config-file", "/etc/scheduler/config.yaml"},
+			flag:         "--model-server-metrics-port=8000",
+			expectFlag:   false,
+			expectParams: nil,
 		},
 	}
 
@@ -2561,11 +2701,13 @@ plugins:
 			g.Expect(err).NotTo(HaveOccurred())
 
 			command := d.Spec.Template.Spec.Containers[0].Command
-			g.Expect(slices.Contains(command, "--model-server-metrics-scheme=https")).To(Equal(tt.expectFlag))
-
 			args := d.Spec.Template.Spec.Containers[0].Args
-			// The flag must never survive on Args either, regardless of where it started.
-			g.Expect(slices.Contains(args, "--model-server-metrics-scheme=https")).To(BeFalse())
+			if tt.flag != "" {
+				g.Expect(slices.Contains(command, tt.flag)).To(Equal(tt.expectFlag))
+				// The flag must never survive on Args, regardless of where it started.
+				g.Expect(slices.Contains(args, tt.flag)).To(BeFalse())
+			}
+
 			configText := ""
 			for i, a := range args {
 				if a == "--config-text" && i+1 < len(args) {
@@ -2584,11 +2726,13 @@ plugins:
 				}
 			}
 
-			if tt.expectPlugin {
+			if tt.expectParams != nil {
 				g.Expect(metricsPlugin).NotTo(BeNil(), "expected a metrics-data-source plugin to be injected")
 				params, ok := metricsPlugin["parameters"].(map[string]interface{})
 				g.Expect(ok).To(BeTrue(), "metrics-data-source plugin must carry parameters")
-				g.Expect(params).To(HaveKeyWithValue("scheme", "https"))
+				for k, v := range tt.expectParams {
+					g.Expect(params).To(HaveKeyWithValue(k, v))
+				}
 			} else {
 				g.Expect(metricsPlugin).To(BeNil(), "did not expect a metrics-data-source plugin")
 			}
