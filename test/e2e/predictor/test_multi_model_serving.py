@@ -30,7 +30,6 @@ from kserve import (
 )
 
 from ..common.utils import predict_isvc, get_cluster_ip
-from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
 @pytest.mark.parametrize(
@@ -54,9 +53,9 @@ async def test_mms_sklearn_kserve(
     rest_v1_client,
     rest_v2_client,
     network_layer,
+    test_namespace,
 ):
     service_name = f"isvc-sklearn-mms-{protocol_version}"
-    # Define an inference service
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         sklearn=V1beta1SKLearnSpec(
@@ -71,18 +70,15 @@ async def test_mms_sklearn_kserve(
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    # Create an instance of inference service with isvc
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
     cluster_ip = get_cluster_ip()
 
@@ -101,21 +97,18 @@ async def test_mms_sklearn_kserve(
         model = V1alpha1TrainedModel(
             api_version=constants.KSERVE_V1ALPHA1,
             kind=constants.KSERVE_KIND_TRAINEDMODEL,
-            metadata=client.V1ObjectMeta(
-                name=model_name, namespace=KSERVE_TEST_NAMESPACE
-            ),
+            metadata=client.V1ObjectMeta(name=model_name, namespace=test_namespace),
             spec=V1alpha1TrainedModelSpec(
                 inference_service=service_name, model=model_spec
             ),
         )
 
-        # Create instances of trained models using model1 and model2
-        kserve_client.create_trained_model(model, KSERVE_TEST_NAMESPACE)
+        kserve_client.create_trained_model(model, test_namespace)
 
         kserve_client.wait_model_ready(
             service_name,
             model_name,
-            isvc_namespace=KSERVE_TEST_NAMESPACE,
+            isvc_namespace=test_namespace,
             isvc_version=constants.KSERVE_V1BETA1_VERSION,
             protocol_version=protocol_version,
             cluster_ip=cluster_ip,
@@ -129,6 +122,7 @@ async def test_mms_sklearn_kserve(
                 "./data/iris_input.json",
                 model_name=model_name,
                 network_layer=network_layer,
+                namespace=test_namespace,
             )
             for model_name in model_names
         ]
@@ -142,16 +136,12 @@ async def test_mms_sklearn_kserve(
                 "./data/iris_input_v2.json",
                 model_name=model_name,
                 network_layer=network_layer,
+                namespace=test_namespace,
             )
             for model_name in model_names
         ]
         assert responses[0].outputs[0].data == [1, 1]
         assert responses[1].outputs[0].data == [1, 1]
-
-    # Clean up inference service and trained models
-    for model_name in model_names:
-        kserve_client.delete_trained_model(model_name, KSERVE_TEST_NAMESPACE)
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.parametrize(
@@ -175,9 +165,9 @@ async def test_mms_xgboost_kserve(
     rest_v1_client,
     rest_v2_client,
     network_layer,
+    test_namespace,
 ):
     service_name = f"isvc-xgboost-mms-{protocol_version}"
-    # Define an inference service
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         xgboost=V1beta1XGBoostSpec(
@@ -193,18 +183,15 @@ async def test_mms_xgboost_kserve(
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    # Create an instance of inference service with isvc
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
     cluster_ip = get_cluster_ip()
     model_names = [
@@ -213,7 +200,6 @@ async def test_mms_xgboost_kserve(
     ]
 
     for model_name in model_names:
-        # Define trained models
         model_spec = V1alpha1ModelSpec(
             storage_uri=storage_uri,
             memory="128Mi",
@@ -223,21 +209,18 @@ async def test_mms_xgboost_kserve(
         model = V1alpha1TrainedModel(
             api_version=constants.KSERVE_V1ALPHA1,
             kind=constants.KSERVE_KIND_TRAINEDMODEL,
-            metadata=client.V1ObjectMeta(
-                name=model_name, namespace=KSERVE_TEST_NAMESPACE
-            ),
+            metadata=client.V1ObjectMeta(name=model_name, namespace=test_namespace),
             spec=V1alpha1TrainedModelSpec(
                 inference_service=service_name, model=model_spec
             ),
         )
 
-        # Create instances of trained models using model1 and model2
-        kserve_client.create_trained_model(model, KSERVE_TEST_NAMESPACE)
+        kserve_client.create_trained_model(model, test_namespace)
 
         kserve_client.wait_model_ready(
             service_name,
             model_name,
-            isvc_namespace=KSERVE_TEST_NAMESPACE,
+            isvc_namespace=test_namespace,
             isvc_version=constants.KSERVE_V1BETA1_VERSION,
             protocol_version=protocol_version,
             cluster_ip=cluster_ip,
@@ -251,6 +234,7 @@ async def test_mms_xgboost_kserve(
                 "./data/iris_input.json",
                 model_name=model_name,
                 network_layer=network_layer,
+                namespace=test_namespace,
             )
             for model_name in model_names
         ]
@@ -264,13 +248,9 @@ async def test_mms_xgboost_kserve(
                 "./data/iris_input_v2.json",
                 model_name=model_name,
                 network_layer=network_layer,
+                namespace=test_namespace,
             )
             for model_name in model_names
         ]
         assert responses[0].outputs[0].data == [1.0, 1.0]
         assert responses[1].outputs[0].data == [1.0, 1.0]
-
-    # Clean up inference service and trained models
-    for model_name in model_names:
-        kserve_client.delete_trained_model(model_name, KSERVE_TEST_NAMESPACE)
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

@@ -29,7 +29,7 @@ import re
 
 import pytest
 
-from ..common.utils import predict_isvc, KSERVE_TEST_NAMESPACE
+from ..common.utils import predict_isvc
 
 from .format_verifiers import (
     verify_json_object,
@@ -51,93 +51,101 @@ from .s3_utils import (
 
 @pytest.mark.marshaller
 @pytest.mark.asyncio(scope="session")
-async def test_json_immediate(kserve_client, rest_v1_client, network_layer):
+async def test_json_immediate(
+    kserve_client, rest_v1_client, network_layer, test_namespace
+):
     """JSON marshaller with immediate batching (batch_size=1).
 
     Send 1 prediction. Expect 2 S3 objects (request + response),
     each containing a single JSON LogRequest object.
     """
     s3 = create_s3_client()
-    service_name, isvc = create_logger_isvc(format="json", batch_size=1)
+    service_name, isvc = create_logger_isvc(
+        format="json", namespace=test_namespace, batch_size=1
+    )
     store_path = isvc.spec.predictor.logger.storage.path
-    prefix = f"logs/{KSERVE_TEST_NAMESPACE}/{service_name}/predictor/{store_path}/"
+    prefix = f"logs/{test_namespace}/{service_name}/predictor/{store_path}/"
 
-    try:
-        kserve_client.create(isvc)
-        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
-        res = await predict_isvc(
-            rest_v1_client,
-            service_name,
-            "./data/iris_input.json",
-            network_layer=network_layer,
+    res = await predict_isvc(
+        rest_v1_client,
+        service_name,
+        "./data/iris_input.json",
+        network_layer=network_layer,
+        namespace=test_namespace,
+    )
+    assert res["predictions"] == [1, 1]
+
+    objects = wait_for_s3_objects(s3, LOGGER_BUCKET, prefix, 2, timeout=60)
+
+    request_objects = [obj for obj in objects if "-request." in obj["Key"]]
+    response_objects = [obj for obj in objects if "-response." in obj["Key"]]
+    assert len(request_objects) == 1, "Should have exactly 1 request object"
+    assert len(response_objects) == 1, "Should have exactly 1 response object"
+
+    for obj in objects:
+        body = get_s3_object_body(s3, LOGGER_BUCKET, obj["Key"])
+        assert obj["Key"].endswith(".json"), (
+            f"Expected .json extension, got: {obj['Key']}"
         )
-        assert res["predictions"] == [1, 1]
+        verify_json_object(body, expected_records=1)
 
-        objects = wait_for_s3_objects(s3, LOGGER_BUCKET, prefix, 2, timeout=60)
+    keys = [obj["Key"].split("/")[-1] for obj in objects]
+    for key in keys:
+        assert re.match(r".+-(request|response)\.json$", key), (
+            f"Object key does not match expected pattern: {key}"
+        )
 
-        request_objects = [obj for obj in objects if "-request." in obj["Key"]]
-        response_objects = [obj for obj in objects if "-response." in obj["Key"]]
-        assert len(request_objects) == 1, "Should have exactly 1 request object"
-        assert len(response_objects) == 1, "Should have exactly 1 response object"
-
-        for obj in objects:
-            body = get_s3_object_body(s3, LOGGER_BUCKET, obj["Key"])
-            assert obj["Key"].endswith(".json"), (
-                f"Expected .json extension, got: {obj['Key']}"
-            )
-            verify_json_object(body, expected_records=1)
-
-        keys = [obj["Key"].split("/")[-1] for obj in objects]
-        for key in keys:
-            assert re.match(r".+-(request|response)\.json$", key), (
-                f"Object key does not match expected pattern: {key}"
-            )
-    finally:
-        kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-        cleanup_s3_prefix(s3, LOGGER_BUCKET, prefix)
+    cleanup_s3_prefix(s3, LOGGER_BUCKET, prefix)
 
 
 @pytest.mark.marshaller
 @pytest.mark.asyncio(scope="session")
-async def test_json_size_batch(kserve_client, rest_v1_client, network_layer):
+async def test_json_size_batch(
+    kserve_client, rest_v1_client, network_layer, test_namespace
+):
     """JSON marshaller with size-based batching (batch_size=5).
 
     Send 5 predictions. Expect 2 S3 objects: one batch of 5 request
     records and one batch of 5 response records, each as a JSON array.
     """
     s3 = create_s3_client()
-    service_name, isvc = create_logger_isvc(format="json", batch_size=5)
+    service_name, isvc = create_logger_isvc(
+        format="json", namespace=test_namespace, batch_size=5
+    )
     store_path = isvc.spec.predictor.logger.storage.path
-    prefix = f"logs/{KSERVE_TEST_NAMESPACE}/{service_name}/predictor/{store_path}/"
+    prefix = f"logs/{test_namespace}/{service_name}/predictor/{store_path}/"
 
-    try:
-        kserve_client.create(isvc)
-        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
-        for _ in range(5):
-            res = await predict_isvc(
-                rest_v1_client,
-                service_name,
-                "./data/iris_input.json",
-                network_layer=network_layer,
-            )
-            assert res["predictions"] == [1, 1]
+    for _ in range(5):
+        res = await predict_isvc(
+            rest_v1_client,
+            service_name,
+            "./data/iris_input.json",
+            network_layer=network_layer,
+            namespace=test_namespace,
+        )
+        assert res["predictions"] == [1, 1]
 
-        objects = wait_for_s3_objects(s3, LOGGER_BUCKET, prefix, 2, timeout=90)
+    objects = wait_for_s3_objects(s3, LOGGER_BUCKET, prefix, 2, timeout=90)
 
-        for obj in objects:
-            body = get_s3_object_body(s3, LOGGER_BUCKET, obj["Key"])
-            assert obj["Key"].endswith(".json")
-            verify_json_object(body, expected_records=5)
-    finally:
-        kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-        cleanup_s3_prefix(s3, LOGGER_BUCKET, prefix)
+    for obj in objects:
+        body = get_s3_object_body(s3, LOGGER_BUCKET, obj["Key"])
+        assert obj["Key"].endswith(".json")
+        verify_json_object(body, expected_records=5)
+
+    cleanup_s3_prefix(s3, LOGGER_BUCKET, prefix)
 
 
 @pytest.mark.marshaller
 @pytest.mark.asyncio(scope="session")
-async def test_json_timed_batch(kserve_client, rest_v1_client, network_layer):
+async def test_json_timed_batch(
+    kserve_client, rest_v1_client, network_layer, test_namespace
+):
     """JSON marshaller with timed batching (batch_size=2, interval=5s).
 
     Phase 1: Send 2 requests to fill the batch. Verify 2 objects with 2 records.
@@ -145,49 +153,49 @@ async def test_json_timed_batch(kserve_client, rest_v1_client, network_layer):
     """
     s3 = create_s3_client()
     service_name, isvc = create_logger_isvc(
-        format="json", batch_size=2, batch_interval="5s"
+        format="json", namespace=test_namespace, batch_size=2, batch_interval="5s"
     )
     store_path = isvc.spec.predictor.logger.storage.path
-    prefix = f"logs/{KSERVE_TEST_NAMESPACE}/{service_name}/predictor/{store_path}/"
+    prefix = f"logs/{test_namespace}/{service_name}/predictor/{store_path}/"
 
-    try:
-        kserve_client.create(isvc)
-        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
-        # Phase 1: fill the batch
-        for _ in range(2):
-            res = await predict_isvc(
-                rest_v1_client,
-                service_name,
-                "./data/iris_input.json",
-                network_layer=network_layer,
-            )
-            assert res["predictions"] == [1, 1]
-
-        objects = wait_for_s3_objects(s3, LOGGER_BUCKET, prefix, 2, timeout=60)
-        for obj in objects:
-            body = get_s3_object_body(s3, LOGGER_BUCKET, obj["Key"])
-            verify_json_object(body, expected_records=2)
-
-        # Phase 2: partial batch flushed by timer
+    # Phase 1: fill the batch
+    for _ in range(2):
         res = await predict_isvc(
             rest_v1_client,
             service_name,
             "./data/iris_input.json",
             network_layer=network_layer,
+            namespace=test_namespace,
         )
         assert res["predictions"] == [1, 1]
 
-        objects = wait_for_s3_objects(
-            s3, LOGGER_BUCKET, prefix, 4, timeout=30, poll_interval=3
-        )
-        new_objects = sorted(objects, key=lambda o: o["Key"])[2:]
-        for obj in new_objects:
-            body = get_s3_object_body(s3, LOGGER_BUCKET, obj["Key"])
-            verify_json_object(body, expected_records=1)
-    finally:
-        kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-        cleanup_s3_prefix(s3, LOGGER_BUCKET, prefix)
+    objects = wait_for_s3_objects(s3, LOGGER_BUCKET, prefix, 2, timeout=60)
+    for obj in objects:
+        body = get_s3_object_body(s3, LOGGER_BUCKET, obj["Key"])
+        verify_json_object(body, expected_records=2)
+
+    # Phase 2: partial batch flushed by timer
+    res = await predict_isvc(
+        rest_v1_client,
+        service_name,
+        "./data/iris_input.json",
+        network_layer=network_layer,
+        namespace=test_namespace,
+    )
+    assert res["predictions"] == [1, 1]
+
+    objects = wait_for_s3_objects(
+        s3, LOGGER_BUCKET, prefix, 4, timeout=30, poll_interval=3
+    )
+    new_objects = sorted(objects, key=lambda o: o["Key"])[2:]
+    for obj in new_objects:
+        body = get_s3_object_body(s3, LOGGER_BUCKET, obj["Key"])
+        verify_json_object(body, expected_records=1)
+
+    cleanup_s3_prefix(s3, LOGGER_BUCKET, prefix)
 
 
 # --- CSV tests ---
@@ -195,87 +203,95 @@ async def test_json_timed_batch(kserve_client, rest_v1_client, network_layer):
 
 @pytest.mark.marshaller
 @pytest.mark.asyncio(scope="session")
-async def test_csv_immediate(kserve_client, rest_v1_client, network_layer):
+async def test_csv_immediate(
+    kserve_client, rest_v1_client, network_layer, test_namespace
+):
     """CSV marshaller with immediate batching (batch_size=1).
 
     Send 1 prediction. Expect 2 S3 objects (request + response),
     each containing a CSV with header row + 1 data row.
     """
     s3 = create_s3_client()
-    service_name, isvc = create_logger_isvc(format="csv", batch_size=1)
+    service_name, isvc = create_logger_isvc(
+        format="csv", namespace=test_namespace, batch_size=1
+    )
     store_path = isvc.spec.predictor.logger.storage.path
-    prefix = f"logs/{KSERVE_TEST_NAMESPACE}/{service_name}/predictor/{store_path}/"
+    prefix = f"logs/{test_namespace}/{service_name}/predictor/{store_path}/"
 
-    try:
-        kserve_client.create(isvc)
-        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
-        res = await predict_isvc(
-            rest_v1_client,
-            service_name,
-            "./data/iris_input.json",
-            network_layer=network_layer,
+    res = await predict_isvc(
+        rest_v1_client,
+        service_name,
+        "./data/iris_input.json",
+        network_layer=network_layer,
+        namespace=test_namespace,
+    )
+    assert res["predictions"] == [1, 1]
+
+    objects = wait_for_s3_objects(s3, LOGGER_BUCKET, prefix, 2, timeout=60)
+
+    request_objects = [obj for obj in objects if "-request." in obj["Key"]]
+    response_objects = [obj for obj in objects if "-response." in obj["Key"]]
+    assert len(request_objects) == 1, "Should have exactly 1 request object"
+    assert len(response_objects) == 1, "Should have exactly 1 response object"
+
+    for obj in objects:
+        body = get_s3_object_body(s3, LOGGER_BUCKET, obj["Key"])
+        assert obj["Key"].endswith(".csv"), (
+            f"Expected .csv extension, got: {obj['Key']}"
         )
-        assert res["predictions"] == [1, 1]
+        verify_csv_object(body, expected_records=1)
 
-        objects = wait_for_s3_objects(s3, LOGGER_BUCKET, prefix, 2, timeout=60)
-
-        request_objects = [obj for obj in objects if "-request." in obj["Key"]]
-        response_objects = [obj for obj in objects if "-response." in obj["Key"]]
-        assert len(request_objects) == 1, "Should have exactly 1 request object"
-        assert len(response_objects) == 1, "Should have exactly 1 response object"
-
-        for obj in objects:
-            body = get_s3_object_body(s3, LOGGER_BUCKET, obj["Key"])
-            assert obj["Key"].endswith(".csv"), (
-                f"Expected .csv extension, got: {obj['Key']}"
-            )
-            verify_csv_object(body, expected_records=1)
-    finally:
-        kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-        cleanup_s3_prefix(s3, LOGGER_BUCKET, prefix)
+    cleanup_s3_prefix(s3, LOGGER_BUCKET, prefix)
 
 
 @pytest.mark.marshaller
 @pytest.mark.asyncio(scope="session")
-async def test_csv_size_batch(kserve_client, rest_v1_client, network_layer):
+async def test_csv_size_batch(
+    kserve_client, rest_v1_client, network_layer, test_namespace
+):
     """CSV marshaller with size-based batching (batch_size=5).
 
     Send 5 predictions. Expect 2 S3 objects: one batch of 5 request
     rows and one batch of 5 response rows.
     """
     s3 = create_s3_client()
-    service_name, isvc = create_logger_isvc(format="csv", batch_size=5)
+    service_name, isvc = create_logger_isvc(
+        format="csv", namespace=test_namespace, batch_size=5
+    )
     store_path = isvc.spec.predictor.logger.storage.path
-    prefix = f"logs/{KSERVE_TEST_NAMESPACE}/{service_name}/predictor/{store_path}/"
+    prefix = f"logs/{test_namespace}/{service_name}/predictor/{store_path}/"
 
-    try:
-        kserve_client.create(isvc)
-        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
-        for _ in range(5):
-            res = await predict_isvc(
-                rest_v1_client,
-                service_name,
-                "./data/iris_input.json",
-                network_layer=network_layer,
-            )
-            assert res["predictions"] == [1, 1]
+    for _ in range(5):
+        res = await predict_isvc(
+            rest_v1_client,
+            service_name,
+            "./data/iris_input.json",
+            network_layer=network_layer,
+            namespace=test_namespace,
+        )
+        assert res["predictions"] == [1, 1]
 
-        objects = wait_for_s3_objects(s3, LOGGER_BUCKET, prefix, 2, timeout=90)
+    objects = wait_for_s3_objects(s3, LOGGER_BUCKET, prefix, 2, timeout=90)
 
-        for obj in objects:
-            body = get_s3_object_body(s3, LOGGER_BUCKET, obj["Key"])
-            assert obj["Key"].endswith(".csv")
-            verify_csv_object(body, expected_records=5)
-    finally:
-        kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-        cleanup_s3_prefix(s3, LOGGER_BUCKET, prefix)
+    for obj in objects:
+        body = get_s3_object_body(s3, LOGGER_BUCKET, obj["Key"])
+        assert obj["Key"].endswith(".csv")
+        verify_csv_object(body, expected_records=5)
+
+    cleanup_s3_prefix(s3, LOGGER_BUCKET, prefix)
 
 
 @pytest.mark.marshaller
 @pytest.mark.asyncio(scope="session")
-async def test_csv_timed_batch(kserve_client, rest_v1_client, network_layer):
+async def test_csv_timed_batch(
+    kserve_client, rest_v1_client, network_layer, test_namespace
+):
     """CSV marshaller with timed batching (batch_size=2, interval=5s).
 
     Phase 1: Send 2 requests to fill the batch. Verify 2 objects with 2 rows.
@@ -283,47 +299,47 @@ async def test_csv_timed_batch(kserve_client, rest_v1_client, network_layer):
     """
     s3 = create_s3_client()
     service_name, isvc = create_logger_isvc(
-        format="csv", batch_size=2, batch_interval="5s"
+        format="csv", namespace=test_namespace, batch_size=2, batch_interval="5s"
     )
     store_path = isvc.spec.predictor.logger.storage.path
-    prefix = f"logs/{KSERVE_TEST_NAMESPACE}/{service_name}/predictor/{store_path}/"
+    prefix = f"logs/{test_namespace}/{service_name}/predictor/{store_path}/"
 
-    try:
-        kserve_client.create(isvc)
-        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
-        for _ in range(2):
-            res = await predict_isvc(
-                rest_v1_client,
-                service_name,
-                "./data/iris_input.json",
-                network_layer=network_layer,
-            )
-            assert res["predictions"] == [1, 1]
-
-        objects = wait_for_s3_objects(s3, LOGGER_BUCKET, prefix, 2, timeout=60)
-        for obj in objects:
-            body = get_s3_object_body(s3, LOGGER_BUCKET, obj["Key"])
-            verify_csv_object(body, expected_records=2)
-
+    for _ in range(2):
         res = await predict_isvc(
             rest_v1_client,
             service_name,
             "./data/iris_input.json",
             network_layer=network_layer,
+            namespace=test_namespace,
         )
         assert res["predictions"] == [1, 1]
 
-        objects = wait_for_s3_objects(
-            s3, LOGGER_BUCKET, prefix, 4, timeout=30, poll_interval=3
-        )
-        new_objects = sorted(objects, key=lambda o: o["Key"])[2:]
-        for obj in new_objects:
-            body = get_s3_object_body(s3, LOGGER_BUCKET, obj["Key"])
-            verify_csv_object(body, expected_records=1)
-    finally:
-        kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-        cleanup_s3_prefix(s3, LOGGER_BUCKET, prefix)
+    objects = wait_for_s3_objects(s3, LOGGER_BUCKET, prefix, 2, timeout=60)
+    for obj in objects:
+        body = get_s3_object_body(s3, LOGGER_BUCKET, obj["Key"])
+        verify_csv_object(body, expected_records=2)
+
+    res = await predict_isvc(
+        rest_v1_client,
+        service_name,
+        "./data/iris_input.json",
+        network_layer=network_layer,
+        namespace=test_namespace,
+    )
+    assert res["predictions"] == [1, 1]
+
+    objects = wait_for_s3_objects(
+        s3, LOGGER_BUCKET, prefix, 4, timeout=30, poll_interval=3
+    )
+    new_objects = sorted(objects, key=lambda o: o["Key"])[2:]
+    for obj in new_objects:
+        body = get_s3_object_body(s3, LOGGER_BUCKET, obj["Key"])
+        verify_csv_object(body, expected_records=1)
+
+    cleanup_s3_prefix(s3, LOGGER_BUCKET, prefix)
 
 
 # --- Parquet tests ---
@@ -331,87 +347,95 @@ async def test_csv_timed_batch(kserve_client, rest_v1_client, network_layer):
 
 @pytest.mark.marshaller
 @pytest.mark.asyncio(scope="session")
-async def test_parquet_immediate(kserve_client, rest_v1_client, network_layer):
+async def test_parquet_immediate(
+    kserve_client, rest_v1_client, network_layer, test_namespace
+):
     """Parquet marshaller with immediate batching (batch_size=1).
 
     Send 1 prediction. Expect 2 S3 objects (request + response),
     each containing a Parquet file with 1 row.
     """
     s3 = create_s3_client()
-    service_name, isvc = create_logger_isvc(format="parquet", batch_size=1)
+    service_name, isvc = create_logger_isvc(
+        format="parquet", namespace=test_namespace, batch_size=1
+    )
     store_path = isvc.spec.predictor.logger.storage.path
-    prefix = f"logs/{KSERVE_TEST_NAMESPACE}/{service_name}/predictor/{store_path}/"
+    prefix = f"logs/{test_namespace}/{service_name}/predictor/{store_path}/"
 
-    try:
-        kserve_client.create(isvc)
-        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
-        res = await predict_isvc(
-            rest_v1_client,
-            service_name,
-            "./data/iris_input.json",
-            network_layer=network_layer,
+    res = await predict_isvc(
+        rest_v1_client,
+        service_name,
+        "./data/iris_input.json",
+        network_layer=network_layer,
+        namespace=test_namespace,
+    )
+    assert res["predictions"] == [1, 1]
+
+    objects = wait_for_s3_objects(s3, LOGGER_BUCKET, prefix, 2, timeout=60)
+
+    request_objects = [obj for obj in objects if "-request." in obj["Key"]]
+    response_objects = [obj for obj in objects if "-response." in obj["Key"]]
+    assert len(request_objects) == 1, "Should have exactly 1 request object"
+    assert len(response_objects) == 1, "Should have exactly 1 response object"
+
+    for obj in objects:
+        body = get_s3_object_body(s3, LOGGER_BUCKET, obj["Key"])
+        assert obj["Key"].endswith(".parquet"), (
+            f"Expected .parquet extension, got: {obj['Key']}"
         )
-        assert res["predictions"] == [1, 1]
+        verify_parquet_object(body, expected_records=1)
 
-        objects = wait_for_s3_objects(s3, LOGGER_BUCKET, prefix, 2, timeout=60)
-
-        request_objects = [obj for obj in objects if "-request." in obj["Key"]]
-        response_objects = [obj for obj in objects if "-response." in obj["Key"]]
-        assert len(request_objects) == 1, "Should have exactly 1 request object"
-        assert len(response_objects) == 1, "Should have exactly 1 response object"
-
-        for obj in objects:
-            body = get_s3_object_body(s3, LOGGER_BUCKET, obj["Key"])
-            assert obj["Key"].endswith(".parquet"), (
-                f"Expected .parquet extension, got: {obj['Key']}"
-            )
-            verify_parquet_object(body, expected_records=1)
-    finally:
-        kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-        cleanup_s3_prefix(s3, LOGGER_BUCKET, prefix)
+    cleanup_s3_prefix(s3, LOGGER_BUCKET, prefix)
 
 
 @pytest.mark.marshaller
 @pytest.mark.asyncio(scope="session")
-async def test_parquet_size_batch(kserve_client, rest_v1_client, network_layer):
+async def test_parquet_size_batch(
+    kserve_client, rest_v1_client, network_layer, test_namespace
+):
     """Parquet marshaller with size-based batching (batch_size=5).
 
     Send 5 predictions. Expect 2 S3 objects: one batch of 5 request
     rows and one batch of 5 response rows.
     """
     s3 = create_s3_client()
-    service_name, isvc = create_logger_isvc(format="parquet", batch_size=5)
+    service_name, isvc = create_logger_isvc(
+        format="parquet", namespace=test_namespace, batch_size=5
+    )
     store_path = isvc.spec.predictor.logger.storage.path
-    prefix = f"logs/{KSERVE_TEST_NAMESPACE}/{service_name}/predictor/{store_path}/"
+    prefix = f"logs/{test_namespace}/{service_name}/predictor/{store_path}/"
 
-    try:
-        kserve_client.create(isvc)
-        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
-        for _ in range(5):
-            res = await predict_isvc(
-                rest_v1_client,
-                service_name,
-                "./data/iris_input.json",
-                network_layer=network_layer,
-            )
-            assert res["predictions"] == [1, 1]
+    for _ in range(5):
+        res = await predict_isvc(
+            rest_v1_client,
+            service_name,
+            "./data/iris_input.json",
+            network_layer=network_layer,
+            namespace=test_namespace,
+        )
+        assert res["predictions"] == [1, 1]
 
-        objects = wait_for_s3_objects(s3, LOGGER_BUCKET, prefix, 2, timeout=90)
+    objects = wait_for_s3_objects(s3, LOGGER_BUCKET, prefix, 2, timeout=90)
 
-        for obj in objects:
-            body = get_s3_object_body(s3, LOGGER_BUCKET, obj["Key"])
-            assert obj["Key"].endswith(".parquet")
-            verify_parquet_object(body, expected_records=5)
-    finally:
-        kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-        cleanup_s3_prefix(s3, LOGGER_BUCKET, prefix)
+    for obj in objects:
+        body = get_s3_object_body(s3, LOGGER_BUCKET, obj["Key"])
+        assert obj["Key"].endswith(".parquet")
+        verify_parquet_object(body, expected_records=5)
+
+    cleanup_s3_prefix(s3, LOGGER_BUCKET, prefix)
 
 
 @pytest.mark.marshaller
 @pytest.mark.asyncio(scope="session")
-async def test_parquet_timed_batch(kserve_client, rest_v1_client, network_layer):
+async def test_parquet_timed_batch(
+    kserve_client, rest_v1_client, network_layer, test_namespace
+):
     """Parquet marshaller with timed batching (batch_size=2, interval=5s).
 
     Phase 1: Send 2 requests to fill the batch. Verify 2 objects with 2 rows.
@@ -419,44 +443,44 @@ async def test_parquet_timed_batch(kserve_client, rest_v1_client, network_layer)
     """
     s3 = create_s3_client()
     service_name, isvc = create_logger_isvc(
-        format="parquet", batch_size=2, batch_interval="5s"
+        format="parquet", namespace=test_namespace, batch_size=2, batch_interval="5s"
     )
     store_path = isvc.spec.predictor.logger.storage.path
-    prefix = f"logs/{KSERVE_TEST_NAMESPACE}/{service_name}/predictor/{store_path}/"
+    prefix = f"logs/{test_namespace}/{service_name}/predictor/{store_path}/"
 
-    try:
-        kserve_client.create(isvc)
-        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
-        for _ in range(2):
-            res = await predict_isvc(
-                rest_v1_client,
-                service_name,
-                "./data/iris_input.json",
-                network_layer=network_layer,
-            )
-            assert res["predictions"] == [1, 1]
-
-        objects = wait_for_s3_objects(s3, LOGGER_BUCKET, prefix, 2, timeout=60)
-        for obj in objects:
-            body = get_s3_object_body(s3, LOGGER_BUCKET, obj["Key"])
-            verify_parquet_object(body, expected_records=2)
-
+    for _ in range(2):
         res = await predict_isvc(
             rest_v1_client,
             service_name,
             "./data/iris_input.json",
             network_layer=network_layer,
+            namespace=test_namespace,
         )
         assert res["predictions"] == [1, 1]
 
-        objects = wait_for_s3_objects(
-            s3, LOGGER_BUCKET, prefix, 4, timeout=30, poll_interval=3
-        )
-        new_objects = sorted(objects, key=lambda o: o["Key"])[2:]
-        for obj in new_objects:
-            body = get_s3_object_body(s3, LOGGER_BUCKET, obj["Key"])
-            verify_parquet_object(body, expected_records=1)
-    finally:
-        kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-        cleanup_s3_prefix(s3, LOGGER_BUCKET, prefix)
+    objects = wait_for_s3_objects(s3, LOGGER_BUCKET, prefix, 2, timeout=60)
+    for obj in objects:
+        body = get_s3_object_body(s3, LOGGER_BUCKET, obj["Key"])
+        verify_parquet_object(body, expected_records=2)
+
+    res = await predict_isvc(
+        rest_v1_client,
+        service_name,
+        "./data/iris_input.json",
+        network_layer=network_layer,
+        namespace=test_namespace,
+    )
+    assert res["predictions"] == [1, 1]
+
+    objects = wait_for_s3_objects(
+        s3, LOGGER_BUCKET, prefix, 4, timeout=30, poll_interval=3
+    )
+    new_objects = sorted(objects, key=lambda o: o["Key"])[2:]
+    for obj in new_objects:
+        body = get_s3_object_body(s3, LOGGER_BUCKET, obj["Key"])
+        verify_parquet_object(body, expected_records=1)
+
+    cleanup_s3_prefix(s3, LOGGER_BUCKET, prefix)

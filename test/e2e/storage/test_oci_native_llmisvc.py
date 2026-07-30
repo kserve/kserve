@@ -44,8 +44,6 @@ import pytest
 from kubernetes import client, config as k8s_config
 from kserve import KServeClient, constants
 
-from ..common.utils import KSERVE_TEST_NAMESPACE
-
 # Placeholder OCI image reference — same fixture used by the InferenceService variant.
 # TODO: replace with a real tiny model image once one is published to ghcr.io/kserve.
 OCI_NATIVE_TEST_IMAGE = "ghcr.io/kserve/oci-native-test-fixture:v1"
@@ -135,7 +133,7 @@ def _skip_if_unsupported() -> None:
 
 
 @pytest.mark.storage
-def test_oci_native_image_volume_spec_llmisvc(tmp_path):
+def test_oci_native_image_volume_spec_llmisvc(test_namespace):
     """An LLMInferenceService with oci+native:// model URI produces an ImageVolume pod spec.
 
     The test:
@@ -146,7 +144,6 @@ def test_oci_native_image_volume_spec_llmisvc(tmp_path):
     4. Asserts the pod spec contains a Volume with ImageVolumeSource whose
        reference matches the expected image string.
     5. Asserts kserve-container has a read-only VolumeMount pointing at that volume.
-    6. Deletes the LLMInferenceService in teardown.
     """
     _skip_if_unsupported()
 
@@ -155,15 +152,12 @@ def test_oci_native_image_volume_spec_llmisvc(tmp_path):
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
 
-    # Minimal LLMInferenceService: oci+native:// model URI + inline pod template.
-    # The controller calls workload_storage.go which applies ConfigureOciNativeToContainer
-    # on the merged pod spec, adding the ImageVolume and read-only VolumeMount.
     llmisvc_body = {
         "apiVersion": f"{KSERVE_GROUP}/{LLMISVC_VERSION}",
         "kind": "LLMInferenceService",
         "metadata": {
             "name": service_name,
-            "namespace": KSERVE_TEST_NAMESPACE,
+            "namespace": test_namespace,
         },
         "spec": {
             "model": {
@@ -173,7 +167,6 @@ def test_oci_native_image_volume_spec_llmisvc(tmp_path):
                 "containers": [
                     {
                         "name": KSERVE_CONTAINER_NAME,
-                        # Placeholder image — will not pull; we only assert pod spec.
                         "image": OCI_NATIVE_TEST_IMAGE,
                         "resources": {
                             "requests": {"cpu": "50m", "memory": "128Mi"},
@@ -189,7 +182,7 @@ def test_oci_native_image_volume_spec_llmisvc(tmp_path):
         kserve_client.api_instance.create_namespaced_custom_object(
             KSERVE_GROUP,
             LLMISVC_VERSION,
-            KSERVE_TEST_NAMESPACE,
+            test_namespace,
             LLMISVC_PLURAL,
             llmisvc_body,
         )
@@ -200,7 +193,7 @@ def test_oci_native_image_volume_spec_llmisvc(tmp_path):
         )
         pod = _wait_for_pod(
             kserve_client.core_api,
-            KSERVE_TEST_NAMESPACE,
+            test_namespace,
             label_selector=label_selector,
         )
         assert pod is not None, (
@@ -252,7 +245,7 @@ def test_oci_native_image_volume_spec_llmisvc(tmp_path):
             kserve_client.api_instance.delete_namespaced_custom_object(
                 KSERVE_GROUP,
                 LLMISVC_VERSION,
-                KSERVE_TEST_NAMESPACE,
+                test_namespace,
                 LLMISVC_PLURAL,
                 service_name,
             )

@@ -12,106 +12,169 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Predictor-scope pytest fixtures for resource leak prevention.
+"""Per-test namespace isolation for predictor e2e tests.
 
-Predictor tests follow the pattern ``create -> wait_isvc_ready -> assert ->
-delete``. If ``wait_isvc_ready`` raises (slow cold start, scheduling failure,
-etc.) the trailing ``delete`` is never reached and the InferenceService is
-leaked into the cluster, where its Deployment keeps a Pod holding CPU/memory
-requests and blocks subsequent tests on resource-constrained CI runners.
-
-Additionally, ``KServeClient.delete`` is asynchronous: even on the happy path
-the pod stays in its graceful-termination window while the next test's
-``create`` may already be racing for the same capacity.
-
-This autouse fixture, after each test:
-  1. Force-deletes any InferenceService the test created (tracked by
-     monkey-patching ``KServeClient.create`` for the duration of the test).
-     Idempotent: already-deleted ISVCs are ignored.
-  2. Polls until any predictor pods carrying a ``deletionTimestamp`` in the
-     test namespace have fully disappeared, so the next test's scheduling
-     decision sees freed capacity.
-
-Pytest-xdist runs each worker in its own process, so the tracking state is
-worker-local and the cleanup only touches ISVCs this worker created — peers
-running concurrent tests are unaffected.
+Each test gets its own Kubernetes namespace to prevent resource collisions
+between parallel pytest-xdist workers.
 """
 
+import hashlib
+import logging
 import os
 import time
 
-from kserve import KServeClient
-from kubernetes import client as k8s_client
-from kubernetes import config as k8s_config
+from kubernetes import client, config
 import pytest
 
-from ..common.utils import KSERVE_TEST_NAMESPACE
+logger = logging.getLogger("e2e.predictor")
 
-_ISVC_POD_LABEL = "serving.kserve.io/inferenceservice"
-_TERMINATION_WAIT_TIMEOUT_S = 180
-_TERMINATION_POLL_INTERVAL_S = 2
-_TERMINATION_PROPAGATION_GRACE_S = 5
+SEED_NAMESPACE = os.environ.get("KSERVE_SEED_NAMESPACE", "kserve-ci-e2e-test")
+S3_CREDENTIALS_SECRET = os.environ.get("S3_CREDENTIALS_SECRET", "seaweedfs-s3-creds")
+STORAGE_CONFIG_SECRET = "storage-config"
 
 
-@pytest.fixture(autouse=True)
-def _cleanup_orphaned_predictor_isvcs(monkeypatch):
-    """Track ISVCs created during the test and force-delete any survivors.
-
-    Never raises: a failure in cleanup must not mask the real test result.
-    """
-    created: list[tuple[str, str]] = []
-    original_create = KServeClient.create
-
-    def _tracking_create(self, inferenceservice, *args, **kwargs):
-        result = original_create(self, inferenceservice, *args, **kwargs)
-        try:
-            meta = inferenceservice.metadata
-            name = meta.name
-            namespace = meta.namespace or KSERVE_TEST_NAMESPACE
-            if name:
-                created.append((name, namespace))
-        except Exception:
-            pass
-        return result
-
-    monkeypatch.setattr(KServeClient, "create", _tracking_create)
-
-    yield
-
-    if created:
-        try:
-            cleanup_client = KServeClient(
-                config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
-            )
-            for name, namespace in created:
-                try:
-                    cleanup_client.delete(name, namespace)
-                except Exception:
-                    pass
-        except Exception:
-            pass
-
+def _get_core_api() -> client.CoreV1Api:
     try:
-        try:
-            k8s_config.load_incluster_config()
-        except k8s_config.ConfigException:
-            k8s_config.load_kube_config()
-    except Exception:
-        return
+        config.load_incluster_config()
+    except config.ConfigException:
+        config.load_kube_config(
+            config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+        )
+    return client.CoreV1Api()
 
-    api = k8s_client.CoreV1Api()
-    time.sleep(_TERMINATION_PROPAGATION_GRACE_S)
-    deadline = time.monotonic() + _TERMINATION_WAIT_TIMEOUT_S
+
+def _generate_namespace_name(node_name: str) -> str:
+    """Generate short DNS-safe namespace name from pytest node ID.
+
+    Keeps names short (≤24 chars) to leave room for ISVC hostname construction
+    which combines {isvc_name}-predictor-{namespace} under a 63-char DNS limit.
+    """
+    name_hash = hashlib.sha256(node_name.encode()).hexdigest()[:12]
+    return f"pred-{name_hash}"
+
+
+def _create_namespace(core_v1: client.CoreV1Api, namespace: str) -> None:
+    ns = client.V1Namespace(
+        metadata=client.V1ObjectMeta(
+            name=namespace,
+            labels={"kserve.io/e2e-test": "true"},
+        )
+    )
+    try:
+        core_v1.create_namespace(ns)
+        logger.info(f"Created namespace {namespace}")
+    except client.rest.ApiException as e:
+        if e.status != 409:
+            raise
+
+    deadline = time.monotonic() + 30
     while time.monotonic() < deadline:
         try:
-            pods = api.list_namespaced_pod(
-                namespace=KSERVE_TEST_NAMESPACE,
-                label_selector=_ISVC_POD_LABEL,
-            ).items
-        except k8s_client.rest.ApiException:
-            return
+            ns = core_v1.read_namespace(namespace)
+            if ns.status.phase == "Active":
+                return
+        except client.rest.ApiException:
+            pass
+        time.sleep(0.5)
 
-        terminating = [p for p in pods if p.metadata.deletion_timestamp is not None]
-        if not terminating:
+
+def _copy_secret(core_v1: client.CoreV1Api, name: str, src: str, dst: str) -> None:
+    try:
+        secret = core_v1.read_namespaced_secret(name, src)
+    except client.rest.ApiException as e:
+        if e.status == 404:
             return
-        time.sleep(_TERMINATION_POLL_INTERVAL_S)
+        raise
+
+    secret.metadata = client.V1ObjectMeta(
+        name=name,
+        namespace=dst,
+        annotations=secret.metadata.annotations,
+        labels=secret.metadata.labels,
+    )
+    try:
+        core_v1.create_namespaced_secret(dst, secret)
+    except client.rest.ApiException as e:
+        if e.status != 409:
+            raise
+
+
+def _provision_secrets(core_v1: client.CoreV1Api, namespace: str) -> None:
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
+        try:
+            core_v1.read_namespaced_service_account("default", namespace)
+            break
+        except client.rest.ApiException as e:
+            if e.status != 404:
+                raise
+        time.sleep(0.5)
+
+    _copy_secret(core_v1, S3_CREDENTIALS_SECRET, SEED_NAMESPACE, namespace)
+    _copy_secret(core_v1, STORAGE_CONFIG_SECRET, SEED_NAMESPACE, namespace)
+
+    for attempt in range(10):
+        try:
+            core_v1.patch_namespaced_service_account(
+                "default",
+                namespace,
+                {"secrets": [{"name": S3_CREDENTIALS_SECRET}]},
+            )
+            return
+        except client.rest.ApiException as e:
+            if e.status == 404 and attempt < 9:
+                time.sleep(0.5)
+                continue
+            raise
+
+
+def _delete_namespace(core_v1: client.CoreV1Api, namespace: str) -> None:
+    try:
+        core_v1.delete_namespace(namespace)
+        logger.info(f"Deleted namespace {namespace}")
+    except client.rest.ApiException as e:
+        if e.status != 404:
+            logger.error(f"Failed to delete {namespace}: {e}")
+
+
+def _wait_pods_terminated(core_v1: client.CoreV1Api, namespace: str) -> None:
+    deadline = time.monotonic() + 60
+    while time.monotonic() < deadline:
+        try:
+            pods = core_v1.list_namespaced_pod(
+                namespace, label_selector="serving.kserve.io/inferenceservice"
+            ).items
+            if not any(p.metadata.deletion_timestamp for p in pods):
+                return
+        except client.rest.ApiException:
+            return
+        time.sleep(2)
+
+
+@pytest.fixture(scope="function")
+def test_namespace(request):
+    """Create isolated namespace for test, cleanup after."""
+    core_v1 = _get_core_api()
+    ns_name = _generate_namespace_name(request.node.nodeid)
+
+    _create_namespace(core_v1, ns_name)
+    _provision_secrets(core_v1, ns_name)
+
+    yield ns_name
+
+    # Always delete per-test namespaces unless explicitly told to keep all
+    # resources. Preserving namespaces on failure (SKIP_DELETION_ON_FAILURE)
+    # piles up ISVCs under pytest-xdist and starves the ingress gateway.
+    skip_del = os.getenv("SKIP_RESOURCE_DELETION", "").lower() in ("true", "1")
+    if skip_del:
+        logger.info(f"Preserving namespace {ns_name}")
+        return
+
+    _wait_pods_terminated(core_v1, ns_name)
+    _delete_namespace(core_v1, ns_name)
+
+
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    outcome = yield
+    setattr(item, f"rep_{call.when}", outcome.get_result())

@@ -30,7 +30,7 @@ from kserve import (
 )
 from kserve.constants import constants
 from ..common.utils import (
-    KSERVE_TEST_NAMESPACE,
+    assert_answers_four,
     generate,
     embed,
     chat_completion_stream,
@@ -78,7 +78,7 @@ def _assert_embedding_matches_reference(actual, reference, *, threshold: float =
     "init timeout (120s); re-enable when GPU runner is available or the upstream "
     "race is fixed. See PR #5558 Round 13 comment for context."
 )
-def test_vllm_openai_chat_completions():
+def test_vllm_openai_chat_completions(test_namespace):
     service_name = "vllm-qwen-chat"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -112,9 +112,7 @@ def test_vllm_openai_chat_completions():
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -122,12 +120,12 @@ def test_vllm_openai_chat_completions():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
-    res = generate(service_name, "./data/qwen_input_chat.json")
-    assert res["choices"][0]["message"]["content"] == "The result of 2 + 2 is 4."
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+    res = generate(
+        service_name, "./data/qwen_input_chat.json", namespace=test_namespace
+    )
+    assert_answers_four(res["choices"][0]["message"]["content"])
 
 
 @pytest.mark.vllm_runtime
@@ -136,7 +134,7 @@ def test_vllm_openai_chat_completions():
     "init timeout (120s); re-enable when GPU runner is available or the upstream "
     "race is fixed. See PR #5558 Round 13 comment for context."
 )
-def test_vllm_openai_chat_completions_streaming():
+def test_vllm_openai_chat_completions_streaming(test_namespace):
     service_name = "vllm-qwen-chat-stream"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -174,9 +172,7 @@ def test_vllm_openai_chat_completions_streaming():
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -184,18 +180,18 @@ def test_vllm_openai_chat_completions_streaming():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
     # Test streaming response
     full_response, _ = chat_completion_stream(
-        service_name, "./data/qwen_input_chat_stream.json"
+        service_name,
+        "./data/qwen_input_chat_stream.json",
+        namespace=test_namespace,
     )
     trace_logger.info(f"Full response: {full_response}")
 
     # Verify we got a valid response
-    assert full_response.strip() == "The result of 2 + 2 is 4."
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+    assert_answers_four(full_response)
 
 
 @pytest.mark.vllm_runtime
@@ -204,7 +200,7 @@ def test_vllm_openai_chat_completions_streaming():
     "init timeout (120s); re-enable when GPU runner is available or the upstream "
     "race is fixed. See PR #5558 Round 13 comment for context."
 )
-def test_vllm_openai_text_completion_qwen2():
+def test_vllm_openai_text_completion_qwen2(test_namespace):
     service_name = "vllm-qwen-cmpl"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -238,9 +234,7 @@ def test_vllm_openai_text_completion_qwen2():
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -248,12 +242,15 @@ def test_vllm_openai_text_completion_qwen2():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
-    res = generate(service_name, "./data/qwen_input_cmpl.json", chat_completions=False)
-    assert res["choices"][0].get("text").strip() == "The result of 2 + 2 is 4."
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+    res = generate(
+        service_name,
+        "./data/qwen_input_cmpl.json",
+        chat_completions=False,
+        namespace=test_namespace,
+    )
+    assert_answers_four(res["choices"][0].get("text"))
 
 
 @pytest.mark.vllm_runtime
@@ -262,7 +259,7 @@ def test_vllm_openai_text_completion_qwen2():
     "init timeout (120s); re-enable when GPU runner is available or the upstream "
     "race is fixed. See PR #5558 Round 13 comment for context."
 )
-def test_vllm_openai_text_completion_streaming():
+def test_vllm_openai_text_completion_streaming(test_namespace):
     service_name = "vllm-qwen-cmpl-stream"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -296,9 +293,7 @@ def test_vllm_openai_text_completion_streaming():
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -306,19 +301,19 @@ def test_vllm_openai_text_completion_streaming():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
     full_response, _ = completion_stream(
-        service_name, "./data/qwen_input_cmpl_stream.json"
+        service_name,
+        "./data/qwen_input_cmpl_stream.json",
+        namespace=test_namespace,
     )
     trace_logger.info(f"Full response: {full_response}")
-    assert full_response.strip() == "The result of 2 + 2 is 4."
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+    assert_answers_four(full_response)
 
 
 @pytest.mark.vllm_runtime
-def test_vllm_classify_sequence_classification():
+def test_vllm_classify_sequence_classification(test_namespace):
     """Test vLLM sequence classification using /classify endpoint"""
     service_name = "vllm-bert-sequence-classify"
     predictor = V1beta1PredictorSpec(
@@ -357,9 +352,7 @@ def test_vllm_classify_sequence_classification():
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -367,20 +360,22 @@ def test_vllm_classify_sequence_classification():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
     # Reuse existing v2 format file - helper will convert it
-    res = classify(service_name, "./data/bert_sequence_classification_v2.json")
+    res = classify(
+        service_name,
+        "./data/bert_sequence_classification_v2.json",
+        namespace=test_namespace,
+    )
     # vLLM classify endpoint returns classification results
     # The exact format may vary, but should contain prediction
     assert "label" in res or "prediction" in res or res is not None
 
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-
 
 @pytest.mark.vllm_runtime
 @pytest.mark.asyncio(scope="session")
-async def test_vllm_openai_text_embedding():
+async def test_vllm_openai_text_embedding(test_namespace):
     service_name = "vllm-text-embedding-openai"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -418,9 +413,7 @@ async def test_vllm_openai_text_embedding():
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -428,10 +421,14 @@ async def test_vllm_openai_text_embedding():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
     # Validate float output
-    res = embed(service_name, "./data/text_embedding_input_openai_float.json")
+    res = embed(
+        service_name,
+        "./data/text_embedding_input_openai_float.json",
+        namespace=test_namespace,
+    )
     assert len(res["data"]) == 1
     _assert_embedding_matches_reference(
         res["data"][0]["embedding"], vllm_text_embedding_expected_output
@@ -439,7 +436,11 @@ async def test_vllm_openai_text_embedding():
 
     # Validate base64 output. Decoded as the OpenAI library:
     # https://github.com/openai/openai-python/blob/v1.59.7/src/openai/resources/embeddings.py#L118-L120
-    res = embed(service_name, "./data/text_embedding_input_openai_base64.json")
+    res = embed(
+        service_name,
+        "./data/text_embedding_input_openai_base64.json",
+        namespace=test_namespace,
+    )
     embedding = np.frombuffer(
         base64.b64decode(res["data"][0]["embedding"]), dtype="float32"
     ).tolist()
@@ -450,11 +451,9 @@ async def test_vllm_openai_text_embedding():
     assert res["usage"]["prompt_tokens"] == 8
     assert res["usage"]["total_tokens"] == 8
 
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-
 
 @pytest.mark.vllm_runtime
-def test_vllm_classify_sequence_classification_probabilities():
+def test_vllm_classify_sequence_classification_probabilities(test_namespace):
     """Test vLLM sequence classification using /classify endpoint for probabilities"""
     service_name = "vllm-bert-sequence-classify-prob"
     predictor = V1beta1PredictorSpec(
@@ -493,9 +492,7 @@ def test_vllm_classify_sequence_classification_probabilities():
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -503,10 +500,14 @@ def test_vllm_classify_sequence_classification_probabilities():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
     # Reuse existing v2 format file - helper will convert it
-    res = classify(service_name, "./data/bert_sequence_classification_v2.json")
+    res = classify(
+        service_name,
+        "./data/bert_sequence_classification_v2.json",
+        namespace=test_namespace,
+    )
     # vLLM classify endpoint returns classification probabilities in the data array
     assert "data" in res
     assert len(res["data"]) > 0
@@ -514,11 +515,9 @@ def test_vllm_classify_sequence_classification_probabilities():
     assert isinstance(res["data"][0]["probs"], list)
     assert "label" in res["data"][0]
 
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-
 
 @pytest.mark.vllm_runtime
-def test_vllm_rerank():
+def test_vllm_rerank(test_namespace):
     service_name = "bge-reranker-base"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -557,9 +556,7 @@ def test_vllm_rerank():
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -567,14 +564,14 @@ def test_vllm_rerank():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
-    res = rerank(service_name, "./data/bge-reranker-base.json")
+    res = rerank(
+        service_name, "./data/bge-reranker-base.json", namespace=test_namespace
+    )
     assert res["results"][0]["index"] == 1
     assert res["results"][0]["relevance_score"] > 0.9
     assert res["results"][0]["document"]["text"] == "The capital of France is Paris."
     assert res["results"][1]["index"] == 0
     assert res["results"][1]["relevance_score"] < 0.01
     assert res["results"][1]["document"]["text"] == "The capital of Brazil is Brasilia."
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
