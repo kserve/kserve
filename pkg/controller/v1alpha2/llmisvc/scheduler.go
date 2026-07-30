@@ -24,6 +24,7 @@ import (
 	"path"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/coreos/go-semver/semver"
@@ -1305,15 +1306,29 @@ var deprecatedMetricFlagNames = map[string]bool{
 	"cache-info-metric":                true,
 }
 
-// modelServerMetricsSchemeFlag is the deprecated EPP CLI flag (without leading
-// dashes) removed in llm-d-router 0.10, superseded by the metrics-data-source
-// data layer plugin's scheme parameter in EndpointPickerConfig.
-const modelServerMetricsSchemeFlag = "model-server-metrics-scheme"
+// Deprecated EPP CLI flags (without leading dashes) removed in llm-d-router 0.10.
+// --model-server-metrics-scheme, --model-server-metrics-path, and --model-server-metrics-https-insecure-skip-verify
+// are superseded in EndpointPickerConfig's metrics-data-source plugin, by scheme, path, and insecureSkipVerify parameters
+// --model-server-metrics-port has no plugin parameter: the scrape port is always the InferencePool target port,
+// so the flag is only stripped, never re-injected.
+const (
+	modelServerMetricsSchemeFlag             = "model-server-metrics-scheme"
+	modelServerMetricsPathFlag               = "model-server-metrics-path"
+	modelServerMetricsPortFlag               = "model-server-metrics-port"
+	modelServerMetricsInsecureSkipVerifyFlag = "model-server-metrics-https-insecure-skip-verify"
+)
 
-// metricsDataSourceSchemeMinVersion is the first llm-d-router version that
-// removes --model-server-metrics-scheme; from this version the scrape scheme
+var deprecatedModelServerMetricFlagNames = map[string]bool{
+	modelServerMetricsSchemeFlag:             true,
+	modelServerMetricsPathFlag:               true,
+	modelServerMetricsPortFlag:               true,
+	modelServerMetricsInsecureSkipVerifyFlag: true,
+}
+
+// metricsDataSourceMinVersion is the first llm-d-router version that removes
+// the --model-server-metrics-* flags; from this version their surviving equivalents
 // must be supplied via the metrics-data-source plugin parameters.
-var metricsDataSourceSchemeMinVersion = semver.New("0.10.0")
+var metricsDataSourceMinVersion = semver.New("0.10.0")
 
 // hasDeprecatedMetricFlags reports whether any container in the pod spec
 // carries one of the 5 deprecated metric CLI flags, without modifying args.
@@ -1353,8 +1368,9 @@ func hasDeprecatedMetricFlags(d *appsv1.Deployment) bool {
 //  5. withCoreMetricsExtractorPlugin – inject core-metrics-extractor with extracted flag values
 //  6. withMigrateCoreMetricsExtractor – rename model-server-protocol-metrics → core-metrics-extractor
 //     (v0.8.0 only, runs after injection so freshly injected plugins are also renamed)
-//  7. withMetricsDataSourceScheme – move --model-server-metrics-scheme into the
-//     metrics-data-source plugin parameters (v0.10.0+, flag removed upstream)
+//  7. withMetricsDataSourceParams – move --model-server-metrics-{scheme,path,
+//     https-insecure-skip-verify} into the metrics-data-source plugin parameters
+//     and strip --model-server-metrics-port (v0.10.0+, flags removed in llm-d-router)
 func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alpha2.LLMInferenceService, enableTLS bool) error {
 	version, ok := d.Spec.Template.Annotations["app.kubernetes.io/version"]
 	if !ok || version == "" {
@@ -1412,21 +1428,28 @@ func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alp
 		}
 	}
 
-	// llm-d-router v0.10.0 removes "--model-server-metrics-scheme"
-	// the function had been moved into metrics-data-source plugin parameters.
-	if v.Compare(*metricsDataSourceSchemeMinVersion) >= 0 {
-		if !writable {
-			if hasModelServerMetricsSchemeFlag(d) {
+	// llm-d-router v0.10.0 removes the --model-server-metrics-* flags. Stripping
+	// them from Command/Args never touches the config, so it is always safe;
+	// extractModelServerMetricsFlags does that and returns only the
+	// re-injectable values (scheme, path, insecureSkipVerify). --model-server-metrics-port
+	// has no plugin parameter, so it is dropped in place and never appears here.
+	// Re-injecting the surviving values requires a writable inline config-text;
+	// abort only in that case so their values are not silently lost.
+	// Extraction runs before the writable check so --model-server-metrics-port is
+	// always stripped; on the error path d is discarded, so the early mutation is safe.
+	if v.Compare(*metricsDataSourceMinVersion) >= 0 {
+		if params := extractModelServerMetricsFlags(ctx, d); len(params) > 0 {
+			if !writable {
 				return fmt.Errorf(
-					"scheduler deployment %s/%s sets --%s but has no inline "+
-						"--config-text; automatic migration to the metrics-data-source "+
-						"plugin is not possible — convert to --config-text or remove the "+
-						"flag manually",
-					d.GetNamespace(), d.GetName(), modelServerMetricsSchemeFlag,
+					"scheduler deployment %s/%s sets deprecated "+
+						"--model-server-metrics-{scheme,path,https-insecure-skip-verify} "+
+						"but has no inline --config-text; automatic migration to the "+
+						"metrics-data-source plugin is not possible — convert to --config-text "+
+						"or remove the flags manually",
+					d.GetNamespace(), d.GetName(),
 				)
 			}
-		} else if scheme := extractModelServerMetricsScheme(d); scheme != "" {
-			opts = append(opts, withMetricsDataSourceScheme(scheme))
+			opts = append(opts, withMetricsDataSourceParams(params))
 		}
 	}
 
@@ -1808,51 +1831,60 @@ func extractDeprecatedMetricFlags(d *appsv1.Deployment) map[string]string {
 	return allExtracted
 }
 
-// extractModelServerMetricsScheme strips the deprecated --model-server-metrics-scheme
-// flag from every container's Command and Args and returns its value (empty if
-// absent). The scheduler preset carries the flag on Command, but a user-supplied
-// SchedulerSpec.Template may place it on Args instead; both work on the old image
-// (kube concatenates Command+Args) but are rejected by llm-d-router v0.10.0, so
-// both lists must be scrubbed.
-func extractModelServerMetricsScheme(d *appsv1.Deployment) string {
-	names := map[string]bool{modelServerMetricsSchemeFlag: true}
-	scheme := ""
+// extractModelServerMetricsFlags strips the deprecated
+// --model-server-metrics-* flags from every container's Command and Args
+// (scrubbing both, since kube concatenates them and either may carry a flag) and
+// returns the re-injectable values keyed by flag name. --model-server-metrics-port
+// has no plugin parameter: it is stripped and logged, never returned.
+func extractModelServerMetricsFlags(ctx context.Context, d *appsv1.Deployment) map[string]string {
+	params := map[string]string{}
 	for ci := range d.Spec.Template.Spec.Containers {
 		c := &d.Spec.Template.Spec.Containers[ci]
-		if filtered, extracted := filterArgs(c.Command, names); len(extracted) > 0 {
-			c.Command = filtered
-			scheme = extracted[modelServerMetricsSchemeFlag]
-		}
-		if filtered, extracted := filterArgs(c.Args, names); len(extracted) > 0 {
-			c.Args = filtered
-			scheme = extracted[modelServerMetricsSchemeFlag]
+		if fc, fa, extracted := filterCommandArgs(c.Command, c.Args, deprecatedModelServerMetricFlagNames); len(extracted) > 0 {
+			c.Command = fc
+			c.Args = fa
+			maps.Copy(params, extracted)
 		}
 	}
-	return scheme
-}
-
-// hasModelServerMetricsSchemeFlag reports whether any container carries the
-// --model-server-metrics-scheme flag on Command or Args, without modifying it.
-func hasModelServerMetricsSchemeFlag(d *appsv1.Deployment) bool {
-	names := map[string]bool{modelServerMetricsSchemeFlag: true}
-	for ci := range d.Spec.Template.Spec.Containers {
-		c := &d.Spec.Template.Spec.Containers[ci]
-		if _, extracted := filterArgs(c.Command, names); len(extracted) > 0 {
-			return true
-		}
-		if _, extracted := filterArgs(c.Args, names); len(extracted) > 0 {
-			return true
-		}
+	// remove port flag to keep other 3 flags if were set
+	if port, ok := params[modelServerMetricsPortFlag]; ok {
+		log.FromContext(ctx).Info(
+			"Dropped --model-server-metrics-port; llm-d-router v0.10.0 scrapes metrics "+
+				"on the InferencePool target port", "droppedPort", port,
+		)
+		delete(params, modelServerMetricsPortFlag)
 	}
-	return false
+	return params
 }
 
-// filterArgs removes matching flags from args and returns their values.
+// filterArgs removes matching flags from args and returns final values.
 // It handles both --flag=value and --flag value forms.
 func filterArgs(args []string, names map[string]bool) (filtered []string, extracted map[string]string) {
+	_, filtered, extracted = filterCommandArgs(nil, args, names)
+	return filtered, extracted
+}
+
+// filterCommandArgs removes matching flags from the concatenated command+args,
+// then re-splits the surviving tokens into their original command and args
+// halves, and returns them along with the extracted flag values. It handles
+// both --flag=value and --flag value forms.
+func filterCommandArgs(command, args []string, names map[string]bool) (filteredCommand, filteredArgs []string, extracted map[string]string) {
 	extracted = make(map[string]string)
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
+	combined := make([]string, 0, len(command)+len(args))
+	combined = append(combined, command...)
+	combined = append(combined, args...)
+	boundary := len(command)
+
+	emit := func(idx int) {
+		if idx < boundary {
+			filteredCommand = append(filteredCommand, combined[idx])
+		} else {
+			filteredArgs = append(filteredArgs, combined[idx])
+		}
+	}
+
+	for i := 0; i < len(combined); i++ {
+		arg := combined[i]
 		name := strings.TrimLeft(arg, "-")
 		value := ""
 		if eqIdx := strings.Index(name, "="); eqIdx != -1 {
@@ -1860,16 +1892,16 @@ func filterArgs(args []string, names map[string]bool) (filtered []string, extrac
 			name = name[:eqIdx]
 		}
 		if !names[name] {
-			filtered = append(filtered, args[i])
+			emit(i)
 			continue
 		}
-		if value == "" && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
-			value = args[i+1]
+		if value == "" && i+1 < len(combined) && !strings.HasPrefix(combined[i+1], "-") {
+			value = combined[i+1]
 			i++
 		}
 		extracted[name] = value
 	}
-	return filtered, extracted
+	return filteredCommand, filteredArgs, extracted
 }
 
 // withCoreMetricsExtractorPlugin returns a mutateSchedulerConfigFunc that
@@ -1929,14 +1961,27 @@ func withCoreMetricsExtractorPlugin(extracted map[string]string) mutateScheduler
 	}
 }
 
-// withMetricsDataSourceScheme returns a mutateSchedulerConfigFunc that injects a
-// metrics-data-source plugin carrying the scheme previously passed via the
-// --model-server-metrics-scheme CLI flag. EPP data layer defaulting wires the
-// declared source to core-metrics-extractor automatically, so only the plugin
-// entry is needed. Callers pass a non-empty scheme; no-op if a metrics-data-source
-// plugin is already declared.
-func withMetricsDataSourceScheme(scheme string) mutateSchedulerConfigFunc {
+// withMetricsDataSourceParams returns a mutateSchedulerConfigFunc that injects a
+// metrics-data-source plugin carrying the scheme, path, and insecureSkipVerify
+// previously passed via the --model-server-metrics-* CLI flags.
+// No-op if a metrics-data-source plugin is already declared or if no re-injectable parameters were extracted.
+func withMetricsDataSourceParams(extracted map[string]string) mutateSchedulerConfigFunc {
 	return func(_ context.Context, u *unstructured.Unstructured) error {
+		parameters := map[string]interface{}{}
+		if scheme := extracted[modelServerMetricsSchemeFlag]; scheme != "" {
+			parameters["scheme"] = scheme
+		}
+		if p := extracted[modelServerMetricsPathFlag]; p != "" {
+			parameters["path"] = p
+		}
+		// empty string means true
+		if v, ok := extracted[modelServerMetricsInsecureSkipVerifyFlag]; ok {
+			parameters["insecureSkipVerify"] = v == "" || parseBoolDefaultTrue(v)
+		}
+		if len(parameters) == 0 {
+			return nil
+		}
+
 		val, _, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
 		if err != nil {
 			return err
@@ -1950,15 +1995,23 @@ func withMetricsDataSourceScheme(scheme string) mutateSchedulerConfigFunc {
 		}
 
 		pluginEntry := map[string]interface{}{
-			"type": metricsDataSourcePlugin,
-			"parameters": map[string]interface{}{
-				"scheme": scheme,
-			},
+			"type":       metricsDataSourcePlugin,
+			"parameters": parameters,
 		}
 
 		plugins = append(plugins, pluginEntry)
 		return unstructured.SetNestedSlice(u.Object, plugins, "plugins")
 	}
+}
+
+// parseBoolDefaultTrue parses a bool flag value, falling back to true (the router
+// insecureSkipVerify default) when the value is not a recognized boolean.
+func parseBoolDefaultTrue(v string) bool {
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return true
+	}
+	return b
 }
 
 func semanticServiceIsEqual(expected *corev1.Service, current *corev1.Service) bool {
