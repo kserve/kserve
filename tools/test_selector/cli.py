@@ -42,6 +42,7 @@ def cmd_query(args: argparse.Namespace) -> None:
     from .mapping.loader import load_mapping
     from .output.formatter import format_selection
     from .selector.engine import select_tests
+    from .selector.matcher import expression_matches, extract_positive_markers
 
     repo_root = find_repo_root(Path(args.repo) if args.repo else None)
 
@@ -56,6 +57,42 @@ def cmd_query(args: argparse.Namespace) -> None:
 
     mapping = load_mapping(repo_root)
     selection = select_tests(mapping, changed_files, repo_root)
+
+    if args.match_jobs is not None:
+        selected = set(selection.e2e_tests.markers)
+        jobs = json.loads(args.match_jobs)
+        for job_name, expr in jobs.items():
+            matched = expression_matches(expr, selected)
+            print(f"{job_name}={str(matched).lower()}")
+        return
+
+    if args.match is not None:
+        selected = set(selection.e2e_tests.markers)
+        expr_markers = extract_positive_markers(args.match)
+        matched = expression_matches(args.match, selected)
+        result = {
+            **selection.to_dict(),
+            "match": matched,
+            "match_details": {
+                "expression": args.match,
+                "expression_markers": sorted(expr_markers),
+                "matched_markers": sorted(expr_markers & selected),
+            },
+        }
+        print(json.dumps(result, indent=2), file=sys.stdout)
+        if matched:
+            print(
+                f"MATCH: expression has markers in selected set "
+                f"({', '.join(sorted(expr_markers & selected))})",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                f"NO MATCH: none of {sorted(expr_markers)} in selected markers",
+                file=sys.stderr,
+            )
+        sys.exit(0 if matched else 1)
+
     print(format_selection(selection, args.format), file=sys.stdout)
 
 
@@ -88,6 +125,18 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["json", "yaml"],
         default="json",
         help="Output format (default: json)",
+    )
+    query_parser.add_argument(
+        "--match",
+        default=None,
+        help="Marker expression to evaluate against selected markers "
+        "(exit 0 if match, 1 if no match)",
+    )
+    query_parser.add_argument(
+        "--match-jobs",
+        default=None,
+        help="JSON object mapping job names to marker expressions. "
+        "Outputs job=true/false lines (for $GITHUB_OUTPUT).",
     )
 
     return parser
