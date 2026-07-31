@@ -29,6 +29,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 )
 
@@ -194,55 +195,6 @@ var _ = Describe("KernelCacheNode Controller", func() {
 				Scheme: k8sClient.Scheme(),
 				Log:    ctrl.Log.WithName("test"),
 			}
-		})
-
-		Describe("podHasPVCVolume", func() {
-			It("Should return true for pod with PVC volume", func() {
-				pod := &corev1.Pod{
-					Spec: corev1.PodSpec{
-						Volumes: []corev1.Volume{
-							{
-								Name: "cache-volume",
-								VolumeSource: corev1.VolumeSource{
-									PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-										ClaimName: "test-cache",
-									},
-								},
-							},
-						},
-					},
-				}
-				Expect(podHasPVCVolume(pod)).To(BeTrue())
-			})
-
-			It("Should return false for pod without PVC volume", func() {
-				pod := &corev1.Pod{
-					Spec: corev1.PodSpec{
-						Volumes: []corev1.Volume{
-							{
-								Name: "config-volume",
-								VolumeSource: corev1.VolumeSource{
-									ConfigMap: &corev1.ConfigMapVolumeSource{
-										LocalObjectReference: corev1.LocalObjectReference{
-											Name: "my-config",
-										},
-									},
-								},
-							},
-						},
-					},
-				}
-				Expect(podHasPVCVolume(pod)).To(BeFalse())
-			})
-
-			It("Should return false for pod with no volumes", func() {
-				pod := &corev1.Pod{
-					Spec: corev1.PodSpec{
-						Volumes: []corev1.Volume{},
-					},
-				}
-				Expect(podHasPVCVolume(pod)).To(BeFalse())
-			})
 		})
 
 		Describe("podMountsCachePVC", func() {
@@ -642,6 +594,501 @@ var _ = Describe("KernelCacheNode Controller", func() {
 	// NOTE: State transition tests require the full controller with reconciliation loops.
 	// These are integration tests and belong in test/e2e/kernelcache/test_kernelcache_pod_watching.py
 	// Unit tests above cover the helper functions that support state transitions.
+
+	Context("Image Volume Detection", func() {
+		var reconciler *KernelCacheNodeReconciler
+
+		BeforeEach(func() {
+			reconciler = &KernelCacheNodeReconciler{
+				Client: k8sClient,
+				Scheme: k8sClient.Scheme(),
+				Log:    ctrl.Log.WithName("test"),
+			}
+		})
+
+		Describe("podHasKernelCacheVolume", func() {
+			It("Should detect PVC-based kernel cache volumes", func() {
+				pod := &corev1.Pod{
+					Spec: corev1.PodSpec{
+						Volumes: []corev1.Volume{
+							{
+								Name: "cache-volume",
+								VolumeSource: corev1.VolumeSource{
+									PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+										ClaimName: "my-cache-pvc",
+									},
+								},
+							},
+						},
+					},
+				}
+				Expect(podHasKernelCacheVolume(pod)).To(BeTrue())
+			})
+
+			It("Should detect image volume-based kernel cache volumes", func() {
+				pod := &corev1.Pod{
+					Spec: corev1.PodSpec{
+						Volumes: []corev1.Volume{
+							{
+								Name: "kernel-cache",
+								VolumeSource: corev1.VolumeSource{
+									Image: &corev1.ImageVolumeSource{
+										Reference: "quay.io/test/cache:latest",
+									},
+								},
+							},
+						},
+					},
+				}
+				Expect(podHasKernelCacheVolume(pod)).To(BeTrue())
+			})
+
+			It("Should return false for pods without kernel cache volumes", func() {
+				pod := &corev1.Pod{
+					Spec: corev1.PodSpec{
+						Volumes: []corev1.Volume{
+							{
+								Name: "config-volume",
+								VolumeSource: corev1.VolumeSource{
+									ConfigMap: &corev1.ConfigMapVolumeSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "my-config",
+										},
+									},
+								},
+							},
+						},
+					},
+				}
+				Expect(podHasKernelCacheVolume(pod)).To(BeFalse())
+			})
+
+			It("Should return false for image volume with wrong name", func() {
+				pod := &corev1.Pod{
+					Spec: corev1.PodSpec{
+						Volumes: []corev1.Volume{
+							{
+								Name: "other-volume",
+								VolumeSource: corev1.VolumeSource{
+									Image: &corev1.ImageVolumeSource{
+										Reference: "quay.io/test/cache:latest",
+									},
+								},
+							},
+						},
+					},
+				}
+				Expect(podHasKernelCacheVolume(pod)).To(BeFalse())
+			})
+
+			It("Should handle pods with multiple volumes", func() {
+				pod := &corev1.Pod{
+					Spec: corev1.PodSpec{
+						Volumes: []corev1.Volume{
+							{
+								Name: "config-volume",
+								VolumeSource: corev1.VolumeSource{
+									ConfigMap: &corev1.ConfigMapVolumeSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "my-config",
+										},
+									},
+								},
+							},
+							{
+								Name: "kernel-cache",
+								VolumeSource: corev1.VolumeSource{
+									Image: &corev1.ImageVolumeSource{
+										Reference: "quay.io/test/cache:latest",
+									},
+								},
+							},
+						},
+					},
+				}
+				Expect(podHasKernelCacheVolume(pod)).To(BeTrue())
+			})
+		})
+
+		Describe("podMountsCache", func() {
+			It("Should match pod to cache by PVC name (exact match)", func() {
+				pod := &corev1.Pod{
+					Spec: corev1.PodSpec{
+						Volumes: []corev1.Volume{
+							{
+								Name: "cache-volume",
+								VolumeSource: corev1.VolumeSource{
+									PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+										ClaimName: "my-cache",
+									},
+								},
+							},
+						},
+					},
+				}
+				Expect(reconciler.podMountsCache(pod, "my-cache")).To(BeTrue())
+			})
+
+			It("Should match pod to cache by PVC name (serving suffix)", func() {
+				pod := &corev1.Pod{
+					Spec: corev1.PodSpec{
+						Volumes: []corev1.Volume{
+							{
+								Name: "cache-volume",
+								VolumeSource: corev1.VolumeSource{
+									PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+										ClaimName: "my-cache-serving",
+									},
+								},
+							},
+						},
+					},
+				}
+				Expect(reconciler.podMountsCache(pod, "my-cache")).To(BeTrue())
+			})
+
+			It("Should match pod to cache by image volume and label", func() {
+				pod := &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{
+							constants.KernelCacheLabel: "my-cache",
+						},
+					},
+					Spec: corev1.PodSpec{
+						Volumes: []corev1.Volume{
+							{
+								Name: "kernel-cache",
+								VolumeSource: corev1.VolumeSource{
+									Image: &corev1.ImageVolumeSource{
+										Reference: "quay.io/test/cache:latest",
+									},
+								},
+							},
+						},
+					},
+				}
+				Expect(reconciler.podMountsCache(pod, "my-cache")).To(BeTrue())
+			})
+
+			It("Should not match image volume without correct label", func() {
+				pod := &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{
+							constants.KernelCacheLabel: "other-cache",
+						},
+					},
+					Spec: corev1.PodSpec{
+						Volumes: []corev1.Volume{
+							{
+								Name: "kernel-cache",
+								VolumeSource: corev1.VolumeSource{
+									Image: &corev1.ImageVolumeSource{
+										Reference: "quay.io/test/cache:latest",
+									},
+								},
+							},
+						},
+					},
+				}
+				Expect(reconciler.podMountsCache(pod, "my-cache")).To(BeFalse())
+			})
+
+			It("Should not match image volume without label", func() {
+				pod := &corev1.Pod{
+					Spec: corev1.PodSpec{
+						Volumes: []corev1.Volume{
+							{
+								Name: "kernel-cache",
+								VolumeSource: corev1.VolumeSource{
+									Image: &corev1.ImageVolumeSource{
+										Reference: "quay.io/test/cache:latest",
+									},
+								},
+							},
+						},
+					},
+				}
+				Expect(reconciler.podMountsCache(pod, "my-cache")).To(BeFalse())
+			})
+
+			It("Should return false for different cache name", func() {
+				pod := &corev1.Pod{
+					Spec: corev1.PodSpec{
+						Volumes: []corev1.Volume{
+							{
+								Name: "cache-volume",
+								VolumeSource: corev1.VolumeSource{
+									PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+										ClaimName: "other-cache",
+									},
+								},
+							},
+						},
+					},
+				}
+				Expect(reconciler.podMountsCache(pod, "my-cache")).To(BeFalse())
+			})
+
+			It("Should work for both PVC mode and image volume mode", func() {
+				pvcPod := &corev1.Pod{
+					Spec: corev1.PodSpec{
+						Volumes: []corev1.Volume{
+							{
+								Name: "cache-volume",
+								VolumeSource: corev1.VolumeSource{
+									PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+										ClaimName: "test-cache-serving",
+									},
+								},
+							},
+						},
+					},
+				}
+				Expect(reconciler.podMountsCache(pvcPod, "test-cache")).To(BeTrue())
+
+				imagePod := &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{
+							constants.KernelCacheLabel: "test-cache",
+						},
+					},
+					Spec: corev1.PodSpec{
+						Volumes: []corev1.Volume{
+							{
+								Name: "kernel-cache",
+								VolumeSource: corev1.VolumeSource{
+									Image: &corev1.ImageVolumeSource{
+										Reference: "quay.io/test/cache:v1",
+									},
+								},
+							},
+						},
+					},
+				}
+				Expect(reconciler.podMountsCache(imagePod, "test-cache")).To(BeTrue())
+			})
+		})
+
+		Describe("checkCacheAvailability", func() {
+			var (
+				kcNode    *v1alpha1.KernelCacheNode
+				config    *v1beta1.KernelCacheConfig
+				testNS    string
+				cacheName string
+				jobNS     string
+			)
+
+			BeforeEach(func() {
+				testNS = "test-ns-" + randStringRunes(5)
+				cacheName = "test-cache-" + randStringRunes(5)
+				jobNS = "job-ns-" + randStringRunes(5) // Randomize to avoid conflicts between tests
+
+				namespace := &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: testNS,
+					},
+				}
+				Expect(k8sClient.Create(ctx, namespace)).Should(Succeed())
+
+				jobNamespace := &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: jobNS,
+					},
+				}
+				Expect(k8sClient.Create(ctx, jobNamespace)).Should(Succeed())
+
+				kcNode = &v1alpha1.KernelCacheNode{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-node-" + randStringRunes(5),
+					},
+					Status: v1alpha1.KernelCacheNodeStatus{
+						NodeName: "test-node",
+					},
+				}
+
+				config = &v1beta1.KernelCacheConfig{
+					JobNamespace: jobNS,
+				}
+			})
+
+			AfterEach(func() {
+				// Clean up namespace
+				ns := &corev1.Namespace{}
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: testNS}, ns); err == nil {
+					_ = k8sClient.Delete(ctx, ns)
+				}
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: jobNS}, ns); err == nil {
+					_ = k8sClient.Delete(ctx, ns)
+				}
+			})
+
+			It("Should skip PVC existence check when KernelCache has mountType=imageVolume", func() {
+				kc := &v1alpha1.KernelCache{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      cacheName,
+						Namespace: testNS,
+					},
+					Spec: v1alpha1.KernelCacheSpec{
+						Image:     "quay.io/test/cache:v1",
+						MountType: v1alpha1.KernelCacheMountTypeImageVolume,
+					},
+				}
+				Expect(k8sClient.Create(ctx, kc)).Should(Succeed())
+
+				cacheInfo := v1alpha1.CacheNodeCacheInfo{
+					Name:      cacheName,
+					Namespace: testNS,
+				}
+				cacheKey := testNS + "/" + cacheName
+
+				// Create cacheContext
+				cacheCtx := &cacheContext{
+					kc:        kc,
+					mountType: v1alpha1.KernelCacheMountTypeImageVolume,
+				}
+
+				// Should not error even though PVC doesn't exist
+				err := reconciler.checkCacheAvailability(ctx, kcNode, cacheKey, cacheInfo, config, cacheCtx)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("Should perform PVC check when mountType=pvc", func() {
+				kc := &v1alpha1.KernelCache{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      cacheName,
+						Namespace: testNS,
+					},
+					Spec: v1alpha1.KernelCacheSpec{
+						Image:     "quay.io/test/cache:v1",
+						MountType: v1alpha1.KernelCacheMountTypePVC,
+					},
+				}
+				Expect(k8sClient.Create(ctx, kc)).Should(Succeed())
+
+				cacheInfo := v1alpha1.CacheNodeCacheInfo{
+					Name:      cacheName,
+					Namespace: testNS,
+				}
+				cacheKey := testNS + "/" + cacheName
+
+				// Create cacheContext
+				cacheCtx := &cacheContext{
+					kc:        kc,
+					mountType: v1alpha1.KernelCacheMountTypePVC,
+				}
+
+				// Should error because PVC doesn't exist
+				err := reconciler.checkCacheAvailability(ctx, kcNode, cacheKey, cacheInfo, config, cacheCtx)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("not found"))
+			})
+
+			It("Should perform PVC check when mountType is empty (default to pvc)", func() {
+				kc := &v1alpha1.KernelCache{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      cacheName,
+						Namespace: testNS,
+					},
+					Spec: v1alpha1.KernelCacheSpec{
+						Image: "quay.io/test/cache:v1",
+						// MountType not specified, should default to pvc
+					},
+				}
+				Expect(k8sClient.Create(ctx, kc)).Should(Succeed())
+
+				cacheInfo := v1alpha1.CacheNodeCacheInfo{
+					Name:      cacheName,
+					Namespace: testNS,
+				}
+				cacheKey := testNS + "/" + cacheName
+
+				// Create cacheContext with default mountType
+				cacheCtx := &cacheContext{
+					kc:        kc,
+					mountType: v1alpha1.KernelCacheMountTypePVC, // Defaulted
+				}
+
+				// Should error because PVC doesn't exist
+				err := reconciler.checkCacheAvailability(ctx, kcNode, cacheKey, cacheInfo, config, cacheCtx)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("not found"))
+			})
+
+			It("Should return no error for image volume mode (no PVC expected)", func() {
+				kc := &v1alpha1.KernelCache{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      cacheName,
+						Namespace: testNS,
+					},
+					Spec: v1alpha1.KernelCacheSpec{
+						Image:     "quay.io/test/cache:v1",
+						MountType: v1alpha1.KernelCacheMountTypeImageVolume,
+					},
+				}
+				Expect(k8sClient.Create(ctx, kc)).Should(Succeed())
+
+				cacheInfo := v1alpha1.CacheNodeCacheInfo{
+					Name:      cacheName,
+					Namespace: testNS,
+				}
+				cacheKey := testNS + "/" + cacheName
+
+				// Create cacheContext
+				cacheCtx := &cacheContext{
+					kc:        kc,
+					mountType: v1alpha1.KernelCacheMountTypeImageVolume,
+				}
+
+				// No error expected - image volume mode skips PVC check
+				err := reconciler.checkCacheAvailability(ctx, kcNode, cacheKey, cacheInfo, config, cacheCtx)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("Should skip availability check if KernelCache is being deleted", func() {
+				now := metav1.Now()
+				kc := &v1alpha1.KernelCache{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:              cacheName,
+						Namespace:         testNS,
+						DeletionTimestamp: &now, // Simulate deletion in progress
+					},
+					Spec: v1alpha1.KernelCacheSpec{
+						Image:     "quay.io/test/cache:v1",
+						MountType: v1alpha1.KernelCacheMountTypePVC,
+					},
+				}
+
+				cacheInfo := v1alpha1.CacheNodeCacheInfo{
+					Name:      cacheName,
+					Namespace: testNS,
+				}
+				cacheKey := testNS + "/" + cacheName
+
+				// Create cacheContext with the deleting kc
+				cacheCtx := &cacheContext{
+					kc:        kc,
+					mountType: v1alpha1.KernelCacheMountTypePVC,
+				}
+
+				// Should not error even though PVC doesn't exist (deletion in progress)
+				err := reconciler.checkCacheAvailability(ctx, kcNode, cacheKey, cacheInfo, config, cacheCtx)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("Should handle missing KernelCache CR gracefully", func() {
+				cacheInfo := v1alpha1.CacheNodeCacheInfo{
+					Name:      "nonexistent-cache",
+					Namespace: testNS,
+				}
+				cacheKey := testNS + "/nonexistent-cache"
+
+				// Pass nil cacheContext (simulates cache not found during fetch)
+				// Should not error - cache deleted, will be removed by discoverCaches
+				err := reconciler.checkCacheAvailability(ctx, kcNode, cacheKey, cacheInfo, config, nil)
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+	})
 })
 
 // Helper function to generate random strings for test resource names

@@ -152485,6 +152485,21 @@ spec:
                 type: array
               image:
                 type: string
+              imagePullPolicy:
+                default: IfNotPresent
+                enum:
+                - IfNotPresent
+                - Always
+                - Never
+                type: string
+              mountPath:
+                type: string
+              mountType:
+                default: pvc
+                enum:
+                - pvc
+                - imageVolume
+                type: string
               podTemplate:
                 properties:
                   nodeSelector:
@@ -152557,6 +152572,8 @@ spec:
                 - totalCompatibleGPUs
                 - totalIncompatibleGPUs
                 type: object
+              mountType:
+                type: string
               resolvedDigest:
                 type: string
               servingStatus:

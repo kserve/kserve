@@ -41,6 +41,11 @@ type KernelCacheStatus struct {
 	// +optional
 	State CacheState `json:"state,omitempty"`
 
+	// MountType tracks the active mount type (pvc or imageVolume)
+	// Reflects the spec.mountType value for observability
+	// +optional
+	MountType KernelCacheMountType `json:"mountType,omitempty"`
+
 	// ResolvedDigest is the image digest (sha256:...) resolved by mutating webhook
 	// This field is immutable once set - copied from annotation on first reconcile
 	// Controller ALWAYS uses this field (not annotation) to prevent tampering

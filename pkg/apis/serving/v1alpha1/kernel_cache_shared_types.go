@@ -23,6 +23,17 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+// KernelCacheMountType defines how the cache is mounted
+type KernelCacheMountType string
+
+const (
+	// KernelCacheMountTypePVC extracts OCI Image to PVC which then mounts in pod.
+	KernelCacheMountTypePVC KernelCacheMountType = "pvc"
+
+	// KernelCacheMountTypeImageVolume mounts OCI image directly in pod (Kubernetes 1.33+)
+	KernelCacheMountTypeImageVolume KernelCacheMountType = "imageVolume"
+)
+
 // KernelCachePodTemplate customizes extraction Job pods
 // +k8s:openapi-gen=true
 type KernelCachePodTemplate struct {

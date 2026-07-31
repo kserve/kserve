@@ -869,6 +869,32 @@ func (mi *StorageInitializerInjector) InjectKernelCache(pod *corev1.Pod) error {
 	cacheRootEnv := kcCR.Annotations[v1alpha1.AnnotationCacheRootEnv]
 	resolvedDigest := kcCR.Annotations[v1alpha1.AnnotationResolvedDigest]
 
+	// Branch based on mount type from spec
+	mountType := kcCR.Spec.MountType
+	if mountType == "" {
+		mountType = v1alpha1.KernelCacheMountTypePVC // Default
+	}
+
+	if mountType == v1alpha1.KernelCacheMountTypeImageVolume {
+		return mi.injectImageVolumeMount(pod, &kcCR, kcName, cacheHash, cacheMountSubpath, cacheRootEnv, resolvedDigest)
+	}
+
+	// Default to PVC mode
+	return mi.injectPVCMount(pod, &kcCR, kcName, pvcName, cacheHash, cacheMountSubpath, cacheRootEnv, resolvedDigest)
+}
+
+// injectPVCMount injects KernelCache as PVC volume (traditional method)
+func (mi *StorageInitializerInjector) injectPVCMount(
+	pod *corev1.Pod,
+	kcCR *v1alpha1.KernelCache,
+	kcName string,
+	pvcName string,
+	cacheHash string,
+	cacheMountSubpath string,
+	cacheRootEnv string,
+	resolvedDigest string,
+) error {
+
 	// Determine mount path, subpath, and environment variable based on mounting metadata
 	var mountPath string
 	var subPath string
@@ -936,6 +962,16 @@ func (mi *StorageInitializerInjector) InjectKernelCache(pod *corev1.Pod) error {
 			"hash", cacheHash)
 	}
 
+	// Apply user override for mountPath if provided (user override)
+	if kcCR.Spec.MountPath != "" {
+		mountPath = kcCR.Spec.MountPath
+		log.Info("Using user-provided mountPath override",
+			"kernelcache", kcName,
+			"mountPath", mountPath,
+			"subPath", subPath)
+		// Note: SubPath remains auto-computed, only mountPath is overridden
+	}
+
 	// Add volume to pod spec
 	pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
 		Name: "kernel-cache",
@@ -978,6 +1014,144 @@ func (mi *StorageInitializerInjector) InjectKernelCache(pod *corev1.Pod) error {
 			log.Info("KernelCache mounted successfully",
 				"container", pod.Spec.Containers[i].Name,
 				"mountPath", mountPath)
+			break
+		}
+	}
+
+	return nil
+}
+
+// injectImageVolumeMount injects KernelCache as image volume (Kubernetes 1.33+)
+func (mi *StorageInitializerInjector) injectImageVolumeMount(
+	pod *corev1.Pod,
+	kcCR *v1alpha1.KernelCache,
+	kcName string,
+	cacheHash string,
+	cacheMountSubpath string,
+	cacheRootEnv string,
+	resolvedDigest string,
+) error {
+	// Determine image reference and subPath
+	var imageRef string
+	var subPath string
+	var mountPath string
+	var envName string
+	var envValue string
+
+	// Use resolved digest for immutability (prefer digest over tag)
+	if resolvedDigest != "" && kcCR.Spec.Image != "" {
+		imageRef = kernelcachecommon.ReplaceUrlTag(kcCR.Spec.Image, resolvedDigest)
+		if imageRef == "" {
+			// Fallback to original image if digest replacement fails
+			log.Info("Failed to compute imageWithDigest, using original image reference",
+				"kernelcache", kcName,
+				"image", kcCR.Spec.Image,
+				"digest", resolvedDigest)
+			imageRef = kcCR.Spec.Image
+		}
+	} else {
+		imageRef = kcCR.Spec.Image
+	}
+
+	// Determine subPath and mountPath
+	// Priority: 1) Computed from labels (recommended), 2) User-provided MountPath override
+	if cacheMountSubpath != "" && cacheRootEnv != "" && cacheHash != "" {
+		// Compute from OCI image labels
+		// Parse cache root environment variable: "VLLM_CACHE_ROOT=/home/kserve/.cache/vllm"
+		parts := strings.SplitN(cacheRootEnv, "=", 2)
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid cache-root-env format in KernelCache %s: expected NAME=VALUE, got %s",
+				kcName, cacheRootEnv)
+		}
+		envName = parts[0]  // e.g., "VLLM_CACHE_ROOT"
+		envValue = parts[1] // e.g., "/home/kserve/.cache/vllm"
+
+		// Image volume structure (from MCV): io.vllm.cache/<cacheMountSubpath>/<cacheHash>
+		// We hardcode the "io.vllm.cache" prefix based on MCV's OCI image structure
+		subPath = filepath.Join("io.vllm.cache", cacheMountSubpath, cacheHash)
+
+		// Mount at the specific cache hash directory
+		// Parent directory remains writable (container FS) for cache-miss writes
+		mountPath = filepath.Join(envValue, cacheMountSubpath, cacheHash)
+
+		log.Info("Computed image volume subPath from labels",
+			"kernelcache", kcName,
+			"subPath", subPath,
+			"mountPath", mountPath,
+			"cacheHash", cacheHash)
+	} else {
+		// Legacy fallback: mount entire image
+		subPath = ""
+		mountPath = "/mnt/kernel-cache"
+		log.Info("Missing mounting metadata, mounting entire image",
+			"kernelcache", kcName,
+			"subpath", cacheMountSubpath,
+			"rootEnv", cacheRootEnv,
+			"hash", cacheHash)
+	}
+
+	// Apply user override for mountPath if provided (user override)
+	if kcCR.Spec.MountPath != "" {
+		mountPath = kcCR.Spec.MountPath
+		log.Info("Using user-provided mountPath override",
+			"kernelcache", kcName,
+			"mountPath", mountPath,
+			"subPath", subPath)
+		// Note: SubPath remains auto-computed, only mountPath is overridden
+	}
+
+	// Determine pull policy
+	pullPolicy := kcCR.Spec.ImagePullPolicy
+	if pullPolicy == "" {
+		pullPolicy = corev1.PullIfNotPresent // Default
+	}
+
+	// Add image volume to pod spec
+	volume := corev1.Volume{
+		Name: "kernel-cache",
+		VolumeSource: corev1.VolumeSource{
+			Image: &corev1.ImageVolumeSource{
+				Reference:  imageRef,
+				PullPolicy: pullPolicy,
+			},
+		},
+	}
+	pod.Spec.Volumes = append(pod.Spec.Volumes, volume)
+
+	// Mount in kserve-container and add env var
+	for i := range pod.Spec.Containers {
+		if pod.Spec.Containers[i].Name == constants.InferenceServiceContainerName {
+			// Add volume mount
+			volumeMount := corev1.VolumeMount{
+				Name:      "kernel-cache",
+				MountPath: mountPath,
+				ReadOnly:  true, // Image volumes are always read-only
+			}
+			if subPath != "" {
+				volumeMount.SubPath = subPath
+			}
+			pod.Spec.Containers[i].VolumeMounts = append(
+				pod.Spec.Containers[i].VolumeMounts,
+				volumeMount,
+			)
+
+			// Set framework's cache root environment variable (if metadata present)
+			if envName != "" && envValue != "" {
+				pod.Spec.Containers[i].Env = append(
+					pod.Spec.Containers[i].Env,
+					corev1.EnvVar{
+						Name:  envName,
+						Value: envValue,
+					},
+				)
+			}
+
+			log.Info("KernelCache mounted as image volume",
+				"container", pod.Spec.Containers[i].Name,
+				"imageRef", imageRef,
+				"mountPath", mountPath,
+				"subPath", subPath,
+				"pullPolicy", pullPolicy)
 			break
 		}
 	}

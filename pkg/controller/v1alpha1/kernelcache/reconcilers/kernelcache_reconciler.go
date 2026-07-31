@@ -112,9 +112,15 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return reconcile.Result{}, nil
 	}
 
+	// Resolve mount type once at top (defensive defaulting for objects that bypassed webhook)
+	mountType := kc.Spec.MountType
+	if mountType == "" {
+		mountType = v1alpha1.KernelCacheMountTypePVC // Default
+	}
+
 	// Step 1: Handle deletion
 	if !kc.DeletionTimestamp.IsZero() {
-		return r.handleDeletion(ctx, kc, kernelCacheConfig)
+		return r.handleDeletion(ctx, kc, kernelCacheConfig, mountType)
 	}
 
 	// Add finalizer if not present
@@ -140,20 +146,209 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
-	// Step 2: Create Download PVC (RWX)
+	// Branch based on mount type
+	if mountType == v1alpha1.KernelCacheMountTypeImageVolume {
+		return r.reconcileImageVolume(ctx, kc, kernelCacheConfig, mountType)
+	}
+
+	// PVC mode (traditional extraction)
+	return r.reconcilePVC(ctx, kc, kernelCacheConfig, mountType)
+}
+
+// handleDeletion: Finalizer cleanup after webhook validation
+// ValidateDelete webhook blocks deletion if pods still using cache
+// Finalizer handles cleanup of extraction resources (Job, PVC)
+func (r *KernelCacheReconciler) handleDeletion(
+	ctx context.Context,
+	kc *v1alpha1.KernelCache,
+	kernelCacheConfig *v1beta1.KernelCacheConfig,
+	mountType v1alpha1.KernelCacheMountType,
+) (ctrl.Result, error) {
+	if !controllerutil.ContainsFinalizer(kc, kernelcachecommon.KernelCacheFinalizerName) {
+		return ctrl.Result{}, nil
+	}
+
+	r.Log.Info("Deleting KernelCache",
+		"name", kc.Name,
+		"namespace", kc.Namespace,
+		"mountType", mountType)
+
+	// Agent owns KernelCacheNode writes and Agent will automatically remove
+	// this cache when it discovers KernelCache deletion
+
+	// PVC mode: Delete extraction Jobs, then Download and Serving PVCs and PVs
+	// ImageVolume mode: No resources to clean up, skip to finalizer removal
+	if mountType == v1alpha1.KernelCacheMountTypePVC {
+		jobNamespace := kernelCacheConfig.JobNamespace
+		downloadPVCName := kc.Namespace + "-" + kc.Name + "-download"
+		downloadPVName := kc.Namespace + "-" + kc.Name + "-download-pv"
+		servingPVCName := kc.Name // Same name as KernelCache
+		servingPVName := kc.Namespace + "-" + kc.Name + "-serving-pv"
+
+		// Delete extraction Jobs first (PVC can't delete while Pods are using it)
+		// Job deletion automatically deletes Pods via propagation policy
+		jobLabels := map[string]string{
+			"kernelcache.kserve.io/cache":     kc.Name,
+			"kernelcache.kserve.io/namespace": kc.Namespace,
+		}
+
+		// Delete Jobs (Pods auto-delete via propagation policy)
+		jobList := &batchv1.JobList{}
+		if err := r.List(ctx, jobList,
+			client.InNamespace(jobNamespace),
+			client.MatchingLabels(jobLabels),
+		); err == nil {
+			propagationPolicy := metav1.DeletePropagationBackground
+			for i := range jobList.Items {
+				job := &jobList.Items[i]
+				if err := r.Delete(ctx, job, &client.DeleteOptions{PropagationPolicy: &propagationPolicy}); err != nil && !errors.IsNotFound(err) {
+					r.Log.Error(err, "Failed to delete extraction Job", "job", job.Name)
+				} else {
+					r.Log.Info("Deleted extraction Job (Pods will auto-delete)", "job", job.Name)
+				}
+			}
+		}
+
+		// Delete Download PVC
+		downloadPVC := &corev1.PersistentVolumeClaim{}
+		if err := r.Get(ctx, types.NamespacedName{
+			Name:      downloadPVCName,
+			Namespace: jobNamespace,
+		}, downloadPVC); err == nil {
+			if err := r.Delete(ctx, downloadPVC); err != nil && !errors.IsNotFound(err) {
+				r.Log.Error(err, "Failed to delete Download PVC", "pvc", downloadPVCName)
+				return ctrl.Result{}, err
+			}
+			r.Log.Info("Deleted Download PVC", "pvc", downloadPVCName)
+		}
+
+		// Delete Download PV
+		downloadPV := &corev1.PersistentVolume{}
+		if err := r.Get(ctx, types.NamespacedName{
+			Name: downloadPVName,
+		}, downloadPV); err == nil {
+			if err := r.Delete(ctx, downloadPV); err != nil && !errors.IsNotFound(err) {
+				r.Log.Error(err, "Failed to delete Download PV", "pv", downloadPVName)
+				return ctrl.Result{}, err
+			}
+			r.Log.Info("Deleted Download PV", "pv", downloadPVName)
+		}
+
+		// Delete Serving PVC (has owner reference, should auto-delete, but clean up manually to be safe)
+		servingPVC := &corev1.PersistentVolumeClaim{}
+		if err := r.Get(ctx, types.NamespacedName{
+			Name:      servingPVCName,
+			Namespace: kc.Namespace,
+		}, servingPVC); err == nil {
+			if err := r.Delete(ctx, servingPVC); err != nil && !errors.IsNotFound(err) {
+				r.Log.Error(err, "Failed to delete Serving PVC", "pvc", servingPVCName)
+				return ctrl.Result{}, err
+			}
+			r.Log.Info("Deleted Serving PVC", "pvc", servingPVCName)
+		}
+
+		// Delete Serving PV
+		servingPV := &corev1.PersistentVolume{}
+		if err := r.Get(ctx, types.NamespacedName{
+			Name: servingPVName,
+		}, servingPV); err == nil {
+			if err := r.Delete(ctx, servingPV); err != nil && !errors.IsNotFound(err) {
+				r.Log.Error(err, "Failed to delete Serving PV", "pv", servingPVName)
+				return ctrl.Result{}, err
+			}
+			r.Log.Info("Deleted Serving PV", "pv", servingPVName)
+		}
+	}
+
+	// Remove finalizer (both PVC and ImageVolume modes)
+	controllerutil.RemoveFinalizer(kc, kernelcachecommon.KernelCacheFinalizerName)
+	if err := r.Update(ctx, kc); err != nil {
+		if errors.IsConflict(err) {
+			r.Log.Info("Finalizer removal conflict (will retry)",
+				"cache", kc.Name, "namespace", kc.Namespace)
+		} else {
+			r.Log.Error(err, "Failed to remove finalizer",
+				"cache", kc.Name, "namespace", kc.Namespace)
+		}
+		return ctrl.Result{}, err
+	}
+	return ctrl.Result{}, nil
+}
+
+// reconcileImageVolume handles image volume mode (Kubernetes 1.33+)
+// Skips PVC/Job creation and marks cache as Ready immediately
+func (r *KernelCacheReconciler) reconcileImageVolume(
+	ctx context.Context,
+	kc *v1alpha1.KernelCache,
+	kernelCacheConfig *v1beta1.KernelCacheConfig,
+	mountType v1alpha1.KernelCacheMountType,
+) (ctrl.Result, error) {
+	r.Log.Info("Reconciling KernelCache in image volume mode",
+		"name", kc.Name,
+		"namespace", kc.Namespace,
+		"image", kc.Spec.Image)
+
+	// Update status to track mount type for observability
+	if kc.Status.MountType != mountType {
+		kc.Status.MountType = mountType
+		if err := r.Status().Update(ctx, kc); err != nil {
+			if errors.IsConflict(err) {
+				r.Log.Info("Status update conflict (will retry)", "cache", kc.Name)
+			}
+			return ctrl.Result{}, err
+		}
+	}
+
+	// Aggregate status from KernelCacheNodes
+	// This updates state (Pending/Extracted/Running) based on node and pod counts
+	if err := r.updateAggregateStatus(ctx, kc); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// No requeue needed - all operations synchronous
+	// State transitions (Extracted -> Running) happen in updateAggregateStatus
+	return ctrl.Result{}, nil
+}
+
+// reconcilePVC handles PVC mode (traditional extraction)
+func (r *KernelCacheReconciler) reconcilePVC(
+	ctx context.Context,
+	kc *v1alpha1.KernelCache,
+	kernelCacheConfig *v1beta1.KernelCacheConfig,
+	mountType v1alpha1.KernelCacheMountType,
+) (ctrl.Result, error) {
+	r.Log.Info("Reconciling KernelCache in PVC mode",
+		"name", kc.Name,
+		"namespace", kc.Namespace,
+		"image", kc.Spec.Image)
+
+	jobNamespace := kernelCacheConfig.JobNamespace
+
+	// Update status to track mount type for observability
+	if kc.Status.MountType != mountType {
+		kc.Status.MountType = mountType
+		if err := r.Status().Update(ctx, kc); err != nil {
+			if errors.IsConflict(err) {
+				r.Log.Info("Status update conflict (will retry)", "cache", kc.Name)
+			}
+			return ctrl.Result{}, err
+		}
+	}
+
+	// Step 1: Create Download PVC (RWX)
 	if err := r.ensureDownloadPVC(ctx, kc, jobNamespace); err != nil {
 		r.Log.Error(err, "failed to create download PVC")
 		return ctrl.Result{}, err
 	}
 
-	// Step 3: Create ONE extraction Job per cache (RWX pattern)
+	// Step 2: Create ONE extraction Job per cache (RWX pattern)
 	// Operator creates the Job, agent monitors availability
 	if err := r.ensureExtractionJob(ctx, kc, kernelCacheConfig); err != nil {
 		r.Log.Error(err, "failed to ensure extraction job")
 		return ctrl.Result{}, err
 	}
 
-	// Step 4: Get nodes where agent pods are running
+	// Step 3: Get nodes where agent pods are running
 	// This automatically respects DaemonSet scheduling (taints, labels, node selectors)
 	agentPods := &corev1.PodList{}
 	if err := r.List(ctx, agentPods,
@@ -171,12 +366,12 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 	}
 
-	// Step 5: Aggregate status from KernelCacheNodes
+	// Step 4: Aggregate status from KernelCacheNodes
 	if err := r.updateAggregateStatus(ctx, kc); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	// Step 6: Create Serving PVC when extraction complete
+	// Step 5: Create Serving PVC when extraction complete
 	if r.extractionComplete(ctx, kc, jobNamespace) {
 		if err := r.ensureServingPVC(ctx, kc); err != nil {
 			r.Log.Error(err, "failed to create serving PVC")
@@ -186,120 +381,6 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	// No periodic requeue needed - all operations synchronous
 	// Watches on Job status changes trigger reconciliation
-	return ctrl.Result{}, nil
-}
-
-// handleDeletion: Finalizer cleanup after webhook validation
-// ValidateDelete webhook blocks deletion if pods still using cache
-// Finalizer handles cleanup of extraction resources (Job, PVC)
-func (r *KernelCacheReconciler) handleDeletion(
-	ctx context.Context,
-	kc *v1alpha1.KernelCache,
-	kernelCacheConfig *v1beta1.KernelCacheConfig,
-) (ctrl.Result, error) {
-	if !controllerutil.ContainsFinalizer(kc, kernelcachecommon.KernelCacheFinalizerName) {
-		return ctrl.Result{}, nil
-	}
-
-	r.Log.Info("Deleting KernelCache", "name", kc.Name, "namespace", kc.Namespace)
-
-	jobNamespace := kernelCacheConfig.JobNamespace
-
-	// Agent owns KernelCacheNode writes and Agent will automatically remove
-	// this cache when it discovers KernelCache deletion
-
-	// Delete extraction Jobs, then Download and Serving PVCs and PVs
-	downloadPVCName := kc.Namespace + "-" + kc.Name + "-download"
-	downloadPVName := kc.Namespace + "-" + kc.Name + "-download-pv"
-	servingPVCName := kc.Name // Same name as KernelCache
-	servingPVName := kc.Namespace + "-" + kc.Name + "-serving-pv"
-
-	// Delete extraction Jobs first (PVC can't delete while Pods are using it)
-	// Job deletion automatically deletes Pods via propagation policy
-	jobLabels := map[string]string{
-		"kernelcache.kserve.io/cache":     kc.Name,
-		"kernelcache.kserve.io/namespace": kc.Namespace,
-	}
-
-	// Delete Jobs (Pods auto-delete via propagation policy)
-	jobList := &batchv1.JobList{}
-	if err := r.List(ctx, jobList,
-		client.InNamespace(jobNamespace),
-		client.MatchingLabels(jobLabels),
-	); err == nil {
-		propagationPolicy := metav1.DeletePropagationBackground
-		for i := range jobList.Items {
-			job := &jobList.Items[i]
-			if err := r.Delete(ctx, job, &client.DeleteOptions{PropagationPolicy: &propagationPolicy}); err != nil && !errors.IsNotFound(err) {
-				r.Log.Error(err, "Failed to delete extraction Job", "job", job.Name)
-			} else {
-				r.Log.Info("Deleted extraction Job (Pods will auto-delete)", "job", job.Name)
-			}
-		}
-	}
-
-	// Delete Download PVC
-	downloadPVC := &corev1.PersistentVolumeClaim{}
-	if err := r.Get(ctx, types.NamespacedName{
-		Name:      downloadPVCName,
-		Namespace: jobNamespace,
-	}, downloadPVC); err == nil {
-		if err := r.Delete(ctx, downloadPVC); err != nil && !errors.IsNotFound(err) {
-			r.Log.Error(err, "Failed to delete Download PVC", "pvc", downloadPVCName)
-			return ctrl.Result{}, err
-		}
-		r.Log.Info("Deleted Download PVC", "pvc", downloadPVCName)
-	}
-
-	// Delete Download PV
-	downloadPV := &corev1.PersistentVolume{}
-	if err := r.Get(ctx, types.NamespacedName{
-		Name: downloadPVName,
-	}, downloadPV); err == nil {
-		if err := r.Delete(ctx, downloadPV); err != nil && !errors.IsNotFound(err) {
-			r.Log.Error(err, "Failed to delete Download PV", "pv", downloadPVName)
-			return ctrl.Result{}, err
-		}
-		r.Log.Info("Deleted Download PV", "pv", downloadPVName)
-	}
-
-	// Delete Serving PVC (has owner reference, should auto-delete, but clean up manually to be safe)
-	servingPVC := &corev1.PersistentVolumeClaim{}
-	if err := r.Get(ctx, types.NamespacedName{
-		Name:      servingPVCName,
-		Namespace: kc.Namespace,
-	}, servingPVC); err == nil {
-		if err := r.Delete(ctx, servingPVC); err != nil && !errors.IsNotFound(err) {
-			r.Log.Error(err, "Failed to delete Serving PVC", "pvc", servingPVCName)
-			return ctrl.Result{}, err
-		}
-		r.Log.Info("Deleted Serving PVC", "pvc", servingPVCName)
-	}
-
-	// Delete Serving PV
-	servingPV := &corev1.PersistentVolume{}
-	if err := r.Get(ctx, types.NamespacedName{
-		Name: servingPVName,
-	}, servingPV); err == nil {
-		if err := r.Delete(ctx, servingPV); err != nil && !errors.IsNotFound(err) {
-			r.Log.Error(err, "Failed to delete Serving PV", "pv", servingPVName)
-			return ctrl.Result{}, err
-		}
-		r.Log.Info("Deleted Serving PV", "pv", servingPVName)
-	}
-
-	// Remove finalizer
-	controllerutil.RemoveFinalizer(kc, kernelcachecommon.KernelCacheFinalizerName)
-	if err := r.Update(ctx, kc); err != nil {
-		if errors.IsConflict(err) {
-			r.Log.Info("Finalizer removal conflict (will retry)",
-				"cache", kc.Name, "namespace", kc.Namespace)
-		} else {
-			r.Log.Error(err, "Failed to remove finalizer",
-				"cache", kc.Name, "namespace", kc.Namespace)
-		}
-		return ctrl.Result{}, err
-	}
 	return ctrl.Result{}, nil
 }
 
