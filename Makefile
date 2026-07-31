@@ -247,9 +247,6 @@ manifests: controller-gen kustomize yq
 	$(KUSTOMIZE) build config/crd/full | $(YQ) 'select(.metadata.name == "clusterservingruntimes.serving.kserve.io")' > charts/kserve-crd/templates/serving.kserve.io_clusterservingruntimes.yaml
 	$(KUSTOMIZE) build config/crd/full | $(YQ) 'select(.metadata.name == "servingruntimes.serving.kserve.io")' > charts/kserve-crd/templates/serving.kserve.io_servingruntimes.yaml
 	$(KUSTOMIZE) build config/crd/full | $(YQ) 'select(.metadata.name == "inferencegraphs.serving.kserve.io")' > charts/kserve-crd/templates/serving.kserve.io_inferencegraphs.yaml
-
-	# Copy the full crd to the helm chart
-	cp config/crd/full/*.yaml charts/kserve-crd/templates/
 	cp config/crd/full/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-crd/files/
 	cp config/crd/full/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-llmisvc-crd/files/
 	cp -f config/crd/full/localmodel/*.yaml charts/kserve-localmodel-crd/templates/
@@ -281,9 +278,6 @@ manifests: controller-gen kustomize yq
 	$(KUSTOMIZE) build config/crd/minimal | $(YQ) 'select(.metadata.name == "clusterservingruntimes.serving.kserve.io")' > charts/kserve-crd-minimal/templates/serving.kserve.io_clusterservingruntimes.yaml
 	$(KUSTOMIZE) build config/crd/minimal | $(YQ) 'select(.metadata.name == "servingruntimes.serving.kserve.io")' > charts/kserve-crd-minimal/templates/serving.kserve.io_servingruntimes.yaml
 	$(KUSTOMIZE) build config/crd/minimal | $(YQ) 'select(.metadata.name == "inferencegraphs.serving.kserve.io")' > charts/kserve-crd-minimal/templates/serving.kserve.io_inferencegraphs.yaml
-
-	# Copy the minimal crd to the helm chart
-	cp -f config/crd/minimal/*.yaml charts/kserve-crd-minimal/templates/
 	cp -f config/crd/minimal/localmodel/*.yaml charts/kserve-localmodel-crd-minimal/templates/
 	cp -f config/crd/minimal/kernelcache/*.yaml charts/kserve-kernelcache-crd-minimal/templates/
 	cp -f config/crd/minimal/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-crd-minimal/files/
@@ -523,25 +517,12 @@ deploy-dev-storageInitializer: docker-push-storageInitializer
 	kubectl apply --server-side=true -k config/overlays/dev-image-config
 
 # Deploy LocalModel + KernelCache to kind cluster for local testing
-deploy-dev-localmodel-kind: docker-build-localmodel docker-build-kernelcachenode-agent kernelcache-webhook-secret-file
-	kind load docker-image ${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${TAG} --name kind
-	kind load docker-image ${KO_DOCKER_REPO}/${KERNELCACHE_AGENT_IMG}:${TAG} --name kind
+# Deploy/redeploy LocalModel + KernelCache to real hardware (non-KIND)
+# Idempotent - safe for both initial deploy and rebuilds
+deploy-dev-localmodel: docker-build-localmodel docker-build-kernelcachenode-agent kernelcache-webhook-secret-file
 	kubectl apply -k config/localmodels
 	kubectl apply -k config/kernelcachenodes
-	kubectl patch deployment kserve-localmodel-controller-manager -n kserve --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${TAG}"},{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value":"Never"}]'
-	kubectl patch daemonset kserve-kernelcachenode-agent -n kserve --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"${KO_DOCKER_REPO}/${KERNELCACHE_AGENT_IMG}:${TAG}"},{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value":"Never"},{"op": "replace", "path": "/spec/template/spec/initContainers/0/env/0/value", "value":"true"}]'
-	@echo "Forcing rollout restart to pick up new images..."
-	kubectl rollout restart deployment kserve-localmodel-controller-manager -n kserve
-	kubectl rollout restart daemonset kserve-kernelcachenode-agent -n kserve
-	@echo "Waiting for deployment to be ready..."
-	kubectl rollout status deployment kserve-localmodel-controller-manager -n kserve --timeout=60s
-	kubectl rollout status daemonset kserve-kernelcachenode-agent -n kserve --timeout=60s
-
-# Rebuild and reload LocalModel + KernelCache for local testing
-redeploy-dev-localmodel-kind: docker-build-localmodel docker-build-kernelcachenode-agent
-	kind load docker-image ${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${TAG} --name kind
-	kind load docker-image ${KO_DOCKER_REPO}/${KERNELCACHE_AGENT_IMG}:${TAG} --name kind
-	kubectl patch deployment kserve-localmodel-controller-manager -n kserve --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${TAG}"},{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value":"Never"}]'
+	kubectl patch deployment kserve-localmodel-controller-manager -n kserve --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${TAG}"},{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value":"Never"},{"op": "replace", "path": "/spec/template/spec/containers/0/command", "value":["/manager"]}]'
 	kubectl patch daemonset kserve-kernelcachenode-agent -n kserve --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value":"${KO_DOCKER_REPO}/${KERNELCACHE_AGENT_IMG}:${TAG}"},{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value":"Never"},{"op": "replace", "path": "/spec/template/spec/initContainers/0/env/0/value", "value":"true"}]'
 	@echo "Forcing rollout restart to pick up new images..."
 	kubectl rollout restart deployment kserve-localmodel-controller-manager -n kserve
@@ -549,6 +530,14 @@ redeploy-dev-localmodel-kind: docker-build-localmodel docker-build-kernelcacheno
 	@echo "Waiting for rollout to complete..."
 	kubectl rollout status deployment kserve-localmodel-controller-manager -n kserve --timeout=60s
 	kubectl rollout status daemonset kserve-kernelcachenode-agent -n kserve --timeout=60s
+
+# Deploy/redeploy LocalModel + KernelCache to KIND cluster
+# Idempotent - safe for both initial deploy and rebuilds
+deploy-dev-localmodel-kind:
+	@echo "Loading images to KIND cluster..."
+	kind load docker-image ${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${TAG} --name kind
+	kind load docker-image ${KO_DOCKER_REPO}/${KERNELCACHE_AGENT_IMG}:${TAG} --name kind
+	@$(MAKE) deploy-dev-localmodel
 
 deploy-helm:
 	USE_LOCAL_CHARTS=true ./hack/setup/infra/manage.kserve-helm.sh

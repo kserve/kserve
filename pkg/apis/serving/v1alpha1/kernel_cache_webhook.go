@@ -29,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -140,6 +141,19 @@ func (kc *KernelCache) Default(ctx context.Context, obj runtime.Object) error {
 		return nil
 	}
 
+	// Default mountType to pvc if not specified
+	kernelcacheLog.Info("Mutating webhook received mountType", "mountType", cache.Spec.MountType, "isEmpty", cache.Spec.MountType == "")
+	if cache.Spec.MountType == "" {
+		cache.Spec.MountType = KernelCacheMountTypePVC
+		kernelcacheLog.Info("Defaulting mountType to pvc")
+	}
+
+	// Default imagePullPolicy to IfNotPresent if not specified and using image volumes
+	if cache.Spec.MountType == KernelCacheMountTypeImageVolume && cache.Spec.ImagePullPolicy == "" {
+		cache.Spec.ImagePullPolicy = corev1.PullIfNotPresent
+		kernelcacheLog.Info("Defaulting imagePullPolicy", "imagePullPolicy", cache.Spec.ImagePullPolicy)
+	}
+
 	// Resolve & verify image -> digest with appropriate timeout
 	verifyCtx, cancel := context.WithTimeout(ctx, ImageVerificationTimeout)
 	defer cancel()
@@ -248,6 +262,11 @@ func (kc *KernelCache) ValidateCreate(ctx context.Context, obj runtime.Object) (
 		return nil, errors.New("spec.image must be set")
 	}
 
+	// Validate mountType-specific configuration
+	if err := validateMountTypeConfig(ctx, cache); err != nil {
+		return nil, err
+	}
+
 	// Ensure mutating webhook set the digest annotation
 	digest := cache.Annotations[AnnotationResolvedDigest]
 	sig := cache.Annotations[AnnotationMutationSig]
@@ -300,6 +319,27 @@ func (kc *KernelCache) ValidateUpdate(ctx context.Context, oldObj, newObj runtim
 
 	oldDigest := oldCache.Annotations[AnnotationResolvedDigest]
 	newDigest := newCache.Annotations[AnnotationResolvedDigest]
+
+	oldMountType := oldCache.Spec.MountType
+	newMountType := newCache.Spec.MountType
+	if oldMountType == "" {
+		oldMountType = KernelCacheMountTypePVC
+	}
+	if newMountType == "" {
+		newMountType = KernelCacheMountTypePVC
+	}
+
+	// Validate new mountType configuration
+	if err := validateMountTypeConfig(ctx, newCache); err != nil {
+		return nil, err
+	}
+
+	// Rule 0: Block mountType changes (would require re-extraction/cleanup)
+	if oldMountType != newMountType {
+		return nil, fmt.Errorf(
+			"spec.mountType is immutable (cannot change from %s to %s)",
+			oldMountType, newMountType)
+	}
 
 	// Handle image changes
 	if oldImg != newImg {
@@ -397,6 +437,63 @@ func extractDigestFromImage(imageRef string) string {
 	}
 
 	return ""
+}
+
+// validateMountTypeConfig validates mountType-specific configuration
+func validateMountTypeConfig(ctx context.Context, cache *KernelCache) error {
+	mountType := cache.Spec.MountType
+	if mountType == "" {
+		mountType = KernelCacheMountTypePVC // Default
+	}
+
+	switch mountType {
+	case KernelCacheMountTypePVC:
+		// PVC mode - no additional validation needed
+		// storageClassName, storageSize, accessModes, podTemplate are all optional
+		return nil
+
+	case KernelCacheMountTypeImageVolume:
+		// Image volume mode - check cluster support and warn about ignored fields
+		if err := checkImageVolumesSupported(ctx); err != nil {
+			return fmt.Errorf("image volumes not supported in this cluster: %w", err)
+		}
+
+		// Warn if PVC-specific fields are set (they'll be ignored)
+		if cache.Spec.StorageClassName != nil || cache.Spec.StorageSize != nil ||
+			len(cache.Spec.AccessModes) > 0 || cache.Spec.PodTemplate != nil {
+			kernelcacheLog.Info("PVC-specific fields ignored when mountType=imageVolume",
+				"name", cache.Name,
+				"storageClassName", cache.Spec.StorageClassName != nil,
+				"storageSize", cache.Spec.StorageSize != nil,
+				"accessModes", len(cache.Spec.AccessModes) > 0,
+				"podTemplate", cache.Spec.PodTemplate != nil)
+		}
+
+		return nil
+
+	default:
+		return fmt.Errorf("invalid mountType: %s (must be 'pvc' or 'imageVolume')", mountType)
+	}
+}
+
+// checkImageVolumesSupported checks if the cluster supports image volumes
+// by attempting to discover the pod.spec.volumes.image field via API
+func checkImageVolumesSupported(ctx context.Context) error {
+	// TODO: Implement Kubernetes discovery API check
+	// For now, we trust the user's cluster configuration
+	// In the future, we can check:
+	// 1. Kubernetes version >= 1.31
+	// 2. ImageVolume feature gate enabled (for < 1.36)
+	// 3. pod.spec.volumes.image field exists in API schema
+	//
+	// Implementation approach:
+	// - Use discovery.ServerResourcesForGroupVersion("v1")
+	// - Check Pod resource schema for volumes.image field
+	// - Return error if field doesn't exist
+	//
+	// For now, we assume if the user set mountType=imageVolume, their cluster supports it
+	kernelcacheLog.V(1).Info("Skipping image volume support check (assumes cluster supports it)")
+	return nil
 }
 
 // extractSizeFromImage walks the layers in the image and adds the sizes

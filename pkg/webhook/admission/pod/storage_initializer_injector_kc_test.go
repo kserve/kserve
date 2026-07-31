@@ -532,3 +532,760 @@ func TestInjectKernelCache_CacheMissWritability(t *testing.T) {
 	// This design supports cache-miss rebuilds WITHOUT requiring emptyDir or additional RW mounts.
 	// The container's root filesystem provides writability for sibling directories.
 }
+
+// TestInjectImageVolumeMount_BasicSuccess verifies basic image volume mounting with full metadata
+func TestInjectImageVolumeMount_BasicSuccess(t *testing.T) {
+	resolvedDigest := "sha256:abc123def456"
+	imageSpec := "quay.io/test/vllm-cache:v1"
+
+	kcCR := &v1alpha1.KernelCache{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cache",
+			Namespace: "default",
+			Annotations: map[string]string{
+				v1alpha1.AnnotationCacheHash:         "hashA",
+				v1alpha1.AnnotationCacheMountSubpath: "torch_compile_cache/torch_aot_compile",
+				v1alpha1.AnnotationCacheRootEnv:      "VLLM_CACHE_ROOT=/home/kserve/.cache/vllm",
+				v1alpha1.AnnotationResolvedDigest:    resolvedDigest,
+			},
+		},
+		Spec: v1alpha1.KernelCacheSpec{
+			Image:     imageSpec,
+			MountType: v1alpha1.KernelCacheMountTypeImageVolume,
+		},
+	}
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pod",
+			Namespace: "default",
+			Labels: map[string]string{
+				constants.KernelCacheLabel: "test-cache",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: constants.InferenceServiceContainerName,
+				},
+			},
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+	_ = v1alpha1.AddToScheme(scheme)
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(kcCR).Build()
+
+	injector := &StorageInitializerInjector{
+		credentialBuilder: credentials.NewCredentialBuilder(fakeClient, clientset, &corev1.ConfigMap{
+			Data: map[string]string{},
+		}),
+		config: storageInitializerConfig,
+		client: fakeClient,
+	}
+
+	err := injector.InjectKernelCache(pod)
+	assert.NoError(t, err, "InjectKernelCache should succeed with image volume")
+
+	// Verify image volume was created with correct reference (digest)
+	assert.Len(t, pod.Spec.Volumes, 1, "One image volume should be added")
+	volume := pod.Spec.Volumes[0]
+	assert.Equal(t, "kernel-cache", volume.Name)
+	assert.NotNil(t, volume.Image, "Volume should be an image volume")
+
+	expectedImageRef := "quay.io/test/vllm-cache@sha256:abc123def456"
+	assert.Equal(t, expectedImageRef, volume.Image.Reference,
+		"Image reference should use resolved digest")
+	assert.Equal(t, corev1.PullIfNotPresent, volume.Image.PullPolicy,
+		"Default pull policy should be IfNotPresent")
+
+	// Verify volume mount with correct subPath
+	assert.Len(t, pod.Spec.Containers[0].VolumeMounts, 1, "One volume mount should be added")
+	mount := pod.Spec.Containers[0].VolumeMounts[0]
+	assert.Equal(t, "kernel-cache", mount.Name)
+	assert.Equal(t, "/home/kserve/.cache/vllm/torch_compile_cache/torch_aot_compile/hashA",
+		mount.MountPath, "Mount path should be computed from labels")
+	assert.Equal(t, "io.vllm.cache/torch_compile_cache/torch_aot_compile/hashA",
+		mount.SubPath, "SubPath should be computed from OCI image labels")
+	assert.True(t, mount.ReadOnly, "Image volumes must be read-only")
+
+	// Verify environment variable from labels
+	assert.Len(t, pod.Spec.Containers[0].Env, 1, "One env var should be set")
+	env := pod.Spec.Containers[0].Env[0]
+	assert.Equal(t, "VLLM_CACHE_ROOT", env.Name)
+	assert.Equal(t, "/home/kserve/.cache/vllm", env.Value)
+}
+
+// TestInjectImageVolumeMount_MissingDigest verifies fallback when digest is missing
+func TestInjectImageVolumeMount_MissingDigest(t *testing.T) {
+	imageSpec := "quay.io/test/vllm-cache:v1"
+
+	kcCR := &v1alpha1.KernelCache{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cache",
+			Namespace: "default",
+			Annotations: map[string]string{
+				v1alpha1.AnnotationCacheHash:         "hashA",
+				v1alpha1.AnnotationCacheMountSubpath: "torch_compile_cache/torch_aot_compile",
+				v1alpha1.AnnotationCacheRootEnv:      "VLLM_CACHE_ROOT=/home/kserve/.cache/vllm",
+				// Missing AnnotationResolvedDigest
+			},
+		},
+		Spec: v1alpha1.KernelCacheSpec{
+			Image:     imageSpec,
+			MountType: v1alpha1.KernelCacheMountTypeImageVolume,
+		},
+	}
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pod",
+			Namespace: "default",
+			Labels: map[string]string{
+				constants.KernelCacheLabel: "test-cache",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: constants.InferenceServiceContainerName,
+				},
+			},
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+	_ = v1alpha1.AddToScheme(scheme)
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(kcCR).Build()
+
+	injector := &StorageInitializerInjector{
+		credentialBuilder: credentials.NewCredentialBuilder(fakeClient, clientset, &corev1.ConfigMap{
+			Data: map[string]string{},
+		}),
+		config: storageInitializerConfig,
+		client: fakeClient,
+	}
+
+	err := injector.InjectKernelCache(pod)
+	assert.NoError(t, err, "Should succeed even without digest")
+
+	// Verify original image is used when digest is missing
+	volume := pod.Spec.Volumes[0]
+	assert.Equal(t, imageSpec, volume.Image.Reference,
+		"Should use original image reference when digest is missing")
+}
+
+// TestInjectImageVolumeMount_MissingLabels_LegacyFallback verifies fallback when OCI labels are missing
+func TestInjectImageVolumeMount_MissingLabels_LegacyFallback(t *testing.T) {
+	imageSpec := "quay.io/test/old-cache:v1"
+
+	kcCR := &v1alpha1.KernelCache{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "test-cache",
+			Namespace:   "default",
+			Annotations: map[string]string{
+				// Missing all OCI label annotations
+			},
+		},
+		Spec: v1alpha1.KernelCacheSpec{
+			Image:     imageSpec,
+			MountType: v1alpha1.KernelCacheMountTypeImageVolume,
+		},
+	}
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pod",
+			Namespace: "default",
+			Labels: map[string]string{
+				constants.KernelCacheLabel: "test-cache",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: constants.InferenceServiceContainerName,
+				},
+			},
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+	_ = v1alpha1.AddToScheme(scheme)
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(kcCR).Build()
+
+	injector := &StorageInitializerInjector{
+		credentialBuilder: credentials.NewCredentialBuilder(fakeClient, clientset, &corev1.ConfigMap{
+			Data: map[string]string{},
+		}),
+		config: storageInitializerConfig,
+		client: fakeClient,
+	}
+
+	err := injector.InjectKernelCache(pod)
+	assert.NoError(t, err, "Should fall back gracefully when labels are missing")
+
+	// Verify legacy mount behavior
+	mount := pod.Spec.Containers[0].VolumeMounts[0]
+	assert.Equal(t, "/mnt/kernel-cache", mount.MountPath,
+		"Should fall back to legacy mount path when labels are missing")
+	assert.Empty(t, mount.SubPath, "No subPath in legacy mode")
+
+	// No environment variable in legacy mode
+	assert.Empty(t, pod.Spec.Containers[0].Env,
+		"No env vars should be set in legacy mode")
+}
+
+// TestInjectImageVolumeMount_CustomPullPolicy verifies custom pull policy is respected
+func TestInjectImageVolumeMount_CustomPullPolicy(t *testing.T) {
+	imageSpec := "quay.io/test/cache:latest"
+
+	kcCR := &v1alpha1.KernelCache{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cache",
+			Namespace: "default",
+			Annotations: map[string]string{
+				v1alpha1.AnnotationCacheHash:         "hashA",
+				v1alpha1.AnnotationCacheMountSubpath: "cache_dir",
+				v1alpha1.AnnotationCacheRootEnv:      "MY_CACHE=/opt/cache",
+			},
+		},
+		Spec: v1alpha1.KernelCacheSpec{
+			Image:           imageSpec,
+			MountType:       v1alpha1.KernelCacheMountTypeImageVolume,
+			ImagePullPolicy: corev1.PullAlways,
+		},
+	}
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pod",
+			Namespace: "default",
+			Labels: map[string]string{
+				constants.KernelCacheLabel: "test-cache",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: constants.InferenceServiceContainerName,
+				},
+			},
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+	_ = v1alpha1.AddToScheme(scheme)
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(kcCR).Build()
+
+	injector := &StorageInitializerInjector{
+		credentialBuilder: credentials.NewCredentialBuilder(fakeClient, clientset, &corev1.ConfigMap{
+			Data: map[string]string{},
+		}),
+		config: storageInitializerConfig,
+		client: fakeClient,
+	}
+
+	err := injector.InjectKernelCache(pod)
+	assert.NoError(t, err)
+
+	// Verify custom pull policy
+	volume := pod.Spec.Volumes[0]
+	assert.Equal(t, corev1.PullAlways, volume.Image.PullPolicy,
+		"Custom pull policy should be respected")
+}
+
+// TestInjectImageVolumeMount_UserProvidedMountPath verifies user-provided MountPath overrides computed path
+func TestInjectImageVolumeMount_UserProvidedMountPath(t *testing.T) {
+	imageSpec := "quay.io/test/cache:v1"
+	userMountPath := "/my/custom/mount"
+
+	kcCR := &v1alpha1.KernelCache{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cache",
+			Namespace: "default",
+			Annotations: map[string]string{
+				// Even with labels present, user MountPath takes precedence
+				v1alpha1.AnnotationCacheHash:         "hashA",
+				v1alpha1.AnnotationCacheMountSubpath: "computed_path",
+				v1alpha1.AnnotationCacheRootEnv:      "MY_VAR=/some/path",
+			},
+		},
+		Spec: v1alpha1.KernelCacheSpec{
+			Image:     imageSpec,
+			MountType: v1alpha1.KernelCacheMountTypeImageVolume,
+			MountPath: userMountPath,
+		},
+	}
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pod",
+			Namespace: "default",
+			Labels: map[string]string{
+				constants.KernelCacheLabel: "test-cache",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: constants.InferenceServiceContainerName,
+				},
+			},
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+	_ = v1alpha1.AddToScheme(scheme)
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(kcCR).Build()
+
+	injector := &StorageInitializerInjector{
+		credentialBuilder: credentials.NewCredentialBuilder(fakeClient, clientset, &corev1.ConfigMap{
+			Data: map[string]string{},
+		}),
+		config: storageInitializerConfig,
+		client: fakeClient,
+	}
+
+	err := injector.InjectKernelCache(pod)
+	assert.NoError(t, err)
+
+	// Verify user-provided mountPath is used
+	mount := pod.Spec.Containers[0].VolumeMounts[0]
+	assert.Equal(t, userMountPath, mount.MountPath,
+		"User-provided MountPath should override computed path")
+	// SubPath is still auto-computed from labels
+	assert.Equal(t, "io.vllm.cache/computed_path/hashA", mount.SubPath,
+		"SubPath should still be auto-computed from OCI labels")
+}
+
+// TestInjectImageVolumeMount_InvalidCacheRootEnv verifies error on invalid env format
+func TestInjectImageVolumeMount_InvalidCacheRootEnv(t *testing.T) {
+	imageSpec := "quay.io/test/cache:v1"
+
+	kcCR := &v1alpha1.KernelCache{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cache",
+			Namespace: "default",
+			Annotations: map[string]string{
+				v1alpha1.AnnotationCacheHash:         "hashA",
+				v1alpha1.AnnotationCacheMountSubpath: "cache_dir",
+				v1alpha1.AnnotationCacheRootEnv:      "INVALID_FORMAT", // Missing "=" separator
+			},
+		},
+		Spec: v1alpha1.KernelCacheSpec{
+			Image:     imageSpec,
+			MountType: v1alpha1.KernelCacheMountTypeImageVolume,
+		},
+	}
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pod",
+			Namespace: "default",
+			Labels: map[string]string{
+				constants.KernelCacheLabel: "test-cache",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: constants.InferenceServiceContainerName,
+				},
+			},
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+	_ = v1alpha1.AddToScheme(scheme)
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(kcCR).Build()
+
+	injector := &StorageInitializerInjector{
+		credentialBuilder: credentials.NewCredentialBuilder(fakeClient, clientset, &corev1.ConfigMap{
+			Data: map[string]string{},
+		}),
+		config: storageInitializerConfig,
+		client: fakeClient,
+	}
+
+	err := injector.InjectKernelCache(pod)
+	assert.Error(t, err, "Should error on invalid cache-root-env format")
+	assert.Contains(t, err.Error(), "invalid cache-root-env format")
+}
+
+// TestMountTypeBranchLogic_ImageVolume verifies mountType=imageVolume selects image volume injection
+func TestMountTypeBranchLogic_ImageVolume(t *testing.T) {
+	imageSpec := "quay.io/test/cache:v1"
+
+	kcCR := &v1alpha1.KernelCache{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cache",
+			Namespace: "default",
+			Annotations: map[string]string{
+				v1alpha1.AnnotationCacheHash:         "hashA",
+				v1alpha1.AnnotationCacheMountSubpath: "cache_dir",
+				v1alpha1.AnnotationCacheRootEnv:      "MY_CACHE=/opt/cache",
+			},
+		},
+		Spec: v1alpha1.KernelCacheSpec{
+			Image:     imageSpec,
+			MountType: v1alpha1.KernelCacheMountTypeImageVolume,
+		},
+	}
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pod",
+			Namespace: "default",
+			Labels: map[string]string{
+				constants.KernelCacheLabel: "test-cache",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: constants.InferenceServiceContainerName,
+				},
+			},
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+	_ = v1alpha1.AddToScheme(scheme)
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(kcCR).Build()
+
+	injector := &StorageInitializerInjector{
+		credentialBuilder: credentials.NewCredentialBuilder(fakeClient, clientset, &corev1.ConfigMap{
+			Data: map[string]string{},
+		}),
+		config: storageInitializerConfig,
+		client: fakeClient,
+	}
+
+	err := injector.InjectKernelCache(pod)
+	assert.NoError(t, err)
+
+	// Verify image volume was created (not PVC)
+	volume := pod.Spec.Volumes[0]
+	assert.NotNil(t, volume.Image, "Should use image volume when mountType=imageVolume")
+	assert.Nil(t, volume.PersistentVolumeClaim, "Should not use PVC when mountType=imageVolume")
+}
+
+// TestMountTypeBranchLogic_PVC verifies mountType=pvc selects PVC injection
+func TestMountTypeBranchLogic_PVC(t *testing.T) {
+	imageSpec := "quay.io/test/cache:v1"
+
+	kcCR := &v1alpha1.KernelCache{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cache",
+			Namespace: "default",
+			Annotations: map[string]string{
+				v1alpha1.AnnotationCacheHash:         "hashA",
+				v1alpha1.AnnotationCacheMountSubpath: "cache_dir",
+				v1alpha1.AnnotationCacheRootEnv:      "MY_CACHE=/opt/cache",
+			},
+		},
+		Spec: v1alpha1.KernelCacheSpec{
+			Image:     imageSpec,
+			MountType: v1alpha1.KernelCacheMountTypePVC,
+		},
+	}
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pod",
+			Namespace: "default",
+			Labels: map[string]string{
+				constants.KernelCacheLabel: "test-cache",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: constants.InferenceServiceContainerName,
+				},
+			},
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+	_ = v1alpha1.AddToScheme(scheme)
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(kcCR).Build()
+
+	injector := &StorageInitializerInjector{
+		credentialBuilder: credentials.NewCredentialBuilder(fakeClient, clientset, &corev1.ConfigMap{
+			Data: map[string]string{},
+		}),
+		config: storageInitializerConfig,
+		client: fakeClient,
+	}
+
+	err := injector.InjectKernelCache(pod)
+	assert.NoError(t, err)
+
+	// Verify PVC was created (not image volume)
+	volume := pod.Spec.Volumes[0]
+	assert.NotNil(t, volume.PersistentVolumeClaim, "Should use PVC when mountType=pvc")
+	assert.Nil(t, volume.Image, "Should not use image volume when mountType=pvc")
+}
+
+// TestMountTypeBranchLogic_EmptyDefaultsToPVC verifies empty mountType defaults to PVC
+func TestMountTypeBranchLogic_EmptyDefaultsToPVC(t *testing.T) {
+	imageSpec := "quay.io/test/cache:v1"
+
+	kcCR := &v1alpha1.KernelCache{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cache",
+			Namespace: "default",
+			Annotations: map[string]string{
+				v1alpha1.AnnotationCacheHash:         "hashA",
+				v1alpha1.AnnotationCacheMountSubpath: "cache_dir",
+				v1alpha1.AnnotationCacheRootEnv:      "MY_CACHE=/opt/cache",
+			},
+		},
+		Spec: v1alpha1.KernelCacheSpec{
+			Image: imageSpec,
+			// MountType not set - should default to PVC
+		},
+	}
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pod",
+			Namespace: "default",
+			Labels: map[string]string{
+				constants.KernelCacheLabel: "test-cache",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: constants.InferenceServiceContainerName,
+				},
+			},
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+	_ = v1alpha1.AddToScheme(scheme)
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(kcCR).Build()
+
+	injector := &StorageInitializerInjector{
+		credentialBuilder: credentials.NewCredentialBuilder(fakeClient, clientset, &corev1.ConfigMap{
+			Data: map[string]string{},
+		}),
+		config: storageInitializerConfig,
+		client: fakeClient,
+	}
+
+	err := injector.InjectKernelCache(pod)
+	assert.NoError(t, err)
+
+	// Verify PVC is used by default
+	volume := pod.Spec.Volumes[0]
+	assert.NotNil(t, volume.PersistentVolumeClaim, "Should default to PVC when mountType is empty")
+	assert.Nil(t, volume.Image, "Should not use image volume when mountType is empty")
+}
+
+// TestInjectImageVolumeMount_PartialMetadata verifies graceful handling of partial metadata
+func TestInjectImageVolumeMount_PartialMetadata(t *testing.T) {
+	tests := []struct {
+		name              string
+		cacheHash         string
+		cacheMountSubpath string
+		cacheRootEnv      string
+		expectedMountPath string
+		expectedSubPath   string
+		expectEnvVar      bool
+		shouldError       bool
+	}{
+		{
+			name:              "only hash present - legacy fallback",
+			cacheHash:         "hashA",
+			cacheMountSubpath: "",
+			cacheRootEnv:      "",
+			expectedMountPath: "/mnt/kernel-cache",
+			expectedSubPath:   "",
+			expectEnvVar:      false,
+			shouldError:       false,
+		},
+		{
+			name:              "only subpath present - legacy fallback",
+			cacheHash:         "",
+			cacheMountSubpath: "cache_dir",
+			cacheRootEnv:      "",
+			expectedMountPath: "/mnt/kernel-cache",
+			expectedSubPath:   "",
+			expectEnvVar:      false,
+			shouldError:       false,
+		},
+		{
+			name:              "only rootEnv present - legacy fallback",
+			cacheHash:         "",
+			cacheMountSubpath: "",
+			cacheRootEnv:      "MY_VAR=/path",
+			expectedMountPath: "/mnt/kernel-cache",
+			expectedSubPath:   "",
+			expectEnvVar:      false,
+			shouldError:       false,
+		},
+		{
+			name:              "hash and subpath but no rootEnv - legacy fallback",
+			cacheHash:         "hashA",
+			cacheMountSubpath: "cache_dir",
+			cacheRootEnv:      "",
+			expectedMountPath: "/mnt/kernel-cache",
+			expectedSubPath:   "",
+			expectEnvVar:      false,
+			shouldError:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			imageSpec := "quay.io/test/cache:v1"
+
+			annotations := map[string]string{}
+			if tt.cacheHash != "" {
+				annotations[v1alpha1.AnnotationCacheHash] = tt.cacheHash
+			}
+			if tt.cacheMountSubpath != "" {
+				annotations[v1alpha1.AnnotationCacheMountSubpath] = tt.cacheMountSubpath
+			}
+			if tt.cacheRootEnv != "" {
+				annotations[v1alpha1.AnnotationCacheRootEnv] = tt.cacheRootEnv
+			}
+
+			kcCR := &v1alpha1.KernelCache{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test-cache",
+					Namespace:   "default",
+					Annotations: annotations,
+				},
+				Spec: v1alpha1.KernelCacheSpec{
+					Image:     imageSpec,
+					MountType: v1alpha1.KernelCacheMountTypeImageVolume,
+				},
+			}
+
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pod",
+					Namespace: "default",
+					Labels: map[string]string{
+						constants.KernelCacheLabel: "test-cache",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+						},
+					},
+				},
+			}
+
+			scheme := runtime.NewScheme()
+			_ = corev1.AddToScheme(scheme)
+			_ = v1alpha1.AddToScheme(scheme)
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(kcCR).Build()
+
+			injector := &StorageInitializerInjector{
+				credentialBuilder: credentials.NewCredentialBuilder(fakeClient, clientset, &corev1.ConfigMap{
+					Data: map[string]string{},
+				}),
+				config: storageInitializerConfig,
+				client: fakeClient,
+			}
+
+			err := injector.InjectKernelCache(pod)
+
+			if tt.shouldError {
+				assert.Error(t, err)
+				return
+			}
+
+			assert.NoError(t, err)
+
+			mount := pod.Spec.Containers[0].VolumeMounts[0]
+			assert.Equal(t, tt.expectedMountPath, mount.MountPath)
+			assert.Equal(t, tt.expectedSubPath, mount.SubPath)
+
+			if tt.expectEnvVar {
+				assert.NotEmpty(t, pod.Spec.Containers[0].Env)
+			} else {
+				assert.Empty(t, pod.Spec.Containers[0].Env)
+			}
+		})
+	}
+}
+
+// TestInjectImageVolumeMount_NoKserveContainer verifies graceful handling when kserve-container is missing
+func TestInjectImageVolumeMount_NoKserveContainer(t *testing.T) {
+	imageSpec := "quay.io/test/cache:v1"
+
+	kcCR := &v1alpha1.KernelCache{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cache",
+			Namespace: "default",
+			Annotations: map[string]string{
+				v1alpha1.AnnotationCacheHash:         "hashA",
+				v1alpha1.AnnotationCacheMountSubpath: "cache_dir",
+				v1alpha1.AnnotationCacheRootEnv:      "MY_VAR=/path",
+			},
+		},
+		Spec: v1alpha1.KernelCacheSpec{
+			Image:     imageSpec,
+			MountType: v1alpha1.KernelCacheMountTypeImageVolume,
+		},
+	}
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pod",
+			Namespace: "default",
+			Labels: map[string]string{
+				constants.KernelCacheLabel: "test-cache",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: "some-other-container", // Not kserve-container
+				},
+			},
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+	_ = v1alpha1.AddToScheme(scheme)
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(kcCR).Build()
+
+	injector := &StorageInitializerInjector{
+		credentialBuilder: credentials.NewCredentialBuilder(fakeClient, clientset, &corev1.ConfigMap{
+			Data: map[string]string{},
+		}),
+		config: storageInitializerConfig,
+		client: fakeClient,
+	}
+
+	err := injector.InjectKernelCache(pod)
+	assert.NoError(t, err, "Should not error when kserve-container is missing")
+
+	// Volume should still be added
+	assert.Len(t, pod.Spec.Volumes, 1, "Volume should be added even if container is missing")
+
+	// No mounts should be added to the wrong container
+	assert.Empty(t, pod.Spec.Containers[0].VolumeMounts,
+		"No mounts should be added to non-kserve containers")
+}
