@@ -1,0 +1,43 @@
+{
+  "keyword_aliases": {
+    "kserve": ["InferenceService", "InferenceGraph", "TrainedModel"],
+    "llmisvc": ["LLMInferenceService", "LLMInferenceServiceConfig"],
+    "localmodel": ["LocalModelCache", "LocalModelNamespaceCache", "LocalModelNode", "LocalModelNodeGroup"],
+    "runtime": ["ServingRuntime", "ClusterServingRuntime"]
+  },
+
+  "python": {
+    "all_e2e_packages": ["kserve", "storage"]
+  },
+
+  "ignorable_patterns": [
+    ".md",
+    ".txt",
+    ".png",
+    ".jpg",
+    ".svg",
+    ".github/",
+    "docs/",
+    "LICENSE",
+    "OWNERS",
+    "CODEOWNERS"
+  ],
+
+  "overrides": [
+    {
+      "pattern": "Makefile",
+      "trigger": "all",
+      "reason": "Build system changes"
+    },
+    {
+      "pattern": "go.mod",
+      "trigger": "all",
+      "reason": "Go module dependency changes"
+    },
+    {
+      "pattern": "go.sum",
+      "trigger": "all",
+      "reason": "Go module checksum changes"
+    }
+  ]
+}
