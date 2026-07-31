@@ -37,13 +37,17 @@ import logging
 import os
 import requests
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
 import pytest
+from kserve.models import V1alpha2LLMInferenceService, V1alpha2LLMInferenceServiceConfig
 from kubernetes import client as k8s_client, config
 
+from .diagnostic import collect_diagnostics
 from .fixtures import DEFAULT_LLMISVC_ANNOTATIONS, LLMD_SIMULATOR_SECURITY_CONTEXT
+from .namespace import skip_deletion, skip_deletion_on_failure
 
 logger = logging.getLogger(__name__)
 
@@ -133,21 +137,16 @@ DIV_MODEL_V2 = "model-beta"
 
 def apply_divergence_member(api, name, model_name, weight, ns):
     """Deploy a member for divergence tests (service backend, no scheduler)."""
-    model_spec = {"name": model_name, "uri": MODEL_URI}
-    body = {
-        "apiVersion": f"{KSERVE_GROUP}/{KSERVE_VERSION}",
-        "kind": "LLMInferenceService",
-        "metadata": {
-            "name": name,
-            "namespace": ns,
-            **(
-                {"annotations": dict(DEFAULT_LLMISVC_ANNOTATIONS)}
-                if DEFAULT_LLMISVC_ANNOTATIONS
-                else {}
-            ),
-        },
-        "spec": {
-            "model": model_spec,
+    body = V1alpha2LLMInferenceService(
+        api_version=f"{KSERVE_GROUP}/{KSERVE_VERSION}",
+        kind="LLMInferenceService",
+        metadata=k8s_client.V1ObjectMeta(
+            name=name,
+            namespace=ns,
+            annotations=dict(DEFAULT_LLMISVC_ANNOTATIONS) or None,
+        ),
+        spec={
+            "model": {"name": model_name, "uri": MODEL_URI},
             "baseRefs": [{"name": INFERENCE_SIM.name}],
             "router": {
                 "route": {
@@ -157,7 +156,7 @@ def apply_divergence_member(api, name, model_name, weight, ns):
                 },
             },
         },
-    }
+    )
     try:
         api.create_namespaced_custom_object(
             KSERVE_GROUP, KSERVE_VERSION, ns, KSERVE_PLURAL, body
@@ -217,12 +216,12 @@ def get_api():
 
 
 def apply_config(api, name, ns, spec):
-    body = {
-        "apiVersion": f"{KSERVE_GROUP}/{KSERVE_VERSION}",
-        "kind": "LLMInferenceServiceConfig",
-        "metadata": {"name": name, "namespace": ns},
-        "spec": spec,
-    }
+    body = V1alpha2LLMInferenceServiceConfig(
+        api_version=f"{KSERVE_GROUP}/{KSERVE_VERSION}",
+        kind="LLMInferenceServiceConfig",
+        metadata=k8s_client.V1ObjectMeta(name=name, namespace=ns),
+        spec=spec,
+    )
     try:
         api.create_namespaced_custom_object(
             KSERVE_GROUP, KSERVE_VERSION, ns, KSERVE_CONFIG_PLURAL, body
@@ -253,20 +252,16 @@ def apply_member(api, member: MemberSpec, ns):
     if member.scheduler:
         spec["router"]["scheduler"] = {}
 
-    body = {
-        "apiVersion": f"{KSERVE_GROUP}/{KSERVE_VERSION}",
-        "kind": "LLMInferenceService",
-        "metadata": {
-            "name": member.name,
-            "namespace": ns,
-            **(
-                {"annotations": dict(DEFAULT_LLMISVC_ANNOTATIONS)}
-                if DEFAULT_LLMISVC_ANNOTATIONS
-                else {}
-            ),
-        },
-        "spec": spec,
-    }
+    body = V1alpha2LLMInferenceService(
+        api_version=f"{KSERVE_GROUP}/{KSERVE_VERSION}",
+        kind="LLMInferenceService",
+        metadata=k8s_client.V1ObjectMeta(
+            name=member.name,
+            namespace=ns,
+            annotations=dict(DEFAULT_LLMISVC_ANNOTATIONS) or None,
+        ),
+        spec=spec,
+    )
     try:
         api.create_namespaced_custom_object(
             KSERVE_GROUP, KSERVE_VERSION, ns, KSERVE_PLURAL, body
@@ -304,6 +299,42 @@ def delete_member(api, name, ns, wait=False):
                     return
             time.sleep(2)
         logger.warning(f"{name} still exists after 120s")
+
+
+def _maybe_delete_member(api, name, ns, test_failed):
+    """Conditionally delete a member, respecting skip-deletion env vars."""
+    try:
+        if skip_deletion():
+            logger.info("Skipping deletion of %s (SKIP_RESOURCE_DELETION)", name)
+            return
+        if test_failed and skip_deletion_on_failure():
+            logger.info(
+                "Skipping deletion of %s due to test failure (SKIP_DELETION_ON_FAILURE)",
+                name,
+            )
+            return
+        delete_member(api, name, ns)
+    except Exception as e:
+        logger.warning("Failed to cleanup member %s: %s", name, e)
+
+
+@contextmanager
+def member_lifecycle(api, members, ns):
+    """Collect diagnostics on failure, conditionally delete members on exit."""
+    test_failed = False
+    try:
+        yield
+    except BaseException:
+        test_failed = True
+        for name in members:
+            try:
+                collect_diagnostics(name, ns, log=logger.info)
+            except Exception:
+                logger.exception("Failed to collect diagnostics for %s", name)
+        raise
+    finally:
+        for name in members:
+            _maybe_delete_member(api, name, ns, test_failed)
 
 
 def wait_ready(api, name, ns, timeout=600):
@@ -616,7 +647,9 @@ class TestCanaryLifecycle:
     )
     def test_canary_service_backend(self, canary_env, traffic_driver):
         """Service backend - works with any gateway."""
-        self._run_canary_lifecycle(canary_env, traffic_driver)
+        scenario, api, ns = canary_env
+        with member_lifecycle(api, [scenario.v1.name, scenario.v2.name], ns):
+            self._run_canary_lifecycle(canary_env, traffic_driver)
 
     def test_model_name_divergence(self, test_namespace):
         """Members with different model.name form independent sub-groups.
@@ -628,38 +661,41 @@ class TestCanaryLifecycle:
         api = get_api()
         ns = test_namespace
 
-        apply_config(api, INFERENCE_SIM.name, ns, INFERENCE_SIM.to_spec())
-        apply_divergence_member(api, DIV_V1, DIV_MODEL_V1, 5, ns)
-        apply_divergence_member(api, DIV_V2, DIV_MODEL_V2, 5, ns)
+        with member_lifecycle(api, [DIV_V1, DIV_V2], ns):
+            apply_config(api, INFERENCE_SIM.name, ns, INFERENCE_SIM.to_spec())
+            apply_divergence_member(api, DIV_V1, DIV_MODEL_V1, 5, ns)
+            apply_divergence_member(api, DIV_V2, DIV_MODEL_V2, 5, ns)
 
-        wait_ready(api, DIV_V1, ns)
-        wait_ready(api, DIV_V2, ns)
+            wait_ready(api, DIV_V1, ns)
+            wait_ready(api, DIV_V2, ns)
 
-        # Both members should be GroupReady (each sub-group works)
-        for name in [DIV_V1, DIV_V2]:
-            c = wait_for_condition(api, name, ns, "GroupReady", status="True")
-            assert c["status"] == "True", f"{name}: GroupReady={c['status']}"
+            # Both members should be GroupReady (each sub-group works)
+            for name in [DIV_V1, DIV_V2]:
+                c = wait_for_condition(api, name, ns, "GroupReady", status="True")
+                assert c["status"] == "True", f"{name}: GroupReady={c['status']}"
 
-        # Both should be GroupDegraded with MemberDivergence
-        for name in [DIV_V1, DIV_V2]:
-            c = wait_for_condition(
-                api,
-                name,
-                ns,
-                "GroupDegraded",
-                status="True",
-                reason="MemberDivergence",
-            )
-            assert c["status"] == "True", f"{name}: GroupDegraded={c['status']}"
-            assert c["reason"] == "MemberDivergence", f"{name}: reason={c['reason']}"
+            # Both should be GroupDegraded with MemberDivergence
+            for name in [DIV_V1, DIV_V2]:
+                c = wait_for_condition(
+                    api,
+                    name,
+                    ns,
+                    "GroupDegraded",
+                    status="True",
+                    reason="MemberDivergence",
+                )
+                assert c["status"] == "True", f"{name}: GroupDegraded={c['status']}"
+                assert c["reason"] == "MemberDivergence", (
+                    f"{name}: reason={c['reason']}"
+                )
 
-        # Each member's sub-group should contain only itself
-        v1_members = get_group_members(api, DIV_V1, ns)
-        v2_members = get_group_members(api, DIV_V2, ns)
-        assert v1_members == [DIV_V1], f"v1 group members: {v1_members}"
-        assert v2_members == [DIV_V2], f"v2 group members: {v2_members}"
+            # Each member's sub-group should contain only itself
+            v1_members = get_group_members(api, DIV_V1, ns)
+            v2_members = get_group_members(api, DIV_V2, ns)
+            assert v1_members == [DIV_V1], f"v1 group members: {v1_members}"
+            assert v2_members == [DIV_V2], f"v2 group members: {v2_members}"
 
-        logger.info("Model name divergence verified")
+            logger.info("Model name divergence verified")
 
     def test_model_name_divergence_resolves(self, test_namespace):
         """Fixing a divergent model.name clears the degraded condition.
@@ -671,85 +707,91 @@ class TestCanaryLifecycle:
         api = get_api()
         ns = test_namespace
 
-        apply_config(api, INFERENCE_SIM.name, ns, INFERENCE_SIM.to_spec())
-        apply_divergence_member(api, DIV_V1, DIV_MODEL_V1, 5, ns)
-        apply_divergence_member(api, DIV_V2, DIV_MODEL_V2, 5, ns)
+        with member_lifecycle(api, [DIV_V1, DIV_V2], ns):
+            apply_config(api, INFERENCE_SIM.name, ns, INFERENCE_SIM.to_spec())
+            apply_divergence_member(api, DIV_V1, DIV_MODEL_V1, 5, ns)
+            apply_divergence_member(api, DIV_V2, DIV_MODEL_V2, 5, ns)
 
-        wait_ready(api, DIV_V1, ns)
-        wait_ready(api, DIV_V2, ns)
+            wait_ready(api, DIV_V1, ns)
+            wait_ready(api, DIV_V2, ns)
 
-        # Confirm divergence is detected first
-        wait_for_condition(
-            api,
-            DIV_V1,
-            ns,
-            "GroupDegraded",
-            status="True",
-            reason="MemberDivergence",
-        )
+            # Confirm divergence is detected first
+            wait_for_condition(
+                api,
+                DIV_V1,
+                ns,
+                "GroupDegraded",
+                status="True",
+                reason="MemberDivergence",
+            )
 
-        # Fix: patch v2's model name to match v1
-        patch_model_name(api, DIV_V2, DIV_MODEL_V1, ns)
-        logger.info(f"Patched {DIV_V2} model name to {DIV_MODEL_V1}")
+            # Fix: patch v2's model name to match v1
+            patch_model_name(api, DIV_V2, DIV_MODEL_V1, ns)
+            logger.info(f"Patched {DIV_V2} model name to {DIV_MODEL_V1}")
 
-        # Wait for ready again (model name change triggers reconcile)
-        wait_ready(api, DIV_V2, ns)
+            # Wait for ready again (model name change triggers reconcile)
+            wait_ready(api, DIV_V2, ns)
 
-        # GroupReady should still be True
-        for name in [DIV_V1, DIV_V2]:
-            c = wait_for_condition(api, name, ns, "GroupReady", status="True")
-            assert c["status"] == "True", f"{name}: GroupReady={c['status']}"
+            # GroupReady should still be True
+            for name in [DIV_V1, DIV_V2]:
+                c = wait_for_condition(api, name, ns, "GroupReady", status="True")
+                assert c["status"] == "True", f"{name}: GroupReady={c['status']}"
 
-        # GroupDegraded should be cleared (controller removes the condition
-        # via ClearCondition, so it becomes absent rather than status=False)
-        for name in [DIV_V1, DIV_V2]:
-            wait_for_condition_absent(api, name, ns, "GroupDegraded")
+            # GroupDegraded should be cleared (controller removes the condition
+            # via ClearCondition, so it becomes absent rather than status=False)
+            for name in [DIV_V1, DIV_V2]:
+                wait_for_condition_absent(api, name, ns, "GroupDegraded")
 
-        # Both members should now appear in each other's group.
-        # Wait for group membership to converge (may lag behind condition update).
-        for name in [DIV_V1, DIV_V2]:
-            wait_for_member_count(api, name, ns, 2)
-            members = get_group_members(api, name, ns)
-            assert DIV_V1 in members, f"{name} missing {DIV_V1}: {members}"
-            assert DIV_V2 in members, f"{name} missing {DIV_V2}: {members}"
+            # Both members should now appear in each other's group.
+            # Wait for group membership to converge (may lag behind condition update).
+            for name in [DIV_V1, DIV_V2]:
+                wait_for_member_count(api, name, ns, 2)
+                group_members = get_group_members(api, name, ns)
+                assert DIV_V1 in group_members, (
+                    f"{name} missing {DIV_V1}: {group_members}"
+                )
+                assert DIV_V2 in group_members, (
+                    f"{name} missing {DIV_V2}: {group_members}"
+                )
 
-        logger.info("Model name divergence resolution verified")
+            logger.info("Model name divergence resolution verified")
 
     def test_weight_without_group_rejected(self, test_namespace):
         """Webhook rejects LLMISVC with weight but no group. (spike step 11)"""
         api = get_api()
         ns = test_namespace
 
-        apply_config(api, INFERENCE_SIM.name, ns, INFERENCE_SIM.to_spec())
+        with member_lifecycle(api, ["webhook-reject"], ns):
+            apply_config(api, INFERENCE_SIM.name, ns, INFERENCE_SIM.to_spec())
 
-        body = {
-            "apiVersion": f"{KSERVE_GROUP}/{KSERVE_VERSION}",
-            "kind": "LLMInferenceService",
-            "metadata": {"name": "webhook-reject", "namespace": ns},
-            "spec": {
-                "model": {"name": MODEL, "uri": MODEL_URI},
-                "baseRefs": [{"name": INFERENCE_SIM.name}],
-                "router": {
-                    "route": {
-                        "weight": 5,
-                        "http": {},
+            body = V1alpha2LLMInferenceService(
+                api_version=f"{KSERVE_GROUP}/{KSERVE_VERSION}",
+                kind="LLMInferenceService",
+                metadata=k8s_client.V1ObjectMeta(name="webhook-reject", namespace=ns),
+                spec={
+                    "model": {"name": MODEL, "uri": MODEL_URI},
+                    "baseRefs": [{"name": INFERENCE_SIM.name}],
+                    "router": {
+                        "route": {
+                            "weight": 5,
+                            "http": {},
+                        },
                     },
                 },
-            },
-        }
-
-        with pytest.raises(k8s_client.ApiException) as exc_info:
-            api.create_namespaced_custom_object(
-                KSERVE_GROUP, KSERVE_VERSION, ns, KSERVE_PLURAL, body
             )
-        assert exc_info.value.status == 422, (
-            f"Expected 422 webhook rejection, got {exc_info.value.status}"
-        )
-        err_msg = json.loads(exc_info.value.body).get("message", "")
-        assert "weight requires group" in err_msg.lower(), (
-            f"Expected 'weight requires group' in error message: {err_msg}"
-        )
-        logger.info("Webhook rejection verified: weight without group")
+
+            with pytest.raises(k8s_client.ApiException) as exc_info:
+                api.create_namespaced_custom_object(
+                    KSERVE_GROUP, KSERVE_VERSION, ns, KSERVE_PLURAL, body
+                )
+            assert exc_info.value.status == 422, (
+                f"Expected 422 webhook rejection, got {exc_info.value.status}"
+            )
+            err_msg = json.loads(exc_info.value.body).get("message", "")
+            assert "weight requires group" in err_msg.lower(), (
+                f"Expected 'weight requires group' in error message: {err_msg}"
+            )
+            logger.info("Webhook rejection verified: weight without group")
 
     def _run_canary_lifecycle(self, canary_env, traffic_driver):
         scenario, api, ns = canary_env
@@ -872,72 +914,77 @@ class TestCanaryLifecycle:
         v1 = MemberSpec(name="stop-v1", weight=9, scheduler=False)
         v2 = MemberSpec(name="stop-v2", weight=1, scheduler=False)
 
-        apply_config(api, INFERENCE_SIM.name, ns, INFERENCE_SIM.to_spec())
-        apply_member(api, v1, ns)
-        apply_member(api, v2, ns)
+        with member_lifecycle(api, [v1.name, v2.name], ns):
+            apply_config(api, INFERENCE_SIM.name, ns, INFERENCE_SIM.to_spec())
+            apply_member(api, v1, ns)
+            apply_member(api, v2, ns)
 
-        wait_ready(api, v1.name, ns)
-        wait_ready(api, v2.name, ns)
+            wait_ready(api, v1.name, ns)
+            wait_ready(api, v2.name, ns)
 
-        gateway = get_gateway_base_url(api, v1.name, ns)
-        driver = traffic_driver(
-            url=f"{gateway}/v1/completions",
-            headers={"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
-            payload={"model": MODEL, "prompt": "Hello", "max_tokens": 5},
-            rate=2,
-            timeout=15.0,
-            warmup=True,
-        )
-
-        driver.mark("before_stop")
-        driver.collect(20)
-
-        patch_stop(api, v2.name, ns)
-        wait_for_member_stopped(api, v1.name, v2.name, ns, stopped=True)
-
-        wait_for_healthy_route(
-            f"{gateway}/v1/completions",
-            {"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
-            {"model": MODEL, "prompt": "Hello", "max_tokens": 5},
-            expect_header=("x-inference-pod", v1.name),
-        )
-        driver.mark("settled")
-        driver.collect(30)
-
-        report = driver.stop()
-
-        settled = report.phase("settled")
-        settled.assert_no_errors(
-            "force-stop: traffic should flow to v1 after convergence"
-        )
-
-        def is_v2(r):
-            return r.headers.get("x-inference-pod", "").startswith(v2.name)
-
-        v2_after = settled.where(is_v2).count
-        assert v2_after == 0, f"v2 got {v2_after} requests after stop"
-
-        m = get_member_status(api, v1.name, v2.name, ns)
-        assert m is not None, "v2 should still be in group status"
-        assert m.get("stopped") is True, f"v2 stopped={m.get('stopped')}"
-        assert m.get("weight") == 1, f"v2 declared weight={m.get('weight')}, expected 1"
-
-        # Verify workload scaled down (deleted or scaled to zero)
-        apps = k8s_client.AppsV1Api()
-        deadline = time.monotonic() + 60
-        while time.monotonic() < deadline:
-            deps = apps.list_namespaced_deployment(
-                ns,
-                label_selector=f"app.kubernetes.io/part-of=llminferenceservice,app.kubernetes.io/instance={v2.name}",
+            gateway = get_gateway_base_url(api, v1.name, ns)
+            driver = traffic_driver(
+                url=f"{gateway}/v1/completions",
+                headers={"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
+                payload={"model": MODEL, "prompt": "Hello", "max_tokens": 5},
+                rate=2,
+                timeout=15.0,
+                warmup=True,
             )
-            if not deps.items or all(d.spec.replicas == 0 for d in deps.items):
-                break
-            time.sleep(2)
-        else:
-            replicas = [d.spec.replicas for d in deps.items]
-            raise AssertionError(f"v2 deployment not scaled down: replicas={replicas}")
 
-        logger.info("Force-stop verified")
+            driver.mark("before_stop")
+            driver.collect(20)
+
+            patch_stop(api, v2.name, ns)
+            wait_for_member_stopped(api, v1.name, v2.name, ns, stopped=True)
+
+            wait_for_healthy_route(
+                f"{gateway}/v1/completions",
+                {"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
+                {"model": MODEL, "prompt": "Hello", "max_tokens": 5},
+                expect_header=("x-inference-pod", v1.name),
+            )
+            driver.mark("settled")
+            driver.collect(30)
+
+            report = driver.stop()
+
+            settled = report.phase("settled")
+            settled.assert_no_errors(
+                "force-stop: traffic should flow to v1 after convergence"
+            )
+
+            def is_v2(r):
+                return r.headers.get("x-inference-pod", "").startswith(v2.name)
+
+            v2_after = settled.where(is_v2).count
+            assert v2_after == 0, f"v2 got {v2_after} requests after stop"
+
+            m = get_member_status(api, v1.name, v2.name, ns)
+            assert m is not None, "v2 should still be in group status"
+            assert m.get("stopped") is True, f"v2 stopped={m.get('stopped')}"
+            assert m.get("weight") == 1, (
+                f"v2 declared weight={m.get('weight')}, expected 1"
+            )
+
+            # Verify workload scaled down (deleted or scaled to zero)
+            apps = k8s_client.AppsV1Api()
+            deadline = time.monotonic() + 60
+            while time.monotonic() < deadline:
+                deps = apps.list_namespaced_deployment(
+                    ns,
+                    label_selector=f"app.kubernetes.io/part-of=llminferenceservice,app.kubernetes.io/instance={v2.name}",
+                )
+                if not deps.items or all(d.spec.replicas == 0 for d in deps.items):
+                    break
+                time.sleep(2)
+            else:
+                replicas = [d.spec.replicas for d in deps.items]
+                raise AssertionError(
+                    f"v2 deployment not scaled down: replicas={replicas}"
+                )
+
+            logger.info("Force-stop verified")
 
     def test_decommission(self, test_namespace, traffic_driver):
         """Delete a member from the group - remaining member stays Ready,
@@ -948,47 +995,50 @@ class TestCanaryLifecycle:
         v1 = MemberSpec(name="decom-v1", weight=9, scheduler=False)
         v2 = MemberSpec(name="decom-v2", weight=1, scheduler=False)
 
-        apply_config(api, INFERENCE_SIM.name, ns, INFERENCE_SIM.to_spec())
-        apply_member(api, v1, ns)
-        apply_member(api, v2, ns)
+        with member_lifecycle(api, [v1.name, v2.name], ns):
+            apply_config(api, INFERENCE_SIM.name, ns, INFERENCE_SIM.to_spec())
+            apply_member(api, v1, ns)
+            apply_member(api, v2, ns)
 
-        wait_ready(api, v1.name, ns)
-        wait_ready(api, v2.name, ns)
+            wait_ready(api, v1.name, ns)
+            wait_ready(api, v2.name, ns)
 
-        gateway = get_gateway_base_url(api, v1.name, ns)
-        driver = traffic_driver(
-            url=f"{gateway}/v1/completions",
-            headers={"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
-            payload={"model": MODEL, "prompt": "Hello", "max_tokens": 5},
-            rate=2,
-            timeout=15.0,
-            warmup=True,
-        )
+            gateway = get_gateway_base_url(api, v1.name, ns)
+            driver = traffic_driver(
+                url=f"{gateway}/v1/completions",
+                headers={"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
+                payload={"model": MODEL, "prompt": "Hello", "max_tokens": 5},
+                rate=2,
+                timeout=15.0,
+                warmup=True,
+            )
 
-        driver.mark("before_delete")
-        driver.collect(20)
+            driver.mark("before_delete")
+            driver.collect(20)
 
-        driver.mark("delete")
-        delete_member(api, v2.name, ns, wait=True)
-        wait_for_member_count(api, v1.name, ns, 1)
+            driver.mark("delete")
+            delete_member(api, v2.name, ns, wait=True)
+            wait_for_member_count(api, v1.name, ns, 1)
 
-        driver.mark("settled")
-        driver.collect(30)
+            driver.mark("settled")
+            driver.collect(30)
 
-        report = driver.stop()
+            report = driver.stop()
 
-        # Intentionally strict: zero errors across the entire run including
-        # the delete-to-route-reprogramming window. This is the zero-downtime
-        # deletion claim. If it flakes, that's a real gateway routing gap
-        # worth investigating rather than masking with tolerance.
-        report.all.assert_no_errors("decommission: zero errors including transition")
+            # Intentionally strict: zero errors across the entire run including
+            # the delete-to-route-reprogramming window. This is the zero-downtime
+            # deletion claim. If it flakes, that's a real gateway routing gap
+            # worth investigating rather than masking with tolerance.
+            report.all.assert_no_errors(
+                "decommission: zero errors including transition"
+            )
 
-        members = get_group_members(api, v1.name, ns)
-        assert v2.name not in members, f"v2 still in group: {members}"
+            group_members = get_group_members(api, v1.name, ns)
+            assert v2.name not in group_members, f"v2 still in group: {group_members}"
 
-        wait_for_condition(api, v1.name, ns, "Ready", status="True")
+            wait_for_condition(api, v1.name, ns, "Ready", status="True")
 
-        logger.info("Decommission verified")
+            logger.info("Decommission verified")
 
     def test_leave_group(self, test_namespace):
         """Remove group+weight from a member - leaves the group. (spike step 14)"""
@@ -998,43 +1048,44 @@ class TestCanaryLifecycle:
         v1 = MemberSpec(name="leave-v1", weight=5, scheduler=False)
         v2 = MemberSpec(name="leave-v2", weight=5, scheduler=False)
 
-        apply_config(api, INFERENCE_SIM.name, ns, INFERENCE_SIM.to_spec())
-        apply_member(api, v1, ns)
-        apply_member(api, v2, ns)
+        with member_lifecycle(api, [v1.name, v2.name], ns):
+            apply_config(api, INFERENCE_SIM.name, ns, INFERENCE_SIM.to_spec())
+            apply_member(api, v1, ns)
+            apply_member(api, v2, ns)
 
-        wait_ready(api, v1.name, ns)
-        wait_ready(api, v2.name, ns)
-        wait_for_member_count(api, v1.name, ns, 2)
+            wait_ready(api, v1.name, ns)
+            wait_ready(api, v2.name, ns)
+            wait_for_member_count(api, v1.name, ns, 2)
 
-        # Remove group and weight from v2
-        api.patch_namespaced_custom_object(
-            KSERVE_GROUP,
-            KSERVE_VERSION,
-            ns,
-            KSERVE_PLURAL,
-            v2.name,
-            {"spec": {"router": {"route": {"group": None, "weight": None}}}},
-        )
-        logger.info(f"Removed group+weight from {v2.name}")
+            # Remove group and weight from v2
+            api.patch_namespaced_custom_object(
+                KSERVE_GROUP,
+                KSERVE_VERSION,
+                ns,
+                KSERVE_PLURAL,
+                v2.name,
+                {"spec": {"router": {"route": {"group": None, "weight": None}}}},
+            )
+            logger.info(f"Removed group+weight from {v2.name}")
 
-        wait_for_member_count(api, v1.name, ns, 1)
+            wait_for_member_count(api, v1.name, ns, 1)
 
-        members = get_group_members(api, v1.name, ns)
-        assert v2.name not in members, f"v2 still in group: {members}"
+            group_members = get_group_members(api, v1.name, ns)
+            assert v2.name not in group_members, f"v2 still in group: {group_members}"
 
-        # v1 should still be Ready
-        wait_for_condition(api, v1.name, ns, "Ready", status="True")
+            # v1 should still be Ready
+            wait_for_condition(api, v1.name, ns, "Ready", status="True")
 
-        # v2's routing-group label should be removed
-        obj = api.get_namespaced_custom_object(
-            KSERVE_GROUP, KSERVE_VERSION, ns, KSERVE_PLURAL, v2.name
-        )
-        labels = obj.get("metadata", {}).get("labels", {})
-        assert "serving.kserve.io/routing-group" not in labels, (
-            f"routing-group label still present: {labels}"
-        )
+            # v2's routing-group label should be removed
+            obj = api.get_namespaced_custom_object(
+                KSERVE_GROUP, KSERVE_VERSION, ns, KSERVE_PLURAL, v2.name
+            )
+            labels = obj.get("metadata", {}).get("labels", {})
+            assert "serving.kserve.io/routing-group" not in labels, (
+                f"routing-group label still present: {labels}"
+            )
 
-        logger.info("Leave group verified")
+            logger.info("Leave group verified")
 
     def test_three_member_group(self, test_namespace, traffic_driver):
         """Three members in a group all receive traffic. (spike step 15)"""
@@ -1045,47 +1096,50 @@ class TestCanaryLifecycle:
         v2 = MemberSpec(name="tri-v2", weight=3, scheduler=False)
         v3 = MemberSpec(name="tri-v3", weight=2, scheduler=False)
 
-        apply_config(api, INFERENCE_SIM.name, ns, INFERENCE_SIM.to_spec())
-        for m in [v1, v2, v3]:
-            apply_member(api, m, ns)
+        with member_lifecycle(api, [v1.name, v2.name, v3.name], ns):
+            apply_config(api, INFERENCE_SIM.name, ns, INFERENCE_SIM.to_spec())
+            for m in [v1, v2, v3]:
+                apply_member(api, m, ns)
 
-        for m in [v1, v2, v3]:
-            wait_ready(api, m.name, ns)
-        wait_for_member_count(api, v1.name, ns, 3)
+            for m in [v1, v2, v3]:
+                wait_ready(api, m.name, ns)
+            wait_for_member_count(api, v1.name, ns, 3)
 
-        gateway = get_gateway_base_url(api, v1.name, ns)
-        route_headers = {"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"}
-        route_payload = {"model": MODEL, "prompt": "Hello", "max_tokens": 5}
+            gateway = get_gateway_base_url(api, v1.name, ns)
+            route_headers = {"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"}
+            route_payload = {"model": MODEL, "prompt": "Hello", "max_tokens": 5}
 
-        wait_for_healthy_route(
-            f"{gateway}/v1/completions",
-            route_headers,
-            route_payload,
-        )
+            wait_for_healthy_route(
+                f"{gateway}/v1/completions",
+                route_headers,
+                route_payload,
+            )
 
-        driver = traffic_driver(
-            url=f"{gateway}/v1/completions",
-            headers=route_headers,
-            payload=route_payload,
-            rate=2,
-            timeout=15.0,
-            warmup=True,
-        )
+            driver = traffic_driver(
+                url=f"{gateway}/v1/completions",
+                headers=route_headers,
+                payload=route_payload,
+                rate=2,
+                timeout=15.0,
+                warmup=True,
+            )
 
-        driver.collect(60)
-        report = driver.stop()
+            driver.collect(60)
+            report = driver.stop()
 
-        report.all.assert_no_errors("three-member group")
+            report.all.assert_no_errors("three-member group")
 
-        for m in [v1, v2, v3]:
+            for m in [v1, v2, v3]:
 
-            def match(r, prefix=m.name):
-                return r.headers.get("x-inference-pod", "").startswith(prefix)
+                def match(r, prefix=m.name):
+                    return r.headers.get("x-inference-pod", "").startswith(prefix)
 
-            count = report.all.where(match).count
-            assert count > 0, f"{m.name} received no traffic ({report.all.count} total)"
+                count = report.all.where(match).count
+                assert count > 0, (
+                    f"{m.name} received no traffic ({report.all.count} total)"
+                )
 
-        logger.info("Three-member group verified")
+            logger.info("Three-member group verified")
 
     def test_late_join(self, test_namespace, traffic_driver):
         """A member joins an already-running group. (spike step 16)"""
@@ -1095,49 +1149,52 @@ class TestCanaryLifecycle:
         v1 = MemberSpec(name="late-v1", weight=9, scheduler=False)
         v2 = MemberSpec(name="late-v2", weight=1, scheduler=False)
 
-        apply_config(api, INFERENCE_SIM.name, ns, INFERENCE_SIM.to_spec())
-        apply_member(api, v1, ns)
+        with member_lifecycle(api, [v1.name, v2.name], ns):
+            apply_config(api, INFERENCE_SIM.name, ns, INFERENCE_SIM.to_spec())
+            apply_member(api, v1, ns)
 
-        wait_ready(api, v1.name, ns)
+            wait_ready(api, v1.name, ns)
 
-        gateway = get_gateway_base_url(api, v1.name, ns)
-        driver = traffic_driver(
-            url=f"{gateway}/v1/completions",
-            headers={"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
-            payload={"model": MODEL, "prompt": "Hello", "max_tokens": 5},
-            rate=2,
-            timeout=15.0,
-            warmup=True,
-        )
+            gateway = get_gateway_base_url(api, v1.name, ns)
+            driver = traffic_driver(
+                url=f"{gateway}/v1/completions",
+                headers={"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
+                payload={"model": MODEL, "prompt": "Hello", "max_tokens": 5},
+                rate=2,
+                timeout=15.0,
+                warmup=True,
+            )
 
-        driver.mark("v1_only")
-        driver.collect(20)
+            driver.mark("v1_only")
+            driver.collect(20)
 
-        # Late-join v2
-        apply_member(api, v2, ns)
-        wait_ready(api, v2.name, ns)
-        wait_for_member_count(api, v1.name, ns, 2)
-        wait_for_healthy_route(
-            f"{gateway}/v1/completions",
-            {"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
-            {"model": MODEL, "prompt": "Hello", "max_tokens": 5},
-        )
+            # Late-join v2
+            apply_member(api, v2, ns)
+            wait_ready(api, v2.name, ns)
+            wait_for_member_count(api, v1.name, ns, 2)
+            wait_for_healthy_route(
+                f"{gateway}/v1/completions",
+                {"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
+                {"model": MODEL, "prompt": "Hello", "max_tokens": 5},
+            )
 
-        driver.mark("both")
-        driver.collect(40)
+            driver.mark("both")
+            driver.collect(40)
 
-        report = driver.stop()
-        report.all.assert_no_errors("late-join")
+            report = driver.stop()
+            report.all.assert_no_errors("late-join")
 
-        both = report.phase("both")
+            both = report.phase("both")
 
-        def is_v2(r):
-            return r.headers.get("x-inference-pod", "").startswith(v2.name)
+            def is_v2(r):
+                return r.headers.get("x-inference-pod", "").startswith(v2.name)
 
-        v2_count = both.where(is_v2).count
-        assert v2_count > 0, f"v2 received no traffic after join ({both.count} total)"
+            v2_count = both.where(is_v2).count
+            assert v2_count > 0, (
+                f"v2 received no traffic after join ({both.count} total)"
+            )
 
-        logger.info("Late-join verified")
+            logger.info("Late-join verified")
 
     def test_delete_at_nonzero_weight(self, test_namespace, traffic_driver):
         """Delete a member with weight>0 - no route breakage. (spike step 17)"""
@@ -1147,39 +1204,40 @@ class TestCanaryLifecycle:
         v1 = MemberSpec(name="delw-v1", weight=5, scheduler=False)
         v2 = MemberSpec(name="delw-v2", weight=5, scheduler=False)
 
-        apply_config(api, INFERENCE_SIM.name, ns, INFERENCE_SIM.to_spec())
-        apply_member(api, v1, ns)
-        apply_member(api, v2, ns)
+        with member_lifecycle(api, [v1.name, v2.name], ns):
+            apply_config(api, INFERENCE_SIM.name, ns, INFERENCE_SIM.to_spec())
+            apply_member(api, v1, ns)
+            apply_member(api, v2, ns)
 
-        wait_ready(api, v1.name, ns)
-        wait_ready(api, v2.name, ns)
+            wait_ready(api, v1.name, ns)
+            wait_ready(api, v2.name, ns)
 
-        gateway = get_gateway_base_url(api, v1.name, ns)
-        driver = traffic_driver(
-            url=f"{gateway}/v1/completions",
-            headers={"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
-            payload={"model": MODEL, "prompt": "Hello", "max_tokens": 5},
-            rate=2,
-            timeout=15.0,
-            warmup=True,
-        )
+            gateway = get_gateway_base_url(api, v1.name, ns)
+            driver = traffic_driver(
+                url=f"{gateway}/v1/completions",
+                headers={"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
+                payload={"model": MODEL, "prompt": "Hello", "max_tokens": 5},
+                rate=2,
+                timeout=15.0,
+                warmup=True,
+            )
 
-        driver.collect(20)
-        driver.mark("delete")
+            driver.collect(20)
+            driver.mark("delete")
 
-        delete_member(api, v2.name, ns, wait=True)
-        wait_for_member_count(api, v1.name, ns, 1)
+            delete_member(api, v2.name, ns, wait=True)
+            wait_for_member_count(api, v1.name, ns, 1)
 
-        driver.mark("settled")
-        driver.collect(30)
+            driver.mark("settled")
+            driver.collect(30)
 
-        report = driver.stop()
+            report = driver.stop()
 
-        report.all.assert_no_errors(
-            "delete at weight>0: zero errors including transition"
-        )
+            report.all.assert_no_errors(
+                "delete at weight>0: zero errors including transition"
+            )
 
-        logger.info("Delete at nonzero weight verified")
+            logger.info("Delete at nonzero weight verified")
 
     def test_rollback(self, test_namespace, traffic_driver):
         """Promote v2 then rollback to v1 - traffic returns. (spike step 7)"""
@@ -1189,68 +1247,69 @@ class TestCanaryLifecycle:
         v1 = MemberSpec(name="roll-v1", weight=9, scheduler=False)
         v2 = MemberSpec(name="roll-v2", weight=1, scheduler=False)
 
-        apply_config(api, INFERENCE_SIM.name, ns, INFERENCE_SIM.to_spec())
-        apply_member(api, v1, ns)
-        apply_member(api, v2, ns)
+        with member_lifecycle(api, [v1.name, v2.name], ns):
+            apply_config(api, INFERENCE_SIM.name, ns, INFERENCE_SIM.to_spec())
+            apply_member(api, v1, ns)
+            apply_member(api, v2, ns)
 
-        wait_ready(api, v1.name, ns)
-        wait_ready(api, v2.name, ns)
+            wait_ready(api, v1.name, ns)
+            wait_ready(api, v2.name, ns)
 
-        gateway = get_gateway_base_url(api, v1.name, ns)
-        driver = traffic_driver(
-            url=f"{gateway}/v1/completions",
-            headers={"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
-            payload={"model": MODEL, "prompt": "Hello", "max_tokens": 5},
-            rate=2,
-            timeout=15.0,
-            warmup=True,
-        )
+            gateway = get_gateway_base_url(api, v1.name, ns)
+            driver = traffic_driver(
+                url=f"{gateway}/v1/completions",
+                headers={"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
+                payload={"model": MODEL, "prompt": "Hello", "max_tokens": 5},
+                rate=2,
+                timeout=15.0,
+                warmup=True,
+            )
 
-        route_headers = {"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"}
-        route_payload = {"model": MODEL, "prompt": "Hello", "max_tokens": 5}
+            route_headers = {"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"}
+            route_payload = {"model": MODEL, "prompt": "Hello", "max_tokens": 5}
 
-        # Promote v2
-        driver.mark("promote_mutation")
-        patch_weight(api, v1.name, 0, ns)
-        patch_weight(api, v2.name, 9, ns)
-        wait_for_group_weight(api, v2.name, v1.name, 0, ns)
-        wait_for_healthy_route(
-            f"{gateway}/v1/completions",
-            route_headers,
-            route_payload,
-            expect_header=("x-inference-pod", v2.name),
-        )
-        driver.mark("promoted")
-        driver.collect(30)
+            # Promote v2
+            driver.mark("promote_mutation")
+            patch_weight(api, v1.name, 0, ns)
+            patch_weight(api, v2.name, 9, ns)
+            wait_for_group_weight(api, v2.name, v1.name, 0, ns)
+            wait_for_healthy_route(
+                f"{gateway}/v1/completions",
+                route_headers,
+                route_payload,
+                expect_header=("x-inference-pod", v2.name),
+            )
+            driver.mark("promoted")
+            driver.collect(30)
 
-        # Rollback to v1
-        driver.mark("rollback_mutation")
-        patch_weight(api, v1.name, 9, ns)
-        patch_weight(api, v2.name, 0, ns)
-        wait_for_group_weight(api, v1.name, v2.name, 0, ns)
-        wait_for_healthy_route(
-            f"{gateway}/v1/completions",
-            route_headers,
-            route_payload,
-            expect_header=("x-inference-pod", v1.name),
-        )
-        driver.mark("settled")
-        driver.collect(30)
+            # Rollback to v1
+            driver.mark("rollback_mutation")
+            patch_weight(api, v1.name, 9, ns)
+            patch_weight(api, v2.name, 0, ns)
+            wait_for_group_weight(api, v1.name, v2.name, 0, ns)
+            wait_for_healthy_route(
+                f"{gateway}/v1/completions",
+                route_headers,
+                route_payload,
+                expect_header=("x-inference-pod", v1.name),
+            )
+            driver.mark("settled")
+            driver.collect(30)
 
-        report = driver.stop()
+            report = driver.stop()
 
-        for phase in ["promoted", "settled"]:
-            report.phase(phase).assert_no_errors(f"rollback: stable phase {phase}")
+            for phase in ["promoted", "settled"]:
+                report.phase(phase).assert_no_errors(f"rollback: stable phase {phase}")
 
-        settled = report.phase("settled")
+            settled = report.phase("settled")
 
-        def is_v2(r):
-            return r.headers.get("x-inference-pod", "").startswith(v2.name)
+            def is_v2(r):
+                return r.headers.get("x-inference-pod", "").startswith(v2.name)
 
-        v2_count = settled.where(is_v2).count
-        assert v2_count <= 3, f"v2 got {v2_count} requests after rollback"
+            v2_count = settled.where(is_v2).count
+            assert v2_count <= 3, f"v2 got {v2_count} requests after rollback"
 
-        logger.info("Rollback verified")
+            logger.info("Rollback verified")
 
     def test_force_stop_route_owner(self, test_namespace, traffic_driver):
         """Force-stop the route owner - traffic shifts to other member. (spike step 18)"""
@@ -1260,49 +1319,52 @@ class TestCanaryLifecycle:
         v1 = MemberSpec(name="owner-v1", weight=5, scheduler=False)
         v2 = MemberSpec(name="owner-v2", weight=5, scheduler=False)
 
-        apply_config(api, INFERENCE_SIM.name, ns, INFERENCE_SIM.to_spec())
-        apply_member(api, v1, ns)
-        apply_member(api, v2, ns)
+        with member_lifecycle(api, [v1.name, v2.name], ns):
+            apply_config(api, INFERENCE_SIM.name, ns, INFERENCE_SIM.to_spec())
+            apply_member(api, v1, ns)
+            apply_member(api, v2, ns)
 
-        wait_ready(api, v1.name, ns)
-        wait_ready(api, v2.name, ns)
+            wait_ready(api, v1.name, ns)
+            wait_ready(api, v2.name, ns)
 
-        gateway = get_gateway_base_url(api, v1.name, ns)
-        driver = traffic_driver(
-            url=f"{gateway}/v1/completions",
-            headers={"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
-            payload={"model": MODEL, "prompt": "Hello", "max_tokens": 5},
-            rate=2,
-            timeout=15.0,
-            warmup=True,
-        )
+            gateway = get_gateway_base_url(api, v1.name, ns)
+            driver = traffic_driver(
+                url=f"{gateway}/v1/completions",
+                headers={"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
+                payload={"model": MODEL, "prompt": "Hello", "max_tokens": 5},
+                rate=2,
+                timeout=15.0,
+                warmup=True,
+            )
 
-        driver.collect(20)
-        driver.mark("before_stop")
+            driver.collect(20)
+            driver.mark("before_stop")
 
-        # v1 is the route owner (created first). Force-stop it.
-        patch_stop(api, v1.name, ns)
-        wait_for_member_stopped(api, v2.name, v1.name, ns, stopped=True)
+            # v1 is the route owner (created first). Force-stop it.
+            patch_stop(api, v1.name, ns)
+            wait_for_member_stopped(api, v2.name, v1.name, ns, stopped=True)
 
-        # Route ownership handoff: v1's route is deleted, v2 creates a new one.
-        wait_for_healthy_route(
-            f"{gateway}/v1/completions",
-            {"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
-            {"model": MODEL, "prompt": "Hello", "max_tokens": 5},
-            expect_header=("x-inference-pod", v2.name),
-        )
-        driver.mark("settled")
-        driver.collect(30)
+            # Route ownership handoff: v1's route is deleted, v2 creates a new one.
+            wait_for_healthy_route(
+                f"{gateway}/v1/completions",
+                {"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
+                {"model": MODEL, "prompt": "Hello", "max_tokens": 5},
+                expect_header=("x-inference-pod", v2.name),
+            )
+            driver.mark("settled")
+            driver.collect(30)
 
-        report = driver.stop()
+            report = driver.stop()
 
-        settled = report.phase("settled")
-        settled.assert_no_errors("force-stop route owner: traffic should shift to v2")
+            settled = report.phase("settled")
+            settled.assert_no_errors(
+                "force-stop route owner: traffic should shift to v2"
+            )
 
-        def is_v1(r):
-            return r.headers.get("x-inference-pod", "").startswith(v1.name)
+            def is_v1(r):
+                return r.headers.get("x-inference-pod", "").startswith(v1.name)
 
-        v1_after = settled.where(is_v1).count
-        assert v1_after == 0, f"v1 got {v1_after} requests after stop"
+            v1_after = settled.where(is_v1).count
+            assert v1_after == 0, f"v1 got {v1_after} requests after stop"
 
-        logger.info("Force-stop route owner verified")
+            logger.info("Force-stop route owner verified")

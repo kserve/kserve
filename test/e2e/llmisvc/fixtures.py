@@ -791,6 +791,58 @@ LLMINFERENCESERVICE_CONFIGS = {
             },
         },
     },
+    # Same plugin config as "scheduler-with-precise-prefix-cache-inline-config"
+    # above, but supplied as literal YAML via
+    # spec.router.scheduler.template.containers[].args (a "--config-text
+    # <yaml>" pair) instead of spec.router.scheduler.config.inline.
+    "scheduler-with-precise-prefix-cache-template-args-config": {
+        "router": {
+            "scheduler": {
+                "template": {
+                    "containers": [
+                        {
+                            "name": "main",
+                            "args": [
+                                "--config-text",
+                                (
+                                    "apiVersion: llm-d.ai/v1alpha1\n"
+                                    "kind: EndpointPickerConfig\n"
+                                    "plugins:\n"
+                                    "- type: single-profile-handler\n"
+                                    "- type: precise-prefix-cache-scorer\n"
+                                    "  parameters:\n"
+                                    "    tokenProcessorConfig:\n"
+                                    "      blockSize: 16\n"
+                                    '      hashSeed: "42"\n'
+                                    "    kvEventsConfig:\n"
+                                    "      zmqEndpoint: tcp://*:5557\n"
+                                    "    indexerConfig:\n"
+                                    "      tokenizersPoolConfig:\n"
+                                    "        modelName: facebook/opt-125m\n"
+                                    "      kvBlockIndexConfig:\n"
+                                    "        enableMetrics: true\n"
+                                    "        metricsLoggingInterval: 60000000000\n"
+                                    "- type: queue-scorer\n"
+                                    "- type: kv-cache-utilization-scorer\n"
+                                    "- type: max-score-picker\n"
+                                    "schedulingProfiles:\n"
+                                    "- name: default\n"
+                                    "  plugins:\n"
+                                    "  - pluginRef: queue-scorer\n"
+                                    "    weight: 2\n"
+                                    "  - pluginRef: kv-cache-utilization-scorer\n"
+                                    "    weight: 2\n"
+                                    "  - pluginRef: precise-prefix-cache-scorer\n"
+                                    "    weight: 3\n"
+                                    "  - pluginRef: max-score-picker\n"
+                                ),
+                            ],
+                        }
+                    ],
+                },
+            },
+        },
+    },
     # Clean-path: token-producer in inline config triggers standalone tokenizer
     # deployment automatically. The controller injects modelName and vllm.url
     # into the token-producer plugin parameters.

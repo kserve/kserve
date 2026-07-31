@@ -39,16 +39,15 @@ from httpx import HTTPStatusError
 
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict_ig
 
-if os.environ.get("SUCCESS_200_ISVC_IMAGE") is not None:
-    SUCCESS_ISVC_IMAGE = os.environ.get("SUCCESS_200_ISVC_IMAGE")
-else:
-    SUCCESS_ISVC_IMAGE = "kserve/success-200-isvc:" + os.environ.get(
-        "GITHUB_SHA", "latest"
-    )
-if os.environ.get("ERROR_404_ISVC_IMAGE") is not None:
-    ERROR_ISVC_IMAGE = os.environ.get("ERROR_404_ISVC_IMAGE")
-else:
-    ERROR_ISVC_IMAGE = "kserve/error-404-isvc:" + os.environ.get("GITHUB_SHA", "latest")
+img_version = os.environ.get("GITHUB_SHA") or "latest"
+
+SUCCESS_ISVC_IMAGE = (
+    os.environ.get("SUCCESS_200_ISVC_IMAGE") or f"kserve/success-200-isvc:{img_version}"
+)
+ERROR_ISVC_IMAGE = (
+    os.environ.get("ERROR_404_ISVC_IMAGE") or f"kserve/error-404-isvc:{img_version}"
+)
+
 IG_TEST_RESOURCES_BASE_LOCATION = "graph/test-resources"
 
 

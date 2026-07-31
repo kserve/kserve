@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -81,6 +82,81 @@ func TestHasLatencyProducerInSpec(t *testing.T) {
 				Router: &v1alpha2.RouterSpec{
 					Scheduler: &v1alpha2.SchedulerSpec{
 						Config: &v1alpha2.SchedulerConfigSpec{},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "plugin supplied via template args, no config.inline set",
+			spec: v1alpha2.LLMInferenceServiceSpec{
+				Router: &v1alpha2.RouterSpec{
+					Scheduler: &v1alpha2.SchedulerSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "main",
+									Args: []string{"--config-text", latencyProducerConfig},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "no plugin via template args",
+			spec: v1alpha2.LLMInferenceServiceSpec{
+				Router: &v1alpha2.RouterSpec{
+					Scheduler: &v1alpha2.SchedulerSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "main",
+									Args: []string{"--config-text", noLatencyConfig},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "config.inline takes priority over template args when both are present",
+			spec: v1alpha2.LLMInferenceServiceSpec{
+				Router: &v1alpha2.RouterSpec{
+					Scheduler: &v1alpha2.SchedulerSpec{
+						Config: &v1alpha2.SchedulerConfigSpec{
+							Inline: &runtime.RawExtension{Raw: []byte(noLatencyConfig)},
+						},
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "main",
+									Args: []string{"--config-text", latencyProducerConfig},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "config-file flag in template args is not treated as inline plugin source",
+			spec: v1alpha2.LLMInferenceServiceSpec{
+				Router: &v1alpha2.RouterSpec{
+					Scheduler: &v1alpha2.SchedulerSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "main",
+									Args: []string{"--config-file", "/etc/epp/config.yaml"},
+								},
+							},
+						},
 					},
 				},
 			},
