@@ -27,6 +27,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -45,8 +46,47 @@ import (
 
 const MountPath = "/var/lib/kserve"
 
+// sharedMCSLevel is the category-less SELinux MCS level applied to the cached model tree.
+// The cache is a shared, read-only, cross-namespace hostPath artifact: a directory can carry
+// exactly one SELinux label, and hostPath / local PVs are never relabeled per-consumer by the
+// kubelet. An empty category set is a subset of every consumer namespace's categories, so a
+// category-less level is the only label readable by all consumers simultaneously.
+const sharedMCSLevel = "s0"
+
 // Categories may be comma-separated (typical on OCP) or dot-separated (e.g. Fedora: s0-s0:c0.c1023).
 var validMCSLevel = regexp.MustCompile(`^s\d+(-s\d+)?(:c\d{1,4}([,.]c\d{1,4})*)?$`)
+
+// maxRelabelAttempts bounds how many consecutive reconciles may launch a permission-fix job for a
+// model folder that never reaches the shared MCS level. Without it, a folder whose label can never
+// be cleared — a read-only mount, a filesystem that rejects the relabel, or a persistent xattr
+// read error — would recreate a privileged relabel job every reconcile once the previous job's TTL
+// expires, an unbounded privileged-pod churn (CWE-400). The count is per model folder and resets
+// as soon as that folder reads at the shared level, so legitimate sequential downloads (each
+// relabeled successfully) never trip the cap.
+const maxRelabelAttempts = 20
+
+var (
+	relabelAttemptsMu sync.Mutex
+	relabelAttempts   = map[string]int{}
+)
+
+func recordRelabelAttempt(path string) {
+	relabelAttemptsMu.Lock()
+	defer relabelAttemptsMu.Unlock()
+	relabelAttempts[path]++
+}
+
+func relabelAttemptCount(path string) int {
+	relabelAttemptsMu.Lock()
+	defer relabelAttemptsMu.Unlock()
+	return relabelAttempts[path]
+}
+
+func resetRelabelAttempts(path string) {
+	relabelAttemptsMu.Lock()
+	defer relabelAttemptsMu.Unlock()
+	delete(relabelAttempts, path)
+}
 
 func (c *LocalModelNodeReconciler) enhanceDownloadJob(ctx context.Context, job *batchv1.Job, storageKey string) error {
 	containers := job.Spec.Template.Spec.Containers
@@ -76,7 +116,6 @@ func (c *LocalModelNodeReconciler) enhanceDownloadJob(ctx context.Context, job *
 }
 
 func (c *LocalModelNodeReconciler) ensureModelRootFolderExistsAndIsWritable(ctx context.Context,
-	localModelConfig *v1beta1.LocalModelConfig,
 ) (*ensureModelRootFolderResult, error) {
 	needsPermFix := false
 
@@ -103,11 +142,47 @@ func (c *LocalModelNodeReconciler) ensureModelRootFolderExistsAndIsWritable(ctx 
 					continue
 				}
 				subdir := filepath.Join(modelsRootFolder, entry.Name())
-				if _, err := os.ReadDir(subdir); err != nil && os.IsPermission(err) {
-					c.Log.Info("Subdirectory has permission issues", "path", subdir, "error", err)
+				if _, err := os.ReadDir(subdir); err != nil {
+					if os.IsPermission(err) {
+						c.Log.Info("Subdirectory has permission issues", "path", subdir, "error", err)
+						needsPermFix = true
+						break
+					}
+					// Non-permission error (e.g. the entry was removed between listing the
+					// parent and this read): log and skip rather than probing the SELinux
+					// label of a path that may no longer exist.
+					c.Log.Info("Skipping unreadable subdirectory", "path", subdir, "error", err)
+					continue
+				}
+				// A folder carrying MCS categories (i.e. not the shared level) is unreadable from
+				// a consuming namespace whose category set does not dominate it — the download job
+				// writes files at the job namespace's MCS, so the agent (same MCS) reads fine and
+				// marks NodeDownloaded, but a serving pod in another namespace is denied. Relabel
+				// to the shared level. This also self-heals caches downloaded before this fix.
+				categorized, mcsErr := folderHasNonSharedMCS(subdir)
+				if mcsErr != nil || categorized {
+					// Bound retries. A folder that can never reach the shared level (read-only
+					// mount, a filesystem that rejects the relabel, or a persistent xattr read
+					// error) must not recreate a privileged relabel job every reconcile once the
+					// prior job's TTL expires. launchPermissionFixJob's dedupe only holds while a
+					// job object exists — it does not survive the TTL GC — so it is not a loop
+					// guard on its own. After the cap, give up on this folder and surface an error.
+					if relabelAttemptCount(subdir) >= maxRelabelAttempts {
+						c.Log.Error(mcsErr, "Giving up on SELinux relabel after repeated attempts; manual intervention required",
+							"path", subdir, "attempts", maxRelabelAttempts, "categorized", categorized)
+						continue
+					}
+					recordRelabelAttempt(subdir)
+					if mcsErr != nil {
+						c.Log.Info("Could not read SELinux label, relabeling conservatively", "path", subdir, "error", mcsErr)
+					} else {
+						c.Log.Info("Subdirectory carries non-shared MCS categories, needs relabel", "path", subdir)
+					}
 					needsPermFix = true
 					break
 				}
+				// Folder is at the shared level — clear any prior failed-attempt count.
+				resetRelabelAttempts(subdir)
 			}
 		}
 		if !needsPermFix {
@@ -128,23 +203,30 @@ func (c *LocalModelNodeReconciler) ensureModelRootFolderExistsAndIsWritable(ctx 
 	if permissionFixImage == "" {
 		return nil, errors.New("modelcachePermissionFixImage not configured in inferenceservice-config")
 	}
-	mcsLevel, err := c.resolveMCSLevel(ctx, localModelConfig.JobNamespace)
-	if err != nil {
-		c.Log.Error(err, "Invalid MCS level")
-		return nil, err
-	}
-
 	// Fetch the LocalModelNode to set as owner of the permission fix job
 	lmn := &v1alpha1.LocalModelNode{}
 	if err := c.Get(ctx, types.NamespacedName{Name: nodeName}, lmn); err != nil {
 		return nil, fmt.Errorf("failed to get LocalModelNode for owner reference: %w", err)
 	}
 
-	if err := c.launchPermissionFixJob(ctx, mcsLevel, permissionFixImage, lmn); err != nil {
+	if err := c.launchPermissionFixJob(ctx, permissionFixImage, lmn); err != nil {
 		c.Log.Error(err, "Failed to launch permission fix job")
 		return nil, err
 	}
 	return &ensureModelRootFolderResult{Result: ctrl.Result{RequeueAfter: 10 * time.Second}}, nil
+}
+
+// parseMCSLevel extracts the SELinux level (sensitivity plus optional categories) from a full
+// SELinux context string, e.g. "system_u:object_r:container_file_t:s0:c2,c28" -> "s0:c2,c28".
+// It MUST use SplitN with a limit of 4: the level itself contains a colon, so a plain
+// Split(":")[3] would return only "s0", drop the categories, and silently defeat MCS handling.
+// Returns "" when the context has fewer than 4 colon-separated segments.
+func parseMCSLevel(selinuxContext string) string {
+	parts := strings.SplitN(strings.Trim(selinuxContext, "\x00 \n\r"), ":", 4)
+	if len(parts) < 4 {
+		return ""
+	}
+	return parts[3]
 }
 
 func getProcessMCSLevel() string {
@@ -152,11 +234,7 @@ func getProcessMCSLevel() string {
 	if err != nil {
 		return ""
 	}
-	parts := strings.SplitN(strings.Trim(string(data), "\x00 \n\r"), ":", 4)
-	if len(parts) < 4 {
-		return ""
-	}
-	return parts[3]
+	return parseMCSLevel(string(data))
 }
 
 func (c *LocalModelNodeReconciler) resolveMCSLevel(ctx context.Context, namespace string) (string, error) {
@@ -196,7 +274,7 @@ func (c *LocalModelNodeReconciler) resolveMCSLevelFromProcessOrDefault() (string
 	return mcsLevel, nil
 }
 
-func (c *LocalModelNodeReconciler) launchPermissionFixJob(ctx context.Context, mcsLevel string, permissionFixImage string, owner *v1alpha1.LocalModelNode) error {
+func (c *LocalModelNodeReconciler) launchPermissionFixJob(ctx context.Context, permissionFixImage string, owner *v1alpha1.LocalModelNode) error {
 	jobName := "fix-permissions-" + nodeName
 
 	existingJobs := &batchv1.JobList{}
@@ -248,14 +326,16 @@ func (c *LocalModelNodeReconciler) launchPermissionFixJob(ctx context.Context, m
 		{Name: "TARGET", Value: MountPath},
 	}
 
-	// Script is a Go constant, never interpolated with user data.
-	// SECURITY: double-quoting on variable expansions is critical —
-	// it prevents word splitting and shell injection. Do not remove the quotes.
-	script := `set -eu; chown -R "$FIX_UID:$FIX_GID" "$TARGET" && chcon -R -t container_file_t "$TARGET"`
-	if mcsLevel != "" {
-		env = append(env, corev1.EnvVar{Name: "MCS_LEVEL", Value: mcsLevel})
-		script = `set -eu; chown -R "$FIX_UID:$FIX_GID" "$TARGET" && chcon -R -t container_file_t -l "$MCS_LEVEL" "$TARGET"`
-	}
+	// The cache tree is relabeled recursively to the shared, category-less MCS level so it is
+	// readable from any consuming namespace's MCS context (see sharedMCSLevel). The whole
+	// MountPath is relabeled — MCS enforces "search" on parent directories, so a partial relabel
+	// would leave an un-traversable categorized parent and reintroduce the read denial.
+	//
+	// The level is the sharedMCSLevel Go constant ("s0"), never interpolated with user data, so it
+	// is safe to embed directly in the script. FIX_UID/FIX_GID/TARGET are passed via env.
+	// SECURITY: double-quoting on variable expansions is critical — it prevents word splitting and
+	// shell injection. Do not remove the quotes.
+	script := `set -eu; chown -R "$FIX_UID:$FIX_GID" "$TARGET" && chcon -R -t container_file_t -l ` + sharedMCSLevel + ` "$TARGET"`
 
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
@@ -274,8 +354,11 @@ func (c *LocalModelNodeReconciler) launchPermissionFixJob(ctx context.Context, m
 					RestartPolicy:      corev1.RestartPolicyNever,
 					SecurityContext: &corev1.PodSecurityContext{
 						SELinuxOptions: &corev1.SELinuxOptions{
-							Type:  "spc_t",
-							Level: mcsLevel,
+							Type: "spc_t",
+							// spc_t bypasses MCS, so this level does not gate the relabel; it is set
+							// to the shared level for determinism/hygiene now that the namespace MCS
+							// no longer feeds this path.
+							Level: sharedMCSLevel,
 						},
 						SeccompProfile: &corev1.SeccompProfile{
 							Type: corev1.SeccompProfileTypeRuntimeDefault,

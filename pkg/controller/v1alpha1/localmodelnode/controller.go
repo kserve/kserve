@@ -569,7 +569,7 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		fsHelper = NewFileSystemHelper(modelsRootFolder)
 	}
 
-	folderResult, err := c.ensureModelRootFolderExistsAndIsWritable(ctx, localModelConfig)
+	folderResult, err := c.ensureModelRootFolderExistsAndIsWritable(ctx)
 	if err != nil || !folderResult.Continue {
 		if folderResult != nil {
 			return folderResult.Result, err
