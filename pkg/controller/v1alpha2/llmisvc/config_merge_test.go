@@ -17,6 +17,8 @@ limitations under the License.
 package llmisvc_test
 
 import (
+	"encoding/json"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -1810,6 +1812,473 @@ func TestReplaceVariables(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "shutdownTimeout uses default when spec.template is nil",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout .Spec.Template 15 }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				// spec.template not set — shutdownTimeout falls back to default tgps=60: 60-15-min(5,60)=40
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "40"}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "shutdownTimeout uses spec.template.terminationGracePeriodSeconds when set",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout .Spec.Template 15 }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							TerminationGracePeriodSeconds: ptr.To(int64(120)),
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "100"}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "shutdownTimeout uses default when spec.worker is nil",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout .Spec.Worker 15 }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				// spec.worker not set — shutdownTimeout falls back to default tgps=60: 60-15-min(5,60)=40
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "40"}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "shutdownTimeout uses spec.worker.terminationGracePeriodSeconds when set",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout .Spec.Worker 15 }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Worker: &corev1.PodSpec{
+							TerminationGracePeriodSeconds: ptr.To(int64(120)),
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "100"}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "shutdownTimeout uses default when no spec provided (nil arg)",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout nil 15 }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "40"}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "shutdownTimeout uses spec.prefill.template.terminationGracePeriodSeconds when set",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "{{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Template 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Prefill: &v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							TerminationGracePeriodSeconds: ptr.To(int64(120)),
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "100"}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "shutdownTimeout uses spec.prefill.worker.terminationGracePeriodSeconds when set",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "{{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Worker 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Prefill: &v1alpha2.WorkloadSpec{
+						Worker: &corev1.PodSpec{
+							TerminationGracePeriodSeconds: ptr.To(int64(120)),
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "100"}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "shutdownTimeout uses default when spec.prefill is nil (prefill via base ref only)",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "{{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Template 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"--shutdown-timeout", "40"}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "kvTransferConfig returns empty string when kvCacheOffloading is nil",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{""}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "kvTransferConfig renders --kv-transfer-config from kvCacheOffloading",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+							CPU: resource.MustParse("10Gi"),
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								// Keys are alphabetical (json.Marshal on a map); quotes stay escaped as \"
+								// so the value is safe in the KV_TRANSFER_ARGS="..." bash assignment.
+								{Args: []string{`--kv-transfer-config '{\"kv_connector\":\"OffloadingConnector\",\"kv_connector_extra_config\":{\"cpu_bytes_to_use\":10737418240,\"spec_name\":\"TieringOffloadingSpec\"},\"kv_role\":\"kv_both\"}'`}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "kvTransferConfig includes eviction policy when set",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+							CPU:            resource.MustParse("5Gi"),
+							EvictionPolicy: "arc",
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								// json.Marshal sorts map keys alphabetically: cpu_bytes_to_use < eviction_policy < spec_name
+								{Args: []string{`--kv-transfer-config '{\"kv_connector\":\"OffloadingConnector\",\"kv_connector_extra_config\":{\"cpu_bytes_to_use\":5368709120,\"eviction_policy\":\"arc\",\"spec_name\":\"TieringOffloadingSpec\"},\"kv_role\":\"kv_both\"}'`}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "kvTransferConfig renders single emptyDir secondary tier",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+							CPU: resource.MustParse("10Gi"),
+							Secondary: []v1alpha2.SecondaryTierSpec{
+								{FileSystem: &v1alpha2.FileSystemTierSpec{
+									EmptyDir: &v1alpha2.EmptyDirTierSpec{Size: resource.MustParse("100Gi")},
+								}},
+							},
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								// secondary_tiers[0]: root_dir defaults to /mnt/kv-cache-0
+								{Args: []string{`--kv-transfer-config '{\"kv_connector\":\"OffloadingConnector\",\"kv_connector_extra_config\":{\"cpu_bytes_to_use\":10737418240,\"secondary_tiers\":[{\"root_dir\":\"/mnt/kv-cache-0\",\"type\":\"fs\"}],\"spec_name\":\"TieringOffloadingSpec\"},\"kv_role\":\"kv_both\"}'`}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "kvTransferConfig renders multiple secondary tiers with indexed root_dirs",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+							CPU: resource.MustParse("10Gi"),
+							Secondary: []v1alpha2.SecondaryTierSpec{
+								{FileSystem: &v1alpha2.FileSystemTierSpec{
+									EmptyDir: &v1alpha2.EmptyDirTierSpec{Size: resource.MustParse("200Gi")},
+								}},
+								{FileSystem: &v1alpha2.FileSystemTierSpec{
+									EmptyDir: &v1alpha2.EmptyDirTierSpec{Size: resource.MustParse("200Gi")},
+								}},
+							},
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{`--kv-transfer-config '{\"kv_connector\":\"OffloadingConnector\",\"kv_connector_extra_config\":{\"cpu_bytes_to_use\":10737418240,\"secondary_tiers\":[{\"root_dir\":\"/mnt/kv-cache-0\",\"type\":\"fs\"},{\"root_dir\":\"/mnt/kv-cache-1\",\"type\":\"fs\"}],\"spec_name\":\"TieringOffloadingSpec\"},\"kv_role\":\"kv_both\"}'`}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "kvTransferConfig pvc.ref tier renders fs type with index-based root_dir",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+							CPU: resource.MustParse("10Gi"),
+							Secondary: []v1alpha2.SecondaryTierSpec{
+								{FileSystem: &v1alpha2.FileSystemTierSpec{
+									PVC: &v1alpha2.PVCTierSpec{
+										Ref: &v1alpha2.PVCRefTierSpec{Name: "my-pvc"},
+									},
+								}},
+							},
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{`--kv-transfer-config '{\"kv_connector\":\"OffloadingConnector\",\"kv_connector_extra_config\":{\"cpu_bytes_to_use\":10737418240,\"secondary_tiers\":[{\"root_dir\":\"/mnt/kv-cache-0\",\"type\":\"fs\"}],\"spec_name\":\"TieringOffloadingSpec\"},\"kv_role\":\"kv_both\"}'`}},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1825,6 +2294,69 @@ func TestReplaceVariables(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestReplaceVariables_KVTransferConfigBashSafe guards against the shell eating the
+// quotes in the rendered --kv-transfer-config JSON. The config template assigns the
+// value with KV_TRANSFER_ARGS="..." and then eval's the command line; if the quotes
+// aren't escaped, vLLM receives invalid JSON. This runs that same shape and checks the
+// JSON that reaches vLLM still parses.
+func TestReplaceVariables_KVTransferConfigBashSafe(t *testing.T) {
+	g := NewWithT(t)
+
+	bashPath, err := exec.LookPath("bash")
+	if err != nil {
+		t.Skip("bash not available")
+	}
+
+	// Same shape as the config template. After eval, $2 is the JSON argument that
+	// follows --kv-transfer-config, i.e. what vllm serve parses.
+	script := `KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+eval "set -- ${KV_TRANSFER_ARGS}"
+printf '%s' "$2"`
+
+	cfg := &v1alpha2.LLMInferenceServiceConfig{
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			WorkloadSpec: v1alpha2.WorkloadSpec{
+				Template: &corev1.PodSpec{
+					Containers: []corev1.Container{
+						{Command: []string{"/bin/bash", "-c", script}},
+					},
+				},
+			},
+		},
+	}
+	llmSvc := &v1alpha2.LLMInferenceService{
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			WorkloadSpec: v1alpha2.WorkloadSpec{
+				KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+					CPU:            resource.MustParse("10Gi"),
+					EvictionPolicy: "lru",
+				},
+			},
+		},
+	}
+
+	got, err := llmisvc.ReplaceVariables(llmSvc, cfg, nil)
+	g.Expect(err).ToNot(HaveOccurred())
+
+	renderedScript := got.Spec.Template.Containers[0].Command[2]
+	g.Expect(renderedScript).To(ContainSubstring(`--kv-transfer-config '`))
+
+	out, err := exec.CommandContext(t.Context(), bashPath, "-c", renderedScript).CombinedOutput() // #nosec G204 -- test input, not user data
+	g.Expect(err).ToNot(HaveOccurred(), "bash execution failed: %s", string(out))
+
+	// vLLM parses this argument as JSON; it must be valid and preserve the keys.
+	var parsed map[string]any
+	g.Expect(json.Unmarshal(out, &parsed)).To(Succeed(), "vllm would reject: %q", string(out))
+	g.Expect(parsed).To(HaveKeyWithValue("kv_connector", "OffloadingConnector"))
+	g.Expect(parsed).To(HaveKeyWithValue("kv_role", "kv_both"))
+	g.Expect(parsed).To(HaveKey("kv_connector_extra_config"))
+	extra := parsed["kv_connector_extra_config"]
+	g.Expect(extra).To(And(
+		HaveKeyWithValue("spec_name", "TieringOffloadingSpec"),
+		HaveKeyWithValue("eviction_policy", "lru"),
+	))
 }
 
 func mustParseURL(s string) apis.URL {
@@ -1958,7 +2490,7 @@ func TestToParentRefs(t *testing.T) {
 			want: []gwapiv1.ParentReference{
 				{
 					Name:      "my-gateway",
-					Namespace: ptr.To(gwapiv1.Namespace("")),
+					Namespace: nil,
 					Group:     ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
 					Kind:      ptr.To(gwapiv1.Kind("Gateway")),
 				},
@@ -2406,6 +2938,137 @@ func TestWellKnownConfigResolver_Resolve(t *testing.T) {
 			got := wr.Resolve(tt.llmSvc, tt.inputName)
 			if got != tt.want {
 				t.Errorf("Resolve(%q) = %q, want %q", tt.inputName, got, tt.want)
+			}
+		})
+	}
+}
+
+const tlsTemplateFixture = `apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceServiceConfig
+metadata:
+  name: test
+spec:
+  router:
+    scheduler:
+      template:
+        containers:
+          - name: main
+            args:
+              - '{{ if .GlobalConfig.EnableTLS }}--enable-cert-reload=true{{- end }}'
+              - '{{ if .GlobalConfig.EnableTLS }}--secure-serving=true{{- end }}'
+              - '{{ if .GlobalConfig.EnableTLS }}--model-server-metrics-scheme=https{{- end }}'
+              - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
+`
+
+func TestReplaceVariables_TLSConditional(t *testing.T) {
+	tests := []struct {
+		name      string
+		enableTLS bool
+		wantArgs  []string
+	}{
+		{
+			name:      "TLS on: all flags render with TLS values",
+			enableTLS: true,
+			wantArgs: []string{
+				"--enable-cert-reload=true",
+				"--secure-serving=true",
+				"--model-server-metrics-scheme=https",
+				"--cert-path=/var/run/kserve/tls",
+			},
+		},
+		{
+			name:      "TLS off: all flags render empty",
+			enableTLS: false,
+			wantArgs: []string{
+				"",
+				"",
+				"",
+				"",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			preset := &v1alpha2.LLMInferenceServiceConfig{}
+			if err := yaml.Unmarshal([]byte(tlsTemplateFixture), preset); err != nil {
+				t.Fatalf("failed to unmarshal fixture: %v", err)
+			}
+
+			llmSvc := &v1alpha2.LLMInferenceService{}
+			cfg := &llmisvc.Config{EnableTLS: tt.enableTLS}
+
+			got, err := llmisvc.ReplaceVariables(llmSvc, preset, cfg)
+			if err != nil {
+				t.Fatalf("ReplaceVariables() error = %v", err)
+			}
+
+			containers := got.Spec.Router.Scheduler.Template.Containers
+			if len(containers) == 0 {
+				t.Fatal("expected at least one container in rendered config")
+			}
+			args := containers[0].Args
+			if len(args) != len(tt.wantArgs) {
+				t.Fatalf("got %d args, want %d: %q", len(args), len(tt.wantArgs), args)
+			}
+			for i, want := range tt.wantArgs {
+				if args[i] != want {
+					t.Errorf("arg[%d] = %q, want %q", i, args[i], want)
+				}
+			}
+		})
+	}
+}
+
+func TestReplaceVariables_PDSidecarTLSConditional(t *testing.T) {
+	const pdSidecarFixture = `apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceServiceConfig
+metadata:
+  name: test
+spec:
+  router:
+    scheduler:
+      template:
+        containers:
+          - name: sidecar
+            args:
+              - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=decoder{{- end }}'
+              - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=prefiller{{- end }}'
+`
+	tests := []struct {
+		name      string
+		enableTLS bool
+		wantArgs  []string
+	}{
+		{
+			name:      "TLS on",
+			enableTLS: true,
+			wantArgs:  []string{"--enable-tls=decoder", "--enable-tls=prefiller"},
+		},
+		{
+			name:      "TLS off",
+			enableTLS: false,
+			wantArgs:  []string{"", ""},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			preset := &v1alpha2.LLMInferenceServiceConfig{}
+			if err := yaml.Unmarshal([]byte(pdSidecarFixture), preset); err != nil {
+				t.Fatalf("unmarshal: %v", err)
+			}
+			got, err := llmisvc.ReplaceVariables(&v1alpha2.LLMInferenceService{}, preset, &llmisvc.Config{EnableTLS: tt.enableTLS})
+			if err != nil {
+				t.Fatalf("ReplaceVariables: %v", err)
+			}
+			args := got.Spec.Router.Scheduler.Template.Containers[0].Args
+			if len(args) != len(tt.wantArgs) {
+				t.Fatalf("got %d args, want %d: %q", len(args), len(tt.wantArgs), args)
+			}
+			for i, want := range tt.wantArgs {
+				if args[i] != want {
+					t.Errorf("arg[%d] = %q, want %q", i, args[i], want)
+				}
 			}
 		})
 	}

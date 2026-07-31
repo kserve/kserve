@@ -34,7 +34,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc, predict_grpc
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_torchserve_kserve(rest_v1_client):
+async def test_torchserve_kserve(rest_v1_client, network_layer):
     service_name = "mnist"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -64,7 +64,10 @@ async def test_torchserve_kserve(rest_v1_client):
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     res = await predict_isvc(
-        rest_v1_client, service_name, "./data/torchserve_input.json"
+        rest_v1_client,
+        service_name,
+        "./data/torchserve_input.json",
+        network_layer=network_layer,
     )
     assert res["predictions"][0] == 2
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -72,7 +75,7 @@ async def test_torchserve_kserve(rest_v1_client):
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_torchserve_v2_kserve(rest_v2_client):
+async def test_torchserve_v2_kserve(rest_v2_client, network_layer):
     service_name = "mnist-v2"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -106,6 +109,7 @@ async def test_torchserve_v2_kserve(rest_v2_client):
         service_name,
         "./data/torchserve_input_v2.json",
         model_name="mnist",
+        network_layer=network_layer,
     )
     assert res.outputs[0].data == [1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -166,7 +170,7 @@ async def test_torchserve_grpc_v2():
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_torchserve_runtime_kserve(rest_v1_client):
+async def test_torchserve_runtime_kserve(rest_v1_client, network_layer):
     service_name = "mnist-runtime"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -199,7 +203,11 @@ async def test_torchserve_runtime_kserve(rest_v1_client):
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     res = await predict_isvc(
-        rest_v1_client, service_name, "./data/torchserve_input.json", model_name="mnist"
+        rest_v1_client,
+        service_name,
+        "./data/torchserve_input.json",
+        model_name="mnist",
+        network_layer=network_layer,
     )
     assert res["predictions"][0] == 2
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

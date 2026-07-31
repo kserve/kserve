@@ -147,7 +147,7 @@ func createAddress(ctx context.Context, cl client.Client, isvc *v1beta1.Inferenc
 	host := getRawServiceHost(isvc)
 	// Determine the entry point service name.
 	// If a transformer exists, it becomes the entry point; otherwise, the predictor is.
-	entryPointSvcName := constants.PredictorServiceName(isvc.Name)
+	entryPointSvcName := constants.PredictorServiceName(isvc.Name, isvc.Spec.Predictor.Name)
 	if isvc.Spec.Transformer != nil {
 		entryPointSvcName = constants.TransformerServiceName(isvc.Name)
 	}
@@ -245,7 +245,7 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1.InferenceService,
 		return nil, nil
 	}
 	var rules []netv1.IngressRule
-	predictorName := constants.PredictorServiceName(isvc.Name)
+	predictorName := constants.PredictorServiceName(isvc.Name, isvc.Spec.Predictor.Name)
 	switch {
 	case isvc.Spec.Transformer != nil:
 		if !isvc.Status.IsConditionReady(v1beta1.TransformerReady) {

@@ -190,6 +190,7 @@ async def test_llmisvc_localmodelcache_labels():
             )
         except Exception:
             pass
+        time.sleep(30)
         try:
             kserve_client.delete_local_model_cache("llmisvc-test-cache")
         except Exception:

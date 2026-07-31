@@ -18,7 +18,6 @@ package scheme
 
 import (
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
-	wvav1alpha1 "github.com/llm-d/llm-d-workload-variant-autoscaler/api/v1alpha1"
 	otelv1beta1 "github.com/open-telemetry/opentelemetry-operator/apis/v1beta1"
 	"github.com/pkg/errors"
 	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
@@ -28,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	resourcev1 "k8s.io/api/resource/v1"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -40,6 +40,8 @@ import (
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	igwv1alpha2pool "github.com/kserve/kserve/pkg/apis/gie/v1alpha2pool"
 )
 
 type addToSchemeFunc func(scheme *runtime.Scheme) error
@@ -63,6 +65,7 @@ func AddCoreKubernetesAPIs(s *runtime.Scheme) error {
 		autoscalingv2.AddToScheme,
 		apiextv1.AddToScheme,
 		netv1.AddToScheme,
+		resourcev1.AddToScheme,
 	)
 }
 
@@ -72,6 +75,7 @@ func AddGatewayAPIs(s *runtime.Scheme) error {
 		gwapiv1.Install,
 		igwapi.Install,
 		igwapiv1alpha2.Install,
+		igwv1alpha2pool.Install,
 	)
 }
 
@@ -95,11 +99,6 @@ func AddKedaAPIs(s *runtime.Scheme) error {
 	return addAll(s, kedav1alpha1.AddToScheme)
 }
 
-// AddWVAAPIs registers WVA (Workload Variant Autoscaler) APIs.
-func AddWVAAPIs(s *runtime.Scheme) error {
-	return addAll(s, wvav1alpha1.AddToScheme)
-}
-
 // AddOpenTelemetryAPIs registers OpenTelemetry operator APIs.
 func AddOpenTelemetryAPIs(s *runtime.Scheme) error {
 	return addAll(s, otelv1beta1.AddToScheme)
@@ -120,7 +119,6 @@ func AddLLMISVCAPIs(s *runtime.Scheme) error {
 		AddGatewayAPIs,
 		AddLeaderWorkerSetAPIs,
 		AddKedaAPIs,
-		AddWVAAPIs,
 	)
 }
 
@@ -133,7 +131,6 @@ func AddAll(s *runtime.Scheme) error {
 		AddKnativeAPIs,
 		AddIstioAPIs,
 		AddKedaAPIs,
-		AddWVAAPIs,
 		AddOpenTelemetryAPIs,
 	)
 }

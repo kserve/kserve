@@ -93,7 +93,7 @@ func (p *Transformer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServ
 	addBatcherAnnotations(isvc.Spec.Transformer.Batcher, annotations)
 
 	transformerName := constants.TransformerServiceName(isvc.Name)
-	predictorName := constants.PredictorServiceName(isvc.Name)
+	predictorName := constants.PredictorServiceName(isvc.Name, isvc.Spec.Predictor.Name)
 
 	// Labels and annotations from transformer component
 	// Label filter will be handled in ksvc_reconciler
@@ -211,7 +211,7 @@ func (p *Transformer) reconcileTransformerRawDeployment(ctx context.Context, isv
 
 	var storageContainerSpec *v1alpha1.StorageContainerSpec
 	if len(isvc.Spec.Transformer.StorageUris) > 0 {
-		storageContainerSpec, err = pod.GetStorageContainerSpec(ctx, isvc.Spec.Transformer.StorageUris[0].Uri, p.client)
+		storageContainerSpec, err = pod.GetStorageContainerSpec(ctx, isvc.Spec.Transformer.StorageUris[0].Uri, nil, p.client)
 		if err != nil {
 			return errors.Wrapf(err, "failed to get storage container spec")
 		}
@@ -267,7 +267,7 @@ func (p *Transformer) reconcileTransformerKnativeDeployment(ctx context.Context,
 
 	var storageContainerSpec *v1alpha1.StorageContainerSpec
 	if len(isvc.Spec.Transformer.StorageUris) > 0 {
-		storageContainerSpec, err = pod.GetStorageContainerSpec(ctx, isvc.Spec.Transformer.StorageUris[0].Uri, p.client)
+		storageContainerSpec, err = pod.GetStorageContainerSpec(ctx, isvc.Spec.Transformer.StorageUris[0].Uri, nil, p.client)
 		if err != nil {
 			return errors.Wrapf(err, "failed to get storage container spec")
 		}

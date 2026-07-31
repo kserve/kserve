@@ -33,6 +33,7 @@ NETWORK_LAYER="${2:-istio}"
 ENABLE_KEDA="${3:-false}"
 ENABLE_LLMISVC="${4:-false}"
 LLMISVC_AUTOSCALER="${5:-none}"
+OBSERVABILITY="${6:-none}"
 
 # Parse network layer configuration
 USES_GATEWAY_API=false
@@ -111,13 +112,18 @@ else
     echo "Installing LLMISVC HPA autoscaling components (Prometheus, Prometheus Adapter, WVA)..."
     ${REPO_ROOT}/hack/setup/infra/manage.prometheus-helm.sh
     ${REPO_ROOT}/hack/setup/infra/manage.prometheus-adapter-helm.sh
-    ${REPO_ROOT}/hack/setup/infra/manage.wva-helm.sh
+    ${REPO_ROOT}/hack/setup/infra/manage.wva-kustomize.sh
 
   elif [[ $LLMISVC_AUTOSCALER == "keda" ]]; then
     echo "Installing LLMISVC KEDA autoscaling components (Prometheus, KEDA, WVA)..."
     ${REPO_ROOT}/hack/setup/infra/manage.prometheus-helm.sh
     ${REPO_ROOT}/hack/setup/infra/manage.keda-helm.sh
-    ${REPO_ROOT}/hack/setup/infra/manage.wva-helm.sh
+    ${REPO_ROOT}/hack/setup/infra/manage.wva-kustomize.sh
+  fi
+
+  if [[ $OBSERVABILITY == "jaeger" ]]; then
+    echo "Installing Jaeger All-in-One for tracing e2e tests..."
+    ${REPO_ROOT}/hack/setup/infra/manage.jaeger-helm.sh
   fi
   
 fi

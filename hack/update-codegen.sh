@@ -20,7 +20,7 @@ set -o pipefail
 
 SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
 SCRIPT_ROOT="${SCRIPT_DIR}/.."
-CODEGEN_VERSION=$(cd "${SCRIPT_ROOT}" && grep 'k8s.io/code-generator' go.mod | awk '{print $2}')
+CODEGEN_VERSION=$(cd "${SCRIPT_ROOT}" && go list -m -f '{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}' k8s.io/code-generator)
 KUBE_CODEGEN_TAG=${CODEGEN_VERSION}
 
 # For debugging purposes
@@ -33,16 +33,20 @@ fi
 CODEGEN_PKG="$GOPATH/pkg/mod/k8s.io/code-generator@${CODEGEN_VERSION}"
 THIS_PKG="github.com/kserve/kserve"
 
+BOILERPLATE_RENDERED=$(mktemp)
+trap "rm -f ${BOILERPLATE_RENDERED}" EXIT
+sed "s/ YEAR/ $(date +%Y)/g" "${SCRIPT_ROOT}/hack/boilerplate.go.txt" > "${BOILERPLATE_RENDERED}"
+
 # shellcheck source=/dev/null
 source "${CODEGEN_PKG}/kube_codegen.sh"
 
 kube::codegen::gen_helpers \
-    --boilerplate "${SCRIPT_ROOT}/hack/boilerplate.go.txt" \
+    --boilerplate "${BOILERPLATE_RENDERED}" \
     "${SCRIPT_ROOT}"
 
 kube::codegen::gen_client \
     --with-watch \
     --output-dir "${SCRIPT_ROOT}/pkg/client" \
     --output-pkg "${THIS_PKG}/pkg/client" \
-    --boilerplate "${SCRIPT_ROOT}/hack/boilerplate.go.txt" \
+    --boilerplate "${BOILERPLATE_RENDERED}" \
     "${SCRIPT_ROOT}/pkg/apis"

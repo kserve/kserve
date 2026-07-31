@@ -33,6 +33,7 @@ import (
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 
@@ -46,10 +47,10 @@ var _ = Describe("LLMInferenceService Scheduler Config", func() {
 		It("should use inline scheduler config in the scheduler deployment", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-inline-scheduler-config"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			customSchedulerConfig := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: custom-plugin
@@ -81,7 +82,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -91,12 +92,53 @@ schedulingProfiles:
 			Expect(found).To(BeTrue(), "Expected to find --config-text with inline config in scheduler deployment")
 			Expect(configText).To(ContainSubstring("custom-plugin"))
 			Expect(configText).To(ContainSubstring("customParam"))
+
+			// Verify status.workloads references include the scheduler
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, types.NamespacedName{Name: svcName, Namespace: testNs.Name}, current)).To(Succeed())
+				g.Expect(current.Status.Workloads).NotTo(BeNil())
+				g.Expect(current.Status.Workloads.Scheduler).NotTo(BeNil())
+				g.Expect(current.Status.Workloads.Scheduler.TypedLocalObjectReference).To(Equal(corev1.TypedLocalObjectReference{
+					APIGroup: ptr.To("apps"),
+					Kind:     "Deployment",
+					Name:     kmeta.ChildName(svcName, "-kserve-router-scheduler"),
+				}))
+			}).WithContext(ctx).Should(Succeed())
+
+			// when - remove managed scheduler
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				current := &v1alpha2.LLMInferenceService{}
+				if err := envTest.Get(ctx, types.NamespacedName{Name: svcName, Namespace: testNs.Name}, current); err != nil {
+					return err
+				}
+				current.Spec.Router.Scheduler = nil
+				return envTest.Update(ctx, current)
+			})).To(Succeed())
+
+			// then - scheduler deployment should be deleted
+			Eventually(func(ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
+					Namespace: testNs.Name,
+				}, &appsv1.Deployment{})
+			}).WithContext(ctx).Should(MatchError(ContainSubstring("not found")))
+
+			// status.workloads.scheduler should be nil, other refs preserved
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, types.NamespacedName{Name: svcName, Namespace: testNs.Name}, current)).To(Succeed())
+				g.Expect(current.Status.Workloads).NotTo(BeNil())
+				g.Expect(current.Status.Workloads.Scheduler).To(BeNil())
+				g.Expect(current.Status.Workloads.Primary).NotTo(BeNil())
+				g.Expect(current.Status.Workloads.Service).NotTo(BeNil())
+			}).WithContext(ctx).Should(Succeed())
 		})
 
 		It("should not override config when args already contain --config-text or --configFile", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-config-already-set"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			// Create scheduler template with existing --config-text
 			modelConfig := LLMInferenceServiceConfig("model-config",
@@ -116,7 +158,7 @@ schedulingProfiles:
 						Containers: []corev1.Container{
 							{
 								Name:  "main",
-								Image: "ghcr.io/llm-d/llm-d-inference-scheduler:v0.7.1",
+								Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0",
 								Args: []string{
 									"--config-text",
 									"existing-config-from-template",
@@ -156,7 +198,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -173,10 +215,10 @@ schedulingProfiles:
 		It("should resolve scheduler config from ConfigMap ref and use it in deployment", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-configmap-ref-scheduler"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			configMapData := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: configmap-plugin
@@ -208,7 +250,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -223,10 +265,10 @@ schedulingProfiles:
 		It("should use custom key from ConfigMap ref", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-configmap-custom-key"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			configMapData := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: custom-key-plugin
@@ -257,7 +299,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -273,10 +315,10 @@ schedulingProfiles:
 		It("should update scheduler deployment when referenced ConfigMap is updated", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-configmap-update"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			initialConfigData := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: initial-plugin
@@ -306,7 +348,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -318,7 +360,7 @@ schedulingProfiles:
 
 			// when - update ConfigMap
 			updatedConfigData := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: updated-plugin
@@ -342,7 +384,7 @@ schedulingProfiles:
 			Eventually(func(g Gomega, ctx context.Context) error {
 				updatedDeployment = &appsv1.Deployment{}
 				if err := envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, updatedDeployment); err != nil {
 					return err
@@ -361,7 +403,7 @@ schedulingProfiles:
 		It("should use default scheduler config when no config is specified (non-prefill)", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-default-scheduler-config"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -382,17 +424,21 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
-			// Verify default config for non-prefill mode (should contain queue-scorer, kv-cache-utilization-scorer, etc.)
+			// Verify default config for non-prefill mode. The default single-profile
+			// config follows the llm-d optimized baseline: queue-scorer,
+			// kv-cache-utilization-scorer, prefix-cache-scorer, no-hit-lru-scorer, max-score-picker.
 			configText, found := getSchedulerConfigText(expectedDeployment)
 			Expect(found).To(BeTrue(), "Expected default config in scheduler deployment")
 			// Default non-prefill config should contain these plugins
 			Expect(configText).To(ContainSubstring("queue-scorer"))
+			Expect(configText).To(ContainSubstring("kv-cache-utilization-scorer"))
 			Expect(configText).To(ContainSubstring("prefix-cache-scorer"))
+			Expect(configText).To(ContainSubstring("no-hit-lru-scorer"))
 			Expect(configText).To(ContainSubstring("max-score-picker"))
 			Expect(configText).To(ContainSubstring("name: default"))
 		})
@@ -400,7 +446,7 @@ schedulingProfiles:
 		It("should use prefill/decode scheduler config when prefill is configured", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-prefill-scheduler-config"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -428,7 +474,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -443,6 +489,10 @@ schedulingProfiles:
 			Expect(configText).To(ContainSubstring("disagg-profile-handler"))
 			Expect(configText).To(ContainSubstring("name: prefill"))
 			Expect(configText).To(ContainSubstring("name: decode"))
+			// Upstream optimized P/D baseline: prefill adds kv-cache-utilization-scorer,
+			// decode swaps queue-scorer for active-request-scorer.
+			Expect(configText).To(ContainSubstring("kv-cache-utilization-scorer"))
+			Expect(configText).To(ContainSubstring("active-request-scorer"))
 		})
 	})
 
@@ -450,10 +500,10 @@ schedulingProfiles:
 		It("should resolve ConfigMap from system namespace when not found in service namespace", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-system-ns-configmap"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			systemConfigData := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: system-namespace-plugin
@@ -487,7 +537,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -503,7 +553,7 @@ schedulingProfiles:
 		It("should report error when referenced ConfigMap does not exist", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-missing-configmap"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -524,7 +574,7 @@ schedulingProfiles:
 			Consistently(func(g Gomega, ctx context.Context) error {
 				deployment := &appsv1.Deployment{}
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, deployment)
 			}).WithContext(ctx).
@@ -536,7 +586,7 @@ schedulingProfiles:
 		It("should report error when ConfigMap is missing the referenced key", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-missing-key"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			// Create ConfigMap without the expected key
 			configMap := SchedulerConfigMapWithKey("scheduler-config-wrong-key", testNs.Name, "wrong-key", "some-config")
@@ -561,7 +611,7 @@ schedulingProfiles:
 			Consistently(func(g Gomega, ctx context.Context) error {
 				deployment := &appsv1.Deployment{}
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, deployment)
 			}).WithContext(ctx).
@@ -575,10 +625,10 @@ schedulingProfiles:
 		It("should inherit scheduler config from baseRef LLMInferenceServiceConfig", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-baseref-scheduler-config"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			schedulerConfigData := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: baseref-plugin
@@ -623,7 +673,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -637,10 +687,10 @@ schedulingProfiles:
 		It("should inherit inline scheduler config from baseRef LLMInferenceServiceConfig", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-baseref-inline-config"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			inlineSchedulerConfig := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: inline-baseref-plugin
@@ -683,7 +733,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -708,7 +758,6 @@ schedulingProfiles:
 			}
 
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
 				envTest.DeleteAll(ctx, namespace)
 			}()
@@ -732,7 +781,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: nsName,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -752,7 +801,6 @@ schedulingProfiles:
 			}
 
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
 				envTest.DeleteAll(ctx, namespace)
 			}()
@@ -776,7 +824,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: nsName,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -796,7 +844,6 @@ schedulingProfiles:
 			}
 
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
 				envTest.DeleteAll(ctx, namespace)
 			}()
@@ -820,7 +867,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: nsName,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -840,7 +887,6 @@ schedulingProfiles:
 			}
 
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
 				envTest.DeleteAll(ctx, namespace)
 			}()
@@ -864,7 +910,7 @@ schedulingProfiles:
 						Containers: []corev1.Container{
 							{
 								Name:  "main",
-								Image: "ghcr.io/llm-d/llm-d-inference-scheduler:v0.7.1",
+								Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0",
 								Args: []string{
 									"--ha-enable-leader-election",
 									"--poolName",
@@ -903,7 +949,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: nsName,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
@@ -925,7 +971,6 @@ schedulingProfiles:
 			}
 
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
 				envTest.DeleteAll(ctx, namespace)
 			}()
@@ -969,17 +1014,43 @@ schedulingProfiles:
 				}
 			}
 			Expect(hasLeasesPermission).To(BeTrue(), "Expected scheduler role to have leases permission for leader election")
+
+			// Verify llm-d.ai API group permission exists for inferenceobjectives and inferencemodelrewrites
+			hasLLMDAIPermission := false
+			for _, rule := range expectedRole.Rules {
+				for _, apiGroup := range rule.APIGroups {
+					if apiGroup == "llm-d.ai" {
+						Expect(rule.Resources).To(ContainElements("inferenceobjectives", "inferencemodelrewrites"))
+						Expect(rule.Verbs).To(ContainElements("get", "list", "watch"))
+						hasLLMDAIPermission = true
+					}
+				}
+			}
+			Expect(hasLLMDAIPermission).To(BeTrue(), "Expected scheduler role to have llm-d.ai API group permission for inferenceobjectives and inferencemodelrewrites")
+
+			// Verify inference.networking.k8s.io API group permission exists for inferencepools, inferenceobjectives, and inferencemodels
+			hasGIEPermission := false
+			for _, rule := range expectedRole.Rules {
+				for _, apiGroup := range rule.APIGroups {
+					if apiGroup == "inference.networking.k8s.io" {
+						Expect(rule.Resources).To(ContainElements("inferencepools", "inferenceobjectives", "inferencemodels"))
+						Expect(rule.Verbs).To(ContainElements("get", "list", "watch"))
+						hasGIEPermission = true
+					}
+				}
+			}
+			Expect(hasGIEPermission).To(BeTrue(), "Expected scheduler role to have inference.networking.k8s.io API group permission for inferencepools, inferenceobjectives, and inferencemodels")
 		})
 	})
 
-	Context("UDS tokenizer config injection", func() {
-		It("should inject tokenizersPoolConfig when precise-prefix-cache-scorer has indexerConfig", func(ctx SpecContext) {
+	Context("Standalone tokenizer plugin decomposition", func() {
+		It("should decompose precise-prefix-cache-scorer into 3-plugin pipeline with tokenizer URL", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-uds-tokenizer-inject"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			precisePrefixConfig := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler
@@ -1016,11 +1087,11 @@ schedulingProfiles:
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			// then - verify the scheduler deployment has injected tokenizersPoolConfig
+			// then - verify the scheduler config has the decomposed 3-plugin pipeline
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				if err := envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment); err != nil {
 					return err
@@ -1028,23 +1099,26 @@ schedulingProfiles:
 
 				configText, found := getSchedulerConfigText(expectedDeployment)
 				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
-				g.Expect(configText).To(ContainSubstring("modelName: base"))
-				g.Expect(configText).To(ContainSubstring("socketFile: /tmp/tokenizer/tokenizer-uds.socket"))
-				// Verify tokenProcessorConfig was migrated from indexerConfig to top-level parameters
-				g.Expect(configText).To(ContainSubstring("tokenProcessorConfig"))
-				g.Expect(configText).To(ContainSubstring("blockSize: 16"))
+				g.Expect(configText).NotTo(ContainSubstring("precise-prefix-cache-scorer"))
+				g.Expect(configText).To(ContainSubstring(kmeta.ChildName(svcName, "-tokenizer")))
+				g.Expect(configText).To(ContainSubstring("modelName: /mnt/models/base"))
+
+				pluginTypes, err := pluginTypesFromConfig(configText)
+				g.Expect(err).NotTo(HaveOccurred())
+				assertPipelineOrder(g, pluginTypes)
+
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})
 
-		It("should override existing tokenizersPoolConfig values", func(ctx SpecContext) {
+		It("should strip legacy UDS tokenizer fields after decomposition", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-uds-tokenizer-override"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			//nolint:gosec // G101: not a credential, scheduler config YAML
 			configWithExistingTokenizer := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler
@@ -1082,11 +1156,11 @@ schedulingProfiles:
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			// then - verify the values are overridden with the correct ones
+			// then - legacy UDS fields should be gone, replaced by standalone tokenizer
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				if err := envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment); err != nil {
 					return err
@@ -1094,13 +1168,13 @@ schedulingProfiles:
 
 				configText, found := getSchedulerConfigText(expectedDeployment)
 				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
-				g.Expect(configText).To(ContainSubstring("modelName: base"))
-				g.Expect(configText).To(ContainSubstring("socketFile: /tmp/tokenizer/tokenizer-uds.socket"))
+				g.Expect(configText).To(ContainSubstring("token-producer"))
+				g.Expect(configText).To(ContainSubstring(kmeta.ChildName(svcName, "-tokenizer")))
+				g.Expect(configText).To(ContainSubstring("modelName: /mnt/models/base"))
 				g.Expect(configText).NotTo(ContainSubstring("wrong-model-name"))
 				g.Expect(configText).NotTo(ContainSubstring("/wrong/path"))
-				// Verify tokenProcessorConfig was migrated from indexerConfig to top-level parameters
-				g.Expect(configText).To(ContainSubstring("tokenProcessorConfig"))
-				g.Expect(configText).To(ContainSubstring("blockSize: 16"))
+				g.Expect(configText).NotTo(ContainSubstring("socketFile"))
+				g.Expect(configText).NotTo(ContainSubstring("tokenizersPoolConfig"))
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})
@@ -1108,10 +1182,10 @@ schedulingProfiles:
 		It("should not inject tokenizersPoolConfig when no precise-prefix-cache-scorer plugin", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-uds-no-precise-prefix"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			configWithoutPrecisePrefix := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler
@@ -1147,7 +1221,7 @@ schedulingProfiles:
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				if err := envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment); err != nil {
 					return err
@@ -1163,13 +1237,13 @@ schedulingProfiles:
 	})
 
 	Context("tokenProcessorConfig migration from indexerConfig to top-level parameters", func() {
-		It("should migrate tokenProcessorConfig from indexerConfig to top-level plugin parameters", func(ctx SpecContext) {
+		It("should decompose precise-prefix-cache-scorer and preserve tokenProcessorConfig", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-tpc-migrate"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			oldFormatConfig := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler
@@ -1205,11 +1279,11 @@ schedulingProfiles:
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			// then - verify tokenProcessorConfig was migrated to top-level parameters
+			// then - precise-prefix-cache-scorer is decomposed into 3-plugin pipeline
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				if err := envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment); err != nil {
 					return err
@@ -1217,23 +1291,28 @@ schedulingProfiles:
 
 				configText, found := getSchedulerConfigText(expectedDeployment)
 				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
-				// tokenProcessorConfig should be at top-level parameters (sibling of indexerConfig)
-				g.Expect(configText).To(ContainSubstring("blockSize: 64"))
-				g.Expect(configText).To(ContainSubstring("hashSeed: \"42\""))
-				// indexerConfig should still have kvBlockIndexConfig but not tokenProcessorConfig
-				g.Expect(configText).To(ContainSubstring("kvBlockIndexConfig"))
-				g.Expect(configText).To(ContainSubstring("enableMetrics: true"))
+				g.Expect(configText).To(ContainSubstring("token-producer"))
+				g.Expect(configText).To(ContainSubstring("precise-prefix-cache-producer"))
+				g.Expect(configText).To(ContainSubstring("prefix-cache-scorer"))
+				g.Expect(configText).NotTo(ContainSubstring("precise-prefix-cache-scorer"))
+				g.Expect(configText).To(ContainSubstring(kmeta.ChildName(svcName, "-tokenizer")))
+				g.Expect(configText).To(ContainSubstring("modelName: /mnt/models/base"))
+
+				g.Expect(configText).To(ContainSubstring("blockSize: 64"),
+					"tokenProcessorConfig.blockSize should be promoted from indexerConfig to top-level producer params")
+				g.Expect(configText).To(ContainSubstring("hashSeed:"),
+					"tokenProcessorConfig.hashSeed should be promoted from indexerConfig to top-level producer params")
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})
 
-		It("should not overwrite top-level tokenProcessorConfig if already present", func(ctx SpecContext) {
+		It("should decompose precise-prefix-cache-scorer even with top-level tokenProcessorConfig", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-tpc-no-overwrite"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			newFormatConfig := `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler
@@ -1270,11 +1349,11 @@ schedulingProfiles:
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			// then - verify top-level tokenProcessorConfig is preserved, not overwritten
+			// then - plugin decomposition happens regardless of tokenProcessorConfig placement
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				if err := envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-router-scheduler",
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 					Namespace: testNs.Name,
 				}, expectedDeployment); err != nil {
 					return err
@@ -1282,9 +1361,16 @@ schedulingProfiles:
 
 				configText, found := getSchedulerConfigText(expectedDeployment)
 				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
-				// Top-level values should be preserved
-				g.Expect(configText).To(ContainSubstring("blockSize: 128"))
-				g.Expect(configText).To(ContainSubstring("hashSeed: \"99\""))
+				g.Expect(configText).To(ContainSubstring("token-producer"))
+				g.Expect(configText).To(ContainSubstring("precise-prefix-cache-producer"))
+				g.Expect(configText).NotTo(ContainSubstring("precise-prefix-cache-scorer"))
+				g.Expect(configText).To(ContainSubstring(kmeta.ChildName(svcName, "-tokenizer")))
+				g.Expect(configText).To(ContainSubstring("modelName: /mnt/models/base"))
+
+				g.Expect(configText).To(ContainSubstring("blockSize: 128"),
+					"top-level tokenProcessorConfig should take priority over nested")
+				g.Expect(configText).To(ContainSubstring("hashSeed: \"99\""),
+					"top-level tokenProcessorConfig.hashSeed should be preserved")
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})
@@ -1294,7 +1380,7 @@ schedulingProfiles:
 		It("should propagate annotations and imagePullSecrets from main workload SA to generated scheduler SA", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-sa-propagation"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			// Create a main workload SA with annotations and imagePullSecrets
 			mainSA := &corev1.ServiceAccount{
@@ -1358,7 +1444,7 @@ schedulingProfiles:
 		It("should not add extra credentials when no main workload SA is specified", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-sa-no-propagation"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -1392,7 +1478,7 @@ schedulingProfiles:
 		It("should update scheduler SA when main workload SA credentials change", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-sa-update"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			// Create a main workload SA with initial annotations
 			mainSA := &corev1.ServiceAccount{
@@ -1488,6 +1574,172 @@ schedulingProfiles:
 		})
 	})
 
+	Context("v0.9.0 prefix-cache-scorer parameter removal", func() {
+		It("should remove all parameters except prefixMatchInfoProducerName from prefix-cache-scorer", func(ctx SpecContext) {
+			svcName := "test-llm-pcs-param-removal"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			configWithPrefixCacheParams := `
+apiVersion: llm-d.ai/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+- type: prefix-cache-scorer
+  parameters:
+    blockSizeTokens: 16
+    prefixMatchInfoProducerName: my-producer
+- type: queue-scorer
+- type: max-score-picker
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: queue-scorer
+    weight: 2
+  - pluginRef: prefix-cache-scorer
+    weight: 3
+  - pluginRef: max-score-picker
+`
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithSchedulerConfigInline(configWithPrefixCacheParams),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			expectedDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				if err := envTest.Get(ctx, types.NamespacedName{
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
+					Namespace: testNs.Name,
+				}, expectedDeployment); err != nil {
+					return err
+				}
+
+				configText, found := getSchedulerConfigText(expectedDeployment)
+				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
+				g.Expect(configText).To(ContainSubstring("prefixMatchInfoProducerName: my-producer"))
+				g.Expect(configText).NotTo(ContainSubstring("blockSizeTokens"))
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should remove parameters entirely when no prefixMatchInfoProducerName is present", func(ctx SpecContext) {
+			svcName := "test-llm-pcs-param-all-removed"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			configWithOnlyDeprecatedParams := `
+apiVersion: llm-d.ai/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+- type: prefix-cache-scorer
+  parameters:
+    blockSizeTokens: 16
+- type: queue-scorer
+- type: max-score-picker
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: queue-scorer
+    weight: 2
+  - pluginRef: prefix-cache-scorer
+    weight: 3
+  - pluginRef: max-score-picker
+`
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithSchedulerConfigInline(configWithOnlyDeprecatedParams),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			expectedDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				if err := envTest.Get(ctx, types.NamespacedName{
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
+					Namespace: testNs.Name,
+				}, expectedDeployment); err != nil {
+					return err
+				}
+
+				configText, found := getSchedulerConfigText(expectedDeployment)
+				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
+				g.Expect(configText).NotTo(ContainSubstring("blockSizeTokens"))
+				g.Expect(configText).NotTo(ContainSubstring("parameters"))
+				g.Expect(configText).To(ContainSubstring("prefix-cache-scorer"))
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should not touch prefix-cache-scorer without parameters", func(ctx SpecContext) {
+			svcName := "test-llm-pcs-no-params"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			configWithNoParams := `
+apiVersion: llm-d.ai/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+- type: prefix-cache-scorer
+- type: queue-scorer
+- type: max-score-picker
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: queue-scorer
+    weight: 2
+  - pluginRef: prefix-cache-scorer
+    weight: 3
+  - pluginRef: max-score-picker
+`
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithSchedulerConfigInline(configWithNoParams),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			expectedDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				if err := envTest.Get(ctx, types.NamespacedName{
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
+					Namespace: testNs.Name,
+				}, expectedDeployment); err != nil {
+					return err
+				}
+
+				configText, found := getSchedulerConfigText(expectedDeployment)
+				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
+				g.Expect(configText).To(ContainSubstring("prefix-cache-scorer"))
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+		})
+	})
+
 	Context("Multi-GPU-vendor pooling via workload label propagation", func() {
 		It("should create InferencePool with default workload labels that AMD pods can match", func(ctx SpecContext) {
 			// This test verifies the multi-GPU-vendor pooling pattern:
@@ -1495,7 +1747,7 @@ schedulingProfiles:
 			// 2. AMD instance with no router uses spec.labels to match the NVIDIA InferencePool selector
 			nvidiaSvcName := "test-llm-nvidia"
 			amdSvcName := "test-llm-amd"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(nvidiaSvcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			// Create NVIDIA instance with default scheduler
 			nvidiaLLMSvc := LLMInferenceService(nvidiaSvcName,
@@ -1578,6 +1830,78 @@ schedulingProfiles:
 				"AMD instance should not create a scheduler deployment")
 		})
 	})
+
+	Context("EPP port defaulting for upgrade compatibility", func() {
+		// The port defaulting for configs that omit port (pre-GIE-v1.2.0 upgrade
+		// scenario) is covered by the v1alpha2pool conversion (convertExtensionRefToV1)
+		// and combineBaseRefsConfig. Integration tests for the nil-port case are not
+		// feasible here because the v1alpha2 CEL rule rejects creating configs without
+		// port, and the v1alpha1 conversion defaults port to 9002 during ConvertTo.
+
+		It("should not override explicitly set EPP port", func(ctx SpecContext) {
+			svcName := "test-llm-port-explicit"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			schedulerCfg := LLMInferenceServiceConfig("kserve-config-llm-scheduler",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+			)
+			schedulerCfg.Spec.Router = &v1alpha2.RouterSpec{
+				Scheduler: &v1alpha2.SchedulerSpec{
+					Pool: &v1alpha2.InferencePoolSpec{
+						Spec: &igwapi.InferencePoolSpec{
+							EndpointPickerRef: igwapi.EndpointPickerRef{
+								Kind:        "Service",
+								Name:        igwapi.ObjectName(kmeta.ChildName(svcName, "-epp-service")),
+								Port:        ptr.To(igwapi.Port{Number: 8080}),
+								FailureMode: igwapi.EndpointPickerFailOpen,
+							},
+							Selector: igwapi.LabelSelector{
+								MatchLabels: map[igwapi.LabelKey]igwapi.LabelValue{
+									"app": "placeholder",
+								},
+							},
+							TargetPorts: []igwapi.Port{{Number: 8000}},
+						},
+					},
+					Template: &corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Name:  "main",
+							Image: "ghcr.io/llm-d/llm-d-inference-scheduler:v0.7.1",
+							Ports: []corev1.ContainerPort{
+								{Name: "grpc", ContainerPort: 8080, Protocol: corev1.ProtocolTCP},
+								{Name: "grpc-health", ContainerPort: 9003, Protocol: corev1.ProtocolTCP},
+								{Name: "metrics", ContainerPort: 9090, Protocol: corev1.ProtocolTCP},
+							},
+						}},
+					},
+				},
+			}
+			Expect(envTest.Client.Create(ctx, schedulerCfg)).To(Succeed())
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			ip := &igwapi.InferencePool{}
+			Eventually(func(g Gomega, ctx context.Context) {
+				g.Expect(envTest.Get(ctx, client.ObjectKey{
+					Name:      svcName + "-inference-pool",
+					Namespace: testNs.Name,
+				}, ip)).To(Succeed())
+				g.Expect(ip.Spec.EndpointPickerRef.Port).NotTo(BeNil())
+				g.Expect(ip.Spec.EndpointPickerRef.Port.Number).To(Equal(igwapi.PortNumber(8080)))
+			}).WithContext(ctx).Should(Succeed())
+		})
+	})
 })
 
 // schedulerContainerName is the expected name of the main container in the scheduler deployment
@@ -1632,4 +1956,48 @@ func countLeaderElectionFlags(deployment *appsv1.Deployment) int {
 		}
 	}
 	return count
+}
+
+// pluginTypesFromConfig parses the scheduler config YAML and returns the
+// ordered list of plugin type strings.
+func pluginTypesFromConfig(configText string) ([]string, error) {
+	var parsed struct {
+		Plugins []struct {
+			Type string `json:"type"`
+		} `json:"plugins"`
+	}
+	if err := yaml.Unmarshal([]byte(configText), &parsed); err != nil {
+		return nil, err
+	}
+	pluginTypes := make([]string, len(parsed.Plugins))
+	for i, p := range parsed.Plugins {
+		pluginTypes[i] = p.Type
+	}
+	return pluginTypes, nil
+}
+
+// assertPipelineOrder verifies that the 3-plugin pipeline appears in the
+// correct relative order: token-producer < precise-prefix-cache-producer < prefix-cache-scorer.
+func assertPipelineOrder(g Gomega, pluginTypes []string) {
+	tokenIdx, producerIdx, scorerIdx := -1, -1, -1
+	for i, t := range pluginTypes {
+		switch t {
+		case "token-producer":
+			g.Expect(tokenIdx).To(Equal(-1), "duplicate token-producer in plugin list")
+			tokenIdx = i
+		case "precise-prefix-cache-producer":
+			g.Expect(producerIdx).To(Equal(-1), "duplicate precise-prefix-cache-producer in plugin list")
+			producerIdx = i
+		case "prefix-cache-scorer":
+			g.Expect(scorerIdx).To(Equal(-1), "duplicate prefix-cache-scorer in plugin list")
+			scorerIdx = i
+		}
+	}
+	g.Expect(tokenIdx).NotTo(Equal(-1), "token-producer not found")
+	g.Expect(producerIdx).NotTo(Equal(-1), "precise-prefix-cache-producer not found")
+	g.Expect(scorerIdx).NotTo(Equal(-1), "prefix-cache-scorer not found")
+	g.Expect(tokenIdx).To(BeNumerically("<", producerIdx),
+		"token-producer must appear before precise-prefix-cache-producer")
+	g.Expect(producerIdx).To(BeNumerically("<", scorerIdx),
+		"precise-prefix-cache-producer must appear before prefix-cache-scorer")
 }

@@ -30,10 +30,11 @@ from kubernetes import client
 
 from .fixtures import (
     inject_k8s_proxy,
-    KSERVE_TEST_NAMESPACE,
     KSERVE_PLURAL_LLMINFERENCESERVICECONFIG,
+    OPT_125M_MODEL_URI,
     UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT,
     UPSTREAM_K8S_VLLM_ENV_OVERRIDES,
+    VLLM_CPU_IMAGE,
 )
 from .logging import log_execution, logger
 
@@ -64,7 +65,7 @@ def wait_for(assertion_fn, timeout: float = 60.0, interval: float = 1.0):
 def create_llmisvc_raw(kserve_client: KServeClient, llm_isvc: dict, version: str):
     """Create an LLMInferenceService using raw dict."""
     try:
-        namespace = llm_isvc.get("metadata", {}).get("namespace", KSERVE_TEST_NAMESPACE)
+        namespace = llm_isvc.get("metadata", {}).get("namespace")
         outputs = kserve_client.api_instance.create_namespaced_custom_object(
             constants.KSERVE_GROUP,
             version,
@@ -124,7 +125,7 @@ def delete_llmisvc_raw(
 def create_llmisvc_config_raw(kserve_client: KServeClient, config: dict, version: str):
     """Create an LLMInferenceServiceConfig using raw dict."""
     try:
-        namespace = config.get("metadata", {}).get("namespace", KSERVE_TEST_NAMESPACE)
+        namespace = config.get("metadata", {}).get("namespace")
         outputs = kserve_client.api_instance.create_namespaced_custom_object(
             constants.KSERVE_GROUP,
             version,
@@ -171,20 +172,19 @@ def delete_llmisvc_config_raw(
         ) from e
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.conversion
 class TestLLMInferenceServiceConversion:
     """Test suite for LLMInferenceService API version conversion."""
 
     @pytest.fixture(autouse=True)
-    def setup(self):
+    def setup(self, test_namespace):
         """Setup test fixtures."""
         inject_k8s_proxy()
         self.kserve_client = KServeClient(
             config_file=os.environ.get("KUBECONFIG", "~/.kube/config"),
             client_configuration=client.Configuration(),
         )
-        self.namespace = KSERVE_TEST_NAMESPACE
+        self.namespace = test_namespace
         self.created_resources = []
         yield
         # Cleanup
@@ -225,13 +225,13 @@ class TestLLMInferenceServiceConversion:
                 "namespace": self.namespace,
             },
             "spec": {
-                "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},
+                "model": {"uri": OPT_125M_MODEL_URI, "name": "facebook/opt-125m"},
                 "router": {"route": {}},
                 "template": {
                     "containers": [
                         {
                             "name": "main",
-                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
+                            "image": VLLM_CPU_IMAGE,
                             "env": [*UPSTREAM_K8S_VLLM_ENV_OVERRIDES],
                             "resources": {
                                 "limits": {"cpu": "2", "memory": "7Gi"},
@@ -316,13 +316,13 @@ class TestLLMInferenceServiceConversion:
                 "namespace": self.namespace,
             },
             "spec": {
-                "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},
+                "model": {"uri": OPT_125M_MODEL_URI, "name": "facebook/opt-125m"},
                 "router": {"route": {}},
                 "template": {
                     "containers": [
                         {
                             "name": "main",
-                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
+                            "image": VLLM_CPU_IMAGE,
                             "env": [*UPSTREAM_K8S_VLLM_ENV_OVERRIDES],
                             "resources": {
                                 "limits": {"cpu": "2", "memory": "7Gi"},
@@ -413,7 +413,7 @@ class TestLLMInferenceServiceConversion:
             },
             "spec": {
                 "model": {
-                    "uri": "hf://facebook/opt-125m",
+                    "uri": OPT_125M_MODEL_URI,
                     "name": "facebook/opt-125m",
                     "criticality": "Critical",  # v1alpha1-specific field
                 },
@@ -422,7 +422,7 @@ class TestLLMInferenceServiceConversion:
                     "containers": [
                         {
                             "name": "main",
-                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
+                            "image": VLLM_CPU_IMAGE,
                             "env": [*UPSTREAM_K8S_VLLM_ENV_OVERRIDES],
                             "resources": {
                                 "limits": {"cpu": "2", "memory": "7Gi"},
@@ -451,7 +451,7 @@ class TestLLMInferenceServiceConversion:
             },
             "spec": {
                 "model": {
-                    "uri": "hf://facebook/opt-125m",
+                    "uri": OPT_125M_MODEL_URI,
                     "name": "facebook/opt-125m",
                     "criticality": "Critical",
                 },
@@ -553,7 +553,7 @@ class TestLLMInferenceServiceConversion:
                     "containers": [
                         {
                             "name": "main",
-                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
+                            "image": VLLM_CPU_IMAGE,
                             "env": [*UPSTREAM_K8S_VLLM_ENV_OVERRIDES],
                             "resources": {
                                 "limits": {"cpu": "2", "memory": "7Gi"},
@@ -698,7 +698,7 @@ class TestLLMInferenceServiceConversion:
                     "containers": [
                         {
                             "name": "main",
-                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
+                            "image": VLLM_CPU_IMAGE,
                             "env": [*UPSTREAM_K8S_VLLM_ENV_OVERRIDES],
                             "resources": {
                                 "limits": {"cpu": "2", "memory": "7Gi"},
@@ -736,7 +736,7 @@ class TestLLMInferenceServiceConversion:
             },
             "spec": {
                 "model": {
-                    "uri": "hf://facebook/opt-125m",
+                    "uri": OPT_125M_MODEL_URI,
                     "name": "test-model",
                 },
                 "replicas": 1,

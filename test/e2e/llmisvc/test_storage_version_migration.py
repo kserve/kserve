@@ -1,4 +1,4 @@
-# Copyright 2025 The KServe Authors.
+# Copyright 2026 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,8 +34,9 @@ from kubernetes import client
 from ..common.utils import KSERVE_NAMESPACE
 from .fixtures import (
     inject_k8s_proxy,
-    KSERVE_TEST_NAMESPACE,
     KSERVE_PLURAL_LLMINFERENCESERVICECONFIG,
+    OPT_125M_MODEL_URI,
+    VLLM_CPU_IMAGE,
 )
 from .logging import logger
 
@@ -61,13 +62,12 @@ def wait_for(assertion_fn, timeout: float = 60.0, interval: float = 1.0):
             time.sleep(interval)
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.conversion
 class TestStorageVersionMigration:
     """Test storage version migration runs correctly during controller startup."""
 
     @pytest.fixture(autouse=True)
-    def setup(self):
+    def setup(self, test_namespace):
         """Setup test fixtures."""
         inject_k8s_proxy()
         self.kserve_client = KServeClient(
@@ -76,7 +76,7 @@ class TestStorageVersionMigration:
         )
         self.apix_client = client.ApiextensionsV1Api()
         self.apps_client = client.AppsV1Api()
-        self.namespace = KSERVE_TEST_NAMESPACE
+        self.namespace = test_namespace
         self.created_resources = []
         yield
         self._cleanup_resources()
@@ -131,13 +131,13 @@ class TestStorageVersionMigration:
                 "namespace": self.namespace,
             },
             "spec": {
-                "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},
+                "model": {"uri": OPT_125M_MODEL_URI, "name": "facebook/opt-125m"},
                 "router": {"route": {}},
                 "template": {
                     "containers": [
                         {
                             "name": "main",
-                            "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.19.0",
+                            "image": VLLM_CPU_IMAGE,
                             "resources": {
                                 "limits": {"cpu": "1", "memory": "2Gi"},
                                 "requests": {"cpu": "100m", "memory": "512Mi"},
@@ -226,10 +226,11 @@ class TestStorageVersionMigration:
                     f"got {crd.status.stored_versions} for {crd_name}"
                 )
 
-        # Allow enough time for the controller's exponential backoff to exhaust
-        # on slow clusters: 10 steps at 2s*1.5^n gives ~150s per resource group,
-        # two groups sequential = ~300s worst case. Default 360s adds buffer.
-        migration_timeout = float(os.getenv("STORAGE_MIGRATION_TIMEOUT", "360"))
+        # Match the controller's total migration budget so the test never times out
+        # before the controller does. The controller defaults to 1 hour (3600s);
+        # phase 1 (exponential backoff) takes ~150s per resource group worst case,
+        # phase 2 (steady-state polling) consumes the remaining budget.
+        migration_timeout = float(os.getenv("STORAGE_MIGRATION_TIMEOUT", "3600"))
         wait_for(
             assert_stored_versions_migrated, timeout=migration_timeout, interval=5.0
         )

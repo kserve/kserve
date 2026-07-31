@@ -262,9 +262,10 @@ func (isvc *InferenceService) setPredictorModelDefaults() {
 	}
 
 	if isvc.Spec.Predictor.Model != nil {
-		// Set 'v2' as default protocol version for triton server
+		// set 'v2' as default protocol version for triton and vllm servers
 		if isvc.Spec.Predictor.Model.ProtocolVersion == nil &&
-			isvc.Spec.Predictor.Model.ModelFormat.Name == constants.SupportedModelTriton {
+			(isvc.Spec.Predictor.Model.ModelFormat.Name == constants.SupportedModelTriton ||
+				isvc.Spec.Predictor.Model.ModelFormat.Name == constants.SupportedModelVLLM) {
 			protocolV2 := constants.ProtocolV2
 			isvc.Spec.Predictor.Model.ProtocolVersion = &protocolV2
 		}

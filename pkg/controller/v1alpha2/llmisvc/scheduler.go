@@ -20,9 +20,11 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"math"
 	"path"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/coreos/go-semver/semver"
@@ -41,8 +43,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
-	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/yaml"
+
+	igwapiv1alpha2 "github.com/kserve/kserve/pkg/apis/gie/v1alpha2pool"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
@@ -52,11 +56,17 @@ import (
 const (
 	tokenizerContainerName = "tokenizer"
 
-	precisePrefixCacheScorerPlugin = "precise-prefix-cache-scorer"
-	prefixCacheScorerPlugin        = "prefix-cache-scorer"
-	coreMetricsExtractorPlugin     = "core-metrics-extractor"
-	udsTokenizerBaseModelName      = "base"
-	udsTokenizerSocketFile         = "/tmp/tokenizer/tokenizer-uds.socket" //nolint:gosec // G101: not a credential, UDS socket path
+	precisePrefixCacheScorerPlugin    = "precise-prefix-cache-scorer"
+	prefixCacheScorerPlugin           = "prefix-cache-scorer"
+	tokenProducerPlugin               = "token-producer"
+	precisePrefixCacheProducerPlugin  = "precise-prefix-cache-producer"
+	loraAffinityScorerPlugin          = "lora-affinity-scorer"
+	coreMetricsExtractorPlugin        = "model-server-protocol-metrics"
+	coreMetricsExtractorPluginRenamed = "core-metrics-extractor"
+	metricsDataSourcePlugin           = "metrics-data-source"
+	udsTokenizerBaseModelName         = "base"
+	udsTokenizerSocketFile            = "/tmp/tokenizer/tokenizer-uds.socket" //nolint:gosec // G101: not a credential, UDS socket path
+	tokenizerModelName                = "/mnt/models/base"                    // matches the vLLM render --model arg in config-llm-tokenizer.yaml
 )
 
 // reconcileScheduler manages the scheduler component and its related resources
@@ -67,6 +77,34 @@ func (r *LLMISVCReconciler) reconcileScheduler(ctx context.Context, llmSvc *v1al
 	if err := r.reconcileSchedulerServiceAccount(ctx, llmSvc); err != nil {
 		return err
 	}
+
+	// Emit a deprecation warning when the legacy monolithic precise-prefix-cache-scorer
+	// plugin is detected. It will be automatically decomposed into the 3-plugin pipeline
+	// (token-producer + precise-prefix-cache-producer + prefix-cache-scorer) during
+	// version-gated migration. Users should migrate their inline config to use the
+	// decomposed plugins directly.
+	if hasPrecisePrefixCachePlugin(llmSvc.Spec) {
+		log.FromContext(ctx).V(1).Info("DEPRECATION: precise-prefix-cache-scorer plugin detected in config.inline. " +
+			"This monolithic plugin will be automatically decomposed into token-producer, " +
+			"precise-prefix-cache-producer, and prefix-cache-scorer. " +
+			"Please update your config.inline to use the decomposed plugins directly. " +
+			"This implicit migration will be removed in a future release.")
+		r.Eventf(llmSvc, corev1.EventTypeWarning, "DeprecatedPlugin",
+			"LLMInferenceService %q uses precise-prefix-cache-scorer in config.inline. "+
+				"Update config.inline to use token-producer, precise-prefix-cache-producer, and prefix-cache-scorer directly. "+
+				"This implicit migration will be removed in a future release.", llmSvc.Name)
+	}
+
+	// Reconcile the tokenizer before the scheduler so that the tokenizer
+	// Service DNS is resolvable by the time EPP's token-producer plugin
+	// attempts its first connection.
+	if err := r.reconcileTokenizerDeployment(ctx, llmSvc); err != nil {
+		return err
+	}
+	if err := r.reconcileTokenizerService(ctx, llmSvc); err != nil {
+		return err
+	}
+
 	if err := r.reconcileSchedulerDeployment(ctx, llmSvc); err != nil {
 		return err
 	}
@@ -177,7 +215,7 @@ func (r *LLMISVCReconciler) reconcileSchedulerDeployment(ctx context.Context, ll
 	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, scheduler, semanticDeploymentIsEqual, PreserveDeploymentReplicas()); err != nil {
 		return fmt.Errorf("failed to reconcile scheduler deployment %s/%s: %w", scheduler.GetNamespace(), scheduler.GetName(), err)
 	}
-	return r.propagateSchedulerDeploymentStatus(ctx, scheduler, llmSvc.MarkSchedulerWorkloadReady, llmSvc.MarkSchedulerWorkloadNotReady)
+	return r.propagateComponentDeploymentStatus(ctx, scheduler, llmSvc.MarkSchedulerWorkloadReady, llmSvc.MarkSchedulerWorkloadNotReady)
 }
 
 func (r *LLMISVCReconciler) reconcileSchedulerInferencePool(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
@@ -203,8 +241,17 @@ func (r *LLMISVCReconciler) reconcileV1InferencePool(ctx context.Context, llmSvc
 	return Reconcile(ctx, r, llmSvc, &igwapi.InferencePool{}, expected, semanticInferencePoolIsEqual)
 }
 
-// reconcileV1Alpha2InferencePool reconciles the v1alpha2 InferencePool if the CRD is available.
+// reconcileV1Alpha2InferencePool reconciles the v1alpha2 InferencePool.
+// It is a no-op when the v1alpha2 InferencePool CRD is not installed on the cluster.
 func (r *LLMISVCReconciler) reconcileV1Alpha2InferencePool(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, shouldDelete bool) error {
+	ok, err := utils.IsCrdAvailable(r.Config, igwapiv1alpha2.GroupVersion.String(), "InferencePool")
+	if err != nil {
+		return fmt.Errorf("checking v1alpha2 InferencePool CRD availability: %w", err)
+	}
+	if !ok {
+		log.FromContext(ctx).V(2).Info("v1alpha2 InferencePool CRD not installed, skipping")
+		return nil
+	}
 	expected := r.expectedSchedulerInferencePoolV1Alpha2(ctx, llmSvc)
 	if shouldDelete {
 		return Delete(ctx, r, llmSvc, expected)
@@ -342,7 +389,7 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 	labels := SchedulerLabels(llmSvc)
 	d := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve-router-scheduler"),
+			Name:      schedulerDeploymentName(llmSvc),
 			Namespace: llmSvc.GetNamespace(),
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
@@ -402,6 +449,9 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 			mainContainer.Args = append(mainContainer.Args,
 				preserveSchedulerConfig(llmSvc, curr)...,
 			)
+
+			// Inject tracing instrumentation when spec.tracing is set
+			injectSchedulerTracing(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), mainContainer)
 		}
 
 		if isUsingTokenizerSidecar(llmSvc.Spec) {
@@ -432,14 +482,14 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 				return d, fmt.Errorf("failed to get current scheduler deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
 			}
 
-			config, err := LoadConfig(ctx, r.Clientset)
+			config, err := r.loadConfig(ctx)
 			if err != nil {
 				return d, fmt.Errorf("failed to load config for scheduler deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
 			}
 
 			modelPath := path.Join(constants.DefaultModelLocalMountPath, "base")
 
-			if err := r.attachModelArtifacts(ctx, existingServiceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, tokenizerContainerName, modelPath); err != nil {
+			if err := r.attachModelArtifacts(ctx, existingServiceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, tokenizerContainerName, modelPath, constants.LLMISVCSchedulerAttachesLoRA); err != nil {
 				return d, fmt.Errorf("failed to attach model artifacts to scheduler deployment: %w", err)
 			}
 
@@ -451,11 +501,16 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 			}
 		}
 
-		// v0.7.0 migrations: version-gated (>= 0.7.0) because the v0.6 binary
-		// does not recognize the new plugin names. The v0.7 binary deprecates
-		// the old names but still accepts them.
-		if err := schedulerTransform(ctx, d); err != nil {
-			return d, fmt.Errorf("failed to apply v0.7.0 scheduler migrations: %w", err)
+		// Version-gated migrations (>= v0.7.0, >= v0.9.0, etc.): each migration
+		// is gated to the minimum EPP version that recognizes the new plugin
+		// names / config shapes. The v0.7 binary deprecates old names but still
+		// accepts them; v0.9 introduces the 3-plugin precise-prefix pipeline.
+		reconcilerCfg, err := r.loadConfig(ctx)
+		if err != nil {
+			return d, fmt.Errorf("failed to load config for scheduler transform: %w", err)
+		}
+		if err := schedulerTransform(ctx, d, llmSvc, reconcilerCfg.EnableTLS); err != nil {
+			return d, fmt.Errorf("failed to apply scheduler migrations: %w", err)
 		}
 	}
 
@@ -483,15 +538,30 @@ func schedulerConfigText(llmSvc *v1alpha2.LLMInferenceService) string {
 
 	switch {
 	case llmSvc.Spec.Prefill != nil:
-		// Always do P/D by default (threshold 0)
-		return `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+		// Always do P/D by default (threshold 0).
+		// Profiles follow the llm-d optimized P/D baseline:
+		//   prefill - prefix-cache + queue + kv-cache-utilization scorers
+		//   decode  - active-request + prefix-cache scorers (active request count
+		//             is a better signal than queue depth for ongoing generation).
+		// kv-cache-utilization-scorer and active-request-scorer are declared in the
+		// top-level plugins list so the profiles' pluginRefs resolve; queue-scorer
+		// stays declared because the prefill profile still references it.
+		// lora-affinity-scorer is injected into both profiles when LoRA adapters exist.
+		var loraPlugin, loraProfileEntry string
+		if llmSvc.Spec.Model.LoRA != nil && len(llmSvc.Spec.Model.LoRA.Adapters) > 0 {
+			loraPlugin = fmt.Sprintf("- type: %s\n", loraAffinityScorerPlugin)
+			loraProfileEntry = fmt.Sprintf("  - pluginRef: %s\n    weight: 4\n", loraAffinityScorerPlugin)
+		}
+		return fmt.Sprintf(`
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: disagg-headers-handler
 - type: prefill-filter
 - type: decode-filter
 - type: queue-scorer
+- type: kv-cache-utilization-scorer
+- type: active-request-scorer
 - type: prefix-cache-scorer
 - type: max-score-picker
 - type: always-disagg-pd-decider
@@ -499,42 +569,61 @@ plugins:
   parameters:
     deciders:
       prefill: always-disagg-pd-decider
-schedulingProfiles:
+%sschedulingProfiles:
 - name: prefill
   plugins:
   - pluginRef: prefill-filter
+%s  - pluginRef: prefix-cache-scorer
+    weight: 3
   - pluginRef: queue-scorer
     weight: 2
-  - pluginRef: prefix-cache-scorer
-    weight: 3
+  - pluginRef: kv-cache-utilization-scorer
+    weight: 2
   - pluginRef: max-score-picker
 - name: decode
   plugins:
   - pluginRef: decode-filter
-  - pluginRef: queue-scorer
+%s  - pluginRef: active-request-scorer
     weight: 2
   - pluginRef: prefix-cache-scorer
     weight: 3
   - pluginRef: max-score-picker
-`
+`, loraPlugin, loraProfileEntry, loraProfileEntry)
 	default:
-		return `
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+		var loraPlugin, loraProfileEntry string
+		if llmSvc.Spec.Model.LoRA != nil && len(llmSvc.Spec.Model.LoRA.Adapters) > 0 {
+			loraPlugin = fmt.Sprintf("- type: %s\n", loraAffinityScorerPlugin)
+			loraProfileEntry = fmt.Sprintf("  - pluginRef: %s\n    weight: 4\n", loraAffinityScorerPlugin)
+		}
+
+		// Single-profile default follows the llm-d optimized baseline:
+		// queue + kv-cache-utilization + prefix-cache + no-hit-lru scorers, plus
+		// lora-affinity-scorer injected when LoRA adapters are configured.
+		// Users who want precise prefix routing must explicitly declare
+		// token-producer and precise-prefix-cache-producer in their inline config.
+		return fmt.Sprintf(`
+apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler
 - type: queue-scorer
+- type: kv-cache-utilization-scorer
 - type: prefix-cache-scorer
+- type: no-hit-lru-scorer
 - type: max-score-picker
-schedulingProfiles:
+%sschedulingProfiles:
 - name: default
   plugins:
-  - pluginRef: queue-scorer
+%s  - pluginRef: queue-scorer
+    weight: 2
+  - pluginRef: kv-cache-utilization-scorer
     weight: 2
   - pluginRef: prefix-cache-scorer
     weight: 3
+  - pluginRef: no-hit-lru-scorer
+    weight: 2
   - pluginRef: max-score-picker
-`
+`, loraPlugin, loraProfileEntry)
 	}
 }
 
@@ -695,8 +784,9 @@ func (r *LLMISVCReconciler) expectedSchedulerRole(llmSvc *v1alpha2.LLMInferenceS
 		},
 		Rules: []rbacv1.PolicyRule{
 			{APIGroups: []string{""}, Resources: []string{"pods"}, Verbs: []string{"get", "list", "watch"}},
-			{APIGroups: []string{"inference.networking.k8s.io", "inference.networking.x-k8s.io"}, Resources: []string{"inferencepools", "inferenceobjectives", "inferencemodels"}, Verbs: []string{"get", "list", "watch"}},
-			{APIGroups: []string{"inference.networking.x-k8s.io"}, Resources: []string{"inferencemodelrewrites", "inferencepoolimports"}, Verbs: []string{"get", "list", "watch"}},
+			{APIGroups: []string{constants.InferencePoolV1APIGroupName, constants.InferencePoolV1Alpha2APIGroupName}, Resources: []string{"inferencepools", "inferenceobjectives", "inferencemodels"}, Verbs: []string{"get", "list", "watch"}},
+			{APIGroups: []string{constants.InferencePoolV1Alpha2APIGroupName}, Resources: []string{"inferencemodelrewrites", "inferencepoolimports"}, Verbs: []string{"get", "list", "watch"}},
+			{APIGroups: []string{constants.LLMDAIAPIGroupName}, Resources: []string{"inferenceobjectives", "inferencemodelrewrites"}, Verbs: []string{"get", "list", "watch"}},
 			{APIGroups: []string{"discovery.k8s.io"}, Resources: []string{"endpointslices"}, Verbs: []string{"get", "list", "watch"}},
 			{APIGroups: []string{"coordination.k8s.io"}, Resources: []string{"leases"}, Verbs: []string{"get", "list", "watch", "create", "update", "patch", "delete"}},
 		},
@@ -728,7 +818,7 @@ func (r *LLMISVCReconciler) expectedSchedulerRoleBinding(llmSvc *v1alpha2.LLMInf
 	return rb
 }
 
-func (r *LLMISVCReconciler) propagateSchedulerDeploymentStatus(ctx context.Context, expected *appsv1.Deployment, ready func(), notReady func(reason, messageFormat string, messageA ...interface{})) error {
+func (r *LLMISVCReconciler) propagateComponentDeploymentStatus(ctx context.Context, expected *appsv1.Deployment, ready func(), notReady func(reason, messageFormat string, messageA ...interface{})) error {
 	curr := &appsv1.Deployment{}
 	err := retry.OnError(retry.DefaultRetry, apierrors.IsNotFound, func() error {
 		return r.Get(ctx, client.ObjectKeyFromObject(expected), curr)
@@ -839,7 +929,7 @@ func WithUdsTokenizerConfig(_ context.Context, u *unstructured.Unstructured) err
 // WithMigrateTokenProcessorConfig migrates tokenProcessorConfig from inside
 // indexerConfig to the top level of the plugin parameters for the
 // precise-prefix-cache-scorer plugin. This handles the schema change in
-// llm-d-inference-scheduler v0.6.0 where tokenProcessorConfig was promoted
+// llm-d-router v0.6.0 where tokenProcessorConfig was promoted
 // from indexerConfig to a top-level plugin parameter.
 func WithMigrateTokenProcessorConfig(ctx context.Context, u *unstructured.Unstructured) error {
 	val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
@@ -885,7 +975,7 @@ func WithMigrateTokenProcessorConfig(ctx context.Context, u *unstructured.Unstru
 
 // WithMigrateBlockSizeToBlockSizeTokens migrates the deprecated blockSize
 // field to blockSizeTokens in the prefix-cache-scorer plugin parameters.
-// In llm-d-inference-scheduler v0.6.0 the prefix-cache-scorer plugin renamed
+// In llm-d-router v0.6.0 the prefix-cache-scorer plugin renamed
 // blockSize (characters) to blockSizeTokens (tokens). If only blockSize is
 // set the plugin refuses to start. This migration copies blockSize to
 // blockSizeTokens when blockSizeTokens is not already present.
@@ -995,8 +1085,25 @@ func WithRenamePlugin(oldType, newType string) mutateSchedulerConfigFunc {
 }
 
 // WithMigrateDisaggProfileParams migrates the disagg-profile-handler (formerly
-// pd-profile-handler) from the old flat deciderPluginName parameter to the new
-// deciders map structure introduced in llm-d-inference-scheduler v0.7.0.
+// pd-profile-handler) from the old flat deciderPluginName/threshold parameters
+// to the new deciders map structure introduced in llm-d-router v0.7.0.
+//
+// Migration paths:
+//
+//	Path A: deciderPluginName present → use that name in the deciders map, strip threshold.
+//	Path B: threshold == 0, no deciderPluginName → always-disagg-pd-decider.
+//	Path C: threshold > 0, no deciderPluginName → prefix-based-pd-decider with nonCachedTokens.
+//
+// Path C conversion rationale (threshold → nonCachedTokens):
+// In v0.6, `threshold` was the number of **non-cached characters** in the user input
+// that determined whether to disaggregate:
+//
+//	if (1.0 - hitPercentagePrefix) * len(userInput) < threshold { /* skip prefill */ }
+//
+// In v0.7, the prefix-based-pd-decider uses `nonCachedTokens` (in **tokens**, not chars).
+// The conversion uses ceil(threshold / 4) based on the empirical ~4:1 character-to-token
+// ratio for English text. Note: the original v0.6 threshold was never properly tuned
+// (per upstream feedback), so the converted value should be reviewed for each workload.
 func WithMigrateDisaggProfileParams(ctx context.Context, u *unstructured.Unstructured) error {
 	val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
 	if err != nil || !found {
@@ -1007,9 +1114,14 @@ func WithMigrateDisaggProfileParams(ctx context.Context, u *unstructured.Unstruc
 		return nil
 	}
 
-	needDeciderPluginEntry := false
+	type deciderPluginEntry struct {
+		pluginType string
+		params     map[string]interface{}
+	}
+	var deciderPluginsToInject []deciderPluginEntry
+	handlerIdx := -1 // index of the first handler; deciders must be declared before it
 
-	for _, plugin := range plugins {
+	for i, plugin := range plugins {
 		pluginMap, ok := plugin.(map[string]interface{})
 		if !ok {
 			continue
@@ -1017,6 +1129,9 @@ func WithMigrateDisaggProfileParams(ctx context.Context, u *unstructured.Unstruc
 		pluginType, _ := pluginMap["type"].(string)
 		if pluginType != "disagg-profile-handler" && pluginType != "pd-profile-handler" {
 			continue
+		}
+		if handlerIdx == -1 {
+			handlerIdx = i
 		}
 
 		// Already migrated -- nothing to do.
@@ -1043,36 +1158,73 @@ func WithMigrateDisaggProfileParams(ctx context.Context, u *unstructured.Unstruc
 			continue
 		}
 
-		// Path B: threshold:0 (no deciderPluginName) → always-disagg-pd-decider.
-		// threshold:0 means "always disaggregate", which maps directly to the
-		// always-disagg-pd-decider plugin.
 		thresholdVal, thresholdFound, _ := unstructured.NestedFieldNoCopy(pluginMap, "parameters", "threshold")
 		if !thresholdFound {
 			continue
 		}
-		if fmt.Sprintf("%v", thresholdVal) != "0" {
-			continue
+
+		if fmt.Sprintf("%v", thresholdVal) == "0" {
+			// Path B: threshold == 0 → always-disagg-pd-decider.
+			log.FromContext(ctx).Info("Migrating threshold:0 to always-disagg-pd-decider for disagg-profile-handler")
+			deciders := map[string]interface{}{
+				"prefill": "always-disagg-pd-decider",
+			}
+			if err := unstructured.SetNestedField(pluginMap, deciders, "parameters", "deciders"); err != nil {
+				return err
+			}
+			unstructured.RemoveNestedField(pluginMap, "parameters", "threshold")
+			deciderPluginsToInject = append(deciderPluginsToInject, deciderPluginEntry{pluginType: "always-disagg-pd-decider"})
+		} else {
+			// Path C: threshold > 0 → prefix-based-pd-decider with nonCachedTokens.
+			nonCachedTokens := thresholdToNonCachedTokens(thresholdVal)
+			log.FromContext(ctx).Info(
+				"Migrating non-zero threshold to prefix-based-pd-decider: "+
+					"nonCachedTokens = ceil(threshold/4) is an approximation based on ~4:1 char-to-token ratio; "+
+					"the original v0.6 threshold was never properly tuned — review nonCachedTokens for your workload",
+				"threshold", thresholdVal,
+				"nonCachedTokens", nonCachedTokens,
+			)
+			deciders := map[string]interface{}{
+				"prefill": "prefix-based-pd-decider",
+			}
+			if err := unstructured.SetNestedField(pluginMap, deciders, "parameters", "deciders"); err != nil {
+				return err
+			}
+			unstructured.RemoveNestedField(pluginMap, "parameters", "threshold")
+			deciderPluginsToInject = append(deciderPluginsToInject, deciderPluginEntry{
+				pluginType: "prefix-based-pd-decider",
+				params:     map[string]interface{}{"nonCachedTokens": nonCachedTokens},
+			})
 		}
-		log.FromContext(ctx).Info("Migrating threshold:0 to always-disagg-pd-decider for disagg-profile-handler")
-		deciders := map[string]interface{}{
-			"prefill": "always-disagg-pd-decider",
-		}
-		if err := unstructured.SetNestedField(pluginMap, deciders, "parameters", "deciders"); err != nil {
-			return err
-		}
-		unstructured.RemoveNestedField(pluginMap, "parameters", "threshold")
-		needDeciderPluginEntry = true
 	}
 
-	// Ensure the always-disagg-pd-decider plugin entry exists in the top-level
-	// plugins list when we migrated threshold:0 (the decider must be declared).
-	if needDeciderPluginEntry {
+	// Ensure each decider plugin entry exists in the top-level plugins list.
+	// Deciders must appear before the handler that references them because the
+	// GIE loader registers plugins in list order; the handler will fail with
+	// "plugin not found" if its decider has not been registered yet.
+	inserted := 0
+	for _, d := range deciderPluginsToInject {
+		alreadyExists := false
 		for _, p := range plugins {
-			if pm, ok := p.(map[string]interface{}); ok && pm["type"] == "always-disagg-pd-decider" {
-				return nil
+			if pm, ok := p.(map[string]interface{}); ok && pm["type"] == d.pluginType {
+				alreadyExists = true
+				break
 			}
 		}
-		plugins = append(plugins, map[string]interface{}{"type": "always-disagg-pd-decider"})
+		if !alreadyExists {
+			entry := map[string]interface{}{"type": d.pluginType}
+			if d.params != nil {
+				entry["parameters"] = d.params
+			}
+			idx := handlerIdx + inserted
+			plugins = append(plugins, nil)
+			copy(plugins[idx+1:], plugins[idx:])
+			plugins[idx] = entry
+			inserted++
+		}
+	}
+
+	if len(deciderPluginsToInject) > 0 {
 		if err := unstructured.SetNestedSlice(u.Object, plugins, "plugins"); err != nil {
 			return err
 		}
@@ -1081,8 +1233,32 @@ func WithMigrateDisaggProfileParams(ctx context.Context, u *unstructured.Unstruc
 	return nil
 }
 
+// thresholdToNonCachedTokens converts a v0.6 threshold (non-cached characters)
+// to the v0.7 nonCachedTokens value (tokens) using ceil(threshold / 4).
+// The 4:1 ratio is the empirical average for English text. The threshold may
+// be deserialized from YAML as int64 or float64, so both are handled.
+func thresholdToNonCachedTokens(val interface{}) int64 {
+	var f float64
+	switch v := val.(type) {
+	case float64:
+		f = v
+	case int64:
+		f = float64(v)
+	default:
+		// Best-effort parse for unexpected types (e.g. string from JSON).
+		if _, err := fmt.Sscanf(fmt.Sprintf("%v", val), "%f", &f); err != nil {
+			return 1
+		}
+	}
+	tokens := int64(math.Ceil(f / 4.0))
+	if tokens < 1 {
+		tokens = 1
+	}
+	return tokens
+}
+
 // WithRemoveHashBlockSize removes the deprecated hashBlockSize field from
-// all plugin parameters. This field was removed in llm-d-inference-scheduler v0.7.0.
+// all plugin parameters. This field was removed in llm-d-router v0.7.0.
 func WithRemoveHashBlockSize(_ context.Context, u *unstructured.Unstructured) error {
 	val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
 	if err != nil || !found {
@@ -1130,6 +1306,30 @@ var deprecatedMetricFlagNames = map[string]bool{
 	"cache-info-metric":                true,
 }
 
+// Deprecated EPP CLI flags (without leading dashes) removed in llm-d-router 0.10.
+// --model-server-metrics-scheme, --model-server-metrics-path, and --model-server-metrics-https-insecure-skip-verify
+// are superseded in EndpointPickerConfig's metrics-data-source plugin, by scheme, path, and insecureSkipVerify parameters
+// --model-server-metrics-port has no plugin parameter: the scrape port is always the InferencePool target port,
+// so the flag is only stripped, never re-injected.
+const (
+	modelServerMetricsSchemeFlag             = "model-server-metrics-scheme"
+	modelServerMetricsPathFlag               = "model-server-metrics-path"
+	modelServerMetricsPortFlag               = "model-server-metrics-port"
+	modelServerMetricsInsecureSkipVerifyFlag = "model-server-metrics-https-insecure-skip-verify"
+)
+
+var deprecatedModelServerMetricFlagNames = map[string]bool{
+	modelServerMetricsSchemeFlag:             true,
+	modelServerMetricsPathFlag:               true,
+	modelServerMetricsPortFlag:               true,
+	modelServerMetricsInsecureSkipVerifyFlag: true,
+}
+
+// metricsDataSourceMinVersion is the first llm-d-router version that removes
+// the --model-server-metrics-* flags; from this version their surviving equivalents
+// must be supplied via the metrics-data-source plugin parameters.
+var metricsDataSourceMinVersion = semver.New("0.10.0")
+
 // hasDeprecatedMetricFlags reports whether any container in the pod spec
 // carries one of the 5 deprecated metric CLI flags, without modifying args.
 func hasDeprecatedMetricFlags(d *appsv1.Deployment) bool {
@@ -1162,10 +1362,16 @@ func hasDeprecatedMetricFlags(d *appsv1.Deployment) bool {
 //  1. extractDeprecatedMetricFlags  – strip 5 CLI flags hard-rejected by GIE v1.4.0
 //  2. withMigrateDisaggHeadersHandler – rename prefill-header-handler → disagg-headers-handler
 //  3. withMigrateDisaggProfileHandler – rename pd-profile-handler → disagg-profile-handler,
-//     migrate deciderPluginName/threshold to deciders map (skipped for non-zero threshold)
+//     migrate deciderPluginName/threshold to deciders map (threshold:0 → always-disagg-pd-decider,
+//     threshold>0 → prefix-based-pd-decider with nonCachedTokens = ceil(threshold/4))
 //  4. WithRemoveHashBlockSize – drop deprecated hashBlockSize from all plugins
 //  5. withCoreMetricsExtractorPlugin – inject core-metrics-extractor with extracted flag values
-func schedulerTransform(ctx context.Context, d *appsv1.Deployment) error {
+//  6. withMigrateCoreMetricsExtractor – rename model-server-protocol-metrics → core-metrics-extractor
+//     (v0.8.0 only, runs after injection so freshly injected plugins are also renamed)
+//  7. withMetricsDataSourceParams – move --model-server-metrics-{scheme,path,
+//     https-insecure-skip-verify} into the metrics-data-source plugin parameters
+//     and strip --model-server-metrics-port (v0.10.0+, flags removed in llm-d-router)
+func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alpha2.LLMInferenceService, enableTLS bool) error {
 	version, ok := d.Spec.Template.Annotations["app.kubernetes.io/version"]
 	if !ok || version == "" {
 		version = "0.0.0"
@@ -1201,7 +1407,66 @@ func schedulerTransform(ctx context.Context, d *appsv1.Deployment) error {
 		opts = append(opts, withCoreMetricsExtractorPlugin(extracted))
 	}
 
-	return mutateSchedulerConfig(ctx, d, opts...)
+	// v0.8.0 plugin rename runs AFTER injection so freshly injected plugins
+	// (using the v0.7.x name) are also renamed to the v0.8.0+ name.
+	if v.Compare(*semver.New("0.8.0")) >= 0 {
+		opts = append(opts, withMigrateCoreMetricsExtractor)
+	}
+	if v.Compare(*semver.New("0.9.0")) >= 0 {
+		opts = append(opts, withRemovePrefixCacheScorerParametersV09)
+		opts = append(opts, withRemoveUnnecessaryTokenizer(d))
+		opts = append(opts, withMigrateLLMDAPIVersion)
+
+		// Decompose precise-prefix-cache-scorer into the 3-plugin pipeline
+		// when the standalone tokenizer is enabled. Gated to >= 0.9.0 because
+		// older EPP binaries do not recognize token-producer /
+		// precise-prefix-cache-producer plugin types.
+		if isTokenizerEnabled(llmSvc.Spec) {
+			tokURL := tokenizerServiceURL(llmSvc, enableTLS)
+			opts = append(opts, withDecomposePrecisePrefixCacheScorer(tokURL))
+			opts = append(opts, withInjectTokenProducerConfig(tokURL))
+		}
+	}
+
+	// llm-d-router v0.10.0 removes the --model-server-metrics-* flags. Stripping
+	// them from Command/Args never touches the config, so it is always safe;
+	// extractModelServerMetricsFlags does that and returns only the
+	// re-injectable values (scheme, path, insecureSkipVerify). --model-server-metrics-port
+	// has no plugin parameter, so it is dropped in place and never appears here.
+	// Re-injecting the surviving values requires a writable inline config-text;
+	// abort only in that case so their values are not silently lost.
+	// Extraction runs before the writable check so --model-server-metrics-port is
+	// always stripped; on the error path d is discarded, so the early mutation is safe.
+	if v.Compare(*metricsDataSourceMinVersion) >= 0 {
+		if params := extractModelServerMetricsFlags(ctx, d); len(params) > 0 {
+			if !writable {
+				flags := make([]string, 0, len(params))
+				for name := range params {
+					flags = append(flags, "--"+name)
+				}
+				sort.Strings(flags)
+				return fmt.Errorf(
+					"scheduler deployment %s/%s sets deprecated %s "+
+						"but has no inline --config-text; automatic migration to the "+
+						"metrics-data-source plugin is not possible — convert to --config-text "+
+						"or remove the flags manually",
+					d.GetNamespace(), d.GetName(), strings.Join(flags, ", "),
+				)
+			}
+			parameters, err := metricsDataSourceParameters(params)
+			if err != nil {
+				return err
+			}
+			if len(parameters) > 0 {
+				opts = append(opts, withMetricsDataSourceParams(parameters))
+			}
+		}
+	}
+
+	if err := mutateSchedulerConfig(ctx, d, opts...); err != nil {
+		return fmt.Errorf("failed to mutate config: %w", err)
+	}
+	return nil
 }
 
 // withMigrateDisaggHeadersHandler renames the prefill-header-handler plugin to
@@ -1210,19 +1475,341 @@ func withMigrateDisaggHeadersHandler(ctx context.Context, u *unstructured.Unstru
 	return WithRenamePlugin("prefill-header-handler", "disagg-headers-handler")(ctx, u)
 }
 
-// withMigrateDisaggProfileHandler renames the pd-profile-handler plugin to
-// disagg-profile-handler and migrates its parameters from the flat
-// deciderPluginName to the new deciders map (v0.7.0 rename + restructure).
-//
-// If the profile handler has a non-zero threshold value, the entire migration
-// is skipped (no rename, no param change) because there is no clean v0.7
-// equivalent for arbitrary threshold values. The v0.7 binary still accepts
-// the old pd-profile-handler + threshold as a deprecated alias.
-func withMigrateDisaggProfileHandler(ctx context.Context, u *unstructured.Unstructured) error {
-	if hasNonZeroThreshold(u) {
-		log.FromContext(ctx).Info("Skipping disagg-profile-handler migration: non-zero threshold has no v0.7 equivalent")
+// withMigrateLLMDAPIVersion rewrites the deprecated EndpointPickerConfig
+// apiVersion inference.networking.x-k8s.io/v1alpha1 to llm-d.ai/v1alpha1, which
+// is the apiVersion accepted by the scheduler binary from v0.9.0 onward.
+func withMigrateLLMDAPIVersion(_ context.Context, u *unstructured.Unstructured) error {
+	if u.GetAPIVersion() == "inference.networking.x-k8s.io/v1alpha1" {
+		u.SetAPIVersion("llm-d.ai/v1alpha1")
+	}
+	return nil
+}
+
+// withMigrateCoreMetricsExtractor renames the model-server-protocol-metrics
+// plugin to core-metrics-extractor (v0.8.0 rename in GIE v1.5.0).
+func withMigrateCoreMetricsExtractor(ctx context.Context, u *unstructured.Unstructured) error {
+	return WithRenamePlugin(coreMetricsExtractorPlugin, coreMetricsExtractorPluginRenamed)(ctx, u)
+}
+
+// withRemovePrefixCacheScorerParametersV09 removes all parameters from the
+// prefix-cache-scorer plugin except prefixMatchInfoProducerName.
+func withRemovePrefixCacheScorerParametersV09(ctx context.Context, u *unstructured.Unstructured) error {
+	val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
+	if err != nil || !found {
+		return err
+	}
+	plugins, ok := val.([]interface{})
+	if !ok {
 		return nil
 	}
+
+	for _, plugin := range plugins {
+		pluginMap, ok := plugin.(map[string]interface{})
+		if !ok || pluginMap["type"] != prefixCacheScorerPlugin {
+			continue
+		}
+
+		params, found, _ := unstructured.NestedFieldNoCopy(pluginMap, "parameters")
+		if !found {
+			continue
+		}
+		paramsMap, ok := params.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		for key := range paramsMap {
+			if key != "prefixMatchInfoProducerName" {
+				log.FromContext(ctx).V(2).Info("Removing deprecated prefix-cache-scorer parameter", "key", key)
+				delete(paramsMap, key)
+			}
+		}
+
+		if len(paramsMap) == 0 {
+			delete(pluginMap, "parameters")
+		}
+	}
+
+	return nil
+}
+
+func withRemoveUnnecessaryTokenizer(d *appsv1.Deployment) mutateSchedulerConfigFunc {
+	return func(ctx context.Context, u *unstructured.Unstructured) error {
+		val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
+		if err != nil || !found {
+			return err
+		}
+		plugins, ok := val.([]interface{})
+		if !ok {
+			return nil
+		}
+
+		hasPrecisePrefix := false
+		for _, plugin := range plugins {
+			pluginMap, ok := plugin.(map[string]interface{})
+			if ok && pluginMap["type"] == precisePrefixCacheScorerPlugin {
+				hasPrecisePrefix = true
+				break
+			}
+		}
+		if !hasPrecisePrefix {
+			for i := range d.Spec.Template.Spec.Containers {
+				if d.Spec.Template.Spec.Containers[i].Name == tokenizerContainerName {
+					d.Spec.Template.Spec.Containers = append(d.Spec.Template.Spec.Containers[:i], d.Spec.Template.Spec.Containers[i+1:]...)
+					break
+				}
+			}
+		}
+
+		return nil
+	}
+}
+
+// migrateProducerParams extracts parameters from the old monolithic
+// precise-prefix-cache-scorer plugin and returns them in a form suitable for
+// the new precise-prefix-cache-producer. Two keys are cleaned from
+// indexerConfig: tokenizersPoolConfig (tokenization is now served by the
+// standalone token-producer) and tokenProcessorConfig (promoted to the
+// top-level parameters where the new producer expects it; older versions
+// of kvcache.Config accepted it inside indexerConfig, but the current
+// version does not and silently ignores it).
+func migrateProducerParams(oldPlugin map[string]interface{}) map[string]interface{} {
+	params, ok := oldPlugin["parameters"].(map[string]interface{})
+	if !ok || len(params) == 0 {
+		return nil
+	}
+
+	migrated := make(map[string]interface{}, len(params))
+
+	for k, v := range params {
+		if k == "indexerConfig" {
+			if ic, ok := v.(map[string]interface{}); ok {
+				cleaned := make(map[string]interface{}, len(ic))
+				for ik, iv := range ic {
+					if ik == "tokenizersPoolConfig" {
+						continue
+					}
+					if ik == "tokenProcessorConfig" {
+						if _, exists := params["tokenProcessorConfig"]; !exists {
+							migrated["tokenProcessorConfig"] = iv
+						}
+						continue
+					}
+					cleaned[ik] = iv
+				}
+				if len(cleaned) > 0 {
+					migrated[k] = cleaned
+				}
+			}
+			continue
+		}
+		migrated[k] = v
+	}
+	if len(migrated) == 0 {
+		return nil
+	}
+	return migrated
+}
+
+// withInjectTokenProducerConfig ensures any existing token-producer plugin in
+// the config has modelName and vllm.url set to the standalone tokenizer
+// Service. This handles the clean-path case where the user declares
+// token-producer in inline config without parameters — the controller fills
+// in the connection details for the managed tokenizer deployment.
+func withInjectTokenProducerConfig(tokenizerURL string) mutateSchedulerConfigFunc {
+	return func(_ context.Context, u *unstructured.Unstructured) error {
+		val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
+		if err != nil || !found {
+			return err
+		}
+		plugins, ok := val.([]interface{})
+		if !ok {
+			return nil
+		}
+
+		for _, plugin := range plugins {
+			pluginMap, ok := plugin.(map[string]interface{})
+			if !ok || pluginMap["type"] != tokenProducerPlugin {
+				continue
+			}
+
+			params, _ := pluginMap["parameters"].(map[string]interface{})
+			if params == nil {
+				params = make(map[string]interface{})
+				pluginMap["parameters"] = params
+			}
+			if _, ok := params["modelName"]; !ok {
+				params["modelName"] = tokenizerModelName
+			}
+			vllmParams, _ := params["vllm"].(map[string]interface{})
+			if vllmParams == nil {
+				vllmParams = make(map[string]interface{})
+				params["vllm"] = vllmParams
+			}
+			if _, ok := vllmParams["url"]; !ok {
+				vllmParams["url"] = tokenizerURL
+			}
+		}
+		return nil
+	}
+}
+
+// withDecomposePrecisePrefixCacheScorer replaces the monolithic precise-prefix-cache-scorer
+// plugin with the new 3-plugin pipeline: token-producer, precise-prefix-cache-producer,
+// and prefix-cache-scorer. The token-producer is wired to the standalone tokenizer
+// Service URL, and prefix-cache-scorer gets prefixMatchInfoProducerName set.
+// User-specified parameters (tokenProcessorConfig, kvEventsConfig,
+// indexerConfig.kvBlockIndexConfig) are preserved on the producer plugin;
+// only tokenizersPoolConfig is dropped (handled by token-producer over HTTP).
+func withDecomposePrecisePrefixCacheScorer(tokenizerURL string) mutateSchedulerConfigFunc {
+	return func(ctx context.Context, u *unstructured.Unstructured) error {
+		val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
+		if err != nil || !found {
+			return err
+		}
+		plugins, ok := val.([]interface{})
+		if !ok {
+			return nil
+		}
+
+		idx := -1
+		for i, plugin := range plugins {
+			pluginMap, ok := plugin.(map[string]interface{})
+			if ok && pluginMap["type"] == precisePrefixCacheScorerPlugin {
+				idx = i
+				break
+			}
+		}
+		if idx < 0 {
+			return nil
+		}
+
+		log.FromContext(ctx).Info("Decomposing precise-prefix-cache-scorer into 3-plugin pipeline",
+			"tokenizerURL", tokenizerURL)
+
+		// Extract the old plugin's parameters so they can be migrated to
+		// the new precise-prefix-cache-producer. Parameters like
+		// tokenProcessorConfig, kvEventsConfig, and indexerConfig belong
+		// on the producer; only tokenizersPoolConfig is removed because
+		// tokenization is now handled by the standalone token-producer.
+		oldPlugin := plugins[idx].(map[string]interface{})
+		producerParams := migrateProducerParams(oldPlugin)
+
+		producerPlugin := map[string]interface{}{
+			"type": precisePrefixCacheProducerPlugin,
+		}
+		if len(producerParams) > 0 {
+			producerPlugin["parameters"] = producerParams
+		}
+
+		newPlugins := []interface{}{
+			map[string]interface{}{
+				"type": tokenProducerPlugin,
+				"parameters": map[string]interface{}{
+					"modelName": tokenizerModelName,
+					"vllm": map[string]interface{}{
+						"url": tokenizerURL,
+					},
+				},
+			},
+			producerPlugin,
+			map[string]interface{}{
+				"type": prefixCacheScorerPlugin,
+				"parameters": map[string]interface{}{
+					"prefixMatchInfoProducerName": precisePrefixCacheProducerPlugin,
+				},
+			},
+		}
+
+		// Remove any existing prefix-cache-scorer to avoid duplicates after
+		// the decomposed pipeline injects its own prefix-cache-scorer.
+		remaining := make([]interface{}, 0, len(plugins))
+		for i, plugin := range plugins {
+			if i == idx {
+				continue
+			}
+			pluginMap, ok := plugin.(map[string]interface{})
+			if ok && pluginMap["type"] == prefixCacheScorerPlugin {
+				continue
+			}
+			remaining = append(remaining, plugin)
+		}
+
+		result := make([]interface{}, 0, len(remaining)+len(newPlugins))
+		// Find where the old precise-prefix-cache-scorer was (before any
+		// removals shifted indices) and insert the new plugins there.
+		insertIdx := idx
+		if insertIdx > len(remaining) {
+			insertIdx = len(remaining)
+		}
+		result = append(result, remaining[:insertIdx]...)
+		result = append(result, newPlugins...)
+		result = append(result, remaining[insertIdx:]...)
+		if err := unstructured.SetNestedSlice(u.Object, result, "plugins"); err != nil {
+			return fmt.Errorf("failed to set decomposed plugins: %w", err)
+		}
+
+		// Update schedulingProfiles: rename precise-prefix-cache-scorer refs
+		// and deduplicate any existing prefix-cache-scorer refs.
+		profiles, found, err := unstructured.NestedFieldNoCopy(u.Object, "schedulingProfiles")
+		if err != nil || !found {
+			return err
+		}
+		if profileList, ok := profiles.([]interface{}); ok {
+			for _, profile := range profileList {
+				profileMap, ok := profile.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				pluginRefs, found, _ := unstructured.NestedFieldNoCopy(profileMap, "plugins")
+				if !found {
+					continue
+				}
+				refList, ok := pluginRefs.([]interface{})
+				if !ok {
+					continue
+				}
+
+				// First pass: rename precise-prefix-cache-scorer → prefix-cache-scorer
+				for _, ref := range refList {
+					refMap, ok := ref.(map[string]interface{})
+					if !ok {
+						continue
+					}
+					if refMap["pluginRef"] == precisePrefixCacheScorerPlugin {
+						refMap["pluginRef"] = prefixCacheScorerPlugin
+					}
+				}
+
+				// Second pass: deduplicate prefix-cache-scorer refs
+				seen := false
+				deduped := make([]interface{}, 0, len(refList))
+				for _, ref := range refList {
+					refMap, ok := ref.(map[string]interface{})
+					if ok && refMap["pluginRef"] == prefixCacheScorerPlugin {
+						if seen {
+							continue
+						}
+						seen = true
+					}
+					deduped = append(deduped, ref)
+				}
+				profileMap["plugins"] = deduped
+			}
+		}
+
+		return nil
+	}
+}
+
+// withMigrateDisaggProfileHandler renames the pd-profile-handler plugin to
+// disagg-profile-handler and migrates its parameters from the flat
+// deciderPluginName/threshold to the new deciders map (v0.7.0 rename + restructure).
+//
+// All threshold values are now migrated:
+//   - threshold: 0 → always-disagg-pd-decider
+//   - threshold > 0 → prefix-based-pd-decider with nonCachedTokens = ceil(threshold/4)
+func withMigrateDisaggProfileHandler(ctx context.Context, u *unstructured.Unstructured) error {
 	for _, fn := range []mutateSchedulerConfigFunc{
 		WithRenamePlugin("pd-profile-handler", "disagg-profile-handler"),
 		WithMigrateDisaggProfileParams,
@@ -1232,44 +1819,6 @@ func withMigrateDisaggProfileHandler(ctx context.Context, u *unstructured.Unstru
 		}
 	}
 	return nil
-}
-
-// hasNonZeroThreshold returns true if the EndpointPickerConfig contains a
-// profile handler plugin with a non-zero threshold and no deciders map.
-// Such configs have no clean v0.7 equivalent; the v0.7 binary still accepts
-// them as deprecated, so we leave them untouched to avoid partial migrations.
-func hasNonZeroThreshold(u *unstructured.Unstructured) bool {
-	val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
-	if err != nil || !found {
-		return false
-	}
-	plugins, ok := val.([]interface{})
-	if !ok {
-		return false
-	}
-	for _, plugin := range plugins {
-		pluginMap, ok := plugin.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		pluginType, _ := pluginMap["type"].(string)
-		if pluginType != "disagg-profile-handler" && pluginType != "pd-profile-handler" {
-			continue
-		}
-		// Already migrated to deciders map -- not a legacy threshold config.
-		if _, exists, _ := unstructured.NestedFieldNoCopy(pluginMap, "parameters", "deciders"); exists {
-			return false
-		}
-		thresholdVal, thresholdFound, _ := unstructured.NestedFieldNoCopy(pluginMap, "parameters", "threshold")
-		if !thresholdFound {
-			return false
-		}
-		// threshold:0 is semantically "always disaggregate" and can be migrated.
-		if fmt.Sprintf("%v", thresholdVal) != "0" {
-			return true
-		}
-	}
-	return false
 }
 
 // extractDeprecatedMetricFlags strips the 5 metric CLI flags that GIE v1.4.0
@@ -1290,6 +1839,37 @@ func extractDeprecatedMetricFlags(d *appsv1.Deployment) map[string]string {
 		}
 	}
 	return allExtracted
+}
+
+// extractModelServerMetricsFlags strips the deprecated --model-server-metrics-*
+// flags from every container's Command and Args and returns the re-injectable
+// values keyed by flag name. The scheduler preset carries the flags on Command,
+// but a user-supplied SchedulerSpec.Template may place them on Args instead;
+// both work on the old image (kube concatenates Command+Args) but are rejected
+// by llm-d-router v0.10.0, so both lists must be scrubbed. --model-server-metrics-port
+// has no plugin parameter: it is stripped and logged, never returned.
+func extractModelServerMetricsFlags(ctx context.Context, d *appsv1.Deployment) map[string]string {
+	params := map[string]string{}
+	for ci := range d.Spec.Template.Spec.Containers {
+		c := &d.Spec.Template.Spec.Containers[ci]
+		if filtered, extracted := filterArgs(c.Command, deprecatedModelServerMetricFlagNames); len(extracted) > 0 {
+			c.Command = filtered
+			maps.Copy(params, extracted)
+		}
+		if filtered, extracted := filterArgs(c.Args, deprecatedModelServerMetricFlagNames); len(extracted) > 0 {
+			c.Args = filtered
+			maps.Copy(params, extracted)
+		}
+	}
+	// remove port flag to keep other 3 flags if were set
+	if port, ok := params[modelServerMetricsPortFlag]; ok {
+		log.FromContext(ctx).Info(
+			"Dropped --model-server-metrics-port; llm-d-router v0.10.0 scrapes metrics "+
+				"on the InferencePool target port", "droppedPort", port,
+		)
+		delete(params, modelServerMetricsPortFlag)
+	}
+	return params
 }
 
 // filterArgs removes matching flags from args and returns their values.
@@ -1343,7 +1923,7 @@ func withCoreMetricsExtractorPlugin(extracted map[string]string) mutateScheduler
 
 		for _, plugin := range plugins {
 			pluginMap, ok := plugin.(map[string]interface{})
-			if ok && pluginMap["type"] == coreMetricsExtractorPlugin {
+			if ok && (pluginMap["type"] == coreMetricsExtractorPlugin || pluginMap["type"] == coreMetricsExtractorPluginRenamed) {
 				return nil
 			}
 		}
@@ -1367,6 +1947,62 @@ func withCoreMetricsExtractorPlugin(extracted map[string]string) mutateScheduler
 					engineConfig,
 				},
 			},
+		}
+
+		plugins = append(plugins, pluginEntry)
+		return unstructured.SetNestedSlice(u.Object, plugins, "plugins")
+	}
+}
+
+// metricsDataSourceParameters converts the extracted --model-server-metrics-*
+// flag values into metrics-data-source plugin parameters, validating them.
+// A bare --model-server-metrics-https-insecure-skip-verify (empty value) means true;
+// any other value must parse as a boolean, matching the router's flag parsing.
+// Empty scheme/path values are dropped; the returned map may be empty.
+func metricsDataSourceParameters(extracted map[string]string) (map[string]interface{}, error) {
+	parameters := map[string]interface{}{}
+	if scheme := extracted[modelServerMetricsSchemeFlag]; scheme != "" {
+		parameters["scheme"] = scheme
+	}
+	if p := extracted[modelServerMetricsPathFlag]; p != "" {
+		parameters["path"] = p
+	}
+	if v, ok := extracted[modelServerMetricsInsecureSkipVerifyFlag]; ok {
+		if v == "" {
+			parameters["insecureSkipVerify"] = true
+		} else {
+			b, err := strconv.ParseBool(v)
+			if err != nil {
+				return nil, fmt.Errorf("invalid value %q for --%s: %w", v, modelServerMetricsInsecureSkipVerifyFlag, err)
+			}
+			parameters["insecureSkipVerify"] = b
+		}
+	}
+	return parameters, nil
+}
+
+// withMetricsDataSourceParams returns a mutateSchedulerConfigFunc that injects a
+// metrics-data-source plugin carrying the given parameters (scheme, path, and
+// insecureSkipVerify) previously passed via the --model-server-metrics-* CLI flags.
+// Callers pass a non-empty, already-validated parameter map (see
+// metricsDataSourceParameters). No-op if a metrics-data-source plugin is already declared.
+func withMetricsDataSourceParams(parameters map[string]interface{}) mutateSchedulerConfigFunc {
+	return func(_ context.Context, u *unstructured.Unstructured) error {
+		val, _, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
+		if err != nil {
+			return err
+		}
+		plugins, _ := val.([]interface{})
+
+		for _, plugin := range plugins {
+			if pluginMap, ok := plugin.(map[string]interface{}); ok && pluginMap["type"] == metricsDataSourcePlugin {
+				return nil
+			}
+		}
+
+		pluginEntry := map[string]interface{}{
+			"type":       metricsDataSourcePlugin,
+			"parameters": parameters,
 		}
 
 		plugins = append(plugins, pluginEntry)
@@ -1419,10 +2055,34 @@ func semanticRoleBindingIsEqual(expected *rbacv1.RoleBinding, curr *rbacv1.RoleB
 		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
 }
 
+func schedulerDeploymentName(llmSvc *v1alpha2.LLMInferenceService) string {
+	return kmeta.ChildName(llmSvc.GetName(), "-kserve-router-scheduler")
+}
+
+func hasManagedScheduler(llmSvc *v1alpha2.LLMInferenceService) bool {
+	return llmSvc.Spec.Router != nil &&
+		llmSvc.Spec.Router.Scheduler != nil &&
+		llmSvc.Spec.Router.Scheduler.Template != nil &&
+		!llmSvc.Spec.Router.Scheduler.Pool.HasRef()
+}
+
 func SchedulerLabels(llmSvc *v1alpha2.LLMInferenceService) map[string]string {
 	return map[string]string{
 		constants.KubernetesComponentLabelKey: constants.LLMComponentRouterScheduler,
 		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
 		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
+	}
+}
+
+// setRoutingPoolStatus writes the InferencePool and EPP Service refs into status.router.
+// If status.router has not yet been created from routing discovery, it is intentionally
+// not initialised to avoid marking routing as populated without gateway information.
+func setRoutingPoolStatus(llmSvc *v1alpha2.LLMInferenceService, pool, svc gwapiv1.ObjectReference) {
+	if llmSvc.Status.Router == nil {
+		return
+	}
+	llmSvc.Status.Router.Scheduler = &v1alpha2.ObservedSchedulerStatus{
+		InferencePool: &pool,
+		Service:       &svc,
 	}
 }

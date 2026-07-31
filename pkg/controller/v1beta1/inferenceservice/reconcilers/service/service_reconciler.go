@@ -185,6 +185,9 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 		service.Spec.ClusterIP = corev1.ClusterIPNone
 	}
 
+	// Allow platform-specific customization of the service (e.g. annotations, port overrides).
+	customizeService(service, componentMeta)
+
 	return service
 }
 
@@ -227,6 +230,10 @@ func createHeadlessSvc(componentMeta metav1.ObjectMeta) *corev1.Service {
 			PublishNotReadyAddresses: true,
 		},
 	}
+
+	// Allow platform-specific customization (e.g. TLS annotations for the head service).
+	customizeHeadSvc(service, predictorSvcName)
+
 	return service
 }
 

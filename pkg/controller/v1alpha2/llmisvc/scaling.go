@@ -22,13 +22,15 @@ import (
 	"strconv"
 
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
-	wvav1alpha1 "github.com/llm-d/llm-d-workload-variant-autoscaler/api/v1alpha1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmeta"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
@@ -41,84 +43,102 @@ const (
 	wvaDesiredReplicasMetricName = "wva_desired_replicas"
 	variantNameLabelKey          = "variant_name"
 	acceleratorNameLabelKey      = "inference.optimization/acceleratorName"
+
+	// WVA annotation-based discovery annotations (matching WVA internal/annotations/annotations.go).
+	// WVA discovers HPAs/ScaledObjects bearing these annotations and synthesizes in-memory
+	// VariantAutoscaling objects from them, eliminating the need for a separate VA CRD.
+	wvaManagedAnnotation     = "llm-d.ai/managed"
+	wvaModelIDAnnotation     = "llm-d.ai/model-id"
+	wvaVariantCostAnnotation = "llm-d.ai/variant-cost"
 )
 
-// reconcileScaling manages the autoscaling resources (VariantAutoscaling + HPA or KEDA ScaledObject)
-// for the LLM workload. When scaling is configured, it creates a VariantAutoscaling CR for WVA to
-// compute desired replicas and an actuator (HPA or KEDA ScaledObject) to enforce them.
+// reconcileScaling manages the autoscaling actuators (HPA or KEDA ScaledObject) for the LLM workload.
+// Each actuator carries WVA discovery annotations (llm-d.ai/managed, llm-d.ai/model-id) so that
+// WVA discovers it, synthesizes an in-memory VariantAutoscaling, and emits wva_desired_replicas.
 // When scaling is removed (or the workload is stopped), it cleans up any existing autoscaling resources.
-//
-// A missing scaling CRD (NoMatchError) is treated as a hard failure: the LLMInferenceService is
-// misconfigured and reconciliation of remaining resources is blocked until the CRD is installed.
 func (r *LLMISVCReconciler) reconcileScaling(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
 	logger := log.FromContext(ctx).WithName("reconcileScaling")
 	ctx = log.IntoContext(ctx, logger)
 
-	if err := r.reconcileMainWorkloadScaling(ctx, llmSvc, config); err != nil {
+	if err := r.reconcileWorkloadScaling(ctx, llmSvc, config, mainWorkloadScalingParams(llmSvc)); err != nil {
 		return fmt.Errorf("failed to reconcile main workload scaling: %w", err)
 	}
 
-	if err := r.reconcilePrefillWorkloadScaling(ctx, llmSvc, config); err != nil {
+	if err := r.reconcileWorkloadScaling(ctx, llmSvc, config, prefillWorkloadScalingParams(llmSvc)); err != nil {
 		return fmt.Errorf("failed to reconcile prefill workload scaling: %w", err)
 	}
 
 	return nil
 }
 
-// reconcileMainWorkloadScaling handles scaling for the main (decode) workload.
-func (r *LLMISVCReconciler) reconcileMainWorkloadScaling(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
-	scaleTargetRef := mainScaleTargetRef(llmSvc)
-	vaName := mainVAName(llmSvc)
-	scaling := llmSvc.Spec.Scaling
-
-	if err := r.reconcileVA(ctx, llmSvc, scaling, scaleTargetRef, vaName, llmSvc.Spec.Labels); err != nil {
-		return fmt.Errorf("failed to reconcile main VA: %w", err)
-	}
-
-	if err := r.reconcileActuator(ctx, llmSvc, scaling, config, scaleTargetRef, vaName, mainHPAName(llmSvc), mainScaledObjectName(llmSvc)); err != nil {
-		return fmt.Errorf("failed to reconcile main actuator: %w", err)
-	}
-
-	return nil
+// workloadScalingParams captures the per-workload differences between main and prefill
+// scaling so that reconcileWorkloadScaling can handle both without duplication.
+type workloadScalingParams struct {
+	name             string
+	scaling          *v1alpha2.ScalingSpec
+	scaleTargetRef   autoscalingv2.CrossVersionObjectReference
+	hpaName          string
+	scaledObjectName string
+	workloadLabels   map[string]string
+	markReady        func()
+	markNotReady     func(reason, messageFormat string, messageA ...interface{})
+	markUnset        func()
 }
 
-// reconcilePrefillWorkloadScaling handles scaling for the prefill workload in disaggregated deployments.
-func (r *LLMISVCReconciler) reconcilePrefillWorkloadScaling(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
+func mainWorkloadScalingParams(llmSvc *v1alpha2.LLMInferenceService) workloadScalingParams {
+	return workloadScalingParams{
+		name:             "main",
+		scaling:          llmSvc.Spec.Scaling,
+		scaleTargetRef:   mainScaleTargetRef(llmSvc),
+		hpaName:          mainHPAName(llmSvc),
+		scaledObjectName: mainScaledObjectName(llmSvc),
+		workloadLabels:   llmSvc.Spec.Labels,
+		markReady:        llmSvc.MarkScalingReady,
+		markNotReady:     llmSvc.MarkScalingNotReady,
+		markUnset:        llmSvc.MarkScalingUnset,
+	}
+}
+
+func prefillWorkloadScalingParams(llmSvc *v1alpha2.LLMInferenceService) workloadScalingParams {
 	var scaling *v1alpha2.ScalingSpec
+	var labels map[string]string
 	if llmSvc.Spec.Prefill != nil {
 		scaling = llmSvc.Spec.Prefill.Scaling
+		labels = llmSvc.Spec.Prefill.Labels
+	}
+	return workloadScalingParams{
+		name:             "prefill",
+		scaling:          scaling,
+		scaleTargetRef:   prefillScaleTargetRef(llmSvc),
+		hpaName:          prefillHPAName(llmSvc),
+		scaledObjectName: prefillScaledObjectName(llmSvc),
+		workloadLabels:   labels,
+		markReady:        llmSvc.MarkPrefillScalingReady,
+		markNotReady:     llmSvc.MarkPrefillScalingNotReady,
+		markUnset:        llmSvc.MarkPrefillScalingUnset,
+	}
+}
+
+// reconcileWorkloadScaling reconciles the scaling actuator and propagates status for a single
+// workload (main or prefill). The actuator (HPA or ScaledObject) carries WVA discovery
+// annotations so WVA can synthesize an in-memory VA without a separate CRD.
+func (r *LLMISVCReconciler) reconcileWorkloadScaling(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config, p workloadScalingParams) error {
+	if err := r.reconcileActuator(ctx, llmSvc, p.scaling, config, p.scaleTargetRef, p.hpaName, p.scaledObjectName, p.workloadLabels); err != nil {
+		return fmt.Errorf("failed to reconcile %s actuator: %w", p.name, err)
 	}
 
-	scaleTargetRef := prefillScaleTargetRef(llmSvc)
-	vaName := prefillVAName(llmSvc)
-
-	var prefillLabels map[string]string
-	if llmSvc.Spec.Prefill != nil {
-		prefillLabels = llmSvc.Spec.Prefill.Labels
-	}
-
-	if err := r.reconcileVA(ctx, llmSvc, scaling, scaleTargetRef, vaName, prefillLabels); err != nil {
-		return fmt.Errorf("failed to reconcile prefill VA: %w", err)
-	}
-
-	if err := r.reconcileActuator(ctx, llmSvc, scaling, config, scaleTargetRef, vaName, prefillHPAName(llmSvc), prefillScaledObjectName(llmSvc)); err != nil {
-		return fmt.Errorf("failed to reconcile prefill actuator: %w", err)
-	}
-
-	return nil
+	return r.propagateScalingStatus(ctx, llmSvc, p.scaling, p.hpaName, p.scaledObjectName, p.markReady, p.markNotReady, p.markUnset)
 }
 
 // reconcileHPA creates or updates an HPA for the workload, or deletes it when not needed.
-// The HPA reads wva_desired_replicas via the Kubernetes external metrics API, which requires
-// a Prometheus Adapter to be pre-installed in the cluster. The controller cannot validate
-// whether the Prometheus Adapter is present or correctly configured — if it is missing,
-// the HPA will silently enter an Unknown state and stop scaling.
-func (r *LLMISVCReconciler) reconcileHPA(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, isStopped bool, scaleTargetRef autoscalingv2.CrossVersionObjectReference, vaName, hpaName string) error {
+// The HPA carries WVA discovery annotations and reads wva_desired_replicas via the Kubernetes
+// external metrics API, which requires a Prometheus Adapter to be pre-installed in the cluster.
+func (r *LLMISVCReconciler) reconcileHPA(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, isStopped bool, scaleTargetRef autoscalingv2.CrossVersionObjectReference, hpaName string, workloadLabels map[string]string) error {
 	if scaling == nil || scaling.WVA == nil || isStopped || scaling.WVA.HPA == nil {
 		return r.deleteHPAIfExists(ctx, llmSvc, hpaName)
 	}
 
-	expected := expectedHPA(llmSvc, scaling, scaleTargetRef, vaName, hpaName)
+	expected := expectedHPA(llmSvc, scaling, scaleTargetRef, hpaName, workloadLabels)
 	return Reconcile(ctx, r, llmSvc, &autoscalingv2.HorizontalPodAutoscaler{}, expected, semanticHPAIsEqual)
 }
 
@@ -134,21 +154,24 @@ func (r *LLMISVCReconciler) deleteHPAIfExists(ctx context.Context, llmSvc *v1alp
 }
 
 // expectedHPA constructs the desired HPA resource from the LLMISVC scaling spec.
-// vaName is used as the metric selector label because WVA emits wva_desired_replicas keyed by VA name.
+// The HPA carries WVA discovery annotations so WVA synthesizes an in-memory VA from it.
+// The metric selector uses hpaName as variant_name because WVA uses the HPA's own name
+// as the synthetic VA name when emitting wva_desired_replicas.
 //
 // The HPA uses an external metric (wva_desired_replicas) with target=1 so that it acts as a
 // direct actuator for WVA's decisions rather than an independent scaling algorithm.
-// WVA computes and publishes the desired replica count; HPA reads it and enforces it on the workload.
-func expectedHPA(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, scaleTargetRef autoscalingv2.CrossVersionObjectReference, vaName, hpaName string) *autoscalingv2.HorizontalPodAutoscaler {
-	labels := scalingLabels(llmSvc)
+func expectedHPA(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, scaleTargetRef autoscalingv2.CrossVersionObjectReference, hpaName string, workloadLabels map[string]string) *autoscalingv2.HorizontalPodAutoscaler {
+	labels := wvaLabels(llmSvc, workloadLabels)
+	annotations := wvaAnnotations(llmSvc, scaling)
 
 	minReplicas := ptr.To(ptr.Deref(scaling.MinReplicas, 1))
 
 	hpa := &autoscalingv2.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      hpaName,
-			Namespace: llmSvc.GetNamespace(),
-			Labels:    labels,
+			Name:        hpaName,
+			Namespace:   llmSvc.GetNamespace(),
+			Labels:      labels,
+			Annotations: annotations,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
 			},
@@ -165,15 +188,10 @@ func expectedHPA(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.Scaling
 							Name: wvaDesiredReplicasMetricName,
 							Selector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
-									variantNameLabelKey: vaName,
+									variantNameLabelKey: hpaName,
 								},
 							},
 						},
-						// Target is set to 1 with ValueMetricType so HPA computes:
-						//   desired_replicas = ceil(wva_desired_replicas / 1) = wva_desired_replicas
-						// This makes HPA a pass-through: it blindly follows the absolute replica count
-						// emitted by WVA, rather than doing its own scaling arithmetic.
-						// WVA is the sole source of scaling decisions; HPA is purely the enforcement layer.
 						Target: autoscalingv2.MetricTarget{
 							Type:  autoscalingv2.ValueMetricType,
 							Value: resource.NewQuantity(1, resource.DecimalSI),
@@ -192,14 +210,117 @@ func expectedHPA(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.Scaling
 }
 
 // reconcileActuator reconciles the scaling actuators (HPA, KEDA ScaledObject) for the workload.
-func (r *LLMISVCReconciler) reconcileActuator(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, config *Config, scaleTargetRef autoscalingv2.CrossVersionObjectReference, vaName, hpaName, scaledObjectName string) error {
+func (r *LLMISVCReconciler) reconcileActuator(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, config *Config, scaleTargetRef autoscalingv2.CrossVersionObjectReference, hpaName, scaledObjectName string, workloadLabels map[string]string) error {
 	isStopped := utils.GetForceStopRuntime(llmSvc)
 
-	if err := r.reconcileKEDAScaledObject(ctx, llmSvc, scaling, isStopped, config, scaleTargetRef, vaName, scaledObjectName); err != nil {
+	if err := r.reconcileKEDAScaledObject(ctx, llmSvc, scaling, isStopped, config, scaleTargetRef, scaledObjectName, workloadLabels); err != nil {
 		return err
 	}
 
-	return r.reconcileHPA(ctx, llmSvc, scaling, isStopped, scaleTargetRef, vaName, hpaName)
+	return r.reconcileHPA(ctx, llmSvc, scaling, isStopped, scaleTargetRef, hpaName, workloadLabels)
+}
+
+// propagateScalingStatus determines which actuator is active and propagates its status.
+// When no scaling is configured (or the service is stopped), the condition is cleared.
+func (r *LLMISVCReconciler) propagateScalingStatus(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, hpaName, scaledObjectName string, ready func(), notReady func(reason, messageFormat string, messageA ...interface{}), unset func()) error {
+	isStopped := utils.GetForceStopRuntime(llmSvc)
+
+	if scaling == nil || scaling.WVA == nil || isStopped {
+		unset()
+		return nil
+	}
+
+	if scaling.WVA.HPA != nil {
+		expected := &autoscalingv2.HorizontalPodAutoscaler{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      hpaName,
+				Namespace: llmSvc.GetNamespace(),
+			},
+		}
+		return r.propagateHPAStatus(ctx, expected, ready, notReady)
+	}
+
+	if scaling.WVA.KEDA != nil {
+		expected := &kedav1alpha1.ScaledObject{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      scaledObjectName,
+				Namespace: llmSvc.GetNamespace(),
+			},
+		}
+		return r.propagateScaledObjectStatus(ctx, expected, ready, notReady)
+	}
+
+	unset()
+	return nil
+}
+
+// propagateHPAStatus reads the live HPA status and maps its conditions to a ScalingReady
+// condition on the LLMInferenceService. AbleToScale=False or ScalingActive=False means the
+// metrics pipeline is broken and sets ScalingReady=False.
+func (r *LLMISVCReconciler) propagateHPAStatus(ctx context.Context, expected *autoscalingv2.HorizontalPodAutoscaler, ready func(), notReady func(reason, messageFormat string, messageA ...interface{})) error {
+	curr := &autoscalingv2.HorizontalPodAutoscaler{}
+	if err := r.Get(ctx, client.ObjectKeyFromObject(expected), curr); err != nil {
+		if apierrors.IsNotFound(err) {
+			notReady("HPAProgressing", "HPA not yet visible in cache")
+			return nil
+		}
+		return fmt.Errorf("failed to get current HPA %s/%s: %w", expected.GetNamespace(), expected.GetName(), err)
+	}
+
+	foundAny := false
+
+	for _, cond := range curr.Status.Conditions {
+		switch cond.Type {
+		case autoscalingv2.AbleToScale, autoscalingv2.ScalingActive:
+			foundAny = true
+			if cond.Status == corev1.ConditionFalse {
+				notReady(cond.Reason, cond.Message)
+				return nil
+			}
+		}
+	}
+
+	if !foundAny {
+		notReady("HPAProgressing", "HPA conditions not yet available")
+		return nil
+	}
+
+	ready()
+	return nil
+}
+
+// propagateScaledObjectStatus reads the live KEDA ScaledObject status and maps its conditions
+// to a ScalingReady condition on the LLMInferenceService. Ready=False means a trigger/config
+// issue and sets ScalingReady=False.
+func (r *LLMISVCReconciler) propagateScaledObjectStatus(ctx context.Context, expected *kedav1alpha1.ScaledObject, ready func(), notReady func(reason, messageFormat string, messageA ...interface{})) error {
+	curr := &kedav1alpha1.ScaledObject{}
+	if err := r.Get(ctx, client.ObjectKeyFromObject(expected), curr); err != nil {
+		if apierrors.IsNotFound(err) {
+			notReady("ScaledObjectProgressing", "ScaledObject not yet visible in cache")
+			return nil
+		}
+		return fmt.Errorf("failed to get current ScaledObject %s/%s: %w", expected.GetNamespace(), expected.GetName(), err)
+	}
+
+	conditions := curr.Status.Conditions
+	if conditions == nil || !conditions.AreInitialized() {
+		notReady("ScaledObjectProgressing", "ScaledObject conditions not yet available")
+		return nil
+	}
+
+	readyCond := conditions.GetReadyCondition()
+	if readyCond.Status == metav1.ConditionFalse {
+		notReady(readyCond.Reason, readyCond.Message)
+		return nil
+	}
+
+	if readyCond.Status != metav1.ConditionTrue {
+		notReady("ScaledObjectProgressing", "ScaledObject is not yet ready")
+		return nil
+	}
+
+	ready()
+	return nil
 }
 
 // validateAutoscalingConfig checks that the WVAAutoscalingConfig is valid for use with KEDA.
@@ -217,7 +338,8 @@ func validateAutoscalingConfig(cfg *WVAAutoscalingConfig) error {
 }
 
 // reconcileKEDAScaledObject creates or updates a KEDA ScaledObject, or deletes it when not needed.
-func (r *LLMISVCReconciler) reconcileKEDAScaledObject(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, isStopped bool, config *Config, scaleTargetRef autoscalingv2.CrossVersionObjectReference, vaName, scaledObjectName string) error {
+// The ScaledObject carries WVA discovery annotations for annotation-based VA synthesis.
+func (r *LLMISVCReconciler) reconcileKEDAScaledObject(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, isStopped bool, config *Config, scaleTargetRef autoscalingv2.CrossVersionObjectReference, scaledObjectName string, workloadLabels map[string]string) error {
 	if scaling == nil || scaling.WVA == nil || isStopped || scaling.WVA.KEDA == nil {
 		return r.deleteScaledObjectIfExists(ctx, llmSvc, scaledObjectName)
 	}
@@ -226,7 +348,7 @@ func (r *LLMISVCReconciler) reconcileKEDAScaledObject(ctx context.Context, llmSv
 		return err
 	}
 
-	expected := expectedScaledObject(llmSvc, scaling, config, scaleTargetRef, vaName, scaledObjectName)
+	expected := expectedScaledObject(llmSvc, scaling, config, scaleTargetRef, scaledObjectName, workloadLabels)
 	return Reconcile(ctx, r, llmSvc, &kedav1alpha1.ScaledObject{}, expected, semanticScaledObjectIsEqual,
 		PreserveKEDAManagedMetadata(),
 	)
@@ -244,27 +366,26 @@ func (r *LLMISVCReconciler) deleteScaledObjectIfExists(ctx context.Context, llmS
 }
 
 // expectedScaledObject constructs the desired KEDA ScaledObject from the LLMISVC scaling spec.
-// The Prometheus server address and TLS settings come from the controller config (inferenceservice-config ConfigMap).
-func expectedScaledObject(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, config *Config, scaleTargetRef autoscalingv2.CrossVersionObjectReference, vaName, scaledObjectName string) *kedav1alpha1.ScaledObject {
-	labels := scalingLabels(llmSvc)
-	keda := scaling.WVA.KEDA
+// The ScaledObject carries WVA discovery annotations for annotation-based VA synthesis.
+// The Prometheus query uses scaledObjectName as variant_name because WVA uses the ScaledObject's
+// own name as the synthetic VA name when emitting wva_desired_replicas.
+func expectedScaledObject(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, config *Config, scaleTargetRef autoscalingv2.CrossVersionObjectReference, scaledObjectName string, workloadLabels map[string]string) *kedav1alpha1.ScaledObject {
+	labels := wvaLabels(llmSvc, workloadLabels)
+	annotations := wvaAnnotations(llmSvc, scaling)
 
+	keda := scaling.WVA.KEDA
 	minReplicas := ptr.To(ptr.Deref(scaling.MinReplicas, 1))
 
-	// variant_name matches the VariantAutoscaling CR name, which WVA uses as a label when emitting wva_desired_replicas.
-	// exported_namespace is used instead of namespace because Prometheus renames the namespace label emitted by WVA
-	// to exported_namespace during scraping — this happens because namespace is a Prometheus-reserved label that
-	// Prometheus itself sets to the scrape target's namespace (the WVA controller namespace). WVA's original
-	// namespace label (the workload namespace) is therefore preserved under the exported_namespace name.
-	// The VariantAutoscaling CR always lives in the same namespace as the LLMInferenceService, so llmSvc.GetNamespace()
-	// is the correct value to filter on.
-	query := fmt.Sprintf(`wva_desired_replicas{variant_name="%s",exported_namespace="%s"}`, vaName, llmSvc.GetNamespace())
+	// exported_namespace is used instead of namespace because Prometheus renames the namespace
+	// label emitted by WVA to exported_namespace during scraping.
+	query := fmt.Sprintf(`wva_desired_replicas{variant_name="%s",exported_namespace="%s"}`, scaledObjectName, llmSvc.GetNamespace())
 
 	so := &kedav1alpha1.ScaledObject{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      scaledObjectName,
-			Namespace: llmSvc.GetNamespace(),
-			Labels:    labels,
+			Name:        scaledObjectName,
+			Namespace:   llmSvc.GetNamespace(),
+			Labels:      labels,
+			Annotations: annotations,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
 			},
@@ -323,79 +444,6 @@ func prometheusTrigger(cfg *WVAAutoscalingConfig, query string) kedav1alpha1.Sca
 	return trigger
 }
 
-// reconcileVA creates, updates, or deletes a VariantAutoscaling CR based on the scaling configuration.
-// The VA tells the WVA controller to compute wva_desired_replicas for this workload.
-// workloadLabels are the labels from the WorkloadSpec for the specific workload (decode or prefill).
-func (r *LLMISVCReconciler) reconcileVA(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, scaleTargetRef autoscalingv2.CrossVersionObjectReference, vaName string, workloadLabels map[string]string) error {
-	isStopped := utils.GetForceStopRuntime(llmSvc)
-
-	if scaling == nil || scaling.WVA == nil || isStopped {
-		return r.deleteVAIfExists(ctx, llmSvc, vaName)
-	}
-
-	expected := expectedVA(llmSvc, scaling, scaleTargetRef, vaName, workloadLabels)
-	return Reconcile(ctx, r, llmSvc, &wvav1alpha1.VariantAutoscaling{}, expected, semanticVAIsEqual)
-}
-
-// deleteVAIfExists deletes the VariantAutoscaling if it exists.
-func (r *LLMISVCReconciler) deleteVAIfExists(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, vaName string) error {
-	va := &wvav1alpha1.VariantAutoscaling{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      vaName,
-			Namespace: llmSvc.GetNamespace(),
-		},
-	}
-	return Delete(ctx, r, llmSvc, va)
-}
-
-// expectedVA constructs the desired VariantAutoscaling resource from the LLMISVC spec.
-// workloadLabels are the labels from the WorkloadSpec for the specific workload (decode or prefill).
-// If the workload labels contain inference.optimization/acceleratorName, that value is propagated
-// to the VA label. Otherwise the label is set to "unknown".
-func expectedVA(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, scaleTargetRef autoscalingv2.CrossVersionObjectReference, vaName string, workloadLabels map[string]string) *wvav1alpha1.VariantAutoscaling {
-	labels := scalingLabels(llmSvc)
-	accelerator := "unknown"
-	if val, ok := workloadLabels[acceleratorNameLabelKey]; ok && val != "" {
-		accelerator = val
-	}
-	labels[acceleratorNameLabelKey] = accelerator
-
-	modelID := llmSvc.Spec.Model.URI.String()
-	if llmSvc.Spec.Model.Name != nil {
-		modelID = *llmSvc.Spec.Model.Name
-	}
-
-	minReplicas := ptr.To(ptr.Deref(scaling.MinReplicas, 1))
-
-	va := &wvav1alpha1.VariantAutoscaling{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      vaName,
-			Namespace: llmSvc.GetNamespace(),
-			Labels:    labels,
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
-			},
-		},
-		Spec: wvav1alpha1.VariantAutoscalingSpec{
-			ScaleTargetRef: scaleTargetRef,
-			ModelID:        modelID,
-			MinReplicas:    minReplicas,
-			MaxReplicas:    scaling.MaxReplicas,
-			VariantAutoscalingConfigSpec: wvav1alpha1.VariantAutoscalingConfigSpec{
-				VariantCost: scaling.WVA.VariantCost,
-			},
-		},
-	}
-
-	return va
-}
-
-func semanticVAIsEqual(expected, curr *wvav1alpha1.VariantAutoscaling) bool {
-	return equality.Semantic.DeepEqual(expected.Spec, curr.Spec) &&
-		equality.Semantic.DeepEqual(expected.Labels, curr.Labels) &&
-		equality.Semantic.DeepEqual(expected.Annotations, curr.Annotations)
-}
-
 func semanticHPAIsEqual(expected, curr *autoscalingv2.HorizontalPodAutoscaler) bool {
 	return equality.Semantic.DeepEqual(expected.Spec, curr.Spec) &&
 		equality.Semantic.DeepEqual(expected.Labels, curr.Labels) &&
@@ -440,6 +488,34 @@ func scalingLabels(llmSvc *v1alpha2.LLMInferenceService) map[string]string {
 	}
 }
 
+// wvaLabels builds the label set for an HPA or ScaledObject, including the
+// standard scaling labels and the accelerator name from workload labels.
+func wvaLabels(llmSvc *v1alpha2.LLMInferenceService, workloadLabels map[string]string) map[string]string {
+	labels := scalingLabels(llmSvc)
+	accelerator := "unknown"
+	if val, ok := workloadLabels[acceleratorNameLabelKey]; ok && val != "" {
+		accelerator = val
+	}
+	labels[acceleratorNameLabelKey] = accelerator
+	return labels
+}
+
+// wvaAnnotations builds the WVA discovery annotations for an HPA or ScaledObject.
+func wvaAnnotations(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec) map[string]string {
+	modelID := llmSvc.Spec.Model.URI.String()
+	if llmSvc.Spec.Model.Name != nil {
+		modelID = *llmSvc.Spec.Model.Name
+	}
+	annotations := map[string]string{
+		wvaManagedAnnotation: "true",
+		wvaModelIDAnnotation: modelID,
+	}
+	if scaling.WVA.VariantCost != "" {
+		annotations[wvaVariantCostAnnotation] = scaling.WVA.VariantCost
+	}
+	return annotations
+}
+
 func mainScaleTargetRef(llmSvc *v1alpha2.LLMInferenceService) autoscalingv2.CrossVersionObjectReference {
 	if llmSvc.Spec.Worker != nil {
 		return autoscalingv2.CrossVersionObjectReference{
@@ -476,14 +552,6 @@ func mainHPAName(llmSvc *v1alpha2.LLMInferenceService) string {
 
 func prefillHPAName(llmSvc *v1alpha2.LLMInferenceService) string {
 	return kmeta.ChildName(llmSvc.GetName(), "-kserve-prefill-hpa")
-}
-
-func mainVAName(llmSvc *v1alpha2.LLMInferenceService) string {
-	return kmeta.ChildName(llmSvc.GetName(), "-kserve-va")
-}
-
-func prefillVAName(llmSvc *v1alpha2.LLMInferenceService) string {
-	return kmeta.ChildName(llmSvc.GetName(), "-kserve-prefill-va")
 }
 
 func mainScaledObjectName(llmSvc *v1alpha2.LLMInferenceService) string {

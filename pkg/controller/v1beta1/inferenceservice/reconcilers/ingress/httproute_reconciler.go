@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -104,7 +105,7 @@ func getRawServiceHost(isvc *v1beta1.InferenceService) string {
 		transformerName := constants.TransformerServiceName(isvc.Name)
 		return network.GetServiceHostname(transformerName, isvc.Namespace)
 	}
-	predictorName := constants.PredictorServiceName(isvc.Name)
+	predictorName := constants.PredictorServiceName(isvc.Name, isvc.Spec.Predictor.Name)
 	return network.GetServiceHostname(predictorName, isvc.Namespace)
 }
 
@@ -262,13 +263,16 @@ func createRawPredictorHTTPRoute(ctx context.Context, client client.Client, isvc
 		})
 		return nil, nil
 	}
-	predictorName := constants.PredictorServiceName(isvc.Name)
+	// The route name and hostname use a stable name (without predictor.name) so
+	// they don't change on canary promotion. Backend refs use the actual service name.
+	routeName := constants.PredictorServiceName(isvc.Name)
+	predictorName := constants.PredictorServiceName(isvc.Name, isvc.Spec.Predictor.Name)
 
 	// Add isvc name and namespace headers
 	filters := []gwapiv1.HTTPRouteFilter{addIsvcHeaders(isvc.Name, isvc.Namespace)}
 
 	// Add predictor host rules
-	predictorHost, err := GenerateDomainName(predictorName, isvc.ObjectMeta, ingressConfig)
+	predictorHost, err := GenerateDomainName(routeName, isvc.ObjectMeta, ingressConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate predictor ingress host: %w", err)
 	}
@@ -305,7 +309,7 @@ func createRawPredictorHTTPRoute(ctx context.Context, client client.Client, isvc
 	gatewaySlice := strings.Split(ingressConfig.KserveIngressGateway, "/")
 	httpRoute := gwapiv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        constants.PredictorServiceName(isvc.Name),
+			Name:        routeName,
 			Namespace:   isvc.Namespace,
 			Annotations: annotations,
 			Labels:      labels,
@@ -324,6 +328,9 @@ func createRawPredictorHTTPRoute(ctx context.Context, client client.Client, isvc
 				},
 			},
 		},
+	}
+	if len(isvc.Spec.Canary) > 0 {
+		applyCanaryWeights(isvc, &httpRoute)
 	}
 	return &httpRoute, nil
 }
@@ -501,7 +508,7 @@ func createRawTopLevelHTTPRoute(ctx context.Context, client client.Client, isvc 
 		})
 		return nil, nil
 	}
-	predictorName := constants.PredictorServiceName(isvc.Name)
+	predictorName := constants.PredictorServiceName(isvc.Name, isvc.Spec.Predictor.Name)
 	transformerName := constants.TransformerServiceName(isvc.Name)
 	explainerName := constants.ExplainerServiceName(isvc.Name)
 
@@ -668,13 +675,77 @@ func createRawTopLevelHTTPRoute(ctx context.Context, client client.Client, isvc 
 			},
 		},
 	}
+	if len(isvc.Spec.Canary) > 0 {
+		applyCanaryWeights(isvc, &httpRoute)
+	}
 	return &httpRoute, nil
 }
 
+// applyCanaryWeights modifies the HTTPRoute's backend refs to include weighted
+// backends for canary traffic splitting.
+func applyCanaryWeights(isvc *v1beta1.InferenceService, httpRoute *gwapiv1.HTTPRoute) {
+	var totalCanaryPercent int32
+	for _, canary := range isvc.Spec.Canary {
+		totalCanaryPercent += canary.TrafficPercent
+	}
+	stableWeight := int32(100) - totalCanaryPercent
+
+	for i := range httpRoute.Spec.Rules {
+		rule := &httpRoute.Spec.Rules[i]
+		if len(rule.BackendRefs) == 0 {
+			continue
+		}
+
+		template := rule.BackendRefs[0]
+		weightedBackends := make([]gwapiv1.HTTPBackendRef, 0, 1+len(isvc.Spec.Canary))
+
+		sw := stableWeight
+		stable := gwapiv1.HTTPBackendRef{
+			BackendRef: gwapiv1.BackendRef{
+				BackendObjectReference: template.BackendObjectReference,
+				Weight:                 &sw,
+			},
+		}
+		weightedBackends = append(weightedBackends, stable)
+
+		for _, canary := range isvc.Spec.Canary {
+			canaryServiceName := constants.PredictorServiceName(isvc.Name, canary.Predictor.Name)
+			cw := canary.TrafficPercent
+			backend := gwapiv1.HTTPBackendRef{
+				BackendRef: gwapiv1.BackendRef{
+					BackendObjectReference: gwapiv1.BackendObjectReference{
+						Kind:      template.Kind,
+						Name:      gwapiv1.ObjectName(canaryServiceName),
+						Namespace: template.Namespace,
+						Port:      template.Port,
+					},
+					Weight: &cw,
+				},
+			}
+			weightedBackends = append(weightedBackends, backend)
+		}
+
+		rule.BackendRefs = weightedBackends
+	}
+}
+
 func semanticHttpRouteEquals(desired, existing *gwapiv1.HTTPRoute) bool {
-	return equality.Semantic.DeepDerivative(desired.Spec, existing.Spec) &&
-		equality.Semantic.DeepDerivative(desired.Labels, existing.Labels) &&
-		equality.Semantic.DeepDerivative(desired.Annotations, existing.Annotations)
+	if !equality.Semantic.DeepDerivative(desired.Labels, existing.Labels) ||
+		!equality.Semantic.DeepDerivative(desired.Annotations, existing.Annotations) {
+		return false
+	}
+	// DeepDerivative treats missing fields as matching, so a single unweighted
+	// backend is seen as a subset of two weighted backends. Compare backend ref
+	// counts explicitly to detect canary addition/removal.
+	if len(desired.Spec.Rules) != len(existing.Spec.Rules) {
+		return false
+	}
+	for i := range desired.Spec.Rules {
+		if len(desired.Spec.Rules[i].BackendRefs) != len(existing.Spec.Rules[i].BackendRefs) {
+			return false
+		}
+	}
+	return equality.Semantic.DeepDerivative(desired.Spec, existing.Spec)
 }
 
 // isHTTPRouteReady checks if the HTTPRoute is ready. If not, returns the reason and message.
@@ -991,7 +1062,7 @@ func (r *RawHTTPRouteReconciler) reconcileHTTPRouteStatus(ctx context.Context, i
 					Reason:  check.component + " Deployment NotReady",
 					Message: check.component + " HTTPRoute not created",
 				})
-				return ctrl.Result{Requeue: true}, nil
+				return ctrl.Result{RequeueAfter: time.Second}, nil
 			}
 			// Return any other errors
 			return ctrl.Result{}, err
@@ -1006,7 +1077,7 @@ func (r *RawHTTPRouteReconciler) reconcileHTTPRouteStatus(ctx context.Context, i
 				Reason:  *reason,
 				Message: fmt.Sprintf("%s %s", check.component, *message),
 			})
-			return ctrl.Result{Requeue: true}, nil
+			return ctrl.Result{RequeueAfter: time.Second}, nil
 		}
 	}
 
@@ -1058,7 +1129,7 @@ func (r *RawHTTPRouteReconciler) Reconcile(ctx context.Context, isvc *v1beta1.In
 		}
 
 		// Check HTTPRoute statuses for all components
-		if result, err := r.reconcileHTTPRouteStatus(ctx, isvc); err != nil || result.Requeue {
+		if result, err := r.reconcileHTTPRouteStatus(ctx, isvc); err != nil || result.RequeueAfter > 0 {
 			return result, err
 		}
 	} else {

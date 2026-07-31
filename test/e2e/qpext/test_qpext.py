@@ -1,3 +1,17 @@
+# Copyright 2022 The KServe Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,7 +53,7 @@ METRICS_PATH = "metrics"
 
 
 @pytest.mark.asyncio(scope="session")
-async def test_qpext_kserve(rest_v2_client):
+async def test_qpext_kserve(rest_v2_client, network_layer):
     # test the qpext using the sklearn predictor
     service_name = "sklearn-v2-metrics"
     protocol_version = "v2"
@@ -91,6 +105,7 @@ async def test_qpext_kserve(rest_v2_client):
         rest_v2_client,
         service_name,
         "./data/iris_input_v2.json",
+        network_layer=network_layer,
     )
     assert res.outputs[0].data == [1, 1]
 

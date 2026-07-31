@@ -2511,7 +2511,7 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 		reconciler := NewRawHTTPRouteReconciler(client, s, ingressConfig, isvcConfig)
 		result, err := reconciler.Reconcile(t.Context(), isvc)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(result.Requeue).To(BeTrue())
+		g.Expect(result.RequeueAfter).To(BeNumerically(">", 0))
 		cond := isvc.Status.GetCondition(v1beta1.IngressReady)
 		g.Expect(cond).NotTo(BeNil())
 		g.Expect(cond.Status).To(Equal(corev1.ConditionFalse))
@@ -2573,7 +2573,7 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 		reconciler := NewRawHTTPRouteReconciler(client, s, ingressConfig, isvcConfig)
 		result, err := reconciler.Reconcile(t.Context(), isvc)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(result.Requeue).To(BeTrue())
+		g.Expect(result.RequeueAfter).To(BeNumerically(">", 0))
 		cond := isvc.Status.GetCondition(v1beta1.IngressReady)
 		g.Expect(cond).NotTo(BeNil())
 		g.Expect(cond.Status).To(Equal(corev1.ConditionFalse))
@@ -2639,7 +2639,7 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 		result, err := reconciler.Reconcile(t.Context(), isvc)
 		g.Expect(err).ToNot(HaveOccurred())
 		// HTTPRoutes get updated by reconciler which resets their status, causing requeue
-		g.Expect(result.Requeue).To(BeTrue())
+		g.Expect(result.RequeueAfter).To(BeNumerically(">", 0))
 		cond := isvc.Status.GetCondition(v1beta1.IngressReady)
 		g.Expect(cond).NotTo(BeNil())
 		g.Expect(cond.Status).To(Equal(corev1.ConditionFalse))
@@ -2666,7 +2666,7 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 		reconciler := NewRawHTTPRouteReconciler(client, s, ingressConfig, isvcConfig)
 		result, err := reconciler.Reconcile(t.Context(), isvc)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(result.Requeue).To(BeTrue())
+		g.Expect(result.RequeueAfter).To(BeNumerically(">", 0))
 		cond := isvc.Status.GetCondition(v1beta1.IngressReady)
 		g.Expect(cond).NotTo(BeNil())
 		g.Expect(cond.Status).To(Equal(corev1.ConditionFalse))
@@ -2733,7 +2733,7 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 		reconciler := NewRawHTTPRouteReconciler(client, s, ingressConfig, isvcConfig)
 		result, err := reconciler.Reconcile(t.Context(), isvc)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(result.Requeue).To(BeTrue())
+		g.Expect(result.RequeueAfter).To(BeNumerically(">", 0))
 		cond := isvc.Status.GetCondition(v1beta1.IngressReady)
 		g.Expect(cond).NotTo(BeNil())
 		g.Expect(cond.Status).To(Equal(corev1.ConditionFalse))
@@ -2880,7 +2880,7 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 		reconciler := NewRawHTTPRouteReconciler(client, s, ingressConfig, isvcConfig)
 		result, err := reconciler.Reconcile(t.Context(), isvc)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(result.Requeue).To(BeTrue())
+		g.Expect(result.RequeueAfter).To(BeNumerically(">", 0))
 		cond := isvc.Status.GetCondition(v1beta1.IngressReady)
 		g.Expect(cond).NotTo(BeNil())
 		g.Expect(cond.Status).To(Equal(corev1.ConditionFalse))
@@ -3006,7 +3006,7 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 		reconciler := NewRawHTTPRouteReconciler(client, s, ingressConfig, isvcConfig)
 		result, err := reconciler.Reconcile(t.Context(), isvc)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(result.Requeue).To(BeTrue())
+		g.Expect(result.RequeueAfter).To(BeNumerically(">", 0))
 		cond := isvc.Status.GetCondition(v1beta1.IngressReady)
 		g.Expect(cond).NotTo(BeNil())
 		g.Expect(cond.Status).To(Equal(corev1.ConditionFalse))
@@ -3101,7 +3101,7 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 		reconciler := NewRawHTTPRouteReconciler(client, s, ingressConfig, isvcConfig)
 		result, err := reconciler.Reconcile(t.Context(), isvc)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(result.Requeue).To(BeTrue())
+		g.Expect(result.RequeueAfter).To(BeNumerically(">", 0))
 		cond := isvc.Status.GetCondition(v1beta1.IngressReady)
 		g.Expect(cond).NotTo(BeNil())
 		g.Expect(cond.Status).To(Equal(corev1.ConditionFalse))
@@ -3266,7 +3266,6 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 		reconciler := NewRawHTTPRouteReconciler(client, s, ingressConfig, isvcConfig)
 		result, err := reconciler.Reconcile(t.Context(), isvc)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(result.Requeue).To(BeFalse())
 		g.Expect(result.RequeueAfter).To(BeZero())
 		cond := isvc.Status.GetCondition(v1beta1.IngressReady)
 		g.Expect(cond).NotTo(BeNil())
@@ -3315,7 +3314,7 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 		reconciler := NewRawHTTPRouteReconciler(interceptorClient, s, ingressConfig, isvcConfig)
 		result, err := reconciler.Reconcile(t.Context(), isvc)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(result.Requeue).To(BeTrue())
+		g.Expect(result.RequeueAfter).To(BeNumerically(">", 0))
 
 		cond := isvc.Status.GetCondition(v1beta1.IngressReady)
 		g.Expect(cond).NotTo(BeNil())
@@ -3460,5 +3459,181 @@ func TestCreateRawPredictorHTTPRouteDisableTimeout(t *testing.T) {
 			g.Expect(rule.Timeouts).ToNot(BeNil(), "expected Timeouts to be set when DisableHTTPRouteTimeout is false")
 			g.Expect(rule.Timeouts.Request).To(BeComparableTo(DefaultTimeout))
 		}
+	})
+}
+
+func TestApplyCanaryWeights(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	t.Run("single canary", func(t *testing.T) {
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-model", Namespace: "default"},
+			Spec: v1beta1.InferenceServiceSpec{
+				Canary: []v1beta1.CanarySpec{
+					{
+						TrafficPercent: 20,
+						Predictor:      v1beta1.PredictorSpec{Name: "v2"},
+					},
+				},
+			},
+		}
+		httpRoute := &gwapiv1.HTTPRoute{
+			Spec: gwapiv1.HTTPRouteSpec{
+				Rules: []gwapiv1.HTTPRouteRule{
+					{
+						BackendRefs: []gwapiv1.HTTPBackendRef{
+							{
+								BackendRef: gwapiv1.BackendRef{
+									BackendObjectReference: gwapiv1.BackendObjectReference{
+										Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
+										Name:      "my-model-predictor",
+										Namespace: (*gwapiv1.Namespace)(ptr.To("default")),
+										Port:      ptr.To(int32(80)),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		applyCanaryWeights(isvc, httpRoute)
+
+		backends := httpRoute.Spec.Rules[0].BackendRefs
+		g.Expect(backends).To(HaveLen(2))
+		g.Expect(*backends[0].Weight).To(Equal(int32(80)))
+		g.Expect(string(backends[0].Name)).To(Equal("my-model-predictor"))
+		g.Expect(*backends[1].Weight).To(Equal(int32(20)))
+		g.Expect(string(backends[1].Name)).To(Equal("my-model-v2-predictor"))
+	})
+
+	t.Run("multiple canaries", func(t *testing.T) {
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-model", Namespace: "default"},
+			Spec: v1beta1.InferenceServiceSpec{
+				Canary: []v1beta1.CanarySpec{
+					{TrafficPercent: 20, Predictor: v1beta1.PredictorSpec{Name: "v2"}},
+					{TrafficPercent: 30, Predictor: v1beta1.PredictorSpec{Name: "v3"}},
+				},
+			},
+		}
+		httpRoute := &gwapiv1.HTTPRoute{
+			Spec: gwapiv1.HTTPRouteSpec{
+				Rules: []gwapiv1.HTTPRouteRule{
+					{
+						BackendRefs: []gwapiv1.HTTPBackendRef{
+							{BackendRef: gwapiv1.BackendRef{
+								BackendObjectReference: gwapiv1.BackendObjectReference{
+									Kind: ptr.To(gwapiv1.Kind(constants.ServiceKind)),
+									Name: "my-model-predictor",
+									Port: ptr.To(int32(80)),
+								},
+							}},
+						},
+					},
+				},
+			},
+		}
+
+		applyCanaryWeights(isvc, httpRoute)
+
+		backends := httpRoute.Spec.Rules[0].BackendRefs
+		g.Expect(backends).To(HaveLen(3))
+		g.Expect(*backends[0].Weight).To(Equal(int32(50)))
+		g.Expect(*backends[1].Weight).To(Equal(int32(20)))
+		g.Expect(string(backends[1].Name)).To(Equal("my-model-v2-predictor"))
+		g.Expect(*backends[2].Weight).To(Equal(int32(30)))
+		g.Expect(string(backends[2].Name)).To(Equal("my-model-v3-predictor"))
+	})
+
+	t.Run("dual-protocol rules", func(t *testing.T) {
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-model", Namespace: "default"},
+			Spec: v1beta1.InferenceServiceSpec{
+				Canary: []v1beta1.CanarySpec{
+					{TrafficPercent: 25, Predictor: v1beta1.PredictorSpec{Name: "v2"}},
+				},
+			},
+		}
+		httpRoute := &gwapiv1.HTTPRoute{
+			Spec: gwapiv1.HTTPRouteSpec{
+				Rules: []gwapiv1.HTTPRouteRule{
+					{BackendRefs: []gwapiv1.HTTPBackendRef{
+						{BackendRef: gwapiv1.BackendRef{BackendObjectReference: gwapiv1.BackendObjectReference{
+							Name: "my-model-predictor", Port: ptr.To(int32(9090)),
+						}}},
+					}},
+					{BackendRefs: []gwapiv1.HTTPBackendRef{
+						{BackendRef: gwapiv1.BackendRef{BackendObjectReference: gwapiv1.BackendObjectReference{
+							Name: "my-model-predictor", Port: ptr.To(int32(80)),
+						}}},
+					}},
+				},
+			},
+		}
+
+		applyCanaryWeights(isvc, httpRoute)
+
+		// Both rules should get canary backends
+		for _, rule := range httpRoute.Spec.Rules {
+			g.Expect(rule.BackendRefs).To(HaveLen(2))
+			g.Expect(*rule.BackendRefs[0].Weight).To(Equal(int32(75)))
+			g.Expect(*rule.BackendRefs[1].Weight).To(Equal(int32(25)))
+		}
+	})
+
+	t.Run("skips rules with no backends", func(t *testing.T) {
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-model"},
+			Spec: v1beta1.InferenceServiceSpec{
+				Canary: []v1beta1.CanarySpec{
+					{TrafficPercent: 10, Predictor: v1beta1.PredictorSpec{Name: "v2"}},
+				},
+			},
+		}
+		httpRoute := &gwapiv1.HTTPRoute{
+			Spec: gwapiv1.HTTPRouteSpec{
+				Rules: []gwapiv1.HTTPRouteRule{
+					{BackendRefs: nil},
+				},
+			},
+		}
+
+		applyCanaryWeights(isvc, httpRoute)
+		g.Expect(httpRoute.Spec.Rules[0].BackendRefs).To(BeNil())
+	})
+}
+
+func TestSemanticHttpRouteEquals_BackendRefCount(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	makeRoute := func(backendCount int) *gwapiv1.HTTPRoute {
+		backends := make([]gwapiv1.HTTPBackendRef, backendCount)
+		for i := range backends {
+			w := int32(100 / backendCount) //nolint:gosec // test-only, backendCount is always small
+			backends[i] = gwapiv1.HTTPBackendRef{
+				BackendRef: gwapiv1.BackendRef{
+					BackendObjectReference: gwapiv1.BackendObjectReference{
+						Name: gwapiv1.ObjectName("svc"),
+						Port: ptr.To(int32(80)),
+					},
+					Weight: &w,
+				},
+			}
+		}
+		return &gwapiv1.HTTPRoute{
+			Spec: gwapiv1.HTTPRouteSpec{
+				Rules: []gwapiv1.HTTPRouteRule{{BackendRefs: backends}},
+			},
+		}
+	}
+
+	t.Run("different backend count is not equal", func(t *testing.T) {
+		g.Expect(semanticHttpRouteEquals(makeRoute(1), makeRoute(2))).To(BeFalse())
+	})
+
+	t.Run("same backend count is equal", func(t *testing.T) {
+		g.Expect(semanticHttpRouteEquals(makeRoute(2), makeRoute(2))).To(BeTrue())
 	})
 }
