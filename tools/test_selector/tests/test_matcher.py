@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import argparse
 import json
-import subprocess
-import sys
+from pathlib import Path
 
 import pytest
 
+from test_selector.cli import cmd_learn, cmd_query
 from test_selector.selector.matcher import expression_matches, extract_positive_markers
 
 
@@ -261,55 +262,44 @@ def test_ci_expressions(expr: str, selected: set[str], expected: bool) -> None:
 # -- --match-jobs CLI output ---------------------------------------------------
 
 
-def _repo_root() -> str:
-    """Find the repo root for subprocess tests."""
-    from pathlib import Path
-
+def _repo_root() -> Path:
+    """Find the repo root."""
     here = Path(__file__).resolve()
     for parent in here.parents:
         if (parent / "go.mod").exists():
-            return str(parent)
+            return parent
     pytest.skip("repo root not found")
 
 
-def test_match_jobs_output() -> None:
-    """Verify --match-jobs prints job=true/false lines to stdout."""
+@pytest.fixture(scope="module")
+def learned_repo() -> Path:
+    """Run learn once for the module and return the repo root."""
     repo = _repo_root()
+    args = argparse.Namespace(repo=str(repo))
+    cmd_learn(args)
+    return repo
+
+
+def test_match_jobs_output(
+    learned_repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Verify --match-jobs prints job=true/false lines to stdout."""
     jobs = {
         "predictor": "predictor",
         "autoscaling": "autoscaling and not llminferenceservice",
         "llmisvc-core": "llminferenceservice and llmisvc_core and cluster_cpu",
     }
-    env = {**__import__("os").environ, "PYTHONPATH": f"{repo}/tools"}
-    learn = subprocess.run(
-        [sys.executable, "-m", "test_selector", "--repo", repo, "learn"],
-        capture_output=True,
-        text=True,
-        cwd=repo,
-        env=env,
+    args = argparse.Namespace(
+        repo=str(learned_repo),
+        changed_files=["python/sklearnserver/setup.py"],
+        match=None,
+        match_jobs=json.dumps(jobs),
+        format="json",
     )
-    assert learn.returncode == 0, learn.stderr
+    cmd_query(args)
 
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "test_selector",
-            "--repo",
-            repo,
-            "query",
-            "--match-jobs",
-            json.dumps(jobs),
-            "--changed-files",
-            "python/sklearnserver/setup.py",
-        ],
-        capture_output=True,
-        text=True,
-        cwd=repo,
-        env=env,
-    )
-    assert result.returncode == 0, result.stderr
-    lines = result.stdout.strip().splitlines()
+    captured = capsys.readouterr()
+    lines = captured.out.strip().splitlines()
     parsed = dict(line.split("=", 1) for line in lines)
     assert set(parsed.keys()) == {"predictor", "autoscaling", "llmisvc-core"}
     assert parsed["predictor"] == "true"
