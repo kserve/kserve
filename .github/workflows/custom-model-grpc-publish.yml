@@ -31,6 +31,7 @@ jobs:
   # See also https://docs.docker.com/docker-hub/builds/automated-testing/
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout source
@@ -60,6 +61,7 @@ jobs:
           context: python
           file: python/custom_model_grpc.Dockerfile
           push: false
+            timeout-minutes: 10
           # https://github.com/docker/buildx/issues/1533
           provenance: false
 

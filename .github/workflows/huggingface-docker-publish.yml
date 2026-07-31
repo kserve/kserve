@@ -34,6 +34,7 @@ jobs:
   # See also https://docs.docker.com/docker-hub/builds/automated-testing/
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout source
@@ -63,6 +64,7 @@ jobs:
           context: python
           file: python/huggingface_server.Dockerfile
           push: false
+            timeout-minutes: 30
           # https://github.com/docker/buildx/issues/1533
           provenance: false
 
