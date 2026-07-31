@@ -58,13 +58,13 @@ jobs:
           cache-binary: true
 
       - name: Run tests
+        timeout-minutes: 30
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           platforms: linux/amd64
           context: python
           file: python/huggingface_server.Dockerfile
           push: false
-            timeout-minutes: 30
           # https://github.com/docker/buildx/issues/1533
           provenance: false
 
