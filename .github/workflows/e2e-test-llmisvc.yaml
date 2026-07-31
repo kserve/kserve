@@ -116,6 +116,12 @@ jobs:
 
   llmisvc-image-build:
     runs-on: ubuntu-latest
+    needs: [detect-changes]
+    if: >-
+      needs.detect-changes.outputs.llmisvc != 'false'
+      || needs.detect-changes.outputs.llmisvc-hpa != 'false'
+      || needs.detect-changes.outputs.llmisvc-keda != 'false'
+      || needs.detect-changes.outputs.llmisvc-tracing != 'false'
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -166,7 +172,11 @@ jobs:
 
   seed-model-cache:
     runs-on: ubuntu-latest
-    needs: [llmisvc-image-build]
+    needs: [detect-changes, llmisvc-image-build]
+    if: >-
+      needs.detect-changes.outputs.llmisvc != 'false'
+      || needs.detect-changes.outputs.llmisvc-hpa != 'false'
+      || needs.detect-changes.outputs.llmisvc-keda != 'false'
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -215,6 +225,11 @@ jobs:
 
   seed-image-cache:
     runs-on: ubuntu-latest
+    needs: [detect-changes]
+    if: >-
+      needs.detect-changes.outputs.llmisvc != 'false'
+      || needs.detect-changes.outputs.llmisvc-hpa != 'false'
+      || needs.detect-changes.outputs.llmisvc-keda != 'false'
     steps:
       - name: Pull and save vLLM CPU image
         run: |
