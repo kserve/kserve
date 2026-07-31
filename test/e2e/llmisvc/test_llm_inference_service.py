@@ -640,7 +640,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                     "workload-llmd-simulator-kvcache",
                 ],
                 prompt="KServe is a",
-                service_name="tokenizer-migration-path-template-args-test",
+                service_name="tokenizer-template-args-test",
             ),
             marks=[
                 pytest.mark.cluster_cpu,
