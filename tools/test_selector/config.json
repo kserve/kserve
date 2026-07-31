@@ -30,6 +30,11 @@
       "reason": "Build system changes"
     },
     {
+      "pattern": "Makefile.*",
+      "trigger": "all",
+      "reason": "Build system changes"
+    },
+    {
       "pattern": "go.mod",
       "trigger": "all",
       "reason": "Go module dependency changes"

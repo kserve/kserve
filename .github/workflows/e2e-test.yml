@@ -48,6 +48,9 @@ concurrency:
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     outputs:
       install_methods: ${{ steps.set-matrix.outputs.install_methods }}
       predictor: ${{ steps.evaluate.outputs.predictor }}

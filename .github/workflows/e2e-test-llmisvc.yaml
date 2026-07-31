@@ -35,6 +35,9 @@ jobs:
 
   detect-changes:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     outputs:
       install_methods: ${{ steps.set-matrix.outputs.install_methods }}
       llmisvc: ${{ steps.evaluate.outputs.llmisvc }}
