@@ -146,7 +146,7 @@ async def test_predictor_grpc_with_transformer_grpc():
             V1Container(
                 name="kserve-container",
                 image="kserve/custom-image-transformer-grpc:"
-                + os.environ.get("GITHUB_SHA"),
+                + (os.environ.get("GITHUB_SHA") or "latest"),
                 resources=V1ResourceRequirements(
                     requests={"cpu": "50m", "memory": "128Mi"},
                     limits={"cpu": "100m", "memory": "1Gi"},
@@ -402,7 +402,8 @@ async def test_predictor_grpc_with_transformer_grpc_raw(network_layer):
         containers=[
             V1Container(
                 name="kserve-container",
-                image="kserve/custom-model-grpc:" + os.environ.get("GITHUB_SHA"),
+                image="kserve/custom-model-grpc:"
+                + (os.environ.get("GITHUB_SHA") or "latest"),
                 resources=V1ResourceRequirements(
                     requests={"cpu": "50m", "memory": "128Mi"},
                     limits={"cpu": "100m", "memory": "1Gi"},
@@ -422,7 +423,7 @@ async def test_predictor_grpc_with_transformer_grpc_raw(network_layer):
             V1Container(
                 name="kserve-container",
                 image="kserve/custom-image-transformer-grpc:"
-                + os.environ.get("GITHUB_SHA"),
+                + (os.environ.get("GITHUB_SHA") or "latest"),
                 resources=V1ResourceRequirements(
                     requests={"cpu": "50m", "memory": "128Mi"},
                     limits={"cpu": "100m", "memory": "1Gi"},
