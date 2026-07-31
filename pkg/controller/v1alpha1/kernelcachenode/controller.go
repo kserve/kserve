@@ -60,6 +60,12 @@ var (
 	cachesRootFolder = filepath.Join(kernelcachecommon.MountPath, "kernel-cache")
 )
 
+// cacheContext holds fetched KernelCache and resolved mountType to avoid duplicate API calls
+type cacheContext struct {
+	kc        *v1alpha1.KernelCache
+	mountType v1alpha1.KernelCacheMountType
+}
+
 type KernelCacheNodeReconciler struct {
 	client.Client
 	Clientset *kubernetes.Clientset
@@ -222,9 +228,37 @@ func (r *KernelCacheNodeReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, err
 	}
 
+	// Fetch all KernelCaches assigned to this node once (reused in checkCacheAvailability and updateStatus)
+	// Avoids duplicate API calls and duplicate mountType resolution
+	cacheContexts := make(map[string]*cacheContext)
+	for cacheKey, cacheInfo := range kcNode.Status.CacheStatus {
+		kc := &v1alpha1.KernelCache{}
+		if err := r.Get(ctx, types.NamespacedName{
+			Name:      cacheInfo.Name,
+			Namespace: cacheInfo.Namespace,
+		}, kc); err != nil {
+			if !errors.IsNotFound(err) {
+				r.Log.Error(err, "Failed to fetch KernelCache", "cache", cacheKey)
+			}
+			// Skip this cache if not found or error - checkCacheAvailability/updateStatus will handle gracefully
+			continue
+		}
+
+		// Resolve mountType once (defensive defaulting)
+		mountType := kc.Spec.MountType
+		if mountType == "" {
+			mountType = v1alpha1.KernelCacheMountTypePVC // Default
+		}
+
+		cacheContexts[cacheKey] = &cacheContext{
+			kc:        kc,
+			mountType: mountType,
+		}
+	}
+
 	// Process each cache - check extraction Job status and update state
 	for cacheKey, cacheInfo := range kcNode.Status.CacheStatus {
-		if err := r.checkCacheAvailability(ctx, kcNode, cacheKey, cacheInfo, kernelCacheConfig); err != nil {
+		if err := r.checkCacheAvailability(ctx, kcNode, cacheKey, cacheInfo, kernelCacheConfig, cacheContexts[cacheKey]); err != nil {
 			r.Log.Error(err, "failed to check cache availability", "cache", cacheKey)
 			// Continue processing other caches
 		}
@@ -238,7 +272,7 @@ func (r *KernelCacheNodeReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	// Update status (agent owns all KernelCacheNode writes)
 	r.Log.Info("Calling updateStatus", "node", kcNode.Status.NodeName, "cacheCount", len(kcNode.Status.CacheStatus))
-	if err := r.updateStatus(ctx, kcNode, kernelCacheConfig, gpuInfoChanged || cachesDiscoveryChanged); err != nil {
+	if err := r.updateStatus(ctx, kcNode, kernelCacheConfig, gpuInfoChanged || cachesDiscoveryChanged, cacheContexts); err != nil {
 		r.Log.Error(err, "updateStatus failed", "node", kcNode.Status.NodeName)
 		return ctrl.Result{}, err
 	}
@@ -388,25 +422,31 @@ func (r *KernelCacheNodeReconciler) checkCacheAvailability(
 	cacheKey string,
 	cacheInfo v1alpha1.CacheNodeCacheInfo,
 	config *v1beta1.KernelCacheConfig,
+	cacheCtx *cacheContext,
 ) error {
 	jobNamespace := config.JobNamespace
 
-	// Check if KernelCache CR is being deleted - skip availability check
-	kc := &v1alpha1.KernelCache{}
-	if err := r.Get(ctx, types.NamespacedName{
-		Name:      cacheInfo.Name,
-		Namespace: cacheInfo.Namespace,
-	}, kc); err != nil {
-		if errors.IsNotFound(err) {
-			// Cache deleted - discoverCaches will remove from status
-			r.Log.V(1).Info("Cache deleted, skipping availability check", "cache", cacheKey)
-			return nil
-		}
-		return err
+	// If cacheContext is nil, cache was not found or failed to fetch - skip check
+	if cacheCtx == nil {
+		r.Log.V(1).Info("Cache not found or failed to fetch, skipping availability check", "cache", cacheKey)
+		return nil
 	}
+
+	kc := cacheCtx.kc
+	mountType := cacheCtx.mountType
+
+	// Check if KernelCache CR is being deleted - skip availability check
 	if !kc.DeletionTimestamp.IsZero() {
 		// Cache being deleted - skip availability check (operator finalizer may have deleted PVC)
 		r.Log.V(1).Info("Cache being deleted, skipping availability check", "cache", cacheKey)
+		return nil
+	}
+
+	// Check if using image volumes - no PVC/Job to check
+	if mountType == v1alpha1.KernelCacheMountTypeImageVolume {
+		// Image volume mode - no extraction PVC/Job, skip availability check
+		// State is managed in updateExtractionState
+		r.Log.V(1).Info("Image volume cache, skipping PVC availability check", "cache", cacheKey)
 		return nil
 	}
 
@@ -497,6 +537,7 @@ func (r *KernelCacheNodeReconciler) updateStatus(
 	kcNode *v1alpha1.KernelCacheNode,
 	config *v1beta1.KernelCacheConfig,
 	statusChanged bool,
+	cacheContexts map[string]*cacheContext,
 ) error {
 	jobNamespace := config.JobNamespace
 
@@ -505,6 +546,26 @@ func (r *KernelCacheNodeReconciler) updateStatus(
 	// Update extraction state for each cache
 	// Check extraction Job status (operator creates ONE Job per cache)
 	for cacheKey, cacheInfo := range kcNode.Status.CacheStatus {
+		// Get cached context (already fetched in Reconcile)
+		cacheCtx := cacheContexts[cacheKey]
+
+		// If context exists and using image volumes, mark as Extracted immediately
+		if cacheCtx != nil && cacheCtx.mountType == v1alpha1.KernelCacheMountTypeImageVolume {
+			// Image volume mode - no extraction job, mark as Extracted immediately
+			oldState := cacheInfo.State
+			if cacheInfo.State != v1alpha1.NodeCacheStateExtracted &&
+				cacheInfo.State != v1alpha1.NodeCacheStateRunning {
+				cacheInfo.State = v1alpha1.NodeCacheStateExtracted
+				cacheInfo.Message = ""
+				cacheInfo.LastUpdate = metav1.Now()
+				statusChanged = true
+				r.Log.V(1).Info("Image volume cache marked as Extracted",
+					"cache", cacheKey, "oldState", oldState)
+			}
+			kcNode.Status.CacheStatus[cacheKey] = cacheInfo
+			continue // Skip PVC/Job checks
+		}
+
 		job, err := r.getExtractionJob(ctx, cacheInfo, jobNamespace)
 		if err != nil {
 			r.Log.Error(err, "failed to get extraction job", "cache", cacheKey)
@@ -709,10 +770,12 @@ func (r *KernelCacheNodeReconciler) updateServingCounts(
 	return nil
 }
 
-// podMountsCachePVC checks if pod mounts a kernel cache PVC
-// Checks against Serving PVC naming pattern: {cachename}
-func (r *KernelCacheNodeReconciler) podMountsCachePVC(pod *corev1.Pod, cacheName string) bool {
+// podMountsCache checks if pod mounts a kernel cache (PVC or image volume)
+// For PVC mode: checks against Serving PVC naming pattern: {cachename}
+// For image volume mode: checks for "kernel-cache" volume name + matching pod label
+func (r *KernelCacheNodeReconciler) podMountsCache(pod *corev1.Pod, cacheName string) bool {
 	for _, vol := range pod.Spec.Volumes {
+		// Check PVC volumes (traditional method)
 		if vol.PersistentVolumeClaim != nil {
 			// Match Serving PVC name (exact match or contains cache name)
 			pvcName := vol.PersistentVolumeClaim.ClaimName
@@ -720,8 +783,25 @@ func (r *KernelCacheNodeReconciler) podMountsCachePVC(pod *corev1.Pod, cacheName
 				return true
 			}
 		}
+
+		// Check image volumes (KEP-4639)
+		// Pod webhook sets volume name to "kernel-cache" and adds label with cache name
+		if vol.Image != nil && vol.Name == "kernel-cache" {
+			// Verify pod label matches this cache
+			if podCacheName, ok := pod.Labels[constants.KernelCacheLabel]; ok {
+				if podCacheName == cacheName {
+					return true
+				}
+			}
+		}
 	}
 	return false
+}
+
+// podMountsCachePVC is deprecated, use podMountsCache instead
+// Kept for backward compatibility during transition
+func (r *KernelCacheNodeReconciler) podMountsCachePVC(pod *corev1.Pod, cacheName string) bool {
+	return r.podMountsCache(pod, cacheName)
 }
 
 // isPodReady checks if pod is in Running state with Ready condition true
@@ -894,10 +974,17 @@ func (r *KernelCacheNodeReconciler) podToNodeMapper(ctx context.Context, obj cli
 	}
 }
 
-// podHasPVCVolume checks if pod has any PVC volume, used in event filter to reduce unnecessary reconciliations
-func podHasPVCVolume(pod *corev1.Pod) bool {
+// podHasKernelCacheVolume checks if pod has a kernel cache volume (PVC or image volume)
+// Used in event filter to reduce unnecessary reconciliations
+func podHasKernelCacheVolume(pod *corev1.Pod) bool {
 	for _, vol := range pod.Spec.Volumes {
+		// Check for PVC volumes
 		if vol.PersistentVolumeClaim != nil {
+			return true
+		}
+		// Check for kernel-cache image volume (KEP-4639)
+		// Pod webhook names the image volume "kernel-cache"
+		if vol.Image != nil && vol.Name == "kernel-cache" {
 			return true
 		}
 	}
@@ -967,7 +1054,7 @@ func (r *KernelCacheNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				}
 				// Filter Pods to only those with PVC volumes (reduces noise)
 				if pod, ok := e.Object.(*corev1.Pod); ok {
-					return podHasPVCVolume(pod)
+					return podHasKernelCacheVolume(pod)
 				}
 				return true // Allow other object types (KernelCache, Job) through
 			},
@@ -978,7 +1065,7 @@ func (r *KernelCacheNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				}
 				// Filter Pods to only those with PVC volumes
 				if pod, ok := e.ObjectNew.(*corev1.Pod); ok {
-					return podHasPVCVolume(pod)
+					return podHasKernelCacheVolume(pod)
 				}
 				return true // Allow other object types through
 			},
@@ -989,7 +1076,7 @@ func (r *KernelCacheNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				}
 				// Filter Pods to only those with PVC volumes
 				if pod, ok := e.Object.(*corev1.Pod); ok {
-					return podHasPVCVolume(pod)
+					return podHasKernelCacheVolume(pod)
 				}
 				return true // Allow other object types through
 			},

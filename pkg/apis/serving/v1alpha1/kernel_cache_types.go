@@ -51,21 +51,46 @@ type KernelCacheSpec struct {
 	// +kubebuilder:validation:Required
 	Image string `json:"image"`
 
-	// StorageClassName for PV/PVC (optional, uses cluster default if unset)
+	// MountType specifies how to mount the cache (pvc or imageVolume)
+	// +kubebuilder:validation:Enum=pvc;imageVolume
+	// +kubebuilder:default=pvc
+	// +optional
+	MountType KernelCacheMountType `json:"mountType,omitempty"`
+
+	// StorageClassName for PV/PVC (only used when mountType=pvc)
 	// +optional
 	StorageClassName *string `json:"storageClassName,omitempty"`
 
-	// StorageSize for PV/PVC (optional, default: 10Gi if unset)
+	// StorageSize for PV/PVC (only used when mountType=pvc)
 	// +optional
 	StorageSize *resource.Quantity `json:"storageSize,omitempty"`
 
-	// AccessModes for PV/PVC (optional, default: [ReadWriteMany])
+	// AccessModes for PV/PVC (only used when mountType=pvc)
 	// +optional
 	AccessModes []corev1.PersistentVolumeAccessMode `json:"accessModes,omitempty"`
 
-	// PodTemplate for extraction Job customization (nodeSelector, tolerations, etc.)
+	// PodTemplate for extraction Job customization (only used when mountType=pvc)
 	// +optional
 	PodTemplate *KernelCachePodTemplate `json:"podTemplate,omitempty"`
+
+	// ImagePullPolicy for pulling the cache image specified in spec.image.
+	// For imageVolume mode: controls when Kubernetes pulls the image for volume mounting.
+	// For pvc mode: controls when the extraction job pulls the image to extract.
+	// +kubebuilder:validation:Enum=IfNotPresent;Always;Never
+	// +kubebuilder:default=IfNotPresent
+	// +optional
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
+
+	// MountPath in the container filesystem where the cache should be mounted.
+	// If empty (recommended), automatically computed from OCI image labels to maintain framework compatibility.
+	// The webhook determines the optimal mount path based on labels like io.kserve.km/cache-root-env.
+	//
+	// Override only when automatic detection is insufficient.
+	// When set, SubPath within the volume (PVC or OCI image) is still auto-computed from labels.
+	//
+	// Example: "/custom/cache/location" mounts the cache at this path instead of the label-derived path.
+	// +optional
+	MountPath string `json:"mountPath,omitempty"`
 }
 
 // KernelCacheList contains a list of KernelCache
