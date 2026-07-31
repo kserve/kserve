@@ -38,6 +38,11 @@
       "pattern": "go.sum",
       "trigger": "all",
       "reason": "Go module checksum changes"
+    },
+    {
+      "pattern": "kserve-images.sh",
+      "trigger": "all",
+      "reason": "Image tag/registry configuration changes"
     }
   ]
 }

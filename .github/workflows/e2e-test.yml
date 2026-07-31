@@ -50,6 +50,17 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       install_methods: ${{ steps.set-matrix.outputs.install_methods }}
+      predictor: ${{ steps.evaluate.outputs.predictor }}
+      transformer-explainer-mms: ${{ steps.evaluate.outputs.transformer-explainer-mms }}
+      graph: ${{ steps.evaluate.outputs.graph }}
+      path-based-routing: ${{ steps.evaluate.outputs.path-based-routing }}
+      helm: ${{ steps.evaluate.outputs.helm }}
+      raw: ${{ steps.evaluate.outputs.raw }}
+      autoscaling: ${{ steps.evaluate.outputs.autoscaling }}
+      kourier: ${{ steps.evaluate.outputs.kourier }}
+      llm: ${{ steps.evaluate.outputs.llm }}
+      vllm: ${{ steps.evaluate.outputs.vllm }}
+      vllm-runtime: ${{ steps.evaluate.outputs.vllm-runtime }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - name: Merge target branch
@@ -81,35 +92,22 @@ jobs:
           else
             echo 'install_methods=["kustomize"]' >> $GITHUB_OUTPUT
           fi
-
-  test-selector:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    outputs:
-      predictor: ${{ steps.evaluate.outputs.predictor }}
-      transformer-explainer-mms: ${{ steps.evaluate.outputs.transformer-explainer-mms }}
-      graph: ${{ steps.evaluate.outputs.graph }}
-      path-based-routing: ${{ steps.evaluate.outputs.path-based-routing }}
-      helm: ${{ steps.evaluate.outputs.helm }}
-      raw: ${{ steps.evaluate.outputs.raw }}
-      autoscaling: ${{ steps.evaluate.outputs.autoscaling }}
-      kourier: ${{ steps.evaluate.outputs.kourier }}
-      llm: ${{ steps.evaluate.outputs.llm }}
-      vllm: ${{ steps.evaluate.outputs.vllm }}
-      vllm-runtime: ${{ steps.evaluate.outputs.vllm-runtime }}
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        if: github.event_name == 'pull_request'
         with:
-          fetch-depth: 0
+          go-version-file: go.mod
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        if: github.event_name == 'pull_request'
         with:
           python-version: "3.10"
       - name: Evaluate test selection
+        if: github.event_name == 'pull_request'
         id: evaluate
         run: |
-          git fetch origin ${{ github.event.pull_request.base.ref }}
           PYTHONPATH=tools python -m test_selector learn
           CHANGED=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD)
+          echo "$CHANGED" > /tmp/changed-files.txt
+          echo "$CHANGED" | PYTHONPATH=tools python -m test_selector query > /tmp/selector-detail.json
           echo "$CHANGED" | PYTHONPATH=tools python -m test_selector query \
             --match-jobs "{
               \"predictor\": \"$MARKER_PREDICTOR\",
@@ -124,6 +122,28 @@ jobs:
               \"vllm\": \"$MARKER_VLLM\",
               \"vllm-runtime\": \"$MARKER_VLLM_RUNTIME\"
             }" >> "$GITHUB_OUTPUT"
+      - name: Post test selection comment
+        if: github.event_name == 'pull_request' && steps.evaluate.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ./test/scripts/gh-actions/post-test-selection-comment.sh \
+            "<!-- test-selector-e2e -->" \
+            "E2E Test Selection" \
+            "${{ github.event.pull_request.number }}" \
+            /tmp/changed-files.txt \
+            /tmp/selector-detail.json \
+            "predictor=${{ steps.evaluate.outputs.predictor }}" \
+            "transformer-explainer-mms=${{ steps.evaluate.outputs.transformer-explainer-mms }}" \
+            "graph=${{ steps.evaluate.outputs.graph }}" \
+            "path-based-routing=${{ steps.evaluate.outputs.path-based-routing }}" \
+            "helm=${{ steps.evaluate.outputs.helm }}" \
+            "raw=${{ steps.evaluate.outputs.raw }}" \
+            "autoscaling=${{ steps.evaluate.outputs.autoscaling }}" \
+            "kourier=${{ steps.evaluate.outputs.kourier }}" \
+            "llm=${{ steps.evaluate.outputs.llm }}" \
+            "vllm=${{ steps.evaluate.outputs.vllm }}" \
+            "vllm-runtime=${{ steps.evaluate.outputs.vllm-runtime }}"
 
   kserve-image-build:
     runs-on: ubuntu-latest
@@ -420,13 +440,8 @@ jobs:
 
   test-predictor:
     runs-on: ubuntu-latest
-    needs: [test-selector, detect-changes, kserve-image-build, predictor-runtime-build]
-    if: >-
-      always()
-      && needs.detect-changes.result == 'success'
-      && needs.kserve-image-build.result == 'success'
-      && needs.predictor-runtime-build.result == 'success'
-      && needs.test-selector.outputs.predictor != 'false'
+    needs: [detect-changes, kserve-image-build, predictor-runtime-build]
+    if: needs.detect-changes.outputs.predictor != 'false'
     strategy:
       fail-fast: false
       matrix:
@@ -512,14 +527,8 @@ jobs:
   test-transformer-explainer-mms:
     runs-on: ubuntu-latest
     needs:
-      [test-selector, detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
-    if: >-
-      always()
-      && needs.detect-changes.result == 'success'
-      && needs.kserve-image-build.result == 'success'
-      && needs.predictor-runtime-build.result == 'success'
-      && needs.explainer-runtime-build.result == 'success'
-      && needs.test-selector.outputs.transformer-explainer-mms != 'false'
+      [detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+    if: needs.detect-changes.outputs.transformer-explainer-mms != 'false'
     strategy:
       fail-fast: false
       matrix:
@@ -634,14 +643,8 @@ jobs:
   test-graph:
     runs-on: ubuntu-latest
     needs:
-      [test-selector, detect-changes, kserve-image-build, predictor-runtime-build, graph-tests-images-build]
-    if: >-
-      always()
-      && needs.detect-changes.result == 'success'
-      && needs.kserve-image-build.result == 'success'
-      && needs.predictor-runtime-build.result == 'success'
-      && needs.graph-tests-images-build.result == 'success'
-      && needs.test-selector.outputs.graph != 'false'
+      [detect-changes, kserve-image-build, predictor-runtime-build, graph-tests-images-build]
+    if: needs.detect-changes.outputs.graph != 'false'
     strategy:
       fail-fast: false
       matrix:
@@ -745,14 +748,8 @@ jobs:
   test-path-based-routing:
     runs-on: ubuntu-latest
     needs:
-      [test-selector, detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
-    if: >-
-      always()
-      && needs.detect-changes.result == 'success'
-      && needs.kserve-image-build.result == 'success'
-      && needs.predictor-runtime-build.result == 'success'
-      && needs.explainer-runtime-build.result == 'success'
-      && needs.test-selector.outputs.path-based-routing != 'false'
+      [detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+    if: needs.detect-changes.outputs.path-based-routing != 'false'
     strategy:
       fail-fast: false
       matrix:
@@ -970,11 +967,8 @@ jobs:
 
   test-with-helm:
     runs-on: ubuntu-latest
-    needs: [test-selector, kserve-image-build]
-    if: >-
-      always()
-      && needs.kserve-image-build.result == 'success'
-      && needs.test-selector.outputs.helm != 'false'
+    needs: [detect-changes, kserve-image-build]
+    if: needs.detect-changes.outputs.helm != 'false'
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -1043,14 +1037,8 @@ jobs:
   test-raw:
     runs-on: ubuntu-latest
     needs:
-      [test-selector, detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
-    if: >-
-      always()
-      && needs.detect-changes.result == 'success'
-      && needs.kserve-image-build.result == 'success'
-      && needs.predictor-runtime-build.result == 'success'
-      && needs.explainer-runtime-build.result == 'success'
-      && needs.test-selector.outputs.raw != 'false'
+      [detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+    if: needs.detect-changes.outputs.raw != 'false'
     strategy:
       fail-fast: false
       max-parallel: 3
@@ -1210,14 +1198,8 @@ jobs:
   test-autoscaling:
     runs-on: ubuntu-latest
     needs:
-      [test-selector, detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
-    if: >-
-      always()
-      && needs.detect-changes.result == 'success'
-      && needs.kserve-image-build.result == 'success'
-      && needs.predictor-runtime-build.result == 'success'
-      && needs.explainer-runtime-build.result == 'success'
-      && needs.test-selector.outputs.autoscaling != 'false'
+      [detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+    if: needs.detect-changes.outputs.autoscaling != 'false'
     strategy:
       fail-fast: false
       matrix:
@@ -1326,14 +1308,8 @@ jobs:
   test-kourier:
     runs-on: ubuntu-latest
     needs:
-      [test-selector, detect-changes, kserve-image-build, predictor-runtime-build, graph-tests-images-build]
-    if: >-
-      always()
-      && needs.detect-changes.result == 'success'
-      && needs.kserve-image-build.result == 'success'
-      && needs.predictor-runtime-build.result == 'success'
-      && needs.graph-tests-images-build.result == 'success'
-      && needs.test-selector.outputs.kourier != 'false'
+      [detect-changes, kserve-image-build, predictor-runtime-build, graph-tests-images-build]
+    if: needs.detect-changes.outputs.kourier != 'false'
     strategy:
       fail-fast: false
       matrix:
@@ -1447,13 +1423,8 @@ jobs:
 
   test-llm:
     runs-on: cncf-ubuntu-16-64-x86
-    needs: [test-selector, detect-changes, kserve-image-build, predictor-runtime-build]
-    if: >-
-      always()
-      && needs.detect-changes.result == 'success'
-      && needs.kserve-image-build.result == 'success'
-      && needs.predictor-runtime-build.result == 'success'
-      && needs.test-selector.outputs.llm != 'false'
+    needs: [detect-changes, kserve-image-build, predictor-runtime-build]
+    if: needs.detect-changes.outputs.llm != 'false'
     strategy:
       fail-fast: false
       matrix:
@@ -1536,13 +1507,8 @@ jobs:
 
   test-huggingface-server-vllm:
     runs-on: cncf-ubuntu-16-64-x86
-    needs: [test-selector, detect-changes, kserve-image-build, predictor-runtime-build]
-    if: >-
-      always()
-      && needs.detect-changes.result == 'success'
-      && needs.kserve-image-build.result == 'success'
-      && needs.predictor-runtime-build.result == 'success'
-      && needs.test-selector.outputs.vllm != 'false'
+    needs: [detect-changes, kserve-image-build, predictor-runtime-build]
+    if: needs.detect-changes.outputs.vllm != 'false'
     strategy:
       fail-fast: false
       matrix:
@@ -1626,13 +1592,8 @@ jobs:
 
   test-vllm-runtime:
     runs-on: cncf-ubuntu-16-64-x86
-    needs: [test-selector, detect-changes, kserve-image-build, predictor-runtime-build]
-    if: >-
-      always()
-      && needs.detect-changes.result == 'success'
-      && needs.kserve-image-build.result == 'success'
-      && needs.predictor-runtime-build.result == 'success'
-      && needs.test-selector.outputs.vllm-runtime != 'false'
+    needs: [detect-changes, kserve-image-build, predictor-runtime-build]
+    if: needs.detect-changes.outputs.vllm-runtime != 'false'
     strategy:
       fail-fast: false
       matrix:

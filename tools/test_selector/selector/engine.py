@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .rules import (
     IGNORABLE_PATTERNS,
+    KEYWORD_ALIASES,
     PYTHON_ALL_E2E_PACKAGES,
 )
 from ..analyzers.config_mapper import load_overrides, match_override
@@ -51,6 +52,8 @@ def _process_file(
 
     if file_path.endswith(".go"):
         _process_go_file(file_path, mapping, sel)
+    elif file_path.endswith("Dockerfile"):
+        _process_dockerfile(file_path, mapping, sel)
     elif file_path.startswith("python/"):
         _process_python_file(file_path, mapping, sel)
     elif file_path.startswith("test/e2e/"):
@@ -255,6 +258,99 @@ def _apply_override(
             sel.reasons.append(
                 f"{file_path} -> override:{reason_suffix} -> {','.join(parts)}"
             )
+
+
+def _process_dockerfile(file_path: str, mapping: Mapping, sel: TestSelection) -> None:
+    """Match Dockerfile against known keywords, then try ARG CMD= in the file.
+
+    Checks in order: keyword_aliases, framework names, server names, ARG CMD=.
+    Falls back to triggering all tests if nothing matches.
+    """
+    basename = file_path.rsplit("/", 1)[-1].lower()
+
+    matched_markers, source = _match_keyword_aliases(basename, mapping)
+    if not matched_markers:
+        matched_markers, source = _match_frameworks_or_servers(basename, mapping)
+    if matched_markers:
+        _add_markers(sel, matched_markers)
+        sel.reasons.append(
+            f"{file_path} -> dockerfile:{source} -> e2e:{','.join(matched_markers)}"
+        )
+        return
+
+    cmd_markers = _markers_from_dockerfile_cmd(file_path, mapping)
+    if cmd_markers:
+        _add_markers(sel, cmd_markers)
+        sel.reasons.append(
+            f"{file_path} -> dockerfile_cmd -> e2e:{','.join(cmd_markers)}"
+        )
+        return
+
+    sel.reasons.append(f"{file_path} -> dockerfile -> all")
+    _trigger_all(sel, mapping)
+
+
+def _match_keyword_aliases(basename: str, mapping: Mapping) -> tuple[list[str], str]:
+    """Match against keyword_aliases (llmisvc, localmodel, kserve, runtime)."""
+    markers: list[str] = []
+    keywords: list[str] = []
+    for keyword, crd_kinds in KEYWORD_ALIASES.items():
+        if keyword in basename:
+            keywords.append(keyword)
+            for kind in crd_kinds:
+                markers.extend(_get_crd_markers(kind, mapping))
+    if markers:
+        return sorted(set(markers)), f"keyword:{','.join(keywords)}"
+    return [], ""
+
+
+def _match_frameworks_or_servers(
+    basename: str, mapping: Mapping
+) -> tuple[list[str], str]:
+    """Match against framework names or server-to-framework keys."""
+    markers: set[str] = set()
+    matched: list[str] = []
+
+    for fw in mapping.framework_packages:
+        if fw in basename:
+            matched.append(fw)
+            markers.update(_get_markers_for_framework(fw, mapping))
+
+    for server, frameworks in mapping.server_to_frameworks.items():
+        if server in basename:
+            matched.append(server)
+            for fw in frameworks:
+                markers.update(_get_markers_for_framework(fw, mapping))
+
+    if markers:
+        return sorted(markers), f"keyword:{','.join(matched)}"
+    return [], ""
+
+
+_ARG_CMD_RE = re.compile(r"^\s*ARG\s+CMD\s*=\s*(\S+)", re.MULTILINE)
+
+
+def _markers_from_dockerfile_cmd(file_path: str, mapping: Mapping) -> list[str]:
+    """Parse ARG CMD=<name> from a Dockerfile and resolve to markers via entrypoints."""
+    try:
+        content = Path(file_path).read_text()
+    except OSError:
+        return []
+
+    m = _ARG_CMD_RE.search(content)
+    if not m:
+        return []
+
+    cmd_name = m.group(1)
+    ep_key = f"./cmd/{cmd_name}"
+    ep = mapping.entrypoints.get(ep_key)
+    if not ep:
+        return []
+
+    markers: list[str] = []
+    for crd in ep.crd_types:
+        markers.extend(_get_crd_markers(crd.kind, mapping))
+    return sorted(set(markers))
 
 
 def _reverse_walk(start_pkg: str, mapping: Mapping) -> set[str]:

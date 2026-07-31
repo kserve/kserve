@@ -706,6 +706,82 @@ def test_cmd_manager_entrypoint(mapping: Mapping, repo_root: Path) -> None:
 # -- Multi-file changes -------------------------------------------------------
 
 
+# -- Dockerfile keyword matching -----------------------------------------------
+
+
+def test_dockerfile_llmisvc_keyword(mapping: Mapping, repo_root: Path) -> None:
+    """llmisvc-controller.Dockerfile matches keyword alias 'llmisvc'."""
+    result = _query(mapping, repo_root, ["llmisvc-controller.Dockerfile"])
+    assert result["e2e_tests"]["run"] is True
+    markers = set(result["e2e_tests"]["markers"])
+    assert "llminferenceservice" in markers
+    assert not markers & E2E_MARKERS
+    assert any("keyword:llmisvc" in r for r in result["reasons"])
+
+
+def test_dockerfile_localmodel_keyword(mapping: Mapping, repo_root: Path) -> None:
+    """localmodel.Dockerfile matches keyword alias 'localmodel'."""
+    result = _query(mapping, repo_root, ["localmodel.Dockerfile"])
+    assert result["e2e_tests"]["run"] is True
+    markers = set(result["e2e_tests"]["markers"])
+    assert "modelcache" in markers
+    assert any("keyword:localmodel" in r for r in result["reasons"])
+
+
+def test_dockerfile_sklearn_framework(mapping: Mapping, repo_root: Path) -> None:
+    """python/sklearn.Dockerfile matches framework keyword 'sklearn'."""
+    result = _query(mapping, repo_root, ["python/sklearn.Dockerfile"])
+    assert result["e2e_tests"]["run"] is True
+    markers = set(result["e2e_tests"]["markers"])
+    assert "predictor" in markers
+    assert not markers & LLMISVC_MARKERS
+    assert any("keyword:sklearn" in r for r in result["reasons"])
+
+
+def test_dockerfile_huggingface_framework(mapping: Mapping, repo_root: Path) -> None:
+    """python/huggingface_server.Dockerfile matches framework 'huggingface'."""
+    result = _query(mapping, repo_root, ["python/huggingface_server.Dockerfile"])
+    assert result["e2e_tests"]["run"] is True
+    markers = set(result["e2e_tests"]["markers"])
+    assert "llm" in markers or "vllm" in markers
+    assert not markers & LLMISVC_MARKERS
+    assert any("keyword:huggingface" in r for r in result["reasons"])
+
+
+def test_dockerfile_cmd_fallback(mapping: Mapping, repo_root: Path) -> None:
+    """Dockerfile (no keyword match) falls back to ARG CMD=manager."""
+    result = _query(mapping, repo_root, ["Dockerfile"])
+    assert result["e2e_tests"]["run"] is True
+    markers = set(result["e2e_tests"]["markers"])
+    assert "predictor" in markers
+    assert "graph" in markers
+    assert any("dockerfile_cmd" in r for r in result["reasons"])
+
+
+def test_dockerfile_no_match_triggers_all(mapping: Mapping, repo_root: Path) -> None:
+    """router.Dockerfile has no keyword and no CRD entrypoint, triggers all."""
+    result = _query(mapping, repo_root, ["router.Dockerfile"])
+    assert result["e2e_tests"]["run"] is True
+    markers = set(result["e2e_tests"]["markers"])
+    assert markers >= E2E_MARKERS
+    assert markers >= LLMISVC_MARKERS
+    assert any("dockerfile" in r and "all" in r for r in result["reasons"])
+
+
+def test_dockerfile_storage_initializer_triggers_all(
+    mapping: Mapping, repo_root: Path
+) -> None:
+    """python/storage-initializer.Dockerfile has no keyword match, triggers all."""
+    result = _query(mapping, repo_root, ["python/storage-initializer.Dockerfile"])
+    assert result["e2e_tests"]["run"] is True
+    markers = set(result["e2e_tests"]["markers"])
+    assert markers >= E2E_MARKERS
+    assert markers >= LLMISVC_MARKERS
+
+
+# -- Multi-file changes -------------------------------------------------------
+
+
 def test_mixed_go_controller_and_e2e(mapping: Mapping, repo_root: Path) -> None:
     result = _query(
         mapping,
