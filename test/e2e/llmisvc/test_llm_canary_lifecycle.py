@@ -222,7 +222,7 @@ SCENARIOS = {
 # ---------------------------------------------------------------------------
 
 
-def get_api():
+def get_k8s_client():
     config.load_kube_config(context=KUBE_CONTEXT)
     return k8s_client.CustomObjectsApi()
 
@@ -673,7 +673,7 @@ def canary_env(request, test_namespace):
     """Deploy a canary scenario - namespace teardown handles cleanup."""
     scenario_name = request.param
     scenario = SCENARIOS[scenario_name]
-    api = get_api()
+    api = get_k8s_client()
     ns = test_namespace
 
     # Apply workload configs (deduplicate if both members use the same one)
@@ -731,7 +731,9 @@ class TestCanaryLifecycle:
     def test_canary_pool_backend(self, canary_env, traffic_driver):
         """InferencePool backend - Istio only (Envoy AI Gateway disables ext_proc
         for routes with multiple weighted InferencePool backendRefs)."""
-        self._run_canary_lifecycle(canary_env, traffic_driver)
+        scenario, api, ns = canary_env
+        with member_lifecycle(api, [scenario.v1.name, scenario.v2.name], ns):
+            self._run_canary_lifecycle(canary_env, traffic_driver)
 
     @pytest.mark.requires_weighted_inference_pool
     @pytest.mark.parametrize(
@@ -743,7 +745,9 @@ class TestCanaryLifecycle:
     def test_canary_mixed_backend(self, canary_env, traffic_driver):
         """Mixed backend (v1 service, v2 pool) - canary upgrade path. Istio
         only (Envoy AI Gateway can't weight-split with InferencePool)."""
-        self._run_canary_lifecycle(canary_env, traffic_driver)
+        scenario, api, ns = canary_env
+        with member_lifecycle(api, [scenario.v1.name, scenario.v2.name], ns):
+            self._run_canary_lifecycle(canary_env, traffic_driver)
 
     def test_model_name_divergence(self, test_namespace):
         """Members with different model.name form independent sub-groups.
@@ -752,7 +756,7 @@ class TestCanaryLifecycle:
         is degraded (GroupDegraded=True/MemberDivergence) because members
         diverge on model identity.
         """
-        api = get_api()
+        api = get_k8s_client()
         ns = test_namespace
 
         with member_lifecycle(api, [DIV_V1, DIV_V2], ns):
@@ -798,7 +802,7 @@ class TestCanaryLifecycle:
         members should appear in each other's group and GroupDegraded should
         clear.
         """
-        api = get_api()
+        api = get_k8s_client()
         ns = test_namespace
 
         with member_lifecycle(api, [DIV_V1, DIV_V2], ns):
@@ -852,7 +856,7 @@ class TestCanaryLifecycle:
 
     def test_weight_without_group_rejected(self, test_namespace):
         """Webhook rejects LLMISVC with weight but no group. (spike step 11)"""
-        api = get_api()
+        api = get_k8s_client()
         ns = test_namespace
 
         with member_lifecycle(api, ["webhook-reject"], ns):
@@ -1002,7 +1006,7 @@ class TestCanaryLifecycle:
     def test_force_stop(self, test_namespace, traffic_driver):
         """Force-stop a member - scales to zero, stopped=true in group status,
         traffic shifts to remaining member. (spike step 8)"""
-        api = get_api()
+        api = get_k8s_client()
         ns = test_namespace
 
         v1 = MemberSpec(name="stop-v1", weight=9, scheduler=False)
@@ -1083,7 +1087,7 @@ class TestCanaryLifecycle:
     def test_decommission(self, test_namespace, traffic_driver):
         """Delete a member from the group - remaining member stays Ready,
         traffic continues. (spike step 9)"""
-        api = get_api()
+        api = get_k8s_client()
         ns = test_namespace
 
         v1 = MemberSpec(name="decom-v1", weight=9, scheduler=False)
@@ -1136,7 +1140,7 @@ class TestCanaryLifecycle:
 
     def test_leave_group(self, test_namespace):
         """Remove group+weight from a member - leaves the group. (spike step 14)"""
-        api = get_api()
+        api = get_k8s_client()
         ns = test_namespace
 
         v1 = MemberSpec(name="leave-v1", weight=5, scheduler=False)
@@ -1183,7 +1187,7 @@ class TestCanaryLifecycle:
 
     def test_three_member_group(self, test_namespace, traffic_driver):
         """Three members in a group all receive traffic. (spike step 15)"""
-        api = get_api()
+        api = get_k8s_client()
         ns = test_namespace
 
         v1 = MemberSpec(name="tri-v1", weight=5, scheduler=False)
@@ -1237,7 +1241,7 @@ class TestCanaryLifecycle:
 
     def test_late_join(self, test_namespace, traffic_driver):
         """A member joins an already-running group. (spike step 16)"""
-        api = get_api()
+        api = get_k8s_client()
         ns = test_namespace
 
         v1 = MemberSpec(name="late-v1", weight=9, scheduler=False)
@@ -1292,7 +1296,7 @@ class TestCanaryLifecycle:
 
     def test_delete_at_nonzero_weight(self, test_namespace, traffic_driver):
         """Delete a member with weight>0 - no route breakage. (spike step 17)"""
-        api = get_api()
+        api = get_k8s_client()
         ns = test_namespace
 
         v1 = MemberSpec(name="delw-v1", weight=5, scheduler=False)
@@ -1335,7 +1339,7 @@ class TestCanaryLifecycle:
 
     def test_rollback(self, test_namespace, traffic_driver):
         """Promote v2 then rollback to v1 - traffic returns. (spike step 7)"""
-        api = get_api()
+        api = get_k8s_client()
         ns = test_namespace
 
         v1 = MemberSpec(name="roll-v1", weight=9, scheduler=False)
@@ -1407,7 +1411,7 @@ class TestCanaryLifecycle:
 
     def test_force_stop_route_owner(self, test_namespace, traffic_driver):
         """Force-stop the route owner - traffic shifts to other member. (spike step 18)"""
-        api = get_api()
+        api = get_k8s_client()
         ns = test_namespace
 
         v1 = MemberSpec(name="owner-v1", weight=5, scheduler=False)
