@@ -38,7 +38,7 @@ var _ = Describe("LLMInferenceService Config resolution", func() {
 		It("should set PresetsCombined=False with reason ConfigNotFound for a missing BaseRef", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-cfg-not-found"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -82,7 +82,7 @@ var _ = Describe("LLMInferenceService Config resolution", func() {
 		It("should recover PresetsCombined to True when the missing BaseRef config is created", func(ctx SpecContext) {
 			// given - a service pointing to a config that does not exist yet
 			svcName := "test-llm-cfg-not-found-recover"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 			configName := "recoverable-config"
 
 			llmSvc := LLMInferenceService(svcName,
@@ -113,9 +113,9 @@ var _ = Describe("LLMInferenceService Config resolution", func() {
 				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
 			)
 			Expect(envTest.Create(ctx, cfg)).To(Succeed())
-			defer func() {
-				testNs.DeleteAndWait(ctx, cfg)
-			}()
+			// No explicit DeleteAndWait for the config: the service's DeleteAndWait
+			// (above) runs first in LIFO order and releases the finalizer reference,
+			// then namespace cleanup handles the config deletion.
 
 			// then - watch fires, reconcile runs, condition recovers to True
 			Eventually(func(g Gomega, ctx context.Context) error {

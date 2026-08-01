@@ -189,7 +189,7 @@ func LLMInferenceServiceSample() *v1alpha2.LLMInferenceService {
 						Containers: []corev1.Container{
 							{
 								Name:  "scheduler",
-								Image: "ghcr.io/llm-d/llm-d-inference-scheduler:v0.7.1",
+								Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0",
 								Ports: []corev1.ContainerPort{
 									{
 										ContainerPort: 9002,

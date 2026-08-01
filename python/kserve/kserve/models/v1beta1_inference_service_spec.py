@@ -47,33 +47,61 @@ class V1beta1InferenceServiceSpec(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'canary': 'list[V1beta1CanarySpec]',
         'explainer': 'V1beta1ExplainerSpec',
         'predictor': 'V1beta1PredictorSpec',
         'transformer': 'V1beta1TransformerSpec'
     }
 
     attribute_map = {
+        'canary': 'canary',
         'explainer': 'explainer',
         'predictor': 'predictor',
         'transformer': 'transformer'
     }
 
-    def __init__(self, explainer=None, predictor=None, transformer=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, canary=None, explainer=None, predictor=None, transformer=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1InferenceServiceSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._canary = None
         self._explainer = None
         self._predictor = None
         self._transformer = None
         self.discriminator = None
 
+        if canary is not None:
+            self.canary = canary
         if explainer is not None:
             self.explainer = explainer
         self.predictor = predictor
         if transformer is not None:
             self.transformer = transformer
+
+    @property
+    def canary(self):
+        """Gets the canary of this V1beta1InferenceServiceSpec.  # noqa: E501
+
+        Canary defines optional canary deployments for progressive model rollout. Each canary's predictor.name drives the Deployment name: {isvc}-{name}-predictor. To promote a canary without restart, set predictor.name to the canary name and remove the canary entry.  # noqa: E501
+
+        :return: The canary of this V1beta1InferenceServiceSpec.  # noqa: E501
+        :rtype: list[V1beta1CanarySpec]
+        """
+        return self._canary
+
+    @canary.setter
+    def canary(self, canary):
+        """Sets the canary of this V1beta1InferenceServiceSpec.
+
+        Canary defines optional canary deployments for progressive model rollout. Each canary's predictor.name drives the Deployment name: {isvc}-{name}-predictor. To promote a canary without restart, set predictor.name to the canary name and remove the canary entry.  # noqa: E501
+
+        :param canary: The canary of this V1beta1InferenceServiceSpec.  # noqa: E501
+        :type: list[V1beta1CanarySpec]
+        """
+
+        self._canary = canary
 
     @property
     def explainer(self):

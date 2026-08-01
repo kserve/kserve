@@ -49,6 +49,7 @@ class V1beta1TorchServeSpec(object):
     openapi_types = {
         'args': 'list[str]',
         'command': 'list[str]',
+        'confidential': 'V1beta1ConfidentialSpec',
         'env': 'list[V1EnvVar]',
         'env_from': 'list[V1EnvFromSource]',
         'image': 'str',
@@ -81,6 +82,7 @@ class V1beta1TorchServeSpec(object):
     attribute_map = {
         'args': 'args',
         'command': 'command',
+        'confidential': 'confidential',
         'env': 'env',
         'env_from': 'envFrom',
         'image': 'image',
@@ -110,7 +112,7 @@ class V1beta1TorchServeSpec(object):
         'working_dir': 'workingDir'
     }
 
-    def __init__(self, args=None, command=None, env=None, env_from=None, image=None, image_pull_policy=None, lifecycle=None, liveness_probe=None, name='', ports=None, protocol_version=None, readiness_probe=None, resize_policy=None, resources=None, restart_policy=None, restart_policy_rules=None, runtime_version=None, security_context=None, startup_probe=None, stdin=None, stdin_once=None, storage=None, storage_uri=None, termination_message_path=None, termination_message_policy=None, tty=None, volume_devices=None, volume_mounts=None, working_dir=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, args=None, command=None, confidential=None, env=None, env_from=None, image=None, image_pull_policy=None, lifecycle=None, liveness_probe=None, name='', ports=None, protocol_version=None, readiness_probe=None, resize_policy=None, resources=None, restart_policy=None, restart_policy_rules=None, runtime_version=None, security_context=None, startup_probe=None, stdin=None, stdin_once=None, storage=None, storage_uri=None, termination_message_path=None, termination_message_policy=None, tty=None, volume_devices=None, volume_mounts=None, working_dir=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1TorchServeSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -118,6 +120,7 @@ class V1beta1TorchServeSpec(object):
 
         self._args = None
         self._command = None
+        self._confidential = None
         self._env = None
         self._env_from = None
         self._image = None
@@ -151,6 +154,8 @@ class V1beta1TorchServeSpec(object):
             self.args = args
         if command is not None:
             self.command = command
+        if confidential is not None:
+            self.confidential = confidential
         if env is not None:
             self.env = env
         if env_from is not None:
@@ -251,6 +256,27 @@ class V1beta1TorchServeSpec(object):
         """
 
         self._command = command
+
+    @property
+    def confidential(self):
+        """Gets the confidential of this V1beta1TorchServeSpec.  # noqa: E501
+
+
+        :return: The confidential of this V1beta1TorchServeSpec.  # noqa: E501
+        :rtype: V1beta1ConfidentialSpec
+        """
+        return self._confidential
+
+    @confidential.setter
+    def confidential(self, confidential):
+        """Sets the confidential of this V1beta1TorchServeSpec.
+
+
+        :param confidential: The confidential of this V1beta1TorchServeSpec.  # noqa: E501
+        :type: V1beta1ConfidentialSpec
+        """
+
+        self._confidential = confidential
 
     @property
     def env(self):

@@ -52,7 +52,6 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 			}
 
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
 				envTest.DeleteAll(ctx, namespace)
 			}()
@@ -163,7 +162,6 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 			}
 
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
 				envTest.DeleteAll(ctx, namespace)
 			}()
@@ -222,7 +220,6 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 			}
 
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
 				envTest.DeleteAll(ctx, namespace)
 			}()
@@ -359,7 +356,6 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 			}
 
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
 				envTest.DeleteAll(ctx, namespace)
 			}()
@@ -445,7 +441,6 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 				InNamespace[*v1alpha2.LLMInferenceService](nsName),
 				WithModelURI("hf://facebook/opt-125m"),
 			)
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName+"-1", nsName))).To(Succeed())
 			Expect(envTest.Create(ctx, llmSvc1)).To(Succeed())
 			defer func() {
 				Expect(envTest.Delete(ctx, llmSvc1)).To(Succeed())
@@ -456,7 +451,6 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 				InNamespace[*v1alpha2.LLMInferenceService](nsName),
 				WithModelURI("hf://facebook/opt-125m"),
 			)
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName+"-2", nsName))).To(Succeed())
 			Expect(envTest.Create(ctx, llmSvc2)).To(Succeed())
 			defer func() {
 				Expect(envTest.Delete(ctx, llmSvc2)).To(Succeed())
@@ -522,7 +516,6 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 			}
 
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
 				envTest.DeleteAll(ctx, namespace)
 			}()
@@ -606,7 +599,6 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 			}
 
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
 				envTest.DeleteAll(ctx, namespace)
 			}()
@@ -656,7 +648,9 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 			})
 			Expect(errRetry).ToNot(HaveOccurred())
 
-			// then - verify the service is marked as stopped despite missing config
+			// then - verify the service is marked as stopped.
+			// The config still exists (finalizer blocks deletion), so PresetsCombined
+			// remains True — the stop proceeds without a config warning.
 			Eventually(func(g Gomega, ctx context.Context) error {
 				err := envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName,
@@ -669,22 +663,7 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 				g.Expect(mainWorkloadCondition.Status).To(Equal(corev1.ConditionFalse))
 				g.Expect(mainWorkloadCondition.Reason).To(Equal("Stopped"))
 				return nil
-			}).WithContext(ctx).Should(Succeed(), "service should be marked as stopped even when config is missing")
-
-			// verify PresetsCombined condition reflects the warning about missing config
-			Eventually(func(g Gomega, ctx context.Context) error {
-				err := envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName,
-					Namespace: nsName,
-				}, llmSvc)
-				g.Expect(err).ToNot(HaveOccurred())
-
-				presetsCombinedCondition := llmSvc.Status.GetCondition(v1alpha2.PresetsCombined)
-				g.Expect(presetsCombinedCondition).ToNot(BeNil())
-				g.Expect(presetsCombinedCondition.Status).To(Equal(corev1.ConditionFalse))
-				g.Expect(presetsCombinedCondition.Reason).To(Equal("Stopped"))
-				return nil
-			}).WithContext(ctx).Should(Succeed(), "PresetsCombined should indicate stopped with warning")
+			}).WithContext(ctx).Should(Succeed(), "service should be marked as stopped")
 
 			// verify deployment is deleted
 			Eventually(func(g Gomega, ctx context.Context) bool {
@@ -712,7 +691,6 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 			}
 
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
 				envTest.DeleteAll(ctx, namespace)
 			}()
@@ -807,7 +785,6 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 			}
 
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
 				envTest.DeleteAll(ctx, namespace)
 			}()
@@ -909,7 +886,6 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 			}
 
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
 				envTest.DeleteAll(ctx, namespace)
 			}()
@@ -1002,7 +978,6 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 			}
 
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
 				envTest.DeleteAll(ctx, namespace)
 			}()
@@ -1121,7 +1096,6 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 			}
 
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
 				envTest.DeleteAll(ctx, namespace)
 			}()
@@ -1187,8 +1161,9 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 				Should(BeTrue(), "no deployment should be created when service is stopped")
 		})
 
-		It("should toggle stop on and off with missing baseRef config", func(ctx SpecContext) {
-			// This tests the full lifecycle: running -> config deleted -> stop -> unstop (should fail gracefully)
+		It("should toggle stop on and off with deletion-blocked baseRef config", func(ctx SpecContext) {
+			// This tests the full lifecycle: running -> config deletion requested (but blocked
+			// by finalizer) -> stop -> unstop (config still exists due to finalizer, service resumes)
 			// given
 			svcName := "test-llm-stop-cfg-toggle"
 			nsName := kmeta.ChildName(svcName, "-test")
@@ -1199,7 +1174,6 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 			}
 
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
 				envTest.DeleteAll(ctx, namespace)
 			}()
@@ -1232,8 +1206,19 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
-			// Delete the config
+			// Request deletion of the config (finalizer blocks actual removal)
 			Expect(envTest.Client.Delete(ctx, modelConfig)).To(Succeed())
+
+			// Verify the config still exists with a DeletionTimestamp (finalizer blocks deletion)
+			Eventually(func(g Gomega, ctx context.Context) bool {
+				cfg := &v1alpha2.LLMInferenceServiceConfig{}
+				err := envTest.Client.Get(ctx, types.NamespacedName{
+					Name:      "toggle-config",
+					Namespace: nsName,
+				}, cfg)
+				g.Expect(err).ToNot(HaveOccurred())
+				return cfg.DeletionTimestamp != nil
+			}).WithContext(ctx).Should(BeTrue(), "config should have DeletionTimestamp but still exist due to finalizer")
 
 			// Stop the service
 			errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -1255,9 +1240,10 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 					Namespace: nsName,
 				}, expectedDeployment)
 				return err != nil && errors.IsNotFound(err)
-			}).WithContext(ctx).Should(BeTrue(), "deployment should be deleted when stopped with missing config")
+			}).WithContext(ctx).Should(BeTrue(), "deployment should be deleted when stopped")
 
-			// Remove stop annotation (config is still missing — service should report config error)
+			// Remove stop annotation — config still exists (protected by finalizer),
+			// so the service should resume successfully
 			errRetry = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 				_, errUpdate := ctrl.CreateOrUpdate(ctx, envTest.Client, llmSvc, func() error {
 					delete(llmSvc.Annotations, constants.StopAnnotationKey)
@@ -1267,34 +1253,13 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 			})
 			Expect(errRetry).ToNot(HaveOccurred())
 
-			// Verify that PresetsCombined shows the config error (not stuck or panicking)
-			Eventually(func(g Gomega, ctx context.Context) error {
-				err := envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName,
-					Namespace: nsName,
-				}, llmSvc)
-				g.Expect(err).ToNot(HaveOccurred())
-
-				presetsCombinedCondition := llmSvc.Status.GetCondition(v1alpha2.PresetsCombined)
-				g.Expect(presetsCombinedCondition).ToNot(BeNil())
-				g.Expect(presetsCombinedCondition.Status).To(Equal(corev1.ConditionFalse))
-				g.Expect(presetsCombinedCondition.Reason).To(Equal("ConfigNotFound"))
-				return nil
-			}).WithContext(ctx).Should(Succeed(), "PresetsCombined should report config error when config is missing and service is not stopped")
-
-			// Recreate the config and verify deployment comes back
-			modelConfig = LLMInferenceServiceConfig("toggle-config",
-				InNamespace[*v1alpha2.LLMInferenceServiceConfig](nsName),
-				WithConfigModelURI("hf://facebook/opt-125m"),
-			)
-			Expect(envTest.Client.Create(ctx, modelConfig)).To(Succeed())
-
+			// Verify deployment is recreated (config is still available due to finalizer)
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve",
 					Namespace: nsName,
 				}, expectedDeployment)
-			}).WithContext(ctx).Should(Succeed(), "deployment should be recreated after config is restored")
+			}).WithContext(ctx).Should(Succeed(), "deployment should be recreated because config is still available (protected by finalizer)")
 		})
 	})
 })

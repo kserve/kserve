@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -45,16 +45,6 @@ type TestNamespace struct {
 
 // TestNamespaceOption configures a TestNamespace during creation
 type TestNamespaceOption func(ctx context.Context, tn *TestNamespace)
-
-// WithIstioShadowService creates an Istio shadow service in the namespace.
-// This is required for tests that verify Istio integration.
-func WithIstioShadowService(svcName string) TestNamespaceOption {
-	return func(ctx context.Context, tn *TestNamespace) {
-		svc := IstioShadowService(svcName, tn.Name)
-		gomega.Expect(tn.client.Create(ctx, svc)).To(gomega.Succeed())
-		tn.resources = append(tn.resources, svc)
-	}
-}
 
 // WithDefaultServiceAccount creates the default ServiceAccount.
 // This is automatically applied but can be explicitly added for clarity.
@@ -117,9 +107,7 @@ func WithServiceAccount(name string) TestNamespaceOption {
 //
 // Example usage:
 //
-//	testNs := NewTestNamespace(ctx, envTest,
-//	    WithIstioShadowService("my-service"),
-//	)
+//	testNs := NewTestNamespace(ctx, envTest)
 func NewTestNamespace(ctx context.Context, c *pkgtest.Client, opts ...TestNamespaceOption) *TestNamespace {
 	nsName := generateNamespaceName(ginkgo.CurrentSpecReport())
 

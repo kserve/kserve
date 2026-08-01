@@ -1,3 +1,4 @@
+# Copyright 2026 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,13 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import re
 
 import pytest
 
-from kserve import KServeClient
 from ..common.utils import predict_isvc, KSERVE_TEST_NAMESPACE
+
 from .format_verifiers import (
     verify_json_object,
     verify_csv_object,
@@ -32,15 +45,13 @@ from .s3_utils import (
     wait_for_s3_objects,
 )
 
-kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
-
 
 # --- JSON tests ---
 
 
 @pytest.mark.marshaller
 @pytest.mark.asyncio(scope="session")
-async def test_json_immediate(rest_v1_client, network_layer):
+async def test_json_immediate(kserve_client, rest_v1_client, network_layer):
     """JSON marshaller with immediate batching (batch_size=1).
 
     Send 1 prediction. Expect 2 S3 objects (request + response),
@@ -89,7 +100,7 @@ async def test_json_immediate(rest_v1_client, network_layer):
 
 @pytest.mark.marshaller
 @pytest.mark.asyncio(scope="session")
-async def test_json_size_batch(rest_v1_client, network_layer):
+async def test_json_size_batch(kserve_client, rest_v1_client, network_layer):
     """JSON marshaller with size-based batching (batch_size=5).
 
     Send 5 predictions. Expect 2 S3 objects: one batch of 5 request
@@ -126,7 +137,7 @@ async def test_json_size_batch(rest_v1_client, network_layer):
 
 @pytest.mark.marshaller
 @pytest.mark.asyncio(scope="session")
-async def test_json_timed_batch(rest_v1_client, network_layer):
+async def test_json_timed_batch(kserve_client, rest_v1_client, network_layer):
     """JSON marshaller with timed batching (batch_size=2, interval=5s).
 
     Phase 1: Send 2 requests to fill the batch. Verify 2 objects with 2 records.
@@ -184,7 +195,7 @@ async def test_json_timed_batch(rest_v1_client, network_layer):
 
 @pytest.mark.marshaller
 @pytest.mark.asyncio(scope="session")
-async def test_csv_immediate(rest_v1_client, network_layer):
+async def test_csv_immediate(kserve_client, rest_v1_client, network_layer):
     """CSV marshaller with immediate batching (batch_size=1).
 
     Send 1 prediction. Expect 2 S3 objects (request + response),
@@ -227,7 +238,7 @@ async def test_csv_immediate(rest_v1_client, network_layer):
 
 @pytest.mark.marshaller
 @pytest.mark.asyncio(scope="session")
-async def test_csv_size_batch(rest_v1_client, network_layer):
+async def test_csv_size_batch(kserve_client, rest_v1_client, network_layer):
     """CSV marshaller with size-based batching (batch_size=5).
 
     Send 5 predictions. Expect 2 S3 objects: one batch of 5 request
@@ -264,7 +275,7 @@ async def test_csv_size_batch(rest_v1_client, network_layer):
 
 @pytest.mark.marshaller
 @pytest.mark.asyncio(scope="session")
-async def test_csv_timed_batch(rest_v1_client, network_layer):
+async def test_csv_timed_batch(kserve_client, rest_v1_client, network_layer):
     """CSV marshaller with timed batching (batch_size=2, interval=5s).
 
     Phase 1: Send 2 requests to fill the batch. Verify 2 objects with 2 rows.
@@ -320,7 +331,7 @@ async def test_csv_timed_batch(rest_v1_client, network_layer):
 
 @pytest.mark.marshaller
 @pytest.mark.asyncio(scope="session")
-async def test_parquet_immediate(rest_v1_client, network_layer):
+async def test_parquet_immediate(kserve_client, rest_v1_client, network_layer):
     """Parquet marshaller with immediate batching (batch_size=1).
 
     Send 1 prediction. Expect 2 S3 objects (request + response),
@@ -363,7 +374,7 @@ async def test_parquet_immediate(rest_v1_client, network_layer):
 
 @pytest.mark.marshaller
 @pytest.mark.asyncio(scope="session")
-async def test_parquet_size_batch(rest_v1_client, network_layer):
+async def test_parquet_size_batch(kserve_client, rest_v1_client, network_layer):
     """Parquet marshaller with size-based batching (batch_size=5).
 
     Send 5 predictions. Expect 2 S3 objects: one batch of 5 request
@@ -400,7 +411,7 @@ async def test_parquet_size_batch(rest_v1_client, network_layer):
 
 @pytest.mark.marshaller
 @pytest.mark.asyncio(scope="session")
-async def test_parquet_timed_batch(rest_v1_client, network_layer):
+async def test_parquet_timed_batch(kserve_client, rest_v1_client, network_layer):
     """Parquet marshaller with timed batching (batch_size=2, interval=5s).
 
     Phase 1: Send 2 requests to fill the batch. Verify 2 objects with 2 rows.

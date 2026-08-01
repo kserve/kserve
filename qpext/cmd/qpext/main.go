@@ -19,12 +19,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/hashicorp/go-multierror"
-	logger "github.com/kserve/kserve/qpext"
-	io_prometheus_client "github.com/prometheus/client_model/go"
-	"github.com/prometheus/common/expfmt"
-	"github.com/prometheus/common/model"
-	"go.uber.org/zap"
 	"io"
 	"net"
 	"net/http"
@@ -32,9 +26,16 @@ import (
 	"strconv"
 	"strings"
 	"time"
-)
 
-import "knative.dev/serving/pkg/queue/sharedmain"
+	"github.com/hashicorp/go-multierror"
+	io_prometheus_client "github.com/prometheus/client_model/go"
+	"github.com/prometheus/common/expfmt"
+	"github.com/prometheus/common/model"
+	"go.uber.org/zap"
+	"knative.dev/serving/pkg/queue/sharedmain"
+
+	logger "github.com/kserve/kserve/qpext"
+)
 
 var (
 	EnvVars   = []string{"SERVING_SERVICE", "SERVING_CONFIGURATION", "SERVING_REVISION"}
@@ -83,7 +84,7 @@ func applyHeaders(into http.Header, from http.Header, keys ...string) {
 }
 
 func getServerlessLabelVals() []string {
-	var labelValues []string
+	labelValues := make([]string, 0, len(EnvVars))
 	for _, envVar := range EnvVars {
 		labelValues = append(labelValues, os.Getenv(envVar))
 	}
@@ -110,14 +111,14 @@ func addServerlessLabels(metric *io_prometheus_client.Metric, labelKeys []string
 // counter metric names with _created and gauge metric names with _total are converted due to irregularities
 // observed in the conversion of these metrics from text to metric families.
 func sanitizeMetrics(mf *io_prometheus_client.MetricFamily) *io_prometheus_client.MetricFamily {
-	if strings.HasSuffix(*mf.Name, "_created") {
+	if strings.HasSuffix(mf.GetName(), "_created") {
 		counter := io_prometheus_client.MetricType_COUNTER
-		var newMetric []*io_prometheus_client.Metric
-		for _, metric := range mf.Metric {
+		newMetric := make([]*io_prometheus_client.Metric, 0, len(mf.GetMetric()))
+		for _, metric := range mf.GetMetric() {
 			newMetric = append(newMetric, &io_prometheus_client.Metric{
-				Label: metric.Label,
+				Label: metric.GetLabel(),
 				Counter: &io_prometheus_client.Counter{
-					Value: metric.Untyped.Value,
+					Value: metric.GetUntyped().Value,
 				},
 				TimestampMs: metric.TimestampMs,
 			})
@@ -130,14 +131,14 @@ func sanitizeMetrics(mf *io_prometheus_client.MetricFamily) *io_prometheus_clien
 		}
 	}
 
-	if strings.HasSuffix(*mf.Name, "_total") {
+	if strings.HasSuffix(mf.GetName(), "_total") {
 		gauge := io_prometheus_client.MetricType_GAUGE
-		var newMetric []*io_prometheus_client.Metric
-		for _, metric := range mf.Metric {
+		newMetric := make([]*io_prometheus_client.Metric, 0, len(mf.GetMetric()))
+		for _, metric := range mf.GetMetric() {
 			newMetric = append(newMetric, &io_prometheus_client.Metric{
-				Label: metric.Label,
+				Label: metric.GetLabel(),
 				Gauge: &io_prometheus_client.Gauge{
-					Value: metric.Untyped.Value,
+					Value: metric.GetUntyped().Value,
 				},
 				TimestampMs: metric.TimestampMs,
 			})
@@ -164,7 +165,7 @@ func scrapeAndWriteAppMetrics(mfs map[string]*io_prometheus_client.MetricFamily,
 		// These metrics seem to be either gauges or counters. For now, avoid these errors by sanitizing the metrics
 		// based on the metric name. If the metric can't be converted, we log an error. In the future, we should
 		// figure out the root cause of this. (Possibly due to open metrics being read in as text and converted to MetricFamily)
-		if *metricFamily.Type == io_prometheus_client.MetricType_UNTYPED {
+		if metricFamily.GetType() == io_prometheus_client.MetricType_UNTYPED {
 			mf = sanitizeMetrics(metricFamily)
 			if mf == nil {
 				// if the metric fails to convert, discard it and keep exporting the rest of the metrics
@@ -176,14 +177,14 @@ func scrapeAndWriteAppMetrics(mfs map[string]*io_prometheus_client.MetricFamily,
 		}
 
 		// create a new list of Metric with the added serverless labels to each individual Metric
-		for _, metric := range mf.Metric {
+		for _, metric := range mf.GetMetric() {
 			m := addServerlessLabels(metric, LabelKeys, labelValues)
 			newMetric = append(newMetric, m)
 		}
 		mf.Metric = newMetric
 
-		_, err := expfmt.MetricFamilyToText(w, mf)
-		if err != nil {
+		enc := expfmt.NewEncoder(w, format)
+		if err := enc.Encode(mf); err != nil {
 			logger.Error("multierr", zap.Error(err))
 			errs = multierror.Append(errs, err)
 		}
@@ -194,9 +195,8 @@ func scrapeAndWriteAppMetrics(mfs map[string]*io_prometheus_client.MetricFamily,
 // scrape sends a request to the provided url to scrape metrics from
 // This will attempt to mimic some of Prometheus functionality by passing some headers through
 // scrape returns the scraped metrics reader as well as the response's "Content-Type" header to determine the metrics format
-func scrape(url string, header http.Header, logger *zap.Logger) (io.ReadCloser, context.CancelFunc, string, error) {
+func scrape(ctx context.Context, url string, header http.Header, logger *zap.Logger) (io.ReadCloser, context.CancelFunc, string, error) {
 	var cancel context.CancelFunc
-	ctx := context.Background()
 	if timeoutString := header.Get(prometheusTimeoutHeader); timeoutString != "" {
 		timeout, err := getHeaderTimeout(timeoutString)
 		if err != nil {
@@ -217,7 +217,7 @@ func scrape(url string, header http.Header, logger *zap.Logger) (io.ReadCloser, 
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, cancel, "", fmt.Errorf("error scraping %s: %v", url, err)
+		return nil, cancel, "", fmt.Errorf("error scraping %s: %w", url, err)
 	}
 	if resp.StatusCode != http.StatusOK {
 		if err := resp.Body.Close(); err != nil {
@@ -269,7 +269,7 @@ func (sc *ScrapeConfigurations) handleStats(w http.ResponseWriter, r *http.Reque
 	// Gather all the metrics we will merge
 	if sc.QueueProxyPort != "" {
 		queueProxyURL := getURL(sc.QueueProxyPort, sc.QueueProxyPath)
-		if queueProxy, queueProxyCancel, _, err = scrape(queueProxyURL, r.Header, sc.logger); err != nil {
+		if queueProxy, queueProxyCancel, _, err = scrape(r.Context(), queueProxyURL, r.Header, sc.logger); err != nil {
 			sc.logger.Error("failed scraping queue proxy metrics", zap.Error(err))
 		}
 	}
@@ -278,14 +278,14 @@ func (sc *ScrapeConfigurations) handleStats(w http.ResponseWriter, r *http.Reque
 	if sc.AppPort != "" {
 		kserveContainerURL := getURL(sc.AppPort, sc.AppPath)
 		var contentType string
-		if application, appCancel, contentType, err = scrape(kserveContainerURL, r.Header, sc.logger); err != nil {
+		if application, appCancel, contentType, err = scrape(r.Context(), kserveContainerURL, r.Header, sc.logger); err != nil {
 			sc.logger.Error("failed scraping application metrics", zap.Error(err), zap.String("content type", contentType))
 		}
 	}
 
 	// Since we convert the scraped metrics to text, set the format as text even if
 	// the content type is originally open metrics.
-	format := expfmt.FmtText
+	format := expfmt.NewFormat(expfmt.TypeTextPlain)
 	w.Header().Set("Content-Type", string(format))
 
 	if queueProxy != nil {
@@ -327,10 +327,15 @@ func main() {
 		return
 	}
 
+	server := &http.Server{
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+
 	errCh := make(chan error)
 	go func() {
 		zapLogger.Info(fmt.Sprintf("Starting stats server on port %v", aggregateMetricsPort))
-		if err = http.Serve(l, mux); err != nil {
+		if err = server.Serve(l); err != nil {
 			errCh <- fmt.Errorf("stats server failed to serve: %w", err)
 		}
 	}()

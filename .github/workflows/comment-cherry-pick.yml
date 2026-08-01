@@ -14,10 +14,11 @@ jobs:
       - name: Check if PR is merged
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
           PR_NUMBER="${{ github.event.issue.number }}"
-          PR_STATE=$(gh pr view "$PR_NUMBER" --json state -q .state)
-          PR_MERGED=$(gh pr view "$PR_NUMBER" --json mergedAt -q .mergedAt)
+          PR_STATE=$(gh pr view "$PR_NUMBER" --repo "$GH_REPO" --json state -q .state)
+          PR_MERGED=$(gh pr view "$PR_NUMBER" --repo "$GH_REPO" --json mergedAt -q .mergedAt)
 
           if [[ "$PR_STATE" != "MERGED" ]] || [[ "$PR_MERGED" == "null" ]]; then
             echo "❌ Error: PR #$PR_NUMBER is not merged yet"

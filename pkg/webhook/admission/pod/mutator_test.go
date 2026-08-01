@@ -35,6 +35,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	kservetypes "github.com/kserve/kserve/pkg/types"
 )
 
 func TestMutator_Handle(t *testing.T) {
@@ -313,6 +314,47 @@ func TestMutator_Handle(t *testing.T) {
 			g.Expect(res).Should(tc.matcher, name)
 			if err := c.Delete(t.Context(), &tc.configMap); err != nil {
 				t.Errorf("failed to delete configmap %v", err)
+			}
+		})
+	}
+}
+
+// TestInjectModelcarGate verifies the predicate that gates InjectModelcar registration
+// in mutator.go. The gate uses ResolveOciModelMode so that clusters opting in via the
+// new enableOciModelSupport field — without setting the legacy enableModelcar field —
+// still get InjectModelcar registered.
+func TestInjectModelcarGate(t *testing.T) {
+	tests := []struct {
+		name           string
+		config         *kservetypes.StorageInitializerConfig
+		wantRegistered bool
+	}{
+		{
+			name: "EnableOciModelSupport only: InjectModelcar registered",
+			config: &kservetypes.StorageInitializerConfig{
+				EnableOciModelSupport: true,
+				EnableOciImageSource:  false,
+			},
+			wantRegistered: true,
+		},
+		{
+			name: "EnableOciImageSource only (legacy enableModelcar): InjectModelcar registered",
+			config: &kservetypes.StorageInitializerConfig{
+				EnableOciImageSource: true,
+			},
+			wantRegistered: true,
+		},
+		{
+			name:           "all OCI fields false: InjectModelcar NOT registered",
+			config:         &kservetypes.StorageInitializerConfig{},
+			wantRegistered: false,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := kservetypes.ResolveOciModelMode(tc.config) != ""
+			if got != tc.wantRegistered {
+				t.Errorf("gate predicate = %v, want %v", got, tc.wantRegistered)
 			}
 		})
 	}

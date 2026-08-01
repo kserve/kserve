@@ -34,6 +34,8 @@ spec:
           value: /tmp
         - name: VLLM_CONFIG_ROOT
           value: /tmp
+        - name: VLLM_WORKER_MULTIPROC_METHOD
+          value: "spawn"
       securityContext:
         allowPrivilegeEscalation: false
         privileged: false

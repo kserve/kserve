@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
@@ -1456,4 +1457,254 @@ func TestValidateManagedDRAAnnotations(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidateConfidential(t *testing.T) {
+	tests := []struct {
+		name           string
+		confidential   *ConfidentialSpec
+		modelURI       apis.URL
+		wantErrCount   int
+		wantErrStrings []string
+		wantWarnings   []string
+	}{
+		{
+			name:         "nil confidential spec",
+			confidential: nil,
+			modelURI:     apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"},
+			wantErrCount: 0,
+		},
+		{
+			name:         "confidential disabled",
+			confidential: &ConfidentialSpec{Enabled: false},
+			modelURI:     apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"},
+			wantErrCount: 0,
+		},
+		{
+			name:         "confidential enabled with valid resourceId",
+			confidential: &ConfidentialSpec{Enabled: true, ResourceId: ptr.To("kbs:///default/key/model-key")},
+			modelURI:     apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"},
+			wantErrCount: 0,
+		},
+		{
+			name:         "confidential enabled without resourceId",
+			confidential: &ConfidentialSpec{Enabled: true},
+			modelURI:     apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"},
+			wantErrCount: 0,
+		},
+		{
+			name:         "confidential enabled with OCI URI warns",
+			confidential: &ConfidentialSpec{Enabled: true},
+			modelURI:     apis.URL{Scheme: "oci", Host: "registry/model:latest"},
+			wantErrCount: 0,
+			wantWarnings: []string{"OCI URIs"},
+		},
+		{
+			name:         "confidential enabled with PVC URI warns",
+			confidential: &ConfidentialSpec{Enabled: true},
+			modelURI:     apis.URL{Scheme: "pvc", Host: "my-pvc/model-dir"},
+			wantErrCount: 0,
+			wantWarnings: []string{"PVC URIs"},
+		},
+		{
+			name:           "confidential with malformed resourceId",
+			confidential:   &ConfidentialSpec{Enabled: true, ResourceId: ptr.To("invalid-id")},
+			modelURI:       apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"},
+			wantErrCount:   1,
+			wantErrStrings: []string{"kbs:///<repo>/<type>/<tag>"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			validator := &LLMInferenceServiceValidator{}
+			llmSvc := &LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-llm-isvc",
+					Namespace: "default",
+				},
+				Spec: LLMInferenceServiceSpec{
+					Model: LLMModelSpec{
+						URI:          tt.modelURI,
+						Confidential: tt.confidential,
+					},
+				},
+			}
+			warnings, errs := validator.validateConfidential(llmSvc)
+
+			assert.Len(t, errs, tt.wantErrCount, "expected %d errors, got %d: %v", tt.wantErrCount, len(errs), errs)
+			for _, wantStr := range tt.wantErrStrings {
+				found := false
+				for _, e := range errs {
+					if strings.Contains(e.Error(), wantStr) {
+						found = true
+						break
+					}
+				}
+				assert.True(t, found, "expected error containing %q, got: %v", wantStr, errs)
+			}
+			for _, wantWarning := range tt.wantWarnings {
+				found := false
+				for _, w := range warnings {
+					if strings.Contains(w, wantWarning) {
+						found = true
+						break
+					}
+				}
+				assert.True(t, found, "expected warning containing %q, got: %v", wantWarning, warnings)
+			}
+		})
+	}
+}
+
+func TestValidateKVCacheOffloading(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+
+	makeSvc := func(kv *KVCacheOffloadingSpec) *LLMInferenceService {
+		return &LLMInferenceService{
+			Spec: LLMInferenceServiceSpec{
+				WorkloadSpec: WorkloadSpec{KVCacheOffloading: kv},
+			},
+		}
+	}
+
+	t.Run("nil spec produces no errors", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(nil))
+		assert.Empty(t, errs)
+	})
+
+	t.Run("cpu-only (no secondary) produces no errors", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
+			CPU: resource.MustParse("10Gi"),
+		}))
+		assert.Empty(t, errs)
+	})
+
+	t.Run("valid emptyDir secondary tier", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
+			CPU: resource.MustParse("10Gi"),
+			Secondary: []SecondaryTierSpec{
+				{FileSystem: &FileSystemTierSpec{
+					EmptyDir: &EmptyDirTierSpec{Size: resource.MustParse("100Gi")},
+				}},
+			},
+		}))
+		assert.Empty(t, errs)
+	})
+
+	t.Run("secondary without cpu produces error", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
+			Secondary: []SecondaryTierSpec{
+				{FileSystem: &FileSystemTierSpec{
+					EmptyDir: &EmptyDirTierSpec{Size: resource.MustParse("100Gi")},
+				}},
+			},
+		}))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeRequired, errs[0].Type)
+		assert.Contains(t, errs[0].Field, "cpu")
+	})
+
+	t.Run("nil fileSystem produces error", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
+			CPU:       resource.MustParse("10Gi"),
+			Secondary: []SecondaryTierSpec{{FileSystem: nil}},
+		}))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeRequired, errs[0].Type)
+		assert.Contains(t, errs[0].Field, "fileSystem")
+	})
+
+	t.Run("both emptyDir and pvc set produces error", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
+			CPU: resource.MustParse("10Gi"),
+			Secondary: []SecondaryTierSpec{
+				{FileSystem: &FileSystemTierSpec{
+					EmptyDir: &EmptyDirTierSpec{Size: resource.MustParse("100Gi")},
+					PVC:      &PVCTierSpec{},
+				}},
+			},
+		}))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeInvalid, errs[0].Type)
+		assert.Contains(t, errs[0].Field, "fileSystem")
+	})
+
+	t.Run("none of emptyDir/pvc set produces error", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
+			CPU:       resource.MustParse("10Gi"),
+			Secondary: []SecondaryTierSpec{{FileSystem: &FileSystemTierSpec{}}},
+		}))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeRequired, errs[0].Type)
+	})
+
+	t.Run("pvc with neither spec nor ref produces error", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
+			CPU: resource.MustParse("10Gi"),
+			Secondary: []SecondaryTierSpec{
+				{FileSystem: &FileSystemTierSpec{
+					PVC: &PVCTierSpec{},
+				}},
+			},
+		}))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeRequired, errs[0].Type)
+	})
+
+	t.Run("pvc.ref with empty name produces error", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
+			CPU: resource.MustParse("10Gi"),
+			Secondary: []SecondaryTierSpec{
+				{FileSystem: &FileSystemTierSpec{
+					PVC: &PVCTierSpec{Ref: &PVCRefTierSpec{Name: ""}},
+				}},
+			},
+		}))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeRequired, errs[0].Type)
+		assert.Contains(t, errs[0].Field, "name")
+	})
+
+	t.Run("pvc with both spec and ref produces error", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
+			CPU: resource.MustParse("10Gi"),
+			Secondary: []SecondaryTierSpec{
+				{FileSystem: &FileSystemTierSpec{
+					PVC: &PVCTierSpec{
+						Spec: &corev1.PersistentVolumeClaimSpec{},
+						Ref:  &PVCRefTierSpec{Name: "my-pvc"},
+					},
+				}},
+			},
+		}))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeInvalid, errs[0].Type)
+	})
+
+	t.Run("prefill kvCacheOffloading is also validated", func(t *testing.T) {
+		svc := &LLMInferenceService{
+			Spec: LLMInferenceServiceSpec{
+				WorkloadSpec: WorkloadSpec{
+					KVCacheOffloading: &KVCacheOffloadingSpec{
+						CPU: resource.MustParse("10Gi"),
+					},
+				},
+				Prefill: &WorkloadSpec{
+					KVCacheOffloading: &KVCacheOffloadingSpec{
+						// secondary set but cpu is zero
+						Secondary: []SecondaryTierSpec{
+							{FileSystem: &FileSystemTierSpec{
+								EmptyDir: &EmptyDirTierSpec{Size: resource.MustParse("100Gi")},
+							}},
+						},
+					},
+				},
+			},
+		}
+		errs := validator.validateKVCacheOffloading(svc)
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "prefill")
+		assert.Contains(t, errs[0].Field, "cpu")
+	})
 }
