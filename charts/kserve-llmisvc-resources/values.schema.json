@@ -21,6 +21,27 @@
                 "llmisvc": {
                     "type": "object",
                     "properties": {
+                        "selfSignedCerts": {
+                            "type": "object",
+                            "description": "Issue the webhook serving certificate from a chart-managed self-signed CA instead of cert-manager.",
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean",
+                                    "default": false,
+                                    "description": "When true, cert-manager objects and inject-ca-from annotations are not rendered; the chart provisions the webhook certificate and caBundle itself."
+                                },
+                                "caSecretName": {
+                                    "type": "string",
+                                    "default": "llmisvc-selfsigned-ca",
+                                    "description": "Secret (type kubernetes.io/tls, release namespace) holding the CA keypair shared with the kserve-llmisvc-crd chart."
+                                },
+                                "validityDays": {
+                                    "type": "integer",
+                                    "default": 7300,
+                                    "description": "Serving-certificate (and fallback CA) validity in days."
+                                }
+                            }
+                        },
                         "createGIECRDs": {
                             "type": "boolean",
                             "default": true,
