@@ -170,7 +170,7 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 			return nil, fmt.Errorf("failed to attach model artifacts to main deployment: %w", err)
 		}
 		if llmSvc.Spec.KVCacheOffloading != nil {
-			attachKVCacheSecondaryTiers(&d.Spec.Template.Spec, llmSvc.Spec.KVCacheOffloading.Secondary, "main")
+			attachKVCacheOffloading(&d.Spec.Template.Spec, llmSvc.Spec.KVCacheOffloading)
 		}
 	}
 
@@ -273,7 +273,7 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 			return nil, fmt.Errorf("failed to attach model artifacts to prefill deployment: %w", err)
 		}
 		if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.KVCacheOffloading != nil {
-			attachKVCacheSecondaryTiers(&d.Spec.Template.Spec, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, "main")
+			attachKVCacheOffloading(&d.Spec.Template.Spec, llmSvc.Spec.Prefill.KVCacheOffloading)
 		}
 	}
 

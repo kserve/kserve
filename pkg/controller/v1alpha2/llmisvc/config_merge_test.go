@@ -2113,7 +2113,8 @@ func TestReplaceVariables(t *testing.T) {
 							Containers: []corev1.Container{
 								// Keys are alphabetical (json.Marshal on a map); quotes stay escaped as \"
 								// so the value is safe in the KV_TRANSFER_ARGS="..." bash assignment.
-								{Args: []string{`--kv-transfer-config '{\"kv_connector\":\"OffloadingConnector\",\"kv_connector_extra_config\":{\"cpu_bytes_to_use\":10737418240,\"spec_name\":\"TieringOffloadingSpec\"},\"kv_role\":\"kv_both\"}'`}},
+								// only single-tier CPUOffloadingSpec.
+								{Args: []string{`--kv-transfer-config '{\"kv_connector\":\"OffloadingConnector\",\"kv_connector_extra_config\":{\"cpu_bytes_to_use\":10737418240,\"spec_name\":\"CPUOffloadingSpec\"},\"kv_role\":\"kv_both\"}'`}},
 							},
 						},
 					},
@@ -2148,8 +2149,9 @@ func TestReplaceVariables(t *testing.T) {
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								// json.Marshal sorts map keys alphabetically: cpu_bytes_to_use < eviction_policy < spec_name
-								{Args: []string{`--kv-transfer-config '{\"kv_connector\":\"OffloadingConnector\",\"kv_connector_extra_config\":{\"cpu_bytes_to_use\":5368709120,\"eviction_policy\":\"arc\",\"spec_name\":\"TieringOffloadingSpec\"},\"kv_role\":\"kv_both\"}'`}},
+								// json.Marshal sorts map keys alphabetically: cpu_bytes_to_use < eviction_policy < spec_name.
+								// only single-tier CPUOffloadingSpec.
+								{Args: []string{`--kv-transfer-config '{\"kv_connector\":\"OffloadingConnector\",\"kv_connector_extra_config\":{\"cpu_bytes_to_use\":5368709120,\"eviction_policy\":\"arc\",\"spec_name\":\"CPUOffloadingSpec\"},\"kv_role\":\"kv_both\"}'`}},
 							},
 						},
 					},
@@ -2354,7 +2356,7 @@ printf '%s' "$2"`
 	g.Expect(parsed).To(HaveKey("kv_connector_extra_config"))
 	extra := parsed["kv_connector_extra_config"]
 	g.Expect(extra).To(And(
-		HaveKeyWithValue("spec_name", "TieringOffloadingSpec"),
+		HaveKeyWithValue("spec_name", "CPUOffloadingSpec"),
 		HaveKeyWithValue("eviction_policy", "lru"),
 	))
 }
