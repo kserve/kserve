@@ -10,3 +10,17 @@ To install the chart, run the following:
 ```console
 $ helm install kserve-llmisvc-crd oci://ghcr.io/kserve/charts/kserve-llmisvc-crd --version {{ template "chart.version" . }}
 ```
+
+## Self-signed webhook certificates (without cert-manager)
+
+By default the CRDs carry the `cert-manager.io/inject-ca-from` annotation, so cert-manager must be
+installed for the conversion-webhook `caBundle` to be injected. To install without cert-manager, set
+`kserve.llmisvc.selfSignedCerts.enabled=true`. The chart then provisions a self-signed CA, stores the
+keypair in the Secret named by `kserve.llmisvc.selfSignedCerts.caSecretName` (annotated with
+`helm.sh/resource-policy: keep` and reused on upgrade, so certificates are never rotated), and embeds
+the CA certificate directly as the conversion-webhook `caBundle` in place of the annotation.
+
+Enable the matching `kserve.llmisvc.selfSignedCerts.enabled` flag on the `kserve-llmisvc-resources`
+chart so the webhook serving certificate is issued from the same CA.
+
+{{ template "chart.valuesSection" . }}

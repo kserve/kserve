@@ -3,6 +3,10 @@ commonAnnotations: {}
 kserve:
   llmisvc:
     createGIECRDs: true
+    selfSignedCerts:
+      enabled: false
+      caSecretName: llmisvc-selfsigned-ca
+      validityDays: 7300
     controller:
       image: kserve/llmisvc-controller
       tag: ''
