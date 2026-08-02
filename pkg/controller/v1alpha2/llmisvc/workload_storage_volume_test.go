@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 	kserveTypes "github.com/kserve/kserve/pkg/types"
 )
@@ -152,11 +153,11 @@ func TestAttachStorageInitializer_ModelVolumeSource(t *testing.T) {
 
 			r := &LLMISVCReconciler{}
 			err := r.attachStorageInitializer(
+				&v1alpha2.LLMInferenceService{},
 				"s3://bucket/model",
 				corev1.PodSpec{},
 				podSpec,
 				cfg,
-				nil,
 				constants.InferenceServiceContainerName,
 				constants.DefaultModelLocalMountPath,
 			)
