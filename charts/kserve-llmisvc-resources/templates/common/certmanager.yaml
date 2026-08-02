@@ -1,4 +1,5 @@
-{{- if .Values.kserve.certManager.enabled | default .Values.kserve.createSharedResources }}
+{{- $selfSignedCfg := include "llm-isvc-resources.selfSignedCertsConfig" . | fromJson -}}
+{{- if and (not $selfSignedCfg.enabled) (.Values.kserve.certManager.enabled | default .Values.kserve.createSharedResources) }}
 {{- include "kserve-common.renderSimpleResource" (dict
   "baseFile" "files/common/certmanager.yaml"
   "replaceNamespace" true

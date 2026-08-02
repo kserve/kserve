@@ -14,6 +14,20 @@ To install the chart, run the following:
 $ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmisvc-resources --version v0.20.0
 ```
 
+## Self-signed webhook certificates (without cert-manager)
+
+By default the chart renders cert-manager `Issuer`/`Certificate` objects and annotates the webhook
+configurations with `cert-manager.io/inject-ca-from`, so cert-manager must be installed. To install
+without cert-manager, set `kserve.llmisvc.selfSignedCerts.enabled=true`. The chart then issues the
+webhook serving certificate from the self-signed CA stored in the Secret named by
+`kserve.llmisvc.selfSignedCerts.caSecretName` (created by the `kserve-llmisvc-crd` chart when its
+matching flag is enabled), embeds the CA certificate directly as the webhook configurations'
+`caBundle`, and renders no cert-manager objects. Certificates are reused from the cluster on upgrade
+and never rotated.
+
+Enable the flag on both charts together so the conversion webhook and the admission webhooks trust
+the same CA.
+
 ## Maintainers
 
 | Name | Email | Url |
@@ -114,6 +128,9 @@ $ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmis
 | kserve.llmisvc.controller.tolerations | list | `[]` |  |
 | kserve.llmisvc.controller.topologySpreadConstraints | list | `[]` |  |
 | kserve.llmisvc.createGIECRDs | bool | `true` |  |
+| kserve.llmisvc.selfSignedCerts.caSecretName | string | `"llmisvc-selfsigned-ca"` |  |
+| kserve.llmisvc.selfSignedCerts.enabled | bool | `false` |  |
+| kserve.llmisvc.selfSignedCerts.validityDays | int | `7300` |  |
 | kserve.localmodel.agent.affinity | object | `{}` |  |
 | kserve.localmodel.agent.hostPath | string | `"/mnt/models"` |  |
 | kserve.localmodel.agent.image | string | `"kserve/kserve-localmodelnode-agent"` |  |
