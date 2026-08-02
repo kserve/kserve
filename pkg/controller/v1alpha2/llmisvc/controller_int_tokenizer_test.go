@@ -240,6 +240,62 @@ schedulingProfiles:
 				g.Expect(errors.IsNotFound(err)).To(BeTrue(), "tokenizer Deployment should not exist")
 			}).WithContext(ctx).Should(Succeed())
 		})
+
+		// Uses oci:// because, unlike hf://, it requires a "main" container to
+		// already exist in the pod spec -- the case that must not break the scheduler.
+		It("should reconcile the scheduler successfully for an OCI modelcar model URI", func(ctx SpecContext) {
+			svcName := "test-llm-no-tokenizer-oci"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("oci://registry.io/user-id/repo-id:tag"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// Scheduler Deployment must still get created.
+			Eventually(func(g Gomega, ctx context.Context) {
+				dep := &appsv1.Deployment{}
+				g.Expect(envTest.Get(ctx, types.NamespacedName{
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
+					Namespace: testNs.Name,
+				}, dep)).To(Succeed())
+			}).WithContext(ctx).Should(Succeed())
+
+			// Tokenizer Deployment should not exist
+			tokenizerName := kmeta.ChildName(svcName, "-tokenizer")
+			Consistently(func(g Gomega, ctx context.Context) {
+				dep := &appsv1.Deployment{}
+				err := envTest.Get(ctx, types.NamespacedName{
+					Name:      tokenizerName,
+					Namespace: testNs.Name,
+				}, dep)
+				g.Expect(errors.IsNotFound(err)).To(BeTrue(), "tokenizer Deployment should not exist")
+			}).WithContext(ctx).Should(Succeed())
+
+			// Must never fail with reason SchedulerReconcileError (may still be False
+			// for other reasons, e.g. not yet Available).
+			Consistently(func(g Gomega, ctx context.Context) {
+				updated := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName,
+					Namespace: testNs.Name,
+				}, updated)).To(Succeed())
+
+				cond := updated.Status.GetCondition(v1alpha2.SchedulerWorkloadReady)
+				if cond != nil {
+					g.Expect(cond.Reason).ToNot(Equal("SchedulerReconcileError"),
+						"scheduler reconcile must not fail when no tokenizer is needed: %+v", cond)
+				}
+			}).WithContext(ctx).Should(Succeed())
+		})
 	})
 
 	Context("Legacy migration — precise-prefix-cache-scorer triggers tokenizer", func() {

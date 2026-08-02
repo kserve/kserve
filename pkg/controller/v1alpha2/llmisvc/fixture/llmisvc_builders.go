@@ -570,6 +570,23 @@ func WithSchedulerConfigInline(configYAML string) LLMInferenceServiceOption {
 	}
 }
 
+// WithSchedulerConfigTemplateArgs sets the scheduler config as a --config-text
+// argument on the "main" container of the scheduler pod template, instead of
+// spec.router.scheduler.config.inline.
+func WithSchedulerConfigTemplateArgs(configYAML string) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha2.LLMInferenceService) {
+		ensureSchedulerSpec(&llmSvc.Spec)
+		llmSvc.Spec.Router.Scheduler.Template = &corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: "main",
+					Args: []string{"--config-text", configYAML},
+				},
+			},
+		}
+	}
+}
+
 // WithSchedulerConfigRef sets a ConfigMap reference for scheduler config.
 // If key is empty, it defaults to "epp" at runtime.
 func WithSchedulerConfigRef(configMapName, key string) LLMInferenceServiceOption {

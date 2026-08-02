@@ -73,6 +73,48 @@ var _ = Describe("LLMInferenceService Controller — Latency Predictor", func() 
 		})
 	})
 
+	Context("When predicted-latency-producer plugin is declared via template.containers[].args", func() {
+		It("should inject training and prediction sidecar containers into the scheduler deployment", func(ctx SpecContext) {
+			svcName := "test-llm-lp-sidecars-template-args"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithSchedulerConfigTemplateArgs(`plugins:
+- type: predicted-latency-producer
+- type: latency-scorer
+- type: weighted-random-picker
+`),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				deployments := &appsv1.DeploymentList{}
+				g.Expect(envTest.Client.List(ctx, deployments, &client.ListOptions{
+					Namespace:     testNs.Name,
+					LabelSelector: labels.SelectorFromSet(llmisvc.SchedulerLabels(llmSvc)),
+				})).To(Succeed())
+				g.Expect(deployments.Items).To(HaveLen(1))
+
+				dep := deployments.Items[0]
+				containerNames := make([]string, len(dep.Spec.Template.Spec.Containers))
+				for i, c := range dep.Spec.Template.Spec.Containers {
+					containerNames[i] = c.Name
+				}
+				g.Expect(containerNames).To(ContainElement("training-server"))
+				g.Expect(containerNames).To(ContainElement("prediction-server"))
+			}).WithContext(ctx).Should(Succeed())
+		})
+	})
+
 	Context("When predicted-latency-producer plugin is NOT in the scheduler config", func() {
 		It("should not inject sidecar containers", func(ctx SpecContext) {
 			svcName := "test-llm-no-lp"

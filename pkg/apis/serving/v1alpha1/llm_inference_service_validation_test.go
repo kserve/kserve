@@ -30,6 +30,8 @@ import (
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func newBaseLLMInferenceService() *LLMInferenceService {
@@ -831,6 +833,180 @@ func TestValidateTrafficFields_V1Alpha1(t *testing.T) {
 				}
 			} else {
 				assert.Empty(t, errs)
+			}
+		})
+	}
+}
+
+func TestValidateLoRAAdapters_V1Alpha1(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+
+	makeAdapter := func(name, uri string) LLMModelSpec {
+		return LLMModelSpec{URI: apis.URL{Scheme: "hf", Host: uri}, Name: ptr.To(name)}
+	}
+
+	makeSvc := func(modelName string, loraSpec *LoRASpec) *LLMInferenceService {
+		svc := newBaseLLMInferenceService()
+		svc.Spec.Model.Name = ptr.To(modelName)
+		svc.Spec.Model.LoRA = loraSpec
+		return svc
+	}
+
+	tests := []struct {
+		name           string
+		svc            *LLMInferenceService
+		wantErrCount   int
+		wantErrStrings []string
+	}{
+		{
+			name:         "no lora",
+			svc:          makeSvc("base", nil),
+			wantErrCount: 0,
+		},
+		{
+			name: "valid single adapter",
+			svc: makeSvc("base", &LoRASpec{
+				Adapters: []LLMModelSpec{makeAdapter("adapter-1", "adapter-1")},
+			}),
+			wantErrCount: 0,
+		},
+		{
+			name: "adapter name missing",
+			svc: makeSvc("base", &LoRASpec{
+				Adapters: []LLMModelSpec{{URI: apis.URL{Scheme: "hf", Host: "adapter-1"}}},
+			}),
+			wantErrCount:   1,
+			wantErrStrings: []string{"spec.model.lora.adapters[0].name"},
+		},
+		{
+			name: "path traversal rejected",
+			svc: makeSvc("base", &LoRASpec{
+				Adapters: []LLMModelSpec{makeAdapter("..", "adapter-dotdot")},
+			}),
+			wantErrCount:   1,
+			wantErrStrings: []string{"path traversal"},
+		},
+		{
+			name: "duplicate adapter names",
+			svc: makeSvc("base", &LoRASpec{
+				Adapters: []LLMModelSpec{
+					makeAdapter("dup", "adapter-1"),
+					makeAdapter("dup", "adapter-2"),
+				},
+			}),
+			wantErrCount:   1,
+			wantErrStrings: []string{"duplicate"},
+		},
+		{
+			name: "adapter name same as base model",
+			svc: makeSvc("base-model", &LoRASpec{
+				Adapters: []LLMModelSpec{makeAdapter("base-model", "adapter-1")},
+			}),
+			wantErrCount:   1,
+			wantErrStrings: []string{"adapter name must differ from base model name"},
+		},
+		{
+			name: "maxRank zero invalid",
+			svc: makeSvc("base", &LoRASpec{
+				MaxRank:  ptr.To(int32(0)),
+				Adapters: []LLMModelSpec{makeAdapter("a", "a")},
+			}),
+			wantErrCount:   1,
+			wantErrStrings: []string{"maxRank"},
+		},
+		{
+			name: "all lora params valid",
+			svc: makeSvc("base", &LoRASpec{
+				MaxRank:        ptr.To(int32(128)),
+				MaxAdapters:    ptr.To(int32(4)),
+				MaxCpuAdapters: ptr.To(int32(8)),
+				Adapters: []LLMModelSpec{
+					makeAdapter("adapter-1", "adapter-1"),
+					makeAdapter("adapter-2", "adapter-2"),
+				},
+			}),
+			wantErrCount: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := validator.validateLoRAAdapters(tt.svc)
+			assert.Len(t, errs, tt.wantErrCount, "expected %d errors, got %d: %v", tt.wantErrCount, len(errs), errs)
+			for _, wantStr := range tt.wantErrStrings {
+				found := false
+				for _, e := range errs {
+					if strings.Contains(e.Error(), wantStr) {
+						found = true
+						break
+					}
+				}
+				assert.True(t, found, "expected error containing %q, got: %v", wantStr, errs)
+			}
+		})
+	}
+}
+
+func TestValidateManagedDRAAnnotations_V1Alpha1(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+
+	tests := []struct {
+		name         string
+		annotations  map[string]string
+		wantErrCount int
+		wantErrField string
+	}{
+		{
+			name:         "no DRA annotations",
+			annotations:  nil,
+			wantErrCount: 0,
+		},
+		{
+			name: "valid: device class only",
+			annotations: map[string]string{
+				constants.ManagedDRADeviceClassAnnotationKey: "gpu.nvidia.com",
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "invalid: device count without device class",
+			annotations: map[string]string{
+				constants.ManagedDRADeviceCountAnnotationKey: "2",
+			},
+			wantErrCount: 1,
+			wantErrField: constants.ManagedDRADeviceClassAnnotationKey,
+		},
+		{
+			name: "invalid: empty device class",
+			annotations: map[string]string{
+				constants.ManagedDRADeviceClassAnnotationKey: "   ",
+			},
+			wantErrCount: 1,
+			wantErrField: constants.ManagedDRADeviceClassAnnotationKey,
+		},
+		{
+			name: "invalid: non-numeric device count",
+			annotations: map[string]string{
+				constants.ManagedDRADeviceClassAnnotationKey: "gpu.nvidia.com",
+				constants.ManagedDRADeviceCountAnnotationKey: "abc",
+			},
+			wantErrCount: 1,
+			wantErrField: constants.ManagedDRADeviceCountAnnotationKey,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := newBaseLLMInferenceService()
+			svc.Annotations = tt.annotations
+
+			// Exercise the full validate() path to ensure DRA validation is wired in.
+			err := validator.validate(t.Context(), nil, svc)
+			if tt.wantErrCount == 0 {
+				assert.NoError(t, err)
+			} else {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErrField)
 			}
 		})
 	}

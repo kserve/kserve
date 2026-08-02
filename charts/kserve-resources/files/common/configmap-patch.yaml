@@ -101,10 +101,10 @@ data:
   storageInitializer: |-
     {
         "image" : "{{ .Values.kserve.storage.image }}:{{ .Values.kserve.storage.tag | default .Values.kserve.version }}",
-        "memoryRequest": "100Mi",
-        "memoryLimit": "1Gi",
-        "cpuRequest": "100m",
-        "cpuLimit": "1",
+        "memoryRequest": "{{ .Values.kserve.storage.resources.requests.memory }}",
+        "memoryLimit": "{{ .Values.kserve.storage.resources.limits.memory }}",
+        "cpuRequest": "{{ .Values.kserve.storage.resources.requests.cpu }}",
+        "cpuLimit": "{{ .Values.kserve.storage.resources.limits.cpu }}",
         "caBundleConfigMapName": "{{ .Values.kserve.storage.caBundleConfigMapName }}",
         "caBundleVolumeMountPath": "{{ .Values.kserve.storage.caBundleVolumeMountPath }}",
         "enableModelcar": {{ .Values.kserve.storage.enableModelcar }},
