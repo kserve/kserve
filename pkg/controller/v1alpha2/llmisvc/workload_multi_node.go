@@ -215,8 +215,9 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLeaderSpec, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, config, "main", constants.DefaultModelLocalMountPath, len(config.ResolvedLoRAAdapters) > 0); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to leader template: %w", err)
 		}
+
 		if llmSvc.Spec.KVCacheOffloading != nil {
-			attachKVCacheSecondaryTiers(&expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, llmSvc.Spec.KVCacheOffloading.Secondary, "main")
+			attachKVCacheOffloading(&expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, llmSvc.Spec.KVCacheOffloading)
 		}
 
 		if hasRoutingSidecar(expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec) {
@@ -244,7 +245,7 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 			return nil, fmt.Errorf("failed to attach model artifacts to worker template: %w", err)
 		}
 		if llmSvc.Spec.KVCacheOffloading != nil {
-			attachKVCacheSecondaryTiers(&expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, llmSvc.Spec.KVCacheOffloading.Secondary, "main")
+			attachKVCacheOffloading(&expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, llmSvc.Spec.KVCacheOffloading)
 		}
 
 		if hasRoutingSidecar(expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec) {
@@ -360,7 +361,7 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 				return nil, fmt.Errorf("failed to attach model artifacts to prefill leader template: %w", err)
 			}
 			if llmSvc.Spec.Prefill.KVCacheOffloading != nil {
-				attachKVCacheSecondaryTiers(&expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, "main")
+				attachKVCacheOffloading(&expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, llmSvc.Spec.Prefill.KVCacheOffloading)
 			}
 		}
 		if llmSvc.Spec.Prefill.Worker != nil {
@@ -372,7 +373,7 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 				return nil, fmt.Errorf("failed to attach model artifacts to prefill worker template: %w", err)
 			}
 			if llmSvc.Spec.Prefill.KVCacheOffloading != nil {
-				attachKVCacheSecondaryTiers(&expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, "main")
+				attachKVCacheOffloading(&expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, llmSvc.Spec.Prefill.KVCacheOffloading)
 			}
 		}
 
