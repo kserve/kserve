@@ -45,29 +45,29 @@ types=("${1:-kserve}")
 
 if [[ " ${types[*]} " =~ "llmisvc" ]]; then
   echo "Building LLMISvc controller image: ${LLMISVC_CONTROLLER_IMG_TAG}"
-  docker buildx build -f llmisvc-controller.Dockerfile . -t "${LLMISVC_CONTROLLER_IMG_TAG}" \
+  docker buildx build --target llmisvc-controller --build-arg CMD=llmisvc . -t "${LLMISVC_CONTROLLER_IMG_TAG}" \
     -o type=docker,dest="${DOCKER_IMAGES_PATH}/${LLMISVC_CONTROLLER_IMG}-${TAG}",compression-level=0
   echo "Disk usage after Building LLMIsvc controller image:"
       df -hT
 else
   echo "Building Kserve controller image"
-  docker buildx build . -t "${CONTROLLER_IMG_TAG}" \
+  docker buildx build --target kserve-controller --build-arg CMD=manager . -t "${CONTROLLER_IMG_TAG}" \
     -o type=docker,dest="${DOCKER_IMAGES_PATH}/${CONTROLLER_IMG}-${TAG}",compression-level=0
 
   echo "Building localmodel controller image"
-  docker buildx build -f localmodel.Dockerfile . -t "${LOCALMODEL_CONTROLLER_IMG_TAG}" \
+  docker buildx build --target kserve-localmodel-controller --build-arg CMD=localmodel . -t "${LOCALMODEL_CONTROLLER_IMG_TAG}" \
     -o type=docker,dest="${DOCKER_IMAGES_PATH}/${LOCALMODEL_CONTROLLER_IMG}-${TAG}",compression-level=0
 
   echo "Building localmodel agent image"
-  docker buildx build -f localmodel-agent.Dockerfile . -t "${LOCALMODEL_AGENT_IMG_TAG}" \
+  docker buildx build --target kserve-localmodelnode-agent --build-arg CMD=localmodelnode . -t "${LOCALMODEL_AGENT_IMG_TAG}" \
     -o type=docker,dest="${DOCKER_IMAGES_PATH}/${LOCALMODEL_AGENT_IMG}-${TAG}",compression-level=0
 
   echo "Building agent image"
-  docker buildx build -f agent.Dockerfile . -t "${AGENT_IMG_TAG}" \
+  docker buildx build --target agent --build-arg CMD=agent . -t "${AGENT_IMG_TAG}" \
     -o type=docker,dest="${DOCKER_IMAGES_PATH}/${AGENT_IMG}-${TAG}",compression-level=0
 
   echo "Building router image"
-  docker buildx build -f router.Dockerfile . -t "${ROUTER_IMG_TAG}" \
+  docker buildx build --target router --build-arg CMD=router . -t "${ROUTER_IMG_TAG}" \
     -o type=docker,dest="${DOCKER_IMAGES_PATH}/${ROUTER_IMG}-${TAG}",compression-level=0
 
   echo "Disk usage before Building storage initializer:"
