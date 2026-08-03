@@ -48,6 +48,21 @@
       "pattern": "kserve-images.sh",
       "trigger": "all",
       "reason": "Image tag/registry configuration changes"
+    },
+    {
+      "pattern": "test/scripts/*",
+      "trigger": "all",
+      "reason": "CI system changes"
+    },
+    {
+      "pattern": "test/overlays/*",
+      "trigger": "all",
+      "reason": "CI system changes"
+    },
+    {
+      "pattern": "test/crds/*",
+      "trigger": "all",
+      "reason": "CI system changes"
     }
   ]
 }
