@@ -236,6 +236,11 @@ func extractCacheAndManifestDirectory(
 			}
 			filePath = filepath.Join(extractCacheDir, rel)
 
+			// Guard against Zip Slip / path traversal
+			if !isPathWithinBase(filePath, extractCacheDir) {
+				return nil, fmt.Errorf("illegal path in tar entry: %s", h.Name)
+			}
+
 			topDir := filepath.Join(extractCacheDir, filepath.Dir(rel))
 			if !stringInSlice(topDir, extractedDirs) {
 				extractedDirs = append(extractedDirs, topDir)
@@ -243,6 +248,11 @@ func extractCacheAndManifestDirectory(
 		} else if strings.HasPrefix(h.Name, manifestDirPrefix) {
 			rel := strings.TrimPrefix(h.Name, manifestDirPrefix)
 			filePath = filepath.Join(extractManifestDir, rel)
+
+			// Guard against Zip Slip / path traversal
+			if !isPathWithinBase(filePath, extractManifestDir) {
+				return nil, fmt.Errorf("illegal path in tar entry: %s", h.Name)
+			}
 		}
 
 		// Ensure parent dir exists
@@ -257,7 +267,7 @@ func extractCacheAndManifestDirectory(
 				return nil, fmt.Errorf("failed to create directory %s: %w", filePath, err)
 			}
 		case tar.TypeReg:
-			if err = writeFile(filePath, tr, mode); err != nil {
+			if err = writeFile(filePath, tr, mode, h.Size); err != nil {
 				return nil, fmt.Errorf("failed to write file %s: %w", filePath, err)
 			}
 		default:
@@ -266,6 +276,14 @@ func extractCacheAndManifestDirectory(
 	}
 
 	return extractedDirs, nil
+}
+
+// isPathWithinBase checks that resolved filePath is under baseDir,
+// preventing Zip Slip / path traversal attacks from crafted tar entries.
+func isPathWithinBase(filePath, baseDir string) bool {
+	cleaned := filepath.Clean(filePath)
+	base := filepath.Clean(baseDir) + string(os.PathSeparator)
+	return strings.HasPrefix(cleaned+string(os.PathSeparator), base)
 }
 
 func stringInSlice(str string, list []string) bool {
@@ -277,7 +295,14 @@ func stringInSlice(str string, list []string) bool {
 	return false
 }
 
-func writeFile(filePath string, tarReader io.Reader, mode os.FileMode) error {
+// maxFileSize is the maximum allowed size for a single extracted file (10 GiB).
+const maxFileSize = 10 << 30
+
+func writeFile(filePath string, tarReader io.Reader, mode os.FileMode, declaredSize int64) error {
+	if declaredSize < 0 || declaredSize > maxFileSize {
+		return fmt.Errorf("file %s has invalid or excessive size in tar header: %d bytes", filePath, declaredSize)
+	}
+
 	// Create any parent directories if needed
 	if err := os.MkdirAll(filepath.Dir(filePath), 0o750); err != nil {
 		return fmt.Errorf("failed to create parent directories for %s: %w", filePath, err)
@@ -289,8 +314,15 @@ func writeFile(filePath string, tarReader io.Reader, mode os.FileMode) error {
 	}
 	defer outFile.Close()
 
-	if _, err := io.Copy(outFile, tarReader); err != nil {
+	// Limit reads to the declared size + 1 byte to detect streams that exceed
+	// the header-declared size (decompression bomb).
+	limited := io.LimitReader(tarReader, declaredSize+1)
+	n, err := io.Copy(outFile, limited)
+	if err != nil {
 		return fmt.Errorf("failed to copy content to file %s: %w", filePath, err)
+	}
+	if n > declaredSize {
+		return fmt.Errorf("file %s exceeds declared size in tar header (%d bytes)", filePath, declaredSize)
 	}
 
 	if err := os.Chmod(filePath, mode); err != nil {

@@ -7,8 +7,7 @@ A Model/GPU kernel cache container packaging utility inspired by
 
 **Original Authors:**
 - [Maryam Tahhan](https://github.com/maryamtahhan)
-- [Billy McFall](https://github.com/Billy99)
-- [Craig Magina](https://github.com/cmagina)
+- [Alessandro Sangiorgi](https://github.com/fulvius31)
 
 ## Features
 

@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgpg-error-dev \
  && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /go/src/github.com/kserve/mcv
+WORKDIR /go/src/github.com/kserve/kernelcache/mcv
 COPY go.mod  go.mod
 COPY go.sum  go.sum
 RUN --mount=type=cache,target=/go/pkg/mod \
@@ -67,12 +67,13 @@ ARG OPT_ROCM_VERSION=7.0.1
 
 # Install ROCm apt repo
 RUN wget https://repo.radeon.com/amdgpu-install/${ROCM_VERSION}/ubuntu/jammy/amdgpu-install_${AMDGPU_VERSION}-1_all.deb
-RUN apt install -y ./*.deb
+RUN apt install -y ./amdgpu-install_${AMDGPU_VERSION}-1_all.deb
 RUN apt update &&  DEBIAN_FRONTEND=noninteractive apt install -y amd-smi-lib rocm-smi-lib
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* && rm -rf ./*.deb
 RUN ln -s /opt/rocm-${OPT_ROCM_VERSION}/bin/amd-smi /usr/bin/amd-smi
 RUN ln -s /opt/rocm-${OPT_ROCM_VERSION}/bin/rocm-smi /usr/bin/rocm-smi
 
-COPY --from=builder /go/src/github.com/kserve/mcv/mcv /mcv
+COPY --from=builder /go/src/github.com/kserve/kernelcache/mcv /mcv
+COPY entrypoint.sh /entrypoint.sh
 
-ENTRYPOINT ["/mcv"]
+ENTRYPOINT ["/entrypoint.sh"]
