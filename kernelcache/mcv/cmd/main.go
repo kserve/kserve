@@ -27,11 +27,11 @@ import (
 	"github.com/spf13/cobra"
 	"go.podman.io/storage/pkg/unshare"
 
-	"github.com/kserve/kserve/mcv/pkg/client"
-	"github.com/kserve/kserve/mcv/pkg/config"
-	"github.com/kserve/kserve/mcv/pkg/imgbuild"
-	"github.com/kserve/kserve/mcv/pkg/logformat"
-	"github.com/kserve/kserve/mcv/pkg/utils"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/client"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/config"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/imgbuild"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/logformat"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/utils"
 )
 
 const (

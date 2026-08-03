@@ -205,12 +205,12 @@ func TestExtractCacheAndManifestDirectory_ValidEntriesExtracted(t *testing.T) {
 	assert.NotEmpty(t, dirs)
 
 	// Verify the cache file was extracted
-	content, err := os.ReadFile(filepath.Join(cacheDir, "kernel.so"))
+	content, err := os.ReadFile(filepath.Join(cacheDir, "kernel.so")) //nolint:gosec // G304: test-only path from t.TempDir()
 	require.NoError(t, err)
 	assert.Equal(t, "kernel binary data", string(content))
 
 	// Verify the manifest was extracted
-	content, err = os.ReadFile(filepath.Join(manifestDir, "manifest.json"))
+	content, err = os.ReadFile(filepath.Join(manifestDir, "manifest.json")) //nolint:gosec // G304: test-only path from t.TempDir()
 	require.NoError(t, err)
 	assert.Equal(t, `{"triton":[]}`, string(content))
 }

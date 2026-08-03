@@ -22,7 +22,7 @@ import (
 
 	logging "github.com/sirupsen/logrus"
 
-	"github.com/kserve/kserve/mcv/pkg/utils"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/utils"
 )
 
 const (

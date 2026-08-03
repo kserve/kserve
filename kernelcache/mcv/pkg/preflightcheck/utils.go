@@ -25,11 +25,11 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	logging "github.com/sirupsen/logrus"
 
-	"github.com/kserve/kserve/mcv/pkg/accelerator"
-	"github.com/kserve/kserve/mcv/pkg/accelerator/devices"
-	"github.com/kserve/kserve/mcv/pkg/cache"
-	"github.com/kserve/kserve/mcv/pkg/config"
-	"github.com/kserve/kserve/mcv/pkg/constants"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/accelerator"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/accelerator/devices"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/cache"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/config"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/constants"
 )
 
 // normalizeArchForComparison normalizes architecture strings for comparison

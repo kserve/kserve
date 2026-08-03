@@ -25,8 +25,8 @@ import (
 
 	logging "github.com/sirupsen/logrus"
 
-	"github.com/kserve/kserve/mcv/pkg/accelerator/devices"
-	"github.com/kserve/kserve/mcv/pkg/cache"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/accelerator/devices"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/cache"
 )
 
 // CompareVLLMCacheManifestToGPU compares VLLM manifest entries to GPU info

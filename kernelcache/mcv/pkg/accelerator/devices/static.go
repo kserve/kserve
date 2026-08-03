@@ -21,7 +21,7 @@ import (
 
 	logging "github.com/sirupsen/logrus"
 
-	"github.com/kserve/kserve/mcv/pkg/config"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/config"
 )
 
 type StaticDevice struct {

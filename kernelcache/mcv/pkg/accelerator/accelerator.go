@@ -26,8 +26,8 @@ import (
 	"github.com/pkg/errors"
 	logging "github.com/sirupsen/logrus"
 
-	"github.com/kserve/kserve/mcv/pkg/accelerator/devices"
-	"github.com/kserve/kserve/mcv/pkg/config"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/accelerator/devices"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/config"
 )
 
 var (
