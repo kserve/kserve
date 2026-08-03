@@ -1782,7 +1782,23 @@ func TestValidateKVCacheOffloading(t *testing.T) {
 			},
 		}))
 		require.Len(t, errs, 1)
-		assert.Equal(t, field.ErrorTypeRequired, errs[0].Type)
+		assert.Equal(t, field.ErrorTypeInvalid, errs[0].Type)
+		assert.Contains(t, errs[0].Field, "cpu")
+	})
+
+	t.Run("cpu-only with zero cpu produces error", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{}))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeInvalid, errs[0].Type)
+		assert.Contains(t, errs[0].Field, "cpu")
+	})
+
+	t.Run("negative cpu produces error", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
+			CPU: resource.MustParse("-1Gi"),
+		}))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeInvalid, errs[0].Type)
 		assert.Contains(t, errs[0].Field, "cpu")
 	})
 
