@@ -73,7 +73,7 @@ RUN apt-get clean && rm -rf /var/lib/apt/lists/* && rm -rf ./*.deb
 RUN ln -s /opt/rocm-${OPT_ROCM_VERSION}/bin/amd-smi /usr/bin/amd-smi
 RUN ln -s /opt/rocm-${OPT_ROCM_VERSION}/bin/rocm-smi /usr/bin/rocm-smi
 
-COPY --from=builder /go/src/github.com/kserve/kernelcache/mcv /mcv
+COPY --from=builder /go/src/github.com/kserve/kernelcache/mcv/mcv /mcv
 COPY entrypoint.sh /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]

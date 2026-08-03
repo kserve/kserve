@@ -126,7 +126,7 @@ To Create an OCI image for a Triton Cache using docker run the
 following:
 
 ```bash
-mcv -c -i quay.io/gkm/vector-add-cache:rocm -d example/vector-add-cache-rocm
+mcv -c -i quay.io/gkm/vector-add-cache:rocm -d tests/vector-add-cache-rocm
 INFO[2025-05-28 11:09:33] baremetalFlag false
 INFO[2025-05-28 11:09:33] Using docker to build the image
 INFO[2025-05-28 11:09:33] Wrote manifest to /tmp/.mcv/io.triton.manifest/manifest.json
@@ -218,7 +218,7 @@ skopeo inspect docker-daemon:quay.io/gkm/vector-add-cache:rocm
 The build output is shown below.
 
 ```bash
-mcv -c -i quay.io/gkm/vector-add-cache:rocm -d example/vector-add-cache-rocm
+mcv -c -i quay.io/gkm/vector-add-cache:rocm -d tests/vector-add-cache-rocm
 INFO[2025-05-28 12:23:04] baremetalFlag false
 INFO[2025-05-28 12:23:04] Using buildah to build the image
 INFO[2025-05-28 12:23:04] Wrote manifest to /tmp/buildah-manifest-dir-2780945232/manifest.json
@@ -279,7 +279,7 @@ skopeo inspect containers-storage:quay.io/gkm/vector-add-cache:rocm | jq -r '.La
 To Create an OCI image for a vLLM Cache run the following:
 
 ```bash
-mcv -c -i quay.io/gkm/cache-examples:vllm-example -d example/vllm-cache
+mcv -c -i quay.io/gkm/cache-examples:vllm-example -d tests/vllm-cache
 INFO[2025-09-03 09:04:15] Hardware accelerator(s) detected (2). GPU support enabled.
 INFO[2025-09-03 09:04:15] Using buildah to build the image
 INFO[2025-09-03 09:04:23] Detected cache components: [vllm]
@@ -396,7 +396,7 @@ package main
 import (
     "fmt"
 
-    "github.com/kserve/kserve/mcv/pkg/client"
+    "github.com/kserve/kserve/kernelcache/mcv/pkg/client"
 )
 
 func main() {
@@ -426,7 +426,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/kserve/kserve/mcv/pkg/client"
+    "github.com/kserve/kserve/kernelcache/mcv/pkg/client"
 )
 
 func main() {
@@ -455,7 +455,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/kserve/kserve/mcv/pkg/client"
+    "github.com/kserve/kserve/kernelcache/mcv/pkg/client"
 )
 
 func main() {

@@ -1,4 +1,4 @@
-module github.com/kserve/kserve/mcv
+module github.com/kserve/kserve/kernelcache/mcv
 
 go 1.25.8
 

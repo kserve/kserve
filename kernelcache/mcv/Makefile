@@ -39,7 +39,7 @@ GOARCH := $(shell go env GOARCH)
 GOENV = GO111MODULE="" \
 		GOOS=$(GOOS) \
 		GOARCH=$(GOARCH)
-PKG_BUILD="github.com/kserve/kserve/mcv/pkg/build"
+PKG_BUILD="github.com/kserve/kserve/kernelcache/mcv/pkg/build"
 # Don't inherit LDFLAGS from the environment — it may contain C linker flags
 # (e.g. -L/opt/homebrew/opt/libffi/lib) that are invalid for the Go linker.
 LDFLAGS := \
@@ -89,7 +89,7 @@ clean_build_local: ## Clean local build directory
 format:
 	@echo "******     go fmt     ******"
 	@echo
-	go fmt github.com/kserve/kserve/mcv/...
+	go fmt github.com/kserve/kserve/kernelcache/mcv/...
 	@echo
 	@echo
 
@@ -97,7 +97,7 @@ format:
 vet: ## Run go vet against code.
 	@echo "******     go Vet     ******"
 	@echo
-	go vet github.com/kserve/kserve/mcv/...
+	go vet github.com/kserve/kserve/kernelcache/mcv/...
 
 lint:
 	@echo "******     golangci-lint     ******"
@@ -109,7 +109,7 @@ lint:
 test:
 	@echo "******     testing     ******"
 	@echo
-	go test github.com/kserve/kserve/mcv/...
+	go test github.com/kserve/kserve/kernelcache/mcv/...
 
 ##@ Installation
 .PHONY: install

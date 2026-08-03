@@ -29,7 +29,7 @@ import (
 
 	logging "github.com/sirupsen/logrus"
 
-	"github.com/kserve/kserve/mcv/pkg/constants"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/constants"
 )
 
 // Cache defines the minimal interface each cache implementation must satisfy

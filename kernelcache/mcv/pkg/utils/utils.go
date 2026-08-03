@@ -27,7 +27,7 @@ import (
 
 	logging "github.com/sirupsen/logrus"
 
-	"github.com/kserve/kserve/mcv/pkg/constants"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/constants"
 )
 
 // FilePathExists checks if the given file or directory exists.
