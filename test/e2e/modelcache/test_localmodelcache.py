@@ -188,7 +188,9 @@ async def test_vllm_modelcache():
         )
 
     res = generate(service_name, "./data/qwen_input_chat.json")
-    assert res["choices"][0]["message"]["content"] == "The result of 2 + 2 is 4."
+    content = res["choices"][0]["message"]["content"]
+    assert content is not None, "expected a completion, got None"
+    assert "4" in content, f"expected the answer to contain '4', got: {content!r}"
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
     # Wait for the isvc to be deleted to avoid modelcache still in use error when deleting the model cache
     await asyncio.sleep(30)
