@@ -277,14 +277,18 @@ func runCreate(imageName, cacheDir, builder string) {
 	unshare.MaybeReexecUsingUserNamespace(false)
 
 	// Check if the cache directory exists
-	if _, err := utils.FilePathExists(cacheDir); err != nil {
+	exists, err := utils.FilePathExists(cacheDir)
+	if err != nil {
 		logging.Errorf("Error checking cache file path: %v", err)
+		os.Exit(exitCreateError)
+	}
+	if !exists {
+		logging.Errorf("Cache directory does not exist: %s", cacheDir)
 		os.Exit(exitCreateError)
 	}
 
 	// Initialize the image builder
 	var builderInstance imgbuild.ImageBuilder
-	var err error
 	if builder == "" {
 		// Default to old behavior: auto-detect builder
 		builderInstance, err = imgbuild.New()

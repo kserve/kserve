@@ -561,6 +561,11 @@ func (v *VLLMCache) Summary() string {
 		summary = tempSummary
 	}
 
+	if summary == nil {
+		logging.Warn("no cache metadata found to build vLLM summary")
+		return ""
+	}
+
 	jsonData, err := json.Marshal(summary)
 	if err != nil {
 		logging.WithError(err).Error("failed to marshal vLLM summary")
