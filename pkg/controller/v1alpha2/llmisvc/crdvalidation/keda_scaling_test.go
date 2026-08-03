@@ -36,8 +36,8 @@ var _ = Describe("KEDA scaling CRD validation", func() {
 	})
 
 	DescribeTable("accepts HPA behavior when controller-owned optional fields are omitted",
-		func(ctx SpecContext, kind, name string) {
-			resource := kedaScalingResource(kind, name, map[string]any{
+		func(ctx SpecContext, version, kind, name string) {
+			resource := kedaScalingResource(version, kind, name, map[string]any{
 				"horizontalPodAutoscalerConfig": map[string]any{
 					"behavior": map[string]any{
 						"scaleDown": map[string]any{
@@ -49,13 +49,15 @@ var _ = Describe("KEDA scaling CRD validation", func() {
 
 			Expect(envTest.Client.Create(ctx, resource)).To(Succeed())
 		},
-		Entry("for LLMInferenceService", "LLMInferenceService", "keda-behavior-service"),
-		Entry("for LLMInferenceServiceConfig", "LLMInferenceServiceConfig", "keda-behavior-config"),
+		Entry("for v1alpha2 LLMInferenceService", "v1alpha2", "LLMInferenceService", "keda-behavior-service"),
+		Entry("for v1alpha2 LLMInferenceServiceConfig", "v1alpha2", "LLMInferenceServiceConfig", "keda-behavior-config"),
+		Entry("for v1alpha1 LLMInferenceService", "v1alpha1", "LLMInferenceService", "keda-behavior-service-v1alpha1"),
+		Entry("for v1alpha1 LLMInferenceServiceConfig", "v1alpha1", "LLMInferenceServiceConfig", "keda-behavior-config-v1alpha1"),
 	)
 
 	DescribeTable("rejects user-configured scaling modifiers",
-		func(ctx SpecContext, name, field, value string) {
-			resource := kedaScalingResource("LLMInferenceService", name, map[string]any{
+		func(ctx SpecContext, version, name, field, value string) {
+			resource := kedaScalingResource(version, "LLMInferenceService", name, map[string]any{
 				"scalingModifiers": map[string]any{field: value},
 			})
 
@@ -63,28 +65,36 @@ var _ = Describe("KEDA scaling CRD validation", func() {
 			Expect(err).To(MatchError(ContainSubstring(
 				"scalingModifiers must not be set; WVA controls the scaling metric formula and logic")))
 		},
-		Entry("formula", "keda-scaling-modifier-formula", "formula", "wva_desired_replicas"),
-		Entry("target", "keda-scaling-modifier-target", "target", "1"),
-		Entry("activation target", "keda-scaling-modifier-activation-target", "activationTarget", "1"),
-		Entry("metric type", "keda-scaling-modifier-metric-type", "metricType", "Value"),
+		Entry("formula", "v1alpha2", "keda-scaling-modifier-formula", "formula", "wva_desired_replicas"),
+		Entry("target", "v1alpha2", "keda-scaling-modifier-target", "target", "1"),
+		Entry("activation target", "v1alpha2", "keda-scaling-modifier-activation-target", "activationTarget", "1"),
+		Entry("metric type", "v1alpha2", "keda-scaling-modifier-metric-type", "metricType", "Value"),
+		Entry("formula (v1alpha1)", "v1alpha1", "keda-scaling-modifier-formula-v1alpha1", "formula", "wva_desired_replicas"),
+		Entry("target (v1alpha1)", "v1alpha1", "keda-scaling-modifier-target-v1alpha1", "target", "1"),
+		Entry("activation target (v1alpha1)", "v1alpha1", "keda-scaling-modifier-activation-target-v1alpha1", "activationTarget", "1"),
+		Entry("metric type (v1alpha1)", "v1alpha1", "keda-scaling-modifier-metric-type-v1alpha1", "metricType", "Value"),
 	)
 
-	It("rejects a user-configured HPA name", func(ctx SpecContext) {
-		resource := kedaScalingResource("LLMInferenceService", "keda-hpa-name", map[string]any{
-			"horizontalPodAutoscalerConfig": map[string]any{
-				"name": "user-managed-hpa",
-			},
-		})
+	DescribeTable("rejects a user-configured HPA name",
+		func(ctx SpecContext, version, name string) {
+			resource := kedaScalingResource(version, "LLMInferenceService", name, map[string]any{
+				"horizontalPodAutoscalerConfig": map[string]any{
+					"name": "user-managed-hpa",
+				},
+			})
 
-		err := envTest.Client.Create(ctx, resource)
-		Expect(err).To(MatchError(ContainSubstring(
-			"horizontalPodAutoscalerConfig.name must not be set; the controller manages the HPA name")))
-	})
+			err := envTest.Client.Create(ctx, resource)
+			Expect(err).To(MatchError(ContainSubstring(
+				"horizontalPodAutoscalerConfig.name must not be set; the controller manages the HPA name")))
+		},
+		Entry("v1alpha2", "v1alpha2", "keda-hpa-name"),
+		Entry("v1alpha1", "v1alpha1", "keda-hpa-name-v1alpha1"),
+	)
 })
 
-func kedaScalingResource(kind, name string, advanced map[string]any) *unstructured.Unstructured {
+func kedaScalingResource(version, kind, name string, advanced map[string]any) *unstructured.Unstructured {
 	resource := &unstructured.Unstructured{Object: map[string]any{
-		"apiVersion": "serving.kserve.io/v1alpha2",
+		"apiVersion": "serving.kserve.io/" + version,
 		"kind":       kind,
 		"metadata": map[string]any{
 			"name":      name,
@@ -105,7 +115,7 @@ func kedaScalingResource(kind, name string, advanced map[string]any) *unstructur
 		},
 	}}
 	resource.SetGroupVersionKind(schema.GroupVersionKind{
-		Group: "serving.kserve.io", Version: "v1alpha2", Kind: kind,
+		Group: "serving.kserve.io", Version: version, Kind: kind,
 	})
 	return resource
 }
