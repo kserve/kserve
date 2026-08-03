@@ -37,7 +37,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: write
     outputs:
       install_methods: ${{ steps.set-matrix.outputs.install_methods }}
       llmisvc: ${{ steps.evaluate.outputs.llmisvc }}
@@ -98,21 +97,26 @@ jobs:
               \"llmisvc-keda\": \"$MARKER_LLMISVC_KEDA\",
               \"llmisvc-tracing\": \"$MARKER_LLMISVC_TRACING\"
             }" >> "$GITHUB_OUTPUT"
-      - name: Post test selection comment
+      - name: Summarize test selection
         if: github.event_name == 'pull_request' && steps.evaluate.outcome == 'success'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ./test/scripts/gh-actions/post-test-selection-comment.sh \
-            "<!-- test-selector-llmisvc -->" \
+          ./test/scripts/gh-actions/summarize-test-selection.sh \
             "LLMISvc E2E Test Selection" \
-            "${{ github.event.pull_request.number }}" \
             /tmp/changed-files.txt \
             /tmp/selector-detail.json \
             "llmisvc=${{ steps.evaluate.outputs.llmisvc }}" \
             "llmisvc-hpa=${{ steps.evaluate.outputs.llmisvc-hpa }}" \
             "llmisvc-keda=${{ steps.evaluate.outputs.llmisvc-keda }}" \
             "llmisvc-tracing=${{ steps.evaluate.outputs.llmisvc-tracing }}"
+      - name: Upload test selection report
+        if: github.event_name == 'pull_request' && steps.evaluate.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: test-selection-report-llmisvc
+          path: |
+            /tmp/changed-files.txt
+            /tmp/selector-detail.json
+          if-no-files-found: warn
 
   llmisvc-image-build:
     runs-on: ubuntu-latest

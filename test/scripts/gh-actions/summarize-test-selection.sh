@@ -1,20 +1,21 @@
 #!/bin/bash
 
-# Post (or update) a PR comment with the test-selector report.
+# Render the test-selector report as a GitHub Actions job summary.
+#
+# Writes markdown to $GITHUB_STEP_SUMMARY (falling back to stdout when unset),
+# so it works for fork PRs without a write-scoped token.
 #
 # Usage:
-#   post-test-selection-comment.sh <comment-marker> <title> <pr-number> \
+#   summarize-test-selection.sh <title> \
 #       <changed-files-path> <selector-json-path> <job1>=<val1> [<job2>=<val2> ...]
 #
-# Requires: gh (GitHub CLI), python3, GH_TOKEN env var.
+# Requires: python3.
 
 set -o errexit
 set -o nounset
 set -o pipefail
 
-COMMENT_MARKER="$1"; shift
 TITLE="$1"; shift
-PR_NUMBER="$1"; shift
 CHANGED_FILES="$1"; shift
 SELECTOR_JSON="$1"; shift
 
@@ -56,8 +57,7 @@ import json
 print(json.dumps(json.load(open('$SELECTOR_JSON')), indent=2))
 " 2>/dev/null || echo "{}")
 
-BODY="${COMMENT_MARKER}
-### ${TITLE}
+BODY="### ${TITLE}
 
 **${WILL_RUN}/${TOTAL}** jobs selected (${SKIPPED} skipped)
 
@@ -93,14 +93,4 @@ ${RAW_JSON}
 
 </details>"
 
-EXISTING=$(gh pr view "$PR_NUMBER" --json comments \
-  --jq ".comments[] | select(.body | startswith(\"${COMMENT_MARKER}\")) | .id" \
-  | tail -1)
-
-if [[ -n "$EXISTING" ]]; then
-  gh api graphql \
-    -f query='mutation($id:ID!,$body:String!){updateIssueComment(input:{id:$id,body:$body}){issueComment{id}}}' \
-    -f id="$EXISTING" -f body="$BODY"
-else
-  gh pr comment "$PR_NUMBER" --body "$BODY"
-fi
+printf '%s\n' "$BODY" >> "${GITHUB_STEP_SUMMARY:-/dev/stdout}"

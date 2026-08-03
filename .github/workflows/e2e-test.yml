@@ -50,7 +50,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: write
     outputs:
       install_methods: ${{ steps.set-matrix.outputs.install_methods }}
       predictor: ${{ steps.evaluate.outputs.predictor }}
@@ -125,15 +124,11 @@ jobs:
               \"vllm\": \"$MARKER_VLLM\",
               \"vllm-runtime\": \"$MARKER_VLLM_RUNTIME\"
             }" >> "$GITHUB_OUTPUT"
-      - name: Post test selection comment
+      - name: Summarize test selection
         if: github.event_name == 'pull_request' && steps.evaluate.outcome == 'success'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ./test/scripts/gh-actions/post-test-selection-comment.sh \
-            "<!-- test-selector-e2e -->" \
+          ./test/scripts/gh-actions/summarize-test-selection.sh \
             "E2E Test Selection" \
-            "${{ github.event.pull_request.number }}" \
             /tmp/changed-files.txt \
             /tmp/selector-detail.json \
             "predictor=${{ steps.evaluate.outputs.predictor }}" \
@@ -147,6 +142,15 @@ jobs:
             "llm=${{ steps.evaluate.outputs.llm }}" \
             "vllm=${{ steps.evaluate.outputs.vllm }}" \
             "vllm-runtime=${{ steps.evaluate.outputs.vllm-runtime }}"
+      - name: Upload test selection report
+        if: github.event_name == 'pull_request' && steps.evaluate.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: test-selection-report-e2e
+          path: |
+            /tmp/changed-files.txt
+            /tmp/selector-detail.json
+          if-no-files-found: warn
 
   kserve-image-build:
     runs-on: ubuntu-latest
