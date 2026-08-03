@@ -31,12 +31,12 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	logging "github.com/sirupsen/logrus"
 
-	"github.com/kserve/kserve/mcv/pkg/accelerator"
-	"github.com/kserve/kserve/mcv/pkg/cache"
-	"github.com/kserve/kserve/mcv/pkg/config"
-	"github.com/kserve/kserve/mcv/pkg/constants"
-	"github.com/kserve/kserve/mcv/pkg/preflightcheck"
-	"github.com/kserve/kserve/mcv/pkg/utils"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/accelerator"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/cache"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/config"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/constants"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/preflightcheck"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/utils"
 )
 
 // A quick list of TODOS:

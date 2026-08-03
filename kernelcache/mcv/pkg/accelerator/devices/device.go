@@ -28,8 +28,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kserve/kserve/mcv/pkg/config"
-	"github.com/kserve/kserve/mcv/pkg/constants"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/config"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/constants"
 
 	logging "github.com/sirupsen/logrus"
 )

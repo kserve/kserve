@@ -28,9 +28,9 @@ import (
 
 	logging "github.com/sirupsen/logrus"
 
-	"github.com/kserve/kserve/mcv/pkg/cache"
-	"github.com/kserve/kserve/mcv/pkg/constants"
-	"github.com/kserve/kserve/mcv/pkg/utils"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/cache"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/constants"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/utils"
 )
 
 func GenerateDockerfile(imageName, cacheDir, manifestDir, outputPath string) error {

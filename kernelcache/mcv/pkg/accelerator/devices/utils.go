@@ -25,7 +25,7 @@ import (
 	"github.com/jaypipes/pcidb"
 	logging "github.com/sirupsen/logrus"
 
-	"github.com/kserve/kserve/mcv/pkg/config"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/config"
 )
 
 func GetProductName(id int) (name string, err error) {

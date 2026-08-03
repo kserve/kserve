@@ -24,13 +24,13 @@ import (
 	"os"
 
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/kserve/kserve/mcv/pkg/accelerator"
-	"github.com/kserve/kserve/mcv/pkg/accelerator/devices"
-	"github.com/kserve/kserve/mcv/pkg/config"
-	"github.com/kserve/kserve/mcv/pkg/constants"
-	"github.com/kserve/kserve/mcv/pkg/fetcher"
-	"github.com/kserve/kserve/mcv/pkg/logformat"
-	"github.com/kserve/kserve/mcv/pkg/preflightcheck"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/accelerator"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/accelerator/devices"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/config"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/constants"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/fetcher"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/logformat"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/preflightcheck"
 	logging "github.com/sirupsen/logrus"
 )
 

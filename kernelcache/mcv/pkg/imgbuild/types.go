@@ -16,7 +16,7 @@ limitations under the License.
 
 package imgbuild
 
-import "github.com/kserve/kserve/mcv/pkg/cache"
+import "github.com/kserve/kserve/kernelcache/mcv/pkg/cache"
 
 type DockerfileData struct {
 	ImageTitle  string

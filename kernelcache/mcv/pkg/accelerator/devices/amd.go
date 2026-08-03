@@ -26,8 +26,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kserve/kserve/mcv/pkg/config"
-	"github.com/kserve/kserve/mcv/pkg/utils"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/config"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/utils"
 
 	logging "github.com/sirupsen/logrus"
 )
