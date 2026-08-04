@@ -14,112 +14,143 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# The script is used to build all the KServe images.
-
-# TODO: Implement selective building and tag replacement based on modified code.
+# Build KServe runtime server images.
+#
+# Usage:
+#   build-server-runtimes.sh predictor,transformer   # build all predictor + transformer images (legacy)
+#   build-server-runtimes.sh sklearn                  # build a single image by name
+#   build-server-runtimes.sh                          # defaults to "predictor"
 
 set -o errexit
 set -o nounset
 set -o pipefail
-IFS=,
 
 # Load image configurations
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 source "${PROJECT_ROOT}/kserve-images.sh"
 
-# Default image basename if kserve-images.sh predates AUTOGLUON_IMG (matches kserve-images.env).
 AUTOGLUON_IMG="${AUTOGLUON_IMG:-autogluonserver}"
+KO_DOCKER_REPO="${KO_DOCKER_REPO:-kserve}"
 
-if [ -d "${DOCKER_IMAGES_PATH}" ]; then
-  mkdir -p "${DOCKER_IMAGES_PATH}"  
+# Image registry: name -> dockerfile (relative to python/)
+declare -A IMAGE_DOCKERFILE=(
+  [sklearn]="sklearn.Dockerfile"
+  [xgb]="xgb.Dockerfile"
+  [lgb]="lgb.Dockerfile"
+  [pmml]="pmml.Dockerfile"
+  [paddle]="paddle.Dockerfile"
+  [autogluon]="autogluon.Dockerfile"
+  [custom-model-grpc]="custom_model_grpc.Dockerfile"
+  [custom-transformer-grpc]="custom_transformer_grpc.Dockerfile"
+  [huggingface]="huggingface_server_cpu.Dockerfile"
+  [predictive]="predictiveserver.Dockerfile"
+  [art]="artexplainer.Dockerfile"
+  [image-transformer]="custom_transformer.Dockerfile"
+)
+
+# Image registry: name -> env var holding the image basename
+declare -A IMAGE_ENVVAR=(
+  [sklearn]="SKLEARN_IMG"
+  [xgb]="XGB_IMG"
+  [lgb]="LGB_IMG"
+  [pmml]="PMML_IMG"
+  [paddle]="PADDLE_IMG"
+  [autogluon]="AUTOGLUON_IMG"
+  [custom-model-grpc]="CUSTOM_MODEL_GRPC_IMG"
+  [custom-transformer-grpc]="CUSTOM_TRANSFORMER_GRPC_IMG"
+  [huggingface]="HUGGINGFACE_IMG"
+  [predictive]="PREDICTIVE_IMG"
+  [art]="ART_IMG"
+  [image-transformer]="IMAGE_TRANSFORMER_IMG"
+)
+
+# Artifact prefix per image (matches workflow upload naming convention)
+declare -A IMAGE_PREFIX=(
+  [sklearn]="pred" [xgb]="pred" [lgb]="pred" [pmml]="pred"
+  [paddle]="pred" [autogluon]="pred" [custom-model-grpc]="pred"
+  [predictive]="pred" [huggingface]=""
+  [custom-transformer-grpc]="trans" [image-transformer]="trans"
+  [art]="exp"
+)
+
+# Group definitions for backward compatibility
+PREDICTOR_IMAGES=(sklearn xgb lgb pmml paddle autogluon custom-model-grpc custom-transformer-grpc huggingface predictive)
+EXPLAINER_IMAGES=(art)
+TRANSFORMER_IMAGES=(image-transformer)
+
+if [[ "${1:-}" == "--list-json" ]]; then
+  IFS=, read -ra groups <<< "${2:-predictor}"
+  names=()
+  for group in "${groups[@]}"; do
+    case "$group" in
+      predictor)    names+=("${PREDICTOR_IMAGES[@]}") ;;
+      explainer)    names+=("${EXPLAINER_IMAGES[@]}") ;;
+      transformer)  names+=("${TRANSFORMER_IMAGES[@]}") ;;
+      *)            echo "Unknown group: $group" >&2; exit 1 ;;
+    esac
+  done
+  json='{"image":['
+  first=true
+  for name in "${names[@]}"; do
+    prefix="${IMAGE_PREFIX[$name]:-}"
+    envvar="${IMAGE_ENVVAR[$name]}"
+    $first || json+=','
+    json+="{\"name\":\"${name}\",\"artifact_prefix\":\"${prefix}\",\"image_env\":\"${envvar}\"}"
+    first=false
+  done
+  json+=']}'
+  echo "$json"
+  exit 0
 fi
 
+build_one() {
+  local name="$1"
+  local dockerfile="${IMAGE_DOCKERFILE[$name]:-}"
+  local envvar="${IMAGE_ENVVAR[$name]:-}"
+
+  if [[ -z "$dockerfile" || -z "$envvar" ]]; then
+    echo "ERROR: Unknown image name: $name"
+    echo "Available images: ${!IMAGE_DOCKERFILE[*]}"
+    exit 1
+  fi
+
+  local img_basename="${!envvar}"
+  local img_tag="${KO_DOCKER_REPO}/${img_basename}:${TAG}"
+  local output="${DOCKER_IMAGES_PATH}/${img_basename}-${TAG}"
+
+  echo "Building ${name} image (${dockerfile} -> ${img_basename})"
+  docker buildx build -t "${img_tag}" -f "${dockerfile}" \
+    -o "type=docker,dest=${output},compression-level=0" .
+  echo "Disk usage after building ${name}:"
+  df -hT
+}
+
+mkdir -p "${DOCKER_IMAGES_PATH}"
 echo "Github SHA ${TAG}"
 
-# Predictor runtime server images
-SKLEARN_IMG_TAG=${KO_DOCKER_REPO}/${SKLEARN_IMG}:${TAG}
-XGB_IMG_TAG=${KO_DOCKER_REPO}/${XGB_IMG}:${TAG}
-LGB_IMG_TAG=${KO_DOCKER_REPO}/${LGB_IMG}:${TAG}
-PMML_IMG_TAG=${KO_DOCKER_REPO}/${PMML_IMG}:${TAG}
-PADDLE_IMG_TAG=${KO_DOCKER_REPO}/${PADDLE_IMG}:${TAG}
-AUTOGLUON_IMG_TAG=${KO_DOCKER_REPO}/${AUTOGLUON_IMG}:${TAG}
-CUSTOM_MODEL_GRPC_IMG_TAG=${KO_DOCKER_REPO}/${CUSTOM_MODEL_GRPC_IMG}:${TAG}
-CUSTOM_TRANSFORMER_GRPC_IMG_TAG=${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_GRPC_IMG}:${TAG}
-HUGGINGFACE_CPU_IMG_TAG=${KO_DOCKER_REPO}/${HUGGINGFACE_IMG}:${TAG}
-PREDICTIVE_IMG_TAG=${KO_DOCKER_REPO}/${PREDICTIVE_IMG}:${TAG}
-# Explainer images
-ART_IMG_TAG=${KO_DOCKER_REPO}/${ART_IMG}:${TAG}
-# Transformer images
-IMAGE_TRANSFORMER_IMG_TAG=${KO_DOCKER_REPO}/${IMAGE_TRANSFORMER_IMG}:${TAG}
-types=("${1:-predictor}")
+# Parse arguments
+IFS=, read -ra targets <<< "${1:-predictor}"
 
 pushd python >/dev/null
-  if [[ " ${types[*]} " =~ "predictor" ]]; then
-    echo "Building Sklearn image"
-    docker buildx build -t "${SKLEARN_IMG_TAG}" -f sklearn.Dockerfile \
-      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${SKLEARN_IMG}-${TAG}",compression-level=0 .
-    echo "Disk usage after Building Sklearn image:"
-        df -hT
-    echo "Building XGB image"
-    docker buildx build -t "${XGB_IMG_TAG}" -f xgb.Dockerfile \
-      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${XGB_IMG}-${TAG}",compression-level=0 .
-    echo "Disk usage after Building XGB image:"
-        df -hT
-    echo "Building LGB image"
-    docker buildx build -t "${LGB_IMG_TAG}" -f lgb.Dockerfile \
-      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${LGB_IMG}-${TAG}",compression-level=0 .
-    echo "Disk usage after Building LGB image:"
-        df -hT
-    echo "Building PMML image"
-    docker buildx build -t "${PMML_IMG_TAG}" -f pmml.Dockerfile \
-      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${PMML_IMG}-${TAG}",compression-level=0 .
-    echo "Disk usage after Building PMML image:"
-        df -hT
-    echo "Building Paddle image"
-    docker buildx build -t "${PADDLE_IMG_TAG}" -f paddle.Dockerfile \
-      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${PADDLE_IMG}-${TAG}",compression-level=0 .
-    echo "Disk usage after Building Paddle image:"
-        df -hT
-    echo "Building Custom model gRPC image"
-    docker buildx build -t "${CUSTOM_MODEL_GRPC_IMG_TAG}" -f custom_model_grpc.Dockerfile \
-      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${CUSTOM_MODEL_GRPC_IMG}-${TAG}",compression-level=0 .
-    echo "Disk usage after Building Custom model gRPC image:"
-        df -hT
-    echo "Building image transformer gRPC image"
-    docker buildx build -t "${CUSTOM_TRANSFORMER_GRPC_IMG_TAG}" -f custom_transformer_grpc.Dockerfile \
-      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${CUSTOM_TRANSFORMER_GRPC_IMG}-${TAG}",compression-level=0 .
-    echo "Disk usage after Building image transformer gRPC image:"
-        df -hT
-    echo "Building Huggingface CPU image"
-    docker buildx build -t "${HUGGINGFACE_CPU_IMG_TAG}" -f huggingface_server_cpu.Dockerfile \
-      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${HUGGINGFACE_IMG}-${TAG}",compression-level=0 .
-    echo "Disk usage after Building Huggingface CPU image:"
-        df -hT
-    echo "Building Predictive server image"
-    docker buildx build -t "${PREDICTIVE_IMG_TAG}" -f predictiveserver.Dockerfile \
-      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${PREDICTIVE_IMG}-${TAG}",compression-level=0 .
-    echo "Disk usage after Building Predictive server image:"
-        df -hT
-    echo "Building AutoGluon server image"
-    docker buildx build -t "${AUTOGLUON_IMG_TAG}" -f autogluon.Dockerfile \
-      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${AUTOGLUON_IMG}-${TAG}",compression-level=0 .
-    echo "Disk usage after Building AutoGluon server image:"
-        df -hT
-  fi
 
-  if [[ " ${types[*]} " =~ "explainer" ]]; then
-    echo "Building ART explainer image"
-    docker buildx build -t "${ART_IMG_TAG}" -f artexplainer.Dockerfile \
-      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${ART_IMG}-${TAG}",compression-level=0 .
-  fi
+for target in "${targets[@]}"; do
+  case "$target" in
+    predictor)
+      for img in "${PREDICTOR_IMAGES[@]}"; do build_one "$img"; done
+      ;;
+    explainer)
+      for img in "${EXPLAINER_IMAGES[@]}"; do build_one "$img"; done
+      ;;
+    transformer)
+      for img in "${TRANSFORMER_IMAGES[@]}"; do build_one "$img"; done
+      ;;
+    *)
+      build_one "$target"
+      ;;
+  esac
+done
 
-  if [[ " ${types[*]} " =~ "transformer" ]]; then
-    echo "Building Image transformer image"
-    docker buildx build -t "${IMAGE_TRANSFORMER_IMG_TAG}" -f custom_transformer.Dockerfile \
-      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${IMAGE_TRANSFORMER_IMG}-${TAG}",compression-level=0 .
-  fi
-
-popd
+popd >/dev/null
 
 echo "Done building images"
