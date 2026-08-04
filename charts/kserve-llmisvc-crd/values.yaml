@@ -1,0 +1,6 @@
+kserve:
+  llmisvc:
+    selfSignedCerts:
+      enabled: false
+      caSecretName: llmisvc-selfsigned-ca
+      validityDays: 7300
