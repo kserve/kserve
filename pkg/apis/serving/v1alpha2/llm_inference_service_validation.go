@@ -105,6 +105,7 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 
 	allErrs = append(allErrs, l.validateScaling(llmSvc)...)
 	allErrs = append(allErrs, l.validateLoRAAdapters(llmSvc)...)
+	allErrs = append(allErrs, l.validateSpeculator(llmSvc)...)
 	allErrs = append(allErrs, l.validateKVCacheOffloading(llmSvc)...)
 	allErrs = append(allErrs, l.validateManagedDRAAnnotations(llmSvc)...)
 
@@ -481,6 +482,53 @@ func ValidateLoRAAdapters(loraSpec *LoRASpec, baseModelName string, loraPath *fi
 				fmt.Sprintf("adapter name must differ from base model name %q", baseModelName),
 			))
 		}
+	}
+
+	return allErrs
+}
+
+// validateSpeculator validates spec.speculator.model.uri's scheme and, for hf:// and s3://
+// schemes, that the storage initializer isn't disabled. This mirrors the checks performed at
+// reconcile time in attachSpeculatorModelArtifacts, moving the failure from a reconcile error
+// (surfaced on the LLMInferenceService status) to an admission-time rejection so a typo'd
+// scheme is caught at `kubectl apply` time rather than after the object is already persisted.
+//
+// The OCI-modelcars-enabled check is intentionally not duplicated here: it depends on
+// cluster-level storage configuration that isn't available to this stateless validator, and
+// remains reconcile-only in attachSpeculatorModelArtifacts.
+func (l *LLMInferenceServiceValidator) validateSpeculator(llmSvc *LLMInferenceService) field.ErrorList {
+	var allErrs field.ErrorList
+
+	speculator := llmSvc.Spec.Speculator
+	if speculator == nil || speculator.Model == nil {
+		return allErrs
+	}
+
+	uriPath := field.NewPath("spec").Child("speculator", "model", "uri")
+	uri := speculator.Model.URI.String()
+
+	scheme, _, sepFound := strings.Cut(uri, "://")
+	if !sepFound {
+		allErrs = append(allErrs, field.Invalid(uriPath, uri, "invalid URI: missing scheme"))
+		return allErrs
+	}
+	scheme += "://"
+
+	switch scheme {
+	case constants.HfURIPrefix, constants.S3URIPrefix:
+		storageInitializerDisabled := llmSvc.Spec.StorageInitializer != nil &&
+			llmSvc.Spec.StorageInitializer.Enabled != nil &&
+			!*llmSvc.Spec.StorageInitializer.Enabled
+		if storageInitializerDisabled {
+			allErrs = append(allErrs, field.Invalid(uriPath, uri,
+				scheme+" requires the storage initializer — set spec.storageInitializer.enabled to true"))
+		}
+	case constants.PvcURIPrefix, constants.OciURIPrefix:
+		// No additional spec-level checks for these schemes; oci:// modelcars enablement is
+		// validated at reconcile time where cluster storage configuration is available.
+	default:
+		allErrs = append(allErrs, field.Invalid(uriPath, uri,
+			fmt.Sprintf("unsupported scheme %q; supported: pvc://, oci://, hf://, s3://", scheme)))
 	}
 
 	return allErrs

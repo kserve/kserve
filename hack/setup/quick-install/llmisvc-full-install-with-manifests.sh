@@ -23385,6 +23385,9 @@ spec:
                     mtp)
                   rule: '!has(self.config) || (size(self.config) == 0) || (''method''
                     in self.config)'
+                - message: speculator.config.method is required when speculator.model
+                    is set
+                  rule: '!has(self.model) || (has(self.config) && ''method'' in self.config)'
               storageInitializer:
                 properties:
                   enabled:
@@ -48016,6 +48019,9 @@ spec:
                     mtp)
                   rule: '!has(self.config) || (size(self.config) == 0) || (''method''
                     in self.config)'
+                - message: speculator.config.method is required when speculator.model
+                    is set
+                  rule: '!has(self.model) || (has(self.config) && ''method'' in self.config)'
               storageInitializer:
                 properties:
                   enabled:
@@ -73092,6 +73098,9 @@ spec:
                     mtp)
                   rule: '!has(self.config) || (size(self.config) == 0) || (''method''
                     in self.config)'
+                - message: speculator.config.method is required when speculator.model
+                    is set
+                  rule: '!has(self.model) || (has(self.config) && ''method'' in self.config)'
               storageInitializer:
                 properties:
                   enabled:
@@ -98619,6 +98628,9 @@ spec:
                     mtp)
                   rule: '!has(self.config) || (size(self.config) == 0) || (''method''
                     in self.config)'
+                - message: speculator.config.method is required when speculator.model
+                    is set
+                  rule: '!has(self.model) || (has(self.config) && ''method'' in self.config)'
               storageInitializer:
                 properties:
                   enabled:

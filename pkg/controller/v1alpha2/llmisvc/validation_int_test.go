@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
+	"knative.dev/pkg/apis"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -573,6 +574,128 @@ var _ = Describe("LLMInferenceService API validation", func() {
 				fixture.InNamespace[*v1alpha2.LLMInferenceService](nsName),
 				fixture.WithModelURI("hf://facebook/opt-125m"),
 			)
+
+			// then
+			Expect(envTest.Client.Create(ctx, llmSvc)).To(Succeed())
+		})
+	})
+
+	Context("speculator validation", func() {
+		It("should reject LLMInferenceService with speculator.model set but no config.method", func(ctx SpecContext) {
+			// given
+			speculatorURL, err := apis.ParseURL("hf://RedHatAI/Qwen3-32B-speculator.eagle3")
+			Expect(err).ToNot(HaveOccurred())
+			llmSvc := fixture.LLMInferenceService("test-speculator-model-no-method",
+				fixture.InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				fixture.WithModelURI("hf://facebook/opt-125m"),
+				fixture.WithSpeculator(&v1alpha2.SpeculatorSpec{
+					Model: &v1alpha2.LLMSpeculatorModelSpec{URI: *speculatorURL},
+				}),
+			)
+
+			// when
+			errValidation := envTest.Create(ctx, llmSvc)
+
+			// then
+			Expect(errValidation).To(HaveOccurred())
+			Expect(errValidation.Error()).To(ContainSubstring("speculator.config.method is required when speculator.model is set"))
+		})
+
+		It("should accept LLMInferenceService with speculator.model and config.method set", func(ctx SpecContext) {
+			// given
+			speculatorURL, err := apis.ParseURL("hf://RedHatAI/Qwen3-32B-speculator.eagle3")
+			Expect(err).ToNot(HaveOccurred())
+			llmSvc := fixture.LLMInferenceService("test-speculator-model-with-method",
+				fixture.InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				fixture.WithModelURI("hf://facebook/opt-125m"),
+				fixture.WithSpeculator(&v1alpha2.SpeculatorSpec{
+					Model:  &v1alpha2.LLMSpeculatorModelSpec{URI: *speculatorURL},
+					Config: map[string]string{"method": "eagle3"},
+				}),
+			)
+
+			// then
+			Expect(envTest.Client.Create(ctx, llmSvc)).To(Succeed())
+		})
+
+		It("should reject LLMInferenceService with an unsupported speculator model URI scheme", func(ctx SpecContext) {
+			// given
+			speculatorURL, err := apis.ParseURL("ftp://example.com/speculator-model")
+			Expect(err).ToNot(HaveOccurred())
+			llmSvc := fixture.LLMInferenceService("test-speculator-unsupported-scheme",
+				fixture.InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				fixture.WithModelURI("hf://facebook/opt-125m"),
+				fixture.WithSpeculator(&v1alpha2.SpeculatorSpec{
+					Model:  &v1alpha2.LLMSpeculatorModelSpec{URI: *speculatorURL},
+					Config: map[string]string{"method": "eagle3"},
+				}),
+			)
+
+			// when
+			errValidation := envTest.Create(ctx, llmSvc)
+
+			// then
+			Expect(errValidation).To(HaveOccurred())
+			Expect(errValidation.Error()).To(ContainSubstring("unsupported scheme"))
+		})
+
+		It("should reject LLMInferenceService with hf:// speculator model when storageInitializer is disabled", func(ctx SpecContext) {
+			// given
+			speculatorURL, err := apis.ParseURL("hf://RedHatAI/Qwen3-32B-speculator.eagle3")
+			Expect(err).ToNot(HaveOccurred())
+			llmSvc := fixture.LLMInferenceService("test-speculator-hf-storage-init-disabled",
+				fixture.InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				fixture.WithModelURI("hf://facebook/opt-125m"),
+				fixture.WithSpeculator(&v1alpha2.SpeculatorSpec{
+					Model:  &v1alpha2.LLMSpeculatorModelSpec{URI: *speculatorURL},
+					Config: map[string]string{"method": "eagle3"},
+				}),
+			)
+			llmSvc.Spec.StorageInitializer = &v1alpha2.StorageInitializerSpec{Enabled: ptr.To(false)}
+
+			// when
+			errValidation := envTest.Create(ctx, llmSvc)
+
+			// then
+			Expect(errValidation).To(HaveOccurred())
+			Expect(errValidation.Error()).To(ContainSubstring("requires the storage initializer"))
+		})
+
+		It("should reject LLMInferenceService with s3:// speculator model when storageInitializer is disabled", func(ctx SpecContext) {
+			// given
+			speculatorURL, err := apis.ParseURL("s3://bucket/speculator-model")
+			Expect(err).ToNot(HaveOccurred())
+			llmSvc := fixture.LLMInferenceService("test-speculator-s3-storage-init-disabled",
+				fixture.InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				fixture.WithModelURI("hf://facebook/opt-125m"),
+				fixture.WithSpeculator(&v1alpha2.SpeculatorSpec{
+					Model:  &v1alpha2.LLMSpeculatorModelSpec{URI: *speculatorURL},
+					Config: map[string]string{"method": "draft_model"},
+				}),
+			)
+			llmSvc.Spec.StorageInitializer = &v1alpha2.StorageInitializerSpec{Enabled: ptr.To(false)}
+
+			// when
+			errValidation := envTest.Create(ctx, llmSvc)
+
+			// then
+			Expect(errValidation).To(HaveOccurred())
+			Expect(errValidation.Error()).To(ContainSubstring("requires the storage initializer"))
+		})
+
+		It("should accept LLMInferenceService with pvc:// speculator model when storageInitializer is disabled", func(ctx SpecContext) {
+			// given
+			speculatorURL, err := apis.ParseURL("pvc://my-pvc/speculator-model")
+			Expect(err).ToNot(HaveOccurred())
+			llmSvc := fixture.LLMInferenceService("test-speculator-pvc-storage-init-disabled",
+				fixture.InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				fixture.WithModelURI("hf://facebook/opt-125m"),
+				fixture.WithSpeculator(&v1alpha2.SpeculatorSpec{
+					Model:  &v1alpha2.LLMSpeculatorModelSpec{URI: *speculatorURL},
+					Config: map[string]string{"method": "eagle3"},
+				}),
+			)
+			llmSvc.Spec.StorageInitializer = &v1alpha2.StorageInitializerSpec{Enabled: ptr.To(false)}
 
 			// then
 			Expect(envTest.Client.Create(ctx, llmSvc)).To(Succeed())

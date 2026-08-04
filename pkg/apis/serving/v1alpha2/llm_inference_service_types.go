@@ -174,6 +174,7 @@ type LLMInferenceServiceSpec struct {
 //	    prompt_lookup_max: "5"
 //
 // +kubebuilder:validation:XValidation:rule="!has(self.config) || (size(self.config) == 0) || ('method' in self.config)",message="speculator.config.method is required; it specifies the speculative decoding strategy (e.g. eagle3, draft_model, ngram, mtp)"
+// +kubebuilder:validation:XValidation:rule="!has(self.model) || (has(self.config) && 'method' in self.config)",message="speculator.config.method is required when speculator.model is set"
 type SpeculatorSpec struct {
 	// Model specification for the speculator or draft model.
 	// The URI specifies the location of the model to download (e.g., hf://RedHatAI/Qwen3-32B-speculator.eagle3).

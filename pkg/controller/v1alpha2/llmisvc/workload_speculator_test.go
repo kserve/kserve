@@ -178,6 +178,27 @@ func TestInjectSpeculativeDecodingArgs_DraftModel(t *testing.T) {
 	assert.Equal(t, float64(5), config["num_speculative_tokens"])
 }
 
+func TestInjectSpeculativeDecodingArgs_NonFiniteFloatDoesNotFailMarshal(t *testing.T) {
+	t.Parallel()
+	speculator := &v1alpha2.SpeculatorSpec{
+		Config: map[string]string{
+			"method":                 "ngram",
+			"num_speculative_tokens": "nan",
+		},
+	}
+
+	podSpec := &corev1.PodSpec{
+		Containers: []corev1.Container{{Name: "main"}},
+	}
+
+	err := injectSpeculativeDecodingArgs(speculator, podSpec, "main")
+	require.NoError(t, err, "a non-finite float value must not fail json.Marshal on every reconcile")
+
+	vllmArgs := getVLLMAdditionalArgs(getContainerByName(podSpec, "main"))
+	config := extractSpecConfigJSON(t, vllmArgs)
+	assert.Equal(t, "nan", config["num_speculative_tokens"], "non-finite float values are passed through as strings")
+}
+
 func TestInjectSpeculativeDecodingArgs_EmptySpeculator(t *testing.T) {
 	t.Parallel()
 	speculator := &v1alpha2.SpeculatorSpec{}
@@ -621,6 +642,14 @@ func TestInferJSONType(t *testing.T) {
 		{"string", "eagle3", "eagle3"},
 		{"path", "/mnt/speculator/model", "/mnt/speculator/model"},
 		{"empty", "", ""},
+		// strconv.ParseFloat accepts these, but json.Marshal errors on non-finite floats;
+		// they must fall through to the string branch instead of returning a float64.
+		{"nan", "nan", "nan"},
+		{"NaN", "NaN", "NaN"},
+		{"inf", "inf", "inf"},
+		{"+inf", "+inf", "+inf"},
+		{"-inf", "-inf", "-inf"},
+		{"infinity", "Infinity", "Infinity"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

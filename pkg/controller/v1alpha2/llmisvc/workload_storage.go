@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"slices"
+	"sort"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -505,6 +506,51 @@ func (r *LLMISVCReconciler) attachStorageInitializer(llmSvc *v1alpha2.LLMInferen
 	return nil
 }
 
+// resolveVolumeMountOverlap guards against the shared downloads emptyDir (mounted at the
+// common parent of the LoRA/speculator destination paths) colliding with another volume
+// mount already present on the same container — which happens once LoRA and speculator
+// pairs are combined and their common parent rises to a shallow path like "/mnt" that is
+// also used or contained by the base model's own mount (PVC, OCI native, or modelcar).
+//
+// Two different volumes cannot safely share the exact same MountPath: whichever is applied
+// last wins and the other is invisible to the container, so that case is rejected outright.
+// When one mount's path is a strict ancestor of another's (e.g. "/mnt" and "/mnt/models"),
+// the container sees the deeper mount as intended only if the shallower (parent) mount is
+// applied first — mounting a shallower path after an existing deeper one hides the deeper
+// mount, per standard Linux mount-stacking semantics. AddModelMount always appends new
+// mounts to the end of the list, so we defensively sort by path depth here rather than
+// relying on call order elsewhere in this file.
+func resolveVolumeMountOverlap(container *corev1.Container) error {
+	if container == nil {
+		return nil
+	}
+
+	mounts := container.VolumeMounts
+	for i := range mounts {
+		for j := i + 1; j < len(mounts); j++ {
+			if mounts[i].MountPath == mounts[j].MountPath && mounts[i].Name != mounts[j].Name {
+				return fmt.Errorf(
+					"container %q: volumes %q and %q both mount %q; combining LoRA adapters, a speculator model, and the base model at overlapping paths is not supported — use distinct model storage layouts to avoid this",
+					container.Name, mounts[i].Name, mounts[j].Name, mounts[i].MountPath,
+				)
+			}
+		}
+	}
+
+	sort.SliceStable(mounts, func(i, j int) bool {
+		return mountPathDepth(mounts[i].MountPath) < mountPathDepth(mounts[j].MountPath)
+	})
+	container.VolumeMounts = mounts
+
+	return nil
+}
+
+// mountPathDepth returns the number of path segments in an absolute path, used to order
+// volume mounts so that shallower (parent) paths are applied before deeper (child) paths.
+func mountPathDepth(p string) int {
+	return len(strings.Split(strings.Trim(p, "/"), "/"))
+}
+
 // attachMultiStorageDownloads adds one storage-initializer init container with multiple
 // src_uri dest_path pairs (see storage-initializer entrypoint) and mounts the shared
 // emptyDir at the common parent of all destination paths.
@@ -574,6 +620,10 @@ func (r *LLMISVCReconciler) attachMultiStorageDownloads(
 		VolumeName: constants.StorageInitializerVolumeName,
 		ReadOnly:   true,
 	}, containerName, podSpec); err != nil {
+		return err
+	}
+
+	if err := resolveVolumeMountOverlap(getContainerByName(podSpec, containerName)); err != nil {
 		return err
 	}
 

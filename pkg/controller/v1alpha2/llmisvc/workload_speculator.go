@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -204,11 +205,15 @@ func findClosingQuote(s string, quote byte) int {
 // inferJSONType attempts to parse a string value as a native JSON type (integer,
 // float, or boolean) so that the marshalled JSON uses the correct type for vLLM's
 // --speculative-config schema. Falls back to the original string if no conversion applies.
+//
+// Non-finite float values ("nan", "inf", "-inf") are deliberately excluded: strconv.ParseFloat
+// accepts them, but json.Marshal errors on non-finite floats, which would otherwise fail the
+// --speculative-config marshal on every reconcile instead of surfacing as a clear value.
 func inferJSONType(v string) interface{} {
 	if i, err := strconv.ParseInt(v, 10, 64); err == nil {
 		return i
 	}
-	if f, err := strconv.ParseFloat(v, 64); err == nil {
+	if f, err := strconv.ParseFloat(v, 64); err == nil && !math.IsNaN(f) && !math.IsInf(f, 0) {
 		return f
 	}
 	if b, err := strconv.ParseBool(v); err == nil {
