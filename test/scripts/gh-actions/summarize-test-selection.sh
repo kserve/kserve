@@ -21,6 +21,7 @@ SELECTOR_JSON="$1"; shift
 
 WILL_RUN=0
 SKIPPED=0
+WILL_RUN_JOBS=()
 TABLE="| Job | Status |"$'\n'"| --- | --- |"
 for entry in "$@"; do
   job="${entry%%=*}"
@@ -30,6 +31,7 @@ for entry in "$@"; do
     ((SKIPPED++)) || true
   else
     TABLE+=$'\n'"| \`${job}\` | :white_check_mark: will run |"
+    WILL_RUN_JOBS+=("$job")
     ((WILL_RUN++)) || true
   fi
 done
@@ -94,3 +96,21 @@ ${RAW_JSON}
 </details>"
 
 printf '%s\n' "$BODY" >> "${GITHUB_STEP_SUMMARY:-/dev/stdout}"
+
+# Surface a one-line headline as a workflow annotation (fork-safe, no token
+# needed). Annotations appear on the run/checks page without drilling into the
+# job, and must be a single line (newlines break the annotation command).
+RUN_URL="${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-}/actions/runs/${GITHUB_RUN_ID:-}"
+if ((WILL_RUN > 0)); then
+  RUN_LIST=$(IFS=, ; echo "${WILL_RUN_JOBS[*]}")
+  NOTICE="${WILL_RUN}/${TOTAL} jobs selected (${SKIPPED} skipped): ${RUN_LIST}. See job summary: ${RUN_URL}"
+else
+  NOTICE="0/${TOTAL} jobs selected (all skipped). See job summary: ${RUN_URL}"
+fi
+echo "::notice title=${TITLE}::${NOTICE}"
+
+# Echo the full selector detail to the step log (collapsed group) so it is
+# inspectable without downloading the artifact.
+echo "::group::${TITLE} - selector detail"
+printf '%s\n' "$RAW_JSON"
+echo "::endgroup::"
