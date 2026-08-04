@@ -39,6 +39,7 @@ concurrency:
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       install_methods: ${{ steps.set-matrix.outputs.install_methods }}
     steps:
@@ -75,6 +76,7 @@ jobs:
 
   kserve-image-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -157,6 +159,7 @@ jobs:
 
   llmisvc-image-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -199,6 +202,7 @@ jobs:
 
   predictor-runtime-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 70
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -249,6 +253,7 @@ jobs:
 
   test-modelcache:
     runs-on: ubuntu-latest
+    timeout-minutes: 65
     needs: [detect-changes, kserve-image-build, llmisvc-image-build, predictor-runtime-build]
     strategy:
       fail-fast: false
