@@ -34,6 +34,8 @@ var (
 )
 
 func NewDeployer() *deploy.Deployer {
+	modelControllerGVK := schema.GroupVersionKind{Group: "components.platform.opendatahub.io", Version: "v1alpha1", Kind: "ModelController"}
+
 	return deploy.NewDeployer(
 		deploy.WithFieldOwner(fieldOwner),
 		deploy.WithApplyOrder(),
@@ -42,6 +44,7 @@ func NewDeployer() *deploy.Deployer {
 			schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
 			deploy.MergeDeployments,
 		),
+		deploy.WithLegacyOwners(modelControllerGVK),
 	)
 }
 

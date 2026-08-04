@@ -510,4 +510,3 @@ func (r *KserveModuleReconciler) ensureWorkDir() (string, error) {
 	r.initDone = true
 	return workDir, nil
 }
-
