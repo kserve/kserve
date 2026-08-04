@@ -1211,6 +1211,101 @@ func TestValidateLoRAAdapters(t *testing.T) {
 	})
 }
 
+func TestValidateSpeculator(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+
+	makeSvc := func(speculator *SpeculatorSpec, storageInitializerEnabled *bool) *LLMInferenceService {
+		var storageInitializer *StorageInitializerSpec
+		if storageInitializerEnabled != nil {
+			storageInitializer = &StorageInitializerSpec{Enabled: storageInitializerEnabled}
+		}
+		return &LLMInferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: "base", Namespace: "default"},
+			Spec: LLMInferenceServiceSpec{
+				Model:              LLMModelSpec{URI: apis.URL{Scheme: "hf", Host: "base-model"}},
+				Speculator:         speculator,
+				StorageInitializer: storageInitializer,
+			},
+		}
+	}
+
+	t.Run("nil speculator", func(t *testing.T) {
+		errs := validator.validateSpeculator(makeSvc(nil, nil))
+		assert.Empty(t, errs)
+	})
+
+	t.Run("speculator without model (e.g. ngram)", func(t *testing.T) {
+		errs := validator.validateSpeculator(makeSvc(&SpeculatorSpec{
+			Config: map[string]string{"method": "ngram"},
+		}, nil))
+		assert.Empty(t, errs)
+	})
+
+	t.Run("hf scheme accepted by default", func(t *testing.T) {
+		errs := validator.validateSpeculator(makeSvc(&SpeculatorSpec{
+			Model: &LLMSpeculatorModelSpec{URI: apis.URL{Scheme: "hf", Host: "speculator-model"}},
+		}, nil))
+		assert.Empty(t, errs)
+	})
+
+	t.Run("s3 scheme accepted by default", func(t *testing.T) {
+		errs := validator.validateSpeculator(makeSvc(&SpeculatorSpec{
+			Model: &LLMSpeculatorModelSpec{URI: apis.URL{Scheme: "s3", Host: "bucket/speculator-model"}},
+		}, nil))
+		assert.Empty(t, errs)
+	})
+
+	t.Run("pvc scheme accepted regardless of storage initializer", func(t *testing.T) {
+		errs := validator.validateSpeculator(makeSvc(&SpeculatorSpec{
+			Model: &LLMSpeculatorModelSpec{URI: apis.URL{Scheme: "pvc", Host: "my-pvc/speculator-model"}},
+		}, ptr.To(false)))
+		assert.Empty(t, errs)
+	})
+
+	t.Run("oci scheme accepted regardless of storage initializer", func(t *testing.T) {
+		errs := validator.validateSpeculator(makeSvc(&SpeculatorSpec{
+			Model: &LLMSpeculatorModelSpec{URI: apis.URL{Scheme: "oci", Host: "registry.example.com/speculator:v1"}},
+		}, ptr.To(false)))
+		assert.Empty(t, errs)
+	})
+
+	t.Run("hf scheme rejected when storage initializer disabled", func(t *testing.T) {
+		errs := validator.validateSpeculator(makeSvc(&SpeculatorSpec{
+			Model: &LLMSpeculatorModelSpec{URI: apis.URL{Scheme: "hf", Host: "speculator-model"}},
+		}, ptr.To(false)))
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "spec.speculator.model.uri")
+		assert.Contains(t, errs[0].Detail, "requires the storage initializer")
+	})
+
+	t.Run("s3 scheme rejected when storage initializer disabled", func(t *testing.T) {
+		errs := validator.validateSpeculator(makeSvc(&SpeculatorSpec{
+			Model: &LLMSpeculatorModelSpec{URI: apis.URL{Scheme: "s3", Host: "bucket/speculator-model"}},
+		}, ptr.To(false)))
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "spec.speculator.model.uri")
+		assert.Contains(t, errs[0].Detail, "requires the storage initializer")
+	})
+
+	t.Run("unsupported scheme rejected", func(t *testing.T) {
+		errs := validator.validateSpeculator(makeSvc(&SpeculatorSpec{
+			Model: &LLMSpeculatorModelSpec{URI: apis.URL{Scheme: "ftp", Host: "example.com/speculator-model"}},
+		}, nil))
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "spec.speculator.model.uri")
+		assert.Contains(t, errs[0].Detail, "unsupported scheme")
+	})
+
+	t.Run("missing scheme rejected", func(t *testing.T) {
+		errs := validator.validateSpeculator(makeSvc(&SpeculatorSpec{
+			Model: &LLMSpeculatorModelSpec{},
+		}, nil))
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "spec.speculator.model.uri")
+		assert.Contains(t, errs[0].Detail, "missing scheme")
+	})
+}
+
 func TestValidateManagedDRAAnnotations(t *testing.T) {
 	validator := &LLMInferenceServiceValidator{}
 

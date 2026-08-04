@@ -23365,6 +23365,29 @@ spec:
                   rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                     || !has(self.minReplicas) || self.wva.keda.idleReplicaCount <
                     self.minReplicas'
+              speculator:
+                properties:
+                  config:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  model:
+                    properties:
+                      uri:
+                        type: string
+                    required:
+                    - uri
+                    type: object
+                type: object
+                x-kubernetes-validations:
+                - message: speculator.config.method is required; it specifies the
+                    speculative decoding strategy (e.g. eagle3, draft_model, ngram,
+                    mtp)
+                  rule: '!has(self.config) || (size(self.config) == 0) || (''method''
+                    in self.config)'
+                - message: speculator.config.method is required when speculator.model
+                    is set
+                  rule: '!has(self.model) || (has(self.config) && ''method'' in self.config)'
               storageInitializer:
                 properties:
                   enabled:
@@ -47976,6 +47999,29 @@ spec:
                   rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                     || !has(self.minReplicas) || self.wva.keda.idleReplicaCount <
                     self.minReplicas'
+              speculator:
+                properties:
+                  config:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  model:
+                    properties:
+                      uri:
+                        type: string
+                    required:
+                    - uri
+                    type: object
+                type: object
+                x-kubernetes-validations:
+                - message: speculator.config.method is required; it specifies the
+                    speculative decoding strategy (e.g. eagle3, draft_model, ngram,
+                    mtp)
+                  rule: '!has(self.config) || (size(self.config) == 0) || (''method''
+                    in self.config)'
+                - message: speculator.config.method is required when speculator.model
+                    is set
+                  rule: '!has(self.model) || (has(self.config) && ''method'' in self.config)'
               storageInitializer:
                 properties:
                   enabled:
@@ -73032,6 +73078,29 @@ spec:
                   rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                     || !has(self.minReplicas) || self.wva.keda.idleReplicaCount <
                     self.minReplicas'
+              speculator:
+                properties:
+                  config:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  model:
+                    properties:
+                      uri:
+                        type: string
+                    required:
+                    - uri
+                    type: object
+                type: object
+                x-kubernetes-validations:
+                - message: speculator.config.method is required; it specifies the
+                    speculative decoding strategy (e.g. eagle3, draft_model, ngram,
+                    mtp)
+                  rule: '!has(self.config) || (size(self.config) == 0) || (''method''
+                    in self.config)'
+                - message: speculator.config.method is required when speculator.model
+                    is set
+                  rule: '!has(self.model) || (has(self.config) && ''method'' in self.config)'
               storageInitializer:
                 properties:
                   enabled:
@@ -98539,6 +98608,29 @@ spec:
                   rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                     || !has(self.minReplicas) || self.wva.keda.idleReplicaCount <
                     self.minReplicas'
+              speculator:
+                properties:
+                  config:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  model:
+                    properties:
+                      uri:
+                        type: string
+                    required:
+                    - uri
+                    type: object
+                type: object
+                x-kubernetes-validations:
+                - message: speculator.config.method is required; it specifies the
+                    speculative decoding strategy (e.g. eagle3, draft_model, ngram,
+                    mtp)
+                  rule: '!has(self.config) || (size(self.config) == 0) || (''method''
+                    in self.config)'
+                - message: speculator.config.method is required when speculator.model
+                    is set
+                  rule: '!has(self.model) || (has(self.config) && ''method'' in self.config)'
               storageInitializer:
                 properties:
                   enabled:
