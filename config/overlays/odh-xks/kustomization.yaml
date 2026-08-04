@@ -145,3 +145,19 @@ vars:
 # Configuration for var substitution paths
 configurations:
 - params.yaml
+
+# Replace REPLACE_IMAGE placeholders with real images from the base ODH overlay's
+# kserve-parameters ConfigMap (generated from config/overlays/odh/params.env).
+# The odh-xks storageInitializer patch overrides the entire ConfigMap string value
+# (kustomize strategic merge), so the base ODH replacement no longer applies.
+replacements:
+- source:
+    kind: ConfigMap
+    name: kserve-parameters
+    fieldPath: data.kserve-storage-initializer
+  targets:
+  - select:
+      kind: ConfigMap
+      name: inferenceservice-config
+    fieldPaths:
+    - data.storageInitializer.image

@@ -21,6 +21,18 @@ data:
         "disableIstioVirtualHost": false,
         "disableIngressCreation": false
     }
+  storageInitializer: |-
+    {
+        "image" : "REPLACE_IMAGE",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "24Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1",
+        "cpuModelcar": "10m",
+        "memoryModelcar": "15Mi",
+        "enableModelcar": true,
+        "uidModelcar": 1000
+    }
   inferenceService: |-
     {
       "serviceAnnotationDisallowedList": [
