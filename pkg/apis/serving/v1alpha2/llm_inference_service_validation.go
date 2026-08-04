@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
+	"strings"
 
 	"k8s.io/utils/ptr"
 
@@ -34,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
 	kservevalidation "github.com/kserve/kserve/pkg/validation"
 )
