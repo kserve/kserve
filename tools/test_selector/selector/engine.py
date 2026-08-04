@@ -28,7 +28,7 @@ def select_tests(
     overrides = load_overrides(repo_root)
 
     for f in changed_files:
-        f = f.strip().lstrip("./")
+        f = f.strip().removeprefix("./")
         if not f:
             continue
 
@@ -53,7 +53,7 @@ def _process_file(
     if file_path.endswith(".go"):
         _process_go_file(file_path, mapping, sel)
     elif file_path.endswith("Dockerfile"):
-        _process_dockerfile(file_path, mapping, sel)
+        _process_dockerfile(file_path, mapping, sel, repo_root)
     elif file_path.startswith("python/"):
         _process_python_file(file_path, mapping, sel)
     elif file_path.startswith("test/e2e/"):
@@ -260,7 +260,9 @@ def _apply_override(
             )
 
 
-def _process_dockerfile(file_path: str, mapping: Mapping, sel: TestSelection) -> None:
+def _process_dockerfile(
+    file_path: str, mapping: Mapping, sel: TestSelection, repo_root: Path
+) -> None:
     """Match Dockerfile against known keywords, then try ARG CMD= in the file.
 
     Checks in order: keyword_aliases, framework names, server names, ARG CMD=.
@@ -278,7 +280,7 @@ def _process_dockerfile(file_path: str, mapping: Mapping, sel: TestSelection) ->
         )
         return
 
-    cmd_markers = _markers_from_dockerfile_cmd(file_path, mapping)
+    cmd_markers = _markers_from_dockerfile_cmd(file_path, mapping, repo_root)
     if cmd_markers:
         _add_markers(sel, cmd_markers)
         sel.reasons.append(
@@ -330,10 +332,12 @@ def _match_frameworks_or_servers(
 _ARG_CMD_RE = re.compile(r"^\s*ARG\s+CMD\s*=\s*(\S+)", re.MULTILINE)
 
 
-def _markers_from_dockerfile_cmd(file_path: str, mapping: Mapping) -> list[str]:
+def _markers_from_dockerfile_cmd(
+    file_path: str, mapping: Mapping, repo_root: Path
+) -> list[str]:
     """Parse ARG CMD=<name> from a Dockerfile and resolve to markers via entrypoints."""
     try:
-        content = Path(file_path).read_text()
+        content = (repo_root / file_path).read_text()
     except OSError:
         return []
 

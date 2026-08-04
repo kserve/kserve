@@ -18,6 +18,7 @@
     ".svg",
     ".github/",
     "docs/",
+    "tools/test_selector/",
     "LICENSE",
     "OWNERS",
     "CODEOWNERS"
@@ -50,19 +51,24 @@
       "reason": "Image tag/registry configuration changes"
     },
     {
-      "pattern": "test/scripts/*",
+      "pattern": "test/scripts/**",
       "trigger": "all",
       "reason": "CI system changes"
     },
     {
-      "pattern": "test/overlays/*",
+      "pattern": "test/overlays/**",
       "trigger": "all",
       "reason": "CI system changes"
     },
     {
-      "pattern": "test/crds/*",
+      "pattern": "test/crds/**",
       "trigger": "all",
       "reason": "CI system changes"
+    },
+    {
+      "pattern": ".github/workflows/*",
+      "trigger": "all",
+      "reason": "CI workflow changes"
     }
   ]
 }

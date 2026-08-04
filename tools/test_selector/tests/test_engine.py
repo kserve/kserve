@@ -797,3 +797,100 @@ def test_mixed_go_controller_and_e2e(mapping: Mapping, repo_root: Path) -> None:
     assert "llminferenceservice" in markers
     assert not markers & E2E_MARKERS
     assert len(result["reasons"]) >= 2
+
+
+# -- Regression: dotted paths must keep their leading dot ----------------------
+# Bug: `lstrip("./")` stripped the leading dot from `.github/...`, so the
+# `.github/` ignorable pattern never matched and every CI change escalated to
+# conservative:all. Fixed by `removeprefix("./")`.
+
+
+def test_github_non_workflow_is_ignorable(mapping: Mapping, repo_root: Path) -> None:
+    """A non-workflow file under .github/ is ignorable (leading dot preserved)."""
+    result = _query(mapping, repo_root, [".github/dependabot.yml"])
+    assert result["go_tests"]["run"] is False
+    assert result["python_tests"]["run"] is False
+    assert result["e2e_tests"]["run"] is False
+    assert result["reasons"] == []
+
+
+def test_leading_dot_slash_is_stripped(mapping: Mapping, repo_root: Path) -> None:
+    """A `./`-prefixed path is normalized without eating a real leading dot."""
+    result = _query(mapping, repo_root, ["./.github/dependabot.yml"])
+    assert result["e2e_tests"]["run"] is False
+    assert result["reasons"] == []
+
+
+# -- Regression: workflow changes classified explicitly (not "unclassified") --
+
+
+def test_workflow_change_triggers_all(mapping: Mapping, repo_root: Path) -> None:
+    """A change to a CI workflow file triggers all tests via override."""
+    result = _query(mapping, repo_root, [".github/workflows/e2e-test.yml"])
+    assert result["go_tests"]["all"] is True
+    assert result["e2e_tests"]["run"] is True
+    markers = set(result["e2e_tests"]["markers"])
+    assert markers >= E2E_MARKERS
+    assert markers >= LLMISVC_MARKERS
+    assert any(
+        "override:CI workflow changes" in r and "all" in r for r in result["reasons"]
+    )
+
+
+# -- Regression: overrides must match nested files, not just direct children --
+# Bug: `test/scripts/*` (single star) matched only direct children, so nested
+# CI scripts like test/scripts/gh-actions/*.sh fell through to "unclassified".
+# Fixed by using `test/scripts/**`.
+
+
+def test_nested_ci_script_triggers_all(mapping: Mapping, repo_root: Path) -> None:
+    """A nested CI script under test/scripts/ triggers all via a `/**` override."""
+    result = _query(
+        mapping,
+        repo_root,
+        ["test/scripts/gh-actions/summarize-test-selection.sh"],
+    )
+    assert result["e2e_tests"]["run"] is True
+    assert any(
+        "override:CI system changes" in r and "all" in r for r in result["reasons"]
+    )
+    assert not any("unclassified" in r for r in result["reasons"])
+
+
+# -- Regression: the selector's own tooling is ignorable ----------------------
+
+
+def test_test_selector_tooling_is_ignorable(mapping: Mapping, repo_root: Path) -> None:
+    """Changes confined to tools/test_selector/ select no product tests."""
+    result = _query(
+        mapping,
+        repo_root,
+        [
+            "tools/test_selector/selector/engine.py",
+            "tools/test_selector/config.json",
+            "tools/test_selector/tests/test_engine.py",
+        ],
+    )
+    assert result["go_tests"]["run"] is False
+    assert result["python_tests"]["run"] is False
+    assert result["e2e_tests"]["run"] is False
+    assert result["reasons"] == []
+
+
+# -- Regression: Dockerfile classification is independent of CWD --------------
+# Bug: ARG CMD= was read via `Path(file_path)` relative to the process CWD, so
+# classification broke whenever the selector ran from anywhere but the repo
+# root. Fixed by reading `repo_root / file_path`.
+
+
+def test_dockerfile_cmd_independent_of_cwd(
+    mapping: Mapping, repo_root: Path, tmp_path: Path, monkeypatch
+) -> None:
+    """ARG CMD= is resolved relative to repo_root, not the current directory."""
+    monkeypatch.chdir(tmp_path)
+    result = _query(mapping, repo_root, ["Dockerfile"])
+    assert result["e2e_tests"]["run"] is True
+    markers = set(result["e2e_tests"]["markers"])
+    assert "predictor" in markers
+    assert "graph" in markers
+    assert any("dockerfile_cmd" in r for r in result["reasons"])
