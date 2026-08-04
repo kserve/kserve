@@ -27,6 +27,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/Masterminds/sprig/v3"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -611,6 +612,10 @@ type templateGlobalConfig struct {
 // ReplaceVariables processes the configuration as a Go template to substitute
 // variables with values from the LLM service and global configuration.
 func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.LLMInferenceServiceConfig, reconcilerConfig *Config) (*v1alpha2.LLMInferenceServiceConfig, error) {
+	if llmSvcCfg.Annotations[constants.LLMWalkTreeTemplateRendererAnnotationKey] == "true" {
+		return replaceVariableUsingWalk(llmSvc, llmSvcCfg, reconcilerConfig)
+	}
+
 	templateBytes, err := json.Marshal(llmSvcCfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal config for template processing: %w", err)
@@ -652,32 +657,7 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 				if !ok || kv == nil {
 					return ""
 				}
-				extraConfig := map[string]any{
-					"spec_name":        "TieringOffloadingSpec",
-					"cpu_bytes_to_use": kv.CPU.Value(),
-				}
-				if kv.EvictionPolicy != "" {
-					extraConfig["eviction_policy"] = kv.EvictionPolicy
-				}
-				var secondaryTiers []map[string]any
-				for i, s := range kv.Secondary {
-					if s.FileSystem == nil {
-						continue
-					}
-					entry := map[string]any{
-						"type":     "fs",
-						"root_dir": fmt.Sprintf("/mnt/kv-cache-%d", i),
-					}
-					secondaryTiers = append(secondaryTiers, entry)
-				}
-				if len(secondaryTiers) > 0 {
-					extraConfig["secondary_tiers"] = secondaryTiers
-				}
-				kvConfig := map[string]any{
-					"kv_connector":              "OffloadingConnector",
-					"kv_role":                   "kv_both",
-					"kv_connector_extra_config": extraConfig,
-				}
+				kvConfig := kvTransferConfig(kv)
 				b, err := json.Marshal(kvConfig)
 				if err != nil {
 					return ""
@@ -725,6 +705,196 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 		return nil, fmt.Errorf("failed to unmarshal config from template: %w", err)
 	}
 	return out, nil
+}
+
+// replaceVariableUsingWalk is an alternative to ReplaceVariables that templates each string field
+// of the config in place, instead of marshaling the whole config to JSON, treating that JSON text
+// as one big template, and unmarshaling the result back.
+//
+// The JSON round-trip in ReplaceVariables means every template action is really writing into a
+// JSON document without knowing it. That's fine as long as what gets written is JSON-safe (a
+// plain identifier, a number), but it breaks the moment a template emits a value containing a
+// quote, backslash, or literal newline it didn't put there itself.
+//
+// The same applies to `{{ range }}`/`{{ with }}` used to build content from a slice or map of
+// arbitrary data: as soon as one of those values contains a JSON metacharacter, the whole
+// document breaks.
+//
+// Templating each field's already-decoded string value directly, as replaceVariableUsingWalk does,
+// removes that second JSON pass entirely: whatever a template emits becomes the field's literal
+// value with no re-parsing step to corrupt, so range/with and arbitrary data are safe to use
+// as-is.
+func replaceVariableUsingWalk(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.LLMInferenceServiceConfig, reconcilerConfig *Config) (*v1alpha2.LLMInferenceServiceConfig, error) {
+	var gc templateGlobalConfig
+	if reconcilerConfig != nil {
+		gc = templateGlobalConfig{
+			SystemNamespace:             reconcilerConfig.SystemNamespace,
+			IngressGatewayName:          reconcilerConfig.IngressGatewayName,
+			IngressGatewayNamespace:     reconcilerConfig.IngressGatewayNamespace,
+			EnableTLS:                   reconcilerConfig.EnableTLS,
+			ModelBasedRoutingHeaderName: reconcilerConfig.ModelBasedRoutingHeaderName,
+		}
+		infPoolNamespacedName := types.NamespacedName{
+			Name:      (&v1alpha2.SchedulerSpec{}).InferencePoolName(llmSvc),
+			Namespace: llmSvc.GetNamespace(),
+		}
+		if llmSvcCfg.Spec.Router != nil {
+			infPoolNamespacedName.Name = llmSvcCfg.Spec.Router.Scheduler.InferencePoolName(llmSvc)
+		}
+		gc.InferencePoolNamespacedName = infPoolNamespacedName.String()
+	}
+
+	config := struct {
+		*v1alpha2.LLMInferenceService
+		GlobalConfig templateGlobalConfig
+	}{
+		LLMInferenceService: llmSvc,
+		GlobalConfig:        gc,
+	}
+
+	originalUnstructuredLlmSvcCfg, err := runtime.DefaultUnstructuredConverter.ToUnstructured(llmSvcCfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse config for template processing: %w", err)
+	}
+
+	updatedUnstructuredLlmSvcCfg, err := replaceVariablesWalkTree(originalUnstructuredLlmSvcCfg, config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse config for template processing: %w", err)
+	}
+
+	out := new(v1alpha2.LLMInferenceServiceConfig)
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(updatedUnstructuredLlmSvcCfg.(map[string]any), out)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal config from template: %w", err)
+	}
+
+	return out, nil
+}
+
+func replaceVariablesWalkTree(node, data any) (any, error) {
+	switch v := node.(type) {
+	case map[string]any:
+		for key, val := range v {
+			out, err := replaceVariablesWalkTree(val, data)
+			if err != nil {
+				return nil, err
+			}
+			v[key] = out
+		}
+		return v, nil
+
+	case []any:
+		for i, val := range v {
+			out, err := replaceVariablesWalkTree(val, data)
+			if err != nil {
+				return nil, err
+			}
+			v[i] = out
+		}
+		return v, nil
+
+	case string:
+		return replaceVariablesTemplate(v, data)
+
+	default:
+		return v, nil
+	}
+}
+
+func kvTransferConfig(kv *v1alpha2.KVCacheOffloadingSpec) map[string]any {
+	extraConfig := map[string]any{
+		"spec_name":        "TieringOffloadingSpec",
+		"cpu_bytes_to_use": kv.CPU.Value(),
+	}
+
+	if kv.EvictionPolicy != "" {
+		extraConfig["eviction_policy"] = kv.EvictionPolicy
+	}
+
+	var secondaryTiers []map[string]any
+	for i, s := range kv.Secondary {
+		if s.FileSystem == nil {
+			continue
+		}
+		entry := map[string]any{
+			"type":     "fs",
+			"root_dir": fmt.Sprintf("/mnt/kv-cache-%d", i),
+		}
+		secondaryTiers = append(secondaryTiers, entry)
+	}
+
+	if len(secondaryTiers) > 0 {
+		extraConfig["secondary_tiers"] = secondaryTiers
+	}
+
+	return map[string]any{
+		"kv_connector":              "OffloadingConnector",
+		"kv_role":                   "kv_both",
+		"kv_connector_extra_config": extraConfig,
+	}
+}
+
+func replaceVariablesTemplate(s string, data any) (string, error) {
+	tmpl, err := template.New("config").
+		Option("missingkey=error").
+		Funcs(sprig.HermeticTxtFuncMap()).
+		Funcs(map[string]any{
+			"ChildName": kmeta.ChildName,
+			"kvTransferConfig": func(spec any) string {
+				if spec == nil {
+					return ""
+				}
+				kv, ok := spec.(*v1alpha2.KVCacheOffloadingSpec)
+				if !ok || kv == nil {
+					return ""
+				}
+				kvConfig := kvTransferConfig(kv)
+				b, err := json.Marshal(kvConfig)
+				if err != nil {
+					return ""
+				}
+				// This value is substituted directly into the config's raw string field (no
+				// subsequent JSON decode, unlike ReplaceVariables), so the surrounding
+				// KV_TRANSFER_ARGS="..." bash double quotes are literal here already. Escape our
+				// inner quotes with a single backslash so they survive that outer double-quoted
+				// bash string instead of prematurely closing it.
+				return "--kv-transfer-config '" + strings.ReplaceAll(string(b), `"`, `\"`) + "'"
+			},
+			// shutdownTimeout computes the vLLM --shutdown-timeout value from a *corev1.PodSpec
+			// (or nil): max(0, tgps - preStop - min(5, tgps)), defaulting tgps to 60 when unset.
+			// The 5-second buffer reserves time for signal propagation and final process cleanup
+			// before Kubernetes sends SIGKILL.
+			"shutdownTimeout": func(spec any, preStop int64) int64 {
+				const defaultTGPS = int64(60)
+				var tgpsVal int64
+				if spec != nil {
+					if ps, ok := spec.(*corev1.PodSpec); ok && ps != nil && ps.TerminationGracePeriodSeconds != nil {
+						tgpsVal = *ps.TerminationGracePeriodSeconds
+					} else {
+						tgpsVal = defaultTGPS
+					}
+				} else {
+					tgpsVal = defaultTGPS
+				}
+				buf := min(int64(5), tgpsVal)
+				result := tgpsVal - preStop - buf
+				if result < 0 {
+					return 0
+				}
+				return result
+			},
+		}).
+		Parse(s)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse template config: %w", err)
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return "", fmt.Errorf("failed to merge config: %w", err)
+	}
+
+	return buf.String(), nil
 }
 
 // configNotFoundError is returned by getConfig when an LLMInferenceServiceConfig
