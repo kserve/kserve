@@ -61,6 +61,10 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().ClusterStorageContainers().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("inferencegraphs"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().InferenceGraphs().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("kernelcaches"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().KernelCaches().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("kernelcachenodes"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().KernelCacheNodes().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("llminferenceservices"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().LLMInferenceServices().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("localmodelcaches"):
