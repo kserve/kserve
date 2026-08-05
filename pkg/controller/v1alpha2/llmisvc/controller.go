@@ -270,9 +270,8 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 			llmSvc, kserveTypes.ResolveOciModelMode(config.StorageConfig))
 	}
 
-	// nil baseCfg means config resolution set a condition (e.g. ConfigNotFound) and there's nothing more to do.
 	baseCfg, err := r.reconcileBaseRefs(ctx, llmSvc, config)
-	if err != nil || baseCfg == nil {
+	if err != nil {
 		return err
 	}
 

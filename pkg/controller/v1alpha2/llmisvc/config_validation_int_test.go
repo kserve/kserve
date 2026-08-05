@@ -24,6 +24,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
+	"knative.dev/pkg/apis"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -134,6 +135,12 @@ var _ = Describe("Validating config configs", func() {
 				g.Expect(condition.Reason).To(Equal("InvalidRenderedConfig"))
 				g.Expect(condition.Message).To(ContainSubstring("headers[0].name"))
 				g.Expect(condition.Message).To(ContainSubstring("Invalid value"))
+
+				// PresetsCombined counts towards Ready, so the failure must show there too.
+				ready := current.Status.GetCondition(apis.ConditionReady)
+				g.Expect(ready).NotTo(BeNil())
+				g.Expect(ready.IsFalse()).To(BeTrue())
+				g.Expect(ready.Reason).To(Equal("InvalidRenderedConfig"))
 			}).Should(Succeed())
 
 			Consistently(func() bool {

@@ -38,6 +38,7 @@ import (
 	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/yaml"
@@ -131,6 +132,12 @@ type CombinedConfig struct {
 	ResolvedSchedulerConfigMap *types.NamespacedName
 }
 
+// reconcileBaseRefs resolves and merges the referenced configs, then checks the
+// merged spec by dry-running it against the API server.
+//
+// A missing config or a rejected spec returns reconcile.TerminalError: retrying
+// fixes neither, so the controller waits for a watch event instead. Any other
+// error is returned as-is and requeued with backoff.
 func (r *LLMISVCReconciler) reconcileBaseRefs(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (*v1alpha2.LLMInferenceServiceConfig, error) {
 	// Combine base configurations with service-specific overrides
 	// This includes default configs based on deployment pattern (single node, multi-node, etc.)
@@ -148,11 +155,11 @@ func (r *LLMISVCReconciler) reconcileBaseRefs(ctx context.Context, llmSvc *v1alp
 
 		var cfgNotFound *configNotFoundError
 		if errors.As(err, &cfgNotFound) {
-			llmSvc.MarkPresetsCombinedNotReady("ConfigNotFound", cfgNotFound.Error())
-			return nil, nil // watch on LLMInferenceServiceConfig re-triggers when the config is recreated
+			llmSvc.MarkPresetsCombinedNotReady("ConfigNotFound", "%s", cfgNotFound.Error())
+			return nil, reconcile.TerminalError(cfgNotFound)
 		}
 
-		llmSvc.MarkPresetsCombinedNotReady("CombineBaseError", err.Error())
+		llmSvc.MarkPresetsCombinedNotReady("CombineBaseError", "%s", err.Error())
 		return nil, fmt.Errorf("failed to combine base-configurations: %w", err)
 	}
 
@@ -164,8 +171,8 @@ func (r *LLMISVCReconciler) reconcileBaseRefs(ctx context.Context, llmSvc *v1alp
 	normalizeRawExtensionsToJSON(&validationSpec)
 	if err = r.Create(ctx, &v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      kmeta.ChildName(llmSvc.Name, "-validation"),
-			Namespace: llmSvc.GetNamespace(),
+			GenerateName: kmeta.ChildName(llmSvc.Name, "-validation-"),
+			Namespace:    llmSvc.GetNamespace(),
 		},
 		Spec: validationSpec,
 	}, client.DryRunAll); err != nil {
@@ -177,20 +184,25 @@ func (r *LLMISVCReconciler) reconcileBaseRefs(ctx context.Context, llmSvc *v1alp
 			}, nil
 		}
 
-		reason := "InvalidRenderedConfig"
-		if !apierrors.IsInvalid(err) {
-			reason = "RenderedConfigValidationFailed"
-		}
 		llmSvc.Status.AppliedConfigRefs = result.AppliedConfigRefs
-		llmSvc.MarkPresetsCombinedNotReady(reason,
-			renderedConfigConditionMessage(err, result.AppliedConfigRefs))
-		r.Eventf(llmSvc, corev1.EventTypeWarning, reason,
-			"dry-run validation of rendered config failed; see PresetsCombined condition for details")
 
-		return nil, nil
+		// Anything other than Invalid means the spec was never checked: the API server
+		// timed out, the webhook was unreachable, RBAC was revoked. Nothing about the
+		// service changed, so no watch event will fire when it recovers - requeue
+		// instead. Unknown, not False: the service may still be serving.
+		if !apierrors.IsInvalid(err) {
+			llmSvc.MarkPresetsCombinedUnknown("ValidationUnavailable", "%s",
+				renderedConfigConditionMessage(err, result.AppliedConfigRefs))
+
+			return nil, fmt.Errorf("failed to dry-run validate rendered config: %w", err)
+		}
+
+		llmSvc.MarkPresetsCombinedNotReady("InvalidRenderedConfig", "%s",
+			renderedConfigConditionMessage(err, result.AppliedConfigRefs))
+
+		return nil, reconcile.TerminalError(fmt.Errorf("rendered config rejected: %w", err))
 	}
 
-	// Persist only the applied configs from successful reconciliation.
 	llmSvc.Status.AppliedConfigRefs = result.AppliedConfigRefs
 	llmSvc.MarkPresetsCombinedReady()
 
@@ -221,7 +233,33 @@ func renderedConfigConditionMessage(err error, refs []v1alpha2.AppliedConfigRef)
 	}
 
 	return fmt.Sprintf("dry-run validation failed after merging configs [%s]: %s",
-		strings.Join(refNames, ", "), err.Error())
+		strings.Join(refNames, ", "), validationDetail(err))
+}
+
+// validationDetail lists the rejected fields from a validation error. The full
+// error text is only a fallback: it starts with the name of the throwaway object
+// the dry-run creates, which the user never wrote and cannot look up.
+func validationDetail(err error) string {
+	var statusErr apierrors.APIStatus
+	if !errors.As(err, &statusErr) {
+		return err.Error()
+	}
+
+	details := statusErr.Status().Details
+	if details == nil || len(details.Causes) == 0 {
+		return err.Error()
+	}
+
+	msgs := make([]string, 0, len(details.Causes))
+	for _, cause := range details.Causes {
+		if cause.Field == "" {
+			msgs = append(msgs, cause.Message)
+			continue
+		}
+		msgs = append(msgs, fmt.Sprintf("%s: %s", cause.Field, cause.Message))
+	}
+
+	return strings.Join(msgs, "; ")
 }
 
 // combineBaseRefsConfig applies well-known config overlays to inject default values for various components, when some components are
