@@ -22,9 +22,9 @@ import (
 	"context"
 
 	routev1 "github.com/openshift/api/route/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -42,12 +42,20 @@ func HTTPRouteReferencesGatewayForTest(httpRoute *gwapiv1.HTTPRoute, gwName, gwN
 	return httpRouteReferencesGateway(httpRoute, gwName, gwNamespace)
 }
 
-func DiscoverRouteURLsForTest(ctx context.Context, c client.Client, gw gatewayWithPaths) ([]DiscoveredURL, error) {
-	return discoverRouteURLs(ctx, c, gw)
+func DiscoverRouteURLsForTest(r *LLMISVCReconciler, ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, gw gatewayWithPaths) ([]DiscoveredURL, error) {
+	return r.discoverRouteURLs(ctx, llmSvc, gw)
 }
 
-func DiscoverAdditionalURLsForTest(r *LLMISVCReconciler, ctx context.Context, discovered []DiscoveredURL) ([]DiscoveredURL, error) {
-	return r.discoverAdditionalURLs(ctx, discovered)
+func DiscoverAdditionalURLsForTest(r *LLMISVCReconciler, ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, discovered []DiscoveredURL) ([]DiscoveredURL, error) {
+	return r.discoverAdditionalURLs(ctx, llmSvc, discovered)
+}
+
+func CheckRoutePortMismatchForTest(route *routev1.Route, gwServices map[string]*corev1.Service) string {
+	return checkRoutePortMismatch(route, gwServices)
+}
+
+func CheckRouteTLSMismatchForTest(route *routev1.Route, gwServices map[string]*corev1.Service) string {
+	return checkRouteTLSMismatch(route, gwServices)
 }
 
 func RouteChangePredicateForTest() predicate.Predicate {

@@ -86,14 +86,26 @@ func routeChangePredicate() predicate.Predicate {
 			}
 
 			return oldRoute.Spec.Path != newRoute.Spec.Path ||
-				oldRoute.Spec.To.Name != newRoute.Spec.To.Name ||
-				oldRoute.Spec.To.Kind != newRoute.Spec.To.Kind ||
-				!equality.Semantic.DeepEqual(oldRoute.Spec.TLS, newRoute.Spec.TLS)
+				targetChanged(oldRoute, newRoute) ||
+				tlsTerminationChanged(oldRoute, newRoute) ||
+				!equality.Semantic.DeepEqual(oldRoute.Spec.Port, newRoute.Spec.Port)
 		},
 		DeleteFunc: func(_ event.DeleteEvent) bool {
 			return true
 		},
 	}
+}
+
+func targetChanged(old, new *routev1.Route) bool {
+	return old.Spec.To.Name != new.Spec.To.Name || old.Spec.To.Kind != new.Spec.To.Kind
+}
+
+func tlsTerminationChanged(old, new *routev1.Route) bool {
+	if (old.Spec.TLS == nil) != (new.Spec.TLS == nil) {
+		return true
+	}
+
+	return old.Spec.TLS != nil && old.Spec.TLS.Termination != new.Spec.TLS.Termination
 }
 
 // enqueueOnRouteChange maps a Route change to reconcile requests for
@@ -150,7 +162,7 @@ func (r *LLMISVCReconciler) mapRouteToRequests(ctx context.Context, logger logr.
 		return reqs
 	}
 
-	// Only managed HTTPRoutes - external refs handled in strategy (b) below.
+	// (a) Only managed HTTPRoutes - external refs handled in strategy (b) below.
 	httpRouteList := &gwapiv1.HTTPRouteList{}
 	if err := r.List(ctx, httpRouteList, client.MatchingLabels(ChildResourcesLabelSelector.MatchLabels)); err != nil {
 		logger.Error(err, "failed to list HTTPRoutes")
@@ -169,8 +181,7 @@ func (r *LLMISVCReconciler) mapRouteToRequests(ctx context.Context, logger logr.
 		}
 	}
 
-	// Catch services using external HTTPRoute refs (no managed HTTPRoute with owner ref).
-	// Check if any LLMISvc references an HTTPRoute whose parentRefs target this gateway.
+	// (b) Catch services using external HTTPRoute refs (no managed HTTPRoute with owner ref).
 	for i := range llmSvcList.Items {
 		llmSvc := &llmSvcList.Items[i]
 		if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route == nil || !llmSvc.Spec.Router.Route.HTTP.HasRefs() {
@@ -198,9 +209,7 @@ func (r *LLMISVCReconciler) mapRouteToRequests(ctx context.Context, logger logr.
 		}
 	}
 
-	// Last resort: check previously observed gateway associations from status.
-	// Covers services whose gateway linkage is derived from merged configs/baseRefs
-	// and isn't visible on the raw spec or managed HTTPRoutes.
+	// (c) Last resort: check previously observed gateway associations from status.
 	for i := range llmSvcList.Items {
 		if hasRoutingGatewayRef(&llmSvcList.Items[i], gwapiv1.ObjectName(gwName), gwapiv1.Namespace(gwNamespace)) {
 			enqueue(types.NamespacedName{Namespace: llmSvcList.Items[i].Namespace, Name: llmSvcList.Items[i].Name})

@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -121,6 +122,24 @@ func newFakeClient(objects ...client.Object) client.Client {
 		Build()
 }
 
+func newReconciler(fc client.Client) (*llmisvc.LLMISVCReconciler, *record.FakeRecorder) {
+	rec := record.NewFakeRecorder(10)
+
+	return &llmisvc.LLMISVCReconciler{
+		Client:        fc,
+		EventRecorder: rec,
+	}, rec
+}
+
+func newTestLLMInferenceService() *v1alpha2.LLMInferenceService {
+	return &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-svc",
+			Namespace: "test-ns",
+		},
+	}
+}
+
 func TestDiscoverRouteURLs(t *testing.T) {
 	const (
 		gwName = "my-gateway"
@@ -201,7 +220,14 @@ func TestDiscoverRouteURLs(t *testing.T) {
 		{
 			name: "disconnected environment topology - Route targets <gw>-data-science-gateway-class with Edge TLS",
 			objects: []client.Object{
-				gwService("my-gateway-data-science-gateway-class", gwNS, gwName),
+				func() *corev1.Service {
+					svc := gwService("my-gateway-data-science-gateway-class", gwNS, gwName)
+					svc.Spec.Ports = []corev1.ServicePort{
+						{Name: "https", Port: 443, TargetPort: intstr.FromInt32(8443)},
+					}
+
+					return svc
+				}(),
 				func() *routev1.Route {
 					r := admittedRoute("my-gateway-route", gwNS,
 						"my-gateway.apps.example.com",
@@ -266,7 +292,8 @@ func TestDiscoverRouteURLs(t *testing.T) {
 			g := NewWithT(t)
 			gw := llmisvc.NewGatewayWithPaths(gwName, gwNS, path)
 
-			urls, err := llmisvc.DiscoverRouteURLsForTest(t.Context(), newFakeClient(tt.objects...), gw)
+			r, _ := newReconciler(newFakeClient(tt.objects...))
+			urls, err := llmisvc.DiscoverRouteURLsForTest(r, t.Context(), newTestLLMInferenceService(), gw)
 			g.Expect(err).ToNot(HaveOccurred())
 
 			if tt.wantNil {
@@ -300,8 +327,8 @@ func TestDiscoverAdditionalURLs_SkipsGatewaysWithExternalURLs(t *testing.T) {
 		{URL: clusterLocalURL("gw.gw-ns.svc.cluster.local", "/ns/model"), Origin: origin},
 	}
 
-	r := &llmisvc.LLMISVCReconciler{Client: newFakeClient()}
-	additional, err := llmisvc.DiscoverAdditionalURLsForTest(r, t.Context(), discovered)
+	r, _ := newReconciler(newFakeClient())
+	additional, err := llmisvc.DiscoverAdditionalURLsForTest(r, t.Context(), newTestLLMInferenceService(), discovered)
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(additional).To(BeEmpty())
 }
@@ -328,8 +355,8 @@ func TestDiscoverAdditionalURLs_DiscoversRouteForGatewayWithoutExternalURLs(t *t
 			"ai-gateway-data-science-gateway-class"),
 	)
 
-	r := &llmisvc.LLMISVCReconciler{Client: fc}
-	additional, err := llmisvc.DiscoverAdditionalURLsForTest(r, t.Context(), discovered)
+	r, _ := newReconciler(fc)
+	additional, err := llmisvc.DiscoverAdditionalURLsForTest(r, t.Context(), newTestLLMInferenceService(), discovered)
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(additional).To(HaveLen(1))
 	g.Expect(additional[0].URL.String()).To(Equal("https://ai-gateway.apps.cluster.example.com/demo/model"))
@@ -359,8 +386,8 @@ func TestDiscoverAdditionalURLs_MultiplePathsPerGateway(t *testing.T) {
 			"ai-gateway-svc"),
 	)
 
-	r := &llmisvc.LLMISVCReconciler{Client: fc}
-	additional, err := llmisvc.DiscoverAdditionalURLsForTest(r, t.Context(), discovered)
+	r, _ := newReconciler(fc)
+	additional, err := llmisvc.DiscoverAdditionalURLsForTest(r, t.Context(), newTestLLMInferenceService(), discovered)
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(additional).To(HaveLen(2))
 
@@ -396,10 +423,582 @@ func TestDiscoverAdditionalURLs_DeduplicatesAgainstExistingURLs(t *testing.T) {
 			"ai-gateway-svc"),
 	)
 
-	r := &llmisvc.LLMISVCReconciler{Client: fc}
-	additional, err := llmisvc.DiscoverAdditionalURLsForTest(r, t.Context(), discovered)
+	r, _ := newReconciler(fc)
+	additional, err := llmisvc.DiscoverAdditionalURLsForTest(r, t.Context(), newTestLLMInferenceService(), discovered)
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(additional).To(BeEmpty(), "Route URL should be deduplicated against existing discovered URLs")
+}
+
+func TestDiscoverRouteURLs_PathBasedRouteEmitsWarningEvent(t *testing.T) {
+	g := NewWithT(t)
+
+	const (
+		gwName = "my-gateway"
+		gwNS   = "openshift-ingress"
+	)
+
+	fc := newFakeClient(
+		gwService("my-gateway-svc", gwNS, gwName),
+		func() *routev1.Route {
+			r := admittedRoute("path-route", gwNS,
+				"my-gateway.apps.example.com",
+				"my-gateway-svc")
+			r.Spec.Path = "/prefix"
+
+			return r
+		}(),
+	)
+
+	r, rec := newReconciler(fc)
+	gw := llmisvc.NewGatewayWithPaths(gwName, gwNS, "/ns/model")
+
+	urls, err := llmisvc.DiscoverRouteURLsForTest(r, t.Context(), newTestLLMInferenceService(), gw)
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(urls).To(BeEmpty(), "path-based Route should be skipped")
+
+	g.Expect(rec.Events).To(HaveLen(1))
+	event := <-rec.Events
+	g.Expect(event).To(ContainSubstring("RoutePathIncompatible"))
+	g.Expect(event).To(ContainSubstring("path-based routing"))
+	g.Expect(event).To(ContainSubstring("path-route"))
+	g.Expect(event).To(ContainSubstring("/prefix"))
+}
+
+func TestDiscoverRouteURLs_PortMismatchEmitsWarningEvent(t *testing.T) {
+	g := NewWithT(t)
+
+	const (
+		gwName = "my-gateway"
+		gwNS   = "openshift-ingress"
+	)
+
+	svc := gwService("my-gateway-svc", gwNS, gwName)
+	svc.Spec.Ports = []corev1.ServicePort{
+		{Name: "https", Port: 443, TargetPort: intstr.FromInt32(8443)},
+	}
+
+	fc := newFakeClient(
+		svc,
+		func() *routev1.Route {
+			r := admittedRoute("mismatched-port", gwNS,
+				"my-gateway.apps.example.com",
+				"my-gateway-svc")
+			r.Spec.Port = &routev1.RoutePort{
+				TargetPort: intstr.FromString("wrong-port"),
+			}
+
+			return r
+		}(),
+	)
+
+	r, rec := newReconciler(fc)
+	gw := llmisvc.NewGatewayWithPaths(gwName, gwNS, "/ns/model")
+
+	urls, err := llmisvc.DiscoverRouteURLsForTest(r, t.Context(), newTestLLMInferenceService(), gw)
+	g.Expect(err).ToNot(HaveOccurred())
+	// URL is still generated despite the warning (non-blocking mismatch)
+	g.Expect(urls).To(HaveLen(1))
+
+	g.Expect(rec.Events).To(HaveLen(1))
+	event := <-rec.Events
+	g.Expect(event).To(ContainSubstring("RoutePortMismatch"))
+	g.Expect(event).To(ContainSubstring("port mismatch"))
+	g.Expect(event).To(ContainSubstring("wrong-port"))
+}
+
+func TestDiscoverRouteURLs_MatchingPortNoWarning(t *testing.T) {
+	g := NewWithT(t)
+
+	const (
+		gwName = "my-gateway"
+		gwNS   = "openshift-ingress"
+	)
+
+	svc := gwService("my-gateway-svc", gwNS, gwName)
+	svc.Spec.Ports = []corev1.ServicePort{
+		{Name: "https", Port: 443, TargetPort: intstr.FromInt32(8443)},
+	}
+
+	fc := newFakeClient(
+		svc,
+		func() *routev1.Route {
+			r := admittedRoute("good-port", gwNS,
+				"my-gateway.apps.example.com",
+				"my-gateway-svc")
+			r.Spec.Port = &routev1.RoutePort{
+				TargetPort: intstr.FromString("https"),
+			}
+
+			return r
+		}(),
+	)
+
+	r, rec := newReconciler(fc)
+	gw := llmisvc.NewGatewayWithPaths(gwName, gwNS, "/ns/model")
+
+	urls, err := llmisvc.DiscoverRouteURLsForTest(r, t.Context(), newTestLLMInferenceService(), gw)
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(urls).To(HaveLen(1))
+	g.Expect(rec.Events).To(BeEmpty(), "matching port should not produce a warning")
+}
+
+func TestDiscoverRouteURLs_NoPortSpecifiedNoWarning(t *testing.T) {
+	g := NewWithT(t)
+
+	const (
+		gwName = "my-gateway"
+		gwNS   = "openshift-ingress"
+	)
+
+	fc := newFakeClient(
+		gwService("my-gateway-svc", gwNS, gwName),
+		admittedRoute("no-port", gwNS,
+			"my-gateway.apps.example.com",
+			"my-gateway-svc"),
+	)
+
+	r, rec := newReconciler(fc)
+	gw := llmisvc.NewGatewayWithPaths(gwName, gwNS, "/ns/model")
+
+	urls, err := llmisvc.DiscoverRouteURLsForTest(r, t.Context(), newTestLLMInferenceService(), gw)
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(urls).To(HaveLen(1))
+	g.Expect(rec.Events).To(BeEmpty(), "Route without port spec should not produce a warning")
+}
+
+func TestCheckRoutePortMismatch(t *testing.T) {
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{Name: "gw-svc", Namespace: "ns"},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{Name: "https", Port: 443, TargetPort: intstr.FromInt32(8443)},
+				{Name: "http", Port: 80, TargetPort: intstr.FromInt32(8080)},
+			},
+		},
+	}
+	gwServices := map[string]*corev1.Service{"gw-svc": svc}
+
+	tests := []struct {
+		name      string
+		route     *routev1.Route
+		wantEmpty bool
+	}{
+		{
+			name: "no port specified - no mismatch",
+			route: &routev1.Route{
+				Spec: routev1.RouteSpec{
+					To: routev1.RouteTargetReference{Name: "gw-svc"},
+				},
+			},
+			wantEmpty: true,
+		},
+		{
+			name: "matching port name",
+			route: &routev1.Route{
+				Spec: routev1.RouteSpec{
+					To:   routev1.RouteTargetReference{Name: "gw-svc"},
+					Port: &routev1.RoutePort{TargetPort: intstr.FromString("https")},
+				},
+			},
+			wantEmpty: true,
+		},
+		{
+			name: "matching port number",
+			route: &routev1.Route{
+				Spec: routev1.RouteSpec{
+					To:   routev1.RouteTargetReference{Name: "gw-svc"},
+					Port: &routev1.RoutePort{TargetPort: intstr.FromInt32(443)},
+				},
+			},
+			wantEmpty: true,
+		},
+		{
+			name: "matching target port number",
+			route: &routev1.Route{
+				Spec: routev1.RouteSpec{
+					To:   routev1.RouteTargetReference{Name: "gw-svc"},
+					Port: &routev1.RoutePort{TargetPort: intstr.FromInt32(8443)},
+				},
+			},
+			wantEmpty: true,
+		},
+		{
+			name: "matching numeric string port",
+			route: &routev1.Route{
+				Spec: routev1.RouteSpec{
+					To:   routev1.RouteTargetReference{Name: "gw-svc"},
+					Port: &routev1.RoutePort{TargetPort: intstr.FromString("443")},
+				},
+			},
+			wantEmpty: true,
+		},
+		{
+			name: "matching numeric string target port",
+			route: &routev1.Route{
+				Spec: routev1.RouteSpec{
+					To:   routev1.RouteTargetReference{Name: "gw-svc"},
+					Port: &routev1.RoutePort{TargetPort: intstr.FromString("8443")},
+				},
+			},
+			wantEmpty: true,
+		},
+		{
+			name: "mismatched port name",
+			route: &routev1.Route{
+				Spec: routev1.RouteSpec{
+					To:   routev1.RouteTargetReference{Name: "gw-svc"},
+					Port: &routev1.RoutePort{TargetPort: intstr.FromString("grpc")},
+				},
+			},
+			wantEmpty: false,
+		},
+		{
+			name: "mismatched port number",
+			route: &routev1.Route{
+				Spec: routev1.RouteSpec{
+					To:   routev1.RouteTargetReference{Name: "gw-svc"},
+					Port: &routev1.RoutePort{TargetPort: intstr.FromInt32(9999)},
+				},
+			},
+			wantEmpty: false,
+		},
+		{
+			name: "service not in map - no mismatch",
+			route: &routev1.Route{
+				Spec: routev1.RouteSpec{
+					To:   routev1.RouteTargetReference{Name: "other-svc"},
+					Port: &routev1.RoutePort{TargetPort: intstr.FromString("grpc")},
+				},
+			},
+			wantEmpty: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			result := llmisvc.CheckRoutePortMismatchForTest(tt.route, gwServices)
+			if tt.wantEmpty {
+				g.Expect(result).To(BeEmpty())
+			} else {
+				g.Expect(result).ToNot(BeEmpty())
+				g.Expect(result).To(ContainSubstring("does not match"))
+			}
+		})
+	}
+}
+
+func TestDiscoverRouteURLs_TLSMismatchEmitsWarningEvent(t *testing.T) {
+	g := NewWithT(t)
+
+	const (
+		gwName = "my-gateway"
+		gwNS   = "openshift-ingress"
+	)
+
+	httpsProto := "https"
+	svc := gwService("my-gateway-svc", gwNS, gwName)
+	svc.Spec.Ports = []corev1.ServicePort{
+		{Name: "https", Port: 443, TargetPort: intstr.FromInt32(8443), AppProtocol: &httpsProto},
+	}
+
+	fc := newFakeClient(
+		svc,
+		func() *routev1.Route {
+			r := admittedRoute("edge-route", gwNS,
+				"my-gateway.apps.example.com",
+				"my-gateway-svc")
+			r.Spec.TLS = &routev1.TLSConfig{
+				Termination: routev1.TLSTerminationEdge,
+			}
+
+			return r
+		}(),
+	)
+
+	r, rec := newReconciler(fc)
+	gw := llmisvc.NewGatewayWithPaths(gwName, gwNS, "/ns/model")
+
+	urls, err := llmisvc.DiscoverRouteURLsForTest(r, t.Context(), newTestLLMInferenceService(), gw)
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(urls).To(HaveLen(1), "URL is still generated despite TLS mismatch")
+
+	g.Expect(rec.Events).To(HaveLen(1))
+	event := <-rec.Events
+	g.Expect(event).To(ContainSubstring("RouteTLSMismatch"))
+	g.Expect(event).To(ContainSubstring("edge"))
+	g.Expect(event).To(ContainSubstring("appProtocol"))
+}
+
+func TestDiscoverRouteURLs_CompatibleTLSNoWarning(t *testing.T) {
+	g := NewWithT(t)
+
+	const (
+		gwName = "my-gateway"
+		gwNS   = "openshift-ingress"
+	)
+
+	httpsProto := "https"
+	svc := gwService("my-gateway-svc", gwNS, gwName)
+	svc.Spec.Ports = []corev1.ServicePort{
+		{Name: "https", Port: 443, TargetPort: intstr.FromInt32(8443), AppProtocol: &httpsProto},
+	}
+
+	fc := newFakeClient(
+		svc,
+		func() *routev1.Route {
+			r := admittedRoute("passthrough-route", gwNS,
+				"my-gateway.apps.example.com",
+				"my-gateway-svc")
+			r.Spec.TLS = &routev1.TLSConfig{
+				Termination: routev1.TLSTerminationPassthrough,
+			}
+
+			return r
+		}(),
+	)
+
+	r, rec := newReconciler(fc)
+	gw := llmisvc.NewGatewayWithPaths(gwName, gwNS, "/ns/model")
+
+	urls, err := llmisvc.DiscoverRouteURLsForTest(r, t.Context(), newTestLLMInferenceService(), gw)
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(urls).To(HaveLen(1))
+	g.Expect(rec.Events).To(BeEmpty(), "passthrough Route with HTTPS service should not produce a TLS warning")
+}
+
+func TestDiscoverRouteURLs_NoAppProtocolNoTLSWarning(t *testing.T) {
+	g := NewWithT(t)
+
+	const (
+		gwName = "my-gateway"
+		gwNS   = "openshift-ingress"
+	)
+
+	svc := gwService("my-gateway-svc", gwNS, gwName)
+	svc.Spec.Ports = []corev1.ServicePort{
+		{Name: "https", Port: 443, TargetPort: intstr.FromInt32(8443)},
+	}
+
+	fc := newFakeClient(
+		svc,
+		func() *routev1.Route {
+			r := admittedRoute("edge-route", gwNS,
+				"my-gateway.apps.example.com",
+				"my-gateway-svc")
+			r.Spec.TLS = &routev1.TLSConfig{
+				Termination: routev1.TLSTerminationEdge,
+			}
+
+			return r
+		}(),
+	)
+
+	r, rec := newReconciler(fc)
+	gw := llmisvc.NewGatewayWithPaths(gwName, gwNS, "/ns/model")
+
+	urls, err := llmisvc.DiscoverRouteURLsForTest(r, t.Context(), newTestLLMInferenceService(), gw)
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(urls).To(HaveLen(1))
+	g.Expect(rec.Events).To(BeEmpty(), "no appProtocol means best-effort skips TLS check")
+}
+
+func TestCheckRouteTLSMismatch(t *testing.T) {
+	httpProto := "http"
+	httpsProto := "https"
+	h2cProto := "kubernetes.io/h2c"
+
+	svcWith := func(appProto *string) map[string]*corev1.Service {
+		return map[string]*corev1.Service{
+			"gw-svc": {
+				ObjectMeta: metav1.ObjectMeta{Name: "gw-svc", Namespace: "ns"},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{Name: "main", Port: 443, AppProtocol: appProto},
+					},
+				},
+			},
+		}
+	}
+
+	route := func(termination routev1.TLSTerminationType) *routev1.Route {
+		r := &routev1.Route{Spec: routev1.RouteSpec{To: routev1.RouteTargetReference{Name: "gw-svc"}}}
+		if termination != "" {
+			r.Spec.TLS = &routev1.TLSConfig{Termination: termination}
+		}
+
+		return r
+	}
+
+	tests := []struct {
+		name       string
+		route      *routev1.Route
+		gwServices map[string]*corev1.Service
+		wantEmpty  bool
+	}{
+		{
+			name:       "edge Route + https appProtocol - mismatch",
+			route:      route(routev1.TLSTerminationEdge),
+			gwServices: svcWith(&httpsProto),
+			wantEmpty:  false,
+		},
+		{
+			name:       "no-TLS Route + https appProtocol - mismatch",
+			route:      route(""),
+			gwServices: svcWith(&httpsProto),
+			wantEmpty:  false,
+		},
+		{
+			name:       "passthrough Route + http appProtocol - mismatch",
+			route:      route(routev1.TLSTerminationPassthrough),
+			gwServices: svcWith(&httpProto),
+			wantEmpty:  false,
+		},
+		{
+			name:       "reencrypt Route + h2c appProtocol - mismatch",
+			route:      route(routev1.TLSTerminationReencrypt),
+			gwServices: svcWith(&h2cProto),
+			wantEmpty:  false,
+		},
+		{
+			name:       "passthrough Route + https appProtocol - compatible",
+			route:      route(routev1.TLSTerminationPassthrough),
+			gwServices: svcWith(&httpsProto),
+			wantEmpty:  true,
+		},
+		{
+			name:       "reencrypt Route + https appProtocol - compatible",
+			route:      route(routev1.TLSTerminationReencrypt),
+			gwServices: svcWith(&httpsProto),
+			wantEmpty:  true,
+		},
+		{
+			name:       "edge Route + http appProtocol - compatible",
+			route:      route(routev1.TLSTerminationEdge),
+			gwServices: svcWith(&httpProto),
+			wantEmpty:  true,
+		},
+		{
+			name:       "edge Route + h2c appProtocol - compatible",
+			route:      route(routev1.TLSTerminationEdge),
+			gwServices: svcWith(&h2cProto),
+			wantEmpty:  true,
+		},
+		{
+			name:       "no appProtocol - skip check",
+			route:      route(routev1.TLSTerminationEdge),
+			gwServices: svcWith(nil),
+			wantEmpty:  true,
+		},
+		{
+			name:       "service not in map - skip check",
+			route:      route(routev1.TLSTerminationEdge),
+			gwServices: map[string]*corev1.Service{},
+			wantEmpty:  true,
+		},
+		{
+			name:       "unknown appProtocol - skip check",
+			route:      route(routev1.TLSTerminationEdge),
+			gwServices: svcWith(ptr.To("grpc")),
+			wantEmpty:  true,
+		},
+		{
+			name:  "no service ports - skip check",
+			route: route(routev1.TLSTerminationEdge),
+			gwServices: map[string]*corev1.Service{
+				"gw-svc": {
+					ObjectMeta: metav1.ObjectMeta{Name: "gw-svc", Namespace: "ns"},
+					Spec:       corev1.ServiceSpec{},
+				},
+			},
+			wantEmpty: true,
+		},
+		{
+			name: "multi-port service - uses targeted port appProtocol",
+			route: func() *routev1.Route {
+				r := route(routev1.TLSTerminationEdge)
+				r.Spec.Port = &routev1.RoutePort{TargetPort: intstr.FromString("http")}
+
+				return r
+			}(),
+			gwServices: map[string]*corev1.Service{
+				"gw-svc": {
+					ObjectMeta: metav1.ObjectMeta{Name: "gw-svc", Namespace: "ns"},
+					Spec: corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{
+							{Name: "https", Port: 443, AppProtocol: &httpsProto},
+							{Name: "http", Port: 80, AppProtocol: &httpProto},
+						},
+					},
+				},
+			},
+			wantEmpty: true,
+		},
+		{
+			name: "multi-port service - mismatched targeted port",
+			route: func() *routev1.Route {
+				r := route(routev1.TLSTerminationEdge)
+				r.Spec.Port = &routev1.RoutePort{TargetPort: intstr.FromString("https")}
+
+				return r
+			}(),
+			gwServices: map[string]*corev1.Service{
+				"gw-svc": {
+					ObjectMeta: metav1.ObjectMeta{Name: "gw-svc", Namespace: "ns"},
+					Spec: corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{
+							{Name: "https", Port: 443, AppProtocol: &httpsProto},
+							{Name: "http", Port: 80, AppProtocol: &httpProto},
+						},
+					},
+				},
+			},
+			wantEmpty: false,
+		},
+		{
+			name: "numeric string target port resolves appProtocol",
+			route: func() *routev1.Route {
+				r := route(routev1.TLSTerminationEdge)
+				r.Spec.Port = &routev1.RoutePort{TargetPort: intstr.FromString("443")}
+
+				return r
+			}(),
+			gwServices: map[string]*corev1.Service{
+				"gw-svc": {
+					ObjectMeta: metav1.ObjectMeta{Name: "gw-svc", Namespace: "ns"},
+					Spec: corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{
+							{Name: "https", Port: 443, AppProtocol: &httpsProto},
+						},
+					},
+				},
+			},
+			wantEmpty: false,
+		},
+		{
+			name: "target port not found on service - skip check",
+			route: func() *routev1.Route {
+				r := route(routev1.TLSTerminationEdge)
+				r.Spec.Port = &routev1.RoutePort{TargetPort: intstr.FromString("missing")}
+
+				return r
+			}(),
+			gwServices: svcWith(&httpsProto),
+			wantEmpty:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			result := llmisvc.CheckRouteTLSMismatchForTest(tt.route, tt.gwServices)
+			if tt.wantEmpty {
+				g.Expect(result).To(BeEmpty())
+			} else {
+				g.Expect(result).ToNot(BeEmpty())
+			}
+		})
+	}
 }
 
 func TestRouteChangePredicate(t *testing.T) {
@@ -477,6 +1076,44 @@ func TestRouteChangePredicate(t *testing.T) {
 			old: func() *routev1.Route {
 				r := admittedRoute("r", "ns", "host.example.com", "svc")
 				r.Spec.Path = "/prefix"
+
+				return r
+			}(),
+			new:    admittedRoute("r", "ns", "host.example.com", "svc"),
+			expect: true,
+		},
+		{
+			name: "port added triggers update",
+			old:  admittedRoute("r", "ns", "host.example.com", "svc"),
+			new: func() *routev1.Route {
+				r := admittedRoute("r", "ns", "host.example.com", "svc")
+				r.Spec.Port = &routev1.RoutePort{TargetPort: intstr.FromString("https")}
+
+				return r
+			}(),
+			expect: true,
+		},
+		{
+			name: "port changed triggers update",
+			old: func() *routev1.Route {
+				r := admittedRoute("r", "ns", "host.example.com", "svc")
+				r.Spec.Port = &routev1.RoutePort{TargetPort: intstr.FromString("http")}
+
+				return r
+			}(),
+			new: func() *routev1.Route {
+				r := admittedRoute("r", "ns", "host.example.com", "svc")
+				r.Spec.Port = &routev1.RoutePort{TargetPort: intstr.FromString("https")}
+
+				return r
+			}(),
+			expect: true,
+		},
+		{
+			name: "port removed triggers update",
+			old: func() *routev1.Route {
+				r := admittedRoute("r", "ns", "host.example.com", "svc")
+				r.Spec.Port = &routev1.RoutePort{TargetPort: intstr.FromString("https")}
 
 				return r
 			}(),
