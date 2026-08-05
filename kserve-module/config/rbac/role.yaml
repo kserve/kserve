@@ -343,6 +343,7 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - clusterservingruntimes
   - clusterstoragecontainers
   - llminferenceserviceconfigs
   - localmodelnodegroups
