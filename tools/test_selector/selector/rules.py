@@ -9,9 +9,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from ..config_loader import resolve_config_path
+
 
 def _load_config() -> dict:
-    config_path = Path(__file__).resolve().parent.parent / "config.json"
+    config_path = resolve_config_path(Path(__file__).resolve().parent.parent)
     return json.loads(config_path.read_text())
 
 

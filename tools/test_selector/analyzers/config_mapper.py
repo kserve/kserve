@@ -6,10 +6,12 @@ import json
 from fnmatch import fnmatch
 from pathlib import Path
 
+from ..config_loader import resolve_config_path
+
 
 def load_overrides(repo_root: Path) -> list[dict]:
-    """Load overrides from config.json."""
-    config_path = repo_root / "tools" / "test_selector" / "config.json"
+    """Load overrides from the active selector config (override or default)."""
+    config_path = resolve_config_path(repo_root / "tools" / "test_selector")
     if config_path.exists():
         data = json.loads(config_path.read_text())
         return data.get("overrides", [])

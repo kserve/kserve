@@ -9,7 +9,9 @@ dynamically discovers these relationships, so no hardcoded mapping tables need t
 
 ## Requirements
 
-- Python 3.10+ (stdlib only, no external dependencies)
+- Python 3.10+
+- PyYAML (`pip install -r tools/test_selector/requirements.txt`) - required to parse CRD YAML; without it the CRD
+  tables build empty and every config/chart change escalates to running all tests
 - Go toolchain (for `go list` during `learn`)
 
 ## Quick Start
@@ -141,6 +143,17 @@ The tool prioritizes never missing required tests (false positives are acceptabl
 All configuration tables live in `config.json`. This includes CRD-to-marker mappings, framework lists, entrypoint
 classifications, test suite directory mappings, and pattern-based overrides. When the project evolves (new CRD, test
 suite, framework, or server), update `config.json` instead of modifying Python source.
+
+### Local overrides
+
+If a `config.override.json` exists next to `config.json`, it is loaded **instead of** `config.json`. Use it to
+experiment with selection behavior locally without touching the committed defaults (leave it uncommitted). It fully
+replaces the default file (it is not merged), so start by copying `config.json` and editing the copy:
+
+```bash
+cp tools/test_selector/config.json tools/test_selector/config.override.json
+# edit config.override.json, then run `learn`/`query` as usual
+```
 
 ### Overrides
 
