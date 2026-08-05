@@ -21,8 +21,8 @@ body:
         Follow the release process guide to complete the remaining steps
         (branch/tag creation, draft release, validation, publish).
 
-        - Recommended: [RELEASE_PROCESS_v3_copilot.md](https://github.com/kserve/kserve/blob/master/release/RELEASE_PROCESS_v3_copilot.md) (Copilot-assisted)
-        - Manual: [RELEASE_PROCESS_v3.md](https://github.com/kserve/kserve/blob/master/release/RELEASE_PROCESS_v3.md)
+        - Recommended: [RELEASE_PROCESS_copilot.md](https://github.com/kserve/kserve/blob/master/release/RELEASE_PROCESS_copilot.md) (Copilot-assisted)
+        - Manual: [RELEASE_PROCESS.md](https://github.com/kserve/kserve/blob/master/release/RELEASE_PROCESS.md)
 
   - type: input
     id: new_version

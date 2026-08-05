@@ -25,8 +25,6 @@ import (
 	"strconv"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/util/strategicpatch"
-
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	k8stypes "k8s.io/apimachinery/pkg/types"
@@ -206,9 +204,28 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *corev1.Pod) error {
 		return nil
 	}
 
-	// Only inject modelcar if requested
-	if !strings.HasPrefix(srcURI, constants.OciURIPrefix) {
+	parsedMode, normalizedURI, isOci := utils.ParseOciScheme(srcURI)
+	if !isOci {
 		return nil
+	}
+
+	// Determine effective mode: explicit suffix wins; bare oci:// falls back to config.
+	// ResolveOciModelMode is guaranteed non-empty here: InjectModelcar is only registered
+	// when ResolveOciModelMode(config) != "" at the mutator setup site (mutator.go), so
+	// the else branch (defaulting to OciModelModeModelcar) is unreachable.
+	effectiveMode := parsedMode
+	if effectiveMode == "" {
+		effectiveMode = types.ResolveOciModelMode(mi.config)
+	}
+
+	// configureForContainer dispatches to the right materializer for a single container.
+	configureForContainer := func(containerName string) error {
+		switch effectiveMode {
+		case types.OciModelModeNative:
+			return utils.ConfigureOciNativeToContainer(normalizedURI, &pod.Spec, containerName, constants.DefaultModelLocalMountPath, mi.config)
+		default:
+			return utils.ConfigureModelcarToContainer(normalizedURI, &pod.Spec, containerName, constants.DefaultModelLocalMountPath, mi.config, 0)
+		}
 	}
 
 	// Find the kserve-container (this is the model inference server) and worker-container
@@ -218,21 +235,19 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *corev1.Pod) error {
 	if userContainer == nil {
 		if workerContainer == nil {
 			return fmt.Errorf("Invalid configuration: cannot find container: %s", constants.InferenceServiceContainerName)
-		} else {
-			// Use worker container for multi-node scenarios
-			if err := utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.WorkerContainerName, constants.DefaultModelLocalMountPath, mi.config, 0); err != nil {
-				return err
-			}
+		}
+		if err := configureForContainer(constants.WorkerContainerName); err != nil {
+			return err
 		}
 	} else {
-		if err := utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.InferenceServiceContainerName, constants.DefaultModelLocalMountPath, mi.config, 0); err != nil {
+		if err := configureForContainer(constants.InferenceServiceContainerName); err != nil {
 			return err
 		}
 	}
 
-	// Configure modelcar for transformer container if it exists
+	// Configure for transformer container if it exists
 	if utils.GetContainerWithName(&pod.Spec, constants.TransformerContainerName) != nil {
-		return utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.TransformerContainerName, constants.DefaultModelLocalMountPath, mi.config, 0)
+		return configureForContainer(constants.TransformerContainerName)
 	}
 
 	return nil
@@ -279,17 +294,26 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 		return nil
 	}
 
-	// Handle OCI URIs via modelcar injection instead of init-containers
-	if params.Config.EnableOciImageSource && len(params.StorageURIs) > 0 {
+	// Handle OCI URIs via OCI-mode injection instead of init-containers.
+	// Covers both oci+native:// (explicit native mode) and oci:// (mode from config).
+	if len(params.StorageURIs) > 0 {
 		hasOciUri := false
 		for _, storageUri := range params.StorageURIs {
-			if strings.HasPrefix(storageUri.Uri, constants.OciURIPrefix) {
+			parsedMode, _, isOci := utils.ParseOciScheme(storageUri.Uri)
+			if !isOci {
+				continue
+			}
+			effectiveMode := parsedMode
+			if effectiveMode == "" {
+				effectiveMode = types.ResolveOciModelMode(params.Config)
+			}
+			if effectiveMode != "" {
 				hasOciUri = true
 				break
 			}
 		}
 		if hasOciUri {
-			// For the storageUris path (IsLegacyURI == false), inject modelcar directly.
+			// For the storageUris path (IsLegacyURI == false), inject directly.
 			// For the legacy path (IsLegacyURI == true), the webhook's InjectModelcar() handles it via annotations.
 			if params.IsLegacyURI {
 				return nil
@@ -312,25 +336,47 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 			if len(ociMountPaths) > utils.MaxOCISourcesPerPod {
 				return fmt.Errorf("too many OCI sources (%d); maximum is %d per pod", len(ociMountPaths), utils.MaxOCISourcesPerPod)
 			}
-			if err := utils.ValidateOCIMountPaths(ociMountPaths); err != nil {
+			configMode := types.ResolveOciModelMode(params.Config)
+			if err := utils.ValidateOCIMountPaths(ociMountPaths, configMode); err != nil {
 				return err
 			}
 
 			for _, storageUri := range params.StorageURIs {
-				if !strings.HasPrefix(storageUri.Uri, constants.OciURIPrefix) {
+				parsedMode, normalizedURI, isOci := utils.ParseOciScheme(storageUri.Uri)
+				if !isOci {
 					continue
 				}
+				effectiveMode := parsedMode
+				if effectiveMode == "" {
+					effectiveMode = types.ResolveOciModelMode(params.Config)
+				}
+				if effectiveMode == "" {
+					continue
+				}
+
 				targetContainerName := constants.InferenceServiceContainerName
 				if userContainer == nil {
 					targetContainerName = constants.WorkerContainerName
 				}
-				if err := utils.ConfigureModelcarToContainer(storageUri.Uri, params.PodSpec, targetContainerName, storageUri.MountPath, params.Config, ociIndex); err != nil {
-					return err
-				}
-				// Also configure for transformer if present
-				if utils.GetContainerWithName(params.PodSpec, constants.TransformerContainerName) != nil {
-					if err := utils.ConfigureModelcarToContainer(storageUri.Uri, params.PodSpec, constants.TransformerContainerName, storageUri.MountPath, params.Config, ociIndex); err != nil {
+
+				switch effectiveMode {
+				case types.OciModelModeNative:
+					if err := utils.ConfigureOciNativeToContainer(normalizedURI, params.PodSpec, targetContainerName, storageUri.MountPath, params.Config); err != nil {
 						return err
+					}
+					if utils.GetContainerWithName(params.PodSpec, constants.TransformerContainerName) != nil {
+						if err := utils.ConfigureOciNativeToContainer(normalizedURI, params.PodSpec, constants.TransformerContainerName, storageUri.MountPath, params.Config); err != nil {
+							return err
+						}
+					}
+				default: // "modelcar" (and "fetch" handled in a future commit)
+					if err := utils.ConfigureModelcarToContainer(normalizedURI, params.PodSpec, targetContainerName, storageUri.MountPath, params.Config, ociIndex); err != nil {
+						return err
+					}
+					if utils.GetContainerWithName(params.PodSpec, constants.TransformerContainerName) != nil {
+						if err := utils.ConfigureModelcarToContainer(normalizedURI, params.PodSpec, constants.TransformerContainerName, storageUri.MountPath, params.Config, ociIndex); err != nil {
+							return err
+						}
 					}
 				}
 				ociIndex++
@@ -387,8 +433,9 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 		// - PVC URIs are mounted directly as volumes (no download needed)
 		// - Other URIs require init container to download artifacts first
 		for _, storageUri := range params.StorageURIs {
-			if strings.HasPrefix(storageUri.Uri, constants.OciURIPrefix) {
-				// OCI URIs are already handled by modelcar injection above; skip.
+			if _, _, isOci := utils.ParseOciScheme(storageUri.Uri); isOci {
+				// All OCI-scheme URIs (oci://, oci+native://, oci+fetch://, …) are
+				// already handled by the dispatch block above; skip here.
 				continue
 			}
 			if strings.HasPrefix(storageUri.Uri, constants.PvcURIPrefix) {
@@ -577,10 +624,11 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 
 		// Merge any customizations from the storage container spec into the init container
 		if params.StorageContainerSpec != nil {
-			err := mergeContainerSpecs(initContainer, &params.StorageContainerSpec.Container)
+			merged, err := utils.MergeContainerWithPatch(*initContainer, params.StorageContainerSpec.Container)
 			if err != nil {
 				return err
 			}
+			*initContainer = merged
 		}
 
 		// Add CA bundle env vars and volume mount after merge to avoid conflicts with user-defined env vars
@@ -637,9 +685,25 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 		// This is done after merging to avoid conflicts with user-defined environment variables.
 		// See https://github.com/kserve/kserve/issues/4761
 		utils.AddDefaultHuggingFaceEnvVars(initContainer)
+
+		// Apply confidential model serving configuration if enabled via annotations
+		applyConfidentialConfig(initContainer, params.IsvcAnnotations)
 	}
 
 	return nil
+}
+
+// applyConfidentialConfig injects environment variables for confidential model
+// serving when enabled via pod annotations.
+func applyConfidentialConfig(initContainer *corev1.Container, annotations map[string]string) {
+	if annotations[constants.ConfidentialEnabledAnnotationKey] != "true" {
+		return
+	}
+
+	utils.ApplyConfidentialContainerConfig(
+		initContainer,
+		annotations[constants.ConfidentialResourceIdAnnotationKey],
+	)
 }
 
 // InjectStorageInitializer injects an init container to provision model data
@@ -833,71 +897,6 @@ func (mi *StorageInitializerInjector) SetIstioCniSecurityContext(pod *corev1.Pod
 
 			log.V(1).Info("Storage initializer UID is set", "pod", pod.Name, "uid", storageInitializerContainer.SecurityContext.RunAsUser)
 		}
-	}
-
-	return nil
-}
-
-// Use JSON Marshal/Unmarshal to merge Container structs using strategic merge patch.
-// Use container name from defaultContainer spec, crdContainer takes precedence for other fields.
-func mergeContainerSpecs(targetContainer *corev1.Container, crdContainer *corev1.Container) error {
-	if targetContainer == nil {
-		return errors.New("targetContainer is nil")
-	}
-
-	containerName := targetContainer.Name
-
-	defaultContainerJson, err := json.Marshal(*targetContainer)
-	if err != nil {
-		return err
-	}
-
-	overrides, err := json.Marshal(*crdContainer)
-	if err != nil {
-		return err
-	}
-
-	jsonResult, err := strategicpatch.StrategicMergePatch(defaultContainerJson, overrides, corev1.Container{})
-	if err != nil {
-		return err
-	}
-
-	// Unmarshal into a fresh Container rather than the existing targetContainer:
-	// json.Unmarshal does not clear struct fields absent from the JSON, so reusing
-	// the target's existing EnvVar slice elements lets stale Value/ValueFrom fields
-	// bleed into merged-in entries (issue #5516).
-	merged := corev1.Container{}
-	if err := json.Unmarshal(jsonResult, &merged); err != nil {
-		return err
-	}
-
-	// For env entries whose name is overridden by the ClusterStorageContainer, strategic
-	// merge patch performs a field-wise merge keyed on name, which can leave both
-	// Value and ValueFrom populated on a single entry — a state Kubernetes
-	// admission rejects. Reconcile by deferring to the ClusterStorageContainer's intent.
-	crdEnvByName := make(map[string]corev1.EnvVar, len(crdContainer.Env))
-	for _, e := range crdContainer.Env {
-		crdEnvByName[e.Name] = e
-	}
-	for i := range merged.Env {
-		e := &merged.Env[i]
-		if e.Value == "" || e.ValueFrom == nil {
-			continue
-		}
-		crdEntry, ok := crdEnvByName[e.Name]
-		if !ok {
-			continue
-		}
-		if crdEntry.ValueFrom != nil {
-			e.Value = ""
-		} else if crdEntry.Value != "" {
-			e.ValueFrom = nil
-		}
-	}
-
-	*targetContainer = merged
-	if targetContainer.Name == "" {
-		targetContainer.Name = containerName
 	}
 
 	return nil

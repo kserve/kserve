@@ -186,17 +186,21 @@ rules:
   - update
   - watch
 - apiGroups:
+  - llm-d.ai
+  resources:
+  - inferencemodelrewrites
+  - inferenceobjectives
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - llmd.ai
   resources:
   - variantautoscalings
   verbs:
-  - create
   - delete
-  - get
   - list
-  - patch
-  - update
-  - watch
 - apiGroups:
   - networking.k8s.io
   resources:
@@ -259,6 +263,7 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - llminferenceserviceconfigs/status
   - llminferenceservices/status
   verbs:
   - get

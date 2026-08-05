@@ -41,7 +41,7 @@ import (
 // These permissions are needed to discover and monitor inference pools and pods.
 var sidecarSSRFProtectionRules = []rbacv1.PolicyRule{
 	{APIGroups: []string{""}, Resources: []string{"pods"}, Verbs: []string{"get", "list", "watch"}},
-	{APIGroups: []string{"inference.networking.x-k8s.io"}, Resources: []string{"inferencepools"}, Verbs: []string{"get", "list", "watch"}},
+	{APIGroups: []string{"inference.networking.x-k8s.io", "inference.networking.k8s.io"}, Resources: []string{"inferencepools"}, Verbs: []string{"get", "list", "watch"}},
 }
 
 // reconcileWorkload manages the Deployments and Services for the LLM.
@@ -93,7 +93,7 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 		return fmt.Errorf("failed to reconcile workload service: %w", err)
 	}
 
-	// Reconcile autoscaling resources (VariantAutoscaling + HPA or KEDA ScaledObject) when scaling is configured.
+	// Reconcile autoscaling resources (HPA or KEDA ScaledObject, annotated for WVA discovery) when scaling is configured.
 	// A missing CRD is a hard error: the LLMISVC is misconfigured and deployment is blocked.
 	if err := r.reconcileScaling(ctx, llmSvc, config); err != nil {
 		if meta.IsNoMatchError(err) {
@@ -170,7 +170,7 @@ func GetWorkloadLabelSelector(meta metav1.ObjectMeta, _ *v1alpha2.LLMInferenceSe
 		constants.KServeComponentLabelKey:   constants.KServeComponentWorkload,
 	}
 
-	// TODO https://github.com/llm-d/llm-d-inference-scheduler/issues/220 and DP template
+	// TODO https://github.com/llm-d/llm-d-router/issues/220 and DP template
 
 	return s
 }

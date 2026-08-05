@@ -14,9 +14,26 @@
 
 import os
 import unittest.mock as mock
+from pathlib import Path
+
 import pytest
 
 from kserve_storage import Storage
+
+# Real (self-signed, parse-valid) certificate: the combined bundle is
+# validated with ssl before being exported, so the fixture must parse.
+TEST_CA_PEM = """-----BEGIN CERTIFICATE-----
+MIIBhjCCAS2gAwIBAgIUMyxVv2w1Wp1oKdnW+DOnMeesPi8wCgYIKoZIzj0EAwIw
+GTEXMBUGA1UEAwwOa3NlcnZlLXRlc3QtY2EwHhcNMjYwNzAyMTYyMDQwWhcNMzYw
+NjI5MTYyMDQwWjAZMRcwFQYDVQQDDA5rc2VydmUtdGVzdC1jYTBZMBMGByqGSM49
+AgEGCCqGSM49AwEHA0IABBUFVi0qWbwEv/l+HcofdpTKfJbNoWqqa2VZzRTPwLVT
+gRgM4IwCS/9BqOk/4kgtaDmwkgaPHezDeSn6+KXGJzqjUzBRMB0GA1UdDgQWBBR1
+nfvZnSy6d6wdttlst48UzrMwPDAfBgNVHSMEGDAWgBR1nfvZnSy6d6wdttlst48U
+zrMwPDAPBgNVHRMBAf8EBTADAQH/MAoGCCqGSM49BAMCA0cAMEQCIHvDmtj+mck4
+EHZ0148y6DFcWpDIAaPyKz2rVv/I0rA2AiA+yiYFjmPwtUwvCOj8yQI6IYMgrjsS
+mjrvDJwPyARHZg==
+-----END CERTIFICATE-----
+"""
 
 
 @mock.patch("huggingface_hub.snapshot_download")
@@ -33,6 +50,25 @@ def test_download_model(mock_snapshot_download):
         revision=revision,
         local_dir=mock.ANY,
     )
+
+
+@mock.patch("huggingface_hub.snapshot_download")
+def test_download_model_with_global_ca_bundle(mock_snapshot_download, tmp_path):
+    ca_bundle_path = tmp_path / "cabundle.crt"
+    ca_bundle_path.write_text(TEST_CA_PEM)
+    env = {
+        "CA_BUNDLE_CONFIGMAP_NAME": "cabundle",
+        "CA_BUNDLE_VOLUME_MOUNT_POINT": str(tmp_path),
+    }
+    with mock.patch.dict(os.environ, env):
+        os.environ.pop("REQUESTS_CA_BUNDLE", None)
+        os.environ.pop("SSL_CERT_FILE", None)
+        Storage.download("hf://example.com/model", out_dir=str(tmp_path / "out"))
+        combined_path = os.environ["REQUESTS_CA_BUNDLE"]
+        assert os.environ["SSL_CERT_FILE"] == combined_path
+        assert ca_bundle_path.read_text() in Path(combined_path).read_text()
+
+    mock_snapshot_download.assert_called_once()
 
 
 @mock.patch("huggingface_hub.snapshot_download")

@@ -1,0 +1,73 @@
+{
+  "inputs": [
+    {
+      "name": "PassengerId",
+      "shape": [2],
+      "datatype": "INT64",
+      "data": [1, 2]
+    },
+    {
+      "name": "Pclass",
+      "shape": [2],
+      "datatype": "INT64",
+      "data": [3, 1]
+    },
+    {
+      "name": "Name",
+      "shape": [2],
+      "datatype": "BYTES",
+      "data": [
+        "Braund, Mr. Owen Harris",
+        "Cumings, Mrs. John Bradley (Florence Briggs Thayer)"
+      ]
+    },
+    {
+      "name": "Sex",
+      "shape": [2],
+      "datatype": "BYTES",
+      "data": ["male", "female"]
+    },
+    {
+      "name": "Age",
+      "shape": [2],
+      "datatype": "FP64",
+      "data": [22.0, 38.0]
+    },
+    {
+      "name": "SibSp",
+      "shape": [2],
+      "datatype": "INT64",
+      "data": [1, 1]
+    },
+    {
+      "name": "Parch",
+      "shape": [2],
+      "datatype": "INT64",
+      "data": [0, 0]
+    },
+    {
+      "name": "Ticket",
+      "shape": [2],
+      "datatype": "BYTES",
+      "data": ["A/5 21171", "PC 17599"]
+    },
+    {
+      "name": "Fare",
+      "shape": [2],
+      "datatype": "FP64",
+      "data": [7.25, 71.2833]
+    },
+    {
+      "name": "Cabin",
+      "shape": [2],
+      "datatype": "BYTES",
+      "data": ["", "C85"]
+    },
+    {
+      "name": "Embarked",
+      "shape": [2],
+      "datatype": "BYTES",
+      "data": ["S", "C"]
+    }
+  ]
+}

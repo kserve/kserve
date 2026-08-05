@@ -40,12 +40,6 @@ DEPENDENCIES = {
         None,
         ("kubernetes-sigs/gateway-api-inference-extension", "manifests.yaml"),
     ),
-    "WVA_VERSION": (
-        "github.com/llm-d/llm-d-workload-variant-autoscaler",
-        None,
-        None,
-        None,
-    ),
 }
 
 HELM_REPOS = {
@@ -309,6 +303,13 @@ def main():
             else:
                 versions[var_name] = base_version
 
+    llmd_router_version = existing_versions.get("LLMD_ROUTER_VERSION")
+    if not llmd_router_version:
+        raise ValueError(
+            "LLMD_ROUTER_VERSION is not set in kserve-deps.env. "
+            "It is manually managed and must be pinned to an explicit version "
+        )
+
     lines = output_file.read_text().splitlines(keepends=True)
     start = next(i for i, line in enumerate(lines) if "# START" in line)
     end = next(i for i, line in enumerate(lines) if "# END" in line)
@@ -326,13 +327,17 @@ def main():
         f"LWS_VERSION={versions['LWS_VERSION']}\n",
         f"GATEWAY_API_VERSION={versions['GATEWAY_API_VERSION']}\n",
         f"GIE_VERSION={versions['GIE_VERSION']}\n",
-        f"WVA_VERSION={versions['WVA_VERSION']}\n",
+        f"LLMD_ROUTER_VERSION={llmd_router_version}\n",
+        f"WVA_VERSION={existing_versions.get('WVA_VERSION', 'v0.8.0')}\n",
         "# END\n",
     ]
 
     output_file.write_text("".join(lines[:start] + new_section + lines[end + 1 :]))
 
     print(f"\n✅ Updated {output_file.name}\n")
+    print(
+        f"  LLMD_ROUTER_VERSION={llmd_router_version} (manually managed in kserve-deps.env)"
+    )
     for var in [
         "ISTIO_VERSION",
         "KEDA_VERSION",
@@ -340,7 +345,6 @@ def main():
         "GIE_VERSION",
         "LWS_VERSION",
         "OPENTELEMETRY_OPERATOR_VERSION",
-        "WVA_VERSION",
     ]:
         print(f"  {var}={versions[var]}")
 

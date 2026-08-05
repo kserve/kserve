@@ -80,8 +80,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec":                schema_pkg_apis_serving_v1beta1_AutoScalingSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoscalerConfig":               schema_pkg_apis_serving_v1beta1_AutoscalerConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher":                        schema_pkg_apis_serving_v1beta1_Batcher(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.CanarySpec":                     schema_pkg_apis_serving_v1beta1_CanarySpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.CanaryStatus":                   schema_pkg_apis_serving_v1beta1_CanaryStatus(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ComponentExtensionSpec":         schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ComponentStatusSpec":            schema_pkg_apis_serving_v1beta1_ComponentStatusSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ConfidentialSpec":               schema_pkg_apis_serving_v1beta1_ConfidentialSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.CustomExplainer":                schema_pkg_apis_serving_v1beta1_CustomExplainer(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.CustomPredictor":                schema_pkg_apis_serving_v1beta1_CustomPredictor(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.CustomTransformer":              schema_pkg_apis_serving_v1beta1_CustomTransformer(ref),
@@ -955,11 +958,17 @@ func schema_pkg_apis_serving_v1alpha1_LLMInferenceServiceConfig(ref common.Refer
 							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceServiceSpec"),
 						},
 					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceServiceConfigStatus"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceServiceSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceServiceConfigStatus", "github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceServiceSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -1938,12 +1947,36 @@ func schema_pkg_apis_serving_v1alpha1_ServingRuntimePodSpec(ref common.Reference
 							Format:      "",
 						},
 					},
+					"resourceClaims": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"name",
+								},
+								"x-kubernetes-list-type":       "map",
+								"x-kubernetes-patch-merge-key": "name",
+								"x-kubernetes-patch-strategy":  "merge,retainKeys",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nDynamic Resource Allocation (DRA) is GA since Kubernetes 1.32 (beta, enabled by default, since 1.31). The cluster must support DRA for these claims to take effect on created Pods.\n\nEach entry may reference an existing ResourceClaim (resourceClaimName) or ResourceClaimTemplate (resourceClaimTemplateName) in the same namespace. KServe does not create these objects; they must exist before the Pod can be scheduled.\n\nNote: the resulting Pod's resourceClaims field is immutable after pod creation per Kubernetes semantics.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.PodResourceClaim"),
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"containers"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.Volume"},
+			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.Volume"},
 	}
 }
 
@@ -2145,6 +2178,30 @@ func schema_pkg_apis_serving_v1alpha1_ServingRuntimeSpec(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
+					"resourceClaims": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"name",
+								},
+								"x-kubernetes-list-type":       "map",
+								"x-kubernetes-patch-merge-key": "name",
+								"x-kubernetes-patch-strategy":  "merge,retainKeys",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nDynamic Resource Allocation (DRA) is GA since Kubernetes 1.32 (beta, enabled by default, since 1.31). The cluster must support DRA for these claims to take effect on created Pods.\n\nEach entry may reference an existing ResourceClaim (resourceClaimName) or ResourceClaimTemplate (resourceClaimTemplateName) in the same namespace. KServe does not create these objects; they must exist before the Pod can be scheduled.\n\nNote: the resulting Pod's resourceClaims field is immutable after pod creation per Kubernetes semantics.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.PodResourceClaim"),
+									},
+								},
+							},
+						},
+					},
 					"grpcEndpoint": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Grpc endpoint for internal model-management (implementing mmesh.ModelRuntime gRPC service) Assumed to be single-model runtime if omitted",
@@ -2190,7 +2247,7 @@ func schema_pkg_apis_serving_v1alpha1_ServingRuntimeSpec(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.BuiltInAdapter", "github.com/kserve/kserve/pkg/apis/serving/v1alpha1.StorageHelper", "github.com/kserve/kserve/pkg/apis/serving/v1alpha1.SupportedModelFormat", "github.com/kserve/kserve/pkg/apis/serving/v1alpha1.WorkerSpec", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.Volume"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.BuiltInAdapter", "github.com/kserve/kserve/pkg/apis/serving/v1alpha1.StorageHelper", "github.com/kserve/kserve/pkg/apis/serving/v1alpha1.SupportedModelFormat", "github.com/kserve/kserve/pkg/apis/serving/v1alpha1.WorkerSpec", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.Volume"},
 	}
 }
 
@@ -2551,11 +2608,17 @@ func schema_pkg_apis_serving_v1alpha2_LLMInferenceServiceConfig(ref common.Refer
 							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha2.LLMInferenceServiceSpec"),
 						},
 					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha2.LLMInferenceServiceConfigStatus"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1alpha2.LLMInferenceServiceSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha2.LLMInferenceServiceConfigStatus", "github.com/kserve/kserve/pkg/apis/serving/v1alpha2.LLMInferenceServiceSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -3132,6 +3195,84 @@ func schema_pkg_apis_serving_v1beta1_Batcher(ref common.ReferenceCallback) commo
 	}
 }
 
+func schema_pkg_apis_serving_v1beta1_CanarySpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CanarySpec defines a canary deployment for progressive rollout of a new model version. The canary uses fixed replicas (no autoscaling). The predictor.name field is required and used for Deployment/Service naming.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"predictor": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Predictor spec for the canary variant. predictor.name is required.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorSpec"),
+						},
+					},
+					"trafficPercent": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TrafficPercent is the percentage of inference traffic routed to this canary. The sum of all canary TrafficPercent values must be <= 100. Set to 0 for dark launch (deploy without routing traffic).",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+				Required: []string{"predictor", "trafficPercent"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorSpec"},
+	}
+}
+
+func schema_pkg_apis_serving_v1beta1_CanaryStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CanaryStatus represents the observed state of a canary deployment.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name of the canary variant (from predictor.name).",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"ready": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Ready indicates the canary deployment is available and serving traffic.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"trafficPercent": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TrafficPercent is the current traffic percentage routed to this canary.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"modelStatus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ModelStatus tracks the canary model's loading state and transitions.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStatus"),
+						},
+					},
+				},
+				Required: []string{"name", "ready", "trafficPercent"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStatus"},
+	}
+}
+
 func schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -3337,6 +3478,35 @@ func schema_pkg_apis_serving_v1beta1_ComponentStatusSpec(ref common.ReferenceCal
 		},
 		Dependencies: []string{
 			"knative.dev/pkg/apis.URL", "knative.dev/pkg/apis/duck/v1.Addressable", "knative.dev/serving/pkg/apis/serving/v1.TrafficTarget"},
+	}
+}
+
+func schema_pkg_apis_serving_v1beta1_ConfidentialSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ConfidentialSpec enables confidential model serving with encrypted model artifacts. When enabled, the storage initializer will decrypt model files using keys obtained from a Key Broker Service (KBS) via TEE attestation.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Enabled controls whether confidential model serving is active. When true, the confidential storage initializer image is used and encrypted model artifacts are decrypted after download.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"resourceId": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ResourceId is the KBS resource identifier for the decryption key, in the format kbs:///<repo>/<type>/<tag>.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"enabled"},
+			},
+		},
 	}
 }
 
@@ -6375,12 +6545,18 @@ func schema_pkg_apis_serving_v1beta1_HuggingFaceRuntimeSpec(ref common.Reference
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec"),
 						},
 					},
+					"confidential": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Confidential enables confidential model serving with encrypted model artifacts. When enabled, the storage initializer decrypts model files using keys obtained from a Key Broker Service (KBS) via TEE attestation.",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ConfidentialSpec"),
+						},
+					},
 				},
 				
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.ContainerRestartRule", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ConfidentialSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.ContainerRestartRule", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
 	}
 }
 
@@ -6522,12 +6698,31 @@ func schema_pkg_apis_serving_v1beta1_InferenceServiceSpec(ref common.ReferenceCa
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.TransformerSpec"),
 						},
 					},
+					"canary": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Canary defines optional canary deployments for progressive model rollout. Each canary's predictor.name drives the Deployment name: {isvc}-{name}-predictor. To promote a canary without restart, set predictor.name to the canary name and remove the canary entry.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.CanarySpec"),
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"predictor"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TransformerSpec"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.CanarySpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TransformerSpec"},
 	}
 }
 
@@ -6615,6 +6810,25 @@ func schema_pkg_apis_serving_v1beta1_InferenceServiceStatus(ref common.Reference
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStatus"),
 						},
 					},
+					"canaryStatuses": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "CanaryStatuses is the observed state of canary deployments.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.CanaryStatus"),
+									},
+								},
+							},
+						},
+					},
 					"deploymentMode": {
 						SchemaProps: spec.SchemaProps{
 							Description: "InferenceService DeploymentMode",
@@ -6640,7 +6854,7 @@ func schema_pkg_apis_serving_v1beta1_InferenceServiceStatus(ref common.Reference
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ComponentStatusSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStatus", "knative.dev/pkg/apis.Condition", "knative.dev/pkg/apis.URL", "knative.dev/pkg/apis/duck/v1.Addressable"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.CanaryStatus", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ComponentStatusSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStatus", "knative.dev/pkg/apis.Condition", "knative.dev/pkg/apis.URL", "knative.dev/pkg/apis/duck/v1.Addressable"},
 	}
 }
 
@@ -7178,12 +7392,18 @@ func schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref common.ReferenceCallback) 
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec"),
 						},
 					},
+					"confidential": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Confidential enables confidential model serving with encrypted model artifacts. When enabled, the storage initializer decrypts model files using keys obtained from a Key Broker Service (KBS) via TEE attestation.",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ConfidentialSpec"),
+						},
+					},
 				},
 				
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.ContainerRestartRule", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ConfidentialSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.ContainerRestartRule", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
 	}
 }
 
@@ -7894,12 +8114,18 @@ func schema_pkg_apis_serving_v1beta1_ModelSpec(ref common.ReferenceCallback) com
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec"),
 						},
 					},
+					"confidential": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Confidential enables confidential model serving with encrypted model artifacts. When enabled, the storage initializer decrypts model files using keys obtained from a Key Broker Service (KBS) via TEE attestation.",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ConfidentialSpec"),
+						},
+					},
 				},
 				Required: []string{"modelFormat"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelFormat", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.ContainerRestartRule", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ConfidentialSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelFormat", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.ContainerRestartRule", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
 	}
 }
 
@@ -8356,12 +8582,18 @@ func schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref common.ReferenceCallbac
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec"),
 						},
 					},
+					"confidential": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Confidential enables confidential model serving with encrypted model artifacts. When enabled, the storage initializer decrypts model files using keys obtained from a Key Broker Service (KBS) via TEE attestation.",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ConfidentialSpec"),
+						},
+					},
 				},
 				
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.ContainerRestartRule", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ConfidentialSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.ContainerRestartRule", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
 	}
 }
 
@@ -8739,12 +8971,18 @@ func schema_pkg_apis_serving_v1beta1_PMMLSpec(ref common.ReferenceCallback) comm
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec"),
 						},
 					},
+					"confidential": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Confidential enables confidential model serving with encrypted model artifacts. When enabled, the storage initializer decrypts model files using keys obtained from a Key Broker Service (KBS) via TEE attestation.",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ConfidentialSpec"),
+						},
+					},
 				},
 				
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.ContainerRestartRule", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ConfidentialSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.ContainerRestartRule", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
 	}
 }
 
@@ -9083,12 +9321,18 @@ func schema_pkg_apis_serving_v1beta1_PaddleServerSpec(ref common.ReferenceCallba
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec"),
 						},
 					},
+					"confidential": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Confidential enables confidential model serving with encrypted model artifacts. When enabled, the storage initializer decrypts model files using keys obtained from a Key Broker Service (KBS) via TEE attestation.",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ConfidentialSpec"),
+						},
+					},
 				},
 				
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.ContainerRestartRule", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ConfidentialSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.ContainerRestartRule", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
 	}
 }
 
@@ -9976,12 +10220,18 @@ func schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref common.Reference
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec"),
 						},
 					},
+					"confidential": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Confidential enables confidential model serving with encrypted model artifacts. When enabled, the storage initializer decrypts model files using keys obtained from a Key Broker Service (KBS) via TEE attestation.",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ConfidentialSpec"),
+						},
+					},
 				},
 				
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.ContainerRestartRule", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ConfidentialSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.ContainerRestartRule", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
 	}
 }
 
@@ -9992,6 +10242,13 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 				Description: "PredictorSpec defines the configuration for a predictor, The following fields follow a \"1-of\" semantic. Users must specify exactly one spec.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name optionally identifies this predictor variant. When set, the Deployment and Service are named {isvc}-{name}-predictor instead of the default {isvc}-predictor. Required when used in a canary entry.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"sklearn": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Spec for SKLearn model server",
@@ -11089,12 +11346,18 @@ func schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref common.ReferenceCallback) c
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec"),
 						},
 					},
+					"confidential": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Confidential enables confidential model serving with encrypted model artifacts. When enabled, the storage initializer decrypts model files using keys obtained from a Key Broker Service (KBS) via TEE attestation.",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ConfidentialSpec"),
+						},
+					},
 				},
 				
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.ContainerRestartRule", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ConfidentialSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.ContainerRestartRule", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
 	}
 }
 
@@ -11544,12 +11807,18 @@ func schema_pkg_apis_serving_v1beta1_TFServingSpec(ref common.ReferenceCallback)
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec"),
 						},
 					},
+					"confidential": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Confidential enables confidential model serving with encrypted model artifacts. When enabled, the storage initializer decrypts model files using keys obtained from a Key Broker Service (KBS) via TEE attestation.",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ConfidentialSpec"),
+						},
+					},
 				},
 				
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.ContainerRestartRule", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ConfidentialSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.ContainerRestartRule", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
 	}
 }
 
@@ -11889,12 +12158,18 @@ func schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref common.ReferenceCallback
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec"),
 						},
 					},
+					"confidential": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Confidential enables confidential model serving with encrypted model artifacts. When enabled, the storage initializer decrypts model files using keys obtained from a Key Broker Service (KBS) via TEE attestation.",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ConfidentialSpec"),
+						},
+					},
 				},
 				
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.ContainerRestartRule", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ConfidentialSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.ContainerRestartRule", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
 	}
 }
 
@@ -12827,12 +13102,18 @@ func schema_pkg_apis_serving_v1beta1_TritonSpec(ref common.ReferenceCallback) co
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec"),
 						},
 					},
+					"confidential": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Confidential enables confidential model serving with encrypted model artifacts. When enabled, the storage initializer decrypts model files using keys obtained from a Key Broker Service (KBS) via TEE attestation.",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ConfidentialSpec"),
+						},
+					},
 				},
 				
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.ContainerRestartRule", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ConfidentialSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.ContainerRestartRule", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
 	}
 }
 
@@ -13647,11 +13928,17 @@ func schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref common.ReferenceCallback) c
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec"),
 						},
 					},
+					"confidential": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Confidential enables confidential model serving with encrypted model artifacts. When enabled, the storage initializer decrypts model files using keys obtained from a Key Broker Service (KBS) via TEE attestation.",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ConfidentialSpec"),
+						},
+					},
 				},
 				
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.ContainerRestartRule", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ConfidentialSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.ContainerRestartRule", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
 	}
 }

@@ -33,16 +33,20 @@ fi
 CODEGEN_PKG="$GOPATH/pkg/mod/k8s.io/code-generator@${CODEGEN_VERSION}"
 THIS_PKG="github.com/kserve/kserve"
 
+BOILERPLATE_RENDERED=$(mktemp)
+trap "rm -f ${BOILERPLATE_RENDERED}" EXIT
+sed "s/ YEAR/ $(date +%Y)/g" "${SCRIPT_ROOT}/hack/boilerplate.go.txt" > "${BOILERPLATE_RENDERED}"
+
 # shellcheck source=/dev/null
 source "${CODEGEN_PKG}/kube_codegen.sh"
 
 kube::codegen::gen_helpers \
-    --boilerplate "${SCRIPT_ROOT}/hack/boilerplate.go.txt" \
+    --boilerplate "${BOILERPLATE_RENDERED}" \
     "${SCRIPT_ROOT}"
 
 kube::codegen::gen_client \
     --with-watch \
     --output-dir "${SCRIPT_ROOT}/pkg/client" \
     --output-pkg "${THIS_PKG}/pkg/client" \
-    --boilerplate "${SCRIPT_ROOT}/hack/boilerplate.go.txt" \
+    --boilerplate "${BOILERPLATE_RENDERED}" \
     "${SCRIPT_ROOT}/pkg/apis"

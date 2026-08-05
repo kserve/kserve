@@ -1,5 +1,5 @@
 kserve:
-  version: v0.19.0
+  version: v0.20.0-rc0
   llmisvcConfigs:
     enabled: false
   servingruntime:
@@ -147,6 +147,19 @@ kserve:
     lgbserver:
       disabled: false
       image: kserve/lgbserver
+      tag: ""
+      imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
+    autogluonserver:
+      disabled: false
+      image: kserve/autogluonserver
       tag: ""
       imagePullSecrets: []
       imagePullPolicy: IfNotPresent

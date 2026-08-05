@@ -83,7 +83,7 @@ func (r *LLMISVCReconciler) reconcileSingleNodeMainWorkload(ctx context.Context,
 	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, expected, semanticDeploymentIsEqual, PreserveDeploymentReplicas()); err != nil {
 		return err
 	}
-	return r.propagateDeploymentStatus(ctx, expected, llmSvc.MarkMainWorkloadReady, llmSvc.MarkMainWorkloadNotReady)
+	return r.propagateWorkloadDeploymentStatus(ctx, expected, llmSvc.MarkMainWorkloadReady, llmSvc.MarkMainWorkloadNotReady)
 }
 
 func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (*appsv1.Deployment, error) {
@@ -169,6 +169,9 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, "main", constants.DefaultModelLocalMountPath, len(config.ResolvedLoRAAdapters) > 0); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to main deployment: %w", err)
 		}
+		if llmSvc.Spec.KVCacheOffloading != nil {
+			attachKVCacheSecondaryTiers(&d.Spec.Template.Spec, llmSvc.Spec.KVCacheOffloading.Secondary, "main")
+		}
 	}
 
 	r.propagateDeploymentMetadata(llmSvc, d)
@@ -213,7 +216,7 @@ func (r *LLMISVCReconciler) reconcileSingleNodePrefill(ctx context.Context, llmS
 	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, prefill, semanticDeploymentIsEqual, PreserveDeploymentReplicas()); err != nil {
 		return fmt.Errorf("failed to reconcile prefill deployment %s/%s: %w", prefill.GetNamespace(), prefill.GetName(), err)
 	}
-	return r.propagateDeploymentStatus(ctx, prefill, llmSvc.MarkPrefillWorkloadReady, llmSvc.MarkPrefillWorkloadNotReady)
+	return r.propagateWorkloadDeploymentStatus(ctx, prefill, llmSvc.MarkPrefillWorkloadReady, llmSvc.MarkPrefillWorkloadNotReady)
 }
 
 func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (*appsv1.Deployment, error) {
@@ -269,6 +272,9 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 		if err := r.attachModelArtifacts(ctx, existingServiceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, "main", constants.DefaultModelLocalMountPath, len(config.ResolvedLoRAAdapters) > 0); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to prefill deployment: %w", err)
 		}
+		if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.KVCacheOffloading != nil {
+			attachKVCacheSecondaryTiers(&d.Spec.Template.Spec, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, "main")
+		}
 	}
 
 	r.propagateDeploymentMetadata(llmSvc, d)
@@ -315,7 +321,7 @@ func (r *LLMISVCReconciler) propagateDeploymentMetadata(llmSvc *v1alpha2.LLMInfe
 	utils.PropagatePrefixedMap(llmSvc.GetLabels(), &expected.Spec.Template.Labels, approvedLabelPrefixes...)
 }
 
-func (r *LLMISVCReconciler) propagateDeploymentStatus(ctx context.Context, expected *appsv1.Deployment, ready func(), notReady func(reason, messageFormat string, messageA ...interface{})) error {
+func (r *LLMISVCReconciler) propagateWorkloadDeploymentStatus(ctx context.Context, expected *appsv1.Deployment, ready func(), notReady func(reason, messageFormat string, messageA ...interface{})) error {
 	curr := &appsv1.Deployment{}
 	err := retry.OnError(retry.DefaultRetry, apierrors.IsNotFound, func() error {
 		return r.Get(ctx, client.ObjectKeyFromObject(expected), curr)

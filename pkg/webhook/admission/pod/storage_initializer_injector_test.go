@@ -5533,7 +5533,9 @@ func TestMergeContainerSpecs_EnvHandling(t *testing.T) {
 				Env:  scenario.crdEnv,
 			}
 
-			require.NoError(t, mergeContainerSpecs(target, crd))
+			merged, err := utils.MergeContainerWithPatch(*target, *crd)
+			require.NoError(t, err)
+			*target = merged
 
 			for _, e := range target.Env {
 				if e.Value != "" && e.ValueFrom != nil {
@@ -5545,4 +5547,278 @@ func TestMergeContainerSpecs_EnvHandling(t *testing.T) {
 			scenario.assert(t, target.Env)
 		})
 	}
+}
+
+func TestApplyConfidentialConfig(t *testing.T) {
+	scenarios := map[string]struct {
+		initContainer corev1.Container
+		annotations   map[string]string
+		expectedImage string
+		expectedEnvs  map[string]string
+	}{
+		"no confidential annotation": {
+			initContainer: corev1.Container{
+				Name:  constants.StorageInitializerContainerName,
+				Image: "kserve/storage-initializer:latest",
+			},
+			annotations:   map[string]string{},
+			expectedImage: "kserve/storage-initializer:latest",
+			expectedEnvs:  map[string]string{},
+		},
+		"confidential enabled sets env vars without swapping image": {
+			initContainer: corev1.Container{
+				Name:  constants.StorageInitializerContainerName,
+				Image: "kserve/storage-initializer:latest",
+			},
+			annotations: map[string]string{
+				constants.ConfidentialEnabledAnnotationKey:    "true",
+				constants.ConfidentialResourceIdAnnotationKey: "kbs:///default/key/model-key",
+			},
+			expectedImage: "kserve/storage-initializer:latest",
+			expectedEnvs: map[string]string{
+				constants.ConfidentialEnabledEnvVar:    "true",
+				constants.ConfidentialResourceIdEnvVar: "kbs:///default/key/model-key",
+			},
+		},
+		"confidential enabled without resourceId": {
+			initContainer: corev1.Container{
+				Name:  constants.StorageInitializerContainerName,
+				Image: "kserve/storage-initializer:latest",
+			},
+			annotations: map[string]string{
+				constants.ConfidentialEnabledAnnotationKey: "true",
+			},
+			expectedImage: "kserve/storage-initializer:latest",
+			expectedEnvs: map[string]string{
+				constants.ConfidentialEnabledEnvVar: "true",
+			},
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			container := scenario.initContainer.DeepCopy()
+			applyConfidentialConfig(container, scenario.annotations)
+
+			assert.Equal(t, scenario.expectedImage, container.Image, "unexpected image")
+
+			envMap := make(map[string]string)
+			for _, env := range container.Env {
+				envMap[env.Name] = env.Value
+			}
+			for key, expectedVal := range scenario.expectedEnvs {
+				assert.Equal(t, expectedVal, envMap[key], "unexpected env var %s", key)
+			}
+			// Ensure no unexpected confidential env vars
+			for _, env := range container.Env {
+				if env.Name == constants.ConfidentialEnabledEnvVar || env.Name == constants.ConfidentialResourceIdEnvVar {
+					_, expected := scenario.expectedEnvs[env.Name]
+					assert.True(t, expected, "unexpected env var %s", env.Name)
+				}
+			}
+		})
+	}
+}
+
+// TestInjectModelcarOciNative verifies that InjectModelcar dispatches oci+native:// URIs
+// to the ImageVolume materializer and produces the expected pod mutations.
+func TestInjectModelcarOciNative(t *testing.T) {
+	t.Run("oci+native:// annotation mounts ImageVolume", func(t *testing.T) {
+		pod := &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					constants.StorageInitializerSourceUriInternalAnnotationKey: constants.OciNativeURIPrefix + "registry.io/mymodel:v1",
+				},
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{Name: constants.InferenceServiceContainerName},
+				},
+			},
+		}
+		mi := &StorageInitializerInjector{config: &kserveTypes.StorageInitializerConfig{}}
+		err := mi.InjectModelcar(pod)
+		require.NoError(t, err)
+		var imgVol *corev1.Volume
+		for i := range pod.Spec.Volumes {
+			if pod.Spec.Volumes[i].Image != nil {
+				imgVol = &pod.Spec.Volumes[i]
+				break
+			}
+		}
+		require.NotNil(t, imgVol, "pod should have an ImageVolume")
+		assert.Equal(t, "registry.io/mymodel:v1", imgVol.Image.Reference)
+		c := utils.GetContainerWithName(&pod.Spec, constants.InferenceServiceContainerName)
+		require.NotNil(t, c)
+		var found bool
+		for _, m := range c.VolumeMounts {
+			if m.Name == imgVol.Name {
+				found = true
+				assert.True(t, m.ReadOnly)
+				break
+			}
+		}
+		assert.True(t, found, "kserve-container should have VolumeMount for the ImageVolume")
+	})
+
+	t.Run("bare oci:// with OciModelMode=native mounts ImageVolume", func(t *testing.T) {
+		pod := &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					constants.StorageInitializerSourceUriInternalAnnotationKey: constants.OciURIPrefix + "registry.io/mymodel:v1",
+				},
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{Name: constants.InferenceServiceContainerName},
+				},
+			},
+		}
+		mi := &StorageInitializerInjector{config: &kserveTypes.StorageInitializerConfig{OciModelMode: kserveTypes.OciModelModeNative}}
+		err := mi.InjectModelcar(pod)
+		require.NoError(t, err)
+		var imgVol *corev1.Volume
+		for i := range pod.Spec.Volumes {
+			if pod.Spec.Volumes[i].Image != nil {
+				imgVol = &pod.Spec.Volumes[i]
+				break
+			}
+		}
+		require.NotNil(t, imgVol, "pod should have an ImageVolume")
+		assert.Equal(t, "registry.io/mymodel:v1", imgVol.Image.Reference)
+	})
+
+	t.Run("bare oci:// with enableModelcar=true still uses modelcar (backcompat)", func(t *testing.T) {
+		pod := createTestPodForModelcar()
+		mi := &StorageInitializerInjector{config: &kserveTypes.StorageInitializerConfig{EnableOciImageSource: true}}
+		err := mi.InjectModelcar(pod)
+		require.NoError(t, err)
+		modelcarContainer := utils.GetContainerWithName(&pod.Spec, constants.ModelcarContainerName)
+		assert.NotNil(t, modelcarContainer, "modelcar sidecar should be injected for backcompat path")
+	})
+}
+
+// TestCommonStorageInitializationWithOciNativeURI verifies dispatch for oci+native:// in the storageUris path.
+func TestCommonStorageInitializationWithOciNativeURI(t *testing.T) {
+	t.Run("oci+native:// storageUri mounts ImageVolume", func(t *testing.T) {
+		podSpec := corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.InferenceServiceContainerName},
+			},
+		}
+		params := &StorageInitializerParams{
+			Namespace: "default",
+			StorageURIs: []v1beta1.StorageUri{
+				{Uri: constants.OciNativeURIPrefix + "registry.io/mymodel:v1", MountPath: constants.DefaultModelLocalMountPath},
+			},
+			PodSpec:         &podSpec,
+			Config:          &kserveTypes.StorageInitializerConfig{},
+			IsvcAnnotations: map[string]string{},
+			IsLegacyURI:     false,
+		}
+		err := CommonStorageInitialization(t.Context(), params)
+		require.NoError(t, err)
+		var imgVol *corev1.Volume
+		for i := range podSpec.Volumes {
+			if podSpec.Volumes[i].Image != nil {
+				imgVol = &podSpec.Volumes[i]
+				break
+			}
+		}
+		require.NotNil(t, imgVol, "podSpec should have an ImageVolume after oci+native:// dispatch")
+		assert.Equal(t, "registry.io/mymodel:v1", imgVol.Image.Reference)
+	})
+
+	t.Run("bare oci:// with OciModelMode=native mounts ImageVolume", func(t *testing.T) {
+		podSpec := corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.InferenceServiceContainerName},
+			},
+		}
+		params := &StorageInitializerParams{
+			Namespace: "default",
+			StorageURIs: []v1beta1.StorageUri{
+				{Uri: constants.OciURIPrefix + "registry.io/mymodel:v1", MountPath: constants.DefaultModelLocalMountPath},
+			},
+			PodSpec:         &podSpec,
+			Config:          &kserveTypes.StorageInitializerConfig{OciModelMode: kserveTypes.OciModelModeNative},
+			IsvcAnnotations: map[string]string{},
+			IsLegacyURI:     false,
+		}
+		err := CommonStorageInitialization(t.Context(), params)
+		require.NoError(t, err)
+		var imgVol *corev1.Volume
+		for i := range podSpec.Volumes {
+			if podSpec.Volumes[i].Image != nil {
+				imgVol = &podSpec.Volumes[i]
+				break
+			}
+		}
+		require.NotNil(t, imgVol, "podSpec should have an ImageVolume after oci:// native dispatch")
+		assert.Equal(t, "registry.io/mymodel:v1", imgVol.Image.Reference)
+	})
+
+	t.Run("oci+native:// legacy path returns nil (handled by annotation webhook)", func(t *testing.T) {
+		podSpec := corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.InferenceServiceContainerName},
+			},
+		}
+		params := &StorageInitializerParams{
+			Namespace: "default",
+			StorageURIs: []v1beta1.StorageUri{
+				{Uri: constants.OciNativeURIPrefix + "registry.io/mymodel:v1", MountPath: constants.DefaultModelLocalMountPath},
+			},
+			PodSpec:         &podSpec,
+			Config:          &kserveTypes.StorageInitializerConfig{},
+			IsvcAnnotations: map[string]string{},
+			IsLegacyURI:     true,
+		}
+		err := CommonStorageInitialization(t.Context(), params)
+		require.NoError(t, err)
+	})
+}
+
+// TestCommonStorageInitializationSkipsOciNativeURI is a regression test for the
+// bug where oci+native:// URIs were not matched by the strings.HasPrefix("oci://")
+// guard and fell through into CreateInitContainerWithConfig, causing
+// resource.MustParse("") to panic with an empty StorageInitializerConfig.
+func TestCommonStorageInitializationSkipsOciNativeURI(t *testing.T) {
+	cfg := &kserveTypes.StorageInitializerConfig{
+		Image:         "kserve/storage-initializer:latest",
+		CpuRequest:    "100m",
+		CpuLimit:      "1",
+		MemoryRequest: "200Mi",
+		MemoryLimit:   "1Gi",
+	}
+	podSpec := corev1.PodSpec{
+		Containers: []corev1.Container{
+			{Name: constants.InferenceServiceContainerName},
+		},
+	}
+	params := &StorageInitializerParams{
+		Namespace: "default",
+		StorageURIs: []v1beta1.StorageUri{
+			{Uri: constants.OciNativeURIPrefix + "registry.io/mymodel:v1", MountPath: constants.DefaultModelLocalMountPath},
+		},
+		PodSpec:         &podSpec,
+		Config:          cfg,
+		IsvcAnnotations: map[string]string{},
+		IsLegacyURI:     false,
+	}
+	require.NotPanics(t, func() {
+		err := CommonStorageInitialization(t.Context(), params)
+		require.NoError(t, err)
+	}, "CommonStorageInitialization must not panic for oci+native:// URIs")
+
+	// The URI must be routed to the native handler (ImageVolume), not an init container.
+	assert.Empty(t, podSpec.InitContainers, "oci+native:// must not produce a storage-initializer init container")
+	var imgVol *corev1.Volume
+	for i := range podSpec.Volumes {
+		if podSpec.Volumes[i].Image != nil {
+			imgVol = &podSpec.Volumes[i]
+			break
+		}
+	}
+	require.NotNil(t, imgVol, "oci+native:// must produce an ImageVolume on the pod spec")
 }

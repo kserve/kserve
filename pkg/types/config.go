@@ -16,6 +16,13 @@ limitations under the License.
 
 package types
 
+// OCI model mode constants for OciModelMode field.
+const (
+	OciModelModeModelcar = "modelcar"
+	OciModelModeNative   = "native"
+	OciModelModeFetch    = "fetch"
+)
+
 type StorageInitializerConfig struct {
 	Image                   string `json:"image"`
 	CpuRequest              string `json:"cpuRequest"`
@@ -28,4 +35,22 @@ type StorageInitializerConfig struct {
 	MemoryModelcar          string `json:"memoryModelcar"`
 	EnableOciImageSource    bool   `json:"enableModelcar"`
 	UidModelcar             *int64 `json:"uidModelcar"`
+	// EnableOciModelSupport enables any OCI-backed model storage path.
+	// Backcompat: EnableOciImageSource (enableModelcar) remains functional; this is the newer switch.
+	EnableOciModelSupport bool `json:"enableOciModelSupport"`
+	// OciModelMode selects the materialization strategy for oci:// and oci+native:// URIs.
+	// Valid values: "modelcar" (default), "native", "fetch". Empty resolves to "modelcar".
+	OciModelMode string `json:"ociModelMode"`
+}
+
+// ResolveOciModelMode returns the effective OCI model mode for the given config.
+// Priority: OciModelMode (explicit) > EnableOciImageSource/EnableOciModelSupport (backcompat) > "" (disabled).
+func ResolveOciModelMode(cfg *StorageInitializerConfig) string {
+	if cfg.OciModelMode != "" {
+		return cfg.OciModelMode
+	}
+	if cfg.EnableOciImageSource || cfg.EnableOciModelSupport {
+		return OciModelModeModelcar
+	}
+	return ""
 }

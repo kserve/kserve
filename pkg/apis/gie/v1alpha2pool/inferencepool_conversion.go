@@ -257,6 +257,13 @@ func convertExtensionRefToV1(src *Extension) (v1.EndpointPickerRef, error) {
 	}
 	endpointPickerRef.FailureMode = failureMode
 
+	// The v1 InferencePool CRD requires port when kind is "Service" or unspecified. Old
+	// v1alpha2 pools may omit PortNumber, which would make the converted v1 object fail
+	// the CEL rule. Default to the standard EPP gRPC port (9002).
+	if (endpointPickerRef.Port == nil || endpointPickerRef.Port.Number == 0) && (endpointPickerRef.Kind == "Service" || endpointPickerRef.Kind == "") {
+		endpointPickerRef.Port = ptr.To(v1.Port{Number: 9002})
+	}
+
 	return endpointPickerRef, nil
 }
 
