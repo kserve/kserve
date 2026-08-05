@@ -107,6 +107,99 @@ func TestIsTokenizerEnabled(t *testing.T) {
 			want: false,
 		},
 		{
+			// Config supplied via spec.router.scheduler.template.containers[].args
+			// (a literal "--config-text <yaml>" pair) rather than the dedicated
+			// spec.router.scheduler.config.inline field. Both are valid ways to
+			// configure the scheduler, and plugin detection must work for either.
+			name: "token-producer plugin present via template args, no config.inline set",
+			spec: v1alpha2.LLMInferenceServiceSpec{
+				Router: &v1alpha2.RouterSpec{
+					Scheduler: &v1alpha2.SchedulerSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "main",
+									Args: []string{
+										"--config-text",
+										`{"plugins":[{"type":"token-producer"}]}`,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "legacy precise-prefix-cache-scorer present via template args, no config.inline set",
+			spec: v1alpha2.LLMInferenceServiceSpec{
+				Router: &v1alpha2.RouterSpec{
+					Scheduler: &v1alpha2.SchedulerSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "main",
+									Args: []string{
+										"--config-text",
+										`{"plugins":[{"type":"precise-prefix-cache-scorer"}]}`,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "config.inline takes priority over template args when both are present",
+			spec: v1alpha2.LLMInferenceServiceSpec{
+				Router: &v1alpha2.RouterSpec{
+					Scheduler: &v1alpha2.SchedulerSpec{
+						Config: &v1alpha2.SchedulerConfigSpec{
+							Inline: &runtime.RawExtension{
+								Raw: []byte(`{"plugins":[{"type":"prefix-cache-scorer"}]}`),
+							},
+						},
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "main",
+									Args: []string{
+										"--config-text",
+										`{"plugins":[{"type":"token-producer"}]}`,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			// --config-file points at a mounted file whose contents aren't
+			// available at reconcile time, so it can't be inspected for
+			// plugin detection. This is a known, documented limitation.
+			name: "config-file flag in template args is not treated as inline plugin source",
+			spec: v1alpha2.LLMInferenceServiceSpec{
+				Router: &v1alpha2.RouterSpec{
+					Scheduler: &v1alpha2.SchedulerSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "main",
+									Args: []string{"--config-file", "/etc/epp/config.yaml"},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
 			name: "nil scheduler",
 			spec: v1alpha2.LLMInferenceServiceSpec{
 				Router: &v1alpha2.RouterSpec{},

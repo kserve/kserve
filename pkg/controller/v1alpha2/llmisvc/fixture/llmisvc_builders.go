@@ -19,6 +19,7 @@ package fixture
 import (
 	"maps"
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -284,6 +285,22 @@ func KEDAScaling(minReplicas int32, maxReplicas int32) *v1alpha2.ScalingSpec {
 			ActuatorSpec: v1alpha2.ActuatorSpec{
 				KEDA: &v1alpha2.KEDAScalingSpec{},
 			},
+		},
+	}
+}
+
+// DirectKEDAScaling builds scaling.keda with user-defined triggers (no WVA).
+func DirectKEDAScaling(minReplicas int32, maxReplicas int32, triggers ...kedav1alpha1.ScaleTriggers) *v1alpha2.ScalingSpec {
+	if len(triggers) == 0 {
+		triggers = []kedav1alpha1.ScaleTriggers{
+			{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+		}
+	}
+	return &v1alpha2.ScalingSpec{
+		MinReplicas: &minReplicas,
+		MaxReplicas: maxReplicas,
+		KEDA: &v1alpha2.DirectKEDAScalingSpec{
+			Triggers: triggers,
 		},
 	}
 }
@@ -566,6 +583,23 @@ func WithSchedulerConfigInline(configYAML string) LLMInferenceServiceOption {
 		}
 		llmSvc.Spec.Router.Scheduler.Config = &v1alpha2.SchedulerConfigSpec{
 			Inline: &runtime.RawExtension{Raw: jsonBytes},
+		}
+	}
+}
+
+// WithSchedulerConfigTemplateArgs sets the scheduler config as a --config-text
+// argument on the "main" container of the scheduler pod template, instead of
+// spec.router.scheduler.config.inline.
+func WithSchedulerConfigTemplateArgs(configYAML string) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha2.LLMInferenceService) {
+		ensureSchedulerSpec(&llmSvc.Spec)
+		llmSvc.Spec.Router.Scheduler.Template = &corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: "main",
+					Args: []string{"--config-text", configYAML},
+				},
+			},
 		}
 	}
 }

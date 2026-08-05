@@ -30,6 +30,8 @@ import (
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func newBaseLLMInferenceService() *LLMInferenceService {
@@ -387,14 +389,109 @@ func TestValidateWorkloadScaling(t *testing.T) {
 			wantErrStrings: []string{"minReplicas (10) cannot exceed maxReplicas (5)"},
 		},
 		{
-			name: "error: scaling without WVA",
+			name: "error: scaling without wva or keda",
 			workload: &WorkloadSpec{
 				Scaling: &ScalingSpec{
 					MaxReplicas: 5,
 				},
 			},
 			wantErrCount:   1,
-			wantErrStrings: []string{"wva is required when scaling is configured"},
+			wantErrStrings: []string{"either wva or keda must be specified when scaling is configured"},
+		},
+		{
+			name: "error: scaling with both WVA and direct KEDA",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: 5,
+					WVA: &WVASpec{
+						ActuatorSpec: ActuatorSpec{
+							HPA: &HPAScalingSpec{},
+						},
+					},
+					KEDA: &DirectKEDAScalingSpec{
+						Triggers: []kedav1alpha1.ScaleTriggers{
+							{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+						},
+					},
+				},
+			},
+			wantErrCount:   1,
+			wantErrStrings: []string{"wva and keda are mutually exclusive"},
+		},
+		{
+			name: "valid: scaling with direct KEDA",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MinReplicas: ptr.To(int32(1)),
+					MaxReplicas: 5,
+					KEDA: &DirectKEDAScalingSpec{
+						KEDAScalingSpec: KEDAScalingSpec{
+							PollingInterval: ptr.To(int32(30)),
+						},
+						Triggers: []kedav1alpha1.ScaleTriggers{
+							{
+								Type: "cpu",
+								Metadata: map[string]string{
+									"value": "80",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "valid: direct KEDA with scalingModifiers",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: 5,
+					KEDA: &DirectKEDAScalingSpec{
+						KEDAScalingSpec: KEDAScalingSpec{
+							Advanced: &kedav1alpha1.AdvancedConfig{
+								ScalingModifiers: kedav1alpha1.ScalingModifiers{
+									Formula: "trig0 + trig1",
+									Target:  "10",
+								},
+							},
+						},
+						Triggers: []kedav1alpha1.ScaleTriggers{
+							{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+							{Type: "memory", Metadata: map[string]string{"value": "70"}},
+						},
+					},
+				},
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "error: direct KEDA without triggers",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: 5,
+					KEDA:        &DirectKEDAScalingSpec{},
+				},
+			},
+			wantErrCount:   1,
+			wantErrStrings: []string{"at least one trigger is required when using direct KEDA scaling"},
+		},
+		{
+			name: "error: direct KEDA idleReplicaCount without minReplicas",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: 10,
+					KEDA: &DirectKEDAScalingSpec{
+						KEDAScalingSpec: KEDAScalingSpec{
+							IdleReplicaCount: ptr.To(int32(1)),
+						},
+						Triggers: []kedav1alpha1.ScaleTriggers{
+							{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+						},
+					},
+				},
+			},
+			wantErrCount:   1,
+			wantErrStrings: []string{"minReplicas is required when idleReplicaCount is set"},
 		},
 		{
 			name: "error: WVA with both HPA and KEDA",
@@ -628,6 +725,37 @@ func TestValidateScaling_PrefillWorkload(t *testing.T) {
 		assert.Empty(t, errs, "expected no errors when both workloads use KEDA")
 	})
 
+	t.Run("both decode and prefill with matching direct KEDA scaling modes", func(t *testing.T) {
+		svc := newBaseLLMInferenceService()
+		svc.Spec.WorkloadSpec = WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: 5,
+				KEDA: &DirectKEDAScalingSpec{
+					Triggers: []kedav1alpha1.ScaleTriggers{
+						{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+					},
+				},
+			},
+		}
+		svc.Spec.Prefill = &WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: 8,
+				KEDA: &DirectKEDAScalingSpec{
+					KEDAScalingSpec: KEDAScalingSpec{
+						IdleReplicaCount: ptr.To(int32(1)),
+					},
+					Triggers: []kedav1alpha1.ScaleTriggers{
+						{Type: "memory", Metadata: map[string]string{"value": "70"}},
+					},
+				},
+				MinReplicas: ptr.To(int32(2)),
+			},
+		}
+
+		errs := validator.validateScaling(svc)
+		assert.Empty(t, errs, "expected no errors when both workloads use direct KEDA")
+	})
+
 	t.Run("scalingModifiers set - rejected", func(t *testing.T) {
 		svc := newBaseLLMInferenceService()
 		svc.Spec.WorkloadSpec = WorkloadSpec{
@@ -739,6 +867,56 @@ func TestValidateScaling_PrefillWorkload(t *testing.T) {
 		assert.True(t, foundDecodeErr, "expected error on spec.scaling path for decode workload")
 		assert.True(t, foundPrefillErr, "expected error on spec.prefill.scaling path for prefill workload")
 	})
+
+	t.Run("error: decode direct KEDA, prefill WVA", func(t *testing.T) {
+		svc := newBaseLLMInferenceService()
+		svc.Spec.WorkloadSpec = WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: 5,
+				KEDA: &DirectKEDAScalingSpec{
+					Triggers: []kedav1alpha1.ScaleTriggers{
+						{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+					},
+				},
+			},
+		}
+		svc.Spec.Prefill = &WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: 5,
+				WVA:         &WVASpec{ActuatorSpec: ActuatorSpec{HPA: &HPAScalingSpec{}}},
+			},
+		}
+
+		errs := validator.validateScaling(svc)
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "spec.prefill.scaling")
+		assert.Contains(t, errs[0].Detail, "decode uses direct keda but prefill uses wva")
+	})
+
+	t.Run("error: decode WVA, prefill direct KEDA", func(t *testing.T) {
+		svc := newBaseLLMInferenceService()
+		svc.Spec.WorkloadSpec = WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: 5,
+				WVA:         &WVASpec{ActuatorSpec: ActuatorSpec{KEDA: &KEDAScalingSpec{}}},
+			},
+		}
+		svc.Spec.Prefill = &WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: 5,
+				KEDA: &DirectKEDAScalingSpec{
+					Triggers: []kedav1alpha1.ScaleTriggers{
+						{Type: "memory", Metadata: map[string]string{"value": "70"}},
+					},
+				},
+			},
+		}
+
+		errs := validator.validateScaling(svc)
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "spec.prefill.scaling")
+		assert.Contains(t, errs[0].Detail, "decode uses wva but prefill uses direct keda")
+	})
 }
 
 func TestValidateTrafficFields_V1Alpha1(t *testing.T) {
@@ -831,6 +1009,180 @@ func TestValidateTrafficFields_V1Alpha1(t *testing.T) {
 				}
 			} else {
 				assert.Empty(t, errs)
+			}
+		})
+	}
+}
+
+func TestValidateLoRAAdapters_V1Alpha1(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+
+	makeAdapter := func(name, uri string) LLMModelSpec {
+		return LLMModelSpec{URI: apis.URL{Scheme: "hf", Host: uri}, Name: ptr.To(name)}
+	}
+
+	makeSvc := func(modelName string, loraSpec *LoRASpec) *LLMInferenceService {
+		svc := newBaseLLMInferenceService()
+		svc.Spec.Model.Name = ptr.To(modelName)
+		svc.Spec.Model.LoRA = loraSpec
+		return svc
+	}
+
+	tests := []struct {
+		name           string
+		svc            *LLMInferenceService
+		wantErrCount   int
+		wantErrStrings []string
+	}{
+		{
+			name:         "no lora",
+			svc:          makeSvc("base", nil),
+			wantErrCount: 0,
+		},
+		{
+			name: "valid single adapter",
+			svc: makeSvc("base", &LoRASpec{
+				Adapters: []LLMModelSpec{makeAdapter("adapter-1", "adapter-1")},
+			}),
+			wantErrCount: 0,
+		},
+		{
+			name: "adapter name missing",
+			svc: makeSvc("base", &LoRASpec{
+				Adapters: []LLMModelSpec{{URI: apis.URL{Scheme: "hf", Host: "adapter-1"}}},
+			}),
+			wantErrCount:   1,
+			wantErrStrings: []string{"spec.model.lora.adapters[0].name"},
+		},
+		{
+			name: "path traversal rejected",
+			svc: makeSvc("base", &LoRASpec{
+				Adapters: []LLMModelSpec{makeAdapter("..", "adapter-dotdot")},
+			}),
+			wantErrCount:   1,
+			wantErrStrings: []string{"path traversal"},
+		},
+		{
+			name: "duplicate adapter names",
+			svc: makeSvc("base", &LoRASpec{
+				Adapters: []LLMModelSpec{
+					makeAdapter("dup", "adapter-1"),
+					makeAdapter("dup", "adapter-2"),
+				},
+			}),
+			wantErrCount:   1,
+			wantErrStrings: []string{"duplicate"},
+		},
+		{
+			name: "adapter name same as base model",
+			svc: makeSvc("base-model", &LoRASpec{
+				Adapters: []LLMModelSpec{makeAdapter("base-model", "adapter-1")},
+			}),
+			wantErrCount:   1,
+			wantErrStrings: []string{"adapter name must differ from base model name"},
+		},
+		{
+			name: "maxRank zero invalid",
+			svc: makeSvc("base", &LoRASpec{
+				MaxRank:  ptr.To(int32(0)),
+				Adapters: []LLMModelSpec{makeAdapter("a", "a")},
+			}),
+			wantErrCount:   1,
+			wantErrStrings: []string{"maxRank"},
+		},
+		{
+			name: "all lora params valid",
+			svc: makeSvc("base", &LoRASpec{
+				MaxRank:        ptr.To(int32(128)),
+				MaxAdapters:    ptr.To(int32(4)),
+				MaxCpuAdapters: ptr.To(int32(8)),
+				Adapters: []LLMModelSpec{
+					makeAdapter("adapter-1", "adapter-1"),
+					makeAdapter("adapter-2", "adapter-2"),
+				},
+			}),
+			wantErrCount: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := validator.validateLoRAAdapters(tt.svc)
+			assert.Len(t, errs, tt.wantErrCount, "expected %d errors, got %d: %v", tt.wantErrCount, len(errs), errs)
+			for _, wantStr := range tt.wantErrStrings {
+				found := false
+				for _, e := range errs {
+					if strings.Contains(e.Error(), wantStr) {
+						found = true
+						break
+					}
+				}
+				assert.True(t, found, "expected error containing %q, got: %v", wantStr, errs)
+			}
+		})
+	}
+}
+
+func TestValidateManagedDRAAnnotations_V1Alpha1(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+
+	tests := []struct {
+		name         string
+		annotations  map[string]string
+		wantErrCount int
+		wantErrField string
+	}{
+		{
+			name:         "no DRA annotations",
+			annotations:  nil,
+			wantErrCount: 0,
+		},
+		{
+			name: "valid: device class only",
+			annotations: map[string]string{
+				constants.ManagedDRADeviceClassAnnotationKey: "gpu.nvidia.com",
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "invalid: device count without device class",
+			annotations: map[string]string{
+				constants.ManagedDRADeviceCountAnnotationKey: "2",
+			},
+			wantErrCount: 1,
+			wantErrField: constants.ManagedDRADeviceClassAnnotationKey,
+		},
+		{
+			name: "invalid: empty device class",
+			annotations: map[string]string{
+				constants.ManagedDRADeviceClassAnnotationKey: "   ",
+			},
+			wantErrCount: 1,
+			wantErrField: constants.ManagedDRADeviceClassAnnotationKey,
+		},
+		{
+			name: "invalid: non-numeric device count",
+			annotations: map[string]string{
+				constants.ManagedDRADeviceClassAnnotationKey: "gpu.nvidia.com",
+				constants.ManagedDRADeviceCountAnnotationKey: "abc",
+			},
+			wantErrCount: 1,
+			wantErrField: constants.ManagedDRADeviceCountAnnotationKey,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := newBaseLLMInferenceService()
+			svc.Annotations = tt.annotations
+
+			// Exercise the full validate() path to ensure DRA validation is wired in.
+			err := validator.validate(t.Context(), nil, svc)
+			if tt.wantErrCount == 0 {
+				assert.NoError(t, err)
+			} else {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErrField)
 			}
 		})
 	}
