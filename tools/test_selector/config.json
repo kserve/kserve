@@ -51,6 +51,16 @@
       "reason": "Image tag/registry configuration changes"
     },
     {
+      "pattern": "kserve-images.env",
+      "trigger": "all",
+      "reason": "Image tag/registry configuration changes"
+    },
+    {
+      "pattern": "kserve-deps.env",
+      "trigger": "all",
+      "reason": "Dependencies changes"
+    },
+    {
       "pattern": "test/scripts/**",
       "trigger": "all",
       "reason": "CI system changes"
