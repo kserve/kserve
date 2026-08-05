@@ -13,7 +13,12 @@ on:
   # Run tests for any PRs.
   pull_request:
     paths:
-      - "python/**"
+      - "python/autogluonserver/**"
+      - "python/kserve/**"
+      - "python/storage/**"
+      - "python/pyproject.toml"
+      - "python/third_party/**"
+      - "python/autogluon.Dockerfile"
       - "!.github/**"
       - "!docs/**"
       - "!**.md"

@@ -13,7 +13,11 @@ on:
   # Run tests for any PRs.
   pull_request:
     paths:
-      - "python/**"
+      - "python/storage-initializer/**"
+      - "python/storage/**"
+      - "python/pyproject.toml"
+      - "python/third_party/**"
+      - "python/storage-initializer.Dockerfile"
       - "!.github/**"
       - "!docs/**"
       - "!**.md"

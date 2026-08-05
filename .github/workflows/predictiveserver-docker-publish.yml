@@ -13,7 +13,15 @@ on:
   # Run tests for any PRs.
   pull_request:
     paths:
-      - "python/**"
+      - "python/predictiveserver/**"
+      - "python/sklearnserver/**"
+      - "python/xgbserver/**"
+      - "python/lgbserver/**"
+      - "python/kserve/**"
+      - "python/storage/**"
+      - "python/pyproject.toml"
+      - "python/third_party/**"
+      - "python/predictiveserver.Dockerfile"
       - "!.github/**"
       - "!docs/**"
       - "!**.md"

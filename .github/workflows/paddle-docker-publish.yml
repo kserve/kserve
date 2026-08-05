@@ -13,7 +13,12 @@ on:
   # Run tests for any PRs.
   pull_request:
     paths:
-      - "python/**"
+      - "python/paddleserver/**"
+      - "python/kserve/**"
+      - "python/storage/**"
+      - "python/pyproject.toml"
+      - "python/third_party/**"
+      - "python/paddle.Dockerfile"
       - "!.github/**"
       - "!docs/**"
       - "!**.md"
