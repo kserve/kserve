@@ -21,7 +21,7 @@ set -o nounset
 set -o pipefail
 
 echo "Starting E2E queue proxy extension tests ..."
-source python/kserve/.venv/bin/activate
+source .venv/bin/activate
 pushd test/e2e >/dev/null
   pytest --log-level=INFO qpext
 popd

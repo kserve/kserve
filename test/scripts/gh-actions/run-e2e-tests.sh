@@ -49,7 +49,7 @@ echo "Parallelism requested for pytest is ${PARALLELISM}"
 
 MAXFAIL="${PYTEST_MAXFAIL:-5}"
 
-source python/kserve/.venv/bin/activate
+source .venv/bin/activate
 
 REPORT_DIR="${ARTIFACT_DIR:-/tmp}"
 mkdir -p "$REPORT_DIR"
