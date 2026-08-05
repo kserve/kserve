@@ -91,15 +91,42 @@ func isTokenizerEnabled(spec v1alpha2.LLMInferenceServiceSpec) bool {
 	return hasTokenProducerPlugin(spec) || hasPrecisePrefixCachePlugin(spec)
 }
 
+// inlineSchedulerConfigBytes returns the raw EndpointPickerConfig YAML/JSON for
+// this LLMInferenceService. The scheduler config can be supplied two ways:
+//
+//  1. spec.router.scheduler.config.inline — the dedicated, structured field.
+//  2. spec.router.scheduler.template.containers[].args — a user-authored pod
+//     template that embeds a literal "--config-text <yaml>" argument pair.
+//
+// Only "--config-text" (inline YAML) is supported for (2), not "--config-file"
+// (a path to a mounted file), since file contents aren't available at this point.
+func inlineSchedulerConfigBytes(spec v1alpha2.LLMInferenceServiceSpec) ([]byte, bool) {
+	if spec.Router == nil || spec.Router.Scheduler == nil {
+		return nil, false
+	}
+	if spec.Router.Scheduler.Config != nil && spec.Router.Scheduler.Config.Inline != nil {
+		return spec.Router.Scheduler.Config.Inline.Raw, true
+	}
+	if spec.Router.Scheduler.Template != nil {
+		if pair := configFlagFromContainers(spec.Router.Scheduler.Template.Containers); pair != nil {
+			if _, ok := inlineConfigTextFlags[pair[0]]; ok {
+				return []byte(pair[1]), true
+			}
+		}
+	}
+	return nil, false
+}
+
 // hasTokenProducerPlugin checks if the scheduler config contains the token-producer
 // plugin, which requires a standalone tokenizer deployment to serve tokenization
 // requests over HTTP (vLLM render endpoint).
 func hasTokenProducerPlugin(spec v1alpha2.LLMInferenceServiceSpec) bool {
-	if spec.Router == nil || spec.Router.Scheduler == nil || spec.Router.Scheduler.Config == nil || spec.Router.Scheduler.Config.Inline == nil {
+	raw, ok := inlineSchedulerConfigBytes(spec)
+	if !ok {
 		return false
 	}
 	u := unstructured.Unstructured{}
-	if err := yaml.Unmarshal(spec.Router.Scheduler.Config.Inline.Raw, &u.Object); err != nil {
+	if err := yaml.Unmarshal(raw, &u.Object); err != nil {
 		return false
 	}
 	return hasPluginType(u.Object, tokenProducerPlugin)
@@ -108,11 +135,12 @@ func hasTokenProducerPlugin(spec v1alpha2.LLMInferenceServiceSpec) bool {
 // hasPrecisePrefixCachePlugin checks if the scheduler config contains the legacy
 // precise-prefix-cache-scorer plugin (migration trigger).
 func hasPrecisePrefixCachePlugin(spec v1alpha2.LLMInferenceServiceSpec) bool {
-	if spec.Router == nil || spec.Router.Scheduler == nil || spec.Router.Scheduler.Config == nil || spec.Router.Scheduler.Config.Inline == nil {
+	raw, ok := inlineSchedulerConfigBytes(spec)
+	if !ok {
 		return false
 	}
 	u := unstructured.Unstructured{}
-	if err := yaml.Unmarshal(spec.Router.Scheduler.Config.Inline.Raw, &u.Object); err != nil {
+	if err := yaml.Unmarshal(raw, &u.Object); err != nil {
 		return false
 	}
 	return hasPluginType(u.Object, precisePrefixCacheScorerPlugin)

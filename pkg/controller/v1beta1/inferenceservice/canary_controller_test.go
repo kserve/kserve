@@ -24,6 +24,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -365,6 +366,44 @@ var _ = Describe("Canary deployment controller", func() {
 				}
 				return *deploy.Spec.Replicas
 			}, timeout, interval).Should(Equal(int32(1)))
+		})
+	})
+
+	Context("When the canary uses an HPA autoscaler", func() {
+		It("Should set an owner reference on the canary HPA so it is garbage-collected with the ISVC", func() {
+			configMap := createInferenceServiceConfigMap(configs)
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			servingRuntime := getServingRuntime("tf-canary-hpa", "default")
+			Expect(k8sClient.Create(context.TODO(), &servingRuntime)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), &servingRuntime)
+
+			serviceName := "canary-hpa-test"
+			ctx := context.Background()
+
+			isvc := makeCanaryISVC(serviceName, "default", "s3://test/model-v1", 4,
+				[]v1beta1.CanarySpec{makeCanary("v2", 25, "s3://test/model-v2")})
+			// Use the HPA autoscaler class so an HPA is actually created for the canary.
+			isvc.Annotations = getDefaultAnnotations(constants.AutoscalerClassHPA)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, isvc)
+
+			canaryHPAKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceName, "v2"), Namespace: "default"}
+
+			// Wait for the canary HPA to be created.
+			actualHPA := &autoscalingv2.HorizontalPodAutoscaler{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, canaryHPAKey, actualHPA)
+			}, timeout, interval).Should(Succeed())
+
+			// The canary HPA must be owned by the InferenceService; otherwise it is
+			// orphaned and never garbage-collected when the ISVC is deleted.
+			controllerRef := metav1.GetControllerOf(actualHPA)
+			Expect(controllerRef).NotTo(BeNil(), "canary HPA has no controller owner reference (orphaned)")
+			Expect(controllerRef.Kind).To(Equal("InferenceService"))
+			Expect(controllerRef.Name).To(Equal(serviceName))
 		})
 	})
 
