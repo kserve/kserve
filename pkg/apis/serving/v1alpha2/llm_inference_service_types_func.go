@@ -18,6 +18,7 @@ package v1alpha2
 
 import (
 	"fmt"
+	"errors"
 	"strings"
 
 	"k8s.io/utils/ptr"
