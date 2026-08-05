@@ -71,7 +71,8 @@ type KserveSpec struct {
 	// Enabled by default.
 	EnableLLMInferenceServiceConsoleDashboards *bool `json:"enableLLMInferenceServiceConsoleDashboards,omitempty"`
 
-	ModelCache *ModelCacheSpec `json:"modelCache,omitempty"`
+	ModelCache    *ModelCacheSpec   `json:"modelCache,omitempty"`
+	ModelRegistry ModelRegistrySpec `json:"modelRegistry,omitempty"`
 }
 
 type NIMSpec struct {
@@ -82,6 +83,12 @@ type NIMSpec struct {
 }
 
 type WVASpec struct {
+	// +kubebuilder:validation:Enum=Managed;Removed
+	// +kubebuilder:default=Removed
+	ManagementState common.ManagementState `json:"managementState,omitempty"`
+}
+
+type ModelRegistrySpec struct {
 	// +kubebuilder:validation:Enum=Managed;Removed
 	// +kubebuilder:default=Removed
 	ManagementState common.ManagementState `json:"managementState,omitempty"`

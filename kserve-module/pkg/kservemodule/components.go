@@ -190,15 +190,21 @@ func isWVAEnabled(kserve *platformv1alpha1.Kserve) bool {
 
 func modelControllerExtraParams(kserve *platformv1alpha1.Kserve) map[string]string {
 	nimState := string(common.Removed)
+	modelRegistryState := string(common.Removed)
 	if platformv1alpha1.GetManagementState(kserve) == common.Managed {
 		nimState = string(kserve.Spec.NIM.ManagementState)
 		if nimState == "" {
 			nimState = string(common.Managed)
 		}
+		modelRegistryState = string(kserve.Spec.ModelRegistry.ManagementState)
+		if modelRegistryState == "" {
+			modelRegistryState = string(common.Removed)
+		}
 	}
 	return map[string]string{
-		"nim-state":    strings.ToLower(nimState),
-		"kserve-state": strings.ToLower(string(platformv1alpha1.GetManagementState(kserve))),
+		"nim-state":           strings.ToLower(nimState),
+		"kserve-state":        strings.ToLower(string(platformv1alpha1.GetManagementState(kserve))),
+		"modelregistry-state": strings.ToLower(modelRegistryState),
 	}
 }
 

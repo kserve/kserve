@@ -90,32 +90,58 @@ func TestComponentsConfig_ConsoleDashboardsRegistration(t *testing.T) {
 
 func TestModelControllerExtraParams(t *testing.T) {
 	tests := []struct {
-		name           string
-		kserveState    common.ManagementState
-		nimState       common.ManagementState
-		expectedNIM    string
-		expectedKserve string
+		name               string
+		kserveState        common.ManagementState
+		nimState           common.ManagementState
+		modelRegistryState common.ManagementState
+		expectedNIM        string
+		expectedKserve     string
+		expectedMR         string
 	}{
 		{
-			name:           "Kserve Managed + NIM Managed",
-			kserveState:    common.Managed,
-			nimState:       common.Managed,
-			expectedNIM:    "managed",
-			expectedKserve: "managed",
+			name:               "Kserve Managed + NIM Managed + MR Managed",
+			kserveState:        common.Managed,
+			nimState:           common.Managed,
+			modelRegistryState: common.Managed,
+			expectedNIM:        "managed",
+			expectedKserve:     "managed",
+			expectedMR:         "managed",
 		},
 		{
-			name:           "Kserve Managed + NIM Removed",
-			kserveState:    common.Managed,
-			nimState:       common.Removed,
-			expectedNIM:    "removed",
-			expectedKserve: "managed",
+			name:               "Kserve Managed + NIM Removed + MR Removed",
+			kserveState:        common.Managed,
+			nimState:           common.Removed,
+			modelRegistryState: common.Removed,
+			expectedNIM:        "removed",
+			expectedKserve:     "managed",
+			expectedMR:         "removed",
 		},
 		{
-			name:           "Kserve Managed + NIM empty defaults to managed",
-			kserveState:    common.Managed,
-			nimState:       "",
-			expectedNIM:    "managed",
-			expectedKserve: "managed",
+			name:               "Kserve Managed + NIM empty defaults to managed",
+			kserveState:        common.Managed,
+			nimState:           "",
+			modelRegistryState: common.Managed,
+			expectedNIM:        "managed",
+			expectedKserve:     "managed",
+			expectedMR:         "managed",
+		},
+		{
+			name:               "Kserve Managed + MR empty defaults to removed",
+			kserveState:        common.Managed,
+			nimState:           common.Managed,
+			modelRegistryState: "",
+			expectedNIM:        "managed",
+			expectedKserve:     "managed",
+			expectedMR:         "removed",
+		},
+		{
+			name:               "Kserve Removed forces MR to removed",
+			kserveState:        common.Removed,
+			nimState:           common.Managed,
+			modelRegistryState: common.Managed,
+			expectedNIM:        "removed",
+			expectedKserve:     "removed",
+			expectedMR:         "removed",
 		},
 	}
 
@@ -130,11 +156,15 @@ func TestModelControllerExtraParams(t *testing.T) {
 					NIM: platformv1alpha1.NIMSpec{
 						ManagementState: tt.nimState,
 					},
+					ModelRegistry: platformv1alpha1.ModelRegistrySpec{
+						ManagementState: tt.modelRegistryState,
+					},
 				},
 			}
 			params := modelControllerExtraParams(kserve)
 			g.Expect(params["nim-state"]).To(Equal(tt.expectedNIM))
 			g.Expect(params["kserve-state"]).To(Equal(tt.expectedKserve))
+			g.Expect(params["modelregistry-state"]).To(Equal(tt.expectedMR))
 		})
 	}
 }
