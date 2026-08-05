@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import yaml
+
 _CRD_REF_RE = re.compile(r"(\w+)\.serving\.kserve\.io")
 
 _CRD_KIND_RE = re.compile(r"^kind:\s+(\w+)", re.MULTILINE)
@@ -19,13 +21,16 @@ _initialized = False
 
 
 def _load_yaml(path: Path) -> dict | None:
-    """Load a YAML file, using PyYAML if available, otherwise skip."""
-    try:
-        import yaml
+    """Load a YAML file, returning None only on file/parse errors.
 
+    A missing PyYAML dependency is a hard failure (raised at import time),
+    never silently swallowed - otherwise the CRD tables build empty and every
+    config/chart file conservatively escalates to running all tests.
+    """
+    try:
         with open(path) as f:
             return yaml.safe_load(f)
-    except Exception:
+    except (OSError, yaml.YAMLError):
         return None
 
 

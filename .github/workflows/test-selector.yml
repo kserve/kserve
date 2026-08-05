@@ -40,7 +40,7 @@ jobs:
           python-version: "3.10"
 
       - name: Install test dependencies
-        run: pip install pytest
+        run: pip install pytest -r tools/test_selector/requirements.txt
 
       - name: Run test_selector unit tests
         run: PYTHONPATH=tools python -m pytest tools/test_selector/tests/ -v
