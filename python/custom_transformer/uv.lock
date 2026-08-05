@@ -412,7 +412,7 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "black", extras = ["colorama"], specifier = ">=26.3.1" }]
+dev = [{ name = "black", extras = ["colorama"], specifier = ">=26.3.1,<27" }]
 test = [
     { name = "mypy", specifier = ">=0.991,<1.0" },
     { name = "pytest", specifier = ">=7.4.4,<8.0.0" },
@@ -821,7 +821,7 @@ requires-dist = [
 provides-extras = ["storage", "logging", "ray", "llm"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "black", extras = ["colorama"], specifier = ">=26.3.1" }]
+dev = [{ name = "black", extras = ["colorama"], specifier = ">=26.3.1,<27" }]
 test = [
     { name = "avro", specifier = ">=1.11.0,<2.0.0" },
     { name = "boto3", specifier = ">=1.35.0,<2.0.0" },

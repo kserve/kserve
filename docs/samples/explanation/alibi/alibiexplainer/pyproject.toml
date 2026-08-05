@@ -32,7 +32,7 @@ test = [
     "mypy>=0.991,<1.0",
 ]
 dev = [
-    "black[colorama]>=26.3.1",
+    "black[colorama]>=26.3.1,<27",
 ]
 
 [tool.uv.sources]

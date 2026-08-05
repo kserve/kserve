@@ -29,7 +29,7 @@ test = [
     "pytest-asyncio<1.0.0,>=0.23.4",
 ]
 dev = [
-    "black[colorama]>=26.3.1",
+    "black[colorama]>=26.3.1,<27",
 ]
 
 [tool.uv.sources]
