@@ -166,11 +166,19 @@ jobs:
           docker build -t kserve/opt-125m-cache:${{ env.TAG }} -f /tmp/Dockerfile /tmp/model-cache
           docker save kserve/opt-125m-cache:${{ env.TAG }} -o /tmp/opt-125m-cache.tar
 
+      - name: Package model as OCI modelcar image
+        run: |
+          printf 'FROM busybox\nCOPY . /models\n' > /tmp/Dockerfile.modelcar
+          docker build -t kserve/opt-125m-modelcar:${{ env.TAG }} -f /tmp/Dockerfile.modelcar /tmp/model-cache
+          docker save kserve/opt-125m-modelcar:${{ env.TAG }} -o /tmp/opt-125m-modelcar.tar
+
       - name: Upload model cache artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: opt-125m-model-cache-${{ env.TAG }}
-          path: /tmp/opt-125m-cache.tar
+          path: |
+            /tmp/opt-125m-cache.tar
+            /tmp/opt-125m-modelcar.tar
           compression-level: 0
           if-no-files-found: error
 
@@ -256,6 +264,8 @@ jobs:
         run: |
           minikube image load ./tmp/opt-125m-cache.tar
           echo "OPT_125M_CACHE_IMAGE=kserve/opt-125m-cache:${{ env.TAG }}" >> $GITHUB_ENV
+          minikube image load ./tmp/opt-125m-modelcar.tar
+          echo "OPT_125M_OCI_MODEL_URI=oci://kserve/opt-125m-modelcar:${{ env.TAG }}" >> $GITHUB_ENV
 
       - name: Download vLLM CPU image artifact
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0

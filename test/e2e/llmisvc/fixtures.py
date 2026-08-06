@@ -37,7 +37,8 @@ SCHEDULER_CONFIGMAP_KEY = "epp"
 
 OPT_125M_MODEL_URI = os.environ.get("OPT_125M_MODEL_URI", "hf://facebook/opt-125m")
 OPT_125M_OCI_MODEL_URI = os.environ.get(
-    "OPT_125M_OCI_MODEL_URI", "oci://ghcr.io/kserve/opt-125m-modelcar:latest"
+    "OPT_125M_OCI_MODEL_URI",
+    f"oci://kserve/opt-125m-modelcar:{os.environ.get('TAG', 'latest')}",
 )
 VLLM_CPU_IMAGE = os.environ.get("VLLM_CPU_IMAGE", "vllm/vllm-openai-cpu:v0.19.0")
 
