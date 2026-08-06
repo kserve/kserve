@@ -1778,7 +1778,7 @@ spec:
     - --model_name={{.Name}}
     - --model_dir=/mnt/models
     - --http_port=8080
-    image: kserve/autogluonserver:latest
+    image: kserve/autogluonserver:v0.20.0
     name: kserve-container
     resources:
       limits:
@@ -1819,7 +1819,7 @@ spec:
     env:
     - name: LMCACHE_USE_EXPERIMENTAL
       value: "True"
-    image: kserve/huggingfaceserver:latest
+    image: kserve/huggingfaceserver:v0.20.0
     name: kserve-container
     resources:
       limits:
@@ -1890,7 +1890,7 @@ spec:
       value: /tmp
     - name: HF_HUB_CACHE
       value: /tmp
-    image: kserve/huggingfaceserver:latest-gpu
+    image: kserve/huggingfaceserver:v0.20.0-gpu
     livenessProbe:
       exec:
         command:
@@ -1974,7 +1974,7 @@ spec:
         valueFrom:
           fieldRef:
             fieldPath: metadata.namespace
-      image: kserve/huggingfaceserver:latest-gpu
+      image: kserve/huggingfaceserver:v0.20.0-gpu
       livenessProbe:
         exec:
           command:
@@ -2036,7 +2036,7 @@ spec:
     - --model_dir=/mnt/models
     - --http_port=8080
     - --nthread=1
-    image: kserve/lgbserver:latest
+    image: kserve/lgbserver:v0.20.0
     name: kserve-container
     resources:
       limits:
@@ -2146,7 +2146,7 @@ spec:
     - --model_name={{.Name}}
     - --model_dir=/mnt/models
     - --http_port=8080
-    image: kserve/paddleserver:latest
+    image: kserve/paddleserver:v0.20.0
     name: kserve-container
     resources:
       limits:
@@ -2186,7 +2186,7 @@ spec:
     - --model_name={{.Name}}
     - --model_dir=/mnt/models
     - --http_port=8080
-    image: kserve/pmmlserver:latest
+    image: kserve/pmmlserver:v0.20.0
     name: kserve-container
     resources:
       limits:
@@ -2232,7 +2232,7 @@ spec:
     - --http_port=8080
     - --framework={{.Annotations.modelFormat}}
     - --nthread=1
-    image: kserve/predictiveserver:latest
+    image: kserve/predictiveserver:v0.20.0
     name: kserve-container
     resources:
       limits:
@@ -2281,7 +2281,7 @@ spec:
     - --model_name={{.Name}}
     - --model_dir=/mnt/models
     - --http_port=8080
-    image: kserve/sklearnserver:latest
+    image: kserve/sklearnserver:v0.20.0
     name: kserve-container
     resources:
       limits:
@@ -2491,7 +2491,7 @@ spec:
       value: /tmp
     - name: VLLM_WORKER_MULTIPROC_METHOD
       value: spawn
-    image: vllm/vllm-openai:latest
+    image: vllm/vllm-openai:v0.20.0
     name: kserve-container
     readinessProbe:
       failureThreshold: 3
@@ -2553,7 +2553,7 @@ spec:
     - --model_dir=/mnt/models
     - --http_port=8080
     - --nthread=1
-    image: kserve/xgbserver:latest
+    image: kserve/xgbserver:v0.20.0
     name: kserve-container
     resources:
       limits:
@@ -108381,7 +108381,7 @@ data:
      # Example
      storageInitializer: |-
        {
-           "image" : "kserve/storage-initializer:latest",
+           "image" : "kserve/storage-initializer:v0.20.0",
            "memoryRequest": "100Mi",
            "memoryLimit": "1Gi",
            "cpuRequest": "100m",
@@ -108397,7 +108397,7 @@ data:
      storageInitializer: |-
        {
            # image contains the default storage initializer image uri.
-           "image" : "kserve/storage-initializer:latest",
+           "image" : "kserve/storage-initializer:v0.20.0",
 
            # memoryRequest is the requests.memory to set for the storage initializer init container.
            "memoryRequest": "100Mi",
@@ -108640,7 +108640,7 @@ data:
      # Example
      logger: |-
        {
-           "image" : "kserve/agent:latest",
+           "image" : "kserve/agent:v0.20.0",
            "memoryRequest": "100Mi",
            "memoryLimit": "1Gi",
            "cpuRequest": "100m",
@@ -108650,7 +108650,7 @@ data:
      logger: |-
        {
            # image contains the default logger image uri.
-           "image" : "kserve/agent:latest",
+           "image" : "kserve/agent:v0.20.0",
 
            # memoryRequest is the requests.memory to set for the logger container.
            "memoryRequest": "100Mi",
@@ -108672,7 +108672,7 @@ data:
      # Example
      batcher: |-
        {
-           "image" : "kserve/agent:latest",
+           "image" : "kserve/agent:v0.20.0",
            "memoryRequest": "1Gi",
            "memoryLimit": "1Gi",
            "cpuRequest": "1",
@@ -108683,7 +108683,7 @@ data:
      batcher: |-
        {
            # image contains the default batcher image uri.
-           "image" : "kserve/agent:latest",
+           "image" : "kserve/agent:v0.20.0",
 
            # memoryRequest is the requests.memory to set for the batcher container.
            "memoryRequest": "1Gi",
@@ -108708,7 +108708,7 @@ data:
      # Example
      agent: |-
        {
-           "image" : "kserve/agent:latest",
+           "image" : "kserve/agent:v0.20.0",
            "memoryRequest": "100Mi",
            "memoryLimit": "1Gi",
            "cpuRequest": "100m",
@@ -108717,7 +108717,7 @@ data:
      agent: |-
        {
            # image contains the default agent image uri.
-           "image" : "kserve/agent:latest",
+           "image" : "kserve/agent:v0.20.0",
 
            # memoryRequest is the requests.memory to set for the agent container.
            "memoryRequest": "100Mi",
@@ -108736,7 +108736,7 @@ data:
      # Example
      router: |-
        {
-           "image" : "kserve/router:latest",
+           "image" : "kserve/router:v0.20.0",
            "memoryRequest": "100Mi",
            "memoryLimit": "1Gi",
            "cpuRequest": "100m",
@@ -108751,7 +108751,7 @@ data:
      router: |-
        {
            # image contains the default router image uri.
-           "image" : "kserve/router:latest",
+           "image" : "kserve/router:v0.20.0",
 
            # memoryRequest is the requests.memory to set for the router container.
            "memoryRequest": "100Mi",
@@ -108859,7 +108859,7 @@ data:
          # jobNamespace specifies the namespace where the download job will be created.
          "jobNamespace": "kserve-localmodel-jobs",
          # defaultJobImage specifies the default image used for the download job.
-         "defaultJobImage" : "kserve/storage-initializer:latest",
+         "defaultJobImage" : "kserve/storage-initializer:v0.20.0",
          # Kubernetes modifies the filesystem group ID on the attached volume.
          "fsGroup": 1000,
          # TTL for the download job after it is finished.
@@ -108872,7 +108872,7 @@ data:
        }
   agent: |-
     {
-        "image" : "kserve/agent:latest",
+        "image" : "kserve/agent:v0.20.0",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -108885,7 +108885,7 @@ data:
     }
   batcher: |-
     {
-        "image" : "kserve/agent:latest",
+        "image" : "kserve/agent:v0.20.0",
         "memoryRequest": "1Gi",
         "memoryLimit": "1Gi",
         "cpuRequest": "1",
@@ -108953,7 +108953,7 @@ data:
     {
       "enabled": false,
       "jobNamespace": "kserve-localmodel-jobs",
-      "defaultJobImage" : "kserve/storage-initializer:latest",
+      "defaultJobImage" : "kserve/storage-initializer:v0.20.0",
       "fsGroup": 1000,
       "jobTTLSecondsAfterFinished": 3600,
       "reconcilationFrequencyInSecs": 60,
@@ -108961,7 +108961,7 @@ data:
     }
   logger: |-
     {
-        "image" : "kserve/agent:latest",
+        "image" : "kserve/agent:v0.20.0",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -108987,7 +108987,7 @@ data:
     }
   router: |-
     {
-        "image" : "kserve/router:latest",
+        "image" : "kserve/router:v0.20.0",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -109000,7 +109000,7 @@ data:
     }
   storageInitializer: |-
     {
-        "image" : "kserve/storage-initializer:latest",
+        "image" : "kserve/storage-initializer:v0.20.0",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -109085,7 +109085,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        image: kserve/llmisvc-controller:latest
+        image: kserve/llmisvc-controller:v0.20.0
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 5
@@ -109174,7 +109174,7 @@ metadata:
   namespace: kserve
 spec:
   container:
-    image: kserve/storage-initializer:latest
+    image: kserve/storage-initializer:v0.20.0
     imagePullPolicy: IfNotPresent
     name: storage-initializer
     resources:
