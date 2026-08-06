@@ -35,7 +35,7 @@ var _ = Describe("Merge Append Lists", func() {
 		It("should append container args from the override config to the base config args", func(ctx SpecContext) {
 			// given
 			svcName := "append-args"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			baseConfig := LLMInferenceServiceConfig("base-workload",
 				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
