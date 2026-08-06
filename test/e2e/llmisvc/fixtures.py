@@ -1348,6 +1348,24 @@ LLMINFERENCESERVICE_CONFIGS = {
             },
         }
     },
+    "scaling-direct-keda": {
+        "scaling": {
+            "minReplicas": 1,
+            "maxReplicas": 3,
+            "keda": {
+                "pollingInterval": 5,
+                "cooldownPeriod": 10,
+                "initialCooldownPeriod": 0,
+                "triggers": [
+                    {
+                        "type": "cpu",
+                        "metricType": "Utilization",
+                        "metadata": {"value": "50"},
+                    }
+                ],
+            },
+        }
+    },
     "scaling-prefill-hpa": {
         "prefill": {
             "scaling": {

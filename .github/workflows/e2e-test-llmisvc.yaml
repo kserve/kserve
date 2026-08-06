@@ -41,6 +41,7 @@ jobs:
 
   detect-changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       install_methods: ${{ steps.set-matrix.outputs.install_methods }}
     steps:
@@ -77,6 +78,7 @@ jobs:
 
   llmisvc-image-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -127,6 +129,7 @@ jobs:
 
   seed-model-cache:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [llmisvc-image-build]
     steps:
       - name: Checkout source
@@ -176,6 +179,7 @@ jobs:
 
   seed-image-cache:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Pull and save vLLM CPU image
         run: |
@@ -192,6 +196,7 @@ jobs:
 
   test-llmisvc:
     runs-on: cncf-ubuntu-16-64-x86
+    timeout-minutes: 125
     needs: [detect-changes, llmisvc-image-build, seed-model-cache, seed-image-cache]
     strategy:
       fail-fast: false
@@ -333,6 +338,7 @@ jobs:
 
   test-llmisvc-wva-autoscaling-hpa:
     runs-on: cncf-ubuntu-16-64-x86
+    timeout-minutes: 25
     needs: [detect-changes, llmisvc-image-build, seed-model-cache, seed-image-cache]
     strategy:
       fail-fast: false
@@ -438,6 +444,7 @@ jobs:
 
   test-llmisvc-wva-autoscaling-keda:
     runs-on: cncf-ubuntu-16-64-x86
+    timeout-minutes: 30
     needs: [detect-changes, llmisvc-image-build, seed-model-cache, seed-image-cache]
     strategy:
       fail-fast: false
@@ -544,6 +551,7 @@ jobs:
 
   test-llmisvc-tracing:
     runs-on: cncf-ubuntu-16-64-x86
+    timeout-minutes: 25
     needs: [detect-changes, llmisvc-image-build]
     strategy:
       fail-fast: false
