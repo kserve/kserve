@@ -136,48 +136,67 @@ func TestLLMISVCReferencesNamespaceCache_MalformedLoRAAnnotation(t *testing.T) {
 }
 
 func TestLLMISVCClusterCacheNames(t *testing.T) {
-	baseOnly := LLMISVCClusterCacheNames(
-		map[string]string{constants.LocalModelLabel: "base-cache"},
-		nil,
-	)
-	assert.Equal(t, []string{"base-cache"}, baseOnly)
+	t.Parallel()
 
-	loraOnly := LLMISVCClusterCacheNames(
-		nil,
-		map[string]string{
-			constants.LocalModelLoRAAnnotationKey: `{"a":{"cache":"adapter-cache","sourceUri":"hf://x"}}`,
-		},
-	)
-	assert.Equal(t, []string{"adapter-cache"}, loraOnly)
+	t.Run("base model label only", func(t *testing.T) {
+		t.Parallel()
+		got := LLMISVCClusterCacheNames(
+			map[string]string{constants.LocalModelLabel: "base-cache"},
+			nil,
+		)
+		assert.Equal(t, []string{"base-cache"}, got)
+	})
 
-	nsBase := LLMISVCClusterCacheNames(
-		map[string]string{
-			constants.LocalModelLabel:          "ns-cache",
-			constants.LocalModelNamespaceLabel: "default",
-		},
-		nil,
-	)
-	assert.Empty(t, nsBase)
+	t.Run("lora annotation only", func(t *testing.T) {
+		t.Parallel()
+		got := LLMISVCClusterCacheNames(
+			nil,
+			map[string]string{
+				constants.LocalModelLoRAAnnotationKey: `{"a":{"cache":"adapter-cache","sourceUri":"hf://x"}}`,
+			},
+		)
+		assert.Equal(t, []string{"adapter-cache"}, got)
+	})
 
-	mixed := LLMISVCClusterCacheNames(
-		map[string]string{constants.LocalModelLabel: "base-cache"},
-		map[string]string{
-			constants.LocalModelLoRAAnnotationKey: `{"a":{"cache":"adapter-cache","sourceUri":"hf://x"}}`,
-		},
-	)
-	assert.Equal(t, []string{"adapter-cache", "base-cache"}, mixed)
+	t.Run("namespace scoped base excluded", func(t *testing.T) {
+		t.Parallel()
+		got := LLMISVCClusterCacheNames(
+			map[string]string{
+				constants.LocalModelLabel:          "ns-cache",
+				constants.LocalModelNamespaceLabel: "default",
+			},
+			nil,
+		)
+		assert.Empty(t, got)
+	})
+
+	t.Run("base and lora combined", func(t *testing.T) {
+		t.Parallel()
+		got := LLMISVCClusterCacheNames(
+			map[string]string{constants.LocalModelLabel: "base-cache"},
+			map[string]string{
+				constants.LocalModelLoRAAnnotationKey: `{"a":{"cache":"adapter-cache","sourceUri":"hf://x"}}`,
+			},
+		)
+		assert.Equal(t, []string{"adapter-cache", "base-cache"}, got)
+	})
 }
 
 func TestLLMISVCNamespaceCacheNames(t *testing.T) {
-	names := LLMISVCNamespaceCacheNames(
-		"default",
-		map[string]string{
-			constants.LocalModelLabel:          "ns-cache",
-			constants.LocalModelNamespaceLabel: "default",
-		},
-		map[string]string{
-			constants.LocalModelLoRAAnnotationKey: `{"a":{"cache":"adapter-ns-cache","namespace":"default","sourceUri":"hf://x"}}`,
-		},
-	)
-	assert.Equal(t, []string{"adapter-ns-cache", "ns-cache"}, names)
+	t.Parallel()
+
+	t.Run("base and lora namespace caches", func(t *testing.T) {
+		t.Parallel()
+		got := LLMISVCNamespaceCacheNames(
+			"default",
+			map[string]string{
+				constants.LocalModelLabel:          "ns-cache",
+				constants.LocalModelNamespaceLabel: "default",
+			},
+			map[string]string{
+				constants.LocalModelLoRAAnnotationKey: `{"a":{"cache":"adapter-ns-cache","namespace":"default","sourceUri":"hf://x"}}`,
+			},
+		)
+		assert.Equal(t, []string{"adapter-ns-cache", "ns-cache"}, got)
+	})
 }

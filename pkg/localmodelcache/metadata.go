@@ -254,6 +254,7 @@ func uniqueSorted(names []string) []string {
 	if len(names) == 0 {
 		return nil
 	}
+	names = slices.Clone(names)
 	slices.Sort(names)
 	return slices.Compact(names)
 }
