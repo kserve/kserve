@@ -14,15 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Install KServe Knative Mode and all related dependencies with manifests included in the script.
+# Install KServe Standard Mode, LLMISvc, and all related dependencies with manifests included in the script.
 #
-# AUTO-GENERATED from: kserve-knative-mode-full-install-with-manifests.definition
+# AUTO-GENERATED from: kserve-standard-mode-full-install-with-manifests.definition
 # DO NOT EDIT MANUALLY
 #
 # To regenerate:
-#   ./scripts/generate-install-script.py kserve-knative-mode-full-install-with-manifests.definition
+#   ./scripts/generate-install-script.py kserve-standard-mode-full-install-with-manifests.definition
 #
-# Usage: kserve-knative-mode-full-install-with-manifests.sh [--reinstall|--uninstall]
+# Usage: kserve-standard-mode-full-install-with-manifests.sh [--reinstall|--uninstall]
 
 set -o errexit
 set -o nounset
@@ -692,8 +692,6 @@ KSERVE_CUSTOM_ISVC_CONFIGS="${KSERVE_CUSTOM_ISVC_CONFIGS:-}"
 # Component-Specific Variables
 #================================================
 
-NETWORK_LAYER="${NETWORK_LAYER:-istio}"
-TEMPLATE_DIR="${SCRIPT_DIR}/templates"
 SET_KSERVE_VERSION="${SET_KSERVE_VERSION:-}"
 SET_KSERVE_REGISTRY="${SET_KSERVE_REGISTRY:-}"
 ENABLE_KSERVE="${ENABLE_KSERVE:-${KSERVE:-true}}"
@@ -714,209 +712,6 @@ TARGET_CRDS_TO_VERIFY=()
 #================================================
 # Template Functions (EMBED_TEMPLATES MODE)
 #================================================
-
-# ============================================================================
-# Template Functions: knative-operator
-# ============================================================================
-
-get_knative_serving_istio() {
-    cat <<'KNATIVE_SERVING_ISTIO_EOF'
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: knative-serving
----
-apiVersion: operator.knative.dev/v1beta1
-kind: KnativeServing
-metadata:
-  name: knative-serving
-  namespace: knative-serving
-spec:
-  version: "1.21.1"
-  config:
-    deployment:
-      # Skip tag resolution for certain domains
-      registries-skipping-tag-resolving: "nvcr.io,index.docker.io"
-    domain:
-      # Patch the external domain as the default domain svc.cluster.local is not exposed on ingress (from knative 1.8)
-      example.com: ""
-  workloads:
-    - name: controller
-      resources:
-        - container: controller
-          requests:
-            cpu: 5m
-            memory: 32Mi
-          limits:
-            cpu: 100m
-            memory: 128Mi
-    - name: activator
-      resources:
-        - container: activator
-          requests:
-            cpu: 5m
-            memory: 32Mi
-          limits:
-            cpu: 100m
-            memory: 128Mi
-    - name: autoscaler
-      resources:
-        - container: autoscaler
-          requests:
-            cpu: 5m
-            memory: 32Mi
-          limits:
-            cpu: 100m
-            memory: 128Mi
-    - name: domain-mapping
-      resources:
-        - container: domain-mapping
-          requests:
-            cpu: 5m
-            memory: 32Mi
-          limits:
-            cpu: 100m
-            memory: 128Mi
-    - name: webhook
-      resources:
-        - container: webhook
-          requests:
-            cpu: 5m
-            memory: 32Mi
-          limits:
-            cpu: 100m
-            memory: 128Mi
-    - name: domainmapping-webhook
-      resources:
-        - container: domainmapping-webhook
-          requests:
-            cpu: 5m
-            memory: 32Mi
-          limits:
-            cpu: 100m
-            memory: 128Mi
-    - name: net-istio-controller
-      resources:
-        - container: controller
-          requests:
-            cpu: 5m
-            memory: 32Mi
-          limits:
-            cpu: 100m
-            memory: 128Mi
-    - name: net-istio-webhook
-      resources:
-        - container: webhook
-          requests:
-            cpu: 5m
-            memory: 32Mi
-          limits:
-            cpu: 100m
-            memory: 128Mi
-KNATIVE_SERVING_ISTIO_EOF
-}
-
-get_knative_serving_kourier() {
-    cat <<'KNATIVE_SERVING_KOURIER_EOF'
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: knative-serving
----
-apiVersion: operator.knative.dev/v1beta1
-kind: KnativeServing
-metadata:
-  name: knative-serving
-  namespace: knative-serving
-spec:
-  version: "1.21.1"
-  ingress:
-    kourier:
-      enabled: true
-  config:
-    network:
-      ingress-class: "kourier.ingress.networking.knative.dev"
-    deployment:
-      # Skip tag resolution for certain domains
-      registries-skipping-tag-resolving: "nvcr.io,index.docker.io"
-    domain:
-      # Patch the external domain as the default domain svc.cluster.local is not exposed on ingress (from knative 1.8)
-      example.com: ""
-  workloads:
-    - name: controller
-      resources:
-        - container: controller
-          requests:
-            cpu: 5m
-            memory: 32Mi
-          limits:
-            cpu: 100m
-            memory: 128Mi
-    - name: activator
-      resources:
-        - container: activator
-          requests:
-            cpu: 5m
-            memory: 32Mi
-          limits:
-            cpu: 100m
-            memory: 128Mi
-    - name: autoscaler
-      resources:
-        - container: autoscaler
-          requests:
-            cpu: 5m
-            memory: 32Mi
-          limits:
-            cpu: 100m
-            memory: 128Mi
-    - name: domain-mapping
-      resources:
-        - container: domain-mapping
-          requests:
-            cpu: 5m
-            memory: 32Mi
-          limits:
-            cpu: 100m
-            memory: 128Mi
-    - name: webhook
-      resources:
-        - container: webhook
-          requests:
-            cpu: 5m
-            memory: 32Mi
-          limits:
-            cpu: 100m
-            memory: 128Mi
-    - name: domainmapping-webhook
-      resources:
-        - container: domainmapping-webhook
-          requests:
-            cpu: 5m
-            memory: 32Mi
-          limits:
-            cpu: 100m
-            memory: 128Mi
-    - name: net-kourier-controller
-      resources:
-        - container: controller
-          requests:
-            cpu: 5m
-            memory: 32Mi
-          limits:
-            cpu: 100m
-            memory: 128Mi
-    - name: 3scale-kourier-gateway
-      resources:
-        - container: kourier-gateway
-          requests:
-            cpu: 200m
-            memory: 200Mi
-          limits:
-            cpu: 300m
-            memory: 500Mi
-KNATIVE_SERVING_KOURIER_EOF
-}
 
 
 
@@ -1137,210 +932,6 @@ install_cert_manager() {
 }
 
 # ----------------------------------------
-# CLI/Component: istio
-# ----------------------------------------
-
-uninstall_istio() {
-    log_info "Uninstalling Istio..."
-    helm uninstall istio-ingressgateway -n "${ISTIO_NAMESPACE}" 2>/dev/null || true
-    helm uninstall istiod -n "${ISTIO_NAMESPACE}" 2>/dev/null || true
-    helm uninstall istio-base -n "${ISTIO_NAMESPACE}" 2>/dev/null || true
-    kubectl delete all --all -n "${ISTIO_NAMESPACE}" --force --grace-period=0 2>/dev/null || true
-    kubectl delete namespace "${ISTIO_NAMESPACE}" --wait=true --timeout=60s --force --grace-period=0 2>/dev/null || true
-    log_success "Istio uninstalled"
-}
-
-install_istio() {
-    if helm list -n "${ISTIO_NAMESPACE}" 2>/dev/null | grep -q "istio-base"; then
-        if [ "$REINSTALL" = false ]; then
-            log_info "Istio is already installed. Use --reinstall to reinstall."
-            return 0
-        else
-            log_info "Reinstalling Istio..."
-            uninstall_istio
-        fi
-    fi
-
-    log_info "Adding Istio Helm repository..."
-    helm repo add istio https://istio-release.storage.googleapis.com/charts --force-update
-
-    log_info "Installing istio-base ${ISTIO_VERSION}..."
-    helm install istio-base istio/base \
-        --namespace "${ISTIO_NAMESPACE}" \
-        --create-namespace \
-        --version "${ISTIO_VERSION}" \
-        --set defaultRevision=default \
-        --wait \
-        ${ISTIO_BASE_EXTRA_ARGS:-}
-
-    log_info "Installing istiod ${ISTIO_VERSION}..."
-    helm install istiod istio/istiod \
-        --namespace "${ISTIO_NAMESPACE}" \
-        --version "${ISTIO_VERSION}" \
-        --set proxy.autoInject=disabled \
-        --set pilot.env.ENABLE_GATEWAY_API_INFERENCE_EXTENSION=true \
-        --set-string pilot.podAnnotations."cluster-autoscaler\.kubernetes\.io/safe-to-evict"=true \
-        --wait \
-        ${ISTIOD_EXTRA_ARGS:-}
-
-    log_info "Installing istio-ingressgateway ${ISTIO_VERSION}..."
-    helm install istio-ingressgateway istio/gateway \
-        --namespace "${ISTIO_NAMESPACE}" \
-        --version "${ISTIO_VERSION}" \
-        --set-string podAnnotations."cluster-autoscaler\.kubernetes\.io/safe-to-evict"=true \
-        ${ISTIO_GATEWAY_EXTRA_ARGS:-}
-
-    log_success "Successfully installed Istio ${ISTIO_VERSION} via Helm"
-
-    wait_for_pods "${ISTIO_NAMESPACE}" "app=istiod" "600s"
-    wait_for_pods "${ISTIO_NAMESPACE}" "app=istio-ingressgateway" "600s"
-
-    log_success "Istio is ready!"
-}
-
-# ----------------------------------------
-# CLI/Component: istio-ingress-class
-# ----------------------------------------
-
-uninstall_istio_ingress_class() {
-    log_info "Deleting Istio IngressClass 'istio'..."
-    kubectl delete ingressclass "istio" --ignore-not-found=true --force --grace-period=0 2>/dev/null || true
-    log_success "Istio IngressClass 'istio' deleted"
-}
-
-install_istio_ingress_class() {
-    if kubectl get ingressclass "istio" &>/dev/null; then
-        if [ "$REINSTALL" = false ]; then
-            log_info "Istio IngressClass 'istio' already exists. Use --reinstall to recreate."
-            return 0
-        else
-            log_info "Recreating Istio IngressClass 'istio'..."
-            uninstall_istio_ingress_class
-        fi
-    fi
-
-    log_info "Creating Istio IngressClass 'istio'..."
-    cat <<EOF | kubectl apply -f -
-apiVersion: networking.k8s.io/v1
-kind: IngressClass
-metadata:
-  name: istio
-spec:
-  controller: istio.io/ingress-controller
-EOF
-
-    log_success "Istio IngressClass 'istio' created successfully!"
-}
-
-# ----------------------------------------
-# CLI/Component: knative-operator
-# ----------------------------------------
-
-uninstall_knative_operator() {
-    log_info "Uninstalling Knative Serving..."
-
-    if [ "$EMBED_TEMPLATES" = "true" ]; then
-        get_knative_serving_${NETWORK_LAYER} | \
-            kubectl delete -f - --ignore-not-found=true --force --grace-period=0 2>/dev/null || true
-    else
-        kubectl delete -f "${TEMPLATE_DIR}/knative-serving-${NETWORK_LAYER}.yaml" --ignore-not-found=true --force --grace-period=0 2>/dev/null || true
-    fi
-
-    kubectl delete all --all -n "${SERVING_NAMESPACE}" --force --grace-period=0 2>/dev/null || true
-    kubectl delete namespace "${SERVING_NAMESPACE}" --wait=true --timeout=60s --force --grace-period=0 2>/dev/null || true
-
-    log_info "Uninstalling Knative Operator..."
-    helm uninstall knative-operator -n "${OPERATOR_NAMESPACE}" 2>/dev/null || true
-    kubectl delete all --all -n "${OPERATOR_NAMESPACE}" --force --grace-period=0 2>/dev/null || true
-    kubectl delete namespace "${OPERATOR_NAMESPACE}" --wait=true --timeout=60s --force --grace-period=0 2>/dev/null || true
-
-    log_success "Knative uninstalled"
-}
-
-install_knative_operator() {
-    log_info "Network layer: ${NETWORK_LAYER}"
-
-    if helm list -n "${OPERATOR_NAMESPACE}" 2>/dev/null | grep -q "knative-operator"; then
-        if [ "$REINSTALL" = false ]; then
-            log_info "Knative Operator is already installed. Checking Knative Serving..."
-
-            if kubectl get knativeserving knative-serving -n "${SERVING_NAMESPACE}" &>/dev/null; then
-                log_info "Knative Serving is already deployed. Use --reinstall to reinstall."
-                return 0
-            fi
-        else
-            log_info "Reinstalling Knative..."
-            uninstall_knative_operator
-        fi
-    fi
-
-    log_info "Installing Knative Operator ${KNATIVE_OPERATOR_VERSION}..."
-
-    if [[ "${KNATIVE_OPERATOR_VERSION}" == v* ]]; then
-        OPERATOR_CHART_URL="https://github.com/knative/operator/releases/download/knative-${KNATIVE_OPERATOR_VERSION}/knative-operator-${KNATIVE_OPERATOR_VERSION}.tgz"
-        log_info "Using GitHub release: ${OPERATOR_CHART_URL}"
-
-        # shellcheck disable=SC2086
-        helm install knative-operator \
-            --namespace "${OPERATOR_NAMESPACE}" \
-            --create-namespace \
-            --wait \
-            ${KNATIVE_OPERATOR_EXTRA_ARGS:-} \
-            "${OPERATOR_CHART_URL}"
-    else
-        log_info "Adding Knative Operator Helm repository..."
-        helm repo add knative-operator https://knative.github.io/operator --force-update
-
-        # shellcheck disable=SC2086
-        helm install knative-operator knative-operator/knative-operator \
-            --namespace "${OPERATOR_NAMESPACE}" \
-            --create-namespace \
-            --version "${KNATIVE_OPERATOR_VERSION}" \
-            --wait \
-            ${KNATIVE_OPERATOR_EXTRA_ARGS:-}
-    fi
-
-    log_success "Successfully installed Knative Operator ${KNATIVE_OPERATOR_VERSION}"
-
-    wait_for_pods "${OPERATOR_NAMESPACE}" "name=knative-operator" "300s"
-
-    log_info "Deploying Knative Serving ${KNATIVE_SERVING_VERSION} with ${NETWORK_LAYER} network layer..."
-
-    if [ "$EMBED_TEMPLATES" = "true" ]; then
-        if [[ "${KNATIVE_SERVING_VERSION}" != "1.21.1" ]]; then
-            log_info "Customizing template with version=${KNATIVE_SERVING_VERSION}"
-            get_knative_serving_${NETWORK_LAYER} | \
-                sed -e "s/version: \".*\"/version: \"${KNATIVE_SERVING_VERSION}\"/" | \
-                kubectl apply --server-side -f -
-        else
-            get_knative_serving_${NETWORK_LAYER} | kubectl apply --server-side -f -
-        fi
-    else
-        TEMPLATE_FILE="${TEMPLATE_DIR}/knative-serving-${NETWORK_LAYER}.yaml"
-
-        if [[ ! -f "${TEMPLATE_FILE}" ]]; then
-            log_error "Template file not found: ${TEMPLATE_FILE}"
-            exit 1
-        fi
-
-        if [[ "${KNATIVE_SERVING_VERSION}" != "1.21.1" ]]; then
-            log_info "Customizing template with version=${KNATIVE_SERVING_VERSION}"
-            sed -e "s/version: \".*\"/version: \"${KNATIVE_SERVING_VERSION}\"/" \
-                "${TEMPLATE_FILE}" | kubectl apply -f -
-        else
-            kubectl apply -f "${TEMPLATE_FILE}"
-        fi
-    fi
-
-    log_success "Knative Serving CR applied"
-
-    log_info "Waiting for Knative Serving to be ready..."
-    kubectl wait --for=condition=Ready -n "${SERVING_NAMESPACE}" KnativeServing knative-serving --timeout=300s
-
-    log_success "Knative Operator and Serving are ready!"
-}
-
-# ----------------------------------------
 # CLI/Component: kserve-kustomize
 # ----------------------------------------
 
@@ -1558,9 +1149,6 @@ main() {
         echo "Uninstalling components..."
         echo "=========================================="
         uninstall_kserve_manifest
-        uninstall_knative_operator
-        uninstall_istio_ingress_class
-        uninstall_istio
         uninstall_cert_manager
         
         
@@ -1572,7 +1160,7 @@ main() {
     fi
 
     echo "=========================================="
-    echo "Install KServe Knative Mode and all related dependencies with manifests included in the script."
+    echo "Install KServe Standard Mode, LLMISvc, and all related dependencies with manifests included in the script."
     echo "=========================================="
 
     export EMBED_TEMPLATES="true"
@@ -1583,10 +1171,8 @@ main() {
     install_kustomize
     install_yq
     install_cert_manager
-    install_istio
-    install_istio_ingress_class
-    install_knative_operator
     (
+        set_env_with_priority "DEPLOYMENT_MODE" "Standard" "" ""
         set_env_with_priority "ENABLE_LLMISVC" "False" "" ""
         set_env_with_priority "ENABLE_KSERVE" "True" "" ""
         set_env_with_priority "INSTALL_RUNTIMES" "True" "" ""
@@ -1800,7 +1386,7 @@ spec:
     - --model_name={{.Name}}
     - --model_dir=/mnt/models
     - --http_port=8080
-    image: kserve/autogluonserver:latest
+    image: kserve/autogluonserver:v0.20.0
     name: kserve-container
     resources:
       limits:
@@ -1841,7 +1427,7 @@ spec:
     env:
     - name: LMCACHE_USE_EXPERIMENTAL
       value: "True"
-    image: kserve/huggingfaceserver:latest
+    image: kserve/huggingfaceserver:v0.20.0
     name: kserve-container
     resources:
       limits:
@@ -1912,7 +1498,7 @@ spec:
       value: /tmp
     - name: HF_HUB_CACHE
       value: /tmp
-    image: kserve/huggingfaceserver:latest-gpu
+    image: kserve/huggingfaceserver:v0.20.0-gpu
     livenessProbe:
       exec:
         command:
@@ -1996,7 +1582,7 @@ spec:
         valueFrom:
           fieldRef:
             fieldPath: metadata.namespace
-      image: kserve/huggingfaceserver:latest-gpu
+      image: kserve/huggingfaceserver:v0.20.0-gpu
       livenessProbe:
         exec:
           command:
@@ -2058,7 +1644,7 @@ spec:
     - --model_dir=/mnt/models
     - --http_port=8080
     - --nthread=1
-    image: kserve/lgbserver:latest
+    image: kserve/lgbserver:v0.20.0
     name: kserve-container
     resources:
       limits:
@@ -2168,7 +1754,7 @@ spec:
     - --model_name={{.Name}}
     - --model_dir=/mnt/models
     - --http_port=8080
-    image: kserve/paddleserver:latest
+    image: kserve/paddleserver:v0.20.0
     name: kserve-container
     resources:
       limits:
@@ -2208,7 +1794,7 @@ spec:
     - --model_name={{.Name}}
     - --model_dir=/mnt/models
     - --http_port=8080
-    image: kserve/pmmlserver:latest
+    image: kserve/pmmlserver:v0.20.0
     name: kserve-container
     resources:
       limits:
@@ -2254,7 +1840,7 @@ spec:
     - --http_port=8080
     - --framework={{.Annotations.modelFormat}}
     - --nthread=1
-    image: kserve/predictiveserver:latest
+    image: kserve/predictiveserver:v0.20.0
     name: kserve-container
     resources:
       limits:
@@ -2303,7 +1889,7 @@ spec:
     - --model_name={{.Name}}
     - --model_dir=/mnt/models
     - --http_port=8080
-    image: kserve/sklearnserver:latest
+    image: kserve/sklearnserver:v0.20.0
     name: kserve-container
     resources:
       limits:
@@ -2513,7 +2099,7 @@ spec:
       value: /tmp
     - name: VLLM_WORKER_MULTIPROC_METHOD
       value: spawn
-    image: vllm/vllm-openai:latest
+    image: vllm/vllm-openai:v0.20.0
     name: kserve-container
     readinessProbe:
       failureThreshold: 3
@@ -2575,7 +2161,7 @@ spec:
     - --model_dir=/mnt/models
     - --http_port=8080
     - --nthread=1
-    image: kserve/xgbserver:latest
+    image: kserve/xgbserver:v0.20.0
     name: kserve-container
     resources:
       limits:
@@ -55462,7 +55048,7 @@ data:
      # Example
      storageInitializer: |-
        {
-           "image" : "kserve/storage-initializer:latest",
+           "image" : "kserve/storage-initializer:v0.20.0",
            "memoryRequest": "100Mi",
            "memoryLimit": "1Gi",
            "cpuRequest": "100m",
@@ -55478,7 +55064,7 @@ data:
      storageInitializer: |-
        {
            # image contains the default storage initializer image uri.
-           "image" : "kserve/storage-initializer:latest",
+           "image" : "kserve/storage-initializer:v0.20.0",
 
            # memoryRequest is the requests.memory to set for the storage initializer init container.
            "memoryRequest": "100Mi",
@@ -55721,7 +55307,7 @@ data:
      # Example
      logger: |-
        {
-           "image" : "kserve/agent:latest",
+           "image" : "kserve/agent:v0.20.0",
            "memoryRequest": "100Mi",
            "memoryLimit": "1Gi",
            "cpuRequest": "100m",
@@ -55731,7 +55317,7 @@ data:
      logger: |-
        {
            # image contains the default logger image uri.
-           "image" : "kserve/agent:latest",
+           "image" : "kserve/agent:v0.20.0",
 
            # memoryRequest is the requests.memory to set for the logger container.
            "memoryRequest": "100Mi",
@@ -55753,7 +55339,7 @@ data:
      # Example
      batcher: |-
        {
-           "image" : "kserve/agent:latest",
+           "image" : "kserve/agent:v0.20.0",
            "memoryRequest": "1Gi",
            "memoryLimit": "1Gi",
            "cpuRequest": "1",
@@ -55764,7 +55350,7 @@ data:
      batcher: |-
        {
            # image contains the default batcher image uri.
-           "image" : "kserve/agent:latest",
+           "image" : "kserve/agent:v0.20.0",
 
            # memoryRequest is the requests.memory to set for the batcher container.
            "memoryRequest": "1Gi",
@@ -55789,7 +55375,7 @@ data:
      # Example
      agent: |-
        {
-           "image" : "kserve/agent:latest",
+           "image" : "kserve/agent:v0.20.0",
            "memoryRequest": "100Mi",
            "memoryLimit": "1Gi",
            "cpuRequest": "100m",
@@ -55798,7 +55384,7 @@ data:
      agent: |-
        {
            # image contains the default agent image uri.
-           "image" : "kserve/agent:latest",
+           "image" : "kserve/agent:v0.20.0",
 
            # memoryRequest is the requests.memory to set for the agent container.
            "memoryRequest": "100Mi",
@@ -55817,7 +55403,7 @@ data:
      # Example
      router: |-
        {
-           "image" : "kserve/router:latest",
+           "image" : "kserve/router:v0.20.0",
            "memoryRequest": "100Mi",
            "memoryLimit": "1Gi",
            "cpuRequest": "100m",
@@ -55832,7 +55418,7 @@ data:
      router: |-
        {
            # image contains the default router image uri.
-           "image" : "kserve/router:latest",
+           "image" : "kserve/router:v0.20.0",
 
            # memoryRequest is the requests.memory to set for the router container.
            "memoryRequest": "100Mi",
@@ -55940,7 +55526,7 @@ data:
          # jobNamespace specifies the namespace where the download job will be created.
          "jobNamespace": "kserve-localmodel-jobs",
          # defaultJobImage specifies the default image used for the download job.
-         "defaultJobImage" : "kserve/storage-initializer:latest",
+         "defaultJobImage" : "kserve/storage-initializer:v0.20.0",
          # Kubernetes modifies the filesystem group ID on the attached volume.
          "fsGroup": 1000,
          # TTL for the download job after it is finished.
@@ -55953,7 +55539,7 @@ data:
        }
   agent: |-
     {
-        "image" : "kserve/agent:latest",
+        "image" : "kserve/agent:v0.20.0",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -55966,7 +55552,7 @@ data:
     }
   batcher: |-
     {
-        "image" : "kserve/agent:latest",
+        "image" : "kserve/agent:v0.20.0",
         "memoryRequest": "1Gi",
         "memoryLimit": "1Gi",
         "cpuRequest": "1",
@@ -56034,7 +55620,7 @@ data:
     {
       "enabled": false,
       "jobNamespace": "kserve-localmodel-jobs",
-      "defaultJobImage" : "kserve/storage-initializer:latest",
+      "defaultJobImage" : "kserve/storage-initializer:v0.20.0",
       "fsGroup": 1000,
       "jobTTLSecondsAfterFinished": 3600,
       "reconcilationFrequencyInSecs": 60,
@@ -56042,7 +55628,7 @@ data:
     }
   logger: |-
     {
-        "image" : "kserve/agent:latest",
+        "image" : "kserve/agent:v0.20.0",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -56068,7 +55654,7 @@ data:
     }
   router: |-
     {
-        "image" : "kserve/router:latest",
+        "image" : "kserve/router:v0.20.0",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -56081,7 +55667,7 @@ data:
     }
   storageInitializer: |-
     {
-        "image" : "kserve/storage-initializer:latest",
+        "image" : "kserve/storage-initializer:v0.20.0",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -56201,7 +55787,7 @@ spec:
               fieldPath: metadata.namespace
         - name: SECRET_NAME
           value: kserve-webhook-server-cert
-        image: kserve/kserve-controller:latest
+        image: kserve/kserve-controller:v0.20.0
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 5
@@ -56305,7 +55891,7 @@ metadata:
   namespace: kserve
 spec:
   container:
-    image: kserve/storage-initializer:latest
+    image: kserve/storage-initializer:v0.20.0
     imagePullPolicy: IfNotPresent
     name: storage-initializer
     resources:

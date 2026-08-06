@@ -1598,7 +1598,7 @@ wheels = [
 
 [[package]]
 name = "kserve"
-version = "0.20.0rc0"
+version = "0.20.0"
 source = { editable = "../../../../../python/kserve" }
 dependencies = [
     { name = "aiohttp" },
