@@ -109,7 +109,7 @@ var _ = Describe("Merge Append Lists", func() {
 		It("should replace args when the override config has no merge-append annotation", func(ctx SpecContext) {
 			// given
 			svcName := "replace-args"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			baseConfig := LLMInferenceServiceConfig("base-with-args",
 				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
@@ -178,7 +178,7 @@ var _ = Describe("Merge Append Lists", func() {
 		It("should handle a 3-config chain with mixed append and replace", func(ctx SpecContext) {
 			// given
 			svcName := "chain-mixed"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			baseConfig := LLMInferenceServiceConfig("chain-base",
 				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
@@ -263,7 +263,7 @@ var _ = Describe("Merge Append Lists", func() {
 		It("should preserve other fields when appending args", func(ctx SpecContext) {
 			// given
 			svcName := "append-preserve"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			baseConfig := LLMInferenceServiceConfig("preserve-base",
 				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
