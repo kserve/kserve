@@ -55,9 +55,15 @@ def _fake_config_exists(config_path_exists, config_path=None):
     return fake
 
 
+# Layer mediaTypes exercised by the dispatch in _download_oci.
+_GZIP_LAYER = "application/vnd.oci.image.layer.v1.tar+gzip"
+_TAR_LAYER = "application/vnd.oci.image.layer.v1.tar"
+_ZSTD_LAYER = "application/vnd.oci.image.layer.v1.tar+zstd"
+_ATTESTATION_LAYER = "application/vnd.in-toto+json"
+
 _IMAGE_MANIFEST = {
     "mediaType": "application/vnd.oci.image.manifest.v1+json",
-    "layers": [{"digest": "sha256:layer0"}],
+    "layers": [{"digest": "sha256:layer0", "mediaType": _GZIP_LAYER}],
 }
 _INDEX = {
     "mediaType": "application/vnd.oci.image.index.v1+json",
@@ -75,14 +81,21 @@ _INDEX = {
 
 
 def _build_layer_tar_bytes(
-    *, model_files=("model.joblib",), models_dir=True, extra_dirs=("bin",)
+    *,
+    model_files=("model.joblib",),
+    models_dir=True,
+    extra_dirs=("bin",),
+    compress=True,
 ):
-    """Build an in-memory tar+gzip layer blob mimicking a modelcar's single layer:
+    """Build an in-memory tar layer blob mimicking a modelcar's single layer:
     extra_dirs (non-models rootfs content, e.g. bin/) plus, if models_dir, a
     models/ subtree containing model_files. Mirrors what _download_oci now
-    streams straight from a real registry response."""
+    streams straight from a real registry response. compress=True yields a
+    gzip-compressed tar (mediaType ...tar+gzip), compress=False an uncompressed
+    tar (mediaType ...tar) so the mediaType-driven mode dispatch can be exercised
+    end to end via a real tarfile round-trip."""
     buf = io.BytesIO()
-    with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+    with tarfile.open(fileobj=buf, mode="w:gz" if compress else "w") as tar:
         for d in extra_dirs:
             info = tarfile.TarInfo(name=d)
             info.type = tarfile.DIRTYPE
@@ -118,15 +131,23 @@ class _FakeBlobResponse:
 
 
 def _make_client(
-    manifest, *, model_files=("model.joblib",), models_dir=True, extra_dirs=("bin",)
+    manifest,
+    *,
+    model_files=("model.joblib",),
+    models_dir=True,
+    extra_dirs=("bin",),
+    compress=True,
 ):
     """Build a mock OrasClient whose get_blob() streams a fake single-layer
-    tar.gz (see _build_layer_tar_bytes) instead of the old pull()-to-tempdir
-    behavior _download_oci no longer uses."""
+    tar (gzip when compress=True, else uncompressed; see _build_layer_tar_bytes)
+    instead of the old pull()-to-tempdir behavior _download_oci no longer uses."""
     client = mock.MagicMock()
     client.get_manifest.return_value = manifest
     layer_bytes = _build_layer_tar_bytes(
-        model_files=model_files, models_dir=models_dir, extra_dirs=extra_dirs
+        model_files=model_files,
+        models_dir=models_dir,
+        extra_dirs=extra_dirs,
+        compress=compress,
     )
     client.get_blob.side_effect = lambda target, digest, stream=True: (
         _FakeBlobResponse(layer_bytes)
@@ -181,11 +202,97 @@ def test_oci_with_config(tmp_path):
     assert "config_path" not in client.get_manifest.call_args.kwargs
 
 
+def test_oci_uncompressed_tar_layer_extracts(tmp_path):
+    # An uncompressed tar layer (mediaType ...tar) must dispatch to tarfile mode
+    # "r|"; a hardcoded "r|gz" would fail to read it. A real tar round-trip means
+    # a wrong mode surfaces as a tarfile error rather than passing silently under
+    # MagicMock.
+    out = str(tmp_path / "out")
+    manifest = {
+        "mediaType": "application/vnd.oci.image.manifest.v1+json",
+        "layers": [{"digest": "sha256:layer0", "mediaType": _TAR_LAYER}],
+    }
+    client = _make_client(manifest, model_files=("model.txt",), compress=False)
+    with (
+        mock.patch("oras.client.OrasClient", return_value=client),
+        mock.patch(
+            "kserve_storage.kserve_storage.os.path.exists",
+            side_effect=_fake_config_exists(False),
+        ),
+        mock.patch("kserve_storage.kserve_storage._login_from_docker_config"),
+    ):
+        result = Storage._download_oci("oci://registry.io/mymodel:v1", out)
+
+    assert result == out
+    assert os.path.isfile(os.path.join(out, "model.txt"))
+
+
+def test_oci_zstd_layer_rejected(tmp_path):
+    # zstd layers cannot be decompressed by stdlib tarfile before Python 3.14
+    # (the initializer runs 3.11); reject with an actionable error instead of a
+    # cryptic mid-stream gzip failure. Rejection happens before any blob fetch.
+    out = str(tmp_path / "out")
+    manifest = {
+        "mediaType": "application/vnd.oci.image.manifest.v1+json",
+        "layers": [{"digest": "sha256:layer0", "mediaType": _ZSTD_LAYER}],
+    }
+    client = _make_client(manifest)
+    with (
+        mock.patch("oras.client.OrasClient", return_value=client),
+        mock.patch(
+            "kserve_storage.kserve_storage.os.path.exists",
+            side_effect=_fake_config_exists(False),
+        ),
+        mock.patch("kserve_storage.kserve_storage._login_from_docker_config"),
+    ):
+        with pytest.raises(RuntimeError) as excinfo:
+            Storage._download_oci("oci://registry.io/mymodel:v1", out)
+
+    msg = str(excinfo.value)
+    assert "zstd" in msg
+    # Actionable: hint at rebuilding with gzip or the 3.14 stdlib path, without
+    # asserting the exact wording.
+    assert "gzip" in msg or "3.14" in msg
+    # Rejected before streaming any blob.
+    client.get_blob.assert_not_called()
+
+
+def test_oci_non_tar_layer_skipped(tmp_path):
+    # An attestation (non-tar) layer interleaved with a real model layer must be
+    # skipped silently -- it carries nothing for the /models/ subtree. The model
+    # layer still extracts and no error is raised.
+    out = str(tmp_path / "out")
+    manifest = {
+        "mediaType": "application/vnd.oci.image.manifest.v1+json",
+        "layers": [
+            {"digest": "sha256:attest", "mediaType": _ATTESTATION_LAYER},
+            {"digest": "sha256:layer0", "mediaType": _GZIP_LAYER},
+        ],
+    }
+    client = _make_client(manifest)
+    with (
+        mock.patch("oras.client.OrasClient", return_value=client),
+        mock.patch(
+            "kserve_storage.kserve_storage.os.path.exists",
+            side_effect=_fake_config_exists(False),
+        ),
+        mock.patch("kserve_storage.kserve_storage._login_from_docker_config"),
+    ):
+        result = Storage._download_oci("oci://registry.io/mymodel:v1", out)
+
+    assert result == out
+    assert os.path.isfile(os.path.join(out, "model.joblib"))
+    # get_blob fetched only the tar layer; the attestation layer was skipped
+    # before any blob fetch.
+    assert client.get_blob.call_count == 1
+    assert client.get_blob.call_args.args[1] == "sha256:layer0"
+
+
 def test_oci_multi_arch_index_resolves_to_platform(tmp_path):
     out = str(tmp_path / "out")
     per_platform_manifest = {
         "mediaType": "application/vnd.oci.image.manifest.v1+json",
-        "layers": [{"digest": "sha256:layer0"}],
+        "layers": [{"digest": "sha256:layer0", "mediaType": _GZIP_LAYER}],
     }
     client = mock.MagicMock()
     # First call resolves the index; second call (post digest-rewrite) fetches
