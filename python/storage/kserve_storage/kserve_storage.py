@@ -99,6 +99,19 @@ _OCI_INDEX_MEDIA_TYPES = {
     "application/vnd.docker.distribution.manifest.list.v2+json",
 }
 
+# Maps an OCI/Docker layer mediaType to the tarfile streaming-open mode used to read it.
+# The layer's compression is declared by its mediaType, not guessable from the blob, so the
+# streaming reader must be opened with the matching mode; a hardcoded "r|gz" mis-reads
+# uncompressed and zstd layers. zstd (application/vnd.oci.image.layer.v1.tar+zstd) is common
+# in newer containerd/buildx/GHCR/ECR but absent here: Python stdlib tarfile gained native
+# zstd support only in 3.14, and the storage-initializer runs 3.11 -- it is rejected with an
+# actionable error in _download_oci rather than silently mis-decoded.
+_LAYER_MEDIA_TYPE_MODES = {
+    "application/vnd.oci.image.layer.v1.tar+gzip": "r|gz",
+    "application/vnd.docker.image.rootfs.diff.tar.gzip": "r|gz",
+    "application/vnd.oci.image.layer.v1.tar": "r|",
+}
+
 _HDFS_SECRET_DIRECTORY = "/var/secrets/kserve-hdfscreds"
 _HDFS_FILE_SECRETS = ["KERBEROS_KEYTAB", "TLS_CERT", "TLS_KEY", "TLS_CA"]
 
@@ -1313,8 +1326,9 @@ class Storage(object):
           init container's architecture (linux/<GOARCH>). Without this, modelcars
           built via "docker buildx" (which produce indexes) would pull zero files.
         - Each layer blob is streamed straight from the HTTP response into tarfile's
-          streaming reader (mode "r|gz") and extracted directly into out_dir, member
-          by member, keeping only entries under models/. This avoids two extra
+          streaming reader (with the mode selected from the layer mediaType via
+          _LAYER_MEDIA_TYPE_MODES) and extracted directly into out_dir, member by
+          member, keeping only entries under models/. This avoids two extra
           full-image-size passes a download-to-tempfile-then-extract-then-move
           approach takes: no compressed blob is ever fully materialized on disk
           before decompression starts, and there is no separate outdir+move step
@@ -1394,18 +1408,32 @@ class Storage(object):
         extracted_any = False
         seen_top_level: set = set()
         for layer in manifest.get("layers", []):
+            media_type = layer.get("mediaType", "")
+            mode = _LAYER_MEDIA_TYPE_MODES.get(media_type)
+            if mode is None:
+                if media_type.endswith("+zstd"):
+                    raise RuntimeError(
+                        "OCI layer mediaType %r is zstd-compressed, which this "
+                        "storage handler cannot decompress: Python's stdlib tarfile "
+                        "gained native zstd support only in 3.14 and the "
+                        "storage-initializer runs on 3.11. Rebuild the model image "
+                        "with gzip-compressed layers (configure your image build "
+                        "tool to emit gzip rather than zstd) and retry." % media_type
+                    )
+                # Non-tar layers (attestations, image config, and other unknown
+                # non-tar blobs) carry nothing for a modelcar's /models/ subtree, so
+                # skip them rather than trying to read them as tar archives.
+                continue
             digest = layer["digest"]
             with client.get_blob(target, digest, stream=True) as resp:
                 resp.raise_for_status()
-                with tarfile.open(fileobj=resp.raw, mode="r|gz") as tar:
+                with tarfile.open(fileobj=resp.raw, mode=mode) as tar:
                     for member in tar:
                         name = member.name.rstrip("/")
                         if not name:
                             continue
                         seen_top_level.add(name.split("/", 1)[0])
-                        if name == "models" or not name.startswith(
-                            _OCI_MODELS_PREFIX
-                        ):
+                        if name == "models" or not name.startswith(_OCI_MODELS_PREFIX):
                             continue
                         rel = name[len(_OCI_MODELS_PREFIX) :]
                         if not rel:
