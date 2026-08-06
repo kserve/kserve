@@ -329,9 +329,9 @@ func main() {
 
 	setupLog.Info("Setting up LLMInferenceServiceConfig controller")
 	if err = (&llmisvc.LLMISVCConfigReconciler{
-		Client:        mgr.GetClient(),
-		EventRecorder: llmEventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: "LLMInferenceServiceConfigController"}),
-		WebhookServer: mgr.GetWebhookServer(),
+		Client:         mgr.GetClient(),
+		EventRecorder:  llmEventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: "LLMInferenceServiceConfigController"}),
+		IsWebhookReady: func() error { return mgr.GetWebhookServer().StartedChecker()(nil) },
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "LLMInferenceServiceConfig")
 		os.Exit(1)
