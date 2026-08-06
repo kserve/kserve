@@ -17,12 +17,13 @@ limitations under the License.
 package v1alpha2
 
 import (
-	"fmt"
 	"errors"
+	"fmt"
 	"strings"
 
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmeta"
+	kyamlutils "sigs.k8s.io/kustomize/kyaml/utils"
 
 	kservevalidation "github.com/kserve/kserve/pkg/validation"
 )
@@ -292,15 +293,6 @@ func ParseFieldPath(path string) ([]string, error) {
 	if path == "" {
 		return nil, errors.New("path must not be empty")
 	}
-	var segments []string
-	for _, s := range strings.Split(path, ".") {
-		s = strings.TrimSpace(s)
-		if s != "" {
-			segments = append(segments, s)
-		}
-	}
-	if len(segments) == 0 {
-		return nil, fmt.Errorf("path %q resolves to zero segments", path)
-	}
+	segments := kyamlutils.SmarterPathSplitter(path, ".")
 	return segments, nil
 }
