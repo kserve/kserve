@@ -748,7 +748,7 @@ test = [
     { name = "httpx-retries", specifier = ">=0.4.5,<1.0.0" },
     { name = "jinja2", specifier = ">=3.1.4,<4.0.0" },
     { name = "mypy", specifier = ">=0.991,<1.0" },
-    { name = "portforward", specifier = ">=0.6.2,<1.0.0" },
+    { name = "portforward", specifier = ">=0.7.4,<1.0.0" },
     { name = "pyarrow", specifier = ">=18.0.0,<20.0.0" },
     { name = "pytest", specifier = ">=7.4.4,<8.0.0" },
     { name = "pytest-asyncio", specifier = ">=0.23.4,<1.0.0" },
