@@ -34,6 +34,8 @@ The controller supports three URI schemes for LoRA adapters:
 
 **Note**: `oci://` is not supported for LoRA adapters. OCI models run as sidecar containers with shared process namespaces, but only one OCI sidecar per pod is currently supported. Workaround: package adapters in a PVC and use `pvc://`.
 
+For the base model itself, KServe also supports `oci+native://` which mounts the model container image as a Kubernetes-native [ImageVolume](https://kubernetes.io/docs/concepts/storage/volumes/#image) (no sidecar, requires K8s ≥ 1.31 with the ImageVolume feature gate). See [docs/samples/storage/oci-image-volume/](../../storage/oci-image-volume/README.md) for details.
+
 ## Examples
 
 ### 1. Single HuggingFace LoRA Adapter ([llm-inference-service-lora-hf.yaml](llm-inference-service-lora-hf.yaml))

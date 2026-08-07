@@ -1,3 +1,17 @@
+# Copyright 2019 The KServe Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,7 +50,7 @@ from ..common.utils import (
     KSERVE_TEST_NAMESPACE,
     predict_isvc,
     predict_grpc,
-    extract_process_ids_from_logs,
+    get_container_worker_count,
 )
 
 
@@ -76,6 +90,7 @@ async def test_sklearn_kserve(rest_v1_client, network_layer):
         network_layer=network_layer,
     )
     assert res["predictions"] == [1, 1]
+
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
@@ -163,6 +178,20 @@ async def test_sklearn_runtime_kserve(rest_v1_client, network_layer):
 
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    pods = kserve_client.core_api.list_namespaced_pod(
+        KSERVE_TEST_NAMESPACE,
+        label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
+    )
+    worker_count = get_container_worker_count(
+        kserve_client.core_api,
+        pods.items[0].metadata.name,
+        KSERVE_TEST_NAMESPACE,
+    )
+    assert worker_count == 2, (
+        f"Expected 2 multiprocessing workers but found {worker_count}"
+    )
+
     tasks = [
         predict_isvc(
             rest_v1_client,
@@ -176,19 +205,6 @@ async def test_sklearn_runtime_kserve(rest_v1_client, network_layer):
     for res in responses:
         assert res["predictions"] == [19]
 
-    pods = kserve_client.core_api.list_namespaced_pod(
-        KSERVE_TEST_NAMESPACE,
-        label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
-    )
-    # Wait for logs to be available
-    await asyncio.sleep(5)
-    logs = kserve_client.core_api.read_namespaced_pod_log(
-        name=pods.items[0].metadata.name,
-        namespace=pods.items[0].metadata.namespace,
-        container="kserve-container",
-    )
-    process_ids = extract_process_ids_from_logs(logs)
-    assert len(process_ids) == 2
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 

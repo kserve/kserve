@@ -1,0 +1,3 @@
+- op: add
+  path: /spec/containers/0/args/-
+  value: "--enforce-eager"

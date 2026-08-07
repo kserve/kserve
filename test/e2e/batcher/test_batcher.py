@@ -1,3 +1,5 @@
+# Copyright 2019 The KServe Authors.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -10,10 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from kubernetes import client
 
-from kserve import KServeClient
 from kserve import constants
 from kserve import V1beta1PredictorSpec
 from kserve import V1beta1Batcher
@@ -25,12 +37,10 @@ from kubernetes.client import V1ResourceRequirements
 import pytest
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc
 
-kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
-
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_batcher(rest_v1_client, network_layer):
+async def test_batcher(kserve_client, rest_v1_client, network_layer):
     service_name = "isvc-sklearn-batcher"
 
     predictor = V1beta1PredictorSpec(

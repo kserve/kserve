@@ -653,7 +653,7 @@ KEDA_OTEL_ADDON_VERSION=v0.0.6
 PROMETHEUS_VERSION=83.4.0
 PROMETHEUS_ADAPTER_VERSION=5.3.0
 JAEGER_VERSION=4.7.0
-KSERVE_VERSION=v0.19.0
+KSERVE_VERSION=v0.20.0
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.18.0
 OPENTELEMETRY_OPERATOR_VERSION=0.74.3
@@ -661,7 +661,7 @@ LWS_VERSION=v0.8.0
 GATEWAY_API_VERSION=v1.5.1
 GIE_VERSION=v1.5.0
 LLMD_ROUTER_VERSION=v0.9.0
-WVA_VERSION=v0.7.0
+WVA_VERSION=v0.8.0
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -1486,6 +1486,25 @@ install_kserve_helm() {
 
         log_info "Restarting llmisvc-controller-manager to pick up the freshly-issued cert..."
         kubectl rollout restart deployment/llmisvc-controller-manager -n "${KSERVE_NAMESPACE}"
+
+        # Wait for the NEW ReplicaSet to be fully rolled out. The wait_for_deployment
+        # helper below uses --for=condition=Available, which is satisfied by the OLD
+        # ReplicaSet's Ready pod during the rolling restart: it returns instantly but
+        # does not guarantee the new pod is serving the webhook. The subsequent
+        # kserve-runtime-configs install then applies LLMInferenceServiceConfig presets
+        # whose validating webhook must authorize each, and can hit the webhook Service
+        # before the new pod is a ready endpoint (dial ...:443: connect: connection refused).
+        log_info "Waiting for llmisvc-controller-manager rollout to complete..."
+        kubectl rollout status deployment/llmisvc-controller-manager \
+            -n "${KSERVE_NAMESPACE}" --timeout=300s
+
+        # Additionally wait for the webhook Service to have ready endpoints, covering the
+        # window between pod-ready and kube-proxy programming the Service endpoints.
+        log_info "Waiting for llmisvc webhook Service endpoints..."
+        kubectl wait --for=jsonpath='{.subsets[0].addresses}' \
+            endpoints/llmisvc-webhook-server-service \
+            -n "${KSERVE_NAMESPACE}" --timeout=60s
+        log_info "llmisvc webhook is ready."
     fi
 
     # Wait for all controller managers to be ready

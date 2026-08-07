@@ -6,4 +6,4 @@ TOOLS:
 COMPONENTS:
   - name: prometheus-helm
   - name: prometheus-adapter-helm
-  - name: wva-helm
+  - name: wva-kustomize

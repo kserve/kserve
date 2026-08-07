@@ -164,7 +164,7 @@ func (r *LLMISVCReconciler) attachLoRAAdapters(
 		}
 		for _, mod := range []loraModuleJSON{
 			{Name: a.name, Path: a.mountPath},
-			{Name: fmt.Sprintf("publishers/%s/models/%s", llmSvc.Namespace, a.name), Path: a.mountPath},
+			{Name: fullyQualifiedModelName(llmSvc.Namespace, a.name), Path: a.mountPath},
 		} {
 			m, err := json.Marshal(mod)
 			if err != nil {
