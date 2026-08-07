@@ -195,15 +195,18 @@ func FindCommonParentPath(paths []string) string {
 		// Clean the path and split by "/"
 		cleanPath := strings.Trim(path, "/")
 		if cleanPath == "" {
+			// A path that trims to empty (e.g. "/", "//") refers to the root and
+			// has no components. It must still lower minLength so the prefix loop
+			// below never indexes past this empty slice.
 			pathComponents[i] = []string{}
 		} else {
 			pathComponents[i] = strings.Split(cleanPath, "/")
+		}
 
-			if minLength == -1 {
-				minLength = len(pathComponents[i])
-			} else {
-				minLength = min(minLength, len(pathComponents[i]))
-			}
+		if minLength == -1 {
+			minLength = len(pathComponents[i])
+		} else {
+			minLength = min(minLength, len(pathComponents[i]))
 		}
 	}
 
