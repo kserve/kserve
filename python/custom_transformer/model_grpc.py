@@ -12,68 +12,95 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
+"""
+gRPC entrypoint for the SentimentTransformer.
+
+Original example can be found here: https://github.com/brettmthompson/sentiment_transformer
+"""
+
 import argparse
+import logging
 from typing import Dict
-import numpy as np
-import io
-from PIL import Image
-from torchvision import transforms
-from kserve import Model, ModelServer, model_server, InferInput, InferRequest, logging
+from kserve import (
+    InferRequest,
+    ModelServer,
+    model_server,
+    logging as kserve_logging,
+)
+from custom_transformer.sentiment_transformer import (
+    SentimentTransformer,
+    add_transformer_args,
+)
+
+logger = logging.getLogger(__name__)
 
 
-def image_transform(data):
-    """converts the input image of Bytes Array into Tensor
-    Args:
-        request input instance: The request input instance for image.
-    Returns:
-        List: Returns the data key's value and converts that into a list
-        after converting it into a tensor
+class SentimentTransformerGrpc(SentimentTransformer):
+    """gRPC variant of SentimentTransformer.
+
+    In gRPC mode, preprocess receives an InferRequest directly (V2 protocol)
+    rather than a V1 JSON dict. The request is expected to contain a single
+    input with BYTES datatype carrying the raw text strings.
     """
-    preprocess = transforms.Compose(
-        [
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ]
-    )
-    image = Image.open(io.BytesIO(data))
-    tensor = preprocess(image).numpy()
-    return tensor
-
-
-class ImageTransformer(Model):
-    def __init__(
-        self,
-        name: str,
-    ):
-        super().__init__(name)
-        self.ready = True
 
     def preprocess(
         self, request: InferRequest, headers: Dict[str, str] = None
     ) -> InferRequest:
-        input_tensors = [
-            image_transform(instance) for instance in request.inputs[0].data
-        ]
-        input_tensors = np.asarray(input_tensors)
-        infer_inputs = [
-            InferInput(
-                name="INPUT__0",
-                datatype="FP32",
-                shape=list(input_tensors.shape),
-                data=input_tensors,
-            )
-        ]
-        infer_request = InferRequest(model_name=self.name, infer_inputs=infer_inputs)
-        return infer_request
+        """Extract texts from a V2 InferRequest and tokenize them."""
+        try:
+            texts = [
+                t.decode("utf-8") if isinstance(t, bytes) else str(t)
+                for t in request.inputs[0].data
+            ]
+
+            if not texts:
+                raise ValueError("No texts found in gRPC request")
+
+            logger.info(f"Processing {len(texts)} text(s) via gRPC")
+
+            infer_inputs = self._tokenize(texts)
+            return InferRequest(model_name=self.name, infer_inputs=infer_inputs)
+
+        except Exception as e:
+            logger.error(f"gRPC preprocessing failed: {e}")
+            raise
+
+
+def build_grpc_transformer(args) -> SentimentTransformerGrpc:
+    """Build a SentimentTransformerGrpc from parsed CLI arguments."""
+    from kserve import PredictorConfig
+
+    labels = args.sentiment_labels.split(",")
+    inputs = args.input_names.split(",")
+
+    predictor_config = PredictorConfig(
+        predictor_host=args.predictor_host,
+        predictor_protocol="grpc-v2",
+        predictor_use_ssl=args.predictor_use_ssl,
+        predictor_request_timeout_seconds=args.predictor_request_timeout_seconds,
+        predictor_request_retries=args.predictor_request_retries,
+        predictor_health_check=args.enable_predictor_health_check,
+    )
+
+    return SentimentTransformerGrpc(
+        name=args.model_name,
+        tokenizer_name=args.tokenizer_name,
+        predictor_config=predictor_config,
+        sentiment_labels=labels,
+        max_length=args.max_length,
+        input_names=inputs,
+        output_name=args.output_name,
+        include_star_rating=args.include_star_rating,
+    )
 
 
 parser = argparse.ArgumentParser(parents=[model_server.parser])
+add_transformer_args(parser)
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
     if args.configure_logging:
-        logging.configure_logging(args.log_config_file)
-    model = ImageTransformer(args.model_name)
-    ModelServer(workers=1).start([model])
+        kserve_logging.configure_logging(args.log_config_file)
+    transformer = build_grpc_transformer(args)
+    ModelServer(workers=1).start([transformer])

@@ -372,7 +372,7 @@ func UpdateImageTag(container *corev1.Container, runtimeVersion *string, serving
 	imageWithoutTag := strings.TrimSuffix(image, tag)
 
 	if kserveutils.IsGPUEnabled(container.Resources) {
-		// For TFServing/TorchServe/HuggingFace the GPU build is published as the same image
+		// For TFServing/HuggingFace the GPU build is published as the same image
 		// with a "-gpu" tag suffix; append it when runtimeVersion is not specified.
 		switch serverType {
 		case constants.ServerTypeTensorflowServing, constants.ServerTypeTorchServe, constants.ServerTypeHuggingFaceServer:
