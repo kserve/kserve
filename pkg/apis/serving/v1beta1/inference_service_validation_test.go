@@ -1513,6 +1513,40 @@ func TestDeploymentModeUpdate(t *testing.T) {
 	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcEmptyStatus, updatedIsvcNoAnnotation)
 	g.Expect(warnings).Should(gomega.BeEmpty())
 	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: normalized status "Knative" should accept the legacy alias annotation "Serverless".
+	// Once the controller records the canonical mode in the status, an object created with the
+	// deprecated alias must still be updatable without touching its annotation.
+	// Regression test for issue #5885.
+	updatedIsvcLegacySlAlias := oldIsvc.DeepCopy()
+	updatedIsvcLegacySlAlias.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.LegacyServerless),
+	}
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvc, updatedIsvcLegacySlAlias)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: normalized status "Standard" should accept the legacy alias annotation "RawDeployment".
+	oldIsvcStandardStatus := makeTestInferenceService()
+	oldIsvcStandardStatus.Status = InferenceServiceStatus{
+		DeploymentMode: string(constants.Standard),
+	}
+	updatedIsvcLegacyRawAlias := oldIsvcStandardStatus.DeepCopy()
+	updatedIsvcLegacyRawAlias.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.LegacyRawDeployment),
+	}
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcStandardStatus, updatedIsvcLegacyRawAlias)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: a genuine mode change written with a legacy alias is still rejected.
+	updatedIsvcLegacyRawOnKnative := oldIsvc.DeepCopy()
+	updatedIsvcLegacyRawOnKnative.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.LegacyRawDeployment),
+	}
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvc, updatedIsvcLegacyRawOnKnative)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).ShouldNot(gomega.Succeed())
 }
 
 func TestValidateUpdateDuringDeletion(t *testing.T) {
