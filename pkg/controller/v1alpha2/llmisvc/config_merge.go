@@ -27,7 +27,6 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/Masterminds/sprig/v3"
 	"github.com/coreos/go-semver/semver"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -856,7 +855,9 @@ type templateGlobalConfig struct {
 // ReplaceVariables processes the configuration as a Go template to substitute
 // variables with values from the LLM service and global configuration.
 func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.LLMInferenceServiceConfig, reconcilerConfig *Config) (*v1alpha2.LLMInferenceServiceConfig, error) {
-	if llmSvcCfg.Annotations[constants.LLMWalkTreeTemplateRendererAnnotationKey] == "true" {
+	if reconcilerConfig != nil &&
+		reconcilerConfig.TemplateConfig != nil &&
+		reconcilerConfig.TemplateConfig.LLMInferenceServiceConfigRenderStrategy == TemplateRenderStrategyRecursive {
 		return replaceVariableUsingWalk(llmSvc, llmSvcCfg, reconcilerConfig)
 	}
 
@@ -1081,7 +1082,6 @@ func kvTransferConfig(kv *v1alpha2.KVCacheOffloadingSpec) map[string]any {
 func replaceVariablesTemplate(s string, data any) (string, error) {
 	tmpl, err := template.New("config").
 		Option("missingkey=error").
-		Funcs(sprig.HermeticTxtFuncMap()).
 		Funcs(map[string]any{
 			"ChildName": kmeta.ChildName,
 			"kvTransferConfig": func(spec any) string {

@@ -97,4 +97,6 @@ kserve:
         createGateway: false
         gateway: knative-serving/knative-ingress-gateway
         className: istio
+  template:
+    llmInferenceServiceConfigRenderStrategy: JSON
 
