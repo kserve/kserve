@@ -138,6 +138,16 @@ type LLMISVCReconciler struct {
 	Config *rest.Config
 	record.EventRecorder
 	Clientset kubernetes.Interface
+
+	Validator func(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error
+
+	// IsWebhookReady reports whether the manager's webhook server has started.
+	// Reconcile requeues until it returns nil, since the finalizer Update() calls
+	// below are intercepted by a validating webhook that must be listening.
+	// Callers must always set this (e.g. wired from
+	// mgr.GetWebhookServer().StartedChecker()) — there is no nil-disables-gate
+	// fallback, since a webhook server is always present in production.
+	IsWebhookReady func() error
 }
 
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceservices,verbs=get;list;watch;create;update;patch;delete
@@ -182,6 +192,11 @@ func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	logger := log.FromContext(ctx).WithName("LLMInferenceService").
 		WithValues("Namespace", req.Namespace, "Name", req.Name)
 	ctx = log.IntoContext(ctx, logger)
+
+	if err := r.IsWebhookReady(); err != nil {
+		logger.V(1).Info("Webhook server not ready yet, requeueing", "reason", err.Error())
+		return ctrl.Result{RequeueAfter: webhookNotReadyRequeueInterval}, nil
+	}
 
 	logger.Info("Starting reconciliation")
 	original := &v1alpha2.LLMInferenceService{}

@@ -299,6 +299,11 @@ func main() {
 		Config:        mgr.GetConfig(),
 		Clientset:     clientSet,
 		EventRecorder: llmEventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: "LLMInferenceServiceController"}),
+		Validator: func(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+			_, err := v1alpha2LLMValidator.ValidateCreate(ctx, llmSvc)
+			return err
+		},
+		IsWebhookReady: func() error { return mgr.GetWebhookServer().StartedChecker()(nil) },
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "LLMInferenceService")
 		os.Exit(1)
