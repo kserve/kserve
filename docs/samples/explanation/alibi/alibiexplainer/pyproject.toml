@@ -39,6 +39,11 @@ dev = [
 kserve = { path = "../../../../../python/kserve", editable = true }
 kserve-storage = { path = "../../../../../python/storage", editable = true }
 
+[tool.uv]
+override-dependencies = [
+    "pillow>=12.2.0", # CVE-2026-40192
+]
+
 [build-system]
 requires = ["hatchling>=1.18.0"]
 build-backend = "hatchling.build"
