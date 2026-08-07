@@ -25,6 +25,7 @@ import (
 	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -74,6 +75,7 @@ func TestCreateAddress(t *testing.T) {
 	tests := []struct {
 		name       string
 		headless   bool
+		svcPorts   []corev1.ServicePort
 		wantScheme string
 		wantHost   string
 	}{
@@ -84,10 +86,24 @@ func TestCreateAddress(t *testing.T) {
 			wantHost:   predictorHost(),
 		},
 		{
-			name:       "headless service appends port 8080",
+			name:       "headless service without ports falls back to default port",
 			headless:   true,
 			wantScheme: "http",
 			wantHost:   predictorHost() + ":" + constants.InferenceServiceDefaultHttpPort,
+		},
+		{
+			name:     "headless service uses actual target port from service",
+			headless: true,
+			svcPorts: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       constants.CommonDefaultHttpPort,
+					TargetPort: intstr.FromInt32(8888),
+					Protocol:   corev1.ProtocolTCP,
+				},
+			},
+			wantScheme: "http",
+			wantHost:   predictorHost() + ":8888",
 		},
 	}
 
@@ -98,6 +114,7 @@ func TestCreateAddress(t *testing.T) {
 
 			svcName := constants.PredictorServiceName(testIsvcName)
 			svc := makeService(svcName, tc.headless)
+			svc.Spec.Ports = tc.svcPorts
 			cl := fake.NewClientBuilder().WithScheme(s).WithObjects(svc).Build()
 
 			isvc := &v1beta1.InferenceService{
@@ -153,6 +170,7 @@ func TestRawIngressReconciler_URLAndAddress(t *testing.T) {
 	tests := []struct {
 		name           string
 		headless       bool
+		svcPorts       []corev1.ServicePort
 		urlScheme      string
 		wantAddrScheme string
 		wantAddrHost   string
@@ -185,6 +203,21 @@ func TestRawIngressReconciler_URLAndAddress(t *testing.T) {
 			wantAddrScheme: "http",
 			wantAddrHost:   pHost + ":" + constants.InferenceServiceDefaultHttpPort,
 		},
+		{
+			name:     "headless with custom target port uses actual container port",
+			headless: true,
+			svcPorts: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       constants.CommonDefaultHttpPort,
+					TargetPort: intstr.FromInt32(8888),
+					Protocol:   corev1.ProtocolTCP,
+				},
+			},
+			urlScheme:      "http",
+			wantAddrScheme: "http",
+			wantAddrHost:   pHost + ":8888",
+		},
 	}
 
 	for _, tc := range tests {
@@ -194,6 +227,7 @@ func TestRawIngressReconciler_URLAndAddress(t *testing.T) {
 
 			svcName := constants.PredictorServiceName(testIsvcName)
 			svc := makeService(svcName, tc.headless)
+			svc.Spec.Ports = tc.svcPorts
 			cl := fake.NewClientBuilder().WithScheme(s).WithObjects(svc).Build()
 
 			isvc := &v1beta1.InferenceService{
