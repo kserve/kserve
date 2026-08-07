@@ -47,5 +47,5 @@ test = [
     "openai>=2.0.0",
 ]
 dev = [
-    "black[colorama]>=26.3.1", # CVE-2026-32274
+    "black[colorama]>=26.3.1,<27", # CVE-2026-32274
 ]

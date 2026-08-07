@@ -16,7 +16,7 @@ description = "Custom model implementation. Not intended for use outside KServe 
 
 [dependency-groups]
 dev = [
-    "black[colorama]~=24.3.0",
+    "black[colorama]>=26.3.1,<27",
 ]
 
 [tool.uv.sources]
