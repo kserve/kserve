@@ -64,6 +64,7 @@ func SetupTestEnv(ctx context.Context) *pkgtest.Client {
 				_, err := (&v1alpha2.LLMInferenceServiceValidator{}).ValidateCreate(ctx, llmSvc)
 				return err
 			},
+			IsWebhookReady: func() error { return mgr.GetWebhookServer().StartedChecker()(nil) },
 		}
 		return llmCtrl.SetupWithManager(mgr)
 	}
