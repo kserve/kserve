@@ -299,6 +299,12 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		return nil, fmt.Errorf("failed to merge specs: %w", err)
 	}
 
+	presetSpec, err := MergeSpecs(ctx, specs...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to merge preset specs: %w", err)
+	}
+	ApplyHTTPRouteRuleDefaults(&presetSpec, &llmSvc.Spec, &spec)
+
 	llmSvcCfg := &v1alpha2.LLMInferenceServiceConfig{
 		ObjectMeta: *llmSvc.ObjectMeta.DeepCopy(),
 		Spec:       spec,
@@ -829,7 +835,48 @@ func mergeSpecs(ctx context.Context, base, override v1alpha2.LLMInferenceService
 	if err := json.Unmarshal(mergedJSON, &finalSpec); err != nil {
 		return v1alpha2.LLMInferenceServiceSpec{}, fmt.Errorf("could not unmarshal merged spec: %w", err)
 	}
+
 	return finalSpec, nil
+}
+
+func httpRouteSpecFrom(spec *v1alpha2.LLMInferenceServiceSpec) *gwapiv1.HTTPRouteSpec {
+	if spec == nil || spec.Router == nil || spec.Router.Route == nil || spec.Router.Route.HTTP == nil {
+		return nil
+	}
+	return spec.Router.Route.HTTP.Spec
+}
+
+// ApplyHTTPRouteRuleDefaults overlays router.route.http.ruleDefaults onto preset
+// HTTPRoute rules after strategic merge. Call from combineBaseRefsConfig once the
+// full preset chain and user spec are merged — not from mergeSpecs (pairwise merges).
+func ApplyHTTPRouteRuleDefaults(base, override, merged *v1alpha2.LLMInferenceServiceSpec) {
+	baseHTTP := httpRouteSpecFrom(base)
+	mergedHTTP := httpRouteSpecFrom(merged)
+	if baseHTTP == nil || override == nil || override.Router == nil || override.Router.Route == nil || override.Router.Route.HTTP == nil || mergedHTTP == nil {
+		return
+	}
+	overrideHTTP := override.Router.Route.HTTP
+	if overrideHTTP.RuleDefaults == nil || len(baseHTTP.Rules) == 0 {
+		return
+	}
+	if overrideHTTP.Spec != nil && len(overrideHTTP.Spec.Rules) > 0 {
+		return
+	}
+
+	defaults := overrideHTTP.RuleDefaults
+	mergedHTTP.Rules = make([]gwapiv1.HTTPRouteRule, len(baseHTTP.Rules))
+	for i := range baseHTTP.Rules {
+		mergedHTTP.Rules[i] = *baseHTTP.Rules[i].DeepCopy()
+		if defaults.Timeouts != nil {
+			mergedHTTP.Rules[i].Timeouts = defaults.Timeouts.DeepCopy()
+		}
+		if defaults.Retry != nil {
+			mergedHTTP.Rules[i].Retry = defaults.Retry.DeepCopy()
+		}
+		if defaults.SessionPersistence != nil {
+			mergedHTTP.Rules[i].SessionPersistence = defaults.SessionPersistence.DeepCopy()
+		}
+	}
 }
 
 func isDefaultBackendRef(llmSvc *v1alpha2.LLMInferenceService, ref gwapiv1.BackendRef) bool {
