@@ -17013,6 +17013,8 @@ spec:
                           type: object
                       type: object
                   type: object
+                runtime:
+                  type: string
                 scaling:
                   properties:
                     keda:
@@ -21194,6 +21196,8 @@ spec:
                     samplerArg:
                       type: string
                   type: object
+                trustRemoteCode:
+                  type: boolean
                 worker:
                   properties:
                     activeDeadlineSeconds:

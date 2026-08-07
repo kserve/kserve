@@ -54,23 +54,29 @@ def run_kustomize_build(kustomize_dir: Path) -> str:
         subprocess.CalledProcessError: If kustomize build fails
         FileNotFoundError: If kustomize command not found
     """
-    try:
-        result = subprocess.run(
-            ["kustomize", "build", str(kustomize_dir)],
-            capture_output=True,
-            text=True,
-            check=True,
-            cwd=kustomize_dir.parent,
-        )
-        return result.stdout
-    except subprocess.CalledProcessError as e:
-        raise RuntimeError(
-            f"Failed to run kustomize build on {kustomize_dir}: {e}\nstderr: {e.stderr}"
-        )
-    except FileNotFoundError:
-        raise FileNotFoundError(
-            "kustomize command not found. Please install kustomize."
-        )
+    # Prefer standalone kustomize; fall back to `kubectl kustomize`
+    for cmd in (
+        ["kustomize", "build", str(kustomize_dir)],
+        ["kubectl", "kustomize", str(kustomize_dir)],
+    ):
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                check=True,
+                cwd=kustomize_dir.parent,
+            )
+            return result.stdout
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(
+                f"Failed to run kustomize build on {kustomize_dir}: {e}\nstderr: {e.stderr}"
+            )
+        except FileNotFoundError:
+            continue
+    raise FileNotFoundError(
+        "Neither 'kustomize' nor 'kubectl' found. Please install kustomize or kubectl."
+    )
 
 
 def filter_out_crds(manifest: str) -> str:

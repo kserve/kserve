@@ -1,0 +1,12 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-llm-sglang
+spec:
+  supportedModelFormats:
+    - name: sglang
+      version: "1"
+      autoSelect: false
+  containers:
+    - name: main
+      image: lmsysorg/sglang:v0.5.14
