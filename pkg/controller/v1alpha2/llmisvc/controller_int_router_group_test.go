@@ -628,21 +628,15 @@ var _ = Describe("LLMInferenceService Group Routing", func() {
 			})
 			Expect(errRetry).ToNot(HaveOccurred())
 
-			// then - on the remaining member B's HTTPRoute, member A should have weight 0
+			// then - on the remaining member B's HTTPRoute, stopped member A
+			// should be omitted entirely (no weight:0 backendRef that gateways may leak traffic to)
 			Eventually(func(g Gomega, ctx context.Context) {
 				routes, err := managedRoutes(ctx, llmSvcB)
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(routes).To(HaveLen(1))
 
 				backendRefs := groupRoutingBackendRefs(&routes[0], llmSvcB)
-				g.Expect(backendRefs).To(HaveLen(2), "stopped member should still appear in backendRefs")
-
-				g.Expect(backendRefs).To(ContainElement(
-					SatisfyAll(
-						HaveBackendName(svcNameA),
-						HaveBackendWeight(int32(0)),
-					),
-				))
+				g.Expect(backendRefs).To(HaveLen(1), "stopped member should be omitted from backendRefs")
 				g.Expect(backendRefs).To(ContainElement(
 					SatisfyAll(
 						HaveBackendName(svcNameB),
@@ -669,6 +663,115 @@ var _ = Describe("LLMInferenceService Group Routing", func() {
 						g.Expect(member.Weight).To(Equal(int32(40)), "non-stopped member weight should be preserved")
 					}
 				}
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should preserve stopped member in group status when model names diverge from runtime", func(ctx SpecContext) {
+			// When status.Addresses has model-routing URLs, resolvedModelNames
+			// returns namespace-qualified names (publishers/ns/models/name).
+			// A force-stopped member's addresses are cleared, so
+			// resolvedModelNames falls back to the plain spec name. Without the
+			// fix, slices.Equal fails and the stopped member is classified as
+			// divergent, disappearing from group status.
+
+			groupName := "stop-diverge"
+			svcNameA := "test-stop-div-a"
+			svcNameB := "test-stop-div-b"
+			gwName := "stop-div-gw"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			// Pre-created gateway with addresses so the controller discovers
+			// model-routing URLs and populates Status.Addresses with
+			// namespace-qualified model names (publishers/ns/models/name).
+			gw := Gateway(gwName,
+				InNamespace[*gwapiv1.Gateway](testNs.Name),
+				WithListener(gwapiv1.HTTPProtocolType),
+			)
+			Expect(envTest.Client.Create(ctx, gw)).To(Succeed())
+			ensureGatewayReady(ctx, envTest.Client, gw)
+			setGatewayStatusAddresses(ctx, envTest.Client, gw, "203.0.113.99")
+
+			gwRef := LLMGatewayRef(gwName, testNs.Name)
+
+			llmSvcA := LLMInferenceService(svcNameA,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithModelName("facebook/opt-125m"),
+				WithManagedRoute(),
+				WithGatewayRefs(gwRef),
+				WithManagedScheduler(),
+				WithGroup(groupName),
+				WithWeight(60),
+			)
+
+			llmSvcB := LLMInferenceService(svcNameB,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithModelName("facebook/opt-125m"),
+				WithManagedRoute(),
+				WithGatewayRefs(gwRef),
+				WithManagedScheduler(),
+				WithGroup(groupName),
+				WithWeight(40),
+			)
+
+			Expect(envTest.Create(ctx, llmSvcA)).To(Succeed())
+			Expect(envTest.Create(ctx, llmSvcB)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvcA)
+				testNs.DeleteAndWait(ctx, llmSvcB)
+			}()
+
+			ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvcA)
+			ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvcB)
+
+			// Wait for model-routing model names to appear in status.Addresses
+			expectedModelName := "publishers/" + testNs.Name + "/models/facebook/opt-125m"
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvcB), current)).To(Succeed())
+				g.Expect(current.Status.Addresses).ToNot(BeEmpty())
+
+				var modelNames []string
+				for _, addr := range current.Status.Addresses {
+					for _, m := range addr.Models {
+						modelNames = append(modelNames, m.Name)
+					}
+				}
+				g.Expect(modelNames).To(ContainElement(expectedModelName),
+					"status.Addresses should contain namespace-qualified model name")
+			}).WithContext(ctx).Should(Succeed())
+
+			// Force-stop member A - clears its status.Addresses, making
+			// resolvedModelNames fall back to plain spec name "facebook/opt-125m"
+			// while peer B has "publishers/ns/models/facebook/opt-125m".
+			errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				_, errUpdate := ctrl.CreateOrUpdate(ctx, envTest.Client, llmSvcA, func() error {
+					if llmSvcA.Annotations == nil {
+						llmSvcA.Annotations = make(map[string]string)
+					}
+					llmSvcA.Annotations[constants.StopAnnotationKey] = "true"
+					return nil
+				})
+				return errUpdate
+			})
+			Expect(errRetry).ToNot(HaveOccurred())
+
+			// Verify stopped member A still appears in B's group status
+			Eventually(func(g Gomega, ctx context.Context) {
+				currentB := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvcB), currentB)).To(Succeed())
+				g.Expect(currentB.Status.Router).ToNot(BeNil())
+				g.Expect(currentB.Status.Router.Group).ToNot(BeNil(), "group status should be preserved")
+				g.Expect(currentB.Status.Router.Group.Members).To(HaveLen(2),
+					"stopped member must not disappear from group status due to model name divergence")
+				g.Expect(currentB.Status.Router.Group.Members).To(ContainElement(
+					SatisfyAll(
+						HaveField("Name", svcNameA),
+						HaveField("Stopped", BeTrue()),
+						HaveField("Weight", Equal(int32(60))),
+					),
+				))
 			}).WithContext(ctx).Should(Succeed())
 		})
 	})

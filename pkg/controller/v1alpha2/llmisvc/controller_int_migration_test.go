@@ -40,7 +40,7 @@ var _ = Describe("InferencePool Migration", func() {
 		It("should create both v1 and v1alpha2 InferencePools when both CRDs are available", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-dual-pool"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -86,7 +86,7 @@ var _ = Describe("InferencePool Migration", func() {
 		It("should point HTTPRoute backendRef to v1alpha2 pool initially (before migration)", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-initial-backend"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -127,7 +127,7 @@ var _ = Describe("InferencePool Migration", func() {
 		It("should keep HTTPRoute pointing to v1 pool when migration annotation is already on HTTPRoute", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-pre-migrated"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			// Create LLMInferenceService (no annotation - migration state is on HTTPRoute)
 			llmSvc := LLMInferenceService(svcName,
@@ -201,7 +201,7 @@ var _ = Describe("InferencePool Migration", func() {
 		It("should swap HTTPRoute backendRef from v1alpha2 to v1 when Gateway rejects v1alpha2", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-gateway-rejection"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -263,7 +263,7 @@ var _ = Describe("InferencePool Migration", func() {
 		It("should not change migration annotation on HTTPRoute once set to v1", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-migration-lock"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			// Create LLMInferenceService
 			llmSvc := LLMInferenceService(svcName,
