@@ -164,6 +164,9 @@ func createAddress(ctx context.Context, cl client.Client, isvc *v1beta1.Inferenc
 		port := constants.InferenceServiceDefaultHttpPort
 		if p := httpTargetPort(entryPointSvc); p != "" {
 			port = p
+		} else {
+			log.Info("No HTTP target port found on service, defaulting to InferenceServiceDefaultHttpPort",
+				"defaultPort", constants.InferenceServiceDefaultHttpPort, "service", entryPointSvc.Name)
 		}
 		host = host + ":" + port
 	}

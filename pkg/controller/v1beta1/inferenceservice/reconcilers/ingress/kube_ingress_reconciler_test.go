@@ -46,6 +46,8 @@ func testScheme() *runtime.Scheme {
 	return s
 }
 
+func strPtr(s string) *string { return &s }
+
 func makeService(name string, headless bool) *corev1.Service {
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: testNamespace},
@@ -104,6 +106,61 @@ func TestCreateAddress(t *testing.T) {
 			},
 			wantScheme: "http",
 			wantHost:   predictorHost() + ":8888",
+		},
+		{
+			name:     "headless service skips grpc port and picks http port",
+			headless: true,
+			svcPorts: []corev1.ServicePort{
+				{
+					Name:       "grpc",
+					Port:       8001,
+					TargetPort: intstr.FromInt32(8001),
+					Protocol:   corev1.ProtocolTCP,
+				},
+				{
+					Name:       "http",
+					Port:       constants.CommonDefaultHttpPort,
+					TargetPort: intstr.FromInt32(8888),
+					Protocol:   corev1.ProtocolTCP,
+				},
+			},
+			wantScheme: "http",
+			wantHost:   predictorHost() + ":8888",
+		},
+		{
+			name:     "headless service with named target port falls back to default",
+			headless: true,
+			svcPorts: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       constants.CommonDefaultHttpPort,
+					TargetPort: intstr.FromString("http-serving"),
+					Protocol:   corev1.ProtocolTCP,
+				},
+			},
+			wantScheme: "http",
+			wantHost:   predictorHost() + ":" + constants.InferenceServiceDefaultHttpPort,
+		},
+		{
+			name:     "headless service skips h2c AppProtocol port and picks http port",
+			headless: true,
+			svcPorts: []corev1.ServicePort{
+				{
+					Name:        "h2c",
+					Port:        8001,
+					TargetPort:  intstr.FromInt32(8001),
+					Protocol:    corev1.ProtocolTCP,
+					AppProtocol: strPtr("kubernetes.io/h2c"),
+				},
+				{
+					Name:       "http",
+					Port:       constants.CommonDefaultHttpPort,
+					TargetPort: intstr.FromInt32(9000),
+					Protocol:   corev1.ProtocolTCP,
+				},
+			},
+			wantScheme: "http",
+			wantHost:   predictorHost() + ":9000",
 		},
 	}
 
