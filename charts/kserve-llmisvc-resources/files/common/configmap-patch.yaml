@@ -160,3 +160,8 @@ data:
       "scaleUpStabilizationWindowSeconds": "{{ .Values.kserve.autoscaler.scaleUpStabilizationWindowSeconds }}",
       "scaleDownStabilizationWindowSeconds": "{{ .Values.kserve.autoscaler.scaleDownStabilizationWindowSeconds }}"
     }
+
+  template: |-
+    {
+      "llmInferenceServiceConfigRenderStrategy": "{{ .Values.kserve.template.llmInferenceServiceConfigRenderStrategy }}"
+    }

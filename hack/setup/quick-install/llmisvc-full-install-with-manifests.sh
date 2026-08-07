@@ -108984,6 +108984,19 @@ data:
          # This is to disable localmodel pv and pvc management for namespaces without isvcs
          "disableVolumeManagement": false
        }
+
+     # ====================================== TEMPLATE RENDERER CONFIGURATION (LLMInferenceService only) ======================================
+     # Example
+     template: |-
+       {
+         # llmInferenceServiceConfigRenderStrategy selects the engine used to render
+         # LLMInferenceServiceConfig templates.
+         # "JSON" (default) marshals the config to JSON, runs the whole document through the
+         # template engine, then unmarshals the result. "Recursive" (experimental) walks the
+         # config tree and templates each string field in place instead, avoiding JSON-escaping
+         # issues in rendered output.
+         "llmInferenceServiceConfigRenderStrategy": "JSON"
+       }
   agent: |-
     {
         "image" : "kserve/agent:latest",
