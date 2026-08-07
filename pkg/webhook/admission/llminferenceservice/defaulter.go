@@ -187,21 +187,21 @@ func SetLocalModelLabel(llmSvc *v1alpha2.LLMInferenceService, models *v1alpha1.L
 	setLoRALocalModelMetadata(llmSvc, models, nsModels, isvcNodeGroup, isvcNodeGroupExists)
 }
 
-func applyBaseLocalModelCache(llmSvc *v1alpha2.LLMInferenceService, match *localmodelcache.CacheMatch) {
+func applyBaseLocalModelCache(llmSvc *v1alpha2.LLMInferenceService, match *localmodelcache.CacheEntry) {
 	if llmSvc.Labels == nil {
 		llmSvc.Labels = make(map[string]string)
 	}
 	if llmSvc.Annotations == nil {
 		llmSvc.Annotations = make(map[string]string)
 	}
-	llmSvc.Labels[constants.LocalModelLabel] = match.Name
+	llmSvc.Labels[constants.LocalModelLabel] = match.Cache
 	if match.Namespace != "" {
 		llmSvc.Labels[constants.LocalModelNamespaceLabel] = match.Namespace
-		defaulterLogger.Info("LocalModelNamespaceCache found", "model", match.Name,
+		defaulterLogger.Info("LocalModelNamespaceCache found", "model", match.Cache,
 			"modelNamespace", match.Namespace, "llmSvcNamespace", llmSvc.Namespace, "llmSvc", llmSvc.Name)
 	} else {
 		delete(llmSvc.Labels, constants.LocalModelNamespaceLabel)
-		defaulterLogger.Info("LocalModelCache found", "model", match.Name, "namespace", llmSvc.Namespace, "llmSvc", llmSvc.Name)
+		defaulterLogger.Info("LocalModelCache found", "model", match.Cache, "namespace", llmSvc.Namespace, "llmSvc", llmSvc.Name)
 	}
 	llmSvc.Annotations[constants.LocalModelSourceUriAnnotationKey] = match.SourceURI
 	llmSvc.Annotations[constants.LocalModelPVCNameAnnotationKey] = match.PVCName
@@ -219,16 +219,17 @@ func setLoRALocalModelMetadata(
 		return
 	}
 
-	entries := make(map[string]localmodelcache.LoRACacheEntry)
+	entries := make(map[string]localmodelcache.CacheEntry)
 	for _, adapter := range llmSvc.Spec.Model.LoRA.Adapters {
 		if adapter.Name == nil {
 			continue
 		}
 		adapterURI := adapter.URI.String()
 		if match := localmodelcache.MatchCacheForURI(adapterURI, nodeGroup, nodeGroupExists, models, nsModels); match != nil {
-			entries[*adapter.Name] = localmodelcache.LoRACacheEntryFromMatch(match)
+			// Persist only cache identity; reconcile-time Get derives sourceUri/PVC.
+			entries[*adapter.Name] = localmodelcache.AnnotationRef(*match)
 			defaulterLogger.Info("LocalModelCache found for LoRA adapter", "adapter", *adapter.Name,
-				"cache", match.Name, "llmSvc", llmSvc.Name)
+				"cache", match.Cache, "llmSvc", llmSvc.Name)
 		}
 	}
 

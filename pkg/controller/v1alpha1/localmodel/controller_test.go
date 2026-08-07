@@ -542,8 +542,8 @@ var _ = Describe("CachedModel controller", func() {
 					Namespace: llmSvcNamespace,
 					Annotations: map[string]string{
 						constants.LocalModelLoRAAnnotationKey: fmt.Sprintf(
-							`{"my-adapter":{"cache":%q,"sourceUri":%q,"pvcName":%q}}`,
-							modelName, adapterURI, modelName+"-gpu1",
+							`{"my-adapter":{"cache":%q}}`,
+							modelName,
 						),
 					},
 				},
@@ -1395,8 +1395,8 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 					Namespace: testNamespace,
 					Annotations: map[string]string{
 						constants.LocalModelLoRAAnnotationKey: fmt.Sprintf(
-							`{"my-adapter":{"cache":%q,"namespace":%q,"sourceUri":%q,"pvcName":%q}}`,
-							modelName, testNamespace, adapterURI, modelName+"-gpu1",
+							`{"my-adapter":{"cache":%q,"namespace":%q}}`,
+							modelName, testNamespace,
 						),
 					},
 				},

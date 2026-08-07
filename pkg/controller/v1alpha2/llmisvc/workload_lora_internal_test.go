@@ -23,9 +23,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/localmodelcache"
@@ -123,6 +127,14 @@ func TestUserSuppliedLoRAConfig(t *testing.T) {
 	}
 }
 
+func newLoRARewriteScheme(t *testing.T) *runtime.Scheme {
+	t.Helper()
+	scheme := runtime.NewScheme()
+	require.NoError(t, v1alpha1.AddToScheme(scheme))
+	require.NoError(t, v1alpha2.AddToScheme(scheme))
+	return scheme
+}
+
 func TestRewriteLoRAAdaptersFromLocalModelCache(t *testing.T) {
 	t.Parallel()
 
@@ -131,17 +143,27 @@ func TestRewriteLoRAAdaptersFromLocalModelCache(t *testing.T) {
 		{name: "remote-adapter", uri: "hf://org/remote", scheme: constants.HfURIPrefix},
 	}
 
+	cache := &v1alpha1.LocalModelCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "adapter-cache"},
+		Spec: v1alpha1.LocalModelCacheSpec{
+			SourceModelUri: "hf://org/adapter",
+			ModelSize:      resource.MustParse("1Gi"),
+			NodeGroups:     []string{"gpu1"},
+		},
+	}
+	c := fake.NewClientBuilder().WithScheme(newLoRARewriteScheme(t)).WithObjects(cache).Build()
+
 	llmSvc := &v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
 			Namespace: "default",
 			Annotations: map[string]string{
-				constants.LocalModelLoRAAnnotationKey: `{"cached-adapter":{"cache":"adapter-cache","sourceUri":"hf://org/adapter","pvcName":"adapter-cache-gpu1"}}`,
+				constants.LocalModelLoRAAnnotationKey: `{"cached-adapter":{"cache":"adapter-cache"}}`,
 			},
 		},
 	}
 
-	rewritten, err := rewriteLoRAAdaptersFromLocalModelCache(llmSvc, adapters)
+	rewritten, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters)
 	require.NoError(t, err)
 	require.Len(t, rewritten, 2)
 
@@ -162,8 +184,9 @@ func TestRewriteLoRAAdaptersFromLocalModelCache_NoAnnotation(t *testing.T) {
 		{name: "a", uri: "hf://org/a", scheme: constants.HfURIPrefix},
 	}
 	llmSvc := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "test"}}
+	c := fake.NewClientBuilder().WithScheme(newLoRARewriteScheme(t)).Build()
 
-	rewritten, err := rewriteLoRAAdaptersFromLocalModelCache(llmSvc, adapters)
+	rewritten, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters)
 	require.NoError(t, err)
 	assert.Equal(t, adapters, rewritten)
 }
@@ -174,18 +197,79 @@ func TestRewriteLoRAAdaptersFromLocalModelCache_Subpath(t *testing.T) {
 	adapters := []resolvedLoRAAdapter{
 		{name: "my-adapter", uri: "hf://org/model/subdir", scheme: constants.HfURIPrefix},
 	}
+	cache := &v1alpha1.LocalModelCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "c"},
+		Spec: v1alpha1.LocalModelCacheSpec{
+			SourceModelUri: "hf://org/model",
+			ModelSize:      resource.MustParse("1Gi"),
+			NodeGroups:     []string{"gpu1"},
+		},
+	}
+	c := fake.NewClientBuilder().WithScheme(newLoRARewriteScheme(t)).WithObjects(cache).Build()
+
 	llmSvc := &v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
-				constants.LocalModelLoRAAnnotationKey: `{"my-adapter":{"cache":"c","sourceUri":"hf://org/model","pvcName":"c-gpu1"}}`,
+				constants.LocalModelLoRAAnnotationKey: `{"my-adapter":{"cache":"c"}}`,
 			},
 		},
 	}
 
-	rewritten, err := rewriteLoRAAdaptersFromLocalModelCache(llmSvc, adapters)
+	rewritten, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters)
 	require.NoError(t, err)
 	assert.Contains(t, rewritten[0].uri, "/subdir")
 	assert.Equal(t, constants.PvcURIPrefix, rewritten[0].scheme)
+}
+
+func TestRewriteLoRAAdaptersFromLocalModelCache_NamespaceScoped(t *testing.T) {
+	t.Parallel()
+
+	adapters := []resolvedLoRAAdapter{
+		{name: "my-adapter", uri: "hf://org/adapter", scheme: constants.HfURIPrefix},
+	}
+	nsCache := &v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "ns-adapter-cache", Namespace: "default"},
+		Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+			SourceModelUri: "hf://org/adapter",
+			ModelSize:      resource.MustParse("1Gi"),
+			NodeGroups:     []string{"gpu2"},
+		},
+	}
+	c := fake.NewClientBuilder().WithScheme(newLoRARewriteScheme(t)).WithObjects(nsCache).Build()
+
+	llmSvc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Annotations: map[string]string{
+				constants.LocalModelLoRAAnnotationKey: `{"my-adapter":{"cache":"ns-adapter-cache","namespace":"default"}}`,
+			},
+		},
+	}
+
+	rewritten, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters)
+	require.NoError(t, err)
+	assert.Equal(t, constants.PvcURIPrefix, rewritten[0].scheme)
+	assert.True(t, strings.HasPrefix(rewritten[0].uri, "pvc://ns-adapter-cache-gpu2/models/"))
+}
+
+func TestRewriteLoRAAdaptersFromLocalModelCache_MissingCache(t *testing.T) {
+	t.Parallel()
+
+	adapters := []resolvedLoRAAdapter{
+		{name: "my-adapter", uri: "hf://org/adapter", scheme: constants.HfURIPrefix},
+	}
+	c := fake.NewClientBuilder().WithScheme(newLoRARewriteScheme(t)).Build()
+	llmSvc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				constants.LocalModelLoRAAnnotationKey: `{"my-adapter":{"cache":"missing"}}`,
+			},
+		},
+	}
+
+	_, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "get LocalModelCache")
 }
 
 func TestBuildCachedPVCURI_MatchesLocalModelCacheHelper(t *testing.T) {

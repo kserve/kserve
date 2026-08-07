@@ -71,7 +71,7 @@ func newLoRAAdapter(uri string) v1alpha2.LLMModelSpec {
 	}
 }
 
-func parseLoRAAnnotation(t *testing.T, llmSvc *v1alpha2.LLMInferenceService) map[string]localmodelcache.LoRACacheEntry {
+func parseLoRAAnnotation(t *testing.T, llmSvc *v1alpha2.LLMInferenceService) map[string]localmodelcache.CacheEntry {
 	t.Helper()
 	raw := llmSvc.Annotations[constants.LocalModelLoRAAnnotationKey]
 	entries, err := localmodelcache.ParseLoRACacheAnnotation(raw)
@@ -186,8 +186,8 @@ func TestDeleteLocalModelMetadata(t *testing.T) {
 		constants.LocalModelNamespaceLabel: "default",
 		"other-label":                      "value",
 	}
-	loraJSON, err := json.Marshal(map[string]localmodelcache.LoRACacheEntry{
-		"my-adapter": {Cache: "adapter-cache", PVCName: "adapter-cache-gpu1"},
+	loraJSON, err := json.Marshal(map[string]localmodelcache.CacheEntry{
+		"my-adapter": {Cache: "adapter-cache"},
 	})
 	require.NoError(t, err)
 	llmSvc.Annotations = map[string]string{
@@ -335,8 +335,12 @@ func TestSetLocalModelLabel_LoRAAdapter_ClusterScoped(t *testing.T) {
 	assert.NotContains(t, llmSvc.Labels, constants.LocalModelLabel)
 	entries := parseLoRAAnnotation(t, llmSvc)
 	assert.Equal(t, "adapter-cache", entries["my-adapter"].Cache)
-	assert.Equal(t, "hf://org/adapter", entries["my-adapter"].SourceURI)
-	assert.Equal(t, "adapter-cache-gpu1", entries["my-adapter"].PVCName)
+	assert.Empty(t, entries["my-adapter"].Namespace)
+	assert.Empty(t, entries["my-adapter"].SourceURI)
+	assert.Empty(t, entries["my-adapter"].PVCName)
+	raw := llmSvc.Annotations[constants.LocalModelLoRAAnnotationKey]
+	assert.NotContains(t, raw, "sourceUri")
+	assert.NotContains(t, raw, "pvcName")
 }
 
 func TestSetLocalModelLabel_LoRAAdapter_NamespaceScoped(t *testing.T) {
@@ -371,7 +375,8 @@ func TestSetLocalModelLabel_LoRAAdapter_NamespaceScoped(t *testing.T) {
 	entries := parseLoRAAnnotation(t, llmSvc)
 	assert.Equal(t, "ns-adapter-cache", entries["my-adapter"].Cache)
 	assert.Equal(t, "default", entries["my-adapter"].Namespace)
-	assert.Equal(t, "ns-adapter-cache-gpu2", entries["my-adapter"].PVCName)
+	assert.Empty(t, entries["my-adapter"].PVCName)
+	assert.Empty(t, entries["my-adapter"].SourceURI)
 }
 
 func TestSetLocalModelLabel_LoRAAdapter_NoMatch(t *testing.T) {

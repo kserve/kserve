@@ -172,7 +172,8 @@ spec:
 ```
 
 When the URIs match LocalModelCache CRs, the controller:
-- Sets local model metadata on the LLMInferenceService (base label + `localmodel-lora` annotation)
+- Sets local model metadata on the LLMInferenceService (base label + slim `localmodel-lora` annotation with `cache` / optional `namespace`)
+- Resolves source URI and PVC name from the referenced cache at reconcile time
 - Mounts cached PVCs for the base model and adapters
 - Skips storage-initializer downloads for cached URIs
 - Blocks LocalModelCache deletion while the service references cached adapters

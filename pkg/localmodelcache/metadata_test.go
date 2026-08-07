@@ -42,7 +42,7 @@ func TestMatchCacheForURI_ClusterScoped(t *testing.T) {
 
 	match := MatchCacheForURI("hf://org/model", "", false, models, nil)
 	assert.NotNil(t, match)
-	assert.Equal(t, "my-cache", match.Name)
+	assert.Equal(t, "my-cache", match.Cache)
 	assert.Empty(t, match.Namespace)
 	assert.Equal(t, "my-cache-gpu1", match.PVCName)
 }
@@ -71,25 +71,38 @@ func TestMatchCacheForURI_NamespaceScopedPrecedence(t *testing.T) {
 
 	match := MatchCacheForURI("hf://org/model", "", false, models, nsModels)
 	assert.NotNil(t, match)
-	assert.Equal(t, "ns-cache", match.Name)
+	assert.Equal(t, "ns-cache", match.Cache)
 	assert.Equal(t, "default", match.Namespace)
 	assert.Equal(t, "ns-cache-gpu2", match.PVCName)
 }
 
 func TestMarshalParseLoRACacheAnnotation(t *testing.T) {
-	raw, err := MarshalLoRACacheAnnotation(map[string]LoRACacheEntry{
+	raw, err := MarshalLoRACacheAnnotation(map[string]CacheEntry{
 		"adapter-a": {
 			Cache:     "adapter-cache",
-			SourceURI: "hf://org/adapter",
+			SourceURI: "hf://org/adapter", // runtime-only; must not appear in JSON
 			PVCName:   "adapter-cache-gpu1",
 		},
 	})
 	assert.NoError(t, err)
+	assert.NotContains(t, raw, "sourceUri")
+	assert.NotContains(t, raw, "pvcName")
 
 	entries, err := ParseLoRACacheAnnotation(raw)
 	assert.NoError(t, err)
 	assert.Equal(t, "adapter-cache", entries["adapter-a"].Cache)
-	assert.Equal(t, "hf://org/adapter", entries["adapter-a"].SourceURI)
+	assert.Empty(t, entries["adapter-a"].SourceURI)
+	assert.Empty(t, entries["adapter-a"].PVCName)
+}
+
+func TestAnnotationRef(t *testing.T) {
+	got := AnnotationRef(CacheEntry{
+		Cache:     "c",
+		Namespace: "ns",
+		SourceURI: "hf://x",
+		PVCName:   "c-gpu1",
+	})
+	assert.Equal(t, CacheEntry{Cache: "c", Namespace: "ns"}, got)
 }
 
 func TestBuildCachedPVCURI(t *testing.T) {
@@ -110,6 +123,9 @@ func TestBuildCachedPVCURI_TrailingSlashSourceURI(t *testing.T) {
 	assert.True(t, strings.HasPrefix(got, "pvc://my-cache-gpu1/models/"))
 	assert.True(t, strings.HasSuffix(got, "/extra"))
 	assert.NotContains(t, got, "hf://")
+	// Hash must match download job, which keys off sourceURI as stored (with trailing slash).
+	assert.Contains(t, got, v1alpha1.GetStorageKey(sourceURI))
+	assert.NotContains(t, got, v1alpha1.GetStorageKey(strings.TrimSuffix(sourceURI, "/")))
 }
 
 func TestLLMISVCReferencesClusterCache_MalformedLoRAAnnotation(t *testing.T) {
@@ -152,7 +168,7 @@ func TestLLMISVCClusterCacheNames(t *testing.T) {
 		got := LLMISVCClusterCacheNames(
 			nil,
 			map[string]string{
-				constants.LocalModelLoRAAnnotationKey: `{"a":{"cache":"adapter-cache","sourceUri":"hf://x"}}`,
+				constants.LocalModelLoRAAnnotationKey: `{"a":{"cache":"adapter-cache"}}`,
 			},
 		)
 		assert.Equal(t, []string{"adapter-cache"}, got)
@@ -175,7 +191,7 @@ func TestLLMISVCClusterCacheNames(t *testing.T) {
 		got := LLMISVCClusterCacheNames(
 			map[string]string{constants.LocalModelLabel: "base-cache"},
 			map[string]string{
-				constants.LocalModelLoRAAnnotationKey: `{"a":{"cache":"adapter-cache","sourceUri":"hf://x"}}`,
+				constants.LocalModelLoRAAnnotationKey: `{"a":{"cache":"adapter-cache"}}`,
 			},
 		)
 		assert.Equal(t, []string{"adapter-cache", "base-cache"}, got)
@@ -194,7 +210,7 @@ func TestLLMISVCNamespaceCacheNames(t *testing.T) {
 				constants.LocalModelNamespaceLabel: "default",
 			},
 			map[string]string{
-				constants.LocalModelLoRAAnnotationKey: `{"a":{"cache":"adapter-ns-cache","namespace":"default","sourceUri":"hf://x"}}`,
+				constants.LocalModelLoRAAnnotationKey: `{"a":{"cache":"adapter-ns-cache","namespace":"default"}}`,
 			},
 		)
 		assert.Equal(t, []string{"adapter-ns-cache", "ns-cache"}, got)
