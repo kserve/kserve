@@ -217,24 +217,30 @@ jobs:
           pytest --cov=autogluonserver ./autogluonserver
 
       # ----------------------------------------Pmml Server Unit Tests------------------------------------------------
+      # pyjnius (pulled in via jpmml-evaluator) publishes no cp313 wheel and its sdist
+      # fails to Cython-compile against the Python 3.13 C API, so this job is skipped on
+      # 3.13. pmmlserver remains covered by the 3.10-3.12 matrix rows.
       # load cached pmml venv if cache exists
       - name: Load cached pmml venv
         id: cached-pmml-dependencies
+        if: matrix.python-version != '3.13'
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: python/pmmlserver/.venv
           key: pmml-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock', '**/pmmlserver/uv.lock') }}
         # install pmml server dependencies if cache does not exist
       - name: Install pmml dependencies
-        if: steps.cached-pmml-dependencies.outputs.cache-hit != 'true'
+        if: ${{ matrix.python-version != '3.13' && steps.cached-pmml-dependencies.outputs.cache-hit != 'true' }}
         run: |
           cd python/pmmlserver
           make install_dependencies
       - name: Install pmmlserver
+        if: matrix.python-version != '3.13'
         run: |
           cd python/pmmlserver
           make dev_install
       - name: Test pmmlserver
+        if: matrix.python-version != '3.13'
         run: |
           cd python
           source pmmlserver/.venv/bin/activate
