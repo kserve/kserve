@@ -166,7 +166,7 @@ func makeTestLLMInferenceServiceWithLoRAAdapterOnlyForNamespaceCache() v1alpha2.
 			Name:      "llm-lora-only",
 			Namespace: "default",
 			Annotations: map[string]string{
-				constants.LocalModelLoRAAnnotationKey: `{"my-adapter":{"cache":"iris","namespace":"default","sourceUri":"hf://org/adapter","pvcName":"iris-gpu1"}}`,
+				constants.LocalModelLoRAAnnotationKey: `{"my-adapter":{"cache":"iris","namespace":"default"}}`,
 			},
 		},
 	}

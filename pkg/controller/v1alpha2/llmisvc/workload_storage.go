@@ -121,7 +121,7 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 	var loraPairs []storageDownloadPair
 	if attachLoRA {
 		var err error
-		resolvedLoRAAdapters, err = rewriteLoRAAdaptersFromLocalModelCache(llmSvc, config.ResolvedLoRAAdapters)
+		resolvedLoRAAdapters, err = rewriteLoRAAdaptersFromLocalModelCache(ctx, r.Client, llmSvc, config.ResolvedLoRAAdapters)
 		if err != nil {
 			return fmt.Errorf("rewrite LoRA adapters from local model cache: %w", err)
 		}

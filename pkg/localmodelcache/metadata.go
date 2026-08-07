@@ -26,20 +26,14 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 )
 
-// CacheMatch describes a LocalModelCache or LocalModelNamespaceCache hit for a storage URI.
-type CacheMatch struct {
-	Name      string
-	Namespace string // set for LocalModelNamespaceCache; empty for cluster-scoped LocalModelCache
-	SourceURI string
-	PVCName   string
-}
-
-// LoRACacheEntry is one adapter's local model cache metadata stored in the LoRA JSON annotation.
-type LoRACacheEntry struct {
+// CacheEntry is a LocalModelCache or LocalModelNamespaceCache reference.
+// For the LoRA annotation, only Cache and Namespace are serialized. SourceURI and PVCName
+// are runtime-only fields populated by MatchCacheForURI (and ignored by JSON marshal).
+type CacheEntry struct {
 	Cache     string `json:"cache"`
-	Namespace string `json:"namespace,omitempty"`
-	SourceURI string `json:"sourceUri"`
-	PVCName   string `json:"pvcName"`
+	Namespace string `json:"namespace,omitempty"` // set for LocalModelNamespaceCache; empty for cluster-scoped
+	SourceURI string `json:"-"`
+	PVCName   string `json:"-"`
 }
 
 // MatchCacheForURI finds a namespace-scoped or cluster-scoped cache matching storageURI.
@@ -50,7 +44,7 @@ func MatchCacheForURI(
 	nodeGroupExists bool,
 	models *v1alpha1.LocalModelCacheList,
 	nsModels *v1alpha1.LocalModelNamespaceCacheList,
-) *CacheMatch {
+) *CacheEntry {
 	if storageURI == "" {
 		return nil
 	}
@@ -61,12 +55,12 @@ func MatchCacheForURI(
 			if !nsModel.Spec.MatchStorageURI(storageURI) {
 				continue
 			}
-			pvcName, ok := pvcNameForNodeGroup(nsModel.Spec.NodeGroups, nodeGroup, nodeGroupExists, nsModel.Name)
+			pvcName, ok := PVCNameForNodeGroup(nsModel.Spec.NodeGroups, nodeGroup, nodeGroupExists, nsModel.Name)
 			if !ok {
 				continue
 			}
-			return &CacheMatch{
-				Name:      nsModel.Name,
+			return &CacheEntry{
+				Cache:     nsModel.Name,
 				Namespace: nsModel.Namespace,
 				SourceURI: nsModel.Spec.SourceModelUri,
 				PVCName:   pvcName,
@@ -82,12 +76,12 @@ func MatchCacheForURI(
 		if !model.Spec.MatchStorageURI(storageURI) {
 			continue
 		}
-		pvcName, ok := pvcNameForNodeGroup(model.Spec.NodeGroups, nodeGroup, nodeGroupExists, model.Name)
+		pvcName, ok := PVCNameForNodeGroup(model.Spec.NodeGroups, nodeGroup, nodeGroupExists, model.Name)
 		if !ok {
 			continue
 		}
-		return &CacheMatch{
-			Name:      model.Name,
+		return &CacheEntry{
+			Cache:     model.Name,
 			SourceURI: model.Spec.SourceModelUri,
 			PVCName:   pvcName,
 		}
@@ -95,7 +89,8 @@ func MatchCacheForURI(
 	return nil
 }
 
-func pvcNameForNodeGroup(nodeGroups []string, nodeGroup string, nodeGroupExists bool, cacheName string) (string, bool) {
+// PVCNameForNodeGroup returns the serving PVC name for a cache and node group selection.
+func PVCNameForNodeGroup(nodeGroups []string, nodeGroup string, nodeGroupExists bool, cacheName string) (string, bool) {
 	if nodeGroupExists {
 		if !slices.Contains(nodeGroups, nodeGroup) {
 			return "", false
@@ -110,18 +105,19 @@ func pvcNameForNodeGroup(nodeGroups []string, nodeGroup string, nodeGroupExists 
 
 // BuildCachedPVCURI rewrites storageURI to a local model cache PVC path.
 // subPath under sourceURI is preserved (e.g. hf://org/model/subdir).
+// Trailing slashes are trimmed only for CutPrefix so subdirectory matching works;
+// GetStorageKey uses sourceURI as stored so the hash matches the download job folder.
 func BuildCachedPVCURI(sourceURI, pvcName, storageURI string) string {
-	normalizedSourceURI := strings.TrimSuffix(sourceURI, "/")
-	subPath, _ := strings.CutPrefix(storageURI, normalizedSourceURI)
+	subPath, _ := strings.CutPrefix(storageURI, strings.TrimSuffix(sourceURI, "/"))
 	if !strings.HasPrefix(subPath, "/") {
 		subPath = "/" + subPath
 	}
-	storageKey := v1alpha1.GetStorageKey(normalizedSourceURI)
+	storageKey := v1alpha1.GetStorageKey(sourceURI)
 	return "pvc://" + pvcName + "/models/" + storageKey + subPath
 }
 
-// MarshalLoRACacheAnnotation serializes adapter cache metadata to JSON.
-func MarshalLoRACacheAnnotation(entries map[string]LoRACacheEntry) (string, error) {
+// MarshalLoRACacheAnnotation serializes adapter cache refs (cache + optional namespace) to JSON.
+func MarshalLoRACacheAnnotation(entries map[string]CacheEntry) (string, error) {
 	if len(entries) == 0 {
 		return "", nil
 	}
@@ -132,28 +128,23 @@ func MarshalLoRACacheAnnotation(entries map[string]LoRACacheEntry) (string, erro
 	return string(data), nil
 }
 
-// ParseLoRACacheAnnotation deserializes adapter cache metadata from JSON.
-func ParseLoRACacheAnnotation(raw string) (map[string]LoRACacheEntry, error) {
+// ParseLoRACacheAnnotation deserializes adapter cache refs from JSON.
+func ParseLoRACacheAnnotation(raw string) (map[string]CacheEntry, error) {
 	if raw == "" {
 		return nil, nil
 	}
-	var entries map[string]LoRACacheEntry
+	var entries map[string]CacheEntry
 	if err := json.Unmarshal([]byte(raw), &entries); err != nil {
 		return nil, fmt.Errorf("parse LoRA local model cache annotation: %w", err)
 	}
 	return entries, nil
 }
 
-// LoRACacheEntryFromMatch builds a LoRACacheEntry from a cache match.
-func LoRACacheEntryFromMatch(match *CacheMatch) LoRACacheEntry {
-	if match == nil {
-		return LoRACacheEntry{}
-	}
-	return LoRACacheEntry{
-		Cache:     match.Name,
-		Namespace: match.Namespace,
-		SourceURI: match.SourceURI,
-		PVCName:   match.PVCName,
+// AnnotationRef returns a CacheEntry with only the fields stored in the LoRA annotation.
+func AnnotationRef(entry CacheEntry) CacheEntry {
+	return CacheEntry{
+		Cache:     entry.Cache,
+		Namespace: entry.Namespace,
 	}
 }
 

@@ -303,7 +303,8 @@ async def test_llmisvc_localmodelcache_lora_adapters():
         assert lora_raw, f"Expected {LOCALMODEL_LORA_ANNOTATION} annotation"
         lora_entries = json.loads(lora_raw)
         assert lora_entries[ADAPTER_NAME]["cache"] == adapter_cache_name
-        assert lora_entries[ADAPTER_NAME]["sourceUri"] == adapter_uri
+        assert "sourceUri" not in lora_entries[ADAPTER_NAME]
+        assert "pvcName" not in lora_entries[ADAPTER_NAME]
 
         deployment = _wait_for_llmisvc_deployment(
             apps_api, llmisvc_name, KSERVE_TEST_NAMESPACE

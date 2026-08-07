@@ -26,10 +26,13 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmeta"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/localmodelcache"
@@ -120,8 +123,14 @@ func enumerateLoRAAdapters(spec v1alpha2.LLMInferenceServiceSpec) ([]resolvedLoR
 }
 
 // rewriteLoRAAdaptersFromLocalModelCache rewrites cached adapter URIs to pvc:// paths
-// using the localmodel-lora annotation set by the defaulter webhook.
-func rewriteLoRAAdaptersFromLocalModelCache(llmSvc *v1alpha2.LLMInferenceService, adapters []resolvedLoRAAdapter) ([]resolvedLoRAAdapter, error) {
+// using the slim localmodel-lora annotation (cache + optional namespace). Source URI and PVC
+// name are resolved at reconcile time via Get on the referenced cache.
+func rewriteLoRAAdaptersFromLocalModelCache(
+	ctx context.Context,
+	c client.Client,
+	llmSvc *v1alpha2.LLMInferenceService,
+	adapters []resolvedLoRAAdapter,
+) ([]resolvedLoRAAdapter, error) {
 	if len(adapters) == 0 {
 		return adapters, nil
 	}
@@ -137,17 +146,57 @@ func rewriteLoRAAdaptersFromLocalModelCache(llmSvc *v1alpha2.LLMInferenceService
 		return adapters, nil
 	}
 
+	nodeGroup, nodeGroupExists := llmSvc.Annotations[constants.NodeGroupAnnotationKey]
+
 	out := make([]resolvedLoRAAdapter, len(adapters))
 	copy(out, adapters)
 	for i := range out {
 		entry, ok := entries[out[i].name]
-		if !ok {
+		if !ok || entry.Cache == "" {
 			continue
 		}
-		out[i].uri = localmodelcache.BuildCachedPVCURI(entry.SourceURI, entry.PVCName, out[i].uri)
+		sourceURI, pvcName, err := resolveLoRACachePVC(ctx, c, entry, nodeGroup, nodeGroupExists)
+		if err != nil {
+			return nil, fmt.Errorf("LoRA adapter %q: %w", out[i].name, err)
+		}
+		out[i].uri = localmodelcache.BuildCachedPVCURI(sourceURI, pvcName, out[i].uri)
 		out[i].scheme = constants.PvcURIPrefix
 	}
 	return out, nil
+}
+
+// resolveLoRACachePVC Gets the referenced LocalModelCache / LocalModelNamespaceCache and
+// derives source URI + serving PVC name for the LLMInferenceService node group.
+func resolveLoRACachePVC(
+	ctx context.Context,
+	c client.Client,
+	entry localmodelcache.CacheEntry,
+	nodeGroup string,
+	nodeGroupExists bool,
+) (sourceURI, pvcName string, err error) {
+	if entry.Namespace != "" {
+		nsCache := &v1alpha1.LocalModelNamespaceCache{}
+		if err := c.Get(ctx, types.NamespacedName{Name: entry.Cache, Namespace: entry.Namespace}, nsCache); err != nil {
+			return "", "", fmt.Errorf("get LocalModelNamespaceCache %s/%s: %w", entry.Namespace, entry.Cache, err)
+		}
+		pvc, ok := localmodelcache.PVCNameForNodeGroup(nsCache.Spec.NodeGroups, nodeGroup, nodeGroupExists, nsCache.Name)
+		if !ok {
+			return "", "", fmt.Errorf("LocalModelNamespaceCache %s/%s has no matching node group for annotation %q=%q",
+				entry.Namespace, entry.Cache, constants.NodeGroupAnnotationKey, nodeGroup)
+		}
+		return nsCache.Spec.SourceModelUri, pvc, nil
+	}
+
+	cache := &v1alpha1.LocalModelCache{}
+	if err := c.Get(ctx, types.NamespacedName{Name: entry.Cache}, cache); err != nil {
+		return "", "", fmt.Errorf("get LocalModelCache %s: %w", entry.Cache, err)
+	}
+	pvc, ok := localmodelcache.PVCNameForNodeGroup(cache.Spec.NodeGroups, nodeGroup, nodeGroupExists, cache.Name)
+	if !ok {
+		return "", "", fmt.Errorf("LocalModelCache %s has no matching node group for annotation %q=%q",
+			entry.Cache, constants.NodeGroupAnnotationKey, nodeGroup)
+	}
+	return cache.Spec.SourceModelUri, pvc, nil
 }
 
 // collectLoRADownloadPairs filters pre-resolved adapters to hf:// and s3:// uri/path pairs
