@@ -657,13 +657,39 @@ class Storage(object):
         revision = hash_value if hash_value else None
         repo_id = f"{repo}/{model}"
 
+        etag_timeout = int(os.environ.get("HF_HUB_ETAG_TIMEOUT", "30"))
+        max_retries = int(os.environ.get("HF_HUB_DOWNLOAD_RETRIES", "3"))
+
         try:
-            kwargs = dict(repo_id=repo_id, revision=revision, local_dir=temp_dir)
+            kwargs = dict(
+                repo_id=repo_id,
+                revision=revision,
+                local_dir=temp_dir,
+                etag_timeout=etag_timeout,
+            )
             if allow_patterns:
                 kwargs["allow_patterns"] = allow_patterns
             if ignore_patterns:
                 kwargs["ignore_patterns"] = ignore_patterns
-            snapshot_download(**kwargs)
+
+            for attempt in range(1, max_retries + 1):
+                try:
+                    snapshot_download(**kwargs)
+                    break
+                except (RepositoryNotFoundError, RevisionNotFoundError, GatedRepoError):
+                    raise
+                except Exception as e:
+                    if attempt == max_retries:
+                        raise
+                    backoff = min(2**attempt, 60)
+                    logger.warning(
+                        "HuggingFace download attempt %d/%d failed: %s. Retrying in %ds...",
+                        attempt,
+                        max_retries,
+                        e,
+                        backoff,
+                    )
+                    time.sleep(backoff)
         except (
             RepositoryNotFoundError,
             RevisionNotFoundError,

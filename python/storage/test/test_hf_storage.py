@@ -49,6 +49,7 @@ def test_download_model(mock_snapshot_download):
         repo_id=f"{repo}/{model}",
         revision=revision,
         local_dir=mock.ANY,
+        etag_timeout=30,
     )
 
 
@@ -81,6 +82,7 @@ def test_download_model_with_allow_patterns(mock_snapshot_download):
         repo_id="example.com/model",
         revision=None,
         local_dir="/tmp/out",
+        etag_timeout=30,
         allow_patterns=["*.safetensors", "*.json"],
     )
 
@@ -95,6 +97,7 @@ def test_download_model_with_ignore_patterns(mock_snapshot_download):
         repo_id="example.com/model",
         revision=None,
         local_dir="/tmp/out",
+        etag_timeout=30,
         ignore_patterns=["*.bin", "*.gguf"],
     )
 
@@ -114,6 +117,7 @@ def test_download_model_with_both_patterns(mock_snapshot_download):
         repo_id="example.com/model",
         revision=None,
         local_dir="/tmp/out",
+        etag_timeout=30,
         allow_patterns=["*.json"],
         ignore_patterns=["config.json"],
     )
@@ -129,6 +133,7 @@ def test_download_model_no_patterns_omits_kwargs(mock_snapshot_download):
         repo_id="example.com/model",
         revision=None,
         local_dir="/tmp/out",
+        etag_timeout=30,
     )
 
 
@@ -163,6 +168,71 @@ def test_explicit_patterns_override_env(mock_snapshot_download):
 
     call_kwargs = mock_snapshot_download.call_args[1]
     assert call_kwargs.get("allow_patterns") == ["*.safetensors"]
+
+
+@mock.patch("huggingface_hub.snapshot_download")
+def test_custom_etag_timeout_from_env(mock_snapshot_download):
+    uri = "hf://example.com/model"
+
+    with mock.patch.dict(os.environ, {"HF_HUB_ETAG_TIMEOUT": "120"}):
+        Storage._download_hf(uri, "/tmp/out")
+
+    call_kwargs = mock_snapshot_download.call_args[1]
+    assert call_kwargs.get("etag_timeout") == 120
+
+
+@mock.patch("huggingface_hub.snapshot_download")
+@mock.patch("kserve_storage.kserve_storage.time.sleep")
+def test_retry_on_transient_failure(mock_sleep, mock_snapshot_download):
+    mock_snapshot_download.side_effect = [
+        ConnectionError("stalled"),
+        ConnectionError("stalled again"),
+        None,
+    ]
+    uri = "hf://example.com/model"
+
+    Storage._download_hf(uri, "/tmp/out")
+
+    assert mock_snapshot_download.call_count == 3
+    assert mock_sleep.call_count == 2
+
+
+@mock.patch("huggingface_hub.snapshot_download")
+@mock.patch("kserve_storage.kserve_storage.time.sleep")
+def test_retry_exhaustion_raises(mock_sleep, mock_snapshot_download):
+    mock_snapshot_download.side_effect = ConnectionError("stalled")
+    uri = "hf://example.com/model"
+
+    with pytest.raises(ConnectionError, match="stalled"):
+        Storage._download_hf(uri, "/tmp/out")
+
+    assert mock_snapshot_download.call_count == 3
+
+
+@mock.patch("huggingface_hub.snapshot_download")
+@mock.patch("kserve_storage.kserve_storage.time.sleep")
+def test_custom_retry_count_from_env(mock_sleep, mock_snapshot_download):
+    mock_snapshot_download.side_effect = ConnectionError("stalled")
+    uri = "hf://example.com/model"
+
+    with mock.patch.dict(os.environ, {"HF_HUB_DOWNLOAD_RETRIES": "5"}):
+        with pytest.raises(ConnectionError):
+            Storage._download_hf(uri, "/tmp/out")
+
+    assert mock_snapshot_download.call_count == 5
+
+
+@mock.patch("huggingface_hub.snapshot_download")
+def test_no_retry_on_repository_not_found(mock_snapshot_download):
+    from huggingface_hub.utils import RepositoryNotFoundError
+
+    mock_snapshot_download.side_effect = RepositoryNotFoundError("not found")
+    uri = "hf://example.com/model"
+
+    with pytest.raises(Exception):
+        Storage._download_hf(uri, "/tmp/out")
+
+    assert mock_snapshot_download.call_count == 1
 
 
 @mock.patch("huggingface_hub.snapshot_download")
