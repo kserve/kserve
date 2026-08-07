@@ -16,9 +16,6 @@ resolution-markers = [
     "(python_full_version < '3.11' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'linux')",
 ]
 
-[manifest]
-overrides = [{ name = "pillow", specifier = ">=12.2.0" }]
-
 [[package]]
 name = "aiohappyeyeballs"
 version = "2.6.1"

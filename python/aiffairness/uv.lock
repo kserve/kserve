@@ -7,9 +7,6 @@ resolution-markers = [
     "python_full_version < '3.11'",
 ]
 
-[manifest]
-overrides = [{ name = "pillow", specifier = ">=12.2.0" }]
-
 [[package]]
 name = "aif360"
 version = "0.6.1"

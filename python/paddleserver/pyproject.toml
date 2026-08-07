@@ -25,9 +25,3 @@ test = [
 dev = [
     "black[colorama]>=26.3.1,<27",
 ]
-
-
-[tool.uv]
-override-dependencies = [
-    "pillow>=12.2.0", # CVE-2026-40192
-]
