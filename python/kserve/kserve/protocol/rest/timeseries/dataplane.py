@@ -58,7 +58,7 @@ class TimeSeriesDataPlane(DataPlane):
             return create_error_response(
                 message=f"Model {model_name} does not support Time Series API",
                 status_code=HTTPStatus.NOT_IMPLEMENTED,
-                error_type="not_implemented",
+                err_type="not_implemented",
             )
 
         context = {"headers": dict(headers), "response": response}
