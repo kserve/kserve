@@ -160,3 +160,8 @@ data:
       "scaleUpStabilizationWindowSeconds": "{{ .Values.kserve.autoscaler.scaleUpStabilizationWindowSeconds }}",
       "scaleDownStabilizationWindowSeconds": "{{ .Values.kserve.autoscaler.scaleDownStabilizationWindowSeconds }}"
     }
+
+  template: |-
+    {
+      "renderStrategy": "{{ dig "llmisvc" "template" "renderStrategy" "JSON" .Values.kserve }}"
+    }

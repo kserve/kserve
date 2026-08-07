@@ -3,6 +3,8 @@ commonAnnotations: {}
 kserve:
   llmisvc:
     createGIECRDs: true
+    template:
+      renderStrategy: JSON
     controller:
       image: kserve/llmisvc-controller
       tag: ''

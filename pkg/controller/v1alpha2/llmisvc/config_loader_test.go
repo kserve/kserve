@@ -125,3 +125,44 @@ func TestLoadConfig(t *testing.T) {
 		t.Fatal("SchedulerConfig = nil, want populated config")
 	}
 }
+
+func TestLoadConfig_TemplateRenderer(t *testing.T) {
+	tests := []struct {
+		name         string
+		templateData string
+		wantErr      bool
+		want         llmisvc.TemplateRenderStrategy
+	}{
+		{name: "missing template key defaults to JSON", want: llmisvc.TemplateRenderStrategyJSON},
+		{name: "explicit JSON strategy", templateData: `{"renderStrategy":"JSON"}`, want: llmisvc.TemplateRenderStrategyJSON},
+		{name: "explicit Recursive strategy", templateData: `{"renderStrategy":"Recursive"}`, want: llmisvc.TemplateRenderStrategyRecursive},
+		{name: "unknown strategy errors", templateData: `{"renderStrategy":"bogus"}`, wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cachedConfigMap := fixture.InferenceServiceCfgMapWithUrlScheme(constants.KServeNamespace, "https")
+			if tt.templateData != "" {
+				cachedConfigMap.Data["template"] = tt.templateData
+			}
+			c := fake.NewClientBuilder().
+				WithScheme(clientgoscheme.Scheme).
+				WithObjects(cachedConfigMap).
+				Build()
+
+			got, err := llmisvc.LoadConfig(t.Context(), c)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got.TemplateConfig.RenderStrategy != tt.want {
+				t.Errorf("RenderStrategy = %v, want %v", got.TemplateConfig.RenderStrategy, tt.want)
+			}
+		})
+	}
+}

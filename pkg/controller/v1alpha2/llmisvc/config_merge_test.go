@@ -2279,6 +2279,94 @@ func TestReplaceVariables(t *testing.T) {
 				},
 			},
 		},
+		{
+			// Same input as "kvTransferConfig pvc.ref tier renders fs type with index-based root_dir",
+			// but opted into the walk-tree renderer. Production config templates assign this value
+			// as KV_TRANSFER_ARGS="{{ kvTransferConfig ... }}", where the surrounding double quotes
+			// are already literal in the raw string field (the walk-tree renderer has no second
+			// JSON decode to escape for). kvTransferConfig must still produce the same single-quote
+			// wrapped, backslash-escaped output as the default renderer so it doesn't collide with
+			// those literal double quotes and corrupt the bash assignment.
+			name:  "walk-tree renderer: kvTransferConfig matches the default renderer's bash-safe escaping",
+			extra: &llmisvc.Config{TemplateConfig: &llmisvc.TemplateConfig{RenderStrategy: llmisvc.TemplateRenderStrategyRecursive}},
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+							CPU: resource.MustParse("10Gi"),
+							Secondary: []v1alpha2.SecondaryTierSpec{
+								{FileSystem: &v1alpha2.FileSystemTierSpec{
+									PVC: &v1alpha2.PVCTierSpec{
+										Ref: &v1alpha2.PVCRefTierSpec{Name: "my-pvc"},
+									},
+								}},
+							},
+						},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{`--kv-transfer-config '{\"kv_connector\":\"OffloadingConnector\",\"kv_connector_extra_config\":{\"cpu_bytes_to_use\":10737418240,\"secondary_tiers\":[{\"root_dir\":\"/mnt/kv-cache-0\",\"type\":\"fs\"}],\"spec_name\":\"TieringOffloadingSpec\"},\"kv_role\":\"kv_both\"}'`}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:  "walk-tree renderer: basic templating still works",
+			extra: &llmisvc.Config{TemplateConfig: &llmisvc.TemplateConfig{RenderStrategy: llmisvc.TemplateRenderStrategyRecursive}},
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{
+						Name: ptr.To("{{ .Spec.Model.Name }}"),
+					},
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							ServiceAccountName: "{{ ChildName .Name `-sa` }}",
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-llm",
+					Namespace: "test-ns",
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{
+						Name: ptr.To("meta-llama/Llama-3.2-3B-Instruct"),
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{
+						Name: ptr.To("meta-llama/Llama-3.2-3B-Instruct"),
+					},
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							ServiceAccountName: "test-llm-sa",
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
