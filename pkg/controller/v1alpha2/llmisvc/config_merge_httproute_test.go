@@ -142,6 +142,7 @@ func TestMergeSpecs_HTTPRouteRuleDefaultsOverlay(t *testing.T) {
 	if err != nil {
 		t.Fatalf("MergeSpecs() error = %v", err)
 	}
+	llmisvc.ApplyHTTPRouteRuleDefaults(&base, &override, &merged)
 	got := merged.Router.Route.HTTP.Spec
 	if len(got.Rules) != 2 {
 		t.Fatalf("expected preset rules preserved, got %d rules: %#v", len(got.Rules), got.Rules)

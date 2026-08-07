@@ -299,6 +299,12 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		return nil, fmt.Errorf("failed to merge specs: %w", err)
 	}
 
+	presetSpec, err := MergeSpecs(ctx, specs...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to merge preset specs: %w", err)
+	}
+	ApplyHTTPRouteRuleDefaults(&presetSpec, &llmSvc.Spec, &spec)
+
 	llmSvcCfg := &v1alpha2.LLMInferenceServiceConfig{
 		ObjectMeta: *llmSvc.ObjectMeta.DeepCopy(),
 		Spec:       spec,
@@ -830,9 +836,6 @@ func mergeSpecs(ctx context.Context, base, override v1alpha2.LLMInferenceService
 		return v1alpha2.LLMInferenceServiceSpec{}, fmt.Errorf("could not unmarshal merged spec: %w", err)
 	}
 
-	// Apply rule defaults onto preset HTTPRoute rules.
-	applyHTTPRouteRuleDefaults(&base, &override, &finalSpec)
-
 	return finalSpec, nil
 }
 
@@ -843,8 +846,10 @@ func httpRouteSpecFrom(spec *v1alpha2.LLMInferenceServiceSpec) *gwapiv1.HTTPRout
 	return spec.Router.Route.HTTP.Spec
 }
 
-// Apply rule defaults onto preset HTTPRoute rules.
-func applyHTTPRouteRuleDefaults(base, override, merged *v1alpha2.LLMInferenceServiceSpec) {
+// ApplyHTTPRouteRuleDefaults overlays router.route.http.ruleDefaults onto preset
+// HTTPRoute rules after strategic merge. Call from combineBaseRefsConfig once the
+// full preset chain and user spec are merged — not from mergeSpecs (pairwise merges).
+func ApplyHTTPRouteRuleDefaults(base, override, merged *v1alpha2.LLMInferenceServiceSpec) {
 	baseHTTP := httpRouteSpecFrom(base)
 	mergedHTTP := httpRouteSpecFrom(merged)
 	if baseHTTP == nil || override == nil || override.Router == nil || override.Router.Route == nil || override.Router.Route.HTTP == nil || mergedHTTP == nil {
