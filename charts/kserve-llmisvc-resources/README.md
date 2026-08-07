@@ -114,6 +114,7 @@ $ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmis
 | kserve.llmisvc.controller.tolerations | list | `[]` |  |
 | kserve.llmisvc.controller.topologySpreadConstraints | list | `[]` |  |
 | kserve.llmisvc.createGIECRDs | bool | `true` |  |
+| kserve.llmisvc.template.renderStrategy | string | `"JSON"` |  |
 | kserve.localmodel.agent.affinity | object | `{}` |  |
 | kserve.localmodel.agent.hostPath | string | `"/mnt/models"` |  |
 | kserve.localmodel.agent.image | string | `"kserve/kserve-localmodelnode-agent"` |  |

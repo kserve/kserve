@@ -458,13 +458,6 @@ const (
 	// LLMServedByAnnotationKey enables the x-served-by response header middleware.
 	// Set to "true" on an LLMInferenceService to inject the middleware.
 	LLMServedByAnnotationKey = "serving.kserve.io/enable-served-by-header"
-
-	// LLMWalkTreeTemplateRendererAnnotationKey opts an LLMInferenceServiceConfig into the
-	// tree-walking template renderer, which templates each string field of the config in place
-	// instead of round-tripping the whole config through JSON. This avoids the escaping issues
-	// that arise when a template function's output must itself be valid embedded JSON.
-	// Set to "true" on an LLMInferenceServiceConfig to enable it.
-	LLMWalkTreeTemplateRendererAnnotationKey = "serving.kserve.io/exp-walk-tree-template-renderer"
 )
 
 // LLMInferenceService constants

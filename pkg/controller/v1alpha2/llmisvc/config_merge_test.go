@@ -28,7 +28,6 @@ import (
 
 	ktesting "github.com/kserve/kserve/pkg/testing"
 
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 	"github.com/kserve/kserve/pkg/credentials"
 
@@ -2288,13 +2287,9 @@ func TestReplaceVariables(t *testing.T) {
 			// JSON decode to escape for). kvTransferConfig must still produce the same single-quote
 			// wrapped, backslash-escaped output as the default renderer so it doesn't collide with
 			// those literal double quotes and corrupt the bash assignment.
-			name: "walk-tree renderer: kvTransferConfig matches the default renderer's bash-safe escaping",
+			name:  "walk-tree renderer: kvTransferConfig matches the default renderer's bash-safe escaping",
+			extra: &llmisvc.Config{TemplateConfig: &llmisvc.TemplateConfig{RenderStrategy: llmisvc.TemplateRenderStrategyRecursive}},
 			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						constants.LLMWalkTreeTemplateRendererAnnotationKey: "true",
-					},
-				},
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
@@ -2322,11 +2317,6 @@ func TestReplaceVariables(t *testing.T) {
 				},
 			},
 			want: &v1alpha2.LLMInferenceServiceConfig{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						constants.LLMWalkTreeTemplateRendererAnnotationKey: "true",
-					},
-				},
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
@@ -2339,13 +2329,9 @@ func TestReplaceVariables(t *testing.T) {
 			},
 		},
 		{
-			name: "walk-tree renderer: basic templating still works",
+			name:  "walk-tree renderer: basic templating still works",
+			extra: &llmisvc.Config{TemplateConfig: &llmisvc.TemplateConfig{RenderStrategy: llmisvc.TemplateRenderStrategyRecursive}},
 			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						constants.LLMWalkTreeTemplateRendererAnnotationKey: "true",
-					},
-				},
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					Model: v1alpha2.LLMModelSpec{
 						Name: ptr.To("{{ .Spec.Model.Name }}"),
@@ -2369,11 +2355,6 @@ func TestReplaceVariables(t *testing.T) {
 				},
 			},
 			want: &v1alpha2.LLMInferenceServiceConfig{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						constants.LLMWalkTreeTemplateRendererAnnotationKey: "true",
-					},
-				},
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					Model: v1alpha2.LLMModelSpec{
 						Name: ptr.To("meta-llama/Llama-3.2-3B-Instruct"),
