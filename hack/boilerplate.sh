@@ -32,7 +32,7 @@ do
       local_year=$(file_year "$file")
       sed "s/ YEAR/ ${local_year}/g" hack/boilerplate.go.txt | cat - "$file" > "$file".new && mv "$file".new "$file"
     fi
-done <   <(find ./pkg ./cmd -name '*.go' -print0)
+done <   <(find ./kernelcache/mcv/pkg ./kernelcache/mcv/cmd ./pkg ./cmd -name '*.go' -print0)
 
 while IFS= read -r -d '' file
 do
