@@ -37,7 +37,6 @@ KSERVE_PLURAL_LLMINFERENCESERVICE = "llminferenceservices"
 STOP_ANNOTATION_KEY = "serving.kserve.io/stop"
 
 
-@pytest.mark.llminferenceservice
 @pytest.mark.asyncio(loop_scope="session")
 @pytest.mark.parametrize(
     "test_case",
@@ -70,13 +69,6 @@ def test_llm_stop_feature(test_case: TestCase):
 
     service_name = test_case.llm_service.metadata.name
     test_failed = False
-
-    # Disable auth for this test
-    if not test_case.llm_service.metadata.annotations:
-        test_case.llm_service.metadata.annotations = {}
-    test_case.llm_service.metadata.annotations[
-        "security.opendatahub.io/enable-auth"
-    ] = "false"
 
     try:
         # Create the service

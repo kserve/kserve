@@ -469,5 +469,16 @@ func GetStorageInitializerConfigs(configMap *corev1.ConfigMap) (*types.StorageIn
 		}
 	}
 
+	if storageInitializerConfig.OciModelMode != "" {
+		switch storageInitializerConfig.OciModelMode {
+		case types.OciModelModeModelcar, types.OciModelModeNative, types.OciModelModeFetch:
+		default:
+			return nil, fmt.Errorf("invalid %q.ociModelMode %q: must be one of %q, %q, %q",
+				StorageInitializerConfigMapKeyName,
+				storageInitializerConfig.OciModelMode,
+				types.OciModelModeModelcar, types.OciModelModeNative, types.OciModelModeFetch)
+		}
+	}
+
 	return storageInitializerConfig, nil
 }

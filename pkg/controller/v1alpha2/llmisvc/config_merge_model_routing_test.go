@@ -80,12 +80,17 @@ func TestStripModelBasedRoutingRules(t *testing.T) {
 		wantFn     func(t *testing.T, rules []gwapiv1.HTTPRouteRule)
 	}{
 		{
-			name: "strips rules where all matches are model-routing",
+			name: "strips consolidated model-routing rule with all endpoint matches",
 			rules: []gwapiv1.HTTPRouteRule{
 				{Matches: []gwapiv1.HTTPRouteMatch{
 					modelMatch("/v1/completions", "publishers/ns/models/m1"),
+					modelMatch("/v1/completions/", "publishers/ns/models/m1"),
 					modelMatch("/v1/chat/completions", "publishers/ns/models/m1"),
+					modelMatch("/v1/chat/completions/", "publishers/ns/models/m1"),
+					modelMatch("/v1/responses", "publishers/ns/models/m1"),
+					modelMatch("/v1/responses/", "publishers/ns/models/m1"),
 					modelMatch("/v1/messages", "publishers/ns/models/m1"),
+					modelMatch("/v1/messages/", "publishers/ns/models/m1"),
 				}},
 			},
 			headerName: hdr,

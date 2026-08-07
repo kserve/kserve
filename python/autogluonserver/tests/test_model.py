@@ -23,6 +23,8 @@ from autogluonserver.tabular_model import (
     _determine_prediction_datatype,
 )
 
+pytestmark = pytest.mark.autogluon
+
 
 class DummyFeatureMetadata:
     def __init__(self, type_map_raw=None):

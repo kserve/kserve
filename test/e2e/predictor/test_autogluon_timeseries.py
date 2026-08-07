@@ -60,29 +60,43 @@ def _create_ts_predictor(service_name: str, storage_uri: str = None):
 
 
 async def _deploy_and_predict_v1(
-    service_name: str, rest_v1_client, input_path: str, storage_uri: str = None
+    service_name: str,
+    rest_v1_client,
+    input_path: str,
+    storage_uri: str = None,
+    network_layer: str = "istio",
 ):
     predictor = _create_ts_predictor(service_name, storage_uri=storage_uri)
-    return await deploy_and_predict(service_name, predictor, rest_v1_client, input_path)
+    return await deploy_and_predict(
+        service_name,
+        predictor,
+        rest_v1_client,
+        input_path,
+        network_layer=network_layer,
+    )
 
 
+@pytest.mark.autogluon
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_autogluon_timeseries_runtime_kserve_v1(rest_v1_client):
+async def test_autogluon_timeseries_runtime_kserve_v1(rest_v1_client, network_layer):
     service_name = "isvc-autogluon-ts-v1"
     response = await _deploy_and_predict_v1(
         service_name,
         rest_v1_client,
         "./data/autogluon_timeseries_input.json",
+        network_layer=network_layer,
     )
     assert "predictions" in response
     assert len(response["predictions"]) > 0
 
 
+@pytest.mark.autogluon
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
 async def test_autogluon_timeseries_runtime_kserve_v1_storage_uri_without_trailing_slash(
     rest_v1_client,
+    network_layer,
 ):
     service_name = "isvc-autogluon-ts-v1-noslash"
     response = await _deploy_and_predict_v1(
@@ -90,6 +104,7 @@ async def test_autogluon_timeseries_runtime_kserve_v1_storage_uri_without_traili
         rest_v1_client,
         "./data/autogluon_timeseries_input_long.json",
         storage_uri=AUTOGLUON_TS_STORAGE_URI.rstrip("/"),
+        network_layer=network_layer,
     )
     assert "predictions" in response
     assert len(response["predictions"]) > 0

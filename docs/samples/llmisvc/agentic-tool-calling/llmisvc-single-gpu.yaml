@@ -1,0 +1,38 @@
+---
+# LLMInferenceService for tool calling validation on a single GPU
+# Model: Qwen3-Coder-30B-A3B-Instruct-FP8 (supports tool calling via qwen3_coder parser)
+# Topology: Single node, no P/D disaggregation
+# Requires: 1x GPU node, HF token secret
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceService
+metadata:
+  name: qwen3-coder-tool-calling
+spec:
+  model:
+    uri: "hf://Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8"
+    name: Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8
+  replicas: 1
+  router:
+    route: {}
+    scheduler: {}
+  template:
+    containers:
+      - name: main
+        image: ghcr.io/llm-d/llm-d-cuda:v0.8.1
+        env:
+          - name: HF_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: hf-token
+                key: HF_TOKEN
+          - name: VLLM_ADDITIONAL_ARGS
+            value: >-
+              --enable-auto-tool-choice
+              --tool-call-parser=qwen3_coder
+              --enable-log-requests
+              --enable-log-outputs
+        resources:
+          limits:
+            nvidia.com/gpu: "1"
+          requests:
+            nvidia.com/gpu: "1"

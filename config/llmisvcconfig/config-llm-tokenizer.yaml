@@ -1,0 +1,74 @@
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-tokenizer
+spec:
+  router:
+    scheduler:
+      tokenizer:
+        template:
+          automountServiceAccountToken: false
+          containers:
+            - name: main
+              image: docker.io/vllm/vllm-openai-cpu:v0.23.0@sha256:89e1fbe829038b1a560601990c8ec89625c622a969fcbc8f10ce48b6139795be
+              imagePullPolicy: IfNotPresent
+              command:
+                - "/bin/bash"
+                - "-c"
+                - |-
+                  exec vllm launch render /mnt/models/base \
+                    --port=8000 \
+                    {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh \
+                    --ssl-certfile /var/run/kserve/tls/tls.crt \
+                    --ssl-keyfile /var/run/kserve/tls/tls.key{{ end }}
+              args: []
+              ports:
+                - name: render-http
+                  containerPort: 8000
+                  protocol: TCP
+              env:
+                - name: HF_HOME
+                  value: /tmp/hf
+                - name: DO_NOT_TRACK
+                  value: "1"
+              resources:
+                requests:
+                  cpu: "1"
+                  memory: 4Gi
+                limits:
+                  cpu: "4"
+                  memory: 12Gi
+              readinessProbe:
+                httpGet:
+                  path: /health
+                  port: render-http
+                  scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
+                initialDelaySeconds: 30
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 60
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                runAsNonRoot: false
+                capabilities:
+                  drop:
+                    - ALL
+                seccompProfile:
+                  type: RuntimeDefault
+              terminationMessagePath: /dev/termination-log
+              terminationMessagePolicy: FallbackToLogsOnError
+              volumeMounts:
+                - mountPath: /tmp
+                  name: tmp-dir
+                - mountPath: /var/run/kserve/tls
+                  name: tls-certs
+                  readOnly: true
+          volumes:
+            - name: tmp-dir
+              emptyDir: {}
+            - name: tls-certs
+              secret:
+                secretName: "{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}"
+          dnsPolicy: ClusterFirst
+          restartPolicy: Always

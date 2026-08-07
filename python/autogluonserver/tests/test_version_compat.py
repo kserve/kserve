@@ -24,6 +24,8 @@ from autogluonserver.version_compat import (
     _get_installed_version,
 )
 
+pytestmark = pytest.mark.autogluon
+
 # ---------------------------------------------------------------------------
 # _read_saved_version
 # ---------------------------------------------------------------------------

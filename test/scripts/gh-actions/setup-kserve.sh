@@ -40,8 +40,19 @@ fi
 
 echo "Installing KServe using ${INSTALL_METHOD^}..."
 
-echo "Creating a namespace kserve-ci-e2e-test ..."
-kubectl get namespace kserve-ci-e2e-test || kubectl create namespace kserve-ci-e2e-test
+echo "Creating e2e test namespaces ..."
+E2E_NS="${KSERVE_TEST_NAMESPACE:-kserve-ci-e2e-test}"
+kubectl get namespace "$E2E_NS" || kubectl create namespace "$E2E_NS"
+kubectl label namespace "$E2E_NS" kserve.io/e2e-test=true --overwrite 2>/dev/null || true
+
+E2E_WORKERS="${E2E_WORKER_COUNT:-0}"
+if [[ "$E2E_WORKERS" -gt 0 ]]; then
+  for i in $(seq 0 $((E2E_WORKERS - 1))); do
+    WORKER_NS="${E2E_NS}-gw${i}"
+    kubectl get namespace "$WORKER_NS" 2>/dev/null || kubectl create namespace "$WORKER_NS"
+    kubectl label namespace "$WORKER_NS" kserve.io/e2e-test=true --overwrite 2>/dev/null || true
+  done
+fi
 
 echo "Installing KServe Python SDK ..."
 pushd python/kserve >/dev/null
@@ -101,17 +112,28 @@ if [[ $ENABLE_LLMISVC == "false" || $ENABLE_KSERVE_WITH_LLMISVC == "true" ]]; th
   if ! kubectl wait --for=condition=complete --timeout=900s job/s3-init -n kserve; then
     echo "S3 init job failed. Pod status and logs:"
     kubectl get pods -l job-name=s3-init -n kserve
+    kubectl describe pods -l job-name=s3-init -n kserve || true
     kubectl logs -l job-name=s3-init -n kserve --all-containers --tail=50 || true
     exit 1
   fi
 
   echo "Add storageSpec testing secrets ..."
-  kubectl apply -f config/overlays/test/s3-local-backend/storage-config-secret.yaml -n kserve-ci-e2e-test
+  kubectl apply -f config/overlays/test/s3-local-backend/storage-config-secret.yaml -n "$E2E_NS"
 
   echo "Configuring S3 credentials for model downloads ..."
-  kubectl apply -f config/overlays/test/s3-local-backend/seaweedfs-s3-creds-secret.yaml -n kserve-ci-e2e-test
-  kubectl patch serviceaccount default -n kserve-ci-e2e-test \
+  kubectl apply -f config/overlays/test/s3-local-backend/seaweedfs-s3-creds-secret.yaml -n "$E2E_NS"
+  kubectl patch serviceaccount default -n "$E2E_NS" \
     --type=merge -p='{"secrets": [{"name": "seaweedfs-s3-creds"}]}'
+
+  if [[ "$E2E_WORKERS" -gt 0 ]]; then
+    for i in $(seq 0 $((E2E_WORKERS - 1))); do
+      WORKER_NS="${E2E_NS}-gw${i}"
+      kubectl apply -f config/overlays/test/s3-local-backend/storage-config-secret.yaml -n "$WORKER_NS"
+      kubectl apply -f config/overlays/test/s3-local-backend/seaweedfs-s3-creds-secret.yaml -n "$WORKER_NS"
+      kubectl patch serviceaccount default -n "$WORKER_NS" \
+        --type=merge -p='{"secrets": [{"name": "seaweedfs-s3-creds"}]}' 2>/dev/null || true
+    done
+  fi
 else
   if [[ $INSTALL_METHOD == "helm" ]]; then
     export SET_KSERVE_VERSION=${TAG}
@@ -149,14 +171,24 @@ else
   if ! kubectl wait --for=condition=complete --timeout=900s job/s3-init -n kserve; then
     echo "S3 init job failed. Pod status and logs:"
     kubectl get pods -l job-name=s3-init -n kserve
+    kubectl describe pods -l job-name=s3-init -n kserve || true
     kubectl logs -l job-name=s3-init -n kserve --all-containers --tail=50 || true
     exit 1
   fi
 
   echo "Configuring S3 credentials in test namespace ..."
-  kubectl apply -f "${REPO_ROOT}/config/overlays/test/s3-local-backend/seaweedfs-s3-creds-secret.yaml" -n kserve-ci-e2e-test
-  kubectl patch serviceaccount default -n kserve-ci-e2e-test \
+  kubectl apply -f "${REPO_ROOT}/config/overlays/test/s3-local-backend/seaweedfs-s3-creds-secret.yaml" -n "$E2E_NS"
+  kubectl patch serviceaccount default -n "$E2E_NS" \
     --type=merge -p='{"secrets": [{"name": "seaweedfs-s3-creds"}]}'
+
+  if [[ "$E2E_WORKERS" -gt 0 ]]; then
+    for i in $(seq 0 $((E2E_WORKERS - 1))); do
+      WORKER_NS="${E2E_NS}-gw${i}"
+      kubectl apply -f "${REPO_ROOT}/config/overlays/test/s3-local-backend/seaweedfs-s3-creds-secret.yaml" -n "$WORKER_NS"
+      kubectl patch serviceaccount default -n "$WORKER_NS" \
+        --type=merge -p='{"secrets": [{"name": "seaweedfs-s3-creds"}]}' 2>/dev/null || true
+    done
+  fi
 fi
 
 ENABLE_KEDA="${ENABLE_KEDA:-false}"

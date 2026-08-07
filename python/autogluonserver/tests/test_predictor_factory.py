@@ -15,12 +15,16 @@
 import json
 from unittest.mock import MagicMock
 
+import pytest
+
 from autogluonserver.predictor_factory import (
     AutoGluonDetectedModel,
     create_autogluon_model,
 )
 from autogluonserver.tabular_model import AutoGluonTabularModel
 from autogluonserver.timeseries_model import AutoGluonTimeSeriesModel
+
+pytestmark = pytest.mark.autogluon
 
 
 def test_factory_returns_detected_model(tmp_path):

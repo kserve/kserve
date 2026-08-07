@@ -152,6 +152,45 @@ def get_isvc_resource_version(
     return ""
 
 
+def wait_for_stable_resource_version(
+    kserve_client: KServeClient,
+    name: str,
+    namespace: str = KSERVE_TEST_NAMESPACE,
+    stable_seconds: float = 15.0,
+    poll_interval: float = 3.0,
+    timeout_seconds: float = 120.0,
+) -> str:
+    """Wait until the ISVC's resourceVersion stops changing for stable_seconds."""
+    start = time.time()
+    rv = get_isvc_resource_version(kserve_client, name, namespace)
+    last_change = time.time()
+
+    while time.time() - last_change < stable_seconds:
+        if time.time() - start > timeout_seconds:
+            logger.warning(
+                "Timed out waiting for stable resourceVersion on %s (last rv=%s)",
+                name,
+                rv,
+            )
+            return rv
+        time.sleep(poll_interval)
+        current_rv = get_isvc_resource_version(kserve_client, name, namespace)
+        if current_rv != rv:
+            logger.info(
+                "resourceVersion for %s changed: %s -> %s", name, rv, current_rv
+            )
+            rv = current_rv
+            last_change = time.time()
+
+    logger.info(
+        "resourceVersion for %s stabilized at %s (stable for %.1fs)",
+        name,
+        rv,
+        stable_seconds,
+    )
+    return rv
+
+
 def get_isvc_model_status(
     kserve_client: KServeClient, name: str, namespace: str = KSERVE_TEST_NAMESPACE
 ) -> dict:
@@ -346,8 +385,12 @@ async def test_event_storm_prevention_init_container_isolation(rest_v1_client):
         kserve_client.wait_isvc_ready(primary_name, namespace=KSERVE_TEST_NAMESPACE)
         logger.info("Primary ISVC is ready")
 
-        # Record baseline resourceVersion
-        primary_rv_before = get_isvc_resource_version(kserve_client, primary_name)
+        # Wait for resourceVersion to stabilize before recording baseline.
+        # After an ISVC becomes ready, async updates (HTTPRoute status from
+        # Istio, deployment status changes) can still bump the resourceVersion.
+        primary_rv_before = wait_for_stable_resource_version(
+            kserve_client, primary_name
+        )
         logger.info("Baseline recorded - resourceVersion: %s", primary_rv_before)
 
         # Step 2: Create invalid S3 credentials

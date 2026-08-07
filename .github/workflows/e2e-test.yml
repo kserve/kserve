@@ -33,6 +33,7 @@ concurrency:
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       install_methods: ${{ steps.set-matrix.outputs.install_methods }}
     steps:
@@ -69,6 +70,7 @@ jobs:
 
   kserve-image-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -151,6 +153,7 @@ jobs:
 
   predictor-runtime-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 70
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -273,6 +276,7 @@ jobs:
 
   explainer-runtime-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -312,6 +316,7 @@ jobs:
 
   graph-tests-images-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -362,6 +367,7 @@ jobs:
 
   test-predictor:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     needs: [detect-changes, kserve-image-build, predictor-runtime-build]
     strategy:
       fail-fast: false
@@ -447,6 +453,7 @@ jobs:
 
   test-transformer-explainer-mms:
     runs-on: ubuntu-latest
+    timeout-minutes: 50
     needs:
       [detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     strategy:
@@ -562,6 +569,7 @@ jobs:
 
   test-graph:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     needs:
       [detect-changes, kserve-image-build, predictor-runtime-build, graph-tests-images-build]
     strategy:
@@ -666,6 +674,7 @@ jobs:
 
   test-path-based-routing:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     needs:
       [detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     strategy:
@@ -792,6 +801,7 @@ jobs:
 
   test-qpext:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     needs: [detect-changes, kserve-image-build, predictor-runtime-build]
     strategy:
       fail-fast: false
@@ -885,6 +895,7 @@ jobs:
 
   test-with-helm:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: [kserve-image-build]
     steps:
       - name: Checkout source
@@ -953,6 +964,7 @@ jobs:
 
   test-raw:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       max-parallel: 3
@@ -1113,6 +1125,7 @@ jobs:
 
   test-autoscaling:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     needs:
       [detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     strategy:
@@ -1222,6 +1235,7 @@ jobs:
 
   test-kourier:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     needs:
       [detect-changes, kserve-image-build, predictor-runtime-build, graph-tests-images-build]
     strategy:
@@ -1337,6 +1351,7 @@ jobs:
 
   test-llm:
     runs-on: cncf-ubuntu-16-64-x86
+    timeout-minutes: 65
     needs: [detect-changes, kserve-image-build, predictor-runtime-build]
     strategy:
       fail-fast: false
@@ -1420,6 +1435,7 @@ jobs:
 
   test-huggingface-server-vllm:
     runs-on: cncf-ubuntu-16-64-x86
+    timeout-minutes: 80
     needs: [detect-changes, kserve-image-build, predictor-runtime-build]
     strategy:
       fail-fast: false
@@ -1504,6 +1520,7 @@ jobs:
 
   test-vllm-runtime:
     runs-on: cncf-ubuntu-16-64-x86
+    timeout-minutes: 25
     needs: [detect-changes, kserve-image-build, predictor-runtime-build]
     strategy:
       fail-fast: false

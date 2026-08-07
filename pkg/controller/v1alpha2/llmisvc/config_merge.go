@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"text/template"
@@ -65,6 +66,7 @@ const (
 	configRouterSchedulerNameSuffix           = "config-llm-scheduler"
 	configRouterRouteNameSuffix               = "config-llm-router-route"
 	configSchedulerLatencyPredictorNameSuffix = "config-llm-scheduler-latency-predictor"
+	configTokenizerNameSuffix                 = "config-llm-tokenizer" // #nosec G101
 	// Tracing configurations
 	configTracingNameSuffix = "config-llm-tracing"
 )
@@ -83,6 +85,7 @@ var (
 	configRouterSchedulerName               = configPrefix + configRouterSchedulerNameSuffix
 	configRouterRouteName                   = configPrefix + configRouterRouteNameSuffix
 	configSchedulerLatencyPredictorName     = configPrefix + configSchedulerLatencyPredictorNameSuffix
+	configTokenizerName                     = configPrefix + configTokenizerNameSuffix
 	configTracingName                       = configPrefix + configTracingNameSuffix
 )
 
@@ -105,6 +108,7 @@ var WellKnownDefaultConfigs = sets.New[string](
 	configRouterSchedulerName,
 	configRouterRouteName,
 	configSchedulerLatencyPredictorName,
+	configTokenizerName,
 	configTracingName,
 )
 
@@ -210,6 +214,9 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	refs := make([]corev1.LocalObjectReference, 0, len(llmSvc.Spec.BaseRefs))
 	if resolvedSpec.Router != nil && resolvedSpec.Router.Scheduler != nil && !resolvedSpec.Router.Scheduler.Pool.HasRef() {
 		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configRouterSchedulerName)})
+	}
+	if resolvedSpec.Router != nil && resolvedSpec.Router.Scheduler != nil && isTokenizerEnabled(resolvedSpec) {
+		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configTokenizerName)})
 	}
 	if hasLatencyProducerInSpec(resolvedSpec) {
 		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configSchedulerLatencyPredictorName)})
@@ -528,20 +535,27 @@ func expandLoRAAdapterMatches(rules []gwapiv1.HTTPRouteRule, namespace string, a
 	if headerName == "" || len(adapters) == 0 {
 		return
 	}
+
+	sorted := make([]v1alpha2.LLMModelSpec, len(adapters))
+	copy(sorted, adapters)
+	slices.SortFunc(sorted, func(a, b v1alpha2.LLMModelSpec) int {
+		return strings.Compare(ptr.Deref(a.Name, ""), ptr.Deref(b.Name, ""))
+	})
+
 	for i := range rules {
 		var adapterMatches []gwapiv1.HTTPRouteMatch
 		for _, match := range rules[i].Matches {
 			if !isModelBasedRoutingMatch(match, headerName) {
 				continue
 			}
-			for _, adapter := range adapters {
+			for _, adapter := range sorted {
 				if adapter.Name == nil {
 					continue
 				}
 				am := *match.DeepCopy()
 				for h := range am.Headers {
 					if string(am.Headers[h].Name) == headerName {
-						am.Headers[h].Value = fmt.Sprintf("publishers/%s/models/%s", namespace, *adapter.Name)
+						am.Headers[h].Value = fullyQualifiedModelName(namespace, *adapter.Name)
 					}
 				}
 				adapterMatches = append(adapterMatches, am)
@@ -645,6 +659,20 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 				if kv.EvictionPolicy != "" {
 					extraConfig["eviction_policy"] = kv.EvictionPolicy
 				}
+				var secondaryTiers []map[string]any
+				for i, s := range kv.Secondary {
+					if s.FileSystem == nil {
+						continue
+					}
+					entry := map[string]any{
+						"type":     "fs",
+						"root_dir": fmt.Sprintf("/mnt/kv-cache-%d", i),
+					}
+					secondaryTiers = append(secondaryTiers, entry)
+				}
+				if len(secondaryTiers) > 0 {
+					extraConfig["secondary_tiers"] = secondaryTiers
+				}
 				kvConfig := map[string]any{
 					"kv_connector":              "OffloadingConnector",
 					"kv_role":                   "kv_both",
@@ -654,9 +682,10 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 				if err != nil {
 					return ""
 				}
-				// Escape " as \" so the value embeds safely in a bash double-quoted
-				// assignment and in the JSON template string that ReplaceVariables renders.
-				return "--kv-transfer-config '" + strings.ReplaceAll(string(b), `"`, `\"`) + "'"
+				// \\\" decodes to \" after ReplaceVariables re-unmarshals this as JSON, and
+				// the \" then survives the KV_TRANSFER_ARGS="..." bash assignment in the
+				// template. Plain " would be eaten by the shell and vLLM would get invalid JSON.
+				return "--kv-transfer-config '" + strings.ReplaceAll(string(b), `"`, `\\\"`) + "'"
 			},
 			// shutdownTimeout computes the vLLM --shutdown-timeout value from a *corev1.PodSpec
 			// (or nil): max(0, tgps - preStop - min(5, tgps)), defaulting tgps to 60 when unset.

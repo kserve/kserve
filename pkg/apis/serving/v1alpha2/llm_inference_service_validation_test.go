@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
@@ -566,14 +567,109 @@ func TestValidateWorkloadScaling(t *testing.T) {
 			wantErrStrings: []string{"minReplicas (10) cannot exceed maxReplicas (5)"},
 		},
 		{
-			name: "error: scaling without WVA",
+			name: "error: scaling without WVA or direct KEDA",
 			workload: &WorkloadSpec{
 				Scaling: &ScalingSpec{
 					MaxReplicas: 5,
 				},
 			},
 			wantErrCount:   1,
-			wantErrStrings: []string{"wva is required when scaling is configured"},
+			wantErrStrings: []string{"either wva or keda must be specified when scaling is configured"},
+		},
+		{
+			name: "error: scaling with both WVA and direct KEDA",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: 5,
+					WVA: &WVASpec{
+						ActuatorSpec: ActuatorSpec{
+							HPA: &HPAScalingSpec{},
+						},
+					},
+					KEDA: &DirectKEDAScalingSpec{
+						Triggers: []kedav1alpha1.ScaleTriggers{
+							{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+						},
+					},
+				},
+			},
+			wantErrCount:   1,
+			wantErrStrings: []string{"wva and keda are mutually exclusive"},
+		},
+		{
+			name: "valid: scaling with direct KEDA",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MinReplicas: ptr.To(int32(1)),
+					MaxReplicas: 5,
+					KEDA: &DirectKEDAScalingSpec{
+						KEDAScalingSpec: KEDAScalingSpec{
+							PollingInterval: ptr.To(int32(30)),
+						},
+						Triggers: []kedav1alpha1.ScaleTriggers{
+							{
+								Type: "cpu",
+								Metadata: map[string]string{
+									"value": "80",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "valid: direct KEDA with scalingModifiers",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: 5,
+					KEDA: &DirectKEDAScalingSpec{
+						KEDAScalingSpec: KEDAScalingSpec{
+							Advanced: &kedav1alpha1.AdvancedConfig{
+								ScalingModifiers: kedav1alpha1.ScalingModifiers{
+									Formula: "trig0 + trig1",
+									Target:  "10",
+								},
+							},
+						},
+						Triggers: []kedav1alpha1.ScaleTriggers{
+							{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+							{Type: "memory", Metadata: map[string]string{"value": "70"}},
+						},
+					},
+				},
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "error: direct KEDA without triggers",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: 5,
+					KEDA:        &DirectKEDAScalingSpec{},
+				},
+			},
+			wantErrCount:   1,
+			wantErrStrings: []string{"at least one trigger is required when using direct KEDA scaling"},
+		},
+		{
+			name: "error: direct KEDA idleReplicaCount without minReplicas",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: 10,
+					KEDA: &DirectKEDAScalingSpec{
+						KEDAScalingSpec: KEDAScalingSpec{
+							IdleReplicaCount: ptr.To(int32(1)),
+						},
+						Triggers: []kedav1alpha1.ScaleTriggers{
+							{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+						},
+					},
+				},
+			},
+			wantErrCount:   1,
+			wantErrStrings: []string{"minReplicas is required when idleReplicaCount is set"},
 		},
 		{
 			name: "error: WVA with both HPA and KEDA",
@@ -1014,6 +1110,31 @@ func TestValidateActuatorConsistency(t *testing.T) {
 		}
 		errs := validator.validateScaling(svc)
 		assert.Empty(t, errs)
+	})
+
+	t.Run("error: decode direct KEDA, prefill WVA", func(t *testing.T) {
+		svc := newBaseLLMInferenceServiceV1Alpha2()
+		svc.Spec.WorkloadSpec = WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: 5,
+				KEDA: &DirectKEDAScalingSpec{
+					Triggers: []kedav1alpha1.ScaleTriggers{
+						{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+					},
+				},
+			},
+		}
+		svc.Spec.Prefill = &WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: 5,
+				WVA:         &WVASpec{ActuatorSpec: ActuatorSpec{HPA: &HPAScalingSpec{}}},
+			},
+		}
+
+		errs := validator.validateScaling(svc)
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "spec.prefill.scaling")
+		assert.Contains(t, errs[0].Detail, "decode uses direct keda but prefill uses wva")
 	})
 
 	t.Run("error: decode HPA, prefill KEDA", func(t *testing.T) {
@@ -1554,4 +1675,156 @@ func TestValidateConfidential(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidateKVCacheOffloading(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+
+	makeSvc := func(kv *KVCacheOffloadingSpec) *LLMInferenceService {
+		return &LLMInferenceService{
+			Spec: LLMInferenceServiceSpec{
+				WorkloadSpec: WorkloadSpec{KVCacheOffloading: kv},
+			},
+		}
+	}
+
+	t.Run("nil spec produces no errors", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(nil))
+		assert.Empty(t, errs)
+	})
+
+	t.Run("cpu-only (no secondary) produces no errors", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
+			CPU: resource.MustParse("10Gi"),
+		}))
+		assert.Empty(t, errs)
+	})
+
+	t.Run("valid emptyDir secondary tier", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
+			CPU: resource.MustParse("10Gi"),
+			Secondary: []SecondaryTierSpec{
+				{FileSystem: &FileSystemTierSpec{
+					EmptyDir: &EmptyDirTierSpec{Size: resource.MustParse("100Gi")},
+				}},
+			},
+		}))
+		assert.Empty(t, errs)
+	})
+
+	t.Run("secondary without cpu produces error", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
+			Secondary: []SecondaryTierSpec{
+				{FileSystem: &FileSystemTierSpec{
+					EmptyDir: &EmptyDirTierSpec{Size: resource.MustParse("100Gi")},
+				}},
+			},
+		}))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeRequired, errs[0].Type)
+		assert.Contains(t, errs[0].Field, "cpu")
+	})
+
+	t.Run("nil fileSystem produces error", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
+			CPU:       resource.MustParse("10Gi"),
+			Secondary: []SecondaryTierSpec{{FileSystem: nil}},
+		}))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeRequired, errs[0].Type)
+		assert.Contains(t, errs[0].Field, "fileSystem")
+	})
+
+	t.Run("both emptyDir and pvc set produces error", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
+			CPU: resource.MustParse("10Gi"),
+			Secondary: []SecondaryTierSpec{
+				{FileSystem: &FileSystemTierSpec{
+					EmptyDir: &EmptyDirTierSpec{Size: resource.MustParse("100Gi")},
+					PVC:      &PVCTierSpec{},
+				}},
+			},
+		}))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeInvalid, errs[0].Type)
+		assert.Contains(t, errs[0].Field, "fileSystem")
+	})
+
+	t.Run("none of emptyDir/pvc set produces error", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
+			CPU:       resource.MustParse("10Gi"),
+			Secondary: []SecondaryTierSpec{{FileSystem: &FileSystemTierSpec{}}},
+		}))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeRequired, errs[0].Type)
+	})
+
+	t.Run("pvc with neither spec nor ref produces error", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
+			CPU: resource.MustParse("10Gi"),
+			Secondary: []SecondaryTierSpec{
+				{FileSystem: &FileSystemTierSpec{
+					PVC: &PVCTierSpec{},
+				}},
+			},
+		}))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeRequired, errs[0].Type)
+	})
+
+	t.Run("pvc.ref with empty name produces error", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
+			CPU: resource.MustParse("10Gi"),
+			Secondary: []SecondaryTierSpec{
+				{FileSystem: &FileSystemTierSpec{
+					PVC: &PVCTierSpec{Ref: &PVCRefTierSpec{Name: ""}},
+				}},
+			},
+		}))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeRequired, errs[0].Type)
+		assert.Contains(t, errs[0].Field, "name")
+	})
+
+	t.Run("pvc with both spec and ref produces error", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
+			CPU: resource.MustParse("10Gi"),
+			Secondary: []SecondaryTierSpec{
+				{FileSystem: &FileSystemTierSpec{
+					PVC: &PVCTierSpec{
+						Spec: &corev1.PersistentVolumeClaimSpec{},
+						Ref:  &PVCRefTierSpec{Name: "my-pvc"},
+					},
+				}},
+			},
+		}))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeInvalid, errs[0].Type)
+	})
+
+	t.Run("prefill kvCacheOffloading is also validated", func(t *testing.T) {
+		svc := &LLMInferenceService{
+			Spec: LLMInferenceServiceSpec{
+				WorkloadSpec: WorkloadSpec{
+					KVCacheOffloading: &KVCacheOffloadingSpec{
+						CPU: resource.MustParse("10Gi"),
+					},
+				},
+				Prefill: &WorkloadSpec{
+					KVCacheOffloading: &KVCacheOffloadingSpec{
+						// secondary set but cpu is zero
+						Secondary: []SecondaryTierSpec{
+							{FileSystem: &FileSystemTierSpec{
+								EmptyDir: &EmptyDirTierSpec{Size: resource.MustParse("100Gi")},
+							}},
+						},
+					},
+				},
+			},
+		}
+		errs := validator.validateKVCacheOffloading(svc)
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "prefill")
+		assert.Contains(t, errs[0].Field, "cpu")
+	})
 }

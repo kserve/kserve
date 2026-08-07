@@ -1,6 +1,6 @@
 {
   "model": "qwen-cmpl",
-  "prompt": "What is the result of 2 + 2?",
+  "prompt": "1+1=2\n3+3=6\n5+5=10\n2+2=",
   "temperature": 0,
   "max_tokens": 20
 }
