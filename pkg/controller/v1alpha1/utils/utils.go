@@ -19,6 +19,7 @@ package utils
 import (
 	"context"
 	"fmt"
+	"os"
 	"strconv"
 
 	"github.com/go-logr/logr"
@@ -32,6 +33,19 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1helpers "k8s.io/component-helpers/scheduling/corev1"
 )
+
+// KServeConfigNamespaceEnv is set on localmodel/localmodelnode workloads when they run outside the
+// application namespace so they can read inferenceservice-config from the operator namespace.
+const KServeConfigNamespaceEnv = "KSERVE_CONFIG_NAMESPACE"
+
+// InferenceServiceConfigNamespace returns the namespace of the inferenceservice-config ConfigMap
+// for modelcache controllers.
+func InferenceServiceConfigNamespace() string {
+	if ns := os.Getenv(KServeConfigNamespaceEnv); ns != "" {
+		return ns
+	}
+	return constants.KServeNamespace
+}
 
 // CheckNodeAffinity returns true if the node matches the node affinity specified in the PV Spec
 func CheckNodeAffinity(pvSpec *corev1.PersistentVolumeSpec, node corev1.Node) (bool, error) {

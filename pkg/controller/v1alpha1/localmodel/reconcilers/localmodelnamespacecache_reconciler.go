@@ -58,7 +58,7 @@ type LocalModelNamespaceCacheReconciler struct {
 // Step 4 - Creates PV & PVCs for ISVCs in the same namespace using this cached model
 func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	c.Log.Info("Reconciling namespace-scoped localmodel", "name", req.Name, "namespace", req.Namespace)
-	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, c.Clientset)
+	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, c.Clientset, controllerutils.InferenceServiceConfigNamespace())
 	if err != nil {
 		c.Log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
 		return reconcile.Result{}, err
@@ -266,7 +266,7 @@ func (c *LocalModelNamespaceCacheReconciler) localmodelNodeFuncNamespaceCache(ct
 }
 
 func (c *LocalModelNamespaceCacheReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(context.Background(), c.Clientset)
+	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(context.Background(), c.Clientset, controllerutils.InferenceServiceConfigNamespace())
 	if err != nil {
 		c.Log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
 		return err

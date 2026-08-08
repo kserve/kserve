@@ -533,6 +533,37 @@ func TestNewLocalModelConfig(t *testing.T) {
 	})
 }
 
+func TestGetInferenceServiceConfigMap_OptionalNamespace(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	t.Run("uses explicit namespace when provided", func(t *testing.T) {
+		clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      constants.InferenceServiceConfigMapName,
+				Namespace: "app-ns",
+			},
+			Data: map[string]string{LocalModelConfigName: `{}`},
+		})
+
+		cm, err := GetInferenceServiceConfigMap(t.Context(), clientset, "app-ns")
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(cm.Namespace).To(gomega.Equal("app-ns"))
+	})
+
+	t.Run("defaults to KServeNamespace when namespace omitted", func(t *testing.T) {
+		clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      constants.InferenceServiceConfigMapName,
+				Namespace: constants.KServeNamespace,
+			},
+		})
+
+		cm, err := GetInferenceServiceConfigMap(t.Context(), clientset)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(cm.Namespace).To(gomega.Equal(constants.KServeNamespace))
+	})
+}
+
 func TestNewSecurityConfig(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
