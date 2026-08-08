@@ -141,7 +141,7 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.storage.s3.useHttps | string | `""` |  |
 | kserve.storage.s3.useVirtualBucket | string | `""` |  |
 | kserve.storage.s3.verifySSL | string | `""` |  |
-| kserve.storage.storageSecretNameAnnotation | string | `"serving.kserve.io/secretName"` |  |
+| kserve.storage.storageSecretNameAnnotation | string | `"serving.kserve.io/storageSecretName"` |  |
 | kserve.storage.storageSpecSecretName | string | `"storage-config"` |  |
 | kserve.storage.tag | string | `""` |  |
 | kserve.storage.uidModelcar | int | `1010` |  |

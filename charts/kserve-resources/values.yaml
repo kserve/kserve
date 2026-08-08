@@ -41,7 +41,7 @@ kserve:
     caBundleConfigMapName: ''
     caBundleVolumeMountPath: /etc/ssl/custom-certs
     storageSpecSecretName: storage-config
-    storageSecretNameAnnotation: serving.kserve.io/secretName
+    storageSecretNameAnnotation: serving.kserve.io/storageSecretName
     s3:
       accessKeyIdName: AWS_ACCESS_KEY_ID
       secretAccessKeyName: AWS_SECRET_ACCESS_KEY
