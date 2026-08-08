@@ -32,8 +32,10 @@ class PaddleModel(Model):
         self.model_dir = model_dir
         self.ready = False
         self.predictor = None
-        self.input_tensor = None
-        self.output_tensor = None
+        self.input_names = []
+        self.input_tensors = {}
+        self.output_names = []
+        self.output_tensors = {}
 
     def load(self) -> bool:
         def get_model_file(primary_ext: str, fallback_ext: str = None) -> str:
@@ -68,11 +70,13 @@ class PaddleModel(Model):
 
         self.predictor = inference.create_predictor(config)
 
-        # TODO: add support for multiple input_names/output_names
-        input_names = self.predictor.get_input_names()
-        self.input_tensor = self.predictor.get_input_handle(input_names[0])
-        output_names = self.predictor.get_output_names()
-        self.output_tensor = self.predictor.get_output_handle(output_names[0])
+        self.input_names = self.predictor.get_input_names()
+        for name in self.input_names:
+            self.input_tensors[name] = self.predictor.get_input_handle(name)
+            
+        self.output_names = self.predictor.get_output_names()
+        for name in self.output_names:
+            self.output_tensors[name] = self.predictor.get_output_handle(name)
 
         self.ready = True
         return self.ready
@@ -81,11 +85,46 @@ class PaddleModel(Model):
         self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None
     ) -> Union[Dict, InferResponse]:
         try:
-            instances = get_predict_input(payload)
-            np_array_input = np.array(instances, dtype="float32")
-            self.input_tensor.copy_from_cpu(np_array_input)
+            if isinstance(payload, InferRequest):
+                for infer_input in payload.inputs:
+                    name = infer_input.name
+                    if name in self.input_tensors:
+                        self.input_tensors[name].copy_from_cpu(infer_input.as_numpy())
+                    elif len(self.input_names) == 1:
+                        self.input_tensors[self.input_names[0]].copy_from_cpu(infer_input.as_numpy())
+            else:
+                instances = get_predict_input(payload)
+                if isinstance(instances, pd.DataFrame):
+                    for name in self.input_names:
+                        if name in instances.columns:
+                            np_arr = np.array(instances[name].tolist(), dtype="float32")
+                            self.input_tensors[name].copy_from_cpu(np_arr)
+                        elif len(self.input_names) == 1:
+                            np_arr = np.array(instances, dtype="float32")
+                            self.input_tensors[self.input_names[0]].copy_from_cpu(np_arr)
+                else:
+                    np_array_input = np.array(instances, dtype="float32")
+                    if len(self.input_names) == 1:
+                        self.input_tensors[self.input_names[0]].copy_from_cpu(np_array_input)
+
             self.predictor.run()
-            result = self.output_tensor.copy_to_cpu()
-            return get_predict_response(payload, result, self.name)
+
+            result = {}
+            for name in self.output_names:
+                result[name] = self.output_tensors[name].copy_to_cpu()
+                
+            if len(self.output_names) == 1:
+                return get_predict_response(payload, result[self.output_names[0]], self.name)
+            else:
+                import pandas as pd
+                df = pd.DataFrame()
+                for name, data in result.items():
+                    # Check if data is 1D or can be flattened if needed
+                    # Pandas expects 1D arrays for columns, or we can use list
+                    if len(data.shape) > 1:
+                        df[name] = list(data)
+                    else:
+                        df[name] = data
+                return get_predict_response(payload, df, self.name)
         except Exception as e:
             raise InferenceError(str(e))
