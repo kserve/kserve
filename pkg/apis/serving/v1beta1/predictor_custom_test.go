@@ -98,7 +98,7 @@ func TestCustomPredictorValidation(t *testing.T) {
 					},
 				},
 			},
-			matcher: gomega.Not(gomega.BeNil()),
+			matcher: gomega.MatchError("invalid protocol unknown. Must be one of [v1, v2]"),
 		},
 	}
 
