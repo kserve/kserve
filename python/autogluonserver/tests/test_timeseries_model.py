@@ -74,8 +74,8 @@ def test_timeseries_load_and_predict_v1(monkeypatch, tmp_path):
         "autogluonserver.timeseries_model.Storage.download", lambda _: str(tmp_path)
     )
     monkeypatch.setattr(
-        "autogluonserver.timeseries_model.TimeSeriesPredictor.load",
-        lambda path: fake,
+        "autogluonserver.timeseries_model.load_predictor_tolerating_patch_mismatch",
+        lambda cls, path: fake,
     )
 
     model = AutoGluonTimeSeriesModel("forecast", "s3://bucket/artifact")
@@ -106,8 +106,8 @@ def test_timeseries_response_uses_metadata_column_names(monkeypatch, tmp_path):
         "autogluonserver.timeseries_model.Storage.download", lambda _: str(tmp_path)
     )
     monkeypatch.setattr(
-        "autogluonserver.timeseries_model.TimeSeriesPredictor.load",
-        lambda path: fake,
+        "autogluonserver.timeseries_model.load_predictor_tolerating_patch_mismatch",
+        lambda cls, path: fake,
     )
     model = AutoGluonTimeSeriesModel("forecast", "s3://bucket/artifact")
     assert model.load()
@@ -134,8 +134,8 @@ def test_timeseries_known_covariates_passed(monkeypatch, tmp_path):
         "autogluonserver.timeseries_model.Storage.download", lambda _: str(tmp_path)
     )
     monkeypatch.setattr(
-        "autogluonserver.timeseries_model.TimeSeriesPredictor.load",
-        lambda path: fake,
+        "autogluonserver.timeseries_model.load_predictor_tolerating_patch_mismatch",
+        lambda cls, path: fake,
     )
     model = AutoGluonTimeSeriesModel("forecast", "s3://bucket/artifact")
     model.load()
@@ -156,8 +156,8 @@ def test_timeseries_missing_known_covariates_raises(monkeypatch, tmp_path):
         "autogluonserver.timeseries_model.Storage.download", lambda _: str(tmp_path)
     )
     monkeypatch.setattr(
-        "autogluonserver.timeseries_model.TimeSeriesPredictor.load",
-        lambda path: FakeTimeSeriesPredictor(known_covariates_names=["promo"]),
+        "autogluonserver.timeseries_model.load_predictor_tolerating_patch_mismatch",
+        lambda cls, path: FakeTimeSeriesPredictor(known_covariates_names=["promo"]),
     )
     model = AutoGluonTimeSeriesModel("forecast", "s3://bucket/artifact")
     model.load()
@@ -173,8 +173,8 @@ def test_timeseries_without_metadata_json_uses_default_columns(
         "autogluonserver.timeseries_model.Storage.download", lambda _: str(tmp_path)
     )
     monkeypatch.setattr(
-        "autogluonserver.timeseries_model.TimeSeriesPredictor.load",
-        lambda path: fake,
+        "autogluonserver.timeseries_model.load_predictor_tolerating_patch_mismatch",
+        lambda cls, path: fake,
     )
     model = AutoGluonTimeSeriesModel("forecast", "s3://bucket/artifact")
     with caplog.at_level(logging.WARNING, logger="kserve"):
@@ -240,8 +240,8 @@ def test_timeseries_env_overrides_column_names(monkeypatch, tmp_path):
         "autogluonserver.timeseries_model.Storage.download", lambda _: str(tmp_path)
     )
     monkeypatch.setattr(
-        "autogluonserver.timeseries_model.TimeSeriesPredictor.load",
-        lambda path: fake,
+        "autogluonserver.timeseries_model.load_predictor_tolerating_patch_mismatch",
+        lambda cls, path: fake,
     )
     model = AutoGluonTimeSeriesModel("forecast", "s3://bucket/artifact")
     assert model.load()
@@ -420,8 +420,8 @@ def test_timeseries_v2_request_raises(monkeypatch, tmp_path):
         "autogluonserver.timeseries_model.Storage.download", lambda _: str(tmp_path)
     )
     monkeypatch.setattr(
-        "autogluonserver.timeseries_model.TimeSeriesPredictor.load",
-        lambda path: FakeTimeSeriesPredictor(),
+        "autogluonserver.timeseries_model.load_predictor_tolerating_patch_mismatch",
+        lambda cls, path: FakeTimeSeriesPredictor(),
     )
     model = AutoGluonTimeSeriesModel("forecast", "s3://bucket/artifact")
     model.load()
