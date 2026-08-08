@@ -21,6 +21,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -41,7 +42,7 @@ type HTTPSProvider struct {
 	Client *http.Client
 }
 
-func (m *HTTPSProvider) DownloadModel(modelDir string, modelName string, storageUri string) error {
+func (m *HTTPSProvider) DownloadModel(ctx context.Context, modelDir string, modelName string, storageUri string) error {
 	log.Info("Download model ", "modelName", modelName, "storageUri", storageUri, "modelDir", modelDir)
 	uri, err := url.Parse(storageUri)
 	if err != nil {
@@ -53,13 +54,13 @@ func (m *HTTPSProvider) DownloadModel(modelDir string, modelName string, storage
 		ModelName:  modelName,
 		Uri:        uri,
 	}
-	if err := HTTPSDownloader.Download(*m.Client); err != nil {
+	if err := HTTPSDownloader.Download(ctx, *m.Client); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (m *HTTPSProvider) UploadObject(bucket string, key string, object []byte) error {
+func (m *HTTPSProvider) UploadObject(ctx context.Context, bucket string, key string, object []byte) error {
 	return errors.New("upload not supported for HTTPS storage")
 }
 
@@ -70,9 +71,9 @@ type HTTPSDownloader struct {
 	Uri        *url.URL
 }
 
-func (h *HTTPSDownloader) Download(client http.Client) error {
+func (h *HTTPSDownloader) Download(ctx context.Context, client http.Client) error {
 	// Create request
-	req, err := http.NewRequest(http.MethodGet, h.StorageUri, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, h.StorageUri, nil)
 	if err != nil {
 		return err
 	}

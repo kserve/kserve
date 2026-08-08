@@ -35,7 +35,7 @@ type GCSProvider struct {
 	Client stiface.Client
 }
 
-func (p *GCSProvider) DownloadModel(modelDir string, modelName string, storageUri string) error {
+func (p *GCSProvider) DownloadModel(ctx context.Context, modelDir string, modelName string, storageUri string) error {
 	log.Info("Downloading model ", "modelName", modelName, "storageUri", storageUri, "modelDir", modelDir)
 	gcsUri := strings.TrimPrefix(storageUri, string(GCS))
 	tokens := strings.SplitN(gcsUri, "/", 2)
@@ -43,7 +43,6 @@ func (p *GCSProvider) DownloadModel(modelDir string, modelName string, storageUr
 	if len(tokens) == 2 {
 		prefix = tokens[1]
 	}
-	ctx := context.Background()
 	gcsObjectDownloader := &GCSObjectDownloader{
 		StorageUri: storageUri,
 		ModelDir:   modelDir,
@@ -61,8 +60,8 @@ func (p *GCSProvider) DownloadModel(modelDir string, modelName string, storageUr
 	return nil
 }
 
-func (p *GCSProvider) UploadObject(bucket string, key string, object []byte) error {
-	writer := p.Client.Bucket(bucket).Object(key).NewWriter(context.Background())
+func (p *GCSProvider) UploadObject(ctx context.Context, bucket string, key string, object []byte) error {
+	writer := p.Client.Bucket(bucket).Object(key).NewWriter(ctx)
 	if _, err := writer.Write(object); err != nil {
 		return fmt.Errorf("failed to write object to bucket %s with key %s: %w", bucket, key, err)
 	}

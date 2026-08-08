@@ -80,7 +80,7 @@ type BatchStrategy interface {
 }
 
 type Store interface {
-	Store(logUrl *url.URL, batch []LogRequest) error
+	Store(ctx context.Context, logUrl *url.URL, batch []LogRequest) error
 }
 
 type BlobStore struct {
@@ -122,7 +122,7 @@ func NewStoreForScheme(scheme string, logStorePath string, marshaller Marshaller
 	return nil, fmt.Errorf("unsupported protocol %s", protocol)
 }
 
-func (s *BlobStore) Store(logUrl *url.URL, batch []LogRequest) error {
+func (s *BlobStore) Store(ctx context.Context, logUrl *url.URL, batch []LogRequest) error {
 	if logUrl == nil {
 		return errors.New("log url is invalid")
 	}
@@ -153,7 +153,7 @@ func (s *BlobStore) Store(logUrl *url.URL, batch []LogRequest) error {
 		return err
 	}
 
-	err = s.provider.UploadObject(bucket, objectKey, response.Data)
+	err = s.provider.UploadObject(ctx, bucket, objectKey, response.Data)
 	if err != nil {
 		s.log.Error(err)
 		return err
