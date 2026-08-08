@@ -100,7 +100,10 @@ func (g *GCSObjectDownloader) Download(ctx context.Context, client stiface.Clien
 			return fmt.Errorf("an error occurred while iterating: %w", err)
 		}
 		objectValue := strings.TrimPrefix(attrs.Name, g.Item)
-		fileName := filepath.Join(g.ModelDir, g.ModelName, objectValue)
+		fileName, err := safeLocalModelPath(filepath.Join(g.ModelDir, g.ModelName), objectValue)
+		if err != nil {
+			return err
+		}
 
 		foundObject = true
 		if FileExists(fileName) {
