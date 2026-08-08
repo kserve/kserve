@@ -696,6 +696,46 @@ var _ = Describe("LLMInferenceService Controller", func() {
 					"Owner-specified replicas should override externally set replicas")
 			}).WithContext(ctx).Should(Succeed())
 		})
+
+		It("should propagate progressDeadlineSeconds to the decode and prefill deployments", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-progress-deadline"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			mainDeploymentName := types.NamespacedName{Name: svcName + "-kserve", Namespace: testNs.Name}
+			prefillDeploymentName := types.NamespacedName{Name: svcName + "-kserve-prefill", Namespace: testNs.Name}
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithModelName("facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithProgressDeadlineSeconds(1200),
+				WithPrefill(SimpleWorkerPodSpec()),
+				WithPrefillProgressDeadlineSeconds(900),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then
+			Eventually(func(g Gomega, ctx context.Context) {
+				deployment := &appsv1.Deployment{}
+				g.Expect(envTest.Get(ctx, mainDeploymentName, deployment)).To(Succeed())
+				g.Expect(deployment.Spec.ProgressDeadlineSeconds).To(Equal(ptr.To[int32](1200)),
+					"decode deployment should get the progressDeadlineSeconds from the spec")
+			}).WithContext(ctx).Should(Succeed())
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				deployment := &appsv1.Deployment{}
+				g.Expect(envTest.Get(ctx, prefillDeploymentName, deployment)).To(Succeed())
+				g.Expect(deployment.Spec.ProgressDeadlineSeconds).To(Equal(ptr.To[int32](900)),
+					"prefill deployment should get the progressDeadlineSeconds from the prefill spec")
+			}).WithContext(ctx).Should(Succeed())
+		})
 	})
 
 	Context("ImagePullSecrets propagation", func() {
