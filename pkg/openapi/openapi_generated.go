@@ -7014,6 +7014,18 @@ func schema_pkg_apis_serving_v1beta1_IngressConfig(ref common.ReferenceCallback)
 							Format: "",
 						},
 					},
+					"llmInferenceServiceTLSMinVersion": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"llmInferenceServiceTLSCipherSuites": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"disableIstioVirtualHost": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
