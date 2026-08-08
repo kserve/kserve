@@ -52,6 +52,10 @@ const (
 	DisallowedMultipleContainersInWorkerSpecError    = "the InferenceService %q is invalid: setting multiple containers in workerSpec is not allowed"
 	DisallowedWorkerSpecPipelineParallelSizeEnvError = "the InferenceService %q is invalid: setting PIPELINE_PARALLEL_SIZE in environment variables is not allowed"
 	DisallowedWorkerSpecTensorParallelSizeEnvError   = "the InferenceService %q is invalid: setting TENSOR_PARALLEL_SIZE in environment variables is not allowed"
+	DisallowedHostNetworkError                       = "the InferenceService %q is invalid: setting hostNetwork is not allowed in %s"
+	DisallowedHostPIDError                           = "the InferenceService %q is invalid: setting hostPID is not allowed in %s"
+	DisallowedHostIPCError                           = "the InferenceService %q is invalid: setting hostIPC is not allowed in %s"
+	DisallowedProjectedSATokenVolumeError            = "the InferenceService %q is invalid: projected volume %q with serviceAccountToken source is not allowed in %s"
 )
 
 // SupportedStorageSpecURIPrefixList Constants
