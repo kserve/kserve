@@ -73,16 +73,7 @@ kserve:
       fsGroup: 1000
     disableVolumeManagement: false
     agent:
-      nodeSelector: {}
-      affinity: {}
-      tolerations: []
-      hostPath: /mnt/models
-      image: kserve/kserve-localmodelnode-agent
-      tag: ''
       reconcilationFrequencyInSecs: 60
-      securityContext:
-        runAsUser: 1000
-        runAsNonRoot: true
   security:
     autoMountServiceAccountToken: true
   inferenceservice:
