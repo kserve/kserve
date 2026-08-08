@@ -55240,6 +55240,7 @@ rules:
   resources:
   - localmodelcaches
   - localmodelnamespacecaches
+  - localmodelnodegroups
   verbs:
   - get
   - list

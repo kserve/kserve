@@ -66,11 +66,178 @@ func TestSetLocalModelLabel_ClusterScoped(t *testing.T) {
 		},
 	}
 
-	SetLocalModelLabel(llmSvc, models, nil)
+	SetLocalModelLabel(llmSvc, models, nil, nil)
 
 	assert.Equal(t, "my-cache", llmSvc.Labels[constants.LocalModelLabel])
 	assert.NotContains(t, llmSvc.Labels, constants.LocalModelNamespaceLabel)
 	assert.Equal(t, "s3://mybucket/mymodel", llmSvc.Annotations[constants.LocalModelSourceUriAnnotationKey])
+	assert.Equal(t, "my-cache-gpu1", llmSvc.Annotations[constants.LocalModelPVCNameAnnotationKey])
+}
+
+func TestSetLocalModelLabel_ClusterScoped_SelectsCompatibleNodeGroup(t *testing.T) {
+	llmSvc := newLLMSvc("s3://mybucket/mymodel")
+	llmSvc.Spec.Template = &corev1.PodSpec{
+		NodeSelector: map[string]string{
+			"nvidia.com/gpu.product": "NVIDIA-A100-PCIE-40GB",
+		},
+	}
+	models := &v1alpha1.LocalModelCacheList{
+		Items: []v1alpha1.LocalModelCache{
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "my-cache"},
+				Spec: v1alpha1.LocalModelCacheSpec{
+					SourceModelUri: "s3://mybucket/mymodel",
+					ModelSize:      resource.MustParse("10Gi"),
+					NodeGroups:     []string{"rtx2080ti-workers", "a100-workers"},
+				},
+			},
+		},
+	}
+	nodeGroups := &v1alpha1.LocalModelNodeGroupList{
+		Items: []v1alpha1.LocalModelNodeGroup{
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "rtx2080ti-workers"},
+				Spec: v1alpha1.LocalModelNodeGroupSpec{
+					PersistentVolumeSpec: corev1.PersistentVolumeSpec{
+						NodeAffinity: &corev1.VolumeNodeAffinity{
+							Required: &corev1.NodeSelector{
+								NodeSelectorTerms: []corev1.NodeSelectorTerm{
+									{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{Key: "nvidia.com/gpu.product", Operator: corev1.NodeSelectorOpIn, Values: []string{"NVIDIA-RTX-2080-TI"}},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "a100-workers"},
+				Spec: v1alpha1.LocalModelNodeGroupSpec{
+					PersistentVolumeSpec: corev1.PersistentVolumeSpec{
+						NodeAffinity: &corev1.VolumeNodeAffinity{
+							Required: &corev1.NodeSelector{
+								NodeSelectorTerms: []corev1.NodeSelectorTerm{
+									{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{Key: "nvidia.com/gpu.product", Operator: corev1.NodeSelectorOpIn, Values: []string{"NVIDIA-A100-PCIE-40GB"}},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	SetLocalModelLabel(llmSvc, models, nil, nodeGroups)
+
+	assert.Equal(t, "my-cache", llmSvc.Labels[constants.LocalModelLabel])
+	assert.Equal(t, "my-cache-a100-workers", llmSvc.Annotations[constants.LocalModelPVCNameAnnotationKey])
+}
+
+func TestSetLocalModelLabel_ClusterScoped_SkipsSoleIncompatibleNodeGroup(t *testing.T) {
+	llmSvc := newLLMSvc("s3://mybucket/mymodel")
+	llmSvc.Spec.Template = &corev1.PodSpec{
+		NodeSelector: map[string]string{
+			"nvidia.com/gpu.product": "NVIDIA-A100-PCIE-40GB",
+		},
+	}
+	models := &v1alpha1.LocalModelCacheList{
+		Items: []v1alpha1.LocalModelCache{
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "my-cache"},
+				Spec: v1alpha1.LocalModelCacheSpec{
+					SourceModelUri: "s3://mybucket/mymodel",
+					NodeGroups:     []string{"h100-workers"},
+				},
+			},
+		},
+	}
+	nodeGroups := &v1alpha1.LocalModelNodeGroupList{
+		Items: []v1alpha1.LocalModelNodeGroup{
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "h100-workers"},
+				Spec: v1alpha1.LocalModelNodeGroupSpec{
+					PersistentVolumeSpec: corev1.PersistentVolumeSpec{
+						NodeAffinity: &corev1.VolumeNodeAffinity{
+							Required: &corev1.NodeSelector{
+								NodeSelectorTerms: []corev1.NodeSelectorTerm{
+									{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{Key: "nvidia.com/gpu.product", Operator: corev1.NodeSelectorOpIn, Values: []string{"NVIDIA-H100-80GB-HBM3"}},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	SetLocalModelLabel(llmSvc, models, nil, nodeGroups)
+
+	assert.NotContains(t, llmSvc.Labels, constants.LocalModelLabel)
+	assert.NotContains(t, llmSvc.Annotations, constants.LocalModelPVCNameAnnotationKey)
+}
+
+func TestSetLocalModelLabel_ClusterScoped_NoNodeSelectorUsesFirst(t *testing.T) {
+	llmSvc := newLLMSvc("s3://mybucket/mymodel")
+	models := &v1alpha1.LocalModelCacheList{
+		Items: []v1alpha1.LocalModelCache{
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "my-cache"},
+				Spec: v1alpha1.LocalModelCacheSpec{
+					SourceModelUri: "s3://mybucket/mymodel",
+					ModelSize:      resource.MustParse("10Gi"),
+					NodeGroups:     []string{"gpu1", "gpu2"},
+				},
+			},
+		},
+	}
+	nodeGroups := &v1alpha1.LocalModelNodeGroupList{
+		Items: []v1alpha1.LocalModelNodeGroup{
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "gpu1"},
+				Spec: v1alpha1.LocalModelNodeGroupSpec{
+					PersistentVolumeSpec: corev1.PersistentVolumeSpec{
+						NodeAffinity: &corev1.VolumeNodeAffinity{
+							Required: &corev1.NodeSelector{
+								NodeSelectorTerms: []corev1.NodeSelectorTerm{
+									{MatchExpressions: []corev1.NodeSelectorRequirement{{Key: "gpu-type", Operator: corev1.NodeSelectorOpIn, Values: []string{"a100"}}}},
+								},
+							},
+						},
+					},
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "gpu2"},
+				Spec: v1alpha1.LocalModelNodeGroupSpec{
+					PersistentVolumeSpec: corev1.PersistentVolumeSpec{
+						NodeAffinity: &corev1.VolumeNodeAffinity{
+							Required: &corev1.NodeSelector{
+								NodeSelectorTerms: []corev1.NodeSelectorTerm{
+									{MatchExpressions: []corev1.NodeSelectorRequirement{{Key: "gpu-type", Operator: corev1.NodeSelectorOpIn, Values: []string{"h100"}}}},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	SetLocalModelLabel(llmSvc, models, nil, nodeGroups)
+
+	assert.Equal(t, "my-cache", llmSvc.Labels[constants.LocalModelLabel])
+	// No nodeSelector on workload, falls back to first node group
 	assert.Equal(t, "my-cache-gpu1", llmSvc.Annotations[constants.LocalModelPVCNameAnnotationKey])
 }
 
@@ -101,7 +268,7 @@ func TestSetLocalModelLabel_NamespaceScoped(t *testing.T) {
 		},
 	}
 
-	SetLocalModelLabel(llmSvc, models, nsModels)
+	SetLocalModelLabel(llmSvc, models, nsModels, nil)
 
 	// Namespace-scoped takes precedence
 	assert.Equal(t, "ns-cache", llmSvc.Labels[constants.LocalModelLabel])
@@ -125,7 +292,7 @@ func TestSetLocalModelLabel_NoMatch(t *testing.T) {
 		},
 	}
 
-	SetLocalModelLabel(llmSvc, models, nil)
+	SetLocalModelLabel(llmSvc, models, nil, nil)
 
 	assert.NotContains(t, llmSvc.Labels, constants.LocalModelLabel)
 	assert.NotContains(t, llmSvc.Annotations, constants.LocalModelSourceUriAnnotationKey)
@@ -144,7 +311,7 @@ func TestSetLocalModelLabel_DisableAnnotation(t *testing.T) {
 	}
 
 	// No matching models — simulates the disabled case
-	SetLocalModelLabel(llmSvc, &v1alpha1.LocalModelCacheList{}, nil)
+	SetLocalModelLabel(llmSvc, &v1alpha1.LocalModelCacheList{}, nil, nil)
 
 	assert.NotContains(t, llmSvc.Labels, constants.LocalModelLabel)
 	assert.NotContains(t, llmSvc.Annotations, constants.LocalModelSourceUriAnnotationKey)
@@ -192,10 +359,77 @@ func TestSetLocalModelLabel_NodeGroupMatching(t *testing.T) {
 		},
 	}
 
-	SetLocalModelLabel(llmSvc, models, nil)
+	SetLocalModelLabel(llmSvc, models, nil, nil)
 
 	assert.Equal(t, "my-cache", llmSvc.Labels[constants.LocalModelLabel])
 	assert.Equal(t, "my-cache-gpu2", llmSvc.Annotations[constants.LocalModelPVCNameAnnotationKey])
+}
+
+func TestSetLocalModelLabel_NamespaceScoped_SelectsCompatibleNodeGroup(t *testing.T) {
+	llmSvc := newLLMSvc("s3://mybucket/mymodel")
+	llmSvc.Spec.Template = &corev1.PodSpec{
+		NodeSelector: map[string]string{
+			"nvidia.com/gpu.product": "NVIDIA-A100-PCIE-40GB",
+		},
+	}
+	nsModels := &v1alpha1.LocalModelNamespaceCacheList{
+		Items: []v1alpha1.LocalModelNamespaceCache{
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "ns-cache", Namespace: "default"},
+				Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+					SourceModelUri: "s3://mybucket/mymodel",
+					ModelSize:      resource.MustParse("10Gi"),
+					NodeGroups:     []string{"rtx2080ti-workers", "a100-workers"},
+				},
+			},
+		},
+	}
+	nodeGroups := &v1alpha1.LocalModelNodeGroupList{
+		Items: []v1alpha1.LocalModelNodeGroup{
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "rtx2080ti-workers"},
+				Spec: v1alpha1.LocalModelNodeGroupSpec{
+					PersistentVolumeSpec: corev1.PersistentVolumeSpec{
+						NodeAffinity: &corev1.VolumeNodeAffinity{
+							Required: &corev1.NodeSelector{
+								NodeSelectorTerms: []corev1.NodeSelectorTerm{
+									{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{Key: "nvidia.com/gpu.product", Operator: corev1.NodeSelectorOpIn, Values: []string{"NVIDIA-RTX-2080-TI"}},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "a100-workers"},
+				Spec: v1alpha1.LocalModelNodeGroupSpec{
+					PersistentVolumeSpec: corev1.PersistentVolumeSpec{
+						NodeAffinity: &corev1.VolumeNodeAffinity{
+							Required: &corev1.NodeSelector{
+								NodeSelectorTerms: []corev1.NodeSelectorTerm{
+									{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{Key: "nvidia.com/gpu.product", Operator: corev1.NodeSelectorOpIn, Values: []string{"NVIDIA-A100-PCIE-40GB"}},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	SetLocalModelLabel(llmSvc, nil, nsModels, nodeGroups)
+
+	assert.Equal(t, "ns-cache", llmSvc.Labels[constants.LocalModelLabel])
+	assert.Equal(t, "default", llmSvc.Labels[constants.LocalModelNamespaceLabel])
+	assert.Equal(t, "ns-cache-a100-workers", llmSvc.Annotations[constants.LocalModelPVCNameAnnotationKey])
 }
 
 func TestSetLocalModelLabel_NodeGroupNotMatching(t *testing.T) {
@@ -216,7 +450,7 @@ func TestSetLocalModelLabel_NodeGroupNotMatching(t *testing.T) {
 		},
 	}
 
-	SetLocalModelLabel(llmSvc, models, nil)
+	SetLocalModelLabel(llmSvc, models, nil, nil)
 
 	// Node group doesn't match — no labels set
 	assert.NotContains(t, llmSvc.Labels, constants.LocalModelLabel)
