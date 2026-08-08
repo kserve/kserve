@@ -107,6 +107,30 @@ Items in base without matching patch are preserved
 {{- end }}
 
 {{/*
+Resolve a per-feature "enabled" toggle with a global fallback.
+
+When the user explicitly sets .enabled to a boolean (true / false),
+that value is honoured.  When it is left at the default empty string,
+the fallback value (typically .Values.kserve.createSharedResources)
+is used instead.
+
+The built-in Sprig `default` function treats Go zero-values (including
+the boolean false) as "empty" and substitutes the fallback, which makes
+it impossible to disable a feature via `enabled: false`.  This helper
+avoids that pitfall by checking `kindIs "bool"` first.
+
+Usage:
+  {{- if eq (include "kserve-common.featureEnabled" (dict "enabled" .Values.kserve.storagecontainer.enabled "fallback" .Values.kserve.createSharedResources)) "true" }}
+*/}}
+{{- define "kserve-common.featureEnabled" -}}
+{{- if kindIs "bool" .enabled -}}
+  {{- .enabled -}}
+{{- else -}}
+  {{- .fallback -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Safe namespace replacement - only replaces exact "namespace: kserve" pattern
 */}}
 {{- define "kserve-common.replaceNamespace" -}}
