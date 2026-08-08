@@ -64,6 +64,7 @@ func SetupTestEnv(ctx context.Context) *pkgtest.Client {
 				_, err := (&v1alpha2.LLMInferenceServiceValidator{}).ValidateCreate(ctx, llmSvc)
 				return err
 			},
+			IsWebhookReady: func() error { return mgr.GetWebhookServer().StartedChecker()(nil) },
 		}
 		return llmCtrl.SetupWithManager(mgr)
 	}
@@ -71,8 +72,9 @@ func SetupTestEnv(ctx context.Context) *pkgtest.Client {
 	llmConfigCtrlFunc := func(_ *rest.Config, mgr ctrl.Manager) error {
 		eventBroadcaster := record.NewBroadcaster()
 		llmConfigCtrl := llmisvc.LLMISVCConfigReconciler{
-			Client:        mgr.GetClient(),
-			EventRecorder: eventBroadcaster.NewRecorder(mgr.GetScheme(), corev1.EventSource{Component: "LLMInferenceServiceConfigController"}),
+			Client:         mgr.GetClient(),
+			EventRecorder:  eventBroadcaster.NewRecorder(mgr.GetScheme(), corev1.EventSource{Component: "LLMInferenceServiceConfigController"}),
+			IsWebhookReady: func() error { return mgr.GetWebhookServer().StartedChecker()(nil) },
 		}
 		return llmConfigCtrl.SetupWithManager(mgr)
 	}
