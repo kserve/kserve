@@ -34,28 +34,50 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
 @pytest.mark.parametrize(
-    "protocol_version,storage_uri",
+    "protocol_version,storage_uri,storage_type",
     [
         (
             "v1",
+            # GCS directory URI: storage-initializer downloads all files under the prefix recursively
             "gs://kfserving-examples/models/sklearn/1.0/model",
+            "gcs",
         ),
         (
             "v2",
+            # GCS directory URI: storage-initializer downloads all files under the prefix recursively
             "gs://seldon-models/sklearn/mms/lr_model",
+            "gcs",
+        ),
+        (
+            "v1",
+            # HTTPS single-file URI: storage-initializer fetches one file via HTTP GET.
+            # Both GCS and HTTPS cases result in the same model layout inside the container.
+            "https://storage.googleapis.com/kfserving-examples/models/sklearn/1.0/model/model.joblib",
+            "https",
+        ),
+        (
+            "v2",
+            # HTTPS single-file URI: storage-initializer fetches one file via HTTP GET.
+            # Both GCS and HTTPS cases result in the same model layout inside the container.
+            "https://storage.googleapis.com/seldon-models/sklearn/mms/lr_model/model.joblib",
+            "https",
         ),
     ],
+    ids=["v1-gcs", "v2-gcs", "v1-https", "v2-https"],
 )
 @pytest.mark.mms
 @pytest.mark.asyncio(scope="session")
 async def test_mms_sklearn_kserve(
     protocol_version: str,
     storage_uri: str,
+    storage_type: str,
     rest_v1_client,
     rest_v2_client,
     network_layer,
 ):
-    service_name = f"isvc-sklearn-mms-{protocol_version}"
+    # Include storage_type in the service name to avoid resource name collisions
+    # when multiple parametrized cases share the same protocol_version.
+    service_name = f"isvc-sklearn-mms-{protocol_version}-{storage_type}"
     # Define an inference service
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -155,28 +177,50 @@ async def test_mms_sklearn_kserve(
 
 
 @pytest.mark.parametrize(
-    "protocol_version,storage_uri",
+    "protocol_version,storage_uri,storage_type",
     [
         (
             "v1",
+            # GCS directory URI: storage-initializer downloads all files under the prefix recursively
             "gs://kfserving-examples/models/xgboost/1.5/model",
+            "gcs",
         ),
         (
             "v2",
+            # GCS directory URI: storage-initializer downloads all files under the prefix recursively
             "gs://seldon-models/xgboost/mms/iris",
+            "gcs",
+        ),
+        (
+            "v1",
+            # HTTPS single-file URI: storage-initializer fetches one file via HTTP GET.
+            # Both GCS and HTTPS cases result in the same model layout inside the container.
+            "https://storage.googleapis.com/kfserving-examples/models/xgboost/1.5/model/model.bst",
+            "https",
+        ),
+        (
+            "v2",
+            # HTTPS single-file URI: storage-initializer fetches one file via HTTP GET.
+            # Both GCS and HTTPS cases result in the same model layout inside the container.
+            "https://storage.googleapis.com/seldon-models/xgboost/mms/iris/model.bst",
+            "https",
         ),
     ],
+    ids=["v1-gcs", "v2-gcs", "v1-https", "v2-https"],
 )
 @pytest.mark.mms
 @pytest.mark.asyncio(scope="session")
 async def test_mms_xgboost_kserve(
     protocol_version: str,
     storage_uri: str,
+    storage_type: str,
     rest_v1_client,
     rest_v2_client,
     network_layer,
 ):
-    service_name = f"isvc-xgboost-mms-{protocol_version}"
+    # Include storage_type in the service name to avoid resource name collisions
+    # when multiple parametrized cases share the same protocol_version.
+    service_name = f"isvc-xgboost-mms-{protocol_version}-{storage_type}"
     # Define an inference service
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
