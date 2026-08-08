@@ -21,7 +21,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -249,14 +248,12 @@ func GetProvider(providers map[Protocol]Provider, protocol Protocol) (Provider, 
 			Uploader:   s3manager.NewUploaderWithClient(sessionClient, func(d *s3manager.Uploader) {}),
 		}
 	case HTTPS:
-		httpsClient := &http.Client{}
 		providers[HTTPS] = &HTTPSProvider{
-			Client: httpsClient,
+			Client: defaultHTTPStorageClient(),
 		}
 	case HTTP:
-		httpsClient := &http.Client{}
 		providers[HTTP] = &HTTPSProvider{
-			Client: httpsClient,
+			Client: defaultHTTPStorageClient(),
 		}
 	}
 
