@@ -37,6 +37,7 @@ type ServingV1alpha1Interface interface {
 	LocalModelNodesGetter
 	LocalModelNodeGroupsGetter
 	ServingRuntimesGetter
+	StorageContainersGetter
 	TrainedModelsGetter
 }
 
@@ -79,6 +80,10 @@ func (c *ServingV1alpha1Client) LocalModelNodeGroups(namespace string) LocalMode
 
 func (c *ServingV1alpha1Client) ServingRuntimes(namespace string) ServingRuntimeInterface {
 	return newServingRuntimes(c, namespace)
+}
+
+func (c *ServingV1alpha1Client) StorageContainers(namespace string) StorageContainerInterface {
+	return newStorageContainers(c, namespace)
 }
 
 func (c *ServingV1alpha1Client) TrainedModels(namespace string) TrainedModelInterface {
