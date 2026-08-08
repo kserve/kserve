@@ -18,6 +18,7 @@ package inferencegraph
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,6 +30,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	pkgtest "github.com/kserve/kserve/pkg/testing"
@@ -65,7 +67,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		}).SetupWithManager(mgr, deployConfig)
 	}
 
-	envTest := pkgtest.NewEnvTest().
+	webhookManifests := pkgtest.WithWebhookManifests(filepath.Join(pkgtest.ProjectRoot(), "test", "webhooks", "inferencegraph"))
+	envTest := pkgtest.NewEnvTest(webhookManifests).
+		WithWebhooks(func(_ *rest.Config, mgr ctrl.Manager) error {
+			return v1alpha1.SetupInferenceGraphWebhookWithManager(mgr)
+		}).
 		WithControllers(ctrlFunc).
 		// The suite manager/webhook must outlive BeforeSuite node context.
 		Start(context.Background())

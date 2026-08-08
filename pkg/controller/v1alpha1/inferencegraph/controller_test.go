@@ -539,7 +539,7 @@ var _ = Describe("Inference Graph controller test", func() {
 											},
 											Args: []string{
 												"--graph-json",
-												"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.example.com\"}]}},\"resources\":{}}",
+												"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.example.com\"}]}},\"resources\":{},\"minReplicas\":1}",
 											},
 											Resources: corev1.ResourceRequirements{
 												Limits: corev1.ResourceList{
@@ -677,7 +677,7 @@ var _ = Describe("Inference Graph controller test", func() {
 											},
 											Args: []string{
 												"--graph-json",
-												"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.example.com\"}]}},\"resources\":{\"limits\":{\"cpu\":\"123m\",\"memory\":\"123Mi\"},\"requests\":{\"cpu\":\"123m\",\"memory\":\"123Mi\"}}}",
+												"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.example.com\"}]}},\"resources\":{\"limits\":{\"cpu\":\"123m\",\"memory\":\"123Mi\"},\"requests\":{\"cpu\":\"123m\",\"memory\":\"123Mi\"}},\"minReplicas\":1}",
 											},
 											Resources: corev1.ResourceRequirements{
 												Limits: corev1.ResourceList{
@@ -829,7 +829,7 @@ var _ = Describe("Inference Graph controller test", func() {
 											},
 											Args: []string{
 												"--graph-json",
-												"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.example.com\"}]}},\"resources\":{},\"affinity\":{\"podAffinity\":{\"preferredDuringSchedulingIgnoredDuringExecution\":[{\"weight\":100,\"podAffinityTerm\":{\"labelSelector\":{\"matchExpressions\":[{\"key\":\"serving.kserve.io/inferencegraph\",\"operator\":\"In\",\"values\":[\"singlenode3\"]}]},\"topologyKey\":\"topology.kubernetes.io/zone\"}}]}}}",
+												"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.example.com\"}]}},\"resources\":{},\"affinity\":{\"podAffinity\":{\"preferredDuringSchedulingIgnoredDuringExecution\":[{\"weight\":100,\"podAffinityTerm\":{\"labelSelector\":{\"matchExpressions\":[{\"key\":\"serving.kserve.io/inferencegraph\",\"operator\":\"In\",\"values\":[\"singlenode3\"]}]},\"topologyKey\":\"topology.kubernetes.io/zone\"}}]}},\"minReplicas\":1}",
 											},
 											Resources: corev1.ResourceRequirements{
 												Limits: corev1.ResourceList{
@@ -1567,7 +1567,7 @@ var _ = Describe("Inference Graph controller test", func() {
 											},
 											Args: []string{
 												"--graph-json",
-												"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.example.com\"}]}},\"resources\":{},\"tolerations\":[{\"key\":\"key1\",\"operator\":\"Equal\",\"value\":\"value1\",\"effect\":\"NoSchedule\"}]}",
+												"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.example.com\"}]}},\"resources\":{},\"minReplicas\":1,\"tolerations\":[{\"key\":\"key1\",\"operator\":\"Equal\",\"value\":\"value1\",\"effect\":\"NoSchedule\"}]}",
 											},
 											Resources: corev1.ResourceRequirements{
 												Limits: corev1.ResourceList{
@@ -1614,6 +1614,59 @@ var _ = Describe("Inference Graph controller test", func() {
 			err := k8sClient.Update(context.TODO(), expectedKnService, client.DryRunAll)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(actualKnServiceCreated.Spec).To(BeComparableTo(expectedKnService.Spec))
+		})
+	})
+
+	Context("When creating an InferenceGraph without minReplicas", func() {
+		It("should persist the default minReplicas from the mutating webhook", func() {
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			graphName := "default-minreplicas"
+			serviceKey := types.NamespacedName{Name: graphName, Namespace: "default"}
+			ctx := context.Background()
+			ig := &v1alpha1.InferenceGraph{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode": string(constants.Knative),
+					},
+				},
+				Spec: v1alpha1.InferenceGraphSpec{
+					Nodes: map[string]v1alpha1.InferenceRouter{
+						v1alpha1.GraphRootNodeName: {
+							RouterType: v1alpha1.Sequence,
+							Steps: []v1alpha1.InferenceStep{
+								{
+									InferenceTarget: v1alpha1.InferenceTarget{
+										ServiceURL: "http://someservice.example.com",
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, ig)).Should(Succeed())
+			defer k8sClient.Delete(ctx, ig)
+
+			stored := &v1alpha1.InferenceGraph{}
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, serviceKey, stored)).To(Succeed())
+				g.Expect(stored.Spec.MinReplicas).NotTo(BeNil())
+				g.Expect(*stored.Spec.MinReplicas).To(Equal(int32(1)))
+				g.Expect(stored.Spec.MaxReplicas).To(Equal(int32(0)))
+				g.Expect(stored.Spec.ScaleMetric).To(BeNil())
+				g.Expect(stored.Spec.TimeoutSeconds).To(BeNil())
+			}, timeout, interval).Should(Succeed())
 		})
 	})
 })
