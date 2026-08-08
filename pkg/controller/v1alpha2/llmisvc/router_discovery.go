@@ -40,6 +40,7 @@ import (
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 )
 
@@ -833,6 +834,39 @@ func resolvedGatewayKeys(resolved []ResolvedGateway) []types.NamespacedName {
 			ns = string(*rg.ParentRef.Namespace)
 		}
 		keys = append(keys, types.NamespacedName{Name: string(rg.ParentRef.Name), Namespace: ns})
+	}
+	return keys
+}
+
+// poolReadinessGatewayKeys returns the gateway identities that InferencePool status
+// parents are matched against when evaluating pool readiness: the union of gateways
+// resolved from kserve-managed HTTPRoutes and the gateways referenced directly in
+// spec.router.gateway.refs. Scoping to in-use gateways keeps stale parent entries from
+// previously-referenced gateways from blocking readiness; including the spec refs covers
+// bring-your-own-gateway deployments with no managed route, where an external controller
+// attaches the pool to the referenced gateway and no managed HTTPRoute exists to resolve
+// gateways from. Ref namespaces default to the service namespace, matching Gateway API
+// defaulting.
+func poolReadinessGatewayKeys(llmSvc *v1alpha2.LLMInferenceService, resolved []ResolvedGateway) []types.NamespacedName {
+	keys := resolvedGatewayKeys(resolved)
+	if llmSvc.Spec.Router == nil || !llmSvc.Spec.Router.Gateway.HasRefs() {
+		return keys
+	}
+
+	seen := make(map[types.NamespacedName]struct{}, len(keys))
+	for _, key := range keys {
+		seen[key] = struct{}{}
+	}
+	for _, ref := range llmSvc.Spec.Router.Gateway.Refs {
+		ns := string(ref.Namespace)
+		if ns == "" {
+			ns = llmSvc.GetNamespace()
+		}
+		key := types.NamespacedName{Name: string(ref.Name), Namespace: ns}
+		if _, ok := seen[key]; !ok {
+			seen[key] = struct{}{}
+			keys = append(keys, key)
+		}
 	}
 	return keys
 }

@@ -23,6 +23,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 )
 
 func TestResolvedGatewayKeys(t *testing.T) {
@@ -76,6 +78,80 @@ func TestResolvedGatewayKeys(t *testing.T) {
 			got := resolvedGatewayKeys(tt.input)
 			if len(got) != len(tt.expected) {
 				t.Fatalf("got %d keys, want %d", len(got), len(tt.expected))
+			}
+			for i, key := range got {
+				if key != tt.expected[i] {
+					t.Errorf("key[%d] = %v, want %v", i, key, tt.expected[i])
+				}
+			}
+		})
+	}
+}
+
+func TestPoolReadinessGatewayKeys(t *testing.T) {
+	llmSvcWithRefs := func(refs ...v1alpha2.GatewayObjectReference) *v1alpha2.LLMInferenceService {
+		return &v1alpha2.LLMInferenceService{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "svc-ns"},
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				Router: &v1alpha2.RouterSpec{
+					Gateway: &v1alpha2.GatewaySpec{Refs: refs},
+				},
+			},
+		}
+	}
+
+	tests := []struct {
+		name     string
+		llmSvc   *v1alpha2.LLMInferenceService
+		resolved []ResolvedGateway
+		expected []types.NamespacedName
+	}{
+		{
+			name:     "no router config and no resolved gateways",
+			llmSvc:   &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Namespace: "svc-ns"}},
+			resolved: nil,
+			expected: nil,
+		},
+		{
+			name:     "spec refs only - BYO gateway without managed route",
+			llmSvc:   llmSvcWithRefs(v1alpha2.GatewayObjectReference{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "byo-gw", Namespace: "gw-ns"}}),
+			resolved: nil,
+			expected: []types.NamespacedName{{Name: "byo-gw", Namespace: "gw-ns"}},
+		},
+		{
+			name:     "spec ref namespace defaults to service namespace",
+			llmSvc:   llmSvcWithRefs(v1alpha2.GatewayObjectReference{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "byo-gw"}}),
+			resolved: nil,
+			expected: []types.NamespacedName{{Name: "byo-gw", Namespace: "svc-ns"}},
+		},
+		{
+			name:   "resolved gateways and spec refs are unioned",
+			llmSvc: llmSvcWithRefs(v1alpha2.GatewayObjectReference{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "byo-gw", Namespace: "gw-ns"}}),
+			resolved: []ResolvedGateway{{
+				Gateway:   &gwapiv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "route-gw-ns"}},
+				ParentRef: gwapiv1.ParentReference{Name: "route-gw"},
+			}},
+			expected: []types.NamespacedName{
+				{Name: "route-gw", Namespace: "route-gw-ns"},
+				{Name: "byo-gw", Namespace: "gw-ns"},
+			},
+		},
+		{
+			name:   "spec ref matching a resolved gateway is not duplicated",
+			llmSvc: llmSvcWithRefs(v1alpha2.GatewayObjectReference{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "shared-gw", Namespace: "gw-ns"}}),
+			resolved: []ResolvedGateway{{
+				Gateway:   &gwapiv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "gw-ns"}},
+				ParentRef: gwapiv1.ParentReference{Name: "shared-gw"},
+			}},
+			expected: []types.NamespacedName{{Name: "shared-gw", Namespace: "gw-ns"}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := poolReadinessGatewayKeys(tt.llmSvc, tt.resolved)
+			if len(got) != len(tt.expected) {
+				t.Fatalf("got %d keys (%v), want %d (%v)", len(got), got, len(tt.expected), tt.expected)
 			}
 			for i, key := range got {
 				if key != tt.expected[i] {
