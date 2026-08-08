@@ -24,7 +24,8 @@ spec:
             nvidia.com/gpu: "1"
   workload:
     kvCacheOffloading:
-      # Primary tier: CPU RAM. GPU overflows here first.
+      # Primary tier: CPU RAM. When the GPU KV cache fills up, evicted blocks
+      # spill here first, then on to the disk tiers below.
       cpu: "10Gi"
       evictionPolicy: lru
       # Secondary tiers: disk. GPU -> CPU -> disk cascade.

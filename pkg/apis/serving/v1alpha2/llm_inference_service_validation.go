@@ -783,13 +783,18 @@ func (l *LLMInferenceServiceValidator) validateKVCacheOffloading(llmSvc *LLMInfe
 }
 
 func validateKVCacheOffloadingSpec(kv *KVCacheOffloadingSpec, fldPath *field.Path) field.ErrorList {
-	if kv == nil || len(kv.Secondary) == 0 {
+	if kv == nil {
 		return nil
 	}
 	var allErrs field.ErrorList
-	if kv.CPU.IsZero() {
-		allErrs = append(allErrs, field.Required(fldPath.Child("cpu"),
-			"cpu must be set when secondary tiers are configured"))
+	// cpu is the primary tier size and is always required when offloading is
+	// configured, its size need to be positive value.
+	if kv.CPU.Sign() <= 0 {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("cpu"), kv.CPU.String(),
+			"cpu must be greater than zero"))
+	}
+	if len(kv.Secondary) == 0 {
+		return allErrs
 	}
 	for i, s := range kv.Secondary {
 		p := fldPath.Child("secondary").Index(i)
