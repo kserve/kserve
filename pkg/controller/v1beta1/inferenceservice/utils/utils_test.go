@@ -116,6 +116,64 @@ func TestIsMMSPredictor(t *testing.T) {
 			},
 			expected: false,
 		},
+		"ModelSpecWithModelDirVolumeMount": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "sklearnWithModelDirMount",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "sklearn",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								Container: corev1.Container{
+									Image:     "customImage:0.1.0",
+									Resources: requestedResource,
+									VolumeMounts: []corev1.VolumeMount{
+										{
+											Name:      "my-csi-vol",
+											MountPath: constants.ModelDir,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+		"ModelSpecWithModelDirSubdirVolumeMount": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "sklearnWithModelDirSubdirMount",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "sklearn",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								Container: corev1.Container{
+									Image:     "customImage:0.1.0",
+									Resources: requestedResource,
+									VolumeMounts: []corev1.VolumeMount{
+										{
+											Name:      "my-csi-vol",
+											MountPath: constants.ModelDir + "/base",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: false,
+		},
 		"CustomSpec": {
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
