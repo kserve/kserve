@@ -257,14 +257,20 @@ func (r *DeploymentReconciler) checkDeploymentExist(ctx context.Context, client 
 	if existingDeployment.Annotations[constants.AutoscalerClass] != string(constants.AutoscalerClassNone) {
 		ignoreFields = cmpopts.IgnoreFields(appsv1.DeploymentSpec{}, "Replicas")
 	}
-
-	// Do a dry-run update. This will populate our local deployment object with any default values
-	// that are present on the remote version.
-	if err := client.Update(ctx, deployment, kclient.DryRunAll); err != nil {
+	// Do a dry-run update on a deep copy of the desired deployment. This populates the copy
+	// with any default values the API server would apply, without mutating the caller's
+	// desired deployment object. The original `deployment` must remain exactly what the
+	// controller constructed, since it is reused later (e.g. in Reconcile's CheckResultUpdate
+	// path) to compute the strategic merge patch against the live object. If we mutated
+	// `deployment` in place here, that patch would be computed from an API-server-defaulted
+	// version of desired state rather than the original user/controller intent, causing
+	// spurious updates or fields the controller never set showing up in patches.
+	dryRunCopy := deployment.DeepCopy()
+	if err := client.Update(ctx, dryRunCopy, kclient.DryRunAll); err != nil {
 		log.Error(err, "Failed to perform dry-run update of deployment", "Deployment", deployment.Name)
 		return constants.CheckResultUnknown, nil, err
 	}
-	if diff, err := kmp.SafeDiff(deployment.Spec, existingDeployment.Spec, ignoreFields); err != nil {
+	if diff, err := kmp.SafeDiff(dryRunCopy.Spec, existingDeployment.Spec, ignoreFields); err != nil {
 		return constants.CheckResultUnknown, nil, err
 	} else if diff != "" {
 		log.Info("Deployment Updated", "Diff", diff)

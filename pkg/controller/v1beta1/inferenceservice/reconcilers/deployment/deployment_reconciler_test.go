@@ -1,12 +1,155 @@
+/* Copyright 2024 The KServe Authors. Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0 Unless required by applicable law or agreed to
+
+pasted
+
+
+Architected regression test validating mutation prevention in deployment reconciliation
+Architected regression test validating mutation prevention in deployment reconciliation
+This existing test file already has TestCheckDeploymentExist and mockClientForCheckDeploymentExist, but note that mock's Update method is a no-op — it doesn't mutate the object at all, so it wouldn't have caught this bug even before the fix. The real Kubernetes API server does mutate the object under DryRunAll (that's the whole bug), so we need a mock that actually simulates that behavior to prove the fix works.
+
+Here's a new test to append to deployment_reconciler_test.go:
+
+
+Created a file, ran a command, read a file
+Created a file, ran a command, read a file
+To use this: open deployment_reconciler_test.go locally and paste this new content in (just append it near the existing TestCheckDeploymentExist and its mock — e.g. right after mockClientForCheckDeploymentExist's definition, or anywhere at the top level of the file). All the imports it needs (errors, corev1, appsv1, metav1, cmp, assert, require, kclient, constants) are already imported in your file, so nothing else to add.
+
+Quick sanity check before you run it — this test is specifically designed to fail on the old buggy code and pass on your fix. Worth verifying that by:
+
+bash
+go test ./pkg/controller/v1beta1/inferenceservice/reconcilers/deployment/... -run TestCheckDeploymentExist_DoesNotMutateDesiredDeployment -v
+It should pass now (since you've already applied the deep-copy fix). If you want extra confidence, you can temporarily revert checkDeploymentExist to the old buggy version, rerun, confirm it fails, then reapply the fix — but that's optional.
+
+Once this passes, you're ready to:
+
+bash
+git checkout -b fix/deployment-dryrun-mutation
+git add pkg/controller/v1beta1/inferenceservice/reconcilers/deployment/deployment_reconciler.go
+git add pkg/controller/v1beta1/inferenceservice/reconcilers/deployment/deployment_reconciler_test.go
+git commit -s -m "fix: avoid mutating desired deployment during dry-run update in checkDeploymentExist
+
+Fixes #5807"
+git push origin fix/deployment-dryrun-mutation
+Then open the PR against kserve:master referencing issue #5807. Want me to draft the PR description too?
+
+
+Dry run mutation test
+Code · GO 
+jahnavigajjala@Mac kserve % go test ./pkg/controller/v1beta1/inferenceservice/reconcilers/deployment/... -run TestCheckDeploymentExist_DoesNotMutateDesiredDeployment -v
+testing: warning: no tests to run
+PASS
+ok      github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/deployment   1.264s [no tests to run]
+jahnavigajjala@Mac kserve % 
+\
+
+"no tests to run" means the test function isn't actually in the file yet — you probably haven't pasted it in, or it's saved somewhere Go isn't picking up (wrong package, typo in function name, etc).
+
+Quick check — is the code actually in deployment_reconciler_test.go?
+
+bash
+grep -n "TestCheckDeploymentExist_DoesNotMutateDesiredDeployment" pkg/controller/v1beta1/inferenceservice/reconcilers/deployment/deployment_reconciler_test.go
+If that returns nothing → the test was never pasted in. Open the file and paste the whole block I gave you (the mutatingMockClientForCheckDeploymentExist type + its two methods + the TestCheckDeploymentExist_... function) anywhere at the top level of the file — e.g., right after the existing mockClientForCheckDeploymentExist type and its methods.
+If it does return a match → then it's likely a build error elsewhere in the file (Go silently skips test discovery if the package fails to compile). Check for a compile error:
+bash
+  go build ./pkg/controller/v1beta1/inferenceservice/reconcilers/deployment/...
+  go vet ./pkg/controller/v1beta1/inferenceservice/reconcilers/deployment/...
+Paste any error output here and I'll help fix it.
+
+Which of these is it?
+
+jahnavigajjala@Mac kserve % go test ./pkg/controller/v1beta1/inferenceservice/reconcilers/deployment/... -run TestCheckDeploymentExist_DoesNotMutateDesiredDeployment -v
+testing: warning: no tests to run
+PASS
+ok      github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/deployment   1.264s [no tests to run]
+jahnavigajjala@Mac kserve % grep -n "TestCheckDeploymentExist_DoesNotMutateDesiredDeployment" pkg/controller/v1beta1/inferenceservice/reconcilers/deployment/deployment_reconciler_test.go
+jahnavigajjala@Mac kserve %
+
+The grep returned nothing — confirms the test was never added to the file yet. You still need to actually paste the code in.
+
+Steps:
+
+Open the file:
+bash
+   code pkg/controller/v1beta1/inferenceservice/reconcilers/deployment/deployment_reconciler_test.go
+(or however you normally open it — looks like you're using VS Code already)
+
+Scroll to the end of the file (or anywhere at the top level — after the last } of any function is fine), and paste in the entire block I gave you earlier — starting from:
+go
+   // mutatingMockClientForCheckDeploymentExist simulates a Kubernetes API server that applies
+through the end of:
+
+go
+   func TestCheckDeploymentExist_DoesNotMutateDesiredDeployment(t *testing.T) {
+       ...
+   }
+Save the file.
+Confirm it's actually there:
+bash
+   grep -n "TestCheckDeploymentExist_DoesNotMutateDesiredDeployment" pkg/controller/v1beta1/inferenceservice/reconcilers/deployment/deployment_reconciler_test.go
+This time it should print the line number where the function starts.
+
+Then rerun:
+bash
+   go test ./pkg/controller/v1beta1/inferenceservice/reconcilers/deployment/... -run TestCheckDeploymentExist_DoesNotMutateDesiredDeployment -v
+Want me to just give you the full, complete deployment_reconciler_test.go file (your existing content + the new test appended) so you can copy-paste the whole thing in one shot instead of manually splicing it in?
+
+
+/* Copyright 2024 The KServe Authors. Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0 Unless required by applicable law or agreed to
+
+pasted
+
+
+Recognized unchanged file and prepared complete version
+Recognized unchanged file and prepared complete version
+This is still the original file — the new test isn't in it yet. Let me just give you the complete file with the test already appended, so you can copy-paste the whole thing in one shot instead of manually splicing.
+
+
+Check the test snippet content
+Check the test snippet content
+Now let me save the pasted original test file and append the new test to build the complete file.
+
+
+Created 2 files, ran 2 commands
+Created 2 files, ran 2 commands
+Good — the merged file has all 10 original test functions plus the new regression test and its mutating mock, inserted right after TestCheckDeploymentExist.
+
+
+Ran a command, read a file
+Ran a command, read a file
+This is your complete deployment_reconciler_test.go — every original test unchanged, plus the new mutatingMockClientForCheckDeploymentExist type and TestCheckDeploymentExist_DoesNotMutateDesiredDeployment test inserted right after your existing TestCheckDeploymentExist.
+
+To use it: download this file and overwrite your local copy at:
+
+pkg/controller/v1beta1/inferenceservice/reconcilers/deployment/deployment_reconciler_test.go
+Then run:
+
+bash
+grep -n "TestCheckDeploymentExist_DoesNotMutateDesiredDeployment" pkg/controller/v1beta1/inferenceservice/reconcilers/deployment/deployment_reconciler_test.go
+go test ./pkg/controller/v1beta1/inferenceservice/reconcilers/deployment/... -run TestCheckDeploymentExist_DoesNotMutateDesiredDeployment -v
+It should now find and pass the test. Once confirmed, run the full package test suite to make sure nothing else broke:
+
+bash
+go test ./pkg/controller/v1beta1/inferenceservice/reconcilers/deployment/... -v
+If everything's green, you're ready to commit and open the PR against issue #5807.
+
+
+Deployment reconciler test
+Code · GO 
+
+w
+
+
+Claude is AI and can make mistakes. Please double-check responses.
+Deployment reconciler test · GO
 /*
 Copyright 2024 The KServe Authors.
-
+ 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
+ 
 	http://www.apache.org/licenses/LICENSE-2.0
-
+ 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -14,12 +157,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 package deployment
-
+ 
 import (
 	"context"
 	"fmt"
 	"testing"
-
+ 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
@@ -32,13 +175,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
-
+ 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/utils"
 )
-
+ 
 func TestCreateDefaultDeployment(t *testing.T) {
 	type args struct {
 		objectMeta       metav1.ObjectMeta
@@ -161,7 +304,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 			},
 		},
 	}
-
+ 
 	expectedDeploymentPodSpecs := map[string][]*appsv1.Deployment{
 		"defaultDeployment": {
 			&appsv1.Deployment{
@@ -391,7 +534,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 			},
 		},
 	}
-
+ 
 	tests := []struct {
 		name        string
 		args        args
@@ -441,7 +584,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 			}
 		})
 	}
-
+ 
 	// deepCopyArgs creates a deep copy of the provided args struct.
 	// It ensures that nested pointers (componentExt, podSpec, workerPodSpec) are properly duplicated
 	// to avoid unintended side effects when the original struct is modified.
@@ -461,14 +604,14 @@ func TestCreateDefaultDeployment(t *testing.T) {
 		}
 		return dst
 	}
-
+ 
 	getDefaultArgs := func() args {
 		return deepCopyArgs(testInput["multiNode-deployment"])
 	}
 	getDefaultExpectedDeployment := func() []*appsv1.Deployment {
 		return deepCopyDeploymentList(expectedDeploymentPodSpecs["multiNode-deployment"])
 	}
-
+ 
 	// pipelineParallelSize test
 	objectMeta_tests := []struct {
 		name           string
@@ -498,20 +641,20 @@ func TestCreateDefaultDeployment(t *testing.T) {
 			},
 		},
 	}
-
+ 
 	for _, tt := range objectMeta_tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// retrieve args, expected
 			ttArgs := getDefaultArgs()
 			ttExpected := getDefaultExpectedDeployment()
-
+ 
 			// update objectMeta using modify func
 			got, err := createRawDeployment(ttArgs.objectMeta, ttArgs.workerObjectMeta, ttArgs.componentExt, tt.modifyArgs(ttArgs).podSpec, tt.modifyArgs(ttArgs).workerPodSpec, nil)
 			assert.Equal(t, tt.expectedErr, err)
-
+ 
 			// update expected value using modifyExpected func
 			expected := tt.modifyExpected(ttExpected)
-
+ 
 			for i, deploy := range got {
 				if diff := cmp.Diff(expected[i], deploy, cmpopts.IgnoreFields(appsv1.Deployment{}, "Spec.Template.Spec.SecurityContext"),
 					cmpopts.IgnoreFields(appsv1.Deployment{}, "Spec.Template.Spec.RestartPolicy"),
@@ -526,7 +669,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 			}
 		})
 	}
-
+ 
 	// tensor-parallel-size test
 	podSpec_tests := []struct {
 		name                       string
@@ -575,7 +718,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 						break
 					}
 				}
-
+ 
 				for _, deploy := range updatedExpected {
 					deploy.Spec.Template.Spec.Containers[0].Resources = corev1.ResourceRequirements{
 						Limits: corev1.ResourceList{
@@ -586,7 +729,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 						},
 					}
 				}
-
+ 
 				return updatedExpected
 			},
 		},
@@ -600,7 +743,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 				updatedArgs.podSpec.Containers[0].Resources.Limits = corev1.ResourceList{
 					intelGPUResourceType: resource.MustParse("3"),
 				}
-
+ 
 				for j, envVar := range updatedArgs.podSpec.Containers[0].Env {
 					if envVar.Name == constants.RequestGPUCountEnvName {
 						updatedArgs.podSpec.Containers[0].Env[j].Value = "3"
@@ -634,7 +777,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 						break
 					}
 				}
-
+ 
 				updatedExpected[0].Spec.Template.Spec.Containers[0].Resources = corev1.ResourceRequirements{
 					Requests: corev1.ResourceList{
 						constants.IntelGPUResourceType: resource.MustParse("3"),
@@ -652,7 +795,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 						constants.NvidiaGPUResourceType: resource.MustParse("3"),
 					},
 				}
-
+ 
 				return updatedExpected
 			},
 		},
@@ -666,7 +809,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 				updatedArgs.podSpec.Containers[0].Resources.Limits = corev1.ResourceList{
 					"custom.com/gpu": resource.MustParse("3"),
 				}
-
+ 
 				for j, envVar := range updatedArgs.podSpec.Containers[0].Env {
 					if envVar.Name == constants.RequestGPUCountEnvName {
 						updatedArgs.podSpec.Containers[0].Env[j].Value = "3"
@@ -683,7 +826,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 				updatedArgs.workerPodSpec.Containers[0].Resources.Limits = corev1.ResourceList{
 					"custom.com/gpu": resource.MustParse("3"),
 				}
-
+ 
 				for j, envVar := range updatedArgs.workerPodSpec.Containers[0].Env {
 					if envVar.Name == constants.RequestGPUCountEnvName {
 						updatedArgs.workerPodSpec.Containers[0].Env[j].Value = "3"
@@ -706,7 +849,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					deployment.Spec.Template.Annotations[constants.CustomGPUResourceTypesAnnotationKey] = "[\"custom.com/gpu\"]"
 					deployment.Spec.Template.Spec.Containers[0].Resources = corev1.ResourceRequirements{}
 				}
-
+ 
 				for j, envVar := range updatedExpected[0].Spec.Template.Spec.Containers[0].Env {
 					if envVar.Name == constants.RequestGPUCountEnvName {
 						updatedExpected[0].Spec.Template.Spec.Containers[0].Env[j].Value = "3"
@@ -735,7 +878,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 						"custom.com/gpu": resource.MustParse("3"),
 					},
 				}
-
+ 
 				return updatedExpected
 			},
 		},
@@ -749,7 +892,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 				updatedArgs.podSpec.Containers[0].Resources.Limits = corev1.ResourceList{
 					"custom.com/gpu": resource.MustParse("3"),
 				}
-
+ 
 				for j, envVar := range updatedArgs.podSpec.Containers[0].Env {
 					if envVar.Name == constants.RequestGPUCountEnvName {
 						updatedArgs.podSpec.Containers[0].Env[j].Value = "3"
@@ -766,7 +909,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 				updatedArgs.workerPodSpec.Containers[0].Resources.Limits = corev1.ResourceList{
 					"custom.com/gpu2": resource.MustParse("3"),
 				}
-
+ 
 				for j, envVar := range updatedArgs.workerPodSpec.Containers[0].Env {
 					if envVar.Name == constants.RequestGPUCountEnvName {
 						updatedArgs.workerPodSpec.Containers[0].Env[j].Value = "3"
@@ -785,14 +928,14 @@ func TestCreateDefaultDeployment(t *testing.T) {
 			},
 			modifyExpected: func(updatedExpected []*appsv1.Deployment) []*appsv1.Deployment {
 				// Overwrite the environment variable
-
+ 
 				for _, deployment := range updatedExpected {
 					// serving.kserve.io/gpu-resource-types: '["gpu-type1", "gpu-type2", "gpu-type3"]'
 					deployment.Annotations[constants.CustomGPUResourceTypesAnnotationKey] = "[\"custom.com/gpu\", \"custom.com/gpu2\"]"
 					deployment.Spec.Template.Annotations[constants.CustomGPUResourceTypesAnnotationKey] = "[\"custom.com/gpu\", \"custom.com/gpu2\"]"
 					deployment.Spec.Template.Spec.Containers[0].Resources = corev1.ResourceRequirements{}
 				}
-
+ 
 				for j, envVar := range updatedExpected[0].Spec.Template.Spec.Containers[0].Env {
 					if envVar.Name == constants.RequestGPUCountEnvName {
 						updatedExpected[0].Spec.Template.Spec.Containers[0].Env[j].Value = "3"
@@ -805,7 +948,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 						break
 					}
 				}
-
+ 
 				updatedExpected[0].Spec.Template.Spec.Containers[0].Resources = corev1.ResourceRequirements{
 					Requests: corev1.ResourceList{
 						"custom.com/gpu": resource.MustParse("3"),
@@ -822,24 +965,24 @@ func TestCreateDefaultDeployment(t *testing.T) {
 						"custom.com/gpu2": resource.MustParse("3"),
 					},
 				}
-
+ 
 				return updatedExpected
 			},
 		},
 	}
-
+ 
 	for _, tt := range podSpec_tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// retrieve args, expected
 			ttArgs := getDefaultArgs()
 			ttExpected := getDefaultExpectedDeployment()
-
+ 
 			// update objectMeta using modify func
 			got, err := createRawDeployment(tt.modifyObjectMetaArgs(ttArgs).objectMeta, tt.modifyWorkerObjectMetaArgs(ttArgs).workerObjectMeta, ttArgs.componentExt, tt.modifyPodSpecArgs(ttArgs).podSpec, tt.modifyWorkerPodSpecArgs(ttArgs).workerPodSpec, nil)
 			assert.Equal(t, tt.expectedErr, err)
 			// update expected value using modifyExpected func
 			expected := tt.modifyExpected(ttExpected)
-
+ 
 			for i, deploy := range got {
 				if diff := cmp.Diff(expected[i], deploy, cmpopts.IgnoreFields(appsv1.Deployment{}, "Spec.Template.Spec.SecurityContext"),
 					cmpopts.IgnoreFields(appsv1.Deployment{}, "Spec.Template.Spec.RestartPolicy"),
@@ -855,7 +998,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 		})
 	}
 }
-
+ 
 func TestCheckDeploymentExist(t *testing.T) {
 	type fields struct {
 		client kclient.Client
@@ -979,7 +1122,7 @@ func TestCheckDeploymentExist(t *testing.T) {
 			wantErr:      false,
 		},
 	}
-
+ 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockClient := &mockClientForCheckDeploymentExist{
@@ -1010,7 +1153,109 @@ func TestCheckDeploymentExist(t *testing.T) {
 		})
 	}
 }
-
+ 
+// mutatingMockClientForCheckDeploymentExist simulates a Kubernetes API server that applies
+// server-side defaulting during a dry-run Update by mutating the object passed to Update()
+// in place — exactly like the real controller-runtime client does under kclient.DryRunAll.
+// This is what mockClientForCheckDeploymentExist's no-op Update above does NOT capture:
+// that mock never mutates anything, so it could not have caught the dry-run mutation bug.
+type mutatingMockClientForCheckDeploymentExist struct {
+	kclient.Client
+	getDeployment *appsv1.Deployment
+}
+ 
+func (m *mutatingMockClientForCheckDeploymentExist) Get(ctx context.Context, key kclient.ObjectKey, obj kclient.Object, opts ...kclient.GetOption) error {
+	if m.getDeployment == nil {
+		return errors.NewNotFound(appsv1.Resource("deployment"), key.Name)
+	}
+	d := obj.(*appsv1.Deployment)
+	*d = *m.getDeployment.DeepCopy()
+	return nil
+}
+ 
+// Update simulates API-server-side defaulting: it mutates whatever object it receives,
+// just like a real dry-run Update against the Kubernetes API server would populate
+// default fields into the object passed to it.
+func (m *mutatingMockClientForCheckDeploymentExist) Update(ctx context.Context, obj kclient.Object, opts ...kclient.UpdateOption) error {
+	d := obj.(*appsv1.Deployment)
+	d.Spec.Template.Spec.SchedulerName = "server-default-scheduler"
+	if d.Annotations == nil {
+		d.Annotations = map[string]string{}
+	}
+	d.Annotations["server-injected-default"] = "true"
+	return nil
+}
+ 
+// TestCheckDeploymentExist_DoesNotMutateDesiredDeployment is a regression test for the bug
+// where checkDeploymentExist's dry-run client.Update(ctx, deployment, kclient.DryRunAll) call
+// mutated the caller's desired deployment object in place. That object is the same one
+// Reconcile later deep-copies to compute the CheckResultUpdate strategic merge patch, so any
+// server-side defaults written into it here would silently leak into the generated patch.
+//
+// This test would FAIL against the old implementation (which passed `deployment` directly to
+// client.Update) and PASSes against the fix (which passes a deep copy instead).
+func TestCheckDeploymentExist_DoesNotMutateDesiredDeployment(t *testing.T) {
+	desired := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "bar"},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": "foo"},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "foo"}},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{Name: "c", Image: "img1"},
+					},
+				},
+			},
+		},
+	}
+	// Snapshot before calling checkDeploymentExist, so we can assert the object is
+	// byte-for-byte unchanged afterwards.
+	originalCopy := desired.DeepCopy()
+ 
+	// existing deployment differs from desired (different image), forcing the
+	// CheckResultUpdate path so the dry-run diff logic actually runs.
+	existing := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "bar"},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": "foo"},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "foo"}},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{Name: "c", Image: "img2"},
+					},
+				},
+			},
+		},
+	}
+ 
+	mockClient := &mutatingMockClientForCheckDeploymentExist{getDeployment: existing}
+	r := &DeploymentReconciler{client: mockClient}
+ 
+	checkResult, _, err := r.checkDeploymentExist(t.Context(), mockClient, desired)
+	require.NoError(t, err)
+	assert.Equal(t, constants.CheckResultUpdate, checkResult)
+ 
+	// The critical assertion: `desired` (the caller's original object, analogous to
+	// `desiredDep` in Reconcile) must be completely unaffected by the dry-run Update,
+	// even though the mock client mutates whatever object it's given — simulating real
+	// API-server defaulting behavior under kclient.DryRunAll.
+	if diff := cmp.Diff(originalCopy, desired); diff != "" {
+		t.Errorf("checkDeploymentExist mutated the caller's desired deployment object (-want +got): %s", diff)
+	}
+ 
+	// Specifically confirm none of the server-injected defaults leaked into `desired`.
+	assert.Empty(t, desired.Spec.Template.Spec.SchedulerName,
+		"server-side default SchedulerName must not leak into the original desired deployment")
+	assert.NotContains(t, desired.Annotations, "server-injected-default",
+		"server-injected annotation must not leak into the original desired deployment")
+}
+ 
 // mockClientForReconcile is a mock client used to test DeploymentReconciler.Reconcile.
 // It records which operations were called and allows configuring Get/Create/Patch/Delete behaviour.
 type mockClientForReconcile struct {
@@ -1024,7 +1269,7 @@ type mockClientForReconcile struct {
 	patchErr  error
 	deleteErr error
 }
-
+ 
 func (m *mockClientForReconcile) Get(ctx context.Context, key kclient.ObjectKey, obj kclient.Object, opts ...kclient.GetOption) error {
 	if m.getErr != nil {
 		return m.getErr
@@ -1036,26 +1281,26 @@ func (m *mockClientForReconcile) Get(ctx context.Context, key kclient.ObjectKey,
 	*d = *m.getDeployment.DeepCopy()
 	return nil
 }
-
+ 
 func (m *mockClientForReconcile) Update(_ context.Context, _ kclient.Object, _ ...kclient.UpdateOption) error {
 	// Simulate dry-run update: always succeeds.
 	return nil
 }
-
+ 
 func (m *mockClientForReconcile) Create(_ context.Context, _ kclient.Object, _ ...kclient.CreateOption) error {
 	return m.createErr
 }
-
+ 
 func (m *mockClientForReconcile) Patch(_ context.Context, _ kclient.Object, _ kclient.Patch, _ ...kclient.PatchOption) error {
 	return m.patchErr
 }
-
+ 
 func (m *mockClientForReconcile) Delete(_ context.Context, _ kclient.Object, _ ...kclient.DeleteOption) error {
 	return m.deleteErr
 }
-
+ 
 func (m *mockClientForReconcile) Scheme() *runtime.Scheme { return runtime.NewScheme() }
-
+ 
 // makeDeployment is a helper that builds a minimal Deployment for tests.
 func makeDeployment(name, namespace string) *appsv1.Deployment {
 	return &appsv1.Deployment{
@@ -1081,7 +1326,7 @@ func makeDeployment(name, namespace string) *appsv1.Deployment {
 		},
 	}
 }
-
+ 
 // TestDeploymentReconciler_Reconcile verifies that Reconcile returns the server-side
 // deployment (with live .Status.Conditions) rather than the in-memory desired deployment
 // (which has no status). This is the fix for Bug 2: deployment conditions such as
@@ -1099,7 +1344,7 @@ func TestDeploymentReconciler_Reconcile(t *testing.T) {
 		Reason:  "MinimumReplicasUnavailable",
 		Message: "Deployment does not have minimum availability.",
 	}
-
+ 
 	tests := []struct {
 		name string
 		// serverDeployment is the deployment returned by Get (nil = not found).
@@ -1164,29 +1409,29 @@ func TestDeploymentReconciler_Reconcile(t *testing.T) {
 			wantErr:    false,
 		},
 	}
-
+ 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			desiredDep := makeDeployment("test-predictor", "test-ns")
-
+ 
 			mockClient := &mockClientForReconcile{
 				getDeployment: tt.serverDeployment,
 			}
-
+ 
 			r := &DeploymentReconciler{
 				client:         mockClient,
 				DeploymentList: []*appsv1.Deployment{desiredDep},
 			}
-
+ 
 			resultList, err := r.Reconcile(t.Context())
-
+ 
 			if tt.wantErr {
 				require.Error(t, err)
 				return
 			}
 			require.NoError(t, err)
 			require.Len(t, resultList, 1, "resultList should contain exactly one deployment")
-
+ 
 			gotConditions := resultList[0].Status.Conditions
 			if len(tt.wantStatusConditions) == 0 {
 				assert.Empty(t, gotConditions,
@@ -1198,7 +1443,7 @@ func TestDeploymentReconciler_Reconcile(t *testing.T) {
 		})
 	}
 }
-
+ 
 func TestNewDeploymentReconciler(t *testing.T) {
 	type fields struct {
 		client       kclient.Client
@@ -1323,7 +1568,7 @@ func TestNewDeploymentReconciler(t *testing.T) {
 		})
 	}
 }
-
+ 
 func TestSetDefaultDeploymentSpec(t *testing.T) {
 	tests := []struct {
 		name                   string
@@ -1366,11 +1611,11 @@ func TestSetDefaultDeploymentSpec(t *testing.T) {
 			description:            "Existing RollingUpdate values should not be modified",
 		},
 	}
-
+ 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			setDefaultDeploymentSpec(tt.inputSpec)
-
+ 
 			assert.Equal(t, appsv1.RollingUpdateDeploymentStrategyType, tt.inputSpec.Strategy.Type)
 			assert.NotNil(t, tt.inputSpec.Strategy.RollingUpdate)
 			assert.Equal(t, tt.expectedMaxSurge, tt.inputSpec.Strategy.RollingUpdate.MaxSurge,
@@ -1380,18 +1625,18 @@ func TestSetDefaultDeploymentSpec(t *testing.T) {
 		})
 	}
 }
-
+ 
 func stringPtr(s string) *string {
 	return &s
 }
-
+ 
 // mockClientForCheckDeploymentExist is a minimal mock for kclient.Client for checkDeploymentExist
 type mockClientForCheckDeploymentExist struct {
 	kclient.Client
 	getDeployment *appsv1.Deployment
 	getErr        error
 }
-
+ 
 func (m *mockClientForCheckDeploymentExist) Get(ctx context.Context, key kclient.ObjectKey, obj kclient.Object, opts ...kclient.GetOption) error {
 	if m.getErr != nil {
 		return m.getErr
@@ -1402,27 +1647,27 @@ func (m *mockClientForCheckDeploymentExist) Get(ctx context.Context, key kclient
 	}
 	return nil
 }
-
+ 
 func (m *mockClientForCheckDeploymentExist) Update(ctx context.Context, obj kclient.Object, opts ...kclient.UpdateOption) error {
 	// Simulate dry-run update always succeeds
 	return nil
 }
-
+ 
 func intStrPtr(s string) *intstr.IntOrString {
 	v := intstr.FromString(s)
 	return &v
 }
-
+ 
 func int32Ptr(i int32) *int32 {
 	val := i
 	return &val
 }
-
+ 
 func BoolPtr(b bool) *bool {
 	val := b
 	return &val
 }
-
+ 
 // Function to add a new environment variable to a specific container in the DeploymentSpec
 func addEnvVarToDeploymentSpec(deploymentSpec *appsv1.DeploymentSpec, containerName, envName, envValue string) {
 	// Iterate over the containers in the PodTemplateSpec to find the specified container
@@ -1447,7 +1692,7 @@ func addEnvVarToDeploymentSpec(deploymentSpec *appsv1.DeploymentSpec, containerN
 		}
 	}
 }
-
+ 
 // deepCopyDeploymentList creates a deep copy of a slice of Deployment pointers.
 // This ensures that modifications to the original slice or its elements do not affect the copied slice.
 func deepCopyDeploymentList(src []*appsv1.Deployment) []*appsv1.Deployment {
@@ -1462,7 +1707,7 @@ func deepCopyDeploymentList(src []*appsv1.Deployment) []*appsv1.Deployment {
 	}
 	return copied
 }
-
+ 
 func TestApplyRolloutStrategyFromConfigmap(t *testing.T) {
 	tests := []struct {
 		name                   string
@@ -1505,29 +1750,29 @@ func TestApplyRolloutStrategyFromConfigmap(t *testing.T) {
 			expectedMaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "25%"}, // Default value
 		},
 	}
-
+ 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			deployment := &appsv1.Deployment{
 				Spec: appsv1.DeploymentSpec{},
 			}
-
+ 
 			// Set default deployment spec first
 			setDefaultDeploymentSpec(&deployment.Spec)
-
+ 
 			// Apply rollout strategy from configmap
 			applyRolloutStrategyFromConfigmap(&deployment.Spec, tt.deployConfig)
-
+ 
 			// Verify the deployment strategy type is RollingUpdate
 			assert.Equal(t, appsv1.RollingUpdateDeploymentStrategyType, deployment.Spec.Strategy.Type)
-
+ 
 			// Verify maxSurge and maxUnavailable values
 			assert.Equal(t, tt.expectedMaxSurge, deployment.Spec.Strategy.RollingUpdate.MaxSurge, tt.name+" - MaxSurge")
 			assert.Equal(t, tt.expectedMaxUnavailable, deployment.Spec.Strategy.RollingUpdate.MaxUnavailable, tt.name+" - MaxUnavailable")
 		})
 	}
 }
-
+ 
 func TestCreateRawDeploymentWithPrecedence(t *testing.T) {
 	tests := []struct {
 		name                     string
@@ -1596,20 +1841,20 @@ func TestCreateRawDeploymentWithPrecedence(t *testing.T) {
 			description:              "Default strategy should be used for non-RawDeployment modes",
 		},
 	}
-
+ 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create test data
 			componentExt := &v1beta1.ComponentExtensionSpec{
 				DeploymentStrategy: tt.deploymentStrategy,
 			}
-
+ 
 			objectMeta := metav1.ObjectMeta{
 				Name:      "test-deployment",
 				Namespace: "test-namespace",
 				Labels:    make(map[string]string),
 			}
-
+ 
 			podSpec := &corev1.PodSpec{
 				Containers: []corev1.Container{
 					{
@@ -1618,10 +1863,10 @@ func TestCreateRawDeploymentWithPrecedence(t *testing.T) {
 					},
 				},
 			}
-
+ 
 			// Create deployment
 			deployment := createRawDefaultDeployment(objectMeta, componentExt, podSpec, tt.deployConfig)
-
+ 
 			// Verify strategy
 			assert.NotNil(t, deployment.Spec.Strategy.RollingUpdate, tt.description)
 			assert.Equal(t, tt.expectedMaxSurge, deployment.Spec.Strategy.RollingUpdate.MaxSurge, tt.description+" - MaxSurge")
@@ -1629,44 +1874,45 @@ func TestCreateRawDeploymentWithPrecedence(t *testing.T) {
 		})
 	}
 }
-
+ 
 // Test interface methods added for WorkloadReconciler interface
 func TestGetWorkloads(t *testing.T) {
 	deployment1 := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "deployment1"}}
 	deployment2 := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "deployment2"}}
-
+ 
 	reconciler := &DeploymentReconciler{
 		DeploymentList: []*appsv1.Deployment{deployment1, deployment2},
 	}
-
+ 
 	workloads := reconciler.GetWorkloads()
 	assert.Len(t, workloads, 2)
 	assert.Equal(t, "deployment1", workloads[0].GetName())
 	assert.Equal(t, "deployment2", workloads[1].GetName())
 }
-
+ 
 func TestSetControllerReferences(t *testing.T) {
 	scheme := runtime.NewScheme()
 	_ = v1beta1.AddToScheme(scheme)
 	_ = appsv1.AddToScheme(scheme)
-
+ 
 	owner := &v1beta1.InferenceService{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-isvc", Namespace: "default", UID: "test-uid"},
 	}
-
+ 
 	deployment1 := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "deployment1", Namespace: "default"}}
 	deployment2 := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "deployment2", Namespace: "default"}}
-
+ 
 	reconciler := &DeploymentReconciler{
 		DeploymentList: []*appsv1.Deployment{deployment1, deployment2},
 	}
-
+ 
 	err := reconciler.SetControllerReferences(owner, scheme)
 	require.NoError(t, err)
-
+ 
 	// Verify owner references were set
 	assert.Len(t, deployment1.GetOwnerReferences(), 1)
 	assert.Equal(t, owner.Name, deployment1.GetOwnerReferences()[0].Name)
 	assert.Len(t, deployment2.GetOwnerReferences(), 1)
 	assert.Equal(t, owner.Name, deployment2.GetOwnerReferences()[0].Name)
 }
+ 
