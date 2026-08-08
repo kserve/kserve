@@ -330,7 +330,7 @@ func createRawPredictorHTTPRoute(ctx context.Context, client client.Client, isvc
 		},
 	}
 	if len(isvc.Spec.Canary) > 0 {
-		applyCanaryWeights(isvc, &httpRoute)
+		applyCanaryWeights(isvc, predictorName, &httpRoute)
 	}
 	return &httpRoute, nil
 }
@@ -676,14 +676,14 @@ func createRawTopLevelHTTPRoute(ctx context.Context, client client.Client, isvc 
 		},
 	}
 	if len(isvc.Spec.Canary) > 0 {
-		applyCanaryWeights(isvc, &httpRoute)
+		applyCanaryWeights(isvc, predictorName, &httpRoute)
 	}
 	return &httpRoute, nil
 }
 
 // applyCanaryWeights modifies the HTTPRoute's backend refs to include weighted
 // backends for canary traffic splitting.
-func applyCanaryWeights(isvc *v1beta1.InferenceService, httpRoute *gwapiv1.HTTPRoute) {
+func applyCanaryWeights(isvc *v1beta1.InferenceService, predictorName string, httpRoute *gwapiv1.HTTPRoute) {
 	var totalCanaryPercent int32
 	for _, canary := range isvc.Spec.Canary {
 		totalCanaryPercent += canary.TrafficPercent
@@ -697,6 +697,9 @@ func applyCanaryWeights(isvc *v1beta1.InferenceService, httpRoute *gwapiv1.HTTPR
 		}
 
 		template := rule.BackendRefs[0]
+		if string(template.Name) != predictorName {
+			continue
+		}
 		weightedBackends := make([]gwapiv1.HTTPBackendRef, 0, 1+len(isvc.Spec.Canary))
 
 		sw := stableWeight
