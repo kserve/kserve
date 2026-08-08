@@ -1,0 +1,5 @@
+# Runtime dependencies for the test selector.
+# PyYAML is required: the config/CRD discovery parses CRD YAML to build the
+# CRD-to-marker tables. Without it the tables build empty and every config or
+# chart change conservatively escalates to running all tests.
+PyYAML>=6.0
