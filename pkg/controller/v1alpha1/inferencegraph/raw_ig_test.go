@@ -187,6 +187,65 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 				},
 			},
 		},
+
+		// NodeName and NodeSelector are mutually exclusive in practice: setting
+		// spec.nodeName binds the pod directly to a node and bypasses the
+		// scheduler, so a NodeSelector would never be evaluated. Keep them in
+		// separate scenarios so each field's propagation is verified on its own.
+		"with node selector": {
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "node-selector-ig",
+				Namespace: "node-selector-ig-namespace",
+				Annotations: map[string]string{
+					"serving.kserve.io/deploymentMode": string(constants.Standard),
+				},
+			},
+
+			Spec: InferenceGraphSpec{
+				Nodes: map[string]InferenceRouter{
+					GraphRootNodeName: {
+						RouterType: Sequence,
+						Steps: []InferenceStep{
+							{
+								InferenceTarget: InferenceTarget{
+									ServiceURL: "http://someservice.example.com",
+								},
+							},
+						},
+					},
+				},
+				NodeSelector: map[string]string{
+					"disktype": "ssd",
+				},
+				ServiceAccountName: "graph-sa",
+			},
+		},
+
+		"with node name": {
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "node-name-ig",
+				Namespace: "node-name-ig-namespace",
+				Annotations: map[string]string{
+					"serving.kserve.io/deploymentMode": string(constants.Standard),
+				},
+			},
+
+			Spec: InferenceGraphSpec{
+				Nodes: map[string]InferenceRouter{
+					GraphRootNodeName: {
+						RouterType: Sequence,
+						Steps: []InferenceStep{
+							{
+								InferenceTarget: InferenceTarget{
+									ServiceURL: "http://someservice.example.com",
+								},
+							},
+						},
+					},
+				},
+				NodeName: "node-1",
+			},
+		},
 	}
 
 	expectedPodSpecs := map[string]*corev1.PodSpec{
@@ -340,6 +399,79 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 				},
 			},
 		},
+		"with node selector": {
+			Containers: []corev1.Container{
+				{
+					Image: "kserve/router:v0.10.0",
+					Name:  "node-selector-ig",
+					Args: []string{
+						"--graph-json",
+						"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.example.com\"}]}},\"resources\":{},\"nodeSelector\":{\"disktype\":\"ssd\"},\"serviceAccountName\":\"graph-sa\"}",
+					},
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+							corev1.ResourceMemory: resource.MustParse("500Mi"),
+						},
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+							corev1.ResourceMemory: resource.MustParse("100Mi"),
+						},
+					},
+					ReadinessProbe: expectedReadinessProbe,
+					SecurityContext: &corev1.SecurityContext{
+						Privileged:               proto.Bool(false),
+						RunAsNonRoot:             proto.Bool(true),
+						ReadOnlyRootFilesystem:   proto.Bool(true),
+						AllowPrivilegeEscalation: proto.Bool(false),
+						Capabilities: &corev1.Capabilities{
+							Drop: []corev1.Capability{corev1.Capability("ALL")},
+						},
+					},
+				},
+			},
+			AutomountServiceAccountToken: proto.Bool(false),
+			ImagePullSecrets:             []corev1.LocalObjectReference{},
+			NodeSelector: map[string]string{
+				"disktype": "ssd",
+			},
+			ServiceAccountName: "graph-sa",
+		},
+		"with node name": {
+			Containers: []corev1.Container{
+				{
+					Image: "kserve/router:v0.10.0",
+					Name:  "node-name-ig",
+					Args: []string{
+						"--graph-json",
+						"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.example.com\"}]}},\"resources\":{},\"nodeName\":\"node-1\"}",
+					},
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+							corev1.ResourceMemory: resource.MustParse("500Mi"),
+						},
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+							corev1.ResourceMemory: resource.MustParse("100Mi"),
+						},
+					},
+					ReadinessProbe: expectedReadinessProbe,
+					SecurityContext: &corev1.SecurityContext{
+						Privileged:               proto.Bool(false),
+						RunAsNonRoot:             proto.Bool(true),
+						ReadOnlyRootFilesystem:   proto.Bool(true),
+						AllowPrivilegeEscalation: proto.Bool(false),
+						Capabilities: &corev1.Capabilities{
+							Drop: []corev1.Capability{corev1.Capability("ALL")},
+						},
+					},
+				},
+			},
+			AutomountServiceAccountToken: proto.Bool(false),
+			ImagePullSecrets:             []corev1.LocalObjectReference{},
+			NodeName:                     "node-1",
+		},
 	}
 
 	scenarios := []struct {
@@ -372,6 +504,16 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 			name:     "Inference graph with tolerations",
 			args:     args{testIGSpecs["with tolerations"], &routerConfig},
 			expected: expectedPodSpecs["with tolerations"],
+		},
+		{
+			name:     "Inference graph with node selector and service account",
+			args:     args{testIGSpecs["with node selector"], &routerConfig},
+			expected: expectedPodSpecs["with node selector"],
+		},
+		{
+			name:     "Inference graph with node name",
+			args:     args{testIGSpecs["with node name"], &routerConfig},
+			expected: expectedPodSpecs["with node name"],
 		},
 	}
 
