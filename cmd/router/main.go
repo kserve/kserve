@@ -48,6 +48,11 @@ import (
 // _isInMesh is an auxiliary global variable for isInIstioMesh function.
 var _isInMesh *bool
 
+// jsonMarshal is a seam over json.Marshal so the defensive marshal-error
+// branches in routeStep can be exercised by unit tests. The values marshalled
+// there are normally derived from json.Unmarshal and so never fail in practice.
+var jsonMarshal = json.Marshal
+
 // isInIstioMesh checks if the InferenceGraph pod belongs to the mesh by
 // checking the presence of the sidecar. It is known that when the sidecar
 // is present, Envoy will be using port 15000 with standard HTTP. Thus, the
@@ -302,8 +307,12 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 			case ensembleStepOutput = <-resultChan:
 				if !isSuccessFul(ensembleStepOutput.StepStatusCode) && currentNode.Steps[i].Dependency == v1alpha1.Hard {
 					log.Info("This step is a hard dependency and it is unsuccessful", "stepName", currentNode.Steps[i].StepName, "statusCode", ensembleStepOutput.StepStatusCode)
-					stepResponse, _ := json.Marshal(ensembleStepOutput.StepResponse) // TODO check if you need err handling for Marshalling
-					return stepResponse, ensembleStepOutput.StepStatusCode, nil      // First failed hard dependency will decide the response and response code for ensemble node
+					stepResponse, err := jsonMarshal(ensembleStepOutput.StepResponse)
+					if err != nil {
+						log.Error(err, "failed to marshal hard dependency step response", "nodeName", nodeName, "stepName", currentNode.Steps[i].StepName)
+						return nil, 500, err
+					}
+					return stepResponse, ensembleStepOutput.StepStatusCode, nil // First failed hard dependency will decide the response and response code for ensemble node
 				} else {
 					response[key] = ensembleStepOutput.StepResponse
 				}
@@ -311,8 +320,11 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 				return nil, 500, err
 			}
 		}
-		// return json.Marshal(response)
-		combinedResponse, _ := json.Marshal(response) // TODO check if you need err handling for Marshalling
+		combinedResponse, err := jsonMarshal(response)
+		if err != nil {
+			log.Error(err, "failed to marshal combined ensemble response", "nodeName", nodeName)
+			return nil, 500, err
+		}
 		return combinedResponse, 200, nil
 	}
 	if currentNode.RouterType == v1alpha1.Sequence {
@@ -341,7 +353,11 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 				if err == nil && len(decoded.Predictions) > 0 {
 					decoded.Instances = decoded.Predictions
 					decoded.Predictions = []interface{}{}
-					request, _ = json.Marshal(decoded) // TODO check if you need err handling for Marshalling
+					request, err = jsonMarshal(decoded)
+					if err != nil {
+						log.Error(err, "failed to marshal sequence request", "nodeName", nodeName, "stepName", step.StepName)
+						return nil, 500, err
+					}
 				}
 			}
 
