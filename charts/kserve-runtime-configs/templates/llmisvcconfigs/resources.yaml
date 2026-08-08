@@ -1,3 +1,9 @@
 {{- if .Values.kserve.llmisvcConfigs.enabled }}
-{{ .Files.Get "files/llmisvcconfigs/resources.yaml" }}
+{{- /* The generated manifests hardcode "namespace: kserve", so rewrite it to the
+       release namespace, as the other charts do. Without this the presets are
+       always created in "kserve": the install fails outright when that namespace
+       does not exist, and when it does they are invisible to a controller running
+       elsewhere. */ -}}
+{{- $baseContent := .Files.Get "files/llmisvcconfigs/resources.yaml" }}
+{{ include "kserve-common.replaceNamespace" (list $baseContent .Release.Namespace) }}
 {{- end }}
