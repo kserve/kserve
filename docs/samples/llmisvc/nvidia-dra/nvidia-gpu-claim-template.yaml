@@ -1,0 +1,17 @@
+apiVersion: resource.k8s.io/v1alpha3
+kind: ResourceClaimTemplate
+metadata:
+  name: nvidia-gpu-template
+spec:
+  spec:
+    devices:
+      requests:
+      - name: gpu
+        exactly:
+          allocationMode: ExactCount
+          count: 1
+          deviceClassName: gpu.nvidia.com
+          selectors:
+          - cel:
+              expression: |-
+                device.capacity["gpu.nvidia.com"].memory.compareTo(quantity("24Gi")) >= 0
