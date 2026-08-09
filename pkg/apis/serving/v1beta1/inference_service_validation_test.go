@@ -1513,6 +1513,44 @@ func TestDeploymentModeUpdate(t *testing.T) {
 	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcEmptyStatus, updatedIsvcNoAnnotation)
 	g.Expect(warnings).Should(gomega.BeEmpty())
 	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: Normalized status "Knative" should accept an unchanged legacy "Serverless" annotation.
+	// Regression test for issue #5885: the annotation side must be normalized before comparing,
+	// otherwise an isvc created with the legacy alias is permanently rejected on every update.
+	oldIsvcKnativeStatus := makeTestInferenceService()
+	oldIsvcKnativeStatus.Status = InferenceServiceStatus{
+		DeploymentMode: string(constants.Knative),
+	}
+	updatedIsvcLegacyServerlessAnnotation := oldIsvcKnativeStatus.DeepCopy()
+	updatedIsvcLegacyServerlessAnnotation.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.LegacyServerless),
+	}
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcKnativeStatus, updatedIsvcLegacyServerlessAnnotation)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: Normalized status "Standard" should accept an unchanged legacy "RawDeployment" annotation.
+	oldIsvcStandardStatus := makeTestInferenceService()
+	oldIsvcStandardStatus.Status = InferenceServiceStatus{
+		DeploymentMode: string(constants.Standard),
+	}
+	updatedIsvcLegacyRawAnnotation := oldIsvcStandardStatus.DeepCopy()
+	updatedIsvcLegacyRawAnnotation.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.LegacyRawDeployment),
+	}
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcStandardStatus, updatedIsvcLegacyRawAnnotation)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: Normalized status "Knative" with a legacy "RawDeployment" annotation is a real mode
+	// change (normalizes to "Standard") and must still be rejected.
+	updatedIsvcLegacyRawMismatch := oldIsvcKnativeStatus.DeepCopy()
+	updatedIsvcLegacyRawMismatch.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.LegacyRawDeployment),
+	}
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcKnativeStatus, updatedIsvcLegacyRawMismatch)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).ShouldNot(gomega.Succeed())
 }
 
 func TestValidateUpdateDuringDeletion(t *testing.T) {
