@@ -1,3 +1,17 @@
+# Copyright 2019 The KServe Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,10 +26,8 @@
 # limitations under the License.
 
 import asyncio
-import os
 from kubernetes import client
 
-from kserve import KServeClient
 from kserve import constants
 from kserve import V1beta1PredictorSpec
 from kserve import V1beta1SKLearnSpec
@@ -28,13 +40,11 @@ import pytest
 from ..common.utils import predict_isvc
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
-kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
-
 
 @pytest.mark.predictor
 @pytest.mark.path_based_routing
 @pytest.mark.asyncio(scope="session")
-async def test_kserve_logger(rest_v1_client, network_layer):
+async def test_kserve_logger(kserve_client, rest_v1_client, network_layer):
     msg_dumper = "message-dumper"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,

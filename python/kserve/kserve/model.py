@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import inspect
+import os
 import time
 from abc import ABC, abstractmethod
 from enum import Enum
@@ -290,10 +291,17 @@ class Model(InferenceModel):
                 "PredictorConfig is required to create HTTP client but is None."
             )
         if self._http_client_instance is None and self.predictor_config.predictor_host:
+            # When REQUESTS_CA_BUNDLE is set (e.g. by the controller for
+            # transformer→predictor TLS), use it as the CA bundle for httpx.
+            # httpx/certifi do not honour this env var automatically.
+            ca_bundle = os.environ.get("REQUESTS_CA_BUNDLE") or os.environ.get(
+                "CURL_CA_BUNDLE"
+            )
             config = RESTConfig(
                 protocol=self.predictor_config.protocol,
                 timeout=self.predictor_config.timeout,
                 retries=self.predictor_config.retries,
+                verify=ca_bundle if ca_bundle else True,
             )
             self._http_client_instance = InferenceClientFactory().get_rest_client(
                 config=config

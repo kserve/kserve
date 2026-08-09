@@ -83,7 +83,7 @@ func (r *LLMISVCReconciler) reconcileSingleNodeMainWorkload(ctx context.Context,
 	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, expected, semanticDeploymentIsEqual, PreserveDeploymentReplicas()); err != nil {
 		return err
 	}
-	return r.propagateDeploymentStatus(ctx, expected, llmSvc.MarkMainWorkloadReady, llmSvc.MarkMainWorkloadNotReady)
+	return r.propagateWorkloadDeploymentStatus(ctx, expected, llmSvc.MarkMainWorkloadReady, llmSvc.MarkMainWorkloadNotReady)
 }
 
 func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (*appsv1.Deployment, error) {
@@ -132,6 +132,8 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 			},
 		},
 	}
+
+	applyDeploymentRolloutStrategy(d, &llmSvc.Spec.WorkloadSpec)
 
 	if llmSvc.Spec.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
 		d.Spec.Template.Spec = *llmSvc.Spec.Template.DeepCopy()
@@ -216,7 +218,7 @@ func (r *LLMISVCReconciler) reconcileSingleNodePrefill(ctx context.Context, llmS
 	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, prefill, semanticDeploymentIsEqual, PreserveDeploymentReplicas()); err != nil {
 		return fmt.Errorf("failed to reconcile prefill deployment %s/%s: %w", prefill.GetNamespace(), prefill.GetName(), err)
 	}
-	return r.propagateDeploymentStatus(ctx, prefill, llmSvc.MarkPrefillWorkloadReady, llmSvc.MarkPrefillWorkloadNotReady)
+	return r.propagateWorkloadDeploymentStatus(ctx, prefill, llmSvc.MarkPrefillWorkloadReady, llmSvc.MarkPrefillWorkloadNotReady)
 }
 
 func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (*appsv1.Deployment, error) {
@@ -251,6 +253,7 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 				},
 			},
 		}
+		applyDeploymentRolloutStrategy(d, llmSvc.Spec.Prefill)
 	}
 
 	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
@@ -321,7 +324,7 @@ func (r *LLMISVCReconciler) propagateDeploymentMetadata(llmSvc *v1alpha2.LLMInfe
 	utils.PropagatePrefixedMap(llmSvc.GetLabels(), &expected.Spec.Template.Labels, approvedLabelPrefixes...)
 }
 
-func (r *LLMISVCReconciler) propagateDeploymentStatus(ctx context.Context, expected *appsv1.Deployment, ready func(), notReady func(reason, messageFormat string, messageA ...interface{})) error {
+func (r *LLMISVCReconciler) propagateWorkloadDeploymentStatus(ctx context.Context, expected *appsv1.Deployment, ready func(), notReady func(reason, messageFormat string, messageA ...interface{})) error {
 	curr := &appsv1.Deployment{}
 	err := retry.OnError(retry.DefaultRetry, apierrors.IsNotFound, func() error {
 		return r.Get(ctx, client.ObjectKeyFromObject(expected), curr)
@@ -514,4 +517,21 @@ func mainDeploymentName(llmSvc *v1alpha2.LLMInferenceService) string {
 
 func prefillDeploymentName(llmSvc *v1alpha2.LLMInferenceService) string {
 	return kmeta.ChildName(llmSvc.GetName(), "-kserve-prefill")
+}
+
+func applyDeploymentRolloutStrategy(d *appsv1.Deployment, workload *v1alpha2.WorkloadSpec) {
+	if workload == nil || workload.RolloutStrategy == nil {
+		return
+	}
+	rs := workload.RolloutStrategy
+	if rs.MaxUnavailable == nil && rs.MaxSurge == nil {
+		return
+	}
+	d.Spec.Strategy = appsv1.DeploymentStrategy{
+		Type: appsv1.RollingUpdateDeploymentStrategyType,
+		RollingUpdate: &appsv1.RollingUpdateDeployment{
+			MaxUnavailable: rs.MaxUnavailable,
+			MaxSurge:       rs.MaxSurge,
+		},
+	}
 }

@@ -13,38 +13,38 @@ spec:
     singular: servingruntime
   scope: Namespaced
   versions:
-  - additionalPrinterColumns:
-    - jsonPath: .spec.disabled
-      name: Disabled
-      type: boolean
-    - jsonPath: .spec.supportedModelFormats[*].name
-      name: ModelType
-      type: string
-    - jsonPath: .spec.containers[*].name
-      name: Containers
-      type: string
-    - jsonPath: .metadata.creationTimestamp
-      name: Age
-      type: date
-    name: v1alpha1
-    schema:
-      openAPIV3Schema:
-        properties:
-          apiVersion:
-            type: string
-          kind:
-            type: string
-          metadata:
-            type: object
-          spec:
-            type: object
-            x-kubernetes-map-type: atomic
-            x-kubernetes-preserve-unknown-fields: true
-          status:
-            type: object
-            x-kubernetes-map-type: atomic
-            x-kubernetes-preserve-unknown-fields: true
-        type: object
-    served: true
-    storage: true
-    subresources: {}
+    - additionalPrinterColumns:
+        - jsonPath: .spec.disabled
+          name: Disabled
+          type: boolean
+        - jsonPath: .spec.supportedModelFormats[*].name
+          name: ModelType
+          type: string
+        - jsonPath: .spec.containers[*].name
+          name: Containers
+          type: string
+        - jsonPath: .metadata.creationTimestamp
+          name: Age
+          type: date
+      name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              type: object
+              x-kubernetes-map-type: atomic
+              x-kubernetes-preserve-unknown-fields: true
+            status:
+              type: object
+              x-kubernetes-map-type: atomic
+              x-kubernetes-preserve-unknown-fields: true
+          type: object
+      served: true
+      storage: true
+      subresources: {}

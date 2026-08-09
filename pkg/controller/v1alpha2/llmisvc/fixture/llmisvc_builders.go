@@ -19,6 +19,7 @@ package fixture
 import (
 	"maps"
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -288,6 +289,22 @@ func KEDAScaling(minReplicas int32, maxReplicas int32) *v1alpha2.ScalingSpec {
 	}
 }
 
+// DirectKEDAScaling builds scaling.keda with user-defined triggers (no WVA).
+func DirectKEDAScaling(minReplicas int32, maxReplicas int32, triggers ...kedav1alpha1.ScaleTriggers) *v1alpha2.ScalingSpec {
+	if len(triggers) == 0 {
+		triggers = []kedav1alpha1.ScaleTriggers{
+			{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+		}
+	}
+	return &v1alpha2.ScalingSpec{
+		MinReplicas: &minReplicas,
+		MaxReplicas: maxReplicas,
+		KEDA: &v1alpha2.DirectKEDAScalingSpec{
+			Triggers: triggers,
+		},
+	}
+}
+
 func HPAScalingWithBehavior(minReplicas int32, maxReplicas int32, behavior *autoscalingv2.HorizontalPodAutoscalerBehavior) *v1alpha2.ScalingSpec {
 	return &v1alpha2.ScalingSpec{
 		MinReplicas: &minReplicas,
@@ -305,6 +322,21 @@ func HPAScalingWithBehavior(minReplicas int32, maxReplicas int32, behavior *auto
 func ScalingWithVariantCost(base *v1alpha2.ScalingSpec, variantCost string) *v1alpha2.ScalingSpec {
 	base.WVA.VariantCost = variantCost
 	return base
+}
+
+func WithRolloutStrategy(rs *v1alpha2.RolloutStrategy) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha2.LLMInferenceService) {
+		llmSvc.Spec.RolloutStrategy = rs
+	}
+}
+
+func WithPrefillRolloutStrategy(rs *v1alpha2.RolloutStrategy) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha2.LLMInferenceService) {
+		if llmSvc.Spec.Prefill == nil {
+			llmSvc.Spec.Prefill = &v1alpha2.WorkloadSpec{}
+		}
+		llmSvc.Spec.Prefill.RolloutStrategy = rs
+	}
 }
 
 func WithWorkloadLabels(labels map[string]string) LLMInferenceServiceOption {
@@ -543,6 +575,18 @@ func WithConfigSchedulerConfigRef(configMapName, key string) LLMInferenceService
 	}
 }
 
+// WithManagedTokenizer sets an empty tokenizer spec on the scheduler as an
+// operational override. The tokenizer is normally auto-deployed when
+// token-producer or precise-prefix-cache-scorer plugins are detected in
+// inline config; this option forces tokenizer deployment for tests that
+// don't provide inline config.
+func WithManagedTokenizer() LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha2.LLMInferenceService) {
+		ensureSchedulerSpec(&llmSvc.Spec)
+		llmSvc.Spec.Router.Scheduler.Tokenizer = &v1alpha2.TokenizerSpec{}
+	}
+}
+
 // WithSchedulerConfigInline sets an inline scheduler config on the LLMInferenceService.
 // The configYAML is converted to JSON since RawExtension.Raw expects JSON bytes.
 func WithSchedulerConfigInline(configYAML string) LLMInferenceServiceOption {
@@ -554,6 +598,23 @@ func WithSchedulerConfigInline(configYAML string) LLMInferenceServiceOption {
 		}
 		llmSvc.Spec.Router.Scheduler.Config = &v1alpha2.SchedulerConfigSpec{
 			Inline: &runtime.RawExtension{Raw: jsonBytes},
+		}
+	}
+}
+
+// WithSchedulerConfigTemplateArgs sets the scheduler config as a --config-text
+// argument on the "main" container of the scheduler pod template, instead of
+// spec.router.scheduler.config.inline.
+func WithSchedulerConfigTemplateArgs(configYAML string) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha2.LLMInferenceService) {
+		ensureSchedulerSpec(&llmSvc.Spec)
+		llmSvc.Spec.Router.Scheduler.Template = &corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: "main",
+					Args: []string{"--config-text", configYAML},
+				},
+			},
 		}
 	}
 }

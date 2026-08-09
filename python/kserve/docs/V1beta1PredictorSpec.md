@@ -34,6 +34,7 @@ Name | Type | Description | Notes
 **max_replicas** | **int** | Maximum number of replicas for autoscaling. | [optional] 
 **min_replicas** | **int** | Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero. | [optional] 
 **model** | [**V1beta1ModelSpec**](V1beta1ModelSpec.md) |  | [optional] 
+**name** | **str** | Name optionally identifies this predictor variant. When set, the Deployment and Service are named {isvc}-{name}-predictor instead of the default {isvc}-predictor. Required when used in a canary entry. | [optional] 
 **node_name** | **str** | NodeName indicates in which node this pod is scheduled. If empty, this pod is a candidate for scheduling by the scheduler defined in schedulerName. Once this field is set, the kubelet for this node becomes responsible for the lifecycle of this pod. This field should not be used to express a desire for the pod to be scheduled on a specific node. https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodename | [optional] 
 **node_selector** | **dict(str, str)** | NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node&#39;s labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/ | [optional] 
 **onnx** | [**V1beta1ONNXRuntimeSpec**](V1beta1ONNXRuntimeSpec.md) |  | [optional] 

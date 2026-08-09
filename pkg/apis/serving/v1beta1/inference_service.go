@@ -33,6 +33,29 @@ type InferenceServiceSpec struct {
 	// transformer service calls to predictor service.
 	// +optional
 	Transformer *TransformerSpec `json:"transformer,omitempty"`
+	// Canary defines optional canary deployments for progressive model rollout.
+	// Each canary's predictor.name drives the Deployment name: {isvc}-{name}-predictor.
+	// To promote a canary without restart, set predictor.name to the canary name
+	// and remove the canary entry.
+	// +optional
+	// +listType=atomic
+	Canary []CanarySpec `json:"canary,omitempty"`
+}
+
+// CanarySpec defines a canary deployment for progressive rollout of a new
+// model version. The canary uses fixed replicas (no autoscaling).
+// The predictor.name field is required and used for Deployment/Service naming.
+type CanarySpec struct {
+	// Predictor spec for the canary variant. predictor.name is required.
+	// +required
+	Predictor PredictorSpec `json:"predictor"`
+	// TrafficPercent is the percentage of inference traffic routed to this canary.
+	// The sum of all canary TrafficPercent values must be <= 100.
+	// Set to 0 for dark launch (deploy without routing traffic).
+	// +required
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=100
+	TrafficPercent int32 `json:"trafficPercent"`
 }
 
 // StorageSpec defines a spec for an object in an object store

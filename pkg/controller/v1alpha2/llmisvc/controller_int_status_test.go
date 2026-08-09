@@ -41,7 +41,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 		It("should populate status.appliedConfigs with well-known and explicit configs", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-applied-configs"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -107,7 +107,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 		It("should preserve pinned config annotations across reconciliations", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-pinning-stable"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -170,7 +170,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			// stable when a config deletion is requested but blocked.
 			// given
 			svcName := "test-llm-applied-cleared"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
