@@ -334,7 +334,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 			},
 			errMatcher: gomega.BeNil(),
 		},
-		"Valid HPA Memory metrics with ScaleTarget above 100": {
+		"HPA Memory metrics with target utilization above 100": {
 			isvc: &InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
@@ -359,7 +359,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 					},
 				},
 			},
-			errMatcher: gomega.BeNil(),
+			errMatcher: gomega.MatchError("the target utilization percentage should be a [1-100] integer"),
 		},
 		"HPA Memory metrics with invalid target utilization": {
 			isvc: &InferenceService{
@@ -386,7 +386,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 					},
 				},
 			},
-			errMatcher: gomega.MatchError("the target memory utilization percentage should be greater than 0"),
+			errMatcher: gomega.MatchError("the target utilization percentage should be a [1-100] integer"),
 		},
 		"Invalid autoscaler class": {
 			isvc: &InferenceService{

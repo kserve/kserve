@@ -536,13 +536,12 @@ func validateScalingHPACompExtension(compExtSpec *ComponentExtensionSpec) error 
 	}
 
 	if compExtSpec.ScaleTarget != nil {
-		target := *compExtSpec.ScaleTarget
-		if metric == MetricCPU && (target < 1 || target > 100) {
-			return errors.New("the target utilization percentage should be a [1-100] integer")
-		}
-
-		if metric == MetricMemory && target < 1 {
-			return errors.New("the target memory utilization percentage should be greater than 0")
+		// ScaleTarget always becomes an AverageUtilization percentage for both CPU and
+		// Memory (see hpa_reconciler.go), so both are bounded by the same [1-100] rule -
+		// matching the Utilization-type handling in validateTargetUtilization/validateScaleTarget
+		// used by the KEDA AutoScaling.Metrics path below.
+		if err := validateTargetUtilization(*compExtSpec.ScaleTarget); err != nil {
+			return err
 		}
 	}
 
