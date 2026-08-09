@@ -36,7 +36,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 	Context("Stale InferencePool parent handling", func() {
 		It("should recover readiness after switching from a custom gateway to the default", func(ctx SpecContext) {
 			svcName := "test-stale-pool-parent"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),

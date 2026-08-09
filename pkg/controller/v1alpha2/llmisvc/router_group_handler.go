@@ -176,5 +176,13 @@ func trafficFieldsChanged(old, new *v1alpha2.LLMInferenceService) bool {
 		return true
 	}
 
+	// Model names resolved from status.Addresses drive divergence detection
+	// for peer members. Without this, a member whose spec.model changes gets
+	// reconciled (updating its own addresses), but peers that already
+	// reconciled against the stale addresses are never re-enqueued.
+	if !slices.Equal(resolvedModelNames(old), resolvedModelNames(new)) {
+		return true
+	}
+
 	return false
 }

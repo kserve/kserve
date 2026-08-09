@@ -14,371 +14,141 @@
 
 import os
 
-from .fixtures import KSERVE_TEST_NAMESPACE
-
-# GatewayClass name - can be overridden via GATEWAY_CLASS_NAME env var (e.g., "istio")
 GATEWAY_CLASS_NAME = os.environ.get("GATEWAY_CLASS_NAME", "envoy")
 
-ROUTER_GATEWAYS = [
-    {
-        "apiVersion": "gateway.networking.k8s.io/v1",
-        "kind": "Gateway",
-        "metadata": {
-            "name": "router-gateway-1",
-            "namespace": KSERVE_TEST_NAMESPACE,
-        },
-        "spec": {
-            "gatewayClassName": GATEWAY_CLASS_NAME,
-            "listeners": [
-                {
-                    "name": "http",
-                    "port": 80,
-                    "protocol": "HTTP",
-                    "allowedRoutes": {
-                        "namespaces": {
-                            "from": "All",
-                        },
-                    },
-                },
-            ],
-        },
-    },
-    {
-        "apiVersion": "gateway.networking.k8s.io/v1",
-        "kind": "Gateway",
-        "metadata": {
-            "name": "router-gateway-2",
-            "namespace": KSERVE_TEST_NAMESPACE,
-        },
-        "spec": {
-            "gatewayClassName": GATEWAY_CLASS_NAME,
-            "listeners": [
-                {
-                    "name": "http",
-                    "port": 80,
-                    "protocol": "HTTP",
-                    "allowedRoutes": {
-                        "namespaces": {
-                            "from": "All",
-                        },
-                    },
-                },
-            ],
-        },
-    },
-]
 
-ROUTER_ROUTES = [
-    {
+def make_router_gateway(name, namespace):
+    return {
+        "apiVersion": "gateway.networking.k8s.io/v1",
+        "kind": "Gateway",
+        "metadata": {
+            "name": name,
+            "namespace": namespace,
+        },
+        "spec": {
+            "gatewayClassName": GATEWAY_CLASS_NAME,
+            "listeners": [
+                {
+                    "name": "http",
+                    "port": 80,
+                    "protocol": "HTTP",
+                    "allowedRoutes": {
+                        "namespaces": {"from": "All"},
+                    },
+                },
+            ],
+        },
+    }
+
+
+def _rewrite_rule(path_prefix, rewrite_to, backend_ref):
+    return {
+        "matches": [
+            {"path": {"type": "PathPrefix", "value": path_prefix}},
+        ],
+        "filters": [
+            {
+                "type": "URLRewrite",
+                "urlRewrite": {
+                    "path": {
+                        "replacePrefixMatch": rewrite_to,
+                        "type": "ReplacePrefixMatch",
+                    },
+                },
+            },
+        ],
+        "backendRefs": [backend_ref],
+    }
+
+
+def _pool_ref(service_name, namespace):
+    return {
+        "group": "inference.networking.k8s.io",
+        "kind": "InferencePool",
+        "name": f"{service_name}-inference-pool",
+        "namespace": namespace,
+        "port": 8000,
+    }
+
+
+def _svc_ref(service_name, namespace):
+    return {
+        "group": "",
+        "kind": "Service",
+        "name": f"{service_name}-kserve-workload-svc",
+        "namespace": namespace,
+        "port": 8000,
+    }
+
+
+def make_router_main_route(
+    name,
+    namespace,
+    gateway_name,
+    service_name,
+):
+    pool = _pool_ref(service_name, namespace)
+    svc = _svc_ref(service_name, namespace)
+    prefix = f"/{namespace}/{service_name}"
+    return {
         "apiVersion": "gateway.networking.k8s.io/v1",
         "kind": "HTTPRoute",
         "metadata": {
-            "name": "router-route-1",
-            "namespace": KSERVE_TEST_NAMESPACE,
+            "name": name,
+            "namespace": namespace,
         },
         "spec": {
             "parentRefs": [
                 {
-                    "name": "router-gateway-1",
-                    "namespace": KSERVE_TEST_NAMESPACE,
-                }
+                    "name": gateway_name,
+                    "namespace": namespace,
+                },
             ],
             "rules": [
-                {
-                    "matches": [
-                        {
-                            "path": {
-                                "type": "PathPrefix",
-                                "value": "/kserve-ci-e2e-test/router-with-refs-test/v1/completions",
-                            },
-                        },
-                    ],
-                    "filters": [
-                        {
-                            "type": "URLRewrite",
-                            "urlRewrite": {
-                                "path": {
-                                    "replacePrefixMatch": "/v1/completions",
-                                    "type": "ReplacePrefixMatch",
-                                },
-                            },
-                        },
-                    ],
-                    "backendRefs": [
-                        {
-                            "group": "inference.networking.k8s.io",
-                            "kind": "InferencePool",
-                            "name": "router-with-refs-test-inference-pool",
-                            "namespace": KSERVE_TEST_NAMESPACE,
-                            "port": 8000,
-                        }
-                    ],
-                },
-                {
-                    "matches": [
-                        {
-                            "path": {
-                                "type": "PathPrefix",
-                                "value": "/kserve-ci-e2e-test/router-with-refs-test/v1/chat/completions",
-                            },
-                        },
-                    ],
-                    "filters": [
-                        {
-                            "type": "URLRewrite",
-                            "urlRewrite": {
-                                "path": {
-                                    "replacePrefixMatch": "/v1/chat/completions",
-                                    "type": "ReplacePrefixMatch",
-                                },
-                            },
-                        },
-                    ],
-                    "backendRefs": [
-                        {
-                            "group": "inference.networking.k8s.io",
-                            "kind": "InferencePool",
-                            "name": "router-with-refs-test-inference-pool",
-                            "namespace": KSERVE_TEST_NAMESPACE,
-                            "port": 8000,
-                        }
-                    ],
-                },
-                {
-                    "matches": [
-                        {
-                            "path": {
-                                "type": "PathPrefix",
-                                "value": "/kserve-ci-e2e-test/router-with-refs-test",
-                            },
-                        },
-                    ],
-                    "filters": [
-                        {
-                            "type": "URLRewrite",
-                            "urlRewrite": {
-                                "path": {
-                                    "replacePrefixMatch": "/",
-                                    "type": "ReplacePrefixMatch",
-                                },
-                            },
-                        },
-                    ],
-                    "backendRefs": [
-                        {
-                            "group": "",
-                            "kind": "Service",
-                            "name": "router-with-refs-test-kserve-workload-svc",
-                            "namespace": KSERVE_TEST_NAMESPACE,
-                            "port": 8000,
-                        }
-                    ],
-                },
+                _rewrite_rule(
+                    f"{prefix}/v1/completions",
+                    "/v1/completions",
+                    pool,
+                ),
+                _rewrite_rule(
+                    f"{prefix}/v1/chat/completions",
+                    "/v1/chat/completions",
+                    pool,
+                ),
+                _rewrite_rule(prefix, "/", svc),
             ],
         },
-    },
-    {
+    }
+
+
+def make_router_health_route(
+    name,
+    namespace,
+    gateway_name,
+    service_name,
+):
+    svc = _svc_ref(service_name, namespace)
+    prefix = f"/{namespace}/{service_name}"
+    return {
         "apiVersion": "gateway.networking.k8s.io/v1",
         "kind": "HTTPRoute",
         "metadata": {
-            "name": "router-route-2",
-            "namespace": KSERVE_TEST_NAMESPACE,
+            "name": name,
+            "namespace": namespace,
         },
         "spec": {
             "parentRefs": [
                 {
-                    "name": "router-gateway-1",
-                    "namespace": KSERVE_TEST_NAMESPACE,
-                }
+                    "name": gateway_name,
+                    "namespace": namespace,
+                },
             ],
             "rules": [
-                {
-                    "matches": [
-                        {
-                            "path": {
-                                "type": "PathPrefix",
-                                "value": "/kserve-ci-e2e-test/router-with-refs-test/health",
-                            },
-                        },
-                    ],
-                    "filters": [
-                        {
-                            "type": "URLRewrite",
-                            "urlRewrite": {
-                                "path": {
-                                    "replacePrefixMatch": "/health",
-                                    "type": "ReplacePrefixMatch",
-                                },
-                            },
-                        },
-                    ],
-                    "backendRefs": [
-                        {
-                            "group": "",
-                            "kind": "Service",
-                            "name": "router-with-refs-test-kserve-workload-svc",
-                            "namespace": KSERVE_TEST_NAMESPACE,
-                            "port": 8000,
-                        }
-                    ],
-                },
+                _rewrite_rule(
+                    f"{prefix}/health",
+                    "/health",
+                    svc,
+                ),
             ],
         },
-    },
-    {
-        "apiVersion": "gateway.networking.k8s.io/v1",
-        "kind": "HTTPRoute",
-        "metadata": {
-            "name": "router-route-3",
-            "namespace": KSERVE_TEST_NAMESPACE,
-        },
-        "spec": {
-            "parentRefs": [
-                {
-                    "name": "router-gateway-2",
-                    "namespace": KSERVE_TEST_NAMESPACE,
-                }
-            ],
-            "rules": [
-                {
-                    "matches": [
-                        {
-                            "path": {
-                                "type": "PathPrefix",
-                                "value": "/kserve-ci-e2e-test/router-with-refs-pd-test/v1/completions",
-                            },
-                        },
-                    ],
-                    "filters": [
-                        {
-                            "type": "URLRewrite",
-                            "urlRewrite": {
-                                "path": {
-                                    "replacePrefixMatch": "/v1/completions",
-                                    "type": "ReplacePrefixMatch",
-                                },
-                            },
-                        },
-                    ],
-                    "backendRefs": [
-                        {
-                            "group": "inference.networking.k8s.io",
-                            "kind": "InferencePool",
-                            "name": "router-with-refs-pd-test-inference-pool",
-                            "namespace": KSERVE_TEST_NAMESPACE,
-                            "port": 8000,
-                        }
-                    ],
-                },
-                {
-                    "matches": [
-                        {
-                            "path": {
-                                "type": "PathPrefix",
-                                "value": "/kserve-ci-e2e-test/router-with-refs-pd-test/v1/chat/completions",
-                            },
-                        },
-                    ],
-                    "filters": [
-                        {
-                            "type": "URLRewrite",
-                            "urlRewrite": {
-                                "path": {
-                                    "replacePrefixMatch": "/v1/chat/completions",
-                                    "type": "ReplacePrefixMatch",
-                                },
-                            },
-                        },
-                    ],
-                    "backendRefs": [
-                        {
-                            "group": "inference.networking.k8s.io",
-                            "kind": "InferencePool",
-                            "name": "router-with-refs-pd-test-inference-pool",
-                            "namespace": KSERVE_TEST_NAMESPACE,
-                            "port": 8000,
-                        }
-                    ],
-                },
-                {
-                    "matches": [
-                        {
-                            "path": {
-                                "type": "PathPrefix",
-                                "value": "/kserve-ci-e2e-test/router-with-refs-pd-test",
-                            },
-                        },
-                    ],
-                    "filters": [
-                        {
-                            "type": "URLRewrite",
-                            "urlRewrite": {
-                                "path": {
-                                    "replacePrefixMatch": "/",
-                                    "type": "ReplacePrefixMatch",
-                                },
-                            },
-                        },
-                    ],
-                    "backendRefs": [
-                        {
-                            "group": "",
-                            "kind": "Service",
-                            "name": "router-with-refs-pd-test-kserve-workload-svc",
-                            "namespace": KSERVE_TEST_NAMESPACE,
-                            "port": 8000,
-                        }
-                    ],
-                },
-            ],
-        },
-    },
-    {
-        "apiVersion": "gateway.networking.k8s.io/v1",
-        "kind": "HTTPRoute",
-        "metadata": {
-            "name": "router-route-4",
-            "namespace": KSERVE_TEST_NAMESPACE,
-        },
-        "spec": {
-            "parentRefs": [
-                {
-                    "name": "router-gateway-2",
-                    "namespace": KSERVE_TEST_NAMESPACE,
-                }
-            ],
-            "rules": [
-                {
-                    "matches": [
-                        {
-                            "path": {
-                                "type": "PathPrefix",
-                                "value": "/kserve-ci-e2e-test/router-with-refs-pd-test/health",
-                            },
-                        },
-                    ],
-                    "filters": [
-                        {
-                            "type": "URLRewrite",
-                            "urlRewrite": {
-                                "path": {
-                                    "replacePrefixMatch": "/health",
-                                    "type": "ReplacePrefixMatch",
-                                },
-                            },
-                        },
-                    ],
-                    "backendRefs": [
-                        {
-                            "group": "",
-                            "kind": "Service",
-                            "name": "router-with-refs-pd-test-kserve-workload-svc",
-                            "namespace": KSERVE_TEST_NAMESPACE,
-                            "port": 8000,
-                        }
-                    ],
-                },
-            ],
-        },
-    },
-]
+    }

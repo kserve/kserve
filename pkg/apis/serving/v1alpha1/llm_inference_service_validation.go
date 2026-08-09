@@ -32,6 +32,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/utils"
+	kservevalidation "github.com/kserve/kserve/pkg/validation"
 )
 
 // +kubebuilder:webhook:path=/validate-serving-kserve-io-v1alpha1-llminferenceservice,mutating=false,failurePolicy=fail,sideEffects=None,groups=serving.kserve.io,resources=llminferenceservices,verbs=create;update,versions=v1alpha1,name=llminferenceservice.kserve-webhook-server.v1alpha1.validator,admissionReviewVersions=v1
@@ -93,6 +94,9 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, l.validateParallelismConstraints(llmSvc)...)
 	allErrs = append(allErrs, l.validateSchedulerConfig(llmSvc)...)
 	allErrs = append(allErrs, l.validateScaling(llmSvc)...)
+	allErrs = append(allErrs, l.validateRolloutStrategy(llmSvc)...)
+	allErrs = append(allErrs, l.validateLoRAAdapters(llmSvc)...)
+	allErrs = append(allErrs, kservevalidation.ValidateManagedDRAAnnotations(llmSvc.GetAnnotations())...)
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
 
 	if len(allErrs) == 0 {
@@ -373,6 +377,30 @@ func (l *LLMInferenceServiceValidator) validateWorkloadScaling(basePath *field.P
 	// the scaling rules live in exactly one place.
 	w := convertWorkloadSpecToV1Alpha2(workload)
 	return v1alpha2.ValidateWorkloadScaling(basePath, &w)
+}
+
+func (l *LLMInferenceServiceValidator) validateRolloutStrategy(llmSvc *LLMInferenceService) field.ErrorList {
+	var allErrs field.ErrorList
+
+	isMultiNode := llmSvc.Spec.Worker != nil
+	w := convertWorkloadSpecToV1Alpha2(&llmSvc.Spec.WorkloadSpec)
+	allErrs = append(allErrs, v1alpha2.ValidateWorkloadRolloutFields(field.NewPath("spec"), w.RolloutStrategy, isMultiNode)...)
+
+	if llmSvc.Spec.Prefill != nil {
+		prefillMultiNode := llmSvc.Spec.Prefill.Worker != nil
+		p := convertWorkloadSpecToV1Alpha2(llmSvc.Spec.Prefill)
+		allErrs = append(allErrs, v1alpha2.ValidateWorkloadRolloutFields(field.NewPath("spec").Child("prefill"), p.RolloutStrategy, prefillMultiNode)...)
+	}
+
+	return allErrs
+}
+
+func (l *LLMInferenceServiceValidator) validateLoRAAdapters(llmSvc *LLMInferenceService) field.ErrorList {
+	if llmSvc.Spec.Model.LoRA == nil {
+		return nil
+	}
+	hub := convertLoRASpecToV1Alpha2(llmSvc.Spec.Model.LoRA)
+	return v1alpha2.ValidateLoRAAdapters(hub, ptr.Deref(llmSvc.Spec.Model.Name, llmSvc.Name), field.NewPath("spec", "model", "lora"))
 }
 
 // immutable returns a *Error indicating "unsupported mutation".

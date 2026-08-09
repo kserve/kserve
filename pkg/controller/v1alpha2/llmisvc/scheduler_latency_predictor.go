@@ -27,18 +27,21 @@ const (
 	predictedLatencyProducerPlugin = "predicted-latency-producer"
 )
 
-// hasLatencyProducerInSpec checks the LLMInferenceService spec's inline config.
-// NOTE: This only checks Config.Inline, not Config.Ref (ConfigMap-based config).
-// The ConfigMap Ref is resolved later in expectedSchedulerDeployment, after
+// hasLatencyProducerInSpec checks the LLMInferenceService spec's scheduler config,
+// supplied via either Config.Inline or a --config-text pair in
+// Template.Containers[].Args (see inlineSchedulerConfigBytes).
+// NOTE: This does not check Config.Ref (ConfigMap-based config). The ConfigMap
+// Ref is resolved later in expectedSchedulerDeployment, after
 // combineBaseRefsConfig has already run. If the plugin is specified via Ref,
 // the well-known config will not be auto-injected. This is a known limitation;
 // all llm-d guides and examples use Config.Inline.
 func hasLatencyProducerInSpec(spec v1alpha2.LLMInferenceServiceSpec) bool {
-	if spec.Router == nil || spec.Router.Scheduler == nil || spec.Router.Scheduler.Config == nil || spec.Router.Scheduler.Config.Inline == nil {
+	raw, ok := inlineSchedulerConfigBytes(spec)
+	if !ok {
 		return false
 	}
 	u := unstructured.Unstructured{}
-	if err := yaml.Unmarshal(spec.Router.Scheduler.Config.Inline.Raw, &u.Object); err != nil {
+	if err := yaml.Unmarshal(raw, &u.Object); err != nil {
 		return false
 	}
 	return hasPluginType(u.Object, predictedLatencyProducerPlugin)

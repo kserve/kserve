@@ -36,15 +36,35 @@ func TestApplyDeploymentRolloutStrategy(t *testing.T) {
 		expected     appsv1.DeploymentStrategy
 	}{
 		{
-			name: "user deployment strategy takes precedence over configmap rollout",
+			name: "user deployment strategy takes precedence over workload and configmap rollout",
 			workloadSpec: &v1alpha2.WorkloadSpec{
 				DeploymentStrategy: &appsv1.DeploymentStrategy{
 					Type: appsv1.RecreateDeploymentStrategyType,
+				},
+				RolloutStrategy: &v1alpha2.RolloutStrategy{
+					MaxSurge: intstrPtr("25%"),
 				},
 			},
 			config: rolloutConfig("50%", "0%"),
 			expected: appsv1.DeploymentStrategy{
 				Type: appsv1.RecreateDeploymentStrategyType,
+			},
+		},
+		{
+			name: "workload rollout strategy takes precedence over configmap rollout",
+			workloadSpec: &v1alpha2.WorkloadSpec{
+				RolloutStrategy: &v1alpha2.RolloutStrategy{
+					MaxSurge:       intstrPtr("25%"),
+					MaxUnavailable: intstrPtr("1"),
+				},
+			},
+			config: rolloutConfig("50%", "0%"),
+			expected: appsv1.DeploymentStrategy{
+				Type: appsv1.RollingUpdateDeploymentStrategyType,
+				RollingUpdate: &appsv1.RollingUpdateDeployment{
+					MaxSurge:       intstrPtr("25%"),
+					MaxUnavailable: intstrPtr("1"),
+				},
 			},
 		},
 		{
