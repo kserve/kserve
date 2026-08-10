@@ -256,5 +256,8 @@ replace github.com/expr-lang/expr => github.com/expr-lang/expr v1.17.7
 // CVE-2026-33186: pin grpc to a patched version
 replace google.golang.org/grpc => google.golang.org/grpc v1.79.3
 
+// GHSA-78h2-9frx-2jm8 / CVE-2026-34986: pin go-jose to a patched version
+replace github.com/go-jose/go-jose/v4 => github.com/go-jose/go-jose/v4 v4.1.4
+
 // github.com/lyft/protoc-gen-validate was moved to github.com/envoyproxy/protoc-gen-validate
 replace github.com/lyft/protoc-gen-validate => github.com/envoyproxy/protoc-gen-validate v1.0.4
