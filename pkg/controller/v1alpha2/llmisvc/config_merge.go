@@ -38,8 +38,10 @@ import (
 	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
@@ -118,13 +120,6 @@ const (
 
 var useVersionedConfig, _ = strconv.ParseBool(constants.GetEnvOrDefault("LLM_INFERENCE_SERVICE_VERSIONED_CONFIG", "true"))
 
-// CombineOption is a functional option for combineBaseRefsConfig
-type CombineOption func(*combineOptions)
-
-type combineOptions struct {
-	skipClearSchedulerConfigRef bool
-}
-
 // CombinedConfig holds the output of combineBaseRefsConfig.
 type CombinedConfig struct {
 	// Config is the merged LLMInferenceServiceConfig.
@@ -132,16 +127,17 @@ type CombinedConfig struct {
 	// AppliedConfigRefs is the ordered list of configs that were applied, tagged by source.
 	// May be incomplete when returned alongside a non-nil error.
 	AppliedConfigRefs []v1alpha2.AppliedConfigRef
+	// ResolvedSchedulerConfigMap identifies the ConfigMap resolved from the
+	// scheduler's Config.Ref. Nil when no ConfigMap was referenced.
+	ResolvedSchedulerConfigMap *types.NamespacedName
 }
 
-// WithSkipClearSchedulerConfigRef prevents clearing the scheduler config ref after resolving.
-// This is useful when the caller needs to check which ConfigMap was referenced.
-func WithSkipClearSchedulerConfigRef() CombineOption {
-	return func(o *combineOptions) {
-		o.skipClearSchedulerConfigRef = true
-	}
-}
-
+// reconcileBaseRefs resolves and merges the referenced configs, then checks the
+// merged spec by dry-running it against the API server.
+//
+// A missing config or a rejected spec returns reconcile.TerminalError: retrying
+// fixes neither, so the controller waits for a watch event instead. Any other
+// error is returned as-is and requeued with backoff.
 func (r *LLMISVCReconciler) reconcileBaseRefs(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (*v1alpha2.LLMInferenceServiceConfig, error) {
 	// Combine base configurations with service-specific overrides
 	// This includes default configs based on deployment pattern (single node, multi-node, etc.)
@@ -159,30 +155,118 @@ func (r *LLMISVCReconciler) reconcileBaseRefs(ctx context.Context, llmSvc *v1alp
 
 		var cfgNotFound *configNotFoundError
 		if errors.As(err, &cfgNotFound) {
-			llmSvc.MarkPresetsCombinedNotReady("ConfigNotFound", cfgNotFound.Error())
-			return nil, nil // watch on LLMInferenceServiceConfig re-triggers when the config is recreated
+			llmSvc.MarkPresetsCombinedNotReady("ConfigNotFound", "%s", cfgNotFound.Error())
+			return nil, reconcile.TerminalError(cfgNotFound)
 		}
 
-		llmSvc.MarkPresetsCombinedNotReady("CombineBaseError", err.Error())
+		llmSvc.MarkPresetsCombinedNotReady("CombineBaseError", "%s", err.Error())
 		return nil, fmt.Errorf("failed to combine base-configurations: %w", err)
 	}
 
-	// Persist only the applied configs from successful reconciliation.
+	// The LLMInferenceServiceConfig CRD's OpenAPI constraints are relaxed
+	// to allow Go templating. Validate the rendered spec through the
+	// LLMInferenceService CRD's full admission chain: OpenAPI/CEL schema
+	// rules and KServe's validating webhook.
+	validationSpec := *result.Config.Spec.DeepCopy()
+	normalizeRawExtensionsToJSON(&validationSpec)
+	if err = r.Create(ctx, &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: kmeta.ChildName(llmSvc.Name, "-validation-"),
+			Namespace:    llmSvc.GetNamespace(),
+		},
+		Spec: validationSpec,
+	}, client.DryRunAll); err != nil {
+		if utils.GetForceStopRuntime(llmSvc) {
+			llmSvc.MarkPresetsCombinedNotReady("Stopped", "Service is stopped with warning: %v", err.Error())
+
+			return &v1alpha2.LLMInferenceServiceConfig{
+				Spec: *llmSvc.Spec.DeepCopy(),
+			}, nil
+		}
+
+		llmSvc.Status.AppliedConfigRefs = result.AppliedConfigRefs
+
+		// Anything other than Invalid means the spec was never checked: the API server
+		// timed out, the webhook was unreachable, RBAC was revoked. Nothing about the
+		// service changed, so no watch event will fire when it recovers - requeue
+		// instead. Unknown, not False: the service may still be serving.
+		if !apierrors.IsInvalid(err) {
+			llmSvc.MarkPresetsCombinedUnknown("ValidationUnavailable", "%s",
+				renderedConfigConditionMessage(err, result.AppliedConfigRefs))
+
+			return nil, fmt.Errorf("failed to dry-run validate rendered config: %w", err)
+		}
+
+		llmSvc.MarkPresetsCombinedNotReady("InvalidRenderedConfig", "%s",
+			renderedConfigConditionMessage(err, result.AppliedConfigRefs))
+
+		return nil, reconcile.TerminalError(fmt.Errorf("rendered config rejected: %w", err))
+	}
+
 	llmSvc.Status.AppliedConfigRefs = result.AppliedConfigRefs
 	llmSvc.MarkPresetsCombinedReady()
 
 	return result.Config, nil
 }
 
+// normalizeRawExtensionsToJSON converts YAML-encoded RawExtension fields to
+// JSON so the spec can be sent to the apiserver (which expects JSON in
+// RawExtension.Raw). This is needed because scheduler Config.Ref resolution
+// stores the ConfigMap value as-is (which may be YAML).
+func normalizeRawExtensionsToJSON(spec *v1alpha2.LLMInferenceServiceSpec) {
+	if spec.Router == nil || spec.Router.Scheduler == nil ||
+		spec.Router.Scheduler.Config == nil || spec.Router.Scheduler.Config.Inline == nil {
+		return
+	}
+	raw := spec.Router.Scheduler.Config.Inline.Raw
+	if len(raw) > 0 && raw[0] != '{' {
+		if jsonBytes, err := yaml.YAMLToJSON(raw); err == nil {
+			spec.Router.Scheduler.Config.Inline.Raw = jsonBytes
+		}
+	}
+}
+
+func renderedConfigConditionMessage(err error, refs []v1alpha2.AppliedConfigRef) string {
+	refNames := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		refNames = append(refNames, fmt.Sprintf("%s:%s/%s", ref.Source, ref.Namespace, ref.Name))
+	}
+
+	return fmt.Sprintf("dry-run validation failed after merging configs [%s]: %s",
+		strings.Join(refNames, ", "), validationDetail(err))
+}
+
+// validationDetail lists the rejected fields from a validation error. The full
+// error text is only a fallback: it starts with the name of the throwaway object
+// the dry-run creates, which the user never wrote and cannot look up.
+func validationDetail(err error) string {
+	var statusErr apierrors.APIStatus
+	if !errors.As(err, &statusErr) {
+		return err.Error()
+	}
+
+	details := statusErr.Status().Details
+	if details == nil || len(details.Causes) == 0 {
+		return err.Error()
+	}
+
+	msgs := make([]string, 0, len(details.Causes))
+	for _, cause := range details.Causes {
+		if cause.Field == "" {
+			msgs = append(msgs, cause.Message)
+			continue
+		}
+		msgs = append(msgs, fmt.Sprintf("%s: %s", cause.Field, cause.Message))
+	}
+
+	return strings.Join(msgs, "; ")
+}
+
 // combineBaseRefsConfig applies well-known config overlays to inject default values for various components, when some components are
 // enabled. These LLMInferenceServiceConfig resources must exist in either resource namespace (prioritized) or
 // SystemNamespace (e.g. `kserve`).
 // It determines which deployment pattern is being used (single node, multi-node, disaggregated) and applies appropriate defaults.
-func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, reconcilerConfig *Config, opts ...CombineOption) (*CombinedConfig, error) {
-	options := &combineOptions{}
-	for _, opt := range opts {
-		opt(options)
-	}
+func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, reconcilerConfig *Config) (*CombinedConfig, error) {
 	logger := log.FromContext(ctx).WithName("combineBaseRefsConfig")
 
 	wr := &WellKnownConfigResolver{}
@@ -303,6 +387,7 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		ObjectMeta: *llmSvc.ObjectMeta.DeepCopy(),
 		Spec:       spec,
 	}
+	var resolvedSchedulerConfigMap *types.NamespacedName
 
 	if llmSvcCfg.Spec.Router != nil &&
 		llmSvcCfg.Spec.Router.Scheduler != nil &&
@@ -403,12 +488,14 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 				llmSvcCfg.Spec.Router.Scheduler.Config.Ref.Key,
 			)
 		}
-		llmSvcCfg.Spec.Router.Scheduler.Config.Inline = &runtime.RawExtension{Raw: []byte(cfg)}
-		// Clear the Ref since we've resolved it to Inline - the validator rejects having both set.
-		// Skip clearing if the caller needs to check which ConfigMap was referenced.
-		if !options.skipClearSchedulerConfigRef {
-			llmSvcCfg.Spec.Router.Scheduler.Config.Ref = nil
+		resolvedSchedulerConfigMap = &types.NamespacedName{
+			Namespace: cm.GetNamespace(),
+			Name:      cm.GetName(),
 		}
+		llmSvcCfg.Spec.Router.Scheduler.Config.Inline = &runtime.RawExtension{Raw: []byte(cfg)}
+		// Clear the Ref since it has been resolved to Inline; the two fields are
+		// mutually exclusive in a valid LLMInferenceService.
+		llmSvcCfg.Spec.Router.Scheduler.Config.Ref = nil
 
 		// Warn if the resolved ConfigMap contains predicted-latency-producer but the
 		// well-known config was not injected (because detection runs before Ref resolution).
@@ -435,21 +522,6 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef.Port = ptr.To(igwapi.Port{Number: 9002})
 	}
 
-	// Skip validation when we're only using the result for matching (not for reconciliation).
-	// When skipClearSchedulerConfigRef is true, both Inline and Ref may be set, which would fail validation.
-	if !options.skipClearSchedulerConfigRef {
-		err = r.Validator(ctx, &v1alpha2.LLMInferenceService{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      llmSvc.Name,
-				Namespace: llmSvc.GetNamespace(),
-			},
-			Spec: llmSvcCfg.Spec,
-		})
-		if err != nil {
-			return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, err
-		}
-	}
-
 	// Resolve LoRA adapters from the final merged spec and embed the result in reconcilerConfig.
 	// Doing this here ties resolution to the config-merge step so all downstream workload
 	// functions share a single, consistent resolution rather than each re-parsing the spec.
@@ -459,7 +531,11 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	}
 	reconcilerConfig.ResolvedLoRAAdapters = loraAdapters
 
-	return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, nil
+	return &CombinedConfig{
+		Config:                     llmSvcCfg,
+		AppliedConfigRefs:          appliedRefs,
+		ResolvedSchedulerConfigMap: resolvedSchedulerConfigMap,
+	}, nil
 }
 
 func isUsingTokenizerSidecar(spec v1alpha2.LLMInferenceServiceSpec) bool {
