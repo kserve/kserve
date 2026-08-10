@@ -2240,7 +2240,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aiohttp", specifier = ">=3.10.0,<4.0.0" },
+    { name = "aiohttp", specifier = ">=3.13.3,<4.0.0" },
     { name = "azure-core", specifier = ">=1.38.0" },
     { name = "azure-identity", specifier = ">=1.15.0,<2.0.0" },
     { name = "azure-storage-blob", specifier = ">=12.20.0,<13.0.0" },
