@@ -8,6 +8,9 @@ dependencies = [
     "kserve @ file:///${PROJECT_ROOT}/../kserve",
     "kserve-storage @ file:///${PROJECT_ROOT}/../storage",
     "jpmml-evaluator~=0.10.3",
+    # jpmml-evaluator pulls in pyjnius; only pyjnius>=1.7.0 ships a cp313 wheel
+    # (earlier releases fail to Cython-compile against the Python 3.13 C API).
+    "pyjnius>=1.7.0",
     "setuptools<71.0.0,>=70.0.0",
 ]
 name = "pmmlserver"
