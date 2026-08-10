@@ -1802,7 +1802,6 @@ dependencies = [
     { name = "jpmml-evaluator" },
     { name = "kserve" },
     { name = "kserve-storage" },
-    { name = "pyjnius" },
     { name = "setuptools" },
 ]
 
@@ -1822,7 +1821,6 @@ requires-dist = [
     { name = "jpmml-evaluator", specifier = "~=0.10.3" },
     { name = "kserve", directory = "../kserve" },
     { name = "kserve-storage", directory = "../storage" },
-    { name = "pyjnius", specifier = ">=1.7.0" },
     { name = "setuptools", specifier = ">=70.0.0,<71.0.0" },
 ]
 
