@@ -251,6 +251,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 base_refs=[
                     "router-with-gateway-ref",
                     "router-with-managed-route",
+                    "scheduler-managed",
                     "model-fb-opt-125m",
                     "workload-llmd-simulator",
                 ],
