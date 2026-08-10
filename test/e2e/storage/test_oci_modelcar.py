@@ -44,7 +44,7 @@ from kserve import (
 )
 from kubernetes.client import V1ResourceRequirements
 
-from ..common.utils import KSERVE_TEST_NAMESPACE
+from ..common.utils import KSERVE_NAMESPACE, KSERVE_TEST_NAMESPACE
 
 OCI_MODELCAR_TEST_IMAGE = "ghcr.io/kserve/oci-modelcar-test-fixture:v1"
 
@@ -145,7 +145,7 @@ def test_oci_modelcar_uid_isvc():
     )
 
     uid_modelcar = _get_uid_modelcar_from_config(
-        kserve_client.core_api, KSERVE_TEST_NAMESPACE
+        kserve_client.core_api, KSERVE_NAMESPACE
     )
     if uid_modelcar is None:
         pytest.skip("uidModelcar is not configured in inferenceservice-config")
