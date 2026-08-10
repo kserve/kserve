@@ -201,5 +201,12 @@ kserve:
         createGateway: false
         gateway: knative-serving/knative-ingress-gateway
         className: istio
+  autoscalingWvaControllerConfig:
+    prometheus:
+      url: ''
+      tlsInsecureSkipVerify: false
+      authModes: ''
+      triggerAuthName: ''
+      triggerAuthKind: TriggerAuthentication
 commonLabels: {}
 commonAnnotations: {}
