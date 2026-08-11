@@ -396,6 +396,23 @@ func TestValidateWorkloadScaling(t *testing.T) {
 			wantErrCount: 0,
 		},
 		{
+			name: "valid: WVA KEDA idleReplicaCount=0 (scale-to-zero)",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MinReplicas: ptr.To(int32(1)),
+					MaxReplicas: 10,
+					WVA: &WVASpec{
+						ActuatorSpec: ActuatorSpec{
+							KEDA: &KEDAScalingSpec{
+								IdleReplicaCount: ptr.To(int32(0)),
+							},
+						},
+					},
+				},
+			},
+			wantErrCount: 0,
+		},
+		{
 			name: "valid: initialCooldownPeriod set",
 			workload: &WorkloadSpec{
 				Scaling: &ScalingSpec{
@@ -614,6 +631,24 @@ func TestValidateWorkloadScaling(t *testing.T) {
 									"value": "80",
 								},
 							},
+						},
+					},
+				},
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "valid: direct KEDA idleReplicaCount=0 (scale-to-zero)",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MinReplicas: ptr.To(int32(1)),
+					MaxReplicas: 5,
+					KEDA: &DirectKEDAScalingSpec{
+						KEDAScalingSpec: KEDAScalingSpec{
+							IdleReplicaCount: ptr.To(int32(0)),
+						},
+						Triggers: []kedav1alpha1.ScaleTriggers{
+							{Type: "cpu", Metadata: map[string]string{"value": "80"}},
 						},
 					},
 				},

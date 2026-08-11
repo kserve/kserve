@@ -529,9 +529,11 @@ type KEDAScalingSpec struct {
 
 	// IdleReplicaCount is the number of replicas KEDA will scale the resource down to
 	// when there are no triggers active. This must be less than minReplicas.
+	// Set to 0 for true scale-to-zero: KEDA scales the resource to zero replicas when idle
+	// and immediately back to minReplicas once a trigger becomes active.
 	// If not set, KEDA will not scale below minReplicas.
 	// +optional
-	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Minimum=0
 	IdleReplicaCount *int32 `json:"idleReplicaCount,omitempty"`
 
 	// Fallback defines the replica count to maintain when the scaler is in a fallback state

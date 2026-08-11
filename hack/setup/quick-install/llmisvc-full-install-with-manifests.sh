@@ -6889,7 +6889,7 @@ spec:
                             type: object
                           idleReplicaCount:
                             format: int32
-                            minimum: 1
+                            minimum: 0
                             type: integer
                           initialCooldownPeriod:
                             format: int32
@@ -7139,7 +7139,7 @@ spec:
                                 type: object
                               idleReplicaCount:
                                 format: int32
-                                minimum: 1
+                                minimum: 0
                                 type: integer
                               initialCooldownPeriod:
                                 format: int32
@@ -23436,7 +23436,7 @@ spec:
                         type: object
                       idleReplicaCount:
                         format: int32
-                        minimum: 1
+                        minimum: 0
                         type: integer
                       initialCooldownPeriod:
                         format: int32
@@ -23686,7 +23686,7 @@ spec:
                             type: object
                           idleReplicaCount:
                             format: int32
-                            minimum: 1
+                            minimum: 0
                             type: integer
                           initialCooldownPeriod:
                             format: int32
@@ -31853,7 +31853,7 @@ spec:
                             type: object
                           idleReplicaCount:
                             format: int32
-                            minimum: 1
+                            minimum: 0
                             type: integer
                           initialCooldownPeriod:
                             format: int32
@@ -32103,7 +32103,7 @@ spec:
                                 type: object
                               idleReplicaCount:
                                 format: int32
-                                minimum: 1
+                                minimum: 0
                                 type: integer
                               initialCooldownPeriod:
                                 format: int32
@@ -48431,7 +48431,7 @@ spec:
                         type: object
                       idleReplicaCount:
                         format: int32
-                        minimum: 1
+                        minimum: 0
                         type: integer
                       initialCooldownPeriod:
                         format: int32
@@ -48681,7 +48681,7 @@ spec:
                             type: object
                           idleReplicaCount:
                             format: int32
-                            minimum: 1
+                            minimum: 0
                             type: integer
                           initialCooldownPeriod:
                             format: int32
@@ -56626,7 +56626,7 @@ spec:
                             type: object
                           idleReplicaCount:
                             format: int32
-                            minimum: 1
+                            minimum: 0
                             type: integer
                           initialCooldownPeriod:
                             format: int32
@@ -56876,7 +56876,7 @@ spec:
                                 type: object
                               idleReplicaCount:
                                 format: int32
-                                minimum: 1
+                                minimum: 0
                                 type: integer
                               initialCooldownPeriod:
                                 format: int32
@@ -73871,7 +73871,7 @@ spec:
                         type: object
                       idleReplicaCount:
                         format: int32
-                        minimum: 1
+                        minimum: 0
                         type: integer
                       initialCooldownPeriod:
                         format: int32
@@ -74121,7 +74121,7 @@ spec:
                             type: object
                           idleReplicaCount:
                             format: int32
-                            minimum: 1
+                            minimum: 0
                             type: integer
                           initialCooldownPeriod:
                             format: int32
@@ -82475,7 +82475,7 @@ spec:
                             type: object
                           idleReplicaCount:
                             format: int32
-                            minimum: 1
+                            minimum: 0
                             type: integer
                           initialCooldownPeriod:
                             format: int32
@@ -82725,7 +82725,7 @@ spec:
                                 type: object
                               idleReplicaCount:
                                 format: int32
-                                minimum: 1
+                                minimum: 0
                                 type: integer
                               initialCooldownPeriod:
                                 format: int32
@@ -99762,7 +99762,7 @@ spec:
                         type: object
                       idleReplicaCount:
                         format: int32
-                        minimum: 1
+                        minimum: 0
                         type: integer
                       initialCooldownPeriod:
                         format: int32
@@ -100012,7 +100012,7 @@ spec:
                             type: object
                           idleReplicaCount:
                             format: int32
-                            minimum: 1
+                            minimum: 0
                             type: integer
                           initialCooldownPeriod:
                             format: int32
