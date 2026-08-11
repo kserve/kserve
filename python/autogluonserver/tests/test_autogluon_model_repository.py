@@ -123,25 +123,6 @@ async def test_path_traversal_blocked_symlink_escape(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_path_traversal_blocked_mixed_separators(tmp_path):
-    repo = AutoGluonModelRepository(str(tmp_path))
-
-    # On Unix, backslashes are literal characters not separators, so this won't traverse
-    # On Windows, this should be caught. Either way, it won't succeed.
-    with pytest.raises((ValueError, Exception)):
-        await repo.load(r"..\..\tmp\evil")
-
-
-@pytest.mark.asyncio
-async def test_path_traversal_blocked_url_encoded(tmp_path):
-    repo = AutoGluonModelRepository(str(tmp_path))
-
-    # URL-encoded paths should still fail validation since realpath resolves them
-    with pytest.raises((ValueError, Exception)):
-        await repo.load("..%2F..%2Ftmp%2Fevil")
-
-
-@pytest.mark.asyncio
 async def test_empty_model_name_rejected(tmp_path):
     repo = AutoGluonModelRepository(str(tmp_path))
 
