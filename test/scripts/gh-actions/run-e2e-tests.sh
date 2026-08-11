@@ -37,6 +37,34 @@ source "${PROJECT_ROOT}/kserve-images.sh"
 # Tests expect GITHUB_SHA (replaced by TAG)
 export GITHUB_SHA="${TAG:-latest}"
 
+# ---------------------------------------------------------------------------
+# Canary: test selector evaluation (non-blocking)
+# ---------------------------------------------------------------------------
+# Set TEST_SELECTOR_CANARY=true to enable. Changed files via
+# CHANGED_FILES_LIST (newline-separated env var) or CHANGED_FILES_PATH (file).
+_MAPPING_JSON="${PROJECT_ROOT}/tools/test_selector/mapping.json"
+if [[ "${TEST_SELECTOR_CANARY:-}" == "true" && -n "${1:-}" ]]; then
+  _CHANGED=""
+  if [[ -n "${CHANGED_FILES_LIST:-}" ]]; then
+    _CHANGED="$CHANGED_FILES_LIST"
+  elif [[ -f "${CHANGED_FILES_PATH:-}" ]]; then
+    _CHANGED=$(cat "$CHANGED_FILES_PATH")
+  fi
+  if [[ -n "$_CHANGED" ]]; then
+    echo "::group::Test selector canary"
+    if [[ ! -f "$_MAPPING_JSON" ]]; then
+      PYTHONPATH="${PROJECT_ROOT}/tools" \
+        python -m tools.test_selector learn --repo "$PROJECT_ROOT" 2>&1 || true
+    fi
+    if [[ -f "$_MAPPING_JSON" ]]; then
+      echo "$_CHANGED" | \
+        PYTHONPATH="${PROJECT_ROOT}/tools" \
+        python -m tools.test_selector query --match "${1}" 2>&1 || true
+    fi
+    echo "::endgroup::"
+  fi
+fi
+
 echo "Starting E2E functional tests ..."
 MARKER="${1:-}"
 PARALLELISM="${2:-1}"

@@ -1,0 +1,84 @@
+{
+  "keyword_aliases": {
+    "kserve": ["InferenceService", "InferenceGraph", "TrainedModel"],
+    "llmisvc": ["LLMInferenceService", "LLMInferenceServiceConfig"],
+    "localmodel": ["LocalModelCache", "LocalModelNamespaceCache", "LocalModelNode", "LocalModelNodeGroup"],
+    "runtime": ["ServingRuntime", "ClusterServingRuntime"]
+  },
+
+  "python": {
+    "all_e2e_packages": ["kserve", "storage"]
+  },
+
+  "ignorable_patterns": [
+    ".md",
+    ".txt",
+    ".png",
+    ".jpg",
+    ".svg",
+    ".github/",
+    "docs/",
+    "tools/test_selector/",
+    "LICENSE",
+    "OWNERS",
+    "CODEOWNERS"
+  ],
+
+  "overrides": [
+    {
+      "pattern": "Makefile",
+      "trigger": "all",
+      "reason": "Build system changes"
+    },
+    {
+      "pattern": "Makefile.*",
+      "trigger": "all",
+      "reason": "Build system changes"
+    },
+    {
+      "pattern": "go.mod",
+      "trigger": "all",
+      "reason": "Go module dependency changes"
+    },
+    {
+      "pattern": "go.sum",
+      "trigger": "all",
+      "reason": "Go module checksum changes"
+    },
+    {
+      "pattern": "kserve-images.sh",
+      "trigger": "all",
+      "reason": "Image tag/registry configuration changes"
+    },
+    {
+      "pattern": "kserve-images.env",
+      "trigger": "all",
+      "reason": "Image tag/registry configuration changes"
+    },
+    {
+      "pattern": "kserve-deps.env",
+      "trigger": "all",
+      "reason": "Dependencies changes"
+    },
+    {
+      "pattern": "test/scripts/**",
+      "trigger": "all",
+      "reason": "CI system changes"
+    },
+    {
+      "pattern": "test/overlays/**",
+      "trigger": "all",
+      "reason": "CI system changes"
+    },
+    {
+      "pattern": "test/crds/**",
+      "trigger": "all",
+      "reason": "CI system changes"
+    },
+    {
+      "pattern": ".github/workflows/*",
+      "trigger": "all",
+      "reason": "CI workflow changes"
+    }
+  ]
+}
