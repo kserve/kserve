@@ -27,7 +27,6 @@ override-dependencies = [
     "pyasn1>=0.6.3", # CVE-2026-30922
     "setuptools>=78.1.1", # CVE-2025-47273
     "modelscope>=1.27.0", # CVE-2025-51427
-    "pillow>=12.2.0", # CVE-2026-40192
     "azure-core>=1.38.0", # CVE-2026-21226
     "dulwich>=1.2.5", # CVE-2026-42305
     "cbor2>=5.9.0", # CVE-2025-68131
@@ -47,5 +46,5 @@ test = [
     "openai>=2.0.0",
 ]
 dev = [
-    "black[colorama]>=26.3.1", # CVE-2026-32274
+    "black[colorama]>=26.3.1,<27", # CVE-2026-32274
 ]
