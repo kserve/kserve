@@ -17,6 +17,7 @@ limitations under the License.
 package pod
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -5821,4 +5822,98 @@ func TestCommonStorageInitializationSkipsOciNativeURI(t *testing.T) {
 		}
 	}
 	require.NotNil(t, imgVol, "oci+native:// must produce an ImageVolume on the pod spec")
+}
+
+// TestCommonStorageInitializationOciSchemeValidation verifies that the OCI source
+// limit and mount path collision checks apply to oci+<mode>:// URIs, not just to
+// bare oci:// URIs. These URIs are dispatched via ParseOciScheme, so skipping them
+// during validation would let them exceed MaxOCISourcesPerPod and mount over each other.
+func TestCommonStorageInitializationOciSchemeValidation(t *testing.T) {
+	const modelcarURIPrefix = "oci+" + kserveTypes.OciModelModeModelcar + "://"
+
+	newPodSpec := func() *corev1.PodSpec {
+		return &corev1.PodSpec{
+			Containers: []corev1.Container{{Name: constants.InferenceServiceContainerName}},
+		}
+	}
+	ociURIs := func(prefix string, mountPaths ...string) []v1beta1.StorageUri {
+		uris := make([]v1beta1.StorageUri, 0, len(mountPaths))
+		for i, mountPath := range mountPaths {
+			uris = append(uris, v1beta1.StorageUri{
+				Uri:       fmt.Sprintf("%sregistry.io/model-%d:v1", prefix, i),
+				MountPath: mountPath,
+			})
+		}
+		return uris
+	}
+	mountPaths := func(count int) []string {
+		paths := make([]string, 0, count)
+		for i := range count {
+			paths = append(paths, fmt.Sprintf("/mnt/models/m%d", i))
+		}
+		return paths
+	}
+
+	tests := []struct {
+		name        string
+		storageURIs []v1beta1.StorageUri
+		configMode  string
+		expectedErr string
+	}{
+		{
+			name:        "oci+native:// exceeding the per-pod limit is rejected",
+			storageURIs: ociURIs(constants.OciNativeURIPrefix, mountPaths(utils.MaxOCISourcesPerPod+1)...),
+			configMode:  kserveTypes.OciModelModeNative,
+			expectedErr: "too many OCI sources",
+		},
+		{
+			name:        "oci+native:// reusing a mount path is rejected",
+			storageURIs: ociURIs(constants.OciNativeURIPrefix, "/mnt/models/shared", "/mnt/models/shared"),
+			configMode:  kserveTypes.OciModelModeNative,
+			expectedErr: "specified more than once",
+		},
+		{
+			name:        "oci+modelcar:// sharing a parent directory is rejected",
+			storageURIs: ociURIs(modelcarURIPrefix, "/mnt/models/a", "/mnt/models/b"),
+			configMode:  kserveTypes.OciModelModeModelcar,
+			expectedErr: "share parent directory",
+		},
+		{
+			name: "mount paths are validated against the per-URI mode, not the config mode",
+			// Native URIs may share a parent directory, so these are only a collision
+			// under modelcar rules. The config mode must not be applied to them.
+			storageURIs: ociURIs(constants.OciNativeURIPrefix, "/mnt/models/a", "/mnt/models/b"),
+			configMode:  kserveTypes.OciModelModeModelcar,
+		},
+		{
+			name:        "oci+native:// with distinct mount paths under the limit is accepted",
+			storageURIs: ociURIs(constants.OciNativeURIPrefix, mountPaths(utils.MaxOCISourcesPerPod)...),
+			configMode:  kserveTypes.OciModelModeNative,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := CommonStorageInitialization(t.Context(), &StorageInitializerParams{
+				Namespace:   "default",
+				StorageURIs: tt.storageURIs,
+				PodSpec:     newPodSpec(),
+				Config: &kserveTypes.StorageInitializerConfig{
+					Image:         "kserve/storage-initializer:latest",
+					CpuRequest:    StorageInitializerDefaultCPURequest,
+					CpuLimit:      StorageInitializerDefaultCPULimit,
+					MemoryRequest: StorageInitializerDefaultMemoryRequest,
+					MemoryLimit:   StorageInitializerDefaultMemoryLimit,
+					OciModelMode:  tt.configMode,
+				},
+				IsvcAnnotations: map[string]string{},
+			})
+			if tt.expectedErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.expectedErr)
+		})
+	}
 }
