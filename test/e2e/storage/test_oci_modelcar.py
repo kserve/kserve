@@ -29,7 +29,6 @@ the pod to become Running or send inference requests.
 
 import json
 import os
-import time
 
 import pytest
 from kubernetes import client
@@ -51,23 +50,6 @@ OCI_MODELCAR_TEST_IMAGE = "ghcr.io/kserve/oci-modelcar-test-fixture:v1"
 ISVC_LABEL_KEY = "serving.kserve.io/inferenceservice"
 KSERVE_CONTAINER_NAME = "kserve-container"
 MODELCAR_CONTAINER_NAME = "modelcar"
-POD_WAIT_TIMEOUT = 120
-
-
-def _wait_for_pod(
-    core_api,
-    namespace: str,
-    label_selector: str,
-    timeout: float = POD_WAIT_TIMEOUT,
-) -> client.V1Pod | None:
-    """Poll until at least one pod appears."""
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        pods = core_api.list_namespaced_pod(namespace, label_selector=label_selector)
-        if pods.items:
-            return pods.items[0]
-        time.sleep(3)
-    return None
 
 
 def _get_uid_modelcar_from_config(core_api, namespace: str) -> int | None:
@@ -180,15 +162,14 @@ def test_oci_modelcar_uid_isvc():
 
     try:
         kserve_client.create(isvc)
+        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-        pod = _wait_for_pod(
-            kserve_client.core_api,
+        pods = kserve_client.core_api.list_namespaced_pod(
             KSERVE_TEST_NAMESPACE,
-            label_selector=(f"{ISVC_LABEL_KEY}={service_name}"),
+            label_selector=f"{ISVC_LABEL_KEY}={service_name}",
         )
-        assert pod is not None, (
-            f"No pod for ISVC '{service_name}' within {POD_WAIT_TIMEOUT}s"
-        )
+        assert pods.items, f"No pod found for ISVC '{service_name}' after ready"
+        pod = pods.items[0]
 
         _assert_modelcar_uid(pod, uid_modelcar, "InferenceService")
 
