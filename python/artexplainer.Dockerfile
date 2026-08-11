@@ -73,7 +73,7 @@ COPY artexplainer/pyproject.toml artexplainer/uv.lock artexplainer/
 # then regenerate uv.lock before syncing.
 RUN if [ "$(uname -m)" = "ppc64le" ]; then \
         sed -i \
-            -e '/^    "h5py/a\    "scikit-learn>=1.6.1,<=1.8.0",' \
+            -e '/^    "h5py/a\    "scikit-learn==1.6.1",' \
             -e '/^    "h5py/a\    "scipy==1.15.2",' \
             -e '/^    "h5py/a\    "ml-dtypes==0.5.1",' \
             artexplainer/pyproject.toml && \
