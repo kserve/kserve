@@ -1138,6 +1138,31 @@ func TestValidateActuatorConsistency(t *testing.T) {
 		assert.Contains(t, errs[0].Detail, "decode uses direct keda but prefill uses wva")
 	})
 
+	t.Run("error: decode WVA, prefill direct KEDA", func(t *testing.T) {
+		svc := newBaseLLMInferenceServiceV1Alpha2()
+		svc.Spec.WorkloadSpec = WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: 5,
+				WVA:         &WVASpec{ActuatorSpec: ActuatorSpec{KEDA: &KEDAScalingSpec{}}},
+			},
+		}
+		svc.Spec.Prefill = &WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: 5,
+				KEDA: &DirectKEDAScalingSpec{
+					Triggers: []kedav1alpha1.ScaleTriggers{
+						{Type: "memory", Metadata: map[string]string{"value": "70"}},
+					},
+				},
+			},
+		}
+
+		errs := validator.validateScaling(svc)
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "spec.prefill.scaling")
+		assert.Contains(t, errs[0].Detail, "decode uses wva but prefill uses direct keda")
+	})
+
 	t.Run("error: decode HPA, prefill KEDA", func(t *testing.T) {
 		svc := newBaseLLMInferenceServiceV1Alpha2()
 		svc.Spec.WorkloadSpec = WorkloadSpec{
