@@ -324,6 +324,21 @@ func ScalingWithVariantCost(base *v1alpha2.ScalingSpec, variantCost string) *v1a
 	return base
 }
 
+func WithRolloutStrategy(rs *v1alpha2.RolloutStrategy) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha2.LLMInferenceService) {
+		llmSvc.Spec.RolloutStrategy = rs
+	}
+}
+
+func WithPrefillRolloutStrategy(rs *v1alpha2.RolloutStrategy) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha2.LLMInferenceService) {
+		if llmSvc.Spec.Prefill == nil {
+			llmSvc.Spec.Prefill = &v1alpha2.WorkloadSpec{}
+		}
+		llmSvc.Spec.Prefill.RolloutStrategy = rs
+	}
+}
+
 func WithWorkloadLabels(labels map[string]string) LLMInferenceServiceOption {
 	return func(llmSvc *v1alpha2.LLMInferenceService) {
 		llmSvc.Spec.Labels = labels

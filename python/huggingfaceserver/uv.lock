@@ -27,7 +27,6 @@ overrides = [
     { name = "h11", specifier = ">=0.16.0" },
     { name = "jaraco-context", specifier = ">=6.1.0" },
     { name = "modelscope", specifier = ">=1.27.0" },
-    { name = "pillow", specifier = ">=12.2.0" },
     { name = "pyasn1", specifier = ">=0.6.3" },
     { name = "pyjwt", specifier = ">=2.13.0" },
     { name = "python-multipart", specifier = ">=0.0.27" },
@@ -1841,7 +1840,7 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "black", extras = ["colorama"], specifier = ">=26.3.1" }]
+dev = [{ name = "black", extras = ["colorama"], specifier = ">=26.3.1,<27" }]
 test = [
     { name = "einops", specifier = ">=0.8.0,<1.0.0" },
     { name = "mypy", specifier = ">=0.991,<1.0" },
@@ -2137,6 +2136,7 @@ dependencies = [
     { name = "numpy" },
     { name = "orjson" },
     { name = "pandas" },
+    { name = "pillow" },
     { name = "prometheus-client" },
     { name = "protobuf" },
     { name = "psutil" },
@@ -2176,6 +2176,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=1.26.0,<3.0.0" },
     { name = "orjson", specifier = ">=3.11.6,<4.0.0" },
     { name = "pandas", specifier = ">=2.2.0,<3.0.0" },
+    { name = "pillow", specifier = ">=12.2.0" },
     { name = "prometheus-client", specifier = ">=0.20.0,<1.0.0" },
     { name = "protobuf", specifier = ">=6.33.5,<7.0.0" },
     { name = "psutil", specifier = ">=5.9.6,<6.0.0" },
@@ -2197,7 +2198,7 @@ requires-dist = [
 provides-extras = ["storage", "logging", "ray", "llm"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "black", extras = ["colorama"], specifier = "~=24.3.0" }]
+dev = [{ name = "black", extras = ["colorama"], specifier = ">=26.3.1,<27" }]
 test = [
     { name = "avro", specifier = ">=1.11.0,<2.0.0" },
     { name = "boto3", specifier = ">=1.35.0,<2.0.0" },
@@ -2240,7 +2241,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aiohttp", specifier = ">=3.10.0,<4.0.0" },
+    { name = "aiohttp", specifier = ">=3.13.3,<4.0.0" },
     { name = "azure-core", specifier = ">=1.38.0" },
     { name = "azure-identity", specifier = ">=1.15.0,<2.0.0" },
     { name = "azure-storage-blob", specifier = ">=12.20.0,<13.0.0" },
