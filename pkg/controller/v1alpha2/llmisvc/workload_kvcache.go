@@ -30,22 +30,24 @@ import (
 // volume that vLLM uses for both NCCL and CPU KV cache offload buffer.
 const sharedMemoryMountPath = "/dev/shm"
 
+// cpuKVCacheHeadroomPercent adds 20% headroom on top of the user-requested CPU
+// KV cache size so the NCCL + offloading buffers do not exhaust /dev/shm and
+// crash vLLM at startup.
+const cpuKVCacheHeadroomPercent = 120
+
 func attachKVCacheOffloading(podSpec *corev1.PodSpec, kv *v1alpha2.KVCacheOffloadingSpec) {
 	const containerName = "main"
 	attachKVCachePrimaryTier(podSpec, kv.CPU, containerName)
 	attachKVCacheSecondaryTiers(podSpec, kv.Secondary, containerName)
 }
 
-// CPU kv cache offloading
 func attachKVCachePrimaryTier(podSpec *corev1.PodSpec, cpu resource.Quantity, containerName string) {
 	c := utils.GetContainerWithName(podSpec, containerName)
 	if c == nil {
 		return
 	}
 
-	required := *resource.NewQuantity(cpu.Value()*120/100, cpu.Format)
-
-	// in total, add 120% CPU kv cache offloading size + NCCL buffer (1Gi or 8Gi up to the preset)
+	required := *resource.NewQuantity(cpu.Value()*cpuKVCacheHeadroomPercent/100, cpu.Format)
 	bumpSharedMemoryVolume(podSpec, c, required)
 	bumpResourcesMemory(c, required)
 }

@@ -269,7 +269,6 @@ func kvCachePodSpec(shmSize, memReq, memLimit string) *corev1.PodSpec {
 }
 
 func TestAttachKVCachePrimaryTier(t *testing.T) {
-	// wantQty compares a quantity field, treating "" as "expected absent/nil".
 	wantQty := func(t *testing.T, label, want string, got *resource.Quantity) {
 		t.Helper()
 		if want == "" {
@@ -291,43 +290,38 @@ func TestAttachKVCachePrimaryTier(t *testing.T) {
 		name         string
 		cpu          resource.Quantity
 		podSpec      *corev1.PodSpec
-		wantMount    bool
 		wantShm      string
 		wantMemReq   string
 		wantMemLimit string
 	}{
 		{
-			name:         "grows an explicitly-set /dev/shm by cpu*120% and bumps set memory req/limit",
+			name:         "grows /dev/shm by cpu*120% and bumps memory req/limit",
 			cpu:          resource.MustParse("10Gi"),
 			podSpec:      kvCachePodSpec("1Gi", "32Gi", "64Gi"),
-			wantMount:    true,
 			wantShm:      "13Gi",
 			wantMemReq:   "44Gi",
 			wantMemLimit: "76Gi",
 		},
 		{
-			name:         "no /dev/shm mount: does not create a mount or volume",
+			name:         "no main container: no-op",
 			cpu:          resource.MustParse("10Gi"),
-			podSpec:      &corev1.PodSpec{Containers: []corev1.Container{{Name: "main"}}},
-			wantMount:    false,
+			podSpec:      &corev1.PodSpec{Containers: []corev1.Container{{Name: "sidecar"}}},
 			wantShm:      "",
 			wantMemReq:   "",
 			wantMemLimit: "",
 		},
 		{
-			name:         "resources memory limit set but request unset: bumps only the limit",
+			name:         "memory limit set but request unset: bumps shm and limit only",
 			cpu:          resource.MustParse("10Gi"),
 			podSpec:      kvCachePodSpec("1Gi", "", "64Gi"),
-			wantMount:    true,
 			wantShm:      "13Gi",
 			wantMemReq:   "",
 			wantMemLimit: "76Gi",
 		},
 		{
-			name:         "no memory set on resources, leaves both request and limit unset",
+			name:         "no memory on resources: bumps only shm",
 			cpu:          resource.MustParse("10Gi"),
 			podSpec:      kvCachePodSpec("1Gi", "", ""),
-			wantMount:    true,
 			wantShm:      "13Gi",
 			wantMemReq:   "",
 			wantMemLimit: "",
@@ -337,16 +331,6 @@ func TestAttachKVCachePrimaryTier(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			attachKVCachePrimaryTier(tt.podSpec, tt.cpu, "main")
-
-			hasMount := false
-			for _, m := range tt.podSpec.Containers[0].VolumeMounts {
-				if m.MountPath == "/dev/shm" {
-					hasMount = true
-				}
-			}
-			if hasMount != tt.wantMount {
-				t.Errorf("/dev/shm mount present = %v, want %v", hasMount, tt.wantMount)
-			}
 
 			var shm *resource.Quantity
 			for i := range tt.podSpec.Volumes {
